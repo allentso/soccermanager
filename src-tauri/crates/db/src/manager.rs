@@ -1,70 +1,139 @@
-use rusqlite::{Connection, Result};
+use rusqlite::{params, Connection};
+use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
+/// Lightweight metadata returned when listing saves (no game data).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SaveMetadata {
+    pub id: String,
+    pub name: String,
+    pub manager_name: String,
+    pub created_at: String,
+    pub last_played_at: String,
+}
+
+/// SQLite-based save manager. All saves are stored in a single `saves.db`
+/// database with a `saves` table.
 pub struct DbManager {
     conn: Connection,
 }
 
 impl DbManager {
-    /// Initialize the main saves database
-    pub fn new(db_path: PathBuf) -> Result<Self> {
-        let conn = Connection::open(&db_path)?;
-        let mut manager = Self { conn };
-        manager.run_migrations()?;
-        Ok(manager)
+    /// Open (or create) the SQLite database at the given path
+    /// and ensure the saves table exists with the correct schema.
+    pub fn new(db_path: PathBuf) -> Result<Self, String> {
+        let conn = Connection::open(&db_path)
+            .map_err(|e| format!("Failed to open database: {}", e))?;
+
+        // Check if the saves table exists with the old INTEGER id schema
+        // and migrate to the new TEXT id schema if needed.
+        let needs_migration = conn
+            .query_row(
+                "SELECT type FROM pragma_table_info('saves') WHERE name = 'id'",
+                [],
+                |row| row.get::<_, String>(0),
+            )
+            .ok()
+            .map_or(false, |col_type| col_type.to_uppercase() != "TEXT");
+
+        if needs_migration {
+            conn.execute_batch("DROP TABLE IF EXISTS saves;")
+                .map_err(|e| format!("Failed to drop old saves table: {}", e))?;
+        }
+
+        conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS saves (
+                id              TEXT PRIMARY KEY,
+                name            TEXT NOT NULL,
+                manager_name    TEXT NOT NULL,
+                game_data       TEXT NOT NULL,
+                created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+                last_played_at  TEXT NOT NULL DEFAULT (datetime('now'))
+            );"
+        )
+        .map_err(|e| format!("Failed to create saves table: {}", e))?;
+
+        Ok(Self { conn })
     }
 
-    fn run_migrations(&mut self) -> Result<()> {
-        self.conn.execute(
-            "CREATE TABLE IF NOT EXISTS saves (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL,
-                manager_name TEXT NOT NULL,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                last_played_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                game_data TEXT NOT NULL 
-            )",
-            [],
-        )?;
+    /// Create a new save. Returns the generated UUID save id.
+    pub fn create_save(
+        &self,
+        name: &str,
+        manager_name: &str,
+        game_data: &str,
+    ) -> Result<String, String> {
+        let id = uuid::Uuid::new_v4().to_string();
+
+        self.conn
+            .execute(
+                "INSERT INTO saves (id, name, manager_name, game_data) VALUES (?1, ?2, ?3, ?4)",
+                params![id, name, manager_name, game_data],
+            )
+            .map_err(|e| format!("Failed to create save: {}", e))?;
+
+        Ok(id)
+    }
+
+    /// Update an existing save's game data and bump last_played_at.
+    pub fn update_save(&self, id: &str, game_data: &str) -> Result<(), String> {
+        let rows = self
+            .conn
+            .execute(
+                "UPDATE saves SET game_data = ?1, last_played_at = datetime('now') WHERE id = ?2",
+                params![game_data, id],
+            )
+            .map_err(|e| format!("Failed to update save: {}", e))?;
+
+        if rows == 0 {
+            return Err(format!("Save not found: {}", id));
+        }
         Ok(())
     }
 
-    pub fn create_save(&self, name: &str, manager_name: &str, game_data_json: &str) -> Result<i64> {
-        self.conn.execute(
-            "INSERT INTO saves (name, manager_name, game_data) VALUES (?1, ?2, ?3)",
-            (name, manager_name, game_data_json),
-        )?;
-        Ok(self.conn.last_insert_rowid())
-    }
+    /// List all saves ordered by most recently played (metadata only).
+    pub fn get_saves(&self) -> Result<Vec<SaveMetadata>, String> {
+        let mut stmt = self
+            .conn
+            .prepare("SELECT id, name, manager_name, created_at, last_played_at FROM saves ORDER BY last_played_at DESC")
+            .map_err(|e| format!("Failed to prepare query: {}", e))?;
 
-    pub fn get_saves(&self) -> Result<Vec<(i64, String, String, String, String)>> {
-        let mut stmt = self.conn.prepare("SELECT id, name, manager_name, created_at, last_played_at FROM saves ORDER BY last_played_at DESC")?;
-        let saves_iter = stmt.query_map([], |row| {
-            Ok((
-                row.get(0)?,
-                row.get(1)?,
-                row.get(2)?,
-                row.get(3)?,
-                row.get(4)?,
-            ))
-        })?;
+        let rows = stmt
+            .query_map([], |row| {
+                Ok(SaveMetadata {
+                    id: row.get(0)?,
+                    name: row.get(1)?,
+                    manager_name: row.get(2)?,
+                    created_at: row.get(3)?,
+                    last_played_at: row.get(4)?,
+                })
+            })
+            .map_err(|e| format!("Failed to query saves: {}", e))?;
 
         let mut saves = Vec::new();
-        for save in saves_iter {
-            saves.push(save?);
+        for row in rows {
+            saves.push(row.map_err(|e| format!("Failed to read row: {}", e))?);
         }
         Ok(saves)
     }
 
-    pub fn load_save(&self, id: i64) -> Result<String> {
-        let mut stmt = self
+    /// Load the full game data JSON string for a given save id.
+    pub fn load_save(&self, id: &str) -> Result<String, String> {
+        self.conn
+            .query_row(
+                "SELECT game_data FROM saves WHERE id = ?1",
+                params![id],
+                |row| row.get(0),
+            )
+            .map_err(|e| format!("Failed to load save ({}): {}", id, e))
+    }
+
+    /// Delete a save by id. Returns true if a row was deleted.
+    pub fn delete_save(&self, id: &str) -> Result<bool, String> {
+        let rows = self
             .conn
-            .prepare("SELECT game_data FROM saves WHERE id = ?1")?;
-        let mut rows = stmt.query([id])?;
-        if let Some(row) = rows.next()? {
-            Ok(row.get(0)?)
-        } else {
-            Err(rusqlite::Error::QueryReturnedNoRows)
-        }
+            .execute("DELETE FROM saves WHERE id = ?1", params![id])
+            .map_err(|e| format!("Failed to delete save: {}", e))?;
+        Ok(rows > 0)
     }
 }

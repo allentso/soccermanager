@@ -1,11 +1,13 @@
 import { useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { GameStateData } from "../../store/gameStore";
 import { MatchSnapshot, MatchEvent, TEAM_TALK_OPTIONS, TeamTalkTone } from "./types";
 import { getEventDisplay, getPlayerName } from "./helpers";
+import { getTalkIcon } from "./TeamTalkIcons";
 import { Badge } from "../ui";
 import {
   Trophy, TrendingDown, Minus, Star,
-  MessageCircle, ChevronRight, BarChart3
+  MessageCircle, ChevronRight, BarChart3, Circle
 } from "lucide-react";
 
 interface PostMatchScreenProps {
@@ -23,6 +25,7 @@ export default function PostMatchScreen({
 }: PostMatchScreenProps) {
   const [selectedTalk, setSelectedTalk] = useState<TeamTalkTone | null>(null);
   const [talkDelivered, setTalkDelivered] = useState(false);
+  const [talkResults, setTalkResults] = useState<{ player_id: string; player_name: string; old_morale: number; new_morale: number; delta: number }[]>([]);
 
   const homeTeamColor = gameState.teams.find(t => t.id === snapshot.home_team.id)?.colors?.primary || "#10b981";
   const awayTeamColor = gameState.teams.find(t => t.id === snapshot.away_team.id)?.colors?.primary || "#6366f1";
@@ -54,8 +57,15 @@ export default function PostMatchScreen({
       ? ["motivational", "assertive", "disappointed"]
       : ["calm", "motivational", "assertive"];
 
-  const handleDeliverTalk = () => {
+  const handleDeliverTalk = async () => {
     if (!selectedTalk) return;
+    const context = resultType === "win" ? "winning" : resultType === "loss" ? "losing" : "drawing";
+    try {
+      const results = await invoke<{ player_id: string; player_name: string; old_morale: number; new_morale: number; delta: number }[]>("apply_team_talk", { tone: selectedTalk, context });
+      setTalkResults(results);
+    } catch (err) {
+      console.error("Team talk failed:", err);
+    }
     setTalkDelivered(true);
   };
 
@@ -203,7 +213,7 @@ export default function PostMatchScreen({
                                 : "bg-navy-700/50 hover:bg-navy-700"
                             }`}
                           >
-                            <span className="text-xl">{opt.icon}</span>
+                            <span className="text-xl">{getTalkIcon(opt.icon)}</span>
                             <div className="flex-1">
                               <div className="flex items-center gap-2">
                                 <p className={`text-sm font-heading font-bold ${
@@ -227,13 +237,30 @@ export default function PostMatchScreen({
                     )}
                   </>
                 ) : (
-                  <div className="flex flex-col items-center gap-2 py-6">
-                    <span className="text-4xl">{TEAM_TALK_OPTIONS.find(o => o.id === selectedTalk)?.icon}</span>
-                    <p className="text-sm font-heading font-bold text-primary-400">
-                      {TEAM_TALK_OPTIONS.find(o => o.id === selectedTalk)?.label}
-                    </p>
-                    <p className="text-xs text-gray-500 text-center">Your players listen and head to the dressing room.</p>
-                    <Badge variant="success" size="sm">Talk Delivered</Badge>
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center gap-2 mb-1">
+                      {getTalkIcon(selectedTalk || "")}
+                      <p className="text-sm font-heading font-bold text-primary-400">
+                        {TEAM_TALK_OPTIONS.find(o => o.id === selectedTalk)?.label}
+                      </p>
+                      <Badge variant="success" size="sm">Delivered</Badge>
+                    </div>
+                    {talkResults.length > 0 && (
+                      <div className="flex flex-col gap-0.5 max-h-48 overflow-auto">
+                        {talkResults.map(r => (
+                          <div key={r.player_id} className="flex items-center gap-2 px-2 py-1 text-xs">
+                            <span className="text-gray-400 flex-1 truncate">{r.player_name}</span>
+                            <span className={`font-heading font-bold tabular-nums ${r.delta > 0 ? "text-green-400" : r.delta < 0 ? "text-red-400" : "text-gray-500"}`}>
+                              {r.delta > 0 ? "+" : ""}{r.delta}
+                            </span>
+                            <div className="w-12 h-1.5 bg-navy-600 rounded-full overflow-hidden">
+                              <div className={`h-full rounded-full ${r.new_morale >= 70 ? "bg-green-500" : r.new_morale >= 40 ? "bg-yellow-500" : "bg-red-500"}`} style={{ width: `${r.new_morale}%` }} />
+                            </div>
+                            <span className="text-gray-500 tabular-nums w-6 text-right">{r.new_morale}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -290,22 +317,22 @@ export default function PostMatchScreen({
             {isSpectator ? "Match complete." : "Address the press or head back."}
           </p>
           <div className="flex items-center gap-3">
+            <button
+              onClick={onFinish}
+              className="flex items-center gap-2 px-6 py-3 bg-navy-700 hover:bg-navy-600 rounded-xl font-heading font-bold uppercase tracking-wider text-sm text-gray-300 transition-colors"
+            >
+              Skip
+              <ChevronRight className="w-4 h-4" />
+            </button>
             {!isSpectator && (
               <button
                 onClick={onPressConference}
-                className="flex items-center gap-2 px-6 py-3 bg-navy-700 hover:bg-navy-600 rounded-xl font-heading font-bold uppercase tracking-wider text-sm text-gray-300 transition-colors"
+                className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 rounded-xl font-heading font-bold uppercase tracking-wider text-sm text-white shadow-lg shadow-primary-500/20 transition-all"
               >
                 Press Conference
                 <ChevronRight className="w-4 h-4" />
               </button>
             )}
-            <button
-              onClick={onFinish}
-              className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 rounded-xl font-heading font-bold uppercase tracking-wider text-sm text-white shadow-lg shadow-primary-500/20 transition-all"
-            >
-              Continue
-              <ChevronRight className="w-4 h-4" />
-            </button>
           </div>
         </div>
       </footer>
@@ -332,7 +359,7 @@ function renderScorers(snapshot: MatchSnapshot, events: MatchEvent[], side: "Hom
       {goals.map((g, i) => (
         <div key={i} className="flex items-center gap-2 text-xs py-0.5">
           <span className="text-gray-600 tabular-nums w-6 text-right font-heading">{g.minute}'</span>
-          <span>⚽</span>
+          <Circle className="w-3 h-3 fill-current text-accent-400" />
           <span className="text-gray-200 font-medium">{getPlayerName(snapshot, g.player_id)}</span>
           {g.event_type === "PenaltyGoal" && <Badge variant="accent" size="sm">PEN</Badge>}
         </div>

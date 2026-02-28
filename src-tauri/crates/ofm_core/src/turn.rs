@@ -1,5 +1,8 @@
 use crate::game::Game;
 use crate::messages;
+use crate::news;
+use crate::training;
+use chrono::Datelike;
 use domain::league::{FixtureStatus, GoalEvent, MatchResult};
 use domain::player::Position as DomainPosition;
 
@@ -14,9 +17,20 @@ pub fn process_day(game: &mut Game) {
     if has_match_today {
         simulate_matchday(game, &today);
     } else {
-        apply_training_recovery(game);
+        let weekday_num = game.clock.current_date.weekday().num_days_from_monday();
+        training::process_training(game, weekday_num);
+        training::check_squad_fitness_warnings(game);
     }
 
+    generate_pre_match_messages(game, &today);
+    game.clock.advance_days(1);
+}
+
+/// Called after a live match finishes to complete the day:
+/// generates matchday news, pre-match messages, and advances the clock by one day.
+pub fn finish_live_match_day(game: &mut Game) {
+    let today = game.clock.current_date.format("%Y-%m-%d").to_string();
+    generate_matchday_news(game, &today);
     generate_pre_match_messages(game, &today);
     game.clock.advance_days(1);
 }
@@ -62,6 +76,7 @@ fn build_engine_team(game: &Game, team_id: &str) -> engine::TeamData {
                 pace: p.attributes.pace,
                 stamina: p.attributes.stamina,
                 strength: p.attributes.strength,
+                agility: p.attributes.agility,
                 passing: p.attributes.passing,
                 shooting: p.attributes.shooting,
                 tackling: p.attributes.tackling,
@@ -70,6 +85,14 @@ fn build_engine_team(game: &Game, team_id: &str) -> engine::TeamData {
                 positioning: p.attributes.positioning,
                 vision: p.attributes.vision,
                 decisions: p.attributes.decisions,
+                composure: p.attributes.composure,
+                aggression: p.attributes.aggression,
+                teamwork: p.attributes.teamwork,
+                leadership: p.attributes.leadership,
+                handling: p.attributes.handling,
+                reflexes: p.attributes.reflexes,
+                aerial: p.attributes.aerial,
+                traits: p.traits.iter().map(|t| format!("{:?}", t)).collect(),
             }
         })
         .collect();
@@ -89,6 +112,7 @@ fn build_engine_team(game: &Game, team_id: &str) -> engine::TeamData {
 
 fn simulate_matchday(game: &mut Game, today: &str) {
     simulate_other_matches(game, today, None);
+    generate_matchday_news(game, today);
 }
 
 /// Simulate all scheduled matches for `today`, optionally skipping one fixture
@@ -210,6 +234,9 @@ pub fn apply_match_report(
             game.messages.push(msg);
         }
     }
+
+    // Generate match report news article
+    generate_match_news(game, fixture_index, home_team_id, away_team_id, report);
 }
 
 // ---------------------------------------------------------------------------
@@ -268,12 +295,106 @@ fn deplete_match_stamina(game: &mut Game, team_id: &str) {
     }
 }
 
-fn apply_training_recovery(game: &mut Game) {
-    for player in game.players.iter_mut() {
-        let recovery_factor = (player.attributes.stamina as f64 + player.attributes.strength as f64) / 200.0;
-        let recovery = (3.0 + 5.0 * recovery_factor) as u8;
-        player.condition = (player.condition + recovery).min(100);
+/// Generate a match report news article for the completed fixture.
+fn generate_match_news(
+    game: &mut Game,
+    fixture_index: usize,
+    home_team_id: &str,
+    away_team_id: &str,
+    report: &engine::MatchReport,
+) {
+    let fixture = &game.league.as_ref().unwrap().fixtures[fixture_index];
+    let article_id = format!("report_{}", fixture.id);
+    if game.news.iter().any(|n| n.id == article_id) {
+        return;
     }
+
+    let home_name = game.teams.iter().find(|t| t.id == home_team_id).map(|t| t.name.as_str()).unwrap_or("Home");
+    let away_name = game.teams.iter().find(|t| t.id == away_team_id).map(|t| t.name.as_str()).unwrap_or("Away");
+
+    // Build scorer lists with player names
+    let home_scorers: Vec<(String, u32)> = report.goals.iter()
+        .filter(|g| g.side == engine::Side::Home)
+        .map(|g| {
+            let name = game.players.iter()
+                .find(|p| p.id == g.scorer_id)
+                .map(|p| p.match_name.clone())
+                .unwrap_or_else(|| g.scorer_id.clone());
+            (name, g.minute as u32)
+        })
+        .collect();
+    let away_scorers: Vec<(String, u32)> = report.goals.iter()
+        .filter(|g| g.side == engine::Side::Away)
+        .map(|g| {
+            let name = game.players.iter()
+                .find(|p| p.id == g.scorer_id)
+                .map(|p| p.match_name.clone())
+                .unwrap_or_else(|| g.scorer_id.clone());
+            (name, g.minute as u32)
+        })
+        .collect();
+
+    let article = news::match_report_article(
+        &fixture.id,
+        home_name,
+        away_name,
+        report.home_goals,
+        report.away_goals,
+        home_team_id,
+        away_team_id,
+        fixture.matchday,
+        &home_scorers,
+        &away_scorers,
+        &game.clock.current_date.to_rfc3339(),
+    );
+    game.news.push(article);
+}
+
+/// After all matches in a matchday are simulated, generate roundup + standings news.
+pub fn generate_matchday_news(game: &mut Game, today: &str) {
+    let league = match &game.league {
+        Some(l) => l,
+        None => return,
+    };
+
+    // Collect completed fixtures for today
+    let todays_fixtures: Vec<_> = league.fixtures.iter()
+        .filter(|f| f.date == today && f.status == FixtureStatus::Completed)
+        .collect();
+
+    if todays_fixtures.is_empty() {
+        return;
+    }
+
+    let matchday = todays_fixtures[0].matchday;
+    let date_str = game.clock.current_date.to_rfc3339();
+
+    // Don't duplicate
+    let roundup_id = format!("roundup_md{}", matchday);
+    if game.news.iter().any(|n| n.id == roundup_id) {
+        return;
+    }
+
+    // Build results list
+    let results: Vec<(String, u8, String, u8)> = todays_fixtures.iter().map(|f| {
+        let home_name = game.teams.iter().find(|t| t.id == f.home_team_id).map(|t| t.name.clone()).unwrap_or_default();
+        let away_name = game.teams.iter().find(|t| t.id == f.away_team_id).map(|t| t.name.clone()).unwrap_or_default();
+        let (hg, ag) = f.result.as_ref().map(|r| (r.home_goals, r.away_goals)).unwrap_or((0, 0));
+        (home_name, hg, away_name, ag)
+    }).collect();
+
+    let roundup = news::league_roundup_article(matchday, &results, &date_str);
+    game.news.push(roundup);
+
+    // Standings update
+    let mut standings: Vec<(String, u32, i16)> = league.standings.iter().map(|e| {
+        let name = game.teams.iter().find(|t| t.id == e.team_id).map(|t| t.name.clone()).unwrap_or_default();
+        (name, e.points, e.goal_difference() as i16)
+    }).collect();
+    standings.sort_by(|a, b| b.1.cmp(&a.1).then(b.2.cmp(&a.2)));
+
+    let standings_article = news::standings_update_article(matchday, &standings, &date_str);
+    game.news.push(standings_article);
 }
 
 fn generate_pre_match_messages(game: &mut Game, today: &str) {

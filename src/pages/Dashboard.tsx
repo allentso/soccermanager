@@ -18,7 +18,8 @@ import TournamentsTab from "../components/TournamentsTab";
 import StaffTab from "../components/StaffTab";
 import InboxTab from "../components/InboxTab";
 import ManagerTab from "../components/ManagerTab";
-import { Users, Calendar as CalendarIcon, Mail, Settings, ChevronRight, ChevronDown, Briefcase, Trophy, TrendingUp, Crosshair, Dumbbell, DollarSign, Search, User, UsersRound, Building2, UserCog } from "lucide-react";
+import NewsTab from "../components/NewsTab";
+import { Users, Calendar as CalendarIcon, Mail, Settings, ChevronRight, ChevronDown, Briefcase, Trophy, TrendingUp, Crosshair, Dumbbell, DollarSign, Search, User, UsersRound, Building2, UserCog, Newspaper } from "lucide-react";
 import { getTeamName } from "../lib/helpers";
 
 export default function Dashboard() {
@@ -31,6 +32,8 @@ export default function Dashboard() {
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
+  const [initialMessageId, setInitialMessageId] = useState<string | null>(null);
+  const [navHistory, setNavHistory] = useState<Array<{ tab: string; playerId: string | null; teamId: string | null }>>([]); 
 
   // Fetch initial state
   useEffect(() => {
@@ -70,10 +73,67 @@ export default function Dashboard() {
     }
   };
 
+  const handleSkipToMatchDay = async () => {
+    if (isAdvancing) return;
+    setIsAdvancing(true);
+    setShowContinueMenu(false);
+    try {
+      const updatedGame = await invoke<GameStateData>("skip_to_match_day");
+      setGameState(updatedGame);
+    } catch (err) {
+      console.error("Failed to skip to match day:", err);
+    } finally {
+      setIsAdvancing(false);
+    }
+  };
+
   const handleNavClick = (tab: string) => {
+    setNavHistory([]);
     setActiveTab(tab);
     setSelectedPlayerId(null);
     setSelectedTeamId(null);
+    setInitialMessageId(null);
+  };
+
+  const handleNavigate = (tab: string, context?: { messageId?: string }) => {
+    setNavHistory([]);
+    setActiveTab(tab);
+    setSelectedPlayerId(null);
+    setSelectedTeamId(null);
+    if (context?.messageId) {
+      setInitialMessageId(context.messageId);
+    } else {
+      setInitialMessageId(null);
+    }
+  };
+
+  const pushHistory = () => {
+    setNavHistory(prev => [...prev, { tab: activeTab, playerId: selectedPlayerId, teamId: selectedTeamId }]);
+  };
+
+  const handleBack = () => {
+    if (navHistory.length > 0) {
+      const prev = navHistory[navHistory.length - 1];
+      setNavHistory(h => h.slice(0, -1));
+      setActiveTab(prev.tab);
+      setSelectedPlayerId(prev.playerId);
+      setSelectedTeamId(prev.teamId);
+    } else {
+      setSelectedPlayerId(null);
+      setSelectedTeamId(null);
+    }
+  };
+
+  const selectPlayer = (id: string) => {
+    pushHistory();
+    setSelectedPlayerId(id);
+    setSelectedTeamId(null);
+  };
+
+  const selectTeam = (id: string) => {
+    pushHistory();
+    setSelectedTeamId(id);
+    setSelectedPlayerId(null);
   };
 
   if (!gameState) {
@@ -100,8 +160,8 @@ export default function Dashboard() {
         {/* Brand */}
         <div className="p-5 border-b border-navy-700">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-gradient-to-br from-primary-500 to-primary-700 rounded-lg flex items-center justify-center">
-              <Trophy className="w-4 h-4 text-white" />
+            <div className="w-8 h-8 flex items-center justify-center">
+              <img src="../../openfootball.svg" alt="Logo" className="w-8 h-8" />
             </div>
             <div>
               <h1 className="text-sm font-heading font-bold text-white uppercase tracking-wider">OpenFoot</h1>
@@ -111,12 +171,20 @@ export default function Dashboard() {
           <div className="mt-3 pt-3 border-t border-navy-700">
             <p className="text-xs text-gray-400 uppercase tracking-wider">Manager</p>
             <p className="text-sm font-semibold text-white mt-0.5">{managerName}</p>
+            {(() => {
+              const myTeam = gameState?.teams.find(t => t.id === gameState.manager.team_id);
+              return myTeam ? (
+                <p className="text-xs text-primary-400 mt-0.5">{myTeam.name}</p>
+              ) : null;
+            })()}
           </div>
         </div>
         
         {/* Navigation */}
         <nav className="flex-1 py-4 px-3 flex flex-col gap-1 overflow-y-auto">
           <NavItem icon={<Briefcase />} label="Home" active={activeTab === "Home"} onClick={() => handleNavClick("Home")} />
+          <NavItem icon={<Mail />} label="Inbox" badge={unreadMessagesCount > 0 ? unreadMessagesCount : undefined} active={activeTab === "Inbox"} onClick={() => handleNavClick("Inbox")} />
+          <NavItem icon={<User />} label="Manager" active={activeTab === "Manager"} onClick={() => handleNavClick("Manager")} />
 
           <p className="text-[10px] text-gray-500 uppercase tracking-widest font-heading px-3 pt-3 pb-1">Club</p>
           <NavItem icon={<Users />} label="Squad" active={activeTab === "Squad"} onClick={() => handleNavClick("Squad")} />
@@ -131,15 +199,15 @@ export default function Dashboard() {
           <NavItem icon={<Building2 />} label="Teams" active={activeTab === "Teams"} onClick={() => handleNavClick("Teams")} />
           <NavItem icon={<Trophy />} label="Tournaments" active={activeTab === "Tournaments"} onClick={() => handleNavClick("Tournaments")} />
           <NavItem icon={<CalendarIcon />} label="Schedule" active={activeTab === "Schedule"} onClick={() => handleNavClick("Schedule")} />
-
-          <p className="text-[10px] text-gray-500 uppercase tracking-widest font-heading px-3 pt-3 pb-1">Personal</p>
-          <NavItem icon={<Mail />} label="Inbox" badge={unreadMessagesCount > 0 ? unreadMessagesCount : undefined} active={activeTab === "Inbox"} onClick={() => handleNavClick("Inbox")} />
-          <NavItem icon={<User />} label="Manager" active={activeTab === "Manager"} onClick={() => handleNavClick("Manager")} />
+          <NavItem icon={<Newspaper />} label="News" active={activeTab === "News"} onClick={() => handleNavClick("News")} />
         </nav>
         
         {/* Settings */}
         <div className="p-3 border-t border-navy-700">
-          <button className="flex items-center gap-3 w-full p-3 hover:bg-white/5 rounded-lg transition-colors text-gray-500 hover:text-gray-300">
+          <button 
+            onClick={() => navigate("/settings", { state: { from: "/dashboard" } })}
+            className="flex items-center gap-3 w-full p-3 hover:bg-white/5 rounded-lg transition-colors text-gray-500 hover:text-gray-300"
+          >
             <Settings className="w-5 h-5" />
             <span className="font-heading text-sm uppercase tracking-wider">Settings</span>
           </button>
@@ -270,6 +338,14 @@ export default function Dashboard() {
                     <span className="font-heading font-bold text-gray-800 dark:text-gray-100 uppercase tracking-wide text-xs">Delegate to Assistant</span>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">AI handles everything instantly</p>
                   </button>
+                  <div className="border-t border-gray-200 dark:border-navy-600 my-1" />
+                  <button
+                    onClick={handleSkipToMatchDay}
+                    className="w-full text-left px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-navy-600 text-sm transition-colors"
+                  >
+                    <span className="font-heading font-bold text-gray-800 dark:text-gray-100 uppercase tracking-wide text-xs">Skip to Match Day</span>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Fast-forward to your next fixture</p>
+                  </button>
                 </div>
               )}
             </div>
@@ -288,8 +364,8 @@ export default function Dashboard() {
                 player={player}
                 gameState={gameState}
                 isOwnClub={isOwnClub}
-                onClose={() => setSelectedPlayerId(null)}
-                onSelectTeam={(id) => { setSelectedPlayerId(null); setSelectedTeamId(id); }}
+                onClose={handleBack}
+                onSelectTeam={selectTeam}
               />
             );
           })()}
@@ -304,31 +380,31 @@ export default function Dashboard() {
                 team={team}
                 gameState={gameState}
                 isOwnTeam={isOwnTeam}
-                onClose={() => setSelectedTeamId(null)}
-                onSelectPlayer={(id) => { setSelectedTeamId(null); setSelectedPlayerId(id); }}
+                onClose={handleBack}
+                onSelectPlayer={selectPlayer}
               />
             );
           })()}
 
           {/* Tab content — hidden when a profile is open */}
           {!selectedPlayerId && !selectedTeamId && activeTab === "Home" && (
-            <HomeTab gameState={gameState} />
+            <HomeTab gameState={gameState} onNavigate={handleNavigate} />
           )}
 
           {!selectedPlayerId && !selectedTeamId && activeTab === "Squad" && (
-            <SquadTab gameState={gameState} managerId={gameState.manager.id} onSelectPlayer={setSelectedPlayerId} />
+            <SquadTab gameState={gameState} managerId={gameState.manager.id} onSelectPlayer={selectPlayer} />
           )}
 
           {!selectedPlayerId && !selectedTeamId && activeTab === "Tactics" && (
-            <TacticsTab gameState={gameState} onSelectPlayer={setSelectedPlayerId} onGameUpdate={setGameState} />
+            <TacticsTab gameState={gameState} onSelectPlayer={selectPlayer} onGameUpdate={setGameState} />
           )}
 
           {!selectedPlayerId && !selectedTeamId && activeTab === "Training" && (
-            <TrainingTab gameState={gameState} />
+            <TrainingTab gameState={gameState} onGameUpdate={setGameState} />
           )}
 
           {!selectedPlayerId && !selectedTeamId && activeTab === "Schedule" && (
-            <ScheduleTab gameState={gameState} onSelectTeam={setSelectedTeamId} />
+            <ScheduleTab gameState={gameState} onSelectTeam={selectTeam} />
           )}
 
           {!selectedPlayerId && !selectedTeamId && activeTab === "Finances" && (
@@ -336,31 +412,35 @@ export default function Dashboard() {
           )}
 
           {!selectedPlayerId && !selectedTeamId && activeTab === "Transfers" && (
-            <TransfersTab gameState={gameState} onSelectPlayer={setSelectedPlayerId} onSelectTeam={setSelectedTeamId} />
+            <TransfersTab gameState={gameState} onSelectPlayer={selectPlayer} onSelectTeam={selectTeam} />
           )}
 
           {!selectedPlayerId && !selectedTeamId && activeTab === "Players" && (
-            <PlayersListTab gameState={gameState} onSelectPlayer={setSelectedPlayerId} onSelectTeam={setSelectedTeamId} />
+            <PlayersListTab gameState={gameState} onSelectPlayer={selectPlayer} onSelectTeam={selectTeam} />
           )}
 
           {!selectedPlayerId && !selectedTeamId && activeTab === "Teams" && (
-            <TeamsListTab gameState={gameState} onSelectTeam={setSelectedTeamId} />
+            <TeamsListTab gameState={gameState} onSelectTeam={selectTeam} />
           )}
 
           {!selectedPlayerId && !selectedTeamId && activeTab === "Tournaments" && (
-            <TournamentsTab gameState={gameState} onSelectTeam={setSelectedTeamId} />
+            <TournamentsTab gameState={gameState} onSelectTeam={selectTeam} />
           )}
 
           {!selectedPlayerId && !selectedTeamId && activeTab === "Staff" && (
-            <StaffTab gameState={gameState} />
+            <StaffTab gameState={gameState} onGameUpdate={setGameState} />
           )}
 
           {!selectedPlayerId && !selectedTeamId && activeTab === "Inbox" && (
-            <InboxTab gameState={gameState} onGameUpdate={setGameState} />
+            <InboxTab gameState={gameState} onGameUpdate={setGameState} initialMessageId={initialMessageId} onNavigate={handleNavigate} />
           )}
 
           {!selectedPlayerId && !selectedTeamId && activeTab === "Manager" && (
             <ManagerTab gameState={gameState} />
+          )}
+
+          {!selectedPlayerId && !selectedTeamId && activeTab === "News" && (
+            <NewsTab gameState={gameState} onSelectTeam={selectTeam} />
           )}
 
         </div>

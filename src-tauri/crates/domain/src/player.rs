@@ -20,6 +20,10 @@ pub struct Player {
     pub injury: Option<Injury>,
     pub team_id: Option<String>,
 
+    // Traits / flairs derived from attributes
+    #[serde(default)]
+    pub traits: Vec<PlayerTrait>,
+
     // Contract & value
     pub contract_end: Option<String>,
     pub wage: u32,           // weekly wage
@@ -40,12 +44,41 @@ pub struct Player {
     pub transfer_offers: Vec<TransferOffer>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Position {
     Goalkeeper,
     Defender,
     Midfielder,
     Forward,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum PlayerTrait {
+    // Physical
+    Speedster,       // pace >= 85
+    Tank,            // strength >= 85 && stamina >= 75
+    Agile,           // agility >= 85
+    Tireless,        // stamina >= 90
+    // Technical
+    Playmaker,       // passing >= 80 && vision >= 80
+    Sharpshooter,    // shooting >= 85
+    Dribbler,        // dribbling >= 85
+    BallWinner,      // tackling >= 80 && aggression >= 70
+    Rock,            // defending >= 85 && positioning >= 75
+    // Mental
+    Leader,          // leadership >= 85 && teamwork >= 75
+    CoolHead,        // composure >= 85 && decisions >= 80
+    Visionary,       // vision >= 85
+    HotHead,         // aggression >= 85 && composure < 50
+    TeamPlayer,      // teamwork >= 85
+    // Goalkeeper
+    SafeHands,       // handling >= 85 (GK only)
+    CatReflexes,     // reflexes >= 85 (GK only)
+    AerialDominance, // aerial >= 85
+    // Combo / Special
+    CompleteForward, // FWD: shooting >= 75 && dribbling >= 75 && pace >= 70 && strength >= 70
+    Engine,          // MID: stamina >= 85 && pace >= 70 && teamwork >= 75
+    SetPieceSpecialist, // passing >= 80 && shooting >= 75 && vision >= 75
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -54,6 +87,8 @@ pub struct PlayerAttributes {
     pub pace: u8,
     pub stamina: u8,
     pub strength: u8,
+    #[serde(default = "default_attr")]
+    pub agility: u8,
 
     // Technical
     pub passing: u8,
@@ -66,6 +101,26 @@ pub struct PlayerAttributes {
     pub positioning: u8,
     pub vision: u8,
     pub decisions: u8,
+    #[serde(default = "default_attr")]
+    pub composure: u8,
+    #[serde(default = "default_attr")]
+    pub aggression: u8,
+    #[serde(default = "default_attr")]
+    pub teamwork: u8,
+    #[serde(default = "default_attr")]
+    pub leadership: u8,
+
+    // Goalkeeper
+    #[serde(default = "default_attr")]
+    pub handling: u8,
+    #[serde(default = "default_attr")]
+    pub reflexes: u8,
+    #[serde(default = "default_attr")]
+    pub aerial: u8,
+}
+
+fn default_attr() -> u8 {
+    50
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -114,6 +169,52 @@ pub enum TransferOfferStatus {
     Withdrawn,
 }
 
+/// Derive traits from a player's attributes and position.
+pub fn compute_traits(attrs: &PlayerAttributes, position: &Position) -> Vec<PlayerTrait> {
+    let mut traits = Vec::new();
+    let is_gk = *position == Position::Goalkeeper;
+    let is_fwd = *position == Position::Forward;
+    let is_mid = *position == Position::Midfielder;
+
+    // Physical
+    if attrs.pace >= 85 { traits.push(PlayerTrait::Speedster); }
+    if attrs.strength >= 85 && attrs.stamina >= 75 { traits.push(PlayerTrait::Tank); }
+    if attrs.agility >= 85 { traits.push(PlayerTrait::Agile); }
+    if attrs.stamina >= 90 { traits.push(PlayerTrait::Tireless); }
+
+    // Technical
+    if attrs.passing >= 80 && attrs.vision >= 80 { traits.push(PlayerTrait::Playmaker); }
+    if attrs.shooting >= 85 && !is_gk { traits.push(PlayerTrait::Sharpshooter); }
+    if attrs.dribbling >= 85 && !is_gk { traits.push(PlayerTrait::Dribbler); }
+    if attrs.tackling >= 80 && attrs.aggression >= 70 { traits.push(PlayerTrait::BallWinner); }
+    if attrs.defending >= 85 && attrs.positioning >= 75 { traits.push(PlayerTrait::Rock); }
+
+    // Mental
+    if attrs.leadership >= 85 && attrs.teamwork >= 75 { traits.push(PlayerTrait::Leader); }
+    if attrs.composure >= 85 && attrs.decisions >= 80 { traits.push(PlayerTrait::CoolHead); }
+    if attrs.vision >= 85 { traits.push(PlayerTrait::Visionary); }
+    if attrs.aggression >= 85 && attrs.composure < 50 { traits.push(PlayerTrait::HotHead); }
+    if attrs.teamwork >= 85 { traits.push(PlayerTrait::TeamPlayer); }
+
+    // Goalkeeper-specific
+    if is_gk && attrs.handling >= 85 { traits.push(PlayerTrait::SafeHands); }
+    if is_gk && attrs.reflexes >= 85 { traits.push(PlayerTrait::CatReflexes); }
+    if attrs.aerial >= 85 { traits.push(PlayerTrait::AerialDominance); }
+
+    // Combo / Special
+    if is_fwd && attrs.shooting >= 75 && attrs.dribbling >= 75 && attrs.pace >= 70 && attrs.strength >= 70 {
+        traits.push(PlayerTrait::CompleteForward);
+    }
+    if is_mid && attrs.stamina >= 85 && attrs.pace >= 70 && attrs.teamwork >= 75 {
+        traits.push(PlayerTrait::Engine);
+    }
+    if attrs.passing >= 80 && attrs.shooting >= 75 && attrs.vision >= 75 {
+        traits.push(PlayerTrait::SetPieceSpecialist);
+    }
+
+    traits
+}
+
 impl Player {
     pub fn new(
         id: String,
@@ -124,6 +225,7 @@ impl Player {
         position: Position,
         attributes: PlayerAttributes,
     ) -> Self {
+        let traits = compute_traits(&attributes, &position);
         Self {
             id,
             match_name,
@@ -136,6 +238,7 @@ impl Player {
             morale: 100,
             injury: None,
             team_id: None,
+            traits,
             contract_end: None,
             wage: 0,
             market_value: 0,

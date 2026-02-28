@@ -299,6 +299,7 @@ fn to_engine_player(p: &domain::player::Player) -> PlayerData {
         pace: p.attributes.pace,
         stamina: p.attributes.stamina,
         strength: p.attributes.strength,
+        agility: p.attributes.agility,
         passing: p.attributes.passing,
         shooting: p.attributes.shooting,
         tackling: p.attributes.tackling,
@@ -307,6 +308,14 @@ fn to_engine_player(p: &domain::player::Player) -> PlayerData {
         positioning: p.attributes.positioning,
         vision: p.attributes.vision,
         decisions: p.attributes.decisions,
+        composure: p.attributes.composure,
+        aggression: p.attributes.aggression,
+        teamwork: p.attributes.teamwork,
+        leadership: p.attributes.leadership,
+        handling: p.attributes.handling,
+        reflexes: p.attributes.reflexes,
+        aerial: p.attributes.aerial,
+        traits: p.traits.iter().map(|t| format!("{:?}", t)).collect(),
     }
 }
 

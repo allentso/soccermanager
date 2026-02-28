@@ -3,6 +3,8 @@ pub mod game;
 pub mod generator;
 pub mod live_match_manager;
 pub mod messages;
+pub mod news;
 pub mod schedule;
 pub mod state;
+pub mod training;
 pub mod turn;

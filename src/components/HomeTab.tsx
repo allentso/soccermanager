@@ -4,9 +4,10 @@ import { getTeamName, getTeamShort, findNextFixture, formatMatchDate } from "../
 
 interface HomeTabProps {
   gameState: GameStateData;
+  onNavigate?: (tab: string, context?: { messageId?: string }) => void;
 }
 
-export default function HomeTab({ gameState }: HomeTabProps) {
+export default function HomeTab({ gameState, onNavigate }: HomeTabProps) {
   return (
     <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-5">
       
@@ -45,7 +46,10 @@ export default function HomeTab({ gameState }: HomeTabProps) {
       <Card className="md:col-span-3">
         <CardHeader
           action={
-            <button className="text-primary-500 dark:text-primary-400 text-xs font-heading font-bold uppercase tracking-wider hover:text-primary-600 dark:hover:text-primary-300 transition-colors">
+            <button
+              onClick={() => onNavigate?.("Inbox")}
+              className="text-primary-500 dark:text-primary-400 text-xs font-heading font-bold uppercase tracking-wider hover:text-primary-600 dark:hover:text-primary-300 transition-colors"
+            >
               View All
             </button>
           }
@@ -58,7 +62,11 @@ export default function HomeTab({ gameState }: HomeTabProps) {
               <p className="text-gray-500 dark:text-gray-400 p-6">No recent messages.</p>
             ) : (
               gameState.messages?.map(message => (
-                <div key={message.id} className={`flex gap-4 px-6 py-4 hover:bg-gray-50 dark:hover:bg-navy-600/50 cursor-pointer transition-colors ${!message.read ? 'border-l-4 border-l-primary-500' : 'border-l-4 border-l-transparent'}`}>
+                <div
+                  key={message.id}
+                  onClick={() => onNavigate?.("Inbox", { messageId: message.id })}
+                  className={`flex gap-4 px-6 py-4 hover:bg-gray-50 dark:hover:bg-navy-600/50 cursor-pointer transition-colors ${!message.read ? 'border-l-4 border-l-primary-500' : 'border-l-4 border-l-transparent'}`}
+                >
                   <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 font-heading font-bold text-sm ${
                     message.read 
                       ? 'bg-gray-100 dark:bg-navy-600 text-gray-400 dark:text-gray-500' 

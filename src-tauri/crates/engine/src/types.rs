@@ -41,6 +41,8 @@ pub struct PlayerData {
     pub pace: u8,
     pub stamina: u8,
     pub strength: u8,
+    #[serde(default = "default_engine_attr")]
+    pub agility: u8,
 
     // Technical
     pub passing: u8,
@@ -53,10 +55,34 @@ pub struct PlayerData {
     pub positioning: u8,
     pub vision: u8,
     pub decisions: u8,
+    #[serde(default = "default_engine_attr")]
+    pub composure: u8,
+    #[serde(default = "default_engine_attr")]
+    pub aggression: u8,
+    #[serde(default = "default_engine_attr")]
+    pub teamwork: u8,
+    #[serde(default = "default_engine_attr")]
+    pub leadership: u8,
+
+    // Goalkeeper
+    #[serde(default = "default_engine_attr")]
+    pub handling: u8,
+    #[serde(default = "default_engine_attr")]
+    pub reflexes: u8,
+    #[serde(default = "default_engine_attr")]
+    pub aerial: u8,
+
+    // Traits (string names matching domain::player::PlayerTrait variants)
+    #[serde(default)]
+    pub traits: Vec<String>,
+}
+
+fn default_engine_attr() -> u8 {
+    50
 }
 
 impl PlayerData {
-    /// Overall rating (simple mean of all 11 attributes).
+    /// Overall rating (simple mean of core 11 attributes).
     pub fn overall(&self) -> f64 {
         (self.pace as f64
             + self.stamina as f64

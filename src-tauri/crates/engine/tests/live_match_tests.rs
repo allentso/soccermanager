@@ -20,6 +20,7 @@ fn make_player(id: &str, name: &str, pos: Position, skill: u8) -> PlayerData {
         pace: skill,
         stamina: skill,
         strength: skill,
+        agility: skill,
         passing: skill,
         shooting: skill,
         tackling: skill,
@@ -28,6 +29,14 @@ fn make_player(id: &str, name: &str, pos: Position, skill: u8) -> PlayerData {
         positioning: skill,
         vision: skill,
         decisions: skill,
+        composure: skill,
+        aggression: skill,
+        teamwork: skill,
+        leadership: skill,
+        handling: skill,
+        reflexes: skill,
+        aerial: skill,
+        traits: vec![],
     }
 }
 

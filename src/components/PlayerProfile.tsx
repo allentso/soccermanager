@@ -1,6 +1,7 @@
 import { PlayerData, TeamData, GameStateData } from "../store/gameStore";
 import { Card, CardHeader, CardBody, Badge, ProgressBar } from "./ui";
 import { ArrowLeft, Shield, TrendingUp, Calendar, Briefcase, DollarSign, Heart, Activity, AlertTriangle } from "lucide-react";
+import { TraitList } from "./TraitBadge";
 
 interface PlayerProfileProps {
   player: PlayerData;
@@ -66,6 +67,8 @@ export default function PlayerProfile({ player, gameState, isOwnClub, onClose, o
   const age = calcAge(player.date_of_birth);
   const teamName = getTeamName(gameState.teams, player.team_id);
 
+  const isGK = player.position === "Goalkeeper";
+
   const attrGroups = [
     {
       label: "Physical",
@@ -73,6 +76,7 @@ export default function PlayerProfile({ player, gameState, isOwnClub, onClose, o
         { name: "Pace", value: player.attributes.pace },
         { name: "Stamina", value: player.attributes.stamina },
         { name: "Strength", value: player.attributes.strength },
+        { name: "Agility", value: player.attributes.agility },
       ],
     },
     {
@@ -91,8 +95,20 @@ export default function PlayerProfile({ player, gameState, isOwnClub, onClose, o
         { name: "Positioning", value: player.attributes.positioning },
         { name: "Vision", value: player.attributes.vision },
         { name: "Decisions", value: player.attributes.decisions },
+        { name: "Composure", value: player.attributes.composure },
+        { name: "Aggression", value: player.attributes.aggression },
+        { name: "Teamwork", value: player.attributes.teamwork },
+        { name: "Leadership", value: player.attributes.leadership },
       ],
     },
+    ...(isGK ? [{
+      label: "Goalkeeper",
+      attrs: [
+        { name: "Handling", value: player.attributes.handling },
+        { name: "Reflexes", value: player.attributes.reflexes },
+        { name: "Aerial", value: player.attributes.aerial },
+      ],
+    }] : []),
   ];
 
   return (
@@ -132,6 +148,11 @@ export default function PlayerProfile({ player, gameState, isOwnClub, onClose, o
                   <span>{teamName}</span>
                 )}
               </p>
+              {player.traits && player.traits.length > 0 && (
+                <div className="mt-3">
+                  <TraitList traits={player.traits} size="sm" />
+                </div>
+              )}
             </div>
 
             {/* Key stats in header */}

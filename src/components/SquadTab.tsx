@@ -2,6 +2,7 @@ import { GameStateData } from "../store/gameStore";
 import { Card, Badge, ProgressBar } from "./ui";
 import { Star } from "lucide-react";
 import { formatVal, positionBadgeVariant } from "../lib/helpers";
+import { TraitList } from "./TraitBadge";
 
 interface SquadTabProps {
   gameState: GameStateData;
@@ -40,6 +41,7 @@ export default function SquadTab({ gameState, managerId, onSelectPlayer }: Squad
                 <th className="py-3 px-5 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Name</th>
                 <th className="py-3 px-5 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Age</th>
                 <th className="py-3 px-5 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Condition</th>
+                <th className="py-3 px-5 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Traits</th>
                 <th className="py-3 px-5 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Value</th>
                 <th className="py-3 px-5 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">OVR</th>
               </tr>
@@ -65,6 +67,13 @@ export default function SquadTab({ gameState, managerId, onSelectPlayer }: Squad
                     <td className="py-3 px-5 text-sm text-gray-600 dark:text-gray-400 tabular-nums">{age}</td>
                     <td className="py-3 px-5">
                       <ProgressBar value={player.condition} variant="auto" size="sm" showLabel className="max-w-[120px]" />
+                    </td>
+                    <td className="py-3 px-5">
+                      {player.traits && player.traits.length > 0 ? (
+                        <TraitList traits={player.traits} size="xs" max={2} />
+                      ) : (
+                        <span className="text-xs text-gray-500">—</span>
+                      )}
                     </td>
                     <td className="py-3 px-5 text-xs text-gray-600 dark:text-gray-400 font-medium">{formatVal(player.market_value)}</td>
                     <td className="py-3 px-5">

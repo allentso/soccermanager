@@ -2,6 +2,7 @@ use crate::clock::GameClock;
 use domain::league::League;
 use domain::manager::Manager;
 use domain::message::InboxMessage;
+use domain::news::NewsArticle;
 use domain::player::Player;
 use domain::staff::Staff;
 use domain::team::Team;
@@ -16,6 +17,8 @@ pub struct Game {
     pub players: Vec<Player>,
     pub staff: Vec<Staff>,
     pub messages: Vec<InboxMessage>,
+    #[serde(default)]
+    pub news: Vec<NewsArticle>,
     pub league: Option<League>,
 }
 
@@ -35,6 +38,7 @@ impl Game {
             players,
             staff,
             messages,
+            news: vec![],
             league: None,
         }
     }

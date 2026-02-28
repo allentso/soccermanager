@@ -8,6 +8,8 @@ import { getTeamName } from "../lib/helpers";
 interface InboxTabProps {
   gameState: GameStateData;
   onGameUpdate: (g: GameStateData) => void;
+  initialMessageId?: string | null;
+  onNavigate?: (tab: string, context?: { messageId?: string }) => void;
 }
 
 const CATEGORY_META: Record<string, { icon: React.ReactNode; color: string; label: string }> = {
@@ -27,9 +29,9 @@ const CATEGORY_META: Record<string, { icon: React.ReactNode; color: string; labe
   System:         { icon: <Info className="w-4 h-4" />,           color: "text-gray-400",     label: "System" },
 };
 
-export default function InboxTab({ gameState, onGameUpdate }: InboxTabProps) {
+export default function InboxTab({ gameState, onGameUpdate, initialMessageId, onNavigate }: InboxTabProps) {
   const allMessages = [...(gameState.messages || [])].reverse();
-  const [selectedMsgId, setSelectedMsgId] = useState<string | null>(null);
+  const [selectedMsgId, setSelectedMsgId] = useState<string | null>(initialMessageId || null);
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
 
   const handleSelectMessage = async (msgId: string) => {
@@ -41,6 +43,28 @@ export default function InboxTab({ gameState, onGameUpdate }: InboxTabProps) {
   };
 
   const handleAction = async (msgId: string, actionId: string) => {
+    // Check if the action is a NavigateTo type
+    const msg = allMessages.find(m => m.id === msgId);
+    const action = msg?.actions.find(a => a.id === actionId);
+    if (action && typeof action.action_type === "object" && "NavigateTo" in action.action_type) {
+      const route = (action.action_type as { NavigateTo: { route: string } }).NavigateTo.route;
+      // Parse dashboard tab from routes like "/dashboard?tab=Squad"
+      const tabMatch = route.match(/[?&]tab=([^&]+)/i);
+      if (tabMatch) {
+        onNavigate?.(tabMatch[1]);
+      } else {
+        // Map simple route names to dashboard tab names
+        const routeMap: Record<string, string> = {
+          "squad": "Squad", "tactics": "Tactics", "training": "Training",
+          "schedule": "Schedule", "finances": "Finances", "transfers": "Transfers",
+          "players": "Players", "teams": "Teams", "tournaments": "Tournaments",
+          "staff": "Staff", "inbox": "Inbox", "manager": "Manager", "home": "Home",
+        };
+        const simple = route.replace(/^\/+/, "").split(/[/?#]/)[0].toLowerCase();
+        const tab = routeMap[simple] || "Home";
+        onNavigate?.(tab);
+      }
+    }
     try { const g = await invoke<GameStateData>("resolve_message_action", { messageId: msgId, actionId }); onGameUpdate(g); } catch {}
   };
 

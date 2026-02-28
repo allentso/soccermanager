@@ -1,11 +1,13 @@
 import { useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { GameStateData, StaffData } from "../store/gameStore";
 import { Card, CardBody, Badge, ProgressBar } from "./ui";
-import { UserCog, Search, UserPlus, UserMinus, Briefcase, Eye, Stethoscope, GraduationCap } from "lucide-react";
-import { getTeamName, calcAge } from "../lib/helpers";
+import { UserCog, Search, UserPlus, UserMinus, Briefcase, Eye, Stethoscope, GraduationCap, Star } from "lucide-react";
+import { getTeamName, calcAge, formatVal } from "../lib/helpers";
 
 interface StaffTabProps {
   gameState: GameStateData;
+  onGameUpdate?: (state: GameStateData) => void;
 }
 
 const ROLE_META: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
@@ -31,14 +33,49 @@ function ovrRating(s: StaffData): number {
   );
 }
 
-export default function StaffTab({ gameState }: StaffTabProps) {
+const SPEC_LABELS: Record<string, string> = {
+  Fitness: "Fitness",
+  Technique: "Technique",
+  Tactics: "Tactics",
+  Defending: "Defending",
+  Attacking: "Attacking",
+  GoalKeeping: "Goalkeeping",
+  Youth: "Youth Dev",
+};
+
+export default function StaffTab({ gameState, onGameUpdate }: StaffTabProps) {
   const userTeamId = gameState.manager.team_id;
   const [view, setView] = useState<"mystaff" | "available">("mystaff");
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   const myStaff = gameState.staff.filter(s => s.team_id === userTeamId);
   const availableStaff = gameState.staff.filter(s => !s.team_id);
+
+  const handleHire = async (staffId: string) => {
+    setActionLoading(staffId);
+    try {
+      const updated = await invoke<GameStateData>("hire_staff", { staffId });
+      onGameUpdate?.(updated);
+    } catch (err) {
+      console.error("Failed to hire staff:", err);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleRelease = async (staffId: string) => {
+    setActionLoading(staffId);
+    try {
+      const updated = await invoke<GameStateData>("release_staff", { staffId });
+      onGameUpdate?.(updated);
+    } catch (err) {
+      console.error("Failed to release staff:", err);
+    } finally {
+      setActionLoading(null);
+    }
+  };
 
   const displayStaff = view === "mystaff" ? myStaff : availableStaff;
 
@@ -151,6 +188,20 @@ export default function StaffTab({ gameState }: StaffTabProps) {
                         {staff.team_id && view === "available" && <span className="ml-1.5">at {getTeamName(gameState.teams, staff.team_id)}</span>}
                       </p>
 
+                      {/* Specialization + Wage */}
+                      <div className="flex flex-wrap gap-1.5 mt-1.5">
+                        {staff.specialization && (
+                          <span className="inline-flex items-center gap-1 text-[10px] bg-accent-50 dark:bg-accent-500/10 text-accent-600 dark:text-accent-400 px-1.5 py-0.5 rounded font-heading uppercase tracking-wider">
+                            <Star className="w-3 h-3" /> {SPEC_LABELS[staff.specialization] || staff.specialization}
+                          </span>
+                        )}
+                        {staff.wage > 0 && (
+                          <span className="text-[10px] bg-gray-100 dark:bg-navy-700 text-gray-500 dark:text-gray-400 px-1.5 py-0.5 rounded font-heading uppercase tracking-wider">
+                            {formatVal(staff.wage)}/wk
+                          </span>
+                        )}
+                      </div>
+
                       {/* Attributes */}
                       <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 mt-3">
                         <AttrBar label="Coaching" value={staff.attributes.coaching} />
@@ -166,12 +217,22 @@ export default function StaffTab({ gameState }: StaffTabProps) {
 
                     {/* Action button */}
                     {view === "mystaff" && (
-                      <button className="p-2 rounded-lg bg-red-50 dark:bg-red-500/10 text-red-500 hover:bg-red-100 dark:hover:bg-red-500/20 transition-colors" title="Release staff member">
+                      <button
+                        disabled={actionLoading === staff.id}
+                        onClick={() => handleRelease(staff.id)}
+                        className={`p-2 rounded-lg bg-red-50 dark:bg-red-500/10 text-red-500 hover:bg-red-100 dark:hover:bg-red-500/20 transition-colors ${actionLoading === staff.id ? "opacity-50 pointer-events-none" : ""}`}
+                        title="Release staff member"
+                      >
                         <UserMinus className="w-4 h-4" />
                       </button>
                     )}
                     {view === "available" && (
-                      <button className="p-2 rounded-lg bg-primary-50 dark:bg-primary-500/10 text-primary-500 hover:bg-primary-100 dark:hover:bg-primary-500/20 transition-colors" title="Hire staff member">
+                      <button
+                        disabled={actionLoading === staff.id}
+                        onClick={() => handleHire(staff.id)}
+                        className={`p-2 rounded-lg bg-primary-50 dark:bg-primary-500/10 text-primary-500 hover:bg-primary-100 dark:hover:bg-primary-500/20 transition-colors ${actionLoading === staff.id ? "opacity-50 pointer-events-none" : ""}`}
+                        title="Hire staff member"
+                      >
                         <UserPlus className="w-4 h-4" />
                       </button>
                     )}

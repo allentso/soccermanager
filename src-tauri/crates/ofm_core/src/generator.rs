@@ -2,7 +2,87 @@ use domain::player::{Player, PlayerAttributes, Position};
 use domain::staff::{Staff, StaffRole, StaffAttributes};
 use domain::team::{Team, TeamColors, PlayStyle};
 use rand::Rng;
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+
+/// Serialisable world database — can be saved to / loaded from JSON.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorldData {
+    pub name: String,
+    pub description: String,
+    pub teams: Vec<Team>,
+    pub players: Vec<Player>,
+    pub staff: Vec<Staff>,
+}
+
+/// Lightweight metadata shown in the UI when listing available databases.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorldDatabaseInfo {
+    pub id: String,
+    pub name: String,
+    pub description: String,
+    pub team_count: usize,
+    pub player_count: usize,
+    /// "builtin" | "user"
+    pub source: String,
+    /// Filesystem path (empty for built-in random)
+    pub path: String,
+}
+
+/// Generate a random world and wrap it in a `WorldData`.
+pub fn generate_world_data() -> WorldData {
+    let (teams, players, staff) = generate_world();
+    WorldData {
+        name: "Random World".to_string(),
+        description: "Randomly generated league with 8 teams".to_string(),
+        teams,
+        players,
+        staff,
+    }
+}
+
+/// Parse a JSON string into a `WorldData`.
+pub fn load_world_from_json(json: &str) -> Result<WorldData, String> {
+    serde_json::from_str(json).map_err(|e| format!("Failed to parse world database: {}", e))
+}
+
+/// Serialise a `WorldData` to a pretty-printed JSON string.
+pub fn export_world_to_json(world: &WorldData) -> Result<String, String> {
+    serde_json::to_string_pretty(world).map_err(|e| format!("Failed to serialise world: {}", e))
+}
+
+/// Scan a directory for `.json` world database files and return their metadata.
+pub fn scan_world_databases(dir: &std::path::Path) -> Vec<WorldDatabaseInfo> {
+    let mut results = Vec::new();
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return results;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.extension().and_then(|e| e.to_str()) != Some("json") {
+            continue;
+        }
+        let Ok(contents) = std::fs::read_to_string(&path) else {
+            continue;
+        };
+        // Parse just enough to get metadata — try full parse
+        if let Ok(world) = serde_json::from_str::<WorldData>(&contents) {
+            let file_stem = path.file_stem().unwrap_or_default().to_string_lossy().to_string();
+            results.push(WorldDatabaseInfo {
+                id: format!("file:{}", path.display()),
+                name: world.name,
+                description: world.description,
+                team_count: world.teams.len(),
+                player_count: world.players.len(),
+                source: "user".to_string(),
+                path: path.to_string_lossy().to_string(),
+            });
+            // suppress unused variable warning
+            let _ = file_stem;
+        }
+    }
+    results
+}
 
 const FIRST_NAMES: &[&str] = &[
     "John", "David", "Michael", "Chris", "James", "Robert", "Daniel", "Paul", "Mark", "Steven",
@@ -54,6 +134,7 @@ const COUNTRIES: &[&str] = &[
     "Portugal",
 ];
 
+/// Generate a random world (raw tuple — used by `generate_world_data`).
 pub fn generate_world() -> (Vec<Team>, Vec<Player>, Vec<Staff>) {
     let mut rng = rand::thread_rng();
     let mut teams = Vec::new();
@@ -175,18 +256,31 @@ fn generate_random_player(team_id: &str, index: usize, rng: &mut impl rand::RngC
     let birth_day = rng.gen_range(1..29);
     let dob = format!("{:04}-{:02}-{:02}", birth_year, birth_month, birth_day);
 
+    // Position-aware attribute generation
+    let is_gk = matches!(position, Position::Goalkeeper);
+    let is_def = matches!(position, Position::Defender);
+    let is_fwd = matches!(position, Position::Forward);
+
     let attributes = PlayerAttributes {
         pace: rng.gen_range(40..95),
         stamina: rng.gen_range(40..95),
         strength: rng.gen_range(40..95),
+        agility: rng.gen_range(40..95),
         passing: rng.gen_range(40..95),
-        shooting: rng.gen_range(40..95),
-        tackling: rng.gen_range(40..95),
-        dribbling: rng.gen_range(40..95),
-        defending: rng.gen_range(40..95),
+        shooting: if is_gk { rng.gen_range(20..50) } else { rng.gen_range(40..95) },
+        tackling: if is_gk || is_fwd { rng.gen_range(20..60) } else { rng.gen_range(40..95) },
+        dribbling: if is_gk { rng.gen_range(20..50) } else { rng.gen_range(40..95) },
+        defending: if is_gk { rng.gen_range(25..55) } else if is_def { rng.gen_range(55..95) } else { rng.gen_range(40..95) },
         positioning: rng.gen_range(40..95),
         vision: rng.gen_range(40..95),
         decisions: rng.gen_range(40..95),
+        composure: rng.gen_range(40..95),
+        aggression: rng.gen_range(30..90),
+        teamwork: rng.gen_range(45..95),
+        leadership: rng.gen_range(30..90),
+        handling: if is_gk { rng.gen_range(50..95) } else { rng.gen_range(10..35) },
+        reflexes: if is_gk { rng.gen_range(50..95) } else { rng.gen_range(20..50) },
+        aerial: if is_gk { rng.gen_range(50..95) } else if is_def { rng.gen_range(45..90) } else { rng.gen_range(30..75) },
     };
 
     // Calculate OVR for market value estimation

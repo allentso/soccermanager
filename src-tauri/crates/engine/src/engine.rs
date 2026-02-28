@@ -17,6 +17,7 @@ struct PlayerSnap {
     pace: u8,
     stamina: u8,
     strength: u8,
+    agility: u8,
     passing: u8,
     shooting: u8,
     tackling: u8,
@@ -25,6 +26,14 @@ struct PlayerSnap {
     positioning: u8,
     vision: u8,
     decisions: u8,
+    composure: u8,
+    aggression: u8,
+    teamwork: u8,
+    leadership: u8,
+    handling: u8,
+    reflexes: u8,
+    aerial: u8,
+    traits: Vec<String>,
 }
 
 impl PlayerSnap {
@@ -34,6 +43,7 @@ impl PlayerSnap {
             pace: p.pace,
             stamina: p.stamina,
             strength: p.strength,
+            agility: p.agility,
             passing: p.passing,
             shooting: p.shooting,
             tackling: p.tackling,
@@ -42,8 +52,74 @@ impl PlayerSnap {
             positioning: p.positioning,
             vision: p.vision,
             decisions: p.decisions,
+            composure: p.composure,
+            aggression: p.aggression,
+            teamwork: p.teamwork,
+            leadership: p.leadership,
+            handling: p.handling,
+            reflexes: p.reflexes,
+            aerial: p.aerial,
+            traits: p.traits.clone(),
         }
     }
+
+    fn has_trait(&self, name: &str) -> bool {
+        self.traits.iter().any(|t| t == name)
+    }
+}
+
+/// Compute a multiplicative trait bonus for a specific action context.
+/// Returns a modifier >= 1.0 (bonus) based on relevant traits.
+fn trait_bonus(snap: &PlayerSnap, context: TraitContext) -> f64 {
+    let mut bonus = 1.0;
+    match context {
+        TraitContext::Shooting => {
+            if snap.has_trait("Sharpshooter") { bonus *= 1.08; }
+            if snap.has_trait("CoolHead") { bonus *= 1.04; }
+            if snap.has_trait("CompleteForward") { bonus *= 1.05; }
+        }
+        TraitContext::Dribbling => {
+            if snap.has_trait("Dribbler") { bonus *= 1.08; }
+            if snap.has_trait("Speedster") { bonus *= 1.04; }
+            if snap.has_trait("Agile") { bonus *= 1.04; }
+        }
+        TraitContext::Passing => {
+            if snap.has_trait("Playmaker") { bonus *= 1.08; }
+            if snap.has_trait("Visionary") { bonus *= 1.05; }
+            if snap.has_trait("SetPieceSpecialist") { bonus *= 1.03; }
+        }
+        TraitContext::Tackling => {
+            if snap.has_trait("BallWinner") { bonus *= 1.08; }
+            if snap.has_trait("Rock") { bonus *= 1.05; }
+            if snap.has_trait("Tank") { bonus *= 1.04; }
+        }
+        TraitContext::Goalkeeping => {
+            if snap.has_trait("SafeHands") { bonus *= 1.08; }
+            if snap.has_trait("CatReflexes") { bonus *= 1.06; }
+            if snap.has_trait("AerialDominance") { bonus *= 1.04; }
+        }
+        TraitContext::Foul => {
+            if snap.has_trait("HotHead") { bonus *= 1.25; }
+            if snap.has_trait("CoolHead") { bonus *= 0.70; }
+        }
+        TraitContext::Midfield => {
+            if snap.has_trait("Engine") { bonus *= 1.06; }
+            if snap.has_trait("TeamPlayer") { bonus *= 1.04; }
+            if snap.has_trait("Tireless") { bonus *= 1.03; }
+        }
+    }
+    bonus
+}
+
+#[derive(Debug, Clone, Copy)]
+enum TraitContext {
+    Shooting,
+    Dribbling,
+    Passing,
+    Tackling,
+    Goalkeeping,
+    Foul,
+    Midfield,
 }
 
 // ---------------------------------------------------------------------------
@@ -242,7 +318,7 @@ fn resolve_buildup<R: Rng>(
     rng: &mut R,
 ) {
     let passer = snap_player(ctx, att_side, Position::Defender, rng);
-    let pass_skill = (passer.passing as f64 + passer.vision as f64 + passer.decisions as f64) / 3.0;
+    let pass_skill = (passer.passing as f64 + passer.vision as f64 + passer.composure as f64 + passer.teamwork as f64) / 4.0 * trait_bonus(&passer, TraitContext::Passing);
     let press = effective_press(ctx, def_side);
     let ball_zone = ctx.ball_zone;
 
@@ -277,8 +353,8 @@ fn resolve_midfield<R: Rng>(
     let attacker = snap_player(ctx, att_side, Position::Midfielder, rng);
     let defender = snap_player(ctx, def_side, Position::Midfielder, rng);
 
-    let att_rating = (attacker.dribbling as f64 + attacker.passing as f64 + attacker.vision as f64) / 3.0;
-    let def_rating = (defender.tackling as f64 + defender.positioning as f64 + defender.decisions as f64) / 3.0;
+    let att_rating = (attacker.dribbling as f64 + attacker.passing as f64 + attacker.vision as f64 + attacker.teamwork as f64) / 4.0 * trait_bonus(&attacker, TraitContext::Midfield);
+    let def_rating = (defender.tackling as f64 + defender.positioning as f64 + defender.decisions as f64 + defender.teamwork as f64) / 4.0 * trait_bonus(&defender, TraitContext::Tackling);
 
     let att_mod = play_style_modifier(ctx.team(att_side).play_style, PlayStylePhase::Midfield, true);
     let def_mod = play_style_modifier(ctx.team(def_side).play_style, PlayStylePhase::Midfield, false);
@@ -320,8 +396,8 @@ fn resolve_attacking_third<R: Rng>(
     let attacker = snap_player(ctx, att_side, Position::Forward, rng);
     let defender = snap_player(ctx, def_side, Position::Defender, rng);
 
-    let att_rating = (attacker.dribbling as f64 + attacker.pace as f64 + attacker.positioning as f64) / 3.0;
-    let def_rating = (defender.defending as f64 + defender.tackling as f64 + defender.pace as f64) / 3.0;
+    let att_rating = (attacker.dribbling as f64 + attacker.pace as f64 + attacker.agility as f64 + attacker.composure as f64) / 4.0 * trait_bonus(&attacker, TraitContext::Dribbling);
+    let def_rating = (defender.defending as f64 + defender.tackling as f64 + defender.positioning as f64 + defender.aerial as f64) / 4.0 * trait_bonus(&defender, TraitContext::Tackling);
 
     let att_mod = play_style_modifier(ctx.team(att_side).play_style, PlayStylePhase::Attack, true);
     let def_mod = play_style_modifier(ctx.team(def_side).play_style, PlayStylePhase::Defense, false);
@@ -378,8 +454,8 @@ fn resolve_shot<R: Rng>(
     let assister = snap_player(ctx, att_side, Position::Midfielder, rng);
     let goalkeeper = snap_player(ctx, def_side, Position::Goalkeeper, rng);
 
-    let shoot_rating = (shooter.shooting as f64 + shooter.positioning as f64 + shooter.decisions as f64) / 3.0;
-    let gk_rating = (goalkeeper.positioning as f64 + goalkeeper.decisions as f64 + goalkeeper.pace as f64) / 3.0;
+    let shoot_rating = (shooter.shooting as f64 + shooter.composure as f64 + shooter.decisions as f64) / 3.0 * trait_bonus(&shooter, TraitContext::Shooting);
+    let gk_rating = (goalkeeper.handling as f64 + goalkeeper.reflexes as f64 + goalkeeper.positioning as f64) / 3.0 * trait_bonus(&goalkeeper, TraitContext::Goalkeeping);
 
     let accuracy = (ctx.config.shot_accuracy_base + (shoot_rating - 50.0) / 200.0).clamp(0.15, 0.85);
     let zone = Zone::attacking_box(att_side);
@@ -431,7 +507,9 @@ fn maybe_foul<R: Rng>(
     zone: Zone,
     rng: &mut R,
 ) {
-    if rng.gen_range(0.0..1.0f64) >= ctx.config.foul_probability {
+    let aggression_mod = fouler_snap.aggression as f64 / 100.0;
+    let foul_chance = ctx.config.foul_probability * (0.6 + aggression_mod * 0.8) * trait_bonus(fouler_snap, TraitContext::Foul);
+    if rng.gen_range(0.0..1.0f64) >= foul_chance {
         return;
     }
 
@@ -468,7 +546,12 @@ fn maybe_card<R: Rng>(
     zone: Zone,
     rng: &mut R,
 ) {
-    if rng.gen_range(0.0..1.0f64) >= ctx.config.yellow_card_probability {
+    let aggression_factor = ctx.team(side).players.iter()
+        .find(|p| p.id == fouler_id)
+        .map(|p| p.aggression as f64 / 100.0)
+        .unwrap_or(0.5);
+    let card_chance = ctx.config.yellow_card_probability * (0.5 + aggression_factor);
+    if rng.gen_range(0.0..1.0f64) >= card_chance {
         return;
     }
 

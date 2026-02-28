@@ -17,6 +17,7 @@ export interface EnginePlayerData {
   pace: number;
   stamina: number;
   strength: number;
+  agility: number;
   passing: number;
   shooting: number;
   tackling: number;
@@ -25,6 +26,14 @@ export interface EnginePlayerData {
   positioning: number;
   vision: number;
   decisions: number;
+  composure: number;
+  aggression: number;
+  teamwork: number;
+  leadership: number;
+  handling: number;
+  reflexes: number;
+  aerial: number;
+  traits: string[];
 }
 
 export interface EngineTeamData {
@@ -58,6 +67,8 @@ export interface MatchSnapshot {
   ball_zone: string;
   home_team: EngineTeamData;
   away_team: EngineTeamData;
+  home_bench: EnginePlayerData[];
+  away_bench: EnginePlayerData[];
   home_possession_pct: number;
   away_possession_pct: number;
   events: MatchEvent[];
@@ -110,12 +121,12 @@ export interface TeamTalkOption {
 }
 
 export const TEAM_TALK_OPTIONS: TeamTalkOption[] = [
-  { id: "calm", label: "Stay Calm", description: "Keep composure and focus on the game plan.", icon: "😌" },
-  { id: "motivational", label: "Motivate", description: "Inspire the players to give their best.", icon: "🔥" },
-  { id: "assertive", label: "Demand More", description: "Tell them this isn't good enough.", icon: "💪" },
-  { id: "aggressive", label: "Get Fired Up", description: "An aggressive, fiery team talk.", icon: "😤" },
-  { id: "praise", label: "Praise", description: "Tell them they've been excellent.", icon: "👏" },
-  { id: "disappointed", label: "Show Disappointment", description: "Express disappointment in their effort.", icon: "😔" },
+  { id: "calm", label: "Stay Calm", description: "Keep composure and focus on the game plan.", icon: "calm" },
+  { id: "motivational", label: "Motivate", description: "Inspire the players to give their best.", icon: "motivational" },
+  { id: "assertive", label: "Demand More", description: "Tell them this isn't good enough.", icon: "assertive" },
+  { id: "aggressive", label: "Get Fired Up", description: "An aggressive, fiery team talk.", icon: "aggressive" },
+  { id: "praise", label: "Praise", description: "Tell them they've been excellent.", icon: "praise" },
+  { id: "disappointed", label: "Show Disappointment", description: "Express disappointment in their effort.", icon: "disappointed" },
 ];
 
 export const SPEED_MS: Record<SimSpeed, number> = {

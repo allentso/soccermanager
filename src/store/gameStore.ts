@@ -33,6 +33,9 @@ export interface TeamData {
   season_expenses: number;
   formation: string;
   play_style: string;
+  training_focus: string;
+  training_intensity: string;
+  training_schedule: string;
   founded_year: number;
   colors: TeamColors;
   history: TeamSeasonRecord[];
@@ -69,6 +72,7 @@ export interface PlayerData {
     pace: number;
     stamina: number;
     strength: number;
+    agility: number;
     passing: number;
     shooting: number;
     tackling: number;
@@ -77,6 +81,13 @@ export interface PlayerData {
     positioning: number;
     vision: number;
     decisions: number;
+    composure: number;
+    aggression: number;
+    teamwork: number;
+    leadership: number;
+    handling: number;
+    reflexes: number;
+    aerial: number;
   };
   condition: number;
   morale: number;
@@ -90,6 +101,7 @@ export interface PlayerData {
   transfer_listed: boolean;
   loan_listed: boolean;
   transfer_offers: TransferOfferData[];
+  traits: string[];
 }
 
 export interface TransferOfferData {
@@ -106,6 +118,7 @@ export interface StaffData {
   first_name: string;
   last_name: string;
   date_of_birth: string;
+  nationality: string;
   role: "AssistantManager" | "Coach" | "Scout" | "Physio";
   attributes: {
     coaching: number;
@@ -114,6 +127,9 @@ export interface StaffData {
     physiotherapy: number;
   };
   team_id: string | null;
+  specialization: string | null;
+  wage: number;
+  contract_end: string | null;
 }
 
 export interface MessageAction {
@@ -208,6 +224,26 @@ export interface LeagueData {
   standings: StandingData[];
 }
 
+export interface NewsMatchScore {
+  home_team_id: string;
+  away_team_id: string;
+  home_goals: number;
+  away_goals: number;
+}
+
+export interface NewsArticle {
+  id: string;
+  headline: string;
+  body: string;
+  source: string;
+  date: string;
+  category: string;
+  team_ids: string[];
+  player_ids: string[];
+  match_score: NewsMatchScore | null;
+  read: boolean;
+}
+
 export interface GameStateData {
   clock: {
     current_date: string;
@@ -229,6 +265,7 @@ export interface GameStateData {
   players: PlayerData[];
   staff: StaffData[];
   messages: MessageData[];
+  news: NewsArticle[];
   league: LeagueData | null;
 }
 

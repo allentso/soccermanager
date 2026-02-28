@@ -6,19 +6,41 @@ pub struct Staff {
     pub first_name: String,
     pub last_name: String,
     pub date_of_birth: String,
+    pub nationality: String,
     pub role: StaffRole,
 
     // Attributes 0-100
     pub attributes: StaffAttributes,
     pub team_id: Option<String>,
+
+    // Coaching specialization — boosts one training focus area
+    #[serde(default)]
+    pub specialization: Option<CoachingSpecialization>,
+
+    // Contract & finances
+    #[serde(default)]
+    pub wage: u32,
+    #[serde(default)]
+    pub contract_end: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum StaffRole {
     AssistantManager,
     Coach,
     Scout,
     Physio,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum CoachingSpecialization {
+    Fitness,      // Boosts Physical training
+    Technique,    // Boosts Technical training
+    Tactics,      // Boosts Tactical training
+    Defending,    // Boosts Defending training
+    Attacking,    // Boosts Attacking training
+    GoalKeeping,  // Boosts GK-specific development
+    Youth,        // Boosts young player development
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -43,9 +65,13 @@ impl Staff {
             first_name,
             last_name,
             date_of_birth,
+            nationality: String::new(),
             role,
             attributes,
             team_id: None,
+            specialization: None,
+            wage: 0,
+            contract_end: None,
         }
     }
 }

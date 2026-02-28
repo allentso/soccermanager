@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { GameStateData } from "../../store/gameStore";
 import { MatchSnapshot, MatchEvent, FORMATIONS, PLAY_STYLES, TEAM_TALK_OPTIONS, TeamTalkTone } from "./types";
 import { getEventDisplay, getPlayerName } from "./helpers";
+import { getTalkIcon } from "./TeamTalkIcons";
 import { Badge } from "../ui";
 import {
   Play, RefreshCw, Shield, Zap, Target, Crosshair, Flag,
@@ -34,6 +35,7 @@ export default function HalfTimeBreak({
   const [selectedTalk, setSelectedTalk] = useState<TeamTalkTone | null>(null);
   const [showSubPanel, setShowSubPanel] = useState(false);
   const [talkDelivered, setTalkDelivered] = useState(false);
+  const [talkResults, setTalkResults] = useState<{ player_id: string; player_name: string; old_morale: number; new_morale: number; delta: number }[]>([]);
 
   const homeTeamColor = gameState.teams.find(t => t.id === snapshot.home_team.id)?.colors?.primary || "#10b981";
   const awayTeamColor = gameState.teams.find(t => t.id === snapshot.away_team.id)?.colors?.primary || "#6366f1";
@@ -79,10 +81,18 @@ export default function HalfTimeBreak({
     }
   };
 
-  const handleDeliverTalk = () => {
+  const handleDeliverTalk = async () => {
     if (!selectedTalk) return;
+    const userScore = userSide === "Home" ? snapshot.home_score : snapshot.away_score;
+    const oppScore = userSide === "Home" ? snapshot.away_score : snapshot.home_score;
+    const context = userScore > oppScore ? "winning" : userScore < oppScore ? "losing" : "drawing";
+    try {
+      const results = await invoke<{ player_id: string; player_name: string; old_morale: number; new_morale: number; delta: number }[]>("apply_team_talk", { tone: selectedTalk, context });
+      setTalkResults(results);
+    } catch (err) {
+      console.error("Team talk failed:", err);
+    }
     setTalkDelivered(true);
-    // Team talk effect could be wired to backend in future
   };
 
   return (
@@ -200,7 +210,7 @@ export default function HalfTimeBreak({
                               : "bg-navy-700/50 hover:bg-navy-700"
                           }`}
                         >
-                          <span className="text-xl">{opt.icon}</span>
+                          <span className="text-xl">{getTalkIcon(opt.icon)}</span>
                           <div>
                             <p className={`text-sm font-heading font-bold ${
                               selectedTalk === opt.id ? "text-primary-400" : "text-gray-200"
@@ -220,13 +230,30 @@ export default function HalfTimeBreak({
                     )}
                   </>
                 ) : (
-                  <div className="flex flex-col items-center gap-2 py-4">
-                    <span className="text-3xl">{TEAM_TALK_OPTIONS.find(o => o.id === selectedTalk)?.icon}</span>
-                    <p className="text-sm font-heading font-bold text-primary-400">
-                      {TEAM_TALK_OPTIONS.find(o => o.id === selectedTalk)?.label}
-                    </p>
-                    <p className="text-xs text-gray-500 text-center">Team talk delivered. Your players react...</p>
-                    <Badge variant="success" size="sm">Players Acknowledged</Badge>
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center gap-2 mb-1">
+                      {getTalkIcon(selectedTalk || "")}
+                      <p className="text-sm font-heading font-bold text-primary-400">
+                        {TEAM_TALK_OPTIONS.find(o => o.id === selectedTalk)?.label}
+                      </p>
+                      <Badge variant="success" size="sm">Delivered</Badge>
+                    </div>
+                    {talkResults.length > 0 && (
+                      <div className="flex flex-col gap-0.5 max-h-48 overflow-auto">
+                        {talkResults.map(r => (
+                          <div key={r.player_id} className="flex items-center gap-2 px-2 py-1 text-xs">
+                            <span className="text-gray-400 flex-1 truncate">{r.player_name}</span>
+                            <span className={`font-heading font-bold tabular-nums ${r.delta > 0 ? "text-green-400" : r.delta < 0 ? "text-red-400" : "text-gray-500"}`}>
+                              {r.delta > 0 ? "+" : ""}{r.delta}
+                            </span>
+                            <div className="w-12 h-1.5 bg-navy-600 rounded-full overflow-hidden">
+                              <div className={`h-full rounded-full ${r.new_morale >= 70 ? "bg-green-500" : r.new_morale >= 40 ? "bg-yellow-500" : "bg-red-500"}`} style={{ width: `${r.new_morale}%` }} />
+                            </div>
+                            <span className="text-gray-500 tabular-nums w-6 text-right">{r.new_morale}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

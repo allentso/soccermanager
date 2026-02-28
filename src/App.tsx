@@ -3,6 +3,7 @@ import MainMenu from "./pages/MainMenu";
 import TeamSelection from "./pages/TeamSelection";
 import Dashboard from "./pages/Dashboard";
 import MatchSimulation from "./pages/MatchSimulation";
+import Settings from "./pages/Settings";
 import "./App.css";
 
 function App() {
@@ -13,6 +14,7 @@ function App() {
         <Route path="/select-team" element={<TeamSelection />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/match" element={<MatchSimulation />} />
+        <Route path="/settings" element={<Settings />} />
       </Routes>
     </BrowserRouter>
   );

@@ -25,12 +25,91 @@ pub struct Team {
     pub formation: String,
     pub play_style: PlayStyle,
 
+    // Training
+    #[serde(default)]
+    pub training_focus: TrainingFocus,
+    #[serde(default)]
+    pub training_intensity: TrainingIntensity,
+    #[serde(default)]
+    pub training_schedule: TrainingSchedule,
+
     // Club info
     pub founded_year: u32,
     pub colors: TeamColors,
 
     // History
     pub history: Vec<TeamSeasonRecord>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum TrainingFocus {
+    Physical,
+    Technical,
+    Tactical,
+    Defending,
+    Attacking,
+    Recovery,
+}
+
+impl Default for TrainingFocus {
+    fn default() -> Self {
+        TrainingFocus::Physical
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum TrainingIntensity {
+    Low,
+    Medium,
+    High,
+}
+
+impl Default for TrainingIntensity {
+    fn default() -> Self {
+        TrainingIntensity::Medium
+    }
+}
+
+/// Weekly training schedule controlling how many days per week are training vs rest.
+/// Rest days give full condition recovery with no training cost.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum TrainingSchedule {
+    /// 6 training days, 1 rest (Sunday). Max growth, minimal recovery.
+    Intense,
+    /// 4 training days (Mon, Tue, Thu, Fri), 3 rest (Wed, Sat, Sun). Good balance.
+    Balanced,
+    /// 2 training days (Tue, Thu), 5 rest. Minimal growth, excellent recovery.
+    Light,
+}
+
+impl Default for TrainingSchedule {
+    fn default() -> Self {
+        TrainingSchedule::Balanced
+    }
+}
+
+impl TrainingSchedule {
+    /// Returns true if the given weekday (chrono::Weekday) is a training day.
+    /// Mon=0, Tue=1, Wed=2, Thu=3, Fri=4, Sat=5, Sun=6
+    pub fn is_training_day(&self, weekday_num: u32) -> bool {
+        match self {
+            // Intense: rest only on Sunday (6)
+            TrainingSchedule::Intense => weekday_num != 6,
+            // Balanced: train Mon(0), Tue(1), Thu(3), Fri(4); rest Wed(2), Sat(5), Sun(6)
+            TrainingSchedule::Balanced => matches!(weekday_num, 0 | 1 | 3 | 4),
+            // Light: train Tue(1), Thu(3) only
+            TrainingSchedule::Light => matches!(weekday_num, 1 | 3),
+        }
+    }
+
+    /// Human-readable description of training days per week.
+    pub fn training_days_per_week(&self) -> u8 {
+        match self {
+            TrainingSchedule::Intense => 6,
+            TrainingSchedule::Balanced => 4,
+            TrainingSchedule::Light => 2,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -88,6 +167,9 @@ impl Team {
             season_expenses: 0,
             formation: "4-4-2".to_string(),
             play_style: PlayStyle::Balanced,
+            training_focus: TrainingFocus::default(),
+            training_intensity: TrainingIntensity::default(),
+            training_schedule: TrainingSchedule::default(),
             founded_year: 1900,
             colors: TeamColors {
                 primary: "#10b981".to_string(),
