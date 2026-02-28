@@ -2,44 +2,61 @@
 
 ![Openfoot logo](images/openfootlogo.svg)
 
-[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-[![Python version](https://img.shields.io/python/required-version-toml?tomlFilePath=https://raw.githubusercontent.com/openfootmanager/openfootmanager/develop/pyproject.toml)](https://www.python.org/downloads/)
+[![License: GPL v3](https://img.shields.io/github/license/openfootmanager/openfootmanager
+)](https://www.gnu.org/licenses/gpl-3.0)
+[![Rust](https://shields.io/badge/-Rust-FF4500?style=flat&logo=rust)](https://www.rust-lang.org/)
+[![Tauri](https://shields.io/badge/-Tauri-2E8B57?style=flat&logo=tauri)](https://tauri.app/)
+[![React](https://shields.io/badge/-React-1434A4?style=flat&logo=react)](https://react.dev/)
 [![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://GitHub.com/openfootmanager/openfootmanager/graphs/commit-activity)
 [![Last commit](https://img.shields.io/github/last-commit/openfootmanager/openfootmanager)](https://github.com/openfootmanager/openfootmanager/commits/develop)
-[![GitHub contributors](https://img.shields.io/github/contributors/openfootmanager/openfootmanager.svg)](https://GitHub.com/openfootmanager/openfootmanager/graphs/contributors/)
 
 **A free and open source football management simulation game**
 
-[Features](#features) • [Screenshots](#screenshots) • [Installation](#installation) • [Getting Started](#getting-started) • [Contributing](#contributing) • [License](#license)
+[Features](#features) • [Screenshots](#screenshots) • [Installation](#installation) • [Contributing](#contributing) • [License](#license)
 
 > [!WARNING]
-> **DEVELOPMENT STATUS:** This project is actively being developed and is not yet  ready for gameplay. The codebase is currently undergoing significant restructuring.
+> **DEVELOPMENT STATUS:** This project is actively being developed and is not yet ready for gameplay. The core engine is currently being written from the ground up in Rust and Tauri.
 
 </div>
 
 ---
 
-**Openfoot Manager** is a free and open source football/soccer manager game, licensed under the [GPLv3](LICENSE.md), inspired by the famous franchise Football Manager&trade;, and based on the source code of [Bygfoot](https://bygfoot.sourceforge.io/new/), an abandoned manager game.
+**Openfoot Manager** is a free and open source football/soccer manager game, licensed under the [GPLv3](LICENSE.md), inspired by the famous franchise Football Manager&trade;.
 
+## ARCHITECTURE
 
+OpenFootManager is built using modern web technologies:
 
+- **Rust**: Blazing-fast backend for the Match Simulation Engine and Game State.
+- **Tauri**: Lightweight desktop application shell.
+- **React + TypeScript + TailwindCSS**: A highly responsive frontend interface.
+- **SQLite**: Local persistence for game saves.
 
-## INSTALLATION
+## INSTALLATION & DEVELOPMENT
 
-The game is still under development and it is not even close to ready for gameplay action. However, we already have a debug version of the game for testing purposes.
+The game is still in early active development. To build and run the debug version, you need to install standard tools for Rust, Node, and Tauri development:
 
-To run the debug build, ensure that you have Python 3.10 or higher.
+1. Install **Rust** (via `rustup`)
+2. Install **Node.js** (v18+)
+3. Install Tauri dependencies for your specific OS (see the [Tauri Prerequisites Guide](https://v2.tauri.app/start/prerequisites/))
 
-Clone the repository using:
+Clone the repository and install dependencies:
 
-```
+```bash
 git clone https://github.com/openfootmanager/openfootmanager.git
+cd openfootmanager
+npm install
+```
+
+Run the development desktop app:
+
+```bash
+npm run tauri dev
 ```
 
 ## CONTRIBUTING
 
 Check the [CONTRIBUTING](CONTRIBUTING.md) file for more information on how to contribute.
-
 
 ## LICENSE
 

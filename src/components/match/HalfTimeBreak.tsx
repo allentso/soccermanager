@@ -1,0 +1,424 @@
+import { useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import { GameStateData } from "../../store/gameStore";
+import { MatchSnapshot, MatchEvent, FORMATIONS, PLAY_STYLES, TEAM_TALK_OPTIONS, TeamTalkTone } from "./types";
+import { getEventDisplay, getPlayerName } from "./helpers";
+import { Badge } from "../ui";
+import {
+  Play, RefreshCw, Shield, Zap, Target, Crosshair, Flag,
+  UserMinus, UserPlus, AlertTriangle, MessageCircle
+} from "lucide-react";
+
+interface HalfTimeBreakProps {
+  snapshot: MatchSnapshot;
+  gameState: GameStateData;
+  userSide: "Home" | "Away";
+  isSpectator: boolean;
+  importantEvents: MatchEvent[];
+  onResume: () => void;
+  onUpdateSnapshot: (snap: MatchSnapshot) => void;
+}
+
+const PLAY_STYLE_ICONS: Record<string, React.ReactNode> = {
+  Balanced: <Target className="w-3.5 h-3.5" />,
+  Attacking: <Zap className="w-3.5 h-3.5" />,
+  Defensive: <Shield className="w-3.5 h-3.5" />,
+  Possession: <RefreshCw className="w-3.5 h-3.5" />,
+  Counter: <Crosshair className="w-3.5 h-3.5" />,
+  HighPress: <Flag className="w-3.5 h-3.5" />,
+};
+
+export default function HalfTimeBreak({
+  snapshot, gameState, userSide, isSpectator, importantEvents, onResume, onUpdateSnapshot,
+}: HalfTimeBreakProps) {
+  const [selectedTalk, setSelectedTalk] = useState<TeamTalkTone | null>(null);
+  const [showSubPanel, setShowSubPanel] = useState(false);
+  const [talkDelivered, setTalkDelivered] = useState(false);
+
+  const homeTeamColor = gameState.teams.find(t => t.id === snapshot.home_team.id)?.colors?.primary || "#10b981";
+  const awayTeamColor = gameState.teams.find(t => t.id === snapshot.away_team.id)?.colors?.primary || "#6366f1";
+
+  const userTeam = userSide === "Home" ? snapshot.home_team : snapshot.away_team;
+
+  // First half key events
+  const firstHalfEvents = importantEvents.filter(e =>
+    ["Goal", "PenaltyGoal", "YellowCard", "RedCard", "SecondYellow", "Injury", "PenaltyMiss"].includes(e.event_type)
+  );
+
+  const handleFormationChange = async (formation: string) => {
+    try {
+      const snap = await invoke<MatchSnapshot>("apply_match_command", {
+        command: { ChangeFormation: { side: userSide, formation } }
+      });
+      onUpdateSnapshot(snap);
+    } catch (err) {
+      console.error("Formation change failed:", err);
+    }
+  };
+
+  const handlePlayStyleChange = async (playStyle: string) => {
+    try {
+      const snap = await invoke<MatchSnapshot>("apply_match_command", {
+        command: { ChangePlayStyle: { side: userSide, play_style: playStyle } }
+      });
+      onUpdateSnapshot(snap);
+    } catch (err) {
+      console.error("Play style change failed:", err);
+    }
+  };
+
+  const handleSubstitution = async (playerOffId: string, playerOnId: string) => {
+    try {
+      const snap = await invoke<MatchSnapshot>("apply_match_command", {
+        command: { Substitute: { side: userSide, player_off_id: playerOffId, player_on_id: playerOnId } }
+      });
+      onUpdateSnapshot(snap);
+      setShowSubPanel(false);
+    } catch (err) {
+      console.error("Substitution failed:", err);
+    }
+  };
+
+  const handleDeliverTalk = () => {
+    if (!selectedTalk) return;
+    setTalkDelivered(true);
+    // Team talk effect could be wired to backend in future
+  };
+
+  return (
+    <div className="min-h-screen bg-navy-900 text-white flex flex-col">
+      {/* Header scoreboard */}
+      <header className="bg-gradient-to-r from-navy-800 via-navy-900 to-navy-800 border-b border-navy-700 px-4 py-4">
+        <div className="max-w-5xl mx-auto">
+          <div className="flex items-center justify-center gap-8">
+            <div className="flex items-center gap-3">
+              <div
+                className="w-12 h-12 rounded-xl flex items-center justify-center font-heading font-bold"
+                style={{ backgroundColor: homeTeamColor + "30", borderColor: homeTeamColor, borderWidth: 2 }}
+              >
+                {snapshot.home_team.name.substring(0, 3).toUpperCase()}
+              </div>
+              <p className="font-heading font-bold text-gray-200">{snapshot.home_team.name}</p>
+            </div>
+
+            <div className="flex items-center gap-4">
+              <span className="text-5xl font-heading font-bold text-white tabular-nums">{snapshot.home_score}</span>
+              <div className="text-center">
+                <p className="text-xs font-heading uppercase tracking-widest text-accent-400">Half Time</p>
+                <p className="text-lg font-heading font-bold text-gray-600">HT</p>
+              </div>
+              <span className="text-5xl font-heading font-bold text-white tabular-nums">{snapshot.away_score}</span>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <p className="font-heading font-bold text-gray-200">{snapshot.away_team.name}</p>
+              <div
+                className="w-12 h-12 rounded-xl flex items-center justify-center font-heading font-bold"
+                style={{ backgroundColor: awayTeamColor + "30", borderColor: awayTeamColor, borderWidth: 2 }}
+              >
+                {snapshot.away_team.name.substring(0, 3).toUpperCase()}
+              </div>
+            </div>
+          </div>
+
+          {/* Possession bar */}
+          <div className="max-w-md mx-auto mt-3">
+            <div className="flex items-center gap-2 text-xs">
+              <span className="font-heading font-bold text-primary-400 w-12 text-right">
+                {snapshot.home_possession_pct.toFixed(0)}%
+              </span>
+              <div className="flex-1 h-1.5 bg-navy-700 rounded-full overflow-hidden flex">
+                <div className="h-full bg-primary-500 transition-all" style={{ width: `${snapshot.home_possession_pct}%` }} />
+                <div className="h-full bg-indigo-500 transition-all" style={{ width: `${snapshot.away_possession_pct}%` }} />
+              </div>
+              <span className="font-heading font-bold text-indigo-400 w-12">
+                {snapshot.away_possession_pct.toFixed(0)}%
+              </span>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <div className="flex-1 overflow-auto">
+        <div className="max-w-5xl mx-auto px-6 py-6 grid grid-cols-3 gap-6">
+
+          {/* Left: First Half Summary */}
+          <div className="flex flex-col gap-4">
+            <div className="bg-navy-800 rounded-xl border border-navy-700 p-4">
+              <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500 mb-3">
+                First Half Events
+              </h3>
+              {firstHalfEvents.length === 0 ? (
+                <p className="text-xs text-gray-600">No major events.</p>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {firstHalfEvents.map((evt, i) => {
+                    const display = getEventDisplay(evt);
+                    return (
+                      <div key={i} className="flex items-center gap-2 text-xs">
+                        <span className="text-gray-600 tabular-nums w-6 text-right font-heading">{evt.minute}'</span>
+                        <span>{display.icon}</span>
+                        <span className={`${display.color} font-medium truncate`}>
+                          {getPlayerName(snapshot, evt.player_id)}
+                        </span>
+                        <Badge variant={evt.side === "Home" ? "primary" : "accent"} size="sm">
+                          {evt.side === "Home" ? snapshot.home_team.name.substring(0, 3) : snapshot.away_team.name.substring(0, 3)}
+                        </Badge>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Center: Team Talk (user only) */}
+          <div className="flex flex-col gap-4">
+            {!isSpectator ? (
+              <div className="bg-navy-800 rounded-xl border border-navy-700 p-4">
+                <div className="flex items-center gap-2 mb-4">
+                  <MessageCircle className="w-4 h-4 text-accent-400" />
+                  <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500">
+                    Team Talk
+                  </h3>
+                </div>
+
+                {!talkDelivered ? (
+                  <>
+                    <p className="text-xs text-gray-400 mb-3">
+                      Choose how you address the team at half time.
+                    </p>
+                    <div className="flex flex-col gap-2">
+                      {TEAM_TALK_OPTIONS.map(opt => (
+                        <button
+                          key={opt.id}
+                          onClick={() => setSelectedTalk(opt.id)}
+                          className={`flex items-center gap-3 p-3 rounded-lg text-left transition-all ${
+                            selectedTalk === opt.id
+                              ? "bg-primary-500/20 ring-2 ring-primary-500/50"
+                              : "bg-navy-700/50 hover:bg-navy-700"
+                          }`}
+                        >
+                          <span className="text-xl">{opt.icon}</span>
+                          <div>
+                            <p className={`text-sm font-heading font-bold ${
+                              selectedTalk === opt.id ? "text-primary-400" : "text-gray-200"
+                            }`}>{opt.label}</p>
+                            <p className="text-[11px] text-gray-500">{opt.description}</p>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                    {selectedTalk && (
+                      <button
+                        onClick={handleDeliverTalk}
+                        className="w-full mt-3 py-2.5 bg-primary-500/20 hover:bg-primary-500/30 text-primary-400 rounded-lg font-heading font-bold text-sm uppercase tracking-wider transition-colors"
+                      >
+                        Deliver Team Talk
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  <div className="flex flex-col items-center gap-2 py-4">
+                    <span className="text-3xl">{TEAM_TALK_OPTIONS.find(o => o.id === selectedTalk)?.icon}</span>
+                    <p className="text-sm font-heading font-bold text-primary-400">
+                      {TEAM_TALK_OPTIONS.find(o => o.id === selectedTalk)?.label}
+                    </p>
+                    <p className="text-xs text-gray-500 text-center">Team talk delivered. Your players react...</p>
+                    <Badge variant="success" size="sm">Players Acknowledged</Badge>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="bg-navy-800 rounded-xl border border-navy-700 p-4 flex flex-col items-center justify-center py-8">
+                <p className="text-xs font-heading uppercase tracking-widest text-gray-600 mb-1">Spectator Mode</p>
+                <p className="text-sm text-gray-400 text-center">Both managers are talking to their teams in the dressing room.</p>
+              </div>
+            )}
+          </div>
+
+          {/* Right: Tactical Changes (user only) */}
+          <div className="flex flex-col gap-4">
+            {!isSpectator && (
+              <>
+                {/* Formation */}
+                <div className="bg-navy-800 rounded-xl border border-navy-700 p-4">
+                  <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500 mb-3">
+                    Formation
+                  </h3>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {FORMATIONS.map(f => (
+                      <button
+                        key={f}
+                        onClick={() => handleFormationChange(f)}
+                        className={`py-2 rounded-lg text-xs font-heading font-bold transition-all ${
+                          userTeam.formation === f
+                            ? "bg-primary-500/20 text-primary-400 ring-1 ring-primary-500/50"
+                            : "bg-navy-700 text-gray-500 hover:text-gray-300"
+                        }`}
+                      >
+                        {f}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Play Style */}
+                <div className="bg-navy-800 rounded-xl border border-navy-700 p-4">
+                  <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500 mb-3">
+                    Play Style
+                  </h3>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {PLAY_STYLES.map(s => (
+                      <button
+                        key={s.id}
+                        onClick={() => handlePlayStyleChange(s.id)}
+                        className={`flex items-center gap-1.5 py-2 px-3 rounded-lg text-xs font-heading font-bold transition-all ${
+                          userTeam.play_style === s.id
+                            ? "bg-primary-500/20 text-primary-400 ring-1 ring-primary-500/50"
+                            : "bg-navy-700 text-gray-500 hover:text-gray-300"
+                        }`}
+                      >
+                        {PLAY_STYLE_ICONS[s.id]}
+                        {s.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Substitutions */}
+                <div className="bg-navy-800 rounded-xl border border-navy-700 p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500">
+                      Substitutions
+                    </h3>
+                    <Badge variant="neutral" size="sm">
+                      {userSide === "Home" ? snapshot.home_subs_made : snapshot.away_subs_made}/{snapshot.max_subs}
+                    </Badge>
+                  </div>
+
+                  {showSubPanel ? (
+                    <HalfTimeSubPanel
+                      snapshot={snapshot}
+                      side={userSide}
+                      gameState={gameState}
+                      onSubstitute={handleSubstitution}
+                      onClose={() => setShowSubPanel(false)}
+                    />
+                  ) : (
+                    <button
+                      onClick={() => setShowSubPanel(true)}
+                      className="w-full flex items-center justify-center gap-2 py-2.5 bg-navy-700 hover:bg-navy-600 rounded-lg text-sm font-heading uppercase tracking-wider text-gray-300 transition-colors"
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                      Make Substitution
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <footer className="bg-navy-800 border-t border-navy-700 px-6 py-4">
+        <div className="max-w-5xl mx-auto flex justify-between items-center">
+          <p className="text-xs text-gray-600 font-heading uppercase tracking-wider">
+            {isSpectator ? "Waiting for second half..." : "Make your changes, then resume the match."}
+          </p>
+          <button
+            onClick={onResume}
+            className="flex items-center gap-3 px-8 py-3 bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 rounded-xl font-heading font-bold uppercase tracking-wider text-sm text-white shadow-lg shadow-primary-500/20 transition-all"
+          >
+            <Play className="w-4 h-4" />
+            Resume Match
+          </button>
+        </div>
+      </footer>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Substitution panel for halftime
+// ---------------------------------------------------------------------------
+
+function HalfTimeSubPanel({
+  snapshot, side, gameState, onSubstitute, onClose,
+}: {
+  snapshot: MatchSnapshot;
+  side: "Home" | "Away";
+  gameState: GameStateData;
+  onSubstitute: (offId: string, onId: string) => void;
+  onClose: () => void;
+}) {
+  const [selectedOff, setSelectedOff] = useState<string | null>(null);
+  const team = side === "Home" ? snapshot.home_team : snapshot.away_team;
+  const subsMade = side === "Home" ? snapshot.home_subs_made : snapshot.away_subs_made;
+
+  const onPitchIds = new Set(team.players.map(p => p.id));
+  const benchPlayers = gameState.players.filter(p =>
+    p.team_id === team.id && !onPitchIds.has(p.id) && !p.injury
+  );
+
+  if (subsMade >= snapshot.max_subs) {
+    return (
+      <div className="flex items-center gap-2 text-yellow-500 text-xs py-2">
+        <AlertTriangle className="w-4 h-4" />
+        <span className="font-heading uppercase tracking-wider">All substitutions used</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="flex items-center justify-between mb-1">
+        <p className="text-[10px] font-heading uppercase tracking-widest text-gray-600">
+          {selectedOff ? "Select replacement" : "Select player to sub off"}
+        </p>
+        <button onClick={onClose} className="text-xs text-gray-500 hover:text-gray-300">✕</button>
+      </div>
+
+      {!selectedOff ? (
+        team.players
+          .filter(p => p.position !== "Goalkeeper" && !snapshot.sent_off.includes(p.id))
+          .map(p => (
+            <button
+              key={p.id}
+              onClick={() => setSelectedOff(p.id)}
+              className="flex items-center gap-2 px-2 py-1.5 rounded bg-navy-700 hover:bg-navy-600 transition-colors text-left"
+            >
+              <UserMinus className="w-3 h-3 text-red-400" />
+              <span className="text-xs text-gray-300 font-medium flex-1 truncate">{p.name}</span>
+              <Badge variant="neutral" size="sm">{p.position.substring(0, 3)}</Badge>
+              <span className="text-[10px] text-gray-500">{Math.round(p.condition)}%</span>
+            </button>
+          ))
+      ) : (
+        <>
+          <button onClick={() => setSelectedOff(null)} className="text-xs text-primary-400 hover:text-primary-300 mb-1">
+            ← Back
+          </button>
+          {benchPlayers.length === 0 ? (
+            <p className="text-xs text-gray-500">No bench players available.</p>
+          ) : (
+            benchPlayers.map(p => (
+              <button
+                key={p.id}
+                onClick={() => onSubstitute(selectedOff, p.id)}
+                className="flex items-center gap-2 px-2 py-1.5 rounded bg-navy-700 hover:bg-navy-600 transition-colors text-left"
+              >
+                <UserPlus className="w-3 h-3 text-green-400" />
+                <span className="text-xs text-gray-300 font-medium flex-1 truncate">{p.match_name}</span>
+                <Badge variant="neutral" size="sm">{p.position.substring(0, 3)}</Badge>
+                <span className="text-[10px] text-gray-500">{p.condition}%</span>
+              </button>
+            ))
+          )}
+        </>
+      )}
+    </div>
+  );
+}
