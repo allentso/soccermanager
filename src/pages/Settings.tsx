@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
+import { useTranslation } from "react-i18next";
 import { useSettingsStore, AppSettings } from "../store/settingsStore";
 import { useTheme } from "../context/ThemeContext";
 import { ThemeToggle } from "../components/ui";
+import { SUPPORTED_LANGUAGES } from "../i18n";
 import {
   ArrowLeft, Monitor, Moon, Sun, Gamepad2, Save,
-  Zap, Trash2, Download,
+  Zap, Trash2, Download, Globe,
 } from "lucide-react";
 
 const CURRENCY_OPTIONS = [
@@ -30,6 +32,7 @@ const MATCH_SPEED_OPTIONS = [
 export default function Settings() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { i18n } = useTranslation();
   const { settings, loaded, loadSettings, updateSettings } = useSettingsStore();
   const { theme, toggleTheme } = useTheme();
   const [confirmClear, setConfirmClear] = useState(false);
@@ -43,6 +46,13 @@ export default function Settings() {
     if (!loaded) loadSettings();
   }, [loaded, loadSettings]);
 
+  // Sync language with i18n when settings are loaded
+  useEffect(() => {
+    if (loaded && settings.language && settings.language !== i18n.language) {
+      i18n.changeLanguage(settings.language);
+    }
+  }, [loaded, settings.language, i18n]);
+
   const handleUpdate = (partial: Partial<AppSettings>) => {
     updateSettings(partial);
 
@@ -52,6 +62,11 @@ export default function Settings() {
         ? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
         : partial.theme;
       if (desired !== theme) toggleTheme();
+    }
+
+    // Sync language with i18n
+    if (partial.language) {
+      i18n.changeLanguage(partial.language);
     }
   };
 
@@ -122,6 +137,21 @@ export default function Settings() {
               value={settings.theme}
               onChange={(v) => handleUpdate({ theme: v as AppSettings["theme"] })}
             />
+          </SettingRow>
+
+          <SettingRow label="Language" description="Choose the display language">
+            <div className="flex items-center gap-2">
+              <Globe className="w-4 h-4 text-gray-400" />
+              <select
+                value={settings.language}
+                onChange={(e) => handleUpdate({ language: e.target.value })}
+                className="bg-gray-50 dark:bg-navy-700 border border-gray-300 dark:border-navy-600 text-gray-900 dark:text-white rounded-lg px-3 py-2 text-sm outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all"
+              >
+                {SUPPORTED_LANGUAGES.map((lang) => (
+                  <option key={lang.code} value={lang.code}>{lang.label}</option>
+                ))}
+              </select>
+            </div>
           </SettingRow>
 
           <SettingRow label="Currency" description="How monetary values are displayed">
@@ -237,7 +267,7 @@ export default function Settings() {
           <div className="flex justify-between items-center">
             <div>
               <p className="text-sm font-medium text-gray-800 dark:text-gray-200">OpenFoot Manager</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">v0.1.0 Alpha — Built with Tauri + React</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">v0.1.0 Alpha</p>
             </div>
             <span className="text-[10px] font-heading uppercase tracking-widest text-gray-400 dark:text-gray-600">
               Sturdy Robot

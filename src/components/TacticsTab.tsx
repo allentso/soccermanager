@@ -70,18 +70,50 @@ export default function TacticsTab({ gameState, onSelectPlayer, onGameUpdate }: 
             <div className="absolute inset-x-6 top-1/2 border-t border-white/10" />
             <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-20 h-20 border border-white/10 rounded-full" />
 
-            {/* Position groups */}
+            {/* Position groups — parsed from formation */}
             {(() => {
               const groups: Record<string, typeof roster> = { Goalkeeper: [], Defender: [], Midfielder: [], Forward: [] };
               sorted.forEach(p => { if (groups[p.position]) groups[p.position].push(p); });
-              const rows = [
-                { pos: "Goalkeeper", y: "85%", players: groups.Goalkeeper.slice(0, 1) },
-                { pos: "Defender", y: "62%", players: groups.Defender.slice(0, 4) },
-                { pos: "Midfielder", y: "38%", players: groups.Midfielder.slice(0, 4) },
-                { pos: "Forward", y: "14%", players: groups.Forward.slice(0, 2) },
-              ];
+
+              // Parse formation string (e.g. "4-3-3", "4-2-3-1", "3-5-2")
+              const parts = myTeam.formation.split("-").map(Number).filter(n => !isNaN(n));
+              let defCount = 4, midCount = 4, fwdCount = 2;
+              if (parts.length === 3) {
+                defCount = parts[0]; midCount = parts[1]; fwdCount = parts[2];
+              } else if (parts.length === 4) {
+                defCount = parts[0]; midCount = parts[1] + parts[2]; fwdCount = parts[3];
+              }
+
+              // Build rows with y-positions spaced evenly
+              // For 3-part formations: GK, DEF, MID, FWD
+              // For 4-part formations: GK, DEF, DM, AM, FWD
+              type PitchRow = { label: string; y: string; players: typeof roster };
+              let rows: PitchRow[];
+
+              if (parts.length === 4) {
+                // Split midfield into two rows (e.g. 4-2-3-1 → DEF(4), DM(2), AM(3), FWD(1))
+                const dmCount = parts[1];
+                const amCount = parts[2];
+                const dms = groups.Midfielder.slice(0, dmCount);
+                const ams = groups.Midfielder.slice(dmCount, dmCount + amCount);
+                rows = [
+                  { label: "GK", y: "88%", players: groups.Goalkeeper.slice(0, 1) },
+                  { label: "DEF", y: "70%", players: groups.Defender.slice(0, defCount) },
+                  { label: "DM", y: "50%", players: dms },
+                  { label: "AM", y: "30%", players: ams },
+                  { label: "FWD", y: "12%", players: groups.Forward.slice(0, fwdCount) },
+                ];
+              } else {
+                rows = [
+                  { label: "GK", y: "85%", players: groups.Goalkeeper.slice(0, 1) },
+                  { label: "DEF", y: "62%", players: groups.Defender.slice(0, defCount) },
+                  { label: "MID", y: "38%", players: groups.Midfielder.slice(0, midCount) },
+                  { label: "FWD", y: "14%", players: groups.Forward.slice(0, fwdCount) },
+                ];
+              }
+
               return rows.map(row => (
-                <div key={row.pos} className="absolute left-0 right-0 flex justify-center gap-6" style={{ top: row.y, transform: "translateY(-50%)" }}>
+                <div key={row.label} className="absolute left-0 right-0 flex justify-center gap-6" style={{ top: row.y, transform: "translateY(-50%)" }}>
                   {row.players.map(p => (
                     <button key={p.id} onClick={() => onSelectPlayer(p.id)} className="flex flex-col items-center gap-1 group cursor-pointer">
                       <div className={`w-10 h-10 rounded-full flex items-center justify-center font-heading font-bold text-sm border-2 transition-all group-hover:scale-110 ${

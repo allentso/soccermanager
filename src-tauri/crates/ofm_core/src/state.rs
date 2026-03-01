@@ -28,6 +28,11 @@ impl StateManager {
         lock.as_ref().map(f)
     }
 
+    pub fn clear_game(&self) {
+        let mut lock = self.active_game.lock().unwrap();
+        *lock = None;
+    }
+
     pub fn set_live_match(&self, session: LiveMatchSession) {
         let mut lock = self.live_match.lock().unwrap();
         *lock = Some(session);

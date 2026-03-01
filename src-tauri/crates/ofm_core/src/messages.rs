@@ -267,6 +267,38 @@ pub fn match_result_message(
     })
 }
 
+pub fn staff_advice_message(team_name: &str, team_id: &str, date: &str) -> InboxMessage {
+    InboxMessage::new(
+        "staff_advice_1".to_string(),
+        "Staff Report — Coaching Vacancies".to_string(),
+        format!(
+            "Boss, I've had a look at the staff situation at {} and wanted to flag a few things:\n\n\
+            • A good **Coach** will significantly improve training effectiveness — your players will develop faster.\n\
+            • A qualified **Physio** helps with injury prevention and speeds up recovery between matches.\n\
+            • Our **Scouts** can help identify transfer targets and assess opponents.\n\n\
+            I'd strongly recommend filling any vacancies before the season starts. \
+            You can find available staff in the Staff section.\n\n\
+            Check it out when you get a chance.",
+            team_name
+        ),
+        "Assistant Manager".to_string(),
+        date.to_string(),
+    )
+    .with_category(MessageCategory::Training)
+    .with_priority(MessagePriority::High)
+    .with_sender_role("Assistant Manager")
+    .with_action(MessageAction {
+        id: "view_staff".to_string(),
+        label: "View Staff".to_string(),
+        action_type: ActionType::NavigateTo { route: "/dashboard?tab=Staff".to_string() },
+        resolved: false,
+    })
+    .with_context(MessageContext {
+        team_id: Some(team_id.to_string()),
+        ..Default::default()
+    })
+}
+
 pub fn board_expectations_message(team_name: &str, team_id: &str, date: &str) -> InboxMessage {
     InboxMessage::new(
         "board_expect_1".to_string(),

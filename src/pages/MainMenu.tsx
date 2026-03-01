@@ -1,10 +1,11 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useGameStore, GameStateData } from "../store/gameStore";
 import { useTheme } from "../context/ThemeContext";
 import { Button, ThemeToggle } from "../components/ui";
-import { Play, FolderOpen, Settings, X, PlusCircle, Clock, ChevronRight, Trash2, Globe, Shuffle, Upload, Database, Users, ArrowLeft } from "lucide-react";
+import { Play, FolderOpen, Settings, X, PlusCircle, Clock, ChevronRight, Trash2, Globe, Shuffle, Upload, Database, Users, ArrowLeft, AlertCircle, ChevronDown, Check } from "lucide-react";
 
 interface SaveMetadata {
   id: string;
@@ -29,6 +30,7 @@ export default function MainMenu() {
   const setGameActive = useGameStore((state) => state.setGameActive);
   const setGameState = useGameStore((state) => state.setGameState);
   const { isDark } = useTheme();
+  const { t } = useTranslation();
   
   const [menuState, setMenuState] = useState<"main" | "create" | "world" | "load">("main");
   const [saves, setSaves] = useState<SaveMetadata[]>([]);
@@ -37,11 +39,15 @@ export default function MainMenu() {
   const [isStarting, setIsStarting] = useState(false);
 
   const [formData, setFormData] = useState({
-    firstName: "John",
-    lastName: "Doe",
-    dob: "1980-01-01",
-    nationality: "English",
+    firstName: "",
+    lastName: "",
+    dob: "",
+    nationality: "",
   });
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [nationalityOpen, setNationalityOpen] = useState(false);
+  const [nationalitySearch, setNationalitySearch] = useState("");
+  const nationalityRef = useRef<HTMLDivElement>(null);
 
   // World database state
   const [worldDatabases, setWorldDatabases] = useState<WorldDatabaseInfo[]>([]);
@@ -49,11 +55,80 @@ export default function MainMenu() {
   const [isLoadingWorlds, setIsLoadingWorlds] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const NATIONALITIES = [
+    "Afghan", "Albanian", "Algerian", "American", "Andorran", "Angolan", "Argentine",
+    "Armenian", "Australian", "Austrian", "Azerbaijani", "Bahamian", "Bahraini",
+    "Bangladeshi", "Barbadian", "Belarusian", "Belgian", "Belizean", "Beninese",
+    "Bhutanese", "Bolivian", "Bosnian", "Brazilian", "British", "Bruneian",
+    "Bulgarian", "Burkinabe", "Burmese", "Burundian", "Cambodian", "Cameroonian",
+    "Canadian", "Cape Verdean", "Central African", "Chadian", "Chilean", "Chinese",
+    "Colombian", "Comorian", "Congolese", "Costa Rican", "Croatian", "Cuban",
+    "Cypriot", "Czech", "Danish", "Djiboutian", "Dominican", "Dutch", "Ecuadorian",
+    "Egyptian", "Emirati", "English", "Equatoguinean", "Eritrean", "Estonian",
+    "Ethiopian", "Fijian", "Filipino", "Finnish", "French", "Gabonese", "Gambian",
+    "Georgian", "German", "Ghanaian", "Greek", "Grenadian", "Guatemalan", "Guinean",
+    "Guyanese", "Haitian", "Honduran", "Hungarian", "Icelandic", "Indian",
+    "Indonesian", "Iranian", "Iraqi", "Irish", "Israeli", "Italian", "Ivorian",
+    "Jamaican", "Japanese", "Jordanian", "Kazakh", "Kenyan", "Kosovar", "Kuwaiti",
+    "Kyrgyz", "Laotian", "Latvian", "Lebanese", "Liberian", "Libyan", "Lithuanian",
+    "Luxembourgish", "Macedonian", "Malagasy", "Malawian", "Malaysian", "Maldivian",
+    "Malian", "Maltese", "Mauritanian", "Mauritian", "Mexican", "Moldovan",
+    "Mongolian", "Montenegrin", "Moroccan", "Mozambican", "Namibian", "Nepalese",
+    "New Zealander", "Nicaraguan", "Nigerian", "Nigerien", "North Korean", "Northern Irish",
+    "Norwegian", "Omani", "Pakistani", "Palestinian", "Panamanian", "Paraguayan",
+    "Peruvian", "Polish", "Portuguese", "Qatari", "Romanian", "Russian", "Rwandan",
+    "Saudi", "Scottish", "Senegalese", "Serbian", "Sierra Leonean", "Singaporean",
+    "Slovak", "Slovenian", "Somali", "South African", "South Korean", "Spanish",
+    "Sri Lankan", "Sudanese", "Surinamese", "Swedish", "Swiss", "Syrian",
+    "Taiwanese", "Tajik", "Tanzanian", "Thai", "Togolese", "Trinidadian",
+    "Tunisian", "Turkish", "Turkmen", "Ugandan", "Ukrainian", "Uruguayan",
+    "Uzbek", "Venezuelan", "Vietnamese", "Welsh", "Yemeni", "Zambian", "Zimbabwean",
+  ];
+
+  const filteredNationalities = NATIONALITIES.filter(n =>
+    n.toLowerCase().includes(nationalitySearch.toLowerCase())
+  );
+
+  const validateForm = (): boolean => {
+    const errors: Record<string, string> = {};
+    if (!formData.firstName.trim()) errors.firstName = "First name is required";
+    if (!formData.lastName.trim()) errors.lastName = "Last name is required";
+    if (!formData.dob) {
+      errors.dob = "Date of birth is required";
+    } else {
+      const birthDate = new Date(formData.dob);
+      const today = new Date();
+      const age = Math.floor((today.getTime() - birthDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+      if (isNaN(age)) {
+        errors.dob = "Invalid date";
+      } else if (age < 30) {
+        errors.dob = "Manager must be at least 30 years old";
+      } else if (age > 99) {
+        errors.dob = "Invalid date of birth";
+      }
+    }
+    if (!formData.nationality) errors.nationality = "Nationality is required";
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const handleGoToWorldSelect = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!validateForm()) return;
     setMenuState("world");
     loadWorldDatabases();
   };
+
+  // Close nationality dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (nationalityRef.current && !nationalityRef.current.contains(e.target as Node)) {
+        setNationalityOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const loadWorldDatabases = async () => {
     setIsLoadingWorlds(true);
@@ -215,7 +290,7 @@ export default function MainMenu() {
               >
                 <div className="flex items-center gap-3">
                   <PlusCircle className="w-6 h-6" />
-                  <span className="font-heading font-bold text-lg uppercase tracking-wide">New Game</span>
+                  <span className="font-heading font-bold text-lg uppercase tracking-wide">{t("menu.newGame")}</span>
                 </div>
                 <ChevronRight className="w-5 h-5 opacity-70 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />
               </button>
@@ -226,7 +301,7 @@ export default function MainMenu() {
               >
                 <div className="flex items-center gap-3">
                   <FolderOpen className="w-6 h-6 text-accent-500 dark:text-accent-400" />
-                  <span className="font-heading font-bold text-lg uppercase tracking-wide">Load Game</span>
+                  <span className="font-heading font-bold text-lg uppercase tracking-wide">{t("menu.loadGame")}</span>
                 </div>
                 <ChevronRight className="w-5 h-5 opacity-0 group-hover:opacity-70 group-hover:translate-x-0.5 transition-all text-accent-500" />
               </button>
@@ -237,7 +312,7 @@ export default function MainMenu() {
               >
                 <div className="flex items-center gap-3">
                   <Settings className="w-6 h-6 text-gray-400 dark:text-gray-500" />
-                  <span className="font-heading font-bold text-lg uppercase tracking-wide">Settings</span>
+                  <span className="font-heading font-bold text-lg uppercase tracking-wide">{t("menu.settings")}</span>
                 </div>
                 <ChevronRight className="w-5 h-5 opacity-0 group-hover:opacity-70 group-hover:translate-x-0.5 transition-all text-gray-400" />
               </button>
@@ -249,11 +324,11 @@ export default function MainMenu() {
             <form onSubmit={handleGoToWorldSelect} className="flex flex-col gap-4">
               <div className="flex justify-between items-center mb-2">
                 <h2 className="text-xl font-heading font-bold uppercase tracking-wide text-gray-900 dark:text-white transition-colors">
-                  Create Manager
+                  {t("createManager.title")}
                 </h2>
                 <button 
                   type="button" 
-                  onClick={() => setMenuState("main")}
+                  onClick={() => { setMenuState("main"); setFormErrors({}); }}
                   className="text-gray-400 hover:text-gray-700 dark:hover:text-white transition-colors p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-navy-600"
                 >
                   <X className="w-5 h-5" />
@@ -267,42 +342,142 @@ export default function MainMenu() {
                 <div className="flex items-center justify-center w-6 h-6 rounded-full bg-gray-200 dark:bg-navy-600 text-gray-400 dark:text-gray-500 text-xs font-bold">2</div>
               </div>
               
+              {/* Name fields with labels */}
               <div className="flex gap-3">
-                <input
-                  className="w-full bg-gray-50 dark:bg-navy-900 border border-gray-300 dark:border-navy-600 text-gray-900 dark:text-white rounded-lg p-3 outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all placeholder:text-gray-400 dark:placeholder:text-gray-500"
-                  placeholder="First Name"
-                  value={formData.firstName}
-                  onChange={e => setFormData({...formData, firstName: e.target.value})}
-                  required
-                />
-                <input
-                  className="w-full bg-gray-50 dark:bg-navy-900 border border-gray-300 dark:border-navy-600 text-gray-900 dark:text-white rounded-lg p-3 outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all placeholder:text-gray-400 dark:placeholder:text-gray-500"
-                  placeholder="Last Name"
-                  value={formData.lastName}
-                  onChange={e => setFormData({...formData, lastName: e.target.value})}
-                  required
-                />
+                <div className="flex-1">
+                  <label className="block text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">
+                    {t("createManager.firstName")}
+                  </label>
+                  <input
+                    className={`w-full bg-gray-50 dark:bg-navy-900 border text-gray-900 dark:text-white rounded-lg p-3 outline-none focus:ring-2 transition-all placeholder:text-gray-400 dark:placeholder:text-gray-500 ${
+                      formErrors.firstName
+                        ? "border-red-400 dark:border-red-500 focus:border-red-500 focus:ring-red-500/20"
+                        : "border-gray-300 dark:border-navy-600 focus:border-primary-500 focus:ring-primary-500/20"
+                    }`}
+                    placeholder="e.g. José"
+                    value={formData.firstName}
+                    onChange={e => { setFormData({...formData, firstName: e.target.value}); setFormErrors(prev => ({...prev, firstName: ""})); }}
+                  />
+                  {formErrors.firstName && (
+                    <p className="flex items-center gap-1 text-xs text-red-500 mt-1"><AlertCircle className="w-3 h-3" />{formErrors.firstName}</p>
+                  )}
+                </div>
+                <div className="flex-1">
+                  <label className="block text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">
+                    {t("createManager.lastName")}
+                  </label>
+                  <input
+                    className={`w-full bg-gray-50 dark:bg-navy-900 border text-gray-900 dark:text-white rounded-lg p-3 outline-none focus:ring-2 transition-all placeholder:text-gray-400 dark:placeholder:text-gray-500 ${
+                      formErrors.lastName
+                        ? "border-red-400 dark:border-red-500 focus:border-red-500 focus:ring-red-500/20"
+                        : "border-gray-300 dark:border-navy-600 focus:border-primary-500 focus:ring-primary-500/20"
+                    }`}
+                    placeholder="e.g. Mourinho"
+                    value={formData.lastName}
+                    onChange={e => { setFormData({...formData, lastName: e.target.value}); setFormErrors(prev => ({...prev, lastName: ""})); }}
+                  />
+                  {formErrors.lastName && (
+                    <p className="flex items-center gap-1 text-xs text-red-500 mt-1"><AlertCircle className="w-3 h-3" />{formErrors.lastName}</p>
+                  )}
+                </div>
               </div>
               
-              <input
-                type="date"
-                className="w-full bg-gray-50 dark:bg-navy-900 border border-gray-300 dark:border-navy-600 text-gray-900 dark:text-white rounded-lg p-3 outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all"
-                style={{ colorScheme: isDark ? 'dark' : 'light' }}
-                value={formData.dob}
-                onChange={e => setFormData({...formData, dob: e.target.value})}
-                required
-              />
+              {/* Date of Birth with label */}
+              <div>
+                <label className="block text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">
+                  {t("createManager.dob")}
+                </label>
+                <input
+                  type="date"
+                  className={`w-full bg-gray-50 dark:bg-navy-900 border text-gray-900 dark:text-white rounded-lg p-3 outline-none focus:ring-2 transition-all ${
+                    formErrors.dob
+                      ? "border-red-400 dark:border-red-500 focus:border-red-500 focus:ring-red-500/20"
+                      : "border-gray-300 dark:border-navy-600 focus:border-primary-500 focus:ring-primary-500/20"
+                  }`}
+                  style={{ colorScheme: isDark ? 'dark' : 'light' }}
+                  max={(() => { const d = new Date(); d.setFullYear(d.getFullYear() - 30); return d.toISOString().split('T')[0]; })()}
+                  min="1930-01-01"
+                  value={formData.dob}
+                  onChange={e => { setFormData({...formData, dob: e.target.value}); setFormErrors(prev => ({...prev, dob: ""})); }}
+                />
+                {formErrors.dob ? (
+                  <p className="flex items-center gap-1 text-xs text-red-500 mt-1"><AlertCircle className="w-3 h-3" />{formErrors.dob}</p>
+                ) : (
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{t("createManager.minAge")}</p>
+                )}
+              </div>
               
-              <input
-                className="w-full bg-gray-50 dark:bg-navy-900 border border-gray-300 dark:border-navy-600 text-gray-900 dark:text-white rounded-lg p-3 outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all placeholder:text-gray-400 dark:placeholder:text-gray-500"
-                placeholder="Nationality"
-                value={formData.nationality}
-                onChange={e => setFormData({...formData, nationality: e.target.value})}
-                required
-              />
+              {/* Nationality combobox */}
+              <div ref={nationalityRef}>
+                <label className="block text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">
+                  {t("createManager.nationality")}
+                </label>
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => { setNationalityOpen(!nationalityOpen); setNationalitySearch(""); }}
+                    className={`w-full flex items-center justify-between bg-gray-50 dark:bg-navy-900 border text-left rounded-lg p-3 outline-none transition-all ${
+                      formErrors.nationality
+                        ? "border-red-400 dark:border-red-500"
+                        : nationalityOpen
+                          ? "border-primary-500 ring-2 ring-primary-500/20"
+                          : "border-gray-300 dark:border-navy-600"
+                    }`}
+                  >
+                    <span className={formData.nationality ? "text-gray-900 dark:text-white" : "text-gray-400 dark:text-gray-500"}>
+                      {formData.nationality || t("createManager.selectNationality")}
+                    </span>
+                    <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${nationalityOpen ? "rotate-180" : ""}`} />
+                  </button>
+
+                  {nationalityOpen && (
+                    <div className="absolute z-50 top-full mt-1 left-0 right-0 bg-white dark:bg-navy-700 rounded-lg shadow-xl border border-gray-200 dark:border-navy-600 overflow-hidden">
+                      <div className="p-2 border-b border-gray-100 dark:border-navy-600">
+                        <input
+                          type="text"
+                          autoFocus
+                          placeholder="Search nationalities..."
+                          value={nationalitySearch}
+                          onChange={e => setNationalitySearch(e.target.value)}
+                          className="w-full bg-gray-50 dark:bg-navy-800 border border-gray-200 dark:border-navy-600 text-gray-900 dark:text-white rounded-md px-3 py-2 text-sm outline-none focus:border-primary-500 transition-colors placeholder:text-gray-400 dark:placeholder:text-gray-500"
+                        />
+                      </div>
+                      <div className="max-h-48 overflow-y-auto">
+                        {filteredNationalities.length === 0 ? (
+                          <p className="px-3 py-2 text-xs text-gray-400 dark:text-gray-500">No results</p>
+                        ) : (
+                          filteredNationalities.map(nat => (
+                            <button
+                              key={nat}
+                              type="button"
+                              onClick={() => {
+                                setFormData({...formData, nationality: nat});
+                                setNationalityOpen(false);
+                                setNationalitySearch("");
+                                setFormErrors(prev => ({...prev, nationality: ""}));
+                              }}
+                              className={`w-full text-left px-3 py-2 text-sm flex items-center justify-between transition-colors ${
+                                formData.nationality === nat
+                                  ? "bg-primary-50 dark:bg-primary-500/10 text-primary-600 dark:text-primary-400"
+                                  : "text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-navy-600"
+                              }`}
+                            >
+                              <span>{nat}</span>
+                              {formData.nationality === nat && <Check className="w-4 h-4 text-primary-500" />}
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                {formErrors.nationality && (
+                  <p className="flex items-center gap-1 text-xs text-red-500 mt-1"><AlertCircle className="w-3 h-3" />{formErrors.nationality}</p>
+                )}
+              </div>
               
               <Button type="submit" variant="primary" size="lg" className="mt-2 w-full" iconRight={<ChevronRight />}>
-                Choose World
+                {t("createManager.chooseWorld")}
               </Button>
             </form>
           )}
@@ -497,7 +672,7 @@ export default function MainMenu() {
       
       {/* Version */}
       <div className="absolute bottom-4 right-4 text-gray-400 dark:text-gray-600 text-xs font-heading uppercase tracking-widest transition-colors">
-        v0.1.0 Alpha
+        {t("app.version")}
       </div>
     </div>
   );

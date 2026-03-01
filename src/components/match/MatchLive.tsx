@@ -563,7 +563,7 @@ function Lineups({ snapshot }: { snapshot: MatchSnapshot }) {
   );
 }
 
-function SubPanel({ snapshot, side, onSubstitute, onClose }: {
+export function SubPanel({ snapshot, side, onSubstitute, onClose }: {
   snapshot: MatchSnapshot; side: "Home" | "Away";
   onSubstitute: (offId: string, onId: string) => void; onClose: () => void;
 }) {

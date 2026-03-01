@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { GameStateData, PlayerData } from "../../store/gameStore";
-import { MatchSnapshot, FORMATIONS, PLAY_STYLES } from "./types";
+import { MatchSnapshot, EnginePlayerData, FORMATIONS, PLAY_STYLES } from "./types";
 import { Badge } from "../ui";
 import {
   ChevronRight, Shield, Zap, Target, RefreshCw, Crosshair, Flag,
-  Crown, Footprints, CornerDownRight, CircleDot, ArrowUpDown, Check
+  Crown, Footprints, CornerDownRight, CircleDot, ArrowUpDown, Check,
+  Wand2, AlertTriangle
 } from "lucide-react";
 
 interface PreMatchSetupProps {
@@ -25,9 +26,50 @@ const PLAY_STYLE_ICONS: Record<string, React.ReactNode> = {
   HighPress: <Flag className="w-4 h-4" />,
 };
 
+const POSITION_KEY_STATS: Record<string, { label: string; key: string }[]> = {
+  Goalkeeper: [{ label: "HAN", key: "handling" }, { label: "REF", key: "reflexes" }, { label: "AER", key: "aerial" }],
+  Defender: [{ label: "DEF", key: "defending" }, { label: "TAC", key: "tackling" }, { label: "STR", key: "strength" }],
+  Midfielder: [{ label: "PAS", key: "passing" }, { label: "VIS", key: "vision" }, { label: "STA", key: "stamina" }],
+  Forward: [{ label: "SHO", key: "shooting" }, { label: "PAC", key: "pace" }, { label: "DRI", key: "dribbling" }],
+};
+
+function parseFormationNeeds(formation: string): Record<string, number> {
+  const parts = formation.split("-").map(Number).filter(n => !isNaN(n));
+  if (parts.length === 3) return { Goalkeeper: 1, Defender: parts[0], Midfielder: parts[1], Forward: parts[2] };
+  if (parts.length === 4) return { Goalkeeper: parts[0], Defender: parts[1], Midfielder: parts[2], Forward: parts[3] };
+  return { Goalkeeper: 1, Defender: 4, Midfielder: 4, Forward: 2 };
+}
+
+function getPositionOvr(p: EnginePlayerData): number {
+  switch (p.position) {
+    case "Goalkeeper": return Math.round((p.handling * 2 + p.reflexes * 2 + p.aerial + p.positioning + p.composure) / 7);
+    case "Defender": return Math.round((p.defending * 2 + p.tackling * 2 + p.strength + p.positioning + p.aerial) / 7);
+    case "Midfielder": return Math.round((p.passing * 2 + p.vision + p.decisions + p.stamina + p.dribbling + p.teamwork) / 7);
+    case "Forward": return Math.round((p.shooting * 2 + p.pace + p.dribbling + p.composure + p.strength + p.positioning) / 7);
+    default: return 50;
+  }
+}
+
+function condColor(c: number): string {
+  if (c >= 75) return "text-primary-400";
+  if (c >= 50) return "text-amber-400";
+  return "text-red-400";
+}
+
+function statColor(v: number): string {
+  if (v >= 75) return "text-primary-400 font-bold";
+  if (v >= 60) return "text-gray-200";
+  return "text-gray-500";
+}
+
+function getStatVal(p: EnginePlayerData, key: string): number {
+  return (p as unknown as Record<string, number>)[key] ?? 0;
+}
+
 export default function PreMatchSetup({ snapshot, gameState, userSide, onStart, onUpdateSnapshot }: PreMatchSetupProps) {
   const [activeTab, setActiveTab] = useState<"lineup" | "setpieces">("lineup");
   const [selectedStarterId, setSelectedStarterId] = useState<string | null>(null);
+  const [isAutoSelecting, setIsAutoSelecting] = useState(false);
 
   const userTeam = userSide === "Home" ? snapshot.home_team : snapshot.away_team;
   const oppTeam = userSide === "Home" ? snapshot.away_team : snapshot.home_team;
@@ -96,12 +138,52 @@ export default function PreMatchSetup({ snapshot, gameState, userSide, onStart, 
     }
   };
 
-  const getPlayerOvr = (p: PlayerData) => {
-    const a = p.attributes;
-    return Math.round(
-      (a.pace + a.stamina + a.strength + a.passing + a.shooting +
-        a.tackling + a.dribbling + a.defending + a.positioning + a.vision + a.decisions) / 11
-    );
+  const formationNeeds = parseFormationNeeds(userTeam.formation);
+
+  const handleAutoSelect = async () => {
+    setIsAutoSelecting(true);
+    try {
+      const pool = [...userTeam.players, ...userBench];
+      const idealIds = new Set<string>();
+
+      for (const pos of ["Goalkeeper", "Defender", "Midfielder", "Forward"]) {
+        const candidates = pool
+          .filter(p => p.position === pos)
+          .sort((a, b) => getPositionOvr(b) * (b.condition / 100) - getPositionOvr(a) * (a.condition / 100));
+        const needed = formationNeeds[pos] || 0;
+        for (let i = 0; i < Math.min(needed, candidates.length); i++) {
+          idealIds.add(candidates[i].id);
+        }
+      }
+
+      // Fill remaining slots if fewer than 11 (e.g. not enough of a position)
+      if (idealIds.size < 11) {
+        const rest = pool
+          .filter(p => !idealIds.has(p.id))
+          .sort((a, b) => getPositionOvr(b) * (b.condition / 100) - getPositionOvr(a) * (a.condition / 100));
+        for (const p of rest) {
+          if (idealIds.size >= 11) break;
+          idealIds.add(p.id);
+        }
+      }
+
+      const currentIds = new Set(userTeam.players.map(p => p.id));
+      const toAdd = [...idealIds].filter(id => !currentIds.has(id));
+      const toRemove = [...currentIds].filter(id => !idealIds.has(id));
+
+      let snap: MatchSnapshot | null = null;
+      for (let i = 0; i < Math.min(toAdd.length, toRemove.length); i++) {
+        snap = await invoke<MatchSnapshot>("apply_match_command", {
+          command: { PreMatchSwap: { side: userSide, player_off_id: toRemove[i], player_on_id: toAdd[i] } }
+        });
+      }
+      if (snap) onUpdateSnapshot(snap);
+    } catch (err) {
+      console.error("Auto-select failed:", err);
+    } finally {
+      setIsAutoSelecting(false);
+      setSelectedStarterId(null);
+    }
   };
 
   const positions = ["Goalkeeper", "Defender", "Midfielder", "Forward"];
@@ -227,113 +309,188 @@ export default function PreMatchSetup({ snapshot, gameState, userSide, onStart, 
 
           {/* Lineup Tab */}
           {activeTab === "lineup" && (
-            <div className="grid grid-cols-2 gap-4">
-              {/* Starting XI */}
-              <div className="bg-navy-800 rounded-xl border border-navy-700 p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500">
-                    Starting XI
-                  </h3>
-                  <div className="flex items-center gap-2">
-                    {selectedStarterId && (
-                      <button onClick={() => setSelectedStarterId(null)} className="text-[10px] text-gray-500 hover:text-gray-300 font-heading uppercase tracking-wider">Cancel</button>
-                    )}
-                    <Badge variant="primary" size="sm">{userTeam.players.length} players</Badge>
-                  </div>
+            <div className="flex flex-col gap-4">
+              {/* Formation Balance Bar + Auto-Select */}
+              <div className="bg-navy-800 rounded-xl border border-navy-700 p-3 flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <span className="text-[10px] font-heading uppercase tracking-widest text-gray-600">Formation Fit</span>
+                  {(["Goalkeeper", "Defender", "Midfielder", "Forward"] as const).map(pos => {
+                    const needed = formationNeeds[pos] || 0;
+                    const actual = userTeam.players.filter(p => p.position === pos).length;
+                    const ok = actual === needed;
+                    return (
+                      <div key={pos} className="flex items-center gap-1">
+                        <span className="text-[10px] font-heading uppercase tracking-widest text-gray-500">{pos.substring(0, 3)}</span>
+                        <span className={`text-sm font-heading font-bold tabular-nums ${ok ? "text-primary-400" : "text-amber-400"}`}>
+                          {actual}/{needed}
+                        </span>
+                        {!ok && <AlertTriangle className="w-3 h-3 text-amber-400" />}
+                      </div>
+                    );
+                  })}
                 </div>
-                {selectedStarterId && (
-                  <p className="text-[10px] text-accent-400 font-heading uppercase tracking-wider mb-2">Select a bench player to swap with</p>
-                )}
-                {positions.map(pos => {
-                  const players = userTeam.players.filter(p => p.position === pos);
-                  if (players.length === 0) return null;
-                  return (
-                    <div key={pos} className="mb-3">
-                      <p className="text-[10px] font-heading uppercase tracking-widest text-gray-600 mb-1">{pos}s</p>
-                      {players.map(p => {
-                        const squad = allSquadPlayers.find(sp => sp.id === p.id);
-                        const ovr = squad ? getPlayerOvr(squad) : 0;
-                        const isSelected = selectedStarterId === p.id;
+                <button
+                  onClick={handleAutoSelect}
+                  disabled={isAutoSelecting}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-heading font-bold uppercase tracking-wider transition-all ${
+                    isAutoSelecting
+                      ? "bg-navy-700 text-gray-500 cursor-wait"
+                      : "bg-accent-500/20 text-accent-400 hover:bg-accent-500/30 hover:text-accent-300"
+                  }`}
+                >
+                  <Wand2 className="w-3.5 h-3.5" />
+                  {isAutoSelecting ? "Selecting..." : "Auto-Select Best XI"}
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                {/* Starting XI */}
+                <div className="bg-navy-800 rounded-xl border border-navy-700 p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500">
+                      Starting XI
+                    </h3>
+                    <div className="flex items-center gap-2">
+                      {selectedStarterId && (
+                        <button onClick={() => setSelectedStarterId(null)} className="text-[10px] text-gray-500 hover:text-gray-300 font-heading uppercase tracking-wider">Cancel</button>
+                      )}
+                      <Badge variant="primary" size="sm">{userTeam.players.length} players</Badge>
+                    </div>
+                  </div>
+                  {selectedStarterId && (
+                    <p className="text-[10px] text-accent-400 font-heading uppercase tracking-wider mb-2">Select a bench player to swap with</p>
+                  )}
+                  {positions.map(pos => {
+                    const players = userTeam.players.filter(p => p.position === pos);
+                    if (players.length === 0) return null;
+                    const needed = formationNeeds[pos] || 0;
+                    const balanced = players.length === needed;
+                    const keyStats = POSITION_KEY_STATS[pos] || [];
+                    return (
+                      <div key={pos} className="mb-3">
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="flex items-center gap-1.5">
+                            <p className="text-[10px] font-heading uppercase tracking-widest text-gray-600">{pos}s</p>
+                            {!balanced && (
+                              <span className="flex items-center gap-0.5">
+                                <AlertTriangle className="w-2.5 h-2.5 text-amber-400" />
+                                <span className="text-[9px] font-heading text-amber-400">{players.length}/{needed}</span>
+                              </span>
+                            )}
+                          </div>
+                          {/* Stat column headers */}
+                          <div className="flex items-center gap-0">
+                            {keyStats.map(s => (
+                              <span key={s.label} className="text-[8px] font-heading uppercase tracking-widest text-gray-600 w-7 text-center">{s.label}</span>
+                            ))}
+                            <span className="text-[8px] font-heading uppercase tracking-widest text-gray-600 w-8 text-right">FIT</span>
+                          </div>
+                        </div>
+                        {players.map(p => {
+                          const posOvr = getPositionOvr(p);
+                          const isSelected = selectedStarterId === p.id;
+                          return (
+                            <button
+                              key={p.id}
+                              onClick={() => setSelectedStarterId(isSelected ? null : p.id)}
+                              className={`flex items-center gap-2 py-1.5 px-2 rounded w-full text-left transition-all ${
+                                isSelected
+                                  ? "bg-primary-500/20 ring-1 ring-primary-500/50"
+                                  : "hover:bg-navy-700/50"
+                              }`}
+                            >
+                              <div
+                                className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-heading font-bold flex-shrink-0"
+                                style={{ backgroundColor: userColor + "30", color: userColor }}
+                              >
+                                {posOvr}
+                              </div>
+                              <span className="text-sm text-gray-200 font-medium flex-1 truncate">{p.name}</span>
+                              {isSelected && <ArrowUpDown className="w-3.5 h-3.5 text-primary-400 flex-shrink-0" />}
+                              <div className="flex items-center gap-0">
+                                {keyStats.map(s => (
+                                  <span key={s.label} className={`text-[10px] font-heading tabular-nums w-7 text-center ${statColor(getStatVal(p, s.key))}`}>
+                                    {getStatVal(p, s.key)}
+                                  </span>
+                                ))}
+                              </div>
+                              <span className={`text-xs tabular-nums w-8 text-right ${condColor(p.condition)}`}>{Math.round(p.condition)}%</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Bench */}
+                <div className="bg-navy-800 rounded-xl border border-navy-700 p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500">
+                      Substitutes
+                    </h3>
+                    <Badge variant="neutral" size="sm">{userBench.length} available</Badge>
+                  </div>
+                  {userBench.length === 0 ? (
+                    <p className="text-xs text-gray-600">No bench players available.</p>
+                  ) : (
+                    <div className="flex flex-col gap-1">
+                      {/* Bench column header */}
+                      <div className="flex items-center gap-2 px-2 pb-1">
+                        <span className="w-7" />
+                        <span className="flex-1" />
+                        <span className="text-[8px] font-heading uppercase tracking-widest text-gray-600 w-8 text-center">POS</span>
+                        <span className="text-[8px] font-heading uppercase tracking-widest text-gray-600 w-[84px] text-center">Key Stats</span>
+                        <span className="text-[8px] font-heading uppercase tracking-widest text-gray-600 w-8 text-right">FIT</span>
+                      </div>
+                      {userBench.map(bp => {
+                        const posOvr = getPositionOvr(bp);
+                        const keyStats = POSITION_KEY_STATS[bp.position] || [];
                         return (
                           <button
-                            key={p.id}
-                            onClick={() => setSelectedStarterId(isSelected ? null : p.id)}
+                            key={bp.id}
+                            onClick={() => selectedStarterId ? handleSwap(bp.id) : null}
                             className={`flex items-center gap-2 py-1.5 px-2 rounded w-full text-left transition-all ${
-                              isSelected
-                                ? "bg-primary-500/20 ring-1 ring-primary-500/50"
+                              selectedStarterId
+                                ? "hover:bg-primary-500/20 hover:ring-1 hover:ring-primary-500/50 cursor-pointer"
                                 : "hover:bg-navy-700/50"
                             }`}
                           >
-                            <div
-                              className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-heading font-bold flex-shrink-0"
-                              style={{ backgroundColor: userColor + "30", color: userColor }}
-                            >
-                              {ovr}
+                            <div className="w-7 h-7 rounded-full bg-navy-600 flex items-center justify-center text-[10px] font-heading font-bold text-gray-400 flex-shrink-0">
+                              {posOvr}
                             </div>
-                            <span className="text-sm text-gray-200 font-medium flex-1 truncate">{p.name}</span>
-                            {isSelected && <ArrowUpDown className="w-3.5 h-3.5 text-primary-400 flex-shrink-0" />}
-                            <Badge variant="neutral" size="sm">{pos.substring(0, 3)}</Badge>
-                            <span className="text-xs text-gray-500 tabular-nums">{Math.round(p.condition)}%</span>
+                            <span className="text-sm text-gray-300 font-medium flex-1 truncate">{bp.name}</span>
+                            <Badge variant="neutral" size="sm">{bp.position.substring(0, 3)}</Badge>
+                            <div className="flex items-center gap-0">
+                              {keyStats.map(s => (
+                                <span key={s.label} className={`text-[10px] font-heading tabular-nums w-7 text-center ${statColor(getStatVal(bp, s.key))}`}>
+                                  {getStatVal(bp, s.key)}
+                                </span>
+                              ))}
+                            </div>
+                            <span className={`text-xs tabular-nums w-8 text-right ${condColor(bp.condition)}`}>{Math.round(bp.condition)}%</span>
                           </button>
                         );
                       })}
                     </div>
-                  );
-                })}
-              </div>
+                  )}
 
-              {/* Bench */}
-              <div className="bg-navy-800 rounded-xl border border-navy-700 p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500">
-                    Substitutes
-                  </h3>
-                  <Badge variant="neutral" size="sm">{userBench.length} available</Badge>
-                </div>
-                {userBench.length === 0 ? (
-                  <p className="text-xs text-gray-600">No bench players available.</p>
-                ) : (
-                  <div className="flex flex-col gap-1">
-                    {userBench.map(bp => {
-                      const squad = allSquadPlayers.find(sp => sp.id === bp.id);
-                      const ovr = squad ? getPlayerOvr(squad) : 0;
-                      return (
-                        <button
-                          key={bp.id}
-                          onClick={() => selectedStarterId ? handleSwap(bp.id) : null}
-                          className={`flex items-center gap-2 py-1.5 px-2 rounded w-full text-left transition-all ${
-                            selectedStarterId
-                              ? "hover:bg-primary-500/20 hover:ring-1 hover:ring-primary-500/50 cursor-pointer"
-                              : "hover:bg-navy-700/50"
-                          }`}
-                        >
-                          <div className="w-6 h-6 rounded-full bg-navy-600 flex items-center justify-center text-[10px] font-heading font-bold text-gray-400 flex-shrink-0">
-                            {ovr}
-                          </div>
-                          <span className="text-sm text-gray-300 font-medium flex-1 truncate">{bp.name}</span>
-                          <Badge variant="neutral" size="sm">{bp.position.substring(0, 3)}</Badge>
-                          <span className="text-xs text-gray-500 tabular-nums">{Math.round(bp.condition)}%</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {/* Opponent Info */}
-                <div className="mt-6 pt-4 border-t border-navy-700">
-                  <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500 mb-3">
-                    Opponent
-                  </h3>
-                  <div className="flex items-center gap-3 mb-2">
-                    <div
-                      className="w-10 h-10 rounded-lg flex items-center justify-center font-heading font-bold text-sm"
-                      style={{ backgroundColor: (userSide === "Home" ? awayTeamColor : homeTeamColor) + "30" }}
-                    >
-                      {oppTeam.name.substring(0, 3).toUpperCase()}
-                    </div>
-                    <div>
-                      <p className="font-heading font-bold text-sm text-gray-200">{oppTeam.name}</p>
-                      <p className="text-xs text-gray-500">{oppTeam.formation} · {oppTeam.play_style}</p>
+                  {/* Opponent Info */}
+                  <div className="mt-6 pt-4 border-t border-navy-700">
+                    <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500 mb-3">
+                      Opponent
+                    </h3>
+                    <div className="flex items-center gap-3 mb-2">
+                      <div
+                        className="w-10 h-10 rounded-lg flex items-center justify-center font-heading font-bold text-sm"
+                        style={{ backgroundColor: (userSide === "Home" ? awayTeamColor : homeTeamColor) + "30" }}
+                      >
+                        {oppTeam.name.substring(0, 3).toUpperCase()}
+                      </div>
+                      <div>
+                        <p className="font-heading font-bold text-sm text-gray-200">{oppTeam.name}</p>
+                        <p className="text-xs text-gray-500">{oppTeam.formation} · {oppTeam.play_style}</p>
+                      </div>
                     </div>
                   </div>
                 </div>

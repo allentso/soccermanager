@@ -1,0 +1,148 @@
+{
+  "app": {
+    "name": "OpenFoot Manager",
+    "version": "v0.1.0 Alpha"
+  },
+  "menu": {
+    "newGame": "Novo Jogo",
+    "loadGame": "Carregar Jogo",
+    "settings": "Definições",
+    "noSaves": "Nenhum jogo guardado encontrado.",
+    "loadingSaves": "A carregar jogos...",
+    "deleteConfirm": "Eliminar <strong>{{name}}</strong>?",
+    "delete": "Eliminar",
+    "cancel": "Cancelar"
+  },
+  "createManager": {
+    "title": "Criar Treinador",
+    "firstName": "Nome",
+    "lastName": "Apelido",
+    "dob": "Data de Nascimento",
+    "nationality": "Nacionalidade",
+    "selectNationality": "Selecionar nacionalidade...",
+    "searchNationalities": "Procurar nacionalidades...",
+    "chooseWorld": "Escolher Mundo",
+    "minAge": "Idade mínima: 30 anos",
+    "placeholderFirst": "ex. José",
+    "placeholderLast": "ex. Mourinho"
+  },
+  "validation": {
+    "required": "{{field}} é obrigatório",
+    "minAge": "O treinador deve ter pelo menos 30 anos",
+    "invalidDate": "Data inválida",
+    "invalidDob": "Data de nascimento inválida"
+  },
+  "worldSelect": {
+    "title": "Escolher Mundo",
+    "scanning": "A procurar bases de dados...",
+    "importFile": "Importar ficheiro",
+    "startCareer": "Iniciar Carreira",
+    "creatingWorld": "A criar mundo...",
+    "teams": "{{count}} equipas",
+    "players": "{{count}} jogadores",
+    "randomWorld": "Mundo Aleatório",
+    "randomDescription": "Liga gerada aleatoriamente com equipas, jogadores e staff"
+  },
+  "dashboard": {
+    "home": "Início",
+    "inbox": "Caixa de Entrada",
+    "manager": "Treinador",
+    "squad": "Plantel",
+    "tactics": "Tática",
+    "training": "Treino",
+    "staff": "Staff",
+    "finances": "Finanças",
+    "transfers": "Transferências",
+    "players": "Jogadores",
+    "teams": "Equipas",
+    "tournaments": "Torneios",
+    "schedule": "Calendário",
+    "news": "Notícias",
+    "settings": "Definições",
+    "exitToMenu": "Sair para o Menu",
+    "continue": "Continuar",
+    "simulating": "A simular...",
+    "searchPlaceholder": "Procurar jogadores, equipas...",
+    "sectionClub": "Clube",
+    "sectionWorld": "Mundo"
+  },
+  "continueMenu": {
+    "goToField": "Ir para o Campo",
+    "goToFieldDesc": "Controlo total do jogo",
+    "watchSpectator": "Ver como Espetador",
+    "watchSpectatorDesc": "Ver o jogo sem controlos",
+    "delegateAssistant": "Delegar ao Assistente",
+    "delegateAssistantDesc": "A IA trata de tudo",
+    "skipToMatchDay": "Avançar para o Dia de Jogo",
+    "skipToMatchDayDesc": "Avançar até ao próximo jogo"
+  },
+  "exitConfirm": {
+    "title": "Sair para o Menu Principal?",
+    "message": "O teu jogo será guardado automaticamente antes de voltar ao menu principal.",
+    "cancel": "Cancelar",
+    "saveExit": "Guardar e Sair"
+  },
+  "onboarding": {
+    "title": "Primeiros Passos",
+    "description": "Completa estes passos para preparar a tua equipa para a próxima temporada.",
+    "reviewSquad": "Revê o teu plantel",
+    "reviewSquadDesc": "Consulta estatísticas, condição e características dos jogadores",
+    "hireStaff": "Contrata staff técnico",
+    "hireStaffDesc": "O staff melhora a qualidade do treino e a recuperação",
+    "setTactics": "Define a tua formação e tática",
+    "setTacticsDesc": "Escolhe uma formação e estilo de jogo adequados ao teu plantel",
+    "configTraining": "Configura o treino",
+    "configTrainingDesc": "Escolhe um foco e horário para desenvolver os teus jogadores",
+    "readMessages": "Lê as tuas mensagens",
+    "readMessagesDesc": "Informações importantes da direção e staff à tua espera"
+  },
+  "home": {
+    "nextMatch": "Próximo Jogo",
+    "leaguePosition": "Posição na Liga",
+    "standings": "Classificação",
+    "noLeague": "Sem dados de liga ainda.",
+    "squadOverview": "Resumo do Plantel",
+    "avgCondition": "Condição Média",
+    "avgOvr": "Média OVR",
+    "exhaustedPlayers": "{{count}} jogador(es) exausto(s)",
+    "recentResults": "Resultados Recentes",
+    "noMatches": "Nenhum jogo disputado ainda.",
+    "latestNews": "Últimas Notícias",
+    "allNews": "Todas as Notícias",
+    "noNews": "Sem notícias ainda.",
+    "recentMessages": "Mensagens Recentes",
+    "viewAll": "Ver Tudo",
+    "noMessages": "Sem mensagens recentes.",
+    "unreadMessages": "{{count}} mensagem(ns) por ler"
+  },
+  "common": {
+    "loading": "A carregar...",
+    "loadingGameState": "A carregar estado do jogo...",
+    "noResults": "Sem resultados.",
+    "place": {
+      "1": "1º",
+      "2": "2º",
+      "3": "3º",
+      "other": "{{n}}º"
+    },
+    "pts": "pts",
+    "played": "J",
+    "won": "V",
+    "drawn": "E",
+    "lost": "D"
+  },
+  "teamSelection": {
+    "title": "Escolhe o Teu Clube",
+    "subtitle": "Seleciona a equipa que queres treinar",
+    "confirming": "A confirmar...",
+    "manage": "Treinar {{team}}",
+    "reputation": "Reputação",
+    "squad": "Plantel",
+    "finances": "Finanças",
+    "avgOvr": "Média OVR",
+    "worldClass": "Classe Mundial",
+    "strong": "Forte",
+    "average": "Médio",
+    "developing": "Em Desenvolvimento"
+  }
+}

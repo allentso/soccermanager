@@ -19,15 +19,16 @@ import StaffTab from "../components/StaffTab";
 import InboxTab from "../components/InboxTab";
 import ManagerTab from "../components/ManagerTab";
 import NewsTab from "../components/NewsTab";
-import { Users, Calendar as CalendarIcon, Mail, Settings, ChevronRight, ChevronDown, Briefcase, Trophy, TrendingUp, Crosshair, Dumbbell, DollarSign, Search, User, UsersRound, Building2, UserCog, Newspaper } from "lucide-react";
+import { Users, Calendar as CalendarIcon, Mail, Settings, ChevronRight, ChevronDown, Briefcase, Trophy, TrendingUp, Crosshair, Dumbbell, DollarSign, Search, User, UsersRound, Building2, UserCog, Newspaper, LogOut, ArrowLeft } from "lucide-react";
 import { getTeamName } from "../lib/helpers";
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { hasActiveGame, managerName, gameState, setGameState } = useGameStore();
+  const { hasActiveGame, managerName, gameState, setGameState, clearGame } = useGameStore();
   const [isAdvancing, setIsAdvancing] = useState(false);
   const [activeTab, setActiveTab] = useState("Home");
   const [showContinueMenu, setShowContinueMenu] = useState(false);
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -124,6 +125,19 @@ export default function Dashboard() {
     }
   };
 
+  const handleExitToMenu = async () => {
+    try {
+      await invoke("exit_to_menu");
+      clearGame();
+      navigate("/");
+    } catch (err) {
+      console.error("Failed to exit:", err);
+      // Still navigate even if save fails
+      clearGame();
+      navigate("/");
+    }
+  };
+
   const selectPlayer = (id: string) => {
     pushHistory();
     setSelectedPlayerId(id);
@@ -202,8 +216,8 @@ export default function Dashboard() {
           <NavItem icon={<Newspaper />} label="News" active={activeTab === "News"} onClick={() => handleNavClick("News")} />
         </nav>
         
-        {/* Settings */}
-        <div className="p-3 border-t border-navy-700">
+        {/* Settings & Exit */}
+        <div className="p-3 border-t border-navy-700 flex flex-col gap-1">
           <button 
             onClick={() => navigate("/settings", { state: { from: "/dashboard" } })}
             className="flex items-center gap-3 w-full p-3 hover:bg-white/5 rounded-lg transition-colors text-gray-500 hover:text-gray-300"
@@ -211,19 +225,65 @@ export default function Dashboard() {
             <Settings className="w-5 h-5" />
             <span className="font-heading text-sm uppercase tracking-wider">Settings</span>
           </button>
+          <button 
+            onClick={() => setShowExitConfirm(true)}
+            className="flex items-center gap-3 w-full p-3 hover:bg-red-500/10 rounded-lg transition-colors text-gray-500 hover:text-red-400"
+          >
+            <LogOut className="w-5 h-5" />
+            <span className="font-heading text-sm uppercase tracking-wider">Exit to Menu</span>
+          </button>
         </div>
       </aside>
+
+      {/* Exit Confirmation Modal */}
+      {showExitConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white dark:bg-navy-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-navy-600 w-full max-w-sm p-6 mx-4">
+            <h3 className="text-lg font-heading font-bold uppercase tracking-wide text-gray-900 dark:text-white">
+              Exit to Main Menu?
+            </h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+              Your game will be saved automatically before returning to the main menu.
+            </p>
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setShowExitConfirm(false)}
+                className="flex-1 py-2.5 px-4 bg-gray-100 dark:bg-navy-700 hover:bg-gray-200 dark:hover:bg-navy-600 text-gray-700 dark:text-gray-300 font-heading font-bold text-sm uppercase tracking-wider rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => { setShowExitConfirm(false); handleExitToMenu(); }}
+                className="flex-1 py-2.5 px-4 bg-red-500 hover:bg-red-600 text-white font-heading font-bold text-sm uppercase tracking-wider rounded-lg transition-colors"
+              >
+                Save & Exit
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col h-screen overflow-hidden">
         {/* Top Header Bar */}
         <header className="bg-white dark:bg-navy-800 border-b border-gray-200 dark:border-navy-700 px-6 py-3 flex justify-between items-center shadow-sm z-10 transition-colors duration-300">
-          <div>
-            <h2 className="text-xl font-heading font-bold uppercase tracking-wide text-gray-800 dark:text-gray-100">{activeTab}</h2>
-            <p className="text-gray-500 dark:text-gray-400 text-xs flex items-center gap-1.5 mt-0.5">
-              <CalendarIcon className="w-3.5 h-3.5" /> 
-              <span className="font-medium">{currentDate}</span>
-            </p>
+          <div className="flex items-center gap-3">
+            {(navHistory.length > 0 || selectedPlayerId || selectedTeamId) && (
+              <button
+                onClick={handleBack}
+                className="p-2 -ml-2 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-navy-700 transition-colors"
+                title="Go back"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </button>
+            )}
+            <div>
+              <h2 className="text-xl font-heading font-bold uppercase tracking-wide text-gray-800 dark:text-gray-100">{activeTab}</h2>
+              <p className="text-gray-500 dark:text-gray-400 text-xs flex items-center gap-1.5 mt-0.5">
+                <CalendarIcon className="w-3.5 h-3.5" /> 
+                <span className="font-medium">{currentDate}</span>
+              </p>
+            </div>
           </div>
           
           {/* Centered Omni-search */}

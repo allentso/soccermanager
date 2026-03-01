@@ -20,9 +20,9 @@ fn list_world_databases(
     let mut databases = vec![WorldDatabaseInfo {
         id: "random".to_string(),
         name: "Random World".to_string(),
-        description: "Randomly generated league with 8 teams, players, and staff".to_string(),
-        team_count: 8,
-        player_count: 160,
+        description: "Randomly generated league with 16 teams across Europe".to_string(),
+        team_count: 16,
+        player_count: 352,
         source: "builtin".to_string(),
         path: String::new(),
     }];
@@ -59,6 +59,29 @@ fn start_new_game(
     nationality: String,
     world_source: Option<String>,
 ) -> Result<Game, String> {
+    // Validate inputs
+    let first_name = first_name.trim().to_string();
+    let last_name = last_name.trim().to_string();
+    if first_name.is_empty() || last_name.is_empty() {
+        return Err("First name and last name are required.".to_string());
+    }
+    let nationality = nationality.trim().to_string();
+    if nationality.is_empty() {
+        return Err("Nationality is required.".to_string());
+    }
+
+    // Validate DOB: must be a valid date and manager must be at least 30 years old
+    let birth_date = chrono::NaiveDate::parse_from_str(&dob, "%Y-%m-%d")
+        .map_err(|_| "Invalid date of birth. Use YYYY-MM-DD format.".to_string())?;
+    let today = chrono::Utc::now().date_naive();
+    let age = today.signed_duration_since(birth_date).num_days() / 365;
+    if age < 30 {
+        return Err("Manager must be at least 30 years old.".to_string());
+    }
+    if age > 99 {
+        return Err("Invalid date of birth.".to_string());
+    }
+
     let manager = Manager::new(
         "mgr_user".to_string(),
         first_name,
@@ -74,7 +97,7 @@ fn start_new_game(
     // Load world based on source
     let world_source = world_source.unwrap_or_else(|| "random".to_string());
     let (teams, players, staff) = if world_source == "random" {
-        ofm_core::generator::generate_world()
+        ofm_core::generator::generate_world(None)
     } else {
         // Try to load from file path (strip "file:" prefix if present)
         let path = world_source.strip_prefix("file:").unwrap_or(&world_source);
@@ -190,6 +213,9 @@ fn select_team(
 
     let board_msg = ofm_core::messages::board_expectations_message(&team_name, &team_id, &date_str);
     game.messages.push(board_msg);
+
+    let staff_msg = ofm_core::messages::staff_advice_message(&team_name, &team_id, &date_str);
+    game.messages.push(staff_msg);
 
     // Save to DB
     let app_data_dir = app_handle
@@ -805,12 +831,55 @@ fn advance_time_with_mode(
 }
 
 // ---------------------------------------------------------------------------
+// Session Management
+// ---------------------------------------------------------------------------
+
+/// Save the current game and clear the active session so the player returns to the main menu.
+#[tauri::command]
+fn exit_to_menu(
+    state: State<StateManager>,
+    app_handle: tauri::AppHandle,
+) -> Result<(), String> {
+    let game = state
+        .get_game(|g| g.clone())
+        .ok_or("No active game session")?;
+
+    // Auto-save
+    let app_data_dir = app_handle
+        .path()
+        .app_data_dir()
+        .map_err(|e| e.to_string())?;
+    std::fs::create_dir_all(&app_data_dir).map_err(|e| e.to_string())?;
+    let db_path = app_data_dir.join("saves.db");
+    let db_manager = DbManager::new(db_path).map_err(|e| e.to_string())?;
+
+    let game_json = serde_json::to_string(&game).map_err(|e| e.to_string())?;
+    let manager_name = format!("{} {}", game.manager.first_name, game.manager.last_name);
+    let save_name = format!("{}'s Career", manager_name);
+
+    // Try to update existing save first, create new if none exists
+    let saves = db_manager.get_saves().unwrap_or_default();
+    if let Some(existing) = saves.first() {
+        db_manager.update_save(&existing.id, &game_json)?;
+    } else {
+        db_manager.create_save(&save_name, &manager_name, &game_json)?;
+    }
+
+    // Clear the in-memory game state
+    state.clear_game();
+
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
 // Settings Commands
 // ---------------------------------------------------------------------------
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct AppSettings {
     pub theme: String,              // "dark" | "light" | "system"
+    #[serde(default = "default_language")]
+    pub language: String,           // "en" | "es" | "pt" | "fr" | "de"
     pub currency: String,           // "EUR" | "GBP" | "USD"
     pub default_match_mode: String, // "live" | "spectator" | "delegate"
     pub auto_save: bool,
@@ -819,10 +888,13 @@ pub struct AppSettings {
     pub confirm_advance: bool,
 }
 
+fn default_language() -> String { "en".to_string() }
+
 impl Default for AppSettings {
     fn default() -> Self {
         Self {
             theme: "dark".to_string(),
+            language: "en".to_string(),
             currency: "EUR".to_string(),
             default_match_mode: "live".to_string(),
             auto_save: true,
@@ -898,6 +970,7 @@ pub fn run() {
             delete_save,
             skip_to_match_day,
             apply_team_talk,
+            exit_to_menu,
             get_settings,
             save_settings,
             clear_all_saves

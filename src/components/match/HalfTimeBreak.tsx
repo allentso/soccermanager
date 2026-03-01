@@ -4,10 +4,11 @@ import { GameStateData } from "../../store/gameStore";
 import { MatchSnapshot, MatchEvent, FORMATIONS, PLAY_STYLES, TEAM_TALK_OPTIONS, TeamTalkTone } from "./types";
 import { getEventDisplay, getPlayerName } from "./helpers";
 import { getTalkIcon } from "./TeamTalkIcons";
+import { SubPanel } from "./MatchLive";
 import { Badge } from "../ui";
 import {
   Play, RefreshCw, Shield, Zap, Target, Crosshair, Flag,
-  UserMinus, UserPlus, AlertTriangle, MessageCircle
+  MessageCircle
 } from "lucide-react";
 
 interface HalfTimeBreakProps {
@@ -325,23 +326,13 @@ export default function HalfTimeBreak({
                     </Badge>
                   </div>
 
-                  {showSubPanel ? (
-                    <HalfTimeSubPanel
-                      snapshot={snapshot}
-                      side={userSide}
-                      gameState={gameState}
-                      onSubstitute={handleSubstitution}
-                      onClose={() => setShowSubPanel(false)}
-                    />
-                  ) : (
-                    <button
-                      onClick={() => setShowSubPanel(true)}
-                      className="w-full flex items-center justify-center gap-2 py-2.5 bg-navy-700 hover:bg-navy-600 rounded-lg text-sm font-heading uppercase tracking-wider text-gray-300 transition-colors"
-                    >
-                      <RefreshCw className="w-4 h-4" />
-                      Make Substitution
-                    </button>
-                  )}
+                  <button
+                    onClick={() => setShowSubPanel(true)}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 bg-navy-700 hover:bg-navy-600 rounded-lg text-sm font-heading uppercase tracking-wider text-gray-300 transition-colors"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                    Make Substitution
+                  </button>
                 </div>
               </>
             )}
@@ -364,87 +355,15 @@ export default function HalfTimeBreak({
           </button>
         </div>
       </footer>
-    </div>
-  );
-}
 
-// ---------------------------------------------------------------------------
-// Substitution panel for halftime
-// ---------------------------------------------------------------------------
-
-function HalfTimeSubPanel({
-  snapshot, side, gameState, onSubstitute, onClose,
-}: {
-  snapshot: MatchSnapshot;
-  side: "Home" | "Away";
-  gameState: GameStateData;
-  onSubstitute: (offId: string, onId: string) => void;
-  onClose: () => void;
-}) {
-  const [selectedOff, setSelectedOff] = useState<string | null>(null);
-  const team = side === "Home" ? snapshot.home_team : snapshot.away_team;
-  const subsMade = side === "Home" ? snapshot.home_subs_made : snapshot.away_subs_made;
-
-  const onPitchIds = new Set(team.players.map(p => p.id));
-  const benchPlayers = gameState.players.filter(p =>
-    p.team_id === team.id && !onPitchIds.has(p.id) && !p.injury
-  );
-
-  if (subsMade >= snapshot.max_subs) {
-    return (
-      <div className="flex items-center gap-2 text-yellow-500 text-xs py-2">
-        <AlertTriangle className="w-4 h-4" />
-        <span className="font-heading uppercase tracking-wider">All substitutions used</span>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex flex-col gap-1">
-      <div className="flex items-center justify-between mb-1">
-        <p className="text-[10px] font-heading uppercase tracking-widest text-gray-600">
-          {selectedOff ? "Select replacement" : "Select player to sub off"}
-        </p>
-        <button onClick={onClose} className="text-xs text-gray-500 hover:text-gray-300">✕</button>
-      </div>
-
-      {!selectedOff ? (
-        team.players
-          .filter(p => p.position !== "Goalkeeper" && !snapshot.sent_off.includes(p.id))
-          .map(p => (
-            <button
-              key={p.id}
-              onClick={() => setSelectedOff(p.id)}
-              className="flex items-center gap-2 px-2 py-1.5 rounded bg-navy-700 hover:bg-navy-600 transition-colors text-left"
-            >
-              <UserMinus className="w-3 h-3 text-red-400" />
-              <span className="text-xs text-gray-300 font-medium flex-1 truncate">{p.name}</span>
-              <Badge variant="neutral" size="sm">{p.position.substring(0, 3)}</Badge>
-              <span className="text-[10px] text-gray-500">{Math.round(p.condition)}%</span>
-            </button>
-          ))
-      ) : (
-        <>
-          <button onClick={() => setSelectedOff(null)} className="text-xs text-primary-400 hover:text-primary-300 mb-1">
-            ← Back
-          </button>
-          {benchPlayers.length === 0 ? (
-            <p className="text-xs text-gray-500">No bench players available.</p>
-          ) : (
-            benchPlayers.map(p => (
-              <button
-                key={p.id}
-                onClick={() => onSubstitute(selectedOff, p.id)}
-                className="flex items-center gap-2 px-2 py-1.5 rounded bg-navy-700 hover:bg-navy-600 transition-colors text-left"
-              >
-                <UserPlus className="w-3 h-3 text-green-400" />
-                <span className="text-xs text-gray-300 font-medium flex-1 truncate">{p.match_name}</span>
-                <Badge variant="neutral" size="sm">{p.position.substring(0, 3)}</Badge>
-                <span className="text-[10px] text-gray-500">{p.condition}%</span>
-              </button>
-            ))
-          )}
-        </>
+      {/* Substitution Modal — reuses the full SubPanel from MatchLive */}
+      {showSubPanel && (
+        <SubPanel
+          snapshot={snapshot}
+          side={userSide}
+          onSubstitute={handleSubstitution}
+          onClose={() => setShowSubPanel(false)}
+        />
       )}
     </div>
   );

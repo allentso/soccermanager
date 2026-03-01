@@ -119,4 +119,36 @@ mod tests {
         // 8 standings entries
         assert_eq!(league.standings.len(), 8);
     }
+
+    #[test]
+    fn test_generate_league_16_teams() {
+        let teams: Vec<String> = (0..16).map(|i| format!("team_{}", i)).collect();
+        let start = Utc.with_ymd_and_hms(2026, 8, 1, 0, 0, 0).unwrap();
+        let league = generate_league("Premier Division", 2026, &teams, start);
+
+        // 16 teams: 15 rounds * 8 matches * 2 legs = 240 fixtures
+        assert_eq!(league.fixtures.len(), 240);
+
+        // 30 matchdays (15 per leg)
+        let max_md = league.fixtures.iter().map(|f| f.matchday).max().unwrap();
+        assert_eq!(max_md, 30);
+
+        // Each team plays 30 matches total (15 home + 15 away)
+        for team in &teams {
+            let count = league
+                .fixtures
+                .iter()
+                .filter(|f| f.home_team_id == *team || f.away_team_id == *team)
+                .count();
+            assert_eq!(count, 30, "Team {} plays {} matches", team, count);
+        }
+
+        // 16 standings entries
+        assert_eq!(league.standings.len(), 16);
+
+        // No team plays itself
+        for f in &league.fixtures {
+            assert_ne!(f.home_team_id, f.away_team_id);
+        }
+    }
 }

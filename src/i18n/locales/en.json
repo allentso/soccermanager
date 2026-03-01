@@ -1,0 +1,148 @@
+{
+  "app": {
+    "name": "OpenFoot Manager",
+    "version": "v0.1.0 Alpha"
+  },
+  "menu": {
+    "newGame": "New Game",
+    "loadGame": "Load Game",
+    "settings": "Settings",
+    "noSaves": "No saved games found.",
+    "loadingSaves": "Loading saves...",
+    "deleteConfirm": "Delete <strong>{{name}}</strong>?",
+    "delete": "Delete",
+    "cancel": "Cancel"
+  },
+  "createManager": {
+    "title": "Create Manager",
+    "firstName": "First Name",
+    "lastName": "Last Name",
+    "dob": "Date of Birth",
+    "nationality": "Nationality",
+    "selectNationality": "Select nationality...",
+    "searchNationalities": "Search nationalities...",
+    "chooseWorld": "Choose World",
+    "minAge": "Minimum age: 30 years",
+    "placeholderFirst": "e.g. José",
+    "placeholderLast": "e.g. Mourinho"
+  },
+  "validation": {
+    "required": "{{field}} is required",
+    "minAge": "Manager must be at least 30 years old",
+    "invalidDate": "Invalid date",
+    "invalidDob": "Invalid date of birth"
+  },
+  "worldSelect": {
+    "title": "Choose World",
+    "scanning": "Scanning for databases...",
+    "importFile": "Import from file",
+    "startCareer": "Start Career",
+    "creatingWorld": "Creating World...",
+    "teams": "{{count}} teams",
+    "players": "{{count}} players",
+    "randomWorld": "Random World",
+    "randomDescription": "Randomly generated league with 8 teams, players, and staff"
+  },
+  "dashboard": {
+    "home": "Home",
+    "inbox": "Inbox",
+    "manager": "Manager",
+    "squad": "Squad",
+    "tactics": "Tactics",
+    "training": "Training",
+    "staff": "Staff",
+    "finances": "Finances",
+    "transfers": "Transfers",
+    "players": "Players",
+    "teams": "Teams",
+    "tournaments": "Tournaments",
+    "schedule": "Schedule",
+    "news": "News",
+    "settings": "Settings",
+    "exitToMenu": "Exit to Menu",
+    "continue": "Continue",
+    "simulating": "Simulating...",
+    "searchPlaceholder": "Search players, teams...",
+    "sectionClub": "Club",
+    "sectionWorld": "World"
+  },
+  "continueMenu": {
+    "goToField": "Go to the Field",
+    "goToFieldDesc": "Full match control (default)",
+    "watchSpectator": "Watch as Spectator",
+    "watchSpectatorDesc": "Watch the match, no controls",
+    "delegateAssistant": "Delegate to Assistant",
+    "delegateAssistantDesc": "AI handles everything instantly",
+    "skipToMatchDay": "Skip to Match Day",
+    "skipToMatchDayDesc": "Fast-forward to your next fixture"
+  },
+  "exitConfirm": {
+    "title": "Exit to Main Menu?",
+    "message": "Your game will be saved automatically before returning to the main menu.",
+    "cancel": "Cancel",
+    "saveExit": "Save & Exit"
+  },
+  "onboarding": {
+    "title": "Getting Started",
+    "description": "Complete these steps to prepare your team for the upcoming season. Staff are especially important — they boost training and recovery.",
+    "reviewSquad": "Review your squad",
+    "reviewSquadDesc": "Check player stats, condition, and traits",
+    "hireStaff": "Hire coaching staff",
+    "hireStaffDesc": "Staff boost training quality and recovery — hire a Coach and Physio",
+    "setTactics": "Set your formation & tactics",
+    "setTacticsDesc": "Choose a formation and play style that fits your squad",
+    "configTraining": "Configure training",
+    "configTrainingDesc": "Pick a focus and schedule to develop your players",
+    "readMessages": "Read your messages",
+    "readMessagesDesc": "Important info from the board and staff awaits"
+  },
+  "home": {
+    "nextMatch": "Next Match",
+    "leaguePosition": "League Position",
+    "standings": "Standings",
+    "noLeague": "No league data yet.",
+    "squadOverview": "Squad Overview",
+    "avgCondition": "Avg Condition",
+    "avgOvr": "Avg OVR",
+    "exhaustedPlayers": "{{count}} player(s) exhausted",
+    "recentResults": "Recent Results",
+    "noMatches": "No matches played yet.",
+    "latestNews": "Latest News",
+    "allNews": "All News",
+    "noNews": "No news yet.",
+    "recentMessages": "Recent Messages",
+    "viewAll": "View All",
+    "noMessages": "No recent messages.",
+    "unreadMessages": "{{count}} unread message(s)"
+  },
+  "common": {
+    "loading": "Loading...",
+    "loadingGameState": "Loading game state...",
+    "noResults": "No results found.",
+    "place": {
+      "1": "1st",
+      "2": "2nd",
+      "3": "3rd",
+      "other": "{{n}}th"
+    },
+    "pts": "pts",
+    "played": "P",
+    "won": "W",
+    "drawn": "D",
+    "lost": "L"
+  },
+  "teamSelection": {
+    "title": "Choose Your Club",
+    "subtitle": "Select the team you want to manage",
+    "confirming": "Confirming...",
+    "manage": "Manage {{team}}",
+    "reputation": "Reputation",
+    "squad": "Squad",
+    "finances": "Finances",
+    "avgOvr": "Avg OVR",
+    "worldClass": "World Class",
+    "strong": "Strong",
+    "average": "Average",
+    "developing": "Developing"
+  }
+}
