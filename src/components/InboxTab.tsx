@@ -2,7 +2,7 @@ import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { GameStateData } from "../store/gameStore";
 import { Badge } from "./ui";
-import { Mail, MailOpen, ArrowLeft, Trophy, ClipboardList, Crosshair, TableProperties, TrendingUp, Landmark, Smile, Stethoscope, Dumbbell, DollarSign, FileText, ScanSearch, Newspaper, Info, MessageCircle, CheckCircle2 } from "lucide-react";
+import { Mail, MailOpen, ArrowLeft, Trophy, ClipboardList, Crosshair, TableProperties, TrendingUp, Landmark, Smile, Stethoscope, Dumbbell, DollarSign, FileText, ScanSearch, Newspaper, Info, MessageCircle, CheckCircle2, CheckCheck, Trash2 } from "lucide-react";
 import { getTeamName } from "../lib/helpers";
 import { useTranslation } from "react-i18next";
 import { resolveMessage } from "../utils/backendI18n";
@@ -90,6 +90,13 @@ export default function InboxTab({ gameState, onGameUpdate, initialMessageId, on
   const unreadCount = allMessages.filter(m => !m.read).length;
   const selectedMessage = allMessages.find(m => m.id === selectedMsgId) || null;
 
+  const handleMarkAllRead = async () => {
+    try { const g = await invoke<GameStateData>("mark_all_messages_read"); onGameUpdate(g); } catch {}
+  };
+  const handleClearOld = async () => {
+    try { const g = await invoke<GameStateData>("clear_old_messages"); onGameUpdate(g); setSelectedMsgId(null); } catch {}
+  };
+
   return (
     <div className="max-w-6xl mx-auto flex flex-col h-full">
       {/* Filter bar */}
@@ -133,6 +140,24 @@ export default function InboxTab({ gameState, onGameUpdate, initialMessageId, on
             </button>
           );
         })}
+
+        {/* Inbox management actions */}
+        <div className="ml-auto flex items-center gap-2">
+          {unreadCount > 0 && (
+            <button
+              onClick={handleMarkAllRead}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-heading font-bold uppercase tracking-wider bg-white dark:bg-navy-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-navy-600 hover:text-primary-500 hover:border-primary-300 transition-all"
+            >
+              <CheckCheck className="w-3.5 h-3.5" /> Mark all read
+            </button>
+          )}
+          <button
+            onClick={handleClearOld}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-heading font-bold uppercase tracking-wider bg-white dark:bg-navy-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-navy-600 hover:text-red-500 hover:border-red-300 transition-all"
+          >
+            <Trash2 className="w-3.5 h-3.5" /> Clear old
+          </button>
+        </div>
       </div>
 
       {/* Two-pane inbox layout */}

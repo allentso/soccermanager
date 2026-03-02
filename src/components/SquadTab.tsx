@@ -47,9 +47,28 @@ export default function SquadTab({ gameState, managerId, onSelectPlayer, onGameU
   const formation = myTeam.formation || "4-4-2";
   const slots = parseFormationSlots(formation);
 
-  // Build starting XI: best available by position for current formation
+  // Build starting XI from persistent IDs, fallback to auto-select
   const available = roster.filter(p => !p.injury);
   const startingXI = useMemo(() => {
+    const savedIds = myTeam.starting_xi_ids || [];
+    // Use saved lineup if it has valid entries
+    if (savedIds.length > 0) {
+      const validPlayers = savedIds
+        .map(id => available.find(p => p.id === id))
+        .filter((p): p is PlayerData => p != null);
+      // If most of the saved lineup is still valid, use it (fill remaining slots)
+      if (validPlayers.length >= 8) {
+        const used = new Set(validPlayers.map(p => p.id));
+        const remaining = available.filter(p => !used.has(p.id)).sort((a, b) => calcOvr(b) - calcOvr(a));
+        const result = [...validPlayers];
+        for (const p of remaining) {
+          if (result.length >= 11) break;
+          result.push(p);
+        }
+        return result.slice(0, 11);
+      }
+    }
+    // Auto-select by position and OVR
     const xi: PlayerData[] = [];
     const used = new Set<string>();
     const pick = (pos: string, count: number) => {
@@ -64,7 +83,7 @@ export default function SquadTab({ gameState, managerId, onSelectPlayer, onGameU
     pick("Midfielder", slots.mid);
     pick("Forward", slots.fwd);
     return xi;
-  }, [available.map(p => p.id).join(','), formation]);
+  }, [available.map(p => p.id).join(','), formation, (myTeam.starting_xi_ids || []).join(',')]);
 
   const xiIds = new Set(startingXI.map(p => p.id));
   const bench = roster.filter(p => !xiIds.has(p.id));
@@ -87,13 +106,38 @@ export default function SquadTab({ gameState, managerId, onSelectPlayer, onGameU
     }
   };
 
-  const handleSwapClick = (playerId: string, from: "xi" | "bench") => {
+  const handleSwapClick = async (playerId: string, from: "xi" | "bench") => {
     if (swapSource) {
       if (swapSource.id === playerId) {
         setSwapSource(null);
         return;
       }
-      // Swap is just visual — user navigates to see their preferred lineup
+      // Perform the swap: compute new XI ids
+      const currentXiIds = startingXI.map(p => p.id);
+      let newXiIds: string[];
+      if (swapSource.from === "xi" && from === "bench") {
+        // Swap XI player out for bench player
+        newXiIds = currentXiIds.map(id => id === swapSource.id ? playerId : id);
+      } else if (swapSource.from === "bench" && from === "xi") {
+        // Swap bench player in for XI player
+        newXiIds = currentXiIds.map(id => id === playerId ? swapSource.id : id);
+      } else if (swapSource.from === "xi" && from === "xi") {
+        // Swap positions within XI
+        const idx1 = currentXiIds.indexOf(swapSource.id);
+        const idx2 = currentXiIds.indexOf(playerId);
+        newXiIds = [...currentXiIds];
+        newXiIds[idx1] = playerId;
+        newXiIds[idx2] = swapSource.id;
+      } else {
+        setSwapSource(null);
+        return;
+      }
+      try {
+        const updated = await invoke<GameStateData>("set_starting_xi", { playerIds: newXiIds });
+        onGameUpdate?.(updated);
+      } catch (err) {
+        console.error("Failed to set starting XI:", err);
+      }
       setSwapSource(null);
     } else {
       setSwapSource({ id: playerId, from });

@@ -37,6 +37,10 @@ pub struct Team {
     pub founded_year: u32,
     pub colors: TeamColors,
 
+    // Persistent starting XI (player IDs). If empty, auto-select by OVR.
+    #[serde(default)]
+    pub starting_xi_ids: Vec<String>,
+
     // Recent form: last 5 results as "W", "D", "L" (most recent last)
     #[serde(default)]
     pub form: Vec<String>,
@@ -179,6 +183,7 @@ impl Team {
                 primary: "#10b981".to_string(),
                 secondary: "#ffffff".to_string(),
             },
+            starting_xi_ids: Vec::new(),
             form: Vec::new(),
             history: Vec::new(),
         }

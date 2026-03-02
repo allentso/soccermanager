@@ -21,7 +21,7 @@ import InboxTab from "../components/InboxTab";
 import ManagerTab from "../components/ManagerTab";
 import NewsTab from "../components/NewsTab";
 import EndOfSeasonScreen from "../components/EndOfSeasonScreen";
-import { Users, Calendar as CalendarIcon, Mail, Settings, ChevronRight, ChevronDown, Briefcase, Trophy, TrendingUp, Crosshair, Dumbbell, DollarSign, Search, User, UsersRound, Building2, UserCog, Newspaper, LogOut, ArrowLeft, Eye, Cpu, Gamepad2, AlertCircle } from "lucide-react";
+import { Users, Calendar as CalendarIcon, Mail, Settings, ChevronRight, ChevronDown, Briefcase, Trophy, TrendingUp, Crosshair, Dumbbell, DollarSign, Search, User, UsersRound, Building2, UserCog, Newspaper, LogOut, ArrowLeft, Eye, Cpu, Gamepad2, AlertCircle, Save } from "lucide-react";
 import { getTeamName } from "../lib/helpers";
 import { useTranslation } from "react-i18next";
 import { useSettingsStore } from "../store/settingsStore";
@@ -37,6 +37,8 @@ export default function Dashboard() {
     if (!settingsLoaded) loadSettings();
   }, [settingsLoaded, loadSettings]);
   const [isAdvancing, setIsAdvancing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveFlash, setSaveFlash] = useState(false);
   const [activeTab, setActiveTab] = useState("Home");
   const [showContinueMenu, setShowContinueMenu] = useState(false);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
@@ -112,6 +114,19 @@ export default function Dashboard() {
       console.error("Failed to advance time:", err);
     } finally {
       setIsAdvancing(false);
+    }
+  };
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      await invoke("save_game");
+      setSaveFlash(true);
+      setTimeout(() => setSaveFlash(false), 2000);
+    } catch (err) {
+      console.error("Failed to save:", err);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -486,6 +501,21 @@ export default function Dashboard() {
                 </Badge>
               );
             })()}
+
+            {/* Save button */}
+            <button
+              onClick={handleSave}
+              disabled={isSaving}
+              className={`flex items-center gap-1.5 px-3 py-2.5 rounded-lg text-sm font-heading font-bold uppercase tracking-wider transition-all ${
+                saveFlash
+                  ? "bg-green-500 text-white"
+                  : "bg-gray-200 dark:bg-navy-700 text-gray-600 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-navy-600"
+              } ${isSaving ? "opacity-70 cursor-wait" : ""}`}
+              title="Save game"
+            >
+              <Save className="w-4 h-4" />
+              {saveFlash ? "Saved!" : isSaving ? "Saving..." : "Save"}
+            </button>
 
             {/* Continue button with dropdown — shows current mode */}
             <div className="relative">

@@ -38,6 +38,7 @@ export interface TeamData {
   training_schedule: string;
   founded_year: number;
   colors: TeamColors;
+  starting_xi_ids: string[];
   form: string[];
   history: TeamSeasonRecord[];
 }

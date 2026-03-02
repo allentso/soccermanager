@@ -365,6 +365,23 @@ fn set_formation(state: State<StateManager>, formation: String) -> Result<Game, 
 }
 
 #[tauri::command]
+fn set_starting_xi(state: State<StateManager>, player_ids: Vec<String>) -> Result<Game, String> {
+    let mut game = state
+        .get_game(|g| g.clone())
+        .ok_or("No active game session".to_string())?;
+
+    let team_id = game.manager.team_id.clone()
+        .ok_or("No team assigned".to_string())?;
+
+    if let Some(team) = game.teams.iter_mut().find(|t| t.id == team_id) {
+        team.starting_xi_ids = player_ids;
+    }
+
+    state.set_game(game.clone());
+    Ok(game)
+}
+
+#[tauri::command]
 fn set_play_style(state: State<StateManager>, play_style: String) -> Result<Game, String> {
     let mut game = state
         .get_game(|g| g.clone())
@@ -517,6 +534,71 @@ fn mark_message_read(state: State<StateManager>, message_id: String) -> Result<G
 
     state.set_game(game.clone());
     Ok(game)
+}
+
+#[tauri::command]
+fn mark_all_messages_read(state: State<StateManager>) -> Result<Game, String> {
+    let mut game = state
+        .get_game(|g| g.clone())
+        .ok_or("No active game session".to_string())?;
+
+    for msg in game.messages.iter_mut() {
+        msg.read = true;
+    }
+
+    state.set_game(game.clone());
+    Ok(game)
+}
+
+#[tauri::command]
+fn clear_old_messages(state: State<StateManager>) -> Result<Game, String> {
+    let mut game = state
+        .get_game(|g| g.clone())
+        .ok_or("No active game session".to_string())?;
+
+    let current_date = game.clock.current_date.format("%Y-%m-%d").to_string();
+    // Keep only: unread messages, messages with unresolved actions, and messages from recent 14 days
+    game.messages.retain(|m| {
+        if !m.read { return true; }
+        if m.actions.iter().any(|a| !a.resolved) { return true; }
+        // Keep recent messages (within 14 days)
+        if let Ok(msg_date) = chrono::NaiveDate::parse_from_str(&m.date, "%Y-%m-%d") {
+            if let Ok(cur_date) = chrono::NaiveDate::parse_from_str(&current_date, "%Y-%m-%d") {
+                return (cur_date - msg_date).num_days() <= 14;
+            }
+        }
+        false
+    });
+
+    state.set_game(game.clone());
+    Ok(game)
+}
+
+#[tauri::command]
+fn save_game(state: State<StateManager>, app_handle: tauri::AppHandle) -> Result<(), String> {
+    let game = state
+        .get_game(|g| g.clone())
+        .ok_or("No active game session".to_string())?;
+
+    let app_data_dir = app_handle
+        .path()
+        .app_data_dir()
+        .map_err(|e| e.to_string())?;
+    std::fs::create_dir_all(&app_data_dir).map_err(|e| e.to_string())?;
+    let db_path = app_data_dir.join("saves.db");
+    let db_manager = DbManager::new(db_path).map_err(|e| e.to_string())?;
+
+    let game_json = serde_json::to_string(&game).map_err(|e| e.to_string())?;
+    let manager_name = format!("{} {}", game.manager.first_name, game.manager.last_name);
+    let save_name = format!("{}'s Career", manager_name);
+
+    let saves = db_manager.get_saves().unwrap_or_default();
+    if let Some(existing) = saves.first() {
+        db_manager.update_save(&existing.id, &game_json)?;
+    } else {
+        db_manager.create_save(&save_name, &manager_name, &game_json)?;
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -1057,12 +1139,16 @@ pub fn run() {
             advance_time,
             advance_time_with_mode,
             set_formation,
+            set_starting_xi,
             set_play_style,
             set_training,
             set_training_schedule,
             hire_staff,
             release_staff,
             mark_message_read,
+            mark_all_messages_read,
+            clear_old_messages,
+            save_game,
             send_scout,
             check_season_complete,
             advance_to_next_season,
