@@ -1,0 +1,20 @@
+blank_issues_enabled: false
+contact_links:
+  - name: "\U0001F4D6 Alpha Testing Guide (English)"
+    url: https://github.com/openfootmanager/openfootmanager/blob/main/docs/ALPHA_TESTING_GUIDE.md
+    about: "Read the full alpha testing guide before submitting feedback."
+  - name: "\U0001F4D6 Guia Alpha (Português BR)"
+    url: https://github.com/openfootmanager/openfootmanager/blob/main/docs/ALPHA_TESTING_GUIDE_PTBR.md
+    about: "Leia o guia completo para testadores alpha."
+  - name: "\U0001F4D6 Guia Alpha (Português PT)"
+    url: https://github.com/openfootmanager/openfootmanager/blob/main/docs/ALPHA_TESTING_GUIDE_PT.md
+    about: "Leia o guia completo para testadores alpha."
+  - name: "\U0001F4D6 Guía Alpha (Español)"
+    url: https://github.com/openfootmanager/openfootmanager/blob/main/docs/ALPHA_TESTING_GUIDE_ES.md
+    about: "Lee la guía completa para testers alpha."
+  - name: "\U0001F4D6 Guide Alpha (Français)"
+    url: https://github.com/openfootmanager/openfootmanager/blob/main/docs/ALPHA_TESTING_GUIDE_FR.md
+    about: "Lis le guide complet pour les testeurs alpha."
+  - name: "\U0001F4D6 Alpha-Leitfaden (Deutsch)"
+    url: https://github.com/openfootmanager/openfootmanager/blob/main/docs/ALPHA_TESTING_GUIDE_DE.md
+    about: "Lies den vollständigen Alpha-Tester-Leitfaden."

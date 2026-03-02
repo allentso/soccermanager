@@ -120,6 +120,12 @@ Exemplos:
 
 ## Como Enviar Feedback
 
+A forma mais fácil de enviar feedback é pelos nossos **templates de issue no GitHub**. Basta escolher o certo e preencher — **você pode escrever no seu idioma!**
+
+- [**Relatório de Bug**](https://github.com/openfootmanager/openfootmanager/issues/new?template=bug_report.yml) — Algo travou, quebrou ou se comportou incorretamente
+- [**Feedback / Sugestão**](https://github.com/openfootmanager/openfootmanager/issues/new?template=feedback.yml) — Problemas de usabilidade, balanceamento ou ideias
+- [**Relatório de Sessão**](https://github.com/openfootmanager/openfootmanager/issues/new?template=session_report.yml) — Um resumo da sua sessão de jogo (super valioso!)
+
 ### Arquivos de log
 
 Quando você reportar um bug, **por favor inclua seus arquivos de log**. Eles contêm informações detalhadas sobre o que o jogo estava fazendo quando algo deu errado, e geralmente são a diferença entre a gente conseguir corrigir um bug em 5 minutos ou passar horas tentando reproduzir.
@@ -131,86 +137,6 @@ Quando você reportar um bug, **por favor inclua seus arquivos de log**. Eles co
 - **Linux:** `~/.config/com.sturdyrobot.openfootmanager/logs/`
 
 Basta compactar (zipar) toda a pasta `logs` e anexar ao seu relato. Os logs não contêm informações pessoais — apenas eventos do jogo, comandos e rastreamento de erros.
-
-### Template de Relatório de Bug
-
-Ao reportar um bug, use este template (copie e cole):
-
-```
-### Relatório de Bug
-
-**O que aconteceu:**
-[Descreva o que deu errado]
-
-**O que eu esperava que acontecesse:**
-[Descreva o que você achava que deveria acontecer]
-
-**Passos para reproduzir:**
-1. [Primeiro passo]
-2. [Segundo passo]
-3. [etc.]
-
-**Com que frequência acontece:**
-[Sempre / Às vezes / Só aconteceu uma vez]
-
-**Contexto do jogo:**
-- Em que dia/rodada você estava?
-- O que você estava fazendo antes do bug?
-- Você tinha acabado de carregar um save?
-
-**Info do sistema:**
-- SO: [Windows 11 / macOS 14 / Ubuntu 24.04 / etc.]
-- Resolução da tela: [ex.: 1920x1080]
-
-**Arquivos de log anexados:** [Sim / Não]
-
-**Screenshots:** [Anexe se relevante]
-```
-
-### Template de Feedback / Sugestão
-
-Para feedback geral, problemas de usabilidade ou sugestões:
-
-```
-### Feedback
-
-**Categoria:** [Usabilidade / Balanceamento / Sugestão / Outro]
-
-**Sobre o quê:**
-[Qual parte do jogo? ex.: Treino, Simulação de Partida, Transferências]
-
-**Descrição:**
-[Descreva sua experiência ou sugestão em detalhes]
-
-**Por que isso importa:**
-[Por que você acha que isso deveria mudar? Como afeta sua diversão?]
-```
-
-### Template de Relatório de Sessão
-
-Se você quiser dar um resumo mais amplo de uma sessão de jogo (isso é super valioso!):
-
-```
-### Relatório de Sessão
-
-**Tempo de jogo:** [Quanto tempo você jogou?]
-
-**O que eu fiz:**
-[Resumo breve — ex.: "Comecei um jogo novo, joguei 10 partidas, cheguei na rodada 12"]
-
-**O que eu curti:**
-[O que pareceu bom? O que te manteve jogando?]
-
-**O que me frustrou:**
-[O que quase te fez parar? O que pareceu quebrado ou tedioso?]
-
-**Top 3 coisas que eu melhoraria:**
-1. 
-2. 
-3. 
-
-**Eu jogaria de novo no estado atual?** [Sim / Não / Talvez — e por quê]
-```
 
 ---
 

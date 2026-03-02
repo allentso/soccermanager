@@ -120,6 +120,12 @@ Examples:
 
 ## How to Submit Feedback
 
+The easiest way to submit feedback is through our **GitHub issue templates**. Just pick the right one and fill it in — **you can write in your own language!**
+
+- [**Bug Report**](https://github.com/openfootmanager/openfootmanager/issues/new?template=bug_report.yml) — Something crashed, broke, or behaved incorrectly
+- [**Feedback / Suggestion**](https://github.com/openfootmanager/openfootmanager/issues/new?template=feedback.yml) — Usability issues, balance concerns, or ideas
+- [**Session Report**](https://github.com/openfootmanager/openfootmanager/issues/new?template=session_report.yml) — A summary of your play session (super valuable!)
+
 ### Log files
 
 When you report a bug, **please include your log files**. They contain detailed information about what the game was doing when something went wrong, and they're often the difference between us being able to fix a bug in 5 minutes vs. spending hours trying to reproduce it.
@@ -131,86 +137,6 @@ When you report a bug, **please include your log files**. They contain detailed 
 - **Linux:** `~/.config/com.sturdyrobot.openfootmanager/logs/`
 
 Just zip up the whole `logs` folder and attach it to your report. The logs don't contain any personal information — just game events, commands, and error traces.
-
-### Bug Report Template
-
-When reporting a bug, please use this template (copy-paste it):
-
-```
-### Bug Report
-
-**What happened:**
-[Describe what went wrong]
-
-**What I expected to happen:**
-[Describe what you thought should happen]
-
-**Steps to reproduce:**
-1. [First step]
-2. [Second step]
-3. [etc.]
-
-**How often does it happen:**
-[Every time / Sometimes / Only happened once]
-
-**Game context:**
-- What day/matchday were you on?
-- What were you doing right before the bug?
-- Had you just loaded a save?
-
-**System info:**
-- OS: [Windows 11 / macOS 14 / Ubuntu 24.04 / etc.]
-- Screen resolution: [e.g., 1920x1080]
-
-**Log files attached:** [Yes / No]
-
-**Screenshots:** [Attach if relevant]
-```
-
-### Feedback / Suggestion Template
-
-For general feedback, usability issues, or suggestions:
-
-```
-### Feedback
-
-**Category:** [Usability / Balance / Suggestion / Other]
-
-**What it's about:**
-[Which part of the game? e.g., Training, Match Simulation, Transfers]
-
-**Description:**
-[Describe your experience or suggestion in detail]
-
-**Why it matters:**
-[Why do you think this should be changed? How does it affect your enjoyment?]
-```
-
-### Session Report Template
-
-If you want to give us a broader summary of a play session (this is super valuable!):
-
-```
-### Session Report
-
-**Play time:** [How long did you play?]
-
-**What I did:**
-[Brief summary — e.g., "Started a new game, played 10 matches, got to matchday 12"]
-
-**What I enjoyed:**
-[What felt good? What kept you playing?]
-
-**What frustrated me:**
-[What almost made you stop? What felt broken or tedious?]
-
-**Top 3 things I'd improve:**
-1. 
-2. 
-3. 
-
-**Would I play again in its current state?** [Yes / No / Maybe — and why]
-```
 
 ---
 
