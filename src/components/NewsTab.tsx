@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { GameStateData, NewsArticle } from "../store/gameStore";
 import { getTeamName, formatMatchDate as fmtMatchDate } from "../lib/helpers";
-import { Newspaper, Trophy, BarChart3, TrendingUp, FileText, ArrowLeft, Clock } from "lucide-react";
+import { Newspaper, Trophy, BarChart3, TrendingUp, FileText, ArrowLeft, Clock, ChevronLeft, ChevronRight, Filter } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { resolveNewsArticle } from "../utils/backendI18n";
 
@@ -28,15 +28,32 @@ interface NewsTabProps {
 }
 
 
+const PAGE_SIZE = 13; // 1 hero + 12 grid (4x3)
+
 export default function NewsTab({ gameState, onSelectTeam }: NewsTabProps) {
   const { t } = useTranslation();
   const [filterCategory, setFilterCategory] = useState<string | null>(null);
+  const [filterTeamId, setFilterTeamId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [page, setPage] = useState(0);
 
   const news = (gameState.news || []).map(resolveNewsArticle);
   const sortedNews = [...news].sort((a, b) => b.date.localeCompare(a.date));
   const categories = Array.from(new Set(sortedNews.map(n => n.category)));
-  const filtered = filterCategory ? sortedNews.filter(n => n.category === filterCategory) : sortedNews;
+
+  // Collect teams that appear in news for the team filter
+  const newsTeamIds = Array.from(new Set(sortedNews.flatMap(n => n.team_ids || [])));
+  const teamsInNews = newsTeamIds.map(id => ({ id, name: getTeamName(gameState.teams, id) })).sort((a, b) => a.name.localeCompare(b.name));
+
+  let filtered = sortedNews;
+  if (filterCategory) filtered = filtered.filter(n => n.category === filterCategory);
+  if (filterTeamId) filtered = filtered.filter(n => (n.team_ids || []).includes(filterTeamId));
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages - 1);
+  const pageStart = safePage * PAGE_SIZE;
+  const pageArticles = filtered.slice(pageStart, pageStart + PAGE_SIZE);
+
   const selectedArticle = selectedId ? filtered.find(a => a.id === selectedId) || sortedNews.find(a => a.id === selectedId) : null;
 
   // Empty state
@@ -57,10 +74,11 @@ export default function NewsTab({ gameState, onSelectTeam }: NewsTabProps) {
 
   return (
     <div className="max-w-6xl mx-auto flex flex-col gap-5">
-      {/* Category filter pills */}
+      {/* Filters row */}
       <div className="flex items-center gap-2 flex-wrap">
+        {/* Category pills */}
         <button
-          onClick={() => setFilterCategory(null)}
+          onClick={() => { setFilterCategory(null); setPage(0); }}
           className={`px-3 py-1.5 rounded-full text-xs font-heading font-bold uppercase tracking-wider transition-colors ${
             !filterCategory
               ? "bg-primary-500 text-white shadow-sm"
@@ -72,7 +90,7 @@ export default function NewsTab({ gameState, onSelectTeam }: NewsTabProps) {
         {categories.map(cat => (
             <button
               key={cat}
-              onClick={() => setFilterCategory(filterCategory === cat ? null : cat)}
+              onClick={() => { setFilterCategory(filterCategory === cat ? null : cat); setPage(0); }}
               className={`px-3 py-1.5 rounded-full text-xs font-heading font-bold uppercase tracking-wider transition-colors ${
                 filterCategory === cat
                   ? "bg-primary-500 text-white shadow-sm"
@@ -82,22 +100,65 @@ export default function NewsTab({ gameState, onSelectTeam }: NewsTabProps) {
               {t(`news.categories.${cat}`)}
             </button>
         ))}
-        <span className="text-xs text-gray-400 dark:text-gray-500 ml-auto">
-          {t('news.nArticles', { count: filtered.length })}
-        </span>
+
+        {/* Team filter dropdown */}
+        {teamsInNews.length > 1 && (
+          <div className="relative ml-auto flex items-center gap-2">
+            <Filter className="w-3.5 h-3.5 text-gray-400" />
+            <select
+              value={filterTeamId || ""}
+              onChange={e => { setFilterTeamId(e.target.value || null); setPage(0); }}
+              className="text-xs font-heading font-bold uppercase tracking-wider bg-gray-100 dark:bg-navy-700 text-gray-600 dark:text-gray-300 border-0 rounded-lg px-2.5 py-1.5 cursor-pointer focus:ring-1 focus:ring-primary-500"
+            >
+              <option value="">{t('news.allTeams', 'All Teams')}</option>
+              {teamsInNews.map(tm => (
+                <option key={tm.id} value={tm.id}>{tm.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {!teamsInNews.length && (
+          <span className="text-xs text-gray-400 dark:text-gray-500 ml-auto">
+            {t('news.nArticles', { count: filtered.length })}
+          </span>
+        )}
       </div>
 
       {/* Hero article — latest/featured */}
-      {filtered.length > 0 && (
-        <HeroArticle article={filtered[0]} gameState={gameState} onSelect={() => setSelectedId(filtered[0].id)} onSelectTeam={onSelectTeam} />
+      {pageArticles.length > 0 && (
+        <HeroArticle article={pageArticles[0]} gameState={gameState} onSelect={() => setSelectedId(pageArticles[0].id)} onSelectTeam={onSelectTeam} />
       )}
 
       {/* Article grid */}
-      {filtered.length > 1 && (
+      {pageArticles.length > 1 && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.slice(1).map(article => (
+          {pageArticles.slice(1).map(article => (
             <ArticleCard key={article.id} article={article} gameState={gameState} onSelect={() => setSelectedId(article.id)} />
           ))}
+        </div>
+      )}
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-3 pt-2">
+          <button
+            disabled={safePage === 0}
+            onClick={() => setPage(p => Math.max(0, p - 1))}
+            className="p-2 rounded-lg bg-gray-100 dark:bg-navy-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-navy-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+          <span className="text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+            {safePage + 1} / {totalPages}
+          </span>
+          <button
+            disabled={safePage >= totalPages - 1}
+            onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
+            className="p-2 rounded-lg bg-gray-100 dark:bg-navy-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-navy-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
         </div>
       )}
     </div>

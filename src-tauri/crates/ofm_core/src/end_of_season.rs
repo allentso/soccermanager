@@ -159,6 +159,9 @@ pub fn process_end_of_season(game: &mut Game) -> EndOfSeasonSummary {
     // Clear objectives for next season (will be regenerated on first process_day)
     game.board_objectives.clear();
 
+    // 6c. Clear old news articles from the previous season
+    game.news.clear();
+
     // 7. Generate next season schedule
     let next_season = season + 1;
     let team_ids: Vec<String> = game.teams.iter().map(|t| t.id.clone()).collect();

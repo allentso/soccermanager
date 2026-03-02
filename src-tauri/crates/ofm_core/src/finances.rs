@@ -2,11 +2,6 @@ use crate::game::Game;
 use chrono::Datelike;
 use domain::message::*;
 use rand::Rng;
-use std::collections::HashMap;
-
-fn params(pairs: &[(&str, &str)]) -> HashMap<String, String> {
-    pairs.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect()
-}
 
 fn action(id: &str, label: &str, label_key: &str, action_type: ActionType) -> MessageAction {
     MessageAction {
