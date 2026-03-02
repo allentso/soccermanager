@@ -1,7 +1,7 @@
 {
   "app": {
     "name": "OpenFoot Manager",
-    "version": "v0.1.0 Alpha"
+    "version": "v0.1.0-alpha"
   },
   "menu": {
     "newGame": "New Game",
