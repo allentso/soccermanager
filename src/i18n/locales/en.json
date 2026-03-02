@@ -72,7 +72,9 @@
     "sectionClub": "Club",
     "sectionWorld": "World",
     "searchTeams": "Teams",
-    "searchPlayers": "Players"
+    "searchPlayers": "Players",
+    "scouting": "Scouting",
+    "youthAcademy": "Youth Academy"
   },
   "continueMenu": {
     "goToField": "Go to the Field",

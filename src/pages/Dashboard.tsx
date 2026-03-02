@@ -285,7 +285,7 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="mt-3 pt-3 border-t border-navy-700">
-            <p className="text-xs text-gray-400 uppercase tracking-wider">Manager</p>
+            <p className="text-xs text-gray-400 uppercase tracking-wider">{t('dashboard.manager')}</p>
             <p className="text-sm font-semibold text-white mt-0.5">{managerName}</p>
             {(() => {
               const myTeam = gameState?.teams.find(t => t.id === gameState.manager.team_id);
@@ -307,8 +307,8 @@ export default function Dashboard() {
           <NavItem icon={<Crosshair />} label={t('dashboard.tactics')} active={activeTab === "Tactics"} onClick={() => handleNavClick("Tactics")} />
           <NavItem icon={<Dumbbell />} label={t('dashboard.training')} active={activeTab === "Training"} onClick={() => handleNavClick("Training")} />
           <NavItem icon={<UserCog />} label={t('dashboard.staff')} active={activeTab === "Staff"} onClick={() => handleNavClick("Staff")} />
-          <NavItem icon={<Eye />} label="Scouting" active={activeTab === "Scouting"} onClick={() => handleNavClick("Scouting")} />
-          <NavItem icon={<GraduationCap />} label="Youth Academy" active={activeTab === "Youth"} onClick={() => handleNavClick("Youth")} />
+          <NavItem icon={<Eye />} label={t('dashboard.scouting')} active={activeTab === "Scouting"} onClick={() => handleNavClick("Scouting")} />
+          <NavItem icon={<GraduationCap />} label={t('dashboard.youthAcademy')} active={activeTab === "Youth"} onClick={() => handleNavClick("Youth")} />
           <NavItem icon={<DollarSign />} label={t('dashboard.finances')} active={activeTab === "Finances"} onClick={() => handleNavClick("Finances")} />
           <NavItem icon={<TrendingUp />} label={t('dashboard.transfers')} active={activeTab === "Transfers"} onClick={() => handleNavClick("Transfers")} />
 

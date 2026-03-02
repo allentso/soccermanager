@@ -72,7 +72,9 @@
     "sectionClub": "Verein",
     "sectionWorld": "Welt",
     "searchTeams": "Teams",
-    "searchPlayers": "Spieler"
+    "searchPlayers": "Spieler",
+    "scouting": "Scouting",
+    "youthAcademy": "Jugendakademie"
   },
   "continueMenu": {
     "goToField": "Aufs Spielfeld",
