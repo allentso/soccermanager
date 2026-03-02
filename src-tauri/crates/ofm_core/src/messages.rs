@@ -123,6 +123,7 @@ pub fn season_schedule_message(league_name: &str, season_start: &str, date: &str
 pub fn pre_match_message(
     fixture_id: &str,
     opponent_name: &str,
+    opponent_id: &str,
     is_home: bool,
     matchday: u32,
     match_date: &str,
@@ -166,9 +167,10 @@ pub fn pre_match_message(
     .with_priority(MessagePriority::Normal)
     .with_sender_role("Assistant Manager")
     .with_action(action("set_tactics", "Set Tactics", "be.msg.preMatch.actionTactics", ActionType::NavigateTo { route: "/dashboard?tab=Tactics".to_string() }))
-    .with_action(action("view_opponent", "Scout Opponent", "be.msg.preMatch.actionScout", ActionType::NavigateTo { route: format!("/team/{}", "opponent") }))
+    .with_action(action("view_opponent", "Scout Opponent", "be.msg.preMatch.actionScout", ActionType::NavigateTo { route: format!("/team/{}", opponent_id) }))
     .with_context(MessageContext {
         fixture_id: Some(fixture_id.to_string()),
+        team_id: Some(opponent_id.to_string()),
         ..Default::default()
     })
     .with_i18n(

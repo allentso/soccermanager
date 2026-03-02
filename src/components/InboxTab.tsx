@@ -53,6 +53,12 @@ export default function InboxTab({ gameState, onGameUpdate, initialMessageId, on
     const action = msg?.actions.find(a => a.id === actionId);
     if (action && typeof action.action_type === "object" && "NavigateTo" in action.action_type) {
       const route = (action.action_type as { NavigateTo: { route: string } }).NavigateTo.route;
+      // Handle /team/{id} routes — navigate to team profile
+      const teamMatch = route.match(/^\/team\/(.+)$/);
+      if (teamMatch) {
+        onNavigate?.("__selectTeam", { messageId: teamMatch[1] });
+        return;
+      }
       // Parse dashboard tab from routes like "/dashboard?tab=Squad"
       const tabMatch = route.match(/[?&]tab=([^&]+)/i);
       if (tabMatch) {

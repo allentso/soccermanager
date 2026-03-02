@@ -181,6 +181,13 @@ export default function Dashboard() {
   };
 
   const handleNavigate = (tab: string, context?: { messageId?: string }) => {
+    // Special: navigate to a team profile
+    if (tab === "__selectTeam" && context?.messageId) {
+      pushHistory();
+      setSelectedTeamId(context.messageId);
+      setSelectedPlayerId(null);
+      return;
+    }
     setNavHistory([]);
     setActiveTab(tab);
     setSelectedPlayerId(null);

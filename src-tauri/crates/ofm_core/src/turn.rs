@@ -604,6 +604,7 @@ fn generate_pre_match_messages(game: &mut Game, today: &str) {
             let msg = messages::pre_match_message(
                 &fixture.id,
                 opponent_name,
+                opponent_id,
                 is_home,
                 fixture.matchday,
                 &target_str,
