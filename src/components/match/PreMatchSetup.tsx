@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { useTranslation } from "react-i18next";
 import { GameStateData, PlayerData } from "../../store/gameStore";
 import { MatchSnapshot, EnginePlayerData, FORMATIONS, PLAY_STYLES } from "./types";
 import { Badge } from "../ui";
@@ -67,6 +68,7 @@ function getStatVal(p: EnginePlayerData, key: string): number {
 }
 
 export default function PreMatchSetup({ snapshot, gameState, userSide, onStart, onUpdateSnapshot }: PreMatchSetupProps) {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<"lineup" | "setpieces">("lineup");
   const [selectedStarterId, setSelectedStarterId] = useState<string | null>(null);
   const [isAutoSelecting, setIsAutoSelecting] = useState(false);
@@ -204,19 +206,19 @@ export default function PreMatchSetup({ snapshot, gameState, userSide, onStart, 
               </div>
               <div>
                 <p className="font-heading font-bold text-lg text-white">{snapshot.home_team.name}</p>
-                <p className="text-xs text-gray-500">Home</p>
+                <p className="text-xs text-gray-500">{t('match.home')}</p>
               </div>
             </div>
 
             <div className="text-center">
-              <p className="text-xs font-heading uppercase tracking-widest text-accent-400 mb-1">Match Day</p>
+              <p className="text-xs font-heading uppercase tracking-widest text-accent-400 mb-1">{t('match.matchDay')}</p>
               <p className="text-3xl font-heading font-bold text-gray-500">VS</p>
             </div>
 
             <div className="flex items-center gap-4">
               <div className="text-right">
                 <p className="font-heading font-bold text-lg text-white">{snapshot.away_team.name}</p>
-                <p className="text-xs text-gray-500">Away</p>
+                <p className="text-xs text-gray-500">{t('match.away')}</p>
               </div>
               <div
                 className="w-14 h-14 rounded-xl flex items-center justify-center font-heading font-bold text-lg"
@@ -229,7 +231,7 @@ export default function PreMatchSetup({ snapshot, gameState, userSide, onStart, 
 
           <div className="text-center">
             <p className="text-sm font-heading uppercase tracking-widest text-primary-400">
-              Pre-Match Preparation
+              {t('match.preMatchPrep')}
             </p>
           </div>
         </div>
@@ -244,7 +246,7 @@ export default function PreMatchSetup({ snapshot, gameState, userSide, onStart, 
             {/* Formation */}
             <div className="bg-navy-800 rounded-xl border border-navy-700 p-4">
               <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500 mb-3">
-                Formation
+                {t('match.formation')}
               </h3>
               <div className="grid grid-cols-3 gap-2">
                 {FORMATIONS.map(f => (
@@ -266,7 +268,7 @@ export default function PreMatchSetup({ snapshot, gameState, userSide, onStart, 
             {/* Play Style */}
             <div className="bg-navy-800 rounded-xl border border-navy-700 p-4">
               <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500 mb-3">
-                Play Style
+                {t('match.playStyle')}
               </h3>
               <div className="grid grid-cols-2 gap-2">
                 {PLAY_STYLES.map(s => (
@@ -295,7 +297,7 @@ export default function PreMatchSetup({ snapshot, gameState, userSide, onStart, 
                 activeTab === "lineup" ? "bg-navy-600 text-white" : "text-gray-500 hover:text-gray-300"
               }`}
             >
-              Starting Lineup
+              {t('match.startingLineup')}
             </button>
             <button
               onClick={() => setActiveTab("setpieces")}
@@ -303,7 +305,7 @@ export default function PreMatchSetup({ snapshot, gameState, userSide, onStart, 
                 activeTab === "setpieces" ? "bg-navy-600 text-white" : "text-gray-500 hover:text-gray-300"
               }`}
             >
-              Set Pieces & Captain
+              {t('match.setPiecesCaptain')}
             </button>
           </div>
 
@@ -313,7 +315,7 @@ export default function PreMatchSetup({ snapshot, gameState, userSide, onStart, 
               {/* Formation Balance Bar + Auto-Select */}
               <div className="bg-navy-800 rounded-xl border border-navy-700 p-3 flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                  <span className="text-[10px] font-heading uppercase tracking-widest text-gray-600">Formation Fit</span>
+                  <span className="text-[10px] font-heading uppercase tracking-widest text-gray-600">{t('match.formationFit')}</span>
                   {(["Goalkeeper", "Defender", "Midfielder", "Forward"] as const).map(pos => {
                     const needed = formationNeeds[pos] || 0;
                     const actual = userTeam.players.filter(p => p.position === pos).length;
@@ -339,7 +341,7 @@ export default function PreMatchSetup({ snapshot, gameState, userSide, onStart, 
                   }`}
                 >
                   <Wand2 className="w-3.5 h-3.5" />
-                  {isAutoSelecting ? "Selecting..." : "Auto-Select Best XI"}
+                  {isAutoSelecting ? t('match.selecting') : t('match.autoSelectXI')}
                 </button>
               </div>
 
@@ -348,17 +350,17 @@ export default function PreMatchSetup({ snapshot, gameState, userSide, onStart, 
                 <div className="bg-navy-800 rounded-xl border border-navy-700 p-4">
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500">
-                      Starting XI
+                      {t('match.startingXI')}
                     </h3>
                     <div className="flex items-center gap-2">
                       {selectedStarterId && (
-                        <button onClick={() => setSelectedStarterId(null)} className="text-[10px] text-gray-500 hover:text-gray-300 font-heading uppercase tracking-wider">Cancel</button>
+                        <button onClick={() => setSelectedStarterId(null)} className="text-[10px] text-gray-500 hover:text-gray-300 font-heading uppercase tracking-wider">{t('match.cancel')}</button>
                       )}
-                      <Badge variant="primary" size="sm">{userTeam.players.length} players</Badge>
+                      <Badge variant="primary" size="sm">{t('match.nPlayers', { count: userTeam.players.length })}</Badge>
                     </div>
                   </div>
                   {selectedStarterId && (
-                    <p className="text-[10px] text-accent-400 font-heading uppercase tracking-wider mb-2">Select a bench player to swap with</p>
+                    <p className="text-[10px] text-accent-400 font-heading uppercase tracking-wider mb-2">{t('match.swapPrompt')}</p>
                   )}
                   {positions.map(pos => {
                     const players = userTeam.players.filter(p => p.position === pos);
@@ -429,12 +431,12 @@ export default function PreMatchSetup({ snapshot, gameState, userSide, onStart, 
                 <div className="bg-navy-800 rounded-xl border border-navy-700 p-4">
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500">
-                      Substitutes
+                      {t('match.substitutes')}
                     </h3>
-                    <Badge variant="neutral" size="sm">{userBench.length} available</Badge>
+                    <Badge variant="neutral" size="sm">{t('match.nAvailable', { count: userBench.length })}</Badge>
                   </div>
                   {userBench.length === 0 ? (
-                    <p className="text-xs text-gray-600">No bench players available.</p>
+                    <p className="text-xs text-gray-600">{t('match.noBenchAvailable2')}</p>
                   ) : (
                     <div className="flex flex-col gap-1">
                       {/* Bench column header */}
@@ -442,7 +444,7 @@ export default function PreMatchSetup({ snapshot, gameState, userSide, onStart, 
                         <span className="w-7" />
                         <span className="flex-1" />
                         <span className="text-[8px] font-heading uppercase tracking-widest text-gray-600 w-8 text-center">POS</span>
-                        <span className="text-[8px] font-heading uppercase tracking-widest text-gray-600 w-[84px] text-center">Key Stats</span>
+                        <span className="text-[8px] font-heading uppercase tracking-widest text-gray-600 w-[84px] text-center">{t('match.keyStats')}</span>
                         <span className="text-[8px] font-heading uppercase tracking-widest text-gray-600 w-8 text-right">FIT</span>
                       </div>
                       {userBench.map(bp => {
@@ -480,7 +482,7 @@ export default function PreMatchSetup({ snapshot, gameState, userSide, onStart, 
                   {/* Opponent Info */}
                   <div className="mt-6 pt-4 border-t border-navy-700">
                     <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500 mb-3">
-                      Opponent
+                      {t('match.opponent')}
                     </h3>
                     <div className="flex items-center gap-3 mb-2">
                       <div
@@ -519,10 +521,10 @@ export default function PreMatchSetup({ snapshot, gameState, userSide, onStart, 
                 className="w-full mb-4 flex items-center justify-center gap-2 px-4 py-2.5 bg-accent-500/10 hover:bg-accent-500/20 text-accent-400 rounded-lg font-heading font-bold text-xs uppercase tracking-wider transition-colors border border-accent-500/20"
               >
                 <Wand2 className="w-3.5 h-3.5" />
-                Auto-Select Best Takers
+                {t('match.autoSelectTakers')}
               </button>
               <SetPieceSelector
-                label="Captain"
+                label={t('match.captain')}
                 icon={<Crown className="w-4 h-4 text-accent-400" />}
                 role="captain"
                 currentId={userSetPieces.captain}
@@ -531,7 +533,7 @@ export default function PreMatchSetup({ snapshot, gameState, userSide, onStart, 
                 onSelect={(id) => handleSetPieceTaker("captain", id)}
               />
               <SetPieceSelector
-                label="Penalty Taker"
+                label={t('match.penaltyTaker')}
                 icon={<CircleDot className="w-4 h-4 text-accent-400" />}
                 role="penalty"
                 currentId={userSetPieces.penalty_taker}
@@ -540,7 +542,7 @@ export default function PreMatchSetup({ snapshot, gameState, userSide, onStart, 
                 onSelect={(id) => handleSetPieceTaker("penalty", id)}
               />
               <SetPieceSelector
-                label="Free Kick Taker"
+                label={t('match.freeKickTaker')}
                 icon={<Footprints className="w-4 h-4 text-accent-400" />}
                 role="freekick"
                 currentId={userSetPieces.free_kick_taker}
@@ -549,7 +551,7 @@ export default function PreMatchSetup({ snapshot, gameState, userSide, onStart, 
                 onSelect={(id) => handleSetPieceTaker("freekick", id)}
               />
               <SetPieceSelector
-                label="Corner Taker"
+                label={t('match.cornerTaker')}
                 icon={<CornerDownRight className="w-4 h-4 text-accent-400" />}
                 role="corner"
                 currentId={userSetPieces.corner_taker}
@@ -569,7 +571,7 @@ export default function PreMatchSetup({ snapshot, gameState, userSide, onStart, 
             onClick={onStart}
             className="flex items-center gap-3 px-8 py-3 bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 rounded-xl font-heading font-bold uppercase tracking-wider text-sm text-white shadow-lg shadow-primary-500/20 transition-all"
           >
-            Start Match
+            {t('match.startMatch')}
             <ChevronRight className="w-5 h-5" />
           </button>
         </div>
@@ -642,6 +644,7 @@ function SetPieceSelector({
   allSquad: PlayerData[];
   onSelect: (id: string) => void;
 }) {
+  const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
   const currentPlayer = players.find(p => p.id === currentId);
   const currentSquad = allSquad.find(sp => sp.id === currentId);
@@ -667,7 +670,7 @@ function SetPieceSelector({
         <div className="flex-1 text-left">
           <p className="text-xs font-heading font-bold uppercase tracking-widest text-gray-400">{label}</p>
           <p className="text-sm text-gray-200 font-medium">
-            {currentPlayer ? currentPlayer.name : "Not assigned"}
+            {currentPlayer ? currentPlayer.name : t('match.notAssigned')}
           </p>
         </div>
         {currentStats && (
