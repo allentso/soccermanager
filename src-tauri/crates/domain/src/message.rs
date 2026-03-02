@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum MessageCategory {
@@ -32,6 +33,9 @@ pub struct MessageAction {
     pub label: String,
     pub action_type: ActionType,
     pub resolved: bool,
+    /// Optional i18n key for the action label (frontend resolves via t())
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub label_key: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -63,6 +67,21 @@ pub struct InboxMessage {
     pub actions: Vec<MessageAction>,
     /// Optional references to entities relevant to this message
     pub context: MessageContext,
+    /// Optional i18n key for the subject (frontend resolves via t())
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub subject_key: Option<String>,
+    /// Optional i18n key for the body (frontend resolves via t())
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub body_key: Option<String>,
+    /// Optional i18n key for the sender name (frontend resolves via t())
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sender_key: Option<String>,
+    /// Optional i18n key for the sender role (frontend resolves via t())
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sender_role_key: Option<String>,
+    /// Interpolation parameters for the i18n keys (shared by subject/body/sender)
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    pub i18n_params: HashMap<String, String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -95,6 +114,11 @@ impl InboxMessage {
             priority: MessagePriority::Normal,
             actions: vec![],
             context: MessageContext::default(),
+            subject_key: None,
+            body_key: None,
+            sender_key: None,
+            sender_role_key: None,
+            i18n_params: HashMap::new(),
         }
     }
 
@@ -120,6 +144,24 @@ impl InboxMessage {
 
     pub fn with_context(mut self, context: MessageContext) -> Self {
         self.context = context;
+        self
+    }
+
+    pub fn with_i18n(
+        mut self,
+        subject_key: &str,
+        body_key: &str,
+        params: HashMap<String, String>,
+    ) -> Self {
+        self.subject_key = Some(subject_key.to_string());
+        self.body_key = Some(body_key.to_string());
+        self.i18n_params = params;
+        self
+    }
+
+    pub fn with_sender_i18n(mut self, sender_key: &str, role_key: &str) -> Self {
+        self.sender_key = Some(sender_key.to_string());
+        self.sender_role_key = Some(role_key.to_string());
         self
     }
 }

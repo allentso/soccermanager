@@ -4,6 +4,7 @@ import { GameStateData } from "../../store/gameStore";
 import { MatchSnapshot, MatchEvent, MinuteResult, SimSpeed, SPEED_MS, EnginePlayerData } from "./types";
 import { getEventDisplay, getPlayerName, phaseLabel } from "./helpers";
 import { Badge } from "../ui";
+import { useSettingsStore } from "../../store/settingsStore";
 import {
   Play, Pause, FastForward, SkipForward,
   Clock, Users, BarChart3, MessageSquare, RefreshCw,
@@ -30,7 +31,9 @@ export default function MatchLive({
   importantEvents, onSnapshotUpdate, onImportantEvent,
   onHalfTime, onFullTime,
 }: MatchLiveProps) {
-  const [speed, setSpeed] = useState<SimSpeed>("normal");
+  const { settings } = useSettingsStore();
+  const initialSpeed: SimSpeed = (settings.match_speed === "slow" || settings.match_speed === "fast") ? settings.match_speed : "normal";
+  const [speed, setSpeed] = useState<SimSpeed>(initialSpeed);
   const [activePanel, setActivePanel] = useState<ActivePanel>("events");
   const [isRunning, setIsRunning] = useState(true);
   const [showSubPanel, setShowSubPanel] = useState(false);

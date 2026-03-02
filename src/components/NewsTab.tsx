@@ -2,16 +2,24 @@ import { useState } from "react";
 import { GameStateData, NewsArticle } from "../store/gameStore";
 import { getTeamName } from "../lib/helpers";
 import { Newspaper, Trophy, BarChart3, TrendingUp, FileText, ArrowLeft, Clock } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { resolveNewsArticle } from "../utils/backendI18n";
 
-const CATEGORY_META: Record<string, { label: string; icon: React.ReactNode; color: string; bg: string }> = {
-  MatchReport:      { label: "Match Report",  icon: <Newspaper className="w-4 h-4" />,   color: "text-primary-500",  bg: "bg-primary-500/10" },
-  LeagueRoundup:    { label: "League Roundup", icon: <Trophy className="w-4 h-4" />,      color: "text-accent-500",   bg: "bg-accent-500/10" },
-  StandingsUpdate:  { label: "Standings",      icon: <BarChart3 className="w-4 h-4" />,   color: "text-blue-500",     bg: "bg-blue-500/10" },
-  TransferRumour:   { label: "Transfer",       icon: <TrendingUp className="w-4 h-4" />,  color: "text-purple-500",   bg: "bg-purple-500/10" },
-  InjuryNews:       { label: "Injury",         icon: <FileText className="w-4 h-4" />,    color: "text-red-500",      bg: "bg-red-500/10" },
-  SeasonPreview:    { label: "Season Preview", icon: <FileText className="w-4 h-4" />,    color: "text-emerald-500",  bg: "bg-emerald-500/10" },
-  Editorial:        { label: "Editorial",      icon: <FileText className="w-4 h-4" />,    color: "text-gray-500",     bg: "bg-gray-500/10" },
-  ManagerialChange: { label: "Managerial",     icon: <FileText className="w-4 h-4" />,    color: "text-orange-500",   bg: "bg-orange-500/10" },
+const CAT_ICONS: Record<string, React.ReactNode> = {
+  MatchReport: <Newspaper className="w-4 h-4" />, LeagueRoundup: <Trophy className="w-4 h-4" />,
+  StandingsUpdate: <BarChart3 className="w-4 h-4" />, TransferRumour: <TrendingUp className="w-4 h-4" />,
+  InjuryNews: <FileText className="w-4 h-4" />, SeasonPreview: <FileText className="w-4 h-4" />,
+  Editorial: <FileText className="w-4 h-4" />, ManagerialChange: <FileText className="w-4 h-4" />,
+};
+const CAT_COLORS: Record<string, string> = {
+  MatchReport: "text-primary-500", LeagueRoundup: "text-accent-500", StandingsUpdate: "text-blue-500",
+  TransferRumour: "text-purple-500", InjuryNews: "text-red-500", SeasonPreview: "text-emerald-500",
+  Editorial: "text-gray-500", ManagerialChange: "text-orange-500",
+};
+const CAT_BG: Record<string, string> = {
+  MatchReport: "bg-primary-500/10", LeagueRoundup: "bg-accent-500/10", StandingsUpdate: "bg-blue-500/10",
+  TransferRumour: "bg-purple-500/10", InjuryNews: "bg-red-500/10", SeasonPreview: "bg-emerald-500/10",
+  Editorial: "bg-gray-500/10", ManagerialChange: "bg-orange-500/10",
 };
 
 interface NewsTabProps {
@@ -24,10 +32,11 @@ function formatNewsDate(dateStr: string) {
 }
 
 export default function NewsTab({ gameState, onSelectTeam }: NewsTabProps) {
+  const { t } = useTranslation();
   const [filterCategory, setFilterCategory] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  const news = gameState.news || [];
+  const news = (gameState.news || []).map(resolveNewsArticle);
   const sortedNews = [...news].sort((a, b) => b.date.localeCompare(a.date));
   const categories = Array.from(new Set(sortedNews.map(n => n.category)));
   const filtered = filterCategory ? sortedNews.filter(n => n.category === filterCategory) : sortedNews;
@@ -38,8 +47,8 @@ export default function NewsTab({ gameState, onSelectTeam }: NewsTabProps) {
     return (
       <div className="text-center py-16">
         <Newspaper className="w-12 h-12 text-gray-300 dark:text-navy-600 mx-auto mb-3" />
-        <p className="text-gray-500 dark:text-gray-400 text-sm">No news articles yet.</p>
-        <p className="text-gray-400 dark:text-gray-500 text-xs mt-1">News will appear as the season progresses.</p>
+        <p className="text-gray-500 dark:text-gray-400 text-sm">{t('news.noNews')}</p>
+        <p className="text-gray-400 dark:text-gray-500 text-xs mt-1">{t('news.newsWillAppear')}</p>
       </div>
     );
   }
@@ -61,11 +70,9 @@ export default function NewsTab({ gameState, onSelectTeam }: NewsTabProps) {
               : "bg-gray-100 dark:bg-navy-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-navy-600"
           }`}
         >
-          All
+          {t('common.all')}
         </button>
-        {categories.map(cat => {
-          const meta = CATEGORY_META[cat];
-          return (
+        {categories.map(cat => (
             <button
               key={cat}
               onClick={() => setFilterCategory(filterCategory === cat ? null : cat)}
@@ -75,12 +82,11 @@ export default function NewsTab({ gameState, onSelectTeam }: NewsTabProps) {
                   : "bg-gray-100 dark:bg-navy-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-navy-600"
               }`}
             >
-              {meta?.label || cat}
+              {t(`news.categories.${cat}`)}
             </button>
-          );
-        })}
+        ))}
         <span className="text-xs text-gray-400 dark:text-gray-500 ml-auto">
-          {filtered.length} article{filtered.length !== 1 ? "s" : ""}
+          {t('news.nArticles', { count: filtered.length })}
         </span>
       </div>
 
@@ -104,7 +110,8 @@ export default function NewsTab({ gameState, onSelectTeam }: NewsTabProps) {
 function HeroArticle({ article, gameState, onSelect, onSelectTeam }: {
   article: NewsArticle; gameState: GameStateData; onSelect: () => void; onSelectTeam?: (id: string) => void;
 }) {
-  const meta = CATEGORY_META[article.category] || { label: article.category, icon: <FileText className="w-4 h-4" />, color: "text-gray-500", bg: "bg-gray-500/10" };
+  const { t } = useTranslation();
+  const meta = { icon: CAT_ICONS[article.category] || <FileText className="w-4 h-4" />, color: CAT_COLORS[article.category] || "text-gray-500", bg: CAT_BG[article.category] || "bg-gray-500/10", label: t(`news.categories.${article.category}`) };
 
   return (
     <button onClick={onSelect} className="w-full text-left bg-white dark:bg-navy-800 rounded-xl border border-gray-200 dark:border-navy-700 shadow-sm overflow-hidden hover:shadow-md dark:hover:border-navy-600 transition-all group">
@@ -169,7 +176,8 @@ function HeroArticle({ article, gameState, onSelect, onSelectTeam }: {
 function ArticleCard({ article, gameState, onSelect }: {
   article: NewsArticle; gameState: GameStateData; onSelect: () => void;
 }) {
-  const meta = CATEGORY_META[article.category] || { label: article.category, icon: <FileText className="w-4 h-4" />, color: "text-gray-500", bg: "bg-gray-500/10" };
+  const { t } = useTranslation();
+  const meta = { icon: CAT_ICONS[article.category] || <FileText className="w-4 h-4" />, color: CAT_COLORS[article.category] || "text-gray-500", bg: CAT_BG[article.category] || "bg-gray-500/10", label: t(`news.categories.${article.category}`) };
 
   return (
     <button onClick={onSelect} className="w-full text-left bg-white dark:bg-navy-800 rounded-xl border border-gray-200 dark:border-navy-700 shadow-sm overflow-hidden hover:shadow-md dark:hover:border-navy-600 transition-all group flex flex-col">
@@ -220,13 +228,14 @@ function ArticleCard({ article, gameState, onSelect }: {
 function ArticleDetail({ article, gameState, onBack, onSelectTeam }: {
   article: NewsArticle; gameState: GameStateData; onBack: () => void; onSelectTeam?: (id: string) => void;
 }) {
-  const meta = CATEGORY_META[article.category] || { label: article.category, icon: <FileText className="w-4 h-4" />, color: "text-gray-500", bg: "bg-gray-500/10" };
+  const { t } = useTranslation();
+  const meta = { icon: CAT_ICONS[article.category] || <FileText className="w-4 h-4" />, color: CAT_COLORS[article.category] || "text-gray-500", bg: CAT_BG[article.category] || "bg-gray-500/10", label: t(`news.categories.${article.category}`) };
 
   return (
     <div className="max-w-3xl mx-auto">
       <button onClick={onBack} className="flex items-center gap-1.5 text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 hover:text-primary-500 dark:hover:text-primary-400 mb-4 transition-colors">
         <ArrowLeft className="w-4 h-4" />
-        Back to News
+        {t('news.backToNews')}
       </button>
 
       <article className="bg-white dark:bg-navy-800 rounded-xl border border-gray-200 dark:border-navy-700 shadow-sm overflow-hidden">

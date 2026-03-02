@@ -4,25 +4,29 @@ import { GameStateData, StaffData } from "../store/gameStore";
 import { Card, CardBody, Badge, ProgressBar } from "./ui";
 import { UserCog, Search, UserPlus, UserMinus, Briefcase, Eye, Stethoscope, GraduationCap, Star } from "lucide-react";
 import { getTeamName, calcAge, formatVal } from "../lib/helpers";
+import { useTranslation } from "react-i18next";
 
 interface StaffTabProps {
   gameState: GameStateData;
   onGameUpdate?: (state: GameStateData) => void;
 }
 
-const ROLE_META: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
-  AssistantManager: { label: "Assistant Manager", icon: <Briefcase className="w-4 h-4" />, color: "text-blue-500" },
-  Coach:            { label: "Coach",             icon: <GraduationCap className="w-4 h-4" />, color: "text-primary-500" },
-  Scout:            { label: "Scout",             icon: <Eye className="w-4 h-4" />, color: "text-accent-500" },
-  Physio:           { label: "Physio",            icon: <Stethoscope className="w-4 h-4" />, color: "text-red-400" },
+const ROLE_ICONS: Record<string, React.ReactNode> = {
+  AssistantManager: <Briefcase className="w-4 h-4" />,
+  Coach: <GraduationCap className="w-4 h-4" />,
+  Scout: <Eye className="w-4 h-4" />,
+  Physio: <Stethoscope className="w-4 h-4" />,
+};
+const ROLE_COLORS: Record<string, string> = {
+  AssistantManager: "text-blue-500", Coach: "text-primary-500", Scout: "text-accent-500", Physio: "text-red-400",
 };
 
-function bestAttr(s: StaffData): { label: string; value: number } {
+function bestAttr(s: StaffData): { key: string; value: number } {
   const attrs = [
-    { label: "Coaching", value: s.attributes.coaching },
-    { label: "Judging Ability", value: s.attributes.judging_ability },
-    { label: "Judging Potential", value: s.attributes.judging_potential },
-    { label: "Physiotherapy", value: s.attributes.physiotherapy },
+    { key: "coaching", value: s.attributes.coaching },
+    { key: "judgingAbility", value: s.attributes.judging_ability },
+    { key: "judgingPotential", value: s.attributes.judging_potential },
+    { key: "physiotherapy", value: s.attributes.physiotherapy },
   ];
   return attrs.reduce((a, b) => (b.value > a.value ? b : a));
 }
@@ -33,17 +37,9 @@ function ovrRating(s: StaffData): number {
   );
 }
 
-const SPEC_LABELS: Record<string, string> = {
-  Fitness: "Fitness",
-  Technique: "Technique",
-  Tactics: "Tactics",
-  Defending: "Defending",
-  Attacking: "Attacking",
-  GoalKeeping: "Goalkeeping",
-  Youth: "Youth Dev",
-};
 
 export default function StaffTab({ gameState, onGameUpdate }: StaffTabProps) {
+  const { t } = useTranslation();
   const userTeamId = gameState.manager.team_id;
   const [view, setView] = useState<"mystaff" | "available">("mystaff");
   const [search, setSearch] = useState("");
@@ -104,7 +100,7 @@ export default function StaffTab({ gameState, onGameUpdate }: StaffTabProps) {
                 : "bg-white dark:bg-navy-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-navy-600"
             }`}
           >
-            <UserCog className="w-4 h-4" /> My Staff ({myStaff.length})
+            <UserCog className="w-4 h-4" /> {t('staff.myStaff', { count: myStaff.length })}
           </button>
           <button
             onClick={() => setView("available")}
@@ -114,7 +110,7 @@ export default function StaffTab({ gameState, onGameUpdate }: StaffTabProps) {
                 : "bg-white dark:bg-navy-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-navy-600"
             }`}
           >
-            <UserPlus className="w-4 h-4" /> Available ({availableStaff.length})
+            <UserPlus className="w-4 h-4" /> {t('staff.available', { count: availableStaff.length })}
           </button>
         </div>
 
@@ -122,7 +118,7 @@ export default function StaffTab({ gameState, onGameUpdate }: StaffTabProps) {
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
           <input
             type="text"
-            placeholder="Search staff..."
+            placeholder={t('staff.searchStaff')}
             value={search}
             onChange={e => setSearch(e.target.value)}
             className="w-full pl-9 pr-3 py-2 rounded-lg bg-white dark:bg-navy-800 border border-gray-200 dark:border-navy-600 text-sm text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
@@ -136,7 +132,7 @@ export default function StaffTab({ gameState, onGameUpdate }: StaffTabProps) {
               !roleFilter ? "bg-primary-500 text-white shadow-sm" : "bg-white dark:bg-navy-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-navy-600"
             }`}
           >
-            All
+            {t('common.all')}
           </button>
           {roles.map(r => (
             <button
@@ -146,7 +142,7 @@ export default function StaffTab({ gameState, onGameUpdate }: StaffTabProps) {
                 roleFilter === r ? "bg-primary-500 text-white shadow-sm" : "bg-white dark:bg-navy-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-navy-600"
               }`}
             >
-              {ROLE_META[r]?.icon} {ROLE_META[r]?.label}
+              {ROLE_ICONS[r]} {t(`staff.roles.${r}`)}
             </button>
           ))}
         </div>
@@ -157,13 +153,14 @@ export default function StaffTab({ gameState, onGameUpdate }: StaffTabProps) {
         <div className="py-12 text-center">
           <UserCog className="w-12 h-12 text-gray-300 dark:text-navy-600 mx-auto mb-3" />
           <p className="text-sm text-gray-400 dark:text-gray-500">
-            {view === "mystaff" ? "No staff members match your filters." : "No available staff found."}
+            {view === "mystaff" ? t('staff.noStaffMatch') : t('staff.noAvailableStaff')}
           </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {filtered.map(staff => {
-            const meta = ROLE_META[staff.role] || ROLE_META.Coach;
+            const roleIcon = ROLE_ICONS[staff.role] || ROLE_ICONS.Coach;
+            const roleColor = ROLE_COLORS[staff.role] || ROLE_COLORS.Coach;
             const age = calcAge(staff.date_of_birth);
             const ovr = ovrRating(staff);
             const best = bestAttr(staff);
@@ -173,8 +170,8 @@ export default function StaffTab({ gameState, onGameUpdate }: StaffTabProps) {
                 <CardBody>
                   <div className="flex items-start gap-4">
                     {/* Avatar */}
-                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${meta.color} bg-gray-100 dark:bg-navy-700`}>
-                      {meta.icon}
+                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${roleColor} bg-gray-100 dark:bg-navy-700`}>
+                      {roleIcon}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
@@ -184,15 +181,15 @@ export default function StaffTab({ gameState, onGameUpdate }: StaffTabProps) {
                         <Badge variant={ovr >= 65 ? "success" : ovr >= 45 ? "primary" : "neutral"} size="sm">{ovr} OVR</Badge>
                       </div>
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                        {meta.label} — Age {age}
-                        {staff.team_id && view === "available" && <span className="ml-1.5">at {getTeamName(gameState.teams, staff.team_id)}</span>}
+                        {t(`staff.roles.${staff.role}`)} — {t('common.age')} {age}
+                        {staff.team_id && view === "available" && <span className="ml-1.5">@ {getTeamName(gameState.teams, staff.team_id)}</span>}
                       </p>
 
                       {/* Specialization + Wage */}
                       <div className="flex flex-wrap gap-1.5 mt-1.5">
                         {staff.specialization && (
                           <span className="inline-flex items-center gap-1 text-[10px] bg-accent-50 dark:bg-accent-500/10 text-accent-600 dark:text-accent-400 px-1.5 py-0.5 rounded font-heading uppercase tracking-wider">
-                            <Star className="w-3 h-3" /> {SPEC_LABELS[staff.specialization] || staff.specialization}
+                            <Star className="w-3 h-3" /> {t(`staff.specializations.${staff.specialization}`)}
                           </span>
                         )}
                         {staff.wage > 0 && (
@@ -204,14 +201,14 @@ export default function StaffTab({ gameState, onGameUpdate }: StaffTabProps) {
 
                       {/* Attributes */}
                       <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 mt-3">
-                        <AttrBar label="Coaching" value={staff.attributes.coaching} />
-                        <AttrBar label="Judging Ability" value={staff.attributes.judging_ability} />
-                        <AttrBar label="Judging Potential" value={staff.attributes.judging_potential} />
-                        <AttrBar label="Physiotherapy" value={staff.attributes.physiotherapy} />
+                        <AttrBar label={t('staff.attrs.coaching')} value={staff.attributes.coaching} />
+                        <AttrBar label={t('staff.attrs.judgingAbility')} value={staff.attributes.judging_ability} />
+                        <AttrBar label={t('staff.attrs.judgingPotential')} value={staff.attributes.judging_potential} />
+                        <AttrBar label={t('staff.attrs.physiotherapy')} value={staff.attributes.physiotherapy} />
                       </div>
 
                       <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
-                        Best: <span className="font-medium text-gray-600 dark:text-gray-300">{best.label} ({best.value})</span>
+                        {t('staff.best')}: <span className="font-medium text-gray-600 dark:text-gray-300">{t(`staff.attrs.${best.key}`)} ({best.value})</span>
                       </p>
                     </div>
 
@@ -221,7 +218,7 @@ export default function StaffTab({ gameState, onGameUpdate }: StaffTabProps) {
                         disabled={actionLoading === staff.id}
                         onClick={() => handleRelease(staff.id)}
                         className={`p-2 rounded-lg bg-red-50 dark:bg-red-500/10 text-red-500 hover:bg-red-100 dark:hover:bg-red-500/20 transition-colors ${actionLoading === staff.id ? "opacity-50 pointer-events-none" : ""}`}
-                        title="Release staff member"
+                        title={t('staff.releaseStaff')}
                       >
                         <UserMinus className="w-4 h-4" />
                       </button>
@@ -231,7 +228,7 @@ export default function StaffTab({ gameState, onGameUpdate }: StaffTabProps) {
                         disabled={actionLoading === staff.id}
                         onClick={() => handleHire(staff.id)}
                         className={`p-2 rounded-lg bg-primary-50 dark:bg-primary-500/10 text-primary-500 hover:bg-primary-100 dark:hover:bg-primary-500/20 transition-colors ${actionLoading === staff.id ? "opacity-50 pointer-events-none" : ""}`}
-                        title="Hire staff member"
+                        title={t('staff.hireStaff')}
                       >
                         <UserPlus className="w-4 h-4" />
                       </button>

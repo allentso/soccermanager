@@ -3,6 +3,7 @@ import { GameStateData, FixtureData } from "../store/gameStore";
 import { Card, CardBody, Badge } from "./ui";
 import { Calendar as CalendarIcon, TableProperties, Trophy } from "lucide-react";
 import { getTeamName, formatMatchDate } from "../lib/helpers";
+import { useTranslation } from "react-i18next";
 
 interface ScheduleTabProps {
   gameState: GameStateData;
@@ -10,12 +11,13 @@ interface ScheduleTabProps {
 }
 
 export default function ScheduleTab({ gameState, onSelectTeam }: ScheduleTabProps) {
+  const { t } = useTranslation();
   const [view, setView] = useState<"fixtures" | "standings">("fixtures");
   const league = gameState.league;
   const userTeamId = gameState.manager.team_id;
 
   if (!league) {
-    return <p className="text-gray-500 dark:text-gray-400 text-center py-8">No league schedule available.</p>;
+    return <p className="text-gray-500 dark:text-gray-400 text-center py-8">{t('schedule.noLeague')}</p>;
   }
 
   // Group fixtures by matchday
@@ -44,7 +46,7 @@ export default function ScheduleTab({ gameState, onSelectTeam }: ScheduleTabProp
               : "bg-white dark:bg-navy-800 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 border border-gray-200 dark:border-navy-600"
           }`}
         >
-          <CalendarIcon className="w-4 h-4 inline mr-1.5 -mt-0.5" /> Fixtures
+          <CalendarIcon className="w-4 h-4 inline mr-1.5 -mt-0.5" /> {t('schedule.fixtures')}
         </button>
         <button
           onClick={() => setView("standings")}
@@ -54,7 +56,7 @@ export default function ScheduleTab({ gameState, onSelectTeam }: ScheduleTabProp
               : "bg-white dark:bg-navy-800 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 border border-gray-200 dark:border-navy-600"
           }`}
         >
-          <TableProperties className="w-4 h-4 inline mr-1.5 -mt-0.5" /> Standings
+          <TableProperties className="w-4 h-4 inline mr-1.5 -mt-0.5" /> {t('schedule.standings')}
         </button>
       </div>
 
@@ -64,7 +66,7 @@ export default function ScheduleTab({ gameState, onSelectTeam }: ScheduleTabProp
             <Card key={md}>
               <div className="px-5 py-3 border-b border-gray-100 dark:border-navy-600 bg-gray-50 dark:bg-navy-800 rounded-t-xl">
                 <h4 className="font-heading font-bold text-sm uppercase tracking-wider text-gray-600 dark:text-gray-300">
-                  Matchday {md} — {formatMatchDate(fixtures[0].date)}
+                  {t('schedule.matchday', { number: md })} — {formatMatchDate(fixtures[0].date)}
                 </h4>
               </div>
               <CardBody className="p-0">
@@ -104,7 +106,7 @@ export default function ScheduleTab({ gameState, onSelectTeam }: ScheduleTabProp
           <div className="p-5 border-b border-gray-100 dark:border-navy-600 bg-gradient-to-r from-navy-700 to-navy-800 rounded-t-xl">
             <h3 className="text-lg font-heading font-bold text-white flex items-center gap-2 uppercase tracking-wide">
               <Trophy className="text-accent-400 w-5 h-5" />
-              {league.name} — Season {league.season}
+              {league.name} — {t('schedule.season', { number: league.season })}
             </h3>
           </div>
           <div className="overflow-x-auto">
@@ -112,15 +114,15 @@ export default function ScheduleTab({ gameState, onSelectTeam }: ScheduleTabProp
               <thead>
                 <tr className="bg-gray-50 dark:bg-navy-800 border-b border-gray-200 dark:border-navy-600 text-xs">
                   <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 w-8">#</th>
-                  <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Team</th>
-                  <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">P</th>
-                  <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">W</th>
-                  <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">D</th>
-                  <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">L</th>
-                  <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">GF</th>
-                  <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">GA</th>
-                  <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">GD</th>
-                  <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">Pts</th>
+                  <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t('common.team')}</th>
+                  <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">{t('common.played')}</th>
+                  <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">{t('common.won')}</th>
+                  <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">{t('common.drawn')}</th>
+                  <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">{t('common.lost')}</th>
+                  <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">{t('common.gf')}</th>
+                  <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">{t('common.ga')}</th>
+                  <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">{t('common.gd')}</th>
+                  <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">{t('common.pts')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-navy-600">

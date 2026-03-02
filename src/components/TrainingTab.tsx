@@ -6,47 +6,41 @@ import {
   HeartPulse, Crosshair, Brain, Shield, Zap, BedDouble, Gauge,
   Flame, Scale, Feather, AlertTriangle, Info,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 interface TrainingTabProps {
   gameState: GameStateData;
   onGameUpdate?: (state: GameStateData) => void;
 }
 
-const TRAINING_FOCUSES: { id: string; label: string; icon: React.ReactNode; desc: string; attrs: string[] }[] = [
-  { id: "Physical", label: "Physical", icon: <HeartPulse className="w-6 h-6" />, desc: "Build fitness & power", attrs: ["Pace", "Stamina", "Strength", "Agility"] },
-  { id: "Technical", label: "Technical", icon: <Crosshair className="w-6 h-6" />, desc: "Sharpen ball skills", attrs: ["Passing", "Shooting", "Dribbling"] },
-  { id: "Tactical", label: "Tactical", icon: <Brain className="w-6 h-6" />, desc: "Improve game IQ", attrs: ["Positioning", "Vision", "Decisions", "Composure"] },
-  { id: "Defending", label: "Defending", icon: <Shield className="w-6 h-6" />, desc: "Solidify the backline", attrs: ["Tackling", "Defending", "Strength", "Positioning"] },
-  { id: "Attacking", label: "Attacking", icon: <Zap className="w-6 h-6" />, desc: "Increase goal threat", attrs: ["Shooting", "Dribbling", "Pace"] },
-  { id: "Recovery", label: "Recovery", icon: <BedDouble className="w-6 h-6" />, desc: "Rest day — max recovery", attrs: [] },
-];
+const TRAINING_FOCUS_IDS = ["Physical", "Technical", "Tactical", "Defending", "Attacking", "Recovery"] as const;
+const TRAINING_FOCUS_ICONS: Record<string, React.ReactNode> = {
+  Physical: <HeartPulse className="w-6 h-6" />,
+  Technical: <Crosshair className="w-6 h-6" />,
+  Tactical: <Brain className="w-6 h-6" />,
+  Defending: <Shield className="w-6 h-6" />,
+  Attacking: <Zap className="w-6 h-6" />,
+  Recovery: <BedDouble className="w-6 h-6" />,
+};
+const TRAINING_FOCUS_ATTRS: Record<string, string[]> = {
+  Physical: ["pace", "stamina", "strength", "agility"],
+  Technical: ["passing", "shooting", "dribbling"],
+  Tactical: ["positioning", "vision", "decisions", "composure"],
+  Defending: ["tackling", "defending", "strength", "positioning"],
+  Attacking: ["shooting", "dribbling", "pace"],
+  Recovery: [],
+};
 
-const INTENSITIES: { id: string; label: string; desc: string; color: string }[] = [
-  { id: "Low", label: "Low", desc: "Gentle session — less fatigue, slower growth", color: "text-blue-500" },
-  { id: "Medium", label: "Medium", desc: "Balanced workload — standard results", color: "text-accent-500" },
-  { id: "High", label: "High", desc: "Intense drills — faster growth, more fatigue", color: "text-red-500" },
-];
+const INTENSITY_IDS = ["Low", "Medium", "High"] as const;
+const INTENSITY_COLORS: Record<string, string> = { Low: "text-blue-500", Medium: "text-accent-500", High: "text-red-500" };
 
-const SCHEDULES: { id: string; label: string; icon: React.ReactNode; days: number; desc: string; detail: string; color: string }[] = [
-  {
-    id: "Intense", label: "Intense", icon: <Flame className="w-5 h-5" />, days: 6,
-    desc: "6 days training, 1 rest",
-    detail: "Maximum player development. Only Sunday off. Risk of fatigue buildup.",
-    color: "text-red-500",
-  },
-  {
-    id: "Balanced", label: "Balanced", icon: <Scale className="w-5 h-5" />, days: 4,
-    desc: "4 days training, 3 rest",
-    detail: "Train Mon, Tue, Thu, Fri. Rest Wed, Sat, Sun. Recommended for most squads.",
-    color: "text-primary-500",
-  },
-  {
-    id: "Light", label: "Light", icon: <Feather className="w-5 h-5" />, days: 2,
-    desc: "2 days training, 5 rest",
-    detail: "Train Tue & Thu only. Prioritises recovery. Good after heavy fixture congestion.",
-    color: "text-blue-500",
-  },
-];
+const SCHEDULE_IDS = ["Intense", "Balanced", "Light"] as const;
+const SCHEDULE_ICONS: Record<string, React.ReactNode> = {
+  Intense: <Flame className="w-5 h-5" />,
+  Balanced: <Scale className="w-5 h-5" />,
+  Light: <Feather className="w-5 h-5" />,
+};
+const SCHEDULE_COLORS: Record<string, string> = { Intense: "text-red-500", Balanced: "text-primary-500", Light: "text-blue-500" };
 
 // Which days are training days per schedule (Mon=0..Sun=6)
 const SCHEDULE_TRAINING_DAYS: Record<string, number[]> = {
@@ -55,7 +49,7 @@ const SCHEDULE_TRAINING_DAYS: Record<string, number[]> = {
   Light: [1, 3],                      // Tue, Thu
 };
 
-const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const DAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
 
 function getWeekdayFromDate(dateStr: string): number {
   const d = new Date(dateStr);
@@ -64,8 +58,9 @@ function getWeekdayFromDate(dateStr: string): number {
 }
 
 export default function TrainingTab({ gameState, onGameUpdate }: TrainingTabProps) {
-  const myTeam = gameState.teams.find(t => t.id === gameState.manager.team_id);
-  if (!myTeam) return <p className="text-gray-500 dark:text-gray-400">No team assigned.</p>;
+  const { t } = useTranslation();
+  const myTeam = gameState.teams.find(tm => tm.id === gameState.manager.team_id);
+  if (!myTeam) return <p className="text-gray-500 dark:text-gray-400">{t('common.noTeam')}</p>;
 
   const currentFocus = myTeam.training_focus || "Physical";
   const currentIntensity = myTeam.training_intensity || "Medium";
@@ -106,7 +101,7 @@ export default function TrainingTab({ gameState, onGameUpdate }: TrainingTabProp
     }
   };
 
-  const activeFocusMeta = TRAINING_FOCUSES.find(f => f.id === currentFocus);
+  const activeFocusAttrs = TRAINING_FOCUS_ATTRS[currentFocus] || [];
 
   // Staff advice logic
   const getStaffAdvice = (): { level: "ok" | "warn" | "critical"; message: string } | null => {
@@ -168,7 +163,7 @@ export default function TrainingTab({ gameState, onGameUpdate }: TrainingTabProp
                   : staffAdvice.level === "warn" ? "text-amber-600 dark:text-amber-400"
                     : "text-blue-600 dark:text-blue-400"
               }`}>
-                {staffAdvice.level === "critical" ? "Staff Alert" : staffAdvice.level === "warn" ? "Staff Warning" : "Staff Suggestion"}
+                {staffAdvice.level === "critical" ? t('training.staffAlert') : staffAdvice.level === "warn" ? t('training.staffWarning') : t('training.staffSuggestion')}
               </p>
               <p className="text-sm text-gray-700 dark:text-gray-300">{staffAdvice.message}</p>
             </div>
@@ -177,35 +172,35 @@ export default function TrainingTab({ gameState, onGameUpdate }: TrainingTabProp
 
         {/* Weekly schedule selector */}
         <Card accent="accent">
-          <CardHeader>Weekly Schedule</CardHeader>
+          <CardHeader>{t('training.weeklySchedule')}</CardHeader>
           <CardBody>
             <div className="flex gap-3 mb-4">
-              {SCHEDULES.map(s => (
+              {SCHEDULE_IDS.map(sId => (
                 <button
-                  key={s.id}
+                  key={sId}
                   disabled={isSaving}
-                  onClick={() => handleSetSchedule(s.id)}
+                  onClick={() => handleSetSchedule(sId)}
                   className={`flex-1 p-3 rounded-xl text-left transition-all border-2 ${
-                    currentSchedule === s.id
+                    currentSchedule === sId
                       ? "border-primary-500 bg-primary-50 dark:bg-primary-500/10 shadow-md shadow-primary-500/10"
                       : "border-gray-200 dark:border-navy-600 hover:border-gray-300 dark:hover:border-navy-500"
                   } ${isSaving ? "opacity-60 pointer-events-none" : ""}`}
                 >
-                  <div className={`mb-1.5 ${s.color}`}>{s.icon}</div>
-                  <p className="font-heading font-bold text-sm uppercase tracking-wider text-gray-800 dark:text-gray-200">{s.label}</p>
-                  <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">{s.desc}</p>
+                  <div className={`mb-1.5 ${SCHEDULE_COLORS[sId]}`}>{SCHEDULE_ICONS[sId]}</div>
+                  <p className="font-heading font-bold text-sm uppercase tracking-wider text-gray-800 dark:text-gray-200">{t(`training.schedules.${sId}.label`)}</p>
+                  <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">{t(`training.schedules.${sId}.desc`)}</p>
                 </button>
               ))}
             </div>
 
             {/* Weekly calendar visualization */}
             <div className="grid grid-cols-7 gap-1.5">
-              {DAY_LABELS.map((day, i) => {
+              {DAY_KEYS.map((dayKey, i) => {
                 const isTraining = trainingDays.includes(i);
                 const isToday = i === todayWeekday;
                 return (
                   <div
-                    key={day}
+                    key={dayKey}
                     className={`text-center py-2 rounded-lg transition-all ${
                       isToday ? "ring-2 ring-accent-400 dark:ring-accent-500" : ""
                     } ${
@@ -214,44 +209,44 @@ export default function TrainingTab({ gameState, onGameUpdate }: TrainingTabProp
                         : "bg-gray-50 dark:bg-navy-700/50 text-gray-400 dark:text-gray-500"
                     }`}
                   >
-                    <p className="text-[10px] font-heading font-bold uppercase tracking-wider mb-0.5">{day}</p>
-                    <p className="text-xs font-bold">{isTraining ? "Train" : "Rest"}</p>
+                    <p className="text-[10px] font-heading font-bold uppercase tracking-wider mb-0.5">{t(`training.days.${dayKey}`)}</p>
+                    <p className="text-xs font-bold">{isTraining ? t('training.train') : t('training.rest')}</p>
                   </div>
                 );
               })}
             </div>
 
             <p className="text-xs text-gray-400 dark:text-gray-500 mt-3">
-              {SCHEDULES.find(s => s.id === currentSchedule)?.detail}{" "}
-              Today is <strong>{DAY_LABELS[todayWeekday]}</strong> — {isTodayTraining ? "a training day" : "a rest day"}.
+              {t(`training.schedules.${currentSchedule}.detail`)}{" "}
+              <span dangerouslySetInnerHTML={{ __html: t('training.todayIs', { day: t(`training.days.${DAY_KEYS[todayWeekday]}`), type: isTodayTraining ? t('training.aTrainingDay') : t('training.aRestDay') }) }} />
             </p>
           </CardBody>
         </Card>
 
         {/* Training focus selection */}
         <Card accent="primary">
-          <CardHeader>Training Focus</CardHeader>
+          <CardHeader>{t('training.trainingFocus')}</CardHeader>
           <CardBody>
             <div className="grid grid-cols-3 gap-3">
-              {TRAINING_FOCUSES.map(tf => (
+              {TRAINING_FOCUS_IDS.map(fId => (
                 <button
-                  key={tf.id}
+                  key={fId}
                   disabled={isSaving}
-                  onClick={() => handleSetTraining(tf.id, currentIntensity)}
+                  onClick={() => handleSetTraining(fId, currentIntensity)}
                   className={`p-4 rounded-xl text-left transition-all border-2 ${
-                    currentFocus === tf.id
+                    currentFocus === fId
                       ? "border-primary-500 bg-primary-50 dark:bg-primary-500/10 shadow-md shadow-primary-500/10"
                       : "border-gray-200 dark:border-navy-600 hover:border-gray-300 dark:hover:border-navy-500"
                   } ${isSaving ? "opacity-60 pointer-events-none" : ""}`}
                 >
-                  <div className="mb-2 text-gray-600 dark:text-gray-300">{tf.icon}</div>
-                  <p className="font-heading font-bold text-sm uppercase tracking-wider text-gray-800 dark:text-gray-200">{tf.label}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{tf.desc}</p>
-                  {tf.attrs.length > 0 && (
+                  <div className="mb-2 text-gray-600 dark:text-gray-300">{TRAINING_FOCUS_ICONS[fId]}</div>
+                  <p className="font-heading font-bold text-sm uppercase tracking-wider text-gray-800 dark:text-gray-200">{t(`training.focuses.${fId}.label`)}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{t(`training.focuses.${fId}.desc`)}</p>
+                  {TRAINING_FOCUS_ATTRS[fId].length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-2">
-                      {tf.attrs.map(a => (
+                      {TRAINING_FOCUS_ATTRS[fId].map(a => (
                         <span key={a} className="text-[10px] bg-gray-100 dark:bg-navy-700 text-gray-500 dark:text-gray-400 px-1.5 py-0.5 rounded font-heading uppercase tracking-wider">
-                          {a}
+                          {t(`common.attributes.${a}`)}
                         </span>
                       ))}
                     </div>
@@ -264,33 +259,33 @@ export default function TrainingTab({ gameState, onGameUpdate }: TrainingTabProp
             <div className="mt-5 pt-4 border-t border-gray-100 dark:border-navy-700">
               <div className="flex items-center gap-2 mb-3">
                 <Gauge className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-                <span className="text-xs font-heading font-bold uppercase tracking-widest text-gray-600 dark:text-gray-400">Intensity</span>
+                <span className="text-xs font-heading font-bold uppercase tracking-widest text-gray-600 dark:text-gray-400">{t('training.intensity')}</span>
               </div>
               <div className="flex gap-3">
-                {INTENSITIES.map(int => (
+                {INTENSITY_IDS.map(iId => (
                   <button
-                    key={int.id}
+                    key={iId}
                     disabled={isSaving}
-                    onClick={() => handleSetTraining(currentFocus, int.id)}
+                    onClick={() => handleSetTraining(currentFocus, iId)}
                     className={`flex-1 p-3 rounded-lg text-left transition-all border-2 ${
-                      currentIntensity === int.id
+                      currentIntensity === iId
                         ? "border-primary-500 bg-primary-50 dark:bg-primary-500/10"
                         : "border-gray-200 dark:border-navy-600 hover:border-gray-300 dark:hover:border-navy-500"
                     } ${isSaving ? "opacity-60 pointer-events-none" : ""}`}
                   >
-                    <p className={`font-heading font-bold text-sm uppercase tracking-wider ${int.color}`}>{int.label}</p>
-                    <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">{int.desc}</p>
+                    <p className={`font-heading font-bold text-sm uppercase tracking-wider ${INTENSITY_COLORS[iId]}`}>{t(`training.intensities.${iId}.label`)}</p>
+                    <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">{t(`training.intensities.${iId}.desc`)}</p>
                   </button>
                 ))}
               </div>
             </div>
 
             <p className="text-xs text-gray-400 dark:text-gray-500 mt-4">
-              Training is applied on scheduled training days when you advance time. Rest days provide full recovery.
-              {activeFocusMeta && activeFocusMeta.attrs.length > 0 && (
-                <> Currently training: <strong>{activeFocusMeta.attrs.join(", ")}</strong> at <strong>{currentIntensity}</strong> intensity.</>
+              {t('training.trainingAppliedNote')}
+              {activeFocusAttrs.length > 0 && (
+                <> <span dangerouslySetInnerHTML={{ __html: t('training.currentlyTraining', { attrs: activeFocusAttrs.map(a => t(`common.attributes.${a}`)).join(', '), intensity: t(`training.intensities.${currentIntensity}.label`) }) }} /></>
               )}
-              {currentFocus === "Recovery" && <> Players will focus on rest and condition recovery on all days.</>}
+              {currentFocus === "Recovery" && <> {t('training.recoveryNote')}</>}
             </p>
           </CardBody>
         </Card>
@@ -299,19 +294,19 @@ export default function TrainingTab({ gameState, onGameUpdate }: TrainingTabProp
       {/* Right column: Fitness overview */}
       <div className="flex flex-col gap-5">
         <Card accent="accent">
-          <CardHeader>Squad Fitness</CardHeader>
+          <CardHeader>{t('training.squadFitness')}</CardHeader>
           <CardBody>
             <div className="flex flex-col gap-3">
               <div>
                 <div className="flex justify-between text-sm mb-1">
-                  <span className="text-gray-600 dark:text-gray-400">Avg Condition</span>
+                  <span className="text-gray-600 dark:text-gray-400">{t('training.avgCondition')}</span>
                   <span className="font-heading font-bold text-gray-800 dark:text-gray-100">{avgCondition}%</span>
                 </div>
                 <ProgressBar value={avgCondition} variant="auto" size="md" />
               </div>
               <div>
                 <div className="flex justify-between text-sm mb-1">
-                  <span className="text-gray-600 dark:text-gray-400">Avg Morale</span>
+                  <span className="text-gray-600 dark:text-gray-400">{t('training.avgMorale')}</span>
                   <span className="font-heading font-bold text-gray-800 dark:text-gray-100">{avgMorale}%</span>
                 </div>
                 <ProgressBar value={avgMorale} variant="auto" size="md" />
@@ -320,12 +315,12 @@ export default function TrainingTab({ gameState, onGameUpdate }: TrainingTabProp
                 <div className="mt-1 pt-2 border-t border-gray-100 dark:border-navy-700">
                   {criticalCount > 0 && (
                     <p className="text-xs text-red-500 dark:text-red-400 flex items-center gap-1">
-                      <AlertTriangle className="w-3 h-3" /> {criticalCount} player{criticalCount > 1 ? "s" : ""} in critical condition (&lt;25%)
+                      <AlertTriangle className="w-3 h-3" /> {t('training.criticalCondition', { count: criticalCount })}
                     </p>
                   )}
                   {exhaustedCount > 0 && (
                     <p className="text-xs text-amber-500 dark:text-amber-400 flex items-center gap-1 mt-0.5">
-                      <AlertTriangle className="w-3 h-3" /> {exhaustedCount} player{exhaustedCount > 1 ? "s" : ""} exhausted (&lt;40%)
+                      <AlertTriangle className="w-3 h-3" /> {t('training.exhaustedPlayers', { count: exhaustedCount })}
                     </p>
                   )}
                 </div>
@@ -335,7 +330,7 @@ export default function TrainingTab({ gameState, onGameUpdate }: TrainingTabProp
         </Card>
 
         <Card>
-          <CardHeader>Player Fitness</CardHeader>
+          <CardHeader>{t('training.playerFitness')}</CardHeader>
           <CardBody className="p-0 max-h-64 overflow-y-auto">
             <div className="divide-y divide-gray-100 dark:divide-navy-600">
               {roster.sort((a, b) => a.condition - b.condition).map(p => (

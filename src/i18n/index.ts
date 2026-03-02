@@ -5,6 +5,7 @@ import es from "./locales/es.json";
 import pt from "./locales/pt.json";
 import fr from "./locales/fr.json";
 import de from "./locales/de.json";
+import ptBR from "./locales/pt-BR.json";
 
 export const SUPPORTED_LANGUAGES = [
   { code: "en", label: "English" },
@@ -12,6 +13,7 @@ export const SUPPORTED_LANGUAGES = [
   { code: "pt", label: "Português" },
   { code: "fr", label: "Français" },
   { code: "de", label: "Deutsch" },
+  { code: "pt-BR", label: "Português (Brasil)" },
 ] as const;
 
 i18n.use(initReactI18next).init({
@@ -21,6 +23,7 @@ i18n.use(initReactI18next).init({
     pt: { translation: pt },
     fr: { translation: fr },
     de: { translation: de },
+    "pt-BR": { translation: ptBR },
   },
   lng: "en",
   fallbackLng: "en",

@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum NewsCategory {
@@ -27,6 +28,18 @@ pub struct NewsArticle {
     /// Optional match score context
     pub match_score: Option<NewsMatchScore>,
     pub read: bool,
+    /// Optional i18n key for the headline (frontend resolves via t())
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub headline_key: Option<String>,
+    /// Optional i18n key for the body (frontend resolves via t())
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub body_key: Option<String>,
+    /// Optional i18n key for the source (frontend resolves via t())
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_key: Option<String>,
+    /// Interpolation parameters for the i18n keys
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    pub i18n_params: HashMap<String, String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -50,6 +63,10 @@ impl NewsArticle {
             player_ids: vec![],
             match_score: None,
             read: false,
+            headline_key: None,
+            body_key: None,
+            source_key: None,
+            i18n_params: HashMap::new(),
         }
     }
 
@@ -65,6 +82,20 @@ impl NewsArticle {
 
     pub fn with_score(mut self, score: NewsMatchScore) -> Self {
         self.match_score = Some(score);
+        self
+    }
+
+    pub fn with_i18n(
+        mut self,
+        headline_key: &str,
+        body_key: &str,
+        source_key: &str,
+        params: HashMap<String, String>,
+    ) -> Self {
+        self.headline_key = Some(headline_key.to_string());
+        self.body_key = Some(body_key.to_string());
+        self.source_key = Some(source_key.to_string());
+        self.i18n_params = params;
         self
     }
 }

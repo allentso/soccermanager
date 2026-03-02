@@ -1,5 +1,11 @@
 use domain::news::*;
 use rand::Rng;
+use std::collections::HashMap;
+
+/// Helper to build a HashMap<String, String> from key-value pairs.
+fn params(pairs: &[(&str, &str)]) -> HashMap<String, String> {
+    pairs.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect()
+}
 
 /// Generate a match report news article for a completed fixture.
 pub fn match_report_article(
@@ -83,12 +89,30 @@ pub fn match_report_article(
         headlines[rng.gen_range(0..headlines.len())].clone()
     };
 
+    let source_keys = ["be.source.sportsGazette", "be.source.footballHerald", "be.source.matchDayPress", "be.source.leagueChronicle"];
     let sources = ["Sports Gazette", "The Football Herald", "Match Day Press", "League Chronicle"];
-    let source = sources[rng.gen_range(0..sources.len())];
+    let src_idx = rng.gen_range(0..sources.len());
+    let source = sources[src_idx];
+    let source_key = source_keys[src_idx];
 
     let mut player_ids: Vec<String> = Vec::new();
     for (name, _) in home_scorers.iter().chain(away_scorers.iter()) {
         player_ids.push(name.clone());
+    }
+
+    // Determine outcome for i18n key
+    let outcome = if home_goals > away_goals { "homeWin" }
+        else if away_goals > home_goals { "awayWin" }
+        else { "draw" };
+    let headline_variant = rng.gen_range(0..3u8);
+
+    // Build scorers string for i18n
+    let mut scorer_parts = Vec::new();
+    for (name, min) in home_scorers {
+        scorer_parts.push(format!("{} ({}', {})", name, min, home_name));
+    }
+    for (name, min) in away_scorers {
+        scorer_parts.push(format!("{} ({}', {})", name, min, away_name));
     }
 
     NewsArticle::new(
@@ -106,6 +130,30 @@ pub fn match_report_article(
         home_goals,
         away_goals,
     })
+    .with_i18n(
+        &format!("be.news.matchReport.headline.{}.{}", outcome, headline_variant),
+        &format!("be.news.matchReport.body{}", idx),
+        source_key,
+        {
+            let mut p = params(&[
+                ("home", home_name),
+                ("away", away_name),
+                ("homeGoals", &home_goals.to_string()),
+                ("awayGoals", &away_goals.to_string()),
+                ("matchday", &matchday.to_string()),
+                ("scorers", &scorer_parts.join(", ")),
+            ]);
+            // For winner-specific headlines
+            if home_goals > away_goals {
+                p.insert("winner".to_string(), home_name.to_string());
+                p.insert("loser".to_string(), away_name.to_string());
+            } else if away_goals > home_goals {
+                p.insert("winner".to_string(), away_name.to_string());
+                p.insert("loser".to_string(), home_name.to_string());
+            }
+            p
+        },
+    )
 }
 
 /// Generate a league roundup article summarising all matchday results.
@@ -143,15 +191,40 @@ pub fn league_roundup_article(
         format!("Goals Galore in Matchday {} Action", matchday),
     ];
 
+    let source_keys = ["be.source.leagueWire", "be.source.footballHerald", "be.source.sportsGazette"];
     let sources = ["League Wire", "The Football Herald", "Sports Gazette"];
+    let src_idx = rng.gen_range(0..sources.len());
+    let headline_idx = rng.gen_range(0..headlines.len());
+
+    // Build results text for i18n
+    let results_text: Vec<String> = results.iter()
+        .map(|(home, hg, away, ag)| format!("  {} {} - {} {}", home, hg, ag, away))
+        .collect();
 
     NewsArticle::new(
         format!("roundup_md{}", matchday),
-        headlines[rng.gen_range(0..headlines.len())].clone(),
+        headlines[headline_idx].clone(),
         body,
-        sources[rng.gen_range(0..sources.len())].to_string(),
+        sources[src_idx].to_string(),
         date.to_string(),
         NewsCategory::LeagueRoundup,
+    )
+    .with_i18n(
+        &format!("be.news.roundup.headline{}", headline_idx),
+        "be.news.roundup.body",
+        source_keys[src_idx],
+        {
+            let biggest_winner = biggest_win.map(|(home, hg, away, ag)| {
+                if hg > ag { home.clone() } else { away.clone() }
+            }).unwrap_or_default();
+            params(&[
+                ("matchday", &matchday.to_string()),
+                ("totalGoals", &total_goals.to_string()),
+                ("matchCount", &results.len().to_string()),
+                ("results", &results_text.join("\n")),
+                ("biggestWinner", &biggest_winner),
+            ])
+        },
     )
 }
 
@@ -177,15 +250,36 @@ pub fn standings_update_article(
         format!("Standings Update — Matchday {}", matchday),
     ];
 
+    let source_keys = ["be.source.leagueWire", "be.source.footballHerald", "be.source.leagueChronicle"];
     let sources = ["League Wire", "The Football Herald", "League Chronicle"];
+    let src_idx = rng.gen_range(0..sources.len());
+    let headline_idx = rng.gen_range(0..headlines.len());
+
+    // Build standings text for i18n
+    let standings_text: Vec<String> = top_teams.iter().enumerate()
+        .map(|(i, (name, pts, gd))| {
+            let gd_str = if *gd >= 0 { format!("+{}", gd) } else { format!("{}", gd) };
+            format!("  {}. {} — {} pts (GD: {})", i + 1, name, pts, gd_str)
+        })
+        .collect();
 
     NewsArticle::new(
         format!("standings_md{}", matchday),
-        headlines[rng.gen_range(0..headlines.len())].clone(),
+        headlines[headline_idx].clone(),
         body,
-        sources[rng.gen_range(0..sources.len())].to_string(),
+        sources[src_idx].to_string(),
         date.to_string(),
         NewsCategory::StandingsUpdate,
+    )
+    .with_i18n(
+        &format!("be.news.standings.headline{}", headline_idx),
+        "be.news.standings.body",
+        source_keys[src_idx],
+        params(&[
+            ("matchday", &matchday.to_string()),
+            ("leader", leader),
+            ("standings", &standings_text.join("\n")),
+        ]),
     )
 }
 
@@ -222,12 +316,25 @@ pub fn season_preview_article(
         format!("Can {} Claim the Title? Season Preview", favourite),
     ];
 
+    let headline_idx = rng.gen_range(0..headlines.len());
+
     NewsArticle::new(
         "season_preview".to_string(),
-        headlines[rng.gen_range(0..headlines.len())].clone(),
+        headlines[headline_idx].clone(),
         body,
         "The Football Herald".to_string(),
         date.to_string(),
         NewsCategory::SeasonPreview,
+    )
+    .with_i18n(
+        &format!("be.news.seasonPreview.headline{}", headline_idx),
+        "be.news.seasonPreview.body",
+        "be.source.footballHerald",
+        params(&[
+            ("teamCount", &team_names.len().to_string()),
+            ("favourite", favourite),
+            ("darkHorse", dark_horse),
+            ("teamList", &team_names.join(", ")),
+        ]),
     )
 }

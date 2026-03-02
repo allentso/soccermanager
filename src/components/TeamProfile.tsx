@@ -1,6 +1,7 @@
 import { TeamData, GameStateData, PlayerData } from "../store/gameStore";
 import { Card, CardHeader, CardBody, Badge, ProgressBar } from "./ui";
 import { ArrowLeft, Shield, MapPin, Calendar, DollarSign, Users, Trophy, Crosshair } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 interface TeamProfileProps {
   team: TeamData;
@@ -47,6 +48,7 @@ const positionBadgeVariant = (pos: string): "accent" | "primary" | "success" | "
 };
 
 export default function TeamProfile({ team, gameState, isOwnTeam, onClose, onSelectPlayer }: TeamProfileProps) {
+  const { t } = useTranslation();
   const roster = gameState.players
     .filter(p => p.team_id === team.id)
     .sort((a, b) => {
@@ -76,7 +78,7 @@ export default function TeamProfile({ team, gameState, isOwnTeam, onClose, onSel
       {/* Back button */}
       <button onClick={onClose} className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors mb-4">
         <ArrowLeft className="w-4 h-4" />
-        <span className="font-heading font-bold uppercase tracking-wider">Back</span>
+        <span className="font-heading font-bold uppercase tracking-wider">{t('common.back')}</span>
       </button>
 
       {/* Hero header with team colors */}
@@ -98,11 +100,11 @@ export default function TeamProfile({ team, gameState, isOwnTeam, onClose, onSel
               <h2 className="text-3xl font-heading font-bold text-white uppercase tracking-wide drop-shadow">{team.name}</h2>
               <div className="flex items-center gap-4 mt-2 text-white/80 text-sm">
                 <span className="flex items-center gap-1.5"><MapPin className="w-4 h-4" /> {team.city}, {team.country}</span>
-                <span className="flex items-center gap-1.5"><Calendar className="w-4 h-4" /> Est. {team.founded_year}</span>
+                <span className="flex items-center gap-1.5"><Calendar className="w-4 h-4" /> {t('teams.est')} {team.founded_year}</span>
               </div>
               {manager && (
                 <p className="text-white/70 text-sm mt-1 flex items-center gap-1.5">
-                  <Users className="w-4 h-4" /> Manager: {manager.first_name} {manager.last_name}
+                  <Users className="w-4 h-4" /> {t('teamProfile.managerLabel')} {manager.first_name} {manager.last_name}
                 </p>
               )}
             </div>
@@ -110,19 +112,19 @@ export default function TeamProfile({ team, gameState, isOwnTeam, onClose, onSel
             {/* Quick stats in header */}
             <div className="hidden md:grid grid-cols-2 gap-3">
               <div className="bg-black/20 backdrop-blur rounded-xl px-5 py-3 text-center min-w-[100px]">
-                <p className="text-xs text-white/60 font-heading uppercase tracking-wider">Avg OVR</p>
+                <p className="text-xs text-white/60 font-heading uppercase tracking-wider">{t('teams.avgOvr')}</p>
                 <p className="font-heading font-bold text-2xl text-white mt-0.5">{avgOvr}</p>
               </div>
               <div className="bg-black/20 backdrop-blur rounded-xl px-5 py-3 text-center min-w-[100px]">
-                <p className="text-xs text-white/60 font-heading uppercase tracking-wider">Reputation</p>
+                <p className="text-xs text-white/60 font-heading uppercase tracking-wider">{t('manager.reputation')}</p>
                 <p className="font-heading font-bold text-2xl text-accent-300 mt-0.5">{team.reputation}</p>
               </div>
               <div className="bg-black/20 backdrop-blur rounded-xl px-5 py-3 text-center min-w-[100px]">
-                <p className="text-xs text-white/60 font-heading uppercase tracking-wider">League Pos</p>
+                <p className="text-xs text-white/60 font-heading uppercase tracking-wider">{t('teamProfile.leaguePos')}</p>
                 <p className="font-heading font-bold text-2xl text-white mt-0.5">{leaguePos > 0 ? `#${leaguePos}` : "—"}</p>
               </div>
               <div className="bg-black/20 backdrop-blur rounded-xl px-5 py-3 text-center min-w-[100px]">
-                <p className="text-xs text-white/60 font-heading uppercase tracking-wider">Squad</p>
+                <p className="text-xs text-white/60 font-heading uppercase tracking-wider">{t('teams.squad')}</p>
                 <p className="font-heading font-bold text-2xl text-white mt-0.5">{roster.length}</p>
               </div>
             </div>
@@ -131,10 +133,10 @@ export default function TeamProfile({ team, gameState, isOwnTeam, onClose, onSel
 
         {/* Mobile-only quick stats */}
         <div className="grid grid-cols-4 gap-px bg-gray-200 dark:bg-navy-600 md:hidden">
-          <QuickStat label="Avg OVR" value={String(avgOvr)} color="text-primary-500" />
-          <QuickStat label="Rep" value={String(team.reputation)} color="text-accent-500" />
-          <QuickStat label="Position" value={leaguePos > 0 ? `#${leaguePos}` : "—"} color="text-gray-700 dark:text-gray-200" />
-          <QuickStat label="Squad" value={String(roster.length)} color="text-gray-700 dark:text-gray-200" />
+          <QuickStat label={t('teams.avgOvr')} value={String(avgOvr)} color="text-primary-500" />
+          <QuickStat label={t('teams.rep')} value={String(team.reputation)} color="text-accent-500" />
+          <QuickStat label={t('common.position')} value={leaguePos > 0 ? `#${leaguePos}` : "—"} color="text-gray-700 dark:text-gray-200" />
+          <QuickStat label={t('teams.squad')} value={String(roster.length)} color="text-gray-700 dark:text-gray-200" />
         </div>
       </Card>
 
@@ -142,13 +144,13 @@ export default function TeamProfile({ team, gameState, isOwnTeam, onClose, onSel
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Club info */}
         <Card>
-          <CardHeader>Club Information</CardHeader>
+          <CardHeader>{t('teamProfile.clubInfo')}</CardHeader>
           <CardBody>
             <div className="flex flex-col gap-3">
-              <InfoRow icon={<Shield className="w-4 h-4" />} label="Stadium" value={team.stadium_name} />
-              <InfoRow icon={<Users className="w-4 h-4" />} label="Capacity" value={team.stadium_capacity.toLocaleString()} />
-              <InfoRow icon={<Crosshair className="w-4 h-4" />} label="Formation" value={team.formation} />
-              <InfoRow icon={<Trophy className="w-4 h-4" />} label="Play Style" value={team.play_style} />
+              <InfoRow icon={<Shield className="w-4 h-4" />} label={t('teamProfile.stadium')} value={team.stadium_name} />
+              <InfoRow icon={<Users className="w-4 h-4" />} label={t('teamProfile.capacity')} value={team.stadium_capacity.toLocaleString()} />
+              <InfoRow icon={<Crosshair className="w-4 h-4" />} label={t('tactics.formation')} value={team.formation} />
+              <InfoRow icon={<Trophy className="w-4 h-4" />} label={t('tactics.playStyle')} value={team.play_style} />
             </div>
           </CardBody>
         </Card>
@@ -156,26 +158,26 @@ export default function TeamProfile({ team, gameState, isOwnTeam, onClose, onSel
         {/* Finances — only visible if own team */}
         {isOwnTeam ? (
           <Card accent="accent">
-            <CardHeader>Finances</CardHeader>
+            <CardHeader>{t('dashboard.finances')}</CardHeader>
             <CardBody>
               <div className="flex flex-col gap-3">
-                <InfoRow icon={<DollarSign className="w-4 h-4" />} label="Balance" value={formatMoney(team.finance)} />
-                <InfoRow icon={<DollarSign className="w-4 h-4" />} label="Wage Budget" value={`${formatMoney(team.wage_budget)}/wk`} />
-                <InfoRow icon={<DollarSign className="w-4 h-4" />} label="Transfer Budget" value={formatMoney(team.transfer_budget)} />
-                <InfoRow icon={<DollarSign className="w-4 h-4" />} label="Total Wages" value={`${formatMoney(totalWages)}/wk`} />
-                <InfoRow icon={<DollarSign className="w-4 h-4" />} label="Squad Value" value={formatMoney(totalValue)} />
-                <InfoRow icon={<DollarSign className="w-4 h-4" />} label="Season Income" value={formatMoney(team.season_income)} />
+                <InfoRow icon={<DollarSign className="w-4 h-4" />} label={t('teamProfile.balance')} value={formatMoney(team.finance)} />
+                <InfoRow icon={<DollarSign className="w-4 h-4" />} label={t('finances.wageBudget')} value={`${formatMoney(team.wage_budget)}/wk`} />
+                <InfoRow icon={<DollarSign className="w-4 h-4" />} label={t('finances.transferBudget')} value={formatMoney(team.transfer_budget)} />
+                <InfoRow icon={<DollarSign className="w-4 h-4" />} label={t('teamProfile.totalWages')} value={`${formatMoney(totalWages)}/wk`} />
+                <InfoRow icon={<DollarSign className="w-4 h-4" />} label={t('finances.squadValue')} value={formatMoney(totalValue)} />
+                <InfoRow icon={<DollarSign className="w-4 h-4" />} label={t('finances.seasonIncome')} value={formatMoney(team.season_income)} />
               </div>
             </CardBody>
           </Card>
         ) : (
           <Card>
-            <CardHeader>Squad Overview</CardHeader>
+            <CardHeader>{t('teamProfile.squadOverview')}</CardHeader>
             <CardBody>
               <div className="flex flex-col gap-3">
-                <InfoRow icon={<Users className="w-4 h-4" />} label="Squad Size" value={String(roster.length)} />
-                <InfoRow icon={<DollarSign className="w-4 h-4" />} label="Squad Value" value={formatMoney(totalValue)} />
-                <InfoRow icon={<Trophy className="w-4 h-4" />} label="Avg OVR" value={String(avgOvr)} />
+                <InfoRow icon={<Users className="w-4 h-4" />} label={t('teamProfile.squadSize')} value={String(roster.length)} />
+                <InfoRow icon={<DollarSign className="w-4 h-4" />} label={t('finances.squadValue')} value={formatMoney(totalValue)} />
+                <InfoRow icon={<Trophy className="w-4 h-4" />} label={t('teams.avgOvr')} value={String(avgOvr)} />
               </div>
             </CardBody>
           </Card>
@@ -184,17 +186,17 @@ export default function TeamProfile({ team, gameState, isOwnTeam, onClose, onSel
         {/* League position */}
         {standings && (
           <Card>
-            <CardHeader>League Standing</CardHeader>
+            <CardHeader>{t('teamProfile.leagueStanding')}</CardHeader>
             <CardBody>
               <div className="grid grid-cols-4 gap-2 text-center">
-                <StatBox label="P" value={standings.played} />
-                <StatBox label="W" value={standings.won} />
-                <StatBox label="D" value={standings.drawn} />
-                <StatBox label="L" value={standings.lost} />
-                <StatBox label="GF" value={standings.goals_for} />
-                <StatBox label="GA" value={standings.goals_against} />
-                <StatBox label="GD" value={standings.goals_for - standings.goals_against} />
-                <StatBox label="Pts" value={standings.points} highlight />
+                <StatBox label={t('common.played')} value={standings.played} />
+                <StatBox label={t('common.won')} value={standings.won} />
+                <StatBox label={t('common.drawn')} value={standings.drawn} />
+                <StatBox label={t('common.lost')} value={standings.lost} />
+                <StatBox label={t('common.gf')} value={standings.goals_for} />
+                <StatBox label={t('common.ga')} value={standings.goals_against} />
+                <StatBox label={t('common.gd')} value={standings.goals_for - standings.goals_against} />
+                <StatBox label={t('common.pts')} value={standings.points} highlight />
               </div>
             </CardBody>
           </Card>
@@ -202,19 +204,19 @@ export default function TeamProfile({ team, gameState, isOwnTeam, onClose, onSel
 
         {/* Full Roster Table */}
         <Card className="lg:col-span-3">
-          <CardHeader>Squad ({roster.length})</CardHeader>
+          <CardHeader>{t('teams.squad')} ({roster.length})</CardHeader>
           <CardBody className="p-0">
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-gray-50 dark:bg-navy-800 border-b border-gray-200 dark:border-navy-600 text-xs">
-                    <th className="py-3 px-5 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Pos</th>
-                    <th className="py-3 px-5 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Name</th>
-                    <th className="py-3 px-5 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Age</th>
-                    <th className="py-3 px-5 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Nationality</th>
-                    <th className="py-3 px-5 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Value</th>
-                    {isOwnTeam && <th className="py-3 px-5 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Condition</th>}
-                    <th className="py-3 px-5 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">OVR</th>
+                    <th className="py-3 px-5 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t('common.position')}</th>
+                    <th className="py-3 px-5 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t('common.name')}</th>
+                    <th className="py-3 px-5 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t('common.age')}</th>
+                    <th className="py-3 px-5 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t('common.nationality')}</th>
+                    <th className="py-3 px-5 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t('common.value')}</th>
+                    {isOwnTeam && <th className="py-3 px-5 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t('common.condition')}</th>}
+                    <th className="py-3 px-5 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t('common.ovr')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-navy-600">
@@ -264,19 +266,19 @@ export default function TeamProfile({ team, gameState, isOwnTeam, onClose, onSel
         {/* History */}
         {team.history.length > 0 && (
           <Card className="lg:col-span-3">
-            <CardHeader>Season History</CardHeader>
+            <CardHeader>{t('teamProfile.seasonHistory')}</CardHeader>
             <CardBody className="p-0">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-gray-50 dark:bg-navy-800 border-b border-gray-200 dark:border-navy-600 text-xs">
-                    <th className="py-3 px-5 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Season</th>
-                    <th className="py-3 px-5 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">Pos</th>
-                    <th className="py-3 px-5 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">P</th>
-                    <th className="py-3 px-5 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">W</th>
-                    <th className="py-3 px-5 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">D</th>
-                    <th className="py-3 px-5 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">L</th>
-                    <th className="py-3 px-5 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">GF</th>
-                    <th className="py-3 px-5 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">GA</th>
+                    <th className="py-3 px-5 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t('schedule.season', { number: '' })}</th>
+                    <th className="py-3 px-5 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">{t('common.position')}</th>
+                    <th className="py-3 px-5 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">{t('common.played')}</th>
+                    <th className="py-3 px-5 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">{t('common.won')}</th>
+                    <th className="py-3 px-5 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">{t('common.drawn')}</th>
+                    <th className="py-3 px-5 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">{t('common.lost')}</th>
+                    <th className="py-3 px-5 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">{t('common.gf')}</th>
+                    <th className="py-3 px-5 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">{t('common.ga')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-navy-600">

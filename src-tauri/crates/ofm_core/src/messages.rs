@@ -1,5 +1,22 @@
 use domain::message::*;
 use rand::Rng;
+use std::collections::HashMap;
+
+/// Helper to build a HashMap<String, String> from key-value pairs.
+fn params(pairs: &[(&str, &str)]) -> HashMap<String, String> {
+    pairs.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect()
+}
+
+/// Helper to create a MessageAction with an i18n label key.
+fn action(id: &str, label: &str, label_key: &str, action_type: ActionType) -> MessageAction {
+    MessageAction {
+        id: id.to_string(),
+        label: label.to_string(),
+        action_type,
+        resolved: false,
+        label_key: Some(label_key.to_string()),
+    }
+}
 
 /// Message template system — generates rich messages with variations.
 
@@ -51,22 +68,18 @@ pub fn welcome_message(team_name: &str, team_id: &str, date: &str) -> InboxMessa
     .with_category(MessageCategory::Welcome)
     .with_priority(MessagePriority::High)
     .with_sender_role("Chairman")
-    .with_action(MessageAction {
-        id: "review_squad".to_string(),
-        label: "Review Squad".to_string(),
-        action_type: ActionType::NavigateTo { route: "/dashboard?tab=Squad".to_string() },
-        resolved: false,
-    })
-    .with_action(MessageAction {
-        id: "ack_welcome".to_string(),
-        label: "Thank the Board".to_string(),
-        action_type: ActionType::Acknowledge,
-        resolved: false,
-    })
+    .with_action(action("review_squad", "Review Squad", "be.msg.welcome.actionReview", ActionType::NavigateTo { route: "/dashboard?tab=Squad".to_string() }))
+    .with_action(action("ack_welcome", "Thank the Board", "be.msg.welcome.actionThank", ActionType::Acknowledge))
     .with_context(MessageContext {
         team_id: Some(team_id.to_string()),
         ..Default::default()
     })
+    .with_i18n(
+        &format!("be.msg.welcome.subject{}", idx),
+        &format!("be.msg.welcome.body{}", idx),
+        params(&[("team", team_name)]),
+    )
+    .with_sender_i18n("be.sender.boardOfDirectors", "be.role.chairman")
 }
 
 pub fn season_schedule_message(league_name: &str, season_start: &str, date: &str) -> InboxMessage {
@@ -98,12 +111,13 @@ pub fn season_schedule_message(league_name: &str, season_start: &str, date: &str
     .with_category(MessageCategory::LeagueInfo)
     .with_priority(MessagePriority::Normal)
     .with_sender_role("Competition Secretary")
-    .with_action(MessageAction {
-        id: "view_schedule".to_string(),
-        label: "View Fixtures".to_string(),
-        action_type: ActionType::NavigateTo { route: "/dashboard?tab=Schedule".to_string() },
-        resolved: false,
-    })
+    .with_action(action("view_schedule", "View Fixtures", "be.msg.schedule.actionView", ActionType::NavigateTo { route: "/dashboard?tab=Schedule".to_string() }))
+    .with_i18n(
+        "be.msg.schedule.subject",
+        &format!("be.msg.schedule.body{}", idx),
+        params(&[("league", league_name), ("start", season_start)]),
+    )
+    .with_sender_i18n("be.sender.leagueOffice", "be.role.competitionSecretary")
 }
 
 pub fn pre_match_message(
@@ -151,22 +165,23 @@ pub fn pre_match_message(
     .with_category(MessageCategory::MatchPreview)
     .with_priority(MessagePriority::Normal)
     .with_sender_role("Assistant Manager")
-    .with_action(MessageAction {
-        id: "set_tactics".to_string(),
-        label: "Set Tactics".to_string(),
-        action_type: ActionType::NavigateTo { route: "/dashboard?tab=Tactics".to_string() },
-        resolved: false,
-    })
-    .with_action(MessageAction {
-        id: "view_opponent".to_string(),
-        label: "Scout Opponent".to_string(),
-        action_type: ActionType::NavigateTo { route: format!("/team/{}", "opponent") },
-        resolved: false,
-    })
+    .with_action(action("set_tactics", "Set Tactics", "be.msg.preMatch.actionTactics", ActionType::NavigateTo { route: "/dashboard?tab=Tactics".to_string() }))
+    .with_action(action("view_opponent", "Scout Opponent", "be.msg.preMatch.actionScout", ActionType::NavigateTo { route: format!("/team/{}", "opponent") }))
     .with_context(MessageContext {
         fixture_id: Some(fixture_id.to_string()),
         ..Default::default()
     })
+    .with_i18n(
+        "be.msg.preMatch.subject",
+        &format!("be.msg.preMatch.body{}", idx),
+        params(&[
+            ("venue", venue),
+            ("opponent", opponent_name),
+            ("matchDate", match_date),
+            ("matchday", &matchday.to_string()),
+        ]),
+    )
+    .with_sender_i18n("be.sender.assistantManager", "be.role.assistantManager")
 }
 
 pub fn match_result_message(
@@ -249,12 +264,7 @@ pub fn match_result_message(
     .with_category(MessageCategory::MatchResult)
     .with_priority(if outcome == "Victory" { MessagePriority::Normal } else { MessagePriority::High })
     .with_sender_role("Press Officer")
-    .with_action(MessageAction {
-        id: "view_standings".to_string(),
-        label: "View Standings".to_string(),
-        action_type: ActionType::NavigateTo { route: "/dashboard?tab=Schedule".to_string() },
-        resolved: false,
-    })
+    .with_action(action("view_standings", "View Standings", "be.msg.matchResult.actionStandings", ActionType::NavigateTo { route: "/dashboard?tab=Schedule".to_string() }))
     .with_context(MessageContext {
         fixture_id: Some(fixture_id.to_string()),
         match_result: Some(ContextMatchResult {
@@ -265,6 +275,22 @@ pub fn match_result_message(
         }),
         ..Default::default()
     })
+    .with_i18n(
+        &format!("be.msg.matchResult.subject.{}", outcome.to_lowercase()),
+        &format!("be.msg.matchResult.body.{}{}", outcome.to_lowercase(), if outcome == "Draw" { String::new() } else { rng.gen_range(0..2u8).to_string() }),
+        {
+            let mut p = params(&[
+                ("home", home_name),
+                ("away", away_name),
+                ("homeGoals", &home_goals.to_string()),
+                ("awayGoals", &away_goals.to_string()),
+                ("matchday", &matchday.to_string()),
+            ]);
+            p.insert("outcome".to_string(), outcome.to_string());
+            p
+        },
+    )
+    .with_sender_i18n("be.sender.matchReporter", "be.role.pressOfficer")
 }
 
 pub fn staff_advice_message(team_name: &str, team_id: &str, date: &str) -> InboxMessage {
@@ -287,16 +313,17 @@ pub fn staff_advice_message(team_name: &str, team_id: &str, date: &str) -> Inbox
     .with_category(MessageCategory::Training)
     .with_priority(MessagePriority::High)
     .with_sender_role("Assistant Manager")
-    .with_action(MessageAction {
-        id: "view_staff".to_string(),
-        label: "View Staff".to_string(),
-        action_type: ActionType::NavigateTo { route: "/dashboard?tab=Staff".to_string() },
-        resolved: false,
-    })
+    .with_action(action("view_staff", "View Staff", "be.msg.staffAdvice.actionView", ActionType::NavigateTo { route: "/dashboard?tab=Staff".to_string() }))
     .with_context(MessageContext {
         team_id: Some(team_id.to_string()),
         ..Default::default()
     })
+    .with_i18n(
+        "be.msg.staffAdvice.subject",
+        "be.msg.staffAdvice.body",
+        params(&[("team", team_name)]),
+    )
+    .with_sender_i18n("be.sender.assistantManager", "be.role.assistantManager")
 }
 
 pub fn board_expectations_message(team_name: &str, team_id: &str, date: &str) -> InboxMessage {
@@ -318,14 +345,15 @@ pub fn board_expectations_message(team_name: &str, team_id: &str, date: &str) ->
     .with_category(MessageCategory::BoardDirective)
     .with_priority(MessagePriority::High)
     .with_sender_role("Chairman")
-    .with_action(MessageAction {
-        id: "ack_objectives".to_string(),
-        label: "Accept Objectives".to_string(),
-        action_type: ActionType::Acknowledge,
-        resolved: false,
-    })
+    .with_action(action("ack_objectives", "Accept Objectives", "be.msg.boardExpect.actionAccept", ActionType::Acknowledge))
     .with_context(MessageContext {
         team_id: Some(team_id.to_string()),
         ..Default::default()
     })
+    .with_i18n(
+        "be.msg.boardExpect.subject",
+        "be.msg.boardExpect.body",
+        params(&[("team", team_name)]),
+    )
+    .with_sender_i18n("be.sender.boardOfDirectors", "be.role.chairman")
 }

@@ -125,11 +125,98 @@
       "3": "3e",
       "other": "{{n}}e"
     },
-    "pts": "pts",
+    "pts": "Pts",
     "played": "J",
     "won": "V",
     "drawn": "N",
-    "lost": "D"
+    "lost": "D",
+    "gf": "BP",
+    "ga": "BC",
+    "gd": "DB",
+    "injured": "Blessé",
+    "back": "Retour",
+    "all": "Tous",
+    "cancel": "Annuler",
+    "confirm": "Confirmer",
+    "save": "Sauvegarder",
+    "noTeam": "Aucune équipe assignée.",
+    "unemployed": "Vous êtes actuellement sans emploi.",
+    "freeAgent": "Agent Libre",
+    "unknown": "Inconnu",
+    "present": "Présent",
+    "season": "Saison {{n}}",
+    "matchday": "Journée {{n}}",
+    "result": "résultat",
+    "results": "résultats",
+    "vs": "vs",
+    "age": "Âge",
+    "ovr": "OVR",
+    "condition": "Condition",
+    "morale": "Moral",
+    "value": "Valeur",
+    "wage": "Salaire",
+    "name": "Nom",
+    "team": "Équipe",
+    "player": "Joueur",
+    "position": "Position",
+    "nationality": "Nationalité",
+    "contract": "Contrat",
+    "status": "Statut",
+    "average": "Moyenne",
+    "goalsFor": "BP",
+    "goalsAgainst": "BC",
+    "goalDifference": "DB",
+    "nPlayersFound": "{{count}} joueur(s) trouvé(s)",
+    "nResults": "{{count}} résultat(s)",
+    "showingFirst": "Affichage des {{shown}} premiers sur {{total}} joueurs. Affinez votre recherche.",
+    "noPlayersMatch": "Aucun joueur ne correspond à vos filtres.",
+    "positions": {
+      "Goalkeeper": "Gardien",
+      "Defender": "Défenseur",
+      "Midfielder": "Milieu",
+      "Forward": "Attaquant"
+    },
+    "posAbbr": {
+      "Goalkeeper": "GAR",
+      "Defender": "DEF",
+      "Midfielder": "MIL",
+      "Forward": "ATT"
+    },
+    "playStyles": {
+      "Balanced": "Équilibré",
+      "Attacking": "Offensif",
+      "Defensive": "Défensif",
+      "Possession": "Possession",
+      "Counter": "Contre-Attaque",
+      "HighPress": "Pressing Haut"
+    },
+    "attributes": {
+      "pace": "Vitesse",
+      "stamina": "Endurance",
+      "strength": "Force",
+      "agility": "Agilité",
+      "passing": "Passe",
+      "shooting": "Tir",
+      "tackling": "Tacle",
+      "dribbling": "Dribble",
+      "defending": "Défense",
+      "positioning": "Placement",
+      "vision": "Vision",
+      "decisions": "Décision",
+      "composure": "Sang-froid",
+      "aggression": "Agressivité",
+      "teamwork": "Travail d'équipe",
+      "leadership": "Leadership",
+      "handling": "Prise de balle",
+      "reflexes": "Réflexes",
+      "aerial": "Jeu Aérien"
+    },
+    "attrGroups": {
+      "physical": "Physique",
+      "technical": "Technique",
+      "mental": "Mental",
+      "goalkeeper": "Gardien"
+    }
   },
   "teamSelection": {
     "title": "Choisissez Votre Club",
@@ -144,5 +231,476 @@
     "strong": "Fort",
     "average": "Moyen",
     "developing": "En Développement"
+  },
+  "squad": {
+    "title": "Effectif de {{team}}",
+    "playerCount": "{{count}} Joueurs",
+    "noPlayers": "Aucun joueur trouvé dans votre effectif.",
+    "pos": "Pos",
+    "traits": "Traits"
+  },
+  "tactics": {
+    "formationStyle": "Formation et Style",
+    "formation": "Formation",
+    "playStyle": "Style de Jeu",
+    "startingXI": "Onze de Départ — {{formation}}",
+    "fullSquad": "Effectif Complet"
+  },
+  "training": {
+    "weeklySchedule": "Calendrier Hebdomadaire",
+    "trainingFocus": "Focus d'Entraînement",
+    "intensity": "Intensité",
+    "squadFitness": "Forme de l'Effectif",
+    "playerFitness": "Forme des Joueurs",
+    "avgCondition": "Condition Moyenne",
+    "avgMorale": "Moral Moyen",
+    "train": "Entraîn.",
+    "rest": "Repos",
+    "todayIs": "Aujourd'hui c'est <strong>{{day}}</strong> — {{type}}.",
+    "aTrainingDay": "jour d'entraînement",
+    "aRestDay": "jour de repos",
+    "currentlyTraining": "Entraînement actuel : <strong>{{attrs}}</strong> à intensité <strong>{{intensity}}</strong>.",
+    "recoveryNote": "Les joueurs se concentreront sur le repos et la récupération tous les jours.",
+    "trainingAppliedNote": "L'entraînement est appliqué les jours programmés quand vous avancez le temps. Les jours de repos offrent une récupération totale.",
+    "criticalCondition": "{{count}} joueur(s) en condition critique (<25%)",
+    "exhaustedPlayers": "{{count}} joueur(s) épuisé(s) (<40%)",
+    "staffAlert": "Alerte du Staff",
+    "staffWarning": "Avertissement du Staff",
+    "staffSuggestion": "Suggestion du Staff",
+    "focuses": {
+      "Physical": { "label": "Physique", "desc": "Développer condition et puissance" },
+      "Technical": { "label": "Technique", "desc": "Perfectionner le jeu au ballon" },
+      "Tactical": { "label": "Tactique", "desc": "Améliorer l'intelligence de jeu" },
+      "Defending": { "label": "Défense", "desc": "Solidifier la défense" },
+      "Attacking": { "label": "Attaque", "desc": "Augmenter la menace offensive" },
+      "Recovery": { "label": "Récupération", "desc": "Jour de repos — récupération maximale" }
+    },
+    "intensities": {
+      "Low": { "label": "Basse", "desc": "Séance légère — moins de fatigue, progression lente" },
+      "Medium": { "label": "Moyenne", "desc": "Charge équilibrée — résultats standards" },
+      "High": { "label": "Haute", "desc": "Entraînement intense — progression rapide, plus de fatigue" }
+    },
+    "schedules": {
+      "Intense": { "label": "Intense", "desc": "6 jours d'entraînement, 1 repos", "detail": "Développement maximum. Seulement dimanche libre. Risque d'accumulation de fatigue." },
+      "Balanced": { "label": "Équilibré", "desc": "4 jours d'entraînement, 3 repos", "detail": "Entraîn. lun, mar, jeu, ven. Repos mer, sam, dim. Recommandé pour la plupart." },
+      "Light": { "label": "Léger", "desc": "2 jours d'entraînement, 5 repos", "detail": "Entraîn. mar et jeu uniquement. Priorité à la récupération. Bon après un calendrier chargé." }
+    },
+    "days": {
+      "mon": "Lun", "tue": "Mar", "wed": "Mer", "thu": "Jeu", "fri": "Ven", "sat": "Sam", "sun": "Dim"
+    }
+  },
+  "staff": {
+    "myStaff": "Mon Staff ({{count}})",
+    "available": "Disponibles ({{count}})",
+    "searchStaff": "Rechercher staff...",
+    "noStaffMatch": "Aucun membre du staff ne correspond à vos filtres.",
+    "noAvailableStaff": "Aucun staff disponible.",
+    "releaseStaff": "Libérer un membre du staff",
+    "hireStaff": "Engager un membre du staff",
+    "best": "Meilleur",
+    "roles": {
+      "AssistantManager": "Entraîneur Adjoint",
+      "Coach": "Entraîneur",
+      "Scout": "Recruteur",
+      "Physio": "Kinésithérapeute"
+    },
+    "attrs": {
+      "coaching": "Entraînement",
+      "judgingAbility": "Évaluer Capacité",
+      "judgingPotential": "Évaluer Potentiel",
+      "physiotherapy": "Kinésithérapie"
+    },
+    "specializations": {
+      "Fitness": "Condition Physique",
+      "Technique": "Technique",
+      "Tactics": "Tactique",
+      "Defending": "Défense",
+      "Attacking": "Attaque",
+      "GoalKeeping": "Gardiens",
+      "Youth": "Formation"
+    }
+  },
+  "finances": {
+    "overview": "Aperçu Financier",
+    "wageBill": "Masse Salariale",
+    "weeklyTotal": "Total Hebdomadaire",
+    "budget": "Budget",
+    "underBudget": "Dans le budget",
+    "overBudget": "Hors budget !",
+    "payroll": "Paie — Plus Gros Salaires",
+    "squadValue": "Valeur de l'Effectif",
+    "clubBalance": "Solde du Club",
+    "wageBudget": "Budget Salarial",
+    "transferBudget": "Budget Transferts",
+    "seasonIncome": "Revenus de Saison",
+    "seasonExpenses": "Dépenses de Saison",
+    "wagePerWeek": "Salaire/sem",
+    "marketValue": "Valeur Marchande",
+    "until": "Jusqu'en {{year}}"
+  },
+  "inbox": {
+    "title": "Boîte de Réception",
+    "nMessages": "{{count}} message(s)",
+    "noMessages": "Aucun message",
+    "noMessagesInCategory": "Aucun message dans cette catégorie",
+    "selectMessage": "Sélectionnez un message à lire",
+    "backToInbox": "Retour à la boîte",
+    "unread": "Non lus ({{count}})",
+    "urgent": "Urgent",
+    "important": "Important",
+    "categories": {
+      "Welcome": "Bienvenue",
+      "LeagueInfo": "Ligue",
+      "MatchPreview": "Match",
+      "MatchResult": "Résultat",
+      "Transfer": "Transfert",
+      "BoardDirective": "Direction",
+      "PlayerMorale": "Moral",
+      "Injury": "Blessure",
+      "Training": "Entraînement",
+      "Finance": "Finances",
+      "Contract": "Contrat",
+      "ScoutReport": "Recruteur",
+      "Media": "Médias",
+      "System": "Système"
+    }
+  },
+  "manager": {
+    "managerOf": "Entraîneur de {{team}}",
+    "reputation": "Réputation",
+    "careerStats": "Statistiques de Carrière",
+    "boardStatus": "État de la Direction",
+    "satisfaction": "Satisfaction",
+    "careerHistory": "Historique de Carrière",
+    "club": "Club",
+    "period": "Période",
+    "matches": "Matchs",
+    "wins": "Victoires",
+    "draws": "Nuls",
+    "losses": "Défaites",
+    "trophies": "Trophées",
+    "winPercent": "% Victoires",
+    "boardVeryPleased": "La direction est très satisfaite de votre travail.",
+    "boardSatisfied": "La direction est satisfaite de vos performances.",
+    "boardConcerns": "La direction a des inquiétudes concernant les résultats.",
+    "boardThreat": "Votre poste est sérieusement menacé."
+  },
+  "transfers": {
+    "centre": "Centre de Transferts",
+    "transferWindow": "{{team}} — Mercato",
+    "myTransferList": "Ma Liste de Transferts",
+    "transferMarket": "Marché des Transferts",
+    "loanMarket": "Marché des Prêts",
+    "offers": "Offres",
+    "searchByName": "Rechercher par nom...",
+    "noPlayersListed": "Vous n'avez aucun joueur sur la liste de transferts ou de prêts.",
+    "goToProfile": "Allez au profil du joueur pour le mettre sur la liste de transferts ou de prêts.",
+    "noOffers": "Aucune offre de transfert active.",
+    "noTransferMarket": "Aucun joueur disponible pour transfert.",
+    "noLoanMarket": "Aucun joueur disponible pour prêt.",
+    "transfer": "Transfert",
+    "loan": "Prêt",
+    "none": "Aucune",
+    "listed": "Listés"
+  },
+  "schedule": {
+    "noSchedule": "Aucun calendrier de ligue disponible.",
+    "noLeague": "Aucun calendrier de ligue disponible.",
+    "fixtures": "Matchs",
+    "standings": "Classement",
+    "matchday": "Journée {{number}}",
+    "season": "Saison {{number}}"
+  },
+  "players": {
+    "searchPlaceholder": "Rechercher par nom ou nationalité...",
+    "allPos": "Toutes Pos",
+    "allTeams": "Toutes les Équipes",
+    "nPlayersFound": "{{count}} joueur(s) trouvé(s)",
+    "noMatch": "Aucun joueur ne correspond à vos filtres.",
+    "showingFirst": "Affichage des {{shown}} premiers sur {{total}} joueurs. Affinez votre recherche."
+  },
+  "teams": {
+    "yourTeam": "Votre Équipe",
+    "squad": "Effectif",
+    "avgOvr": "OVR Moyen",
+    "rep": "Rép",
+    "est": "Fond."
+  },
+  "playersList": {
+    "searchPlaceholder": "Rechercher par nom ou nationalité...",
+    "allPos": "Toutes Pos",
+    "allTeams": "Toutes les Équipes",
+    "injured": "Blessé"
+  },
+  "teamsList": {
+    "yourTeam": "Votre Équipe",
+    "pos": "Pos",
+    "rep": "Rép",
+    "est": "Fond. {{year}}"
+  },
+  "tournaments": {
+    "noTournaments": "Aucun tournoi actif.",
+    "noActive": "Aucun tournoi actif.",
+    "nTeams": "{{count}} équipes",
+    "progress": "Progression",
+    "matches": "Matchs",
+    "goals": "Buts",
+    "overview": "Aperçu",
+    "leagueTable": "Tableau de la Ligue",
+    "topScorers": "Meilleurs Buteurs",
+    "noGoals": "Aucun but marqué."
+  },
+  "news": {
+    "noNews": "Pas encore d'actualités.",
+    "newsWillAppear": "Les actualités apparaîtront au fil de la saison.",
+    "backToNews": "Retour aux Actualités",
+    "nArticles": "{{count}} article(s)",
+    "categories": {
+      "MatchReport": "Compte-Rendu",
+      "LeagueRoundup": "Résumé de Journée",
+      "StandingsUpdate": "Classement",
+      "TransferRumour": "Transfert",
+      "InjuryNews": "Blessure",
+      "SeasonPreview": "Avant-Saison",
+      "Editorial": "Éditorial",
+      "ManagerialChange": "Changement d'Entraîneur"
+    }
+  },
+  "playerProfile": {
+    "contractInfo": "Contrat et Infos",
+    "dateOfBirth": "Date de Naissance",
+    "noContract": "Sans contrat",
+    "weeklyWage": "Salaire Hebdomadaire",
+    "attributes": "Attributs",
+    "attributesHidden": "Attributs Masqués",
+    "scoutToView": "Observez ou recrutez ce joueur pour voir les attributs détaillés.",
+    "seasonStats": "Statistiques de Saison",
+    "apps": "Matchs",
+    "goals": "Buts",
+    "assists": "Passes D.",
+    "mins": "Min",
+    "cleanSheets": "Inv.",
+    "yellows": "Jaunes",
+    "reds": "Rouges",
+    "avgRating": "Note Moyenne",
+    "careerHistory": "Historique de Carrière",
+    "noCareer": "Aucun historique de carrière — première saison.",
+    "nApps": "{{count}} matchs",
+    "nGoals": "{{count}} buts",
+    "nAssists": "{{count}} passes D.",
+    "daysRemaining": "{{count}} jours restants — Joueur indisponible"
+  },
+  "teamProfile": {
+    "clubInfo": "Informations du Club",
+    "stadium": "Stade",
+    "capacity": "Capacité",
+    "leaguePos": "Pos en Ligue",
+    "leagueStanding": "Classement en Ligue",
+    "squadOverview": "Aperçu de l'Effectif",
+    "squadSize": "Taille de l'Effectif",
+    "seasonHistory": "Historique des Saisons",
+    "balance": "Solde",
+    "totalWages": "Total Salaires",
+    "managerLabel": "Entraîneur :"
+  },
+  "settings": {
+    "title": "Paramètres",
+    "display": "Affichage",
+    "theme": "Thème",
+    "themeDesc": "Choisissez l'apparence de l'application",
+    "language": "Langue",
+    "languageDesc": "Choisissez la langue d'affichage",
+    "currency": "Devise",
+    "currencyDesc": "Affichage des valeurs monétaires",
+    "gameplay": "Gameplay",
+    "defaultMatchMode": "Mode de Match par Défaut",
+    "defaultMatchModeDesc": "Comment les matchs démarrent quand vous appuyez sur Continuer",
+    "matchSpeed": "Vitesse du Match",
+    "matchSpeedDesc": "Vitesse de simulation par défaut pour les matchs en direct",
+    "matchCommentary": "Commentaires du Match",
+    "matchCommentaryDesc": "Afficher les commentaires d'événements pendant les matchs",
+    "confirmAdvance": "Confirmer Avant d'Avancer",
+    "confirmAdvanceDesc": "Demander confirmation avant d'avancer d'un jour",
+    "savesData": "Sauvegardes et Données",
+    "autoSave": "Sauvegarde Auto",
+    "autoSaveDesc": "Sauvegarder automatiquement après chaque jour",
+    "exportWorld": "Exporter la Base de Données",
+    "exportWorldDesc": "Sauvegarder les données du monde en fichier JSON partageable",
+    "export": "Exporter",
+    "exportedTo": "Exporté vers : {{path}}",
+    "clearSaves": "Supprimer Toutes les Sauvegardes",
+    "clearSavesDesc": "Supprimer définitivement toutes les parties sauvegardées",
+    "clear": "Supprimer",
+    "savesCleared": "Sauvegardes supprimées !",
+    "about": "À propos",
+    "matchModes": {
+      "live": "Aller sur le Terrain",
+      "liveDesc": "Contrôle total du match",
+      "spectator": "Regarder en Spectateur",
+      "spectatorDesc": "Regarder sans contrôles",
+      "delegate": "Déléguer à l'Assistant",
+      "delegateDesc": "L'IA gère tout"
+    },
+    "speeds": {
+      "slow": "Lent",
+      "normal": "Normal",
+      "fast": "Rapide"
+    }
+  },
+  "preMatch": {
+    "formationFit": "Ajustement Formation",
+    "autoSelect": "Sélection Auto du XI",
+    "selecting": "Sélection...",
+    "startingXI": "Onze de Départ",
+    "substitutes": "Remplaçants",
+    "opponent": "Adversaire",
+    "nPlayers": "{{count}} joueurs",
+    "nAvailable": "{{count}} disponibles",
+    "noBench": "Aucun remplaçant disponible.",
+    "cancelSwap": "Annuler",
+    "swapHint": "Sélectionnez un remplaçant pour l'échange",
+    "setPieces": "Coups de Pied Arrêtés et Capitaine",
+    "lineup": "Composition",
+    "startMatch": "Lancer le Match",
+    "captain": "Capitaine",
+    "penaltyTaker": "Tireur de Penalty",
+    "freeKickTaker": "Tireur de Coup Franc",
+    "cornerTaker": "Tireur de Corner",
+    "fit": "FIT",
+    "keyStats": "Stats Clés"
+  },
+  "be": {
+    "sender": {
+      "boardOfDirectors": "Conseil d'Administration",
+      "leagueOffice": "Bureau de la Ligue",
+      "assistantManager": "Entraîneur Adjoint",
+      "matchReporter": "Journaliste Sportif",
+      "headPhysio": "Kinésithérapeute en Chef"
+    },
+    "role": {
+      "chairman": "Président",
+      "competitionSecretary": "Secrétaire de Compétition",
+      "assistantManager": "Entraîneur Adjoint",
+      "pressOfficer": "Attaché de Presse",
+      "headPhysio": "Kinésithérapeute en Chef"
+    },
+    "source": {
+      "sportsGazette": "Gazette Sportive",
+      "footballHerald": "Le Héraut du Football",
+      "matchDayPress": "Presse du Match",
+      "leagueChronicle": "Chronique de la Ligue",
+      "leagueWire": "Fil de la Ligue"
+    },
+    "msg": {
+      "welcome": {
+        "subject0": "Bienvenue à {{team}}",
+        "subject1": "Nouvelle Ère à {{team}}",
+        "subject2": "{{team}} Attend Votre Leadership",
+        "body0": "Le conseil d'administration de {{team}} est ravi de vous accueillir en tant que nouveau manager.\n\nNous avons de grands espoirs pour votre mandat et croyons que vous pouvez mener ce club vers la gloire. Votre première tâche sera de passer en revue l'effectif et de préparer un plan tactique pour la saison à venir.\n\nNous vous souhaitons bonne chance.",
+        "body1": "Au nom de toute la famille {{team}}, nous sommes ravis d'annoncer votre nomination en tant que manager.\n\nLes supporters sont impatients de voir votre vision pour l'équipe. Prenez le temps d'évaluer l'effectif, de revoir notre situation financière et de définir votre approche tactique.\n\nLe conseil vous soutient.",
+        "body2": "Bienvenue à {{team}} ! Les supporters et le staff sont enthousiastes pour l'avenir sous votre direction.\n\nNous vous recommandons de commencer par évaluer les forces et faiblesses de votre effectif, puis de configurer votre formation et régime d'entraînement préférés.\n\nLa saison à venir sera un véritable test — rendez-nous fiers.",
+        "actionReview": "Examiner l'Effectif",
+        "actionThank": "Remercier le Conseil"
+      },
+      "schedule": {
+        "subject": "Calendrier de la Saison Publié",
+        "body0": "Le calendrier de la {{league}} a été publié. La saison commence le {{start}}.\n\nConsultez la liste des matchs et assurez-vous que votre effectif est prêt pour les défis à venir. La préparation de pré-saison sera cruciale.",
+        "body1": "Liste des matchs confirmée ! La saison de la {{league}} débute le {{start}}.\n\nÉtudiez attentivement les premiers matchs — un bon départ peut donner le ton de toute la campagne. Assurez-vous que vos joueurs clés sont en forme.",
+        "actionView": "Voir le Calendrier"
+      },
+      "preMatch": {
+        "subject": "À venir : vs {{opponent}} ({{venue}})",
+        "body0": "Votre match {{venue}} contre {{opponent}} approche le {{matchDate}}.\n\nJournée {{matchday}} de la Première Division. Assurez-vous que votre onze titulaire est en forme et que vos tactiques sont en place.\n\nTirez le meilleur parti de jouer à {{venue}}.",
+        "body1": "Rappel : vous affrontez {{opponent}} {{venue}} le {{matchDate}}.\n\nC'est la Journée {{matchday}} — vérifiez la condition physique de votre effectif et envisagez des ajustements tactiques.",
+        "actionTactics": "Définir les Tactiques",
+        "actionScout": "Analyser l'Adversaire"
+      },
+      "matchResult": {
+        "subject": {
+          "victory": "Victoire : {{home}} {{homeGoals}} - {{awayGoals}} {{away}}",
+          "defeat": "Défaite : {{home}} {{homeGoals}} - {{awayGoals}} {{away}}",
+          "draw": "Match Nul : {{home}} {{homeGoals}} - {{awayGoals}} {{away}}"
+        },
+        "body": {
+          "victory0": "Coup de sifflet final : {{home}} {{homeGoals}} - {{awayGoals}} {{away}}.\n\nUn excellent résultat ! L'équipe a réalisé une belle performance. Journée {{matchday}} — gardez cet élan.",
+          "victory1": "Fin du match : {{home}} {{homeGoals}} - {{awayGoals}} {{away}}.\n\nTrois points dans la poche ! Les gars ont montré un grand caractère. Journée {{matchday}} accomplie.",
+          "defeat0": "Coup de sifflet final : {{home}} {{homeGoals}} - {{awayGoals}} {{away}}.\n\nUn résultat décevant. Il faudra se regrouper et travailler sur les points faibles. Journée {{matchday}} — il est encore temps de redresser la barre.",
+          "defeat1": "Score final : {{home}} {{homeGoals}} - {{awayGoals}} {{away}}.\n\nPas le résultat espéré. Journée {{matchday}} — le conseil voudra voir des améliorations. Analysez ce qui n'a pas fonctionné et préparez-vous pour le prochain défi.",
+          "draw": "Coup de sifflet final : {{home}} {{homeGoals}} - {{awayGoals}} {{away}}.\n\nUn point pris à la Journée {{matchday}}. Selon les autres résultats, cela pourrait être précieux. L'équipe s'est battue mais n'a pas trouvé le but de la victoire."
+        },
+        "actionStandings": "Voir le Classement"
+      },
+      "staffAdvice": {
+        "subject": "Rapport du Staff — Postes Vacants",
+        "body": "Boss, j'ai examiné la situation du staff à {{team}} et je voulais signaler quelques points :\n\n• Un bon Entraîneur améliorera considérablement l'efficacité de l'entraînement — vos joueurs progresseront plus vite.\n• Un Kinésithérapeute qualifié aide à la prévention des blessures et accélère la récupération entre les matchs.\n• Nos Recruteurs peuvent aider à identifier des cibles de transfert et évaluer les adversaires.\n\nJe recommande fortement de combler les postes vacants avant le début de la saison. Vous trouverez le staff disponible dans la section Staff.\n\nJetez-y un œil quand vous pourrez.",
+        "actionView": "Voir le Staff"
+      },
+      "boardExpect": {
+        "subject": "{{team}} — Objectifs de Saison",
+        "body": "Le conseil a fixé les attentes suivantes pour cette saison :\n\n• Terminer dans la première moitié du classement\n• Maintenir la stabilité financière\n• Développer les jeunes talents de l'académie\n\nAtteindre ces objectifs renforcera votre position. Ne pas atteindre les attentes minimales pourrait entraîner une remise en question de votre mandat.\n\nNous avons confiance en vos capacités.",
+        "actionAccept": "Accepter les Objectifs"
+      },
+      "fitness": {
+        "critical": {
+          "subject": "URGENT : Crise de Condition Physique",
+          "body": {
+            "intense": "Boss, nous avons une crise sérieuse de condition physique. {{criticalCount}} joueurs sont dans un état critique et risquent de se blesser :\n\n{{players}}\n\nLa condition physique moyenne de l'effectif est à {{avgCondition}}%. Avec le programme Intense actuel (6 jours d'entraînement), l'effectif est trop sollicité. Passer à un programme Équilibré leur donnerait du temps de récupération.\n\nSi on continue à forcer sans repos, les blessures seront inévitables.",
+            "balanced": "Boss, nous avons une crise sérieuse de condition physique. {{criticalCount}} joueurs sont dans un état critique et risquent de se blesser :\n\n{{players}}\n\nLa condition physique moyenne de l'effectif est à {{avgCondition}}%. Même avec un programme Équilibré, l'effectif a besoin d'attention. Envisagez de passer à un programme Léger temporairement.\n\nSi on continue à forcer sans repos, les blessures seront inévitables.",
+            "light": "Boss, nous avons une crise sérieuse de condition physique. {{criticalCount}} joueurs sont dans un état critique et risquent de se blesser :\n\n{{players}}\n\nLa condition physique moyenne de l'effectif est à {{avgCondition}}%. L'effectif est déjà en programme Léger — le problème pourrait être l'intensité élevée de l'entraînement. Envisagez de réduire l'intensité.\n\nSi on continue à forcer sans repos, les blessures seront inévitables."
+          }
+        },
+        "warning": {
+          "subject": "Alerte Condition Physique",
+          "body": {
+            "intense": "Boss, l'effectif semble fatigué. La condition physique moyenne est de {{avgCondition}}% et {{exhaustedCount}} joueurs sont en dessous de 40%.\n\nPasser à un programme Équilibré donnerait plus de temps de récupération.\n\nNous devrions envisager de donner du repos aux gars avant le prochain match.",
+            "balanced": "Boss, l'effectif semble fatigué. La condition physique moyenne est de {{avgCondition}}% et {{exhaustedCount}} joueurs sont en dessous de 40%.\n\nUn programme Léger pendant quelques jours pourrait aider l'effectif à récupérer.\n\nNous devrions envisager de donner du repos aux gars avant le prochain match.",
+            "light": "Boss, l'effectif semble fatigué. La condition physique moyenne est de {{avgCondition}}% et {{exhaustedCount}} joueurs sont en dessous de 40%.\n\nL'effectif est déjà en programme Léger, donc la récupération devrait venir naturellement. Gardez juste un œil sur les joueurs les plus épuisés.\n\nNous devrions envisager de donner du repos aux gars avant le prochain match."
+          }
+        },
+        "actionAdjust": "Ajuster l'Entraînement"
+      }
+    },
+    "news": {
+      "matchReport": {
+        "headline": {
+          "homeWin": {
+            "0": "{{home}} {{homeGoals}} - {{awayGoals}} {{away}} : Triomphe à Domicile",
+            "1": "{{home}} Domine {{away}} à la Journée {{matchday}}",
+            "2": "{{home}} Clinique Face à {{away}}"
+          },
+          "awayWin": {
+            "0": "{{home}} {{homeGoals}} - {{awayGoals}} {{away}} : Coup des Visiteurs",
+            "1": "{{away}} Surprend {{home}} à l'Extérieur",
+            "2": "Joie à l'Extérieur pour {{away}}"
+          },
+          "draw": {
+            "0": "{{home}} {{homeGoals}} - {{awayGoals}} {{away}} : Honneurs Partagés",
+            "1": "{{home}} et {{away}} se Partagent les Points",
+            "2": "Match Nul sur le Terrain de {{home}}"
+          }
+        },
+        "body0": "Dans l'action de la Journée {{matchday}}, le match s'est terminé {{home}} {{homeGoals}} - {{awayGoals}} {{away}}. Le résultat pourrait avoir des implications sur le classement au fil de la saison.\n\nButs : {{scorers}}",
+        "body1": "Le match s'est terminé {{home}} {{homeGoals}} - {{awayGoals}} {{away}} lors d'un choc de la Journée {{matchday}}. Les deux équipes ont tout donné dans une rencontre passionnante.\n\nButs : {{scorers}}",
+        "body2": "La Journée {{matchday}} a offert une autre rencontre passionnante entre {{home}} et {{away}} ({{homeGoals}}-{{awayGoals}}). Les fans ont eu droit à un match compétitif.\n\nButs : {{scorers}}"
+      },
+      "roundup": {
+        "headline0": "Résumé Journée {{matchday}} : {{totalGoals}} Buts dans une Journée Riche en Action",
+        "headline1": "Première Division Journée {{matchday}} : Tous les Résultats",
+        "headline2": "Pluie de Buts à la Journée {{matchday}}",
+        "body": "La Journée {{matchday}} est terminée. Voici les résultats complets :\n\n{{results}}\n\n{{totalGoals}} buts marqués en {{matchCount}} matchs."
+      },
+      "standings": {
+        "headline0": "{{leader}} en Tête Après la Journée {{matchday}}",
+        "headline1": "Classement de Première Division : {{leader}} au Sommet",
+        "headline2": "Mise à Jour du Classement — Journée {{matchday}}",
+        "body": "Après la Journée {{matchday}}, {{leader}} trône en tête du classement de Première Division.\n\nClassement :\n{{standings}}"
+      },
+      "seasonPreview": {
+        "headline0": "Avant-Saison : {{teamCount}} Équipes en Lice pour la Gloire",
+        "headline1": "La Saison de Première Division Va Commencer",
+        "headline2": "{{favourite}} Peut-il Décrocher le Titre ? Avant-Saison",
+        "body": "La Première Division est prête à démarrer avec {{teamCount}} équipes en lice pour le titre.\n\nLes pronostics de pré-saison désignent {{favourite}} comme favori, mais {{darkHorse}} pourrait être la surprise de cette campagne.\n\nAvec de nouveaux managers aux commandes de certains clubs, cette saison promet d'être l'une des plus compétitives de mémoire récente. Chaque point comptera dans la course au titre.\n\nÉquipes : {{teamList}}"
+      }
+    }
   }
 }

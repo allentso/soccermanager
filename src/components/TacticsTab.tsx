@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { GameStateData } from "../store/gameStore";
 import { Card, CardHeader, CardBody, ProgressBar } from "./ui";
 import { calcOvr } from "../lib/helpers";
+import { useTranslation } from "react-i18next";
 
 const FORMATIONS = ["4-4-2", "4-3-3", "4-2-3-1", "3-5-2", "3-4-3", "5-3-2", "4-5-1", "4-1-4-1"];
 const PLAY_STYLE_OPTIONS = ["Balanced", "Attacking", "Defensive", "Possession", "Counter", "HighPress"];
@@ -13,8 +14,9 @@ interface TacticsTabProps {
 }
 
 export default function TacticsTab({ gameState, onSelectPlayer, onGameUpdate }: TacticsTabProps) {
-  const myTeam = gameState.teams.find(t => t.id === gameState.manager.team_id);
-  if (!myTeam) return <p className="text-gray-500 dark:text-gray-400">No team assigned.</p>;
+  const { t } = useTranslation();
+  const myTeam = gameState.teams.find(tm => tm.id === gameState.manager.team_id);
+  if (!myTeam) return <p className="text-gray-500 dark:text-gray-400">{t('common.noTeam')}</p>;
 
   const roster = gameState.players.filter(p => p.team_id === myTeam.id);
   const posOrder: Record<string, number> = { Goalkeeper: 1, Defender: 2, Midfielder: 3, Forward: 4 };
@@ -24,10 +26,10 @@ export default function TacticsTab({ gameState, onSelectPlayer, onGameUpdate }: 
     <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-5">
       {/* Formation & Style */}
       <Card accent="primary">
-        <CardHeader>Formation & Style</CardHeader>
+        <CardHeader>{t('tactics.formationStyle')}</CardHeader>
         <CardBody>
           <div className="mb-4">
-            <label className="text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2 block">Formation</label>
+            <label className="text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2 block">{t('tactics.formation')}</label>
             <div className="grid grid-cols-4 gap-2">
               {FORMATIONS.map(f => (
                 <button key={f} onClick={async () => {
@@ -43,7 +45,7 @@ export default function TacticsTab({ gameState, onSelectPlayer, onGameUpdate }: 
             </div>
           </div>
           <div>
-            <label className="text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2 block">Play Style</label>
+            <label className="text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2 block">{t('tactics.playStyle')}</label>
             <div className="grid grid-cols-3 gap-2">
               {PLAY_STYLE_OPTIONS.map(s => (
                 <button key={s} onClick={async () => {
@@ -53,7 +55,7 @@ export default function TacticsTab({ gameState, onSelectPlayer, onGameUpdate }: 
                     ? "bg-accent-500 text-white shadow-sm"
                     : "bg-gray-100 dark:bg-navy-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-navy-600"
                 }`}>
-                  {s}
+                  {t(`common.playStyles.${s}`)}
                 </button>
               ))}
             </div>
@@ -63,7 +65,7 @@ export default function TacticsTab({ gameState, onSelectPlayer, onGameUpdate }: 
 
       {/* Formation Visual */}
       <Card className="lg:col-span-2">
-        <CardHeader>Starting XI — {myTeam.formation}</CardHeader>
+        <CardHeader>{t('tactics.startingXI', { formation: myTeam.formation })}</CardHeader>
         <CardBody>
           <div className="bg-gradient-to-b from-primary-700/20 to-primary-900/30 dark:from-primary-900/40 dark:to-navy-900/60 rounded-xl p-6 min-h-[320px] relative border border-primary-500/20">
             {/* Pitch lines */}
@@ -135,7 +137,7 @@ export default function TacticsTab({ gameState, onSelectPlayer, onGameUpdate }: 
 
       {/* Full squad list for selection */}
       <Card className="lg:col-span-3">
-        <CardHeader>Full Squad</CardHeader>
+        <CardHeader>{t('tactics.fullSquad')}</CardHeader>
         <CardBody className="p-0">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-gray-200 dark:bg-navy-600">
             {sorted.map(p => (

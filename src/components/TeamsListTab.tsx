@@ -2,6 +2,7 @@ import { GameStateData } from "../store/gameStore";
 import { Card, CardBody, Badge } from "./ui";
 import { MapPin, Users, Trophy } from "lucide-react";
 import { calcOvr as calcPlayerOvr, formatVal } from "../lib/helpers";
+import { useTranslation } from "react-i18next";
 
 interface TeamsListTabProps {
   gameState: GameStateData;
@@ -9,6 +10,7 @@ interface TeamsListTabProps {
 }
 
 export default function TeamsListTab({ gameState, onSelectTeam }: TeamsListTabProps) {
+  const { t } = useTranslation();
   const userTeamId = gameState.manager.team_id;
 
   const allStandings = gameState.league?.standings
@@ -57,7 +59,7 @@ export default function TeamsListTab({ gameState, onSelectTeam }: TeamsListTabPr
                   <div className="flex-1 min-w-0">
                     <h3 className="font-heading font-bold text-lg text-white uppercase tracking-wide truncate drop-shadow">
                       {team.name}
-                      {isUser && <Badge variant="accent" size="sm" className="ml-2 align-middle">Your Team</Badge>}
+                      {isUser && <Badge variant="accent" size="sm" className="ml-2 align-middle">{t('teams.yourTeam')}</Badge>}
                     </h3>
                     <p className="text-white/70 text-xs flex items-center gap-1.5 mt-0.5">
                       <MapPin className="w-3 h-3" /> {team.city}, {team.country}
@@ -65,7 +67,7 @@ export default function TeamsListTab({ gameState, onSelectTeam }: TeamsListTabPr
                   </div>
                   {leaguePos > 0 && (
                     <div className="bg-black/20 backdrop-blur rounded-lg px-3 py-1.5 text-center">
-                      <p className="text-xs text-white/60 font-heading uppercase tracking-wider">Pos</p>
+                      <p className="text-xs text-white/60 font-heading uppercase tracking-wider">{t('common.position')}</p>
                       <p className="font-heading font-bold text-xl text-white">#{leaguePos}</p>
                     </div>
                   )}
@@ -73,11 +75,11 @@ export default function TeamsListTab({ gameState, onSelectTeam }: TeamsListTabPr
 
                 {/* Stats row */}
                 <div className="grid grid-cols-5 gap-px bg-gray-200 dark:bg-navy-600">
-                  <StatCell label="Squad" value={String(roster.length)} />
-                  <StatCell label="Avg OVR" value={String(avgOvr)} />
-                  <StatCell label="Rep" value={String(team.reputation)} />
-                  <StatCell label="Value" value={formatVal(totalValue)} />
-                  <StatCell label="Pts" value={standing ? String(standing.points) : "—"} />
+                  <StatCell label={t('teams.squad')} value={String(roster.length)} />
+                  <StatCell label={t('teams.avgOvr')} value={String(avgOvr)} />
+                  <StatCell label={t('teams.rep')} value={String(team.reputation)} />
+                  <StatCell label={t('common.value')} value={formatVal(totalValue)} />
+                  <StatCell label={t('common.pts')} value={standing ? String(standing.points) : "—"} />
                 </div>
 
                 {/* Bottom info */}
@@ -89,7 +91,7 @@ export default function TeamsListTab({ gameState, onSelectTeam }: TeamsListTabPr
                     </span>
                     <span className="flex items-center gap-1">
                       <Trophy className="w-3.5 h-3.5" />
-                      Est. {team.founded_year}
+                      {t('teams.est')} {team.founded_year}
                     </span>
                     {standing && (
                       <span className="tabular-nums">

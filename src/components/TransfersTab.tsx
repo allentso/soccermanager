@@ -3,6 +3,7 @@ import { GameStateData, PlayerData } from "../store/gameStore";
 import { Card, CardBody, Badge } from "./ui";
 import { Search, TrendingUp, ShoppingCart, Handshake, ArrowRightLeft, Filter } from "lucide-react";
 import { getTeamName, calcOvr, calcAge, formatVal, positionBadgeVariant } from "../lib/helpers";
+import { useTranslation } from "react-i18next";
 
 interface TransfersTabProps {
   gameState: GameStateData;
@@ -13,12 +14,13 @@ interface TransfersTabProps {
 type TabView = "my_list" | "market" | "loans" | "offers";
 
 export default function TransfersTab({ gameState, onSelectPlayer, onSelectTeam }: TransfersTabProps) {
+  const { t } = useTranslation();
   const userTeamId = gameState.manager.team_id;
   const [view, setView] = useState<TabView>("my_list");
   const [search, setSearch] = useState("");
   const [posFilter, setPosFilter] = useState<string | null>(null);
 
-  const myTeam = gameState.teams.find(t => t.id === userTeamId);
+  const myTeam = gameState.teams.find(tm => tm.id === userTeamId);
 
   // My team's transfer-listed players
   const myTransferList = gameState.players.filter(p => p.team_id === userTeamId && p.transfer_listed);
@@ -56,10 +58,10 @@ export default function TransfersTab({ gameState, onSelectPlayer, onSelectTeam }
   const positions = ["Goalkeeper", "Defender", "Midfielder", "Forward"];
 
   const tabs: { id: TabView; label: string; icon: React.ReactNode; count: number }[] = [
-    { id: "my_list", label: "My Transfer List", icon: <ShoppingCart className="w-4 h-4" />, count: myTransferList.length + myLoanList.length },
-    { id: "market", label: "Transfer Market", icon: <TrendingUp className="w-4 h-4" />, count: marketPlayers.length },
-    { id: "loans", label: "Loan Market", icon: <ArrowRightLeft className="w-4 h-4" />, count: loanPlayers.length },
-    { id: "offers", label: "Offers", icon: <Handshake className="w-4 h-4" />, count: playersWithOffers.length },
+    { id: "my_list", label: t('transfers.myTransferList'), icon: <ShoppingCart className="w-4 h-4" />, count: myTransferList.length + myLoanList.length },
+    { id: "market", label: t('transfers.transferMarket'), icon: <TrendingUp className="w-4 h-4" />, count: marketPlayers.length },
+    { id: "loans", label: t('transfers.loanMarket'), icon: <ArrowRightLeft className="w-4 h-4" />, count: loanPlayers.length },
+    { id: "offers", label: t('transfers.offers'), icon: <Handshake className="w-4 h-4" />, count: playersWithOffers.length },
   ];
 
   const currentList =
@@ -79,21 +81,21 @@ export default function TransfersTab({ gameState, onSelectPlayer, onSelectTeam }
             <div className="flex-1">
               <h2 className="text-lg font-heading font-bold text-white uppercase tracking-wide flex items-center gap-2">
                 <TrendingUp className="w-5 h-5 text-accent-400" />
-                Transfer Centre
+                {t('transfers.centre')}
               </h2>
-              <p className="text-gray-400 text-xs mt-0.5">{myTeam.name} — Transfer Window</p>
+              <p className="text-gray-400 text-xs mt-0.5">{t('transfers.transferWindow', { team: myTeam.name })}</p>
             </div>
             <div className="hidden md:flex gap-4">
               <div className="bg-white/5 rounded-xl px-4 py-2 text-center">
-                <p className="text-xs text-gray-400 font-heading uppercase tracking-wider">Transfer Budget</p>
+                <p className="text-xs text-gray-400 font-heading uppercase tracking-wider">{t('finances.transferBudget')}</p>
                 <p className="font-heading font-bold text-lg text-accent-400">{formatVal(myTeam.transfer_budget)}</p>
               </div>
               <div className="bg-white/5 rounded-xl px-4 py-2 text-center">
-                <p className="text-xs text-gray-400 font-heading uppercase tracking-wider">Wage Budget</p>
+                <p className="text-xs text-gray-400 font-heading uppercase tracking-wider">{t('finances.wageBudget')}</p>
                 <p className="font-heading font-bold text-lg text-white">{formatVal(myTeam.wage_budget)}/wk</p>
               </div>
               <div className="bg-white/5 rounded-xl px-4 py-2 text-center">
-                <p className="text-xs text-gray-400 font-heading uppercase tracking-wider">Listed</p>
+                <p className="text-xs text-gray-400 font-heading uppercase tracking-wider">{t('transfers.listed')}</p>
                 <p className="font-heading font-bold text-lg text-white">{myTransferList.length + myLoanList.length}</p>
               </div>
             </div>
@@ -124,23 +126,23 @@ export default function TransfersTab({ gameState, onSelectPlayer, onSelectTeam }
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
           <input
             type="text"
-            placeholder="Search by name..."
+            placeholder={t('transfers.searchByName')}
             value={search}
             onChange={e => setSearch(e.target.value)}
             className="w-full pl-9 pr-3 py-2 rounded-lg bg-white dark:bg-navy-800 border border-gray-200 dark:border-navy-600 text-sm text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
           />
         </div>
         <div className="flex gap-1.5">
-          <button onClick={() => setPosFilter(null)} className={`px-3 py-1.5 rounded-lg text-xs font-heading font-bold uppercase tracking-wider transition-all ${!posFilter ? "bg-primary-500 text-white shadow-sm" : "bg-white dark:bg-navy-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-navy-600"}`}>All</button>
+          <button onClick={() => setPosFilter(null)} className={`px-3 py-1.5 rounded-lg text-xs font-heading font-bold uppercase tracking-wider transition-all ${!posFilter ? "bg-primary-500 text-white shadow-sm" : "bg-white dark:bg-navy-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-navy-600"}`}>{t('common.all')}</button>
           {positions.map(pos => (
             <button key={pos} onClick={() => setPosFilter(posFilter === pos ? null : pos)} className={`px-3 py-1.5 rounded-lg text-xs font-heading font-bold uppercase tracking-wider transition-all ${posFilter === pos ? "bg-primary-500 text-white shadow-sm" : "bg-white dark:bg-navy-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-navy-600"}`}>
-              {pos.substring(0, 3)}
+              {t(`common.posAbbr.${pos}`)}
             </button>
           ))}
         </div>
         <p className="text-xs text-gray-400 dark:text-gray-500 font-heading uppercase tracking-wider">
           <Filter className="w-3.5 h-3.5 inline mr-1 -mt-0.5" />
-          {filteredList.length} result{filteredList.length !== 1 ? "s" : ""}
+          {t('common.nResults', { count: filteredList.length })}
         </p>
       </div>
 
@@ -150,8 +152,8 @@ export default function TransfersTab({ gameState, onSelectPlayer, onSelectTeam }
           <CardBody>
             <div className="text-center py-8">
               <ShoppingCart className="w-10 h-10 text-gray-300 dark:text-navy-600 mx-auto mb-3" />
-              <p className="text-sm text-gray-500 dark:text-gray-400">You have no players on the transfer or loan list.</p>
-              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Go to a player's profile to list them for transfer or loan.</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{t('transfers.noPlayersListed')}</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{t('transfers.goToProfile')}</p>
             </div>
           </CardBody>
         </Card>
@@ -162,7 +164,7 @@ export default function TransfersTab({ gameState, onSelectPlayer, onSelectTeam }
           <CardBody>
             <div className="text-center py-8">
               <Handshake className="w-10 h-10 text-gray-300 dark:text-navy-600 mx-auto mb-3" />
-              <p className="text-sm text-gray-500 dark:text-gray-400">No active transfer offers at this time.</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{t('transfers.noOffers')}</p>
             </div>
           </CardBody>
         </Card>
@@ -175,16 +177,16 @@ export default function TransfersTab({ gameState, onSelectPlayer, onSelectTeam }
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-gray-50 dark:bg-navy-800 border-b border-gray-200 dark:border-navy-600 text-xs">
-                    <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Pos</th>
-                    <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Player</th>
-                    <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Age</th>
-                    <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Team</th>
-                    <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Value</th>
-                    <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Wage</th>
-                    <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">OVR</th>
-                    <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Status</th>
+                    <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t('common.position')}</th>
+                    <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t('common.player')}</th>
+                    <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t('common.age')}</th>
+                    <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t('common.team')}</th>
+                    <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t('common.value')}</th>
+                    <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t('common.wage')}</th>
+                    <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t('common.ovr')}</th>
+                    <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t('common.status')}</th>
                     {view === "offers" && (
-                      <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Offers</th>
+                      <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t('transfers.offers')}</th>
                     )}
                   </tr>
                 </thead>
@@ -215,15 +217,15 @@ export default function TransfersTab({ gameState, onSelectPlayer, onSelectTeam }
                         </td>
                         <td className="py-2.5 px-4">
                           <div className="flex gap-1">
-                            {player.transfer_listed && <Badge variant="accent" size="sm">Transfer</Badge>}
-                            {player.loan_listed && <Badge variant="primary" size="sm">Loan</Badge>}
+                            {player.transfer_listed && <Badge variant="accent" size="sm">{t('transfers.transfer')}</Badge>}
+                            {player.loan_listed && <Badge variant="primary" size="sm">{t('transfers.loan')}</Badge>}
                           </div>
                         </td>
                         {view === "offers" && (
                           <td className="py-2.5 px-4">
                             <div className="flex flex-col gap-1">
                               {offersForThisPlayer.length === 0 ? (
-                                <span className="text-xs text-gray-400">None</span>
+                                <span className="text-xs text-gray-400">{t('transfers.none')}</span>
                               ) : (
                                 offersForThisPlayer.map(offer => (
                                   <div key={offer.id} className="flex items-center gap-2">
@@ -258,7 +260,7 @@ export default function TransfersTab({ gameState, onSelectPlayer, onSelectTeam }
             <div className="text-center py-8">
               <TrendingUp className="w-10 h-10 text-gray-300 dark:text-navy-600 mx-auto mb-3" />
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                No players currently {view === "market" ? "available for transfer" : "available for loan"}.
+                {view === "market" ? t('transfers.noTransferMarket') : t('transfers.noLoanMarket')}
               </p>
             </div>
           </CardBody>
