@@ -357,3 +357,33 @@ pub fn board_expectations_message(team_name: &str, team_id: &str, date: &str) ->
     )
     .with_sender_i18n("be.sender.boardOfDirectors", "be.role.chairman")
 }
+
+pub fn transfer_complete_message(
+    player_name: &str,
+    fee: u64,
+    date: &str,
+) -> InboxMessage {
+    let fee_display = if fee >= 1_000_000 {
+        format!("€{:.1}M", fee as f64 / 1_000_000.0)
+    } else if fee >= 1_000 {
+        format!("€{}K", fee / 1_000)
+    } else {
+        format!("€{}", fee)
+    };
+
+    let id = format!("transfer_{}", uuid::Uuid::new_v4());
+    InboxMessage::new(
+        id,
+        format!("Transfer Complete: {}", player_name),
+        format!(
+            "The transfer of {} has been completed for a fee of {}.\n\n\
+            The player has joined the squad and is available for selection.",
+            player_name, fee_display
+        ),
+        "Transfer Committee".to_string(),
+        date.to_string(),
+    )
+    .with_category(MessageCategory::Transfer)
+    .with_priority(MessagePriority::Normal)
+    .with_sender_role("Director of Football")
+}

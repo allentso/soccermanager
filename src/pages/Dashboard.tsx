@@ -683,7 +683,7 @@ export default function Dashboard() {
           )}
 
           {!selectedPlayerId && !selectedTeamId && activeTab === "Transfers" && (
-            <TransfersTab gameState={gameState} onSelectPlayer={selectPlayer} onSelectTeam={selectTeam} />
+            <TransfersTab gameState={gameState} onSelectPlayer={selectPlayer} onSelectTeam={selectTeam} onGameUpdate={setGameState} />
           )}
 
           {!selectedPlayerId && !selectedTeamId && activeTab === "Players" && (

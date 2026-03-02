@@ -13,4 +13,5 @@ pub mod scouting;
 pub mod season_awards;
 pub mod state;
 pub mod training;
+pub mod transfers;
 pub mod turn;

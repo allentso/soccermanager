@@ -1,7 +1,8 @@
 import { useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { GameStateData, PlayerData } from "../store/gameStore";
 import { Card, CardBody, Badge } from "./ui";
-import { Search, TrendingUp, ShoppingCart, Handshake, ArrowRightLeft, Filter } from "lucide-react";
+import { Search, TrendingUp, ShoppingCart, Handshake, ArrowRightLeft, Filter, Gavel, Check, X } from "lucide-react";
 import { getTeamName, calcOvr, calcAge, formatVal, positionBadgeVariant } from "../lib/helpers";
 import { useTranslation } from "react-i18next";
 
@@ -9,16 +10,49 @@ interface TransfersTabProps {
   gameState: GameStateData;
   onSelectPlayer: (id: string) => void;
   onSelectTeam: (id: string) => void;
+  onGameUpdate?: (game: GameStateData) => void;
 }
 
 type TabView = "my_list" | "market" | "loans" | "offers";
 
-export default function TransfersTab({ gameState, onSelectPlayer, onSelectTeam }: TransfersTabProps) {
+export default function TransfersTab({ gameState, onSelectPlayer, onSelectTeam, onGameUpdate }: TransfersTabProps) {
   const { t } = useTranslation();
   const userTeamId = gameState.manager.team_id;
   const [view, setView] = useState<TabView>("my_list");
   const [search, setSearch] = useState("");
   const [posFilter, setPosFilter] = useState<string | null>(null);
+  const [bidTarget, setBidTarget] = useState<PlayerData | null>(null);
+  const [bidAmount, setBidAmount] = useState("");
+  const [bidResult, setBidResult] = useState<string | null>(null);
+  const [bidLoading, setBidLoading] = useState(false);
+
+  const handleMakeBid = async () => {
+    if (!bidTarget || !bidAmount) return;
+    setBidLoading(true);
+    setBidResult(null);
+    try {
+      const fee = Math.round(parseFloat(bidAmount) * 1_000_000);
+      const res = await invoke<{ result: string; game: GameStateData }>("make_transfer_bid", { playerId: bidTarget.id, fee });
+      setBidResult(res.result);
+      if (onGameUpdate) onGameUpdate(res.game);
+      if (res.result === "accepted") {
+        setTimeout(() => { setBidTarget(null); setBidResult(null); }, 2000);
+      }
+    } catch (err: any) {
+      setBidResult(err?.toString() || "error");
+    } finally {
+      setBidLoading(false);
+    }
+  };
+
+  const handleRespondOffer = async (playerId: string, offerId: string, accept: boolean) => {
+    try {
+      const game = await invoke<GameStateData>("respond_to_offer", { playerId, offerId, accept });
+      if (onGameUpdate) onGameUpdate(game);
+    } catch (err) {
+      console.error("Failed to respond to offer:", err);
+    }
+  };
 
   const myTeam = gameState.teams.find(tm => tm.id === userTeamId);
 
@@ -188,6 +222,9 @@ export default function TransfersTab({ gameState, onSelectPlayer, onSelectTeam }
                     {view === "offers" && (
                       <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t('transfers.offers')}</th>
                     )}
+                    {(view === "market" || view === "loans") && (
+                      <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Action</th>
+                    )}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-navy-600">
@@ -238,10 +275,26 @@ export default function TransfersTab({ gameState, onSelectPlayer, onSelectTeam }
                                     >
                                       {formatVal(offer.fee)} — {offer.status}
                                     </Badge>
+                                    {offer.status === "Pending" && player.team_id === userTeamId && (
+                                      <div className="flex gap-1 ml-1">
+                                        <button onClick={e => { e.stopPropagation(); handleRespondOffer(player.id, offer.id, true); }} className="p-1 rounded bg-green-500/20 hover:bg-green-500/30 text-green-500" title="Accept"><Check className="w-3 h-3" /></button>
+                                        <button onClick={e => { e.stopPropagation(); handleRespondOffer(player.id, offer.id, false); }} className="p-1 rounded bg-red-500/20 hover:bg-red-500/30 text-red-500" title="Reject"><X className="w-3 h-3" /></button>
+                                      </div>
+                                    )}
                                   </div>
                                 ))
                               )}
                             </div>
+                          </td>
+                        )}
+                        {(view === "market" || view === "loans") && (
+                          <td className="py-2.5 px-4">
+                            <button
+                              onClick={e => { e.stopPropagation(); setBidTarget(player); setBidAmount((player.market_value / 1_000_000).toFixed(1)); setBidResult(null); }}
+                              className="flex items-center gap-1 px-3 py-1.5 bg-primary-500/10 hover:bg-primary-500/20 text-primary-500 rounded-lg text-xs font-heading font-bold uppercase tracking-wider transition-colors"
+                            >
+                              <Gavel className="w-3 h-3" /> Bid
+                            </button>
                           </td>
                         )}
                       </tr>
@@ -265,6 +318,50 @@ export default function TransfersTab({ gameState, onSelectPlayer, onSelectTeam }
             </div>
           </CardBody>
         </Card>
+      )}
+      {/* Bid Modal */}
+      {bidTarget && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setBidTarget(null)}>
+          <div className="bg-white dark:bg-navy-800 rounded-xl shadow-2xl border border-gray-200 dark:border-navy-600 p-6 w-full max-w-sm" onClick={e => e.stopPropagation()}>
+            <h3 className="text-sm font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3">Make Transfer Bid</h3>
+            <div className="flex items-center gap-3 mb-4">
+              <Badge variant={positionBadgeVariant(bidTarget.position)} size="sm">{bidTarget.position.substring(0, 3).toUpperCase()}</Badge>
+              <div>
+                <p className="font-semibold text-sm text-gray-800 dark:text-gray-200">{bidTarget.full_name}</p>
+                <p className="text-xs text-gray-400">{getTeamName(gameState.teams, bidTarget.team_id)} • Value: {formatVal(bidTarget.market_value)}</p>
+              </div>
+            </div>
+            <label className="text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1 block">Bid Amount (€M)</label>
+            <input
+              type="number"
+              step="0.1"
+              min="0"
+              value={bidAmount}
+              onChange={e => setBidAmount(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg bg-gray-50 dark:bg-navy-700 border border-gray-200 dark:border-navy-600 text-sm text-gray-800 dark:text-gray-200 mb-3 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+            />
+            {bidResult && (
+              <div className={`text-xs font-heading font-bold uppercase tracking-wider mb-3 ${bidResult === "accepted" ? "text-green-500" : bidResult === "rejected" ? "text-red-500" : "text-amber-500"}`}>
+                {bidResult === "accepted" ? "Bid accepted! Player signed." : bidResult === "rejected" ? "Bid rejected — offer too low." : bidResult}
+              </div>
+            )}
+            <div className="flex gap-2">
+              <button
+                onClick={handleMakeBid}
+                disabled={bidLoading || bidResult === "accepted"}
+                className="flex-1 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg font-heading font-bold text-sm uppercase tracking-wider transition-colors disabled:opacity-50"
+              >
+                {bidLoading ? "Submitting..." : "Submit Bid"}
+              </button>
+              <button
+                onClick={() => setBidTarget(null)}
+                className="px-4 py-2 bg-gray-200 dark:bg-navy-700 text-gray-600 dark:text-gray-300 rounded-lg font-heading font-bold text-sm uppercase tracking-wider hover:bg-gray-300 dark:hover:bg-navy-600 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

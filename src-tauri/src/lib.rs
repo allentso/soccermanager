@@ -622,6 +622,41 @@ fn auto_select_set_pieces(
 }
 
 #[tauri::command]
+fn make_transfer_bid(
+    state: State<StateManager>,
+    player_id: String,
+    fee: u64,
+) -> Result<serde_json::Value, String> {
+    let mut game = state
+        .get_game(|g| g.clone())
+        .ok_or("No active game session".to_string())?;
+
+    let result = ofm_core::transfers::make_transfer_bid(&mut game, &player_id, fee)?;
+    state.set_game(game.clone());
+
+    Ok(serde_json::json!({
+        "result": result,
+        "game": game,
+    }))
+}
+
+#[tauri::command]
+fn respond_to_offer(
+    state: State<StateManager>,
+    player_id: String,
+    offer_id: String,
+    accept: bool,
+) -> Result<Game, String> {
+    let mut game = state
+        .get_game(|g| g.clone())
+        .ok_or("No active game session".to_string())?;
+
+    ofm_core::transfers::respond_to_offer(&mut game, &player_id, &offer_id, accept)?;
+    state.set_game(game.clone());
+    Ok(game)
+}
+
+#[tauri::command]
 fn send_scout(
     state: State<StateManager>,
     scout_id: String,
@@ -1170,6 +1205,8 @@ pub fn run() {
             clear_old_messages,
             save_game,
             auto_select_set_pieces,
+            make_transfer_bid,
+            respond_to_offer,
             send_scout,
             check_season_complete,
             advance_to_next_season,
