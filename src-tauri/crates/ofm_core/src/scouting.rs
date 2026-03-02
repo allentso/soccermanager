@@ -9,6 +9,16 @@ fn params(pairs: &[(&str, &str)]) -> HashMap<String, String> {
     pairs.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect()
 }
 
+/// Determine how many concurrent scouting assignments a scout can handle.
+/// Higher judging_ability = more slots (1 to 5).
+pub fn scout_max_assignments(judging_ability: u8) -> usize {
+    if judging_ability >= 80 { 5 }
+    else if judging_ability >= 60 { 4 }
+    else if judging_ability >= 40 { 3 }
+    else if judging_ability >= 20 { 2 }
+    else { 1 }
+}
+
 /// Send a scout to evaluate a player. Returns an error string if invalid.
 pub fn send_scout(game: &mut Game, scout_id: &str, player_id: &str) -> Result<(), String> {
     let user_team_id = game.manager.team_id.as_ref().ok_or("No team")?;
@@ -30,9 +40,14 @@ pub fn send_scout(game: &mut Game, scout_id: &str, player_id: &str) -> Result<()
         return Err("Cannot scout your own players".to_string());
     }
 
-    // Check if scout is already on assignment
-    if game.scouting_assignments.iter().any(|a| a.scout_id == scout_id) {
-        return Err("Scout is already on an assignment".to_string());
+    // Check scout capacity: higher ability = more concurrent assignments
+    let max_slots = scout_max_assignments(scout.attributes.judging_ability);
+    let current_count = game.scouting_assignments.iter().filter(|a| a.scout_id == scout_id).count();
+    if current_count >= max_slots {
+        return Err(format!(
+            "Scout is at capacity ({}/{} assignments). Higher judging ability allows more.",
+            current_count, max_slots
+        ));
     }
 
     // Check if player is already being scouted

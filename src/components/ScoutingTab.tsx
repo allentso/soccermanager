@@ -23,9 +23,10 @@ export default function ScoutingTab({ gameState, onGameUpdate, onSelectPlayer }:
   const scouts = gameState.staff.filter(s => s.role === "Scout" && s.team_id === myTeamId);
   const assignments = gameState.scouting_assignments || [];
 
-  // Determine which scouts are busy
-  const busyScoutIds = new Set(assignments.map(a => a.scout_id));
-  const availableScouts = scouts.filter(s => !busyScoutIds.has(s.id));
+  // Determine scout capacity: judging_ability >= 80 → 5 slots, >= 60 → 4, >= 40 → 3, >= 20 → 2, else 1
+  const scoutMaxSlots = (ability: number) => ability >= 80 ? 5 : ability >= 60 ? 4 : ability >= 40 ? 3 : ability >= 20 ? 2 : 1;
+  const scoutAssignmentCount = (scoutId: string) => assignments.filter(a => a.scout_id === scoutId).length;
+  const availableScouts = scouts.filter(s => scoutAssignmentCount(s.id) < scoutMaxSlots(s.attributes.judging_ability));
 
   // Players from other teams that can be scouted
   const allScoutable = gameState.players
@@ -91,7 +92,7 @@ export default function ScoutingTab({ gameState, onGameUpdate, onSelectPlayer }:
               </div>
               <div>
                 <p className="text-xs text-gray-500 dark:text-gray-400 font-heading uppercase tracking-wider">Active Assignments</p>
-                <p className="text-xl font-heading font-bold text-gray-800 dark:text-gray-100">{assignments.length}</p>
+                <p className="text-xl font-heading font-bold text-gray-800 dark:text-gray-100">{assignments.length} / {scouts.reduce((sum, s) => sum + scoutMaxSlots(s.attributes.judging_ability), 0)}</p>
               </div>
             </div>
           </CardBody>
@@ -103,7 +104,7 @@ export default function ScoutingTab({ gameState, onGameUpdate, onSelectPlayer }:
                 <User className="w-5 h-5 text-green-500" />
               </div>
               <div>
-                <p className="text-xs text-gray-500 dark:text-gray-400 font-heading uppercase tracking-wider">Available</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 font-heading uppercase tracking-wider">Scouts w/ Free Slots</p>
                 <p className="text-xl font-heading font-bold text-gray-800 dark:text-gray-100">{availableScouts.length}</p>
               </div>
             </div>
@@ -152,9 +153,10 @@ export default function ScoutingTab({ gameState, onGameUpdate, onSelectPlayer }:
           <CardBody>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {scouts.map(s => {
-                const isBusy = busyScoutIds.has(s.id);
-                const assignment = assignments.find(a => a.scout_id === s.id);
-                const targetPlayer = assignment ? gameState.players.find(p => p.id === assignment.player_id) : null;
+                const count = scoutAssignmentCount(s.id);
+                const maxSlots = scoutMaxSlots(s.attributes.judging_ability);
+                const isFull = count >= maxSlots;
+                const scoutAssigns = assignments.filter(a => a.scout_id === s.id);
                 return (
                   <div key={s.id} className="p-3 rounded-lg border border-gray-200 dark:border-navy-600">
                     <div className="flex items-center gap-3">
@@ -165,8 +167,8 @@ export default function ScoutingTab({ gameState, onGameUpdate, onSelectPlayer }:
                         <p className="font-heading font-bold text-sm text-gray-800 dark:text-gray-100">{s.first_name} {s.last_name}</p>
                         <p className="text-xs text-gray-500 dark:text-gray-400">{s.nationality}</p>
                       </div>
-                      <Badge variant={isBusy ? "accent" : "success"} size="sm">
-                        {isBusy ? "On Assignment" : "Available"}
+                      <Badge variant={isFull ? "accent" : "success"} size="sm">
+                        {count}/{maxSlots} slots
                       </Badge>
                     </div>
                     <div className="mt-2 grid grid-cols-2 gap-2">
@@ -179,10 +181,17 @@ export default function ScoutingTab({ gameState, onGameUpdate, onSelectPlayer }:
                         <ProgressBar value={s.attributes.judging_potential} variant="auto" size="sm" />
                       </div>
                     </div>
-                    {isBusy && targetPlayer && (
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                        Scouting: <span className="font-heading font-bold text-gray-700 dark:text-gray-300">{targetPlayer.full_name}</span> — {assignment!.days_remaining} days left
-                      </p>
+                    {scoutAssigns.length > 0 && (
+                      <div className="mt-2 flex flex-col gap-1">
+                        {scoutAssigns.map(a => {
+                          const tp = gameState.players.find(p => p.id === a.player_id);
+                          return tp ? (
+                            <p key={a.id} className="text-xs text-gray-500 dark:text-gray-400">
+                              Scouting: <span className="font-heading font-bold text-gray-700 dark:text-gray-300">{tp.full_name}</span> — {a.days_remaining}d left
+                            </p>
+                          ) : null;
+                        })}
+                      </div>
                     )}
                   </div>
                 );
