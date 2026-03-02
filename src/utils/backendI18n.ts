@@ -1,0 +1,51 @@
+import i18n from '../i18n';
+import type { MessageData, MessageAction, NewsArticle } from '../store/gameStore';
+
+/**
+ * Resolve a backend i18n key with params, falling back to the raw string.
+ */
+function resolve(key: string | undefined, fallback: string, params?: Record<string, string>): string {
+  if (!key) return fallback;
+  const resolved = i18n.t(key, params ?? {});
+  // i18next returns the key itself if not found — fall back to raw string
+  if (resolved === key) return fallback;
+  return resolved;
+}
+
+/**
+ * Resolve all translatable fields on a message, returning a copy with resolved strings.
+ */
+export function resolveMessage(msg: MessageData): MessageData {
+  const p = msg.i18n_params;
+  return {
+    ...msg,
+    subject: resolve(msg.subject_key, msg.subject, p),
+    body: resolve(msg.body_key, msg.body, p),
+    sender: resolve(msg.sender_key, msg.sender, p),
+    sender_role: resolve(msg.sender_role_key, msg.sender_role, p),
+    actions: msg.actions.map(resolveAction),
+  };
+}
+
+/**
+ * Resolve the label on a message action.
+ */
+export function resolveAction(action: MessageAction): MessageAction {
+  return {
+    ...action,
+    label: resolve(action.label_key, action.label),
+  };
+}
+
+/**
+ * Resolve all translatable fields on a news article, returning a copy with resolved strings.
+ */
+export function resolveNewsArticle(article: NewsArticle): NewsArticle {
+  const p = article.i18n_params;
+  return {
+    ...article,
+    headline: resolve(article.headline_key, article.headline, p),
+    body: resolve(article.body_key, article.body, p),
+    source: resolve(article.source_key, article.source, p),
+  };
+}

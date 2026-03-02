@@ -11,7 +11,7 @@ If you can't code, but you have other skills that you can help us, don't worry, 
 - Refer this project in your project's readme!
 - Tell your friends about us!
 - Share us on facebook!
-- Donate to the project *(not available yet)*
+- Donate to the project _(not available yet)_
 - Make a video about it!
 - Play it!
 
@@ -44,39 +44,34 @@ Once you understand that concept, you're welcome to submit new code.
 
 ### Installing dependencies
 
-This project uses [Pipenv](https://pipenv.pypa.io/en/latest/) to manage virtual environments, and you can install it with the following command:
+This project uses **Rust** for the backend and **Node.js/npm** for the frontend.
 
-```
-pip install pipenv
-```
+1. Ensure you have [Rust](https://www.rust-lang.org/tools/install) installed.
+2. Ensure you have [Node.js](https://nodejs.org/) (v18+) installed.
+3. Install Tauri prerequisites for your OS following the [official Tauri guide](https://v2.tauri.app/start/prerequisites/).
 
-After cloning the repository, install the virtualenv and its dependencies (black, isort, flake8, pytest, pre-commit, ttkbootstrap):
+After cloning the repository, install the frontend dependencies:
 
-```
-pipenv install --dev
-```
-
-To commit to the repo, install pre-commit:
-
-```
-pipenv run python -m pre-commit install
+```bash
+npm install
 ```
 
-To run the tests:
+To run the debug version of the project (starts both the Vite server and the Tauri app):
 
-```
-pipenv run pytest
-```
-
-To run the debug version of the project, use the `run.py` file at the root of this project folder:
-
-```
-pipenv run python run.py
+```bash
+npm run tauri dev
 ```
 
 ### Understanding the code
 
-Most of the most important features are covered by unit tests. For an overview of how the match simulation works, see [Match Simulation in Openfootmanager](docs/source/simulation.rst).
+The backend is split into multiple Rust crates:
+
+- `domain`: Pure business logic and models.
+- `engine`: Match simulation engine.
+- `db`: Database access and persistence handling.
+- `ofm_core`: Coordinates state, the game clock, and data flow.
+
+The frontend is built with React, TypeScript, and TailwindCSS in the `src/` directory.
 
 ### Fork and Pull
 
@@ -86,24 +81,26 @@ If you're working on a new feature that has no prior **Issue** related to it, pl
 
 ### Code conventions
 
-- Use pre-commit hooks to automatically format and test your code before you submit any commits. See **Installing dependencies** for more information.
-- Follow [PEP 8](https://www.python.org/dev/peps/pep-0008/). It's a must. Run flake8 to ensure that your code is PEP 8-compliant.
-- Run [Black](https://github.com/psf/black) and [isort](https://pypi.org/project/isort/) to format your code.
-- Make descriptive variable names, as best as you can.
-- Use typehints as much as possible. Static typing helps others understand what you expect your code to do.
-- Try to keep your code documented. If it's a complex method/function, use docstrings to explain what you need to do.
-- Keep comments short and clean. Use them only when needed. Too many comments means that the code is not clean, and you should try to keep your code clean. You can use "TODO" comments to signal features that are not yet complete.
-- Take advantage of Python's list and dict comprehensions.
-- Tests are a must. More about it in the Tests section.
+- **Rust**:
+  - Run `cargo fmt` to format your Rust code.
+  - Run `cargo clippy` to catch common mistakes and improve code quality. Address all warnings before submitting a PR.
+  - Use descriptive variable names and leverage Rust's strong type system.
+  - Write docstrings for public functions and complex logic.
+
+- **Frontend (TypeScript/React)**:
+  - Keep components modular.
+  - Use TailwindCSS for styling instead of raw CSS where possible.
+  - Ensure type safety across the application (avoid `any` types).
 
 ### Tests
 
-Whenever you're adding a new feature, you must add tests to ensure that your feature works as expected. I started this project without tests, but then I reworked it entirely to include tests in as many features that I could think of. Tests help me keep my code clean and help me understand when something might not behave as I expected.
+Whenever you're adding a new feature to the backend, you must add tests to ensure that your feature works as expected.
 
-However, I'd prefer for you to use [pytest](https://pytest.org) instead of the Python's `unittest` library. Pytest is way more robust than `unittest`, and allows you to write short and effective tests. You should add your tests to the `ofm/tests` folder. Follow the conventions from the pytest community, and take a look at how the other tests are constructed to build your own tests.
+Write unit tests in the same file as your code using the `#[cfg(test)]` module, as is standard in the Rust community.
 
-I'll soon be adding CI/CD to this repo, and we can test pull requests on the fly. Your code should pass all the tests to be accepted. Make sure to run all tests before opening a Pull Request.
+Run all tests before opening a Pull Request:
 
-### Python versions
-
-Python is rapidly changing, and I plan to adjust to Python's changes as we go. Currently supported Python version is 3.10 and higher.
+```bash
+cd src-tauri
+cargo test
+```
