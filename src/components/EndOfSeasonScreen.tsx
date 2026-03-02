@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { useTranslation } from "react-i18next";
 import { GameStateData } from "../store/gameStore";
 import { Card, CardBody } from "./ui";
 import { Trophy, Award, Star, ArrowRight, Crown } from "lucide-react";
@@ -29,6 +30,7 @@ interface EndOfSeasonScreenProps {
 }
 
 export default function EndOfSeasonScreen({ gameState, onGameUpdate }: EndOfSeasonScreenProps) {
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [summary, setSummary] = useState<EndOfSeasonSummary | null>(null);
   const [step, setStep] = useState<"review" | "done">("review");
@@ -87,14 +89,14 @@ export default function EndOfSeasonScreen({ gameState, onGameUpdate }: EndOfSeas
               {isChampion ? <Crown className="w-10 h-10 text-white" /> : <Trophy className="w-10 h-10 text-gray-300" />}
             </div>
             <h1 className="text-3xl font-heading font-bold text-gray-900 dark:text-gray-100 uppercase tracking-wide">
-              Season Complete
+              {t('endOfSeason.seasonComplete')}
             </h1>
             <p className="text-lg text-gray-500 dark:text-gray-400 mt-1">
               {league?.name} — Season {league?.season}
             </p>
             {isChampion && (
               <p className="text-xl font-heading font-bold text-accent-500 mt-2 uppercase tracking-wider animate-pulse">
-                Champions!
+                {t('endOfSeason.champions')}
               </p>
             )}
           </div>
@@ -109,12 +111,12 @@ export default function EndOfSeasonScreen({ gameState, onGameUpdate }: EndOfSeas
                 <div className="flex items-center justify-center gap-6 mb-4">
                   <div>
                     <p className="text-4xl font-heading font-bold text-gray-900 dark:text-gray-100">{posLabel(userPosition)}</p>
-                    <p className="text-xs text-gray-400 dark:text-gray-500 font-heading uppercase">Position</p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500 font-heading uppercase">{t('endOfSeason.position')}</p>
                   </div>
                   <div className="w-px h-12 bg-gray-200 dark:bg-navy-600" />
                   <div>
                     <p className="text-4xl font-heading font-bold text-primary-500">{userStanding?.points || 0}</p>
-                    <p className="text-xs text-gray-400 dark:text-gray-500 font-heading uppercase">Points</p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500 font-heading uppercase">{t('endOfSeason.points')}</p>
                   </div>
                 </div>
                 <div className="flex items-center justify-center gap-8 text-sm">
@@ -133,7 +135,7 @@ export default function EndOfSeasonScreen({ gameState, onGameUpdate }: EndOfSeas
           <Card className="mb-6">
             <CardBody>
               <h3 className="font-heading font-bold text-sm uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3 flex items-center gap-2">
-                <Trophy className="w-4 h-4 text-accent-500" /> Final Standings (Top 5)
+                <Trophy className="w-4 h-4 text-accent-500" /> {t('endOfSeason.finalStandings')}
               </h3>
               <div className="divide-y divide-gray-100 dark:divide-navy-600">
                 {standings.slice(0, 5).map((entry, idx) => {
@@ -161,7 +163,7 @@ export default function EndOfSeasonScreen({ gameState, onGameUpdate }: EndOfSeas
                 <div className="flex items-center gap-3">
                   <Crown className="w-6 h-6 text-accent-500" />
                   <div>
-                    <p className="text-sm font-heading font-bold text-gray-800 dark:text-gray-200 uppercase tracking-wider">League Champions</p>
+                    <p className="text-sm font-heading font-bold text-gray-800 dark:text-gray-200 uppercase tracking-wider">{t('endOfSeason.leagueChampions')}</p>
                     <p className="text-lg font-heading font-bold text-accent-500">{championName}</p>
                   </div>
                 </div>
@@ -176,11 +178,11 @@ export default function EndOfSeasonScreen({ gameState, onGameUpdate }: EndOfSeas
               disabled={loading}
               className="px-8 py-4 bg-primary-500 text-white rounded-xl font-heading font-bold text-lg uppercase tracking-wider hover:bg-primary-600 transition-all shadow-lg shadow-primary-500/20 hover:shadow-xl hover:shadow-primary-500/30 disabled:opacity-50 flex items-center gap-3 mx-auto"
             >
-              {loading ? "Processing..." : "Start Next Season"}
+              {loading ? t('endOfSeason.processing') : t('endOfSeason.startNextSeason')}
               <ArrowRight className="w-5 h-5" />
             </button>
             <p className="text-xs text-gray-400 dark:text-gray-500 mt-3">
-              Player stats will be archived. A new schedule will be generated.
+              {t('endOfSeason.statsArchived')}
             </p>
           </div>
         </>
@@ -192,10 +194,10 @@ export default function EndOfSeasonScreen({ gameState, onGameUpdate }: EndOfSeas
             <Star className="w-10 h-10 text-white" />
           </div>
           <h1 className="text-3xl font-heading font-bold text-gray-900 dark:text-gray-100 uppercase tracking-wide mb-2">
-            Season {summary.season + 1}
+            {t('endOfSeason.newSeason', { n: summary.season + 1 })}
           </h1>
           <p className="text-gray-500 dark:text-gray-400 mb-8">
-            The new schedule has been released. Good luck!
+            {t('endOfSeason.newScheduleReleased')}
           </p>
 
           {/* Season summary awards */}
@@ -206,10 +208,10 @@ export default function EndOfSeasonScreen({ gameState, onGameUpdate }: EndOfSeas
                   <CardBody>
                     <div className="flex items-center gap-2 mb-1">
                       <Award className="w-4 h-4 text-accent-500" />
-                      <span className="text-xs font-heading font-bold uppercase tracking-wider text-gray-400">Golden Boot</span>
+                      <span className="text-xs font-heading font-bold uppercase tracking-wider text-gray-400">{t('endOfSeason.goldenBoot')}</span>
                     </div>
                     <p className="text-sm font-heading font-bold text-gray-800 dark:text-gray-200">{summary.golden_boot_player}</p>
-                    <p className="text-xs text-gray-500">{summary.golden_boot_goals} goals</p>
+                    <p className="text-xs text-gray-500">{t('endOfSeason.nGoals', { count: summary.golden_boot_goals })}</p>
                   </CardBody>
                 </Card>
               )}
@@ -218,10 +220,10 @@ export default function EndOfSeasonScreen({ gameState, onGameUpdate }: EndOfSeas
                   <CardBody>
                     <div className="flex items-center gap-2 mb-1">
                       <Star className="w-4 h-4 text-purple-500" />
-                      <span className="text-xs font-heading font-bold uppercase tracking-wider text-gray-400">Player of the Year</span>
+                      <span className="text-xs font-heading font-bold uppercase tracking-wider text-gray-400">{t('endOfSeason.playerOfYear')}</span>
                     </div>
                     <p className="text-sm font-heading font-bold text-gray-800 dark:text-gray-200">{summary.poty_player}</p>
-                    <p className="text-xs text-gray-500">Avg rating: {summary.poty_rating.toFixed(2)}</p>
+                    <p className="text-xs text-gray-500">{t('endOfSeason.avgRating', { rating: summary.poty_rating.toFixed(2) })}</p>
                   </CardBody>
                 </Card>
               )}
@@ -236,7 +238,7 @@ export default function EndOfSeasonScreen({ gameState, onGameUpdate }: EndOfSeas
             }}
             className="px-8 py-3 bg-primary-500 text-white rounded-xl font-heading font-bold uppercase tracking-wider hover:bg-primary-600 transition-all shadow-lg shadow-primary-500/20"
           >
-            Continue to Dashboard
+            {t('endOfSeason.continueDashboard')}
           </button>
         </div>
       )}

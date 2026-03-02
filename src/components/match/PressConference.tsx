@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { useTranslation } from "react-i18next";
 import { GameStateData } from "../../store/gameStore";
 import { MatchSnapshot } from "./types";
 import { Badge } from "../ui";
@@ -159,6 +160,7 @@ function generateQuestions(snapshot: MatchSnapshot, userSide: "Home" | "Away", _
 }
 
 export default function PressConference({ snapshot, gameState, userSide, onFinish, onGameUpdate }: PressConferenceProps) {
+  const { t } = useTranslation();
   const [questions] = useState(() => generateQuestions(snapshot, userSide, gameState));
   const [currentIdx, setCurrentIdx] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -229,11 +231,11 @@ export default function PressConference({ snapshot, gameState, userSide, onFinis
           <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-navy-700 rounded-full mb-3">
             <Mic className="w-4 h-4 text-accent-400" />
             <span className="font-heading font-bold text-xs uppercase tracking-widest text-gray-300">
-              Press Conference
+              {t('match.pressConference')}
             </span>
           </div>
           <p className="text-sm text-gray-500">
-            Post-match press conference — {userTeamName}
+            {t('match.pressSubtitle', { team: userTeamName })}
           </p>
           <div className="flex items-center justify-center gap-1 mt-3">
             {questions.map((_, i) => (
@@ -310,7 +312,7 @@ export default function PressConference({ snapshot, gameState, userSide, onFinis
                   onClick={handleNext}
                   className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 rounded-xl font-heading font-bold uppercase tracking-wider text-sm text-white shadow-lg shadow-primary-500/20 transition-all"
                 >
-                  {submitting ? "Submitting..." : isLastQuestion ? "Leave Conference" : "Next Question"}
+                  {submitting ? t('match.submitting') : isLastQuestion ? t('match.leaveConference') : t('match.nextQuestion')}
                   <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
@@ -326,7 +328,7 @@ export default function PressConference({ snapshot, gameState, userSide, onFinis
             onClick={onFinish}
             className="text-xs font-heading uppercase tracking-wider text-gray-600 hover:text-gray-400 transition-colors"
           >
-            Skip Conference →
+            {t('match.skipConference')}
           </button>
         </div>
       </footer>

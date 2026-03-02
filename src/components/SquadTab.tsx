@@ -533,6 +533,7 @@ function CompareView({
   setCompareA: (id: string | null) => void;
   setCompareB: (id: string | null) => void;
 }) {
+  const { t } = useTranslation();
   const playerA = roster.find(p => p.id === compareA) || null;
   const playerB = roster.find(p => p.id === compareB) || null;
 
@@ -542,7 +543,7 @@ function CompareView({
       onChange={e => onChange(e.target.value || null)}
       className="w-full text-sm font-heading font-bold bg-gray-100 dark:bg-navy-700 text-gray-700 dark:text-gray-200 border-0 rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-primary-500"
     >
-      <option value="">Select player...</option>
+      <option value="">{t('squadCompare.selectPlayerA')}...</option>
       {roster.filter(p => p.id !== otherId).map(p => (
         <option key={p.id} value={p.id}>
           {p.full_name} ({p.position.substring(0, 3)}, OVR {calcOvr(p)})
@@ -564,18 +565,18 @@ function CompareView({
       <div className="p-4 border-b border-gray-100 dark:border-navy-600 bg-gradient-to-r from-navy-700 to-navy-800 rounded-t-xl">
         <h3 className="text-sm font-heading font-bold text-white uppercase tracking-wide flex items-center gap-2">
           <GitCompareArrows className="w-4 h-4 text-accent-400" />
-          Player Comparison
+          {t('squadCompare.compare')}
         </h3>
       </div>
       <div className="p-4">
         {/* Player selectors */}
         <div className="grid grid-cols-2 gap-4 mb-6">
           <div>
-            <label className="text-[10px] font-heading font-bold uppercase tracking-widest text-gray-400 mb-1.5 block">Player A</label>
+            <label className="text-[10px] font-heading font-bold uppercase tracking-widest text-gray-400 mb-1.5 block">{t('squadCompare.selectPlayerA')}</label>
             {renderSelector(compareA, setCompareA, compareB)}
           </div>
           <div>
-            <label className="text-[10px] font-heading font-bold uppercase tracking-widest text-gray-400 mb-1.5 block">Player B</label>
+            <label className="text-[10px] font-heading font-bold uppercase tracking-widest text-gray-400 mb-1.5 block">{t('squadCompare.selectPlayerB')}</label>
             {renderSelector(compareB, setCompareB, compareA)}
           </div>
         </div>
@@ -651,7 +652,7 @@ function CompareView({
 
             {/* Stats comparison */}
             <div className="mt-6 pt-4 border-t border-gray-100 dark:border-navy-700">
-              <h4 className="text-[10px] font-heading font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-3">Season Stats</h4>
+              <h4 className="text-[10px] font-heading font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-3">{t('squadCompare.seasonStats')}</h4>
               <div className="grid grid-cols-[1fr_100px_1fr] gap-2 text-xs">
                 {([
                   ["appearances", "Apps"],
@@ -676,7 +677,7 @@ function CompareView({
         ) : (
           <div className="text-center py-12">
             <GitCompareArrows className="w-10 h-10 text-gray-300 dark:text-navy-600 mx-auto mb-3" />
-            <p className="text-sm text-gray-500 dark:text-gray-400">Select two players to compare their attributes side by side.</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">{t('squadCompare.noPlayersSelected')}</p>
           </div>
         )}
       </div>

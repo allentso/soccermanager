@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { useTranslation } from "react-i18next";
 import { GameStateData } from "../store/gameStore";
 import { Card, CardHeader, CardBody, Badge, ProgressBar } from "./ui";
 import { Eye, ScanSearch, Clock, User, Search, ChevronLeft, ChevronRight } from "lucide-react";
@@ -14,6 +15,7 @@ interface ScoutingTabProps {
 const SCOUTING_PAGE_SIZE = 20;
 
 export default function ScoutingTab({ gameState, onGameUpdate, onSelectPlayer }: ScoutingTabProps) {
+  const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState("");
   const [posFilter, setPosFilter] = useState<string>("All");
   const [sending, setSending] = useState<string | null>(null);
@@ -66,7 +68,7 @@ export default function ScoutingTab({ gameState, onGameUpdate, onSelectPlayer }:
       {/* Header */}
       <div className="flex items-center gap-3">
         <ScanSearch className="w-5 h-5 text-primary-500" />
-        <h2 className="text-lg font-heading font-bold uppercase tracking-wider text-gray-800 dark:text-gray-100">Scouting Centre</h2>
+        <h2 className="text-lg font-heading font-bold uppercase tracking-wider text-gray-800 dark:text-gray-100">{t('scouting.title')}</h2>
       </div>
 
       {/* Scout Staff Overview */}
@@ -78,7 +80,7 @@ export default function ScoutingTab({ gameState, onGameUpdate, onSelectPlayer }:
                 <Eye className="w-5 h-5 text-accent-500" />
               </div>
               <div>
-                <p className="text-xs text-gray-500 dark:text-gray-400 font-heading uppercase tracking-wider">Scouts</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 font-heading uppercase tracking-wider">{t('scouting.scouts')}</p>
                 <p className="text-xl font-heading font-bold text-gray-800 dark:text-gray-100">{scouts.length}</p>
               </div>
             </div>
@@ -91,7 +93,7 @@ export default function ScoutingTab({ gameState, onGameUpdate, onSelectPlayer }:
                 <Clock className="w-5 h-5 text-primary-500" />
               </div>
               <div>
-                <p className="text-xs text-gray-500 dark:text-gray-400 font-heading uppercase tracking-wider">Active Assignments</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 font-heading uppercase tracking-wider">{t('scouting.activeAssignments')}</p>
                 <p className="text-xl font-heading font-bold text-gray-800 dark:text-gray-100">{assignments.length} / {scouts.reduce((sum, s) => sum + scoutMaxSlots(s.attributes.judging_ability), 0)}</p>
               </div>
             </div>
@@ -104,7 +106,7 @@ export default function ScoutingTab({ gameState, onGameUpdate, onSelectPlayer }:
                 <User className="w-5 h-5 text-green-500" />
               </div>
               <div>
-                <p className="text-xs text-gray-500 dark:text-gray-400 font-heading uppercase tracking-wider">Scouts w/ Free Slots</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 font-heading uppercase tracking-wider">{t('scouting.freeSlots')}</p>
                 <p className="text-xl font-heading font-bold text-gray-800 dark:text-gray-100">{availableScouts.length}</p>
               </div>
             </div>
@@ -115,14 +117,14 @@ export default function ScoutingTab({ gameState, onGameUpdate, onSelectPlayer }:
       {/* Active Assignments */}
       {assignments.length > 0 && (
         <Card>
-          <CardHeader>Active Scouting Assignments</CardHeader>
+          <CardHeader>{t('scouting.activeScoutingAssignments')}</CardHeader>
           <CardBody>
             <div className="flex flex-col gap-2">
               {assignments.map(a => {
                 const scout = gameState.staff.find(s => s.id === a.scout_id);
                 const player = gameState.players.find(p => p.id === a.player_id);
                 if (!scout || !player) return null;
-                const team = player.team_id ? getTeamName(gameState.teams, player.team_id) : "Free Agent";
+                const team = player.team_id ? getTeamName(gameState.teams, player.team_id) : t('common.freeAgent');
                 return (
                   <div key={a.id} className="flex items-center gap-4 p-3 rounded-lg bg-gray-50 dark:bg-navy-700/50">
                     <div className="flex-1 min-w-0">
@@ -132,10 +134,10 @@ export default function ScoutingTab({ gameState, onGameUpdate, onSelectPlayer }:
                       <p className="text-xs text-gray-500 dark:text-gray-400">{player.position} · {team}</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Scout: {scout.first_name} {scout.last_name}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{t('scouting.scoutLabel', { name: `${scout.first_name} ${scout.last_name}` })}</p>
                       <div className="flex items-center gap-1.5 justify-end mt-0.5">
                         <Clock className="w-3 h-3 text-accent-500" />
-                        <span className="text-xs font-heading font-bold text-accent-500">{a.days_remaining} days left</span>
+                        <span className="text-xs font-heading font-bold text-accent-500">{t('scouting.daysLeft', { days: a.days_remaining })}</span>
                       </div>
                     </div>
                   </div>
@@ -149,7 +151,7 @@ export default function ScoutingTab({ gameState, onGameUpdate, onSelectPlayer }:
       {/* Scout Staff Details */}
       {scouts.length > 0 && (
         <Card>
-          <CardHeader>Your Scouts</CardHeader>
+          <CardHeader>{t('scouting.yourScouts')}</CardHeader>
           <CardBody>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {scouts.map(s => {
@@ -168,16 +170,16 @@ export default function ScoutingTab({ gameState, onGameUpdate, onSelectPlayer }:
                         <p className="text-xs text-gray-500 dark:text-gray-400">{s.nationality}</p>
                       </div>
                       <Badge variant={isFull ? "accent" : "success"} size="sm">
-                        {count}/{maxSlots} slots
+                        {count}/{maxSlots} {t('scouting.slots')}
                       </Badge>
                     </div>
                     <div className="mt-2 grid grid-cols-2 gap-2">
                       <div>
-                        <p className="text-[10px] text-gray-400 dark:text-gray-500 font-heading uppercase">Judging Ability</p>
+                        <p className="text-[10px] text-gray-400 dark:text-gray-500 font-heading uppercase">{t('scouting.judgingAbility')}</p>
                         <ProgressBar value={s.attributes.judging_ability} variant="auto" size="sm" />
                       </div>
                       <div>
-                        <p className="text-[10px] text-gray-400 dark:text-gray-500 font-heading uppercase">Judging Potential</p>
+                        <p className="text-[10px] text-gray-400 dark:text-gray-500 font-heading uppercase">{t('scouting.judgingPotential')}</p>
                         <ProgressBar value={s.attributes.judging_potential} variant="auto" size="sm" />
                       </div>
                     </div>
@@ -187,7 +189,7 @@ export default function ScoutingTab({ gameState, onGameUpdate, onSelectPlayer }:
                           const tp = gameState.players.find(p => p.id === a.player_id);
                           return tp ? (
                             <p key={a.id} className="text-xs text-gray-500 dark:text-gray-400">
-                              Scouting: <span className="font-heading font-bold text-gray-700 dark:text-gray-300">{tp.full_name}</span> — {a.days_remaining}d left
+                              {t('scouting.scoutLabel', { name: '' })}<span className="font-heading font-bold text-gray-700 dark:text-gray-300">{tp.full_name}</span> — {a.days_remaining}d
                             </p>
                           ) : null;
                         })}
@@ -207,8 +209,8 @@ export default function ScoutingTab({ gameState, onGameUpdate, onSelectPlayer }:
             <div className="flex flex-col items-center gap-3 py-8">
               <Eye className="w-10 h-10 text-gray-300 dark:text-navy-600" />
               <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
-                You don't have any scouts yet.<br />
-                <span className="text-xs">Hire a scout from the Staff page to start evaluating players.</span>
+                {t('scouting.noScouts')}<br />
+                <span className="text-xs">{t('scouting.noScoutsHint')}</span>
               </p>
             </div>
           </CardBody>
@@ -220,7 +222,7 @@ export default function ScoutingTab({ gameState, onGameUpdate, onSelectPlayer }:
         <Card>
           <CardHeader>
             <div className="flex items-center gap-3 w-full">
-              <span>Find Players to Scout</span>
+              <span>{t('scouting.findPlayers')}</span>
               <div className="ml-auto flex items-center gap-2">
                 {["All", "Goalkeeper", "Defender", "Midfielder", "Forward"].map(pos => (
                   <button
@@ -232,7 +234,7 @@ export default function ScoutingTab({ gameState, onGameUpdate, onSelectPlayer }:
                         : "bg-gray-100 dark:bg-navy-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-navy-600"
                     }`}
                   >
-                    {pos === "All" ? "All" : pos.slice(0, 3)}
+                    {pos === "All" ? t('common.all') : pos.slice(0, 3)}
                   </button>
                 ))}
               </div>
@@ -243,7 +245,7 @@ export default function ScoutingTab({ gameState, onGameUpdate, onSelectPlayer }:
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
                 type="text"
-                placeholder="Search by name, nationality, or team..."
+                placeholder={t('scouting.searchPlaceholder')}
                 value={searchQuery}
                 onChange={e => { setSearchQuery(e.target.value); setPage(0); }}
                 className="w-full pl-9 pr-4 py-2 text-sm bg-gray-50 dark:bg-navy-700 border border-gray-200 dark:border-navy-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/50 text-gray-800 dark:text-gray-100 placeholder:text-gray-400"
@@ -254,18 +256,18 @@ export default function ScoutingTab({ gameState, onGameUpdate, onSelectPlayer }:
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-xs text-gray-500 dark:text-gray-400 font-heading uppercase tracking-wider border-b border-gray-100 dark:border-navy-700">
-                    <th className="text-left py-2 px-2">Player</th>
-                    <th className="text-left py-2 px-1">Pos</th>
-                    <th className="text-center py-2 px-1">Age</th>
-                    <th className="text-left py-2 px-1">Team</th>
-                    <th className="text-center py-2 px-1">Value</th>
-                    <th className="text-right py-2 px-2">Action</th>
+                    <th className="text-left py-2 px-2">{t('scouting.player')}</th>
+                    <th className="text-left py-2 px-1">{t('scouting.pos')}</th>
+                    <th className="text-center py-2 px-1">{t('scouting.age')}</th>
+                    <th className="text-left py-2 px-1">{t('scouting.team')}</th>
+                    <th className="text-center py-2 px-1">{t('scouting.value')}</th>
+                    <th className="text-right py-2 px-2">{t('scouting.action')}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {scoutablePlayers.map(p => {
                     const isScouting = alreadyScoutingIds.has(p.id);
-                    const team = p.team_id ? getTeamName(gameState.teams, p.team_id) : "Free Agent";
+                    const team = p.team_id ? getTeamName(gameState.teams, p.team_id) : t('common.freeAgent');
                     return (
                       <tr key={p.id} className="border-b border-gray-50 dark:border-navy-700/50 hover:bg-gray-50 dark:hover:bg-navy-700/30 transition-colors">
                         <td className="py-2 px-2">
@@ -286,9 +288,9 @@ export default function ScoutingTab({ gameState, onGameUpdate, onSelectPlayer }:
                         <td className="text-center py-2 px-1 text-gray-600 dark:text-gray-400 text-xs">{formatVal(p.market_value)}</td>
                         <td className="text-right py-2 px-2">
                           {isScouting ? (
-                            <span className="text-xs text-primary-400 font-heading font-bold">Scouting...</span>
+                            <span className="text-xs text-primary-400 font-heading font-bold">{t('scouting.scoutingInProgress')}</span>
                           ) : availableScouts.length === 0 ? (
-                            <span className="text-xs text-gray-400">No scouts free</span>
+                            <span className="text-xs text-gray-400">{t('scouting.noScoutsFree')}</span>
                           ) : (
                             <button
                               disabled={sending === p.id}
@@ -296,7 +298,7 @@ export default function ScoutingTab({ gameState, onGameUpdate, onSelectPlayer }:
                               className="flex items-center gap-1 ml-auto px-2.5 py-1 rounded-lg bg-primary-500/10 text-primary-500 hover:bg-primary-500/20 transition-colors text-xs font-heading font-bold uppercase tracking-wider disabled:opacity-50"
                             >
                               <ScanSearch className="w-3 h-3" />
-                              {sending === p.id ? "..." : "Scout"}
+                              {sending === p.id ? "..." : t('scouting.scoutBtn')}
                             </button>
                           )}
                         </td>
@@ -306,7 +308,7 @@ export default function ScoutingTab({ gameState, onGameUpdate, onSelectPlayer }:
                 </tbody>
               </table>
               {scoutablePlayers.length === 0 && (
-                <p className="text-center text-sm text-gray-400 py-4">No players found matching your search.</p>
+                <p className="text-center text-sm text-gray-400 py-4">{t('scouting.noPlayersFound')}</p>
               )}
             </div>
 
@@ -314,7 +316,7 @@ export default function ScoutingTab({ gameState, onGameUpdate, onSelectPlayer }:
             {totalPages > 1 && (
               <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-navy-700 mt-3">
                 <span className="text-xs text-gray-400 dark:text-gray-500">
-                  Showing {safePage * SCOUTING_PAGE_SIZE + 1}–{Math.min((safePage + 1) * SCOUTING_PAGE_SIZE, allScoutable.length)} of {allScoutable.length}
+                  {t('scouting.showingRange', { from: safePage * SCOUTING_PAGE_SIZE + 1, to: Math.min((safePage + 1) * SCOUTING_PAGE_SIZE, allScoutable.length), total: allScoutable.length })}
                 </span>
                 <div className="flex items-center gap-2">
                   <button

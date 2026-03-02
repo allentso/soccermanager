@@ -259,7 +259,7 @@ export default function Dashboard() {
       <div className="min-h-screen bg-gray-100 dark:bg-navy-900 flex items-center justify-center transition-colors">
         <div className="flex flex-col items-center gap-3">
           <div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin" />
-          <span className="text-gray-500 dark:text-gray-400 font-heading uppercase tracking-wider text-sm">Loading game state...</span>
+          <span className="text-gray-500 dark:text-gray-400 font-heading uppercase tracking-wider text-sm">{t('dashboard.loading')}</span>
         </div>
       </div>
     );
@@ -527,7 +527,7 @@ export default function Dashboard() {
                   const matchedPlayers = gameState.players.filter(p => p.full_name.toLowerCase().includes(q) || p.match_name.toLowerCase().includes(q)).slice(0, 5);
                   const matchedTeams = gameState.teams.filter(t => t.name.toLowerCase().includes(q) || t.short_name.toLowerCase().includes(q)).slice(0, 4);
                   if (matchedPlayers.length === 0 && matchedTeams.length === 0) {
-                    return <p className="p-3 text-xs text-gray-400 dark:text-gray-500">No results found.</p>;
+                    return <p className="p-3 text-xs text-gray-400 dark:text-gray-500">{t('dashboard.noResults')}</p>;
                   }
                   return (
                     <>
@@ -601,7 +601,7 @@ export default function Dashboard() {
                   className={`bg-gradient-to-r ${MODE_META[matchMode]?.color || 'from-primary-500 to-primary-600'} hover:brightness-110 text-white pl-4 pr-3 py-2.5 rounded-l-lg font-heading font-bold uppercase tracking-wider text-sm shadow-md hover:shadow-lg transition-all flex items-center gap-2 ${isAdvancing || seasonComplete ? 'opacity-70 cursor-wait' : ''}`}
                 >
                   {seasonComplete ? (
-                    <span>Season Complete</span>
+                    <span>{t('endOfSeason.seasonComplete')}</span>
                   ) : isAdvancing ? (
                     <span>{t('dashboard.simulating')}</span>
                   ) : (

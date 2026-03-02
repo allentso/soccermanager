@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { useTranslation } from "react-i18next";
 import { GameStateData } from "../../store/gameStore";
 import { MatchSnapshot, MatchEvent, FORMATIONS, PLAY_STYLES, TEAM_TALK_OPTIONS, TeamTalkTone } from "./types";
 import { getEventDisplay, getPlayerName } from "./helpers";
@@ -33,6 +34,7 @@ const PLAY_STYLE_ICONS: Record<string, React.ReactNode> = {
 export default function HalfTimeBreak({
   snapshot, gameState, userSide, isSpectator, importantEvents, onResume, onUpdateSnapshot,
 }: HalfTimeBreakProps) {
+  const { t } = useTranslation();
   const [selectedTalk, setSelectedTalk] = useState<TeamTalkTone | null>(null);
   const [showSubPanel, setShowSubPanel] = useState(false);
   const [talkDelivered, setTalkDelivered] = useState(false);
@@ -115,8 +117,8 @@ export default function HalfTimeBreak({
             <div className="flex items-center gap-4">
               <span className="text-5xl font-heading font-bold text-white tabular-nums">{snapshot.home_score}</span>
               <div className="text-center">
-                <p className="text-xs font-heading uppercase tracking-widest text-accent-400">Half Time</p>
-                <p className="text-lg font-heading font-bold text-gray-600">HT</p>
+                <p className="text-xs font-heading uppercase tracking-widest text-accent-400">{t('match.halfTime')}</p>
+                <p className="text-lg font-heading font-bold text-gray-600">{t('match.ht')}</p>
               </div>
               <span className="text-5xl font-heading font-bold text-white tabular-nums">{snapshot.away_score}</span>
             </div>
@@ -158,10 +160,10 @@ export default function HalfTimeBreak({
           <div className="flex flex-col gap-4">
             <div className="bg-navy-800 rounded-xl border border-navy-700 p-4">
               <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500 mb-3">
-                First Half Events
+                {t('match.firstHalfEvents')}
               </h3>
               {firstHalfEvents.length === 0 ? (
-                <p className="text-xs text-gray-600">No major events.</p>
+                <p className="text-xs text-gray-600">{t('match.noMajorEvents')}</p>
               ) : (
                 <div className="flex flex-col gap-2">
                   {firstHalfEvents.map((evt, i) => {
@@ -191,14 +193,14 @@ export default function HalfTimeBreak({
                 <div className="flex items-center gap-2 mb-4">
                   <MessageCircle className="w-4 h-4 text-accent-400" />
                   <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500">
-                    Team Talk
+                    {t('match.teamTalk')}
                   </h3>
                 </div>
 
                 {!talkDelivered ? (
                   <>
                     <p className="text-xs text-gray-400 mb-3">
-                      Choose how you address the team at half time.
+                      {t('match.teamTalkPrompt')}
                     </p>
                     <div className="flex flex-col gap-2">
                       {TEAM_TALK_OPTIONS.map(opt => (
@@ -226,7 +228,7 @@ export default function HalfTimeBreak({
                         onClick={handleDeliverTalk}
                         className="w-full mt-3 py-2.5 bg-primary-500/20 hover:bg-primary-500/30 text-primary-400 rounded-lg font-heading font-bold text-sm uppercase tracking-wider transition-colors"
                       >
-                        Deliver Team Talk
+                        {t('match.deliverTeamTalk')}
                       </button>
                     )}
                   </>
@@ -237,7 +239,7 @@ export default function HalfTimeBreak({
                       <p className="text-sm font-heading font-bold text-primary-400">
                         {TEAM_TALK_OPTIONS.find(o => o.id === selectedTalk)?.label}
                       </p>
-                      <Badge variant="success" size="sm">Delivered</Badge>
+                      <Badge variant="success" size="sm">{t('match.delivered')}</Badge>
                     </div>
                     {talkResults.length > 0 && (
                       <div className="flex flex-col gap-0.5 max-h-48 overflow-auto">
@@ -260,8 +262,8 @@ export default function HalfTimeBreak({
               </div>
             ) : (
               <div className="bg-navy-800 rounded-xl border border-navy-700 p-4 flex flex-col items-center justify-center py-8">
-                <p className="text-xs font-heading uppercase tracking-widest text-gray-600 mb-1">Spectator Mode</p>
-                <p className="text-sm text-gray-400 text-center">Both managers are talking to their teams in the dressing room.</p>
+                <p className="text-xs font-heading uppercase tracking-widest text-gray-600 mb-1">{t('match.spectatorMode')}</p>
+                <p className="text-sm text-gray-400 text-center">{t('match.spectatorHT')}</p>
               </div>
             )}
           </div>
@@ -273,7 +275,7 @@ export default function HalfTimeBreak({
                 {/* Formation */}
                 <div className="bg-navy-800 rounded-xl border border-navy-700 p-4">
                   <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500 mb-3">
-                    Formation
+                    {t('match.formation')}
                   </h3>
                   <div className="grid grid-cols-3 gap-1.5">
                     {FORMATIONS.map(f => (
@@ -295,7 +297,7 @@ export default function HalfTimeBreak({
                 {/* Play Style */}
                 <div className="bg-navy-800 rounded-xl border border-navy-700 p-4">
                   <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500 mb-3">
-                    Play Style
+                    {t('match.playStyle')}
                   </h3>
                   <div className="grid grid-cols-2 gap-1.5">
                     {PLAY_STYLES.map(s => (
@@ -319,7 +321,7 @@ export default function HalfTimeBreak({
                 <div className="bg-navy-800 rounded-xl border border-navy-700 p-4">
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500">
-                      Substitutions
+                      {t('match.substitutions')}
                     </h3>
                     <Badge variant="neutral" size="sm">
                       {userSide === "Home" ? snapshot.home_subs_made : snapshot.away_subs_made}/{snapshot.max_subs}
@@ -331,7 +333,7 @@ export default function HalfTimeBreak({
                     className="w-full flex items-center justify-center gap-2 py-2.5 bg-navy-700 hover:bg-navy-600 rounded-lg text-sm font-heading uppercase tracking-wider text-gray-300 transition-colors"
                   >
                     <RefreshCw className="w-4 h-4" />
-                    Make Substitution
+                    {t('match.makeSubstitution')}
                   </button>
                 </div>
               </>
@@ -344,14 +346,14 @@ export default function HalfTimeBreak({
       <footer className="bg-navy-800 border-t border-navy-700 px-6 py-4">
         <div className="max-w-5xl mx-auto flex justify-between items-center">
           <p className="text-xs text-gray-600 font-heading uppercase tracking-wider">
-            {isSpectator ? "Waiting for second half..." : "Make your changes, then resume the match."}
+            {isSpectator ? t('match.waitingSecondHalf') : t('match.makeChanges')}
           </p>
           <button
             onClick={onResume}
             className="flex items-center gap-3 px-8 py-3 bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 rounded-xl font-heading font-bold uppercase tracking-wider text-sm text-white shadow-lg shadow-primary-500/20 transition-all"
           >
             <Play className="w-4 h-4" />
-            Resume Match
+            {t('match.resumeMatch')}
           </button>
         </div>
       </footer>

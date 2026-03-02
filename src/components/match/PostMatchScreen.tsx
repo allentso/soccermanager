@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { useTranslation } from "react-i18next";
 import { GameStateData } from "../../store/gameStore";
 import { MatchSnapshot, MatchEvent, TEAM_TALK_OPTIONS, TeamTalkTone } from "./types";
 import { getEventDisplay, getPlayerName } from "./helpers";
@@ -23,6 +24,7 @@ interface PostMatchScreenProps {
 export default function PostMatchScreen({
   snapshot, gameState, userSide, isSpectator, importantEvents, onPressConference, onFinish,
 }: PostMatchScreenProps) {
+  const { t } = useTranslation();
   const [selectedTalk, setSelectedTalk] = useState<TeamTalkTone | null>(null);
   const [talkDelivered, setTalkDelivered] = useState(false);
   const [talkResults, setTalkResults] = useState<{ player_id: string; player_name: string; old_morale: number; new_morale: number; delta: number }[]>([]);
@@ -84,19 +86,19 @@ export default function PostMatchScreen({
               {resultType === "win" && (
                 <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-primary-500/20 rounded-full">
                   <Trophy className="w-4 h-4 text-accent-400" />
-                  <span className="font-heading font-bold text-sm uppercase tracking-widest text-primary-400">Victory</span>
+                  <span className="font-heading font-bold text-sm uppercase tracking-widest text-primary-400">{t('match.victory')}</span>
                 </div>
               )}
               {resultType === "loss" && (
                 <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-red-500/20 rounded-full">
                   <TrendingDown className="w-4 h-4 text-red-400" />
-                  <span className="font-heading font-bold text-sm uppercase tracking-widest text-red-400">Defeat</span>
+                  <span className="font-heading font-bold text-sm uppercase tracking-widest text-red-400">{t('match.defeat')}</span>
                 </div>
               )}
               {resultType === "draw" && (
                 <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-gray-500/20 rounded-full">
                   <Minus className="w-4 h-4 text-gray-400" />
-                  <span className="font-heading font-bold text-sm uppercase tracking-widest text-gray-400">Draw</span>
+                  <span className="font-heading font-bold text-sm uppercase tracking-widest text-gray-400">{t('match.draw')}</span>
                 </div>
               )}
             </div>
@@ -117,8 +119,8 @@ export default function PostMatchScreen({
             <div className="flex items-center gap-5">
               <span className="text-6xl font-heading font-bold text-white tabular-nums">{snapshot.home_score}</span>
               <div className="text-center">
-                <p className="text-xs font-heading uppercase tracking-widest text-accent-400">Full Time</p>
-                <p className="text-lg font-heading font-bold text-gray-600">FT</p>
+                <p className="text-xs font-heading uppercase tracking-widest text-accent-400">{t('match.fullTime')}</p>
+                <p className="text-lg font-heading font-bold text-gray-600">{t('match.ft')}</p>
               </div>
               <span className="text-6xl font-heading font-bold text-white tabular-nums">{snapshot.away_score}</span>
             </div>
@@ -144,10 +146,10 @@ export default function PostMatchScreen({
           <div className="flex flex-col gap-4">
             <div className="bg-navy-800 rounded-xl border border-navy-700 p-4">
               <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500 mb-3">
-                Match Events
+                {t('match.matchEvents')}
               </h3>
               {keyEvents.length === 0 ? (
-                <p className="text-xs text-gray-600">A quiet match.</p>
+                <p className="text-xs text-gray-600">{t('match.quietMatch')}</p>
               ) : (
                 <div className="flex flex-col gap-2">
                   {keyEvents.map((evt, i) => {
@@ -174,7 +176,7 @@ export default function PostMatchScreen({
               <div className="flex items-center gap-2 mb-3">
                 <BarChart3 className="w-4 h-4 text-gray-500" />
                 <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500">
-                  Quick Stats
+                  {t('match.quickStats')}
                 </h3>
               </div>
               <QuickStat label="Possession" home={`${snapshot.home_possession_pct.toFixed(0)}%`} away={`${snapshot.away_possession_pct.toFixed(0)}%`} homePct={snapshot.home_possession_pct} />
@@ -191,14 +193,14 @@ export default function PostMatchScreen({
                 <div className="flex items-center gap-2 mb-4">
                   <MessageCircle className="w-4 h-4 text-accent-400" />
                   <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500">
-                    Post-Match Team Talk
+                    {t('match.postMatchTeamTalk')}
                   </h3>
                 </div>
 
                 {!talkDelivered ? (
                   <>
                     <p className="text-xs text-gray-400 mb-3">
-                      Address your players after the match.
+                      {t('match.addressPlayers')}
                     </p>
                     <div className="flex flex-col gap-2">
                       {TEAM_TALK_OPTIONS.map(opt => {
@@ -232,7 +234,7 @@ export default function PostMatchScreen({
                         onClick={handleDeliverTalk}
                         className="w-full mt-3 py-2.5 bg-primary-500/20 hover:bg-primary-500/30 text-primary-400 rounded-lg font-heading font-bold text-sm uppercase tracking-wider transition-colors"
                       >
-                        Deliver Team Talk
+                        {t('match.deliverTeamTalk')}
                       </button>
                     )}
                   </>
@@ -243,7 +245,7 @@ export default function PostMatchScreen({
                       <p className="text-sm font-heading font-bold text-primary-400">
                         {TEAM_TALK_OPTIONS.find(o => o.id === selectedTalk)?.label}
                       </p>
-                      <Badge variant="success" size="sm">Delivered</Badge>
+                      <Badge variant="success" size="sm">{t('match.delivered')}</Badge>
                     </div>
                     {talkResults.length > 0 && (
                       <div className="flex flex-col gap-0.5 max-h-48 overflow-auto">
@@ -266,7 +268,7 @@ export default function PostMatchScreen({
               </div>
             ) : (
               <div className="bg-navy-800 rounded-xl border border-navy-700 p-4 flex flex-col items-center justify-center py-12">
-                <p className="text-lg font-heading font-bold text-gray-400 mb-2">Match Over</p>
+                <p className="text-lg font-heading font-bold text-gray-400 mb-2">{t('match.matchOver')}</p>
                 <p className="text-sm text-gray-500 text-center">
                   {snapshot.home_score} - {snapshot.away_score}
                 </p>
@@ -308,7 +310,7 @@ export default function PostMatchScreen({
                   <div className="flex items-center gap-2 mb-3">
                     <Star className="w-4 h-4 text-accent-400" />
                     <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500">
-                      {team.name} Ratings
+                      {t('match.ratings', { team: team.name })}
                     </h3>
                     <div className="w-2 h-2 rounded-full ml-auto" style={{ backgroundColor: teamColor }} />
                   </div>
@@ -318,7 +320,7 @@ export default function PostMatchScreen({
                         <span className="text-sm font-heading font-bold text-accent-400">{motm.rating.toFixed(1)}</span>
                       </div>
                       <div>
-                        <p className="text-xs font-heading font-bold text-accent-400 uppercase tracking-wider">Man of the Match</p>
+                        <p className="text-xs font-heading font-bold text-accent-400 uppercase tracking-wider">{t('match.motm')}</p>
                         <p className="text-sm text-gray-200 font-medium">{motm.name}</p>
                       </div>
                     </div>
@@ -340,12 +342,12 @@ export default function PostMatchScreen({
 
             <div className="bg-navy-800 rounded-xl border border-navy-700 p-4">
               <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500 mb-3">
-                Scorers
+                {t('match.scorers')}
               </h3>
               {renderScorers(snapshot, importantEvents, "Home")}
               {renderScorers(snapshot, importantEvents, "Away")}
               {keyEvents.filter(e => e.event_type === "Goal" || e.event_type === "PenaltyGoal").length === 0 && (
-                <p className="text-xs text-gray-600">No goals scored.</p>
+                <p className="text-xs text-gray-600">{t('match.noGoals')}</p>
               )}
             </div>
 
@@ -353,7 +355,7 @@ export default function PostMatchScreen({
             {snapshot.substitutions.length > 0 && (
               <div className="bg-navy-800 rounded-xl border border-navy-700 p-4">
                 <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500 mb-3">
-                  Substitutions
+                  {t('match.substitutions')}
                 </h3>
                 <div className="flex flex-col gap-2">
                   {snapshot.substitutions.map((sub, i) => (
@@ -376,14 +378,14 @@ export default function PostMatchScreen({
       <footer className="bg-navy-800 border-t border-navy-700 px-6 py-4">
         <div className="max-w-5xl mx-auto flex justify-between items-center">
           <p className="text-xs text-gray-600 font-heading uppercase tracking-wider">
-            {isSpectator ? "Match complete." : "Address the press or head back."}
+            {isSpectator ? t('match.matchComplete') : t('match.addressPress')}
           </p>
           <div className="flex items-center gap-3">
             <button
               onClick={onFinish}
               className="flex items-center gap-2 px-6 py-3 bg-navy-700 hover:bg-navy-600 rounded-xl font-heading font-bold uppercase tracking-wider text-sm text-gray-300 transition-colors"
             >
-              Skip
+              {t('match.skip')}
               <ChevronRight className="w-4 h-4" />
             </button>
             {!isSpectator && (
@@ -391,7 +393,7 @@ export default function PostMatchScreen({
                 onClick={onPressConference}
                 className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 rounded-xl font-heading font-bold uppercase tracking-wider text-sm text-white shadow-lg shadow-primary-500/20 transition-all"
               >
-                Press Conference
+                {t('match.pressConference')}
                 <ChevronRight className="w-4 h-4" />
               </button>
             )}

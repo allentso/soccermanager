@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { useTranslation } from "react-i18next";
 import { GameStateData } from "../../store/gameStore";
 import { MatchSnapshot, MatchEvent, MinuteResult, SimSpeed, SPEED_MS, EnginePlayerData } from "./types";
 import { getEventDisplay, getPlayerName, phaseLabel } from "./helpers";
@@ -31,6 +32,7 @@ export default function MatchLive({
   importantEvents, onSnapshotUpdate, onImportantEvent,
   onHalfTime, onFullTime,
 }: MatchLiveProps) {
+  const { t } = useTranslation();
   const { settings } = useSettingsStore();
   const initialSpeed: SimSpeed = (settings.match_speed === "slow" || settings.match_speed === "fast") ? settings.match_speed : "normal";
   const [speed, setSpeed] = useState<SimSpeed>(initialSpeed);
@@ -178,7 +180,7 @@ export default function MatchLive({
               </span>
             )}
             <span className="text-xs font-heading uppercase tracking-widest text-gray-500">
-              {isRunning ? "Live" : "Paused"}
+              {isRunning ? t('match.live') : t('match.paused')}
             </span>
           </div>
 
@@ -255,9 +257,9 @@ export default function MatchLive({
         <div className="flex-1 flex flex-col">
           <div className="flex bg-navy-800 border-b border-navy-700">
             {([
-              { id: "events" as ActivePanel, label: "Events", icon: <MessageSquare className="w-4 h-4" /> },
-              { id: "stats" as ActivePanel, label: "Stats", icon: <BarChart3 className="w-4 h-4" /> },
-              { id: "lineups" as ActivePanel, label: "Lineups", icon: <Users className="w-4 h-4" /> },
+              { id: "events" as ActivePanel, label: t('match.events'), icon: <MessageSquare className="w-4 h-4" /> },
+              { id: "stats" as ActivePanel, label: t('match.stats'), icon: <BarChart3 className="w-4 h-4" /> },
+              { id: "lineups" as ActivePanel, label: t('match.lineups'), icon: <Users className="w-4 h-4" /> },
             ]).map(tab => (
               <button
                 key={tab.id}
@@ -285,14 +287,14 @@ export default function MatchLive({
         <aside className="w-72 bg-navy-800 border-l border-navy-700 flex flex-col">
           {/* Speed Controls */}
           <div className="p-4 border-b border-navy-700">
-            <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500 mb-3">Simulation Speed</h3>
+            <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500 mb-3">{t('match.simSpeed')}</h3>
             <div className="flex gap-1">
               {([
-                { id: "paused" as SimSpeed, icon: <Pause className="w-4 h-4" />, label: "Pause" },
-                { id: "slow" as SimSpeed, icon: <Play className="w-4 h-4" />, label: "Slow" },
-                { id: "normal" as SimSpeed, icon: <Play className="w-4 h-4" />, label: "Normal" },
-                { id: "fast" as SimSpeed, icon: <FastForward className="w-4 h-4" />, label: "Fast" },
-                { id: "instant" as SimSpeed, icon: <SkipForward className="w-4 h-4" />, label: "Max" },
+                { id: "paused" as SimSpeed, icon: <Pause className="w-4 h-4" />, label: t('match.pause') },
+                { id: "slow" as SimSpeed, icon: <Play className="w-4 h-4" />, label: t('match.slow') },
+                { id: "normal" as SimSpeed, icon: <Play className="w-4 h-4" />, label: t('match.normal') },
+                { id: "fast" as SimSpeed, icon: <FastForward className="w-4 h-4" />, label: t('match.fast') },
+                { id: "instant" as SimSpeed, icon: <SkipForward className="w-4 h-4" />, label: t('match.max') },
               ]).map(s => (
                 <button
                   key={s.id}
@@ -312,7 +314,7 @@ export default function MatchLive({
                 className="w-full mt-2 flex items-center justify-center gap-2 py-2 bg-navy-700 hover:bg-navy-600 rounded-lg text-sm font-heading uppercase tracking-wider text-gray-300 transition-colors"
               >
                 <ChevronRight className="w-4 h-4" />
-                Step 1 Minute
+                {t('match.step1Min')}
               </button>
             )}
           </div>
@@ -320,16 +322,16 @@ export default function MatchLive({
           {/* User Controls */}
           {!isSpectator && userSide && (
             <div className="p-4 border-b border-navy-700 flex flex-col gap-2">
-              <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500 mb-1">Team Controls</h3>
+              <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500 mb-1">{t('match.teamControls')}</h3>
               <button
                 onClick={() => setShowSubPanel(!showSubPanel)}
                 className="flex items-center gap-2 px-3 py-2 bg-navy-700 hover:bg-navy-600 rounded-lg text-sm font-heading uppercase tracking-wider text-gray-300 transition-colors"
               >
                 <RefreshCw className="w-4 h-4" />
-                Subs ({userSide === "Home" ? snapshot.home_subs_made : snapshot.away_subs_made}/{snapshot.max_subs})
+                {t('match.subs')} ({userSide === "Home" ? snapshot.home_subs_made : snapshot.away_subs_made}/{snapshot.max_subs})
               </button>
               <div>
-                <p className="text-[10px] font-heading uppercase tracking-widest text-gray-600 mb-1">Formation</p>
+                <p className="text-[10px] font-heading uppercase tracking-widest text-gray-600 mb-1">{t('match.formation')}</p>
                 <div className="flex flex-wrap gap-1">
                   {["4-4-2", "4-3-3", "3-5-2", "4-5-1", "4-2-3-1", "3-4-3"].map(f => {
                     const cur = userSide === "Home" ? snapshot.home_team.formation : snapshot.away_team.formation;
@@ -342,7 +344,7 @@ export default function MatchLive({
                 </div>
               </div>
               <div>
-                <p className="text-[10px] font-heading uppercase tracking-widest text-gray-600 mb-1">Play Style</p>
+                <p className="text-[10px] font-heading uppercase tracking-widest text-gray-600 mb-1">{t('match.playStyle')}</p>
                 <div className="flex flex-wrap gap-1">
                   {[
                     { id: "Balanced", icon: <Target className="w-3 h-3" /> },
@@ -366,7 +368,7 @@ export default function MatchLive({
 
           {/* Key Events sidebar */}
           <div className="p-4 flex-1 overflow-auto">
-            <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500 mb-3">Key Events</h3>
+            <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500 mb-3">{t('match.keyEvents')}</h3>
             <div className="flex flex-col gap-1.5">
               {importantEvents
                 .filter(e => ["Goal", "PenaltyGoal", "YellowCard", "RedCard", "SecondYellow", "Substitution", "PenaltyMiss", "Injury"].includes(e.event_type))
@@ -384,7 +386,7 @@ export default function MatchLive({
                     </div>
                   );
                 })}
-              {importantEvents.length === 0 && <p className="text-gray-600 text-xs">Match hasn't started yet.</p>}
+              {importantEvents.length === 0 && <p className="text-gray-600 text-xs">{t('match.noEventsYet')}</p>}
             </div>
           </div>
         </aside>
@@ -403,11 +405,12 @@ export default function MatchLive({
 // ---------------------------------------------------------------------------
 
 function EventFeed({ events, snapshot, feedRef }: { events: MatchEvent[]; snapshot: MatchSnapshot; feedRef: React.RefObject<HTMLDivElement | null> }) {
+  const { t } = useTranslation();
   return (
     <div ref={feedRef} className="flex flex-col gap-1">
       {events.length === 0 ? (
         <div className="flex items-center justify-center h-40 text-gray-600">
-          <p className="font-heading text-sm uppercase tracking-wider">Waiting for kick-off...</p>
+          <p className="font-heading text-sm uppercase tracking-wider">{t('match.waitingKickoff')}</p>
         </div>
       ) : events.map((evt, i) => {
         const display = getEventDisplay(evt);
@@ -428,8 +431,8 @@ function EventFeed({ events, snapshot, feedRef }: { events: MatchEvent[]; snapsh
                   {getPlayerName(snapshot, evt.player_id)}
                   {evt.secondary_player_id && (
                     <span className="text-gray-500 font-normal">
-                      {evt.event_type === "Goal" ? ` (assist: ${getPlayerName(snapshot, evt.secondary_player_id)})` :
-                       evt.event_type === "Substitution" ? ` for ${getPlayerName(snapshot, evt.secondary_player_id)}` : ""}
+                      {evt.event_type === "Goal" ? ` (${t('match.assist', { name: getPlayerName(snapshot, evt.secondary_player_id) })})` :
+                       evt.event_type === "Substitution" ? ` ${t('match.subFor', { name: getPlayerName(snapshot, evt.secondary_player_id) })}` : ""}
                     </span>
                   )}
                 </p>
@@ -443,17 +446,18 @@ function EventFeed({ events, snapshot, feedRef }: { events: MatchEvent[]; snapsh
 }
 
 function MatchStats({ snapshot }: { snapshot: MatchSnapshot }) {
+  const { t } = useTranslation();
   const homeEvents = snapshot.events.filter(e => e.side === "Home");
   const awayEvents = snapshot.events.filter(e => e.side === "Away");
   const ct = (events: MatchEvent[], type: string) => events.filter(e => e.event_type === type).length;
 
   const stats = [
-    { label: "Possession", home: `${snapshot.home_possession_pct.toFixed(0)}%`, away: `${snapshot.away_possession_pct.toFixed(0)}%`, homePct: snapshot.home_possession_pct },
-    { label: "Shots", home: ct(homeEvents, "Goal") + ct(homeEvents, "PenaltyGoal") + ct(homeEvents, "ShotSaved") + ct(homeEvents, "ShotOffTarget") + ct(homeEvents, "ShotBlocked"), away: ct(awayEvents, "Goal") + ct(awayEvents, "PenaltyGoal") + ct(awayEvents, "ShotSaved") + ct(awayEvents, "ShotOffTarget") + ct(awayEvents, "ShotBlocked") },
-    { label: "Shots on Target", home: ct(homeEvents, "Goal") + ct(homeEvents, "PenaltyGoal") + ct(homeEvents, "ShotSaved"), away: ct(awayEvents, "Goal") + ct(awayEvents, "PenaltyGoal") + ct(awayEvents, "ShotSaved") },
-    { label: "Fouls", home: ct(homeEvents, "Foul"), away: ct(awayEvents, "Foul") },
-    { label: "Corners", home: ct(homeEvents, "Corner"), away: ct(awayEvents, "Corner") },
-    { label: "Yellow Cards", home: Object.keys(snapshot.home_yellows).length, away: Object.keys(snapshot.away_yellows).length },
+    { label: t('match.possession'), home: `${snapshot.home_possession_pct.toFixed(0)}%`, away: `${snapshot.away_possession_pct.toFixed(0)}%`, homePct: snapshot.home_possession_pct },
+    { label: t('match.shots'), home: ct(homeEvents, "Goal") + ct(homeEvents, "PenaltyGoal") + ct(homeEvents, "ShotSaved") + ct(homeEvents, "ShotOffTarget") + ct(homeEvents, "ShotBlocked"), away: ct(awayEvents, "Goal") + ct(awayEvents, "PenaltyGoal") + ct(awayEvents, "ShotSaved") + ct(awayEvents, "ShotOffTarget") + ct(awayEvents, "ShotBlocked") },
+    { label: t('match.shotsOnTarget'), home: ct(homeEvents, "Goal") + ct(homeEvents, "PenaltyGoal") + ct(homeEvents, "ShotSaved"), away: ct(awayEvents, "Goal") + ct(awayEvents, "PenaltyGoal") + ct(awayEvents, "ShotSaved") },
+    { label: t('match.fouls'), home: ct(homeEvents, "Foul"), away: ct(awayEvents, "Foul") },
+    { label: t('match.corners'), home: ct(homeEvents, "Corner"), away: ct(awayEvents, "Corner") },
+    { label: t('match.yellowCards'), home: Object.keys(snapshot.home_yellows).length, away: Object.keys(snapshot.away_yellows).length },
   ];
 
   return (
@@ -482,6 +486,7 @@ function MatchStats({ snapshot }: { snapshot: MatchSnapshot }) {
 }
 
 function Lineups({ snapshot }: { snapshot: MatchSnapshot }) {
+  const { t } = useTranslation();
   const renderTeam = (team: MatchSnapshot["home_team"], bench: EnginePlayerData[], side: "Home" | "Away", yellows: Record<string, number>, sentOff: string[]) => {
     const positions = ["Goalkeeper", "Defender", "Midfielder", "Forward"];
     const subbedOnIds = new Set(snapshot.substitutions.filter(s => s.side === side).map(s => s.player_on_id));
@@ -524,7 +529,7 @@ function Lineups({ snapshot }: { snapshot: MatchSnapshot }) {
         {/* Bench */}
         {bench.length > 0 && (
           <div className="mt-3 pt-3 border-t border-navy-700">
-            <p className="text-[10px] font-heading uppercase tracking-widest text-gray-600 mb-1">Bench</p>
+            <p className="text-[10px] font-heading uppercase tracking-widest text-gray-600 mb-1">{t('match.bench')}</p>
             {bench.map(p => {
               const wasSubbedOff = subbedOffIds.has(p.id);
               return (
@@ -542,7 +547,7 @@ function Lineups({ snapshot }: { snapshot: MatchSnapshot }) {
         {/* Sub History */}
         {snapshot.substitutions.filter(s => s.side === side).length > 0 && (
           <div className="mt-3 pt-3 border-t border-navy-700">
-            <p className="text-[10px] font-heading uppercase tracking-widest text-gray-600 mb-1">Substitutions</p>
+            <p className="text-[10px] font-heading uppercase tracking-widest text-gray-600 mb-1">{t('match.substitutions')}</p>
             {snapshot.substitutions.filter(s => s.side === side).map((sub, i) => (
               <div key={i} className="flex items-center gap-1.5 py-0.5 text-[11px]">
                 <span className="text-gray-600 tabular-nums w-5 text-right font-heading">{sub.minute}'</span>
@@ -570,6 +575,7 @@ export function SubPanel({ snapshot, side, onSubstitute, onClose }: {
   snapshot: MatchSnapshot; side: "Home" | "Away";
   onSubstitute: (offId: string, onId: string) => void; onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const [selectedOff, setSelectedOff] = useState<string | null>(null);
   const [hoveredBench, setHoveredBench] = useState<string | null>(null);
   const team = side === "Home" ? snapshot.home_team : snapshot.away_team;
@@ -626,9 +632,9 @@ export function SubPanel({ snapshot, side, onSubstitute, onClose }: {
         <div className="flex items-center justify-between px-6 py-4 border-b border-navy-700 bg-gradient-to-r from-navy-700 to-navy-800">
           <div className="flex items-center gap-3">
             <RefreshCw className="w-5 h-5 text-accent-400" />
-            <h3 className="font-heading font-bold text-sm uppercase tracking-widest text-white">Substitutions</h3>
+            <h3 className="font-heading font-bold text-sm uppercase tracking-widest text-white">{t('match.substitutionsTitle')}</h3>
             <Badge variant={subsMade >= snapshot.max_subs ? "danger" : "primary"} size="sm">
-              {subsMade}/{snapshot.max_subs} used
+              {t('match.subsUsed', { used: subsMade, max: snapshot.max_subs })}
             </Badge>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-white p-1.5 rounded-lg hover:bg-navy-600 transition-colors">
@@ -641,7 +647,7 @@ export function SubPanel({ snapshot, side, onSubstitute, onClose }: {
           <div className="flex-1 flex items-center justify-center p-12">
             <div className="flex flex-col items-center gap-3">
               <AlertTriangle className="w-8 h-8 text-yellow-500" />
-              <p className="text-sm font-heading font-bold uppercase tracking-wider text-yellow-500">All substitutions used</p>
+              <p className="text-sm font-heading font-bold uppercase tracking-wider text-yellow-500">{t('match.allSubsUsed')}</p>
             </div>
           </div>
         ) : (
@@ -650,7 +656,7 @@ export function SubPanel({ snapshot, side, onSubstitute, onClose }: {
             <div className="flex-1 flex flex-col border-r border-navy-700">
               <div className="px-4 py-2 border-b border-navy-700 bg-navy-800/50">
                 <p className="text-[10px] font-heading uppercase tracking-widest text-red-400">
-                  {selectedOff ? `Taking off: ${selectedPlayer?.name}` : "Select a player to substitute off"}
+                  {selectedOff ? t('match.takingOff', { name: selectedPlayer?.name }) : t('match.selectPlayerOff')}
                 </p>
               </div>
 
@@ -746,7 +752,7 @@ export function SubPanel({ snapshot, side, onSubstitute, onClose }: {
             <div className="flex-1 flex flex-col">
               <div className="px-4 py-2 border-b border-navy-700 bg-navy-800/50">
                 <p className="text-[10px] font-heading uppercase tracking-widest text-green-400">
-                  {selectedOff ? "Select replacement from bench" : "Bench players"}
+                  {selectedOff ? t('match.selectReplacement') : t('match.benchPlayers')}
                 </p>
               </div>
 
@@ -777,7 +783,7 @@ export function SubPanel({ snapshot, side, onSubstitute, onClose }: {
               {/* Bench table */}
               <div className="flex-1 overflow-auto px-4 py-2">
                 {availableBench.length === 0 ? (
-                  <div className="flex items-center justify-center h-20 text-xs text-gray-600">No bench players available</div>
+                  <div className="flex items-center justify-center h-20 text-xs text-gray-600">{t('match.noBenchAvailable')}</div>
                 ) : (
                   <table className="w-full text-left">
                     <thead>
@@ -837,7 +843,7 @@ export function SubPanel({ snapshot, side, onSubstitute, onClose }: {
               {/* Sub History */}
               {snapshot.substitutions.filter(s => s.side === side).length > 0 && (
                 <div className="px-4 py-3 border-t border-navy-700">
-                  <p className="text-[10px] font-heading uppercase tracking-widest text-gray-600 mb-1.5">History</p>
+                  <p className="text-[10px] font-heading uppercase tracking-widest text-gray-600 mb-1.5">{t('match.history')}</p>
                   {snapshot.substitutions.filter(s => s.side === side).map((sub, i) => (
                     <div key={i} className="flex items-center gap-1.5 py-0.5 text-[11px]">
                       <span className="text-gray-600 tabular-nums w-5 text-right font-heading">{sub.minute}'</span>

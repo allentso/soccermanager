@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
+import { useTranslation } from "react-i18next";
 import { useGameStore, GameStateData } from "../store/gameStore";
 import { MatchSnapshot, MatchEvent, MatchDayStage } from "../components/match/types";
 import PreMatchSetup from "../components/match/PreMatchSetup";
@@ -14,6 +15,7 @@ import PressConference from "../components/match/PressConference";
 // ---------------------------------------------------------------------------
 
 export default function MatchSimulation() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const matchMode = (location.state as { mode?: string })?.mode || "live";
@@ -106,7 +108,7 @@ export default function MatchSimulation() {
       <div className="min-h-screen bg-navy-900 flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin" />
-          <span className="text-gray-400 font-heading uppercase tracking-wider text-sm">Loading match...</span>
+          <span className="text-gray-400 font-heading uppercase tracking-wider text-sm">{t('dashboard.loading')}</span>
         </div>
       </div>
     );
