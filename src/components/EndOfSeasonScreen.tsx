@@ -229,7 +229,11 @@ export default function EndOfSeasonScreen({ gameState, onGameUpdate }: EndOfSeas
           )}
 
           <button
-            onClick={() => window.location.reload()}
+            onClick={() => {
+              // Game state is already updated via onGameUpdate, just force re-render
+              // by calling onGameUpdate again with the current state
+              if (gameState) onGameUpdate(gameState);
+            }}
             className="px-8 py-3 bg-primary-500 text-white rounded-xl font-heading font-bold uppercase tracking-wider hover:bg-primary-600 transition-all shadow-lg shadow-primary-500/20"
           >
             Continue to Dashboard
