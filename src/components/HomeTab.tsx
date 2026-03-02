@@ -1,6 +1,7 @@
 import { GameStateData, FixtureData } from "../store/gameStore";
 import { Card, CardHeader, CardBody, Badge, ProgressBar } from "./ui";
 import { getTeamName, getTeamShort, findNextFixture, formatMatchDate, calcOvr } from "../lib/helpers";
+import { resolveMessage } from "../utils/backendI18n";
 import {
   Calendar, Trophy, Dumbbell, Mail, Newspaper,
   AlertTriangle, Flame, Scale, Feather,
@@ -195,23 +196,29 @@ export default function HomeTab({ gameState, onNavigate }: HomeTabProps) {
                   </div>
                 </div>
                 {/* Form (recent 5) */}
-                {recentResults.length > 0 && (
-                  <div className="flex gap-1.5 mt-1">
-                    {recentResults.map(f => {
-                      const isHome = f.home_team_id === myTeam!.id;
-                      const myGoals = isHome ? f.result.home_goals : f.result.away_goals;
-                      const oppGoals = isHome ? f.result.away_goals : f.result.home_goals;
-                      const res = myGoals > oppGoals ? "W" : myGoals < oppGoals ? "L" : "D";
-                      return (
-                        <span key={f.id} className={`w-6 h-6 rounded flex items-center justify-center text-[10px] font-heading font-bold text-white ${
-                          res === "W" ? "bg-green-500" : res === "L" ? "bg-red-500" : "bg-gray-400"
-                        }`}>
-                          {res}
-                        </span>
-                      );
-                    })}
-                  </div>
-                )}
+                {myTeam && myTeam.form && myTeam.form.length > 0 && (() => {
+                  const form = myTeam.form;
+                  const last3 = form.slice(-3);
+                  const winStreak = last3.length >= 3 && last3.every(r => r === "W");
+                  const loseStreak = last3.length >= 3 && last3.every(r => r === "L");
+                  const unbeaten = form.length >= 4 && form.every(r => r !== "L");
+                  return (
+                    <div className="flex flex-col items-center gap-1.5 mt-1">
+                      <div className="flex gap-1.5">
+                        {form.map((res, i) => (
+                          <span key={i} className={`w-6 h-6 rounded flex items-center justify-center text-[10px] font-heading font-bold text-white ${
+                            res === "W" ? "bg-green-500" : res === "L" ? "bg-red-500" : "bg-gray-400"
+                          }`}>
+                            {res}
+                          </span>
+                        ))}
+                      </div>
+                      {winStreak && <span className="text-[10px] font-heading font-bold text-green-500 uppercase tracking-wider">Winning streak!</span>}
+                      {loseStreak && <span className="text-[10px] font-heading font-bold text-red-500 uppercase tracking-wider">Losing streak</span>}
+                      {!winStreak && !loseStreak && unbeaten && <span className="text-[10px] font-heading font-bold text-primary-500 uppercase tracking-wider">Unbeaten run</span>}
+                    </div>
+                  );
+                })()}
               </div>
             ) : (
               <div className="flex flex-col items-center gap-2 py-4">
@@ -376,7 +383,7 @@ export default function HomeTab({ gameState, onNavigate }: HomeTabProps) {
             {(gameState.messages || []).length === 0 ? (
               <p className="text-gray-500 dark:text-gray-400 p-6 text-sm">No recent messages.</p>
             ) : (
-              (gameState.messages || []).slice(0, 4).map(message => (
+              (gameState.messages || []).slice(0, 4).map(resolveMessage).map(message => (
                 <div
                   key={message.id}
                   onClick={() => onNavigate?.("Inbox", { messageId: message.id })}

@@ -1,10 +1,14 @@
 pub mod clock;
+pub mod end_of_season;
 pub mod game;
 pub mod generator;
 pub mod live_match_manager;
 pub mod messages;
 pub mod news;
+pub mod player_events;
+pub mod random_events;
 pub mod schedule;
+pub mod season_awards;
 pub mod state;
 pub mod training;
 pub mod turn;

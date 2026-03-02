@@ -523,23 +523,80 @@ fn mark_message_read(state: State<StateManager>, message_id: String) -> Result<G
 }
 
 #[tauri::command]
-fn resolve_message_action(
+fn check_season_complete(
     state: State<StateManager>,
-    message_id: String,
-    action_id: String,
-) -> Result<Game, String> {
+) -> Result<bool, String> {
+    let game = state
+        .get_game(|g| g.clone())
+        .ok_or("No active game session".to_string())?;
+    Ok(ofm_core::end_of_season::is_season_complete(&game))
+}
+
+#[tauri::command]
+fn advance_to_next_season(
+    state: State<StateManager>,
+) -> Result<serde_json::Value, String> {
     let mut game = state
         .get_game(|g| g.clone())
         .ok_or("No active game session".to_string())?;
 
-    if let Some(msg) = game.messages.iter_mut().find(|m| m.id == message_id) {
-        if let Some(action) = msg.actions.iter_mut().find(|a| a.id == action_id) {
-            action.resolved = true;
-        }
+    if !ofm_core::end_of_season::is_season_complete(&game) {
+        return Err("Season is not yet complete".to_string());
     }
 
+    let summary = ofm_core::end_of_season::process_end_of_season(&mut game);
     state.set_game(game.clone());
-    Ok(game)
+    Ok(serde_json::json!({
+        "game": game,
+        "summary": summary,
+    }))
+}
+
+#[tauri::command]
+fn get_season_awards(
+    state: State<StateManager>,
+) -> Result<ofm_core::season_awards::SeasonAwards, String> {
+    let game = state
+        .get_game(|g| g.clone())
+        .ok_or("No active game session".to_string())?;
+    Ok(ofm_core::season_awards::compute_season_awards(&game))
+}
+
+#[tauri::command]
+fn resolve_message_action(
+    state: State<StateManager>,
+    message_id: String,
+    action_id: String,
+    option_id: Option<String>,
+) -> Result<serde_json::Value, String> {
+    let mut game = state
+        .get_game(|g| g.clone())
+        .ok_or("No active game session".to_string())?;
+
+    // Try to apply player conversation or random event response
+    let effect = if let Some(opt) = &option_id {
+        // Try player events first, then random events
+        let player_effect = ofm_core::player_events::apply_player_response(&mut game, &message_id, &action_id, opt);
+        if player_effect.is_some() {
+            player_effect
+        } else {
+            ofm_core::random_events::apply_event_response(&mut game, &message_id, &action_id, opt)
+        }
+    } else {
+        // Standard resolve — just mark action as resolved
+        if let Some(msg) = game.messages.iter_mut().find(|m| m.id == message_id) {
+            if let Some(action) = msg.actions.iter_mut().find(|a| a.id == action_id) {
+                action.resolved = true;
+            }
+        }
+        None
+    };
+
+    state.set_game(game.clone());
+    Ok(serde_json::json!({
+        "game": game,
+        "effect": effect
+    }))
 }
 
 // ---------------------------------------------------------------------------
@@ -817,6 +874,38 @@ fn advance_time_with_mode(
                 "snapshot": snapshot
             }))
         }
+        ("delegate", Some(idx)) => {
+            // Delegate: AI controls user's team. Create session, run to completion, apply report.
+            let mut session = live_match_manager::create_live_match(&game, idx, MatchMode::Instant, false)?;
+            // AI controls BOTH sides (user_side is None for Instant mode auto-AI)
+            session.user_side = None;
+            session.run_to_completion();
+
+            let home_team_id = session.home_team_id.clone();
+            let away_team_id = session.away_team_id.clone();
+            let report = session.match_state.into_report();
+
+            // Simulate all other matches for today
+            ofm_core::turn::simulate_other_matches(&mut game, &today, Some(idx));
+
+            // Apply user's delegated match report
+            ofm_core::turn::apply_match_report(
+                &mut game,
+                idx,
+                &home_team_id,
+                &away_team_id,
+                &report,
+            );
+
+            // Complete the day
+            ofm_core::turn::finish_live_match_day(&mut game);
+            state.set_game(game.clone());
+
+            Ok(serde_json::json!({
+                "action": "advanced",
+                "game": game
+            }))
+        }
         _ => {
             // Normal advance: simulate everything including user match
             ofm_core::turn::process_day(&mut game);
@@ -961,6 +1050,9 @@ pub fn run() {
             hire_staff,
             release_staff,
             mark_message_read,
+            check_season_complete,
+            advance_to_next_season,
+            get_season_awards,
             resolve_message_action,
             start_live_match,
             step_live_match,

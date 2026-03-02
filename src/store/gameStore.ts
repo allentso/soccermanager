@@ -38,6 +38,7 @@ export interface TeamData {
   training_schedule: string;
   founded_year: number;
   colors: TeamColors;
+  form: string[];
   history: TeamSeasonRecord[];
 }
 
@@ -141,6 +142,7 @@ export interface MessageAction {
     | { NavigateTo: { route: string } }
     | { ChooseOption: { options: { id: string; label: string; description: string }[] } };
   resolved: boolean;
+  label_key?: string;
 }
 
 export interface MessageContext {
@@ -167,6 +169,11 @@ export interface MessageData {
   priority: string;
   actions: MessageAction[];
   context: MessageContext;
+  subject_key?: string;
+  body_key?: string;
+  sender_key?: string;
+  sender_role_key?: string;
+  i18n_params?: Record<string, string>;
 }
 
 export interface ManagerCareerStats {
@@ -242,6 +249,10 @@ export interface NewsArticle {
   player_ids: string[];
   match_score: NewsMatchScore | null;
   read: boolean;
+  headline_key?: string;
+  body_key?: string;
+  source_key?: string;
+  i18n_params?: Record<string, string>;
 }
 
 export interface GameStateData {

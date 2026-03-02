@@ -1,8 +1,26 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { GameStateData, FixtureData } from "../store/gameStore";
 import { Card, CardHeader, CardBody, Badge } from "./ui";
-import { Trophy, Calendar, TableProperties } from "lucide-react";
+import { Trophy, Calendar, TableProperties, Award, Star, Shield, Users, Zap } from "lucide-react";
 import { getTeamName, formatMatchDate } from "../lib/helpers";
+import { useTranslation } from "react-i18next";
+
+interface AwardEntry {
+  player_id: string;
+  player_name: string;
+  team_id: string;
+  team_name: string;
+  value: number;
+}
+interface SeasonAwards {
+  golden_boot: AwardEntry[];
+  assist_king: AwardEntry[];
+  player_of_year: AwardEntry[];
+  clean_sheet_king: AwardEntry[];
+  most_appearances: AwardEntry[];
+  young_player: AwardEntry[];
+}
 
 interface TournamentsTabProps {
   gameState: GameStateData;
@@ -10,15 +28,23 @@ interface TournamentsTabProps {
 }
 
 export default function TournamentsTab({ gameState, onSelectTeam }: TournamentsTabProps) {
+  const { t } = useTranslation();
   const league = gameState.league;
   const userTeamId = gameState.manager.team_id;
-  const [view, setView] = useState<"overview" | "fixtures" | "standings">("overview");
+  const [view, setView] = useState<"overview" | "fixtures" | "standings" | "awards">("overview");
+  const [awards, setAwards] = useState<SeasonAwards | null>(null);
+
+  useEffect(() => {
+    if (view === "awards" && !awards) {
+      invoke<SeasonAwards>("get_season_awards").then(setAwards).catch(() => {});
+    }
+  }, [view, awards]);
 
   if (!league) {
     return (
       <div className="max-w-4xl mx-auto text-center py-12">
         <Trophy className="w-12 h-12 text-gray-300 dark:text-navy-600 mx-auto mb-3" />
-        <p className="text-gray-500 dark:text-gray-400 text-sm">No active tournaments.</p>
+        <p className="text-gray-500 dark:text-gray-400 text-sm">{t('tournaments.noActive')}</p>
       </div>
     );
   }
@@ -68,19 +94,19 @@ export default function TournamentsTab({ gameState, onSelectTeam }: TournamentsT
             </div>
             <div className="flex-1">
               <h2 className="text-2xl font-heading font-bold text-white uppercase tracking-wide">{league.name}</h2>
-              <p className="text-gray-400 text-sm mt-0.5">Season {league.season} — {league.standings.length} teams</p>
+              <p className="text-gray-400 text-sm mt-0.5">{t('schedule.season', { number: league.season })} — {t('tournaments.nTeams', { count: league.standings.length })}</p>
             </div>
             <div className="hidden md:flex gap-4">
               <div className="bg-white/5 rounded-xl px-4 py-2 text-center">
-                <p className="text-xs text-gray-400 font-heading uppercase tracking-wider">Progress</p>
+                <p className="text-xs text-gray-400 font-heading uppercase tracking-wider">{t('tournaments.progress')}</p>
                 <p className="font-heading font-bold text-lg text-white">{completedMatchdays}/{totalMatchdays}</p>
               </div>
               <div className="bg-white/5 rounded-xl px-4 py-2 text-center">
-                <p className="text-xs text-gray-400 font-heading uppercase tracking-wider">Matches</p>
+                <p className="text-xs text-gray-400 font-heading uppercase tracking-wider">{t('tournaments.matches')}</p>
                 <p className="font-heading font-bold text-lg text-white">{completedMatches}</p>
               </div>
               <div className="bg-white/5 rounded-xl px-4 py-2 text-center">
-                <p className="text-xs text-gray-400 font-heading uppercase tracking-wider">Goals</p>
+                <p className="text-xs text-gray-400 font-heading uppercase tracking-wider">{t('tournaments.goals')}</p>
                 <p className="font-heading font-bold text-lg text-accent-400">{totalGoals}</p>
               </div>
             </div>
@@ -90,7 +116,7 @@ export default function TournamentsTab({ gameState, onSelectTeam }: TournamentsT
 
       {/* Tab switcher */}
       <div className="flex gap-2 mb-5">
-        {(["overview", "standings", "fixtures"] as const).map(v => (
+        {(["overview", "standings", "fixtures", "awards"] as const).map(v => (
           <button
             key={v}
             onClick={() => setView(v)}
@@ -100,9 +126,10 @@ export default function TournamentsTab({ gameState, onSelectTeam }: TournamentsT
                 : "bg-white dark:bg-navy-800 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 border border-gray-200 dark:border-navy-600"
             }`}
           >
-            {v === "overview" ? <><Trophy className="w-4 h-4 inline mr-1.5 -mt-0.5" />Overview</> :
-             v === "standings" ? <><TableProperties className="w-4 h-4 inline mr-1.5 -mt-0.5" />Standings</> :
-             <><Calendar className="w-4 h-4 inline mr-1.5 -mt-0.5" />Fixtures</>}
+            {v === "overview" ? <><Trophy className="w-4 h-4 inline mr-1.5 -mt-0.5" />{t('tournaments.overview')}</> :
+             v === "standings" ? <><TableProperties className="w-4 h-4 inline mr-1.5 -mt-0.5" />{t('schedule.standings')}</> :
+             v === "awards" ? <><Award className="w-4 h-4 inline mr-1.5 -mt-0.5" />Awards</> :
+             <><Calendar className="w-4 h-4 inline mr-1.5 -mt-0.5" />{t('schedule.fixtures')}</>}
           </button>
         ))}
       </div>
@@ -112,19 +139,19 @@ export default function TournamentsTab({ gameState, onSelectTeam }: TournamentsT
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
           {/* Mini standings */}
           <Card className="lg:col-span-2">
-            <CardHeader>League Table</CardHeader>
+            <CardHeader>{t('tournaments.leagueTable')}</CardHeader>
             <CardBody className="p-0">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-gray-50 dark:bg-navy-800 border-b border-gray-200 dark:border-navy-600 text-xs">
                     <th className="py-2 px-3 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 w-8">#</th>
-                    <th className="py-2 px-3 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Team</th>
-                    <th className="py-2 px-3 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">P</th>
-                    <th className="py-2 px-3 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">W</th>
-                    <th className="py-2 px-3 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">D</th>
-                    <th className="py-2 px-3 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">L</th>
-                    <th className="py-2 px-3 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">GD</th>
-                    <th className="py-2 px-3 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">Pts</th>
+                    <th className="py-2 px-3 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t('common.team')}</th>
+                    <th className="py-2 px-3 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">{t('common.played')}</th>
+                    <th className="py-2 px-3 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">{t('common.won')}</th>
+                    <th className="py-2 px-3 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">{t('common.drawn')}</th>
+                    <th className="py-2 px-3 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">{t('common.lost')}</th>
+                    <th className="py-2 px-3 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">{t('common.gd')}</th>
+                    <th className="py-2 px-3 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">{t('common.pts')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-navy-600">
@@ -151,10 +178,10 @@ export default function TournamentsTab({ gameState, onSelectTeam }: TournamentsT
 
           {/* Top scorers */}
           <Card>
-            <CardHeader>Top Scorers</CardHeader>
+            <CardHeader>{t('tournaments.topScorers')}</CardHeader>
             <CardBody className="p-0">
               {topScorers.length === 0 ? (
-                <p className="p-4 text-sm text-gray-400 dark:text-gray-500 text-center">No goals scored yet.</p>
+                <p className="p-4 text-sm text-gray-400 dark:text-gray-500 text-center">{t('tournaments.noGoals')}</p>
               ) : (
                 <div className="divide-y divide-gray-100 dark:divide-navy-600">
                   {topScorers.map((entry, i) => (
@@ -180,7 +207,7 @@ export default function TournamentsTab({ gameState, onSelectTeam }: TournamentsT
           <div className="p-5 border-b border-gray-100 dark:border-navy-600 bg-gradient-to-r from-navy-700 to-navy-800 rounded-t-xl">
             <h3 className="text-lg font-heading font-bold text-white flex items-center gap-2 uppercase tracking-wide">
               <Trophy className="text-accent-400 w-5 h-5" />
-              {league.name} — Season {league.season}
+              {league.name} — {t('schedule.season', { number: league.season })}
             </h3>
           </div>
           <div className="overflow-x-auto">
@@ -188,15 +215,15 @@ export default function TournamentsTab({ gameState, onSelectTeam }: TournamentsT
               <thead>
                 <tr className="bg-gray-50 dark:bg-navy-800 border-b border-gray-200 dark:border-navy-600 text-xs">
                   <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 w-8">#</th>
-                  <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Team</th>
-                  <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">P</th>
-                  <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">W</th>
-                  <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">D</th>
-                  <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">L</th>
-                  <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">GF</th>
-                  <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">GA</th>
-                  <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">GD</th>
-                  <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">Pts</th>
+                  <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t('common.team')}</th>
+                  <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">{t('common.played')}</th>
+                  <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">{t('common.won')}</th>
+                  <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">{t('common.drawn')}</th>
+                  <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">{t('common.lost')}</th>
+                  <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">{t('common.gf')}</th>
+                  <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">{t('common.ga')}</th>
+                  <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">{t('common.gd')}</th>
+                  <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center">{t('common.pts')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-navy-600">
@@ -231,7 +258,7 @@ export default function TournamentsTab({ gameState, onSelectTeam }: TournamentsT
             <Card key={md}>
               <div className="px-5 py-3 border-b border-gray-100 dark:border-navy-600 bg-gray-50 dark:bg-navy-800 rounded-t-xl">
                 <h4 className="font-heading font-bold text-sm uppercase tracking-wider text-gray-600 dark:text-gray-300">
-                  Matchday {md} — {formatMatchDate(fixtures[0].date)}
+                  {t('schedule.matchday', { number: md })} — {formatMatchDate(fixtures[0].date)}
                 </h4>
               </div>
               <CardBody className="p-0">
@@ -265,6 +292,76 @@ export default function TournamentsTab({ gameState, onSelectTeam }: TournamentsT
           ))}
         </div>
       )}
+      {/* Awards */}
+      {view === "awards" && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          {awards ? (
+            <>
+              <AwardCard icon={<Zap className="w-5 h-5 text-accent-500" />} title="Golden Boot" subtitle="Top Scorers" entries={awards.golden_boot} unit="goals" />
+              <AwardCard icon={<Star className="w-5 h-5 text-purple-500" />} title="Assist King" subtitle="Most Assists" entries={awards.assist_king} unit="assists" />
+              <AwardCard icon={<Trophy className="w-5 h-5 text-primary-500" />} title="Player of the Year" subtitle="Best Avg Rating (min 5 apps)" entries={awards.player_of_year} unit="rating" decimal />
+              <AwardCard icon={<Shield className="w-5 h-5 text-blue-500" />} title="Golden Glove" subtitle="Most Clean Sheets (GKs)" entries={awards.clean_sheet_king} unit="clean sheets" />
+              <AwardCard icon={<Users className="w-5 h-5 text-green-500" />} title="Ever Present" subtitle="Most Appearances" entries={awards.most_appearances} unit="apps" />
+              <AwardCard icon={<Star className="w-5 h-5 text-amber-500" />} title="Young Player of the Year" subtitle="Best U21 Avg Rating (min 3 apps)" entries={awards.young_player} unit="rating" decimal />
+            </>
+          ) : (
+            <div className="col-span-full text-center py-12">
+              <Award className="w-12 h-12 text-gray-300 dark:text-navy-600 mx-auto mb-3" />
+              <p className="text-sm text-gray-400 dark:text-gray-500">Loading awards...</p>
+            </div>
+          )}
+        </div>
+      )}
     </div>
+  );
+}
+
+function AwardCard({ icon, title, subtitle, entries, unit, decimal }: {
+  icon: React.ReactNode;
+  title: string;
+  subtitle: string;
+  entries: AwardEntry[];
+  unit: string;
+  decimal?: boolean;
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center gap-2">
+          {icon}
+          <div>
+            <span>{title}</span>
+            <p className="text-[10px] text-gray-400 dark:text-gray-500 font-normal normal-case tracking-normal">{subtitle}</p>
+          </div>
+        </div>
+      </CardHeader>
+      <CardBody className="p-0">
+        {entries.length === 0 ? (
+          <p className="p-4 text-sm text-gray-400 dark:text-gray-500 text-center">No data yet</p>
+        ) : (
+          <div className="divide-y divide-gray-100 dark:divide-navy-600">
+            {entries.map((entry, i) => (
+              <div key={entry.player_id} className="flex items-center px-4 py-2.5 gap-3">
+                <span className={`font-heading font-bold text-sm w-5 text-center ${
+                  i === 0 ? "text-accent-500" : "text-gray-400 dark:text-gray-500"
+                }`}>{i + 1}</span>
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm font-semibold truncate ${
+                    i === 0 ? "text-gray-900 dark:text-gray-100" : "text-gray-700 dark:text-gray-300"
+                  }`}>{entry.player_name}</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500">{entry.team_name}</p>
+                </div>
+                <span className={`font-heading font-bold tabular-nums ${
+                  i === 0 ? "text-lg text-accent-500" : "text-sm text-gray-600 dark:text-gray-400"
+                }`}>
+                  {decimal ? entry.value.toFixed(2) : entry.value}
+                </span>
+                <span className="text-[10px] text-gray-400 dark:text-gray-500 w-12">{unit}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardBody>
+    </Card>
   );
 }

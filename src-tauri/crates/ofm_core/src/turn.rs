@@ -1,6 +1,8 @@
 use crate::game::Game;
 use crate::messages;
 use crate::news;
+use crate::player_events;
+use crate::random_events;
 use crate::training;
 use chrono::Datelike;
 use domain::league::{FixtureStatus, GoalEvent, MatchResult};
@@ -22,6 +24,10 @@ pub fn process_day(game: &mut Game) {
         training::check_squad_fitness_warnings(game);
     }
 
+    // Player conversations and random events
+    player_events::check_player_events(game);
+    random_events::check_random_events(game);
+
     generate_pre_match_messages(game, &today);
     game.clock.advance_days(1);
 }
@@ -31,6 +37,8 @@ pub fn process_day(game: &mut Game) {
 pub fn finish_live_match_day(game: &mut Game) {
     let today = game.clock.current_date.format("%Y-%m-%d").to_string();
     generate_matchday_news(game, &today);
+    player_events::check_player_events(game);
+    random_events::check_random_events(game);
     generate_pre_match_messages(game, &today);
     game.clock.advance_days(1);
 }
@@ -211,6 +219,12 @@ pub fn apply_match_report(
     deplete_match_stamina(game, home_team_id);
     deplete_match_stamina(game, away_team_id);
 
+    // Update morale based on result and individual performance
+    update_post_match_morale(game, report, home_team_id, away_team_id);
+
+    // Update team form (last 5 results)
+    update_team_form(game, report, home_team_id, away_team_id);
+
     // Generate match result message for user's team
     if let Some(user_team_id) = &game.manager.team_id {
         if *user_team_id == home_team_id || *user_team_id == away_team_id {
@@ -279,6 +293,119 @@ fn apply_player_stats(
                 };
                 if conceded_zero {
                     player.stats.clean_sheets += 1;
+                }
+            }
+        }
+    }
+}
+
+/// Update player morale based on match result and individual performance.
+fn update_post_match_morale(
+    game: &mut Game,
+    report: &engine::MatchReport,
+    home_team_id: &str,
+    away_team_id: &str,
+) {
+    use rand::Rng;
+    let mut rng = rand::thread_rng();
+
+    let home_won = report.home_goals > report.away_goals;
+    let away_won = report.away_goals > report.home_goals;
+    let is_draw = report.home_goals == report.away_goals;
+
+    for player in game.players.iter_mut() {
+        let tid = match player.team_id.as_deref() {
+            Some(t) if t == home_team_id || t == away_team_id => t.to_string(),
+            _ => continue,
+        };
+
+        let is_home = tid == home_team_id;
+        let base_morale = player.morale as i16;
+
+        // Team result effect
+        let result_delta: i16 = if (is_home && home_won) || (!is_home && away_won) {
+            rng.gen_range(3..=8) // Win boost
+        } else if is_draw {
+            rng.gen_range(-2..=3) // Draw: mild
+        } else {
+            rng.gen_range(-8..=-2) // Loss drop
+        };
+
+        // Individual performance effect
+        let mut individual_delta: i16 = 0;
+        if let Some(ps) = report.player_stats.get(&player.id) {
+            // Goals scored boost morale
+            individual_delta += ps.goals as i16 * 3;
+            // Assists boost morale
+            individual_delta += ps.assists as i16 * 2;
+            // Red card tanks morale
+            if ps.red_cards > 0 {
+                individual_delta -= 8;
+            }
+            // Poor rating lowers morale
+            if ps.rating < 5.5 {
+                individual_delta -= 3;
+            } else if ps.rating > 7.5 {
+                individual_delta += 2;
+            }
+        }
+
+        let total_delta = result_delta + individual_delta;
+        let new_morale = (base_morale + total_delta).clamp(10, 100) as u8;
+        player.morale = new_morale;
+    }
+}
+
+/// Update team form vectors after a match result. Keeps last 5 results.
+/// Also applies streak-based morale bonus/penalty to all players on teams with streaks.
+fn update_team_form(
+    game: &mut Game,
+    report: &engine::MatchReport,
+    home_team_id: &str,
+    away_team_id: &str,
+) {
+    use rand::Rng;
+    let mut rng = rand::thread_rng();
+
+    let home_result = if report.home_goals > report.away_goals { "W" }
+        else if report.home_goals < report.away_goals { "L" }
+        else { "D" };
+    let away_result = if report.away_goals > report.home_goals { "W" }
+        else if report.away_goals < report.home_goals { "L" }
+        else { "D" };
+
+    // Update form for both teams
+    for (team_id_str, result) in [(home_team_id, home_result), (away_team_id, away_result)] {
+        if let Some(team) = game.teams.iter_mut().find(|t| t.id == team_id_str) {
+            team.form.push(result.to_string());
+            if team.form.len() > 5 {
+                team.form.remove(0);
+            }
+        }
+    }
+
+    // Apply streak-based morale bonus/penalty
+    for team_id_str in [home_team_id, away_team_id] {
+        let form = game.teams.iter().find(|t| t.id == team_id_str)
+            .map(|t| t.form.clone())
+            .unwrap_or_default();
+
+        if form.len() >= 3 {
+            let last3: Vec<&str> = form.iter().rev().take(3).map(|s| s.as_str()).collect();
+            let streak_delta: i16 = if last3.iter().all(|r| *r == "W") {
+                rng.gen_range(2..=5) // 3+ win streak: small global morale boost
+            } else if last3.iter().all(|r| *r == "L") {
+                rng.gen_range(-5..=-2) // 3+ loss streak: morale drop
+            } else {
+                0
+            };
+
+            if streak_delta != 0 {
+                for player in game.players.iter_mut() {
+                    if player.team_id.as_deref() == Some(team_id_str) {
+                        let base = player.morale as i16;
+                        player.morale = (base + streak_delta).clamp(10, 100) as u8;
+                    }
                 }
             }
         }

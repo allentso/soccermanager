@@ -19,16 +19,35 @@ import StaffTab from "../components/StaffTab";
 import InboxTab from "../components/InboxTab";
 import ManagerTab from "../components/ManagerTab";
 import NewsTab from "../components/NewsTab";
-import { Users, Calendar as CalendarIcon, Mail, Settings, ChevronRight, ChevronDown, Briefcase, Trophy, TrendingUp, Crosshair, Dumbbell, DollarSign, Search, User, UsersRound, Building2, UserCog, Newspaper, LogOut, ArrowLeft } from "lucide-react";
+import EndOfSeasonScreen from "../components/EndOfSeasonScreen";
+import { Users, Calendar as CalendarIcon, Mail, Settings, ChevronRight, ChevronDown, Briefcase, Trophy, TrendingUp, Crosshair, Dumbbell, DollarSign, Search, User, UsersRound, Building2, UserCog, Newspaper, LogOut, ArrowLeft, Eye, Cpu, Gamepad2, AlertCircle } from "lucide-react";
 import { getTeamName } from "../lib/helpers";
+import { useTranslation } from "react-i18next";
+import { useSettingsStore } from "../store/settingsStore";
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const { hasActiveGame, managerName, gameState, setGameState, clearGame } = useGameStore();
+  const { t } = useTranslation();
+  const { settings, loaded: settingsLoaded, loadSettings } = useSettingsStore();
+
+  // Load settings on mount
+  useEffect(() => {
+    if (!settingsLoaded) loadSettings();
+  }, [settingsLoaded, loadSettings]);
   const [isAdvancing, setIsAdvancing] = useState(false);
   const [activeTab, setActiveTab] = useState("Home");
   const [showContinueMenu, setShowContinueMenu] = useState(false);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
+  const [showMatchConfirm, setShowMatchConfirm] = useState(false);
+  const [matchMode, setMatchMode] = useState<"live" | "spectator" | "delegate">("live");
+
+  // Sync matchMode with settings when loaded
+  useEffect(() => {
+    if (settingsLoaded && settings.default_match_mode) {
+      setMatchMode(settings.default_match_mode);
+    }
+  }, [settingsLoaded, settings.default_match_mode]);
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -55,14 +74,35 @@ export default function Dashboard() {
     fetchState();
   }, [hasActiveGame, navigate, setGameState]);
 
-  const handleContinue = async (mode: string = "live") => {
+  // Check if user has a match today
+  const hasMatchToday = gameState?.league?.fixtures.some(f => {
+    const today = gameState.clock.current_date.split('T')[0];
+    return f.date === today
+      && f.status === 'Scheduled'
+      && (f.home_team_id === gameState.manager.team_id || f.away_team_id === gameState.manager.team_id);
+  }) ?? false;
+
+  // Detect if season is complete (all fixtures played)
+  const seasonComplete = gameState?.league?.fixtures
+    ? gameState.league.fixtures.length > 0 && gameState.league.fixtures.every(f => f.status === "Completed")
+    : false;
+
+  const handleContinue = async (mode?: string) => {
+    const effectiveMode = mode || matchMode;
+    // If there's a match today, show confirmation modal first
+    if (hasMatchToday && !showMatchConfirm) {
+      if (mode) setMatchMode(mode as "live" | "spectator" | "delegate");
+      setShowContinueMenu(false);
+      setShowMatchConfirm(true);
+      return;
+    }
     if (isAdvancing) return;
     setIsAdvancing(true);
     setShowContinueMenu(false);
+    setShowMatchConfirm(false);
     try {
-      const result = await invoke<{ action: string; game?: GameStateData; snapshot?: unknown; fixture_index?: number }>("advance_time_with_mode", { mode });
+      const result = await invoke<{ action: string; game?: GameStateData; snapshot?: unknown; fixture_index?: number }>("advance_time_with_mode", { mode: effectiveMode });
       if (result.action === "live_match") {
-        // A live match was set up — navigate to match simulation
         navigate("/match");
       } else if (result.action === "advanced" && result.game) {
         setGameState(result.game as GameStateData);
@@ -72,6 +112,33 @@ export default function Dashboard() {
     } finally {
       setIsAdvancing(false);
     }
+  };
+
+  const handleConfirmMatch = () => {
+    // Force-call handleContinue bypassing the confirmation guard
+    setShowMatchConfirm(false);
+    setIsAdvancing(true);
+    setShowContinueMenu(false);
+    (async () => {
+      try {
+        const result = await invoke<{ action: string; game?: GameStateData; snapshot?: unknown; fixture_index?: number }>("advance_time_with_mode", { mode: matchMode });
+        if (result.action === "live_match") {
+          navigate("/match");
+        } else if (result.action === "advanced" && result.game) {
+          setGameState(result.game as GameStateData);
+        }
+      } catch (err) {
+        console.error("Failed to advance time:", err);
+      } finally {
+        setIsAdvancing(false);
+      }
+    })();
+  };
+
+  const MODE_META: Record<string, { label: string; icon: React.ReactNode; desc: string; color: string }> = {
+    live: { label: t('continueMenu.goToField'), icon: <Gamepad2 className="w-4 h-4" />, desc: t('continueMenu.goToFieldDesc'), color: 'from-primary-500 to-primary-600' },
+    spectator: { label: t('continueMenu.watchSpectator'), icon: <Eye className="w-4 h-4" />, desc: t('continueMenu.watchSpectatorDesc'), color: 'from-indigo-500 to-indigo-600' },
+    delegate: { label: t('continueMenu.delegateAssistant'), icon: <Cpu className="w-4 h-4" />, desc: t('continueMenu.delegateAssistantDesc'), color: 'from-amber-500 to-amber-600' },
   };
 
   const handleSkipToMatchDay = async () => {
@@ -196,24 +263,24 @@ export default function Dashboard() {
         
         {/* Navigation */}
         <nav className="flex-1 py-4 px-3 flex flex-col gap-1 overflow-y-auto">
-          <NavItem icon={<Briefcase />} label="Home" active={activeTab === "Home"} onClick={() => handleNavClick("Home")} />
-          <NavItem icon={<Mail />} label="Inbox" badge={unreadMessagesCount > 0 ? unreadMessagesCount : undefined} active={activeTab === "Inbox"} onClick={() => handleNavClick("Inbox")} />
-          <NavItem icon={<User />} label="Manager" active={activeTab === "Manager"} onClick={() => handleNavClick("Manager")} />
+          <NavItem icon={<Briefcase />} label={t('dashboard.home')} active={activeTab === "Home"} onClick={() => handleNavClick("Home")} />
+          <NavItem icon={<Mail />} label={t('dashboard.inbox')} badge={unreadMessagesCount > 0 ? unreadMessagesCount : undefined} active={activeTab === "Inbox"} onClick={() => handleNavClick("Inbox")} />
+          <NavItem icon={<User />} label={t('dashboard.manager')} active={activeTab === "Manager"} onClick={() => handleNavClick("Manager")} />
 
-          <p className="text-[10px] text-gray-500 uppercase tracking-widest font-heading px-3 pt-3 pb-1">Club</p>
-          <NavItem icon={<Users />} label="Squad" active={activeTab === "Squad"} onClick={() => handleNavClick("Squad")} />
-          <NavItem icon={<Crosshair />} label="Tactics" active={activeTab === "Tactics"} onClick={() => handleNavClick("Tactics")} />
-          <NavItem icon={<Dumbbell />} label="Training" active={activeTab === "Training"} onClick={() => handleNavClick("Training")} />
-          <NavItem icon={<UserCog />} label="Staff" active={activeTab === "Staff"} onClick={() => handleNavClick("Staff")} />
-          <NavItem icon={<DollarSign />} label="Finances" active={activeTab === "Finances"} onClick={() => handleNavClick("Finances")} />
-          <NavItem icon={<TrendingUp />} label="Transfers" active={activeTab === "Transfers"} onClick={() => handleNavClick("Transfers")} />
+          <p className="text-[10px] text-gray-500 uppercase tracking-widest font-heading px-3 pt-3 pb-1">{t('dashboard.sectionClub')}</p>
+          <NavItem icon={<Users />} label={t('dashboard.squad')} active={activeTab === "Squad"} onClick={() => handleNavClick("Squad")} />
+          <NavItem icon={<Crosshair />} label={t('dashboard.tactics')} active={activeTab === "Tactics"} onClick={() => handleNavClick("Tactics")} />
+          <NavItem icon={<Dumbbell />} label={t('dashboard.training')} active={activeTab === "Training"} onClick={() => handleNavClick("Training")} />
+          <NavItem icon={<UserCog />} label={t('dashboard.staff')} active={activeTab === "Staff"} onClick={() => handleNavClick("Staff")} />
+          <NavItem icon={<DollarSign />} label={t('dashboard.finances')} active={activeTab === "Finances"} onClick={() => handleNavClick("Finances")} />
+          <NavItem icon={<TrendingUp />} label={t('dashboard.transfers')} active={activeTab === "Transfers"} onClick={() => handleNavClick("Transfers")} />
 
-          <p className="text-[10px] text-gray-500 uppercase tracking-widest font-heading px-3 pt-3 pb-1">World</p>
-          <NavItem icon={<UsersRound />} label="Players" active={activeTab === "Players"} onClick={() => handleNavClick("Players")} />
-          <NavItem icon={<Building2 />} label="Teams" active={activeTab === "Teams"} onClick={() => handleNavClick("Teams")} />
-          <NavItem icon={<Trophy />} label="Tournaments" active={activeTab === "Tournaments"} onClick={() => handleNavClick("Tournaments")} />
-          <NavItem icon={<CalendarIcon />} label="Schedule" active={activeTab === "Schedule"} onClick={() => handleNavClick("Schedule")} />
-          <NavItem icon={<Newspaper />} label="News" active={activeTab === "News"} onClick={() => handleNavClick("News")} />
+          <p className="text-[10px] text-gray-500 uppercase tracking-widest font-heading px-3 pt-3 pb-1">{t('dashboard.sectionWorld')}</p>
+          <NavItem icon={<UsersRound />} label={t('dashboard.players')} active={activeTab === "Players"} onClick={() => handleNavClick("Players")} />
+          <NavItem icon={<Building2 />} label={t('dashboard.teams')} active={activeTab === "Teams"} onClick={() => handleNavClick("Teams")} />
+          <NavItem icon={<Trophy />} label={t('dashboard.tournaments')} active={activeTab === "Tournaments"} onClick={() => handleNavClick("Tournaments")} />
+          <NavItem icon={<CalendarIcon />} label={t('dashboard.schedule')} active={activeTab === "Schedule"} onClick={() => handleNavClick("Schedule")} />
+          <NavItem icon={<Newspaper />} label={t('dashboard.news')} active={activeTab === "News"} onClick={() => handleNavClick("News")} />
         </nav>
         
         {/* Settings & Exit */}
@@ -223,14 +290,14 @@ export default function Dashboard() {
             className="flex items-center gap-3 w-full p-3 hover:bg-white/5 rounded-lg transition-colors text-gray-500 hover:text-gray-300"
           >
             <Settings className="w-5 h-5" />
-            <span className="font-heading text-sm uppercase tracking-wider">Settings</span>
+            <span className="font-heading text-sm uppercase tracking-wider">{t('dashboard.settings')}</span>
           </button>
           <button 
             onClick={() => setShowExitConfirm(true)}
             className="flex items-center gap-3 w-full p-3 hover:bg-red-500/10 rounded-lg transition-colors text-gray-500 hover:text-red-400"
           >
             <LogOut className="w-5 h-5" />
-            <span className="font-heading text-sm uppercase tracking-wider">Exit to Menu</span>
+            <span className="font-heading text-sm uppercase tracking-wider">{t('dashboard.exitToMenu')}</span>
           </button>
         </div>
       </aside>
@@ -240,23 +307,84 @@ export default function Dashboard() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <div className="bg-white dark:bg-navy-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-navy-600 w-full max-w-sm p-6 mx-4">
             <h3 className="text-lg font-heading font-bold uppercase tracking-wide text-gray-900 dark:text-white">
-              Exit to Main Menu?
+              {t('exitConfirm.title')}
             </h3>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-              Your game will be saved automatically before returning to the main menu.
+              {t('exitConfirm.message')}
             </p>
             <div className="flex gap-3 mt-6">
               <button
                 onClick={() => setShowExitConfirm(false)}
                 className="flex-1 py-2.5 px-4 bg-gray-100 dark:bg-navy-700 hover:bg-gray-200 dark:hover:bg-navy-600 text-gray-700 dark:text-gray-300 font-heading font-bold text-sm uppercase tracking-wider rounded-lg transition-colors"
               >
-                Cancel
+                {t('exitConfirm.cancel')}
               </button>
               <button
                 onClick={() => { setShowExitConfirm(false); handleExitToMenu(); }}
                 className="flex-1 py-2.5 px-4 bg-red-500 hover:bg-red-600 text-white font-heading font-bold text-sm uppercase tracking-wider rounded-lg transition-colors"
               >
-                Save & Exit
+                {t('exitConfirm.saveExit')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Match Confirmation Modal */}
+      {showMatchConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white dark:bg-navy-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-navy-600 w-full max-w-md p-6 mx-4">
+            <div className="flex items-center gap-3 mb-4">
+              <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${MODE_META[matchMode]?.color} flex items-center justify-center text-white`}>
+                {MODE_META[matchMode]?.icon}
+              </div>
+              <div>
+                <h3 className="text-lg font-heading font-bold uppercase tracking-wide text-gray-900 dark:text-white">
+                  {t('continueMenu.matchDayTitle', 'Match Day')}
+                </h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {MODE_META[matchMode]?.label}
+                </p>
+              </div>
+            </div>
+            {(() => {
+              const today = gameState!.clock.current_date.split('T')[0];
+              const fixture = gameState!.league?.fixtures.find(f =>
+                f.date === today && f.status === 'Scheduled'
+                && (f.home_team_id === gameState!.manager.team_id || f.away_team_id === gameState!.manager.team_id)
+              );
+              if (!fixture) return null;
+              const homeName = getTeamName(gameState!.teams, fixture.home_team_id);
+              const awayName = getTeamName(gameState!.teams, fixture.away_team_id);
+              return (
+                <div className="bg-gray-50 dark:bg-navy-700 rounded-xl p-4 mb-4 text-center">
+                  <p className="text-xs font-heading uppercase tracking-widest text-gray-400 mb-2">{t('common.matchday', { n: fixture.matchday })}</p>
+                  <p className="text-lg font-heading font-bold text-gray-900 dark:text-white">
+                    {homeName} <span className="text-gray-400 mx-2">{t('common.vs')}</span> {awayName}
+                  </p>
+                </div>
+              );
+            })()}
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">{MODE_META[matchMode]?.desc}</p>
+            {matchMode === 'delegate' && (
+              <p className="text-xs text-amber-500 dark:text-amber-400 flex items-center gap-1 mt-1">
+                <AlertCircle className="w-3.5 h-3.5" />
+                {t('continueMenu.delegateWarning', 'Your assistant will manage the match. You won\'t be able to intervene.')}
+              </p>
+            )}
+            <div className="flex gap-3 mt-5">
+              <button
+                onClick={() => setShowMatchConfirm(false)}
+                className="flex-1 py-2.5 px-4 bg-gray-100 dark:bg-navy-700 hover:bg-gray-200 dark:hover:bg-navy-600 text-gray-700 dark:text-gray-300 font-heading font-bold text-sm uppercase tracking-wider rounded-lg transition-colors"
+              >
+                {t('common.cancel')}
+              </button>
+              <button
+                onClick={handleConfirmMatch}
+                className={`flex-1 py-2.5 px-4 bg-gradient-to-r ${MODE_META[matchMode]?.color} hover:brightness-110 text-white font-heading font-bold text-sm uppercase tracking-wider rounded-lg transition-all flex items-center justify-center gap-2`}
+              >
+                {MODE_META[matchMode]?.icon}
+                {t('common.confirm')}
               </button>
             </div>
           </div>
@@ -291,7 +419,7 @@ export default function Dashboard() {
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
             <input
               type="text"
-              placeholder="Search players, teams..."
+              placeholder={t('dashboard.searchPlaceholder')}
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               onFocus={() => setSearchOpen(true)}
@@ -355,20 +483,29 @@ export default function Dashboard() {
               );
             })()}
 
-            {/* Continue button with dropdown */}
+            {/* Continue button with dropdown — shows current mode */}
             <div className="relative">
               <div className="flex">
                 <button 
-                  onClick={() => handleContinue("live")}
-                  disabled={isAdvancing}
-                  className={`bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white pl-5 pr-4 py-2.5 rounded-l-lg font-heading font-bold uppercase tracking-wider text-sm shadow-md hover:shadow-lg hover:shadow-primary-500/20 transition-all flex items-center gap-2 ${isAdvancing ? 'opacity-70 cursor-wait' : ''}`}
+                  onClick={() => handleContinue()}
+                  disabled={isAdvancing || seasonComplete}
+                  className={`bg-gradient-to-r ${MODE_META[matchMode]?.color || 'from-primary-500 to-primary-600'} hover:brightness-110 text-white pl-4 pr-3 py-2.5 rounded-l-lg font-heading font-bold uppercase tracking-wider text-sm shadow-md hover:shadow-lg transition-all flex items-center gap-2 ${isAdvancing || seasonComplete ? 'opacity-70 cursor-wait' : ''}`}
                 >
-                  <span>{isAdvancing ? 'Simulating...' : 'Continue'}</span>
+                  {seasonComplete ? (
+                    <span>Season Complete</span>
+                  ) : isAdvancing ? (
+                    <span>{t('dashboard.simulating')}</span>
+                  ) : (
+                    <>
+                      {MODE_META[matchMode]?.icon}
+                      <span>{hasMatchToday ? MODE_META[matchMode]?.label : t('dashboard.continue')}</span>
+                    </>
+                  )}
                   <ChevronRight className={`w-4 h-4 ${isAdvancing ? 'animate-pulse' : ''}`} />
                 </button>
                 <button
                   onClick={() => setShowContinueMenu(!showContinueMenu)}
-                  className="bg-primary-700 hover:bg-primary-800 text-white px-2 py-2.5 rounded-r-lg border-l border-primary-400/30 transition-colors"
+                  className={`bg-gradient-to-r ${matchMode === 'spectator' ? 'from-indigo-600 to-indigo-700' : matchMode === 'delegate' ? 'from-amber-600 to-amber-700' : 'from-primary-600 to-primary-700'} hover:brightness-110 text-white px-2 py-2.5 rounded-r-lg border-l border-white/20 transition-colors`}
                 >
                   <ChevronDown className="w-4 h-4" />
                 </button>
@@ -377,34 +514,27 @@ export default function Dashboard() {
               {/* Dropdown menu */}
               {showContinueMenu && (
                 <div className="absolute right-0 top-full mt-1 w-64 bg-white dark:bg-navy-700 rounded-lg shadow-xl border border-gray-200 dark:border-navy-600 py-1 z-20">
-                  <button
-                    onClick={() => handleContinue("live")}
-                    className="w-full text-left px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-navy-600 text-sm transition-colors"
-                  >
-                    <span className="font-heading font-bold text-gray-800 dark:text-gray-100 uppercase tracking-wide text-xs">Go to the Field</span>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Full match control (default)</p>
-                  </button>
-                  <button
-                    onClick={() => handleContinue("spectator")}
-                    className="w-full text-left px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-navy-600 text-sm transition-colors"
-                  >
-                    <span className="font-heading font-bold text-gray-800 dark:text-gray-100 uppercase tracking-wide text-xs">Watch as Spectator</span>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Watch the match, no controls</p>
-                  </button>
-                  <button
-                    onClick={() => handleContinue("delegate")}
-                    className="w-full text-left px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-navy-600 text-sm transition-colors"
-                  >
-                    <span className="font-heading font-bold text-gray-800 dark:text-gray-100 uppercase tracking-wide text-xs">Delegate to Assistant</span>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">AI handles everything instantly</p>
-                  </button>
+                  {(["live", "spectator", "delegate"] as const).map(mode => (
+                    <button
+                      key={mode}
+                      onClick={() => { setMatchMode(mode); setShowContinueMenu(false); }}
+                      className={`w-full text-left px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-navy-600 text-sm transition-colors flex items-center gap-3 ${matchMode === mode ? 'bg-gray-50 dark:bg-navy-600' : ''}`}
+                    >
+                      <span className={`${matchMode === mode ? 'text-primary-500' : 'text-gray-400'}`}>{MODE_META[mode]?.icon}</span>
+                      <div className="flex-1">
+                        <span className="font-heading font-bold text-gray-800 dark:text-gray-100 uppercase tracking-wide text-xs">{MODE_META[mode]?.label}</span>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{MODE_META[mode]?.desc}</p>
+                      </div>
+                      {matchMode === mode && <span className="text-primary-500 text-xs font-bold">✓</span>}
+                    </button>
+                  ))}
                   <div className="border-t border-gray-200 dark:border-navy-600 my-1" />
                   <button
                     onClick={handleSkipToMatchDay}
                     className="w-full text-left px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-navy-600 text-sm transition-colors"
                   >
-                    <span className="font-heading font-bold text-gray-800 dark:text-gray-100 uppercase tracking-wide text-xs">Skip to Match Day</span>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Fast-forward to your next fixture</p>
+                    <span className="font-heading font-bold text-gray-800 dark:text-gray-100 uppercase tracking-wide text-xs">{t('continueMenu.skipToMatchDay')}</span>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{t('continueMenu.skipToMatchDayDesc')}</p>
                   </button>
                 </div>
               )}
@@ -446,13 +576,18 @@ export default function Dashboard() {
             );
           })()}
 
+          {/* End-of-season screen when all fixtures are complete */}
+          {!selectedPlayerId && !selectedTeamId && seasonComplete && activeTab === "Home" && (
+            <EndOfSeasonScreen gameState={gameState} onGameUpdate={setGameState} />
+          )}
+
           {/* Tab content — hidden when a profile is open */}
-          {!selectedPlayerId && !selectedTeamId && activeTab === "Home" && (
+          {!selectedPlayerId && !selectedTeamId && activeTab === "Home" && !seasonComplete && (
             <HomeTab gameState={gameState} onNavigate={handleNavigate} />
           )}
 
           {!selectedPlayerId && !selectedTeamId && activeTab === "Squad" && (
-            <SquadTab gameState={gameState} managerId={gameState.manager.id} onSelectPlayer={selectPlayer} />
+            <SquadTab gameState={gameState} managerId={gameState.manager.id} onSelectPlayer={selectPlayer} onGameUpdate={setGameState} />
           )}
 
           {!selectedPlayerId && !selectedTeamId && activeTab === "Tactics" && (

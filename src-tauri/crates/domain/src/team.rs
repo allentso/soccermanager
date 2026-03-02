@@ -37,6 +37,10 @@ pub struct Team {
     pub founded_year: u32,
     pub colors: TeamColors,
 
+    // Recent form: last 5 results as "W", "D", "L" (most recent last)
+    #[serde(default)]
+    pub form: Vec<String>,
+
     // History
     pub history: Vec<TeamSeasonRecord>,
 }
@@ -175,6 +179,7 @@ impl Team {
                 primary: "#10b981".to_string(),
                 secondary: "#ffffff".to_string(),
             },
+            form: Vec::new(),
             history: Vec::new(),
         }
     }
