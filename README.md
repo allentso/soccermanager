@@ -14,9 +14,6 @@
 
 [Features](#features) • [Screenshots](#screenshots) • [Installation](#installation) • [Contributing](#contributing) • [License](#license)
 
-> [!WARNING]
-> **DEVELOPMENT STATUS:** This project is actively being developed and is not yet ready for gameplay. The core engine is currently being written from the ground up in Rust and Tauri.
-
 </div>
 
 ---
