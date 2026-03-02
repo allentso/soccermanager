@@ -960,5 +960,27 @@
         "body": "La Première Division est prête à démarrer avec {{teamCount}} équipes en lice pour le titre.\n\nLes pronostics de pré-saison désignent {{favourite}} comme favori, mais {{darkHorse}} pourrait être la surprise de cette campagne.\n\nAvec de nouveaux managers aux commandes de certains clubs, cette saison promet d'être l'une des plus compétitives de mémoire récente. Chaque point comptera dans la course au titre.\n\nÉquipes : {{teamList}}"
       }
     }
+  },
+  "traits": {
+    "Speedster": { "label": "Flèche", "desc": "Vitesse exceptionnelle" },
+    "Tank": { "label": "Tank", "desc": "Puissant et infatigable" },
+    "Agile": { "label": "Agile", "desc": "Rapide et vif" },
+    "Tireless": { "label": "Infatigable", "desc": "Ne manque jamais d'énergie" },
+    "Playmaker": { "label": "Meneur de Jeu", "desc": "Passeur créatif avec vision" },
+    "Sharpshooter": { "label": "Buteur", "desc": "Finisseur clinique" },
+    "Dribbler": { "label": "Dribbleur", "desc": "Habile avec le ballon" },
+    "BallWinner": { "label": "Récupérateur", "desc": "Récupère le ballon sans relâche" },
+    "Rock": { "label": "Roc", "desc": "Mur défensif immuable" },
+    "Leader": { "label": "Leader", "desc": "Inspire ses coéquipiers" },
+    "CoolHead": { "label": "Sang-Froid", "desc": "Calme sous pression" },
+    "Visionary": { "label": "Visionnaire", "desc": "Voit des passes que d'autres ne voient pas" },
+    "HotHead": { "label": "Tête Brûlée", "desc": "Enclin à perdre son sang-froid" },
+    "TeamPlayer": { "label": "Joueur d'Équipe", "desc": "Met toujours l'équipe en premier" },
+    "SafeHands": { "label": "Mains Sûres", "desc": "Gardien fiable" },
+    "CatReflexes": { "label": "Réflexes de Chat", "desc": "Réflexes ultra-rapides" },
+    "AerialDominance": { "label": "Domination Aér.", "desc": "Domine la surface dans les airs" },
+    "CompleteForward": { "label": "Attaquant Complet", "desc": "Dangereux de toutes les manières" },
+    "Engine": { "label": "Moteur", "desc": "Puissance de surface à surface" },
+    "SetPieceSpecialist": { "label": "Spéc. Coups de Pied", "desc": "Mortel sur coups de pied arrêtés" }
   }
 }
