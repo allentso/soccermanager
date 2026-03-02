@@ -2,7 +2,7 @@ import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { GameStateData } from "../store/gameStore";
 import { Card, CardHeader, CardBody, Badge, ProgressBar } from "./ui";
-import { Eye, ScanSearch, Clock, User, Search } from "lucide-react";
+import { Eye, ScanSearch, Clock, User, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { calcOvr, calcAge, formatVal, getTeamName } from "../lib/helpers";
 
 interface ScoutingTabProps {
@@ -11,10 +11,13 @@ interface ScoutingTabProps {
   onSelectPlayer?: (id: string) => void;
 }
 
+const SCOUTING_PAGE_SIZE = 20;
+
 export default function ScoutingTab({ gameState, onGameUpdate, onSelectPlayer }: ScoutingTabProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [posFilter, setPosFilter] = useState<string>("All");
   const [sending, setSending] = useState<string | null>(null);
+  const [page, setPage] = useState(0);
 
   const myTeamId = gameState.manager.team_id;
   const scouts = gameState.staff.filter(s => s.role === "Scout" && s.team_id === myTeamId);
@@ -25,7 +28,7 @@ export default function ScoutingTab({ gameState, onGameUpdate, onSelectPlayer }:
   const availableScouts = scouts.filter(s => !busyScoutIds.has(s.id));
 
   // Players from other teams that can be scouted
-  const scoutablePlayers = gameState.players
+  const allScoutable = gameState.players
     .filter(p => p.team_id !== myTeamId)
     .filter(p => posFilter === "All" || p.position === posFilter)
     .filter(p => {
@@ -35,8 +38,11 @@ export default function ScoutingTab({ gameState, onGameUpdate, onSelectPlayer }:
         p.nationality.toLowerCase().includes(q) ||
         (p.team_id && getTeamName(gameState.teams, p.team_id).toLowerCase().includes(q));
     })
-    .sort((a, b) => calcOvr(b) - calcOvr(a))
-    .slice(0, 50);
+    .sort((a, b) => calcOvr(b) - calcOvr(a));
+
+  const totalPages = Math.max(1, Math.ceil(allScoutable.length / SCOUTING_PAGE_SIZE));
+  const safePage = Math.min(page, totalPages - 1);
+  const scoutablePlayers = allScoutable.slice(safePage * SCOUTING_PAGE_SIZE, (safePage + 1) * SCOUTING_PAGE_SIZE);
 
   const alreadyScoutingIds = new Set(assignments.map(a => a.player_id));
 
@@ -210,7 +216,7 @@ export default function ScoutingTab({ gameState, onGameUpdate, onSelectPlayer }:
                 {["All", "Goalkeeper", "Defender", "Midfielder", "Forward"].map(pos => (
                   <button
                     key={pos}
-                    onClick={() => setPosFilter(pos)}
+                    onClick={() => { setPosFilter(pos); setPage(0); }}
                     className={`px-2.5 py-1 rounded-lg text-xs font-heading font-bold uppercase tracking-wider transition-colors ${
                       posFilter === pos
                         ? "bg-primary-500 text-white"
@@ -230,7 +236,7 @@ export default function ScoutingTab({ gameState, onGameUpdate, onSelectPlayer }:
                 type="text"
                 placeholder="Search by name, nationality, or team..."
                 value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
+                onChange={e => { setSearchQuery(e.target.value); setPage(0); }}
                 className="w-full pl-9 pr-4 py-2 text-sm bg-gray-50 dark:bg-navy-700 border border-gray-200 dark:border-navy-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/50 text-gray-800 dark:text-gray-100 placeholder:text-gray-400"
               />
             </div>
@@ -294,6 +300,34 @@ export default function ScoutingTab({ gameState, onGameUpdate, onSelectPlayer }:
                 <p className="text-center text-sm text-gray-400 py-4">No players found matching your search.</p>
               )}
             </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-navy-700 mt-3">
+                <span className="text-xs text-gray-400 dark:text-gray-500">
+                  Showing {safePage * SCOUTING_PAGE_SIZE + 1}–{Math.min((safePage + 1) * SCOUTING_PAGE_SIZE, allScoutable.length)} of {allScoutable.length}
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    disabled={safePage === 0}
+                    onClick={() => setPage(p => Math.max(0, p - 1))}
+                    className="p-1.5 rounded-lg bg-gray-100 dark:bg-navy-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-navy-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <span className="text-xs font-heading font-bold text-gray-500 dark:text-gray-400 tabular-nums">
+                    {safePage + 1} / {totalPages}
+                  </span>
+                  <button
+                    disabled={safePage >= totalPages - 1}
+                    onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
+                    className="p-1.5 rounded-lg bg-gray-100 dark:bg-navy-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-navy-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
           </CardBody>
         </Card>
       )}
