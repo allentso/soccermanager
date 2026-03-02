@@ -1,0 +1,117 @@
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct League {
+    pub id: String,
+    pub name: String,
+    pub season: u32,
+    pub fixtures: Vec<Fixture>,
+    pub standings: Vec<StandingEntry>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Fixture {
+    pub id: String,
+    pub matchday: u32,
+    pub date: String, // ISO 8601 date
+    pub home_team_id: String,
+    pub away_team_id: String,
+    pub status: FixtureStatus,
+    pub result: Option<MatchResult>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum FixtureStatus {
+    Scheduled,
+    InProgress,
+    Completed,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MatchResult {
+    pub home_goals: u8,
+    pub away_goals: u8,
+    pub home_scorers: Vec<GoalEvent>,
+    pub away_scorers: Vec<GoalEvent>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GoalEvent {
+    pub player_id: String,
+    pub minute: u8,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StandingEntry {
+    pub team_id: String,
+    pub played: u32,
+    pub won: u32,
+    pub drawn: u32,
+    pub lost: u32,
+    pub goals_for: u32,
+    pub goals_against: u32,
+    pub points: u32,
+}
+
+impl StandingEntry {
+    pub fn new(team_id: String) -> Self {
+        Self {
+            team_id,
+            played: 0,
+            won: 0,
+            drawn: 0,
+            lost: 0,
+            goals_for: 0,
+            goals_against: 0,
+            points: 0,
+        }
+    }
+
+    pub fn goal_difference(&self) -> i32 {
+        self.goals_for as i32 - self.goals_against as i32
+    }
+
+    pub fn record_result(&mut self, goals_for: u8, goals_against: u8) {
+        self.played += 1;
+        self.goals_for += goals_for as u32;
+        self.goals_against += goals_against as u32;
+        if goals_for > goals_against {
+            self.won += 1;
+            self.points += 3;
+        } else if goals_for == goals_against {
+            self.drawn += 1;
+            self.points += 1;
+        } else {
+            self.lost += 1;
+        }
+    }
+}
+
+impl League {
+    pub fn new(id: String, name: String, season: u32, team_ids: &[String]) -> Self {
+        let standings = team_ids
+            .iter()
+            .map(|tid| StandingEntry::new(tid.clone()))
+            .collect();
+
+        Self {
+            id,
+            name,
+            season,
+            fixtures: Vec::new(),
+            standings,
+        }
+    }
+
+    /// Sort standings by points, then goal difference, then goals scored
+    pub fn sorted_standings(&self) -> Vec<StandingEntry> {
+        let mut sorted = self.standings.clone();
+        sorted.sort_by(|a, b| {
+            b.points
+                .cmp(&a.points)
+                .then(b.goal_difference().cmp(&a.goal_difference()))
+                .then(b.goals_for.cmp(&a.goals_for))
+        });
+        sorted
+    }
+}

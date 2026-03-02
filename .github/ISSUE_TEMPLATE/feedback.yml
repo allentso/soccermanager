@@ -1,0 +1,63 @@
+name: "\U0001F4AC Feedback / Suggestion"
+description: "Share feedback or suggest improvements / Compartir feedback / Donner un retour / Feedback geben / Dar feedback"
+labels: ["feedback", "alpha"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Feedback / Suggestion
+        We'd love to hear your thoughts! You can write in your own language — English, Spanish, French, German, Portuguese, or Brazilian Portuguese are all welcome.
+
+        ---
+        Adoramos ouvir a sua opinião! Pode escrever no seu idioma.
+        ¡Nos encanta escuchar tu opinión! Puedes escribir en tu idioma.
+        On adore avoir vos retours ! Vous pouvez écrire dans votre langue.
+        Wir freuen uns über dein Feedback! Du kannst in deiner Sprache schreiben.
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: "Category / Categoría / Catégorie / Kategorie / Categoria"
+      options:
+        - "Usability / Usabilidad / Ergonomie / Bedienung / Usabilidade"
+        - "Balance / Equilibrio / Équilibre / Balance / Equilíbrio"
+        - "Suggestion / Sugerencia / Suggestion / Vorschlag / Sugestão"
+        - "Other / Otro / Autre / Anderes / Outro"
+    validations:
+      required: true
+
+  - type: input
+    id: area
+    attributes:
+      label: "What part of the game? / ¿Qué parte del juego? / Quelle partie du jeu ? / Welcher Spielbereich? / Que parte do jogo?"
+      description: "e.g., Training, Match Simulation, Transfers, Inbox, Tactics..."
+      placeholder: "Match Simulation"
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: "Description / Descripción / Description / Beschreibung / Descrição"
+      description: "Describe your experience, issue, or suggestion in detail."
+      placeholder: "I think the training system could be improved by..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: why-it-matters
+    attributes:
+      label: "Why it matters / Por qué importa / Pourquoi c'est important / Warum es wichtig ist / Porque é importante"
+      description: "How does this affect your enjoyment of the game?"
+      placeholder: "This matters because..."
+    validations:
+      required: false
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: "Screenshots"
+      description: "Drag and drop any relevant screenshots here."
+      placeholder: "Drag files here..."
+    validations:
+      required: false
