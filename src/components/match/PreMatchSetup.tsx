@@ -503,6 +503,24 @@ export default function PreMatchSetup({ snapshot, gameState, userSide, onStart, 
           {/* Set Pieces Tab */}
           {activeTab === "setpieces" && (
             <div className="bg-navy-800 rounded-xl border border-navy-700 p-4">
+              <button
+                onClick={async () => {
+                  try {
+                    const ids = userTeam.players.map(p => p.id);
+                    const result = await invoke<{ captain: string | null; penalty_taker: string | null; free_kick_taker: string | null; corner_taker: string | null }>("auto_select_set_pieces", { playerIds: ids });
+                    if (result.captain) await handleSetPieceTaker("captain", result.captain);
+                    if (result.penalty_taker) await handleSetPieceTaker("penalty", result.penalty_taker);
+                    if (result.free_kick_taker) await handleSetPieceTaker("freekick", result.free_kick_taker);
+                    if (result.corner_taker) await handleSetPieceTaker("corner", result.corner_taker);
+                  } catch (err) {
+                    console.error("Auto-select set pieces failed:", err);
+                  }
+                }}
+                className="w-full mb-4 flex items-center justify-center gap-2 px-4 py-2.5 bg-accent-500/10 hover:bg-accent-500/20 text-accent-400 rounded-lg font-heading font-bold text-xs uppercase tracking-wider transition-colors border border-accent-500/20"
+              >
+                <Wand2 className="w-3.5 h-3.5" />
+                Auto-Select Best Takers
+              </button>
               <SetPieceSelector
                 label="Captain"
                 icon={<Crown className="w-4 h-4 text-accent-400" />}

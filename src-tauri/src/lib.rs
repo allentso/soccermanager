@@ -602,6 +602,26 @@ fn save_game(state: State<StateManager>, app_handle: tauri::AppHandle) -> Result
 }
 
 #[tauri::command]
+fn auto_select_set_pieces(
+    state: State<StateManager>,
+    player_ids: Vec<String>,
+) -> Result<serde_json::Value, String> {
+    let game = state
+        .get_game(|g| g.clone())
+        .ok_or("No active game session".to_string())?;
+
+    let (captain, penalty, free_kick, corner) =
+        ofm_core::live_match_manager::auto_select_set_pieces(&game, &player_ids);
+
+    Ok(serde_json::json!({
+        "captain": captain,
+        "penalty_taker": penalty,
+        "free_kick_taker": free_kick,
+        "corner_taker": corner,
+    }))
+}
+
+#[tauri::command]
 fn send_scout(
     state: State<StateManager>,
     scout_id: String,
@@ -1149,6 +1169,7 @@ pub fn run() {
             mark_all_messages_read,
             clear_old_messages,
             save_game,
+            auto_select_set_pieces,
             send_scout,
             check_season_complete,
             advance_to_next_season,

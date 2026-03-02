@@ -319,6 +319,48 @@ fn to_engine_player(p: &domain::player::Player) -> PlayerData {
     }
 }
 
+/// Auto-select set-piece takers from a set of player IDs.
+/// Returns (captain_id, penalty_taker_id, free_kick_taker_id, corner_taker_id).
+pub fn auto_select_set_pieces(game: &Game, player_ids: &[String]) -> (Option<String>, Option<String>, Option<String>, Option<String>) {
+    let players: Vec<&domain::player::Player> = player_ids
+        .iter()
+        .filter_map(|id| game.players.iter().find(|p| &p.id == id))
+        .collect();
+
+    if players.is_empty() {
+        return (None, None, None, None);
+    }
+
+    // Captain: highest leadership + teamwork
+    let captain = players.iter()
+        .max_by_key(|p| (p.attributes.leadership as u16) + (p.attributes.teamwork as u16))
+        .map(|p| p.id.clone());
+
+    // Penalty taker: highest shooting + composure (exclude GK)
+    let penalty = players.iter()
+        .filter(|p| p.position != DomainPosition::Goalkeeper)
+        .max_by_key(|p| (p.attributes.shooting as u16) + (p.attributes.composure as u16))
+        .map(|p| p.id.clone());
+
+    // Free kick taker: highest passing + vision + shooting (exclude GK)
+    let free_kick = players.iter()
+        .filter(|p| p.position != DomainPosition::Goalkeeper)
+        .max_by_key(|p| (p.attributes.passing as u16) + (p.attributes.vision as u16) + (p.attributes.shooting as u16) / 2)
+        .map(|p| p.id.clone());
+
+    // Corner taker: highest passing + vision (exclude GK, prefer different from FK)
+    let corner = players.iter()
+        .filter(|p| p.position != DomainPosition::Goalkeeper)
+        .max_by_key(|p| {
+            let base = (p.attributes.passing as u16) + (p.attributes.vision as u16);
+            // Small penalty if same as free kick taker to encourage variety
+            if free_kick.as_ref() == Some(&p.id) { base.saturating_sub(5) } else { base }
+        })
+        .map(|p| p.id.clone());
+
+    (captain, penalty, free_kick, corner)
+}
+
 fn position_order(pos: &Position) -> u8 {
     match pos {
         Position::Goalkeeper => 0,
