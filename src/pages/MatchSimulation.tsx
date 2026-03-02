@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { useGameStore, GameStateData } from "../store/gameStore";
 import { MatchSnapshot, MatchEvent, MatchDayStage } from "../components/match/types";
@@ -15,12 +15,14 @@ import PressConference from "../components/match/PressConference";
 
 export default function MatchSimulation() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const matchMode = (location.state as { mode?: string })?.mode || "live";
   const { gameState, setGameState } = useGameStore();
   const [snapshot, setSnapshot] = useState<MatchSnapshot | null>(null);
   const [stage, setStage] = useState<MatchDayStage>("prematch");
   const [importantEvents, setImportantEvents] = useState<MatchEvent[]>([]);
   const [userSide, setUserSide] = useState<"Home" | "Away" | null>(null);
-  const [isSpectator, setIsSpectator] = useState(false);
+  const [isSpectator, setIsSpectator] = useState(matchMode === "spectator");
 
   // Determine user side from game state
   useEffect(() => {
@@ -33,7 +35,10 @@ export default function MatchSimulation() {
     if (snapshot.home_team.id === utid) setUserSide("Home");
     else if (snapshot.away_team.id === utid) setUserSide("Away");
     else setIsSpectator(true);
-  }, [gameState, snapshot?.home_team.id, snapshot?.away_team.id]);
+
+    // If mode is spectator, force spectator regardless of team
+    if (matchMode === "spectator") setIsSpectator(true);
+  }, [gameState, snapshot?.home_team.id, snapshot?.away_team.id, matchMode]);
 
   // Fetch initial snapshot
   useEffect(() => {

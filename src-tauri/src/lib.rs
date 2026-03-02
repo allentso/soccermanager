@@ -211,9 +211,6 @@ fn select_team(
     );
     game.messages.push(season_msg);
 
-    let board_msg = ofm_core::messages::board_expectations_message(&team_name, &team_id, &date_str);
-    game.messages.push(board_msg);
-
     let staff_msg = ofm_core::messages::staff_advice_message(&team_name, &team_id, &date_str);
     game.messages.push(staff_msg);
 
@@ -886,7 +883,8 @@ fn advance_time_with_mode(
             Ok(serde_json::json!({
                 "action": "live_match",
                 "fixture_index": idx,
-                "snapshot": snapshot
+                "snapshot": snapshot,
+                "mode": mode
             }))
         }
         ("delegate", Some(idx)) => {

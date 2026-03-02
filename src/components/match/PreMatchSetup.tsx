@@ -380,6 +380,7 @@ export default function PreMatchSetup({ snapshot, gameState, userSide, onStart, 
                           </div>
                           {/* Stat column headers */}
                           <div className="flex items-center gap-0">
+                            <span className="text-[8px] font-heading uppercase tracking-widest text-gray-600 w-7 text-center">OVR</span>
                             {keyStats.map(s => (
                               <span key={s.label} className="text-[8px] font-heading uppercase tracking-widest text-gray-600 w-7 text-center">{s.label}</span>
                             ))}
@@ -408,6 +409,7 @@ export default function PreMatchSetup({ snapshot, gameState, userSide, onStart, 
                               <span className="text-sm text-gray-200 font-medium flex-1 truncate">{p.name}</span>
                               {isSelected && <ArrowUpDown className="w-3.5 h-3.5 text-primary-400 flex-shrink-0" />}
                               <div className="flex items-center gap-0">
+                                <span className={`text-[10px] font-heading font-bold tabular-nums w-7 text-center ${posOvr >= 70 ? 'text-primary-400' : posOvr >= 50 ? 'text-gray-300' : 'text-red-400'}`}>{posOvr}</span>
                                 {keyStats.map(s => (
                                   <span key={s.label} className={`text-[10px] font-heading tabular-nums w-7 text-center ${statColor(getStatVal(p, s.key))}`}>
                                     {getStatVal(p, s.key)}

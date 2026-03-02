@@ -237,6 +237,19 @@ pub fn apply_match_report(
     // Update team form (last 5 results)
     update_team_form(game, report, home_team_id, away_team_id);
 
+    // Update board satisfaction based on match result
+    if let Some(user_team_id) = &game.manager.team_id {
+        if *user_team_id == home_team_id || *user_team_id == away_team_id {
+            let user_goals = if *user_team_id == home_team_id { report.home_goals } else { report.away_goals };
+            let opp_goals = if *user_team_id == home_team_id { report.away_goals } else { report.home_goals };
+            let sat_delta: i8 = if user_goals > opp_goals { 2 }        // win: +2
+                               else if user_goals == opp_goals { -1 }  // draw: -1
+                               else { -3 };                            // loss: -3
+            let new_sat = (game.manager.satisfaction as i16 + sat_delta as i16).clamp(0, 100) as u8;
+            game.manager.satisfaction = new_sat;
+        }
+    }
+
     // Generate match result message for user's team
     if let Some(user_team_id) = &game.manager.team_id {
         if *user_team_id == home_team_id || *user_team_id == away_team_id {

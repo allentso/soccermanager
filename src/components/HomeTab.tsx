@@ -77,7 +77,7 @@ export default function HomeTab({ gameState, onNavigate }: HomeTabProps) {
     { id: "squad", done: hasReviewedSquad, label: "Review your squad", description: "Check player stats, condition, and traits", tab: "Squad", icon: <Users className="w-4 h-4" /> },
     { id: "staff", done: hasCoach && hasPhysio, label: "Hire coaching staff", description: "Staff boost training quality and recovery — hire a Coach and Physio", tab: "Staff", icon: <UserCog className="w-4 h-4" /> },
     { id: "tactics", done: hasSetFormation, label: "Set your formation & tactics", description: "Choose a formation and play style that fits your squad", tab: "Tactics", icon: <Crosshair className="w-4 h-4" /> },
-    { id: "training", done: false, label: "Configure training", description: "Pick a focus and schedule to develop your players", tab: "Training", icon: <Dumbbell className="w-4 h-4" /> },
+    { id: "training", done: myTeam ? (myTeam.training_focus !== "General" || myTeam.training_schedule !== "Balanced") : false, label: "Configure training", description: "Pick a focus and schedule to develop your players", tab: "Training", icon: <Dumbbell className="w-4 h-4" /> },
     { id: "inbox", done: hasReadInbox, label: "Read your messages", description: "Important info from the board and staff awaits", tab: "Inbox", icon: <Mail className="w-4 h-4" /> },
   ];
   const completedSteps = onboardingSteps.filter(s => s.done).length;

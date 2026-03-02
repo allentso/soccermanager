@@ -1,0 +1,302 @@
+import { useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import { GameStateData } from "../store/gameStore";
+import { Card, CardHeader, CardBody, Badge, ProgressBar } from "./ui";
+import { Eye, ScanSearch, Clock, User, Search } from "lucide-react";
+import { calcOvr, calcAge, formatVal, getTeamName } from "../lib/helpers";
+
+interface ScoutingTabProps {
+  gameState: GameStateData;
+  onGameUpdate: (state: GameStateData) => void;
+  onSelectPlayer?: (id: string) => void;
+}
+
+export default function ScoutingTab({ gameState, onGameUpdate, onSelectPlayer }: ScoutingTabProps) {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [posFilter, setPosFilter] = useState<string>("All");
+  const [sending, setSending] = useState<string | null>(null);
+
+  const myTeamId = gameState.manager.team_id;
+  const scouts = gameState.staff.filter(s => s.role === "Scout" && s.team_id === myTeamId);
+  const assignments = gameState.scouting_assignments || [];
+
+  // Determine which scouts are busy
+  const busyScoutIds = new Set(assignments.map(a => a.scout_id));
+  const availableScouts = scouts.filter(s => !busyScoutIds.has(s.id));
+
+  // Players from other teams that can be scouted
+  const scoutablePlayers = gameState.players
+    .filter(p => p.team_id !== myTeamId)
+    .filter(p => posFilter === "All" || p.position === posFilter)
+    .filter(p => {
+      if (!searchQuery) return true;
+      const q = searchQuery.toLowerCase();
+      return p.full_name.toLowerCase().includes(q) ||
+        p.nationality.toLowerCase().includes(q) ||
+        (p.team_id && getTeamName(gameState.teams, p.team_id).toLowerCase().includes(q));
+    })
+    .sort((a, b) => calcOvr(b) - calcOvr(a))
+    .slice(0, 50);
+
+  const alreadyScoutingIds = new Set(assignments.map(a => a.player_id));
+
+  const handleSendScout = async (playerId: string) => {
+    if (availableScouts.length === 0) return;
+    const scout = availableScouts[0];
+    setSending(playerId);
+    try {
+      const updated = await invoke<GameStateData>("send_scout", { scoutId: scout.id, playerId });
+      onGameUpdate(updated);
+    } catch (err) {
+      console.error("Failed to send scout:", err);
+    } finally {
+      setSending(null);
+    }
+  };
+
+  return (
+    <div className="max-w-6xl mx-auto flex flex-col gap-5">
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <ScanSearch className="w-5 h-5 text-primary-500" />
+        <h2 className="text-lg font-heading font-bold uppercase tracking-wider text-gray-800 dark:text-gray-100">Scouting Centre</h2>
+      </div>
+
+      {/* Scout Staff Overview */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card>
+          <CardBody>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-accent-500/10 flex items-center justify-center">
+                <Eye className="w-5 h-5 text-accent-500" />
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 font-heading uppercase tracking-wider">Scouts</p>
+                <p className="text-xl font-heading font-bold text-gray-800 dark:text-gray-100">{scouts.length}</p>
+              </div>
+            </div>
+          </CardBody>
+        </Card>
+        <Card>
+          <CardBody>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-primary-500/10 flex items-center justify-center">
+                <Clock className="w-5 h-5 text-primary-500" />
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 font-heading uppercase tracking-wider">Active Assignments</p>
+                <p className="text-xl font-heading font-bold text-gray-800 dark:text-gray-100">{assignments.length}</p>
+              </div>
+            </div>
+          </CardBody>
+        </Card>
+        <Card>
+          <CardBody>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-green-500/10 flex items-center justify-center">
+                <User className="w-5 h-5 text-green-500" />
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 font-heading uppercase tracking-wider">Available</p>
+                <p className="text-xl font-heading font-bold text-gray-800 dark:text-gray-100">{availableScouts.length}</p>
+              </div>
+            </div>
+          </CardBody>
+        </Card>
+      </div>
+
+      {/* Active Assignments */}
+      {assignments.length > 0 && (
+        <Card>
+          <CardHeader>Active Scouting Assignments</CardHeader>
+          <CardBody>
+            <div className="flex flex-col gap-2">
+              {assignments.map(a => {
+                const scout = gameState.staff.find(s => s.id === a.scout_id);
+                const player = gameState.players.find(p => p.id === a.player_id);
+                if (!scout || !player) return null;
+                const team = player.team_id ? getTeamName(gameState.teams, player.team_id) : "Free Agent";
+                return (
+                  <div key={a.id} className="flex items-center gap-4 p-3 rounded-lg bg-gray-50 dark:bg-navy-700/50">
+                    <div className="flex-1 min-w-0">
+                      <button onClick={() => onSelectPlayer?.(player.id)} className="font-heading font-bold text-sm text-gray-800 dark:text-gray-100 hover:text-primary-500 transition-colors truncate block">
+                        {player.full_name}
+                      </button>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{player.position} · {team}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Scout: {scout.first_name} {scout.last_name}</p>
+                      <div className="flex items-center gap-1.5 justify-end mt-0.5">
+                        <Clock className="w-3 h-3 text-accent-500" />
+                        <span className="text-xs font-heading font-bold text-accent-500">{a.days_remaining} days left</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardBody>
+        </Card>
+      )}
+
+      {/* Scout Staff Details */}
+      {scouts.length > 0 && (
+        <Card>
+          <CardHeader>Your Scouts</CardHeader>
+          <CardBody>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {scouts.map(s => {
+                const isBusy = busyScoutIds.has(s.id);
+                const assignment = assignments.find(a => a.scout_id === s.id);
+                const targetPlayer = assignment ? gameState.players.find(p => p.id === assignment.player_id) : null;
+                return (
+                  <div key={s.id} className="p-3 rounded-lg border border-gray-200 dark:border-navy-600">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-lg bg-accent-500/10 flex items-center justify-center">
+                        <Eye className="w-4 h-4 text-accent-500" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-heading font-bold text-sm text-gray-800 dark:text-gray-100">{s.first_name} {s.last_name}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">{s.nationality}</p>
+                      </div>
+                      <Badge variant={isBusy ? "accent" : "success"} size="sm">
+                        {isBusy ? "On Assignment" : "Available"}
+                      </Badge>
+                    </div>
+                    <div className="mt-2 grid grid-cols-2 gap-2">
+                      <div>
+                        <p className="text-[10px] text-gray-400 dark:text-gray-500 font-heading uppercase">Judging Ability</p>
+                        <ProgressBar value={s.attributes.judging_ability} variant="auto" size="sm" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-gray-400 dark:text-gray-500 font-heading uppercase">Judging Potential</p>
+                        <ProgressBar value={s.attributes.judging_potential} variant="auto" size="sm" />
+                      </div>
+                    </div>
+                    {isBusy && targetPlayer && (
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                        Scouting: <span className="font-heading font-bold text-gray-700 dark:text-gray-300">{targetPlayer.full_name}</span> — {assignment!.days_remaining} days left
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </CardBody>
+        </Card>
+      )}
+
+      {scouts.length === 0 && (
+        <Card>
+          <CardBody>
+            <div className="flex flex-col items-center gap-3 py-8">
+              <Eye className="w-10 h-10 text-gray-300 dark:text-navy-600" />
+              <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
+                You don't have any scouts yet.<br />
+                <span className="text-xs">Hire a scout from the Staff page to start evaluating players.</span>
+              </p>
+            </div>
+          </CardBody>
+        </Card>
+      )}
+
+      {/* Player Search for Scouting */}
+      {scouts.length > 0 && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-3 w-full">
+              <span>Find Players to Scout</span>
+              <div className="ml-auto flex items-center gap-2">
+                {["All", "Goalkeeper", "Defender", "Midfielder", "Forward"].map(pos => (
+                  <button
+                    key={pos}
+                    onClick={() => setPosFilter(pos)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-heading font-bold uppercase tracking-wider transition-colors ${
+                      posFilter === pos
+                        ? "bg-primary-500 text-white"
+                        : "bg-gray-100 dark:bg-navy-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-navy-600"
+                    }`}
+                  >
+                    {pos === "All" ? "All" : pos.slice(0, 3)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </CardHeader>
+          <CardBody>
+            <div className="relative mb-3">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search by name, nationality, or team..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-4 py-2 text-sm bg-gray-50 dark:bg-navy-700 border border-gray-200 dark:border-navy-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/50 text-gray-800 dark:text-gray-100 placeholder:text-gray-400"
+              />
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-xs text-gray-500 dark:text-gray-400 font-heading uppercase tracking-wider border-b border-gray-100 dark:border-navy-700">
+                    <th className="text-left py-2 px-2">Player</th>
+                    <th className="text-left py-2 px-1">Pos</th>
+                    <th className="text-center py-2 px-1">Age</th>
+                    <th className="text-left py-2 px-1">Team</th>
+                    <th className="text-center py-2 px-1">Value</th>
+                    <th className="text-right py-2 px-2">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {scoutablePlayers.map(p => {
+                    const isScouting = alreadyScoutingIds.has(p.id);
+                    const team = p.team_id ? getTeamName(gameState.teams, p.team_id) : "Free Agent";
+                    return (
+                      <tr key={p.id} className="border-b border-gray-50 dark:border-navy-700/50 hover:bg-gray-50 dark:hover:bg-navy-700/30 transition-colors">
+                        <td className="py-2 px-2">
+                          <button onClick={() => onSelectPlayer?.(p.id)} className="font-heading font-bold text-gray-800 dark:text-gray-100 hover:text-primary-500 transition-colors text-left">
+                            {p.full_name}
+                          </button>
+                          <p className="text-[10px] text-gray-400">{p.nationality}</p>
+                        </td>
+                        <td className="py-2 px-1">
+                          <Badge variant={
+                            p.position === "Goalkeeper" ? "accent" :
+                            p.position === "Defender" ? "primary" :
+                            p.position === "Midfielder" ? "success" : "danger"
+                          } size="sm">{p.position.slice(0, 3)}</Badge>
+                        </td>
+                        <td className="text-center py-2 px-1 text-gray-600 dark:text-gray-400">{calcAge(p.date_of_birth)}</td>
+                        <td className="py-2 px-1 text-gray-600 dark:text-gray-400 text-xs truncate max-w-[120px]">{team}</td>
+                        <td className="text-center py-2 px-1 text-gray-600 dark:text-gray-400 text-xs">{formatVal(p.market_value)}</td>
+                        <td className="text-right py-2 px-2">
+                          {isScouting ? (
+                            <span className="text-xs text-primary-400 font-heading font-bold">Scouting...</span>
+                          ) : availableScouts.length === 0 ? (
+                            <span className="text-xs text-gray-400">No scouts free</span>
+                          ) : (
+                            <button
+                              disabled={sending === p.id}
+                              onClick={() => handleSendScout(p.id)}
+                              className="flex items-center gap-1 ml-auto px-2.5 py-1 rounded-lg bg-primary-500/10 text-primary-500 hover:bg-primary-500/20 transition-colors text-xs font-heading font-bold uppercase tracking-wider disabled:opacity-50"
+                            >
+                              <ScanSearch className="w-3 h-3" />
+                              {sending === p.id ? "..." : "Scout"}
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              {scoutablePlayers.length === 0 && (
+                <p className="text-center text-sm text-gray-400 py-4">No players found matching your search.</p>
+              )}
+            </div>
+          </CardBody>
+        </Card>
+      )}
+    </div>
+  );
+}

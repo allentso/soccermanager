@@ -169,12 +169,9 @@ pub enum TransferOfferStatus {
     Withdrawn,
 }
 
-/// Derive traits from a player's attributes and position.
-pub fn compute_traits(attrs: &PlayerAttributes, position: &Position) -> Vec<PlayerTrait> {
+/// Derive traits purely from a player's attributes (position-independent).
+pub fn compute_traits(attrs: &PlayerAttributes, _position: &Position) -> Vec<PlayerTrait> {
     let mut traits = Vec::new();
-    let is_gk = *position == Position::Goalkeeper;
-    let is_fwd = *position == Position::Forward;
-    let is_mid = *position == Position::Midfielder;
 
     // Physical
     if attrs.pace >= 85 { traits.push(PlayerTrait::Speedster); }
@@ -184,8 +181,8 @@ pub fn compute_traits(attrs: &PlayerAttributes, position: &Position) -> Vec<Play
 
     // Technical
     if attrs.passing >= 80 && attrs.vision >= 80 { traits.push(PlayerTrait::Playmaker); }
-    if attrs.shooting >= 85 && !is_gk { traits.push(PlayerTrait::Sharpshooter); }
-    if attrs.dribbling >= 85 && !is_gk { traits.push(PlayerTrait::Dribbler); }
+    if attrs.shooting >= 85 { traits.push(PlayerTrait::Sharpshooter); }
+    if attrs.dribbling >= 85 { traits.push(PlayerTrait::Dribbler); }
     if attrs.tackling >= 80 && attrs.aggression >= 70 { traits.push(PlayerTrait::BallWinner); }
     if attrs.defending >= 85 && attrs.positioning >= 75 { traits.push(PlayerTrait::Rock); }
 
@@ -196,16 +193,16 @@ pub fn compute_traits(attrs: &PlayerAttributes, position: &Position) -> Vec<Play
     if attrs.aggression >= 85 && attrs.composure < 50 { traits.push(PlayerTrait::HotHead); }
     if attrs.teamwork >= 85 { traits.push(PlayerTrait::TeamPlayer); }
 
-    // Goalkeeper-specific
-    if is_gk && attrs.handling >= 85 { traits.push(PlayerTrait::SafeHands); }
-    if is_gk && attrs.reflexes >= 85 { traits.push(PlayerTrait::CatReflexes); }
+    // Goalkeeper-oriented (any player with high GK stats can earn these)
+    if attrs.handling >= 85 { traits.push(PlayerTrait::SafeHands); }
+    if attrs.reflexes >= 85 { traits.push(PlayerTrait::CatReflexes); }
     if attrs.aerial >= 85 { traits.push(PlayerTrait::AerialDominance); }
 
-    // Combo / Special
-    if is_fwd && attrs.shooting >= 75 && attrs.dribbling >= 75 && attrs.pace >= 70 && attrs.strength >= 70 {
+    // Combo / Special — purely attribute-based
+    if attrs.shooting >= 75 && attrs.dribbling >= 75 && attrs.pace >= 70 && attrs.strength >= 70 {
         traits.push(PlayerTrait::CompleteForward);
     }
-    if is_mid && attrs.stamina >= 85 && attrs.pace >= 70 && attrs.teamwork >= 75 {
+    if attrs.stamina >= 85 && attrs.pace >= 70 && attrs.teamwork >= 75 {
         traits.push(PlayerTrait::Engine);
     }
     if attrs.passing >= 80 && attrs.shooting >= 75 && attrs.vision >= 75 {

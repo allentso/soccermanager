@@ -15,6 +15,7 @@ import TransfersTab from "../components/TransfersTab";
 import PlayersListTab from "../components/PlayersListTab";
 import TeamsListTab from "../components/TeamsListTab";
 import TournamentsTab from "../components/TournamentsTab";
+import ScoutingTab from "../components/ScoutingTab";
 import StaffTab from "../components/StaffTab";
 import InboxTab from "../components/InboxTab";
 import ManagerTab from "../components/ManagerTab";
@@ -101,9 +102,9 @@ export default function Dashboard() {
     setShowContinueMenu(false);
     setShowMatchConfirm(false);
     try {
-      const result = await invoke<{ action: string; game?: GameStateData; snapshot?: unknown; fixture_index?: number }>("advance_time_with_mode", { mode: effectiveMode });
+      const result = await invoke<{ action: string; game?: GameStateData; snapshot?: unknown; fixture_index?: number; mode?: string }>("advance_time_with_mode", { mode: effectiveMode });
       if (result.action === "live_match") {
-        navigate("/match");
+        navigate("/match", { state: { mode: result.mode || effectiveMode } });
       } else if (result.action === "advanced" && result.game) {
         setGameState(result.game as GameStateData);
       }
@@ -121,9 +122,9 @@ export default function Dashboard() {
     setShowContinueMenu(false);
     (async () => {
       try {
-        const result = await invoke<{ action: string; game?: GameStateData; snapshot?: unknown; fixture_index?: number }>("advance_time_with_mode", { mode: matchMode });
+        const result = await invoke<{ action: string; game?: GameStateData; snapshot?: unknown; fixture_index?: number; mode?: string }>("advance_time_with_mode", { mode: matchMode });
         if (result.action === "live_match") {
-          navigate("/match");
+          navigate("/match", { state: { mode: result.mode || matchMode } });
         } else if (result.action === "advanced" && result.game) {
           setGameState(result.game as GameStateData);
         }
@@ -228,7 +229,9 @@ export default function Dashboard() {
     );
   }
 
-  const currentDate = new Date(gameState.clock.current_date).toLocaleDateString(undefined, {
+  const LANG_LOCALE: Record<string, string> = { en: "en-US", es: "es-ES", pt: "pt-BR", fr: "fr-FR", de: "de-DE" };
+  const uiLocale = LANG_LOCALE[settings.language] || settings.language || "en-US";
+  const currentDate = new Date(gameState.clock.current_date).toLocaleDateString(uiLocale, {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
   });
 
@@ -272,6 +275,7 @@ export default function Dashboard() {
           <NavItem icon={<Crosshair />} label={t('dashboard.tactics')} active={activeTab === "Tactics"} onClick={() => handleNavClick("Tactics")} />
           <NavItem icon={<Dumbbell />} label={t('dashboard.training')} active={activeTab === "Training"} onClick={() => handleNavClick("Training")} />
           <NavItem icon={<UserCog />} label={t('dashboard.staff')} active={activeTab === "Staff"} onClick={() => handleNavClick("Staff")} />
+          <NavItem icon={<Eye />} label="Scouting" active={activeTab === "Scouting"} onClick={() => handleNavClick("Scouting")} />
           <NavItem icon={<DollarSign />} label={t('dashboard.finances')} active={activeTab === "Finances"} onClick={() => handleNavClick("Finances")} />
           <NavItem icon={<TrendingUp />} label={t('dashboard.transfers')} active={activeTab === "Transfers"} onClick={() => handleNavClick("Transfers")} />
 
@@ -625,6 +629,10 @@ export default function Dashboard() {
 
           {!selectedPlayerId && !selectedTeamId && activeTab === "Staff" && (
             <StaffTab gameState={gameState} onGameUpdate={setGameState} />
+          )}
+
+          {!selectedPlayerId && !selectedTeamId && activeTab === "Scouting" && (
+            <ScoutingTab gameState={gameState} onGameUpdate={setGameState} onSelectPlayer={selectPlayer} />
           )}
 
           {!selectedPlayerId && !selectedTeamId && activeTab === "Inbox" && (
