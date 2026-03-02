@@ -1,6 +1,6 @@
 import { GameStateData, FixtureData } from "../store/gameStore";
 import { Card, CardHeader, CardBody, Badge, ProgressBar } from "./ui";
-import { getTeamName, getTeamShort, findNextFixture, formatMatchDate, calcOvr } from "../lib/helpers";
+import { getTeamName, getTeamShort, findNextFixture, formatMatchDate, calcOvr, formatDateFull, formatDateShort } from "../lib/helpers";
 import { resolveMessage } from "../utils/backendI18n";
 import {
   Calendar, Trophy, Dumbbell, Mail, Newspaper,
@@ -22,7 +22,7 @@ const SCHEDULE_META: Record<string, { label: string; icon: React.ReactNode; colo
 };
 
 export default function HomeTab({ gameState, onNavigate }: HomeTabProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const myTeam = gameState.teams.find(tm => tm.id === gameState.manager.team_id);
   const league = gameState.league;
   const roster = myTeam ? gameState.players.filter(p => p.team_id === myTeam.id) : [];
@@ -52,8 +52,9 @@ export default function HomeTab({ gameState, onNavigate }: HomeTabProps) {
   }
 
   // Current date
+  const lang = i18n.language;
   const currentDate = new Date(gameState.clock.current_date);
-  const dateStr = currentDate.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+  const dateStr = formatDateFull(gameState.clock.current_date, lang);
 
   // Training schedule
   const schedule = myTeam?.training_schedule || "Balanced";
@@ -378,7 +379,7 @@ export default function HomeTab({ gameState, onNavigate }: HomeTabProps) {
                     className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-navy-700/50 transition-colors"
                   >
                     <p className="text-xs text-gray-400 dark:text-gray-500 mb-0.5">
-                      {new Date(article.date).toLocaleDateString(undefined, { month: "short", day: "numeric" })} · {article.source}
+                      {formatDateShort(article.date, lang)} · {article.source}
                     </p>
                     <p className="text-sm font-heading font-bold text-gray-800 dark:text-gray-200 leading-snug line-clamp-2">
                       {article.headline}
@@ -495,7 +496,7 @@ export default function HomeTab({ gameState, onNavigate }: HomeTabProps) {
                     </p>
                   </div>
                   <span className="text-[10px] text-gray-400 dark:text-gray-500 flex-shrink-0 mt-1">
-                    {new Date(message.date).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                    {formatDateShort(message.date, lang)}
                   </span>
                 </div>
               ))

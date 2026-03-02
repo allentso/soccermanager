@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { GameStateData, NewsArticle } from "../store/gameStore";
-import { getTeamName } from "../lib/helpers";
+import { getTeamName, formatMatchDate as fmtMatchDate } from "../lib/helpers";
 import { Newspaper, Trophy, BarChart3, TrendingUp, FileText, ArrowLeft, Clock } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { resolveNewsArticle } from "../utils/backendI18n";
@@ -27,9 +27,6 @@ interface NewsTabProps {
   onSelectTeam?: (id: string) => void;
 }
 
-function formatNewsDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
-}
 
 export default function NewsTab({ gameState, onSelectTeam }: NewsTabProps) {
   const { t } = useTranslation();
@@ -110,7 +107,8 @@ export default function NewsTab({ gameState, onSelectTeam }: NewsTabProps) {
 function HeroArticle({ article, gameState, onSelect, onSelectTeam }: {
   article: NewsArticle; gameState: GameStateData; onSelect: () => void; onSelectTeam?: (id: string) => void;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const formatNewsDate = (d: string) => fmtMatchDate(d, i18n.language);
   const meta = { icon: CAT_ICONS[article.category] || <FileText className="w-4 h-4" />, color: CAT_COLORS[article.category] || "text-gray-500", bg: CAT_BG[article.category] || "bg-gray-500/10", label: t(`news.categories.${article.category}`) };
 
   return (
@@ -176,7 +174,8 @@ function HeroArticle({ article, gameState, onSelect, onSelectTeam }: {
 function ArticleCard({ article, gameState, onSelect }: {
   article: NewsArticle; gameState: GameStateData; onSelect: () => void;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const formatNewsDate = (d: string) => fmtMatchDate(d, i18n.language);
   const meta = { icon: CAT_ICONS[article.category] || <FileText className="w-4 h-4" />, color: CAT_COLORS[article.category] || "text-gray-500", bg: CAT_BG[article.category] || "bg-gray-500/10", label: t(`news.categories.${article.category}`) };
 
   return (
@@ -228,7 +227,8 @@ function ArticleCard({ article, gameState, onSelect }: {
 function ArticleDetail({ article, gameState, onBack, onSelectTeam }: {
   article: NewsArticle; gameState: GameStateData; onBack: () => void; onSelectTeam?: (id: string) => void;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const formatNewsDate = (d: string) => fmtMatchDate(d, i18n.language);
   const meta = { icon: CAT_ICONS[article.category] || <FileText className="w-4 h-4" />, color: CAT_COLORS[article.category] || "text-gray-500", bg: CAT_BG[article.category] || "bg-gray-500/10", label: t(`news.categories.${article.category}`) };
 
   return (

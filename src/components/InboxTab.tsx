@@ -5,6 +5,7 @@ import { Badge } from "./ui";
 import { Mail, MailOpen, ArrowLeft, Trophy, ClipboardList, Crosshair, TableProperties, TrendingUp, Landmark, Smile, Stethoscope, Dumbbell, DollarSign, FileText, ScanSearch, Newspaper, Info, MessageCircle, CheckCircle2, CheckCheck, Trash2 } from "lucide-react";
 import { getTeamName } from "../lib/helpers";
 import { useTranslation } from "react-i18next";
+import { formatDateShort, formatDateFull } from "../lib/helpers";
 import { resolveMessage } from "../utils/backendI18n";
 
 interface InboxTabProps {
@@ -32,7 +33,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 };
 
 export default function InboxTab({ gameState, onGameUpdate, initialMessageId, onNavigate }: InboxTabProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const allMessages = [...(gameState.messages || [])].reverse().map(resolveMessage);
   const [selectedMsgId, setSelectedMsgId] = useState<string | null>(initialMessageId || null);
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
@@ -213,7 +214,7 @@ export default function InboxTab({ gameState, onGameUpdate, initialMessageId, on
                         {!message.read && <span className="w-2 h-2 rounded-full bg-primary-500 flex-shrink-0" />}
                       </div>
                       <p className="text-xs text-gray-400 dark:text-gray-500 truncate mt-0.5">{message.sender}</p>
-                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{new Date(message.date).toLocaleDateString()}</p>
+                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{formatDateShort(message.date, i18n.language)}</p>
                     </div>
                   </div>
                 );
@@ -247,7 +248,7 @@ export default function InboxTab({ gameState, onGameUpdate, initialMessageId, on
                         {selectedMessage.sender}{selectedMessage.sender_role ? ` — ${selectedMessage.sender_role}` : ""}
                       </span>
                       <span className="text-xs text-gray-400 dark:text-gray-500">
-                        {new Date(selectedMessage.date).toLocaleDateString(undefined, { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+                        {formatDateFull(selectedMessage.date, i18n.language)}
                       </span>
                     </div>
                     <div className="flex items-center gap-2 mt-1.5">

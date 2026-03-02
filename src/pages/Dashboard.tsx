@@ -23,7 +23,7 @@ import ManagerTab from "../components/ManagerTab";
 import NewsTab from "../components/NewsTab";
 import EndOfSeasonScreen from "../components/EndOfSeasonScreen";
 import { Users, Calendar as CalendarIcon, Mail, Settings, ChevronRight, ChevronDown, Briefcase, Trophy, TrendingUp, Crosshair, Dumbbell, DollarSign, Search, User, UsersRound, Building2, UserCog, Newspaper, LogOut, ArrowLeft, Eye, Cpu, Gamepad2, AlertCircle, Save, GraduationCap } from "lucide-react";
-import { getTeamName } from "../lib/helpers";
+import { getTeamName, formatDateFull } from "../lib/helpers";
 import { useTranslation } from "react-i18next";
 import { useSettingsStore } from "../store/settingsStore";
 
@@ -245,11 +245,7 @@ export default function Dashboard() {
     );
   }
 
-  const LANG_LOCALE: Record<string, string> = { en: "en-US", es: "es-ES", pt: "pt-BR", fr: "fr-FR", de: "de-DE" };
-  const uiLocale = LANG_LOCALE[settings.language] || settings.language || "en-US";
-  const currentDate = new Date(gameState.clock.current_date).toLocaleDateString(uiLocale, {
-    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
-  });
+  const currentDate = formatDateFull(gameState.clock.current_date, settings.language);
 
   const unreadMessagesCount = gameState.messages?.filter(m => !m.read).length || 0;
 
@@ -589,13 +585,17 @@ export default function Dashboard() {
             const injured = roster.filter(p => p.injury).length;
             const urgentUnread = (gameState.messages || []).filter(m => !m.read && m.priority === "Urgent").length;
             const startingXi = myTeam?.starting_xi_ids || [];
-            const xiCount = startingXi.filter(id => roster.some(p => p.id === id)).length;
+            const xiPlayersOnRoster = startingXi.filter(id => roster.some(p => p.id === id));
+            const xiCount = xiPlayersOnRoster.length;
+            const injuredInXi = xiPlayersOnRoster.filter(id => roster.find(p => p.id === id)?.injury).length;
+            const healthyXiCount = xiCount - injuredInXi;
 
             if (exhausted >= 3) alerts.push({ id: "exhausted", text: `${exhausted} players in critical condition (<25%)`, tab: "Training", severity: "warn" });
             if (injured >= 2) alerts.push({ id: "injured", text: `${injured} players injured`, tab: "Squad", severity: "info" });
-            if (xiCount < 11 && roster.length >= 11) alerts.push({ id: "xi", text: "Starting XI incomplete — set your lineup", tab: "Squad", severity: "warn" });
+            if (injuredInXi > 0) alerts.push({ id: "injured_xi", text: `${injuredInXi} injured player${injuredInXi > 1 ? "s" : ""} in Starting XI — replace them`, tab: "Squad", severity: "warn" });
+            if (healthyXiCount < 11 && injuredInXi === 0 && roster.length >= 11) alerts.push({ id: "xi", text: "Starting XI incomplete — set your lineup", tab: "Squad", severity: "warn" });
             if (urgentUnread > 0) alerts.push({ id: "urgent", text: `${urgentUnread} urgent message${urgentUnread > 1 ? "s" : ""} unread`, tab: "Inbox", severity: "warn" });
-            if (hasMatchToday && xiCount < 11) alerts.push({ id: "matchxi", text: "Match today! Set your starting XI", tab: "Squad", severity: "warn" });
+            if (hasMatchToday && healthyXiCount < 11) alerts.push({ id: "matchxi", text: "Match today! Set your starting XI", tab: "Squad", severity: "warn" });
 
             if (alerts.length === 0) return null;
             return (

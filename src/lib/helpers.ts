@@ -15,9 +15,31 @@ export function findNextFixture(fixtures: FixtureData[], teamId: string): Fixtur
   );
 }
 
-export function formatMatchDate(dateStr: string): string {
+const LANG_LOCALE: Record<string, string> = { en: "en-US", es: "es-ES", pt: "pt-BR", fr: "fr-FR", de: "de-DE" };
+
+export function getLocale(lang?: string): string {
+  if (!lang) return "en-US";
+  return LANG_LOCALE[lang] || lang;
+}
+
+export function formatMatchDate(dateStr: string, locale?: string): string {
   const d = new Date(dateStr + "T00:00:00");
-  return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+  return d.toLocaleDateString(getLocale(locale), { weekday: "short", month: "short", day: "numeric" });
+}
+
+export function formatDate(dateStr: string, locale?: string, opts?: Intl.DateTimeFormatOptions): string {
+  const d = new Date(dateStr);
+  return d.toLocaleDateString(getLocale(locale), opts || { year: "numeric", month: "long", day: "numeric" });
+}
+
+export function formatDateFull(dateStr: string, locale?: string): string {
+  const d = new Date(dateStr);
+  return d.toLocaleDateString(getLocale(locale), { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+}
+
+export function formatDateShort(dateStr: string, locale?: string): string {
+  const d = new Date(dateStr);
+  return d.toLocaleDateString(getLocale(locale), { month: "short", day: "numeric" });
 }
 
 export function calcOvr(p: PlayerData): number {

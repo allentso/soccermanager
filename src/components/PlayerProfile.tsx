@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { formatDate } from "../lib/helpers";
 import { PlayerData, TeamData, GameStateData } from "../store/gameStore";
 import { Card, CardHeader, CardBody, Badge, ProgressBar } from "./ui";
 import { ArrowLeft, Shield, TrendingUp, Calendar, Briefcase, DollarSign, Heart, Activity, AlertTriangle, ScanSearch } from "lucide-react";
@@ -67,7 +68,7 @@ function attrColor(val: number): string {
 }
 
 export default function PlayerProfile({ player, gameState, isOwnClub, onClose, onSelectTeam, onGameUpdate }: PlayerProfileProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [scoutStatus, setScoutStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [scoutError, setScoutError] = useState<string | null>(null);
   const ovr = calcOvr(player);
@@ -259,7 +260,7 @@ export default function PlayerProfile({ player, gameState, isOwnClub, onClose, o
           <CardHeader>{t('playerProfile.contractInfo')}</CardHeader>
           <CardBody>
             <div className="flex flex-col gap-3">
-              <InfoRow icon={<Calendar className="w-4 h-4" />} label={t('playerProfile.dateOfBirth')} value={new Date(player.date_of_birth).toLocaleDateString()} />
+              <InfoRow icon={<Calendar className="w-4 h-4" />} label={t('playerProfile.dateOfBirth')} value={formatDate(player.date_of_birth, i18n.language)} />
               <InfoRow icon={<Briefcase className="w-4 h-4" />} label={t('common.contract')} value={player.contract_end ? t('finances.until', { year: player.contract_end.substring(0, 4) }) : t('playerProfile.noContract')} />
               <InfoRow icon={<DollarSign className="w-4 h-4" />} label={t('finances.marketValue')} value={formatValue(player.market_value)} />
               <InfoRow icon={<TrendingUp className="w-4 h-4" />} label={t('playerProfile.weeklyWage')} value={formatWage(player.wage)} />

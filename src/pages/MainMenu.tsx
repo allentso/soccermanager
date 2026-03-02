@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { formatDate } from "../lib/helpers";
 import { useGameStore, GameStateData } from "../store/gameStore";
 import { useTheme } from "../context/ThemeContext";
 import { Button, ThemeToggle } from "../components/ui";
@@ -30,7 +31,7 @@ export default function MainMenu() {
   const setGameActive = useGameStore((state) => state.setGameActive);
   const setGameState = useGameStore((state) => state.setGameState);
   const { isDark } = useTheme();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   
   const [menuState, setMenuState] = useState<"main" | "create" | "world" | "load">("main");
   const [saves, setSaves] = useState<SaveMetadata[]>([]);
@@ -648,7 +649,7 @@ export default function MainMenu() {
                               <span>Manager: {save.manager_name}</span>
                               <div className="flex items-center gap-1">
                                 <Clock className="w-3 h-3" />
-                                <span>{new Date(save.last_played_at).toLocaleDateString()}</span>
+                                <span>{formatDate(save.last_played_at, i18n.language)}</span>
                               </div>
                             </div>
                           </button>

@@ -19,10 +19,13 @@ export default function ContextMenu({ items, children }: ContextMenuProps) {
   const [pos, setPos] = useState({ x: 0, y: 0 });
   const menuRef = useRef<HTMLDivElement>(null);
 
+  const instanceId = useRef(Math.random().toString(36));
+
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    // Position near cursor, clamped to viewport
+    // Close all other context menus first
+    window.dispatchEvent(new CustomEvent("close-context-menus", { detail: instanceId.current }));
     const x = Math.min(e.clientX, window.innerWidth - 200);
     const y = Math.min(e.clientY, window.innerHeight - 300);
     setPos({ x, y });
@@ -30,14 +33,21 @@ export default function ContextMenu({ items, children }: ContextMenuProps) {
   }, []);
 
   useEffect(() => {
+    const closeFromOther = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail !== instanceId.current) setVisible(false);
+    };
+    window.addEventListener("close-context-menus", closeFromOther);
+    return () => window.removeEventListener("close-context-menus", closeFromOther);
+  }, []);
+
+  useEffect(() => {
     if (!visible) return;
     const close = () => setVisible(false);
     window.addEventListener("click", close);
-    window.addEventListener("contextmenu", close);
     window.addEventListener("scroll", close, true);
     return () => {
       window.removeEventListener("click", close);
-      window.removeEventListener("contextmenu", close);
       window.removeEventListener("scroll", close, true);
     };
   }, [visible]);
