@@ -17,22 +17,13 @@ const CURRENCY_OPTIONS = [
   { value: "USD", label: "Dollar ($)", symbol: "$" },
 ] as const;
 
-const MATCH_MODE_OPTIONS = [
-  { value: "live", label: "Go to the Field", desc: "Full match control" },
-  { value: "spectator", label: "Watch as Spectator", desc: "Watch only, no controls" },
-  { value: "delegate", label: "Delegate to Assistant", desc: "AI handles everything" },
-] as const;
-
-const MATCH_SPEED_OPTIONS = [
-  { value: "slow", label: "Slow" },
-  { value: "normal", label: "Normal" },
-  { value: "fast", label: "Fast" },
-] as const;
+const MATCH_MODE_KEYS = ["live", "spectator", "delegate"] as const;
+const MATCH_SPEED_KEYS = ["slow", "normal", "fast"] as const;
 
 export default function Settings() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { settings, loaded, loadSettings, updateSettings } = useSettingsStore();
   const { theme, toggleTheme } = useTheme();
   const [confirmClear, setConfirmClear] = useState(false);
@@ -115,7 +106,7 @@ export default function Settings() {
               <ArrowLeft className="w-5 h-5" />
             </button>
             <h1 className="text-xl font-heading font-bold uppercase tracking-wide text-gray-900 dark:text-white">
-              Settings
+              {t('settings.title')}
             </h1>
           </div>
           <ThemeToggle />
@@ -126,8 +117,8 @@ export default function Settings() {
       <div className="max-w-3xl mx-auto px-6 py-8 flex flex-col gap-8">
 
         {/* ─── Display ─── */}
-        <Section title="Display" icon={<Monitor className="w-5 h-5" />}>
-          <SettingRow label="Theme" description="Choose how the app looks">
+        <Section title={t('settings.display')} icon={<Monitor className="w-5 h-5" />}>
+          <SettingRow label={t('settings.theme')} description={t('settings.themeDesc')}>
             <SegmentedControl
               options={[
                 { value: "light", icon: <Sun className="w-4 h-4" /> },
@@ -139,7 +130,7 @@ export default function Settings() {
             />
           </SettingRow>
 
-          <SettingRow label="Language" description="Choose the display language">
+          <SettingRow label={t('settings.language')} description={t('settings.languageDesc')}>
             <div className="flex items-center gap-2">
               <Globe className="w-4 h-4 text-gray-400" />
               <select
@@ -154,7 +145,7 @@ export default function Settings() {
             </div>
           </SettingRow>
 
-          <SettingRow label="Currency" description="How monetary values are displayed">
+          <SettingRow label={t('settings.currency')} description={t('settings.currencyDesc')}>
             <select
               value={settings.currency}
               onChange={(e) => handleUpdate({ currency: e.target.value as AppSettings["currency"] })}
@@ -168,35 +159,35 @@ export default function Settings() {
         </Section>
 
         {/* ─── Gameplay ─── */}
-        <Section title="Gameplay" icon={<Gamepad2 className="w-5 h-5" />}>
-          <SettingRow label="Default Match Mode" description="How matches start when you press Continue">
+        <Section title={t('settings.gameplay')} icon={<Gamepad2 className="w-5 h-5" />}>
+          <SettingRow label={t('settings.defaultMatchMode')} description={t('settings.defaultMatchModeDesc')}>
             <select
               value={settings.default_match_mode}
               onChange={(e) => handleUpdate({ default_match_mode: e.target.value as AppSettings["default_match_mode"] })}
               className="bg-gray-50 dark:bg-navy-700 border border-gray-300 dark:border-navy-600 text-gray-900 dark:text-white rounded-lg px-3 py-2 text-sm outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all"
             >
-              {MATCH_MODE_OPTIONS.map((m) => (
-                <option key={m.value} value={m.value}>{m.label}</option>
+              {MATCH_MODE_KEYS.map((k) => (
+                <option key={k} value={k}>{t(`settings.matchModes.${k}`)}</option>
               ))}
             </select>
           </SettingRow>
 
-          <SettingRow label="Match Speed" description="Default simulation speed for live matches">
+          <SettingRow label={t('settings.matchSpeed')} description={t('settings.matchSpeedDesc')}>
             <SegmentedControl
-              options={MATCH_SPEED_OPTIONS.map((s) => ({ value: s.value, label: s.label }))}
+              options={MATCH_SPEED_KEYS.map((k) => ({ value: k, label: t(`settings.speeds.${k}`) }))}
               value={settings.match_speed}
               onChange={(v) => handleUpdate({ match_speed: v as AppSettings["match_speed"] })}
             />
           </SettingRow>
 
-          <SettingRow label="Match Commentary" description="Show event commentary during live matches">
+          <SettingRow label={t('settings.matchCommentary')} description={t('settings.matchCommentaryDesc')}>
             <Toggle
               checked={settings.show_match_commentary}
               onChange={(v) => handleUpdate({ show_match_commentary: v })}
             />
           </SettingRow>
 
-          <SettingRow label="Confirm Before Advancing" description="Ask for confirmation before advancing a day">
+          <SettingRow label={t('settings.confirmAdvance')} description={t('settings.confirmAdvanceDesc')}>
             <Toggle
               checked={settings.confirm_advance}
               onChange={(v) => handleUpdate({ confirm_advance: v })}
@@ -205,31 +196,31 @@ export default function Settings() {
         </Section>
 
         {/* ─── Saves & Data ─── */}
-        <Section title="Saves & Data" icon={<Save className="w-5 h-5" />}>
-          <SettingRow label="Auto-Save" description="Automatically save your game after each day">
+        <Section title={t('settings.savesData')} icon={<Save className="w-5 h-5" />}>
+          <SettingRow label={t('settings.autoSave')} description={t('settings.autoSaveDesc')}>
             <Toggle
               checked={settings.auto_save}
               onChange={(v) => handleUpdate({ auto_save: v })}
             />
           </SettingRow>
 
-          <SettingRow label="Export World Database" description="Save the current world data as a shareable JSON file">
+          <SettingRow label={t('settings.exportWorld')} description={t('settings.exportWorldDesc')}>
             <button
               onClick={handleExportWorld}
               className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary-500/10 text-primary-600 dark:text-primary-400 hover:bg-primary-500/20 text-sm font-heading font-bold uppercase tracking-wider transition-colors"
             >
               <Download className="w-4 h-4" />
-              Export
+              {t('settings.export')}
             </button>
           </SettingRow>
           {exportPath && (
-            <p className="text-xs text-primary-500 -mt-2 ml-1">Exported to: {exportPath}</p>
+            <p className="text-xs text-primary-500 -mt-2 ml-1">{t('settings.exportedTo', { path: exportPath })}</p>
           )}
 
           <div className="border-t border-gray-200 dark:border-navy-600 pt-4 mt-2">
             <SettingRow
-              label="Clear All Saves"
-              description="Permanently delete all saved games"
+              label={t('settings.clearSaves')}
+              description={t('settings.clearSavesDesc')}
               danger
             >
               {confirmClear ? (
@@ -238,24 +229,24 @@ export default function Settings() {
                     onClick={handleClearSaves}
                     className="px-4 py-2 rounded-lg bg-red-500 text-white text-sm font-heading font-bold uppercase tracking-wider hover:bg-red-600 transition-colors"
                   >
-                    Confirm
+                    {t('common.confirm')}
                   </button>
                   <button
                     onClick={() => setConfirmClear(false)}
                     className="px-4 py-2 rounded-lg bg-gray-200 dark:bg-navy-600 text-gray-700 dark:text-gray-300 text-sm font-heading font-bold uppercase tracking-wider hover:bg-gray-300 dark:hover:bg-navy-500 transition-colors"
                   >
-                    Cancel
+                    {t('common.cancel')}
                   </button>
                 </div>
               ) : clearSuccess ? (
-                <span className="text-sm text-primary-500 font-heading font-bold uppercase tracking-wider">Saves cleared!</span>
+                <span className="text-sm text-primary-500 font-heading font-bold uppercase tracking-wider">{t('settings.savesCleared')}</span>
               ) : (
                 <button
                   onClick={() => setConfirmClear(true)}
                   className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 text-sm font-heading font-bold uppercase tracking-wider transition-colors"
                 >
                   <Trash2 className="w-4 h-4" />
-                  Clear
+                  {t('settings.clear')}
                 </button>
               )}
             </SettingRow>
@@ -263,7 +254,7 @@ export default function Settings() {
         </Section>
 
         {/* ─── About ─── */}
-        <Section title="About" icon={<Zap className="w-5 h-5" />}>
+        <Section title={t('settings.about')} icon={<Zap className="w-5 h-5" />}>
           <div className="flex justify-between items-center">
             <div>
               <p className="text-sm font-medium text-gray-800 dark:text-gray-200">OpenFoot Manager</p>
