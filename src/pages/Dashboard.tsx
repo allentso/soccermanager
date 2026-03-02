@@ -578,6 +578,45 @@ export default function Dashboard() {
 
         {/* Dashboard Content */}
         <div className="flex-1 overflow-auto p-6 bg-gray-100 dark:bg-navy-900">
+          {/* Global Notifications Banner */}
+          {!selectedPlayerId && !selectedTeamId && gameState && (() => {
+            const alerts: { id: string; text: string; tab: string; severity: "warn" | "info" }[] = [];
+            const myTeam = gameState.teams.find(tm => tm.id === gameState.manager.team_id);
+            const roster = myTeam ? gameState.players.filter(p => p.team_id === myTeam.id) : [];
+            const exhausted = roster.filter(p => p.condition < 25).length;
+            const injured = roster.filter(p => p.injury).length;
+            const urgentUnread = (gameState.messages || []).filter(m => !m.read && m.priority === "Urgent").length;
+            const startingXi = myTeam?.starting_xi_ids || [];
+            const xiCount = startingXi.filter(id => roster.some(p => p.id === id)).length;
+
+            if (exhausted >= 3) alerts.push({ id: "exhausted", text: `${exhausted} players in critical condition (<25%)`, tab: "Training", severity: "warn" });
+            if (injured >= 2) alerts.push({ id: "injured", text: `${injured} players injured`, tab: "Squad", severity: "info" });
+            if (xiCount < 11 && roster.length >= 11) alerts.push({ id: "xi", text: "Starting XI incomplete — set your lineup", tab: "Squad", severity: "warn" });
+            if (urgentUnread > 0) alerts.push({ id: "urgent", text: `${urgentUnread} urgent message${urgentUnread > 1 ? "s" : ""} unread`, tab: "Inbox", severity: "warn" });
+            if (hasMatchToday && xiCount < 11) alerts.push({ id: "matchxi", text: "Match today! Set your starting XI", tab: "Squad", severity: "warn" });
+
+            if (alerts.length === 0) return null;
+            return (
+              <div className="mb-4 flex flex-col gap-1.5">
+                {alerts.map(a => (
+                  <button
+                    key={a.id}
+                    onClick={() => handleNavigate(a.tab)}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-heading font-bold uppercase tracking-wider transition-all ${
+                      a.severity === "warn"
+                        ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 hover:bg-amber-500/20"
+                        : "bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 hover:bg-blue-500/20"
+                    }`}
+                  >
+                    <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                    <span className="flex-1 text-left">{a.text}</span>
+                    <ChevronRight className="w-3 h-3" />
+                  </button>
+                ))}
+              </div>
+            );
+          })()}
+
           {/* Inline Player Profile Page */}
           {selectedPlayerId && !selectedTeamId && (() => {
             const player = gameState.players.find(p => p.id === selectedPlayerId);
