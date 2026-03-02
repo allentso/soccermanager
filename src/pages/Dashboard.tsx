@@ -16,12 +16,13 @@ import PlayersListTab from "../components/PlayersListTab";
 import TeamsListTab from "../components/TeamsListTab";
 import TournamentsTab from "../components/TournamentsTab";
 import ScoutingTab from "../components/ScoutingTab";
+import YouthAcademyTab from "../components/YouthAcademyTab";
 import StaffTab from "../components/StaffTab";
 import InboxTab from "../components/InboxTab";
 import ManagerTab from "../components/ManagerTab";
 import NewsTab from "../components/NewsTab";
 import EndOfSeasonScreen from "../components/EndOfSeasonScreen";
-import { Users, Calendar as CalendarIcon, Mail, Settings, ChevronRight, ChevronDown, Briefcase, Trophy, TrendingUp, Crosshair, Dumbbell, DollarSign, Search, User, UsersRound, Building2, UserCog, Newspaper, LogOut, ArrowLeft, Eye, Cpu, Gamepad2, AlertCircle, Save } from "lucide-react";
+import { Users, Calendar as CalendarIcon, Mail, Settings, ChevronRight, ChevronDown, Briefcase, Trophy, TrendingUp, Crosshair, Dumbbell, DollarSign, Search, User, UsersRound, Building2, UserCog, Newspaper, LogOut, ArrowLeft, Eye, Cpu, Gamepad2, AlertCircle, Save, GraduationCap } from "lucide-react";
 import { getTeamName } from "../lib/helpers";
 import { useTranslation } from "react-i18next";
 import { useSettingsStore } from "../store/settingsStore";
@@ -291,6 +292,7 @@ export default function Dashboard() {
           <NavItem icon={<Dumbbell />} label={t('dashboard.training')} active={activeTab === "Training"} onClick={() => handleNavClick("Training")} />
           <NavItem icon={<UserCog />} label={t('dashboard.staff')} active={activeTab === "Staff"} onClick={() => handleNavClick("Staff")} />
           <NavItem icon={<Eye />} label="Scouting" active={activeTab === "Scouting"} onClick={() => handleNavClick("Scouting")} />
+          <NavItem icon={<GraduationCap />} label="Youth Academy" active={activeTab === "Youth"} onClick={() => handleNavClick("Youth")} />
           <NavItem icon={<DollarSign />} label={t('dashboard.finances')} active={activeTab === "Finances"} onClick={() => handleNavClick("Finances")} />
           <NavItem icon={<TrendingUp />} label={t('dashboard.transfers')} active={activeTab === "Transfers"} onClick={() => handleNavClick("Transfers")} />
 
@@ -702,6 +704,10 @@ export default function Dashboard() {
 
           {!selectedPlayerId && !selectedTeamId && activeTab === "Scouting" && (
             <ScoutingTab gameState={gameState} onGameUpdate={setGameState} onSelectPlayer={selectPlayer} />
+          )}
+
+          {!selectedPlayerId && !selectedTeamId && activeTab === "Youth" && (
+            <YouthAcademyTab gameState={gameState} onSelectPlayer={selectPlayer} />
           )}
 
           {!selectedPlayerId && !selectedTeamId && activeTab === "Inbox" && (
