@@ -323,15 +323,15 @@ export default function TransfersTab({ gameState, onSelectPlayer, onSelectTeam, 
       {bidTarget && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setBidTarget(null)}>
           <div className="bg-white dark:bg-navy-800 rounded-xl shadow-2xl border border-gray-200 dark:border-navy-600 p-6 w-full max-w-sm" onClick={e => e.stopPropagation()}>
-            <h3 className="text-sm font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3">Make Transfer Bid</h3>
+            <h3 className="text-sm font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3">{t('transfers.makeBid')}</h3>
             <div className="flex items-center gap-3 mb-4">
               <Badge variant={positionBadgeVariant(bidTarget.position)} size="sm">{bidTarget.position.substring(0, 3).toUpperCase()}</Badge>
               <div>
                 <p className="font-semibold text-sm text-gray-800 dark:text-gray-200">{bidTarget.full_name}</p>
-                <p className="text-xs text-gray-400">{getTeamName(gameState.teams, bidTarget.team_id)} • Value: {formatVal(bidTarget.market_value)}</p>
+                <p className="text-xs text-gray-400">{getTeamName(gameState.teams, bidTarget.team_id)} • {t('transfers.playerValue', { value: formatVal(bidTarget.market_value) })}</p>
               </div>
             </div>
-            <label className="text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1 block">Bid Amount (€M)</label>
+            <label className="text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1 block">{t('transfers.bidAmount')}</label>
             <input
               type="number"
               step="0.1"
@@ -342,7 +342,7 @@ export default function TransfersTab({ gameState, onSelectPlayer, onSelectTeam, 
             />
             {bidResult && (
               <div className={`text-xs font-heading font-bold uppercase tracking-wider mb-3 ${bidResult === "accepted" ? "text-green-500" : bidResult === "rejected" ? "text-red-500" : "text-amber-500"}`}>
-                {bidResult === "accepted" ? "Bid accepted! Player signed." : bidResult === "rejected" ? "Bid rejected — offer too low." : bidResult}
+                {bidResult === "accepted" ? t('transfers.bidAccepted') : bidResult === "rejected" ? t('transfers.bidRejected') : bidResult}
               </div>
             )}
             <div className="flex gap-2">
@@ -351,13 +351,13 @@ export default function TransfersTab({ gameState, onSelectPlayer, onSelectTeam, 
                 disabled={bidLoading || bidResult === "accepted"}
                 className="flex-1 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg font-heading font-bold text-sm uppercase tracking-wider transition-colors disabled:opacity-50"
               >
-                {bidLoading ? "Submitting..." : "Submit Bid"}
+                {bidLoading ? t('transfers.submitting') : t('transfers.submitBid')}
               </button>
               <button
                 onClick={() => setBidTarget(null)}
                 className="px-4 py-2 bg-gray-200 dark:bg-navy-700 text-gray-600 dark:text-gray-300 rounded-lg font-heading font-bold text-sm uppercase tracking-wider hover:bg-gray-300 dark:hover:bg-navy-600 transition-colors"
               >
-                Close
+                {t('transfers.close')}
               </button>
             </div>
           </div>

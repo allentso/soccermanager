@@ -486,7 +486,15 @@
     "transfer": "Transfer",
     "loan": "Loan",
     "none": "None",
-    "listed": "Listed"
+    "listed": "Listed",
+    "makeBid": "Make Transfer Bid",
+    "playerValue": "Value: {{value}}",
+    "bidAmount": "Bid Amount (€M)",
+    "bidAccepted": "Bid accepted! Player signed.",
+    "bidRejected": "Bid rejected — offer too low.",
+    "submitting": "Submitting...",
+    "submitBid": "Submit Bid",
+    "close": "Close"
   },
   "schedule": {
     "noSchedule": "No league schedule available.",
