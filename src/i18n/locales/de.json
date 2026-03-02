@@ -11,7 +11,11 @@
     "loadingSaves": "Lade Spielstände...",
     "deleteConfirm": "<strong>{{name}}</strong> löschen?",
     "delete": "Löschen",
-    "cancel": "Abbrechen"
+    "cancel": "Abbrechen",
+    "manager": "Trainer: {{name}}",
+    "deleteSave": "Spielstand löschen",
+    "noResults": "Keine Ergebnisse",
+    "importedDescription": "Importierte Weltdatenbank"
   },
   "createManager": {
     "title": "Trainer Erstellen",
@@ -66,7 +70,9 @@
     "noResults": "Keine Ergebnisse gefunden.",
     "searchPlaceholder": "Spieler, Teams suchen...",
     "sectionClub": "Verein",
-    "sectionWorld": "Welt"
+    "sectionWorld": "Welt",
+    "searchTeams": "Teams",
+    "searchPlayers": "Spieler"
   },
   "continueMenu": {
     "goToField": "Aufs Spielfeld",
@@ -115,7 +121,59 @@
     "recentMessages": "Letzte Nachrichten",
     "viewAll": "Alle anzeigen",
     "noMessages": "Keine aktuellen Nachrichten.",
-    "unreadMessages": "{{count}} ungelesene Nachricht(en)"
+    "unreadMessages": "{{count}} ungelesene Nachricht(en)",
+    "playerMomentum": "Spielerdynamik",
+    "inForm": "In Form",
+    "lowMorale": "Niedrige Moral",
+    "winningStreak": "Siegesserie!",
+    "losingStreak": "Niederlagenserie",
+    "unbeatenRun": "Ungeschlagen",
+    "scheduleLabel": "Zeitplan:",
+    "home": "Heim",
+    "away": "Auswärts",
+    "matchdayN": "Spieltag {{n}}",
+    "met": "Erfüllt",
+    "inProgress": "In Bearbeitung",
+    "objectivesMet": "{{done}}/{{total}} Ziele erreicht — Zufriedenheit des Vorstands: {{pct}}%"
+  },
+  "teamSelect": {
+    "title": "Wähle Deinen Verein",
+    "subtitle": "Wähle das Team, das du trainieren möchtest",
+    "confirming": "Bestätige...",
+    "manage": "{{name}} trainieren",
+    "reputation": "Ruf",
+    "squad": "Kader",
+    "finances": "Finanzen",
+    "avgOvr": "Ø OVR",
+    "seats": "{{name}} — {{capacity}} Plätze",
+    "repWorldClass": "Weltklasse",
+    "repStrong": "Stark",
+    "repAverage": "Durchschnittlich",
+    "repDeveloping": "In Entwicklung"
+  },
+  "youthAcademy": {
+    "title": "Jugendakademie",
+    "playersUnder21": "{{count}} Spieler ≤21",
+    "youthPlayers": "Jugendspieler",
+    "avgOvr": "Ø OVR",
+    "avgPotential": "Ø Potenzial",
+    "highPotential": "Hohes Potenzial",
+    "youthCoach": "Jugendtrainer:",
+    "youthProspects": "Jugendtalente",
+    "noYouthPlayers": "Keine Jugendspieler (≤21) in deinem Kader.",
+    "player": "Spieler",
+    "pos": "Pos",
+    "age": "Alter",
+    "ovr": "OVR",
+    "potential": "Potenzial",
+    "growth": "Wachstum",
+    "traits": "Eigenschaften",
+    "condition": "Zustand",
+    "potWorldClass": "Weltklasse",
+    "potExcellent": "Hervorragend",
+    "potPromising": "Vielversprechend",
+    "potDecent": "Ordentlich",
+    "potLimited": "Begrenzt"
   },
   "common": {
     "loading": "Laden...",
@@ -191,6 +249,20 @@
       "Possession": "Ballbesitz",
       "Counter": "Konter",
       "HighPress": "Hohes Pressing"
+    },
+    "trainingSchedules": {
+      "Intense": "Intensiv",
+      "Balanced": "Ausgewogen",
+      "Light": "Leicht"
+    },
+    "trainingFocuses": {
+      "Physical": "Physisch",
+      "Technical": "Technisch",
+      "Tactical": "Taktisch",
+      "Defending": "Defensiv",
+      "Attacking": "Offensiv",
+      "Recovery": "Erholung",
+      "General": "Allgemein"
     },
     "attributes": {
       "pace": "Tempo",

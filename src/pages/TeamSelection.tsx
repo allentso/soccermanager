@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useGameStore, GameStateData, PlayerData } from "../store/gameStore";
 import { Card, CardBody, Badge, ThemeToggle } from "../components/ui";
 import { ArrowLeft, Users, MapPin, Trophy, Landmark, ChevronRight, Star } from "lucide-react";
 
 export default function TeamSelection() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { gameState, setGameState, setGameActive } = useGameStore();
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
@@ -36,10 +38,10 @@ export default function TeamSelection() {
   };
 
   const getReputationLabel = (rep: number): { label: string; variant: "primary" | "accent" | "success" | "danger" | "neutral" } => {
-    if (rep >= 750) return { label: "World Class", variant: "accent" };
-    if (rep >= 600) return { label: "Strong", variant: "success" };
-    if (rep >= 400) return { label: "Average", variant: "neutral" };
-    return { label: "Developing", variant: "danger" };
+    if (rep >= 750) return { label: t('teamSelect.repWorldClass'), variant: "accent" };
+    if (rep >= 600) return { label: t('teamSelect.repStrong'), variant: "success" };
+    if (rep >= 400) return { label: t('teamSelect.repAverage'), variant: "neutral" };
+    return { label: t('teamSelect.repDeveloping'), variant: "danger" };
   };
 
   const formatFinance = (val: number): string => {
@@ -80,10 +82,10 @@ export default function TeamSelection() {
           </button>
           <div>
             <h1 className="text-xl font-heading font-bold uppercase tracking-wide text-gray-800 dark:text-gray-100">
-              Choose Your Club
+              {t('teamSelect.title')}
             </h1>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-              Select the team you want to manage
+              {t('teamSelect.subtitle')}
             </p>
           </div>
         </div>
@@ -95,7 +97,7 @@ export default function TeamSelection() {
               disabled={isConfirming}
               className={`bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white px-6 py-2.5 rounded-lg font-heading font-bold uppercase tracking-wider text-sm shadow-md hover:shadow-lg hover:shadow-primary-500/20 transition-all flex items-center gap-2 ${isConfirming ? "opacity-70 cursor-wait" : ""}`}
             >
-              <span>{isConfirming ? "Confirming..." : `Manage ${selectedTeam.short_name}`}</span>
+              <span>{isConfirming ? t('teamSelect.confirming') : t('teamSelect.manage', { name: selectedTeam.short_name })}</span>
               <ChevronRight className="w-4 h-4" />
             </button>
           )}
@@ -159,22 +161,22 @@ export default function TeamSelection() {
                     <div className="grid grid-cols-2 gap-3">
                       <StatItem
                         icon={<Trophy className="w-3.5 h-3.5" />}
-                        label="Reputation"
+                        label={t('teamSelect.reputation')}
                         value={<Badge variant={repInfo.variant} size="sm">{repInfo.label}</Badge>}
                       />
                       <StatItem
                         icon={<Users className="w-3.5 h-3.5" />}
-                        label="Squad"
+                        label={t('teamSelect.squad')}
                         value={<span className="font-heading font-bold text-gray-800 dark:text-gray-200">{playerCount}</span>}
                       />
                       <StatItem
                         icon={<Landmark className="w-3.5 h-3.5" />}
-                        label="Finances"
+                        label={t('teamSelect.finances')}
                         value={<span className="font-heading font-bold text-gray-800 dark:text-gray-200">{formatFinance(team.finance)}</span>}
                       />
                       <StatItem
                         icon={<Star className="w-3.5 h-3.5" />}
-                        label="Avg OVR"
+                        label={t('teamSelect.avgOvr')}
                         value={
                           <span className={`font-heading font-bold text-lg ${
                             avgOvr >= 70 ? "text-primary-500" :
@@ -188,7 +190,7 @@ export default function TeamSelection() {
                     {/* Stadium */}
                     <div className="mt-3 pt-3 border-t border-gray-100 dark:border-navy-600">
                       <p className="text-xs text-gray-400 dark:text-gray-500">
-                        {team.stadium_name} — {team.stadium_capacity.toLocaleString()} seats
+                        {t('teamSelect.seats', { name: team.stadium_name, capacity: team.stadium_capacity.toLocaleString() })}
                       </p>
                     </div>
                   </CardBody>

@@ -11,7 +11,11 @@
     "loadingSaves": "Chargement des sauvegardes...",
     "deleteConfirm": "Supprimer <strong>{{name}}</strong> ?",
     "delete": "Supprimer",
-    "cancel": "Annuler"
+    "cancel": "Annuler",
+    "manager": "Entraîneur : {{name}}",
+    "deleteSave": "Supprimer la sauvegarde",
+    "noResults": "Aucun résultat",
+    "importedDescription": "Base de données de monde importée"
   },
   "createManager": {
     "title": "Créer un Entraîneur",
@@ -66,7 +70,9 @@
     "noResults": "Aucun résultat trouvé.",
     "searchPlaceholder": "Rechercher joueurs, équipes...",
     "sectionClub": "Club",
-    "sectionWorld": "Monde"
+    "sectionWorld": "Monde",
+    "searchTeams": "Équipes",
+    "searchPlayers": "Joueurs"
   },
   "continueMenu": {
     "goToField": "Aller sur le Terrain",
@@ -115,7 +121,59 @@
     "recentMessages": "Messages Récents",
     "viewAll": "Voir Tout",
     "noMessages": "Aucun message récent.",
-    "unreadMessages": "{{count}} message(s) non lu(s)"
+    "unreadMessages": "{{count}} message(s) non lu(s)",
+    "playerMomentum": "Dynamique des Joueurs",
+    "inForm": "En Forme",
+    "lowMorale": "Moral Bas",
+    "winningStreak": "Série de victoires !",
+    "losingStreak": "Série de défaites",
+    "unbeatenRun": "Série d'invincibilité",
+    "scheduleLabel": "Programme :",
+    "home": "Domicile",
+    "away": "Extérieur",
+    "matchdayN": "Journée {{n}}",
+    "met": "Atteint",
+    "inProgress": "En Cours",
+    "objectivesMet": "{{done}}/{{total}} objectifs atteints — Satisfaction du conseil : {{pct}}%"
+  },
+  "teamSelect": {
+    "title": "Choisissez Votre Club",
+    "subtitle": "Sélectionnez l'équipe que vous voulez entraîner",
+    "confirming": "Confirmation...",
+    "manage": "Entraîner {{name}}",
+    "reputation": "Réputation",
+    "squad": "Effectif",
+    "finances": "Finances",
+    "avgOvr": "Moy. OVR",
+    "seats": "{{name}} — {{capacity}} places",
+    "repWorldClass": "Classe Mondiale",
+    "repStrong": "Solide",
+    "repAverage": "Moyen",
+    "repDeveloping": "En Développement"
+  },
+  "youthAcademy": {
+    "title": "Académie des Jeunes",
+    "playersUnder21": "{{count}} joueurs ≤21",
+    "youthPlayers": "Joueurs Jeunes",
+    "avgOvr": "Moy. OVR",
+    "avgPotential": "Moy. Potentiel",
+    "highPotential": "Haut Potentiel",
+    "youthCoach": "Entraîneur des Jeunes :",
+    "youthProspects": "Espoirs",
+    "noYouthPlayers": "Aucun joueur jeune (≤21) dans votre effectif.",
+    "player": "Joueur",
+    "pos": "Pos",
+    "age": "Âge",
+    "ovr": "OVR",
+    "potential": "Potentiel",
+    "growth": "Croissance",
+    "traits": "Traits",
+    "condition": "Condition",
+    "potWorldClass": "Classe Mondiale",
+    "potExcellent": "Excellent",
+    "potPromising": "Prometteur",
+    "potDecent": "Correct",
+    "potLimited": "Limité"
   },
   "common": {
     "loading": "Chargement...",
@@ -191,6 +249,20 @@
       "Possession": "Possession",
       "Counter": "Contre-Attaque",
       "HighPress": "Pressing Haut"
+    },
+    "trainingSchedules": {
+      "Intense": "Intense",
+      "Balanced": "Équilibré",
+      "Light": "Léger"
+    },
+    "trainingFocuses": {
+      "Physical": "Physique",
+      "Technical": "Technique",
+      "Tactical": "Tactique",
+      "Defending": "Défensif",
+      "Attacking": "Offensif",
+      "Recovery": "Récupération",
+      "General": "Général"
     },
     "attributes": {
       "pace": "Vitesse",

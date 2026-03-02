@@ -11,7 +11,11 @@
     "loadingSaves": "Cargando partidas...",
     "deleteConfirm": "¿Eliminar <strong>{{name}}</strong>?",
     "delete": "Eliminar",
-    "cancel": "Cancelar"
+    "cancel": "Cancelar",
+    "manager": "Entrenador: {{name}}",
+    "deleteSave": "Eliminar partida",
+    "noResults": "Sin resultados",
+    "importedDescription": "Base de datos de mundo importada"
   },
   "createManager": {
     "title": "Crear Entrenador",
@@ -66,7 +70,9 @@
     "noResults": "No se encontraron resultados.",
     "searchPlaceholder": "Buscar jugadores, equipos...",
     "sectionClub": "Club",
-    "sectionWorld": "Mundo"
+    "sectionWorld": "Mundo",
+    "searchTeams": "Equipos",
+    "searchPlayers": "Jugadores"
   },
   "continueMenu": {
     "goToField": "Ir al Campo",
@@ -100,9 +106,16 @@
   },
   "home": {
     "nextMatch": "Próximo Partido",
-    "leaguePosition": "Posición en Liga",
-    "standings": "Clasificación",
-    "noLeague": "Sin datos de liga todavía.",
+    "boardObjectives": "Objetivos de la Directiva",
+    "seasonComplete": "Temporada finalizada.",
+    "noLeagueSchedule": "Sin datos de liga.",
+    "scheduleLabel": "Horario:",
+    "home": "Local",
+    "away": "Visitante",
+    "matchdayN": "Jornada {{n}}",
+    "met": "Cumplido",
+    "inProgress": "En Progreso",
+    "objectivesMet": "{{done}}/{{total}} objetivos cumplidos — Satisfacción de la directiva: {{pct}}%",
     "squadOverview": "Resumen de Plantilla",
     "avgCondition": "Condición Media",
     "avgOvr": "Media OVR",
@@ -115,7 +128,16 @@
     "recentMessages": "Mensajes Recientes",
     "viewAll": "Ver Todo",
     "noMessages": "Sin mensajes recientes.",
-    "unreadMessages": "{{count}} mensaje(s) sin leer"
+    "unreadMessages": "{{count}} mensaje(s) sin leer",
+    "playerMomentum": "Momento de Jugadores",
+    "inForm": "En Forma",
+    "lowMorale": "Moral Baja",
+    "winningStreak": "¡Racha ganadora!",
+    "losingStreak": "Racha perdedora",
+    "unbeatenRun": "Racha invicta",
+    "leaguePosition": "Posición en Liga",
+    "standings": "Clasificación",
+    "noLeague": "Sin datos de liga todavía."
   },
   "common": {
     "loading": "Cargando...",
@@ -191,6 +213,20 @@
       "Possession": "Posesión",
       "Counter": "Contraataque",
       "HighPress": "Presión Alta"
+    },
+    "trainingSchedules": {
+      "Intense": "Intenso",
+      "Balanced": "Equilibrado",
+      "Light": "Ligero"
+    },
+    "trainingFocuses": {
+      "Physical": "Físico",
+      "Technical": "Técnico",
+      "Tactical": "Táctico",
+      "Defending": "Defensivo",
+      "Attacking": "Ofensivo",
+      "Recovery": "Recuperación",
+      "General": "General"
     },
     "attributes": {
       "pace": "Velocidad",

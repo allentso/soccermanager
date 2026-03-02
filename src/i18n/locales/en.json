@@ -11,7 +11,11 @@
     "loadingSaves": "Loading saves...",
     "deleteConfirm": "Delete <strong>{{name}}</strong>?",
     "delete": "Delete",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "manager": "Manager: {{name}}",
+    "deleteSave": "Delete save",
+    "noResults": "No results",
+    "importedDescription": "Imported world database"
   },
   "createManager": {
     "title": "Create Manager",
@@ -66,7 +70,9 @@
     "noResults": "No results found.",
     "searchPlaceholder": "Search players, teams...",
     "sectionClub": "Club",
-    "sectionWorld": "World"
+    "sectionWorld": "World",
+    "searchTeams": "Teams",
+    "searchPlayers": "Players"
   },
   "continueMenu": {
     "goToField": "Go to the Field",
@@ -126,7 +132,53 @@
     "unbeatenRun": "Unbeaten run",
     "boardObjectives": "Board Objectives",
     "seasonComplete": "Season complete.",
-    "noLeagueSchedule": "No league data."
+    "noLeagueSchedule": "No league data.",
+    "scheduleLabel": "Schedule:",
+    "home": "Home",
+    "away": "Away",
+    "matchdayN": "Matchday {{n}}",
+    "met": "Met",
+    "inProgress": "In Progress",
+    "objectivesMet": "{{done}}/{{total}} objectives met — Board satisfaction: {{pct}}%"
+  },
+  "teamSelect": {
+    "title": "Choose Your Club",
+    "subtitle": "Select the team you want to manage",
+    "confirming": "Confirming...",
+    "manage": "Manage {{name}}",
+    "reputation": "Reputation",
+    "squad": "Squad",
+    "finances": "Finances",
+    "avgOvr": "Avg OVR",
+    "seats": "{{name}} — {{capacity}} seats",
+    "repWorldClass": "World Class",
+    "repStrong": "Strong",
+    "repAverage": "Average",
+    "repDeveloping": "Developing"
+  },
+  "youthAcademy": {
+    "title": "Youth Academy",
+    "playersUnder21": "{{count}} players ≤21",
+    "youthPlayers": "Youth Players",
+    "avgOvr": "Avg OVR",
+    "avgPotential": "Avg Potential",
+    "highPotential": "High Potential",
+    "youthCoach": "Youth Coach:",
+    "youthProspects": "Youth Prospects",
+    "noYouthPlayers": "No youth players (≤21) in your squad.",
+    "player": "Player",
+    "pos": "Pos",
+    "age": "Age",
+    "ovr": "OVR",
+    "potential": "Potential",
+    "growth": "Growth",
+    "traits": "Traits",
+    "condition": "Condition",
+    "potWorldClass": "World Class",
+    "potExcellent": "Excellent",
+    "potPromising": "Promising",
+    "potDecent": "Decent",
+    "potLimited": "Limited"
   },
   "common": {
     "loading": "Loading...",
@@ -202,6 +254,20 @@
       "Possession": "Possession",
       "Counter": "Counter",
       "HighPress": "High Press"
+    },
+    "trainingSchedules": {
+      "Intense": "Intense",
+      "Balanced": "Balanced",
+      "Light": "Light"
+    },
+    "trainingFocuses": {
+      "Physical": "Physical",
+      "Technical": "Technical",
+      "Tactical": "Tactical",
+      "Defending": "Defending",
+      "Attacking": "Attacking",
+      "Recovery": "Recovery",
+      "General": "General"
     },
     "attributes": {
       "pace": "Pace",

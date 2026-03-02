@@ -533,7 +533,7 @@ export default function Dashboard() {
                     <>
                       {matchedTeams.length > 0 && (
                         <div>
-                          <p className="px-3 pt-2 pb-1 text-xs font-heading font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">Teams</p>
+                          <p className="px-3 pt-2 pb-1 text-xs font-heading font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">{t('dashboard.searchTeams')}</p>
                           {matchedTeams.map(t => (
                             <button key={t.id} onMouseDown={() => { setSelectedTeamId(t.id); setSearchQuery(""); }} className="w-full text-left px-3 py-2 hover:bg-gray-50 dark:hover:bg-navy-600 flex items-center gap-2 transition-colors">
                               <div className="w-6 h-6 rounded flex items-center justify-center text-xs font-bold text-white" style={{ backgroundColor: t.colors.primary }}>{t.short_name.charAt(0)}</div>
@@ -545,7 +545,7 @@ export default function Dashboard() {
                       )}
                       {matchedPlayers.length > 0 && (
                         <div>
-                          <p className="px-3 pt-2 pb-1 text-xs font-heading font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">Players</p>
+                          <p className="px-3 pt-2 pb-1 text-xs font-heading font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">{t('dashboard.searchPlayers')}</p>
                           {matchedPlayers.map(p => (
                             <button key={p.id} onMouseDown={() => { setSelectedPlayerId(p.id); setSearchQuery(""); }} className="w-full text-left px-3 py-2 hover:bg-gray-50 dark:hover:bg-navy-600 flex items-center gap-2 transition-colors">
                               <Badge variant={p.position === "Goalkeeper" ? "accent" : p.position === "Defender" ? "primary" : p.position === "Midfielder" ? "success" : "danger"} size="sm">{p.position.substring(0, 3).toUpperCase()}</Badge>

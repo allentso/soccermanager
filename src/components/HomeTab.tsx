@@ -15,10 +15,10 @@ interface HomeTabProps {
   onNavigate?: (tab: string, context?: { messageId?: string }) => void;
 }
 
-const SCHEDULE_META: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
-  Intense:  { label: "Intense",  icon: <Flame className="w-3.5 h-3.5" />,   color: "text-red-500" },
-  Balanced: { label: "Balanced", icon: <Scale className="w-3.5 h-3.5" />,   color: "text-primary-500" },
-  Light:    { label: "Light",    icon: <Feather className="w-3.5 h-3.5" />, color: "text-blue-500" },
+const SCHEDULE_ICONS: Record<string, { icon: React.ReactNode; color: string }> = {
+  Intense:  { icon: <Flame className="w-3.5 h-3.5" />,   color: "text-red-500" },
+  Balanced: { icon: <Scale className="w-3.5 h-3.5" />,   color: "text-primary-500" },
+  Light:    { icon: <Feather className="w-3.5 h-3.5" />, color: "text-blue-500" },
 };
 
 export default function HomeTab({ gameState, onNavigate }: HomeTabProps) {
@@ -58,7 +58,8 @@ export default function HomeTab({ gameState, onNavigate }: HomeTabProps) {
 
   // Training schedule
   const schedule = myTeam?.training_schedule || "Balanced";
-  const schedMeta = SCHEDULE_META[schedule] || SCHEDULE_META.Balanced;
+  const schedIcons = SCHEDULE_ICONS[schedule] || SCHEDULE_ICONS.Balanced;
+  const schedLabel = t(`common.trainingSchedules.${schedule}`, schedule);
   const focus = myTeam?.training_focus || "Physical";
 
   // Latest news
@@ -217,9 +218,9 @@ export default function HomeTab({ gameState, onNavigate }: HomeTabProps) {
                           </span>
                         ))}
                       </div>
-                      {winStreak && <span className="text-[10px] font-heading font-bold text-green-500 uppercase tracking-wider">Winning streak!</span>}
-                      {loseStreak && <span className="text-[10px] font-heading font-bold text-red-500 uppercase tracking-wider">Losing streak</span>}
-                      {!winStreak && !loseStreak && unbeaten && <span className="text-[10px] font-heading font-bold text-primary-500 uppercase tracking-wider">Unbeaten run</span>}
+                      {winStreak && <span className="text-[10px] font-heading font-bold text-green-500 uppercase tracking-wider">{t('home.winningStreak')}</span>}
+                      {loseStreak && <span className="text-[10px] font-heading font-bold text-red-500 uppercase tracking-wider">{t('home.losingStreak')}</span>}
+                      {!winStreak && !loseStreak && unbeaten && <span className="text-[10px] font-heading font-bold text-primary-500 uppercase tracking-wider">{t('home.unbeatenRun')}</span>}
                     </div>
                   );
                 })()}
@@ -251,14 +252,14 @@ export default function HomeTab({ gameState, onNavigate }: HomeTabProps) {
                     {obj.description}
                   </span>
                   <Badge variant={obj.met ? "success" : "neutral"} size="sm" className="ml-auto">
-                    {obj.met ? "Met" : "In Progress"}
+                    {obj.met ? t('home.met') : t('home.inProgress')}
                   </Badge>
                 </div>
               ))}
             </div>
             <div className="mt-3 pt-2 border-t border-gray-100 dark:border-navy-700">
               <p className="text-[10px] text-gray-400 dark:text-gray-500">
-                {(gameState.board_objectives || []).filter(o => o.met).length}/{(gameState.board_objectives || []).length} objectives met — Board satisfaction: {gameState.manager.satisfaction}%
+                {t('home.objectivesMet', { done: (gameState.board_objectives || []).filter(o => o.met).length, total: (gameState.board_objectives || []).length, pct: gameState.manager.satisfaction })}
               </p>
             </div>
           </CardBody>
@@ -271,7 +272,7 @@ export default function HomeTab({ gameState, onNavigate }: HomeTabProps) {
           <CardHeader
             action={
               <button onClick={() => onNavigate?.("Training")} className="text-primary-500 dark:text-primary-400 text-xs font-heading font-bold uppercase tracking-wider hover:text-primary-600 dark:hover:text-primary-300 transition-colors">
-                Training
+                {t('dashboard.training')}
               </button>
             }
           >
@@ -299,11 +300,11 @@ export default function HomeTab({ gameState, onNavigate }: HomeTabProps) {
 
               <div className="mt-2 pt-2 border-t border-gray-100 dark:border-navy-700 flex items-center gap-2">
                 <Dumbbell className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500" />
-                <span className="text-xs text-gray-500 dark:text-gray-400">Schedule:</span>
-                <span className={`text-xs font-heading font-bold flex items-center gap-1 ${schedMeta.color}`}>
-                  {schedMeta.icon} {schedMeta.label}
+                <span className="text-xs text-gray-500 dark:text-gray-400">{t('home.scheduleLabel')}</span>
+                <span className={`text-xs font-heading font-bold flex items-center gap-1 ${schedIcons.color}`}>
+                  {schedIcons.icon} {schedLabel}
                 </span>
-                <span className="text-xs text-gray-400 dark:text-gray-500 ml-auto">{focus}</span>
+                <span className="text-xs text-gray-400 dark:text-gray-500 ml-auto">{t(`common.trainingFocuses.${focus}`, focus)}</span>
               </div>
             </div>
           </CardBody>
@@ -314,7 +315,7 @@ export default function HomeTab({ gameState, onNavigate }: HomeTabProps) {
           <CardHeader
             action={
               <button onClick={() => onNavigate?.("Schedule")} className="text-primary-500 dark:text-primary-400 text-xs font-heading font-bold uppercase tracking-wider hover:text-primary-600 dark:hover:text-primary-300 transition-colors">
-                Schedule
+                {t('dashboard.schedule')}
               </button>
             }
           >
@@ -338,7 +339,7 @@ export default function HomeTab({ gameState, onNavigate }: HomeTabProps) {
                       }`}>
                         {res}
                       </span>
-                      <span className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0 w-6">{isHome ? "H" : "A"}</span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0 w-6">{isHome ? t('home.home').charAt(0) : t('home.away').charAt(0)}</span>
                       <span className="text-sm font-medium text-gray-800 dark:text-gray-200 flex-1 truncate">
                         {getTeamName(gameState.teams, oppId)}
                       </span>
@@ -358,7 +359,7 @@ export default function HomeTab({ gameState, onNavigate }: HomeTabProps) {
           <CardHeader
             action={
               <button onClick={() => onNavigate?.("News")} className="text-primary-500 dark:text-primary-400 text-xs font-heading font-bold uppercase tracking-wider hover:text-primary-600 dark:hover:text-primary-300 transition-colors">
-                All News
+                {t('home.allNews')}
               </button>
             }
           >
@@ -409,7 +410,7 @@ export default function HomeTab({ gameState, onNavigate }: HomeTabProps) {
             <CardHeader
               action={
                 <button onClick={() => onNavigate?.("Squad")} className="text-primary-500 dark:text-primary-400 text-xs font-heading font-bold uppercase tracking-wider hover:text-primary-600 dark:hover:text-primary-300 transition-colors">
-                  Squad
+                  {t('dashboard.squad')}
                 </button>
               }
             >
@@ -421,7 +422,7 @@ export default function HomeTab({ gameState, onNavigate }: HomeTabProps) {
                   <div>
                     <div className="flex items-center gap-1.5 mb-2">
                       <TrendingUp className="w-3.5 h-3.5 text-green-500" />
-                      <span className="text-[10px] font-heading font-bold uppercase tracking-widest text-green-500">In Form</span>
+                      <span className="text-[10px] font-heading font-bold uppercase tracking-widest text-green-500">{t('home.inForm')}</span>
                     </div>
                     <div className="flex flex-col gap-1.5">
                       {hotPlayers.map(p => (
@@ -438,7 +439,7 @@ export default function HomeTab({ gameState, onNavigate }: HomeTabProps) {
                   <div>
                     <div className="flex items-center gap-1.5 mb-2">
                       <TrendingDown className="w-3.5 h-3.5 text-red-500" />
-                      <span className="text-[10px] font-heading font-bold uppercase tracking-widest text-red-500">Low Morale</span>
+                      <span className="text-[10px] font-heading font-bold uppercase tracking-widest text-red-500">{t('home.lowMorale')}</span>
                     </div>
                     <div className="flex flex-col gap-1.5">
                       {coldPlayers.map(p => (
@@ -465,7 +466,7 @@ export default function HomeTab({ gameState, onNavigate }: HomeTabProps) {
               onClick={() => onNavigate?.("Inbox")}
               className="text-primary-500 dark:text-primary-400 text-xs font-heading font-bold uppercase tracking-wider hover:text-primary-600 dark:hover:text-primary-300 transition-colors"
             >
-              View All
+              {t('home.viewAll')}
             </button>
           }
         >
@@ -509,16 +510,17 @@ export default function HomeTab({ gameState, onNavigate }: HomeTabProps) {
 }
 
 function NextMatchDisplay({ gameState }: { gameState: GameStateData }) {
+  const { t } = useTranslation();
   const userTeamId = gameState.manager.team_id;
   const league = gameState.league;
 
   if (!userTeamId || !league) {
-    return <p className="text-gray-500 dark:text-gray-400 text-sm text-center py-4">No league data.</p>;
+    return <p className="text-gray-500 dark:text-gray-400 text-sm text-center py-4">{t('home.noLeagueSchedule')}</p>;
   }
 
   const nextFixture = findNextFixture(league.fixtures, userTeamId);
   if (!nextFixture) {
-    return <p className="text-gray-500 dark:text-gray-400 text-sm text-center py-4">Season complete.</p>;
+    return <p className="text-gray-500 dark:text-gray-400 text-sm text-center py-4">{t('home.seasonComplete')}</p>;
   }
 
   const isHome = nextFixture.home_team_id === userTeamId;
@@ -538,8 +540,8 @@ function NextMatchDisplay({ gameState }: { gameState: GameStateData }) {
       <div className="text-center px-4 flex flex-col items-center gap-1.5">
         <span className="font-heading font-bold text-2xl text-gray-300 dark:text-navy-600">VS</span>
         <Badge variant="neutral">{formatMatchDate(nextFixture.date)}</Badge>
-        <span className="text-xs text-gray-400 dark:text-gray-500">Matchday {nextFixture.matchday}</span>
-        <Badge variant={isHome ? "success" : "accent"} size="sm">{isHome ? "Home" : "Away"}</Badge>
+        <span className="text-xs text-gray-400 dark:text-gray-500">{t('home.matchdayN', { n: nextFixture.matchday })}</span>
+        <Badge variant={isHome ? "success" : "accent"} size="sm">{isHome ? t('home.home') : t('home.away')}</Badge>
       </div>
 
       <div className="text-center flex-1">

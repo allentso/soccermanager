@@ -92,23 +92,23 @@ export default function MainMenu() {
 
   const validateForm = (): boolean => {
     const errors: Record<string, string> = {};
-    if (!formData.firstName.trim()) errors.firstName = "First name is required";
-    if (!formData.lastName.trim()) errors.lastName = "Last name is required";
+    if (!formData.firstName.trim()) errors.firstName = t('validation.required', { field: t('createManager.firstName') });
+    if (!formData.lastName.trim()) errors.lastName = t('validation.required', { field: t('createManager.lastName') });
     if (!formData.dob) {
-      errors.dob = "Date of birth is required";
+      errors.dob = t('validation.required', { field: t('createManager.dob') });
     } else {
       const birthDate = new Date(formData.dob);
       const today = new Date();
       const age = Math.floor((today.getTime() - birthDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
       if (isNaN(age)) {
-        errors.dob = "Invalid date";
+        errors.dob = t('validation.invalidDate');
       } else if (age < 30) {
-        errors.dob = "Manager must be at least 30 years old";
+        errors.dob = t('validation.minAge');
       } else if (age > 99) {
-        errors.dob = "Invalid date of birth";
+        errors.dob = t('validation.invalidDob');
       }
     }
-    if (!formData.nationality) errors.nationality = "Nationality is required";
+    if (!formData.nationality) errors.nationality = t('validation.required', { field: t('createManager.nationality') });
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -141,8 +141,8 @@ export default function MainMenu() {
       // Always have random available even if scan fails
       setWorldDatabases([{
         id: "random",
-        name: "Random World",
-        description: "Randomly generated league with 8 teams, players, and staff",
+        name: t('worldSelect.randomWorld'),
+        description: t('worldSelect.randomDescription'),
         team_count: 8,
         player_count: 160,
         source: "builtin",
@@ -164,7 +164,7 @@ export default function MainMenu() {
         const info: WorldDatabaseInfo = {
           id: `file:${file.name}`,
           name: parsed.name || file.name.replace(".json", ""),
-          description: parsed.description || "Imported world database",
+          description: parsed.description || t('menu.importedDescription'),
           team_count: parsed.teams?.length ?? 0,
           player_count: parsed.players?.length ?? 0,
           source: "imported",
@@ -355,7 +355,7 @@ export default function MainMenu() {
                         ? "border-red-400 dark:border-red-500 focus:border-red-500 focus:ring-red-500/20"
                         : "border-gray-300 dark:border-navy-600 focus:border-primary-500 focus:ring-primary-500/20"
                     }`}
-                    placeholder="e.g. José"
+                    placeholder={t('createManager.placeholderFirst')}
                     value={formData.firstName}
                     onChange={e => { setFormData({...formData, firstName: e.target.value}); setFormErrors(prev => ({...prev, firstName: ""})); }}
                   />
@@ -373,7 +373,7 @@ export default function MainMenu() {
                         ? "border-red-400 dark:border-red-500 focus:border-red-500 focus:ring-red-500/20"
                         : "border-gray-300 dark:border-navy-600 focus:border-primary-500 focus:ring-primary-500/20"
                     }`}
-                    placeholder="e.g. Mourinho"
+                    placeholder={t('createManager.placeholderLast')}
                     value={formData.lastName}
                     onChange={e => { setFormData({...formData, lastName: e.target.value}); setFormErrors(prev => ({...prev, lastName: ""})); }}
                   />
@@ -437,7 +437,7 @@ export default function MainMenu() {
                         <input
                           type="text"
                           autoFocus
-                          placeholder="Search nationalities..."
+                          placeholder={t('createManager.searchNationalities')}
                           value={nationalitySearch}
                           onChange={e => setNationalitySearch(e.target.value)}
                           className="w-full bg-gray-50 dark:bg-navy-800 border border-gray-200 dark:border-navy-600 text-gray-900 dark:text-white rounded-md px-3 py-2 text-sm outline-none focus:border-primary-500 transition-colors placeholder:text-gray-400 dark:placeholder:text-gray-500"
@@ -445,7 +445,7 @@ export default function MainMenu() {
                       </div>
                       <div className="max-h-48 overflow-y-auto">
                         {filteredNationalities.length === 0 ? (
-                          <p className="px-3 py-2 text-xs text-gray-400 dark:text-gray-500">No results</p>
+                          <p className="px-3 py-2 text-xs text-gray-400 dark:text-gray-500">{t('menu.noResults')}</p>
                         ) : (
                           filteredNationalities.map(nat => (
                             <button
@@ -495,7 +495,7 @@ export default function MainMenu() {
                     <ArrowLeft className="w-5 h-5" />
                   </button>
                   <h2 className="text-xl font-heading font-bold uppercase tracking-wide text-gray-900 dark:text-white transition-colors">
-                    Choose World
+                    {t('worldSelect.title')}
                   </h2>
                 </div>
                 <button 
@@ -517,7 +517,7 @@ export default function MainMenu() {
               {/* World options */}
               <div className="flex flex-col gap-2 max-h-[45vh] overflow-y-auto pr-1">
                 {isLoadingWorlds ? (
-                  <div className="text-gray-500 dark:text-gray-400 text-center py-4">Scanning for databases...</div>
+                  <div className="text-gray-500 dark:text-gray-400 text-center py-4">{t('worldSelect.scanning')}</div>
                 ) : (
                   worldDatabases.map(db => (
                     <button
@@ -547,10 +547,10 @@ export default function MainMenu() {
                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-2">{db.description}</p>
                         <div className="flex items-center gap-3 mt-1.5">
                           <span className="text-[10px] font-heading uppercase tracking-wider text-gray-400 dark:text-gray-500 flex items-center gap-1">
-                            <Globe className="w-3 h-3" />{db.team_count} teams
+                            <Globe className="w-3 h-3" />{t('worldSelect.teams', { count: db.team_count })}
                           </span>
                           <span className="text-[10px] font-heading uppercase tracking-wider text-gray-400 dark:text-gray-500 flex items-center gap-1">
-                            <Users className="w-3 h-3" />{db.player_count} players
+                            <Users className="w-3 h-3" />{t('worldSelect.players', { count: db.player_count })}
                           </span>
                         </div>
                       </div>
@@ -570,7 +570,7 @@ export default function MainMenu() {
                 className="flex items-center justify-center gap-2 w-full py-2.5 border border-dashed border-gray-300 dark:border-navy-500 rounded-xl text-sm text-gray-500 dark:text-gray-400 hover:text-primary-500 dark:hover:text-primary-400 hover:border-primary-400 dark:hover:border-primary-500 transition-colors"
               >
                 <Upload className="w-4 h-4" />
-                <span className="font-heading font-bold uppercase tracking-wider">Import from file</span>
+                <span className="font-heading font-bold uppercase tracking-wider">{t('worldSelect.importFile')}</span>
               </button>
               <input
                 ref={fileInputRef}
@@ -588,7 +588,7 @@ export default function MainMenu() {
                 onClick={handleStartGame}
                 disabled={isStarting}
               >
-                {isStarting ? "Creating World..." : "Start Career"}
+                {isStarting ? t('worldSelect.creatingWorld') : t('worldSelect.startCareer')}
               </Button>
             </div>
           )}
@@ -598,7 +598,7 @@ export default function MainMenu() {
             <div className="flex flex-col gap-4">
               <div className="flex justify-between items-center mb-2">
                 <h2 className="text-xl font-heading font-bold uppercase tracking-wide text-gray-900 dark:text-white transition-colors">
-                  Load Game
+                  {t('menu.loadGame')}
                 </h2>
                 <button 
                   type="button" 
@@ -611,27 +611,27 @@ export default function MainMenu() {
               
               <div className="flex flex-col gap-3 max-h-[60vh] overflow-y-auto pr-1">
                 {isLoadingSaves ? (
-                  <div className="text-gray-500 dark:text-gray-400 text-center py-4">Loading saves...</div>
+                  <div className="text-gray-500 dark:text-gray-400 text-center py-4">{t('menu.loadingSaves')}</div>
                 ) : saves.length === 0 ? (
-                  <div className="text-gray-500 dark:text-gray-400 text-center py-8">No saved games found.</div>
+                  <div className="text-gray-500 dark:text-gray-400 text-center py-8">{t('menu.noSaves')}</div>
                 ) : (
                   saves.map(save => (
                     <div key={save.id} className="group relative flex flex-col gap-2 w-full p-4 bg-white dark:bg-navy-700 hover:bg-primary-50 dark:hover:bg-navy-600 text-left rounded-xl transition-all duration-200 border border-gray-200 dark:border-navy-600 hover:border-primary-400 dark:hover:border-primary-500 shadow-sm">
                       {confirmDeleteId === save.id ? (
                         <div className="flex flex-col gap-2">
-                          <p className="text-sm text-gray-700 dark:text-gray-300">Delete <strong>{save.name}</strong>?</p>
+                          <p className="text-sm text-gray-700 dark:text-gray-300" dangerouslySetInnerHTML={{ __html: t('menu.deleteConfirm', { name: save.name }) }} />
                           <div className="flex gap-2">
                             <button
                               onClick={() => handleDeleteSave(save.id)}
                               className="flex-1 py-2 bg-red-500 hover:bg-red-600 text-white text-sm font-heading font-bold uppercase tracking-wider rounded-lg transition-colors"
                             >
-                              Delete
+                              {t('menu.delete')}
                             </button>
                             <button
                               onClick={() => setConfirmDeleteId(null)}
                               className="flex-1 py-2 bg-gray-200 dark:bg-navy-600 hover:bg-gray-300 dark:hover:bg-navy-500 text-gray-700 dark:text-gray-300 text-sm font-heading font-bold uppercase tracking-wider rounded-lg transition-colors"
                             >
-                              Cancel
+                              {t('menu.cancel')}
                             </button>
                           </div>
                         </div>
@@ -646,7 +646,7 @@ export default function MainMenu() {
                               <Play className="w-4 h-4 text-primary-500 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0" />
                             </div>
                             <div className="flex justify-between items-center w-full text-sm text-gray-500 dark:text-gray-400">
-                              <span>Manager: {save.manager_name}</span>
+                              <span>{t('menu.manager', { name: save.manager_name })}</span>
                               <div className="flex items-center gap-1">
                                 <Clock className="w-3 h-3" />
                                 <span>{formatDate(save.last_played_at, i18n.language)}</span>
@@ -656,7 +656,7 @@ export default function MainMenu() {
                           <button
                             onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(save.id); }}
                             className="p-1.5 rounded-lg text-gray-400 dark:text-gray-500 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0"
-                            title="Delete save"
+                            title={t('menu.deleteSave')}
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
