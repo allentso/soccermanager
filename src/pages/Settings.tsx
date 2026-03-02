@@ -8,7 +8,7 @@ import { ThemeToggle } from "../components/ui";
 import { SUPPORTED_LANGUAGES } from "../i18n";
 import {
   ArrowLeft, Monitor, Moon, Sun, Gamepad2, Save,
-  Zap, Trash2, Download, Globe, Type,
+  Zap, Trash2, Download, Globe, Type, Maximize, Minimize,
 } from "lucide-react";
 
 const CURRENCY_OPTIONS = [
@@ -29,6 +29,7 @@ export default function Settings() {
   const [confirmClear, setConfirmClear] = useState(false);
   const [clearSuccess, setClearSuccess] = useState(false);
   const [exportPath, setExportPath] = useState<string | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(!!document.fullscreenElement);
 
   // Where to go back to
   const returnTo = (location.state as { from?: string })?.from || "/";
@@ -36,6 +37,21 @@ export default function Settings() {
   useEffect(() => {
     if (!loaded) loadSettings();
   }, [loaded, loadSettings]);
+
+  // Track fullscreen state
+  useEffect(() => {
+    const handler = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", handler);
+    return () => document.removeEventListener("fullscreenchange", handler);
+  }, []);
+
+  const toggleFullscreen = async () => {
+    if (document.fullscreenElement) {
+      await document.exitFullscreen();
+    } else {
+      await document.documentElement.requestFullscreen();
+    }
+  };
 
   // Sync language with i18n when settings are loaded
   useEffect(() => {
@@ -178,6 +194,16 @@ export default function Settings() {
               checked={settings.high_contrast}
               onChange={(v) => handleUpdate({ high_contrast: v })}
             />
+          </SettingRow>
+
+          <SettingRow label={t('settings.fullscreen', 'Fullscreen')} description={t('settings.fullscreenDesc', 'Toggle fullscreen mode for an immersive experience')}>
+            <button
+              onClick={toggleFullscreen}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-100 dark:bg-navy-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-navy-600 text-sm font-heading font-bold uppercase tracking-wider transition-colors"
+            >
+              {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
+              {isFullscreen ? t('settings.exitFullscreen', 'Exit') : t('settings.enterFullscreen', 'Enter')}
+            </button>
           </SettingRow>
         </Section>
 
