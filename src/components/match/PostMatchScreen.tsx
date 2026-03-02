@@ -274,8 +274,71 @@ export default function PostMatchScreen({
             )}
           </div>
 
-          {/* Right: Player Ratings (placeholder) */}
+          {/* Right: Player Ratings + Scorers */}
           <div className="flex flex-col gap-4">
+            {/* Player Ratings */}
+            {userSide && !isSpectator && (() => {
+              const userTeam = userSide === "Home" ? snapshot.home_team : snapshot.away_team;
+              // Compute per-player ratings from events
+              const ratings: Record<string, number> = {};
+              userTeam.players.forEach(p => { ratings[p.id] = 6.0; });
+              snapshot.events.forEach(evt => {
+                if (evt.side !== userSide || !evt.player_id) return;
+                if (!ratings[evt.player_id] && ratings[evt.player_id] !== 0) return;
+                if (evt.event_type === "Goal" || evt.event_type === "PenaltyGoal") ratings[evt.player_id] = (ratings[evt.player_id] || 6) + 1.2;
+                else if (evt.event_type === "ShotSaved" || evt.event_type === "ShotOnTarget") ratings[evt.player_id] = (ratings[evt.player_id] || 6) + 0.2;
+                else if (evt.event_type === "ShotOffTarget") ratings[evt.player_id] = (ratings[evt.player_id] || 6) - 0.1;
+                else if (evt.event_type === "PassCompleted") ratings[evt.player_id] = (ratings[evt.player_id] || 6) + 0.02;
+                else if (evt.event_type === "Tackle" || evt.event_type === "Interception") ratings[evt.player_id] = (ratings[evt.player_id] || 6) + 0.15;
+                else if (evt.event_type === "Foul") ratings[evt.player_id] = (ratings[evt.player_id] || 6) - 0.2;
+                else if (evt.event_type === "YellowCard" || evt.event_type === "SecondYellow") ratings[evt.player_id] = (ratings[evt.player_id] || 6) - 0.5;
+                else if (evt.event_type === "RedCard") ratings[evt.player_id] = (ratings[evt.player_id] || 6) - 1.5;
+                if (evt.secondary_player_id && ratings[evt.secondary_player_id] !== undefined) {
+                  if (evt.event_type === "Goal" || evt.event_type === "PenaltyGoal") ratings[evt.secondary_player_id] += 0.7;
+                }
+              });
+              // Win bonus
+              const won = (userSide === "Home" && snapshot.home_score > snapshot.away_score) || (userSide === "Away" && snapshot.away_score > snapshot.home_score);
+              if (won) Object.keys(ratings).forEach(id => { ratings[id] += 0.5; });
+              // Clamp ratings
+              Object.keys(ratings).forEach(id => { ratings[id] = Math.max(1, Math.min(10, ratings[id])); });
+              const sorted = userTeam.players.map(p => ({ ...p, rating: Math.round(ratings[p.id] * 10) / 10 })).sort((a, b) => b.rating - a.rating);
+              const motm = sorted[0];
+
+              return (
+                <div className="bg-navy-800 rounded-xl border border-navy-700 p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Star className="w-4 h-4 text-accent-400" />
+                    <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500">
+                      Player Ratings
+                    </h3>
+                  </div>
+                  {motm && (
+                    <div className="flex items-center gap-3 mb-3 p-2 bg-accent-500/10 rounded-lg border border-accent-500/20">
+                      <div className="w-8 h-8 rounded-lg bg-accent-500/20 flex items-center justify-center">
+                        <span className="text-sm font-heading font-bold text-accent-400">{motm.rating.toFixed(1)}</span>
+                      </div>
+                      <div>
+                        <p className="text-xs font-heading font-bold text-accent-400 uppercase tracking-wider">Man of the Match</p>
+                        <p className="text-sm text-gray-200 font-medium">{motm.name}</p>
+                      </div>
+                    </div>
+                  )}
+                  <div className="flex flex-col gap-0.5 max-h-52 overflow-auto">
+                    {sorted.map(p => (
+                      <div key={p.id} className="flex items-center gap-2 px-1 py-0.5 text-xs">
+                        <span className={`font-heading font-bold tabular-nums w-8 ${
+                          p.rating >= 8 ? "text-accent-400" : p.rating >= 7 ? "text-green-400" : p.rating >= 6 ? "text-gray-300" : p.rating >= 5 ? "text-yellow-400" : "text-red-400"
+                        }`}>{p.rating.toFixed(1)}</span>
+                        <span className="text-gray-400 truncate flex-1">{p.name}</span>
+                        <span className="text-gray-600 text-[10px] font-heading uppercase">{p.position.substring(0, 3)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
+
             <div className="bg-navy-800 rounded-xl border border-navy-700 p-4">
               <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500 mb-3">
                 Scorers
