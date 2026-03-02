@@ -8,7 +8,7 @@ import { ThemeToggle } from "../components/ui";
 import { SUPPORTED_LANGUAGES } from "../i18n";
 import {
   ArrowLeft, Monitor, Moon, Sun, Gamepad2, Save,
-  Zap, Trash2, Download, Globe,
+  Zap, Trash2, Download, Globe, Type,
 } from "lucide-react";
 
 const CURRENCY_OPTIONS = [
@@ -155,6 +155,29 @@ export default function Settings() {
                 <option key={c.value} value={c.value}>{c.symbol} {c.label}</option>
               ))}
             </select>
+          </SettingRow>
+
+          <SettingRow label={t('settings.uiScale', 'UI Scale')} description={t('settings.uiScaleDesc', 'Adjust font size and spacing for readability')}>
+            <div className="flex items-center gap-2">
+              <Type className="w-4 h-4 text-gray-400" />
+              <SegmentedControl
+                options={[
+                  { value: "small", label: "S" },
+                  { value: "normal", label: "M" },
+                  { value: "large", label: "L" },
+                  { value: "xlarge", label: "XL" },
+                ]}
+                value={settings.ui_scale}
+                onChange={(v) => handleUpdate({ ui_scale: v as AppSettings["ui_scale"] })}
+              />
+            </div>
+          </SettingRow>
+
+          <SettingRow label={t('settings.highContrast', 'High Contrast')} description={t('settings.highContrastDesc', 'Boost text contrast in dark mode for improved readability')}>
+            <Toggle
+              checked={settings.high_contrast}
+              onChange={(v) => handleUpdate({ high_contrast: v })}
+            />
           </SettingRow>
         </Section>
 

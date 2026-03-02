@@ -1381,9 +1381,14 @@ pub struct AppSettings {
     pub match_speed: String,        // "slow" | "normal" | "fast"
     pub show_match_commentary: bool,
     pub confirm_advance: bool,
+    #[serde(default = "default_ui_scale")]
+    pub ui_scale: String,  // "small" | "normal" | "large" | "xlarge"
+    #[serde(default)]
+    pub high_contrast: bool,
 }
 
 fn default_language() -> String { "en".to_string() }
+fn default_ui_scale() -> String { "normal".to_string() }
 
 impl Default for AppSettings {
     fn default() -> Self {
@@ -1396,6 +1401,8 @@ impl Default for AppSettings {
             match_speed: "normal".to_string(),
             show_match_commentary: true,
             confirm_advance: false,
+            ui_scale: "normal".to_string(),
+            high_contrast: false,
         }
     }
 }

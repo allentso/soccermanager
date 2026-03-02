@@ -71,3 +71,22 @@
     font-family: var(--font-heading);
   }
 }
+
+/* Dark mode readability: boost low-contrast gray text on navy backgrounds */
+.dark .text-gray-500 {
+  color: #8d99ae;
+}
+.dark .text-gray-400 {
+  color: #a0aec0;
+}
+
+/* High-contrast mode: further boost for accessibility */
+.high-contrast.dark .text-gray-500 {
+  color: #b0bec5;
+}
+.high-contrast.dark .text-gray-400 {
+  color: #cfd8dc;
+}
+.high-contrast.dark .text-gray-600 {
+  color: #90a4ae;
+}
