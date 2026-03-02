@@ -184,6 +184,58 @@ pub fn check_random_events(game: &mut Game) {
         }
     }
 
+    // --- 7. Board confidence check (after 3+ consecutive losses, 100% trigger once) ---
+    {
+        if let Some(league) = &game.league {
+            let completed: Vec<_> = league.fixtures.iter()
+                .filter(|f| f.status == domain::league::FixtureStatus::Completed
+                    && (f.home_team_id == user_team_id || f.away_team_id == user_team_id))
+                .collect();
+            if completed.len() >= 3 {
+                let last3 = &completed[completed.len()-3..];
+                let losses = last3.iter().filter(|f| {
+                    if let Some(r) = &f.result {
+                        let user_goals = if f.home_team_id == user_team_id { r.home_goals } else { r.away_goals };
+                        let opp_goals = if f.home_team_id == user_team_id { r.away_goals } else { r.home_goals };
+                        user_goals < opp_goals
+                    } else { false }
+                }).count();
+                let msg_id = format!("board_confidence_{}", today);
+                if losses >= 3 && !existing_ids.contains(&msg_id) {
+                    new_messages.push(board_confidence_message(&msg_id, &today));
+                }
+            }
+        }
+    }
+
+    // --- 8. Fan petition (2% chance per day) ---
+    {
+        let msg_id = format!("fan_petition_{}", today);
+        if !existing_ids.contains(&msg_id) && rng.gen_range(0..50) == 0 {
+            let team_name = game.teams.iter().find(|t| t.id == user_team_id)
+                .map(|t| t.name.as_str()).unwrap_or("Your Club");
+            new_messages.push(fan_petition_message(&msg_id, team_name, &today));
+        }
+    }
+
+    // --- 9. Rival interest in player (2% chance per day) ---
+    {
+        let msg_id = format!("rival_interest_{}", today);
+        if !existing_ids.contains(&msg_id) && rng.gen_range(0..50) == 0 {
+            let eligible: Vec<&domain::player::Player> = game.players.iter()
+                .filter(|p| p.team_id.as_deref() == Some(&user_team_id) && p.injury.is_none())
+                .collect();
+            if !eligible.is_empty() {
+                let player = eligible[rng.gen_range(0..eligible.len())];
+                let rival_names = ["FC Rival", "Sporting Ambition", "United Prestige", "Real Progress", "Bayern Elite"];
+                let rival = rival_names[rng.gen_range(0..rival_names.len())];
+                new_messages.push(rival_interest_message(
+                    &msg_id, &player.id, &player.match_name, rival, &today,
+                ));
+            }
+        }
+    }
+
     game.messages.extend(new_messages);
 }
 
@@ -219,6 +271,97 @@ pub fn apply_event_response(
                     for a in msg.actions.iter_mut() { a.resolved = true; }
                 }
                 Some("Sponsorship declined.".to_string())
+            }
+            _ => None,
+        }
+    } else if message_id.starts_with("board_confidence_") {
+        match option_id {
+            "reassure_board" => {
+                if let Some(msg) = game.messages.iter_mut().find(|m| m.id == message_id) {
+                    for a in msg.actions.iter_mut() { a.resolved = true; }
+                }
+                Some("You reassured the board. They'll give you more time — for now.".to_string())
+            }
+            "accept_pressure" => {
+                if let Some(msg) = game.messages.iter_mut().find(|m| m.id == message_id) {
+                    for a in msg.actions.iter_mut() { a.resolved = true; }
+                }
+                Some("You acknowledged the pressure. The board appreciates your honesty.".to_string())
+            }
+            "blame_circumstances" => {
+                if let Some(msg) = game.messages.iter_mut().find(|m| m.id == message_id) {
+                    for a in msg.actions.iter_mut() { a.resolved = true; }
+                }
+                Some("The board isn't entirely convinced by excuses, but they'll wait and see.".to_string())
+            }
+            _ => None,
+        }
+    } else if message_id.starts_with("fan_petition_") {
+        match option_id {
+            "listen_fans" => {
+                // Small morale boost across squad
+                let user_team_id = game.manager.team_id.clone().unwrap_or_default();
+                let mut rng = rand::thread_rng();
+                for p in game.players.iter_mut() {
+                    if p.team_id.as_deref() == Some(&user_team_id) {
+                        p.morale = (p.morale as i16 + rng.gen_range(1..=3)).clamp(10, 100) as u8;
+                    }
+                }
+                if let Some(msg) = game.messages.iter_mut().find(|m| m.id == message_id) {
+                    for a in msg.actions.iter_mut() { a.resolved = true; }
+                }
+                Some("You engaged with the fans. Squad morale improved slightly.".to_string())
+            }
+            "ignore_fans" => {
+                if let Some(msg) = game.messages.iter_mut().find(|m| m.id == message_id) {
+                    for a in msg.actions.iter_mut() { a.resolved = true; }
+                }
+                Some("You decided to focus on football matters. The fans are a little disappointed.".to_string())
+            }
+            "address_publicly" => {
+                if let Some(msg) = game.messages.iter_mut().find(|m| m.id == message_id) {
+                    for a in msg.actions.iter_mut() { a.resolved = true; }
+                }
+                Some("Your public address was well received. Fan confidence is up.".to_string())
+            }
+            _ => None,
+        }
+    } else if message_id.starts_with("rival_interest_") {
+        let player_id = game.messages.iter()
+            .find(|m| m.id == message_id)
+            .and_then(|m| m.context.player_id.clone());
+        match option_id {
+            "not_for_sale" => {
+                // Player morale boost — they feel valued
+                if let Some(pid) = &player_id {
+                    if let Some(p) = game.players.iter_mut().find(|p| p.id == *pid) {
+                        let mut rng = rand::thread_rng();
+                        p.morale = (p.morale as i16 + rng.gen_range(3..=8)).clamp(10, 100) as u8;
+                    }
+                }
+                if let Some(msg) = game.messages.iter_mut().find(|m| m.id == message_id) {
+                    for a in msg.actions.iter_mut() { a.resolved = true; }
+                }
+                Some("You made it clear the player is not for sale. They're feeling valued.".to_string())
+            }
+            "open_to_offers" => {
+                // Player morale drop — they feel uncertain
+                if let Some(pid) = &player_id {
+                    if let Some(p) = game.players.iter_mut().find(|p| p.id == *pid) {
+                        let mut rng = rand::thread_rng();
+                        p.morale = (p.morale as i16 - rng.gen_range(3..=8)).clamp(10, 100) as u8;
+                    }
+                }
+                if let Some(msg) = game.messages.iter_mut().find(|m| m.id == message_id) {
+                    for a in msg.actions.iter_mut() { a.resolved = true; }
+                }
+                Some("You indicated you'd listen to offers. The player is unsettled.".to_string())
+            }
+            "no_comment" => {
+                if let Some(msg) = game.messages.iter_mut().find(|m| m.id == message_id) {
+                    for a in msg.actions.iter_mut() { a.resolved = true; }
+                }
+                Some("No comment. The rumour mill continues...".to_string())
             }
             _ => None,
         }
@@ -527,4 +670,196 @@ fn mood_report_message(
         },
     )
     .with_sender_i18n("be.sender.assistantManager", "be.role.assistantManager")
+}
+
+fn board_confidence_message(msg_id: &str, date: &str) -> InboxMessage {
+    let mut rng = rand::thread_rng();
+    let variations = [
+        "The board has called an urgent meeting. Three consecutive defeats have raised serious concerns about the team's direction.\n\n\
+        \"We need to see improvement quickly. The fans are restless and results must change.\"\n\n\
+        How do you respond?",
+        "After a string of poor results, the chairman has summoned you for a difficult conversation.\n\n\
+        \"We backed you with resources and time. The results simply aren't good enough. What's your plan?\"\n\n\
+        Choose your response carefully.",
+    ];
+    let idx = rng.gen_range(0..variations.len());
+
+    InboxMessage::new(
+        msg_id.to_string(),
+        "Board Meeting — Results Under Scrutiny".to_string(),
+        variations[idx].to_string(),
+        "Board of Directors".to_string(),
+        date.to_string(),
+    )
+    .with_category(MessageCategory::BoardDirective)
+    .with_priority(MessagePriority::Urgent)
+    .with_sender_role("Chairman")
+    .with_action(action(
+        "respond", "Respond", "be.msg.event.respond",
+        ActionType::ChooseOption {
+            options: vec![
+                ActionOption {
+                    id: "reassure_board".to_string(),
+                    label: "Reassure them with a plan".to_string(),
+                    description: "Present a clear strategy for turning things around. Buys you time.".to_string(),
+                },
+                ActionOption {
+                    id: "accept_pressure".to_string(),
+                    label: "Accept responsibility".to_string(),
+                    description: "Own the poor results. The board respects honesty.".to_string(),
+                },
+                ActionOption {
+                    id: "blame_circumstances".to_string(),
+                    label: "Point to injuries and bad luck".to_string(),
+                    description: "Deflect blame to external factors. May or may not convince them.".to_string(),
+                },
+            ],
+        },
+    ))
+    .with_i18n(
+        "be.msg.boardConfidence.subject",
+        &format!("be.msg.boardConfidence.body{}", idx),
+        params(&[]),
+    )
+    .with_sender_i18n("be.sender.boardOfDirectors", "be.role.chairman")
+}
+
+fn fan_petition_message(msg_id: &str, team_name: &str, date: &str) -> InboxMessage {
+    let mut rng = rand::thread_rng();
+    let petitions = [
+        (
+            "Fan Petition — More Attacking Football",
+            format!(
+                "A group of {} supporters has organized a petition calling for more attacking football.\n\n\
+                \"We pay good money to watch exciting football. We want to see the team go forward and entertain us!\"\n\n\
+                Over 500 signatures so far. How do you respond?",
+                team_name
+            ),
+        ),
+        (
+            "Fan Petition — Give Youth a Chance",
+            format!(
+                "Supporters of {} have started a campaign urging you to give more opportunities to young players from the academy.\n\n\
+                \"The future of our club depends on developing homegrown talent. Stop overlooking the kids!\"\n\n\
+                It's getting traction on social media. What's your response?",
+                team_name
+            ),
+        ),
+        (
+            "Fan Open Letter — Transparency",
+            format!(
+                "An open letter from the {} Supporters Trust has been published, asking for more transparency from the management.\n\n\
+                \"We want to understand the club's vision. Where are we heading? What's the long-term plan?\"\n\n\
+                The local press is covering it. How do you handle this?",
+                team_name
+            ),
+        ),
+    ];
+    let idx = rng.gen_range(0..petitions.len());
+    let (subject, body) = &petitions[idx];
+
+    InboxMessage::new(
+        msg_id.to_string(),
+        subject.to_string(),
+        body.clone(),
+        "Community Manager".to_string(),
+        date.to_string(),
+    )
+    .with_category(MessageCategory::Media)
+    .with_priority(MessagePriority::Normal)
+    .with_sender_role("Community Manager")
+    .with_action(action(
+        "respond", "Respond", "be.msg.event.respond",
+        ActionType::ChooseOption {
+            options: vec![
+                ActionOption {
+                    id: "listen_fans".to_string(),
+                    label: "Engage with the fans".to_string(),
+                    description: "Meet with fan representatives and listen to their concerns. Good for morale.".to_string(),
+                },
+                ActionOption {
+                    id: "ignore_fans".to_string(),
+                    label: "Focus on football".to_string(),
+                    description: "Politely decline — football decisions stay in the dressing room.".to_string(),
+                },
+                ActionOption {
+                    id: "address_publicly".to_string(),
+                    label: "Make a public statement".to_string(),
+                    description: "Address the petition in a press conference. Transparent and proactive.".to_string(),
+                },
+            ],
+        },
+    ))
+    .with_i18n(
+        &format!("be.msg.fanPetition.subject{}", idx),
+        &format!("be.msg.fanPetition.body{}", idx),
+        params(&[("team", team_name)]),
+    )
+    .with_sender_i18n("be.sender.communityManager", "be.role.communityManager")
+}
+
+fn rival_interest_message(
+    msg_id: &str, player_id: &str, player_name: &str, rival_name: &str, date: &str,
+) -> InboxMessage {
+    let mut rng = rand::thread_rng();
+    let variations = [
+        format!(
+            "We've received word that {} have been making enquiries about {}.\n\n\
+            Their scouts were spotted at our last few matches, and our sources suggest \
+            they may approach with a formal offer soon.\n\n\
+            How would you like us to respond if they make contact?",
+            rival_name, player_name
+        ),
+        format!(
+            "The press are reporting that {} is a target for {}.\n\n\
+            According to sources, the player has attracted attention after their recent performances. \
+            No formal bid yet, but it's only a matter of time.\n\n\
+            What's your stance?",
+            player_name, rival_name
+        ),
+    ];
+    let idx = rng.gen_range(0..variations.len());
+
+    InboxMessage::new(
+        msg_id.to_string(),
+        format!("Transfer Rumour — {} linked with {}", player_name, rival_name),
+        variations[idx].clone(),
+        "Director of Football".to_string(),
+        date.to_string(),
+    )
+    .with_category(MessageCategory::Transfer)
+    .with_priority(MessagePriority::Normal)
+    .with_sender_role("Director of Football")
+    .with_action(action(
+        "respond", "Respond", "be.msg.event.respond",
+        ActionType::ChooseOption {
+            options: vec![
+                ActionOption {
+                    id: "not_for_sale".to_string(),
+                    label: "Not for sale".to_string(),
+                    description: "Make it clear the player is going nowhere. Boosts their morale.".to_string(),
+                },
+                ActionOption {
+                    id: "open_to_offers".to_string(),
+                    label: "Open to offers".to_string(),
+                    description: "Signal willingness to negotiate. Player may become unsettled.".to_string(),
+                },
+                ActionOption {
+                    id: "no_comment".to_string(),
+                    label: "No comment".to_string(),
+                    description: "Stay quiet and let things play out. Neutral stance.".to_string(),
+                },
+            ],
+        },
+    ))
+    .with_context(MessageContext {
+        player_id: Some(player_id.to_string()),
+        ..Default::default()
+    })
+    .with_i18n(
+        "be.msg.rivalInterest.subject",
+        &format!("be.msg.rivalInterest.body{}", idx),
+        params(&[("player", player_name), ("rival", rival_name)]),
+    )
+    .with_sender_i18n("be.sender.directorOfFootball", "be.role.directorOfFootball")
 }
