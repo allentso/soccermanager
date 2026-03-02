@@ -26,6 +26,9 @@ pub fn process_day(game: &mut Game) {
         training::check_squad_fitness_warnings(game);
     }
 
+    // Weekly financial processing (wages, matchday income, warnings)
+    crate::finances::process_weekly_finances(game);
+
     // Board objectives (generate if missing, update progress)
     board_objectives::generate_objectives(game);
     board_objectives::update_objective_progress(game);

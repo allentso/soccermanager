@@ -1,6 +1,7 @@
 pub mod board_objectives;
 pub mod clock;
 pub mod end_of_season;
+pub mod finances;
 pub mod game;
 pub mod generator;
 pub mod live_match_manager;
