@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { GameStateData, PlayerData } from "../store/gameStore";
 import { Card, Badge, ProgressBar } from "./ui";
-import { Star, ArrowRightLeft, Users, Shield, Crosshair, Zap, Target, RefreshCw, Flag } from "lucide-react";
+import { Star, ArrowRightLeft, Users, Shield, Crosshair, Zap, Target, RefreshCw, Flag, AlertTriangle } from "lucide-react";
 import { formatVal, positionBadgeVariant, calcOvr, calcAge } from "../lib/helpers";
 import { TraitList } from "./TraitBadge";
 import { useTranslation } from "react-i18next";
@@ -144,21 +144,48 @@ export default function SquadTab({ gameState, managerId, onSelectPlayer, onGameU
     }
   };
 
+  // Determine which positions are "expected" for the XI based on formation
+  const expectedPositionCounts: Record<string, number> = { Goalkeeper: 1, Defender: slots.def, Midfielder: slots.mid, Forward: slots.fwd };
+  const xiPositionCounts: Record<string, number> = {};
+  for (const p of startingXI) {
+    xiPositionCounts[p.position] = (xiPositionCounts[p.position] || 0) + 1;
+  }
+  // A player is "out of position" if there are more of their position in XI than the formation needs
+  const isOutOfPosition = (player: PlayerData, sec: "xi" | "bench"): boolean => {
+    if (sec !== "xi") return false;
+    const needed = expectedPositionCounts[player.position] || 0;
+    const inXi = xiPositionCounts[player.position] || 0;
+    // If we have more of this position than needed, the excess players are out of position
+    if (inXi <= needed) return false;
+    // Check if this player is one of the "excess" — sort by OVR, bottom ones are out of position
+    const samePos = startingXI.filter(p => p.position === player.position).sort((a, b) => calcOvr(b) - calcOvr(a));
+    const excessCount = inXi - needed;
+    return samePos.slice(-excessCount).some(p => p.id === player.id);
+  };
+
   const renderPlayerRow = (player: PlayerData, section: "xi" | "bench") => {
     const ovr = calcOvr(player);
     const age = calcAge(player.date_of_birth);
     const isSwapSource = swapSource?.id === player.id;
     const isSwapTarget = swapSource && swapSource.id !== player.id;
+    const wrongPos = section === "xi" && isOutOfPosition(player, section);
 
     return (
       <tr
         key={player.id}
-        className={`transition-colors group ${isSwapSource ? 'bg-accent-500/10 dark:bg-accent-500/10' : isSwapTarget ? 'hover:bg-primary-500/10 dark:hover:bg-primary-500/10 cursor-pointer' : 'hover:bg-gray-50 dark:hover:bg-navy-700/50'}`}
+        className={`transition-colors group ${isSwapSource ? 'bg-accent-500/10 dark:bg-accent-500/10' : isSwapTarget ? 'hover:bg-primary-500/10 dark:hover:bg-primary-500/10 cursor-pointer' : wrongPos ? 'bg-amber-500/5 dark:bg-amber-500/5' : 'hover:bg-gray-50 dark:hover:bg-navy-700/50'}`}
       >
         <td className="py-2.5 px-4">
-          <Badge variant={positionBadgeVariant(player.position)} size="sm">
-            {player.position.substring(0, 3).toUpperCase()}
-          </Badge>
+          <div className="flex items-center gap-1">
+            <Badge variant={positionBadgeVariant(player.position)} size="sm">
+              {player.position.substring(0, 3).toUpperCase()}
+            </Badge>
+            {wrongPos && (
+              <span title="Playing out of natural position" className="text-amber-500">
+                <AlertTriangle className="w-3.5 h-3.5" />
+              </span>
+            )}
+          </div>
         </td>
         <td className="py-2.5 px-4">
           <button onClick={() => onSelectPlayer(player.id)} className="text-left">

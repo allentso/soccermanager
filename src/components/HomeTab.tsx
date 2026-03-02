@@ -6,6 +6,7 @@ import {
   Calendar, Trophy, Dumbbell, Mail, Newspaper,
   AlertTriangle, Flame, Scale, Feather,
   CheckCircle2, Circle, Users, Crosshair, UserCog, Lightbulb,
+  TrendingUp, TrendingDown,
 } from "lucide-react";
 
 interface HomeTabProps {
@@ -394,6 +395,64 @@ export default function HomeTab({ gameState, onNavigate }: HomeTabProps) {
           </CardBody>
         </Card>
       </div>
+
+      {/* Player Momentum */}
+      {roster.length > 0 && (() => {
+        const hotPlayers = roster.filter(p => p.morale >= 80 && !p.injury).sort((a, b) => b.morale - a.morale).slice(0, 3);
+        const coldPlayers = roster.filter(p => p.morale <= 40).sort((a, b) => a.morale - b.morale).slice(0, 3);
+        if (hotPlayers.length === 0 && coldPlayers.length === 0) return null;
+        return (
+          <Card>
+            <CardHeader
+              action={
+                <button onClick={() => onNavigate?.("Squad")} className="text-primary-500 dark:text-primary-400 text-xs font-heading font-bold uppercase tracking-wider hover:text-primary-600 dark:hover:text-primary-300 transition-colors">
+                  Squad
+                </button>
+              }
+            >
+              Player Momentum
+            </CardHeader>
+            <CardBody>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {hotPlayers.length > 0 && (
+                  <div>
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <TrendingUp className="w-3.5 h-3.5 text-green-500" />
+                      <span className="text-[10px] font-heading font-bold uppercase tracking-widest text-green-500">In Form</span>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      {hotPlayers.map(p => (
+                        <div key={p.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-green-500/5 dark:bg-green-500/10">
+                          <span className="text-xs font-medium text-gray-800 dark:text-gray-200 flex-1 truncate">{p.full_name}</span>
+                          <Badge variant="success" size="sm">{p.position.substring(0, 3)}</Badge>
+                          <span className="text-xs font-heading font-bold text-green-500 tabular-nums w-8 text-right">{p.morale}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {coldPlayers.length > 0 && (
+                  <div>
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <TrendingDown className="w-3.5 h-3.5 text-red-500" />
+                      <span className="text-[10px] font-heading font-bold uppercase tracking-widest text-red-500">Low Morale</span>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      {coldPlayers.map(p => (
+                        <div key={p.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-red-500/5 dark:bg-red-500/10">
+                          <span className="text-xs font-medium text-gray-800 dark:text-gray-200 flex-1 truncate">{p.full_name}</span>
+                          <Badge variant="danger" size="sm">{p.position.substring(0, 3)}</Badge>
+                          <span className="text-xs font-heading font-bold text-red-500 tabular-nums w-8 text-right">{p.morale}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </CardBody>
+          </Card>
+        );
+      })()}
 
       {/* Recent Messages */}
       <Card>
