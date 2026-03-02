@@ -276,14 +276,14 @@ export default function PostMatchScreen({
 
           {/* Right: Player Ratings + Scorers */}
           <div className="flex flex-col gap-4">
-            {/* Player Ratings */}
-            {userSide && !isSpectator && (() => {
-              const userTeam = userSide === "Home" ? snapshot.home_team : snapshot.away_team;
-              // Compute per-player ratings from events
+            {/* Player Ratings — show for both teams */}
+            {(["Home", "Away"] as const).map(side => {
+              const team = side === "Home" ? snapshot.home_team : snapshot.away_team;
+              const teamColor = side === "Home" ? homeTeamColor : awayTeamColor;
               const ratings: Record<string, number> = {};
-              userTeam.players.forEach(p => { ratings[p.id] = 6.0; });
+              team.players.forEach(p => { ratings[p.id] = 6.0; });
               snapshot.events.forEach(evt => {
-                if (evt.side !== userSide || !evt.player_id) return;
+                if (evt.side !== side || !evt.player_id) return;
                 if (!ratings[evt.player_id] && ratings[evt.player_id] !== 0) return;
                 if (evt.event_type === "Goal" || evt.event_type === "PenaltyGoal") ratings[evt.player_id] = (ratings[evt.player_id] || 6) + 1.2;
                 else if (evt.event_type === "ShotSaved" || evt.event_type === "ShotOnTarget") ratings[evt.player_id] = (ratings[evt.player_id] || 6) + 0.2;
@@ -297,23 +297,22 @@ export default function PostMatchScreen({
                   if (evt.event_type === "Goal" || evt.event_type === "PenaltyGoal") ratings[evt.secondary_player_id] += 0.7;
                 }
               });
-              // Win bonus
-              const won = (userSide === "Home" && snapshot.home_score > snapshot.away_score) || (userSide === "Away" && snapshot.away_score > snapshot.home_score);
+              const won = (side === "Home" && snapshot.home_score > snapshot.away_score) || (side === "Away" && snapshot.away_score > snapshot.home_score);
               if (won) Object.keys(ratings).forEach(id => { ratings[id] += 0.5; });
-              // Clamp ratings
               Object.keys(ratings).forEach(id => { ratings[id] = Math.max(1, Math.min(10, ratings[id])); });
-              const sorted = userTeam.players.map(p => ({ ...p, rating: Math.round(ratings[p.id] * 10) / 10 })).sort((a, b) => b.rating - a.rating);
+              const sorted = team.players.map(p => ({ ...p, rating: Math.round(ratings[p.id] * 10) / 10 })).sort((a, b) => b.rating - a.rating);
               const motm = sorted[0];
 
               return (
-                <div className="bg-navy-800 rounded-xl border border-navy-700 p-4">
+                <div key={side} className="bg-navy-800 rounded-xl border border-navy-700 p-4">
                   <div className="flex items-center gap-2 mb-3">
                     <Star className="w-4 h-4 text-accent-400" />
                     <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500">
-                      Player Ratings
+                      {team.name} Ratings
                     </h3>
+                    <div className="w-2 h-2 rounded-full ml-auto" style={{ backgroundColor: teamColor }} />
                   </div>
-                  {motm && (
+                  {motm && side === (userSide || "Home") && (
                     <div className="flex items-center gap-3 mb-3 p-2 bg-accent-500/10 rounded-lg border border-accent-500/20">
                       <div className="w-8 h-8 rounded-lg bg-accent-500/20 flex items-center justify-center">
                         <span className="text-sm font-heading font-bold text-accent-400">{motm.rating.toFixed(1)}</span>
@@ -324,7 +323,7 @@ export default function PostMatchScreen({
                       </div>
                     </div>
                   )}
-                  <div className="flex flex-col gap-0.5 max-h-52 overflow-auto">
+                  <div className="flex flex-col gap-0.5 max-h-40 overflow-auto">
                     {sorted.map(p => (
                       <div key={p.id} className="flex items-center gap-2 px-1 py-0.5 text-xs">
                         <span className={`font-heading font-bold tabular-nums w-8 ${
@@ -337,7 +336,7 @@ export default function PostMatchScreen({
                   </div>
                 </div>
               );
-            })()}
+            })}
 
             <div className="bg-navy-800 rounded-xl border border-navy-700 p-4">
               <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500 mb-3">
