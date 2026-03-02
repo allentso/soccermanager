@@ -45,6 +45,7 @@ export default function Dashboard() {
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [showMatchConfirm, setShowMatchConfirm] = useState(false);
   const [matchMode, setMatchMode] = useState<"live" | "spectator" | "delegate">("live");
+  const [blockerModal, setBlockerModal] = useState<{ blockers: { id: string; severity: string; text: string; tab: string }[]; pendingAction?: () => void } | null>(null);
 
   // Sync matchMode with settings when loaded
   useEffect(() => {
@@ -91,19 +92,11 @@ export default function Dashboard() {
     ? gameState.league.fixtures.length > 0 && gameState.league.fixtures.every(f => f.status === "Completed")
     : false;
 
-  const handleContinue = async (mode?: string) => {
-    const effectiveMode = mode || matchMode;
-    // If there's a match today, show confirmation modal first
-    if (hasMatchToday && !showMatchConfirm) {
-      if (mode) setMatchMode(mode as "live" | "spectator" | "delegate");
-      setShowContinueMenu(false);
-      setShowMatchConfirm(true);
-      return;
-    }
-    if (isAdvancing) return;
+  const doAdvance = async (effectiveMode: string) => {
     setIsAdvancing(true);
     setShowContinueMenu(false);
     setShowMatchConfirm(false);
+    setBlockerModal(null);
     try {
       const result = await invoke<{ action: string; game?: GameStateData; snapshot?: unknown; fixture_index?: number; mode?: string }>("advance_time_with_mode", { mode: effectiveMode });
       if (result.action === "live_match") {
@@ -116,6 +109,27 @@ export default function Dashboard() {
     } finally {
       setIsAdvancing(false);
     }
+  };
+
+  const handleContinue = async (mode?: string) => {
+    const effectiveMode = mode || matchMode;
+    // If there's a match today, show confirmation modal first
+    if (hasMatchToday && !showMatchConfirm) {
+      if (mode) setMatchMode(mode as "live" | "spectator" | "delegate");
+      setShowContinueMenu(false);
+      setShowMatchConfirm(true);
+      return;
+    }
+    if (isAdvancing) return;
+    // Check for blocking actions before advancing
+    try {
+      const blockers = await invoke<{ id: string; severity: string; text: string; tab: string }[]>("check_blocking_actions");
+      if (blockers.length > 0) {
+        setBlockerModal({ blockers, pendingAction: () => doAdvance(effectiveMode) });
+        return;
+      }
+    } catch {}
+    doAdvance(effectiveMode);
   };
 
   const handleSave = async () => {
@@ -132,24 +146,7 @@ export default function Dashboard() {
   };
 
   const handleConfirmMatch = () => {
-    // Force-call handleContinue bypassing the confirmation guard
-    setShowMatchConfirm(false);
-    setIsAdvancing(true);
-    setShowContinueMenu(false);
-    (async () => {
-      try {
-        const result = await invoke<{ action: string; game?: GameStateData; snapshot?: unknown; fixture_index?: number; mode?: string }>("advance_time_with_mode", { mode: matchMode });
-        if (result.action === "live_match") {
-          navigate("/match", { state: { mode: result.mode || matchMode } });
-        } else if (result.action === "advanced" && result.game) {
-          setGameState(result.game as GameStateData);
-        }
-      } catch (err) {
-        console.error("Failed to advance time:", err);
-      } finally {
-        setIsAdvancing(false);
-      }
-    })();
+    doAdvance(matchMode);
   };
 
   const MODE_META: Record<string, { label: string; icon: React.ReactNode; desc: string; color: string }> = {
@@ -160,11 +157,27 @@ export default function Dashboard() {
 
   const handleSkipToMatchDay = async () => {
     if (isAdvancing) return;
+    // Check blockers before starting skip
+    try {
+      const blockers = await invoke<{ id: string; severity: string; text: string; tab: string }[]>("check_blocking_actions");
+      if (blockers.length > 0) {
+        setBlockerModal({ blockers, pendingAction: doSkipToMatchDay });
+        return;
+      }
+    } catch {}
+    doSkipToMatchDay();
+  };
+
+  const doSkipToMatchDay = async () => {
     setIsAdvancing(true);
     setShowContinueMenu(false);
+    setBlockerModal(null);
     try {
-      const updatedGame = await invoke<GameStateData>("skip_to_match_day");
-      setGameState(updatedGame);
+      const result = await invoke<{ action: string; game?: GameStateData; blockers?: { id: string; severity: string; text: string; tab: string }[]; days_skipped?: number }>("skip_to_match_day");
+      if (result.game) setGameState(result.game as GameStateData);
+      if (result.action === "blocked" && result.blockers && result.blockers.length > 0) {
+        setBlockerModal({ blockers: result.blockers });
+      }
     } catch (err) {
       console.error("Failed to skip to match day:", err);
     } finally {
@@ -410,6 +423,63 @@ export default function Dashboard() {
                 {MODE_META[matchMode]?.icon}
                 {t('common.confirm')}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Blocker Actions Modal */}
+      {blockerModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white dark:bg-navy-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-navy-600 w-full max-w-md p-6 mx-4">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center">
+                <AlertCircle className="w-5 h-5 text-amber-500" />
+              </div>
+              <div>
+                <h3 className="text-lg font-heading font-bold uppercase tracking-wide text-gray-900 dark:text-white">
+                  {t('notifications.attentionRequired', 'Attention Required')}
+                </h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {t('notifications.resolveBeforeContinuing', 'Resolve these issues before continuing')}
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-col gap-2 mb-5">
+              {blockerModal.blockers.map(b => (
+                <button
+                  key={b.id}
+                  onClick={() => { setBlockerModal(null); handleNavigate(b.tab); }}
+                  className={`w-full text-left p-3 rounded-xl border transition-all hover:shadow-sm ${
+                    b.severity === "warn"
+                      ? "border-amber-500/30 bg-amber-500/5 hover:bg-amber-500/10"
+                      : "border-blue-500/30 bg-blue-500/5 hover:bg-blue-500/10"
+                  }`}
+                >
+                  <p className={`text-sm font-medium ${
+                    b.severity === "warn" ? "text-amber-600 dark:text-amber-400" : "text-blue-600 dark:text-blue-400"
+                  }`}>{b.text}</p>
+                  <p className="text-[10px] font-heading uppercase tracking-widest text-gray-400 mt-1">
+                    {t('notifications.goTo', 'Go to')} {b.tab} →
+                  </p>
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setBlockerModal(null)}
+                className="flex-1 py-2.5 px-4 bg-gray-100 dark:bg-navy-700 hover:bg-gray-200 dark:hover:bg-navy-600 text-gray-700 dark:text-gray-300 font-heading font-bold text-sm uppercase tracking-wider rounded-lg transition-colors"
+              >
+                {t('notifications.reviewIssues', 'Review Issues')}
+              </button>
+              {blockerModal.pendingAction && (
+                <button
+                  onClick={() => blockerModal.pendingAction!()}
+                  className="flex-1 py-2.5 px-4 bg-amber-500 hover:bg-amber-600 text-white font-heading font-bold text-sm uppercase tracking-wider rounded-lg transition-colors"
+                >
+                  {t('notifications.continueAnyway', 'Continue Anyway')}
+                </button>
+              )}
             </div>
           </div>
         </div>

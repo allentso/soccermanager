@@ -958,11 +958,82 @@ fn apply_team_talk(
     Ok(results)
 }
 
+/// Check for blocking actions that should be resolved before advancing.
+/// Returns a JSON array of blocking issues.
+#[tauri::command]
+fn check_blocking_actions(state: State<StateManager>) -> Result<serde_json::Value, String> {
+    let game = state
+        .get_game(|g| g.clone())
+        .ok_or("No active game session")?;
+
+    let blockers = compute_blocking_actions(&game);
+    Ok(serde_json::json!(blockers))
+}
+
+/// Compute blocking actions for the current game state.
+fn compute_blocking_actions(game: &Game) -> Vec<serde_json::Value> {
+    let mut blockers = Vec::new();
+    let user_team_id = match &game.manager.team_id {
+        Some(id) => id,
+        None => return blockers,
+    };
+
+    let team = match game.teams.iter().find(|t| t.id == *user_team_id) {
+        Some(t) => t,
+        None => return blockers,
+    };
+
+    let roster: Vec<_> = game.players.iter().filter(|p| p.team_id.as_deref() == Some(user_team_id)).collect();
+    let xi_ids = &team.starting_xi_ids;
+
+    // Check for injured players in XI
+    let injured_in_xi: Vec<_> = xi_ids.iter()
+        .filter_map(|id| roster.iter().find(|p| p.id == *id && p.injury.is_some()))
+        .map(|p| p.match_name.clone())
+        .collect();
+    if !injured_in_xi.is_empty() {
+        blockers.push(serde_json::json!({
+            "id": "injured_xi",
+            "severity": "warn",
+            "text": format!("{} injured player(s) in Starting XI: {}", injured_in_xi.len(), injured_in_xi.join(", ")),
+            "tab": "Squad"
+        }));
+    }
+
+    // Check if XI is incomplete (fewer than 11 healthy players)
+    let healthy_xi = xi_ids.iter()
+        .filter(|id| roster.iter().any(|p| p.id == **id && p.injury.is_none()))
+        .count();
+    if healthy_xi < 11 && roster.len() >= 11 {
+        blockers.push(serde_json::json!({
+            "id": "incomplete_xi",
+            "severity": "warn",
+            "text": format!("Starting XI has only {} healthy players — set your lineup", healthy_xi),
+            "tab": "Squad"
+        }));
+    }
+
+    // Check for unresolved urgent messages
+    let urgent_unread = game.messages.iter()
+        .filter(|m| !m.read && m.priority == domain::message::MessagePriority::Urgent)
+        .count();
+    if urgent_unread > 0 {
+        blockers.push(serde_json::json!({
+            "id": "urgent_messages",
+            "severity": "info",
+            "text": format!("{} urgent unread message(s)", urgent_unread),
+            "tab": "Inbox"
+        }));
+    }
+
+    blockers
+}
+
 /// Skip forward until the day before the next match for the user's team.
 /// Processes each intermediate day normally (training, recovery, messages).
-/// Returns the updated game state.
+/// If blocking actions arise mid-skip, stops early and returns a "blocked" reason.
 #[tauri::command]
-fn skip_to_match_day(state: State<StateManager>) -> Result<Game, String> {
+fn skip_to_match_day(state: State<StateManager>) -> Result<serde_json::Value, String> {
     let mut game = state
         .get_game(|g| g.clone())
         .ok_or("No active game session")?;
@@ -999,10 +1070,26 @@ fn skip_to_match_day(state: State<StateManager>) -> Result<Game, String> {
         // Process this non-match day normally
         ofm_core::turn::process_day(&mut game);
         days_skipped += 1;
+
+        // After processing, check if blocking actions arose
+        let blockers = compute_blocking_actions(&game);
+        if !blockers.is_empty() {
+            state.set_game(game.clone());
+            return Ok(serde_json::json!({
+                "action": "blocked",
+                "game": game,
+                "blockers": blockers,
+                "days_skipped": days_skipped
+            }));
+        }
     }
 
     state.set_game(game.clone());
-    Ok(game)
+    Ok(serde_json::json!({
+        "action": "arrived",
+        "game": game,
+        "days_skipped": days_skipped
+    }))
 }
 
 /// Advance time with a specific match mode.
@@ -1257,6 +1344,7 @@ pub fn run() {
             finish_live_match,
             delete_save,
             skip_to_match_day,
+            check_blocking_actions,
             apply_team_talk,
             exit_to_menu,
             get_settings,
