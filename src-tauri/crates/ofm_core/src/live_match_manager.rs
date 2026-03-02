@@ -1,3 +1,4 @@
+use log::info;
 use rand::rngs::StdRng;
 use rand::SeedableRng;
 use serde::{Deserialize, Serialize};
@@ -134,6 +135,7 @@ pub fn create_live_match(
     mode: MatchMode,
     allows_extra_time: bool,
 ) -> Result<LiveMatchSession, String> {
+    info!("[live_match] create_live_match: fixture={}, mode={:?}, extra_time={}", fixture_index, mode, allows_extra_time);
     let league = game.league.as_ref().ok_or("No league")?;
     let fixture = league
         .fixtures
@@ -191,6 +193,10 @@ pub fn create_live_match(
         reputation: away_rep,
         experience: (away_rep / 10).min(100) as u8,
     };
+
+    let home_name = game.teams.iter().find(|t| t.id == home_team_id).map(|t| t.name.as_str()).unwrap_or("?");
+    let away_name = game.teams.iter().find(|t| t.id == away_team_id).map(|t| t.name.as_str()).unwrap_or("?");
+    info!("[live_match] session created: {} vs {}, user_side={:?}", home_name, away_name, user_side);
 
     Ok(LiveMatchSession {
         match_state,

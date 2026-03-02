@@ -9,6 +9,7 @@ use crate::training;
 use chrono::Datelike;
 use domain::league::{FixtureStatus, GoalEvent, MatchResult};
 use domain::player::Position as DomainPosition;
+use log::{info, debug};
 
 /// Process a single day advance.
 pub fn process_day(game: &mut Game) {
@@ -19,6 +20,7 @@ pub fn process_day(game: &mut Game) {
     });
 
     if has_match_today {
+        info!("[turn] process_day {}: matchday", today);
         simulate_matchday(game, &today);
     } else {
         let weekday_num = game.clock.current_date.weekday().num_days_from_monday();
@@ -39,6 +41,7 @@ pub fn process_day(game: &mut Game) {
     scouting::process_scouting(game);
 
     generate_pre_match_messages(game, &today);
+    debug!("[turn] process_day {}: complete, advancing clock", today);
     game.clock.advance_days(1);
 }
 
@@ -46,6 +49,7 @@ pub fn process_day(game: &mut Game) {
 /// generates matchday news, pre-match messages, and advances the clock by one day.
 pub fn finish_live_match_day(game: &mut Game) {
     let today = game.clock.current_date.format("%Y-%m-%d").to_string();
+    info!("[turn] finish_live_match_day: {}", today);
     generate_matchday_news(game, &today);
 
     board_objectives::generate_objectives(game);
@@ -134,6 +138,7 @@ fn build_engine_team(game: &Game, team_id: &str) -> engine::TeamData {
 // ---------------------------------------------------------------------------
 
 fn simulate_matchday(game: &mut Game, today: &str) {
+    info!("[turn] simulate_matchday: {}", today);
     simulate_other_matches(game, today, None);
     generate_matchday_news(game, today);
 }
@@ -141,6 +146,7 @@ fn simulate_matchday(game: &mut Game, today: &str) {
 /// Simulate all scheduled matches for `today`, optionally skipping one fixture
 /// (the user's live match). Called by both process_day and advance_time_with_mode.
 pub fn simulate_other_matches(game: &mut Game, today: &str, skip_fixture: Option<usize>) {
+    debug!("[turn] simulate_other_matches: date={}, skip={:?}", today, skip_fixture);
     let fixture_indices: Vec<usize> = game.league.as_ref().map_or(vec![], |league| {
         league
             .fixtures
@@ -167,11 +173,16 @@ fn simulate_single_match(game: &mut Game, idx: usize) {
         (f.home_team_id.clone(), f.away_team_id.clone())
     };
 
+    let home_name = game.teams.iter().find(|t| t.id == home_team_id).map(|t| t.name.as_str()).unwrap_or("?");
+    let away_name = game.teams.iter().find(|t| t.id == away_team_id).map(|t| t.name.as_str()).unwrap_or("?");
+    debug!("[turn] simulate_single_match: {} vs {} (fixture #{})", home_name, away_name, idx);
+
     let home_data = build_engine_team(game, &home_team_id);
     let away_data = build_engine_team(game, &away_team_id);
     let config = engine::MatchConfig::default();
     let report = engine::simulate(&home_data, &away_data, &config);
 
+    info!("[turn] match result: {} {} - {} {} (fixture #{})", home_name, report.home_goals, report.away_goals, away_name, idx);
     apply_match_report(game, idx, &home_team_id, &away_team_id, &report);
 }
 
@@ -185,6 +196,7 @@ pub fn apply_match_report(
     away_team_id: &str,
     report: &engine::MatchReport,
 ) {
+    debug!("[turn] apply_match_report: fixture #{}, score {} - {}", fixture_index, report.home_goals, report.away_goals);
     // Convert engine GoalDetails → domain GoalEvents
     let home_scorers: Vec<GoalEvent> = report
         .goals

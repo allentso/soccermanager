@@ -1,6 +1,7 @@
 use domain::player::{Player, PlayerAttributes, Position};
 use domain::staff::{Staff, StaffRole, StaffAttributes};
 use domain::team::{Team, TeamColors, PlayStyle};
+use log::{info, debug};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -298,6 +299,7 @@ const TEAM_TEMPLATES: &[TeamTemplate] = &[
 /// Generate a random world (raw tuple — used by `generate_world_data`).
 /// Loads definition files from `data_dir` if provided; falls back to hardcoded defaults.
 pub fn generate_world(data_dir: Option<&std::path::Path>) -> (Vec<Team>, Vec<Player>, Vec<Staff>) {
+    info!("[generator] generate_world: data_dir={:?}", data_dir);
     let mut rng = rand::thread_rng();
     let mut teams_out = Vec::new();
     let mut players = Vec::new();
@@ -305,10 +307,28 @@ pub fn generate_world(data_dir: Option<&std::path::Path>) -> (Vec<Team>, Vec<Pla
 
     // Load definitions (external file → hardcoded fallback)
     let names_def = data_dir
-        .and_then(|dir| load_names_definition(&dir.join("default_names.json")))
+        .and_then(|dir| {
+            let path = dir.join("default_names.json");
+            let result = load_names_definition(&path);
+            if result.is_some() {
+                info!("[generator] loaded names from {:?}", path);
+            } else {
+                debug!("[generator] no names file at {:?}, using defaults", path);
+            }
+            result
+        })
         .unwrap_or_else(default_names_definition);
     let teams_def = data_dir
-        .and_then(|dir| load_teams_definition(&dir.join("default_teams.json")))
+        .and_then(|dir| {
+            let path = dir.join("default_teams.json");
+            let result = load_teams_definition(&path);
+            if result.is_some() {
+                info!("[generator] loaded teams from {:?}", path);
+            } else {
+                debug!("[generator] no teams file at {:?}, using defaults", path);
+            }
+            result
+        })
         .unwrap_or_else(default_teams_definition);
 
     let country_codes: Vec<String> = names_def.pools.keys().cloned().collect();
@@ -391,6 +411,7 @@ pub fn generate_world(data_dir: Option<&std::path::Path>) -> (Vec<Team>, Vec<Pla
         staff.push(s);
     }
 
+    info!("[generator] world generated: {} teams, {} players, {} staff", teams_out.len(), players.len(), staff.len());
     (teams_out, players, staff)
 }
 

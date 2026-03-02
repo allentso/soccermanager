@@ -1,3 +1,4 @@
+use log::{info, warn, debug};
 use tauri::Manager as TauriManager;
 use tauri::State;
 
@@ -14,6 +15,7 @@ use rand::Rng;
 fn list_world_databases(
     app_handle: tauri::AppHandle,
 ) -> Result<Vec<ofm_core::generator::WorldDatabaseInfo>, String> {
+    info!("[cmd] list_world_databases");
     use ofm_core::generator::WorldDatabaseInfo;
 
     // Always include the built-in random option
@@ -59,6 +61,7 @@ fn start_new_game(
     nationality: String,
     world_source: Option<String>,
 ) -> Result<Game, String> {
+    info!("[cmd] start_new_game: {} {} (nationality={}, world_source={:?})", first_name, last_name, nationality, world_source);
     // Validate inputs
     let first_name = first_name.trim().to_string();
     let last_name = last_name.trim().to_string();
@@ -116,6 +119,7 @@ fn start_new_game(
         vec![],
     );
 
+    info!("[cmd] start_new_game: world generated with {} teams, {} players, {} staff", new_game.teams.len(), new_game.players.len(), new_game.staff.len());
     state.set_game(new_game.clone());
     Ok(new_game)
 }
@@ -126,6 +130,7 @@ fn export_world_database(
     state: State<StateManager>,
     export_path: String,
 ) -> Result<String, String> {
+    info!("[cmd] export_world_database: path={}", export_path);
     let game = state
         .get_game(|g| g.clone())
         .ok_or("No active game session".to_string())?;
@@ -151,6 +156,7 @@ fn write_temp_database(
     app_handle: tauri::AppHandle,
     json: String,
 ) -> Result<String, String> {
+    info!("[cmd] write_temp_database: json_len={}", json.len());
     let app_data_dir = app_handle
         .path()
         .app_data_dir()
@@ -172,6 +178,7 @@ fn select_team(
     app_handle: tauri::AppHandle,
     team_id: String,
 ) -> Result<Game, String> {
+    info!("[cmd] select_team: team_id={}", team_id);
     let mut game = state
         .get_game(|g| g.clone())
         .ok_or("No active game session".to_string())?;
@@ -236,6 +243,7 @@ fn select_team(
 
 #[tauri::command]
 fn get_saves(app_handle: tauri::AppHandle) -> Result<Vec<SaveMetadata>, String> {
+    debug!("[cmd] get_saves");
     let app_data_dir = app_handle
         .path()
         .app_data_dir()
@@ -253,6 +261,7 @@ fn get_saves(app_handle: tauri::AppHandle) -> Result<Vec<SaveMetadata>, String> 
 
 #[tauri::command]
 fn delete_save(app_handle: tauri::AppHandle, save_id: String) -> Result<bool, String> {
+    info!("[cmd] delete_save: save_id={}", save_id);
     let app_data_dir = app_handle
         .path()
         .app_data_dir()
@@ -271,6 +280,7 @@ fn load_game(
     app_handle: tauri::AppHandle,
     save_id: String,
 ) -> Result<String, String> {
+    info!("[cmd] load_game: save_id={}", save_id);
     let app_data_dir = app_handle
         .path()
         .app_data_dir()
@@ -289,6 +299,7 @@ fn load_game(
 
 #[tauri::command]
 fn get_active_game(state: State<StateManager>) -> Result<Game, String> {
+    debug!("[cmd] get_active_game");
     state
         .get_game(|g| g.clone())
         .ok_or("No active game session".to_string())
@@ -300,6 +311,7 @@ fn advance_time(state: State<StateManager>) -> Result<Game, String> {
         .get_game(|g| g.clone())
         .ok_or("No active game session".to_string())?;
 
+    info!("[cmd] advance_time: date={}", current_game.clock.current_date.format("%Y-%m-%d"));
     // Process a full day: matchday simulation, training, messages, then advance clock
     ofm_core::turn::process_day(&mut current_game);
 
@@ -309,6 +321,7 @@ fn advance_time(state: State<StateManager>) -> Result<Game, String> {
 
 #[tauri::command]
 fn set_formation(state: State<StateManager>, formation: String) -> Result<Game, String> {
+    info!("[cmd] set_formation: {}", formation);
     let mut game = state
         .get_game(|g| g.clone())
         .ok_or("No active game session".to_string())?;
@@ -366,6 +379,7 @@ fn set_formation(state: State<StateManager>, formation: String) -> Result<Game, 
 
 #[tauri::command]
 fn set_starting_xi(state: State<StateManager>, player_ids: Vec<String>) -> Result<Game, String> {
+    info!("[cmd] set_starting_xi: {} players", player_ids.len());
     let mut game = state
         .get_game(|g| g.clone())
         .ok_or("No active game session".to_string())?;
@@ -383,6 +397,7 @@ fn set_starting_xi(state: State<StateManager>, player_ids: Vec<String>) -> Resul
 
 #[tauri::command]
 fn set_play_style(state: State<StateManager>, play_style: String) -> Result<Game, String> {
+    info!("[cmd] set_play_style: {}", play_style);
     let mut game = state
         .get_game(|g| g.clone())
         .ok_or("No active game session".to_string())?;
@@ -413,6 +428,7 @@ fn set_training(
     focus: String,
     intensity: String,
 ) -> Result<Game, String> {
+    info!("[cmd] set_training: focus={}, intensity={}", focus, intensity);
     let mut game = state
         .get_game(|g| g.clone())
         .ok_or("No active game session".to_string())?;
@@ -451,6 +467,7 @@ fn set_training_schedule(
     state: State<StateManager>,
     schedule: String,
 ) -> Result<Game, String> {
+    info!("[cmd] set_training_schedule: {}", schedule);
     let mut game = state
         .get_game(|g| g.clone())
         .ok_or("No active game session".to_string())?;
@@ -475,6 +492,7 @@ fn set_training_schedule(
 
 #[tauri::command]
 fn hire_staff(state: State<StateManager>, staff_id: String) -> Result<Game, String> {
+    info!("[cmd] hire_staff: staff_id={}", staff_id);
     let mut game = state
         .get_game(|g| g.clone())
         .ok_or("No active game session".to_string())?;
@@ -502,6 +520,7 @@ fn hire_staff(state: State<StateManager>, staff_id: String) -> Result<Game, Stri
 
 #[tauri::command]
 fn release_staff(state: State<StateManager>, staff_id: String) -> Result<Game, String> {
+    info!("[cmd] release_staff: staff_id={}", staff_id);
     let mut game = state
         .get_game(|g| g.clone())
         .ok_or("No active game session".to_string())?;
@@ -524,6 +543,7 @@ fn release_staff(state: State<StateManager>, staff_id: String) -> Result<Game, S
 
 #[tauri::command]
 fn mark_message_read(state: State<StateManager>, message_id: String) -> Result<Game, String> {
+    debug!("[cmd] mark_message_read: {}", message_id);
     let mut game = state
         .get_game(|g| g.clone())
         .ok_or("No active game session".to_string())?;
@@ -538,6 +558,7 @@ fn mark_message_read(state: State<StateManager>, message_id: String) -> Result<G
 
 #[tauri::command]
 fn mark_all_messages_read(state: State<StateManager>) -> Result<Game, String> {
+    debug!("[cmd] mark_all_messages_read");
     let mut game = state
         .get_game(|g| g.clone())
         .ok_or("No active game session".to_string())?;
@@ -552,6 +573,7 @@ fn mark_all_messages_read(state: State<StateManager>) -> Result<Game, String> {
 
 #[tauri::command]
 fn clear_old_messages(state: State<StateManager>) -> Result<Game, String> {
+    debug!("[cmd] clear_old_messages");
     let mut game = state
         .get_game(|g| g.clone())
         .ok_or("No active game session".to_string())?;
@@ -576,6 +598,7 @@ fn clear_old_messages(state: State<StateManager>) -> Result<Game, String> {
 
 #[tauri::command]
 fn save_game(state: State<StateManager>, app_handle: tauri::AppHandle) -> Result<(), String> {
+    info!("[cmd] save_game");
     let game = state
         .get_game(|g| g.clone())
         .ok_or("No active game session".to_string())?;
@@ -606,6 +629,7 @@ fn auto_select_set_pieces(
     state: State<StateManager>,
     player_ids: Vec<String>,
 ) -> Result<serde_json::Value, String> {
+    debug!("[cmd] auto_select_set_pieces: {} players", player_ids.len());
     let game = state
         .get_game(|g| g.clone())
         .ok_or("No active game session".to_string())?;
@@ -626,6 +650,7 @@ fn toggle_transfer_list(
     state: State<StateManager>,
     player_id: String,
 ) -> Result<Game, String> {
+    info!("[cmd] toggle_transfer_list: player_id={}", player_id);
     let mut game = state
         .get_game(|g| g.clone())
         .ok_or("No active game session".to_string())?;
@@ -644,6 +669,7 @@ fn toggle_loan_list(
     state: State<StateManager>,
     player_id: String,
 ) -> Result<Game, String> {
+    info!("[cmd] toggle_loan_list: player_id={}", player_id);
     let mut game = state
         .get_game(|g| g.clone())
         .ok_or("No active game session".to_string())?;
@@ -663,6 +689,7 @@ fn make_transfer_bid(
     player_id: String,
     fee: u64,
 ) -> Result<serde_json::Value, String> {
+    info!("[cmd] make_transfer_bid: player_id={}, fee={}", player_id, fee);
     let mut game = state
         .get_game(|g| g.clone())
         .ok_or("No active game session".to_string())?;
@@ -683,6 +710,7 @@ fn respond_to_offer(
     offer_id: String,
     accept: bool,
 ) -> Result<Game, String> {
+    info!("[cmd] respond_to_offer: player_id={}, offer_id={}, accept={}", player_id, offer_id, accept);
     let mut game = state
         .get_game(|g| g.clone())
         .ok_or("No active game session".to_string())?;
@@ -698,6 +726,7 @@ fn send_scout(
     scout_id: String,
     player_id: String,
 ) -> Result<Game, String> {
+    info!("[cmd] send_scout: scout_id={}, player_id={}", scout_id, player_id);
     let mut game = state
         .get_game(|g| g.clone())
         .ok_or("No active game session".to_string())?;
@@ -711,6 +740,7 @@ fn send_scout(
 fn check_season_complete(
     state: State<StateManager>,
 ) -> Result<bool, String> {
+    debug!("[cmd] check_season_complete");
     let game = state
         .get_game(|g| g.clone())
         .ok_or("No active game session".to_string())?;
@@ -721,6 +751,7 @@ fn check_season_complete(
 fn advance_to_next_season(
     state: State<StateManager>,
 ) -> Result<serde_json::Value, String> {
+    info!("[cmd] advance_to_next_season");
     let mut game = state
         .get_game(|g| g.clone())
         .ok_or("No active game session".to_string())?;
@@ -741,6 +772,7 @@ fn advance_to_next_season(
 fn get_season_awards(
     state: State<StateManager>,
 ) -> Result<ofm_core::season_awards::SeasonAwards, String> {
+    debug!("[cmd] get_season_awards");
     let game = state
         .get_game(|g| g.clone())
         .ok_or("No active game session".to_string())?;
@@ -754,6 +786,7 @@ fn resolve_message_action(
     action_id: String,
     option_id: Option<String>,
 ) -> Result<serde_json::Value, String> {
+    info!("[cmd] resolve_message_action: msg={}, action={}, option={:?}", message_id, action_id, option_id);
     let mut game = state
         .get_game(|g| g.clone())
         .ok_or("No active game session".to_string())?;
@@ -797,6 +830,7 @@ fn start_live_match(
     mode: String,
     allows_extra_time: bool,
 ) -> Result<engine::MatchSnapshot, String> {
+    info!("[cmd] start_live_match: fixture={}, mode={}, extra_time={}", fixture_index, mode, allows_extra_time);
     let game = state
         .get_game(|g| g.clone())
         .ok_or("No active game session")?;
@@ -819,6 +853,7 @@ fn step_live_match(
     state: State<StateManager>,
     minutes: u16,
 ) -> Result<Vec<engine::MinuteResult>, String> {
+    debug!("[cmd] step_live_match: minutes={}", minutes);
     state
         .with_live_match(|session| {
             if minutes <= 1 {
@@ -836,6 +871,7 @@ fn apply_match_command(
     state: State<StateManager>,
     command: engine::MatchCommand,
 ) -> Result<engine::MatchSnapshot, String> {
+    info!("[cmd] apply_match_command: {:?}", command);
     state
         .with_live_match(|session| {
             session.apply_command(command)?;
@@ -849,6 +885,7 @@ fn apply_match_command(
 fn get_match_snapshot(
     state: State<StateManager>,
 ) -> Result<engine::MatchSnapshot, String> {
+    debug!("[cmd] get_match_snapshot");
     state
         .with_live_match(|session| session.snapshot())
         .ok_or_else(|| "No active live match".to_string())
@@ -859,6 +896,7 @@ fn get_match_snapshot(
 fn finish_live_match(
     state: State<StateManager>,
 ) -> Result<Game, String> {
+    info!("[cmd] finish_live_match");
     let session = state
         .take_live_match()
         .ok_or("No active live match")?;
@@ -899,6 +937,7 @@ fn apply_team_talk(
     tone: String,
     context: String,
 ) -> Result<Vec<serde_json::Value>, String> {
+    info!("[cmd] apply_team_talk: tone={}, context={}", tone, context);
     let mut game = state
         .get_game(|g| g.clone())
         .ok_or("No active game session")?;
@@ -971,6 +1010,7 @@ fn submit_press_conference(
     user_team_name: String,
     user_team_id: String,
 ) -> Result<serde_json::Value, String> {
+    info!("[cmd] submit_press_conference: {} {} - {} {}", home_team, home_score, away_score, away_team);
     let mut game = state
         .get_game(|g| g.clone())
         .ok_or("No active game session")?;
@@ -1095,6 +1135,7 @@ fn submit_press_conference(
 /// Returns a JSON array of blocking issues.
 #[tauri::command]
 fn check_blocking_actions(state: State<StateManager>) -> Result<serde_json::Value, String> {
+    debug!("[cmd] check_blocking_actions");
     let game = state
         .get_game(|g| g.clone())
         .ok_or("No active game session")?;
@@ -1167,6 +1208,7 @@ fn compute_blocking_actions(game: &Game) -> Vec<serde_json::Value> {
 /// If blocking actions arise mid-skip, stops early and returns a "blocked" reason.
 #[tauri::command]
 fn skip_to_match_day(state: State<StateManager>) -> Result<serde_json::Value, String> {
+    info!("[cmd] skip_to_match_day");
     let mut game = state
         .get_game(|g| g.clone())
         .ok_or("No active game session")?;
@@ -1217,6 +1259,7 @@ fn skip_to_match_day(state: State<StateManager>) -> Result<serde_json::Value, St
         }
     }
 
+    info!("[cmd] skip_to_match_day: arrived after {} days", days_skipped);
     state.set_game(game.clone());
     Ok(serde_json::json!({
         "action": "arrived",
@@ -1234,6 +1277,7 @@ fn advance_time_with_mode(
     state: State<StateManager>,
     mode: String,
 ) -> Result<serde_json::Value, String> {
+    info!("[cmd] advance_time_with_mode: mode={}", mode);
     let mut game = state
         .get_game(|g| g.clone())
         .ok_or("No active game session")?;
@@ -1335,6 +1379,7 @@ fn exit_to_menu(
     state: State<StateManager>,
     app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
+    info!("[cmd] exit_to_menu");
     let game = state
         .get_game(|g| g.clone())
         .ok_or("No active game session")?;
@@ -1415,6 +1460,7 @@ fn settings_path(app_handle: &tauri::AppHandle) -> Result<std::path::PathBuf, St
 
 #[tauri::command]
 fn get_settings(app_handle: tauri::AppHandle) -> Result<AppSettings, String> {
+    debug!("[cmd] get_settings");
     let path = settings_path(&app_handle)?;
     if !path.exists() {
         return Ok(AppSettings::default());
@@ -1425,6 +1471,7 @@ fn get_settings(app_handle: tauri::AppHandle) -> Result<AppSettings, String> {
 
 #[tauri::command]
 fn save_settings(app_handle: tauri::AppHandle, settings: AppSettings) -> Result<(), String> {
+    info!("[cmd] save_settings: theme={}, lang={}", settings.theme, settings.language);
     let path = settings_path(&app_handle)?;
     let json = serde_json::to_string_pretty(&settings).map_err(|e| e.to_string())?;
     std::fs::write(&path, json).map_err(|e| format!("Failed to save settings: {}", e))
@@ -1432,6 +1479,7 @@ fn save_settings(app_handle: tauri::AppHandle, settings: AppSettings) -> Result<
 
 #[tauri::command]
 fn clear_all_saves(app_handle: tauri::AppHandle) -> Result<(), String> {
+    warn!("[cmd] clear_all_saves: deleting all save data!");
     let app_data_dir = app_handle.path().app_data_dir().map_err(|e| e.to_string())?;
     let db_path = app_data_dir.join("saves.db");
     if db_path.exists() {
@@ -1444,6 +1492,17 @@ fn clear_all_saves(app_handle: tauri::AppHandle) -> Result<(), String> {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(
+            tauri_plugin_log::Builder::new()
+                .level(log::LevelFilter::Info)
+                .level_for("openfootmanager_lib", log::LevelFilter::Debug)
+                .level_for("ofm_core", log::LevelFilter::Debug)
+                .level_for("engine", log::LevelFilter::Debug)
+                .level_for("db", log::LevelFilter::Debug)
+                .rotation_strategy(tauri_plugin_log::RotationStrategy::KeepAll)
+                .max_file_size(5_000_000) // 5 MB per log file
+                .build(),
+        )
         .manage(StateManager::new())
         .invoke_handler(tauri::generate_handler![
             list_world_databases,

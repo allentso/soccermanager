@@ -1,3 +1,4 @@
+use log::{info, debug, warn, error};
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -22,8 +23,12 @@ impl DbManager {
     /// Open (or create) the SQLite database at the given path
     /// and ensure the saves table exists with the correct schema.
     pub fn new(db_path: PathBuf) -> Result<Self, String> {
+        debug!("[db] opening database at {:?}", db_path);
         let conn = Connection::open(&db_path)
-            .map_err(|e| format!("Failed to open database: {}", e))?;
+            .map_err(|e| {
+                error!("[db] failed to open database at {:?}: {}", db_path, e);
+                format!("Failed to open database: {}", e)
+            })?;
 
         // Check if the saves table exists with the old INTEGER id schema
         // and migrate to the new TEXT id schema if needed.
@@ -37,6 +42,7 @@ impl DbManager {
             .map_or(false, |col_type| col_type.to_uppercase() != "TEXT");
 
         if needs_migration {
+            warn!("[db] migrating old INTEGER id schema to TEXT");
             conn.execute_batch("DROP TABLE IF EXISTS saves;")
                 .map_err(|e| format!("Failed to drop old saves table: {}", e))?;
         }
@@ -64,6 +70,7 @@ impl DbManager {
         game_data: &str,
     ) -> Result<String, String> {
         let id = uuid::Uuid::new_v4().to_string();
+        info!("[db] create_save: id={}, name='{}', data_len={}", id, name, game_data.len());
 
         self.conn
             .execute(
@@ -77,6 +84,7 @@ impl DbManager {
 
     /// Update an existing save's game data and bump last_played_at.
     pub fn update_save(&self, id: &str, game_data: &str) -> Result<(), String> {
+        info!("[db] update_save: id={}, data_len={}", id, game_data.len());
         let rows = self
             .conn
             .execute(
@@ -119,6 +127,7 @@ impl DbManager {
 
     /// Load the full game data JSON string for a given save id.
     pub fn load_save(&self, id: &str) -> Result<String, String> {
+        info!("[db] load_save: id={}", id);
         self.conn
             .query_row(
                 "SELECT game_data FROM saves WHERE id = ?1",
@@ -130,6 +139,7 @@ impl DbManager {
 
     /// Delete a save by id. Returns true if a row was deleted.
     pub fn delete_save(&self, id: &str) -> Result<bool, String> {
+        warn!("[db] delete_save: id={}", id);
         let rows = self
             .conn
             .execute("DELETE FROM saves WHERE id = ?1", params![id])

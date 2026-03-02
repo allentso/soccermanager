@@ -6,6 +6,7 @@ import Dashboard from "./pages/Dashboard";
 import MatchSimulation from "./pages/MatchSimulation";
 import Settings from "./pages/Settings";
 import { useSettingsStore } from "./store/settingsStore";
+import i18n from "./i18n";
 import "./App.css";
 
 const SCALE_MAP: Record<string, string> = {
@@ -30,6 +31,13 @@ function App() {
   useEffect(() => {
     document.documentElement.classList.toggle("high-contrast", settings.high_contrast);
   }, [settings.high_contrast]);
+
+  // Apply saved language from settings once loaded (overrides OS detection)
+  useEffect(() => {
+    if (loaded && settings.language && settings.language !== i18n.language) {
+      i18n.changeLanguage(settings.language);
+    }
+  }, [loaded, settings.language]);
 
   return (
     <BrowserRouter>
