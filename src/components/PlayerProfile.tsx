@@ -1,7 +1,10 @@
+import { useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { PlayerData, TeamData, GameStateData } from "../store/gameStore";
 import { Card, CardHeader, CardBody, Badge, ProgressBar } from "./ui";
-import { ArrowLeft, Shield, TrendingUp, Calendar, Briefcase, DollarSign, Heart, Activity, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Shield, TrendingUp, Calendar, Briefcase, DollarSign, Heart, Activity, AlertTriangle, ScanSearch } from "lucide-react";
 import { TraitList } from "./TraitBadge";
+import { useTranslation } from "react-i18next";
 
 interface PlayerProfileProps {
   player: PlayerData;
@@ -9,11 +12,12 @@ interface PlayerProfileProps {
   isOwnClub: boolean;
   onClose: () => void;
   onSelectTeam?: (id: string) => void;
+  onGameUpdate?: (g: GameStateData) => void;
 }
 
-function getTeamName(teams: TeamData[], id: string | null): string {
-  if (!id) return "Free Agent";
-  return teams.find(t => t.id === id)?.name ?? "Unknown";
+function getTeamNameLocal(teams: TeamData[], id: string | null, freeAgent: string, unknown: string): string {
+  if (!id) return freeAgent;
+  return teams.find(t => t.id === id)?.name ?? unknown;
 }
 
 function calcOvr(p: PlayerData): number {
@@ -62,51 +66,54 @@ function attrColor(val: number): string {
   return "text-red-500 dark:text-red-400";
 }
 
-export default function PlayerProfile({ player, gameState, isOwnClub, onClose, onSelectTeam }: PlayerProfileProps) {
+export default function PlayerProfile({ player, gameState, isOwnClub, onClose, onSelectTeam, onGameUpdate }: PlayerProfileProps) {
+  const { t } = useTranslation();
+  const [scoutStatus, setScoutStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [scoutError, setScoutError] = useState<string | null>(null);
   const ovr = calcOvr(player);
   const age = calcAge(player.date_of_birth);
-  const teamName = getTeamName(gameState.teams, player.team_id);
+  const teamName = getTeamNameLocal(gameState.teams, player.team_id, t('common.freeAgent'), t('common.unknown'));
 
   const isGK = player.position === "Goalkeeper";
 
   const attrGroups = [
     {
-      label: "Physical",
+      label: t('common.attrGroups.physical'),
       attrs: [
-        { name: "Pace", value: player.attributes.pace },
-        { name: "Stamina", value: player.attributes.stamina },
-        { name: "Strength", value: player.attributes.strength },
-        { name: "Agility", value: player.attributes.agility },
+        { name: t('common.attributes.pace'), value: player.attributes.pace },
+        { name: t('common.attributes.stamina'), value: player.attributes.stamina },
+        { name: t('common.attributes.strength'), value: player.attributes.strength },
+        { name: t('common.attributes.agility'), value: player.attributes.agility },
       ],
     },
     {
-      label: "Technical",
+      label: t('common.attrGroups.technical'),
       attrs: [
-        { name: "Passing", value: player.attributes.passing },
-        { name: "Shooting", value: player.attributes.shooting },
-        { name: "Tackling", value: player.attributes.tackling },
-        { name: "Dribbling", value: player.attributes.dribbling },
-        { name: "Defending", value: player.attributes.defending },
+        { name: t('common.attributes.passing'), value: player.attributes.passing },
+        { name: t('common.attributes.shooting'), value: player.attributes.shooting },
+        { name: t('common.attributes.tackling'), value: player.attributes.tackling },
+        { name: t('common.attributes.dribbling'), value: player.attributes.dribbling },
+        { name: t('common.attributes.defending'), value: player.attributes.defending },
       ],
     },
     {
-      label: "Mental",
+      label: t('common.attrGroups.mental'),
       attrs: [
-        { name: "Positioning", value: player.attributes.positioning },
-        { name: "Vision", value: player.attributes.vision },
-        { name: "Decisions", value: player.attributes.decisions },
-        { name: "Composure", value: player.attributes.composure },
-        { name: "Aggression", value: player.attributes.aggression },
-        { name: "Teamwork", value: player.attributes.teamwork },
-        { name: "Leadership", value: player.attributes.leadership },
+        { name: t('common.attributes.positioning'), value: player.attributes.positioning },
+        { name: t('common.attributes.vision'), value: player.attributes.vision },
+        { name: t('common.attributes.decisions'), value: player.attributes.decisions },
+        { name: t('common.attributes.composure'), value: player.attributes.composure },
+        { name: t('common.attributes.aggression'), value: player.attributes.aggression },
+        { name: t('common.attributes.teamwork'), value: player.attributes.teamwork },
+        { name: t('common.attributes.leadership'), value: player.attributes.leadership },
       ],
     },
     ...(isGK ? [{
-      label: "Goalkeeper",
+      label: t('common.attrGroups.goalkeeper'),
       attrs: [
-        { name: "Handling", value: player.attributes.handling },
-        { name: "Reflexes", value: player.attributes.reflexes },
-        { name: "Aerial", value: player.attributes.aerial },
+        { name: t('common.attributes.handling'), value: player.attributes.handling },
+        { name: t('common.attributes.reflexes'), value: player.attributes.reflexes },
+        { name: t('common.attributes.aerial'), value: player.attributes.aerial },
       ],
     }] : []),
   ];
@@ -116,7 +123,7 @@ export default function PlayerProfile({ player, gameState, isOwnClub, onClose, o
       {/* Back button */}
       <button onClick={onClose} className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors mb-4">
         <ArrowLeft className="w-4 h-4" />
-        <span className="font-heading font-bold uppercase tracking-wider">Back</span>
+        <span className="font-heading font-bold uppercase tracking-wider">{t('common.back')}</span>
       </button>
 
       {/* Hero header */}
@@ -136,7 +143,7 @@ export default function PlayerProfile({ player, gameState, isOwnClub, onClose, o
                 <Badge variant={positionBadgeVariant(player.position)}>{player.position}</Badge>
                 <span className="text-gray-400 text-sm">{player.nationality}</span>
                 <span className="text-gray-500">•</span>
-                <span className="text-gray-400 text-sm">Age {age}</span>
+                <span className="text-gray-400 text-sm">{t('common.age')} {age}</span>
               </div>
               <p className="text-gray-400 text-sm mt-2 flex items-center gap-1.5">
                 <Shield className="w-4 h-4" />
@@ -155,22 +162,64 @@ export default function PlayerProfile({ player, gameState, isOwnClub, onClose, o
               )}
             </div>
 
+            {/* Scout button for non-own players */}
+            {!isOwnClub && onGameUpdate && (() => {
+              const scouts = gameState.staff.filter(s => s.role === "Scout" && s.team_id === gameState.manager.team_id);
+              const alreadyScouting = (gameState.scouting_assignments || []).some(a => a.player_id === player.id);
+              const allBusy = scouts.length > 0 && scouts.every(s => (gameState.scouting_assignments || []).some(a => a.scout_id === s.id));
+              const canScout = scouts.length > 0 && !alreadyScouting && !allBusy && scoutStatus !== "sent";
+              return (
+                <div className="mt-3">
+                  {scouts.length === 0 ? (
+                    <p className="text-xs text-gray-500">Hire a scout to evaluate players</p>
+                  ) : alreadyScouting || scoutStatus === "sent" ? (
+                    <span className="text-xs text-primary-400 font-heading font-bold uppercase tracking-wider flex items-center gap-1.5">
+                      <ScanSearch className="w-3.5 h-3.5" /> Scouting in progress
+                    </span>
+                  ) : (
+                    <button
+                      disabled={!canScout || scoutStatus === "sending"}
+                      onClick={async () => {
+                        const availableScout = scouts.find(s => !(gameState.scouting_assignments || []).some(a => a.scout_id === s.id));
+                        if (!availableScout) return;
+                        setScoutStatus("sending");
+                        setScoutError(null);
+                        try {
+                          const updated = await invoke<GameStateData>("send_scout", { scoutId: availableScout.id, playerId: player.id });
+                          onGameUpdate(updated);
+                          setScoutStatus("sent");
+                        } catch (err) {
+                          setScoutError(String(err));
+                          setScoutStatus("error");
+                        }
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-500/20 text-primary-400 hover:bg-primary-500/30 transition-colors text-xs font-heading font-bold uppercase tracking-wider disabled:opacity-50"
+                    >
+                      <ScanSearch className="w-3.5 h-3.5" />
+                      {scoutStatus === "sending" ? "Sending..." : "Scout Player"}
+                    </button>
+                  )}
+                  {scoutError && <p className="text-xs text-red-400 mt-1">{scoutError}</p>}
+                </div>
+              );
+            })()}
+
             {/* Key stats in header */}
             <div className="hidden md:grid grid-cols-2 gap-3">
               <div className="bg-white/5 rounded-xl px-5 py-3 text-center min-w-[100px]">
-                <p className="text-xs text-gray-400 font-heading uppercase tracking-wider">Condition</p>
+                <p className="text-xs text-gray-400 font-heading uppercase tracking-wider">{t('common.condition')}</p>
                 <p className={`font-heading font-bold text-xl mt-0.5 ${player.condition >= 70 ? "text-primary-400" : "text-red-400"}`}>{player.condition}%</p>
               </div>
               <div className="bg-white/5 rounded-xl px-5 py-3 text-center min-w-[100px]">
-                <p className="text-xs text-gray-400 font-heading uppercase tracking-wider">Morale</p>
+                <p className="text-xs text-gray-400 font-heading uppercase tracking-wider">{t('common.morale')}</p>
                 <p className={`font-heading font-bold text-xl mt-0.5 ${player.morale >= 70 ? "text-primary-400" : "text-accent-400"}`}>{player.morale}%</p>
               </div>
               <div className="bg-white/5 rounded-xl px-5 py-3 text-center min-w-[100px]">
-                <p className="text-xs text-gray-400 font-heading uppercase tracking-wider">Value</p>
+                <p className="text-xs text-gray-400 font-heading uppercase tracking-wider">{t('common.value')}</p>
                 <p className="font-heading font-bold text-xl mt-0.5 text-white">{formatValue(player.market_value)}</p>
               </div>
               <div className="bg-white/5 rounded-xl px-5 py-3 text-center min-w-[100px]">
-                <p className="text-xs text-gray-400 font-heading uppercase tracking-wider">Wage</p>
+                <p className="text-xs text-gray-400 font-heading uppercase tracking-wider">{t('common.wage')}</p>
                 <p className="font-heading font-bold text-xl mt-0.5 text-white">{formatWage(player.wage)}</p>
               </div>
             </div>
@@ -179,10 +228,10 @@ export default function PlayerProfile({ player, gameState, isOwnClub, onClose, o
 
         {/* Mobile-only quick stats */}
         <div className="grid grid-cols-4 gap-px bg-gray-200 dark:bg-navy-600 md:hidden">
-          <QuickStat label="Condition" value={`${player.condition}%`} color={player.condition >= 70 ? "text-primary-500" : "text-red-500"} />
-          <QuickStat label="Morale" value={`${player.morale}%`} color={player.morale >= 70 ? "text-primary-500" : "text-accent-500"} />
-          <QuickStat label="Value" value={formatValue(player.market_value)} color="text-gray-700 dark:text-gray-200" />
-          <QuickStat label="Wage" value={formatWage(player.wage)} color="text-gray-700 dark:text-gray-200" />
+          <QuickStat label={t('common.condition')} value={`${player.condition}%`} color={player.condition >= 70 ? "text-primary-500" : "text-red-500"} />
+          <QuickStat label={t('common.morale')} value={`${player.morale}%`} color={player.morale >= 70 ? "text-primary-500" : "text-accent-500"} />
+          <QuickStat label={t('common.value')} value={formatValue(player.market_value)} color="text-gray-700 dark:text-gray-200" />
+          <QuickStat label={t('common.wage')} value={formatWage(player.wage)} color="text-gray-700 dark:text-gray-200" />
         </div>
       </Card>
 
@@ -196,7 +245,7 @@ export default function PlayerProfile({ player, gameState, isOwnClub, onClose, o
               </div>
               <div>
                 <p className="font-semibold text-sm text-red-600 dark:text-red-400">{player.injury.name}</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">{player.injury.days_remaining} days remaining — Player unavailable for selection</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">{t('playerProfile.daysRemaining', { count: player.injury.days_remaining })}</p>
               </div>
             </div>
           </CardBody>
@@ -207,22 +256,22 @@ export default function PlayerProfile({ player, gameState, isOwnClub, onClose, o
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Contract & Personal Info */}
         <Card>
-          <CardHeader>Contract & Info</CardHeader>
+          <CardHeader>{t('playerProfile.contractInfo')}</CardHeader>
           <CardBody>
             <div className="flex flex-col gap-3">
-              <InfoRow icon={<Calendar className="w-4 h-4" />} label="Date of Birth" value={new Date(player.date_of_birth).toLocaleDateString()} />
-              <InfoRow icon={<Briefcase className="w-4 h-4" />} label="Contract" value={player.contract_end ? `Until ${player.contract_end.substring(0, 4)}` : "No contract"} />
-              <InfoRow icon={<DollarSign className="w-4 h-4" />} label="Market Value" value={formatValue(player.market_value)} />
-              <InfoRow icon={<TrendingUp className="w-4 h-4" />} label="Weekly Wage" value={formatWage(player.wage)} />
-              <InfoRow icon={<Heart className="w-4 h-4" />} label="Condition" value={`${player.condition}%`} />
-              <InfoRow icon={<Activity className="w-4 h-4" />} label="Morale" value={`${player.morale}%`} />
+              <InfoRow icon={<Calendar className="w-4 h-4" />} label={t('playerProfile.dateOfBirth')} value={new Date(player.date_of_birth).toLocaleDateString()} />
+              <InfoRow icon={<Briefcase className="w-4 h-4" />} label={t('common.contract')} value={player.contract_end ? t('finances.until', { year: player.contract_end.substring(0, 4) }) : t('playerProfile.noContract')} />
+              <InfoRow icon={<DollarSign className="w-4 h-4" />} label={t('finances.marketValue')} value={formatValue(player.market_value)} />
+              <InfoRow icon={<TrendingUp className="w-4 h-4" />} label={t('playerProfile.weeklyWage')} value={formatWage(player.wage)} />
+              <InfoRow icon={<Heart className="w-4 h-4" />} label={t('common.condition')} value={`${player.condition}%`} />
+              <InfoRow icon={<Activity className="w-4 h-4" />} label={t('common.morale')} value={`${player.morale}%`} />
             </div>
           </CardBody>
         </Card>
 
         {/* Attributes — takes 2 cols */}
         <Card className="lg:col-span-2">
-          <CardHeader>Attributes</CardHeader>
+          <CardHeader>{t('playerProfile.attributes')}</CardHeader>
           <CardBody>
             {isOwnClub ? (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -238,7 +287,7 @@ export default function PlayerProfile({ player, gameState, isOwnClub, onClose, o
                         </div>
                       ))}
                       <div className="pt-1 border-t border-gray-100 dark:border-navy-600 flex items-center gap-3">
-                        <span className="text-sm text-gray-500 dark:text-gray-400 w-24 font-semibold">Average</span>
+                        <span className="text-sm text-gray-500 dark:text-gray-400 w-24 font-semibold">{t('common.average')}</span>
                         <span className="flex-1" />
                         <span className="font-heading font-bold text-sm w-8 text-right tabular-nums text-gray-700 dark:text-gray-200">
                           {Math.round(group.attrs.reduce((s, a) => s + a.value, 0) / group.attrs.length)}
@@ -253,9 +302,9 @@ export default function PlayerProfile({ player, gameState, isOwnClub, onClose, o
                 <div className="w-14 h-14 rounded-full bg-gray-100 dark:bg-navy-700 flex items-center justify-center mx-auto mb-4">
                   <Shield className="w-7 h-7 text-gray-400 dark:text-gray-500" />
                 </div>
-                <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Attributes Hidden</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">{t('playerProfile.attributesHidden')}</p>
                 <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 max-w-xs mx-auto">
-                  Scout this player or sign them to view detailed attributes.
+                  {t('playerProfile.scoutToView')}
                 </p>
                 <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-6 text-left">
                   {attrGroups.map(group => (
@@ -280,24 +329,24 @@ export default function PlayerProfile({ player, gameState, isOwnClub, onClose, o
 
         {/* Season Stats */}
         <Card className="lg:col-span-2">
-          <CardHeader>Season Statistics</CardHeader>
+          <CardHeader>{t('playerProfile.seasonStats')}</CardHeader>
           <CardBody>
             <div className="grid grid-cols-4 md:grid-cols-8 gap-3">
-              <StatBox label="Apps" value={player.stats.appearances} />
-              <StatBox label="Goals" value={player.stats.goals} />
-              <StatBox label="Assists" value={player.stats.assists} />
-              <StatBox label="Mins" value={player.stats.minutes_played} />
-              <StatBox label="Clean Sh" value={player.stats.clean_sheets} />
-              <StatBox label="Yellows" value={player.stats.yellow_cards} />
-              <StatBox label="Reds" value={player.stats.red_cards} />
-              <StatBox label="Avg Rating" value={player.stats.avg_rating > 0 ? player.stats.avg_rating.toFixed(1) : "-"} />
+              <StatBox label={t('playerProfile.apps')} value={player.stats.appearances} />
+              <StatBox label={t('playerProfile.goals')} value={player.stats.goals} />
+              <StatBox label={t('playerProfile.assists')} value={player.stats.assists} />
+              <StatBox label={t('playerProfile.mins')} value={player.stats.minutes_played} />
+              <StatBox label={t('playerProfile.cleanSheets')} value={player.stats.clean_sheets} />
+              <StatBox label={t('playerProfile.yellows')} value={player.stats.yellow_cards} />
+              <StatBox label={t('playerProfile.reds')} value={player.stats.red_cards} />
+              <StatBox label={t('playerProfile.avgRating')} value={player.stats.avg_rating > 0 ? player.stats.avg_rating.toFixed(1) : "-"} />
             </div>
           </CardBody>
         </Card>
 
         {/* Career history */}
         <Card>
-          <CardHeader>Career History</CardHeader>
+          <CardHeader>{t('playerProfile.careerHistory')}</CardHeader>
           <CardBody>
             {player.career.length > 0 ? (
               <div className="flex flex-col gap-2">
@@ -308,15 +357,15 @@ export default function PlayerProfile({ player, gameState, isOwnClub, onClose, o
                       <span className="text-gray-400 dark:text-gray-500 ml-2 text-xs">{entry.season}/{entry.season + 1}</span>
                     </div>
                     <div className="text-xs text-gray-500 dark:text-gray-400 flex gap-3">
-                      <span>{entry.appearances} apps</span>
-                      <span>{entry.goals} goals</span>
-                      <span>{entry.assists} assists</span>
+                      <span>{t('playerProfile.nApps', { count: entry.appearances })}</span>
+                      <span>{t('playerProfile.nGoals', { count: entry.goals })}</span>
+                      <span>{t('playerProfile.nAssists', { count: entry.assists })}</span>
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-4">No career history yet — first season.</p>
+              <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-4">{t('playerProfile.noCareer')}</p>
             )}
           </CardBody>
         </Card>

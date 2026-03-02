@@ -152,6 +152,13 @@ pub fn process_end_of_season(game: &mut Game) -> EndOfSeasonSummary {
         }
     }
 
+    // 6b. Evaluate board objectives and adjust satisfaction
+    let obj_delta = crate::board_objectives::evaluate_objectives(game);
+    let new_sat = (game.manager.satisfaction as i16 + obj_delta as i16).clamp(0, 100) as u8;
+    game.manager.satisfaction = new_sat;
+    // Clear objectives for next season (will be regenerated on first process_day)
+    game.board_objectives.clear();
+
     // 7. Generate next season schedule
     let next_season = season + 1;
     let team_ids: Vec<String> = game.teams.iter().map(|t| t.id.clone()).collect();

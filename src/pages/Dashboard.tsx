@@ -556,6 +556,7 @@ export default function Dashboard() {
                 isOwnClub={isOwnClub}
                 onClose={handleBack}
                 onSelectTeam={selectTeam}
+                onGameUpdate={setGameState}
               />
             );
           })()}

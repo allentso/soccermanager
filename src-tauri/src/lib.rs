@@ -523,6 +523,21 @@ fn mark_message_read(state: State<StateManager>, message_id: String) -> Result<G
 }
 
 #[tauri::command]
+fn send_scout(
+    state: State<StateManager>,
+    scout_id: String,
+    player_id: String,
+) -> Result<Game, String> {
+    let mut game = state
+        .get_game(|g| g.clone())
+        .ok_or("No active game session".to_string())?;
+
+    ofm_core::scouting::send_scout(&mut game, &scout_id, &player_id)?;
+    state.set_game(game.clone());
+    Ok(game)
+}
+
+#[tauri::command]
 fn check_season_complete(
     state: State<StateManager>,
 ) -> Result<bool, String> {
@@ -1050,6 +1065,7 @@ pub fn run() {
             hire_staff,
             release_staff,
             mark_message_read,
+            send_scout,
             check_season_complete,
             advance_to_next_season,
             get_season_awards,

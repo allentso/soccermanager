@@ -1,8 +1,10 @@
+use crate::board_objectives;
 use crate::game::Game;
 use crate::messages;
 use crate::news;
 use crate::player_events;
 use crate::random_events;
+use crate::scouting;
 use crate::training;
 use chrono::Datelike;
 use domain::league::{FixtureStatus, GoalEvent, MatchResult};
@@ -24,9 +26,14 @@ pub fn process_day(game: &mut Game) {
         training::check_squad_fitness_warnings(game);
     }
 
-    // Player conversations and random events
+    // Board objectives (generate if missing, update progress)
+    board_objectives::generate_objectives(game);
+    board_objectives::update_objective_progress(game);
+
+    // Player conversations, random events, and scouting
     player_events::check_player_events(game);
     random_events::check_random_events(game);
+    scouting::process_scouting(game);
 
     generate_pre_match_messages(game, &today);
     game.clock.advance_days(1);
@@ -37,8 +44,13 @@ pub fn process_day(game: &mut Game) {
 pub fn finish_live_match_day(game: &mut Game) {
     let today = game.clock.current_date.format("%Y-%m-%d").to_string();
     generate_matchday_news(game, &today);
+
+    board_objectives::generate_objectives(game);
+    board_objectives::update_objective_progress(game);
+
     player_events::check_player_events(game);
     random_events::check_random_events(game);
+    scouting::process_scouting(game);
     generate_pre_match_messages(game, &today);
     game.clock.advance_days(1);
 }

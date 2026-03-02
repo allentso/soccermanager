@@ -1,3 +1,4 @@
+pub mod board_objectives;
 pub mod clock;
 pub mod end_of_season;
 pub mod game;
@@ -8,6 +9,7 @@ pub mod news;
 pub mod player_events;
 pub mod random_events;
 pub mod schedule;
+pub mod scouting;
 pub mod season_awards;
 pub mod state;
 pub mod training;

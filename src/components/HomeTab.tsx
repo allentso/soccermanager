@@ -230,6 +230,37 @@ export default function HomeTab({ gameState, onNavigate }: HomeTabProps) {
         </Card>
       </div>
 
+      {/* Board Objectives */}
+      {(gameState.board_objectives || []).length > 0 && (
+        <Card className="mb-5">
+          <CardHeader>Board Objectives</CardHeader>
+          <CardBody>
+            <div className="flex flex-col gap-2.5">
+              {(gameState.board_objectives || []).map(obj => (
+                <div key={obj.id} className="flex items-center gap-3">
+                  {obj.met ? (
+                    <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />
+                  ) : (
+                    <Circle className="w-4 h-4 text-gray-300 dark:text-navy-600 flex-shrink-0" />
+                  )}
+                  <span className={`text-sm ${obj.met ? "text-green-600 dark:text-green-400 line-through" : "text-gray-700 dark:text-gray-300"}`}>
+                    {obj.description}
+                  </span>
+                  <Badge variant={obj.met ? "success" : "neutral"} size="sm" className="ml-auto">
+                    {obj.met ? "Met" : "In Progress"}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+            <div className="mt-3 pt-2 border-t border-gray-100 dark:border-navy-700">
+              <p className="text-[10px] text-gray-400 dark:text-gray-500">
+                {(gameState.board_objectives || []).filter(o => o.met).length}/{(gameState.board_objectives || []).length} objectives met — Board satisfaction: {gameState.manager.satisfaction}%
+              </p>
+            </div>
+          </CardBody>
+        </Card>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         {/* Squad Fitness */}
         <Card>

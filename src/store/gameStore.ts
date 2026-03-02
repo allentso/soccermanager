@@ -255,6 +255,21 @@ export interface NewsArticle {
   i18n_params?: Record<string, string>;
 }
 
+export interface BoardObjective {
+  id: string;
+  description: string;
+  target: number;
+  objective_type: string;
+  met: boolean;
+}
+
+export interface ScoutingAssignment {
+  id: string;
+  scout_id: string;
+  player_id: string;
+  days_remaining: number;
+}
+
 export interface GameStateData {
   clock: {
     current_date: string;
@@ -278,6 +293,8 @@ export interface GameStateData {
   messages: MessageData[];
   news: NewsArticle[];
   league: LeagueData | null;
+  scouting_assignments: ScoutingAssignment[];
+  board_objectives: BoardObjective[];
 }
 
 interface GameStore {
