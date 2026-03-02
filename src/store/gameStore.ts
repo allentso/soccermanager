@@ -284,6 +284,7 @@ export interface GameStateData {
     nationality: string;
     reputation: number;
     satisfaction: number;
+    fan_approval: number;
     team_id: string | null;
     career_stats: ManagerCareerStats;
     career_history: ManagerCareerEntry[];

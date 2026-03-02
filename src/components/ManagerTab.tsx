@@ -47,21 +47,41 @@ export default function ManagerTab({ gameState }: ManagerTabProps) {
         </CardBody>
       </Card>
 
-      {/* Board satisfaction */}
+      {/* Board satisfaction + Fan approval */}
       <Card>
         <CardHeader>{t('manager.boardStatus')}</CardHeader>
         <CardBody>
-          <div className="text-center mb-3">
-            <p className="font-heading font-bold text-4xl text-gray-800 dark:text-gray-100">{mgr.satisfaction}%</p>
-            <p className="text-xs text-gray-400 dark:text-gray-500 font-heading uppercase tracking-wider mt-1">{t('manager.satisfaction')}</p>
+          <div className="grid grid-cols-2 gap-4">
+            {/* Board */}
+            <div>
+              <div className="text-center mb-2">
+                <p className="font-heading font-bold text-3xl text-gray-800 dark:text-gray-100">{mgr.satisfaction}%</p>
+                <p className="text-[10px] text-gray-400 dark:text-gray-500 font-heading uppercase tracking-wider mt-0.5">Board</p>
+              </div>
+              <ProgressBar value={mgr.satisfaction} variant="auto" size="md" />
+              <p className="text-[10px] text-gray-400 dark:text-gray-500 text-center mt-2">
+                {mgr.satisfaction >= 80 ? t('manager.boardVeryPleased') :
+                 mgr.satisfaction >= 50 ? t('manager.boardSatisfied') :
+                 mgr.satisfaction >= 30 ? t('manager.boardConcerns') :
+                 t('manager.boardThreat')}
+              </p>
+            </div>
+            {/* Fans */}
+            <div>
+              <div className="text-center mb-2">
+                <p className="font-heading font-bold text-3xl text-gray-800 dark:text-gray-100">{mgr.fan_approval ?? 50}%</p>
+                <p className="text-[10px] text-gray-400 dark:text-gray-500 font-heading uppercase tracking-wider mt-0.5">Fans</p>
+              </div>
+              <ProgressBar value={mgr.fan_approval ?? 50} variant="auto" size="md" />
+              <p className="text-[10px] text-gray-400 dark:text-gray-500 text-center mt-2">
+                {(mgr.fan_approval ?? 50) >= 80 ? "The fans adore you!" :
+                 (mgr.fan_approval ?? 50) >= 60 ? "Fans are behind the team." :
+                 (mgr.fan_approval ?? 50) >= 40 ? "Fan sentiment is mixed." :
+                 (mgr.fan_approval ?? 50) >= 20 ? "Fans are growing restless." :
+                 "Fan unrest — protests likely."}
+              </p>
+            </div>
           </div>
-          <ProgressBar value={mgr.satisfaction} variant="auto" size="lg" />
-          <p className="text-xs text-gray-400 dark:text-gray-500 text-center mt-3">
-            {mgr.satisfaction >= 80 ? t('manager.boardVeryPleased') :
-             mgr.satisfaction >= 50 ? t('manager.boardSatisfied') :
-             mgr.satisfaction >= 30 ? t('manager.boardConcerns') :
-             t('manager.boardThreat')}
-          </p>
         </CardBody>
       </Card>
 

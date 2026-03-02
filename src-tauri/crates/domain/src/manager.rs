@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+fn default_fan_approval() -> u8 { 50 }
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Manager {
     pub id: String,
@@ -9,6 +11,8 @@ pub struct Manager {
     pub nationality: String,
     pub reputation: u32,
     pub satisfaction: u8, // 0 to 100
+    #[serde(default = "default_fan_approval")]
+    pub fan_approval: u8, // 0 to 100 — fan sentiment
     pub team_id: Option<String>,
 
     // Career stats (cumulative)
@@ -57,6 +61,7 @@ impl Manager {
             nationality,
             reputation: 500,
             satisfaction: 100,
+            fan_approval: 50,
             team_id: None,
             career_stats: ManagerCareerStats::default(),
             career_history: Vec::new(),

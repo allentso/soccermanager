@@ -247,6 +247,16 @@ pub fn apply_match_report(
                                else { -3 };                            // loss: -3
             let new_sat = (game.manager.satisfaction as i16 + sat_delta as i16).clamp(0, 100) as u8;
             game.manager.satisfaction = new_sat;
+
+            // Fan approval — fans react more emotionally
+            let fan_delta: i8 = if user_goals > opp_goals { 5 }         // win: +5
+                               else if user_goals == opp_goals { -2 }   // draw: -2
+                               else { -8 };                             // loss: -8
+            // Extra bonus for big wins, extra penalty for heavy losses
+            let goal_diff = (user_goals as i8) - (opp_goals as i8);
+            let fan_bonus: i8 = if goal_diff >= 3 { 3 } else if goal_diff <= -3 { -3 } else { 0 };
+            let new_fan = (game.manager.fan_approval as i16 + fan_delta as i16 + fan_bonus as i16).clamp(0, 100) as u8;
+            game.manager.fan_approval = new_fan;
         }
     }
 
