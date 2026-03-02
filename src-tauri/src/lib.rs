@@ -958,6 +958,139 @@ fn apply_team_talk(
     Ok(results)
 }
 
+/// Process press conference answers: generate news article, affect squad morale.
+/// answers: array of { question_id, response_id, response_tone, response_text, question_text }
+#[tauri::command]
+fn submit_press_conference(
+    state: State<StateManager>,
+    answers: Vec<serde_json::Value>,
+    home_team: String,
+    away_team: String,
+    home_score: u8,
+    away_score: u8,
+    user_team_name: String,
+    user_team_id: String,
+) -> Result<serde_json::Value, String> {
+    let mut game = state
+        .get_game(|g| g.clone())
+        .ok_or("No active game session")?;
+
+    let today = game.clock.current_date.format("%Y-%m-%d").to_string();
+    let mut rng = rand::thread_rng();
+
+    // Build news article from press conference answers
+    let mut quotes: Vec<String> = Vec::new();
+    let mut morale_delta: i16 = 0;
+    let mut mentioned_player_ids: Vec<String> = Vec::new();
+
+    for answer in &answers {
+        let tone = answer.get("response_tone").and_then(|v| v.as_str()).unwrap_or("");
+        let text = answer.get("response_text").and_then(|v| v.as_str()).unwrap_or("");
+        let qid = answer.get("question_id").and_then(|v| v.as_str()).unwrap_or("");
+
+        if !text.is_empty() {
+            quotes.push(format!("\"{}\"", text));
+        }
+
+        // Track player mentions
+        if let Some(pid) = answer.get("player_id").and_then(|v| v.as_str()) {
+            if !pid.is_empty() {
+                mentioned_player_ids.push(pid.to_string());
+            }
+        }
+
+        // Morale effects based on tone
+        match tone {
+            "Humble" | "Fair" | "Positive" | "Focused" => morale_delta += rng.gen_range(1..=3),
+            "Confident" | "Ambitious" => morale_delta += rng.gen_range(2..=5),
+            "Defiant" | "Frustrated" => morale_delta += rng.gen_range(-2..=2),
+            "Curt" | "Evasive" => morale_delta += rng.gen_range(-3..=0),
+            "Accept" | "Detailed" => morale_delta += rng.gen_range(0..=2),
+            "Deflect" => morale_delta += rng.gen_range(-1..=1),
+            "Praise" => morale_delta += rng.gen_range(3..=6),
+            "Demanding" => morale_delta += rng.gen_range(-2..=3),
+            _ => {}
+        }
+
+        // Player-focused question effects
+        if qid == "player_focus" {
+            if let Some(pid) = answer.get("player_id").and_then(|v| v.as_str()) {
+                if !pid.is_empty() {
+                    let player_delta: i16 = match tone {
+                        "Praise" => rng.gen_range(4..=8),
+                        "Demanding" => rng.gen_range(-3..=4),
+                        "Deflect" => rng.gen_range(-2..=1),
+                        _ => rng.gen_range(0..=3),
+                    };
+                    if let Some(p) = game.players.iter_mut().find(|p| p.id == pid) {
+                        p.morale = ((p.morale as i16) + player_delta).clamp(10, 100) as u8;
+                    }
+                }
+            }
+        }
+    }
+
+    // Apply squad-wide morale effect
+    morale_delta = morale_delta.clamp(-8, 8);
+    if morale_delta != 0 {
+        for p in game.players.iter_mut() {
+            if p.team_id.as_deref() == Some(&user_team_id) {
+                p.morale = ((p.morale as i16) + morale_delta).clamp(10, 100) as u8;
+            }
+        }
+    }
+
+    // Generate news article
+    let result_str = format!("{} {} - {} {}", home_team, home_score, away_score, away_team);
+    let headline = if quotes.is_empty() {
+        format!("Post-Match: {} on {}", user_team_name, result_str)
+    } else {
+        let sources = [
+            format!("{} Manager: {}", user_team_name, quotes[0]),
+            format!("Press Conference: \"{}\" — {} boss", quotes[0].trim_matches('"'), user_team_name),
+        ];
+        sources[rng.gen_range(0..sources.len())].clone()
+    };
+
+    let body = if quotes.len() > 1 {
+        format!(
+            "Speaking after the {} result, the {} manager addressed the press.\n\n{}\n\n\
+            The conference covered the result, tactical approach, and what lies ahead for the team.",
+            result_str, user_team_name,
+            quotes.iter().map(|q| format!("• {}", q)).collect::<Vec<_>>().join("\n")
+        )
+    } else if quotes.len() == 1 {
+        format!(
+            "The {} manager spoke briefly after the {} result.\n\n{}",
+            user_team_name, result_str, quotes[0]
+        )
+    } else {
+        format!(
+            "The {} manager declined to speak at length after the {} result.",
+            user_team_name, result_str
+        )
+    };
+
+    let article_id = format!("press_conf_{}", today);
+    let article = domain::news::NewsArticle::new(
+        article_id,
+        headline,
+        body,
+        "Sports Daily".to_string(),
+        today.clone(),
+        domain::news::NewsCategory::MatchReport,
+    )
+    .with_teams(vec![user_team_id.clone()]);
+
+    game.news.push(article);
+    state.set_game(game.clone());
+
+    Ok(serde_json::json!({
+        "game": game,
+        "morale_delta": morale_delta
+    }))
+}
+
 /// Check for blocking actions that should be resolved before advancing.
 /// Returns a JSON array of blocking issues.
 #[tauri::command]
@@ -1346,6 +1479,7 @@ pub fn run() {
             skip_to_match_day,
             check_blocking_actions,
             apply_team_talk,
+            submit_press_conference,
             exit_to_menu,
             get_settings,
             save_settings,

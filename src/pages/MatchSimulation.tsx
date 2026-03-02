@@ -175,6 +175,7 @@ export default function MatchSimulation() {
           gameState={gameState}
           userSide={userSide || "Home"}
           onFinish={handleFinishMatch}
+          onGameUpdate={setGameState}
         />
       );
 

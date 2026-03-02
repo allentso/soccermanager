@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { GameStateData } from "../../store/gameStore";
 import { MatchSnapshot } from "./types";
 import { Badge } from "../ui";
@@ -9,6 +10,7 @@ interface PressConferenceProps {
   gameState: GameStateData;
   userSide: "Home" | "Away";
   onFinish: () => void;
+  onGameUpdate?: (game: GameStateData) => void;
 }
 
 interface PressQuestion {
@@ -25,16 +27,30 @@ interface PressResponse {
   text: string;
 }
 
-function generateQuestions(snapshot: MatchSnapshot, userSide: "Home" | "Away"): PressQuestion[] {
+interface AnswerPayload {
+  question_id: string;
+  response_id: string;
+  response_tone: string;
+  response_text: string;
+  question_text: string;
+  player_id?: string;
+}
+
+interface PlayerFocusQuestion extends PressQuestion {
+  playerId?: string;
+}
+
+function generateQuestions(snapshot: MatchSnapshot, userSide: "Home" | "Away", _gameState: GameStateData): PlayerFocusQuestion[] {
   const userScore = userSide === "Home" ? snapshot.home_score : snapshot.away_score;
   const oppScore = userSide === "Home" ? snapshot.away_score : snapshot.home_score;
   const oppName = userSide === "Home" ? snapshot.away_team.name : snapshot.home_team.name;
+  const userTeam = userSide === "Home" ? snapshot.home_team : snapshot.away_team;
   const isWin = userScore > oppScore;
   const isLoss = userScore < oppScore;
 
-  const questions: PressQuestion[] = [];
+  const questions: PlayerFocusQuestion[] = [];
 
-  // Result question
+  // 1. Result question
   questions.push({
     id: "result",
     journalist: "David Thomson",
@@ -59,7 +75,33 @@ function generateQuestions(snapshot: MatchSnapshot, userSide: "Home" | "Away"): 
     ],
   });
 
-  // Tactical question
+  // 2. Player-focused question — pick a notable player
+  const goalEvents = snapshot.events.filter(
+    e => e.side === userSide && (e.event_type === "Goal" || e.event_type === "PenaltyGoal") && e.player_id
+  );
+  let focusPlayer = goalEvents.length > 0
+    ? userTeam.players.find(p => p.id === goalEvents[0].player_id)
+    : userTeam.players[Math.floor(Math.random() * Math.min(userTeam.players.length, 5))];
+  if (focusPlayer) {
+    const scored = goalEvents.some(e => e.player_id === focusPlayer!.id);
+    const playerName = focusPlayer.name;
+    questions.push({
+      id: "player_focus",
+      journalist: "Rachel Cooper",
+      outlet: "Match Day Live",
+      playerId: focusPlayer.id,
+      question: scored
+        ? `${playerName} scored today. How important is their contribution to the team?`
+        : `Can you comment on ${playerName}'s performance today?`,
+      responses: [
+        { id: "praise", tone: "Praise", text: `${playerName} has been fantastic. They're a key player for us and their work rate is exemplary.` },
+        { id: "demanding", tone: "Demanding", text: `${playerName} can do better. I expect more from a player of their quality.` },
+        { id: "deflect", tone: "Deflect", text: "I don't like to single out individuals. It's a team game." },
+      ],
+    });
+  }
+
+  // 3. Tactical question
   questions.push({
     id: "tactics",
     journalist: "Sarah Mitchell",
@@ -72,7 +114,35 @@ function generateQuestions(snapshot: MatchSnapshot, userSide: "Home" | "Away"): 
     ],
   });
 
-  // Looking ahead
+  // 4. Fan/atmosphere question (contextual)
+  const fanQuestions: PlayerFocusQuestion[] = [
+    {
+      id: "fans",
+      journalist: "James O'Brien",
+      outlet: "Supporters' Voice",
+      question: isWin
+        ? "The fans were in great voice today. What does their support mean to you?"
+        : isLoss
+          ? "Some fans voiced frustration at full time. Do you have a message for them?"
+          : "The atmosphere was tense at times today. How do you manage that pressure?",
+      responses: isWin ? [
+        { id: "grateful", tone: "Humble", text: "The fans are incredible. They drive us forward every match and we owe them performances like today." },
+        { id: "shared", tone: "Confident", text: "We all celebrate together — players, staff, and supporters. This is their victory too." },
+        { id: "deflect", tone: "Deflect", text: "The fans know what we're about. We just focus on the pitch." },
+      ] : isLoss ? [
+        { id: "apologize", tone: "Accept", text: "I understand their frustration completely. They deserve better and we'll work hard to deliver." },
+        { id: "patience", tone: "Focused", text: "I ask for patience. We're building something and bad days happen. We'll come back stronger." },
+        { id: "curt", tone: "Curt", text: "I won't comment on things said in the heat of the moment. Let's move on." },
+      ] : [
+        { id: "appreciate", tone: "Positive", text: "I appreciate every single supporter who comes to watch us. Their energy lifts the team." },
+        { id: "understand", tone: "Fair", text: "They want to see us win and so do I. We'll keep pushing until the results come." },
+        { id: "curt", tone: "Curt", text: "I don't get involved with what happens in the stands. My focus is on the pitch." },
+      ],
+    },
+  ];
+  questions.push(fanQuestions[0]);
+
+  // 5. Looking ahead
   questions.push({
     id: "ahead",
     journalist: "Mark Williams",
@@ -88,10 +158,11 @@ function generateQuestions(snapshot: MatchSnapshot, userSide: "Home" | "Away"): 
   return questions;
 }
 
-export default function PressConference({ snapshot, gameState: _gameState, userSide, onFinish }: PressConferenceProps) {
-  const [questions] = useState(() => generateQuestions(snapshot, userSide));
+export default function PressConference({ snapshot, gameState, userSide, onFinish, onGameUpdate }: PressConferenceProps) {
+  const [questions] = useState(() => generateQuestions(snapshot, userSide, gameState));
   const [currentIdx, setCurrentIdx] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [submitting, setSubmitting] = useState(false);
 
   const currentQ = questions[currentIdx];
   const isLastQuestion = currentIdx === questions.length - 1;
@@ -102,9 +173,47 @@ export default function PressConference({ snapshot, gameState: _gameState, userS
     setAnswers(prev => ({ ...prev, [currentQ.id]: responseId }));
   };
 
+  const submitToBackend = async () => {
+    setSubmitting(true);
+    try {
+      const payloads: AnswerPayload[] = questions.map(q => {
+        const rid = answers[q.id];
+        const resp = q.responses.find(r => r.id === rid);
+        return {
+          question_id: q.id,
+          response_id: rid || "",
+          response_tone: resp?.tone || "",
+          response_text: resp?.text || "",
+          question_text: q.question,
+          player_id: (q as PlayerFocusQuestion).playerId || "",
+        };
+      }).filter(p => p.response_id);
+
+      const userTeamName = userSide === "Home" ? snapshot.home_team.name : snapshot.away_team.name;
+      const userTeamId = userSide === "Home" ? snapshot.home_team.id : snapshot.away_team.id;
+      const result = await invoke<{ game: GameStateData; morale_delta: number }>("submit_press_conference", {
+        answers: payloads,
+        homeTeam: snapshot.home_team.name,
+        awayTeam: snapshot.away_team.name,
+        homeScore: snapshot.home_score,
+        awayScore: snapshot.away_score,
+        userTeamName: userTeamName,
+        userTeamId: userTeamId,
+      });
+      if (result.game && onGameUpdate) {
+        onGameUpdate(result.game);
+      }
+    } catch (err) {
+      console.error("Failed to submit press conference:", err);
+    } finally {
+      setSubmitting(false);
+      onFinish();
+    }
+  };
+
   const handleNext = () => {
     if (isLastQuestion) {
-      onFinish();
+      submitToBackend();
     } else {
       setCurrentIdx(prev => prev + 1);
     }
@@ -201,7 +310,7 @@ export default function PressConference({ snapshot, gameState: _gameState, userS
                   onClick={handleNext}
                   className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 rounded-xl font-heading font-bold uppercase tracking-wider text-sm text-white shadow-lg shadow-primary-500/20 transition-all"
                 >
-                  {isLastQuestion ? "Leave Conference" : "Next Question"}
+                  {submitting ? "Submitting..." : isLastQuestion ? "Leave Conference" : "Next Question"}
                   <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
