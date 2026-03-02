@@ -2,10 +2,11 @@ import { useState, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { GameStateData, PlayerData } from "../store/gameStore";
 import { Card, Badge, ProgressBar } from "./ui";
-import { Star, ArrowRightLeft, Users, Shield, Crosshair, Zap, Target, RefreshCw, Flag, AlertTriangle } from "lucide-react";
+import { Star, ArrowRightLeft, Users, Shield, Crosshair, Zap, Target, RefreshCw, Flag, AlertTriangle, User, ShoppingCart, Repeat } from "lucide-react";
 import { formatVal, positionBadgeVariant, calcOvr, calcAge } from "../lib/helpers";
 import { TraitList } from "./TraitBadge";
 import { useTranslation } from "react-i18next";
+import ContextMenu from "./ContextMenu";
 
 interface SquadTabProps {
   gameState: GameStateData;
@@ -170,9 +171,27 @@ export default function SquadTab({ gameState, managerId, onSelectPlayer, onGameU
     const isSwapTarget = swapSource && swapSource.id !== player.id;
     const wrongPos = section === "xi" && isOutOfPosition(player, section);
 
+    const contextItems = [
+      { label: "View Profile", icon: <User className="w-4 h-4" />, onClick: () => onSelectPlayer(player.id) },
+      { label: "Swap Player", icon: <ArrowRightLeft className="w-4 h-4" />, onClick: () => handleSwapClick(player.id, section), disabled: !!player.injury },
+      { label: "", icon: undefined, onClick: () => {}, divider: true },
+      { label: player.transfer_listed ? "Remove from Transfer List" : "Add to Transfer List", icon: <ShoppingCart className="w-4 h-4" />, onClick: async () => {
+        try {
+          const updated = await invoke<GameStateData>("toggle_transfer_list", { playerId: player.id });
+          onGameUpdate?.(updated);
+        } catch { /* command may not exist yet */ }
+      }},
+      { label: player.loan_listed ? "Remove from Loan List" : "Add to Loan List", icon: <Repeat className="w-4 h-4" />, onClick: async () => {
+        try {
+          const updated = await invoke<GameStateData>("toggle_loan_list", { playerId: player.id });
+          onGameUpdate?.(updated);
+        } catch { /* command may not exist yet */ }
+      }},
+    ];
+
     return (
+      <ContextMenu items={contextItems} key={player.id}>
       <tr
-        key={player.id}
         className={`transition-colors group ${isSwapSource ? 'bg-accent-500/10 dark:bg-accent-500/10' : isSwapTarget ? 'hover:bg-primary-500/10 dark:hover:bg-primary-500/10 cursor-pointer' : wrongPos ? 'bg-amber-500/5 dark:bg-amber-500/5' : 'hover:bg-gray-50 dark:hover:bg-navy-700/50'}`}
       >
         <td className="py-2.5 px-4">
@@ -226,6 +245,7 @@ export default function SquadTab({ gameState, managerId, onSelectPlayer, onGameU
           )}
         </td>
       </tr>
+      </ContextMenu>
     );
   };
 

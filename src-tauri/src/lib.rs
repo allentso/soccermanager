@@ -622,6 +622,42 @@ fn auto_select_set_pieces(
 }
 
 #[tauri::command]
+fn toggle_transfer_list(
+    state: State<StateManager>,
+    player_id: String,
+) -> Result<Game, String> {
+    let mut game = state
+        .get_game(|g| g.clone())
+        .ok_or("No active game session".to_string())?;
+
+    if let Some(p) = game.players.iter_mut().find(|p| p.id == player_id) {
+        p.transfer_listed = !p.transfer_listed;
+    } else {
+        return Err("Player not found".into());
+    }
+    state.set_game(game.clone());
+    Ok(game)
+}
+
+#[tauri::command]
+fn toggle_loan_list(
+    state: State<StateManager>,
+    player_id: String,
+) -> Result<Game, String> {
+    let mut game = state
+        .get_game(|g| g.clone())
+        .ok_or("No active game session".to_string())?;
+
+    if let Some(p) = game.players.iter_mut().find(|p| p.id == player_id) {
+        p.loan_listed = !p.loan_listed;
+    } else {
+        return Err("Player not found".into());
+    }
+    state.set_game(game.clone());
+    Ok(game)
+}
+
+#[tauri::command]
 fn make_transfer_bid(
     state: State<StateManager>,
     player_id: String,
@@ -1205,6 +1241,8 @@ pub fn run() {
             clear_old_messages,
             save_game,
             auto_select_set_pieces,
+            toggle_transfer_list,
+            toggle_loan_list,
             make_transfer_bid,
             respond_to_offer,
             send_scout,
