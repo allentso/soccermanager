@@ -8,6 +8,7 @@ import {
   CheckCircle2, Circle, Users, Crosshair, UserCog, Lightbulb,
   TrendingUp, TrendingDown,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 interface HomeTabProps {
   gameState: GameStateData;
@@ -21,7 +22,8 @@ const SCHEDULE_META: Record<string, { label: string; icon: React.ReactNode; colo
 };
 
 export default function HomeTab({ gameState, onNavigate }: HomeTabProps) {
-  const myTeam = gameState.teams.find(t => t.id === gameState.manager.team_id);
+  const { t } = useTranslation();
+  const myTeam = gameState.teams.find(tm => tm.id === gameState.manager.team_id);
   const league = gameState.league;
   const roster = myTeam ? gameState.players.filter(p => p.team_id === myTeam.id) : [];
   const avgCondition = roster.length > 0 ? Math.round(roster.reduce((s, p) => s + p.condition, 0) / roster.length) : 0;
@@ -75,11 +77,11 @@ export default function HomeTab({ gameState, onNavigate }: HomeTabProps) {
   const hasReadInbox = (gameState.messages || []).filter(m => m.read).length >= 2;
 
   const onboardingSteps = [
-    { id: "squad", done: hasReviewedSquad, label: "Review your squad", description: "Check player stats, condition, and traits", tab: "Squad", icon: <Users className="w-4 h-4" /> },
-    { id: "staff", done: hasCoach && hasPhysio, label: "Hire coaching staff", description: "Staff boost training quality and recovery — hire a Coach and Physio", tab: "Staff", icon: <UserCog className="w-4 h-4" /> },
-    { id: "tactics", done: hasSetFormation, label: "Set your formation & tactics", description: "Choose a formation and play style that fits your squad", tab: "Tactics", icon: <Crosshair className="w-4 h-4" /> },
-    { id: "training", done: myTeam ? (myTeam.training_focus !== "General" || myTeam.training_schedule !== "Balanced") : false, label: "Configure training", description: "Pick a focus and schedule to develop your players", tab: "Training", icon: <Dumbbell className="w-4 h-4" /> },
-    { id: "inbox", done: hasReadInbox, label: "Read your messages", description: "Important info from the board and staff awaits", tab: "Inbox", icon: <Mail className="w-4 h-4" /> },
+    { id: "squad", done: hasReviewedSquad, label: t('onboarding.reviewSquad'), description: t('onboarding.reviewSquadDesc'), tab: "Squad", icon: <Users className="w-4 h-4" /> },
+    { id: "staff", done: hasCoach && hasPhysio, label: t('onboarding.hireStaff'), description: t('onboarding.hireStaffDesc'), tab: "Staff", icon: <UserCog className="w-4 h-4" /> },
+    { id: "tactics", done: hasSetFormation, label: t('onboarding.setTactics'), description: t('onboarding.setTacticsDesc'), tab: "Tactics", icon: <Crosshair className="w-4 h-4" /> },
+    { id: "training", done: myTeam ? (myTeam.training_focus !== "General" || myTeam.training_schedule !== "Balanced") : false, label: t('onboarding.configTraining'), description: t('onboarding.configTrainingDesc'), tab: "Training", icon: <Dumbbell className="w-4 h-4" /> },
+    { id: "inbox", done: hasReadInbox, label: t('onboarding.readMessages'), description: t('onboarding.readMessagesDesc'), tab: "Inbox", icon: <Mail className="w-4 h-4" /> },
   ];
   const completedSteps = onboardingSteps.filter(s => s.done).length;
 
@@ -92,7 +94,7 @@ export default function HomeTab({ gameState, onNavigate }: HomeTabProps) {
         {unreadCount > 0 && (
           <button onClick={() => onNavigate?.("Inbox")} className="ml-auto flex items-center gap-1.5 text-xs font-heading font-bold uppercase tracking-wider text-primary-500 hover:text-primary-600 dark:hover:text-primary-400 transition-colors">
             <Mail className="w-3.5 h-3.5" />
-            {unreadCount} unread message{unreadCount > 1 ? "s" : ""}
+            {t('home.unreadMessages', { count: unreadCount })}
           </button>
         )}
       </div>
@@ -103,12 +105,12 @@ export default function HomeTab({ gameState, onNavigate }: HomeTabProps) {
           <CardHeader>
             <div className="flex items-center gap-2">
               <Lightbulb className="w-4 h-4 text-accent-500" />
-              Getting Started
+              {t('onboarding.title')}
             </div>
           </CardHeader>
           <CardBody>
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-              Complete these steps to prepare your team for the upcoming season. Staff are especially important — they boost training and recovery.
+              {t('onboarding.description')}
             </p>
             <div className="flex items-center gap-2 mb-4">
               <ProgressBar value={Math.round((completedSteps / onboardingSteps.length) * 100)} variant="accent" size="sm" />
@@ -147,7 +149,7 @@ export default function HomeTab({ gameState, onNavigate }: HomeTabProps) {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         {/* Next Match Card */}
         <Card accent="primary" className="md:col-span-2">
-          <CardHeader>Next Match</CardHeader>
+          <CardHeader>{t('home.nextMatch')}</CardHeader>
           <CardBody>
             <NextMatchDisplay gameState={gameState} />
           </CardBody>
@@ -158,11 +160,11 @@ export default function HomeTab({ gameState, onNavigate }: HomeTabProps) {
           <CardHeader
             action={
               <button onClick={() => onNavigate?.("Schedule")} className="text-primary-500 dark:text-primary-400 text-xs font-heading font-bold uppercase tracking-wider hover:text-primary-600 dark:hover:text-primary-300 transition-colors">
-                Standings
+                {t('home.standings')}
               </button>
             }
           >
-            League Position
+            {t('home.leaguePosition')}
           </CardHeader>
           <CardBody>
             {myStanding && myStandingData ? (
@@ -173,7 +175,7 @@ export default function HomeTab({ gameState, onNavigate }: HomeTabProps) {
                   </div>
                   <div>
                     <p className="text-xs text-gray-500 dark:text-gray-400 font-heading uppercase tracking-wider">
-                      {myStanding === 1 ? "1st" : myStanding === 2 ? "2nd" : myStanding === 3 ? "3rd" : `${myStanding}th`} Place
+                      {myStanding === 1 ? t('common.place.1') : myStanding === 2 ? t('common.place.2') : myStanding === 3 ? t('common.place.3') : t('common.place.other', { n: myStanding })}
                     </p>
                     <p className="text-lg font-heading font-bold text-gray-800 dark:text-gray-100">{myStandingData.points} pts</p>
                   </div>
@@ -224,7 +226,7 @@ export default function HomeTab({ gameState, onNavigate }: HomeTabProps) {
             ) : (
               <div className="flex flex-col items-center gap-2 py-4">
                 <Trophy className="w-8 h-8 text-gray-300 dark:text-navy-600" />
-                <p className="text-xs text-gray-500 dark:text-gray-400">No league data yet.</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">{t('home.noLeague')}</p>
               </div>
             )}
           </CardBody>
@@ -234,7 +236,7 @@ export default function HomeTab({ gameState, onNavigate }: HomeTabProps) {
       {/* Board Objectives */}
       {(gameState.board_objectives || []).length > 0 && (
         <Card className="mb-5">
-          <CardHeader>Board Objectives</CardHeader>
+          <CardHeader>{t('manager.boardStatus', 'Board Objectives')}</CardHeader>
           <CardBody>
             <div className="flex flex-col gap-2.5">
               {(gameState.board_objectives || []).map(obj => (
@@ -272,25 +274,25 @@ export default function HomeTab({ gameState, onNavigate }: HomeTabProps) {
               </button>
             }
           >
-            Squad Overview
+            {t('home.squadOverview')}
           </CardHeader>
           <CardBody>
             <div className="flex flex-col gap-3">
               <div className="flex items-center justify-between">
-                <span className="text-xs text-gray-500 dark:text-gray-400">Avg Condition</span>
+                <span className="text-xs text-gray-500 dark:text-gray-400">{t('home.avgCondition')}</span>
                 <span className="font-heading font-bold text-sm text-gray-800 dark:text-gray-100">{avgCondition}%</span>
               </div>
               <ProgressBar value={avgCondition} variant="auto" size="md" />
 
               <div className="flex items-center justify-between mt-1">
-                <span className="text-xs text-gray-500 dark:text-gray-400">Avg OVR</span>
+                <span className="text-xs text-gray-500 dark:text-gray-400">{t('home.avgOvr')}</span>
                 <span className="font-heading font-bold text-sm text-gray-800 dark:text-gray-100">{avgOvr}</span>
               </div>
 
               {exhaustedCount > 0 && (
                 <div className="flex items-center gap-1.5 mt-1 text-amber-500 dark:text-amber-400">
                   <AlertTriangle className="w-3.5 h-3.5" />
-                  <span className="text-xs font-heading">{exhaustedCount} player{exhaustedCount > 1 ? "s" : ""} exhausted</span>
+                  <span className="text-xs font-heading">{t('home.exhaustedPlayers', { count: exhaustedCount })}</span>
                 </div>
               )}
 
@@ -315,11 +317,11 @@ export default function HomeTab({ gameState, onNavigate }: HomeTabProps) {
               </button>
             }
           >
-            Recent Results
+            {t('home.recentResults')}
           </CardHeader>
           <CardBody className="p-0">
             {recentResults.length === 0 ? (
-              <p className="text-gray-500 dark:text-gray-400 text-xs p-5">No matches played yet.</p>
+              <p className="text-gray-500 dark:text-gray-400 text-xs p-5">{t('home.noMatches')}</p>
             ) : (
               <div className="divide-y divide-gray-100 dark:divide-navy-600">
                 {recentResults.slice(-5).reverse().map(f => {
@@ -359,13 +361,13 @@ export default function HomeTab({ gameState, onNavigate }: HomeTabProps) {
               </button>
             }
           >
-            Latest News
+            {t('home.latestNews')}
           </CardHeader>
           <CardBody className="p-0">
             {latestNews.length === 0 ? (
               <div className="flex flex-col items-center gap-2 py-6">
                 <Newspaper className="w-8 h-8 text-gray-300 dark:text-navy-600" />
-                <p className="text-xs text-gray-500 dark:text-gray-400">No news yet.</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">{t('home.noNews')}</p>
               </div>
             ) : (
               <div className="divide-y divide-gray-100 dark:divide-navy-600">
@@ -410,7 +412,7 @@ export default function HomeTab({ gameState, onNavigate }: HomeTabProps) {
                 </button>
               }
             >
-              Player Momentum
+              {t('home.playerMomentum', 'Player Momentum')}
             </CardHeader>
             <CardBody>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -466,12 +468,12 @@ export default function HomeTab({ gameState, onNavigate }: HomeTabProps) {
             </button>
           }
         >
-          Recent Messages
+          {t('home.recentMessages')}
         </CardHeader>
         <CardBody className="p-0">
           <div className="divide-y divide-gray-100 dark:divide-navy-600">
             {(gameState.messages || []).length === 0 ? (
-              <p className="text-gray-500 dark:text-gray-400 p-6 text-sm">No recent messages.</p>
+              <p className="text-gray-500 dark:text-gray-400 p-6 text-sm">{t('home.noMessages')}</p>
             ) : (
               (gameState.messages || []).slice(0, 4).map(resolveMessage).map(message => (
                 <div
@@ -510,12 +512,12 @@ function NextMatchDisplay({ gameState }: { gameState: GameStateData }) {
   const league = gameState.league;
 
   if (!userTeamId || !league) {
-    return <p className="text-gray-500 dark:text-gray-400 text-sm text-center py-4">No league schedule yet.</p>;
+    return <p className="text-gray-500 dark:text-gray-400 text-sm text-center py-4">No league data.</p>;
   }
 
   const nextFixture = findNextFixture(league.fixtures, userTeamId);
   if (!nextFixture) {
-    return <p className="text-gray-500 dark:text-gray-400 text-sm text-center py-4">Season complete — no upcoming matches.</p>;
+    return <p className="text-gray-500 dark:text-gray-400 text-sm text-center py-4">Season complete.</p>;
   }
 
   const isHome = nextFixture.home_team_id === userTeamId;

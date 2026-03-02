@@ -115,7 +115,16 @@
     "recentMessages": "Recent Messages",
     "viewAll": "View All",
     "noMessages": "No recent messages.",
-    "unreadMessages": "{{count}} unread message(s)"
+    "unreadMessages": "{{count}} unread message(s)",
+    "playerMomentum": "Player Momentum",
+    "inForm": "In Form",
+    "lowMorale": "Low Morale",
+    "winningStreak": "Winning streak!",
+    "losingStreak": "Losing streak",
+    "unbeatenRun": "Unbeaten run",
+    "boardObjectives": "Board Objectives",
+    "seasonComplete": "Season complete.",
+    "noLeagueSchedule": "No league data."
   },
   "common": {
     "loading": "Loading...",
