@@ -524,10 +524,13 @@ export default function Dashboard() {
 
             if (exhausted >= 3) alerts.push({ id: "exhausted", text: `${exhausted} players in critical condition (<25%)`, tab: "Training", severity: "warn" });
             if (injured >= 2) alerts.push({ id: "injured", text: `${injured} players injured`, tab: "Squad", severity: "info" });
-            if (injuredInXi > 0) alerts.push({ id: "injured_xi", text: `${injuredInXi} injured player${injuredInXi > 1 ? "s" : ""} in Starting XI — replace them`, tab: "Squad", severity: "warn" });
-            if (healthyXiCount < 11 && injuredInXi === 0 && roster.length >= 11) alerts.push({ id: "xi", text: "Starting XI incomplete — set your lineup", tab: "Squad", severity: "warn" });
+            // Only show XI alerts when a lineup has been explicitly saved
+            if (startingXi.length > 0) {
+              if (injuredInXi > 0) alerts.push({ id: "injured_xi", text: `${injuredInXi} injured player${injuredInXi > 1 ? "s" : ""} in Starting XI — replace them`, tab: "Squad", severity: "warn" });
+              if (healthyXiCount < 11 && injuredInXi === 0 && roster.length >= 11) alerts.push({ id: "xi", text: "Starting XI incomplete — set your lineup", tab: "Squad", severity: "warn" });
+            }
             if (urgentUnread > 0) alerts.push({ id: "urgent", text: `${urgentUnread} urgent message${urgentUnread > 1 ? "s" : ""} unread`, tab: "Inbox", severity: "warn" });
-            if (hasMatchToday && healthyXiCount < 11) alerts.push({ id: "matchxi", text: "Match today! Set your starting XI", tab: "Squad", severity: "warn" });
+            if (hasMatchToday && startingXi.length > 0 && healthyXiCount < 11) alerts.push({ id: "matchxi", text: "Match today! Set your starting XI", tab: "Squad", severity: "warn" });
 
             if (alerts.length === 0) return null;
             return (
