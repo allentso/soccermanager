@@ -1,4 +1,8 @@
+mod builders_reports;
 mod message_builders;
+mod responses;
+
+pub use responses::apply_event_response;
 
 use crate::game::Game;
 use domain::message::*;
@@ -235,7 +239,7 @@ pub fn check_random_events(game: &mut Game) {
                 let low_morale_count = team_players.iter().filter(|p| p.morale < 40).count();
                 let high_morale_count = team_players.iter().filter(|p| p.morale >= 80).count();
 
-                new_messages.push(message_builders::mood_report_message(
+                new_messages.push(builders_reports::mood_report_message(
                     &msg_id,
                     avg_morale,
                     low_morale_count,
@@ -282,7 +286,7 @@ pub fn check_random_events(game: &mut Game) {
                     .count();
                 let msg_id = format!("board_confidence_{}", today);
                 if losses >= 3 && !existing_ids.contains(&msg_id) {
-                    new_messages.push(message_builders::board_confidence_message(&msg_id, &today));
+                    new_messages.push(builders_reports::board_confidence_message(&msg_id, &today));
                 }
             }
         }
@@ -298,7 +302,7 @@ pub fn check_random_events(game: &mut Game) {
                 .find(|t| t.id == user_team_id)
                 .map(|t| t.name.as_str())
                 .unwrap_or("Your Club");
-            new_messages.push(message_builders::fan_petition_message(
+            new_messages.push(builders_reports::fan_petition_message(
                 &msg_id, team_name, &today,
             ));
         }
@@ -323,7 +327,7 @@ pub fn check_random_events(game: &mut Game) {
                     "Bayern Elite",
                 ];
                 let rival = rival_names[rng.gen_range(0..rival_names.len())];
-                new_messages.push(message_builders::rival_interest_message(
+                new_messages.push(builders_reports::rival_interest_message(
                     &msg_id,
                     &player.id,
                     &player.match_name,
@@ -335,175 +339,6 @@ pub fn check_random_events(game: &mut Game) {
     }
 
     game.messages.extend(new_messages);
-}
-
-/// Apply the effect of a sponsor offer choice.
-pub fn apply_event_response(
-    game: &mut Game,
-    message_id: &str,
-    _action_id: &str,
-    option_id: &str,
-) -> Option<String> {
-    if message_id.starts_with("sponsor_") {
-        let user_team_id = game.manager.team_id.clone()?;
-        match option_id {
-            "accept" => {
-                // Extract amount from message body (stored in i18n_params)
-                let amount = game
-                    .messages
-                    .iter()
-                    .find(|m| m.id == message_id)
-                    .and_then(|m| m.i18n_params.get("amount"))
-                    .and_then(|a| a.parse::<u64>().ok())
-                    .unwrap_or(100_000);
-                if let Some(team) = game.teams.iter_mut().find(|t| t.id == user_team_id) {
-                    team.finance += amount as i64;
-                    team.season_income += amount as i64;
-                }
-                // Mark resolved
-                if let Some(msg) = game.messages.iter_mut().find(|m| m.id == message_id) {
-                    for a in msg.actions.iter_mut() {
-                        a.resolved = true;
-                    }
-                }
-                Some(format!("Sponsorship accepted! +€{}", format_money(amount)))
-            }
-            "decline" => {
-                if let Some(msg) = game.messages.iter_mut().find(|m| m.id == message_id) {
-                    for a in msg.actions.iter_mut() {
-                        a.resolved = true;
-                    }
-                }
-                Some("Sponsorship declined.".to_string())
-            }
-            _ => None,
-        }
-    } else if message_id.starts_with("board_confidence_") {
-        match option_id {
-            "reassure_board" => {
-                if let Some(msg) = game.messages.iter_mut().find(|m| m.id == message_id) {
-                    for a in msg.actions.iter_mut() {
-                        a.resolved = true;
-                    }
-                }
-                Some("You reassured the board. They'll give you more time — for now.".to_string())
-            }
-            "accept_pressure" => {
-                if let Some(msg) = game.messages.iter_mut().find(|m| m.id == message_id) {
-                    for a in msg.actions.iter_mut() {
-                        a.resolved = true;
-                    }
-                }
-                Some(
-                    "You acknowledged the pressure. The board appreciates your honesty."
-                        .to_string(),
-                )
-            }
-            "blame_circumstances" => {
-                if let Some(msg) = game.messages.iter_mut().find(|m| m.id == message_id) {
-                    for a in msg.actions.iter_mut() {
-                        a.resolved = true;
-                    }
-                }
-                Some(
-                    "The board isn't entirely convinced by excuses, but they'll wait and see."
-                        .to_string(),
-                )
-            }
-            _ => None,
-        }
-    } else if message_id.starts_with("fan_petition_") {
-        match option_id {
-            "listen_fans" => {
-                // Small morale boost across squad
-                let user_team_id = game.manager.team_id.clone().unwrap_or_default();
-                let mut rng = rand::thread_rng();
-                for p in game.players.iter_mut() {
-                    if p.team_id.as_deref() == Some(&user_team_id) {
-                        p.morale = (p.morale as i16 + rng.gen_range(1..=3)).clamp(10, 100) as u8;
-                    }
-                }
-                if let Some(msg) = game.messages.iter_mut().find(|m| m.id == message_id) {
-                    for a in msg.actions.iter_mut() {
-                        a.resolved = true;
-                    }
-                }
-                Some("You engaged with the fans. Squad morale improved slightly.".to_string())
-            }
-            "ignore_fans" => {
-                if let Some(msg) = game.messages.iter_mut().find(|m| m.id == message_id) {
-                    for a in msg.actions.iter_mut() {
-                        a.resolved = true;
-                    }
-                }
-                Some(
-                    "You decided to focus on football matters. The fans are a little disappointed."
-                        .to_string(),
-                )
-            }
-            "address_publicly" => {
-                if let Some(msg) = game.messages.iter_mut().find(|m| m.id == message_id) {
-                    for a in msg.actions.iter_mut() {
-                        a.resolved = true;
-                    }
-                }
-                Some("Your public address was well received. Fan confidence is up.".to_string())
-            }
-            _ => None,
-        }
-    } else if message_id.starts_with("rival_interest_") {
-        let player_id = game
-            .messages
-            .iter()
-            .find(|m| m.id == message_id)
-            .and_then(|m| m.context.player_id.clone());
-        match option_id {
-            "not_for_sale" => {
-                // Player morale boost — they feel valued
-                if let Some(pid) = &player_id
-                    && let Some(p) = game.players.iter_mut().find(|p| p.id == *pid)
-                {
-                    let mut rng = rand::thread_rng();
-                    p.morale = (p.morale as i16 + rng.gen_range(3..=8)).clamp(10, 100) as u8;
-                }
-                if let Some(msg) = game.messages.iter_mut().find(|m| m.id == message_id) {
-                    for a in msg.actions.iter_mut() {
-                        a.resolved = true;
-                    }
-                }
-                Some(
-                    "You made it clear the player is not for sale. They're feeling valued."
-                        .to_string(),
-                )
-            }
-            "open_to_offers" => {
-                // Player morale drop — they feel uncertain
-                if let Some(pid) = &player_id
-                    && let Some(p) = game.players.iter_mut().find(|p| p.id == *pid)
-                {
-                    let mut rng = rand::thread_rng();
-                    p.morale = (p.morale as i16 - rng.gen_range(3..=8)).clamp(10, 100) as u8;
-                }
-                if let Some(msg) = game.messages.iter_mut().find(|m| m.id == message_id) {
-                    for a in msg.actions.iter_mut() {
-                        a.resolved = true;
-                    }
-                }
-                Some("You indicated you'd listen to offers. The player is unsettled.".to_string())
-            }
-            "no_comment" => {
-                if let Some(msg) = game.messages.iter_mut().find(|m| m.id == message_id) {
-                    for a in msg.actions.iter_mut() {
-                        a.resolved = true;
-                    }
-                }
-                Some("No comment. The rumour mill continues...".to_string())
-            }
-            _ => None,
-        }
-    } else {
-        None
-    }
 }
 
 fn format_money(amount: u64) -> String {
