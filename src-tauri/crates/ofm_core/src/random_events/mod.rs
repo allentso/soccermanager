@@ -5,6 +5,7 @@ mod responses;
 pub use responses::apply_event_response;
 
 use crate::game::Game;
+use chrono::Datelike;
 use domain::message::*;
 use rand::Rng;
 use std::collections::HashMap;
@@ -224,10 +225,11 @@ pub fn check_random_events(game: &mut Game) {
         }
     }
 
-    // --- 6. Dressing room mood report (weekly, ~14% chance per day = roughly once a week) ---
+    // --- 6. Dressing room mood report (once per week, deterministic on Monday) ---
     {
+        let is_monday = game.clock.current_date.weekday() == chrono::Weekday::Mon;
         let msg_id = format!("mood_report_{}", today);
-        if !existing_ids.contains(&msg_id) && rng.gen_range(0..7) == 0 {
+        if !existing_ids.contains(&msg_id) && is_monday {
             let team_players: Vec<&domain::player::Player> = game
                 .players
                 .iter()
