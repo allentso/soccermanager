@@ -1,13 +1,22 @@
-import { useEffect } from "react";
+import { useEffect, lazy, Suspense } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import MainMenu from "./pages/MainMenu";
-import TeamSelection from "./pages/TeamSelection";
-import Dashboard from "./pages/Dashboard";
-import MatchSimulation from "./pages/MatchSimulation";
-import Settings from "./pages/Settings";
 import { useSettingsStore } from "./store/settingsStore";
 import i18n from "./i18n";
 import "./App.css";
+
+const TeamSelection = lazy(() => import("./pages/TeamSelection"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const MatchSimulation = lazy(() => import("./pages/MatchSimulation"));
+const Settings = lazy(() => import("./pages/Settings"));
+
+function LazyFallback() {
+  return (
+    <div className="min-h-screen bg-gray-100 dark:bg-navy-900 flex items-center justify-center">
+      <div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+}
 
 const SCALE_MAP: Record<string, string> = {
   small: "14px",
@@ -41,13 +50,15 @@ function App() {
 
   return (
     <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<MainMenu />} />
-        <Route path="/select-team" element={<TeamSelection />} />
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/match" element={<MatchSimulation />} />
-        <Route path="/settings" element={<Settings />} />
-      </Routes>
+      <Suspense fallback={<LazyFallback />}>
+        <Routes>
+          <Route path="/" element={<MainMenu />} />
+          <Route path="/select-team" element={<TeamSelection />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/match" element={<MatchSimulation />} />
+          <Route path="/settings" element={<Settings />} />
+        </Routes>
+      </Suspense>
     </BrowserRouter>
   );
 }
