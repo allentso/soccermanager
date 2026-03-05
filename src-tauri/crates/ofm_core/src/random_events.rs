@@ -4,7 +4,10 @@ use rand::Rng;
 use std::collections::HashMap;
 
 fn params(pairs: &[(&str, &str)]) -> HashMap<String, String> {
-    pairs.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect()
+    pairs
+        .iter()
+        .map(|(k, v)| (k.to_string(), v.to_string()))
+        .collect()
 }
 
 fn action(id: &str, label: &str, label_key: &str, action_type: ActionType) -> MessageAction {
@@ -36,13 +39,22 @@ pub fn check_random_events(game: &mut Game) {
     {
         let msg_id = format!("sponsor_{}", today);
         if !existing_ids.contains(&msg_id) && rng.gen_range(0..100) == 0 {
-            let team_name = game.teams.iter().find(|t| t.id == user_team_id)
-                .map(|t| t.name.as_str()).unwrap_or("Your Club");
+            let team_name = game
+                .teams
+                .iter()
+                .find(|t| t.id == user_team_id)
+                .map(|t| t.name.as_str())
+                .unwrap_or("Your Club");
             let amount = rng.gen_range(5..=30) * 10_000; // 50k - 300k
             let sponsor_names = [
-                "GreenTech Industries", "Nova Sports", "Titan Energy",
-                "BlueWave Solutions", "Summit Capital", "Apex Motors",
-                "FreshBrew Co.", "CityLink Telecom",
+                "GreenTech Industries",
+                "Nova Sports",
+                "Titan Energy",
+                "BlueWave Solutions",
+                "Summit Capital",
+                "Apex Motors",
+                "FreshBrew Co.",
+                "CityLink Telecom",
             ];
             let sponsor = sponsor_names[rng.gen_range(0..sponsor_names.len())];
 
@@ -54,12 +66,16 @@ pub fn check_random_events(game: &mut Game) {
 
     // --- 2. Training ground injury (2% chance per day, non-match days) ---
     {
-        let has_match = game.league.as_ref().map_or(false, |l| {
-            l.fixtures.iter().any(|f| f.date == today && f.status == domain::league::FixtureStatus::Scheduled)
+        let has_match = game.league.as_ref().is_some_and(|l| {
+            l.fixtures
+                .iter()
+                .any(|f| f.date == today && f.status == domain::league::FixtureStatus::Scheduled)
         });
         if !has_match && rng.gen_range(0..50) == 0 {
             // Pick a random non-injured player
-            let eligible: Vec<&domain::player::Player> = game.players.iter()
+            let eligible: Vec<&domain::player::Player> = game
+                .players
+                .iter()
                 .filter(|p| p.team_id.as_deref() == Some(&user_team_id) && p.injury.is_none())
                 .collect();
             if !eligible.is_empty() {
@@ -67,11 +83,22 @@ pub fn check_random_events(game: &mut Game) {
                 let msg_id = format!("training_injury_{}_{}", player.id, today);
                 if !existing_ids.contains(&msg_id) {
                     let days = rng.gen_range(3..=14);
-                    let injury_names = ["Minor muscle strain", "Twisted ankle", "Knee bruise", "Hamstring tightness", "Calf strain"];
+                    let injury_names = [
+                        "Minor muscle strain",
+                        "Twisted ankle",
+                        "Knee bruise",
+                        "Hamstring tightness",
+                        "Calf strain",
+                    ];
                     let injury_name = injury_names[rng.gen_range(0..injury_names.len())];
 
                     new_messages.push(training_injury_message(
-                        &msg_id, &player.id, &player.match_name, injury_name, days, &today,
+                        &msg_id,
+                        &player.id,
+                        &player.match_name,
+                        injury_name,
+                        days,
+                        &today,
                     ));
 
                     // Apply the injury
@@ -91,11 +118,17 @@ pub fn check_random_events(game: &mut Game) {
     {
         let msg_id = format!("media_{}", today);
         if !existing_ids.contains(&msg_id) && rng.gen_range(0..33) == 0 {
-            let team_name = game.teams.iter().find(|t| t.id == user_team_id)
-                .map(|t| t.name.as_str()).unwrap_or("Your Club");
+            let team_name = game
+                .teams
+                .iter()
+                .find(|t| t.id == user_team_id)
+                .map(|t| t.name.as_str())
+                .unwrap_or("Your Club");
 
             // Pick a random player for the story
-            let team_players: Vec<&domain::player::Player> = game.players.iter()
+            let team_players: Vec<&domain::player::Player> = game
+                .players
+                .iter()
                 .filter(|p| p.team_id.as_deref() == Some(&user_team_id))
                 .collect();
             if !team_players.is_empty() {
@@ -103,13 +136,22 @@ pub fn check_random_events(game: &mut Game) {
                 let is_positive = rng.gen_bool(0.6); // 60% positive stories
 
                 new_messages.push(media_story_message(
-                    &msg_id, team_name, &player.id, &player.match_name, is_positive, &today,
+                    &msg_id,
+                    team_name,
+                    &player.id,
+                    &player.match_name,
+                    is_positive,
+                    &today,
                 ));
 
                 // Apply morale effect
                 let pid = player.id.clone();
                 if let Some(p) = game.players.iter_mut().find(|p| p.id == pid) {
-                    let delta: i16 = if is_positive { rng.gen_range(2..=5) } else { rng.gen_range(-5..=-1) };
+                    let delta: i16 = if is_positive {
+                        rng.gen_range(2..=5)
+                    } else {
+                        rng.gen_range(-5..=-1)
+                    };
                     p.morale = ((p.morale as i16) + delta).clamp(10, 100) as u8;
                 }
             }
@@ -126,7 +168,7 @@ pub fn check_random_events(game: &mut Game) {
                     && {
                         if let Ok(d) = chrono::NaiveDate::parse_from_str(&f.date, "%Y-%m-%d") {
                             let diff = (d - current.date_naive()).num_days();
-                            diff >= 1 && diff <= 7
+                            (1..=7).contains(&diff)
                         } else {
                             false
                         }
@@ -135,7 +177,9 @@ pub fn check_random_events(game: &mut Game) {
         });
 
         if upcoming_match.is_some() && rng.gen_range(0..20) == 0 {
-            let eligible: Vec<&domain::player::Player> = game.players.iter()
+            let eligible: Vec<&domain::player::Player> = game
+                .players
+                .iter()
                 .filter(|p| p.team_id.as_deref() == Some(&user_team_id) && p.injury.is_none())
                 .collect();
             if !eligible.is_empty() {
@@ -143,7 +187,10 @@ pub fn check_random_events(game: &mut Game) {
                 let msg_id = format!("intl_callup_{}_{}", player.id, today);
                 if !existing_ids.contains(&msg_id) {
                     new_messages.push(international_callup_message(
-                        &msg_id, &player.match_name, &player.nationality, &today,
+                        &msg_id,
+                        &player.match_name,
+                        &player.nationality,
+                        &today,
                     ));
                     // Morale boost for being called up
                     let pid = player.id.clone();
@@ -159,8 +206,12 @@ pub fn check_random_events(game: &mut Game) {
     {
         let msg_id = format!("community_{}", today);
         if !existing_ids.contains(&msg_id) && rng.gen_range(0..100) == 0 {
-            let team_name = game.teams.iter().find(|t| t.id == user_team_id)
-                .map(|t| t.name.as_str()).unwrap_or("Your Club");
+            let team_name = game
+                .teams
+                .iter()
+                .find(|t| t.id == user_team_id)
+                .map(|t| t.name.as_str())
+                .unwrap_or("Your Club");
             new_messages.push(community_event_message(&msg_id, team_name, &today));
         }
     }
@@ -169,16 +220,24 @@ pub fn check_random_events(game: &mut Game) {
     {
         let msg_id = format!("mood_report_{}", today);
         if !existing_ids.contains(&msg_id) && rng.gen_range(0..7) == 0 {
-            let team_players: Vec<&domain::player::Player> = game.players.iter()
+            let team_players: Vec<&domain::player::Player> = game
+                .players
+                .iter()
                 .filter(|p| p.team_id.as_deref() == Some(&user_team_id))
                 .collect();
             if !team_players.is_empty() {
-                let avg_morale: f64 = team_players.iter().map(|p| p.morale as f64).sum::<f64>() / team_players.len() as f64;
+                let avg_morale: f64 = team_players.iter().map(|p| p.morale as f64).sum::<f64>()
+                    / team_players.len() as f64;
                 let low_morale_count = team_players.iter().filter(|p| p.morale < 40).count();
                 let high_morale_count = team_players.iter().filter(|p| p.morale >= 80).count();
 
                 new_messages.push(mood_report_message(
-                    &msg_id, avg_morale, low_morale_count, high_morale_count, team_players.len(), &today,
+                    &msg_id,
+                    avg_morale,
+                    low_morale_count,
+                    high_morale_count,
+                    team_players.len(),
+                    &today,
                 ));
             }
         }
@@ -187,19 +246,36 @@ pub fn check_random_events(game: &mut Game) {
     // --- 7. Board confidence check (after 3+ consecutive losses, 100% trigger once) ---
     {
         if let Some(league) = &game.league {
-            let completed: Vec<_> = league.fixtures.iter()
-                .filter(|f| f.status == domain::league::FixtureStatus::Completed
-                    && (f.home_team_id == user_team_id || f.away_team_id == user_team_id))
+            let completed: Vec<_> = league
+                .fixtures
+                .iter()
+                .filter(|f| {
+                    f.status == domain::league::FixtureStatus::Completed
+                        && (f.home_team_id == user_team_id || f.away_team_id == user_team_id)
+                })
                 .collect();
             if completed.len() >= 3 {
-                let last3 = &completed[completed.len()-3..];
-                let losses = last3.iter().filter(|f| {
-                    if let Some(r) = &f.result {
-                        let user_goals = if f.home_team_id == user_team_id { r.home_goals } else { r.away_goals };
-                        let opp_goals = if f.home_team_id == user_team_id { r.away_goals } else { r.home_goals };
-                        user_goals < opp_goals
-                    } else { false }
-                }).count();
+                let last3 = &completed[completed.len() - 3..];
+                let losses = last3
+                    .iter()
+                    .filter(|f| {
+                        if let Some(r) = &f.result {
+                            let user_goals = if f.home_team_id == user_team_id {
+                                r.home_goals
+                            } else {
+                                r.away_goals
+                            };
+                            let opp_goals = if f.home_team_id == user_team_id {
+                                r.away_goals
+                            } else {
+                                r.home_goals
+                            };
+                            user_goals < opp_goals
+                        } else {
+                            false
+                        }
+                    })
+                    .count();
                 let msg_id = format!("board_confidence_{}", today);
                 if losses >= 3 && !existing_ids.contains(&msg_id) {
                     new_messages.push(board_confidence_message(&msg_id, &today));
@@ -212,8 +288,12 @@ pub fn check_random_events(game: &mut Game) {
     {
         let msg_id = format!("fan_petition_{}", today);
         if !existing_ids.contains(&msg_id) && rng.gen_range(0..50) == 0 {
-            let team_name = game.teams.iter().find(|t| t.id == user_team_id)
-                .map(|t| t.name.as_str()).unwrap_or("Your Club");
+            let team_name = game
+                .teams
+                .iter()
+                .find(|t| t.id == user_team_id)
+                .map(|t| t.name.as_str())
+                .unwrap_or("Your Club");
             new_messages.push(fan_petition_message(&msg_id, team_name, &today));
         }
     }
@@ -222,15 +302,27 @@ pub fn check_random_events(game: &mut Game) {
     {
         let msg_id = format!("rival_interest_{}", today);
         if !existing_ids.contains(&msg_id) && rng.gen_range(0..50) == 0 {
-            let eligible: Vec<&domain::player::Player> = game.players.iter()
+            let eligible: Vec<&domain::player::Player> = game
+                .players
+                .iter()
                 .filter(|p| p.team_id.as_deref() == Some(&user_team_id) && p.injury.is_none())
                 .collect();
             if !eligible.is_empty() {
                 let player = eligible[rng.gen_range(0..eligible.len())];
-                let rival_names = ["FC Rival", "Sporting Ambition", "United Prestige", "Real Progress", "Bayern Elite"];
+                let rival_names = [
+                    "FC Rival",
+                    "Sporting Ambition",
+                    "United Prestige",
+                    "Real Progress",
+                    "Bayern Elite",
+                ];
                 let rival = rival_names[rng.gen_range(0..rival_names.len())];
                 new_messages.push(rival_interest_message(
-                    &msg_id, &player.id, &player.match_name, rival, &today,
+                    &msg_id,
+                    &player.id,
+                    &player.match_name,
+                    rival,
+                    &today,
                 ));
             }
         }
@@ -251,7 +343,9 @@ pub fn apply_event_response(
         match option_id {
             "accept" => {
                 // Extract amount from message body (stored in i18n_params)
-                let amount = game.messages.iter()
+                let amount = game
+                    .messages
+                    .iter()
                     .find(|m| m.id == message_id)
                     .and_then(|m| m.i18n_params.get("amount"))
                     .and_then(|a| a.parse::<u64>().ok())
@@ -262,13 +356,17 @@ pub fn apply_event_response(
                 }
                 // Mark resolved
                 if let Some(msg) = game.messages.iter_mut().find(|m| m.id == message_id) {
-                    for a in msg.actions.iter_mut() { a.resolved = true; }
+                    for a in msg.actions.iter_mut() {
+                        a.resolved = true;
+                    }
                 }
                 Some(format!("Sponsorship accepted! +€{}", format_money(amount)))
             }
             "decline" => {
                 if let Some(msg) = game.messages.iter_mut().find(|m| m.id == message_id) {
-                    for a in msg.actions.iter_mut() { a.resolved = true; }
+                    for a in msg.actions.iter_mut() {
+                        a.resolved = true;
+                    }
                 }
                 Some("Sponsorship declined.".to_string())
             }
@@ -278,21 +376,33 @@ pub fn apply_event_response(
         match option_id {
             "reassure_board" => {
                 if let Some(msg) = game.messages.iter_mut().find(|m| m.id == message_id) {
-                    for a in msg.actions.iter_mut() { a.resolved = true; }
+                    for a in msg.actions.iter_mut() {
+                        a.resolved = true;
+                    }
                 }
                 Some("You reassured the board. They'll give you more time — for now.".to_string())
             }
             "accept_pressure" => {
                 if let Some(msg) = game.messages.iter_mut().find(|m| m.id == message_id) {
-                    for a in msg.actions.iter_mut() { a.resolved = true; }
+                    for a in msg.actions.iter_mut() {
+                        a.resolved = true;
+                    }
                 }
-                Some("You acknowledged the pressure. The board appreciates your honesty.".to_string())
+                Some(
+                    "You acknowledged the pressure. The board appreciates your honesty."
+                        .to_string(),
+                )
             }
             "blame_circumstances" => {
                 if let Some(msg) = game.messages.iter_mut().find(|m| m.id == message_id) {
-                    for a in msg.actions.iter_mut() { a.resolved = true; }
+                    for a in msg.actions.iter_mut() {
+                        a.resolved = true;
+                    }
                 }
-                Some("The board isn't entirely convinced by excuses, but they'll wait and see.".to_string())
+                Some(
+                    "The board isn't entirely convinced by excuses, but they'll wait and see."
+                        .to_string(),
+                )
             }
             _ => None,
         }
@@ -308,58 +418,76 @@ pub fn apply_event_response(
                     }
                 }
                 if let Some(msg) = game.messages.iter_mut().find(|m| m.id == message_id) {
-                    for a in msg.actions.iter_mut() { a.resolved = true; }
+                    for a in msg.actions.iter_mut() {
+                        a.resolved = true;
+                    }
                 }
                 Some("You engaged with the fans. Squad morale improved slightly.".to_string())
             }
             "ignore_fans" => {
                 if let Some(msg) = game.messages.iter_mut().find(|m| m.id == message_id) {
-                    for a in msg.actions.iter_mut() { a.resolved = true; }
+                    for a in msg.actions.iter_mut() {
+                        a.resolved = true;
+                    }
                 }
-                Some("You decided to focus on football matters. The fans are a little disappointed.".to_string())
+                Some(
+                    "You decided to focus on football matters. The fans are a little disappointed."
+                        .to_string(),
+                )
             }
             "address_publicly" => {
                 if let Some(msg) = game.messages.iter_mut().find(|m| m.id == message_id) {
-                    for a in msg.actions.iter_mut() { a.resolved = true; }
+                    for a in msg.actions.iter_mut() {
+                        a.resolved = true;
+                    }
                 }
                 Some("Your public address was well received. Fan confidence is up.".to_string())
             }
             _ => None,
         }
     } else if message_id.starts_with("rival_interest_") {
-        let player_id = game.messages.iter()
+        let player_id = game
+            .messages
+            .iter()
             .find(|m| m.id == message_id)
             .and_then(|m| m.context.player_id.clone());
         match option_id {
             "not_for_sale" => {
                 // Player morale boost — they feel valued
-                if let Some(pid) = &player_id {
-                    if let Some(p) = game.players.iter_mut().find(|p| p.id == *pid) {
+                if let Some(pid) = &player_id
+                    && let Some(p) = game.players.iter_mut().find(|p| p.id == *pid) {
                         let mut rng = rand::thread_rng();
                         p.morale = (p.morale as i16 + rng.gen_range(3..=8)).clamp(10, 100) as u8;
                     }
-                }
                 if let Some(msg) = game.messages.iter_mut().find(|m| m.id == message_id) {
-                    for a in msg.actions.iter_mut() { a.resolved = true; }
+                    for a in msg.actions.iter_mut() {
+                        a.resolved = true;
+                    }
                 }
-                Some("You made it clear the player is not for sale. They're feeling valued.".to_string())
+                Some(
+                    "You made it clear the player is not for sale. They're feeling valued."
+                        .to_string(),
+                )
             }
             "open_to_offers" => {
                 // Player morale drop — they feel uncertain
-                if let Some(pid) = &player_id {
-                    if let Some(p) = game.players.iter_mut().find(|p| p.id == *pid) {
+                if let Some(pid) = &player_id
+                    && let Some(p) = game.players.iter_mut().find(|p| p.id == *pid) {
                         let mut rng = rand::thread_rng();
                         p.morale = (p.morale as i16 - rng.gen_range(3..=8)).clamp(10, 100) as u8;
                     }
-                }
                 if let Some(msg) = game.messages.iter_mut().find(|m| m.id == message_id) {
-                    for a in msg.actions.iter_mut() { a.resolved = true; }
+                    for a in msg.actions.iter_mut() {
+                        a.resolved = true;
+                    }
                 }
                 Some("You indicated you'd listen to offers. The player is unsettled.".to_string())
             }
             "no_comment" => {
                 if let Some(msg) = game.messages.iter_mut().find(|m| m.id == message_id) {
-                    for a in msg.actions.iter_mut() { a.resolved = true; }
+                    for a in msg.actions.iter_mut() {
+                        a.resolved = true;
+                    }
                 }
                 Some("No comment. The rumour mill continues...".to_string())
             }
@@ -385,7 +513,11 @@ fn format_money(amount: u64) -> String {
 // ---------------------------------------------------------------------------
 
 fn sponsor_offer_message(
-    msg_id: &str, team_name: &str, sponsor: &str, amount: u64, date: &str,
+    msg_id: &str,
+    team_name: &str,
+    sponsor: &str,
+    amount: u64,
+    date: &str,
 ) -> InboxMessage {
     InboxMessage::new(
         msg_id.to_string(),
@@ -428,19 +560,28 @@ fn sponsor_offer_message(
 }
 
 fn training_injury_message(
-    msg_id: &str, player_id: &str, player_name: &str, injury_name: &str, days: u32, date: &str,
+    msg_id: &str,
+    player_id: &str,
+    player_name: &str,
+    injury_name: &str,
+    days: u32,
+    date: &str,
 ) -> InboxMessage {
     let mut rng = rand::thread_rng();
     let variations = [
         format!(
             "Bad news from the training ground. {} has picked up a {} during today's session.\n\n\
             The medical team estimates {} days on the sidelines. We'll monitor the recovery closely.",
-            player_name, injury_name.to_lowercase(), days
+            player_name,
+            injury_name.to_lowercase(),
+            days
         ),
         format!(
             "Unfortunately, {} went down in training today with a {}.\n\n\
             Initial assessment: out for approximately {} days. We'll keep you updated on their progress.",
-            player_name, injury_name.to_lowercase(), days
+            player_name,
+            injury_name.to_lowercase(),
+            days
         ),
     ];
     let idx = rng.gen_range(0..variations.len());
@@ -455,7 +596,12 @@ fn training_injury_message(
     .with_category(MessageCategory::Injury)
     .with_priority(MessagePriority::High)
     .with_sender_role("Head Physio")
-    .with_action(action("ack", "Understood", "be.msg.event.ack", ActionType::Acknowledge))
+    .with_action(action(
+        "ack",
+        "Understood",
+        "be.msg.event.ack",
+        ActionType::Acknowledge,
+    ))
     .with_context(MessageContext {
         player_id: Some(player_id.to_string()),
         ..Default::default()
@@ -463,13 +609,22 @@ fn training_injury_message(
     .with_i18n(
         "be.msg.trainingInjury.subject",
         &format!("be.msg.trainingInjury.body{}", idx),
-        params(&[("player", player_name), ("injury", injury_name), ("days", &days.to_string())]),
+        params(&[
+            ("player", player_name),
+            ("injury", injury_name),
+            ("days", &days.to_string()),
+        ]),
     )
     .with_sender_i18n("be.sender.headPhysio", "be.role.headPhysio")
 }
 
 fn media_story_message(
-    msg_id: &str, team_name: &str, player_id: &str, player_name: &str, is_positive: bool, date: &str,
+    msg_id: &str,
+    team_name: &str,
+    player_id: &str,
+    player_name: &str,
+    is_positive: bool,
+    date: &str,
 ) -> InboxMessage {
     let mut rng = rand::thread_rng();
 
@@ -526,23 +681,43 @@ fn media_story_message(
         date.to_string(),
     )
     .with_category(MessageCategory::Media)
-    .with_priority(if is_positive { MessagePriority::Low } else { MessagePriority::Normal })
+    .with_priority(if is_positive {
+        MessagePriority::Low
+    } else {
+        MessagePriority::Normal
+    })
     .with_sender_role("Press Officer")
-    .with_action(action("ack", "Noted", "be.msg.event.ack", ActionType::Acknowledge))
+    .with_action(action(
+        "ack",
+        "Noted",
+        "be.msg.event.ack",
+        ActionType::Acknowledge,
+    ))
     .with_context(MessageContext {
         player_id: Some(player_id.to_string()),
         ..Default::default()
     })
     .with_i18n(
-        if is_positive { "be.msg.mediaPositive.subject" } else { "be.msg.mediaNegative.subject" },
-        if is_positive { "be.msg.mediaPositive.body" } else { "be.msg.mediaNegative.body" },
+        if is_positive {
+            "be.msg.mediaPositive.subject"
+        } else {
+            "be.msg.mediaNegative.subject"
+        },
+        if is_positive {
+            "be.msg.mediaPositive.body"
+        } else {
+            "be.msg.mediaNegative.body"
+        },
         params(&[("player", player_name), ("team", team_name)]),
     )
     .with_sender_i18n("be.sender.pressOfficer", "be.role.pressOfficer")
 }
 
 fn international_callup_message(
-    msg_id: &str, player_name: &str, nationality: &str, date: &str,
+    msg_id: &str,
+    player_name: &str,
+    nationality: &str,
+    date: &str,
 ) -> InboxMessage {
     InboxMessage::new(
         msg_id.to_string(),
@@ -610,7 +785,12 @@ fn community_event_message(msg_id: &str, team_name: &str, date: &str) -> InboxMe
     .with_category(MessageCategory::System)
     .with_priority(MessagePriority::Low)
     .with_sender_role("Community Manager")
-    .with_action(action("ack", "Great", "be.msg.event.ack", ActionType::Acknowledge))
+    .with_action(action(
+        "ack",
+        "Great",
+        "be.msg.event.ack",
+        ActionType::Acknowledge,
+    ))
     .with_i18n(
         &format!("be.msg.community.subject{}", idx),
         &format!("be.msg.community.body{}", idx),
@@ -620,12 +800,22 @@ fn community_event_message(msg_id: &str, team_name: &str, date: &str) -> InboxMe
 }
 
 fn mood_report_message(
-    msg_id: &str, avg_morale: f64, low_count: usize, high_count: usize, total: usize, date: &str,
+    msg_id: &str,
+    avg_morale: f64,
+    low_count: usize,
+    high_count: usize,
+    total: usize,
+    date: &str,
 ) -> InboxMessage {
-    let mood = if avg_morale >= 75.0 { "Excellent" }
-        else if avg_morale >= 60.0 { "Good" }
-        else if avg_morale >= 45.0 { "Mixed" }
-        else { "Poor" };
+    let mood = if avg_morale >= 75.0 {
+        "Excellent"
+    } else if avg_morale >= 60.0 {
+        "Good"
+    } else if avg_morale >= 45.0 {
+        "Mixed"
+    } else {
+        "Poor"
+    };
 
     let body = format!(
         "Here's your weekly dressing room report:\n\n\
@@ -634,7 +824,11 @@ fn mood_report_message(
         • Players with low morale (<40): {}\n\
         • Total squad: {}\n\n\
         {}",
-        mood, avg_morale, high_count, low_count, total,
+        mood,
+        avg_morale,
+        high_count,
+        low_count,
+        total,
         if low_count >= 3 {
             "Several players are unhappy. You should address individual concerns before it spreads."
         } else if avg_morale >= 75.0 {
@@ -654,21 +848,26 @@ fn mood_report_message(
         date.to_string(),
     )
     .with_category(MessageCategory::PlayerMorale)
-    .with_priority(if low_count >= 3 || avg_morale < 40.0 { MessagePriority::High } else { MessagePriority::Low })
+    .with_priority(if low_count >= 3 || avg_morale < 40.0 {
+        MessagePriority::High
+    } else {
+        MessagePriority::Low
+    })
     .with_sender_role("Assistant Manager")
-    .with_action(action("ack", "Thanks", "be.msg.event.ack", ActionType::Acknowledge))
-    .with_i18n(
-        "be.msg.moodReport.subject",
-        "be.msg.moodReport.body",
-        {
-            let mut p = params(&[("mood", mood)]);
-            p.insert("avgMorale".to_string(), format!("{:.0}", avg_morale));
-            p.insert("highCount".to_string(), high_count.to_string());
-            p.insert("lowCount".to_string(), low_count.to_string());
-            p.insert("total".to_string(), total.to_string());
-            p
-        },
-    )
+    .with_action(action(
+        "ack",
+        "Thanks",
+        "be.msg.event.ack",
+        ActionType::Acknowledge,
+    ))
+    .with_i18n("be.msg.moodReport.subject", "be.msg.moodReport.body", {
+        let mut p = params(&[("mood", mood)]);
+        p.insert("avgMorale".to_string(), format!("{:.0}", avg_morale));
+        p.insert("highCount".to_string(), high_count.to_string());
+        p.insert("lowCount".to_string(), low_count.to_string());
+        p.insert("total".to_string(), total.to_string());
+        p
+    })
     .with_sender_i18n("be.sender.assistantManager", "be.role.assistantManager")
 }
 
@@ -695,13 +894,17 @@ fn board_confidence_message(msg_id: &str, date: &str) -> InboxMessage {
     .with_priority(MessagePriority::Urgent)
     .with_sender_role("Chairman")
     .with_action(action(
-        "respond", "Respond", "be.msg.event.respond",
+        "respond",
+        "Respond",
+        "be.msg.event.respond",
         ActionType::ChooseOption {
             options: vec![
                 ActionOption {
                     id: "reassure_board".to_string(),
                     label: "Reassure them with a plan".to_string(),
-                    description: "Present a clear strategy for turning things around. Buys you time.".to_string(),
+                    description:
+                        "Present a clear strategy for turning things around. Buys you time."
+                            .to_string(),
                 },
                 ActionOption {
                     id: "accept_pressure".to_string(),
@@ -711,7 +914,8 @@ fn board_confidence_message(msg_id: &str, date: &str) -> InboxMessage {
                 ActionOption {
                     id: "blame_circumstances".to_string(),
                     label: "Point to injuries and bad luck".to_string(),
-                    description: "Deflect blame to external factors. May or may not convince them.".to_string(),
+                    description: "Deflect blame to external factors. May or may not convince them."
+                        .to_string(),
                 },
             ],
         },
@@ -799,7 +1003,11 @@ fn fan_petition_message(msg_id: &str, team_name: &str, date: &str) -> InboxMessa
 }
 
 fn rival_interest_message(
-    msg_id: &str, player_id: &str, player_name: &str, rival_name: &str, date: &str,
+    msg_id: &str,
+    player_id: &str,
+    player_name: &str,
+    rival_name: &str,
+    date: &str,
 ) -> InboxMessage {
     let mut rng = rand::thread_rng();
     let variations = [
@@ -822,7 +1030,10 @@ fn rival_interest_message(
 
     InboxMessage::new(
         msg_id.to_string(),
-        format!("Transfer Rumour — {} linked with {}", player_name, rival_name),
+        format!(
+            "Transfer Rumour — {} linked with {}",
+            player_name, rival_name
+        ),
         variations[idx].clone(),
         "Director of Football".to_string(),
         date.to_string(),
@@ -831,18 +1042,22 @@ fn rival_interest_message(
     .with_priority(MessagePriority::Normal)
     .with_sender_role("Director of Football")
     .with_action(action(
-        "respond", "Respond", "be.msg.event.respond",
+        "respond",
+        "Respond",
+        "be.msg.event.respond",
         ActionType::ChooseOption {
             options: vec![
                 ActionOption {
                     id: "not_for_sale".to_string(),
                     label: "Not for sale".to_string(),
-                    description: "Make it clear the player is going nowhere. Boosts their morale.".to_string(),
+                    description: "Make it clear the player is going nowhere. Boosts their morale."
+                        .to_string(),
                 },
                 ActionOption {
                     id: "open_to_offers".to_string(),
                     label: "Open to offers".to_string(),
-                    description: "Signal willingness to negotiate. Player may become unsettled.".to_string(),
+                    description: "Signal willingness to negotiate. Player may become unsettled."
+                        .to_string(),
                 },
                 ActionOption {
                     id: "no_comment".to_string(),

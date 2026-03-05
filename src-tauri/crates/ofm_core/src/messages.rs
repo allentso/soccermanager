@@ -4,7 +4,10 @@ use std::collections::HashMap;
 
 /// Helper to build a HashMap<String, String> from key-value pairs.
 fn params(pairs: &[(&str, &str)]) -> HashMap<String, String> {
-    pairs.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect()
+    pairs
+        .iter()
+        .map(|(k, v)| (k.to_string(), v.to_string()))
+        .collect()
 }
 
 /// Helper to create a MessageAction with an i18n label key.
@@ -68,8 +71,20 @@ pub fn welcome_message(team_name: &str, team_id: &str, date: &str) -> InboxMessa
     .with_category(MessageCategory::Welcome)
     .with_priority(MessagePriority::High)
     .with_sender_role("Chairman")
-    .with_action(action("review_squad", "Review Squad", "be.msg.welcome.actionReview", ActionType::NavigateTo { route: "/dashboard?tab=Squad".to_string() }))
-    .with_action(action("ack_welcome", "Thank the Board", "be.msg.welcome.actionThank", ActionType::Acknowledge))
+    .with_action(action(
+        "review_squad",
+        "Review Squad",
+        "be.msg.welcome.actionReview",
+        ActionType::NavigateTo {
+            route: "/dashboard?tab=Squad".to_string(),
+        },
+    ))
+    .with_action(action(
+        "ack_welcome",
+        "Thank the Board",
+        "be.msg.welcome.actionThank",
+        ActionType::Acknowledge,
+    ))
     .with_context(MessageContext {
         team_id: Some(team_id.to_string()),
         ..Default::default()
@@ -111,7 +126,14 @@ pub fn season_schedule_message(league_name: &str, season_start: &str, date: &str
     .with_category(MessageCategory::LeagueInfo)
     .with_priority(MessagePriority::Normal)
     .with_sender_role("Competition Secretary")
-    .with_action(action("view_schedule", "View Fixtures", "be.msg.schedule.actionView", ActionType::NavigateTo { route: "/dashboard?tab=Schedule".to_string() }))
+    .with_action(action(
+        "view_schedule",
+        "View Fixtures",
+        "be.msg.schedule.actionView",
+        ActionType::NavigateTo {
+            route: "/dashboard?tab=Schedule".to_string(),
+        },
+    ))
     .with_i18n(
         "be.msg.schedule.subject",
         &format!("be.msg.schedule.body{}", idx),
@@ -138,14 +160,24 @@ pub fn pre_match_message(
             Matchday {} of the Premier Division. Make sure your starting XI is in good shape and \
             your tactics are set.\n\n\
             {} advantage could be key in this one.",
-            venue, opponent_name, match_date, matchday,
-            if is_home { "Home" } else { "Matching their intensity away from home" }
+            venue,
+            opponent_name,
+            match_date,
+            matchday,
+            if is_home {
+                "Home"
+            } else {
+                "Matching their intensity away from home"
+            }
         ),
         format!(
             "Reminder: you face {} {} in 3 days ({}).\n\n\
             This is Matchday {} — review your squad fitness and consider any tactical adjustments. \
             {}",
-            opponent_name, venue, match_date, matchday,
+            opponent_name,
+            venue,
+            match_date,
+            matchday,
             if is_home {
                 "The fans will be behind you at home."
             } else {
@@ -158,7 +190,11 @@ pub fn pre_match_message(
 
     InboxMessage::new(
         format!("prematch_{}", fixture_id),
-        format!("Upcoming: vs {} ({})", opponent_name, if is_home { "H" } else { "A" }),
+        format!(
+            "Upcoming: vs {} ({})",
+            opponent_name,
+            if is_home { "H" } else { "A" }
+        ),
         variations[idx].clone(),
         "Assistant Manager".to_string(),
         date.to_string(),
@@ -166,8 +202,22 @@ pub fn pre_match_message(
     .with_category(MessageCategory::MatchPreview)
     .with_priority(MessagePriority::Normal)
     .with_sender_role("Assistant Manager")
-    .with_action(action("set_tactics", "Set Tactics", "be.msg.preMatch.actionTactics", ActionType::NavigateTo { route: "/dashboard?tab=Tactics".to_string() }))
-    .with_action(action("view_opponent", "Scout Opponent", "be.msg.preMatch.actionScout", ActionType::NavigateTo { route: format!("/team/{}", opponent_id) }))
+    .with_action(action(
+        "set_tactics",
+        "Set Tactics",
+        "be.msg.preMatch.actionTactics",
+        ActionType::NavigateTo {
+            route: "/dashboard?tab=Tactics".to_string(),
+        },
+    ))
+    .with_action(action(
+        "view_opponent",
+        "Scout Opponent",
+        "be.msg.preMatch.actionScout",
+        ActionType::NavigateTo {
+            route: format!("/team/{}", opponent_id),
+        },
+    ))
     .with_context(MessageContext {
         fixture_id: Some(fixture_id.to_string()),
         team_id: Some(opponent_id.to_string()),
@@ -258,15 +308,29 @@ pub fn match_result_message(
 
     InboxMessage::new(
         format!("result_{}", fixture_id),
-        format!("{}: {} {} - {} {}", outcome, home_name, home_goals, away_goals, away_name),
+        format!(
+            "{}: {} {} - {} {}",
+            outcome, home_name, home_goals, away_goals, away_name
+        ),
         body,
         "Match Reporter".to_string(),
         date.to_string(),
     )
     .with_category(MessageCategory::MatchResult)
-    .with_priority(if outcome == "Victory" { MessagePriority::Normal } else { MessagePriority::High })
+    .with_priority(if outcome == "Victory" {
+        MessagePriority::Normal
+    } else {
+        MessagePriority::High
+    })
     .with_sender_role("Press Officer")
-    .with_action(action("view_standings", "View Standings", "be.msg.matchResult.actionStandings", ActionType::NavigateTo { route: "/dashboard?tab=Schedule".to_string() }))
+    .with_action(action(
+        "view_standings",
+        "View Standings",
+        "be.msg.matchResult.actionStandings",
+        ActionType::NavigateTo {
+            route: "/dashboard?tab=Schedule".to_string(),
+        },
+    ))
     .with_context(MessageContext {
         fixture_id: Some(fixture_id.to_string()),
         match_result: Some(ContextMatchResult {
@@ -279,7 +343,15 @@ pub fn match_result_message(
     })
     .with_i18n(
         &format!("be.msg.matchResult.subject.{}", outcome.to_lowercase()),
-        &format!("be.msg.matchResult.body.{}{}", outcome.to_lowercase(), if outcome == "Draw" { String::new() } else { rng.gen_range(0..2u8).to_string() }),
+        &format!(
+            "be.msg.matchResult.body.{}{}",
+            outcome.to_lowercase(),
+            if outcome == "Draw" {
+                String::new()
+            } else {
+                rng.gen_range(0..2u8).to_string()
+            }
+        ),
         {
             let mut p = params(&[
                 ("home", home_name),
@@ -332,22 +404,25 @@ pub fn board_expectations_message(team_name: &str, team_id: &str, date: &str) ->
     InboxMessage::new(
         "board_expect_1".to_string(),
         format!("{} — Season Objectives", team_name),
-        format!(
-            "The board has set the following expectations for this season:\n\n\
+        "The board has set the following expectations for this season:\n\n\
             • Finish in the top half of the table\n\
             • Maintain financial stability\n\
             • Develop young talent from the academy\n\n\
             Meeting these objectives will strengthen your position. Failure to meet minimum \
             expectations may result in a review of your tenure.\n\n\
-            We trust in your abilities.",
-        ),
+            We trust in your abilities.".to_string(),
         "Board of Directors".to_string(),
         date.to_string(),
     )
     .with_category(MessageCategory::BoardDirective)
     .with_priority(MessagePriority::High)
     .with_sender_role("Chairman")
-    .with_action(action("ack_objectives", "Accept Objectives", "be.msg.boardExpect.actionAccept", ActionType::Acknowledge))
+    .with_action(action(
+        "ack_objectives",
+        "Accept Objectives",
+        "be.msg.boardExpect.actionAccept",
+        ActionType::Acknowledge,
+    ))
     .with_context(MessageContext {
         team_id: Some(team_id.to_string()),
         ..Default::default()
@@ -360,11 +435,7 @@ pub fn board_expectations_message(team_name: &str, team_id: &str, date: &str) ->
     .with_sender_i18n("be.sender.boardOfDirectors", "be.role.chairman")
 }
 
-pub fn transfer_complete_message(
-    player_name: &str,
-    fee: u64,
-    date: &str,
-) -> InboxMessage {
+pub fn transfer_complete_message(player_name: &str, fee: u64, date: &str) -> InboxMessage {
     let fee_display = if fee >= 1_000_000 {
         format!("€{:.1}M", fee as f64 / 1_000_000.0)
     } else if fee >= 1_000 {

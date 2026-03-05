@@ -1,0 +1,106 @@
+use log::info;
+use tauri::State;
+
+use ofm_core::game::Game;
+use ofm_core::state::StateManager;
+
+#[tauri::command]
+pub fn mark_message_read(state: State<StateManager>, message_id: String) -> Result<Game, String> {
+    log::debug!("[cmd] mark_message_read: {}", message_id);
+    let mut game = state
+        .get_game(|g| g.clone())
+        .ok_or("No active game session".to_string())?;
+
+    if let Some(msg) = game.messages.iter_mut().find(|m| m.id == message_id) {
+        msg.read = true;
+    }
+
+    state.set_game(game.clone());
+    Ok(game)
+}
+
+#[tauri::command]
+pub fn mark_all_messages_read(state: State<StateManager>) -> Result<Game, String> {
+    log::debug!("[cmd] mark_all_messages_read");
+    let mut game = state
+        .get_game(|g| g.clone())
+        .ok_or("No active game session".to_string())?;
+
+    for msg in game.messages.iter_mut() {
+        msg.read = true;
+    }
+
+    state.set_game(game.clone());
+    Ok(game)
+}
+
+#[tauri::command]
+pub fn clear_old_messages(state: State<StateManager>) -> Result<Game, String> {
+    log::debug!("[cmd] clear_old_messages");
+    let mut game = state
+        .get_game(|g| g.clone())
+        .ok_or("No active game session".to_string())?;
+
+    let current_date = game.clock.current_date.format("%Y-%m-%d").to_string();
+    // Keep only: unread messages, messages with unresolved actions, and messages from recent 14 days
+    game.messages.retain(|m| {
+        if !m.read {
+            return true;
+        }
+        if m.actions.iter().any(|a| !a.resolved) {
+            return true;
+        }
+        // Keep recent messages (within 14 days)
+        if let Ok(msg_date) = chrono::NaiveDate::parse_from_str(&m.date, "%Y-%m-%d") {
+            if let Ok(cur_date) = chrono::NaiveDate::parse_from_str(&current_date, "%Y-%m-%d") {
+                return (cur_date - msg_date).num_days() <= 14;
+            }
+        }
+        false
+    });
+
+    state.set_game(game.clone());
+    Ok(game)
+}
+
+#[tauri::command]
+pub fn resolve_message_action(
+    state: State<StateManager>,
+    message_id: String,
+    action_id: String,
+    option_id: Option<String>,
+) -> Result<serde_json::Value, String> {
+    info!(
+        "[cmd] resolve_message_action: msg={}, action={}, option={:?}",
+        message_id, action_id, option_id
+    );
+    let mut game = state
+        .get_game(|g| g.clone())
+        .ok_or("No active game session".to_string())?;
+
+    // Try to apply player conversation or random event response
+    let effect = if let Some(opt) = &option_id {
+        // Try player events first, then random events
+        let player_effect =
+            ofm_core::player_events::apply_player_response(&mut game, &message_id, &action_id, opt);
+        if player_effect.is_some() {
+            player_effect
+        } else {
+            ofm_core::random_events::apply_event_response(&mut game, &message_id, &action_id, opt)
+        }
+    } else {
+        // Standard resolve — just mark action as resolved
+        if let Some(msg) = game.messages.iter_mut().find(|m| m.id == message_id) {
+            if let Some(action) = msg.actions.iter_mut().find(|a| a.id == action_id) {
+                action.resolved = true;
+            }
+        }
+        None
+    };
+
+    state.set_game(game.clone());
+    Ok(serde_json::json!({
+        "game": game,
+        "effect": effect
+    }))
+}

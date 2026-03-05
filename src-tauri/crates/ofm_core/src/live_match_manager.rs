@@ -1,6 +1,6 @@
 use log::info;
-use rand::rngs::StdRng;
 use rand::SeedableRng;
+use rand::rngs::StdRng;
 use serde::{Deserialize, Serialize};
 
 use crate::game::Game;
@@ -8,8 +8,8 @@ use domain::player::Position as DomainPosition;
 
 use engine::ai::{self, AiProfile};
 use engine::{
-    LiveMatchState, MatchCommand, MatchConfig, MatchSnapshot, MinuteResult,
-    PlayStyle, PlayerData, Position, Side, TeamData,
+    LiveMatchState, MatchCommand, MatchConfig, MatchSnapshot, MinuteResult, PlayStyle, PlayerData,
+    Position, Side, TeamData,
 };
 
 // ---------------------------------------------------------------------------
@@ -98,12 +98,7 @@ impl LiveMatchSession {
     fn apply_ai_decisions(&mut self) {
         // AI for home team (if not user-controlled)
         if self.user_side != Some(Side::Home) {
-            let cmds = ai::ai_decide(
-                &self.match_state,
-                Side::Home,
-                &self.ai_home,
-                &mut self.rng,
-            );
+            let cmds = ai::ai_decide(&self.match_state, Side::Home, &self.ai_home, &mut self.rng);
             for cmd in cmds {
                 let _ = self.match_state.apply_command(cmd);
             }
@@ -111,12 +106,7 @@ impl LiveMatchSession {
 
         // AI for away team (if not user-controlled)
         if self.user_side != Some(Side::Away) {
-            let cmds = ai::ai_decide(
-                &self.match_state,
-                Side::Away,
-                &self.ai_away,
-                &mut self.rng,
-            );
+            let cmds = ai::ai_decide(&self.match_state, Side::Away, &self.ai_away, &mut self.rng);
             for cmd in cmds {
                 let _ = self.match_state.apply_command(cmd);
             }
@@ -135,7 +125,10 @@ pub fn create_live_match(
     mode: MatchMode,
     allows_extra_time: bool,
 ) -> Result<LiveMatchSession, String> {
-    info!("[live_match] create_live_match: fixture={}, mode={:?}, extra_time={}", fixture_index, mode, allows_extra_time);
+    info!(
+        "[live_match] create_live_match: fixture={}, mode={:?}, extra_time={}",
+        fixture_index, mode, allows_extra_time
+    );
     let league = game.league.as_ref().ok_or("No league")?;
     let fixture = league
         .fixtures
@@ -194,9 +187,22 @@ pub fn create_live_match(
         experience: (away_rep / 10).min(100) as u8,
     };
 
-    let home_name = game.teams.iter().find(|t| t.id == home_team_id).map(|t| t.name.as_str()).unwrap_or("?");
-    let away_name = game.teams.iter().find(|t| t.id == away_team_id).map(|t| t.name.as_str()).unwrap_or("?");
-    info!("[live_match] session created: {} vs {}, user_side={:?}", home_name, away_name, user_side);
+    let home_name = game
+        .teams
+        .iter()
+        .find(|t| t.id == home_team_id)
+        .map(|t| t.name.as_str())
+        .unwrap_or("?");
+    let away_name = game
+        .teams
+        .iter()
+        .find(|t| t.id == away_team_id)
+        .map(|t| t.name.as_str())
+        .unwrap_or("?");
+    info!(
+        "[live_match] session created: {} vs {}, user_side={:?}",
+        home_name, away_name, user_side
+    );
 
     Ok(LiveMatchSession {
         match_state,
@@ -238,14 +244,18 @@ fn build_team_with_bench(game: &Game, team_id: &str) -> (TeamData, Vec<PlayerDat
         .players
         .iter()
         .filter(|p| p.team_id.as_deref() == Some(team_id) && p.injury.is_none())
-        .map(|p| to_engine_player(p))
+        .map(to_engine_player)
         .collect();
 
     // Sort by position priority (GK, DEF, MID, FWD) then by overall desc
     all_players.sort_by(|a, b| {
         position_order(&a.position)
             .cmp(&position_order(&b.position))
-            .then(b.overall().partial_cmp(&a.overall()).unwrap_or(std::cmp::Ordering::Equal))
+            .then(
+                b.overall()
+                    .partial_cmp(&a.overall())
+                    .unwrap_or(std::cmp::Ordering::Equal),
+            )
     });
 
     // Pick starting XI based on formation
@@ -327,7 +337,15 @@ fn to_engine_player(p: &domain::player::Player) -> PlayerData {
 
 /// Auto-select set-piece takers from a set of player IDs.
 /// Returns (captain_id, penalty_taker_id, free_kick_taker_id, corner_taker_id).
-pub fn auto_select_set_pieces(game: &Game, player_ids: &[String]) -> (Option<String>, Option<String>, Option<String>, Option<String>) {
+pub fn auto_select_set_pieces(
+    game: &Game,
+    player_ids: &[String],
+) -> (
+    Option<String>,
+    Option<String>,
+    Option<String>,
+    Option<String>,
+) {
     let players: Vec<&domain::player::Player> = player_ids
         .iter()
         .filter_map(|id| game.players.iter().find(|p| &p.id == id))
@@ -338,29 +356,41 @@ pub fn auto_select_set_pieces(game: &Game, player_ids: &[String]) -> (Option<Str
     }
 
     // Captain: highest leadership + teamwork
-    let captain = players.iter()
+    let captain = players
+        .iter()
         .max_by_key(|p| (p.attributes.leadership as u16) + (p.attributes.teamwork as u16))
         .map(|p| p.id.clone());
 
     // Penalty taker: highest shooting + composure (exclude GK)
-    let penalty = players.iter()
+    let penalty = players
+        .iter()
         .filter(|p| p.position != DomainPosition::Goalkeeper)
         .max_by_key(|p| (p.attributes.shooting as u16) + (p.attributes.composure as u16))
         .map(|p| p.id.clone());
 
     // Free kick taker: highest passing + vision + shooting (exclude GK)
-    let free_kick = players.iter()
+    let free_kick = players
+        .iter()
         .filter(|p| p.position != DomainPosition::Goalkeeper)
-        .max_by_key(|p| (p.attributes.passing as u16) + (p.attributes.vision as u16) + (p.attributes.shooting as u16) / 2)
+        .max_by_key(|p| {
+            (p.attributes.passing as u16)
+                + (p.attributes.vision as u16)
+                + (p.attributes.shooting as u16) / 2
+        })
         .map(|p| p.id.clone());
 
     // Corner taker: highest passing + vision (exclude GK, prefer different from FK)
-    let corner = players.iter()
+    let corner = players
+        .iter()
         .filter(|p| p.position != DomainPosition::Goalkeeper)
         .max_by_key(|p| {
             let base = (p.attributes.passing as u16) + (p.attributes.vision as u16);
             // Small penalty if same as free kick taker to encourage variety
-            if free_kick.as_ref() == Some(&p.id) { base.saturating_sub(5) } else { base }
+            if free_kick.as_ref() == Some(&p.id) {
+                base.saturating_sub(5)
+            } else {
+                base
+            }
         })
         .map(|p| p.id.clone());
 

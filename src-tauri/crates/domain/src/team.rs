@@ -50,7 +50,9 @@ pub struct Team {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum TrainingFocus {
+    #[default]
     Physical,
     Technical,
     Tactical,
@@ -59,42 +61,31 @@ pub enum TrainingFocus {
     Recovery,
 }
 
-impl Default for TrainingFocus {
-    fn default() -> Self {
-        TrainingFocus::Physical
-    }
-}
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum TrainingIntensity {
     Low,
+    #[default]
     Medium,
     High,
 }
 
-impl Default for TrainingIntensity {
-    fn default() -> Self {
-        TrainingIntensity::Medium
-    }
-}
 
 /// Weekly training schedule controlling how many days per week are training vs rest.
 /// Rest days give full condition recovery with no training cost.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum TrainingSchedule {
     /// 6 training days, 1 rest (Sunday). Max growth, minimal recovery.
     Intense,
     /// 4 training days (Mon, Tue, Thu, Fri), 3 rest (Wed, Sat, Sun). Good balance.
+    #[default]
     Balanced,
     /// 2 training days (Tue, Thu), 5 rest. Minimal growth, excellent recovery.
     Light,
 }
 
-impl Default for TrainingSchedule {
-    fn default() -> Self {
-        TrainingSchedule::Balanced
-    }
-}
 
 impl TrainingSchedule {
     /// Returns true if the given weekday (chrono::Weekday) is a training day.

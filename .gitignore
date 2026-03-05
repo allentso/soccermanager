@@ -27,3 +27,4 @@ dist-ssr
 /target
 /src-tauri/target
 Cargo.lock
+coverage/

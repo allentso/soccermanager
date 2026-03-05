@@ -286,9 +286,11 @@ impl LiveMatchState {
     /// Apply a command (substitution, tactic change, set piece assignment).
     pub fn apply_command(&mut self, cmd: MatchCommand) -> Result<(), String> {
         match cmd {
-            MatchCommand::Substitute { side, player_off_id, player_on_id } => {
-                self.do_substitution(side, &player_off_id, &player_on_id)
-            }
+            MatchCommand::Substitute {
+                side,
+                player_off_id,
+                player_on_id,
+            } => self.do_substitution(side, &player_off_id, &player_on_id),
             MatchCommand::ChangeFormation { side, formation } => {
                 self.apply_formation(side, &formation);
                 Ok(())
@@ -313,7 +315,11 @@ impl LiveMatchState {
                 self.set_pieces_mut(side).captain = Some(player_id);
                 Ok(())
             }
-            MatchCommand::PreMatchSwap { side, player_off_id, player_on_id } => {
+            MatchCommand::PreMatchSwap {
+                side,
+                player_off_id,
+                player_on_id,
+            } => {
                 if self.phase != MatchPhase::PreKickOff {
                     return Err("Pre-match swaps only allowed before kick-off".into());
                 }
@@ -345,7 +351,11 @@ impl LiveMatchState {
         // Clone teams and patch in live condition values from player_conditions map
         let mut home_team = self.home.clone();
         let mut away_team = self.away.clone();
-        for p in home_team.players.iter_mut().chain(away_team.players.iter_mut()) {
+        for p in home_team
+            .players
+            .iter_mut()
+            .chain(away_team.players.iter_mut())
+        {
             if let Some(&cond) = self.player_conditions.get(&p.id) {
                 p.condition = cond.round() as u8;
             }
@@ -446,7 +456,12 @@ impl LiveMatchState {
         self.possession = Side::Away;
         self.second_half_stoppage = rng.gen_range(0..=self.config.stoppage_time_max);
 
-        let evt = MatchEvent::new(start_min, EventType::SecondHalfStart, Side::Away, Zone::Midfield);
+        let evt = MatchEvent::new(
+            start_min,
+            EventType::SecondHalfStart,
+            Side::Away,
+            Zone::Midfield,
+        );
         self.events.push(evt.clone());
 
         MinuteResult {
@@ -469,7 +484,12 @@ impl LiveMatchState {
         self.possession = Side::Home;
         self.et_second_half_stoppage = rng.gen_range(0..=2); // short stoppage in ET
 
-        let evt = MatchEvent::new(start_min, EventType::SecondHalfStart, Side::Home, Zone::Midfield);
+        let evt = MatchEvent::new(
+            start_min,
+            EventType::SecondHalfStart,
+            Side::Home,
+            Zone::Midfield,
+        );
         self.events.push(evt.clone());
 
         MinuteResult {
@@ -601,7 +621,8 @@ impl LiveMatchState {
             MatchPhase::FirstHalf => {
                 if minute >= 45 + self.first_half_stoppage {
                     self.phase = MatchPhase::HalfTime;
-                    let evt = MatchEvent::new(minute, EventType::HalfTime, Side::Home, Zone::Midfield);
+                    let evt =
+                        MatchEvent::new(minute, EventType::HalfTime, Side::Home, Zone::Midfield);
                     self.events.push(evt.clone());
                     events.push(evt);
                 }
@@ -609,7 +630,8 @@ impl LiveMatchState {
             MatchPhase::SecondHalf => {
                 if minute >= 90 + self.second_half_stoppage {
                     self.phase = MatchPhase::FullTime;
-                    let evt = MatchEvent::new(minute, EventType::FullTime, Side::Home, Zone::Midfield);
+                    let evt =
+                        MatchEvent::new(minute, EventType::FullTime, Side::Home, Zone::Midfield);
                     self.events.push(evt.clone());
                     events.push(evt);
                 }
@@ -617,7 +639,8 @@ impl LiveMatchState {
             MatchPhase::ExtraTimeFirstHalf => {
                 if minute >= 105 + self.et_first_half_stoppage {
                     self.phase = MatchPhase::ExtraTimeHalfTime;
-                    let evt = MatchEvent::new(minute, EventType::HalfTime, Side::Home, Zone::Midfield);
+                    let evt =
+                        MatchEvent::new(minute, EventType::HalfTime, Side::Home, Zone::Midfield);
                     self.events.push(evt.clone());
                     events.push(evt);
                 }
@@ -625,7 +648,8 @@ impl LiveMatchState {
             MatchPhase::ExtraTimeSecondHalf => {
                 if minute >= 120 + self.et_second_half_stoppage {
                     self.phase = MatchPhase::ExtraTimeEnd;
-                    let evt = MatchEvent::new(minute, EventType::FullTime, Side::Home, Zone::Midfield);
+                    let evt =
+                        MatchEvent::new(minute, EventType::FullTime, Side::Home, Zone::Midfield);
                     self.events.push(evt.clone());
                     events.push(evt);
                 }
@@ -658,7 +682,11 @@ impl LiveMatchState {
         let gk_skill = (gk.reflexes as f64 + gk.handling as f64) / 2.0;
 
         // Fatigue affects penalty accuracy in shootout
-        let taker_condition = self.player_conditions.get(&taker.id).copied().unwrap_or(50.0);
+        let taker_condition = self
+            .player_conditions
+            .get(&taker.id)
+            .copied()
+            .unwrap_or(50.0);
         let fatigue_factor = (taker_condition / 100.0).clamp(0.7, 1.0);
 
         let conversion = (0.75 + (shoot_skill - gk_skill) / 300.0) * fatigue_factor;
@@ -731,13 +759,12 @@ impl LiveMatchState {
             }
 
             // After 5 rounds each
-            if ps.home_taken >= 5 && ps.away_taken >= 5 {
-                if ps.home_scored != ps.away_scored {
+            if ps.home_taken >= 5 && ps.away_taken >= 5
+                && ps.home_scored != ps.away_scored {
                     return true;
                 }
                 // If equal after 5 rounds, we enter sudden death on next step
                 // (handled by setting sudden_death flag)
-            }
 
             false
         } else {
@@ -877,7 +904,7 @@ impl LiveMatchState {
         match parts.len() {
             3 => (parts[0], parts[1], parts[2]),
             4 => (parts[0], parts[1] + parts[2], parts[3]), // e.g. 4-2-3-1
-            _ => (4, 4, 2), // fallback
+            _ => (4, 4, 2),                                 // fallback
         }
     }
 
@@ -905,7 +932,9 @@ impl LiveMatchState {
             let pb = &team.players[b];
             let def_a = (pa.defending as u16 + pa.tackling as u16 + pa.strength as u16) as f64;
             let def_b = (pb.defending as u16 + pb.tackling as u16 + pb.strength as u16) as f64;
-            def_b.partial_cmp(&def_a).unwrap_or(std::cmp::Ordering::Equal)
+            def_b
+                .partial_cmp(&def_a)
+                .unwrap_or(std::cmp::Ordering::Equal)
         });
 
         // Assign positions: first num_def → Defender, next num_mid → Midfielder, rest → Forward
@@ -955,7 +984,11 @@ impl LiveMatchState {
         let passer = self.snap_player(att_side, Position::Defender, rng);
         let pass_skill = self.condition_adjusted_skill(
             &passer.id,
-            (passer.passing as f64 + passer.vision as f64 + passer.composure as f64 + passer.teamwork as f64) / 4.0,
+            (passer.passing as f64
+                + passer.vision as f64
+                + passer.composure as f64
+                + passer.teamwork as f64)
+                / 4.0,
         ) * trait_bonus(&passer, TraitContext::Passing);
         let press = self.effective_press(def_side);
         let ball_zone = self.ball_zone;
@@ -993,13 +1026,31 @@ impl LiveMatchState {
         let attacker = self.snap_player(att_side, Position::Midfielder, rng);
         let defender = self.snap_player(def_side, Position::Midfielder, rng);
 
-        let att_raw = (attacker.dribbling as f64 + attacker.passing as f64 + attacker.vision as f64 + attacker.teamwork as f64) / 4.0;
-        let def_raw = (defender.tackling as f64 + defender.positioning as f64 + defender.decisions as f64 + defender.teamwork as f64) / 4.0;
-        let att_rating = self.condition_adjusted_skill(&attacker.id, att_raw) * trait_bonus(&attacker, TraitContext::Midfield);
-        let def_rating = self.condition_adjusted_skill(&defender.id, def_raw) * trait_bonus(&defender, TraitContext::Tackling);
+        let att_raw = (attacker.dribbling as f64
+            + attacker.passing as f64
+            + attacker.vision as f64
+            + attacker.teamwork as f64)
+            / 4.0;
+        let def_raw = (defender.tackling as f64
+            + defender.positioning as f64
+            + defender.decisions as f64
+            + defender.teamwork as f64)
+            / 4.0;
+        let att_rating = self.condition_adjusted_skill(&attacker.id, att_raw)
+            * trait_bonus(&attacker, TraitContext::Midfield);
+        let def_rating = self.condition_adjusted_skill(&defender.id, def_raw)
+            * trait_bonus(&defender, TraitContext::Tackling);
 
-        let att_mod = play_style_modifier(self.team_ref(att_side).play_style, PlayStylePhase::Midfield, true);
-        let def_mod = play_style_modifier(self.team_ref(def_side).play_style, PlayStylePhase::Midfield, false);
+        let att_mod = play_style_modifier(
+            self.team_ref(att_side).play_style,
+            PlayStylePhase::Midfield,
+            true,
+        );
+        let def_mod = play_style_modifier(
+            self.team_ref(def_side).play_style,
+            PlayStylePhase::Midfield,
+            false,
+        );
         let att_eff = att_rating * att_mod * home_mod(att_side, &self.config);
         let def_eff = def_rating * def_mod * home_mod(def_side, &self.config);
         let success = att_eff / (att_eff + def_eff);
@@ -1016,11 +1067,13 @@ impl LiveMatchState {
                     .with_player(&defender.id);
                 self.events.push(evt.clone());
                 events.push(evt);
-                let foul_events = self.maybe_foul(minute, def_side, &attacker, &defender, Zone::Midfield, rng);
+                let foul_events =
+                    self.maybe_foul(minute, def_side, &attacker, &defender, Zone::Midfield, rng);
                 events.extend(foul_events);
             } else {
-                let evt = MatchEvent::new(minute, EventType::Interception, def_side, Zone::Midfield)
-                    .with_player(&defender.id);
+                let evt =
+                    MatchEvent::new(minute, EventType::Interception, def_side, Zone::Midfield)
+                        .with_player(&defender.id);
                 self.events.push(evt.clone());
                 events.push(evt);
             }
@@ -1041,13 +1094,31 @@ impl LiveMatchState {
         let attacker = self.snap_player(att_side, Position::Forward, rng);
         let defender = self.snap_player(def_side, Position::Defender, rng);
 
-        let att_raw = (attacker.dribbling as f64 + attacker.pace as f64 + attacker.agility as f64 + attacker.composure as f64) / 4.0;
-        let def_raw = (defender.defending as f64 + defender.tackling as f64 + defender.positioning as f64 + defender.aerial as f64) / 4.0;
-        let att_rating = self.condition_adjusted_skill(&attacker.id, att_raw) * trait_bonus(&attacker, TraitContext::Dribbling);
-        let def_rating = self.condition_adjusted_skill(&defender.id, def_raw) * trait_bonus(&defender, TraitContext::Tackling);
+        let att_raw = (attacker.dribbling as f64
+            + attacker.pace as f64
+            + attacker.agility as f64
+            + attacker.composure as f64)
+            / 4.0;
+        let def_raw = (defender.defending as f64
+            + defender.tackling as f64
+            + defender.positioning as f64
+            + defender.aerial as f64)
+            / 4.0;
+        let att_rating = self.condition_adjusted_skill(&attacker.id, att_raw)
+            * trait_bonus(&attacker, TraitContext::Dribbling);
+        let def_rating = self.condition_adjusted_skill(&defender.id, def_raw)
+            * trait_bonus(&defender, TraitContext::Tackling);
 
-        let att_mod = play_style_modifier(self.team_ref(att_side).play_style, PlayStylePhase::Attack, true);
-        let def_mod = play_style_modifier(self.team_ref(def_side).play_style, PlayStylePhase::Defense, false);
+        let att_mod = play_style_modifier(
+            self.team_ref(att_side).play_style,
+            PlayStylePhase::Attack,
+            true,
+        );
+        let def_mod = play_style_modifier(
+            self.team_ref(def_side).play_style,
+            PlayStylePhase::Defense,
+            false,
+        );
         let att_eff = att_rating * att_mod * home_mod(att_side, &self.config);
         let def_eff = def_rating * def_mod * home_mod(def_side, &self.config);
         let success = att_eff / (att_eff + def_eff);
@@ -1071,7 +1142,8 @@ impl LiveMatchState {
                 self.events.push(evt2.clone());
                 events.push(evt1);
                 events.push(evt2);
-                let foul_events = self.maybe_foul(minute, def_side, &attacker, &defender, zone, rng);
+                let foul_events =
+                    self.maybe_foul(minute, def_side, &attacker, &defender, zone, rng);
                 events.extend(foul_events);
             } else {
                 let evt = MatchEvent::new(minute, EventType::Clearance, def_side, zone)
@@ -1094,24 +1166,26 @@ impl LiveMatchState {
         events
     }
 
-    fn resolve_shot<R: Rng>(
-        &mut self,
-        minute: u8,
-        att_side: Side,
-        rng: &mut R,
-    ) -> Vec<MatchEvent> {
+    fn resolve_shot<R: Rng>(&mut self, minute: u8, att_side: Side, rng: &mut R) -> Vec<MatchEvent> {
         let mut events = Vec::new();
         let def_side = att_side.opposite();
         let shooter = self.snap_player(att_side, Position::Forward, rng);
         let assister = self.snap_player(att_side, Position::Midfielder, rng);
         let goalkeeper = self.snap_player(def_side, Position::Goalkeeper, rng);
 
-        let shoot_raw = (shooter.shooting as f64 + shooter.composure as f64 + shooter.decisions as f64) / 3.0;
-        let shoot_rating = self.condition_adjusted_skill(&shooter.id, shoot_raw) * trait_bonus(&shooter, TraitContext::Shooting);
-        let gk_raw = (goalkeeper.handling as f64 + goalkeeper.reflexes as f64 + goalkeeper.positioning as f64) / 3.0;
-        let gk_rating = self.condition_adjusted_skill(&goalkeeper.id, gk_raw) * trait_bonus(&goalkeeper, TraitContext::Goalkeeping);
+        let shoot_raw =
+            (shooter.shooting as f64 + shooter.composure as f64 + shooter.decisions as f64) / 3.0;
+        let shoot_rating = self.condition_adjusted_skill(&shooter.id, shoot_raw)
+            * trait_bonus(&shooter, TraitContext::Shooting);
+        let gk_raw = (goalkeeper.handling as f64
+            + goalkeeper.reflexes as f64
+            + goalkeeper.positioning as f64)
+            / 3.0;
+        let gk_rating = self.condition_adjusted_skill(&goalkeeper.id, gk_raw)
+            * trait_bonus(&goalkeeper, TraitContext::Goalkeeping);
 
-        let accuracy = (self.config.shot_accuracy_base + (shoot_rating - 50.0) / 200.0).clamp(0.15, 0.85);
+        let accuracy =
+            (self.config.shot_accuracy_base + (shoot_rating - 50.0) / 200.0).clamp(0.15, 0.85);
         let zone = Zone::attacking_box(att_side);
 
         if rng.gen_range(0.0..1.0f64) > accuracy {
@@ -1131,7 +1205,8 @@ impl LiveMatchState {
             return events;
         }
 
-        let conversion = (self.config.goal_conversion_base + (shoot_rating - gk_rating) / 150.0).clamp(0.10, 0.70);
+        let conversion = (self.config.goal_conversion_base + (shoot_rating - gk_rating) / 150.0)
+            .clamp(0.10, 0.70);
 
         if rng.gen_range(0.0..1.0f64) < conversion {
             let evt = MatchEvent::new(minute, EventType::Goal, att_side, zone)
@@ -1168,7 +1243,9 @@ impl LiveMatchState {
         let mut events = Vec::new();
 
         let aggression_mod = fouler.aggression as f64 / 100.0;
-        let foul_chance = self.config.foul_probability * (0.6 + aggression_mod * 0.8) * trait_bonus(fouler, TraitContext::Foul);
+        let foul_chance = self.config.foul_probability
+            * (0.6 + aggression_mod * 0.8)
+            * trait_bonus(fouler, TraitContext::Foul);
         if rng.gen_range(0.0..1.0f64) >= foul_chance {
             return events;
         }
@@ -1181,7 +1258,8 @@ impl LiveMatchState {
 
         let att_side = fouling_side.opposite();
 
-        if zone.is_box_for(att_side) && rng.gen_range(0.0..1.0f64) < self.config.penalty_probability {
+        if zone.is_box_for(att_side) && rng.gen_range(0.0..1.0f64) < self.config.penalty_probability
+        {
             let evt = MatchEvent::new(minute, EventType::PenaltyAwarded, att_side, zone);
             self.events.push(evt.clone());
             events.push(evt);
@@ -1197,8 +1275,8 @@ impl LiveMatchState {
         events.extend(card_events);
 
         if rng.gen_range(0.0..1.0f64) < self.config.injury_probability {
-            let evt = MatchEvent::new(minute, EventType::Injury, att_side, zone)
-                .with_player(&fouled.id);
+            let evt =
+                MatchEvent::new(minute, EventType::Injury, att_side, zone).with_player(&fouled.id);
             self.events.push(evt.clone());
             events.push(evt);
         }
@@ -1221,8 +1299,8 @@ impl LiveMatchState {
         }
 
         if rng.gen_range(0.0..1.0f64) < self.config.red_card_probability {
-            let evt = MatchEvent::new(minute, EventType::RedCard, side, zone)
-                .with_player(fouler_id);
+            let evt =
+                MatchEvent::new(minute, EventType::RedCard, side, zone).with_player(fouler_id);
             self.events.push(evt.clone());
             events.push(evt);
             self.sent_off.insert(fouler_id.to_string());
@@ -1233,14 +1311,14 @@ impl LiveMatchState {
         *current_yellows += 1;
 
         if *current_yellows >= 2 {
-            let evt = MatchEvent::new(minute, EventType::SecondYellow, side, zone)
-                .with_player(fouler_id);
+            let evt =
+                MatchEvent::new(minute, EventType::SecondYellow, side, zone).with_player(fouler_id);
             self.events.push(evt.clone());
             events.push(evt);
             self.sent_off.insert(fouler_id.to_string());
         } else {
-            let evt = MatchEvent::new(minute, EventType::YellowCard, side, zone)
-                .with_player(fouler_id);
+            let evt =
+                MatchEvent::new(minute, EventType::YellowCard, side, zone).with_player(fouler_id);
             self.events.push(evt.clone());
             events.push(evt);
         }
@@ -1306,7 +1384,11 @@ impl LiveMatchState {
 
     /// Adjust a skill value based on the player's current in-match condition.
     fn condition_adjusted_skill(&self, player_id: &str, base_skill: f64) -> f64 {
-        let condition = self.player_conditions.get(player_id).copied().unwrap_or(50.0);
+        let condition = self
+            .player_conditions
+            .get(player_id)
+            .copied()
+            .unwrap_or(50.0);
         // At 100% condition: full skill. At 50%: ~80% skill. At 0%: ~60% skill.
         let factor = 0.6 + 0.4 * (condition / 100.0);
         base_skill * factor
@@ -1330,7 +1412,11 @@ impl LiveMatchState {
             .copied()
             .collect();
 
-        let pool = if candidates.is_empty() { &available } else { &candidates };
+        let pool = if candidates.is_empty() {
+            &available
+        } else {
+            &candidates
+        };
         if pool.is_empty() {
             return PlayerSnap::from(&team.players[0]);
         }
@@ -1350,7 +1436,11 @@ impl LiveMatchState {
         // Use designated taker if set
         if let Some(ref id) = self.set_pieces_ref(side).penalty_taker {
             let team = self.team_ref(side);
-            if let Some(p) = team.players.iter().find(|p| p.id == *id && !self.sent_off.contains(&p.id)) {
+            if let Some(p) = team
+                .players
+                .iter()
+                .find(|p| p.id == *id && !self.sent_off.contains(&p.id))
+            {
                 return PlayerSnap::from(p);
             }
         }
@@ -1363,7 +1453,7 @@ impl LiveMatchState {
             .collect();
         candidates.sort_by(|a, b| b.shooting.cmp(&a.shooting));
         if let Some(p) = candidates.first() {
-            PlayerSnap::from(*p)
+            PlayerSnap::from(p)
         } else {
             self.snap_player(side, Position::Forward, rng)
         }
@@ -1538,38 +1628,78 @@ fn trait_bonus(snap: &PlayerSnap, context: TraitContext) -> f64 {
     let mut bonus = 1.0;
     match context {
         TraitContext::Shooting => {
-            if snap.has_trait("Sharpshooter") { bonus *= 1.08; }
-            if snap.has_trait("CoolHead") { bonus *= 1.04; }
-            if snap.has_trait("CompleteForward") { bonus *= 1.05; }
+            if snap.has_trait("Sharpshooter") {
+                bonus *= 1.08;
+            }
+            if snap.has_trait("CoolHead") {
+                bonus *= 1.04;
+            }
+            if snap.has_trait("CompleteForward") {
+                bonus *= 1.05;
+            }
         }
         TraitContext::Dribbling => {
-            if snap.has_trait("Dribbler") { bonus *= 1.08; }
-            if snap.has_trait("Speedster") { bonus *= 1.04; }
-            if snap.has_trait("Agile") { bonus *= 1.04; }
+            if snap.has_trait("Dribbler") {
+                bonus *= 1.08;
+            }
+            if snap.has_trait("Speedster") {
+                bonus *= 1.04;
+            }
+            if snap.has_trait("Agile") {
+                bonus *= 1.04;
+            }
         }
         TraitContext::Passing => {
-            if snap.has_trait("Playmaker") { bonus *= 1.08; }
-            if snap.has_trait("Visionary") { bonus *= 1.05; }
-            if snap.has_trait("SetPieceSpecialist") { bonus *= 1.03; }
+            if snap.has_trait("Playmaker") {
+                bonus *= 1.08;
+            }
+            if snap.has_trait("Visionary") {
+                bonus *= 1.05;
+            }
+            if snap.has_trait("SetPieceSpecialist") {
+                bonus *= 1.03;
+            }
         }
         TraitContext::Tackling => {
-            if snap.has_trait("BallWinner") { bonus *= 1.08; }
-            if snap.has_trait("Rock") { bonus *= 1.05; }
-            if snap.has_trait("Tank") { bonus *= 1.04; }
+            if snap.has_trait("BallWinner") {
+                bonus *= 1.08;
+            }
+            if snap.has_trait("Rock") {
+                bonus *= 1.05;
+            }
+            if snap.has_trait("Tank") {
+                bonus *= 1.04;
+            }
         }
         TraitContext::Goalkeeping => {
-            if snap.has_trait("SafeHands") { bonus *= 1.08; }
-            if snap.has_trait("CatReflexes") { bonus *= 1.06; }
-            if snap.has_trait("AerialDominance") { bonus *= 1.04; }
+            if snap.has_trait("SafeHands") {
+                bonus *= 1.08;
+            }
+            if snap.has_trait("CatReflexes") {
+                bonus *= 1.06;
+            }
+            if snap.has_trait("AerialDominance") {
+                bonus *= 1.04;
+            }
         }
         TraitContext::Foul => {
-            if snap.has_trait("HotHead") { bonus *= 1.25; }
-            if snap.has_trait("CoolHead") { bonus *= 0.70; }
+            if snap.has_trait("HotHead") {
+                bonus *= 1.25;
+            }
+            if snap.has_trait("CoolHead") {
+                bonus *= 0.70;
+            }
         }
         TraitContext::Midfield => {
-            if snap.has_trait("Engine") { bonus *= 1.06; }
-            if snap.has_trait("TeamPlayer") { bonus *= 1.04; }
-            if snap.has_trait("Tireless") { bonus *= 1.03; }
+            if snap.has_trait("Engine") {
+                bonus *= 1.06;
+            }
+            if snap.has_trait("TeamPlayer") {
+                bonus *= 1.04;
+            }
+            if snap.has_trait("Tireless") {
+                bonus *= 1.03;
+            }
         }
     }
     bonus

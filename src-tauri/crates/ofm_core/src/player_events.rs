@@ -80,8 +80,7 @@ pub fn check_player_events(game: &mut Game) {
 
             // Collect player IDs who appeared in any of the last 3 matches
             // We use the player_stats from match results which contain player IDs
-            let mut appeared: std::collections::HashSet<String> =
-                std::collections::HashSet::new();
+            let mut appeared: std::collections::HashSet<String> = std::collections::HashSet::new();
             for fixture in recent {
                 if let Some(result) = &fixture.result {
                     for scorer in &result.home_scorers {
@@ -175,8 +174,8 @@ pub fn check_player_events(game: &mut Game) {
                 continue;
             }
 
-            if let Some(end_str) = &player.contract_end {
-                if let Ok(end_date) = chrono::NaiveDate::parse_from_str(end_str, "%Y-%m-%d") {
+            if let Some(end_str) = &player.contract_end
+                && let Ok(end_date) = chrono::NaiveDate::parse_from_str(end_str, "%Y-%m-%d") {
                     let days_remaining = (end_date - current_date).num_days();
                     if days_remaining > 0 && days_remaining <= 90 {
                         new_messages.push(contract_concern_message(
@@ -188,7 +187,6 @@ pub fn check_player_events(game: &mut Game) {
                         ));
                     }
                 }
-            }
         }
     }
 
@@ -223,8 +221,11 @@ pub fn apply_player_response(
     let mut rng = rand::thread_rng();
 
     // Get personality factor for this player
-    let pf = game.players.iter().find(|p| p.id == player_id)
-        .map(|p| personality_factor(p))
+    let pf = game
+        .players
+        .iter()
+        .find(|p| p.id == player_id)
+        .map(personality_factor)
         .unwrap_or(0);
 
     // Base deltas are now more punishing; personality modifies the outcome
@@ -233,19 +234,37 @@ pub fn apply_player_response(
             "encourage" => {
                 // Safe option but small boost; volatile players shrug it off
                 let d = rng.gen_range(2..=8) + (pf / 4);
-                (d, if d > 0 { format!("Player feels a bit better. Morale +{}", d) }
-                     else { format!("Player doesn't buy it. Morale {}", d) })
+                (
+                    d,
+                    if d > 0 {
+                        format!("Player feels a bit better. Morale +{}", d)
+                    } else {
+                        format!("Player doesn't buy it. Morale {}", d)
+                    },
+                )
             }
             "promise_time" => {
                 // Big boost but sets a PROMISE — if not honored, bigger penalty later
                 let d = rng.gen_range(10..=16);
-                (d, format!("Player is reassured by the promise. Morale +{}. They'll expect to start soon.", d))
+                (
+                    d,
+                    format!(
+                        "Player is reassured by the promise. Morale +{}. They'll expect to start soon.",
+                        d
+                    ),
+                )
             }
             "work_harder" => {
                 // Risky: aggressive players hate this, composed ones respond well
                 let d = rng.gen_range(-12..=4) + (pf / 3);
-                (d, if d >= 0 { format!("Player accepts the challenge. Morale +{}", d) }
-                     else { format!("Player is offended by the tough love. Morale {}", d) })
+                (
+                    d,
+                    if d >= 0 {
+                        format!("Player accepts the challenge. Morale +{}", d)
+                    } else {
+                        format!("Player is offended by the tough love. Morale {}", d)
+                    },
+                )
             }
             _ => return None,
         }
@@ -254,19 +273,37 @@ pub fn apply_player_response(
             "explain" => {
                 // Moderate; only works on composed players
                 let d = rng.gen_range(-2..=6) + (pf / 4);
-                (d, if d >= 0 { format!("Player grudgingly accepts. Morale +{}", d) }
-                     else { format!("Player isn't convinced. Morale {}", d) })
+                (
+                    d,
+                    if d >= 0 {
+                        format!("Player grudgingly accepts. Morale +{}", d)
+                    } else {
+                        format!("Player isn't convinced. Morale {}", d)
+                    },
+                )
             }
             "promise_chance" => {
                 // PROMISE — big boost now, tracked for consequences
                 let d = rng.gen_range(8..=14);
-                (d, format!("Player is excited about the opportunity. Morale +{}. They expect to start next match.", d))
+                (
+                    d,
+                    format!(
+                        "Player is excited about the opportunity. Morale +{}. They expect to start next match.",
+                        d
+                    ),
+                )
             }
             "prove_yourself" => {
                 // Very risky — high-aggression players rebel
                 let d = rng.gen_range(-10..=6) + (pf / 3);
-                (d, if d >= 0 { format!("Player is fired up to prove their worth. Morale +{}", d) }
-                     else { format!("Player feels dismissed and insulted. Morale {}", d) })
+                (
+                    d,
+                    if d >= 0 {
+                        format!("Player is fired up to prove their worth. Morale +{}", d)
+                    } else {
+                        format!("Player feels dismissed and insulted. Morale {}", d)
+                    },
+                )
             }
             _ => return None,
         }
@@ -279,14 +316,26 @@ pub fn apply_player_response(
             "stay_professional" => {
                 // Neutral — can slightly drop morale on volatile players
                 let d = rng.gen_range(-2..=3) + (pf / 6);
-                (d, if d >= 0 { format!("Player nods professionally. Morale +{}", d) }
-                     else { format!("Player wanted more warmth. Morale {}", d) })
+                (
+                    d,
+                    if d >= 0 {
+                        format!("Player nods professionally. Morale +{}", d)
+                    } else {
+                        format!("Player wanted more warmth. Morale {}", d)
+                    },
+                )
             }
             "higher_expectations" => {
                 // Risky: leaders respond well, others feel pressured
                 let d = rng.gen_range(-6..=4) + (pf / 3);
-                (d, if d >= 0 { format!("Player rises to the challenge. Morale +{}", d) }
-                     else { format!("Player feels the pressure is unfair. Morale {}", d) })
+                (
+                    d,
+                    if d >= 0 {
+                        format!("Player rises to the challenge. Morale +{}", d)
+                    } else {
+                        format!("Player feels the pressure is unfair. Morale {}", d)
+                    },
+                )
             }
             _ => return None,
         }
@@ -295,17 +344,32 @@ pub fn apply_player_response(
             "reassure" => {
                 // Sets expectation of renewal — moderate boost
                 let d = rng.gen_range(4..=10);
-                (d, format!("Player is reassured about their future. Morale +{}", d))
+                (
+                    d,
+                    format!("Player is reassured about their future. Morale +{}", d),
+                )
             }
             "noncommittal" => {
                 // Almost always negative — players hate uncertainty
                 let d = rng.gen_range(-8..=0) + (pf / 5);
-                (d, if d >= 0 { format!("Player grudgingly accepts for now. Morale +{}", d) }
-                     else { format!("Player is unsettled and unhappy. Morale {}", d) })
+                (
+                    d,
+                    if d >= 0 {
+                        format!("Player grudgingly accepts for now. Morale +{}", d)
+                    } else {
+                        format!("Player is unsettled and unhappy. Morale {}", d)
+                    },
+                )
             }
             "no_renewal" => {
                 let d = rng.gen_range(-15..=-8);
-                (d, format!("Player is devastated. Morale {}. They may affect the dressing room.", d))
+                (
+                    d,
+                    format!(
+                        "Player is devastated. Morale {}. They may affect the dressing room.",
+                        d
+                    ),
+                )
             }
             _ => return None,
         }
@@ -343,11 +407,10 @@ pub fn apply_player_response(
     }
 
     // Mark the action as resolved
-    if let Some(msg) = game.messages.iter_mut().find(|m| m.id == message_id) {
-        if let Some(act) = msg.actions.iter_mut().find(|a| a.id == action_id) {
+    if let Some(msg) = game.messages.iter_mut().find(|m| m.id == message_id)
+        && let Some(act) = msg.actions.iter_mut().find(|a| a.id == action_id) {
             act.resolved = true;
         }
-    }
 
     Some(description)
 }
@@ -464,17 +527,22 @@ fn bench_complaint_message(
                 ActionOption {
                     id: "explain".to_string(),
                     label: "Explain the situation".to_string(),
-                    description: "Calmly explain squad competition and rotation. Steady morale boost.".to_string(),
+                    description:
+                        "Calmly explain squad competition and rotation. Steady morale boost."
+                            .to_string(),
                 },
                 ActionOption {
                     id: "promise_chance".to_string(),
                     label: "Promise them a chance soon".to_string(),
-                    description: "They'll be happier but will expect to start in upcoming matches.".to_string(),
+                    description: "They'll be happier but will expect to start in upcoming matches."
+                        .to_string(),
                 },
                 ActionOption {
                     id: "prove_yourself".to_string(),
                     label: "Tell them to prove themselves".to_string(),
-                    description: "Challenge them to earn their place. Risky — could motivate or frustrate.".to_string(),
+                    description:
+                        "Challenge them to earn their place. Risky — could motivate or frustrate."
+                            .to_string(),
                 },
             ],
         },
@@ -541,7 +609,9 @@ fn happy_player_message(
                 ActionOption {
                     id: "higher_expectations".to_string(),
                     label: "Set higher expectations".to_string(),
-                    description: "Challenge them to reach an even higher level. Could push or pressure.".to_string(),
+                    description:
+                        "Challenge them to reach an even higher level. Could push or pressure."
+                            .to_string(),
                 },
             ],
         },

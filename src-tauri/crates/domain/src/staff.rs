@@ -34,13 +34,13 @@ pub enum StaffRole {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum CoachingSpecialization {
-    Fitness,      // Boosts Physical training
-    Technique,    // Boosts Technical training
-    Tactics,      // Boosts Tactical training
-    Defending,    // Boosts Defending training
-    Attacking,    // Boosts Attacking training
-    GoalKeeping,  // Boosts GK-specific development
-    Youth,        // Boosts young player development
+    Fitness,     // Boosts Physical training
+    Technique,   // Boosts Technical training
+    Tactics,     // Boosts Tactical training
+    Defending,   // Boosts Defending training
+    Attacking,   // Boosts Attacking training
+    GoalKeeping, // Boosts GK-specific development
+    Youth,       // Boosts young player development
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

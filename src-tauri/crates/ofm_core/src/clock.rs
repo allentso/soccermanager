@@ -18,7 +18,7 @@ impl GameClock {
     pub fn advance_days(&mut self, days: i64) {
         self.current_date += Duration::days(days);
     }
-    
+
     pub fn get_date(&self) -> DateTime<Utc> {
         self.current_date
     }

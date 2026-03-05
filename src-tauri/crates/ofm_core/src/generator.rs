@@ -1,7 +1,7 @@
 use domain::player::{Player, PlayerAttributes, Position};
-use domain::staff::{Staff, StaffRole, StaffAttributes};
-use domain::team::{Team, TeamColors, PlayStyle};
-use log::{info, debug};
+use domain::staff::{Staff, StaffAttributes, StaffRole};
+use domain::team::{PlayStyle, Team, TeamColors};
+use log::{debug, info};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -57,7 +57,9 @@ pub struct TeamDef {
     pub finance_range: Option<[i64; 2]>,
 }
 
-fn default_play_style() -> String { "Balanced".to_string() }
+fn default_play_style() -> String {
+    "Balanced".to_string()
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TeamColorsDef {
@@ -81,12 +83,19 @@ pub fn load_teams_definition(path: &std::path::Path) -> Option<TeamsDefinition> 
 fn default_names_definition() -> NamesDefinition {
     let mut pools = HashMap::new();
     for entry in NATIONALITY_POOLS {
-        pools.insert(entry.nationality.to_string(), NamePool {
-            first_names: entry.first_names.iter().map(|s| s.to_string()).collect(),
-            last_names: entry.last_names.iter().map(|s| s.to_string()).collect(),
-        });
+        pools.insert(
+            entry.nationality.to_string(),
+            NamePool {
+                first_names: entry.first_names.iter().map(|s| s.to_string()).collect(),
+                last_names: entry.last_names.iter().map(|s| s.to_string()).collect(),
+            },
+        );
     }
-    NamesDefinition { version: 1, description: "Built-in default".to_string(), pools }
+    NamesDefinition {
+        version: 1,
+        description: "Built-in default".to_string(),
+        pools,
+    }
 }
 
 /// Build the hardcoded teams definition as fallback.
@@ -94,21 +103,31 @@ fn default_teams_definition() -> TeamsDefinition {
     TeamsDefinition {
         version: 1,
         description: "Built-in default".to_string(),
-        teams: TEAM_TEMPLATES.iter().map(|t| TeamDef {
-            name: t.name.to_string(),
-            short_name: t.name.split_whitespace()
-                .filter_map(|w| w.chars().next())
-                .collect::<String>()
-                .to_uppercase()
-                .chars().take(3).collect(),
-            city: t.city.to_string(),
-            country: t.country.to_string(),
-            colors: TeamColorsDef { primary: t.colors.0.to_string(), secondary: t.colors.1.to_string() },
-            play_style: t.play_style.to_string(),
-            stadium_name: format!("{} Arena", t.city),
-            reputation_range: Some([300, 900]),
-            finance_range: Some([500_000, 10_000_000]),
-        }).collect(),
+        teams: TEAM_TEMPLATES
+            .iter()
+            .map(|t| TeamDef {
+                name: t.name.to_string(),
+                short_name: t
+                    .name
+                    .split_whitespace()
+                    .filter_map(|w| w.chars().next())
+                    .collect::<String>()
+                    .to_uppercase()
+                    .chars()
+                    .take(3)
+                    .collect(),
+                city: t.city.to_string(),
+                country: t.country.to_string(),
+                colors: TeamColorsDef {
+                    primary: t.colors.0.to_string(),
+                    secondary: t.colors.1.to_string(),
+                },
+                play_style: t.play_style.to_string(),
+                stadium_name: format!("{} Arena", t.city),
+                reputation_range: Some([300, 900]),
+                finance_range: Some([500_000, 10_000_000]),
+            })
+            .collect(),
     }
 }
 
@@ -142,7 +161,10 @@ pub fn generate_world_data(data_dir: Option<&std::path::Path>) -> WorldData {
     let (teams, players, staff) = generate_world(data_dir);
     WorldData {
         name: "Random World".to_string(),
-        description: format!("Randomly generated league with {} teams across Europe", teams.len()),
+        description: format!(
+            "Randomly generated league with {} teams across Europe",
+            teams.len()
+        ),
         teams,
         players,
         staff,
@@ -175,7 +197,11 @@ pub fn scan_world_databases(dir: &std::path::Path) -> Vec<WorldDatabaseInfo> {
         };
         // Parse just enough to get metadata — try full parse
         if let Ok(world) = serde_json::from_str::<WorldData>(&contents) {
-            let file_stem = path.file_stem().unwrap_or_default().to_string_lossy().to_string();
+            let file_stem = path
+                .file_stem()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_string();
             results.push(WorldDatabaseInfo {
                 id: format!("file:{}", path.display()),
                 name: world.name,
@@ -205,63 +231,397 @@ struct NationalityNames {
 const NATIONALITY_POOLS: &[NationalityNames] = &[
     NationalityNames {
         nationality: "GB",
-        first_names: &["James", "Harry", "Jack", "Oliver", "George", "Charlie", "Thomas", "William", "Daniel", "Ben", "Luke", "Ryan", "Joe", "Sam", "Callum", "Nathan", "Ross", "Adam", "Liam", "Marcus"],
-        last_names: &["Smith", "Johnson", "Williams", "Brown", "Jones", "Taylor", "Wilson", "Davies", "Evans", "Walker", "Robinson", "Clark", "Wright", "Hall", "Green", "Baker", "Hill", "Allen", "Young", "King"],
+        first_names: &[
+            "James", "Harry", "Jack", "Oliver", "George", "Charlie", "Thomas", "William", "Daniel",
+            "Ben", "Luke", "Ryan", "Joe", "Sam", "Callum", "Nathan", "Ross", "Adam", "Liam",
+            "Marcus",
+        ],
+        last_names: &[
+            "Smith", "Johnson", "Williams", "Brown", "Jones", "Taylor", "Wilson", "Davies",
+            "Evans", "Walker", "Robinson", "Clark", "Wright", "Hall", "Green", "Baker", "Hill",
+            "Allen", "Young", "King",
+        ],
     },
     NationalityNames {
         nationality: "ES",
-        first_names: &["Sergio", "Pablo", "Alejandro", "Carlos", "Javier", "Miguel", "Raul", "David", "Andres", "Alvaro", "Hugo", "Iker", "Marcos", "Luis", "Pedro", "Adrian", "Diego", "Fernando", "Gonzalo", "Antonio"],
-        last_names: &["Garcia", "Rodriguez", "Martinez", "Lopez", "Sanchez", "Fernandez", "Gonzalez", "Hernandez", "Moreno", "Ruiz", "Diaz", "Alvarez", "Romero", "Torres", "Navarro", "Gil", "Vega", "Ramos", "Ortiz", "Castro"],
+        first_names: &[
+            "Sergio",
+            "Pablo",
+            "Alejandro",
+            "Carlos",
+            "Javier",
+            "Miguel",
+            "Raul",
+            "David",
+            "Andres",
+            "Alvaro",
+            "Hugo",
+            "Iker",
+            "Marcos",
+            "Luis",
+            "Pedro",
+            "Adrian",
+            "Diego",
+            "Fernando",
+            "Gonzalo",
+            "Antonio",
+        ],
+        last_names: &[
+            "Garcia",
+            "Rodriguez",
+            "Martinez",
+            "Lopez",
+            "Sanchez",
+            "Fernandez",
+            "Gonzalez",
+            "Hernandez",
+            "Moreno",
+            "Ruiz",
+            "Diaz",
+            "Alvarez",
+            "Romero",
+            "Torres",
+            "Navarro",
+            "Gil",
+            "Vega",
+            "Ramos",
+            "Ortiz",
+            "Castro",
+        ],
     },
     NationalityNames {
         nationality: "DE",
-        first_names: &["Lukas", "Niklas", "Leon", "Felix", "Maximilian", "Jonas", "Florian", "Julian", "Tim", "Jan", "Kevin", "Marco", "Kai", "Stefan", "Patrick", "Dennis", "Tobias", "Marcel", "Timo", "Lars"],
-        last_names: &["Müller", "Schmidt", "Schneider", "Fischer", "Weber", "Meyer", "Wagner", "Becker", "Schulz", "Hoffmann", "Koch", "Richter", "Wolf", "Schäfer", "Neumann", "Schwarz", "Zimmermann", "Braun", "Hartmann", "Krüger"],
+        first_names: &[
+            "Lukas",
+            "Niklas",
+            "Leon",
+            "Felix",
+            "Maximilian",
+            "Jonas",
+            "Florian",
+            "Julian",
+            "Tim",
+            "Jan",
+            "Kevin",
+            "Marco",
+            "Kai",
+            "Stefan",
+            "Patrick",
+            "Dennis",
+            "Tobias",
+            "Marcel",
+            "Timo",
+            "Lars",
+        ],
+        last_names: &[
+            "Müller",
+            "Schmidt",
+            "Schneider",
+            "Fischer",
+            "Weber",
+            "Meyer",
+            "Wagner",
+            "Becker",
+            "Schulz",
+            "Hoffmann",
+            "Koch",
+            "Richter",
+            "Wolf",
+            "Schäfer",
+            "Neumann",
+            "Schwarz",
+            "Zimmermann",
+            "Braun",
+            "Hartmann",
+            "Krüger",
+        ],
     },
     NationalityNames {
         nationality: "FR",
-        first_names: &["Antoine", "Hugo", "Lucas", "Mathieu", "Julien", "Maxime", "Pierre", "Thomas", "Raphael", "Adrien", "Kevin", "Alexandre", "Nicolas", "Loic", "Clement", "Florian", "Theo", "Damien", "Yann", "Baptiste"],
-        last_names: &["Martin", "Bernard", "Dubois", "Thomas", "Robert", "Petit", "Moreau", "Laurent", "Simon", "Michel", "Lefevre", "Leroy", "Roux", "David", "Bertrand", "Morel", "Fournier", "Girard", "Bonnet", "Dupont"],
+        first_names: &[
+            "Antoine",
+            "Hugo",
+            "Lucas",
+            "Mathieu",
+            "Julien",
+            "Maxime",
+            "Pierre",
+            "Thomas",
+            "Raphael",
+            "Adrien",
+            "Kevin",
+            "Alexandre",
+            "Nicolas",
+            "Loic",
+            "Clement",
+            "Florian",
+            "Theo",
+            "Damien",
+            "Yann",
+            "Baptiste",
+        ],
+        last_names: &[
+            "Martin", "Bernard", "Dubois", "Thomas", "Robert", "Petit", "Moreau", "Laurent",
+            "Simon", "Michel", "Lefevre", "Leroy", "Roux", "David", "Bertrand", "Morel",
+            "Fournier", "Girard", "Bonnet", "Dupont",
+        ],
     },
     NationalityNames {
         nationality: "IT",
-        first_names: &["Marco", "Luca", "Andrea", "Matteo", "Alessandro", "Lorenzo", "Davide", "Simone", "Riccardo", "Federico", "Gianluca", "Stefano", "Fabio", "Roberto", "Nicola", "Salvatore", "Daniele", "Paolo", "Vincenzo", "Emanuele"],
-        last_names: &["Rossi", "Russo", "Ferrari", "Esposito", "Bianchi", "Romano", "Colombo", "Ricci", "Marino", "Greco", "Bruno", "Gallo", "Conti", "De Luca", "Costa", "Mancini", "Barbieri", "Fontana", "Santoro", "Rinaldi"],
+        first_names: &[
+            "Marco",
+            "Luca",
+            "Andrea",
+            "Matteo",
+            "Alessandro",
+            "Lorenzo",
+            "Davide",
+            "Simone",
+            "Riccardo",
+            "Federico",
+            "Gianluca",
+            "Stefano",
+            "Fabio",
+            "Roberto",
+            "Nicola",
+            "Salvatore",
+            "Daniele",
+            "Paolo",
+            "Vincenzo",
+            "Emanuele",
+        ],
+        last_names: &[
+            "Rossi", "Russo", "Ferrari", "Esposito", "Bianchi", "Romano", "Colombo", "Ricci",
+            "Marino", "Greco", "Bruno", "Gallo", "Conti", "De Luca", "Costa", "Mancini",
+            "Barbieri", "Fontana", "Santoro", "Rinaldi",
+        ],
     },
     NationalityNames {
         nationality: "NL",
-        first_names: &["Daan", "Sem", "Lars", "Tim", "Thomas", "Jesse", "Jordi", "Luuk", "Rick", "Bas", "Stijn", "Nick", "Davy", "Wesley", "Kevin", "Robin", "Sander", "Ruud", "Dennis", "Patrick"],
-        last_names: &["De Jong", "Van Dijk", "Jansen", "De Vries", "Van den Berg", "Bakker", "Visser", "Smit", "Meijer", "De Boer", "Mulder", "Dekker", "Peters", "Hendriks", "Van Leeuwen", "De Graaf", "Kok", "Brouwer", "Vermeer", "Van Dam"],
+        first_names: &[
+            "Daan", "Sem", "Lars", "Tim", "Thomas", "Jesse", "Jordi", "Luuk", "Rick", "Bas",
+            "Stijn", "Nick", "Davy", "Wesley", "Kevin", "Robin", "Sander", "Ruud", "Dennis",
+            "Patrick",
+        ],
+        last_names: &[
+            "De Jong",
+            "Van Dijk",
+            "Jansen",
+            "De Vries",
+            "Van den Berg",
+            "Bakker",
+            "Visser",
+            "Smit",
+            "Meijer",
+            "De Boer",
+            "Mulder",
+            "Dekker",
+            "Peters",
+            "Hendriks",
+            "Van Leeuwen",
+            "De Graaf",
+            "Kok",
+            "Brouwer",
+            "Vermeer",
+            "Van Dam",
+        ],
     },
     NationalityNames {
         nationality: "PT",
-        first_names: &["Rui", "Joao", "Bruno", "Diogo", "Pedro", "Tiago", "Nuno", "Miguel", "Andre", "Goncalo", "Rafael", "Luis", "Ricardo", "Hugo", "Fabio", "Bernardo", "Daniel", "Vitor", "Nelson", "Sergio"],
-        last_names: &["Silva", "Santos", "Ferreira", "Costa", "Pereira", "Oliveira", "Rodrigues", "Martins", "Sousa", "Fernandes", "Goncalves", "Lopes", "Almeida", "Carvalho", "Ribeiro", "Pinto", "Teixeira", "Mendes", "Neves", "Vieira"],
+        first_names: &[
+            "Rui", "Joao", "Bruno", "Diogo", "Pedro", "Tiago", "Nuno", "Miguel", "Andre",
+            "Goncalo", "Rafael", "Luis", "Ricardo", "Hugo", "Fabio", "Bernardo", "Daniel", "Vitor",
+            "Nelson", "Sergio",
+        ],
+        last_names: &[
+            "Silva",
+            "Santos",
+            "Ferreira",
+            "Costa",
+            "Pereira",
+            "Oliveira",
+            "Rodrigues",
+            "Martins",
+            "Sousa",
+            "Fernandes",
+            "Goncalves",
+            "Lopes",
+            "Almeida",
+            "Carvalho",
+            "Ribeiro",
+            "Pinto",
+            "Teixeira",
+            "Mendes",
+            "Neves",
+            "Vieira",
+        ],
     },
     NationalityNames {
         nationality: "BR",
-        first_names: &["Lucas", "Gabriel", "Rafael", "Matheus", "Guilherme", "Felipe", "Thiago", "Vinicius", "Pedro", "Gustavo", "Bruno", "Leonardo", "Anderson", "Douglas", "Eduardo", "Henrique", "Marcelo", "Diego", "Igor", "Leandro"],
-        last_names: &["Silva", "Santos", "Oliveira", "Souza", "Pereira", "Costa", "Ferreira", "Rodrigues", "Almeida", "Nascimento", "Lima", "Araujo", "Ribeiro", "Carvalho", "Gomes", "Martins", "Rocha", "Mendes", "Barbosa", "Moreira"],
+        first_names: &[
+            "Lucas",
+            "Gabriel",
+            "Rafael",
+            "Matheus",
+            "Guilherme",
+            "Felipe",
+            "Thiago",
+            "Vinicius",
+            "Pedro",
+            "Gustavo",
+            "Bruno",
+            "Leonardo",
+            "Anderson",
+            "Douglas",
+            "Eduardo",
+            "Henrique",
+            "Marcelo",
+            "Diego",
+            "Igor",
+            "Leandro",
+        ],
+        last_names: &[
+            "Silva",
+            "Santos",
+            "Oliveira",
+            "Souza",
+            "Pereira",
+            "Costa",
+            "Ferreira",
+            "Rodrigues",
+            "Almeida",
+            "Nascimento",
+            "Lima",
+            "Araujo",
+            "Ribeiro",
+            "Carvalho",
+            "Gomes",
+            "Martins",
+            "Rocha",
+            "Mendes",
+            "Barbosa",
+            "Moreira",
+        ],
     },
     NationalityNames {
         nationality: "AR",
-        first_names: &["Lionel", "Gonzalo", "Angel", "Sergio", "Nicolas", "Pablo", "Mauro", "Lucas", "Ezequiel", "Javier", "Marcos", "Leandro", "Federico", "Ignacio", "Rodrigo", "Matias", "Franco", "Agustin", "Julian", "Cristian"],
-        last_names: &["Gonzalez", "Rodriguez", "Martinez", "Lopez", "Fernandez", "Garcia", "Romero", "Diaz", "Torres", "Sanchez", "Alvarez", "Acosta", "Gutierrez", "Castro", "Pereyra", "Aguero", "Ruiz", "Herrera", "Medina", "Flores"],
+        first_names: &[
+            "Lionel", "Gonzalo", "Angel", "Sergio", "Nicolas", "Pablo", "Mauro", "Lucas",
+            "Ezequiel", "Javier", "Marcos", "Leandro", "Federico", "Ignacio", "Rodrigo", "Matias",
+            "Franco", "Agustin", "Julian", "Cristian",
+        ],
+        last_names: &[
+            "Gonzalez",
+            "Rodriguez",
+            "Martinez",
+            "Lopez",
+            "Fernandez",
+            "Garcia",
+            "Romero",
+            "Diaz",
+            "Torres",
+            "Sanchez",
+            "Alvarez",
+            "Acosta",
+            "Gutierrez",
+            "Castro",
+            "Pereyra",
+            "Aguero",
+            "Ruiz",
+            "Herrera",
+            "Medina",
+            "Flores",
+        ],
     },
     NationalityNames {
         nationality: "BE",
-        first_names: &["Kevin", "Eden", "Romelu", "Dries", "Yannick", "Thomas", "Axel", "Thorgan", "Michy", "Nacer", "Radja", "Jan", "Toby", "Simon", "Leander", "Jason", "Timothy", "Hans", "Dennis", "Laurent"],
-        last_names: &["Janssens", "Peeters", "Maes", "Jacobs", "Mertens", "Willems", "Claes", "Goossens", "Wouters", "De Smet", "Hermans", "Peters", "Stevens", "Leclercq", "Lambert", "Dupont", "Dumont", "Simon", "Laurent", "Renard"],
+        first_names: &[
+            "Kevin", "Eden", "Romelu", "Dries", "Yannick", "Thomas", "Axel", "Thorgan", "Michy",
+            "Nacer", "Radja", "Jan", "Toby", "Simon", "Leander", "Jason", "Timothy", "Hans",
+            "Dennis", "Laurent",
+        ],
+        last_names: &[
+            "Janssens", "Peeters", "Maes", "Jacobs", "Mertens", "Willems", "Claes", "Goossens",
+            "Wouters", "De Smet", "Hermans", "Peters", "Stevens", "Leclercq", "Lambert", "Dupont",
+            "Dumont", "Simon", "Laurent", "Renard",
+        ],
     },
     NationalityNames {
         nationality: "HR",
-        first_names: &["Luka", "Ivan", "Mateo", "Mario", "Dejan", "Ante", "Josip", "Marko", "Nikola", "Marcelo", "Andrej", "Darijo", "Sime", "Borna", "Domagoj", "Vedran", "Duje", "Filip", "Tin", "Bruno"],
-        last_names: &["Kovacic", "Horvat", "Babic", "Maric", "Juric", "Novak", "Perisic", "Tomic", "Vucinic", "Brozovic", "Kramaric", "Vidovic", "Lovren", "Srna", "Rakitic", "Modric", "Pasalic", "Rebic", "Livakovic", "Gvardiol"],
+        first_names: &[
+            "Luka", "Ivan", "Mateo", "Mario", "Dejan", "Ante", "Josip", "Marko", "Nikola",
+            "Marcelo", "Andrej", "Darijo", "Sime", "Borna", "Domagoj", "Vedran", "Duje", "Filip",
+            "Tin", "Bruno",
+        ],
+        last_names: &[
+            "Kovacic",
+            "Horvat",
+            "Babic",
+            "Maric",
+            "Juric",
+            "Novak",
+            "Perisic",
+            "Tomic",
+            "Vucinic",
+            "Brozovic",
+            "Kramaric",
+            "Vidovic",
+            "Lovren",
+            "Srna",
+            "Rakitic",
+            "Modric",
+            "Pasalic",
+            "Rebic",
+            "Livakovic",
+            "Gvardiol",
+        ],
     },
     NationalityNames {
         nationality: "SE",
-        first_names: &["Emil", "Oscar", "Viktor", "Erik", "Alexander", "Marcus", "Sebastian", "Filip", "Albin", "Robin", "Pontus", "Mattias", "Andreas", "Gustav", "Kristoffer", "Joel", "Ludwig", "Simon", "Martin", "Henrik"],
-        last_names: &["Andersson", "Johansson", "Karlsson", "Nilsson", "Eriksson", "Larsson", "Olsson", "Persson", "Svensson", "Gustafsson", "Pettersson", "Jonsson", "Jansson", "Hansson", "Bengtsson", "Lindberg", "Lundqvist", "Forsberg", "Lindqvist", "Berg"],
+        first_names: &[
+            "Emil",
+            "Oscar",
+            "Viktor",
+            "Erik",
+            "Alexander",
+            "Marcus",
+            "Sebastian",
+            "Filip",
+            "Albin",
+            "Robin",
+            "Pontus",
+            "Mattias",
+            "Andreas",
+            "Gustav",
+            "Kristoffer",
+            "Joel",
+            "Ludwig",
+            "Simon",
+            "Martin",
+            "Henrik",
+        ],
+        last_names: &[
+            "Andersson",
+            "Johansson",
+            "Karlsson",
+            "Nilsson",
+            "Eriksson",
+            "Larsson",
+            "Olsson",
+            "Persson",
+            "Svensson",
+            "Gustafsson",
+            "Pettersson",
+            "Jonsson",
+            "Jansson",
+            "Hansson",
+            "Bengtsson",
+            "Lindberg",
+            "Lundqvist",
+            "Forsberg",
+            "Lindqvist",
+            "Berg",
+        ],
     },
 ];
 
@@ -278,22 +638,118 @@ struct TeamTemplate {
 }
 
 const TEAM_TEMPLATES: &[TeamTemplate] = &[
-    TeamTemplate { name: "London FC", city: "London", country: "England", colors: ("#dc2626", "#ffffff"), play_style: "Possession" },
-    TeamTemplate { name: "Manchester City", city: "Manchester", country: "England", colors: ("#60a5fa", "#1e3a5f"), play_style: "Attacking" },
-    TeamTemplate { name: "Liverpool Athletic", city: "Liverpool", country: "England", colors: ("#b91c1c", "#fbbf24"), play_style: "HighPress" },
-    TeamTemplate { name: "Newcastle Town", city: "Newcastle", country: "England", colors: ("#000000", "#ffffff"), play_style: "Counter" },
-    TeamTemplate { name: "Madrid Real", city: "Madrid", country: "Spain", colors: ("#ffffff", "#d4af37"), play_style: "Possession" },
-    TeamTemplate { name: "Barcelona FC", city: "Barcelona", country: "Spain", colors: ("#9f1239", "#1d4ed8"), play_style: "Attacking" },
-    TeamTemplate { name: "Munich Bayern", city: "Munich", country: "Germany", colors: ("#dc2626", "#1e3a5f"), play_style: "HighPress" },
-    TeamTemplate { name: "Dortmund BV", city: "Dortmund", country: "Germany", colors: ("#eab308", "#000000"), play_style: "Counter" },
-    TeamTemplate { name: "Paris Étoile", city: "Paris", country: "France", colors: ("#1e3a5f", "#dc2626"), play_style: "Attacking" },
-    TeamTemplate { name: "Lyon Olympique", city: "Lyon", country: "France", colors: ("#1d4ed8", "#ffffff"), play_style: "Balanced" },
-    TeamTemplate { name: "Milan Rossoneri", city: "Milan", country: "Italy", colors: ("#dc2626", "#000000"), play_style: "Defensive" },
-    TeamTemplate { name: "Rome Gladiators", city: "Rome", country: "Italy", colors: ("#eab308", "#7c2d12"), play_style: "Counter" },
-    TeamTemplate { name: "Amsterdam United", city: "Amsterdam", country: "Netherlands", colors: ("#dc2626", "#ffffff"), play_style: "Attacking" },
-    TeamTemplate { name: "Lisbon Sporting", city: "Lisbon", country: "Portugal", colors: ("#16a34a", "#ffffff"), play_style: "Possession" },
-    TeamTemplate { name: "Porto Dragões", city: "Porto", country: "Portugal", colors: ("#1d4ed8", "#ffffff"), play_style: "Defensive" },
-    TeamTemplate { name: "Brussels Royal", city: "Brussels", country: "Belgium", colors: ("#7c3aed", "#fbbf24"), play_style: "Balanced" },
+    TeamTemplate {
+        name: "London FC",
+        city: "London",
+        country: "England",
+        colors: ("#dc2626", "#ffffff"),
+        play_style: "Possession",
+    },
+    TeamTemplate {
+        name: "Manchester City",
+        city: "Manchester",
+        country: "England",
+        colors: ("#60a5fa", "#1e3a5f"),
+        play_style: "Attacking",
+    },
+    TeamTemplate {
+        name: "Liverpool Athletic",
+        city: "Liverpool",
+        country: "England",
+        colors: ("#b91c1c", "#fbbf24"),
+        play_style: "HighPress",
+    },
+    TeamTemplate {
+        name: "Newcastle Town",
+        city: "Newcastle",
+        country: "England",
+        colors: ("#000000", "#ffffff"),
+        play_style: "Counter",
+    },
+    TeamTemplate {
+        name: "Madrid Real",
+        city: "Madrid",
+        country: "Spain",
+        colors: ("#ffffff", "#d4af37"),
+        play_style: "Possession",
+    },
+    TeamTemplate {
+        name: "Barcelona FC",
+        city: "Barcelona",
+        country: "Spain",
+        colors: ("#9f1239", "#1d4ed8"),
+        play_style: "Attacking",
+    },
+    TeamTemplate {
+        name: "Munich Bayern",
+        city: "Munich",
+        country: "Germany",
+        colors: ("#dc2626", "#1e3a5f"),
+        play_style: "HighPress",
+    },
+    TeamTemplate {
+        name: "Dortmund BV",
+        city: "Dortmund",
+        country: "Germany",
+        colors: ("#eab308", "#000000"),
+        play_style: "Counter",
+    },
+    TeamTemplate {
+        name: "Paris Étoile",
+        city: "Paris",
+        country: "France",
+        colors: ("#1e3a5f", "#dc2626"),
+        play_style: "Attacking",
+    },
+    TeamTemplate {
+        name: "Lyon Olympique",
+        city: "Lyon",
+        country: "France",
+        colors: ("#1d4ed8", "#ffffff"),
+        play_style: "Balanced",
+    },
+    TeamTemplate {
+        name: "Milan Rossoneri",
+        city: "Milan",
+        country: "Italy",
+        colors: ("#dc2626", "#000000"),
+        play_style: "Defensive",
+    },
+    TeamTemplate {
+        name: "Rome Gladiators",
+        city: "Rome",
+        country: "Italy",
+        colors: ("#eab308", "#7c2d12"),
+        play_style: "Counter",
+    },
+    TeamTemplate {
+        name: "Amsterdam United",
+        city: "Amsterdam",
+        country: "Netherlands",
+        colors: ("#dc2626", "#ffffff"),
+        play_style: "Attacking",
+    },
+    TeamTemplate {
+        name: "Lisbon Sporting",
+        city: "Lisbon",
+        country: "Portugal",
+        colors: ("#16a34a", "#ffffff"),
+        play_style: "Possession",
+    },
+    TeamTemplate {
+        name: "Porto Dragões",
+        city: "Porto",
+        country: "Portugal",
+        colors: ("#1d4ed8", "#ffffff"),
+        play_style: "Defensive",
+    },
+    TeamTemplate {
+        name: "Brussels Royal",
+        city: "Brussels",
+        country: "Belgium",
+        colors: ("#7c3aed", "#fbbf24"),
+        play_style: "Balanced",
+    },
 ];
 
 /// Generate a random world (raw tuple — used by `generate_world_data`).
@@ -336,11 +792,14 @@ pub fn generate_world(data_dir: Option<&std::path::Path>) -> (Vec<Team>, Vec<Pla
     for tdef in &teams_def.teams {
         let team_id = Uuid::new_v4().to_string();
         let short_name = if tdef.short_name.is_empty() {
-            tdef.name.split_whitespace()
+            tdef.name
+                .split_whitespace()
                 .filter_map(|w| w.chars().next())
                 .collect::<String>()
                 .to_uppercase()
-                .chars().take(3).collect()
+                .chars()
+                .take(3)
+                .collect()
         } else {
             tdef.short_name.clone()
         };
@@ -377,9 +836,8 @@ pub fn generate_world(data_dir: Option<&std::path::Path>) -> (Vec<Team>, Vec<Pla
         // Generate 22 players
         for j in 0..22 {
             let nationality = pick_nationality_from_def(&tdef.country, &country_codes, &mut rng);
-            let mut player = generate_random_player_from_def(
-                &team_id, j, &nationality, &names_def, &mut rng,
-            );
+            let mut player =
+                generate_random_player_from_def(&team_id, j, &nationality, &names_def, &mut rng);
             if rng.gen_range(0..100) < 12 {
                 player.transfer_listed = true;
             } else if rng.gen_range(0..100) < 8 {
@@ -389,11 +847,20 @@ pub fn generate_world(data_dir: Option<&std::path::Path>) -> (Vec<Team>, Vec<Pla
         }
 
         // Generate 4 staff per team
-        let roles = [StaffRole::AssistantManager, StaffRole::Coach, StaffRole::Scout, StaffRole::Physio];
+        let roles = [
+            StaffRole::AssistantManager,
+            StaffRole::Coach,
+            StaffRole::Scout,
+            StaffRole::Physio,
+        ];
         for role in &roles {
             let nationality = pick_nationality_from_def(&tdef.country, &country_codes, &mut rng);
             let s = generate_random_staff_from_def(
-                &team_id, role.clone(), &nationality, &names_def, &mut rng,
+                &team_id,
+                role.clone(),
+                &nationality,
+                &names_def,
+                &mut rng,
             );
             staff.push(s);
         }
@@ -401,9 +868,18 @@ pub fn generate_world(data_dir: Option<&std::path::Path>) -> (Vec<Team>, Vec<Pla
 
     // Generate free-agent staff
     let free_roles = [
-        StaffRole::Coach, StaffRole::Scout, StaffRole::Physio, StaffRole::Coach,
-        StaffRole::AssistantManager, StaffRole::Scout, StaffRole::Physio, StaffRole::Coach,
-        StaffRole::Coach, StaffRole::Physio, StaffRole::Scout, StaffRole::AssistantManager,
+        StaffRole::Coach,
+        StaffRole::Scout,
+        StaffRole::Physio,
+        StaffRole::Coach,
+        StaffRole::AssistantManager,
+        StaffRole::Scout,
+        StaffRole::Physio,
+        StaffRole::Coach,
+        StaffRole::Coach,
+        StaffRole::Physio,
+        StaffRole::Scout,
+        StaffRole::AssistantManager,
     ];
     for role in &free_roles {
         let nat = &country_codes[rng.gen_range(0..country_codes.len())];
@@ -411,7 +887,12 @@ pub fn generate_world(data_dir: Option<&std::path::Path>) -> (Vec<Team>, Vec<Pla
         staff.push(s);
     }
 
-    info!("[generator] world generated: {} teams, {} players, {} staff", teams_out.len(), players.len(), staff.len());
+    info!(
+        "[generator] world generated: {} teams, {} players, {} staff",
+        teams_out.len(),
+        players.len(),
+        staff.len()
+    );
     (teams_out, players, staff)
 }
 
@@ -438,13 +919,12 @@ fn pick_name_from_def(
     names_def: &NamesDefinition,
     rng: &mut impl rand::RngCore,
 ) -> (String, String) {
-    if let Some(pool) = names_def.pools.get(nationality) {
-        if !pool.first_names.is_empty() && !pool.last_names.is_empty() {
+    if let Some(pool) = names_def.pools.get(nationality)
+        && !pool.first_names.is_empty() && !pool.last_names.is_empty() {
             let first = pool.first_names[rng.gen_range(0..pool.first_names.len())].clone();
             let last = pool.last_names[rng.gen_range(0..pool.last_names.len())].clone();
             return (first, last);
         }
-    }
     // Fallback: pick from any available pool
     let keys: Vec<&String> = names_def.pools.keys().collect();
     if let Some(key) = keys.first() {
@@ -529,10 +1009,28 @@ fn generate_random_player_from_def(
         strength: rng.gen_range(40..95),
         agility: rng.gen_range(40..95),
         passing: rng.gen_range(40..95),
-        shooting: if is_gk { rng.gen_range(20..50) } else { rng.gen_range(40..95) },
-        tackling: if is_gk || is_fwd { rng.gen_range(20..60) } else { rng.gen_range(40..95) },
-        dribbling: if is_gk { rng.gen_range(20..50) } else { rng.gen_range(40..95) },
-        defending: if is_gk { rng.gen_range(25..55) } else if is_def { rng.gen_range(55..95) } else { rng.gen_range(40..95) },
+        shooting: if is_gk {
+            rng.gen_range(20..50)
+        } else {
+            rng.gen_range(40..95)
+        },
+        tackling: if is_gk || is_fwd {
+            rng.gen_range(20..60)
+        } else {
+            rng.gen_range(40..95)
+        },
+        dribbling: if is_gk {
+            rng.gen_range(20..50)
+        } else {
+            rng.gen_range(40..95)
+        },
+        defending: if is_gk {
+            rng.gen_range(25..55)
+        } else if is_def {
+            rng.gen_range(55..95)
+        } else {
+            rng.gen_range(40..95)
+        },
         positioning: rng.gen_range(40..95),
         vision: rng.gen_range(40..95),
         decisions: rng.gen_range(40..95),
@@ -540,17 +1038,47 @@ fn generate_random_player_from_def(
         aggression: rng.gen_range(30..90),
         teamwork: rng.gen_range(45..95),
         leadership: rng.gen_range(30..90),
-        handling: if is_gk { rng.gen_range(50..95) } else { rng.gen_range(10..35) },
-        reflexes: if is_gk { rng.gen_range(50..95) } else { rng.gen_range(20..50) },
-        aerial: if is_gk { rng.gen_range(50..95) } else if is_def { rng.gen_range(45..90) } else { rng.gen_range(30..75) },
+        handling: if is_gk {
+            rng.gen_range(50..95)
+        } else {
+            rng.gen_range(10..35)
+        },
+        reflexes: if is_gk {
+            rng.gen_range(50..95)
+        } else {
+            rng.gen_range(20..50)
+        },
+        aerial: if is_gk {
+            rng.gen_range(50..95)
+        } else if is_def {
+            rng.gen_range(45..90)
+        } else {
+            rng.gen_range(30..75)
+        },
     };
 
-    let ovr = (attributes.pace as u32 + attributes.stamina as u32 + attributes.strength as u32
-        + attributes.passing as u32 + attributes.shooting as u32 + attributes.tackling as u32
-        + attributes.dribbling as u32 + attributes.defending as u32
-        + attributes.positioning as u32 + attributes.vision as u32 + attributes.decisions as u32) / 11;
+    let ovr = (attributes.pace as u32
+        + attributes.stamina as u32
+        + attributes.strength as u32
+        + attributes.passing as u32
+        + attributes.shooting as u32
+        + attributes.tackling as u32
+        + attributes.dribbling as u32
+        + attributes.defending as u32
+        + attributes.positioning as u32
+        + attributes.vision as u32
+        + attributes.decisions as u32)
+        / 11;
 
-    let age_factor = if age <= 23 { 1.5 } else if age <= 28 { 1.2 } else if age <= 32 { 0.8 } else { 0.4 };
+    let age_factor = if age <= 23 {
+        1.5
+    } else if age <= 28 {
+        1.2
+    } else if age <= 32 {
+        0.8
+    } else {
+        0.4
+    };
     let base_value = (ovr as f64).powi(2) * 500.0;
     let market_value = (base_value * age_factor) as u64;
     let wage = (market_value / 200).max(500) as u32;
@@ -558,7 +1086,13 @@ fn generate_random_player_from_def(
     let contract_end = format!("{}-06-30", 2026 + contract_years);
 
     let mut player = Player::new(
-        p_id, match_name, full_name, dob, nationality, position, attributes,
+        p_id,
+        match_name,
+        full_name,
+        dob,
+        nationality,
+        position,
+        attributes,
     );
     player.team_id = Some(team_id.to_string());
     player.market_value = market_value;
@@ -579,7 +1113,12 @@ fn generate_random_staff_from_def(
     let (first_name, last_name) = pick_name_from_def(nationality, names_def, rng);
     let age = rng.gen_range(30..60);
     let birth_year = 2026 - age;
-    let dob = format!("{:04}-{:02}-{:02}", birth_year, rng.gen_range(1..13), rng.gen_range(1..29));
+    let dob = format!(
+        "{:04}-{:02}-{:02}",
+        birth_year,
+        rng.gen_range(1..13),
+        rng.gen_range(1..29)
+    );
 
     let attributes = match &role {
         StaffRole::AssistantManager => StaffAttributes {
@@ -630,7 +1169,12 @@ fn generate_random_staff_unattached_from_def(
     let (first_name, last_name) = pick_name_from_def(nationality, names_def, rng);
     let age = rng.gen_range(28..55);
     let birth_year = 2026 - age;
-    let dob = format!("{:04}-{:02}-{:02}", birth_year, rng.gen_range(1..13), rng.gen_range(1..29));
+    let dob = format!(
+        "{:04}-{:02}-{:02}",
+        birth_year,
+        rng.gen_range(1..13),
+        rng.gen_range(1..29)
+    );
 
     let attributes = StaffAttributes {
         coaching: rng.gen_range(30..80),
@@ -669,7 +1213,10 @@ mod tests {
         let team_ids: Vec<&str> = teams.iter().map(|t| t.id.as_str()).collect();
         for p in &players {
             assert!(p.team_id.is_some(), "Player {} has no team", p.full_name);
-            assert!(team_ids.contains(&p.team_id.as_deref().unwrap()), "Player has unknown team");
+            assert!(
+                team_ids.contains(&p.team_id.as_deref().unwrap()),
+                "Player has unknown team"
+            );
         }
     }
 
@@ -677,9 +1224,15 @@ mod tests {
     fn test_generate_world_positions_per_team() {
         let (teams, players, _) = generate_world(None);
         for team in &teams {
-            let team_players: Vec<_> = players.iter().filter(|p| p.team_id.as_deref() == Some(&team.id)).collect();
+            let team_players: Vec<_> = players
+                .iter()
+                .filter(|p| p.team_id.as_deref() == Some(&team.id))
+                .collect();
             assert_eq!(team_players.len(), 22);
-            let gk = team_players.iter().filter(|p| p.position == Position::Goalkeeper).count();
+            let gk = team_players
+                .iter()
+                .filter(|p| p.position == Position::Goalkeeper)
+                .count();
             assert!(gk >= 2, "Team {} has only {} GK", team.name, gk);
         }
     }
@@ -701,24 +1254,50 @@ mod tests {
     #[test]
     fn test_pick_nationality_weighted() {
         let mut rng = rand::thread_rng();
-        let codes: Vec<String> = NATIONALITY_POOLS.iter().map(|p| p.nationality.to_string()).collect();
+        let codes: Vec<String> = NATIONALITY_POOLS
+            .iter()
+            .map(|p| p.nationality.to_string())
+            .collect();
         let mut gb_count = 0;
         for _ in 0..100 {
             let nat = pick_nationality_from_def("England", &codes, &mut rng);
-            if nat == "GB" { gb_count += 1; }
+            if nat == "GB" {
+                gb_count += 1;
+            }
         }
-        assert!(gb_count > 30, "GB players should be weighted: got {}/100", gb_count);
+        assert!(
+            gb_count > 30,
+            "GB players should be weighted: got {}/100",
+            gb_count
+        );
     }
 
     #[test]
     fn test_all_nationalities_are_iso_alpha2() {
         let (_, players, staff) = generate_world(None);
         for p in &players {
-            assert_eq!(p.nationality.len(), 2, "Player {} has non-ISO nationality: {}", p.full_name, p.nationality);
-            assert!(p.nationality.chars().all(|c| c.is_ascii_uppercase()), "Player {} nationality not uppercase: {}", p.full_name, p.nationality);
+            assert_eq!(
+                p.nationality.len(),
+                2,
+                "Player {} has non-ISO nationality: {}",
+                p.full_name,
+                p.nationality
+            );
+            assert!(
+                p.nationality.chars().all(|c| c.is_ascii_uppercase()),
+                "Player {} nationality not uppercase: {}",
+                p.full_name,
+                p.nationality
+            );
         }
         for s in &staff {
-            assert_eq!(s.nationality.len(), 2, "Staff {} has non-ISO nationality: {}", s.first_name, s.nationality);
+            assert_eq!(
+                s.nationality.len(),
+                2,
+                "Staff {} has non-ISO nationality: {}",
+                s.first_name,
+                s.nationality
+            );
         }
     }
 

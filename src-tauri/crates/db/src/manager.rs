@@ -1,5 +1,5 @@
-use log::{info, debug, warn, error};
-use rusqlite::{params, Connection};
+use log::{debug, error, info, warn};
+use rusqlite::{Connection, params};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -24,11 +24,10 @@ impl DbManager {
     /// and ensure the saves table exists with the correct schema.
     pub fn new(db_path: PathBuf) -> Result<Self, String> {
         debug!("[db] opening database at {:?}", db_path);
-        let conn = Connection::open(&db_path)
-            .map_err(|e| {
-                error!("[db] failed to open database at {:?}: {}", db_path, e);
-                format!("Failed to open database: {}", e)
-            })?;
+        let conn = Connection::open(&db_path).map_err(|e| {
+            error!("[db] failed to open database at {:?}: {}", db_path, e);
+            format!("Failed to open database: {}", e)
+        })?;
 
         // Check if the saves table exists with the old INTEGER id schema
         // and migrate to the new TEXT id schema if needed.
@@ -39,7 +38,7 @@ impl DbManager {
                 |row| row.get::<_, String>(0),
             )
             .ok()
-            .map_or(false, |col_type| col_type.to_uppercase() != "TEXT");
+            .is_some_and(|col_type| col_type.to_uppercase() != "TEXT");
 
         if needs_migration {
             warn!("[db] migrating old INTEGER id schema to TEXT");
@@ -55,7 +54,7 @@ impl DbManager {
                 game_data       TEXT NOT NULL,
                 created_at      TEXT NOT NULL DEFAULT (datetime('now')),
                 last_played_at  TEXT NOT NULL DEFAULT (datetime('now'))
-            );"
+            );",
         )
         .map_err(|e| format!("Failed to create saves table: {}", e))?;
 
@@ -70,7 +69,12 @@ impl DbManager {
         game_data: &str,
     ) -> Result<String, String> {
         let id = uuid::Uuid::new_v4().to_string();
-        info!("[db] create_save: id={}, name='{}', data_len={}", id, name, game_data.len());
+        info!(
+            "[db] create_save: id={}, name='{}', data_len={}",
+            id,
+            name,
+            game_data.len()
+        );
 
         self.conn
             .execute(

@@ -1,4 +1,4 @@
-use crate::game::{BoardObjective, Game};
+use crate::game::{BoardObjective, Game, ObjectiveType};
 use domain::league::FixtureStatus;
 use domain::message::*;
 
@@ -34,7 +34,11 @@ pub fn generate_objectives(game: &mut Game) {
     };
 
     // Determine win target
-    let total_matchdays = if num_teams > 1 { (num_teams - 1) * 2 } else { 0 };
+    let total_matchdays = if num_teams > 1 {
+        (num_teams - 1) * 2
+    } else {
+        0
+    };
     let win_target = if reputation >= 80 {
         (total_matchdays * 60 / 100).max(1)
     } else if reputation >= 65 {
@@ -45,9 +49,9 @@ pub fn generate_objectives(game: &mut Game) {
 
     // Determine goals target
     let goals_target = if reputation >= 75 {
-        (total_matchdays as u32 * 2).max(10)
+        (total_matchdays * 2).max(10)
     } else if reputation >= 55 {
-        (total_matchdays as u32 * 3 / 2).max(8)
+        (total_matchdays * 3 / 2).max(8)
     } else {
         total_matchdays.max(5)
     };
@@ -57,21 +61,21 @@ pub fn generate_objectives(game: &mut Game) {
             id: "obj_position".to_string(),
             description: format!("Finish in the top {}", expected_pos),
             target: expected_pos,
-            objective_type: "league_position".to_string(),
+            objective_type: ObjectiveType::LeaguePosition,
             met: false,
         },
         BoardObjective {
             id: "obj_wins".to_string(),
             description: format!("Win at least {} matches", win_target),
             target: win_target,
-            objective_type: "wins".to_string(),
+            objective_type: ObjectiveType::Wins,
             met: false,
         },
         BoardObjective {
             id: "obj_goals".to_string(),
             description: format!("Score at least {} goals", goals_target),
             target: goals_target,
-            objective_type: "goals_scored".to_string(),
+            objective_type: ObjectiveType::GoalsScored,
             met: false,
         },
     ];
@@ -83,7 +87,9 @@ pub fn generate_objectives(game: &mut Game) {
     let season = game.league.as_ref().map(|l| l.season).unwrap_or(1);
     let msg_id = format!("board_objectives_{}", season);
     if !existing_ids.contains(&msg_id) {
-        let objectives_text = game.board_objectives.iter()
+        let objectives_text = game
+            .board_objectives
+            .iter()
             .enumerate()
             .map(|(i, obj)| format!("{}. {}", i + 1, obj.description))
             .collect::<Vec<_>>()
@@ -121,14 +127,17 @@ pub fn update_objective_progress(game: &mut Game) {
     };
 
     let standings = league.sorted_standings();
-    let user_pos = standings.iter()
+    let user_pos = standings
+        .iter()
         .position(|s| s.team_id == user_team_id)
         .map(|i| (i + 1) as u32)
         .unwrap_or(99);
     let user_standing = standings.iter().find(|s| s.team_id == user_team_id);
 
     // Count user goals from completed fixtures
-    let user_goals: u32 = league.fixtures.iter()
+    let user_goals: u32 = league
+        .fixtures
+        .iter()
         .filter(|f| f.status == FixtureStatus::Completed && f.result.is_some())
         .map(|f| {
             let r = f.result.as_ref().unwrap();
@@ -145,17 +154,16 @@ pub fn update_objective_progress(game: &mut Game) {
     let user_wins = user_standing.map(|s| s.won).unwrap_or(0);
 
     for obj in game.board_objectives.iter_mut() {
-        match obj.objective_type.as_str() {
-            "league_position" => {
+        match obj.objective_type {
+            ObjectiveType::LeaguePosition => {
                 obj.met = user_pos <= obj.target;
             }
-            "wins" => {
+            ObjectiveType::Wins => {
                 obj.met = user_wins >= obj.target;
             }
-            "goals_scored" => {
+            ObjectiveType::GoalsScored => {
                 obj.met = user_goals >= obj.target;
             }
-            _ => {}
         }
     }
 }

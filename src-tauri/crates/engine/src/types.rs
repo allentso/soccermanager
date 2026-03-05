@@ -135,10 +135,12 @@ impl TeamData {
     /// Composite defense rating (from defenders + goalkeeper).
     pub fn defense_rating(&self) -> f64 {
         let def_avg = self.position_attr_avg(Position::Defender, |p| {
-            ((p.defending as u16 + p.tackling as u16 + p.positioning as u16 + p.strength as u16) / 4) as u8
+            ((p.defending as u16 + p.tackling as u16 + p.positioning as u16 + p.strength as u16)
+                / 4) as u8
         });
         let gk_avg = self.position_attr_avg(Position::Goalkeeper, |p| {
-            ((p.positioning as u16 + p.decisions as u16 + p.strength as u16 + p.pace as u16) / 4) as u8
+            ((p.positioning as u16 + p.decisions as u16 + p.strength as u16 + p.pace as u16) / 4)
+                as u8
         });
         def_avg * 0.7 + gk_avg * 0.3
     }
@@ -153,7 +155,8 @@ impl TeamData {
     /// Composite attack rating (from forwards + midfielders).
     pub fn attack_rating(&self) -> f64 {
         let fwd_avg = self.position_attr_avg(Position::Forward, |p| {
-            ((p.shooting as u16 + p.dribbling as u16 + p.pace as u16 + p.positioning as u16) / 4) as u8
+            ((p.shooting as u16 + p.dribbling as u16 + p.pace as u16 + p.positioning as u16) / 4)
+                as u8
         });
         let mid_contrib = self.position_attr_avg(Position::Midfielder, |p| {
             ((p.shooting as u16 + p.passing as u16 + p.vision as u16) / 3) as u8
@@ -164,7 +167,8 @@ impl TeamData {
     /// Goalkeeper save rating.
     pub fn goalkeeper_rating(&self) -> f64 {
         self.position_attr_avg(Position::Goalkeeper, |p| {
-            ((p.positioning as u16 + p.decisions as u16 + p.pace as u16 + p.strength as u16) / 4) as u8
+            ((p.positioning as u16 + p.decisions as u16 + p.pace as u16 + p.strength as u16) / 4)
+                as u8
         })
     }
 }

@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use crate::types::{Side, Zone};
+use serde::{Deserialize, Serialize};
 
 /// A single event that occurred during the match.
 #[derive(Debug, Clone, Serialize, Deserialize)]

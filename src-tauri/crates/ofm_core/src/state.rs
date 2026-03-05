@@ -7,6 +7,12 @@ pub struct StateManager {
     pub live_match: Mutex<Option<LiveMatchSession>>,
 }
 
+impl Default for StateManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl StateManager {
     pub fn new() -> Self {
         Self {

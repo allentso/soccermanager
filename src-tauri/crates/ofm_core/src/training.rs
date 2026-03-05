@@ -5,28 +5,33 @@ use std::collections::HashMap;
 
 /// Computed coaching quality for a team's staff.
 pub struct TeamCoachingBonus {
-    pub coaching_mult: f64,      // Overall coaching quality multiplier (1.0 = no staff)
+    pub coaching_mult: f64, // Overall coaching quality multiplier (1.0 = no staff)
     pub specialization_mult: f64, // Extra bonus if a coach specializes in the current focus
-    pub physio_mult: f64,         // Recovery bonus from physio staff
+    pub physio_mult: f64,   // Recovery bonus from physio staff
 }
 
 /// Compute coaching bonuses from a team's staff.
 fn compute_coaching_bonus(game: &Game, team_id: &str, focus: &TrainingFocus) -> TeamCoachingBonus {
-    let team_staff: Vec<_> = game.staff.iter()
+    let team_staff: Vec<_> = game
+        .staff
+        .iter()
         .filter(|s| s.team_id.as_deref() == Some(team_id))
         .collect();
 
     // Average coaching rating of coaches + assistant managers
-    let coaching_staff: Vec<_> = team_staff.iter()
+    let coaching_staff: Vec<_> = team_staff
+        .iter()
         .filter(|s| matches!(s.role, StaffRole::Coach | StaffRole::AssistantManager))
         .collect();
 
     let coaching_mult = if coaching_staff.is_empty() {
         0.8 // Penalty for having no coaching staff
     } else {
-        let avg_coaching: f64 = coaching_staff.iter()
+        let avg_coaching: f64 = coaching_staff
+            .iter()
             .map(|s| s.attributes.coaching as f64)
-            .sum::<f64>() / coaching_staff.len() as f64;
+            .sum::<f64>()
+            / coaching_staff.len() as f64;
         // Range: 0.85 (coaching=0) to 1.35 (coaching=100)
         0.85 + (avg_coaching / 100.0) * 0.5
     };
@@ -42,25 +47,28 @@ fn compute_coaching_bonus(game: &Game, team_id: &str, focus: &TrainingFocus) -> 
     };
 
     let specialization_mult = if let Some(target_spec) = focus_spec {
-        let has_specialist = coaching_staff.iter().any(|s| {
-            s.specialization.as_ref() == Some(&target_spec)
-        });
+        let has_specialist = coaching_staff
+            .iter()
+            .any(|s| s.specialization.as_ref() == Some(&target_spec));
         if has_specialist { 1.25 } else { 1.0 }
     } else {
         1.0
     };
 
     // Physio bonus for recovery
-    let physio_staff: Vec<_> = team_staff.iter()
+    let physio_staff: Vec<_> = team_staff
+        .iter()
         .filter(|s| matches!(s.role, StaffRole::Physio))
         .collect();
 
     let physio_mult = if physio_staff.is_empty() {
         1.0
     } else {
-        let avg_physio: f64 = physio_staff.iter()
+        let avg_physio: f64 = physio_staff
+            .iter()
             .map(|s| s.attributes.physiotherapy as f64)
-            .sum::<f64>() / physio_staff.len() as f64;
+            .sum::<f64>()
+            / physio_staff.len() as f64;
         // Range: 1.0 (physio=0) to 1.4 (physio=100)
         1.0 + (avg_physio / 100.0) * 0.4
     };
@@ -79,7 +87,13 @@ fn compute_coaching_bonus(game: &Game, team_id: &str, focus: &TrainingFocus) -> 
 /// `weekday_num` is 0=Mon .. 6=Sun (chrono Weekday::num_days_from_monday()).
 pub fn process_training(game: &mut Game, weekday_num: u32) {
     // Collect (team_id, focus, intensity, schedule, coaching_bonus) for all teams
-    let team_plans: Vec<(String, TrainingFocus, TrainingIntensity, TrainingSchedule, TeamCoachingBonus)> = game
+    let team_plans: Vec<(
+        String,
+        TrainingFocus,
+        TrainingIntensity,
+        TrainingSchedule,
+        TeamCoachingBonus,
+    )> = game
         .teams
         .iter()
         .map(|t| {
@@ -161,7 +175,11 @@ pub fn process_training(game: &mut Game, weekday_num: u32) {
             };
 
             // Base gain per attribute per session, boosted by coaching staff
-            let gain = 0.15 * intensity_mult * age_factor * bonus.coaching_mult * bonus.specialization_mult;
+            let gain = 0.15
+                * intensity_mult
+                * age_factor
+                * bonus.coaching_mult
+                * bonus.specialization_mult;
 
             // Apply attribute gains based on focus
             apply_focus_gains(&mut player.attributes, focus, gain);
@@ -187,7 +205,9 @@ pub fn check_squad_fitness_warnings(game: &mut Game) {
     let today_str = game.clock.current_date.format("%Y-%m-%d").to_string();
 
     // Collect fitness data for user's team
-    let team_players: Vec<_> = game.players.iter()
+    let team_players: Vec<_> = game
+        .players
+        .iter()
         .filter(|p| p.team_id.as_deref() == Some(&user_team_id) && p.injury.is_none())
         .collect();
 
@@ -195,7 +215,8 @@ pub fn check_squad_fitness_warnings(game: &mut Game) {
         return;
     }
 
-    let avg_condition = team_players.iter().map(|p| p.condition as f64).sum::<f64>() / team_players.len() as f64;
+    let avg_condition =
+        team_players.iter().map(|p| p.condition as f64).sum::<f64>() / team_players.len() as f64;
     let exhausted_count = team_players.iter().filter(|p| p.condition < 40).count();
     let critical_count = team_players.iter().filter(|p| p.condition < 25).count();
 
@@ -206,12 +227,16 @@ pub fn check_squad_fitness_warnings(game: &mut Game) {
     }
 
     // Get team schedule for context
-    let schedule = game.teams.iter()
+    let schedule = game
+        .teams
+        .iter()
         .find(|t| t.id == user_team_id)
         .map(|t| t.training_schedule.clone())
         .unwrap_or_default();
 
-    let intensity = game.teams.iter()
+    let intensity = game
+        .teams
+        .iter()
         .find(|t| t.id == user_team_id)
         .map(|t| t.training_intensity.clone())
         .unwrap_or_default();
@@ -222,15 +247,27 @@ pub fn check_squad_fitness_warnings(game: &mut Game) {
             && matches!(s.role, domain::staff::StaffRole::Physio)
     });
 
-    let sender = if has_physio { "Head Physio" } else { "Assistant Manager" };
+    let sender = if has_physio {
+        "Head Physio"
+    } else {
+        "Assistant Manager"
+    };
     let sender_name = if has_physio {
-        game.staff.iter()
-            .find(|s| s.team_id.as_deref() == Some(&user_team_id) && matches!(s.role, domain::staff::StaffRole::Physio))
+        game.staff
+            .iter()
+            .find(|s| {
+                s.team_id.as_deref() == Some(&user_team_id)
+                    && matches!(s.role, domain::staff::StaffRole::Physio)
+            })
             .map(|s| format!("{} {}", s.first_name, s.last_name))
             .unwrap_or_else(|| "Medical Staff".to_string())
     } else {
-        game.staff.iter()
-            .find(|s| s.team_id.as_deref() == Some(&user_team_id) && matches!(s.role, domain::staff::StaffRole::AssistantManager))
+        game.staff
+            .iter()
+            .find(|s| {
+                s.team_id.as_deref() == Some(&user_team_id)
+                    && matches!(s.role, domain::staff::StaffRole::AssistantManager)
+            })
             .map(|s| format!("{} {}", s.first_name, s.last_name))
             .unwrap_or_else(|| "Assistant Manager".to_string())
     };
@@ -239,23 +276,32 @@ pub fn check_squad_fitness_warnings(game: &mut Game) {
 
     // Critical: multiple players below 25 condition
     if critical_count >= 3 {
-        let exhausted_names: Vec<String> = team_players.iter()
+        let exhausted_names: Vec<String> = team_players
+            .iter()
             .filter(|p| p.condition < 25)
             .take(5)
             .map(|p| format!("{} ({}%)", p.match_name, p.condition))
             .collect();
 
         let schedule_advice = match schedule {
-            TrainingSchedule::Intense => "I strongly recommend switching to a Balanced or Light training schedule immediately. \
-                The Intense schedule is running the squad into the ground.",
-            TrainingSchedule::Balanced => "Consider switching to a Light schedule or setting the focus to Recovery \
-                until fitness levels improve.",
-            TrainingSchedule::Light => "Even on the Light schedule, the squad is struggling. Please set the training focus \
-                to Recovery — the lads need proper rest.",
+            TrainingSchedule::Intense => {
+                "I strongly recommend switching to a Balanced or Light training schedule immediately. \
+                The Intense schedule is running the squad into the ground."
+            }
+            TrainingSchedule::Balanced => {
+                "Consider switching to a Light schedule or setting the focus to Recovery \
+                until fitness levels improve."
+            }
+            TrainingSchedule::Light => {
+                "Even on the Light schedule, the squad is struggling. Please set the training focus \
+                to Recovery — the lads need proper rest."
+            }
         };
 
         let intensity_advice = match intensity {
-            TrainingIntensity::High => " Also, reducing training intensity from High would help significantly.",
+            TrainingIntensity::High => {
+                " Also, reducing training intensity from High would help significantly."
+            }
             TrainingIntensity::Medium => "",
             TrainingIntensity::Low => "",
         };
@@ -285,7 +331,9 @@ pub fn check_squad_fitness_warnings(game: &mut Game) {
         .with_action(MessageAction {
             id: "go_training".to_string(),
             label: "Adjust Training".to_string(),
-            action_type: ActionType::NavigateTo { route: "/dashboard?tab=Training".to_string() },
+            action_type: ActionType::NavigateTo {
+                route: "/dashboard?tab=Training".to_string(),
+            },
             resolved: false,
             label_key: Some("be.msg.fitness.actionAdjust".to_string()),
         })
@@ -295,11 +343,14 @@ pub fn check_squad_fitness_warnings(game: &mut Game) {
         })
         .with_i18n(
             "be.msg.fitness.critical.subject",
-            &format!("be.msg.fitness.critical.body.{}", match schedule {
-                TrainingSchedule::Intense => "intense",
-                TrainingSchedule::Balanced => "balanced",
-                TrainingSchedule::Light => "light",
-            }),
+            &format!(
+                "be.msg.fitness.critical.body.{}",
+                match schedule {
+                    TrainingSchedule::Intense => "intense",
+                    TrainingSchedule::Balanced => "balanced",
+                    TrainingSchedule::Light => "light",
+                }
+            ),
             {
                 let mut p = HashMap::new();
                 p.insert("criticalCount".to_string(), critical_count.to_string());
@@ -333,18 +384,22 @@ pub fn check_squad_fitness_warnings(game: &mut Game) {
     // Warning: average condition below 50 or many exhausted players
     if avg_condition < 50.0 || exhausted_count >= 4 {
         let schedule_advice = match schedule {
-            TrainingSchedule::Intense => "Switching to a Balanced schedule would give the squad more recovery time.",
-            TrainingSchedule::Balanced => "A Light schedule for a few days could help the squad bounce back.",
-            TrainingSchedule::Light => "Setting the training focus to Recovery would maximise fitness gains.",
+            TrainingSchedule::Intense => {
+                "Switching to a Balanced schedule would give the squad more recovery time."
+            }
+            TrainingSchedule::Balanced => {
+                "A Light schedule for a few days could help the squad bounce back."
+            }
+            TrainingSchedule::Light => {
+                "Setting the training focus to Recovery would maximise fitness gains."
+            }
         };
 
         let body = format!(
             "Boss, the squad is looking tired. Average fitness is {:.0}% and {} players are below 40% condition.\n\n\
             {}\n\n\
             We should consider giving the lads some rest before the next match.",
-            avg_condition,
-            exhausted_count,
-            schedule_advice,
+            avg_condition, exhausted_count, schedule_advice,
         );
 
         let mut msg = InboxMessage::new(
@@ -360,7 +415,9 @@ pub fn check_squad_fitness_warnings(game: &mut Game) {
         .with_action(MessageAction {
             id: "go_training".to_string(),
             label: "Adjust Training".to_string(),
-            action_type: ActionType::NavigateTo { route: "/dashboard?tab=Training".to_string() },
+            action_type: ActionType::NavigateTo {
+                route: "/dashboard?tab=Training".to_string(),
+            },
             resolved: false,
             label_key: Some("be.msg.fitness.actionAdjust".to_string()),
         })
@@ -370,11 +427,14 @@ pub fn check_squad_fitness_warnings(game: &mut Game) {
         })
         .with_i18n(
             "be.msg.fitness.warning.subject",
-            &format!("be.msg.fitness.warning.body.{}", match schedule {
-                TrainingSchedule::Intense => "intense",
-                TrainingSchedule::Balanced => "balanced",
-                TrainingSchedule::Light => "light",
-            }),
+            &format!(
+                "be.msg.fitness.warning.body.{}",
+                match schedule {
+                    TrainingSchedule::Intense => "intense",
+                    TrainingSchedule::Balanced => "balanced",
+                    TrainingSchedule::Light => "light",
+                }
+            ),
             {
                 let mut p = HashMap::new();
                 p.insert("avgCondition".to_string(), format!("{:.0}", avg_condition));
@@ -456,7 +516,7 @@ fn apply_focus_gains(
 /// Estimate player age from date_of_birth string ("YYYY-MM-DD").
 fn estimate_age(dob: &str) -> u32 {
     let parts: Vec<&str> = dob.split('-').collect();
-    if parts.len() < 1 {
+    if parts.is_empty() {
         return 25; // fallback
     }
     let birth_year: u32 = parts[0].parse().unwrap_or(2000);

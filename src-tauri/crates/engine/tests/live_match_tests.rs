@@ -1,7 +1,7 @@
-use ::engine::*;
 use ::engine::ai::{AiProfile, ai_decide};
-use rand::rngs::StdRng;
+use ::engine::*;
 use rand::SeedableRng;
+use rand::rngs::StdRng;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -65,11 +65,36 @@ fn make_team(id: &str, name: &str, skill: u8, style: PlayStyle) -> TeamData {
 
 fn make_bench(id: &str, skill: u8) -> Vec<PlayerData> {
     vec![
-        make_player(&format!("{}_sub_gk", id), "SUB_GK", Position::Goalkeeper, skill),
-        make_player(&format!("{}_sub_def", id), "SUB_DEF", Position::Defender, skill),
-        make_player(&format!("{}_sub_mid", id), "SUB_MID", Position::Midfielder, skill),
-        make_player(&format!("{}_sub_fwd1", id), "SUB_FWD1", Position::Forward, skill),
-        make_player(&format!("{}_sub_fwd2", id), "SUB_FWD2", Position::Forward, skill),
+        make_player(
+            &format!("{}_sub_gk", id),
+            "SUB_GK",
+            Position::Goalkeeper,
+            skill,
+        ),
+        make_player(
+            &format!("{}_sub_def", id),
+            "SUB_DEF",
+            Position::Defender,
+            skill,
+        ),
+        make_player(
+            &format!("{}_sub_mid", id),
+            "SUB_MID",
+            Position::Midfielder,
+            skill,
+        ),
+        make_player(
+            &format!("{}_sub_fwd1", id),
+            "SUB_FWD1",
+            Position::Forward,
+            skill,
+        ),
+        make_player(
+            &format!("{}_sub_fwd2", id),
+            "SUB_FWD2",
+            Position::Forward,
+            skill,
+        ),
     ]
 }
 
@@ -78,7 +103,14 @@ fn make_live_match(allows_extra_time: bool) -> LiveMatchState {
     let away = make_team("away", "Away FC", 70, PlayStyle::Balanced);
     let home_bench = make_bench("home", 65);
     let away_bench = make_bench("away", 65);
-    LiveMatchState::new(home, away, MatchConfig::default(), home_bench, away_bench, allows_extra_time)
+    LiveMatchState::new(
+        home,
+        away,
+        MatchConfig::default(),
+        home_bench,
+        away_bench,
+        allows_extra_time,
+    )
 }
 
 fn run_to_finish(state: &mut LiveMatchState, rng: &mut StdRng) -> Vec<MinuteResult> {
@@ -113,7 +145,12 @@ fn first_step_emits_kick_off() {
     let result = state.step_minute(&mut rng);
     assert_eq!(result.minute, 0);
     assert!(!result.is_finished);
-    assert!(result.events.iter().any(|e| e.event_type == EventType::KickOff));
+    assert!(
+        result
+            .events
+            .iter()
+            .any(|e| e.event_type == EventType::KickOff)
+    );
     assert_eq!(state.phase(), MatchPhase::FirstHalf);
 }
 
@@ -125,7 +162,11 @@ fn match_runs_to_completion() {
 
     assert!(state.is_finished());
     assert_eq!(state.phase(), MatchPhase::Finished);
-    assert!(results.len() >= 90, "Should have at least ~90 steps, got {}", results.len());
+    assert!(
+        results.len() >= 90,
+        "Should have at least ~90 steps, got {}",
+        results.len()
+    );
 
     let last = results.last().unwrap();
     assert!(last.is_finished);
@@ -196,7 +237,10 @@ fn different_seeds_produce_different_results() {
             break;
         }
     }
-    assert!(any_different, "Expected at least some variation across seeds");
+    assert!(
+        any_different,
+        "Expected at least some variation across seeds"
+    );
 }
 
 // ===========================================================================
@@ -231,7 +275,9 @@ fn halftime_events_present() {
     run_to_finish(&mut state, &mut rng);
 
     let snap = state.snapshot();
-    let halftime_events: Vec<_> = snap.events.iter()
+    let halftime_events: Vec<_> = snap
+        .events
+        .iter()
         .filter(|e| e.event_type == EventType::HalfTime)
         .collect();
     assert!(!halftime_events.is_empty(), "Should have HalfTime event");
@@ -244,7 +290,9 @@ fn fulltime_event_present() {
     run_to_finish(&mut state, &mut rng);
 
     let snap = state.snapshot();
-    let ft_events: Vec<_> = snap.events.iter()
+    let ft_events: Vec<_> = snap
+        .events
+        .iter()
         .filter(|e| e.event_type == EventType::FullTime)
         .collect();
     assert!(!ft_events.is_empty(), "Should have FullTime event");
@@ -288,8 +336,11 @@ fn no_extra_time_when_not_allowed() {
 
     let snap = state.snapshot();
     // Should never go past 90 + stoppage (max ~94)
-    assert!(snap.current_minute <= 100,
-        "Without ET, match shouldn't go past ~94 mins, got {}", snap.current_minute);
+    assert!(
+        snap.current_minute <= 100,
+        "Without ET, match shouldn't go past ~94 mins, got {}",
+        snap.current_minute
+    );
 }
 
 // ===========================================================================
@@ -306,9 +357,9 @@ fn penalty_shootout_resolves_drawn_et() {
         run_to_finish(&mut state, &mut rng);
 
         let snap = state.snapshot();
-        let had_penalties = snap.events.iter().any(|e|
+        let had_penalties = snap.events.iter().any(|e| {
             e.event_type == EventType::PenaltyGoal || e.event_type == EventType::PenaltyMiss
-        );
+        });
 
         if had_penalties {
             // Verify the match is finished with a winner
@@ -316,8 +367,10 @@ fn penalty_shootout_resolves_drawn_et() {
             // In a penalty shootout the final score includes penalty goals
             // so home_score != away_score (someone won)
             // Actually after a shootout one side has more penalty goals
-            assert_ne!(snap.home_score, snap.away_score,
-                "After penalties, scores should differ. Seed: {seed}");
+            assert_ne!(
+                snap.home_score, snap.away_score,
+                "After penalties, scores should differ. Seed: {seed}"
+            );
             return;
         }
     }
@@ -352,8 +405,20 @@ fn substitution_replaces_player() {
 
     let snap_after = state.snapshot();
     assert_eq!(snap_after.home_subs_made, 1);
-    assert!(snap_after.home_team.players.iter().any(|p| p.id == player_on_id));
-    assert!(!snap_after.home_team.players.iter().any(|p| p.id == player_off_id));
+    assert!(
+        snap_after
+            .home_team
+            .players
+            .iter()
+            .any(|p| p.id == player_on_id)
+    );
+    assert!(
+        !snap_after
+            .home_team
+            .players
+            .iter()
+            .any(|p| p.id == player_off_id)
+    );
 }
 
 #[test]
@@ -425,17 +490,24 @@ fn substitution_recorded_in_events() {
     let bench = state.bench(Side::Home);
     let on_id = bench[0].id.clone();
 
-    state.apply_command(MatchCommand::Substitute {
-        side: Side::Home,
-        player_off_id: off_id.clone(),
-        player_on_id: on_id.clone(),
-    }).unwrap();
+    state
+        .apply_command(MatchCommand::Substitute {
+            side: Side::Home,
+            player_off_id: off_id.clone(),
+            player_on_id: on_id.clone(),
+        })
+        .unwrap();
 
     let snap = state.snapshot();
-    let sub_events: Vec<_> = snap.events.iter()
+    let sub_events: Vec<_> = snap
+        .events
+        .iter()
         .filter(|e| e.event_type == EventType::Substitution)
         .collect();
-    assert!(!sub_events.is_empty(), "Substitution should generate an event");
+    assert!(
+        !sub_events.is_empty(),
+        "Substitution should generate an event"
+    );
     assert_eq!(snap.substitutions.len(), 1);
     assert_eq!(snap.substitutions[0].player_off_id, off_id);
     assert_eq!(snap.substitutions[0].player_on_id, on_id);
@@ -451,10 +523,12 @@ fn change_formation_works() {
     let mut rng = seeded_rng(42);
     state.step_minute(&mut rng);
 
-    state.apply_command(MatchCommand::ChangeFormation {
-        side: Side::Home,
-        formation: "3-5-2".to_string(),
-    }).unwrap();
+    state
+        .apply_command(MatchCommand::ChangeFormation {
+            side: Side::Home,
+            formation: "3-5-2".to_string(),
+        })
+        .unwrap();
 
     let snap = state.snapshot();
     assert_eq!(snap.home_team.formation, "3-5-2");
@@ -466,10 +540,12 @@ fn change_play_style_works() {
     let mut rng = seeded_rng(42);
     state.step_minute(&mut rng);
 
-    state.apply_command(MatchCommand::ChangePlayStyle {
-        side: Side::Away,
-        play_style: PlayStyle::Attacking,
-    }).unwrap();
+    state
+        .apply_command(MatchCommand::ChangePlayStyle {
+            side: Side::Away,
+            play_style: PlayStyle::Attacking,
+        })
+        .unwrap();
 
     let snap = state.snapshot();
     assert_eq!(snap.away_team.play_style, PlayStyle::Attacking);
@@ -482,19 +558,28 @@ fn set_piece_takers_stored() {
     state.step_minute(&mut rng);
 
     let snap = state.snapshot();
-    let fwd_id = snap.home_team.players.iter()
+    let fwd_id = snap
+        .home_team
+        .players
+        .iter()
         .find(|p| p.position == Position::Forward)
-        .unwrap().id.clone();
+        .unwrap()
+        .id
+        .clone();
 
-    state.apply_command(MatchCommand::SetPenaltyTaker {
-        side: Side::Home,
-        player_id: fwd_id.clone(),
-    }).unwrap();
+    state
+        .apply_command(MatchCommand::SetPenaltyTaker {
+            side: Side::Home,
+            player_id: fwd_id.clone(),
+        })
+        .unwrap();
 
-    state.apply_command(MatchCommand::SetCaptain {
-        side: Side::Home,
-        player_id: fwd_id.clone(),
-    }).unwrap();
+    state
+        .apply_command(MatchCommand::SetCaptain {
+            side: Side::Home,
+            player_id: fwd_id.clone(),
+        })
+        .unwrap();
 
     let snap = state.snapshot();
     assert_eq!(snap.home_set_pieces.penalty_taker, Some(fwd_id.clone()));
@@ -539,7 +624,10 @@ fn ai_decide_returns_no_commands_early() {
     let mut rng = seeded_rng(42);
     state.step_minute(&mut rng); // kick off
 
-    let profile = AiProfile { reputation: 500, experience: 50 };
+    let profile = AiProfile {
+        reputation: 500,
+        experience: 50,
+    };
     let cmds = ai_decide(&state, Side::Home, &profile, &mut rng);
     // At minute 0, AI shouldn't make decisions
     assert!(cmds.is_empty(), "AI should not act at minute 0");
@@ -549,7 +637,10 @@ fn ai_decide_returns_no_commands_early() {
 fn ai_decide_does_not_crash() {
     let mut state = make_live_match(false);
     let mut rng = seeded_rng(42);
-    let profile = AiProfile { reputation: 800, experience: 80 };
+    let profile = AiProfile {
+        reputation: 800,
+        experience: 80,
+    };
 
     // Run the entire match with AI decisions
     loop {
@@ -573,7 +664,10 @@ fn ai_decide_does_not_crash() {
 #[test]
 fn ai_makes_substitutions_eventually() {
     // Run many matches with AI and check if any subs were made
-    let profile = AiProfile { reputation: 900, experience: 90 };
+    let profile = AiProfile {
+        reputation: 900,
+        experience: 90,
+    };
     let mut any_subs = false;
 
     for seed in 0..20 {
@@ -598,7 +692,10 @@ fn ai_makes_substitutions_eventually() {
             break;
         }
     }
-    assert!(any_subs, "AI should make at least one substitution across 20 matches");
+    assert!(
+        any_subs,
+        "AI should make at least one substitution across 20 matches"
+    );
 }
 
 // ===========================================================================
@@ -612,11 +709,21 @@ fn goals_in_events_match_score() {
     run_to_finish(&mut state, &mut rng);
 
     let snap = state.snapshot();
-    let home_goals = snap.events.iter()
-        .filter(|e| e.side == Side::Home && (e.event_type == EventType::Goal || e.event_type == EventType::PenaltyGoal))
+    let home_goals = snap
+        .events
+        .iter()
+        .filter(|e| {
+            e.side == Side::Home
+                && (e.event_type == EventType::Goal || e.event_type == EventType::PenaltyGoal)
+        })
         .count() as u8;
-    let away_goals = snap.events.iter()
-        .filter(|e| e.side == Side::Away && (e.event_type == EventType::Goal || e.event_type == EventType::PenaltyGoal))
+    let away_goals = snap
+        .events
+        .iter()
+        .filter(|e| {
+            e.side == Side::Away
+                && (e.event_type == EventType::Goal || e.event_type == EventType::PenaltyGoal)
+        })
         .count() as u8;
 
     assert_eq!(home_goals, snap.home_score);
@@ -635,7 +742,12 @@ fn strong_team_advantage() {
         let home_bench = make_bench("home", 80);
         let away_bench = make_bench("away", 50);
         let mut state = LiveMatchState::new(
-            strong, weak, MatchConfig::default(), home_bench, away_bench, false
+            strong,
+            weak,
+            MatchConfig::default(),
+            home_bench,
+            away_bench,
+            false,
         );
         let mut rng = seeded_rng(seed);
         run_to_finish(&mut state, &mut rng);
@@ -686,8 +798,10 @@ fn possession_percentages_valid() {
 
     let snap = state.snapshot();
     let total = snap.home_possession_pct + snap.away_possession_pct;
-    assert!(total > 99.0 && total < 101.0,
-        "Possession should add to ~100%, got {total:.1}%");
+    assert!(
+        total > 99.0 && total < 101.0,
+        "Possession should add to ~100%, got {total:.1}%"
+    );
     assert!(snap.home_possession_pct > 10.0, "Home possession too low");
     assert!(snap.away_possession_pct > 10.0, "Away possession too low");
 }
@@ -708,8 +822,10 @@ fn events_are_chronological() {
             assert!(
                 window[1].minute >= window[0].minute,
                 "Seed {seed}: events out of order: minute {} ({:?}) followed by {} ({:?})",
-                window[0].minute, window[0].event_type,
-                window[1].minute, window[1].event_type,
+                window[0].minute,
+                window[0].event_type,
+                window[1].minute,
+                window[1].event_type,
             );
         }
     }
@@ -737,11 +853,13 @@ fn bench_shrinks_after_substitution() {
     let off_id = snap.home_team.players[5].id.clone();
     let on_id = state.bench(Side::Home)[0].id.clone();
 
-    state.apply_command(MatchCommand::Substitute {
-        side: Side::Home,
-        player_off_id: off_id,
-        player_on_id: on_id,
-    }).unwrap();
+    state
+        .apply_command(MatchCommand::Substitute {
+            side: Side::Home,
+            player_off_id: off_id,
+            player_on_id: on_id,
+        })
+        .unwrap();
 
     // Bench should have 5 (original) - 1 (moved to pitch) + 1 (player moved to bench) = 5
     // Actually: bench loses the sub_on player, gains the player_off
@@ -759,7 +877,10 @@ fn report_has_player_stats() {
     run_to_finish(&mut state, &mut rng);
 
     let report = state.into_report();
-    assert!(!report.player_stats.is_empty(), "Report should have player stats");
+    assert!(
+        !report.player_stats.is_empty(),
+        "Report should have player stats"
+    );
 }
 
 #[test]

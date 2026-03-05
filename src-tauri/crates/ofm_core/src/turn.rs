@@ -9,14 +9,17 @@ use crate::training;
 use chrono::Datelike;
 use domain::league::{FixtureStatus, GoalEvent, MatchResult};
 use domain::player::Position as DomainPosition;
-use log::{info, debug};
+use log::{debug, info};
 
 /// Process a single day advance.
 pub fn process_day(game: &mut Game) {
     let today = game.clock.current_date.format("%Y-%m-%d").to_string();
 
-    let has_match_today = game.league.as_ref().map_or(false, |league| {
-        league.fixtures.iter().any(|f| f.date == today && f.status == FixtureStatus::Scheduled)
+    let has_match_today = game.league.as_ref().is_some_and(|league| {
+        league
+            .fixtures
+            .iter()
+            .any(|f| f.date == today && f.status == FixtureStatus::Scheduled)
     });
 
     if has_match_today {
@@ -73,15 +76,19 @@ fn build_engine_team(game: &Game, team_id: &str) -> engine::TeamData {
             t.name.clone(),
             t.formation.clone(),
             match t.play_style {
-                domain::team::PlayStyle::Attacking  => engine::PlayStyle::Attacking,
-                domain::team::PlayStyle::Defensive  => engine::PlayStyle::Defensive,
-                domain::team::PlayStyle::Possession  => engine::PlayStyle::Possession,
-                domain::team::PlayStyle::Counter     => engine::PlayStyle::Counter,
-                domain::team::PlayStyle::HighPress   => engine::PlayStyle::HighPress,
-                _                                    => engine::PlayStyle::Balanced,
+                domain::team::PlayStyle::Attacking => engine::PlayStyle::Attacking,
+                domain::team::PlayStyle::Defensive => engine::PlayStyle::Defensive,
+                domain::team::PlayStyle::Possession => engine::PlayStyle::Possession,
+                domain::team::PlayStyle::Counter => engine::PlayStyle::Counter,
+                domain::team::PlayStyle::HighPress => engine::PlayStyle::HighPress,
+                _ => engine::PlayStyle::Balanced,
             },
         ),
-        None => ("Unknown".into(), "4-4-2".into(), engine::PlayStyle::Balanced),
+        None => (
+            "Unknown".into(),
+            "4-4-2".into(),
+            engine::PlayStyle::Balanced,
+        ),
     };
 
     let players: Vec<engine::PlayerData> = game
@@ -91,9 +98,9 @@ fn build_engine_team(game: &Game, team_id: &str) -> engine::TeamData {
         .map(|p| {
             let pos = match p.position {
                 DomainPosition::Goalkeeper => engine::Position::Goalkeeper,
-                DomainPosition::Defender   => engine::Position::Defender,
+                DomainPosition::Defender => engine::Position::Defender,
                 DomainPosition::Midfielder => engine::Position::Midfielder,
-                DomainPosition::Forward    => engine::Position::Forward,
+                DomainPosition::Forward => engine::Position::Forward,
             };
             engine::PlayerData {
                 id: p.id.clone(),
@@ -146,7 +153,10 @@ fn simulate_matchday(game: &mut Game, today: &str) {
 /// Simulate all scheduled matches for `today`, optionally skipping one fixture
 /// (the user's live match). Called by both process_day and advance_time_with_mode.
 pub fn simulate_other_matches(game: &mut Game, today: &str, skip_fixture: Option<usize>) {
-    debug!("[turn] simulate_other_matches: date={}, skip={:?}", today, skip_fixture);
+    debug!(
+        "[turn] simulate_other_matches: date={}, skip={:?}",
+        today, skip_fixture
+    );
     let fixture_indices: Vec<usize> = game.league.as_ref().map_or(vec![], |league| {
         league
             .fixtures
@@ -155,7 +165,7 @@ pub fn simulate_other_matches(game: &mut Game, today: &str, skip_fixture: Option
             .filter(|(i, f)| {
                 f.date == today
                     && f.status == FixtureStatus::Scheduled
-                    && skip_fixture.map_or(true, |skip| *i != skip)
+                    && (skip_fixture != Some(*i))
             })
             .map(|(i, _)| i)
             .collect()
@@ -173,16 +183,32 @@ fn simulate_single_match(game: &mut Game, idx: usize) {
         (f.home_team_id.clone(), f.away_team_id.clone())
     };
 
-    let home_name = game.teams.iter().find(|t| t.id == home_team_id).map(|t| t.name.as_str()).unwrap_or("?");
-    let away_name = game.teams.iter().find(|t| t.id == away_team_id).map(|t| t.name.as_str()).unwrap_or("?");
-    debug!("[turn] simulate_single_match: {} vs {} (fixture #{})", home_name, away_name, idx);
+    let home_name = game
+        .teams
+        .iter()
+        .find(|t| t.id == home_team_id)
+        .map(|t| t.name.as_str())
+        .unwrap_or("?");
+    let away_name = game
+        .teams
+        .iter()
+        .find(|t| t.id == away_team_id)
+        .map(|t| t.name.as_str())
+        .unwrap_or("?");
+    debug!(
+        "[turn] simulate_single_match: {} vs {} (fixture #{})",
+        home_name, away_name, idx
+    );
 
     let home_data = build_engine_team(game, &home_team_id);
     let away_data = build_engine_team(game, &away_team_id);
     let config = engine::MatchConfig::default();
     let report = engine::simulate(&home_data, &away_data, &config);
 
-    info!("[turn] match result: {} {} - {} {} (fixture #{})", home_name, report.home_goals, report.away_goals, away_name, idx);
+    info!(
+        "[turn] match result: {} {} - {} {} (fixture #{})",
+        home_name, report.home_goals, report.away_goals, away_name, idx
+    );
     apply_match_report(game, idx, &home_team_id, &away_team_id, &report);
 }
 
@@ -196,7 +222,10 @@ pub fn apply_match_report(
     away_team_id: &str,
     report: &engine::MatchReport,
 ) {
-    debug!("[turn] apply_match_report: fixture #{}, score {} - {}", fixture_index, report.home_goals, report.away_goals);
+    debug!(
+        "[turn] apply_match_report: fixture #{}, score {} - {}",
+        fixture_index, report.home_goals, report.away_goals
+    );
     // Convert engine GoalDetails → domain GoalEvents
     let home_scorers: Vec<GoalEvent> = report
         .goals
@@ -229,10 +258,18 @@ pub fn apply_match_report(
         let fixture = &mut league.fixtures[fixture_index];
         fixture.status = FixtureStatus::Completed;
 
-        if let Some(entry) = league.standings.iter_mut().find(|e| e.team_id == home_team_id) {
+        if let Some(entry) = league
+            .standings
+            .iter_mut()
+            .find(|e| e.team_id == home_team_id)
+        {
             entry.record_result(result.home_goals, result.away_goals);
         }
-        if let Some(entry) = league.standings.iter_mut().find(|e| e.team_id == away_team_id) {
+        if let Some(entry) = league
+            .standings
+            .iter_mut()
+            .find(|e| e.team_id == away_team_id)
+        {
             entry.record_result(result.away_goals, result.home_goals);
         }
 
@@ -253,35 +290,75 @@ pub fn apply_match_report(
     update_team_form(game, report, home_team_id, away_team_id);
 
     // Update board satisfaction based on match result
-    if let Some(user_team_id) = &game.manager.team_id {
-        if *user_team_id == home_team_id || *user_team_id == away_team_id {
-            let user_goals = if *user_team_id == home_team_id { report.home_goals } else { report.away_goals };
-            let opp_goals = if *user_team_id == home_team_id { report.away_goals } else { report.home_goals };
-            let sat_delta: i8 = if user_goals > opp_goals { 2 }        // win: +2
-                               else if user_goals == opp_goals { -1 }  // draw: -1
-                               else { -3 };                            // loss: -3
+    if let Some(user_team_id) = &game.manager.team_id
+        && (*user_team_id == home_team_id || *user_team_id == away_team_id) {
+            let user_goals = if *user_team_id == home_team_id {
+                report.home_goals
+            } else {
+                report.away_goals
+            };
+            let opp_goals = if *user_team_id == home_team_id {
+                report.away_goals
+            } else {
+                report.home_goals
+            };
+            let sat_delta: i8 = if user_goals > opp_goals {
+                2
+            }
+            // win: +2
+            else if user_goals == opp_goals {
+                -1
+            }
+            // draw: -1
+            else {
+                -3
+            }; // loss: -3
             let new_sat = (game.manager.satisfaction as i16 + sat_delta as i16).clamp(0, 100) as u8;
             game.manager.satisfaction = new_sat;
 
             // Fan approval — fans react more emotionally
-            let fan_delta: i8 = if user_goals > opp_goals { 5 }         // win: +5
-                               else if user_goals == opp_goals { -2 }   // draw: -2
-                               else { -8 };                             // loss: -8
+            let fan_delta: i8 = if user_goals > opp_goals {
+                5
+            }
+            // win: +5
+            else if user_goals == opp_goals {
+                -2
+            }
+            // draw: -2
+            else {
+                -8
+            }; // loss: -8
             // Extra bonus for big wins, extra penalty for heavy losses
             let goal_diff = (user_goals as i8) - (opp_goals as i8);
-            let fan_bonus: i8 = if goal_diff >= 3 { 3 } else if goal_diff <= -3 { -3 } else { 0 };
-            let new_fan = (game.manager.fan_approval as i16 + fan_delta as i16 + fan_bonus as i16).clamp(0, 100) as u8;
+            let fan_bonus: i8 = if goal_diff >= 3 {
+                3
+            } else if goal_diff <= -3 {
+                -3
+            } else {
+                0
+            };
+            let new_fan = (game.manager.fan_approval as i16 + fan_delta as i16 + fan_bonus as i16)
+                .clamp(0, 100) as u8;
             game.manager.fan_approval = new_fan;
         }
-    }
 
     // Generate match result message for user's team
-    if let Some(user_team_id) = &game.manager.team_id {
-        if *user_team_id == home_team_id || *user_team_id == away_team_id {
+    if let Some(user_team_id) = &game.manager.team_id
+        && (*user_team_id == home_team_id || *user_team_id == away_team_id) {
             let fixture = &game.league.as_ref().unwrap().fixtures[fixture_index];
             let res = fixture.result.as_ref().unwrap();
-            let home_name = game.teams.iter().find(|t| t.id == home_team_id).map(|t| t.name.as_str()).unwrap_or("Home");
-            let away_name = game.teams.iter().find(|t| t.id == away_team_id).map(|t| t.name.as_str()).unwrap_or("Away");
+            let home_name = game
+                .teams
+                .iter()
+                .find(|t| t.id == home_team_id)
+                .map(|t| t.name.as_str())
+                .unwrap_or("Home");
+            let away_name = game
+                .teams
+                .iter()
+                .find(|t| t.id == away_team_id)
+                .map(|t| t.name.as_str())
+                .unwrap_or("Away");
 
             let msg = messages::match_result_message(
                 &fixture.id,
@@ -297,7 +374,6 @@ pub fn apply_match_report(
             );
             game.messages.push(msg);
         }
-    }
 
     // Generate match report news article
     generate_match_news(game, fixture_index, home_team_id, away_team_id, report);
@@ -327,8 +403,7 @@ fn apply_player_stats(
                 player.stats.avg_rating = ps.rating;
             } else {
                 let n = player.stats.appearances as f32;
-                player.stats.avg_rating =
-                    (player.stats.avg_rating * (n - 1.0) + ps.rating) / n;
+                player.stats.avg_rating = (player.stats.avg_rating * (n - 1.0) + ps.rating) / n;
             }
 
             // Clean sheet for goalkeepers
@@ -417,12 +492,20 @@ fn update_team_form(
     use rand::Rng;
     let mut rng = rand::thread_rng();
 
-    let home_result = if report.home_goals > report.away_goals { "W" }
-        else if report.home_goals < report.away_goals { "L" }
-        else { "D" };
-    let away_result = if report.away_goals > report.home_goals { "W" }
-        else if report.away_goals < report.home_goals { "L" }
-        else { "D" };
+    let home_result = if report.home_goals > report.away_goals {
+        "W"
+    } else if report.home_goals < report.away_goals {
+        "L"
+    } else {
+        "D"
+    };
+    let away_result = if report.away_goals > report.home_goals {
+        "W"
+    } else if report.away_goals < report.home_goals {
+        "L"
+    } else {
+        "D"
+    };
 
     // Update form for both teams
     for (team_id_str, result) in [(home_team_id, home_result), (away_team_id, away_result)] {
@@ -436,7 +519,10 @@ fn update_team_form(
 
     // Apply streak-based morale bonus/penalty
     for team_id_str in [home_team_id, away_team_id] {
-        let form = game.teams.iter().find(|t| t.id == team_id_str)
+        let form = game
+            .teams
+            .iter()
+            .find(|t| t.id == team_id_str)
             .map(|t| t.form.clone())
             .unwrap_or_default();
 
@@ -486,24 +572,42 @@ fn generate_match_news(
         return;
     }
 
-    let home_name = game.teams.iter().find(|t| t.id == home_team_id).map(|t| t.name.as_str()).unwrap_or("Home");
-    let away_name = game.teams.iter().find(|t| t.id == away_team_id).map(|t| t.name.as_str()).unwrap_or("Away");
+    let home_name = game
+        .teams
+        .iter()
+        .find(|t| t.id == home_team_id)
+        .map(|t| t.name.as_str())
+        .unwrap_or("Home");
+    let away_name = game
+        .teams
+        .iter()
+        .find(|t| t.id == away_team_id)
+        .map(|t| t.name.as_str())
+        .unwrap_or("Away");
 
     // Build scorer lists with player names
-    let home_scorers: Vec<(String, u32)> = report.goals.iter()
+    let home_scorers: Vec<(String, u32)> = report
+        .goals
+        .iter()
         .filter(|g| g.side == engine::Side::Home)
         .map(|g| {
-            let name = game.players.iter()
+            let name = game
+                .players
+                .iter()
                 .find(|p| p.id == g.scorer_id)
                 .map(|p| p.match_name.clone())
                 .unwrap_or_else(|| g.scorer_id.clone());
             (name, g.minute as u32)
         })
         .collect();
-    let away_scorers: Vec<(String, u32)> = report.goals.iter()
+    let away_scorers: Vec<(String, u32)> = report
+        .goals
+        .iter()
         .filter(|g| g.side == engine::Side::Away)
         .map(|g| {
-            let name = game.players.iter()
+            let name = game
+                .players
+                .iter()
                 .find(|p| p.id == g.scorer_id)
                 .map(|p| p.match_name.clone())
                 .unwrap_or_else(|| g.scorer_id.clone());
@@ -535,7 +639,9 @@ pub fn generate_matchday_news(game: &mut Game, today: &str) {
     };
 
     // Collect completed fixtures for today
-    let todays_fixtures: Vec<_> = league.fixtures.iter()
+    let todays_fixtures: Vec<_> = league
+        .fixtures
+        .iter()
         .filter(|f| f.date == today && f.status == FixtureStatus::Completed)
         .collect();
 
@@ -553,21 +659,47 @@ pub fn generate_matchday_news(game: &mut Game, today: &str) {
     }
 
     // Build results list
-    let results: Vec<(String, u8, String, u8)> = todays_fixtures.iter().map(|f| {
-        let home_name = game.teams.iter().find(|t| t.id == f.home_team_id).map(|t| t.name.clone()).unwrap_or_default();
-        let away_name = game.teams.iter().find(|t| t.id == f.away_team_id).map(|t| t.name.clone()).unwrap_or_default();
-        let (hg, ag) = f.result.as_ref().map(|r| (r.home_goals, r.away_goals)).unwrap_or((0, 0));
-        (home_name, hg, away_name, ag)
-    }).collect();
+    let results: Vec<(String, u8, String, u8)> = todays_fixtures
+        .iter()
+        .map(|f| {
+            let home_name = game
+                .teams
+                .iter()
+                .find(|t| t.id == f.home_team_id)
+                .map(|t| t.name.clone())
+                .unwrap_or_default();
+            let away_name = game
+                .teams
+                .iter()
+                .find(|t| t.id == f.away_team_id)
+                .map(|t| t.name.clone())
+                .unwrap_or_default();
+            let (hg, ag) = f
+                .result
+                .as_ref()
+                .map(|r| (r.home_goals, r.away_goals))
+                .unwrap_or((0, 0));
+            (home_name, hg, away_name, ag)
+        })
+        .collect();
 
     let roundup = news::league_roundup_article(matchday, &results, &date_str);
     game.news.push(roundup);
 
     // Standings update
-    let mut standings: Vec<(String, u32, i16)> = league.standings.iter().map(|e| {
-        let name = game.teams.iter().find(|t| t.id == e.team_id).map(|t| t.name.clone()).unwrap_or_default();
-        (name, e.points, e.goal_difference() as i16)
-    }).collect();
+    let mut standings: Vec<(String, u32, i16)> = league
+        .standings
+        .iter()
+        .map(|e| {
+            let name = game
+                .teams
+                .iter()
+                .find(|t| t.id == e.team_id)
+                .map(|t| t.name.clone())
+                .unwrap_or_default();
+            (name, e.points, e.goal_difference() as i16)
+        })
+        .collect();
     standings.sort_by(|a, b| b.1.cmp(&a.1).then(b.2.cmp(&a.2)));
 
     let standings_article = news::standings_update_article(matchday, &standings, &date_str);
@@ -589,7 +721,9 @@ fn generate_pre_match_messages(game: &mut Game, today: &str) {
     let target_str = target_date.format("%Y-%m-%d").to_string();
 
     if let Some(league) = &game.league {
-        let upcoming: Vec<_> = league.fixtures.iter()
+        let upcoming: Vec<_> = league
+            .fixtures
+            .iter()
             .filter(|f| {
                 f.date == target_str
                     && f.status == FixtureStatus::Scheduled
@@ -603,7 +737,9 @@ fn generate_pre_match_messages(game: &mut Game, today: &str) {
             } else {
                 &fixture.home_team_id
             };
-            let opponent_name = game.teams.iter()
+            let opponent_name = game
+                .teams
+                .iter()
                 .find(|t| t.id == *opponent_id)
                 .map(|t| t.name.as_str())
                 .unwrap_or("Unknown");

@@ -74,38 +74,78 @@ fn trait_bonus(snap: &PlayerSnap, context: TraitContext) -> f64 {
     let mut bonus = 1.0;
     match context {
         TraitContext::Shooting => {
-            if snap.has_trait("Sharpshooter") { bonus *= 1.08; }
-            if snap.has_trait("CoolHead") { bonus *= 1.04; }
-            if snap.has_trait("CompleteForward") { bonus *= 1.05; }
+            if snap.has_trait("Sharpshooter") {
+                bonus *= 1.08;
+            }
+            if snap.has_trait("CoolHead") {
+                bonus *= 1.04;
+            }
+            if snap.has_trait("CompleteForward") {
+                bonus *= 1.05;
+            }
         }
         TraitContext::Dribbling => {
-            if snap.has_trait("Dribbler") { bonus *= 1.08; }
-            if snap.has_trait("Speedster") { bonus *= 1.04; }
-            if snap.has_trait("Agile") { bonus *= 1.04; }
+            if snap.has_trait("Dribbler") {
+                bonus *= 1.08;
+            }
+            if snap.has_trait("Speedster") {
+                bonus *= 1.04;
+            }
+            if snap.has_trait("Agile") {
+                bonus *= 1.04;
+            }
         }
         TraitContext::Passing => {
-            if snap.has_trait("Playmaker") { bonus *= 1.08; }
-            if snap.has_trait("Visionary") { bonus *= 1.05; }
-            if snap.has_trait("SetPieceSpecialist") { bonus *= 1.03; }
+            if snap.has_trait("Playmaker") {
+                bonus *= 1.08;
+            }
+            if snap.has_trait("Visionary") {
+                bonus *= 1.05;
+            }
+            if snap.has_trait("SetPieceSpecialist") {
+                bonus *= 1.03;
+            }
         }
         TraitContext::Tackling => {
-            if snap.has_trait("BallWinner") { bonus *= 1.08; }
-            if snap.has_trait("Rock") { bonus *= 1.05; }
-            if snap.has_trait("Tank") { bonus *= 1.04; }
+            if snap.has_trait("BallWinner") {
+                bonus *= 1.08;
+            }
+            if snap.has_trait("Rock") {
+                bonus *= 1.05;
+            }
+            if snap.has_trait("Tank") {
+                bonus *= 1.04;
+            }
         }
         TraitContext::Goalkeeping => {
-            if snap.has_trait("SafeHands") { bonus *= 1.08; }
-            if snap.has_trait("CatReflexes") { bonus *= 1.06; }
-            if snap.has_trait("AerialDominance") { bonus *= 1.04; }
+            if snap.has_trait("SafeHands") {
+                bonus *= 1.08;
+            }
+            if snap.has_trait("CatReflexes") {
+                bonus *= 1.06;
+            }
+            if snap.has_trait("AerialDominance") {
+                bonus *= 1.04;
+            }
         }
         TraitContext::Foul => {
-            if snap.has_trait("HotHead") { bonus *= 1.25; }
-            if snap.has_trait("CoolHead") { bonus *= 0.70; }
+            if snap.has_trait("HotHead") {
+                bonus *= 1.25;
+            }
+            if snap.has_trait("CoolHead") {
+                bonus *= 0.70;
+            }
         }
         TraitContext::Midfield => {
-            if snap.has_trait("Engine") { bonus *= 1.06; }
-            if snap.has_trait("TeamPlayer") { bonus *= 1.04; }
-            if snap.has_trait("Tireless") { bonus *= 1.03; }
+            if snap.has_trait("Engine") {
+                bonus *= 1.06;
+            }
+            if snap.has_trait("TeamPlayer") {
+                bonus *= 1.04;
+            }
+            if snap.has_trait("Tireless") {
+                bonus *= 1.03;
+            }
         }
     }
     bonus
@@ -142,7 +182,12 @@ pub fn simulate_with_rng<R: Rng>(
     let mut ctx = MatchContext::new(home, away, config);
 
     // Kick-off
-    ctx.emit(MatchEvent::new(0, EventType::KickOff, Side::Home, Zone::Midfield));
+    ctx.emit(MatchEvent::new(
+        0,
+        EventType::KickOff,
+        Side::Home,
+        Zone::Midfield,
+    ));
     ctx.ball_zone = Zone::Midfield;
     ctx.possession = Side::Home;
 
@@ -152,13 +197,23 @@ pub fn simulate_with_rng<R: Rng>(
     for minute in 1..=first_half_end {
         simulate_minute(&mut ctx, minute, rng);
     }
-    ctx.emit(MatchEvent::new(first_half_end, EventType::HalfTime, Side::Home, Zone::Midfield));
+    ctx.emit(MatchEvent::new(
+        first_half_end,
+        EventType::HalfTime,
+        Side::Home,
+        Zone::Midfield,
+    ));
 
     // Reset ball position for second half
     let second_half_start = first_half_end + 1;
     ctx.ball_zone = Zone::Midfield;
     ctx.possession = Side::Away;
-    ctx.emit(MatchEvent::new(second_half_start, EventType::SecondHalfStart, Side::Away, Zone::Midfield));
+    ctx.emit(MatchEvent::new(
+        second_half_start,
+        EventType::SecondHalfStart,
+        Side::Away,
+        Zone::Midfield,
+    ));
 
     // --- Second half (minutes 46–90 + stoppage) ---
     let second_half_stoppage = rng.gen_range(0..=config.stoppage_time_max);
@@ -167,7 +222,12 @@ pub fn simulate_with_rng<R: Rng>(
         simulate_minute(&mut ctx, minute, rng);
     }
     let total_minutes = match_end;
-    ctx.emit(MatchEvent::new(match_end, EventType::FullTime, Side::Home, Zone::Midfield));
+    ctx.emit(MatchEvent::new(
+        match_end,
+        EventType::FullTime,
+        Side::Home,
+        Zone::Midfield,
+    ));
 
     MatchReport::from_events(
         ctx.events,
@@ -235,7 +295,12 @@ impl<'a> MatchContext<'a> {
 
 /// Pick a random player from a side, preferring a given position, and return
 /// a snapshot so we don't hold a borrow on the context.
-fn snap_player<R: Rng>(ctx: &MatchContext, side: Side, preferred: Position, rng: &mut R) -> PlayerSnap {
+fn snap_player<R: Rng>(
+    ctx: &MatchContext,
+    side: Side,
+    preferred: Position,
+    rng: &mut R,
+) -> PlayerSnap {
     let team = ctx.team(side);
     let available: Vec<&PlayerData> = team
         .players
@@ -249,7 +314,11 @@ fn snap_player<R: Rng>(ctx: &MatchContext, side: Side, preferred: Position, rng:
         .copied()
         .collect();
 
-    let pool = if candidates.is_empty() { &available } else { &candidates };
+    let pool = if candidates.is_empty() {
+        &available
+    } else {
+        &candidates
+    };
 
     if pool.is_empty() {
         return PlayerSnap::from(&team.players[0]);
@@ -318,7 +387,12 @@ fn resolve_buildup<R: Rng>(
     rng: &mut R,
 ) {
     let passer = snap_player(ctx, att_side, Position::Defender, rng);
-    let pass_skill = (passer.passing as f64 + passer.vision as f64 + passer.composure as f64 + passer.teamwork as f64) / 4.0 * trait_bonus(&passer, TraitContext::Passing);
+    let pass_skill = (passer.passing as f64
+        + passer.vision as f64
+        + passer.composure as f64
+        + passer.teamwork as f64)
+        / 4.0
+        * trait_bonus(&passer, TraitContext::Passing);
     let press = effective_press(ctx, def_side);
     let ball_zone = ctx.ball_zone;
 
@@ -353,11 +427,29 @@ fn resolve_midfield<R: Rng>(
     let attacker = snap_player(ctx, att_side, Position::Midfielder, rng);
     let defender = snap_player(ctx, def_side, Position::Midfielder, rng);
 
-    let att_rating = (attacker.dribbling as f64 + attacker.passing as f64 + attacker.vision as f64 + attacker.teamwork as f64) / 4.0 * trait_bonus(&attacker, TraitContext::Midfield);
-    let def_rating = (defender.tackling as f64 + defender.positioning as f64 + defender.decisions as f64 + defender.teamwork as f64) / 4.0 * trait_bonus(&defender, TraitContext::Tackling);
+    let att_rating = (attacker.dribbling as f64
+        + attacker.passing as f64
+        + attacker.vision as f64
+        + attacker.teamwork as f64)
+        / 4.0
+        * trait_bonus(&attacker, TraitContext::Midfield);
+    let def_rating = (defender.tackling as f64
+        + defender.positioning as f64
+        + defender.decisions as f64
+        + defender.teamwork as f64)
+        / 4.0
+        * trait_bonus(&defender, TraitContext::Tackling);
 
-    let att_mod = play_style_modifier(ctx.team(att_side).play_style, PlayStylePhase::Midfield, true);
-    let def_mod = play_style_modifier(ctx.team(def_side).play_style, PlayStylePhase::Midfield, false);
+    let att_mod = play_style_modifier(
+        ctx.team(att_side).play_style,
+        PlayStylePhase::Midfield,
+        true,
+    );
+    let def_mod = play_style_modifier(
+        ctx.team(def_side).play_style,
+        PlayStylePhase::Midfield,
+        false,
+    );
     let att_eff = att_rating * att_mod * home_mod(att_side, ctx.config);
     let def_eff = def_rating * def_mod * home_mod(def_side, ctx.config);
     let success = att_eff / (att_eff + def_eff);
@@ -374,7 +466,15 @@ fn resolve_midfield<R: Rng>(
                 MatchEvent::new(minute, EventType::Tackle, def_side, Zone::Midfield)
                     .with_player(&defender.id),
             );
-            maybe_foul(ctx, minute, def_side, &attacker, &defender, Zone::Midfield, rng);
+            maybe_foul(
+                ctx,
+                minute,
+                def_side,
+                &attacker,
+                &defender,
+                Zone::Midfield,
+                rng,
+            );
         } else {
             ctx.emit(
                 MatchEvent::new(minute, EventType::Interception, def_side, Zone::Midfield)
@@ -396,11 +496,25 @@ fn resolve_attacking_third<R: Rng>(
     let attacker = snap_player(ctx, att_side, Position::Forward, rng);
     let defender = snap_player(ctx, def_side, Position::Defender, rng);
 
-    let att_rating = (attacker.dribbling as f64 + attacker.pace as f64 + attacker.agility as f64 + attacker.composure as f64) / 4.0 * trait_bonus(&attacker, TraitContext::Dribbling);
-    let def_rating = (defender.defending as f64 + defender.tackling as f64 + defender.positioning as f64 + defender.aerial as f64) / 4.0 * trait_bonus(&defender, TraitContext::Tackling);
+    let att_rating = (attacker.dribbling as f64
+        + attacker.pace as f64
+        + attacker.agility as f64
+        + attacker.composure as f64)
+        / 4.0
+        * trait_bonus(&attacker, TraitContext::Dribbling);
+    let def_rating = (defender.defending as f64
+        + defender.tackling as f64
+        + defender.positioning as f64
+        + defender.aerial as f64)
+        / 4.0
+        * trait_bonus(&defender, TraitContext::Tackling);
 
     let att_mod = play_style_modifier(ctx.team(att_side).play_style, PlayStylePhase::Attack, true);
-    let def_mod = play_style_modifier(ctx.team(def_side).play_style, PlayStylePhase::Defense, false);
+    let def_mod = play_style_modifier(
+        ctx.team(def_side).play_style,
+        PlayStylePhase::Defense,
+        false,
+    );
     let att_eff = att_rating * att_mod * home_mod(att_side, ctx.config);
     let def_eff = def_rating * def_mod * home_mod(def_side, ctx.config);
     let success = att_eff / (att_eff + def_eff);
@@ -408,8 +522,7 @@ fn resolve_attacking_third<R: Rng>(
 
     if rng.gen_range(0.0..1.0f64) < success {
         ctx.emit(
-            MatchEvent::new(minute, EventType::Dribble, att_side, zone)
-                .with_player(&attacker.id),
+            MatchEvent::new(minute, EventType::Dribble, att_side, zone).with_player(&attacker.id),
         );
         ctx.ball_zone = Zone::attacking_box(att_side);
     } else {
@@ -443,21 +556,22 @@ fn resolve_attacking_third<R: Rng>(
     }
 }
 
-fn resolve_shot<R: Rng>(
-    ctx: &mut MatchContext,
-    minute: u8,
-    att_side: Side,
-    rng: &mut R,
-) {
+fn resolve_shot<R: Rng>(ctx: &mut MatchContext, minute: u8, att_side: Side, rng: &mut R) {
     let def_side = att_side.opposite();
     let shooter = snap_player(ctx, att_side, Position::Forward, rng);
     let assister = snap_player(ctx, att_side, Position::Midfielder, rng);
     let goalkeeper = snap_player(ctx, def_side, Position::Goalkeeper, rng);
 
-    let shoot_rating = (shooter.shooting as f64 + shooter.composure as f64 + shooter.decisions as f64) / 3.0 * trait_bonus(&shooter, TraitContext::Shooting);
-    let gk_rating = (goalkeeper.handling as f64 + goalkeeper.reflexes as f64 + goalkeeper.positioning as f64) / 3.0 * trait_bonus(&goalkeeper, TraitContext::Goalkeeping);
+    let shoot_rating =
+        (shooter.shooting as f64 + shooter.composure as f64 + shooter.decisions as f64) / 3.0
+            * trait_bonus(&shooter, TraitContext::Shooting);
+    let gk_rating =
+        (goalkeeper.handling as f64 + goalkeeper.reflexes as f64 + goalkeeper.positioning as f64)
+            / 3.0
+            * trait_bonus(&goalkeeper, TraitContext::Goalkeeping);
 
-    let accuracy = (ctx.config.shot_accuracy_base + (shoot_rating - 50.0) / 200.0).clamp(0.15, 0.85);
+    let accuracy =
+        (ctx.config.shot_accuracy_base + (shoot_rating - 50.0) / 200.0).clamp(0.15, 0.85);
     let zone = Zone::attacking_box(att_side);
 
     if rng.gen_range(0.0..1.0f64) > accuracy {
@@ -475,7 +589,8 @@ fn resolve_shot<R: Rng>(
         return;
     }
 
-    let conversion = (ctx.config.goal_conversion_base + (shoot_rating - gk_rating) / 150.0).clamp(0.10, 0.70);
+    let conversion =
+        (ctx.config.goal_conversion_base + (shoot_rating - gk_rating) / 150.0).clamp(0.10, 0.70);
 
     if rng.gen_range(0.0..1.0f64) < conversion {
         ctx.emit(
@@ -486,8 +601,7 @@ fn resolve_shot<R: Rng>(
         ctx.add_goal(att_side);
     } else {
         ctx.emit(
-            MatchEvent::new(minute, EventType::ShotSaved, att_side, zone)
-                .with_player(&shooter.id),
+            MatchEvent::new(minute, EventType::ShotSaved, att_side, zone).with_player(&shooter.id),
         );
     }
 }
@@ -508,7 +622,9 @@ fn maybe_foul<R: Rng>(
     rng: &mut R,
 ) {
     let aggression_mod = fouler_snap.aggression as f64 / 100.0;
-    let foul_chance = ctx.config.foul_probability * (0.6 + aggression_mod * 0.8) * trait_bonus(fouler_snap, TraitContext::Foul);
+    let foul_chance = ctx.config.foul_probability
+        * (0.6 + aggression_mod * 0.8)
+        * trait_bonus(fouler_snap, TraitContext::Foul);
     if rng.gen_range(0.0..1.0f64) >= foul_chance {
         return;
     }
@@ -522,7 +638,12 @@ fn maybe_foul<R: Rng>(
     let att_side = fouling_side.opposite();
 
     if zone.is_box_for(att_side) && rng.gen_range(0.0..1.0f64) < ctx.config.penalty_probability {
-        ctx.emit(MatchEvent::new(minute, EventType::PenaltyAwarded, att_side, zone));
+        ctx.emit(MatchEvent::new(
+            minute,
+            EventType::PenaltyAwarded,
+            att_side,
+            zone,
+        ));
         resolve_penalty(ctx, minute, att_side, rng);
     } else {
         ctx.emit(MatchEvent::new(minute, EventType::FreeKick, att_side, zone));
@@ -532,8 +653,7 @@ fn maybe_foul<R: Rng>(
 
     if rng.gen_range(0.0..1.0f64) < ctx.config.injury_probability {
         ctx.emit(
-            MatchEvent::new(minute, EventType::Injury, att_side, zone)
-                .with_player(&fouled_snap.id),
+            MatchEvent::new(minute, EventType::Injury, att_side, zone).with_player(&fouled_snap.id),
         );
     }
 }
@@ -546,7 +666,10 @@ fn maybe_card<R: Rng>(
     zone: Zone,
     rng: &mut R,
 ) {
-    let aggression_factor = ctx.team(side).players.iter()
+    let aggression_factor = ctx
+        .team(side)
+        .players
+        .iter()
         .find(|p| p.id == fouler_id)
         .map(|p| p.aggression as f64 / 100.0)
         .unwrap_or(0.5);
@@ -556,10 +679,7 @@ fn maybe_card<R: Rng>(
     }
 
     if rng.gen_range(0.0..1.0f64) < ctx.config.red_card_probability {
-        ctx.emit(
-            MatchEvent::new(minute, EventType::RedCard, side, zone)
-                .with_player(fouler_id),
-        );
+        ctx.emit(MatchEvent::new(minute, EventType::RedCard, side, zone).with_player(fouler_id));
         ctx.sent_off.insert(fouler_id.to_string());
         return;
     }
@@ -569,24 +689,15 @@ fn maybe_card<R: Rng>(
 
     if *current_yellows >= 2 {
         ctx.emit(
-            MatchEvent::new(minute, EventType::SecondYellow, side, zone)
-                .with_player(fouler_id),
+            MatchEvent::new(minute, EventType::SecondYellow, side, zone).with_player(fouler_id),
         );
         ctx.sent_off.insert(fouler_id.to_string());
     } else {
-        ctx.emit(
-            MatchEvent::new(minute, EventType::YellowCard, side, zone)
-                .with_player(fouler_id),
-        );
+        ctx.emit(MatchEvent::new(minute, EventType::YellowCard, side, zone).with_player(fouler_id));
     }
 }
 
-fn resolve_penalty<R: Rng>(
-    ctx: &mut MatchContext,
-    minute: u8,
-    att_side: Side,
-    rng: &mut R,
-) {
+fn resolve_penalty<R: Rng>(ctx: &mut MatchContext, minute: u8, att_side: Side, rng: &mut R) {
     let taker = snap_player(ctx, att_side, Position::Forward, rng);
     let gk = snap_player(ctx, att_side.opposite(), Position::Goalkeeper, rng);
 
@@ -597,14 +708,12 @@ fn resolve_penalty<R: Rng>(
 
     if rng.gen_range(0.0..1.0f64) < conversion {
         ctx.emit(
-            MatchEvent::new(minute, EventType::PenaltyGoal, att_side, zone)
-                .with_player(&taker.id),
+            MatchEvent::new(minute, EventType::PenaltyGoal, att_side, zone).with_player(&taker.id),
         );
         ctx.add_goal(att_side);
     } else {
         ctx.emit(
-            MatchEvent::new(minute, EventType::PenaltyMiss, att_side, zone)
-                .with_player(&taker.id),
+            MatchEvent::new(minute, EventType::PenaltyMiss, att_side, zone).with_player(&taker.id),
         );
     }
 }

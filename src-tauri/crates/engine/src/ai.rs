@@ -56,11 +56,12 @@ pub fn ai_decide<R: Rng>(
         Side::Away => snap.away_subs_made,
     };
 
-    if subs_made < snap.max_subs {
-        if let Some(sub_cmd) = consider_substitution(match_state, side, profile, minute, subs_made, rng) {
+    if subs_made < snap.max_subs
+        && let Some(sub_cmd) =
+            consider_substitution(match_state, side, profile, minute, subs_made, rng)
+        {
             commands.push(sub_cmd);
         }
-    }
 
     // --- Tactical adjustments ---
     if let Some(tactic_cmd) = consider_tactic_change(match_state, side, profile, minute, rng) {
@@ -136,7 +137,9 @@ fn consider_substitution<R: Rng>(
 
     if let Some((tired_player, _)) = worst_player {
         // Find best replacement from bench with same position
-        if let Some(replacement) = find_best_bench_replacement(bench, tired_player.position, &snap.sent_off) {
+        if let Some(replacement) =
+            find_best_bench_replacement(bench, tired_player.position, &snap.sent_off)
+        {
             return Some(MatchCommand::Substitute {
                 side,
                 player_off_id: tired_player.id.clone(),
@@ -160,15 +163,16 @@ fn consider_substitution<R: Rng>(
                 })
                 .collect();
 
-            if let Some(player_off) = candidates.last() {
-                if let Some(attacker_on) = find_best_bench_replacement(bench, Position::Forward, &snap.sent_off) {
+            if let Some(player_off) = candidates.last()
+                && let Some(attacker_on) =
+                    find_best_bench_replacement(bench, Position::Forward, &snap.sent_off)
+                {
                     return Some(MatchCommand::Substitute {
                         side,
                         player_off_id: player_off.id.clone(),
                         player_on_id: attacker_on.id.clone(),
                     });
                 }
-            }
         }
     }
 
@@ -183,15 +187,16 @@ fn consider_substitution<R: Rng>(
                 .filter(|p| p.position == Position::Forward && !snap.sent_off.contains(&p.id))
                 .collect();
 
-            if let Some(player_off) = forwards.first() {
-                if let Some(defender_on) = find_best_bench_replacement(bench, Position::Defender, &snap.sent_off) {
+            if let Some(player_off) = forwards.first()
+                && let Some(defender_on) =
+                    find_best_bench_replacement(bench, Position::Defender, &snap.sent_off)
+                {
                     return Some(MatchCommand::Substitute {
                         side,
                         player_off_id: player_off.id.clone(),
                         player_on_id: defender_on.id.clone(),
                     });
                 }
-            }
         }
     }
 
@@ -208,18 +213,23 @@ fn find_best_bench_replacement<'a>(
         .iter()
         .filter(|p| p.position == preferred_position && !sent_off.contains(&p.id))
         .collect();
-    candidates.sort_by(|a, b| b.overall().partial_cmp(&a.overall()).unwrap_or(std::cmp::Ordering::Equal));
+    candidates.sort_by(|a, b| {
+        b.overall()
+            .partial_cmp(&a.overall())
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
 
     if let Some(best) = candidates.first() {
         return Some(*best);
     }
 
     // Fallback: any bench player
-    let mut all: Vec<&PlayerData> = bench
-        .iter()
-        .filter(|p| !sent_off.contains(&p.id))
-        .collect();
-    all.sort_by(|a, b| b.overall().partial_cmp(&a.overall()).unwrap_or(std::cmp::Ordering::Equal));
+    let mut all: Vec<&PlayerData> = bench.iter().filter(|p| !sent_off.contains(&p.id)).collect();
+    all.sort_by(|a, b| {
+        b.overall()
+            .partial_cmp(&a.overall())
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     all.first().copied()
 }
 
@@ -256,46 +266,41 @@ fn consider_tactic_change<R: Rng>(
     let base_chance = 0.02 * experience_factor;
 
     // Losing by 2+ goals after 70': switch to attacking
-    if goal_diff <= -2 && minute >= 70 && team.play_style != PlayStyle::Attacking {
-        if rng.gen_range(0.0..1.0f64) < base_chance * 3.0 {
+    if goal_diff <= -2 && minute >= 70 && team.play_style != PlayStyle::Attacking
+        && rng.gen_range(0.0..1.0f64) < base_chance * 3.0 {
             return Some(MatchCommand::ChangePlayStyle {
                 side,
                 play_style: PlayStyle::Attacking,
             });
         }
-    }
 
     // Losing by 1 goal after 75': consider more attacking
-    if goal_diff == -1 && minute >= 75 {
-        if team.play_style != PlayStyle::Attacking && team.play_style != PlayStyle::HighPress {
-            if rng.gen_range(0.0..1.0f64) < base_chance * 2.0 {
+    if goal_diff == -1 && minute >= 75
+        && team.play_style != PlayStyle::Attacking && team.play_style != PlayStyle::HighPress
+            && rng.gen_range(0.0..1.0f64) < base_chance * 2.0 {
                 return Some(MatchCommand::ChangePlayStyle {
                     side,
                     play_style: PlayStyle::Attacking,
                 });
             }
-        }
-    }
 
     // Winning by 1+ goals after 80': switch to defensive
-    if goal_diff >= 1 && minute >= 80 && team.play_style != PlayStyle::Defensive {
-        if rng.gen_range(0.0..1.0f64) < base_chance * 2.0 {
+    if goal_diff >= 1 && minute >= 80 && team.play_style != PlayStyle::Defensive
+        && rng.gen_range(0.0..1.0f64) < base_chance * 2.0 {
             return Some(MatchCommand::ChangePlayStyle {
                 side,
                 play_style: PlayStyle::Defensive,
             });
         }
-    }
 
     // Winning by 2+ goals after 85': very defensive / time wasting
-    if goal_diff >= 2 && minute >= 85 && team.play_style != PlayStyle::Defensive {
-        if rng.gen_range(0.0..1.0f64) < base_chance * 4.0 {
+    if goal_diff >= 2 && minute >= 85 && team.play_style != PlayStyle::Defensive
+        && rng.gen_range(0.0..1.0f64) < base_chance * 4.0 {
             return Some(MatchCommand::ChangePlayStyle {
                 side,
                 play_style: PlayStyle::Defensive,
             });
         }
-    }
 
     None
 }

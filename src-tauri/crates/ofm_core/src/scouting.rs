@@ -6,17 +6,26 @@ use std::collections::HashMap;
 use uuid::Uuid;
 
 fn params(pairs: &[(&str, &str)]) -> HashMap<String, String> {
-    pairs.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect()
+    pairs
+        .iter()
+        .map(|(k, v)| (k.to_string(), v.to_string()))
+        .collect()
 }
 
 /// Determine how many concurrent scouting assignments a scout can handle.
 /// Higher judging_ability = more slots (1 to 5).
 pub fn scout_max_assignments(judging_ability: u8) -> usize {
-    if judging_ability >= 80 { 5 }
-    else if judging_ability >= 60 { 4 }
-    else if judging_ability >= 40 { 3 }
-    else if judging_ability >= 20 { 2 }
-    else { 1 }
+    if judging_ability >= 80 {
+        5
+    } else if judging_ability >= 60 {
+        4
+    } else if judging_ability >= 40 {
+        3
+    } else if judging_ability >= 20 {
+        2
+    } else {
+        1
+    }
 }
 
 /// Send a scout to evaluate a player. Returns an error string if invalid.
@@ -24,7 +33,10 @@ pub fn send_scout(game: &mut Game, scout_id: &str, player_id: &str) -> Result<()
     let user_team_id = game.manager.team_id.as_ref().ok_or("No team")?;
 
     // Validate scout exists and belongs to user's team
-    let scout = game.staff.iter().find(|s| s.id == scout_id)
+    let scout = game
+        .staff
+        .iter()
+        .find(|s| s.id == scout_id)
         .ok_or("Scout not found")?;
     if scout.role != StaffRole::Scout {
         return Err("Staff member is not a scout".to_string());
@@ -34,7 +46,10 @@ pub fn send_scout(game: &mut Game, scout_id: &str, player_id: &str) -> Result<()
     }
 
     // Validate player exists and is not on user's team
-    let player = game.players.iter().find(|p| p.id == player_id)
+    let player = game
+        .players
+        .iter()
+        .find(|p| p.id == player_id)
         .ok_or("Player not found")?;
     if player.team_id.as_deref() == Some(user_team_id.as_str()) {
         return Err("Cannot scout your own players".to_string());
@@ -42,7 +57,11 @@ pub fn send_scout(game: &mut Game, scout_id: &str, player_id: &str) -> Result<()
 
     // Check scout capacity: higher ability = more concurrent assignments
     let max_slots = scout_max_assignments(scout.attributes.judging_ability);
-    let current_count = game.scouting_assignments.iter().filter(|a| a.scout_id == scout_id).count();
+    let current_count = game
+        .scouting_assignments
+        .iter()
+        .filter(|a| a.scout_id == scout_id)
+        .count();
     if current_count >= max_slots {
         return Err(format!(
             "Scout is at capacity ({}/{} assignments). Higher judging ability allows more.",
@@ -51,13 +70,25 @@ pub fn send_scout(game: &mut Game, scout_id: &str, player_id: &str) -> Result<()
     }
 
     // Check if player is already being scouted
-    if game.scouting_assignments.iter().any(|a| a.player_id == player_id) {
+    if game
+        .scouting_assignments
+        .iter()
+        .any(|a| a.player_id == player_id)
+    {
         return Err("This player is already being scouted".to_string());
     }
 
     // Create assignment (2-5 days depending on scout quality)
     let judging = scout.attributes.judging_ability as u32;
-    let days = if judging >= 80 { 2 } else if judging >= 60 { 3 } else if judging >= 40 { 4 } else { 5 };
+    let days = if judging >= 80 {
+        2
+    } else if judging >= 60 {
+        3
+    } else if judging >= 40 {
+        4
+    } else {
+        5
+    };
 
     game.scouting_assignments.push(ScoutingAssignment {
         id: Uuid::new_v4().to_string(),
@@ -137,10 +168,15 @@ fn build_scout_report(
     let mut rng = rand::thread_rng();
 
     // Accuracy: higher judging = less noise on reported attributes
-    let noise_range = if judging_ability >= 80 { 2 }
-        else if judging_ability >= 60 { 5 }
-        else if judging_ability >= 40 { 8 }
-        else { 12 };
+    let noise_range = if judging_ability >= 80 {
+        2
+    } else if judging_ability >= 60 {
+        5
+    } else if judging_ability >= 40 {
+        8
+    } else {
+        12
+    };
 
     let mut fuzz = |val: u8| -> u8 {
         let delta: i16 = rng.gen_range(-(noise_range as i16)..=(noise_range as i16));
@@ -156,28 +192,47 @@ fn build_scout_report(
     let reported_physical = fuzz(attrs.strength);
 
     // Overall assessment
-    let avg_attrs = (reported_pace as u32 + reported_shooting as u32 + reported_passing as u32
-        + reported_dribbling as u32 + reported_defending as u32 + reported_physical as u32) / 6;
+    let avg_attrs = (reported_pace as u32
+        + reported_shooting as u32
+        + reported_passing as u32
+        + reported_dribbling as u32
+        + reported_defending as u32
+        + reported_physical as u32)
+        / 6;
 
-    let rating_desc = if avg_attrs >= 80 { "Excellent" }
-        else if avg_attrs >= 70 { "Very Good" }
-        else if avg_attrs >= 60 { "Good" }
-        else if avg_attrs >= 50 { "Average" }
-        else { "Below Average" };
+    let rating_desc = if avg_attrs >= 80 {
+        "Excellent"
+    } else if avg_attrs >= 70 {
+        "Very Good"
+    } else if avg_attrs >= 60 {
+        "Good"
+    } else if avg_attrs >= 50 {
+        "Average"
+    } else {
+        "Below Average"
+    };
 
     // Potential assessment (based on judging_potential accuracy)
     let potential_desc = if judging_potential >= 70 {
-        if avg_attrs >= 75 { "World class potential" }
-        else if avg_attrs >= 60 { "Strong development potential" }
-        else { "Moderate potential for growth" }
+        if avg_attrs >= 75 {
+            "World class potential"
+        } else if avg_attrs >= 60 {
+            "Strong development potential"
+        } else {
+            "Moderate potential for growth"
+        }
     } else {
         "Potential unclear — further scouting recommended"
     };
 
     // Confidence level
-    let confidence = if judging_ability >= 80 { "High" }
-        else if judging_ability >= 60 { "Moderate" }
-        else { "Low" };
+    let confidence = if judging_ability >= 80 {
+        "High"
+    } else if judging_ability >= 60 {
+        "Moderate"
+    } else {
+        "Low"
+    };
 
     let body = format!(
         "Scout Report — {}\n\n\
@@ -196,12 +251,21 @@ fn build_scout_report(
         Report Confidence: {}\n\n\
         — {}, Scout",
         player_name,
-        player_full_name, player_name,
-        position, nationality, dob,
-        condition, morale,
-        reported_pace, reported_shooting, reported_passing,
-        reported_dribbling, reported_defending, reported_physical,
-        rating_desc, avg_attrs,
+        player_full_name,
+        player_name,
+        position,
+        nationality,
+        dob,
+        condition,
+        morale,
+        reported_pace,
+        reported_shooting,
+        reported_passing,
+        reported_dribbling,
+        reported_defending,
+        reported_physical,
+        rating_desc,
+        avg_attrs,
         potential_desc,
         confidence,
         scout_name,
