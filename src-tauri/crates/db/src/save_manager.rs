@@ -163,6 +163,52 @@ impl SaveManager {
         Ok(true)
     }
 
+    /// Create a new game by loading an existing save, stripping session data,
+    /// and resetting the clock. Returns the loaded Game with clean session state.
+    /// This does NOT create a new save — the caller should use `create_save` afterwards.
+    pub fn new_game_from_save(&self, source_save_id: &str) -> Result<Game, String> {
+        let mut game = self.load_game(source_save_id)?;
+
+        // Strip session-specific data
+        game.messages.clear();
+        game.news.clear();
+        game.scouting_assignments.clear();
+        game.board_objectives.clear();
+
+        // Reset clock to start date
+        game.clock.current_date = game.clock.start_date;
+
+        // Reset manager
+        game.manager.satisfaction = 100;
+        game.manager.fan_approval = 50;
+        game.manager.career_stats = Default::default();
+        game.manager.career_history.clear();
+
+        // Reset team season data
+        for team in &mut game.teams {
+            team.form.clear();
+            team.season_income = 0;
+            team.season_expenses = 0;
+        }
+
+        // Reset player stats
+        for player in &mut game.players {
+            player.stats = Default::default();
+            player.transfer_listed = false;
+            player.loan_listed = false;
+            player.transfer_offers.clear();
+        }
+
+        // Clear league (will be regenerated)
+        game.league = None;
+
+        info!(
+            "[save_manager] created new game template from save {}",
+            source_save_id
+        );
+        Ok(game)
+    }
+
     /// Write the full Game state to a database.
     fn write_game_to_db(
         &self,
@@ -626,5 +672,70 @@ mod tests {
 
         assert_eq!(loaded.scouting_assignments.len(), 1);
         assert_eq!(loaded.scouting_assignments[0].days_remaining, 7);
+    }
+
+    #[test]
+    fn test_new_game_from_save_strips_session_data() {
+        let dir = tempfile::tempdir().unwrap();
+        let saves_dir = dir.path().join("saves");
+
+        let mut sm = SaveManager::init(&saves_dir).unwrap();
+        let mut game = sample_game();
+
+        // Add session-specific data
+        game.clock.advance_days(30);
+        game.board_objectives.push(BoardObjective {
+            id: "obj-1".to_string(),
+            description: "Win".to_string(),
+            target: 10,
+            objective_type: ObjectiveType::Wins,
+            met: false,
+        });
+        game.scouting_assignments.push(ScoutingAssignment {
+            id: "sa-1".to_string(),
+            scout_id: "staff-001".to_string(),
+            player_id: "p-001".to_string(),
+            days_remaining: 5,
+        });
+        game.manager.reputation = 999;
+
+        let save_id = sm.create_save(&game, "Source Save").unwrap();
+
+        // Create new game from this save
+        let new_game = sm.new_game_from_save(&save_id).unwrap();
+
+        // Session data should be stripped
+        assert!(new_game.messages.is_empty());
+        assert!(new_game.news.is_empty());
+        assert!(new_game.scouting_assignments.is_empty());
+        assert!(new_game.board_objectives.is_empty());
+        assert!(new_game.league.is_none());
+
+        // Clock should be reset
+        assert_eq!(new_game.clock.current_date, new_game.clock.start_date);
+
+        // World data should be preserved
+        assert_eq!(new_game.teams.len(), 1);
+        assert_eq!(new_game.teams[0].name, "London FC");
+        assert_eq!(new_game.players.len(), 1);
+        assert_eq!(new_game.staff.len(), 1);
+
+        // Manager should be reset
+        assert_eq!(new_game.manager.satisfaction, 100);
+        assert_eq!(new_game.manager.fan_approval, 50);
+
+        // Player stats should be reset
+        assert!(!new_game.players[0].transfer_listed);
+        assert!(!new_game.players[0].loan_listed);
+    }
+
+    #[test]
+    fn test_new_game_from_nonexistent_save() {
+        let dir = tempfile::tempdir().unwrap();
+        let saves_dir = dir.path().join("saves");
+
+        let sm = SaveManager::init(&saves_dir).unwrap();
+        let result = sm.new_game_from_save("nonexistent");
+        assert!(result.is_err());
     }
 }
