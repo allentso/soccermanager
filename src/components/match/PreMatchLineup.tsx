@@ -39,7 +39,7 @@ export function getStatVal(p: EnginePlayerData, key: string): number {
 export function parseFormationNeeds(formation: string): Record<string, number> {
   const parts = formation.split("-").map(Number).filter(n => !isNaN(n));
   if (parts.length === 3) return { Goalkeeper: 1, Defender: parts[0], Midfielder: parts[1], Forward: parts[2] };
-  if (parts.length === 4) return { Goalkeeper: parts[0], Defender: parts[1], Midfielder: parts[2], Forward: parts[3] };
+  if (parts.length === 4) return { Goalkeeper: 1, Defender: parts[0], Midfielder: parts[1] + parts[2], Forward: parts[3] };
   return { Goalkeeper: 1, Defender: 4, Midfielder: 4, Forward: 2 };
 }
 

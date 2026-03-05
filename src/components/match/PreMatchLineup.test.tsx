@@ -70,8 +70,11 @@ describe("parseFormationNeeds", () => {
     expect(parseFormationNeeds("3-5-2")).toEqual({ Goalkeeper: 1, Defender: 3, Midfielder: 5, Forward: 2 });
   });
 
-  it("parses 4-part formations", () => {
-    expect(parseFormationNeeds("1-4-3-2")).toEqual({ Goalkeeper: 1, Defender: 4, Midfielder: 3, Forward: 2 });
+  it("parses 4-part formations (always 1 GK, mid = sum of middle parts)", () => {
+    expect(parseFormationNeeds("4-2-3-1")).toEqual({ Goalkeeper: 1, Defender: 4, Midfielder: 5, Forward: 1 });
+    expect(parseFormationNeeds("4-1-4-1")).toEqual({ Goalkeeper: 1, Defender: 4, Midfielder: 5, Forward: 1 });
+    expect(parseFormationNeeds("3-4-1-2")).toEqual({ Goalkeeper: 1, Defender: 3, Midfielder: 5, Forward: 2 });
+    expect(parseFormationNeeds("4-3-2-1")).toEqual({ Goalkeeper: 1, Defender: 4, Midfielder: 5, Forward: 1 });
   });
 
   it("returns default 4-4-2 for unparsable input", () => {
