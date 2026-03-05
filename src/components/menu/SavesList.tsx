@@ -2,16 +2,18 @@ import { useTranslation } from "react-i18next";
 import { formatDate } from "../../lib/helpers";
 import { Play, Clock, Trash2, X } from "lucide-react";
 
-interface SaveMetadata {
+interface SaveEntry {
   id: string;
   name: string;
   manager_name: string;
+  db_filename: string;
+  checksum: string;
   created_at: string;
   last_played_at: string;
 }
 
 interface SavesListProps {
-  saves: SaveMetadata[];
+  saves: SaveEntry[];
   isLoading: boolean;
   confirmDeleteId: string | null;
   onLoad: (saveId: string) => void;

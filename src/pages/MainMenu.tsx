@@ -9,10 +9,12 @@ import SavesList from "../components/menu/SavesList";
 import WorldSelect, { WorldDatabaseInfo } from "../components/menu/WorldSelect";
 import { FolderOpen, Settings, X, PlusCircle, ChevronRight, AlertCircle, ChevronDown, Check } from "lucide-react";
 
-interface SaveMetadata {
+interface SaveEntry {
   id: string;
   name: string;
   manager_name: string;
+  db_filename: string;
+  checksum: string;
   created_at: string;
   last_played_at: string;
 }
@@ -26,7 +28,7 @@ export default function MainMenu() {
   const { t } = useTranslation();
   
   const [menuState, setMenuState] = useState<"main" | "create" | "world" | "load">("main");
-  const [saves, setSaves] = useState<SaveMetadata[]>([]);
+  const [saves, setSaves] = useState<SaveEntry[]>([]);
   const [isLoadingSaves, setIsLoadingSaves] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [isStarting, setIsStarting] = useState(false);
@@ -222,7 +224,7 @@ export default function MainMenu() {
     setMenuState("load");
     setIsLoadingSaves(true);
     try {
-      const dbSaves = await invoke<SaveMetadata[]>("get_saves");
+      const dbSaves = await invoke<SaveEntry[]>("get_saves");
       setSaves(dbSaves);
     } catch (error) {
       console.error("Failed to load saves:", error);
