@@ -1,0 +1,1051 @@
+use chrono::{TimeZone, Utc};
+use domain::league::{Fixture, FixtureStatus, GoalEvent, League, MatchResult, StandingEntry};
+use domain::manager::Manager;
+use domain::message::{ActionOption, ActionType, MessageAction, MessageContext};
+use domain::player::{Player, PlayerAttributes, Position};
+use domain::team::Team;
+use ofm_core::clock::GameClock;
+use ofm_core::game::Game;
+use ofm_core::player_events;
+
+// ---------------------------------------------------------------------------
+// Test helpers
+// ---------------------------------------------------------------------------
+
+fn default_attrs() -> PlayerAttributes {
+    PlayerAttributes {
+        pace: 60,
+        stamina: 60,
+        strength: 60,
+        agility: 60,
+        passing: 60,
+        shooting: 60,
+        tackling: 60,
+        dribbling: 60,
+        defending: 60,
+        positioning: 60,
+        vision: 60,
+        decisions: 60,
+        composure: 60,
+        aggression: 60,
+        teamwork: 60,
+        leadership: 60,
+        handling: 30,
+        reflexes: 30,
+        aerial: 60,
+    }
+}
+
+fn make_player(id: &str, name: &str, team_id: &str, pos: Position) -> Player {
+    let mut p = Player::new(
+        id.to_string(),
+        name.to_string(),
+        name.to_string(),
+        "1995-01-01".to_string(),
+        "England".to_string(),
+        pos,
+        default_attrs(),
+    );
+    p.team_id = Some(team_id.to_string());
+    p.morale = 70;
+    p.condition = 90;
+    p
+}
+
+fn make_team(id: &str, name: &str) -> Team {
+    Team::new(
+        id.to_string(),
+        name.to_string(),
+        name[..3].to_string(),
+        "England".to_string(),
+        "London".to_string(),
+        "Stadium".to_string(),
+        40_000,
+    )
+}
+
+fn make_game() -> Game {
+    let date = Utc.with_ymd_and_hms(2025, 6, 15, 12, 0, 0).unwrap();
+    let clock = GameClock::new(date);
+    let mut manager = Manager::new(
+        "mgr1".to_string(),
+        "Test".to_string(),
+        "Manager".to_string(),
+        "1980-01-01".to_string(),
+        "England".to_string(),
+    );
+    manager.hire("team1".to_string());
+
+    let team1 = make_team("team1", "Test FC");
+    let mut players = Vec::new();
+    // GK + 4 DEF + 4 MID + 2 FWD
+    players.push(make_player("p_gk", "GK", "team1", Position::Goalkeeper));
+    for i in 0..4 {
+        players.push(make_player(
+            &format!("p_def{}", i),
+            &format!("Def{}", i),
+            "team1",
+            Position::Defender,
+        ));
+    }
+    for i in 0..4 {
+        players.push(make_player(
+            &format!("p_mid{}", i),
+            &format!("Mid{}", i),
+            "team1",
+            Position::Midfielder,
+        ));
+    }
+    for i in 0..2 {
+        players.push(make_player(
+            &format!("p_fwd{}", i),
+            &format!("Fwd{}", i),
+            "team1",
+            Position::Forward,
+        ));
+    }
+
+    Game::new(clock, manager, vec![team1], players, vec![], vec![])
+}
+
+/// Helper: construct a player event message with a specific prefix and player context
+fn inject_player_message(game: &mut Game, msg_id: &str, player_id: &str, action_id: &str) {
+    use domain::message::InboxMessage;
+    let msg = InboxMessage::new(
+        msg_id.to_string(),
+        "Test".to_string(),
+        "Test body".to_string(),
+        "Sender".to_string(),
+        "2025-06-15".to_string(),
+    )
+    .with_context(MessageContext {
+        player_id: Some(player_id.to_string()),
+        ..Default::default()
+    })
+    .with_action(MessageAction {
+        id: action_id.to_string(),
+        label: "Respond".to_string(),
+        action_type: ActionType::ChooseOption {
+            options: vec![ActionOption {
+                id: "test".to_string(),
+                label: "Test".to_string(),
+                description: "Test option".to_string(),
+            }],
+        },
+        resolved: false,
+        label_key: None,
+    });
+    game.messages.push(msg);
+}
+
+// ---------------------------------------------------------------------------
+// check_player_events: low morale
+// ---------------------------------------------------------------------------
+
+#[test]
+fn low_morale_generates_message() {
+    let mut game = make_game();
+    game.players
+        .iter_mut()
+        .find(|p| p.id == "p_fwd0")
+        .unwrap()
+        .morale = 20;
+
+    player_events::check_player_events(&mut game);
+
+    let morale_msgs: Vec<_> = game
+        .messages
+        .iter()
+        .filter(|m| m.id.starts_with("morale_talk_"))
+        .collect();
+    assert!(
+        morale_msgs.iter().any(|m| m.id == "morale_talk_p_fwd0"),
+        "Should generate morale talk for low morale player"
+    );
+}
+
+#[test]
+fn normal_morale_no_message() {
+    let mut game = make_game();
+    // All players have morale 70
+    player_events::check_player_events(&mut game);
+
+    let morale_msgs: Vec<_> = game
+        .messages
+        .iter()
+        .filter(|m| m.id.starts_with("morale_talk_"))
+        .collect();
+    assert!(
+        morale_msgs.is_empty(),
+        "No morale talk for players with morale >= 30"
+    );
+}
+
+#[test]
+fn injured_player_no_morale_message() {
+    let mut game = make_game();
+    let player = game.players.iter_mut().find(|p| p.id == "p_fwd0").unwrap();
+    player.morale = 20;
+    player.injury = Some(domain::player::Injury {
+        name: "Muscle".to_string(),
+        days_remaining: 5,
+    });
+
+    player_events::check_player_events(&mut game);
+
+    let morale_msgs: Vec<_> = game
+        .messages
+        .iter()
+        .filter(|m| m.id == "morale_talk_p_fwd0")
+        .collect();
+    assert!(morale_msgs.is_empty(), "No morale talk for injured player");
+}
+
+#[test]
+fn morale_message_not_duplicated() {
+    let mut game = make_game();
+    game.players
+        .iter_mut()
+        .find(|p| p.id == "p_fwd0")
+        .unwrap()
+        .morale = 20;
+
+    player_events::check_player_events(&mut game);
+    let count1 = game
+        .messages
+        .iter()
+        .filter(|m| m.id == "morale_talk_p_fwd0")
+        .count();
+
+    player_events::check_player_events(&mut game);
+    let count2 = game
+        .messages
+        .iter()
+        .filter(|m| m.id == "morale_talk_p_fwd0")
+        .count();
+
+    assert_eq!(count1, count2, "Should not duplicate morale messages");
+}
+
+// ---------------------------------------------------------------------------
+// check_player_events: no manager team
+// ---------------------------------------------------------------------------
+
+#[test]
+fn no_team_no_crash() {
+    let mut game = make_game();
+    game.manager.team_id = None;
+    player_events::check_player_events(&mut game);
+    assert!(game.messages.is_empty());
+}
+
+// ---------------------------------------------------------------------------
+// check_player_events: bench complaints
+// ---------------------------------------------------------------------------
+
+#[test]
+fn bench_complaint_after_3_missed_matches() {
+    let mut game = make_game();
+    // Set up league with 3 completed fixtures; p_fwd0 never appeared
+    let fixtures: Vec<Fixture> = (0..3)
+        .map(|i| Fixture {
+            id: format!("fix{}", i),
+            matchday: i + 1,
+            date: format!("2025-06-{:02}", 10 + i),
+            home_team_id: "team1".to_string(),
+            away_team_id: "team2".to_string(),
+            status: FixtureStatus::Completed,
+            result: Some(MatchResult {
+                home_goals: 1,
+                away_goals: 0,
+                // Only p_mid0 scored — most players didn't "appear"
+                home_scorers: vec![GoalEvent {
+                    player_id: "p_mid0".to_string(),
+                    minute: 45,
+                }],
+                away_scorers: vec![],
+            }),
+        })
+        .collect();
+    let league = League {
+        id: "league1".to_string(),
+        name: "Test League".to_string(),
+        season: 1,
+        fixtures,
+        standings: vec![StandingEntry::new("team1".to_string())],
+    };
+    game.league = Some(league);
+
+    // Make p_fwd0 have low morale and decent attributes so they complain
+    let player = game.players.iter_mut().find(|p| p.id == "p_fwd0").unwrap();
+    player.morale = 40;
+
+    player_events::check_player_events(&mut game);
+
+    let bench_msgs: Vec<_> = game
+        .messages
+        .iter()
+        .filter(|m| m.id.starts_with("bench_complaint_"))
+        .collect();
+    assert!(
+        !bench_msgs.is_empty(),
+        "Should generate bench complaint for player who missed 3 matches"
+    );
+}
+
+#[test]
+fn bench_complaint_not_for_gk() {
+    let mut game = make_game();
+    let fixtures: Vec<Fixture> = (0..3)
+        .map(|i| Fixture {
+            id: format!("fix{}", i),
+            matchday: i + 1,
+            date: format!("2025-06-{:02}", 10 + i),
+            home_team_id: "team1".to_string(),
+            away_team_id: "team2".to_string(),
+            status: FixtureStatus::Completed,
+            result: Some(MatchResult {
+                home_goals: 0,
+                away_goals: 0,
+                home_scorers: vec![],
+                away_scorers: vec![],
+            }),
+        })
+        .collect();
+    game.league = Some(League {
+        id: "league1".to_string(),
+        name: "Test League".to_string(),
+        season: 1,
+        fixtures,
+        standings: vec![],
+    });
+    // GK has low morale
+    game.players
+        .iter_mut()
+        .find(|p| p.id == "p_gk")
+        .unwrap()
+        .morale = 30;
+
+    player_events::check_player_events(&mut game);
+
+    let gk_complaint = game.messages.iter().any(|m| m.id == "bench_complaint_p_gk");
+    assert!(!gk_complaint, "Goalkeepers shouldn't complain about bench");
+}
+
+#[test]
+fn bench_complaint_not_with_fewer_than_3_fixtures() {
+    let mut game = make_game();
+    let fixtures: Vec<Fixture> = (0..2)
+        .map(|i| Fixture {
+            id: format!("fix{}", i),
+            matchday: i + 1,
+            date: format!("2025-06-{:02}", 10 + i),
+            home_team_id: "team1".to_string(),
+            away_team_id: "team2".to_string(),
+            status: FixtureStatus::Completed,
+            result: Some(MatchResult {
+                home_goals: 0,
+                away_goals: 0,
+                home_scorers: vec![],
+                away_scorers: vec![],
+            }),
+        })
+        .collect();
+    game.league = Some(League {
+        id: "league1".to_string(),
+        name: "Test League".to_string(),
+        season: 1,
+        fixtures,
+        standings: vec![],
+    });
+
+    player_events::check_player_events(&mut game);
+
+    let bench_msgs: Vec<_> = game
+        .messages
+        .iter()
+        .filter(|m| m.id.starts_with("bench_complaint_"))
+        .collect();
+    assert!(
+        bench_msgs.is_empty(),
+        "No bench complaints with fewer than 3 completed fixtures"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// check_player_events: happy player (probabilistic, run many times)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn happy_player_message_with_high_morale() {
+    let mut game = make_game();
+    // Set all players to high morale
+    for p in &mut game.players {
+        p.morale = 95;
+    }
+
+    // Run many iterations to hit the 10% chance
+    let mut found_happy = false;
+    for _ in 0..200 {
+        game.messages.clear();
+        player_events::check_player_events(&mut game);
+        if game
+            .messages
+            .iter()
+            .any(|m| m.id.starts_with("happy_player_"))
+        {
+            found_happy = true;
+            break;
+        }
+    }
+    assert!(
+        found_happy,
+        "With 11 players at morale 95, should get happy player message in 200 iterations"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// check_player_events: contract concern
+// ---------------------------------------------------------------------------
+
+#[test]
+fn contract_concern_within_90_days() {
+    let mut game = make_game();
+    // Set contract end 60 days from now
+    let end_date = (game.clock.current_date + chrono::Duration::days(60))
+        .format("%Y-%m-%d")
+        .to_string();
+    game.players
+        .iter_mut()
+        .find(|p| p.id == "p_fwd0")
+        .unwrap()
+        .contract_end = Some(end_date);
+
+    player_events::check_player_events(&mut game);
+
+    let contract_msgs: Vec<_> = game
+        .messages
+        .iter()
+        .filter(|m| m.id == "contract_concern_p_fwd0")
+        .collect();
+    assert!(
+        !contract_msgs.is_empty(),
+        "Should generate contract concern for player with <90 days remaining"
+    );
+}
+
+#[test]
+fn no_contract_concern_beyond_90_days() {
+    let mut game = make_game();
+    let end_date = (game.clock.current_date + chrono::Duration::days(120))
+        .format("%Y-%m-%d")
+        .to_string();
+    game.players
+        .iter_mut()
+        .find(|p| p.id == "p_fwd0")
+        .unwrap()
+        .contract_end = Some(end_date);
+
+    player_events::check_player_events(&mut game);
+
+    let contract_msgs: Vec<_> = game
+        .messages
+        .iter()
+        .filter(|m| m.id == "contract_concern_p_fwd0")
+        .collect();
+    assert!(
+        contract_msgs.is_empty(),
+        "No contract concern when >90 days remaining"
+    );
+}
+
+#[test]
+fn no_contract_concern_if_expired() {
+    let mut game = make_game();
+    let end_date = (game.clock.current_date - chrono::Duration::days(10))
+        .format("%Y-%m-%d")
+        .to_string();
+    game.players
+        .iter_mut()
+        .find(|p| p.id == "p_fwd0")
+        .unwrap()
+        .contract_end = Some(end_date);
+
+    player_events::check_player_events(&mut game);
+
+    let contract_msgs: Vec<_> = game
+        .messages
+        .iter()
+        .filter(|m| m.id == "contract_concern_p_fwd0")
+        .collect();
+    assert!(
+        contract_msgs.is_empty(),
+        "No contract concern if contract already expired"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// apply_player_response: morale_talk responses
+// ---------------------------------------------------------------------------
+
+#[test]
+fn morale_talk_encourage_boosts_morale() {
+    let mut game = make_game();
+    game.players
+        .iter_mut()
+        .find(|p| p.id == "p_fwd0")
+        .unwrap()
+        .morale = 30;
+    inject_player_message(&mut game, "morale_talk_p_fwd0", "p_fwd0", "respond");
+
+    // Run many times to get a statistically valid result
+    let mut total_delta: i32 = 0;
+    let runs = 50;
+    for _ in 0..runs {
+        let mut g = game.clone();
+        let result = player_events::apply_player_response(
+            &mut g,
+            "morale_talk_p_fwd0",
+            "respond",
+            "encourage",
+        );
+        assert!(result.is_some());
+        let p = g.players.iter().find(|p| p.id == "p_fwd0").unwrap();
+        total_delta += p.morale as i32 - 30;
+    }
+    let avg_delta = total_delta as f64 / runs as f64;
+    assert!(
+        avg_delta > 0.0,
+        "Encourage should generally boost morale, avg delta: {:.1}",
+        avg_delta
+    );
+}
+
+#[test]
+fn morale_talk_promise_time_big_boost() {
+    let mut game = make_game();
+    game.players
+        .iter_mut()
+        .find(|p| p.id == "p_fwd0")
+        .unwrap()
+        .morale = 30;
+    inject_player_message(&mut game, "morale_talk_p_fwd0", "p_fwd0", "respond");
+
+    let mut total_delta: i32 = 0;
+    let runs = 30;
+    for _ in 0..runs {
+        let mut g = game.clone();
+        player_events::apply_player_response(
+            &mut g,
+            "morale_talk_p_fwd0",
+            "respond",
+            "promise_time",
+        );
+        let p = g.players.iter().find(|p| p.id == "p_fwd0").unwrap();
+        total_delta += p.morale as i32 - 30;
+    }
+    let avg_delta = total_delta as f64 / runs as f64;
+    assert!(
+        avg_delta >= 10.0,
+        "Promise time should give big boost (10-16), avg: {:.1}",
+        avg_delta
+    );
+}
+
+#[test]
+fn morale_talk_work_harder_varies() {
+    let mut game = make_game();
+    game.players
+        .iter_mut()
+        .find(|p| p.id == "p_fwd0")
+        .unwrap()
+        .morale = 50;
+    inject_player_message(&mut game, "morale_talk_p_fwd0", "p_fwd0", "respond");
+
+    let mut positive_count = 0;
+    let mut negative_count = 0;
+    for _ in 0..100 {
+        let mut g = game.clone();
+        player_events::apply_player_response(
+            &mut g,
+            "morale_talk_p_fwd0",
+            "respond",
+            "work_harder",
+        );
+        let p = g.players.iter().find(|p| p.id == "p_fwd0").unwrap();
+        if p.morale > 50 {
+            positive_count += 1;
+        } else if p.morale < 50 {
+            negative_count += 1;
+        }
+    }
+    // Should see both positive and negative outcomes
+    assert!(
+        positive_count > 0 && negative_count > 0,
+        "Work harder should have varied outcomes: positive={}, negative={}",
+        positive_count,
+        negative_count
+    );
+}
+
+#[test]
+fn morale_talk_unknown_option_returns_none() {
+    let mut game = make_game();
+    inject_player_message(&mut game, "morale_talk_p_fwd0", "p_fwd0", "respond");
+    let result = player_events::apply_player_response(
+        &mut game,
+        "morale_talk_p_fwd0",
+        "respond",
+        "nonexistent",
+    );
+    assert!(result.is_none());
+}
+
+// ---------------------------------------------------------------------------
+// apply_player_response: bench_complaint responses
+// ---------------------------------------------------------------------------
+
+#[test]
+fn bench_complaint_explain() {
+    let mut game = make_game();
+    game.players
+        .iter_mut()
+        .find(|p| p.id == "p_fwd0")
+        .unwrap()
+        .morale = 50;
+    inject_player_message(&mut game, "bench_complaint_p_fwd0", "p_fwd0", "respond");
+
+    let result = player_events::apply_player_response(
+        &mut game,
+        "bench_complaint_p_fwd0",
+        "respond",
+        "explain",
+    );
+    assert!(result.is_some());
+}
+
+#[test]
+fn bench_complaint_promise_chance_big_boost() {
+    let mut game = make_game();
+    game.players
+        .iter_mut()
+        .find(|p| p.id == "p_fwd0")
+        .unwrap()
+        .morale = 40;
+    inject_player_message(&mut game, "bench_complaint_p_fwd0", "p_fwd0", "respond");
+
+    let mut total_delta: i32 = 0;
+    let runs = 30;
+    for _ in 0..runs {
+        let mut g = game.clone();
+        player_events::apply_player_response(
+            &mut g,
+            "bench_complaint_p_fwd0",
+            "respond",
+            "promise_chance",
+        );
+        let p = g.players.iter().find(|p| p.id == "p_fwd0").unwrap();
+        total_delta += p.morale as i32 - 40;
+    }
+    let avg_delta = total_delta as f64 / runs as f64;
+    assert!(
+        avg_delta >= 8.0,
+        "Promise chance should boost 8-14, avg: {:.1}",
+        avg_delta
+    );
+}
+
+#[test]
+fn bench_complaint_prove_yourself_varies() {
+    let mut game = make_game();
+    game.players
+        .iter_mut()
+        .find(|p| p.id == "p_fwd0")
+        .unwrap()
+        .morale = 50;
+    inject_player_message(&mut game, "bench_complaint_p_fwd0", "p_fwd0", "respond");
+
+    let mut positive = 0;
+    let mut negative = 0;
+    for _ in 0..100 {
+        let mut g = game.clone();
+        player_events::apply_player_response(
+            &mut g,
+            "bench_complaint_p_fwd0",
+            "respond",
+            "prove_yourself",
+        );
+        let p = g.players.iter().find(|p| p.id == "p_fwd0").unwrap();
+        if p.morale > 50 {
+            positive += 1;
+        } else if p.morale < 50 {
+            negative += 1;
+        }
+    }
+    assert!(
+        positive > 0 && negative > 0,
+        "Prove yourself should vary: pos={}, neg={}",
+        positive,
+        negative
+    );
+}
+
+// ---------------------------------------------------------------------------
+// apply_player_response: happy_player responses
+// ---------------------------------------------------------------------------
+
+#[test]
+fn happy_player_praise_back_boosts() {
+    let mut game = make_game();
+    game.players
+        .iter_mut()
+        .find(|p| p.id == "p_fwd0")
+        .unwrap()
+        .morale = 80;
+    inject_player_message(&mut game, "happy_player_p_fwd0", "p_fwd0", "respond");
+
+    let mut total_delta: i32 = 0;
+    let runs = 30;
+    for _ in 0..runs {
+        let mut g = game.clone();
+        player_events::apply_player_response(
+            &mut g,
+            "happy_player_p_fwd0",
+            "respond",
+            "praise_back",
+        );
+        let p = g.players.iter().find(|p| p.id == "p_fwd0").unwrap();
+        total_delta += p.morale as i32 - 80;
+    }
+    assert!(
+        total_delta > 0,
+        "Praise back should boost morale, total delta: {}",
+        total_delta
+    );
+}
+
+#[test]
+fn happy_player_stay_professional() {
+    let mut game = make_game();
+    game.players
+        .iter_mut()
+        .find(|p| p.id == "p_fwd0")
+        .unwrap()
+        .morale = 80;
+    inject_player_message(&mut game, "happy_player_p_fwd0", "p_fwd0", "respond");
+
+    let result = player_events::apply_player_response(
+        &mut game,
+        "happy_player_p_fwd0",
+        "respond",
+        "stay_professional",
+    );
+    assert!(result.is_some());
+}
+
+#[test]
+fn happy_player_higher_expectations_varies() {
+    let mut game = make_game();
+    game.players
+        .iter_mut()
+        .find(|p| p.id == "p_fwd0")
+        .unwrap()
+        .morale = 80;
+    inject_player_message(&mut game, "happy_player_p_fwd0", "p_fwd0", "respond");
+
+    let mut positive = 0;
+    let mut negative = 0;
+    for _ in 0..100 {
+        let mut g = game.clone();
+        player_events::apply_player_response(
+            &mut g,
+            "happy_player_p_fwd0",
+            "respond",
+            "higher_expectations",
+        );
+        let p = g.players.iter().find(|p| p.id == "p_fwd0").unwrap();
+        if p.morale > 80 {
+            positive += 1;
+        } else if p.morale < 80 {
+            negative += 1;
+        }
+    }
+    assert!(
+        positive > 0 && negative > 0,
+        "Higher expectations should vary: pos={}, neg={}",
+        positive,
+        negative
+    );
+}
+
+// ---------------------------------------------------------------------------
+// apply_player_response: contract_concern responses
+// ---------------------------------------------------------------------------
+
+#[test]
+fn contract_reassure_boosts_morale() {
+    let mut game = make_game();
+    game.players
+        .iter_mut()
+        .find(|p| p.id == "p_fwd0")
+        .unwrap()
+        .morale = 50;
+    inject_player_message(&mut game, "contract_concern_p_fwd0", "p_fwd0", "respond");
+
+    let mut total_delta: i32 = 0;
+    let runs = 30;
+    for _ in 0..runs {
+        let mut g = game.clone();
+        player_events::apply_player_response(
+            &mut g,
+            "contract_concern_p_fwd0",
+            "respond",
+            "reassure",
+        );
+        let p = g.players.iter().find(|p| p.id == "p_fwd0").unwrap();
+        total_delta += p.morale as i32 - 50;
+    }
+    let avg = total_delta as f64 / runs as f64;
+    assert!(avg >= 4.0, "Reassure should boost 4-10, avg: {:.1}", avg);
+}
+
+#[test]
+fn contract_noncommittal_generally_negative() {
+    let mut game = make_game();
+    game.players
+        .iter_mut()
+        .find(|p| p.id == "p_fwd0")
+        .unwrap()
+        .morale = 60;
+    inject_player_message(&mut game, "contract_concern_p_fwd0", "p_fwd0", "respond");
+
+    let mut total_delta: i32 = 0;
+    let runs = 50;
+    for _ in 0..runs {
+        let mut g = game.clone();
+        player_events::apply_player_response(
+            &mut g,
+            "contract_concern_p_fwd0",
+            "respond",
+            "noncommittal",
+        );
+        let p = g.players.iter().find(|p| p.id == "p_fwd0").unwrap();
+        total_delta += p.morale as i32 - 60;
+    }
+    let avg = total_delta as f64 / runs as f64;
+    assert!(
+        avg < 0.0,
+        "Noncommittal should generally be negative, avg: {:.1}",
+        avg
+    );
+}
+
+#[test]
+fn contract_no_renewal_tanks_morale() {
+    let mut game = make_game();
+    game.players
+        .iter_mut()
+        .find(|p| p.id == "p_fwd0")
+        .unwrap()
+        .morale = 70;
+    inject_player_message(&mut game, "contract_concern_p_fwd0", "p_fwd0", "respond");
+
+    let result = player_events::apply_player_response(
+        &mut game,
+        "contract_concern_p_fwd0",
+        "respond",
+        "no_renewal",
+    );
+    assert!(result.is_some());
+
+    let p = game.players.iter().find(|p| p.id == "p_fwd0").unwrap();
+    assert!(
+        p.morale < 65,
+        "No renewal should tank morale, got {}",
+        p.morale
+    );
+}
+
+#[test]
+fn no_renewal_dressing_room_effect() {
+    let mut game = make_game();
+    // Set all players to morale 70
+    for p in &mut game.players {
+        p.morale = 70;
+    }
+    inject_player_message(&mut game, "contract_concern_p_fwd0", "p_fwd0", "respond");
+
+    player_events::apply_player_response(
+        &mut game,
+        "contract_concern_p_fwd0",
+        "respond",
+        "no_renewal",
+    );
+
+    // Teammates should also lose morale (dressing room effect)
+    let teammates_affected: Vec<_> = game
+        .players
+        .iter()
+        .filter(|p| p.id != "p_fwd0" && p.team_id.as_deref() == Some("team1"))
+        .filter(|p| p.morale < 70)
+        .collect();
+    assert!(
+        !teammates_affected.is_empty(),
+        "No renewal should affect dressing room morale"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// apply_player_response: edge cases
+// ---------------------------------------------------------------------------
+
+#[test]
+fn unknown_message_prefix_returns_none() {
+    let mut game = make_game();
+    inject_player_message(&mut game, "unknown_prefix_p_fwd0", "p_fwd0", "respond");
+    let result = player_events::apply_player_response(
+        &mut game,
+        "unknown_prefix_p_fwd0",
+        "respond",
+        "encourage",
+    );
+    assert!(result.is_none());
+}
+
+#[test]
+fn missing_message_returns_none() {
+    let mut game = make_game();
+    let result = player_events::apply_player_response(
+        &mut game,
+        "morale_talk_nonexistent",
+        "respond",
+        "encourage",
+    );
+    assert!(result.is_none());
+}
+
+#[test]
+fn morale_clamps_to_5_100() {
+    let mut game = make_game();
+    // Test lower bound
+    game.players
+        .iter_mut()
+        .find(|p| p.id == "p_fwd0")
+        .unwrap()
+        .morale = 8;
+    inject_player_message(&mut game, "contract_concern_p_fwd0", "p_fwd0", "respond");
+
+    player_events::apply_player_response(
+        &mut game,
+        "contract_concern_p_fwd0",
+        "respond",
+        "no_renewal",
+    );
+
+    let p = game.players.iter().find(|p| p.id == "p_fwd0").unwrap();
+    assert!(p.morale >= 5, "Morale should clamp at 5, got {}", p.morale);
+}
+
+#[test]
+fn morale_clamps_at_100() {
+    let mut game = make_game();
+    game.players
+        .iter_mut()
+        .find(|p| p.id == "p_fwd0")
+        .unwrap()
+        .morale = 95;
+    inject_player_message(&mut game, "morale_talk_p_fwd0", "p_fwd0", "respond");
+
+    player_events::apply_player_response(
+        &mut game,
+        "morale_talk_p_fwd0",
+        "respond",
+        "promise_time",
+    );
+
+    let p = game.players.iter().find(|p| p.id == "p_fwd0").unwrap();
+    assert!(
+        p.morale <= 100,
+        "Morale should cap at 100, got {}",
+        p.morale
+    );
+}
+
+#[test]
+fn action_marked_resolved() {
+    let mut game = make_game();
+    game.players
+        .iter_mut()
+        .find(|p| p.id == "p_fwd0")
+        .unwrap()
+        .morale = 30;
+    inject_player_message(&mut game, "morale_talk_p_fwd0", "p_fwd0", "respond");
+
+    player_events::apply_player_response(&mut game, "morale_talk_p_fwd0", "respond", "encourage");
+
+    let msg = game
+        .messages
+        .iter()
+        .find(|m| m.id == "morale_talk_p_fwd0")
+        .unwrap();
+    let action = msg.actions.iter().find(|a| a.id == "respond").unwrap();
+    assert!(action.resolved, "Action should be marked as resolved");
+}
+
+// ---------------------------------------------------------------------------
+// Personality factor influence
+// ---------------------------------------------------------------------------
+
+#[test]
+fn volatile_player_worse_outcomes_from_tough_love() {
+    let mut game = make_game();
+    // Make player volatile: high aggression, low composure
+    let player = game.players.iter_mut().find(|p| p.id == "p_fwd0").unwrap();
+    player.morale = 50;
+    player.attributes.aggression = 95;
+    player.attributes.composure = 20;
+    player.attributes.leadership = 20;
+    inject_player_message(&mut game, "morale_talk_p_fwd0", "p_fwd0", "respond");
+
+    let mut total_delta: i32 = 0;
+    let runs = 100;
+    for _ in 0..runs {
+        let mut g = game.clone();
+        player_events::apply_player_response(
+            &mut g,
+            "morale_talk_p_fwd0",
+            "respond",
+            "work_harder",
+        );
+        let p = g.players.iter().find(|p| p.id == "p_fwd0").unwrap();
+        total_delta += p.morale as i32 - 50;
+    }
+    let avg_volatile = total_delta as f64 / runs as f64;
+
+    // Now test composed player
+    let player = game.players.iter_mut().find(|p| p.id == "p_fwd0").unwrap();
+    player.attributes.aggression = 20;
+    player.attributes.composure = 95;
+    player.attributes.leadership = 95;
+
+    let mut total_delta2: i32 = 0;
+    for _ in 0..runs {
+        let mut g = game.clone();
+        player_events::apply_player_response(
+            &mut g,
+            "morale_talk_p_fwd0",
+            "respond",
+            "work_harder",
+        );
+        let p = g.players.iter().find(|p| p.id == "p_fwd0").unwrap();
+        total_delta2 += p.morale as i32 - 50;
+    }
+    let avg_composed = total_delta2 as f64 / runs as f64;
+
+    assert!(
+        avg_composed > avg_volatile,
+        "Composed player should respond better to tough love: composed={:.1}, volatile={:.1}",
+        avg_composed,
+        avg_volatile
+    );
+}

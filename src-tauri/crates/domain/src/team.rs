@@ -49,8 +49,7 @@ pub struct Team {
     pub history: Vec<TeamSeasonRecord>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub enum TrainingFocus {
     #[default]
     Physical,
@@ -61,9 +60,7 @@ pub enum TrainingFocus {
     Recovery,
 }
 
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub enum TrainingIntensity {
     Low,
     #[default]
@@ -71,11 +68,9 @@ pub enum TrainingIntensity {
     High,
 }
 
-
 /// Weekly training schedule controlling how many days per week are training vs rest.
 /// Rest days give full condition recovery with no training cost.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub enum TrainingSchedule {
     /// 6 training days, 1 rest (Sunday). Max growth, minimal recovery.
     Intense,
@@ -85,7 +80,6 @@ pub enum TrainingSchedule {
     /// 2 training days (Tue, Thu), 5 rest. Minimal growth, excellent recovery.
     Light,
 }
-
 
 impl TrainingSchedule {
     /// Returns true if the given weekday (chrono::Weekday) is a training day.
