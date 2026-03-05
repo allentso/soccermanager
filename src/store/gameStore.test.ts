@@ -11,6 +11,7 @@ beforeEach(() => {
     hasActiveGame: false,
     managerName: null,
     gameState: null,
+    isDirty: false,
   });
 });
 
@@ -45,6 +46,7 @@ describe("useGameStore", () => {
     expect(state.hasActiveGame).toBe(false);
     expect(state.managerName).toBeNull();
     expect(state.gameState).toBeNull();
+    expect(state.isDirty).toBe(false);
   });
 
   describe("setGameActive", () => {
@@ -76,6 +78,11 @@ describe("useGameStore", () => {
       expect(useGameStore.getState().gameState).toBe(gs);
     });
 
+    it("marks state as dirty", () => {
+      useGameStore.getState().setGameState(makeGameState());
+      expect(useGameStore.getState().isDirty).toBe(true);
+    });
+
     it("replaces previous game state", () => {
       const gs1 = makeGameState({ clock: { current_date: "2026-08-01", start_date: "2026-08-01" } });
       const gs2 = makeGameState({ clock: { current_date: "2026-09-01", start_date: "2026-08-01" } });
@@ -95,6 +102,30 @@ describe("useGameStore", () => {
       expect(state.hasActiveGame).toBe(false);
       expect(state.managerName).toBeNull();
       expect(state.gameState).toBeNull();
+      expect(state.isDirty).toBe(false);
+    });
+  });
+
+  describe("isDirty / markClean", () => {
+    it("is false initially", () => {
+      expect(useGameStore.getState().isDirty).toBe(false);
+    });
+
+    it("becomes true after setGameState", () => {
+      useGameStore.getState().setGameState(makeGameState());
+      expect(useGameStore.getState().isDirty).toBe(true);
+    });
+
+    it("resets to false after markClean", () => {
+      useGameStore.getState().setGameState(makeGameState());
+      useGameStore.getState().markClean();
+      expect(useGameStore.getState().isDirty).toBe(false);
+    });
+
+    it("resets to false after clearGame", () => {
+      useGameStore.getState().setGameState(makeGameState());
+      useGameStore.getState().clearGame();
+      expect(useGameStore.getState().isDirty).toBe(false);
     });
   });
 });

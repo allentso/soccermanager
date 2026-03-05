@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useGameStore, GameStateData } from "../store/gameStore";
 import { Badge, ThemeToggle } from "../components/ui";
 import PlayerProfile from "../components/PlayerProfile";
@@ -15,7 +16,7 @@ import { useSettingsStore } from "../store/settingsStore";
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { hasActiveGame, managerName, gameState, setGameState, clearGame } = useGameStore();
+  const { hasActiveGame, managerName, gameState, setGameState, clearGame, isDirty, markClean } = useGameStore();
   const { t } = useTranslation();
   const { settings, loaded: settingsLoaded, loadSettings } = useSettingsStore();
 
@@ -79,10 +80,11 @@ export default function Dashboard() {
     handleSkipToMatchDay,
   } = useAdvanceTime(setGameState, hasMatchToday, settings.default_match_mode, settingsLoaded);
 
-  const handleSave = async () => {
+  const handleSave = useCallback(async () => {
     setIsSaving(true);
     try {
       await invoke("save_game");
+      markClean();
       setSaveFlash(true);
       setTimeout(() => setSaveFlash(false), 2000);
     } catch (err) {
@@ -90,7 +92,26 @@ export default function Dashboard() {
     } finally {
       setIsSaving(false);
     }
-  };
+  }, [markClean]);
+
+  // Intercept window close to warn about unsaved changes
+  useEffect(() => {
+    const appWindow = getCurrentWindow();
+    const unlisten = appWindow.onCloseRequested(async (event) => {
+      if (isDirty) {
+        event.preventDefault();
+        // Save and then close
+        try {
+          await invoke("save_game");
+          markClean();
+        } catch (err) {
+          console.error("Auto-save on close failed:", err);
+        }
+        await appWindow.destroy();
+      }
+    });
+    return () => { unlisten.then(fn => fn()); };
+  }, [isDirty, markClean]);
 
   const MODE_META: Record<string, { label: string; icon: React.ReactNode; desc: string; color: string }> = {
     live: { label: t('continueMenu.goToField'), icon: <Gamepad2 className="w-4 h-4" />, desc: t('continueMenu.goToFieldDesc'), color: 'from-primary-500 to-primary-600' },
