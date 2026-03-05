@@ -176,7 +176,7 @@ export default function SquadTab({ gameState, managerId, onSelectPlayer, onGameU
 
     const contextItems = [
       { label: "View Profile", icon: <User className="w-4 h-4" />, onClick: () => onSelectPlayer(player.id) },
-      { label: "Swap Player", icon: <ArrowRightLeft className="w-4 h-4" />, onClick: () => handleSwapClick(player.id, section), disabled: !!player.injury },
+      { label: "Swap Player", icon: <ArrowRightLeft className="w-4 h-4" />, onClick: () => handleSwapClick(player.id, section), disabled: !!(player.injury && section === "bench") },
       { label: "", icon: undefined, onClick: () => {}, divider: true },
       { label: player.transfer_listed ? "Remove from Transfer List" : "Add to Transfer List", icon: <ShoppingCart className="w-4 h-4" />, onClick: async () => {
         try {
@@ -235,17 +235,20 @@ export default function SquadTab({ gameState, managerId, onSelectPlayer, onGameU
           }`}>{ovr}</span>
         </td>
         <td className="py-2.5 px-4">
-          {player.injury ? (
-            <Badge variant="danger" size="sm">{t('common.injured')}</Badge>
-          ) : (
-            <button
-              onClick={() => handleSwapClick(player.id, section)}
-              className={`p-1.5 rounded-lg transition-colors ${isSwapSource ? 'bg-accent-500 text-white' : 'text-gray-400 hover:text-primary-500 hover:bg-gray-100 dark:hover:bg-navy-600'}`}
-              title="Swap player"
-            >
-              <ArrowRightLeft className="w-3.5 h-3.5" />
-            </button>
-          )}
+          <div className="flex items-center gap-1.5">
+            {player.injury && (
+              <Badge variant="danger" size="sm">{t('common.injured')}</Badge>
+            )}
+            {(!player.injury || section === "xi") && (
+              <button
+                onClick={() => handleSwapClick(player.id, section)}
+                className={`p-1.5 rounded-lg transition-colors ${isSwapSource ? 'bg-accent-500 text-white' : 'text-gray-400 hover:text-primary-500 hover:bg-gray-100 dark:hover:bg-navy-600'}`}
+                title="Swap player"
+              >
+                <ArrowRightLeft className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
         </td>
       </tr>
       </ContextMenu>
