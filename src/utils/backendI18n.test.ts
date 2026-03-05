@@ -1,0 +1,172 @@
+import { describe, it, expect, beforeAll } from "vitest";
+import i18n from "../i18n";
+import { resolveMessage, resolveAction, resolveNewsArticle } from "./backendI18n";
+import type { MessageData, MessageAction, NewsArticle } from "../store/gameStore";
+
+// ---------------------------------------------------------------------------
+// Bootstrap i18n with a test key so we can verify resolution works
+// ---------------------------------------------------------------------------
+
+beforeAll(async () => {
+  // Ensure i18n is initialized (it auto-inits on import) then add test keys
+  await i18n.init; // no-op if already initialised
+  i18n.addResourceBundle("en", "translation", {
+    "test.subject": "Resolved Subject",
+    "test.body": "Hello {{name}}, welcome!",
+    "test.sender": "The Board",
+    "test.senderRole": "Board of Directors",
+    "test.actionLabel": "Accept Offer",
+    "test.headline": "Breaking: {{team}} wins!",
+    "test.newsBody": "Match report for {{team}}.",
+    "test.source": "OFM Sports",
+  }, true, true);
+});
+
+// ---------------------------------------------------------------------------
+// Helpers to build minimal test data
+// ---------------------------------------------------------------------------
+
+const makeAction = (overrides: Partial<MessageAction> = {}): MessageAction => ({
+  id: "act_1",
+  label: "raw label",
+  action_type: "Acknowledge",
+  resolved: false,
+  ...overrides,
+});
+
+const makeMessage = (overrides: Partial<MessageData> = {}): MessageData => ({
+  id: "msg_1",
+  subject: "raw subject",
+  body: "raw body",
+  sender: "raw sender",
+  sender_role: "raw role",
+  date: "2026-08-01",
+  read: false,
+  category: "general",
+  priority: "normal",
+  actions: [],
+  context: { team_id: null, player_id: null, fixture_id: null, match_result: null },
+  ...overrides,
+});
+
+const makeNewsArticle = (overrides: Partial<NewsArticle> = {}): NewsArticle => ({
+  id: "news_1",
+  headline: "raw headline",
+  body: "raw body",
+  source: "raw source",
+  date: "2026-08-01",
+  category: "match",
+  team_ids: [],
+  player_ids: [],
+  match_score: null,
+  read: false,
+  ...overrides,
+});
+
+// ---------------------------------------------------------------------------
+// resolveAction
+// ---------------------------------------------------------------------------
+
+describe("resolveAction", () => {
+  it("returns action with resolved label when label_key exists", () => {
+    const action = makeAction({ label: "fallback", label_key: "test.actionLabel" });
+    const result = resolveAction(action);
+    expect(result.label).toBe("Accept Offer");
+  });
+
+  it("keeps raw label when label_key is absent", () => {
+    const action = makeAction({ label: "Keep Me" });
+    const result = resolveAction(action);
+    expect(result.label).toBe("Keep Me");
+  });
+
+  it("falls back to raw label when key is not found in translations", () => {
+    const action = makeAction({ label: "fallback", label_key: "nonexistent.key" });
+    const result = resolveAction(action);
+    expect(result.label).toBe("fallback");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// resolveMessage
+// ---------------------------------------------------------------------------
+
+describe("resolveMessage", () => {
+  it("resolves all translatable fields when keys exist", () => {
+    const msg = makeMessage({
+      subject: "raw", subject_key: "test.subject",
+      body: "raw", body_key: "test.body",
+      sender: "raw", sender_key: "test.sender",
+      sender_role: "raw", sender_role_key: "test.senderRole",
+      i18n_params: { name: "Coach" },
+      actions: [makeAction({ label: "raw", label_key: "test.actionLabel" })],
+    });
+    const result = resolveMessage(msg);
+    expect(result.subject).toBe("Resolved Subject");
+    expect(result.body).toBe("Hello Coach, welcome!");
+    expect(result.sender).toBe("The Board");
+    expect(result.sender_role).toBe("Board of Directors");
+    expect(result.actions[0].label).toBe("Accept Offer");
+  });
+
+  it("keeps raw values when no keys are provided", () => {
+    const msg = makeMessage({
+      subject: "My Subject",
+      body: "My Body",
+      sender: "Someone",
+      sender_role: "Staff",
+    });
+    const result = resolveMessage(msg);
+    expect(result.subject).toBe("My Subject");
+    expect(result.body).toBe("My Body");
+    expect(result.sender).toBe("Someone");
+    expect(result.sender_role).toBe("Staff");
+  });
+
+  it("preserves non-translatable fields", () => {
+    const msg = makeMessage({ id: "msg_99", read: true, category: "transfer" });
+    const result = resolveMessage(msg);
+    expect(result.id).toBe("msg_99");
+    expect(result.read).toBe(true);
+    expect(result.category).toBe("transfer");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// resolveNewsArticle
+// ---------------------------------------------------------------------------
+
+describe("resolveNewsArticle", () => {
+  it("resolves all translatable fields with params", () => {
+    const article = makeNewsArticle({
+      headline: "raw", headline_key: "test.headline",
+      body: "raw", body_key: "test.newsBody",
+      source: "raw", source_key: "test.source",
+      i18n_params: { team: "Test FC" },
+    });
+    const result = resolveNewsArticle(article);
+    expect(result.headline).toBe("Breaking: Test FC wins!");
+    expect(result.body).toBe("Match report for Test FC.");
+    expect(result.source).toBe("OFM Sports");
+  });
+
+  it("keeps raw values when no keys are provided", () => {
+    const article = makeNewsArticle({
+      headline: "Big News",
+      body: "Details here",
+      source: "Press",
+    });
+    const result = resolveNewsArticle(article);
+    expect(result.headline).toBe("Big News");
+    expect(result.body).toBe("Details here");
+    expect(result.source).toBe("Press");
+  });
+
+  it("preserves non-translatable fields", () => {
+    const article = makeNewsArticle({ id: "n_5", category: "transfer", read: true });
+    const result = resolveNewsArticle(article);
+    expect(result.id).toBe("n_5");
+    expect(result.category).toBe("transfer");
+    expect(result.read).toBe(true);
+  });
+});

@@ -2,11 +2,12 @@ import { useState, useRef, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { formatDate } from "../lib/helpers";
 import { useGameStore, GameStateData } from "../store/gameStore";
 import { useTheme } from "../context/ThemeContext";
 import { Button, ThemeToggle } from "../components/ui";
-import { Play, FolderOpen, Settings, X, PlusCircle, Clock, ChevronRight, Trash2, Globe, Shuffle, Upload, Database, Users, ArrowLeft, AlertCircle, ChevronDown, Check } from "lucide-react";
+import SavesList from "../components/menu/SavesList";
+import WorldSelect, { WorldDatabaseInfo } from "../components/menu/WorldSelect";
+import { FolderOpen, Settings, X, PlusCircle, ChevronRight, AlertCircle, ChevronDown, Check } from "lucide-react";
 
 interface SaveMetadata {
   id: string;
@@ -16,22 +17,13 @@ interface SaveMetadata {
   last_played_at: string;
 }
 
-interface WorldDatabaseInfo {
-  id: string;
-  name: string;
-  description: string;
-  team_count: number;
-  player_count: number;
-  source: string;
-  path: string;
-}
 
 export default function MainMenu() {
   const navigate = useNavigate();
   const setGameActive = useGameStore((state) => state.setGameActive);
   const setGameState = useGameStore((state) => state.setGameState);
   const { isDark } = useTheme();
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   
   const [menuState, setMenuState] = useState<"main" | "create" | "world" | "load">("main");
   const [saves, setSaves] = useState<SaveMetadata[]>([]);
@@ -54,7 +46,6 @@ export default function MainMenu() {
   const [worldDatabases, setWorldDatabases] = useState<WorldDatabaseInfo[]>([]);
   const [selectedWorldId, setSelectedWorldId] = useState<string>("random");
   const [isLoadingWorlds, setIsLoadingWorlds] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const NATIONALITIES = [
     "Afghan", "Albanian", "Algerian", "American", "Andorran", "Angolan", "Argentine",
@@ -485,188 +476,30 @@ export default function MainMenu() {
 
           {/* Step 2: World Database Selection */}
           {menuState === "world" && (
-            <div className="flex flex-col gap-4">
-              <div className="flex justify-between items-center mb-2">
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setMenuState("create")}
-                    className="text-gray-400 hover:text-gray-700 dark:hover:text-white transition-colors p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-navy-600"
-                  >
-                    <ArrowLeft className="w-5 h-5" />
-                  </button>
-                  <h2 className="text-xl font-heading font-bold uppercase tracking-wide text-gray-900 dark:text-white transition-colors">
-                    {t('worldSelect.title')}
-                  </h2>
-                </div>
-                <button 
-                  type="button" 
-                  onClick={() => setMenuState("main")}
-                  className="text-gray-400 hover:text-gray-700 dark:hover:text-white transition-colors p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-navy-600"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              {/* Step indicator */}
-              <div className="flex items-center gap-2 mb-1">
-                <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary-500/30 text-primary-400 text-xs font-bold">1</div>
-                <div className="h-0.5 flex-1 bg-primary-500" />
-                <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary-500 text-white text-xs font-bold">2</div>
-              </div>
-
-              {/* World options */}
-              <div className="flex flex-col gap-2 max-h-[45vh] overflow-y-auto pr-1">
-                {isLoadingWorlds ? (
-                  <div className="text-gray-500 dark:text-gray-400 text-center py-4">{t('worldSelect.scanning')}</div>
-                ) : (
-                  worldDatabases.map(db => (
-                    <button
-                      key={db.id}
-                      onClick={() => setSelectedWorldId(db.id)}
-                      className={`flex items-start gap-3 w-full p-3.5 rounded-xl border transition-all duration-200 text-left ${
-                        selectedWorldId === db.id
-                          ? "bg-primary-50 dark:bg-primary-500/10 border-primary-400 dark:border-primary-500 ring-1 ring-primary-400/30"
-                          : "bg-white dark:bg-navy-700 border-gray-200 dark:border-navy-600 hover:border-gray-300 dark:hover:border-navy-500"
-                      }`}
-                    >
-                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5 ${
-                        db.id === "random"
-                          ? "bg-accent-500/10 text-accent-500"
-                          : db.source === "imported"
-                            ? "bg-purple-500/10 text-purple-500"
-                            : "bg-primary-500/10 text-primary-500"
-                      }`}>
-                        {db.id === "random" ? <Shuffle className="w-5 h-5" /> :
-                         db.source === "imported" ? <Upload className="w-5 h-5" /> :
-                         <Database className="w-5 h-5" />}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className={`font-heading font-bold text-sm uppercase tracking-wide ${
-                          selectedWorldId === db.id ? "text-primary-600 dark:text-primary-400" : "text-gray-800 dark:text-gray-200"
-                        }`}>{db.name}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-2">{db.description}</p>
-                        <div className="flex items-center gap-3 mt-1.5">
-                          <span className="text-[10px] font-heading uppercase tracking-wider text-gray-400 dark:text-gray-500 flex items-center gap-1">
-                            <Globe className="w-3 h-3" />{t('worldSelect.teams', { count: db.team_count })}
-                          </span>
-                          <span className="text-[10px] font-heading uppercase tracking-wider text-gray-400 dark:text-gray-500 flex items-center gap-1">
-                            <Users className="w-3 h-3" />{t('worldSelect.players', { count: db.player_count })}
-                          </span>
-                        </div>
-                      </div>
-                      {selectedWorldId === db.id && (
-                        <div className="w-5 h-5 rounded-full bg-primary-500 flex items-center justify-center flex-shrink-0 mt-1">
-                          <div className="w-2 h-2 rounded-full bg-white" />
-                        </div>
-                      )}
-                    </button>
-                  ))
-                )}
-              </div>
-
-              {/* Import button */}
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="flex items-center justify-center gap-2 w-full py-2.5 border border-dashed border-gray-300 dark:border-navy-500 rounded-xl text-sm text-gray-500 dark:text-gray-400 hover:text-primary-500 dark:hover:text-primary-400 hover:border-primary-400 dark:hover:border-primary-500 transition-colors"
-              >
-                <Upload className="w-4 h-4" />
-                <span className="font-heading font-bold uppercase tracking-wider">{t('worldSelect.importFile')}</span>
-              </button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".json"
-                className="hidden"
-                onChange={handleImportFile}
-              />
-
-              <Button
-                variant="primary"
-                size="lg"
-                className="w-full"
-                iconRight={isStarting ? undefined : <ChevronRight />}
-                onClick={handleStartGame}
-                disabled={isStarting}
-              >
-                {isStarting ? t('worldSelect.creatingWorld') : t('worldSelect.startCareer')}
-              </Button>
-            </div>
+            <WorldSelect
+              worldDatabases={worldDatabases}
+              selectedWorldId={selectedWorldId}
+              isLoadingWorlds={isLoadingWorlds}
+              isStarting={isStarting}
+              onSelectWorld={setSelectedWorldId}
+              onImportFile={handleImportFile}
+              onStart={handleStartGame}
+              onBack={() => setMenuState("create")}
+              onClose={() => setMenuState("main")}
+            />
           )}
 
           {/* Load Game List */}
           {menuState === "load" && (
-            <div className="flex flex-col gap-4">
-              <div className="flex justify-between items-center mb-2">
-                <h2 className="text-xl font-heading font-bold uppercase tracking-wide text-gray-900 dark:text-white transition-colors">
-                  {t('menu.loadGame')}
-                </h2>
-                <button 
-                  type="button" 
-                  onClick={() => setMenuState("main")}
-                  className="text-gray-400 hover:text-gray-700 dark:hover:text-white transition-colors p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-navy-600"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              
-              <div className="flex flex-col gap-3 max-h-[60vh] overflow-y-auto pr-1">
-                {isLoadingSaves ? (
-                  <div className="text-gray-500 dark:text-gray-400 text-center py-4">{t('menu.loadingSaves')}</div>
-                ) : saves.length === 0 ? (
-                  <div className="text-gray-500 dark:text-gray-400 text-center py-8">{t('menu.noSaves')}</div>
-                ) : (
-                  saves.map(save => (
-                    <div key={save.id} className="group relative flex flex-col gap-2 w-full p-4 bg-white dark:bg-navy-700 hover:bg-primary-50 dark:hover:bg-navy-600 text-left rounded-xl transition-all duration-200 border border-gray-200 dark:border-navy-600 hover:border-primary-400 dark:hover:border-primary-500 shadow-sm">
-                      {confirmDeleteId === save.id ? (
-                        <div className="flex flex-col gap-2">
-                          <p className="text-sm text-gray-700 dark:text-gray-300" dangerouslySetInnerHTML={{ __html: t('menu.deleteConfirm', { name: save.name }) }} />
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => handleDeleteSave(save.id)}
-                              className="flex-1 py-2 bg-red-500 hover:bg-red-600 text-white text-sm font-heading font-bold uppercase tracking-wider rounded-lg transition-colors"
-                            >
-                              {t('menu.delete')}
-                            </button>
-                            <button
-                              onClick={() => setConfirmDeleteId(null)}
-                              className="flex-1 py-2 bg-gray-200 dark:bg-navy-600 hover:bg-gray-300 dark:hover:bg-navy-500 text-gray-700 dark:text-gray-300 text-sm font-heading font-bold uppercase tracking-wider rounded-lg transition-colors"
-                            >
-                              {t('menu.cancel')}
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-3 w-full">
-                          <button
-                            onClick={() => handleLoadGame(save.id)}
-                            className="flex flex-col gap-2 flex-1 text-left min-w-0"
-                          >
-                            <div className="flex justify-between items-center w-full">
-                              <span className="font-heading font-bold text-gray-900 dark:text-white text-lg uppercase tracking-wide truncate">{save.name}</span>
-                              <Play className="w-4 h-4 text-primary-500 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0" />
-                            </div>
-                            <div className="flex justify-between items-center w-full text-sm text-gray-500 dark:text-gray-400">
-                              <span>{t('menu.manager', { name: save.manager_name })}</span>
-                              <div className="flex items-center gap-1">
-                                <Clock className="w-3 h-3" />
-                                <span>{formatDate(save.last_played_at, i18n.language)}</span>
-                              </div>
-                            </div>
-                          </button>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(save.id); }}
-                            className="p-1.5 rounded-lg text-gray-400 dark:text-gray-500 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0"
-                            title={t('menu.deleteSave')}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
+            <SavesList
+              saves={saves}
+              isLoading={isLoadingSaves}
+              confirmDeleteId={confirmDeleteId}
+              onLoad={handleLoadGame}
+              onDelete={handleDeleteSave}
+              onConfirmDelete={setConfirmDeleteId}
+              onClose={() => setMenuState("main")}
+            />
           )}
         </div>
       </div>

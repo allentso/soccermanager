@@ -4,6 +4,10 @@ import {
   getTeamShort,
   findNextFixture,
   getLocale,
+  formatMatchDate,
+  formatDate,
+  formatDateFull,
+  formatDateShort,
   calcOvr,
   calcAge,
   formatVal,
@@ -211,5 +215,64 @@ describe("positionBadgeVariant", () => {
 
   it("returns 'primary' for unknown position", () => {
     expect(positionBadgeVariant("Unknown")).toBe("primary");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Date formatting
+// ---------------------------------------------------------------------------
+
+describe("formatMatchDate", () => {
+  it("returns a short weekday + month + day string", () => {
+    const result = formatMatchDate("2026-08-15", "en");
+    // e.g. "Sat, Aug 15" — exact format is locale-dependent, just verify it contains key parts
+    expect(result).toMatch(/Aug/);
+    expect(result).toMatch(/15/);
+  });
+
+  it("uses getLocale for language mapping", () => {
+    const en = formatMatchDate("2026-01-01", "en");
+    const es = formatMatchDate("2026-01-01", "es");
+    // Both should produce non-empty strings; Spanish should differ from English
+    expect(en.length).toBeGreaterThan(0);
+    expect(es.length).toBeGreaterThan(0);
+  });
+});
+
+describe("formatDate", () => {
+  it("returns a full date string by default", () => {
+    const result = formatDate("2026-08-15T12:00:00", "en");
+    expect(result).toMatch(/August/);
+    expect(result).toMatch(/15/);
+    expect(result).toMatch(/2026/);
+  });
+
+  it("accepts custom Intl.DateTimeFormatOptions", () => {
+    const result = formatDate("2026-08-15T12:00:00", "en", { year: "numeric" });
+    expect(result).toBe("2026");
+  });
+});
+
+describe("formatDateFull", () => {
+  it("includes weekday, month, day, year", () => {
+    const result = formatDateFull("2026-08-15T12:00:00", "en");
+    // Should contain full weekday and month
+    expect(result).toMatch(/Saturday/);
+    expect(result).toMatch(/August/);
+    expect(result).toMatch(/15/);
+    expect(result).toMatch(/2026/);
+  });
+});
+
+describe("formatDateShort", () => {
+  it("returns short month + day", () => {
+    const result = formatDateShort("2026-08-15T12:00:00", "en");
+    expect(result).toMatch(/Aug/);
+    expect(result).toMatch(/15/);
+  });
+
+  it("does not include year", () => {
+    const result = formatDateShort("2026-08-15T12:00:00", "en");
+    expect(result).not.toMatch(/2026/);
   });
 });

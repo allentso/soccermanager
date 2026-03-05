@@ -5,24 +5,10 @@ import { useGameStore, GameStateData } from "../store/gameStore";
 import { Badge, ThemeToggle } from "../components/ui";
 import PlayerProfile from "../components/PlayerProfile";
 import TeamProfile from "../components/TeamProfile";
-import HomeTab from "../components/HomeTab";
-import SquadTab from "../components/SquadTab";
-import TacticsTab from "../components/TacticsTab";
-import TrainingTab from "../components/TrainingTab";
-import ScheduleTab from "../components/ScheduleTab";
-import FinancesTab from "../components/FinancesTab";
-import TransfersTab from "../components/TransfersTab";
-import PlayersListTab from "../components/PlayersListTab";
-import TeamsListTab from "../components/TeamsListTab";
-import TournamentsTab from "../components/TournamentsTab";
-import ScoutingTab from "../components/ScoutingTab";
-import YouthAcademyTab from "../components/YouthAcademyTab";
-import StaffTab from "../components/StaffTab";
-import InboxTab from "../components/InboxTab";
-import ManagerTab from "../components/ManagerTab";
-import NewsTab from "../components/NewsTab";
-import EndOfSeasonScreen from "../components/EndOfSeasonScreen";
-import { Users, Calendar as CalendarIcon, Mail, Settings, ChevronRight, ChevronDown, Briefcase, Trophy, TrendingUp, Crosshair, Dumbbell, DollarSign, Search, User, UsersRound, Building2, UserCog, Newspaper, LogOut, ArrowLeft, Eye, Cpu, Gamepad2, AlertCircle, Save, GraduationCap } from "lucide-react";
+import DashboardSidebar from "../components/dashboard/DashboardSidebar";
+import DashboardTabContent from "../components/dashboard/DashboardTabContent";
+import { useAdvanceTime } from "../hooks/useAdvanceTime";
+import { Calendar as CalendarIcon, ChevronRight, ChevronDown, Search, ArrowLeft, Eye, Cpu, Gamepad2, AlertCircle, Save } from "lucide-react";
 import { getTeamName, formatDateFull } from "../lib/helpers";
 import { useTranslation } from "react-i18next";
 import { useSettingsStore } from "../store/settingsStore";
@@ -37,22 +23,11 @@ export default function Dashboard() {
   useEffect(() => {
     if (!settingsLoaded) loadSettings();
   }, [settingsLoaded, loadSettings]);
-  const [isAdvancing, setIsAdvancing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveFlash, setSaveFlash] = useState(false);
   const [activeTab, setActiveTab] = useState("Home");
-  const [showContinueMenu, setShowContinueMenu] = useState(false);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
-  const [showMatchConfirm, setShowMatchConfirm] = useState(false);
-  const [matchMode, setMatchMode] = useState<"live" | "spectator" | "delegate">("live");
-  const [blockerModal, setBlockerModal] = useState<{ blockers: { id: string; severity: string; text: string; tab: string }[]; pendingAction?: () => void } | null>(null);
 
-  // Sync matchMode with settings when loaded
-  useEffect(() => {
-    if (settingsLoaded && settings.default_match_mode) {
-      setMatchMode(settings.default_match_mode);
-    }
-  }, [settingsLoaded, settings.default_match_mode]);
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -92,45 +67,17 @@ export default function Dashboard() {
     ? gameState.league.fixtures.length > 0 && gameState.league.fixtures.every(f => f.status === "Completed")
     : false;
 
-  const doAdvance = async (effectiveMode: string) => {
-    setIsAdvancing(true);
-    setShowContinueMenu(false);
-    setShowMatchConfirm(false);
-    setBlockerModal(null);
-    try {
-      const result = await invoke<{ action: string; game?: GameStateData; snapshot?: unknown; fixture_index?: number; mode?: string }>("advance_time_with_mode", { mode: effectiveMode });
-      if (result.action === "live_match") {
-        navigate("/match", { state: { mode: result.mode || effectiveMode } });
-      } else if (result.action === "advanced" && result.game) {
-        setGameState(result.game as GameStateData);
-      }
-    } catch (err) {
-      console.error("Failed to advance time:", err);
-    } finally {
-      setIsAdvancing(false);
-    }
-  };
-
-  const handleContinue = async (mode?: string) => {
-    const effectiveMode = mode || matchMode;
-    // If there's a match today, show confirmation modal first
-    if (hasMatchToday && !showMatchConfirm) {
-      if (mode) setMatchMode(mode as "live" | "spectator" | "delegate");
-      setShowContinueMenu(false);
-      setShowMatchConfirm(true);
-      return;
-    }
-    if (isAdvancing) return;
-    // Check for blocking actions before advancing
-    try {
-      const blockers = await invoke<{ id: string; severity: string; text: string; tab: string }[]>("check_blocking_actions");
-      if (blockers.length > 0) {
-        setBlockerModal({ blockers, pendingAction: () => doAdvance(effectiveMode) });
-        return;
-      }
-    } catch {}
-    doAdvance(effectiveMode);
-  };
+  // Advance-time hook
+  const {
+    isAdvancing,
+    showContinueMenu, setShowContinueMenu,
+    showMatchConfirm, setShowMatchConfirm,
+    matchMode, setMatchMode,
+    blockerModal, setBlockerModal,
+    handleContinue,
+    handleConfirmMatch,
+    handleSkipToMatchDay,
+  } = useAdvanceTime(setGameState, hasMatchToday, settings.default_match_mode, settingsLoaded);
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -145,44 +92,10 @@ export default function Dashboard() {
     }
   };
 
-  const handleConfirmMatch = () => {
-    doAdvance(matchMode);
-  };
-
   const MODE_META: Record<string, { label: string; icon: React.ReactNode; desc: string; color: string }> = {
     live: { label: t('continueMenu.goToField'), icon: <Gamepad2 className="w-4 h-4" />, desc: t('continueMenu.goToFieldDesc'), color: 'from-primary-500 to-primary-600' },
     spectator: { label: t('continueMenu.watchSpectator'), icon: <Eye className="w-4 h-4" />, desc: t('continueMenu.watchSpectatorDesc'), color: 'from-indigo-500 to-indigo-600' },
     delegate: { label: t('continueMenu.delegateAssistant'), icon: <Cpu className="w-4 h-4" />, desc: t('continueMenu.delegateAssistantDesc'), color: 'from-amber-500 to-amber-600' },
-  };
-
-  const handleSkipToMatchDay = async () => {
-    if (isAdvancing) return;
-    // Check blockers before starting skip
-    try {
-      const blockers = await invoke<{ id: string; severity: string; text: string; tab: string }[]>("check_blocking_actions");
-      if (blockers.length > 0) {
-        setBlockerModal({ blockers, pendingAction: doSkipToMatchDay });
-        return;
-      }
-    } catch {}
-    doSkipToMatchDay();
-  };
-
-  const doSkipToMatchDay = async () => {
-    setIsAdvancing(true);
-    setShowContinueMenu(false);
-    setBlockerModal(null);
-    try {
-      const result = await invoke<{ action: string; game?: GameStateData; blockers?: { id: string; severity: string; text: string; tab: string }[]; days_skipped?: number }>("skip_to_match_day");
-      if (result.game) setGameState(result.game as GameStateData);
-      if (result.action === "blocked" && result.blockers && result.blockers.length > 0) {
-        setBlockerModal({ blockers: result.blockers });
-      }
-    } catch (err) {
-      console.error("Failed to skip to match day:", err);
-    } finally {
-      setIsAdvancing(false);
-    }
   };
 
   const handleNavClick = (tab: string) => {
@@ -266,78 +179,20 @@ export default function Dashboard() {
   }
 
   const currentDate = formatDateFull(gameState.clock.current_date, settings.language);
-
   const unreadMessagesCount = gameState.messages?.filter(m => !m.read).length || 0;
+  const myTeamName = gameState.teams.find(tm => tm.id === gameState.manager.team_id)?.name ?? null;
 
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-navy-900 flex transition-colors duration-300">
-      {/* Sidebar Navigation */}
-      <aside className="w-64 bg-navy-800 dark:bg-navy-800 border-r border-navy-700 text-white flex flex-col flex-shrink-0">
-        {/* Brand */}
-        <div className="p-5 border-b border-navy-700">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 flex items-center justify-center">
-              <img src="../../openfootball.svg" alt="Logo" className="w-8 h-8" />
-            </div>
-            <div>
-              <h1 className="text-sm font-heading font-bold text-white uppercase tracking-wider">OpenFoot</h1>
-              <h1 className="text-xs font-heading text-accent-400 uppercase tracking-wider">Manager</h1>
-            </div>
-          </div>
-          <div className="mt-3 pt-3 border-t border-navy-700">
-            <p className="text-xs text-gray-400 uppercase tracking-wider">{t('dashboard.manager')}</p>
-            <p className="text-sm font-semibold text-white mt-0.5">{managerName}</p>
-            {(() => {
-              const myTeam = gameState?.teams.find(t => t.id === gameState.manager.team_id);
-              return myTeam ? (
-                <p className="text-xs text-primary-400 mt-0.5">{myTeam.name}</p>
-              ) : null;
-            })()}
-          </div>
-        </div>
-        
-        {/* Navigation */}
-        <nav className="flex-1 py-4 px-3 flex flex-col gap-1 overflow-y-auto">
-          <NavItem icon={<Briefcase />} label={t('dashboard.home')} active={activeTab === "Home"} onClick={() => handleNavClick("Home")} />
-          <NavItem icon={<Mail />} label={t('dashboard.inbox')} badge={unreadMessagesCount > 0 ? unreadMessagesCount : undefined} active={activeTab === "Inbox"} onClick={() => handleNavClick("Inbox")} />
-          <NavItem icon={<User />} label={t('dashboard.manager')} active={activeTab === "Manager"} onClick={() => handleNavClick("Manager")} />
-
-          <p className="text-[10px] text-gray-500 uppercase tracking-widest font-heading px-3 pt-3 pb-1">{t('dashboard.sectionClub')}</p>
-          <NavItem icon={<Users />} label={t('dashboard.squad')} active={activeTab === "Squad"} onClick={() => handleNavClick("Squad")} />
-          <NavItem icon={<Crosshair />} label={t('dashboard.tactics')} active={activeTab === "Tactics"} onClick={() => handleNavClick("Tactics")} />
-          <NavItem icon={<Dumbbell />} label={t('dashboard.training')} active={activeTab === "Training"} onClick={() => handleNavClick("Training")} />
-          <NavItem icon={<UserCog />} label={t('dashboard.staff')} active={activeTab === "Staff"} onClick={() => handleNavClick("Staff")} />
-          <NavItem icon={<Eye />} label={t('dashboard.scouting')} active={activeTab === "Scouting"} onClick={() => handleNavClick("Scouting")} />
-          <NavItem icon={<GraduationCap />} label={t('dashboard.youthAcademy')} active={activeTab === "Youth"} onClick={() => handleNavClick("Youth")} />
-          <NavItem icon={<DollarSign />} label={t('dashboard.finances')} active={activeTab === "Finances"} onClick={() => handleNavClick("Finances")} />
-          <NavItem icon={<TrendingUp />} label={t('dashboard.transfers')} active={activeTab === "Transfers"} onClick={() => handleNavClick("Transfers")} />
-
-          <p className="text-[10px] text-gray-500 uppercase tracking-widest font-heading px-3 pt-3 pb-1">{t('dashboard.sectionWorld')}</p>
-          <NavItem icon={<UsersRound />} label={t('dashboard.players')} active={activeTab === "Players"} onClick={() => handleNavClick("Players")} />
-          <NavItem icon={<Building2 />} label={t('dashboard.teams')} active={activeTab === "Teams"} onClick={() => handleNavClick("Teams")} />
-          <NavItem icon={<Trophy />} label={t('dashboard.tournaments')} active={activeTab === "Tournaments"} onClick={() => handleNavClick("Tournaments")} />
-          <NavItem icon={<CalendarIcon />} label={t('dashboard.schedule')} active={activeTab === "Schedule"} onClick={() => handleNavClick("Schedule")} />
-          <NavItem icon={<Newspaper />} label={t('dashboard.news')} active={activeTab === "News"} onClick={() => handleNavClick("News")} />
-        </nav>
-        
-        {/* Settings & Exit */}
-        <div className="p-3 border-t border-navy-700 flex flex-col gap-1">
-          <button 
-            onClick={() => navigate("/settings", { state: { from: "/dashboard" } })}
-            className="flex items-center gap-3 w-full p-3 hover:bg-white/5 rounded-lg transition-colors text-gray-500 hover:text-gray-300"
-          >
-            <Settings className="w-5 h-5" />
-            <span className="font-heading text-sm uppercase tracking-wider">{t('dashboard.settings')}</span>
-          </button>
-          <button 
-            onClick={() => setShowExitConfirm(true)}
-            className="flex items-center gap-3 w-full p-3 hover:bg-red-500/10 rounded-lg transition-colors text-gray-500 hover:text-red-400"
-          >
-            <LogOut className="w-5 h-5" />
-            <span className="font-heading text-sm uppercase tracking-wider">{t('dashboard.exitToMenu')}</span>
-          </button>
-        </div>
-      </aside>
+      <DashboardSidebar
+        activeTab={activeTab}
+        onNavClick={handleNavClick}
+        unreadMessagesCount={unreadMessagesCount}
+        managerName={managerName}
+        teamName={myTeamName}
+        onNavigateSettings={() => navigate("/settings", { state: { from: "/dashboard" } })}
+        onExitClick={() => setShowExitConfirm(true)}
+      />
 
       {/* Exit Confirmation Modal */}
       {showExitConfirm && (
@@ -729,102 +584,23 @@ export default function Dashboard() {
             );
           })()}
 
-          {/* End-of-season screen when all fixtures are complete */}
-          {!selectedPlayerId && !selectedTeamId && seasonComplete && activeTab === "Home" && (
-            <EndOfSeasonScreen gameState={gameState} onGameUpdate={setGameState} />
-          )}
-
           {/* Tab content — hidden when a profile is open */}
-          {!selectedPlayerId && !selectedTeamId && activeTab === "Home" && !seasonComplete && (
-            <HomeTab gameState={gameState} onNavigate={handleNavigate} />
-          )}
-
-          {!selectedPlayerId && !selectedTeamId && activeTab === "Squad" && (
-            <SquadTab gameState={gameState} managerId={gameState.manager.id} onSelectPlayer={selectPlayer} onGameUpdate={setGameState} />
-          )}
-
-          {!selectedPlayerId && !selectedTeamId && activeTab === "Tactics" && (
-            <TacticsTab gameState={gameState} onSelectPlayer={selectPlayer} onGameUpdate={setGameState} />
-          )}
-
-          {!selectedPlayerId && !selectedTeamId && activeTab === "Training" && (
-            <TrainingTab gameState={gameState} onGameUpdate={setGameState} />
-          )}
-
-          {!selectedPlayerId && !selectedTeamId && activeTab === "Schedule" && (
-            <ScheduleTab gameState={gameState} onSelectTeam={selectTeam} />
-          )}
-
-          {!selectedPlayerId && !selectedTeamId && activeTab === "Finances" && (
-            <FinancesTab gameState={gameState} />
-          )}
-
-          {!selectedPlayerId && !selectedTeamId && activeTab === "Transfers" && (
-            <TransfersTab gameState={gameState} onSelectPlayer={selectPlayer} onSelectTeam={selectTeam} onGameUpdate={setGameState} />
-          )}
-
-          {!selectedPlayerId && !selectedTeamId && activeTab === "Players" && (
-            <PlayersListTab gameState={gameState} onSelectPlayer={selectPlayer} onSelectTeam={selectTeam} />
-          )}
-
-          {!selectedPlayerId && !selectedTeamId && activeTab === "Teams" && (
-            <TeamsListTab gameState={gameState} onSelectTeam={selectTeam} />
-          )}
-
-          {!selectedPlayerId && !selectedTeamId && activeTab === "Tournaments" && (
-            <TournamentsTab gameState={gameState} onSelectTeam={selectTeam} />
-          )}
-
-          {!selectedPlayerId && !selectedTeamId && activeTab === "Staff" && (
-            <StaffTab gameState={gameState} onGameUpdate={setGameState} />
-          )}
-
-          {!selectedPlayerId && !selectedTeamId && activeTab === "Scouting" && (
-            <ScoutingTab gameState={gameState} onGameUpdate={setGameState} onSelectPlayer={selectPlayer} />
-          )}
-
-          {!selectedPlayerId && !selectedTeamId && activeTab === "Youth" && (
-            <YouthAcademyTab gameState={gameState} onSelectPlayer={selectPlayer} />
-          )}
-
-          {!selectedPlayerId && !selectedTeamId && activeTab === "Inbox" && (
-            <InboxTab gameState={gameState} onGameUpdate={setGameState} initialMessageId={initialMessageId} onNavigate={handleNavigate} />
-          )}
-
-          {!selectedPlayerId && !selectedTeamId && activeTab === "Manager" && (
-            <ManagerTab gameState={gameState} />
-          )}
-
-          {!selectedPlayerId && !selectedTeamId && activeTab === "News" && (
-            <NewsTab gameState={gameState} onSelectTeam={selectTeam} />
+          {!selectedPlayerId && !selectedTeamId && (
+            <DashboardTabContent
+              activeTab={activeTab}
+              gameState={gameState}
+              seasonComplete={seasonComplete}
+              initialMessageId={initialMessageId}
+              onSelectPlayer={selectPlayer}
+              onSelectTeam={selectTeam}
+              onGameUpdate={setGameState}
+              onNavigate={handleNavigate}
+            />
           )}
 
         </div>
       </main>
 
     </div>
-  );
-}
-
-function NavItem({ icon, label, active, badge, onClick }: { icon: React.ReactNode, label: string, active?: boolean, badge?: number, onClick?: () => void }) {
-  return (
-    <button 
-      onClick={onClick}
-      className={`w-full flex items-center justify-between p-3 rounded-lg transition-all duration-200 ${
-        active 
-          ? 'bg-gradient-to-r from-primary-500 to-primary-600 text-white shadow-md shadow-primary-500/20' 
-          : 'text-gray-400 hover:text-white hover:bg-white/5'
-      }`}
-    >
-      <div className="flex items-center gap-3">
-        <div className="[&>svg]:w-5 [&>svg]:h-5">{icon}</div>
-        <span className="font-heading font-semibold text-sm uppercase tracking-wider">{label}</span>
-      </div>
-      {badge !== undefined && badge > 0 && (
-        <span className="bg-primary-500 text-white text-xs font-bold px-2 py-0.5 rounded-full min-w-[1.25rem] text-center">
-          {badge}
-        </span>
-      )}
-    </button>
   );
 }
