@@ -3,7 +3,7 @@ import { MatchSnapshot, EnginePlayerData } from "./types";
 import { Badge } from "../ui";
 import { ArrowUpDown, AlertTriangle, Wand2 } from "lucide-react";
 
-const POSITION_KEY_STATS: Record<string, { label: string; key: string }[]> = {
+export const POSITION_KEY_STATS: Record<string, { label: string; key: string }[]> = {
   Goalkeeper: [{ label: "HAN", key: "handling" }, { label: "REF", key: "reflexes" }, { label: "AER", key: "aerial" }],
   Defender: [{ label: "DEF", key: "defending" }, { label: "TAC", key: "tackling" }, { label: "STR", key: "strength" }],
   Midfielder: [{ label: "PAS", key: "passing" }, { label: "VIS", key: "vision" }, { label: "STA", key: "stamina" }],
@@ -20,19 +20,19 @@ export function getPositionOvr(p: EnginePlayerData): number {
   }
 }
 
-function condColor(c: number): string {
+export function condColor(c: number): string {
   if (c >= 75) return "text-primary-400";
   if (c >= 50) return "text-amber-400";
   return "text-red-400";
 }
 
-function statColor(v: number): string {
+export function statColor(v: number): string {
   if (v >= 75) return "text-primary-400 font-bold";
   if (v >= 60) return "text-gray-200";
   return "text-gray-500";
 }
 
-function getStatVal(p: EnginePlayerData, key: string): number {
+export function getStatVal(p: EnginePlayerData, key: string): number {
   return (p as unknown as Record<string, number>)[key] ?? 0;
 }
 

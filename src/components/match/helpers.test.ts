@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { getPlayerName, phaseLabel, calcOvr } from "./helpers";
+import { getPlayerName, phaseLabel, calcOvr, getEventDisplay } from "./helpers";
 import type { MatchSnapshot, EnginePlayerData, EngineTeamData } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -127,5 +127,35 @@ describe("calcOvr (match)", () => {
 
   it("returns 0 for empty attributes", () => {
     expect(calcOvr({})).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getEventDisplay
+// ---------------------------------------------------------------------------
+
+describe("getEventDisplay", () => {
+  it("returns known display for Goal event", () => {
+    const display = getEventDisplay({ minute: 10, event_type: "Goal", side: "Home", zone: "Box", player_id: "p1", secondary_player_id: null });
+    expect(display.color).toBe("text-accent-400");
+    expect(display.important).toBe(true);
+  });
+
+  it("returns known display for YellowCard event", () => {
+    const display = getEventDisplay({ minute: 25, event_type: "YellowCard", side: "Away", zone: "Midfield", player_id: "p2", secondary_player_id: null });
+    expect(display.color).toBe("text-yellow-400");
+    expect(display.important).toBe(true);
+  });
+
+  it("returns known display for ShotSaved (non-important)", () => {
+    const display = getEventDisplay({ minute: 30, event_type: "ShotSaved", side: "Home", zone: "Box", player_id: "p1", secondary_player_id: null });
+    expect(display.color).toBe("text-green-400");
+    expect(display.important).toBe(false);
+  });
+
+  it("returns default display for unknown event type", () => {
+    const display = getEventDisplay({ minute: 1, event_type: "UnknownEvent", side: "Home", zone: "Midfield", player_id: null, secondary_player_id: null });
+    expect(display.color).toBe("text-gray-400");
+    expect(display.important).toBe(false);
   });
 });
