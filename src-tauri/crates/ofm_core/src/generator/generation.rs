@@ -215,7 +215,7 @@ pub(super) fn generate_random_player_from_def(
     player.wage = wage;
     player.contract_end = Some(contract_end);
     player.condition = rng.gen_range(75..100);
-    player.morale = rng.gen_range(60..100);
+    player.morale = rng.gen_range(40..76);
     player
 }
 
