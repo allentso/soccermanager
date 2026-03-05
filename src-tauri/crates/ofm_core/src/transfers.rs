@@ -114,13 +114,14 @@ pub fn respond_to_offer(
 
     // Update offer status
     if let Some(p) = game.players.iter_mut().find(|p| p.id == player_id)
-        && let Some(o) = p.transfer_offers.iter_mut().find(|o| o.id == offer_id) {
-            o.status = if accept {
-                TransferOfferStatus::Accepted
-            } else {
-                TransferOfferStatus::Rejected
-            };
-        }
+        && let Some(o) = p.transfer_offers.iter_mut().find(|o| o.id == offer_id)
+    {
+        o.status = if accept {
+            TransferOfferStatus::Accepted
+        } else {
+            TransferOfferStatus::Rejected
+        };
+    }
 
     if accept {
         execute_transfer(game, player_id, &from_team_id, &user_team_id, fee)?;

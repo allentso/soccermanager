@@ -920,11 +920,13 @@ fn pick_name_from_def(
     rng: &mut impl rand::RngCore,
 ) -> (String, String) {
     if let Some(pool) = names_def.pools.get(nationality)
-        && !pool.first_names.is_empty() && !pool.last_names.is_empty() {
-            let first = pool.first_names[rng.gen_range(0..pool.first_names.len())].clone();
-            let last = pool.last_names[rng.gen_range(0..pool.last_names.len())].clone();
-            return (first, last);
-        }
+        && !pool.first_names.is_empty()
+        && !pool.last_names.is_empty()
+    {
+        let first = pool.first_names[rng.gen_range(0..pool.first_names.len())].clone();
+        let last = pool.last_names[rng.gen_range(0..pool.last_names.len())].clone();
+        return (first, last);
+    }
     // Fallback: pick from any available pool
     let keys: Vec<&String> = names_def.pools.keys().collect();
     if let Some(key) = keys.first() {

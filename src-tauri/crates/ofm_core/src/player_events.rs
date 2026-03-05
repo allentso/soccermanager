@@ -175,18 +175,19 @@ pub fn check_player_events(game: &mut Game) {
             }
 
             if let Some(end_str) = &player.contract_end
-                && let Ok(end_date) = chrono::NaiveDate::parse_from_str(end_str, "%Y-%m-%d") {
-                    let days_remaining = (end_date - current_date).num_days();
-                    if days_remaining > 0 && days_remaining <= 90 {
-                        new_messages.push(contract_concern_message(
-                            &msg_id,
-                            &player.id,
-                            &player.match_name,
-                            days_remaining,
-                            &today,
-                        ));
-                    }
+                && let Ok(end_date) = chrono::NaiveDate::parse_from_str(end_str, "%Y-%m-%d")
+            {
+                let days_remaining = (end_date - current_date).num_days();
+                if days_remaining > 0 && days_remaining <= 90 {
+                    new_messages.push(contract_concern_message(
+                        &msg_id,
+                        &player.id,
+                        &player.match_name,
+                        days_remaining,
+                        &today,
+                    ));
                 }
+            }
         }
     }
 
@@ -408,9 +409,10 @@ pub fn apply_player_response(
 
     // Mark the action as resolved
     if let Some(msg) = game.messages.iter_mut().find(|m| m.id == message_id)
-        && let Some(act) = msg.actions.iter_mut().find(|a| a.id == action_id) {
-            act.resolved = true;
-        }
+        && let Some(act) = msg.actions.iter_mut().find(|a| a.id == action_id)
+    {
+        act.resolved = true;
+    }
 
     Some(description)
 }

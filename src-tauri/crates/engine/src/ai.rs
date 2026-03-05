@@ -59,9 +59,9 @@ pub fn ai_decide<R: Rng>(
     if subs_made < snap.max_subs
         && let Some(sub_cmd) =
             consider_substitution(match_state, side, profile, minute, subs_made, rng)
-        {
-            commands.push(sub_cmd);
-        }
+    {
+        commands.push(sub_cmd);
+    }
 
     // --- Tactical adjustments ---
     if let Some(tactic_cmd) = consider_tactic_change(match_state, side, profile, minute, rng) {
@@ -166,13 +166,13 @@ fn consider_substitution<R: Rng>(
             if let Some(player_off) = candidates.last()
                 && let Some(attacker_on) =
                     find_best_bench_replacement(bench, Position::Forward, &snap.sent_off)
-                {
-                    return Some(MatchCommand::Substitute {
-                        side,
-                        player_off_id: player_off.id.clone(),
-                        player_on_id: attacker_on.id.clone(),
-                    });
-                }
+            {
+                return Some(MatchCommand::Substitute {
+                    side,
+                    player_off_id: player_off.id.clone(),
+                    player_on_id: attacker_on.id.clone(),
+                });
+            }
         }
     }
 
@@ -190,13 +190,13 @@ fn consider_substitution<R: Rng>(
             if let Some(player_off) = forwards.first()
                 && let Some(defender_on) =
                     find_best_bench_replacement(bench, Position::Defender, &snap.sent_off)
-                {
-                    return Some(MatchCommand::Substitute {
-                        side,
-                        player_off_id: player_off.id.clone(),
-                        player_on_id: defender_on.id.clone(),
-                    });
-                }
+            {
+                return Some(MatchCommand::Substitute {
+                    side,
+                    player_off_id: player_off.id.clone(),
+                    player_on_id: defender_on.id.clone(),
+                });
+            }
         }
     }
 
@@ -266,41 +266,53 @@ fn consider_tactic_change<R: Rng>(
     let base_chance = 0.02 * experience_factor;
 
     // Losing by 2+ goals after 70': switch to attacking
-    if goal_diff <= -2 && minute >= 70 && team.play_style != PlayStyle::Attacking
-        && rng.gen_range(0.0..1.0f64) < base_chance * 3.0 {
-            return Some(MatchCommand::ChangePlayStyle {
-                side,
-                play_style: PlayStyle::Attacking,
-            });
-        }
+    if goal_diff <= -2
+        && minute >= 70
+        && team.play_style != PlayStyle::Attacking
+        && rng.gen_range(0.0..1.0f64) < base_chance * 3.0
+    {
+        return Some(MatchCommand::ChangePlayStyle {
+            side,
+            play_style: PlayStyle::Attacking,
+        });
+    }
 
     // Losing by 1 goal after 75': consider more attacking
-    if goal_diff == -1 && minute >= 75
-        && team.play_style != PlayStyle::Attacking && team.play_style != PlayStyle::HighPress
-            && rng.gen_range(0.0..1.0f64) < base_chance * 2.0 {
-                return Some(MatchCommand::ChangePlayStyle {
-                    side,
-                    play_style: PlayStyle::Attacking,
-                });
-            }
+    if goal_diff == -1
+        && minute >= 75
+        && team.play_style != PlayStyle::Attacking
+        && team.play_style != PlayStyle::HighPress
+        && rng.gen_range(0.0..1.0f64) < base_chance * 2.0
+    {
+        return Some(MatchCommand::ChangePlayStyle {
+            side,
+            play_style: PlayStyle::Attacking,
+        });
+    }
 
     // Winning by 1+ goals after 80': switch to defensive
-    if goal_diff >= 1 && minute >= 80 && team.play_style != PlayStyle::Defensive
-        && rng.gen_range(0.0..1.0f64) < base_chance * 2.0 {
-            return Some(MatchCommand::ChangePlayStyle {
-                side,
-                play_style: PlayStyle::Defensive,
-            });
-        }
+    if goal_diff >= 1
+        && minute >= 80
+        && team.play_style != PlayStyle::Defensive
+        && rng.gen_range(0.0..1.0f64) < base_chance * 2.0
+    {
+        return Some(MatchCommand::ChangePlayStyle {
+            side,
+            play_style: PlayStyle::Defensive,
+        });
+    }
 
     // Winning by 2+ goals after 85': very defensive / time wasting
-    if goal_diff >= 2 && minute >= 85 && team.play_style != PlayStyle::Defensive
-        && rng.gen_range(0.0..1.0f64) < base_chance * 4.0 {
-            return Some(MatchCommand::ChangePlayStyle {
-                side,
-                play_style: PlayStyle::Defensive,
-            });
-        }
+    if goal_diff >= 2
+        && minute >= 85
+        && team.play_style != PlayStyle::Defensive
+        && rng.gen_range(0.0..1.0f64) < base_chance * 4.0
+    {
+        return Some(MatchCommand::ChangePlayStyle {
+            side,
+            play_style: PlayStyle::Defensive,
+        });
+    }
 
     None
 }

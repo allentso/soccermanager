@@ -410,7 +410,8 @@ pub fn board_expectations_message(team_name: &str, team_id: &str, date: &str) ->
             • Develop young talent from the academy\n\n\
             Meeting these objectives will strengthen your position. Failure to meet minimum \
             expectations may result in a review of your tenure.\n\n\
-            We trust in your abilities.".to_string(),
+            We trust in your abilities."
+            .to_string(),
         "Board of Directors".to_string(),
         date.to_string(),
     )

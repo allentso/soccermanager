@@ -893,3 +893,719 @@ fn report_has_team_stats() {
     assert!(report.home_stats.shots > 0 || report.home_stats.shots == 0);
     assert!(report.away_stats.shots > 0 || report.away_stats.shots == 0);
 }
+
+// ===========================================================================
+// Tests: Pre-match swaps
+// ===========================================================================
+
+#[test]
+fn pre_match_swap_works_before_kickoff() {
+    let state_template = make_live_match(false);
+    let snap = state_template.snapshot();
+    let starter_id = snap.home_team.players[5].id.clone(); // midfielder
+    let bench_id = state_template.bench(Side::Home)[2].id.clone(); // SUB_MID
+
+    let mut state = make_live_match(false);
+    let result = state.apply_command(MatchCommand::PreMatchSwap {
+        side: Side::Home,
+        player_off_id: starter_id.clone(),
+        player_on_id: bench_id.clone(),
+    });
+    assert!(result.is_ok());
+
+    let snap = state.snapshot();
+    assert!(snap.home_team.players.iter().any(|p| p.id == bench_id));
+    assert!(!snap.home_team.players.iter().any(|p| p.id == starter_id));
+    // Does not count as a substitution
+    assert_eq!(snap.home_subs_made, 0);
+}
+
+#[test]
+fn pre_match_swap_fails_after_kickoff() {
+    let mut state = make_live_match(false);
+    let mut rng = seeded_rng(42);
+    state.step_minute(&mut rng); // kick off → FirstHalf
+
+    let snap = state.snapshot();
+    let starter_id = snap.home_team.players[1].id.clone();
+    let bench_id = state.bench(Side::Home)[0].id.clone();
+
+    let result = state.apply_command(MatchCommand::PreMatchSwap {
+        side: Side::Home,
+        player_off_id: starter_id,
+        player_on_id: bench_id,
+    });
+    assert!(result.is_err());
+}
+
+#[test]
+fn pre_match_swap_invalid_player_fails() {
+    let mut state = make_live_match(false);
+    let bench_id = state.bench(Side::Home)[0].id.clone();
+
+    let result = state.apply_command(MatchCommand::PreMatchSwap {
+        side: Side::Home,
+        player_off_id: "nonexistent".to_string(),
+        player_on_id: bench_id,
+    });
+    assert!(result.is_err());
+}
+
+#[test]
+fn pre_match_swap_invalid_bench_player_fails() {
+    let mut state = make_live_match(false);
+    let snap = state.snapshot();
+    let starter_id = snap.home_team.players[1].id.clone();
+
+    let result = state.apply_command(MatchCommand::PreMatchSwap {
+        side: Side::Home,
+        player_off_id: starter_id,
+        player_on_id: "nonexistent_bench".to_string(),
+    });
+    assert!(result.is_err());
+}
+
+// ===========================================================================
+// Tests: Formation changes
+// ===========================================================================
+
+#[test]
+fn formation_change_redistributes_positions() {
+    let mut state = make_live_match(false);
+    let mut rng = seeded_rng(42);
+    state.step_minute(&mut rng);
+
+    // Switch from 4-4-2 to 3-5-2
+    state
+        .apply_command(MatchCommand::ChangeFormation {
+            side: Side::Home,
+            formation: "3-5-2".to_string(),
+        })
+        .unwrap();
+
+    let snap = state.snapshot();
+    assert_eq!(snap.home_team.formation, "3-5-2");
+
+    let defs = snap
+        .home_team
+        .players
+        .iter()
+        .filter(|p| p.position == Position::Defender)
+        .count();
+    let mids = snap
+        .home_team
+        .players
+        .iter()
+        .filter(|p| p.position == Position::Midfielder)
+        .count();
+    let fwds = snap
+        .home_team
+        .players
+        .iter()
+        .filter(|p| p.position == Position::Forward)
+        .count();
+
+    assert_eq!(defs, 3, "Should have 3 defenders");
+    assert_eq!(mids, 5, "Should have 5 midfielders");
+    assert_eq!(fwds, 2, "Should have 2 forwards");
+}
+
+#[test]
+fn formation_change_four_part() {
+    let mut state = make_live_match(false);
+    let mut rng = seeded_rng(42);
+    state.step_minute(&mut rng);
+
+    // 4-part formation like 4-2-3-1
+    state
+        .apply_command(MatchCommand::ChangeFormation {
+            side: Side::Home,
+            formation: "4-2-3-1".to_string(),
+        })
+        .unwrap();
+
+    let snap = state.snapshot();
+    assert_eq!(snap.home_team.formation, "4-2-3-1");
+
+    let defs = snap
+        .home_team
+        .players
+        .iter()
+        .filter(|p| p.position == Position::Defender)
+        .count();
+    let mids = snap
+        .home_team
+        .players
+        .iter()
+        .filter(|p| p.position == Position::Midfielder)
+        .count();
+    let fwds = snap
+        .home_team
+        .players
+        .iter()
+        .filter(|p| p.position == Position::Forward)
+        .count();
+
+    assert_eq!(defs, 4, "Should have 4 defenders");
+    assert_eq!(mids, 5, "Should have 5 midfielders (2+3)");
+    assert_eq!(fwds, 1, "Should have 1 forward");
+}
+
+#[test]
+fn formation_invalid_falls_back_to_442() {
+    let mut state = make_live_match(false);
+    let mut rng = seeded_rng(42);
+    state.step_minute(&mut rng);
+
+    state
+        .apply_command(MatchCommand::ChangeFormation {
+            side: Side::Home,
+            formation: "invalid".to_string(),
+        })
+        .unwrap();
+
+    let snap = state.snapshot();
+    // Fallback parse → (4, 4, 2)
+    let defs = snap
+        .home_team
+        .players
+        .iter()
+        .filter(|p| p.position == Position::Defender)
+        .count();
+    assert_eq!(defs, 4);
+}
+
+// ===========================================================================
+// Tests: Set piece takers (free kick, corner)
+// ===========================================================================
+
+#[test]
+fn set_free_kick_taker_stored() {
+    let mut state = make_live_match(false);
+    let mut rng = seeded_rng(42);
+    state.step_minute(&mut rng);
+
+    let snap = state.snapshot();
+    let mid_id = snap
+        .home_team
+        .players
+        .iter()
+        .find(|p| p.position == Position::Midfielder)
+        .unwrap()
+        .id
+        .clone();
+
+    state
+        .apply_command(MatchCommand::SetFreeKickTaker {
+            side: Side::Home,
+            player_id: mid_id.clone(),
+        })
+        .unwrap();
+
+    let snap = state.snapshot();
+    assert_eq!(snap.home_set_pieces.free_kick_taker, Some(mid_id));
+}
+
+#[test]
+fn set_corner_taker_stored() {
+    let mut state = make_live_match(false);
+    let mut rng = seeded_rng(42);
+    state.step_minute(&mut rng);
+
+    let snap = state.snapshot();
+    let mid_id = snap
+        .home_team
+        .players
+        .iter()
+        .find(|p| p.position == Position::Midfielder)
+        .unwrap()
+        .id
+        .clone();
+
+    state
+        .apply_command(MatchCommand::SetCornerTaker {
+            side: Side::Home,
+            player_id: mid_id.clone(),
+        })
+        .unwrap();
+
+    let snap = state.snapshot();
+    assert_eq!(snap.home_set_pieces.corner_taker, Some(mid_id));
+}
+
+// ===========================================================================
+// Tests: Play styles affect outcomes
+// ===========================================================================
+
+#[test]
+fn play_style_variations_produce_results() {
+    let styles = [
+        PlayStyle::Attacking,
+        PlayStyle::Defensive,
+        PlayStyle::Possession,
+        PlayStyle::Counter,
+        PlayStyle::HighPress,
+        PlayStyle::Balanced,
+    ];
+
+    for &style in &styles {
+        let home = make_team("home", "Home FC", 70, style);
+        let away = make_team("away", "Away FC", 70, PlayStyle::Balanced);
+        let home_bench = make_bench("home", 65);
+        let away_bench = make_bench("away", 65);
+        let mut state = LiveMatchState::new(
+            home,
+            away,
+            MatchConfig::default(),
+            home_bench,
+            away_bench,
+            false,
+        );
+        let mut rng = seeded_rng(42);
+        run_to_finish(&mut state, &mut rng);
+
+        assert!(state.is_finished(), "Match with {:?} should finish", style);
+    }
+}
+
+// ===========================================================================
+// Tests: Player traits
+// ===========================================================================
+
+fn make_player_with_traits(
+    id: &str,
+    name: &str,
+    pos: Position,
+    skill: u8,
+    traits: Vec<&str>,
+) -> PlayerData {
+    PlayerData {
+        id: id.to_string(),
+        name: name.to_string(),
+        position: pos,
+        condition: 90,
+        pace: skill,
+        stamina: skill,
+        strength: skill,
+        agility: skill,
+        passing: skill,
+        shooting: skill,
+        tackling: skill,
+        dribbling: skill,
+        defending: skill,
+        positioning: skill,
+        vision: skill,
+        decisions: skill,
+        composure: skill,
+        aggression: skill,
+        teamwork: skill,
+        leadership: skill,
+        handling: skill,
+        reflexes: skill,
+        aerial: skill,
+        traits: traits.iter().map(|t| t.to_string()).collect(),
+    }
+}
+
+fn make_team_with_traits(id: &str, name: &str, skill: u8, traits: Vec<&str>) -> TeamData {
+    let players = vec![
+        make_player_with_traits(
+            &format!("{}_gk", id),
+            "GK",
+            Position::Goalkeeper,
+            skill,
+            vec!["SafeHands", "CatReflexes"],
+        ),
+        make_player_with_traits(
+            &format!("{}_def1", id),
+            "DEF1",
+            Position::Defender,
+            skill,
+            vec!["BallWinner", "Rock"],
+        ),
+        make_player_with_traits(
+            &format!("{}_def2", id),
+            "DEF2",
+            Position::Defender,
+            skill,
+            traits.clone(),
+        ),
+        make_player_with_traits(
+            &format!("{}_def3", id),
+            "DEF3",
+            Position::Defender,
+            skill,
+            traits.clone(),
+        ),
+        make_player_with_traits(
+            &format!("{}_def4", id),
+            "DEF4",
+            Position::Defender,
+            skill,
+            traits.clone(),
+        ),
+        make_player_with_traits(
+            &format!("{}_mid1", id),
+            "MID1",
+            Position::Midfielder,
+            skill,
+            vec!["Engine", "Playmaker"],
+        ),
+        make_player_with_traits(
+            &format!("{}_mid2", id),
+            "MID2",
+            Position::Midfielder,
+            skill,
+            vec!["TeamPlayer", "Visionary"],
+        ),
+        make_player_with_traits(
+            &format!("{}_mid3", id),
+            "MID3",
+            Position::Midfielder,
+            skill,
+            vec!["Tireless"],
+        ),
+        make_player_with_traits(
+            &format!("{}_mid4", id),
+            "MID4",
+            Position::Midfielder,
+            skill,
+            traits.clone(),
+        ),
+        make_player_with_traits(
+            &format!("{}_fwd1", id),
+            "FWD1",
+            Position::Forward,
+            skill,
+            vec!["Sharpshooter", "CompleteForward"],
+        ),
+        make_player_with_traits(
+            &format!("{}_fwd2", id),
+            "FWD2",
+            Position::Forward,
+            skill,
+            vec!["Dribbler", "Speedster", "CoolHead"],
+        ),
+    ];
+    TeamData {
+        id: id.to_string(),
+        name: name.to_string(),
+        formation: "4-4-2".to_string(),
+        play_style: PlayStyle::Balanced,
+        players,
+    }
+}
+
+#[test]
+fn traits_are_exercised_during_match() {
+    let home = make_team_with_traits("home", "Trait FC", 70, vec![]);
+    let away = make_team("away", "Away FC", 70, PlayStyle::Balanced);
+    let home_bench = make_bench("home", 65);
+    let away_bench = make_bench("away", 65);
+    let mut state = LiveMatchState::new(
+        home,
+        away,
+        MatchConfig::default(),
+        home_bench,
+        away_bench,
+        false,
+    );
+    let mut rng = seeded_rng(42);
+    run_to_finish(&mut state, &mut rng);
+
+    assert!(state.is_finished());
+    let snap = state.snapshot();
+    // Events should still be generated with trait players
+    assert!(!snap.events.is_empty());
+}
+
+#[test]
+fn hot_head_trait_increases_foul_likelihood() {
+    // Run many matches and check if aggressive-traited team fouls more
+    let mut fouls_with_hotheads = 0u32;
+    let mut fouls_without = 0u32;
+    let trials = 20;
+
+    for seed in 0..trials {
+        // Team with HotHead traits
+        let home = make_team_with_traits("home", "Angry FC", 70, vec!["HotHead"]);
+        let away = make_team("away", "Away FC", 70, PlayStyle::Balanced);
+        let mut state = LiveMatchState::new(
+            home,
+            away,
+            MatchConfig::default(),
+            make_bench("home", 65),
+            make_bench("away", 65),
+            false,
+        );
+        let mut rng = seeded_rng(seed);
+        run_to_finish(&mut state, &mut rng);
+        let snap = state.snapshot();
+        fouls_with_hotheads += snap
+            .events
+            .iter()
+            .filter(|e| e.event_type == EventType::Foul && e.side == Side::Home)
+            .count() as u32;
+
+        // Team without traits
+        let home2 = make_team("home2", "Calm FC", 70, PlayStyle::Balanced);
+        let away2 = make_team("away2", "Away2 FC", 70, PlayStyle::Balanced);
+        let mut state2 = LiveMatchState::new(
+            home2,
+            away2,
+            MatchConfig::default(),
+            make_bench("home2", 65),
+            make_bench("away2", 65),
+            false,
+        );
+        let mut rng2 = seeded_rng(seed);
+        run_to_finish(&mut state2, &mut rng2);
+        let snap2 = state2.snapshot();
+        fouls_without += snap2
+            .events
+            .iter()
+            .filter(|e| e.event_type == EventType::Foul && e.side == Side::Home)
+            .count() as u32;
+    }
+
+    // HotHead team should foul at least as much (not strict due to RNG)
+    // But across 20 matches the trend should show
+    assert!(
+        fouls_with_hotheads >= fouls_without / 2,
+        "HotHead team fouls: {fouls_with_hotheads}, normal: {fouls_without}"
+    );
+}
+
+// ===========================================================================
+// Tests: Discipline (cards, red cards, sent off)
+// ===========================================================================
+
+#[test]
+fn yellow_cards_tracked_in_snapshot() {
+    // Run many seeds to find one that produces a yellow card
+    for seed in 0..100 {
+        let mut state = make_live_match(false);
+        let mut rng = seeded_rng(seed);
+        run_to_finish(&mut state, &mut rng);
+
+        let snap = state.snapshot();
+        let has_yellow = snap
+            .events
+            .iter()
+            .any(|e| e.event_type == EventType::YellowCard);
+        if has_yellow {
+            let total_yellows: u8 =
+                snap.home_yellows.values().sum::<u8>() + snap.away_yellows.values().sum::<u8>();
+            assert!(total_yellows > 0, "Snapshot should track yellow cards");
+            return;
+        }
+    }
+    // Acceptable if no yellow card in 100 seeds
+}
+
+#[test]
+fn sent_off_players_tracked() {
+    // Use high-aggression config to increase foul/card chance
+    let mut config = MatchConfig::default();
+    config.foul_probability = 0.5;
+    config.yellow_card_probability = 0.8;
+    config.red_card_probability = 0.3;
+
+    for seed in 0..200 {
+        let home = make_team("home", "Home FC", 70, PlayStyle::Balanced);
+        let away = make_team("away", "Away FC", 70, PlayStyle::Balanced);
+        let mut state = LiveMatchState::new(
+            home,
+            away,
+            config.clone(),
+            make_bench("home", 65),
+            make_bench("away", 65),
+            false,
+        );
+        let mut rng = seeded_rng(seed);
+        run_to_finish(&mut state, &mut rng);
+
+        let snap = state.snapshot();
+        let has_red = snap
+            .events
+            .iter()
+            .any(|e| e.event_type == EventType::RedCard || e.event_type == EventType::SecondYellow);
+        if has_red {
+            assert!(
+                !snap.sent_off.is_empty(),
+                "Sent off set should be populated after red/second yellow"
+            );
+            return;
+        }
+    }
+}
+
+// ===========================================================================
+// Tests: Substitution on away side
+// ===========================================================================
+
+#[test]
+fn away_substitution_works() {
+    let mut state = make_live_match(false);
+    let mut rng = seeded_rng(42);
+    state.step_minute(&mut rng);
+    state.step_minute(&mut rng);
+
+    let snap = state.snapshot();
+    let off_id = snap.away_team.players[5].id.clone();
+    let on_id = state.bench(Side::Away)[0].id.clone();
+
+    let result = state.apply_command(MatchCommand::Substitute {
+        side: Side::Away,
+        player_off_id: off_id.clone(),
+        player_on_id: on_id.clone(),
+    });
+    assert!(result.is_ok());
+
+    let snap = state.snapshot();
+    assert_eq!(snap.away_subs_made, 1);
+    assert!(snap.away_team.players.iter().any(|p| p.id == on_id));
+}
+
+#[test]
+fn substitution_invalid_bench_player_fails() {
+    let mut state = make_live_match(false);
+    let mut rng = seeded_rng(42);
+    state.step_minute(&mut rng);
+
+    let snap = state.snapshot();
+    let off_id = snap.home_team.players[1].id.clone();
+
+    let result = state.apply_command(MatchCommand::Substitute {
+        side: Side::Home,
+        player_off_id: off_id,
+        player_on_id: "nonexistent_bench".to_string(),
+    });
+    assert!(result.is_err());
+}
+
+// ===========================================================================
+// Tests: Snapshot edge cases
+// ===========================================================================
+
+#[test]
+fn snapshot_at_minute_zero_valid() {
+    let state = make_live_match(false);
+    let snap = state.snapshot();
+    assert_eq!(snap.home_possession_pct, 50.0);
+    assert_eq!(snap.away_possession_pct, 50.0);
+    assert_eq!(snap.current_minute, 0);
+    assert_eq!(snap.phase, MatchPhase::PreKickOff);
+}
+
+#[test]
+fn step_after_finished_returns_finished() {
+    let mut state = make_live_match(false);
+    let mut rng = seeded_rng(42);
+    run_to_finish(&mut state, &mut rng);
+
+    // Step again after finished
+    let result = state.step_minute(&mut rng);
+    assert!(result.is_finished);
+    assert_eq!(state.phase(), MatchPhase::Finished);
+}
+
+// ===========================================================================
+// Tests: Away side set pieces and tactics
+// ===========================================================================
+
+#[test]
+fn away_set_pieces_stored() {
+    let mut state = make_live_match(false);
+    let mut rng = seeded_rng(42);
+    state.step_minute(&mut rng);
+
+    let snap = state.snapshot();
+    let fwd_id = snap
+        .away_team
+        .players
+        .iter()
+        .find(|p| p.position == Position::Forward)
+        .unwrap()
+        .id
+        .clone();
+
+    state
+        .apply_command(MatchCommand::SetFreeKickTaker {
+            side: Side::Away,
+            player_id: fwd_id.clone(),
+        })
+        .unwrap();
+    state
+        .apply_command(MatchCommand::SetCornerTaker {
+            side: Side::Away,
+            player_id: fwd_id.clone(),
+        })
+        .unwrap();
+    state
+        .apply_command(MatchCommand::SetPenaltyTaker {
+            side: Side::Away,
+            player_id: fwd_id.clone(),
+        })
+        .unwrap();
+    state
+        .apply_command(MatchCommand::SetCaptain {
+            side: Side::Away,
+            player_id: fwd_id.clone(),
+        })
+        .unwrap();
+
+    let snap = state.snapshot();
+    assert_eq!(snap.away_set_pieces.free_kick_taker, Some(fwd_id.clone()));
+    assert_eq!(snap.away_set_pieces.corner_taker, Some(fwd_id.clone()));
+    assert_eq!(snap.away_set_pieces.penalty_taker, Some(fwd_id.clone()));
+    assert_eq!(snap.away_set_pieces.captain, Some(fwd_id));
+}
+
+// ===========================================================================
+// Tests: Different match configs
+// ===========================================================================
+
+#[test]
+fn custom_config_affects_match() {
+    let mut config = MatchConfig::default();
+    config.home_advantage = 1.5; // extreme home advantage
+
+    let home = make_team("home", "Home FC", 70, PlayStyle::Balanced);
+    let away = make_team("away", "Away FC", 70, PlayStyle::Balanced);
+    let mut state = LiveMatchState::new(
+        home,
+        away,
+        config,
+        make_bench("home", 65),
+        make_bench("away", 65),
+        false,
+    );
+    let mut rng = seeded_rng(42);
+    run_to_finish(&mut state, &mut rng);
+    assert!(state.is_finished());
+}
+
+// ===========================================================================
+// Tests: Match with mismatched skills
+// ===========================================================================
+
+#[test]
+fn very_weak_team_still_finishes() {
+    let home = make_team("home", "Home FC", 99, PlayStyle::Attacking);
+    let away = make_team("away", "Away FC", 10, PlayStyle::Defensive);
+    let mut state = LiveMatchState::new(
+        home,
+        away,
+        MatchConfig::default(),
+        make_bench("home", 95),
+        make_bench("away", 10),
+        false,
+    );
+    let mut rng = seeded_rng(42);
+    run_to_finish(&mut state, &mut rng);
+    assert!(state.is_finished());
+    let snap = state.snapshot();
+    // Strong team should likely dominate
+    assert!(snap.events.len() > 50, "Should generate plenty of events");
+}

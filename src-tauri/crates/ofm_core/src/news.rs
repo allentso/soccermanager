@@ -228,10 +228,11 @@ pub fn league_roundup_article(
         .iter()
         .max_by_key(|(_, hg, _, ag)| (*hg as i8 - *ag as i8).unsigned_abs());
     if let Some((home, hg, away, ag)) = biggest_win
-        && hg != ag {
-            let winner = if hg > ag { home } else { away };
-            body.push_str(&format!("{} recorded the biggest win of the day.", winner));
-        }
+        && hg != ag
+    {
+        let winner = if hg > ag { home } else { away };
+        body.push_str(&format!("{} recorded the biggest win of the day.", winner));
+    }
 
     let headlines = [
         format!(
