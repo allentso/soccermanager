@@ -95,27 +95,33 @@ export default function Dashboard() {
   }, [markClean]);
 
   // Intercept window close to warn about unsaved changes
+  const [showCloseConfirm, setShowCloseConfirm] = useState(false);
   const isClosingRef = useRef(false);
   useEffect(() => {
     const appWindow = getCurrentWindow();
     const unlisten = appWindow.onCloseRequested(async (event) => {
-      // Guard against re-entrant calls (destroy may re-trigger close-requested)
       if (isClosingRef.current) return;
       if (isDirty) {
         event.preventDefault();
-        isClosingRef.current = true;
-        // Save and then close
-        try {
-          await invoke("save_game");
-          markClean();
-        } catch (err) {
-          console.error("Auto-save on close failed:", err);
-        }
-        await appWindow.destroy();
+        setShowCloseConfirm(true);
       }
     });
     return () => { unlisten.then(fn => fn()); };
-  }, [isDirty, markClean]);
+  }, [isDirty]);
+
+  const handleCloseQuit = async (save: boolean) => {
+    isClosingRef.current = true;
+    setShowCloseConfirm(false);
+    if (save) {
+      try {
+        await invoke("save_game");
+        markClean();
+      } catch (err) {
+        console.error("Auto-save on close failed:", err);
+      }
+    }
+    await getCurrentWindow().destroy();
+  };
 
   const MODE_META: Record<string, { label: string; icon: React.ReactNode; desc: string; color: string }> = {
     live: { label: t('continueMenu.goToField'), icon: <Gamepad2 className="w-4 h-4" />, desc: t('continueMenu.goToFieldDesc'), color: 'from-primary-500 to-primary-600' },
@@ -241,6 +247,40 @@ export default function Dashboard() {
                 className="flex-1 py-2.5 px-4 bg-red-500 hover:bg-red-600 text-white font-heading font-bold text-sm uppercase tracking-wider rounded-lg transition-colors"
               >
                 {t('exitConfirm.saveExit')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Window Close Confirmation Modal */}
+      {showCloseConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white dark:bg-navy-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-navy-600 w-full max-w-sm p-6 mx-4">
+            <h3 className="text-lg font-heading font-bold uppercase tracking-wide text-gray-900 dark:text-white">
+              {t('closeConfirm.title', 'Unsaved Changes')}
+            </h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+              {t('closeConfirm.message', 'You have unsaved changes. What would you like to do?')}
+            </p>
+            <div className="flex flex-col gap-2 mt-6">
+              <button
+                onClick={() => handleCloseQuit(true)}
+                className="w-full py-2.5 px-4 bg-primary-500 hover:bg-primary-600 text-white font-heading font-bold text-sm uppercase tracking-wider rounded-lg transition-colors"
+              >
+                {t('closeConfirm.saveQuit', 'Save & Quit')}
+              </button>
+              <button
+                onClick={() => handleCloseQuit(false)}
+                className="w-full py-2.5 px-4 bg-red-500 hover:bg-red-600 text-white font-heading font-bold text-sm uppercase tracking-wider rounded-lg transition-colors"
+              >
+                {t('closeConfirm.quitNoSave', 'Quit Without Saving')}
+              </button>
+              <button
+                onClick={() => setShowCloseConfirm(false)}
+                className="w-full py-2.5 px-4 bg-gray-100 dark:bg-navy-700 hover:bg-gray-200 dark:hover:bg-navy-600 text-gray-700 dark:text-gray-300 font-heading font-bold text-sm uppercase tracking-wider rounded-lg transition-colors"
+              >
+                {t('common.cancel')}
               </button>
             </div>
           </div>
