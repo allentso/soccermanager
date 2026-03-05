@@ -5,6 +5,7 @@ use std::sync::Mutex;
 pub struct StateManager {
     pub active_game: Mutex<Option<Game>>,
     pub live_match: Mutex<Option<LiveMatchSession>>,
+    pub active_save_id: Mutex<Option<String>>,
 }
 
 impl Default for StateManager {
@@ -18,6 +19,7 @@ impl StateManager {
         Self {
             active_game: Mutex::new(None),
             live_match: Mutex::new(None),
+            active_save_id: Mutex::new(None),
         }
     }
 
@@ -36,6 +38,21 @@ impl StateManager {
 
     pub fn clear_game(&self) {
         let mut lock = self.active_game.lock().unwrap();
+        *lock = None;
+    }
+
+    pub fn set_save_id(&self, id: String) {
+        let mut lock = self.active_save_id.lock().unwrap();
+        *lock = Some(id);
+    }
+
+    pub fn get_save_id(&self) -> Option<String> {
+        let lock = self.active_save_id.lock().unwrap();
+        lock.clone()
+    }
+
+    pub fn clear_save_id(&self) {
+        let mut lock = self.active_save_id.lock().unwrap();
         *lock = None;
     }
 

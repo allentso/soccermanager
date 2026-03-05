@@ -74,15 +74,15 @@ pub fn save_settings(app_handle: tauri::AppHandle, settings: AppSettings) -> Res
 }
 
 #[tauri::command]
-pub fn clear_all_saves(app_handle: tauri::AppHandle) -> Result<(), String> {
+pub fn clear_all_saves(sm_state: tauri::State<crate::SaveManagerState>) -> Result<(), String> {
     log::warn!("[cmd] clear_all_saves: deleting all save data!");
-    let app_data_dir = app_handle
-        .path()
-        .app_data_dir()
-        .map_err(|e| e.to_string())?;
-    let db_path = app_data_dir.join("saves.db");
-    if db_path.exists() {
-        std::fs::remove_file(&db_path).map_err(|e| format!("Failed to delete saves: {}", e))?;
+    let mut sm = sm_state
+        .0
+        .lock()
+        .map_err(|e| format!("Lock error: {}", e))?;
+    let save_ids: Vec<String> = sm.list_saves().iter().map(|s| s.id.clone()).collect();
+    for id in save_ids {
+        sm.delete_save(&id)?;
     }
     Ok(())
 }

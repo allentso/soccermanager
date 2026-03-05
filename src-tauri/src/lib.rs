@@ -1,7 +1,12 @@
 mod commands;
 use commands::*;
 
+use db::save_manager::SaveManager;
 use ofm_core::state::StateManager;
+use std::sync::Mutex;
+
+/// Tauri-managed wrapper around SaveManager.
+pub struct SaveManagerState(pub Mutex<SaveManager>);
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -19,6 +24,54 @@ pub fn run() {
                 .build(),
         )
         .manage(StateManager::new())
+        .setup(|app| {
+            use tauri::Manager as TauriManager;
+            let app_data_dir = app
+                .path()
+                .app_data_dir()
+                .expect("Failed to get app data dir");
+            std::fs::create_dir_all(&app_data_dir).expect("Failed to create app data dir");
+
+            let saves_dir = app_data_dir.join("saves");
+            let mut save_manager =
+                SaveManager::init(&saves_dir).expect("Failed to initialize SaveManager");
+
+            // Run legacy migration if old saves.db exists
+            if db::legacy_migration::has_legacy_db(&app_data_dir) {
+                log::info!("[setup] Legacy saves.db detected, migrating...");
+                match db::legacy_migration::migrate_legacy_saves(&app_data_dir, &mut save_manager) {
+                    Ok(results) => {
+                        let success = results
+                            .iter()
+                            .filter(|r| {
+                                matches!(
+                                    r,
+                                    db::legacy_migration::LegacyMigrationResult::Success { .. }
+                                )
+                            })
+                            .count();
+                        let failed = results
+                            .iter()
+                            .filter(|r| {
+                                matches!(
+                                    r,
+                                    db::legacy_migration::LegacyMigrationResult::Failed { .. }
+                                )
+                            })
+                            .count();
+                        log::info!(
+                            "[setup] Legacy migration complete: {} succeeded, {} failed",
+                            success,
+                            failed
+                        );
+                    }
+                    Err(e) => log::error!("[setup] Legacy migration failed: {}", e),
+                }
+            }
+
+            app.manage(SaveManagerState(Mutex::new(save_manager)));
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             list_world_databases,
             start_new_game,

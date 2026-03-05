@@ -1,12 +1,13 @@
 use log::info;
-use tauri::Manager as TauriManager;
 use tauri::State;
 
-use db::manager::{DbManager, SaveMetadata};
+use db::save_index::SaveEntry;
 use domain::manager::Manager;
 use ofm_core::clock::GameClock;
 use ofm_core::game::Game;
 use ofm_core::state::StateManager;
+
+use crate::SaveManagerState;
 
 /// Step 1: Create manager + generate world. No team assigned yet.
 /// Returns the Game object so the frontend can show team selection.
@@ -88,7 +89,7 @@ pub fn start_new_game(
 #[tauri::command]
 pub fn select_team(
     state: State<StateManager>,
-    app_handle: tauri::AppHandle,
+    sm_state: State<SaveManagerState>,
     team_id: String,
 ) -> Result<Game, String> {
     info!("[cmd] select_team: team_id={}", team_id);
@@ -133,77 +134,57 @@ pub fn select_team(
     let staff_msg = ofm_core::messages::staff_advice_message(&team_name, &team_id, &date_str);
     game.messages.push(staff_msg);
 
-    // Save to DB
-    let app_data_dir = app_handle
-        .path()
-        .app_data_dir()
-        .map_err(|e| e.to_string())?;
-    std::fs::create_dir_all(&app_data_dir).map_err(|e| e.to_string())?;
-    let db_path = app_data_dir.join("saves.db");
-    let db_manager = DbManager::new(db_path).map_err(|e| e.to_string())?;
-
-    let game_json = serde_json::to_string(&game).map_err(|e| e.to_string())?;
+    // Save to new per-save DB
     let manager_name = format!("{} {}", game.manager.first_name, game.manager.last_name);
     let save_name = format!("{}'s Career", manager_name);
 
-    db_manager.create_save(&save_name, &manager_name, &game_json)?;
+    let mut sm = sm_state
+        .0
+        .lock()
+        .map_err(|e| format!("Lock error: {}", e))?;
+    let save_id = sm.create_save(&game, &save_name)?;
+    state.set_save_id(save_id);
 
     state.set_game(game.clone());
     Ok(game)
 }
 
 #[tauri::command]
-pub fn get_saves(app_handle: tauri::AppHandle) -> Result<Vec<SaveMetadata>, String> {
+pub fn get_saves(sm_state: State<SaveManagerState>) -> Result<Vec<SaveEntry>, String> {
     log::debug!("[cmd] get_saves");
-    let app_data_dir = app_handle
-        .path()
-        .app_data_dir()
-        .map_err(|e| e.to_string())?;
-    let db_path = app_data_dir.join("saves.db");
-
-    // If DB doesn't exist, return empty list instead of erroring
-    if !db_path.exists() {
-        return Ok(Vec::new());
-    }
-
-    let db_manager = DbManager::new(db_path).map_err(|e| e.to_string())?;
-    db_manager.get_saves()
+    let sm = sm_state
+        .0
+        .lock()
+        .map_err(|e| format!("Lock error: {}", e))?;
+    Ok(sm.list_saves().to_vec())
 }
 
 #[tauri::command]
-pub fn delete_save(app_handle: tauri::AppHandle, save_id: String) -> Result<bool, String> {
+pub fn delete_save(sm_state: State<SaveManagerState>, save_id: String) -> Result<bool, String> {
     info!("[cmd] delete_save: save_id={}", save_id);
-    let app_data_dir = app_handle
-        .path()
-        .app_data_dir()
-        .map_err(|e| e.to_string())?;
-    let db_path = app_data_dir.join("saves.db");
-    if !db_path.exists() {
-        return Err("No saves database found".to_string());
-    }
-    let db_manager = DbManager::new(db_path).map_err(|e| e.to_string())?;
-    db_manager.delete_save(&save_id)
+    let mut sm = sm_state
+        .0
+        .lock()
+        .map_err(|e| format!("Lock error: {}", e))?;
+    sm.delete_save(&save_id)
 }
 
 #[tauri::command]
 pub fn load_game(
     state: State<StateManager>,
-    app_handle: tauri::AppHandle,
+    sm_state: State<SaveManagerState>,
     save_id: String,
 ) -> Result<String, String> {
     info!("[cmd] load_game: save_id={}", save_id);
-    let app_data_dir = app_handle
-        .path()
-        .app_data_dir()
-        .map_err(|e| e.to_string())?;
-    let db_path = app_data_dir.join("saves.db");
-    let db_manager = DbManager::new(db_path).map_err(|e| e.to_string())?;
-
-    let game_json = db_manager.load_save(&save_id)?;
-    let game: Game = serde_json::from_str(&game_json).map_err(|e| e.to_string())?;
+    let sm = sm_state
+        .0
+        .lock()
+        .map_err(|e| format!("Lock error: {}", e))?;
+    let game = sm.load_game(&save_id)?;
 
     let mgr_name = format!("{} {}", game.manager.first_name, game.manager.last_name);
 
+    state.set_save_id(save_id);
     state.set_game(game);
     Ok(mgr_name)
 }
@@ -217,38 +198,31 @@ pub fn get_active_game(state: State<StateManager>) -> Result<Game, String> {
 }
 
 #[tauri::command]
-pub fn save_game(state: State<StateManager>, app_handle: tauri::AppHandle) -> Result<(), String> {
+pub fn save_game(
+    state: State<StateManager>,
+    sm_state: State<SaveManagerState>,
+) -> Result<(), String> {
     info!("[cmd] save_game");
     let game = state
         .get_game(|g| g.clone())
         .ok_or("No active game session".to_string())?;
 
-    let app_data_dir = app_handle
-        .path()
-        .app_data_dir()
-        .map_err(|e| e.to_string())?;
-    std::fs::create_dir_all(&app_data_dir).map_err(|e| e.to_string())?;
-    let db_path = app_data_dir.join("saves.db");
-    let db_manager = DbManager::new(db_path).map_err(|e| e.to_string())?;
+    let save_id = state
+        .get_save_id()
+        .ok_or("No active save session".to_string())?;
 
-    let game_json = serde_json::to_string(&game).map_err(|e| e.to_string())?;
-    let manager_name = format!("{} {}", game.manager.first_name, game.manager.last_name);
-    let save_name = format!("{}'s Career", manager_name);
-
-    let saves = db_manager.get_saves().unwrap_or_default();
-    if let Some(existing) = saves.first() {
-        db_manager.update_save(&existing.id, &game_json)?;
-    } else {
-        db_manager.create_save(&save_name, &manager_name, &game_json)?;
-    }
-    Ok(())
+    let mut sm = sm_state
+        .0
+        .lock()
+        .map_err(|e| format!("Lock error: {}", e))?;
+    sm.save_game(&game, &save_id)
 }
 
 /// Save the current game and clear the active session so the player returns to the main menu.
 #[tauri::command]
 pub fn exit_to_menu(
     state: State<StateManager>,
-    app_handle: tauri::AppHandle,
+    sm_state: State<SaveManagerState>,
 ) -> Result<(), String> {
     info!("[cmd] exit_to_menu");
     let game = state
@@ -256,28 +230,17 @@ pub fn exit_to_menu(
         .ok_or("No active game session")?;
 
     // Auto-save
-    let app_data_dir = app_handle
-        .path()
-        .app_data_dir()
-        .map_err(|e| e.to_string())?;
-    std::fs::create_dir_all(&app_data_dir).map_err(|e| e.to_string())?;
-    let db_path = app_data_dir.join("saves.db");
-    let db_manager = DbManager::new(db_path).map_err(|e| e.to_string())?;
-
-    let game_json = serde_json::to_string(&game).map_err(|e| e.to_string())?;
-    let manager_name = format!("{} {}", game.manager.first_name, game.manager.last_name);
-    let save_name = format!("{}'s Career", manager_name);
-
-    // Try to update existing save first, create new if none exists
-    let saves = db_manager.get_saves().unwrap_or_default();
-    if let Some(existing) = saves.first() {
-        db_manager.update_save(&existing.id, &game_json)?;
-    } else {
-        db_manager.create_save(&save_name, &manager_name, &game_json)?;
+    if let Some(save_id) = state.get_save_id() {
+        let mut sm = sm_state
+            .0
+            .lock()
+            .map_err(|e| format!("Lock error: {}", e))?;
+        sm.save_game(&game, &save_id)?;
     }
 
     // Clear the in-memory game state
     state.clear_game();
+    state.clear_save_id();
 
     Ok(())
 }
