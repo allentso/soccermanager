@@ -6,7 +6,7 @@ CREATE TABLE game_meta (
     save_name       TEXT NOT NULL,
     manager_id      TEXT NOT NULL,
     start_date      TEXT NOT NULL,
-    current_date    TEXT NOT NULL,
+    game_date       TEXT NOT NULL,
     created_at      TEXT NOT NULL DEFAULT (datetime('now')),
     last_played_at  TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -98,18 +98,18 @@ CREATE TABLE league (
 
 CREATE TABLE fixtures (
     id              TEXT PRIMARY KEY,
-    league_id       TEXT NOT NULL REFERENCES league(id),
+    league_id       TEXT NOT NULL,
     matchday        INTEGER NOT NULL,
     date            TEXT NOT NULL,
-    home_team_id    TEXT NOT NULL REFERENCES teams(id),
-    away_team_id    TEXT NOT NULL REFERENCES teams(id),
+    home_team_id    TEXT NOT NULL,
+    away_team_id    TEXT NOT NULL,
     status          TEXT NOT NULL DEFAULT 'Scheduled',
     result          TEXT
 );
 
 CREATE TABLE standings (
-    league_id       TEXT NOT NULL REFERENCES league(id),
-    team_id         TEXT NOT NULL REFERENCES teams(id),
+    league_id       TEXT NOT NULL,
+    team_id         TEXT NOT NULL,
     played          INTEGER NOT NULL DEFAULT 0,
     won             INTEGER NOT NULL DEFAULT 0,
     drawn           INTEGER NOT NULL DEFAULT 0,
