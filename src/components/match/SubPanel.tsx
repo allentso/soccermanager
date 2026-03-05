@@ -13,7 +13,7 @@ export function SubPanel({ snapshot, side, onSubstitute, onClose }: {
 }) {
   const { t } = useTranslation();
   const [selectedOff, setSelectedOff] = useState<string | null>(null);
-  const [hoveredBench, setHoveredBench] = useState<string | null>(null);
+  const [selectedBench, setSelectedBench] = useState<string | null>(null);
   const team = side === "Home" ? snapshot.home_team : snapshot.away_team;
   const bench = side === "Home" ? snapshot.home_bench : snapshot.away_bench;
   const subsMade = side === "Home" ? snapshot.home_subs_made : snapshot.away_subs_made;
@@ -21,7 +21,7 @@ export function SubPanel({ snapshot, side, onSubstitute, onClose }: {
   const subbedOffIds = new Set(snapshot.substitutions.filter(s => s.side === side).map(s => s.player_off_id));
   const availableBench = bench.filter(p => !subbedOffIds.has(p.id));
   const selectedPlayer = selectedOff ? team.players.find(p => p.id === selectedOff) : null;
-  const comparedPlayer = hoveredBench ? availableBench.find(p => p.id === hoveredBench) : null;
+  const comparedPlayer = selectedBench ? availableBench.find(p => p.id === selectedBench) : null;
 
   const positions = ["Goalkeeper", "Defender", "Midfielder", "Forward"];
   const posAbbr: Record<string, string> = { Goalkeeper: "GK", Defender: "DEF", Midfielder: "MID", Forward: "FWD" };
@@ -44,17 +44,17 @@ export function SubPanel({ snapshot, side, onSubstitute, onClose }: {
   const CompareBar = ({ label, valA, valB }: { label: string; valA: number; valB: number }) => {
     const diff = valB - valA;
     return (
-      <div className="flex items-center gap-2 text-[10px]">
-        <span className="w-7 text-right text-gray-500 font-heading">{label}</span>
-        <span className="w-5 text-right tabular-nums text-red-400">{valA}</span>
-        <div className="flex-1 h-1 bg-navy-600 rounded-full overflow-hidden flex">
+      <div className="flex items-center gap-2 text-xs py-0.5">
+        <span className="w-8 text-right text-gray-500 font-heading">{label}</span>
+        <span className="w-6 text-right tabular-nums text-red-400">{valA}</span>
+        <div className="flex-1 h-1.5 bg-navy-600 rounded-full overflow-hidden flex">
           <div className="h-full bg-red-500/60" style={{ width: `${valA}%` }} />
         </div>
-        <div className="flex-1 h-1 bg-navy-600 rounded-full overflow-hidden flex justify-end">
+        <div className="flex-1 h-1.5 bg-navy-600 rounded-full overflow-hidden flex justify-end">
           <div className="h-full bg-green-500/60" style={{ width: `${valB}%` }} />
         </div>
-        <span className="w-5 tabular-nums text-green-400">{valB}</span>
-        <span className={`w-6 text-right tabular-nums font-heading font-bold ${diff > 0 ? "text-green-400" : diff < 0 ? "text-red-400" : "text-gray-600"}`}>
+        <span className="w-6 tabular-nums text-green-400">{valB}</span>
+        <span className={`w-7 text-right tabular-nums font-heading font-bold ${diff > 0 ? "text-green-400" : diff < 0 ? "text-red-400" : "text-gray-600"}`}>
           {diff > 0 ? "+" : ""}{diff}
         </span>
       </div>
@@ -63,7 +63,7 @@ export function SubPanel({ snapshot, side, onSubstitute, onClose }: {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-navy-800 rounded-2xl border border-navy-600 shadow-2xl w-[900px] max-h-[85vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+      <div className="bg-navy-800 rounded-2xl border border-navy-600 shadow-2xl w-[1100px] max-h-[90vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-navy-700 bg-gradient-to-r from-navy-700 to-navy-800">
           <div className="flex items-center gap-3">
@@ -90,8 +90,8 @@ export function SubPanel({ snapshot, side, onSubstitute, onClose }: {
           <div className="flex-1 flex overflow-hidden">
             {/* Left: Pitch + On-Field Players */}
             <div className="flex-1 flex flex-col border-r border-navy-700">
-              <div className="px-4 py-2 border-b border-navy-700 bg-navy-800/50">
-                <p className="text-[10px] font-heading uppercase tracking-widest text-red-400">
+              <div className="px-4 py-3 border-b border-navy-700 bg-navy-800/50">
+                <p className="text-xs font-heading uppercase tracking-widest text-red-400">
                   {selectedOff ? t('match.takingOff', { name: selectedPlayer?.name }) : t('match.selectPlayerOff')}
                 </p>
               </div>
@@ -134,11 +134,11 @@ export function SubPanel({ snapshot, side, onSubstitute, onClose }: {
               <div className="flex-1 overflow-auto px-4 py-2">
                 <table className="w-full text-left">
                   <thead>
-                    <tr className="text-[9px] font-heading uppercase tracking-widest text-gray-600 border-b border-navy-700">
-                      <th className="py-1.5 pr-2">Player</th>
-                      <th className="py-1.5 w-10 text-center">Pos</th>
-                      <th className="py-1.5 w-10 text-center">OVR</th>
-                      <th className="py-1.5 w-20">Fitness</th>
+                    <tr className="text-[10px] font-heading uppercase tracking-widest text-gray-600 border-b border-navy-700">
+                      <th className="py-2 pr-2">Player</th>
+                      <th className="py-2 w-12 text-center">Pos</th>
+                      <th className="py-2 w-12 text-center">OVR</th>
+                      <th className="py-2 w-24">Fitness</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -152,28 +152,28 @@ export function SubPanel({ snapshot, side, onSubstitute, onClose }: {
                         return (
                           <tr
                             key={p.id}
-                            onClick={() => setSelectedOff(isSelected ? null : p.id)}
-                            className={`cursor-pointer transition-colors text-xs ${
+                            onClick={() => { setSelectedOff(isSelected ? null : p.id); setSelectedBench(null); }}
+                            className={`cursor-pointer transition-colors text-sm ${
                               isSelected ? "bg-red-500/10" : "hover:bg-navy-700/50"
                             }`}
                           >
-                            <td className="py-1.5 pr-2">
+                            <td className="py-2 pr-2">
                               <div className="flex items-center gap-1.5">
-                                {isSelected && <UserMinus className="w-3 h-3 text-red-400 flex-shrink-0" />}
-                                {isSubOn && <span className="text-green-400 text-[9px]">▲</span>}
+                                {isSelected && <UserMinus className="w-3.5 h-3.5 text-red-400 flex-shrink-0" />}
+                                {isSubOn && <span className="text-green-400 text-[10px]">▲</span>}
                                 <span className={`font-medium truncate ${isSelected ? "text-red-300" : "text-gray-300"}`}>{p.name}</span>
                               </div>
                             </td>
-                            <td className="py-1.5 w-10 text-center">
-                              <span className="text-[10px] font-heading text-gray-500">{posAbbr[p.position] || p.position.substring(0, 3)}</span>
+                            <td className="py-2 w-12 text-center">
+                              <span className="text-xs font-heading text-gray-500">{posAbbr[p.position] || p.position.substring(0, 3)}</span>
                             </td>
-                            <td className="py-1.5 w-10 text-center font-heading font-bold text-gray-400">{ovr}</td>
-                            <td className="py-1.5 w-20">
-                              <div className="flex items-center gap-1">
-                                <div className="flex-1 h-1.5 bg-navy-600 rounded-full overflow-hidden">
+                            <td className="py-2 w-12 text-center font-heading font-bold text-gray-400">{ovr}</td>
+                            <td className="py-2 w-24">
+                              <div className="flex items-center gap-1.5">
+                                <div className="flex-1 h-2 bg-navy-600 rounded-full overflow-hidden">
                                   <div className={`h-full ${condColor(p.condition)} rounded-full`} style={{ width: `${p.condition}%` }} />
                                 </div>
-                                <span className={`text-[10px] tabular-nums font-heading w-6 text-right ${condText(p.condition)}`}>{Math.round(p.condition)}</span>
+                                <span className={`text-xs tabular-nums font-heading w-7 text-right ${condText(p.condition)}`}>{Math.round(p.condition)}</span>
                               </div>
                             </td>
                           </tr>
@@ -186,14 +186,14 @@ export function SubPanel({ snapshot, side, onSubstitute, onClose }: {
 
             {/* Right: Bench Players + Comparison */}
             <div className="flex-1 flex flex-col">
-              <div className="px-4 py-2 border-b border-navy-700 bg-navy-800/50">
-                <p className="text-[10px] font-heading uppercase tracking-widest text-green-400">
+              <div className="px-4 py-3 border-b border-navy-700 bg-navy-800/50">
+                <p className="text-xs font-heading uppercase tracking-widest text-green-400">
                   {selectedOff ? t('match.selectReplacement') : t('match.benchPlayers')}
                 </p>
               </div>
 
               {/* Comparison panel */}
-              {selectedPlayer && comparedPlayer && (
+              {selectedPlayer && comparedPlayer ? (
                 <div className="mx-4 mt-3 p-3 bg-navy-700/50 rounded-xl border border-navy-600">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-1.5">
@@ -213,8 +213,17 @@ export function SubPanel({ snapshot, side, onSubstitute, onClose }: {
                   <CompareBar label="DEF" valA={selectedPlayer.defending} valB={comparedPlayer.defending} />
                   <CompareBar label="TAC" valA={selectedPlayer.tackling} valB={comparedPlayer.tackling} />
                   <CompareBar label="FIT" valA={Math.round(selectedPlayer.condition)} valB={Math.round(comparedPlayer.condition)} />
+                  <p className="text-[10px] text-center text-green-400/70 font-heading uppercase tracking-wider mt-2">
+                    {t('match.clickAgainToConfirm', 'Click again to confirm substitution')}
+                  </p>
                 </div>
-              )}
+              ) : selectedPlayer ? (
+                <div className="mx-4 mt-3 p-3 bg-navy-700/30 rounded-xl border border-navy-600/50 text-center">
+                  <p className="text-xs text-gray-500 font-heading uppercase tracking-wider">
+                    {t('match.selectBenchToCompare', 'Select a bench player to compare')}
+                  </p>
+                </div>
+              ) : null}
 
               {/* Bench table */}
               <div className="flex-1 overflow-auto px-4 py-2">
@@ -223,11 +232,11 @@ export function SubPanel({ snapshot, side, onSubstitute, onClose }: {
                 ) : (
                   <table className="w-full text-left">
                     <thead>
-                      <tr className="text-[9px] font-heading uppercase tracking-widest text-gray-600 border-b border-navy-700">
-                        <th className="py-1.5 pr-2">Player</th>
-                        <th className="py-1.5 w-10 text-center">Pos</th>
-                        <th className="py-1.5 w-10 text-center">OVR</th>
-                        <th className="py-1.5 w-20">Fitness</th>
+                      <tr className="text-[10px] font-heading uppercase tracking-widest text-gray-600 border-b border-navy-700">
+                        <th className="py-2 pr-2">Player</th>
+                        <th className="py-2 w-12 text-center">Pos</th>
+                        <th className="py-2 w-12 text-center">OVR</th>
+                        <th className="py-2 w-24">Fitness</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -238,34 +247,43 @@ export function SubPanel({ snapshot, side, onSubstitute, onClose }: {
                         return (
                           <tr
                             key={p.id}
-                            onClick={() => selectedOff ? (onSubstitute(selectedOff, p.id), setSelectedOff(null)) : null}
-                            onMouseEnter={() => setHoveredBench(p.id)}
-                            onMouseLeave={() => setHoveredBench(null)}
-                            className={`transition-colors text-xs ${
+                            onClick={() => {
+                              if (!selectedOff) return;
+                              if (selectedBench === p.id) {
+                                onSubstitute(selectedOff, p.id);
+                                setSelectedOff(null);
+                                setSelectedBench(null);
+                              } else {
+                                setSelectedBench(p.id);
+                              }
+                            }}
+                            className={`transition-colors text-sm ${
                               selectedOff
-                                ? "cursor-pointer hover:bg-green-500/10"
+                                ? selectedBench === p.id
+                                  ? "cursor-pointer bg-green-500/15 ring-1 ring-green-500/30"
+                                  : "cursor-pointer hover:bg-green-500/10"
                                 : "opacity-60"
                             }`}
                           >
-                            <td className="py-1.5 pr-2">
+                            <td className="py-2 pr-2">
                               <div className="flex items-center gap-1.5">
-                                {selectedOff && <UserPlus className="w-3 h-3 text-green-400/50 flex-shrink-0" />}
+                                {selectedOff && <UserPlus className="w-3.5 h-3.5 text-green-400/50 flex-shrink-0" />}
                                 <span className="font-medium truncate text-gray-300">{p.name}</span>
                               </div>
                             </td>
-                            <td className="py-1.5 w-10 text-center">
-                              <span className={`text-[10px] font-heading ${!posMatch && selectedOff ? "text-yellow-400" : "text-gray-500"}`}>
+                            <td className="py-2 w-12 text-center">
+                              <span className={`text-xs font-heading ${!posMatch && selectedOff ? "text-yellow-400" : "text-gray-500"}`}>
                                 {posAbbr[p.position] || p.position.substring(0, 3)}
                                 {!posMatch && selectedOff && " !"}
                               </span>
                             </td>
-                            <td className="py-1.5 w-10 text-center font-heading font-bold text-gray-400">{ovr}</td>
-                            <td className="py-1.5 w-20">
-                              <div className="flex items-center gap-1">
-                                <div className="flex-1 h-1.5 bg-navy-600 rounded-full overflow-hidden">
+                            <td className="py-2 w-12 text-center font-heading font-bold text-gray-400">{ovr}</td>
+                            <td className="py-2 w-24">
+                              <div className="flex items-center gap-1.5">
+                                <div className="flex-1 h-2 bg-navy-600 rounded-full overflow-hidden">
                                   <div className={`h-full ${condColor(p.condition)} rounded-full`} style={{ width: `${p.condition}%` }} />
                                 </div>
-                                <span className={`text-[10px] tabular-nums font-heading w-6 text-right ${condText(p.condition)}`}>{Math.round(p.condition)}</span>
+                                <span className={`text-xs tabular-nums font-heading w-7 text-right ${condText(p.condition)}`}>{Math.round(p.condition)}</span>
                               </div>
                             </td>
                           </tr>
