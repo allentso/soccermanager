@@ -1,4 +1,5 @@
 pub mod game_database;
+pub mod legacy_migration;
 pub mod manager;
 pub mod migrations;
 pub mod repositories;
