@@ -1,5 +1,5 @@
 use domain::team::{
-    PlayStyle, Team, TeamColors, TrainingFocus, TrainingGroup, TrainingIntensity, TrainingSchedule,
+    PlayStyle, Team, TeamColors, TrainingFocus, TrainingIntensity, TrainingSchedule,
 };
 use rusqlite::{Connection, params};
 

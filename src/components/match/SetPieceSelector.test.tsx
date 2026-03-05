@@ -20,6 +20,7 @@ const makePlayer = (overrides: Partial<PlayerData> = {}): PlayerData => ({
   date_of_birth: "1996-01-15",
   nationality: "GB",
   position: "Midfielder",
+  alternate_positions: [],
   attributes: {
     pace: 70, stamina: 70, strength: 70, agility: 70,
     passing: 75, shooting: 80, tackling: 60, dribbling: 70,

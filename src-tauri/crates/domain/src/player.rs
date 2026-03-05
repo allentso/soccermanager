@@ -10,6 +10,10 @@ pub struct Player {
 
     pub position: Position,
 
+    // Alternate positions this player can also play (with reduced effectiveness)
+    #[serde(default)]
+    pub alternate_positions: Vec<Position>,
+
     // Core attributes 0-100
     pub attributes: PlayerAttributes,
 
@@ -264,6 +268,7 @@ impl Player {
             date_of_birth,
             nationality,
             position,
+            alternate_positions: Vec::new(),
             attributes,
             condition: 100,
             morale: 100,

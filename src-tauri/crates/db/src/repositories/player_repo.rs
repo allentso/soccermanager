@@ -15,14 +15,16 @@ pub fn upsert_player(conn: &Connection, p: &Player) -> Result<(), String> {
     let offers_json =
         serde_json::to_string(&p.transfer_offers).map_err(|e| format!("JSON error: {}", e))?;
     let position_str = format!("{:?}", p.position);
+    let alt_positions_json =
+        serde_json::to_string(&p.alternate_positions).map_err(|e| format!("JSON error: {}", e))?;
 
     conn.execute(
         "INSERT OR REPLACE INTO players
          (id, match_name, full_name, date_of_birth, nationality, position,
           attributes, condition, morale, injury, team_id, traits,
           contract_end, wage, market_value, stats, career,
-          transfer_listed, loan_listed, transfer_offers)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20)",
+          transfer_listed, loan_listed, transfer_offers, alternate_positions)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21)",
         params![
             p.id,
             p.match_name,
@@ -44,6 +46,7 @@ pub fn upsert_player(conn: &Connection, p: &Player) -> Result<(), String> {
             p.transfer_listed as i32,
             p.loan_listed as i32,
             offers_json,
+            alt_positions_json,
         ],
     )
     .map_err(|e| format!("Failed to upsert player: {}", e))?;
@@ -75,7 +78,7 @@ pub fn load_all_players(conn: &Connection) -> Result<Vec<Player>, String> {
             "SELECT id, match_name, full_name, date_of_birth, nationality, position,
                     attributes, condition, morale, injury, team_id, traits,
                     contract_end, wage, market_value, stats, career,
-                    transfer_listed, loan_listed, transfer_offers
+                    transfer_listed, loan_listed, transfer_offers, alternate_positions
              FROM players",
         )
         .map_err(|e| format!("Failed to prepare players query: {}", e))?;
@@ -98,7 +101,7 @@ pub fn load_players_by_team(conn: &Connection, team_id: &str) -> Result<Vec<Play
             "SELECT id, match_name, full_name, date_of_birth, nationality, position,
                     attributes, condition, morale, injury, team_id, traits,
                     contract_end, wage, market_value, stats, career,
-                    transfer_listed, loan_listed, transfer_offers
+                    transfer_listed, loan_listed, transfer_offers, alternate_positions
              FROM players WHERE team_id = ?1",
         )
         .map_err(|e| format!("Failed to prepare players query: {}", e))?;
@@ -122,6 +125,7 @@ fn row_to_player(row: &rusqlite::Row) -> rusqlite::Result<Player> {
     let stats_json: String = row.get(15)?;
     let career_json: String = row.get(16)?;
     let offers_json: String = row.get(19)?;
+    let alt_positions_json: String = row.get(20)?;
     let transfer_listed_int: i32 = row.get(17)?;
     let loan_listed_int: i32 = row.get(18)?;
     let market_value_i64: i64 = row.get(14)?;
@@ -133,6 +137,7 @@ fn row_to_player(row: &rusqlite::Row) -> rusqlite::Result<Player> {
         date_of_birth: row.get(3)?,
         nationality: row.get(4)?,
         position: parse_position(&position_str),
+        alternate_positions: serde_json::from_str(&alt_positions_json).unwrap_or_default(),
         attributes: serde_json::from_str(&attrs_json).unwrap_or(PlayerAttributes {
             pace: 50,
             stamina: 50,
@@ -261,6 +266,31 @@ mod tests {
 
         let team2 = load_players_by_team(db.conn(), "team-002").unwrap();
         assert_eq!(team2.len(), 1);
+    }
+
+    #[test]
+    fn test_player_alternate_positions_roundtrip() {
+        let db = test_db();
+        let mut player = sample_player("p-001", Some("team-001"));
+        player.alternate_positions = vec![Position::Defender, Position::Forward];
+
+        upsert_player(db.conn(), &player).unwrap();
+        let loaded = load_all_players(db.conn()).unwrap();
+
+        assert_eq!(loaded[0].alternate_positions.len(), 2);
+        assert_eq!(loaded[0].alternate_positions[0], Position::Defender);
+        assert_eq!(loaded[0].alternate_positions[1], Position::Forward);
+    }
+
+    #[test]
+    fn test_player_empty_alternate_positions_roundtrip() {
+        let db = test_db();
+        let player = sample_player("p-001", None);
+
+        upsert_player(db.conn(), &player).unwrap();
+        let loaded = load_all_players(db.conn()).unwrap();
+
+        assert!(loaded[0].alternate_positions.is_empty());
     }
 
     #[test]

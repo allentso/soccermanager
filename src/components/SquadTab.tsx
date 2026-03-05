@@ -273,6 +273,13 @@ export default function SquadTab({ gameState, managerId, onSelectPlayer, onGameU
             <Badge variant={positionBadgeVariant(player.position)} size="sm">
               {player.position.substring(0, 3).toUpperCase()}
             </Badge>
+            {player.alternate_positions?.map(ap => (
+              <span key={ap} title={`Can also play ${ap}`}>
+                <Badge variant="neutral" size="sm">
+                  {ap.substring(0, 3).toUpperCase()}
+                </Badge>
+              </span>
+            ))}
             {wrongPos && (
               <span title="Playing out of natural position" className="text-amber-500">
                 <AlertTriangle className="w-3.5 h-3.5" />
@@ -527,6 +534,13 @@ export default function SquadTab({ gameState, managerId, onSelectPlayer, onGameU
                           <Badge variant={positionBadgeVariant(player.position)} size="sm">
                             {player.position.substring(0, 3).toUpperCase()}
                           </Badge>
+                          {player.alternate_positions?.map(ap => (
+                            <span key={ap} title={`Can also play ${ap}`}>
+                              <Badge variant="neutral" size="sm">
+                                {ap.substring(0, 3).toUpperCase()}
+                              </Badge>
+                            </span>
+                          ))}
                         </div>
                       </td>
                       <td className="py-2.5 px-4">

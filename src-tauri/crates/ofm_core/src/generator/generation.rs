@@ -10,6 +10,41 @@ use super::definitions::NamesDefinition;
 // Helper functions for world generation
 // ---------------------------------------------------------------------------
 
+/// Compute a sensible alternate position based on primary position and attributes.
+fn compute_alternate_position(primary: &Position, attrs: &PlayerAttributes) -> Option<Position> {
+    match primary {
+        Position::Goalkeeper => None,
+        Position::Defender => {
+            // Defenders with good passing/vision → Midfielder
+            if attrs.passing >= 65 && attrs.vision >= 60 {
+                Some(Position::Midfielder)
+            } else {
+                None
+            }
+        }
+        Position::Midfielder => {
+            // Midfielders with strong defending/tackling → Defender
+            if attrs.defending >= 65 && attrs.tackling >= 60 {
+                Some(Position::Defender)
+            }
+            // Midfielders with good shooting/dribbling → Forward
+            else if attrs.shooting >= 65 && attrs.dribbling >= 60 {
+                Some(Position::Forward)
+            } else {
+                None
+            }
+        }
+        Position::Forward => {
+            // Forwards with good passing/vision → Midfielder
+            if attrs.passing >= 65 && attrs.vision >= 60 {
+                Some(Position::Midfielder)
+            } else {
+                None
+            }
+        }
+    }
+}
+
 /// Pick a nationality code weighted 60% toward team country.
 pub(super) fn pick_nationality_from_def(
     team_country: &str,
@@ -216,6 +251,15 @@ pub(super) fn generate_random_player_from_def(
     player.contract_end = Some(contract_end);
     player.condition = rng.gen_range(75..100);
     player.morale = rng.gen_range(40..76);
+
+    // ~40% of outfield players get an alternate position based on attributes
+    if !is_gk && rng.gen_range(0..5) < 2 {
+        let alt = compute_alternate_position(&player.position, &player.attributes);
+        if let Some(pos) = alt {
+            player.alternate_positions.push(pos);
+        }
+    }
+
     player
 }
 
