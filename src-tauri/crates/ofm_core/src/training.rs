@@ -82,73 +82,92 @@ fn compute_coaching_bonus(game: &Game, team_id: &str, focus: &TrainingFocus) -> 
     }
 }
 
+/// Per-team data collected before mutating players.
+struct TeamTrainingPlan {
+    team_id: String,
+    default_focus: TrainingFocus,
+    intensity: TrainingIntensity,
+    schedule: TrainingSchedule,
+    bonus: TeamCoachingBonus,
+    /// player_id → group focus override (players not in any group use default_focus)
+    group_overrides: std::collections::HashMap<String, TrainingFocus>,
+}
+
 /// Process daily training for all teams.
 /// On non-match days each team's players train according to the team's
 /// current focus, intensity, and schedule. Rest days (determined by the
 /// weekly schedule) give full condition recovery with no training cost.
+/// Players assigned to a training group use that group's focus instead of
+/// the team default.
 /// `weekday_num` is 0=Mon .. 6=Sun (chrono Weekday::num_days_from_monday()).
 pub fn process_training(game: &mut Game, weekday_num: u32) {
-    // Collect (team_id, focus, intensity, schedule, coaching_bonus) for all teams
-    let team_plans: Vec<(
-        String,
-        TrainingFocus,
-        TrainingIntensity,
-        TrainingSchedule,
-        TeamCoachingBonus,
-    )> = game
+    // Collect plans for all teams (immutable borrow)
+    let team_plans: Vec<TeamTrainingPlan> = game
         .teams
         .iter()
         .map(|t| {
             let bonus = compute_coaching_bonus(game, &t.id, &t.training_focus);
-            (
-                t.id.clone(),
-                t.training_focus.clone(),
-                t.training_intensity.clone(),
-                t.training_schedule.clone(),
+            let mut group_overrides = std::collections::HashMap::new();
+            for group in &t.training_groups {
+                for pid in &group.player_ids {
+                    group_overrides.insert(pid.clone(), group.focus.clone());
+                }
+            }
+            TeamTrainingPlan {
+                team_id: t.id.clone(),
+                default_focus: t.training_focus.clone(),
+                intensity: t.training_intensity.clone(),
+                schedule: t.training_schedule.clone(),
                 bonus,
-            )
+                group_overrides,
+            }
         })
         .collect();
 
-    for (team_id, focus, intensity, schedule, bonus) in &team_plans {
-        let is_training_day = schedule.is_training_day(weekday_num);
+    for plan in &team_plans {
+        let is_training_day = plan.schedule.is_training_day(weekday_num);
 
-        let intensity_mult = match intensity {
+        let intensity_mult = match &plan.intensity {
             TrainingIntensity::Low => 0.5,
             TrainingIntensity::Medium => 1.0,
             TrainingIntensity::High => 1.5,
         };
 
-        // On rest days or Recovery focus: no training cost
-        let condition_cost: u8 = if !is_training_day {
-            0
-        } else {
-            match (&focus, intensity) {
-                (TrainingFocus::Recovery, _) => 0,
-                (_, TrainingIntensity::Low) => 3,
-                (_, TrainingIntensity::Medium) => 6,
-                (_, TrainingIntensity::High) => 10,
-            }
-        };
-
-        // Recovery amount: rest days get boosted recovery (like Recovery focus)
-        let recovery_base: f64 = if !is_training_day {
-            // Rest day: generous recovery, boosted by physio
-            10.0 * bonus.physio_mult
-        } else {
-            match focus {
-                TrainingFocus::Recovery => 12.0 * bonus.physio_mult,
-                _ => 3.0 * bonus.physio_mult,
-            }
-        };
-
         for player in game.players.iter_mut() {
-            if player.team_id.as_deref() != Some(team_id) {
+            if player.team_id.as_deref() != Some(&plan.team_id) {
                 continue;
             }
+
+            // Determine this player's effective focus
+            let player_focus = plan
+                .group_overrides
+                .get(&player.id)
+                .unwrap_or(&plan.default_focus);
+
+            // On rest days or Recovery focus: no training cost
+            let condition_cost: u8 = if !is_training_day {
+                0
+            } else {
+                match (player_focus, &plan.intensity) {
+                    (TrainingFocus::Recovery, _) => 0,
+                    (_, TrainingIntensity::Low) => 3,
+                    (_, TrainingIntensity::Medium) => 6,
+                    (_, TrainingIntensity::High) => 10,
+                }
+            };
+
+            // Recovery amount: rest days get boosted recovery (like Recovery focus)
+            let recovery_base: f64 = if !is_training_day {
+                10.0 * plan.bonus.physio_mult
+            } else {
+                match player_focus {
+                    TrainingFocus::Recovery => 12.0 * plan.bonus.physio_mult,
+                    _ => 3.0 * plan.bonus.physio_mult,
+                }
+            };
+
             // Skip injured players
             if player.injury.is_some() {
-                // Injured players just get base recovery (physio helps)
                 let recovery = (recovery_base * 0.5) as u8;
                 player.condition = (player.condition + recovery).min(100);
                 continue;
@@ -180,11 +199,11 @@ pub fn process_training(game: &mut Game, weekday_num: u32) {
             let gain = 0.15
                 * intensity_mult
                 * age_factor
-                * bonus.coaching_mult
-                * bonus.specialization_mult;
+                * plan.bonus.coaching_mult
+                * plan.bonus.specialization_mult;
 
-            // Apply attribute gains based on focus
-            apply_focus_gains(&mut player.attributes, focus, gain);
+            // Apply attribute gains based on player's effective focus
+            apply_focus_gains(&mut player.attributes, player_focus, gain);
 
             // Apply condition: deplete from training, then recover
             player.condition = player.condition.saturating_sub(condition_cost);

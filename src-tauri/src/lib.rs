@@ -96,6 +96,7 @@ pub fn run() {
             set_play_style,
             set_training,
             set_training_schedule,
+            set_training_groups,
             hire_staff,
             release_staff,
             mark_message_read,

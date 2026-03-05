@@ -37,6 +37,10 @@ pub struct Team {
     pub founded_year: u32,
     pub colors: TeamColors,
 
+    // Training groups: allow per-group focus overrides for subsets of players
+    #[serde(default)]
+    pub training_groups: Vec<TrainingGroup>,
+
     // Persistent starting XI (player IDs). If empty, auto-select by OVR.
     #[serde(default)]
     pub starting_xi_ids: Vec<String>,
@@ -105,6 +109,16 @@ impl TrainingSchedule {
     }
 }
 
+/// A named training group with its own focus. Players in a group train
+/// with the group's focus instead of the team-wide default.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TrainingGroup {
+    pub id: String,
+    pub name: String,
+    pub focus: TrainingFocus,
+    pub player_ids: Vec<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TeamColors {
     pub primary: String,
@@ -163,6 +177,7 @@ impl Team {
             training_focus: TrainingFocus::default(),
             training_intensity: TrainingIntensity::default(),
             training_schedule: TrainingSchedule::default(),
+            training_groups: Vec::new(),
             founded_year: 1900,
             colors: TeamColors {
                 primary: "#10b981".to_string(),

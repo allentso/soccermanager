@@ -1,7 +1,7 @@
 use rusqlite_migration::{M, Migrations};
 
 /// Number of migrations defined. Keep in sync with the vec in `all_migrations`.
-pub const MIGRATION_COUNT: usize = 1;
+pub const MIGRATION_COUNT: usize = 2;
 
 /// All migrations for a per-save game database.
 /// Each save `.db` file gets this schema applied via `rusqlite_migration`.
@@ -9,6 +9,8 @@ pub fn all_migrations() -> Migrations<'static> {
     Migrations::new(vec![
         // V1: Initial schema — all game entity tables
         M::up(include_str!("sql/v001_initial_schema.sql")),
+        // V2: Training groups per team
+        M::up(include_str!("sql/v002_training_groups.sql")),
     ])
 }
 
@@ -90,8 +92,9 @@ mod tests {
             .unwrap();
         // rusqlite_migration sets user_version to the number of applied migrations
         assert_eq!(
-            version, 1,
-            "expected schema version 1 after initial migration"
+            version, MIGRATION_COUNT as i64,
+            "expected schema version {} after migrations",
+            MIGRATION_COUNT
         );
     }
 }

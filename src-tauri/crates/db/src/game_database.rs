@@ -88,7 +88,10 @@ mod tests {
     fn test_open_in_memory() {
         let db = GameDatabase::open_in_memory().unwrap();
         assert!(db.path().is_none());
-        assert_eq!(db.schema_version().unwrap(), 1);
+        assert_eq!(
+            db.schema_version().unwrap(),
+            crate::migrations::MIGRATION_COUNT as i64
+        );
     }
 
     #[test]
@@ -98,7 +101,10 @@ mod tests {
 
         let db = GameDatabase::open(&db_path).unwrap();
         assert_eq!(db.path().unwrap(), db_path);
-        assert_eq!(db.schema_version().unwrap(), 1);
+        assert_eq!(
+            db.schema_version().unwrap(),
+            crate::migrations::MIGRATION_COUNT as i64
+        );
         assert!(db.validate_schema().unwrap());
     }
 
@@ -110,12 +116,18 @@ mod tests {
         // Create and close
         {
             let db = GameDatabase::open(&db_path).unwrap();
-            assert_eq!(db.schema_version().unwrap(), 1);
+            assert_eq!(
+                db.schema_version().unwrap(),
+                crate::migrations::MIGRATION_COUNT as i64
+            );
         }
 
         // Reopen — migrations should be idempotent
         let db = GameDatabase::open(&db_path).unwrap();
-        assert_eq!(db.schema_version().unwrap(), 1);
+        assert_eq!(
+            db.schema_version().unwrap(),
+            crate::migrations::MIGRATION_COUNT as i64
+        );
         assert!(db.validate_schema().unwrap());
     }
 

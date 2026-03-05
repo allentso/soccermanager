@@ -417,6 +417,27 @@
       "fri": "Fri",
       "sat": "Sat",
       "sun": "Sun"
+    },
+    "groups": {
+      "trainingGroups": "Training Groups",
+      "trainingGroupsDesc": "Assign players to groups with different training focuses. Ungrouped players use the team default.",
+      "addGroup": "Add Group",
+      "groupName": "Group Name",
+      "groupFocus": "Focus",
+      "removeGroup": "Remove Group",
+      "ungrouped": "Ungrouped",
+      "noGroups": "No training groups created. All players train with the team default focus.",
+      "assignPlayer": "Assign to group",
+      "removePlayer": "Remove from group",
+      "playerCount": "{{count}} player(s)",
+      "maxGroups": "Maximum 5 training groups allowed.",
+      "defaultGroupNames": {
+        "0": "Defenders",
+        "1": "Midfielders",
+        "2": "Attackers",
+        "3": "Youth",
+        "4": "Recovery"
+      }
     }
   },
   "staff": {

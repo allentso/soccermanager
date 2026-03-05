@@ -206,6 +206,30 @@ pub fn set_training_schedule(state: State<StateManager>, schedule: String) -> Re
 }
 
 #[tauri::command]
+pub fn set_training_groups(
+    state: State<StateManager>,
+    groups: Vec<domain::team::TrainingGroup>,
+) -> Result<Game, String> {
+    info!("[cmd] set_training_groups: {} groups", groups.len());
+    let mut game = state
+        .get_game(|g| g.clone())
+        .ok_or("No active game session".to_string())?;
+
+    let team_id = game
+        .manager
+        .team_id
+        .clone()
+        .ok_or("No team assigned".to_string())?;
+
+    if let Some(team) = game.teams.iter_mut().find(|t| t.id == team_id) {
+        team.training_groups = groups;
+    }
+
+    state.set_game(game.clone());
+    Ok(game)
+}
+
+#[tauri::command]
 pub fn auto_select_set_pieces(
     state: State<StateManager>,
     player_ids: Vec<String>,

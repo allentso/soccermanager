@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { GameStateData } from "../store/gameStore";
 import { Card, CardHeader, CardBody, ProgressBar } from "./ui";
 import {
   HeartPulse, Crosshair, Brain, Shield, Zap, BedDouble, Gauge,
-  Flame, Scale, Feather, AlertTriangle, Info,
+  Flame, Scale, Feather, AlertTriangle, Info, Plus, Trash2, Users, UserPlus, UserMinus,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
@@ -289,6 +289,15 @@ export default function TrainingTab({ gameState, onGameUpdate }: TrainingTabProp
             </p>
           </CardBody>
         </Card>
+
+        {/* Training Groups */}
+        <TrainingGroupsCard
+          gameState={gameState}
+          onGameUpdate={onGameUpdate}
+          roster={roster}
+          isSaving={isSaving}
+          setIsSaving={setIsSaving}
+        />
       </div>
 
       {/* Right column: Fitness overview */}
@@ -348,5 +357,218 @@ export default function TrainingTab({ gameState, onGameUpdate }: TrainingTabProp
         </Card>
       </div>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Training Groups sub-component
+// ---------------------------------------------------------------------------
+
+interface TrainingGroup {
+  id: string;
+  name: string;
+  focus: string;
+  player_ids: string[];
+}
+
+interface TrainingGroupsCardProps {
+  gameState: GameStateData;
+  onGameUpdate?: (state: GameStateData) => void;
+  roster: GameStateData["players"];
+  isSaving: boolean;
+  setIsSaving: (v: boolean) => void;
+}
+
+function TrainingGroupsCard({ gameState, onGameUpdate, roster, isSaving, setIsSaving }: TrainingGroupsCardProps) {
+  const { t } = useTranslation();
+  const myTeam = gameState.teams.find(tm => tm.id === gameState.manager.team_id);
+  const groups: TrainingGroup[] = (myTeam as any)?.training_groups ?? [];
+  const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
+
+  const saveGroups = useCallback(async (newGroups: TrainingGroup[]) => {
+    setIsSaving(true);
+    try {
+      const updated = await invoke<GameStateData>("set_training_groups", { groups: newGroups });
+      onGameUpdate?.(updated);
+    } catch (err) {
+      console.error("Failed to save training groups:", err);
+    } finally {
+      setIsSaving(false);
+    }
+  }, [onGameUpdate, setIsSaving]);
+
+  const addGroup = () => {
+    if (groups.length >= 5) return;
+    const idx = groups.length;
+    const defaultName = t(`training.groups.defaultGroupNames.${idx}`, `Group ${idx + 1}`);
+    const newGroup: TrainingGroup = {
+      id: `grp_${Date.now()}`,
+      name: defaultName,
+      focus: "Physical",
+      player_ids: [],
+    };
+    saveGroups([...groups, newGroup]);
+  };
+
+  const removeGroup = (groupId: string) => {
+    saveGroups(groups.filter(g => g.id !== groupId));
+  };
+
+  const updateGroupFocus = (groupId: string, focus: string) => {
+    saveGroups(groups.map(g => g.id === groupId ? { ...g, focus } : g));
+  };
+
+  const updateGroupName = (groupId: string, name: string) => {
+    saveGroups(groups.map(g => g.id === groupId ? { ...g, name } : g));
+  };
+
+  const assignPlayer = (groupId: string, playerId: string) => {
+    // Remove from any other group first
+    const cleaned = groups.map(g => ({
+      ...g,
+      player_ids: g.player_ids.filter(pid => pid !== playerId),
+    }));
+    saveGroups(cleaned.map(g => g.id === groupId ? { ...g, player_ids: [...g.player_ids, playerId] } : g));
+  };
+
+  const removePlayer = (groupId: string, playerId: string) => {
+    saveGroups(groups.map(g => g.id === groupId ? { ...g, player_ids: g.player_ids.filter(pid => pid !== playerId) } : g));
+  };
+
+  // Players assigned to any group
+  const assignedIds = new Set(groups.flatMap(g => g.player_ids));
+  const ungroupedPlayers = roster.filter(p => !assignedIds.has(p.id));
+
+  return (
+    <Card>
+      <CardHeader
+        action={
+          groups.length < 5 ? (
+            <button
+              onClick={addGroup}
+              disabled={isSaving}
+              className="flex items-center gap-1.5 text-xs font-heading font-bold uppercase tracking-wider text-primary-500 hover:text-primary-400 transition-colors disabled:opacity-50"
+            >
+              <Plus className="w-4 h-4" /> {t('training.groups.addGroup')}
+            </button>
+          ) : null
+        }
+      >
+        {t('training.groups.trainingGroups')}
+      </CardHeader>
+      <CardBody>
+        {groups.length === 0 ? (
+          <p className="text-sm text-gray-500 dark:text-gray-400">{t('training.groups.noGroups')}</p>
+        ) : (
+          <div className="flex flex-col gap-3">
+            {groups.map(group => {
+              const isExpanded = expandedGroup === group.id;
+              const groupPlayers = roster.filter(p => group.player_ids.includes(p.id));
+              return (
+                <div
+                  key={group.id}
+                  className="border border-gray-200 dark:border-navy-600 rounded-xl overflow-hidden"
+                >
+                  {/* Group header */}
+                  <div
+                    className="flex items-center gap-3 px-4 py-3 bg-gray-50 dark:bg-navy-700/50 cursor-pointer"
+                    onClick={() => setExpandedGroup(isExpanded ? null : group.id)}
+                  >
+                    <div className="text-gray-500 dark:text-gray-400">
+                      {TRAINING_FOCUS_ICONS[group.focus] || <Users className="w-5 h-5" />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <input
+                        type="text"
+                        value={group.name}
+                        onClick={e => e.stopPropagation()}
+                        onChange={e => updateGroupName(group.id, e.target.value)}
+                        className="bg-transparent text-sm font-heading font-bold uppercase tracking-wider text-gray-800 dark:text-gray-200 border-none outline-none w-full"
+                      />
+                    </div>
+                    <select
+                      value={group.focus}
+                      onClick={e => e.stopPropagation()}
+                      onChange={e => updateGroupFocus(group.id, e.target.value)}
+                      className="text-xs bg-gray-100 dark:bg-navy-700 border border-gray-200 dark:border-navy-600 rounded-lg px-2 py-1 text-gray-700 dark:text-gray-300 outline-none"
+                    >
+                      {TRAINING_FOCUS_IDS.map(fId => (
+                        <option key={fId} value={fId}>{t(`training.focuses.${fId}.label`)}</option>
+                      ))}
+                    </select>
+                    <span className="text-xs text-gray-400 dark:text-gray-500 tabular-nums">
+                      {groupPlayers.length}
+                    </span>
+                    <button
+                      onClick={e => { e.stopPropagation(); removeGroup(group.id); }}
+                      disabled={isSaving}
+                      className="text-red-400 hover:text-red-500 transition-colors disabled:opacity-50"
+                      title={t('training.groups.removeGroup')}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {/* Expanded: show assigned players + add from ungrouped */}
+                  {isExpanded && (
+                    <div className="px-4 py-3 border-t border-gray-100 dark:border-navy-600">
+                      {/* Assigned players */}
+                      {groupPlayers.length > 0 ? (
+                        <div className="flex flex-wrap gap-2 mb-3">
+                          {groupPlayers.map(p => (
+                            <span
+                              key={p.id}
+                              className="inline-flex items-center gap-1 text-xs bg-primary-50 dark:bg-primary-500/10 text-primary-700 dark:text-primary-300 px-2 py-1 rounded-lg"
+                            >
+                              {p.match_name}
+                              <button
+                                onClick={() => removePlayer(group.id, p.id)}
+                                className="text-primary-400 hover:text-red-500 transition-colors"
+                                title={t('training.groups.removePlayer')}
+                              >
+                                <UserMinus className="w-3 h-3" />
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-gray-400 dark:text-gray-500 mb-3">
+                          {t('training.groups.assignPlayer')}
+                        </p>
+                      )}
+
+                      {/* Ungrouped players to add */}
+                      {ungroupedPlayers.length > 0 && (
+                        <div className="border-t border-gray-100 dark:border-navy-600 pt-2">
+                          <p className="text-[10px] font-heading uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-2">
+                            {t('training.groups.ungrouped')}
+                          </p>
+                          <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto">
+                            {ungroupedPlayers.map(p => (
+                              <button
+                                key={p.id}
+                                onClick={() => assignPlayer(group.id, p.id)}
+                                disabled={isSaving}
+                                className="inline-flex items-center gap-1 text-xs bg-gray-100 dark:bg-navy-700 text-gray-600 dark:text-gray-400 px-2 py-1 rounded-lg hover:bg-primary-50 dark:hover:bg-primary-500/10 hover:text-primary-600 dark:hover:text-primary-300 transition-colors disabled:opacity-50"
+                              >
+                                <UserPlus className="w-3 h-3" />
+                                {p.match_name}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+        <p className="text-xs text-gray-400 dark:text-gray-500 mt-3">
+          {t('training.groups.trainingGroupsDesc')}
+        </p>
+      </CardBody>
+    </Card>
   );
 }
