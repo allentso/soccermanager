@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { GameStateData, PlayerData } from "../store/gameStore";
 import { Card, Badge, ProgressBar } from "./ui";
-import { Star, ArrowRightLeft, Users, Shield, Crosshair, Zap, Target, RefreshCw, Flag, AlertTriangle, User, ShoppingCart, Repeat, GitCompareArrows } from "lucide-react";
+import { Star, ArrowRightLeft, Users, Shield, Crosshair, Zap, Target, RefreshCw, Flag, AlertTriangle, User, ShoppingCart, Repeat, GitCompareArrows, ChevronUp, ChevronDown } from "lucide-react";
 import { formatVal, positionBadgeVariant, calcOvr, calcAge } from "../lib/helpers";
 import { TraitList } from "./TraitBadge";
 import { useTranslation } from "react-i18next";
@@ -40,6 +40,14 @@ export default function SquadTab({ gameState, managerId, onSelectPlayer, onGameU
   const [activeView, setActiveView] = useState<"lineup" | "roster" | "compare">("lineup");
   const [compareA, setCompareA] = useState<string | null>(null);
   const [compareB, setCompareB] = useState<string | null>(null);
+
+  type SortKey = "pos" | "name" | "age" | "condition" | "morale" | "ovr";
+  const [sortKey, setSortKey] = useState<SortKey>("pos");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const toggleSort = (key: SortKey) => {
+    if (sortKey === key) setSortDir(d => d === "asc" ? "desc" : "asc");
+    else { setSortKey(key); setSortDir(key === "ovr" ? "desc" : "asc"); }
+  };
 
   if (!myTeam) return <p className="text-gray-500 dark:text-gray-400">{t('common.unemployed')}</p>;
 
@@ -91,6 +99,60 @@ export default function SquadTab({ gameState, managerId, onSelectPlayer, onGameU
 
   const xiIds = new Set(startingXI.map(p => p.id));
   const bench = roster.filter(p => !xiIds.has(p.id));
+
+  // Assign active position to XI players based on formation slot order
+  const xiActivePosition = useMemo(() => {
+    const map = new Map<string, string>();
+    const slotList: string[] = [];
+    slotList.push("Goalkeeper");
+    for (let i = 0; i < slots.def; i++) slotList.push("Defender");
+    for (let i = 0; i < slots.mid; i++) slotList.push("Midfielder");
+    for (let i = 0; i < slots.fwd; i++) slotList.push("Forward");
+    // Match XI players to slots: prefer matching natural position
+    const assigned = new Set<number>();
+    // First pass: assign players to matching slots
+    for (const p of startingXI) {
+      for (let i = 0; i < slotList.length; i++) {
+        if (!assigned.has(i) && slotList[i] === p.position) {
+          map.set(p.id, slotList[i]);
+          assigned.add(i);
+          break;
+        }
+      }
+    }
+    // Second pass: assign remaining to any open slot
+    for (const p of startingXI) {
+      if (!map.has(p.id)) {
+        for (let i = 0; i < slotList.length; i++) {
+          if (!assigned.has(i)) {
+            map.set(p.id, slotList[i]);
+            assigned.add(i);
+            break;
+          }
+        }
+      }
+    }
+    return map;
+  }, [startingXI, slots]);
+
+  // Sort helper
+  const sortPlayers = (players: PlayerData[], section: "xi" | "bench"): PlayerData[] => {
+    const posOrd: Record<string, number> = { Goalkeeper: 1, Defender: 2, Midfielder: 3, Forward: 4 };
+    const getPos = (p: PlayerData) => section === "xi" ? (xiActivePosition.get(p.id) || p.position) : p.position;
+    const cmp = (a: PlayerData, b: PlayerData): number => {
+      switch (sortKey) {
+        case "pos": return (posOrd[getPos(a)] || 99) - (posOrd[getPos(b)] || 99) || calcOvr(b) - calcOvr(a);
+        case "name": return a.full_name.localeCompare(b.full_name);
+        case "age": return calcAge(a.date_of_birth) - calcAge(b.date_of_birth);
+        case "condition": return a.condition - b.condition;
+        case "morale": return a.morale - b.morale;
+        case "ovr": return calcOvr(a) - calcOvr(b);
+        default: return 0;
+      }
+    };
+    const sorted = [...players].sort(cmp);
+    return sortDir === "desc" ? sorted.reverse() : sorted;
+  };
 
   const handleFormationChange = async (f: string) => {
     try {
@@ -173,6 +235,8 @@ export default function SquadTab({ gameState, managerId, onSelectPlayer, onGameU
     const isSwapSource = swapSource?.id === player.id;
     const isSwapTarget = swapSource && swapSource.id !== player.id;
     const wrongPos = section === "xi" && isOutOfPosition(player, section);
+    const activePos = section === "xi" ? xiActivePosition.get(player.id) : undefined;
+    const showActivePos = activePos && activePos !== player.position;
 
     const contextItems = [
       { label: "View Profile", icon: <User className="w-4 h-4" />, onClick: () => onSelectPlayer(player.id) },
@@ -199,6 +263,13 @@ export default function SquadTab({ gameState, managerId, onSelectPlayer, onGameU
       >
         <td className="py-2.5 px-4">
           <div className="flex items-center gap-1">
+            {showActivePos && (
+              <span title={`Playing as ${activePos}`}>
+                <Badge variant="neutral" size="sm">
+                  {activePos!.substring(0, 3).toUpperCase()}
+                </Badge>
+              </span>
+            )}
             <Badge variant={positionBadgeVariant(player.position)} size="sm">
               {player.position.substring(0, 3).toUpperCase()}
             </Badge>
@@ -255,16 +326,30 @@ export default function SquadTab({ gameState, managerId, onSelectPlayer, onGameU
     );
   };
 
+  const SortHeader = ({ col, label, className }: { col: SortKey; label: string; className?: string }) => (
+    <th
+      className={`py-2.5 px-4 font-heading font-bold uppercase tracking-wider cursor-pointer select-none hover:text-primary-400 transition-colors ${sortKey === col ? 'text-primary-500 dark:text-primary-400' : 'text-gray-500 dark:text-gray-400'} ${className || ''}`}
+      onClick={() => toggleSort(col)}
+    >
+      <div className="flex items-center gap-1">
+        {label}
+        {sortKey === col ? (
+          sortDir === "asc" ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />
+        ) : null}
+      </div>
+    </th>
+  );
+
   const tableHead = (
     <thead>
       <tr className="bg-gray-50 dark:bg-navy-800 border-b border-gray-200 dark:border-navy-600 text-xs">
-        <th className="py-2.5 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t('squad.pos')}</th>
-        <th className="py-2.5 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t('common.name')}</th>
-        <th className="py-2.5 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t('common.age')}</th>
-        <th className="py-2.5 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t('common.condition')}</th>
-        <th className="py-2.5 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t('common.morale')}</th>
+        <SortHeader col="pos" label={t('squad.pos')} />
+        <SortHeader col="name" label={t('common.name')} />
+        <SortHeader col="age" label={t('common.age')} />
+        <SortHeader col="condition" label={t('common.condition')} />
+        <SortHeader col="morale" label={t('common.morale')} />
         <th className="py-2.5 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t('squad.traits')}</th>
-        <th className="py-2.5 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t('common.ovr')}</th>
+        <SortHeader col="ovr" label={t('common.ovr')} />
         <th className="py-2.5 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 w-12"></th>
       </tr>
     </thead>
@@ -378,7 +463,7 @@ export default function SquadTab({ gameState, managerId, onSelectPlayer, onGameU
               <table className="w-full text-left border-collapse">
                 {tableHead}
                 <tbody className="divide-y divide-gray-100 dark:divide-navy-600">
-                  {startingXI.map(p => renderPlayerRow(p, "xi"))}
+                  {sortPlayers(startingXI, "xi").map(p => renderPlayerRow(p, "xi"))}
                 </tbody>
               </table>
             </div>
@@ -396,7 +481,7 @@ export default function SquadTab({ gameState, managerId, onSelectPlayer, onGameU
               <table className="w-full text-left border-collapse">
                 {tableHead}
                 <tbody className="divide-y divide-gray-100 dark:divide-navy-600">
-                  {bench.map(p => renderPlayerRow(p, "bench"))}
+                  {sortPlayers(bench, "bench").map(p => renderPlayerRow(p, "bench"))}
                 </tbody>
               </table>
               {bench.length === 0 && (
