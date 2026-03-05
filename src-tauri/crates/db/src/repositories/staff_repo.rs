@@ -73,7 +73,7 @@ pub fn load_all_staff(conn: &Connection) -> Result<Vec<Staff>, String> {
         .map_err(|e| format!("Failed to prepare staff query: {}", e))?;
 
     let rows = stmt
-        .query_map([], |row| row_to_staff(row))
+        .query_map([], row_to_staff)
         .map_err(|e| format!("Failed to query staff: {}", e))?;
 
     let mut staff = Vec::new();

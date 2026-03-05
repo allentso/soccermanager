@@ -90,7 +90,7 @@ pub fn load_all_messages(conn: &Connection) -> Result<Vec<InboxMessage>, String>
         .map_err(|e| format!("Failed to prepare messages query: {}", e))?;
 
     let rows = stmt
-        .query_map([], |row| row_to_message(row))
+        .query_map([], row_to_message)
         .map_err(|e| format!("Failed to query messages: {}", e))?;
 
     let mut messages = Vec::new();

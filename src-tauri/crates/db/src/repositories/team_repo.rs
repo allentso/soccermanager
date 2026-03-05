@@ -157,7 +157,7 @@ pub fn load_all_teams(conn: &Connection) -> Result<Vec<Team>, String> {
         .map_err(|e| format!("Failed to prepare teams query: {}", e))?;
 
     let rows = stmt
-        .query_map([], |row| row_to_team(row))
+        .query_map([], row_to_team)
         .map_err(|e| format!("Failed to query teams: {}", e))?;
 
     let mut teams = Vec::new();
@@ -182,7 +182,7 @@ pub fn load_team(conn: &Connection, id: &str) -> Result<Option<Team>, String> {
         .map_err(|e| format!("Failed to prepare team query: {}", e))?;
 
     let mut rows = stmt
-        .query_map(params![id], |row| row_to_team(row))
+        .query_map(params![id], row_to_team)
         .map_err(|e| format!("Failed to query team: {}", e))?;
 
     match rows.next() {

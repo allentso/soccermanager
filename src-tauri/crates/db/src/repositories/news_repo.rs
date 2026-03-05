@@ -74,7 +74,7 @@ pub fn load_all_news(conn: &Connection) -> Result<Vec<NewsArticle>, String> {
         .map_err(|e| format!("Failed to prepare news query: {}", e))?;
 
     let rows = stmt
-        .query_map([], |row| row_to_news(row))
+        .query_map([], row_to_news)
         .map_err(|e| format!("Failed to query news: {}", e))?;
 
     let mut articles = Vec::new();

@@ -81,7 +81,7 @@ pub fn load_all_players(conn: &Connection) -> Result<Vec<Player>, String> {
         .map_err(|e| format!("Failed to prepare players query: {}", e))?;
 
     let rows = stmt
-        .query_map([], |row| row_to_player(row))
+        .query_map([], row_to_player)
         .map_err(|e| format!("Failed to query players: {}", e))?;
 
     let mut players = Vec::new();
@@ -104,7 +104,7 @@ pub fn load_players_by_team(conn: &Connection, team_id: &str) -> Result<Vec<Play
         .map_err(|e| format!("Failed to prepare players query: {}", e))?;
 
     let rows = stmt
-        .query_map(params![team_id], |row| row_to_player(row))
+        .query_map(params![team_id], row_to_player)
         .map_err(|e| format!("Failed to query players: {}", e))?;
 
     let mut players = Vec::new();
@@ -133,7 +133,7 @@ fn row_to_player(row: &rusqlite::Row) -> rusqlite::Result<Player> {
         date_of_birth: row.get(3)?,
         nationality: row.get(4)?,
         position: parse_position(&position_str),
-        attributes: serde_json::from_str(&attrs_json).unwrap_or_else(|_| PlayerAttributes {
+        attributes: serde_json::from_str(&attrs_json).unwrap_or(PlayerAttributes {
             pace: 50,
             stamina: 50,
             strength: 50,
