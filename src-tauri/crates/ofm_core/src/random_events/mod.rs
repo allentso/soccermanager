@@ -121,10 +121,10 @@ pub fn check_random_events(game: &mut Game) {
         }
     }
 
-    // --- 3. Media story (3% chance per day) ---
+    // --- 3. Media story (2% chance per day) ---
     {
         let msg_id = format!("media_{}", today);
-        if !existing_ids.contains(&msg_id) && rng.gen_range(0..33) == 0 {
+        if !existing_ids.contains(&msg_id) && rng.gen_range(0..50) == 0 {
             let team_name = game
                 .teams
                 .iter()
@@ -183,7 +183,7 @@ pub fn check_random_events(game: &mut Game) {
             })
         });
 
-        if upcoming_match.is_some() && rng.gen_range(0..20) == 0 {
+        if upcoming_match.is_some() && rng.gen_range(0..50) == 0 {
             let eligible: Vec<&domain::player::Player> = game
                 .players
                 .iter()

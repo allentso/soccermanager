@@ -139,8 +139,8 @@ pub fn check_player_events(game: &mut Game) {
                 continue;
             }
 
-            // High morale player occasionally sends positive message (10% chance per day)
-            if player.morale >= 90 && rng.gen_range(0..10) == 0 {
+            // High morale player occasionally sends positive message (3% chance per day)
+            if player.morale >= 90 && rng.gen_range(0..33) == 0 {
                 new_messages.push(happy_player_message(
                     &msg_id,
                     &player.id,
