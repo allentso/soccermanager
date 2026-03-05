@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -95,11 +95,15 @@ export default function Dashboard() {
   }, [markClean]);
 
   // Intercept window close to warn about unsaved changes
+  const isClosingRef = useRef(false);
   useEffect(() => {
     const appWindow = getCurrentWindow();
     const unlisten = appWindow.onCloseRequested(async (event) => {
+      // Guard against re-entrant calls (destroy may re-trigger close-requested)
+      if (isClosingRef.current) return;
       if (isDirty) {
         event.preventDefault();
+        isClosingRef.current = true;
         // Save and then close
         try {
           await invoke("save_game");
