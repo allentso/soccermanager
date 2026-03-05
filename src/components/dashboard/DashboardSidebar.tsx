@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { Users, Calendar as CalendarIcon, Mail, Settings, Briefcase, Trophy, TrendingUp, Crosshair, Dumbbell, DollarSign, Eye, User, UsersRound, Building2, UserCog, Newspaper, LogOut, GraduationCap } from "lucide-react";
+import { Users, Calendar as CalendarIcon, Mail, Settings, Briefcase, Trophy, TrendingUp, Crosshair, Dumbbell, DollarSign, Eye, UsersRound, Building2, UserCog, Newspaper, LogOut, GraduationCap } from "lucide-react";
 
 interface DashboardSidebarProps {
   activeTab: string;
@@ -38,7 +38,7 @@ export default function DashboardSidebar({ activeTab, onNavClick, unreadMessages
   const { t } = useTranslation();
 
   return (
-    <aside className="w-64 bg-navy-800 dark:bg-navy-800 border-r border-navy-700 text-white flex flex-col flex-shrink-0">
+    <aside className="w-64 bg-navy-800 dark:bg-navy-800 border-r border-navy-700 text-white flex flex-col flex-shrink-0 h-screen sticky top-0">
       {/* Brand */}
       <div className="p-5 border-b border-navy-700">
         <div className="flex items-center gap-2">
@@ -50,18 +50,22 @@ export default function DashboardSidebar({ activeTab, onNavClick, unreadMessages
             <h1 className="text-xs font-heading text-accent-400 uppercase tracking-wider">Manager</h1>
           </div>
         </div>
-        <div className="mt-3 pt-3 border-t border-navy-700">
+        <button
+          onClick={() => onNavClick("Manager")}
+          className="mt-3 pt-3 border-t border-navy-700 text-left w-full hover:bg-white/5 rounded-lg transition-colors -mx-1 px-1 py-1"
+        >
           <p className="text-xs text-gray-400 uppercase tracking-wider">{t('dashboard.manager')}</p>
           <p className="text-sm font-semibold text-white mt-0.5">{managerName}</p>
           {teamName && <p className="text-xs text-primary-400 mt-0.5">{teamName}</p>}
-        </div>
+        </button>
       </div>
       
       {/* Navigation */}
-      <nav className="flex-1 py-4 px-3 flex flex-col gap-1 overflow-y-auto">
+      <nav className="flex-1 py-4 px-3 flex flex-col gap-1 overflow-y-auto scrollbar-thin scrollbar-thumb-navy-600 scrollbar-track-transparent">
         <NavItem icon={<Briefcase />} label={t('dashboard.home')} active={activeTab === "Home"} onClick={() => onNavClick("Home")} />
         <NavItem icon={<Mail />} label={t('dashboard.inbox')} badge={unreadMessagesCount > 0 ? unreadMessagesCount : undefined} active={activeTab === "Inbox"} onClick={() => onNavClick("Inbox")} />
-        <NavItem icon={<User />} label={t('dashboard.manager')} active={activeTab === "Manager"} onClick={() => onNavClick("Manager")} />
+        <NavItem icon={<Newspaper />} label={t('dashboard.news')} active={activeTab === "News"} onClick={() => onNavClick("News")} />
+        <NavItem icon={<CalendarIcon />} label={t('dashboard.schedule')} active={activeTab === "Schedule"} onClick={() => onNavClick("Schedule")} />
 
         <p className="text-[10px] text-gray-500 uppercase tracking-widest font-heading px-3 pt-3 pb-1">{t('dashboard.sectionClub')}</p>
         <NavItem icon={<Users />} label={t('dashboard.squad')} active={activeTab === "Squad"} onClick={() => onNavClick("Squad")} />
@@ -77,8 +81,6 @@ export default function DashboardSidebar({ activeTab, onNavClick, unreadMessages
         <NavItem icon={<UsersRound />} label={t('dashboard.players')} active={activeTab === "Players"} onClick={() => onNavClick("Players")} />
         <NavItem icon={<Building2 />} label={t('dashboard.teams')} active={activeTab === "Teams"} onClick={() => onNavClick("Teams")} />
         <NavItem icon={<Trophy />} label={t('dashboard.tournaments')} active={activeTab === "Tournaments"} onClick={() => onNavClick("Tournaments")} />
-        <NavItem icon={<CalendarIcon />} label={t('dashboard.schedule')} active={activeTab === "Schedule"} onClick={() => onNavClick("Schedule")} />
-        <NavItem icon={<Newspaper />} label={t('dashboard.news')} active={activeTab === "News"} onClick={() => onNavClick("News")} />
       </nav>
       
       {/* Settings & Exit */}
