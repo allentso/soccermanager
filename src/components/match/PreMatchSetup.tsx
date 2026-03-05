@@ -166,7 +166,7 @@ export default function PreMatchSetup({ snapshot, gameState, userSide, onStart, 
               </div>
               <div>
                 <p className="font-heading font-bold text-lg text-white">{snapshot.home_team.name}</p>
-                <p className="text-xs text-gray-500">{t('match.home')}</p>
+                <p className="text-xs text-gray-500">{t('match.home')} · {snapshot.home_team.formation} · {snapshot.home_team.play_style}</p>
               </div>
             </div>
 
@@ -178,7 +178,7 @@ export default function PreMatchSetup({ snapshot, gameState, userSide, onStart, 
             <div className="flex items-center gap-4">
               <div className="text-right">
                 <p className="font-heading font-bold text-lg text-white">{snapshot.away_team.name}</p>
-                <p className="text-xs text-gray-500">{t('match.away')}</p>
+                <p className="text-xs text-gray-500">{t('match.away')} · {snapshot.away_team.formation} · {snapshot.away_team.play_style}</p>
               </div>
               <div
                 className="w-14 h-14 rounded-xl flex items-center justify-center font-heading font-bold text-lg"
@@ -189,10 +189,15 @@ export default function PreMatchSetup({ snapshot, gameState, userSide, onStart, 
             </div>
           </div>
 
-          <div className="text-center">
-            <p className="text-sm font-heading uppercase tracking-widest text-primary-400">
-              {t('match.preMatchPrep')}
-            </p>
+          {/* Start Match Button - centered and prominent */}
+          <div className="flex justify-center mt-2">
+            <button
+              onClick={onStart}
+              className="flex items-center gap-3 px-10 py-3.5 bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 rounded-xl font-heading font-bold uppercase tracking-wider text-sm text-white shadow-lg shadow-primary-500/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
+            >
+              {t('match.startMatch')}
+              <ChevronRight className="w-5 h-5" />
+            </button>
           </div>
         </div>
       </header>
@@ -350,18 +355,6 @@ export default function PreMatchSetup({ snapshot, gameState, userSide, onStart, 
         </div>
       </div>
 
-      {/* Footer: Start Match */}
-      <footer className="bg-navy-800 border-t border-navy-700 px-6 py-4">
-        <div className="max-w-5xl mx-auto flex justify-end">
-          <button
-            onClick={onStart}
-            className="flex items-center gap-3 px-8 py-3 bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 rounded-xl font-heading font-bold uppercase tracking-wider text-sm text-white shadow-lg shadow-primary-500/20 transition-all"
-          >
-            {t('match.startMatch')}
-            <ChevronRight className="w-5 h-5" />
-          </button>
-        </div>
-      </footer>
     </div>
   );
 }
