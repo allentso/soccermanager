@@ -4,7 +4,7 @@ import { GameStateData } from "../store/gameStore";
 import { Card, CardHeader, CardBody, ProgressBar } from "./ui";
 import {
   HeartPulse, Crosshair, Brain, Shield, Zap, BedDouble, Gauge,
-  Flame, Scale, Feather, AlertTriangle, Info, Plus, Trash2, Users, UserPlus, UserMinus,
+  Flame, Scale, Feather, AlertTriangle, Info, Plus, Trash2, Users,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
@@ -383,7 +383,7 @@ function TrainingGroupsCard({ gameState, onGameUpdate, roster, isSaving, setIsSa
   const { t } = useTranslation();
   const myTeam = gameState.teams.find(tm => tm.id === gameState.manager.team_id);
   const groups: TrainingGroup[] = (myTeam as any)?.training_groups ?? [];
-  const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
+  const teamFocus = myTeam?.training_focus || "Physical";
 
   const saveGroups = useCallback(async (newGroups: TrainingGroup[]) => {
     setIsSaving(true);
@@ -422,22 +422,37 @@ function TrainingGroupsCard({ gameState, onGameUpdate, roster, isSaving, setIsSa
     saveGroups(groups.map(g => g.id === groupId ? { ...g, name } : g));
   };
 
-  const assignPlayer = (groupId: string, playerId: string) => {
-    // Remove from any other group first
-    const cleaned = groups.map(g => ({
+  // Assign player to a group (or remove from all groups if groupId is "")
+  const setPlayerGroup = (playerId: string, groupId: string) => {
+    // Remove from any current group
+    let newGroups = groups.map(g => ({
       ...g,
       player_ids: g.player_ids.filter(pid => pid !== playerId),
     }));
-    saveGroups(cleaned.map(g => g.id === groupId ? { ...g, player_ids: [...g.player_ids, playerId] } : g));
+    // Add to the target group if specified
+    if (groupId) {
+      newGroups = newGroups.map(g =>
+        g.id === groupId ? { ...g, player_ids: [...g.player_ids, playerId] } : g
+      );
+    }
+    saveGroups(newGroups);
   };
 
-  const removePlayer = (groupId: string, playerId: string) => {
-    saveGroups(groups.map(g => g.id === groupId ? { ...g, player_ids: g.player_ids.filter(pid => pid !== playerId) } : g));
-  };
+  // Lookup: player ID → group
+  const playerGroupMap = new Map<string, TrainingGroup>();
+  for (const g of groups) {
+    for (const pid of g.player_ids) {
+      playerGroupMap.set(pid, g);
+    }
+  }
 
-  // Players assigned to any group
-  const assignedIds = new Set(groups.flatMap(g => g.player_ids));
-  const ungroupedPlayers = roster.filter(p => !assignedIds.has(p.id));
+  // Sort roster: by position then name
+  const posOrd: Record<string, number> = { Goalkeeper: 1, Defender: 2, Midfielder: 3, Forward: 4 };
+  const sortedRoster = [...roster].sort((a, b) => {
+    const pa = posOrd[a.natural_position || a.position] || 99;
+    const pb = posOrd[b.natural_position || b.position] || 99;
+    return pa - pb || a.match_name.localeCompare(b.match_name);
+  });
 
   return (
     <Card>
@@ -457,112 +472,95 @@ function TrainingGroupsCard({ gameState, onGameUpdate, roster, isSaving, setIsSa
         {t('training.groups.trainingGroups')}
       </CardHeader>
       <CardBody>
-        {groups.length === 0 ? (
-          <p className="text-sm text-gray-500 dark:text-gray-400">{t('training.groups.noGroups')}</p>
-        ) : (
-          <div className="flex flex-col gap-3">
+        {/* Group chips with inline editing */}
+        {groups.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-4">
             {groups.map(group => {
-              const isExpanded = expandedGroup === group.id;
-              const groupPlayers = roster.filter(p => group.player_ids.includes(p.id));
+              const count = group.player_ids.length;
               return (
                 <div
                   key={group.id}
-                  className="border border-gray-200 dark:border-navy-600 rounded-xl overflow-hidden"
+                  className="flex items-center gap-2 bg-gray-50 dark:bg-navy-700/50 border border-gray-200 dark:border-navy-600 rounded-lg px-3 py-1.5"
                 >
-                  {/* Group header */}
-                  <div
-                    className="flex items-center gap-3 px-4 py-3 bg-gray-50 dark:bg-navy-700/50 cursor-pointer"
-                    onClick={() => setExpandedGroup(isExpanded ? null : group.id)}
-                  >
-                    <div className="text-gray-500 dark:text-gray-400">
-                      {TRAINING_FOCUS_ICONS[group.focus] || <Users className="w-5 h-5" />}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <input
-                        type="text"
-                        value={group.name}
-                        onClick={e => e.stopPropagation()}
-                        onChange={e => updateGroupName(group.id, e.target.value)}
-                        className="bg-transparent text-sm font-heading font-bold uppercase tracking-wider text-gray-800 dark:text-gray-200 border-none outline-none w-full"
-                      />
-                    </div>
-                    <select
-                      value={group.focus}
-                      onClick={e => e.stopPropagation()}
-                      onChange={e => updateGroupFocus(group.id, e.target.value)}
-                      className="text-xs bg-gray-100 dark:bg-navy-700 border border-gray-200 dark:border-navy-600 rounded-lg px-2 py-1 text-gray-700 dark:text-gray-300 outline-none"
-                    >
-                      {TRAINING_FOCUS_IDS.map(fId => (
-                        <option key={fId} value={fId}>{t(`training.focuses.${fId}.label`)}</option>
-                      ))}
-                    </select>
-                    <span className="text-xs text-gray-400 dark:text-gray-500 tabular-nums">
-                      {groupPlayers.length}
-                    </span>
-                    <button
-                      onClick={e => { e.stopPropagation(); removeGroup(group.id); }}
-                      disabled={isSaving}
-                      className="text-red-400 hover:text-red-500 transition-colors disabled:opacity-50"
-                      title={t('training.groups.removeGroup')}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                  <div className="text-gray-400 dark:text-gray-500">
+                    {TRAINING_FOCUS_ICONS[group.focus] ? <span className="[&>svg]:w-4 [&>svg]:h-4">{TRAINING_FOCUS_ICONS[group.focus]}</span> : <Users className="w-4 h-4" />}
                   </div>
-
-                  {/* Expanded: show assigned players + add from ungrouped */}
-                  {isExpanded && (
-                    <div className="px-4 py-3 border-t border-gray-100 dark:border-navy-600">
-                      {/* Assigned players */}
-                      {groupPlayers.length > 0 ? (
-                        <div className="flex flex-wrap gap-2 mb-3">
-                          {groupPlayers.map(p => (
-                            <span
-                              key={p.id}
-                              className="inline-flex items-center gap-1 text-xs bg-primary-50 dark:bg-primary-500/10 text-primary-700 dark:text-primary-300 px-2 py-1 rounded-lg"
-                            >
-                              {p.match_name}
-                              <button
-                                onClick={() => removePlayer(group.id, p.id)}
-                                className="text-primary-400 hover:text-red-500 transition-colors"
-                                title={t('training.groups.removePlayer')}
-                              >
-                                <UserMinus className="w-3 h-3" />
-                              </button>
-                            </span>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-xs text-gray-400 dark:text-gray-500 mb-3">
-                          {t('training.groups.assignPlayer')}
-                        </p>
-                      )}
-
-                      {/* Ungrouped players to add */}
-                      {ungroupedPlayers.length > 0 && (
-                        <div className="border-t border-gray-100 dark:border-navy-600 pt-2">
-                          <p className="text-[10px] font-heading uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-2">
-                            {t('training.groups.ungrouped')}
-                          </p>
-                          <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto">
-                            {ungroupedPlayers.map(p => (
-                              <button
-                                key={p.id}
-                                onClick={() => assignPlayer(group.id, p.id)}
-                                disabled={isSaving}
-                                className="inline-flex items-center gap-1 text-xs bg-gray-100 dark:bg-navy-700 text-gray-600 dark:text-gray-400 px-2 py-1 rounded-lg hover:bg-primary-50 dark:hover:bg-primary-500/10 hover:text-primary-600 dark:hover:text-primary-300 transition-colors disabled:opacity-50"
-                              >
-                                <UserPlus className="w-3 h-3" />
-                                {p.match_name}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
+                  <input
+                    type="text"
+                    value={group.name}
+                    onChange={e => updateGroupName(group.id, e.target.value)}
+                    className="bg-transparent text-xs font-heading font-bold uppercase tracking-wider text-gray-800 dark:text-gray-200 border-none outline-none w-20"
+                  />
+                  <select
+                    value={group.focus}
+                    onChange={e => updateGroupFocus(group.id, e.target.value)}
+                    disabled={isSaving}
+                    className="text-[10px] bg-gray-100 dark:bg-navy-700 border border-gray-200 dark:border-navy-600 rounded px-1.5 py-0.5 text-gray-600 dark:text-gray-300 outline-none"
+                  >
+                    {TRAINING_FOCUS_IDS.map(fId => (
+                      <option key={fId} value={fId}>{t(`training.focuses.${fId}.label`)}</option>
+                    ))}
+                  </select>
+                  <span className="text-[10px] text-gray-400 tabular-nums">{count}</span>
+                  <button
+                    onClick={() => removeGroup(group.id)}
+                    disabled={isSaving}
+                    className="text-red-400 hover:text-red-500 transition-colors disabled:opacity-50"
+                    title={t('training.groups.removeGroup')}
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </button>
                 </div>
               );
             })}
+          </div>
+        )}
+
+        {groups.length === 0 ? (
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">{t('training.groups.noGroups')}</p>
+        ) : (
+          /* Player roster table with inline group assignment */
+          <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-navy-600">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="bg-gray-50 dark:bg-navy-700/50">
+                  <th className="py-2 px-3 text-[10px] font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">{t('common.player')}</th>
+                  <th className="py-2 px-3 text-[10px] font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">{t('common.position')}</th>
+                  <th className="py-2 px-3 text-[10px] font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">{t('training.groups.group')}</th>
+                  <th className="py-2 px-3 text-[10px] font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">{t('training.effectiveFocus')}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 dark:divide-navy-600">
+                {sortedRoster.map(p => {
+                  const pg = playerGroupMap.get(p.id);
+                  const effectiveFocus = pg ? pg.focus : teamFocus;
+                  return (
+                    <tr key={p.id} className="hover:bg-gray-50 dark:hover:bg-navy-700/30 transition-colors">
+                      <td className="py-1.5 px-3 text-sm font-medium text-gray-800 dark:text-gray-200 truncate max-w-[160px]">{p.match_name}</td>
+                      <td className="py-1.5 px-3 text-xs text-gray-500 dark:text-gray-400">{(p.natural_position || p.position).substring(0, 3).toUpperCase()}</td>
+                      <td className="py-1.5 px-3">
+                        <select
+                          value={pg?.id || ""}
+                          onChange={e => setPlayerGroup(p.id, e.target.value)}
+                          disabled={isSaving}
+                          className="text-xs bg-gray-50 dark:bg-navy-700 border border-gray-200 dark:border-navy-600 rounded px-1.5 py-0.5 text-gray-700 dark:text-gray-300 outline-none w-full max-w-[120px]"
+                        >
+                          <option value="">{t('training.groups.teamDefault')}</option>
+                          {groups.map(g => (
+                            <option key={g.id} value={g.id}>{g.name}</option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="py-1.5 px-3">
+                        <span className={`text-xs font-heading font-bold uppercase tracking-wider ${pg ? 'text-primary-600 dark:text-primary-400' : 'text-gray-400 dark:text-gray-500'}`}>
+                          {t(`training.focuses.${effectiveFocus}.label`)}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         )}
         <p className="text-xs text-gray-400 dark:text-gray-500 mt-3">
