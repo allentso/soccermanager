@@ -23,12 +23,27 @@ impl LiveMatchState {
             return Err("Maximum substitutions reached".into());
         }
 
+        // Cannot substitute a player who has been sent off
+        if self.sent_off.contains(player_off_id) {
+            return Err("Cannot substitute a sent-off player".into());
+        }
+
         let team = self.team_mut(side);
         let off_idx = team
             .players
             .iter()
             .position(|p| p.id == player_off_id)
             .ok_or("Player not on pitch")?;
+
+        // Cannot bring on a player who was already substituted off
+        let already_subbed_off: std::collections::HashSet<&str> = self
+            .substitutions
+            .iter()
+            .map(|s| s.player_off_id.as_str())
+            .collect();
+        if already_subbed_off.contains(player_on_id) {
+            return Err("Player has already been substituted off".into());
+        }
 
         let bench = match side {
             Side::Home => &mut self.home_bench,

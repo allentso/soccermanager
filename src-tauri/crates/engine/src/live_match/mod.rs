@@ -367,4 +367,10 @@ impl LiveMatchState {
             Side::Away => &self.away_bench,
         }
     }
+
+    /// Simulate a red card for a player (adds to sent_off set).
+    /// Primarily used for testing substitution guards.
+    pub fn test_send_off(&mut self, player_id: &str) {
+        self.sent_off.insert(player_id.to_string());
+    }
 }

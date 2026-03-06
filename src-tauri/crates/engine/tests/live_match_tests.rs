@@ -1485,6 +1485,108 @@ fn substitution_invalid_bench_player_fails() {
 }
 
 // ===========================================================================
+// Tests: Substitution guards (regression tests)
+// ===========================================================================
+
+#[test]
+fn cannot_substitute_red_carded_player() {
+    let mut state = make_live_match(false);
+    let mut rng = seeded_rng(42);
+    state.step_minute(&mut rng); // PreKickOff → FirstHalf
+    state.step_minute(&mut rng); // play a minute
+
+    let snap = state.snapshot();
+    let red_player_id = snap.home_team.players[3].id.clone(); // a defender
+    let bench = state.bench(Side::Home);
+    let bench_player_id = bench[1].id.clone();
+
+    // Simulate a red card
+    state.test_send_off(&red_player_id);
+
+    // Attempting to substitute the sent-off player must fail
+    let result = state.apply_command(MatchCommand::Substitute {
+        side: Side::Home,
+        player_off_id: red_player_id.clone(),
+        player_on_id: bench_player_id,
+    });
+    assert!(
+        result.is_err(),
+        "Should not be able to substitute a red-carded player"
+    );
+    assert!(
+        result.unwrap_err().contains("sent-off"),
+        "Error message should mention sent-off"
+    );
+}
+
+#[test]
+fn cannot_bring_back_already_substituted_off_player() {
+    let mut state = make_live_match(false);
+    let mut rng = seeded_rng(42);
+    state.step_minute(&mut rng); // PreKickOff → FirstHalf
+    state.step_minute(&mut rng); // play a minute
+
+    // First substitution: sub off player A, bring on bench player B
+    let snap = state.snapshot();
+    let player_a_id = snap.home_team.players[5].id.clone(); // a midfielder
+    let bench = state.bench(Side::Home);
+    let player_b_id = bench[0].id.clone();
+
+    state
+        .apply_command(MatchCommand::Substitute {
+            side: Side::Home,
+            player_off_id: player_a_id.clone(),
+            player_on_id: player_b_id.clone(),
+        })
+        .expect("First substitution should succeed");
+
+    // Player A is now on the bench (moved there after being subbed off).
+    // Second substitution: try to bring player A back on by subbing off someone else.
+    let snap2 = state.snapshot();
+    let another_player_id = snap2.home_team.players[1].id.clone(); // a defender still on pitch
+
+    let result = state.apply_command(MatchCommand::Substitute {
+        side: Side::Home,
+        player_off_id: another_player_id,
+        player_on_id: player_a_id.clone(),
+    });
+    assert!(
+        result.is_err(),
+        "Should not be able to bring back a player who was already substituted off"
+    );
+    assert!(
+        result.unwrap_err().contains("already been substituted off"),
+        "Error message should mention already substituted off"
+    );
+}
+
+#[test]
+fn valid_substitution_still_works_after_guards() {
+    // Sanity check: normal substitutions still work with the new guards in place
+    let mut state = make_live_match(false);
+    let mut rng = seeded_rng(42);
+    state.step_minute(&mut rng);
+    state.step_minute(&mut rng);
+
+    let snap = state.snapshot();
+    let off_id = snap.home_team.players[5].id.clone();
+    let bench = state.bench(Side::Home);
+    let on_id = bench[0].id.clone();
+
+    let result = state.apply_command(MatchCommand::Substitute {
+        side: Side::Home,
+        player_off_id: off_id.clone(),
+        player_on_id: on_id.clone(),
+    });
+    assert!(result.is_ok(), "Normal substitution should still work");
+
+    let snap = state.snapshot();
+    assert_eq!(snap.home_subs_made, 1);
+    assert!(snap.home_team.players.iter().any(|p| p.id == on_id));
+    assert!(!snap.home_team.players.iter().any(|p| p.id == off_id));
+}
+
+// ===========================================================================
 // Tests: Snapshot edge cases
 // ===========================================================================
 
