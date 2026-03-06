@@ -26,8 +26,26 @@ pub fn check_player_events(game: &mut Game) {
 
     let mut new_messages: Vec<InboxMessage> = Vec::new();
 
-    // --- 1. Low morale meeting requests (morale < 30) ---
+    let mut rng = rand::thread_rng();
+
+    // Global daily cap: at most 2 player-initiated messages per day
+    let today_message_count = game
+        .messages
+        .iter()
+        .filter(|m| {
+            m.date == today
+                && (m.id.starts_with("morale_talk_")
+                    || m.id.starts_with("bench_complaint_")
+                    || m.id.starts_with("happy_player_"))
+        })
+        .count();
+    let daily_cap: usize = 2;
+
+    // --- 1. Low morale meeting requests (morale < 30, 20% daily chance) ---
     for player in game.players.iter() {
+        if new_messages.len() + today_message_count >= daily_cap {
+            break;
+        }
         if player.team_id.as_deref() != Some(&user_team_id) {
             continue;
         }
@@ -40,7 +58,7 @@ pub fn check_player_events(game: &mut Game) {
             continue;
         }
 
-        if player.morale < 30 {
+        if player.morale < 30 && rng.gen_range(0..5) == 0 {
             new_messages.push(low_morale_message(
                 &msg_id,
                 &player.id,
@@ -52,38 +70,24 @@ pub fn check_player_events(game: &mut Game) {
     }
 
     // --- 2. Benched player complaints ---
-    // Count recent matches where user's team played, then check which players
-    // didn't appear in any of the last 3 completed fixtures
+    // Players with zero appearances but decent OVR complain occasionally.
+    // Uses appearances count (reliable) instead of unreliable scorer-only tracking.
     if let Some(league) = &game.league {
-        let completed: Vec<&domain::league::Fixture> = league
+        let user_matches_played = league
             .fixtures
             .iter()
             .filter(|f| {
                 f.status == domain::league::FixtureStatus::Completed
                     && (f.home_team_id == user_team_id || f.away_team_id == user_team_id)
             })
-            .collect();
+            .count();
 
-        let recent_count = completed.len().min(3);
-        if recent_count >= 3 {
-            let recent = &completed[completed.len() - 3..];
-
-            // Collect player IDs who appeared in any of the last 3 matches
-            // We use the player_stats from match results which contain player IDs
-            let mut appeared: std::collections::HashSet<String> = std::collections::HashSet::new();
-            for fixture in recent {
-                if let Some(result) = &fixture.result {
-                    for scorer in &result.home_scorers {
-                        appeared.insert(scorer.player_id.clone());
-                    }
-                    for scorer in &result.away_scorers {
-                        appeared.insert(scorer.player_id.clone());
-                    }
-                }
-            }
-
-            // Any non-GK, non-injured player with decent OVR who hasn't appeared
+        // Only start bench complaints after 5 team matches have been played
+        if user_matches_played >= 5 {
             for player in game.players.iter() {
+                if new_messages.len() + today_message_count >= daily_cap {
+                    break;
+                }
                 if player.team_id.as_deref() != Some(&user_team_id) {
                     continue;
                 }
@@ -99,7 +103,6 @@ pub fn check_player_events(game: &mut Game) {
                     continue;
                 }
 
-                // Only complain if they have decent attributes (OVR >= 55) and morale is already dropping
                 let attrs = &player.attributes;
                 let ovr = (attrs.pace as u16
                     + attrs.stamina as u16
@@ -114,7 +117,14 @@ pub fn check_player_events(game: &mut Game) {
                     + attrs.decisions as u16)
                     / 11;
 
-                if ovr >= 55 && player.morale < 60 && !appeared.contains(&player.id) {
+                // Player must have decent OVR, low morale, and few appearances
+                // relative to team matches. 10% daily chance to avoid flooding.
+                let app_ratio = if user_matches_played > 0 {
+                    player.stats.appearances as f64 / user_matches_played as f64
+                } else {
+                    1.0
+                };
+                if ovr >= 55 && player.morale < 50 && app_ratio < 0.3 && rng.gen_range(0..10) == 0 {
                     new_messages.push(bench_complaint_message(
                         &msg_id,
                         &player.id,
@@ -126,10 +136,12 @@ pub fn check_player_events(game: &mut Game) {
         }
     }
 
-    // --- 3. Happy player / high morale praise ---
+    // --- 3. Happy player / high morale praise (1% daily chance) ---
     {
-        let mut rng = rand::thread_rng();
         for player in game.players.iter() {
+            if new_messages.len() + today_message_count >= daily_cap {
+                break;
+            }
             if player.team_id.as_deref() != Some(&user_team_id) {
                 continue;
             }
@@ -139,8 +151,7 @@ pub fn check_player_events(game: &mut Game) {
                 continue;
             }
 
-            // High morale player occasionally sends positive message (3% chance per day)
-            if player.morale >= 90 && rng.gen_range(0..33) == 0 {
+            if player.morale >= 90 && rng.gen_range(0..100) == 0 {
                 new_messages.push(happy_player_message(
                     &msg_id,
                     &player.id,

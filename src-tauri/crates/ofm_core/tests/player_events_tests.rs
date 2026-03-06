@@ -151,16 +151,19 @@ fn low_morale_generates_message() {
         .unwrap()
         .morale = 20;
 
-    player_events::check_player_events(&mut game);
-
-    let morale_msgs: Vec<_> = game
-        .messages
-        .iter()
-        .filter(|m| m.id.starts_with("morale_talk_"))
-        .collect();
+    // Now probabilistic (20% per day), run multiple iterations
+    let mut found = false;
+    for _ in 0..100 {
+        game.messages.clear();
+        player_events::check_player_events(&mut game);
+        if game.messages.iter().any(|m| m.id == "morale_talk_p_fwd0") {
+            found = true;
+            break;
+        }
+    }
     assert!(
-        morale_msgs.iter().any(|m| m.id == "morale_talk_p_fwd0"),
-        "Should generate morale talk for low morale player"
+        found,
+        "Should generate morale talk for low morale player within 100 iterations"
     );
 }
 
@@ -244,10 +247,10 @@ fn no_team_no_crash() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn bench_complaint_after_3_missed_matches() {
+fn bench_complaint_after_5_missed_matches() {
     let mut game = make_game();
-    // Set up league with 3 completed fixtures; p_fwd0 never appeared
-    let fixtures: Vec<Fixture> = (0..3)
+    // Set up league with 5 completed fixtures (new minimum); p_fwd0 has 0 appearances
+    let fixtures: Vec<Fixture> = (0..5)
         .map(|i| Fixture {
             id: format!("fix{}", i),
             matchday: i + 1,
@@ -258,7 +261,6 @@ fn bench_complaint_after_3_missed_matches() {
             result: Some(MatchResult {
                 home_goals: 1,
                 away_goals: 0,
-                // Only p_mid0 scored — most players didn't "appear"
                 home_scorers: vec![GoalEvent {
                     player_id: "p_mid0".to_string(),
                     minute: 45,
@@ -276,27 +278,35 @@ fn bench_complaint_after_3_missed_matches() {
     };
     game.league = Some(league);
 
-    // Make p_fwd0 have low morale and decent attributes so they complain
+    // Make p_fwd0 have low morale (< 50), 0 appearances, decent OVR
     let player = game.players.iter_mut().find(|p| p.id == "p_fwd0").unwrap();
     player.morale = 40;
+    // stats.appearances defaults to 0, so app_ratio = 0/5 = 0.0 < 0.3
 
-    player_events::check_player_events(&mut game);
-
-    let bench_msgs: Vec<_> = game
-        .messages
-        .iter()
-        .filter(|m| m.id.starts_with("bench_complaint_"))
-        .collect();
+    // Now probabilistic (10% daily chance), run multiple iterations
+    let mut found = false;
+    for _ in 0..200 {
+        game.messages.clear();
+        player_events::check_player_events(&mut game);
+        if game
+            .messages
+            .iter()
+            .any(|m| m.id.starts_with("bench_complaint_"))
+        {
+            found = true;
+            break;
+        }
+    }
     assert!(
-        !bench_msgs.is_empty(),
-        "Should generate bench complaint for player who missed 3 matches"
+        found,
+        "Should generate bench complaint for player who missed 5+ matches within 200 iterations"
     );
 }
 
 #[test]
 fn bench_complaint_not_for_gk() {
     let mut game = make_game();
-    let fixtures: Vec<Fixture> = (0..3)
+    let fixtures: Vec<Fixture> = (0..5)
         .map(|i| Fixture {
             id: format!("fix{}", i),
             matchday: i + 1,
@@ -326,16 +336,19 @@ fn bench_complaint_not_for_gk() {
         .unwrap()
         .morale = 30;
 
-    player_events::check_player_events(&mut game);
-
-    let gk_complaint = game.messages.iter().any(|m| m.id == "bench_complaint_p_gk");
-    assert!(!gk_complaint, "Goalkeepers shouldn't complain about bench");
+    // Run many times — GKs should never get bench complaints
+    for _ in 0..100 {
+        game.messages.clear();
+        player_events::check_player_events(&mut game);
+        let gk_complaint = game.messages.iter().any(|m| m.id == "bench_complaint_p_gk");
+        assert!(!gk_complaint, "Goalkeepers shouldn't complain about bench");
+    }
 }
 
 #[test]
-fn bench_complaint_not_with_fewer_than_3_fixtures() {
+fn bench_complaint_not_with_fewer_than_5_fixtures() {
     let mut game = make_game();
-    let fixtures: Vec<Fixture> = (0..2)
+    let fixtures: Vec<Fixture> = (0..4)
         .map(|i| Fixture {
             id: format!("fix{}", i),
             matchday: i + 1,
@@ -358,6 +371,10 @@ fn bench_complaint_not_with_fewer_than_3_fixtures() {
         fixtures,
         standings: vec![],
     });
+    // Set low morale so they would complain if threshold was met
+    for p in &mut game.players {
+        p.morale = 30;
+    }
 
     player_events::check_player_events(&mut game);
 
@@ -368,7 +385,7 @@ fn bench_complaint_not_with_fewer_than_3_fixtures() {
         .collect();
     assert!(
         bench_msgs.is_empty(),
-        "No bench complaints with fewer than 3 completed fixtures"
+        "No bench complaints with fewer than 5 completed fixtures"
     );
 }
 
