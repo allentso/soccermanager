@@ -84,6 +84,39 @@ fn standings_rows(game: &Game, league: &League) -> Vec<(String, u32, i16)> {
     standings
 }
 
+fn pre_match_target_date(today: &str) -> Option<String> {
+    let today_date = chrono::NaiveDate::parse_from_str(today, "%Y-%m-%d").ok()?;
+    Some(
+        (today_date + chrono::Duration::days(3))
+            .format("%Y-%m-%d")
+            .to_string(),
+    )
+}
+
+fn scheduled_user_fixtures_for_date<'a>(
+    league: &'a League,
+    user_team_id: &str,
+    target_date: &str,
+) -> Vec<&'a Fixture> {
+    league
+        .fixtures
+        .iter()
+        .filter(|fixture| {
+            fixture.date == target_date
+                && fixture.status == FixtureStatus::Scheduled
+                && (fixture.home_team_id == user_team_id || fixture.away_team_id == user_team_id)
+        })
+        .collect()
+}
+
+fn opponent_for_fixture<'a>(fixture: &'a Fixture, user_team_id: &str) -> (&'a str, bool) {
+    if fixture.home_team_id == user_team_id {
+        (&fixture.away_team_id, true)
+    } else {
+        (&fixture.home_team_id, false)
+    }
+}
+
 /// Generate a match report news article for the completed fixture.
 pub(super) fn generate_match_news(
     game: &mut Game,
@@ -158,38 +191,17 @@ pub(super) fn generate_pre_match_messages(game: &mut Game, today: &str) {
         None => return,
     };
 
-    // Parse today's date to check 3 days ahead
-    let today_date = match chrono::NaiveDate::parse_from_str(today, "%Y-%m-%d") {
-        Ok(d) => d,
-        Err(_) => return,
+    let target_str = match pre_match_target_date(today) {
+        Some(date) => date,
+        None => return,
     };
-    let target_date = today_date + chrono::Duration::days(3);
-    let target_str = target_date.format("%Y-%m-%d").to_string();
 
     if let Some(league) = &game.league {
-        let upcoming: Vec<_> = league
-            .fixtures
-            .iter()
-            .filter(|f| {
-                f.date == target_str
-                    && f.status == FixtureStatus::Scheduled
-                    && (f.home_team_id == user_team_id || f.away_team_id == user_team_id)
-            })
-            .collect();
+        let upcoming = scheduled_user_fixtures_for_date(league, &user_team_id, &target_str);
 
         for fixture in upcoming {
-            let opponent_id = if fixture.home_team_id == user_team_id {
-                &fixture.away_team_id
-            } else {
-                &fixture.home_team_id
-            };
-            let opponent_name = game
-                .teams
-                .iter()
-                .find(|t| t.id == *opponent_id)
-                .map(|t| t.name.as_str())
-                .unwrap_or("Unknown");
-            let is_home = fixture.home_team_id == user_team_id;
+            let (opponent_id, is_home) = opponent_for_fixture(fixture, &user_team_id);
+            let opponent_name = team_name_or(game, opponent_id, "Unknown");
 
             // Check if we already sent this message
             let msg_id = format!("prematch_{}", fixture.id);
@@ -200,7 +212,7 @@ pub(super) fn generate_pre_match_messages(game: &mut Game, today: &str) {
 
             let msg = messages::pre_match_message(
                 &fixture.id,
-                opponent_name,
+                &opponent_name,
                 opponent_id,
                 is_home,
                 fixture.matchday,
@@ -214,12 +226,13 @@ pub(super) fn generate_pre_match_messages(game: &mut Game, today: &str) {
 
 #[cfg(test)]
 mod tests {
-    use super::{generate_match_news, generate_matchday_news};
+    use super::{generate_match_news, generate_matchday_news, generate_pre_match_messages};
     use crate::clock::GameClock;
     use crate::game::Game;
     use chrono::{TimeZone, Utc};
     use domain::league::{Fixture, FixtureStatus, League, MatchResult, StandingEntry};
     use domain::manager::Manager;
+    use domain::message::{MessageCategory, MessagePriority};
     use domain::news::NewsCategory;
     use domain::player::{Player, PlayerAttributes, Position};
     use domain::team::Team;
@@ -502,6 +515,63 @@ mod tests {
             game.news
                 .iter()
                 .filter(|article| article.id == "report_fx1")
+                .count(),
+            1
+        );
+    }
+
+    #[test]
+    fn generate_pre_match_messages_adds_preview_metadata_for_user_fixture_three_days_ahead() {
+        let mut game = make_game("2025-08-15", FixtureStatus::Scheduled);
+
+        generate_pre_match_messages(&mut game, "2025-08-12");
+
+        assert_eq!(game.messages.len(), 1);
+
+        let message = &game.messages[0];
+        assert_eq!(message.id, "prematch_fx1");
+        assert_eq!(message.category, MessageCategory::MatchPreview);
+        assert_eq!(message.priority, MessagePriority::Normal);
+        assert!(message.subject.contains("Beta FC"));
+        assert!(message.subject.contains("(H)"));
+        assert_eq!(message.context.fixture_id.as_deref(), Some("fx1"));
+        assert_eq!(message.context.team_id.as_deref(), Some("team2"));
+        assert_eq!(message.i18n_params.get("venue"), Some(&"home".to_string()));
+        assert_eq!(
+            message.i18n_params.get("opponent"),
+            Some(&"Beta FC".to_string())
+        );
+        assert_eq!(
+            message.i18n_params.get("matchDate"),
+            Some(&"2025-08-15".to_string())
+        );
+        assert_eq!(message.i18n_params.get("matchday"), Some(&"4".to_string()));
+    }
+
+    #[test]
+    fn generate_pre_match_messages_skips_fixtures_without_user_team() {
+        let mut game = make_game("2025-08-15", FixtureStatus::Scheduled);
+        let fixture = &mut game.league.as_mut().unwrap().fixtures[0];
+        fixture.home_team_id = "team2".to_string();
+        fixture.away_team_id = "team3".to_string();
+
+        generate_pre_match_messages(&mut game, "2025-08-12");
+
+        assert!(game.messages.is_empty());
+    }
+
+    #[test]
+    fn generate_pre_match_messages_does_not_duplicate_same_fixture() {
+        let mut game = make_game("2025-08-15", FixtureStatus::Scheduled);
+
+        generate_pre_match_messages(&mut game, "2025-08-12");
+        generate_pre_match_messages(&mut game, "2025-08-12");
+
+        assert_eq!(game.messages.len(), 1);
+        assert_eq!(
+            game.messages
+                .iter()
+                .filter(|message| message.id == "prematch_fx1")
                 .count(),
             1
         );
