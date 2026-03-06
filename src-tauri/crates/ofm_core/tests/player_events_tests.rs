@@ -213,21 +213,30 @@ fn morale_message_not_duplicated() {
         .unwrap()
         .morale = 20;
 
-    player_events::check_player_events(&mut game);
+    for _ in 0..100 {
+        player_events::check_player_events(&mut game);
+        if game.messages.iter().any(|m| m.id == "morale_talk_p_fwd0") {
+            break;
+        }
+    }
+
     let count1 = game
         .messages
         .iter()
         .filter(|m| m.id == "morale_talk_p_fwd0")
         .count();
+    assert_eq!(count1, 1, "Should generate exactly one morale message");
 
-    player_events::check_player_events(&mut game);
+    for _ in 0..20 {
+        player_events::check_player_events(&mut game);
+    }
     let count2 = game
         .messages
         .iter()
         .filter(|m| m.id == "morale_talk_p_fwd0")
         .count();
 
-    assert_eq!(count1, count2, "Should not duplicate morale messages");
+    assert_eq!(count2, 1, "Should not duplicate morale messages");
 }
 
 // ---------------------------------------------------------------------------
