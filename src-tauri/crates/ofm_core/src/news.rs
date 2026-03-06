@@ -187,17 +187,28 @@ pub fn standings_update_article(
     )
 }
 
-/// Generate a season preview article at the start of the season.
-pub fn season_preview_article(team_names: &[String], date: &str) -> NewsArticle {
-    let mut rng = rand::thread_rng();
-
+fn preview_contenders<'a>(team_names: &'a [String], rng: &mut impl Rng) -> (&'a str, &'a str) {
     let favourite = &team_names[rng.gen_range(0..team_names.len())];
+
+    if team_names.len() == 1 {
+        return (favourite.as_str(), favourite.as_str());
+    }
+
     let dark_horse = loop {
         let pick = &team_names[rng.gen_range(0..team_names.len())];
         if pick != favourite {
             break pick;
         }
     };
+
+    (favourite.as_str(), dark_horse.as_str())
+}
+
+/// Generate a season preview article at the start of the season.
+pub fn season_preview_article(team_names: &[String], date: &str) -> NewsArticle {
+    let mut rng = rand::thread_rng();
+
+    let (favourite, dark_horse) = preview_contenders(team_names, &mut rng);
 
     let body = format!(
         "The Premier Division is set to kick off with {} teams vying for the title.\n\n\
@@ -247,7 +258,7 @@ pub fn season_preview_article(team_names: &[String], date: &str) -> NewsArticle 
 
 #[cfg(test)]
 mod tests {
-    use super::{league_roundup_article, standings_update_article};
+    use super::{league_roundup_article, season_preview_article, standings_update_article};
     use domain::news::NewsCategory;
 
     fn assert_valid_roundup_source_pair(source: &str, source_key: &str) {
@@ -398,5 +409,68 @@ mod tests {
             Some(&"Unknown".to_string())
         );
         assert_eq!(article.i18n_params.get("standings"), Some(&String::new()));
+    }
+
+    #[test]
+    fn season_preview_article_includes_team_list_and_distinct_contenders() {
+        let teams = vec![
+            "Alpha FC".to_string(),
+            "Beta FC".to_string(),
+            "Gamma FC".to_string(),
+        ];
+
+        let article = season_preview_article(&teams, "2025-08-01");
+
+        assert_eq!(article.id, "season_preview");
+        assert_eq!(article.category, NewsCategory::SeasonPreview);
+        assert_eq!(article.source, "The Football Herald");
+        assert_eq!(
+            article.source_key.as_deref(),
+            Some("be.source.footballHerald")
+        );
+        assert!(
+            [
+                "be.news.seasonPreview.headline0",
+                "be.news.seasonPreview.headline1",
+                "be.news.seasonPreview.headline2"
+            ]
+            .contains(&article.headline_key.as_deref().unwrap())
+        );
+        assert_eq!(
+            article.body_key.as_deref(),
+            Some("be.news.seasonPreview.body")
+        );
+        assert!(article.body.contains("3 teams vying for the title"));
+        assert!(article.body.contains("Teams: Alpha FC, Beta FC, Gamma FC"));
+        assert_eq!(article.i18n_params.get("teamCount"), Some(&"3".to_string()));
+        assert_eq!(
+            article.i18n_params.get("teamList"),
+            Some(&"Alpha FC, Beta FC, Gamma FC".to_string())
+        );
+
+        let favourite = article.i18n_params.get("favourite").unwrap();
+        let dark_horse = article.i18n_params.get("darkHorse").unwrap();
+        assert!(teams.contains(favourite));
+        assert!(teams.contains(dark_horse));
+        assert_ne!(favourite, dark_horse);
+    }
+
+    #[test]
+    fn season_preview_article_handles_single_team_without_looping() {
+        let teams = vec!["Solo FC".to_string()];
+
+        let article = season_preview_article(&teams, "2025-08-01");
+
+        assert!(article.body.contains("1 teams vying for the title"));
+        assert!(article.body.contains("Teams: Solo FC"));
+        assert_eq!(article.i18n_params.get("teamCount"), Some(&"1".to_string()));
+        assert_eq!(
+            article.i18n_params.get("favourite"),
+            Some(&"Solo FC".to_string())
+        );
+        assert_eq!(
+            article.i18n_params.get("darkHorse"),
+            Some(&"Solo FC".to_string())
+        );
     }
 }
