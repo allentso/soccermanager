@@ -33,6 +33,30 @@ fn biggest_winner_name(results: &[(String, u8, String, u8)]) -> String {
         .unwrap_or_default()
 }
 
+fn goal_difference_text(goal_difference: i16) -> String {
+    if goal_difference >= 0 {
+        format!("+{}", goal_difference)
+    } else {
+        goal_difference.to_string()
+    }
+}
+
+fn standings_lines(top_teams: &[(String, u32, i16)]) -> Vec<String> {
+    top_teams
+        .iter()
+        .enumerate()
+        .map(|(idx, (name, points, goal_difference))| {
+            format!(
+                "  {}. {} — {} pts (GD: {})",
+                idx + 1,
+                name,
+                points,
+                goal_difference_text(*goal_difference)
+            )
+        })
+        .collect()
+}
+
 /// Generate a league roundup article summarising all matchday results.
 pub fn league_roundup_article(
     matchday: u32,
@@ -122,19 +146,10 @@ pub fn standings_update_article(
         matchday, leader
     );
 
-    for (i, (name, pts, gd)) in top_teams.iter().enumerate() {
-        let gd_str = if *gd >= 0 {
-            format!("+{}", gd)
-        } else {
-            format!("{}", gd)
-        };
-        body.push_str(&format!(
-            "\n  {}. {} — {} pts (GD: {})",
-            i + 1,
-            name,
-            pts,
-            gd_str
-        ));
+    let standings_text = standings_lines(top_teams);
+
+    for line in &standings_text {
+        body.push_str(&format!("\n{}", line));
     }
 
     let headlines = [
@@ -151,20 +166,6 @@ pub fn standings_update_article(
     let sources = ["League Wire", "The Football Herald", "League Chronicle"];
     let src_idx = rng.gen_range(0..sources.len());
     let headline_idx = rng.gen_range(0..headlines.len());
-
-    // Build standings text for i18n
-    let standings_text: Vec<String> = top_teams
-        .iter()
-        .enumerate()
-        .map(|(i, (name, pts, gd))| {
-            let gd_str = if *gd >= 0 {
-                format!("+{}", gd)
-            } else {
-                format!("{}", gd)
-            };
-            format!("  {}. {} — {} pts (GD: {})", i + 1, name, pts, gd_str)
-        })
-        .collect();
 
     NewsArticle::new(
         format!("standings_md{}", matchday),
@@ -246,7 +247,7 @@ pub fn season_preview_article(team_names: &[String], date: &str) -> NewsArticle 
 
 #[cfg(test)]
 mod tests {
-    use super::league_roundup_article;
+    use super::{league_roundup_article, standings_update_article};
     use domain::news::NewsCategory;
 
     fn assert_valid_roundup_source_pair(source: &str, source_key: &str) {
@@ -254,6 +255,20 @@ mod tests {
             ("League Wire", "be.source.leagueWire"),
             ("The Football Herald", "be.source.footballHerald"),
             ("Sports Gazette", "be.source.sportsGazette"),
+        ];
+
+        assert!(
+            valid
+                .iter()
+                .any(|pair| pair.0 == source && pair.1 == source_key)
+        );
+    }
+
+    fn assert_valid_standings_source_pair(source: &str, source_key: &str) {
+        let valid = [
+            ("League Wire", "be.source.leagueWire"),
+            ("The Football Herald", "be.source.footballHerald"),
+            ("League Chronicle", "be.source.leagueChronicle"),
         ];
 
         assert!(
@@ -326,5 +341,62 @@ mod tests {
             article.i18n_params.get("biggestWinner"),
             Some(&String::new())
         );
+    }
+
+    #[test]
+    fn standings_update_article_formats_leader_and_goal_differences() {
+        let standings = vec![
+            ("Alpha FC".to_string(), 12, 5),
+            ("Beta FC".to_string(), 10, 0),
+            ("Gamma FC".to_string(), 9, -3),
+        ];
+
+        let article = standings_update_article(4, &standings, "2025-08-12");
+
+        assert_eq!(article.id, "standings_md4");
+        assert_eq!(article.category, NewsCategory::StandingsUpdate);
+        assert!(
+            article
+                .body
+                .contains("After Matchday 4, Alpha FC sit at the top")
+        );
+        assert!(article.body.contains("1. Alpha FC — 12 pts (GD: +5)"));
+        assert!(article.body.contains("2. Beta FC — 10 pts (GD: +0)"));
+        assert!(article.body.contains("3. Gamma FC — 9 pts (GD: -3)"));
+        assert!(
+            [
+                "be.news.standings.headline0",
+                "be.news.standings.headline1",
+                "be.news.standings.headline2"
+            ]
+            .contains(&article.headline_key.as_deref().unwrap())
+        );
+        assert_eq!(article.body_key.as_deref(), Some("be.news.standings.body"));
+        assert_valid_standings_source_pair(&article.source, article.source_key.as_deref().unwrap());
+        assert_eq!(article.i18n_params.get("matchday"), Some(&"4".to_string()));
+        assert_eq!(
+            article.i18n_params.get("leader"),
+            Some(&"Alpha FC".to_string())
+        );
+        assert_eq!(
+            article.i18n_params.get("standings"),
+            Some(&"  1. Alpha FC — 12 pts (GD: +5)\n  2. Beta FC — 10 pts (GD: +0)\n  3. Gamma FC — 9 pts (GD: -3)".to_string())
+        );
+    }
+
+    #[test]
+    fn standings_update_article_handles_empty_table_with_unknown_leader() {
+        let article = standings_update_article(1, &[], "2025-08-01");
+
+        assert!(
+            article
+                .body
+                .contains("After Matchday 1, Unknown sit at the top")
+        );
+        assert_eq!(
+            article.i18n_params.get("leader"),
+            Some(&"Unknown".to_string())
+        );
+        assert_eq!(article.i18n_params.get("standings"), Some(&String::new()));
     }
 }
