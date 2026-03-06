@@ -112,7 +112,7 @@ export default function MatchLive({
       timerRef.current = null;
     }
 
-    if (isRunning && speed !== "paused" && !isFinished) {
+    if (isRunning && speed !== "paused" && !isFinished && !showSubPanel) {
       timerRef.current = setTimeout(async () => {
         await stepMatch();
       }, SPEED_MS[speed]);
@@ -121,7 +121,7 @@ export default function MatchLive({
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [isRunning, speed, snapshot.current_minute, snapshot.phase, stepMatch, isFinished]);
+  }, [isRunning, speed, snapshot.current_minute, snapshot.phase, stepMatch, isFinished, showSubPanel]);
 
   // Auto-scroll event feed
   useEffect(() => {

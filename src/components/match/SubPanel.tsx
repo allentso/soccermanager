@@ -107,12 +107,11 @@ export function SubPanel({ snapshot, side, onSubstitute, onClose }: {
                     <div key={pos} className="absolute left-0 right-0 flex justify-center gap-3" style={{ top: `${y}%`, transform: "translateY(-50%)" }}>
                       {players.map(p => {
                         const isSelected = selectedOff === p.id;
-                        const isGK = pos === "Goalkeeper";
                         return (
                           <button
                             key={p.id}
-                            onClick={() => !isGK ? setSelectedOff(isSelected ? null : p.id) : null}
-                            className={`flex flex-col items-center gap-0.5 transition-all ${isGK ? "opacity-40 cursor-default" : "cursor-pointer hover:scale-110"} ${isSelected ? "scale-110" : ""}`}
+                            onClick={() => setSelectedOff(isSelected ? null : p.id)}
+                            className={`flex flex-col items-center gap-0.5 transition-all cursor-pointer hover:scale-110 ${isSelected ? "scale-110" : ""}`}
                           >
                             <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[9px] font-heading font-bold border-2 transition-all ${
                               isSelected ? "bg-red-500/80 border-red-300 text-white ring-2 ring-red-500/50" :
@@ -143,8 +142,11 @@ export function SubPanel({ snapshot, side, onSubstitute, onClose }: {
                   </thead>
                   <tbody>
                     {team.players
-                      .filter(p => p.position !== "Goalkeeper" && !snapshot.sent_off.includes(p.id))
-                      .sort((a, b) => a.condition - b.condition)
+                      .filter(p => !snapshot.sent_off.includes(p.id))
+                      .sort((a, b) => {
+                        const posOrd: Record<string, number> = { Goalkeeper: 1, Defender: 2, Midfielder: 3, Forward: 4 };
+                        return (posOrd[a.position] || 99) - (posOrd[b.position] || 99) || a.name.localeCompare(b.name);
+                      })
                       .map(p => {
                         const isSelected = selectedOff === p.id;
                         const isSubOn = subbedOnIds.has(p.id);
