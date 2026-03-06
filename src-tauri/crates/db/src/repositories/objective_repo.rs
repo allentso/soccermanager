@@ -17,14 +17,23 @@ pub fn upsert_objective(conn: &Connection, obj: &BoardObjectiveRow) -> Result<()
     conn.execute(
         "INSERT OR REPLACE INTO board_objectives (id, description, target, objective_type, met)
          VALUES (?1, ?2, ?3, ?4, ?5)",
-        params![obj.id, obj.description, obj.target, obj.objective_type, obj.met as i32],
+        params![
+            obj.id,
+            obj.description,
+            obj.target,
+            obj.objective_type,
+            obj.met as i32
+        ],
     )
     .map_err(|e| format!("Failed to upsert objective: {}", e))?;
     Ok(())
 }
 
 /// Insert or replace multiple objectives.
-pub fn upsert_objectives(conn: &Connection, objectives: &[BoardObjectiveRow]) -> Result<(), String> {
+pub fn upsert_objectives(
+    conn: &Connection,
+    objectives: &[BoardObjectiveRow],
+) -> Result<(), String> {
     // Clear existing then re-insert for clean state
     conn.execute("DELETE FROM board_objectives", [])
         .map_err(|e| format!("Failed to clear objectives: {}", e))?;

@@ -5,7 +5,10 @@ use ofm_core::game::Game;
 use ofm_core::state::StateManager;
 
 #[tauri::command]
-pub fn toggle_transfer_list(state: State<'_, StateManager>, player_id: String) -> Result<Game, String> {
+pub fn toggle_transfer_list(
+    state: State<'_, StateManager>,
+    player_id: String,
+) -> Result<Game, String> {
     info!("[cmd] toggle_transfer_list: player_id={}", player_id);
     let mut game = state
         .get_game(|g| g.clone())

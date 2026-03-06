@@ -102,7 +102,14 @@ fn make_game() -> Game {
     ];
     let scout = make_scout("scout1", "team1", 80, 75);
 
-    Game::new(clock, manager, vec![team1, team2], players, vec![scout], vec![])
+    Game::new(
+        clock,
+        manager,
+        vec![team1, team2],
+        players,
+        vec![scout],
+        vec![],
+    )
 }
 
 // ---------------------------------------------------------------------------
@@ -194,7 +201,11 @@ fn process_scouting_generates_report_message() {
         .iter()
         .filter(|m| m.category == MessageCategory::ScoutReport)
         .collect();
-    assert_eq!(scout_msgs.len(), 1, "Should produce exactly one scout report");
+    assert_eq!(
+        scout_msgs.len(),
+        1,
+        "Should produce exactly one scout report"
+    );
 }
 
 #[test]
@@ -292,8 +303,15 @@ fn high_ability_scout_reveals_all_attrs() {
         .as_ref()
         .unwrap();
 
-    assert_eq!(count_revealed(report), 6, "High ability scout should reveal all 6 attrs");
-    assert!(report.condition.is_some(), "High ability should reveal condition");
+    assert_eq!(
+        count_revealed(report),
+        6,
+        "High ability scout should reveal all 6 attrs"
+    );
+    assert!(
+        report.condition.is_some(),
+        "High ability should reveal condition"
+    );
     assert!(report.morale.is_some(), "High ability should reveal morale");
     assert_eq!(report.confidence_key, "common.scoutConfidence.high");
 }
@@ -315,9 +333,19 @@ fn medium_ability_scout_reveals_5_attrs() {
         .as_ref()
         .unwrap();
 
-    assert_eq!(count_revealed(report), 5, "Medium ability scout should reveal 5 attrs");
-    assert!(report.condition.is_some(), "Medium ability should reveal condition");
-    assert!(report.morale.is_none(), "Medium ability should NOT reveal morale");
+    assert_eq!(
+        count_revealed(report),
+        5,
+        "Medium ability scout should reveal 5 attrs"
+    );
+    assert!(
+        report.condition.is_some(),
+        "Medium ability should reveal condition"
+    );
+    assert!(
+        report.morale.is_none(),
+        "Medium ability should NOT reveal morale"
+    );
     assert_eq!(report.confidence_key, "common.scoutConfidence.moderate");
 }
 
@@ -338,9 +366,19 @@ fn low_ability_scout_reveals_3_attrs() {
         .as_ref()
         .unwrap();
 
-    assert_eq!(count_revealed(report), 3, "Low ability scout should reveal 3 attrs");
-    assert!(report.condition.is_none(), "Low ability should NOT reveal condition");
-    assert!(report.morale.is_none(), "Low ability should NOT reveal morale");
+    assert_eq!(
+        count_revealed(report),
+        3,
+        "Low ability scout should reveal 3 attrs"
+    );
+    assert!(
+        report.condition.is_none(),
+        "Low ability should NOT reveal condition"
+    );
+    assert!(
+        report.morale.is_none(),
+        "Low ability should NOT reveal morale"
+    );
     assert_eq!(report.confidence_key, "common.scoutConfidence.low");
 }
 
@@ -361,7 +399,11 @@ fn very_low_ability_scout_reveals_2_attrs() {
         .as_ref()
         .unwrap();
 
-    assert_eq!(count_revealed(report), 2, "Very low ability scout should reveal 2 attrs");
+    assert_eq!(
+        count_revealed(report),
+        2,
+        "Very low ability scout should reveal 2 attrs"
+    );
     assert_eq!(report.confidence_key, "common.scoutConfidence.low");
 }
 

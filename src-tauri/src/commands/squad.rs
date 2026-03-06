@@ -178,7 +178,10 @@ pub fn set_training(
 }
 
 #[tauri::command]
-pub fn set_training_schedule(state: State<'_, StateManager>, schedule: String) -> Result<Game, String> {
+pub fn set_training_schedule(
+    state: State<'_, StateManager>,
+    schedule: String,
+) -> Result<Game, String> {
     info!("[cmd] set_training_schedule: {}", schedule);
     let mut game = state
         .get_game(|g| g.clone())

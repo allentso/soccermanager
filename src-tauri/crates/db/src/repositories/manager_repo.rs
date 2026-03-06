@@ -60,11 +60,23 @@ pub fn load_manager(conn: &Connection, id: &str) -> Result<Option<Manager>, Stri
         .map_err(|e| format!("Failed to query manager: {}", e))?;
 
     match rows.next() {
-        Some(Ok((id, first_name, last_name, dob, nationality, reputation, satisfaction, fan_approval, team_id, stats_json, history_json))) => {
-            let career_stats: ManagerCareerStats =
-                serde_json::from_str(&stats_json).map_err(|e| format!("JSON parse error: {}", e))?;
-            let career_history: Vec<ManagerCareerEntry> =
-                serde_json::from_str(&history_json).map_err(|e| format!("JSON parse error: {}", e))?;
+        Some(Ok((
+            id,
+            first_name,
+            last_name,
+            dob,
+            nationality,
+            reputation,
+            satisfaction,
+            fan_approval,
+            team_id,
+            stats_json,
+            history_json,
+        ))) => {
+            let career_stats: ManagerCareerStats = serde_json::from_str(&stats_json)
+                .map_err(|e| format!("JSON parse error: {}", e))?;
+            let career_history: Vec<ManagerCareerEntry> = serde_json::from_str(&history_json)
+                .map_err(|e| format!("JSON parse error: {}", e))?;
 
             Ok(Some(Manager {
                 id,
@@ -114,8 +126,19 @@ pub fn load_all_managers(conn: &Connection) -> Result<Vec<Manager>, String> {
 
     let mut managers = Vec::new();
     for row in rows {
-        let (id, first_name, last_name, dob, nationality, reputation, satisfaction, fan_approval, team_id, stats_json, history_json) =
-            row.map_err(|e| format!("Failed to read manager row: {}", e))?;
+        let (
+            id,
+            first_name,
+            last_name,
+            dob,
+            nationality,
+            reputation,
+            satisfaction,
+            fan_approval,
+            team_id,
+            stats_json,
+            history_json,
+        ) = row.map_err(|e| format!("Failed to read manager row: {}", e))?;
         let career_stats: ManagerCareerStats =
             serde_json::from_str(&stats_json).map_err(|e| format!("JSON parse error: {}", e))?;
         let career_history: Vec<ManagerCareerEntry> =

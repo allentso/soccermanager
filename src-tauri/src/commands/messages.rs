@@ -5,7 +5,10 @@ use ofm_core::game::Game;
 use ofm_core::state::StateManager;
 
 #[tauri::command]
-pub fn mark_message_read(state: State<'_, StateManager>, message_id: String) -> Result<Game, String> {
+pub fn mark_message_read(
+    state: State<'_, StateManager>,
+    message_id: String,
+) -> Result<Game, String> {
     log::debug!("[cmd] mark_message_read: {}", message_id);
     let mut game = state
         .get_game(|g| g.clone())

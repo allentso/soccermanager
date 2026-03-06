@@ -163,7 +163,10 @@ pub async fn get_saves(sm_state: State<'_, SaveManagerState>) -> Result<Vec<Save
 }
 
 #[tauri::command]
-pub async fn delete_save(sm_state: State<'_, SaveManagerState>, save_id: String) -> Result<bool, String> {
+pub async fn delete_save(
+    sm_state: State<'_, SaveManagerState>,
+    save_id: String,
+) -> Result<bool, String> {
     info!("[cmd] delete_save: save_id={}", save_id);
     let mut sm = sm_state
         .0

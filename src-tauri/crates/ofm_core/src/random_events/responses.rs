@@ -1,6 +1,6 @@
+use super::format_money;
 use crate::game::Game;
 use rand::Rng;
-use super::format_money;
 
 /// Apply the effect of a sponsor offer choice.
 pub fn apply_event_response(

@@ -1,6 +1,6 @@
+use super::{action, params};
 use domain::message::*;
 use rand::Rng;
-use super::{action, params};
 
 pub fn pre_match_message(
     fixture_id: &str,
