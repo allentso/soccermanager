@@ -4,6 +4,7 @@ import { Card, CardBody, Badge } from "./ui";
 import { Search, Filter, ArrowUpDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { getTeamName, calcOvr, calcAge, formatVal, positionBadgeVariant } from "../lib/helpers";
 import { useTranslation } from "react-i18next";
+import { countryFlag } from "../lib/countries";
 
 interface PlayersListTabProps {
   gameState: GameStateData;
@@ -152,7 +153,9 @@ export default function PlayersListTab({ gameState, onSelectPlayer, onSelectTeam
                         <span className="font-semibold text-sm text-gray-800 dark:text-gray-200 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">{player.full_name}</span>
                       </td>
                       <td className="py-2.5 px-4 text-sm text-gray-600 dark:text-gray-400 tabular-nums">{age}</td>
-                      <td className="py-2.5 px-4 text-sm text-gray-500 dark:text-gray-400">{player.nationality}</td>
+                      <td className="py-2.5 px-4 text-sm text-gray-500 dark:text-gray-400" title={player.nationality}>
+                        <span className="text-lg leading-none">{countryFlag(player.nationality)}</span>
+                      </td>
                       <td className="py-2.5 px-4">
                         <button onClick={e => { e.stopPropagation(); onSelectTeam(player.team_id!); }} className="text-sm text-gray-600 dark:text-gray-400 hover:text-primary-500 hover:underline transition-colors">
                           {getTeamName(gameState.teams, player.team_id)}

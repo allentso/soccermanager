@@ -20,11 +20,13 @@
   "createManager": {
     "title": "Criar Treinador",
     "firstName": "Nome",
-    "lastName": "Apelido",
+    "lastName": "Sobrenome",
     "dob": "Data de Nascimento",
     "nationality": "Nacionalidade",
+    "countryOfOrigin": "País/Região de Origem",
     "selectNationality": "Selecionar nacionalidade...",
-    "searchNationalities": "Procurar nacionalidades...",
+    "selectCountry": "Selecionar País/Região...",
+    "searchNationalities": "Pesquisar nacionalidades...",
     "chooseWorld": "Escolher Mundo",
     "minAge": "Idade mínima: 30 anos",
     "placeholderFirst": "ex. José",
@@ -32,6 +34,7 @@
   },
   "validation": {
     "required": "{{field}} é obrigatório",
+    "maxLength": "{{field}} não deve exceder {{max}} caracteres",
     "minAge": "O treinador deve ter pelo menos 30 anos",
     "invalidDate": "Data inválida",
     "invalidDob": "Data de nascimento inválida"
@@ -322,7 +325,7 @@
       "worldClass": "Potencial de classe mundial",
       "strong": "Forte potencial de desenvolvimento",
       "moderate": "Potencial moderado de crescimento",
-      "unclear": "Potencial incerto \u2014 recomenda-se mais observa\u00e7\u00e3o"
+      "unclear": "Potencial incerto — recomenda-se mais observação"
     },
     "scoutConfidence": {
       "high": "Alta",
@@ -1260,5 +1263,10 @@
       "label": "Espec. Bola Parada",
       "desc": "Letal em bolas paradas"
     }
+  },
+  "date": {
+    "day": "DD",
+    "month": "Mês",
+    "year": "AAAA"
   }
 }

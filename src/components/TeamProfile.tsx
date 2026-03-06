@@ -2,6 +2,7 @@ import { TeamData, GameStateData, PlayerData } from "../store/gameStore";
 import { Card, CardHeader, CardBody, Badge, ProgressBar } from "./ui";
 import { ArrowLeft, Shield, MapPin, Calendar, DollarSign, Users, Trophy, Crosshair } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { countryFlag, countryName } from "../lib/countries";
 
 interface TeamProfileProps {
   team: TeamData;
@@ -48,7 +49,7 @@ const positionBadgeVariant = (pos: string): "accent" | "primary" | "success" | "
 };
 
 export default function TeamProfile({ team, gameState, isOwnTeam, onClose, onSelectPlayer }: TeamProfileProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const roster = gameState.players
     .filter(p => p.team_id === team.id)
     .sort((a, b) => {
@@ -238,7 +239,12 @@ export default function TeamProfile({ team, gameState, isOwnTeam, onClose, onSel
                           <span className="font-semibold text-sm text-gray-800 dark:text-gray-200 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">{player.full_name}</span>
                         </td>
                         <td className="py-3 px-5 text-sm text-gray-600 dark:text-gray-400 tabular-nums">{age}</td>
-                        <td className="py-3 px-5 text-sm text-gray-500 dark:text-gray-400">{player.nationality}</td>
+                        <td className="py-3 px-5 text-sm text-gray-500 dark:text-gray-400">
+                          <div className="flex items-center gap-1">
+                            <span className="text-lg leading-none">{countryFlag(player.nationality)}</span>
+                            <span>{countryName(player.nationality, i18n.language)}</span>
+                          </div>
+                        </td>
                         <td className="py-3 px-5 text-sm text-gray-600 dark:text-gray-400">{formatVal(player.market_value)}</td>
                         {isOwnTeam && (
                           <td className="py-3 px-5">

@@ -23,8 +23,10 @@
     "lastName": "Sobrenome",
     "dob": "Data de Nascimento",
     "nationality": "Nacionalidade",
+    "countryOfOrigin": "País/Região de Origem",
     "selectNationality": "Selecionar nacionalidade...",
-    "searchNationalities": "Buscar nacionalidades...",
+    "selectCountry": "Selecionar País/Região...",
+    "searchNationalities": "Pesquisar nacionalidades...",
     "chooseWorld": "Escolher Mundo",
     "minAge": "Idade mínima: 30 anos",
     "placeholderFirst": "ex: José",
@@ -32,6 +34,7 @@
   },
   "validation": {
     "required": "{{field}} é obrigatório",
+    "maxLength": "{{field}} não deve exceder {{max}} caracteres",
     "minAge": "O treinador deve ter pelo menos 30 anos",
     "invalidDate": "Data inválida",
     "invalidDob": "Data de nascimento inválida"
@@ -315,14 +318,14 @@
       "excellent": "Excelente",
       "veryGood": "Muito Bom",
       "good": "Bom",
-      "average": "M\u00e9dio",
-      "belowAverage": "Abaixo da m\u00e9dia"
+      "average": "Médio",
+      "belowAverage": "Abaixo da média"
     },
     "scoutPotential": {
       "worldClass": "Potencial de classe mundial",
       "strong": "Forte potencial de desenvolvimento",
       "moderate": "Potencial moderado de crescimento",
-      "unclear": "Potencial incerto \u2014 recomenda-se mais observa\u00e7\u00e3o"
+      "unclear": "Potencial incerto — recomenda-se mais observação"
     },
     "scoutConfidence": {
       "high": "Alta",
@@ -1260,5 +1263,10 @@
       "label": "Espec. Bola Parada",
       "desc": "Letal nas cobranças"
     }
+  },
+  "date": {
+    "day": "DD",
+    "month": "Mês",
+    "year": "AAAA"
   }
 }

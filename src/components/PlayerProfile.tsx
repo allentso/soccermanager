@@ -6,6 +6,7 @@ import { Card, CardHeader, CardBody, Badge, ProgressBar } from "./ui";
 import { ArrowLeft, Shield, TrendingUp, Calendar, Briefcase, DollarSign, Heart, Activity, AlertTriangle, ScanSearch } from "lucide-react";
 import { TraitList } from "./TraitBadge";
 import { useTranslation } from "react-i18next";
+import { countryFlag, countryName } from "../lib/countries";
 
 interface PlayerProfileProps {
   player: PlayerData;
@@ -147,7 +148,10 @@ export default function PlayerProfile({ player, gameState, isOwnClub, onClose, o
                     <Badge variant="neutral">{ap}</Badge>
                   </span>
                 ))}
-                <span className="text-gray-400 text-sm">{player.nationality}</span>
+                <span className="text-gray-400 text-sm">
+                  <span className="mr-1">{countryFlag(player.nationality)}</span>
+                  {countryName(player.nationality, i18n.language)}
+                </span>
                 <span className="text-gray-500">•</span>
                 <span className="text-gray-400 text-sm">{t('common.age')} {age}</span>
               </div>

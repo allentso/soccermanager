@@ -31,6 +31,9 @@ pub fn start_new_game(
     if first_name.is_empty() || last_name.is_empty() {
         return Err("First name and last name are required.".to_string());
     }
+    if first_name.len() > 30 || last_name.len() > 30 {
+        return Err("First name and last name must not exceed 30 characters.".to_string());
+    }
     let nationality = nationality.trim().to_string();
     if nationality.is_empty() {
         return Err("Nationality is required.".to_string());

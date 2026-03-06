@@ -23,7 +23,9 @@
     "lastName": "Last Name",
     "dob": "Date of Birth",
     "nationality": "Nationality",
+    "countryOfOrigin": "Country/Region of Origin",
     "selectNationality": "Select nationality...",
+    "selectCountry": "Select Country/Region...",
     "searchNationalities": "Search nationalities...",
     "chooseWorld": "Choose World",
     "minAge": "Minimum age: 30 years",
@@ -32,6 +34,7 @@
   },
   "validation": {
     "required": "{{field}} is required",
+    "maxLength": "{{field}} must not exceed {{max}} characters",
     "minAge": "Manager must be at least 30 years old",
     "invalidDate": "Invalid date",
     "invalidDob": "Invalid date of birth"
@@ -322,7 +325,7 @@
       "worldClass": "World class potential",
       "strong": "Strong development potential",
       "moderate": "Moderate potential for growth",
-      "unclear": "Potential unclear \u2014 further scouting recommended"
+      "unclear": "Potential unclear — further scouting recommended"
     },
     "scoutConfidence": {
       "high": "High",
@@ -1260,5 +1263,10 @@
       "label": "Set Piece Spec.",
       "desc": "Deadly from dead balls"
     }
+  },
+  "date": {
+    "day": "DD",
+    "month": "Month",
+    "year": "YYYY"
   }
 }

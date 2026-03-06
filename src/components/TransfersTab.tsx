@@ -5,6 +5,7 @@ import { Card, CardBody, Badge } from "./ui";
 import { Search, TrendingUp, ShoppingCart, Handshake, ArrowRightLeft, Filter, Gavel, Check, X } from "lucide-react";
 import { getTeamName, calcOvr, calcAge, formatVal, positionBadgeVariant } from "../lib/helpers";
 import { useTranslation } from "react-i18next";
+import { countryFlag, countryName } from "../lib/countries";
 
 interface TransfersTabProps {
   gameState: GameStateData;
@@ -16,7 +17,7 @@ interface TransfersTabProps {
 type TabView = "my_list" | "market" | "loans" | "offers";
 
 export default function TransfersTab({ gameState, onSelectPlayer, onSelectTeam, onGameUpdate }: TransfersTabProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const userTeamId = gameState.manager.team_id;
   const [view, setView] = useState<TabView>("my_list");
   const [search, setSearch] = useState("");
@@ -239,7 +240,10 @@ export default function TransfersTab({ gameState, onSelectPlayer, onSelectTeam, 
                         </td>
                         <td className="py-2.5 px-4">
                           <span className="font-semibold text-sm text-gray-800 dark:text-gray-200 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">{player.full_name}</span>
-                          <span className="text-xs text-gray-400 dark:text-gray-500 ml-1.5">{player.nationality}</span>
+                          <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 flex items-center gap-1">
+                            <span className="text-sm leading-none">{countryFlag(player.nationality)}</span>
+                            <span>{countryName(player.nationality, i18n.language)}</span>
+                          </div>
                         </td>
                         <td className="py-2.5 px-4 text-sm text-gray-600 dark:text-gray-400 tabular-nums">{age}</td>
                         <td className="py-2.5 px-4">

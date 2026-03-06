@@ -3,11 +3,11 @@ import { invoke } from "@tauri-apps/api/core";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useGameStore, GameStateData } from "../store/gameStore";
-import { useTheme } from "../context/ThemeContext";
-import { Button, ThemeToggle } from "../components/ui";
+import { Button, ThemeToggle, DatePicker } from "../components/ui";
 import SavesList from "../components/menu/SavesList";
 import WorldSelect, { WorldDatabaseInfo } from "../components/menu/WorldSelect";
 import { FolderOpen, Settings, X, PlusCircle, ChevronRight, AlertCircle, ChevronDown, Check } from "lucide-react";
+import { countryFlag, countryName, allCountries } from "../lib/countries";
 
 interface SaveEntry {
   id: string;
@@ -24,8 +24,7 @@ export default function MainMenu() {
   const navigate = useNavigate();
   const setGameActive = useGameStore((state) => state.setGameActive);
   const setGameState = useGameStore((state) => state.setGameState);
-  const { isDark } = useTheme();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   
   const [menuState, setMenuState] = useState<"main" | "create" | "world" | "load">("main");
   const [saves, setSaves] = useState<SaveEntry[]>([]);
@@ -49,44 +48,27 @@ export default function MainMenu() {
   const [selectedWorldId, setSelectedWorldId] = useState<string>("random");
   const [isLoadingWorlds, setIsLoadingWorlds] = useState(false);
 
-  const NATIONALITIES = [
-    "Afghan", "Albanian", "Algerian", "American", "Andorran", "Angolan", "Argentine",
-    "Armenian", "Australian", "Austrian", "Azerbaijani", "Bahamian", "Bahraini",
-    "Bangladeshi", "Barbadian", "Belarusian", "Belgian", "Belizean", "Beninese",
-    "Bhutanese", "Bolivian", "Bosnian", "Brazilian", "British", "Bruneian",
-    "Bulgarian", "Burkinabe", "Burmese", "Burundian", "Cambodian", "Cameroonian",
-    "Canadian", "Cape Verdean", "Central African", "Chadian", "Chilean", "Chinese",
-    "Colombian", "Comorian", "Congolese", "Costa Rican", "Croatian", "Cuban",
-    "Cypriot", "Czech", "Danish", "Djiboutian", "Dominican", "Dutch", "Ecuadorian",
-    "Egyptian", "Emirati", "English", "Equatoguinean", "Eritrean", "Estonian",
-    "Ethiopian", "Fijian", "Filipino", "Finnish", "French", "Gabonese", "Gambian",
-    "Georgian", "German", "Ghanaian", "Greek", "Grenadian", "Guatemalan", "Guinean",
-    "Guyanese", "Haitian", "Honduran", "Hungarian", "Icelandic", "Indian",
-    "Indonesian", "Iranian", "Iraqi", "Irish", "Israeli", "Italian", "Ivorian",
-    "Jamaican", "Japanese", "Jordanian", "Kazakh", "Kenyan", "Kosovar", "Kuwaiti",
-    "Kyrgyz", "Laotian", "Latvian", "Lebanese", "Liberian", "Libyan", "Lithuanian",
-    "Luxembourgish", "Macedonian", "Malagasy", "Malawian", "Malaysian", "Maldivian",
-    "Malian", "Maltese", "Mauritanian", "Mauritian", "Mexican", "Moldovan",
-    "Mongolian", "Montenegrin", "Moroccan", "Mozambican", "Namibian", "Nepalese",
-    "New Zealander", "Nicaraguan", "Nigerian", "Nigerien", "North Korean", "Northern Irish",
-    "Norwegian", "Omani", "Pakistani", "Palestinian", "Panamanian", "Paraguayan",
-    "Peruvian", "Polish", "Portuguese", "Qatari", "Romanian", "Russian", "Rwandan",
-    "Saudi", "Scottish", "Senegalese", "Serbian", "Sierra Leonean", "Singaporean",
-    "Slovak", "Slovenian", "Somali", "South African", "South Korean", "Spanish",
-    "Sri Lankan", "Sudanese", "Surinamese", "Swedish", "Swiss", "Syrian",
-    "Taiwanese", "Tajik", "Tanzanian", "Thai", "Togolese", "Trinidadian",
-    "Tunisian", "Turkish", "Turkmen", "Ugandan", "Ukrainian", "Uruguayan",
-    "Uzbek", "Venezuelan", "Vietnamese", "Welsh", "Yemeni", "Zambian", "Zimbabwean",
-  ];
+  const countriesList = allCountries(i18n.language);
 
-  const filteredNationalities = NATIONALITIES.filter(n =>
-    n.toLowerCase().includes(nationalitySearch.toLowerCase())
+  const filteredNationalities = countriesList.filter(n =>
+    n.name.toLowerCase().includes(nationalitySearch.toLowerCase()) || 
+    n.code.toLowerCase().includes(nationalitySearch.toLowerCase())
   );
 
   const validateForm = (): boolean => {
     const errors: Record<string, string> = {};
-    if (!formData.firstName.trim()) errors.firstName = t('validation.required', { field: t('createManager.firstName') });
-    if (!formData.lastName.trim()) errors.lastName = t('validation.required', { field: t('createManager.lastName') });
+    if (!formData.firstName.trim()) {
+      errors.firstName = t('validation.required', { field: t('createManager.firstName') });
+    } else if (formData.firstName.length > 30) {
+      errors.firstName = t('validation.maxLength', { field: t('createManager.firstName'), max: 30 });
+    }
+    
+    if (!formData.lastName.trim()) {
+      errors.lastName = t('validation.required', { field: t('createManager.lastName') });
+    } else if (formData.lastName.length > 30) {
+      errors.lastName = t('validation.maxLength', { field: t('createManager.lastName'), max: 30 });
+    }
+
     if (!formData.dob) {
       errors.dob = t('validation.required', { field: t('createManager.dob') });
     } else {
@@ -101,7 +83,7 @@ export default function MainMenu() {
         errors.dob = t('validation.invalidDob');
       }
     }
-    if (!formData.nationality) errors.nationality = t('validation.required', { field: t('createManager.nationality') });
+    if (!formData.nationality) errors.nationality = t('validation.required', { field: t('createManager.countryOfOrigin', 'Country/Region of Origin') });
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -343,6 +325,7 @@ export default function MainMenu() {
                     {t("createManager.firstName")}
                   </label>
                   <input
+                    maxLength={30}
                     className={`w-full bg-gray-50 dark:bg-navy-900 border text-gray-900 dark:text-white rounded-lg p-3 outline-none focus:ring-2 transition-all placeholder:text-gray-400 dark:placeholder:text-gray-500 ${
                       formErrors.firstName
                         ? "border-red-400 dark:border-red-500 focus:border-red-500 focus:ring-red-500/20"
@@ -361,6 +344,7 @@ export default function MainMenu() {
                     {t("createManager.lastName")}
                   </label>
                   <input
+                    maxLength={30}
                     className={`w-full bg-gray-50 dark:bg-navy-900 border text-gray-900 dark:text-white rounded-lg p-3 outline-none focus:ring-2 transition-all placeholder:text-gray-400 dark:placeholder:text-gray-500 ${
                       formErrors.lastName
                         ? "border-red-400 dark:border-red-500 focus:border-red-500 focus:ring-red-500/20"
@@ -381,18 +365,10 @@ export default function MainMenu() {
                 <label className="block text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">
                   {t("createManager.dob")}
                 </label>
-                <input
-                  type="date"
-                  className={`w-full bg-gray-50 dark:bg-navy-900 border text-gray-900 dark:text-white rounded-lg p-3 outline-none focus:ring-2 transition-all ${
-                    formErrors.dob
-                      ? "border-red-400 dark:border-red-500 focus:border-red-500 focus:ring-red-500/20"
-                      : "border-gray-300 dark:border-navy-600 focus:border-primary-500 focus:ring-primary-500/20"
-                  }`}
-                  style={{ colorScheme: isDark ? 'dark' : 'light' }}
-                  max={(() => { const d = new Date(); d.setFullYear(d.getFullYear() - 30); return d.toISOString().split('T')[0]; })()}
-                  min="1930-01-01"
+                <DatePicker
                   value={formData.dob}
-                  onChange={e => { setFormData({...formData, dob: e.target.value}); setFormErrors(prev => ({...prev, dob: ""})); }}
+                  onChange={(date) => { setFormData({...formData, dob: date}); setFormErrors(prev => ({...prev, dob: ""})); }}
+                  error={!!formErrors.dob}
                 />
                 {formErrors.dob ? (
                   <p className="flex items-center gap-1 text-xs text-red-500 mt-1"><AlertCircle className="w-3 h-3" />{formErrors.dob}</p>
@@ -401,10 +377,10 @@ export default function MainMenu() {
                 )}
               </div>
               
-              {/* Nationality combobox */}
+              {/* Country/Region combobox */}
               <div ref={nationalityRef}>
                 <label className="block text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">
-                  {t("createManager.nationality")}
+                  {t("createManager.countryOfOrigin", "Country/Region of Origin")}
                 </label>
                 <div className="relative">
                   <button
@@ -419,7 +395,12 @@ export default function MainMenu() {
                     }`}
                   >
                     <span className={formData.nationality ? "text-gray-900 dark:text-white" : "text-gray-400 dark:text-gray-500"}>
-                      {formData.nationality || t("createManager.selectNationality")}
+                      {formData.nationality ? (
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg leading-none">{countryFlag(formData.nationality)}</span>
+                          <span>{countryName(formData.nationality, i18n.language) || formData.nationality}</span>
+                        </div>
+                      ) : t("createManager.selectCountry", "Select Country/Region")}
                     </span>
                     <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${nationalityOpen ? "rotate-180" : ""}`} />
                   </button>
@@ -442,22 +423,25 @@ export default function MainMenu() {
                         ) : (
                           filteredNationalities.map(nat => (
                             <button
-                              key={nat}
+                              key={nat.code}
                               type="button"
                               onClick={() => {
-                                setFormData({...formData, nationality: nat});
+                                setFormData({...formData, nationality: nat.code});
                                 setNationalityOpen(false);
                                 setNationalitySearch("");
                                 setFormErrors(prev => ({...prev, nationality: ""}));
                               }}
                               className={`w-full text-left px-3 py-2 text-sm flex items-center justify-between transition-colors ${
-                                formData.nationality === nat
+                                formData.nationality === nat.code
                                   ? "bg-primary-50 dark:bg-primary-500/10 text-primary-600 dark:text-primary-400"
                                   : "text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-navy-600"
                               }`}
                             >
-                              <span>{nat}</span>
-                              {formData.nationality === nat && <Check className="w-4 h-4 text-primary-500" />}
+                              <div className="flex items-center gap-2">
+                                <span className="text-lg leading-none">{countryFlag(nat.code)}</span>
+                                <span>{nat.name}</span>
+                              </div>
+                              {formData.nationality === nat.code && <Check className="w-4 h-4 text-primary-500" />}
                             </button>
                           ))
                         )}

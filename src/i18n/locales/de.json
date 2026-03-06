@@ -18,12 +18,14 @@
     "importedDescription": "Importierte Weltdatenbank"
   },
   "createManager": {
-    "title": "Trainer Erstellen",
+    "title": "Manager erstellen",
     "firstName": "Vorname",
     "lastName": "Nachname",
     "dob": "Geburtsdatum",
     "nationality": "Nationalität",
+    "countryOfOrigin": "Herkunftsland/-region",
     "selectNationality": "Nationalität wählen...",
+    "selectCountry": "Land/Region wählen...",
     "searchNationalities": "Nationalitäten suchen...",
     "chooseWorld": "Welt Wählen",
     "minAge": "Mindestalter: 30 Jahre",
@@ -32,6 +34,7 @@
   },
   "validation": {
     "required": "{{field}} ist erforderlich",
+    "maxLength": "{{field}} darf maximal {{max}} Zeichen lang sein",
     "minAge": "Der Trainer muss mindestens 30 Jahre alt sein",
     "invalidDate": "Ungültiges Datum",
     "invalidDob": "Ungültiges Geburtsdatum"
@@ -321,8 +324,8 @@
     "scoutPotential": {
       "worldClass": "Weltklasse-Potenzial",
       "strong": "Starkes Entwicklungspotenzial",
-      "moderate": "M\u00e4\u00dfiges Wachstumspotenzial",
-      "unclear": "Potenzial unklar \u2014 weitere Beobachtung empfohlen"
+      "moderate": "Mäßiges Wachstumspotenzial",
+      "unclear": "Potenzial unklar — weitere Beobachtung empfohlen"
     },
     "scoutConfidence": {
       "high": "Hoch",
@@ -1260,5 +1263,10 @@
       "label": "Standardspezialist",
       "desc": "Tödlich bei ruhenden Bällen"
     }
+  },
+  "date": {
+    "day": "TT",
+    "month": "Monat",
+    "year": "JJJJ"
   }
 }

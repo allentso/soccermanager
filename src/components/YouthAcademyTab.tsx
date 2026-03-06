@@ -3,6 +3,7 @@ import { Card, CardHeader, CardBody, Badge, ProgressBar } from "./ui";
 import { calcOvr, calcAge, positionBadgeVariant } from "../lib/helpers";
 import { TraitList } from "./TraitBadge";
 import { useTranslation } from "react-i18next";
+import { countryFlag, countryName } from "../lib/countries";
 import {
   GraduationCap, TrendingUp, Star, Users, Sparkles,
 } from "lucide-react";
@@ -31,7 +32,7 @@ function getPotentialLabel(potential: number, t: (key: string) => string): { lab
 }
 
 export default function YouthAcademyTab({ gameState, onSelectPlayer }: YouthAcademyTabProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const myTeam = gameState.teams.find(tm => tm.id === gameState.manager.team_id);
 
   const roster = myTeam ? gameState.players.filter(p => p.team_id === myTeam.id) : [];
@@ -152,7 +153,10 @@ export default function YouthAcademyTab({ gameState, onSelectPlayer }: YouthAcad
                       <td className="py-2.5 px-4">
                         <div>
                           <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{player.full_name}</p>
-                          <p className="text-[10px] text-gray-400 dark:text-gray-500">{player.nationality}</p>
+                          <div className="text-[10px] text-gray-400 dark:text-gray-500 flex items-center gap-1 mt-0.5">
+                            <span className="text-xs leading-none">{countryFlag(player.nationality)}</span>
+                            <span>{countryName(player.nationality, i18n.language)}</span>
+                          </div>
                         </div>
                       </td>
                       <td className="py-2.5 px-4">

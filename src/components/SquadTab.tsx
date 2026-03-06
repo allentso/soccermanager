@@ -6,6 +6,7 @@ import { Star, ArrowRightLeft, Users, Shield, Crosshair, Zap, Target, RefreshCw,
 import { formatVal, positionBadgeVariant, calcOvr, calcAge } from "../lib/helpers";
 import { TraitList } from "./TraitBadge";
 import { useTranslation } from "react-i18next";
+import { countryFlag, countryName } from "../lib/countries";
 import ContextMenu from "./ContextMenu";
 import CompareView from "./SquadCompareView";
 
@@ -34,7 +35,7 @@ function parseFormationSlots(formation: string): { def: number; mid: number; fwd
 }
 
 export default function SquadTab({ gameState, managerId, onSelectPlayer, onGameUpdate }: SquadTabProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const myTeam = gameState.teams.find(t => t.manager_id === managerId);
   const [swapSource, setSwapSource] = useState<{ id: string; from: "xi" | "bench" } | null>(null);
   const [activeView, setActiveView] = useState<"lineup" | "roster" | "compare">("lineup");
@@ -282,7 +283,10 @@ export default function SquadTab({ gameState, managerId, onSelectPlayer, onGameU
         <td className="py-2.5 px-4">
           <button onClick={() => onSelectPlayer(player.id)} className="text-left">
             <div className="font-semibold text-sm text-gray-900 dark:text-gray-100 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">{player.full_name}</div>
-            <div className="text-xs text-gray-400 dark:text-gray-500">{player.nationality}</div>
+            <div className="text-xs text-gray-400 dark:text-gray-500 flex items-center gap-1">
+              <span className="text-sm leading-none">{countryFlag(player.nationality)}</span>
+              <span>{countryName(player.nationality, i18n.language)}</span>
+            </div>
           </button>
         </td>
         <td className="py-2.5 px-4 text-sm text-gray-600 dark:text-gray-400 tabular-nums">{age}</td>
@@ -537,7 +541,10 @@ export default function SquadTab({ gameState, managerId, onSelectPlayer, onGameU
                       </td>
                       <td className="py-2.5 px-4">
                         <div className="font-semibold text-sm text-gray-900 dark:text-gray-100 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">{player.full_name}</div>
-                        <div className="text-xs text-gray-400 dark:text-gray-500">{player.nationality}</div>
+                        <div className="text-xs text-gray-400 dark:text-gray-500 flex items-center gap-1">
+                          <span className="text-sm leading-none">{countryFlag(player.nationality)}</span>
+                          <span>{countryName(player.nationality, i18n.language)}</span>
+                        </div>
                       </td>
                       <td className="py-2.5 px-4 text-sm text-gray-600 dark:text-gray-400 tabular-nums">{age}</td>
                       <td className="py-2.5 px-4 w-28">

@@ -23,8 +23,10 @@
     "lastName": "Nom",
     "dob": "Date de Naissance",
     "nationality": "Nationalité",
+    "countryOfOrigin": "Pays/Région d'Origine",
     "selectNationality": "Sélectionner la nationalité...",
-    "searchNationalities": "Rechercher des nationalités...",
+    "selectCountry": "Sélectionner le Pays/Région...",
+    "searchNationalities": "Rechercher une nationalité...",
     "chooseWorld": "Choisir le Monde",
     "minAge": "Âge minimum : 30 ans",
     "placeholderFirst": "ex. José",
@@ -32,6 +34,7 @@
   },
   "validation": {
     "required": "{{field}} est obligatoire",
+    "maxLength": "{{field}} ne doit pas dépasser {{max}} caractères",
     "minAge": "L'entraîneur doit avoir au moins 30 ans",
     "invalidDate": "Date invalide",
     "invalidDob": "Date de naissance invalide"
@@ -1260,5 +1263,10 @@
       "label": "Spéc. Coups de Pied",
       "desc": "Mortel sur coups de pied arrêtés"
     }
+  },
+  "date": {
+    "day": "JJ",
+    "month": "Mois",
+    "year": "AAAA"
   }
 }

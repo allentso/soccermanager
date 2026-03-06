@@ -31,13 +31,20 @@ export function countryFlag(alpha2: string): string {
   );
 }
 
+function getBaseLocale(locale: string): string {
+  if (!locale) return "en";
+  // Convert 'pt-BR' to 'pt'
+  return locale.split('-')[0].toLowerCase();
+}
+
 /**
  * Get the localised country name for an ISO alpha-2 code.
  * Falls back to English if the locale doesn't have a translation.
  */
 export function countryName(alpha2: string, locale = "en"): string {
   if (!alpha2) return "";
-  const name = countries.getName(alpha2.toUpperCase(), locale);
+  const baseLocale = getBaseLocale(locale);
+  const name = countries.getName(alpha2.toUpperCase(), baseLocale);
   if (name) return name;
   // Fallback to English
   return countries.getName(alpha2.toUpperCase(), "en") ?? alpha2;
@@ -47,10 +54,20 @@ export function countryName(alpha2: string, locale = "en"): string {
  * Get all country entries as { code, name } sorted by name in the given locale.
  */
 export function allCountries(locale = "en"): { code: string; name: string }[] {
-  const obj = countries.getNames(locale, { select: "official" });
+  const baseLocale = getBaseLocale(locale);
+  const obj = countries.getNames(baseLocale, { select: "official" });
+  
+  // If we couldn't find the names for the requested locale, fallback to English
+  if (!obj || Object.keys(obj).length === 0) {
+    const fallbackObj = countries.getNames("en", { select: "official" });
+    return Object.entries(fallbackObj)
+      .map(([code, name]) => ({ code, name }))
+      .sort((a, b) => a.name.localeCompare(b.name, "en"));
+  }
+
   return Object.entries(obj)
     .map(([code, name]) => ({ code, name }))
-    .sort((a, b) => a.name.localeCompare(b.name, locale));
+    .sort((a, b) => a.name.localeCompare(b.name, baseLocale));
 }
 
 /**

@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { User, Calendar, Shield, Eye, EyeOff, TrendingUp, BarChart3 } from "lucide-react";
 import { ProgressBar } from "./ui";
-import { countryFlag } from "../lib/countries";
+import { countryFlag, countryName } from "../lib/countries";
 import type { ScoutReportData } from "../store/gameStore";
 
 interface ScoutPlayerCardProps {
@@ -29,7 +29,7 @@ function ratingColor(key: string): string {
 }
 
 export default function ScoutPlayerCard({ report, onPlayerClick }: ScoutPlayerCardProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   const attrs: AttrRow[] = [
     { labelKey: "common.attributes.pace", value: report.pace },
@@ -63,7 +63,7 @@ export default function ScoutPlayerCard({ report, onPlayerClick }: ScoutPlayerCa
             </span>
             <span className="flex items-center gap-1">
               {flag && <span>{flag}</span>}
-              <span>{report.nationality}</span>
+              <span>{countryName(report.nationality, i18n.language)}</span>
             </span>
           </div>
         </div>

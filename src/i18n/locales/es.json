@@ -18,12 +18,14 @@
     "importedDescription": "Base de datos de mundo importada"
   },
   "createManager": {
-    "title": "Crear Entrenador",
+    "title": "Crear Mánager",
     "firstName": "Nombre",
-    "lastName": "Apellido",
+    "lastName": "Apellidos",
     "dob": "Fecha de Nacimiento",
     "nationality": "Nacionalidad",
+    "countryOfOrigin": "País/Región de Origen",
     "selectNationality": "Seleccionar nacionalidad...",
+    "selectCountry": "Seleccionar País/Región...",
     "searchNationalities": "Buscar nacionalidades...",
     "chooseWorld": "Elegir Mundo",
     "minAge": "Edad mínima: 30 años",
@@ -32,6 +34,7 @@
   },
   "validation": {
     "required": "{{field}} es obligatorio",
+    "maxLength": "{{field}} no debe exceder de {{max}} caracteres",
     "minAge": "El entrenador debe tener al menos 30 años",
     "invalidDate": "Fecha inválida",
     "invalidDob": "Fecha de nacimiento inválida"
@@ -322,7 +325,7 @@
       "worldClass": "Potencial de clase mundial",
       "strong": "Fuerte potencial de desarrollo",
       "moderate": "Potencial moderado de crecimiento",
-      "unclear": "Potencial incierto \u2014 se recomienda m\u00e1s observaci\u00f3n"
+      "unclear": "Potencial incierto — se recomienda más observación"
     },
     "scoutConfidence": {
       "high": "Alta",
@@ -1260,5 +1263,10 @@
       "label": "Espec. Balón Parado",
       "desc": "Letal a balón parado"
     }
+  },
+  "date": {
+    "day": "DD",
+    "month": "Mes",
+    "year": "AAAA"
   }
 }
