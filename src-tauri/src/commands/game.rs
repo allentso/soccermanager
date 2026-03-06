@@ -13,8 +13,8 @@ use crate::SaveManagerState;
 /// Returns the Game object so the frontend can show team selection.
 /// world_source: "random" (default) or a file path to a JSON world database.
 #[tauri::command]
-pub fn start_new_game(
-    state: State<StateManager>,
+pub async fn start_new_game(
+    state: State<'_, StateManager>,
     first_name: String,
     last_name: String,
     dob: String,
@@ -90,14 +90,14 @@ pub fn start_new_game(
 
 /// Step 2: User picks a team. Assigns manager, generates welcome message, saves to DB.
 #[tauri::command]
-pub fn select_team(
-    state: State<StateManager>,
-    sm_state: State<SaveManagerState>,
+pub async fn select_team(
+    state: State<'_, StateManager>,
+    sm_state: State<'_, SaveManagerState>,
     team_id: String,
 ) -> Result<Game, String> {
     info!("[cmd] select_team: team_id={}", team_id);
     let mut game = state
-        .get_game(|g| g.clone())
+        .get_game(|g: &Game| g.clone())
         .ok_or("No active game session".to_string())?;
 
     // Validate team exists
@@ -153,7 +153,7 @@ pub fn select_team(
 }
 
 #[tauri::command]
-pub fn get_saves(sm_state: State<SaveManagerState>) -> Result<Vec<SaveEntry>, String> {
+pub async fn get_saves(sm_state: State<'_, SaveManagerState>) -> Result<Vec<SaveEntry>, String> {
     log::debug!("[cmd] get_saves");
     let sm = sm_state
         .0
@@ -163,7 +163,7 @@ pub fn get_saves(sm_state: State<SaveManagerState>) -> Result<Vec<SaveEntry>, St
 }
 
 #[tauri::command]
-pub fn delete_save(sm_state: State<SaveManagerState>, save_id: String) -> Result<bool, String> {
+pub async fn delete_save(sm_state: State<'_, SaveManagerState>, save_id: String) -> Result<bool, String> {
     info!("[cmd] delete_save: save_id={}", save_id);
     let mut sm = sm_state
         .0
@@ -173,9 +173,9 @@ pub fn delete_save(sm_state: State<SaveManagerState>, save_id: String) -> Result
 }
 
 #[tauri::command]
-pub fn load_game(
-    state: State<StateManager>,
-    sm_state: State<SaveManagerState>,
+pub async fn load_game(
+    state: State<'_, StateManager>,
+    sm_state: State<'_, SaveManagerState>,
     save_id: String,
 ) -> Result<String, String> {
     info!("[cmd] load_game: save_id={}", save_id);
@@ -193,21 +193,21 @@ pub fn load_game(
 }
 
 #[tauri::command]
-pub fn get_active_game(state: State<StateManager>) -> Result<Game, String> {
+pub async fn get_active_game(state: State<'_, StateManager>) -> Result<Game, String> {
     log::debug!("[cmd] get_active_game");
     state
-        .get_game(|g| g.clone())
+        .get_game(|g: &Game| g.clone())
         .ok_or("No active game session".to_string())
 }
 
 #[tauri::command]
-pub fn save_game(
-    state: State<StateManager>,
-    sm_state: State<SaveManagerState>,
+pub async fn save_game(
+    state: State<'_, StateManager>,
+    sm_state: State<'_, SaveManagerState>,
 ) -> Result<(), String> {
     info!("[cmd] save_game");
     let game = state
-        .get_game(|g| g.clone())
+        .get_game(|g: &Game| g.clone())
         .ok_or("No active game session".to_string())?;
 
     let save_id = state
@@ -223,13 +223,13 @@ pub fn save_game(
 
 /// Save the current game and clear the active session so the player returns to the main menu.
 #[tauri::command]
-pub fn exit_to_menu(
-    state: State<StateManager>,
-    sm_state: State<SaveManagerState>,
+pub async fn exit_to_menu(
+    state: State<'_, StateManager>,
+    sm_state: State<'_, SaveManagerState>,
 ) -> Result<(), String> {
     info!("[cmd] exit_to_menu");
     let game = state
-        .get_game(|g| g.clone())
+        .get_game(|g: &Game| g.clone())
         .ok_or("No active game session")?;
 
     // Auto-save

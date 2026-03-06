@@ -9,7 +9,7 @@ import TeamProfile from "../components/TeamProfile";
 import DashboardSidebar from "../components/dashboard/DashboardSidebar";
 import DashboardTabContent from "../components/dashboard/DashboardTabContent";
 import { useAdvanceTime } from "../hooks/useAdvanceTime";
-import { Calendar as CalendarIcon, ChevronRight, ChevronDown, Search, ArrowLeft, Eye, Cpu, Gamepad2, AlertCircle, Save } from "lucide-react";
+import { Calendar as CalendarIcon, ChevronRight, ChevronDown, Search, ArrowLeft, Eye, Cpu, Gamepad2, AlertCircle, Save, Loader2 } from "lucide-react";
 import { getTeamName, formatDateFull } from "../lib/helpers";
 import { useTranslation } from "react-i18next";
 import { useSettingsStore } from "../store/settingsStore";
@@ -515,7 +515,7 @@ export default function Dashboard() {
               } ${isSaving ? "opacity-70 cursor-wait" : ""}`}
               title="Save game"
             >
-              <Save className="w-4 h-4" />
+              {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
               {saveFlash ? "Saved!" : isSaving ? "Saving..." : "Save"}
             </button>
 

@@ -29,6 +29,7 @@ export default function MainMenu() {
   const [menuState, setMenuState] = useState<"main" | "create" | "world" | "load">("main");
   const [saves, setSaves] = useState<SaveEntry[]>([]);
   const [isLoadingSaves, setIsLoadingSaves] = useState(false);
+  const [loadingSaveId, setLoadingSaveId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [isStarting, setIsStarting] = useState(false);
 
@@ -216,12 +217,14 @@ export default function MainMenu() {
   };
 
   const handleLoadGame = async (saveId: string) => {
+    setLoadingSaveId(saveId);
     try {
       const managerName = await invoke<string>("load_game", { saveId });
       setGameActive(true, managerName);
       navigate("/dashboard");
     } catch (error) {
       console.error("Failed to load game:", error);
+      setLoadingSaveId(null);
     }
   };
 
@@ -478,6 +481,7 @@ export default function MainMenu() {
           {/* Load Game List */}
           {menuState === "load" && (
             <SavesList
+              loadingSaveId={loadingSaveId}
               saves={saves}
               isLoading={isLoadingSaves}
               confirmDeleteId={confirmDeleteId}

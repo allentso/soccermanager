@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { formatDate } from "../../lib/helpers";
-import { Play, Clock, Trash2, X } from "lucide-react";
+import { Play, Clock, Trash2, X, Loader2 } from "lucide-react";
 
 interface SaveEntry {
   id: string;
@@ -15,6 +15,7 @@ interface SaveEntry {
 interface SavesListProps {
   saves: SaveEntry[];
   isLoading: boolean;
+  loadingSaveId?: string | null;
   confirmDeleteId: string | null;
   onLoad: (saveId: string) => void;
   onDelete: (saveId: string) => void;
@@ -22,7 +23,7 @@ interface SavesListProps {
   onClose: () => void;
 }
 
-export default function SavesList({ saves, isLoading, confirmDeleteId, onLoad, onDelete, onConfirmDelete, onClose }: SavesListProps) {
+export default function SavesList({ saves, isLoading, loadingSaveId, confirmDeleteId, onLoad, onDelete, onConfirmDelete, onClose }: SavesListProps) {
   const { t, i18n } = useTranslation();
 
   return (
@@ -42,7 +43,7 @@ export default function SavesList({ saves, isLoading, confirmDeleteId, onLoad, o
       
       <div className="flex flex-col gap-3 max-h-[60vh] overflow-y-auto pr-1">
         {isLoading ? (
-          <div className="text-gray-500 dark:text-gray-400 text-center py-4">{t('menu.loadingSaves')}</div>
+          <div className="flex flex-col items-center gap-3 py-8 text-gray-500 dark:text-gray-400"><Loader2 className="w-8 h-8 animate-spin text-primary-500" /><span className="text-sm font-heading uppercase tracking-wider">{t('menu.loadingSaves')}</span></div>
         ) : saves.length === 0 ? (
           <div className="text-gray-500 dark:text-gray-400 text-center py-8">{t('menu.noSaves')}</div>
         ) : (
@@ -74,7 +75,7 @@ export default function SavesList({ saves, isLoading, confirmDeleteId, onLoad, o
                   >
                     <div className="flex justify-between items-center w-full">
                       <span className="font-heading font-bold text-gray-900 dark:text-white text-lg uppercase tracking-wide truncate">{save.name}</span>
-                      <Play className="w-4 h-4 text-primary-500 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0" />
+                      {loadingSaveId === save.id ? <Loader2 className="w-4 h-4 text-primary-500 animate-spin flex-shrink-0" /> : <Play className="w-4 h-4 text-primary-500 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0" />}
                     </div>
                     <div className="flex justify-between items-center w-full text-sm text-gray-500 dark:text-gray-400">
                       <span>{t('menu.manager', { name: save.manager_name })}</span>

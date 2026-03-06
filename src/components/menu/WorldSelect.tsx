@@ -1,7 +1,7 @@
 import { useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../ui";
-import { X, ChevronRight, Globe, Shuffle, Upload, Database, Users, ArrowLeft } from "lucide-react";
+import { X, ChevronRight, Globe, Shuffle, Upload, Database, Users, ArrowLeft, Loader2 } from "lucide-react";
 
 export interface WorldDatabaseInfo {
   id: string;
@@ -132,7 +132,7 @@ export default function WorldSelect({
         variant="primary"
         size="lg"
         className="w-full"
-        iconRight={isStarting ? undefined : <ChevronRight />}
+        iconRight={isStarting ? <Loader2 className="animate-spin" /> : <ChevronRight />}
         onClick={onStart}
         disabled={isStarting}
       >

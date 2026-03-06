@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import InboxTab from './InboxTab';
-import { expect, vi } from 'vitest';
+import { expect, vi, test } from 'vitest';
 
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
@@ -38,7 +38,7 @@ const mockGameState = {
 };
 
 test('InboxTab renders each message exactly once in the list', () => {
-  const { container } = render(<InboxTab gameState={mockGameState as any} onGameUpdate={() => {}} />);
+  const { } = render(<InboxTab gameState={mockGameState as any} onGameUpdate={() => {}} />);
   const items = screen.getAllByText(/Test Message \d/);
   console.log('Number of message titles rendered:', items.length);
   expect(items.length).toBe(3);
