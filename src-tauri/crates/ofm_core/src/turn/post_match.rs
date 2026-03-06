@@ -241,13 +241,17 @@ fn update_post_match_morale(
         let is_home = tid == home_team_id;
         let base_morale = player.morale as i16;
 
-        // Team result effect
+        // Team result effect — scale loss impact by goal difference
+        let goal_diff = (report.home_goals as i16 - report.away_goals as i16).abs();
         let result_delta: i16 = if (is_home && home_won) || (!is_home && away_won) {
             rng.gen_range(3..=8) // Win boost
         } else if is_draw {
             rng.gen_range(-2..=3) // Draw: mild
         } else {
-            rng.gen_range(-8..=-2) // Loss drop
+            // Base loss: -5 to -2, plus extra -3 per goal margin beyond 1
+            let base_loss = rng.gen_range(-5..=-2);
+            let margin_penalty = (goal_diff - 1).max(0) * -3;
+            base_loss + margin_penalty // e.g. 3-0 loss → -5..-2 + -6 = -11..-8
         };
 
         // Individual performance effect
@@ -325,7 +329,7 @@ fn update_team_form(
             let streak_delta: i16 = if last3.iter().all(|r| *r == "W") {
                 rng.gen_range(2..=5) // 3+ win streak: small global morale boost
             } else if last3.iter().all(|r| *r == "L") {
-                rng.gen_range(-5..=-2) // 3+ loss streak: morale drop
+                rng.gen_range(-10..=-5) // 3+ loss streak: significant morale drop
             } else {
                 0
             };
