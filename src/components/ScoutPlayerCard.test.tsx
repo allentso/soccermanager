@@ -38,7 +38,7 @@ describe("ScoutPlayerCard", () => {
   it("renders player name and position", () => {
     render(<ScoutPlayerCard report={fullReport()} />);
     expect(screen.getByText("Carlos Silva")).toBeInTheDocument();
-    expect(screen.getByText("common.positions.Midfielder")).toBeInTheDocument();
+    expect(screen.getByText(/common\.positions\.Midfielder/)).toBeInTheDocument();
   });
 
   it("renders team name when provided", () => {

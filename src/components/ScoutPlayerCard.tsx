@@ -32,12 +32,12 @@ export default function ScoutPlayerCard({ report, onPlayerClick }: ScoutPlayerCa
   const { t } = useTranslation();
 
   const attrs: AttrRow[] = [
-    { labelKey: "common.attrs.pace", value: report.pace },
-    { labelKey: "common.attrs.shooting", value: report.shooting },
-    { labelKey: "common.attrs.passing", value: report.passing },
-    { labelKey: "common.attrs.dribbling", value: report.dribbling },
-    { labelKey: "common.attrs.defending", value: report.defending },
-    { labelKey: "common.attrs.strength", value: report.physical },
+    { labelKey: "common.attributes.pace", value: report.pace },
+    { labelKey: "common.attributes.shooting", value: report.shooting },
+    { labelKey: "common.attributes.passing", value: report.passing },
+    { labelKey: "common.attributes.dribbling", value: report.dribbling },
+    { labelKey: "common.attributes.defending", value: report.defending },
+    { labelKey: "common.attributes.strength", value: report.physical },
   ];
 
   const discoveredCount = attrs.filter(a => a.value !== null).length;
