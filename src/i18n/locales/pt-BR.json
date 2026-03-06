@@ -935,7 +935,13 @@
     "noScoutsFree": "Sem olheiros livres",
     "scoutBtn": "Observar",
     "noPlayersFound": "Nenhum jogador encontrado com sua busca.",
-    "showingRange": "Mostrando {{from}}–{{to}} de {{total}}"
+    "showingRange": "Mostrando {{from}}–{{to}} de {{total}}",
+    "viewPlayer": "Ver",
+    "condition": "Condição",
+    "morale": "Moral",
+    "estimatedAttributes": "Atributos estimados",
+    "undiscovered": "Não descoberto",
+    "confidence": "Confiança"
   },
   "be": {
     "sender": {

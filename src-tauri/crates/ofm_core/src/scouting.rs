@@ -127,13 +127,17 @@ pub fn process_scouting(game: &mut Game) {
             let scout_name = format!("{} {}", scout.first_name, scout.last_name);
             let judging_ability = scout.attributes.judging_ability;
             let judging_potential = scout.attributes.judging_potential;
+            let team_name = player
+                .team_id
+                .as_ref()
+                .and_then(|tid| game.teams.iter().find(|t| &t.id == tid))
+                .map(|t| t.name.clone());
 
             let msg = build_scout_report(
                 &assignment.id,
                 &scout_name,
                 &player.id,
                 &player.match_name,
-                &player.full_name,
                 &player.nationality,
                 &player.date_of_birth,
                 &format!("{:?}", player.position),
@@ -142,6 +146,7 @@ pub fn process_scouting(game: &mut Game) {
                 player.condition,
                 judging_ability,
                 judging_potential,
+                team_name.as_deref(),
                 &today,
             );
             game.messages.push(msg);
@@ -154,7 +159,6 @@ fn build_scout_report(
     scout_name: &str,
     player_id: &str,
     player_name: &str,
-    player_full_name: &str,
     nationality: &str,
     dob: &str,
     position: &str,
@@ -163,6 +167,7 @@ fn build_scout_report(
     condition: u8,
     judging_ability: u8,
     judging_potential: u8,
+    team_name: Option<&str>,
     date: &str,
 ) -> InboxMessage {
     let mut rng = rand::thread_rng();
@@ -183,24 +188,75 @@ fn build_scout_report(
         ((val as i16) + delta).clamp(1, 99) as u8
     };
 
-    // Build attribute report with fuzzed values
-    let reported_pace = fuzz(attrs.pace);
-    let reported_shooting = fuzz(attrs.shooting);
-    let reported_passing = fuzz(attrs.passing);
-    let reported_dribbling = fuzz(attrs.dribbling);
-    let reported_defending = fuzz(attrs.defending);
-    let reported_physical = fuzz(attrs.strength);
+    // Build fuzzed attribute values
+    let all_fuzzed: [(u8, &str); 6] = [
+        (fuzz(attrs.pace), "Pace"),
+        (fuzz(attrs.shooting), "Shooting"),
+        (fuzz(attrs.passing), "Passing"),
+        (fuzz(attrs.dribbling), "Dribbling"),
+        (fuzz(attrs.defending), "Defending"),
+        (fuzz(attrs.strength), "Physical"),
+    ];
 
-    // Overall assessment
-    let avg_attrs = (reported_pace as u32
-        + reported_shooting as u32
-        + reported_passing as u32
-        + reported_dribbling as u32
-        + reported_defending as u32
-        + reported_physical as u32)
-        / 6;
+    // Discovery mechanic: scout ability determines how many attrs are revealed
+    // 80+: all 6 attrs + condition + morale
+    // 60-79: 5 attrs + condition
+    // 40-59: 3 attrs
+    // <40: 2 attrs
+    let reveal_count: usize = if judging_ability >= 80 {
+        6
+    } else if judging_ability >= 60 {
+        5
+    } else if judging_ability >= 40 {
+        3
+    } else {
+        2
+    };
 
-    let rating_desc = if avg_attrs >= 80 {
+    // Shuffle indices to determine which attrs are hidden
+    let mut indices: Vec<usize> = (0..6).collect();
+    for i in (1..indices.len()).rev() {
+        let j = rng.gen_range(0..=i);
+        indices.swap(i, j);
+    }
+    let revealed: std::collections::HashSet<usize> =
+        indices[..reveal_count].iter().cloned().collect();
+
+    let to_opt = |idx: usize| -> Option<u8> {
+        if revealed.contains(&idx) {
+            Some(all_fuzzed[idx].0)
+        } else {
+            None
+        }
+    };
+
+    let pace = to_opt(0);
+    let shooting = to_opt(1);
+    let passing = to_opt(2);
+    let dribbling = to_opt(3);
+    let defending = to_opt(4);
+    let physical = to_opt(5);
+
+    let reported_condition = if judging_ability >= 60 {
+        Some(condition)
+    } else {
+        None
+    };
+    let reported_morale = if judging_ability >= 80 {
+        Some(morale)
+    } else {
+        None
+    };
+
+    // Overall assessment based on revealed attrs only
+    let revealed_vals: Vec<u32> = (0..6).filter_map(|i| to_opt(i).map(|v| v as u32)).collect();
+    let avg_attrs = if revealed_vals.is_empty() {
+        0
+    } else {
+        revealed_vals.iter().sum::<u32>() / revealed_vals.len() as u32
+    };
+
+    let rating_key = if avg_attrs >= 80 {
         "common.scoutRatings.excellent"
     } else if avg_attrs >= 70 {
         "common.scoutRatings.veryGood"
@@ -213,7 +269,7 @@ fn build_scout_report(
     };
 
     // Potential assessment (based on judging_potential accuracy)
-    let potential_desc = if judging_potential >= 70 {
+    let potential_key = if judging_potential >= 70 {
         if avg_attrs >= 75 {
             "common.scoutPotential.worldClass"
         } else if avg_attrs >= 60 {
@@ -226,7 +282,7 @@ fn build_scout_report(
     };
 
     // Confidence level
-    let confidence = if judging_ability >= 80 {
+    let confidence_key = if judging_ability >= 80 {
         "common.scoutConfidence.high"
     } else if judging_ability >= 60 {
         "common.scoutConfidence.moderate"
@@ -234,41 +290,32 @@ fn build_scout_report(
         "common.scoutConfidence.low"
     };
 
+    // Build structured report data for the player card
+    let report_data = ScoutReportData {
+        player_id: player_id.to_string(),
+        player_name: player_name.to_string(),
+        position: position.to_string(),
+        nationality: nationality.to_string(),
+        dob: dob.to_string(),
+        team_name: team_name.map(|s| s.to_string()),
+        pace,
+        shooting,
+        passing,
+        dribbling,
+        defending,
+        physical,
+        condition: reported_condition,
+        morale: reported_morale,
+        avg_rating: Some(avg_attrs),
+        rating_key: rating_key.to_string(),
+        potential_key: potential_key.to_string(),
+        confidence_key: confidence_key.to_string(),
+    };
+
+    // Fallback body text (used when i18n key is not found)
     let body = format!(
-        "Scout Report — {}\n\n\
-        Player: {} ({})\n\
-        Position: {} | Nationality: {} | DOB: {}\n\
-        Current Condition: {}% | Morale: {}/100\n\n\
-        --- Key Attributes (estimated) ---\n\
-        • Pace: {}\n\
-        • Shooting: {}\n\
-        • Passing: {}\n\
-        • Dribbling: {}\n\
-        • Defending: {}\n\
-        • Physical: {}\n\n\
-        Overall Assessment: {} (avg ~{})\n\
-        Development: {}\n\
-        Report Confidence: {}\n\n\
-        — {}, Scout",
-        player_name,
-        player_full_name,
-        player_name,
-        position,
-        nationality,
-        dob,
-        condition,
-        morale,
-        reported_pace,
-        reported_shooting,
-        reported_passing,
-        reported_dribbling,
-        reported_defending,
-        reported_physical,
-        rating_desc,
-        avg_attrs,
-        potential_desc,
-        confidence,
-        scout_name,
+        "Scout report on {} completed by {}.",
+        player_name, scout_name
     );
 
     let msg_id = format!("scout_report_{}", assignment_id);
@@ -292,13 +339,14 @@ fn build_scout_report(
     })
     .with_context(MessageContext {
         player_id: Some(player_id.to_string()),
+        scout_report: Some(report_data),
         ..Default::default()
     })
     .with_i18n("be.msg.scoutReport.subject", "be.msg.scoutReport.body", {
         let mut p = params(&[("player", player_name), ("scout", scout_name)]);
-        p.insert("ratingDesc".to_string(), rating_desc.to_string());
-        p.insert("potentialDesc".to_string(), potential_desc.to_string());
-        p.insert("confidence".to_string(), confidence.to_string());
+        p.insert("ratingDesc".to_string(), rating_key.to_string());
+        p.insert("potentialDesc".to_string(), potential_key.to_string());
+        p.insert("confidence".to_string(), confidence_key.to_string());
         p
     })
     .with_sender_i18n("be.sender.scout", "be.role.scout")

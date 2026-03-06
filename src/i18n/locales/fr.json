@@ -797,7 +797,13 @@
     "scoutBtn": "Observer",
     "noPlayersFound": "Aucun joueur trouvé correspondant à votre recherche.",
     "scoutingPlayer": "Observation : <strong>{{name}}</strong> — {{days}}j restants",
-    "showingRange": "Affichage {{from}}–{{to}} sur {{total}}"
+    "showingRange": "Affichage {{from}}–{{to}} sur {{total}}",
+    "viewPlayer": "Voir",
+    "condition": "État",
+    "morale": "Moral",
+    "estimatedAttributes": "Attributs estimés",
+    "undiscovered": "Non découvert",
+    "confidence": "Confiance"
   },
   "match": {
     "live": "En Direct",

@@ -797,7 +797,13 @@
     "noScoutsFree": "No scouts free",
     "scoutBtn": "Scout",
     "noPlayersFound": "No players found matching your search.",
-    "showingRange": "Showing {{from}}–{{to}} of {{total}}"
+    "showingRange": "Showing {{from}}–{{to}} of {{total}}",
+    "viewPlayer": "View",
+    "condition": "Condition",
+    "morale": "Morale",
+    "estimatedAttributes": "Estimated Attributes",
+    "undiscovered": "Not discovered",
+    "confidence": "Confidence"
   },
   "match": {
     "live": "Live",

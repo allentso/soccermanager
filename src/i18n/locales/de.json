@@ -797,7 +797,13 @@
     "scoutBtn": "Scouten",
     "noPlayersFound": "Keine Spieler gefunden, die deiner Suche entsprechen.",
     "scoutingPlayer": "Scouting: <strong>{{name}}</strong> — {{days}}T verbleibend",
-    "showingRange": "Zeige {{from}}–{{to}} von {{total}}"
+    "showingRange": "Zeige {{from}}–{{to}} von {{total}}",
+    "viewPlayer": "Ansehen",
+    "condition": "Fitness",
+    "morale": "Moral",
+    "estimatedAttributes": "Geschätzte Attribute",
+    "undiscovered": "Nicht entdeckt",
+    "confidence": "Zuverlässigkeit"
   },
   "match": {
     "live": "Live",

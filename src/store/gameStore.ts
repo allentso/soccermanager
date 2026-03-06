@@ -13,6 +13,7 @@ export type {
   StaffData,
   MessageAction,
   MessageContext,
+  ScoutReportData,
   MessageData,
   ManagerCareerStats,
   ManagerCareerEntry,

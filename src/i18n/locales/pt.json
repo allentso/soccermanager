@@ -797,7 +797,13 @@
     "scoutBtn": "Observar",
     "noPlayersFound": "Nenhum jogador encontrado com a tua pesquisa.",
     "scoutingPlayer": "A observar: <strong>{{name}}</strong> — {{days}}d restantes",
-    "showingRange": "A mostrar {{from}}–{{to}} de {{total}}"
+    "showingRange": "A mostrar {{from}}–{{to}} de {{total}}",
+    "viewPlayer": "Ver",
+    "condition": "Condição",
+    "morale": "Moral",
+    "estimatedAttributes": "Atributos estimados",
+    "undiscovered": "Não descoberto",
+    "confidence": "Confiança"
   },
   "match": {
     "live": "Ao Vivo",

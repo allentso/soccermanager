@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { GameStateData } from "../store/gameStore";
 import { Badge } from "./ui";
 import { Mail, MailOpen, ArrowLeft, Trophy, ClipboardList, Crosshair, TableProperties, TrendingUp, Landmark, Smile, Stethoscope, Dumbbell, DollarSign, FileText, ScanSearch, Newspaper, Info, MessageCircle, CheckCircle2, CheckCheck, Trash2 } from "lucide-react";
+import ScoutPlayerCard from "./ScoutPlayerCard";
 import { getTeamName } from "../lib/helpers";
 import { useTranslation } from "react-i18next";
 import { formatDateShort, formatDateFull } from "../lib/helpers";
@@ -279,6 +280,14 @@ export default function InboxTab({ gameState, onGameUpdate, initialMessageId, on
                       ) : line}
                     </p>
                   ))}
+
+                  {/* Scout report player card */}
+                  {selectedMessage.context?.scout_report && (
+                    <ScoutPlayerCard
+                      report={selectedMessage.context.scout_report}
+                      onPlayerClick={(playerId) => onNavigate?.("Players", { messageId: playerId })}
+                    />
+                  )}
 
                   {/* Match result context */}
                   {selectedMessage.context?.match_result && (

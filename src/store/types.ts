@@ -147,6 +147,27 @@ export interface MessageAction {
   label_key?: string;
 }
 
+export interface ScoutReportData {
+  player_id: string;
+  player_name: string;
+  position: string;
+  nationality: string;
+  dob: string;
+  team_name: string | null;
+  pace: number | null;
+  shooting: number | null;
+  passing: number | null;
+  dribbling: number | null;
+  defending: number | null;
+  physical: number | null;
+  condition: number | null;
+  morale: number | null;
+  avg_rating: number | null;
+  rating_key: string;
+  potential_key: string;
+  confidence_key: string;
+}
+
 export interface MessageContext {
   team_id: string | null;
   player_id: string | null;
@@ -157,6 +178,7 @@ export interface MessageContext {
     home_goals: number;
     away_goals: number;
   };
+  scout_report?: ScoutReportData;
 }
 
 export interface MessageData {
