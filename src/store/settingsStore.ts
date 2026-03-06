@@ -27,6 +27,14 @@ const DEFAULT_SETTINGS: AppSettings = {
   high_contrast: false,
 };
 
+function mergeWithDefaultSettings(settings: Partial<AppSettings> = {}): AppSettings {
+  return { ...DEFAULT_SETTINGS, ...settings };
+}
+
+async function persistSettings(settings: AppSettings) {
+  await invoke("save_settings", { settings });
+}
+
 interface SettingsStore {
   settings: AppSettings;
   loaded: boolean;
@@ -35,23 +43,23 @@ interface SettingsStore {
 }
 
 export const useSettingsStore = create<SettingsStore>((set, get) => ({
-  settings: DEFAULT_SETTINGS,
+  settings: mergeWithDefaultSettings(),
   loaded: false,
 
   loadSettings: async () => {
     try {
-      const s = await invoke<AppSettings>("get_settings");
-      set({ settings: { ...DEFAULT_SETTINGS, ...s }, loaded: true });
+      const s = await invoke<Partial<AppSettings>>("get_settings");
+      set({ settings: mergeWithDefaultSettings(s), loaded: true });
     } catch {
-      set({ settings: DEFAULT_SETTINGS, loaded: true });
+      set({ settings: mergeWithDefaultSettings(), loaded: true });
     }
   },
 
   updateSettings: async (partial) => {
-    const merged = { ...get().settings, ...partial };
+    const merged = mergeWithDefaultSettings({ ...get().settings, ...partial });
     set({ settings: merged });
     try {
-      await invoke("save_settings", { settings: merged });
+      await persistSettings(merged);
     } catch (err) {
       console.error("Failed to save settings:", err);
     }
