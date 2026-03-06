@@ -563,7 +563,7 @@
     "none": "Nenhuma",
     "listed": "Listados",
     "makeBid": "Fazer Proposta",
-    "playerValue": "Valor do Jogador",
+    "playerValue": "Valor: {{value}}",
     "bidAmount": "Valor da Proposta",
     "bidAccepted": "Proposta aceita!",
     "bidRejected": "Proposta rejeitada.",
