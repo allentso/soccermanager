@@ -11,12 +11,42 @@ fn completed_fixtures_for_day<'a>(league: &'a League, today: &str) -> Vec<&'a Fi
         .collect()
 }
 
-fn team_name(game: &Game, team_id: &str) -> String {
+fn team_name_or(game: &Game, team_id: &str, fallback: &str) -> String {
     game.teams
         .iter()
         .find(|team| team.id == team_id)
         .map(|team| team.name.clone())
-        .unwrap_or_default()
+        .unwrap_or_else(|| fallback.to_string())
+}
+
+fn team_name(game: &Game, team_id: &str) -> String {
+    team_name_or(game, team_id, "")
+}
+
+fn player_match_name_or_id(game: &Game, player_id: &str) -> String {
+    game.players
+        .iter()
+        .find(|player| player.id == player_id)
+        .map(|player| player.match_name.clone())
+        .unwrap_or_else(|| player_id.to_string())
+}
+
+fn scorers_for_side(
+    game: &Game,
+    report: &engine::MatchReport,
+    side: engine::Side,
+) -> Vec<(String, u32)> {
+    report
+        .goals
+        .iter()
+        .filter(|goal| goal.side == side)
+        .map(|goal| {
+            (
+                player_match_name_or_id(game, &goal.scorer_id),
+                goal.minute as u32,
+            )
+        })
+        .collect()
 }
 
 fn matchday_results(game: &Game, fixtures: &[&Fixture]) -> Vec<(String, u8, String, u8)> {
@@ -68,53 +98,15 @@ pub(super) fn generate_match_news(
         return;
     }
 
-    let home_name = game
-        .teams
-        .iter()
-        .find(|t| t.id == home_team_id)
-        .map(|t| t.name.as_str())
-        .unwrap_or("Home");
-    let away_name = game
-        .teams
-        .iter()
-        .find(|t| t.id == away_team_id)
-        .map(|t| t.name.as_str())
-        .unwrap_or("Away");
-
-    // Build scorer lists with player names
-    let home_scorers: Vec<(String, u32)> = report
-        .goals
-        .iter()
-        .filter(|g| g.side == engine::Side::Home)
-        .map(|g| {
-            let name = game
-                .players
-                .iter()
-                .find(|p| p.id == g.scorer_id)
-                .map(|p| p.match_name.clone())
-                .unwrap_or_else(|| g.scorer_id.clone());
-            (name, g.minute as u32)
-        })
-        .collect();
-    let away_scorers: Vec<(String, u32)> = report
-        .goals
-        .iter()
-        .filter(|g| g.side == engine::Side::Away)
-        .map(|g| {
-            let name = game
-                .players
-                .iter()
-                .find(|p| p.id == g.scorer_id)
-                .map(|p| p.match_name.clone())
-                .unwrap_or_else(|| g.scorer_id.clone());
-            (name, g.minute as u32)
-        })
-        .collect();
+    let home_name = team_name_or(game, home_team_id, "Home");
+    let away_name = team_name_or(game, away_team_id, "Away");
+    let home_scorers = scorers_for_side(game, report, engine::Side::Home);
+    let away_scorers = scorers_for_side(game, report, engine::Side::Away);
 
     let article = news::match_report_article(
         &fixture.id,
-        home_name,
-        away_name,
+        &home_name,
+        &away_name,
         report.home_goals,
         report.away_goals,
         home_team_id,
@@ -222,14 +214,17 @@ pub(super) fn generate_pre_match_messages(game: &mut Game, today: &str) {
 
 #[cfg(test)]
 mod tests {
-    use super::generate_matchday_news;
+    use super::{generate_match_news, generate_matchday_news};
     use crate::clock::GameClock;
     use crate::game::Game;
     use chrono::{TimeZone, Utc};
     use domain::league::{Fixture, FixtureStatus, League, MatchResult, StandingEntry};
     use domain::manager::Manager;
     use domain::news::NewsCategory;
+    use domain::player::{Player, PlayerAttributes, Position};
     use domain::team::Team;
+    use engine::{GoalDetail, MatchReport, Side, TeamStats};
+    use std::collections::HashMap;
 
     fn make_team(id: &str, name: &str) -> Team {
         Team::new(
@@ -277,6 +272,58 @@ mod tests {
                 home_scorers: vec![],
                 away_scorers: vec![],
             }),
+        }
+    }
+
+    fn default_attrs() -> PlayerAttributes {
+        PlayerAttributes {
+            pace: 70,
+            stamina: 70,
+            strength: 65,
+            agility: 68,
+            passing: 66,
+            shooting: 72,
+            tackling: 40,
+            dribbling: 69,
+            defending: 38,
+            positioning: 64,
+            vision: 65,
+            decisions: 67,
+            composure: 66,
+            aggression: 50,
+            teamwork: 64,
+            leadership: 52,
+            handling: 20,
+            reflexes: 20,
+            aerial: 45,
+        }
+    }
+
+    fn make_player(id: &str, name: &str, team_id: &str) -> Player {
+        let mut player = Player::new(
+            id.to_string(),
+            name.to_string(),
+            format!("Full {}", name),
+            "1998-03-15".to_string(),
+            "England".to_string(),
+            Position::Forward,
+            default_attrs(),
+        );
+        player.team_id = Some(team_id.to_string());
+        player
+    }
+
+    fn make_report(goals: Vec<GoalDetail>, home_goals: u8, away_goals: u8) -> MatchReport {
+        MatchReport {
+            home_goals,
+            away_goals,
+            home_stats: TeamStats::default(),
+            away_stats: TeamStats::default(),
+            events: vec![],
+            goals,
+            player_stats: HashMap::new(),
+            home_possession: 50.0,
+            total_minutes: 90,
         }
     }
 
@@ -381,6 +428,80 @@ mod tests {
             game.news
                 .iter()
                 .filter(|article| article.id == "standings_md4")
+                .count(),
+            1
+        );
+    }
+
+    #[test]
+    fn generate_match_news_resolves_known_names_and_falls_back_to_scorer_ids() {
+        let mut game = make_game("2025-08-12", FixtureStatus::Completed);
+        game.players = vec![make_player("p1", "Alice", "team1")];
+
+        let report = make_report(
+            vec![
+                GoalDetail {
+                    minute: 10,
+                    scorer_id: "p1".to_string(),
+                    assist_id: None,
+                    is_penalty: false,
+                    side: Side::Home,
+                },
+                GoalDetail {
+                    minute: 74,
+                    scorer_id: "ghost9".to_string(),
+                    assist_id: None,
+                    is_penalty: false,
+                    side: Side::Away,
+                },
+            ],
+            1,
+            1,
+        );
+
+        generate_match_news(&mut game, 0, "team1", "team2", &report);
+
+        assert_eq!(game.news.len(), 1);
+
+        let article = &game.news[0];
+        assert_eq!(article.id, "report_fx1");
+        assert_eq!(article.category, NewsCategory::MatchReport);
+        assert_eq!(
+            article.team_ids,
+            vec!["team1".to_string(), "team2".to_string()]
+        );
+        assert_eq!(
+            article.player_ids,
+            vec!["Alice".to_string(), "ghost9".to_string()]
+        );
+        assert_eq!(
+            article.match_score.as_ref().map(|score| (
+                score.home_team_id.as_str(),
+                score.away_team_id.as_str(),
+                score.home_goals,
+                score.away_goals,
+            )),
+            Some(("team1", "team2", 1, 1))
+        );
+        assert_eq!(
+            article.i18n_params.get("scorers"),
+            Some(&"Alice (10', Alpha FC), ghost9 (74', Beta FC)".to_string())
+        );
+    }
+
+    #[test]
+    fn generate_match_news_does_not_duplicate_existing_report_article() {
+        let mut game = make_game("2025-08-12", FixtureStatus::Completed);
+        let report = make_report(vec![], 0, 0);
+
+        generate_match_news(&mut game, 0, "team1", "team2", &report);
+        generate_match_news(&mut game, 0, "team1", "team2", &report);
+
+        assert_eq!(game.news.len(), 1);
+        assert_eq!(
+            game.news
+                .iter()
+                .filter(|article| article.id == "report_fx1")
                 .count(),
             1
         );
