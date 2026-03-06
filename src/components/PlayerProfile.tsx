@@ -250,7 +250,7 @@ export default function PlayerProfile({ player, gameState, isOwnClub, onClose, o
                 <AlertTriangle className="w-5 h-5 text-red-500" />
               </div>
               <div>
-                <p className="font-semibold text-sm text-red-600 dark:text-red-400">{player.injury.name}</p>
+                <p className="font-semibold text-sm text-red-600 dark:text-red-400">{player.injury.name.includes('.') ? t(player.injury.name) : player.injury.name}</p>
                 <p className="text-xs text-gray-500 dark:text-gray-400">{t('playerProfile.daysRemaining', { count: player.injury.days_remaining })}</p>
               </div>
             </div>

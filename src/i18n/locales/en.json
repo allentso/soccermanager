@@ -304,6 +304,13 @@
       "mixed": "Mixed",
       "poor": "Poor"
     },
+    "injuries": {
+      "minorMuscleStrain": "Minor muscle strain",
+      "twistedAnkle": "Twisted ankle",
+      "kneeBruise": "Knee bruise",
+      "hamstringTightness": "Hamstring tightness",
+      "calfStrain": "Calf strain"
+    },
     "scoutRatings": {
       "excellent": "Excellent",
       "veryGood": "Very Good",

@@ -304,6 +304,13 @@
       "mixed": "Gemischt",
       "poor": "Schlecht"
     },
+    "injuries": {
+      "minorMuscleStrain": "Leichte Muskelzerrung",
+      "twistedAnkle": "Verstauchter Knöchel",
+      "kneeBruise": "Knieprellung",
+      "hamstringTightness": "Oberschenkelzerrung",
+      "calfStrain": "Wadenzerrung"
+    },
     "scoutRatings": {
       "excellent": "Ausgezeichnet",
       "veryGood": "Sehr Gut",

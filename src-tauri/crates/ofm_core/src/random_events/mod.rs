@@ -91,11 +91,11 @@ pub fn check_random_events(game: &mut Game) {
                 if !existing_ids.contains(&msg_id) {
                     let days = rng.gen_range(3..=14);
                     let injury_names = [
-                        "Minor muscle strain",
-                        "Twisted ankle",
-                        "Knee bruise",
-                        "Hamstring tightness",
-                        "Calf strain",
+                        "common.injuries.minorMuscleStrain",
+                        "common.injuries.twistedAnkle",
+                        "common.injuries.kneeBruise",
+                        "common.injuries.hamstringTightness",
+                        "common.injuries.calfStrain",
                     ];
                     let injury_name = injury_names[rng.gen_range(0..injury_names.len())];
 

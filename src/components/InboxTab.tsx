@@ -285,7 +285,7 @@ export default function InboxTab({ gameState, onGameUpdate, initialMessageId, on
                   {selectedMessage.context?.scout_report && (
                     <ScoutPlayerCard
                       report={selectedMessage.context.scout_report}
-                      onPlayerClick={(playerId) => onNavigate?.("Players", { messageId: playerId })}
+                      onPlayerClick={(playerId) => onNavigate?.("__selectPlayer", { messageId: playerId })}
                     />
                   )}
 

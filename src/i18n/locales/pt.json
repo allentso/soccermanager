@@ -302,14 +302,21 @@
       "excellent": "Excelente",
       "good": "Bom",
       "mixed": "Misto",
-      "poor": "Fraco"
+      "poor": "Mau"
+    },
+    "injuries": {
+      "minorMuscleStrain": "Distensão muscular ligeira",
+      "twistedAnkle": "Tornozelo torcido",
+      "kneeBruise": "Contusão no joelho",
+      "hamstringTightness": "Tensão nos isquiotibiais",
+      "calfStrain": "Distensão na barriga da perna"
     },
     "scoutRatings": {
       "excellent": "Excelente",
       "veryGood": "Muito Bom",
       "good": "Bom",
-      "average": "M\u00e9dio",
-      "belowAverage": "Abaixo da m\u00e9dia"
+      "average": "Médio",
+      "belowAverage": "Abaixo da média"
     },
     "scoutPotential": {
       "worldClass": "Potencial de classe mundial",

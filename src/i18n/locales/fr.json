@@ -304,6 +304,13 @@
       "mixed": "Mitigé",
       "poor": "Mauvais"
     },
+    "injuries": {
+      "minorMuscleStrain": "Légère élongation musculaire",
+      "twistedAnkle": "Entorse de la cheville",
+      "kneeBruise": "Contusion au genou",
+      "hamstringTightness": "Raideur aux ischio-jambiers",
+      "calfStrain": "Élongation du mollet"
+    },
     "scoutRatings": {
       "excellent": "Excellent",
       "veryGood": "Très Bon",

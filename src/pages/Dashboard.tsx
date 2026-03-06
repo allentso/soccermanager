@@ -145,6 +145,13 @@ export default function Dashboard() {
       setSelectedPlayerId(null);
       return;
     }
+    // Special: navigate to a player profile
+    if (tab === "__selectPlayer" && context?.messageId) {
+      pushHistory();
+      setSelectedPlayerId(context.messageId);
+      setSelectedTeamId(null);
+      return;
+    }
     setNavHistory([]);
     setActiveTab(tab);
     setSelectedPlayerId(null);

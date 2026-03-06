@@ -304,6 +304,13 @@
       "mixed": "Mixto",
       "poor": "Bajo"
     },
+    "injuries": {
+      "minorMuscleStrain": "Distensión muscular leve",
+      "twistedAnkle": "Tobillo torcido",
+      "kneeBruise": "Contusión en la rodilla",
+      "hamstringTightness": "Tensión en el isquiotibial",
+      "calfStrain": "Distensión en la pantorrilla"
+    },
     "scoutRatings": {
       "excellent": "Excelente",
       "veryGood": "Muy Bueno",
