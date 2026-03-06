@@ -1,7 +1,7 @@
 {
   "app": {
     "name": "OpenFoot Manager",
-    "version": "v0.1.0-alpha"
+    "version": "v0.1.1-alpha"
   },
   "menu": {
     "newGame": "Novo Jogo",
@@ -11,7 +11,11 @@
     "loadingSaves": "Carregando jogos salvos...",
     "deleteConfirm": "Excluir <strong>{{name}}</strong>?",
     "delete": "Excluir",
-    "cancel": "Cancelar"
+    "cancel": "Cancelar",
+    "manager": "Treinador: {{name}}",
+    "deleteSave": "Excluir save",
+    "noResults": "Sem resultados",
+    "importedDescription": "Banco de dados importado"
   },
   "createManager": {
     "title": "Criar Treinador",
@@ -64,7 +68,13 @@
     "simulating": "Simulando...",
     "searchPlaceholder": "Buscar jogadores, times...",
     "sectionClub": "Clube",
-    "sectionWorld": "Mundo"
+    "sectionWorld": "Mundo",
+    "loading": "Carregando...",
+    "noResults": "Sem resultados.",
+    "searchTeams": "Times",
+    "searchPlayers": "Jogadores",
+    "scouting": "Observação",
+    "youthAcademy": "Base"
   },
   "continueMenu": {
     "goToField": "Ir para o Campo",
@@ -74,7 +84,15 @@
     "delegateAssistant": "Delegar ao Assistente",
     "delegateAssistantDesc": "A IA resolve tudo instantaneamente",
     "skipToMatchDay": "Pular para o Dia de Jogo",
-    "skipToMatchDayDesc": "Avançar até a próxima partida"
+    "skipToMatchDayDesc": "Avançar até a próxima partida",
+    "matchDayTitle": "Dia de Jogo",
+    "delegateWarning": "Seu assistente comandará a partida. Você não poderá intervir."
+  },
+  "closeConfirm": {
+    "title": "Alterações não salvas",
+    "message": "Você tem alterações não salvas. O que deseja fazer?",
+    "saveQuit": "Salvar e Sair",
+    "quitNoSave": "Sair sem salvar"
   },
   "exitConfirm": {
     "title": "Voltar ao Menu Principal?",
@@ -113,7 +131,62 @@
     "recentMessages": "Mensagens Recentes",
     "viewAll": "Ver Tudo",
     "noMessages": "Nenhuma mensagem recente.",
-    "unreadMessages": "{{count}} mensagem(ns) não lida(s)"
+    "unreadMessages": "{{count}} mensagem(ns) não lida(s)",
+    "playerMomentum": "Momento dos Jogadores",
+    "inForm": "Em Forma",
+    "lowMorale": "Moral Baixa",
+    "winningStreak": "Sequência de vitórias!",
+    "losingStreak": "Sequência de derrotas",
+    "unbeatenRun": "Invicto",
+    "boardObjectives": "Objetivos da Diretoria",
+    "seasonComplete": "Temporada encerrada.",
+    "noLeagueSchedule": "Sem dados da liga.",
+    "scheduleLabel": "Calendário:",
+    "home": "Casa",
+    "away": "Fora",
+    "matchdayN": "Rodada {{n}}",
+    "met": "Cumprido",
+    "inProgress": "Em Andamento",
+    "objectivesMet": "{{done}}/{{total}} objetivos cumpridos — Satisfação da diretoria: {{pct}}%"
+  },
+  "teamSelect": {
+    "title": "Escolha Seu Clube",
+    "subtitle": "Selecione o time que você quer comandar",
+    "confirming": "Confirmando...",
+    "manage": "Comandar {{name}}",
+    "reputation": "Reputação",
+    "squad": "Elenco",
+    "finances": "Finanças",
+    "avgOvr": "OVR Médio",
+    "seats": "{{name}} — {{capacity}} lugares",
+    "repWorldClass": "Classe Mundial",
+    "repStrong": "Forte",
+    "repAverage": "Mediano",
+    "repDeveloping": "Em Desenvolvimento"
+  },
+  "youthAcademy": {
+    "title": "Base",
+    "playersUnder21": "{{count}} jogadores ≤21",
+    "youthPlayers": "Jogadores da Base",
+    "avgOvr": "OVR Médio",
+    "avgPotential": "Potencial Médio",
+    "highPotential": "Alto Potencial",
+    "youthCoach": "Treinador da Base:",
+    "youthProspects": "Promessas da Base",
+    "noYouthPlayers": "Nenhum jogador jovem (≤21) no seu elenco.",
+    "player": "Jogador",
+    "pos": "Pos",
+    "age": "Idade",
+    "ovr": "OVR",
+    "potential": "Potencial",
+    "growth": "Crescimento",
+    "traits": "Características",
+    "condition": "Condição",
+    "potWorldClass": "Classe Mundial",
+    "potExcellent": "Excelente",
+    "potPromising": "Promissor",
+    "potDecent": "Razoável",
+    "potLimited": "Limitado"
   },
   "common": {
     "loading": "Carregando...",
@@ -211,6 +284,20 @@
       "reflexes": "Reflexos",
       "aerial": "Jogo Aéreo"
     },
+    "trainingSchedules": {
+      "Intense": "Intenso",
+      "Balanced": "Equilibrado",
+      "Light": "Leve"
+    },
+    "trainingFocuses": {
+      "Physical": "Físico",
+      "Technical": "Técnico",
+      "Tactical": "Tático",
+      "Defending": "Defesa",
+      "Attacking": "Ataque",
+      "Recovery": "Recuperação",
+      "General": "Geral"
+    },
     "attrGroups": {
       "physical": "Físico",
       "technical": "Técnico",
@@ -237,7 +324,11 @@
     "playerCount": "{{count}} Jogadores",
     "noPlayers": "Nenhum jogador encontrado no seu elenco.",
     "pos": "Pos",
-    "traits": "Características"
+    "traits": "Características",
+    "fullRoster": "Elenco Completo",
+    "selected": "selecionado(s)",
+    "playersLabel": "jogadores",
+    "noBench": "Sem reservas."
   },
   "tactics": {
     "formationStyle": "Formação e Estilo",
@@ -261,6 +352,7 @@
     "aRestDay": "dia de descanso",
     "currentlyTraining": "Treinando atualmente: <strong>{{attrs}}</strong> com intensidade <strong>{{intensity}}</strong>.",
     "recoveryNote": "Os jogadores focarão em descanso e recuperação de condição em todos os dias.",
+    "effectiveFocus": "Foco",
     "trainingAppliedNote": "O treino é aplicado nos dias programados quando você avança o tempo. Dias de descanso proporcionam recuperação total.",
     "criticalCondition": "{{count}} jogador(es) em condição crítica (<25%)",
     "exhaustedPlayers": "{{count}} jogador(es) exausto(s) (<40%)",
@@ -334,24 +426,26 @@
       "sun": "Dom"
     },
     "groups": {
-      "trainingGroups": "Training Groups",
-      "trainingGroupsDesc": "Assign players to groups with different training focuses. Ungrouped players use the team default.",
-      "addGroup": "Add Group",
-      "groupName": "Group Name",
-      "groupFocus": "Focus",
-      "removeGroup": "Remove Group",
-      "ungrouped": "Ungrouped",
-      "noGroups": "No training groups created. All players train with the team default focus.",
-      "assignPlayer": "Assign to group",
-      "removePlayer": "Remove from group",
-      "playerCount": "{{count}} player(s)",
-      "maxGroups": "Maximum 5 training groups allowed.",
+      "trainingGroups": "Grupos de Treino",
+      "trainingGroupsDesc": "Atribua jogadores a grupos com diferentes focos de treino. Jogadores sem grupo usam o foco padrão do time.",
+      "addGroup": "Adicionar Grupo",
+      "groupName": "Nome do Grupo",
+      "groupFocus": "Foco",
+      "removeGroup": "Remover Grupo",
+      "ungrouped": "Sem Grupo",
+      "noGroups": "Nenhum grupo de treino criado. Adicione um grupo e atribua jogadores para personalizar o treino.",
+      "group": "Grupo",
+      "teamDefault": "Padrão do Time",
+      "assignPlayer": "Atribuir ao grupo",
+      "removePlayer": "Remover do grupo",
+      "playerCount": "{{count}} jogador(es)",
+      "maxGroups": "Máximo de 5 grupos de treino permitidos.",
       "defaultGroupNames": {
-        "0": "Defenders",
-        "1": "Midfielders",
-        "2": "Attackers",
-        "3": "Youth",
-        "4": "Recovery"
+        "0": "Zagueiros",
+        "1": "Meio-campistas",
+        "2": "Atacantes",
+        "3": "Base",
+        "4": "Recuperação"
       }
     }
   },
@@ -467,7 +561,15 @@
     "transfer": "Transferência",
     "loan": "Empréstimo",
     "none": "Nenhuma",
-    "listed": "Listados"
+    "listed": "Listados",
+    "makeBid": "Fazer Proposta",
+    "playerValue": "Valor do Jogador",
+    "bidAmount": "Valor da Proposta",
+    "bidAccepted": "Proposta aceita!",
+    "bidRejected": "Proposta rejeitada.",
+    "submitting": "Enviando...",
+    "submitBid": "Enviar Proposta",
+    "close": "Fechar"
   },
   "schedule": {
     "noSchedule": "Nenhum calendário de liga disponível.",
@@ -483,7 +585,8 @@
     "allTeams": "Todos os Times",
     "nPlayersFound": "{{count}} jogador(es) encontrado(s)",
     "noMatch": "Nenhum jogador corresponde aos seus filtros.",
-    "showingFirst": "Mostrando os primeiros {{shown}} de {{total}} jogadores. Refine sua busca para ver mais."
+    "showingFirst": "Mostrando os primeiros {{shown}} de {{total}} jogadores. Refine sua busca para ver mais.",
+    "showingRange": "{{from}}–{{to}} de {{total}}"
   },
   "teams": {
     "yourTeam": "Seu Time",
@@ -611,7 +714,15 @@
       "slow": "Lento",
       "normal": "Normal",
       "fast": "Rápido"
-    }
+    },
+    "uiScale": "Escala da Interface",
+    "uiScaleDesc": "Ajuste o tamanho da fonte e espaçamento para melhor leitura",
+    "highContrast": "Alto Contraste",
+    "highContrastDesc": "Aumentar contraste do texto no modo escuro para melhor leitura",
+    "fullscreen": "Tela Cheia",
+    "fullscreenDesc": "Ativar modo tela cheia para uma experiência imersiva",
+    "enterFullscreen": "Entrar",
+    "exitFullscreen": "Sair"
   },
   "preMatch": {
     "formationFit": "Ajuste da Formação",
@@ -635,6 +746,173 @@
     "fit": "FIT",
     "keyStats": "Estatísticas-Chave"
   },
+  "match": {
+    "live": "Ao Vivo",
+    "paused": "Pausado",
+    "events": "Eventos",
+    "stats": "Estatísticas",
+    "lineups": "Escalações",
+    "simSpeed": "Velocidade de Simulação",
+    "pause": "Pausa",
+    "slow": "Lento",
+    "normal": "Normal",
+    "fast": "Rápido",
+    "max": "Máx",
+    "step1Min": "Avançar 1 Minuto",
+    "teamControls": "Controles do Time",
+    "subs": "Substituições",
+    "formation": "Formação",
+    "playStyle": "Estilo de Jogo",
+    "keyEvents": "Eventos-Chave",
+    "noEventsYet": "A partida ainda não começou.",
+    "waitingKickoff": "Aguardando o pontapé inicial...",
+    "assist": "assistência: {{name}}",
+    "subFor": "por {{name}}",
+    "possession": "Posse de Bola",
+    "shots": "Finalizações",
+    "shotsOnTarget": "Finalizações no Gol",
+    "fouls": "Faltas",
+    "corners": "Escanteios",
+    "yellowCards": "Cartões Amarelos",
+    "bench": "Banco",
+    "substitutions": "Substituições",
+    "substitutionsTitle": "Substituições",
+    "subsUsed": "{{used}}/{{max}} usadas",
+    "allSubsUsed": "Todas as substituições usadas",
+    "selectPlayerOff": "Selecione um jogador para substituir",
+    "takingOff": "Saindo: {{name}}",
+    "selectReplacement": "Selecione o substituto do banco",
+    "benchPlayers": "Jogadores no banco",
+    "noBenchAvailable": "Nenhum jogador no banco disponível",
+    "history": "Histórico",
+    "player": "Jogador",
+    "fitness": "Condição",
+    "halfTime": "Intervalo",
+    "ht": "INT",
+    "fullTime": "Fim de Jogo",
+    "ft": "FJ",
+    "firstHalfEvents": "Eventos do 1º Tempo",
+    "noMajorEvents": "Sem eventos importantes.",
+    "teamTalk": "Preleção",
+    "teamTalkPrompt": "Escolha como se dirigir ao time no intervalo.",
+    "deliverTeamTalk": "Fazer Preleção",
+    "delivered": "Feito",
+    "spectatorMode": "Modo Espectador",
+    "spectatorHT": "Ambos os treinadores estão conversando com seus times no vestiário.",
+    "makeSubstitution": "Fazer Substituição",
+    "waitingSecondHalf": "Aguardando o 2º tempo...",
+    "makeChanges": "Faça suas alterações e retome a partida.",
+    "resumeMatch": "Retomar Partida",
+    "victory": "Vitória",
+    "defeat": "Derrota",
+    "draw": "Empate",
+    "matchEvents": "Eventos da Partida",
+    "quietMatch": "Uma partida tranquila.",
+    "quickStats": "Estatísticas Rápidas",
+    "postMatchTeamTalk": "Preleção Pós-Jogo",
+    "addressPlayers": "Fale com seus jogadores após a partida.",
+    "matchOver": "Partida Encerrada",
+    "ratings": "Notas do {{team}}",
+    "motm": "Melhor em Campo",
+    "scorers": "Artilheiros",
+    "noGoals": "Nenhum gol marcado.",
+    "matchComplete": "Partida encerrada.",
+    "addressPress": "Fale com a imprensa ou volte ao painel.",
+    "skip": "Pular",
+    "pressConference": "Coletiva de Imprensa",
+    "pressSubtitle": "Coletiva pós-jogo — {{team}}",
+    "skipConference": "Pular Coletiva →",
+    "submitting": "Enviando...",
+    "leaveConference": "Encerrar Coletiva",
+    "nextQuestion": "Próxima Pergunta",
+    "pen": "PÊN",
+    "home": "Casa",
+    "away": "Fora",
+    "matchDay": "Dia de Jogo",
+    "preMatchPrep": "Preparação Pré-Jogo",
+    "startingLineup": "Escalação Titular",
+    "setPiecesCaptain": "Bola Parada e Capitão",
+    "formationFit": "Ajuste da Formação",
+    "selecting": "Selecionando...",
+    "autoSelectXI": "Selecionar Melhores Titulares",
+    "startingXI": "Titulares",
+    "cancel": "Cancelar",
+    "nPlayers": "{{count}} jogadores",
+    "swapPrompt": "Selecione um jogador do banco para a troca",
+    "substitutes": "Reservas",
+    "nAvailable": "{{count}} disponíveis",
+    "noBenchAvailable2": "Nenhum reserva disponível.",
+    "opponent": "Adversário",
+    "autoSelectTakers": "Selecionar Melhores Cobradores",
+    "captain": "Capitão",
+    "penaltyTaker": "Cobrador de Pênalti",
+    "freeKickTaker": "Cobrador de Falta",
+    "cornerTaker": "Cobrador de Escanteio",
+    "startMatch": "Iniciar Partida",
+    "notAssigned": "Não atribuído",
+    "keyStats": "Estatísticas-Chave",
+    "continueDashboard": "Continuar para o Painel"
+  },
+  "endOfSeason": {
+    "seasonComplete": "Temporada Encerrada",
+    "champions": "Campeões!",
+    "position": "Posição",
+    "points": "Pontos",
+    "finalStandings": "Classificação Final (Top 5)",
+    "leagueChampions": "Campeões da Liga",
+    "startNextSeason": "Iniciar Próxima Temporada",
+    "processing": "Processando...",
+    "statsArchived": "As estatísticas dos jogadores serão arquivadas. Um novo calendário será gerado.",
+    "newSeason": "Temporada {{n}}",
+    "newScheduleReleased": "O novo calendário foi divulgado. Boa sorte!",
+    "goldenBoot": "Artilheiro",
+    "nGoals": "{{count}} gols",
+    "playerOfYear": "Jogador do Ano",
+    "avgRating": "Nota média: {{rating}}",
+    "continueDashboard": "Continuar para o Painel"
+  },
+  "squadCompare": {
+    "compare": "Comparar",
+    "selectPlayerA": "Selecionar Jogador A",
+    "selectPlayerB": "Selecionar Jogador B",
+    "vsLabel": "vs",
+    "clearSelection": "Limpar Seleção",
+    "noPlayersSelected": "Selecione dois jogadores para comparar",
+    "seasonStats": "Estatísticas da Temporada",
+    "apps": "Jogos",
+    "goals": "Gols",
+    "assists": "Assistências",
+    "avgRating": "Nota Média"
+  },
+  "scouting": {
+    "title": "Central de Observação",
+    "scouts": "Olheiros",
+    "activeAssignments": "Tarefas Ativas",
+    "freeSlots": "Olheiros Livres",
+    "activeScoutingAssignments": "Tarefas de Observação Ativas",
+    "yourScouts": "Seus Olheiros",
+    "slots": "vagas",
+    "judgingAbility": "Avaliar Habilidade",
+    "judgingPotential": "Avaliar Potencial",
+    "scoutingPlayer": "Observando: <strong>{{name}}</strong> — {{days}}d restantes",
+    "scoutLabel": "Olheiro: {{name}}",
+    "daysLeft": "{{days}} dias restantes",
+    "noScouts": "Você ainda não tem olheiros.",
+    "noScoutsHint": "Contrate um olheiro pela página de Staff para começar a avaliar jogadores.",
+    "findPlayers": "Encontrar Jogadores para Observar",
+    "searchPlaceholder": "Buscar por nome, nacionalidade ou time...",
+    "player": "Jogador",
+    "pos": "Pos",
+    "age": "Idade",
+    "team": "Time",
+    "value": "Valor",
+    "action": "Ação",
+    "scoutingInProgress": "Observando...",
+    "noScoutsFree": "Sem olheiros livres",
+    "scoutBtn": "Observar",
+    "noPlayersFound": "Nenhum jogador encontrado com sua busca.",
+    "showingRange": "Mostrando {{from}}–{{to}} de {{total}}"
+  },
   "be": {
     "sender": {
       "boardOfDirectors": "Diretoria",
@@ -642,13 +920,13 @@
       "assistantManager": "Auxiliar Técnico",
       "matchReporter": "Repórter Esportivo",
       "headPhysio": "Fisioterapeuta Chefe",
-      "commercialDirector": "Commercial Director",
-      "communityManager": "Community Manager",
-      "directorOfFootball": "Director of Football",
-      "intlLiaison": "International Liaison",
-      "player": "Player",
-      "pressOfficer": "Press Officer",
-      "scout": "Scout"
+      "commercialDirector": "Diretor Comercial",
+      "communityManager": "Gerente Comunitário",
+      "directorOfFootball": "Diretor de Futebol",
+      "intlLiaison": "Relações Internacionais",
+      "player": "Jogador",
+      "pressOfficer": "Assessor de Imprensa",
+      "scout": "Olheiro"
     },
     "role": {
       "chairman": "Presidente",
@@ -656,12 +934,12 @@
       "assistantManager": "Auxiliar Técnico",
       "pressOfficer": "Assessor de Imprensa",
       "headPhysio": "Fisioterapeuta Chefe",
-      "commercialDirector": "Commercial Director",
-      "communityManager": "Community Manager",
-      "directorOfFootball": "Director of Football",
-      "intlLiaison": "International Liaison",
-      "player": "Player",
-      "scout": "Scout"
+      "commercialDirector": "Diretor Comercial",
+      "communityManager": "Gerente Comunitário",
+      "directorOfFootball": "Diretor de Futebol",
+      "intlLiaison": "Relações Internacionais",
+      "player": "Jogador",
+      "scout": "Olheiro"
     },
     "source": {
       "sportsGazette": "Gazeta Esportiva",
@@ -739,86 +1017,86 @@
         "actionAdjust": "Ajustar Treino"
       },
       "event": {
-        "ack": "Understood",
-        "respond": "Respond"
+        "ack": "Entendido",
+        "respond": "Responder"
       },
       "playerEvent": {
-        "respond": "Respond"
+        "respond": "Responder"
       },
       "sponsor": {
-        "subject": "Sponsorship Offer — {{sponsor}}",
-        "body": "Good news, boss! {{sponsor}} has expressed interest in becoming a sponsor of {{team}}.\n\nThey are offering a one-time payment of €{{amount}} in exchange for advertising space at the training ground.\n\nThis seems like a reasonable deal, but it is your call."
+        "subject": "Oferta de Patrocínio — {{sponsor}}",
+        "body": "Boas notícias, chefe! {{sponsor}} demonstrou interesse em se tornar patrocinador do {{team}}.\n\nEles estão oferecendo um pagamento único de €{{amount}} em troca de espaço publicitário no centro de treinamento.\n\nParece um bom negócio, mas a decisão é sua."
       },
       "trainingInjury": {
-        "subject": "Injury — {{player}} ({{injury}})",
-        "body0": "Bad news from the training ground. {{player}} has picked up a {{injury}} during today's session.\n\nThe medical team estimates {{days}} days on the sidelines. We'll monitor the recovery closely.",
-        "body1": "Unfortunately, {{player}} went down in training today with a {{injury}}.\n\nInitial assessment: out for approximately {{days}} days. We'll keep you updated on their progress."
+        "subject": "Lesão — {{player}} ({{injury}})",
+        "body0": "Más notícias do treino. {{player}} sofreu uma {{injury}} durante a sessão de hoje.\n\nA equipe médica estima {{days}} dias afastado. Vamos acompanhar a recuperação de perto.",
+        "body1": "Infelizmente, {{player}} caiu no treino hoje com uma {{injury}}.\n\nAvaliação inicial: fora por aproximadamente {{days}} dias. Manteremos você informado sobre o progresso."
       },
       "mediaPositive": {
-        "subject": "Positive Press — {{player}}",
-        "body": "The local papers are running a very positive piece on {{player}} today.\n\nThey are highlighting their excellent recent form and commitment to {{team}}. This kind of coverage is great for the player's confidence and the club's image."
+        "subject": "Imprensa Positiva — {{player}}",
+        "body": "Os jornais locais estão publicando uma matéria muito positiva sobre {{player}} hoje.\n\nEles destacam a excelente forma recente e o comprometimento com o {{team}}. Esse tipo de cobertura é ótimo para a confiança do jogador e a imagem do clube."
       },
       "mediaNegative": {
-        "subject": "Negative Press — {{player}}",
-        "body": "Some unflattering coverage of {{player}} appeared in the tabloids today.\n\nJournalists are questioning their form and commitment to {{team}}. This could affect the player's morale — you might want to have a word."
+        "subject": "Imprensa Negativa — {{player}}",
+        "body": "Algumas matérias desfavoráveis sobre {{player}} apareceram nos tabloides hoje.\n\nJornalistas estão questionando sua forma e comprometimento com o {{team}}. Isso pode afetar a moral do jogador — talvez seja bom ter uma conversa."
       },
       "intlCallup": {
-        "subject": "International Call-Up — {{player}}",
-        "body": "{{player}} has been called up to the {{nationality}} national team for an upcoming international window.\n\nThis is a great honor for the player and reflects well on the club. They'll be in good spirits when they return, though keep an eye on their fatigue levels."
+        "subject": "Convocação Internacional — {{player}}",
+        "body": "{{player}} foi convocado para a seleção {{nationality}} para a próxima data FIFA.\n\nÉ uma grande honra para o jogador e reflete bem no clube. Ele estará de bom humor quando voltar, mas fique de olho nos níveis de fadiga."
       },
       "community": {
-        "subject0": "Community Open Day",
-        "subject1": "Youth Coaching Session",
-        "subject2": "Charity Match Announcement",
-        "body0": "{{team}} hosted a community open day at the training ground today.\n\nFans got to meet the players and watch a training session. The atmosphere was fantastic and it's done wonders for team spirit.",
-        "body1": "Several first-team players from {{team}} volunteered for a youth coaching session at a local school.\n\nGreat PR for the club, and the players seem energized by the experience.",
-        "body2": "The club has organized a charity initiative in partnership with a local foundation.\n\n{{team}} continues to build strong ties with the community. The board is pleased with the positive image."
+        "subject0": "Dia Aberto para a Comunidade",
+        "subject1": "Sessão de Treino com Jovens",
+        "subject2": "Anúncio de Evento Beneficente",
+        "body0": "O {{team}} realizou um dia aberto para a comunidade no centro de treinamento hoje.\n\nOs torcedores puderam conhecer os jogadores e assistir a uma sessão de treino. O clima foi fantástico e fez maravilhas pelo espírito de equipe.",
+        "body1": "Vários jogadores do time principal do {{team}} participaram de uma sessão de treino com jovens em uma escola local.\n\nÓtima PR para o clube, e os jogadores parecem energizados pela experiência.",
+        "body2": "O clube organizou uma iniciativa beneficente em parceria com uma fundação local.\n\nO {{team}} continua construindo laços fortes com a comunidade. A diretoria está satisfeita com a imagem positiva."
       },
       "moodReport": {
-        "subject": "Dressing Room Report — Mood: {{mood}}",
-        "body": "Here is your weekly dressing room report:\n\n• Overall mood: {{mood}} (avg morale: {{avgMorale}})\n• Players in high spirits (80+): {{highCount}}\n• Players with low morale (<40): {{lowCount}}\n• Total squad: {{total}}"
+        "subject": "Relatório do Vestiário — Humor: {{mood}}",
+        "body": "Aqui está seu relatório semanal do vestiário:\n\n• Humor geral: {{mood}} (moral média: {{avgMorale}})\n• Jogadores de alto astral (80+): {{highCount}}\n• Jogadores com moral baixa (<40): {{lowCount}}\n• Total do elenco: {{total}}"
       },
       "boardConfidence": {
-        "subject": "Board Meeting — Results Under Scrutiny",
-        "body0": "The board has called an urgent meeting. Three consecutive defeats have raised serious concerns about the team's direction.\n\n\"We need to see improvement quickly. The fans are restless and results must change.\"\n\nHow do you respond?",
-        "body1": "After a string of poor results, the chairman has summoned you for a difficult conversation.\n\n\"We backed you with resources and time. The results simply aren't good enough. What's your plan?\"\n\nChoose your response carefully."
+        "subject": "Reunião da Diretoria — Resultados em Questão",
+        "body0": "A diretoria convocou uma reunião urgente. Três derrotas consecutivas levantaram sérias preocupações sobre a direção do time.\n\n\"Precisamos ver melhora rápido. Os torcedores estão inquietos e os resultados precisam mudar.\"\n\nComo você responde?",
+        "body1": "Após uma sequência de maus resultados, o presidente o chamou para uma conversa difícil.\n\n\"Demos recursos e tempo a você. Os resultados simplesmente não são bons o suficiente. Qual é o seu plano?\"\n\nEscolha sua resposta com cuidado."
       },
       "fanPetition": {
-        "subject0": "Fan Petition — More Attacking Football",
-        "subject1": "Fan Petition — Give Youth a Chance",
-        "subject2": "Fan Open Letter — Transparency",
-        "body0": "A group of {{team}} supporters has organized a petition calling for more attacking football.\n\n\"We pay good money to watch exciting football. We want to see the team go forward and entertain us!\"\n\nOver 500 signatures so far. How do you respond?",
-        "body1": "Supporters of {{team}} have started a campaign urging you to give more opportunities to young players from the academy.\n\n\"The future of our club depends on developing homegrown talent. Stop overlooking the kids!\"\n\nIt's getting traction on social media. What's your response?",
-        "body2": "An open letter from the {{team}} Supporters Trust has been published, asking for more transparency from the management.\n\n\"We want to understand the club's vision. Where are we heading? What's the long-term plan?\"\n\nThe local press is covering it. How do you handle this?"
+        "subject0": "Petição da Torcida — Futebol Mais Ofensivo",
+        "subject1": "Petição da Torcida — Chance para os Jovens",
+        "subject2": "Carta Aberta da Torcida — Transparência",
+        "body0": "Um grupo de torcedores do {{team}} organizou uma petição pedindo futebol mais ofensivo.\n\n\"Pagamos caro para assistir futebol emocionante. Queremos ver o time atacar e nos entreter!\"\n\nMais de 500 assinaturas até agora. Como você responde?",
+        "body1": "Torcedores do {{team}} iniciaram uma campanha pedindo que você dê mais oportunidades aos jovens da base.\n\n\"O futuro do nosso clube depende de desenvolver talentos da casa. Parem de ignorar os garotos!\"\n\nEstá ganhando tração nas redes sociais. Qual é a sua resposta?",
+        "body2": "Uma carta aberta da Associação de Torcedores do {{team}} foi publicada, pedindo mais transparência da direção.\n\n\"Queremos entender a visão do clube. Para onde estamos indo? Qual é o plano a longo prazo?\"\n\nA imprensa local está cobrindo. Como você lida com isso?"
       },
       "rivalInterest": {
-        "subject": "Transfer Rumour — {{player}} linked with {{rival}}",
-        "body0": "We've received word that {{rival}} have been making enquiries about {{player}}.\n\nTheir scouts were spotted at our last few matches, and our sources suggest they may approach with a formal offer soon.\n\nHow would you like us to respond if they make contact?",
-        "body1": "The press are reporting that {{player}} is a target for {{rival}}.\n\nAccording to sources, the player has attracted attention after their recent performances. No formal bid yet, but it's only a matter of time.\n\nWhat's your stance?"
+        "subject": "Rumor de Transferência — {{player}} ligado ao {{rival}}",
+        "body0": "Recebemos informações de que o {{rival}} está fazendo consultas sobre {{player}}.\n\nSeus olheiros foram vistos nos nossos últimos jogos, e nossas fontes sugerem que podem fazer uma proposta formal em breve.\n\nComo gostaria que respondêssemos caso entrem em contato?",
+        "body1": "A imprensa está noticiando que {{player}} é alvo do {{rival}}.\n\nSegundo fontes, o jogador atraiu atenção após suas atuações recentes. Nenhuma proposta formal ainda, mas é questão de tempo.\n\nQual é a sua posição?"
       },
       "moraleCrisis": {
-        "subject": "{{player}} — Morale Crisis",
-        "body0": "Boss, {{player}} has asked for a private meeting. They seem really down lately and want to talk about their situation at the club.\n\nTheir morale is at {{morale}} — you should address this before it affects the dressing room.",
-        "body1": "{{player}} has been looking dejected in training. They've requested a chat with you about their current state of mind.\n\nMorale: {{morale}}. How you handle this could make or break their confidence."
+        "subject": "{{player}} — Crise de Moral",
+        "body0": "Chefe, {{player}} pediu uma reunião particular. Ele parece muito abatido ultimamente e quer conversar sobre sua situação no clube.\n\nSua moral está em {{morale}} — você deveria resolver isso antes que afete o vestiário.",
+        "body1": "{{player}} tem parecido desanimado nos treinos. Ele pediu para conversar com você sobre seu estado de ánimo.\n\nMoral: {{morale}}. Como você lidar com isso pode fazer ou acabar com a confiança dele."
       },
       "benchComplaint": {
-        "subject": "{{player}} — Wants More Game Time",
-        "body0": "Boss, {{player}} has come to see you. They're frustrated about their lack of game time in recent matches and want to know what they need to do to get back in the team.\n\n\"I feel like I've been training well, but I'm not getting a chance to show it on the pitch.\"",
-        "body1": "{{player}} knocked on your office door looking unhappy. They haven't featured in the last few matches and want answers.\n\n\"I came to this club to play football. If I'm not in your plans, I'd rather you tell me straight.\""
+        "subject": "{{player}} — Quer Mais Tempo de Jogo",
+        "body0": "Chefe, {{player}} veio falar com você. Ele está frustrado com a falta de tempo de jogo nas últimas partidas e quer saber o que precisa fazer para voltar ao time.\n\n\"Sinto que estou treinando bem, mas não estou tendo chance de mostrar isso em campo.\"",
+        "body1": "{{player}} bateu na porta do seu escritório parecendo infeliz. Ele não atuou nas últimas partidas e quer respostas.\n\n\"Vim para este clube para jogar futebol. Se não estou nos seus planos, prefiro que me diga logo.\""
       },
       "happyPlayer": {
-        "subject": "{{player}} — Feeling Great",
-        "body0": "{{player}} stopped by your office with a big smile. They're feeling great about their form and the team's direction.\n\n\"Just wanted to say I'm really enjoying my football right now, boss. The mood in the dressing room is fantastic.\"",
-        "body1": "Your assistant mentions that {{player}} has been in excellent spirits lately. They approached you after training.\n\n\"Boss, I'm loving every minute here. Keep things going like this and I'll run through walls for you.\""
+        "subject": "{{player}} — Se Sentindo Ótimo",
+        "body0": "{{player}} passou pelo seu escritório com um grande sorriso. Ele está se sentindo ótimo com sua forma e a direção do time.\n\n\"Só queria dizer que estou curtindo muito meu futebol agora, chefe. O clima no vestiário está fantástico.\"",
+        "body1": "Seu assistente menciona que {{player}} tem estado de ótimo humor ultimamente. Ele te abordou após o treino.\n\n\"Chefe, estou adorando cada minuto aqui. Continue assim e eu corro até não poder mais por você.\""
       },
       "contractConcern": {
-        "subject": "{{player}} — Contract Running Down",
-        "body0": "{{player}} has approached you regarding their contract situation. With only {{days}} days remaining on their deal, they want to know where they stand.\n\n\"Boss, my contract is running down. I need to know if I'm part of your plans going forward or if I should start looking elsewhere.\"",
-        "body1": "Your assistant flags that {{player}}'s contract expires in roughly {{months}} month(s). The player has been asking around the dressing room about their future.\n\nIt might be wise to have a conversation before they become unsettled — or before other clubs start circling."
+        "subject": "{{player}} — Contrato Chegando ao Fim",
+        "body0": "{{player}} veio falar com você sobre a situação do contrato. Com apenas {{days}} dias restantes, ele quer saber qual é a posição dele.\n\n\"Chefe, meu contrato está acabando. Preciso saber se faço parte dos seus planos ou se devo começar a procurar outro lugar.\"",
+        "body1": "Seu assistente alerta que o contrato de {{player}} expira em aproximadamente {{months}} mês(es). O jogador tem perguntado no vestiário sobre seu futuro.\n\nPode ser prudente ter uma conversa antes que ele fique insatisfeito — ou antes que outros clubes comecem a circular."
       },
       "scoutReport": {
-        "subject": "Scout Report: {{player}}",
-        "body": "Your scout {{scout}} has completed their assessment of {{player}}. Full report available in the scouting section."
+        "subject": "Relatório de Observação: {{player}}",
+        "body": "Seu olheiro {{scout}} concluiu a avaliação de {{player}}. Relatório completo disponível na seção de observação."
       }
     },
     "news": {
@@ -862,6 +1140,88 @@
         "headline2": "O {{favourite}} Pode Conquistar o Título? Prévia da Temporada",
         "body": "A Primeira Divisão está pronta para começar com {{teamCount}} times disputando o título.\n\nAs previsões de pré-temporada apontam o {{favourite}} como favorito, mas o {{darkHorse}} pode ser a surpresa desta campanha.\n\nCom novos treinadores assumindo o comando em alguns clubes, esta temporada promete ser uma das mais competitivas da história recente. Cada ponto vai importar na corrida pelo título.\n\nTimes: {{teamList}}"
       }
+    }
+  },
+  "traits": {
+    "Speedster": {
+      "label": "Velocista",
+      "desc": "Velocidade excepcional"
+    },
+    "Tank": {
+      "label": "Tanque",
+      "desc": "Poderoso e incansável"
+    },
+    "Agile": {
+      "label": "Ágil",
+      "desc": "Rápido e habilidoso"
+    },
+    "Tireless": {
+      "label": "Incansável",
+      "desc": "Nunca fica sem energia"
+    },
+    "Playmaker": {
+      "label": "Armador",
+      "desc": "Passador criativo com visão"
+    },
+    "Sharpshooter": {
+      "label": "Artilheiro",
+      "desc": "Finalizador clínico"
+    },
+    "Dribbler": {
+      "label": "Driblador",
+      "desc": "Habilidoso com a bola"
+    },
+    "BallWinner": {
+      "label": "Recuperador",
+      "desc": "Recupera a bola incansavelmente"
+    },
+    "Rock": {
+      "label": "Rocha",
+      "desc": "Muralha defensiva inabalável"
+    },
+    "Leader": {
+      "label": "Líder",
+      "desc": "Inspira os companheiros"
+    },
+    "CoolHead": {
+      "label": "Cabeça Fria",
+      "desc": "Calmo sob pressão"
+    },
+    "Visionary": {
+      "label": "Visionário",
+      "desc": "Enxerga passes que ninguém vê"
+    },
+    "HotHead": {
+      "label": "Esquentado",
+      "desc": "Propenso a perder a calma"
+    },
+    "TeamPlayer": {
+      "label": "Jogador de Equipe",
+      "desc": "Sempre coloca o time em primeiro"
+    },
+    "SafeHands": {
+      "label": "Mãos Seguras",
+      "desc": "Goleiro confiável"
+    },
+    "CatReflexes": {
+      "label": "Reflexos de Gato",
+      "desc": "Reflexos ultra-rápidos"
+    },
+    "AerialDominance": {
+      "label": "Domínio Aéreo",
+      "desc": "Domina a área no jogo aéreo"
+    },
+    "CompleteForward": {
+      "label": "Atacante Completo",
+      "desc": "Perigoso de todas as formas"
+    },
+    "Engine": {
+      "label": "Motor",
+      "desc": "Potência área-a-área"
+    },
+    "SetPieceSpecialist": {
+      "label": "Espec. Bola Parada",
+      "desc": "Letal nas cobranças"
     }
   }
 }

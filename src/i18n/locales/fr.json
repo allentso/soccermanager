@@ -1,7 +1,7 @@
 {
   "app": {
     "name": "OpenFoot Manager",
-    "version": "v0.1.0-alpha"
+    "version": "v0.1.1-alpha"
   },
   "menu": {
     "newGame": "Nouvelle Partie",
@@ -84,7 +84,15 @@
     "delegateAssistant": "Déléguer à l'Assistant",
     "delegateAssistantDesc": "L'IA gère tout",
     "skipToMatchDay": "Avancer au Jour de Match",
-    "skipToMatchDayDesc": "Avancer jusqu'à votre prochain match"
+    "skipToMatchDayDesc": "Avancer jusqu'à votre prochain match",
+    "matchDayTitle": "Jour de Match",
+    "delegateWarning": "Votre assistant gérera le match. Vous ne pourrez pas intervenir."
+  },
+  "closeConfirm": {
+    "title": "Modifications non sauvegardées",
+    "message": "Vous avez des modifications non sauvegardées. Que souhaitez-vous faire ?",
+    "saveQuit": "Sauvegarder et Quitter",
+    "quitNoSave": "Quitter sans sauvegarder"
   },
   "exitConfirm": {
     "title": "Quitter vers le Menu Principal ?",
@@ -136,6 +144,9 @@
     "matchdayN": "Journée {{n}}",
     "met": "Atteint",
     "inProgress": "En Cours",
+    "boardObjectives": "Objectifs du Conseil",
+    "seasonComplete": "Saison terminée.",
+    "noLeagueSchedule": "Pas de données de ligue.",
     "objectivesMet": "{{done}}/{{total}} objectifs atteints — Satisfaction du conseil : {{pct}}%"
   },
   "teamSelect": {
@@ -313,7 +324,11 @@
     "playerCount": "{{count}} Joueurs",
     "noPlayers": "Aucun joueur trouvé dans votre effectif.",
     "pos": "Pos",
-    "traits": "Traits"
+    "traits": "Traits",
+    "fullRoster": "Effectif Complet",
+    "selected": "sélectionné(s)",
+    "playersLabel": "joueurs",
+    "noBench": "Aucun remplaçant."
   },
   "tactics": {
     "formationStyle": "Formation et Style",
@@ -337,6 +352,7 @@
     "aRestDay": "jour de repos",
     "currentlyTraining": "Entraînement actuel : <strong>{{attrs}}</strong> à intensité <strong>{{intensity}}</strong>.",
     "recoveryNote": "Les joueurs se concentreront sur le repos et la récupération tous les jours.",
+    "effectiveFocus": "Focus",
     "trainingAppliedNote": "L'entraînement est appliqué les jours programmés quand vous avancez le temps. Les jours de repos offrent une récupération totale.",
     "criticalCondition": "{{count}} joueur(s) en condition critique (<25%)",
     "exhaustedPlayers": "{{count}} joueur(s) épuisé(s) (<40%)",
@@ -410,24 +426,26 @@
       "sun": "Dim"
     },
     "groups": {
-      "trainingGroups": "Training Groups",
-      "trainingGroupsDesc": "Assign players to groups with different training focuses. Ungrouped players use the team default.",
-      "addGroup": "Add Group",
-      "groupName": "Group Name",
+      "trainingGroups": "Groupes d'Entraînement",
+      "trainingGroupsDesc": "Assignez des joueurs à des groupes avec différents axes d'entraînement. Les joueurs sans groupe utilisent le focus par défaut de l'équipe.",
+      "addGroup": "Ajouter un Groupe",
+      "groupName": "Nom du Groupe",
       "groupFocus": "Focus",
-      "removeGroup": "Remove Group",
-      "ungrouped": "Ungrouped",
-      "noGroups": "No training groups created. All players train with the team default focus.",
-      "assignPlayer": "Assign to group",
-      "removePlayer": "Remove from group",
-      "playerCount": "{{count}} player(s)",
-      "maxGroups": "Maximum 5 training groups allowed.",
+      "removeGroup": "Supprimer le Groupe",
+      "ungrouped": "Sans Groupe",
+      "noGroups": "Aucun groupe d'entraînement créé. Ajoutez un groupe et assignez des joueurs pour personnaliser leur entraînement.",
+      "group": "Groupe",
+      "teamDefault": "Par Défaut",
+      "assignPlayer": "Assigner au groupe",
+      "removePlayer": "Retirer du groupe",
+      "playerCount": "{{count}} joueur(s)",
+      "maxGroups": "Maximum 5 groupes d'entraînement autorisés.",
       "defaultGroupNames": {
-        "0": "Defenders",
-        "1": "Midfielders",
-        "2": "Attackers",
-        "3": "Youth",
-        "4": "Recovery"
+        "0": "Défenseurs",
+        "1": "Milieux",
+        "2": "Attaquants",
+        "3": "Jeunes",
+        "4": "Récupération"
       }
     }
   },
@@ -567,7 +585,8 @@
     "allTeams": "Toutes les Équipes",
     "nPlayersFound": "{{count}} joueur(s) trouvé(s)",
     "noMatch": "Aucun joueur ne correspond à vos filtres.",
-    "showingFirst": "Affichage des {{shown}} premiers sur {{total}} joueurs. Affinez votre recherche."
+    "showingFirst": "Affichage des {{shown}} premiers sur {{total}} joueurs. Affinez votre recherche.",
+    "showingRange": "{{from}}–{{to}} sur {{total}}"
   },
   "teams": {
     "yourTeam": "Votre Équipe",
@@ -753,6 +772,7 @@
     "noScoutsFree": "Aucun recruteur disponible",
     "scoutBtn": "Observer",
     "noPlayersFound": "Aucun joueur trouvé correspondant à votre recherche.",
+    "scoutingPlayer": "Observation : <strong>{{name}}</strong> — {{days}}j restants",
     "showingRange": "Affichage {{from}}–{{to}} sur {{total}}"
   },
   "match": {

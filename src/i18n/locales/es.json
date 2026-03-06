@@ -1,7 +1,7 @@
 {
   "app": {
     "name": "OpenFoot Manager",
-    "version": "v0.1.0-alpha"
+    "version": "v0.1.1-alpha"
   },
   "menu": {
     "newGame": "Nuevo Juego",
@@ -84,7 +84,15 @@
     "delegateAssistant": "Delegar al Asistente",
     "delegateAssistantDesc": "La IA lo maneja todo",
     "skipToMatchDay": "Saltar al Día de Partido",
-    "skipToMatchDayDesc": "Avanzar hasta tu próximo partido"
+    "skipToMatchDayDesc": "Avanzar hasta tu próximo partido",
+    "matchDayTitle": "Día de Partido",
+    "delegateWarning": "Tu asistente gestionará el partido. No podrás intervenir."
+  },
+  "closeConfirm": {
+    "title": "Cambios sin guardar",
+    "message": "Tienes cambios sin guardar. ¿Qué quieres hacer?",
+    "saveQuit": "Guardar y Salir",
+    "quitNoSave": "Salir sin guardar"
   },
   "exitConfirm": {
     "title": "¿Salir al Menú Principal?",
@@ -140,6 +148,45 @@
     "leaguePosition": "Posición en Liga",
     "standings": "Clasificación",
     "noLeague": "Sin datos de liga todavía."
+  },
+  "teamSelect": {
+    "title": "Elige Tu Club",
+    "subtitle": "Selecciona el equipo que quieres dirigir",
+    "confirming": "Confirmando...",
+    "manage": "Dirigir {{name}}",
+    "reputation": "Reputación",
+    "squad": "Plantilla",
+    "finances": "Finanzas",
+    "avgOvr": "Media OVR",
+    "seats": "{{name}} — {{capacity}} asientos",
+    "repWorldClass": "Clase Mundial",
+    "repStrong": "Fuerte",
+    "repAverage": "Medio",
+    "repDeveloping": "En Desarrollo"
+  },
+  "youthAcademy": {
+    "title": "Cantera",
+    "playersUnder21": "{{count}} jugadores ≤21",
+    "youthPlayers": "Jugadores Jóvenes",
+    "avgOvr": "Media OVR",
+    "avgPotential": "Media Potencial",
+    "highPotential": "Alto Potencial",
+    "youthCoach": "Entrenador de Cantera:",
+    "youthProspects": "Promesas de Cantera",
+    "noYouthPlayers": "No hay jugadores jóvenes (≤21) en tu plantilla.",
+    "player": "Jugador",
+    "pos": "Pos",
+    "age": "Edad",
+    "ovr": "OVR",
+    "potential": "Potencial",
+    "growth": "Crecimiento",
+    "traits": "Rasgos",
+    "condition": "Condición",
+    "potWorldClass": "Clase Mundial",
+    "potExcellent": "Excelente",
+    "potPromising": "Prometedor",
+    "potDecent": "Decente",
+    "potLimited": "Limitado"
   },
   "common": {
     "loading": "Cargando...",
@@ -277,7 +324,11 @@
     "playerCount": "{{count}} Jugadores",
     "noPlayers": "No se encontraron jugadores en tu plantilla.",
     "pos": "Pos",
-    "traits": "Rasgos"
+    "traits": "Rasgos",
+    "fullRoster": "Plantilla Completa",
+    "selected": "seleccionado(s)",
+    "playersLabel": "jugadores",
+    "noBench": "Sin suplentes."
   },
   "tactics": {
     "formationStyle": "Formación y Estilo",
@@ -301,6 +352,7 @@
     "aRestDay": "día de descanso",
     "currentlyTraining": "Entrenando: <strong>{{attrs}}</strong> con intensidad <strong>{{intensity}}</strong>.",
     "recoveryNote": "Los jugadores se centrarán en descanso y recuperación todos los días.",
+    "effectiveFocus": "Enfoque",
     "trainingAppliedNote": "El entrenamiento se aplica los días programados al avanzar el tiempo. Los días de descanso proporcionan recuperación total.",
     "criticalCondition": "{{count}} jugador(es) en condición crítica (<25%)",
     "exhaustedPlayers": "{{count}} jugador(es) agotado(s) (<40%)",
@@ -374,24 +426,26 @@
       "sun": "Dom"
     },
     "groups": {
-      "trainingGroups": "Training Groups",
-      "trainingGroupsDesc": "Assign players to groups with different training focuses. Ungrouped players use the team default.",
-      "addGroup": "Add Group",
-      "groupName": "Group Name",
-      "groupFocus": "Focus",
-      "removeGroup": "Remove Group",
-      "ungrouped": "Ungrouped",
-      "noGroups": "No training groups created. All players train with the team default focus.",
-      "assignPlayer": "Assign to group",
-      "removePlayer": "Remove from group",
-      "playerCount": "{{count}} player(s)",
-      "maxGroups": "Maximum 5 training groups allowed.",
+      "trainingGroups": "Grupos de Entrenamiento",
+      "trainingGroupsDesc": "Asigna jugadores a grupos con diferentes enfoques de entrenamiento. Los jugadores sin grupo usan el enfoque por defecto del equipo.",
+      "addGroup": "Añadir Grupo",
+      "groupName": "Nombre del Grupo",
+      "groupFocus": "Enfoque",
+      "removeGroup": "Eliminar Grupo",
+      "ungrouped": "Sin Grupo",
+      "noGroups": "No hay grupos de entrenamiento. Añade un grupo y asigna jugadores para personalizar su entrenamiento.",
+      "group": "Grupo",
+      "teamDefault": "Por Defecto",
+      "assignPlayer": "Asignar al grupo",
+      "removePlayer": "Quitar del grupo",
+      "playerCount": "{{count}} jugador(es)",
+      "maxGroups": "Máximo 5 grupos de entrenamiento permitidos.",
       "defaultGroupNames": {
-        "0": "Defenders",
-        "1": "Midfielders",
-        "2": "Attackers",
-        "3": "Youth",
-        "4": "Recovery"
+        "0": "Defensas",
+        "1": "Centrocampistas",
+        "2": "Delanteros",
+        "3": "Cantera",
+        "4": "Recuperación"
       }
     }
   },
@@ -531,7 +585,8 @@
     "allTeams": "Todos los Equipos",
     "nPlayersFound": "{{count}} jugador(es) encontrado(s)",
     "noMatch": "Ningún jugador coincide con tus filtros.",
-    "showingFirst": "Mostrando los primeros {{shown}} de {{total}} jugadores. Refina tu búsqueda para ver más."
+    "showingFirst": "Mostrando los primeros {{shown}} de {{total}} jugadores. Refina tu búsqueda para ver más.",
+    "showingRange": "{{from}}–{{to}} de {{total}}"
   },
   "teams": {
     "yourTeam": "Tu Equipo",
@@ -717,6 +772,7 @@
     "noScoutsFree": "Sin ojeadores libres",
     "scoutBtn": "Ojear",
     "noPlayersFound": "No se encontraron jugadores con tu búsqueda.",
+    "scoutingPlayer": "Ojeando: <strong>{{name}}</strong> — {{days}}d restantes",
     "showingRange": "Mostrando {{from}}–{{to}} de {{total}}"
   },
   "match": {
