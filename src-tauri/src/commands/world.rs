@@ -46,7 +46,7 @@ pub fn list_world_databases(
 /// Export the current world data to a JSON file so it can be shared/reused.
 #[tauri::command]
 pub fn export_world_database(
-    state: State<StateManager>,
+    state: State<'_, StateManager>,
     export_path: String,
 ) -> Result<String, String> {
     info!("[cmd] export_world_database: path={}", export_path);

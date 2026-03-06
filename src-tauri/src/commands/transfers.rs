@@ -5,7 +5,7 @@ use ofm_core::game::Game;
 use ofm_core::state::StateManager;
 
 #[tauri::command]
-pub fn toggle_transfer_list(state: State<StateManager>, player_id: String) -> Result<Game, String> {
+pub fn toggle_transfer_list(state: State<'_, StateManager>, player_id: String) -> Result<Game, String> {
     info!("[cmd] toggle_transfer_list: player_id={}", player_id);
     let mut game = state
         .get_game(|g| g.clone())
@@ -21,7 +21,7 @@ pub fn toggle_transfer_list(state: State<StateManager>, player_id: String) -> Re
 }
 
 #[tauri::command]
-pub fn toggle_loan_list(state: State<StateManager>, player_id: String) -> Result<Game, String> {
+pub fn toggle_loan_list(state: State<'_, StateManager>, player_id: String) -> Result<Game, String> {
     info!("[cmd] toggle_loan_list: player_id={}", player_id);
     let mut game = state
         .get_game(|g| g.clone())
@@ -38,7 +38,7 @@ pub fn toggle_loan_list(state: State<StateManager>, player_id: String) -> Result
 
 #[tauri::command]
 pub fn make_transfer_bid(
-    state: State<StateManager>,
+    state: State<'_, StateManager>,
     player_id: String,
     fee: u64,
 ) -> Result<serde_json::Value, String> {
@@ -61,7 +61,7 @@ pub fn make_transfer_bid(
 
 #[tauri::command]
 pub fn respond_to_offer(
-    state: State<StateManager>,
+    state: State<'_, StateManager>,
     player_id: String,
     offer_id: String,
     accept: bool,
@@ -81,7 +81,7 @@ pub fn respond_to_offer(
 
 #[tauri::command]
 pub fn send_scout(
-    state: State<StateManager>,
+    state: State<'_, StateManager>,
     scout_id: String,
     player_id: String,
 ) -> Result<Game, String> {

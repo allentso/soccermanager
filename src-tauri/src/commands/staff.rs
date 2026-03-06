@@ -5,7 +5,7 @@ use ofm_core::game::Game;
 use ofm_core::state::StateManager;
 
 #[tauri::command]
-pub fn hire_staff(state: State<StateManager>, staff_id: String) -> Result<Game, String> {
+pub fn hire_staff(state: State<'_, StateManager>, staff_id: String) -> Result<Game, String> {
     info!("[cmd] hire_staff: staff_id={}", staff_id);
     let mut game = state
         .get_game(|g| g.clone())
@@ -39,7 +39,7 @@ pub fn hire_staff(state: State<StateManager>, staff_id: String) -> Result<Game, 
 }
 
 #[tauri::command]
-pub fn release_staff(state: State<StateManager>, staff_id: String) -> Result<Game, String> {
+pub fn release_staff(state: State<'_, StateManager>, staff_id: String) -> Result<Game, String> {
     info!("[cmd] release_staff: staff_id={}", staff_id);
     let mut game = state
         .get_game(|g| g.clone())

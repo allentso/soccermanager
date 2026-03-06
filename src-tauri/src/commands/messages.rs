@@ -5,7 +5,7 @@ use ofm_core::game::Game;
 use ofm_core::state::StateManager;
 
 #[tauri::command]
-pub fn mark_message_read(state: State<StateManager>, message_id: String) -> Result<Game, String> {
+pub fn mark_message_read(state: State<'_, StateManager>, message_id: String) -> Result<Game, String> {
     log::debug!("[cmd] mark_message_read: {}", message_id);
     let mut game = state
         .get_game(|g| g.clone())
@@ -20,7 +20,7 @@ pub fn mark_message_read(state: State<StateManager>, message_id: String) -> Resu
 }
 
 #[tauri::command]
-pub fn mark_all_messages_read(state: State<StateManager>) -> Result<Game, String> {
+pub fn mark_all_messages_read(state: State<'_, StateManager>) -> Result<Game, String> {
     log::debug!("[cmd] mark_all_messages_read");
     let mut game = state
         .get_game(|g| g.clone())
@@ -35,7 +35,7 @@ pub fn mark_all_messages_read(state: State<StateManager>) -> Result<Game, String
 }
 
 #[tauri::command]
-pub fn clear_old_messages(state: State<StateManager>) -> Result<Game, String> {
+pub fn clear_old_messages(state: State<'_, StateManager>) -> Result<Game, String> {
     log::debug!("[cmd] clear_old_messages");
     let mut game = state
         .get_game(|g| g.clone())
@@ -65,7 +65,7 @@ pub fn clear_old_messages(state: State<StateManager>) -> Result<Game, String> {
 
 #[tauri::command]
 pub fn resolve_message_action(
-    state: State<StateManager>,
+    state: State<'_, StateManager>,
     message_id: String,
     action_id: String,
     option_id: Option<String>,

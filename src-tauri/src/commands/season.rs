@@ -4,7 +4,7 @@ use tauri::State;
 use ofm_core::state::StateManager;
 
 #[tauri::command]
-pub fn check_season_complete(state: State<StateManager>) -> Result<bool, String> {
+pub fn check_season_complete(state: State<'_, StateManager>) -> Result<bool, String> {
     log::debug!("[cmd] check_season_complete");
     let game = state
         .get_game(|g| g.clone())
@@ -13,7 +13,7 @@ pub fn check_season_complete(state: State<StateManager>) -> Result<bool, String>
 }
 
 #[tauri::command]
-pub fn advance_to_next_season(state: State<StateManager>) -> Result<serde_json::Value, String> {
+pub fn advance_to_next_season(state: State<'_, StateManager>) -> Result<serde_json::Value, String> {
     info!("[cmd] advance_to_next_season");
     let mut game = state
         .get_game(|g| g.clone())
@@ -33,7 +33,7 @@ pub fn advance_to_next_season(state: State<StateManager>) -> Result<serde_json::
 
 #[tauri::command]
 pub fn get_season_awards(
-    state: State<StateManager>,
+    state: State<'_, StateManager>,
 ) -> Result<ofm_core::season_awards::SeasonAwards, String> {
     log::debug!("[cmd] get_season_awards");
     let game = state

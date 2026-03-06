@@ -5,7 +5,7 @@ use ofm_core::game::Game;
 use ofm_core::state::StateManager;
 
 #[tauri::command]
-pub fn set_formation(state: State<StateManager>, formation: String) -> Result<Game, String> {
+pub fn set_formation(state: State<'_, StateManager>, formation: String) -> Result<Game, String> {
     info!("[cmd] set_formation: {}", formation);
     let mut game = state
         .get_game(|g| g.clone())
@@ -79,7 +79,7 @@ pub fn set_formation(state: State<StateManager>, formation: String) -> Result<Ga
 
 #[tauri::command]
 pub fn set_starting_xi(
-    state: State<StateManager>,
+    state: State<'_, StateManager>,
     player_ids: Vec<String>,
 ) -> Result<Game, String> {
     info!("[cmd] set_starting_xi: {} players", player_ids.len());
@@ -102,7 +102,7 @@ pub fn set_starting_xi(
 }
 
 #[tauri::command]
-pub fn set_play_style(state: State<StateManager>, play_style: String) -> Result<Game, String> {
+pub fn set_play_style(state: State<'_, StateManager>, play_style: String) -> Result<Game, String> {
     info!("[cmd] set_play_style: {}", play_style);
     let mut game = state
         .get_game(|g| g.clone())
@@ -133,7 +133,7 @@ pub fn set_play_style(state: State<StateManager>, play_style: String) -> Result<
 
 #[tauri::command]
 pub fn set_training(
-    state: State<StateManager>,
+    state: State<'_, StateManager>,
     focus: String,
     intensity: String,
 ) -> Result<Game, String> {
@@ -178,7 +178,7 @@ pub fn set_training(
 }
 
 #[tauri::command]
-pub fn set_training_schedule(state: State<StateManager>, schedule: String) -> Result<Game, String> {
+pub fn set_training_schedule(state: State<'_, StateManager>, schedule: String) -> Result<Game, String> {
     info!("[cmd] set_training_schedule: {}", schedule);
     let mut game = state
         .get_game(|g| g.clone())
@@ -207,7 +207,7 @@ pub fn set_training_schedule(state: State<StateManager>, schedule: String) -> Re
 
 #[tauri::command]
 pub fn set_training_groups(
-    state: State<StateManager>,
+    state: State<'_, StateManager>,
     groups: Vec<domain::team::TrainingGroup>,
 ) -> Result<Game, String> {
     info!("[cmd] set_training_groups: {} groups", groups.len());
@@ -231,7 +231,7 @@ pub fn set_training_groups(
 
 #[tauri::command]
 pub fn set_player_training_focus(
-    state: State<StateManager>,
+    state: State<'_, StateManager>,
     player_id: String,
     focus: Option<String>,
 ) -> Result<Game, String> {
@@ -265,7 +265,7 @@ pub fn set_player_training_focus(
 
 #[tauri::command]
 pub fn auto_select_set_pieces(
-    state: State<StateManager>,
+    state: State<'_, StateManager>,
     player_ids: Vec<String>,
 ) -> Result<serde_json::Value, String> {
     log::debug!("[cmd] auto_select_set_pieces: {} players", player_ids.len());

@@ -6,7 +6,7 @@ use ofm_core::live_match_manager::{self, MatchMode};
 use ofm_core::state::StateManager;
 
 #[tauri::command]
-pub fn advance_time(state: State<StateManager>) -> Result<Game, String> {
+pub fn advance_time(state: State<'_, StateManager>) -> Result<Game, String> {
     let mut current_game = state
         .get_game(|g| g.clone())
         .ok_or("No active game session".to_string())?;
@@ -92,7 +92,7 @@ pub fn compute_blocking_actions(game: &Game) -> Vec<serde_json::Value> {
 /// Check for blocking actions that should be resolved before advancing.
 /// Returns a JSON array of blocking issues.
 #[tauri::command]
-pub fn check_blocking_actions(state: State<StateManager>) -> Result<serde_json::Value, String> {
+pub fn check_blocking_actions(state: State<'_, StateManager>) -> Result<serde_json::Value, String> {
     log::debug!("[cmd] check_blocking_actions");
     let game = state
         .get_game(|g| g.clone())
@@ -106,7 +106,7 @@ pub fn check_blocking_actions(state: State<StateManager>) -> Result<serde_json::
 /// Processes each intermediate day normally (training, recovery, messages).
 /// If blocking actions arise mid-skip, stops early and returns a "blocked" reason.
 #[tauri::command]
-pub fn skip_to_match_day(state: State<StateManager>) -> Result<serde_json::Value, String> {
+pub fn skip_to_match_day(state: State<'_, StateManager>) -> Result<serde_json::Value, String> {
     info!("[cmd] skip_to_match_day");
     let mut game = state
         .get_game(|g| g.clone())
@@ -172,7 +172,7 @@ pub fn skip_to_match_day(state: State<StateManager>) -> Result<serde_json::Value
 /// it sets up the live match session instead of auto-simulating.
 #[tauri::command]
 pub fn advance_time_with_mode(
-    state: State<StateManager>,
+    state: State<'_, StateManager>,
     mode: String,
 ) -> Result<serde_json::Value, String> {
     info!("[cmd] advance_time_with_mode: mode={}", mode);
