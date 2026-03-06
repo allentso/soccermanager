@@ -138,10 +138,12 @@ pub fn process_training(game: &mut Game, weekday_num: u32) {
                 continue;
             }
 
-            // Determine this player's effective focus
-            let player_focus = plan
-                .group_overrides
-                .get(&player.id)
+            // Determine this player's effective focus:
+            // player override > group override > team default
+            let player_focus = player
+                .training_focus
+                .as_ref()
+                .or_else(|| plan.group_overrides.get(&player.id))
                 .unwrap_or(&plan.default_focus);
 
             // On rest days or Recovery focus: no training cost

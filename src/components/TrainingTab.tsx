@@ -422,6 +422,22 @@ function TrainingGroupsCard({ gameState, onGameUpdate, roster, isSaving, setIsSa
     saveGroups(groups.map(g => g.id === groupId ? { ...g, name } : g));
   };
 
+  // Set individual player training focus override (or clear it)
+  const setPlayerFocus = async (playerId: string, focus: string) => {
+    setIsSaving(true);
+    try {
+      const updated = await invoke<GameStateData>("set_player_training_focus", {
+        playerId,
+        focus: focus || null,
+      });
+      onGameUpdate?.(updated);
+    } catch (err) {
+      console.error("Failed to set player training focus:", err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   // Assign player to a group (or remove from all groups if groupId is "")
   const setPlayerGroup = (playerId: string, groupId: string) => {
     // Remove from any current group
@@ -533,7 +549,8 @@ function TrainingGroupsCard({ gameState, onGameUpdate, roster, isSaving, setIsSa
               <tbody className="divide-y divide-gray-100 dark:divide-navy-600">
                 {sortedRoster.map(p => {
                   const pg = playerGroupMap.get(p.id);
-                  const effectiveFocus = pg ? pg.focus : teamFocus;
+                  const hasIndividualFocus = !!p.training_focus;
+                  const effectiveFocus = p.training_focus || (pg ? pg.focus : teamFocus);
                   return (
                     <tr key={p.id} className="hover:bg-gray-50 dark:hover:bg-navy-700/30 transition-colors">
                       <td className="py-1.5 px-3 text-sm font-medium text-gray-800 dark:text-gray-200 truncate max-w-[160px]">{p.match_name}</td>
@@ -552,9 +569,21 @@ function TrainingGroupsCard({ gameState, onGameUpdate, roster, isSaving, setIsSa
                         </select>
                       </td>
                       <td className="py-1.5 px-3">
-                        <span className={`text-xs font-heading font-bold uppercase tracking-wider ${pg ? 'text-primary-600 dark:text-primary-400' : 'text-gray-400 dark:text-gray-500'}`}>
-                          {t(`training.focuses.${effectiveFocus}.label`)}
-                        </span>
+                        <select
+                          value={p.training_focus || ""}
+                          onChange={e => setPlayerFocus(p.id, e.target.value)}
+                          disabled={isSaving}
+                          className={`text-xs border rounded px-1.5 py-0.5 outline-none w-full max-w-[110px] ${
+                            hasIndividualFocus
+                              ? 'bg-primary-50 dark:bg-primary-500/10 border-primary-300 dark:border-primary-500/40 text-primary-700 dark:text-primary-300 font-bold'
+                              : 'bg-gray-50 dark:bg-navy-700 border-gray-200 dark:border-navy-600 text-gray-400 dark:text-gray-500'
+                          }`}
+                        >
+                          <option value="">{t(`training.focuses.${effectiveFocus}.label`)} ↩</option>
+                          {TRAINING_FOCUS_IDS.map(fId => (
+                            <option key={fId} value={fId}>{t(`training.focuses.${fId}.label`)}</option>
+                          ))}
+                        </select>
                       </td>
                     </tr>
                   );

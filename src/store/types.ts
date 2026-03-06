@@ -70,6 +70,7 @@ export interface PlayerData {
   position: string;
   natural_position: string;
   alternate_positions: string[];
+  training_focus: string | null;
   attributes: {
     pace: number;
     stamina: number;

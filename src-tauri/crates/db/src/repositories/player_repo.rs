@@ -1,4 +1,5 @@
 use domain::player::{Player, PlayerAttributes, Position};
+use domain::team::TrainingFocus;
 use rusqlite::{Connection, params};
 
 /// Insert or replace a player row.
@@ -18,6 +19,7 @@ pub fn upsert_player(conn: &Connection, p: &Player) -> Result<(), String> {
     let natural_position_str = format!("{:?}", p.natural_position);
     let alt_positions_json =
         serde_json::to_string(&p.alternate_positions).map_err(|e| format!("JSON error: {}", e))?;
+    let training_focus_str: Option<String> = p.training_focus.as_ref().map(|f| format!("{:?}", f));
 
     conn.execute(
         "INSERT OR REPLACE INTO players
@@ -25,8 +27,8 @@ pub fn upsert_player(conn: &Connection, p: &Player) -> Result<(), String> {
           attributes, condition, morale, injury, team_id, traits,
           contract_end, wage, market_value, stats, career,
           transfer_listed, loan_listed, transfer_offers, alternate_positions,
-          natural_position)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22)",
+          natural_position, training_focus)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23)",
         params![
             p.id,
             p.match_name,
@@ -50,6 +52,7 @@ pub fn upsert_player(conn: &Connection, p: &Player) -> Result<(), String> {
             offers_json,
             alt_positions_json,
             natural_position_str,
+            training_focus_str,
         ],
     )
     .map_err(|e| format!("Failed to upsert player: {}", e))?;
@@ -74,6 +77,18 @@ fn parse_position(s: &str) -> Position {
     }
 }
 
+fn parse_training_focus(s: &str) -> Option<TrainingFocus> {
+    match s {
+        "Physical" => Some(TrainingFocus::Physical),
+        "Technical" => Some(TrainingFocus::Technical),
+        "Tactical" => Some(TrainingFocus::Tactical),
+        "Defending" => Some(TrainingFocus::Defending),
+        "Attacking" => Some(TrainingFocus::Attacking),
+        "Recovery" => Some(TrainingFocus::Recovery),
+        _ => None,
+    }
+}
+
 /// Load all players.
 pub fn load_all_players(conn: &Connection) -> Result<Vec<Player>, String> {
     let mut stmt = conn
@@ -82,7 +97,7 @@ pub fn load_all_players(conn: &Connection) -> Result<Vec<Player>, String> {
                     attributes, condition, morale, injury, team_id, traits,
                     contract_end, wage, market_value, stats, career,
                     transfer_listed, loan_listed, transfer_offers, alternate_positions,
-                    natural_position
+                    natural_position, training_focus
              FROM players",
         )
         .map_err(|e| format!("Failed to prepare players query: {}", e))?;
@@ -106,7 +121,7 @@ pub fn load_players_by_team(conn: &Connection, team_id: &str) -> Result<Vec<Play
                     attributes, condition, morale, injury, team_id, traits,
                     contract_end, wage, market_value, stats, career,
                     transfer_listed, loan_listed, transfer_offers, alternate_positions,
-                    natural_position
+                    natural_position, training_focus
              FROM players WHERE team_id = ?1",
         )
         .map_err(|e| format!("Failed to prepare players query: {}", e))?;
@@ -132,6 +147,7 @@ fn row_to_player(row: &rusqlite::Row) -> rusqlite::Result<Player> {
     let offers_json: String = row.get(19)?;
     let alt_positions_json: String = row.get(20)?;
     let natural_position_str: String = row.get(21)?;
+    let training_focus_str: Option<String> = row.get(22)?;
     let transfer_listed_int: i32 = row.get(17)?;
     let loan_listed_int: i32 = row.get(18)?;
     let market_value_i64: i64 = row.get(14)?;
@@ -183,6 +199,7 @@ fn row_to_player(row: &rusqlite::Row) -> rusqlite::Result<Player> {
         market_value: market_value_i64 as u64,
         stats: serde_json::from_str(&stats_json).unwrap_or_default(),
         career: serde_json::from_str(&career_json).unwrap_or_default(),
+        training_focus: training_focus_str.and_then(|s| parse_training_focus(&s)),
         transfer_listed: transfer_listed_int != 0,
         loan_listed: loan_listed_int != 0,
         transfer_offers: serde_json::from_str(&offers_json).unwrap_or_default(),

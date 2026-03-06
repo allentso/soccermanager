@@ -43,6 +43,10 @@ pub struct Player {
     // Career history
     pub career: Vec<CareerEntry>,
 
+    // Individual training focus override (takes priority over group and team default)
+    #[serde(default)]
+    pub training_focus: Option<crate::team::TrainingFocus>,
+
     // Transfer status
     #[serde(default)]
     pub transfer_listed: bool,
@@ -286,6 +290,7 @@ impl Player {
             market_value: 0,
             stats: PlayerSeasonStats::default(),
             career: Vec::new(),
+            training_focus: None,
             transfer_listed: false,
             loan_listed: false,
             transfer_offers: Vec::new(),

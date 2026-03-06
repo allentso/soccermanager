@@ -230,6 +230,40 @@ pub fn set_training_groups(
 }
 
 #[tauri::command]
+pub fn set_player_training_focus(
+    state: State<StateManager>,
+    player_id: String,
+    focus: Option<String>,
+) -> Result<Game, String> {
+    info!(
+        "[cmd] set_player_training_focus: player={}, focus={:?}",
+        player_id, focus
+    );
+    let mut game = state
+        .get_game(|g| g.clone())
+        .ok_or("No active game session".to_string())?;
+
+    let training_focus = focus.and_then(|f| match f.as_str() {
+        "Physical" => Some(domain::team::TrainingFocus::Physical),
+        "Technical" => Some(domain::team::TrainingFocus::Technical),
+        "Tactical" => Some(domain::team::TrainingFocus::Tactical),
+        "Defending" => Some(domain::team::TrainingFocus::Defending),
+        "Attacking" => Some(domain::team::TrainingFocus::Attacking),
+        "Recovery" => Some(domain::team::TrainingFocus::Recovery),
+        _ => None,
+    });
+
+    if let Some(player) = game.players.iter_mut().find(|p| p.id == player_id) {
+        player.training_focus = training_focus;
+    } else {
+        return Err(format!("Player not found: {}", player_id));
+    }
+
+    state.set_game(game.clone());
+    Ok(game)
+}
+
+#[tauri::command]
 pub fn auto_select_set_pieces(
     state: State<StateManager>,
     player_ids: Vec<String>,
