@@ -5,6 +5,102 @@ use ofm_core::game::Game;
 use ofm_core::live_match_manager::{self, MatchMode};
 use ofm_core::state::StateManager;
 
+fn user_team_context<'a>(
+    game: &'a Game,
+) -> Option<(&'a domain::team::Team, Vec<&'a domain::player::Player>)> {
+    let user_team_id = game.manager.team_id.as_deref()?;
+    let team = game.teams.iter().find(|team| team.id == user_team_id)?;
+    let roster = game
+        .players
+        .iter()
+        .filter(|player| player.team_id.as_deref() == Some(user_team_id))
+        .collect();
+
+    Some((team, roster))
+}
+
+fn build_blocker(id: &str, severity: &str, text: String, tab: &str) -> serde_json::Value {
+    serde_json::json!({
+        "id": id,
+        "severity": severity,
+        "text": text,
+        "tab": tab
+    })
+}
+
+fn injured_starting_xi_blocker(
+    xi_ids: &[String],
+    roster: &[&domain::player::Player],
+) -> Option<serde_json::Value> {
+    let injured_in_xi: Vec<_> = xi_ids
+        .iter()
+        .filter_map(|id| {
+            roster
+                .iter()
+                .find(|player| player.id == *id && player.injury.is_some())
+        })
+        .map(|player| player.match_name.clone())
+        .collect();
+
+    (!injured_in_xi.is_empty()).then(|| {
+        build_blocker(
+            "injured_xi",
+            "warn",
+            format!(
+                "{} injured player(s) in Starting XI: {}",
+                injured_in_xi.len(),
+                injured_in_xi.join(", ")
+            ),
+            "Squad",
+        )
+    })
+}
+
+fn incomplete_starting_xi_blocker(
+    xi_ids: &[String],
+    roster: &[&domain::player::Player],
+) -> Option<serde_json::Value> {
+    let healthy_xi = xi_ids
+        .iter()
+        .filter(|id| {
+            roster
+                .iter()
+                .any(|player| player.id == **id && player.injury.is_none())
+        })
+        .count();
+
+    (healthy_xi < 11 && roster.len() >= 11).then(|| {
+        build_blocker(
+            "incomplete_xi",
+            "warn",
+            format!(
+                "Starting XI has only {} healthy players — set your lineup",
+                healthy_xi
+            ),
+            "Squad",
+        )
+    })
+}
+
+fn urgent_unread_messages_blocker(game: &Game) -> Option<serde_json::Value> {
+    let urgent_unread = game
+        .messages
+        .iter()
+        .filter(|message| {
+            !message.read && message.priority == domain::message::MessagePriority::Urgent
+        })
+        .count();
+
+    (urgent_unread > 0).then(|| {
+        build_blocker(
+            "urgent_messages",
+            "info",
+            format!("{} urgent unread message(s)", urgent_unread),
+            "Inbox",
+        )
+    })
+}
+
 #[tauri::command]
 pub fn advance_time(state: State<'_, StateManager>) -> Result<Game, String> {
     let mut current_game = state
@@ -25,65 +121,25 @@ pub fn advance_time(state: State<'_, StateManager>) -> Result<Game, String> {
 /// Compute blocking actions for the current game state.
 pub fn compute_blocking_actions(game: &Game) -> Vec<serde_json::Value> {
     let mut blockers = Vec::new();
-    let user_team_id = match &game.manager.team_id {
-        Some(id) => id,
+    let (team, roster) = match user_team_context(game) {
+        Some(context) => context,
         None => return blockers,
     };
-
-    let team = match game.teams.iter().find(|t| t.id == *user_team_id) {
-        Some(t) => t,
-        None => return blockers,
-    };
-
-    let roster: Vec<_> = game
-        .players
-        .iter()
-        .filter(|p| p.team_id.as_deref() == Some(user_team_id))
-        .collect();
     let xi_ids = &team.starting_xi_ids;
 
     // Check for injured players in XI
-    let injured_in_xi: Vec<_> = xi_ids
-        .iter()
-        .filter_map(|id| roster.iter().find(|p| p.id == *id && p.injury.is_some()))
-        .map(|p| p.match_name.clone())
-        .collect();
-    if !injured_in_xi.is_empty() {
-        blockers.push(serde_json::json!({
-            "id": "injured_xi",
-            "severity": "warn",
-            "text": format!("{} injured player(s) in Starting XI: {}", injured_in_xi.len(), injured_in_xi.join(", ")),
-            "tab": "Squad"
-        }));
+    if let Some(blocker) = injured_starting_xi_blocker(xi_ids, &roster) {
+        blockers.push(blocker);
     }
 
     // Check if XI is incomplete (fewer than 11 healthy players)
-    let healthy_xi = xi_ids
-        .iter()
-        .filter(|id| roster.iter().any(|p| p.id == **id && p.injury.is_none()))
-        .count();
-    if healthy_xi < 11 && roster.len() >= 11 {
-        blockers.push(serde_json::json!({
-            "id": "incomplete_xi",
-            "severity": "warn",
-            "text": format!("Starting XI has only {} healthy players — set your lineup", healthy_xi),
-            "tab": "Squad"
-        }));
+    if let Some(blocker) = incomplete_starting_xi_blocker(xi_ids, &roster) {
+        blockers.push(blocker);
     }
 
     // Check for unresolved urgent messages
-    let urgent_unread = game
-        .messages
-        .iter()
-        .filter(|m| !m.read && m.priority == domain::message::MessagePriority::Urgent)
-        .count();
-    if urgent_unread > 0 {
-        blockers.push(serde_json::json!({
-            "id": "urgent_messages",
-            "severity": "info",
-            "text": format!("{} urgent unread message(s)", urgent_unread),
-            "tab": "Inbox"
-        }));
+    if let Some(blocker) = urgent_unread_messages_blocker(game) {
+        blockers.push(blocker);
     }
 
     blockers
@@ -265,5 +321,215 @@ pub fn advance_time_with_mode(
                 "game": game
             }))
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::compute_blocking_actions;
+    use chrono::{TimeZone, Utc};
+    use domain::manager::Manager;
+    use domain::message::{InboxMessage, MessagePriority};
+    use domain::player::{Injury, Player, PlayerAttributes, Position};
+    use domain::team::Team;
+    use ofm_core::clock::GameClock;
+    use ofm_core::game::Game;
+    use serde_json::Value;
+
+    fn default_attrs() -> PlayerAttributes {
+        PlayerAttributes {
+            pace: 60,
+            stamina: 60,
+            strength: 60,
+            agility: 60,
+            passing: 60,
+            shooting: 60,
+            tackling: 60,
+            dribbling: 60,
+            defending: 60,
+            positioning: 60,
+            vision: 60,
+            decisions: 60,
+            composure: 60,
+            aggression: 60,
+            teamwork: 60,
+            leadership: 60,
+            handling: 60,
+            reflexes: 60,
+            aerial: 60,
+        }
+    }
+
+    fn make_player(id: &str, name: &str, team_id: &str, position: Position) -> Player {
+        let mut player = Player::new(
+            id.to_string(),
+            name.to_string(),
+            name.to_string(),
+            "2000-01-01".to_string(),
+            "England".to_string(),
+            position,
+            default_attrs(),
+        );
+        player.team_id = Some(team_id.to_string());
+        player
+    }
+
+    fn make_game(roster_size: usize) -> Game {
+        let clock = GameClock::new(Utc.with_ymd_and_hms(2025, 6, 15, 12, 0, 0).unwrap());
+        let mut manager = Manager::new(
+            "mgr1".to_string(),
+            "Alex".to_string(),
+            "Manager".to_string(),
+            "1980-01-01".to_string(),
+            "England".to_string(),
+        );
+        manager.hire("team1".to_string());
+
+        let players: Vec<Player> = (1..=roster_size)
+            .map(|idx| {
+                let position = if idx == 1 {
+                    Position::Goalkeeper
+                } else if idx <= 5 {
+                    Position::Defender
+                } else if idx <= 9 {
+                    Position::Midfielder
+                } else {
+                    Position::Forward
+                };
+
+                make_player(
+                    &format!("p{}", idx),
+                    &format!("Player {}", idx),
+                    "team1",
+                    position,
+                )
+            })
+            .collect();
+
+        let mut team = Team::new(
+            "team1".to_string(),
+            "Test FC".to_string(),
+            "TST".to_string(),
+            "England".to_string(),
+            "Testville".to_string(),
+            "Test Ground".to_string(),
+            20_000,
+        );
+        team.starting_xi_ids = players
+            .iter()
+            .take(11)
+            .map(|player| player.id.clone())
+            .collect();
+
+        Game::new(clock, manager, vec![team], players, vec![], vec![])
+    }
+
+    fn make_message(id: &str, priority: MessagePriority, read: bool) -> InboxMessage {
+        let mut message = InboxMessage::new(
+            id.to_string(),
+            "Subject".to_string(),
+            "Body".to_string(),
+            "Board".to_string(),
+            "2025-06-15".to_string(),
+        )
+        .with_priority(priority);
+        message.read = read;
+        message
+    }
+
+    fn blocker_by_id<'a>(blockers: &'a [Value], id: &str) -> Option<&'a Value> {
+        blockers
+            .iter()
+            .find(|blocker| blocker.get("id").and_then(Value::as_str) == Some(id))
+    }
+
+    #[test]
+    fn healthy_squad_with_no_urgent_messages_has_no_blockers() {
+        let game = make_game(11);
+
+        let blockers = compute_blocking_actions(&game);
+
+        assert!(blockers.is_empty());
+    }
+
+    #[test]
+    fn injured_starters_trigger_injury_and_incomplete_xi_blockers() {
+        let mut game = make_game(11);
+        for player_id in ["p2", "p5"] {
+            let player = game
+                .players
+                .iter_mut()
+                .find(|player| player.id == player_id)
+                .unwrap();
+            player.injury = Some(Injury {
+                name: "Hamstring".to_string(),
+                days_remaining: 7,
+            });
+        }
+
+        let blockers = compute_blocking_actions(&game);
+
+        let injured = blocker_by_id(&blockers, "injured_xi").unwrap();
+        assert_eq!(
+            injured.get("severity").and_then(Value::as_str),
+            Some("warn")
+        );
+        assert_eq!(injured.get("tab").and_then(Value::as_str), Some("Squad"));
+        let injured_text = injured.get("text").and_then(Value::as_str).unwrap();
+        assert!(injured_text.contains("2 injured player(s)"));
+        assert!(injured_text.contains("Player 2"));
+        assert!(injured_text.contains("Player 5"));
+
+        let incomplete = blocker_by_id(&blockers, "incomplete_xi").unwrap();
+        assert_eq!(
+            incomplete.get("severity").and_then(Value::as_str),
+            Some("warn")
+        );
+        assert_eq!(incomplete.get("tab").and_then(Value::as_str), Some("Squad"));
+        assert_eq!(
+            incomplete.get("text").and_then(Value::as_str),
+            Some("Starting XI has only 9 healthy players — set your lineup")
+        );
+    }
+
+    #[test]
+    fn incomplete_xi_is_not_reported_when_roster_has_fewer_than_eleven_players() {
+        let mut game = make_game(10);
+        let player = game
+            .players
+            .iter_mut()
+            .find(|player| player.id == "p3")
+            .unwrap();
+        player.injury = Some(Injury {
+            name: "Knee".to_string(),
+            days_remaining: 14,
+        });
+
+        let blockers = compute_blocking_actions(&game);
+
+        assert!(blocker_by_id(&blockers, "injured_xi").is_some());
+        assert!(blocker_by_id(&blockers, "incomplete_xi").is_none());
+    }
+
+    #[test]
+    fn only_unread_urgent_messages_produce_message_blockers() {
+        let mut game = make_game(11);
+        game.messages = vec![
+            make_message("urgent-1", MessagePriority::Urgent, false),
+            make_message("urgent-2", MessagePriority::Urgent, false),
+            make_message("urgent-read", MessagePriority::Urgent, true),
+            make_message("high", MessagePriority::High, false),
+        ];
+
+        let blockers = compute_blocking_actions(&game);
+
+        assert_eq!(blockers.len(), 1);
+        let urgent = blocker_by_id(&blockers, "urgent_messages").unwrap();
+        assert_eq!(urgent.get("severity").and_then(Value::as_str), Some("info"));
+        assert_eq!(urgent.get("tab").and_then(Value::as_str), Some("Inbox"));
+        assert_eq!(
+            urgent.get("text").and_then(Value::as_str),
+            Some("2 urgent unread message(s)")
+        );
     }
 }
