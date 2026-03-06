@@ -959,7 +959,7 @@ fn mood_report_categorizes_morale_levels() {
     if !mood_msgs.is_empty() {
         assert_eq!(
             mood_msgs[0].i18n_params.get("mood").map(|s| s.as_str()),
-            Some("Excellent")
+            Some("common.moods.excellent")
         );
     }
 }
@@ -982,7 +982,7 @@ fn mood_report_low_morale() {
     if !mood_msgs.is_empty() {
         assert_eq!(
             mood_msgs[0].i18n_params.get("mood").map(|s| s.as_str()),
-            Some("Poor")
+            Some("common.moods.poor")
         );
         assert_eq!(mood_msgs[0].priority, MessagePriority::High);
     }

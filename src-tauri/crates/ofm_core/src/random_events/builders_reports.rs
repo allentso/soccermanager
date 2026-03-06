@@ -15,13 +15,13 @@ pub(super) fn mood_report_message(
     date: &str,
 ) -> InboxMessage {
     let mood = if avg_morale >= 75.0 {
-        "Excellent"
+        "common.moods.excellent"
     } else if avg_morale >= 60.0 {
-        "Good"
+        "common.moods.good"
     } else if avg_morale >= 45.0 {
-        "Mixed"
+        "common.moods.mixed"
     } else {
-        "Poor"
+        "common.moods.poor"
     };
 
     let body = format!(

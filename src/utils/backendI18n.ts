@@ -13,10 +13,28 @@ function resolve(key: string | undefined, fallback: string, params?: Record<stri
 }
 
 /**
+ * Pre-resolve any param values that are themselves i18n keys (e.g. "common.moods.excellent").
+ * A value is treated as a key if it contains a dot and i18next resolves it to something different.
+ */
+function resolveParamValues(params?: Record<string, string>): Record<string, string> | undefined {
+  if (!params) return params;
+  const resolved = { ...params };
+  for (const [key, value] of Object.entries(resolved)) {
+    if (value.includes('.')) {
+      const attempted = i18n.t(value);
+      if (attempted !== value) {
+        resolved[key] = attempted;
+      }
+    }
+  }
+  return resolved;
+}
+
+/**
  * Resolve all translatable fields on a message, returning a copy with resolved strings.
  */
 export function resolveMessage(msg: MessageData): MessageData {
-  const p = msg.i18n_params;
+  const p = resolveParamValues(msg.i18n_params);
   return {
     ...msg,
     subject: resolve(msg.subject_key, msg.subject, p),

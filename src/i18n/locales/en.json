@@ -298,6 +298,30 @@
       "reflexes": "Reflexes",
       "aerial": "Aerial"
     },
+    "moods": {
+      "excellent": "Excellent",
+      "good": "Good",
+      "mixed": "Mixed",
+      "poor": "Poor"
+    },
+    "scoutRatings": {
+      "excellent": "Excellent",
+      "veryGood": "Very Good",
+      "good": "Good",
+      "average": "Average",
+      "belowAverage": "Below Average"
+    },
+    "scoutPotential": {
+      "worldClass": "World class potential",
+      "strong": "Strong development potential",
+      "moderate": "Moderate potential for growth",
+      "unclear": "Potential unclear \u2014 further scouting recommended"
+    },
+    "scoutConfidence": {
+      "high": "High",
+      "moderate": "Moderate",
+      "low": "Low"
+    },
     "attrGroups": {
       "physical": "Physical",
       "technical": "Technical",

@@ -201,37 +201,37 @@ fn build_scout_report(
         / 6;
 
     let rating_desc = if avg_attrs >= 80 {
-        "Excellent"
+        "common.scoutRatings.excellent"
     } else if avg_attrs >= 70 {
-        "Very Good"
+        "common.scoutRatings.veryGood"
     } else if avg_attrs >= 60 {
-        "Good"
+        "common.scoutRatings.good"
     } else if avg_attrs >= 50 {
-        "Average"
+        "common.scoutRatings.average"
     } else {
-        "Below Average"
+        "common.scoutRatings.belowAverage"
     };
 
     // Potential assessment (based on judging_potential accuracy)
     let potential_desc = if judging_potential >= 70 {
         if avg_attrs >= 75 {
-            "World class potential"
+            "common.scoutPotential.worldClass"
         } else if avg_attrs >= 60 {
-            "Strong development potential"
+            "common.scoutPotential.strong"
         } else {
-            "Moderate potential for growth"
+            "common.scoutPotential.moderate"
         }
     } else {
-        "Potential unclear — further scouting recommended"
+        "common.scoutPotential.unclear"
     };
 
     // Confidence level
     let confidence = if judging_ability >= 80 {
-        "High"
+        "common.scoutConfidence.high"
     } else if judging_ability >= 60 {
-        "Moderate"
+        "common.scoutConfidence.moderate"
     } else {
-        "Low"
+        "common.scoutConfidence.low"
     };
 
     let body = format!(
@@ -294,10 +294,12 @@ fn build_scout_report(
         player_id: Some(player_id.to_string()),
         ..Default::default()
     })
-    .with_i18n(
-        "be.msg.scoutReport.subject",
-        "be.msg.scoutReport.body",
-        params(&[("player", player_name), ("scout", scout_name)]),
-    )
+    .with_i18n("be.msg.scoutReport.subject", "be.msg.scoutReport.body", {
+        let mut p = params(&[("player", player_name), ("scout", scout_name)]);
+        p.insert("ratingDesc".to_string(), rating_desc.to_string());
+        p.insert("potentialDesc".to_string(), potential_desc.to_string());
+        p.insert("confidence".to_string(), confidence.to_string());
+        p
+    })
     .with_sender_i18n("be.sender.scout", "be.role.scout")
 }

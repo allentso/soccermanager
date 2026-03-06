@@ -298,6 +298,30 @@
       "reflexes": "Reflexe",
       "aerial": "Kopfball"
     },
+    "moods": {
+      "excellent": "Ausgezeichnet",
+      "good": "Gut",
+      "mixed": "Gemischt",
+      "poor": "Schlecht"
+    },
+    "scoutRatings": {
+      "excellent": "Ausgezeichnet",
+      "veryGood": "Sehr Gut",
+      "good": "Gut",
+      "average": "Durchschnittlich",
+      "belowAverage": "Unterdurchschnittlich"
+    },
+    "scoutPotential": {
+      "worldClass": "Weltklasse-Potenzial",
+      "strong": "Starkes Entwicklungspotenzial",
+      "moderate": "M\u00e4\u00dfiges Wachstumspotenzial",
+      "unclear": "Potenzial unklar \u2014 weitere Beobachtung empfohlen"
+    },
+    "scoutConfidence": {
+      "high": "Hoch",
+      "moderate": "Mittel",
+      "low": "Niedrig"
+    },
     "attrGroups": {
       "physical": "Physisch",
       "technical": "Technisch",

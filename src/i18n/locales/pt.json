@@ -298,6 +298,30 @@
       "reflexes": "Reflexos",
       "aerial": "Jogo Aéreo"
     },
+    "moods": {
+      "excellent": "Excelente",
+      "good": "Bom",
+      "mixed": "Misto",
+      "poor": "Fraco"
+    },
+    "scoutRatings": {
+      "excellent": "Excelente",
+      "veryGood": "Muito Bom",
+      "good": "Bom",
+      "average": "M\u00e9dio",
+      "belowAverage": "Abaixo da m\u00e9dia"
+    },
+    "scoutPotential": {
+      "worldClass": "Potencial de classe mundial",
+      "strong": "Forte potencial de desenvolvimento",
+      "moderate": "Potencial moderado de crescimento",
+      "unclear": "Potencial incerto \u2014 recomenda-se mais observa\u00e7\u00e3o"
+    },
+    "scoutConfidence": {
+      "high": "Alta",
+      "moderate": "Moderada",
+      "low": "Baixa"
+    },
     "attrGroups": {
       "physical": "Físico",
       "technical": "Técnico",
