@@ -141,7 +141,7 @@ export default function PlayerProfile({ player, gameState, isOwnClub, onClose, o
             <div className="flex-1">
               <h2 className="text-3xl font-heading font-bold text-white uppercase tracking-wide">{player.full_name}</h2>
               <div className="flex items-center gap-3 mt-2">
-                <Badge variant={positionBadgeVariant(player.position)}>{player.position}</Badge>
+                <Badge variant={positionBadgeVariant(player.natural_position || player.position)}>{player.natural_position || player.position}</Badge>
                 {player.alternate_positions?.map(ap => (
                   <span key={ap} title={`Can also play ${ap}`}>
                     <Badge variant="neutral">{ap}</Badge>

@@ -230,8 +230,8 @@ export default function TeamProfile({ team, gameState, isOwnTeam, onClose, onSel
                         className="hover:bg-gray-50 dark:hover:bg-navy-700/50 transition-colors cursor-pointer group"
                       >
                         <td className="py-3 px-5">
-                          <Badge variant={positionBadgeVariant(player.position)}>
-                            {player.position.substring(0, 3).toUpperCase()}
+                          <Badge variant={positionBadgeVariant(player.natural_position || player.position)}>
+                            {(player.natural_position || player.position).substring(0, 3).toUpperCase()}
                           </Badge>
                         </td>
                         <td className="py-3 px-5">

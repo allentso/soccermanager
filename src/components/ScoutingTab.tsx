@@ -131,7 +131,7 @@ export default function ScoutingTab({ gameState, onGameUpdate, onSelectPlayer }:
                       <button onClick={() => onSelectPlayer?.(player.id)} className="font-heading font-bold text-sm text-gray-800 dark:text-gray-100 hover:text-primary-500 transition-colors truncate block">
                         {player.full_name}
                       </button>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">{player.position} · {team}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{player.natural_position || player.position} · {team}</p>
                     </div>
                     <div className="text-right">
                       <p className="text-xs text-gray-500 dark:text-gray-400">{t('scouting.scoutLabel', { name: `${scout.first_name} ${scout.last_name}` })}</p>

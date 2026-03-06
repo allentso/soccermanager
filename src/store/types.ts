@@ -68,6 +68,7 @@ export interface PlayerData {
   date_of_birth: string;
   nationality: string;
   position: string;
+  natural_position: string;
   alternate_positions: string[];
   attributes: {
     pace: number;

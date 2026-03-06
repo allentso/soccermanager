@@ -38,7 +38,7 @@ export default function PlayersListTab({ gameState, onSelectPlayer, onSelectTeam
       const q = search.toLowerCase();
       if (!p.full_name.toLowerCase().includes(q) && !p.match_name.toLowerCase().includes(q) && !p.nationality.toLowerCase().includes(q)) return false;
     }
-    if (posFilter && p.position !== posFilter) return false;
+    if (posFilter && (p.natural_position || p.position) !== posFilter) return false;
     if (teamFilter && p.team_id !== teamFilter) return false;
     if (statusFilter === "transfer" && !p.transfer_listed) return false;
     if (statusFilter === "loan" && !p.loan_listed) return false;
@@ -146,7 +146,7 @@ export default function PlayersListTab({ gameState, onSelectPlayer, onSelectTeam
                   return (
                     <tr key={player.id} onClick={() => onSelectPlayer(player.id)} className="hover:bg-gray-50 dark:hover:bg-navy-700/50 transition-colors cursor-pointer group">
                       <td className="py-2.5 px-4">
-                        <Badge variant={positionBadgeVariant(player.position)} size="sm">{player.position.substring(0, 3).toUpperCase()}</Badge>
+                        <Badge variant={positionBadgeVariant(player.natural_position || player.position)} size="sm">{(player.natural_position || player.position).substring(0, 3).toUpperCase()}</Badge>
                       </td>
                       <td className="py-2.5 px-4">
                         <span className="font-semibold text-sm text-gray-800 dark:text-gray-200 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">{player.full_name}</span>

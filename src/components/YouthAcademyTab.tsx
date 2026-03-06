@@ -156,8 +156,8 @@ export default function YouthAcademyTab({ gameState, onSelectPlayer }: YouthAcad
                         </div>
                       </td>
                       <td className="py-2.5 px-4">
-                        <Badge variant={positionBadgeVariant(player.position)} size="sm">
-                          {player.position.substring(0, 3).toUpperCase()}
+                        <Badge variant={positionBadgeVariant(player.natural_position || player.position)} size="sm">
+                          {(player.natural_position || player.position).substring(0, 3).toUpperCase()}
                         </Badge>
                       </td>
                       <td className="py-2.5 px-4 text-center">

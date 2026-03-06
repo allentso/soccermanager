@@ -235,7 +235,7 @@ export default function TransfersTab({ gameState, onSelectPlayer, onSelectTeam, 
                     return (
                       <tr key={player.id} className="hover:bg-gray-50 dark:hover:bg-navy-700/50 transition-colors cursor-pointer group" onClick={() => onSelectPlayer(player.id)}>
                         <td className="py-2.5 px-4">
-                          <Badge variant={positionBadgeVariant(player.position)} size="sm">{player.position.substring(0, 3).toUpperCase()}</Badge>
+                          <Badge variant={positionBadgeVariant(player.natural_position || player.position)} size="sm">{(player.natural_position || player.position).substring(0, 3).toUpperCase()}</Badge>
                         </td>
                         <td className="py-2.5 px-4">
                           <span className="font-semibold text-sm text-gray-800 dark:text-gray-200 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">{player.full_name}</span>

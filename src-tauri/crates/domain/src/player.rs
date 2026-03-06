@@ -10,6 +10,10 @@ pub struct Player {
 
     pub position: Position,
 
+    // The player's natural/preferred position (never changed by formation logic)
+    #[serde(default)]
+    pub natural_position: Position,
+
     // Alternate positions this player can also play (with reduced effectiveness)
     #[serde(default)]
     pub alternate_positions: Vec<Position>,
@@ -48,8 +52,9 @@ pub struct Player {
     pub transfer_offers: Vec<TransferOffer>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub enum Position {
+    #[default]
     Goalkeeper,
     Defender,
     Midfielder,
@@ -267,6 +272,7 @@ impl Player {
             full_name,
             date_of_birth,
             nationality,
+            natural_position: position.clone(),
             position,
             alternate_positions: Vec::new(),
             attributes,

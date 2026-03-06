@@ -210,23 +210,15 @@ export default function SquadTab({ gameState, managerId, onSelectPlayer, onGameU
     }
   };
 
-  // Determine which positions are "expected" for the XI based on formation
-  const expectedPositionCounts: Record<string, number> = { Goalkeeper: 1, Defender: slots.def, Midfielder: slots.mid, Forward: slots.fwd };
-  const xiPositionCounts: Record<string, number> = {};
-  for (const p of startingXI) {
-    xiPositionCounts[p.position] = (xiPositionCounts[p.position] || 0) + 1;
-  }
-  // A player is "out of position" if there are more of their position in XI than the formation needs
+  // A player is "out of position" if their natural position differs from their tactical role
+  // and their natural position is not one of their alternate positions for that role
   const isOutOfPosition = (player: PlayerData, sec: "xi" | "bench"): boolean => {
     if (sec !== "xi") return false;
-    const needed = expectedPositionCounts[player.position] || 0;
-    const inXi = xiPositionCounts[player.position] || 0;
-    // If we have more of this position than needed, the excess players are out of position
-    if (inXi <= needed) return false;
-    // Check if this player is one of the "excess" — sort by OVR, bottom ones are out of position
-    const samePos = startingXI.filter(p => p.position === player.position).sort((a, b) => calcOvr(b) - calcOvr(a));
-    const excessCount = inXi - needed;
-    return samePos.slice(-excessCount).some(p => p.id === player.id);
+    const nat = player.natural_position || player.position;
+    if (nat === player.position) return false;
+    // Check if the tactical position is one of their alternate positions
+    if (player.alternate_positions?.includes(player.position)) return false;
+    return true;
   };
 
   const renderPlayerRow = (player: PlayerData, section: "xi" | "bench") => {
@@ -270,8 +262,8 @@ export default function SquadTab({ gameState, managerId, onSelectPlayer, onGameU
                 </Badge>
               </span>
             )}
-            <Badge variant={positionBadgeVariant(player.position)} size="sm">
-              {player.position.substring(0, 3).toUpperCase()}
+            <Badge variant={positionBadgeVariant(player.natural_position || player.position)} size="sm">
+              {(player.natural_position || player.position).substring(0, 3).toUpperCase()}
             </Badge>
             {player.alternate_positions?.map(ap => (
               <span key={ap} title={`Can also play ${ap}`}>
@@ -531,8 +523,8 @@ export default function SquadTab({ gameState, managerId, onSelectPlayer, onGameU
                       <td className="py-2.5 px-4">
                         <div className="flex items-center gap-1.5">
                           {inXI && <span className="w-1.5 h-1.5 rounded-full bg-primary-500" title="Starting XI" />}
-                          <Badge variant={positionBadgeVariant(player.position)} size="sm">
-                            {player.position.substring(0, 3).toUpperCase()}
+                          <Badge variant={positionBadgeVariant(player.natural_position || player.position)} size="sm">
+                            {(player.natural_position || player.position).substring(0, 3).toUpperCase()}
                           </Badge>
                           {player.alternate_positions?.map(ap => (
                             <span key={ap} title={`Can also play ${ap}`}>
