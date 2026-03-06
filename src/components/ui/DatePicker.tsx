@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronDown, Check } from "lucide-react";
 
@@ -6,6 +6,88 @@ interface DatePickerProps {
   value: string; // YYYY-MM-DD
   onChange: (date: string) => void;
   error?: boolean;
+}
+
+interface DateParts {
+  day: string;
+  month: string;
+  year: string;
+}
+
+interface MonthOption {
+  value: string;
+  label: string;
+}
+
+function parseDateValue(value: string): DateParts | null {
+  const parts = value.split("-");
+  if (parts.length !== 3) {
+    return null;
+  }
+
+  const [year, month, day] = parts;
+  return { day, month, year };
+}
+
+function formatDateValue(day: string, month: string, year: string) {
+  return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+}
+
+function getDaysInMonth(month: number, year: number) {
+  return new Date(year, month, 0).getDate();
+}
+
+function clampDayValue(dayValue: string, monthValue: string, yearValue: string) {
+  if (!dayValue || parseInt(dayValue) <= 0) {
+    return dayValue;
+  }
+
+  const monthNumber = parseInt(monthValue) || 1;
+  const yearNumber = parseInt(yearValue) || 2000;
+  const maxDays = getDaysInMonth(monthNumber, yearNumber);
+  return Math.min(parseInt(dayValue), maxDays).toString();
+}
+
+function normaliseDayOnBlur(dayValue: string) {
+  if (dayValue && parseInt(dayValue) > 0) {
+    return parseInt(dayValue).toString().padStart(2, "0");
+  }
+
+  return "";
+}
+
+function normaliseYearOnBlur(yearValue: string, currentYear: number) {
+  if (yearValue.length === 0 || yearValue.length === 4) {
+    return yearValue;
+  }
+
+  const parsedYear = parseInt(yearValue);
+  if (Number.isNaN(parsedYear) || parsedYear >= 100) {
+    return yearValue;
+  }
+
+  const currentCentury = Math.floor(currentYear / 100) * 100;
+  return currentCentury + parsedYear > currentYear
+    ? (currentCentury - 100 + parsedYear).toString()
+    : (currentCentury + parsedYear).toString();
+}
+
+function createMonths(language: string): MonthOption[] {
+  return Array.from({ length: 12 }, (_, i) => {
+    const d = new Date(2000, i, 1);
+    return {
+      value: (i + 1).toString(),
+      label: d.toLocaleString(language, { month: "long" }),
+    };
+  });
+}
+
+function getSelectedMonthLabel(monthValue: string, months: MonthOption[], fallback: string) {
+  if (!monthValue) {
+    return fallback;
+  }
+
+  return months.find(m => m.value === monthValue || m.value === parseInt(monthValue).toString())?.label ?? fallback;
 }
 
 export function DatePicker({ value, onChange, error }: DatePickerProps) {
@@ -21,13 +103,11 @@ export function DatePicker({ value, onChange, error }: DatePickerProps) {
 
   // Initialize from value prop
   useEffect(() => {
-    if (value) {
-      const parts = value.split('-');
-      if (parts.length === 3) {
-        setYear(parts[0]);
-        setMonth(parts[1]);
-        setDay(parts[2]);
-      }
+    const nextValue = parseDateValue(value);
+    if (nextValue) {
+      setYear(nextValue.year);
+      setMonth(nextValue.month);
+      setDay(nextValue.day);
     }
   }, [value]);
 
@@ -45,60 +125,32 @@ export function DatePicker({ value, onChange, error }: DatePickerProps) {
   // Update parent when any component changes, if valid
   useEffect(() => {
     if (day && month && year && year.length === 4) {
-      const paddedDay = day.padStart(2, '0');
-      const paddedMonth = month.padStart(2, '0');
-      onChange(`${year}-${paddedMonth}-${paddedDay}`);
+      onChange(formatDateValue(day, month, year));
     }
   }, [day, month, year, onChange]);
 
   // Generate month names based on current locale
-  const months = Array.from({ length: 12 }, (_, i) => {
-    const d = new Date(2000, i, 1);
-    return {
-      value: (i + 1).toString(),
-      label: d.toLocaleString(i18n.language, { month: 'long' })
-    };
-  });
-
-  const getDaysInMonth = (m: number, y: number) => {
-    return new Date(y, m, 0).getDate();
-  };
+  const months = useMemo(() => createMonths(i18n.language), [i18n.language]);
 
   const handleDayChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let newDay = e.target.value.replace(/\D/g, '');
     if (newDay.length > 2) newDay = newDay.slice(0, 2);
-    
-    // Validate max day based on month and year if available
-    if (newDay && parseInt(newDay) > 0) {
-      const m = parseInt(month) || 1;
-      const y = parseInt(year) || 2000;
-      const maxDays = getDaysInMonth(m, y);
-      if (parseInt(newDay) > maxDays) {
-        newDay = maxDays.toString();
-      }
-    }
-    setDay(newDay);
+
+    setDay(clampDayValue(newDay, month, year));
   };
 
   const handleYearChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let newYear = e.target.value.replace(/\D/g, '');
     if (newYear.length > 4) newYear = newYear.slice(0, 4);
     setYear(newYear);
-    
+
     // Re-validate day if year changes (leap years)
     if (day && month && newYear.length === 4) {
-      const m = parseInt(month);
-      const y = parseInt(newYear);
-      const maxDays = getDaysInMonth(m, y);
-      if (parseInt(day) > maxDays) {
-        setDay(maxDays.toString());
-      }
+      setDay(clampDayValue(day, month, newYear));
     }
   };
 
-  const selectedMonthLabel = month 
-    ? months.find(m => m.value === month || m.value === parseInt(month).toString())?.label 
-    : t('date.month', 'Month');
+  const selectedMonthLabel = getSelectedMonthLabel(month, months, t('date.month', 'Month'));
 
   return (
     <div className="flex gap-2 w-full">
@@ -110,13 +162,7 @@ export function DatePicker({ value, onChange, error }: DatePickerProps) {
           placeholder={t('date.day', 'DD')}
           value={day}
           onChange={handleDayChange}
-          onBlur={() => {
-            if (day && parseInt(day) > 0) {
-              setDay(parseInt(day).toString().padStart(2, '0'));
-            } else {
-              setDay("");
-            }
-          }}
+          onBlur={() => setDay(normaliseDayOnBlur(day))}
           className={`w-full bg-gray-50 dark:bg-navy-900 border text-gray-900 dark:text-white rounded-lg p-3 outline-none focus:ring-2 transition-all placeholder:text-gray-400 dark:placeholder:text-gray-500 text-center ${
             error
               ? "border-red-400 dark:border-red-500 focus:border-red-500 focus:ring-red-500/20"
@@ -152,13 +198,14 @@ export function DatePicker({ value, onChange, error }: DatePickerProps) {
                   key={m.value}
                   type="button"
                   onClick={() => {
-                    setMonth(m.value.padStart(2, '0'));
+                    const nextMonth = m.value.padStart(2, '0');
+                    setMonth(nextMonth);
                     setMonthOpen(false);
                     // Re-validate day
                     if (day && year.length === 4) {
-                      const maxDays = getDaysInMonth(parseInt(m.value), parseInt(year));
-                      if (parseInt(day) > maxDays) {
-                        setDay(maxDays.toString().padStart(2, '0'));
+                      const clampedDay = clampDayValue(day, nextMonth, year);
+                      if (clampedDay !== day) {
+                        setDay(clampedDay.padStart(2, '0'));
                       }
                     }
                   }}
@@ -187,14 +234,9 @@ export function DatePicker({ value, onChange, error }: DatePickerProps) {
           onChange={handleYearChange}
           onBlur={() => {
             if (year.length > 0 && year.length < 4) {
-              // Simple validation/auto-complete for year
-              const y = parseInt(year);
-              if (y < 100) {
-                // Assume 19xx for > current year trailing digits, else 20xx
-                const currentYear = new Date().getFullYear();
-                const currentCentury = Math.floor(currentYear / 100) * 100;
-                const assumedYear = currentCentury + y > currentYear ? (currentCentury - 100) + y : currentCentury + y;
-                setYear(assumedYear.toString());
+              const normalisedYear = normaliseYearOnBlur(year, new Date().getFullYear());
+              if (normalisedYear !== year) {
+                setYear(normalisedYear);
               }
             }
           }}
