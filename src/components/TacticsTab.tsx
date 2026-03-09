@@ -1,7 +1,7 @@
 import { DragEvent, useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { GameStateData, PlayerData } from "../store/gameStore";
-import { Badge, Card, ProgressBar } from "./ui";
+import { Badge, Card, ProgressBar, Select } from "./ui";
 import {
   AlertTriangle,
   ChevronDown,
@@ -855,10 +855,10 @@ export default function TacticsTab({
             <label className="text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2 block">
               {t("squad.pos")}
             </label>
-            <select
+            <Select
               value={positionFilter}
               onChange={(event) => setPositionFilter(event.target.value)}
-              className="w-full rounded-lg border border-gray-200 dark:border-navy-600 bg-white dark:bg-navy-800 px-3 py-2 text-sm text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500/30"
+              fullWidth
             >
               <option value="All">{t("common.all", "All")}</option>
               {CORE_POSITIONS.map((position) => (
@@ -866,7 +866,7 @@ export default function TacticsTab({
                   {t(`common.posAbbr.${position}`, positionCode(position))}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
           <button
             type="button"

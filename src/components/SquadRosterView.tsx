@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { GameStateData, PlayerData } from "../store/gameStore";
-import { Badge, Card, ProgressBar } from "./ui";
+import { Badge, Card, ProgressBar, Select } from "./ui";
 import {
   AlertTriangle,
   ChevronDown,
@@ -59,7 +59,9 @@ export default function SquadRosterView({
 
   if (!myTeam) {
     return (
-      <p className="text-gray-500 dark:text-gray-400">{t("common.unemployed")}</p>
+      <p className="text-gray-500 dark:text-gray-400">
+        {t("common.unemployed")}
+      </p>
     );
   }
 
@@ -161,7 +163,9 @@ export default function SquadRosterView({
     const sorted = [...list].sort((a, b) => {
       const getPos = (player: PlayerData) => {
         if (xiIds.has(player.id)) {
-          return normalisePosition(xiActivePosition.get(player.id) || player.position);
+          return normalisePosition(
+            xiActivePosition.get(player.id) || player.position,
+          );
         }
         return normalisePosition(player.position);
       };
@@ -194,12 +198,16 @@ export default function SquadRosterView({
     playerSearch.trim().length > 0 ||
     positionFilter !== "All" ||
     statusFilter !== "all";
-  const outOfPositionCount = roster.filter((player) => isOutOfPosition(player)).length;
+  const outOfPositionCount = roster.filter((player) =>
+    isOutOfPosition(player),
+  ).length;
   const injuredCount = roster.filter((player) => player.injury).length;
 
   const renderPreferredPositionMeta = (player: PlayerData) => (
     <div className="text-xs text-gray-400 dark:text-gray-500 flex items-center gap-1.5 flex-wrap">
-      <span className="text-sm leading-none">{countryFlag(player.nationality)}</span>
+      <span className="text-sm leading-none">
+        {countryFlag(player.nationality)}
+      </span>
       {getPreferredPositions(player).map((position, index) => (
         <Badge
           key={`${player.id}-${position}`}
@@ -212,13 +220,7 @@ export default function SquadRosterView({
     </div>
   );
 
-  const SortHeader = ({
-    col,
-    label,
-  }: {
-    col: SortKey;
-    label: string;
-  }) => (
+  const SortHeader = ({ col, label }: { col: SortKey; label: string }) => (
     <th
       className={`py-2.5 px-4 font-heading font-bold uppercase tracking-wider cursor-pointer select-none hover:text-primary-400 transition-colors ${sortKey === col ? "text-primary-500 dark:text-primary-400" : "text-gray-500 dark:text-gray-400"}`}
       onClick={() => toggleSort(col)}
@@ -259,10 +261,10 @@ export default function SquadRosterView({
             <label className="text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2 block">
               {t("squad.pos")}
             </label>
-            <select
+            <Select
               value={positionFilter}
               onChange={(event) => setPositionFilter(event.target.value)}
-              className="w-full rounded-lg border border-gray-200 dark:border-navy-600 bg-white dark:bg-navy-800 px-3 py-2 text-sm text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500/30"
+              fullWidth
             >
               <option value="All">{t("common.all", "All")}</option>
               {CORE_POSITIONS.map((position) => (
@@ -270,23 +272,33 @@ export default function SquadRosterView({
                   {t(`common.posAbbr.${position}`, positionCode(position))}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
           <div>
             <label className="text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2 block">
               {t("common.status", "Status")}
             </label>
-            <select
+            <Select
               value={statusFilter}
-              onChange={(event) => setStatusFilter(event.target.value as FilterScope)}
-              className="w-full rounded-lg border border-gray-200 dark:border-navy-600 bg-white dark:bg-navy-800 px-3 py-2 text-sm text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500/30"
+              onChange={(event) =>
+                setStatusFilter(event.target.value as FilterScope)
+              }
+              fullWidth
             >
-              <option value="all">{t("common.allPlayers", "All players")}</option>
-              <option value="xi">{t("preMatch.startingXI", "Starting XI")}</option>
-              <option value="bench">{t("preMatch.substitutes", "Substitutes")}</option>
-              <option value="outOfPosition">{t("squad.outOfPosition", "Out of position")}</option>
+              <option value="all">
+                {t("common.allPlayers", "All players")}
+              </option>
+              <option value="xi">
+                {t("preMatch.startingXI", "Starting XI")}
+              </option>
+              <option value="bench">
+                {t("preMatch.substitutes", "Substitutes")}
+              </option>
+              <option value="outOfPosition">
+                {t("squad.outOfPosition", "Out of position")}
+              </option>
               <option value="injured">{t("common.injured", "Injured")}</option>
-            </select>
+            </Select>
           </div>
           <button
             type="button"
@@ -306,7 +318,10 @@ export default function SquadRosterView({
           </button>
         </div>
         <div className="px-4 pb-4 flex flex-wrap gap-2">
-          <Badge variant={outOfPositionCount > 0 ? "danger" : "success"} size="sm">
+          <Badge
+            variant={outOfPositionCount > 0 ? "danger" : "success"}
+            size="sm"
+          >
             {outOfPositionCount} {t("squad.outOfPosition", "Out of position")}
           </Badge>
           <Badge variant={injuredCount > 0 ? "danger" : "neutral"} size="sm">
@@ -325,7 +340,8 @@ export default function SquadRosterView({
             {t("squad.title", { team: myTeam.name })}
           </h3>
           <p className="text-xs text-gray-400 mt-0.5">
-            {filteredRoster.length} / {roster.length} {t("squad.playersLabel", "players")}
+            {filteredRoster.length} / {roster.length}{" "}
+            {t("squad.playersLabel", "players")}
           </p>
         </div>
         <div className="overflow-x-auto">
@@ -362,10 +378,18 @@ export default function SquadRosterView({
                     icon: <User className="w-4 h-4" />,
                     onClick: () => onSelectPlayer(player.id),
                   },
-                  { label: "", icon: undefined, onClick: () => {}, divider: true },
+                  {
+                    label: "",
+                    icon: undefined,
+                    onClick: () => {},
+                    divider: true,
+                  },
                   {
                     label: player.transfer_listed
-                      ? t("squad.removeFromTransferList", "Remove from transfer list")
+                      ? t(
+                          "squad.removeFromTransferList",
+                          "Remove from transfer list",
+                        )
                       : t("squad.addToTransferList", "Add to transfer list"),
                     icon: <ShoppingCart className="w-4 h-4" />,
                     onClick: async () => {
@@ -387,9 +411,12 @@ export default function SquadRosterView({
                     icon: <Repeat className="w-4 h-4" />,
                     onClick: async () => {
                       try {
-                        const updated = await invoke<GameStateData>("toggle_loan_list", {
-                          playerId: player.id,
-                        });
+                        const updated = await invoke<GameStateData>(
+                          "toggle_loan_list",
+                          {
+                            playerId: player.id,
+                          },
+                        );
                         onGameUpdate?.(updated);
                       } catch {
                         return;
@@ -412,7 +439,10 @@ export default function SquadRosterView({
                               title={t("preMatch.startingXI", "Starting XI")}
                             />
                           ) : null}
-                          <Badge variant={positionBadgeVariant(currentPos)} size="sm">
+                          <Badge
+                            variant={positionBadgeVariant(currentPos)}
+                            size="sm"
+                          >
                             {positionCode(currentPos)}
                           </Badge>
                           {wrongPos ? (
