@@ -1,13 +1,40 @@
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { GameStateData } from "../store/gameStore";
-import { Badge } from "./ui";
-import { Mail, MailOpen, ArrowLeft, Trophy, ClipboardList, Crosshair, TableProperties, TrendingUp, Landmark, Smile, Stethoscope, Dumbbell, DollarSign, FileText, ScanSearch, Newspaper, Info, MessageCircle, CheckCircle2, CheckCheck, Trash2 } from "lucide-react";
-import ScoutPlayerCard from "./ScoutPlayerCard";
-import { getTeamName } from "../lib/helpers";
+import {
+  ArrowLeft,
+  CheckCheck,
+  CheckCircle2,
+  ClipboardList,
+  Crosshair,
+  DollarSign,
+  Dumbbell,
+  FileText,
+  Info,
+  Landmark,
+  Mail,
+  MailOpen,
+  MessageCircle,
+  Newspaper,
+  ScanSearch,
+  Smile,
+  Stethoscope,
+  TableProperties,
+  Trash2,
+  TrendingUp,
+  Trophy,
+} from "lucide-react";
+import type { JSX, ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { formatDateShort, formatDateFull } from "../lib/helpers";
+
+import { formatDateFull, formatDateShort, getTeamName } from "../lib/helpers";
+import type {
+  GameStateData,
+  MessageAction,
+  MessageData,
+} from "../store/gameStore";
 import { resolveMessage } from "../utils/backendI18n";
+import ScoutPlayerCard from "./ScoutPlayerCard";
+import { Badge } from "./ui";
 
 interface InboxTabProps {
   gameState: GameStateData;
@@ -16,70 +43,333 @@ interface InboxTabProps {
   onNavigate?: (tab: string, context?: { messageId?: string }) => void;
 }
 
-const CATEGORY_ICONS: Record<string, React.ReactNode> = {
-  Welcome: <Trophy className="w-4 h-4" />, LeagueInfo: <ClipboardList className="w-4 h-4" />,
-  MatchPreview: <Crosshair className="w-4 h-4" />, MatchResult: <TableProperties className="w-4 h-4" />,
-  Transfer: <TrendingUp className="w-4 h-4" />, BoardDirective: <Landmark className="w-4 h-4" />,
-  PlayerMorale: <Smile className="w-4 h-4" />, Injury: <Stethoscope className="w-4 h-4" />,
-  Training: <Dumbbell className="w-4 h-4" />, Finance: <DollarSign className="w-4 h-4" />,
-  Contract: <FileText className="w-4 h-4" />, ScoutReport: <ScanSearch className="w-4 h-4" />,
-  Media: <Newspaper className="w-4 h-4" />, System: <Info className="w-4 h-4" />,
+interface NavigateActionType {
+  NavigateTo: { route: string };
+}
+
+interface ChooseOptionActionType {
+  ChooseOption: {
+    options: { id: string; label: string; description: string }[];
+  };
+}
+
+interface NavigationTarget {
+  tab: string;
+  context?: { messageId?: string };
+  shouldResolveAction: boolean;
+}
+
+const UNREAD_FILTER = "__unread";
+const FILTER_BUTTON_BASE_CLASS =
+  "px-3 py-1.5 rounded-lg text-xs font-heading font-bold uppercase tracking-wider transition-all";
+const FILTER_BUTTON_ACTIVE_CLASS = "bg-primary-500 text-white shadow-sm";
+const FILTER_BUTTON_INACTIVE_CLASS =
+  "bg-white dark:bg-navy-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-navy-600 hover:text-gray-700 dark:hover:text-gray-200";
+const ROUTE_TAB_MAP: Record<string, string> = {
+  squad: "Squad",
+  tactics: "Tactics",
+  training: "Training",
+  schedule: "Schedule",
+  finances: "Finances",
+  transfers: "Transfers",
+  players: "Players",
+  teams: "Teams",
+  tournaments: "Tournaments",
+  staff: "Staff",
+  inbox: "Inbox",
+  manager: "Manager",
+  home: "Home",
+};
+
+const CATEGORY_ICONS: Record<string, ReactNode> = {
+  Welcome: <Trophy className="w-4 h-4" />,
+  LeagueInfo: <ClipboardList className="w-4 h-4" />,
+  MatchPreview: <Crosshair className="w-4 h-4" />,
+  MatchResult: <TableProperties className="w-4 h-4" />,
+  Transfer: <TrendingUp className="w-4 h-4" />,
+  BoardDirective: <Landmark className="w-4 h-4" />,
+  PlayerMorale: <Smile className="w-4 h-4" />,
+  Injury: <Stethoscope className="w-4 h-4" />,
+  Training: <Dumbbell className="w-4 h-4" />,
+  Finance: <DollarSign className="w-4 h-4" />,
+  Contract: <FileText className="w-4 h-4" />,
+  ScoutReport: <ScanSearch className="w-4 h-4" />,
+  Media: <Newspaper className="w-4 h-4" />,
+  System: <Info className="w-4 h-4" />,
 };
 const CATEGORY_COLORS: Record<string, string> = {
-  Welcome: "text-primary-500", LeagueInfo: "text-blue-500", MatchPreview: "text-accent-500",
-  MatchResult: "text-accent-600", Transfer: "text-purple-500", BoardDirective: "text-red-500",
-  PlayerMorale: "text-yellow-500", Injury: "text-red-400", Training: "text-green-500",
-  Finance: "text-emerald-500", Contract: "text-indigo-500", ScoutReport: "text-cyan-500",
-  Media: "text-orange-500", System: "text-gray-400",
+  Welcome: "text-primary-500",
+  LeagueInfo: "text-blue-500",
+  MatchPreview: "text-accent-500",
+  MatchResult: "text-accent-600",
+  Transfer: "text-purple-500",
+  BoardDirective: "text-red-500",
+  PlayerMorale: "text-yellow-500",
+  Injury: "text-red-400",
+  Training: "text-green-500",
+  Finance: "text-emerald-500",
+  Contract: "text-indigo-500",
+  ScoutReport: "text-cyan-500",
+  Media: "text-orange-500",
+  System: "text-gray-400",
 };
 
-export default function InboxTab({ gameState, onGameUpdate, initialMessageId, onNavigate }: InboxTabProps) {
+function getCategoryIcon(category: string): ReactNode {
+  return CATEGORY_ICONS[category] ?? CATEGORY_ICONS.System;
+}
+
+function getCategoryColor(category: string): string {
+  return CATEGORY_COLORS[category] ?? CATEGORY_COLORS.System;
+}
+
+function getFilterButtonClassName(
+  isActive: boolean,
+  extraClasses = "",
+): string {
+  let className = FILTER_BUTTON_BASE_CLASS;
+
+  if (extraClasses.length > 0) {
+    className = `${className} ${extraClasses}`;
+  }
+
+  if (isActive) {
+    return `${className} ${FILTER_BUTTON_ACTIVE_CLASS}`;
+  }
+
+  return `${className} ${FILTER_BUTTON_INACTIVE_CLASS}`;
+}
+
+function getFilteredMessages(
+  messages: MessageData[],
+  categoryFilter: string | null,
+): MessageData[] {
+  if (categoryFilter === UNREAD_FILTER) {
+    return messages.filter((message) => !message.read);
+  }
+
+  if (categoryFilter) {
+    return messages.filter((message) => message.category === categoryFilter);
+  }
+
+  return messages;
+}
+
+function getListPaneClassName(hasSelectedMessage: boolean): string {
+  const visibilityClassName = hasSelectedMessage ? "hidden md:flex" : "flex";
+
+  return `${visibilityClassName} flex-col w-full md:w-96 md:min-w-[384px] border-r border-gray-200 dark:border-navy-600`;
+}
+
+function getMessageRowClassName(isSelected: boolean, isRead: boolean): string {
+  const baseClassName =
+    "flex gap-3 px-4 py-3 cursor-pointer transition-colors border-b border-gray-100 dark:border-navy-600/50";
+
+  if (isSelected) {
+    return `${baseClassName} bg-primary-50 dark:bg-primary-500/10 border-l-2 border-l-primary-500`;
+  }
+
+  if (!isRead) {
+    return `${baseClassName} bg-white dark:bg-navy-800 border-l-2 border-l-accent-500 hover:bg-gray-50 dark:hover:bg-navy-700/50`;
+  }
+
+  return `${baseClassName} border-l-2 border-l-transparent hover:bg-gray-50 dark:hover:bg-navy-700/30`;
+}
+
+function getMessageIconClassName(
+  categoryColor: string,
+  isSelected: boolean,
+  isRead: boolean,
+): string {
+  const baseClassName =
+    "w-8 h-8 rounded-lg flex items-center justify-center shrink-0";
+
+  if (isSelected) {
+    return `${baseClassName} ${categoryColor} bg-primary-500/10`;
+  }
+
+  if (isRead) {
+    return `${baseClassName} text-gray-400 bg-gray-100 dark:bg-navy-600`;
+  }
+
+  return `${baseClassName} ${categoryColor} bg-primary-500/10 dark:bg-primary-500/20`;
+}
+
+function getMessageSubjectClassName(isRead: boolean): string {
+  if (isRead) {
+    return "text-sm truncate flex-1 font-medium text-gray-500 dark:text-gray-400";
+  }
+
+  return "text-sm truncate flex-1 font-bold text-gray-900 dark:text-gray-100";
+}
+
+function getActionButtonClassName(action: MessageAction): string {
+  const baseClassName =
+    "px-5 py-2.5 rounded-lg text-xs font-heading font-bold uppercase tracking-wider transition-all mr-2 mb-2";
+
+  if (action.resolved) {
+    return `${baseClassName} bg-gray-100 dark:bg-navy-700 text-gray-400 dark:text-gray-500 cursor-default`;
+  }
+
+  if (
+    action.action_type === "Acknowledge" ||
+    action.action_type === "Dismiss"
+  ) {
+    return `${baseClassName} bg-gray-200 dark:bg-navy-600 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-navy-500`;
+  }
+
+  return `${baseClassName} bg-primary-500 text-white hover:bg-primary-600 shadow-sm hover:shadow-md hover:shadow-primary-500/20`;
+}
+
+function renderMessageBodyLine(line: string, index: number): JSX.Element {
+  const baseClassName = "text-sm leading-relaxed mb-1";
+
+  if (line.trim() === "") {
+    return (
+      <p key={index} className={`${baseClassName} h-3`}>
+        {line}
+      </p>
+    );
+  }
+
+  if (line.startsWith("•")) {
+    return (
+      <p
+        key={index}
+        className={`${baseClassName} text-gray-700 dark:text-gray-300`}
+      >
+        <span className="flex items-start gap-2">
+          <span className="text-primary-500 mt-0.5">•</span>
+          <span>{line.replace("•", "").trim()}</span>
+        </span>
+      </p>
+    );
+  }
+
+  return (
+    <p
+      key={index}
+      className={`${baseClassName} text-gray-700 dark:text-gray-300`}
+    >
+      {line}
+    </p>
+  );
+}
+
+function isNavigateAction(
+  actionType: MessageAction["action_type"],
+): actionType is NavigateActionType {
+  return typeof actionType === "object" && "NavigateTo" in actionType;
+}
+
+function isChooseOptionAction(
+  actionType: MessageAction["action_type"],
+): actionType is ChooseOptionActionType {
+  return typeof actionType === "object" && "ChooseOption" in actionType;
+}
+
+function getNavigationTarget(route: string): NavigationTarget {
+  const teamMatch = route.match(/^\/team\/(.+)$/);
+
+  if (teamMatch) {
+    return {
+      tab: "__selectTeam",
+      context: { messageId: teamMatch[1] },
+      shouldResolveAction: false,
+    };
+  }
+
+  const tabMatch = route.match(/[?&]tab=([^&]+)/i);
+
+  if (tabMatch) {
+    return {
+      tab: tabMatch[1],
+      shouldResolveAction: true,
+    };
+  }
+
+  const simpleRoute = route.replace(/^\/+/, "").split(/[/?#]/)[0].toLowerCase();
+  const resolvedTab = ROUTE_TAB_MAP[simpleRoute] ?? "Home";
+
+  return {
+    tab: resolvedTab,
+    shouldResolveAction: true,
+  };
+}
+
+export default function InboxTab({
+  gameState,
+  onGameUpdate,
+  initialMessageId,
+  onNavigate,
+}: InboxTabProps): JSX.Element {
   const { t, i18n } = useTranslation();
-  const allMessages = [...(gameState.messages || [])].reverse().map(resolveMessage);
-  const [selectedMsgId, setSelectedMsgId] = useState<string | null>(initialMessageId || null);
+  const messages = gameState.messages ?? [];
+  const allMessages = [...messages].reverse().map(resolveMessage);
+  const [selectedMessageId, setSelectedMessageId] = useState<string | null>(
+    initialMessageId || null,
+  );
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
   const [effectFeedback, setEffectFeedback] = useState<string | null>(null);
+  const categoryCounts = new Map<string, number>();
 
-  const handleSelectMessage = async (msgId: string) => {
-    setSelectedMsgId(msgId);
-    const msg = allMessages.find(m => m.id === msgId);
-    if (msg && !msg.read) {
-      try { const g = await invoke<GameStateData>("mark_message_read", { messageId: msgId }); onGameUpdate(g); } catch {}
+  for (const message of allMessages) {
+    const currentCount = categoryCounts.get(message.category) ?? 0;
+    categoryCounts.set(message.category, currentCount + 1);
+  }
+
+  const categories = Array.from(categoryCounts.keys());
+  const filteredMessages = getFilteredMessages(allMessages, categoryFilter);
+  const unreadCount = allMessages.filter((message) => !message.read).length;
+  const selectedMessage =
+    allMessages.find((message) => message.id === selectedMessageId) ?? null;
+
+  async function handleSelectMessage(msgId: string): Promise<void> {
+    setSelectedMessageId(msgId);
+    const message = allMessages.find(
+      (currentMessage) => currentMessage.id === msgId,
+    );
+
+    if (message && !message.read) {
+      try {
+        const g = await invoke<GameStateData>("mark_message_read", {
+          messageId: msgId,
+        });
+        onGameUpdate(g);
+      } catch {}
     }
-  };
+  }
 
-  const handleAction = async (msgId: string, actionId: string, optionId?: string) => {
-    // Check if the action is a NavigateTo type
-    const msg = allMessages.find(m => m.id === msgId);
-    const action = msg?.actions.find(a => a.id === actionId);
-    if (action && typeof action.action_type === "object" && "NavigateTo" in action.action_type) {
-      const route = (action.action_type as { NavigateTo: { route: string } }).NavigateTo.route;
-      // Handle /team/{id} routes — navigate to team profile
-      const teamMatch = route.match(/^\/team\/(.+)$/);
-      if (teamMatch) {
-        onNavigate?.("__selectTeam", { messageId: teamMatch[1] });
+  async function handleAction(
+    msgId: string,
+    actionId: string,
+    optionId?: string,
+  ): Promise<void> {
+    const message = allMessages.find(
+      (currentMessage) => currentMessage.id === msgId,
+    );
+    const action = message?.actions.find(
+      (currentAction) => currentAction.id === actionId,
+    );
+
+    if (action && isNavigateAction(action.action_type)) {
+      const navigationTarget = getNavigationTarget(
+        action.action_type.NavigateTo.route,
+      );
+      onNavigate?.(navigationTarget.tab, navigationTarget.context);
+
+      if (!navigationTarget.shouldResolveAction) {
         return;
       }
-      // Parse dashboard tab from routes like "/dashboard?tab=Squad"
-      const tabMatch = route.match(/[?&]tab=([^&]+)/i);
-      if (tabMatch) {
-        onNavigate?.(tabMatch[1]);
-      } else {
-        // Map simple route names to dashboard tab names
-        const routeMap: Record<string, string> = {
-          "squad": "Squad", "tactics": "Tactics", "training": "Training",
-          "schedule": "Schedule", "finances": "Finances", "transfers": "Transfers",
-          "players": "Players", "teams": "Teams", "tournaments": "Tournaments",
-          "staff": "Staff", "inbox": "Inbox", "manager": "Manager", "home": "Home",
-        };
-        const simple = route.replace(/^\/+/, "").split(/[/?#]/)[0].toLowerCase();
-        const tab = routeMap[simple] || "Home";
-        onNavigate?.(tab);
-      }
     }
+
     try {
-      const result = await invoke<{ game: GameStateData; effect: string | null }>("resolve_message_action", {
-        messageId: msgId, actionId, optionId: optionId || null
+      const result = await invoke<{
+        game: GameStateData;
+        effect: string | null;
+      }>("resolve_message_action", {
+        messageId: msgId,
+        actionId,
+        optionId: optionId || null,
       });
       onGameUpdate(result.game);
       if (result.effect) {
@@ -87,62 +377,81 @@ export default function InboxTab({ gameState, onGameUpdate, initialMessageId, on
         setTimeout(() => setEffectFeedback(null), 4000);
       }
     } catch {}
-  };
+  }
 
-  const categories = Array.from(new Set(allMessages.map(m => m.category)));
-  const filteredMessages = categoryFilter === "__unread"
-    ? allMessages.filter(m => !m.read)
-    : categoryFilter
-      ? allMessages.filter(m => m.category === categoryFilter)
-      : allMessages;
-  const unreadCount = allMessages.filter(m => !m.read).length;
-  const selectedMessage = allMessages.find(m => m.id === selectedMsgId) || null;
+  async function handleMarkAllRead(): Promise<void> {
+    try {
+      const g = await invoke<GameStateData>("mark_all_messages_read");
+      onGameUpdate(g);
+    } catch {}
+  }
 
-  const handleMarkAllRead = async () => {
-    try { const g = await invoke<GameStateData>("mark_all_messages_read"); onGameUpdate(g); } catch {}
-  };
-  const handleClearOld = async () => {
-    try { const g = await invoke<GameStateData>("clear_old_messages"); onGameUpdate(g); setSelectedMsgId(null); } catch {}
-  };
+  async function handleClearOld(): Promise<void> {
+    try {
+      const g = await invoke<GameStateData>("clear_old_messages");
+      onGameUpdate(g);
+      setSelectedMessageId(null);
+    } catch {}
+  }
+
+  function handleShowAll(): void {
+    setCategoryFilter(null);
+  }
+
+  function handleShowUnread(): void {
+    setCategoryFilter(UNREAD_FILTER);
+  }
+
+  function handleToggleCategory(category: string): void {
+    setCategoryFilter((currentFilter) => {
+      if (currentFilter === category) {
+        return null;
+      }
+
+      return category;
+    });
+  }
+
+  function handleCloseSelectedMessage(): void {
+    setSelectedMessageId(null);
+  }
+
+  function handleScoutPlayerClick(playerId: string): void {
+    onNavigate?.("__selectPlayer", { messageId: playerId });
+  }
 
   return (
     <div className="max-w-6xl mx-auto flex flex-col h-full">
       {/* Filter bar */}
-      <div className="flex gap-2 mb-4 flex-wrap flex-shrink-0">
+      <div className="flex gap-2 mb-4 flex-wrap shrink-0">
         <button
-          onClick={() => { setCategoryFilter(null); }}
-          className={`px-3 py-1.5 rounded-lg text-xs font-heading font-bold uppercase tracking-wider transition-all ${
-            !categoryFilter
-              ? "bg-primary-500 text-white shadow-sm"
-              : "bg-white dark:bg-navy-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-navy-600 hover:text-gray-700 dark:hover:text-gray-200"
-          }`}
+          onClick={handleShowAll}
+          className={getFilterButtonClassName(!categoryFilter)}
         >
-          {t('common.all')} ({allMessages.length})
+          {t("common.all")} ({allMessages.length})
         </button>
         {unreadCount > 0 && (
           <button
-            onClick={() => setCategoryFilter("__unread")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-heading font-bold uppercase tracking-wider transition-all ${
-              categoryFilter === "__unread"
-                ? "bg-primary-500 text-white shadow-sm"
-                : "bg-white dark:bg-navy-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-navy-600 hover:text-gray-700 dark:hover:text-gray-200"
-            }`}
+            onClick={handleShowUnread}
+            className={getFilterButtonClassName(
+              categoryFilter === UNREAD_FILTER,
+            )}
           >
-            {t('inbox.unread', { count: unreadCount })}
+            {t("inbox.unread", { count: unreadCount })}
           </button>
         )}
-        {categories.map(cat => {
-          const catIcon = CATEGORY_ICONS[cat] || CATEGORY_ICONS.System;
-          const count = allMessages.filter(m => m.category === cat).length;
+        {categories.map((cat) => {
+          const catIcon = getCategoryIcon(cat);
+          const count = categoryCounts.get(cat) ?? 0;
+
           return (
             <button
               key={cat}
-              onClick={() => setCategoryFilter(cat === categoryFilter ? null : cat)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-heading font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 ${
-                categoryFilter === cat
-                  ? "bg-primary-500 text-white shadow-sm"
-                  : "bg-white dark:bg-navy-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-navy-600 hover:text-gray-700 dark:hover:text-gray-200"
-              }`}
+              onClick={() => handleToggleCategory(cat)}
+              className={getFilterButtonClassName(
+                categoryFilter === cat,
+                "flex items-center gap-1.5",
+              )}
             >
               {catIcon} {t(`inbox.categories.${cat}`)} ({count})
             </button>
@@ -171,15 +480,15 @@ export default function InboxTab({ gameState, onGameUpdate, initialMessageId, on
       {/* Two-pane inbox layout */}
       <div className="flex-1 flex gap-0 rounded-xl overflow-hidden border border-gray-200 dark:border-navy-600 bg-white dark:bg-navy-800 min-h-0">
         {/* Message list pane */}
-        <div className={`${selectedMessage ? "hidden md:flex" : "flex"} flex-col w-full md:w-96 md:min-w-[384px] border-r border-gray-200 dark:border-navy-600`}>
+        <div className={getListPaneClassName(selectedMessage !== null)}>
           {/* List header */}
-          <div className="p-4 border-b border-gray-100 dark:border-navy-600 bg-gradient-to-r from-navy-700 to-navy-800 flex-shrink-0">
+          <div className="bg-linear-to-r from-navy-700 to-navy-800 shrink-0 border-b border-gray-100 p-4 dark:border-navy-600">
             <h3 className="text-sm font-heading font-bold text-white flex items-center gap-2 uppercase tracking-wide">
               <Mail className="w-4 h-4 text-accent-400" />
-              {t('inbox.title')}
+              {t("inbox.title")}
             </h3>
             <p className="text-xs text-gray-400 mt-0.5 font-heading uppercase tracking-wider">
-              {t('inbox.nMessages', { count: filteredMessages.length })}
+              {t("inbox.nMessages", { count: filteredMessages.length })}
             </p>
           </div>
 
@@ -188,40 +497,50 @@ export default function InboxTab({ gameState, onGameUpdate, initialMessageId, on
             {filteredMessages.length === 0 ? (
               <div className="p-6 text-center">
                 <MailOpen className="w-8 h-8 text-gray-300 dark:text-navy-600 mx-auto mb-2" />
-                <p className="text-sm text-gray-400 dark:text-gray-500">{categoryFilter ? t('inbox.noMessagesInCategory') : t('inbox.noMessages')}</p>
+                <p className="text-sm text-gray-400 dark:text-gray-500">
+                  {categoryFilter
+                    ? t("inbox.noMessagesInCategory")
+                    : t("inbox.noMessages")}
+                </p>
               </div>
             ) : (
-              filteredMessages.map(message => {
-                const catIcon = CATEGORY_ICONS[message.category] || CATEGORY_ICONS.System;
-                const catColor = CATEGORY_COLORS[message.category] || CATEGORY_COLORS.System;
-                const isSelected = selectedMsgId === message.id;
+              filteredMessages.map((message) => {
+                const catIcon = getCategoryIcon(message.category);
+                const catColor = getCategoryColor(message.category);
+                const isSelected = selectedMessageId === message.id;
+
                 return (
                   <div
                     key={message.id}
                     onClick={() => handleSelectMessage(message.id)}
-                    className={`flex gap-3 px-4 py-3 cursor-pointer transition-colors border-b border-gray-100 dark:border-navy-600/50 ${
-                      isSelected
-                        ? "bg-primary-50 dark:bg-primary-500/10 border-l-2 border-l-primary-500"
-                        : !message.read
-                          ? "bg-white dark:bg-navy-800 border-l-2 border-l-accent-500 hover:bg-gray-50 dark:hover:bg-navy-700/50"
-                          : "border-l-2 border-l-transparent hover:bg-gray-50 dark:hover:bg-navy-700/30"
-                    }`}
+                    className={getMessageRowClassName(isSelected, message.read)}
                   >
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                      isSelected ? catColor + " bg-primary-500/10" :
-                      message.read ? "text-gray-400 bg-gray-100 dark:bg-navy-600" : catColor + " bg-primary-500/10 dark:bg-primary-500/20"
-                    }`}>
+                    <div
+                      className={getMessageIconClassName(
+                        catColor,
+                        isSelected,
+                        message.read,
+                      )}
+                    >
                       {catIcon}
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5">
-                        <h4 className={`text-sm truncate flex-1 ${!message.read ? "font-bold text-gray-900 dark:text-gray-100" : "font-medium text-gray-500 dark:text-gray-400"}`}>
+                        <h4
+                          className={getMessageSubjectClassName(message.read)}
+                        >
                           {message.subject}
                         </h4>
-                        {!message.read && <span className="w-2 h-2 rounded-full bg-primary-500 flex-shrink-0" />}
+                        {!message.read && (
+                          <span className="w-2 h-2 rounded-full bg-primary-500 shrink-0" />
+                        )}
                       </div>
-                      <p className="text-xs text-gray-400 dark:text-gray-500 truncate mt-0.5">{message.sender}</p>
-                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{formatDateShort(message.date, i18n.language)}</p>
+                      <p className="text-xs text-gray-400 dark:text-gray-500 truncate mt-0.5">
+                        {message.sender}
+                      </p>
+                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                        {formatDateShort(message.date, i18n.language)}
+                      </p>
                     </div>
                   </div>
                 );
@@ -235,33 +554,48 @@ export default function InboxTab({ gameState, onGameUpdate, initialMessageId, on
           {selectedMessage ? (
             <>
               {/* Detail header */}
-              <div className="p-5 border-b border-gray-100 dark:border-navy-600 flex-shrink-0">
+              <div className="shrink-0 border-b border-gray-100 p-5 dark:border-navy-600">
                 <button
-                  onClick={() => setSelectedMsgId(null)}
+                  onClick={handleCloseSelectedMessage}
                   className="md:hidden flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 mb-3"
                 >
-                  <ArrowLeft className="w-3.5 h-3.5" /> {t('inbox.backToInbox')}
+                  <ArrowLeft className="w-3.5 h-3.5" /> {t("inbox.backToInbox")}
                 </button>
                 <div className="flex items-start gap-3">
-                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                    CATEGORY_COLORS[selectedMessage.category] || CATEGORY_COLORS.System
-                  } bg-primary-500/10 dark:bg-primary-500/20`}>
-                    {CATEGORY_ICONS[selectedMessage.category] || CATEGORY_ICONS.System}
+                  <div
+                    className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${getCategoryColor(selectedMessage.category)} bg-primary-500/10 dark:bg-primary-500/20`}
+                  >
+                    {getCategoryIcon(selectedMessage.category)}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-heading font-bold text-lg text-gray-900 dark:text-gray-100">{selectedMessage.subject}</h3>
+                    <h3 className="font-heading font-bold text-lg text-gray-900 dark:text-gray-100">
+                      {selectedMessage.subject}
+                    </h3>
                     <div className="flex items-center gap-3 mt-1">
                       <span className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                        {selectedMessage.sender}{selectedMessage.sender_role ? ` — ${selectedMessage.sender_role}` : ""}
+                        {selectedMessage.sender}
+                        {selectedMessage.sender_role
+                          ? ` — ${selectedMessage.sender_role}`
+                          : ""}
                       </span>
                       <span className="text-xs text-gray-400 dark:text-gray-500">
                         {formatDateFull(selectedMessage.date, i18n.language)}
                       </span>
                     </div>
                     <div className="flex items-center gap-2 mt-1.5">
-                      <Badge variant="neutral" size="sm">{t(`inbox.categories.${selectedMessage.category}`)}</Badge>
-                      {selectedMessage.priority === "Urgent" && <Badge variant="danger" size="sm">{t('inbox.urgent')}</Badge>}
-                      {selectedMessage.priority === "High" && <Badge variant="accent" size="sm">{t('inbox.important')}</Badge>}
+                      <Badge variant="neutral" size="sm">
+                        {t(`inbox.categories.${selectedMessage.category}`)}
+                      </Badge>
+                      {selectedMessage.priority === "Urgent" && (
+                        <Badge variant="danger" size="sm">
+                          {t("inbox.urgent")}
+                        </Badge>
+                      )}
+                      {selectedMessage.priority === "High" && (
+                        <Badge variant="accent" size="sm">
+                          {t("inbox.important")}
+                        </Badge>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -270,22 +604,15 @@ export default function InboxTab({ gameState, onGameUpdate, initialMessageId, on
               {/* Detail body */}
               <div className="flex-1 overflow-y-auto p-6">
                 <div className="max-w-2xl">
-                  {selectedMessage.body.split("\n").map((line, i) => (
-                    <p key={i} className={`text-sm leading-relaxed mb-1 ${line.trim() === "" ? "h-3" : "text-gray-700 dark:text-gray-300"}`}>
-                      {line.startsWith("•") ? (
-                        <span className="flex items-start gap-2">
-                          <span className="text-primary-500 mt-0.5">•</span>
-                          <span>{line.replace("•", "").trim()}</span>
-                        </span>
-                      ) : line}
-                    </p>
-                  ))}
+                  {selectedMessage.body
+                    .split("\n")
+                    .map((line, index) => renderMessageBodyLine(line, index))}
 
                   {/* Scout report player card */}
                   {selectedMessage.context?.scout_report && (
                     <ScoutPlayerCard
                       report={selectedMessage.context.scout_report}
-                      onPlayerClick={(playerId) => onNavigate?.("__selectPlayer", { messageId: playerId })}
+                      onPlayerClick={handleScoutPlayerClick}
                     />
                   )}
 
@@ -293,13 +620,20 @@ export default function InboxTab({ gameState, onGameUpdate, initialMessageId, on
                   {selectedMessage.context?.match_result && (
                     <div className="mt-6 p-4 bg-gray-50 dark:bg-navy-700 rounded-xl flex items-center justify-center gap-8 border border-gray-100 dark:border-navy-600">
                       <span className="font-heading font-bold text-sm text-gray-700 dark:text-gray-200">
-                        {getTeamName(gameState.teams, selectedMessage.context.match_result.home_team_id)}
+                        {getTeamName(
+                          gameState.teams,
+                          selectedMessage.context.match_result.home_team_id,
+                        )}
                       </span>
                       <span className="font-heading font-bold text-2xl text-gray-800 dark:text-gray-100">
-                        {selectedMessage.context.match_result.home_goals} - {selectedMessage.context.match_result.away_goals}
+                        {selectedMessage.context.match_result.home_goals} -{" "}
+                        {selectedMessage.context.match_result.away_goals}
                       </span>
                       <span className="font-heading font-bold text-sm text-gray-700 dark:text-gray-200">
-                        {getTeamName(gameState.teams, selectedMessage.context.match_result.away_team_id)}
+                        {getTeamName(
+                          gameState.teams,
+                          selectedMessage.context.match_result.away_team_id,
+                        )}
                       </span>
                     </div>
                   )}
@@ -307,23 +641,31 @@ export default function InboxTab({ gameState, onGameUpdate, initialMessageId, on
                   {/* Effect feedback toast */}
                   {effectFeedback && (
                     <div className="mt-4 p-3 bg-primary-50 dark:bg-primary-500/10 border border-primary-200 dark:border-primary-500/30 rounded-xl flex items-center gap-2 animate-pulse">
-                      <CheckCircle2 className="w-4 h-4 text-primary-500 flex-shrink-0" />
-                      <span className="text-sm font-medium text-primary-700 dark:text-primary-300">{effectFeedback}</span>
+                      <CheckCircle2 className="w-4 h-4 text-primary-500 shrink-0" />
+                      <span className="text-sm font-medium text-primary-700 dark:text-primary-300">
+                        {effectFeedback}
+                      </span>
                     </div>
                   )}
 
                   {/* Action buttons */}
                   {selectedMessage.actions.length > 0 && (
                     <div className="mt-6">
-                      {selectedMessage.actions.map(action => {
+                      {selectedMessage.actions.map((action) => {
                         // ChooseOption: render option cards
-                        if (typeof action.action_type === "object" && "ChooseOption" in action.action_type) {
-                          const opts = (action.action_type as { ChooseOption: { options: { id: string; label: string; description: string }[] } }).ChooseOption.options;
+                        if (isChooseOptionAction(action.action_type)) {
+                          const opts = action.action_type.ChooseOption.options;
+
                           if (action.resolved) {
                             return (
-                              <div key={action.id} className="flex items-center gap-2 text-sm text-gray-400 dark:text-gray-500 mt-2">
+                              <div
+                                key={action.id}
+                                className="flex items-center gap-2 text-sm text-gray-400 dark:text-gray-500 mt-2"
+                              >
                                 <CheckCircle2 className="w-4 h-4 text-primary-500" />
-                                <span className="font-heading font-bold uppercase tracking-wider text-xs">{t('inbox.responded', 'Response sent')}</span>
+                                <span className="font-heading font-bold uppercase tracking-wider text-xs">
+                                  {t("inbox.responded", "Response sent")}
+                                </span>
                               </div>
                             );
                           }
@@ -331,16 +673,29 @@ export default function InboxTab({ gameState, onGameUpdate, initialMessageId, on
                             <div key={action.id} className="space-y-2">
                               <p className="text-xs font-heading font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 flex items-center gap-1.5 mb-3">
                                 <MessageCircle className="w-3.5 h-3.5" />
-                                {t('inbox.chooseResponse', 'Choose your response')}
+                                {t(
+                                  "inbox.chooseResponse",
+                                  "Choose your response",
+                                )}
                               </p>
-                              {opts.map(opt => (
+                              {opts.map((opt) => (
                                 <button
                                   key={opt.id}
-                                  onClick={() => handleAction(selectedMessage.id, action.id, opt.id)}
+                                  onClick={() =>
+                                    handleAction(
+                                      selectedMessage.id,
+                                      action.id,
+                                      opt.id,
+                                    )
+                                  }
                                   className="w-full text-left p-4 rounded-xl border border-gray-200 dark:border-navy-600 hover:border-primary-400 dark:hover:border-primary-500 hover:bg-primary-50/50 dark:hover:bg-primary-500/5 transition-all group"
                                 >
-                                  <p className="text-sm font-heading font-bold text-gray-800 dark:text-gray-200 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">{opt.label}</p>
-                                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{opt.description}</p>
+                                  <p className="text-sm font-heading font-bold text-gray-800 dark:text-gray-200 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
+                                    {opt.label}
+                                  </p>
+                                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                    {opt.description}
+                                  </p>
                                 </button>
                               ))}
                             </div>
@@ -352,16 +707,14 @@ export default function InboxTab({ gameState, onGameUpdate, initialMessageId, on
                           <button
                             key={action.id}
                             disabled={action.resolved}
-                            onClick={() => handleAction(selectedMessage.id, action.id)}
-                            className={`px-5 py-2.5 rounded-lg text-xs font-heading font-bold uppercase tracking-wider transition-all mr-2 mb-2 ${
-                              action.resolved
-                                ? "bg-gray-100 dark:bg-navy-700 text-gray-400 dark:text-gray-500 cursor-default"
-                                : action.action_type === "Acknowledge" || action.action_type === "Dismiss"
-                                  ? "bg-gray-200 dark:bg-navy-600 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-navy-500"
-                                  : "bg-primary-500 text-white hover:bg-primary-600 shadow-sm hover:shadow-md hover:shadow-primary-500/20"
-                            }`}
+                            onClick={() =>
+                              handleAction(selectedMessage.id, action.id)
+                            }
+                            className={getActionButtonClassName(action)}
                           >
-                            {action.resolved ? `✓ ${action.label}` : action.label}
+                            {action.resolved
+                              ? `✓ ${action.label}`
+                              : action.label}
                           </button>
                         );
                       })}
@@ -374,7 +727,9 @@ export default function InboxTab({ gameState, onGameUpdate, initialMessageId, on
             <div className="flex-1 flex items-center justify-center">
               <div className="text-center">
                 <MailOpen className="w-12 h-12 text-gray-300 dark:text-navy-600 mx-auto mb-3" />
-                <p className="text-sm text-gray-400 dark:text-gray-500 font-heading uppercase tracking-wider">{t('inbox.selectMessage')}</p>
+                <p className="text-sm text-gray-400 dark:text-gray-500 font-heading uppercase tracking-wider">
+                  {t("inbox.selectMessage")}
+                </p>
               </div>
             </div>
           )}
