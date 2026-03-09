@@ -236,6 +236,7 @@
     "name": "Nome",
     "team": "Equipa",
     "player": "Jogador",
+    "actions": "Ações",
     "position": "Posição",
     "nationality": "Nacionalidade",
     "contract": "Contrato",
@@ -396,7 +397,13 @@
     "formation": "Formação",
     "playStyle": "Estilo de Jogo",
     "startingXI": "Onze Inicial — {{formation}}",
-    "fullSquad": "Plantel Completo"
+    "fullSquad": "Plantel Completo",
+    "pitchInteractionHint": "Arrasta a partir da tabela de suplentes, clica num titular para o analisar e clica noutro titular para trocar de posição.",
+    "selectedPlayer": "Jogador selecionado",
+    "hoveredPlayer": "Jogador em foco",
+    "hoverToCompare": "Passa o cursor sobre outro jogador no campo para comparar atributos.",
+    "selectPitchPlayer": "Seleciona um jogador no campo para analisar os seus atributos.",
+    "selectAnotherToSwap": "Seleciona outro titular de seguida para trocar as suas posições."
   },
   "training": {
     "weeklySchedule": "Calendário Semanal",
@@ -968,17 +975,7 @@
     "continueDashboard": "Continuar para o Painel"
   },
   "squadCompare": {
-    "compare": "Comparar",
-    "selectPlayerA": "Selecionar Jogador A",
-    "selectPlayerB": "Selecionar Jogador B",
-    "vsLabel": "vs",
-    "clearSelection": "Limpar",
-    "noPlayersSelected": "Seleciona dois jogadores dos menus acima para comparar os seus atributos lado a lado.",
-    "seasonStats": "Estatísticas da Época",
-    "apps": "Jogos",
-    "goals": "Golos",
-    "assists": "Assistências",
-    "avgRating": "Classificação Média"
+    "compare": "Comparar"
   },
   "be": {
     "sender": {

@@ -236,6 +236,7 @@
     "name": "Name",
     "team": "Team",
     "player": "Player",
+    "actions": "Actions",
     "position": "Position",
     "nationality": "Nationality",
     "contract": "Contract",
@@ -396,7 +397,13 @@
     "formation": "Formation",
     "playStyle": "Play Style",
     "startingXI": "Starting XI — {{formation}}",
-    "fullSquad": "Full Squad"
+    "fullSquad": "Full Squad",
+    "pitchInteractionHint": "Drag from the bench table, click a starter to inspect them, and click another starter to swap positions.",
+    "selectedPlayer": "Selected player",
+    "hoveredPlayer": "Hovered player",
+    "hoverToCompare": "Hover another player on the pitch to compare attributes.",
+    "selectPitchPlayer": "Select a player on the pitch to inspect their attributes.",
+    "selectAnotherToSwap": "Select another starter afterwards to swap their positions."
   },
   "training": {
     "weeklySchedule": "Weekly Schedule",
@@ -968,17 +975,7 @@
     "continueDashboard": "Continue to Dashboard"
   },
   "squadCompare": {
-    "compare": "Compare",
-    "selectPlayerA": "Select Player A",
-    "selectPlayerB": "Select Player B",
-    "vsLabel": "vs",
-    "clearSelection": "Clear",
-    "noPlayersSelected": "Select two players from the dropdowns above to compare their attributes side by side.",
-    "seasonStats": "Season Stats",
-    "apps": "Apps",
-    "goals": "Goals",
-    "assists": "Assists",
-    "avgRating": "Avg Rating"
+    "compare": "Compare"
   },
   "be": {
     "sender": {

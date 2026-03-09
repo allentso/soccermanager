@@ -236,6 +236,7 @@
     "name": "Name",
     "team": "Team",
     "player": "Spieler",
+    "actions": "Aktionen",
     "position": "Position",
     "nationality": "Nationalität",
     "contract": "Vertrag",
@@ -396,7 +397,13 @@
     "formation": "Formation",
     "playStyle": "Spielweise",
     "startingXI": "Startelf — {{formation}}",
-    "fullSquad": "Gesamter Kader"
+    "fullSquad": "Gesamter Kader",
+    "pitchInteractionHint": "Ziehe aus der Ersatzbank-Tabelle, klicke einen Stammspieler zur Analyse an und klicke dann einen anderen an, um die Positionen zu tauschen.",
+    "selectedPlayer": "Ausgewählter Spieler",
+    "hoveredPlayer": "Überfahrener Spieler",
+    "hoverToCompare": "Bewege den Mauszeiger über einen anderen Spieler auf dem Feld, um Attribute zu vergleichen.",
+    "selectPitchPlayer": "Wähle einen Spieler auf dem Feld aus, um seine Attribute zu prüfen.",
+    "selectAnotherToSwap": "Wähle anschließend einen weiteren Stammspieler aus, um ihre Positionen zu tauschen."
   },
   "training": {
     "weeklySchedule": "Wochenplan",
@@ -968,17 +975,7 @@
     "continueDashboard": "Weiter zum Dashboard"
   },
   "squadCompare": {
-    "compare": "Vergleichen",
-    "selectPlayerA": "Spieler A wählen",
-    "selectPlayerB": "Spieler B wählen",
-    "vsLabel": "vs",
-    "clearSelection": "Löschen",
-    "noPlayersSelected": "Wähle zwei Spieler aus den Dropdowns oben, um ihre Attribute nebeneinander zu vergleichen.",
-    "seasonStats": "Saisonstatistiken",
-    "apps": "Einsätze",
-    "goals": "Tore",
-    "assists": "Vorlagen",
-    "avgRating": "Durchschnittsbewertung"
+    "compare": "Vergleichen"
   },
   "be": {
     "sender": {

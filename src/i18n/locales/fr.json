@@ -194,7 +194,7 @@
   "common": {
     "loading": "Chargement...",
     "loadingGameState": "Chargement de l'état du jeu...",
-    "noResults": "Aucun résultat.",
+    "noResults": "Aucun résultat trouvé.",
     "place": {
       "1": "1er",
       "2": "2e",
@@ -236,6 +236,7 @@
     "name": "Nom",
     "team": "Équipe",
     "player": "Joueur",
+    "actions": "Actions",
     "position": "Position",
     "nationality": "Nationalité",
     "contract": "Contrat",
@@ -396,7 +397,13 @@
     "formation": "Formation",
     "playStyle": "Style de Jeu",
     "startingXI": "Onze de Départ — {{formation}}",
-    "fullSquad": "Effectif Complet"
+    "fullSquad": "Effectif Complet",
+    "pitchInteractionHint": "Faites glisser depuis le tableau des remplaçants, cliquez sur un titulaire pour l'inspecter puis sur un autre pour échanger leurs positions.",
+    "selectedPlayer": "Joueur sélectionné",
+    "hoveredPlayer": "Joueur survolé",
+    "hoverToCompare": "Survolez un autre joueur sur le terrain pour comparer les attributs.",
+    "selectPitchPlayer": "Sélectionnez un joueur sur le terrain pour examiner ses attributs.",
+    "selectAnotherToSwap": "Sélectionnez ensuite un autre titulaire pour échanger leurs positions."
   },
   "training": {
     "weeklySchedule": "Calendrier Hebdomadaire",
@@ -968,17 +975,7 @@
     "continueDashboard": "Continuer vers le Tableau de Bord"
   },
   "squadCompare": {
-    "compare": "Comparer",
-    "selectPlayerA": "Sélectionner Joueur A",
-    "selectPlayerB": "Sélectionner Joueur B",
-    "vsLabel": "vs",
-    "clearSelection": "Effacer",
-    "noPlayersSelected": "Sélectionnez deux joueurs dans les menus ci-dessus pour comparer leurs attributs côte à côte.",
-    "seasonStats": "Stats de Saison",
-    "apps": "Matchs",
-    "goals": "Buts",
-    "assists": "Passes Décisives",
-    "avgRating": "Note Moyenne"
+    "compare": "Comparer"
   },
   "be": {
     "sender": {

@@ -1,6 +1,5 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi, beforeEach } from "vitest";
-import { invoke } from "@tauri-apps/api/core";
+import { render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 import type { GameStateData, PlayerData, TeamData } from "../store/gameStore";
 import SquadTab from "./SquadTab";
 
@@ -11,12 +10,6 @@ vi.mock("react-i18next", () => ({
     i18n: { language: "en" },
   }),
 }));
-
-vi.mock("@tauri-apps/api/core", () => ({
-  invoke: vi.fn(),
-}));
-
-const mockedInvoke = vi.mocked(invoke);
 
 const makePlayer = (
   id: string,
@@ -100,7 +93,19 @@ const makeTeam = (overrides: Partial<TeamData> = {}): TeamData => ({
   training_schedule: "Balanced",
   founded_year: 1900,
   colors: { primary: "#00ff00", secondary: "#ffffff" },
-  starting_xi_ids: [],
+  starting_xi_ids: [
+    "gk1",
+    "d1",
+    "d2",
+    "d3",
+    "d4",
+    "m1",
+    "m2",
+    "m3",
+    "m4",
+    "f1",
+    "f2",
+  ],
   form: [],
   history: [],
   ...overrides,
@@ -174,25 +179,8 @@ const makeGameState = (): GameStateData => {
   };
 };
 
-const createDataTransfer = () => {
-  const data = new Map<string, string>();
-  return {
-    effectAllowed: "move",
-    dropEffect: "move",
-    setData: (type: string, value: string) => {
-      data.set(type, value);
-    },
-    getData: (type: string) => data.get(type) ?? "",
-  };
-};
-
 describe("SquadTab", () => {
-  beforeEach(() => {
-    mockedInvoke.mockReset();
-    mockedInvoke.mockResolvedValue(makeGameState());
-  });
-
-  it("renders play style guidance for the selected style", () => {
+  it("renders only the full roster table and not the moved tactics controls", () => {
     render(
       <SquadTab
         gameState={makeGameState()}
@@ -202,48 +190,10 @@ describe("SquadTab", () => {
       />,
     );
 
-    expect(screen.getByText("What this changes")).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        "Keeps your team measured in and out of possession, with a steady shape and fewer extremes.",
-      ),
-    ).toBeInTheDocument();
-    expect(screen.getByText("Drag to pitch")).toBeInTheDocument();
-  });
-
-  it("sends the correct starting xi order when a bench defender is dropped onto a defensive slot", async () => {
-    render(
-      <SquadTab
-        gameState={makeGameState()}
-        managerId="mgr1"
-        onSelectPlayer={vi.fn()}
-        onGameUpdate={vi.fn()}
-      />,
-    );
-
-    const benchPlayer = screen.getByTestId("bench-player-d5");
-    const pitchSlot = screen.getByTestId("pitch-slot-1");
-    const dataTransfer = createDataTransfer();
-
-    fireEvent.dragStart(benchPlayer, { dataTransfer });
-    fireEvent.drop(pitchSlot, { dataTransfer });
-
-    await waitFor(() => {
-      expect(mockedInvoke).toHaveBeenCalledWith("set_starting_xi", {
-        playerIds: [
-          "gk1",
-          "d5",
-          "d2",
-          "d3",
-          "d4",
-          "m1",
-          "m2",
-          "m3",
-          "m4",
-          "f1",
-          "f2",
-        ],
-      });
-    });
+    expect(screen.getByText("squad.title")).toBeInTheDocument();
+    expect(screen.getByText("Player d5")).toBeInTheDocument();
+    expect(screen.queryByText("What this changes")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("bench-player-d5")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("pitch-slot-1")).not.toBeInTheDocument();
   });
 });
