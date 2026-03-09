@@ -492,23 +492,11 @@ export default function Dashboard() {
           <div className="flex items-center gap-3">
             <ThemeToggle />
 
-            {/* Finance badge — real data */}
-            {(() => {
-              const myTeam = gameState.teams.find(t => t.id === gameState.manager.team_id);
-              const bal = myTeam ? myTeam.finance : 0;
-              const display = bal >= 1_000_000 ? `€${(bal / 1_000_000).toFixed(1)}M` : bal >= 1_000 ? `€${(bal / 1_000).toFixed(0)}K` : `€${bal}`;
-              return (
-                <Badge variant={bal > 0 ? "success" : "danger"} size="md">
-                  <span className="flex items-center gap-1">{display}</span>
-                </Badge>
-              );
-            })()}
-
             {/* Save button */}
             <button
               onClick={handleSave}
               disabled={isSaving}
-              className={`flex items-center gap-1.5 px-3 py-2.5 rounded-lg text-sm font-heading font-bold uppercase tracking-wider transition-all ${
+              className={`flex items-center gap-1.5 px-3 py-2.5 rounded-lg text-sm font-heading font-bold uppercase tracking-wider transition-all hover:cursor-pointer ${
                 saveFlash
                   ? "bg-green-500 text-white"
                   : "bg-gray-200 dark:bg-navy-700 text-gray-600 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-navy-600"
@@ -525,7 +513,7 @@ export default function Dashboard() {
                 <button 
                   onClick={() => handleContinue()}
                   disabled={isAdvancing || seasonComplete}
-                  className={`bg-gradient-to-r ${MODE_META[matchMode]?.color || 'from-primary-500 to-primary-600'} hover:brightness-110 text-white pl-4 pr-3 py-2.5 rounded-l-lg font-heading font-bold uppercase tracking-wider text-sm shadow-md hover:shadow-lg transition-all flex items-center gap-2 ${isAdvancing || seasonComplete ? 'opacity-70 cursor-wait' : ''}`}
+                  className={`bg-gradient-to-r ${MODE_META[matchMode]?.color || 'from-primary-500 to-primary-600'} hover:brightness-110 text-white pl-4 pr-3 py-2.5 rounded-l-lg font-heading font-bold uppercase tracking-wider text-sm shadow-md hover:shadow-lg hover:cursor-pointer transition-all flex items-center gap-2 ${isAdvancing || seasonComplete ? 'opacity-70 cursor-wait' : ''}`}
                 >
                   {seasonComplete ? (
                     <span>{t('endOfSeason.seasonComplete')}</span>

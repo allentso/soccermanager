@@ -52,7 +52,7 @@ export default function DashboardSidebar({ activeTab, onNavClick, unreadMessages
         </div>
         <button
           onClick={() => onNavClick("Manager")}
-          className="mt-3 pt-3 border-t border-navy-700 text-left w-full hover:bg-white/5 rounded-lg transition-colors -mx-1 px-1 py-1"
+          className="mt-3 pt-3 border-t border-navy-700 text-left w-full hover:bg-white/5 rounded-lg transition-colors -mx-1 px-1 py-1 hover:cursor-pointer"
         >
           <p className="text-xs text-gray-400 uppercase tracking-wider">{t('dashboard.manager')}</p>
           <p className="text-sm font-semibold text-white mt-0.5">{managerName}</p>

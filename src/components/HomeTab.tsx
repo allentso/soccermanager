@@ -55,7 +55,6 @@ export default function HomeTab({ gameState, onNavigate }: HomeTabProps) {
   // Current date
   const lang = i18n.language;
   const currentDate = new Date(gameState.clock.current_date);
-  const dateStr = formatDateFull(gameState.clock.current_date, lang);
 
   // Training schedule
   const schedule = myTeam?.training_schedule || "Balanced";
@@ -90,18 +89,6 @@ export default function HomeTab({ gameState, onNavigate }: HomeTabProps) {
 
   return (
     <div className="max-w-6xl mx-auto flex flex-col gap-5">
-      {/* Date header */}
-      <div className="flex items-center gap-2">
-        <Calendar className="w-4 h-4 text-gray-400 dark:text-gray-500" />
-        <span className="text-sm text-gray-600 dark:text-gray-400">{dateStr}</span>
-        {unreadCount > 0 && (
-          <button onClick={() => onNavigate?.("Inbox")} className="ml-auto flex items-center gap-1.5 text-xs font-heading font-bold uppercase tracking-wider text-primary-500 hover:text-primary-600 dark:hover:text-primary-400 transition-colors">
-            <Mail className="w-3.5 h-3.5" />
-            {t('home.unreadMessages', { count: unreadCount })}
-          </button>
-        )}
-      </div>
-
       {/* Onboarding — Getting Started Checklist */}
       {showOnboarding && completedSteps < onboardingSteps.length && (
         <Card accent="accent">
@@ -238,7 +225,7 @@ export default function HomeTab({ gameState, onNavigate }: HomeTabProps) {
 
       {/* Board Objectives */}
       {(gameState.board_objectives || []).length > 0 && (
-        <Card className="mb-5">
+        <Card>
           <CardHeader>{t('manager.boardStatus', 'Board Objectives')}</CardHeader>
           <CardBody>
             <div className="flex flex-col gap-2.5">
