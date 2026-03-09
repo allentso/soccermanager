@@ -77,7 +77,10 @@
     "searchTeams": "Teams",
     "searchPlayers": "Players",
     "scouting": "Scouting",
-    "youthAcademy": "Youth Academy"
+    "youthAcademy": "Youth Academy",
+    "saveGame": "Save game",
+    "saving": "Saving...",
+    "saved": "Saved!"
   },
   "continueMenu": {
     "goToField": "Go to the Field",

@@ -77,7 +77,10 @@
     "searchTeams": "Equipos",
     "searchPlayers": "Jugadores",
     "scouting": "Ojeadores",
-    "youthAcademy": "Academia Juvenil"
+    "youthAcademy": "Academia Juvenil",
+    "saveGame": "Guardar partida",
+    "saving": "Guardando...",
+    "saved": "¡Guardado!"
   },
   "continueMenu": {
     "goToField": "Ir al Campo",

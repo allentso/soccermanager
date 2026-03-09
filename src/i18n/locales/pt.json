@@ -77,7 +77,10 @@
     "searchTeams": "Equipas",
     "searchPlayers": "Jogadores",
     "scouting": "Prospeção",
-    "youthAcademy": "Academia de Jovens"
+    "youthAcademy": "Academia de Jovens",
+    "saveGame": "Guardar jogo",
+    "saving": "A guardar...",
+    "saved": "Guardado!"
   },
   "continueMenu": {
     "goToField": "Ir para o Campo",

@@ -77,7 +77,10 @@
     "searchTeams": "Times",
     "searchPlayers": "Jogadores",
     "scouting": "Observação",
-    "youthAcademy": "Base"
+    "youthAcademy": "Base",
+    "saveGame": "Salvar jogo",
+    "saving": "Salvando...",
+    "saved": "Salvo!"
   },
   "continueMenu": {
     "goToField": "Ir para o Campo",

@@ -77,7 +77,10 @@
     "searchTeams": "Équipes",
     "searchPlayers": "Joueurs",
     "scouting": "Recrutement",
-    "youthAcademy": "Académie des Jeunes"
+    "youthAcademy": "Académie des Jeunes",
+    "saveGame": "Sauvegarder la partie",
+    "saving": "Sauvegarde...",
+    "saved": "Sauvegardé !"
   },
   "continueMenu": {
     "goToField": "Aller sur le Terrain",

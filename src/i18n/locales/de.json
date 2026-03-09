@@ -77,7 +77,10 @@
     "searchTeams": "Teams",
     "searchPlayers": "Spieler",
     "scouting": "Scouting",
-    "youthAcademy": "Jugendakademie"
+    "youthAcademy": "Jugendakademie",
+    "saveGame": "Spiel speichern",
+    "saving": "Speichert...",
+    "saved": "Gespeichert!"
   },
   "continueMenu": {
     "goToField": "Aufs Spielfeld",
