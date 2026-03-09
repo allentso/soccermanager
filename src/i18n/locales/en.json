@@ -616,6 +616,13 @@
     "boardConcerns": "The board has concerns about results.",
     "boardThreat": "Your position is under serious threat."
   },
+  "boardObjectives": {
+    "objective": {
+      "LeaguePosition": "Finish in the top {{target}}",
+      "Wins": "Win at least {{target}} matches",
+      "GoalsScored": "Score at least {{target}} goals"
+    }
+  },
   "transfers": {
     "centre": "Transfer Centre",
     "transferWindow": "{{team}} — Transfer Window",
@@ -1063,6 +1070,10 @@
         "subject": "{{team}} — Season Objectives",
         "body": "The board has set the following expectations for this season:\n\n• Finish in the top half of the table\n• Maintain financial stability\n• Develop young talent from the academy\n\nMeeting these objectives will strengthen your position. Failure to meet minimum expectations may result in a review of your tenure.\n\nWe trust in your abilities.",
         "actionAccept": "Accept Objectives"
+      },
+      "boardObjectives": {
+        "subject": "Season {{season}} — Board Objectives",
+        "body": "The board has set the following objectives for this season:\n\n1. Finish in the top {{expectedPos}}\n2. Win at least {{winTarget}} matches\n3. Score at least {{goalsTarget}} goals\n\nMeeting these targets will improve the board's confidence in your management. Failure to meet expectations may result in reduced budgets or further consequences."
       },
       "fitness": {
         "critical": {

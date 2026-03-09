@@ -1,6 +1,7 @@
 use crate::game::{BoardObjective, Game, ObjectiveType};
 use domain::league::FixtureStatus;
 use domain::message::*;
+use std::collections::HashMap;
 
 struct ObjectiveTargets {
     expected_pos: u32,
@@ -52,25 +53,22 @@ fn board_message_id(season: u32) -> String {
 }
 
 fn build_objectives_message(
-    objectives: &[BoardObjective],
+    targets: &ObjectiveTargets,
     season: u32,
     today: String,
 ) -> InboxMessage {
-    let objectives_text = objectives
-        .iter()
-        .enumerate()
-        .map(|(idx, objective)| format!("{}. {}", idx + 1, objective.description))
-        .collect::<Vec<_>>()
-        .join("\n");
+    let mut params = HashMap::new();
+    params.insert("season".to_string(), season.to_string());
+    params.insert("expectedPos".to_string(), targets.expected_pos.to_string());
+    params.insert("winTarget".to_string(), targets.win_target.to_string());
+    params.insert("goalsTarget".to_string(), targets.goals_target.to_string());
 
     InboxMessage::new(
         board_message_id(season),
-        format!("Season {} — Board Expectations", season),
+        format!("Season {} — Board Objectives", season),
         format!(
-            "The board has set the following objectives for this season:\n\n{}\n\n\
-             Meeting these targets will improve the board's confidence in your management. \
-             Failure to meet expectations may result in reduced budgets or further consequences.",
-            objectives_text
+            "The board has set the following objectives for this season:\n\n1. Finish in the top {}\n2. Win at least {} matches\n3. Score at least {} goals\n\nMeeting these targets will improve the board's confidence in your management. Failure to meet expectations may result in reduced budgets or further consequences.",
+            targets.expected_pos, targets.win_target, targets.goals_target
         ),
         "Board of Directors".to_string(),
         today,
@@ -78,6 +76,12 @@ fn build_objectives_message(
     .with_category(MessageCategory::BoardDirective)
     .with_priority(MessagePriority::High)
     .with_sender_role("Chairman")
+    .with_i18n(
+        "be.msg.boardObjectives.subject",
+        "be.msg.boardObjectives.body",
+        params,
+    )
+    .with_sender_i18n("be.sender.boardOfDirectors", "be.role.chairman")
 }
 
 fn satisfaction_delta(met_count: usize, total: usize) -> i8 {
@@ -116,21 +120,21 @@ pub fn generate_objectives(game: &mut Game) {
     game.board_objectives = vec![
         BoardObjective {
             id: "obj_position".to_string(),
-            description: format!("Finish in the top {}", targets.expected_pos),
+            description: "boardObjectives.objective.LeaguePosition".to_string(),
             target: targets.expected_pos,
             objective_type: ObjectiveType::LeaguePosition,
             met: false,
         },
         BoardObjective {
             id: "obj_wins".to_string(),
-            description: format!("Win at least {} matches", targets.win_target),
+            description: "boardObjectives.objective.Wins".to_string(),
             target: targets.win_target,
             objective_type: ObjectiveType::Wins,
             met: false,
         },
         BoardObjective {
             id: "obj_goals".to_string(),
-            description: format!("Score at least {} goals", targets.goals_target),
+            description: "boardObjectives.objective.GoalsScored".to_string(),
             target: targets.goals_target,
             objective_type: ObjectiveType::GoalsScored,
             met: false,
@@ -144,7 +148,7 @@ pub fn generate_objectives(game: &mut Game) {
     let season = game.league.as_ref().map(|l| l.season).unwrap_or(1);
     let msg_id = board_message_id(season);
     if !existing_ids.contains(&msg_id) {
-        let msg = build_objectives_message(&game.board_objectives, season, today);
+        let msg = build_objectives_message(&targets, season, today);
         game.messages.push(msg);
     }
 }
@@ -301,8 +305,20 @@ mod tests {
 
         assert_eq!(game.board_objectives.len(), 3);
         assert_eq!(objective_by_id(&game, "obj_position").target, 1);
+        assert_eq!(
+            objective_by_id(&game, "obj_position").description,
+            "boardObjectives.objective.LeaguePosition"
+        );
         assert_eq!(objective_by_id(&game, "obj_wins").target, 3);
+        assert_eq!(
+            objective_by_id(&game, "obj_wins").description,
+            "boardObjectives.objective.Wins"
+        );
         assert_eq!(objective_by_id(&game, "obj_goals").target, 12);
+        assert_eq!(
+            objective_by_id(&game, "obj_goals").description,
+            "boardObjectives.objective.GoalsScored"
+        );
 
         let message = game
             .messages
@@ -312,9 +328,29 @@ mod tests {
         assert_eq!(message.category, MessageCategory::BoardDirective);
         assert_eq!(message.priority, MessagePriority::High);
         assert_eq!(message.sender_role, "Chairman");
-        assert!(message.body.contains("1. Finish in the top 1"));
-        assert!(message.body.contains("2. Win at least 3 matches"));
-        assert!(message.body.contains("3. Score at least 12 goals"));
+        assert_eq!(
+            message.subject_key.as_deref(),
+            Some("be.msg.boardObjectives.subject")
+        );
+        assert_eq!(
+            message.body_key.as_deref(),
+            Some("be.msg.boardObjectives.body")
+        );
+        assert_eq!(
+            message.sender_key.as_deref(),
+            Some("be.sender.boardOfDirectors")
+        );
+        assert_eq!(message.sender_role_key.as_deref(), Some("be.role.chairman"));
+        assert_eq!(message.i18n_params.get("season"), Some(&"3".to_string()));
+        assert_eq!(
+            message.i18n_params.get("expectedPos"),
+            Some(&"1".to_string())
+        );
+        assert_eq!(message.i18n_params.get("winTarget"), Some(&"3".to_string()));
+        assert_eq!(
+            message.i18n_params.get("goalsTarget"),
+            Some(&"12".to_string())
+        );
     }
 
     #[test]

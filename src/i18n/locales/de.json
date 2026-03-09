@@ -616,6 +616,13 @@
     "boardConcerns": "Der Vorstand hat Bedenken wegen der Ergebnisse.",
     "boardThreat": "Deine Position ist ernsthaft gefährdet."
   },
+  "boardObjectives": {
+    "objective": {
+      "LeaguePosition": "Beende die Saison unter den Top {{target}}",
+      "Wins": "Gewinne mindestens {{target}} Spiele",
+      "GoalsScored": "Erziele mindestens {{target}} Tore"
+    }
+  },
   "transfers": {
     "centre": "Transferzentrum",
     "transferWindow": "{{team}} — Transferfenster",
@@ -1063,6 +1070,10 @@
         "subject": "{{team}} — Saisonziele",
         "body": "Der Vorstand hat folgende Erwartungen für diese Saison festgelegt:\n\n• In der oberen Tabellenhälfte abschließen\n• Finanzielle Stabilität wahren\n• Junge Talente aus der Akademie fördern\n\nDas Erreichen dieser Ziele wird Ihre Position stärken. Das Verfehlen der Mindesterwartungen kann zu einer Überprüfung Ihres Amtes führen.\n\nWir vertrauen auf Ihre Fähigkeiten.",
         "actionAccept": "Ziele akzeptieren"
+      },
+      "boardObjectives": {
+        "subject": "Saison {{season}} — Vorstandsziele",
+        "body": "Der Vorstand hat für diese Saison folgende Ziele festgelegt:\n\n1. Unter den Top {{expectedPos}} abschließen\n2. Mindestens {{winTarget}} Spiele gewinnen\n3. Mindestens {{goalsTarget}} Tore erzielen\n\nDas Erreichen dieser Ziele stärkt das Vertrauen des Vorstands in deine Arbeit. Das Verfehlen der Erwartungen kann zu geringeren Budgets oder weiteren Konsequenzen führen."
       },
       "fitness": {
         "critical": {

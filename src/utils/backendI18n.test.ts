@@ -1,7 +1,17 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import i18n from "../i18n";
-import { resolveMessage, resolveAction, resolveNewsArticle } from "./backendI18n";
-import type { MessageData, MessageAction, NewsArticle } from "../store/gameStore";
+import {
+  resolveMessage,
+  resolveAction,
+  resolveNewsArticle,
+  resolveBoardObjective,
+} from "./backendI18n";
+import type {
+  MessageData,
+  MessageAction,
+  NewsArticle,
+  BoardObjective,
+} from "../store/gameStore";
 
 // ---------------------------------------------------------------------------
 // Bootstrap i18n with a test key so we can verify resolution works
@@ -19,6 +29,9 @@ beforeAll(async () => {
     "test.headline": "Breaking: {{team}} wins!",
     "test.newsBody": "Match report for {{team}}.",
     "test.source": "OFM Sports",
+    "boardObjectives.objective.LeaguePosition": "Finish in the top {{target}}",
+    "boardObjectives.objective.Wins": "Win at least {{target}} matches",
+    "boardObjectives.objective.GoalsScored": "Score at least {{target}} goals",
   }, true, true);
 });
 
@@ -60,6 +73,17 @@ const makeNewsArticle = (overrides: Partial<NewsArticle> = {}): NewsArticle => (
   player_ids: [],
   match_score: null,
   read: false,
+  ...overrides,
+});
+
+const makeBoardObjective = (
+  overrides: Partial<BoardObjective> = {},
+): BoardObjective => ({
+  id: "obj_1",
+  description: "raw objective",
+  target: 4,
+  objective_type: "LeaguePosition",
+  met: false,
   ...overrides,
 });
 
@@ -168,5 +192,30 @@ describe("resolveNewsArticle", () => {
     expect(result.id).toBe("n_5");
     expect(result.category).toBe("transfer");
     expect(result.read).toBe(true);
+  });
+});
+
+describe("resolveBoardObjective", () => {
+  it("resolves objective text from objective_type and target", () => {
+    const objective = makeBoardObjective({
+      description: "boardObjectives.objective.LeaguePosition",
+      target: 6,
+      objective_type: "LeaguePosition",
+    });
+
+    const result = resolveBoardObjective(objective);
+
+    expect(result.description).toBe("Finish in the top 6");
+  });
+
+  it("falls back to raw description for unknown objective types", () => {
+    const objective = makeBoardObjective({
+      description: "Custom target",
+      objective_type: "CustomObjective",
+    });
+
+    const result = resolveBoardObjective(objective);
+
+    expect(result.description).toBe("Custom target");
   });
 });

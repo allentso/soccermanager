@@ -616,6 +616,13 @@
     "boardConcerns": "A diretoria tem preocupações com os resultados.",
     "boardThreat": "Sua posição está seriamente ameaçada."
   },
+  "boardObjectives": {
+    "objective": {
+      "LeaguePosition": "Termine entre os {{target}} primeiros",
+      "Wins": "Vença pelo menos {{target}} partidas",
+      "GoalsScored": "Marque pelo menos {{target}} gols"
+    }
+  },
   "transfers": {
     "centre": "Central de Transferências",
     "transferWindow": "{{team}} — Janela de Transferências",
@@ -1063,6 +1070,10 @@
         "subject": "{{team}} — Objetivos da Temporada",
         "body": "A diretoria estabeleceu as seguintes expectativas para esta temporada:\n\n• Terminar na metade de cima da tabela\n• Manter a estabilidade financeira\n• Desenvolver jovens talentos da base\n\nCumprir esses objetivos fortalecerá sua posição. O não cumprimento das expectativas mínimas pode resultar em uma revisão do seu cargo.\n\nConfiamos nas suas habilidades.",
         "actionAccept": "Aceitar Objetivos"
+      },
+      "boardObjectives": {
+        "subject": "Temporada {{season}} — Objetivos da Diretoria",
+        "body": "A diretoria definiu os seguintes objetivos para esta temporada:\n\n1. Terminar entre os {{expectedPos}} primeiros\n2. Vencer pelo menos {{winTarget}} partidas\n3. Marcar pelo menos {{goalsTarget}} gols\n\nCumprir essas metas vai aumentar a confiança da diretoria no seu trabalho. Não atender às expectativas pode resultar em orçamentos menores ou em outras consequências."
       },
       "fitness": {
         "critical": {

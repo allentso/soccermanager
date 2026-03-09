@@ -616,6 +616,13 @@
     "boardConcerns": "La direction a des inquiétudes concernant les résultats.",
     "boardThreat": "Votre poste est sérieusement menacé."
   },
+  "boardObjectives": {
+    "objective": {
+      "LeaguePosition": "Terminez dans le top {{target}}",
+      "Wins": "Remportez au moins {{target}} matchs",
+      "GoalsScored": "Marquez au moins {{target}} buts"
+    }
+  },
   "transfers": {
     "centre": "Centre de Transferts",
     "transferWindow": "{{team}} — Mercato",
@@ -1063,6 +1070,10 @@
         "subject": "{{team}} — Objectifs de Saison",
         "body": "Le conseil a fixé les attentes suivantes pour cette saison :\n\n• Terminer dans la première moitié du classement\n• Maintenir la stabilité financière\n• Développer les jeunes talents de l'académie\n\nAtteindre ces objectifs renforcera votre position. Ne pas atteindre les attentes minimales pourrait entraîner une remise en question de votre mandat.\n\nNous avons confiance en vos capacités.",
         "actionAccept": "Accepter les Objectifs"
+      },
+      "boardObjectives": {
+        "subject": "Saison {{season}} — Objectifs du Conseil",
+        "body": "Le conseil a fixé les objectifs suivants pour cette saison :\n\n1. Terminer dans le top {{expectedPos}}\n2. Remporter au moins {{winTarget}} matchs\n3. Marquer au moins {{goalsTarget}} buts\n\nAtteindre ces objectifs renforcera la confiance du conseil dans votre gestion. Ne pas répondre aux attentes peut entraîner une baisse des budgets ou d'autres conséquences."
       },
       "fitness": {
         "critical": {

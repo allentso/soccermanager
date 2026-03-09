@@ -2,7 +2,7 @@ import { GameStateData, FixtureData } from "../store/gameStore";
 import { Card, CardHeader, CardBody, Badge, ProgressBar } from "./ui";
 import { getTeamName, calcOvr, formatDateShort } from "../lib/helpers";
 import NextMatchDisplay from "./NextMatchDisplay";
-import { resolveMessage } from "../utils/backendI18n";
+import { resolveBoardObjective, resolveMessage } from "../utils/backendI18n";
 import {
   Trophy,
   Dumbbell,
@@ -110,6 +110,9 @@ export default function HomeTab({ gameState, onNavigate }: HomeTabProps) {
   const latestNews = (gameState.news || [])
     .sort((a, b) => b.date.localeCompare(a.date))
     .slice(0, 2);
+  const boardObjectives = (gameState.board_objectives || []).map(
+    resolveBoardObjective,
+  );
 
   // Onboarding: show Getting Started during first 7 days
   const startDate = new Date(gameState.clock.start_date);
@@ -391,14 +394,14 @@ export default function HomeTab({ gameState, onNavigate }: HomeTabProps) {
       </div>
 
       {/* Board Objectives */}
-      {(gameState.board_objectives || []).length > 0 && (
+      {boardObjectives.length > 0 && (
         <Card>
           <CardHeader>
             {t("manager.boardStatus", "Board Objectives")}
           </CardHeader>
           <CardBody>
             <div className="flex flex-col gap-2.5">
-              {(gameState.board_objectives || []).map((obj) => (
+              {boardObjectives.map((obj) => (
                 <div key={obj.id} className="flex items-center gap-3">
                   {obj.met ? (
                     <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />
@@ -423,9 +426,8 @@ export default function HomeTab({ gameState, onNavigate }: HomeTabProps) {
             <div className="mt-3 pt-2 border-t border-gray-100 dark:border-navy-700">
               <p className="text-[10px] text-gray-400 dark:text-gray-500">
                 {t("home.objectivesMet", {
-                  done: (gameState.board_objectives || []).filter((o) => o.met)
-                    .length,
-                  total: (gameState.board_objectives || []).length,
+                  done: boardObjectives.filter((o) => o.met).length,
+                  total: boardObjectives.length,
                   pct: gameState.manager.satisfaction,
                 })}
               </p>

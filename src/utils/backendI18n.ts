@@ -1,5 +1,10 @@
 import i18n from '../i18n';
-import type { MessageData, MessageAction, NewsArticle } from '../store/gameStore';
+import type {
+  MessageData,
+  MessageAction,
+  NewsArticle,
+  BoardObjective,
+} from '../store/gameStore';
 
 /**
  * Resolve a backend i18n key with params, falling back to the raw string.
@@ -10,6 +15,19 @@ function resolve(key: string | undefined, fallback: string, params?: Record<stri
   // i18next returns the key itself if not found — fall back to raw string
   if (resolved === key) return fallback;
   return resolved;
+}
+
+function boardObjectiveFallback(objective: BoardObjective): string {
+  switch (objective.objective_type) {
+    case 'LeaguePosition':
+      return `Finish in the top ${objective.target}`;
+    case 'Wins':
+      return `Win at least ${objective.target} matches`;
+    case 'GoalsScored':
+      return `Score at least ${objective.target} goals`;
+    default:
+      return objective.description;
+  }
 }
 
 /**
@@ -65,5 +83,18 @@ export function resolveNewsArticle(article: NewsArticle): NewsArticle {
     headline: resolve(article.headline_key, article.headline, p),
     body: resolve(article.body_key, article.body, p),
     source: resolve(article.source_key, article.source, p),
+  };
+}
+
+/**
+ * Resolve a board objective description from its structured type and target.
+ */
+export function resolveBoardObjective(objective: BoardObjective): BoardObjective {
+  const descriptionKey = `boardObjectives.objective.${objective.objective_type}`;
+  const params = { target: String(objective.target) };
+
+  return {
+    ...objective,
+    description: resolve(descriptionKey, boardObjectiveFallback(objective), params),
   };
 }
