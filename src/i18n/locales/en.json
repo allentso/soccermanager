@@ -401,12 +401,12 @@
     "playStyle": "Play Style",
     "startingXI": "Starting XI — {{formation}}",
     "fullSquad": "Full Squad",
-    "pitchInteractionHint": "Drag from the bench table, click a starter to inspect them, and click another starter to swap positions.",
+    "pitchInteractionHint": "Drag players between the pitch and bench, click a player to inspect them, and click another lineup player to swap.",
     "selectedPlayer": "Selected player",
     "hoveredPlayer": "Hovered player",
-    "hoverToCompare": "Hover another player on the pitch to compare attributes.",
-    "selectPitchPlayer": "Select a player on the pitch to inspect their attributes.",
-    "selectAnotherToSwap": "Select another starter afterwards to swap their positions."
+    "hoverToCompare": "Hover another player in the lineup view to compare attributes.",
+    "selectPitchPlayer": "Select a player in the lineup view to inspect their attributes.",
+    "selectAnotherToSwap": "Select another lineup player afterwards to swap them."
   },
   "training": {
     "weeklySchedule": "Weekly Schedule",

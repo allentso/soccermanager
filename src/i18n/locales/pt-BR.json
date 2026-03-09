@@ -401,12 +401,12 @@
     "playStyle": "Estilo de Jogo",
     "startingXI": "Titulares — {{formation}}",
     "fullSquad": "Elenco Completo",
-    "pitchInteractionHint": "Arraste a partir da tabela de reservas, clique em um titular para analisá-lo e clique em outro titular para trocar de posição.",
+    "pitchInteractionHint": "Arraste jogadores entre o campo e o banco, clique em um jogador para analisá-lo e clique em outro jogador da escalação para trocá-los.",
     "selectedPlayer": "Jogador selecionado",
     "hoveredPlayer": "Jogador em foco",
-    "hoverToCompare": "Passe o cursor sobre outro jogador no campo para comparar atributos.",
-    "selectPitchPlayer": "Selecione um jogador em campo para analisar seus atributos.",
-    "selectAnotherToSwap": "Selecione outro titular em seguida para trocar as posições deles."
+    "hoverToCompare": "Passe o cursor sobre outro jogador na visão da escalação para comparar atributos.",
+    "selectPitchPlayer": "Selecione um jogador na visão da escalação para analisar seus atributos.",
+    "selectAnotherToSwap": "Selecione outro jogador da escalação em seguida para trocá-los."
   },
   "training": {
     "weeklySchedule": "Calendário Semanal",

@@ -83,7 +83,8 @@ function PlayerSummary({
               {player.natural_position || player.position}
             </Badge>
             <span className="text-xs text-gray-500 dark:text-gray-400">
-              {countryFlag(player.nationality)} {t("common.age", "Age")} {calcAge(player.date_of_birth)}
+              {countryFlag(player.nationality)} {t("common.age", "Age")}{" "}
+              {calcAge(player.date_of_birth)}
             </span>
           </div>
         </div>
@@ -102,7 +103,8 @@ function PlayerSummary({
 
 function SinglePlayerAttributes({ player }: { player: PlayerData }) {
   const { t } = useTranslation();
-  const isGoalkeeper = (player.natural_position || player.position) === "Goalkeeper";
+  const isGoalkeeper =
+    (player.natural_position || player.position) === "Goalkeeper";
 
   return (
     <div className="space-y-4">
@@ -175,7 +177,8 @@ function CompareAttributes({
       </div>
       {ATTRIBUTE_GROUPS.filter(
         (group) =>
-          group.labelKey !== "common.attrGroups.goalkeeper" || showGoalkeeperAttrs,
+          group.labelKey !== "common.attrGroups.goalkeeper" ||
+          showGoalkeeperAttrs,
       ).map((group) => (
         <div key={group.labelKey}>
           <h4 className="text-[10px] font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 mb-2">
@@ -199,7 +202,9 @@ function CompareAttributes({
                       <span className="text-gray-500 dark:text-gray-400 truncate">
                         {selectedPlayer.match_name}
                       </span>
-                      <span className={`font-heading font-bold ${valueTone(left)}`}>
+                      <span
+                        className={`font-heading font-bold ${valueTone(left)}`}
+                      >
                         {left}
                       </span>
                     </div>
@@ -220,7 +225,9 @@ function CompareAttributes({
                       <span className="text-gray-500 dark:text-gray-400 truncate">
                         {comparePlayer.match_name}
                       </span>
-                      <span className={`font-heading font-bold ${valueTone(right)}`}>
+                      <span
+                        className={`font-heading font-bold ${valueTone(right)}`}
+                      >
                         {right}
                       </span>
                     </div>
@@ -271,7 +278,7 @@ export default function TacticsPlayerFocusPanel({
               <div className="rounded-xl border border-dashed border-gray-200 dark:border-navy-600 px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
                 {t(
                   "tactics.hoverToCompare",
-                  "Hover another player on the pitch to compare attributes.",
+                  "Hover another player in the lineup view to compare attributes.",
                 )}
               </div>
               <SinglePlayerAttributes player={selectedPlayer} />
@@ -283,13 +290,13 @@ export default function TacticsPlayerFocusPanel({
             <p className="text-sm text-gray-600 dark:text-gray-300">
               {t(
                 "tactics.selectPitchPlayer",
-                "Select a player on the pitch to inspect their attributes.",
+                "Select a player in the lineup view to inspect their attributes.",
               )}
             </p>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
               {t(
                 "tactics.selectAnotherToSwap",
-                "Select another starter afterwards to swap their positions.",
+                "Select another lineup player afterwards to swap them.",
               )}
             </p>
           </div>

@@ -236,7 +236,7 @@ describe("TacticsTab", () => {
     mockedInvoke.mockResolvedValue(makeGameState());
   });
 
-  it("renders play style guidance and the moved lineup tables", () => {
+  it("renders play style guidance plus bench cards inside the pitch view", () => {
     render(
       <TacticsTab
         gameState={makeGameState()}
@@ -251,11 +251,12 @@ describe("TacticsTab", () => {
         "Keeps your team measured in and out of possession, with a steady shape and fewer extremes.",
       ),
     ).toBeInTheDocument();
-    expect(screen.getByText("Substitutes")).toBeInTheDocument();
+    expect(screen.getAllByText("Substitutes").length).toBeGreaterThan(0);
     expect(screen.getByTestId("bench-player-d5")).toBeInTheDocument();
+    expect(screen.getByTestId("pitch-bench-player-d5")).toBeInTheDocument();
   });
 
-  it("sends the correct starting xi order when a bench defender is dropped onto a defensive slot", async () => {
+  it("sends the correct starting xi order when a pitch-view bench defender is dropped onto a defensive slot", async () => {
     render(
       <TacticsTab
         gameState={makeGameState()}
@@ -264,7 +265,7 @@ describe("TacticsTab", () => {
       />,
     );
 
-    const benchPlayer = screen.getByTestId("bench-player-d5");
+    const benchPlayer = screen.getByTestId("pitch-bench-player-d5");
     const pitchSlot = screen.getByTestId("pitch-slot-1");
     const dataTransfer = createDataTransfer();
 
@@ -277,6 +278,41 @@ describe("TacticsTab", () => {
           "gk1",
           "d5",
           "d2",
+          "d3",
+          "d4",
+          "m1",
+          "m2",
+          "m3",
+          "m4",
+          "f1",
+          "f2",
+        ],
+      });
+    });
+  });
+
+  it("allows selecting a bench player from the pitch view and swapping them with a starter", async () => {
+    render(
+      <TacticsTab
+        gameState={makeGameState()}
+        onSelectPlayer={vi.fn()}
+        onGameUpdate={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId("pitch-bench-player-d5"));
+
+    expect(screen.getByText("Selected player")).toBeInTheDocument();
+    expect(screen.getAllByText("Player d5").length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByTestId("pitch-player-d2"));
+
+    await waitFor(() => {
+      expect(mockedInvoke).toHaveBeenCalledWith("set_starting_xi", {
+        playerIds: [
+          "gk1",
+          "d1",
+          "d5",
           "d3",
           "d4",
           "m1",

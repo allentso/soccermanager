@@ -401,12 +401,12 @@
     "playStyle": "Spielweise",
     "startingXI": "Startelf — {{formation}}",
     "fullSquad": "Gesamter Kader",
-    "pitchInteractionHint": "Ziehe aus der Ersatzbank-Tabelle, klicke einen Stammspieler zur Analyse an und klicke dann einen anderen an, um die Positionen zu tauschen.",
+    "pitchInteractionHint": "Ziehe Spieler zwischen Feld und Bank, klicke einen Spieler zur Analyse an und klicke dann einen anderen Aufstellungsspieler an, um zu tauschen.",
     "selectedPlayer": "Ausgewählter Spieler",
     "hoveredPlayer": "Überfahrener Spieler",
-    "hoverToCompare": "Bewege den Mauszeiger über einen anderen Spieler auf dem Feld, um Attribute zu vergleichen.",
-    "selectPitchPlayer": "Wähle einen Spieler auf dem Feld aus, um seine Attribute zu prüfen.",
-    "selectAnotherToSwap": "Wähle anschließend einen weiteren Stammspieler aus, um ihre Positionen zu tauschen."
+    "hoverToCompare": "Bewege den Mauszeiger über einen anderen Spieler in der Aufstellungsansicht, um Attribute zu vergleichen.",
+    "selectPitchPlayer": "Wähle einen Spieler in der Aufstellungsansicht aus, um seine Attribute zu prüfen.",
+    "selectAnotherToSwap": "Wähle anschließend einen weiteren Aufstellungsspieler aus, um zu tauschen."
   },
   "training": {
     "weeklySchedule": "Wochenplan",

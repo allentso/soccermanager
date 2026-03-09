@@ -401,12 +401,12 @@
     "playStyle": "Estilo de Jogo",
     "startingXI": "Onze Inicial — {{formation}}",
     "fullSquad": "Plantel Completo",
-    "pitchInteractionHint": "Arrasta a partir da tabela de suplentes, clica num titular para o analisar e clica noutro titular para trocar de posição.",
+    "pitchInteractionHint": "Arrasta jogadores entre o campo e o banco, clica num jogador para o analisar e clica noutro jogador da escalação para os trocar.",
     "selectedPlayer": "Jogador selecionado",
     "hoveredPlayer": "Jogador em foco",
-    "hoverToCompare": "Passa o cursor sobre outro jogador no campo para comparar atributos.",
-    "selectPitchPlayer": "Seleciona um jogador no campo para analisar os seus atributos.",
-    "selectAnotherToSwap": "Seleciona outro titular de seguida para trocar as suas posições."
+    "hoverToCompare": "Passa o cursor sobre outro jogador na vista da escalação para comparar atributos.",
+    "selectPitchPlayer": "Seleciona um jogador na vista da escalação para analisar os seus atributos.",
+    "selectAnotherToSwap": "Seleciona outro jogador da escalação de seguida para os trocar."
   },
   "training": {
     "weeklySchedule": "Calendário Semanal",
