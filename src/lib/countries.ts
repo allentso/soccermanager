@@ -33,6 +33,38 @@ export function countryFlag(alpha2: string): string {
   );
 }
 
+type NavigatorWithUserAgentData = Navigator & {
+  userAgentData?: {
+    platform?: string;
+  };
+};
+
+function getPlatformName(): string {
+  if (typeof navigator === "undefined") {
+    return "";
+  }
+
+  const navigatorWithUserAgentData = navigator as NavigatorWithUserAgentData;
+
+  return navigatorWithUserAgentData.userAgentData?.platform ?? navigator.platform ?? navigator.userAgent ?? "";
+}
+
+/**
+ * Determine whether to use a country code badge instead of a flag emoji.
+ * Windows doesn't support flag emojis well, so we use a country code badge instead.
+ */
+export function shouldUseCountryCodeBadge(platform = getPlatformName()): boolean {
+  return /win/i.test(platform);
+}
+
+export function countryMarker(alpha2: string, platform = getPlatformName()): string {
+  if (!alpha2 || alpha2.length !== 2) return "";
+
+  return shouldUseCountryCodeBadge(platform)
+    ? alpha2.toUpperCase()
+    : countryFlag(alpha2);
+}
+
 function getBaseLocale(locale: string): string {
   if (!locale) return "en";
   // Convert 'pt-BR' to 'pt'

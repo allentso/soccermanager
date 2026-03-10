@@ -1,5 +1,5 @@
 import { TeamData, GameStateData, PlayerData } from "../store/gameStore";
-import { Card, CardHeader, CardBody, Badge, ProgressBar } from "./ui";
+import { Card, CardHeader, CardBody, Badge, ProgressBar, CountryFlag } from "./ui";
 import {
   ArrowLeft,
   Shield,
@@ -11,7 +11,7 @@ import {
   Crosshair,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { countryFlag, countryName } from "../lib/countries";
+import { countryName } from "../lib/countries";
 import { formatWeeklyAmount } from "../lib/helpers";
 import { translatePositionAbbreviation } from "./SquadTab.helpers";
 
@@ -431,9 +431,11 @@ export default function TeamProfile({
                         </td>
                         <td className="py-3 px-5 text-sm text-gray-500 dark:text-gray-400">
                           <div className="flex items-center gap-1">
-                            <span className="text-lg leading-none">
-                              {countryFlag(player.nationality)}
-                            </span>
+                            <CountryFlag
+                              code={player.nationality}
+                              locale={i18n.language}
+                              className="text-lg leading-none"
+                            />
                             <span>
                               {countryName(player.nationality, i18n.language)}
                             </span>

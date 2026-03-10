@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { GameStateData } from "../store/gameStore";
-import { Card, CardBody, Badge, Select } from "./ui";
+import { Card, CardBody, Badge, Select, CountryFlag } from "./ui";
 import {
   Search,
   Filter,
@@ -18,7 +18,6 @@ import {
   positionBadgeVariant,
 } from "../lib/helpers";
 import { useTranslation } from "react-i18next";
-import { countryFlag } from "../lib/countries";
 import { translatePositionAbbreviation } from "./SquadTab.helpers";
 
 interface PlayersListTabProps {
@@ -288,9 +287,7 @@ export default function PlayersListTab({
                           className="py-2.5 px-4 text-sm text-gray-500 dark:text-gray-400"
                           title={player.nationality}
                         >
-                          <span className="text-lg leading-none">
-                            {countryFlag(player.nationality)}
-                          </span>
+                          <CountryFlag code={player.nationality} className="text-lg leading-none" />
                         </td>
                         <td className="py-2.5 px-4">
                           <button

@@ -1,9 +1,9 @@
 import { GameStateData, PlayerData } from "../store/gameStore";
-import { Card, CardHeader, CardBody, Badge, ProgressBar } from "./ui";
+import { Card, CardHeader, CardBody, Badge, ProgressBar, CountryFlag } from "./ui";
 import { calcOvr, calcAge, positionBadgeVariant } from "../lib/helpers";
 import { TraitList } from "./TraitBadge";
 import { useTranslation } from "react-i18next";
-import { countryFlag, countryName } from "../lib/countries";
+import { countryName } from "../lib/countries";
 import { translatePositionAbbreviation } from "./SquadTab.helpers";
 import { GraduationCap, TrendingUp, Star, Users, Sparkles } from "lucide-react";
 
@@ -224,9 +224,11 @@ export default function YouthAcademyTab({
                             {player.full_name}
                           </p>
                           <div className="text-[10px] text-gray-400 dark:text-gray-500 flex items-center gap-1 mt-0.5">
-                            <span className="text-xs leading-none">
-                              {countryFlag(player.nationality)}
-                            </span>
+                            <CountryFlag
+                              code={player.nationality}
+                              locale={i18n.language}
+                              className="text-xs leading-none"
+                            />
                             <span>
                               {countryName(player.nationality, i18n.language)}
                             </span>

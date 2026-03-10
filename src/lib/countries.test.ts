@@ -1,10 +1,12 @@
 import { describe, it, expect } from "vitest";
 import {
   countryFlag,
+  countryMarker,
   countryName,
   allCountries,
   isValidCountryCode,
   normaliseNationality,
+  shouldUseCountryCodeBadge,
 } from "./countries";
 
 // ---------------------------------------------------------------------------
@@ -27,6 +29,18 @@ describe("countryFlag", () => {
     expect(countryFlag("")).toBe("");
     expect(countryFlag("X")).toBe("");
     expect(countryFlag("USA")).toBe("");
+  });
+});
+
+describe("countryMarker", () => {
+  it("uses ISO country code badges on Windows platforms", () => {
+    expect(shouldUseCountryCodeBadge("Win32")).toBe(true);
+    expect(countryMarker("br", "Windows NT 10.0")).toBe("BR");
+  });
+
+  it("uses flag emoji on non-Windows platforms", () => {
+    expect(shouldUseCountryCodeBadge("MacIntel")).toBe(false);
+    expect(countryMarker("BR", "Linux x86_64")).toBe("🇧🇷");
   });
 });
 

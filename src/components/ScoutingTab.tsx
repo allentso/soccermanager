@@ -2,10 +2,10 @@ import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useTranslation } from "react-i18next";
 import { GameStateData } from "../store/gameStore";
-import { Card, CardHeader, CardBody, Badge, ProgressBar } from "./ui";
+import { Card, CardHeader, CardBody, Badge, ProgressBar, CountryFlag } from "./ui";
 import { Eye, ScanSearch, Clock, User, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { calcOvr, calcAge, formatVal, getTeamName } from "../lib/helpers";
-import { countryFlag, countryName } from "../lib/countries";
+import { countryName } from "../lib/countries";
 
 interface ScoutingTabProps {
   gameState: GameStateData;
@@ -169,7 +169,7 @@ export default function ScoutingTab({ gameState, onGameUpdate, onSelectPlayer }:
                       <div className="flex-1">
                         <p className="font-heading font-bold text-sm text-gray-800 dark:text-gray-100">{s.first_name} {s.last_name}</p>
                         <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5 flex items-center gap-1">
-                          <span className="text-xs leading-none">{countryFlag(s.nationality)}</span>
+                          <CountryFlag code={s.nationality} locale={i18n.language} className="text-xs leading-none" />
                           <span>{countryName(s.nationality, i18n.language)}</span>
                         </div>
                       </div>
@@ -279,7 +279,7 @@ export default function ScoutingTab({ gameState, onGameUpdate, onSelectPlayer }:
                             {p.full_name}
                           </button>
                           <div className="text-[10px] text-gray-400 mt-0.5 flex items-center gap-1">
-                            <span className="text-xs leading-none">{countryFlag(p.nationality)}</span>
+                            <CountryFlag code={p.nationality} locale={i18n.language} className="text-xs leading-none" />
                             <span>{countryName(p.nationality, i18n.language)}</span>
                           </div>
                         </td>

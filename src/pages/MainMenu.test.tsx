@@ -67,6 +67,9 @@ vi.mock("../components/ui", () => ({
       onChange={(event) => onChange(event.target.value)}
     />
   ),
+  CountryFlag: ({ code }: { code: string }) => (
+    <span data-testid={`country-flag-${code.toLowerCase()}`} />
+  ),
 }));
 
 vi.mock("../components/menu/SavesList", () => ({
@@ -107,13 +110,23 @@ function fillManagerDetails(): void {
   });
 }
 
+function getNationalityTrigger(): HTMLButtonElement {
+  const fieldLabel = screen.getByText("Country/Region of Origin");
+  const fieldContainer = fieldLabel.parentElement;
+  const trigger = fieldContainer?.querySelector("div.relative > button");
+
+  if (!(trigger instanceof HTMLButtonElement)) {
+    throw new Error("Nationality trigger button not found");
+  }
+
+  return trigger;
+}
+
 function selectNationality(language: string, nationalityCode: string): void {
   const countryLabel = countryName(nationalityCode, language);
 
-  fireEvent.click(
-    screen.getByRole("button", { name: /select country\/region/i }),
-  );
-  fireEvent.click(screen.getByText(countryLabel));
+  fireEvent.mouseDown(getNationalityTrigger());
+  fireEvent.mouseDown(screen.getByText(countryLabel));
 }
 
 function searchAndSelectNationality(
@@ -123,16 +136,14 @@ function searchAndSelectNationality(
 ): void {
   const countryLabel = countryName(nationalityCode, language);
 
-  fireEvent.click(
-    screen.getByRole("button", { name: /select country\/region/i }),
-  );
+  fireEvent.mouseDown(getNationalityTrigger());
   fireEvent.change(
     screen.getByPlaceholderText("createManager.searchNationalities"),
     {
       target: { value: searchText },
     },
   );
-  fireEvent.click(screen.getByText(countryLabel));
+  fireEvent.mouseDown(screen.getByText(countryLabel));
 }
 
 describe("MainMenu", () => {
@@ -142,7 +153,7 @@ describe("MainMenu", () => {
     setGameStateMock.mockReset();
     translationState.language = "en";
     mockedInvoke.mockReset();
-    mockedInvoke.mockImplementation(async (command) => {
+    mockedInvoke.mockImplementation(async (command: string) => {
       if (command === "list_world_databases") {
         return [];
       }
@@ -157,7 +168,7 @@ describe("MainMenu", () => {
 
   it.each(["es", "de", "fr", "it", "pt", "pt-BR"])(
     "stores the nationality as an ISO code and continues the flow in %s",
-    async (language) => {
+    async (language: string) => {
       translationState.language = language;
 
       render(<MainMenu />);
@@ -197,6 +208,28 @@ describe("MainMenu", () => {
       expect(navigateMock).toHaveBeenCalledWith("/select-team");
     },
   );
+
+  it("allows changing nationality after the other manager fields are filled", () => {
+    render(<MainMenu />);
+
+    openCreateManagerForm();
+    fillManagerDetails();
+
+    selectNationality("en", "ES");
+    expect(
+      screen.getByRole("button", {
+        name: /spain/i,
+      }),
+    ).toBeInTheDocument();
+
+    selectNationality("en", "DE");
+
+    expect(
+      screen.getByRole("button", {
+        name: /germany/i,
+      }),
+    ).toBeInTheDocument();
+  });
 
   it("allows searching localized countries without accents before selecting them", async () => {
     translationState.language = "pt";

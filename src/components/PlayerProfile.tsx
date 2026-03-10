@@ -2,7 +2,7 @@ import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { formatDate, formatWeeklyAmount } from "../lib/helpers";
 import { PlayerData, TeamData, GameStateData } from "../store/gameStore";
-import { Card, CardHeader, CardBody, Badge, ProgressBar } from "./ui";
+import { Card, CardHeader, CardBody, Badge, ProgressBar, CountryFlag } from "./ui";
 import {
   ArrowLeft,
   Shield,
@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { TraitList } from "./TraitBadge";
 import { useTranslation } from "react-i18next";
-import { countryFlag, countryName } from "../lib/countries";
+import { countryName } from "../lib/countries";
 
 interface PlayerProfileProps {
   player: PlayerData;
@@ -287,9 +287,7 @@ export default function PlayerProfile({
                   </span>
                 ))}
                 <span className="text-gray-400 text-sm">
-                  <span className="mr-1">
-                    {countryFlag(player.nationality)}
-                  </span>
+                  <CountryFlag code={player.nationality} locale={i18n.language} className="mr-1 text-sm leading-none" />
                   {countryName(player.nationality, i18n.language)}
                 </span>
                 <span className="text-gray-500">•</span>

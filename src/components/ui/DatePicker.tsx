@@ -113,14 +113,27 @@ export function DatePicker({ value, onChange, error }: DatePickerProps) {
 
   // Handle outside click for month dropdown
   useEffect(() => {
+    if (!monthOpen || !monthRef.current) {
+      return;
+    }
+
+    const monthElement = monthRef.current;
+
     const handleClickOutside = (e: MouseEvent) => {
-      if (monthRef.current && !monthRef.current.contains(e.target as Node)) {
+      const targetNode = e.target instanceof Node ? e.target : null;
+      const eventPath =
+        typeof e.composedPath === "function" ? e.composedPath() : [];
+      const clickedInside =
+        eventPath.includes(monthElement as EventTarget) ||
+        (targetNode ? monthElement.contains(targetNode) : false);
+
+      if (!clickedInside) {
         setMonthOpen(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  }, [monthOpen]);
 
   // Update parent when any component changes, if valid
   useEffect(() => {
