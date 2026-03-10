@@ -4,6 +4,7 @@ import { MatchSnapshot, EnginePlayerData } from "./types";
 import { getPlayerName } from "./helpers";
 import { Badge } from "../ui";
 import { RefreshCw, AlertTriangle, UserMinus, UserPlus } from "lucide-react";
+import { translatePositionAbbreviation } from "../SquadTab.helpers";
 
 export function SubPanel({
   snapshot,
@@ -42,12 +43,6 @@ export function SubPanel({
     : null;
 
   const positions = ["Goalkeeper", "Defender", "Midfielder", "Forward"];
-  const posAbbr: Record<string, string> = {
-    Goalkeeper: "GK",
-    Defender: "DEF",
-    Midfielder: "MID",
-    Forward: "FWD",
-  };
 
   // Parse formation to get expected counts per position
   const parts = team.formation.split("-").map(Number);
@@ -326,8 +321,7 @@ export function SubPanel({
                             </td>
                             <td className="py-2 w-12 text-center">
                               <span className="text-xs font-heading text-gray-500">
-                                {posAbbr[p.position] ||
-                                  p.position.substring(0, 3)}
+                                {translatePositionAbbreviation(t, p.position)}
                               </span>
                             </td>
                             <td className="py-2 w-12 text-center font-heading font-bold text-gray-400">
@@ -504,8 +498,7 @@ export function SubPanel({
                               <span
                                 className={`text-xs font-heading ${!posMatch && selectedOff ? "text-yellow-400" : "text-gray-500"}`}
                               >
-                                {posAbbr[p.position] ||
-                                  p.position.substring(0, 3)}
+                                {translatePositionAbbreviation(t, p.position)}
                                 {!posMatch && selectedOff && " !"}
                               </span>
                             </td>

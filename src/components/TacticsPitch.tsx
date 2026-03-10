@@ -9,7 +9,7 @@ import {
   getPitchRowWidth,
   getPitchSlotWidth,
   isPlayerOutOfPosition,
-  positionCode,
+  translatePositionAbbreviation,
   type DragState,
   type PitchSlotRow,
   type SquadSection,
@@ -129,7 +129,7 @@ function getPitchRatingClassName(
     return `${baseClassName} border-amber-200 bg-amber-500/85 text-white`;
   }
 
-  if (player.condition >= 70) {
+  if (player.condition >= 50) {
     return `${baseClassName} border-primary-200 bg-primary-500/80 text-white`;
   }
 
@@ -264,7 +264,7 @@ export default function TacticsPitch({
                           {calcOvr(player)}
                         </div>
                         <div className="text-[9px] font-heading font-bold uppercase tracking-wider leading-none text-white/70">
-                          {positionCode(slot.position)}
+                          {translatePositionAbbreviation(t, slot.position)}
                         </div>
                         <div className="mt-1 truncate text-[10px] font-semibold leading-tight text-white sm:text-[11px]">
                           {player.match_name}
@@ -276,7 +276,7 @@ export default function TacticsPitch({
                     ) : (
                       <div className={getEmptySlotClassName(isHovered)}>
                         <div className="text-[9px] font-heading font-bold uppercase tracking-wider leading-none text-white/70">
-                          {positionCode(slot.position)}
+                          {translatePositionAbbreviation(t, slot.position)}
                         </div>
                         <div className="mt-1 text-[9px] leading-tight text-white/50">
                           {t("squad.dropPlayerHere", "Drop player here")}
@@ -328,7 +328,7 @@ export default function TacticsPitch({
                         {player.match_name}
                       </div>
                       <div className="mt-1 text-sm uppercase tracking-wider text-white/60">
-                        {positionCode(player.position)}
+                        {translatePositionAbbreviation(t, player.position)}
                       </div>
                     </div>
                     <div className="shrink-0 rounded-full border border-primary-200 bg-primary-500/80 px-2 py-1 text-xs font-heading font-bold text-white">

@@ -14,6 +14,7 @@ import { getTeamName } from "../../lib/helpers";
 import type { PlayerData, TeamData } from "../../store/gameStore";
 import type { MatchModeType } from "../../hooks/useAdvanceTime";
 import { Badge, ThemeToggle } from "../ui";
+import { translatePositionAbbreviation } from "../SquadTab.helpers";
 import { getPlayerBadgeVariant } from "./dashboardHelpers";
 
 export interface DashboardMatchModeMeta {
@@ -223,7 +224,7 @@ function renderSearchResults(props: {
               className="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-gray-50 dark:hover:bg-navy-600"
             >
               <Badge variant={getPlayerBadgeVariant(player.position)} size="sm">
-                {player.position.substring(0, 3).toUpperCase()}
+                {translatePositionAbbreviation(t, player.position)}
               </Badge>
               <span className="text-sm font-medium text-gray-800 dark:text-gray-200">
                 {player.full_name}

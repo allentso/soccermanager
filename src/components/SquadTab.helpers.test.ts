@@ -13,6 +13,7 @@ import {
   normalisePosition,
   parseFormationSlots,
   positionCode,
+  translatePositionAbbreviation,
 } from "./SquadTab.helpers";
 
 const makePlayer = (
@@ -234,5 +235,16 @@ describe("SquadTab helpers", () => {
   it("returns core position codes", () => {
     expect(positionCode("Center Back")).toBe("DEF");
     expect(positionCode("Striker")).toBe("FWD");
+  });
+
+  it("translates normalized position abbreviations with fallback codes", () => {
+    const translate = (key: string): string => key;
+
+    expect(translatePositionAbbreviation(translate, "Center Back")).toBe(
+      "common.posAbbr.Defender",
+    );
+    expect(translatePositionAbbreviation(translate, "Striker")).toBe(
+      "common.posAbbr.Forward",
+    );
   });
 });

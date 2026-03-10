@@ -589,6 +589,7 @@
     "transferBudget": "Transferbudget",
     "seasonIncome": "Saisoneinnahmen",
     "seasonExpenses": "Saisonausgaben",
+    "perWeekSuffix": "/Wo",
     "wagePerWeek": "Gehalt/Wo",
     "marketValue": "Marktwert",
     "until": "Bis {{year}}"

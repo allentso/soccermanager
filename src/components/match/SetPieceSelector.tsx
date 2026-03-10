@@ -1,8 +1,40 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { PlayerData } from "../../store/gameStore";
+import { normalisePosition } from "../SquadTab.helpers";
 import { Badge } from "../ui";
 import { ArrowUpDown, Check } from "lucide-react";
+
+function getStatAttributeKey(label: string): string | null {
+  switch (label) {
+    case "SHO":
+      return "shooting";
+    case "COM":
+      return "composure";
+    case "PAS":
+      return "passing";
+    case "VIS":
+      return "vision";
+    case "LDR":
+      return "leadership";
+    case "TMW":
+      return "teamwork";
+    default:
+      return null;
+  }
+}
+
+function getStatColorClassName(value: number): string {
+  if (value >= 70) {
+    return "text-primary-300";
+  }
+
+  if (value >= 50) {
+    return "text-gray-100";
+  }
+
+  return "text-gray-400";
+}
 
 export function getSetPieceStats(
   role: string,
@@ -92,6 +124,24 @@ export default function SetPieceSelector({
         b.spStats.score - a.spStats.score || a.name.localeCompare(b.name),
     );
 
+  function getTranslatedStatLabel(label: string): string {
+    const attributeKey = getStatAttributeKey(label);
+
+    if (!attributeKey) {
+      return label;
+    }
+
+    return t(`common.attributes.${attributeKey}`, { defaultValue: label });
+  }
+
+  function getTranslatedPositionAbbreviation(position: string): string {
+    const normalizedPosition = normalisePosition(position);
+
+    return t(`common.posAbbr.${normalizedPosition}`, {
+      defaultValue: normalizedPosition.substring(0, 3).toUpperCase(),
+    });
+  }
+
   return (
     <div className="mb-4 last:mb-0">
       <button
@@ -108,22 +158,17 @@ export default function SetPieceSelector({
           </p>
         </div>
         {currentStats && (
-          <div className="flex items-center gap-1">
+          <div className="hidden flex-wrap items-center justify-end gap-2 md:flex">
             {currentStats.stats.map((s) => (
               <span
                 key={s.label}
-                className="text-[10px] font-heading text-gray-500"
+                title={getTranslatedStatLabel(s.label)}
+                className="inline-flex items-center gap-1 rounded-md border border-white/10 bg-navy-800 px-2 py-1 text-xs font-heading font-bold text-gray-100"
               >
-                <span className="text-gray-600">{s.label}</span>{" "}
-                <span
-                  className={
-                    s.value >= 70
-                      ? "text-primary-400"
-                      : s.value >= 50
-                        ? "text-gray-300"
-                        : "text-gray-500"
-                  }
-                >
+                <span className="text-gray-300">
+                  {getTranslatedStatLabel(s.label)}
+                </span>
+                <span className={getStatColorClassName(s.value)}>
                   {s.value}
                 </span>
               </span>
@@ -155,35 +200,26 @@ export default function SetPieceSelector({
                   {p.name}
                 </span>
                 <Badge variant="neutral" size="sm">
-                  {t(`common.posAbbr.${p.position}`, {
-                    defaultValue: p.position.substring(0, 3),
-                  })}
+                  {getTranslatedPositionAbbreviation(p.position)}
                 </Badge>
                 {p.spStats.stats.map((s) => (
                   <span
                     key={s.label}
-                    className="text-[10px] font-heading w-7 text-center"
+                    title={getTranslatedStatLabel(s.label)}
+                    className="w-10 rounded-md bg-navy-800/80 px-1.5 py-1 text-center text-xs font-heading font-bold"
                   >
-                    <span
-                      className={
-                        s.value >= 70
-                          ? "text-primary-400 font-bold"
-                          : s.value >= 50
-                            ? "text-gray-300"
-                            : "text-gray-500"
-                      }
-                    >
+                    <span className={getStatColorClassName(s.value)}>
                       {s.value}
                     </span>
                   </span>
                 ))}
                 <span
-                  className={`text-xs font-heading font-bold w-6 text-right ${
+                  className={`text-xs font-heading font-bold w-8 text-right ${
                     p.spStats.score >= 70
-                      ? "text-primary-400"
+                      ? "text-primary-300"
                       : p.spStats.score >= 50
-                        ? "text-gray-300"
-                        : "text-gray-500"
+                        ? "text-gray-100"
+                        : "text-gray-400"
                   }`}
                 >
                   {p.spStats.score}
@@ -193,15 +229,19 @@ export default function SetPieceSelector({
           })}
           {/* Column headers */}
           {sortedPlayers.length > 0 && (
-            <div className="flex items-center gap-2 px-3 py-1 text-[9px] font-heading uppercase tracking-widest text-gray-600 border-t border-navy-600 mt-1 pt-1">
+            <div className="mt-1 flex items-center gap-2 border-t border-navy-600 px-3 py-2 text-xs font-heading font-bold text-gray-300">
               <span className="flex-1" />
               <span className="w-8" />
               {sortedPlayers[0].spStats.stats.map((s) => (
-                <span key={s.label} className="w-7 text-center">
-                  {s.label}
+                <span
+                  key={s.label}
+                  title={getTranslatedStatLabel(s.label)}
+                  className="w-10 truncate text-center"
+                >
+                  {getTranslatedStatLabel(s.label)}
                 </span>
               ))}
-              <span className="w-6 text-right">{t("match.fit")}</span>
+              <span className="w-8 text-right">{t("match.fit")}</span>
             </div>
           )}
         </div>

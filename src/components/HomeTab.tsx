@@ -4,6 +4,7 @@ import { getTeamName, calcOvr, formatDateShort } from "../lib/helpers";
 import NextMatchDisplay from "./NextMatchDisplay";
 import { resolveBoardObjective, resolveMessage } from "../utils/backendI18n";
 import { getOnboardingCompletionState } from "./HomeTab.helpers";
+import { translatePositionAbbreviation } from "./SquadTab.helpers";
 import {
   Trophy,
   Dumbbell,
@@ -737,7 +738,7 @@ export default function HomeTab({
                               {p.full_name}
                             </span>
                             <Badge variant="success" size="sm">
-                              {p.position.substring(0, 3)}
+                              {translatePositionAbbreviation(t, p.position)}
                             </Badge>
                             <span className="text-xs font-heading font-bold text-green-500 tabular-nums w-8 text-right">
                               {p.morale}
@@ -765,7 +766,7 @@ export default function HomeTab({
                               {p.full_name}
                             </span>
                             <Badge variant="danger" size="sm">
-                              {p.position.substring(0, 3)}
+                              {translatePositionAbbreviation(t, p.position)}
                             </Badge>
                             <span className="text-xs font-heading font-bold text-red-500 tabular-nums w-8 text-right">
                               {p.morale}

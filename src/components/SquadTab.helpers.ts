@@ -78,6 +78,17 @@ export function positionCode(position: string): string {
   );
 }
 
+export function translatePositionAbbreviation(
+  translate: (key: string, options?: { defaultValue?: string }) => string,
+  position: string,
+): string {
+  const normalized = normalisePosition(position);
+
+  return translate(`common.posAbbr.${normalized}`, {
+    defaultValue: positionCode(position),
+  });
+}
+
 export function getPreferredPositions(player: PlayerData): string[] {
   return [
     ...new Set(

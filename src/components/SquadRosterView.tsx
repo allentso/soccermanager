@@ -30,7 +30,7 @@ import {
   getPreferredPositions,
   isPlayerOutOfPosition,
   normalisePosition,
-  positionCode,
+  translatePositionAbbreviation,
 } from "./SquadTab.helpers";
 
 interface SquadRosterViewProps {
@@ -129,7 +129,9 @@ export default function SquadRosterView({
         player.match_name,
         currentPos,
         ...preferredPositions,
-        ...preferredPositions.map(positionCode),
+        ...preferredPositions.map((position) =>
+          translatePositionAbbreviation(t, position),
+        ),
       ]
         .join(" ")
         .toLowerCase();
@@ -214,7 +216,7 @@ export default function SquadRosterView({
           variant={index === 0 ? positionBadgeVariant(position) : "neutral"}
           size="sm"
         >
-          {positionCode(position)}
+          {translatePositionAbbreviation(t, position)}
         </Badge>
       ))}
     </div>
@@ -269,7 +271,7 @@ export default function SquadRosterView({
               <option value="All">{t("common.all", "All")}</option>
               {CORE_POSITIONS.map((position) => (
                 <option key={position} value={position}>
-                  {t(`common.posAbbr.${position}`, positionCode(position))}
+                  {translatePositionAbbreviation(t, position)}
                 </option>
               ))}
             </Select>
@@ -443,7 +445,7 @@ export default function SquadRosterView({
                             variant={positionBadgeVariant(currentPos)}
                             size="sm"
                           >
-                            {positionCode(currentPos)}
+                            {translatePositionAbbreviation(t, currentPos)}
                           </Badge>
                           {wrongPos ? (
                             <span

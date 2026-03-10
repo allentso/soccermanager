@@ -11,6 +11,7 @@ import {
   calcOvr,
   calcAge,
   formatVal,
+  formatWeeklyAmount,
   positionBadgeVariant,
 } from "./helpers";
 import type { TeamData, FixtureData, PlayerData } from "../store/gameStore";
@@ -205,6 +206,13 @@ describe("formatVal", () => {
   it("formats small values", () => {
     expect(formatVal(500)).toBe("€500");
     expect(formatVal(0)).toBe("€0");
+  });
+});
+
+describe("formatWeeklyAmount", () => {
+  it("appends the localized weekly suffix to a formatted amount", () => {
+    expect(formatWeeklyAmount("€10K", "/wk")).toBe("€10K/wk");
+    expect(formatWeeklyAmount("€10K", "/sem")).toBe("€10K/sem");
   });
 });
 

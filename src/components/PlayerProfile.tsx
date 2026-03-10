@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { formatDate } from "../lib/helpers";
+import { formatDate, formatWeeklyAmount } from "../lib/helpers";
 import { PlayerData, TeamData, GameStateData } from "../store/gameStore";
 import { Card, CardHeader, CardBody, Badge, ProgressBar } from "./ui";
 import {
@@ -75,8 +75,8 @@ function formatValue(val: number): string {
   return `€${val}`;
 }
 
-function formatWage(val: number): string {
-  return `€${val.toLocaleString()}/wk`;
+function formatWage(val: number, weeklySuffix: string): string {
+  return formatWeeklyAmount(`€${val.toLocaleString()}`, weeklySuffix);
 }
 
 const positionBadgeVariant = (
@@ -112,6 +112,7 @@ export default function PlayerProfile({
   onGameUpdate,
 }: PlayerProfileProps) {
   const { t, i18n } = useTranslation();
+  const weeklySuffix = t("finances.perWeekSuffix", "/wk");
 
   const resolveInjuryName = (injuryName: string): string => {
     if (injuryName.includes(".")) {
@@ -429,7 +430,7 @@ export default function PlayerProfile({
                   {t("common.wage")}
                 </p>
                 <p className="font-heading font-bold text-xl mt-0.5 text-white">
-                  {formatWage(player.wage)}
+                  {formatWage(player.wage, weeklySuffix)}
                 </p>
               </div>
             </div>
@@ -455,7 +456,7 @@ export default function PlayerProfile({
           />
           <QuickStat
             label={t("common.wage")}
-            value={formatWage(player.wage)}
+            value={formatWage(player.wage, weeklySuffix)}
             color="text-gray-700 dark:text-gray-200"
           />
         </div>
@@ -515,7 +516,7 @@ export default function PlayerProfile({
               <InfoRow
                 icon={<TrendingUp className="w-4 h-4" />}
                 label={t("playerProfile.weeklyWage")}
-                value={formatWage(player.wage)}
+                value={formatWage(player.wage, weeklySuffix)}
               />
               <InfoRow
                 icon={<Heart className="w-4 h-4" />}

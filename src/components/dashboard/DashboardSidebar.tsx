@@ -161,10 +161,10 @@ export default function DashboardSidebar({
             </div>
             {collapsed ? null : (
               <div>
-                <h1 className="text-sm font-heading font-bold text-white uppercase tracking-wider">
+                <h1 className="text-sm font-heading font-semibold text-white uppercase tracking-wider">
                   OpenFoot
                 </h1>
-                <h1 className="text-xs font-heading text-accent-400 uppercase tracking-wider">
+                <h1 className="font-bold font-heading text-accent-400 uppercase tracking-wider">
                   Manager
                 </h1>
               </div>

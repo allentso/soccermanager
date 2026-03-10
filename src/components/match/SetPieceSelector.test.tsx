@@ -185,6 +185,26 @@ describe("SetPieceSelector component", () => {
     expect(screen.getByText("John Smith")).toBeInTheDocument();
   });
 
+  it("normalizes detailed positions to translated core abbreviations", () => {
+    render(
+      <SetPieceSelector
+        label="Penalty Taker"
+        icon={<span>PK</span>}
+        role="penalty"
+        currentId={null}
+        players={[
+          { id: "cb", name: "Center Back Player", position: "Center Back" },
+        ]}
+        allSquad={[makePlayer({ id: "cb", position: "Center Back" })]}
+        onSelect={() => {}}
+      />,
+    );
+
+    fireEvent.click(screen.getByText("Penalty Taker"));
+
+    expect(screen.getByText("common.posAbbr.Defender")).toBeInTheDocument();
+  });
+
   it("expands dropdown on click and shows non-GK players sorted by score", () => {
     render(
       <SetPieceSelector
@@ -204,6 +224,29 @@ describe("SetPieceSelector component", () => {
     expect(screen.getByText("Jane Doe")).toBeInTheDocument();
     // Goalkeeper should be filtered out from dropdown
     expect(screen.queryByText("Keeper")).not.toBeInTheDocument();
+  });
+
+  it("renders translated stat labels in the expanded selector header", () => {
+    render(
+      <SetPieceSelector
+        label="Penalty Taker"
+        icon={<span>PK</span>}
+        role="penalty"
+        currentId="p1"
+        players={players}
+        allSquad={allSquad}
+        onSelect={() => {}}
+      />,
+    );
+
+    fireEvent.click(screen.getByText("Penalty Taker"));
+
+    expect(
+      screen.getAllByText("common.attributes.shooting").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("common.attributes.composure").length,
+    ).toBeGreaterThan(0);
   });
 
   it("calls onSelect and collapses when a player is picked", () => {

@@ -1,7 +1,10 @@
 import type { JSX } from "react";
 import { useTranslation } from "react-i18next";
 
-import { CORE_POSITIONS, positionCode } from "./SquadTab.helpers";
+import {
+  CORE_POSITIONS,
+  translatePositionAbbreviation,
+} from "./SquadTab.helpers";
 import { Card, Select } from "./ui";
 
 interface TacticsFiltersProps {
@@ -60,7 +63,7 @@ export default function TacticsFilters({
             <option value="All">{t("common.all", "All")}</option>
             {CORE_POSITIONS.map((position) => (
               <option key={position} value={position}>
-                {t(`common.posAbbr.${position}`, positionCode(position))}
+                {translatePositionAbbreviation(t, position)}
               </option>
             ))}
           </Select>

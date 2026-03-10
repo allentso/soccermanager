@@ -11,7 +11,7 @@ import {
   getPreferredPositions,
   isPlayerOutOfPosition,
   normalisePosition,
-  positionCode,
+  translatePositionAbbreviation,
   type SquadSection,
 } from "./SquadTab.helpers";
 
@@ -45,7 +45,10 @@ interface SortHeaderProps {
   toggleSort: (key: SortKey) => void;
 }
 
-function renderPreferredPositionMeta(player: PlayerData): JSX.Element {
+function renderPreferredPositionMeta(
+  player: PlayerData,
+  translate: (key: string, options?: { defaultValue?: string }) => string,
+): JSX.Element {
   return (
     <div className="flex flex-wrap items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500">
       {getPreferredPositions(player).map((position, index) => (
@@ -54,7 +57,7 @@ function renderPreferredPositionMeta(player: PlayerData): JSX.Element {
           variant={index === 0 ? positionBadgeVariant(position) : "neutral"}
           size="sm"
         >
-          {positionCode(position)}
+          {translatePositionAbbreviation(translate, position)}
         </Badge>
       ))}
     </div>
@@ -120,7 +123,9 @@ function renderTableRow(props: {
   } = props;
   const { t } = useTranslation();
   const activePosition =
-    section === "xi" ? xiActivePosition.get(player.id) ?? player.position : player.position;
+    section === "xi"
+      ? (xiActivePosition.get(player.id) ?? player.position)
+      : player.position;
   const normalizedActivePosition = normalisePosition(activePosition);
   const isHighlighted = highlightedPlayerId === player.id;
   const isWrongPosition =
@@ -152,8 +157,11 @@ function renderTableRow(props: {
     >
       <td className="px-4 py-2.5">
         <div className="flex items-center gap-1.5">
-          <Badge variant={positionBadgeVariant(normalizedActivePosition)} size="sm">
-            {positionCode(normalizedActivePosition)}
+          <Badge
+            variant={positionBadgeVariant(normalizedActivePosition)}
+            size="sm"
+          >
+            {translatePositionAbbreviation(t, normalizedActivePosition)}
           </Badge>
           {isWrongPosition ? (
             <span
@@ -172,13 +180,18 @@ function renderTableRow(props: {
         <div className="text-sm font-semibold text-gray-900 transition-colors group-hover:text-primary-600 dark:text-gray-100 dark:group-hover:text-primary-400">
           {player.full_name}
         </div>
-        {renderPreferredPositionMeta(player)}
+        {renderPreferredPositionMeta(player, t)}
       </td>
       <td className="px-4 py-2.5 text-sm tabular-nums text-gray-600 dark:text-gray-400">
         {calcAge(player.date_of_birth)}
       </td>
       <td className="w-28 px-4 py-2.5">
-        <ProgressBar value={player.condition} variant="auto" size="sm" showLabel />
+        <ProgressBar
+          value={player.condition}
+          variant="auto"
+          size="sm"
+          showLabel
+        />
       </td>
       <td className="px-4 py-2.5 text-sm tabular-nums text-gray-500 dark:text-gray-400">
         {player.morale}
@@ -243,13 +256,17 @@ export default function TacticsPlayerTable({
       ? "flex items-center gap-2 text-sm font-heading font-bold uppercase tracking-wide text-white"
       : "flex items-center gap-2 text-sm font-heading font-bold uppercase tracking-wide text-gray-800 dark:text-gray-200";
   const countClassName =
-    section === "xi" ? "mt-0.5 text-xs text-gray-400" : "mt-0.5 text-xs text-gray-400";
+    section === "xi"
+      ? "mt-0.5 text-xs text-gray-400"
+      : "mt-0.5 text-xs text-gray-400";
 
   return (
     <Card>
       <div className={headingClassName}>
         <h3 className={titleClassName}>
-          {section === "xi" ? <Star className="h-4 w-4 fill-current text-accent-400" /> : null}
+          {section === "xi" ? (
+            <Star className="h-4 w-4 fill-current text-accent-400" />
+          ) : null}
           {title}
         </h3>
         <p className={countClassName}>

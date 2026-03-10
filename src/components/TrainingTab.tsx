@@ -20,6 +20,7 @@ import {
   Users,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { translatePositionAbbreviation } from "./SquadTab.helpers";
 
 interface TrainingTabProps {
   gameState: GameStateData;
@@ -759,9 +760,10 @@ function TrainingGroupsCard({
                         {p.match_name}
                       </td>
                       <td className="py-1.5 px-3 text-xs text-gray-500 dark:text-gray-400">
-                        {(p.natural_position || p.position)
-                          .substring(0, 3)
-                          .toUpperCase()}
+                        {translatePositionAbbreviation(
+                          t,
+                          p.natural_position || p.position,
+                        )}
                       </td>
                       <td className="py-1.5 px-3">
                         <Select

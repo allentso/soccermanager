@@ -19,6 +19,7 @@ import {
 } from "../lib/helpers";
 import { useTranslation } from "react-i18next";
 import { countryFlag } from "../lib/countries";
+import { translatePositionAbbreviation } from "./SquadTab.helpers";
 
 interface PlayersListTabProps {
   gameState: GameStateData;
@@ -269,9 +270,10 @@ export default function PlayersListTab({
                             )}
                             size="sm"
                           >
-                            {(player.natural_position || player.position)
-                              .substring(0, 3)
-                              .toUpperCase()}
+                            {translatePositionAbbreviation(
+                              t,
+                              player.natural_position || player.position,
+                            )}
                           </Badge>
                         </td>
                         <td className="py-2.5 px-4">

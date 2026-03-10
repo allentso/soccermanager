@@ -61,6 +61,13 @@ export function formatVal(v: number): string {
   return `€${v}`;
 }
 
+export function formatWeeklyAmount(
+  formattedAmount: string,
+  weeklySuffix: string,
+): string {
+  return `${formattedAmount}${weeklySuffix}`;
+}
+
 export function positionBadgeVariant(pos: string): "accent" | "primary" | "success" | "danger" {
   switch (pos) {
     case "Goalkeeper": return "accent";
