@@ -80,7 +80,16 @@
     "youthAcademy": "Youth Academy",
     "saveGame": "Save game",
     "saving": "Saving...",
-    "saved": "Saved!"
+    "saved": "Saved!",
+    "collapseSidebar": "Collapse sidebar",
+    "expandSidebar": "Expand sidebar",
+    "alerts": {
+      "exhausted": "{{count}} player(s) in critical condition (<25%)",
+      "injuredStartingXi": "{{count}} injured player(s) in Starting XI — replace them",
+      "incompleteStartingXi": "Starting XI incomplete — set your lineup",
+      "urgentUnread": "{{count}} urgent message(s) unread",
+      "matchTodayStartingXi": "Match today! Set your starting XI"
+    }
   },
   "continueMenu": {
     "goToField": "Go to the Field",
@@ -155,7 +164,9 @@
     "matchdayN": "Matchday {{n}}",
     "met": "Met",
     "inProgress": "In Progress",
-    "objectivesMet": "{{done}}/{{total}} objectives met — Board satisfaction: {{pct}}%"
+    "objectivesMet": "{{done}}/{{total}} objectives met — Board satisfaction: {{pct}}%",
+    "unavailablePlayers": "Unavailable Players",
+    "daysUnavailable": "{{count}} day(s) remaining"
   },
   "teamSelect": {
     "title": "Choose Your Club",
@@ -900,6 +911,8 @@
     "takingOff": "Taking off: {{name}}",
     "selectReplacement": "Select replacement from bench",
     "benchPlayers": "Bench players",
+    "selectBenchToCompare": "Select a bench player to compare",
+    "confirmSubstitution": "Confirm substitution",
     "noBenchAvailable": "No bench players available",
     "history": "History",
     "player": "Player",

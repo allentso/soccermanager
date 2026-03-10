@@ -167,6 +167,13 @@ function createGameState(overrides: Partial<GameStateData> = {}): GameStateData 
   };
 }
 
+function translateDashboardAlert(
+  key: string,
+  options?: Record<string, unknown>,
+): string {
+  return options ? `${key}:${JSON.stringify(options)}` : key;
+}
+
 describe("dashboardHelpers", function (): void {
   it("finds today's scheduled fixture for the manager's team", function (): void {
     const fixture = {
@@ -280,11 +287,10 @@ describe("dashboardHelpers", function (): void {
       messages: [createMessage({ id: "urgent-1", priority: "Urgent", read: false })],
     });
 
-    const alerts = getDashboardAlerts(gameState, true);
+    const alerts = getDashboardAlerts(gameState, true, translateDashboardAlert);
     const alertIds = alerts.map((alert) => alert.id);
 
     expect(alertIds).toContain("exhausted");
-    expect(alertIds).toContain("injured");
     expect(alertIds).toContain("injured_xi");
     expect(alertIds).toContain("urgent");
     expect(alertIds).toContain("matchxi");
@@ -312,7 +318,7 @@ describe("dashboardHelpers", function (): void {
       players: roster,
     });
 
-    const alerts = getDashboardAlerts(gameState, true);
+    const alerts = getDashboardAlerts(gameState, true, translateDashboardAlert);
     const alertIds = alerts.map((alert) => alert.id);
 
     expect(alertIds).not.toContain("xi");

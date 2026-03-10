@@ -80,7 +80,16 @@
     "youthAcademy": "Jugendakademie",
     "saveGame": "Spiel speichern",
     "saving": "Speichert...",
-    "saved": "Gespeichert!"
+    "saved": "Gespeichert!",
+    "collapseSidebar": "Seitenleiste einklappen",
+    "expandSidebar": "Seitenleiste ausklappen",
+    "alerts": {
+      "exhausted": "{{count}} Spieler in kritischer Verfassung (<25%)",
+      "injuredStartingXi": "{{count}} verletzte(r) Spieler in der Startelf — ersetze sie",
+      "incompleteStartingXi": "Startelf unvollständig — stelle deine Aufstellung ein",
+      "urgentUnread": "{{count}} dringende Nachricht(en) ungelesen",
+      "matchTodayStartingXi": "Heute ist Spieltag! Stelle deine Startelf ein"
+    }
   },
   "continueMenu": {
     "goToField": "Aufs Spielfeld",
@@ -155,7 +164,9 @@
     "boardObjectives": "Vorstandsziele",
     "seasonComplete": "Saison abgeschlossen.",
     "noLeagueSchedule": "Keine Ligadaten.",
-    "objectivesMet": "{{done}}/{{total}} Ziele erreicht — Zufriedenheit des Vorstands: {{pct}}%"
+    "objectivesMet": "{{done}}/{{total}} Ziele erreicht — Zufriedenheit des Vorstands: {{pct}}%",
+    "unavailablePlayers": "Nicht verfügbare Spieler",
+    "daysUnavailable": "Noch {{count}} Tag(e)"
   },
   "teamSelect": {
     "title": "Wähle Deinen Verein",
@@ -900,6 +911,8 @@
     "takingOff": "Auswechslung: {{name}}",
     "selectReplacement": "Ersatzspieler von der Bank wählen",
     "benchPlayers": "Bankspieler",
+    "selectBenchToCompare": "Wähle einen Bankspieler zum Vergleichen",
+    "confirmSubstitution": "Wechsel bestätigen",
     "noBenchAvailable": "Keine Bankspieler verfügbar",
     "history": "Verlauf",
     "player": "Spieler",

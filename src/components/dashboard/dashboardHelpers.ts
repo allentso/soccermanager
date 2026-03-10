@@ -18,6 +18,11 @@ export interface DashboardSearchResults {
   matchedTeams: TeamData[];
 }
 
+type DashboardAlertTranslator = (
+  key: string,
+  options?: Record<string, unknown>,
+) => string;
+
 export function getTodayMatchFixture(gameState: GameStateData): FixtureData | null {
   const fixtures = gameState.league?.fixtures;
 
@@ -101,6 +106,7 @@ export function getDashboardSearchResults(
 export function getDashboardAlerts(
   gameState: GameStateData,
   hasMatchToday: boolean,
+  t: DashboardAlertTranslator,
 ): DashboardAlert[] {
   const alerts: DashboardAlert[] = [];
   const myTeam = gameState.teams.find(
@@ -110,7 +116,6 @@ export function getDashboardAlerts(
     ? gameState.players.filter((player) => player.team_id === myTeam.id)
     : [];
   const exhaustedCount = roster.filter((player) => player.condition < 25).length;
-  const injuredCount = roster.filter((player) => player.injury).length;
   const urgentUnreadCount = gameState.messages.filter((message) => {
     return !message.read && message.priority === "Urgent";
   }).length;
@@ -129,28 +134,19 @@ export function getDashboardAlerts(
   if (exhaustedCount >= 3) {
     alerts.push({
       id: "exhausted",
-      text: `${exhaustedCount} players in critical condition (<25%)`,
+      text: t("dashboard.alerts.exhausted", { count: exhaustedCount }),
       tab: "Training",
       severity: "warn",
     });
   }
 
-  if (injuredCount >= 2) {
-    alerts.push({
-      id: "injured",
-      text: `${injuredCount} players injured`,
-      tab: "Squad",
-      severity: "info",
-    });
-  }
-
   if (savedStartingXi.length > 0) {
     if (injuredInXiCount > 0) {
-      const suffix = injuredInXiCount > 1 ? "s" : "";
-
       alerts.push({
         id: "injured_xi",
-        text: `${injuredInXiCount} injured player${suffix} in Starting XI — replace them`,
+        text: t("dashboard.alerts.injuredStartingXi", {
+          count: injuredInXiCount,
+        }),
         tab: "Squad",
         severity: "warn",
       });
@@ -163,7 +159,7 @@ export function getDashboardAlerts(
     ) {
       alerts.push({
         id: "xi",
-        text: "Starting XI incomplete — set your lineup",
+        text: t("dashboard.alerts.incompleteStartingXi"),
         tab: "Squad",
         severity: "warn",
       });
@@ -171,11 +167,9 @@ export function getDashboardAlerts(
   }
 
   if (urgentUnreadCount > 0) {
-    const suffix = urgentUnreadCount > 1 ? "s" : "";
-
     alerts.push({
       id: "urgent",
-      text: `${urgentUnreadCount} urgent message${suffix} unread`,
+      text: t("dashboard.alerts.urgentUnread", { count: urgentUnreadCount }),
       tab: "Inbox",
       severity: "warn",
     });
@@ -184,7 +178,7 @@ export function getDashboardAlerts(
   if (hasMatchToday && savedStartingXi.length > 0 && healthyXiCount < 11) {
     alerts.push({
       id: "matchxi",
-      text: "Match today! Set your starting XI",
+      text: t("dashboard.alerts.matchTodayStartingXi"),
       tab: "Squad",
       severity: "warn",
     });

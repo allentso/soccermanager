@@ -72,6 +72,7 @@ export default function Dashboard(): JSX.Element {
   }, [settingsLoaded, loadSettings]);
   const [isSaving, setIsSaving] = useState(false);
   const [saveFlash, setSaveFlash] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [activeTab, setActiveTab] = useState("Home");
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [isExitingToMenu, setIsExitingToMenu] = useState(false);
@@ -381,7 +382,7 @@ export default function Dashboard(): JSX.Element {
   const unreadMessagesCount = getUnreadMessagesCount(gameState);
   const myTeamName = getManagerTeamName(gameState);
   const searchResults = getDashboardSearchResults(gameState, searchQuery);
-  const dashboardAlerts = getDashboardAlerts(gameState, hasMatchToday);
+  const dashboardAlerts = getDashboardAlerts(gameState, hasMatchToday, t);
   const hasProfileHistory =
     navHistory.length > 0 ||
     selectedPlayerId !== null ||
@@ -394,7 +395,11 @@ export default function Dashboard(): JSX.Element {
     <div className="min-h-screen bg-gray-100 dark:bg-navy-900 flex transition-colors duration-300">
       <DashboardSidebar
         activeTab={activeTab}
+        collapsed={isSidebarCollapsed}
         onNavClick={handleNavClick}
+        onToggleCollapse={() => {
+          setIsSidebarCollapsed((currentValue) => !currentValue);
+        }}
         unreadMessagesCount={unreadMessagesCount}
         managerName={managerName}
         teamName={myTeamName}

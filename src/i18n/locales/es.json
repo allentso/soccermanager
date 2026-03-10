@@ -80,7 +80,16 @@
     "youthAcademy": "Academia Juvenil",
     "saveGame": "Guardar partida",
     "saving": "Guardando...",
-    "saved": "¡Guardado!"
+    "saved": "¡Guardado!",
+    "collapseSidebar": "Contraer barra lateral",
+    "expandSidebar": "Expandir barra lateral",
+    "alerts": {
+      "exhausted": "{{count}} jugador(es) en condición crítica (<25%)",
+      "injuredStartingXi": "{{count}} jugador(es) lesionado(s) en el once inicial — reemplázalos",
+      "incompleteStartingXi": "El once inicial está incompleto — ajusta tu alineación",
+      "urgentUnread": "{{count}} mensaje(s) urgente(s) sin leer",
+      "matchTodayStartingXi": "¡Hay partido hoy! Ajusta tu once inicial"
+    }
   },
   "continueMenu": {
     "goToField": "Ir al Campo",
@@ -155,7 +164,9 @@
     "unbeatenRun": "Racha invicta",
     "leaguePosition": "Posición en Liga",
     "standings": "Clasificación",
-    "noLeague": "Sin datos de liga todavía."
+    "noLeague": "Sin datos de liga todavía.",
+    "unavailablePlayers": "Jugadores no disponibles",
+    "daysUnavailable": "{{count}} día(s) restantes"
   },
   "teamSelect": {
     "title": "Elige Tu Club",
@@ -900,6 +911,8 @@
     "takingOff": "Sacando a: {{name}}",
     "selectReplacement": "Selecciona reemplazo del banquillo",
     "benchPlayers": "Jugadores del banquillo",
+    "selectBenchToCompare": "Selecciona un jugador del banquillo para comparar",
+    "confirmSubstitution": "Confirmar sustitución",
     "noBenchAvailable": "No hay jugadores en el banquillo",
     "history": "Historial",
     "player": "Jugador",

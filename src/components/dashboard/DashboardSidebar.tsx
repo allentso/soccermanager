@@ -1,9 +1,33 @@
 import { useTranslation } from "react-i18next";
-import { Users, Calendar as CalendarIcon, Mail, Settings, Briefcase, Trophy, TrendingUp, Crosshair, Dumbbell, DollarSign, Eye, UsersRound, Building2, UserCog, Newspaper, LogOut, GraduationCap } from "lucide-react";
+import type { JSX, ReactNode } from "react";
+import {
+  Users,
+  Calendar as CalendarIcon,
+  Mail,
+  Settings,
+  Briefcase,
+  Trophy,
+  TrendingUp,
+  Crosshair,
+  Dumbbell,
+  DollarSign,
+  Eye,
+  UsersRound,
+  Building2,
+  UserCog,
+  Newspaper,
+  LogOut,
+  GraduationCap,
+  PanelLeftClose,
+  PanelLeftOpen,
+  User,
+} from "lucide-react";
 
 interface DashboardSidebarProps {
   activeTab: string;
+  collapsed: boolean;
   onNavClick: (tab: string) => void;
+  onToggleCollapse: () => void;
   unreadMessagesCount: number;
   managerName: string | null;
   teamName: string | null;
@@ -11,22 +35,60 @@ interface DashboardSidebarProps {
   onExitClick: () => void;
 }
 
-function NavItem({ icon, label, active, badge, onClick }: { icon: React.ReactNode; label: string; active?: boolean; badge?: number; onClick?: () => void }) {
+interface NavItemProps {
+  active?: boolean;
+  badge?: number;
+  collapsed: boolean;
+  icon: ReactNode;
+  label: string;
+  onClick?: () => void;
+}
+
+function NavItem({
+  active,
+  badge,
+  collapsed,
+  icon,
+  label,
+  onClick,
+}: NavItemProps): JSX.Element {
+  const buttonClassName = collapsed
+    ? `relative flex w-full items-center justify-center rounded-lg p-3 transition-all duration-200 ${
+        active
+          ? "bg-linear-to-r from-primary-500 to-primary-600 text-white shadow-md shadow-primary-500/20"
+          : "text-gray-400 hover:bg-white/5 hover:text-white"
+      }`
+    : `relative flex w-full items-center justify-between rounded-lg p-3 transition-all duration-200 ${
+        active
+          ? "bg-linear-to-r from-primary-500 to-primary-600 text-white shadow-md shadow-primary-500/20"
+          : "text-gray-400 hover:bg-white/5 hover:text-white"
+      }`;
+
   return (
-    <button 
+    <button
       onClick={onClick}
-      className={`w-full flex items-center justify-between p-3 rounded-lg transition-all duration-200 ${
-        active 
-          ? 'bg-gradient-to-r from-primary-500 to-primary-600 text-white shadow-md shadow-primary-500/20' 
-          : 'text-gray-400 hover:text-white hover:bg-white/5'
-      }`}
+      title={collapsed ? label : undefined}
+      aria-label={label}
+      className={buttonClassName}
     >
-      <div className="flex items-center gap-3">
+      <div
+        className={`flex items-center ${collapsed ? "justify-center" : "gap-3"}`}
+      >
         <div className="[&>svg]:w-5 [&>svg]:h-5">{icon}</div>
-        <span className="font-heading font-semibold text-sm uppercase tracking-wider">{label}</span>
+        {collapsed ? null : (
+          <span className="font-heading font-semibold text-sm uppercase tracking-wider">
+            {label}
+          </span>
+        )}
       </div>
       {badge !== undefined && badge > 0 && (
-        <span className="bg-primary-500 text-white text-xs font-bold px-2 py-0.5 rounded-full min-w-[1.25rem] text-center">
+        <span
+          className={
+            collapsed
+              ? "absolute right-1.5 top-1.5 min-w-[1.1rem] rounded-full bg-primary-500 px-1.5 py-0.5 text-center text-[10px] font-bold text-white"
+              : "min-w-5 rounded-full bg-primary-500 px-2 py-0.5 text-center text-xs font-bold text-white"
+          }
+        >
           {badge}
         </span>
       )}
@@ -34,70 +96,231 @@ function NavItem({ icon, label, active, badge, onClick }: { icon: React.ReactNod
   );
 }
 
-export default function DashboardSidebar({ activeTab, onNavClick, unreadMessagesCount, managerName, teamName, onNavigateSettings, onExitClick }: DashboardSidebarProps) {
+export default function DashboardSidebar({
+  activeTab,
+  collapsed,
+  onNavClick,
+  onToggleCollapse,
+  unreadMessagesCount,
+  managerName,
+  teamName,
+  onNavigateSettings,
+  onExitClick,
+}: DashboardSidebarProps): JSX.Element {
   const { t } = useTranslation();
 
+  const clubItems: Array<{ icon: JSX.Element; label: string; tab: string }> = [
+    { icon: <Users />, label: t("dashboard.squad"), tab: "Squad" },
+    { icon: <Crosshair />, label: t("dashboard.tactics"), tab: "Tactics" },
+    { icon: <Dumbbell />, label: t("dashboard.training"), tab: "Training" },
+    { icon: <UserCog />, label: t("dashboard.staff"), tab: "Staff" },
+    { icon: <Eye />, label: t("dashboard.scouting"), tab: "Scouting" },
+    {
+      icon: <GraduationCap />,
+      label: t("dashboard.youthAcademy"),
+      tab: "Youth",
+    },
+    { icon: <DollarSign />, label: t("dashboard.finances"), tab: "Finances" },
+    { icon: <TrendingUp />, label: t("dashboard.transfers"), tab: "Transfers" },
+  ];
+  const worldItems: Array<{ icon: JSX.Element; label: string; tab: string }> = [
+    { icon: <UsersRound />, label: t("dashboard.players"), tab: "Players" },
+    { icon: <Building2 />, label: t("dashboard.teams"), tab: "Teams" },
+    {
+      icon: <Trophy />,
+      label: t("dashboard.tournaments"),
+      tab: "Tournaments",
+    },
+  ];
+  const toggleSidebarLabel = collapsed
+    ? t("dashboard.expandSidebar")
+    : t("dashboard.collapseSidebar");
+
   return (
-    <aside className="w-64 bg-navy-800 dark:bg-navy-800 border-r border-navy-700 text-white flex flex-col flex-shrink-0 h-screen sticky top-0">
+    <aside
+      className={`bg-navy-800 dark:bg-navy-800 border-r border-navy-700 text-white flex h-screen sticky top-0 shrink-0 flex-col transition-[width] duration-200 ${
+        collapsed ? "w-20" : "w-64"
+      }`}
+    >
       {/* Brand */}
-      <div className="p-5 border-b border-navy-700">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 flex items-center justify-center">
-            <img src="../../openfootball.svg" alt="Logo" className="w-8 h-8" />
+      <div
+        className={`border-b border-navy-700 ${collapsed ? "px-3 py-4" : "p-5"}`}
+      >
+        <div
+          className={`flex ${collapsed ? "flex-col items-center gap-3" : "items-center justify-between gap-3"}`}
+        >
+          <div
+            className={`flex items-center ${collapsed ? "justify-center" : "gap-2"}`}
+          >
+            <div className="w-8 h-8 flex items-center justify-center">
+              <img
+                src="../../openfootball.svg"
+                alt="Logo"
+                className="w-8 h-8"
+              />
+            </div>
+            {collapsed ? null : (
+              <div>
+                <h1 className="text-sm font-heading font-bold text-white uppercase tracking-wider">
+                  OpenFoot
+                </h1>
+                <h1 className="text-xs font-heading text-accent-400 uppercase tracking-wider">
+                  Manager
+                </h1>
+              </div>
+            )}
           </div>
-          <div>
-            <h1 className="text-sm font-heading font-bold text-white uppercase tracking-wider">OpenFoot</h1>
-            <h1 className="text-xs font-heading text-accent-400 uppercase tracking-wider">Manager</h1>
-          </div>
+          <button
+            type="button"
+            onClick={onToggleCollapse}
+            title={toggleSidebarLabel}
+            aria-label={toggleSidebarLabel}
+            className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-white/5 hover:text-white"
+          >
+            {collapsed ? (
+              <PanelLeftOpen className="h-5 w-5" />
+            ) : (
+              <PanelLeftClose className="h-5 w-5" />
+            )}
+          </button>
         </div>
         <button
           onClick={() => onNavClick("Manager")}
-          className="mt-3 pt-3 border-t border-navy-700 text-left w-full hover:bg-white/5 rounded-lg transition-colors -mx-1 px-1 py-1 hover:cursor-pointer"
+          title={collapsed ? t("dashboard.manager") : undefined}
+          aria-label={t("dashboard.manager")}
+          className={`hover:bg-white/5 mt-3 w-full rounded-lg transition-colors hover:cursor-pointer ${
+            collapsed
+              ? "flex justify-center px-0 py-2 text-gray-300"
+              : "-mx-1 border-t border-navy-700 px-1 py-1 pt-3 text-left"
+          }`}
         >
-          <p className="text-xs text-gray-400 uppercase tracking-wider">{t('dashboard.manager')}</p>
-          <p className="text-sm font-semibold text-white mt-0.5">{managerName}</p>
-          {teamName && <p className="text-xs text-primary-400 mt-0.5">{teamName}</p>}
+          {collapsed ? (
+            <User className="h-5 w-5" />
+          ) : (
+            <>
+              <p className="text-xs text-gray-400 uppercase tracking-wider">
+                {t("dashboard.manager")}
+              </p>
+              <p className="text-sm font-semibold text-white mt-0.5">
+                {managerName}
+              </p>
+              {teamName && (
+                <p className="text-xs text-primary-400 mt-0.5">{teamName}</p>
+              )}
+            </>
+          )}
         </button>
       </div>
-      
+
       {/* Navigation */}
-      <nav className="flex-1 py-4 px-3 flex flex-col gap-1 overflow-y-auto scrollbar-thin scrollbar-thumb-navy-600 scrollbar-track-transparent">
-        <NavItem icon={<Briefcase />} label={t('dashboard.home')} active={activeTab === "Home"} onClick={() => onNavClick("Home")} />
-        <NavItem icon={<Mail />} label={t('dashboard.inbox')} badge={unreadMessagesCount > 0 ? unreadMessagesCount : undefined} active={activeTab === "Inbox"} onClick={() => onNavClick("Inbox")} />
-        <NavItem icon={<Newspaper />} label={t('dashboard.news')} active={activeTab === "News"} onClick={() => onNavClick("News")} />
-        <NavItem icon={<CalendarIcon />} label={t('dashboard.schedule')} active={activeTab === "Schedule"} onClick={() => onNavClick("Schedule")} />
+      <nav
+        className={`scrollbar-thin scrollbar-thumb-navy-600 scrollbar-track-transparent flex flex-1 flex-col gap-1 overflow-y-auto py-4 ${
+          collapsed ? "px-2" : "px-3"
+        }`}
+      >
+        <NavItem
+          icon={<Briefcase />}
+          label={t("dashboard.home")}
+          badge={undefined}
+          active={activeTab === "Home"}
+          collapsed={collapsed}
+          onClick={() => onNavClick("Home")}
+        />
+        <NavItem
+          icon={<Mail />}
+          label={t("dashboard.inbox")}
+          badge={unreadMessagesCount > 0 ? unreadMessagesCount : undefined}
+          active={activeTab === "Inbox"}
+          collapsed={collapsed}
+          onClick={() => onNavClick("Inbox")}
+        />
+        <NavItem
+          icon={<Newspaper />}
+          label={t("dashboard.news")}
+          active={activeTab === "News"}
+          collapsed={collapsed}
+          onClick={() => onNavClick("News")}
+        />
+        <NavItem
+          icon={<CalendarIcon />}
+          label={t("dashboard.schedule")}
+          active={activeTab === "Schedule"}
+          collapsed={collapsed}
+          onClick={() => onNavClick("Schedule")}
+        />
 
-        <p className="text-[10px] text-gray-500 uppercase tracking-widest font-heading px-3 pt-3 pb-1">{t('dashboard.sectionClub')}</p>
-        <NavItem icon={<Users />} label={t('dashboard.squad')} active={activeTab === "Squad"} onClick={() => onNavClick("Squad")} />
-        <NavItem icon={<Crosshair />} label={t('dashboard.tactics')} active={activeTab === "Tactics"} onClick={() => onNavClick("Tactics")} />
-        <NavItem icon={<Dumbbell />} label={t('dashboard.training')} active={activeTab === "Training"} onClick={() => onNavClick("Training")} />
-        <NavItem icon={<UserCog />} label={t('dashboard.staff')} active={activeTab === "Staff"} onClick={() => onNavClick("Staff")} />
-        <NavItem icon={<Eye />} label={t('dashboard.scouting')} active={activeTab === "Scouting"} onClick={() => onNavClick("Scouting")} />
-        <NavItem icon={<GraduationCap />} label={t('dashboard.youthAcademy')} active={activeTab === "Youth"} onClick={() => onNavClick("Youth")} />
-        <NavItem icon={<DollarSign />} label={t('dashboard.finances')} active={activeTab === "Finances"} onClick={() => onNavClick("Finances")} />
-        <NavItem icon={<TrendingUp />} label={t('dashboard.transfers')} active={activeTab === "Transfers"} onClick={() => onNavClick("Transfers")} />
+        {collapsed ? null : (
+          <p className="text-[10px] text-gray-500 uppercase tracking-widest font-heading px-3 pt-3 pb-1">
+            {t("dashboard.sectionClub")}
+          </p>
+        )}
+        {clubItems.map((item) => (
+          <NavItem
+            key={item.tab}
+            icon={item.icon}
+            label={item.label}
+            active={activeTab === item.tab}
+            collapsed={collapsed}
+            onClick={() => onNavClick(item.tab)}
+          />
+        ))}
 
-        <p className="text-[10px] text-gray-500 uppercase tracking-widest font-heading px-3 pt-3 pb-1">{t('dashboard.sectionWorld')}</p>
-        <NavItem icon={<UsersRound />} label={t('dashboard.players')} active={activeTab === "Players"} onClick={() => onNavClick("Players")} />
-        <NavItem icon={<Building2 />} label={t('dashboard.teams')} active={activeTab === "Teams"} onClick={() => onNavClick("Teams")} />
-        <NavItem icon={<Trophy />} label={t('dashboard.tournaments')} active={activeTab === "Tournaments"} onClick={() => onNavClick("Tournaments")} />
+        {collapsed ? null : (
+          <p className="text-[10px] text-gray-500 uppercase tracking-widest font-heading px-3 pt-3 pb-1">
+            {t("dashboard.sectionWorld")}
+          </p>
+        )}
+        {worldItems.map((item) => (
+          <NavItem
+            key={item.tab}
+            icon={item.icon}
+            label={item.label}
+            active={activeTab === item.tab}
+            collapsed={collapsed}
+            onClick={() => onNavClick(item.tab)}
+          />
+        ))}
       </nav>
-      
+
       {/* Settings & Exit */}
-      <div className="p-3 border-t border-navy-700 flex flex-col gap-1">
-        <button 
+      <div
+        className={`border-t border-navy-700 flex flex-col gap-1 ${
+          collapsed ? "p-2" : "p-3"
+        }`}
+      >
+        <button
           onClick={onNavigateSettings}
-          className="flex items-center gap-3 w-full p-3 hover:bg-white/5 rounded-lg transition-colors text-gray-500 hover:text-gray-300"
+          title={collapsed ? t("dashboard.settings") : undefined}
+          aria-label={t("dashboard.settings")}
+          className={`w-full rounded-lg p-3 text-gray-500 transition-colors hover:bg-white/5 hover:text-gray-300 ${
+            collapsed
+              ? "flex items-center justify-center"
+              : "flex items-center gap-3"
+          }`}
         >
           <Settings className="w-5 h-5" />
-          <span className="font-heading text-sm uppercase tracking-wider">{t('dashboard.settings')}</span>
+          {collapsed ? null : (
+            <span className="font-heading text-sm uppercase tracking-wider">
+              {t("dashboard.settings")}
+            </span>
+          )}
         </button>
-        <button 
+        <button
           onClick={onExitClick}
-          className="flex items-center gap-3 w-full p-3 hover:bg-red-500/10 rounded-lg transition-colors text-gray-500 hover:text-red-400"
+          title={collapsed ? t("dashboard.exitToMenu") : undefined}
+          aria-label={t("dashboard.exitToMenu")}
+          className={`w-full rounded-lg p-3 text-gray-500 transition-colors hover:bg-red-500/10 hover:text-red-400 ${
+            collapsed
+              ? "flex items-center justify-center"
+              : "flex items-center gap-3"
+          }`}
         >
           <LogOut className="w-5 h-5" />
-          <span className="font-heading text-sm uppercase tracking-wider">{t('dashboard.exitToMenu')}</span>
+          {collapsed ? null : (
+            <span className="font-heading text-sm uppercase tracking-wider">
+              {t("dashboard.exitToMenu")}
+            </span>
+          )}
         </button>
       </div>
     </aside>

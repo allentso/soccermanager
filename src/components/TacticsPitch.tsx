@@ -212,10 +212,14 @@ export default function TacticsPitch({
               className="absolute left-1/2 grid items-start"
               style={{
                 top: row.y,
-                width: getPitchRowWidth(row.slots.length),
+                width:
+                  row.slots.length === 1
+                    ? `${getPitchSlotWidth(row.slots.length)}px`
+                    : getPitchRowWidth(row.slots.length),
                 transform: "translate(-50%, -50%)",
                 gridTemplateColumns: `repeat(${row.slots.length}, minmax(0, ${getPitchSlotWidth(row.slots.length)}px))`,
-                justifyContent: "space-between",
+                justifyContent:
+                  row.slots.length === 1 ? "center" : "space-between",
               }}
             >
               {row.slots.map((slot) => {

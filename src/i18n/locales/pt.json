@@ -80,7 +80,16 @@
     "youthAcademy": "Academia de Jovens",
     "saveGame": "Guardar jogo",
     "saving": "A guardar...",
-    "saved": "Guardado!"
+    "saved": "Guardado!",
+    "collapseSidebar": "Recolher barra lateral",
+    "expandSidebar": "Expandir barra lateral",
+    "alerts": {
+      "exhausted": "{{count}} jogador(es) em condição crítica (<25%)",
+      "injuredStartingXi": "{{count}} jogador(es) lesionado(s) no onze inicial — substitui-os",
+      "incompleteStartingXi": "O onze inicial está incompleto — define a tua equipa",
+      "urgentUnread": "{{count}} mensagem(ns) urgente(s) por ler",
+      "matchTodayStartingXi": "Jogo hoje! Define o teu onze inicial"
+    }
   },
   "continueMenu": {
     "goToField": "Ir para o Campo",
@@ -155,7 +164,9 @@
     "boardObjectives": "Objetivos da Direção",
     "seasonComplete": "Temporada concluída.",
     "noLeagueSchedule": "Sem dados da liga.",
-    "objectivesMet": "{{done}}/{{total}} objetivos cumpridos — Satisfação da direção: {{pct}}%"
+    "objectivesMet": "{{done}}/{{total}} objetivos cumpridos — Satisfação da direção: {{pct}}%",
+    "unavailablePlayers": "Jogadores indisponíveis",
+    "daysUnavailable": "{{count}} dia(s) restantes"
   },
   "teamSelect": {
     "title": "Escolhe o Teu Clube",
@@ -900,6 +911,8 @@
     "takingOff": "A sair: {{name}}",
     "selectReplacement": "Seleciona substituto do banco",
     "benchPlayers": "Jogadores do banco",
+    "selectBenchToCompare": "Seleciona um jogador do banco para comparar",
+    "confirmSubstitution": "Confirmar substituição",
     "noBenchAvailable": "Sem jogadores no banco",
     "history": "Histórico",
     "player": "Jogador",
