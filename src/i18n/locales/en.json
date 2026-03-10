@@ -954,6 +954,32 @@
     "noMajorEvents": "No major events.",
     "teamTalk": "Team Talk",
     "teamTalkPrompt": "Choose how you address the team at half time.",
+    "teamTalkOptions": {
+      "calm": {
+        "label": "Stay Calm",
+        "description": "Keep composure and focus on the game plan."
+      },
+      "motivational": {
+        "label": "Motivate",
+        "description": "Inspire the players to give their best."
+      },
+      "assertive": {
+        "label": "Demand More",
+        "description": "Tell them this isn't good enough."
+      },
+      "aggressive": {
+        "label": "Get Fired Up",
+        "description": "An aggressive, fiery team talk."
+      },
+      "praise": {
+        "label": "Praise",
+        "description": "Tell them they've been excellent."
+      },
+      "disappointed": {
+        "label": "Show Disappointment",
+        "description": "Express disappointment in their effort."
+      }
+    },
     "deliverTeamTalk": "Deliver Team Talk",
     "delivered": "Delivered",
     "spectatorMode": "Spectator Mode",

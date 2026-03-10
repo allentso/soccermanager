@@ -954,6 +954,32 @@
     "noMajorEvents": "Nessun evento rilevante.",
     "teamTalk": "Discorso alla squadra",
     "teamTalkPrompt": "Scegli come rivolgerti alla squadra all'intervallo.",
+    "teamTalkOptions": {
+      "calm": {
+        "label": "Mantenete la calma",
+        "description": "Invita la squadra a restare lucida e a seguire il piano partita."
+      },
+      "motivational": {
+        "label": "Motiva",
+        "description": "Spingi i giocatori a dare il massimo."
+      },
+      "assertive": {
+        "label": "Pretendi di più",
+        "description": "Fai capire che la prestazione non è ancora all'altezza."
+      },
+      "aggressive": {
+        "label": "Accendili",
+        "description": "Fai un discorso aggressivo e carico di energia."
+      },
+      "praise": {
+        "label": "Loda",
+        "description": "Dì alla squadra che finora è stata eccellente."
+      },
+      "disappointed": {
+        "label": "Mostra delusione",
+        "description": "Esprimi la tua delusione per il loro impegno."
+      }
+    },
     "deliverTeamTalk": "Fai il discorso",
     "delivered": "Consegnato",
     "spectatorMode": "Modalità spettatore",

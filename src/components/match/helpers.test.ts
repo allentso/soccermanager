@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { getPlayerName, phaseLabel, calcOvr, getEventDisplay } from "./helpers";
+import i18n from "../../i18n";
+import { getTeamTalkOptions } from "./types";
 import type { MatchSnapshot, EnginePlayerData, EngineTeamData } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -157,5 +159,72 @@ describe("getEventDisplay", () => {
     const display = getEventDisplay({ minute: 1, event_type: "UnknownEvent", side: "Home", zone: "Midfield", player_id: null, secondary_player_id: null });
     expect(display.color).toBe("text-gray-400");
     expect(display.important).toBe(false);
+  });
+});
+
+describe("getTeamTalkOptions", () => {
+  it("returns the expected english team talk labels and descriptions", async () => {
+    await i18n.changeLanguage("en");
+
+    const options = getTeamTalkOptions(i18n.t.bind(i18n));
+
+    expect(options.map((option) => option.id)).toEqual([
+      "calm",
+      "motivational",
+      "assertive",
+      "aggressive",
+      "praise",
+      "disappointed",
+    ]);
+    expect(options[0]).toEqual({
+      id: "calm",
+      icon: "calm",
+      label: "Stay Calm",
+      description: "Keep composure and focus on the game plan.",
+    });
+    expect(options[5]).toEqual({
+      id: "disappointed",
+      icon: "disappointed",
+      label: "Show Disappointment",
+      description: "Express disappointment in their effort.",
+    });
+  });
+
+  it("returns translated team talk options for pt-BR", async () => {
+    await i18n.changeLanguage("pt-BR");
+
+    const options = getTeamTalkOptions(i18n.t.bind(i18n));
+
+    expect(options[0]).toEqual({
+      id: "calm",
+      icon: "calm",
+      label: "Mantenham a calma",
+      description: "Peça calma ao time e mantenha o foco no plano de jogo.",
+    });
+    expect(options[3]).toEqual({
+      id: "aggressive",
+      icon: "aggressive",
+      label: "Incendiar o time",
+      description: "Faça uma preleção agressiva e cheia de energia.",
+    });
+  });
+
+  it("returns translated team talk options for italian", async () => {
+    await i18n.changeLanguage("it");
+
+    const options = getTeamTalkOptions(i18n.t.bind(i18n));
+
+    expect(options[1]).toEqual({
+      id: "motivational",
+      icon: "motivational",
+      label: "Motiva",
+      description: "Spingi i giocatori a dare il massimo.",
+    });
+    expect(options[4]).toEqual({
+      id: "praise",
+      icon: "praise",
+      label: "Loda",
+      description: "Dì alla squadra che finora è stata eccellente.",
+    });
   });
 });
