@@ -36,6 +36,15 @@ pub fn start_live_match(
     let session =
         live_match_manager::create_live_match(&game, fixture_index, match_mode, allows_extra_time)?;
     let snapshot = session.snapshot();
+    info!(
+        "[cmd] start_live_match: created fixture={}, phase={:?}, home_team={}, away_team={}, home_players={}, away_players={}",
+        fixture_index,
+        snapshot.phase,
+        snapshot.home_team.name,
+        snapshot.away_team.name,
+        snapshot.home_team.players.len(),
+        snapshot.away_team.players.len()
+    );
     state.set_live_match(session);
     Ok(snapshot)
 }
@@ -47,7 +56,7 @@ pub fn step_live_match(
     minutes: u16,
 ) -> Result<Vec<engine::MinuteResult>, String> {
     log::debug!("[cmd] step_live_match: minutes={}", minutes);
-    state
+    let results = state
         .with_live_match(|session| {
             if minutes <= 1 {
                 vec![session.step()]
@@ -55,7 +64,20 @@ pub fn step_live_match(
                 session.step_many(minutes)
             }
         })
-        .ok_or_else(|| "No active live match".to_string())
+        .ok_or_else(|| "No active live match".to_string())?;
+
+    if let Some(last) = results.last() {
+        info!(
+            "[cmd] step_live_match: minutes={}, result_count={}, last_minute={}, phase={:?}, finished={}",
+            minutes,
+            results.len(),
+            last.minute,
+            last.phase,
+            last.is_finished
+        );
+    }
+
+    Ok(results)
 }
 
 /// Apply a match command (substitution, tactic change, set piece taker, etc.)
@@ -65,21 +87,38 @@ pub fn apply_match_command(
     command: engine::MatchCommand,
 ) -> Result<engine::MatchSnapshot, String> {
     info!("[cmd] apply_match_command: {:?}", command);
-    state
+    let snapshot = state
         .with_live_match(|session| {
             session.apply_command(command)?;
-            Ok(session.snapshot())
+            Ok::<engine::MatchSnapshot, String>(session.snapshot())
         })
-        .ok_or_else(|| "No active live match".to_string())?
+        .ok_or_else(|| "No active live match".to_string())??;
+
+    info!(
+        "[cmd] apply_match_command: snapshot phase={:?}, minute={}, home_players={}, away_players={}",
+        snapshot.phase,
+        snapshot.current_minute,
+        snapshot.home_team.players.len(),
+        snapshot.away_team.players.len()
+    );
+
+    Ok(snapshot)
 }
 
 /// Get current match snapshot without advancing time.
 #[tauri::command]
 pub fn get_match_snapshot(state: State<'_, StateManager>) -> Result<engine::MatchSnapshot, String> {
     log::debug!("[cmd] get_match_snapshot");
-    state
+    let snapshot = state
         .with_live_match(|session| session.snapshot())
-        .ok_or_else(|| "No active live match".to_string())
+        .ok_or_else(|| "No active live match".to_string())?;
+
+    info!(
+        "[cmd] get_match_snapshot: phase={:?}, minute={}, home_team={}, away_team={}",
+        snapshot.phase, snapshot.current_minute, snapshot.home_team.name, snapshot.away_team.name
+    );
+
+    Ok(snapshot)
 }
 
 /// Finish the live match: generate report, update game state, clean up.
@@ -93,6 +132,13 @@ pub fn finish_live_match(state: State<'_, StateManager>) -> Result<Game, String>
     let away_team_id = session.away_team_id.clone();
 
     let report = session.match_state.into_report();
+    info!(
+        "[cmd] finish_live_match: fixture_index={}, home_team_id={}, away_team_id={}, events={}",
+        fixture_index,
+        home_team_id,
+        away_team_id,
+        report.events.len()
+    );
 
     // Update the game state with the match result
     let mut game = state

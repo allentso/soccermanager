@@ -98,22 +98,44 @@ export function buildPitchRows(formation: string): PitchRow[] {
     .filter((value) => !Number.isNaN(value));
 
   if (parts.length === 4) {
+    const forwardY = parts[3] === 1 ? "16%" : "20%";
+    const attackingMidY = parts[3] === 1 ? "40%" : "38%";
+
     return [
-      { label: "GK", y: "90%", positions: ["Goalkeeper"] },
+      { label: "GK", y: "88%", positions: ["Goalkeeper"] },
       { label: "DEF", y: "70%", positions: Array(parts[0]).fill("Defender") },
-      { label: "DM", y: "50%", positions: Array(parts[1]).fill("Midfielder") },
-      { label: "AM", y: "30%", positions: Array(parts[2]).fill("Midfielder") },
-      { label: "FWD", y: "10%", positions: Array(parts[3]).fill("Forward") },
+      { label: "DM", y: "54%", positions: Array(parts[1]).fill("Midfielder") },
+      { label: "AM", y: attackingMidY, positions: Array(parts[2]).fill("Midfielder") },
+      { label: "FWD", y: forwardY, positions: Array(parts[3]).fill("Forward") },
     ];
   }
 
   const slots = parseFormationSlots(formation);
+  const forwardY = slots.fwd === 1 ? "18%" : "22%";
+  const midfieldY = slots.fwd === 1 ? "50%" : "46%";
+
   return [
-    { label: "GK", y: "90%", positions: ["Goalkeeper"] },
+    { label: "GK", y: "88%", positions: ["Goalkeeper"] },
     { label: "DEF", y: "70%", positions: Array(slots.def).fill("Defender") },
-    { label: "MID", y: "50%", positions: Array(slots.mid).fill("Midfielder") },
-    { label: "FWD", y: "30%", positions: Array(slots.fwd).fill("Forward") },
+    { label: "MID", y: midfieldY, positions: Array(slots.mid).fill("Midfielder") },
+    { label: "FWD", y: forwardY, positions: Array(slots.fwd).fill("Forward") },
   ];
+}
+
+export function getPitchRowWidth(slotCount: number): string {
+  if (slotCount >= 5) return "88%";
+  if (slotCount === 4) return "82%";
+  if (slotCount === 3) return "68%";
+  if (slotCount === 2) return "50%";
+  return "28%";
+}
+
+export function getPitchSlotWidth(slotCount: number): number {
+  if (slotCount >= 5) return 66;
+  if (slotCount === 4) return 70;
+  if (slotCount === 3) return 74;
+  if (slotCount === 2) return 78;
+  return 82;
 }
 
 export function buildStartingXIIds(

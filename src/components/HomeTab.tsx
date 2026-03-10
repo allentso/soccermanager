@@ -3,6 +3,7 @@ import { Card, CardHeader, CardBody, Badge, ProgressBar } from "./ui";
 import { getTeamName, calcOvr, formatDateShort } from "../lib/helpers";
 import NextMatchDisplay from "./NextMatchDisplay";
 import { resolveBoardObjective, resolveMessage } from "../utils/backendI18n";
+import { getOnboardingCompletionState } from "./HomeTab.helpers";
 import {
   Trophy,
   Dumbbell,
@@ -98,7 +99,6 @@ export default function HomeTab({ gameState, onNavigate }: HomeTabProps) {
 
   // Current date
   const lang = i18n.language;
-  const currentDate = new Date(gameState.clock.current_date);
 
   // Training schedule
   const schedule = myTeam?.training_schedule || "Balanced";
@@ -113,31 +113,12 @@ export default function HomeTab({ gameState, onNavigate }: HomeTabProps) {
   const boardObjectives = (gameState.board_objectives || []).map(
     resolveBoardObjective,
   );
-
-  // Onboarding: show Getting Started during first 7 days
-  const startDate = new Date(gameState.clock.start_date);
-  const daysSinceStart = Math.floor(
-    (currentDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24),
-  );
-  const showOnboarding = daysSinceStart <= 7;
-
-  // Onboarding checklist items with smart completion detection
-  const myStaff = myTeam
-    ? gameState.staff.filter((s) => s.team_id === myTeam.id)
-    : [];
-  const hasCoach = myStaff.some((s) => s.role === "Coach");
-  const hasPhysio = myStaff.some((s) => s.role === "Physio");
-  const hasReviewedSquad = (gameState.messages || []).some(
-    (m) => m.id === "welcome_1" && m.read,
-  );
-  const hasSetFormation = myTeam ? myTeam.formation !== "4-4-2" : false;
-  const hasReadInbox =
-    (gameState.messages || []).filter((m) => m.read).length >= 2;
+  const onboardingState = getOnboardingCompletionState(gameState);
 
   const onboardingSteps = [
     {
       id: "squad",
-      done: hasReviewedSquad,
+      done: onboardingState.hasReviewedSquad,
       label: t("onboarding.reviewSquad"),
       description: t("onboarding.reviewSquadDesc"),
       tab: "Squad",
@@ -145,7 +126,7 @@ export default function HomeTab({ gameState, onNavigate }: HomeTabProps) {
     },
     {
       id: "staff",
-      done: hasCoach && hasPhysio,
+      done: onboardingState.hasHiredCoreStaff,
       label: t("onboarding.hireStaff"),
       description: t("onboarding.hireStaffDesc"),
       tab: "Staff",
@@ -153,7 +134,7 @@ export default function HomeTab({ gameState, onNavigate }: HomeTabProps) {
     },
     {
       id: "tactics",
-      done: hasSetFormation,
+      done: onboardingState.hasSetTactics,
       label: t("onboarding.setTactics"),
       description: t("onboarding.setTacticsDesc"),
       tab: "Tactics",
@@ -161,10 +142,7 @@ export default function HomeTab({ gameState, onNavigate }: HomeTabProps) {
     },
     {
       id: "training",
-      done: myTeam
-        ? myTeam.training_focus !== "General" ||
-          myTeam.training_schedule !== "Balanced"
-        : false,
+      done: onboardingState.hasConfiguredTraining,
       label: t("onboarding.configTraining"),
       description: t("onboarding.configTrainingDesc"),
       tab: "Training",
@@ -172,83 +150,84 @@ export default function HomeTab({ gameState, onNavigate }: HomeTabProps) {
     },
     {
       id: "inbox",
-      done: hasReadInbox,
+      done: onboardingState.hasReadInbox,
       label: t("onboarding.readMessages"),
       description: t("onboarding.readMessagesDesc"),
       tab: "Inbox",
       icon: <Mail className="w-4 h-4" />,
     },
   ];
-  const completedSteps = onboardingSteps.filter((s) => s.done).length;
+  const completedSteps = onboardingState.completedSteps;
 
   return (
     <div className="max-w-6xl mx-auto flex flex-col gap-5">
       {/* Onboarding — Getting Started Checklist */}
-      {showOnboarding && completedSteps < onboardingSteps.length && (
-        <Card accent="accent">
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Lightbulb className="w-4 h-4 text-accent-500" />
-              {t("onboarding.title")}
-            </div>
-          </CardHeader>
-          <CardBody>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-              {t("onboarding.description")}
-            </p>
-            <div className="flex items-center gap-2 mb-4">
-              <ProgressBar
-                value={Math.round(
-                  (completedSteps / onboardingSteps.length) * 100,
-                )}
-                variant="accent"
-                size="sm"
-              />
-              <span className="text-xs font-heading font-bold text-gray-500 dark:text-gray-400 flex-shrink-0">
-                {completedSteps}/{onboardingSteps.length}
-              </span>
-            </div>
-            <div className="flex flex-col gap-2">
-              {onboardingSteps.map((step) => (
-                <button
-                  key={step.id}
-                  onClick={() => onNavigate?.(step.tab)}
-                  className={`flex items-center gap-3 p-3 rounded-lg text-left transition-all ${
-                    step.done
-                      ? "bg-primary-50 dark:bg-primary-500/5 opacity-70"
-                      : "bg-gray-50 dark:bg-navy-700/50 hover:bg-gray-100 dark:hover:bg-navy-700"
-                  }`}
-                >
-                  <div
-                    className={`flex-shrink-0 ${step.done ? "text-primary-500" : "text-gray-400 dark:text-gray-500"}`}
+      {onboardingState.showOnboarding &&
+        completedSteps < onboardingSteps.length && (
+          <Card accent="accent">
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Lightbulb className="w-4 h-4 text-accent-500" />
+                {t("onboarding.title")}
+              </div>
+            </CardHeader>
+            <CardBody>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                {t("onboarding.description")}
+              </p>
+              <div className="flex items-center gap-2 mb-4">
+                <ProgressBar
+                  value={Math.round(
+                    (completedSteps / onboardingSteps.length) * 100,
+                  )}
+                  variant="accent"
+                  size="sm"
+                />
+                <span className="text-xs font-heading font-bold text-gray-500 dark:text-gray-400 flex-shrink-0">
+                  {completedSteps}/{onboardingSteps.length}
+                </span>
+              </div>
+              <div className="flex flex-col gap-2">
+                {onboardingSteps.map((step) => (
+                  <button
+                    key={step.id}
+                    onClick={() => onNavigate?.(step.tab)}
+                    className={`flex items-center gap-3 p-3 rounded-lg text-left transition-all ${
+                      step.done
+                        ? "bg-primary-50 dark:bg-primary-500/5 opacity-70"
+                        : "bg-gray-50 dark:bg-navy-700/50 hover:bg-gray-100 dark:hover:bg-navy-700"
+                    }`}
                   >
-                    {step.done ? (
-                      <CheckCircle2 className="w-5 h-5" />
-                    ) : (
-                      <Circle className="w-5 h-5" />
-                    )}
-                  </div>
-                  <div
-                    className={`flex-shrink-0 ${step.done ? "text-primary-500" : "text-gray-500 dark:text-gray-400"}`}
-                  >
-                    {step.icon}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p
-                      className={`text-sm font-heading font-bold ${step.done ? "text-gray-400 dark:text-gray-500 line-through" : "text-gray-800 dark:text-gray-200"}`}
+                    <div
+                      className={`flex-shrink-0 ${step.done ? "text-primary-500" : "text-gray-400 dark:text-gray-500"}`}
                     >
-                      {step.label}
-                    </p>
-                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-                      {step.description}
-                    </p>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </CardBody>
-        </Card>
-      )}
+                      {step.done ? (
+                        <CheckCircle2 className="w-5 h-5" />
+                      ) : (
+                        <Circle className="w-5 h-5" />
+                      )}
+                    </div>
+                    <div
+                      className={`flex-shrink-0 ${step.done ? "text-primary-500" : "text-gray-500 dark:text-gray-400"}`}
+                    >
+                      {step.icon}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p
+                        className={`text-sm font-heading font-bold ${step.done ? "text-gray-400 dark:text-gray-500 line-through" : "text-gray-800 dark:text-gray-200"}`}
+                      >
+                        {step.label}
+                      </p>
+                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                        {step.description}
+                      </p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </CardBody>
+          </Card>
+        )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         {/* Next Match Card */}

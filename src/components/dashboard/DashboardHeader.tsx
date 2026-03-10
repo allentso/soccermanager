@@ -272,6 +272,39 @@ export default function DashboardHeader({
   const currentModeMeta = modeMeta[matchMode];
   const showSearchResults = searchOpen && searchQuery.length >= 2;
 
+  function handleContinueClick(): void {
+    console.info("[DashboardHeader] continueClick", {
+      hasMatchToday,
+      isAdvancing,
+      matchMode,
+      seasonComplete,
+      showContinueMenu,
+    });
+    onContinue();
+  }
+
+  function handleContinueMenuToggleClick(): void {
+    console.info("[DashboardHeader] continueMenuToggleClick", {
+      hasMatchToday,
+      isAdvancing,
+      matchMode,
+      seasonComplete,
+      showContinueMenu,
+    });
+    onToggleContinueMenu();
+  }
+
+  function handleSkipToMatchDayClick(): void {
+    console.info("[DashboardHeader] skipToMatchDayClick", {
+      hasMatchToday,
+      isAdvancing,
+      matchMode,
+      seasonComplete,
+      showContinueMenu,
+    });
+    onSkipToMatchDay();
+  }
+
   return (
     <header className="z-10 flex items-center justify-between border-b border-gray-200 bg-white px-6 py-3 shadow-sm transition-colors duration-300 dark:border-navy-700 dark:bg-navy-800">
       <div className="flex items-center gap-3">
@@ -334,7 +367,7 @@ export default function DashboardHeader({
         <div className="relative">
           <div className="flex">
             <button
-              onClick={onContinue}
+              onClick={handleContinueClick}
               disabled={isAdvancing || seasonComplete}
               className={getContinueButtonClassName(
                 currentModeMeta,
@@ -354,7 +387,7 @@ export default function DashboardHeader({
               />
             </button>
             <button
-              onClick={onToggleContinueMenu}
+              onClick={handleContinueMenuToggleClick}
               className={getContinueDropdownButtonClassName(currentModeMeta)}
             >
               <ChevronDown className="h-4 w-4" />
@@ -394,7 +427,7 @@ export default function DashboardHeader({
               })}
               <div className="my-1 border-t border-gray-200 dark:border-navy-600" />
               <button
-                onClick={onSkipToMatchDay}
+                onClick={handleSkipToMatchDayClick}
                 className="w-full px-4 py-2.5 text-left text-sm transition-colors hover:bg-gray-50 dark:hover:bg-navy-600"
               >
                 <span className="text-xs font-heading font-bold uppercase tracking-wide text-gray-800 dark:text-gray-100">

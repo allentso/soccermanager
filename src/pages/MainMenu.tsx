@@ -6,7 +6,16 @@ import { useGameStore, GameStateData } from "../store/gameStore";
 import { Button, ThemeToggle, DatePicker } from "../components/ui";
 import SavesList from "../components/menu/SavesList";
 import WorldSelect, { WorldDatabaseInfo } from "../components/menu/WorldSelect";
-import { FolderOpen, Settings, X, PlusCircle, ChevronRight, AlertCircle, ChevronDown, Check } from "lucide-react";
+import {
+  FolderOpen,
+  Settings,
+  X,
+  PlusCircle,
+  ChevronRight,
+  AlertCircle,
+  ChevronDown,
+  Check,
+} from "lucide-react";
 import { countryFlag, countryName, allCountries } from "../lib/countries";
 
 interface SaveEntry {
@@ -19,14 +28,22 @@ interface SaveEntry {
   last_played_at: string;
 }
 
+function normaliseSearchText(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
 
 export default function MainMenu() {
   const navigate = useNavigate();
   const setGameActive = useGameStore((state) => state.setGameActive);
   const setGameState = useGameStore((state) => state.setGameState);
   const { t, i18n } = useTranslation();
-  
-  const [menuState, setMenuState] = useState<"main" | "create" | "world" | "load">("main");
+
+  const [menuState, setMenuState] = useState<
+    "main" | "create" | "world" | "load"
+  >("main");
   const [saves, setSaves] = useState<SaveEntry[]>([]);
   const [isLoadingSaves, setIsLoadingSaves] = useState(false);
   const [loadingSaveId, setLoadingSaveId] = useState<string | null>(null);
@@ -50,41 +67,63 @@ export default function MainMenu() {
   const [isLoadingWorlds, setIsLoadingWorlds] = useState(false);
 
   const countriesList = allCountries(i18n.language);
+  const normalisedNationalitySearch = normaliseSearchText(nationalitySearch);
 
-  const filteredNationalities = countriesList.filter(n =>
-    n.name.toLowerCase().includes(nationalitySearch.toLowerCase()) || 
-    n.code.toLowerCase().includes(nationalitySearch.toLowerCase())
-  );
+  const filteredNationalities = countriesList.filter((nationality) => {
+    const normalisedName = normaliseSearchText(nationality.name);
+    const normalisedCode = normaliseSearchText(nationality.code);
+
+    return (
+      normalisedName.includes(normalisedNationalitySearch) ||
+      normalisedCode.includes(normalisedNationalitySearch)
+    );
+  });
 
   const validateForm = (): boolean => {
     const errors: Record<string, string> = {};
     if (!formData.firstName.trim()) {
-      errors.firstName = t('validation.required', { field: t('createManager.firstName') });
+      errors.firstName = t("validation.required", {
+        field: t("createManager.firstName"),
+      });
     } else if (formData.firstName.length > 30) {
-      errors.firstName = t('validation.maxLength', { field: t('createManager.firstName'), max: 30 });
+      errors.firstName = t("validation.maxLength", {
+        field: t("createManager.firstName"),
+        max: 30,
+      });
     }
-    
+
     if (!formData.lastName.trim()) {
-      errors.lastName = t('validation.required', { field: t('createManager.lastName') });
+      errors.lastName = t("validation.required", {
+        field: t("createManager.lastName"),
+      });
     } else if (formData.lastName.length > 30) {
-      errors.lastName = t('validation.maxLength', { field: t('createManager.lastName'), max: 30 });
+      errors.lastName = t("validation.maxLength", {
+        field: t("createManager.lastName"),
+        max: 30,
+      });
     }
 
     if (!formData.dob) {
-      errors.dob = t('validation.required', { field: t('createManager.dob') });
+      errors.dob = t("validation.required", { field: t("createManager.dob") });
     } else {
       const birthDate = new Date(formData.dob);
       const today = new Date();
-      const age = Math.floor((today.getTime() - birthDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+      const age = Math.floor(
+        (today.getTime() - birthDate.getTime()) /
+          (365.25 * 24 * 60 * 60 * 1000),
+      );
       if (isNaN(age)) {
-        errors.dob = t('validation.invalidDate');
+        errors.dob = t("validation.invalidDate");
       } else if (age < 30) {
-        errors.dob = t('validation.minAge');
+        errors.dob = t("validation.minAge");
       } else if (age > 99) {
-        errors.dob = t('validation.invalidDob');
+        errors.dob = t("validation.invalidDob");
       }
     }
-    if (!formData.nationality) errors.nationality = t('validation.required', { field: t('createManager.countryOfOrigin', 'Country/Region of Origin') });
+    if (!formData.nationality)
+      errors.nationality = t("validation.required", {
+        field: t("createManager.countryOfOrigin", "Country/Region of Origin"),
+      });
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -99,7 +138,10 @@ export default function MainMenu() {
   // Close nationality dropdown on outside click
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (nationalityRef.current && !nationalityRef.current.contains(e.target as Node)) {
+      if (
+        nationalityRef.current &&
+        !nationalityRef.current.contains(e.target as Node)
+      ) {
         setNationalityOpen(false);
       }
     };
@@ -115,15 +157,17 @@ export default function MainMenu() {
     } catch (error) {
       console.error("Failed to load world databases:", error);
       // Always have random available even if scan fails
-      setWorldDatabases([{
-        id: "random",
-        name: t('worldSelect.randomWorld'),
-        description: t('worldSelect.randomDescription'),
-        team_count: 8,
-        player_count: 160,
-        source: "builtin",
-        path: "",
-      }]);
+      setWorldDatabases([
+        {
+          id: "random",
+          name: t("worldSelect.randomWorld"),
+          description: t("worldSelect.randomDescription"),
+          team_count: 8,
+          player_count: 160,
+          source: "builtin",
+          path: "",
+        },
+      ]);
     } finally {
       setIsLoadingWorlds(false);
     }
@@ -140,16 +184,16 @@ export default function MainMenu() {
         const info: WorldDatabaseInfo = {
           id: `file:${file.name}`,
           name: parsed.name || file.name.replace(".json", ""),
-          description: parsed.description || t('menu.importedDescription'),
+          description: parsed.description || t("menu.importedDescription"),
           team_count: parsed.teams?.length ?? 0,
           player_count: parsed.players?.length ?? 0,
           source: "imported",
-          path: "",  // will use the parsed data directly
+          path: "", // will use the parsed data directly
         };
         // Store the raw JSON in sessionStorage so we can write it to a temp path
         sessionStorage.setItem("imported_world_json", json);
-        setWorldDatabases(prev => {
-          const filtered = prev.filter(d => d.source !== "imported");
+        setWorldDatabases((prev) => {
+          const filtered = prev.filter((d) => d.source !== "imported");
           return [...filtered, info];
         });
         setSelectedWorldId(info.id);
@@ -169,19 +213,26 @@ export default function MainMenu() {
       let worldSource: string | undefined = selectedWorldId;
       if (selectedWorldId === "random") {
         worldSource = undefined;
-      } else if (selectedWorldId.startsWith("file:") && sessionStorage.getItem("imported_world_json")) {
+      } else if (
+        selectedWorldId.startsWith("file:") &&
+        sessionStorage.getItem("imported_world_json")
+      ) {
         // For imported files, write to a temp location first
         const json = sessionStorage.getItem("imported_world_json")!;
         // Write it via a temp file approach — just pass "random" and override
         // Actually, better to write the file to user databases dir first
-        const path = await invoke<string>("write_temp_database", { json }).catch(() => null);
+        const path = await invoke<string>("write_temp_database", {
+          json,
+        }).catch(() => null);
         if (path) {
           worldSource = `file:${path}`;
         } else {
           // Fallback: pass the imported data inline — won't work with current backend
           // So fall back to random
           worldSource = undefined;
-          console.warn("Could not write imported database, falling back to random");
+          console.warn(
+            "Could not write imported database, falling back to random",
+          );
         }
       }
 
@@ -231,7 +282,7 @@ export default function MainMenu() {
   const handleDeleteSave = async (saveId: string) => {
     try {
       await invoke<boolean>("delete_save", { saveId });
-      setSaves(prev => prev.filter(s => s.id !== saveId));
+      setSaves((prev) => prev.filter((s) => s.id !== saveId));
       setConfirmDeleteId(null);
     } catch (error) {
       console.error("Failed to delete save:", error);
@@ -253,45 +304,55 @@ export default function MainMenu() {
       <div className="relative z-10 w-full max-w-md">
         {/* Top accent bar */}
         <div className="h-1.5 bg-gradient-to-r from-primary-500 via-accent-400 to-primary-500 rounded-t-2xl" />
-        
+
         <div className="bg-white dark:bg-navy-800 p-8 rounded-b-2xl shadow-xl dark:shadow-2xl border border-gray-200 dark:border-navy-600 border-t-0 transition-all duration-500">
           {/* Logo */}
-          <img src="/openfootlogo.svg" alt="OpenFootball" className="text-center w-full h-full object-cover" />
+          <img
+            src="/openfootlogo.svg"
+            alt="OpenFootball"
+            className="text-center w-full h-full object-cover"
+          />
 
           <div className="border-t border-gray-200 dark:border-navy-600 my-8 transition-colors duration-500" />
 
           {/* Main Menu */}
           {menuState === "main" && (
             <div className="flex flex-col gap-3">
-              <button 
+              <button
                 onClick={() => setMenuState("create")}
                 className="group flex items-center justify-between w-full p-4 bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white rounded-xl transition-all duration-300 shadow-md hover:shadow-lg hover:shadow-primary-500/20"
               >
                 <div className="flex items-center gap-3">
                   <PlusCircle className="w-6 h-6" />
-                  <span className="font-heading font-bold text-lg uppercase tracking-wide">{t("menu.newGame")}</span>
+                  <span className="font-heading font-bold text-lg uppercase tracking-wide">
+                    {t("menu.newGame")}
+                  </span>
                 </div>
                 <ChevronRight className="w-5 h-5 opacity-70 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />
               </button>
-              
-              <button 
+
+              <button
                 onClick={handleOpenLoadMenu}
                 className="group flex items-center justify-between w-full p-4 bg-white dark:bg-navy-700 hover:bg-gray-50 dark:hover:bg-navy-600 text-gray-800 dark:text-gray-200 rounded-xl transition-all duration-300 border border-gray-200 dark:border-navy-600 hover:border-accent-400 dark:hover:border-accent-400 shadow-sm"
               >
                 <div className="flex items-center gap-3">
                   <FolderOpen className="w-6 h-6 text-accent-500 dark:text-accent-400" />
-                  <span className="font-heading font-bold text-lg uppercase tracking-wide">{t("menu.loadGame")}</span>
+                  <span className="font-heading font-bold text-lg uppercase tracking-wide">
+                    {t("menu.loadGame")}
+                  </span>
                 </div>
                 <ChevronRight className="w-5 h-5 opacity-0 group-hover:opacity-70 group-hover:translate-x-0.5 transition-all text-accent-500" />
               </button>
-              
-              <button 
+
+              <button
                 onClick={() => navigate("/settings", { state: { from: "/" } })}
                 className="group flex items-center justify-between w-full p-4 bg-white dark:bg-navy-700 hover:bg-gray-50 dark:hover:bg-navy-600 text-gray-800 dark:text-gray-200 rounded-xl transition-all duration-300 border border-gray-200 dark:border-navy-600 hover:border-gray-300 dark:hover:border-navy-600 shadow-sm"
               >
                 <div className="flex items-center gap-3">
                   <Settings className="w-6 h-6 text-gray-400 dark:text-gray-500" />
-                  <span className="font-heading font-bold text-lg uppercase tracking-wide">{t("menu.settings")}</span>
+                  <span className="font-heading font-bold text-lg uppercase tracking-wide">
+                    {t("menu.settings")}
+                  </span>
                 </div>
                 <ChevronRight className="w-5 h-5 opacity-0 group-hover:opacity-70 group-hover:translate-x-0.5 transition-all text-gray-400" />
               </button>
@@ -300,14 +361,20 @@ export default function MainMenu() {
 
           {/* Step 1: Create Manager Form */}
           {menuState === "create" && (
-            <form onSubmit={handleGoToWorldSelect} className="flex flex-col gap-4">
+            <form
+              onSubmit={handleGoToWorldSelect}
+              className="flex flex-col gap-4"
+            >
               <div className="flex justify-between items-center mb-2">
                 <h2 className="text-xl font-heading font-bold uppercase tracking-wide text-gray-900 dark:text-white transition-colors">
                   {t("createManager.title")}
                 </h2>
-                <button 
-                  type="button" 
-                  onClick={() => { setMenuState("main"); setFormErrors({}); }}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuState("main");
+                    setFormErrors({});
+                  }}
                   className="text-gray-400 hover:text-gray-700 dark:hover:text-white transition-colors p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-navy-600"
                 >
                   <X className="w-5 h-5" />
@@ -316,11 +383,15 @@ export default function MainMenu() {
 
               {/* Step indicator */}
               <div className="flex items-center gap-2 mb-1">
-                <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary-500 text-white text-xs font-bold">1</div>
+                <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary-500 text-white text-xs font-bold">
+                  1
+                </div>
                 <div className="h-0.5 flex-1 bg-gray-200 dark:bg-navy-600" />
-                <div className="flex items-center justify-center w-6 h-6 rounded-full bg-gray-200 dark:bg-navy-600 text-gray-400 dark:text-gray-500 text-xs font-bold">2</div>
+                <div className="flex items-center justify-center w-6 h-6 rounded-full bg-gray-200 dark:bg-navy-600 text-gray-400 dark:text-gray-500 text-xs font-bold">
+                  2
+                </div>
               </div>
-              
+
               {/* Name fields with labels */}
               <div className="flex gap-3">
                 <div className="flex-1">
@@ -334,12 +405,18 @@ export default function MainMenu() {
                         ? "border-red-400 dark:border-red-500 focus:border-red-500 focus:ring-red-500/20"
                         : "border-gray-300 dark:border-navy-600 focus:border-primary-500 focus:ring-primary-500/20"
                     }`}
-                    placeholder={t('createManager.placeholderFirst')}
+                    placeholder={t("createManager.placeholderFirst")}
                     value={formData.firstName}
-                    onChange={e => { setFormData({...formData, firstName: e.target.value}); setFormErrors(prev => ({...prev, firstName: ""})); }}
+                    onChange={(e) => {
+                      setFormData({ ...formData, firstName: e.target.value });
+                      setFormErrors((prev) => ({ ...prev, firstName: "" }));
+                    }}
                   />
                   {formErrors.firstName && (
-                    <p className="flex items-center gap-1 text-xs text-red-500 mt-1"><AlertCircle className="w-3 h-3" />{formErrors.firstName}</p>
+                    <p className="flex items-center gap-1 text-xs text-red-500 mt-1">
+                      <AlertCircle className="w-3 h-3" />
+                      {formErrors.firstName}
+                    </p>
                   )}
                 </div>
                 <div className="flex-1">
@@ -353,16 +430,22 @@ export default function MainMenu() {
                         ? "border-red-400 dark:border-red-500 focus:border-red-500 focus:ring-red-500/20"
                         : "border-gray-300 dark:border-navy-600 focus:border-primary-500 focus:ring-primary-500/20"
                     }`}
-                    placeholder={t('createManager.placeholderLast')}
+                    placeholder={t("createManager.placeholderLast")}
                     value={formData.lastName}
-                    onChange={e => { setFormData({...formData, lastName: e.target.value}); setFormErrors(prev => ({...prev, lastName: ""})); }}
+                    onChange={(e) => {
+                      setFormData({ ...formData, lastName: e.target.value });
+                      setFormErrors((prev) => ({ ...prev, lastName: "" }));
+                    }}
                   />
                   {formErrors.lastName && (
-                    <p className="flex items-center gap-1 text-xs text-red-500 mt-1"><AlertCircle className="w-3 h-3" />{formErrors.lastName}</p>
+                    <p className="flex items-center gap-1 text-xs text-red-500 mt-1">
+                      <AlertCircle className="w-3 h-3" />
+                      {formErrors.lastName}
+                    </p>
                   )}
                 </div>
               </div>
-              
+
               {/* Date of Birth with label */}
               <div>
                 <label className="block text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">
@@ -370,25 +453,39 @@ export default function MainMenu() {
                 </label>
                 <DatePicker
                   value={formData.dob}
-                  onChange={(date) => { setFormData({...formData, dob: date}); setFormErrors(prev => ({...prev, dob: ""})); }}
+                  onChange={(date) => {
+                    setFormData({ ...formData, dob: date });
+                    setFormErrors((prev) => ({ ...prev, dob: "" }));
+                  }}
                   error={!!formErrors.dob}
                 />
                 {formErrors.dob ? (
-                  <p className="flex items-center gap-1 text-xs text-red-500 mt-1"><AlertCircle className="w-3 h-3" />{formErrors.dob}</p>
+                  <p className="flex items-center gap-1 text-xs text-red-500 mt-1">
+                    <AlertCircle className="w-3 h-3" />
+                    {formErrors.dob}
+                  </p>
                 ) : (
-                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{t("createManager.minAge")}</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                    {t("createManager.minAge")}
+                  </p>
                 )}
               </div>
-              
+
               {/* Country/Region combobox */}
               <div ref={nationalityRef}>
                 <label className="block text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">
-                  {t("createManager.countryOfOrigin", "Country/Region of Origin")}
+                  {t(
+                    "createManager.countryOfOrigin",
+                    "Country/Region of Origin",
+                  )}
                 </label>
                 <div className="relative">
                   <button
                     type="button"
-                    onClick={() => { setNationalityOpen(!nationalityOpen); setNationalitySearch(""); }}
+                    onClick={() => {
+                      setNationalityOpen(!nationalityOpen);
+                      setNationalitySearch("");
+                    }}
                     className={`w-full flex items-center justify-between bg-gray-50 dark:bg-navy-900 border text-left rounded-lg p-3 outline-none transition-all ${
                       formErrors.nationality
                         ? "border-red-400 dark:border-red-500"
@@ -397,15 +494,33 @@ export default function MainMenu() {
                           : "border-gray-300 dark:border-navy-600"
                     }`}
                   >
-                    <span className={formData.nationality ? "text-gray-900 dark:text-white" : "text-gray-400 dark:text-gray-500"}>
+                    <span
+                      className={
+                        formData.nationality
+                          ? "text-gray-900 dark:text-white"
+                          : "text-gray-400 dark:text-gray-500"
+                      }
+                    >
                       {formData.nationality ? (
                         <div className="flex items-center gap-2">
-                          <span className="text-lg leading-none">{countryFlag(formData.nationality)}</span>
-                          <span>{countryName(formData.nationality, i18n.language) || formData.nationality}</span>
+                          <span className="text-lg leading-none">
+                            {countryFlag(formData.nationality)}
+                          </span>
+                          <span>
+                            {countryName(formData.nationality, i18n.language) ||
+                              formData.nationality}
+                          </span>
                         </div>
-                      ) : t("createManager.selectCountry", "Select Country/Region")}
+                      ) : (
+                        t(
+                          "createManager.selectCountry",
+                          "Select Country/Region",
+                        )
+                      )}
                     </span>
-                    <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${nationalityOpen ? "rotate-180" : ""}`} />
+                    <ChevronDown
+                      className={`w-4 h-4 text-gray-400 transition-transform ${nationalityOpen ? "rotate-180" : ""}`}
+                    />
                   </button>
 
                   {nationalityOpen && (
@@ -414,25 +529,33 @@ export default function MainMenu() {
                         <input
                           type="text"
                           autoFocus
-                          placeholder={t('createManager.searchNationalities')}
+                          placeholder={t("createManager.searchNationalities")}
                           value={nationalitySearch}
-                          onChange={e => setNationalitySearch(e.target.value)}
+                          onChange={(e) => setNationalitySearch(e.target.value)}
                           className="w-full bg-gray-50 dark:bg-navy-800 border border-gray-200 dark:border-navy-600 text-gray-900 dark:text-white rounded-md px-3 py-2 text-sm outline-none focus:border-primary-500 transition-colors placeholder:text-gray-400 dark:placeholder:text-gray-500"
                         />
                       </div>
                       <div className="max-h-48 overflow-y-auto">
                         {filteredNationalities.length === 0 ? (
-                          <p className="px-3 py-2 text-xs text-gray-400 dark:text-gray-500">{t('menu.noResults')}</p>
+                          <p className="px-3 py-2 text-xs text-gray-400 dark:text-gray-500">
+                            {t("menu.noResults")}
+                          </p>
                         ) : (
-                          filteredNationalities.map(nat => (
+                          filteredNationalities.map((nat) => (
                             <button
                               key={nat.code}
                               type="button"
                               onClick={() => {
-                                setFormData({...formData, nationality: nat.code});
+                                setFormData({
+                                  ...formData,
+                                  nationality: nat.code,
+                                });
                                 setNationalityOpen(false);
                                 setNationalitySearch("");
-                                setFormErrors(prev => ({...prev, nationality: ""}));
+                                setFormErrors((prev) => ({
+                                  ...prev,
+                                  nationality: "",
+                                }));
                               }}
                               className={`w-full text-left px-3 py-2 text-sm flex items-center justify-between transition-colors ${
                                 formData.nationality === nat.code
@@ -441,10 +564,14 @@ export default function MainMenu() {
                               }`}
                             >
                               <div className="flex items-center gap-2">
-                                <span className="text-lg leading-none">{countryFlag(nat.code)}</span>
+                                <span className="text-lg leading-none">
+                                  {countryFlag(nat.code)}
+                                </span>
                                 <span>{nat.name}</span>
                               </div>
-                              {formData.nationality === nat.code && <Check className="w-4 h-4 text-primary-500" />}
+                              {formData.nationality === nat.code && (
+                                <Check className="w-4 h-4 text-primary-500" />
+                              )}
                             </button>
                           ))
                         )}
@@ -453,11 +580,20 @@ export default function MainMenu() {
                   )}
                 </div>
                 {formErrors.nationality && (
-                  <p className="flex items-center gap-1 text-xs text-red-500 mt-1"><AlertCircle className="w-3 h-3" />{formErrors.nationality}</p>
+                  <p className="flex items-center gap-1 text-xs text-red-500 mt-1">
+                    <AlertCircle className="w-3 h-3" />
+                    {formErrors.nationality}
+                  </p>
                 )}
               </div>
-              
-              <Button type="submit" variant="primary" size="lg" className="mt-2 w-full" iconRight={<ChevronRight />}>
+
+              <Button
+                type="submit"
+                variant="primary"
+                size="lg"
+                className="mt-2 w-full"
+                iconRight={<ChevronRight />}
+              >
                 {t("createManager.chooseWorld")}
               </Button>
             </form>
@@ -493,7 +629,7 @@ export default function MainMenu() {
           )}
         </div>
       </div>
-      
+
       {/* Version */}
       <div className="absolute bottom-4 right-4 text-gray-400 dark:text-gray-600 text-xs font-heading uppercase tracking-widest transition-colors">
         {t("app.version")}

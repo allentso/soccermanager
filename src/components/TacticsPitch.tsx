@@ -6,6 +6,8 @@ import { calcOvr } from "../lib/helpers";
 import type { PlayerData } from "../store/gameStore";
 import { Badge, Card } from "./ui";
 import {
+  getPitchRowWidth,
+  getPitchSlotWidth,
   isPlayerOutOfPosition,
   positionCode,
   type DragState,
@@ -59,7 +61,7 @@ function getPitchPlayerButtonClassName(options: {
   const isHovered = hoveredSlot === slotIndex;
   const isSelected = player.id === selectedPlayerId;
   let className =
-    "w-full min-w-0 cursor-grab rounded-xl border px-1.5 py-2 shadow-sm transition-all active:cursor-grabbing sm:px-2";
+    "w-full min-w-0 max-w-20.5 cursor-grab rounded-xl border px-1.5 py-1.5 shadow-sm transition-all active:cursor-grabbing sm:px-2 sm:py-2";
 
   if (dragState?.playerId === player.id) {
     className = `${className} opacity-70 ring-2 ring-white/20`;
@@ -207,11 +209,13 @@ export default function TacticsPitch({
           {pitchSlotRows.map((row) => (
             <div
               key={row.label}
-              className="absolute left-1/2 grid justify-center gap-6"
+              className="absolute left-1/2 grid items-start"
               style={{
                 top: row.y,
+                width: getPitchRowWidth(row.slots.length),
                 transform: "translate(-50%, -50%)",
-                gridTemplateColumns: `repeat(${row.slots.length}, 80px)`,
+                gridTemplateColumns: `repeat(${row.slots.length}, minmax(0, ${getPitchSlotWidth(row.slots.length)}px))`,
+                justifyContent: "space-between",
               }}
             >
               {row.slots.map((slot) => {
@@ -255,13 +259,13 @@ export default function TacticsPitch({
                         >
                           {calcOvr(player)}
                         </div>
-                        <div className="text-sm font-heading font-bold uppercase tracking-wider leading-none text-white/70">
+                        <div className="text-[9px] font-heading font-bold uppercase tracking-wider leading-none text-white/70">
                           {positionCode(slot.position)}
                         </div>
-                        <div className="mt-1 truncate text-lg font-semibold leading-tight text-white sm:text-[11px]">
+                        <div className="mt-1 truncate text-[10px] font-semibold leading-tight text-white sm:text-[11px]">
                           {player.match_name}
                         </div>
-                        <div className="mt-0.5 truncate text-xs leading-none text-white/60">
+                        <div className="mt-0.5 truncate text-[9px] leading-none text-white/60">
                           {player.condition}%
                         </div>
                       </button>

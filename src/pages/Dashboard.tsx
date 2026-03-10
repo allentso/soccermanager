@@ -12,6 +12,7 @@ import DashboardAlerts from "../components/dashboard/DashboardAlerts";
 import DashboardBlockerModal from "../components/dashboard/DashboardBlockerModal";
 import DashboardCloseConfirmModal from "../components/dashboard/DashboardCloseConfirmModal";
 import DashboardExitConfirmModal from "../components/dashboard/DashboardExitConfirmModal";
+import DashboardExitSavingModal from "../components/dashboard/DashboardExitSavingModal";
 import DashboardHeader, {
   type DashboardMatchModeMeta,
 } from "../components/dashboard/DashboardHeader";
@@ -72,6 +73,7 @@ export default function Dashboard(): JSX.Element {
   const [saveFlash, setSaveFlash] = useState(false);
   const [activeTab, setActiveTab] = useState("Home");
   const [showExitConfirm, setShowExitConfirm] = useState(false);
+  const [isExitingToMenu, setIsExitingToMenu] = useState(false);
 
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
@@ -104,10 +106,30 @@ export default function Dashboard(): JSX.Element {
   const todayMatchFixture = gameState ? getTodayMatchFixture(gameState) : null;
   const hasMatchToday = todayMatchFixture !== null;
 
+  useEffect(() => {
+    if (!gameState) {
+      return;
+    }
+
+    console.info("[Dashboard] matchDayStatus", {
+      currentDate: gameState.clock.current_date,
+      fixtureDate: todayMatchFixture?.date ?? null,
+      fixtureId: todayMatchFixture?.id ?? null,
+      fixtureStatus: todayMatchFixture?.status ?? null,
+      hasMatchToday,
+      managerTeamId: gameState.manager.team_id,
+      matchMode: settings.default_match_mode,
+    });
+  }, [
+    gameState,
+    hasMatchToday,
+    settings.default_match_mode,
+    todayMatchFixture,
+  ]);
+
   // Detect if season is complete (all fixtures played)
   const seasonComplete = gameState?.league?.fixtures
-    ? gameState.league.fixtures.length > 0 &&
-      gameState.league.fixtures.every((f) => f.status === "Completed")
+    ? gameState.league.fixtures.every((f) => f.status === "Completed")
     : false;
 
   // Advance-time hook
@@ -256,13 +278,17 @@ export default function Dashboard(): JSX.Element {
   }
 
   const handleExitToMenu = async () => {
+    if (isExitingToMenu) {
+      return;
+    }
+
+    setIsExitingToMenu(true);
     try {
       await invoke("exit_to_menu");
       clearGame();
       navigate("/");
     } catch (err) {
       console.error("Failed to exit:", err);
-      // Still navigate even if save fails
       clearGame();
       navigate("/");
     }
@@ -353,15 +379,21 @@ export default function Dashboard(): JSX.Element {
         managerName={managerName}
         teamName={myTeamName}
         onNavigateSettings={handleNavigateSettings}
-        onExitClick={() => setShowExitConfirm(true)}
+        onExitClick={() => {
+          if (!isExitingToMenu) {
+            setShowExitConfirm(true);
+          }
+        }}
       />
+
+      {isExitingToMenu && <DashboardExitSavingModal />}
 
       {showExitConfirm && (
         <DashboardExitConfirmModal
           onCancel={() => setShowExitConfirm(false)}
           onConfirm={() => {
             setShowExitConfirm(false);
-            handleExitToMenu();
+            void handleExitToMenu();
           }}
         />
       )}

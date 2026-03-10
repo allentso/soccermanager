@@ -4,6 +4,7 @@ import type {
   PlayerData,
   TeamData,
 } from "../../store/gameStore";
+import { buildStartingXIIds } from "../SquadTab.helpers";
 
 export interface DashboardAlert {
   id: string;
@@ -113,8 +114,11 @@ export function getDashboardAlerts(
   const urgentUnreadCount = gameState.messages.filter((message) => {
     return !message.read && message.priority === "Urgent";
   }).length;
-  const startingXi = myTeam?.starting_xi_ids ?? [];
-  const xiPlayersOnRoster = startingXi.filter((playerId) => {
+  const savedStartingXi = myTeam?.starting_xi_ids ?? [];
+  const effectiveStartingXi = myTeam
+    ? buildStartingXIIds(roster, savedStartingXi, myTeam.formation)
+    : [];
+  const xiPlayersOnRoster = effectiveStartingXi.filter((playerId) => {
     return roster.some((player) => player.id === playerId);
   });
   const injuredInXiCount = xiPlayersOnRoster.filter((playerId) => {
@@ -140,7 +144,7 @@ export function getDashboardAlerts(
     });
   }
 
-  if (startingXi.length > 0) {
+  if (savedStartingXi.length > 0) {
     if (injuredInXiCount > 0) {
       const suffix = injuredInXiCount > 1 ? "s" : "";
 
@@ -177,7 +181,7 @@ export function getDashboardAlerts(
     });
   }
 
-  if (hasMatchToday && startingXi.length > 0 && healthyXiCount < 11) {
+  if (hasMatchToday && savedStartingXi.length > 0 && healthyXiCount < 11) {
     alerts.push({
       id: "matchxi",
       text: "Match today! Set your starting XI",

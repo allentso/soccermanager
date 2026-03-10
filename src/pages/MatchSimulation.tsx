@@ -3,7 +3,11 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { useTranslation } from "react-i18next";
 import { useGameStore, GameStateData } from "../store/gameStore";
-import { MatchSnapshot, MatchEvent, MatchDayStage } from "../components/match/types";
+import {
+  MatchSnapshot,
+  MatchEvent,
+  MatchDayStage,
+} from "../components/match/types";
 import PreMatchSetup from "../components/match/PreMatchSetup";
 import MatchLive from "../components/match/MatchLive";
 import HalfTimeBreak from "../components/match/HalfTimeBreak";
@@ -14,17 +18,35 @@ import PressConference from "../components/match/PressConference";
 // Multi-stage Match Day Orchestrator
 // ---------------------------------------------------------------------------
 
+interface MatchRouteState {
+  fixtureIndex?: number;
+  mode?: string;
+  snapshot?: MatchSnapshot;
+}
+
 export default function MatchSimulation() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
-  const matchMode = (location.state as { mode?: string })?.mode || "live";
+  const routeState = (location.state as MatchRouteState | null) ?? null;
+  const matchMode = routeState?.mode || "live";
   const { gameState, setGameState } = useGameStore();
-  const [snapshot, setSnapshot] = useState<MatchSnapshot | null>(null);
+  const [snapshot, setSnapshot] = useState<MatchSnapshot | null>(
+    routeState?.snapshot ?? null,
+  );
   const [stage, setStage] = useState<MatchDayStage>("prematch");
   const [importantEvents, setImportantEvents] = useState<MatchEvent[]>([]);
   const [userSide, setUserSide] = useState<"Home" | "Away" | null>(null);
   const [isSpectator, setIsSpectator] = useState(matchMode === "spectator");
+
+  useEffect(() => {
+    console.info("[MatchSimulation] mount", {
+      fixtureIndex: routeState?.fixtureIndex,
+      hasGameState: !!gameState,
+      hasRouteSnapshot: !!routeState?.snapshot,
+      matchMode,
+    });
+  }, [gameState, matchMode, routeState?.fixtureIndex, routeState?.snapshot]);
 
   // Determine user side from game state
   useEffect(() => {
@@ -40,21 +62,99 @@ export default function MatchSimulation() {
 
     // If mode is spectator, force spectator regardless of team
     if (matchMode === "spectator") setIsSpectator(true);
+
+    console.info("[MatchSimulation] resolveSide", {
+      awayTeamId: snapshot.away_team.id,
+      homeTeamId: snapshot.home_team.id,
+      matchMode,
+      managerTeamId: utid,
+      resolvedUserSide:
+        snapshot.home_team.id === utid
+          ? "Home"
+          : snapshot.away_team.id === utid
+            ? "Away"
+            : null,
+    });
   }, [gameState, snapshot?.home_team.id, snapshot?.away_team.id, matchMode]);
+
+  useEffect(() => {
+    console.info("[MatchSimulation] stage", {
+      hasSnapshot: !!snapshot,
+      isSpectator,
+      stage,
+      userSide,
+    });
+  }, [isSpectator, snapshot, stage, userSide]);
 
   // Fetch initial snapshot
   useEffect(() => {
+    let isCancelled = false;
+
     const fetchSnapshot = async () => {
+      console.info("[MatchSimulation] fetchSnapshot:start", {
+        fixtureIndex: routeState?.fixtureIndex,
+        hasRouteSnapshot: !!routeState?.snapshot,
+        matchMode,
+      });
       try {
         const snap = await invoke<MatchSnapshot>("get_match_snapshot");
-        setSnapshot(snap);
-      } catch (err) {
-        console.error("Failed to get match snapshot:", err);
-        navigate("/dashboard");
+        console.info("[MatchSimulation] fetchSnapshot:success", {
+          awayPlayers: snap.away_team.players.length,
+          awayTeam: snap.away_team.name,
+          homePlayers: snap.home_team.players.length,
+          homeTeam: snap.home_team.name,
+          phase: snap.phase,
+        });
+        if (!isCancelled) {
+          setSnapshot(snap);
+        }
+        return;
+      } catch (snapshotError) {
+        console.warn("[MatchSimulation] fetchSnapshot:failed", snapshotError);
+        if (typeof routeState?.fixtureIndex !== "number") {
+          console.error("Failed to get match snapshot:", snapshotError);
+          navigate("/dashboard");
+          return;
+        }
+
+        try {
+          console.info("[MatchSimulation] restoreLiveMatch:start", {
+            fixtureIndex: routeState.fixtureIndex,
+            matchMode,
+          });
+          const restoredSnapshot = await invoke<MatchSnapshot>(
+            "start_live_match",
+            {
+              allowsExtraTime: false,
+              fixtureIndex: routeState.fixtureIndex,
+              mode: matchMode,
+            },
+          );
+
+          console.info("[MatchSimulation] restoreLiveMatch:success", {
+            awayPlayers: restoredSnapshot.away_team.players.length,
+            awayTeam: restoredSnapshot.away_team.name,
+            homePlayers: restoredSnapshot.home_team.players.length,
+            homeTeam: restoredSnapshot.home_team.name,
+            phase: restoredSnapshot.phase,
+          });
+
+          if (!isCancelled) {
+            setSnapshot(restoredSnapshot);
+          }
+        } catch (restoreError) {
+          console.error("Failed to restore live match session:", restoreError);
+          navigate("/dashboard");
+        }
       }
     };
+
     fetchSnapshot();
-  }, [navigate]);
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [matchMode, navigate, routeState?.fixtureIndex]);
 
   // Skip pre-match for spectators
   useEffect(() => {
@@ -65,28 +165,37 @@ export default function MatchSimulation() {
 
   // Callbacks for stage transitions
   const handleStartMatch = useCallback(() => {
+    console.info("[MatchSimulation] handleStartMatch");
     setStage("first_half");
   }, []);
 
   const handleHalfTime = useCallback(() => {
+    console.info("[MatchSimulation] handleHalfTime");
     setStage("halftime");
   }, []);
 
   const handleResumeFromHalfTime = useCallback(() => {
+    console.info("[MatchSimulation] handleResumeFromHalfTime");
     setStage("second_half");
   }, []);
 
   const handleFullTime = useCallback(() => {
+    console.info("[MatchSimulation] handleFullTime");
     setStage("postmatch");
   }, []);
 
   const handlePressConference = useCallback(() => {
+    console.info("[MatchSimulation] handlePressConference");
     setStage("press");
   }, []);
 
   const handleFinishMatch = useCallback(async () => {
     try {
+      console.info("[MatchSimulation] handleFinishMatch:start");
       const updatedGame = await invoke<GameStateData>("finish_live_match");
+      console.info("[MatchSimulation] handleFinishMatch:success", {
+        hasUpdatedGame: !!updatedGame,
+      });
       setGameState(updatedGame);
       navigate("/dashboard");
     } catch (err) {
@@ -95,11 +204,22 @@ export default function MatchSimulation() {
   }, [setGameState, navigate]);
 
   const handleSnapshotUpdate = useCallback((snap: MatchSnapshot) => {
+    console.info("[MatchSimulation] handleSnapshotUpdate", {
+      awayPlayers: snap.away_team.players.length,
+      currentMinute: snap.current_minute,
+      homePlayers: snap.home_team.players.length,
+      phase: snap.phase,
+    });
     setSnapshot(snap);
   }, []);
 
   const handleImportantEvent = useCallback((evt: MatchEvent) => {
-    setImportantEvents(prev => [...prev, evt]);
+    console.info("[MatchSimulation] handleImportantEvent", {
+      eventType: evt.event_type,
+      minute: evt.minute,
+      side: evt.side,
+    });
+    setImportantEvents((prev) => [...prev, evt]);
   }, []);
 
   // Loading state
@@ -108,7 +228,9 @@ export default function MatchSimulation() {
       <div className="min-h-screen bg-navy-900 flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin" />
-          <span className="text-gray-400 font-heading uppercase tracking-wider text-sm">{t('dashboard.loading')}</span>
+          <span className="text-gray-400 font-heading uppercase tracking-wider text-sm">
+            {t("dashboard.loading")}
+          </span>
         </div>
       </div>
     );

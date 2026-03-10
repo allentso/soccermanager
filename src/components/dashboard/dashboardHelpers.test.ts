@@ -289,4 +289,34 @@ describe("dashboardHelpers", function (): void {
     expect(alertIds).toContain("urgent");
     expect(alertIds).toContain("matchxi");
   });
+
+  it("does not warn about an incomplete Starting XI when a healthy roster can normalize a partial saved lineup", function (): void {
+    const roster = [
+      createPlayer({ id: "p1", position: "Goalkeeper", natural_position: "Goalkeeper" }),
+      createPlayer({ id: "p2", position: "Defender", natural_position: "Defender" }),
+      createPlayer({ id: "p3", position: "Defender", natural_position: "Defender" }),
+      createPlayer({ id: "p4", position: "Defender", natural_position: "Defender" }),
+      createPlayer({ id: "p5", position: "Defender", natural_position: "Defender" }),
+      createPlayer({ id: "p6", position: "Midfielder", natural_position: "Midfielder" }),
+      createPlayer({ id: "p7", position: "Midfielder", natural_position: "Midfielder" }),
+      createPlayer({ id: "p8", position: "Midfielder", natural_position: "Midfielder" }),
+      createPlayer({ id: "p9", position: "Midfielder", natural_position: "Midfielder" }),
+      createPlayer({ id: "p10", position: "Forward", natural_position: "Forward" }),
+      createPlayer({ id: "p11", position: "Forward", natural_position: "Forward" }),
+    ];
+    const team = createTeam({
+      starting_xi_ids: ["p1", "p2", "p3", "p4", "p5", "p6", "p7", "p8"],
+    });
+    const gameState = createGameState({
+      teams: [team],
+      players: roster,
+    });
+
+    const alerts = getDashboardAlerts(gameState, true);
+    const alertIds = alerts.map((alert) => alert.id);
+
+    expect(alertIds).not.toContain("xi");
+    expect(alertIds).not.toContain("matchxi");
+    expect(alertIds).not.toContain("injured_xi");
+  });
 });

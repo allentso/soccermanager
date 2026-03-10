@@ -28,6 +28,126 @@ fn build_blocker(id: &str, severity: &str, text: String, tab: &str) -> serde_jso
     })
 }
 
+fn parse_formation_slots(formation: &str) -> (usize, usize, usize) {
+    let parts: Vec<usize> = formation
+        .split('-')
+        .filter_map(|part| part.parse().ok())
+        .collect();
+
+    match parts.len() {
+        4 => (parts[0], parts[1] + parts[2], parts[3]),
+        3 => (parts[0], parts[1], parts[2]),
+        _ => (4, 4, 2),
+    }
+}
+
+fn player_overall(player: &domain::player::Player) -> u32 {
+    let attrs = &player.attributes;
+    u32::from(attrs.pace)
+        + u32::from(attrs.stamina)
+        + u32::from(attrs.strength)
+        + u32::from(attrs.agility)
+        + u32::from(attrs.passing)
+        + u32::from(attrs.shooting)
+        + u32::from(attrs.tackling)
+        + u32::from(attrs.dribbling)
+        + u32::from(attrs.defending)
+        + u32::from(attrs.positioning)
+        + u32::from(attrs.vision)
+        + u32::from(attrs.decisions)
+        + u32::from(attrs.composure)
+        + u32::from(attrs.aggression)
+        + u32::from(attrs.teamwork)
+        + u32::from(attrs.leadership)
+        + u32::from(attrs.handling)
+        + u32::from(attrs.reflexes)
+        + u32::from(attrs.aerial)
+}
+
+fn build_effective_healthy_starting_xi_ids(
+    saved_xi_ids: &[String],
+    roster: &[&domain::player::Player],
+    formation: &str,
+) -> Vec<String> {
+    let healthy_roster: Vec<&domain::player::Player> = roster
+        .iter()
+        .copied()
+        .filter(|player| player.injury.is_none())
+        .collect();
+    let by_id: std::collections::HashMap<&str, &domain::player::Player> = healthy_roster
+        .iter()
+        .map(|player| (player.id.as_str(), *player))
+        .collect();
+    let mut used = std::collections::HashSet::new();
+    let mut valid_saved_ids = Vec::new();
+
+    for id in saved_xi_ids {
+        if by_id.contains_key(id.as_str()) && used.insert(id.clone()) {
+            valid_saved_ids.push(id.clone());
+        }
+    }
+
+    let mut remaining_players: Vec<&domain::player::Player> = healthy_roster
+        .iter()
+        .copied()
+        .filter(|player| !used.contains(&player.id))
+        .collect();
+    remaining_players.sort_by(|a, b| player_overall(b).cmp(&player_overall(a)));
+
+    if valid_saved_ids.len() >= 8 {
+        let mut xi_ids = valid_saved_ids;
+        xi_ids.extend(
+            remaining_players
+                .into_iter()
+                .map(|player| player.id.clone()),
+        );
+        xi_ids.truncate(11);
+        return xi_ids;
+    }
+
+    let (defenders_needed, midfielders_needed, forwards_needed) = parse_formation_slots(formation);
+    let mut xi_ids = Vec::new();
+
+    let mut pick_position = |position: domain::player::Position, count: usize| {
+        let mut candidates: Vec<&domain::player::Player> = healthy_roster
+            .iter()
+            .copied()
+            .filter(|player| player.position == position && !used.contains(&player.id))
+            .collect();
+        candidates.sort_by(|a, b| player_overall(b).cmp(&player_overall(a)));
+
+        for player in candidates.into_iter().take(count) {
+            if used.insert(player.id.clone()) {
+                xi_ids.push(player.id.clone());
+            }
+        }
+    };
+
+    pick_position(domain::player::Position::Goalkeeper, 1);
+    pick_position(domain::player::Position::Defender, defenders_needed);
+    pick_position(domain::player::Position::Midfielder, midfielders_needed);
+    pick_position(domain::player::Position::Forward, forwards_needed);
+
+    let mut fallback_players: Vec<&domain::player::Player> = healthy_roster
+        .iter()
+        .copied()
+        .filter(|player| !used.contains(&player.id))
+        .collect();
+    fallback_players.sort_by(|a, b| player_overall(b).cmp(&player_overall(a)));
+
+    for player in fallback_players {
+        if xi_ids.len() >= 11 {
+            break;
+        }
+
+        if used.insert(player.id.clone()) {
+            xi_ids.push(player.id.clone());
+        }
+    }
+
+    xi_ids
+}
+
 fn injured_starting_xi_blocker(
     xi_ids: &[String],
     roster: &[&domain::player::Player],
@@ -57,17 +177,10 @@ fn injured_starting_xi_blocker(
 }
 
 fn incomplete_starting_xi_blocker(
-    xi_ids: &[String],
+    effective_healthy_xi_ids: &[String],
     roster: &[&domain::player::Player],
 ) -> Option<serde_json::Value> {
-    let healthy_xi = xi_ids
-        .iter()
-        .filter(|id| {
-            roster
-                .iter()
-                .any(|player| player.id == **id && player.injury.is_none())
-        })
-        .count();
+    let healthy_xi = effective_healthy_xi_ids.len();
 
     (healthy_xi < 11 && roster.len() >= 11).then(|| {
         build_blocker(
@@ -123,17 +236,22 @@ pub fn compute_blocking_actions(game: &Game) -> Vec<serde_json::Value> {
     let mut blockers = Vec::new();
     let (team, roster) = match user_team_context(game) {
         Some(context) => context,
-        None => return blockers,
+        None => {
+            info!("[cmd] compute_blocking_actions: no user team context");
+            return blockers;
+        }
     };
-    let xi_ids = &team.starting_xi_ids;
+    let saved_xi_ids = &team.starting_xi_ids;
+    let effective_healthy_xi_ids =
+        build_effective_healthy_starting_xi_ids(saved_xi_ids, &roster, &team.formation);
 
     // Check for injured players in XI
-    if let Some(blocker) = injured_starting_xi_blocker(xi_ids, &roster) {
+    if let Some(blocker) = injured_starting_xi_blocker(saved_xi_ids, &roster) {
         blockers.push(blocker);
     }
 
     // Check if XI is incomplete (fewer than 11 healthy players)
-    if let Some(blocker) = incomplete_starting_xi_blocker(xi_ids, &roster) {
+    if let Some(blocker) = incomplete_starting_xi_blocker(&effective_healthy_xi_ids, &roster) {
         blockers.push(blocker);
     }
 
@@ -141,6 +259,21 @@ pub fn compute_blocking_actions(game: &Game) -> Vec<serde_json::Value> {
     if let Some(blocker) = urgent_unread_messages_blocker(game) {
         blockers.push(blocker);
     }
+
+    let blocker_ids: Vec<String> = blockers
+        .iter()
+        .filter_map(|blocker| blocker.get("id").and_then(|id| id.as_str()))
+        .map(|id| id.to_string())
+        .collect();
+
+    info!(
+        "[cmd] compute_blocking_actions: date={}, team={}, roster={}, xi={}, blockers={:?}",
+        game.clock.current_date.format("%Y-%m-%d"),
+        team.id,
+        roster.len(),
+        effective_healthy_xi_ids.len(),
+        blocker_ids
+    );
 
     blockers
 }
@@ -155,6 +288,11 @@ pub fn check_blocking_actions(state: State<'_, StateManager>) -> Result<serde_js
         .ok_or("No active game session")?;
 
     let blockers = compute_blocking_actions(&game);
+    info!(
+        "[cmd] check_blocking_actions: date={}, blocker_count={}",
+        game.clock.current_date.format("%Y-%m-%d"),
+        blockers.len()
+    );
     Ok(serde_json::json!(blockers))
 }
 
@@ -169,6 +307,11 @@ pub fn skip_to_match_day(state: State<'_, StateManager>) -> Result<serde_json::V
         .ok_or("No active game session")?;
 
     let user_team_id = game.manager.team_id.clone().ok_or("No team assigned")?;
+    info!(
+        "[cmd] skip_to_match_day: start_date={}, user_team_id={}",
+        game.clock.current_date.format("%Y-%m-%d"),
+        user_team_id
+    );
 
     // Advance up to 60 days (safety limit)
     let mut days_skipped = 0u32;
@@ -190,6 +333,10 @@ pub fn skip_to_match_day(state: State<'_, StateManager>) -> Result<serde_json::V
 
         if has_match {
             // We've reached match day — stop here (don't process the match)
+            info!(
+                "[cmd] skip_to_match_day: found match_day={}, days_skipped={}",
+                today, days_skipped
+            );
             break;
         }
 
@@ -200,6 +347,12 @@ pub fn skip_to_match_day(state: State<'_, StateManager>) -> Result<serde_json::V
         // After processing, check if blocking actions arose
         let blockers = compute_blocking_actions(&game);
         if !blockers.is_empty() {
+            info!(
+                "[cmd] skip_to_match_day: blocked_after_days={}, date={}, blocker_count={}",
+                days_skipped,
+                game.clock.current_date.format("%Y-%m-%d"),
+                blockers.len()
+            );
             state.set_game(game.clone());
             return Ok(serde_json::json!({
                 "action": "blocked",
@@ -211,8 +364,9 @@ pub fn skip_to_match_day(state: State<'_, StateManager>) -> Result<serde_json::V
     }
 
     info!(
-        "[cmd] skip_to_match_day: arrived after {} days",
-        days_skipped
+        "[cmd] skip_to_match_day: arrived_after_days={}, final_date={}",
+        days_skipped,
+        game.clock.current_date.format("%Y-%m-%d")
     );
     state.set_game(game.clone());
     Ok(serde_json::json!({
@@ -255,6 +409,11 @@ pub fn advance_time_with_mode(
         })
     });
 
+    info!(
+        "[cmd] advance_time_with_mode: date={}, user_team_id={:?}, user_fixture_idx={:?}",
+        today, user_team_id, user_fixture_idx
+    );
+
     match (mode.as_str(), user_fixture_idx) {
         ("live" | "spectator", Some(idx)) => {
             // Set up live match — don't advance the day yet
@@ -265,6 +424,13 @@ pub fn advance_time_with_mode(
             };
             let session = live_match_manager::create_live_match(&game, idx, match_mode, false)?;
             let snapshot = session.snapshot();
+            info!(
+                "[cmd] advance_time_with_mode: live_match fixture_idx={}, phase={:?}, home_team={}, away_team={}",
+                idx,
+                snapshot.phase,
+                snapshot.home_team.name,
+                snapshot.away_team.name
+            );
             state.set_live_match(session);
 
             // Simulate all OTHER matches for today instantly
@@ -279,6 +445,10 @@ pub fn advance_time_with_mode(
             }))
         }
         ("delegate", Some(idx)) => {
+            info!(
+                "[cmd] advance_time_with_mode: delegate fixture_idx={}, date={}",
+                idx, today
+            );
             // Delegate: AI controls user's team. Create session, run to completion, apply report.
             let mut session =
                 live_match_manager::create_live_match(&game, idx, MatchMode::Instant, false)?;
@@ -312,6 +482,10 @@ pub fn advance_time_with_mode(
             }))
         }
         _ => {
+            info!(
+                "[cmd] advance_time_with_mode: normal_advance date={}, mode={}",
+                today, mode
+            );
             // Normal advance: simulate everything including user match
             ofm_core::turn::process_day(&mut game);
             state.set_game(game.clone());
@@ -508,6 +682,27 @@ mod tests {
         let blockers = compute_blocking_actions(&game);
 
         assert!(blocker_by_id(&blockers, "injured_xi").is_some());
+        assert!(blocker_by_id(&blockers, "incomplete_xi").is_none());
+    }
+
+    #[test]
+    fn incomplete_xi_is_not_reported_when_a_partial_saved_lineup_can_be_filled_by_healthy_players()
+    {
+        let mut game = make_game(11);
+        game.teams[0].starting_xi_ids = vec![
+            "p1".to_string(),
+            "p2".to_string(),
+            "p3".to_string(),
+            "p4".to_string(),
+            "p5".to_string(),
+            "p6".to_string(),
+            "p7".to_string(),
+            "p8".to_string(),
+        ];
+
+        let blockers = compute_blocking_actions(&game);
+
+        assert!(blocker_by_id(&blockers, "injured_xi").is_none());
         assert!(blocker_by_id(&blockers, "incomplete_xi").is_none());
     }
 
