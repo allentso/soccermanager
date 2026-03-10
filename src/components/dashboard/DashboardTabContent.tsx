@@ -80,7 +80,9 @@ export default function DashboardTabContent({
         <ScheduleTab gameState={gameState} onSelectTeam={onSelectTeam} />
       )}
 
-      {activeTab === "Finances" && <FinancesTab gameState={gameState} />}
+      {activeTab === "Finances" && (
+        <FinancesTab gameState={gameState} onSelectPlayer={onSelectPlayer} />
+      )}
 
       {activeTab === "Transfers" && (
         <TransfersTab

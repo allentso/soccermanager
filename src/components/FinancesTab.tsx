@@ -1,18 +1,24 @@
 import { GameStateData } from "../store/gameStore";
 import { Card, CardHeader, CardBody, Badge, ProgressBar } from "./ui";
+import { User } from "lucide-react";
 import {
   formatVal,
   formatWeeklyAmount,
   positionBadgeVariant,
 } from "../lib/helpers";
 import { useTranslation } from "react-i18next";
+import ContextMenu from "./ContextMenu";
 import { translatePositionAbbreviation } from "./SquadTab.helpers";
 
 interface FinancesTabProps {
   gameState: GameStateData;
+  onSelectPlayer?: (id: string) => void;
 }
 
-export default function FinancesTab({ gameState }: FinancesTabProps) {
+export default function FinancesTab({
+  gameState,
+  onSelectPlayer,
+}: FinancesTabProps) {
   const { t } = useTranslation();
   const myTeam = gameState.teams.find(
     (tm) => tm.id === gameState.manager.team_id,
@@ -152,34 +158,59 @@ export default function FinancesTab({ gameState }: FinancesTabProps) {
                 {[...roster]
                   .sort((a, b) => b.wage - a.wage)
                   .slice(0, 10)
-                  .map((p) => (
-                    <tr
-                      key={p.id}
-                      className="hover:bg-gray-50 dark:hover:bg-navy-700/50 transition-colors"
-                    >
-                      <td className="py-3 px-5 font-semibold text-sm text-gray-800 dark:text-gray-200">
-                        {p.full_name}
-                      </td>
-                      <td className="py-3 px-5">
-                        <Badge variant={positionBadgeVariant(p.position)}>
-                          {translatePositionAbbreviation(t, p.position)}
-                        </Badge>
-                      </td>
-                      <td className="py-3 px-5 text-sm font-medium text-gray-700 dark:text-gray-300">
-                        €{p.wage.toLocaleString()}
-                      </td>
-                      <td className="py-3 px-5 text-sm text-gray-600 dark:text-gray-400">
-                        {formatVal(p.market_value)}
-                      </td>
-                      <td className="py-3 px-5 text-sm text-gray-500 dark:text-gray-400">
-                        {p.contract_end
-                          ? t("finances.until", {
-                              year: p.contract_end.substring(0, 4),
-                            })
-                          : "—"}
-                      </td>
-                    </tr>
-                  ))}
+                  .map((p) => {
+                    const contextItems = onSelectPlayer
+                      ? [
+                          {
+                            label: t("squad.viewProfile", "View profile"),
+                            icon: <User className="w-4 h-4" />,
+                            onClick: () => onSelectPlayer(p.id),
+                          },
+                        ]
+                      : [];
+
+                    const row = (
+                      <tr
+                        key={p.id}
+                        onClick={() => onSelectPlayer?.(p.id)}
+                        className={`hover:bg-gray-50 dark:hover:bg-navy-700/50 transition-colors ${onSelectPlayer ? "cursor-pointer group" : ""}`}
+                      >
+                        <td className="py-3 px-5 font-semibold text-sm text-gray-800 dark:text-gray-200">
+                          <span className="group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
+                            {p.full_name}
+                          </span>
+                        </td>
+                        <td className="py-3 px-5">
+                          <Badge variant={positionBadgeVariant(p.position)}>
+                            {translatePositionAbbreviation(t, p.position)}
+                          </Badge>
+                        </td>
+                        <td className="py-3 px-5 text-sm font-medium text-gray-700 dark:text-gray-300">
+                          €{p.wage.toLocaleString()}
+                        </td>
+                        <td className="py-3 px-5 text-sm text-gray-600 dark:text-gray-400">
+                          {formatVal(p.market_value)}
+                        </td>
+                        <td className="py-3 px-5 text-sm text-gray-500 dark:text-gray-400">
+                          {p.contract_end
+                            ? t("finances.until", {
+                                year: p.contract_end.substring(0, 4),
+                              })
+                            : "—"}
+                        </td>
+                      </tr>
+                    );
+
+                    if (!onSelectPlayer) {
+                      return row;
+                    }
+
+                    return (
+                      <ContextMenu items={contextItems} key={p.id}>
+                        {row}
+                      </ContextMenu>
+                    );
+                  })}
               </tbody>
             </table>
           </div>
