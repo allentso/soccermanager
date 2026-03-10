@@ -27,6 +27,7 @@ import { useTranslation } from "react-i18next";
 interface HomeTabProps {
   gameState: GameStateData;
   onNavigate?: (tab: string, context?: { messageId?: string }) => void;
+  visitedOnboardingTabs: ReadonlySet<string>;
 }
 
 const SCHEDULE_ICONS: Record<string, { icon: React.ReactNode; color: string }> =
@@ -42,7 +43,11 @@ const SCHEDULE_ICONS: Record<string, { icon: React.ReactNode; color: string }> =
     },
   };
 
-export default function HomeTab({ gameState, onNavigate }: HomeTabProps) {
+export default function HomeTab({
+  gameState,
+  onNavigate,
+  visitedOnboardingTabs,
+}: HomeTabProps) {
   const { t, i18n } = useTranslation();
   const myTeam = gameState.teams.find(
     (tm) => tm.id === gameState.manager.team_id,
@@ -113,12 +118,15 @@ export default function HomeTab({ gameState, onNavigate }: HomeTabProps) {
   const boardObjectives = (gameState.board_objectives || []).map(
     resolveBoardObjective,
   );
-  const onboardingState = getOnboardingCompletionState(gameState);
+  const onboardingState = getOnboardingCompletionState(
+    gameState,
+    visitedOnboardingTabs,
+  );
 
   const onboardingSteps = [
     {
       id: "squad",
-      done: onboardingState.hasReviewedSquad,
+      done: onboardingState.hasVisitedSquadPage,
       label: t("onboarding.reviewSquad"),
       description: t("onboarding.reviewSquadDesc"),
       tab: "Squad",
@@ -126,7 +134,7 @@ export default function HomeTab({ gameState, onNavigate }: HomeTabProps) {
     },
     {
       id: "staff",
-      done: onboardingState.hasHiredCoreStaff,
+      done: onboardingState.hasVisitedStaffPage,
       label: t("onboarding.hireStaff"),
       description: t("onboarding.hireStaffDesc"),
       tab: "Staff",
@@ -134,7 +142,7 @@ export default function HomeTab({ gameState, onNavigate }: HomeTabProps) {
     },
     {
       id: "tactics",
-      done: onboardingState.hasSetTactics,
+      done: onboardingState.hasVisitedTacticsPage,
       label: t("onboarding.setTactics"),
       description: t("onboarding.setTacticsDesc"),
       tab: "Tactics",
@@ -142,7 +150,7 @@ export default function HomeTab({ gameState, onNavigate }: HomeTabProps) {
     },
     {
       id: "training",
-      done: onboardingState.hasConfiguredTraining,
+      done: onboardingState.hasVisitedTrainingPage,
       label: t("onboarding.configTraining"),
       description: t("onboarding.configTrainingDesc"),
       tab: "Training",

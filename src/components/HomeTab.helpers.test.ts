@@ -4,7 +4,6 @@ import type {
   GameStateData,
   MessageData,
   PlayerData,
-  StaffData,
   TeamData,
 } from "../store/gameStore";
 import { getOnboardingCompletionState } from "./HomeTab.helpers";
@@ -100,28 +99,6 @@ function createPlayer(overrides: Partial<PlayerData> = {}): PlayerData {
   };
 }
 
-function createStaff(overrides: Partial<StaffData> = {}): StaffData {
-  return {
-    id: "staff-1",
-    first_name: "Pat",
-    last_name: "Coach",
-    role: "Coach",
-    nationality: "BR",
-    date_of_birth: "1980-01-01",
-    attributes: {
-      coaching: 50,
-      judging_ability: 50,
-      judging_potential: 50,
-      physiotherapy: 50,
-    },
-    specialization: null,
-    wage: 0,
-    contract_end: null,
-    team_id: "team-1",
-    ...overrides,
-  };
-}
-
 function createMessage(overrides: Partial<MessageData> = {}): MessageData {
   return {
     id: "message-1",
@@ -189,104 +166,65 @@ function createGameState(overrides: Partial<GameStateData> = {}): GameStateData 
 }
 
 describe("HomeTab.helpers", function (): void {
-  it("does not mark training complete when the team is still on default training settings", function (): void {
-    const state = getOnboardingCompletionState(createGameState());
+  it("starts with no visited onboarding pages and no read inbox step", function (): void {
+    const state = getOnboardingCompletionState(createGameState(), new Set<string>());
 
-    expect(state.hasConfiguredTraining).toBe(false);
+    expect(state.hasVisitedSquadPage).toBe(false);
+    expect(state.hasVisitedStaffPage).toBe(false);
+    expect(state.hasVisitedTacticsPage).toBe(false);
+    expect(state.hasVisitedTrainingPage).toBe(false);
+    expect(state.hasReadInbox).toBe(false);
+    expect(state.completedSteps).toBe(0);
   });
 
-  it("marks training complete when any training setting changes from the real defaults", function (): void {
-    const gameState = createGameState({
-      teams: [
-        createTeam({
-          training_focus: "Technical",
-        }),
-      ],
-    });
+  it("marks visited onboarding pages as done", function (): void {
+    const state = getOnboardingCompletionState(
+      createGameState(),
+      new Set<string>(["Squad", "Tactics"]),
+    );
 
-    const state = getOnboardingCompletionState(gameState);
-
-    expect(state.hasConfiguredTraining).toBe(true);
+    expect(state.hasVisitedSquadPage).toBe(true);
+    expect(state.hasVisitedTacticsPage).toBe(true);
+    expect(state.hasVisitedStaffPage).toBe(false);
+    expect(state.hasVisitedTrainingPage).toBe(false);
+    expect(state.completedSteps).toBe(2);
   });
 
-  it("marks squad review complete when the welcome message is read", function (): void {
-    const gameState = createGameState({
-      messages: [
-        createMessage({
-          id: "welcome_1",
-          category: "Welcome",
-          read: true,
-        }),
-      ],
-    });
-
-    const state = getOnboardingCompletionState(gameState);
-
-    expect(state.hasReviewedSquad).toBe(true);
-  });
-
-  it("marks squad review complete when the manager has saved a starting xi", function (): void {
-    const gameState = createGameState({
-      teams: [
-        createTeam({
-          starting_xi_ids: ["p1", "p2", "p3", "p4", "p5", "p6", "p7", "p8", "p9", "p10", "p11"],
-        }),
-      ],
-    });
-
-    const state = getOnboardingCompletionState(gameState);
-
-    expect(state.hasReviewedSquad).toBe(true);
-  });
-
-  it("marks inbox complete only when onboarding messages are read", function (): void {
+  it("marks inbox complete after at least one message is read", function (): void {
     const gameState = createGameState({
       messages: [
         createMessage({
-          id: "welcome_1",
-          category: "Welcome",
+          id: "message-1",
           read: true,
         }),
         createMessage({
-          id: "season_1",
-          category: "LeagueInfo",
-          read: true,
-        }),
-        createMessage({
-          id: "later-news",
+          id: "message-2",
           category: "System",
           read: false,
         }),
       ],
     });
 
-    const state = getOnboardingCompletionState(gameState);
+    const state = getOnboardingCompletionState(gameState, new Set<string>());
 
     expect(state.hasReadInbox).toBe(true);
   });
 
-  it("marks core staff complete only when both coach and physio are hired", function (): void {
-    const incompleteState = getOnboardingCompletionState(
-      createGameState({
-        staff: [createStaff({ role: "Coach" })],
-      }),
-    );
-    const completeState = getOnboardingCompletionState(
-      createGameState({
-        staff: [
-          createStaff({ id: "staff-1", role: "Coach" }),
-          createStaff({
-            id: "staff-2",
-            role: "Physio",
-            first_name: "Sam",
-            last_name: "Physio",
-          }),
-        ],
-      }),
+  it("counts page visits together with the inbox step", function (): void {
+    const gameState = createGameState({
+      messages: [
+        createMessage({
+          id: "message-1",
+          read: true,
+        }),
+      ],
+    });
+    const state = getOnboardingCompletionState(
+      gameState,
+      new Set<string>(["Squad", "Staff", "Training"]),
     );
 
-    expect(incompleteState.hasHiredCoreStaff).toBe(false);
-    expect(completeState.hasHiredCoreStaff).toBe(true);
+    expect(state.completedSteps).toBe(4);
   });
 
   it("hides onboarding after the first week", function (): void {
@@ -297,7 +235,7 @@ describe("HomeTab.helpers", function (): void {
       },
     });
 
-    const state = getOnboardingCompletionState(gameState);
+    const state = getOnboardingCompletionState(gameState, new Set<string>());
 
     expect(state.showOnboarding).toBe(false);
   });

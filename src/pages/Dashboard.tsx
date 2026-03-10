@@ -19,6 +19,7 @@ import DashboardHeader, {
 import DashboardMatchConfirmModal from "../components/dashboard/DashboardMatchConfirmModal";
 import DashboardSidebar from "../components/dashboard/DashboardSidebar";
 import DashboardTabContent from "../components/dashboard/DashboardTabContent";
+import { isOnboardingPageTab } from "../components/HomeTab.helpers";
 import {
   getDashboardAlerts,
   getDashboardSearchResults,
@@ -80,6 +81,9 @@ export default function Dashboard(): JSX.Element {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [initialMessageId, setInitialMessageId] = useState<string | null>(null);
+  const [visitedOnboardingTabs, setVisitedOnboardingTabs] = useState<
+    Set<string>
+  >(new Set<string>());
   const [navHistory, setNavHistory] = useState<
     Array<{ tab: string; playerId: string | null; teamId: string | null }>
   >([]);
@@ -126,6 +130,22 @@ export default function Dashboard(): JSX.Element {
     settings.default_match_mode,
     todayMatchFixture,
   ]);
+
+  useEffect(() => {
+    if (!isOnboardingPageTab(activeTab)) {
+      return;
+    }
+
+    setVisitedOnboardingTabs((currentTabs) => {
+      if (currentTabs.has(activeTab)) {
+        return currentTabs;
+      }
+
+      const nextTabs = new Set(currentTabs);
+      nextTabs.add(activeTab);
+      return nextTabs;
+    });
+  }, [activeTab]);
 
   // Detect if season is complete (all fixtures played)
   const seasonComplete = gameState?.league?.fixtures
@@ -514,6 +534,7 @@ export default function Dashboard(): JSX.Element {
               activeTab={activeTab}
               gameState={gameState}
               seasonComplete={seasonComplete}
+              visitedOnboardingTabs={visitedOnboardingTabs}
               initialMessageId={initialMessageId}
               onSelectPlayer={selectPlayer}
               onSelectTeam={selectTeam}

@@ -21,6 +21,7 @@ interface DashboardTabContentProps {
   activeTab: string;
   gameState: GameStateData;
   seasonComplete: boolean;
+  visitedOnboardingTabs: ReadonlySet<string>;
   initialMessageId: string | null;
   onSelectPlayer: (id: string) => void;
   onSelectTeam: (id: string) => void;
@@ -32,6 +33,7 @@ export default function DashboardTabContent({
   activeTab,
   gameState,
   seasonComplete,
+  visitedOnboardingTabs,
   initialMessageId,
   onSelectPlayer,
   onSelectTeam,
@@ -46,15 +48,28 @@ export default function DashboardTabContent({
       )}
 
       {activeTab === "Home" && !seasonComplete && (
-        <HomeTab gameState={gameState} onNavigate={onNavigate} />
+        <HomeTab
+          gameState={gameState}
+          onNavigate={onNavigate}
+          visitedOnboardingTabs={visitedOnboardingTabs}
+        />
       )}
 
       {activeTab === "Squad" && (
-        <SquadTab gameState={gameState} managerId={gameState.manager.id} onSelectPlayer={onSelectPlayer} onGameUpdate={onGameUpdate} />
+        <SquadTab
+          gameState={gameState}
+          managerId={gameState.manager.id}
+          onSelectPlayer={onSelectPlayer}
+          onGameUpdate={onGameUpdate}
+        />
       )}
 
       {activeTab === "Tactics" && (
-        <TacticsTab gameState={gameState} onSelectPlayer={onSelectPlayer} onGameUpdate={onGameUpdate} />
+        <TacticsTab
+          gameState={gameState}
+          onSelectPlayer={onSelectPlayer}
+          onGameUpdate={onGameUpdate}
+        />
       )}
 
       {activeTab === "Training" && (
@@ -65,16 +80,23 @@ export default function DashboardTabContent({
         <ScheduleTab gameState={gameState} onSelectTeam={onSelectTeam} />
       )}
 
-      {activeTab === "Finances" && (
-        <FinancesTab gameState={gameState} />
-      )}
+      {activeTab === "Finances" && <FinancesTab gameState={gameState} />}
 
       {activeTab === "Transfers" && (
-        <TransfersTab gameState={gameState} onSelectPlayer={onSelectPlayer} onSelectTeam={onSelectTeam} onGameUpdate={onGameUpdate} />
+        <TransfersTab
+          gameState={gameState}
+          onSelectPlayer={onSelectPlayer}
+          onSelectTeam={onSelectTeam}
+          onGameUpdate={onGameUpdate}
+        />
       )}
 
       {activeTab === "Players" && (
-        <PlayersListTab gameState={gameState} onSelectPlayer={onSelectPlayer} onSelectTeam={onSelectTeam} />
+        <PlayersListTab
+          gameState={gameState}
+          onSelectPlayer={onSelectPlayer}
+          onSelectTeam={onSelectTeam}
+        />
       )}
 
       {activeTab === "Teams" && (
@@ -90,20 +112,30 @@ export default function DashboardTabContent({
       )}
 
       {activeTab === "Scouting" && (
-        <ScoutingTab gameState={gameState} onGameUpdate={onGameUpdate} onSelectPlayer={onSelectPlayer} />
+        <ScoutingTab
+          gameState={gameState}
+          onGameUpdate={onGameUpdate}
+          onSelectPlayer={onSelectPlayer}
+        />
       )}
 
       {activeTab === "Youth" && (
-        <YouthAcademyTab gameState={gameState} onSelectPlayer={onSelectPlayer} />
+        <YouthAcademyTab
+          gameState={gameState}
+          onSelectPlayer={onSelectPlayer}
+        />
       )}
 
       {activeTab === "Inbox" && (
-        <InboxTab gameState={gameState} onGameUpdate={onGameUpdate} initialMessageId={initialMessageId} onNavigate={onNavigate} />
+        <InboxTab
+          gameState={gameState}
+          onGameUpdate={onGameUpdate}
+          initialMessageId={initialMessageId}
+          onNavigate={onNavigate}
+        />
       )}
 
-      {activeTab === "Manager" && (
-        <ManagerTab gameState={gameState} />
-      )}
+      {activeTab === "Manager" && <ManagerTab gameState={gameState} />}
 
       {activeTab === "News" && (
         <NewsTab gameState={gameState} onSelectTeam={onSelectTeam} />
