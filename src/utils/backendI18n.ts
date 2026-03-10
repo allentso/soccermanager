@@ -123,24 +123,28 @@ export function resolveMessage(msg: MessageData): MessageData {
     body: resolve(msg.body_key, msg.body, p),
     sender: resolve(msg.sender_key, msg.sender, p),
     sender_role: resolve(msg.sender_role_key, msg.sender_role, p),
-    actions: msg.actions.map((action) => resolveAction(action, msg.id)),
+    actions: msg.actions.map((action) => resolveAction(action, msg.id, p)),
   };
 }
 
 /**
  * Resolve the label on a message action.
  */
-export function resolveAction(action: MessageAction, messageId?: string): MessageAction {
+export function resolveAction(
+  action: MessageAction,
+  messageId?: string,
+  params?: Record<string, string>,
+): MessageAction {
   const labelKey = action.label_key ?? inferPlayerEventActionLabelKey(messageId ?? '', action.id);
 
   if (typeof action.action_type === 'object' && 'ChooseOption' in action.action_type) {
     return {
       ...action,
-      label: resolve(labelKey, action.label),
+      label: resolve(labelKey, action.label, params),
       action_type: {
         ChooseOption: {
           options: action.action_type.ChooseOption.options.map((option) =>
-            resolveActionOption(option, messageId),
+            resolveActionOption(option, messageId, params),
           ),
         },
       },
@@ -149,19 +153,23 @@ export function resolveAction(action: MessageAction, messageId?: string): Messag
 
   return {
     ...action,
-    label: resolve(labelKey, action.label),
+    label: resolve(labelKey, action.label, params),
   };
 }
 
-function resolveActionOption(option: MessageActionOption, messageId?: string): MessageActionOption {
+function resolveActionOption(
+  option: MessageActionOption,
+  messageId?: string,
+  params?: Record<string, string>,
+): MessageActionOption {
   const baseKey = inferPlayerEventOptionBaseKey(messageId ?? '', option.id);
   const labelKey = option.label_key ?? (baseKey ? `${baseKey}.label` : undefined);
   const descriptionKey = option.description_key ?? (baseKey ? `${baseKey}.description` : undefined);
 
   return {
     ...option,
-    label: resolve(labelKey, option.label),
-    description: resolve(descriptionKey, option.description),
+    label: resolve(labelKey, option.label, params),
+    description: resolve(descriptionKey, option.description, params),
   };
 }
 

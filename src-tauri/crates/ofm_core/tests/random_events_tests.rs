@@ -104,6 +104,23 @@ fn make_game_with_league() -> Game {
     game
 }
 
+fn assert_choose_option_keys(message: &InboxMessage) {
+    for action in &message.actions {
+        if let ActionType::ChooseOption { options } = &action.action_type {
+            assert!(
+                options.iter().all(|option| option.label_key.is_some()),
+                "all choose-option labels should have i18n keys"
+            );
+            assert!(
+                options
+                    .iter()
+                    .all(|option| option.description_key.is_some()),
+                "all choose-option descriptions should have i18n keys"
+            );
+        }
+    }
+}
+
 // ---------------------------------------------------------------------------
 // check_random_events tests
 // ---------------------------------------------------------------------------
@@ -190,6 +207,7 @@ fn check_random_events_sponsor_offer_has_correct_structure() {
         assert_eq!(msg.priority, MessagePriority::Normal);
         assert!(!msg.actions.is_empty());
         assert!(msg.i18n_params.contains_key("amount"));
+        assert_choose_option_keys(msg);
     }
 }
 
@@ -311,6 +329,7 @@ fn check_random_events_board_confidence_triggers_on_losses() {
     );
     assert_eq!(board_msgs[0].category, MessageCategory::BoardDirective);
     assert_eq!(board_msgs[0].priority, MessagePriority::Urgent);
+    assert_choose_option_keys(board_msgs[0]);
 }
 
 #[test]
@@ -465,6 +484,7 @@ fn check_random_events_fan_petition_structure() {
         let msg = fan_msgs[0];
         assert_eq!(msg.category, MessageCategory::Media);
         assert!(!msg.actions.is_empty());
+        assert_choose_option_keys(msg);
     }
 }
 
@@ -484,6 +504,7 @@ fn check_random_events_rival_interest_structure() {
         let msg = rival_msgs[0];
         assert_eq!(msg.category, MessageCategory::Transfer);
         assert!(msg.context.player_id.is_some());
+        assert_choose_option_keys(msg);
     }
 }
 

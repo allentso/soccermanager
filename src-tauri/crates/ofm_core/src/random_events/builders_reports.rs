@@ -112,23 +112,35 @@ pub(super) fn board_confidence_message(msg_id: &str, date: &str) -> InboxMessage
                     description:
                         "Present a clear strategy for turning things around. Buys you time."
                             .to_string(),
-                    label_key: None,
-                    description_key: None,
+                    label_key: Some(
+                        "be.msg.boardConfidence.options.reassureBoard.label".to_string(),
+                    ),
+                    description_key: Some(
+                        "be.msg.boardConfidence.options.reassureBoard.description".to_string(),
+                    ),
                 },
                 ActionOption {
                     id: "accept_pressure".to_string(),
                     label: "Accept responsibility".to_string(),
                     description: "Own the poor results. The board respects honesty.".to_string(),
-                    label_key: None,
-                    description_key: None,
+                    label_key: Some(
+                        "be.msg.boardConfidence.options.acceptPressure.label".to_string(),
+                    ),
+                    description_key: Some(
+                        "be.msg.boardConfidence.options.acceptPressure.description".to_string(),
+                    ),
                 },
                 ActionOption {
                     id: "blame_circumstances".to_string(),
                     label: "Point to injuries and bad luck".to_string(),
                     description: "Deflect blame to external factors. May or may not convince them."
                         .to_string(),
-                    label_key: None,
-                    description_key: None,
+                    label_key: Some(
+                        "be.msg.boardConfidence.options.blameCircumstances.label".to_string(),
+                    ),
+                    description_key: Some(
+                        "be.msg.boardConfidence.options.blameCircumstances.description".to_string(),
+                    ),
                 },
             ],
         },
@@ -271,23 +283,29 @@ pub(super) fn rival_interest_message(
                     label: "Not for sale".to_string(),
                     description: "Make it clear the player is going nowhere. Boosts their morale."
                         .to_string(),
-                    label_key: None,
-                    description_key: None,
+                    label_key: Some("be.msg.rivalInterest.options.notForSale.label".to_string()),
+                    description_key: Some(
+                        "be.msg.rivalInterest.options.notForSale.description".to_string(),
+                    ),
                 },
                 ActionOption {
                     id: "open_to_offers".to_string(),
                     label: "Open to offers".to_string(),
                     description: "Signal willingness to negotiate. Player may become unsettled."
                         .to_string(),
-                    label_key: None,
-                    description_key: None,
+                    label_key: Some("be.msg.rivalInterest.options.openToOffers.label".to_string()),
+                    description_key: Some(
+                        "be.msg.rivalInterest.options.openToOffers.description".to_string(),
+                    ),
                 },
                 ActionOption {
                     id: "no_comment".to_string(),
                     label: "No comment".to_string(),
                     description: "Stay quiet and let things play out. Neutral stance.".to_string(),
-                    label_key: None,
-                    description_key: None,
+                    label_key: Some("be.msg.rivalInterest.options.noComment.label".to_string()),
+                    description_key: Some(
+                        "be.msg.rivalInterest.options.noComment.description".to_string(),
+                    ),
                 },
             ],
         },

@@ -1251,7 +1251,17 @@
       },
       "sponsor": {
         "subject": "Sponsorship Offer — {{sponsor}}",
-        "body": "Good news, boss! {{sponsor}} has expressed interest in becoming a sponsor of {{team}}.\n\nThey are offering a one-time payment of €{{amount}} in exchange for advertising space at the training ground.\n\nThis seems like a reasonable deal, but it is your call."
+        "body": "Good news, boss! {{sponsor}} has expressed interest in becoming a sponsor of {{team}}.\n\nThey are offering a one-time payment of €{{amount}} in exchange for advertising space at the training ground.\n\nThis seems like a reasonable deal, but it is your call.",
+        "options": {
+          "accept": {
+            "label": "Aceptar el acuerdo",
+            "description": "Recibe €{{amount}} en ingresos de patrocinio."
+          },
+          "decline": {
+            "label": "Rechazar cortésmente",
+            "description": "Rechaza la oferta. Sin impacto financiero."
+          }
+        }
       },
       "trainingInjury": {
         "subject": "Injury — {{player}} ({{injury}})",
@@ -1285,7 +1295,21 @@
       "boardConfidence": {
         "subject": "Board Meeting — Results Under Scrutiny",
         "body0": "The board has called an urgent meeting. Three consecutive defeats have raised serious concerns about the team's direction.\n\n\"We need to see improvement quickly. The fans are restless and results must change.\"\n\nHow do you respond?",
-        "body1": "After a string of poor results, the chairman has summoned you for a difficult conversation.\n\n\"We backed you with resources and time. The results simply aren't good enough. What's your plan?\"\n\nChoose your response carefully."
+        "body1": "After a string of poor results, the chairman has summoned you for a difficult conversation.\n\n\"We backed you with resources and time. The results simply aren't good enough. What's your plan?\"\n\nChoose your response carefully.",
+        "options": {
+          "reassureBoard": {
+            "label": "Tranquilizarlos con un plan",
+            "description": "Presenta una estrategia clara para enderezar el rumbo. Te da tiempo."
+          },
+          "acceptPressure": {
+            "label": "Aceptar la responsabilidad",
+            "description": "Asume los malos resultados. La directiva respeta la honestidad."
+          },
+          "blameCircumstances": {
+            "label": "Señalar lesiones y mala suerte",
+            "description": "Desvía la culpa hacia factores externos. Puede que les convenza o no."
+          }
+        }
       },
       "fanPetition": {
         "subject0": "Fan Petition — More Attacking Football",
@@ -1312,7 +1336,21 @@
       "rivalInterest": {
         "subject": "Transfer Rumour — {{player}} linked with {{rival}}",
         "body0": "We've received word that {{rival}} have been making enquiries about {{player}}.\n\nTheir scouts were spotted at our last few matches, and our sources suggest they may approach with a formal offer soon.\n\nHow would you like us to respond if they make contact?",
-        "body1": "The press are reporting that {{player}} is a target for {{rival}}.\n\nAccording to sources, the player has attracted attention after their recent performances. No formal bid yet, but it's only a matter of time.\n\nWhat's your stance?"
+        "body1": "The press are reporting that {{player}} is a target for {{rival}}.\n\nAccording to sources, the player has attracted attention after their recent performances. No formal bid yet, but it's only a matter of time.\n\nWhat's your stance?",
+        "options": {
+          "notForSale": {
+            "label": "No está en venta",
+            "description": "Deja claro que el jugador no se mueve. Mejora su moral."
+          },
+          "openToOffers": {
+            "label": "Abierto a ofertas",
+            "description": "Señala disposición a negociar. El jugador podría inquietarse."
+          },
+          "noComment": {
+            "label": "Sin comentarios",
+            "description": "Mantente en silencio y deja que la situación evolucione. Postura neutral."
+          }
+        }
       },
       "moraleCrisis": {
         "subject": "{{player}} — Morale Crisis",

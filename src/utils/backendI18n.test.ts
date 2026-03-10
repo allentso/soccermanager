@@ -130,6 +130,58 @@ describe("resolveAction", () => {
     );
   });
 
+  it("resolves explicit random-event option keys with message interpolation params", () => {
+    i18n.addResourceBundle("en", "translation", {
+      be: {
+        msg: {
+          sponsor: {
+            options: {
+              accept: {
+                label: "Accept the deal",
+                description: "Receive €{{amount}} in sponsorship income.",
+              },
+            },
+          },
+        },
+      },
+    }, true, true);
+
+    const result = resolveMessage(makeMessage({
+      id: "sponsor_2026-08-01",
+      i18n_params: { amount: "250000" },
+      actions: [
+        makeAction({
+          id: "respond",
+          label: "Respond",
+          action_type: {
+            ChooseOption: {
+              options: [
+                {
+                  id: "accept",
+                  label: "fallback option",
+                  description: "fallback description",
+                  label_key: "be.msg.sponsor.options.accept.label",
+                  description_key: "be.msg.sponsor.options.accept.description",
+                },
+              ],
+            },
+          },
+        }),
+      ],
+    }));
+
+    const actionType = result.actions[0].action_type;
+
+    if (typeof actionType !== "object" || !("ChooseOption" in actionType)) {
+      throw new Error("Expected ChooseOption action type");
+    }
+
+    expect(actionType.ChooseOption.options[0].label).toBe("Accept the deal");
+    expect(actionType.ChooseOption.options[0].description).toBe(
+      "Receive €250000 in sponsorship income.",
+    );
+  });
+
   it("keeps raw label when label_key is absent", () => {
     const action = makeAction({ label: "Keep Me" });
     const result = resolveAction(action);

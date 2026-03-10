@@ -1251,7 +1251,17 @@
       },
       "sponsor": {
         "subject": "Sponsorship Offer — {{sponsor}}",
-        "body": "Good news, boss! {{sponsor}} has expressed interest in becoming a sponsor of {{team}}.\n\nThey are offering a one-time payment of €{{amount}} in exchange for advertising space at the training ground.\n\nThis seems like a reasonable deal, but it is your call."
+        "body": "Good news, boss! {{sponsor}} has expressed interest in becoming a sponsor of {{team}}.\n\nThey are offering a one-time payment of €{{amount}} in exchange for advertising space at the training ground.\n\nThis seems like a reasonable deal, but it is your call.",
+        "options": {
+          "accept": {
+            "label": "Aceitar o acordo",
+            "description": "Recebe €{{amount}} em receitas de patrocínio."
+          },
+          "decline": {
+            "label": "Recusar educadamente",
+            "description": "Recusa a oferta. Sem impacto financeiro."
+          }
+        }
       },
       "trainingInjury": {
         "subject": "Injury — {{player}} ({{injury}})",
@@ -1285,7 +1295,21 @@
       "boardConfidence": {
         "subject": "Board Meeting — Results Under Scrutiny",
         "body0": "The board has called an urgent meeting. Three consecutive defeats have raised serious concerns about the team's direction.\n\n\"We need to see improvement quickly. The fans are restless and results must change.\"\n\nHow do you respond?",
-        "body1": "After a string of poor results, the chairman has summoned you for a difficult conversation.\n\n\"We backed you with resources and time. The results simply aren't good enough. What's your plan?\"\n\nChoose your response carefully."
+        "body1": "After a string of poor results, the chairman has summoned you for a difficult conversation.\n\n\"We backed you with resources and time. The results simply aren't good enough. What's your plan?\"\n\nChoose your response carefully.",
+        "options": {
+          "reassureBoard": {
+            "label": "Tranquilizá-los com um plano",
+            "description": "Apresenta uma estratégia clara para dar a volta. Dá-te mais tempo."
+          },
+          "acceptPressure": {
+            "label": "Assumir a responsabilidade",
+            "description": "Assume os maus resultados. A direção respeita a honestidade."
+          },
+          "blameCircumstances": {
+            "label": "Culpar lesões e azar",
+            "description": "Desvia a culpa para fatores externos. Pode ou não convencê-los."
+          }
+        }
       },
       "fanPetition": {
         "subject0": "Fan Petition — More Attacking Football",
@@ -1312,7 +1336,21 @@
       "rivalInterest": {
         "subject": "Transfer Rumour — {{player}} linked with {{rival}}",
         "body0": "We've received word that {{rival}} have been making enquiries about {{player}}.\n\nTheir scouts were spotted at our last few matches, and our sources suggest they may approach with a formal offer soon.\n\nHow would you like us to respond if they make contact?",
-        "body1": "The press are reporting that {{player}} is a target for {{rival}}.\n\nAccording to sources, the player has attracted attention after their recent performances. No formal bid yet, but it's only a matter of time.\n\nWhat's your stance?"
+        "body1": "The press are reporting that {{player}} is a target for {{rival}}.\n\nAccording to sources, the player has attracted attention after their recent performances. No formal bid yet, but it's only a matter of time.\n\nWhat's your stance?",
+        "options": {
+          "notForSale": {
+            "label": "Não está à venda",
+            "description": "Deixa claro que o jogador não vai a lado nenhum. Aumenta o moral."
+          },
+          "openToOffers": {
+            "label": "Aberto a propostas",
+            "description": "Sinaliza abertura para negociar. O jogador pode ficar inquieto."
+          },
+          "noComment": {
+            "label": "Sem comentários",
+            "description": "Mantém o silêncio e deixa a situação seguir. Posição neutra."
+          }
+        }
       },
       "moraleCrisis": {
         "subject": "{{player}} — Morale Crisis",
