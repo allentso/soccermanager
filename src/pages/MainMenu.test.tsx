@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 import type { ComponentPropsWithoutRef } from "react";
@@ -9,6 +9,7 @@ import MainMenu from "./MainMenu";
 const navigateMock = vi.fn();
 const setGameActiveMock = vi.fn();
 const setGameStateMock = vi.fn();
+let latestDatePickerOnChange: ((date: string) => void) | null = null;
 const translationState = {
   language: "en",
 };
@@ -60,13 +61,17 @@ vi.mock("../components/ui", () => ({
     value: string;
     onChange: (date: string) => void;
     error?: boolean;
-  }) => (
-    <input
-      aria-label="manager-date-of-birth"
-      value={value}
-      onChange={(event) => onChange(event.target.value)}
-    />
-  ),
+  }) => {
+    latestDatePickerOnChange = onChange;
+
+    return (
+      <input
+        aria-label="manager-date-of-birth"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      />
+    );
+  },
   CountryFlag: ({ code }: { code: string }) => (
     <span data-testid={`country-flag-${code.toLowerCase()}`} />
   ),
@@ -151,6 +156,7 @@ describe("MainMenu", () => {
     navigateMock.mockReset();
     setGameActiveMock.mockReset();
     setGameStateMock.mockReset();
+    latestDatePickerOnChange = null;
     translationState.language = "en";
     mockedInvoke.mockReset();
     mockedInvoke.mockImplementation(async (command: string) => {
@@ -223,6 +229,33 @@ describe("MainMenu", () => {
     ).toBeInTheDocument();
 
     selectNationality("en", "DE");
+
+    expect(
+      screen.getByRole("button", {
+        name: /germany/i,
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("preserves nationality when a stale date picker callback fires after selection", () => {
+    render(<MainMenu />);
+
+    openCreateManagerForm();
+    fillManagerDetails();
+
+    const staleDatePickerOnChange = latestDatePickerOnChange;
+
+    selectNationality("en", "DE");
+
+    expect(
+      screen.getByRole("button", {
+        name: /germany/i,
+      }),
+    ).toBeInTheDocument();
+
+    act(() => {
+      staleDatePickerOnChange?.("1980-01-01");
+    });
 
     expect(
       screen.getByRole("button", {

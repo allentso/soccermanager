@@ -471,7 +471,10 @@ export default function MainMenu() {
                     placeholder={t("createManager.placeholderFirst")}
                     value={formData.firstName}
                     onChange={(e) => {
-                      setFormData({ ...formData, firstName: e.target.value });
+                      setFormData((prev) => ({
+                        ...prev,
+                        firstName: e.target.value,
+                      }));
                       setFormErrors((prev) => ({ ...prev, firstName: "" }));
                     }}
                   />
@@ -496,7 +499,10 @@ export default function MainMenu() {
                     placeholder={t("createManager.placeholderLast")}
                     value={formData.lastName}
                     onChange={(e) => {
-                      setFormData({ ...formData, lastName: e.target.value });
+                      setFormData((prev) => ({
+                        ...prev,
+                        lastName: e.target.value,
+                      }));
                       setFormErrors((prev) => ({ ...prev, lastName: "" }));
                     }}
                   />
@@ -517,7 +523,10 @@ export default function MainMenu() {
                 <DatePicker
                   value={formData.dob}
                   onChange={(date) => {
-                    setFormData({ ...formData, dob: date });
+                    setFormData((prev) => ({
+                      ...prev,
+                      dob: date,
+                    }));
                     setFormErrors((prev) => ({ ...prev, dob: "" }));
                   }}
                   error={!!formErrors.dob}
