@@ -604,6 +604,25 @@
     "unread": "Não lidas ({{count}})",
     "urgent": "Urgente",
     "important": "Importante",
+    "chooseResponse": "Escolha sua resposta",
+    "responded": "Resposta enviada",
+    "markAllRead": "Marcar todas como lidas",
+    "clearOld": "Limpar antigas",
+    "sortLabel": "Ordenar",
+    "sortByDate": "Ordenar mensagens por data",
+    "sortNewest": "Mais recentes primeiro",
+    "sortOldest": "Mais antigas primeiro",
+    "selectMessages": "Selecionar mensagens",
+    "cancelSelection": "Cancelar seleção",
+    "selectedCount": "{{count}} selecionada(s)",
+    "deleteSelected": "Excluir selecionadas",
+    "deleteMessage": "Excluir mensagem",
+    "deleteMessageTitle": "Excluir mensagem?",
+    "deleteMessageBody": "Isto excluirá permanentemente \"{{subject}}\". Esta ação não pode ser desfeita.",
+    "deleteSelectedTitle": "Excluir mensagens selecionadas?",
+    "deleteSelectedBody": "Isto excluirá permanentemente {{count}} mensagem(ns) selecionada(s). Esta ação não pode ser desfeita.",
+    "deleteAction": "Excluir",
+    "selectMessageForDeletion": "Selecionar {{subject}}",
     "categories": {
       "Welcome": "Boas-vindas",
       "LeagueInfo": "Liga",
@@ -1184,6 +1203,50 @@
               "description": "Honesto, mas brutal. A moral vai despencar."
             }
           }
+        },
+        "effects": {
+          "moraleCrisis": {
+            "encourage": {
+              "positive": "O jogador se sente um pouco melhor. Moral {{delta}}",
+              "negative": "O jogador não compra a ideia. Moral {{delta}}"
+            },
+            "promiseTime": "O jogador fica tranquilo com a promessa. Moral {{delta}}. Ele vai esperar ser titular em breve.",
+            "workHarder": {
+              "positive": "O jogador aceita o desafio. Moral {{delta}}",
+              "negative": "O jogador se ofende com a bronca. Moral {{delta}}"
+            }
+          },
+          "benchComplaint": {
+            "explain": {
+              "positive": "O jogador aceita a contragosto. Moral {{delta}}",
+              "negative": "O jogador não fica convencido. Moral {{delta}}"
+            },
+            "promiseChance": "O jogador fica animado com a oportunidade. Moral {{delta}}. Ele espera ser titular na próxima partida.",
+            "proveYourself": {
+              "positive": "O jogador fica motivado para provar seu valor. Moral {{delta}}",
+              "negative": "O jogador se sente desprezado e insultado. Moral {{delta}}"
+            }
+          },
+          "happyPlayer": {
+            "praiseBack": "O jogador sorri com o elogio. Moral {{delta}}",
+            "stayProfessional": {
+              "positive": "O jogador acena de forma profissional. Moral {{delta}}",
+              "negative": "O jogador queria mais carinho. Moral {{delta}}"
+            },
+            "higherExpectations": {
+              "positive": "O jogador cresce com o desafio. Moral {{delta}}",
+              "negative": "O jogador sente que a pressão é injusta. Moral {{delta}}"
+            }
+          },
+          "contractConcern": {
+            "reassure": "O jogador fica tranquilo quanto ao futuro. Moral {{delta}}",
+            "noncommittal": {
+              "positive": "O jogador aceita isso a contragosto por enquanto. Moral {{delta}}",
+              "negative": "O jogador fica inquieto e infeliz. Moral {{delta}}"
+            },
+            "noRenewal": "O jogador fica devastado. Moral {{delta}}. Isso pode afetar o vestiário.",
+            "noRenewalWithDressingRoom": "O jogador fica devastado. Moral {{delta}}. Isso pode afetar o vestiário. O clima no vestiário piora — {{affected}} companheiros perdem moral."
+          }
         }
       },
       "sponsor": {
@@ -1230,7 +1293,21 @@
         "subject2": "Carta Aberta da Torcida — Transparência",
         "body0": "Um grupo de torcedores do {{team}} organizou uma petição pedindo futebol mais ofensivo.\n\n\"Pagamos caro para assistir futebol emocionante. Queremos ver o time atacar e nos entreter!\"\n\nMais de 500 assinaturas até agora. Como você responde?",
         "body1": "Torcedores do {{team}} iniciaram uma campanha pedindo que você dê mais oportunidades aos jovens da base.\n\n\"O futuro do nosso clube depende de desenvolver talentos da casa. Parem de ignorar os garotos!\"\n\nEstá ganhando tração nas redes sociais. Qual é a sua resposta?",
-        "body2": "Uma carta aberta da Associação de Torcedores do {{team}} foi publicada, pedindo mais transparência da direção.\n\n\"Queremos entender a visão do clube. Para onde estamos indo? Qual é o plano a longo prazo?\"\n\nA imprensa local está cobrindo. Como você lida com isso?"
+        "body2": "Uma carta aberta da Associação de Torcedores do {{team}} foi publicada, pedindo mais transparência da direção.\n\n\"Queremos entender a visão do clube. Para onde estamos indo? Qual é o plano a longo prazo?\"\n\nA imprensa local está cobrindo. Como você lida com isso?",
+        "options": {
+          "listenFans": {
+            "label": "Ouvir a torcida",
+            "description": "Reúna-se com representantes da torcida e ouça suas preocupações. Bom para o moral."
+          },
+          "ignoreFans": {
+            "label": "Focar no futebol",
+            "description": "Recuse com educação — as decisões de futebol ficam dentro do vestiário."
+          },
+          "addressPublicly": {
+            "label": "Fazer um pronunciamento público",
+            "description": "Aborde a petição em uma coletiva. Transparente e proativo."
+          }
+        }
       },
       "rivalInterest": {
         "subject": "Rumor de Transferência — {{player}} ligado ao {{rival}}",

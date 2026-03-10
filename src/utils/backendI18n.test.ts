@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import i18n from "../i18n";
 import {
+  resolveBackendText,
   resolveMessage,
   resolveAction,
   resolveNewsArticle,
@@ -140,6 +141,52 @@ describe("resolveAction", () => {
     const result = resolveAction(action);
     expect(result.label).toBe("fallback");
   });
+
+  it("infers player-event action and option keys for legacy saved messages", () => {
+    i18n.addResourceBundle("en", "translation", {
+      be: {
+        msg: {
+          playerEvent: {
+            respond: "Custom Respond",
+            options: {
+              happyPlayer: {
+                praiseBack: {
+                  label: "Custom Praise Back",
+                  description: "Custom praise description.",
+                },
+              },
+            },
+          },
+        },
+      },
+    }, true, true);
+
+    const action = makeAction({
+      id: "respond",
+      label: "Legacy respond",
+      action_type: {
+        ChooseOption: {
+          options: [
+            {
+              id: "praise_back",
+              label: "Legacy praise",
+              description: "Legacy description",
+            },
+          ],
+        },
+      },
+    });
+
+    const result = resolveAction(action, "happy_player_p_fwd0");
+
+    if (typeof result.action_type !== "object" || !("ChooseOption" in result.action_type)) {
+      throw new Error("Expected ChooseOption action type");
+    }
+
+    expect(result.label).toBe("Custom Respond");
+    expect(result.action_type.ChooseOption.options[0].label).toBe("Custom Praise Back");
+    expect(result.action_type.ChooseOption.options[0].description).toBe("Custom praise description.");
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -248,5 +295,17 @@ describe("resolveBoardObjective", () => {
     const result = resolveBoardObjective(objective);
 
     expect(result.description).toBe("Custom target");
+  });
+});
+
+describe("resolveBackendText", () => {
+  it("resolves backend effect keys with params", () => {
+    i18n.addResourceBundle("en", "translation", {
+      "test.effect": "Morale {{delta}}",
+    }, true, true);
+
+    const result = resolveBackendText("test.effect", "fallback", { delta: "+3" });
+
+    expect(result).toBe("Morale +3");
   });
 });

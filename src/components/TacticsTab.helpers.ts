@@ -118,7 +118,7 @@ export function getSectionPlayerPosition(
     return normalisePosition(xiActivePosition.get(player.id) ?? player.position);
   }
 
-  return normalisePosition(player.position);
+  return normalisePosition(player.natural_position || player.position);
 }
 
 export function sortTacticsPlayers(

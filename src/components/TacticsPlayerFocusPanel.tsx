@@ -4,6 +4,7 @@ import { Badge, Button, Card } from "./ui";
 import { GitCompareArrows } from "lucide-react";
 import { calcAge, calcOvr, positionBadgeVariant } from "../lib/helpers";
 import { countryFlag } from "../lib/countries";
+import { normalisePosition } from "./SquadTab.helpers";
 
 const ATTRIBUTE_GROUPS: {
   labelKey: string;
@@ -56,6 +57,10 @@ function valueBarTone(value: number): string {
   return "bg-gray-300 dark:bg-navy-600";
 }
 
+function getNormalizedPlayerPosition(player: PlayerData): string {
+  return normalisePosition(player.natural_position || player.position);
+}
+
 function PlayerSummary({
   label,
   player,
@@ -64,6 +69,7 @@ function PlayerSummary({
   player: PlayerData;
 }) {
   const { t } = useTranslation();
+  const normalizedPosition = getNormalizedPlayerPosition(player);
 
   return (
     <div className="rounded-xl border border-gray-200 dark:border-navy-600 bg-gray-50 dark:bg-navy-800/70 px-4 py-4">
@@ -76,13 +82,10 @@ function PlayerSummary({
             {player.full_name}
           </p>
           <div className="flex items-center gap-2 mt-2 flex-wrap">
-            <Badge
-              variant={positionBadgeVariant(
-                player.natural_position || player.position,
-              )}
-              size="sm"
-            >
-              {player.natural_position || player.position}
+            <Badge variant={positionBadgeVariant(normalizedPosition)} size="sm">
+              {t(`common.positions.${normalizedPosition}`, {
+                defaultValue: player.natural_position || player.position,
+              })}
             </Badge>
             <span className="text-xs text-gray-500 dark:text-gray-400">
               {countryFlag(player.nationality)} {t("common.age", "Age")}{" "}
@@ -105,8 +108,7 @@ function PlayerSummary({
 
 function SinglePlayerAttributes({ player }: { player: PlayerData }) {
   const { t } = useTranslation();
-  const isGoalkeeper =
-    (player.natural_position || player.position) === "Goalkeeper";
+  const isGoalkeeper = getNormalizedPlayerPosition(player) === "Goalkeeper";
 
   return (
     <div className="space-y-4">
@@ -165,9 +167,8 @@ function CompareAttributes({
 }) {
   const { t } = useTranslation();
   const showGoalkeeperAttrs =
-    (selectedPlayer.natural_position || selectedPlayer.position) ===
-      "Goalkeeper" ||
-    (comparePlayer.natural_position || comparePlayer.position) === "Goalkeeper";
+    getNormalizedPlayerPosition(selectedPlayer) === "Goalkeeper" ||
+    getNormalizedPlayerPosition(comparePlayer) === "Goalkeeper";
 
   return (
     <div className="space-y-4">

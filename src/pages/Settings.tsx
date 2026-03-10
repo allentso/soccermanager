@@ -408,10 +408,10 @@ export default function Settings() {
           <div className="flex justify-between items-center">
             <div>
               <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
-                OpenFoot Manager
+                Openfoot Manager
               </p>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                v0.1.1-alpha
+                {t("app.version")}
               </p>
             </div>
             <span className="text-[10px] font-heading uppercase tracking-widest text-gray-400 dark:text-gray-600">

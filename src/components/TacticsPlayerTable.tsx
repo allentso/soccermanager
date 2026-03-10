@@ -1,5 +1,5 @@
 import { AlertTriangle, ChevronDown, ChevronUp, Star } from "lucide-react";
-import type { DragEvent, JSX } from "react";
+import type { JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { calcAge, calcOvr, positionBadgeVariant } from "../lib/helpers";
@@ -18,13 +18,6 @@ import {
 interface TacticsPlayerTableProps {
   emptyMessage: string;
   highlightedPlayerId: string | null;
-  onDragEnd: () => void;
-  onDragStart: (
-    event: DragEvent<HTMLElement>,
-    playerId: string,
-    section: SquadSection,
-    slotIndex: number | null,
-  ) => void;
   onSelectPlayer: (playerId: string) => void;
   players: PlayerData[];
   section: SquadSection;
@@ -34,7 +27,6 @@ interface TacticsPlayerTableProps {
   toggleSort: (key: SortKey) => void;
   totalCount: number;
   xiActivePosition: Map<string, string>;
-  xiIds: string[];
 }
 
 interface SortHeaderProps {
@@ -98,34 +90,23 @@ function SortHeader({
 
 function renderTableRow(props: {
   highlightedPlayerId: string | null;
-  onDragEnd: () => void;
-  onDragStart: (
-    event: DragEvent<HTMLElement>,
-    playerId: string,
-    section: SquadSection,
-    slotIndex: number | null,
-  ) => void;
   onSelectPlayer: (playerId: string) => void;
   player: PlayerData;
   section: SquadSection;
   xiActivePosition: Map<string, string>;
-  xiIds: string[];
 }): JSX.Element {
   const {
     highlightedPlayerId,
-    onDragEnd,
-    onDragStart,
     onSelectPlayer,
     player,
     section,
     xiActivePosition,
-    xiIds,
   } = props;
   const { t } = useTranslation();
   const activePosition =
     section === "xi"
       ? (xiActivePosition.get(player.id) ?? player.position)
-      : player.position;
+      : player.natural_position || player.position;
   const normalizedActivePosition = normalisePosition(activePosition);
   const isHighlighted = highlightedPlayerId === player.id;
   const isWrongPosition =
@@ -136,18 +117,6 @@ function renderTableRow(props: {
     <tr
       key={player.id}
       data-testid={`${section}-player-${player.id}`}
-      draggable={!player.injury}
-      onDragStart={(event) => {
-        if (!player.injury) {
-          onDragStart(
-            event,
-            player.id,
-            section,
-            section === "xi" ? xiIds.indexOf(player.id) : null,
-          );
-        }
-      }}
-      onDragEnd={onDragEnd}
       onClick={() => onSelectPlayer(player.id)}
       className={`group cursor-pointer transition-colors ${
         isHighlighted
@@ -213,17 +182,14 @@ function renderTableRow(props: {
         </span>
       </td>
       <td className="px-4 py-2.5">
-        <div className="flex flex-wrap gap-1.5">
-          {section === "bench" && !player.injury ? (
-            <Badge variant="primary" size="sm">
-              {t("squad.dragToPitch", "Drag to pitch")}
-            </Badge>
-          ) : null}
+        <div className="flex flex-wrap items-center gap-1.5">
           {player.injury ? (
             <Badge variant="danger" size="sm">
               {t("common.injured", "Injured")}
             </Badge>
-          ) : null}
+          ) : (
+            <span className="text-xs text-gray-500">—</span>
+          )}
         </div>
       </td>
     </tr>
@@ -233,8 +199,6 @@ function renderTableRow(props: {
 export default function TacticsPlayerTable({
   emptyMessage,
   highlightedPlayerId,
-  onDragEnd,
-  onDragStart,
   onSelectPlayer,
   players,
   section,
@@ -244,7 +208,6 @@ export default function TacticsPlayerTable({
   toggleSort,
   totalCount,
   xiActivePosition,
-  xiIds,
 }: TacticsPlayerTableProps): JSX.Element {
   const { t } = useTranslation();
   const headingClassName =
@@ -331,13 +294,10 @@ export default function TacticsPlayerTable({
             {players.map((player) =>
               renderTableRow({
                 highlightedPlayerId,
-                onDragEnd,
-                onDragStart,
                 onSelectPlayer,
                 player,
                 section,
                 xiActivePosition,
-                xiIds,
               }),
             )}
           </tbody>

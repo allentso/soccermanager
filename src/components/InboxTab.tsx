@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import {
   ArrowLeft,
@@ -23,7 +23,7 @@ import {
   TrendingUp,
   Trophy,
 } from "lucide-react";
-import type { JSX, ReactNode } from "react";
+import type { ChangeEvent, JSX, ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 import { formatDateFull, formatDateShort, getTeamName } from "../lib/helpers";
@@ -32,9 +32,10 @@ import type {
   MessageAction,
   MessageData,
 } from "../store/gameStore";
-import { resolveMessage } from "../utils/backendI18n";
+import { resolveBackendText, resolveMessage } from "../utils/backendI18n";
+import DashboardModalFrame from "./dashboard/DashboardModalFrame";
 import ScoutPlayerCard from "./ScoutPlayerCard";
-import { Badge } from "./ui";
+import { Badge, Button, Select } from "./ui";
 
 interface InboxTabProps {
   gameState: GameStateData;
@@ -58,6 +59,20 @@ interface NavigationTarget {
   context?: { messageId?: string };
   shouldResolveAction: boolean;
 }
+
+interface ResolveMessageActionResult {
+  game: GameStateData;
+  effect: string | null;
+  effect_i18n_key?: string | null;
+  effect_i18n_params?: Record<string, string> | null;
+}
+
+type MessageSortOrder = "newest" | "oldest";
+
+type DeleteModalState =
+  | { mode: "single"; messageId: string; subject: string }
+  | { mode: "bulk"; messageIds: string[] }
+  | null;
 
 const UNREAD_FILTER = "__unread";
 const FILTER_BUTTON_BASE_CLASS =
@@ -152,6 +167,32 @@ function getFilteredMessages(
   }
 
   return messages;
+}
+
+function getMessageDateValue(date: string): number {
+  const value = Date.parse(date);
+
+  if (Number.isNaN(value)) {
+    return 0;
+  }
+
+  return value;
+}
+
+function sortInboxMessages(
+  messages: MessageData[],
+  sortOrder: MessageSortOrder,
+): MessageData[] {
+  return [...messages].sort((leftMessage, rightMessage) => {
+    const leftDateValue = getMessageDateValue(leftMessage.date);
+    const rightDateValue = getMessageDateValue(rightMessage.date);
+
+    if (sortOrder === "oldest") {
+      return leftDateValue - rightDateValue;
+    }
+
+    return rightDateValue - leftDateValue;
+  });
 }
 
 function getListPaneClassName(hasSelectedMessage: boolean): string {
@@ -296,6 +337,77 @@ function getNavigationTarget(route: string): NavigationTarget {
   };
 }
 
+function InboxDeleteConfirmModal({
+  deleteModalState,
+  isDeleting,
+  onCancel,
+  onConfirm,
+}: {
+  deleteModalState: DeleteModalState;
+  isDeleting: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}): JSX.Element | null {
+  const { t } = useTranslation();
+
+  if (!deleteModalState) {
+    return null;
+  }
+
+  const title =
+    deleteModalState.mode === "single"
+      ? t("inbox.deleteMessageTitle", "Delete message?")
+      : t("inbox.deleteSelectedTitle", "Delete selected messages?");
+  const message =
+    deleteModalState.mode === "single"
+      ? t(
+          "inbox.deleteMessageBody",
+          'This will permanently delete "{{subject}}". This action cannot be undone.',
+          { subject: deleteModalState.subject },
+        )
+      : t(
+          "inbox.deleteSelectedBody",
+          "This will permanently delete {{count}} selected message(s). This action cannot be undone.",
+          { count: deleteModalState.messageIds.length },
+        );
+
+  return (
+    <DashboardModalFrame maxWidthClassName="max-w-md">
+      <div className="space-y-4" data-testid="inbox-delete-confirm-modal">
+        <div>
+          <h3 className="text-lg font-heading font-bold text-gray-900 dark:text-gray-100">
+            {title}
+          </h3>
+          <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+            {message}
+          </p>
+        </div>
+        <div className="flex items-center justify-end gap-3">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onCancel}
+            disabled={isDeleting}
+          >
+            {t("common.cancel", "Cancel")}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            onClick={onConfirm}
+            disabled={isDeleting}
+            className="bg-red-500 hover:bg-red-600 active:bg-red-700 focus:ring-red-500"
+            data-testid="inbox-confirm-delete"
+          >
+            {t("inbox.deleteAction", "Delete")}
+          </Button>
+        </div>
+      </div>
+    </DashboardModalFrame>
+  );
+}
+
 export default function InboxTab({
   gameState,
   onGameUpdate,
@@ -304,13 +416,33 @@ export default function InboxTab({
 }: InboxTabProps): JSX.Element {
   const { t, i18n } = useTranslation();
   const messages = gameState.messages ?? [];
-  const allMessages = [...messages].reverse().map(resolveMessage);
+  const allMessages = useMemo(() => messages.map(resolveMessage), [messages]);
   const [selectedMessageId, setSelectedMessageId] = useState<string | null>(
     initialMessageId || null,
   );
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
+  const [sortOrder, setSortOrder] = useState<MessageSortOrder>("newest");
+  const [bulkSelectionEnabled, setBulkSelectionEnabled] = useState(false);
+  const [selectedMessageIds, setSelectedMessageIds] = useState<string[]>([]);
+  const [deleteModalState, setDeleteModalState] =
+    useState<DeleteModalState>(null);
   const [effectFeedback, setEffectFeedback] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const categoryCounts = new Map<string, number>();
+
+  useEffect(() => {
+    const availableMessageIds = new Set(
+      allMessages.map((message) => message.id),
+    );
+
+    setSelectedMessageIds((currentIds) =>
+      currentIds.filter((messageId) => availableMessageIds.has(messageId)),
+    );
+
+    if (selectedMessageId && !availableMessageIds.has(selectedMessageId)) {
+      setSelectedMessageId(null);
+    }
+  }, [allMessages, selectedMessageId]);
 
   for (const message of allMessages) {
     const currentCount = categoryCounts.get(message.category) ?? 0;
@@ -318,7 +450,14 @@ export default function InboxTab({
   }
 
   const categories = Array.from(categoryCounts.keys());
-  const filteredMessages = getFilteredMessages(allMessages, categoryFilter);
+  const filteredMessages = useMemo(
+    () =>
+      sortInboxMessages(
+        getFilteredMessages(allMessages, categoryFilter),
+        sortOrder,
+      ),
+    [allMessages, categoryFilter, sortOrder],
+  );
   const unreadCount = allMessages.filter((message) => !message.read).length;
   const selectedMessage =
     allMessages.find((message) => message.id === selectedMessageId) ?? null;
@@ -363,17 +502,22 @@ export default function InboxTab({
     }
 
     try {
-      const result = await invoke<{
-        game: GameStateData;
-        effect: string | null;
-      }>("resolve_message_action", {
-        messageId: msgId,
-        actionId,
-        optionId: optionId || null,
-      });
+      const result = await invoke<ResolveMessageActionResult>(
+        "resolve_message_action",
+        {
+          messageId: msgId,
+          actionId,
+          optionId: optionId || null,
+        },
+      );
       onGameUpdate(result.game);
       if (result.effect) {
-        setEffectFeedback(result.effect);
+        const resolvedEffect = resolveBackendText(
+          result.effect_i18n_key ?? undefined,
+          result.effect,
+          result.effect_i18n_params ?? undefined,
+        );
+        setEffectFeedback(resolvedEffect);
         setTimeout(() => setEffectFeedback(null), 4000);
       }
     } catch {}
@@ -392,6 +536,103 @@ export default function InboxTab({
       onGameUpdate(g);
       setSelectedMessageId(null);
     } catch {}
+  }
+
+  async function handleConfirmDelete(): Promise<void> {
+    if (!deleteModalState) {
+      return;
+    }
+
+    setIsDeleting(true);
+
+    try {
+      let updatedGameState: GameStateData;
+      let deletedMessageIds: string[];
+
+      if (deleteModalState.mode === "single") {
+        deletedMessageIds = [deleteModalState.messageId];
+        updatedGameState = await invoke<GameStateData>("delete_message", {
+          messageId: deleteModalState.messageId,
+        });
+      } else {
+        deletedMessageIds = deleteModalState.messageIds;
+        updatedGameState = await invoke<GameStateData>("delete_messages", {
+          messageIds: deleteModalState.messageIds,
+        });
+        setBulkSelectionEnabled(false);
+      }
+
+      onGameUpdate(updatedGameState);
+      setSelectedMessageIds((currentIds) =>
+        currentIds.filter(
+          (messageId) => !deletedMessageIds.includes(messageId),
+        ),
+      );
+
+      if (selectedMessageId && deletedMessageIds.includes(selectedMessageId)) {
+        setSelectedMessageId(null);
+      }
+
+      setDeleteModalState(null);
+    } catch {
+    } finally {
+      setIsDeleting(false);
+    }
+  }
+
+  function handleCloseDeleteModal(): void {
+    if (isDeleting) {
+      return;
+    }
+
+    setDeleteModalState(null);
+  }
+
+  function handleSortOrderChange(event: ChangeEvent<HTMLSelectElement>): void {
+    setSortOrder(event.target.value as MessageSortOrder);
+  }
+
+  function handleToggleBulkSelectionMode(): void {
+    setBulkSelectionEnabled((currentValue) => {
+      if (currentValue) {
+        setSelectedMessageIds([]);
+      }
+
+      return !currentValue;
+    });
+  }
+
+  function handleToggleMessageSelection(messageId: string): void {
+    setSelectedMessageIds((currentIds) => {
+      if (currentIds.includes(messageId)) {
+        return currentIds.filter((currentId) => currentId !== messageId);
+      }
+
+      return [...currentIds, messageId];
+    });
+  }
+
+  function handleRequestBulkDelete(): void {
+    if (selectedMessageIds.length === 0) {
+      return;
+    }
+
+    setDeleteModalState({
+      mode: "bulk",
+      messageIds: selectedMessageIds,
+    });
+  }
+
+  function handleRequestSingleDelete(): void {
+    if (!selectedMessage) {
+      return;
+    }
+
+    setDeleteModalState({
+      mode: "single",
+      messageId: selectedMessage.id,
+      subject: selectedMessage.subject,
+    });
   }
 
   function handleShowAll(): void {
@@ -459,20 +700,76 @@ export default function InboxTab({
         })}
 
         {/* Inbox management actions */}
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+          <div className="flex items-center gap-2">
+            <label
+              htmlFor="inbox-sort-order"
+              className="text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400"
+            >
+              {t("inbox.sortLabel", "Sort")}
+            </label>
+            <Select
+              id="inbox-sort-order"
+              value={sortOrder}
+              onChange={handleSortOrderChange}
+              selectSize="sm"
+              wrapperClassName="min-w-[170px]"
+              aria-label={t("inbox.sortByDate", "Sort messages by date")}
+            >
+              <option value="newest">
+                {t("inbox.sortNewest", "Newest first")}
+              </option>
+              <option value="oldest">
+                {t("inbox.sortOldest", "Oldest first")}
+              </option>
+            </Select>
+          </div>
+          <Button
+            type="button"
+            variant={bulkSelectionEnabled ? "primary" : "outline"}
+            size="sm"
+            onClick={handleToggleBulkSelectionMode}
+            data-testid="inbox-toggle-selection-mode"
+          >
+            {bulkSelectionEnabled
+              ? t("inbox.cancelSelection", "Cancel selection")
+              : t("inbox.selectMessages", "Select messages")}
+          </Button>
+          {bulkSelectionEnabled ? (
+            <>
+              <Badge variant="neutral" size="sm">
+                {t("inbox.selectedCount", "{{count}} selected", {
+                  count: selectedMessageIds.length,
+                })}
+              </Badge>
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleRequestBulkDelete}
+                disabled={selectedMessageIds.length === 0}
+                icon={<Trash2 className="w-4 h-4" />}
+                className="bg-red-500 hover:bg-red-600 active:bg-red-700 focus:ring-red-500"
+                data-testid="inbox-delete-selected"
+              >
+                {t("inbox.deleteSelected", "Delete selected")}
+              </Button>
+            </>
+          ) : null}
           {unreadCount > 0 && (
             <button
               onClick={handleMarkAllRead}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-heading font-bold uppercase tracking-wider bg-white dark:bg-navy-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-navy-600 hover:text-primary-500 hover:border-primary-300 transition-all"
             >
-              <CheckCheck className="w-3.5 h-3.5" /> Mark all read
+              <CheckCheck className="w-3.5 h-3.5" />
+              {t("inbox.markAllRead", "Mark all read")}
             </button>
           )}
           <button
             onClick={handleClearOld}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-heading font-bold uppercase tracking-wider bg-white dark:bg-navy-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-navy-600 hover:text-red-500 hover:border-red-300 transition-all"
           >
-            <Trash2 className="w-3.5 h-3.5" /> Clear old
+            <Trash2 className="w-3.5 h-3.5" />{" "}
+            {t("inbox.clearOld", "Clear old")}
           </button>
         </div>
       </div>
@@ -514,7 +811,29 @@ export default function InboxTab({
                     key={message.id}
                     onClick={() => handleSelectMessage(message.id)}
                     className={getMessageRowClassName(isSelected, message.read)}
+                    data-testid={`inbox-row-${message.id}`}
                   >
+                    {bulkSelectionEnabled ? (
+                      <div
+                        className="mt-1 flex shrink-0 items-center"
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedMessageIds.includes(message.id)}
+                          onChange={() =>
+                            handleToggleMessageSelection(message.id)
+                          }
+                          aria-label={t(
+                            "inbox.selectMessageForDeletion",
+                            "Select {{subject}}",
+                            { subject: message.subject },
+                          )}
+                          data-testid={`inbox-select-message-${message.id}`}
+                          className="h-4 w-4 rounded border-gray-300 text-primary-500 focus:ring-primary-500/30"
+                        />
+                      </div>
+                    ) : null}
                     <div
                       className={getMessageIconClassName(
                         catColor,
@@ -561,43 +880,55 @@ export default function InboxTab({
                 >
                   <ArrowLeft className="w-3.5 h-3.5" /> {t("inbox.backToInbox")}
                 </button>
-                <div className="flex items-start gap-3">
-                  <div
-                    className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${getCategoryColor(selectedMessage.category)} bg-primary-500/10 dark:bg-primary-500/20`}
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-3 min-w-0 flex-1">
+                    <div
+                      className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${getCategoryColor(selectedMessage.category)} bg-primary-500/10 dark:bg-primary-500/20`}
+                    >
+                      {getCategoryIcon(selectedMessage.category)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-heading font-bold text-lg text-gray-900 dark:text-gray-100">
+                        {selectedMessage.subject}
+                      </h3>
+                      <div className="flex items-center gap-3 mt-1">
+                        <span className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                          {selectedMessage.sender}
+                          {selectedMessage.sender_role
+                            ? ` — ${selectedMessage.sender_role}`
+                            : ""}
+                        </span>
+                        <span className="text-xs text-gray-400 dark:text-gray-500">
+                          {formatDateFull(selectedMessage.date, i18n.language)}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 mt-1.5">
+                        <Badge variant="neutral" size="sm">
+                          {t(`inbox.categories.${selectedMessage.category}`)}
+                        </Badge>
+                        {selectedMessage.priority === "Urgent" && (
+                          <Badge variant="danger" size="sm">
+                            {t("inbox.urgent")}
+                          </Badge>
+                        )}
+                        {selectedMessage.priority === "High" && (
+                          <Badge variant="accent" size="sm">
+                            {t("inbox.important")}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={handleRequestSingleDelete}
+                    icon={<Trash2 className="w-4 h-4" />}
+                    className="bg-red-500 hover:bg-red-600 active:bg-red-700 focus:ring-red-500"
+                    data-testid="inbox-delete-message"
                   >
-                    {getCategoryIcon(selectedMessage.category)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-heading font-bold text-lg text-gray-900 dark:text-gray-100">
-                      {selectedMessage.subject}
-                    </h3>
-                    <div className="flex items-center gap-3 mt-1">
-                      <span className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                        {selectedMessage.sender}
-                        {selectedMessage.sender_role
-                          ? ` — ${selectedMessage.sender_role}`
-                          : ""}
-                      </span>
-                      <span className="text-xs text-gray-400 dark:text-gray-500">
-                        {formatDateFull(selectedMessage.date, i18n.language)}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2 mt-1.5">
-                      <Badge variant="neutral" size="sm">
-                        {t(`inbox.categories.${selectedMessage.category}`)}
-                      </Badge>
-                      {selectedMessage.priority === "Urgent" && (
-                        <Badge variant="danger" size="sm">
-                          {t("inbox.urgent")}
-                        </Badge>
-                      )}
-                      {selectedMessage.priority === "High" && (
-                        <Badge variant="accent" size="sm">
-                          {t("inbox.important")}
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
+                    {t("inbox.deleteMessage", "Delete message")}
+                  </Button>
                 </div>
               </div>
 
@@ -735,6 +1066,12 @@ export default function InboxTab({
           )}
         </div>
       </div>
+      <InboxDeleteConfirmModal
+        deleteModalState={deleteModalState}
+        isDeleting={isDeleting}
+        onCancel={handleCloseDeleteModal}
+        onConfirm={handleConfirmDelete}
+      />
     </div>
   );
 }

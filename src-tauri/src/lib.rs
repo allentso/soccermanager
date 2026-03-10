@@ -102,6 +102,8 @@ pub fn run() {
             hire_staff,
             release_staff,
             mark_message_read,
+            delete_message,
+            delete_messages,
             mark_all_messages_read,
             clear_old_messages,
             save_game,

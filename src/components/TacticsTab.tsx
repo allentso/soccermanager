@@ -512,8 +512,6 @@ export default function TacticsTab({
               "No starters match the current filters.",
             )}
             highlightedPlayerId={selectedPlayerId}
-            onDragEnd={resetDragState}
-            onDragStart={handleDragStart}
             onSelectPlayer={onSelectPlayer}
             players={filteredStartingXI}
             section="xi"
@@ -523,7 +521,6 @@ export default function TacticsTab({
             toggleSort={toggleSort}
             totalCount={startingXI.length}
             xiActivePosition={xiActivePosition}
-            xiIds={startingXiIds}
           />
 
           <TacticsPlayerTable
@@ -532,8 +529,6 @@ export default function TacticsTab({
               "No bench players match the current filters.",
             )}
             highlightedPlayerId={selectedPlayerId}
-            onDragEnd={resetDragState}
-            onDragStart={handleDragStart}
             onSelectPlayer={onSelectPlayer}
             players={filteredBench}
             section="bench"
@@ -543,7 +538,6 @@ export default function TacticsTab({
             toggleSort={toggleSort}
             totalCount={bench.length}
             xiActivePosition={xiActivePosition}
-            xiIds={startingXiIds}
           />
         </>
       ) : (

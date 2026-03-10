@@ -328,7 +328,10 @@ export default function TacticsPitch({
                         {player.match_name}
                       </div>
                       <div className="mt-1 text-sm uppercase tracking-wider text-white/60">
-                        {translatePositionAbbreviation(t, player.position)}
+                        {translatePositionAbbreviation(
+                          t,
+                          player.natural_position || player.position,
+                        )}
                       </div>
                     </div>
                     <div className="shrink-0 rounded-full border border-primary-200 bg-primary-500/80 px-2 py-1 text-xs font-heading font-bold text-white">

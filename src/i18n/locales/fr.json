@@ -604,6 +604,25 @@
     "unread": "Non lus ({{count}})",
     "urgent": "Urgent",
     "important": "Important",
+    "chooseResponse": "Choisissez votre réponse",
+    "responded": "Réponse envoyée",
+    "markAllRead": "Tout marquer comme lu",
+    "clearOld": "Effacer les anciens",
+    "sortLabel": "Trier",
+    "sortByDate": "Trier les messages par date",
+    "sortNewest": "Plus récents d'abord",
+    "sortOldest": "Plus anciens d'abord",
+    "selectMessages": "Sélectionner des messages",
+    "cancelSelection": "Annuler la sélection",
+    "selectedCount": "{{count}} sélectionné(s)",
+    "deleteSelected": "Supprimer la sélection",
+    "deleteMessage": "Supprimer le message",
+    "deleteMessageTitle": "Supprimer le message ?",
+    "deleteMessageBody": "Cela supprimera définitivement \"{{subject}}\". Cette action est irréversible.",
+    "deleteSelectedTitle": "Supprimer les messages sélectionnés ?",
+    "deleteSelectedBody": "Cela supprimera définitivement {{count}} message(s) sélectionné(s). Cette action est irréversible.",
+    "deleteAction": "Supprimer",
+    "selectMessageForDeletion": "Sélectionner {{subject}}",
     "categories": {
       "Welcome": "Bienvenue",
       "LeagueInfo": "Ligue",
@@ -1184,6 +1203,50 @@
               "description": "Honnête, mais brutal. Sa morale va chuter."
             }
           }
+        },
+        "effects": {
+          "moraleCrisis": {
+            "encourage": {
+              "positive": "Le joueur se sent un peu mieux. Moral {{delta}}",
+              "negative": "Le joueur n'y croit pas. Moral {{delta}}"
+            },
+            "promiseTime": "Le joueur est rassuré par la promesse. Moral {{delta}}. Il s'attendra à débuter bientôt.",
+            "workHarder": {
+              "positive": "Le joueur accepte le défi. Moral {{delta}}",
+              "negative": "Le joueur est vexé par cette fermeté. Moral {{delta}}"
+            }
+          },
+          "benchComplaint": {
+            "explain": {
+              "positive": "Le joueur l'accepte à contrecœur. Moral {{delta}}",
+              "negative": "Le joueur n'est pas convaincu. Moral {{delta}}"
+            },
+            "promiseChance": "Le joueur est enthousiasmé par cette opportunité. Moral {{delta}}. Il s'attend à débuter le prochain match.",
+            "proveYourself": {
+              "positive": "Le joueur est déterminé à faire ses preuves. Moral {{delta}}",
+              "negative": "Le joueur se sent rejeté et insulté. Moral {{delta}}"
+            }
+          },
+          "happyPlayer": {
+            "praiseBack": "Le joueur rayonne sous le compliment. Moral {{delta}}",
+            "stayProfessional": {
+              "positive": "Le joueur acquiesce avec professionnalisme. Moral {{delta}}",
+              "negative": "Le joueur espérait plus de chaleur. Moral {{delta}}"
+            },
+            "higherExpectations": {
+              "positive": "Le joueur relève le défi. Moral {{delta}}",
+              "negative": "Le joueur trouve cette pression injuste. Moral {{delta}}"
+            }
+          },
+          "contractConcern": {
+            "reassure": "Le joueur est rassuré sur son avenir. Moral {{delta}}",
+            "noncommittal": {
+              "positive": "Le joueur l'accepte à contrecœur pour l'instant. Moral {{delta}}",
+              "negative": "Le joueur est troublé et mécontent. Moral {{delta}}"
+            },
+            "noRenewal": "Le joueur est dévasté. Moral {{delta}}. Cela pourrait affecter le vestiaire.",
+            "noRenewalWithDressingRoom": "Le joueur est dévasté. Moral {{delta}}. Cela pourrait affecter le vestiaire. L'ambiance du vestiaire retombe — {{affected}} coéquipiers perdent du moral."
+          }
         }
       },
       "sponsor": {
@@ -1230,7 +1293,21 @@
         "subject2": "Fan Open Letter — Transparency",
         "body0": "A group of {{team}} supporters has organized a petition calling for more attacking football.\n\n\"We pay good money to watch exciting football. We want to see the team go forward and entertain us!\"\n\nOver 500 signatures so far. How do you respond?",
         "body1": "Supporters of {{team}} have started a campaign urging you to give more opportunities to young players from the academy.\n\n\"The future of our club depends on developing homegrown talent. Stop overlooking the kids!\"\n\nIt's getting traction on social media. What's your response?",
-        "body2": "An open letter from the {{team}} Supporters Trust has been published, asking for more transparency from the management.\n\n\"We want to understand the club's vision. Where are we heading? What's the long-term plan?\"\n\nThe local press is covering it. How do you handle this?"
+        "body2": "An open letter from the {{team}} Supporters Trust has been published, asking for more transparency from the management.\n\n\"We want to understand the club's vision. Where are we heading? What's the long-term plan?\"\n\nThe local press is covering it. How do you handle this?",
+        "options": {
+          "listenFans": {
+            "label": "Écouter les supporters",
+            "description": "Rencontrez des représentants des supporters et écoutez leurs préoccupations. Bon pour le moral."
+          },
+          "ignoreFans": {
+            "label": "Se concentrer sur le football",
+            "description": "Refusez poliment — les décisions footballistiques restent dans le vestiaire."
+          },
+          "addressPublicly": {
+            "label": "Faire une déclaration publique",
+            "description": "Abordez la pétition en conférence de presse. Transparent et proactif."
+          }
+        }
       },
       "rivalInterest": {
         "subject": "Transfer Rumour — {{player}} linked with {{rival}}",

@@ -1,7 +1,7 @@
 mod message_builders;
 mod responses;
 
-pub use responses::apply_player_response;
+pub use responses::{PlayerResponseEffect, apply_player_response};
 
 use crate::game::Game;
 use domain::message::InboxMessage;

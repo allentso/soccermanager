@@ -67,7 +67,7 @@ The Dashboard is your command centre. It's organized into a **sidebar** with nav
 
 ## Day-to-Day Gameplay
 
-OpenFoot Manager advances **one day at a time**. Each day either has a match or is a training day.
+Openfoot Manager advances **one day at a time**. Each day either has a match or is a training day.
 
 ### Advancing Time
 

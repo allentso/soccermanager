@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use log::info;
 use tauri::State;
 
@@ -17,6 +19,37 @@ pub fn mark_message_read(
     if let Some(msg) = game.messages.iter_mut().find(|m| m.id == message_id) {
         msg.read = true;
     }
+
+    state.set_game(game.clone());
+    Ok(game)
+}
+
+#[tauri::command]
+pub fn delete_message(state: State<'_, StateManager>, message_id: String) -> Result<Game, String> {
+    log::debug!("[cmd] delete_message: {}", message_id);
+    let mut game = state
+        .get_game(|g| g.clone())
+        .ok_or("No active game session".to_string())?;
+
+    game.messages.retain(|message| message.id != message_id);
+
+    state.set_game(game.clone());
+    Ok(game)
+}
+
+#[tauri::command]
+pub fn delete_messages(
+    state: State<'_, StateManager>,
+    message_ids: Vec<String>,
+) -> Result<Game, String> {
+    log::debug!("[cmd] delete_messages: {}", message_ids.len());
+    let mut game = state
+        .get_game(|g| g.clone())
+        .ok_or("No active game session".to_string())?;
+    let message_ids: HashSet<String> = message_ids.into_iter().collect();
+
+    game.messages
+        .retain(|message| !message_ids.contains(&message.id));
 
     state.set_game(game.clone());
     Ok(game)
@@ -82,14 +115,27 @@ pub fn resolve_message_action(
         .ok_or("No active game session".to_string())?;
 
     // Try to apply player conversation or random event response
-    let effect = if let Some(opt) = &option_id {
+    let (effect, effect_i18n_key, effect_i18n_params) = if let Some(opt) = &option_id {
         // Try player events first, then random events
         let player_effect =
             ofm_core::player_events::apply_player_response(&mut game, &message_id, &action_id, opt);
-        if player_effect.is_some() {
-            player_effect
+        if let Some(player_effect) = player_effect {
+            (
+                Some(player_effect.message),
+                Some(player_effect.i18n_key),
+                Some(player_effect.i18n_params),
+            )
         } else {
-            ofm_core::random_events::apply_event_response(&mut game, &message_id, &action_id, opt)
+            (
+                ofm_core::random_events::apply_event_response(
+                    &mut game,
+                    &message_id,
+                    &action_id,
+                    opt,
+                ),
+                None,
+                None,
+            )
         }
     } else {
         // Standard resolve — just mark action as resolved
@@ -98,12 +144,14 @@ pub fn resolve_message_action(
                 action.resolved = true;
             }
         }
-        None
+        (None, None, None)
     };
 
     state.set_game(game.clone());
     Ok(serde_json::json!({
         "game": game,
-        "effect": effect
+        "effect": effect,
+        "effect_i18n_key": effect_i18n_key,
+        "effect_i18n_params": effect_i18n_params
     }))
 }

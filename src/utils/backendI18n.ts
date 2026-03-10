@@ -7,6 +7,28 @@ import type {
   BoardObjective,
 } from '../store/gameStore';
 
+const PLAYER_EVENT_PREFIX_TO_GROUP: Record<string, string> = {
+  morale_talk_: 'moraleCrisis',
+  bench_complaint_: 'benchComplaint',
+  happy_player_: 'happyPlayer',
+  contract_concern_: 'contractConcern',
+};
+
+const PLAYER_EVENT_OPTION_ID_TO_KEY: Record<string, string> = {
+  encourage: 'encourage',
+  promise_time: 'promiseTime',
+  work_harder: 'workHarder',
+  explain: 'explain',
+  promise_chance: 'promiseChance',
+  prove_yourself: 'proveYourself',
+  praise_back: 'praiseBack',
+  stay_professional: 'stayProfessional',
+  higher_expectations: 'higherExpectations',
+  reassure: 'reassure',
+  noncommittal: 'noncommittal',
+  no_renewal: 'noRenewal',
+};
+
 /**
  * Resolve a backend i18n key with params, falling back to the raw string.
  */
@@ -16,6 +38,14 @@ function resolve(key: string | undefined, fallback: string, params?: Record<stri
   // i18next returns the key itself if not found — fall back to raw string
   if (resolved === key) return fallback;
   return resolved;
+}
+
+export function resolveBackendText(
+  key: string | undefined,
+  fallback: string,
+  params?: Record<string, string>,
+): string {
+  return resolve(key, fallback, params);
 }
 
 function boardObjectiveFallback(objective: BoardObjective): string {
@@ -49,6 +79,39 @@ function resolveParamValues(params?: Record<string, string>): Record<string, str
   return resolved;
 }
 
+function inferPlayerEventGroup(messageId: string): string | undefined {
+  for (const [prefix, group] of Object.entries(PLAYER_EVENT_PREFIX_TO_GROUP)) {
+    if (messageId.startsWith(prefix)) {
+      return group;
+    }
+  }
+
+  return undefined;
+}
+
+function inferPlayerEventActionLabelKey(messageId: string, actionId: string): string | undefined {
+  if (!inferPlayerEventGroup(messageId)) {
+    return undefined;
+  }
+
+  if (actionId === 'respond') {
+    return 'be.msg.playerEvent.respond';
+  }
+
+  return undefined;
+}
+
+function inferPlayerEventOptionBaseKey(messageId: string, optionId: string): string | undefined {
+  const group = inferPlayerEventGroup(messageId);
+  const optionKey = PLAYER_EVENT_OPTION_ID_TO_KEY[optionId];
+
+  if (!group || !optionKey) {
+    return undefined;
+  }
+
+  return `be.msg.playerEvent.options.${group}.${optionKey}`;
+}
+
 /**
  * Resolve all translatable fields on a message, returning a copy with resolved strings.
  */
@@ -60,21 +123,25 @@ export function resolveMessage(msg: MessageData): MessageData {
     body: resolve(msg.body_key, msg.body, p),
     sender: resolve(msg.sender_key, msg.sender, p),
     sender_role: resolve(msg.sender_role_key, msg.sender_role, p),
-    actions: msg.actions.map(resolveAction),
+    actions: msg.actions.map((action) => resolveAction(action, msg.id)),
   };
 }
 
 /**
  * Resolve the label on a message action.
  */
-export function resolveAction(action: MessageAction): MessageAction {
+export function resolveAction(action: MessageAction, messageId?: string): MessageAction {
+  const labelKey = action.label_key ?? inferPlayerEventActionLabelKey(messageId ?? '', action.id);
+
   if (typeof action.action_type === 'object' && 'ChooseOption' in action.action_type) {
     return {
       ...action,
-      label: resolve(action.label_key, action.label),
+      label: resolve(labelKey, action.label),
       action_type: {
         ChooseOption: {
-          options: action.action_type.ChooseOption.options.map(resolveActionOption),
+          options: action.action_type.ChooseOption.options.map((option) =>
+            resolveActionOption(option, messageId),
+          ),
         },
       },
     };
@@ -82,15 +149,19 @@ export function resolveAction(action: MessageAction): MessageAction {
 
   return {
     ...action,
-    label: resolve(action.label_key, action.label),
+    label: resolve(labelKey, action.label),
   };
 }
 
-function resolveActionOption(option: MessageActionOption): MessageActionOption {
+function resolveActionOption(option: MessageActionOption, messageId?: string): MessageActionOption {
+  const baseKey = inferPlayerEventOptionBaseKey(messageId ?? '', option.id);
+  const labelKey = option.label_key ?? (baseKey ? `${baseKey}.label` : undefined);
+  const descriptionKey = option.description_key ?? (baseKey ? `${baseKey}.description` : undefined);
+
   return {
     ...option,
-    label: resolve(option.label_key, option.label),
-    description: resolve(option.description_key, option.description),
+    label: resolve(labelKey, option.label),
+    description: resolve(descriptionKey, option.description),
   };
 }
 

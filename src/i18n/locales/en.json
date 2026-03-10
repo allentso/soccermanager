@@ -604,6 +604,25 @@
     "unread": "Unread ({{count}})",
     "urgent": "Urgent",
     "important": "Important",
+    "chooseResponse": "Choose your response",
+    "responded": "Response sent",
+    "markAllRead": "Mark all read",
+    "clearOld": "Clear old",
+    "sortLabel": "Sort",
+    "sortByDate": "Sort messages by date",
+    "sortNewest": "Newest first",
+    "sortOldest": "Oldest first",
+    "selectMessages": "Select messages",
+    "cancelSelection": "Cancel selection",
+    "selectedCount": "{{count}} selected",
+    "deleteSelected": "Delete selected",
+    "deleteMessage": "Delete message",
+    "deleteMessageTitle": "Delete message?",
+    "deleteMessageBody": "This will permanently delete \"{{subject}}\". This action cannot be undone.",
+    "deleteSelectedTitle": "Delete selected messages?",
+    "deleteSelectedBody": "This will permanently delete {{count}} selected message(s). This action cannot be undone.",
+    "deleteAction": "Delete",
+    "selectMessageForDeletion": "Select {{subject}}",
     "categories": {
       "Welcome": "Welcome",
       "LeagueInfo": "League",
@@ -1184,6 +1203,50 @@
               "description": "Honest but brutal. Morale will tank."
             }
           }
+        },
+        "effects": {
+          "moraleCrisis": {
+            "encourage": {
+              "positive": "Player feels a bit better. Morale {{delta}}",
+              "negative": "Player doesn't buy it. Morale {{delta}}"
+            },
+            "promiseTime": "Player is reassured by the promise. Morale {{delta}}. They'll expect to start soon.",
+            "workHarder": {
+              "positive": "Player accepts the challenge. Morale {{delta}}",
+              "negative": "Player is offended by the tough love. Morale {{delta}}"
+            }
+          },
+          "benchComplaint": {
+            "explain": {
+              "positive": "Player grudgingly accepts. Morale {{delta}}",
+              "negative": "Player isn't convinced. Morale {{delta}}"
+            },
+            "promiseChance": "Player is excited about the opportunity. Morale {{delta}}. They expect to start next match.",
+            "proveYourself": {
+              "positive": "Player is fired up to prove their worth. Morale {{delta}}",
+              "negative": "Player feels dismissed and insulted. Morale {{delta}}"
+            }
+          },
+          "happyPlayer": {
+            "praiseBack": "Player beams at the praise. Morale {{delta}}",
+            "stayProfessional": {
+              "positive": "Player nods professionally. Morale {{delta}}",
+              "negative": "Player wanted more warmth. Morale {{delta}}"
+            },
+            "higherExpectations": {
+              "positive": "Player rises to the challenge. Morale {{delta}}",
+              "negative": "Player feels the pressure is unfair. Morale {{delta}}"
+            }
+          },
+          "contractConcern": {
+            "reassure": "Player is reassured about their future. Morale {{delta}}",
+            "noncommittal": {
+              "positive": "Player grudgingly accepts for now. Morale {{delta}}",
+              "negative": "Player is unsettled and unhappy. Morale {{delta}}"
+            },
+            "noRenewal": "Player is devastated. Morale {{delta}}. They may affect the dressing room.",
+            "noRenewalWithDressingRoom": "Player is devastated. Morale {{delta}}. They may affect the dressing room. The dressing room mood dips — {{affected}} teammates lose morale."
+          }
         }
       },
       "sponsor": {
@@ -1230,7 +1293,21 @@
         "subject2": "Fan Open Letter — Transparency",
         "body0": "A group of {{team}} supporters has organized a petition calling for more attacking football.\n\n\"We pay good money to watch exciting football. We want to see the team go forward and entertain us!\"\n\nOver 500 signatures so far. How do you respond?",
         "body1": "Supporters of {{team}} have started a campaign urging you to give more opportunities to young players from the academy.\n\n\"The future of our club depends on developing homegrown talent. Stop overlooking the kids!\"\n\nIt's getting traction on social media. What's your response?",
-        "body2": "An open letter from the {{team}} Supporters Trust has been published, asking for more transparency from the management.\n\n\"We want to understand the club's vision. Where are we heading? What's the long-term plan?\"\n\nThe local press is covering it. How do you handle this?"
+        "body2": "An open letter from the {{team}} Supporters Trust has been published, asking for more transparency from the management.\n\n\"We want to understand the club's vision. Where are we heading? What's the long-term plan?\"\n\nThe local press is covering it. How do you handle this?",
+        "options": {
+          "listenFans": {
+            "label": "Engage with the fans",
+            "description": "Meet with fan representatives and listen to their concerns. Good for morale."
+          },
+          "ignoreFans": {
+            "label": "Focus on football",
+            "description": "Politely decline — football decisions stay in the dressing room."
+          },
+          "addressPublicly": {
+            "label": "Make a public statement",
+            "description": "Address the petition in a press conference. Transparent and proactive."
+          }
+        }
       },
       "rivalInterest": {
         "subject": "Transfer Rumour — {{player}} linked with {{rival}}",

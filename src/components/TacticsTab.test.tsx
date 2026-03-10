@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 import type { GameStateData, PlayerData, TeamData } from "../store/gameStore";
@@ -289,6 +295,72 @@ describe("TacticsTab", () => {
         ],
       });
     });
+  });
+
+  it("does not render drag handles in the lineup tables", () => {
+    render(
+      <TacticsTab
+        gameState={makeGameState()}
+        onSelectPlayer={vi.fn()}
+        onGameUpdate={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.queryByTestId("bench-player-drag-handle-d5"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId("xi-player-drag-handle-d1"),
+    ).not.toBeInTheDocument();
+    expect(screen.getByTestId("pitch-bench-player-d5")).toHaveAttribute(
+      "draggable",
+      "true",
+    );
+  });
+
+  it("shows a bench player's natural position on the pitch bench cards when it differs from position", () => {
+    const gameState = makeGameState();
+    gameState.players = gameState.players.map((player) =>
+      player.id === "d5"
+        ? {
+            ...player,
+            position: "Midfielder",
+            natural_position: "Defender",
+          }
+        : player,
+    );
+
+    render(
+      <TacticsTab
+        gameState={gameState}
+        onSelectPlayer={vi.fn()}
+        onGameUpdate={vi.fn()}
+      />,
+    );
+
+    const benchCard = screen.getByTestId("pitch-bench-player-d5");
+
+    expect(
+      within(benchCard).getByText("common.posAbbr.Defender"),
+    ).toBeInTheDocument();
+    expect(
+      within(benchCard).queryByText("common.posAbbr.Midfielder"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("localizes the selected player position in the comparison panel", () => {
+    render(
+      <TacticsTab
+        gameState={makeGameState()}
+        onSelectPlayer={vi.fn()}
+        onGameUpdate={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId("pitch-player-f1"));
+
+    expect(screen.getByText("common.positions.Forward")).toBeInTheDocument();
+    expect(screen.queryByText("Forward")).not.toBeInTheDocument();
   });
 
   it("allows selecting a bench player from the pitch view and swapping them with a starter", async () => {

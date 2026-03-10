@@ -1,6 +1,13 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { invoke } from "@tauri-apps/api/core";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import i18n from "../i18n";
 
 import type {
   GameStateData,
@@ -47,6 +54,16 @@ beforeAll(function defineMatchMedia(): void {
       dispatchEvent: vi.fn(),
     })),
   });
+
+  i18n.addResourceBundle(
+    "en",
+    "translation",
+    {
+      "test.effectFeedback": "Resolved morale {{delta}}",
+    },
+    true,
+    true,
+  );
 });
 
 beforeEach(function resetMocks(): void {
@@ -165,6 +182,114 @@ describe("InboxTab", function (): void {
     expect(onGameUpdate).toHaveBeenCalledWith(updatedGameState);
   });
 
+  it("sorts messages by date when the sort order changes", function (): void {
+    renderInboxTab({
+      gameState: createGameState([
+        createMessage({
+          id: "m1",
+          subject: "Newest Message",
+          date: "2025-01-03",
+          read: true,
+        }),
+        createMessage({
+          id: "m2",
+          subject: "Oldest Message",
+          date: "2025-01-01",
+          read: true,
+        }),
+        createMessage({
+          id: "m3",
+          subject: "Middle Message",
+          date: "2025-01-02",
+          read: true,
+        }),
+      ]),
+    });
+
+    let rows = screen.getAllByTestId(/inbox-row-/);
+    expect(within(rows[0]).getByText("Newest Message")).toBeInTheDocument();
+    expect(within(rows[1]).getByText("Middle Message")).toBeInTheDocument();
+    expect(within(rows[2]).getByText("Oldest Message")).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("combobox", { name: "Sort messages by date" }),
+    );
+    fireEvent.click(screen.getByRole("option", { name: "Oldest first" }));
+
+    rows = screen.getAllByTestId(/inbox-row-/);
+    expect(within(rows[0]).getByText("Oldest Message")).toBeInTheDocument();
+    expect(within(rows[1]).getByText("Middle Message")).toBeInTheDocument();
+    expect(within(rows[2]).getByText("Newest Message")).toBeInTheDocument();
+  });
+
+  it("confirms before deleting a single message", async function (): Promise<void> {
+    const onGameUpdate = vi.fn();
+    const updatedGameState = createGameState([]);
+
+    mockedInvoke.mockResolvedValue(updatedGameState);
+
+    renderInboxTab({
+      gameState: createGameState([createMessage({ id: "m1", read: true })]),
+      initialMessageId: "m1",
+      onGameUpdate,
+    });
+
+    fireEvent.click(screen.getByTestId("inbox-delete-message"));
+
+    expect(
+      screen.getByTestId("inbox-delete-confirm-modal"),
+    ).toBeInTheDocument();
+    expect(mockedInvoke).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByTestId("inbox-confirm-delete"));
+
+    await waitFor(function (): void {
+      expect(mockedInvoke).toHaveBeenCalledWith("delete_message", {
+        messageId: "m1",
+      });
+    });
+
+    expect(onGameUpdate).toHaveBeenCalledWith(updatedGameState);
+  });
+
+  it("confirms before deleting selected messages in bulk", async function (): Promise<void> {
+    const onGameUpdate = vi.fn();
+    const updatedGameState = createGameState([
+      createMessage({ id: "m3", subject: "Keep Me", read: true }),
+    ]);
+
+    mockedInvoke.mockResolvedValue(updatedGameState);
+
+    renderInboxTab({
+      gameState: createGameState([
+        createMessage({ id: "m1", subject: "Delete Me 1", read: true }),
+        createMessage({ id: "m2", subject: "Delete Me 2", read: true }),
+        createMessage({ id: "m3", subject: "Keep Me", read: true }),
+      ]),
+      onGameUpdate,
+    });
+
+    fireEvent.click(screen.getByTestId("inbox-toggle-selection-mode"));
+    fireEvent.click(screen.getByTestId("inbox-select-message-m1"));
+    fireEvent.click(screen.getByTestId("inbox-select-message-m2"));
+    fireEvent.click(screen.getByTestId("inbox-delete-selected"));
+
+    expect(
+      screen.getByTestId("inbox-delete-confirm-modal"),
+    ).toBeInTheDocument();
+    expect(mockedInvoke).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByTestId("inbox-confirm-delete"));
+
+    await waitFor(function (): void {
+      expect(mockedInvoke).toHaveBeenCalledWith("delete_messages", {
+        messageIds: ["m1", "m2"],
+      });
+    });
+
+    expect(onGameUpdate).toHaveBeenCalledWith(updatedGameState);
+  });
+
   it("navigates to a team route without resolving the message action", async function (): Promise<void> {
     const onNavigate = vi.fn();
     const action: MessageAction = {
@@ -226,6 +351,52 @@ describe("InboxTab", function (): void {
         actionId: "action-1",
         optionId: null,
       });
+    });
+
+    expect(onGameUpdate).toHaveBeenCalledWith(resolvedGameState);
+  });
+
+  it("renders localized effect feedback when the backend returns an effect key", async function (): Promise<void> {
+    const onGameUpdate = vi.fn();
+    const action: MessageAction = {
+      id: "respond",
+      label: "Respond",
+      action_type: {
+        ChooseOption: {
+          options: [
+            {
+              id: "praise_back",
+              label: "Return the praise",
+              description: "Tell them how much you value their contribution.",
+            },
+          ],
+        },
+      },
+      resolved: false,
+    };
+    const resolvedGameState = createGameState([
+      createMessage({ id: "happy_player_p1", read: true, actions: [action] }),
+    ]);
+
+    mockedInvoke.mockResolvedValue({
+      game: resolvedGameState,
+      effect: "Player beams at the praise. Morale +3",
+      effect_i18n_key: "test.effectFeedback",
+      effect_i18n_params: { delta: "+3" },
+    });
+
+    renderInboxTab({
+      gameState: createGameState([
+        createMessage({ id: "happy_player_p1", read: true, actions: [action] }),
+      ]),
+      initialMessageId: "happy_player_p1",
+      onGameUpdate,
+    });
+
+    fireEvent.click(screen.getByText("Return the praise"));
+
+    await waitFor(function (): void {
+      expect(screen.getByText("Resolved morale +3")).toBeInTheDocument();
     });
 
     expect(onGameUpdate).toHaveBeenCalledWith(resolvedGameState);
