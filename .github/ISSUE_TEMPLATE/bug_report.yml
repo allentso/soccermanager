@@ -1,5 +1,5 @@
-name: "\U0001F41B Bug Report"
-description: "Report a bug or crash / Reportar un bug / Signaler un bug / Einen Bug melden / Reportar um bug"
+name: "\U0001F41B Bug Report (English)"
+description: "Report a bug or crash in English"
 labels: ["bug", "alpha"]
 body:
   - type: markdown
@@ -7,19 +7,13 @@ body:
       value: |
         ## Bug Report
         Thank you for reporting a bug! Please fill in as much detail as you can.
-        You can write in your own language — English, Spanish, French, German, Portuguese, or Brazilian Portuguese are all welcome.
-
-        ---
-        Obrigado por reportar um bug! Pode escrever no seu idioma.
-        ¡Gracias por reportar un bug! Puedes escribir en tu idioma.
-        Merci de signaler un bug ! Vous pouvez écrire dans votre langue.
-        Danke für das Melden eines Bugs! Du kannst in deiner Sprache schreiben.
+        Please write in English in this template.
 
   - type: textarea
     id: what-happened
     attributes:
-      label: "What happened? / ¿Qué pasó? / Que s'est-il passé ? / Was ist passiert? / O que aconteceu?"
-      description: "Describe the bug clearly. / Describe el bug. / Décris le bug. / Beschreibe den Bug. / Descreva o bug."
+      label: "What happened?"
+      description: "Describe the bug clearly."
       placeholder: "The game crashed when I tried to..."
     validations:
       required: true
@@ -27,7 +21,7 @@ body:
   - type: textarea
     id: expected-behavior
     attributes:
-      label: "What did you expect? / ¿Qué esperabas? / Qu'attendiez-vous ? / Was hast du erwartet? / O que esperava?"
+      label: "What did you expect?"
       description: "What should have happened instead?"
       placeholder: "I expected the match to start normally..."
     validations:
@@ -36,7 +30,7 @@ body:
   - type: textarea
     id: steps-to-reproduce
     attributes:
-      label: "Steps to reproduce / Pasos para reproducir / Étapes pour reproduire / Schritte zum Reproduzieren / Passos para reproduzir"
+      label: "Steps to reproduce"
       description: "How can we reproduce this bug?"
       placeholder: |
         1. Start a new game
@@ -50,18 +44,18 @@ body:
   - type: dropdown
     id: frequency
     attributes:
-      label: "How often does it happen? / ¿Con qué frecuencia? / À quelle fréquence ? / Wie oft? / Com que frequência?"
+      label: "How often does it happen?"
       options:
-        - Every time / Siempre / À chaque fois / Jedes Mal / Sempre
-        - Sometimes / A veces / Parfois / Manchmal / Às vezes
-        - Only happened once / Solo una vez / Une seule fois / Nur einmal / Só aconteceu uma vez
+        - Every time
+        - Sometimes
+        - Only happened once
     validations:
       required: true
 
   - type: textarea
     id: game-context
     attributes:
-      label: "Game context / Contexto del juego / Contexte de jeu / Spielkontext / Contexto do jogo"
+      label: "Game context"
       description: "What day/matchday were you on? What were you doing? Had you just loaded a save?"
       placeholder: "I was on matchday 5, just after a match..."
     validations:

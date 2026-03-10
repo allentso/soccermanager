@@ -122,9 +122,9 @@ Exemplos:
 
 A forma mais fácil de enviar feedback é pelos nossos **templates de issue no GitHub**. Basta escolheres o certo e preencheres — **podes escrever no teu idioma!**
 
-- [**Relatório de Bug**](https://github.com/openfootmanager/openfootmanager/issues/new?template=bug_report.yml) — Algo crashou, partiu-se ou comportou-se incorretamente
-- [**Feedback / Sugestão**](https://github.com/openfootmanager/openfootmanager/issues/new?template=feedback.yml) — Problemas de usabilidade, equilíbrio ou ideias
-- [**Relatório de Sessão**](https://github.com/openfootmanager/openfootmanager/issues/new?template=session_report.yml) — Um resumo da tua sessão de jogo (super valioso!)
+- [**Relatório de Bug**](https://github.com/openfootmanager/openfootmanager/issues/new?template=bug_report_pt.yml) — Algo crashou, partiu-se ou comportou-se incorretamente
+- [**Feedback / Sugestão**](https://github.com/openfootmanager/openfootmanager/issues/new?template=feedback_pt.yml) — Problemas de usabilidade, equilíbrio ou ideias
+- [**Relatório de Sessão**](https://github.com/openfootmanager/openfootmanager/issues/new?template=session_report_pt.yml) — Um resumo da tua sessão de jogo (super valioso!)
 
 ### Ficheiros de log
 
@@ -166,4 +166,4 @@ Obrigado por fazeres parte disto. Vamos construir algo fantástico juntos.
 
 ---
 
-*Versão alpha 0.1.0*
+*Versão alpha 0.1.1*
