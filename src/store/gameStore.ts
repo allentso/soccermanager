@@ -13,6 +13,7 @@ export type {
   TransferOfferData,
   StaffData,
   MessageAction,
+  MessageActionOption,
   MessageContext,
   ScoutReportData,
   MessageData,

@@ -1,5 +1,6 @@
 import i18n from '../i18n';
 import type {
+  MessageActionOption,
   MessageData,
   MessageAction,
   NewsArticle,
@@ -67,9 +68,29 @@ export function resolveMessage(msg: MessageData): MessageData {
  * Resolve the label on a message action.
  */
 export function resolveAction(action: MessageAction): MessageAction {
+  if (typeof action.action_type === 'object' && 'ChooseOption' in action.action_type) {
+    return {
+      ...action,
+      label: resolve(action.label_key, action.label),
+      action_type: {
+        ChooseOption: {
+          options: action.action_type.ChooseOption.options.map(resolveActionOption),
+        },
+      },
+    };
+  }
+
   return {
     ...action,
     label: resolve(action.label_key, action.label),
+  };
+}
+
+function resolveActionOption(option: MessageActionOption): MessageActionOption {
+  return {
+    ...option,
+    label: resolve(option.label_key, option.label),
+    description: resolve(option.description_key, option.description),
   };
 }
 

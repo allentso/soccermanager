@@ -20,6 +20,22 @@ fn action(id: &str, label: &str, label_key: &str, action_type: ActionType) -> Me
     }
 }
 
+fn option(
+    id: &str,
+    label: &str,
+    label_key: &str,
+    description: &str,
+    description_key: &str,
+) -> ActionOption {
+    ActionOption {
+        id: id.to_string(),
+        label: label.to_string(),
+        description: description.to_string(),
+        label_key: Some(label_key.to_string()),
+        description_key: Some(description_key.to_string()),
+    }
+}
+
 pub(crate) fn low_morale_message(
     msg_id: &str,
     player_id: &str,
@@ -58,21 +74,27 @@ pub(crate) fn low_morale_message(
         "be.msg.playerEvent.respond",
         ActionType::ChooseOption {
             options: vec![
-                ActionOption {
-                    id: "encourage".to_string(),
-                    label: "Encourage them".to_string(),
-                    description: "Show empathy and encourage the player to keep working hard.".to_string(),
-                },
-                ActionOption {
-                    id: "promise_time".to_string(),
-                    label: "Promise more playing time".to_string(),
-                    description: "Tell them they'll get their chance — bigger morale boost but sets expectations.".to_string(),
-                },
-                ActionOption {
-                    id: "work_harder".to_string(),
-                    label: "Tell them to work harder".to_string(),
-                    description: "Tough love approach — could backfire or motivate them.".to_string(),
-                },
+                option(
+                    "encourage",
+                    "Encourage them",
+                    "be.msg.playerEvent.options.moraleCrisis.encourage.label",
+                    "Show empathy and encourage the player to keep working hard.",
+                    "be.msg.playerEvent.options.moraleCrisis.encourage.description",
+                ),
+                option(
+                    "promise_time",
+                    "Promise more playing time",
+                    "be.msg.playerEvent.options.moraleCrisis.promiseTime.label",
+                    "Tell them they'll get their chance — bigger morale boost but sets expectations.",
+                    "be.msg.playerEvent.options.moraleCrisis.promiseTime.description",
+                ),
+                option(
+                    "work_harder",
+                    "Tell them to work harder",
+                    "be.msg.playerEvent.options.moraleCrisis.workHarder.label",
+                    "Tough love approach — could backfire or motivate them.",
+                    "be.msg.playerEvent.options.moraleCrisis.workHarder.description",
+                ),
             ],
         },
     ))
@@ -125,26 +147,27 @@ pub(crate) fn bench_complaint_message(
         "be.msg.playerEvent.respond",
         ActionType::ChooseOption {
             options: vec![
-                ActionOption {
-                    id: "explain".to_string(),
-                    label: "Explain the situation".to_string(),
-                    description:
-                        "Calmly explain squad competition and rotation. Steady morale boost."
-                            .to_string(),
-                },
-                ActionOption {
-                    id: "promise_chance".to_string(),
-                    label: "Promise them a chance soon".to_string(),
-                    description: "They'll be happier but will expect to start in upcoming matches."
-                        .to_string(),
-                },
-                ActionOption {
-                    id: "prove_yourself".to_string(),
-                    label: "Tell them to prove themselves".to_string(),
-                    description:
-                        "Challenge them to earn their place. Risky — could motivate or frustrate."
-                            .to_string(),
-                },
+                option(
+                    "explain",
+                    "Explain the situation",
+                    "be.msg.playerEvent.options.benchComplaint.explain.label",
+                    "Calmly explain squad competition and rotation. Steady morale boost.",
+                    "be.msg.playerEvent.options.benchComplaint.explain.description",
+                ),
+                option(
+                    "promise_chance",
+                    "Promise them a chance soon",
+                    "be.msg.playerEvent.options.benchComplaint.promiseChance.label",
+                    "They'll be happier but will expect to start in upcoming matches.",
+                    "be.msg.playerEvent.options.benchComplaint.promiseChance.description",
+                ),
+                option(
+                    "prove_yourself",
+                    "Tell them to prove themselves",
+                    "be.msg.playerEvent.options.benchComplaint.proveYourself.label",
+                    "Challenge them to earn their place. Risky — could motivate or frustrate.",
+                    "be.msg.playerEvent.options.benchComplaint.proveYourself.description",
+                ),
             ],
         },
     ))
@@ -197,23 +220,27 @@ pub(crate) fn happy_player_message(
         "be.msg.playerEvent.respond",
         ActionType::ChooseOption {
             options: vec![
-                ActionOption {
-                    id: "praise_back".to_string(),
-                    label: "Return the praise".to_string(),
-                    description: "Tell them how much you value their contribution.".to_string(),
-                },
-                ActionOption {
-                    id: "stay_professional".to_string(),
-                    label: "Stay professional".to_string(),
-                    description: "Acknowledge their form but keep things measured.".to_string(),
-                },
-                ActionOption {
-                    id: "higher_expectations".to_string(),
-                    label: "Set higher expectations".to_string(),
-                    description:
-                        "Challenge them to reach an even higher level. Could push or pressure."
-                            .to_string(),
-                },
+                option(
+                    "praise_back",
+                    "Return the praise",
+                    "be.msg.playerEvent.options.happyPlayer.praiseBack.label",
+                    "Tell them how much you value their contribution.",
+                    "be.msg.playerEvent.options.happyPlayer.praiseBack.description",
+                ),
+                option(
+                    "stay_professional",
+                    "Stay professional",
+                    "be.msg.playerEvent.options.happyPlayer.stayProfessional.label",
+                    "Acknowledge their form but keep things measured.",
+                    "be.msg.playerEvent.options.happyPlayer.stayProfessional.description",
+                ),
+                option(
+                    "higher_expectations",
+                    "Set higher expectations",
+                    "be.msg.playerEvent.options.happyPlayer.higherExpectations.label",
+                    "Challenge them to reach an even higher level. Could push or pressure.",
+                    "be.msg.playerEvent.options.happyPlayer.higherExpectations.description",
+                ),
             ],
         },
     ))
@@ -268,21 +295,27 @@ pub(crate) fn contract_concern_message(
         "be.msg.playerEvent.respond",
         ActionType::ChooseOption {
             options: vec![
-                ActionOption {
-                    id: "reassure".to_string(),
-                    label: "Reassure them about renewal".to_string(),
-                    description: "Tell them you want them to stay. Big morale boost.".to_string(),
-                },
-                ActionOption {
-                    id: "noncommittal".to_string(),
-                    label: "Be noncommittal".to_string(),
-                    description: "Keep your options open. Player may become unsettled.".to_string(),
-                },
-                ActionOption {
-                    id: "no_renewal".to_string(),
-                    label: "Tell them you won't renew".to_string(),
-                    description: "Honest but brutal. Morale will tank.".to_string(),
-                },
+                option(
+                    "reassure",
+                    "Reassure them about renewal",
+                    "be.msg.playerEvent.options.contractConcern.reassure.label",
+                    "Tell them you want them to stay. Big morale boost.",
+                    "be.msg.playerEvent.options.contractConcern.reassure.description",
+                ),
+                option(
+                    "noncommittal",
+                    "Be noncommittal",
+                    "be.msg.playerEvent.options.contractConcern.noncommittal.label",
+                    "Keep your options open. Player may become unsettled.",
+                    "be.msg.playerEvent.options.contractConcern.noncommittal.description",
+                ),
+                option(
+                    "no_renewal",
+                    "Tell them you won't renew",
+                    "be.msg.playerEvent.options.contractConcern.noRenewal.label",
+                    "Honest but brutal. Morale will tank.",
+                    "be.msg.playerEvent.options.contractConcern.noRenewal.description",
+                ),
             ],
         },
     ))

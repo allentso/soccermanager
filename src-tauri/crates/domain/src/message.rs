@@ -51,6 +51,10 @@ pub struct ActionOption {
     pub id: String,
     pub label: String,
     pub description: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub label_key: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description_key: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

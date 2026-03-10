@@ -1126,7 +1126,65 @@
         "respond": "Respond"
       },
       "playerEvent": {
-        "respond": "Respond"
+        "respond": "Répondre",
+        "options": {
+          "moraleCrisis": {
+            "encourage": {
+              "label": "L'encourager",
+              "description": "Montrez de l'empathie et encouragez le joueur à continuer de travailler dur."
+            },
+            "promiseTime": {
+              "label": "Promettre plus de temps de jeu",
+              "description": "Dites-lui qu'il aura sa chance — gros boost de moral, mais cela crée des attentes."
+            },
+            "workHarder": {
+              "label": "Lui dire de travailler plus dur",
+              "description": "Approche plus dure — peut se retourner contre vous ou le motiver."
+            }
+          },
+          "benchComplaint": {
+            "explain": {
+              "label": "Expliquer la situation",
+              "description": "Expliquez calmement la concurrence et la rotation dans l'effectif. Bonus de moral modéré."
+            },
+            "promiseChance": {
+              "label": "Lui promettre une chance bientôt",
+              "description": "Il sera plus heureux, mais s'attendra à débuter dans les prochains matchs."
+            },
+            "proveYourself": {
+              "label": "Lui dire de faire ses preuves",
+              "description": "Mettez-le au défi de mériter sa place. Risqué — cela peut le motiver ou le frustrer."
+            }
+          },
+          "happyPlayer": {
+            "praiseBack": {
+              "label": "Rendre le compliment",
+              "description": "Dites-lui à quel point vous appréciez sa contribution."
+            },
+            "stayProfessional": {
+              "label": "Rester professionnel",
+              "description": "Reconnaissez sa forme, mais gardez un ton mesuré."
+            },
+            "higherExpectations": {
+              "label": "Fixer des attentes plus élevées",
+              "description": "Poussez-le à viser un niveau encore supérieur. Cela peut le stimuler ou lui mettre la pression."
+            }
+          },
+          "contractConcern": {
+            "reassure": {
+              "label": "Le rassurer sur une prolongation",
+              "description": "Dites-lui que vous voulez le garder. Gros boost de moral."
+            },
+            "noncommittal": {
+              "label": "Rester évasif",
+              "description": "Gardez vos options ouvertes. Le joueur pourrait devenir inquiet."
+            },
+            "noRenewal": {
+              "label": "Lui dire que vous ne prolongerez pas",
+              "description": "Honnête, mais brutal. Sa morale va chuter."
+            }
+          }
+        }
       },
       "sponsor": {
         "subject": "Sponsorship Offer — {{sponsor}}",

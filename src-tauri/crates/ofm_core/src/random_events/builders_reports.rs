@@ -112,17 +112,23 @@ pub(super) fn board_confidence_message(msg_id: &str, date: &str) -> InboxMessage
                     description:
                         "Present a clear strategy for turning things around. Buys you time."
                             .to_string(),
+                    label_key: None,
+                    description_key: None,
                 },
                 ActionOption {
                     id: "accept_pressure".to_string(),
                     label: "Accept responsibility".to_string(),
                     description: "Own the poor results. The board respects honesty.".to_string(),
+                    label_key: None,
+                    description_key: None,
                 },
                 ActionOption {
                     id: "blame_circumstances".to_string(),
                     label: "Point to injuries and bad luck".to_string(),
                     description: "Deflect blame to external factors. May or may not convince them."
                         .to_string(),
+                    label_key: None,
+                    description_key: None,
                 },
             ],
         },
@@ -187,16 +193,22 @@ pub(super) fn fan_petition_message(msg_id: &str, team_name: &str, date: &str) ->
                     id: "listen_fans".to_string(),
                     label: "Engage with the fans".to_string(),
                     description: "Meet with fan representatives and listen to their concerns. Good for morale.".to_string(),
+                    label_key: None,
+                    description_key: None,
                 },
                 ActionOption {
                     id: "ignore_fans".to_string(),
                     label: "Focus on football".to_string(),
                     description: "Politely decline — football decisions stay in the dressing room.".to_string(),
+                    label_key: None,
+                    description_key: None,
                 },
                 ActionOption {
                     id: "address_publicly".to_string(),
                     label: "Make a public statement".to_string(),
                     description: "Address the petition in a press conference. Transparent and proactive.".to_string(),
+                    label_key: None,
+                    description_key: None,
                 },
             ],
         },
@@ -259,17 +271,23 @@ pub(super) fn rival_interest_message(
                     label: "Not for sale".to_string(),
                     description: "Make it clear the player is going nowhere. Boosts their morale."
                         .to_string(),
+                    label_key: None,
+                    description_key: None,
                 },
                 ActionOption {
                     id: "open_to_offers".to_string(),
                     label: "Open to offers".to_string(),
                     description: "Signal willingness to negotiate. Player may become unsettled."
                         .to_string(),
+                    label_key: None,
+                    description_key: None,
                 },
                 ActionOption {
                     id: "no_comment".to_string(),
                     label: "No comment".to_string(),
                     description: "Stay quiet and let things play out. Neutral stance.".to_string(),
+                    label_key: None,
+                    description_key: None,
                 },
             ],
         },

@@ -411,7 +411,7 @@ export default function Settings() {
                 OpenFoot Manager
               </p>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                v0.1.0-alpha
+                v0.1.1-alpha
               </p>
             </div>
             <span className="text-[10px] font-heading uppercase tracking-widest text-gray-400 dark:text-gray-600">

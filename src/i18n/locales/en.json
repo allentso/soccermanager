@@ -1126,7 +1126,65 @@
         "respond": "Respond"
       },
       "playerEvent": {
-        "respond": "Respond"
+        "respond": "Respond",
+        "options": {
+          "moraleCrisis": {
+            "encourage": {
+              "label": "Encourage them",
+              "description": "Show empathy and encourage the player to keep working hard."
+            },
+            "promiseTime": {
+              "label": "Promise more playing time",
+              "description": "Tell them they'll get their chance — bigger morale boost but sets expectations."
+            },
+            "workHarder": {
+              "label": "Tell them to work harder",
+              "description": "Tough love approach — could backfire or motivate them."
+            }
+          },
+          "benchComplaint": {
+            "explain": {
+              "label": "Explain the situation",
+              "description": "Calmly explain squad competition and rotation. Steady morale boost."
+            },
+            "promiseChance": {
+              "label": "Promise them a chance soon",
+              "description": "They'll be happier but will expect to start in upcoming matches."
+            },
+            "proveYourself": {
+              "label": "Tell them to prove themselves",
+              "description": "Challenge them to earn their place. Risky — could motivate or frustrate."
+            }
+          },
+          "happyPlayer": {
+            "praiseBack": {
+              "label": "Return the praise",
+              "description": "Tell them how much you value their contribution."
+            },
+            "stayProfessional": {
+              "label": "Stay professional",
+              "description": "Acknowledge their form but keep things measured."
+            },
+            "higherExpectations": {
+              "label": "Set higher expectations",
+              "description": "Challenge them to reach an even higher level. Could push or pressure."
+            }
+          },
+          "contractConcern": {
+            "reassure": {
+              "label": "Reassure them about renewal",
+              "description": "Tell them you want them to stay. Big morale boost."
+            },
+            "noncommittal": {
+              "label": "Be noncommittal",
+              "description": "Keep your options open. Player may become unsettled."
+            },
+            "noRenewal": {
+              "label": "Tell them you won't renew",
+              "description": "Honest but brutal. Morale will tank."
+            }
+          }
+        }
       },
       "sponsor": {
         "subject": "Sponsorship Offer — {{sponsor}}",

@@ -1126,7 +1126,65 @@
         "respond": "Respond"
       },
       "playerEvent": {
-        "respond": "Respond"
+        "respond": "Responder",
+        "options": {
+          "moraleCrisis": {
+            "encourage": {
+              "label": "Animarlo",
+              "description": "Muestra empatía y anima al jugador a seguir trabajando duro."
+            },
+            "promiseTime": {
+              "label": "Prometer más tiempo de juego",
+              "description": "Dile que tendrá su oportunidad: gran impulso moral, pero genera expectativas."
+            },
+            "workHarder": {
+              "label": "Decirle que trabaje más duro",
+              "description": "Enfoque de mano dura: puede salir mal o motivarlo."
+            }
+          },
+          "benchComplaint": {
+            "explain": {
+              "label": "Explicar la situación",
+              "description": "Explica con calma la competencia y la rotación del plantel. Aumento estable de moral."
+            },
+            "promiseChance": {
+              "label": "Prometerle una oportunidad pronto",
+              "description": "Estará más contento, pero esperará ser titular en los próximos partidos."
+            },
+            "proveYourself": {
+              "label": "Decirle que se lo gane",
+              "description": "Desafíalo a ganarse su lugar. Arriesgado: puede motivarlo o frustrarlo."
+            }
+          },
+          "happyPlayer": {
+            "praiseBack": {
+              "label": "Devolver el elogio",
+              "description": "Dile cuánto valoras su contribución."
+            },
+            "stayProfessional": {
+              "label": "Mantenerse profesional",
+              "description": "Reconoce su forma, pero mantén la compostura."
+            },
+            "higherExpectations": {
+              "label": "Subir las expectativas",
+              "description": "Desafíalo a alcanzar un nivel aún más alto. Puede impulsarlo o presionarlo."
+            }
+          },
+          "contractConcern": {
+            "reassure": {
+              "label": "Tranquilizarlo sobre la renovación",
+              "description": "Dile que quieres que se quede. Gran impulso de moral."
+            },
+            "noncommittal": {
+              "label": "Ser ambiguo",
+              "description": "Mantén abiertas tus opciones. El jugador puede inquietarse."
+            },
+            "noRenewal": {
+              "label": "Decirle que no renovarás",
+              "description": "Honesto, pero duro. La moral caerá en picado."
+            }
+          }
+        }
       },
       "sponsor": {
         "subject": "Sponsorship Offer — {{sponsor}}",

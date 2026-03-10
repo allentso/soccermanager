@@ -130,6 +130,8 @@ fn inject_player_message(game: &mut Game, msg_id: &str, player_id: &str, action_
                 id: "test".to_string(),
                 label: "Test".to_string(),
                 description: "Test option".to_string(),
+                label_key: None,
+                description_key: None,
             }],
         },
         resolved: false,

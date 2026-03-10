@@ -1126,7 +1126,65 @@
         "respond": "Responder"
       },
       "playerEvent": {
-        "respond": "Responder"
+        "respond": "Responder",
+        "options": {
+          "moraleCrisis": {
+            "encourage": {
+              "label": "Incentivá-lo",
+              "description": "Mostre empatia e incentive o jogador a continuar trabalhando duro."
+            },
+            "promiseTime": {
+              "label": "Prometer mais tempo de jogo",
+              "description": "Diga que ele terá sua chance — grande aumento de moral, mas cria expectativas."
+            },
+            "workHarder": {
+              "label": "Dizer para trabalhar mais duro",
+              "description": "Abordagem mais dura — pode dar errado ou motivá-lo."
+            }
+          },
+          "benchComplaint": {
+            "explain": {
+              "label": "Explicar a situação",
+              "description": "Explique com calma a concorrência e o rodízio do elenco. Aumento estável de moral."
+            },
+            "promiseChance": {
+              "label": "Prometer uma chance em breve",
+              "description": "Ele ficará mais contente, mas vai esperar ser titular nos próximos jogos."
+            },
+            "proveYourself": {
+              "label": "Dizer para provar seu valor",
+              "description": "Desafie-o a conquistar seu lugar. Arriscado — pode motivá-lo ou frustrá-lo."
+            }
+          },
+          "happyPlayer": {
+            "praiseBack": {
+              "label": "Retribuir o elogio",
+              "description": "Diga o quanto você valoriza a contribuição dele."
+            },
+            "stayProfessional": {
+              "label": "Manter-se profissional",
+              "description": "Reconheça a boa fase, mas mantenha tudo sob controle."
+            },
+            "higherExpectations": {
+              "label": "Elevar as expectativas",
+              "description": "Desafie-o a alcançar um nível ainda mais alto. Pode impulsioná-lo ou pressioná-lo."
+            }
+          },
+          "contractConcern": {
+            "reassure": {
+              "label": "Tranquilizá-lo sobre a renovação",
+              "description": "Diga que você quer que ele fique. Grande aumento de moral."
+            },
+            "noncommittal": {
+              "label": "Ser evasivo",
+              "description": "Mantenha suas opções em aberto. O jogador pode ficar inquieto."
+            },
+            "noRenewal": {
+              "label": "Dizer que não vai renovar",
+              "description": "Honesto, mas brutal. A moral vai despencar."
+            }
+          }
+        }
       },
       "sponsor": {
         "subject": "Oferta de Patrocínio — {{sponsor}}",

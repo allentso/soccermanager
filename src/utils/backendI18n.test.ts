@@ -26,6 +26,8 @@ beforeAll(async () => {
     "test.sender": "The Board",
     "test.senderRole": "Board of Directors",
     "test.actionLabel": "Accept Offer",
+    "test.optionLabel": "Encourage them",
+    "test.optionDescription": "Show empathy and keep them motivated.",
     "test.headline": "Breaking: {{team}} wins!",
     "test.newsBody": "Match report for {{team}}.",
     "test.source": "OFM Sports",
@@ -96,6 +98,35 @@ describe("resolveAction", () => {
     const action = makeAction({ label: "fallback", label_key: "test.actionLabel" });
     const result = resolveAction(action);
     expect(result.label).toBe("Accept Offer");
+  });
+
+  it("resolves choose-option labels and descriptions when keys exist", () => {
+    const action = makeAction({
+      action_type: {
+        ChooseOption: {
+          options: [
+            {
+              id: "encourage",
+              label: "fallback option",
+              description: "fallback description",
+              label_key: "test.optionLabel",
+              description_key: "test.optionDescription",
+            },
+          ],
+        },
+      },
+    });
+
+    const result = resolveAction(action);
+
+    if (typeof result.action_type !== "object" || !("ChooseOption" in result.action_type)) {
+      throw new Error("Expected ChooseOption action type");
+    }
+
+    expect(result.action_type.ChooseOption.options[0].label).toBe("Encourage them");
+    expect(result.action_type.ChooseOption.options[0].description).toBe(
+      "Show empathy and keep them motivated.",
+    );
   });
 
   it("keeps raw label when label_key is absent", () => {

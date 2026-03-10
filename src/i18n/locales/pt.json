@@ -1126,7 +1126,65 @@
         "respond": "Respond"
       },
       "playerEvent": {
-        "respond": "Respond"
+        "respond": "Responder",
+        "options": {
+          "moraleCrisis": {
+            "encourage": {
+              "label": "Encorajá-lo",
+              "description": "Mostre empatia e encoraje o jogador a continuar a trabalhar arduamente."
+            },
+            "promiseTime": {
+              "label": "Prometer mais tempo de jogo",
+              "description": "Diga-lhe que terá a sua oportunidade — grande aumento de moral, mas cria expectativas."
+            },
+            "workHarder": {
+              "label": "Dizer-lhe para trabalhar mais",
+              "description": "Abordagem mais dura — pode sair pela culatra ou motivá-lo."
+            }
+          },
+          "benchComplaint": {
+            "explain": {
+              "label": "Explicar a situação",
+              "description": "Explique calmamente a concorrência e a rotação no plantel. Aumento estável de moral."
+            },
+            "promiseChance": {
+              "label": "Prometer-lhe uma oportunidade em breve",
+              "description": "Ficará mais satisfeito, mas vai esperar ser titular nos próximos jogos."
+            },
+            "proveYourself": {
+              "label": "Dizer-lhe para se provar",
+              "description": "Desafie-o a conquistar o seu lugar. Arriscado — pode motivá-lo ou frustrá-lo."
+            }
+          },
+          "happyPlayer": {
+            "praiseBack": {
+              "label": "Retribuir o elogio",
+              "description": "Diga-lhe o quanto valoriza o seu contributo."
+            },
+            "stayProfessional": {
+              "label": "Manter-se profissional",
+              "description": "Reconheça a sua forma, mas mantenha a postura."
+            },
+            "higherExpectations": {
+              "label": "Definir expectativas mais altas",
+              "description": "Desafie-o a atingir um nível ainda mais alto. Pode impulsioná-lo ou pressioná-lo."
+            }
+          },
+          "contractConcern": {
+            "reassure": {
+              "label": "Tranquilizá-lo quanto à renovação",
+              "description": "Diga-lhe que quer que fique. Grande aumento de moral."
+            },
+            "noncommittal": {
+              "label": "Ser evasivo",
+              "description": "Mantenha as suas opções em aberto. O jogador pode ficar inquieto."
+            },
+            "noRenewal": {
+              "label": "Dizer-lhe que não vai renovar",
+              "description": "Honesto, mas duro. A moral vai cair a pique."
+            }
+          }
+        }
       },
       "sponsor": {
         "subject": "Sponsorship Offer — {{sponsor}}",

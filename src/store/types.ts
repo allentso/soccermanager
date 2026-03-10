@@ -151,9 +151,17 @@ export interface MessageAction {
     | "Acknowledge"
     | "Dismiss"
     | { NavigateTo: { route: string } }
-    | { ChooseOption: { options: { id: string; label: string; description: string }[] } };
+    | { ChooseOption: { options: MessageActionOption[] } };
   resolved: boolean;
   label_key?: string;
+}
+
+export interface MessageActionOption {
+  id: string;
+  label: string;
+  description: string;
+  label_key?: string;
+  description_key?: string;
 }
 
 export interface ScoutReportData {

@@ -1126,7 +1126,65 @@
         "respond": "Respond"
       },
       "playerEvent": {
-        "respond": "Respond"
+        "respond": "Antworten",
+        "options": {
+          "moraleCrisis": {
+            "encourage": {
+              "label": "Mut zusprechen",
+              "description": "Zeige Verständnis und ermutige den Spieler, weiter hart zu arbeiten."
+            },
+            "promiseTime": {
+              "label": "Mehr Einsatzzeit versprechen",
+              "description": "Sage ihm, dass seine Chance kommt — größerer Moralschub, aber weckt Erwartungen."
+            },
+            "workHarder": {
+              "label": "Sagen, dass er härter arbeiten soll",
+              "description": "Ansatz mit harter Hand — kann nach hinten losgehen oder motivieren."
+            }
+          },
+          "benchComplaint": {
+            "explain": {
+              "label": "Die Situation erklären",
+              "description": "Erkläre ruhig Konkurrenz und Rotation im Kader. Solider Moralschub."
+            },
+            "promiseChance": {
+              "label": "Bald eine Chance versprechen",
+              "description": "Er wird zufriedener sein, erwartet aber in den nächsten Spielen Einsätze."
+            },
+            "proveYourself": {
+              "label": "Sagen, dass er sich beweisen soll",
+              "description": "Fordere ihn heraus, sich seinen Platz zu verdienen. Riskant — kann motivieren oder frustrieren."
+            }
+          },
+          "happyPlayer": {
+            "praiseBack": {
+              "label": "Lob erwidern",
+              "description": "Sag ihm, wie sehr du seinen Beitrag schätzt."
+            },
+            "stayProfessional": {
+              "label": "Professionell bleiben",
+              "description": "Anerkenne seine Form, bleibe aber sachlich."
+            },
+            "higherExpectations": {
+              "label": "Höhere Erwartungen setzen",
+              "description": "Fordere ihn zu einem noch höheren Niveau heraus. Kann antreiben oder Druck erzeugen."
+            }
+          },
+          "contractConcern": {
+            "reassure": {
+              "label": "Eine Verlängerung in Aussicht stellen",
+              "description": "Sag ihm, dass du ihn halten willst. Großer Moralschub."
+            },
+            "noncommittal": {
+              "label": "Unverbindlich bleiben",
+              "description": "Halte dir alle Optionen offen. Der Spieler könnte unruhig werden."
+            },
+            "noRenewal": {
+              "label": "Sagen, dass du nicht verlängern wirst",
+              "description": "Ehrlich, aber hart. Die Moral wird stark sinken."
+            }
+          }
+        }
       },
       "sponsor": {
         "subject": "Sponsorship Offer — {{sponsor}}",
