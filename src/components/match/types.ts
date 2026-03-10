@@ -1,5 +1,7 @@
 // Shared types for match simulation components — mirrors Rust engine types
 
+import type { TFunction } from "i18next";
+
 export interface MatchEvent {
   minute: number;
   event_type: string;
@@ -120,14 +122,26 @@ export interface TeamTalkOption {
   icon: string;
 }
 
-export const TEAM_TALK_OPTIONS: TeamTalkOption[] = [
-  { id: "calm", label: "Stay Calm", description: "Keep composure and focus on the game plan.", icon: "calm" },
-  { id: "motivational", label: "Motivate", description: "Inspire the players to give their best.", icon: "motivational" },
-  { id: "assertive", label: "Demand More", description: "Tell them this isn't good enough.", icon: "assertive" },
-  { id: "aggressive", label: "Get Fired Up", description: "An aggressive, fiery team talk.", icon: "aggressive" },
-  { id: "praise", label: "Praise", description: "Tell them they've been excellent.", icon: "praise" },
-  { id: "disappointed", label: "Show Disappointment", description: "Express disappointment in their effort.", icon: "disappointed" },
+const TEAM_TALK_OPTION_DEFINITIONS: Array<{
+  id: TeamTalkTone;
+  icon: string;
+}> = [
+  { id: "calm", icon: "calm" },
+  { id: "motivational", icon: "motivational" },
+  { id: "assertive", icon: "assertive" },
+  { id: "aggressive", icon: "aggressive" },
+  { id: "praise", icon: "praise" },
+  { id: "disappointed", icon: "disappointed" },
 ];
+
+export function getTeamTalkOptions(t: TFunction): TeamTalkOption[] {
+  return TEAM_TALK_OPTION_DEFINITIONS.map(({ id, icon }) => ({
+    id,
+    icon,
+    label: t(`match.teamTalkOptions.${id}.label`),
+    description: t(`match.teamTalkOptions.${id}.description`),
+  }));
+}
 
 export const SPEED_MS: Record<SimSpeed, number> = {
   paused: 0,

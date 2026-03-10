@@ -919,6 +919,32 @@
     "noMajorEvents": "Sem eventos importantes.",
     "teamTalk": "Preleção",
     "teamTalkPrompt": "Escolha como se dirigir ao time no intervalo.",
+    "teamTalkOptions": {
+      "calm": {
+        "label": "Mantenham a calma",
+        "description": "Peça calma ao time e mantenha o foco no plano de jogo."
+      },
+      "motivational": {
+        "label": "Motivar",
+        "description": "Incentive os jogadores a darem o melhor de si."
+      },
+      "assertive": {
+        "label": "Cobrar mais",
+        "description": "Deixe claro que o desempenho ainda não é bom o suficiente."
+      },
+      "aggressive": {
+        "label": "Incendiar o time",
+        "description": "Faça uma preleção agressiva e cheia de energia."
+      },
+      "praise": {
+        "label": "Elogiar",
+        "description": "Diga ao time que ele vem sendo excelente."
+      },
+      "disappointed": {
+        "label": "Mostrar decepção",
+        "description": "Expresse sua decepção com o empenho da equipe."
+      }
+    },
     "deliverTeamTalk": "Fazer Preleção",
     "delivered": "Feito",
     "spectatorMode": "Modo Espectador",

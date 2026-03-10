@@ -954,6 +954,32 @@
     "noMajorEvents": "Sem eventos importantes.",
     "teamTalk": "Palestra",
     "teamTalkPrompt": "Escolhe como te diriges à equipa ao intervalo.",
+    "teamTalkOptions": {
+      "calm": {
+        "label": "Manter a calma",
+        "description": "Pede calma à equipa e mantém o foco no plano de jogo."
+      },
+      "motivational": {
+        "label": "Motivar",
+        "description": "Inspira os jogadores a darem o seu melhor."
+      },
+      "assertive": {
+        "label": "Exigir mais",
+        "description": "Deixa claro que isto ainda não é suficiente."
+      },
+      "aggressive": {
+        "label": "Incendiar a equipa",
+        "description": "Faz uma palestra agressiva e cheia de intensidade."
+      },
+      "praise": {
+        "label": "Elogiar",
+        "description": "Diz-lhes que têm estado excelentes."
+      },
+      "disappointed": {
+        "label": "Mostrar desilusão",
+        "description": "Expressa a tua desilusão com o esforço deles."
+      }
+    },
     "deliverTeamTalk": "Dar a Palestra",
     "delivered": "Entregue",
     "spectatorMode": "Modo Espetador",
@@ -1444,24 +1470,24 @@
         }
       },
       "moraleCrisis": {
-        "subject": "{{player}} — Morale Crisis",
-        "body0": "Boss, {{player}} has asked for a private meeting. They seem really down lately and want to talk about their situation at the club.\n\nTheir morale is at {{morale}} — you should address this before it affects the dressing room.",
-        "body1": "{{player}} has been looking dejected in training. They've requested a chat with you about their current state of mind.\n\nMorale: {{morale}}. How you handle this could make or break their confidence."
+        "subject": "{{player}} — Crise de moral",
+        "body0": "Mister, {{player}} pediu uma reunião privada. Ultimamente, parece bastante em baixo e quer falar sobre a sua situação no clube.\n\nA moral está em {{morale}} — deves tratar disto antes que afete o balneário.",
+        "body1": "{{player}} tem parecido desanimado nos treinos. Pediu para falar contigo sobre o seu estado de espírito atual.\n\nMoral: {{morale}}. A forma como lidares com isto pode reforçar ou destruir a sua confiança."
       },
       "benchComplaint": {
-        "subject": "{{player}} — Wants More Game Time",
-        "body0": "Boss, {{player}} has come to see you. They're frustrated about their lack of game time in recent matches and want to know what they need to do to get back in the team.\n\n\"I feel like I've been training well, but I'm not getting a chance to show it on the pitch.\"",
-        "body1": "{{player}} knocked on your office door looking unhappy. They haven't featured in the last few matches and want answers.\n\n\"I came to this club to play football. If I'm not in your plans, I'd rather you tell me straight.\""
+        "subject": "{{player}} — Quer mais tempo de jogo",
+        "body0": "Mister, {{player}} veio falar contigo. Está frustrado com a falta de tempo de jogo nos últimos jogos e quer saber o que precisa de fazer para voltar à equipa.\n\n\"Sinto que tenho treinado bem, mas não estou a ter oportunidade de mostrar isso em campo.\"",
+        "body1": "{{player}} bateu à porta do teu gabinete com um ar descontente. Não participou nos últimos jogos e quer respostas.\n\n\"Vim para este clube para jogar futebol. Se não faço parte dos teus planos, prefiro que mo digas diretamente.\""
       },
       "happyPlayer": {
-        "subject": "{{player}} — Feeling Great",
-        "body0": "{{player}} stopped by your office with a big smile. They're feeling great about their form and the team's direction.\n\n\"Just wanted to say I'm really enjoying my football right now, boss. The mood in the dressing room is fantastic.\"",
-        "body1": "Your assistant mentions that {{player}} has been in excellent spirits lately. They approached you after training.\n\n\"Boss, I'm loving every minute here. Keep things going like this and I'll run through walls for you.\""
+        "subject": "{{player}} — Sente-se em grande",
+        "body0": "{{player}} passou no teu gabinete com um grande sorriso. Sente-se muito bem com a sua forma e com a direção da equipa.\n\n\"Só queria dizer que estou mesmo a desfrutar do meu futebol neste momento, mister. O ambiente no balneário é fantástico.\"",
+        "body1": "O teu adjunto refere que {{player}} tem estado de excelente humor ultimamente. Abordou-te depois do treino.\n\n\"Mister, estou a adorar cada minuto aqui. Se continuarmos assim, dou tudo por ti.\""
       },
       "contractConcern": {
-        "subject": "{{player}} — Contract Running Down",
-        "body0": "{{player}} has approached you regarding their contract situation. With only {{days}} days remaining on their deal, they want to know where they stand.\n\n\"Boss, my contract is running down. I need to know if I'm part of your plans going forward or if I should start looking elsewhere.\"",
-        "body1": "Your assistant flags that {{player}}'s contract expires in roughly {{months}} month(s). The player has been asking around the dressing room about their future.\n\nIt might be wise to have a conversation before they become unsettled — or before other clubs start circling."
+        "subject": "{{player}} — Contrato a terminar",
+        "body0": "{{player}} veio falar contigo sobre a sua situação contratual. Com apenas {{days}} dias restantes no contrato, quer saber com o que pode contar.\n\n\"Mister, o meu contrato está a chegar ao fim. Preciso de saber se faço parte dos teus planos para o futuro ou se devo começar a procurar noutro lado.\"",
+        "body1": "O teu adjunto assinala que o contrato de {{player}} expira dentro de aproximadamente {{months}} mês(es). O jogador tem andado a perguntar no balneário sobre o seu futuro.\n\nTalvez seja sensato teres uma conversa antes que ele fique inquieto — ou antes que outros clubes comecem a rondar."
       },
       "scoutReport": {
         "subject": "Scout Report: {{player}}",

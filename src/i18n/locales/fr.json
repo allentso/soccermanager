@@ -954,6 +954,32 @@
     "noMajorEvents": "Pas d'événements majeurs.",
     "teamTalk": "Causerie",
     "teamTalkPrompt": "Choisissez comment vous vous adressez à l'équipe à la mi-temps.",
+    "teamTalkOptions": {
+      "calm": {
+        "label": "Rester calme",
+        "description": "Demandez du calme à l'équipe et gardez le cap sur le plan de jeu."
+      },
+      "motivational": {
+        "label": "Motiver",
+        "description": "Poussez les joueurs à donner le meilleur d'eux-mêmes."
+      },
+      "assertive": {
+        "label": "En demander plus",
+        "description": "Faites comprendre que ce n'est pas encore suffisant."
+      },
+      "aggressive": {
+        "label": "Remonter l'équipe",
+        "description": "Faites une causerie agressive et pleine d'intensité."
+      },
+      "praise": {
+        "label": "Féliciter",
+        "description": "Dites-leur qu'ils ont été excellents."
+      },
+      "disappointed": {
+        "label": "Montrer sa déception",
+        "description": "Exprimez votre déception face à leurs efforts."
+      }
+    },
     "deliverTeamTalk": "Donner la Causerie",
     "delivered": "Donné",
     "spectatorMode": "Mode Spectateur",
@@ -1444,24 +1470,24 @@
         }
       },
       "moraleCrisis": {
-        "subject": "{{player}} — Morale Crisis",
-        "body0": "Boss, {{player}} has asked for a private meeting. They seem really down lately and want to talk about their situation at the club.\n\nTheir morale is at {{morale}} — you should address this before it affects the dressing room.",
-        "body1": "{{player}} has been looking dejected in training. They've requested a chat with you about their current state of mind.\n\nMorale: {{morale}}. How you handle this could make or break their confidence."
+        "subject": "{{player}} — Crise de moral",
+        "body0": "Coach, {{player}} a demandé un entretien privé. Il semble vraiment abattu ces derniers temps et veut parler de sa situation au club.\n\nSon moral est à {{morale}} — vous devriez régler cela avant que cela n'affecte le vestiaire.",
+        "body1": "{{player}} a eu l'air très abattu à l'entraînement récemment. Il a demandé à vous parler de son état d'esprit actuel.\n\nMoral : {{morale}}. La manière dont vous gérerez cela pourrait renforcer ou briser sa confiance."
       },
       "benchComplaint": {
-        "subject": "{{player}} — Wants More Game Time",
-        "body0": "Boss, {{player}} has come to see you. They're frustrated about their lack of game time in recent matches and want to know what they need to do to get back in the team.\n\n\"I feel like I've been training well, but I'm not getting a chance to show it on the pitch.\"",
-        "body1": "{{player}} knocked on your office door looking unhappy. They haven't featured in the last few matches and want answers.\n\n\"I came to this club to play football. If I'm not in your plans, I'd rather you tell me straight.\""
+        "subject": "{{player}} — Veut plus de temps de jeu",
+        "body0": "Coach, {{player}} est venu vous voir. Il est frustré par son manque de temps de jeu lors des derniers matchs et veut savoir ce qu'il doit faire pour réintégrer l'équipe.\n\n\"J'ai l'impression de bien m'entraîner, mais je n'ai pas l'occasion de le montrer sur le terrain.\"",
+        "body1": "{{player}} a frappé à la porte de votre bureau avec un air contrarié. Il n'a pas joué lors des derniers matchs et veut des réponses.\n\n\"Je suis venu dans ce club pour jouer au football. Si je ne fais pas partie de vos plans, je préfère que vous me le disiez franchement.\""
       },
       "happyPlayer": {
-        "subject": "{{player}} — Feeling Great",
-        "body0": "{{player}} stopped by your office with a big smile. They're feeling great about their form and the team's direction.\n\n\"Just wanted to say I'm really enjoying my football right now, boss. The mood in the dressing room is fantastic.\"",
-        "body1": "Your assistant mentions that {{player}} has been in excellent spirits lately. They approached you after training.\n\n\"Boss, I'm loving every minute here. Keep things going like this and I'll run through walls for you.\""
+        "subject": "{{player}} — Se sent en grande forme",
+        "body0": "{{player}} est passé à votre bureau avec un grand sourire. Il se sent très bien par rapport à sa forme et à la direction que prend l'équipe.\n\n\"Je voulais juste dire que je prends vraiment du plaisir à jouer en ce moment, coach. L'ambiance dans le vestiaire est fantastique.\"",
+        "body1": "Votre adjoint signale que {{player}} est d'excellente humeur ces derniers temps. Il est venu vous parler après l'entraînement.\n\n\"Coach, j'adore chaque minute passée ici. Si on continue comme ça, je me battrai pour vous jusqu'au bout.\""
       },
       "contractConcern": {
-        "subject": "{{player}} — Contract Running Down",
-        "body0": "{{player}} has approached you regarding their contract situation. With only {{days}} days remaining on their deal, they want to know where they stand.\n\n\"Boss, my contract is running down. I need to know if I'm part of your plans going forward or if I should start looking elsewhere.\"",
-        "body1": "Your assistant flags that {{player}}'s contract expires in roughly {{months}} month(s). The player has been asking around the dressing room about their future.\n\nIt might be wise to have a conversation before they become unsettled — or before other clubs start circling."
+        "subject": "{{player}} — Contrat en fin de course",
+        "body0": "{{player}} est venu vous parler de sa situation contractuelle. Avec seulement {{days}} jours restants sur son contrat, il veut savoir où il en est.\n\n\"Coach, mon contrat arrive à sa fin. J'ai besoin de savoir si je fais partie de vos plans pour l'avenir ou si je dois commencer à regarder ailleurs.\"",
+        "body1": "Votre adjoint vous signale que le contrat de {{player}} expire dans environ {{months}} mois. Le joueur a commencé à poser des questions dans le vestiaire au sujet de son avenir.\n\nIl serait sans doute judicieux d'avoir une conversation avant qu'il ne devienne inquiet — ou avant que d'autres clubs ne commencent à tourner autour."
       },
       "scoutReport": {
         "subject": "Scout Report: {{player}}",
