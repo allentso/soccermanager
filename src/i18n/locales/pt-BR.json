@@ -949,6 +949,83 @@
     "submitting": "Enviando...",
     "leaveConference": "Encerrar Coletiva",
     "nextQuestion": "Próxima Pergunta",
+    "press": {
+      "result": {
+        "questions": {
+          "win": "Foi um grande resultado hoje, {{userScore}}-{{oppScore}} contra o {{oppName}}. O quão satisfeito você está com a atuação?",
+          "loss": "Foi um resultado duro hoje, derrota por {{userScore}}-{{oppScore}} para o {{oppName}}. O que deu errado em campo?",
+          "draw": "Empate em {{userScore}}-{{oppScore}} contra o {{oppName}}. Você acha que foi um resultado justo?"
+        },
+        "responses": {
+          "win": {
+            "humble": { "tone": "Humilde", "text": "Os jogadores trabalharam duro. Nos preparamos bem e executamos o plano de jogo." },
+            "confident": { "tone": "Confiante", "text": "Fomos o melhor time do começo ao fim. Um resultado merecido." },
+            "deflect": { "tone": "Desviar", "text": "São só três pontos. Agora vamos para a próxima." }
+          },
+          "loss": {
+            "accept": { "tone": "Assumir", "text": "Hoje não fomos bons o suficiente. Temos que entender o que deu errado." },
+            "defiant": { "tone": "Desafiante", "text": "Não acho que merecíamos perder. Criamos chances suficientes." },
+            "deflect": { "tone": "Desviar", "text": "Prefiro não ficar remoendo isso. Estaremos prontos para a próxima partida." }
+          },
+          "draw": {
+            "fair": { "tone": "Justo", "text": "Foi um resultado justo. Os dois times tiveram chances." },
+            "frustrated": { "tone": "Frustrado", "text": "A gente deveria ter vencido. Perdemos oportunidades demais." },
+            "positive": { "tone": "Positivo", "text": "Um ponto é um ponto. Dá para tirar coisas boas do jogo de hoje." }
+          }
+        }
+      },
+      "playerFocus": {
+        "questions": {
+          "scored": "{{playerName}} marcou hoje. Qual a importância da contribuição dele para o time?",
+          "default": "Você pode comentar a atuação de {{playerName}} hoje?"
+        },
+        "responses": {
+          "praise": { "tone": "Elogio", "text": "{{playerName}} foi fantástico. É um jogador-chave para nós e a dedicação dele é exemplar." },
+          "demanding": { "tone": "Exigente", "text": "{{playerName}} pode render mais. Espero mais de um jogador da qualidade dele." },
+          "deflect": { "tone": "Desviar", "text": "Não gosto de destacar indivíduos. Futebol é jogo coletivo." }
+        }
+      },
+      "tactics": {
+        "question": "Pode nos explicar sua abordagem tática hoje?",
+        "responses": {
+          "detailed": { "tone": "Detalhado", "text": "Montamos a equipe para controlar o meio-campo e usar a largura. Acho que a estrutura funcionou bem." },
+          "brief": { "tone": "Direto", "text": "Tínhamos um plano e os jogadores executaram. É isso que importa." },
+          "evasive": { "tone": "Evasivo", "text": "Prefiro não revelar muita coisa. Todo time tem seus segredos." }
+        }
+      },
+      "fans": {
+        "questions": {
+          "win": "A torcida apoiou muito hoje. O que esse apoio significa para você?",
+          "loss": "Alguns torcedores demonstraram frustração no fim. Você tem uma mensagem para eles?",
+          "draw": "Em alguns momentos o clima estava tenso hoje. Como você lida com essa pressão?"
+        },
+        "responses": {
+          "win": {
+            "grateful": { "tone": "Humilde", "text": "A torcida é incrível. Ela nos empurra em cada jogo e merece atuações como a de hoje." },
+            "shared": { "tone": "Confiante", "text": "Todo mundo comemora junto — jogadores, comissão e torcedores. Essa vitória também é deles." },
+            "deflect": { "tone": "Desviar", "text": "A torcida sabe o que representamos. Nós só focamos no campo." }
+          },
+          "loss": {
+            "apologize": { "tone": "Assumir", "text": "Eu entendo completamente a frustração deles. Eles merecem mais e vamos trabalhar duro para entregar isso." },
+            "patience": { "tone": "Focado", "text": "Peço paciência. Estamos construindo algo e dias ruins acontecem. Vamos voltar mais fortes." },
+            "curt": { "tone": "Seco", "text": "Não vou comentar coisas ditas no calor do momento. Vamos seguir em frente." }
+          },
+          "draw": {
+            "appreciate": { "tone": "Positivo", "text": "Eu valorizo cada torcedor que vem nos ver. A energia deles levanta o time." },
+            "understand": { "tone": "Justo", "text": "Eles querem nos ver vencer e eu também. Vamos continuar insistindo até os resultados aparecerem." },
+            "curt": { "tone": "Seco", "text": "Eu não me envolvo com o que acontece nas arquibancadas. Meu foco está no campo." }
+          }
+        }
+      },
+      "ahead": {
+        "question": "Qual é o seu foco para a próxima partida?",
+        "responses": {
+          "focused": { "tone": "Focado", "text": "Primeiro recuperação, depois preparação. Vamos jogo a jogo." },
+          "ambitious": { "tone": "Ambicioso", "text": "Queremos continuar construindo embalo. O objetivo está claro." },
+          "curt": { "tone": "Seco", "text": "Próxima pergunta, por favor. A gente se preocupa com isso quando chegar a hora." }
+        }
+      }
+    },
     "pen": "PÊN",
     "home": "Casa",
     "away": "Fora",
@@ -1040,6 +1117,7 @@
       "assistantManager": "Auxiliar Técnico",
       "matchReporter": "Repórter Esportivo",
       "headPhysio": "Fisioterapeuta Chefe",
+      "financialDirector": "Diretor Financeiro",
       "commercialDirector": "Diretor Comercial",
       "communityManager": "Gerente Comunitário",
       "directorOfFootball": "Diretor de Futebol",
@@ -1054,6 +1132,7 @@
       "assistantManager": "Auxiliar Técnico",
       "pressOfficer": "Assessor de Imprensa",
       "headPhysio": "Fisioterapeuta Chefe",
+      "financialDirector": "Diretor Financeiro",
       "commercialDirector": "Diretor Comercial",
       "communityManager": "Gerente Comunitário",
       "directorOfFootball": "Diretor de Futebol",
@@ -1120,6 +1199,18 @@
       "boardObjectives": {
         "subject": "Temporada {{season}} — Objetivos da Diretoria",
         "body": "A diretoria definiu os seguintes objetivos para esta temporada:\n\n1. Terminar entre os {{expectedPos}} primeiros\n2. Vencer pelo menos {{winTarget}} partidas\n3. Marcar pelo menos {{goalsTarget}} gols\n\nCumprir essas metas vai aumentar a confiança da diretoria no seu trabalho. Não atender às expectativas pode resultar em orçamentos menores ou em outras consequências."
+      },
+      "financeCritical": {
+        "subject": "URGENTE: Clube Endividado",
+        "body": "O clube está atualmente com uma dívida de €{{amount}}. Esta é uma situação insustentável.\n\nA diretoria exige ação imediata para enfrentar a crise financeira. Considere vender jogadores, reduzir a comissão ou encontrar fontes alternativas de receita.\n\nSe isso não for resolvido, pode haver consequências sérias para o seu cargo."
+      },
+      "financeWarning": {
+        "subject": "Alerta Financeiro — Reservas Baixas",
+        "body": "Nossas reservas financeiras estão acabando. No ritmo atual de gastos (€{{weeklyWages}}/semana em salários), temos aproximadamente {{weeksLeft}} semanas de recursos restantes.\n\nEu recomendaria revisar a folha salarial e buscar formas de aumentar a receita."
+      },
+      "wageOverBudget": {
+        "subject": "Folha Salarial Acima do Orçamento",
+        "body": "Nossa folha salarial anual (€{{annualWages}}) atualmente excede o orçamento salarial definido (€{{wageBudget}}).\n\nEmbora possamos sustentar isso no curto prazo, a diretoria prefere ver a folha salarial sob controle."
       },
       "fitness": {
         "critical": {

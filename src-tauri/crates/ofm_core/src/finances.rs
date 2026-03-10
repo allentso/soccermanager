@@ -172,6 +172,16 @@ fn generate_financial_warnings(game: &mut Game, today: &str) {
                 .with_category(MessageCategory::Finance)
                 .with_priority(MessagePriority::Urgent)
                 .with_sender_role("Chairman")
+                .with_i18n(
+                    "be.msg.financeCritical.subject",
+                    "be.msg.financeCritical.body",
+                    {
+                        let mut p = std::collections::HashMap::new();
+                        p.insert("amount".to_string(), format_money((-team.finance) as u64));
+                        p
+                    },
+                )
+                .with_sender_i18n("be.sender.boardOfDirectors", "be.role.chairman")
                 .with_action(action("view_finances", "View Finances", "be.msg.event.ack",
                     ActionType::NavigateTo { route: "/dashboard?tab=Finances".to_string() }))
             );
@@ -197,6 +207,17 @@ fn generate_financial_warnings(game: &mut Game, today: &str) {
                 .with_category(MessageCategory::Finance)
                 .with_priority(MessagePriority::High)
                 .with_sender_role("Financial Director")
+                .with_i18n(
+                    "be.msg.financeWarning.subject",
+                    "be.msg.financeWarning.body",
+                    {
+                        let mut p = std::collections::HashMap::new();
+                        p.insert("weeklyWages".to_string(), format_money(weekly_wages as u64));
+                        p.insert("weeksLeft".to_string(), weeks_left.to_string());
+                        p
+                    },
+                )
+                .with_sender_i18n("be.sender.financialDirector", "be.role.financialDirector")
                 .with_action(action("view_finances", "View Finances", "be.msg.event.ack",
                     ActionType::NavigateTo { route: "/dashboard?tab=Finances".to_string() }))
             );
@@ -224,6 +245,17 @@ fn generate_financial_warnings(game: &mut Game, today: &str) {
                 .with_category(MessageCategory::Finance)
                 .with_priority(MessagePriority::Normal)
                 .with_sender_role("Financial Director")
+                .with_i18n(
+                    "be.msg.wageOverBudget.subject",
+                    "be.msg.wageOverBudget.body",
+                    {
+                        let mut p = std::collections::HashMap::new();
+                        p.insert("annualWages".to_string(), format_money(annual_wages as u64));
+                        p.insert("wageBudget".to_string(), format_money(team.wage_budget as u64));
+                        p
+                    },
+                )
+                .with_sender_i18n("be.sender.financialDirector", "be.role.financialDirector")
                 .with_action(action("view_finances", "View Finances", "be.msg.event.ack",
                     ActionType::NavigateTo { route: "/dashboard?tab=Finances".to_string() }))
             );

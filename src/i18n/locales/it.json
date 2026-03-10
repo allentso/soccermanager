@@ -983,15 +983,92 @@
     "skipConference": "Salta conferenza →",
     "submitting": "Invio in corso...",
     "leaveConference": "Lascia conferenza",
-    "nextQuestion": "Domanda successiva",
-    "pen": "RIG",
+    "nextQuestion": "Prossima domanda",
+    "press": {
+      "result": {
+        "questions": {
+          "win": "Ottimo risultato oggi, {{userScore}}-{{oppScore}} contro {{oppName}}. Quanto sei soddisfatto della prestazione?",
+          "loss": "Risultato duro oggi, sconfitta per {{userScore}}-{{oppScore}} contro {{oppName}}. Cosa non ha funzionato?",
+          "draw": "Pareggio {{userScore}}-{{oppScore}} contro {{oppName}}. È un risultato giusto?"
+        },
+        "responses": {
+          "win": {
+            "humble": { "tone": "Umile", "text": "I ragazzi hanno lavorato duramente. Ci siamo preparati bene e abbiamo eseguito il piano partita." },
+            "confident": { "tone": "Sicuro", "text": "Siamo stati superiori dall'inizio alla fine. Risultato meritato." },
+            "deflect": { "tone": "Evasivo", "text": "Sono solo tre punti. Ora pensiamo alla prossima." }
+          },
+          "loss": {
+            "accept": { "tone": "Onesto", "text": "Oggi non siamo stati all'altezza. Dobbiamo capire cosa è andato storto." },
+            "defiant": { "tone": "Battagliero", "text": "Non credo meritassimo di perdere. Abbiamo creato abbastanza occasioni." },
+            "deflect": { "tone": "Evasivo", "text": "Preferisco non tornarci sopra. Saremo pronti per la prossima partita." }
+          },
+          "draw": {
+            "fair": { "tone": "Equilibrato", "text": "È stato un risultato giusto. Entrambe le squadre hanno avuto le loro occasioni." },
+            "frustrated": { "tone": "Frustrato", "text": "Avremmo dovuto vincerla. Troppe occasioni sprecate." },
+            "positive": { "tone": "Positivo", "text": "Un punto è un punto. Ci sono comunque aspetti positivi da portare via da oggi." }
+          }
+        }
+      },
+      "playerFocus": {
+        "questions": {
+          "scored": "{{playerName}} ha segnato oggi. Quanto conta il suo contributo per la squadra?",
+          "default": "Puoi commentare la prestazione di {{playerName}} oggi?"
+        },
+        "responses": {
+          "praise": { "tone": "Elogio", "text": "{{playerName}} è stato fantastico. È un giocatore chiave per noi e il suo impegno è esemplare." },
+          "demanding": { "tone": "Esigente", "text": "{{playerName}} può fare meglio. Mi aspetto di più da un giocatore della sua qualità." },
+          "deflect": { "tone": "Evasivo", "text": "Non mi piace soffermarmi sui singoli. È un gioco di squadra." }
+        }
+      },
+      "tactics": {
+        "question": "Puoi spiegarci l'approccio tattico di oggi?",
+        "responses": {
+          "detailed": { "tone": "Dettagliato", "text": "Ci siamo messi in campo per controllare il centrocampo e sfruttare l'ampiezza. Credo che la struttura abbia funzionato bene." },
+          "brief": { "tone": "Sbrigativo", "text": "Avevamo un piano e i giocatori lo hanno eseguito. È questo che conta." },
+          "evasive": { "tone": "Evasivo", "text": "Preferisco non svelare troppo. Ogni squadra ha i suoi segreti." }
+        }
+      },
+      "fans": {
+        "questions": {
+          "win": "I tifosi si sono fatti sentire oggi. Cosa significa per te il loro supporto?",
+          "loss": "Al fischio finale alcuni tifosi hanno mostrato frustrazione. Hai un messaggio per loro?",
+          "draw": "A tratti oggi l'atmosfera era tesa. Come gestisci questa pressione?"
+        },
+        "responses": {
+          "win": {
+            "grateful": { "tone": "Umile", "text": "I tifosi sono straordinari. Ci spingono in ogni partita e meritano prestazioni come quella di oggi." },
+            "shared": { "tone": "Sicuro", "text": "Festeggiamo tutti insieme — giocatori, staff e tifosi. Questa vittoria è anche loro." },
+            "deflect": { "tone": "Evasivo", "text": "I tifosi sanno cosa rappresentiamo. Noi pensiamo solo al campo." }
+          },
+          "loss": {
+            "apologize": { "tone": "Onesto", "text": "Capisco perfettamente la loro frustrazione. Meritano di più e lavoreremo duro per offrirglielo." },
+            "patience": { "tone": "Concentrato", "text": "Chiedo pazienza. Stiamo costruendo qualcosa e le giornate storte capitano. Torneremo più forti." },
+            "curt": { "tone": "Secco", "text": "Non commenterò parole dette a caldo. Andiamo avanti." }
+          },
+          "draw": {
+            "appreciate": { "tone": "Positivo", "text": "Apprezzo ogni tifoso che viene a sostenerci. La loro energia solleva la squadra." },
+            "understand": { "tone": "Equilibrato", "text": "Vogliono vederci vincere e anch'io. Continueremo a spingere finché i risultati non arriveranno." },
+            "curt": { "tone": "Secco", "text": "Non mi occupo di ciò che succede sugli spalti. Il mio focus è sul campo." }
+          }
+        }
+      },
+      "ahead": {
+        "question": "Qual è il tuo focus in vista della prossima partita?",
+        "responses": {
+          "focused": { "tone": "Concentrato", "text": "Prima recupero, poi preparazione. Andiamo una gara alla volta." },
+          "ambitious": { "tone": "Ambizioso", "text": "Vogliamo continuare a costruire slancio. L'obiettivo è chiaro." },
+          "curt": { "tone": "Secco", "text": "Prossima domanda, grazie. Penseremo a questo quando sarà il momento." }
+        }
+      }
+    },
+    "pen": "PEN",
     "home": "Casa",
     "away": "Trasferta",
     "matchDay": "Giorno partita",
     "preMatchPrep": "Preparazione pre-partita",
     "startingLineup": "Formazione titolare",
     "setPiecesCaptain": "Piazzati e capitano",
-    "formationFit": "Adattamento formazione",
+    "formationFit": "Adattamento alla formazione",
     "selecting": "Selezione in corso...",
     "autoSelectXI": "Seleziona automaticamente il miglior XI",
     "startingXI": "XI titolare",
@@ -1012,134 +1089,98 @@
     "keyStats": "Statistiche chiave",
     "continueDashboard": "Continua alla dashboard"
   },
-  "endOfSeason": {
-    "seasonComplete": "Stagione conclusa",
-    "champions": "Campioni!",
-    "position": "Posizione",
-    "points": "Punti",
-    "finalStandings": "Classifica finale (Top 5)",
-    "leagueChampions": "Campioni del campionato",
-    "startNextSeason": "Inizia prossima stagione",
-    "processing": "Elaborazione...",
-    "statsArchived": "Le statistiche dei giocatori verranno archiviate. Verrà generato un nuovo calendario.",
-    "newSeason": "Stagione {{n}}",
-    "newScheduleReleased": "Il nuovo calendario è stato pubblicato. Buona fortuna!",
-    "goldenBoot": "Capocannoniere",
-    "nGoals": "{{count}} gol",
-    "playerOfYear": "Giocatore dell'anno",
-    "avgRating": "Voto medio: {{rating}}",
-    "continueDashboard": "Continua alla dashboard"
-  },
-  "squadCompare": {
-    "compare": "Confronta"
-  },
   "be": {
-    "sender": {
-      "boardOfDirectors": "Consiglio di amministrazione",
-      "leagueOffice": "Ufficio della lega",
-      "assistantManager": "Vice allenatore",
-      "matchReporter": "Inviato sportivo",
-      "headPhysio": "Capo fisioterapista",
-      "commercialDirector": "Direttore commerciale",
-      "communityManager": "Responsabile comunità",
-      "directorOfFootball": "Direttore sportivo",
-      "intlLiaison": "Responsabile relazioni internazionali",
-      "player": "Giocatore",
-      "pressOfficer": "Addetto stampa",
-      "scout": "Osservatore"
-    },
-    "role": {
-      "chairman": "Presidente",
-      "competitionSecretary": "Segretario della competizione",
-      "assistantManager": "Vice allenatore",
-      "pressOfficer": "Addetto stampa",
-      "headPhysio": "Capo fisioterapista",
-      "commercialDirector": "Direttore commerciale",
-      "communityManager": "Responsabile comunità",
-      "directorOfFootball": "Direttore sportivo",
-      "intlLiaison": "Responsabile relazioni internazionali",
-      "player": "Giocatore",
-      "scout": "Osservatore"
-    },
-    "source": {
-      "sportsGazette": "Gazzetta Sportiva",
-      "footballHerald": "Il Football Herald",
-      "matchDayPress": "Stampa del Giorno Partita",
-      "leagueChronicle": "Cronaca della Lega",
-      "leagueWire": "Filo della Lega"
-    },
-    "msg": {
-      "welcome": {
-        "subject0": "Benvenuto al {{team}}",
-        "subject1": "Nuova era al {{team}}",
-        "subject2": "{{team}} attende la tua leadership",
-        "body0": "Il consiglio di amministrazione del {{team}} è lieto di darti il benvenuto come nuovo allenatore.\n\nRiponiamo grandi speranze nel tuo incarico e crediamo che tu possa portare questo club alla gloria. Il tuo primo compito sarà valutare la rosa e preparare un piano tattico per la prossima stagione.\n\nTi auguriamo il meglio.",
-        "body1": "A nome di tutta la famiglia del {{team}}, siamo entusiasti di annunciare la tua nomina come allenatore.\n\nI tifosi non vedono l'ora di vedere la tua visione per la squadra. Prenditi il tempo per valutare la rosa, rivedere la nostra situazione finanziaria e definire il tuo approccio tattico.\n\nLa dirigenza è con te.",
-        "body2": "Benvenuto al {{team}}! Tifosi e staff sono entusiasti del futuro sotto la tua guida.\n\nTi consigliamo di iniziare valutando punti di forza e debolezza della rosa, poi impostare la tua formazione preferita e il tuo regime di allenamento.\n\nLa prossima stagione sarà una vera prova: rendici orgogliosi.",
-        "actionReview": "Rivedi rosa",
-        "actionThank": "Ringrazia la dirigenza"
+      "sender": {
+        "boardOfDirectors": "Consiglio di amministrazione",
+        "leagueOffice": "Ufficio della lega",
+        "assistantManager": "Vice allenatore",
+        "matchReporter": "Cronista sportivo",
+        "headPhysio": "Capo fisioterapista",
+        "financialDirector": "Direttore finanziario",
+        "commercialDirector": "Direttore commerciale",
+        "communityManager": "Responsabile comunità",
+        "directorOfFootball": "Direttore sportivo",
+        "intlLiaison": "Responsabile relazioni internazionali",
+        "player": "Giocatore",
+        "pressOfficer": "Addetto stampa",
+        "scout": "Osservatore"
       },
-      "schedule": {
-        "subject": "Calendario stagionale pubblicato",
-        "body0": "Il calendario della {{league}} è stato pubblicato. La stagione inizierà il {{start}}.\n\nControlla l'elenco delle partite e assicurati che la tua rosa sia pronta per le sfide che ti aspettano. La preparazione precampionato sarà cruciale.",
-        "body1": "Calendario confermato! La stagione della {{league}} inizia il {{start}}.\n\nStudia attentamente le prime partite: un buon avvio può dare il tono all'intera annata. Assicurati che i tuoi giocatori chiave siano in condizione.",
-        "actionView": "Vedi calendario"
+      "role": {
+        "chairman": "Presidente",
+        "competitionSecretary": "Segretario della competizione",
+        "assistantManager": "Vice allenatore",
+        "pressOfficer": "Addetto stampa",
+        "headPhysio": "Capo fisioterapista",
+        "financialDirector": "Direttore finanziario",
+        "commercialDirector": "Direttore commerciale",
+        "communityManager": "Responsabile comunità",
+        "directorOfFootball": "Direttore sportivo",
+        "intlLiaison": "Responsabile relazioni internazionali",
+        "player": "Giocatore",
+        "scout": "Osservatore"
       },
-      "preMatch": {
-        "subject": "Prossima: vs {{opponent}} ({{venue}})",
-        "body0": "La tua partita {{venue}} contro {{opponent}} si giocherà il {{matchDate}}.\n\nGiornata {{matchday}} della Premier Division. Assicurati che il tuo XI titolare sia in buone condizioni e che le tattiche siano pronte.\n\nSfrutta al massimo il fattore {{venue}}.",
-        "body1": "Promemoria: affronterai {{opponent}} {{venue}} il {{matchDate}}.\n\nÈ la giornata {{matchday}} — controlla la condizione della rosa e valuta eventuali aggiustamenti tattici.",
-        "actionTactics": "Imposta tattiche",
-        "actionScout": "Osserva avversario"
+      "source": {
+        "sportsGazette": "Gazzetta Sportiva",
+        "footballHerald": "Il Football Herald",
+        "matchDayPress": "Stampa del Giorno Partita",
+        "leagueChronicle": "Cronaca della Lega",
+        "leagueWire": "Filo della Lega"
       },
-      "matchResult": {
-        "subject": {
-          "victory": "Vittoria: {{home}} {{homeGoals}} - {{awayGoals}} {{away}}",
-          "defeat": "Sconfitta: {{home}} {{homeGoals}} - {{awayGoals}} {{away}}",
-          "draw": "Pareggio: {{home}} {{homeGoals}} - {{awayGoals}} {{away}}"
+      "msg": {
+        "welcome": {
+          "subject0": "Benvenuto al {{team}}",
+          "subject1": "Nuova era al {{team}}",
+          "subject2": "{{team}} attende la tua leadership",
+          "body0": "Il consiglio di amministrazione del {{team}} è lieto di darti il benvenuto come nuovo allenatore.\n\nRiponiamo grandi speranze nel tuo incarico e crediamo che tu possa portare questo club alla gloria. Il tuo primo compito sarà valutare la rosa e preparare un piano tattico per la prossima stagione.\n\nTi auguriamo il meglio.",
+          "body1": "A nome di tutta la famiglia del {{team}}, siamo entusiasti di annunciare la tua nomina come allenatore.\n\nI tifosi non vedono l'ora di vedere la tua visione per la squadra. Prenditi il tempo per valutare la rosa, rivedere la nostra situazione finanziaria e definire il tuo approccio tattico.\n\nLa dirigenza è con te.",
+          "body2": "Benvenuto al {{team}}! Tifosi e staff sono entusiasti del futuro sotto la tua guida.\n\nTi consigliamo di iniziare valutando punti di forza e debolezza della rosa, poi impostare la tua formazione preferita e il tuo regime di allenamento.\n\nLa prossima stagione sarà una vera prova: rendici orgogliosi.",
+          "actionReview": "Rivedi rosa",
+          "actionThank": "Ringrazia la dirigenza"
         },
-        "body": {
-          "victory0": "Finale: {{home}} {{homeGoals}} - {{awayGoals}} {{away}}.\n\nOttimo risultato! La squadra ha offerto una prova solida. Giornata {{matchday}} — manteniamo questo slancio.",
-          "victory1": "Triplice fischio: {{home}} {{homeGoals}} - {{awayGoals}} {{away}}.\n\nTre punti in tasca! I ragazzi hanno mostrato grande carattere. Giornata {{matchday}} completata.",
-          "defeat0": "Finale: {{home}} {{homeGoals}} - {{awayGoals}} {{away}}.\n\nRisultato deludente. Dovremo ricompattarci e lavorare sugli aspetti che ci hanno penalizzato. Giornata {{matchday}} — c'è ancora tempo per rimettersi in carreggiata.",
-          "defeat1": "Risultato finale: {{home}} {{homeGoals}} - {{awayGoals}} {{away}}.\n\nNon è il risultato che volevamo. Giornata {{matchday}} — la dirigenza vorrà vedere miglioramenti. Analizza cosa è andato storto e preparati alla prossima sfida.",
-          "draw": "Finale: {{home}} {{homeGoals}} - {{awayGoals}} {{away}}.\n\nUn punto conquistato nella giornata {{matchday}}. A seconda degli altri risultati, potrebbe avere valore. La squadra ha lottato ma non ha trovato il gol della vittoria."
+        "schedule": {
+          "subject": "Calendario stagionale pubblicato",
+          "body0": "Il calendario della {{league}} è stato pubblicato. La stagione inizierà il {{start}}.\n\nControlla l'elenco delle partite e assicurati che la tua rosa sia pronta per le sfide che ti aspettano. La preparazione precampionato sarà cruciale.",
+          "body1": "Calendario confermato! La stagione della {{league}} inizia il {{start}}.\n\nStudia attentamente le prime partite: un buon avvio può dare il tono all'intera annata. Assicurati che i tuoi giocatori chiave siano in condizione.",
+          "actionView": "Vedi calendario"
         },
-        "actionStandings": "Vedi classifica"
-      },
-      "staffAdvice": {
-        "subject": "Rapporto staff — posti vacanti nello staff tecnico",
-        "body": "Mister, ho dato un'occhiata alla situazione dello staff del {{team}} e volevo segnalarti alcune cose:\n\n• Un buon Allenatore migliorerà sensibilmente l'efficacia degli allenamenti — i tuoi giocatori cresceranno più in fretta.\n• Un Fisioterapista qualificato aiuta a prevenire gli infortuni e accelera il recupero tra le partite.\n• I nostri Osservatori possono aiutare a identificare obiettivi di mercato e valutare gli avversari.\n\nTi consiglio vivamente di coprire eventuali vacanze prima dell'inizio della stagione. Puoi trovare staff disponibile nella sezione Staff.\n\nDacci un'occhiata appena puoi.",
-        "actionView": "Vedi staff"
-      },
-      "boardExpect": {
-        "subject": "{{team}} — Obiettivi stagionali",
-        "body": "La dirigenza ha fissato le seguenti aspettative per questa stagione:\n\n• Chiudere nella metà alta della classifica\n• Mantenere stabilità finanziaria\n• Sviluppare giovani talenti del vivaio\n\nRaggiungere questi obiettivi rafforzerà la tua posizione. Non soddisfare le aspettative minime potrebbe portare a una revisione del tuo incarico.\n\nAbbiamo fiducia nelle tue capacità.",
-        "actionAccept": "Accetta obiettivi"
-      },
-      "boardObjectives": {
-        "subject": "Stagione {{season}} — Obiettivi della dirigenza",
-        "body": "La dirigenza ha fissato i seguenti obiettivi per questa stagione:\n\n1. Chiudere tra le prime {{expectedPos}}\n2. Vincere almeno {{winTarget}} partite\n3. Segnare almeno {{goalsTarget}} gol\n\nRaggiungere questi traguardi aumenterà la fiducia della dirigenza nella tua gestione. Il mancato raggiungimento delle aspettative potrebbe comportare una riduzione dei budget o ulteriori conseguenze."
-      },
-      "fitness": {
-        "critical": {
-          "subject": "URGENTE: Crisi di forma della rosa",
-          "body": {
-            "intense": "Mister, abbiamo una seria crisi di forma. {{criticalCount}} giocatori sono in condizioni critiche e a rischio infortunio:\n\n{{players}}\n\nLa condizione media della rosa è al {{avgCondition}}%. Con l'attuale programma Intenso (6 giorni di allenamento), la squadra è sotto troppo stress. Passare a un programma Equilibrato darebbe loro tempo per recuperare.\n\nSe continuiamo a spingerli senza riposo, gli infortuni saranno inevitabili.",
-            "balanced": "Mister, abbiamo una seria crisi di forma. {{criticalCount}} giocatori sono in condizioni critiche e a rischio infortunio:\n\n{{players}}\n\nLa condizione media della rosa è al {{avgCondition}}%. Anche con un programma Equilibrato, la squadra ha bisogno di attenzione. Valuta di passare temporaneamente a un programma Leggero.\n\nSe continuiamo a spingerli senza riposo, gli infortuni saranno inevitabili.",
-            "light": "Mister, abbiamo una seria crisi di forma. {{criticalCount}} giocatori sono in condizioni critiche e a rischio infortunio:\n\n{{players}}\n\nLa condizione media della rosa è al {{avgCondition}}%. La squadra è già su un programma Leggero — il problema potrebbe essere l'intensità alta dell'allenamento. Valuta di ridurla.\n\nSe continuiamo a spingerli senza riposo, gli infortuni saranno inevitabili."
-          }
+        "preMatch": {
+          "subject": "Prossima: vs {{opponent}} ({{venue}})",
+          "body0": "La tua partita {{venue}} contro {{opponent}} si giocherà il {{matchDate}}.\n\nGiornata {{matchday}} della Premier Division. Assicurati che il tuo XI titolare sia in buone condizioni e che le tattiche siano pronte.\n\nSfrutta al massimo il fattore {{venue}}.",
+          "body1": "Promemoria: affronterai {{opponent}} {{venue}} il {{matchDate}}.\n\nÈ la giornata {{matchday}} — controlla la condizione della rosa e valuta eventuali aggiustamenti tattici.",
+          "actionTactics": "Imposta tattiche",
+          "actionScout": "Osserva avversario"
         },
-        "warning": {
-          "subject": "Avviso condizione della rosa",
-          "body": {
-            "intense": "Mister, la squadra appare stanca. La forma media è al {{avgCondition}}% e {{exhaustedCount}} giocatori sono sotto il 40% di condizione.\n\nPassare a un programma Equilibrato darebbe più tempo di recupero alla rosa.\n\nDovremmo valutare di concedere un po' di riposo ai ragazzi prima della prossima partita.",
-            "balanced": "Mister, la squadra appare stanca. La forma media è al {{avgCondition}}% e {{exhaustedCount}} giocatori sono sotto il 40% di condizione.\n\nUn programma Leggero per qualche giorno potrebbe aiutare la squadra a rimettersi.\n\nDovremmo valutare di concedere un po' di riposo ai ragazzi prima della prossima partita.",
-            "light": "Mister, la squadra appare stanca. La forma media è al {{avgCondition}}% e {{exhaustedCount}} giocatori sono sotto il 40% di condizione.\n\nLa squadra è già su un programma Leggero, quindi il recupero dovrebbe arrivare naturalmente. Tieni solo d'occhio i giocatori più esausti.\n\nDovremmo valutare di concedere un po' di riposo ai ragazzi prima della prossima partita."
-          }
+        "financeCritical": {
+          "subject": "URGENTE: Club in debito",
+          "body": "Il club ha attualmente un debito di €{{amount}}. Questa è una situazione insostenibile.\n\nIl consiglio pretende un intervento immediato per affrontare la crisi finanziaria. Valuta la cessione di giocatori, la riduzione dello staff o fonti di entrata alternative.\n\nSe non risolverai la situazione, potrebbero esserci gravi conseguenze per il tuo incarico."
         },
-        "actionAdjust": "Regola allenamento"
-      },
+        "financeWarning": {
+          "subject": "Avviso finanziario — Riserve basse",
+          "body": "Le nostre riserve finanziarie si stanno assottigliando. Al ritmo attuale di spesa (€{{weeklyWages}}/settimana di stipendi), abbiamo circa {{weeksLeft}} settimane di copertura rimanenti.\n\nTi consiglierei di rivedere il monte ingaggi e cercare modi per aumentare le entrate."
+        },
+        "wageOverBudget": {
+          "subject": "Monte ingaggi oltre il budget",
+          "body": "Il nostro monte ingaggi annuale (€{{annualWages}}) supera attualmente il budget stipendi assegnato (€{{wageBudget}}).\n\nAnche se possiamo sostenerlo nel breve periodo, il consiglio preferirebbe vedere il monte ingaggi tornare sotto controllo."
+        },
+        "fitness": {
+          "critical": {
+            "subject": "URGENTE: Crisi di condizione della rosa",
+            "body": {
+              "intense": "Mister, abbiamo una seria crisi di condizione fisica. {{criticalCount}} giocatori sono in condizioni critiche e a rischio infortunio:\n\n{{players}}\n\nLa condizione media della rosa è al {{avgCondition}}%. Con l'attuale programma Intenso (6 giorni di allenamento), la squadra viene spinta troppo oltre. Passare a un programma Equilibrato darebbe tempo per recuperare.\n\nSe continuiamo così senza riposo, gli infortuni saranno inevitabili.",
+              "balanced": "Mister, abbiamo una seria crisi di condizione fisica. {{criticalCount}} giocatori sono in condizioni critiche e a rischio infortunio:\n\n{{players}}\n\nLa condizione media della rosa è al {{avgCondition}}%. Anche con un programma Equilibrato la squadra ha bisogno di attenzione. Valuta di passare temporaneamente a un programma Leggero.\n\nSe continuiamo così senza riposo, gli infortuni saranno inevitabili.",
+              "light": "Mister, abbiamo una seria crisi di condizione fisica. {{criticalCount}} giocatori sono in condizioni critiche e a rischio infortunio:\n\n{{players}}\n\nLa condizione media della rosa è al {{avgCondition}}%. La squadra è già su un programma Leggero — il problema potrebbe essere l'intensità elevata degli allenamenti. Valuta di ridurla.\n\nSe continuiamo così senza riposo, gli infortuni saranno inevitabili."
+            }
+          },
+          "warning": {
+            "subject": "Avviso condizione della rosa",
+            "body": {
+              "intense": "Mister, la squadra appare stanca. La forma media è al {{avgCondition}}% e {{exhaustedCount}} giocatori sono sotto il 40% di condizione.\n\nPassare a un programma Equilibrato darebbe più tempo di recupero alla rosa.\n\nDovremmo valutare di concedere un po' di riposo ai ragazzi prima della prossima partita.",
+              "balanced": "Mister, la squadra appare stanca. La forma media è al {{avgCondition}}% e {{exhaustedCount}} giocatori sono sotto il 40% di condizione.\n\nUn programma Leggero per qualche giorno potrebbe aiutare la squadra a rimettersi.\n\nDovremmo valutare di concedere un po' di riposo ai ragazzi prima della prossima partita.",
+              "light": "Mister, la squadra appare stanca. La forma media è al {{avgCondition}}% e {{exhaustedCount}} giocatori sono sotto il 40% di condizione.\n\nLa squadra è già su un programma Leggero, quindi il recupero dovrebbe arrivare naturalmente. Tieni solo d'occhio i giocatori più esausti.\n\nDovremmo valutare di concedere un po' di riposo ai ragazzi prima della prossima partita."
+            }
+          },
+          "actionAdjust": "Regola allenamento"
+        },
       "event": {
         "ack": "Capito",
         "respond": "Rispondi"
@@ -1262,23 +1303,6 @@
             "description": "Rifiuta l'offerta. Nessun impatto economico."
           }
         }
-      },
-      "trainingInjury": {
-        "subject": "Infortunio — {{player}} ({{injury}})",
-        "body0": "Brutte notizie dal campo di allenamento. {{player}} ha riportato un {{injury}} durante la sessione di oggi.\n\nLo staff medico stima {{days}} giorni ai box. Monitoreremo attentamente il recupero.",
-        "body1": "Purtroppo, {{player}} si è fermato oggi in allenamento per un {{injury}}.\n\nPrima valutazione: circa {{days}} giorni di stop. Ti terremo aggiornato sui progressi."
-      },
-      "mediaPositive": {
-        "subject": "Stampa positiva — {{player}}",
-        "body": "I giornali locali stanno dedicando un articolo molto positivo a {{player}} oggi.\n\nStanno sottolineando l'ottima forma recente e l'impegno verso il {{team}}. Questo tipo di copertura è ottimo per la fiducia del giocatore e per l'immagine del club."
-      },
-      "mediaNegative": {
-        "subject": "Stampa negativa — {{player}}",
-        "body": "Oggi sono apparse alcune notizie poco lusinghiere su {{player}} nei tabloid.\n\nI giornalisti stanno mettendo in dubbio la sua forma e il suo impegno verso il {{team}}. Questo potrebbe influenzarne il morale — forse è il caso di parlarci."
-      },
-      "intlCallup": {
-        "subject": "Convocazione internazionale — {{player}}",
-        "body": "{{player}} è stato convocato dalla nazionale {{nationality}} per la prossima finestra internazionale.\n\nÈ un grande onore per il giocatore e riflette positivamente sul club. Tornerà di buon umore, ma tieni d'occhio i suoi livelli di fatica."
       },
       "community": {
         "subject0": "Giornata aperta alla comunità",

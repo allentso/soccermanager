@@ -984,6 +984,83 @@
     "submitting": "Envoi...",
     "leaveConference": "Quitter la Conférence",
     "nextQuestion": "Question Suivante",
+    "press": {
+      "result": {
+        "questions": {
+          "win": "Belle performance aujourd'hui, {{userScore}}-{{oppScore}} contre {{oppName}}. À quel point êtes-vous satisfait de la prestation ?",
+          "loss": "Résultat difficile aujourd'hui, défaite {{userScore}}-{{oppScore}} contre {{oppName}}. Qu'est-ce qui n'a pas fonctionné ?",
+          "draw": "Match nul {{userScore}}-{{oppScore}} contre {{oppName}}. Est-ce un résultat juste ?"
+        },
+        "responses": {
+          "win": {
+            "humble": { "tone": "Humble", "text": "Les joueurs ont beaucoup travaillé. Nous nous sommes bien préparés et avons exécuté le plan de jeu." },
+            "confident": { "tone": "Confiant", "text": "Nous avons été supérieurs du début à la fin. Résultat mérité." },
+            "deflect": { "tone": "Évasif", "text": "Ce ne sont que trois points. On passe au prochain match." }
+          },
+          "loss": {
+            "accept": { "tone": "Lucide", "text": "Nous n'avons pas été assez bons aujourd'hui. Nous devons comprendre ce qui a cloché." },
+            "defiant": { "tone": "Combatif", "text": "Je ne pense pas que nous méritions de perdre. Nous avons créé assez d'occasions." },
+            "deflect": { "tone": "Évasif", "text": "Je préfère ne pas m'y attarder. Nous serons prêts pour le prochain match." }
+          },
+          "draw": {
+            "fair": { "tone": "Juste", "text": "C'était un résultat juste. Les deux équipes ont eu leurs occasions." },
+            "frustrated": { "tone": "Frustré", "text": "Nous aurions dû gagner. Trop d'occasions gâchées." },
+            "positive": { "tone": "Positif", "text": "Un point reste un point. Il y a des éléments positifs à retenir aujourd'hui." }
+          }
+        }
+      },
+      "playerFocus": {
+        "questions": {
+          "scored": "{{playerName}} a marqué aujourd'hui. Quelle importance a sa contribution pour l'équipe ?",
+          "default": "Pouvez-vous commenter la performance de {{playerName}} aujourd'hui ?"
+        },
+        "responses": {
+          "praise": { "tone": "Éloge", "text": "{{playerName}} a été fantastique. C'est un joueur clé pour nous et son engagement est exemplaire." },
+          "demanding": { "tone": "Exigeant", "text": "{{playerName}} peut faire mieux. J'attends davantage d'un joueur de sa qualité." },
+          "deflect": { "tone": "Évasif", "text": "Je n'aime pas mettre en avant les individualités. C'est un sport collectif." }
+        }
+      },
+      "tactics": {
+        "question": "Pouvez-vous nous expliquer votre approche tactique aujourd'hui ?",
+        "responses": {
+          "detailed": { "tone": "Détaillé", "text": "Nous nous étions organisés pour contrôler le milieu et utiliser la largeur. Je pense que la structure a bien fonctionné." },
+          "brief": { "tone": "Bref", "text": "Nous avions un plan et les joueurs l'ont appliqué. C'est tout ce qui compte." },
+          "evasive": { "tone": "Évasif", "text": "Je préfère ne pas trop en dévoiler. Chaque équipe a ses secrets." }
+        }
+      },
+      "fans": {
+        "questions": {
+          "win": "Les supporters ont été formidables aujourd'hui. Que représente leur soutien pour vous ?",
+          "loss": "Certains supporters ont exprimé leur frustration au coup de sifflet final. Avez-vous un message pour eux ?",
+          "draw": "L'atmosphère était tendue par moments aujourd'hui. Comment gérez-vous cette pression ?"
+        },
+        "responses": {
+          "win": {
+            "grateful": { "tone": "Humble", "text": "Les supporters sont incroyables. Ils nous poussent à chaque match et nous leur devons des prestations comme celle d'aujourd'hui." },
+            "shared": { "tone": "Confiant", "text": "Nous célébrons tous ensemble — joueurs, staff et supporters. Cette victoire est aussi la leur." },
+            "deflect": { "tone": "Évasif", "text": "Les supporters savent ce que nous représentons. Nous restons concentrés sur le terrain." }
+          },
+          "loss": {
+            "apologize": { "tone": "Lucide", "text": "Je comprends totalement leur frustration. Ils méritent mieux et nous allons travailler dur pour leur offrir cela." },
+            "patience": { "tone": "Concentré", "text": "Je demande de la patience. Nous construisons quelque chose et les mauvais jours arrivent. Nous reviendrons plus forts." },
+            "curt": { "tone": "Sec", "text": "Je ne commenterai pas des mots prononcés sous le coup de l'émotion. Passons à la suite." }
+          },
+          "draw": {
+            "appreciate": { "tone": "Positif", "text": "J'apprécie chaque supporter qui vient nous voir. Leur énergie porte l'équipe." },
+            "understand": { "tone": "Juste", "text": "Ils veulent nous voir gagner, et moi aussi. Nous allons continuer à pousser jusqu'à obtenir les résultats." },
+            "curt": { "tone": "Sec", "text": "Je ne me mêle pas de ce qui se passe dans les tribunes. Mon attention est sur le terrain." }
+          }
+        }
+      },
+      "ahead": {
+        "question": "Sur quoi portera votre attention avant le prochain match ?",
+        "responses": {
+          "focused": { "tone": "Concentré", "text": "D'abord la récupération, puis la préparation. Nous prenons les matchs un par un." },
+          "ambitious": { "tone": "Ambitieux", "text": "Nous voulons continuer à créer une dynamique. L'objectif est clair." },
+          "curt": { "tone": "Sec", "text": "Question suivante, s'il vous plaît. Nous y penserons en temps voulu." }
+        }
+      }
+    },
     "pen": "PEN",
     "home": "Domicile",
     "away": "Extérieur",
@@ -1040,13 +1117,14 @@
       "assistantManager": "Entraîneur Adjoint",
       "matchReporter": "Journaliste Sportif",
       "headPhysio": "Kinésithérapeute en Chef",
-      "commercialDirector": "Commercial Director",
-      "communityManager": "Community Manager",
-      "directorOfFootball": "Director of Football",
-      "intlLiaison": "International Liaison",
-      "player": "Player",
-      "pressOfficer": "Press Officer",
-      "scout": "Scout"
+      "financialDirector": "Directeur Financier",
+      "commercialDirector": "Directeur Commercial",
+      "communityManager": "Responsable Communauté",
+      "directorOfFootball": "Directeur Sportif",
+      "intlLiaison": "Chargé des Relations Internationales",
+      "player": "Joueur",
+      "pressOfficer": "Attaché de Presse",
+      "scout": "Recruteur"
     },
     "role": {
       "chairman": "Président",
@@ -1054,12 +1132,13 @@
       "assistantManager": "Entraîneur Adjoint",
       "pressOfficer": "Attaché de Presse",
       "headPhysio": "Kinésithérapeute en Chef",
-      "commercialDirector": "Commercial Director",
-      "communityManager": "Community Manager",
-      "directorOfFootball": "Director of Football",
-      "intlLiaison": "International Liaison",
-      "player": "Player",
-      "scout": "Scout"
+      "financialDirector": "Directeur Financier",
+      "commercialDirector": "Directeur Commercial",
+      "communityManager": "Responsable Communauté",
+      "directorOfFootball": "Directeur Sportif",
+      "intlLiaison": "Chargé des Relations Internationales",
+      "player": "Joueur",
+      "scout": "Recruteur"
     },
     "source": {
       "sportsGazette": "Gazette Sportive",
@@ -1121,9 +1200,21 @@
         "subject": "Saison {{season}} — Objectifs du Conseil",
         "body": "Le conseil a fixé les objectifs suivants pour cette saison :\n\n1. Terminer dans le top {{expectedPos}}\n2. Remporter au moins {{winTarget}} matchs\n3. Marquer au moins {{goalsTarget}} buts\n\nAtteindre ces objectifs renforcera la confiance du conseil dans votre gestion. Ne pas répondre aux attentes peut entraîner une baisse des budgets ou d'autres conséquences."
       },
+      "financeCritical": {
+        "subject": "URGENT : Club endetté",
+        "body": "Le club affiche actuellement une dette de €{{amount}}. Cette situation n'est pas viable.\n\nLe conseil exige une action immédiate pour faire face à la crise financière. Envisagez de vendre des joueurs, de réduire le staff ou de trouver d'autres sources de revenus.\n\nNe pas résoudre cela pourrait avoir de graves conséquences pour votre poste."
+      },
+      "financeWarning": {
+        "subject": "Alerte financière — Réserves faibles",
+        "body": "Nos réserves financières diminuent rapidement. Au rythme actuel des dépenses (€{{weeklyWages}}/semaine en salaires), il nous reste environ {{weeksLeft}} semaines de marge.\n\nJe vous recommande de revoir la masse salariale et d'explorer des moyens d'augmenter les revenus."
+      },
+      "wageOverBudget": {
+        "subject": "La masse salariale dépasse le budget",
+        "body": "Notre masse salariale annuelle (€{{annualWages}}) dépasse actuellement le budget salarial alloué (€{{wageBudget}}).\n\nMême si cela reste soutenable à court terme, le conseil préférerait voir la masse salariale revenir sous contrôle."
+      },
       "fitness": {
         "critical": {
-          "subject": "URGENT : Crise de Condition Physique",
+          "subject": "URGENT : Crise de Forme Physique de l'Effectif",
           "body": {
             "intense": "Boss, nous avons une crise sérieuse de condition physique. {{criticalCount}} joueurs sont dans un état critique et risquent de se blesser :\n\n{{players}}\n\nLa condition physique moyenne de l'effectif est à {{avgCondition}}%. Avec le programme Intense actuel (6 jours d'entraînement), l'effectif est trop sollicité. Passer à un programme Équilibré leur donnerait du temps de récupération.\n\nSi on continue à forcer sans repos, les blessures seront inévitables.",
             "balanced": "Boss, nous avons une crise sérieuse de condition physique. {{criticalCount}} joueurs sont dans un état critique et risquent de se blesser :\n\n{{players}}\n\nLa condition physique moyenne de l'effectif est à {{avgCondition}}%. Même avec un programme Équilibré, l'effectif a besoin d'attention. Envisagez de passer à un programme Léger temporairement.\n\nSi on continue à forcer sans repos, les blessures seront inévitables.",

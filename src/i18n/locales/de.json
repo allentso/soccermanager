@@ -984,6 +984,83 @@
     "submitting": "Wird gesendet...",
     "leaveConference": "Konferenz verlassen",
     "nextQuestion": "Nächste Frage",
+    "press": {
+      "result": {
+        "questions": {
+          "win": "Starkes Ergebnis heute, {{userScore}}-{{oppScore}} gegen {{oppName}}. Wie zufrieden sind Sie mit der Leistung?",
+          "loss": "Schwieriges Ergebnis heute, eine {{userScore}}-{{oppScore}}-Niederlage gegen {{oppName}}. Was ist schiefgelaufen?",
+          "draw": "Ein {{userScore}}-{{oppScore}} gegen {{oppName}}. Ist das ein gerechtes Resultat?"
+        },
+        "responses": {
+          "win": {
+            "humble": { "tone": "Bescheiden", "text": "Die Jungs haben hart gearbeitet. Wir waren gut vorbereitet und haben den Matchplan umgesetzt." },
+            "confident": { "tone": "Selbstbewusst", "text": "Wir waren von Anfang bis Ende die bessere Mannschaft. Ein verdienter Sieg." },
+            "deflect": { "tone": "Ausweichend", "text": "Es sind nur drei Punkte. Jetzt geht der Blick auf das nächste Spiel." }
+          },
+          "loss": {
+            "accept": { "tone": "Ehrlich", "text": "Heute waren wir nicht gut genug. Wir müssen analysieren, was schiefgelaufen ist." },
+            "defiant": { "tone": "Kämpferisch", "text": "Ich finde nicht, dass wir eine Niederlage verdient hatten. Wir haben genug Chancen kreiert." },
+            "deflect": { "tone": "Ausweichend", "text": "Ich möchte nicht weiter darauf herumreiten. Wir werden für das nächste Spiel bereit sein." }
+          },
+          "draw": {
+            "fair": { "tone": "Fair", "text": "Es war ein gerechtes Ergebnis. Beide Teams hatten ihre Chancen." },
+            "frustrated": { "tone": "Frustriert", "text": "Wir hätten das Spiel gewinnen müssen. Zu viele vergebene Möglichkeiten." },
+            "positive": { "tone": "Positiv", "text": "Ein Punkt ist ein Punkt. Aus heute kann man trotzdem Positives mitnehmen." }
+          }
+        }
+      },
+      "playerFocus": {
+        "questions": {
+          "scored": "{{playerName}} hat heute getroffen. Wie wichtig ist sein Beitrag für das Team?",
+          "default": "Können Sie die Leistung von {{playerName}} heute kommentieren?"
+        },
+        "responses": {
+          "praise": { "tone": "Lobend", "text": "{{playerName}} war fantastisch. Er ist ein Schlüsselspieler für uns und seine Arbeitsrate ist vorbildlich." },
+          "demanding": { "tone": "Anspruchsvoll", "text": "{{playerName}} kann noch mehr bringen. Von einem Spieler seiner Qualität erwarte ich mehr." },
+          "deflect": { "tone": "Ausweichend", "text": "Ich stelle ungern einzelne Spieler heraus. Es ist ein Mannschaftsspiel." }
+        }
+      },
+      "tactics": {
+        "question": "Können Sie uns Ihren taktischen Ansatz heute erklären?",
+        "responses": {
+          "detailed": { "tone": "Detailliert", "text": "Wir wollten das Mittelfeld kontrollieren und die Breite nutzen. Ich denke, die Struktur hat gut funktioniert." },
+          "brief": { "tone": "Knapp", "text": "Wir hatten einen Plan, und die Spieler haben ihn umgesetzt. Das ist alles, was zählt." },
+          "evasive": { "tone": "Ausweichend", "text": "Ich möchte nicht zu viel verraten. Jede Mannschaft hat ihre Geheimnisse." }
+        }
+      },
+      "fans": {
+        "questions": {
+          "win": "Die Fans waren heute großartig zu hören. Was bedeutet Ihnen ihre Unterstützung?",
+          "loss": "Einige Fans haben nach dem Schlusspfiff ihren Frust gezeigt. Haben Sie eine Botschaft an sie?",
+          "draw": "Die Atmosphäre war heute zeitweise angespannt. Wie gehen Sie mit diesem Druck um?"
+        },
+        "responses": {
+          "win": {
+            "grateful": { "tone": "Bescheiden", "text": "Die Fans sind unglaublich. Sie treiben uns in jedem Spiel an, und wir schulden ihnen Leistungen wie heute." },
+            "shared": { "tone": "Selbstbewusst", "text": "Wir feiern alle gemeinsam — Spieler, Staff und Fans. Dieser Sieg gehört auch ihnen." },
+            "deflect": { "tone": "Ausweichend", "text": "Die Fans wissen, wofür wir stehen. Wir konzentrieren uns einfach auf den Platz." }
+          },
+          "loss": {
+            "apologize": { "tone": "Ehrlich", "text": "Ich verstehe ihren Frust vollkommen. Sie verdienen Besseres, und wir werden hart arbeiten, um das zu liefern." },
+            "patience": { "tone": "Fokussiert", "text": "Ich bitte um Geduld. Wir bauen hier etwas auf, und schlechte Tage gehören dazu. Wir kommen stärker zurück." },
+            "curt": { "tone": "Knapp", "text": "Ich kommentiere nichts, was im Eifer des Gefechts gesagt wird. Wir schauen nach vorn." }
+          },
+          "draw": {
+            "appreciate": { "tone": "Positiv", "text": "Ich schätze jeden einzelnen Fan, der kommt, um uns zu sehen. Ihre Energie hebt die Mannschaft." },
+            "understand": { "tone": "Fair", "text": "Sie wollen uns gewinnen sehen, und ich auch. Wir werden weiter alles geben, bis die Ergebnisse kommen." },
+            "curt": { "tone": "Knapp", "text": "Ich beschäftige mich nicht mit dem, was auf den Rängen passiert. Mein Fokus liegt auf dem Platz." }
+          }
+        }
+      },
+      "ahead": {
+        "question": "Worauf liegt Ihr Fokus vor dem nächsten Spiel?",
+        "responses": {
+          "focused": { "tone": "Fokussiert", "text": "Zuerst Regeneration, dann Vorbereitung. Wir nehmen ein Spiel nach dem anderen." },
+          "ambitious": { "tone": "Ambitioniert", "text": "Wir wollen den Schwung weiter mitnehmen. Das Ziel ist klar." },
+          "curt": { "tone": "Knapp", "text": "Nächste Frage, bitte. Darum kümmern wir uns, wenn es so weit ist." }
+        }
+      }
+    },
     "pen": "ELF",
     "home": "Heim",
     "away": "Auswärts",
@@ -1040,12 +1117,13 @@
       "assistantManager": "Co-Trainer",
       "matchReporter": "Spielberichterstatter",
       "headPhysio": "Chefphysiotherapeut",
-      "commercialDirector": "Commercial Director",
-      "communityManager": "Community Manager",
-      "directorOfFootball": "Director of Football",
-      "intlLiaison": "International Liaison",
-      "player": "Player",
-      "pressOfficer": "Press Officer",
+      "financialDirector": "Finanzdirektor",
+      "commercialDirector": "Kaufmännischer Leiter",
+      "communityManager": "Community-Manager",
+      "directorOfFootball": "Sportdirektor",
+      "intlLiaison": "Internationaler Verbindungsbeauftragter",
+      "player": "Spieler",
+      "pressOfficer": "Pressesprecher",
       "scout": "Scout"
     },
     "role": {
@@ -1054,11 +1132,12 @@
       "assistantManager": "Co-Trainer",
       "pressOfficer": "Pressesprecher",
       "headPhysio": "Chefphysiotherapeut",
-      "commercialDirector": "Commercial Director",
-      "communityManager": "Community Manager",
-      "directorOfFootball": "Director of Football",
-      "intlLiaison": "International Liaison",
-      "player": "Player",
+      "financialDirector": "Finanzdirektor",
+      "commercialDirector": "Kaufmännischer Leiter",
+      "communityManager": "Community-Manager",
+      "directorOfFootball": "Sportdirektor",
+      "intlLiaison": "Internationaler Verbindungsbeauftragter",
+      "player": "Spieler",
       "scout": "Scout"
     },
     "source": {
@@ -1120,6 +1199,18 @@
       "boardObjectives": {
         "subject": "Saison {{season}} — Vorstandsziele",
         "body": "Der Vorstand hat für diese Saison folgende Ziele festgelegt:\n\n1. Unter den Top {{expectedPos}} abschließen\n2. Mindestens {{winTarget}} Spiele gewinnen\n3. Mindestens {{goalsTarget}} Tore erzielen\n\nDas Erreichen dieser Ziele stärkt das Vertrauen des Vorstands in deine Arbeit. Das Verfehlen der Erwartungen kann zu geringeren Budgets oder weiteren Konsequenzen führen."
+      },
+      "financeCritical": {
+        "subject": "DRINGEND: Verein verschuldet",
+        "body": "Der Verein hat derzeit Schulden in Höhe von €{{amount}}. Das ist keine tragfähige Situation.\n\nDer Vorstand verlangt sofortige Maßnahmen, um die Finanzkrise in den Griff zu bekommen. Ziehe Spielerverkäufe, Personalabbau oder alternative Einnahmequellen in Betracht.\n\nWenn das Problem nicht gelöst wird, kann das ernste Folgen für deine Position haben."
+      },
+      "financeWarning": {
+        "subject": "Finanzwarnung — Niedrige Rücklagen",
+        "body": "Unsere finanziellen Rücklagen werden knapp. Beim aktuellen Ausgabentempo (€{{weeklyWages}}/Woche an Gehältern) bleiben uns noch ungefähr {{weeksLeft}} Wochen an Reserven.\n\nIch würde empfehlen, die Gehaltsstruktur zu überprüfen und Wege zur Einnahmesteigerung zu suchen."
+      },
+      "wageOverBudget": {
+        "subject": "Gehaltsbudget überschritten",
+        "body": "Unsere jährlichen Gehaltskosten (€{{annualWages}}) übersteigen derzeit das vorgesehene Gehaltsbudget (€{{wageBudget}}).\n\nKurzfristig ist das noch tragbar, aber der Vorstand würde die Gehaltskosten lieber wieder unter Kontrolle sehen."
       },
       "fitness": {
         "critical": {
