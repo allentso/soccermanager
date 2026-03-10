@@ -1,11 +1,32 @@
+import type { DragEvent, JSX } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { GameStateData } from "../store/gameStore";
-import { Card, CardHeader, CardBody, ProgressBar } from "./ui";
-import { calcOvr } from "../lib/helpers";
+import type { GameStateData, PlayerData } from "../store/gameStore";
 import { useTranslation } from "react-i18next";
-
-const FORMATIONS = ["4-4-2", "4-3-3", "4-2-3-1", "3-5-2", "3-4-3", "5-3-2", "4-5-1", "4-1-4-1"];
-const PLAY_STYLE_OPTIONS = ["Balanced", "Attacking", "Defensive", "Possession", "Counter", "HighPress"];
+import {
+  applyLineupDrop,
+  applyLineupSwap,
+  buildActivePositionMap,
+  buildPitchRows,
+  buildPitchSlotRows,
+  type DragState,
+  type PitchSlotRow,
+  type SquadSection,
+} from "./SquadTab.helpers";
+import TacticsFilters from "./TacticsFilters";
+import {
+  buildTacticsRoster,
+  countOutOfPositionPlayers,
+  filterAndSortTacticsPlayers,
+  getSelectedAndComparePlayers,
+  resolveStartingXiIds,
+  type SortKey,
+} from "./TacticsTab.helpers";
+import TacticsPitch from "./TacticsPitch";
+import TacticsPlayerFocusPanel from "./TacticsPlayerFocusPanel";
+import TacticsPlayerTable from "./TacticsPlayerTable";
+import TacticsRolesPanel from "./TacticsRolesPanel";
+import TacticsSetupPanel from "./TacticsSetupPanel";
 
 interface TacticsTabProps {
   gameState: GameStateData;
@@ -13,152 +34,520 @@ interface TacticsTabProps {
   onGameUpdate: (g: GameStateData) => void;
 }
 
-export default function TacticsTab({ gameState, onSelectPlayer, onGameUpdate }: TacticsTabProps) {
+export default function TacticsTab({
+  gameState,
+  onSelectPlayer,
+  onGameUpdate,
+}: TacticsTabProps): JSX.Element {
   const { t } = useTranslation();
-  const myTeam = gameState.teams.find(tm => tm.id === gameState.manager.team_id);
-  if (!myTeam) return <p className="text-gray-500 dark:text-gray-400">{t('common.noTeam')}</p>;
+  const myTeam = gameState.teams.find(
+    (team) => team.id === gameState.manager.team_id,
+  );
+  const [playerSearch, setPlayerSearch] = useState("");
+  const [positionFilter, setPositionFilter] = useState("All");
+  const [sortKey, setSortKey] = useState<SortKey>("pos");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [dragState, setDragState] = useState<DragState | null>(null);
+  const [hoveredSlot, setHoveredSlot] = useState<number | null>(null);
+  const [pendingStartingXiIds, setPendingStartingXiIds] = useState<
+    string[] | null
+  >(null);
+  const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
+  const [selectedPlayerSection, setSelectedPlayerSection] =
+    useState<SquadSection | null>(null);
+  const [comparePlayerId, setComparePlayerId] = useState<string | null>(null);
+  const [comparePlayerSection, setComparePlayerSection] =
+    useState<SquadSection | null>(null);
+  const [activeTab, setActiveTab] = useState<"lineup" | "roles">("lineup");
+  const dragStateRef = useRef<DragState | null>(null);
+  const hoveredSlotRef = useRef<number | null>(null);
+  const dragPreviewRef = useRef<HTMLDivElement | null>(null);
 
-  const roster = gameState.players.filter(p => p.team_id === myTeam.id);
-  const posOrder: Record<string, number> = { Goalkeeper: 1, Defender: 2, Midfielder: 3, Forward: 4 };
-  const sorted = [...roster].sort((a, b) => (posOrder[a.position] || 99) - (posOrder[b.position] || 99));
+  if (!myTeam) {
+    return (
+      <p className="text-gray-500 dark:text-gray-400">{t("common.noTeam")}</p>
+    );
+  }
+
+  const roster = buildTacticsRoster(gameState.players, myTeam.id);
+
+  const formation = myTeam.formation || "4-4-2";
+  const activePlayStyle = myTeam.play_style || "Balanced";
+  const savedStartingXiKey = (myTeam.starting_xi_ids || []).join(",");
+  const playersById = useMemo(
+    () => new Map(roster.map((player) => [player.id, player])),
+    [roster],
+  );
+  const available = roster.filter((player) => !player.injury);
+  const pitchRows = useMemo(() => buildPitchRows(formation), [formation]);
+
+  const startingXiIds = useMemo(
+    () =>
+      resolveStartingXiIds({
+        availablePlayers: available,
+        formation,
+        pendingStartingXiIds,
+        playersById,
+        savedStartingXiIds: myTeam.starting_xi_ids || [],
+      }),
+    [
+      available.map((player) => player.id).join(","),
+      formation,
+      (myTeam.starting_xi_ids || []).join(","),
+      (pendingStartingXiIds || []).join(","),
+      roster.map((player) => player.id).join(","),
+    ],
+  );
+
+  const startingXI = useMemo(
+    () =>
+      startingXiIds
+        .map((id) => playersById.get(id))
+        .filter((player): player is PlayerData => player != null),
+    [playersById, startingXiIds],
+  );
+
+  useEffect(() => {
+    if (!pendingStartingXiIds) return;
+    if (savedStartingXiKey === pendingStartingXiIds.join(",")) {
+      setPendingStartingXiIds(null);
+    }
+  }, [pendingStartingXiIds, savedStartingXiKey]);
+
+  const pitchSlotRows = useMemo<PitchSlotRow[]>(
+    () => buildPitchSlotRows(pitchRows, startingXiIds, playersById),
+    [pitchRows, playersById, startingXiIds],
+  );
+
+  const xiIds = new Set(startingXiIds);
+  const bench = roster.filter((player) => !xiIds.has(player.id));
+  const xiActivePosition = useMemo(
+    () => buildActivePositionMap(pitchSlotRows),
+    [pitchSlotRows],
+  );
+
+  const { comparePlayer, selectedPlayer } = getSelectedAndComparePlayers(
+    comparePlayerId,
+    playersById,
+    selectedPlayerId,
+  );
+
+  const canConfirmSwap = useMemo(() => {
+    if (
+      !selectedPlayerId ||
+      !selectedPlayerSection ||
+      !comparePlayerId ||
+      !comparePlayerSection
+    ) {
+      return false;
+    }
+
+    const nextXiIds = applyLineupSwap(
+      startingXiIds,
+      { id: selectedPlayerId, from: selectedPlayerSection },
+      comparePlayerId,
+      comparePlayerSection,
+    );
+
+    return !!nextXiIds && nextXiIds.join(",") !== startingXiIds.join(",");
+  }, [
+    comparePlayerId,
+    comparePlayerSection,
+    selectedPlayerId,
+    selectedPlayerSection,
+    startingXiIds,
+  ]);
+
+  function toggleSort(key: SortKey): void {
+    if (sortKey === key) {
+      setSortDir((current) => (current === "asc" ? "desc" : "asc"));
+      return;
+    }
+
+    setSortKey(key);
+    setSortDir(key === "ovr" ? "desc" : "asc");
+  }
+
+  const filteredStartingXI = useMemo(
+    () =>
+      filterAndSortTacticsPlayers(
+        startingXI,
+        {
+          playerSearch,
+          positionFilter,
+          section: "xi",
+          xiActivePosition,
+        },
+        {
+          section: "xi",
+          sortDir,
+          sortKey,
+          xiActivePosition,
+        },
+      ),
+    [
+      startingXI,
+      playerSearch,
+      positionFilter,
+      sortKey,
+      sortDir,
+      xiActivePosition,
+    ],
+  );
+  const filteredBench = useMemo(
+    () =>
+      filterAndSortTacticsPlayers(
+        bench,
+        {
+          playerSearch,
+          positionFilter,
+          section: "bench",
+          xiActivePosition,
+        },
+        {
+          section: "bench",
+          sortDir,
+          sortKey,
+          xiActivePosition,
+        },
+      ),
+    [bench, playerSearch, positionFilter, sortKey, sortDir, xiActivePosition],
+  );
+
+  const outOfPositionCount = countOutOfPositionPlayers(
+    startingXI,
+    xiActivePosition,
+  );
+
+  async function persistStartingXI(playerIds: string[]): Promise<void> {
+    setPendingStartingXiIds(playerIds);
+    try {
+      const updated = await invoke<GameStateData>("set_starting_xi", {
+        playerIds,
+      });
+      onGameUpdate(updated);
+    } catch (error) {
+      setPendingStartingXiIds(null);
+      console.error("Failed to set starting XI:", error);
+    }
+  }
+
+  async function handleFormationChange(nextFormation: string): Promise<void> {
+    try {
+      const updated = await invoke<GameStateData>("set_formation", {
+        formation: nextFormation,
+      });
+      onGameUpdate(updated);
+    } catch (error) {
+      console.error("Failed to set formation:", error);
+    }
+  }
+
+  async function handlePlayStyleChange(playStyle: string): Promise<void> {
+    try {
+      const updated = await invoke<GameStateData>("set_play_style", {
+        playStyle,
+      });
+      onGameUpdate(updated);
+    } catch (error) {
+      console.error("Failed to set play style:", error);
+    }
+  }
+
+  function clearLineupSelection(): void {
+    setSelectedPlayerId(null);
+    setSelectedPlayerSection(null);
+    setComparePlayerId(null);
+    setComparePlayerSection(null);
+  }
+
+  function setHoveredSlotValue(slotIndex: number | null): void {
+    if (hoveredSlotRef.current === slotIndex) {
+      return;
+    }
+
+    hoveredSlotRef.current = slotIndex;
+    setHoveredSlot(slotIndex);
+  }
+
+  function resetDragState(): void {
+    dragStateRef.current = null;
+    setDragState(null);
+    setHoveredSlotValue(null);
+  }
+
+  function applyLightweightDragPreview(event: DragEvent<HTMLElement>): void {
+    if (!dragPreviewRef.current) {
+      return;
+    }
+
+    if (typeof event.dataTransfer.setDragImage !== "function") {
+      return;
+    }
+
+    event.dataTransfer.setDragImage(dragPreviewRef.current, 16, 16);
+  }
+
+  function handleDragStart(
+    event: DragEvent<HTMLElement>,
+    playerId: string,
+    from: SquadSection,
+    slotIndex: number | null = null,
+  ): void {
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", playerId);
+    applyLightweightDragPreview(event);
+    const nextDragState = { playerId, from, slotIndex };
+    dragStateRef.current = nextDragState;
+    setDragState(nextDragState);
+  }
+
+  function handleSlotDragOver(
+    event: DragEvent<HTMLElement>,
+    slotIndex: number,
+  ): void {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    setHoveredSlotValue(slotIndex);
+  }
+
+  function handleSlotDragLeave(slotIndex: number): void {
+    if (hoveredSlotRef.current !== slotIndex) {
+      return;
+    }
+
+    setHoveredSlotValue(null);
+  }
+
+  async function handleSlotDrop(
+    event: DragEvent<HTMLElement>,
+    slotIndex: number,
+  ): Promise<void> {
+    event.preventDefault();
+    const draggedPlayerId = event.dataTransfer.getData("text/plain");
+    const currentDragState = dragStateRef.current ?? dragState;
+    const resolvedDragState =
+      currentDragState ??
+      (draggedPlayerId
+        ? {
+            playerId: draggedPlayerId,
+            from: xiIds.has(draggedPlayerId) ? "xi" : "bench",
+            slotIndex: xiIds.has(draggedPlayerId)
+              ? startingXiIds.indexOf(draggedPlayerId)
+              : null,
+          }
+        : null);
+
+    if (!resolvedDragState) return;
+
+    const nextXiIds = applyLineupDrop(
+      startingXiIds,
+      resolvedDragState,
+      slotIndex,
+    );
+    if (nextXiIds.join(",") === startingXiIds.join(",")) {
+      resetDragState();
+      return;
+    }
+
+    await persistStartingXI(nextXiIds);
+    clearLineupSelection();
+    resetDragState();
+  }
+
+  async function handleLineupPlayerClick(
+    playerId: string,
+    section: SquadSection,
+  ): Promise<void> {
+    if (!selectedPlayerId || !selectedPlayerSection) {
+      setSelectedPlayerId(playerId);
+      setSelectedPlayerSection(section);
+      return;
+    }
+
+    if (selectedPlayerId === playerId && selectedPlayerSection === section) {
+      if (comparePlayerId && comparePlayerSection) {
+        setSelectedPlayerId(comparePlayerId);
+        setSelectedPlayerSection(comparePlayerSection);
+        setComparePlayerId(null);
+        setComparePlayerSection(null);
+        return;
+      }
+
+      clearLineupSelection();
+      return;
+    }
+
+    if (comparePlayerId === playerId && comparePlayerSection === section) {
+      setComparePlayerId(null);
+      setComparePlayerSection(null);
+      return;
+    }
+
+    setComparePlayerId(playerId);
+    setComparePlayerSection(section);
+  }
+
+  async function handleConfirmSwap(): Promise<void> {
+    if (
+      !selectedPlayerId ||
+      !selectedPlayerSection ||
+      !comparePlayerId ||
+      !comparePlayerSection
+    ) {
+      return;
+    }
+
+    const nextXiIds = applyLineupSwap(
+      startingXiIds,
+      { id: selectedPlayerId, from: selectedPlayerSection },
+      comparePlayerId,
+      comparePlayerSection,
+    );
+
+    if (!nextXiIds || nextXiIds.join(",") === startingXiIds.join(",")) {
+      return;
+    }
+
+    await persistStartingXI(nextXiIds);
+    clearLineupSelection();
+  }
+
+  function handleClearFilters(): void {
+    setPlayerSearch("");
+    setPositionFilter("All");
+  }
 
   return (
-    <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-5">
-      {/* Formation & Style */}
-      <Card accent="primary">
-        <CardHeader>{t('tactics.formationStyle')}</CardHeader>
-        <CardBody>
-          <div className="mb-4">
-            <label className="text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2 block">{t('tactics.formation')}</label>
-            <div className="grid grid-cols-4 gap-2">
-              {FORMATIONS.map(f => (
-                <button key={f} onClick={async () => {
-                  try { const g = await invoke<GameStateData>("set_formation", { formation: f }); onGameUpdate(g); } catch {}
-                }} className={`px-3 py-2 rounded-lg text-xs font-heading font-bold uppercase tracking-wider transition-all ${
-                  myTeam.formation === f
-                    ? "bg-primary-500 text-white shadow-sm"
-                    : "bg-gray-100 dark:bg-navy-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-navy-600"
-                }`}>
-                  {f}
-                </button>
-              ))}
+    <div className="max-w-6xl mx-auto flex flex-col gap-4">
+      <div
+        ref={dragPreviewRef}
+        aria-hidden="true"
+        className="pointer-events-none fixed -left-20 top-0 h-8 w-8 rounded-full border border-white/15 bg-navy-900/90 shadow-lg"
+      />
+      <div className="flex gap-1 self-start rounded-lg bg-gray-100 p-1 dark:bg-navy-800">
+        <button
+          type="button"
+          onClick={() => setActiveTab("lineup")}
+          className={`rounded-md px-4 py-2 text-xs font-heading font-bold uppercase tracking-wider transition-colors ${
+            activeTab === "lineup"
+              ? "bg-white text-gray-900 shadow-sm dark:bg-navy-700 dark:text-white"
+              : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+          }`}
+        >
+          {t("tactics.lineupTab", "Lineup")}
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("roles")}
+          className={`rounded-md px-4 py-2 text-xs font-heading font-bold uppercase tracking-wider transition-colors ${
+            activeTab === "roles"
+              ? "bg-white text-gray-900 shadow-sm dark:bg-navy-700 dark:text-white"
+              : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+          }`}
+        >
+          {t("tactics.rolesTab", "Set pieces & roles")}
+        </button>
+      </div>
+
+      {activeTab === "lineup" ? (
+        <>
+          <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.65fr)_minmax(320px,0.95fr)] gap-4 items-start">
+            <TacticsPitch
+              benchPlayers={bench}
+              dragState={dragState}
+              formation={formation}
+              comparePlayerId={comparePlayerId}
+              hoveredSlot={hoveredSlot}
+              onClearSelection={clearLineupSelection}
+              onDragEnd={resetDragState}
+              onDragStart={handleDragStart}
+              onLineupPlayerClick={(playerId, section) => {
+                void handleLineupPlayerClick(playerId, section);
+              }}
+              onSlotDragLeave={handleSlotDragLeave}
+              onSlotDragOver={handleSlotDragOver}
+              onSlotDrop={(event, slotIndex) => {
+                void handleSlotDrop(event, slotIndex);
+              }}
+              outOfPositionCount={outOfPositionCount}
+              pitchSlotRows={pitchSlotRows}
+              selectedPlayer={selectedPlayer}
+              selectedPlayerId={selectedPlayerId}
+            />
+
+            <div className="flex flex-col gap-4">
+              <TacticsPlayerFocusPanel
+                canConfirmSwap={canConfirmSwap}
+                onConfirmSwap={() => {
+                  void handleConfirmSwap();
+                }}
+                selectedPlayer={selectedPlayer}
+                comparePlayer={comparePlayer}
+              />
+              <TacticsSetupPanel
+                activePlayStyle={activePlayStyle}
+                formation={formation}
+                onFormationChange={(nextFormation) => {
+                  void handleFormationChange(nextFormation);
+                }}
+                onPlayStyleChange={(playStyle) => {
+                  void handlePlayStyleChange(playStyle);
+                }}
+              />
             </div>
           </div>
-          <div>
-            <label className="text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2 block">{t('tactics.playStyle')}</label>
-            <div className="grid grid-cols-3 gap-2">
-              {PLAY_STYLE_OPTIONS.map(s => (
-                <button key={s} onClick={async () => {
-                  try { const g = await invoke<GameStateData>("set_play_style", { playStyle: s }); onGameUpdate(g); } catch {}
-                }} className={`px-3 py-2 rounded-lg text-xs font-heading font-bold uppercase tracking-wider transition-all ${
-                  myTeam.play_style === s
-                    ? "bg-accent-500 text-white shadow-sm"
-                    : "bg-gray-100 dark:bg-navy-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-navy-600"
-                }`}>
-                  {t(`common.playStyles.${s}`)}
-                </button>
-              ))}
-            </div>
-          </div>
-        </CardBody>
-      </Card>
 
-      {/* Formation Visual */}
-      <Card className="lg:col-span-2">
-        <CardHeader>{t('tactics.startingXI', { formation: myTeam.formation })}</CardHeader>
-        <CardBody>
-          <div className="bg-gradient-to-b from-primary-700/20 to-primary-900/30 dark:from-primary-900/40 dark:to-navy-900/60 rounded-xl p-6 min-h-[320px] relative border border-primary-500/20">
-            {/* Pitch lines */}
-            <div className="absolute inset-x-6 top-1/2 border-t border-white/10" />
-            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-20 h-20 border border-white/10 rounded-full" />
+          <TacticsFilters
+            onClear={handleClearFilters}
+            onPlayerSearchChange={setPlayerSearch}
+            onPositionFilterChange={setPositionFilter}
+            playerSearch={playerSearch}
+            positionFilter={positionFilter}
+          />
 
-            {/* Position groups — parsed from formation */}
-            {(() => {
-              const groups: Record<string, typeof roster> = { Goalkeeper: [], Defender: [], Midfielder: [], Forward: [] };
-              sorted.forEach(p => { if (groups[p.position]) groups[p.position].push(p); });
+          <TacticsPlayerTable
+            emptyMessage={t(
+              "squad.noLineupMatches",
+              "No starters match the current filters.",
+            )}
+            highlightedPlayerId={selectedPlayerId}
+            onSelectPlayer={onSelectPlayer}
+            players={filteredStartingXI}
+            section="xi"
+            sortDir={sortDir}
+            sortKey={sortKey}
+            title={t("preMatch.startingXI", "Starting XI")}
+            toggleSort={toggleSort}
+            totalCount={startingXI.length}
+            xiActivePosition={xiActivePosition}
+          />
 
-              // Parse formation string (e.g. "4-3-3", "4-2-3-1", "3-5-2")
-              const parts = myTeam.formation.split("-").map(Number).filter(n => !isNaN(n));
-              let defCount = 4, midCount = 4, fwdCount = 2;
-              if (parts.length === 3) {
-                defCount = parts[0]; midCount = parts[1]; fwdCount = parts[2];
-              } else if (parts.length === 4) {
-                defCount = parts[0]; midCount = parts[1] + parts[2]; fwdCount = parts[3];
-              }
-
-              // Build rows with y-positions spaced evenly
-              // For 3-part formations: GK, DEF, MID, FWD
-              // For 4-part formations: GK, DEF, DM, AM, FWD
-              type PitchRow = { label: string; y: string; players: typeof roster };
-              let rows: PitchRow[];
-
-              if (parts.length === 4) {
-                // Split midfield into two rows (e.g. 4-2-3-1 → DEF(4), DM(2), AM(3), FWD(1))
-                const dmCount = parts[1];
-                const amCount = parts[2];
-                const dms = groups.Midfielder.slice(0, dmCount);
-                const ams = groups.Midfielder.slice(dmCount, dmCount + amCount);
-                rows = [
-                  { label: "GK", y: "88%", players: groups.Goalkeeper.slice(0, 1) },
-                  { label: "DEF", y: "70%", players: groups.Defender.slice(0, defCount) },
-                  { label: "DM", y: "50%", players: dms },
-                  { label: "AM", y: "30%", players: ams },
-                  { label: "FWD", y: "12%", players: groups.Forward.slice(0, fwdCount) },
-                ];
-              } else {
-                rows = [
-                  { label: "GK", y: "85%", players: groups.Goalkeeper.slice(0, 1) },
-                  { label: "DEF", y: "62%", players: groups.Defender.slice(0, defCount) },
-                  { label: "MID", y: "38%", players: groups.Midfielder.slice(0, midCount) },
-                  { label: "FWD", y: "14%", players: groups.Forward.slice(0, fwdCount) },
-                ];
-              }
-
-              return rows.map(row => (
-                <div key={row.label} className="absolute left-0 right-0 flex justify-center gap-6" style={{ top: row.y, transform: "translateY(-50%)" }}>
-                  {row.players.map(p => (
-                    <button key={p.id} onClick={() => onSelectPlayer(p.id)} className="flex flex-col items-center gap-1 group cursor-pointer">
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center font-heading font-bold text-sm border-2 transition-all group-hover:scale-110 ${
-                        p.condition >= 70
-                          ? "bg-primary-500/80 border-primary-300 text-white"
-                          : "bg-red-500/80 border-red-300 text-white"
-                      }`}>
-                        {calcOvr(p)}
-                      </div>
-                      <span className="text-xs text-white/80 font-medium truncate max-w-[70px]">{p.match_name}</span>
-                    </button>
-                  ))}
-                </div>
-              ));
-            })()}
-          </div>
-        </CardBody>
-      </Card>
-
-      {/* Full squad list for selection */}
-      <Card className="lg:col-span-3">
-        <CardHeader>{t('tactics.fullSquad')}</CardHeader>
-        <CardBody className="p-0">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-gray-200 dark:bg-navy-600">
-            {sorted.map(p => (
-              <button key={p.id} onClick={() => onSelectPlayer(p.id)} className="bg-white dark:bg-navy-700 p-3 flex items-center gap-3 hover:bg-gray-50 dark:hover:bg-navy-600/50 transition-colors text-left">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center font-heading font-bold text-xs ${
-                  calcOvr(p) >= 75 ? "bg-primary-500/20 text-primary-500" :
-                  calcOvr(p) >= 55 ? "bg-accent-500/20 text-accent-500" :
-                  "bg-gray-200 dark:bg-navy-600 text-gray-500"
-                }`}>
-                  {calcOvr(p)}
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 truncate">{p.match_name}</p>
-                  <p className="text-xs text-gray-400 dark:text-gray-500">{p.position}</p>
-                </div>
-                <ProgressBar value={p.condition} variant="auto" size="sm" className="ml-auto w-16" />
-              </button>
-            ))}
-          </div>
-        </CardBody>
-      </Card>
+          <TacticsPlayerTable
+            emptyMessage={t(
+              "squad.noBenchMatches",
+              "No bench players match the current filters.",
+            )}
+            highlightedPlayerId={selectedPlayerId}
+            onSelectPlayer={onSelectPlayer}
+            players={filteredBench}
+            section="bench"
+            sortDir={sortDir}
+            sortKey={sortKey}
+            title={t("preMatch.substitutes", "Substitutes")}
+            toggleSort={toggleSort}
+            totalCount={bench.length}
+            xiActivePosition={xiActivePosition}
+          />
+        </>
+      ) : (
+        <TacticsRolesPanel
+          allSquad={roster}
+          matchRoles={myTeam.match_roles}
+          onGameUpdate={onGameUpdate}
+          startingPlayers={startingXI}
+        />
+      )}
     </div>
   );
 }

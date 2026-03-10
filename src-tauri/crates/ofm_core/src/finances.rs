@@ -29,13 +29,17 @@ pub fn process_weekly_finances(game: &mut Game) {
     for team in game.teams.iter_mut() {
         // --- Player wages (weekly portion) ---
         let team_id = team.id.clone();
-        let weekly_wages: i64 = game.players.iter()
+        let weekly_wages: i64 = game
+            .players
+            .iter()
             .filter(|p| p.team_id.as_deref() == Some(&team_id))
             .map(|p| p.wage as i64 / 52)
             .sum();
 
         // --- Staff wages (weekly portion) ---
-        let staff_wages: i64 = game.staff.iter()
+        let staff_wages: i64 = game
+            .staff
+            .iter()
             .filter(|s| s.team_id.as_deref() == Some(&team_id))
             .map(|s| s.wage as i64 / 52)
             .sum();
@@ -50,11 +54,10 @@ pub fn process_weekly_finances(game: &mut Game) {
         let current = game.clock.current_date.date_naive();
         let week_ago = current - chrono::Duration::days(7);
 
-        let home_matches: Vec<(String, u32)> = league.fixtures.iter()
-            .filter(|f| {
-                f.status == domain::league::FixtureStatus::Completed
-                    && f.result.is_some()
-            })
+        let home_matches: Vec<(String, u32)> = league
+            .fixtures
+            .iter()
+            .filter(|f| f.status == domain::league::FixtureStatus::Completed && f.result.is_some())
             .filter_map(|f| {
                 if let Ok(d) = chrono::NaiveDate::parse_from_str(&f.date, "%Y-%m-%d") {
                     if d > week_ago && d <= current {
@@ -71,7 +74,9 @@ pub fn process_weekly_finances(game: &mut Game) {
 
         // For each home match, calculate revenue
         for team in game.teams.iter_mut() {
-            let home_count = league.fixtures.iter()
+            let home_count = league
+                .fixtures
+                .iter()
                 .filter(|f| {
                     f.status == domain::league::FixtureStatus::Completed
                         && f.home_team_id == team.id
@@ -91,7 +96,8 @@ pub fn process_weekly_finances(game: &mut Game) {
                 let mut rng = rand::thread_rng();
                 let attendance_pct = rng.gen_range(60..=92) as f64 / 100.0;
                 let avg_ticket = rng.gen_range(15..=25) as f64;
-                let revenue_per_match = (team.stadium_capacity as f64 * attendance_pct * avg_ticket) as i64;
+                let revenue_per_match =
+                    (team.stadium_capacity as f64 * attendance_pct * avg_ticket) as i64;
                 let total_revenue = revenue_per_match * home_count;
 
                 team.finance += total_revenue;
@@ -125,11 +131,15 @@ fn generate_financial_warnings(game: &mut Game, today: &str) {
     let mut new_messages: Vec<InboxMessage> = Vec::new();
 
     // Calculate weekly wage bill
-    let weekly_wages: i64 = game.players.iter()
+    let weekly_wages: i64 = game
+        .players
+        .iter()
         .filter(|p| p.team_id.as_deref() == Some(&user_team_id))
         .map(|p| p.wage as i64 / 52)
         .sum::<i64>()
-        + game.staff.iter()
+        + game
+            .staff
+            .iter()
             .filter(|s| s.team_id.as_deref() == Some(&user_team_id))
             .map(|s| s.wage as i64 / 52)
             .sum::<i64>();
@@ -162,13 +172,23 @@ fn generate_financial_warnings(game: &mut Game, today: &str) {
                 .with_category(MessageCategory::Finance)
                 .with_priority(MessagePriority::Urgent)
                 .with_sender_role("Chairman")
+                .with_i18n(
+                    "be.msg.financeCritical.subject",
+                    "be.msg.financeCritical.body",
+                    {
+                        let mut p = std::collections::HashMap::new();
+                        p.insert("amount".to_string(), format_money((-team.finance) as u64));
+                        p
+                    },
+                )
+                .with_sender_i18n("be.sender.boardOfDirectors", "be.role.chairman")
                 .with_action(action("view_finances", "View Finances", "be.msg.event.ack",
                     ActionType::NavigateTo { route: "/dashboard?tab=Finances".to_string() }))
             );
         }
     }
     // Warning: less than 4 weeks of runway
-    else if weeks_left < 4 && weeks_left >= 0 {
+    else if (0..4).contains(&weeks_left) {
         let msg_id = format!("finance_warning_{}", today);
         if !existing_ids.contains(&msg_id) {
             new_messages.push(
@@ -187,6 +207,17 @@ fn generate_financial_warnings(game: &mut Game, today: &str) {
                 .with_category(MessageCategory::Finance)
                 .with_priority(MessagePriority::High)
                 .with_sender_role("Financial Director")
+                .with_i18n(
+                    "be.msg.financeWarning.subject",
+                    "be.msg.financeWarning.body",
+                    {
+                        let mut p = std::collections::HashMap::new();
+                        p.insert("weeklyWages".to_string(), format_money(weekly_wages as u64));
+                        p.insert("weeksLeft".to_string(), weeks_left.to_string());
+                        p
+                    },
+                )
+                .with_sender_i18n("be.sender.financialDirector", "be.role.financialDirector")
                 .with_action(action("view_finances", "View Finances", "be.msg.event.ack",
                     ActionType::NavigateTo { route: "/dashboard?tab=Finances".to_string() }))
             );
@@ -214,6 +245,17 @@ fn generate_financial_warnings(game: &mut Game, today: &str) {
                 .with_category(MessageCategory::Finance)
                 .with_priority(MessagePriority::Normal)
                 .with_sender_role("Financial Director")
+                .with_i18n(
+                    "be.msg.wageOverBudget.subject",
+                    "be.msg.wageOverBudget.body",
+                    {
+                        let mut p = std::collections::HashMap::new();
+                        p.insert("annualWages".to_string(), format_money(annual_wages as u64));
+                        p.insert("wageBudget".to_string(), format_money(team.wage_budget as u64));
+                        p
+                    },
+                )
+                .with_sender_i18n("be.sender.financialDirector", "be.role.financialDirector")
                 .with_action(action("view_finances", "View Finances", "be.msg.event.ack",
                     ActionType::NavigateTo { route: "/dashboard?tab=Finances".to_string() }))
             );

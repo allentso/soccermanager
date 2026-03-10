@@ -10,11 +10,18 @@ use domain::team::Team;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum ObjectiveType {
+    LeaguePosition,
+    Wins,
+    GoalsScored,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BoardObjective {
     pub id: String,
     pub description: String,
     pub target: u32,
-    pub objective_type: String, // "league_position", "wins", "goals_scored"
+    pub objective_type: ObjectiveType,
     pub met: bool,
 }
 

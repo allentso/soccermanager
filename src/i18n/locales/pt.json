@@ -1,12 +1,13 @@
 {
   "app": {
     "name": "OpenFoot Manager",
-    "version": "v0.1.0-alpha"
+    "version": "v0.1.1-alpha"
   },
   "menu": {
     "newGame": "Novo Jogo",
     "loadGame": "Carregar Jogo",
     "settings": "Definições",
+    "exitGame": "Sair do jogo",
     "noSaves": "Nenhum jogo guardado encontrado.",
     "loadingSaves": "A carregar jogos...",
     "deleteConfirm": "Eliminar <strong>{{name}}</strong>?",
@@ -20,11 +21,13 @@
   "createManager": {
     "title": "Criar Treinador",
     "firstName": "Nome",
-    "lastName": "Apelido",
+    "lastName": "Sobrenome",
     "dob": "Data de Nascimento",
     "nationality": "Nacionalidade",
+    "countryOfOrigin": "País/Região de Origem",
     "selectNationality": "Selecionar nacionalidade...",
-    "searchNationalities": "Procurar nacionalidades...",
+    "selectCountry": "Selecionar País/Região...",
+    "searchNationalities": "Pesquisar nacionalidades...",
     "chooseWorld": "Escolher Mundo",
     "minAge": "Idade mínima: 30 anos",
     "placeholderFirst": "ex. José",
@@ -32,6 +35,7 @@
   },
   "validation": {
     "required": "{{field}} é obrigatório",
+    "maxLength": "{{field}} não deve exceder {{max}} caracteres",
     "minAge": "O treinador deve ter pelo menos 30 anos",
     "invalidDate": "Data inválida",
     "invalidDob": "Data de nascimento inválida"
@@ -74,7 +78,19 @@
     "searchTeams": "Equipas",
     "searchPlayers": "Jogadores",
     "scouting": "Prospeção",
-    "youthAcademy": "Academia de Jovens"
+    "youthAcademy": "Academia de Jovens",
+    "saveGame": "Guardar jogo",
+    "saving": "A guardar...",
+    "saved": "Guardado!",
+    "collapseSidebar": "Recolher barra lateral",
+    "expandSidebar": "Expandir barra lateral",
+    "alerts": {
+      "exhausted": "{{count}} jogador(es) em condição crítica (<25%)",
+      "injuredStartingXi": "{{count}} jogador(es) lesionado(s) no onze inicial — substitui-os",
+      "incompleteStartingXi": "O onze inicial está incompleto — define a tua equipa",
+      "urgentUnread": "{{count}} mensagem(ns) urgente(s) por ler",
+      "matchTodayStartingXi": "Jogo hoje! Define o teu onze inicial"
+    }
   },
   "continueMenu": {
     "goToField": "Ir para o Campo",
@@ -84,13 +100,23 @@
     "delegateAssistant": "Delegar ao Assistente",
     "delegateAssistantDesc": "A IA trata de tudo",
     "skipToMatchDay": "Avançar para o Dia de Jogo",
-    "skipToMatchDayDesc": "Avançar até ao próximo jogo"
+    "skipToMatchDayDesc": "Avançar até ao próximo jogo",
+    "matchDayTitle": "Dia de Jogo",
+    "delegateWarning": "O teu assistente vai gerir o jogo. Não poderás intervir."
+  },
+  "closeConfirm": {
+    "title": "Alterações não guardadas",
+    "message": "Tens alterações não guardadas. O que queres fazer?",
+    "saveQuit": "Guardar e Sair",
+    "quitNoSave": "Sair sem guardar"
   },
   "exitConfirm": {
     "title": "Sair para o Menu Principal?",
     "message": "O teu jogo será guardado automaticamente antes de voltar ao menu principal.",
     "cancel": "Cancelar",
-    "saveExit": "Guardar e Sair"
+    "saveExit": "Guardar e Sair",
+    "savingTitle": "A guardar o teu jogo...",
+    "savingMessage": "Aguarda enquanto guardamos o teu progresso e voltamos ao menu principal."
   },
   "onboarding": {
     "title": "Primeiros Passos",
@@ -136,7 +162,12 @@
     "matchdayN": "Jornada {{n}}",
     "met": "Cumprido",
     "inProgress": "Em Progresso",
-    "objectivesMet": "{{done}}/{{total}} objetivos cumpridos — Satisfação da direção: {{pct}}%"
+    "boardObjectives": "Objetivos da Direção",
+    "seasonComplete": "Temporada concluída.",
+    "noLeagueSchedule": "Sem dados da liga.",
+    "objectivesMet": "{{done}}/{{total}} objetivos cumpridos — Satisfação da direção: {{pct}}%",
+    "unavailablePlayers": "Jogadores indisponíveis",
+    "daysUnavailable": "{{count}} dia(s) restantes"
   },
   "teamSelect": {
     "title": "Escolhe o Teu Clube",
@@ -180,7 +211,7 @@
   "common": {
     "loading": "A carregar...",
     "loadingGameState": "A carregar estado do jogo...",
-    "noResults": "Sem resultados.",
+    "noResults": "Nenhum resultado encontrado.",
     "place": {
       "1": "1º",
       "2": "2º",
@@ -198,9 +229,11 @@
     "injured": "Lesionado",
     "back": "Voltar",
     "all": "Todos",
+    "allPlayers": "Todos os jogadores",
     "cancel": "Cancelar",
     "confirm": "Confirmar",
     "save": "Guardar",
+    "search": "Pesquisar",
     "noTeam": "Nenhuma equipa atribuída.",
     "unemployed": "Estás atualmente desempregado.",
     "freeAgent": "Agente Livre",
@@ -220,6 +253,7 @@
     "name": "Nome",
     "team": "Equipa",
     "player": "Jogador",
+    "actions": "Ações",
     "position": "Posição",
     "nationality": "Nacionalidade",
     "contract": "Contrato",
@@ -287,6 +321,37 @@
       "reflexes": "Reflexos",
       "aerial": "Jogo Aéreo"
     },
+    "moods": {
+      "excellent": "Excelente",
+      "good": "Bom",
+      "mixed": "Misto",
+      "poor": "Mau"
+    },
+    "injuries": {
+      "minorMuscleStrain": "Distensão muscular ligeira",
+      "twistedAnkle": "Tornozelo torcido",
+      "kneeBruise": "Contusão no joelho",
+      "hamstringTightness": "Tensão nos isquiotibiais",
+      "calfStrain": "Distensão na barriga da perna"
+    },
+    "scoutRatings": {
+      "excellent": "Excelente",
+      "veryGood": "Muito Bom",
+      "good": "Bom",
+      "average": "Médio",
+      "belowAverage": "Abaixo da média"
+    },
+    "scoutPotential": {
+      "worldClass": "Potencial de classe mundial",
+      "strong": "Forte potencial de desenvolvimento",
+      "moderate": "Potencial moderado de crescimento",
+      "unclear": "Potencial incerto — recomenda-se mais observação"
+    },
+    "scoutConfidence": {
+      "high": "Alta",
+      "moderate": "Moderada",
+      "low": "Baixa"
+    },
     "attrGroups": {
       "physical": "Físico",
       "technical": "Técnico",
@@ -313,14 +378,59 @@
     "playerCount": "{{count}} Jogadores",
     "noPlayers": "Nenhum jogador encontrado no teu plantel.",
     "pos": "Pos",
-    "traits": "Características"
+    "traits": "Características",
+    "fullRoster": "Plantel Completo",
+    "compare": "Comparar",
+    "selected": "selecionado(s)",
+    "playersLabel": "jogadores",
+    "noBench": "Sem suplentes.",
+    "viewProfile": "Ver perfil",
+    "swapPlayer": "Trocar jogador",
+    "addToTransferList": "Adicionar à lista de transferências",
+    "removeFromTransferList": "Remover da lista de transferências",
+    "addToLoanList": "Adicionar à lista de empréstimos",
+    "removeFromLoanList": "Remover da lista de empréstimos",
+    "outOfPosition": "Fora de posição",
+    "outOfPositionTooltip": "A jogar fora da função preferida do jogador",
+    "dragHint": "Arrasta jogadores do banco para o campo ou troca titulares entre vagas.",
+    "benchDragHint": "Usa a lista do banco para arrastar jogadores diretamente para o campo.",
+    "dropPlayerHere": "Larga o jogador aqui",
+    "dragToPitch": "Arrastar para o campo",
+    "filterPlayers": "Filtrar por nome do jogador ou posição",
+    "noBenchMatches": "Nenhum jogador do banco corresponde aos filtros atuais.",
+    "noLineupMatches": "Nenhum titular corresponde aos filtros atuais.",
+    "playStyleImpactTitle": "O que isto muda",
+    "playStyleDescriptions": {
+      "Balanced": "Mantém a tua equipa equilibrada com e sem bola, com uma estrutura estável e menos extremos.",
+      "Attacking": "Leva mais jogadores para a frente, cria mais apoio perto da área e pede mais iniciativa à tua equipa.",
+      "Defensive": "Faz a tua equipa priorizar a proteção dos espaços, manter-se compacta e correr menos riscos sem bola.",
+      "Possession": "Incentiva a tua equipa a circular a bola com paciência, controlar o ritmo e procurar espaços com mais clareza.",
+      "Counter": "Convida a tua equipa a acelerar logo após recuperar a bola, atacando os espaços antes que o adversário se reorganize.",
+      "HighPress": "Pede à tua equipa que pressione mais cedo, recupere a bola em zonas altas e mantenha o adversário sob pressão."
+    }
   },
   "tactics": {
-    "formationStyle": "Formação e Estilo",
+    "formationStyle": "Formação & Estilo",
     "formation": "Formação",
     "playStyle": "Estilo de Jogo",
+    "lineupTab": "Onze",
+    "rolesTab": "Bolas paradas & funções",
+    "teamRoles": "Funções da equipa",
+    "viceCaptain": "Vice-capitão",
+    "setPiecesSection": "Bolas paradas",
+    "rolesHint": "Escolhe a hierarquia de liderança e os especialistas em bolas paradas do onze inicial atual.",
+    "autoSelectAssignments": "Selecionar padrões automaticamente",
+    "noStartersForRoles": "Define o teu onze inicial para atribuir funções da equipa e bolas paradas.",
     "startingXI": "Onze Inicial — {{formation}}",
-    "fullSquad": "Plantel Completo"
+    "fullSquad": "Plantel Completo",
+    "pitchInteractionHint": "Arrasta jogadores entre o campo e o banco, clica num jogador para o analisar, clica num segundo para os comparar e depois confirma a troca no painel de comparação.",
+    "selectedPlayer": "Jogador selecionado",
+    "comparePlayer": "Jogador de comparação",
+    "selectSecondPlayer": "Seleciona um segundo jogador na vista da escalação para comparar atributos e preparar a troca.",
+    "compareSelectionHint": "Analisa ambos os jogadores abaixo e confirma a troca quando estiveres pronto.",
+    "confirmSwap": "Confirmar troca",
+    "selectPitchPlayer": "Seleciona um jogador na vista da escalação para analisar os seus atributos.",
+    "selectAnotherToSwap": "Seleciona um segundo jogador para os comparar e confirmar a troca."
   },
   "training": {
     "weeklySchedule": "Calendário Semanal",
@@ -337,6 +447,7 @@
     "aRestDay": "dia de descanso",
     "currentlyTraining": "A treinar: <strong>{{attrs}}</strong> com intensidade <strong>{{intensity}}</strong>.",
     "recoveryNote": "Os jogadores vão focar-se no descanso e recuperação em todos os dias.",
+    "effectiveFocus": "Foco",
     "trainingAppliedNote": "O treino é aplicado nos dias programados quando avanças o tempo. Dias de descanso proporcionam recuperação total.",
     "criticalCondition": "{{count}} jogador(es) em condição crítica (<25%)",
     "exhaustedPlayers": "{{count}} jogador(es) exausto(s) (<40%)",
@@ -344,25 +455,93 @@
     "staffWarning": "Aviso do Staff",
     "staffSuggestion": "Sugestão do Staff",
     "focuses": {
-      "Physical": { "label": "Físico", "desc": "Desenvolver condição e força" },
-      "Technical": { "label": "Técnico", "desc": "Aprimorar habilidades com bola" },
-      "Tactical": { "label": "Tático", "desc": "Melhorar inteligência de jogo" },
-      "Defending": { "label": "Defesa", "desc": "Solidificar a defesa" },
-      "Attacking": { "label": "Ataque", "desc": "Aumentar ameaça ofensiva" },
-      "Recovery": { "label": "Recuperação", "desc": "Dia de descanso — recuperação máxima" }
+      "Physical": {
+        "label": "Físico",
+        "desc": "Desenvolver condição e força"
+      },
+      "Technical": {
+        "label": "Técnico",
+        "desc": "Aprimorar habilidades com bola"
+      },
+      "Tactical": {
+        "label": "Tático",
+        "desc": "Melhorar inteligência de jogo"
+      },
+      "Defending": {
+        "label": "Defesa",
+        "desc": "Solidificar a defesa"
+      },
+      "Attacking": {
+        "label": "Ataque",
+        "desc": "Aumentar ameaça ofensiva"
+      },
+      "Recovery": {
+        "label": "Recuperação",
+        "desc": "Dia de descanso — recuperação máxima"
+      }
     },
     "intensities": {
-      "Low": { "label": "Baixa", "desc": "Sessão suave — menos fadiga, crescimento lento" },
-      "Medium": { "label": "Média", "desc": "Carga equilibrada — resultados padrão" },
-      "High": { "label": "Alta", "desc": "Treino intenso — crescimento rápido, mais fadiga" }
+      "Low": {
+        "label": "Baixa",
+        "desc": "Sessão suave — menos fadiga, crescimento lento"
+      },
+      "Medium": {
+        "label": "Média",
+        "desc": "Carga equilibrada — resultados padrão"
+      },
+      "High": {
+        "label": "Alta",
+        "desc": "Treino intenso — crescimento rápido, mais fadiga"
+      }
     },
     "schedules": {
-      "Intense": { "label": "Intenso", "desc": "6 dias de treino, 1 descanso", "detail": "Desenvolvimento máximo. Apenas domingo de folga. Risco de acumulação de fadiga." },
-      "Balanced": { "label": "Equilibrado", "desc": "4 dias de treino, 3 descanso", "detail": "Treino seg, ter, qui, sex. Descanso qua, sáb, dom. Recomendado para a maioria." },
-      "Light": { "label": "Leve", "desc": "2 dias de treino, 5 descanso", "detail": "Treino apenas ter e qui. Prioriza recuperação. Bom após calendário intenso." }
+      "Intense": {
+        "label": "Intenso",
+        "desc": "6 dias de treino, 1 descanso",
+        "detail": "Desenvolvimento máximo. Apenas domingo de folga. Risco de acumulação de fadiga."
+      },
+      "Balanced": {
+        "label": "Equilibrado",
+        "desc": "4 dias de treino, 3 descanso",
+        "detail": "Treino seg, ter, qui, sex. Descanso qua, sáb, dom. Recomendado para a maioria."
+      },
+      "Light": {
+        "label": "Leve",
+        "desc": "2 dias de treino, 5 descanso",
+        "detail": "Treino apenas ter e qui. Prioriza recuperação. Bom após calendário intenso."
+      }
     },
     "days": {
-      "mon": "Seg", "tue": "Ter", "wed": "Qua", "thu": "Qui", "fri": "Sex", "sat": "Sáb", "sun": "Dom"
+      "mon": "Seg",
+      "tue": "Ter",
+      "wed": "Qua",
+      "thu": "Qui",
+      "fri": "Sex",
+      "sat": "Sáb",
+      "sun": "Dom"
+    },
+    "groups": {
+      "trainingGroups": "Grupos de Treino",
+      "trainingGroupsDesc": "Atribui jogadores a grupos com diferentes focos de treino. Jogadores sem grupo usam o foco padrão da equipa.",
+      "addGroup": "Adicionar Grupo",
+      "groupName": "Nome do Grupo",
+      "groupFocus": "Foco",
+      "removeGroup": "Remover Grupo",
+      "ungrouped": "Sem Grupo",
+      "noGroups": "Nenhum grupo de treino criado. Adiciona um grupo e atribui jogadores para personalizar o treino.",
+      "group": "Grupo",
+      "teamDefault": "Padrão da Equipa",
+      "assignPlayer": "Atribuir ao grupo",
+      "removePlayer": "Remover do grupo",
+      "playerCount": "{{count}} jogador(es)",
+      "maxGroups": "Máximo de 5 grupos de treino permitidos.",
+      "defaultGroupNames": {
+        "0": "Defesas",
+        "1": "Médios",
+        "2": "Avançados",
+        "3": "Jovens",
+        "4": "Recuperação"
+      }
     }
   },
   "staff": {
@@ -410,8 +589,9 @@
     "transferBudget": "Orçamento de Transferências",
     "seasonIncome": "Receita da Temporada",
     "seasonExpenses": "Despesas da Temporada",
+    "perWeekSuffix": "/sem",
     "wagePerWeek": "Salário/sem",
-    "marketValue": "Valor de Mercado",
+    "marketValue": "Valor do Mercado",
     "until": "Até {{year}}"
   },
   "inbox": {
@@ -424,6 +604,25 @@
     "unread": "Por ler ({{count}})",
     "urgent": "Urgente",
     "important": "Importante",
+    "chooseResponse": "Escolhe a tua resposta",
+    "responded": "Resposta enviada",
+    "markAllRead": "Marcar todas como lidas",
+    "clearOld": "Limpar antigas",
+    "sortLabel": "Ordenar",
+    "sortByDate": "Ordenar mensagens por data",
+    "sortNewest": "Mais recentes primeiro",
+    "sortOldest": "Mais antigas primeiro",
+    "selectMessages": "Selecionar mensagens",
+    "cancelSelection": "Cancelar seleção",
+    "selectedCount": "{{count}} selecionada(s)",
+    "deleteSelected": "Eliminar selecionadas",
+    "deleteMessage": "Eliminar mensagem",
+    "deleteMessageTitle": "Eliminar mensagem?",
+    "deleteMessageBody": "Isto vai eliminar permanentemente \"{{subject}}\". Esta ação não pode ser desfeita.",
+    "deleteSelectedTitle": "Eliminar mensagens selecionadas?",
+    "deleteSelectedBody": "Isto vai eliminar permanentemente {{count}} mensagem(ns) selecionada(s). Esta ação não pode ser desfeita.",
+    "deleteAction": "Eliminar",
+    "selectMessageForDeletion": "Selecionar {{subject}}",
     "categories": {
       "Welcome": "Boas-vindas",
       "LeagueInfo": "Liga",
@@ -460,6 +659,13 @@
     "boardSatisfied": "A direção está satisfeita com o teu desempenho.",
     "boardConcerns": "A direção tem preocupações com os resultados.",
     "boardThreat": "A tua posição está seriamente ameaçada."
+  },
+  "boardObjectives": {
+    "objective": {
+      "LeaguePosition": "Termina entre os primeiros {{target}}",
+      "Wins": "Ganha pelo menos {{target}} jogos",
+      "GoalsScored": "Marca pelo menos {{target}} golos"
+    }
   },
   "transfers": {
     "centre": "Centro de Transferências",
@@ -501,7 +707,8 @@
     "allTeams": "Todas as Equipas",
     "nPlayersFound": "{{count}} jogador(es) encontrado(s)",
     "noMatch": "Nenhum jogador corresponde aos filtros.",
-    "showingFirst": "A mostrar os primeiros {{shown}} de {{total}} jogadores. Refina a pesquisa para ver mais."
+    "showingFirst": "A mostrar os primeiros {{shown}} de {{total}} jogadores. Refina a pesquisa para ver mais.",
+    "showingRange": "{{from}}–{{to}} de {{total}}"
   },
   "teams": {
     "yourTeam": "A Tua Equipa",
@@ -687,7 +894,14 @@
     "noScoutsFree": "Sem olheiros livres",
     "scoutBtn": "Observar",
     "noPlayersFound": "Nenhum jogador encontrado com a tua pesquisa.",
-    "showingRange": "A mostrar {{from}}–{{to}} de {{total}}"
+    "scoutingPlayer": "A observar: <strong>{{name}}</strong> — {{days}}d restantes",
+    "showingRange": "A mostrar {{from}}–{{to}} de {{total}}",
+    "viewPlayer": "Ver",
+    "condition": "Condição",
+    "morale": "Moral",
+    "estimatedAttributes": "Atributos estimados",
+    "undiscovered": "Não descoberto",
+    "confidence": "Confiança"
   },
   "match": {
     "live": "Ao Vivo",
@@ -726,6 +940,8 @@
     "takingOff": "A sair: {{name}}",
     "selectReplacement": "Seleciona substituto do banco",
     "benchPlayers": "Jogadores do banco",
+    "selectBenchToCompare": "Seleciona um jogador do banco para comparar",
+    "confirmSubstitution": "Confirmar substituição",
     "noBenchAvailable": "Sem jogadores no banco",
     "history": "Histórico",
     "player": "Jogador",
@@ -768,6 +984,83 @@
     "submitting": "A enviar...",
     "leaveConference": "Sair da Conferência",
     "nextQuestion": "Próxima Pergunta",
+    "press": {
+      "result": {
+        "questions": {
+          "win": "Bom resultado hoje, {{userScore}}-{{oppScore}} frente ao {{oppName}}. Até que ponto estás satisfeito com a exibição?",
+          "loss": "Resultado duro hoje, derrota por {{userScore}}-{{oppScore}} frente ao {{oppName}}. O que correu mal?",
+          "draw": "Empate {{userScore}}-{{oppScore}} frente ao {{oppName}}. Consideras que foi um resultado justo?"
+        },
+        "responses": {
+          "win": {
+            "humble": { "tone": "Humilde", "text": "Os jogadores trabalharam muito. Preparámo-nos bem e executámos o plano de jogo." },
+            "confident": { "tone": "Confiante", "text": "Fomos a melhor equipa do início ao fim. Resultado merecido." },
+            "deflect": { "tone": "Evasivo", "text": "São apenas três pontos. Agora seguimos para o próximo jogo." }
+          },
+          "loss": {
+            "accept": { "tone": "Honesto", "text": "Hoje não fomos suficientemente bons. Temos de perceber o que correu mal." },
+            "defiant": { "tone": "Desafiador", "text": "Não acho que merecêssemos perder. Criámos oportunidades suficientes." },
+            "deflect": { "tone": "Evasivo", "text": "Prefiro não insistir nisso. Estaremos prontos para o próximo jogo." }
+          },
+          "draw": {
+            "fair": { "tone": "Justo", "text": "Foi um resultado justo. Ambas as equipas tiveram oportunidades." },
+            "frustrated": { "tone": "Frustrado", "text": "Devíamos ter ganho. Falhámos demasiadas oportunidades." },
+            "positive": { "tone": "Positivo", "text": "Um ponto é um ponto. Há aspetos positivos a retirar de hoje." }
+          }
+        }
+      },
+      "playerFocus": {
+        "questions": {
+          "scored": "{{playerName}} marcou hoje. Quão importante é o contributo dele para a equipa?",
+          "default": "Podes comentar a exibição de {{playerName}} hoje?"
+        },
+        "responses": {
+          "praise": { "tone": "Elogio", "text": "{{playerName}} esteve fantástico. É um jogador-chave para nós e a atitude dele é exemplar." },
+          "demanding": { "tone": "Exigente", "text": "{{playerName}} pode fazer melhor. Espero mais de um jogador com a qualidade dele." },
+          "deflect": { "tone": "Evasivo", "text": "Não gosto de destacar indivíduos. Isto é um jogo de equipa." }
+        }
+      },
+      "tactics": {
+        "question": "Podes explicar-nos a tua abordagem tática hoje?",
+        "responses": {
+          "detailed": { "tone": "Detalhado", "text": "Montámos a equipa para controlar o meio-campo e usar a largura. Acho que a estrutura funcionou bem." },
+          "brief": { "tone": "Breve", "text": "Tínhamos um plano e os jogadores executaram-no. É isso que importa." },
+          "evasive": { "tone": "Evasivo", "text": "Prefiro não revelar demasiado. Cada equipa tem os seus segredos." }
+        }
+      },
+      "fans": {
+        "questions": {
+          "win": "Os adeptos fizeram-se ouvir hoje. O que significa para ti esse apoio?",
+          "loss": "Alguns adeptos mostraram frustração no final. Tens uma mensagem para eles?",
+          "draw": "O ambiente esteve tenso em alguns momentos. Como geres essa pressão?"
+        },
+        "responses": {
+          "win": {
+            "grateful": { "tone": "Humilde", "text": "Os adeptos são incríveis. Empurram-nos em todos os jogos e devemos-lhes exibições como a de hoje." },
+            "shared": { "tone": "Confiante", "text": "Celebramos todos juntos — jogadores, equipa técnica e adeptos. Esta vitória também é deles." },
+            "deflect": { "tone": "Evasivo", "text": "Os adeptos sabem aquilo que representamos. Nós focamo-nos apenas no relvado." }
+          },
+          "loss": {
+            "apologize": { "tone": "Honesto", "text": "Compreendo totalmente a frustração deles. Merecem melhor e vamos trabalhar muito para lhes dar isso." },
+            "patience": { "tone": "Focado", "text": "Peço paciência. Estamos a construir algo e os maus dias acontecem. Vamos voltar mais fortes." },
+            "curt": { "tone": "Seco", "text": "Não vou comentar coisas ditas no calor do momento. Vamos seguir em frente." }
+          },
+          "draw": {
+            "appreciate": { "tone": "Positivo", "text": "Aprecio cada adepto que vem ver-nos. A energia deles levanta a equipa." },
+            "understand": { "tone": "Justo", "text": "Eles querem ver-nos ganhar e eu também. Vamos continuar a insistir até os resultados aparecerem." },
+            "curt": { "tone": "Seco", "text": "Não me envolvo com o que acontece nas bancadas. O meu foco está no relvado." }
+          }
+        }
+      },
+      "ahead": {
+        "question": "Qual é o teu foco para o próximo jogo?",
+        "responses": {
+          "focused": { "tone": "Focado", "text": "Primeiro a recuperação, depois a preparação. Vamos jogo a jogo." },
+          "ambitious": { "tone": "Ambicioso", "text": "Queremos continuar a construir dinâmica. O objetivo é claro." },
+          "curt": { "tone": "Seco", "text": "Próxima pergunta, por favor. Pensaremos nisso quando chegar a altura." }
+        }
+      }
+    },
     "pen": "PEN",
     "home": "Casa",
     "away": "Fora",
@@ -815,17 +1108,7 @@
     "continueDashboard": "Continuar para o Painel"
   },
   "squadCompare": {
-    "compare": "Comparar",
-    "selectPlayerA": "Selecionar Jogador A",
-    "selectPlayerB": "Selecionar Jogador B",
-    "vsLabel": "vs",
-    "clearSelection": "Limpar",
-    "noPlayersSelected": "Seleciona dois jogadores dos menus acima para comparar os seus atributos lado a lado.",
-    "seasonStats": "Estatísticas da Época",
-    "apps": "Jogos",
-    "goals": "Golos",
-    "assists": "Assistências",
-    "avgRating": "Classificação Média"
+    "compare": "Comparar"
   },
   "be": {
     "sender": {
@@ -833,14 +1116,29 @@
       "leagueOffice": "Gabinete da Liga",
       "assistantManager": "Treinador Adjunto",
       "matchReporter": "Repórter de Jogo",
-      "headPhysio": "Fisioterapeuta Principal"
+      "headPhysio": "Fisioterapeuta Principal",
+      "financialDirector": "Diretor Financeiro",
+      "commercialDirector": "Diretor Comercial",
+      "communityManager": "Gestor da Comunidade",
+      "directorOfFootball": "Diretor Desportivo",
+      "intlLiaison": "Responsável pelas Relações Internacionais",
+      "player": "Jogador",
+      "pressOfficer": "Assessor de Imprensa",
+      "scout": "Olheiro"
     },
     "role": {
       "chairman": "Presidente",
       "competitionSecretary": "Secretário da Competição",
       "assistantManager": "Treinador Adjunto",
       "pressOfficer": "Assessor de Imprensa",
-      "headPhysio": "Fisioterapeuta Principal"
+      "headPhysio": "Fisioterapeuta Principal",
+      "financialDirector": "Diretor Financeiro",
+      "commercialDirector": "Diretor Comercial",
+      "communityManager": "Gestor da Comunidade",
+      "directorOfFootball": "Diretor Desportivo",
+      "intlLiaison": "Responsável pelas Relações Internacionais",
+      "player": "Jogador",
+      "scout": "Olheiro"
     },
     "source": {
       "sportsGazette": "Gazeta Desportiva",
@@ -898,6 +1196,22 @@
         "body": "O conselho definiu as seguintes expectativas para esta época:\n\n• Terminar na metade superior da tabela\n• Manter a estabilidade financeira\n• Desenvolver jovens talentos da academia\n\nCumprir estes objectivos fortalecerá a sua posição. O incumprimento das expectativas mínimas pode resultar numa revisão do seu mandato.\n\nConfiamos nas suas capacidades.",
         "actionAccept": "Aceitar Objectivos"
       },
+      "boardObjectives": {
+        "subject": "Época {{season}} — Objectivos da Direção",
+        "body": "A direção definiu os seguintes objectivos para esta época:\n\n1. Terminar entre os primeiros {{expectedPos}}\n2. Ganhar pelo menos {{winTarget}} jogos\n3. Marcar pelo menos {{goalsTarget}} golos\n\nCumprir estes objectivos irá melhorar a confiança da direção na sua gestão. O incumprimento das expectativas pode resultar em orçamentos mais baixos ou noutras consequências."
+      },
+      "financeCritical": {
+        "subject": "URGENTE: Clube endividado",
+        "body": "O clube tem atualmente uma dívida de €{{amount}}. Esta é uma situação insustentável.\n\nA direção exige ação imediata para resolver a crise financeira. Considera vender jogadores, reduzir staff ou encontrar fontes alternativas de receita.\n\nSe isto não for resolvido, poderá haver consequências sérias para a tua posição."
+      },
+      "financeWarning": {
+        "subject": "Aviso financeiro — Reservas baixas",
+        "body": "As nossas reservas financeiras estão a diminuir. Ao ritmo atual de despesa (€{{weeklyWages}}/semana em salários), temos aproximadamente {{weeksLeft}} semanas de margem.\n\nRecomendaria rever a folha salarial e procurar formas de aumentar a receita."
+      },
+      "wageOverBudget": {
+        "subject": "Folha salarial acima do orçamento",
+        "body": "A nossa folha salarial anual (€{{annualWages}}) excede atualmente o orçamento salarial atribuído (€{{wageBudget}}).\n\nEmbora seja sustentável a curto prazo, a direção preferia ver a folha salarial novamente sob controlo."
+      },
       "fitness": {
         "critical": {
           "subject": "URGENTE: Crise de Condição Física",
@@ -916,6 +1230,242 @@
           }
         },
         "actionAdjust": "Ajustar Treino"
+      },
+      "event": {
+        "ack": "Understood",
+        "respond": "Respond"
+      },
+      "playerEvent": {
+        "respond": "Responder",
+        "options": {
+          "moraleCrisis": {
+            "encourage": {
+              "label": "Encorajá-lo",
+              "description": "Mostre empatia e encoraje o jogador a continuar a trabalhar arduamente."
+            },
+            "promiseTime": {
+              "label": "Prometer mais tempo de jogo",
+              "description": "Diga-lhe que terá a sua oportunidade — grande aumento de moral, mas cria expectativas."
+            },
+            "workHarder": {
+              "label": "Dizer-lhe para trabalhar mais",
+              "description": "Abordagem mais dura — pode sair pela culatra ou motivá-lo."
+            }
+          },
+          "benchComplaint": {
+            "explain": {
+              "label": "Explicar a situação",
+              "description": "Explique calmamente a concorrência e a rotação no plantel. Aumento estável de moral."
+            },
+            "promiseChance": {
+              "label": "Prometer-lhe uma oportunidade em breve",
+              "description": "Ficará mais satisfeito, mas vai esperar ser titular nos próximos jogos."
+            },
+            "proveYourself": {
+              "label": "Dizer-lhe para se provar",
+              "description": "Desafie-o a conquistar o seu lugar. Arriscado — pode motivá-lo ou frustrá-lo."
+            }
+          },
+          "happyPlayer": {
+            "praiseBack": {
+              "label": "Retribuir o elogio",
+              "description": "Diga-lhe o quanto valoriza o seu contributo."
+            },
+            "stayProfessional": {
+              "label": "Manter-se profissional",
+              "description": "Reconheça a sua forma, mas mantenha a postura."
+            },
+            "higherExpectations": {
+              "label": "Definir expectativas mais altas",
+              "description": "Desafie-o a atingir um nível ainda mais alto. Pode impulsioná-lo ou pressioná-lo."
+            }
+          },
+          "contractConcern": {
+            "reassure": {
+              "label": "Tranquilizá-lo quanto à renovação",
+              "description": "Diga-lhe que quer que fique. Grande aumento de moral."
+            },
+            "noncommittal": {
+              "label": "Ser evasivo",
+              "description": "Mantenha as suas opções em aberto. O jogador pode ficar inquieto."
+            },
+            "noRenewal": {
+              "label": "Dizer-lhe que não vai renovar",
+              "description": "Honesto, mas duro. A moral vai cair a pique."
+            }
+          }
+        },
+        "effects": {
+          "moraleCrisis": {
+            "encourage": {
+              "positive": "O jogador sente-se um pouco melhor. Moral {{delta}}",
+              "negative": "O jogador não acredita nisso. Moral {{delta}}"
+            },
+            "promiseTime": "O jogador fica tranquilo com a promessa. Moral {{delta}}. Vai esperar ser titular em breve.",
+            "workHarder": {
+              "positive": "O jogador aceita o desafio. Moral {{delta}}",
+              "negative": "O jogador sente-se ofendido pela dureza. Moral {{delta}}"
+            }
+          },
+          "benchComplaint": {
+            "explain": {
+              "positive": "O jogador aceita a custo. Moral {{delta}}",
+              "negative": "O jogador não fica convencido. Moral {{delta}}"
+            },
+            "promiseChance": "O jogador entusiasma-se com a oportunidade. Moral {{delta}}. Espera ser titular no próximo jogo.",
+            "proveYourself": {
+              "positive": "O jogador fica motivado para provar o seu valor. Moral {{delta}}",
+              "negative": "O jogador sente-se descartado e insultado. Moral {{delta}}"
+            }
+          },
+          "happyPlayer": {
+            "praiseBack": "O jogador sorri com o elogio. Moral {{delta}}",
+            "stayProfessional": {
+              "positive": "O jogador acena profissionalmente. Moral {{delta}}",
+              "negative": "O jogador queria mais calor humano. Moral {{delta}}"
+            },
+            "higherExpectations": {
+              "positive": "O jogador cresce com o desafio. Moral {{delta}}",
+              "negative": "O jogador sente que a pressão é injusta. Moral {{delta}}"
+            }
+          },
+          "contractConcern": {
+            "reassure": "O jogador fica tranquilo quanto ao futuro. Moral {{delta}}",
+            "noncommittal": {
+              "positive": "O jogador aceita a custo por agora. Moral {{delta}}",
+              "negative": "O jogador está inquieto e infeliz. Moral {{delta}}"
+            },
+            "noRenewal": "O jogador fica devastado. Moral {{delta}}. Pode afetar o balneário.",
+            "noRenewalWithDressingRoom": "O jogador fica devastado. Moral {{delta}}. Pode afetar o balneário. O ambiente no balneário piora — {{affected}} colegas perdem moral."
+          }
+        }
+      },
+      "sponsor": {
+        "subject": "Sponsorship Offer — {{sponsor}}",
+        "body": "Good news, boss! {{sponsor}} has expressed interest in becoming a sponsor of {{team}}.\n\nThey are offering a one-time payment of €{{amount}} in exchange for advertising space at the training ground.\n\nThis seems like a reasonable deal, but it is your call.",
+        "options": {
+          "accept": {
+            "label": "Aceitar o acordo",
+            "description": "Recebe €{{amount}} em receitas de patrocínio."
+          },
+          "decline": {
+            "label": "Recusar educadamente",
+            "description": "Recusa a oferta. Sem impacto financeiro."
+          }
+        }
+      },
+      "trainingInjury": {
+        "subject": "Injury — {{player}} ({{injury}})",
+        "body0": "Bad news from the training ground. {{player}} has picked up a {{injury}} during today's session.\n\nThe medical team estimates {{days}} days on the sidelines. We'll monitor the recovery closely.",
+        "body1": "Unfortunately, {{player}} went down in training today with a {{injury}}.\n\nInitial assessment: out for approximately {{days}} days. We'll keep you updated on their progress."
+      },
+      "mediaPositive": {
+        "subject": "Positive Press — {{player}}",
+        "body": "The local papers are running a very positive piece on {{player}} today.\n\nThey are highlighting their excellent recent form and commitment to {{team}}. This kind of coverage is great for the player's confidence and the club's image."
+      },
+      "mediaNegative": {
+        "subject": "Negative Press — {{player}}",
+        "body": "Some unflattering coverage of {{player}} appeared in the tabloids today.\n\nJournalists are questioning their form and commitment to {{team}}. This could affect the player's morale — you might want to have a word."
+      },
+      "intlCallup": {
+        "subject": "International Call-Up — {{player}}",
+        "body": "{{player}} has been called up to the {{nationality}} national team for an upcoming international window.\n\nThis is a great honor for the player and reflects well on the club. They'll be in good spirits when they return, though keep an eye on their fatigue levels."
+      },
+      "community": {
+        "subject0": "Community Open Day",
+        "subject1": "Youth Coaching Session",
+        "subject2": "Charity Match Announcement",
+        "body0": "{{team}} hosted a community open day at the training ground today.\n\nFans got to meet the players and watch a training session. The atmosphere was fantastic and it's done wonders for team spirit.",
+        "body1": "Several first-team players from {{team}} volunteered for a youth coaching session at a local school.\n\nGreat PR for the club, and the players seem energized by the experience.",
+        "body2": "The club has organized a charity initiative in partnership with a local foundation.\n\n{{team}} continues to build strong ties with the community. The board is pleased with the positive image."
+      },
+      "moodReport": {
+        "subject": "Dressing Room Report — Mood: {{mood}}",
+        "body": "Here is your weekly dressing room report:\n\n• Overall mood: {{mood}} (avg morale: {{avgMorale}})\n• Players in high spirits (80+): {{highCount}}\n• Players with low morale (<40): {{lowCount}}\n• Total squad: {{total}}"
+      },
+      "boardConfidence": {
+        "subject": "Board Meeting — Results Under Scrutiny",
+        "body0": "The board has called an urgent meeting. Three consecutive defeats have raised serious concerns about the team's direction.\n\n\"We need to see improvement quickly. The fans are restless and results must change.\"\n\nHow do you respond?",
+        "body1": "After a string of poor results, the chairman has summoned you for a difficult conversation.\n\n\"We backed you with resources and time. The results simply aren't good enough. What's your plan?\"\n\nChoose your response carefully.",
+        "options": {
+          "reassureBoard": {
+            "label": "Tranquilizá-los com um plano",
+            "description": "Apresenta uma estratégia clara para dar a volta. Dá-te mais tempo."
+          },
+          "acceptPressure": {
+            "label": "Assumir a responsabilidade",
+            "description": "Assume os maus resultados. A direção respeita a honestidade."
+          },
+          "blameCircumstances": {
+            "label": "Culpar lesões e azar",
+            "description": "Desvia a culpa para fatores externos. Pode ou não convencê-los."
+          }
+        }
+      },
+      "fanPetition": {
+        "subject0": "Fan Petition — More Attacking Football",
+        "subject1": "Fan Petition — Give Youth a Chance",
+        "subject2": "Fan Open Letter — Transparency",
+        "body0": "A group of {{team}} supporters has organized a petition calling for more attacking football.\n\n\"We pay good money to watch exciting football. We want to see the team go forward and entertain us!\"\n\nOver 500 signatures so far. How do you respond?",
+        "body1": "Supporters of {{team}} have started a campaign urging you to give more opportunities to young players from the academy.\n\n\"The future of our club depends on developing homegrown talent. Stop overlooking the kids!\"\n\nIt's getting traction on social media. What's your response?",
+        "body2": "An open letter from the {{team}} Supporters Trust has been published, asking for more transparency from the management.\n\n\"We want to understand the club's vision. Where are we heading? What's the long-term plan?\"\n\nThe local press is covering it. How do you handle this?",
+        "options": {
+          "listenFans": {
+            "label": "Ouvir os adeptos",
+            "description": "Reúne-te com representantes dos adeptos e ouve as suas preocupações. Bom para o moral."
+          },
+          "ignoreFans": {
+            "label": "Focar no futebol",
+            "description": "Recusa com educação — as decisões de futebol ficam dentro do balneário."
+          },
+          "addressPublicly": {
+            "label": "Fazer um comunicado público",
+            "description": "Aborda a petição numa conferência de imprensa. Transparente e proativo."
+          }
+        }
+      },
+      "rivalInterest": {
+        "subject": "Transfer Rumour — {{player}} linked with {{rival}}",
+        "body0": "We've received word that {{rival}} have been making enquiries about {{player}}.\n\nTheir scouts were spotted at our last few matches, and our sources suggest they may approach with a formal offer soon.\n\nHow would you like us to respond if they make contact?",
+        "body1": "The press are reporting that {{player}} is a target for {{rival}}.\n\nAccording to sources, the player has attracted attention after their recent performances. No formal bid yet, but it's only a matter of time.\n\nWhat's your stance?",
+        "options": {
+          "notForSale": {
+            "label": "Não está à venda",
+            "description": "Deixa claro que o jogador não vai a lado nenhum. Aumenta o moral."
+          },
+          "openToOffers": {
+            "label": "Aberto a propostas",
+            "description": "Sinaliza abertura para negociar. O jogador pode ficar inquieto."
+          },
+          "noComment": {
+            "label": "Sem comentários",
+            "description": "Mantém o silêncio e deixa a situação seguir. Posição neutra."
+          }
+        }
+      },
+      "moraleCrisis": {
+        "subject": "{{player}} — Morale Crisis",
+        "body0": "Boss, {{player}} has asked for a private meeting. They seem really down lately and want to talk about their situation at the club.\n\nTheir morale is at {{morale}} — you should address this before it affects the dressing room.",
+        "body1": "{{player}} has been looking dejected in training. They've requested a chat with you about their current state of mind.\n\nMorale: {{morale}}. How you handle this could make or break their confidence."
+      },
+      "benchComplaint": {
+        "subject": "{{player}} — Wants More Game Time",
+        "body0": "Boss, {{player}} has come to see you. They're frustrated about their lack of game time in recent matches and want to know what they need to do to get back in the team.\n\n\"I feel like I've been training well, but I'm not getting a chance to show it on the pitch.\"",
+        "body1": "{{player}} knocked on your office door looking unhappy. They haven't featured in the last few matches and want answers.\n\n\"I came to this club to play football. If I'm not in your plans, I'd rather you tell me straight.\""
+      },
+      "happyPlayer": {
+        "subject": "{{player}} — Feeling Great",
+        "body0": "{{player}} stopped by your office with a big smile. They're feeling great about their form and the team's direction.\n\n\"Just wanted to say I'm really enjoying my football right now, boss. The mood in the dressing room is fantastic.\"",
+        "body1": "Your assistant mentions that {{player}} has been in excellent spirits lately. They approached you after training.\n\n\"Boss, I'm loving every minute here. Keep things going like this and I'll run through walls for you.\""
+      },
+      "contractConcern": {
+        "subject": "{{player}} — Contract Running Down",
+        "body0": "{{player}} has approached you regarding their contract situation. With only {{days}} days remaining on their deal, they want to know where they stand.\n\n\"Boss, my contract is running down. I need to know if I'm part of your plans going forward or if I should start looking elsewhere.\"",
+        "body1": "Your assistant flags that {{player}}'s contract expires in roughly {{months}} month(s). The player has been asking around the dressing room about their future.\n\nIt might be wise to have a conversation before they become unsettled — or before other clubs start circling."
+      },
+      "scoutReport": {
+        "subject": "Scout Report: {{player}}",
+        "body": "Your scout {{scout}} has completed their assessment of {{player}}. Full report available in the scouting section."
       }
     },
     "news": {
@@ -962,25 +1512,90 @@
     }
   },
   "traits": {
-    "Speedster": { "label": "Velocista", "desc": "Velocidade excecional" },
-    "Tank": { "label": "Tanque", "desc": "Poderoso e incansável" },
-    "Agile": { "label": "Ágil", "desc": "Rápido e escorregadio" },
-    "Tireless": { "label": "Incansável", "desc": "Nunca fica sem energia" },
-    "Playmaker": { "label": "Criador", "desc": "Passador criativo com visão" },
-    "Sharpshooter": { "label": "Finalizador", "desc": "Finalizador clínico" },
-    "Dribbler": { "label": "Driblador", "desc": "Habilidoso com a bola" },
-    "BallWinner": { "label": "Recuperador", "desc": "Recupera a bola incansavelmente" },
-    "Rock": { "label": "Rocha", "desc": "Muro defensivo inamovível" },
-    "Leader": { "label": "Líder", "desc": "Inspira os companheiros" },
-    "CoolHead": { "label": "Cabeça Fria", "desc": "Calmo sob pressão" },
-    "Visionary": { "label": "Visionário", "desc": "Vê passes que outros não conseguem" },
-    "HotHead": { "label": "Esquentado", "desc": "Propenso a perder a calma" },
-    "TeamPlayer": { "label": "Jogador de Equipa", "desc": "Sempre coloca a equipa em primeiro" },
-    "SafeHands": { "label": "Mãos Seguras", "desc": "Guarda-redes fiável" },
-    "CatReflexes": { "label": "Reflexos Felinos", "desc": "Reflexos ultrarrápidos" },
-    "AerialDominance": { "label": "Domínio Aéreo", "desc": "Domina a área pelo ar" },
-    "CompleteForward": { "label": "Avançado Completo", "desc": "Perigoso em todos os sentidos" },
-    "Engine": { "label": "Motor", "desc": "Potência de área a área" },
-    "SetPieceSpecialist": { "label": "Espec. Bola Parada", "desc": "Letal em bolas paradas" }
+    "Speedster": {
+      "label": "Velocista",
+      "desc": "Velocidade excecional"
+    },
+    "Tank": {
+      "label": "Tanque",
+      "desc": "Poderoso e incansável"
+    },
+    "Agile": {
+      "label": "Ágil",
+      "desc": "Rápido e escorregadio"
+    },
+    "Tireless": {
+      "label": "Incansável",
+      "desc": "Nunca fica sem energia"
+    },
+    "Playmaker": {
+      "label": "Criador",
+      "desc": "Passador criativo com visão"
+    },
+    "Sharpshooter": {
+      "label": "Finalizador",
+      "desc": "Finalizador clínico"
+    },
+    "Dribbler": {
+      "label": "Driblador",
+      "desc": "Habilidoso com a bola"
+    },
+    "BallWinner": {
+      "label": "Recuperador",
+      "desc": "Recupera a bola incansavelmente"
+    },
+    "Rock": {
+      "label": "Rocha",
+      "desc": "Muro defensivo inamovível"
+    },
+    "Leader": {
+      "label": "Líder",
+      "desc": "Inspira os companheiros"
+    },
+    "CoolHead": {
+      "label": "Cabeça Fria",
+      "desc": "Calmo sob pressão"
+    },
+    "Visionary": {
+      "label": "Visionário",
+      "desc": "Vê passes que outros não conseguem"
+    },
+    "HotHead": {
+      "label": "Esquentado",
+      "desc": "Propenso a perder a calma"
+    },
+    "TeamPlayer": {
+      "label": "Jogador de Equipa",
+      "desc": "Sempre coloca a equipa em primeiro"
+    },
+    "SafeHands": {
+      "label": "Mãos Seguras",
+      "desc": "Guarda-redes fiável"
+    },
+    "CatReflexes": {
+      "label": "Reflexos Felinos",
+      "desc": "Reflexos ultrarrápidos"
+    },
+    "AerialDominance": {
+      "label": "Domínio Aéreo",
+      "desc": "Domina a área pelo ar"
+    },
+    "CompleteForward": {
+      "label": "Avançado Completo",
+      "desc": "Perigoso em todos os sentidos"
+    },
+    "Engine": {
+      "label": "Motor",
+      "desc": "Potência de área a área"
+    },
+    "SetPieceSpecialist": {
+      "label": "Espec. Bola Parada",
+      "desc": "Letal em bolas paradas"
+    }
+  },
+  "date": {
+    "day": "DD",
+    "month": "Mês",
+    "year": "AAAA"
   }
 }

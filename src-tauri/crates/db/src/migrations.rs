@@ -1,0 +1,108 @@
+use rusqlite_migration::{M, Migrations};
+
+/// Number of migrations defined. Keep in sync with the vec in `all_migrations`.
+pub const MIGRATION_COUNT: usize = 6;
+
+/// All migrations for a per-save game database.
+/// Each save `.db` file gets this schema applied via `rusqlite_migration`.
+pub fn all_migrations() -> Migrations<'static> {
+    Migrations::new(vec![
+        // V1: Initial schema — all game entity tables
+        M::up(include_str!("sql/v001_initial_schema.sql")),
+        // V2: Training groups per team
+        M::up(include_str!("sql/v002_training_groups.sql")),
+        // V3: Alternate positions per player
+        M::up(include_str!("sql/v003_alternate_positions.sql")),
+        // V4: Natural/preferred position per player
+        M::up(include_str!("sql/v004_natural_position.sql")),
+        // V5: Per-player training focus override
+        M::up(include_str!("sql/v005_player_training_focus.sql")),
+        // V6: Team match roles defaults
+        M::up(include_str!("sql/v006_team_match_roles.sql")),
+    ])
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rusqlite::Connection;
+
+    #[test]
+    fn test_migrations_are_valid() {
+        let migrations = all_migrations();
+        migrations.validate().expect("migrations should be valid");
+    }
+
+    #[test]
+    fn test_apply_migrations_to_empty_db() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        let migrations = all_migrations();
+        migrations
+            .to_latest(&mut conn)
+            .expect("migrations should apply cleanly");
+
+        // Verify all expected tables exist
+        let tables: Vec<String> = conn
+            .prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
+            .unwrap()
+            .query_map([], |row| row.get(0))
+            .unwrap()
+            .filter_map(|r| r.ok())
+            .collect();
+
+        assert!(
+            tables.contains(&"game_meta".to_string()),
+            "missing game_meta"
+        );
+        assert!(tables.contains(&"managers".to_string()), "missing managers");
+        assert!(tables.contains(&"teams".to_string()), "missing teams");
+        assert!(tables.contains(&"players".to_string()), "missing players");
+        assert!(tables.contains(&"staff".to_string()), "missing staff");
+        assert!(tables.contains(&"league".to_string()), "missing league");
+        assert!(tables.contains(&"fixtures".to_string()), "missing fixtures");
+        assert!(
+            tables.contains(&"standings".to_string()),
+            "missing standings"
+        );
+        assert!(tables.contains(&"messages".to_string()), "missing messages");
+        assert!(tables.contains(&"news".to_string()), "missing news");
+        assert!(
+            tables.contains(&"board_objectives".to_string()),
+            "missing board_objectives"
+        );
+        assert!(
+            tables.contains(&"scouting_assignments".to_string()),
+            "missing scouting_assignments"
+        );
+    }
+
+    #[test]
+    fn test_migrations_are_idempotent() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        let migrations = all_migrations();
+        migrations
+            .to_latest(&mut conn)
+            .expect("first apply should succeed");
+        // Applying again should be a no-op (already at latest)
+        migrations
+            .to_latest(&mut conn)
+            .expect("second apply should succeed (idempotent)");
+    }
+
+    #[test]
+    fn test_schema_version_after_migration() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        let migrations = all_migrations();
+        migrations.to_latest(&mut conn).unwrap();
+
+        let version: i64 = conn
+            .pragma_query_value(None, "user_version", |row| row.get(0))
+            .unwrap();
+        // rusqlite_migration sets user_version to the number of applied migrations
+        assert_eq!(
+            version, MIGRATION_COUNT as i64,
+            "expected schema version {} after migrations",
+            MIGRATION_COUNT
+        );
+    }
+}

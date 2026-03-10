@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useGameStore, GameStateData, PlayerData } from "../store/gameStore";
 import { Card, CardBody, Badge, ThemeToggle } from "../components/ui";
-import { ArrowLeft, Users, MapPin, Trophy, Landmark, ChevronRight, Star } from "lucide-react";
+import { ArrowLeft, Users, MapPin, Trophy, Landmark, ChevronRight, Star, Loader2 } from "lucide-react";
 
 export default function TeamSelection() {
   const { t } = useTranslation();
@@ -98,7 +98,7 @@ export default function TeamSelection() {
               className={`bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white px-6 py-2.5 rounded-lg font-heading font-bold uppercase tracking-wider text-sm shadow-md hover:shadow-lg hover:shadow-primary-500/20 transition-all flex items-center gap-2 ${isConfirming ? "opacity-70 cursor-wait" : ""}`}
             >
               <span>{isConfirming ? t('teamSelect.confirming') : t('teamSelect.manage', { name: selectedTeam.short_name })}</span>
-              <ChevronRight className="w-4 h-4" />
+              {isConfirming ? <Loader2 className="w-4 h-4 animate-spin" /> : <ChevronRight className="w-4 h-4" />}
             </button>
           )}
         </div>

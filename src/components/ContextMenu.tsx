@@ -1,4 +1,11 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import {
+  cloneElement,
+  isValidElement,
+  useEffect,
+  useRef,
+  useState,
+  useCallback,
+} from "react";
 
 export interface ContextMenuItem {
   label: string;
@@ -25,7 +32,9 @@ export default function ContextMenu({ items, children }: ContextMenuProps) {
     e.preventDefault();
     e.stopPropagation();
     // Close all other context menus first
-    window.dispatchEvent(new CustomEvent("close-context-menus", { detail: instanceId.current }));
+    window.dispatchEvent(
+      new CustomEvent("close-context-menus", { detail: instanceId.current }),
+    );
     const x = Math.min(e.clientX, window.innerWidth - 200);
     const y = Math.min(e.clientY, window.innerHeight - 300);
     setPos({ x, y });
@@ -38,7 +47,8 @@ export default function ContextMenu({ items, children }: ContextMenuProps) {
       if (detail !== instanceId.current) setVisible(false);
     };
     window.addEventListener("close-context-menus", closeFromOther);
-    return () => window.removeEventListener("close-context-menus", closeFromOther);
+    return () =>
+      window.removeEventListener("close-context-menus", closeFromOther);
   }, []);
 
   useEffect(() => {
@@ -52,25 +62,39 @@ export default function ContextMenu({ items, children }: ContextMenuProps) {
     };
   }, [visible]);
 
+  const trigger = isValidElement(children) ? (
+    cloneElement(children, {
+      onContextMenu: handleContextMenu,
+    } as React.HTMLAttributes<HTMLElement>)
+  ) : (
+    <div onContextMenu={handleContextMenu} className="contents">
+      {children}
+    </div>
+  );
+
   return (
     <>
-      <div onContextMenu={handleContextMenu} className="contents">
-        {children}
-      </div>
+      {trigger}
       {visible && (
         <div
           ref={menuRef}
           className="fixed z-50 min-w-[180px] bg-white dark:bg-navy-800 rounded-lg shadow-xl border border-gray-200 dark:border-navy-600 py-1 animate-in fade-in duration-100"
           style={{ left: pos.x, top: pos.y }}
-          onClick={e => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
         >
           {items.map((item, i) =>
             item.divider ? (
-              <div key={i} className="border-t border-gray-100 dark:border-navy-600 my-1" />
+              <div
+                key={i}
+                className="border-t border-gray-100 dark:border-navy-600 my-1"
+              />
             ) : (
               <button
                 key={i}
-                onClick={() => { item.onClick(); setVisible(false); }}
+                onClick={() => {
+                  item.onClick();
+                  setVisible(false);
+                }}
                 disabled={item.disabled}
                 className={`w-full text-left px-3 py-2 text-sm flex items-center gap-2.5 transition-colors ${
                   item.disabled
@@ -80,10 +104,12 @@ export default function ContextMenu({ items, children }: ContextMenuProps) {
                       : "text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-navy-700"
                 }`}
               >
-                {item.icon && <span className="w-4 h-4 flex-shrink-0">{item.icon}</span>}
+                {item.icon && (
+                  <span className="w-4 h-4 flex-shrink-0">{item.icon}</span>
+                )}
                 <span className="font-medium">{item.label}</span>
               </button>
-            )
+            ),
           )}
         </div>
       )}

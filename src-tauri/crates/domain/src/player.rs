@@ -10,6 +10,14 @@ pub struct Player {
 
     pub position: Position,
 
+    // The player's natural/preferred position (never changed by formation logic)
+    #[serde(default)]
+    pub natural_position: Position,
+
+    // Alternate positions this player can also play (with reduced effectiveness)
+    #[serde(default)]
+    pub alternate_positions: Vec<Position>,
+
     // Core attributes 0-100
     pub attributes: PlayerAttributes,
 
@@ -26,7 +34,7 @@ pub struct Player {
 
     // Contract & value
     pub contract_end: Option<String>,
-    pub wage: u32,           // weekly wage
+    pub wage: u32, // weekly wage
     pub market_value: u64,
 
     // Season stats
@@ -34,6 +42,10 @@ pub struct Player {
 
     // Career history
     pub career: Vec<CareerEntry>,
+
+    // Individual training focus override (takes priority over group and team default)
+    #[serde(default)]
+    pub training_focus: Option<crate::team::TrainingFocus>,
 
     // Transfer status
     #[serde(default)]
@@ -44,8 +56,9 @@ pub struct Player {
     pub transfer_offers: Vec<TransferOffer>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub enum Position {
+    #[default]
     Goalkeeper,
     Defender,
     Midfielder,
@@ -55,22 +68,22 @@ pub enum Position {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum PlayerTrait {
     // Physical
-    Speedster,       // pace >= 85
-    Tank,            // strength >= 85 && stamina >= 75
-    Agile,           // agility >= 85
-    Tireless,        // stamina >= 90
+    Speedster, // pace >= 85
+    Tank,      // strength >= 85 && stamina >= 75
+    Agile,     // agility >= 85
+    Tireless,  // stamina >= 90
     // Technical
-    Playmaker,       // passing >= 80 && vision >= 80
-    Sharpshooter,    // shooting >= 85
-    Dribbler,        // dribbling >= 85
-    BallWinner,      // tackling >= 80 && aggression >= 70
-    Rock,            // defending >= 85 && positioning >= 75
+    Playmaker,    // passing >= 80 && vision >= 80
+    Sharpshooter, // shooting >= 85
+    Dribbler,     // dribbling >= 85
+    BallWinner,   // tackling >= 80 && aggression >= 70
+    Rock,         // defending >= 85 && positioning >= 75
     // Mental
-    Leader,          // leadership >= 85 && teamwork >= 75
-    CoolHead,        // composure >= 85 && decisions >= 80
-    Visionary,       // vision >= 85
-    HotHead,         // aggression >= 85 && composure < 50
-    TeamPlayer,      // teamwork >= 85
+    Leader,     // leadership >= 85 && teamwork >= 75
+    CoolHead,   // composure >= 85 && decisions >= 80
+    Visionary,  // vision >= 85
+    HotHead,    // aggression >= 85 && composure < 50
+    TeamPlayer, // teamwork >= 85
     // Goalkeeper
     SafeHands,       // handling >= 85 (GK only)
     CatReflexes,     // reflexes >= 85 (GK only)
@@ -174,29 +187,63 @@ pub fn compute_traits(attrs: &PlayerAttributes, _position: &Position) -> Vec<Pla
     let mut traits = Vec::new();
 
     // Physical
-    if attrs.pace >= 85 { traits.push(PlayerTrait::Speedster); }
-    if attrs.strength >= 85 && attrs.stamina >= 75 { traits.push(PlayerTrait::Tank); }
-    if attrs.agility >= 85 { traits.push(PlayerTrait::Agile); }
-    if attrs.stamina >= 90 { traits.push(PlayerTrait::Tireless); }
+    if attrs.pace >= 85 {
+        traits.push(PlayerTrait::Speedster);
+    }
+    if attrs.strength >= 85 && attrs.stamina >= 75 {
+        traits.push(PlayerTrait::Tank);
+    }
+    if attrs.agility >= 85 {
+        traits.push(PlayerTrait::Agile);
+    }
+    if attrs.stamina >= 90 {
+        traits.push(PlayerTrait::Tireless);
+    }
 
     // Technical
-    if attrs.passing >= 80 && attrs.vision >= 80 { traits.push(PlayerTrait::Playmaker); }
-    if attrs.shooting >= 85 { traits.push(PlayerTrait::Sharpshooter); }
-    if attrs.dribbling >= 85 { traits.push(PlayerTrait::Dribbler); }
-    if attrs.tackling >= 80 && attrs.aggression >= 70 { traits.push(PlayerTrait::BallWinner); }
-    if attrs.defending >= 85 && attrs.positioning >= 75 { traits.push(PlayerTrait::Rock); }
+    if attrs.passing >= 80 && attrs.vision >= 80 {
+        traits.push(PlayerTrait::Playmaker);
+    }
+    if attrs.shooting >= 85 {
+        traits.push(PlayerTrait::Sharpshooter);
+    }
+    if attrs.dribbling >= 85 {
+        traits.push(PlayerTrait::Dribbler);
+    }
+    if attrs.tackling >= 80 && attrs.aggression >= 70 {
+        traits.push(PlayerTrait::BallWinner);
+    }
+    if attrs.defending >= 85 && attrs.positioning >= 75 {
+        traits.push(PlayerTrait::Rock);
+    }
 
     // Mental
-    if attrs.leadership >= 85 && attrs.teamwork >= 75 { traits.push(PlayerTrait::Leader); }
-    if attrs.composure >= 85 && attrs.decisions >= 80 { traits.push(PlayerTrait::CoolHead); }
-    if attrs.vision >= 85 { traits.push(PlayerTrait::Visionary); }
-    if attrs.aggression >= 85 && attrs.composure < 50 { traits.push(PlayerTrait::HotHead); }
-    if attrs.teamwork >= 85 { traits.push(PlayerTrait::TeamPlayer); }
+    if attrs.leadership >= 85 && attrs.teamwork >= 75 {
+        traits.push(PlayerTrait::Leader);
+    }
+    if attrs.composure >= 85 && attrs.decisions >= 80 {
+        traits.push(PlayerTrait::CoolHead);
+    }
+    if attrs.vision >= 85 {
+        traits.push(PlayerTrait::Visionary);
+    }
+    if attrs.aggression >= 85 && attrs.composure < 50 {
+        traits.push(PlayerTrait::HotHead);
+    }
+    if attrs.teamwork >= 85 {
+        traits.push(PlayerTrait::TeamPlayer);
+    }
 
     // Goalkeeper-oriented (any player with high GK stats can earn these)
-    if attrs.handling >= 85 { traits.push(PlayerTrait::SafeHands); }
-    if attrs.reflexes >= 85 { traits.push(PlayerTrait::CatReflexes); }
-    if attrs.aerial >= 85 { traits.push(PlayerTrait::AerialDominance); }
+    if attrs.handling >= 85 {
+        traits.push(PlayerTrait::SafeHands);
+    }
+    if attrs.reflexes >= 85 {
+        traits.push(PlayerTrait::CatReflexes);
+    }
+    if attrs.aerial >= 85 {
+        traits.push(PlayerTrait::AerialDominance);
+    }
 
     // Combo / Special — purely attribute-based
     if attrs.shooting >= 75 && attrs.dribbling >= 75 && attrs.pace >= 70 && attrs.strength >= 70 {
@@ -229,7 +276,9 @@ impl Player {
             full_name,
             date_of_birth,
             nationality,
+            natural_position: position.clone(),
             position,
+            alternate_positions: Vec::new(),
             attributes,
             condition: 100,
             morale: 100,
@@ -241,6 +290,7 @@ impl Player {
             market_value: 0,
             stats: PlayerSeasonStats::default(),
             career: Vec::new(),
+            training_focus: None,
             transfer_listed: false,
             loan_listed: false,
             transfer_offers: Vec::new(),

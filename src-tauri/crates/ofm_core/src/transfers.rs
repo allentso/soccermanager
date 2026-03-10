@@ -4,16 +4,8 @@ use uuid::Uuid;
 
 /// Submit a transfer bid from user's team for a player.
 /// The AI evaluates the bid and accepts/rejects based on fee vs market value.
-pub fn make_transfer_bid(
-    game: &mut Game,
-    player_id: &str,
-    fee: u64,
-) -> Result<String, String> {
-    let user_team_id = game
-        .manager
-        .team_id
-        .clone()
-        .ok_or("No user team")?;
+pub fn make_transfer_bid(game: &mut Game, player_id: &str, fee: u64) -> Result<String, String> {
+    let user_team_id = game.manager.team_id.clone().ok_or("No user team")?;
 
     let player = game
         .players
@@ -25,10 +17,7 @@ pub fn make_transfer_bid(
         return Err("Cannot bid on your own player".into());
     }
 
-    let owner_team_id = player
-        .team_id
-        .clone()
-        .ok_or("Player has no team")?;
+    let owner_team_id = player.team_id.clone().ok_or("Player has no team")?;
 
     let market_value = player.market_value;
     let is_transfer_listed = player.transfer_listed;
@@ -88,11 +77,7 @@ pub fn make_transfer_bid(
             .map(|p| p.full_name.clone())
             .unwrap_or_default();
 
-        let msg = crate::messages::transfer_complete_message(
-            &player_name,
-            fee,
-            &date,
-        );
+        let msg = crate::messages::transfer_complete_message(&player_name, fee, &date);
         game.messages.push(msg);
     }
 
@@ -110,11 +95,7 @@ pub fn respond_to_offer(
     offer_id: &str,
     accept: bool,
 ) -> Result<(), String> {
-    let user_team_id = game
-        .manager
-        .team_id
-        .clone()
-        .ok_or("No user team")?;
+    let user_team_id = game.manager.team_id.clone().ok_or("No user team")?;
 
     let player = game
         .players
@@ -132,14 +113,14 @@ pub fn respond_to_offer(
     let fee = offer.fee;
 
     // Update offer status
-    if let Some(p) = game.players.iter_mut().find(|p| p.id == player_id) {
-        if let Some(o) = p.transfer_offers.iter_mut().find(|o| o.id == offer_id) {
-            o.status = if accept {
-                TransferOfferStatus::Accepted
-            } else {
-                TransferOfferStatus::Rejected
-            };
-        }
+    if let Some(p) = game.players.iter_mut().find(|p| p.id == player_id)
+        && let Some(o) = p.transfer_offers.iter_mut().find(|o| o.id == offer_id)
+    {
+        o.status = if accept {
+            TransferOfferStatus::Accepted
+        } else {
+            TransferOfferStatus::Rejected
+        };
     }
 
     if accept {

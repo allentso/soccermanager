@@ -15,7 +15,7 @@ export function findNextFixture(fixtures: FixtureData[], teamId: string): Fixtur
   );
 }
 
-const LANG_LOCALE: Record<string, string> = { en: "en-US", es: "es-ES", pt: "pt-BR", fr: "fr-FR", de: "de-DE" };
+const LANG_LOCALE: Record<string, string> = { en: "en-US", es: "es-ES", pt: "pt-BR", fr: "fr-FR", de: "de-DE", it: "it-IT" };
 
 export function getLocale(lang?: string): string {
   if (!lang) return "en-US";
@@ -59,6 +59,13 @@ export function formatVal(v: number): string {
   if (v >= 1_000_000) return `€${(v / 1_000_000).toFixed(1)}M`;
   if (v >= 1_000) return `€${(v / 1_000).toFixed(0)}K`;
   return `€${v}`;
+}
+
+export function formatWeeklyAmount(
+  formattedAmount: string,
+  weeklySuffix: string,
+): string {
+  return `${formattedAmount}${weeklySuffix}`;
 }
 
 export function positionBadgeVariant(pos: string): "accent" | "primary" | "success" | "danger" {

@@ -51,7 +51,14 @@ pub struct NewsMatchScore {
 }
 
 impl NewsArticle {
-    pub fn new(id: String, headline: String, body: String, source: String, date: String, category: NewsCategory) -> Self {
+    pub fn new(
+        id: String,
+        headline: String,
+        body: String,
+        source: String,
+        date: String,
+        category: NewsCategory,
+    ) -> Self {
         Self {
             id,
             headline,

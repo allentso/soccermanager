@@ -9,9 +9,12 @@ use domain::team::TeamSeasonRecord;
 
 /// Check if the season is complete (all fixtures played).
 pub fn is_season_complete(game: &Game) -> bool {
-    game.league.as_ref().map_or(false, |league| {
+    game.league.as_ref().is_some_and(|league| {
         !league.fixtures.is_empty()
-            && league.fixtures.iter().all(|f| f.status == FixtureStatus::Completed)
+            && league
+                .fixtures
+                .iter()
+                .all(|f| f.status == FixtureStatus::Completed)
     })
 }
 
@@ -44,9 +47,16 @@ pub fn process_end_of_season(game: &mut Game) -> EndOfSeasonSummary {
         .find(|s| s.team_id == user_team_id)
         .cloned();
 
-    let champion_id = final_standings.first().map(|s| s.team_id.clone()).unwrap_or_default();
-    let champion_name = game.teams.iter().find(|t| t.id == champion_id)
-        .map(|t| t.name.clone()).unwrap_or_default();
+    let champion_id = final_standings
+        .first()
+        .map(|s| s.team_id.clone())
+        .unwrap_or_default();
+    let champion_name = game
+        .teams
+        .iter()
+        .find(|t| t.id == champion_id)
+        .map(|t| t.name.clone())
+        .unwrap_or_default();
 
     let summary = EndOfSeasonSummary {
         season,
@@ -60,10 +70,26 @@ pub fn process_end_of_season(game: &mut Game) -> EndOfSeasonSummary {
         user_lost: user_standing.as_ref().map(|s| s.lost).unwrap_or(0),
         user_goals_for: user_standing.as_ref().map(|s| s.goals_for).unwrap_or(0),
         user_goals_against: user_standing.as_ref().map(|s| s.goals_against).unwrap_or(0),
-        golden_boot_player: awards.golden_boot.first().map(|e| e.player_name.clone()).unwrap_or_default(),
-        golden_boot_goals: awards.golden_boot.first().map(|e| e.value as u32).unwrap_or(0),
-        poty_player: awards.player_of_year.first().map(|e| e.player_name.clone()).unwrap_or_default(),
-        poty_rating: awards.player_of_year.first().map(|e| e.value).unwrap_or(0.0),
+        golden_boot_player: awards
+            .golden_boot
+            .first()
+            .map(|e| e.player_name.clone())
+            .unwrap_or_default(),
+        golden_boot_goals: awards
+            .golden_boot
+            .first()
+            .map(|e| e.value as u32)
+            .unwrap_or(0),
+        poty_player: awards
+            .player_of_year
+            .first()
+            .map(|e| e.player_name.clone())
+            .unwrap_or_default(),
+        poty_rating: awards
+            .player_of_year
+            .first()
+            .map(|e| e.value)
+            .unwrap_or(0.0),
         total_teams: final_standings.len() as u32,
     };
 
@@ -88,7 +114,9 @@ pub fn process_end_of_season(game: &mut Game) -> EndOfSeasonSummary {
     // 5. Record player career entries and reset stats
     for player in game.players.iter_mut() {
         if player.stats.appearances > 0 {
-            let team_name = player.team_id.as_ref()
+            let team_name = player
+                .team_id
+                .as_ref()
                 .and_then(|tid| game.teams.iter().find(|t| &t.id == tid))
                 .map(|t| t.name.clone())
                 .unwrap_or_else(|| "Free Agent".to_string());
@@ -122,11 +150,18 @@ pub fn process_end_of_season(game: &mut Game) -> EndOfSeasonSummary {
             game.manager.career_stats.best_finish = Some(user_position);
         }
         // Update or create career history entry for current team
-        let team_name = game.teams.iter().find(|t| t.id == user_team_id)
-            .map(|t| t.name.clone()).unwrap_or_default();
+        let team_name = game
+            .teams
+            .iter()
+            .find(|t| t.id == user_team_id)
+            .map(|t| t.name.clone())
+            .unwrap_or_default();
         let today_str = game.clock.current_date.format("%Y-%m-%d").to_string();
         // Check if there's an existing open entry for this team
-        let existing = game.manager.career_history.iter_mut()
+        let existing = game
+            .manager
+            .career_history
+            .iter_mut()
             .find(|e| e.team_id == user_team_id && e.end_date.is_none());
         if let Some(entry) = existing {
             entry.matches += total_matches;
@@ -138,17 +173,19 @@ pub fn process_end_of_season(game: &mut Game) -> EndOfSeasonSummary {
                 entry.best_league_position = Some(user_position);
             }
         } else {
-            game.manager.career_history.push(domain::manager::ManagerCareerEntry {
-                team_id: user_team_id.clone(),
-                team_name,
-                start_date: today_str,
-                end_date: None,
-                matches: total_matches,
-                wins: standing.won,
-                draws: standing.drawn,
-                losses: standing.lost,
-                best_league_position: Some(user_position),
-            });
+            game.manager
+                .career_history
+                .push(domain::manager::ManagerCareerEntry {
+                    team_id: user_team_id.clone(),
+                    team_name,
+                    start_date: today_str,
+                    end_date: None,
+                    matches: total_matches,
+                    wins: standing.won,
+                    draws: standing.drawn,
+                    losses: standing.lost,
+                    best_league_position: Some(user_position),
+                });
         }
     }
 
@@ -180,8 +217,12 @@ pub fn process_end_of_season(game: &mut Game) -> EndOfSeasonSummary {
         _ => "th",
     };
 
-    let user_team_name = game.teams.iter().find(|t| t.id == user_team_id)
-        .map(|t| t.name.clone()).unwrap_or_default();
+    let user_team_name = game
+        .teams
+        .iter()
+        .find(|t| t.id == user_team_id)
+        .map(|t| t.name.clone())
+        .unwrap_or_default();
 
     let board_msg = if user_position == 1 {
         format!(

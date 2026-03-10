@@ -1,35 +1,30 @@
-name: "\U0001F4AC Feedback / Suggestion"
-description: "Share feedback or suggest improvements / Compartir feedback / Donner un retour / Feedback geben / Dar feedback"
+name: "\U0001F4AC Feedback / Suggestion (English)"
+description: "Share feedback or suggest improvements in English"
 labels: ["feedback", "alpha"]
 body:
   - type: markdown
     attributes:
       value: |
         ## Feedback / Suggestion
-        We'd love to hear your thoughts! You can write in your own language — English, Spanish, French, German, Portuguese, or Brazilian Portuguese are all welcome.
-
-        ---
-        Adoramos ouvir a sua opinião! Pode escrever no seu idioma.
-        ¡Nos encanta escuchar tu opinión! Puedes escribir en tu idioma.
-        On adore avoir vos retours ! Vous pouvez écrire dans votre langue.
-        Wir freuen uns über dein Feedback! Du kannst in deiner Sprache schreiben.
+        We'd love to hear your thoughts!
+        Please write in English in this template.
 
   - type: dropdown
     id: category
     attributes:
-      label: "Category / Categoría / Catégorie / Kategorie / Categoria"
+      label: "Category"
       options:
-        - "Usability / Usabilidad / Ergonomie / Bedienung / Usabilidade"
-        - "Balance / Equilibrio / Équilibre / Balance / Equilíbrio"
-        - "Suggestion / Sugerencia / Suggestion / Vorschlag / Sugestão"
-        - "Other / Otro / Autre / Anderes / Outro"
+        - "Usability"
+        - "Balance"
+        - "Suggestion"
+        - "Other"
     validations:
       required: true
 
   - type: input
     id: area
     attributes:
-      label: "What part of the game? / ¿Qué parte del juego? / Quelle partie du jeu ? / Welcher Spielbereich? / Que parte do jogo?"
+      label: "What part of the game?"
       description: "e.g., Training, Match Simulation, Transfers, Inbox, Tactics..."
       placeholder: "Match Simulation"
     validations:
@@ -38,7 +33,7 @@ body:
   - type: textarea
     id: description
     attributes:
-      label: "Description / Descripción / Description / Beschreibung / Descrição"
+      label: "Description"
       description: "Describe your experience, issue, or suggestion in detail."
       placeholder: "I think the training system could be improved by..."
     validations:
@@ -47,7 +42,7 @@ body:
   - type: textarea
     id: why-it-matters
     attributes:
-      label: "Why it matters / Por qué importa / Pourquoi c'est important / Warum es wichtig ist / Porque é importante"
+      label: "Why it matters"
       description: "How does this affect your enjoyment of the game?"
       placeholder: "This matters because..."
     validations:

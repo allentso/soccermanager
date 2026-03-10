@@ -5,6 +5,7 @@ import { GameStateData } from "../store/gameStore";
 import { Card, CardHeader, CardBody, Badge, ProgressBar } from "./ui";
 import { Eye, ScanSearch, Clock, User, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { calcOvr, calcAge, formatVal, getTeamName } from "../lib/helpers";
+import { countryFlag, countryName } from "../lib/countries";
 
 interface ScoutingTabProps {
   gameState: GameStateData;
@@ -15,7 +16,7 @@ interface ScoutingTabProps {
 const SCOUTING_PAGE_SIZE = 20;
 
 export default function ScoutingTab({ gameState, onGameUpdate, onSelectPlayer }: ScoutingTabProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [searchQuery, setSearchQuery] = useState("");
   const [posFilter, setPosFilter] = useState<string>("All");
   const [sending, setSending] = useState<string | null>(null);
@@ -131,7 +132,7 @@ export default function ScoutingTab({ gameState, onGameUpdate, onSelectPlayer }:
                       <button onClick={() => onSelectPlayer?.(player.id)} className="font-heading font-bold text-sm text-gray-800 dark:text-gray-100 hover:text-primary-500 transition-colors truncate block">
                         {player.full_name}
                       </button>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">{player.position} · {team}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{player.natural_position || player.position} · {team}</p>
                     </div>
                     <div className="text-right">
                       <p className="text-xs text-gray-500 dark:text-gray-400">{t('scouting.scoutLabel', { name: `${scout.first_name} ${scout.last_name}` })}</p>
@@ -167,7 +168,10 @@ export default function ScoutingTab({ gameState, onGameUpdate, onSelectPlayer }:
                       </div>
                       <div className="flex-1">
                         <p className="font-heading font-bold text-sm text-gray-800 dark:text-gray-100">{s.first_name} {s.last_name}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">{s.nationality}</p>
+                        <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5 flex items-center gap-1">
+                          <span className="text-xs leading-none">{countryFlag(s.nationality)}</span>
+                          <span>{countryName(s.nationality, i18n.language)}</span>
+                        </div>
                       </div>
                       <Badge variant={isFull ? "accent" : "success"} size="sm">
                         {count}/{maxSlots} {t('scouting.slots')}
@@ -274,7 +278,10 @@ export default function ScoutingTab({ gameState, onGameUpdate, onSelectPlayer }:
                           <button onClick={() => onSelectPlayer?.(p.id)} className="font-heading font-bold text-gray-800 dark:text-gray-100 hover:text-primary-500 transition-colors text-left">
                             {p.full_name}
                           </button>
-                          <p className="text-[10px] text-gray-400">{p.nationality}</p>
+                          <div className="text-[10px] text-gray-400 mt-0.5 flex items-center gap-1">
+                            <span className="text-xs leading-none">{countryFlag(p.nationality)}</span>
+                            <span>{countryName(p.nationality, i18n.language)}</span>
+                          </div>
                         </td>
                         <td className="py-2 px-1">
                           <Badge variant={

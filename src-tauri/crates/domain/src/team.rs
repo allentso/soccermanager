@@ -37,9 +37,16 @@ pub struct Team {
     pub founded_year: u32,
     pub colors: TeamColors,
 
+    // Training groups: allow per-group focus overrides for subsets of players
+    #[serde(default)]
+    pub training_groups: Vec<TrainingGroup>,
+
     // Persistent starting XI (player IDs). If empty, auto-select by OVR.
     #[serde(default)]
     pub starting_xi_ids: Vec<String>,
+
+    #[serde(default)]
+    pub match_roles: MatchRoles,
 
     // Recent form: last 5 results as "W", "D", "L" (most recent last)
     #[serde(default)]
@@ -49,8 +56,18 @@ pub struct Team {
     pub history: Vec<TeamSeasonRecord>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
+pub struct MatchRoles {
+    pub captain: Option<String>,
+    pub vice_captain: Option<String>,
+    pub penalty_taker: Option<String>,
+    pub free_kick_taker: Option<String>,
+    pub corner_taker: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub enum TrainingFocus {
+    #[default]
     Physical,
     Technical,
     Tactical,
@@ -59,41 +76,25 @@ pub enum TrainingFocus {
     Recovery,
 }
 
-impl Default for TrainingFocus {
-    fn default() -> Self {
-        TrainingFocus::Physical
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub enum TrainingIntensity {
     Low,
+    #[default]
     Medium,
     High,
 }
 
-impl Default for TrainingIntensity {
-    fn default() -> Self {
-        TrainingIntensity::Medium
-    }
-}
-
 /// Weekly training schedule controlling how many days per week are training vs rest.
 /// Rest days give full condition recovery with no training cost.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub enum TrainingSchedule {
     /// 6 training days, 1 rest (Sunday). Max growth, minimal recovery.
     Intense,
     /// 4 training days (Mon, Tue, Thu, Fri), 3 rest (Wed, Sat, Sun). Good balance.
+    #[default]
     Balanced,
     /// 2 training days (Tue, Thu), 5 rest. Minimal growth, excellent recovery.
     Light,
-}
-
-impl Default for TrainingSchedule {
-    fn default() -> Self {
-        TrainingSchedule::Balanced
-    }
 }
 
 impl TrainingSchedule {
@@ -118,6 +119,16 @@ impl TrainingSchedule {
             TrainingSchedule::Light => 2,
         }
     }
+}
+
+/// A named training group with its own focus. Players in a group train
+/// with the group's focus instead of the team-wide default.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TrainingGroup {
+    pub id: String,
+    pub name: String,
+    pub focus: TrainingFocus,
+    pub player_ids: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -178,12 +189,14 @@ impl Team {
             training_focus: TrainingFocus::default(),
             training_intensity: TrainingIntensity::default(),
             training_schedule: TrainingSchedule::default(),
+            training_groups: Vec::new(),
             founded_year: 1900,
             colors: TeamColors {
                 primary: "#10b981".to_string(),
                 secondary: "#ffffff".to_string(),
             },
             starting_xi_ids: Vec::new(),
+            match_roles: MatchRoles::default(),
             form: Vec::new(),
             history: Vec::new(),
         }

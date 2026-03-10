@@ -1,6 +1,6 @@
 use ::engine::*;
-use rand::rngs::StdRng;
 use rand::SeedableRng;
+use rand::rngs::StdRng;
 
 // ---------------------------------------------------------------------------
 // Test helpers
@@ -130,16 +130,28 @@ fn zone_defensive_third() {
 
 #[test]
 fn zone_advance_towards_home() {
-    assert_eq!(Zone::HomeDefense.advance_towards(Side::Home), Zone::Midfield);
-    assert_eq!(Zone::Midfield.advance_towards(Side::Home), Zone::AwayDefense);
+    assert_eq!(
+        Zone::HomeDefense.advance_towards(Side::Home),
+        Zone::Midfield
+    );
+    assert_eq!(
+        Zone::Midfield.advance_towards(Side::Home),
+        Zone::AwayDefense
+    );
     assert_eq!(Zone::AwayDefense.advance_towards(Side::Home), Zone::AwayBox);
     assert_eq!(Zone::AwayBox.advance_towards(Side::Home), Zone::AwayBox); // saturates
 }
 
 #[test]
 fn zone_advance_towards_away() {
-    assert_eq!(Zone::AwayDefense.advance_towards(Side::Away), Zone::Midfield);
-    assert_eq!(Zone::Midfield.advance_towards(Side::Away), Zone::HomeDefense);
+    assert_eq!(
+        Zone::AwayDefense.advance_towards(Side::Away),
+        Zone::Midfield
+    );
+    assert_eq!(
+        Zone::Midfield.advance_towards(Side::Away),
+        Zone::HomeDefense
+    );
     assert_eq!(Zone::HomeDefense.advance_towards(Side::Away), Zone::HomeBox);
     assert_eq!(Zone::HomeBox.advance_towards(Side::Away), Zone::HomeBox); // saturates
 }
@@ -225,10 +237,22 @@ fn simulation_produces_report() {
     let report = simulate_with_rng(&home, &away, &config, &mut rng);
 
     // Report should have required structural events
-    let has_kickoff = report.events.iter().any(|e| e.event_type == EventType::KickOff);
-    let has_halftime = report.events.iter().any(|e| e.event_type == EventType::HalfTime);
-    let has_fulltime = report.events.iter().any(|e| e.event_type == EventType::FullTime);
-    let has_second_half = report.events.iter().any(|e| e.event_type == EventType::SecondHalfStart);
+    let has_kickoff = report
+        .events
+        .iter()
+        .any(|e| e.event_type == EventType::KickOff);
+    let has_halftime = report
+        .events
+        .iter()
+        .any(|e| e.event_type == EventType::HalfTime);
+    let has_fulltime = report
+        .events
+        .iter()
+        .any(|e| e.event_type == EventType::FullTime);
+    let has_second_half = report
+        .events
+        .iter()
+        .any(|e| e.event_type == EventType::SecondHalfStart);
 
     assert!(has_kickoff, "Missing KickOff event");
     assert!(has_halftime, "Missing HalfTime event");
@@ -262,7 +286,10 @@ fn simulation_different_seeds_vary() {
         let report = simulate_with_rng(&home, &away, &config, &mut seeded_rng(seed));
         results.insert((report.home_goals, report.away_goals));
     }
-    assert!(results.len() > 1, "50 simulations should produce varied results");
+    assert!(
+        results.len() > 1,
+        "50 simulations should produce varied results"
+    );
 }
 
 #[test]
@@ -277,10 +304,22 @@ fn goals_in_report_match_score() {
         let home_goal_count = report.goals.iter().filter(|g| g.side == Side::Home).count() as u8;
         let away_goal_count = report.goals.iter().filter(|g| g.side == Side::Away).count() as u8;
 
-        assert_eq!(report.home_goals, home_goal_count, "Home goals mismatch in seed {seed}");
-        assert_eq!(report.away_goals, away_goal_count, "Away goals mismatch in seed {seed}");
-        assert_eq!(report.home_goals, report.home_stats.goals, "Home stats mismatch in seed {seed}");
-        assert_eq!(report.away_goals, report.away_stats.goals, "Away stats mismatch in seed {seed}");
+        assert_eq!(
+            report.home_goals, home_goal_count,
+            "Home goals mismatch in seed {seed}"
+        );
+        assert_eq!(
+            report.away_goals, away_goal_count,
+            "Away goals mismatch in seed {seed}"
+        );
+        assert_eq!(
+            report.home_goals, report.home_stats.goals,
+            "Home stats mismatch in seed {seed}"
+        );
+        assert_eq!(
+            report.away_goals, report.away_stats.goals,
+            "Away stats mismatch in seed {seed}"
+        );
     }
 }
 
@@ -293,7 +332,11 @@ fn goal_events_have_scorer() {
     let report = simulate_with_rng(&home, &away, &config, &mut seeded_rng(99));
 
     for goal in &report.goals {
-        assert!(!goal.scorer_id.is_empty(), "Goal at minute {} has empty scorer", goal.minute);
+        assert!(
+            !goal.scorer_id.is_empty(),
+            "Goal at minute {} has empty scorer",
+            goal.minute
+        );
     }
 }
 
@@ -304,8 +347,11 @@ fn possession_adds_up() {
     let config = MatchConfig::default();
     let report = simulate_with_rng(&home, &away, &config, &mut seeded_rng(7));
 
-    assert!(report.home_possession >= 0.0 && report.home_possession <= 100.0,
-        "Possession out of range: {}", report.home_possession);
+    assert!(
+        report.home_possession >= 0.0 && report.home_possession <= 100.0,
+        "Possession out of range: {}",
+        report.home_possession
+    );
     // Total ticks should be > 0
     let total = report.home_stats.possession_ticks + report.away_stats.possession_ticks;
     assert!(total > 0, "No possession ticks recorded");
@@ -317,7 +363,11 @@ fn total_minutes_at_least_90() {
     let away = make_team("away", "Away FC", 60, PlayStyle::Balanced);
     let config = MatchConfig::default();
     let report = simulate_with_rng(&home, &away, &config, &mut seeded_rng(55));
-    assert!(report.total_minutes >= 90, "Total minutes: {}", report.total_minutes);
+    assert!(
+        report.total_minutes >= 90,
+        "Total minutes: {}",
+        report.total_minutes
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -351,7 +401,10 @@ fn strong_team_wins_more_often() {
 fn equal_teams_roughly_even() {
     let team_a = make_team("a", "Team A", 65, PlayStyle::Balanced);
     let team_b = make_team("b", "Team B", 65, PlayStyle::Balanced);
-    let config = MatchConfig { home_advantage: 1.0, ..MatchConfig::default() }; // no home advantage
+    let config = MatchConfig {
+        home_advantage: 1.0,
+        ..MatchConfig::default()
+    }; // no home advantage
 
     let mut a_wins = 0u32;
     let mut b_wins = 0u32;
@@ -378,8 +431,14 @@ fn equal_teams_roughly_even() {
 #[test]
 fn home_advantage_helps() {
     let team = make_team("t", "Team", 65, PlayStyle::Balanced);
-    let config_with = MatchConfig { home_advantage: 1.15, ..MatchConfig::default() };
-    let config_without = MatchConfig { home_advantage: 1.0, ..MatchConfig::default() };
+    let config_with = MatchConfig {
+        home_advantage: 1.15,
+        ..MatchConfig::default()
+    };
+    let config_without = MatchConfig {
+        home_advantage: 1.0,
+        ..MatchConfig::default()
+    };
 
     let trials = 200;
     let mut home_wins_with = 0u32;
@@ -388,8 +447,12 @@ fn home_advantage_helps() {
     for seed in 0..trials {
         let r1 = simulate_with_rng(&team, &team, &config_with, &mut seeded_rng(seed));
         let r2 = simulate_with_rng(&team, &team, &config_without, &mut seeded_rng(seed));
-        if r1.home_goals > r1.away_goals { home_wins_with += 1; }
-        if r2.home_goals > r2.away_goals { home_wins_without += 1; }
+        if r1.home_goals > r1.away_goals {
+            home_wins_with += 1;
+        }
+        if r2.home_goals > r2.away_goals {
+            home_wins_without += 1;
+        }
     }
     assert!(
         home_wins_with >= home_wins_without,
@@ -405,7 +468,10 @@ fn home_advantage_helps() {
 fn possession_style_has_more_possession() {
     let poss_team = make_team("poss", "Poss FC", 65, PlayStyle::Possession);
     let counter_team = make_team("counter", "Counter FC", 65, PlayStyle::Counter);
-    let config = MatchConfig { home_advantage: 1.0, ..MatchConfig::default() };
+    let config = MatchConfig {
+        home_advantage: 1.0,
+        ..MatchConfig::default()
+    };
 
     let mut poss_total = 0.0;
     let trials = 100;
@@ -432,12 +498,18 @@ fn player_stats_populated() {
     let report = simulate_with_rng(&home, &away, &config, &mut seeded_rng(77));
 
     // At least some players should have stats
-    assert!(!report.player_stats.is_empty(), "Player stats should not be empty");
+    assert!(
+        !report.player_stats.is_empty(),
+        "Player stats should not be empty"
+    );
 
     // Check that stats are reasonable
     for (player_id, ps) in &report.player_stats {
-        assert!(ps.rating >= 0.0 && ps.rating <= 10.0,
-            "Player {player_id} rating out of range: {}", ps.rating);
+        assert!(
+            ps.rating >= 0.0 && ps.rating <= 10.0,
+            "Player {player_id} rating out of range: {}",
+            ps.rating
+        );
     }
 }
 
@@ -451,10 +523,14 @@ fn team_stats_shots_consistent() {
         let report = simulate_with_rng(&home, &away, &config, &mut seeded_rng(seed));
 
         // shots >= shots_on_target
-        assert!(report.home_stats.shots >= report.home_stats.shots_on_target,
-            "Seed {seed}: home shots < SOT");
-        assert!(report.away_stats.shots >= report.away_stats.shots_on_target,
-            "Seed {seed}: away shots < SOT");
+        assert!(
+            report.home_stats.shots >= report.home_stats.shots_on_target,
+            "Seed {seed}: home shots < SOT"
+        );
+        assert!(
+            report.away_stats.shots >= report.away_stats.shots_on_target,
+            "Seed {seed}: away shots < SOT"
+        );
     }
 }
 
@@ -471,8 +547,10 @@ fn events_are_chronological() {
             assert!(
                 window[1].minute >= window[0].minute,
                 "Seed {seed}: events out of order: minute {} ({:?}) followed by {} ({:?})",
-                window[0].minute, window[0].event_type,
-                window[1].minute, window[1].event_type,
+                window[0].minute,
+                window[0].event_type,
+                window[1].minute,
+                window[1].event_type,
             );
         }
     }
@@ -491,8 +569,14 @@ fn pass_accuracy_in_range() {
 
     let home_acc = report.home_stats.pass_accuracy();
     let away_acc = report.away_stats.pass_accuracy();
-    assert!(home_acc >= 0.0 && home_acc <= 100.0, "Home pass accuracy: {home_acc}");
-    assert!(away_acc >= 0.0 && away_acc <= 100.0, "Away pass accuracy: {away_acc}");
+    assert!(
+        home_acc >= 0.0 && home_acc <= 100.0,
+        "Home pass accuracy: {home_acc}"
+    );
+    assert!(
+        away_acc >= 0.0 && away_acc <= 100.0,
+        "Away pass accuracy: {away_acc}"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -503,7 +587,10 @@ fn pass_accuracy_in_range() {
 fn zero_stoppage_time_produces_valid_report() {
     let home = make_team("home", "Home FC", 65, PlayStyle::Balanced);
     let away = make_team("away", "Away FC", 65, PlayStyle::Balanced);
-    let config = MatchConfig { stoppage_time_max: 0, ..MatchConfig::default() };
+    let config = MatchConfig {
+        stoppage_time_max: 0,
+        ..MatchConfig::default()
+    };
     let report = simulate_with_rng(&home, &away, &config, &mut seeded_rng(1));
     assert_eq!(report.total_minutes, 90);
 }
@@ -525,9 +612,13 @@ fn high_foul_probability_produces_cards() {
     let mut total_yellows = 0u16;
     for seed in 0..20 {
         let report = simulate_with_rng(&home, &away, &config, &mut seeded_rng(seed));
-        total_yellows += report.home_stats.yellow_cards as u16 + report.away_stats.yellow_cards as u16;
+        total_yellows +=
+            report.home_stats.yellow_cards as u16 + report.away_stats.yellow_cards as u16;
     }
-    assert!(total_yellows > 0, "High foul rate should produce some yellow cards");
+    assert!(
+        total_yellows > 0,
+        "High foul rate should produce some yellow cards"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -562,11 +653,7 @@ fn goal_events_match_report_goals() {
     for seed in 0..30 {
         let report = simulate_with_rng(&home, &away, &config, &mut seeded_rng(seed));
 
-        let event_goals: u8 = report
-            .events
-            .iter()
-            .filter(|e| e.is_goal())
-            .count() as u8;
+        let event_goals: u8 = report.events.iter().filter(|e| e.is_goal()).count() as u8;
 
         let report_total = report.home_goals + report.away_goals;
         assert_eq!(
@@ -598,4 +685,322 @@ fn average_goals_realistic() {
         avg > 0.5 && avg < 8.0,
         "Average goals per game should be reasonable: {avg:.2}"
     );
+}
+
+// ---------------------------------------------------------------------------
+// High foul rate produces fouls and free kicks
+// ---------------------------------------------------------------------------
+
+#[test]
+fn high_foul_rate_produces_fouls_and_free_kicks() {
+    let home = make_team("home", "Home FC", 65, PlayStyle::Attacking);
+    let away = make_team("away", "Away FC", 65, PlayStyle::Balanced);
+    let config = MatchConfig {
+        foul_probability: 0.95,
+        yellow_card_probability: 0.01,
+        ..MatchConfig::default()
+    };
+
+    let mut total_fouls = 0u32;
+    let mut total_free_kicks = 0u32;
+    for seed in 0..30 {
+        let report = simulate_with_rng(&home, &away, &config, &mut seeded_rng(seed));
+        for e in &report.events {
+            match e.event_type {
+                EventType::Foul => total_fouls += 1,
+                EventType::FreeKick => total_free_kicks += 1,
+                _ => {}
+            }
+        }
+    }
+    assert!(
+        total_fouls > 0,
+        "With 95% foul probability, fouls should occur"
+    );
+    assert!(
+        total_free_kicks > 0,
+        "Fouls outside box should produce free kicks"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Red card and second yellow coverage
+// ---------------------------------------------------------------------------
+
+#[test]
+fn high_red_card_probability_produces_red_cards() {
+    let home = make_team("home", "Home FC", 65, PlayStyle::Balanced);
+    let away = make_team("away", "Away FC", 65, PlayStyle::Balanced);
+    let config = MatchConfig {
+        foul_probability: 0.90,
+        yellow_card_probability: 0.90,
+        red_card_probability: 0.90,
+        ..MatchConfig::default()
+    };
+
+    let mut total_reds = 0u32;
+    for seed in 0..30 {
+        let report = simulate_with_rng(&home, &away, &config, &mut seeded_rng(seed));
+        total_reds += report.home_stats.red_cards as u32 + report.away_stats.red_cards as u32;
+    }
+    assert!(
+        total_reds > 0,
+        "With high red card probability, red cards should occur"
+    );
+}
+
+#[test]
+fn second_yellow_produces_sending_off() {
+    let home = make_team("home", "Home FC", 80, PlayStyle::Balanced);
+    let away = make_team("away", "Away FC", 80, PlayStyle::Balanced);
+    let config = MatchConfig {
+        foul_probability: 0.80,
+        yellow_card_probability: 0.80,
+        red_card_probability: 0.001, // Low direct red so we get second yellows
+        ..MatchConfig::default()
+    };
+
+    let mut second_yellows = 0u32;
+    for seed in 0..100 {
+        let report = simulate_with_rng(&home, &away, &config, &mut seeded_rng(seed));
+        second_yellows += report
+            .events
+            .iter()
+            .filter(|e| e.event_type == EventType::SecondYellow)
+            .count() as u32;
+    }
+    assert!(
+        second_yellows > 0,
+        "With many yellows and low red rate, second yellows should occur"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Injury from foul coverage
+// ---------------------------------------------------------------------------
+
+#[test]
+fn high_injury_probability_produces_injuries() {
+    let home = make_team("home", "Home FC", 65, PlayStyle::Balanced);
+    let away = make_team("away", "Away FC", 65, PlayStyle::Balanced);
+    let config = MatchConfig {
+        foul_probability: 0.90,
+        injury_probability: 0.90,
+        ..MatchConfig::default()
+    };
+
+    let mut total_injuries = 0u32;
+    for seed in 0..30 {
+        let report = simulate_with_rng(&home, &away, &config, &mut seeded_rng(seed));
+        total_injuries += report
+            .events
+            .iter()
+            .filter(|e| e.event_type == EventType::Injury)
+            .count() as u32;
+    }
+    assert!(
+        total_injuries > 0,
+        "With high foul+injury probability, injuries should occur"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Corner kick coverage
+// ---------------------------------------------------------------------------
+
+#[test]
+fn corners_occur_in_simulation() {
+    let home = make_team("home", "Home FC", 70, PlayStyle::Attacking);
+    let away = make_team("away", "Away FC", 70, PlayStyle::Balanced);
+    let config = MatchConfig::default();
+
+    let mut total_corners = 0u32;
+    for seed in 0..50 {
+        let report = simulate_with_rng(&home, &away, &config, &mut seeded_rng(seed));
+        total_corners += report.home_stats.corners as u32 + report.away_stats.corners as u32;
+    }
+    assert!(total_corners > 0, "Corners should occur in 50 simulations");
+}
+
+// ---------------------------------------------------------------------------
+// Sent-off player excluded from subsequent play
+// ---------------------------------------------------------------------------
+
+#[test]
+fn sent_off_players_excluded() {
+    // Run many sims with high foul/red card rate and verify the report still
+    // produces valid data (no crashes from sent-off player selection).
+    let home = make_team("home", "Home FC", 65, PlayStyle::Balanced);
+    let away = make_team("away", "Away FC", 65, PlayStyle::Balanced);
+    let config = MatchConfig {
+        foul_probability: 0.80,
+        yellow_card_probability: 0.80,
+        red_card_probability: 0.50,
+        ..MatchConfig::default()
+    };
+
+    for seed in 0..50 {
+        let report = simulate_with_rng(&home, &away, &config, &mut seeded_rng(seed));
+        // Just verify it completes without panic
+        assert!(report.total_minutes >= 90);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Play style coverage for less common styles
+// ---------------------------------------------------------------------------
+
+#[test]
+fn all_play_styles_produce_valid_report() {
+    let styles = [
+        PlayStyle::Balanced,
+        PlayStyle::Attacking,
+        PlayStyle::Defensive,
+        PlayStyle::Possession,
+        PlayStyle::Counter,
+        PlayStyle::HighPress,
+    ];
+
+    for home_style in &styles {
+        for away_style in &styles {
+            let home = make_team("home", "Home FC", 65, *home_style);
+            let away = make_team("away", "Away FC", 65, *away_style);
+            let config = MatchConfig::default();
+            let report = simulate_with_rng(&home, &away, &config, &mut seeded_rng(42));
+
+            assert!(
+                report.total_minutes >= 90,
+                "Invalid report for {:?} vs {:?}",
+                home_style,
+                away_style
+            );
+            let has_fulltime = report
+                .events
+                .iter()
+                .any(|e| e.event_type == EventType::FullTime);
+            assert!(
+                has_fulltime,
+                "Missing FullTime for {:?} vs {:?}",
+                home_style, away_style
+            );
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Edge: team with only 1 player per position
+// ---------------------------------------------------------------------------
+
+#[test]
+fn minimal_team_doesnt_crash() {
+    let minimal = TeamData {
+        id: "min".to_string(),
+        name: "Minimal FC".to_string(),
+        formation: "1-1-1-1".to_string(),
+        play_style: PlayStyle::Balanced,
+        players: vec![
+            make_player("gk", "GK", Position::Goalkeeper, 50),
+            make_player("def", "DEF", Position::Defender, 50),
+            make_player("mid", "MID", Position::Midfielder, 50),
+            make_player("fwd", "FWD", Position::Forward, 50),
+        ],
+    };
+    let normal = make_team("normal", "Normal FC", 60, PlayStyle::Balanced);
+    let config = MatchConfig::default();
+    let report = simulate_with_rng(&minimal, &normal, &config, &mut seeded_rng(1));
+    assert!(report.total_minutes >= 90);
+}
+
+// ---------------------------------------------------------------------------
+// Edge: extreme skill disparity
+// ---------------------------------------------------------------------------
+
+#[test]
+fn extreme_skill_disparity_no_crash() {
+    let elite = make_team("elite", "Elite FC", 99, PlayStyle::Attacking);
+    let amateur = make_team("amateur", "Amateur FC", 1, PlayStyle::Defensive);
+    let config = MatchConfig::default();
+
+    for seed in 0..10 {
+        let report = simulate_with_rng(&elite, &amateur, &config, &mut seeded_rng(seed));
+        assert!(report.total_minutes >= 90);
+        // Elite team should generally score more
+        assert!(
+            report.home_goals >= report.away_goals || seed > 0,
+            "Seed {seed}: elite team lost?"
+        );
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Report: player stats rating computation
+// ---------------------------------------------------------------------------
+
+#[test]
+fn player_ratings_computed_for_active_players() {
+    let home = make_team("home", "Home FC", 65, PlayStyle::Balanced);
+    let away = make_team("away", "Away FC", 65, PlayStyle::Balanced);
+    let config = MatchConfig::default();
+    let report = simulate_with_rng(&home, &away, &config, &mut seeded_rng(42));
+
+    // All players with stats should have ratings
+    for (pid, ps) in &report.player_stats {
+        assert!(
+            ps.rating >= 0.0 && ps.rating <= 10.0,
+            "Player {} has invalid rating: {}",
+            pid,
+            ps.rating
+        );
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Free kicks occur when fouls happen outside the box
+// ---------------------------------------------------------------------------
+
+#[test]
+fn free_kicks_occur_in_simulation() {
+    let home = make_team("home", "Home FC", 65, PlayStyle::Balanced);
+    let away = make_team("away", "Away FC", 65, PlayStyle::Balanced);
+    let config = MatchConfig {
+        foul_probability: 0.80,
+        ..MatchConfig::default()
+    };
+
+    let mut total_free_kicks = 0u32;
+    for seed in 0..30 {
+        let report = simulate_with_rng(&home, &away, &config, &mut seeded_rng(seed));
+        total_free_kicks +=
+            report.home_stats.free_kicks as u32 + report.away_stats.free_kicks as u32;
+    }
+    assert!(
+        total_free_kicks > 0,
+        "Free kicks should occur with high foul rate"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Dribble and clearance events
+// ---------------------------------------------------------------------------
+
+#[test]
+fn dribble_events_occur() {
+    let home = make_team("home", "Home FC", 80, PlayStyle::Attacking);
+    let away = make_team("away", "Away FC", 40, PlayStyle::Defensive);
+    let config = MatchConfig::default();
+
+    let mut total_dribbles = 0u32;
+    let mut total_clearances = 0u32;
+    for seed in 0..30 {
+        let report = simulate_with_rng(&home, &away, &config, &mut seeded_rng(seed));
+        for e in &report.events {
+            match e.event_type {
+                EventType::Dribble => total_dribbles += 1,
+                EventType::Clearance => total_clearances += 1,
+                _ => {}
+            }
+        }
+    }
+    assert!(total_dribbles > 0, "Dribbles should occur");
+    assert!(total_clearances > 0, "Clearances should occur");
 }

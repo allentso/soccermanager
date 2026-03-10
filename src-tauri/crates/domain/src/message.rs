@@ -51,6 +51,10 @@ pub struct ActionOption {
     pub id: String,
     pub label: String,
     pub description: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub label_key: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description_key: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -90,6 +94,35 @@ pub struct MessageContext {
     pub player_id: Option<String>,
     pub fixture_id: Option<String>,
     pub match_result: Option<ContextMatchResult>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scout_report: Option<ScoutReportData>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ScoutReportData {
+    pub player_id: String,
+    pub player_name: String,
+    pub position: String,
+    pub nationality: String,
+    pub dob: String,
+    pub team_name: Option<String>,
+    /// Fuzzed attributes — None means not discovered by this scout
+    pub pace: Option<u8>,
+    pub shooting: Option<u8>,
+    pub passing: Option<u8>,
+    pub dribbling: Option<u8>,
+    pub defending: Option<u8>,
+    pub physical: Option<u8>,
+    pub condition: Option<u8>,
+    pub morale: Option<u8>,
+    /// Approximate overall rating (fuzzed average)
+    pub avg_rating: Option<u32>,
+    /// i18n key for overall rating description
+    pub rating_key: String,
+    /// i18n key for potential assessment
+    pub potential_key: String,
+    /// i18n key for report confidence level
+    pub confidence_key: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

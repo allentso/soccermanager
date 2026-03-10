@@ -88,6 +88,7 @@ We're looking for feedback in three categories:
 This is the top priority. If something breaks, crashes, freezes, or behaves in a way that's clearly wrong — we want to know.
 
 Examples:
+
 - The game crashes when I try to start a match
 - My formation changes don't seem to stick between sessions
 - A player shows as injured but is still in my starting XI
@@ -99,6 +100,7 @@ Examples:
 Things that aren't broken, but are confusing, annoying, or hard to use.
 
 Examples:
+
 - I couldn't figure out how to change my starting XI
 - The training page is overwhelming, I don't know what anything does
 - The text is too small / too large on my screen
@@ -110,6 +112,7 @@ Examples:
 This is more subjective, but equally valuable. Does the game *feel* right?
 
 Examples:
+
 - My team wins every match 5-0, it's too easy
 - Training doesn't seem to make any difference
 - Player morale never changes no matter what I do
@@ -120,11 +123,11 @@ Examples:
 
 ## How to Submit Feedback
 
-The easiest way to submit feedback is through our **GitHub issue templates**. Just pick the right one and fill it in — **you can write in your own language!**
+The easiest way to submit feedback is through our **GitHub issue templates**. Just pick the right one and fill it in.
 
-- [**Bug Report**](https://github.com/openfootmanager/openfootmanager/issues/new?template=bug_report.yml) — Something crashed, broke, or behaved incorrectly
-- [**Feedback / Suggestion**](https://github.com/openfootmanager/openfootmanager/issues/new?template=feedback.yml) — Usability issues, balance concerns, or ideas
-- [**Session Report**](https://github.com/openfootmanager/openfootmanager/issues/new?template=session_report.yml) — A summary of your play session (super valuable!)
+- [**Bug Report (English)**](https://github.com/openfootmanager/openfootmanager/issues/new?template=bug_report.yml) — Something crashed, broke, or behaved incorrectly
+- [**Feedback / Suggestion (English)**](https://github.com/openfootmanager/openfootmanager/issues/new?template=feedback.yml) — Usability issues, balance concerns, or ideas
+- [**Session Report (English)**](https://github.com/openfootmanager/openfootmanager/issues/new?template=session_report.yml) — A summary of your play session (super valuable!)
 
 ### Log files
 
@@ -134,7 +137,7 @@ When you report a bug, **please include your log files**. They contain detailed 
 
 - **Windows:** `C:\Users\<YourUsername>\AppData\Roaming\com.sturdyrobot.openfootmanager\logs\`
 - **macOS:** `~/Library/Application Support/com.sturdyrobot.openfootmanager/logs/`
-- **Linux:** `~/.config/com.sturdyrobot.openfootmanager/logs/`
+- **Linux:** `~/.local/share/com.sturdyrobot.openfootmanager/logs/`
 
 Just zip up the whole `logs` folder and attach it to your report. The logs don't contain any personal information — just game events, commands, and error traces.
 
@@ -166,4 +169,4 @@ Thanks for being part of this. Let's build something great together.
 
 ---
 
-*Alpha version 0.1.0*
+Alpha version 0.1.1

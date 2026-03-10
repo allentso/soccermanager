@@ -4,11 +4,22 @@ import { invoke } from "@tauri-apps/api/core";
 import { useTranslation } from "react-i18next";
 import { useSettingsStore, AppSettings } from "../store/settingsStore";
 import { useTheme } from "../context/ThemeContext";
-import { ThemeToggle } from "../components/ui";
+import { ThemeToggle, Select } from "../components/ui";
 import { SUPPORTED_LANGUAGES } from "../i18n";
 import {
-  ArrowLeft, Monitor, Moon, Sun, Gamepad2, Save,
-  Zap, Trash2, Download, Globe, Type, Maximize, Minimize,
+  ArrowLeft,
+  Monitor,
+  Moon,
+  Sun,
+  Gamepad2,
+  Save,
+  Zap,
+  Trash2,
+  Download,
+  Globe,
+  Type,
+  Maximize,
+  Minimize,
 } from "lucide-react";
 
 const CURRENCY_OPTIONS = [
@@ -29,7 +40,9 @@ export default function Settings() {
   const [confirmClear, setConfirmClear] = useState(false);
   const [clearSuccess, setClearSuccess] = useState(false);
   const [exportPath, setExportPath] = useState<string | null>(null);
-  const [isFullscreen, setIsFullscreen] = useState(!!document.fullscreenElement);
+  const [isFullscreen, setIsFullscreen] = useState(
+    !!document.fullscreenElement,
+  );
 
   // Where to go back to
   const returnTo = (location.state as { from?: string })?.from || "/";
@@ -65,9 +78,12 @@ export default function Settings() {
 
     // Sync theme with ThemeContext
     if (partial.theme) {
-      const desired = partial.theme === "system"
-        ? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
-        : partial.theme;
+      const desired =
+        partial.theme === "system"
+          ? window.matchMedia("(prefers-color-scheme: dark)").matches
+            ? "dark"
+            : "light"
+          : partial.theme;
       if (desired !== theme) toggleTheme();
     }
 
@@ -122,7 +138,7 @@ export default function Settings() {
               <ArrowLeft className="w-5 h-5" />
             </button>
             <h1 className="text-xl font-heading font-bold uppercase tracking-wide text-gray-900 dark:text-white">
-              {t('settings.title')}
+              {t("settings.title")}
             </h1>
           </div>
           <ThemeToggle />
@@ -131,10 +147,15 @@ export default function Settings() {
 
       {/* Content */}
       <div className="max-w-3xl mx-auto px-6 py-8 flex flex-col gap-8">
-
         {/* ─── Display ─── */}
-        <Section title={t('settings.display')} icon={<Monitor className="w-5 h-5" />}>
-          <SettingRow label={t('settings.theme')} description={t('settings.themeDesc')}>
+        <Section
+          title={t("settings.display")}
+          icon={<Monitor className="w-5 h-5" />}
+        >
+          <SettingRow
+            label={t("settings.theme")}
+            description={t("settings.themeDesc")}
+          >
             <SegmentedControl
               options={[
                 { value: "light", icon: <Sun className="w-4 h-4" /> },
@@ -142,38 +163,58 @@ export default function Settings() {
                 { value: "system", icon: <Monitor className="w-4 h-4" /> },
               ]}
               value={settings.theme}
-              onChange={(v) => handleUpdate({ theme: v as AppSettings["theme"] })}
+              onChange={(v) =>
+                handleUpdate({ theme: v as AppSettings["theme"] })
+              }
             />
           </SettingRow>
 
-          <SettingRow label={t('settings.language')} description={t('settings.languageDesc')}>
-            <div className="flex items-center gap-2">
-              <Globe className="w-4 h-4 text-gray-400" />
-              <select
-                value={settings.language}
-                onChange={(e) => handleUpdate({ language: e.target.value })}
-                className="bg-gray-50 dark:bg-navy-700 border border-gray-300 dark:border-navy-600 text-gray-900 dark:text-white rounded-lg px-3 py-2 text-sm outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all"
-              >
-                {SUPPORTED_LANGUAGES.map((lang) => (
-                  <option key={lang.code} value={lang.code}>{lang.label}</option>
-                ))}
-              </select>
-            </div>
+          <SettingRow
+            label={t("settings.language")}
+            description={t("settings.languageDesc")}
+          >
+            <Select
+              value={settings.language}
+              onChange={(e) => handleUpdate({ language: e.target.value })}
+              icon={<Globe className="w-4 h-4" />}
+              className="min-w-48"
+            >
+              {SUPPORTED_LANGUAGES.map((lang) => (
+                <option key={lang.code} value={lang.code}>
+                  {lang.label}
+                </option>
+              ))}
+            </Select>
           </SettingRow>
 
-          <SettingRow label={t('settings.currency')} description={t('settings.currencyDesc')}>
-            <select
+          <SettingRow
+            label={t("settings.currency")}
+            description={t("settings.currencyDesc")}
+          >
+            <Select
               value={settings.currency}
-              onChange={(e) => handleUpdate({ currency: e.target.value as AppSettings["currency"] })}
-              className="bg-gray-50 dark:bg-navy-700 border border-gray-300 dark:border-navy-600 text-gray-900 dark:text-white rounded-lg px-3 py-2 text-sm outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all"
+              onChange={(e) =>
+                handleUpdate({
+                  currency: e.target.value as AppSettings["currency"],
+                })
+              }
+              className="min-w-48"
             >
               {CURRENCY_OPTIONS.map((c) => (
-                <option key={c.value} value={c.value}>{c.symbol} {c.label}</option>
+                <option key={c.value} value={c.value}>
+                  {c.symbol} {c.label}
+                </option>
               ))}
-            </select>
+            </Select>
           </SettingRow>
 
-          <SettingRow label={t('settings.uiScale', 'UI Scale')} description={t('settings.uiScaleDesc', 'Adjust font size and spacing for readability')}>
+          <SettingRow
+            label={t("settings.uiScale", "UI Scale")}
+            description={t(
+              "settings.uiScaleDesc",
+              "Adjust font size and spacing for readability",
+            )}
+          >
             <div className="flex items-center gap-2">
               <Type className="w-4 h-4 text-gray-400" />
               <SegmentedControl
@@ -184,59 +225,106 @@ export default function Settings() {
                   { value: "xlarge", label: "XL" },
                 ]}
                 value={settings.ui_scale}
-                onChange={(v) => handleUpdate({ ui_scale: v as AppSettings["ui_scale"] })}
+                onChange={(v) =>
+                  handleUpdate({ ui_scale: v as AppSettings["ui_scale"] })
+                }
               />
             </div>
           </SettingRow>
 
-          <SettingRow label={t('settings.highContrast', 'High Contrast')} description={t('settings.highContrastDesc', 'Boost text contrast in dark mode for improved readability')}>
+          <SettingRow
+            label={t("settings.highContrast", "High Contrast")}
+            description={t(
+              "settings.highContrastDesc",
+              "Boost text contrast in dark mode for improved readability",
+            )}
+          >
             <Toggle
               checked={settings.high_contrast}
               onChange={(v) => handleUpdate({ high_contrast: v })}
             />
           </SettingRow>
 
-          <SettingRow label={t('settings.fullscreen', 'Fullscreen')} description={t('settings.fullscreenDesc', 'Toggle fullscreen mode for an immersive experience')}>
+          <SettingRow
+            label={t("settings.fullscreen", "Fullscreen")}
+            description={t(
+              "settings.fullscreenDesc",
+              "Toggle fullscreen mode for an immersive experience",
+            )}
+          >
             <button
               onClick={toggleFullscreen}
               className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-100 dark:bg-navy-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-navy-600 text-sm font-heading font-bold uppercase tracking-wider transition-colors"
             >
-              {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
-              {isFullscreen ? t('settings.exitFullscreen', 'Exit') : t('settings.enterFullscreen', 'Enter')}
+              {isFullscreen ? (
+                <Minimize className="w-4 h-4" />
+              ) : (
+                <Maximize className="w-4 h-4" />
+              )}
+              {isFullscreen
+                ? t("settings.exitFullscreen", "Exit")
+                : t("settings.enterFullscreen", "Enter")}
             </button>
           </SettingRow>
         </Section>
 
         {/* ─── Gameplay ─── */}
-        <Section title={t('settings.gameplay')} icon={<Gamepad2 className="w-5 h-5" />}>
-          <SettingRow label={t('settings.defaultMatchMode')} description={t('settings.defaultMatchModeDesc')}>
-            <select
+        <Section
+          title={t("settings.gameplay")}
+          icon={<Gamepad2 className="w-5 h-5" />}
+        >
+          <SettingRow
+            label={t("settings.defaultMatchMode")}
+            description={t("settings.defaultMatchModeDesc")}
+          >
+            <Select
               value={settings.default_match_mode}
-              onChange={(e) => handleUpdate({ default_match_mode: e.target.value as AppSettings["default_match_mode"] })}
-              className="bg-gray-50 dark:bg-navy-700 border border-gray-300 dark:border-navy-600 text-gray-900 dark:text-white rounded-lg px-3 py-2 text-sm outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 transition-all"
+              onChange={(e) =>
+                handleUpdate({
+                  default_match_mode: e.target
+                    .value as AppSettings["default_match_mode"],
+                })
+              }
+              className="min-w-48"
             >
               {MATCH_MODE_KEYS.map((k) => (
-                <option key={k} value={k}>{t(`settings.matchModes.${k}`)}</option>
+                <option key={k} value={k}>
+                  {t(`settings.matchModes.${k}`)}
+                </option>
               ))}
-            </select>
+            </Select>
           </SettingRow>
 
-          <SettingRow label={t('settings.matchSpeed')} description={t('settings.matchSpeedDesc')}>
+          <SettingRow
+            label={t("settings.matchSpeed")}
+            description={t("settings.matchSpeedDesc")}
+          >
             <SegmentedControl
-              options={MATCH_SPEED_KEYS.map((k) => ({ value: k, label: t(`settings.speeds.${k}`) }))}
+              options={MATCH_SPEED_KEYS.map((k) => ({
+                value: k,
+                label: t(`settings.speeds.${k}`),
+              }))}
               value={settings.match_speed}
-              onChange={(v) => handleUpdate({ match_speed: v as AppSettings["match_speed"] })}
+              onChange={(v) =>
+                handleUpdate({ match_speed: v as AppSettings["match_speed"] })
+              }
             />
           </SettingRow>
 
-          <SettingRow label={t('settings.matchCommentary')} description={t('settings.matchCommentaryDesc')}>
+          <SettingRow
+            label={t("settings.matchCommentary")}
+            description={t("settings.matchCommentaryDesc")}
+          >
             <Toggle
               checked={settings.show_match_commentary}
               onChange={(v) => handleUpdate({ show_match_commentary: v })}
             />
           </SettingRow>
 
-          <SettingRow label={t('settings.confirmAdvance')} description={t('settings.confirmAdvanceDesc')}>
+          <SettingRow
+            label={t("settings.confirmAdvance")}
+            description={t("settings.confirmAdvanceDesc")}
+          >
             <Toggle
               checked={settings.confirm_advance}
               onChange={(v) => handleUpdate({ confirm_advance: v })}
@@ -245,31 +333,42 @@ export default function Settings() {
         </Section>
 
         {/* ─── Saves & Data ─── */}
-        <Section title={t('settings.savesData')} icon={<Save className="w-5 h-5" />}>
-          <SettingRow label={t('settings.autoSave')} description={t('settings.autoSaveDesc')}>
+        <Section
+          title={t("settings.savesData")}
+          icon={<Save className="w-5 h-5" />}
+        >
+          <SettingRow
+            label={t("settings.autoSave")}
+            description={t("settings.autoSaveDesc")}
+          >
             <Toggle
               checked={settings.auto_save}
               onChange={(v) => handleUpdate({ auto_save: v })}
             />
           </SettingRow>
 
-          <SettingRow label={t('settings.exportWorld')} description={t('settings.exportWorldDesc')}>
+          <SettingRow
+            label={t("settings.exportWorld")}
+            description={t("settings.exportWorldDesc")}
+          >
             <button
               onClick={handleExportWorld}
               className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary-500/10 text-primary-600 dark:text-primary-400 hover:bg-primary-500/20 text-sm font-heading font-bold uppercase tracking-wider transition-colors"
             >
               <Download className="w-4 h-4" />
-              {t('settings.export')}
+              {t("settings.export")}
             </button>
           </SettingRow>
           {exportPath && (
-            <p className="text-xs text-primary-500 -mt-2 ml-1">{t('settings.exportedTo', { path: exportPath })}</p>
+            <p className="text-xs text-primary-500 -mt-2 ml-1">
+              {t("settings.exportedTo", { path: exportPath })}
+            </p>
           )}
 
           <div className="border-t border-gray-200 dark:border-navy-600 pt-4 mt-2">
             <SettingRow
-              label={t('settings.clearSaves')}
-              description={t('settings.clearSavesDesc')}
+              label={t("settings.clearSaves")}
+              description={t("settings.clearSavesDesc")}
               danger
             >
               {confirmClear ? (
@@ -278,24 +377,26 @@ export default function Settings() {
                     onClick={handleClearSaves}
                     className="px-4 py-2 rounded-lg bg-red-500 text-white text-sm font-heading font-bold uppercase tracking-wider hover:bg-red-600 transition-colors"
                   >
-                    {t('common.confirm')}
+                    {t("common.confirm")}
                   </button>
                   <button
                     onClick={() => setConfirmClear(false)}
                     className="px-4 py-2 rounded-lg bg-gray-200 dark:bg-navy-600 text-gray-700 dark:text-gray-300 text-sm font-heading font-bold uppercase tracking-wider hover:bg-gray-300 dark:hover:bg-navy-500 transition-colors"
                   >
-                    {t('common.cancel')}
+                    {t("common.cancel")}
                   </button>
                 </div>
               ) : clearSuccess ? (
-                <span className="text-sm text-primary-500 font-heading font-bold uppercase tracking-wider">{t('settings.savesCleared')}</span>
+                <span className="text-sm text-primary-500 font-heading font-bold uppercase tracking-wider">
+                  {t("settings.savesCleared")}
+                </span>
               ) : (
                 <button
                   onClick={() => setConfirmClear(true)}
                   className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 text-sm font-heading font-bold uppercase tracking-wider transition-colors"
                 >
                   <Trash2 className="w-4 h-4" />
-                  {t('settings.clear')}
+                  {t("settings.clear")}
                 </button>
               )}
             </SettingRow>
@@ -303,11 +404,15 @@ export default function Settings() {
         </Section>
 
         {/* ─── About ─── */}
-        <Section title={t('settings.about')} icon={<Zap className="w-5 h-5" />}>
+        <Section title={t("settings.about")} icon={<Zap className="w-5 h-5" />}>
           <div className="flex justify-between items-center">
             <div>
-              <p className="text-sm font-medium text-gray-800 dark:text-gray-200">OpenFoot Manager</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">v0.1.0-alpha</p>
+              <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                Openfoot Manager
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                {t("app.version")}
+              </p>
             </div>
             <span className="text-[10px] font-heading uppercase tracking-widest text-gray-400 dark:text-gray-600">
               Sturdy Robot
@@ -321,7 +426,15 @@ export default function Settings() {
 
 // ── Reusable sub-components ──
 
-function Section({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
+function Section({
+  title,
+  icon,
+  children,
+}: {
+  title: string;
+  icon: React.ReactNode;
+  children: React.ReactNode;
+}) {
   return (
     <div className="bg-white dark:bg-navy-800 rounded-2xl border border-gray-200 dark:border-navy-700 shadow-sm overflow-hidden">
       <div className="flex items-center gap-2 px-6 py-4 border-b border-gray-100 dark:border-navy-700">
@@ -335,7 +448,12 @@ function Section({ title, icon, children }: { title: string; icon: React.ReactNo
   );
 }
 
-function SettingRow({ label, description, danger, children }: {
+function SettingRow({
+  label,
+  description,
+  danger,
+  children,
+}: {
   label: string;
   description: string;
   danger?: boolean;
@@ -344,15 +462,27 @@ function SettingRow({ label, description, danger, children }: {
   return (
     <div className="flex items-center justify-between gap-4">
       <div className="flex-1 min-w-0">
-        <p className={`text-sm font-medium ${danger ? "text-red-500" : "text-gray-800 dark:text-gray-200"}`}>{label}</p>
-        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{description}</p>
+        <p
+          className={`text-sm font-medium ${danger ? "text-red-500" : "text-gray-800 dark:text-gray-200"}`}
+        >
+          {label}
+        </p>
+        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+          {description}
+        </p>
       </div>
       <div className="flex-shrink-0">{children}</div>
     </div>
   );
 }
 
-function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+function Toggle({
+  checked,
+  onChange,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
   return (
     <button
       onClick={() => onChange(!checked)}
@@ -369,7 +499,11 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
   );
 }
 
-function SegmentedControl({ options, value, onChange }: {
+function SegmentedControl({
+  options,
+  value,
+  onChange,
+}: {
   options: Array<{ value: string; label?: string; icon?: React.ReactNode }>;
   value: string;
   onChange: (v: string) => void;

@@ -2,6 +2,7 @@ import { GameStateData } from "../store/gameStore";
 import { Card, CardHeader, CardBody, ProgressBar } from "./ui";
 import { formatDate } from "../lib/helpers";
 import { useTranslation } from "react-i18next";
+import { countryFlag, countryName } from "../lib/countries";
 
 interface ManagerTabProps {
   gameState: GameStateData;
@@ -23,7 +24,10 @@ export default function ManagerTab({ gameState }: ManagerTabProps) {
           </div>
           <div>
             <h2 className="text-2xl font-heading font-bold text-white uppercase tracking-wide">{mgr.first_name} {mgr.last_name}</h2>
-            <p className="text-gray-400 text-sm mt-1">{mgr.nationality} • Born {formatDate(mgr.date_of_birth, i18n.language)}</p>
+            <p className="text-gray-400 text-sm mt-1">
+              <span className="mr-1">{countryFlag(mgr.nationality)}</span>
+              {countryName(mgr.nationality, i18n.language)} • Born {formatDate(mgr.date_of_birth, i18n.language)}
+            </p>
             {myTeam && <p className="text-primary-400 text-sm font-semibold mt-0.5">{t('manager.managerOf', { team: myTeam.name })}</p>}
           </div>
           <div className="ml-auto text-right">

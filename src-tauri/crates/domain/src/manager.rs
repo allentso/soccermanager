@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 
-fn default_fan_approval() -> u8 { 50 }
+fn default_fan_approval() -> u8 {
+    50
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Manager {

@@ -5,7 +5,7 @@ import { GameStateData } from "../../store/gameStore";
 import { MatchSnapshot, MatchEvent, FORMATIONS, PLAY_STYLES, TEAM_TALK_OPTIONS, TeamTalkTone } from "./types";
 import { getEventDisplay, getPlayerName } from "./helpers";
 import { getTalkIcon } from "./TeamTalkIcons";
-import { SubPanel } from "./MatchLive";
+import { SubPanel } from "./SubPanel";
 import { Badge } from "../ui";
 import {
   Play, RefreshCw, Shield, Zap, Target, Crosshair, Flag,

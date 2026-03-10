@@ -122,9 +122,9 @@ Beispiele:
 
 Am einfachsten geht das über unsere **GitHub Issue-Vorlagen**. Wähle einfach die richtige aus und fülle sie aus — **du kannst in deiner Sprache schreiben!**
 
-- [**Bug-Report**](https://github.com/openfootmanager/openfootmanager/issues/new?template=bug_report.yml) — Etwas ist abgestürzt, kaputt oder hat sich falsch verhalten
-- [**Feedback / Vorschlag**](https://github.com/openfootmanager/openfootmanager/issues/new?template=feedback.yml) — Bedienungsprobleme, Balance-Bedenken oder Ideen
-- [**Sitzungsbericht**](https://github.com/openfootmanager/openfootmanager/issues/new?template=session_report.yml) — Eine Zusammenfassung deiner Spielsitzung (super wertvoll!)
+- [**Bug-Report**](https://github.com/openfootmanager/openfootmanager/issues/new?template=bug_report_de.yml) — Etwas ist abgestürzt, kaputt oder hat sich falsch verhalten
+- [**Feedback / Vorschlag**](https://github.com/openfootmanager/openfootmanager/issues/new?template=feedback_de.yml) — Bedienungsprobleme, Balance-Bedenken oder Ideen
+- [**Sitzungsbericht**](https://github.com/openfootmanager/openfootmanager/issues/new?template=session_report_de.yml) — Eine Zusammenfassung deiner Spielsitzung (super wertvoll!)
 
 ### Log-Dateien
 
@@ -134,7 +134,7 @@ Wenn du einen Bug meldest, **bitte leg deine Log-Dateien bei**. Sie enthalten de
 
 - **Windows:** `C:\Users\<DeinBenutzername>\AppData\Roaming\com.sturdyrobot.openfootmanager\logs\`
 - **macOS:** `~/Library/Application Support/com.sturdyrobot.openfootmanager/logs/`
-- **Linux:** `~/.config/com.sturdyrobot.openfootmanager/logs/`
+- **Linux:** `~/.local/share/com.sturdyrobot.openfootmanager/logs/`
 
 Packe einfach den gesamten `logs`-Ordner als ZIP und häng ihn an deinen Bericht an. Die Logs enthalten keine persönlichen Daten — nur Spielereignisse, Befehle und Fehler-Traces.
 
@@ -166,4 +166,4 @@ Danke, dass du dabei bist. Lass uns zusammen etwas Großartiges bauen.
 
 ---
 
-*Alpha-Version 0.1.0*
+*Alpha-Version 0.1.1*
