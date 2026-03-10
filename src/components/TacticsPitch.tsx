@@ -6,7 +6,6 @@ import { calcOvr } from "../lib/helpers";
 import type { PlayerData } from "../store/gameStore";
 import { Badge, Card } from "./ui";
 import {
-  getPitchSlotWidth,
   isPlayerOutOfPosition,
   positionCode,
   type DragState,
