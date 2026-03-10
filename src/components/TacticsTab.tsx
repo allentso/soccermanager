@@ -25,6 +25,7 @@ import {
 import TacticsPitch from "./TacticsPitch";
 import TacticsPlayerFocusPanel from "./TacticsPlayerFocusPanel";
 import TacticsPlayerTable from "./TacticsPlayerTable";
+import TacticsRolesPanel from "./TacticsRolesPanel";
 import TacticsSetupPanel from "./TacticsSetupPanel";
 
 interface TacticsTabProps {
@@ -57,6 +58,7 @@ export default function TacticsTab({
   const [comparePlayerId, setComparePlayerId] = useState<string | null>(null);
   const [comparePlayerSection, setComparePlayerSection] =
     useState<SquadSection | null>(null);
+  const [activeTab, setActiveTab] = useState<"lineup" | "roles">("lineup");
   const dragStateRef = useRef<DragState | null>(null);
   const hoveredSlotRef = useRef<number | null>(null);
   const dragPreviewRef = useRef<HTMLDivElement | null>(null);
@@ -423,99 +425,135 @@ export default function TacticsTab({
         aria-hidden="true"
         className="pointer-events-none fixed -left-20 top-0 h-8 w-8 rounded-full border border-white/15 bg-navy-900/90 shadow-lg"
       />
-      <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.65fr)_minmax(320px,0.95fr)] gap-4 items-start">
-        <TacticsPitch
-          benchPlayers={bench}
-          dragState={dragState}
-          formation={formation}
-          comparePlayerId={comparePlayerId}
-          hoveredSlot={hoveredSlot}
-          onClearSelection={clearLineupSelection}
-          onDragEnd={resetDragState}
-          onDragStart={handleDragStart}
-          onLineupPlayerClick={(playerId, section) => {
-            void handleLineupPlayerClick(playerId, section);
-          }}
-          onSlotDragLeave={handleSlotDragLeave}
-          onSlotDragOver={handleSlotDragOver}
-          onSlotDrop={(event, slotIndex) => {
-            void handleSlotDrop(event, slotIndex);
-          }}
-          outOfPositionCount={outOfPositionCount}
-          pitchSlotRows={pitchSlotRows}
-          selectedPlayer={selectedPlayer}
-          selectedPlayerId={selectedPlayerId}
-        />
-
-        <div className="flex flex-col gap-4">
-          <TacticsPlayerFocusPanel
-            canConfirmSwap={canConfirmSwap}
-            onConfirmSwap={() => {
-              void handleConfirmSwap();
-            }}
-            selectedPlayer={selectedPlayer}
-            comparePlayer={comparePlayer}
-          />
-          <TacticsSetupPanel
-            activePlayStyle={activePlayStyle}
-            formation={formation}
-            onFormationChange={(nextFormation) => {
-              void handleFormationChange(nextFormation);
-            }}
-            onPlayStyleChange={(playStyle) => {
-              void handlePlayStyleChange(playStyle);
-            }}
-          />
-        </div>
+      <div className="flex gap-1 self-start rounded-lg bg-gray-100 p-1 dark:bg-navy-800">
+        <button
+          type="button"
+          onClick={() => setActiveTab("lineup")}
+          className={`rounded-md px-4 py-2 text-xs font-heading font-bold uppercase tracking-wider transition-colors ${
+            activeTab === "lineup"
+              ? "bg-white text-gray-900 shadow-sm dark:bg-navy-700 dark:text-white"
+              : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+          }`}
+        >
+          {t("tactics.lineupTab", "Lineup")}
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("roles")}
+          className={`rounded-md px-4 py-2 text-xs font-heading font-bold uppercase tracking-wider transition-colors ${
+            activeTab === "roles"
+              ? "bg-white text-gray-900 shadow-sm dark:bg-navy-700 dark:text-white"
+              : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+          }`}
+        >
+          {t("tactics.rolesTab", "Set pieces & roles")}
+        </button>
       </div>
 
-      <TacticsFilters
-        onClear={handleClearFilters}
-        onPlayerSearchChange={setPlayerSearch}
-        onPositionFilterChange={setPositionFilter}
-        playerSearch={playerSearch}
-        positionFilter={positionFilter}
-      />
+      {activeTab === "lineup" ? (
+        <>
+          <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.65fr)_minmax(320px,0.95fr)] gap-4 items-start">
+            <TacticsPitch
+              benchPlayers={bench}
+              dragState={dragState}
+              formation={formation}
+              comparePlayerId={comparePlayerId}
+              hoveredSlot={hoveredSlot}
+              onClearSelection={clearLineupSelection}
+              onDragEnd={resetDragState}
+              onDragStart={handleDragStart}
+              onLineupPlayerClick={(playerId, section) => {
+                void handleLineupPlayerClick(playerId, section);
+              }}
+              onSlotDragLeave={handleSlotDragLeave}
+              onSlotDragOver={handleSlotDragOver}
+              onSlotDrop={(event, slotIndex) => {
+                void handleSlotDrop(event, slotIndex);
+              }}
+              outOfPositionCount={outOfPositionCount}
+              pitchSlotRows={pitchSlotRows}
+              selectedPlayer={selectedPlayer}
+              selectedPlayerId={selectedPlayerId}
+            />
 
-      <TacticsPlayerTable
-        emptyMessage={t(
-          "squad.noLineupMatches",
-          "No starters match the current filters.",
-        )}
-        highlightedPlayerId={selectedPlayerId}
-        onDragEnd={resetDragState}
-        onDragStart={handleDragStart}
-        onSelectPlayer={onSelectPlayer}
-        players={filteredStartingXI}
-        section="xi"
-        sortDir={sortDir}
-        sortKey={sortKey}
-        title={t("preMatch.startingXI", "Starting XI")}
-        toggleSort={toggleSort}
-        totalCount={startingXI.length}
-        xiActivePosition={xiActivePosition}
-        xiIds={startingXiIds}
-      />
+            <div className="flex flex-col gap-4">
+              <TacticsPlayerFocusPanel
+                canConfirmSwap={canConfirmSwap}
+                onConfirmSwap={() => {
+                  void handleConfirmSwap();
+                }}
+                selectedPlayer={selectedPlayer}
+                comparePlayer={comparePlayer}
+              />
+              <TacticsSetupPanel
+                activePlayStyle={activePlayStyle}
+                formation={formation}
+                onFormationChange={(nextFormation) => {
+                  void handleFormationChange(nextFormation);
+                }}
+                onPlayStyleChange={(playStyle) => {
+                  void handlePlayStyleChange(playStyle);
+                }}
+              />
+            </div>
+          </div>
 
-      <TacticsPlayerTable
-        emptyMessage={t(
-          "squad.noBenchMatches",
-          "No bench players match the current filters.",
-        )}
-        highlightedPlayerId={selectedPlayerId}
-        onDragEnd={resetDragState}
-        onDragStart={handleDragStart}
-        onSelectPlayer={onSelectPlayer}
-        players={filteredBench}
-        section="bench"
-        sortDir={sortDir}
-        sortKey={sortKey}
-        title={t("preMatch.substitutes", "Substitutes")}
-        toggleSort={toggleSort}
-        totalCount={bench.length}
-        xiActivePosition={xiActivePosition}
-        xiIds={startingXiIds}
-      />
+          <TacticsFilters
+            onClear={handleClearFilters}
+            onPlayerSearchChange={setPlayerSearch}
+            onPositionFilterChange={setPositionFilter}
+            playerSearch={playerSearch}
+            positionFilter={positionFilter}
+          />
+
+          <TacticsPlayerTable
+            emptyMessage={t(
+              "squad.noLineupMatches",
+              "No starters match the current filters.",
+            )}
+            highlightedPlayerId={selectedPlayerId}
+            onDragEnd={resetDragState}
+            onDragStart={handleDragStart}
+            onSelectPlayer={onSelectPlayer}
+            players={filteredStartingXI}
+            section="xi"
+            sortDir={sortDir}
+            sortKey={sortKey}
+            title={t("preMatch.startingXI", "Starting XI")}
+            toggleSort={toggleSort}
+            totalCount={startingXI.length}
+            xiActivePosition={xiActivePosition}
+            xiIds={startingXiIds}
+          />
+
+          <TacticsPlayerTable
+            emptyMessage={t(
+              "squad.noBenchMatches",
+              "No bench players match the current filters.",
+            )}
+            highlightedPlayerId={selectedPlayerId}
+            onDragEnd={resetDragState}
+            onDragStart={handleDragStart}
+            onSelectPlayer={onSelectPlayer}
+            players={filteredBench}
+            section="bench"
+            sortDir={sortDir}
+            sortKey={sortKey}
+            title={t("preMatch.substitutes", "Substitutes")}
+            toggleSort={toggleSort}
+            totalCount={bench.length}
+            xiActivePosition={xiActivePosition}
+            xiIds={startingXiIds}
+          />
+        </>
+      ) : (
+        <TacticsRolesPanel
+          allSquad={roster}
+          matchRoles={myTeam.match_roles}
+          onGameUpdate={onGameUpdate}
+          startingPlayers={startingXI}
+        />
+      )}
     </div>
   );
 }

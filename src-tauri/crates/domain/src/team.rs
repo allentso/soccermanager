@@ -45,12 +45,24 @@ pub struct Team {
     #[serde(default)]
     pub starting_xi_ids: Vec<String>,
 
+    #[serde(default)]
+    pub match_roles: MatchRoles,
+
     // Recent form: last 5 results as "W", "D", "L" (most recent last)
     #[serde(default)]
     pub form: Vec<String>,
 
     // History
     pub history: Vec<TeamSeasonRecord>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
+pub struct MatchRoles {
+    pub captain: Option<String>,
+    pub vice_captain: Option<String>,
+    pub penalty_taker: Option<String>,
+    pub free_kick_taker: Option<String>,
+    pub corner_taker: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
@@ -184,6 +196,7 @@ impl Team {
                 secondary: "#ffffff".to_string(),
             },
             starting_xi_ids: Vec::new(),
+            match_roles: MatchRoles::default(),
             form: Vec::new(),
             history: Vec::new(),
         }

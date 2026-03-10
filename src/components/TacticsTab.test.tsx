@@ -412,4 +412,31 @@ describe("TacticsTab", () => {
 
     expect(onSelectPlayer).toHaveBeenCalledWith("d1");
   });
+
+  it("persists default set piece and team role assignments from the roles tab", async () => {
+    render(
+      <TacticsTab
+        gameState={makeGameState()}
+        onSelectPlayer={vi.fn()}
+        onGameUpdate={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Set pieces & roles" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Auto-select defaults" }),
+    );
+
+    await waitFor(() => {
+      expect(mockedInvoke).toHaveBeenCalledWith("set_team_match_roles", {
+        matchRoles: expect.objectContaining({
+          captain: expect.any(String),
+          vice_captain: expect.any(String),
+          penalty_taker: expect.any(String),
+          free_kick_taker: expect.any(String),
+          corner_taker: expect.any(String),
+        }),
+      });
+    });
+  });
 });

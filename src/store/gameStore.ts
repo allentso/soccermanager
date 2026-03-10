@@ -5,6 +5,7 @@ import type { GameStateData } from './types';
 export type {
   TeamColors,
   TeamSeasonRecord,
+  TeamMatchRolesData,
   TeamData,
   PlayerSeasonStats,
   CareerEntry,

@@ -14,6 +14,14 @@ export interface TeamSeasonRecord {
   goals_against: number;
 }
 
+export interface TeamMatchRolesData {
+  captain: string | null;
+  vice_captain: string | null;
+  penalty_taker: string | null;
+  free_kick_taker: string | null;
+  corner_taker: string | null;
+}
+
 export interface TeamData {
   id: string;
   name: string;
@@ -37,6 +45,7 @@ export interface TeamData {
   founded_year: number;
   colors: TeamColors;
   starting_xi_ids: string[];
+  match_roles?: TeamMatchRolesData;
   form: string[];
   history: TeamSeasonRecord[];
 }

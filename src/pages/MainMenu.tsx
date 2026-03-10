@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useGameStore, GameStateData } from "../store/gameStore";
@@ -15,6 +16,7 @@ import {
   AlertCircle,
   ChevronDown,
   Check,
+  Power,
 } from "lucide-react";
 import { countryFlag, countryName, allCountries } from "../lib/countries";
 
@@ -289,6 +291,17 @@ export default function MainMenu() {
     }
   };
 
+  const handleExitApp = async (): Promise<void> => {
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+      }
+      await getCurrentWindow().destroy();
+    } catch (error) {
+      console.error("Failed to exit app:", error);
+    }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-navy-900 transition-colors duration-500 relative overflow-hidden">
       {/* Background gradient accents */}
@@ -355,6 +368,20 @@ export default function MainMenu() {
                   </span>
                 </div>
                 <ChevronRight className="w-5 h-5 opacity-0 group-hover:opacity-70 group-hover:translate-x-0.5 transition-all text-gray-400" />
+              </button>
+
+              <button
+                onClick={() => {
+                  void handleExitApp();
+                }}
+                className="group flex items-center justify-between w-full p-4 bg-white dark:bg-navy-700 hover:bg-red-50 dark:hover:bg-red-500/10 text-gray-800 dark:text-gray-200 rounded-xl transition-all duration-300 border border-gray-200 dark:border-navy-600 hover:border-red-200 dark:hover:border-red-500/30 shadow-sm"
+              >
+                <div className="flex items-center gap-3">
+                  <Power className="w-6 h-6 text-red-500 dark:text-red-400" />
+                  <span className="font-heading font-bold text-lg uppercase tracking-wide">
+                    {t("menu.exitGame")}
+                  </span>
+                </div>
               </button>
             </div>
           )}

@@ -65,6 +65,13 @@ export default function HomeTab({
       ? Math.round(roster.reduce((s, p) => s + calcOvr(p), 0) / roster.length)
       : 0;
   const exhaustedCount = roster.filter((p) => p.condition < 40).length;
+  const resolveInjuryName = (injuryName: string): string => {
+    if (injuryName.includes(".")) {
+      return t(injuryName, { defaultValue: injuryName });
+    }
+
+    return t(`common.injuries.${injuryName}`, { defaultValue: injuryName });
+  };
   const unavailablePlayers = roster
     .filter((player) => player.injury != null)
     .sort((leftPlayer, rightPlayer) => {
@@ -466,7 +473,10 @@ export default function HomeTab({
                       </Badge>
                     </div>
                     <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                      {player.injury?.name} ·{" "}
+                      {player.injury
+                        ? resolveInjuryName(player.injury.name)
+                        : ""}{" "}
+                      ·{" "}
                       {t("home.daysUnavailable", {
                         count: player.injury?.days_remaining ?? 0,
                       })}

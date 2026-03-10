@@ -132,6 +132,30 @@ pub fn set_play_style(state: State<'_, StateManager>, play_style: String) -> Res
 }
 
 #[tauri::command]
+pub fn set_team_match_roles(
+    state: State<'_, StateManager>,
+    match_roles: domain::team::MatchRoles,
+) -> Result<Game, String> {
+    info!("[cmd] set_team_match_roles");
+    let mut game = state
+        .get_game(|g| g.clone())
+        .ok_or("No active game session".to_string())?;
+
+    let team_id = game
+        .manager
+        .team_id
+        .clone()
+        .ok_or("No team assigned".to_string())?;
+
+    if let Some(team) = game.teams.iter_mut().find(|t| t.id == team_id) {
+        team.match_roles = match_roles;
+    }
+
+    state.set_game(game.clone());
+    Ok(game)
+}
+
+#[tauri::command]
 pub fn set_training(
     state: State<'_, StateManager>,
     focus: String,

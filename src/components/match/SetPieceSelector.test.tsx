@@ -24,11 +24,25 @@ const makePlayer = (overrides: Partial<PlayerData> = {}): PlayerData => ({
   alternate_positions: [],
   training_focus: null,
   attributes: {
-    pace: 70, stamina: 70, strength: 70, agility: 70,
-    passing: 75, shooting: 80, tackling: 60, dribbling: 70,
-    defending: 60, positioning: 65, vision: 72, decisions: 68,
-    composure: 50, aggression: 50, teamwork: 50,
-    leadership: 50, handling: 30, reflexes: 30, aerial: 50,
+    pace: 70,
+    stamina: 70,
+    strength: 70,
+    agility: 70,
+    passing: 75,
+    shooting: 80,
+    tackling: 60,
+    dribbling: 70,
+    defending: 60,
+    positioning: 65,
+    vision: 72,
+    decisions: 68,
+    composure: 50,
+    aggression: 50,
+    teamwork: 50,
+    leadership: 50,
+    handling: 30,
+    reflexes: 30,
+    aerial: 50,
   },
   condition: 100,
   morale: 80,
@@ -38,8 +52,14 @@ const makePlayer = (overrides: Partial<PlayerData> = {}): PlayerData => ({
   wage: 10000,
   market_value: 5000000,
   stats: {
-    appearances: 0, goals: 0, assists: 0, clean_sheets: 0,
-    yellow_cards: 0, red_cards: 0, avg_rating: 0, minutes_played: 0,
+    appearances: 0,
+    goals: 0,
+    assists: 0,
+    clean_sheets: 0,
+    yellow_cards: 0,
+    red_cards: 0,
+    avg_rating: 0,
+    minutes_played: 0,
   },
   career: [],
   transfer_listed: false,
@@ -57,41 +77,51 @@ describe("getSetPieceStats", () => {
   const player = makePlayer();
   const a = player.attributes;
 
-  it("penalty: weights shooting*2, decisions, vision", () => {
+  it("penalty: weights shooting and composure", () => {
     const result = getSetPieceStats("penalty", player);
-    expect(result.score).toBe(Math.round((a.shooting * 2 + a.decisions + a.vision) / 4));
+    expect(result.score).toBe(Math.round((a.shooting + a.composure) / 2));
     expect(result.stats).toEqual([
       { label: "SHO", value: a.shooting },
-      { label: "DEC", value: a.decisions },
+      { label: "COM", value: a.composure },
     ]);
   });
 
-  it("freekick: weights shooting, passing, vision equally", () => {
+  it("freekick: weights passing, vision, and shooting support", () => {
     const result = getSetPieceStats("freekick", player);
-    expect(result.score).toBe(Math.round((a.shooting + a.passing + a.vision) / 3));
+    expect(result.score).toBe(
+      Math.round((a.passing + a.vision + a.shooting / 2) / 2.5),
+    );
     expect(result.stats).toEqual([
+      { label: "PAS", value: a.passing },
+      { label: "VIS", value: a.vision },
       { label: "SHO", value: a.shooting },
-      { label: "PAS", value: a.passing },
-      { label: "VIS", value: a.vision },
     ]);
   });
 
-  it("corner: weights passing*2, vision", () => {
+  it("corner: weights passing and vision", () => {
     const result = getSetPieceStats("corner", player);
-    expect(result.score).toBe(Math.round((a.passing * 2 + a.vision) / 3));
+    expect(result.score).toBe(Math.round((a.passing + a.vision) / 2));
     expect(result.stats).toEqual([
       { label: "PAS", value: a.passing },
       { label: "VIS", value: a.vision },
     ]);
   });
 
-  it("captain: weights decisions, vision, positioning equally", () => {
+  it("captain: weights leadership and teamwork", () => {
     const result = getSetPieceStats("captain", player);
-    expect(result.score).toBe(Math.round((a.decisions + a.vision + a.positioning) / 3));
+    expect(result.score).toBe(Math.round((a.leadership + a.teamwork) / 2));
     expect(result.stats).toEqual([
-      { label: "DEC", value: a.decisions },
-      { label: "VIS", value: a.vision },
-      { label: "POS", value: a.positioning },
+      { label: "LDR", value: a.leadership },
+      { label: "TMW", value: a.teamwork },
+    ]);
+  });
+
+  it("vice captain uses the same leadership profile as captain", () => {
+    const result = getSetPieceStats("vicecaptain", player);
+    expect(result.score).toBe(Math.round((a.leadership + a.teamwork) / 2));
+    expect(result.stats).toEqual([
+      { label: "LDR", value: a.leadership },
+      { label: "TMW", value: a.teamwork },
     ]);
   });
 
@@ -114,7 +144,11 @@ const players = [
 
 const allSquad = [
   makePlayer({ id: "p1", position: "Midfielder" }),
-  makePlayer({ id: "p2", position: "Forward", attributes: { ...makePlayer().attributes, shooting: 90 } }),
+  makePlayer({
+    id: "p2",
+    position: "Forward",
+    attributes: { ...makePlayer().attributes, shooting: 90 },
+  }),
   makePlayer({ id: "gk", position: "Goalkeeper" }),
 ];
 
@@ -129,7 +163,7 @@ describe("SetPieceSelector component", () => {
         players={players}
         allSquad={allSquad}
         onSelect={() => {}}
-      />
+      />,
     );
     expect(screen.getByText("Penalty Taker")).toBeInTheDocument();
     expect(screen.getByText("match.notAssigned")).toBeInTheDocument(); // mocked t() returns key
@@ -146,7 +180,7 @@ describe("SetPieceSelector component", () => {
         players={players}
         allSquad={allSquad}
         onSelect={() => {}}
-      />
+      />,
     );
     expect(screen.getByText("John Smith")).toBeInTheDocument();
   });
@@ -161,7 +195,7 @@ describe("SetPieceSelector component", () => {
         players={players}
         allSquad={allSquad}
         onSelect={() => {}}
-      />
+      />,
     );
     // Click to expand
     fireEvent.click(screen.getByText("Penalty Taker"));
@@ -183,7 +217,7 @@ describe("SetPieceSelector component", () => {
         players={players}
         allSquad={allSquad}
         onSelect={onSelect}
-      />
+      />,
     );
     // Expand
     fireEvent.click(screen.getByText("Penalty Taker"));
@@ -202,12 +236,32 @@ describe("SetPieceSelector component", () => {
         players={players}
         allSquad={allSquad}
         onSelect={() => {}}
-      />
+      />,
     );
     fireEvent.click(screen.getByText("Penalty Taker"));
     // The current player's row should have the highlight class
     const buttons = screen.getAllByRole("button");
-    const p1Button = buttons.find(b => b.textContent?.includes("John Smith") && b !== buttons[0]);
+    const p1Button = buttons.find(
+      (b) => b.textContent?.includes("John Smith") && b !== buttons[0],
+    );
     expect(p1Button?.className).toContain("bg-primary-500/20");
+  });
+
+  it("includes goalkeepers for vice captain assignments", () => {
+    render(
+      <SetPieceSelector
+        label="Vice-captain"
+        icon={<span>VC</span>}
+        role="vicecaptain"
+        currentId={null}
+        players={players}
+        allSquad={allSquad}
+        onSelect={() => {}}
+      />,
+    );
+
+    fireEvent.click(screen.getByText("Vice-captain"));
+
+    expect(screen.getByText("Keeper")).toBeInTheDocument();
   });
 });

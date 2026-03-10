@@ -12,6 +12,8 @@ pub fn upsert_team(conn: &Connection, t: &Team) -> Result<(), String> {
         serde_json::to_string(&t.history).map_err(|e| format!("JSON error: {}", e))?;
     let training_groups_json =
         serde_json::to_string(&t.training_groups).map_err(|e| format!("JSON error: {}", e))?;
+    let match_roles_json =
+        serde_json::to_string(&t.match_roles).map_err(|e| format!("JSON error: {}", e))?;
     let play_style_str = format!("{:?}", t.play_style);
     let training_focus_str = format!("{:?}", t.training_focus);
     let training_intensity_str = format!("{:?}", t.training_intensity);
@@ -24,8 +26,8 @@ pub fn upsert_team(conn: &Connection, t: &Team) -> Result<(), String> {
           season_income, season_expenses, formation, play_style,
           training_focus, training_intensity, training_schedule,
           founded_year, colors_primary, colors_secondary,
-          starting_xi_ids, form, history, training_groups)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26)",
+          starting_xi_ids, match_roles, form, history, training_groups)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27)",
         params![
             t.id,
             t.name,
@@ -50,6 +52,7 @@ pub fn upsert_team(conn: &Connection, t: &Team) -> Result<(), String> {
             t.colors.primary,
             t.colors.secondary,
             starting_xi_json,
+            match_roles_json,
             form_json,
             history_json,
             training_groups_json,
@@ -107,9 +110,10 @@ fn parse_training_schedule(s: &str) -> TrainingSchedule {
 
 fn row_to_team(row: &rusqlite::Row) -> rusqlite::Result<Team> {
     let starting_xi_json: String = row.get(22)?;
-    let form_json: String = row.get(23)?;
-    let history_json: String = row.get(24)?;
-    let training_groups_json: String = row.get(25)?;
+    let match_roles_json: String = row.get(23)?;
+    let form_json: String = row.get(24)?;
+    let history_json: String = row.get(25)?;
+    let training_groups_json: String = row.get(26)?;
     let play_style_str: String = row.get(15)?;
     let training_focus_str: String = row.get(16)?;
     let training_intensity_str: String = row.get(17)?;
@@ -142,6 +146,7 @@ fn row_to_team(row: &rusqlite::Row) -> rusqlite::Result<Team> {
             secondary: row.get(21)?,
         },
         starting_xi_ids: serde_json::from_str(&starting_xi_json).unwrap_or_default(),
+        match_roles: serde_json::from_str(&match_roles_json).unwrap_or_default(),
         form: serde_json::from_str(&form_json).unwrap_or_default(),
         history: serde_json::from_str(&history_json).unwrap_or_default(),
     })
@@ -156,7 +161,7 @@ pub fn load_all_teams(conn: &Connection) -> Result<Vec<Team>, String> {
                     season_income, season_expenses, formation, play_style,
                     training_focus, training_intensity, training_schedule,
                     founded_year, colors_primary, colors_secondary,
-                    starting_xi_ids, form, history, training_groups
+                    starting_xi_ids, match_roles, form, history, training_groups
              FROM teams",
         )
         .map_err(|e| format!("Failed to prepare teams query: {}", e))?;
@@ -181,7 +186,7 @@ pub fn load_team(conn: &Connection, id: &str) -> Result<Option<Team>, String> {
                     season_income, season_expenses, formation, play_style,
                     training_focus, training_intensity, training_schedule,
                     founded_year, colors_primary, colors_secondary,
-                    starting_xi_ids, form, history, training_groups
+                    starting_xi_ids, match_roles, form, history, training_groups
              FROM teams WHERE id = ?1",
         )
         .map_err(|e| format!("Failed to prepare team query: {}", e))?;
@@ -357,5 +362,27 @@ mod tests {
 
         assert_eq!(loaded.starting_xi_ids.len(), 3);
         assert_eq!(loaded.starting_xi_ids[0], "p1");
+    }
+
+    #[test]
+    fn test_team_match_roles_roundtrip() {
+        let db = test_db();
+        let mut team = sample_team("team-001", "Roles FC");
+        team.match_roles = domain::team::MatchRoles {
+            captain: Some("p1".to_string()),
+            vice_captain: Some("p2".to_string()),
+            penalty_taker: Some("p3".to_string()),
+            free_kick_taker: Some("p4".to_string()),
+            corner_taker: Some("p5".to_string()),
+        };
+
+        upsert_team(db.conn(), &team).unwrap();
+        let loaded = load_team(db.conn(), "team-001").unwrap().unwrap();
+
+        assert_eq!(loaded.match_roles.captain.as_deref(), Some("p1"));
+        assert_eq!(loaded.match_roles.vice_captain.as_deref(), Some("p2"));
+        assert_eq!(loaded.match_roles.penalty_taker.as_deref(), Some("p3"));
+        assert_eq!(loaded.match_roles.free_kick_taker.as_deref(), Some("p4"));
+        assert_eq!(loaded.match_roles.corner_taker.as_deref(), Some("p5"));
     }
 }
