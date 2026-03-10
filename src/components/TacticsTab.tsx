@@ -54,7 +54,9 @@ export default function TacticsTab({
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [selectedPlayerSection, setSelectedPlayerSection] =
     useState<SquadSection | null>(null);
-  const [hoveredPlayerId, setHoveredPlayerId] = useState<string | null>(null);
+  const [comparePlayerId, setComparePlayerId] = useState<string | null>(null);
+  const [comparePlayerSection, setComparePlayerSection] =
+    useState<SquadSection | null>(null);
   const dragStateRef = useRef<DragState | null>(null);
   const hoveredSlotRef = useRef<number | null>(null);
   const dragPreviewRef = useRef<HTMLDivElement | null>(null);
@@ -123,10 +125,36 @@ export default function TacticsTab({
   );
 
   const { comparePlayer, selectedPlayer } = getSelectedAndComparePlayers(
-    hoveredPlayerId,
+    comparePlayerId,
     playersById,
     selectedPlayerId,
   );
+
+  const canConfirmSwap = useMemo(() => {
+    if (
+      !selectedPlayerId ||
+      !selectedPlayerSection ||
+      !comparePlayerId ||
+      !comparePlayerSection
+    ) {
+      return false;
+    }
+
+    const nextXiIds = applyLineupSwap(
+      startingXiIds,
+      { id: selectedPlayerId, from: selectedPlayerSection },
+      comparePlayerId,
+      comparePlayerSection,
+    );
+
+    return !!nextXiIds && nextXiIds.join(",") !== startingXiIds.join(",");
+  }, [
+    comparePlayerId,
+    comparePlayerSection,
+    selectedPlayerId,
+    selectedPlayerSection,
+    startingXiIds,
+  ]);
 
   function toggleSort(key: SortKey): void {
     if (sortKey === key) {
@@ -227,7 +255,8 @@ export default function TacticsTab({
   function clearLineupSelection(): void {
     setSelectedPlayerId(null);
     setSelectedPlayerSection(null);
-    setHoveredPlayerId(null);
+    setComparePlayerId(null);
+    setComparePlayerSection(null);
   }
 
   function setHoveredSlotValue(slotIndex: number | null): void {
@@ -288,15 +317,6 @@ export default function TacticsTab({
     setHoveredSlotValue(null);
   }
 
-  function handleHoverPlayer(playerId: string | null): void {
-    if (!playerId) {
-      setHoveredPlayerId(null);
-      return;
-    }
-
-    setHoveredPlayerId(playerId);
-  }
-
   async function handleSlotDrop(
     event: DragEvent<HTMLElement>,
     slotIndex: number,
@@ -340,31 +360,50 @@ export default function TacticsTab({
     if (!selectedPlayerId || !selectedPlayerSection) {
       setSelectedPlayerId(playerId);
       setSelectedPlayerSection(section);
-      setHoveredPlayerId(null);
       return;
     }
 
     if (selectedPlayerId === playerId && selectedPlayerSection === section) {
+      if (comparePlayerId && comparePlayerSection) {
+        setSelectedPlayerId(comparePlayerId);
+        setSelectedPlayerSection(comparePlayerSection);
+        setComparePlayerId(null);
+        setComparePlayerSection(null);
+        return;
+      }
+
       clearLineupSelection();
       return;
     }
 
-    if (selectedPlayerSection === "bench" && section === "bench") {
-      setSelectedPlayerId(playerId);
-      setSelectedPlayerSection(section);
-      setHoveredPlayerId(null);
+    if (comparePlayerId === playerId && comparePlayerSection === section) {
+      setComparePlayerId(null);
+      setComparePlayerSection(null);
+      return;
+    }
+
+    setComparePlayerId(playerId);
+    setComparePlayerSection(section);
+  }
+
+  async function handleConfirmSwap(): Promise<void> {
+    if (
+      !selectedPlayerId ||
+      !selectedPlayerSection ||
+      !comparePlayerId ||
+      !comparePlayerSection
+    ) {
       return;
     }
 
     const nextXiIds = applyLineupSwap(
       startingXiIds,
       { id: selectedPlayerId, from: selectedPlayerSection },
-      playerId,
-      section,
+      comparePlayerId,
+      comparePlayerSection,
     );
 
     if (!nextXiIds || nextXiIds.join(",") === startingXiIds.join(",")) {
-      clearLineupSelection();
       return;
     }
 
@@ -389,12 +428,11 @@ export default function TacticsTab({
           benchPlayers={bench}
           dragState={dragState}
           formation={formation}
-          hoveredPlayerId={hoveredPlayerId}
+          comparePlayerId={comparePlayerId}
           hoveredSlot={hoveredSlot}
           onClearSelection={clearLineupSelection}
           onDragEnd={resetDragState}
           onDragStart={handleDragStart}
-          onHoverPlayer={handleHoverPlayer}
           onLineupPlayerClick={(playerId, section) => {
             void handleLineupPlayerClick(playerId, section);
           }}
@@ -410,6 +448,14 @@ export default function TacticsTab({
         />
 
         <div className="flex flex-col gap-4">
+          <TacticsPlayerFocusPanel
+            canConfirmSwap={canConfirmSwap}
+            onConfirmSwap={() => {
+              void handleConfirmSwap();
+            }}
+            selectedPlayer={selectedPlayer}
+            comparePlayer={comparePlayer}
+          />
           <TacticsSetupPanel
             activePlayStyle={activePlayStyle}
             formation={formation}
@@ -419,11 +465,6 @@ export default function TacticsTab({
             onPlayStyleChange={(playStyle) => {
               void handlePlayStyleChange(playStyle);
             }}
-          />
-
-          <TacticsPlayerFocusPanel
-            selectedPlayer={selectedPlayer}
-            comparePlayer={comparePlayer}
           />
         </div>
       </div>

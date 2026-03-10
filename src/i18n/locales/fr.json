@@ -401,12 +401,14 @@
     "playStyle": "Style de Jeu",
     "startingXI": "Onze de Départ — {{formation}}",
     "fullSquad": "Effectif Complet",
-    "pitchInteractionHint": "Faites glisser des joueurs entre le terrain et le banc, cliquez sur un joueur pour l'inspecter puis sur un autre joueur de la composition pour les échanger.",
+    "pitchInteractionHint": "Faites glisser des joueurs entre le terrain et le banc, cliquez sur un joueur pour l'inspecter, cliquez sur un second pour les comparer, puis confirmez l'échange dans le panneau de comparaison.",
     "selectedPlayer": "Joueur sélectionné",
-    "hoveredPlayer": "Joueur survolé",
-    "hoverToCompare": "Survolez un autre joueur dans la vue de composition pour comparer les attributs.",
+    "comparePlayer": "Joueur de comparaison",
+    "selectSecondPlayer": "Sélectionnez un deuxième joueur dans la vue de composition pour comparer les attributs et préparer l'échange.",
+    "compareSelectionHint": "Examinez les deux joueurs ci-dessous puis confirmez l'échange quand vous êtes prêt.",
+    "confirmSwap": "Confirmer l'échange",
     "selectPitchPlayer": "Sélectionnez un joueur dans la vue de composition pour examiner ses attributs.",
-    "selectAnotherToSwap": "Sélectionnez ensuite un autre joueur de la composition pour les échanger."
+    "selectAnotherToSwap": "Sélectionnez un deuxième joueur pour les comparer et confirmer l'échange."
   },
   "training": {
     "weeklySchedule": "Calendrier Hebdomadaire",

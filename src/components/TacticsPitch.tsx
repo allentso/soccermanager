@@ -18,7 +18,7 @@ interface TacticsPitchProps {
   benchPlayers: PlayerData[];
   dragState: DragState | null;
   formation: string;
-  hoveredPlayerId: string | null;
+  comparePlayerId: string | null;
   hoveredSlot: number | null;
   onClearSelection: () => void;
   onDragStart: (
@@ -28,7 +28,6 @@ interface TacticsPitchProps {
     slotIndex: number | null,
   ) => void;
   onDragEnd: () => void;
-  onHoverPlayer: (playerId: string | null) => void;
   onLineupPlayerClick: (playerId: string, section: SquadSection) => void;
   onSlotDragOver: (event: DragEvent<HTMLElement>, slotIndex: number) => void;
   onSlotDragLeave: (slotIndex: number) => void;
@@ -41,7 +40,7 @@ interface TacticsPitchProps {
 
 function getPitchPlayerButtonClassName(options: {
   dragState: DragState | null;
-  hoveredPlayerId: string | null;
+  comparePlayerId: string | null;
   hoveredSlot: number | null;
   player: PlayerData;
   selectedPlayerId: string | null;
@@ -50,14 +49,14 @@ function getPitchPlayerButtonClassName(options: {
 }): string {
   const {
     dragState,
-    hoveredPlayerId,
+    comparePlayerId,
     hoveredSlot,
     player,
     selectedPlayerId,
     slotIndex,
     wrongPos,
   } = options;
-  const isComparing = player.id === hoveredPlayerId;
+  const isComparing = player.id === comparePlayerId;
   const isHovered = hoveredSlot === slotIndex;
   const isSelected = player.id === selectedPlayerId;
   let className =
@@ -82,7 +81,7 @@ function getPitchPlayerButtonClassName(options: {
   }
 
   if (wrongPos) {
-    return `${className} border-amber-300/60 bg-amber-500/10`;
+    return `${className} border-red-300/70 bg-red-500/60`;
   }
 
   return `${className} border-white/10 bg-black/15`;
@@ -90,13 +89,13 @@ function getPitchPlayerButtonClassName(options: {
 
 function getBenchPlayerButtonClassName(options: {
   dragState: DragState | null;
-  hoveredPlayerId: string | null;
+  comparePlayerId: string | null;
   player: PlayerData;
   selectedPlayerId: string | null;
 }): string {
-  const { dragState, hoveredPlayerId, player, selectedPlayerId } = options;
+  const { dragState, comparePlayerId, player, selectedPlayerId } = options;
   const isDragging = dragState?.playerId === player.id;
-  const isHovered = hoveredPlayerId === player.id;
+  const isComparing = comparePlayerId === player.id;
   const isSelected = selectedPlayerId === player.id;
   let className =
     "flex min-h-20 min-w-0 cursor-grab flex-col rounded-xl border px-3 py-2 text-left shadow-sm transition-all active:cursor-grabbing";
@@ -108,14 +107,14 @@ function getBenchPlayerButtonClassName(options: {
   }
 
   if (isSelected) {
-    return `${className} border-accent-300 bg-accent-500/15 ring-2 ring-accent-300/40`;
+    return `${className} border-accent-300 bg-accent-600/80 dark:bg-accent-500/15 ring-2 ring-accent-300/40`;
   }
 
-  if (isHovered) {
+  if (isComparing) {
     return `${className} border-primary-300 bg-primary-500/12 ring-2 ring-primary-300/30`;
   }
 
-  return `${className} border-white/10 bg-black/15`;
+  return `${className} border-white/10 bg-gray-500/70 dark:bg-navy-800`;
 }
 
 function getPitchRatingClassName(
@@ -151,12 +150,11 @@ export default function TacticsPitch({
   benchPlayers,
   dragState,
   formation,
-  hoveredPlayerId,
+  comparePlayerId,
   hoveredSlot,
   onClearSelection,
   onDragEnd,
   onDragStart,
-  onHoverPlayer,
   onLineupPlayerClick,
   onSlotDragLeave,
   onSlotDragOver,
@@ -179,7 +177,7 @@ export default function TacticsPitch({
           <p className="mt-0.5 text-xs text-gray-400">
             {t(
               "tactics.pitchInteractionHint",
-              "Drag players between the pitch and bench, click a player to inspect them, and click another lineup player to swap.",
+              "Drag players between the pitch and bench, click one player to inspect them, click a second player to compare them, then confirm the swap in the compare panel.",
             )}
           </p>
         </div>
@@ -202,19 +200,19 @@ export default function TacticsPitch({
         </div>
       </div>
       <div className="p-4 sm:p-6">
-        <div className="relative min-h-115 overflow-visible rounded-xl border border-primary-500/20 bg-linear-to-b from-primary-700/20 to-primary-900/30 p-4 dark:from-primary-900/40 dark:to-navy-900/60 sm:min-h-130 sm:p-5">
-          <div className="absolute inset-x-6 top-1/2 border-t border-white/10" />
-          <div className="absolute left-1/2 top-1/2 h-20 w-20 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/10" />
-          <div className="absolute inset-x-[18%] bottom-4 h-[18%] rounded-t-4xl border border-white/10 border-b-0" />
-          <div className="absolute inset-x-[32%] bottom-4 h-[8%] rounded-t-2xl border border-white/10 border-b-0" />
+        <div className="relative min-h-115 overflow-visible rounded-xl border border-primary-500/20 bg-linear-to-b from-primary-500 to-primary-600 p-4 dark:from-primary-700 dark:to-primary-800 sm:min-h-130 sm:p-5">
+          <div className="absolute inset-x-6 top-1/2 border-t border-white/50" />
+          <div className="absolute left-1/2 top-1/2 h-20 w-20 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/50" />
+          <div className="absolute inset-x-[18%] bottom-4 h-[18%] rounded-t-4xl border border-white/50 border-b-0" />
+          <div className="absolute inset-x-[32%] bottom-4 h-[8%] rounded-t-2xl border border-white/50 border-b-0" />
           {pitchSlotRows.map((row) => (
             <div
               key={row.label}
-              className="absolute left-1/2 grid justify-center gap-2 sm:gap-2.5"
+              className="absolute left-1/2 grid justify-center gap-6"
               style={{
                 top: row.y,
                 transform: "translate(-50%, -50%)",
-                gridTemplateColumns: `repeat(${row.slots.length}, minmax(0, ${getPitchSlotWidth(row.slots.length)}px))`,
+                gridTemplateColumns: `repeat(${row.slots.length}, 80px)`,
               }}
             >
               {row.slots.map((slot) => {
@@ -239,22 +237,13 @@ export default function TacticsPitch({
                         draggable
                         data-testid={`pitch-player-${player.id}`}
                         onClick={() => onLineupPlayerClick(player.id, "xi")}
-                        onMouseEnter={() => {
-                          if (
-                            selectedPlayerId &&
-                            selectedPlayerId !== player.id
-                          ) {
-                            onHoverPlayer(player.id);
-                          }
-                        }}
-                        onMouseLeave={() => onHoverPlayer(null)}
                         onDragStart={(event) =>
                           onDragStart(event, player.id, "xi", slot.index)
                         }
                         onDragEnd={onDragEnd}
                         className={getPitchPlayerButtonClassName({
                           dragState,
-                          hoveredPlayerId,
+                          comparePlayerId,
                           hoveredSlot,
                           player,
                           selectedPlayerId,
@@ -267,13 +256,13 @@ export default function TacticsPitch({
                         >
                           {calcOvr(player)}
                         </div>
-                        <div className="text-[9px] font-heading font-bold uppercase tracking-wider leading-none text-white/70">
+                        <div className="text-sm font-heading font-bold uppercase tracking-wider leading-none text-white/70">
                           {positionCode(slot.position)}
                         </div>
-                        <div className="mt-1 truncate text-[10px] font-semibold leading-tight text-white sm:text-[11px]">
+                        <div className="mt-1 truncate text-lg font-semibold leading-tight text-white sm:text-[11px]">
                           {player.match_name}
                         </div>
-                        <div className="mt-0.5 truncate text-[9px] leading-none text-white/60">
+                        <div className="mt-0.5 truncate text-xs leading-none text-white/60">
                           {player.condition}%
                         </div>
                       </button>
@@ -296,10 +285,10 @@ export default function TacticsPitch({
         <div className="mt-4 border-t border-white/10 pt-4">
           <div className="mb-3 flex items-center justify-between gap-3">
             <div>
-              <h4 className="text-xs font-heading font-bold uppercase tracking-wider text-white/80">
+              <h4 className="text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-white/80">
                 {t("preMatch.substitutes", "Substitutes")}
               </h4>
-              <p className="mt-1 text-[11px] text-white/50">
+              <p className="mt-1 text-sm text-black dark:text-white/50">
                 {benchPlayers.length} {t("squad.playersLabel", "players")}
               </p>
             </div>
@@ -313,12 +302,6 @@ export default function TacticsPitch({
                   draggable={!player.injury}
                   data-testid={`pitch-bench-player-${player.id}`}
                   onClick={() => onLineupPlayerClick(player.id, "bench")}
-                  onMouseEnter={() => {
-                    if (selectedPlayerId && selectedPlayerId !== player.id) {
-                      onHoverPlayer(player.id);
-                    }
-                  }}
-                  onMouseLeave={() => onHoverPlayer(null)}
                   onDragStart={(event) => {
                     if (!player.injury) {
                       onDragStart(event, player.id, "bench", null);
@@ -327,7 +310,7 @@ export default function TacticsPitch({
                   onDragEnd={onDragEnd}
                   className={getBenchPlayerButtonClassName({
                     dragState,
-                    hoveredPlayerId,
+                    comparePlayerId,
                     player,
                     selectedPlayerId,
                   })}
@@ -337,7 +320,7 @@ export default function TacticsPitch({
                       <div className="truncate text-sm font-heading font-bold text-white">
                         {player.match_name}
                       </div>
-                      <div className="mt-1 text-[11px] uppercase tracking-wider text-white/60">
+                      <div className="mt-1 text-sm uppercase tracking-wider text-white/60">
                         {positionCode(player.position)}
                       </div>
                     </div>
@@ -345,7 +328,7 @@ export default function TacticsPitch({
                       {calcOvr(player)}
                     </div>
                   </div>
-                  <div className="mt-2 flex items-center justify-between gap-2 text-[11px] text-white/60">
+                  <div className="mt-2 flex items-center justify-between gap-2 text-sm text-white/60">
                     <span>{player.condition}%</span>
                     <span>{player.morale}</span>
                   </div>

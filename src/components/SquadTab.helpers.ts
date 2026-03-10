@@ -99,29 +99,21 @@ export function buildPitchRows(formation: string): PitchRow[] {
 
   if (parts.length === 4) {
     return [
-      { label: "GK", y: "86%", positions: ["Goalkeeper"] },
+      { label: "GK", y: "90%", positions: ["Goalkeeper"] },
       { label: "DEF", y: "70%", positions: Array(parts[0]).fill("Defender") },
-      { label: "DM", y: "54%", positions: Array(parts[1]).fill("Midfielder") },
-      { label: "AM", y: "38%", positions: Array(parts[2]).fill("Midfielder") },
-      { label: "FWD", y: "20%", positions: Array(parts[3]).fill("Forward") },
+      { label: "DM", y: "50%", positions: Array(parts[1]).fill("Midfielder") },
+      { label: "AM", y: "30%", positions: Array(parts[2]).fill("Midfielder") },
+      { label: "FWD", y: "10%", positions: Array(parts[3]).fill("Forward") },
     ];
   }
 
   const slots = parseFormationSlots(formation);
   return [
-    { label: "GK", y: "86%", positions: ["Goalkeeper"] },
-    { label: "DEF", y: "68%", positions: Array(slots.def).fill("Defender") },
-    { label: "MID", y: "44%", positions: Array(slots.mid).fill("Midfielder") },
-    { label: "FWD", y: "20%", positions: Array(slots.fwd).fill("Forward") },
+    { label: "GK", y: "90%", positions: ["Goalkeeper"] },
+    { label: "DEF", y: "70%", positions: Array(slots.def).fill("Defender") },
+    { label: "MID", y: "50%", positions: Array(slots.mid).fill("Midfielder") },
+    { label: "FWD", y: "30%", positions: Array(slots.fwd).fill("Forward") },
   ];
-}
-
-export function getPitchSlotWidth(slotCount: number): number {
-  if (slotCount >= 5) return 60;
-  if (slotCount === 4) return 68;
-  if (slotCount === 3) return 78;
-  if (slotCount === 2) return 88;
-  return 96;
 }
 
 export function buildStartingXIIds(

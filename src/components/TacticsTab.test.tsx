@@ -307,6 +307,11 @@ describe("TacticsTab", () => {
 
     fireEvent.click(screen.getByTestId("pitch-player-d2"));
 
+    expect(mockedInvoke).not.toHaveBeenCalled();
+    expect(screen.getByText("Comparison player")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Confirm swap" }));
+
     await waitFor(() => {
       expect(mockedInvoke).toHaveBeenCalledWith("set_starting_xi", {
         playerIds: [
@@ -345,6 +350,12 @@ describe("TacticsTab", () => {
 
     fireEvent.click(screen.getByTestId("pitch-player-d2"));
 
+    expect(onSelectPlayer).not.toHaveBeenCalled();
+    expect(mockedInvoke).not.toHaveBeenCalled();
+    expect(screen.getByText("Comparison player")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Confirm swap" }));
+
     await waitFor(() => {
       expect(mockedInvoke).toHaveBeenCalledWith("set_starting_xi", {
         playerIds: [
@@ -364,7 +375,7 @@ describe("TacticsTab", () => {
     });
   });
 
-  it("shows a hover comparison panel after selecting a pitch player", () => {
+  it("shows a comparison panel after selecting a second pitch player", () => {
     render(
       <TacticsTab
         gameState={makeGameState()}
@@ -374,13 +385,16 @@ describe("TacticsTab", () => {
     );
 
     fireEvent.click(screen.getByTestId("pitch-player-d1"));
-    fireEvent.mouseEnter(screen.getByTestId("pitch-player-m1"));
+    fireEvent.click(screen.getByTestId("pitch-player-m1"));
 
-    expect(screen.getByText("Hovered player")).toBeInTheDocument();
+    expect(screen.getByText("Comparison player")).toBeInTheDocument();
     expect(screen.getAllByText("Player m1").length).toBeGreaterThan(0);
     expect(
       screen.getAllByText("common.attributes.vision").length,
     ).toBeGreaterThan(0);
+    expect(
+      screen.getByRole("button", { name: "Confirm swap" }),
+    ).toBeInTheDocument();
   });
 
   it("only opens profiles from the lineup tables", () => {

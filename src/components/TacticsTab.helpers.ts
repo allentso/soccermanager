@@ -219,7 +219,7 @@ export function countOutOfPositionPlayers(
 }
 
 export function getSelectedAndComparePlayers(
-  hoveredPlayerId: string | null,
+  comparePlayerId: string | null,
   playersById: Map<string, PlayerData>,
   selectedPlayerId: string | null,
 ): {
@@ -231,8 +231,8 @@ export function getSelectedAndComparePlayers(
     : null;
 
   const comparePlayer =
-    selectedPlayerId && hoveredPlayerId && selectedPlayerId !== hoveredPlayerId
-      ? playersById.get(hoveredPlayerId) ?? null
+    selectedPlayerId && comparePlayerId && selectedPlayerId !== comparePlayerId
+      ? playersById.get(comparePlayerId) ?? null
       : null;
 
   return {

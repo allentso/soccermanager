@@ -1,16 +1,12 @@
-import {
-  Crosshair,
-  Flag,
-  RefreshCw,
-  Shield,
-  Target,
-  Zap,
-} from "lucide-react";
+import { Crosshair, Flag, RefreshCw, Shield, Target, Zap } from "lucide-react";
 import type { JSX, ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Card } from "./ui";
-import { FORMATIONS, PLAY_STYLE_DESCRIPTION_FALLBACKS } from "./TacticsTab.helpers";
+import {
+  FORMATIONS,
+  PLAY_STYLE_DESCRIPTION_FALLBACKS,
+} from "./TacticsTab.helpers";
 
 interface PlayStyleOption {
   icon: ReactNode;
@@ -35,10 +31,10 @@ const PLAY_STYLES: PlayStyleOption[] = [
 
 function getOptionButtonClassName(isActive: boolean): string {
   if (isActive) {
-    return "rounded-lg bg-primary-500 px-3 py-2 text-xs font-heading font-bold text-white shadow-sm transition-all";
+    return "rounded-lg bg-primary-500 px-3 py-2 text-sm font-heading font-bold text-white shadow-sm transition-all";
   }
 
-  return "rounded-lg bg-gray-100 px-3 py-2 text-xs font-heading font-bold text-gray-500 transition-all hover:bg-gray-200 dark:bg-navy-700 dark:text-gray-400 dark:hover:bg-navy-600";
+  return "rounded-lg bg-gray-100 px-3 py-2 text-sm font-heading font-bold text-gray-500 transition-all hover:bg-gray-200 dark:bg-navy-700 dark:text-gray-400 dark:hover:bg-navy-600";
 }
 
 function getPlayStyleDescription(activePlayStyle: string): string {
@@ -57,7 +53,7 @@ export default function TacticsSetupPanel({
     <div className="flex flex-col gap-4">
       <Card>
         <div className="p-4">
-          <h3 className="mb-3 text-xs font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">
+          <h3 className="mb-3 text-sm font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">
             {t("tactics.formation")}
           </h3>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-2">
@@ -65,7 +61,9 @@ export default function TacticsSetupPanel({
               <button
                 key={nextFormation}
                 onClick={() => onFormationChange(nextFormation)}
-                className={getOptionButtonClassName(formation === nextFormation)}
+                className={getOptionButtonClassName(
+                  formation === nextFormation,
+                )}
               >
                 {nextFormation}
               </button>
@@ -76,10 +74,10 @@ export default function TacticsSetupPanel({
 
       <Card>
         <div className="p-4">
-          <h3 className="mb-3 text-xs font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">
+          <h3 className="mb-3 text-sm font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">
             {t("tactics.playStyle")}
           </h3>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="grid grid-cols-3 justify-center gap-2">
             {PLAY_STYLES.map((style) => (
               <button
                 key={style.id}
@@ -94,7 +92,7 @@ export default function TacticsSetupPanel({
             ))}
           </div>
           <div className="mt-3 rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 dark:border-navy-600 dark:bg-navy-800/70">
-            <div className="mb-1 text-[11px] font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+            <div className="mb-1 text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
               {t("squad.playStyleImpactTitle", "What this changes")}
             </div>
             <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">

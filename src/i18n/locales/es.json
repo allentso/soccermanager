@@ -401,12 +401,14 @@
     "playStyle": "Estilo de Juego",
     "startingXI": "Once Titular — {{formation}}",
     "fullSquad": "Plantilla Completa",
-    "pitchInteractionHint": "Arrastra jugadores entre el campo y el banquillo, haz clic en un jugador para revisarlo y haz clic en otro jugador de la alineación para intercambiarlos.",
+    "pitchInteractionHint": "Arrastra jugadores entre el campo y el banquillo, haz clic en un jugador para revisarlo, haz clic en un segundo para compararlos y luego confirma el cambio en el panel de comparación.",
     "selectedPlayer": "Jugador seleccionado",
-    "hoveredPlayer": "Jugador señalado",
-    "hoverToCompare": "Pasa el cursor sobre otro jugador en la vista de alineación para comparar atributos.",
+    "comparePlayer": "Jugador de comparación",
+    "selectSecondPlayer": "Selecciona un segundo jugador en la vista de alineación para comparar atributos y preparar el cambio.",
+    "compareSelectionHint": "Revisa a ambos jugadores abajo y confirma el cambio cuando estés listo.",
+    "confirmSwap": "Confirmar cambio",
     "selectPitchPlayer": "Selecciona a un jugador en la vista de alineación para revisar sus atributos.",
-    "selectAnotherToSwap": "Selecciona después a otro jugador de la alineación para intercambiarlos."
+    "selectAnotherToSwap": "Selecciona un segundo jugador para compararlos y confirmar el cambio."
   },
   "training": {
     "weeklySchedule": "Calendario Semanal",

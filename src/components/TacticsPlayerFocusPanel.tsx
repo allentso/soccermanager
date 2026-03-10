@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import type { PlayerData } from "../store/gameStore";
-import { Badge, Card } from "./ui";
+import { Badge, Button, Card } from "./ui";
 import { GitCompareArrows } from "lucide-react";
 import { calcAge, calcOvr, positionBadgeVariant } from "../lib/helpers";
 import { countryFlag } from "../lib/countries";
@@ -36,7 +36,9 @@ const ATTRIBUTE_GROUPS: {
 ];
 
 interface TacticsPlayerFocusPanelProps {
+  canConfirmSwap: boolean;
   comparePlayer: PlayerData | null;
+  onConfirmSwap: () => void;
   selectedPlayer: PlayerData | null;
 }
 
@@ -67,7 +69,7 @@ function PlayerSummary({
     <div className="rounded-xl border border-gray-200 dark:border-navy-600 bg-gray-50 dark:bg-navy-800/70 px-4 py-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-[10px] font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">
+          <p className="text-sm font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">
             {label}
           </p>
           <p className="text-base font-heading font-bold text-gray-900 dark:text-gray-100 mt-1">
@@ -89,7 +91,7 @@ function PlayerSummary({
           </div>
         </div>
         <div className="text-right shrink-0">
-          <div className="text-[10px] font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">
+          <div className="text-sm font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">
             {t("common.ovr", "OVR")}
           </div>
           <div className="text-3xl font-heading font-bold text-primary-500 dark:text-primary-400">
@@ -113,7 +115,7 @@ function SinglePlayerAttributes({ player }: { player: PlayerData }) {
           group.labelKey !== "common.attrGroups.goalkeeper" || isGoalkeeper,
       ).map((group) => (
         <div key={group.labelKey}>
-          <h4 className="text-[10px] font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 mb-2">
+          <h4 className="text-sm font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 mb-2">
             {t(group.labelKey)}
           </h4>
           <div className="space-y-2">
@@ -151,10 +153,14 @@ function SinglePlayerAttributes({ player }: { player: PlayerData }) {
 }
 
 function CompareAttributes({
+  canConfirmSwap,
   comparePlayer,
+  onConfirmSwap,
   selectedPlayer,
 }: {
+  canConfirmSwap: boolean;
   comparePlayer: PlayerData;
+  onConfirmSwap: () => void;
   selectedPlayer: PlayerData;
 }) {
   const { t } = useTranslation();
@@ -171,9 +177,25 @@ function CompareAttributes({
           player={selectedPlayer}
         />
         <PlayerSummary
-          label={t("tactics.hoveredPlayer", "Hovered player")}
+          label={t("tactics.comparePlayer", "Comparison player")}
           player={comparePlayer}
         />
+      </div>
+      <div className="flex flex-col gap-3 rounded-xl border border-gray-200 dark:border-navy-600 bg-gray-50 dark:bg-navy-800/70 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm text-gray-600 dark:text-gray-300">
+          {t(
+            "tactics.compareSelectionHint",
+            "Review both players below, then confirm the swap when you're ready.",
+          )}
+        </p>
+        <Button
+          type="button"
+          size="sm"
+          onClick={onConfirmSwap}
+          disabled={!canConfirmSwap}
+        >
+          {t("tactics.confirmSwap", "Confirm swap")}
+        </Button>
       </div>
       {ATTRIBUTE_GROUPS.filter(
         (group) =>
@@ -199,9 +221,6 @@ function CompareAttributes({
                     className={`rounded-lg px-2 py-2 ${leftWins ? "bg-primary-500/10 ring-1 ring-primary-500/20" : "bg-gray-50 dark:bg-navy-800/70"}`}
                   >
                     <div className="flex items-center justify-between gap-2 text-xs mb-1">
-                      <span className="text-gray-500 dark:text-gray-400 truncate">
-                        {selectedPlayer.match_name}
-                      </span>
                       <span
                         className={`font-heading font-bold ${valueTone(left)}`}
                       >
@@ -222,9 +241,6 @@ function CompareAttributes({
                     className={`rounded-lg px-2 py-2 ${rightWins ? "bg-primary-500/10 ring-1 ring-primary-500/20" : "bg-gray-50 dark:bg-navy-800/70"}`}
                   >
                     <div className="flex items-center justify-between gap-2 text-xs mb-1">
-                      <span className="text-gray-500 dark:text-gray-400 truncate">
-                        {comparePlayer.match_name}
-                      </span>
                       <span
                         className={`font-heading font-bold ${valueTone(right)}`}
                       >
@@ -249,7 +265,9 @@ function CompareAttributes({
 }
 
 export default function TacticsPlayerFocusPanel({
+  canConfirmSwap,
   comparePlayer,
+  onConfirmSwap,
   selectedPlayer,
 }: TacticsPlayerFocusPanelProps) {
   const { t } = useTranslation();
@@ -266,7 +284,9 @@ export default function TacticsPlayerFocusPanel({
         {selectedPlayer ? (
           comparePlayer ? (
             <CompareAttributes
+              canConfirmSwap={canConfirmSwap}
               comparePlayer={comparePlayer}
+              onConfirmSwap={onConfirmSwap}
               selectedPlayer={selectedPlayer}
             />
           ) : (
@@ -277,8 +297,8 @@ export default function TacticsPlayerFocusPanel({
               />
               <div className="rounded-xl border border-dashed border-gray-200 dark:border-navy-600 px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
                 {t(
-                  "tactics.hoverToCompare",
-                  "Hover another player in the lineup view to compare attributes.",
+                  "tactics.selectSecondPlayer",
+                  "Select a second player in the lineup view to compare attributes and prepare the swap.",
                 )}
               </div>
               <SinglePlayerAttributes player={selectedPlayer} />
@@ -296,7 +316,7 @@ export default function TacticsPlayerFocusPanel({
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
               {t(
                 "tactics.selectAnotherToSwap",
-                "Select another lineup player afterwards to swap them.",
+                "Select a second player to compare them and confirm the swap.",
               )}
             </p>
           </div>
