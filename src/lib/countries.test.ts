@@ -46,6 +46,9 @@ describe("countryName", () => {
 
     const nameEs = countryName("DE", "es");
     expect(nameEs).toBe("Alemania");
+
+    const nameIt = countryName("DE", "it");
+    expect(nameIt).toBe("Germania");
   });
 
   it("falls back to English for unknown locale", () => {
@@ -83,6 +86,13 @@ describe("allCountries", () => {
     expect(codes).toContain("US");
     expect(codes).toContain("GB");
     expect(codes).toContain("BR");
+  });
+
+  it("returns Italian country names when requested", () => {
+    const list = allCountries("it");
+    const germany = list.find((country) => country.code === "DE");
+
+    expect(germany?.name).toBe("Germania");
   });
 });
 

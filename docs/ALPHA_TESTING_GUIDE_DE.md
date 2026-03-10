@@ -134,7 +134,7 @@ Wenn du einen Bug meldest, **bitte leg deine Log-Dateien bei**. Sie enthalten de
 
 - **Windows:** `C:\Users\<DeinBenutzername>\AppData\Roaming\com.sturdyrobot.openfootmanager\logs\`
 - **macOS:** `~/Library/Application Support/com.sturdyrobot.openfootmanager/logs/`
-- **Linux:** `~/.config/com.sturdyrobot.openfootmanager/logs/`
+- **Linux:** `~/.local/share/com.sturdyrobot.openfootmanager/logs/`
 
 Packe einfach den gesamten `logs`-Ordner als ZIP und häng ihn an deinen Bericht an. Die Logs enthalten keine persönlichen Daten — nur Spielereignisse, Befehle und Fehler-Traces.
 

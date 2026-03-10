@@ -156,6 +156,7 @@ describe("getLocale", () => {
     expect(getLocale("pt")).toBe("pt-BR");
     expect(getLocale("fr")).toBe("fr-FR");
     expect(getLocale("de")).toBe("de-DE");
+    expect(getLocale("it")).toBe("it-IT");
   });
 
   it("returns input for unknown codes", () => {

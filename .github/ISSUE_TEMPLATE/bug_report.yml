@@ -93,7 +93,7 @@ body:
         Please attach your log files! They help us fix bugs much faster.
         **Windows:** `C:\Users\<You>\AppData\Roaming\com.sturdyrobot.openfootmanager\logs\`
         **macOS:** `~/Library/Application Support/com.sturdyrobot.openfootmanager/logs/`
-        **Linux:** `~/.config/com.sturdyrobot.openfootmanager/logs/`
+        **Linux:** `~/.local/share/com.sturdyrobot.openfootmanager/logs/`
       options:
         - label: "I have attached my log files (drag & drop the zipped logs folder below)"
           required: false

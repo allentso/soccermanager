@@ -155,7 +155,7 @@ describe("MainMenu", () => {
     });
   });
 
-  it.each(["es", "de", "fr", "pt", "pt-BR"])(
+  it.each(["es", "de", "fr", "it", "pt", "pt-BR"])(
     "stores the nationality as an ISO code and continues the flow in %s",
     async (language) => {
       translationState.language = language;
