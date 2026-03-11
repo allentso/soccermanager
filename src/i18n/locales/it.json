@@ -1467,6 +1467,21 @@
         "headline1": "La stagione della Premier Division è pronta a iniziare",
         "headline2": "{{favourite}} riuscirà a conquistare il titolo? Anteprima stagione",
         "body": "La Premier Division è pronta a partire con {{teamCount}} squadre in lotta per il titolo.\n\nI pronostici di inizio stagione indicano {{favourite}} come favorita, ma {{darkHorse}} potrebbe essere la sorpresa da seguire in questa campagna.\n\nCon nuovi allenatori alla guida di alcuni club, questa stagione promette di essere una delle più competitive degli ultimi tempi. Ogni punto conterà nella corsa al titolo.\n\nSquadre: {{teamList}}"
+      },
+      "weeklyDigest": {
+        "headline": "Digest Settimanale — {{weekLabel}}",
+        "bodyNoTopScorer": "È arrivato l'ultimo digest settimanale. {{leader}} guida la classifica e {{storylineCount}} trama/e stanno plasmando la divisione questa settimana.",
+        "bodyWithTopScorer": "È arrivato l'ultimo digest settimanale. {{leader}} guida la classifica, mentre {{topScorer}} comanda la classifica marcatori con {{topScorerGoals}} gol. {{storylineCount}} trama/e stanno plasmando la divisione questa settimana."
+      },
+      "storyline": {
+        "titleRace": {
+          "headline": "La corsa al titolo si infiamma — {{leader}} ha {{gap}} punto/i di vantaggio su {{challenger}}",
+          "body": "{{leader}} resta davanti, ma {{challenger}} è a solo {{gap}} punto/i mentre la corsa al titolo prende forma."
+        },
+        "unbeatenStreak": {
+          "headline": "{{team}} allunga la striscia da imbattuto a {{runLength}}",
+          "body": "{{team}} è imbattuto da {{runLength}} partita/e e sta prendendo un vero slancio."
+        }
       }
     }
   },

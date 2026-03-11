@@ -1534,6 +1534,21 @@
         "headline1": "La Saison de Première Division Va Commencer",
         "headline2": "{{favourite}} Peut-il Décrocher le Titre ? Avant-Saison",
         "body": "La Première Division est prête à démarrer avec {{teamCount}} équipes en lice pour le titre.\n\nLes pronostics de pré-saison désignent {{favourite}} comme favori, mais {{darkHorse}} pourrait être la surprise de cette campagne.\n\nAvec de nouveaux managers aux commandes de certains clubs, cette saison promet d'être l'une des plus compétitives de mémoire récente. Chaque point comptera dans la course au titre.\n\nÉquipes : {{teamList}}"
+      },
+      "weeklyDigest": {
+        "headline": "Digest Hebdomadaire — {{weekLabel}}",
+        "bodyNoTopScorer": "Le dernier digest hebdomadaire est là. {{leader}} mène le classement et {{storylineCount}} intrigue(s) façonnent la division cette semaine.",
+        "bodyWithTopScorer": "Le dernier digest hebdomadaire est là. {{leader}} mène le classement, tandis que {{topScorer}} domine le classement des buteurs avec {{topScorerGoals}} but(s). {{storylineCount}} intrigue(s) façonnent la division cette semaine."
+      },
+      "storyline": {
+        "titleRace": {
+          "headline": "La course au titre s'intensifie — {{leader}} devance {{challenger}} de {{gap}} point(s)",
+          "body": "{{leader}} reste devant, mais {{challenger}} n'est qu'à {{gap}} point(s) alors que la course au titre prend forme."
+        },
+        "unbeatenStreak": {
+          "headline": "{{team}} porte sa série d'invincibilité à {{runLength}}",
+          "body": "{{team}} reste sur {{runLength}} match(es) sans défaite et prend un vrai élan."
+        }
       }
     }
   },

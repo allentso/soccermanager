@@ -1534,6 +1534,21 @@
         "headline1": "La Temporada de Primera División Está a Punto de Comenzar",
         "headline2": "¿Puede {{favourite}} Reclamar el Título? Previa de Temporada",
         "body": "La Primera División está lista para comenzar con {{teamCount}} equipos compitiendo por el título.\n\nLas predicciones de pretemporada tienen a {{favourite}} como favorito, pero {{darkHorse}} podría ser la revelación de esta campaña.\n\nCon nuevos entrenadores tomando las riendas en algunos clubes, esta temporada promete ser una de las más competitivas en la memoria reciente. Cada punto importará en la carrera por el título.\n\nEquipos: {{teamList}}"
+      },
+      "weeklyDigest": {
+        "headline": "Resumen Semanal — {{weekLabel}}",
+        "bodyNoTopScorer": "Ya está aquí el último resumen semanal. {{leader}} lidera la tabla y {{storylineCount}} historia(s) marcan la división esta semana.",
+        "bodyWithTopScorer": "Ya está aquí el último resumen semanal. {{leader}} lidera la tabla, mientras {{topScorer}} encabeza la clasificación de goleadores con {{topScorerGoals}} gol(es). {{storylineCount}} historia(s) marcan la división esta semana."
+      },
+      "storyline": {
+        "titleRace": {
+          "headline": "La pelea por el título se aprieta — {{leader}} aventaja a {{challenger}} por {{gap}} punto(s)",
+          "body": "{{leader}} sigue al frente, pero {{challenger}} está a solo {{gap}} punto(s) mientras la lucha por el título toma forma."
+        },
+        "unbeatenStreak": {
+          "headline": "{{team}} amplía su racha invicta a {{runLength}}",
+          "body": "{{team}} suma {{runLength}} partido(s) sin perder y está ganando un impulso real."
+        }
       }
     }
   },

@@ -1534,6 +1534,21 @@
         "headline1": "Die Erste Division Saison Steht Bevor",
         "headline2": "Kann {{favourite}} den Titel Holen? Saisonvorschau",
         "body": "Die Erste Division steht vor dem Start mit {{teamCount}} Teams im Titelkampf.\n\nDie Voraussagen sehen {{favourite}} als Favorit, aber {{darkHorse}} könnte die Überraschung dieser Saison sein.\n\nMit neuen Trainern bei einigen Vereinen verspricht diese Saison eine der wettbewerbsintensivsten der jüngeren Geschichte zu werden. Jeder Punkt wird im Titelkampf zählen.\n\nTeams: {{teamList}}"
+      },
+      "weeklyDigest": {
+        "headline": "Wochendigest — {{weekLabel}}",
+        "bodyNoTopScorer": "Der aktuelle Wochendigest ist da. {{leader}} führen die Tabelle an, und {{storylineCount}} Storyline(s) prägen die Liga in dieser Woche.",
+        "bodyWithTopScorer": "Der aktuelle Wochendigest ist da. {{leader}} führen die Tabelle an, während {{topScorer}} mit {{topScorerGoals}} Tor(en) die Torjägerliste anführt. {{storylineCount}} Storyline(s) prägen die Liga in dieser Woche."
+      },
+      "storyline": {
+        "titleRace": {
+          "headline": "Titelrennen spitzt sich zu — {{leader}} liegt {{gap}} Punkt(e) vor {{challenger}}",
+          "body": "{{leader}} liegt weiter vorne, aber {{challenger}} ist nur {{gap}} Punkt(e) entfernt, während das Titelrennen Form annimmt."
+        },
+        "unbeatenStreak": {
+          "headline": "{{team}} baut die Ungeschlagen-Serie auf {{runLength}} aus",
+          "body": "{{team}} ist seit {{runLength}} Spiel(en) ungeschlagen und gewinnt spürbar an Momentum."
+        }
       }
     }
   },

@@ -1534,6 +1534,21 @@
         "headline1": "Época da Primeira Divisão Prestes a Começar",
         "headline2": "Pode o {{favourite}} Conquistar o Título? Antevisão da Época",
         "body": "A Primeira Divisão está pronta para arrancar com {{teamCount}} equipas a disputar o título.\n\nAs previsões de pré-época apontam o {{favourite}} como favorito, mas o {{darkHorse}} pode ser a surpresa desta campanha.\n\nCom novos treinadores a assumir o comando em alguns clubes, esta época promete ser uma das mais competitivas da memória recente. Cada ponto vai contar na corrida pelo título.\n\nEquipas: {{teamList}}"
+      },
+      "weeklyDigest": {
+        "headline": "Resumo Semanal — {{weekLabel}}",
+        "bodyNoTopScorer": "Já chegou o mais recente resumo semanal. {{leader}} lidera a tabela e {{storylineCount}} narrativa(s) estão a marcar a divisão esta semana.",
+        "bodyWithTopScorer": "Já chegou o mais recente resumo semanal. {{leader}} lidera a tabela, enquanto {{topScorer}} comanda a lista de marcadores com {{topScorerGoals}} golo(s). {{storylineCount}} narrativa(s) estão a marcar a divisão esta semana."
+      },
+      "storyline": {
+        "titleRace": {
+          "headline": "A luta pelo título aperta — {{leader}} tem {{gap}} ponto(s) de vantagem sobre {{challenger}}",
+          "body": "{{leader}} continua na frente, mas {{challenger}} está apenas a {{gap}} ponto(s) enquanto a corrida pelo título ganha forma."
+        },
+        "unbeatenStreak": {
+          "headline": "{{team}} prolonga série invicta para {{runLength}}",
+          "body": "{{team}} soma {{runLength}} jogo(s) sem perder e está a ganhar verdadeiro embalo."
+        }
       }
     }
   },

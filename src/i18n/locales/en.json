@@ -1534,6 +1534,21 @@
         "headline1": "Premier Division Season Set to Begin",
         "headline2": "Can {{favourite}} Claim the Title? Season Preview",
         "body": "The Premier Division is set to kick off with {{teamCount}} teams vying for the title.\n\nPre-season predictions have {{favourite}} as the early favourites, but {{darkHorse}} could be the dark horse to watch this campaign.\n\nWith new managers taking the reins at some clubs, this season promises to be one of the most competitive in recent memory. Every point will matter as the race for the title heats up.\n\nTeams: {{teamList}}"
+      },
+      "weeklyDigest": {
+        "headline": "Weekly Digest — {{weekLabel}}",
+        "bodyNoTopScorer": "The latest weekly digest is here. {{leader}} lead the table, and {{storylineCount}} storyline(s) are shaping the division this week.",
+        "bodyWithTopScorer": "The latest weekly digest is here. {{leader}} lead the table, while {{topScorer}} heads the scoring charts with {{topScorerGoals}} goal(s). {{storylineCount}} storyline(s) are shaping the division this week."
+      },
+      "storyline": {
+        "titleRace": {
+          "headline": "Title Race Tightens — {{leader}} Lead {{challenger}} by {{gap}} Point(s)",
+          "body": "{{leader}} remain in front, but {{challenger}} are only {{gap}} point(s) behind as the title race takes shape."
+        },
+        "unbeatenStreak": {
+          "headline": "{{team}} Extend Unbeaten Run to {{runLength}}",
+          "body": "{{team}} have gone {{runLength}} match(es) without defeat and are building real momentum."
+        }
       }
     }
   },
