@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 import type { ComponentPropsWithoutRef } from "react";
@@ -9,6 +9,7 @@ import MainMenu from "./MainMenu";
 const navigateMock = vi.fn();
 const setGameActiveMock = vi.fn();
 const setGameStateMock = vi.fn();
+let latestDatePickerOnChange: ((date: string) => void) | null = null;
 const translationState = {
   language: "en",
 };
@@ -60,12 +61,19 @@ vi.mock("../components/ui", () => ({
     value: string;
     onChange: (date: string) => void;
     error?: boolean;
-  }) => (
-    <input
-      aria-label="manager-date-of-birth"
-      value={value}
-      onChange={(event) => onChange(event.target.value)}
-    />
+  }) => {
+    latestDatePickerOnChange = onChange;
+
+    return (
+      <input
+        aria-label="manager-date-of-birth"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      />
+    );
+  },
+  CountryFlag: ({ code }: { code: string }) => (
+    <span data-testid={`country-flag-${code.toLowerCase()}`} />
   ),
 }));
 
@@ -107,13 +115,23 @@ function fillManagerDetails(): void {
   });
 }
 
+function getNationalityTrigger(): HTMLButtonElement {
+  const fieldLabel = screen.getByText("Country/Region of Origin");
+  const fieldContainer = fieldLabel.parentElement;
+  const trigger = fieldContainer?.querySelector("div.relative > button");
+
+  if (!(trigger instanceof HTMLButtonElement)) {
+    throw new Error("Nationality trigger button not found");
+  }
+
+  return trigger;
+}
+
 function selectNationality(language: string, nationalityCode: string): void {
   const countryLabel = countryName(nationalityCode, language);
 
-  fireEvent.click(
-    screen.getByRole("button", { name: /select country\/region/i }),
-  );
-  fireEvent.click(screen.getByText(countryLabel));
+  fireEvent.mouseDown(getNationalityTrigger());
+  fireEvent.mouseDown(screen.getByText(countryLabel));
 }
 
 function searchAndSelectNationality(
@@ -123,16 +141,14 @@ function searchAndSelectNationality(
 ): void {
   const countryLabel = countryName(nationalityCode, language);
 
-  fireEvent.click(
-    screen.getByRole("button", { name: /select country\/region/i }),
-  );
+  fireEvent.mouseDown(getNationalityTrigger());
   fireEvent.change(
     screen.getByPlaceholderText("createManager.searchNationalities"),
     {
       target: { value: searchText },
     },
   );
-  fireEvent.click(screen.getByText(countryLabel));
+  fireEvent.mouseDown(screen.getByText(countryLabel));
 }
 
 describe("MainMenu", () => {
@@ -140,9 +156,10 @@ describe("MainMenu", () => {
     navigateMock.mockReset();
     setGameActiveMock.mockReset();
     setGameStateMock.mockReset();
+    latestDatePickerOnChange = null;
     translationState.language = "en";
     mockedInvoke.mockReset();
-    mockedInvoke.mockImplementation(async (command) => {
+    mockedInvoke.mockImplementation(async (command: string) => {
       if (command === "list_world_databases") {
         return [];
       }
@@ -157,7 +174,7 @@ describe("MainMenu", () => {
 
   it.each(["es", "de", "fr", "it", "pt", "pt-BR"])(
     "stores the nationality as an ISO code and continues the flow in %s",
-    async (language) => {
+    async (language: string) => {
       translationState.language = language;
 
       render(<MainMenu />);
@@ -197,6 +214,55 @@ describe("MainMenu", () => {
       expect(navigateMock).toHaveBeenCalledWith("/select-team");
     },
   );
+
+  it("allows changing nationality after the other manager fields are filled", () => {
+    render(<MainMenu />);
+
+    openCreateManagerForm();
+    fillManagerDetails();
+
+    selectNationality("en", "ES");
+    expect(
+      screen.getByRole("button", {
+        name: /spain/i,
+      }),
+    ).toBeInTheDocument();
+
+    selectNationality("en", "DE");
+
+    expect(
+      screen.getByRole("button", {
+        name: /germany/i,
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("preserves nationality when a stale date picker callback fires after selection", () => {
+    render(<MainMenu />);
+
+    openCreateManagerForm();
+    fillManagerDetails();
+
+    const staleDatePickerOnChange = latestDatePickerOnChange;
+
+    selectNationality("en", "DE");
+
+    expect(
+      screen.getByRole("button", {
+        name: /germany/i,
+      }),
+    ).toBeInTheDocument();
+
+    act(() => {
+      staleDatePickerOnChange?.("1980-01-01");
+    });
+
+    expect(
+      screen.getByRole("button", {
+        name: /germany/i,
+      }),
+    ).toBeInTheDocument();
+  });
 
   it("allows searching localized countries without accents before selecting them", async () => {
     translationState.language = "pt";

@@ -4,7 +4,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useGameStore, GameStateData } from "../store/gameStore";
-import { Button, ThemeToggle, DatePicker } from "../components/ui";
+import { Button, ThemeToggle, DatePicker, CountryFlag } from "../components/ui";
 import SavesList from "../components/menu/SavesList";
 import WorldSelect, { WorldDatabaseInfo } from "../components/menu/WorldSelect";
 import {
@@ -18,7 +18,7 @@ import {
   Check,
   Power,
 } from "lucide-react";
-import { countryFlag, countryName, allCountries } from "../lib/countries";
+import { countryName, allCountries } from "../lib/countries";
 
 interface SaveEntry {
   id: string;
@@ -35,6 +35,16 @@ function normaliseSearchText(value: string): string {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase();
+}
+
+function logNationalityDebug(
+  message: string,
+  details?: Record<string, unknown>,
+): void {
+  console.debug("[MainMenu nationality]", {
+    message,
+    ...(details ?? {}),
+  });
 }
 
 export default function MainMenu() {
@@ -80,6 +90,15 @@ export default function MainMenu() {
       normalisedCode.includes(normalisedNationalitySearch)
     );
   });
+
+  const toggleNationalityDropdown = () => {
+    setNationalityOpen((open) => {
+      const nextOpen = !open;
+      logNationalityDebug("toggle button", { nextOpen });
+      return nextOpen;
+    });
+    setNationalitySearch("");
+  };
 
   const validateForm = (): boolean => {
     const errors: Record<string, string> = {};
@@ -140,16 +159,33 @@ export default function MainMenu() {
   // Close nationality dropdown on outside click
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (
-        nationalityRef.current &&
-        !nationalityRef.current.contains(e.target as Node)
-      ) {
+      if (!nationalityOpen || !nationalityRef.current) {
+        return;
+      }
+
+      const targetNode = e.target instanceof Node ? e.target : null;
+      const eventPath =
+        typeof e.composedPath === "function" ? e.composedPath() : [];
+      const clickedInside =
+        eventPath.includes(nationalityRef.current) ||
+        (targetNode ? nationalityRef.current.contains(targetNode) : false);
+      const targetElement = e.target instanceof HTMLElement ? e.target : null;
+
+      logNationalityDebug("document mousedown", {
+        clickedInside,
+        targetTag: targetElement?.tagName.toLowerCase(),
+        targetClass: targetElement?.className ?? "",
+        targetText: targetElement?.textContent?.trim().slice(0, 60) ?? "",
+      });
+
+      if (!clickedInside) {
+        logNationalityDebug("closing from outside click");
         setNationalityOpen(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  }, [nationalityOpen]);
 
   const loadWorldDatabases = async () => {
     setIsLoadingWorlds(true);
@@ -435,7 +471,10 @@ export default function MainMenu() {
                     placeholder={t("createManager.placeholderFirst")}
                     value={formData.firstName}
                     onChange={(e) => {
-                      setFormData({ ...formData, firstName: e.target.value });
+                      setFormData((prev) => ({
+                        ...prev,
+                        firstName: e.target.value,
+                      }));
                       setFormErrors((prev) => ({ ...prev, firstName: "" }));
                     }}
                   />
@@ -460,7 +499,10 @@ export default function MainMenu() {
                     placeholder={t("createManager.placeholderLast")}
                     value={formData.lastName}
                     onChange={(e) => {
-                      setFormData({ ...formData, lastName: e.target.value });
+                      setFormData((prev) => ({
+                        ...prev,
+                        lastName: e.target.value,
+                      }));
                       setFormErrors((prev) => ({ ...prev, lastName: "" }));
                     }}
                   />
@@ -481,7 +523,10 @@ export default function MainMenu() {
                 <DatePicker
                   value={formData.dob}
                   onChange={(date) => {
-                    setFormData({ ...formData, dob: date });
+                    setFormData((prev) => ({
+                      ...prev,
+                      dob: date,
+                    }));
                     setFormErrors((prev) => ({ ...prev, dob: "" }));
                   }}
                   error={!!formErrors.dob}
@@ -509,9 +554,15 @@ export default function MainMenu() {
                 <div className="relative">
                   <button
                     type="button"
-                    onClick={() => {
-                      setNationalityOpen(!nationalityOpen);
-                      setNationalitySearch("");
+                    onMouseDown={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      toggleNationalityDropdown();
+                    }}
+                    onClick={(event) => {
+                      if (event.detail === 0) {
+                        toggleNationalityDropdown();
+                      }
                     }}
                     className={`w-full flex items-center justify-between bg-gray-50 dark:bg-navy-900 border text-left rounded-lg p-3 outline-none transition-all ${
                       formErrors.nationality
@@ -529,15 +580,17 @@ export default function MainMenu() {
                       }
                     >
                       {formData.nationality ? (
-                        <div className="flex items-center gap-2">
-                          <span className="text-lg leading-none">
-                            {countryFlag(formData.nationality)}
-                          </span>
+                        <span className="flex items-center gap-2">
+                          <CountryFlag
+                            code={formData.nationality}
+                            locale={i18n.language}
+                            className="text-lg leading-none"
+                          />
                           <span>
                             {countryName(formData.nationality, i18n.language) ||
                               formData.nationality}
                           </span>
-                        </div>
+                        </span>
                       ) : (
                         t(
                           "createManager.selectCountry",
@@ -551,7 +604,13 @@ export default function MainMenu() {
                   </button>
 
                   {nationalityOpen && (
-                    <div className="absolute z-50 top-full mt-1 left-0 right-0 bg-white dark:bg-navy-700 rounded-lg shadow-xl border border-gray-200 dark:border-navy-600 overflow-hidden">
+                    <div
+                      className="absolute z-50 top-full mt-1 left-0 right-0 bg-white dark:bg-navy-700 rounded-lg shadow-xl border border-gray-200 dark:border-navy-600 overflow-hidden"
+                      onMouseDown={(event) => {
+                        event.stopPropagation();
+                        logNationalityDebug("dropdown panel mousedown");
+                      }}
+                    >
                       <div className="p-2 border-b border-gray-100 dark:border-navy-600">
                         <input
                           type="text"
@@ -572,11 +631,17 @@ export default function MainMenu() {
                             <button
                               key={nat.code}
                               type="button"
-                              onClick={() => {
-                                setFormData({
-                                  ...formData,
-                                  nationality: nat.code,
+                              onMouseDown={(event) => {
+                                event.preventDefault();
+                                event.stopPropagation();
+                                logNationalityDebug("option selected", {
+                                  code: nat.code,
+                                  name: nat.name,
                                 });
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  nationality: nat.code,
+                                }));
                                 setNationalityOpen(false);
                                 setNationalitySearch("");
                                 setFormErrors((prev) => ({
@@ -591,9 +656,11 @@ export default function MainMenu() {
                               }`}
                             >
                               <div className="flex items-center gap-2">
-                                <span className="text-lg leading-none">
-                                  {countryFlag(nat.code)}
-                                </span>
+                                <CountryFlag
+                                  code={nat.code}
+                                  locale={i18n.language}
+                                  className="text-lg leading-none"
+                                />
                                 <span>{nat.name}</span>
                               </div>
                               {formData.nationality === nat.code && (

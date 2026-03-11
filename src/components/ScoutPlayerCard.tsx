@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { User, Calendar, Shield, Eye, EyeOff, TrendingUp, BarChart3 } from "lucide-react";
-import { ProgressBar } from "./ui";
-import { countryFlag, countryName } from "../lib/countries";
+import { ProgressBar, CountryFlag } from "./ui";
+import { countryName } from "../lib/countries";
 import type { ScoutReportData } from "../store/gameStore";
 
 interface ScoutPlayerCardProps {
@@ -41,7 +41,6 @@ export default function ScoutPlayerCard({ report, onPlayerClick }: ScoutPlayerCa
   ];
 
   const discoveredCount = attrs.filter(a => a.value !== null).length;
-  const flag = countryFlag(report.nationality);
 
   return (
     <div
@@ -62,7 +61,11 @@ export default function ScoutPlayerCard({ report, onPlayerClick }: ScoutPlayerCa
               <Shield className="w-3 h-3" /> {t(`common.positions.${report.position}`, report.position)}
             </span>
             <span className="flex items-center gap-1">
-              {flag && <span>{flag}</span>}
+              <CountryFlag
+                code={report.nationality}
+                locale={i18n.language}
+                className="text-sm leading-none"
+              />
               <span>{countryName(report.nationality, i18n.language)}</span>
             </span>
           </div>

@@ -169,4 +169,4 @@ Thanks for being part of this. Let's build something great together.
 
 ---
 
-Alpha version 0.1.1
+Alpha version 0.1.2

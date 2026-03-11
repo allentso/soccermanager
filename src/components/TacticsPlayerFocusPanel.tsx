@@ -1,9 +1,8 @@
 import { useTranslation } from "react-i18next";
 import type { PlayerData } from "../store/gameStore";
-import { Badge, Button, Card } from "./ui";
+import { Badge, Button, Card, CountryFlag } from "./ui";
 import { GitCompareArrows } from "lucide-react";
 import { calcAge, calcOvr, positionBadgeVariant } from "../lib/helpers";
-import { countryFlag } from "../lib/countries";
 import { normalisePosition } from "./SquadTab.helpers";
 
 const ATTRIBUTE_GROUPS: {
@@ -88,7 +87,8 @@ function PlayerSummary({
               })}
             </Badge>
             <span className="text-xs text-gray-500 dark:text-gray-400">
-              {countryFlag(player.nationality)} {t("common.age", "Age")}{" "}
+              <CountryFlag code={player.nationality} className="text-xs leading-none mr-1" />
+              {t("common.age", "Age")}{" "}
               {calcAge(player.date_of_birth)}
             </span>
           </div>

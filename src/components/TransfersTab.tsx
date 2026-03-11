@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { GameStateData, PlayerData } from "../store/gameStore";
-import { Card, CardBody, Badge } from "./ui";
+import { Card, CardBody, Badge, CountryFlag } from "./ui";
 import {
   Search,
   TrendingUp,
@@ -22,7 +22,7 @@ import {
   positionBadgeVariant,
 } from "../lib/helpers";
 import { useTranslation } from "react-i18next";
-import { countryFlag, countryName } from "../lib/countries";
+import { countryName } from "../lib/countries";
 import { translatePositionAbbreviation } from "./SquadTab.helpers";
 
 interface TransfersTabProps {
@@ -383,9 +383,11 @@ export default function TransfersTab({
                             {player.full_name}
                           </span>
                           <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 flex items-center gap-1">
-                            <span className="text-sm leading-none">
-                              {countryFlag(player.nationality)}
-                            </span>
+                            <CountryFlag
+                              code={player.nationality}
+                              locale={i18n.language}
+                              className="text-sm leading-none"
+                            />
                             <span>
                               {countryName(player.nationality, i18n.language)}
                             </span>

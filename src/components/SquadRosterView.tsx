@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { GameStateData, PlayerData } from "../store/gameStore";
-import { Badge, Card, ProgressBar, Select } from "./ui";
+import { Badge, Card, ProgressBar, Select, CountryFlag } from "./ui";
 import {
   AlertTriangle,
   ChevronDown,
@@ -19,7 +19,6 @@ import {
 } from "../lib/helpers";
 import { TraitList } from "./TraitBadge";
 import { useTranslation } from "react-i18next";
-import { countryFlag } from "../lib/countries";
 import ContextMenu from "./ContextMenu";
 import {
   buildActivePositionMap,
@@ -207,9 +206,7 @@ export default function SquadRosterView({
 
   const renderPreferredPositionMeta = (player: PlayerData) => (
     <div className="text-xs text-gray-400 dark:text-gray-500 flex items-center gap-1.5 flex-wrap">
-      <span className="text-sm leading-none">
-        {countryFlag(player.nationality)}
-      </span>
+      <CountryFlag code={player.nationality} className="text-sm leading-none" />
       {getPreferredPositions(player).map((position, index) => (
         <Badge
           key={`${player.id}-${position}`}
