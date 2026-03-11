@@ -40,6 +40,19 @@ vi.mock("react-i18next", () => ({
       if (key === "finances.runwayWeeks")
         return `${params?.count} weeks at current pace`;
       if (key === "finances.runwayStable") return "Stable at current pace";
+      if (key === "finances.wagePressure") return "Wage Pressure";
+      if (key === "finances.wageBudgetUsed")
+        return `${params?.percent}% of wage budget used`;
+      if (key === "finances.contractRisk") return "Contract Risk";
+      if (key === "finances.contractRiskCritical") return "Critical";
+      if (key === "finances.contractRiskWarning") return "Warning";
+      if (key === "finances.contractRiskStable") return "Stable";
+      if (key === "finances.contractExpiresOn")
+        return `Expires ${params?.date}`;
+      if (key === "finances.atRiskWages")
+        return `€${params?.amount}/wk at risk`;
+      if (key === "finances.noContractRisks")
+        return "No imminent contract risks";
       if (key === "finances.facilityTraining") return "Training Facility";
       if (key === "finances.facilityMedical") return "Medical Facility";
       if (key === "finances.facilityScouting") return "Scouting Facility";
@@ -430,5 +443,47 @@ describe("FinancesTab facilities", () => {
     expect(screen.getByText("€10K/wk")).toBeInTheDocument();
     expect(screen.getByText("-€30K/wk")).toBeInTheDocument();
     expect(screen.getByText("9 weeks at current pace")).toBeInTheDocument();
+  });
+
+  it("renders wage pressure and contract risk indicators for expiring players", () => {
+    const gameState = createGameState(
+      {
+        wage_budget: 50000,
+      },
+      [],
+      [
+        createPlayer({
+          id: "player-critical",
+          full_name: "Alex Critical",
+          wage: 35000,
+          contract_end: "2025-04-30",
+        }),
+        createPlayer({
+          id: "player-warning",
+          full_name: "Ben Warning",
+          wage: 25000,
+          contract_end: "2025-10-15",
+        }),
+        createPlayer({
+          id: "player-stable",
+          full_name: "Carl Stable",
+          wage: 5000,
+          contract_end: "2027-06-30",
+        }),
+      ],
+    );
+
+    render(<FinancesTab gameState={gameState} />);
+
+    expect(screen.getAllByText("Wage Pressure").length).toBeGreaterThan(0);
+    expect(screen.getByText("130% of wage budget used")).toBeInTheDocument();
+    expect(screen.getByText("Contract Risk")).toBeInTheDocument();
+    expect(screen.getAllByText("Alex Critical").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Ben Warning").length).toBeGreaterThan(0);
+    expect(screen.getByText("Critical")).toBeInTheDocument();
+    expect(screen.getByText("Warning")).toBeInTheDocument();
+    expect(screen.getByText("Expires 2025-04-30")).toBeInTheDocument();
+    expect(screen.getByText("Expires 2025-10-15")).toBeInTheDocument();
+    expect(screen.getByText("€60000/wk at risk")).toBeInTheDocument();
   });
 });

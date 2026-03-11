@@ -621,7 +621,16 @@
     "projectedWeeklyNet": "Prognose pro Woche",
     "cashRunway": "Finanzielle Reichweite",
     "runwayWeeks": "{{count}} Wochen bei aktuellem Verlauf",
-    "runwayStable": "Bei aktuellem Verlauf stabil"
+    "runwayStable": "Bei aktuellem Verlauf stabil",
+    "wagePressure": "Gehaltsdruck",
+    "wageBudgetUsed": "{{percent}}% des Gehaltsbudgets genutzt",
+    "contractRisk": "Vertragsrisiko",
+    "contractRiskCritical": "Kritisch",
+    "contractRiskWarning": "Warnung",
+    "contractRiskStable": "Stabil",
+    "contractExpiresOn": "Läuft aus: {{date}}",
+    "atRiskWages": "€{{amount}}/Woche gefährdet",
+    "noContractRisks": "Keine kurzfristigen Vertragsrisiken"
   },
   "inbox": {
     "title": "Posteingang",

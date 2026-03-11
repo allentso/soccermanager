@@ -621,7 +621,16 @@
     "projectedWeeklyNet": "Neto semanal proyectado",
     "cashRunway": "Margen de caja",
     "runwayWeeks": "{{count}} semanas al ritmo actual",
-    "runwayStable": "Estable al ritmo actual"
+    "runwayStable": "Estable al ritmo actual",
+    "wagePressure": "Presión salarial",
+    "wageBudgetUsed": "{{percent}}% del presupuesto salarial usado",
+    "contractRisk": "Riesgo contractual",
+    "contractRiskCritical": "Crítico",
+    "contractRiskWarning": "Advertencia",
+    "contractRiskStable": "Estable",
+    "contractExpiresOn": "Vence {{date}}",
+    "atRiskWages": "€{{amount}}/semana en riesgo",
+    "noContractRisks": "No hay riesgos contractuales inmediatos"
   },
   "inbox": {
     "title": "Bandeja de Entrada",

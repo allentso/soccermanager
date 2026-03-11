@@ -621,7 +621,16 @@
     "projectedWeeklyNet": "Projected Weekly Net",
     "cashRunway": "Cash Runway",
     "runwayWeeks": "{{count}} weeks at current pace",
-    "runwayStable": "Stable at current pace"
+    "runwayStable": "Stable at current pace",
+    "wagePressure": "Wage Pressure",
+    "wageBudgetUsed": "{{percent}}% of wage budget used",
+    "contractRisk": "Contract Risk",
+    "contractRiskCritical": "Critical",
+    "contractRiskWarning": "Warning",
+    "contractRiskStable": "Stable",
+    "contractExpiresOn": "Expires {{date}}",
+    "atRiskWages": "€{{amount}}/wk at risk",
+    "noContractRisks": "No imminent contract risks"
   },
   "inbox": {
     "title": "Inbox",

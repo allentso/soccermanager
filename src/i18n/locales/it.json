@@ -621,7 +621,16 @@
     "projectedWeeklyNet": "Netto settimanale previsto",
     "cashRunway": "Autonomia finanziaria",
     "runwayWeeks": "{{count}} settimane al ritmo attuale",
-    "runwayStable": "Stabile al ritmo attuale"
+    "runwayStable": "Stabile al ritmo attuale",
+    "wagePressure": "Pressione salariale",
+    "wageBudgetUsed": "{{percent}}% del budget salariale utilizzato",
+    "contractRisk": "Rischio contrattuale",
+    "contractRiskCritical": "Critico",
+    "contractRiskWarning": "Attenzione",
+    "contractRiskStable": "Stabile",
+    "contractExpiresOn": "Scade il {{date}}",
+    "atRiskWages": "€{{amount}}/settimana a rischio",
+    "noContractRisks": "Nessun rischio contrattuale imminente"
   },
   "inbox": {
     "title": "Posta",

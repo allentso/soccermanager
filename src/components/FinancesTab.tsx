@@ -58,6 +58,49 @@ function formatSignedAmount(value: number): string {
   return value < 0 ? `-${formatted}` : formatted;
 }
 
+type ContractRiskLevel = "critical" | "warning" | "stable";
+
+function getDaysUntil(targetDate: string, currentDate: string): number {
+  const millisecondsPerDay = 1000 * 60 * 60 * 24;
+  return Math.ceil(
+    (new Date(targetDate).getTime() - new Date(currentDate).getTime()) /
+      millisecondsPerDay,
+  );
+}
+
+function getContractRiskLevel(
+  contractEnd: string | null,
+  currentDate: string,
+): ContractRiskLevel {
+  if (!contractEnd) {
+    return "stable";
+  }
+
+  const daysUntilExpiry = getDaysUntil(contractEnd, currentDate);
+
+  if (daysUntilExpiry <= 180) {
+    return "critical";
+  }
+
+  if (daysUntilExpiry <= 365) {
+    return "warning";
+  }
+
+  return "stable";
+}
+
+function getContractRiskBadgeVariant(level: ContractRiskLevel) {
+  if (level === "critical") {
+    return "danger" as const;
+  }
+
+  if (level === "warning") {
+    return "accent" as const;
+  }
+
+  return "success" as const;
+}
+
 interface ResolveMessageActionResult {
   game: GameStateData;
   effect: string | null;
@@ -118,9 +161,36 @@ export default function FinancesTab({
     projectedWeeklyNet < 0
       ? Math.max(0, Math.floor(myTeam.finance / Math.abs(projectedWeeklyNet)))
       : null;
+  const wageBudgetUsagePercent = Math.round(
+    (totalWages / Math.max(1, myTeam.wage_budget)) * 100,
+  );
   const sponsorOffers = gameState.messages
     .filter(isPendingSponsorOffer)
     .map(resolveMessage);
+  const contractRiskPlayers = roster
+    .map((player) => {
+      const riskLevel = getContractRiskLevel(
+        player.contract_end,
+        gameState.clock.current_date,
+      );
+
+      return {
+        player,
+        riskLevel,
+      };
+    })
+    .filter(
+      ({ riskLevel, player }) => player.contract_end && riskLevel !== "stable",
+    )
+    .sort((left, right) => {
+      const leftDate = left.player.contract_end ?? "9999-12-31";
+      const rightDate = right.player.contract_end ?? "9999-12-31";
+      return leftDate.localeCompare(rightDate);
+    });
+  const atRiskWages = contractRiskPlayers.reduce(
+    (sum, { player }) => sum + player.wage,
+    0,
+  );
 
   async function handleUpgradeFacility(facility: FacilityId): Promise<void> {
     setActionLoading(facility);
@@ -304,6 +374,79 @@ export default function FinancesTab({
                   ? t("finances.runwayStable")
                   : t("finances.runwayWeeks", { count: cashRunwayWeeks })}
               </p>
+            </div>
+          </div>
+        </CardBody>
+      </Card>
+
+      <Card className="lg:col-span-3">
+        <CardHeader>{t("finances.wagePressure")}</CardHeader>
+        <CardBody>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="rounded-xl border border-gray-200 dark:border-navy-600 bg-gray-50 dark:bg-navy-800 p-4 space-y-3">
+              <p className="text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                {t("finances.wagePressure")}
+              </p>
+              <p className="font-heading font-bold text-2xl text-gray-900 dark:text-gray-100">
+                {t("finances.wageBudgetUsed", {
+                  percent: wageBudgetUsagePercent,
+                })}
+              </p>
+              <ProgressBar
+                value={Math.min(100, wageBudgetUsagePercent)}
+                variant={
+                  totalWages <= myTeam.wage_budget ? "success" : "danger"
+                }
+                size="md"
+                showLabel
+              />
+            </div>
+
+            <div className="rounded-xl border border-gray-200 dark:border-navy-600 bg-gray-50 dark:bg-navy-800 p-4 space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                  {t("finances.contractRisk")}
+                </p>
+                <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                  {t("finances.atRiskWages", { amount: atRiskWages })}
+                </p>
+              </div>
+
+              {contractRiskPlayers.length > 0 ? (
+                <div className="space-y-3">
+                  {contractRiskPlayers.map(({ player, riskLevel }) => (
+                    <div
+                      key={player.id}
+                      className="rounded-lg border border-gray-200 dark:border-navy-600 bg-white dark:bg-navy-700 p-3 flex items-start justify-between gap-3"
+                    >
+                      <div className="space-y-1">
+                        <p className="font-semibold text-sm text-gray-900 dark:text-gray-100">
+                          {player.full_name}
+                        </p>
+                        <p className="text-xs text-gray-600 dark:text-gray-400">
+                          {t("finances.contractExpiresOn", {
+                            date: player.contract_end,
+                          })}
+                        </p>
+                      </div>
+                      <div className="flex flex-col items-end gap-2">
+                        <Badge variant={getContractRiskBadgeVariant(riskLevel)}>
+                          {riskLevel === "critical"
+                            ? t("finances.contractRiskCritical")
+                            : t("finances.contractRiskWarning")}
+                        </Badge>
+                        <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">
+                          €{player.wage.toLocaleString()}/wk
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  {t("finances.noContractRisks")}
+                </p>
+              )}
             </div>
           </div>
         </CardBody>
