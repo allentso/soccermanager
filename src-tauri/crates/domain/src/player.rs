@@ -54,6 +54,8 @@ pub struct Player {
     pub loan_listed: bool,
     #[serde(default)]
     pub transfer_offers: Vec<TransferOffer>,
+    #[serde(default)]
+    pub morale_core: PlayerMoraleCore,
 }
 
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
@@ -140,6 +142,42 @@ fn default_attr() -> u8 {
 pub struct Injury {
     pub name: String,
     pub days_remaining: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum PlayerIssueCategory {
+    Contract,
+    PlayingTime,
+    Morale,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PlayerIssue {
+    pub category: PlayerIssueCategory,
+    pub severity: u8,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct RecentTreatmentMemory {
+    pub action_key: String,
+    pub times_recently_used: u8,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PlayerMoraleCore {
+    pub manager_trust: u8,
+    pub unresolved_issue: Option<PlayerIssue>,
+    pub recent_treatment: Option<RecentTreatmentMemory>,
+}
+
+impl Default for PlayerMoraleCore {
+    fn default() -> Self {
+        Self {
+            manager_trust: 50,
+            unresolved_issue: None,
+            recent_treatment: None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -294,6 +332,7 @@ impl Player {
             transfer_listed: false,
             loan_listed: false,
             transfer_offers: Vec::new(),
+            morale_core: PlayerMoraleCore::default(),
         }
     }
 }

@@ -1,4 +1,5 @@
 use crate::game::Game;
+use domain::player::{Player, RecentTreatmentMemory};
 use rand::Rng;
 use serde::Serialize;
 use std::collections::HashMap;
@@ -45,6 +46,125 @@ fn outcome(delta: i8, effect_key: &str, description: String) -> ResponseOutcome 
         effect_key: effect_key.to_string(),
         description,
         i18n_params: base_effect_params(delta),
+    }
+}
+
+fn treatment_key(message_id: &str, option_id: &str) -> String {
+    let family = if message_id.starts_with("morale_talk_") {
+        "morale_talk"
+    } else if message_id.starts_with("bench_complaint_") {
+        "bench_complaint"
+    } else if message_id.starts_with("happy_player_") {
+        "happy_player"
+    } else if message_id.starts_with("contract_concern_") {
+        "contract_concern"
+    } else {
+        "player_event"
+    };
+
+    format!("{}:{}", family, option_id)
+}
+
+fn base_trust_delta(message_id: &str, option_id: &str) -> i16 {
+    if message_id.starts_with("morale_talk_") {
+        return match option_id {
+            "encourage" => 4,
+            "promise_time" => 8,
+            "work_harder" => -3,
+            _ => 0,
+        };
+    }
+
+    if message_id.starts_with("bench_complaint_") {
+        return match option_id {
+            "explain" => 3,
+            "promise_chance" => 6,
+            "prove_yourself" => -2,
+            _ => 0,
+        };
+    }
+
+    if message_id.starts_with("happy_player_") {
+        return match option_id {
+            "praise_back" => 2,
+            "stay_professional" => 0,
+            "higher_expectations" => -1,
+            _ => 0,
+        };
+    }
+
+    if message_id.starts_with("contract_concern_") {
+        return match option_id {
+            "reassure" => 5,
+            "noncommittal" => -4,
+            "no_renewal" => -8,
+            _ => 0,
+        };
+    }
+
+    0
+}
+
+fn reduced_by_recent_treatment(delta: i8, player: &Player, action_key: &str) -> i8 {
+    let Some(memory) = player.morale_core.recent_treatment.as_ref() else {
+        return delta;
+    };
+
+    if memory.action_key != action_key || delta <= 0 {
+        return delta;
+    }
+
+    let reduced = i16::from(delta) - i16::from(memory.times_recently_used) * 4;
+    reduced.max(0) as i8
+}
+
+fn capped_by_unresolved_issue(delta: i8, player: &Player) -> i8 {
+    let Some(issue) = player.morale_core.unresolved_issue.as_ref() else {
+        return delta;
+    };
+
+    if delta <= 0 {
+        return delta;
+    }
+
+    if issue.severity >= 75 {
+        return 0;
+    }
+
+    if issue.severity >= 50 {
+        return ((i16::from(delta) + 1) / 2).max(1) as i8;
+    }
+
+    delta
+}
+
+fn trust_delta_with_memory(base_delta: i16, player: &Player, action_key: &str) -> i16 {
+    let Some(memory) = player.morale_core.recent_treatment.as_ref() else {
+        return base_delta;
+    };
+
+    if memory.action_key != action_key || base_delta <= 0 {
+        return base_delta;
+    }
+
+    base_delta / (i16::from(memory.times_recently_used) + 1)
+}
+
+fn update_recent_treatment(player: &mut Player, action_key: &str) {
+    match player.morale_core.recent_treatment.as_mut() {
+        Some(memory) if memory.action_key == action_key => {
+            memory.times_recently_used = memory.times_recently_used.saturating_add(1);
+        }
+        Some(memory) => {
+            memory.action_key = action_key.to_string();
+            memory.times_recently_used = 1;
+        }
+        None => {
+            player.morale_core.recent_treatment = Some(RecentTreatmentMemory {
+                action_key: action_key.to_string(),
+                times_recently_used: 1,
+            });
+        }
     }
 }
 
@@ -267,14 +387,28 @@ pub fn apply_player_response(
 
     // Clamp delta to prevent extreme swings
     outcome.delta = outcome.delta.clamp(-20, 20);
-    outcome
-        .i18n_params
-        .insert("delta".to_string(), signed_delta(outcome.delta));
 
     // Apply morale change
     if let Some(player) = game.players.iter_mut().find(|p| p.id == player_id) {
+        let action_key = treatment_key(message_id, option_id);
+        let adjusted_delta = capped_by_unresolved_issue(
+            reduced_by_recent_treatment(outcome.delta, player, &action_key),
+            player,
+        );
+        let trust_delta =
+            trust_delta_with_memory(base_trust_delta(message_id, option_id), player, &action_key);
+
+        outcome.delta = adjusted_delta.clamp(-20, 20);
+        outcome
+            .i18n_params
+            .insert("delta".to_string(), signed_delta(outcome.delta));
+
         let base = player.morale as i16;
         player.morale = (base + outcome.delta as i16).clamp(5, 100) as u8;
+
+        let trust = (i16::from(player.morale_core.manager_trust) + trust_delta).clamp(0, 100) as u8;
+        player.morale_core.manager_trust = trust;
+        update_recent_treatment(player, &action_key);
     }
 
     // "No renewal" tanks morale of nearby players too (dressing room effect)

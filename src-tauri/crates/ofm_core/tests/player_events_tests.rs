@@ -2,7 +2,9 @@ use chrono::{TimeZone, Utc};
 use domain::league::{Fixture, FixtureStatus, GoalEvent, League, MatchResult, StandingEntry};
 use domain::manager::Manager;
 use domain::message::{ActionOption, ActionType, MessageAction, MessageContext};
-use domain::player::{Player, PlayerAttributes, Position};
+use domain::player::{
+    Player, PlayerAttributes, PlayerIssue, PlayerIssueCategory, PlayerMoraleCore, Position,
+};
 use domain::team::Team;
 use ofm_core::clock::GameClock;
 use ofm_core::game::Game;
@@ -743,6 +745,101 @@ fn morale_talk_unknown_option_returns_none() {
         "nonexistent",
     );
     assert!(result.is_none());
+}
+
+#[test]
+fn unresolved_issue_can_cap_visible_morale_growth() {
+    let mut game = make_game();
+    let player = game.players.iter_mut().find(|p| p.id == "p_fwd0").unwrap();
+    player.morale = 70;
+    player.morale_core = PlayerMoraleCore {
+        manager_trust: 50,
+        unresolved_issue: Some(PlayerIssue {
+            category: PlayerIssueCategory::Contract,
+            severity: 80,
+        }),
+        recent_treatment: None,
+    };
+    inject_player_message(&mut game, "morale_talk_p_fwd0", "p_fwd0", "respond");
+
+    player_events::apply_player_response(
+        &mut game,
+        "morale_talk_p_fwd0",
+        "respond",
+        "promise_time",
+    );
+
+    let player = game.players.iter().find(|p| p.id == "p_fwd0").unwrap();
+    assert_eq!(player.morale, 70);
+}
+
+#[test]
+fn trust_changes_even_when_visible_morale_is_capped() {
+    let mut game = make_game();
+    let player = game.players.iter_mut().find(|p| p.id == "p_fwd0").unwrap();
+    player.morale = 70;
+    player.morale_core = PlayerMoraleCore {
+        manager_trust: 50,
+        unresolved_issue: Some(PlayerIssue {
+            category: PlayerIssueCategory::Contract,
+            severity: 80,
+        }),
+        recent_treatment: None,
+    };
+    inject_player_message(&mut game, "morale_talk_p_fwd0", "p_fwd0", "respond");
+
+    player_events::apply_player_response(
+        &mut game,
+        "morale_talk_p_fwd0",
+        "respond",
+        "promise_time",
+    );
+
+    let player = game.players.iter().find(|p| p.id == "p_fwd0").unwrap();
+    assert_eq!(player.morale, 70);
+    assert!(player.morale_core.manager_trust > 50);
+}
+
+#[test]
+fn repeated_treatment_becomes_less_effective_over_time() {
+    let mut game = make_game();
+    let player = game.players.iter_mut().find(|p| p.id == "p_fwd0").unwrap();
+    player.morale = 20;
+    inject_player_message(&mut game, "morale_talk_p_fwd0", "p_fwd0", "respond");
+
+    player_events::apply_player_response(
+        &mut game,
+        "morale_talk_p_fwd0",
+        "respond",
+        "promise_time",
+    );
+    let after_first = game
+        .players
+        .iter()
+        .find(|p| p.id == "p_fwd0")
+        .unwrap()
+        .morale_core
+        .clone();
+
+    player_events::apply_player_response(
+        &mut game,
+        "morale_talk_p_fwd0",
+        "respond",
+        "promise_time",
+    );
+    let player = game.players.iter().find(|p| p.id == "p_fwd0").unwrap();
+
+    assert!(player.morale_core.recent_treatment.is_some());
+    assert_eq!(
+        player
+            .morale_core
+            .recent_treatment
+            .as_ref()
+            .unwrap()
+            .times_recently_used,
+        2
+    );
+    assert!(player.morale_core.manager_trust - after_first.manager_trust < 6);
 }
 
 // ---------------------------------------------------------------------------
