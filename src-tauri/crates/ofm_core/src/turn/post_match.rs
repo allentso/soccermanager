@@ -275,6 +275,26 @@ fn resolve_post_match_promises(
     }
 }
 
+fn capped_positive_recovery(delta: i16, player: &domain::player::Player) -> i16 {
+    let Some(issue) = player.morale_core.unresolved_issue.as_ref() else {
+        return delta;
+    };
+
+    if delta <= 0 {
+        return delta;
+    }
+
+    if issue.severity >= 75 {
+        return 0;
+    }
+
+    if issue.severity >= 50 {
+        return ((delta + 1) / 2).max(1);
+    }
+
+    delta
+}
+
 /// Update player morale based on match result and individual performance.
 fn update_post_match_morale(
     game: &mut Game,
@@ -330,7 +350,7 @@ fn update_post_match_morale(
             }
         }
 
-        let total_delta = result_delta + individual_delta;
+        let total_delta = capped_positive_recovery(result_delta + individual_delta, player);
         let new_morale = (base_morale + total_delta).clamp(10, 100) as u8;
         player.morale = new_morale;
     }
@@ -395,7 +415,8 @@ fn update_team_form(
                 for player in game.players.iter_mut() {
                     if player.team_id.as_deref() == Some(team_id_str) {
                         let base = player.morale as i16;
-                        player.morale = (base + streak_delta).clamp(10, 100) as u8;
+                        let adjusted_delta = capped_positive_recovery(streak_delta, player);
+                        player.morale = (base + adjusted_delta).clamp(10, 100) as u8;
                     }
                 }
             }

@@ -2,7 +2,8 @@ use chrono::{TimeZone, Utc};
 use domain::league::{Fixture, FixtureStatus, League, StandingEntry};
 use domain::manager::Manager;
 use domain::player::{
-    Player, PlayerAttributes, PlayerIssueCategory, PlayerPromise, PlayerPromiseKind, Position,
+    Player, PlayerAttributes, PlayerIssue, PlayerIssueCategory, PlayerPromise, PlayerPromiseKind,
+    Position,
 };
 use domain::team::Team;
 use engine::Side;
@@ -818,6 +819,54 @@ fn broken_playing_time_promise_reduces_trust_after_match() {
             .as_ref()
             .map(|issue| &issue.category),
         Some(&PlayerIssueCategory::PlayingTime)
+    );
+}
+
+#[test]
+fn severe_unresolved_issue_blocks_match_and_streak_recovery() {
+    let mut game = make_game_with_match();
+    for team in &mut game.teams {
+        if team.id == "team1" {
+            team.form = vec!["W".to_string(), "W".to_string()];
+        }
+    }
+
+    let player = game.players.iter_mut().find(|p| p.id == "t1_fwd0").unwrap();
+    player.morale = 60;
+    player.morale_core.unresolved_issue = Some(PlayerIssue {
+        category: PlayerIssueCategory::Contract,
+        severity: 80,
+    });
+
+    let report = report_with_scorer(2, 0, "t1_fwd0", Side::Home);
+    turn::apply_match_report(&mut game, 0, "team1", "team2", &report);
+
+    let player = game.players.iter().find(|p| p.id == "t1_fwd0").unwrap();
+    assert!(
+        player.morale <= 60,
+        "severe unresolved issues should block easy recovery from wins and streaks, got {}",
+        player.morale
+    );
+}
+
+#[test]
+fn moderate_unresolved_issue_slows_post_match_recovery() {
+    let mut game = make_game_with_match();
+    let player = game.players.iter_mut().find(|p| p.id == "t1_fwd0").unwrap();
+    player.morale = 50;
+    player.morale_core.unresolved_issue = Some(PlayerIssue {
+        category: PlayerIssueCategory::Contract,
+        severity: 60,
+    });
+
+    let report = report_with_scorer(2, 0, "t1_fwd0", Side::Home);
+    turn::apply_match_report(&mut game, 0, "team1", "team2", &report);
+
+    let player = game.players.iter().find(|p| p.id == "t1_fwd0").unwrap();
+    assert!(
+        player.morale <= 57,
+        "moderate unresolved issues should slow post-match recovery, got {}",
+        player.morale
     );
 }
 
