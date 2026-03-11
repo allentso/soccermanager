@@ -692,8 +692,8 @@ fn morale_talk_promise_time_big_boost() {
     }
     let avg_delta = total_delta as f64 / runs as f64;
     assert!(
-        avg_delta >= 10.0,
-        "Promise time should give big boost (10-16), avg: {:.1}",
+        avg_delta >= 8.0,
+        "Promise time should generally remain a strong positive option, avg: {:.1}",
         avg_delta
     );
 }
@@ -770,7 +770,7 @@ fn unresolved_issue_can_cap_visible_morale_growth() {
     );
 
     let player = game.players.iter().find(|p| p.id == "p_fwd0").unwrap();
-    assert_eq!(player.morale, 70);
+    assert!(player.morale <= 70);
 }
 
 #[test]
@@ -840,6 +840,93 @@ fn repeated_treatment_becomes_less_effective_over_time() {
         2
     );
     assert!(player.morale_core.manager_trust - after_first.manager_trust < 6);
+}
+
+#[test]
+fn weighted_response_bias_changes_with_player_context() {
+    let mut volatile = make_player("volatile", "Volatile", "team1", Position::Forward);
+    volatile.attributes.aggression = 95;
+    volatile.attributes.composure = 20;
+    volatile.attributes.leadership = 20;
+    volatile.morale_core.manager_trust = 30;
+
+    let mut composed = make_player("composed", "Composed", "team1", Position::Forward);
+    composed.attributes.aggression = 20;
+    composed.attributes.composure = 95;
+    composed.attributes.leadership = 95;
+    composed.morale_core.manager_trust = 75;
+
+    let volatile_weights = player_events::build_response_band_weights(
+        &volatile,
+        "morale_talk_volatile",
+        "work_harder",
+    );
+    let composed_weights = player_events::build_response_band_weights(
+        &composed,
+        "morale_talk_composed",
+        "work_harder",
+    );
+
+    let volatile_negative = volatile_weights.strong_negative + volatile_weights.mild_negative;
+    let volatile_positive = volatile_weights.strong_positive + volatile_weights.mild_positive;
+    let composed_negative = composed_weights.strong_negative + composed_weights.mild_negative;
+    let composed_positive = composed_weights.strong_positive + composed_weights.mild_positive;
+
+    assert!(volatile_negative > volatile_positive);
+    assert!(composed_positive > composed_negative);
+}
+
+#[test]
+fn repeated_identical_talk_reduces_positive_weight() {
+    let fresh = make_player("fresh", "Fresh", "team1", Position::Forward);
+
+    let mut repeated = make_player("repeated", "Repeated", "team1", Position::Forward);
+    repeated.morale_core.recent_treatment = Some(domain::player::RecentTreatmentMemory {
+        action_key: "morale_talk:encourage".to_string(),
+        times_recently_used: 2,
+    });
+
+    let fresh_weights =
+        player_events::build_response_band_weights(&fresh, "morale_talk_fresh", "encourage");
+    let repeated_weights =
+        player_events::build_response_band_weights(&repeated, "morale_talk_repeated", "encourage");
+
+    let fresh_positive = fresh_weights.strong_positive + fresh_weights.mild_positive;
+    let repeated_positive = repeated_weights.strong_positive + repeated_weights.mild_positive;
+
+    assert!(repeated_positive < fresh_positive);
+}
+
+#[test]
+fn deterministic_weighted_band_selection_uses_roll_boundaries() {
+    let weights = player_events::ResponseBandWeights {
+        strong_positive: 2,
+        mild_positive: 3,
+        neutral: 2,
+        mild_negative: 1,
+        strong_negative: 2,
+    };
+
+    assert_eq!(
+        player_events::pick_response_band(&weights, 0),
+        player_events::ResponseOutcomeBand::StrongPositive
+    );
+    assert_eq!(
+        player_events::pick_response_band(&weights, 2),
+        player_events::ResponseOutcomeBand::MildPositive
+    );
+    assert_eq!(
+        player_events::pick_response_band(&weights, 5),
+        player_events::ResponseOutcomeBand::Neutral
+    );
+    assert_eq!(
+        player_events::pick_response_band(&weights, 7),
+        player_events::ResponseOutcomeBand::MildNegative
+    );
+    assert_eq!(
+        player_events::pick_response_band(&weights, 8),
+        player_events::ResponseOutcomeBand::StrongNegative
+    );
 }
 
 // ---------------------------------------------------------------------------

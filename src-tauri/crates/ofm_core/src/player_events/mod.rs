@@ -1,7 +1,10 @@
 mod message_builders;
 mod responses;
 
-pub use responses::{PlayerResponseEffect, apply_player_response};
+pub use responses::{
+    PlayerResponseEffect, ResponseBandWeights, ResponseOutcomeBand, apply_player_response,
+    build_response_band_weights, pick_response_band,
+};
 
 use crate::contracts::contract_warning_stage;
 use crate::game::Game;
