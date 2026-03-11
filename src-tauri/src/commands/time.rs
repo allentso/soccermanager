@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use tauri::State;
 
 use crate::commands::round_summary::{build_round_summary_dto, RoundSummaryDto};
+use ofm_core::contracts::contract_warning_stage;
 use ofm_core::game::Game;
 use ofm_core::live_match_manager::{self, MatchMode};
 use ofm_core::state::StateManager;
@@ -383,6 +384,73 @@ fn urgent_unread_messages_blocker(game: &Game) -> Option<serde_json::Value> {
     })
 }
 
+fn key_contract_risk_blocker(
+    roster: &[&domain::player::Player],
+    effective_healthy_xi_ids: &[String],
+    current_date: chrono::NaiveDate,
+) -> Option<serde_json::Value> {
+    let effective_xi_id_set: std::collections::HashSet<&str> = effective_healthy_xi_ids
+        .iter()
+        .map(String::as_str)
+        .collect();
+
+    let mut effective_xi_players: Vec<&domain::player::Player> = roster
+        .iter()
+        .copied()
+        .filter(|player| effective_xi_id_set.contains(player.id.as_str()))
+        .collect();
+    effective_xi_players.sort_by(|a, b| player_overall(b).cmp(&player_overall(a)));
+
+    let risky_key_players: Vec<&str> = effective_xi_players
+        .into_iter()
+        .take(3)
+        .filter(|player| {
+            contract_warning_stage(player.contract_end.as_deref(), current_date).is_some()
+        })
+        .map(|player| player.match_name.as_str())
+        .collect();
+
+    (!risky_key_players.is_empty()).then(|| {
+        build_blocker(
+            "key_contract_risk",
+            "warn",
+            format!(
+                "Key player contract risk in squad planning: {}",
+                risky_key_players.join(", ")
+            ),
+            "Squad",
+        )
+    })
+}
+
+fn contract_wage_risk_blocker(
+    team: &domain::team::Team,
+    roster: &[&domain::player::Player],
+    current_date: chrono::NaiveDate,
+) -> Option<serde_json::Value> {
+    let at_risk_wages: u32 = roster
+        .iter()
+        .copied()
+        .filter(|player| {
+            contract_warning_stage(player.contract_end.as_deref(), current_date).is_some()
+        })
+        .map(|player| player.wage)
+        .sum();
+
+    let wage_budget = team.wage_budget.max(0) as u32;
+    (wage_budget > 0 && at_risk_wages > wage_budget).then(|| {
+        build_blocker(
+            "contract_wage_risk",
+            "warn",
+            format!(
+                "{} of wages are tied to at-risk contracts — review your wage budget",
+                at_risk_wages
+            ),
+            "Finances",
+        )
+    })
+}
+
 /// Advance time with a specific match mode.
 /// mode: "live" | "spectator" | "delegate" | "instant"
 /// If mode is "live" or "spectator" and there's a user match today,
@@ -421,6 +489,7 @@ pub fn compute_blocking_actions(game: &Game) -> Vec<serde_json::Value> {
         }
     };
     let saved_xi_ids = &team.starting_xi_ids;
+    let current_date = game.clock.current_date.date_naive();
     let effective_healthy_xi_ids =
         build_effective_healthy_starting_xi_ids(saved_xi_ids, &roster, &team.formation);
 
@@ -429,6 +498,16 @@ pub fn compute_blocking_actions(game: &Game) -> Vec<serde_json::Value> {
     }
 
     if let Some(blocker) = incomplete_starting_xi_blocker(&effective_healthy_xi_ids, &roster) {
+        blockers.push(blocker);
+    }
+
+    if let Some(blocker) =
+        key_contract_risk_blocker(&roster, &effective_healthy_xi_ids, current_date)
+    {
+        blockers.push(blocker);
+    }
+
+    if let Some(blocker) = contract_wage_risk_blocker(team, &roster, current_date) {
         blockers.push(blocker);
     }
 
@@ -772,6 +851,90 @@ mod tests {
             urgent.get("text").and_then(Value::as_str),
             Some("2 urgent unread message(s)")
         );
+    }
+
+    #[test]
+    fn key_player_contract_risk_triggers_squad_blocker() {
+        let mut game = make_game(11);
+
+        let first_key_player = game
+            .players
+            .iter_mut()
+            .find(|player| player.id == "p10")
+            .unwrap();
+        first_key_player.contract_end = Some("2025-08-01".to_string());
+        first_key_player.wage = 35_000;
+        first_key_player.attributes.pace = 92;
+        first_key_player.attributes.shooting = 94;
+        first_key_player.attributes.dribbling = 90;
+
+        let second_key_player = game
+            .players
+            .iter_mut()
+            .find(|player| player.id == "p11")
+            .unwrap();
+        second_key_player.contract_end = Some("2025-09-01".to_string());
+        second_key_player.wage = 25_000;
+        second_key_player.attributes.pace = 90;
+        second_key_player.attributes.shooting = 91;
+        second_key_player.attributes.dribbling = 89;
+
+        let blockers = compute_blocking_actions(&game);
+
+        let contract_blocker = blocker_by_id(&blockers, "key_contract_risk").unwrap();
+        assert_eq!(
+            contract_blocker.get("severity").and_then(Value::as_str),
+            Some("warn")
+        );
+        assert_eq!(
+            contract_blocker.get("tab").and_then(Value::as_str),
+            Some("Squad")
+        );
+
+        let text = contract_blocker
+            .get("text")
+            .and_then(Value::as_str)
+            .unwrap();
+        assert!(text.contains("Player 10"));
+        assert!(text.contains("Player 11"));
+    }
+
+    #[test]
+    fn large_at_risk_wage_share_triggers_finance_blocker() {
+        let mut game = make_game(11);
+        game.teams[0].wage_budget = 50_000;
+
+        let first_risk = game
+            .players
+            .iter_mut()
+            .find(|player| player.id == "p10")
+            .unwrap();
+        first_risk.contract_end = Some("2025-08-01".to_string());
+        first_risk.wage = 35_000;
+
+        let second_risk = game
+            .players
+            .iter_mut()
+            .find(|player| player.id == "p11")
+            .unwrap();
+        second_risk.contract_end = Some("2025-09-01".to_string());
+        second_risk.wage = 25_000;
+
+        let blockers = compute_blocking_actions(&game);
+
+        let finance_blocker = blocker_by_id(&blockers, "contract_wage_risk").unwrap();
+        assert_eq!(
+            finance_blocker.get("severity").and_then(Value::as_str),
+            Some("warn")
+        );
+        assert_eq!(
+            finance_blocker.get("tab").and_then(Value::as_str),
+            Some("Finances")
+        );
+
+        let text = finance_blocker.get("text").and_then(Value::as_str).unwrap();
+        assert!(text.contains("60000"));
+        assert!(text.contains("wage budget"));
     }
 
     fn make_round_summary_game() -> Game {

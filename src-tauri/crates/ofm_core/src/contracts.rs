@@ -6,7 +6,7 @@ use domain::team::Team;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum ContractWarningStage {
+pub enum ContractWarningStage {
     TwelveMonths,
     SixMonths,
     ThreeMonths,
@@ -131,7 +131,7 @@ pub fn propose_renewal(
     Ok(outcome)
 }
 
-pub(crate) fn contract_warning_stage(
+pub fn contract_warning_stage(
     contract_end: Option<&str>,
     current_date: NaiveDate,
 ) -> Option<ContractWarningStage> {
