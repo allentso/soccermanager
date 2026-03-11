@@ -226,6 +226,8 @@ fn expected_wage(player: &Player, team: &Team, current_date: NaiveDate) -> u32 {
         wage *= 1.10;
     }
 
+    wage *= importance_wage_multiplier(player);
+
     if team.reputation < 40 {
         wage *= 1.05;
     }
@@ -238,6 +240,22 @@ fn expected_wage(player: &Player, team: &Team, current_date: NaiveDate) -> u32 {
 
     let rounded = round_up_to_nearest_thousand(wage.ceil() as u32);
     rounded.max(player.wage)
+}
+
+fn importance_wage_multiplier(player: &Player) -> f32 {
+    if player.market_value >= 2_000_000 {
+        return 1.18;
+    }
+
+    if player.market_value >= 750_000 {
+        return 1.10;
+    }
+
+    if player.market_value <= 150_000 {
+        return 0.95;
+    }
+
+    1.0
 }
 
 fn expected_contract_years(player: &Player, current_date: NaiveDate) -> u32 {

@@ -9,7 +9,7 @@ use domain::player::{Player, PlayerAttributes, Position};
 use domain::team::{SponsorshipBonusCriterion, Team};
 use ofm_core::clock::GameClock;
 use ofm_core::game::Game;
-use ofm_core::random_events::{apply_event_response, check_random_events};
+use ofm_core::random_events::{apply_event_response, check_random_events, rival_interest_weight};
 use std::collections::HashMap;
 
 // ---------------------------------------------------------------------------
@@ -509,6 +509,28 @@ fn check_random_events_rival_interest_structure() {
         assert!(msg.context.player_id.is_some());
         assert_choose_option_keys(msg);
     }
+}
+
+#[test]
+fn expiring_contract_players_draw_more_rival_interest() {
+    let current_date = Utc
+        .with_ymd_and_hms(2025, 6, 15, 12, 0, 0)
+        .unwrap()
+        .date_naive();
+
+    let mut expiring_player = make_player("expiring", "Expiring Star", "team1");
+    expiring_player.contract_end = Some("2025-08-01".to_string());
+
+    let mut secure_player = make_player("secure", "Secure Squad", "team1");
+    secure_player.contract_end = Some("2028-06-30".to_string());
+
+    let expiring_weight = rival_interest_weight(&expiring_player, current_date);
+    let secure_weight = rival_interest_weight(&secure_player, current_date);
+
+    assert!(
+        expiring_weight > secure_weight,
+        "Players with expiring deals should attract more rival interest"
+    );
 }
 
 #[test]

@@ -3,9 +3,7 @@ use domain::manager::Manager;
 use domain::player::{Player, PlayerAttributes, Position};
 use domain::team::Team;
 use ofm_core::clock::GameClock;
-use ofm_core::contracts::{
-    propose_renewal, RenewalDecision, RenewalOffer,
-};
+use ofm_core::contracts::{RenewalDecision, RenewalOffer, evaluate_renewal_offer, propose_renewal};
 use ofm_core::game::Game;
 
 fn default_attrs() -> PlayerAttributes {
@@ -77,7 +75,14 @@ fn make_game() -> Game {
     );
     manager.hire("team-1".to_string());
 
-    Game::new(clock, manager, vec![make_team()], vec![make_player()], vec![], vec![])
+    Game::new(
+        clock,
+        manager,
+        vec![make_team()],
+        vec![make_player()],
+        vec![],
+        vec![],
+    )
 }
 
 #[test]
@@ -138,4 +143,105 @@ fn counter_offer_returns_understandable_feedback() {
     assert!(matches!(outcome.decision, RenewalDecision::CounterOffer));
     assert_eq!(outcome.suggested_wage, Some(14_000));
     assert_eq!(outcome.suggested_years, Some(3));
+}
+
+#[test]
+fn high_value_star_expects_more_than_fringe_player() {
+    let current_date = Utc
+        .with_ymd_and_hms(2026, 8, 1, 12, 0, 0)
+        .unwrap()
+        .date_naive();
+    let team = make_team();
+
+    let mut star = make_player();
+    star.contract_end = Some("2028-08-01".to_string());
+    star.market_value = 2_500_000;
+    star.attributes.pace = 88;
+    star.attributes.shooting = 90;
+    star.attributes.dribbling = 87;
+
+    let mut fringe = make_player();
+    fringe.contract_end = Some("2028-08-01".to_string());
+    fringe.market_value = 80_000;
+    fringe.attributes.pace = 50;
+    fringe.attributes.shooting = 48;
+    fringe.attributes.dribbling = 49;
+
+    let offer = RenewalOffer {
+        weekly_wage: 14_000,
+        contract_years: 3,
+    };
+
+    let star_outcome = evaluate_renewal_offer(&star, &team, current_date, &offer);
+    let fringe_outcome = evaluate_renewal_offer(&fringe, &team, current_date, &offer);
+
+    assert!(matches!(fringe_outcome.decision, RenewalDecision::Accepted));
+    assert!(matches!(
+        star_outcome.decision,
+        RenewalDecision::CounterOffer
+    ));
+    assert!(star_outcome.suggested_wage > fringe_outcome.suggested_wage);
+}
+
+#[test]
+fn low_morale_player_becomes_harder_to_renew_than_content_player() {
+    let current_date = Utc
+        .with_ymd_and_hms(2026, 8, 1, 12, 0, 0)
+        .unwrap()
+        .date_naive();
+    let team = make_team();
+
+    let mut content_player = make_player();
+    content_player.contract_end = Some("2028-08-01".to_string());
+    content_player.morale = 85;
+
+    let mut unhappy_player = make_player();
+    unhappy_player.contract_end = Some("2028-08-01".to_string());
+    unhappy_player.morale = 35;
+
+    let offer = RenewalOffer {
+        weekly_wage: 13_000,
+        contract_years: 3,
+    };
+
+    let content_outcome = evaluate_renewal_offer(&content_player, &team, current_date, &offer);
+    let unhappy_outcome = evaluate_renewal_offer(&unhappy_player, &team, current_date, &offer);
+
+    assert!(matches!(
+        content_outcome.decision,
+        RenewalDecision::Accepted
+    ));
+    assert!(matches!(
+        unhappy_outcome.decision,
+        RenewalDecision::CounterOffer
+    ));
+}
+
+#[test]
+fn shorter_remaining_term_increases_renewal_demands() {
+    let current_date = Utc
+        .with_ymd_and_hms(2026, 8, 1, 12, 0, 0)
+        .unwrap()
+        .date_naive();
+    let team = make_team();
+
+    let mut secure_player = make_player();
+    secure_player.contract_end = Some("2028-08-01".to_string());
+
+    let mut expiring_player = make_player();
+    expiring_player.contract_end = Some("2026-10-01".to_string());
+
+    let offer = RenewalOffer {
+        weekly_wage: 13_000,
+        contract_years: 3,
+    };
+
+    let secure_outcome = evaluate_renewal_offer(&secure_player, &team, current_date, &offer);
+    let expiring_outcome = evaluate_renewal_offer(&expiring_player, &team, current_date, &offer);
+
+    assert!(matches!(secure_outcome.decision, RenewalDecision::Accepted));
+    assert!(matches!(
+        expiring_outcome.decision,
+        RenewalDecision::CounterOffer
+    ));
 }

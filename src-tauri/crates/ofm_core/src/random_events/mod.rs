@@ -4,6 +4,7 @@ mod responses;
 
 pub use responses::apply_event_response;
 
+use crate::contracts::{ContractWarningStage, contract_warning_stage};
 use crate::game::Game;
 use chrono::Datelike;
 use domain::message::*;
@@ -314,13 +315,15 @@ pub fn check_random_events(game: &mut Game) {
     {
         let msg_id = format!("rival_interest_{}", today);
         if !existing_ids.contains(&msg_id) && rng.gen_range(0..50) == 0 {
+            let current_date = game.clock.current_date.date_naive();
             let eligible: Vec<&domain::player::Player> = game
                 .players
                 .iter()
                 .filter(|p| p.team_id.as_deref() == Some(&user_team_id) && p.injury.is_none())
                 .collect();
             if !eligible.is_empty() {
-                let player = eligible[rng.gen_range(0..eligible.len())];
+                let player = choose_rival_interest_target(&eligible, current_date, &mut rng)
+                    .unwrap_or(eligible[rng.gen_range(0..eligible.len())]);
                 let rival_names = [
                     "FC Rival",
                     "Sporting Ambition",
@@ -341,6 +344,56 @@ pub fn check_random_events(game: &mut Game) {
     }
 
     game.messages.extend(new_messages);
+}
+
+pub fn rival_interest_weight(
+    player: &domain::player::Player,
+    current_date: chrono::NaiveDate,
+) -> u32 {
+    let contract_weight = match contract_warning_stage(player.contract_end.as_deref(), current_date)
+    {
+        Some(ContractWarningStage::FinalWeeks) => 16,
+        Some(ContractWarningStage::ThreeMonths) => 12,
+        Some(ContractWarningStage::SixMonths) => 8,
+        Some(ContractWarningStage::TwelveMonths) => 5,
+        None => 1,
+    };
+
+    let value_weight = if player.market_value >= 2_000_000 {
+        3
+    } else if player.market_value >= 750_000 {
+        2
+    } else {
+        1
+    };
+
+    contract_weight + value_weight
+}
+
+fn choose_rival_interest_target<'a, R: rand::Rng + ?Sized>(
+    eligible: &[&'a domain::player::Player],
+    current_date: chrono::NaiveDate,
+    rng: &mut R,
+) -> Option<&'a domain::player::Player> {
+    let total_weight: u32 = eligible
+        .iter()
+        .map(|player| rival_interest_weight(player, current_date))
+        .sum();
+
+    if total_weight == 0 {
+        return None;
+    }
+
+    let mut roll = rng.gen_range(0..total_weight);
+    for player in eligible {
+        let weight = rival_interest_weight(player, current_date);
+        if roll < weight {
+            return Some(*player);
+        }
+        roll -= weight;
+    }
+
+    eligible.last().copied()
 }
 
 fn format_money(amount: u64) -> String {
