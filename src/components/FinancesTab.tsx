@@ -53,6 +53,11 @@ function getFacilityUpgradeCost(level: number): number {
   return level * 250_000;
 }
 
+function formatSignedAmount(value: number): string {
+  const formatted = formatVal(Math.abs(value));
+  return value < 0 ? `-${formatted}` : formatted;
+}
+
 interface ResolveMessageActionResult {
   game: GameStateData;
   effect: string | null;
@@ -107,6 +112,12 @@ export default function FinancesTab({
   const totalValue = roster.reduce((s, p) => s + p.market_value, 0);
   const facilities = myTeam.facilities ?? DEFAULT_FACILITIES;
   const activeSponsorship = myTeam.sponsorship ?? null;
+  const weeklySponsorIncome = activeSponsorship?.base_value ?? 0;
+  const projectedWeeklyNet = weeklySponsorIncome - totalWages;
+  const cashRunwayWeeks =
+    projectedWeeklyNet < 0
+      ? Math.max(0, Math.floor(myTeam.finance / Math.abs(projectedWeeklyNet)))
+      : null;
   const sponsorOffers = gameState.messages
     .filter(isPendingSponsorOffer)
     .map(resolveMessage);
@@ -246,6 +257,59 @@ export default function FinancesTab({
       </Card>
 
       <Card className="lg:col-span-3">
+        <CardHeader>{t("finances.cashFlow")}</CardHeader>
+        <CardBody>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="rounded-xl border border-gray-200 dark:border-navy-600 bg-gray-50 dark:bg-navy-800 p-4 text-center">
+              <p className="text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">
+                {t("finances.weeklyWageSpend")}
+              </p>
+              <p className="font-heading font-bold text-xl text-red-500">
+                {formatWeeklyAmount(
+                  formatSignedAmount(-totalWages),
+                  weeklySuffix,
+                )}
+              </p>
+            </div>
+            <div className="rounded-xl border border-gray-200 dark:border-navy-600 bg-gray-50 dark:bg-navy-800 p-4 text-center">
+              <p className="text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">
+                {t("finances.weeklySponsorIncome")}
+              </p>
+              <p className="font-heading font-bold text-xl text-primary-500">
+                {formatWeeklyAmount(
+                  formatSignedAmount(weeklySponsorIncome),
+                  weeklySuffix,
+                )}
+              </p>
+            </div>
+            <div className="rounded-xl border border-gray-200 dark:border-navy-600 bg-gray-50 dark:bg-navy-800 p-4 text-center">
+              <p className="text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">
+                {t("finances.projectedWeeklyNet")}
+              </p>
+              <p
+                className={`font-heading font-bold text-xl ${projectedWeeklyNet >= 0 ? "text-primary-500" : "text-red-500"}`}
+              >
+                {formatWeeklyAmount(
+                  formatSignedAmount(projectedWeeklyNet),
+                  weeklySuffix,
+                )}
+              </p>
+            </div>
+            <div className="rounded-xl border border-gray-200 dark:border-navy-600 bg-gray-50 dark:bg-navy-800 p-4 text-center">
+              <p className="text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">
+                {t("finances.cashRunway")}
+              </p>
+              <p className="font-heading font-bold text-base text-gray-800 dark:text-gray-100">
+                {cashRunwayWeeks === null
+                  ? t("finances.runwayStable")
+                  : t("finances.runwayWeeks", { count: cashRunwayWeeks })}
+              </p>
+            </div>
+          </div>
+        </CardBody>
+      </Card>
+
+      <Card className="lg:col-span-3">
         <CardHeader>{t("finances.sponsors")}</CardHeader>
         <CardBody>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -313,25 +377,32 @@ export default function FinancesTab({
                           (option) => {
                             const optionLoadingKey = `sponsor:${message.id}:${option.id}`;
                             return (
-                              <Button
+                              <div
                                 key={option.id}
-                                disabled={actionLoading === optionLoadingKey}
-                                onClick={() =>
-                                  void handleSponsorOption(
-                                    message.id,
-                                    sponsorAction.id,
-                                    option.id,
-                                  )
-                                }
-                                size="sm"
-                                variant={
-                                  option.id === "decline"
-                                    ? "outline"
-                                    : "primary"
-                                }
+                                className="min-w-55 flex-1 rounded-lg border border-gray-200 dark:border-navy-600 bg-gray-50 dark:bg-navy-800 p-3 space-y-2"
                               >
-                                {option.label}
-                              </Button>
+                                <p className="text-xs text-gray-600 dark:text-gray-400">
+                                  {option.description}
+                                </p>
+                                <Button
+                                  disabled={actionLoading === optionLoadingKey}
+                                  onClick={() =>
+                                    void handleSponsorOption(
+                                      message.id,
+                                      sponsorAction.id,
+                                      option.id,
+                                    )
+                                  }
+                                  size="sm"
+                                  variant={
+                                    option.id === "decline"
+                                      ? "outline"
+                                      : "primary"
+                                  }
+                                >
+                                  {option.label}
+                                </Button>
+                              </div>
                             );
                           },
                         )}

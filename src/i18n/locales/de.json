@@ -614,7 +614,14 @@
     "sponsorWeeklyValue": "Wöchentlicher Betrag: €{{amount}}",
     "sponsorRemainingWeeks": "{{count}} Wochen verbleibend",
     "pendingSponsorOffers": "Offene Angebote",
-    "noPendingSponsorOffers": "Keine offenen Sponsorangebote"
+    "noPendingSponsorOffers": "Keine offenen Sponsorangebote",
+    "cashFlow": "Cashflow",
+    "weeklyWageSpend": "Wöchentliche Gehaltskosten",
+    "weeklySponsorIncome": "Wöchentliche Sponsoreneinnahmen",
+    "projectedWeeklyNet": "Prognose pro Woche",
+    "cashRunway": "Finanzielle Reichweite",
+    "runwayWeeks": "{{count}} Wochen bei aktuellem Verlauf",
+    "runwayStable": "Bei aktuellem Verlauf stabil"
   },
   "inbox": {
     "title": "Posteingang",

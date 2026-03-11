@@ -29,6 +29,17 @@ vi.mock("react-i18next", () => ({
       if (key === "finances.sponsorRemainingWeeks")
         return `${params?.count} weeks remaining`;
       if (key === "finances.pendingSponsorOffers") return "Pending Offers";
+      if (key === "finances.noPendingSponsorOffers")
+        return "No pending sponsor offers";
+      if (key === "finances.cashFlow") return "Cash Flow";
+      if (key === "finances.weeklyWageSpend") return "Weekly Wage Spend";
+      if (key === "finances.weeklySponsorIncome")
+        return "Weekly Sponsor Income";
+      if (key === "finances.projectedWeeklyNet") return "Projected Weekly Net";
+      if (key === "finances.cashRunway") return "Cash Runway";
+      if (key === "finances.runwayWeeks")
+        return `${params?.count} weeks at current pace`;
+      if (key === "finances.runwayStable") return "Stable at current pace";
       if (key === "finances.facilityTraining") return "Training Facility";
       if (key === "finances.facilityMedical") return "Medical Facility";
       if (key === "finances.facilityScouting") return "Scouting Facility";
@@ -223,6 +234,7 @@ function createSponsorOfferMessage(
 function createGameState(
   teamOverrides: Partial<TeamData> = {},
   messages: MessageData[] = [],
+  players: PlayerData[] = [createPlayer()],
 ): GameStateData {
   return {
     clock: {
@@ -250,7 +262,7 @@ function createGameState(
       career_history: [],
     },
     teams: [createTeam(teamOverrides)],
-    players: [createPlayer()],
+    players,
     staff: [],
     messages,
     news: [],
@@ -346,6 +358,9 @@ describe("FinancesTab facilities", () => {
       screen.getByText("Sponsorship Offer — GreenTech Industries"),
     ).toBeInTheDocument();
     expect(
+      screen.getByText("Receive €100,000 in sponsorship income."),
+    ).toBeInTheDocument();
+    expect(
       screen.getByRole("button", { name: "Accept the deal" }),
     ).toBeInTheDocument();
     expect(
@@ -388,5 +403,32 @@ describe("FinancesTab facilities", () => {
     });
 
     expect(onGameUpdate).toHaveBeenCalledWith(updatedState);
+  });
+
+  it("renders a cash-flow projection panel using wages, sponsorship income, and runway", () => {
+    const gameState = createGameState(
+      {
+        finance: 280000,
+        sponsorship: {
+          sponsor_name: "Acme Corp",
+          base_value: 10000,
+          remaining_weeks: 8,
+          bonus_criteria: [],
+        },
+      },
+      [],
+      [createPlayer({ wage: 40000, market_value: 200000 })],
+    );
+
+    render(<FinancesTab gameState={gameState} />);
+
+    expect(screen.getByText("Cash Flow")).toBeInTheDocument();
+    expect(screen.getByText("Weekly Wage Spend")).toBeInTheDocument();
+    expect(screen.getByText("Weekly Sponsor Income")).toBeInTheDocument();
+    expect(screen.getByText("Projected Weekly Net")).toBeInTheDocument();
+    expect(screen.getByText("Cash Runway")).toBeInTheDocument();
+    expect(screen.getByText("€10K/wk")).toBeInTheDocument();
+    expect(screen.getByText("-€30K/wk")).toBeInTheDocument();
+    expect(screen.getByText("9 weeks at current pace")).toBeInTheDocument();
   });
 });

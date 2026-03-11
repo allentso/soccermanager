@@ -614,7 +614,14 @@
     "sponsorWeeklyValue": "Valor semanal: €{{amount}}",
     "sponsorRemainingWeeks": "{{count}} semanas restantes",
     "pendingSponsorOffers": "Ofertas pendentes",
-    "noPendingSponsorOffers": "Nenhuma oferta de patrocínio pendente"
+    "noPendingSponsorOffers": "Nenhuma oferta de patrocínio pendente",
+    "cashFlow": "Fluxo de caixa",
+    "weeklyWageSpend": "Gasto salarial semanal",
+    "weeklySponsorIncome": "Receita semanal de patrocínio",
+    "projectedWeeklyNet": "Líquido semanal projetado",
+    "cashRunway": "Autonomia financeira",
+    "runwayWeeks": "{{count}} semanas no ritmo atual",
+    "runwayStable": "Estável no ritmo atual"
   },
   "inbox": {
     "title": "Caixa de Entrada",

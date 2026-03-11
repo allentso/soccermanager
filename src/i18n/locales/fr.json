@@ -614,7 +614,14 @@
     "sponsorWeeklyValue": "Valeur hebdomadaire : €{{amount}}",
     "sponsorRemainingWeeks": "{{count}} semaines restantes",
     "pendingSponsorOffers": "Offres en attente",
-    "noPendingSponsorOffers": "Aucune offre de sponsoring en attente"
+    "noPendingSponsorOffers": "Aucune offre de sponsoring en attente",
+    "cashFlow": "Flux de trésorerie",
+    "weeklyWageSpend": "Dépenses salariales hebdomadaires",
+    "weeklySponsorIncome": "Revenus hebdomadaires de sponsoring",
+    "projectedWeeklyNet": "Net hebdomadaire projeté",
+    "cashRunway": "Autonomie de trésorerie",
+    "runwayWeeks": "{{count}} semaines au rythme actuel",
+    "runwayStable": "Stable au rythme actuel"
   },
   "inbox": {
     "title": "Boîte de Réception",

@@ -614,7 +614,14 @@
     "sponsorWeeklyValue": "Valore settimanale: €{{amount}}",
     "sponsorRemainingWeeks": "{{count}} settimane rimanenti",
     "pendingSponsorOffers": "Offerte in sospeso",
-    "noPendingSponsorOffers": "Nessuna offerta di sponsorizzazione in sospeso"
+    "noPendingSponsorOffers": "Nessuna offerta di sponsorizzazione in sospeso",
+    "cashFlow": "Flusso di cassa",
+    "weeklyWageSpend": "Spesa salariale settimanale",
+    "weeklySponsorIncome": "Entrate settimanali da sponsor",
+    "projectedWeeklyNet": "Netto settimanale previsto",
+    "cashRunway": "Autonomia finanziaria",
+    "runwayWeeks": "{{count}} settimane al ritmo attuale",
+    "runwayStable": "Stabile al ritmo attuale"
   },
   "inbox": {
     "title": "Posta",
