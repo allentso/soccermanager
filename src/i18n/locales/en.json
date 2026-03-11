@@ -607,7 +607,14 @@
     "facilityLevel": "Level {{level}}",
     "nextUpgradeCost": "Next upgrade: €{{amount}}",
     "upgradeFacility": "Upgrade",
-    "insufficientFunds": "Insufficient funds"
+    "insufficientFunds": "Insufficient funds",
+    "sponsors": "Sponsors",
+    "activeSponsor": "Active Sponsor",
+    "noActiveSponsor": "No active sponsor",
+    "sponsorWeeklyValue": "Weekly value: €{{amount}}",
+    "sponsorRemainingWeeks": "{{count}} weeks remaining",
+    "pendingSponsorOffers": "Pending Offers",
+    "noPendingSponsorOffers": "No pending sponsor offers"
   },
   "inbox": {
     "title": "Inbox",

@@ -607,7 +607,14 @@
     "facilityLevel": "Niveau {{level}}",
     "nextUpgradeCost": "Prochaine amélioration : €{{amount}}",
     "upgradeFacility": "Améliorer",
-    "insufficientFunds": "Fonds insuffisants"
+    "insufficientFunds": "Fonds insuffisants",
+    "sponsors": "Sponsors",
+    "activeSponsor": "Sponsor actif",
+    "noActiveSponsor": "Aucun sponsor actif",
+    "sponsorWeeklyValue": "Valeur hebdomadaire : €{{amount}}",
+    "sponsorRemainingWeeks": "{{count}} semaines restantes",
+    "pendingSponsorOffers": "Offres en attente",
+    "noPendingSponsorOffers": "Aucune offre de sponsoring en attente"
   },
   "inbox": {
     "title": "Boîte de Réception",

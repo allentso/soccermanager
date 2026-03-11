@@ -9,6 +9,13 @@ export interface FacilitiesData {
   scouting: number;
 }
 
+export interface SponsorshipData {
+  sponsor_name: string;
+  base_value: number;
+  remaining_weeks: number;
+  bonus_criteria: unknown[];
+}
+
 export interface TeamSeasonRecord {
   season: number;
   league_position: number;
@@ -51,6 +58,7 @@ export interface TeamData {
   founded_year: number;
   colors: TeamColors;
   facilities?: FacilitiesData;
+  sponsorship?: SponsorshipData | null;
   starting_xi_ids: string[];
   match_roles?: TeamMatchRolesData;
   form: string[];

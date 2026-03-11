@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { GameStateData } from "../store/gameStore";
+import { GameStateData, MessageAction, MessageData } from "../store/gameStore";
 import { Card, CardHeader, CardBody, Badge, ProgressBar, Button } from "./ui";
 import { User } from "lucide-react";
 import {
@@ -11,6 +11,7 @@ import {
 import { useTranslation } from "react-i18next";
 import ContextMenu from "./ContextMenu";
 import { translatePositionAbbreviation } from "./SquadTab.helpers";
+import { resolveMessage } from "../utils/backendI18n";
 
 type FacilityId = "Training" | "Medical" | "Scouting";
 
@@ -52,6 +53,33 @@ function getFacilityUpgradeCost(level: number): number {
   return level * 250_000;
 }
 
+interface ResolveMessageActionResult {
+  game: GameStateData;
+  effect: string | null;
+  effect_i18n_key?: string | null;
+  effect_i18n_params?: Record<string, string> | null;
+}
+
+function isChooseOptionAction(
+  actionType: MessageAction["action_type"],
+): actionType is {
+  ChooseOption: {
+    options: Array<{ id: string; label: string; description: string }>;
+  };
+} {
+  return typeof actionType === "object" && "ChooseOption" in actionType;
+}
+
+function isPendingSponsorOffer(message: MessageData): boolean {
+  return (
+    message.id.startsWith("sponsor_") &&
+    message.category === "Finance" &&
+    message.actions.some(
+      (action) => !action.resolved && isChooseOptionAction(action.action_type),
+    )
+  );
+}
+
 interface FinancesTabProps {
   gameState: GameStateData;
   onGameUpdate?: (state: GameStateData) => void;
@@ -72,12 +100,16 @@ export default function FinancesTab({
       <p className="text-gray-500 dark:text-gray-400">{t("common.noTeam")}</p>
     );
   const weeklySuffix = t("finances.perWeekSuffix", "/wk");
-  const [actionLoading, setActionLoading] = useState<FacilityId | null>(null);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   const roster = gameState.players.filter((p) => p.team_id === myTeam.id);
   const totalWages = roster.reduce((s, p) => s + p.wage, 0);
   const totalValue = roster.reduce((s, p) => s + p.market_value, 0);
   const facilities = myTeam.facilities ?? DEFAULT_FACILITIES;
+  const activeSponsorship = myTeam.sponsorship ?? null;
+  const sponsorOffers = gameState.messages
+    .filter(isPendingSponsorOffer)
+    .map(resolveMessage);
 
   async function handleUpgradeFacility(facility: FacilityId): Promise<void> {
     setActionLoading(facility);
@@ -88,6 +120,30 @@ export default function FinancesTab({
       onGameUpdate?.(updated);
     } catch (error) {
       console.error("Failed to upgrade facility:", error);
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  async function handleSponsorOption(
+    messageId: string,
+    actionId: string,
+    optionId: string,
+  ): Promise<void> {
+    const loadingKey = `sponsor:${messageId}:${optionId}`;
+    setActionLoading(loadingKey);
+    try {
+      const result = await invoke<ResolveMessageActionResult>(
+        "resolve_message_action",
+        {
+          messageId,
+          actionId,
+          optionId,
+        },
+      );
+      onGameUpdate?.(result.game);
+    } catch (error) {
+      console.error("Failed to resolve sponsor offer:", error);
     } finally {
       setActionLoading(null);
     }
@@ -186,6 +242,113 @@ export default function FinancesTab({
             size="md"
             showLabel
           />
+        </CardBody>
+      </Card>
+
+      <Card className="lg:col-span-3">
+        <CardHeader>{t("finances.sponsors")}</CardHeader>
+        <CardBody>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="rounded-xl border border-gray-200 dark:border-navy-600 bg-gray-50 dark:bg-navy-800 p-4 space-y-2">
+              <p className="text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                {t("finances.activeSponsor")}
+              </p>
+              {activeSponsorship ? (
+                <>
+                  <h3 className="font-heading font-bold text-base text-gray-900 dark:text-gray-100 uppercase tracking-wide">
+                    {activeSponsorship.sponsor_name}
+                  </h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    {t("finances.sponsorWeeklyValue", {
+                      amount: activeSponsorship.base_value,
+                    })}
+                  </p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    {t("finances.sponsorRemainingWeeks", {
+                      count: activeSponsorship.remaining_weeks,
+                    })}
+                  </p>
+                </>
+              ) : (
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  {t("finances.noActiveSponsor")}
+                </p>
+              )}
+            </div>
+
+            <div className="rounded-xl border border-gray-200 dark:border-navy-600 bg-gray-50 dark:bg-navy-800 p-4 space-y-3">
+              <p className="text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                {t("finances.pendingSponsorOffers")}
+              </p>
+              {sponsorOffers.length > 0 ? (
+                sponsorOffers.map((message) => {
+                  const sponsorAction = message.actions.find(
+                    (action) =>
+                      !action.resolved &&
+                      isChooseOptionAction(action.action_type),
+                  );
+
+                  if (
+                    !sponsorAction ||
+                    !isChooseOptionAction(sponsorAction.action_type)
+                  ) {
+                    return null;
+                  }
+
+                  return (
+                    <div
+                      key={message.id}
+                      className="rounded-lg border border-gray-200 dark:border-navy-600 bg-white dark:bg-navy-700 p-4 space-y-3"
+                    >
+                      <div className="space-y-1">
+                        <h3 className="font-semibold text-sm text-gray-900 dark:text-gray-100">
+                          {message.subject}
+                        </h3>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          {message.body}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {sponsorAction.action_type.ChooseOption.options.map(
+                          (option) => {
+                            const optionLoadingKey = `sponsor:${message.id}:${option.id}`;
+                            return (
+                              <Button
+                                key={option.id}
+                                disabled={actionLoading === optionLoadingKey}
+                                onClick={() =>
+                                  void handleSponsorOption(
+                                    message.id,
+                                    sponsorAction.id,
+                                    option.id,
+                                  )
+                                }
+                                size="sm"
+                                variant={
+                                  option.id === "decline"
+                                    ? "outline"
+                                    : "primary"
+                                }
+                              >
+                                {option.label}
+                              </Button>
+                            );
+                          },
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  {t(
+                    "finances.noPendingSponsorOffers",
+                    "No pending sponsor offers",
+                  )}
+                </p>
+              )}
+            </div>
+          </div>
         </CardBody>
       </Card>
 

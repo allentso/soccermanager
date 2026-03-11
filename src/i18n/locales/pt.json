@@ -607,7 +607,14 @@
     "facilityLevel": "Nível {{level}}",
     "nextUpgradeCost": "Próxima melhoria: €{{amount}}",
     "upgradeFacility": "Melhorar",
-    "insufficientFunds": "Fundos insuficientes"
+    "insufficientFunds": "Fundos insuficientes",
+    "sponsors": "Patrocinadores",
+    "activeSponsor": "Patrocinador ativo",
+    "noActiveSponsor": "Sem patrocinador ativo",
+    "sponsorWeeklyValue": "Valor semanal: €{{amount}}",
+    "sponsorRemainingWeeks": "{{count}} semanas restantes",
+    "pendingSponsorOffers": "Ofertas pendentes",
+    "noPendingSponsorOffers": "Sem ofertas de patrocínio pendentes"
   },
   "inbox": {
     "title": "Caixa de Entrada",

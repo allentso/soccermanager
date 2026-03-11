@@ -607,7 +607,14 @@
     "facilityLevel": "Livello {{level}}",
     "nextUpgradeCost": "Prossimo upgrade: €{{amount}}",
     "upgradeFacility": "Potenzia",
-    "insufficientFunds": "Fondi insufficienti"
+    "insufficientFunds": "Fondi insufficienti",
+    "sponsors": "Sponsor",
+    "activeSponsor": "Sponsor attivo",
+    "noActiveSponsor": "Nessuno sponsor attivo",
+    "sponsorWeeklyValue": "Valore settimanale: €{{amount}}",
+    "sponsorRemainingWeeks": "{{count}} settimane rimanenti",
+    "pendingSponsorOffers": "Offerte in sospeso",
+    "noPendingSponsorOffers": "Nessuna offerta di sponsorizzazione in sospeso"
   },
   "inbox": {
     "title": "Posta",

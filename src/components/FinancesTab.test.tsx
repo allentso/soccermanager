@@ -1,7 +1,12 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
-import type { GameStateData, PlayerData, TeamData } from "../store/gameStore";
+import type {
+  GameStateData,
+  MessageData,
+  PlayerData,
+  TeamData,
+} from "../store/gameStore";
 import FinancesTab from "./FinancesTab";
 
 vi.mock("@tauri-apps/api/core", () => ({
@@ -9,9 +14,21 @@ vi.mock("@tauri-apps/api/core", () => ({
 }));
 
 vi.mock("react-i18next", () => ({
+  initReactI18next: {
+    type: "3rdParty",
+    init: () => {},
+  },
   useTranslation: () => ({
     t: (key: string, params?: Record<string, string | number>) => {
       if (key === "finances.facilities") return "Facilities";
+      if (key === "finances.sponsors") return "Sponsors";
+      if (key === "finances.activeSponsor") return "Active Sponsor";
+      if (key === "finances.noActiveSponsor") return "No active sponsor";
+      if (key === "finances.sponsorWeeklyValue")
+        return `Weekly value: €${params?.amount}`;
+      if (key === "finances.sponsorRemainingWeeks")
+        return `${params?.count} weeks remaining`;
+      if (key === "finances.pendingSponsorOffers") return "Pending Offers";
       if (key === "finances.facilityTraining") return "Training Facility";
       if (key === "finances.facilityMedical") return "Medical Facility";
       if (key === "finances.facilityScouting") return "Scouting Facility";
@@ -157,7 +174,56 @@ function createPlayer(overrides: Partial<PlayerData> = {}): PlayerData {
   };
 }
 
-function createGameState(teamOverrides: Partial<TeamData> = {}): GameStateData {
+function createSponsorOfferMessage(
+  overrides: Partial<MessageData> = {},
+): MessageData {
+  return {
+    id: "sponsor_2025-06-15",
+    subject: "Sponsorship Offer — GreenTech Industries",
+    body: "GreenTech Industries want to sponsor your club.",
+    sender: "Commercial Director",
+    sender_role: "Commercial Director",
+    date: "2025-06-15",
+    read: false,
+    category: "Finance",
+    priority: "Normal",
+    actions: [
+      {
+        id: "respond",
+        label: "Respond",
+        action_type: {
+          ChooseOption: {
+            options: [
+              {
+                id: "accept",
+                label: "Accept the deal",
+                description: "Receive €100,000 in sponsorship income.",
+              },
+              {
+                id: "decline",
+                label: "Decline politely",
+                description: "Turn down the offer.",
+              },
+            ],
+          },
+        },
+        resolved: false,
+      },
+    ],
+    context: {
+      team_id: null,
+      player_id: null,
+      fixture_id: null,
+      match_result: null,
+    },
+    ...overrides,
+  };
+}
+
+function createGameState(
+  teamOverrides: Partial<TeamData> = {},
+  messages: MessageData[] = [],
+): GameStateData {
   return {
     clock: {
       current_date: "2025-01-20T00:00:00Z",
@@ -186,7 +252,7 @@ function createGameState(teamOverrides: Partial<TeamData> = {}): GameStateData {
     teams: [createTeam(teamOverrides)],
     players: [createPlayer()],
     staff: [],
-    messages: [],
+    messages,
     news: [],
     league: {
       id: "league-1",
@@ -252,6 +318,75 @@ describe("FinancesTab facilities", () => {
         facility: "Medical",
       });
     });
+    expect(onGameUpdate).toHaveBeenCalledWith(updatedState);
+  });
+
+  it("renders active sponsorship and pending sponsor offers", () => {
+    const gameState = createGameState(
+      {
+        sponsorship: {
+          sponsor_name: "Acme Corp",
+          base_value: 125000,
+          remaining_weeks: 8,
+          bonus_criteria: [],
+        },
+      },
+      [createSponsorOfferMessage()],
+    );
+
+    render(<FinancesTab gameState={gameState} />);
+
+    expect(screen.getByText("Sponsors")).toBeInTheDocument();
+    expect(screen.getByText("Active Sponsor")).toBeInTheDocument();
+    expect(screen.getByText("Acme Corp")).toBeInTheDocument();
+    expect(screen.getByText("Weekly value: €125000")).toBeInTheDocument();
+    expect(screen.getByText("8 weeks remaining")).toBeInTheDocument();
+    expect(screen.getByText("Pending Offers")).toBeInTheDocument();
+    expect(
+      screen.getByText("Sponsorship Offer — GreenTech Industries"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Accept the deal" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Decline politely" }),
+    ).toBeInTheDocument();
+  });
+
+  it("accepts a sponsor offer through resolve_message_action and publishes the updated state", async () => {
+    const initialState = createGameState({}, [createSponsorOfferMessage()]);
+    const updatedState = createGameState(
+      {
+        sponsorship: {
+          sponsor_name: "GreenTech Industries",
+          base_value: 100000,
+          remaining_weeks: 12,
+          bonus_criteria: [],
+        },
+      },
+      [],
+    );
+    const onGameUpdate = vi.fn();
+
+    mockedInvoke.mockResolvedValue({
+      game: updatedState,
+      effect: "Offer accepted",
+    });
+
+    render(
+      <FinancesTab gameState={initialState} onGameUpdate={onGameUpdate} />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Accept the deal" }));
+
+    await waitFor(() => {
+      expect(mockedInvoke).toHaveBeenCalledWith("resolve_message_action", {
+        messageId: "sponsor_2025-06-15",
+        actionId: "respond",
+        optionId: "accept",
+      });
+    });
+
     expect(onGameUpdate).toHaveBeenCalledWith(updatedState);
   });
 });

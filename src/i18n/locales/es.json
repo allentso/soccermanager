@@ -607,7 +607,14 @@
     "facilityLevel": "Nivel {{level}}",
     "nextUpgradeCost": "Siguiente mejora: €{{amount}}",
     "upgradeFacility": "Mejorar",
-    "insufficientFunds": "Fondos insuficientes"
+    "insufficientFunds": "Fondos insuficientes",
+    "sponsors": "Patrocinadores",
+    "activeSponsor": "Patrocinador activo",
+    "noActiveSponsor": "Sin patrocinador activo",
+    "sponsorWeeklyValue": "Valor semanal: €{{amount}}",
+    "sponsorRemainingWeeks": "{{count}} semanas restantes",
+    "pendingSponsorOffers": "Ofertas pendientes",
+    "noPendingSponsorOffers": "No hay ofertas de patrocinio pendientes"
   },
   "inbox": {
     "title": "Bandeja de Entrada",
