@@ -134,6 +134,7 @@
   },
   "home": {
     "nextMatch": "Próxima Partida",
+    "nextOpponent": "Próximo Adversário",
     "leaguePosition": "Posição na Liga",
     "standings": "Classificação",
     "noLeague": "Nenhum dado da liga ainda.",
@@ -159,6 +160,9 @@
     "boardObjectives": "Objetivos da Diretoria",
     "seasonComplete": "Temporada encerrada.",
     "noLeagueSchedule": "Sem dados da liga.",
+    "noUpcomingOpponent": "Nenhuma próxima partida da liga.",
+    "leagueDigest": "Resumo da Liga",
+    "noLeagueDigest": "Ainda não há resumo da liga.",
     "scheduleLabel": "Calendário:",
     "home": "Casa",
     "away": "Fora",

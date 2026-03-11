@@ -134,6 +134,7 @@
   },
   "home": {
     "nextMatch": "Nächstes Spiel",
+    "nextOpponent": "Nächster Gegner",
     "leaguePosition": "Tabellenplatz",
     "standings": "Tabelle",
     "noLeague": "Noch keine Ligadaten.",
@@ -165,6 +166,9 @@
     "boardObjectives": "Vorstandsziele",
     "seasonComplete": "Saison abgeschlossen.",
     "noLeagueSchedule": "Keine Ligadaten.",
+    "noUpcomingOpponent": "Kein kommendes Ligaspiel.",
+    "leagueDigest": "Liga-Überblick",
+    "noLeagueDigest": "Noch kein Liga-Überblick verfügbar.",
     "objectivesMet": "{{done}}/{{total}} Ziele erreicht — Zufriedenheit des Vorstands: {{pct}}%",
     "unavailablePlayers": "Nicht verfügbare Spieler",
     "daysUnavailable": "Noch {{count}} Tag(e)"

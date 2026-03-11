@@ -134,6 +134,7 @@
   },
   "home": {
     "nextMatch": "Next Match",
+    "nextOpponent": "Next Opponent",
     "leaguePosition": "League Position",
     "standings": "Standings",
     "noLeague": "No league data yet.",
@@ -159,6 +160,9 @@
     "boardObjectives": "Board Objectives",
     "seasonComplete": "Season complete.",
     "noLeagueSchedule": "No league data.",
+    "noUpcomingOpponent": "No upcoming league fixture.",
+    "leagueDigest": "League Digest",
+    "noLeagueDigest": "No league digest yet.",
     "scheduleLabel": "Schedule:",
     "home": "Home",
     "away": "Away",

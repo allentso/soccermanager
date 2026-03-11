@@ -2,8 +2,16 @@ import { GameStateData, FixtureData } from "../store/gameStore";
 import { Card, CardHeader, CardBody, Badge, ProgressBar } from "./ui";
 import { getTeamName, calcOvr, formatDateShort } from "../lib/helpers";
 import NextMatchDisplay from "./NextMatchDisplay";
-import { resolveBoardObjective, resolveMessage } from "../utils/backendI18n";
-import { getOnboardingCompletionState } from "./HomeTab.helpers";
+import {
+  resolveBoardObjective,
+  resolveMessage,
+  resolveNewsArticle,
+} from "../utils/backendI18n";
+import {
+  getLeagueDigestArticles,
+  getNextOpponentWidgetData,
+  getOnboardingCompletionState,
+} from "./HomeTab.helpers";
 import { translatePositionAbbreviation } from "./SquadTab.helpers";
 import {
   Trophy,
@@ -132,6 +140,9 @@ export default function HomeTab({
   const latestNews = (gameState.news || [])
     .sort((a, b) => b.date.localeCompare(a.date))
     .slice(0, 2);
+  const nextOpponent = getNextOpponentWidgetData(gameState);
+  const leagueDigestArticles =
+    getLeagueDigestArticles(gameState).map(resolveNewsArticle);
   const boardObjectives = (gameState.board_objectives || []).map(
     resolveBoardObjective,
   );
@@ -391,6 +402,131 @@ export default function HomeTab({
                 <p className="text-xs text-gray-500 dark:text-gray-400">
                   {t("home.noLeague")}
                 </p>
+              </div>
+            )}
+          </CardBody>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <Card>
+          <CardHeader
+            action={
+              <button
+                onClick={() => onNavigate?.("Schedule")}
+                className="text-primary-500 dark:text-primary-400 text-xs font-heading font-bold uppercase tracking-wider hover:text-primary-600 dark:hover:text-primary-300 transition-colors"
+              >
+                {t("dashboard.schedule")}
+              </button>
+            }
+          >
+            {t("home.nextOpponent")}
+          </CardHeader>
+          <CardBody>
+            {nextOpponent ? (
+              <div className="flex flex-col gap-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-lg font-heading font-bold text-gray-800 dark:text-gray-100 truncate">
+                      {nextOpponent.opponent.name}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      {t("home.matchdayN", {
+                        n: nextOpponent.fixture.matchday,
+                      })}{" "}
+                      · {formatDateShort(nextOpponent.fixture.date, lang)}
+                    </p>
+                  </div>
+                  <Badge
+                    variant={nextOpponent.isHome ? "success" : "accent"}
+                    size="sm"
+                  >
+                    {nextOpponent.isHome ? t("home.home") : t("home.away")}
+                  </Badge>
+                </div>
+
+                {(nextOpponent.standingPosition !== null ||
+                  nextOpponent.standingPoints !== null) && (
+                  <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                    {nextOpponent.standingPosition !== null && (
+                      <Badge variant="neutral" size="sm">
+                        #{nextOpponent.standingPosition}
+                      </Badge>
+                    )}
+                    {nextOpponent.standingPoints !== null && (
+                      <span className="font-heading font-bold text-gray-700 dark:text-gray-300">
+                        {nextOpponent.standingPoints} {t("common.pts")}
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {nextOpponent.recentForm.length > 0 && (
+                  <div className="flex gap-1.5">
+                    {nextOpponent.recentForm.map((result, index) => (
+                      <span
+                        key={`${nextOpponent.opponent.id}-${index}`}
+                        className={`w-6 h-6 rounded flex items-center justify-center text-[10px] font-heading font-bold text-white ${
+                          result === "W"
+                            ? "bg-green-500"
+                            : result === "L"
+                              ? "bg-red-500"
+                              : "bg-gray-400"
+                        }`}
+                      >
+                        {result}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500 dark:text-gray-400 py-4 text-center">
+                {t("home.noUpcomingOpponent")}
+              </p>
+            )}
+          </CardBody>
+        </Card>
+
+        <Card>
+          <CardHeader
+            action={
+              <button
+                onClick={() => onNavigate?.("News")}
+                className="text-primary-500 dark:text-primary-400 text-xs font-heading font-bold uppercase tracking-wider hover:text-primary-600 dark:hover:text-primary-300 transition-colors"
+              >
+                {t("dashboard.news")}
+              </button>
+            }
+          >
+            {t("home.leagueDigest")}
+          </CardHeader>
+          <CardBody className="p-0">
+            {leagueDigestArticles.length === 0 ? (
+              <p className="text-sm text-gray-500 dark:text-gray-400 p-6 text-center">
+                {t("home.noLeagueDigest")}
+              </p>
+            ) : (
+              <div className="divide-y divide-gray-100 dark:divide-navy-600">
+                {leagueDigestArticles.map((article) => (
+                  <button
+                    key={article.id}
+                    onClick={() => onNavigate?.("News")}
+                    className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-navy-700/50 transition-colors"
+                  >
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <Badge variant="neutral" size="sm">
+                        {t(`news.categories.${article.category}`)}
+                      </Badge>
+                      <span className="text-[10px] text-gray-400 dark:text-gray-500">
+                        {formatDateShort(article.date, lang)} · {article.source}
+                      </span>
+                    </div>
+                    <p className="text-sm font-heading font-bold text-gray-800 dark:text-gray-200 leading-snug">
+                      {article.headline}
+                    </p>
+                  </button>
+                ))}
               </div>
             )}
           </CardBody>

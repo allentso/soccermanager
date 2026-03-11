@@ -1,12 +1,18 @@
 import { describe, expect, it } from "vitest";
 
 import type {
+  FixtureData,
   GameStateData,
   MessageData,
+  NewsArticle,
   PlayerData,
   TeamData,
 } from "../store/gameStore";
-import { getOnboardingCompletionState } from "./HomeTab.helpers";
+import {
+  getLeagueDigestArticles,
+  getNextOpponentWidgetData,
+  getOnboardingCompletionState,
+} from "./HomeTab.helpers";
 
 function createTeam(overrides: Partial<TeamData> = {}): TeamData {
   return {
@@ -37,6 +43,35 @@ function createTeam(overrides: Partial<TeamData> = {}): TeamData {
     starting_xi_ids: [],
     form: [],
     history: [],
+    ...overrides,
+  };
+}
+
+function createFixture(overrides: Partial<FixtureData> = {}): FixtureData {
+  return {
+    id: "fixture-1",
+    matchday: 1,
+    date: "2025-01-10",
+    home_team_id: "team-1",
+    away_team_id: "team-2",
+    status: "Scheduled",
+    result: null,
+    ...overrides,
+  };
+}
+
+function createNewsArticle(overrides: Partial<NewsArticle> = {}): NewsArticle {
+  return {
+    id: "news-1",
+    headline: "Headline",
+    body: "Body",
+    source: "OpenFoot Times",
+    date: "2025-01-10",
+    category: "LeagueRoundup",
+    team_ids: [],
+    player_ids: [],
+    match_score: null,
+    read: false,
     ...overrides,
   };
 }
@@ -166,6 +201,106 @@ function createGameState(overrides: Partial<GameStateData> = {}): GameStateData 
 }
 
 describe("HomeTab.helpers", function (): void {
+  it("derives the next opponent widget data from the next scheduled fixture", function (): void {
+    const gameState = createGameState({
+      teams: [
+        createTeam(),
+        createTeam({
+          id: "team-2",
+          name: "Beta FC",
+          short_name: "BET",
+          form: ["W", "D", "W"],
+        }),
+      ],
+      league: {
+        id: "league-1",
+        name: "League",
+        season: 1,
+        fixtures: [
+          createFixture({
+            id: "fixture-completed",
+            date: "2025-01-05",
+            matchday: 1,
+            status: "Completed",
+            result: {
+              home_goals: 1,
+              away_goals: 0,
+              home_scorers: [],
+              away_scorers: [],
+            },
+          }),
+          createFixture({
+            id: "fixture-next",
+            date: "2025-01-12",
+            matchday: 2,
+            status: "Scheduled",
+          }),
+        ],
+        standings: [
+          {
+            team_id: "team-2",
+            played: 1,
+            won: 1,
+            drawn: 0,
+            lost: 0,
+            goals_for: 2,
+            goals_against: 0,
+            points: 3,
+          },
+          {
+            team_id: "team-1",
+            played: 1,
+            won: 0,
+            drawn: 0,
+            lost: 1,
+            goals_for: 0,
+            goals_against: 2,
+            points: 0,
+          },
+        ],
+      },
+    });
+
+    const result = getNextOpponentWidgetData(gameState);
+
+    expect(result).not.toBeNull();
+    expect(result?.fixture.id).toBe("fixture-next");
+    expect(result?.opponent.name).toBe("Beta FC");
+    expect(result?.isHome).toBe(true);
+    expect(result?.standingPosition).toBe(1);
+    expect(result?.standingPoints).toBe(3);
+    expect(result?.recentForm).toEqual(["W", "D", "W"]);
+  });
+
+  it("returns the latest league digest articles in reverse chronological order", function (): void {
+    const gameState = createGameState({
+      news: [
+        createNewsArticle({
+          id: "generic-news",
+          category: "TransferRumour",
+          date: "2025-01-12",
+        }),
+        createNewsArticle({
+          id: "roundup-news",
+          category: "LeagueRoundup",
+          date: "2025-01-14",
+        }),
+        createNewsArticle({
+          id: "standings-news",
+          category: "StandingsUpdate",
+          date: "2025-01-15",
+        }),
+      ],
+    });
+
+    const result = getLeagueDigestArticles(gameState);
+
+    expect(result.map((article) => article.id)).toEqual([
+      "standings-news",
+      "roundup-news",
+    ]);
+  });
+
   it("starts with no visited onboarding pages and no read inbox step", function (): void {
     const state = getOnboardingCompletionState(createGameState(), new Set<string>());
 

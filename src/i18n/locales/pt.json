@@ -134,6 +134,7 @@
   },
   "home": {
     "nextMatch": "Próximo Jogo",
+    "nextOpponent": "Próximo Adversário",
     "leaguePosition": "Posição na Liga",
     "standings": "Classificação",
     "noLeague": "Sem dados de liga ainda.",
@@ -165,6 +166,9 @@
     "boardObjectives": "Objetivos da Direção",
     "seasonComplete": "Temporada concluída.",
     "noLeagueSchedule": "Sem dados da liga.",
+    "noUpcomingOpponent": "Sem próximo jogo da liga.",
+    "leagueDigest": "Resumo da Liga",
+    "noLeagueDigest": "Ainda não há resumo da liga.",
     "objectivesMet": "{{done}}/{{total}} objetivos cumpridos — Satisfação da direção: {{pct}}%",
     "unavailablePlayers": "Jogadores indisponíveis",
     "daysUnavailable": "{{count}} dia(s) restantes"
