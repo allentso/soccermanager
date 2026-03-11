@@ -7,6 +7,7 @@ import {
   MatchSnapshot,
   MatchEvent,
   MatchDayStage,
+  RoundSummary,
 } from "../components/match/types";
 import PreMatchSetup from "../components/match/PreMatchSetup";
 import MatchLive from "../components/match/MatchLive";
@@ -26,7 +27,7 @@ interface MatchRouteState {
 
 interface FinishLiveMatchResponse {
   game: GameStateData;
-  round_summary?: unknown;
+  round_summary?: RoundSummary | null;
 }
 
 export default function MatchSimulation() {
@@ -43,6 +44,8 @@ export default function MatchSimulation() {
   const [importantEvents, setImportantEvents] = useState<MatchEvent[]>([]);
   const [userSide, setUserSide] = useState<"Home" | "Away" | null>(null);
   const [isSpectator, setIsSpectator] = useState(matchMode === "spectator");
+  const [roundSummary, setRoundSummary] = useState<RoundSummary | null>(null);
+  const [hasFinalizedMatch, setHasFinalizedMatch] = useState(false);
 
   useEffect(() => {
     console.info("[MatchSimulation] mount", {
@@ -184,10 +187,38 @@ export default function MatchSimulation() {
     setStage("second_half");
   }, []);
 
+  const finalizeMatch = useCallback(async (): Promise<boolean> => {
+    if (hasFinalizedMatch) {
+      return true;
+    }
+
+    try {
+      console.info("[MatchSimulation] finalizeMatch:start");
+      const response =
+        await invoke<FinishLiveMatchResponse>("finish_live_match");
+      console.info("[MatchSimulation] finalizeMatch:success", {
+        hasRoundSummary: !!response.round_summary,
+        hasUpdatedGame: !!response.game,
+      });
+      setGameState(response.game);
+      setRoundSummary(response.round_summary ?? null);
+      setHasFinalizedMatch(true);
+      return true;
+    } catch (err) {
+      console.error("Failed to finish match:", err);
+      return false;
+    }
+  }, [hasFinalizedMatch, setGameState]);
+
   const handleFullTime = useCallback(() => {
     console.info("[MatchSimulation] handleFullTime");
-    setStage("postmatch");
-  }, []);
+    void (async () => {
+      const finalized = await finalizeMatch();
+      if (finalized) {
+        setStage("postmatch");
+      }
+    })();
+  }, [finalizeMatch]);
 
   const handlePressConference = useCallback(() => {
     console.info("[MatchSimulation] handlePressConference");
@@ -195,19 +226,12 @@ export default function MatchSimulation() {
   }, []);
 
   const handleFinishMatch = useCallback(async () => {
-    try {
-      console.info("[MatchSimulation] handleFinishMatch:start");
-      const response =
-        await invoke<FinishLiveMatchResponse>("finish_live_match");
-      console.info("[MatchSimulation] handleFinishMatch:success", {
-        hasUpdatedGame: !!response.game,
-      });
-      setGameState(response.game);
+    console.info("[MatchSimulation] handleFinishMatch:start");
+    const finalized = await finalizeMatch();
+    if (finalized) {
       navigate("/dashboard");
-    } catch (err) {
-      console.error("Failed to finish match:", err);
     }
-  }, [setGameState, navigate]);
+  }, [finalizeMatch, navigate]);
 
   const handleSnapshotUpdate = useCallback((snap: MatchSnapshot) => {
     console.info("[MatchSimulation] handleSnapshotUpdate", {
@@ -293,6 +317,7 @@ export default function MatchSimulation() {
           userSide={userSide}
           isSpectator={isSpectator}
           importantEvents={importantEvents}
+          roundSummary={roundSummary}
           onPressConference={handlePressConference}
           onFinish={handleFinishMatch}
         />

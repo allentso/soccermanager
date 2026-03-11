@@ -964,6 +964,8 @@
     "matchOver": "Partida Encerrada",
     "ratings": "Notas do {{team}}",
     "motm": "Melhor em Campo",
+    "roundSummary": "Resumo da Rodada",
+    "roundSummaryUnavailable": "Resumo da rodada indisponível.",
     "scorers": "Artilheiros",
     "noGoals": "Nenhum gol marcado.",
     "matchComplete": "Partida encerrada.",

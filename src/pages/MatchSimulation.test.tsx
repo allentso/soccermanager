@@ -57,10 +57,21 @@ vi.mock("../components/match/HalfTimeBreak", () => ({
 }));
 
 vi.mock("../components/match/PostMatchScreen", () => ({
-  default: ({ onFinish }: { onFinish?: () => void }) => (
-    <button data-testid="postmatch-finish" onClick={onFinish}>
-      Finish Match
-    </button>
+  default: ({
+    onFinish,
+    roundSummary,
+  }: {
+    onFinish?: () => void;
+    roundSummary?: unknown;
+  }) => (
+    <div>
+      <div data-testid="postmatch-round-summary">
+        {roundSummary ? JSON.stringify(roundSummary) : "null"}
+      </div>
+      <button data-testid="postmatch-finish" onClick={onFinish}>
+        Finish Match
+      </button>
+    </div>
   ),
 }));
 
@@ -327,7 +338,7 @@ describe("MatchSimulation", function (): void {
     });
   });
 
-  it("stores the nested game after finish_live_match returns a response object", async function (): Promise<void> {
+  it("navigates away from postmatch after the finalized game has been stored", async function (): Promise<void> {
     locationState = {
       mode: "spectator",
       snapshot: makeSnapshot(),
@@ -356,16 +367,63 @@ describe("MatchSimulation", function (): void {
     fireEvent.click(screen.getByTestId("match-live"));
 
     await waitFor(function (): void {
+      expect(mockedInvoke).toHaveBeenLastCalledWith("finish_live_match");
       expect(screen.getByTestId("postmatch-finish")).toBeInTheDocument();
     });
+
+    expect(setGameStateMock).toHaveBeenCalledWith(finishedGame);
 
     fireEvent.click(screen.getByTestId("postmatch-finish"));
 
     await waitFor(function (): void {
+      expect(navigateMock).toHaveBeenCalledWith("/dashboard");
+    });
+  });
+
+  it("finalizes the match on full time and passes the round summary into postmatch", async function (): Promise<void> {
+    locationState = {
+      mode: "spectator",
+      snapshot: makeSnapshot(),
+    };
+
+    const finishedGame = makeGameState();
+    const roundSummary = {
+      matchday: 1,
+      is_complete: true,
+      pending_fixture_count: 0,
+      completed_results: [],
+      standings_delta: [],
+      notable_upset: null,
+      top_scorer_delta: [],
+    };
+    mockedInvoke.mockResolvedValueOnce(makeSnapshot()).mockResolvedValueOnce({
+      game: finishedGame,
+      round_summary: roundSummary,
+    });
+
+    render(<MatchSimulation />);
+
+    await waitFor(function (): void {
+      expect(screen.getByTestId("match-live")).toHaveTextContent("Home FC");
+    });
+
+    fireEvent.click(screen.getByTestId("match-live"));
+
+    await waitFor(function (): void {
       expect(mockedInvoke).toHaveBeenLastCalledWith("finish_live_match");
+      expect(screen.getByTestId("postmatch-finish")).toBeInTheDocument();
     });
 
     expect(setGameStateMock).toHaveBeenCalledWith(finishedGame);
-    expect(navigateMock).toHaveBeenCalledWith("/dashboard");
+
+    expect(screen.getByTestId("postmatch-round-summary")).toHaveTextContent(
+      '"matchday":1',
+    );
+
+    fireEvent.click(screen.getByTestId("postmatch-finish"));
+
+    await waitFor(function (): void {
+      expect(navigateMock).toHaveBeenCalledWith("/dashboard");
+    });
   });
 });

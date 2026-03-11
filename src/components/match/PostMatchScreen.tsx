@@ -6,6 +6,7 @@ import {
   MatchSnapshot,
   MatchEvent,
   getTeamTalkOptions,
+  RoundSummary,
   TeamTalkTone,
 } from "./types";
 import { getEventDisplay, getPlayerName } from "./helpers";
@@ -32,6 +33,7 @@ interface PostMatchScreenProps {
   userSide: "Home" | "Away" | null;
   isSpectator: boolean;
   importantEvents: MatchEvent[];
+  roundSummary: RoundSummary | null;
   onPressConference: () => void;
   onFinish: () => void;
 }
@@ -42,6 +44,7 @@ export default function PostMatchScreen({
   userSide,
   isSpectator,
   importantEvents,
+  roundSummary,
   onPressConference,
   onFinish,
 }: PostMatchScreenProps) {
@@ -302,6 +305,105 @@ export default function PostMatchScreen({
                 home={countType(homeEvents, "Corner")}
                 away={countType(awayEvents, "Corner")}
               />
+            </div>
+
+            <div className="bg-navy-800 rounded-xl border border-navy-700 p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <BarChart3 className="w-4 h-4 text-accent-400" />
+                <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500">
+                  {t("match.roundSummary")}
+                </h3>
+              </div>
+
+              {roundSummary ? (
+                <div className="flex flex-col gap-4">
+                  <div>
+                    <p className="text-sm font-heading font-bold text-gray-200 mb-2">
+                      {t("schedule.matchday", {
+                        number: roundSummary.matchday,
+                      })}
+                    </p>
+                    <div className="flex flex-col gap-1 text-xs text-gray-300">
+                      {roundSummary.completed_results.length > 0 ? (
+                        roundSummary.completed_results.map((result) => (
+                          <div
+                            key={result.fixture_id}
+                            className="flex items-center justify-between gap-3"
+                          >
+                            <span className="truncate">
+                              {result.home_team_name} {result.home_goals} -{" "}
+                              {result.away_goals} {result.away_team_name}
+                            </span>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-gray-500">{t("common.none")}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="text-[10px] font-heading font-bold uppercase tracking-widest text-gray-500 mb-2">
+                      {t("home.leagueTable")}
+                    </p>
+                    <div className="flex flex-col gap-1 text-xs">
+                      {roundSummary.standings_delta.slice(0, 5).map((entry) => (
+                        <div
+                          key={entry.team_id}
+                          className="flex items-center justify-between gap-3 text-gray-300"
+                        >
+                          <span>
+                            {entry.current_position}. {entry.team_name}
+                          </span>
+                          <span className="font-heading font-bold tabular-nums text-gray-400">
+                            {entry.points}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="text-[10px] font-heading font-bold uppercase tracking-widest text-gray-500 mb-2">
+                      {t("home.topScorers")}
+                    </p>
+                    <div className="flex flex-col gap-1 text-xs">
+                      {roundSummary.top_scorer_delta.length > 0 ? (
+                        roundSummary.top_scorer_delta
+                          .slice(0, 5)
+                          .map((entry) => (
+                            <div
+                              key={entry.player_id}
+                              className="flex items-center justify-between gap-3 text-gray-300"
+                            >
+                              <span className="truncate">
+                                {entry.current_rank}. {entry.player_name}
+                              </span>
+                              <span className="font-heading font-bold tabular-nums text-accent-400">
+                                {entry.current_goals}
+                              </span>
+                            </div>
+                          ))
+                      ) : (
+                        <p className="text-gray-500">{t("home.noGoals")}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {roundSummary.notable_upset && (
+                    <div className="rounded-lg bg-navy-700/50 px-3 py-2 text-xs text-gray-300">
+                      {roundSummary.notable_upset.underdog_team_name}{" "}
+                      {roundSummary.notable_upset.home_goals} -{" "}
+                      {roundSummary.notable_upset.away_goals}{" "}
+                      {roundSummary.notable_upset.favorite_team_name}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <p className="text-xs text-gray-500">
+                  {t("match.roundSummaryUnavailable")}
+                </p>
+              )}
             </div>
           </div>
 

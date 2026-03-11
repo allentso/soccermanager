@@ -999,6 +999,8 @@
     "matchOver": "Jogo Terminado",
     "ratings": "Classificações de {{team}}",
     "motm": "Melhor em Campo",
+    "roundSummary": "Resumo da Jornada",
+    "roundSummaryUnavailable": "Resumo da jornada indisponível.",
     "scorers": "Marcadores",
     "noGoals": "Sem golos marcados.",
     "matchComplete": "Jogo completo.",

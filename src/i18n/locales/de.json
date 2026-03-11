@@ -999,6 +999,8 @@
     "matchOver": "Spiel beendet",
     "ratings": "{{team}} Bewertungen",
     "motm": "Spieler des Spiels",
+    "roundSummary": "Spieltagsübersicht",
+    "roundSummaryUnavailable": "Keine Spieltagsübersicht verfügbar.",
     "scorers": "Torschützen",
     "noGoals": "Keine Tore erzielt.",
     "matchComplete": "Spiel beendet.",

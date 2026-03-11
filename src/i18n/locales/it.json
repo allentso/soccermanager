@@ -999,6 +999,8 @@
     "matchOver": "Partita terminata",
     "ratings": "Voti di {{team}}",
     "motm": "Migliore in campo",
+    "roundSummary": "Riepilogo della Giornata",
+    "roundSummaryUnavailable": "Riepilogo della giornata non disponibile.",
     "scorers": "Marcatori",
     "noGoals": "Nessun gol segnato.",
     "matchComplete": "Partita conclusa.",

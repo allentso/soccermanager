@@ -999,6 +999,8 @@
     "matchOver": "Match Terminé",
     "ratings": "Notes de {{team}}",
     "motm": "Homme du Match",
+    "roundSummary": "Résumé de la Journée",
+    "roundSummaryUnavailable": "Aucun résumé de journée disponible.",
     "scorers": "Buteurs",
     "noGoals": "Aucun but marqué.",
     "matchComplete": "Match terminé.",

@@ -999,6 +999,8 @@
     "matchOver": "Match Over",
     "ratings": "{{team}} Ratings",
     "motm": "Man of the Match",
+    "roundSummary": "Round Summary",
+    "roundSummaryUnavailable": "Round summary unavailable.",
     "scorers": "Scorers",
     "noGoals": "No goals scored.",
     "matchComplete": "Match complete.",
