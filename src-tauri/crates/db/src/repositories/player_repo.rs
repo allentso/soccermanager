@@ -412,6 +412,8 @@ mod tests {
                 severity: 55,
             }),
             recent_treatment: None,
+            pending_promise: None,
+            talk_cooldown_until: None,
         };
 
         upsert_player(db.conn(), &player).unwrap();

@@ -1,5 +1,5 @@
 use crate::game::Game;
-use domain::player::{Player, RecentTreatmentMemory};
+use domain::player::{Player, PlayerPromise, PlayerPromiseKind, RecentTreatmentMemory};
 use rand::Rng;
 use serde::Serialize;
 use std::collections::HashMap;
@@ -423,6 +423,31 @@ fn update_recent_treatment(player: &mut Player, action_key: &str) {
     }
 }
 
+fn implied_promise(message_id: &str, option_id: &str) -> Option<PlayerPromise> {
+    if message_id.starts_with("morale_talk_") && option_id == "promise_time" {
+        return Some(PlayerPromise {
+            kind: PlayerPromiseKind::PlayingTime,
+            matches_remaining: 1,
+        });
+    }
+
+    if message_id.starts_with("bench_complaint_") && option_id == "promise_chance" {
+        return Some(PlayerPromise {
+            kind: PlayerPromiseKind::PlayingTime,
+            matches_remaining: 1,
+        });
+    }
+
+    None
+}
+
+fn should_apply_talk_cooldown(message_id: &str) -> bool {
+    message_id.starts_with("morale_talk_")
+        || message_id.starts_with("bench_complaint_")
+        || message_id.starts_with("happy_player_")
+        || message_id.starts_with("contract_concern_")
+}
+
 /// Apply the effect of a player conversation choice.
 /// Returns a description of what happened, or None if the message wasn't a player event.
 pub fn apply_player_response(
@@ -604,6 +629,7 @@ pub fn apply_player_response(
     // Apply morale change
     if let Some(player) = game.players.iter_mut().find(|p| p.id == player_id) {
         let action_key = treatment_key(message_id, option_id);
+        let current_day = game.clock.current_date.format("%Y-%m-%d").to_string();
         let adjusted_delta = capped_by_unresolved_issue(
             reduced_by_recent_treatment(outcome.delta, player, &action_key),
             player,
@@ -622,6 +648,14 @@ pub fn apply_player_response(
         let trust = (i16::from(player.morale_core.manager_trust) + trust_delta).clamp(0, 100) as u8;
         player.morale_core.manager_trust = trust;
         update_recent_treatment(player, &action_key);
+
+        if let Some(promise) = implied_promise(message_id, option_id) {
+            player.morale_core.pending_promise = Some(promise);
+        }
+
+        if should_apply_talk_cooldown(message_id) {
+            player.morale_core.talk_cooldown_until = Some(current_day);
+        }
     }
 
     // "No renewal" tanks morale of nearby players too (dressing room effect)

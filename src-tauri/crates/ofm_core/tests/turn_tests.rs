@@ -1,7 +1,9 @@
 use chrono::{TimeZone, Utc};
 use domain::league::{Fixture, FixtureStatus, League, StandingEntry};
 use domain::manager::Manager;
-use domain::player::{Player, PlayerAttributes, Position};
+use domain::player::{
+    Player, PlayerAttributes, PlayerIssueCategory, PlayerPromise, PlayerPromiseKind, Position,
+};
 use domain::team::Team;
 use engine::Side;
 use engine::report::{GoalDetail, MatchReport, PlayerMatchStats, TeamStats};
@@ -790,6 +792,32 @@ fn apply_match_report_individual_morale_boost_from_goals() {
         scorer.morale > 55,
         "Scorer morale should be boosted significantly, got {}",
         scorer.morale
+    );
+}
+
+#[test]
+fn broken_playing_time_promise_reduces_trust_after_match() {
+    let mut game = make_game_with_match();
+    let promised = game.players.iter_mut().find(|p| p.id == "t1_fwd0").unwrap();
+    promised.morale_core.manager_trust = 60;
+    promised.morale_core.pending_promise = Some(PlayerPromise {
+        kind: PlayerPromiseKind::PlayingTime,
+        matches_remaining: 1,
+    });
+
+    let report = empty_report(1, 0);
+    turn::apply_match_report(&mut game, 0, "team1", "team2", &report);
+
+    let promised = game.players.iter().find(|p| p.id == "t1_fwd0").unwrap();
+    assert!(promised.morale_core.manager_trust < 60);
+    assert!(promised.morale_core.pending_promise.is_none());
+    assert_eq!(
+        promised
+            .morale_core
+            .unresolved_issue
+            .as_ref()
+            .map(|issue| &issue.category),
+        Some(&PlayerIssueCategory::PlayingTime)
     );
 }
 

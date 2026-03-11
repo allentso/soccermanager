@@ -164,10 +164,23 @@ pub struct RecentTreatmentMemory {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum PlayerPromiseKind {
+    PlayingTime,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PlayerPromise {
+    pub kind: PlayerPromiseKind,
+    pub matches_remaining: u8,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PlayerMoraleCore {
     pub manager_trust: u8,
     pub unresolved_issue: Option<PlayerIssue>,
     pub recent_treatment: Option<RecentTreatmentMemory>,
+    pub pending_promise: Option<PlayerPromise>,
+    pub talk_cooldown_until: Option<String>,
 }
 
 impl Default for PlayerMoraleCore {
@@ -176,6 +189,8 @@ impl Default for PlayerMoraleCore {
             manager_trust: 50,
             unresolved_issue: None,
             recent_treatment: None,
+            pending_promise: None,
+            talk_cooldown_until: None,
         }
     }
 }

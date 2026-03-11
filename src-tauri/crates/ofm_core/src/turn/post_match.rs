@@ -1,7 +1,9 @@
 use crate::game::Game;
 use crate::messages;
 use domain::league::{FixtureStatus, GoalEvent, MatchResult};
-use domain::player::Position as DomainPosition;
+use domain::player::{
+    PlayerIssue, PlayerIssueCategory, PlayerPromiseKind, Position as DomainPosition,
+};
 use log::debug;
 
 /// Apply a completed match report to the game state: update fixture, standings,
@@ -70,6 +72,7 @@ pub fn apply_match_report(
 
     // Update player season stats from the engine report
     apply_player_stats(game, report, home_team_id, away_team_id);
+    resolve_post_match_promises(game, report, home_team_id, away_team_id);
 
     // Deplete stamina for players who played
     deplete_match_stamina(game, home_team_id);
@@ -212,6 +215,60 @@ fn apply_player_stats(
                 };
                 if conceded_zero {
                     player.stats.clean_sheets += 1;
+                }
+            }
+        }
+    }
+}
+
+fn resolve_post_match_promises(
+    game: &mut Game,
+    report: &engine::MatchReport,
+    home_team_id: &str,
+    away_team_id: &str,
+) {
+    for player in game.players.iter_mut() {
+        let Some(team_id) = player.team_id.as_deref() else {
+            continue;
+        };
+        if team_id != home_team_id && team_id != away_team_id {
+            continue;
+        }
+
+        let Some(promise) = player.morale_core.pending_promise.clone() else {
+            continue;
+        };
+
+        let played = report.player_stats.contains_key(&player.id);
+
+        match promise.kind {
+            PlayerPromiseKind::PlayingTime => {
+                if played {
+                    player.morale_core.pending_promise = None;
+                    player.morale_core.manager_trust =
+                        (i16::from(player.morale_core.manager_trust) + 3).clamp(0, 100) as u8;
+
+                    if player
+                        .morale_core
+                        .unresolved_issue
+                        .as_ref()
+                        .is_some_and(|issue| issue.category == PlayerIssueCategory::PlayingTime)
+                    {
+                        player.morale_core.unresolved_issue = None;
+                    }
+                } else if promise.matches_remaining <= 1 {
+                    player.morale_core.pending_promise = None;
+                    player.morale_core.manager_trust =
+                        (i16::from(player.morale_core.manager_trust) - 12).clamp(0, 100) as u8;
+                    player.morale_core.unresolved_issue = Some(PlayerIssue {
+                        category: PlayerIssueCategory::PlayingTime,
+                        severity: 75,
+                    });
+                } else {
+                    player.morale_core.pending_promise = Some(domain::player::PlayerPromise {
+                        kind: PlayerPromiseKind::PlayingTime,
+                        matches_remaining: promise.matches_remaining - 1,
+                    });
                 }
             }
         }

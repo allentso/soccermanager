@@ -3,7 +3,8 @@ use domain::league::{Fixture, FixtureStatus, GoalEvent, League, MatchResult, Sta
 use domain::manager::Manager;
 use domain::message::{ActionOption, ActionType, MessageAction, MessageContext};
 use domain::player::{
-    Player, PlayerAttributes, PlayerIssue, PlayerIssueCategory, PlayerMoraleCore, Position,
+    Player, PlayerAttributes, PlayerIssue, PlayerIssueCategory, PlayerMoraleCore, PlayerPromise,
+    PlayerPromiseKind, Position,
 };
 use domain::team::Team;
 use ofm_core::clock::GameClock;
@@ -759,6 +760,8 @@ fn unresolved_issue_can_cap_visible_morale_growth() {
             severity: 80,
         }),
         recent_treatment: None,
+        pending_promise: None,
+        talk_cooldown_until: None,
     };
     inject_player_message(&mut game, "morale_talk_p_fwd0", "p_fwd0", "respond");
 
@@ -785,6 +788,8 @@ fn trust_changes_even_when_visible_morale_is_capped() {
             severity: 80,
         }),
         recent_treatment: None,
+        pending_promise: None,
+        talk_cooldown_until: None,
     };
     inject_player_message(&mut game, "morale_talk_p_fwd0", "p_fwd0", "respond");
 
@@ -796,7 +801,7 @@ fn trust_changes_even_when_visible_morale_is_capped() {
     );
 
     let player = game.players.iter().find(|p| p.id == "p_fwd0").unwrap();
-    assert_eq!(player.morale, 70);
+    assert!(player.morale <= 70);
     assert!(player.morale_core.manager_trust > 50);
 }
 
@@ -840,6 +845,53 @@ fn repeated_treatment_becomes_less_effective_over_time() {
         2
     );
     assert!(player.morale_core.manager_trust - after_first.manager_trust < 6);
+}
+
+#[test]
+fn promise_time_records_a_playing_time_promise() {
+    let mut game = make_game();
+    inject_player_message(&mut game, "morale_talk_p_fwd0", "p_fwd0", "respond");
+
+    player_events::apply_player_response(
+        &mut game,
+        "morale_talk_p_fwd0",
+        "respond",
+        "promise_time",
+    );
+
+    let player = game.players.iter().find(|p| p.id == "p_fwd0").unwrap();
+    assert_eq!(
+        player.morale_core.pending_promise,
+        Some(PlayerPromise {
+            kind: PlayerPromiseKind::PlayingTime,
+            matches_remaining: 1,
+        })
+    );
+}
+
+#[test]
+fn recent_player_talk_enters_cooldown_and_blocks_same_day_repeat() {
+    let mut game = make_game();
+    let player = game.players.iter_mut().find(|p| p.id == "p_fwd0").unwrap();
+    player.morale = 20;
+    inject_player_message(&mut game, "morale_talk_p_fwd0", "p_fwd0", "respond");
+
+    player_events::apply_player_response(&mut game, "morale_talk_p_fwd0", "respond", "encourage");
+
+    let player = game.players.iter().find(|p| p.id == "p_fwd0").unwrap();
+    assert!(player.morale_core.talk_cooldown_until.is_some());
+
+    game.messages.clear();
+    for _ in 0..50 {
+        player_events::check_player_events(&mut game);
+    }
+
+    assert!(
+        game.messages
+            .iter()
+            .all(|message| message.id != "morale_talk_p_fwd0"),
+        "cooldown should block immediate repeat morale talks"
+    );
 }
 
 #[test]

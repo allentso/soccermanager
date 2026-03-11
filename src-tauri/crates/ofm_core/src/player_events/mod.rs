@@ -15,6 +15,10 @@ use message_builders::{
     bench_complaint_message, contract_concern_message, happy_player_message, low_morale_message,
 };
 
+fn talk_cooldown_active(player: &domain::player::Player, today: &str) -> bool {
+    player.morale_core.talk_cooldown_until.as_deref() == Some(today)
+}
+
 /// Check all player-related events and generate inbox messages.
 /// Called once per day from process_day().
 pub fn check_player_events(game: &mut Game) {
@@ -54,6 +58,9 @@ pub fn check_player_events(game: &mut Game) {
             continue;
         }
         if player.injury.is_some() {
+            continue;
+        }
+        if talk_cooldown_active(player, &today) {
             continue;
         }
 
@@ -99,6 +106,9 @@ pub fn check_player_events(game: &mut Game) {
                     continue;
                 }
                 if player.position == domain::player::Position::Goalkeeper {
+                    continue;
+                }
+                if talk_cooldown_active(player, &today) {
                     continue;
                 }
 
@@ -147,6 +157,9 @@ pub fn check_player_events(game: &mut Game) {
                 break;
             }
             if player.team_id.as_deref() != Some(&user_team_id) {
+                continue;
+            }
+            if talk_cooldown_active(player, &today) {
                 continue;
             }
 
