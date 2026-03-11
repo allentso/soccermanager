@@ -396,9 +396,46 @@ describe("InboxTab", function (): void {
     fireEvent.click(screen.getByText("Return the praise"));
 
     await waitFor(function (): void {
-      expect(screen.getByText("Resolved morale +3")).toBeInTheDocument();
+      expect(
+        screen.getByText("Outcome: Resolved morale +3"),
+      ).toBeInTheDocument();
     });
 
     expect(onGameUpdate).toHaveBeenCalledWith(resolvedGameState);
+  });
+
+  it("tells the user that player-event response outcomes vary", function (): void {
+    const action: MessageAction = {
+      id: "respond",
+      label: "Respond",
+      action_type: {
+        ChooseOption: {
+          options: [
+            {
+              id: "encourage",
+              label: "Encourage them",
+              description: "Try to lift their spirits.",
+            },
+          ],
+        },
+      },
+      resolved: false,
+    };
+
+    renderInboxTab({
+      gameState: createGameState([
+        createMessage({
+          id: "morale_talk_p1",
+          category: "PlayerMorale",
+          read: true,
+          actions: [action],
+        }),
+      ]),
+      initialMessageId: "morale_talk_p1",
+    });
+
+    expect(
+      screen.getByText("Choose your response — outcome varies"),
+    ).toBeInTheDocument();
   });
 });

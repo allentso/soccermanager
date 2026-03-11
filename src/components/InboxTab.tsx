@@ -96,6 +96,13 @@ const ROUTE_TAB_MAP: Record<string, string> = {
   home: "Home",
 };
 
+const PLAYER_EVENT_MESSAGE_PREFIXES = [
+  "morale_talk_",
+  "bench_complaint_",
+  "happy_player_",
+  "contract_concern_",
+];
+
 const CATEGORY_ICONS: Record<string, ReactNode> = {
   Welcome: <Trophy className="w-4 h-4" />,
   LeagueInfo: <ClipboardList className="w-4 h-4" />,
@@ -335,6 +342,12 @@ function getNavigationTarget(route: string): NavigationTarget {
     tab: resolvedTab,
     shouldResolveAction: true,
   };
+}
+
+function isPlayerEventMessage(messageId: string): boolean {
+  return PLAYER_EVENT_MESSAGE_PREFIXES.some((prefix) =>
+    messageId.startsWith(prefix),
+  );
 }
 
 function InboxDeleteConfirmModal({
@@ -974,6 +987,7 @@ export default function InboxTab({
                     <div className="mt-4 p-3 bg-primary-50 dark:bg-primary-500/10 border border-primary-200 dark:border-primary-500/30 rounded-xl flex items-center gap-2 animate-pulse">
                       <CheckCircle2 className="w-4 h-4 text-primary-500 shrink-0" />
                       <span className="text-sm font-medium text-primary-700 dark:text-primary-300">
+                        {t("inbox.effectOutcomeLabel", "Outcome")}:{" "}
                         {effectFeedback}
                       </span>
                     </div>
@@ -1004,10 +1018,15 @@ export default function InboxTab({
                             <div key={action.id} className="space-y-2">
                               <p className="text-xs font-heading font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 flex items-center gap-1.5 mb-3">
                                 <MessageCircle className="w-3.5 h-3.5" />
-                                {t(
-                                  "inbox.chooseResponse",
-                                  "Choose your response",
-                                )}
+                                {isPlayerEventMessage(selectedMessage.id)
+                                  ? t(
+                                      "inbox.chooseResponseOutcomeVaries",
+                                      "Choose your response — outcome varies",
+                                    )
+                                  : t(
+                                      "inbox.chooseResponse",
+                                      "Choose your response",
+                                    )}
                               </p>
                               {opts.map((opt) => (
                                 <button
