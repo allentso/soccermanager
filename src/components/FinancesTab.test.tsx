@@ -53,6 +53,7 @@ vi.mock("react-i18next", () => ({
         return `€${params?.amount}/wk at risk`;
       if (key === "finances.noContractRisks")
         return "No imminent contract risks";
+      if (key === "common.renewContract") return "Renew Contract";
       if (key === "finances.facilityTraining") return "Training Facility";
       if (key === "finances.facilityMedical") return "Medical Facility";
       if (key === "finances.facilityScouting") return "Scouting Facility";
@@ -446,6 +447,7 @@ describe("FinancesTab facilities", () => {
   });
 
   it("renders wage pressure and contract risk indicators for expiring players", () => {
+    const onSelectPlayer = vi.fn();
     const gameState = createGameState(
       {
         wage_budget: 50000,
@@ -473,7 +475,9 @@ describe("FinancesTab facilities", () => {
       ],
     );
 
-    render(<FinancesTab gameState={gameState} />);
+    render(
+      <FinancesTab gameState={gameState} onSelectPlayer={onSelectPlayer} />,
+    );
 
     expect(screen.getAllByText("Wage Pressure").length).toBeGreaterThan(0);
     expect(screen.getByText("130% of wage budget used")).toBeInTheDocument();
@@ -485,5 +489,14 @@ describe("FinancesTab facilities", () => {
     expect(screen.getByText("Expires 2025-04-30")).toBeInTheDocument();
     expect(screen.getByText("Expires 2025-10-15")).toBeInTheDocument();
     expect(screen.getByText("€60000/wk at risk")).toBeInTheDocument();
+    expect(
+      screen.getAllByRole("button", { name: "Renew Contract" }),
+    ).toHaveLength(2);
+
+    fireEvent.click(
+      screen.getAllByRole("button", { name: "Renew Contract" })[0],
+    );
+
+    expect(onSelectPlayer).toHaveBeenCalledWith("player-critical");
   });
 });

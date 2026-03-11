@@ -1,8 +1,21 @@
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { formatDate, formatWeeklyAmount } from "../lib/helpers";
+import {
+  formatDate,
+  formatWeeklyAmount,
+  getContractRiskBadgeVariant,
+  getContractRiskLevel,
+  getContractYearsRemaining,
+} from "../lib/helpers";
 import { PlayerData, TeamData, GameStateData } from "../store/gameStore";
-import { Card, CardHeader, CardBody, Badge, ProgressBar, CountryFlag } from "./ui";
+import {
+  Card,
+  CardHeader,
+  CardBody,
+  Badge,
+  ProgressBar,
+  CountryFlag,
+} from "./ui";
 import {
   ArrowLeft,
   Shield,
@@ -138,6 +151,16 @@ export default function PlayerProfile({
     t("common.freeAgent"),
     t("common.unknown"),
   );
+  const contractRiskLevel = getContractRiskLevel(
+    player.contract_end,
+    gameState.clock.current_date,
+  );
+  const contractRiskLabel =
+    contractRiskLevel === "critical"
+      ? t("finances.contractRiskCritical")
+      : contractRiskLevel === "warning"
+        ? t("finances.contractRiskWarning")
+        : t("finances.contractRiskStable");
 
   const isGK = player.position === "Goalkeeper";
 
@@ -256,7 +279,7 @@ export default function PlayerProfile({
 
       {/* Hero header */}
       <Card accent="primary" className="mb-5">
-        <div className="bg-gradient-to-r from-navy-700 to-navy-800 p-8 rounded-t-xl">
+        <div className="bg-linear-to-r from-navy-700 to-navy-800 p-8 rounded-t-xl">
           <div className="flex items-start gap-6">
             <div
               className={`w-24 h-24 rounded-2xl flex items-center justify-center font-heading font-bold text-4xl border-2 ${
@@ -287,7 +310,11 @@ export default function PlayerProfile({
                   </span>
                 ))}
                 <span className="text-gray-400 text-sm">
-                  <CountryFlag code={player.nationality} locale={i18n.language} className="mr-1 text-sm leading-none" />
+                  <CountryFlag
+                    code={player.nationality}
+                    locale={i18n.language}
+                    className="mr-1 text-sm leading-none"
+                  />
                   {countryName(player.nationality, i18n.language)}
                 </span>
                 <span className="text-gray-500">•</span>
@@ -395,7 +422,7 @@ export default function PlayerProfile({
 
             {/* Key stats in header */}
             <div className="hidden md:grid grid-cols-2 gap-3">
-              <div className="bg-white/5 rounded-xl px-5 py-3 text-center min-w-[100px]">
+              <div className="bg-white/5 rounded-xl px-5 py-3 text-center min-w-25">
                 <p className="text-xs text-gray-400 font-heading uppercase tracking-wider">
                   {t("common.condition")}
                 </p>
@@ -405,7 +432,7 @@ export default function PlayerProfile({
                   {player.condition}%
                 </p>
               </div>
-              <div className="bg-white/5 rounded-xl px-5 py-3 text-center min-w-[100px]">
+              <div className="bg-white/5 rounded-xl px-5 py-3 text-center min-w-25">
                 <p className="text-xs text-gray-400 font-heading uppercase tracking-wider">
                   {t("common.morale")}
                 </p>
@@ -415,7 +442,7 @@ export default function PlayerProfile({
                   {player.morale}%
                 </p>
               </div>
-              <div className="bg-white/5 rounded-xl px-5 py-3 text-center min-w-[100px]">
+              <div className="bg-white/5 rounded-xl px-5 py-3 text-center min-w-25">
                 <p className="text-xs text-gray-400 font-heading uppercase tracking-wider">
                   {t("common.value")}
                 </p>
@@ -423,7 +450,7 @@ export default function PlayerProfile({
                   {formatValue(player.market_value)}
                 </p>
               </div>
-              <div className="bg-white/5 rounded-xl px-5 py-3 text-center min-w-[100px]">
+              <div className="bg-white/5 rounded-xl px-5 py-3 text-center min-w-25">
                 <p className="text-xs text-gray-400 font-heading uppercase tracking-wider">
                   {t("common.wage")}
                 </p>
@@ -500,10 +527,29 @@ export default function PlayerProfile({
                 label={t("common.contract")}
                 value={
                   player.contract_end
-                    ? t("finances.until", {
-                        year: player.contract_end.substring(0, 4),
+                    ? t("finances.contractExpiresOn", {
+                        date: player.contract_end,
                       })
                     : t("playerProfile.noContract")
+                }
+              />
+              <InfoRow
+                icon={<Calendar className="w-4 h-4" />}
+                label={t("playerProfile.yearsRemaining")}
+                value={getContractYearsRemaining(
+                  player.contract_end,
+                  gameState.clock.current_date,
+                )}
+              />
+              <InfoRow
+                icon={<Briefcase className="w-4 h-4" />}
+                label={t("playerProfile.contractRisk")}
+                value={
+                  <Badge
+                    variant={getContractRiskBadgeVariant(contractRiskLevel)}
+                  >
+                    {contractRiskLabel}
+                  </Badge>
                 }
               />
               <InfoRow
@@ -741,7 +787,7 @@ function InfoRow({
 }: {
   icon: React.ReactNode;
   label: string;
-  value: string;
+  value: React.ReactNode;
 }) {
   return (
     <div className="flex items-center gap-3 py-2 border-b border-gray-100 dark:border-navy-600 last:border-0">

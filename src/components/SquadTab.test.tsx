@@ -1,12 +1,20 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { GameStateData, PlayerData, TeamData } from "../store/gameStore";
 import SquadTab from "./SquadTab";
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
-    t: (key: string, fallback?: string | Record<string, unknown>) =>
-      typeof fallback === "string" ? fallback : key,
+    t: (key: string, fallback?: string | Record<string, unknown>) => {
+      if (key === "common.renewContract") return "Renew Contract";
+      if (key === "playerProfile.yearsRemaining") return "Years Remaining";
+      if (key === "finances.contractRisk") return "Contract Risk";
+      if (key === "finances.contractRiskCritical") return "Critical";
+      if (key === "finances.contractRiskWarning") return "Warning";
+      if (key === "finances.contractExpiresOn")
+        return `Expires ${String((fallback as Record<string, unknown> | undefined)?.date ?? "")}`;
+      return typeof fallback === "string" ? fallback : key;
+    },
     i18n: { language: "en" },
   }),
 }));
@@ -195,5 +203,31 @@ describe("SquadTab", () => {
     expect(screen.queryByText("What this changes")).not.toBeInTheDocument();
     expect(screen.queryByTestId("bench-player-d5")).not.toBeInTheDocument();
     expect(screen.queryByTestId("pitch-slot-1")).not.toBeInTheDocument();
+  });
+
+  it("shows contract inspection columns and renew entry points for expiring players", () => {
+    const onSelectPlayer = vi.fn();
+    const gameState = makeGameState();
+    gameState.clock.current_date = "2026-08-01";
+    gameState.players[0].contract_end = "2026-10-15";
+
+    render(
+      <SquadTab
+        gameState={gameState}
+        managerId="mgr1"
+        onSelectPlayer={onSelectPlayer}
+        onGameUpdate={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("Years Remaining")).toBeInTheDocument();
+    expect(screen.getByText("Contract Risk")).toBeInTheDocument();
+    expect(screen.getByText("Critical")).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getAllByRole("button", { name: "Renew Contract" })[0],
+    );
+
+    expect(onSelectPlayer).toHaveBeenCalledWith("gk1");
   });
 });

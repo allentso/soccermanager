@@ -68,6 +68,47 @@ export function formatWeeklyAmount(
   return `${formattedAmount}${weeklySuffix}`;
 }
 
+export type ContractRiskLevel = "critical" | "warning" | "stable";
+
+export function getDaysUntil(targetDate: string, currentDate: string): number {
+  const millisecondsPerDay = 1000 * 60 * 60 * 24;
+  return Math.ceil(
+    (new Date(targetDate).getTime() - new Date(currentDate).getTime()) /
+      millisecondsPerDay,
+  );
+}
+
+export function getContractRiskLevel(
+  contractEnd: string | null,
+  currentDate: string,
+): ContractRiskLevel {
+  if (!contractEnd) return "stable";
+
+  const daysUntilExpiry = getDaysUntil(contractEnd, currentDate);
+
+  if (daysUntilExpiry <= 180) return "critical";
+  if (daysUntilExpiry <= 365) return "warning";
+  return "stable";
+}
+
+export function getContractRiskBadgeVariant(
+  level: ContractRiskLevel,
+): "accent" | "success" | "danger" {
+  if (level === "critical") return "danger";
+  if (level === "warning") return "accent";
+  return "success";
+}
+
+export function getContractYearsRemaining(
+  contractEnd: string | null,
+  currentDate: string,
+): string {
+  if (!contractEnd) return "—";
+
+  const daysUntilExpiry = Math.max(0, getDaysUntil(contractEnd, currentDate));
+  return (daysUntilExpiry / 365).toFixed(1);
+}
+
 export function positionBadgeVariant(pos: string): "accent" | "primary" | "success" | "danger" {
   switch (pos) {
     case "Goalkeeper": return "accent";

@@ -6,6 +6,9 @@ import { User } from "lucide-react";
 import {
   formatVal,
   formatWeeklyAmount,
+  getContractRiskBadgeVariant,
+  getContractRiskLevel,
+  getContractYearsRemaining,
   positionBadgeVariant,
 } from "../lib/helpers";
 import { useTranslation } from "react-i18next";
@@ -56,49 +59,6 @@ function getFacilityUpgradeCost(level: number): number {
 function formatSignedAmount(value: number): string {
   const formatted = formatVal(Math.abs(value));
   return value < 0 ? `-${formatted}` : formatted;
-}
-
-type ContractRiskLevel = "critical" | "warning" | "stable";
-
-function getDaysUntil(targetDate: string, currentDate: string): number {
-  const millisecondsPerDay = 1000 * 60 * 60 * 24;
-  return Math.ceil(
-    (new Date(targetDate).getTime() - new Date(currentDate).getTime()) /
-      millisecondsPerDay,
-  );
-}
-
-function getContractRiskLevel(
-  contractEnd: string | null,
-  currentDate: string,
-): ContractRiskLevel {
-  if (!contractEnd) {
-    return "stable";
-  }
-
-  const daysUntilExpiry = getDaysUntil(contractEnd, currentDate);
-
-  if (daysUntilExpiry <= 180) {
-    return "critical";
-  }
-
-  if (daysUntilExpiry <= 365) {
-    return "warning";
-  }
-
-  return "stable";
-}
-
-function getContractRiskBadgeVariant(level: ContractRiskLevel) {
-  if (level === "critical") {
-    return "danger" as const;
-  }
-
-  if (level === "warning") {
-    return "accent" as const;
-  }
-
-  return "success" as const;
 }
 
 interface ResolveMessageActionResult {
@@ -428,6 +388,13 @@ export default function FinancesTab({
                             date: player.contract_end,
                           })}
                         </p>
+                        <p className="text-xs text-gray-600 dark:text-gray-400">
+                          {t("playerProfile.yearsRemaining")}:{" "}
+                          {getContractYearsRemaining(
+                            player.contract_end,
+                            gameState.clock.current_date,
+                          )}
+                        </p>
                       </div>
                       <div className="flex flex-col items-end gap-2">
                         <Badge variant={getContractRiskBadgeVariant(riskLevel)}>
@@ -438,6 +405,18 @@ export default function FinancesTab({
                         <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">
                           €{player.wage.toLocaleString()}/wk
                         </span>
+                        {onSelectPlayer ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              onSelectPlayer(player.id);
+                            }}
+                          >
+                            {t("common.renewContract")}
+                          </Button>
+                        ) : null}
                       </div>
                     </div>
                   ))}
