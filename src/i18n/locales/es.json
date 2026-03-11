@@ -1244,6 +1244,10 @@
         "subject": "La masa salarial supera el presupuesto",
         "body": "Nuestra masa salarial anual (€{{annualWages}}) supera actualmente el presupuesto salarial asignado (€{{wageBudget}}).\n\nAunque podemos sostenerlo a corto plazo, la directiva preferiría ver la masa salarial bajo control."
       },
+      "seasonPayout": {
+        "subject": "Temporada {{season}} — Premio económico concedido",
+        "body": "La directiva ha confirmado un pago de €{{amount}} por tu {{position}}.º puesto en la liga. La cantidad ya se ha añadido al balance del club."
+      },
       "fitness": {
         "critical": {
           "subject": "URGENTE: Crisis de forma física del plantel",
@@ -1374,7 +1378,7 @@
       },
       "sponsor": {
         "subject": "Sponsorship Offer — {{sponsor}}",
-        "body": "Good news, boss! {{sponsor}} has expressed interest in becoming a sponsor of {{team}}.\n\nThey are offering a one-time payment of €{{amount}} in exchange for advertising space at the training ground.\n\nThis seems like a reasonable deal, but it is your call.",
+        "body": "Buenas noticias, míster: {{sponsor}} ha mostrado interés en convertirse en patrocinador de {{team}}.\n\nOfrecen un pago semanal de €{{amount}} durante las próximas 12 semanas a cambio de espacio publicitario en el campo de entrenamiento.\n\nParece un acuerdo razonable, pero la decisión es tuya.",
         "options": {
           "accept": {
             "label": "Aceptar el acuerdo",

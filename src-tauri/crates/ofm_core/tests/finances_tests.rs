@@ -3,7 +3,7 @@ use domain::league::{Fixture, FixtureStatus, League, MatchResult, StandingEntry}
 use domain::manager::Manager;
 use domain::player::{Player, PlayerAttributes, Position};
 use domain::staff::{Staff, StaffAttributes, StaffRole};
-use domain::team::Team;
+use domain::team::{Sponsorship, SponsorshipBonusCriterion, Team};
 use ofm_core::clock::GameClock;
 use ofm_core::finances;
 use ofm_core::game::Game;
@@ -109,6 +109,103 @@ fn make_monday_game() -> Game {
 // ---------------------------------------------------------------------------
 // process_weekly_finances — wage deductions
 // ---------------------------------------------------------------------------
+
+#[test]
+fn calc_wages_sums_player_and_staff_wages_for_a_team() {
+    let game = make_monday_game();
+
+    let weekly_wages = finances::calc_wages(&game, "team1");
+
+    assert_eq!(weekly_wages, 1_700);
+}
+
+#[test]
+fn calc_matchday_uses_explicit_attendance_and_ticket_inputs() {
+    let revenue = finances::calc_matchday(40_000, 2, 0.75, 20.0);
+
+    assert_eq!(revenue, 1_200_000);
+}
+
+#[test]
+fn calc_upkeep_defaults_to_zero_for_now() {
+    let game = make_monday_game();
+
+    let upkeep = finances::calc_upkeep(&game.teams[0]);
+
+    assert_eq!(upkeep, 0);
+}
+
+#[test]
+fn evaluate_sponsorship_bonus_sums_met_criteria_for_team_context() {
+    let sponsorship = Sponsorship {
+        sponsor_name: "Acme Corp".to_string(),
+        base_value: 100_000,
+        remaining_weeks: 8,
+        bonus_criteria: vec![
+            SponsorshipBonusCriterion::LeaguePosition {
+                max_position: 2,
+                bonus_amount: 50_000,
+            },
+            SponsorshipBonusCriterion::UnbeatenRun {
+                required_matches: 3,
+                bonus_amount: 25_000,
+            },
+        ],
+    };
+
+    let bonus = finances::evaluate_sponsorship_bonus(
+        Some(1),
+        &["W".to_string(), "D".to_string(), "W".to_string()],
+        &sponsorship,
+    );
+
+    assert_eq!(bonus, 75_000);
+}
+
+#[test]
+fn weekly_sponsorship_payout_is_applied_and_duration_decrements_on_monday() {
+    let mut game = make_monday_game();
+    let initial_finance = game.teams[0].finance;
+    game.teams[0].form = vec!["W".to_string(), "D".to_string(), "W".to_string()];
+    game.teams[0].sponsorship = Some(Sponsorship {
+        sponsor_name: "Acme Corp".to_string(),
+        base_value: 100_000,
+        remaining_weeks: 2,
+        bonus_criteria: vec![SponsorshipBonusCriterion::UnbeatenRun {
+            required_matches: 3,
+            bonus_amount: 25_000,
+        }],
+    });
+
+    finances::process_weekly_finances(&mut game);
+
+    let wages = (52_000 + 26_000 + 10_400) / 52;
+    let expected_sponsor_income = 125_000;
+    assert_eq!(
+        game.teams[0].finance,
+        initial_finance - wages + expected_sponsor_income
+    );
+    assert_eq!(game.teams[0].season_income, expected_sponsor_income);
+    assert_eq!(
+        game.teams[0].sponsorship.as_ref().unwrap().remaining_weeks,
+        1
+    );
+}
+
+#[test]
+fn sponsorship_expires_after_the_final_weekly_tick() {
+    let mut game = make_monday_game();
+    game.teams[0].sponsorship = Some(Sponsorship {
+        sponsor_name: "Acme Corp".to_string(),
+        base_value: 100_000,
+        remaining_weeks: 1,
+        bonus_criteria: vec![],
+    });
+
+    finances::process_weekly_finances(&mut game);
+
+    assert!(game.teams[0].sponsorship.is_none());
+}
 
 #[test]
 fn wages_deducted_on_monday() {

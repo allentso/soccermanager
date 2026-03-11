@@ -1194,6 +1194,10 @@
           "subject": "Monte ingaggi oltre il budget",
           "body": "Il nostro monte ingaggi annuale (€{{annualWages}}) supera attualmente il budget stipendi assegnato (€{{wageBudget}}).\n\nAnche se possiamo sostenerlo nel breve periodo, il consiglio preferirebbe vedere il monte ingaggi tornare sotto controllo."
         },
+        "seasonPayout": {
+          "subject": "Stagione {{season}} — Premio assegnato",
+          "body": "Il consiglio ha confermato un premio di €{{amount}} per il tuo {{position}}º posto in campionato. L'importo è stato aggiunto al saldo del club."
+        },
         "fitness": {
           "critical": {
             "subject": "URGENTE: Crisi di condizione della rosa",
@@ -1324,7 +1328,7 @@
       },
       "sponsor": {
         "subject": "Offerta di sponsorizzazione — {{sponsor}}",
-        "body": "Buone notizie, mister! {{sponsor}} ha espresso interesse a diventare sponsor del {{team}}.\n\nOffre un pagamento una tantum di €{{amount}} in cambio di spazio pubblicitario al centro sportivo.\n\nSembra un buon accordo, ma la decisione spetta a te.",
+        "body": "Buone notizie, mister! {{sponsor}} ha espresso interesse a diventare sponsor del {{team}}.\n\nOffre un pagamento settimanale di €{{amount}} per le prossime 12 settimane in cambio di spazio pubblicitario al centro sportivo.\n\nSembra un buon accordo, ma la decisione spetta a te.",
         "options": {
           "accept": {
             "label": "Accetta l'accordo",

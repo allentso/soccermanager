@@ -1244,6 +1244,10 @@
         "subject": "Folha Salarial Acima do Orçamento",
         "body": "Nossa folha salarial anual (€{{annualWages}}) atualmente excede o orçamento salarial definido (€{{wageBudget}}).\n\nEmbora possamos sustentar isso no curto prazo, a diretoria prefere ver a folha salarial sob controle."
       },
+      "seasonPayout": {
+        "subject": "Temporada {{season}} — Premiação concedida",
+        "body": "A diretoria confirmou um prêmio de €{{amount}} pelo seu {{position}}º lugar na liga. O valor já foi adicionado ao saldo do clube."
+      },
       "fitness": {
         "critical": {
           "subject": "URGENTE: Crise de Condição Física",
@@ -1374,7 +1378,7 @@
       },
       "sponsor": {
         "subject": "Oferta de Patrocínio — {{sponsor}}",
-        "body": "Boas notícias, chefe! {{sponsor}} demonstrou interesse em se tornar patrocinador do {{team}}.\n\nEles estão oferecendo um pagamento único de €{{amount}} em troca de espaço publicitário no centro de treinamento.\n\nParece um bom negócio, mas a decisão é sua.",
+        "body": "Boas notícias, chefe! {{sponsor}} demonstrou interesse em se tornar patrocinador do {{team}}.\n\nEles estão oferecendo um pagamento semanal de €{{amount}} nas próximas 12 semanas em troca de espaço publicitário no centro de treinamento.\n\nParece um bom negócio, mas a decisão é sua.",
         "options": {
           "accept": {
             "label": "Aceitar o acordo",

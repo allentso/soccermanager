@@ -1,9 +1,12 @@
 use chrono::{TimeZone, Utc};
 use domain::league::{Fixture, FixtureStatus, League, MatchResult, StandingEntry};
 use domain::manager::Manager;
-use domain::message::*;
+use domain::message::{
+    ActionOption, ActionType, InboxMessage, MessageAction, MessageCategory, MessageContext,
+    MessagePriority,
+};
 use domain::player::{Player, PlayerAttributes, Position};
-use domain::team::Team;
+use domain::team::{SponsorshipBonusCriterion, Team};
 use ofm_core::clock::GameClock;
 use ofm_core::game::Game;
 use ofm_core::random_events::{apply_event_response, check_random_events};
@@ -534,6 +537,7 @@ fn check_random_events_community_event_structure() {
 fn sponsor_message(amount: u64) -> InboxMessage {
     let mut params = HashMap::new();
     params.insert("amount".to_string(), amount.to_string());
+    params.insert("sponsor".to_string(), "Test Sponsor".to_string());
     InboxMessage {
         id: "sponsor_2025-06-15".to_string(),
         subject: "Sponsorship Offer".to_string(),
@@ -587,8 +591,19 @@ fn apply_sponsor_accept_adds_finance() {
 
     assert!(result.is_some());
     assert!(result.unwrap().contains("accepted"));
-    assert_eq!(game.teams[0].finance, initial_finance + 100_000);
-    assert_eq!(game.teams[0].season_income, 100_000);
+    assert_eq!(game.teams[0].finance, initial_finance);
+    assert_eq!(game.teams[0].season_income, 0);
+    let sponsorship = game.teams[0]
+        .sponsorship
+        .as_ref()
+        .expect("accepted sponsor should create active sponsorship state");
+    assert_eq!(sponsorship.base_value, 100_000);
+    assert_eq!(sponsorship.remaining_weeks, 12);
+    assert_eq!(sponsorship.sponsor_name, "Test Sponsor");
+    assert!(matches!(
+        sponsorship.bonus_criteria.as_slice(),
+        [SponsorshipBonusCriterion::UnbeatenRun { .. }]
+    ));
     // Actions should be resolved
     let msg = game
         .messages
@@ -609,6 +624,7 @@ fn apply_sponsor_decline_no_finance_change() {
     assert!(result.is_some());
     assert!(result.unwrap().contains("declined"));
     assert_eq!(game.teams[0].finance, initial_finance);
+    assert!(game.teams[0].sponsorship.is_none());
     let msg = game
         .messages
         .iter()

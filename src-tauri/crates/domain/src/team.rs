@@ -20,6 +20,10 @@ pub struct Team {
     pub transfer_budget: i64,
     pub season_income: i64,
     pub season_expenses: i64,
+    #[serde(default)]
+    pub financial_ledger: Vec<FinancialTransaction>,
+    #[serde(default)]
+    pub sponsorship: Option<Sponsorship>,
 
     // Tactical
     pub formation: String,
@@ -159,6 +163,39 @@ pub struct TeamSeasonRecord {
     pub goals_against: u32,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum FinancialTransactionKind {
+    PrizeMoney,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct FinancialTransaction {
+    pub date: String,
+    pub description: String,
+    pub amount: i64,
+    pub kind: FinancialTransactionKind,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum SponsorshipBonusCriterion {
+    LeaguePosition {
+        max_position: u32,
+        bonus_amount: i64,
+    },
+    UnbeatenRun {
+        required_matches: usize,
+        bonus_amount: i64,
+    },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct Sponsorship {
+    pub sponsor_name: String,
+    pub base_value: i64,
+    pub remaining_weeks: u32,
+    pub bonus_criteria: Vec<SponsorshipBonusCriterion>,
+}
+
 impl Team {
     pub fn new(
         id: String,
@@ -184,6 +221,8 @@ impl Team {
             transfer_budget: 500_000,
             season_income: 0,
             season_expenses: 0,
+            financial_ledger: Vec::new(),
+            sponsorship: None,
             formation: "4-4-2".to_string(),
             play_style: PlayStyle::Balanced,
             training_focus: TrainingFocus::default(),

@@ -5,7 +5,7 @@ use chrono::Duration;
 use domain::league::FixtureStatus;
 use domain::message::*;
 use domain::player::PlayerSeasonStats;
-use domain::team::TeamSeasonRecord;
+use domain::team::{FinancialTransaction, FinancialTransactionKind, TeamSeasonRecord};
 
 /// Check if the season is complete (all fixtures played).
 pub fn is_season_complete(game: &Game) -> bool {
@@ -18,6 +18,30 @@ pub fn is_season_complete(game: &Game) -> bool {
     })
 }
 
+const PRIZE_MONEY_BY_POSITION: [i64; 10] = [
+    5_000_000, 3_000_000, 1_500_000, 750_000, 400_000, 300_000, 250_000, 200_000, 175_000, 150_000,
+];
+
+fn position_suffix(position: u32) -> &'static str {
+    match position {
+        1 => "st",
+        2 => "nd",
+        3 => "rd",
+        _ => "th",
+    }
+}
+
+fn prize_money_for_position(position: u32) -> i64 {
+    if position == 0 {
+        return 0;
+    }
+
+    PRIZE_MONEY_BY_POSITION
+        .get(position.saturating_sub(1) as usize)
+        .copied()
+        .unwrap_or(150_000)
+}
+
 /// Process end-of-season: record history, compute awards, reset stats, generate next season.
 /// Returns a summary struct for the frontend to display.
 pub fn process_end_of_season(game: &mut Game) -> EndOfSeasonSummary {
@@ -28,6 +52,7 @@ pub fn process_end_of_season(game: &mut Game) -> EndOfSeasonSummary {
 
     let season = league.season;
     let league_name = league.name.clone();
+    let today = game.clock.current_date.format("%Y-%m-%d").to_string();
 
     // 1. Compute final standings
     let final_standings = league.sorted_standings();
@@ -96,9 +121,12 @@ pub fn process_end_of_season(game: &mut Game) -> EndOfSeasonSummary {
     // 4. Record team season history
     for (idx, standing) in final_standings.iter().enumerate() {
         if let Some(team) = game.teams.iter_mut().find(|t| t.id == standing.team_id) {
+            let position = (idx + 1) as u32;
+            let prize_money = prize_money_for_position(position);
+
             team.history.push(TeamSeasonRecord {
                 season,
-                league_position: (idx + 1) as u32,
+                league_position: position,
                 played: standing.played,
                 won: standing.won,
                 drawn: standing.drawn,
@@ -108,6 +136,22 @@ pub fn process_end_of_season(game: &mut Game) -> EndOfSeasonSummary {
             });
             // Reset form
             team.form.clear();
+
+            if prize_money > 0 {
+                team.finance += prize_money;
+                team.season_income += prize_money;
+                team.financial_ledger.push(FinancialTransaction {
+                    date: today.clone(),
+                    description: format!(
+                        "Season {} prize money for {}{} place",
+                        season,
+                        position,
+                        position_suffix(position)
+                    ),
+                    amount: prize_money,
+                    kind: FinancialTransactionKind::PrizeMoney,
+                });
+            }
         }
     }
 
@@ -208,14 +252,7 @@ pub fn process_end_of_season(game: &mut Game) -> EndOfSeasonSummary {
     game.league = Some(new_league);
 
     // 8. Send end-of-season messages
-    let today = game.clock.current_date.format("%Y-%m-%d").to_string();
-
-    let pos_suffix = match user_position {
-        1 => "st",
-        2 => "nd",
-        3 => "rd",
-        _ => "th",
-    };
+    let pos_suffix = position_suffix(user_position);
 
     let user_team_name = game
         .teams
@@ -255,6 +292,35 @@ pub fn process_end_of_season(game: &mut Game) -> EndOfSeasonSummary {
 
     let existing_ids: std::collections::HashSet<String> =
         game.messages.iter().map(|m| m.id.clone()).collect();
+
+    let payout_msg_id = format!("season_payout_{}", season);
+    let user_prize_money = prize_money_for_position(user_position);
+    if user_prize_money > 0 && !existing_ids.contains(&payout_msg_id) {
+        let payout_message = InboxMessage::new(
+            payout_msg_id,
+            format!("Season {} Prize Money Awarded", season),
+            format!(
+                "The board has confirmed a prize payout of €{} for your {}{}-place league finish. The amount has been added to the club balance.",
+                user_prize_money,
+                user_position,
+                pos_suffix
+            ),
+            "Board of Directors".to_string(),
+            today.clone(),
+        )
+        .with_category(MessageCategory::Finance)
+        .with_priority(MessagePriority::High)
+        .with_sender_role("Chairman")
+        .with_i18n("be.msg.seasonPayout.subject", "be.msg.seasonPayout.body", {
+            let mut params = std::collections::HashMap::new();
+            params.insert("season".to_string(), season.to_string());
+            params.insert("amount".to_string(), user_prize_money.to_string());
+            params.insert("position".to_string(), user_position.to_string());
+            params
+        })
+        .with_sender_i18n("be.sender.boardOfDirectors", "be.role.chairman");
+        game.messages.push(payout_message);
+    }
 
     let msg_id = format!("season_end_{}", season);
     if !existing_ids.contains(&msg_id) {

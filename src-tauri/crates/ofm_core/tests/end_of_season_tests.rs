@@ -2,7 +2,7 @@ use chrono::{TimeZone, Utc};
 use domain::league::{Fixture, FixtureStatus, League, MatchResult, StandingEntry};
 use domain::manager::Manager;
 use domain::player::{Player, PlayerAttributes, PlayerSeasonStats, Position};
-use domain::team::Team;
+use domain::team::{FinancialTransactionKind, Team};
 use ofm_core::clock::GameClock;
 use ofm_core::end_of_season::{is_season_complete, process_end_of_season};
 use ofm_core::game::{BoardObjective, Game, ObjectiveType};
@@ -485,6 +485,113 @@ fn news_cleared() {
 // ---------------------------------------------------------------------------
 // process_end_of_season — messages
 // ---------------------------------------------------------------------------
+
+#[test]
+fn champion_receives_prize_money_and_ledger_entry() {
+    let mut game = make_completed_season_game();
+    let initial_finance = game
+        .teams
+        .iter()
+        .find(|team| team.id == "team1")
+        .unwrap()
+        .finance;
+
+    process_end_of_season(&mut game);
+
+    let team1 = game.teams.iter().find(|team| team.id == "team1").unwrap();
+    assert_eq!(team1.finance, initial_finance + 5_000_000);
+    assert_eq!(team1.season_income, 5_000_000);
+    assert_eq!(team1.financial_ledger.len(), 1);
+    assert_eq!(
+        team1.financial_ledger[0].kind,
+        FinancialTransactionKind::PrizeMoney
+    );
+    assert_eq!(team1.financial_ledger[0].amount, 5_000_000);
+}
+
+#[test]
+fn top_half_finish_receives_expected_prize_money() {
+    let mut game = make_completed_season_game();
+    game.teams.push(make_team("team3", "Third FC"));
+    game.teams.push(make_team("team4", "Fourth FC"));
+
+    if let Some(league) = &mut game.league {
+        league.standings = vec![
+            make_standing("team2", 6, 0, 0, 12, 2),
+            make_standing("team1", 4, 0, 2, 8, 5),
+            make_standing("team3", 2, 0, 4, 4, 8),
+            make_standing("team4", 0, 0, 6, 2, 12),
+        ];
+    }
+
+    let initial_finance = game
+        .teams
+        .iter()
+        .find(|team| team.id == "team1")
+        .unwrap()
+        .finance;
+
+    process_end_of_season(&mut game);
+
+    let team1 = game.teams.iter().find(|team| team.id == "team1").unwrap();
+    assert_eq!(team1.finance, initial_finance + 3_000_000);
+}
+
+#[test]
+fn lower_table_finish_receives_expected_prize_money() {
+    let mut game = make_completed_season_game();
+
+    for i in 3..=10 {
+        let team_id = format!("team{}", i);
+        game.teams
+            .push(make_team(&team_id, &format!("Team{} FC", i)));
+    }
+
+    if let Some(league) = &mut game.league {
+        let mut standings = Vec::new();
+
+        for i in 2..=10 {
+            standings.push(make_standing(&format!("team{}", i), 10, 2, 6, 20, 15));
+        }
+
+        standings.push(make_standing("team1", 0, 0, 18, 2, 40));
+        league.standings = standings;
+    }
+
+    let initial_finance = game
+        .teams
+        .iter()
+        .find(|team| team.id == "team1")
+        .unwrap()
+        .finance;
+
+    process_end_of_season(&mut game);
+
+    let team1 = game.teams.iter().find(|team| team.id == "team1").unwrap();
+    assert_eq!(team1.finance, initial_finance + 150_000);
+}
+
+#[test]
+fn prize_money_message_sent_once_per_season() {
+    let mut game = make_completed_season_game();
+    game.messages.push(domain::message::InboxMessage::new(
+        "season_payout_1".to_string(),
+        "Already exists".to_string(),
+        "...".to_string(),
+        "Board".to_string(),
+        "2026-05-20".to_string(),
+    ));
+
+    process_end_of_season(&mut game);
+
+    let payout_messages = game
+        .messages
+        .iter()
+        .filter(|message| message.id == "season_payout_1")
+        .count();
+
+    assert_eq!(payout_messages, 1);
+}
 
 #[test]
 fn season_end_message_sent() {

@@ -1244,6 +1244,10 @@
         "subject": "Wage Bill Exceeds Budget",
         "body": "Our annual wage bill (€{{annualWages}}) currently exceeds the allocated wage budget (€{{wageBudget}}).\n\nWhile we can sustain this in the short term, the board would prefer to see the wage bill brought under control."
       },
+      "seasonPayout": {
+        "subject": "Season {{season}} Prize Money Awarded",
+        "body": "The board has confirmed a prize payout of €{{amount}} for your {{position}}-place league finish. The amount has been added to the club balance."
+      },
       "fitness": {
         "critical": {
           "subject": "URGENT: Squad Fitness Crisis",
@@ -1374,7 +1378,7 @@
       },
       "sponsor": {
         "subject": "Sponsorship Offer — {{sponsor}}",
-        "body": "Good news, boss! {{sponsor}} has expressed interest in becoming a sponsor of {{team}}.\n\nThey are offering a one-time payment of €{{amount}} in exchange for advertising space at the training ground.\n\nThis seems like a reasonable deal, but it is your call.",
+        "body": "Good news, boss! {{sponsor}} has expressed interest in becoming a sponsor of {{team}}.\n\nThey are offering a weekly payment of €{{amount}} over the next 12 weeks in exchange for advertising space at the training ground.\n\nThis seems like a reasonable deal, but it is your call.",
         "options": {
           "accept": {
             "label": "Accept the deal",

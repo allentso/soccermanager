@@ -1,5 +1,6 @@
 use domain::team::{
-    PlayStyle, Team, TeamColors, TrainingFocus, TrainingIntensity, TrainingSchedule,
+    FinancialTransaction, PlayStyle, Sponsorship, Team, TeamColors, TrainingFocus,
+    TrainingIntensity, TrainingSchedule,
 };
 use rusqlite::{Connection, params};
 
@@ -14,6 +15,10 @@ pub fn upsert_team(conn: &Connection, t: &Team) -> Result<(), String> {
         serde_json::to_string(&t.training_groups).map_err(|e| format!("JSON error: {}", e))?;
     let match_roles_json =
         serde_json::to_string(&t.match_roles).map_err(|e| format!("JSON error: {}", e))?;
+    let financial_ledger_json =
+        serde_json::to_string(&t.financial_ledger).map_err(|e| format!("JSON error: {}", e))?;
+    let sponsorship_json =
+        serde_json::to_string(&t.sponsorship).map_err(|e| format!("JSON error: {}", e))?;
     let play_style_str = format!("{:?}", t.play_style);
     let training_focus_str = format!("{:?}", t.training_focus);
     let training_intensity_str = format!("{:?}", t.training_intensity);
@@ -23,11 +28,11 @@ pub fn upsert_team(conn: &Connection, t: &Team) -> Result<(), String> {
         "INSERT OR REPLACE INTO teams
          (id, name, short_name, country, city, stadium_name, stadium_capacity,
           finance, manager_id, reputation, wage_budget, transfer_budget,
-          season_income, season_expenses, formation, play_style,
-          training_focus, training_intensity, training_schedule,
-          founded_year, colors_primary, colors_secondary,
-          starting_xi_ids, match_roles, form, history, training_groups)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27)",
+         season_income, season_expenses, formation, play_style,
+         training_focus, training_intensity, training_schedule,
+         founded_year, colors_primary, colors_secondary,
+         starting_xi_ids, match_roles, form, history, training_groups, financial_ledger, sponsorship)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29)",
         params![
             t.id,
             t.name,
@@ -56,6 +61,8 @@ pub fn upsert_team(conn: &Connection, t: &Team) -> Result<(), String> {
             form_json,
             history_json,
             training_groups_json,
+            financial_ledger_json,
+            sponsorship_json,
         ],
     )
     .map_err(|e| format!("Failed to upsert team: {}", e))?;
@@ -114,6 +121,8 @@ fn row_to_team(row: &rusqlite::Row) -> rusqlite::Result<Team> {
     let form_json: String = row.get(24)?;
     let history_json: String = row.get(25)?;
     let training_groups_json: String = row.get(26)?;
+    let financial_ledger_json: String = row.get(27)?;
+    let sponsorship_json: String = row.get(28)?;
     let play_style_str: String = row.get(15)?;
     let training_focus_str: String = row.get(16)?;
     let training_intensity_str: String = row.get(17)?;
@@ -134,6 +143,10 @@ fn row_to_team(row: &rusqlite::Row) -> rusqlite::Result<Team> {
         transfer_budget: row.get(11)?,
         season_income: row.get(12)?,
         season_expenses: row.get(13)?,
+        financial_ledger: serde_json::from_str::<Vec<FinancialTransaction>>(&financial_ledger_json)
+            .unwrap_or_default(),
+        sponsorship: serde_json::from_str::<Option<Sponsorship>>(&sponsorship_json)
+            .unwrap_or_default(),
         formation: row.get(14)?,
         play_style: parse_play_style(&play_style_str),
         training_focus: parse_training_focus(&training_focus_str),
@@ -161,7 +174,7 @@ pub fn load_all_teams(conn: &Connection) -> Result<Vec<Team>, String> {
                     season_income, season_expenses, formation, play_style,
                     training_focus, training_intensity, training_schedule,
                     founded_year, colors_primary, colors_secondary,
-                    starting_xi_ids, match_roles, form, history, training_groups
+                    starting_xi_ids, match_roles, form, history, training_groups, financial_ledger, sponsorship
              FROM teams",
         )
         .map_err(|e| format!("Failed to prepare teams query: {}", e))?;
@@ -186,7 +199,7 @@ pub fn load_team(conn: &Connection, id: &str) -> Result<Option<Team>, String> {
                     season_income, season_expenses, formation, play_style,
                     training_focus, training_intensity, training_schedule,
                     founded_year, colors_primary, colors_secondary,
-                    starting_xi_ids, match_roles, form, history, training_groups
+                    starting_xi_ids, match_roles, form, history, training_groups, financial_ledger, sponsorship
              FROM teams WHERE id = ?1",
         )
         .map_err(|e| format!("Failed to prepare team query: {}", e))?;
@@ -206,7 +219,7 @@ pub fn load_team(conn: &Connection, id: &str) -> Result<Option<Team>, String> {
 mod tests {
     use super::*;
     use crate::game_database::GameDatabase;
-    use domain::team::TeamSeasonRecord;
+    use domain::team::{Sponsorship, SponsorshipBonusCriterion, TeamSeasonRecord};
 
     fn test_db() -> GameDatabase {
         GameDatabase::open_in_memory().unwrap()
@@ -384,5 +397,37 @@ mod tests {
         assert_eq!(loaded.match_roles.penalty_taker.as_deref(), Some("p3"));
         assert_eq!(loaded.match_roles.free_kick_taker.as_deref(), Some("p4"));
         assert_eq!(loaded.match_roles.corner_taker.as_deref(), Some("p5"));
+    }
+
+    #[test]
+    fn test_team_sponsorship_roundtrip() {
+        let db = test_db();
+        let mut team = sample_team("team-001", "Sponsor FC");
+        team.sponsorship = Some(Sponsorship {
+            sponsor_name: "Acme Corp".to_string(),
+            base_value: 100_000,
+            remaining_weeks: 12,
+            bonus_criteria: vec![SponsorshipBonusCriterion::UnbeatenRun {
+                required_matches: 3,
+                bonus_amount: 25_000,
+            }],
+        });
+
+        upsert_team(db.conn(), &team).unwrap();
+        let loaded = load_team(db.conn(), "team-001").unwrap().unwrap();
+
+        let sponsorship = loaded
+            .sponsorship
+            .expect("sponsorship should roundtrip through DB");
+        assert_eq!(sponsorship.sponsor_name, "Acme Corp");
+        assert_eq!(sponsorship.base_value, 100_000);
+        assert_eq!(sponsorship.remaining_weeks, 12);
+        assert!(matches!(
+            sponsorship.bonus_criteria.as_slice(),
+            [SponsorshipBonusCriterion::UnbeatenRun {
+                required_matches: 3,
+                bonus_amount: 25_000,
+            }]
+        ));
     }
 }
