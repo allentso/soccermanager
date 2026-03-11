@@ -437,35 +437,151 @@ fn happy_player_message_with_high_morale() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn contract_concern_within_90_days() {
-    let mut game = make_game();
-    // Set contract end 60 days from now
-    let end_date = (game.clock.current_date + chrono::Duration::days(60))
+fn contract_warning_cadence_changes_by_horizon() {
+    let mut twelve_month_game = make_game();
+    let twelve_month_end = (twelve_month_game.clock.current_date + chrono::Duration::days(330))
         .format("%Y-%m-%d")
         .to_string();
-    game.players
+    twelve_month_game
+        .players
         .iter_mut()
         .find(|p| p.id == "p_fwd0")
         .unwrap()
-        .contract_end = Some(end_date);
+        .contract_end = Some(twelve_month_end);
 
-    player_events::check_player_events(&mut game);
+    player_events::check_player_events(&mut twelve_month_game);
 
-    let contract_msgs: Vec<_> = game
-        .messages
-        .iter()
-        .filter(|m| m.id == "contract_concern_p_fwd0")
-        .collect();
     assert!(
-        !contract_msgs.is_empty(),
-        "Should generate contract concern for player with <90 days remaining"
+        twelve_month_game
+            .messages
+            .iter()
+            .any(|m| m.id == "contract_concern_p_fwd0_12m"),
+        "Should generate a 12-month contract warning"
+    );
+
+    let mut six_month_game = make_game();
+    let six_month_end = (six_month_game.clock.current_date + chrono::Duration::days(150))
+        .format("%Y-%m-%d")
+        .to_string();
+    six_month_game
+        .players
+        .iter_mut()
+        .find(|p| p.id == "p_fwd0")
+        .unwrap()
+        .contract_end = Some(six_month_end);
+
+    player_events::check_player_events(&mut six_month_game);
+
+    assert!(
+        six_month_game
+            .messages
+            .iter()
+            .any(|m| m.id == "contract_concern_p_fwd0_6m"),
+        "Should generate a 6-month contract warning"
+    );
+
+    let mut three_month_game = make_game();
+    let three_month_end = (three_month_game.clock.current_date + chrono::Duration::days(60))
+        .format("%Y-%m-%d")
+        .to_string();
+    three_month_game
+        .players
+        .iter_mut()
+        .find(|p| p.id == "p_fwd0")
+        .unwrap()
+        .contract_end = Some(three_month_end);
+
+    player_events::check_player_events(&mut three_month_game);
+
+    assert!(
+        three_month_game
+            .messages
+            .iter()
+            .any(|m| m.id == "contract_concern_p_fwd0_3m"),
+        "Should generate a 3-month contract warning"
+    );
+
+    let mut final_weeks_game = make_game();
+    let final_weeks_end = (final_weeks_game.clock.current_date + chrono::Duration::days(20))
+        .format("%Y-%m-%d")
+        .to_string();
+    final_weeks_game
+        .players
+        .iter_mut()
+        .find(|p| p.id == "p_fwd0")
+        .unwrap()
+        .contract_end = Some(final_weeks_end);
+
+    player_events::check_player_events(&mut final_weeks_game);
+
+    assert!(
+        final_weeks_game
+            .messages
+            .iter()
+            .any(|m| m.id == "contract_concern_p_fwd0_final"),
+        "Should generate a final-weeks contract warning"
     );
 }
 
 #[test]
-fn no_contract_concern_beyond_90_days() {
+fn contract_pressure_intensifies_as_expiry_approaches() {
+    let mut twelve_month_game = make_game();
+    let mut final_weeks_game = make_game();
+
+    let twelve_month_player = twelve_month_game
+        .players
+        .iter_mut()
+        .find(|p| p.id == "p_fwd0")
+        .unwrap();
+    twelve_month_player.morale = 80;
+    twelve_month_player.contract_end = Some(
+        (twelve_month_game.clock.current_date + chrono::Duration::days(330))
+            .format("%Y-%m-%d")
+            .to_string(),
+    );
+
+    let final_weeks_player = final_weeks_game
+        .players
+        .iter_mut()
+        .find(|p| p.id == "p_fwd0")
+        .unwrap();
+    final_weeks_player.morale = 80;
+    final_weeks_player.contract_end = Some(
+        (final_weeks_game.clock.current_date + chrono::Duration::days(20))
+            .format("%Y-%m-%d")
+            .to_string(),
+    );
+
+    player_events::check_player_events(&mut twelve_month_game);
+    player_events::check_player_events(&mut final_weeks_game);
+
+    let twelve_month_morale = twelve_month_game
+        .players
+        .iter()
+        .find(|p| p.id == "p_fwd0")
+        .unwrap()
+        .morale;
+    let final_weeks_morale = final_weeks_game
+        .players
+        .iter()
+        .find(|p| p.id == "p_fwd0")
+        .unwrap()
+        .morale;
+
+    assert!(
+        twelve_month_morale < 80,
+        "Even the early warning window should apply some morale pressure"
+    );
+    assert!(
+        final_weeks_morale < twelve_month_morale,
+        "Morale pressure should intensify as expiry gets closer"
+    );
+}
+
+#[test]
+fn no_contract_concern_beyond_twelve_months() {
     let mut game = make_game();
-    let end_date = (game.clock.current_date + chrono::Duration::days(120))
+    let end_date = (game.clock.current_date + chrono::Duration::days(420))
         .format("%Y-%m-%d")
         .to_string();
     game.players
@@ -479,11 +595,11 @@ fn no_contract_concern_beyond_90_days() {
     let contract_msgs: Vec<_> = game
         .messages
         .iter()
-        .filter(|m| m.id == "contract_concern_p_fwd0")
+        .filter(|m| m.id.starts_with("contract_concern_p_fwd0"))
         .collect();
     assert!(
         contract_msgs.is_empty(),
-        "No contract concern when >90 days remaining"
+        "No contract concern when more than 12 months remain"
     );
 }
 

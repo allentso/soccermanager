@@ -41,6 +41,8 @@ pub fn process_day(game: &mut Game) {
         training::check_squad_fitness_warnings(game);
     }
 
+    crate::contracts::process_contract_expiries(game);
+
     // Weekly financial processing (wages, matchday income, warnings)
     crate::finances::process_weekly_finances(game);
 
@@ -65,6 +67,8 @@ pub fn finish_live_match_day(game: &mut Game) {
     let today = game.clock.current_date.format("%Y-%m-%d").to_string();
     info!("[turn] finish_live_match_day: {}", today);
     generate_matchday_news(game, &today);
+
+    crate::contracts::process_contract_expiries(game);
 
     board_objectives::generate_objectives(game);
     board_objectives::update_objective_progress(game);

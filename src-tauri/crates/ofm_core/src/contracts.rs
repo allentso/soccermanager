@@ -1,8 +1,37 @@
 use crate::game::Game;
 use chrono::{Datelike, Months, NaiveDate};
+use domain::message::{InboxMessage, MessageCategory, MessagePriority};
 use domain::player::Player;
 use domain::team::Team;
 use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ContractWarningStage {
+    TwelveMonths,
+    SixMonths,
+    ThreeMonths,
+    FinalWeeks,
+}
+
+impl ContractWarningStage {
+    pub(crate) fn message_suffix(self) -> &'static str {
+        match self {
+            ContractWarningStage::TwelveMonths => "12m",
+            ContractWarningStage::SixMonths => "6m",
+            ContractWarningStage::ThreeMonths => "3m",
+            ContractWarningStage::FinalWeeks => "final",
+        }
+    }
+
+    pub(crate) fn morale_pressure(self) -> i16 {
+        match self {
+            ContractWarningStage::TwelveMonths => 2,
+            ContractWarningStage::SixMonths => 4,
+            ContractWarningStage::ThreeMonths => 6,
+            ContractWarningStage::FinalWeeks => 9,
+        }
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct RenewalOffer {
@@ -102,6 +131,86 @@ pub fn propose_renewal(
     Ok(outcome)
 }
 
+pub(crate) fn contract_warning_stage(
+    contract_end: Option<&str>,
+    current_date: NaiveDate,
+) -> Option<ContractWarningStage> {
+    let days_remaining = contract_days_remaining(contract_end, current_date)?;
+
+    if days_remaining <= 0 {
+        return None;
+    }
+
+    if days_remaining <= 30 {
+        return Some(ContractWarningStage::FinalWeeks);
+    }
+
+    if days_remaining <= 90 {
+        return Some(ContractWarningStage::ThreeMonths);
+    }
+
+    if days_remaining <= 180 {
+        return Some(ContractWarningStage::SixMonths);
+    }
+
+    if days_remaining <= 365 {
+        return Some(ContractWarningStage::TwelveMonths);
+    }
+
+    None
+}
+
+pub fn process_contract_expiries(game: &mut Game) {
+    let current_date = game.clock.current_date.date_naive();
+    let today = game.clock.current_date.format("%Y-%m-%d").to_string();
+
+    let expired_player_indices: Vec<usize> = game
+        .players
+        .iter()
+        .enumerate()
+        .filter_map(|(index, player)| {
+            let days_remaining =
+                contract_days_remaining(player.contract_end.as_deref(), current_date)?;
+            if player.team_id.is_some() && days_remaining <= 0 {
+                Some(index)
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    for player_index in expired_player_indices {
+        let player_id = game.players[player_index].id.clone();
+        let player_name = game.players[player_index].match_name.clone();
+        let team_id = game.players[player_index].team_id.clone();
+
+        if let Some(team_id) = team_id.as_deref()
+            && let Some(team) = game
+                .teams
+                .iter_mut()
+                .find(|candidate| candidate.id == team_id)
+        {
+            let team_name = team.name.clone();
+            remove_player_from_team_references(team, &player_id);
+
+            let player = &mut game.players[player_index];
+            player.team_id = None;
+            player.contract_end = None;
+            player.wage = 0;
+            player.transfer_listed = false;
+            player.loan_listed = false;
+            player.transfer_offers.clear();
+
+            game.messages.push(contract_expired_message(
+                &player_id,
+                &player_name,
+                &team_name,
+                &today,
+            ));
+        }
+    }
+}
+
 fn expected_wage(player: &Player, team: &Team, current_date: NaiveDate) -> u32 {
     let mut wage = player.wage as f32;
     let age = player_age_on(current_date, &player.date_of_birth);
@@ -162,15 +271,9 @@ fn player_age_on(current_date: NaiveDate, date_of_birth: &str) -> i32 {
 }
 
 fn remaining_contract_days(player: &Player, current_date: NaiveDate) -> i64 {
-    let Some(contract_end) = &player.contract_end else {
-        return 0;
-    };
-
-    let Ok(contract_end_date) = NaiveDate::parse_from_str(contract_end, "%Y-%m-%d") else {
-        return 0;
-    };
-
-    (contract_end_date - current_date).num_days().max(0)
+    contract_days_remaining(player.contract_end.as_deref(), current_date)
+        .unwrap_or(0)
+        .max(0)
 }
 
 fn round_up_to_nearest_thousand(value: u32) -> u32 {
@@ -179,4 +282,51 @@ fn round_up_to_nearest_thousand(value: u32) -> u32 {
     }
 
     ((value + 999) / 1000) * 1000
+}
+
+fn contract_days_remaining(contract_end: Option<&str>, current_date: NaiveDate) -> Option<i64> {
+    let contract_end = contract_end?;
+    let contract_end_date = NaiveDate::parse_from_str(contract_end, "%Y-%m-%d").ok()?;
+    Some((contract_end_date - current_date).num_days())
+}
+
+fn remove_player_from_team_references(team: &mut Team, player_id: &str) {
+    team.starting_xi_ids.retain(|id| id != player_id);
+
+    for group in &mut team.training_groups {
+        group.player_ids.retain(|id| id != player_id);
+    }
+
+    clear_match_role_if_matches(&mut team.match_roles.captain, player_id);
+    clear_match_role_if_matches(&mut team.match_roles.vice_captain, player_id);
+    clear_match_role_if_matches(&mut team.match_roles.penalty_taker, player_id);
+    clear_match_role_if_matches(&mut team.match_roles.free_kick_taker, player_id);
+    clear_match_role_if_matches(&mut team.match_roles.corner_taker, player_id);
+}
+
+fn clear_match_role_if_matches(role: &mut Option<String>, player_id: &str) {
+    if role.as_deref() == Some(player_id) {
+        *role = None;
+    }
+}
+
+fn contract_expired_message(
+    player_id: &str,
+    player_name: &str,
+    team_name: &str,
+    date: &str,
+) -> InboxMessage {
+    InboxMessage::new(
+        format!("contract_expired_{}", player_id),
+        format!("{} Leaves on a Free", player_name),
+        format!(
+            "{} has left {} after their contract expired. The player is now a free agent.",
+            player_name, team_name
+        ),
+        "Assistant Manager".to_string(),
+        date.to_string(),
+    )
+    .with_category(MessageCategory::Contract)
+    .with_priority(MessagePriority::Urgent)
+    .with_sender_role("Assistant Manager")
 }

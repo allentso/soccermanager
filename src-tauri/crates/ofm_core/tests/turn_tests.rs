@@ -345,6 +345,30 @@ fn process_day_generates_news() {
     );
 }
 
+#[test]
+fn process_day_releases_players_with_expired_contracts() {
+    let mut game = make_game_with_match();
+    game.league.as_mut().unwrap().fixtures[0].date = "2025-06-20".to_string();
+
+    let player = game.players.iter_mut().find(|p| p.id == "t1_fwd0").unwrap();
+    player.contract_end = Some("2025-06-15".to_string());
+    player.wage = 12_000;
+    player.morale = 70;
+
+    turn::process_day(&mut game);
+
+    let released_player = game.players.iter().find(|p| p.id == "t1_fwd0").unwrap();
+    assert_eq!(released_player.team_id, None);
+    assert_eq!(released_player.contract_end, None);
+    assert_eq!(released_player.wage, 0);
+    assert!(
+        game.messages
+            .iter()
+            .any(|message| message.id == "contract_expired_t1_fwd0"),
+        "An inbox message should explain that the player left on a free"
+    );
+}
+
 // ---------------------------------------------------------------------------
 // finish_live_match_day tests
 // ---------------------------------------------------------------------------

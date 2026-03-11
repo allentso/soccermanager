@@ -3,6 +3,7 @@ mod responses;
 
 pub use responses::{PlayerResponseEffect, apply_player_response};
 
+use crate::contracts::contract_warning_stage;
 use crate::game::Game;
 use domain::message::InboxMessage;
 use rand::Rng;
@@ -162,15 +163,22 @@ pub fn check_player_events(game: &mut Game) {
         }
     }
 
-    // --- 4. Contract concern (< 90 days remaining) ---
+    // --- 4. Contract concern / expiry pressure ---
     {
         let current_date = game.clock.current_date.date_naive();
-        for player in game.players.iter() {
+        for player in game.players.iter_mut() {
             if player.team_id.as_deref() != Some(&user_team_id) {
                 continue;
             }
 
-            let msg_id = format!("contract_concern_{}", player.id);
+            let Some(stage) = contract_warning_stage(player.contract_end.as_deref(), current_date)
+            else {
+                continue;
+            };
+
+            player.morale = (player.morale as i16 - stage.morale_pressure()).clamp(5, 100) as u8;
+
+            let msg_id = format!("contract_concern_{}_{}", player.id, stage.message_suffix());
             if existing_ids.contains(&msg_id) {
                 continue;
             }
@@ -179,15 +187,13 @@ pub fn check_player_events(game: &mut Game) {
                 && let Ok(end_date) = chrono::NaiveDate::parse_from_str(end_str, "%Y-%m-%d")
             {
                 let days_remaining = (end_date - current_date).num_days();
-                if days_remaining > 0 && days_remaining <= 90 {
-                    new_messages.push(contract_concern_message(
-                        &msg_id,
-                        &player.id,
-                        &player.match_name,
-                        days_remaining,
-                        &today,
-                    ));
-                }
+                new_messages.push(contract_concern_message(
+                    &msg_id,
+                    &player.id,
+                    &player.match_name,
+                    days_remaining,
+                    &today,
+                ));
             }
         }
     }
