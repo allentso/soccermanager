@@ -1,5 +1,6 @@
 mod news;
 mod post_match;
+mod round_summary;
 
 use crate::board_objectives;
 use crate::game::Game;
@@ -15,6 +16,10 @@ use log::{debug, info};
 // Re-export public items
 pub use news::generate_matchday_news;
 pub use post_match::apply_match_report;
+pub use round_summary::{
+    NotableUpset, RoundResultSummary, RoundSummary, StandingDelta, TopScorerDelta,
+    build_round_summary,
+};
 
 /// Process a single day advance.
 pub fn process_day(game: &mut Game) {

@@ -1101,3 +1101,237 @@ fn process_day_full_integration() {
     assert!(game.manager.satisfaction <= 100);
     assert!(game.manager.fan_approval <= 100);
 }
+
+fn make_round_summary_game() -> Game {
+    let date = Utc.with_ymd_and_hms(2025, 6, 15, 12, 0, 0).unwrap();
+    let clock = GameClock::new(date);
+    let mut manager = Manager::new(
+        "mgr1".to_string(),
+        "Test".to_string(),
+        "Manager".to_string(),
+        "1980-01-01".to_string(),
+        "England".to_string(),
+    );
+    manager.hire("team1".to_string());
+
+    let team1 = make_team("team1", "Leaders FC");
+    let team2 = make_team("team2", "Underdogs FC");
+    let team3 = make_team("team3", "Chargers FC");
+    let team4 = make_team("team4", "City FC");
+
+    let mut players = make_squad("team1", "t1");
+    players.extend(make_squad("team2", "t2"));
+    players.extend(make_squad("team3", "t3"));
+    players.extend(make_squad("team4", "t4"));
+
+    let today = date.format("%Y-%m-%d").to_string();
+    let league = League {
+        id: "league1".to_string(),
+        name: "Test League".to_string(),
+        season: 1,
+        fixtures: vec![
+            Fixture {
+                id: "fix1".to_string(),
+                matchday: 7,
+                date: today.clone(),
+                home_team_id: "team1".to_string(),
+                away_team_id: "team2".to_string(),
+                status: FixtureStatus::Completed,
+                result: Some(domain::league::MatchResult {
+                    home_goals: 0,
+                    away_goals: 1,
+                    home_scorers: vec![],
+                    away_scorers: vec![domain::league::GoalEvent {
+                        player_id: "t2_fwd0".to_string(),
+                        minute: 77,
+                    }],
+                }),
+            },
+            Fixture {
+                id: "fix2".to_string(),
+                matchday: 7,
+                date: today,
+                home_team_id: "team3".to_string(),
+                away_team_id: "team4".to_string(),
+                status: FixtureStatus::Completed,
+                result: Some(domain::league::MatchResult {
+                    home_goals: 2,
+                    away_goals: 0,
+                    home_scorers: vec![
+                        domain::league::GoalEvent {
+                            player_id: "t3_fwd0".to_string(),
+                            minute: 20,
+                        },
+                        domain::league::GoalEvent {
+                            player_id: "t3_fwd0".to_string(),
+                            minute: 72,
+                        },
+                    ],
+                    away_scorers: vec![],
+                }),
+            },
+        ],
+        standings: vec![
+            standing_entry("team1", 11, 30, 21, 11),
+            standing_entry("team2", 11, 23, 21, 11),
+            standing_entry("team3", 11, 31, 18, 8),
+            standing_entry("team4", 11, 27, 19, 14),
+        ],
+    };
+
+    let mut game = Game::new(
+        clock,
+        manager,
+        vec![team1, team2, team3, team4],
+        players,
+        vec![],
+        vec![],
+    );
+    game.league = Some(league);
+
+    set_team_overall(&mut game, "team1", 90);
+    set_team_overall(&mut game, "team2", 50);
+    set_team_overall(&mut game, "team3", 74);
+    set_team_overall(&mut game, "team4", 72);
+
+    game.players
+        .iter_mut()
+        .for_each(|player| match player.id.as_str() {
+            "t1_fwd0" => player.stats.goals = 5,
+            "t2_fwd0" => player.stats.goals = 3,
+            "t3_fwd0" => player.stats.goals = 6,
+            _ => {}
+        });
+
+    game
+}
+
+fn standing_entry(
+    team_id: &str,
+    played: u32,
+    points: u32,
+    goals_for: u32,
+    goals_against: u32,
+) -> StandingEntry {
+    StandingEntry {
+        team_id: team_id.to_string(),
+        played,
+        won: 0,
+        drawn: 0,
+        lost: 0,
+        goals_for,
+        goals_against,
+        points,
+    }
+}
+
+fn set_team_overall(game: &mut Game, team_id: &str, overall: u8) {
+    game.players
+        .iter_mut()
+        .filter(|player| player.team_id.as_deref() == Some(team_id))
+        .for_each(|player| set_player_overall(player, overall));
+}
+
+fn set_player_overall(player: &mut Player, overall: u8) {
+    player.attributes.pace = overall;
+    player.attributes.stamina = overall;
+    player.attributes.strength = overall;
+    player.attributes.passing = overall;
+    player.attributes.shooting = overall;
+    player.attributes.tackling = overall;
+    player.attributes.dribbling = overall;
+    player.attributes.defending = overall;
+    player.attributes.positioning = overall;
+    player.attributes.vision = overall;
+    player.attributes.decisions = overall;
+}
+
+fn previous_round_standings() -> Vec<StandingEntry> {
+    vec![
+        standing_entry("team1", 10, 30, 30, 20),
+        standing_entry("team3", 10, 28, 29, 18),
+        standing_entry("team4", 10, 27, 19, 12),
+        standing_entry("team2", 10, 20, 22, 21),
+    ]
+}
+
+#[test]
+fn build_round_summary_collects_results_and_deltas() {
+    let game = make_round_summary_game();
+    let summary = turn::build_round_summary(&game, 7, &previous_round_standings())
+        .expect("expected round summary");
+
+    assert_eq!(summary.matchday, 7);
+    assert!(summary.is_complete);
+    assert_eq!(summary.completed_results.len(), 2);
+
+    let chargers = summary
+        .standings_delta
+        .iter()
+        .find(|entry| entry.team_id == "team3")
+        .expect("team3 standings delta");
+    assert_eq!(chargers.previous_position, 2);
+    assert_eq!(chargers.current_position, 1);
+    assert_eq!(chargers.points_delta, 3);
+
+    let leaders = summary
+        .standings_delta
+        .iter()
+        .find(|entry| entry.team_id == "team1")
+        .expect("team1 standings delta");
+    assert_eq!(leaders.previous_position, 1);
+    assert_eq!(leaders.current_position, 2);
+    assert_eq!(leaders.points_delta, 0);
+
+    let scorer = summary
+        .top_scorer_delta
+        .iter()
+        .find(|entry| entry.player_id == "t3_fwd0")
+        .expect("top scorer delta for t3_fwd0");
+    assert_eq!(scorer.previous_rank, 2);
+    assert_eq!(scorer.current_rank, 1);
+    assert_eq!(scorer.previous_goals, 4);
+    assert_eq!(scorer.current_goals, 6);
+}
+
+#[test]
+fn build_round_summary_picks_biggest_overall_gap_upset() {
+    let game = make_round_summary_game();
+    let summary = turn::build_round_summary(&game, 7, &previous_round_standings())
+        .expect("expected round summary");
+
+    let upset = summary.notable_upset.expect("expected notable upset");
+    assert_eq!(upset.fixture_id, "fix1");
+    assert_eq!(upset.underdog_team_id, "team2");
+    assert_eq!(upset.favorite_team_id, "team1");
+    assert!(upset.strength_gap > 0.0);
+}
+
+#[test]
+fn build_round_summary_handles_incomplete_rounds() {
+    let mut game = make_round_summary_game();
+    let league = game.league.as_mut().unwrap();
+    league.fixtures[1].status = FixtureStatus::Scheduled;
+    league.fixtures[1].result = None;
+
+    let summary = turn::build_round_summary(&game, 7, &previous_round_standings())
+        .expect("expected partial round summary");
+
+    assert!(!summary.is_complete);
+    assert_eq!(summary.completed_results.len(), 1);
+    assert_eq!(summary.pending_fixture_count, 1);
+}
+
+#[test]
+fn build_round_summary_returns_none_when_round_has_no_completed_matches() {
+    let mut game = make_round_summary_game();
+    let league = game.league.as_mut().unwrap();
+    league.fixtures.iter_mut().for_each(|fixture| {
+        fixture.status = FixtureStatus::Scheduled;
+        fixture.result = None;
+    });
+
+    let summary = turn::build_round_summary(&game, 7, &previous_round_standings());
+
+    assert!(summary.is_none());
+}
