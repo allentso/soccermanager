@@ -1,3 +1,4 @@
+pub mod club;
 pub mod game;
 pub mod live_match;
 pub mod messages;
@@ -10,6 +11,7 @@ pub mod time;
 pub mod transfers;
 pub mod world;
 
+pub use club::*;
 pub use game::*;
 pub use live_match::*;
 pub use messages::*;

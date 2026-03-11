@@ -596,7 +596,18 @@
     "perWeekSuffix": "/sem",
     "wagePerWeek": "Salario/sem",
     "marketValue": "Valor de Mercado",
-    "until": "Hasta {{year}}"
+    "until": "Hasta {{year}}",
+    "facilities": "Instalaciones",
+    "facilityTraining": "Instalación de Entrenamiento",
+    "facilityMedical": "Instalación Médica",
+    "facilityScouting": "Instalación de Ojeo",
+    "facilityTrainingEffect": "Mejora la eficacia del entrenamiento con el tiempo.",
+    "facilityMedicalEffect": "Mejora la recuperación y la atención médica de los jugadores.",
+    "facilityScoutingEffect": "Mejora la calidad del ojeo y la profundidad de la información.",
+    "facilityLevel": "Nivel {{level}}",
+    "nextUpgradeCost": "Siguiente mejora: €{{amount}}",
+    "upgradeFacility": "Mejorar",
+    "insufficientFunds": "Fondos insuficientes"
   },
   "inbox": {
     "title": "Bandeja de Entrada",

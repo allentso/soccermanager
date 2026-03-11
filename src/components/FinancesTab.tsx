@@ -1,5 +1,7 @@
+import { useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { GameStateData } from "../store/gameStore";
-import { Card, CardHeader, CardBody, Badge, ProgressBar } from "./ui";
+import { Card, CardHeader, CardBody, Badge, ProgressBar, Button } from "./ui";
 import { User } from "lucide-react";
 import {
   formatVal,
@@ -10,13 +12,55 @@ import { useTranslation } from "react-i18next";
 import ContextMenu from "./ContextMenu";
 import { translatePositionAbbreviation } from "./SquadTab.helpers";
 
+type FacilityId = "Training" | "Medical" | "Scouting";
+
+interface FacilityDefinition {
+  effectKey: string;
+  id: FacilityId;
+  levelKey: "training" | "medical" | "scouting";
+  titleKey: string;
+}
+
+const DEFAULT_FACILITIES = {
+  training: 1,
+  medical: 1,
+  scouting: 1,
+};
+
+const FACILITY_DEFINITIONS: FacilityDefinition[] = [
+  {
+    id: "Training",
+    levelKey: "training",
+    titleKey: "finances.facilityTraining",
+    effectKey: "finances.facilityTrainingEffect",
+  },
+  {
+    id: "Medical",
+    levelKey: "medical",
+    titleKey: "finances.facilityMedical",
+    effectKey: "finances.facilityMedicalEffect",
+  },
+  {
+    id: "Scouting",
+    levelKey: "scouting",
+    titleKey: "finances.facilityScouting",
+    effectKey: "finances.facilityScoutingEffect",
+  },
+];
+
+function getFacilityUpgradeCost(level: number): number {
+  return level * 250_000;
+}
+
 interface FinancesTabProps {
   gameState: GameStateData;
+  onGameUpdate?: (state: GameStateData) => void;
   onSelectPlayer?: (id: string) => void;
 }
 
 export default function FinancesTab({
   gameState,
+  onGameUpdate,
   onSelectPlayer,
 }: FinancesTabProps) {
   const { t } = useTranslation();
@@ -28,10 +72,26 @@ export default function FinancesTab({
       <p className="text-gray-500 dark:text-gray-400">{t("common.noTeam")}</p>
     );
   const weeklySuffix = t("finances.perWeekSuffix", "/wk");
+  const [actionLoading, setActionLoading] = useState<FacilityId | null>(null);
 
   const roster = gameState.players.filter((p) => p.team_id === myTeam.id);
   const totalWages = roster.reduce((s, p) => s + p.wage, 0);
   const totalValue = roster.reduce((s, p) => s + p.market_value, 0);
+  const facilities = myTeam.facilities ?? DEFAULT_FACILITIES;
+
+  async function handleUpgradeFacility(facility: FacilityId): Promise<void> {
+    setActionLoading(facility);
+    try {
+      const updated = await invoke<GameStateData>("upgrade_facility", {
+        facility,
+      });
+      onGameUpdate?.(updated);
+    } catch (error) {
+      console.error("Failed to upgrade facility:", error);
+    } finally {
+      setActionLoading(null);
+    }
+  }
 
   const financeItems = [
     {
@@ -126,6 +186,59 @@ export default function FinancesTab({
             size="md"
             showLabel
           />
+        </CardBody>
+      </Card>
+
+      <Card className="lg:col-span-3">
+        <CardHeader>{t("finances.facilities")}</CardHeader>
+        <CardBody>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {FACILITY_DEFINITIONS.map((facility) => {
+              const level = facilities[facility.levelKey];
+              const nextUpgradeCost = getFacilityUpgradeCost(level);
+              const canUpgrade = myTeam.finance >= nextUpgradeCost;
+              const isLoading = actionLoading === facility.id;
+
+              return (
+                <div
+                  key={facility.id}
+                  className="rounded-xl border border-gray-200 dark:border-navy-600 bg-gray-50 dark:bg-navy-800 p-4 flex flex-col gap-4"
+                >
+                  <div className="space-y-1">
+                    <h3 className="font-heading font-bold text-base text-gray-900 dark:text-gray-100 uppercase tracking-wide">
+                      {t(facility.titleKey)}
+                    </h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      {t("finances.facilityLevel", { level })}
+                    </p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      {t(facility.effectKey)}
+                    </p>
+                  </div>
+
+                  <div className="space-y-2 mt-auto">
+                    <p className="text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                      {t("finances.nextUpgradeCost", {
+                        amount: nextUpgradeCost.toLocaleString(),
+                      })}
+                    </p>
+                    <Button
+                      disabled={!canUpgrade || isLoading}
+                      onClick={() => void handleUpgradeFacility(facility.id)}
+                      size="sm"
+                    >
+                      {t("finances.upgradeFacility")}
+                    </Button>
+                    {!canUpgrade && (
+                      <p className="text-xs text-red-500">
+                        {t("finances.insufficientFunds")}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </CardBody>
       </Card>
 

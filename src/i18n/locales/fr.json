@@ -596,7 +596,18 @@
     "perWeekSuffix": "/sem",
     "wagePerWeek": "Salaire/sem",
     "marketValue": "Valeur Marchande",
-    "until": "Jusqu'en {{year}}"
+    "until": "Jusqu'en {{year}}",
+    "facilities": "Installations",
+    "facilityTraining": "Centre d'entraînement",
+    "facilityMedical": "Centre médical",
+    "facilityScouting": "Cellule de recrutement",
+    "facilityTrainingEffect": "Améliore l'efficacité de l'entraînement sur la durée.",
+    "facilityMedicalEffect": "Améliore la récupération et le suivi médical des joueurs.",
+    "facilityScoutingEffect": "Améliore la qualité du recrutement et la profondeur des informations.",
+    "facilityLevel": "Niveau {{level}}",
+    "nextUpgradeCost": "Prochaine amélioration : €{{amount}}",
+    "upgradeFacility": "Améliorer",
+    "insufficientFunds": "Fonds insuffisants"
   },
   "inbox": {
     "title": "Boîte de Réception",

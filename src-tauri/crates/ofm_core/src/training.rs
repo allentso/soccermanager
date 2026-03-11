@@ -89,6 +89,7 @@ struct TeamTrainingPlan {
     intensity: TrainingIntensity,
     schedule: TrainingSchedule,
     bonus: TeamCoachingBonus,
+    medical_facility_mult: f64,
     /// player_id → group focus override (players not in any group use default_focus)
     group_overrides: std::collections::HashMap<String, TrainingFocus>,
 }
@@ -107,6 +108,8 @@ pub fn process_training(game: &mut Game, weekday_num: u32) {
         .iter()
         .map(|t| {
             let bonus = compute_coaching_bonus(game, &t.id, &t.training_focus);
+            let medical_facility_mult =
+                1.0 + f64::from(t.facilities.medical.saturating_sub(1)) * 0.1;
             let mut group_overrides = std::collections::HashMap::new();
             for group in &t.training_groups {
                 for pid in &group.player_ids {
@@ -119,6 +122,7 @@ pub fn process_training(game: &mut Game, weekday_num: u32) {
                 intensity: t.training_intensity.clone(),
                 schedule: t.training_schedule.clone(),
                 bonus,
+                medical_facility_mult,
                 group_overrides,
             }
         })
@@ -160,11 +164,13 @@ pub fn process_training(game: &mut Game, weekday_num: u32) {
 
             // Recovery amount: rest days get boosted recovery (like Recovery focus)
             let recovery_base: f64 = if !is_training_day {
-                10.0 * plan.bonus.physio_mult
+                10.0 * plan.bonus.physio_mult * plan.medical_facility_mult
             } else {
                 match player_focus {
-                    TrainingFocus::Recovery => 12.0 * plan.bonus.physio_mult,
-                    _ => 3.0 * plan.bonus.physio_mult,
+                    TrainingFocus::Recovery => {
+                        12.0 * plan.bonus.physio_mult * plan.medical_facility_mult
+                    }
+                    _ => 3.0 * plan.bonus.physio_mult * plan.medical_facility_mult,
                 }
             };
 

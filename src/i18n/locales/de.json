@@ -596,7 +596,18 @@
     "perWeekSuffix": "/Wo",
     "wagePerWeek": "Gehalt/Wo",
     "marketValue": "Marktwert",
-    "until": "Bis {{year}}"
+    "until": "Bis {{year}}",
+    "facilities": "Einrichtungen",
+    "facilityTraining": "Trainingsanlage",
+    "facilityMedical": "Medizinische Abteilung",
+    "facilityScouting": "Scouting-Abteilung",
+    "facilityTrainingEffect": "Verbessert langfristig die Trainingseffektivität.",
+    "facilityMedicalEffect": "Verbessert Regeneration und medizinische Betreuung.",
+    "facilityScoutingEffect": "Verbessert die Scouting-Qualität und Informationstiefe.",
+    "facilityLevel": "Stufe {{level}}",
+    "nextUpgradeCost": "Nächstes Upgrade: €{{amount}}",
+    "upgradeFacility": "Ausbauen",
+    "insufficientFunds": "Nicht genug Geld"
   },
   "inbox": {
     "title": "Posteingang",

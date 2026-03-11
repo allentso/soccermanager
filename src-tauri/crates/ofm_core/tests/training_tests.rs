@@ -302,6 +302,43 @@ fn injured_player_gets_reduced_recovery() {
     );
 }
 
+#[test]
+fn higher_medical_facility_level_improves_recovery_on_rest_days() {
+    let mut baseline = make_game();
+    for player in baseline.players.iter_mut() {
+        player.condition = 50;
+    }
+
+    let mut upgraded = make_game();
+    for player in upgraded.players.iter_mut() {
+        player.condition = 50;
+    }
+    upgraded.teams[0].facilities.medical = 3;
+
+    training::process_training(&mut baseline, 2);
+    training::process_training(&mut upgraded, 2);
+
+    let baseline_avg = baseline
+        .players
+        .iter()
+        .map(|player| player.condition as f64)
+        .sum::<f64>()
+        / baseline.players.len() as f64;
+    let upgraded_avg = upgraded
+        .players
+        .iter()
+        .map(|player| player.condition as f64)
+        .sum::<f64>()
+        / upgraded.players.len() as f64;
+
+    assert!(
+        upgraded_avg > baseline_avg,
+        "Higher medical level should improve recovery: upgraded {:.2}, baseline {:.2}",
+        upgraded_avg,
+        baseline_avg
+    );
+}
+
 // ---------------------------------------------------------------------------
 // process_training — attribute gains (probabilistic)
 // ---------------------------------------------------------------------------

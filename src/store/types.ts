@@ -3,6 +3,12 @@ export interface TeamColors {
   secondary: string;
 }
 
+export interface FacilitiesData {
+  training: number;
+  medical: number;
+  scouting: number;
+}
+
 export interface TeamSeasonRecord {
   season: number;
   league_position: number;
@@ -44,6 +50,7 @@ export interface TeamData {
   training_schedule: string;
   founded_year: number;
   colors: TeamColors;
+  facilities?: FacilitiesData;
   starting_xi_ids: string[];
   match_roles?: TeamMatchRolesData;
   form: string[];

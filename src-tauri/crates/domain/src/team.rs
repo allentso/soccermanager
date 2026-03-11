@@ -24,6 +24,8 @@ pub struct Team {
     pub financial_ledger: Vec<FinancialTransaction>,
     #[serde(default)]
     pub sponsorship: Option<Sponsorship>,
+    #[serde(default)]
+    pub facilities: Facilities,
 
     // Tactical
     pub formation: String,
@@ -196,6 +198,30 @@ pub struct Sponsorship {
     pub bonus_criteria: Vec<SponsorshipBonusCriterion>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum FacilityType {
+    Training,
+    Medical,
+    Scouting,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct Facilities {
+    pub training: u8,
+    pub medical: u8,
+    pub scouting: u8,
+}
+
+impl Default for Facilities {
+    fn default() -> Self {
+        Self {
+            training: 1,
+            medical: 1,
+            scouting: 1,
+        }
+    }
+}
+
 impl Team {
     pub fn new(
         id: String,
@@ -223,6 +249,7 @@ impl Team {
             season_expenses: 0,
             financial_ledger: Vec::new(),
             sponsorship: None,
+            facilities: Facilities::default(),
             formation: "4-4-2".to_string(),
             play_style: PlayStyle::Balanced,
             training_focus: TrainingFocus::default(),

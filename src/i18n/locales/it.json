@@ -596,7 +596,18 @@
     "perWeekSuffix": "/sett",
     "wagePerWeek": "Stipendio/sett",
     "marketValue": "Valore di mercato",
-    "until": "Fino al {{year}}"
+    "until": "Fino al {{year}}",
+    "facilities": "Strutture",
+    "facilityTraining": "Centro di allenamento",
+    "facilityMedical": "Centro medico",
+    "facilityScouting": "Reparto osservatori",
+    "facilityTrainingEffect": "Migliora nel tempo l'efficacia dell'allenamento.",
+    "facilityMedicalEffect": "Migliora il recupero e il supporto medico dei giocatori.",
+    "facilityScoutingEffect": "Migliora la qualità dell'osservazione e la profondità delle informazioni.",
+    "facilityLevel": "Livello {{level}}",
+    "nextUpgradeCost": "Prossimo upgrade: €{{amount}}",
+    "upgradeFacility": "Potenzia",
+    "insufficientFunds": "Fondi insufficienti"
   },
   "inbox": {
     "title": "Posta",
