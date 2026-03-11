@@ -1,6 +1,8 @@
 use log::info;
+use serde::{Deserialize, Serialize};
 use tauri::State;
 
+use crate::commands::round_summary::{build_round_summary_dto, RoundSummaryDto};
 use ofm_core::game::Game;
 use ofm_core::live_match_manager::{self, MatchMode};
 use ofm_core::state::StateManager;
@@ -9,6 +11,54 @@ use rand::Rng;
 // ---------------------------------------------------------------------------
 // Live Match Commands
 // ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FinishLiveMatchResponse {
+    pub game: Game,
+    pub round_summary: Option<RoundSummaryDto>,
+}
+
+fn finish_live_match_internal(state: &StateManager) -> Result<FinishLiveMatchResponse, String> {
+    info!("[cmd] finish_live_match");
+    let session = state.take_live_match().ok_or("No active live match")?;
+
+    let fixture_index = session.fixture_index;
+    let round_matchday = session.round_matchday;
+    let round_previous_standings = session.round_previous_standings.clone();
+    let home_team_id = session.home_team_id.clone();
+    let away_team_id = session.away_team_id.clone();
+
+    let report = session.match_state.into_report();
+    info!(
+        "[cmd] finish_live_match: fixture_index={}, home_team_id={}, away_team_id={}, events={}",
+        fixture_index,
+        home_team_id,
+        away_team_id,
+        report.events.len()
+    );
+
+    let mut game = state
+        .get_game(|g| g.clone())
+        .ok_or("No active game session")?;
+
+    ofm_core::turn::apply_match_report(
+        &mut game,
+        fixture_index,
+        &home_team_id,
+        &away_team_id,
+        &report,
+    );
+
+    let round_summary = build_round_summary_dto(&game, round_matchday, &round_previous_standings);
+
+    ofm_core::turn::finish_live_match_day(&mut game);
+
+    state.set_game(game.clone());
+    Ok(FinishLiveMatchResponse {
+        game,
+        round_summary,
+    })
+}
 
 /// Start a live match for a given fixture.
 /// mode: "live" | "spectator" | "instant"
@@ -123,42 +173,10 @@ pub fn get_match_snapshot(state: State<'_, StateManager>) -> Result<engine::Matc
 
 /// Finish the live match: generate report, update game state, clean up.
 #[tauri::command]
-pub fn finish_live_match(state: State<'_, StateManager>) -> Result<Game, String> {
-    info!("[cmd] finish_live_match");
-    let session = state.take_live_match().ok_or("No active live match")?;
-
-    let fixture_index = session.fixture_index;
-    let home_team_id = session.home_team_id.clone();
-    let away_team_id = session.away_team_id.clone();
-
-    let report = session.match_state.into_report();
-    info!(
-        "[cmd] finish_live_match: fixture_index={}, home_team_id={}, away_team_id={}, events={}",
-        fixture_index,
-        home_team_id,
-        away_team_id,
-        report.events.len()
-    );
-
-    // Update the game state with the match result
-    let mut game = state
-        .get_game(|g| g.clone())
-        .ok_or("No active game session")?;
-
-    // Apply the match result using the existing turn logic
-    ofm_core::turn::apply_match_report(
-        &mut game,
-        fixture_index,
-        &home_team_id,
-        &away_team_id,
-        &report,
-    );
-
-    // Complete the day: generate pre-match messages for upcoming fixtures, then advance the clock
-    ofm_core::turn::finish_live_match_day(&mut game);
-
-    state.set_game(game.clone());
-    Ok(game)
+pub fn finish_live_match(
+    state: State<'_, StateManager>,
+) -> Result<FinishLiveMatchResponse, String> {
+    finish_live_match_internal(&state)
 }
 
 /// Apply a team talk and return per-player morale changes.
@@ -377,4 +395,198 @@ pub fn submit_press_conference(
         "game": game,
         "morale_delta": morale_delta
     }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::finish_live_match_internal;
+    use chrono::{TimeZone, Utc};
+    use domain::league::{Fixture, FixtureStatus, League, StandingEntry};
+    use domain::manager::Manager;
+    use domain::player::{Player, PlayerAttributes, Position};
+    use domain::team::Team;
+    use ofm_core::clock::GameClock;
+    use ofm_core::game::Game;
+    use ofm_core::live_match_manager::{self, MatchMode};
+    use ofm_core::state::StateManager;
+
+    fn default_attrs(position: Position) -> PlayerAttributes {
+        let is_goalkeeper = matches!(position, Position::Goalkeeper);
+
+        PlayerAttributes {
+            pace: 65,
+            stamina: 65,
+            strength: 65,
+            agility: 65,
+            passing: 65,
+            shooting: if is_goalkeeper { 30 } else { 65 },
+            tackling: if is_goalkeeper { 30 } else { 65 },
+            dribbling: if is_goalkeeper { 30 } else { 65 },
+            defending: if is_goalkeeper { 30 } else { 65 },
+            positioning: 65,
+            vision: 65,
+            decisions: 65,
+            composure: 65,
+            aggression: 50,
+            teamwork: 65,
+            leadership: 50,
+            handling: if is_goalkeeper { 75 } else { 20 },
+            reflexes: if is_goalkeeper { 75 } else { 20 },
+            aerial: 60,
+        }
+    }
+
+    fn make_player(id: &str, name: &str, team_id: &str, position: Position) -> Player {
+        let mut player = Player::new(
+            id.to_string(),
+            name.to_string(),
+            name.to_string(),
+            "1995-01-01".to_string(),
+            "England".to_string(),
+            position.clone(),
+            default_attrs(position),
+        );
+        player.team_id = Some(team_id.to_string());
+        player.condition = 100;
+        player.morale = 70;
+        player
+    }
+
+    fn make_team(id: &str, name: &str) -> Team {
+        Team::new(
+            id.to_string(),
+            name.to_string(),
+            name[..3].to_string(),
+            "England".to_string(),
+            "London".to_string(),
+            "Stadium".to_string(),
+            40_000,
+        )
+    }
+
+    fn make_squad(team_id: &str, prefix: &str) -> Vec<Player> {
+        let mut players = Vec::new();
+        players.push(make_player(
+            &format!("{}_gk", prefix),
+            &format!("{} GK", prefix),
+            team_id,
+            Position::Goalkeeper,
+        ));
+        for index in 0..4 {
+            players.push(make_player(
+                &format!("{}_def{}", prefix, index),
+                &format!("{} Def{}", prefix, index),
+                team_id,
+                Position::Defender,
+            ));
+        }
+        for index in 0..4 {
+            players.push(make_player(
+                &format!("{}_mid{}", prefix, index),
+                &format!("{} Mid{}", prefix, index),
+                team_id,
+                Position::Midfielder,
+            ));
+        }
+        for index in 0..2 {
+            players.push(make_player(
+                &format!("{}_fwd{}", prefix, index),
+                &format!("{} Fwd{}", prefix, index),
+                team_id,
+                Position::Forward,
+            ));
+        }
+        players
+    }
+
+    fn make_game_with_round() -> Game {
+        let clock = GameClock::new(Utc.with_ymd_and_hms(2025, 6, 15, 12, 0, 0).unwrap());
+        let mut manager = Manager::new(
+            "mgr1".to_string(),
+            "Test".to_string(),
+            "Manager".to_string(),
+            "1980-01-01".to_string(),
+            "England".to_string(),
+        );
+        manager.hire("team1".to_string());
+
+        let teams = vec![
+            make_team("team1", "Home FC"),
+            make_team("team2", "Away FC"),
+            make_team("team3", "Third FC"),
+            make_team("team4", "Fourth FC"),
+        ];
+        let mut players = make_squad("team1", "t1");
+        players.extend(make_squad("team2", "t2"));
+        players.extend(make_squad("team3", "t3"));
+        players.extend(make_squad("team4", "t4"));
+
+        let league = League {
+            id: "league1".to_string(),
+            name: "Test League".to_string(),
+            season: 1,
+            fixtures: vec![
+                Fixture {
+                    id: "fix1".to_string(),
+                    matchday: 1,
+                    date: "2025-06-15".to_string(),
+                    home_team_id: "team1".to_string(),
+                    away_team_id: "team2".to_string(),
+                    status: FixtureStatus::Scheduled,
+                    result: None,
+                },
+                Fixture {
+                    id: "fix2".to_string(),
+                    matchday: 1,
+                    date: "2025-06-15".to_string(),
+                    home_team_id: "team3".to_string(),
+                    away_team_id: "team4".to_string(),
+                    status: FixtureStatus::Scheduled,
+                    result: None,
+                },
+            ],
+            standings: vec![
+                StandingEntry::new("team1".to_string()),
+                StandingEntry::new("team2".to_string()),
+                StandingEntry::new("team3".to_string()),
+                StandingEntry::new("team4".to_string()),
+            ],
+        };
+
+        let mut game = Game::new(clock, manager, teams, players, vec![], vec![]);
+        game.league = Some(league);
+        game
+    }
+
+    #[test]
+    fn finish_live_match_returns_completed_round_summary_response() {
+        let state = StateManager::new();
+        let mut game = make_game_with_round();
+        let today = game.clock.current_date.format("%Y-%m-%d").to_string();
+        ofm_core::turn::simulate_other_matches(&mut game, &today, Some(0));
+
+        let mut session =
+            live_match_manager::create_live_match(&game, 0, MatchMode::Instant, false).unwrap();
+        session.user_side = None;
+        session.run_to_completion();
+
+        state.set_game(game);
+        state.set_live_match(session);
+
+        let response = finish_live_match_internal(&state).expect("finish live match response");
+
+        let round_summary = response.round_summary.expect("round summary response");
+        assert!(round_summary.is_complete);
+        assert_eq!(round_summary.pending_fixture_count, 0);
+        assert_eq!(round_summary.completed_results.len(), 2);
+        assert_eq!(
+            response
+                .game
+                .clock
+                .current_date
+                .format("%Y-%m-%d")
+                .to_string(),
+            "2025-06-16"
+        );
+    }
 }

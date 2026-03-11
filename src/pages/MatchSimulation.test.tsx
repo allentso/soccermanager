@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 
@@ -39,8 +39,16 @@ vi.mock("../components/match/PreMatchSetup", () => ({
 }));
 
 vi.mock("../components/match/MatchLive", () => ({
-  default: ({ snapshot }: { snapshot: { home_team: { name: string } } }) => (
-    <div data-testid="match-live">{snapshot.home_team.name}</div>
+  default: ({
+    snapshot,
+    onFullTime,
+  }: {
+    snapshot: { home_team: { name: string } };
+    onFullTime?: () => void;
+  }) => (
+    <button data-testid="match-live" onClick={onFullTime}>
+      {snapshot.home_team.name}
+    </button>
   ),
 }));
 
@@ -49,7 +57,11 @@ vi.mock("../components/match/HalfTimeBreak", () => ({
 }));
 
 vi.mock("../components/match/PostMatchScreen", () => ({
-  default: () => <div data-testid="postmatch" />,
+  default: ({ onFinish }: { onFinish?: () => void }) => (
+    <button data-testid="postmatch-finish" onClick={onFinish}>
+      Finish Match
+    </button>
+  ),
 }));
 
 vi.mock("../components/match/PressConference", () => ({
@@ -58,7 +70,9 @@ vi.mock("../components/match/PressConference", () => ({
 
 const mockedInvoke = vi.mocked(invoke);
 
-function makeEnginePlayer(overrides: Partial<Record<string, unknown>> = {}): Record<string, unknown> {
+function makeEnginePlayer(
+  overrides: Partial<Record<string, unknown>> = {},
+): Record<string, unknown> {
   return {
     id: "p1",
     name: "Player One",
@@ -88,7 +102,9 @@ function makeEnginePlayer(overrides: Partial<Record<string, unknown>> = {}): Rec
   };
 }
 
-function makeSnapshot(overrides: Partial<Record<string, unknown>> = {}): Record<string, unknown> {
+function makeSnapshot(
+  overrides: Partial<Record<string, unknown>> = {},
+): Record<string, unknown> {
   return {
     phase: "PreKickOff",
     current_minute: 0,
@@ -276,7 +292,9 @@ describe("MatchSimulation", function (): void {
           name: "Restored FC",
           formation: "4-4-2",
           play_style: "Balanced",
-          players: [makeEnginePlayer({ id: "restore-p1", name: "Restore Keeper" })],
+          players: [
+            makeEnginePlayer({ id: "restore-p1", name: "Restore Keeper" }),
+          ],
         },
       }),
     );
@@ -307,5 +325,47 @@ describe("MatchSimulation", function (): void {
     await waitFor(function (): void {
       expect(screen.getByTestId("match-live")).toHaveTextContent("Home FC");
     });
+  });
+
+  it("stores the nested game after finish_live_match returns a response object", async function (): Promise<void> {
+    locationState = {
+      mode: "spectator",
+      snapshot: makeSnapshot(),
+    };
+
+    const finishedGame = makeGameState();
+    mockedInvoke.mockResolvedValueOnce(makeSnapshot()).mockResolvedValueOnce({
+      game: finishedGame,
+      round_summary: {
+        matchday: 1,
+        is_complete: true,
+        pending_fixture_count: 0,
+        completed_results: [],
+        standings_delta: [],
+        notable_upset: null,
+        top_scorer_delta: [],
+      },
+    });
+
+    render(<MatchSimulation />);
+
+    await waitFor(function (): void {
+      expect(screen.getByTestId("match-live")).toHaveTextContent("Home FC");
+    });
+
+    fireEvent.click(screen.getByTestId("match-live"));
+
+    await waitFor(function (): void {
+      expect(screen.getByTestId("postmatch-finish")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByTestId("postmatch-finish"));
+
+    await waitFor(function (): void {
+      expect(mockedInvoke).toHaveBeenLastCalledWith("finish_live_match");
+    });
+
+    expect(setGameStateMock).toHaveBeenCalledWith(finishedGame);
+    expect(navigateMock).toHaveBeenCalledWith("/dashboard");
   });
 });

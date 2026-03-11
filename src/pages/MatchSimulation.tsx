@@ -24,6 +24,11 @@ interface MatchRouteState {
   snapshot?: MatchSnapshot;
 }
 
+interface FinishLiveMatchResponse {
+  game: GameStateData;
+  round_summary?: unknown;
+}
+
 export default function MatchSimulation() {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -192,11 +197,12 @@ export default function MatchSimulation() {
   const handleFinishMatch = useCallback(async () => {
     try {
       console.info("[MatchSimulation] handleFinishMatch:start");
-      const updatedGame = await invoke<GameStateData>("finish_live_match");
+      const response =
+        await invoke<FinishLiveMatchResponse>("finish_live_match");
       console.info("[MatchSimulation] handleFinishMatch:success", {
-        hasUpdatedGame: !!updatedGame,
+        hasUpdatedGame: !!response.game,
       });
-      setGameState(updatedGame);
+      setGameState(response.game);
       navigate("/dashboard");
     } catch (err) {
       console.error("Failed to finish match:", err);

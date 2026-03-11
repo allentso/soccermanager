@@ -1,6 +1,7 @@
 pub mod game;
 pub mod live_match;
 pub mod messages;
+pub mod round_summary;
 pub mod season;
 pub mod settings;
 pub mod squad;

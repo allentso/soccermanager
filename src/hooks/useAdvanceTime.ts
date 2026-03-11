@@ -15,6 +15,15 @@ export interface BlockerModal {
   pendingAction?: () => void;
 }
 
+interface AdvanceTimeWithModeResponse {
+  action: string;
+  game?: GameStateData;
+  snapshot?: unknown;
+  fixture_index?: number;
+  mode?: string;
+  round_summary?: unknown;
+}
+
 export type MatchModeType = "live" | "spectator" | "delegate";
 
 export function useAdvanceTime(
@@ -48,7 +57,7 @@ export function useAdvanceTime(
     setShowMatchConfirm(false);
     setBlockerModal(null);
     try {
-      const result = await invoke<{ action: string; game?: GameStateData; snapshot?: unknown; fixture_index?: number; mode?: string }>("advance_time_with_mode", { mode: effectiveMode });
+      const result = await invoke<AdvanceTimeWithModeResponse>("advance_time_with_mode", { mode: effectiveMode });
       console.info("[useAdvanceTime] doAdvance:result", {
         action: result.action,
         fixtureIndex: result.fixture_index,
