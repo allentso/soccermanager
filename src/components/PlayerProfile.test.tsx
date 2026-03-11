@@ -1,5 +1,7 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
+import { invoke } from "@tauri-apps/api/core";
 import type { GameStateData, PlayerData, TeamData } from "../store/gameStore";
 import PlayerProfile from "./PlayerProfile";
 
@@ -12,6 +14,9 @@ vi.mock("react-i18next", () => ({
     t: (key: string, params?: Record<string, string | number>) => {
       if (key === "common.back") return "Back";
       if (key === "common.contract") return "Contract";
+      if (key === "common.renewContract") return "Renew Contract";
+      if (key === "common.cancel") return "Cancel";
+      if (key === "common.submit") return "Submit";
       if (key === "common.condition") return "Condition";
       if (key === "common.morale") return "Morale";
       if (key === "common.value") return "Value";
@@ -32,6 +37,20 @@ vi.mock("react-i18next", () => ({
       if (key === "playerProfile.noContract") return "No Contract";
       if (key === "playerProfile.yearsRemaining") return "Years Remaining";
       if (key === "playerProfile.contractRisk") return "Contract Risk";
+      if (key === "playerProfile.renewalTitle") return "Renew Contract";
+      if (key === "playerProfile.renewalWage") return "Offered Wage";
+      if (key === "playerProfile.renewalLength") return "Contract Length";
+      if (key === "playerProfile.renewalLengthYears")
+        return `${params?.count} years`;
+      if (key === "playerProfile.renewalSubmit") return "Submit Offer";
+      if (key === "playerProfile.renewalBudgetWarning")
+        return "Exceeds wage budget";
+      if (key === "playerProfile.renewalInvalidWage")
+        return "Enter a valid weekly wage";
+      if (key === "playerProfile.renewalAccepted") return "Offer accepted";
+      if (key === "playerProfile.renewalRejected") return "Offer rejected";
+      if (key === "playerProfile.renewalCounter")
+        return `Wants more: €${params?.wage}/wk for ${params?.years} years`;
       if (key === "playerProfile.attributes") return "Attributes";
       if (key === "playerProfile.seasonStats") return "Season Stats";
       if (key === "playerProfile.careerHistory") return "Career History";
@@ -181,6 +200,22 @@ function createGameState(player: PlayerData): GameStateData {
   };
 }
 
+function RenewalHarness({ initialPlayer }: { initialPlayer?: PlayerData }) {
+  const [gameState, setGameState] = useState<GameStateData>(
+    createGameState(initialPlayer ?? createPlayer()),
+  );
+
+  return (
+    <PlayerProfile
+      player={gameState.players[0]}
+      gameState={gameState}
+      isOwnClub
+      onClose={vi.fn()}
+      onGameUpdate={setGameState}
+    />
+  );
+}
+
 describe("PlayerProfile contract surfaces", () => {
   it("renders expiry date, years remaining, and contract risk for the selected player", () => {
     const player = createPlayer();
@@ -201,5 +236,117 @@ describe("PlayerProfile contract surfaces", () => {
     expect(screen.getByText("Contract Risk")).toBeInTheDocument();
     expect(screen.getByText("Critical")).toBeInTheDocument();
     expect(screen.getAllByText("€12,000/wk").length).toBeGreaterThan(0);
+  });
+
+  it("validates renewal offers before submission", async () => {
+    vi.mocked(invoke).mockResolvedValue(createGameState(createPlayer()));
+
+    render(<RenewalHarness />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Renew Contract" }));
+
+    fireEvent.change(screen.getByLabelText("Offered Wage"), {
+      target: { value: "0" },
+    });
+
+    expect(screen.getByText("Enter a valid weekly wage")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Offered Wage"), {
+      target: { value: "60000" },
+    });
+
+    expect(screen.getByText("Exceeds wage budget")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Submit Offer" })).toBeDisabled();
+  });
+
+  it("submits a renewal offer and refreshes contract data when accepted", async () => {
+    const updatedPlayer = createPlayer({
+      contract_end: "2029-08-01",
+      wage: 15000,
+    });
+    const updatedGame = createGameState(updatedPlayer);
+
+    vi.mocked(invoke).mockResolvedValue({
+      outcome: "accepted",
+      game: updatedGame,
+      suggested_wage: null,
+      suggested_years: null,
+    });
+
+    render(<RenewalHarness />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Renew Contract" }));
+    fireEvent.change(screen.getByLabelText("Offered Wage"), {
+      target: { value: "15000" },
+    });
+    fireEvent.change(screen.getByLabelText("Contract Length"), {
+      target: { value: "3" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Submit Offer" }));
+
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith("propose_renewal", {
+        playerId: "player-1",
+        weeklyWage: 15000,
+        contractYears: 3,
+      });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("Offer accepted")).toBeInTheDocument();
+      expect(screen.getByText("Expires 2029-08-01")).toBeInTheDocument();
+      expect(screen.getAllByText("€15,000/wk").length).toBeGreaterThan(0);
+      expect(screen.getByText("Stable")).toBeInTheDocument();
+    });
+  });
+
+  it("shows a rejected state when the renewal offer is turned down", async () => {
+    vi.mocked(invoke).mockResolvedValue({
+      outcome: "rejected",
+      game: createGameState(createPlayer()),
+      suggested_wage: null,
+      suggested_years: null,
+    });
+
+    render(<RenewalHarness />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Renew Contract" }));
+    fireEvent.change(screen.getByLabelText("Offered Wage"), {
+      target: { value: "12000" },
+    });
+    fireEvent.change(screen.getByLabelText("Contract Length"), {
+      target: { value: "2" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Submit Offer" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Offer rejected")).toBeInTheDocument();
+    });
+  });
+
+  it("shows improved terms when the player wants more", async () => {
+    vi.mocked(invoke).mockResolvedValue({
+      outcome: "counter_offer",
+      game: createGameState(createPlayer()),
+      suggested_wage: 16000,
+      suggested_years: 4,
+    });
+
+    render(<RenewalHarness />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Renew Contract" }));
+    fireEvent.change(screen.getByLabelText("Offered Wage"), {
+      target: { value: "13000" },
+    });
+    fireEvent.change(screen.getByLabelText("Contract Length"), {
+      target: { value: "2" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Submit Offer" }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("Wants more: €16000/wk for 4 years"),
+      ).toBeInTheDocument();
+    });
   });
 });

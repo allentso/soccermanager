@@ -9,6 +9,7 @@ import {
 } from "../lib/helpers";
 import { PlayerData, TeamData, GameStateData } from "../store/gameStore";
 import {
+  Button,
   Card,
   CardHeader,
   CardBody,
@@ -31,6 +32,7 @@ import {
 import { TraitList } from "./TraitBadge";
 import { useTranslation } from "react-i18next";
 import { countryName } from "../lib/countries";
+import DashboardModalFrame from "./dashboard/DashboardModalFrame";
 
 interface PlayerProfileProps {
   player: PlayerData;
@@ -40,6 +42,20 @@ interface PlayerProfileProps {
   onSelectTeam?: (id: string) => void;
   onGameUpdate?: (g: GameStateData) => void;
 }
+
+interface RenewalResponseData {
+  outcome: "accepted" | "rejected" | "counter_offer";
+  game: GameStateData;
+  suggested_wage: number | null;
+  suggested_years: number | null;
+}
+
+type RenewalStatus =
+  | "idle"
+  | "accepted"
+  | "rejected"
+  | "counter_offer"
+  | "error";
 
 function getTeamNameLocal(
   teams: TeamData[],
@@ -143,6 +159,18 @@ export default function PlayerProfile({
     "idle" | "sending" | "sent" | "error"
   >("idle");
   const [scoutError, setScoutError] = useState<string | null>(null);
+  const [showRenewalModal, setShowRenewalModal] = useState(false);
+  const [renewalWage, setRenewalWage] = useState("");
+  const [renewalLength, setRenewalLength] = useState("2");
+  const [renewalSubmitting, setRenewalSubmitting] = useState(false);
+  const [renewalStatus, setRenewalStatus] = useState<RenewalStatus>("idle");
+  const [renewalError, setRenewalError] = useState<string | null>(null);
+  const [renewalSuggestedWage, setRenewalSuggestedWage] = useState<
+    number | null
+  >(null);
+  const [renewalSuggestedYears, setRenewalSuggestedYears] = useState<
+    number | null
+  >(null);
   const ovr = calcOvr(player);
   const age = calcAge(player.date_of_birth);
   const teamName = getTeamNameLocal(
@@ -150,6 +178,9 @@ export default function PlayerProfile({
     player.team_id,
     t("common.freeAgent"),
     t("common.unknown"),
+  );
+  const managerTeam = gameState.teams.find(
+    (team) => team.id === gameState.manager.team_id,
   );
   const contractRiskLevel = getContractRiskLevel(
     player.contract_end,
@@ -161,8 +192,119 @@ export default function PlayerProfile({
       : contractRiskLevel === "warning"
         ? t("finances.contractRiskWarning")
         : t("finances.contractRiskStable");
+  const renewalOfferedWage = Number(renewalWage);
+  const renewalOfferedYears = Number(renewalLength);
+  const isRenewalWageValid =
+    Number.isFinite(renewalOfferedWage) && renewalOfferedWage > 0;
+  const isRenewalLengthValid =
+    Number.isInteger(renewalOfferedYears) && renewalOfferedYears > 0;
+  const exceedsWageBudget =
+    isRenewalWageValid &&
+    managerTeam !== undefined &&
+    renewalOfferedWage > managerTeam.wage_budget;
+  const renewalSubmitDisabled =
+    renewalSubmitting ||
+    !isRenewalWageValid ||
+    !isRenewalLengthValid ||
+    exceedsWageBudget;
 
   const isGK = player.position === "Goalkeeper";
+
+  function openRenewalModal(): void {
+    setRenewalWage(String(player.wage));
+    setRenewalLength("2");
+    setRenewalSubmitting(false);
+    setRenewalStatus("idle");
+    setRenewalError(null);
+    setRenewalSuggestedWage(null);
+    setRenewalSuggestedYears(null);
+    setShowRenewalModal(true);
+  }
+
+  function closeRenewalModal(): void {
+    if (renewalSubmitting) {
+      return;
+    }
+
+    setShowRenewalModal(false);
+  }
+
+  function getRenewalStatusMessage(): string | null {
+    if (renewalStatus === "accepted") {
+      return t("playerProfile.renewalAccepted");
+    }
+
+    if (renewalStatus === "rejected") {
+      return t("playerProfile.renewalRejected");
+    }
+
+    if (
+      renewalStatus === "counter_offer" &&
+      renewalSuggestedWage !== null &&
+      renewalSuggestedYears !== null
+    ) {
+      return t("playerProfile.renewalCounter", {
+        wage: renewalSuggestedWage,
+        years: renewalSuggestedYears,
+      });
+    }
+
+    return renewalError;
+  }
+
+  function getRenewalStatusClassName(): string {
+    if (renewalStatus === "accepted") {
+      return "text-primary-500";
+    }
+
+    if (renewalStatus === "rejected" || renewalStatus === "error") {
+      return "text-red-500";
+    }
+
+    if (renewalStatus === "counter_offer") {
+      return "text-accent-600 dark:text-accent-400";
+    }
+
+    return "text-gray-500 dark:text-gray-400";
+  }
+
+  async function handleRenewalSubmit(): Promise<void> {
+    if (renewalSubmitDisabled) {
+      return;
+    }
+
+    setRenewalSubmitting(true);
+    setRenewalStatus("idle");
+    setRenewalError(null);
+
+    try {
+      const result = await invoke<RenewalResponseData>("propose_renewal", {
+        playerId: player.id,
+        weeklyWage: renewalOfferedWage,
+        contractYears: renewalOfferedYears,
+      });
+
+      onGameUpdate?.(result.game);
+      setRenewalStatus(result.outcome);
+      setRenewalSuggestedWage(result.suggested_wage);
+      setRenewalSuggestedYears(result.suggested_years);
+
+      if (result.outcome === "counter_offer") {
+        if (result.suggested_wage !== null) {
+          setRenewalWage(String(result.suggested_wage));
+        }
+
+        if (result.suggested_years !== null) {
+          setRenewalLength(String(result.suggested_years));
+        }
+      }
+    } catch (error) {
+      setRenewalStatus("error");
+      setRenewalError(String(error));
+    } finally {
+      setRenewalSubmitting(false);
+    }
+  }
 
   const attrGroups = [
     {
@@ -573,6 +715,13 @@ export default function PlayerProfile({
                 value={`${player.morale}%`}
               />
             </div>
+            {isOwnClub ? (
+              <div className="pt-3">
+                <Button size="sm" variant="outline" onClick={openRenewalModal}>
+                  {t("common.renewContract")}
+                </Button>
+              </div>
+            ) : null}
           </CardBody>
         </Card>
 
@@ -755,6 +904,92 @@ export default function PlayerProfile({
           </CardBody>
         </Card>
       </div>
+
+      {showRenewalModal ? (
+        <DashboardModalFrame maxWidthClassName="max-w-md">
+          <div className="space-y-4">
+            <div>
+              <h3 className="text-lg font-heading font-bold uppercase tracking-wider text-gray-900 dark:text-gray-100">
+                {t("playerProfile.renewalTitle")}
+              </h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                {player.full_name}
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label
+                  htmlFor="renewal-wage"
+                  className="text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 block mb-1"
+                >
+                  {t("playerProfile.renewalWage")}
+                </label>
+                <input
+                  id="renewal-wage"
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={renewalWage}
+                  onChange={(event) => setRenewalWage(event.target.value)}
+                  className="w-full px-3 py-2 rounded-lg bg-gray-50 dark:bg-navy-700 border border-gray-200 dark:border-navy-600 text-sm text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="renewal-length"
+                  className="text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 block mb-1"
+                >
+                  {t("playerProfile.renewalLength")}
+                </label>
+                <input
+                  id="renewal-length"
+                  type="number"
+                  min="1"
+                  max="5"
+                  step="1"
+                  value={renewalLength}
+                  onChange={(event) => setRenewalLength(event.target.value)}
+                  className="w-full px-3 py-2 rounded-lg bg-gray-50 dark:bg-navy-700 border border-gray-200 dark:border-navy-600 text-sm text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+                />
+              </div>
+            </div>
+
+            {!isRenewalWageValid && renewalWage !== "" ? (
+              <p className="text-sm text-red-500">
+                {t("playerProfile.renewalInvalidWage")}
+              </p>
+            ) : null}
+
+            {exceedsWageBudget ? (
+              <p className="text-sm text-red-500">
+                {t("playerProfile.renewalBudgetWarning")}
+              </p>
+            ) : null}
+
+            {getRenewalStatusMessage() ? (
+              <p
+                className={`text-sm font-medium ${getRenewalStatusClassName()}`}
+              >
+                {getRenewalStatusMessage()}
+              </p>
+            ) : null}
+
+            <div className="flex gap-2 justify-end">
+              <Button variant="ghost" onClick={closeRenewalModal}>
+                {t("common.cancel")}
+              </Button>
+              <Button
+                onClick={() => void handleRenewalSubmit()}
+                disabled={renewalSubmitDisabled}
+              >
+                {t("playerProfile.renewalSubmit")}
+              </Button>
+            </div>
+          </div>
+        </DashboardModalFrame>
+      ) : null}
     </div>
   );
 }

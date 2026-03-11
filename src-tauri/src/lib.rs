@@ -92,6 +92,7 @@ pub fn run() {
             advance_time,
             advance_time_with_mode,
             upgrade_facility,
+            propose_renewal,
             set_formation,
             set_starting_xi,
             set_play_style,
