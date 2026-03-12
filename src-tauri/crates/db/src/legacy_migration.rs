@@ -316,6 +316,17 @@ mod tests {
         serde_json::to_string(&json).expect("legacy game json should serialize")
     }
 
+    fn legacy_game_json_with_partial_sponsorship() -> String {
+        let mut json: serde_json::Value =
+            serde_json::from_str(&minimal_game_json()).expect("minimal game json should parse");
+
+        json["teams"][0]["sponsorship"] = serde_json::json!({
+            "sponsor_name": "Acme Corp"
+        });
+
+        serde_json::to_string(&json).expect("legacy game json should serialize")
+    }
+
     #[test]
     fn test_has_legacy_db() {
         let dir = tempfile::tempdir().unwrap();
@@ -549,6 +560,47 @@ mod tests {
         assert_eq!(team.facilities.training, 3);
         assert_eq!(team.facilities.medical, 1);
         assert_eq!(team.facilities.scouting, 1);
+    }
+
+    #[test]
+    fn test_migrate_legacy_save_with_partial_sponsorship_defaults_missing_fields() {
+        let dir = tempfile::tempdir().unwrap();
+        let legacy_path = dir.path().join("saves.db");
+        let saves_dir = dir.path().join("saves");
+        let json = legacy_game_json_with_partial_sponsorship();
+
+        create_legacy_db(
+            &legacy_path,
+            &[(
+                "old-save-4",
+                "Legacy Sponsorship Save",
+                "Test Manager",
+                &json,
+            )],
+        );
+
+        let mut sm = SaveManager::init(&saves_dir).unwrap();
+        let results = migrate_legacy_saves(dir.path(), &mut sm).unwrap();
+
+        assert_eq!(results.len(), 1);
+        assert!(matches!(&results[0], LegacyMigrationResult::Success { .. }));
+
+        let save_id = &sm.list_saves()[0].id;
+        let loaded = sm.load_game(save_id).unwrap();
+        let team = loaded
+            .teams
+            .iter()
+            .find(|team| team.id == "team-001")
+            .unwrap();
+        let sponsorship = team
+            .sponsorship
+            .as_ref()
+            .expect("sponsorship should be present");
+
+        assert_eq!(sponsorship.sponsor_name, "Acme Corp");
+        assert_eq!(sponsorship.base_value, 0);
+        assert_eq!(sponsorship.remaining_weeks, 0);
+        assert!(sponsorship.bonus_criteria.is_empty());
     }
 
     #[test]
