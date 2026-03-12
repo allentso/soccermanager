@@ -72,6 +72,10 @@ pub fn mark_all_messages_read(state: State<'_, StateManager>) -> Result<Game, St
 
 #[tauri::command]
 pub fn clear_old_messages(state: State<'_, StateManager>) -> Result<Game, String> {
+    clear_old_messages_internal(&state)
+}
+
+fn clear_old_messages_internal(state: &StateManager) -> Result<Game, String> {
     log::debug!("[cmd] clear_old_messages");
     let mut game = state
         .get_game(|g| g.clone())
@@ -154,4 +158,120 @@ pub fn resolve_message_action(
         "effect_i18n_key": effect_i18n_key,
         "effect_i18n_params": effect_i18n_params
     }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::clear_old_messages_internal;
+    use chrono::{TimeZone, Utc};
+    use domain::manager::Manager;
+    use domain::message::{ActionType, InboxMessage, MessageAction};
+    use domain::team::Team;
+    use ofm_core::clock::GameClock;
+    use ofm_core::game::Game;
+    use ofm_core::state::StateManager;
+
+    fn make_team() -> Team {
+        let mut team = Team::new(
+            "team-1".to_string(),
+            "User FC".to_string(),
+            "USR".to_string(),
+            "England".to_string(),
+            "London".to_string(),
+            "User Ground".to_string(),
+            25_000,
+        );
+        team.manager_id = Some("manager-1".to_string());
+        team
+    }
+
+    fn unresolved_action_message(id: &str, date: &str) -> InboxMessage {
+        let mut message = InboxMessage::new(
+            id.to_string(),
+            "Subject".to_string(),
+            "Body".to_string(),
+            "Board".to_string(),
+            date.to_string(),
+        );
+        message.read = true;
+        message.actions.push(MessageAction {
+            id: format!("action-{}", id),
+            label: "Review".to_string(),
+            action_type: ActionType::Dismiss,
+            resolved: false,
+            label_key: None,
+        });
+        message
+    }
+
+    fn read_message(id: &str, date: &str) -> InboxMessage {
+        let mut message = InboxMessage::new(
+            id.to_string(),
+            "Subject".to_string(),
+            "Body".to_string(),
+            "Board".to_string(),
+            date.to_string(),
+        );
+        message.read = true;
+        message
+    }
+
+    fn unread_message(id: &str, date: &str) -> InboxMessage {
+        InboxMessage::new(
+            id.to_string(),
+            "Subject".to_string(),
+            "Body".to_string(),
+            "Board".to_string(),
+            date.to_string(),
+        )
+    }
+
+    fn make_game() -> Game {
+        let clock = GameClock::new(Utc.with_ymd_and_hms(2026, 8, 20, 12, 0, 0).unwrap());
+        let mut manager = Manager::new(
+            "manager-1".to_string(),
+            "Test".to_string(),
+            "Manager".to_string(),
+            "1980-01-01".to_string(),
+            "England".to_string(),
+        );
+        manager.hire("team-1".to_string());
+
+        let mut game = Game::new(clock, manager, vec![make_team()], vec![], vec![], vec![]);
+        game.messages = vec![
+            unread_message("keep-unread", "2026-07-01"),
+            unresolved_action_message("keep-unresolved", "2026-07-01"),
+            read_message("keep-recent", "2026-08-10"),
+            read_message("remove-stale", "2026-07-01"),
+        ];
+        game
+    }
+
+    #[test]
+    fn clear_old_messages_internal_keeps_only_expected_messages() {
+        let state = StateManager::new();
+        state.set_game(make_game());
+
+        let response = clear_old_messages_internal(&state).expect("response");
+        let message_ids: Vec<&str> = response
+            .messages
+            .iter()
+            .map(|message| message.id.as_str())
+            .collect();
+
+        assert_eq!(message_ids.len(), 3);
+        assert!(message_ids.contains(&"keep-unread"));
+        assert!(message_ids.contains(&"keep-unresolved"));
+        assert!(message_ids.contains(&"keep-recent"));
+        assert!(!message_ids.contains(&"remove-stale"));
+
+        let stored_game = state.get_game(|game| game.clone()).expect("stored game");
+        let stored_ids: Vec<&str> = stored_game
+            .messages
+            .iter()
+            .map(|message| message.id.as_str())
+            .collect();
+        assert_eq!(stored_ids.len(), 3);
+        assert!(!stored_ids.contains(&"remove-stale"));
+    }
 }
