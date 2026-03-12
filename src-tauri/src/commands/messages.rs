@@ -30,6 +30,10 @@ fn mark_message_read_internal(state: &StateManager, message_id: &str) -> Result<
 
 #[tauri::command]
 pub fn delete_message(state: State<'_, StateManager>, message_id: String) -> Result<Game, String> {
+    delete_message_internal(&state, &message_id)
+}
+
+fn delete_message_internal(state: &StateManager, message_id: &str) -> Result<Game, String> {
     log::debug!("[cmd] delete_message: {}", message_id);
     let mut game = state
         .get_game(|g| g.clone())
@@ -44,6 +48,13 @@ pub fn delete_message(state: State<'_, StateManager>, message_id: String) -> Res
 #[tauri::command]
 pub fn delete_messages(
     state: State<'_, StateManager>,
+    message_ids: Vec<String>,
+) -> Result<Game, String> {
+    delete_messages_internal(&state, message_ids)
+}
+
+fn delete_messages_internal(
+    state: &StateManager,
     message_ids: Vec<String>,
 ) -> Result<Game, String> {
     log::debug!("[cmd] delete_messages: {}", message_ids.len());
@@ -177,7 +188,8 @@ fn resolve_message_action_internal(
 #[cfg(test)]
 mod tests {
     use super::{
-        clear_old_messages_internal, mark_all_messages_read_internal, mark_message_read_internal,
+        clear_old_messages_internal, delete_message_internal, delete_messages_internal,
+        mark_all_messages_read_internal, mark_message_read_internal,
         resolve_message_action_internal,
     };
     use chrono::{TimeZone, Utc};
@@ -368,5 +380,55 @@ mod tests {
 
         let stored_game = state.get_game(|game| game.clone()).expect("stored game");
         assert!(stored_game.messages.iter().all(|message| message.read));
+    }
+
+    #[test]
+    fn delete_message_internal_updates_state() {
+        let state = StateManager::new();
+        state.set_game(make_game());
+
+        let response = delete_message_internal(&state, "remove-stale").expect("response");
+
+        assert!(!response
+            .messages
+            .iter()
+            .any(|message| message.id == "remove-stale"));
+
+        let stored_game = state.get_game(|game| game.clone()).expect("stored game");
+        assert!(!stored_game
+            .messages
+            .iter()
+            .any(|message| message.id == "remove-stale"));
+    }
+
+    #[test]
+    fn delete_messages_internal_updates_state() {
+        let state = StateManager::new();
+        state.set_game(make_game());
+
+        let response = delete_messages_internal(
+            &state,
+            vec!["keep-unread".to_string(), "remove-stale".to_string()],
+        )
+        .expect("response");
+
+        assert!(!response
+            .messages
+            .iter()
+            .any(|message| message.id == "keep-unread"));
+        assert!(!response
+            .messages
+            .iter()
+            .any(|message| message.id == "remove-stale"));
+
+        let stored_game = state.get_game(|game| game.clone()).expect("stored game");
+        assert!(!stored_game
+            .messages
+            .iter()
+            .any(|message| message.id == "keep-unread"));
+        assert!(!stored_game
+            .messages
+            .iter()
+            .any(|message| message.id == "remove-stale"));
     }
 }
