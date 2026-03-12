@@ -11,6 +11,10 @@ pub fn mark_message_read(
     state: State<'_, StateManager>,
     message_id: String,
 ) -> Result<Game, String> {
+    mark_message_read_internal(&state, &message_id)
+}
+
+fn mark_message_read_internal(state: &StateManager, message_id: &str) -> Result<Game, String> {
     log::debug!("[cmd] mark_message_read: {}", message_id);
     let mut game = state
         .get_game(|g| g.clone())
@@ -57,6 +61,10 @@ pub fn delete_messages(
 
 #[tauri::command]
 pub fn mark_all_messages_read(state: State<'_, StateManager>) -> Result<Game, String> {
+    mark_all_messages_read_internal(&state)
+}
+
+fn mark_all_messages_read_internal(state: &StateManager) -> Result<Game, String> {
     log::debug!("[cmd] mark_all_messages_read");
     let mut game = state
         .get_game(|g| g.clone())
@@ -168,7 +176,10 @@ fn resolve_message_action_internal(
 
 #[cfg(test)]
 mod tests {
-    use super::{clear_old_messages_internal, resolve_message_action_internal};
+    use super::{
+        clear_old_messages_internal, mark_all_messages_read_internal, mark_message_read_internal,
+        resolve_message_action_internal,
+    };
     use chrono::{TimeZone, Utc};
     use domain::manager::Manager;
     use domain::message::{ActionType, InboxMessage, MessageAction};
@@ -319,5 +330,43 @@ mod tests {
 
         let stored_game = state.get_game(|game| game.clone()).expect("stored game");
         assert_eq!(stored_game.messages[0].actions[0].resolved, true);
+    }
+
+    #[test]
+    fn mark_message_read_internal_updates_state() {
+        let state = StateManager::new();
+        state.set_game(make_game());
+
+        let response = mark_message_read_internal(&state, "keep-unread").expect("response");
+
+        let message = response
+            .messages
+            .iter()
+            .find(|message| message.id == "keep-unread")
+            .expect("message should exist");
+        assert!(message.read);
+
+        let stored_game = state.get_game(|game| game.clone()).expect("stored game");
+        assert!(
+            stored_game
+                .messages
+                .iter()
+                .find(|message| message.id == "keep-unread")
+                .expect("stored message should exist")
+                .read
+        );
+    }
+
+    #[test]
+    fn mark_all_messages_read_internal_updates_state() {
+        let state = StateManager::new();
+        state.set_game(make_game());
+
+        let response = mark_all_messages_read_internal(&state).expect("response");
+
+        assert!(response.messages.iter().all(|message| message.read));
+
+        let stored_game = state.get_game(|game| game.clone()).expect("stored game");
+        assert!(stored_game.messages.iter().all(|message| message.read));
     }
 }
