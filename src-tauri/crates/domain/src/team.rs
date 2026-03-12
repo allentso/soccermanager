@@ -206,6 +206,7 @@ pub enum FacilityType {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(default)]
 pub struct Facilities {
     pub training: u8,
     pub medical: u8,
