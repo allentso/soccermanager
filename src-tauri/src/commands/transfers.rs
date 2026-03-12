@@ -89,6 +89,15 @@ pub fn counter_offer(
     offer_id: String,
     requested_fee: u64,
 ) -> Result<serde_json::Value, String> {
+    counter_offer_internal(&state, &player_id, &offer_id, requested_fee)
+}
+
+fn counter_offer_internal(
+    state: &StateManager,
+    player_id: &str,
+    offer_id: &str,
+    requested_fee: u64,
+) -> Result<serde_json::Value, String> {
     info!(
         "[cmd] counter_offer: player_id={}, offer_id={}, requested_fee={}",
         player_id, offer_id, requested_fee
@@ -97,8 +106,7 @@ pub fn counter_offer(
         .get_game(|g| g.clone())
         .ok_or("No active game session".to_string())?;
 
-    let result =
-        ofm_core::transfers::counter_offer(&mut game, &player_id, &offer_id, requested_fee)?;
+    let result = ofm_core::transfers::counter_offer(&mut game, player_id, offer_id, requested_fee)?;
     state.set_game(game.clone());
 
     Ok(serde_json::json!({
@@ -124,4 +132,146 @@ pub fn send_scout(
     ofm_core::scouting::send_scout(&mut game, &scout_id, &player_id)?;
     state.set_game(game.clone());
     Ok(game)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::counter_offer_internal;
+    use chrono::{TimeZone, Utc};
+    use domain::manager::Manager;
+    use domain::player::{Player, PlayerAttributes, Position, TransferOffer, TransferOfferStatus};
+    use domain::team::Team;
+    use ofm_core::clock::GameClock;
+    use ofm_core::game::Game;
+    use ofm_core::state::StateManager;
+
+    fn default_attrs() -> PlayerAttributes {
+        PlayerAttributes {
+            pace: 60,
+            stamina: 60,
+            strength: 60,
+            agility: 60,
+            passing: 60,
+            shooting: 60,
+            tackling: 60,
+            dribbling: 60,
+            defending: 60,
+            positioning: 60,
+            vision: 60,
+            decisions: 60,
+            composure: 60,
+            aggression: 60,
+            teamwork: 60,
+            leadership: 60,
+            handling: 30,
+            reflexes: 30,
+            aerial: 60,
+        }
+    }
+
+    fn make_user_team() -> Team {
+        let mut team = Team::new(
+            "team-1".to_string(),
+            "User FC".to_string(),
+            "USR".to_string(),
+            "England".to_string(),
+            "London".to_string(),
+            "User Ground".to_string(),
+            25_000,
+        );
+        team.finance = 5_000_000;
+        team.transfer_budget = 2_000_000;
+        team.manager_id = Some("manager-1".to_string());
+        team
+    }
+
+    fn make_buyer_team() -> Team {
+        let mut team = Team::new(
+            "team-2".to_string(),
+            "Buyer FC".to_string(),
+            "BUY".to_string(),
+            "England".to_string(),
+            "Liverpool".to_string(),
+            "Buyer Ground".to_string(),
+            28_000,
+        );
+        team.finance = 6_000_000;
+        team.transfer_budget = 3_000_000;
+        team
+    }
+
+    fn make_player_with_offer() -> Player {
+        let mut player = Player::new(
+            "player-1".to_string(),
+            "P. One".to_string(),
+            "Player One".to_string(),
+            "2000-01-01".to_string(),
+            "England".to_string(),
+            Position::Forward,
+            default_attrs(),
+        );
+        player.team_id = Some("team-1".to_string());
+        player.contract_end = Some("2028-06-30".to_string());
+        player.market_value = 1_000_000;
+        player.transfer_offers.push(TransferOffer {
+            id: "offer-1".to_string(),
+            from_team_id: "team-2".to_string(),
+            fee: 900_000,
+            wage_offered: 0,
+            status: TransferOfferStatus::Pending,
+            date: "2026-08-01".to_string(),
+        });
+        player
+    }
+
+    fn make_game() -> Game {
+        let clock = GameClock::new(Utc.with_ymd_and_hms(2026, 8, 1, 12, 0, 0).unwrap());
+        let mut manager = Manager::new(
+            "manager-1".to_string(),
+            "Test".to_string(),
+            "Manager".to_string(),
+            "1980-01-01".to_string(),
+            "England".to_string(),
+        );
+        manager.hire("team-1".to_string());
+
+        Game::new(
+            clock,
+            manager,
+            vec![make_user_team(), make_buyer_team()],
+            vec![make_player_with_offer()],
+            vec![],
+            vec![],
+        )
+    }
+
+    #[test]
+    fn counter_offer_internal_returns_payload_and_updates_state() {
+        let state = StateManager::new();
+        state.set_game(make_game());
+
+        let response =
+            counter_offer_internal(&state, "player-1", "offer-1", 1_050_000).expect("response");
+
+        assert_eq!(response["result"].as_str(), Some("accepted"));
+        assert_eq!(
+            response["game"]["players"][0]["team_id"].as_str(),
+            Some("team-2")
+        );
+        assert_eq!(
+            response["game"]["players"][0]["transfer_offers"][0]["status"].as_str(),
+            Some("Accepted")
+        );
+
+        let stored_game = state.get_game(|game| game.clone()).expect("stored game");
+        assert_eq!(
+            stored_game
+                .players
+                .iter()
+                .find(|player| player.id == "player-1")
+                .and_then(|player| player.team_id.clone())
+                .as_deref(),
+            Some("team-2")
+        );
+    }
 }
