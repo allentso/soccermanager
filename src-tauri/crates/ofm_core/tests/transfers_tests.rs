@@ -5,7 +5,9 @@ use domain::player::{Player, PlayerAttributes, Position, TransferOffer, Transfer
 use domain::team::Team;
 use ofm_core::clock::GameClock;
 use ofm_core::game::Game;
-use ofm_core::transfers::{generate_incoming_transfer_offers, make_transfer_bid};
+use ofm_core::transfers::{
+    counter_offer, generate_incoming_transfer_offers, make_transfer_bid, respond_to_offer,
+};
 
 fn default_attrs() -> PlayerAttributes {
     PlayerAttributes {
@@ -52,6 +54,17 @@ fn make_user_player(id: &str) -> Player {
     let mut player = make_player(id);
     player.team_id = Some("team-1".to_string());
     player
+}
+
+fn make_pending_incoming_offer(id: &str, fee: u64) -> TransferOffer {
+    TransferOffer {
+        id: id.to_string(),
+        from_team_id: "team-2".to_string(),
+        fee,
+        wage_offered: 0,
+        status: TransferOfferStatus::Pending,
+        date: "2026-08-01".to_string(),
+    }
 }
 
 fn make_user_team(finance: i64, transfer_budget: i64) -> Team {
@@ -259,4 +272,129 @@ fn contract_risk_player_draws_interest_before_similar_stable_player() {
 
     assert_eq!(risky.transfer_offers.len(), 1);
     assert!(stable.transfer_offers.is_empty());
+}
+
+#[test]
+fn rejecting_pending_offer_closes_the_negotiation_cleanly() {
+    let mut player = make_user_player("player-reject");
+    player
+        .transfer_offers
+        .push(make_pending_incoming_offer("offer-reject", 900_000));
+
+    let mut game = make_game_with_player(player, vec![], 5_000_000, 2_000_000);
+    game.teams[1].finance = 6_000_000;
+    game.teams[1].transfer_budget = 3_000_000;
+
+    respond_to_offer(&mut game, "player-reject", "offer-reject", false)
+        .expect("rejecting a pending offer should succeed");
+
+    let player = game
+        .players
+        .iter()
+        .find(|player| player.id == "player-reject")
+        .unwrap();
+    assert_eq!(player.team_id.as_deref(), Some("team-1"));
+    assert_eq!(player.transfer_offers.len(), 1);
+    assert_eq!(
+        player.transfer_offers[0].status,
+        TransferOfferStatus::Rejected
+    );
+}
+
+#[test]
+fn reasonable_counter_offer_is_accepted_and_executes_transfer() {
+    let mut player = make_user_player("player-counter-accept");
+    player.market_value = 1_000_000;
+    player
+        .transfer_offers
+        .push(make_pending_incoming_offer("offer-counter-accept", 900_000));
+
+    let mut game = make_game_with_player(player, vec![], 5_000_000, 2_000_000);
+    game.teams[1].finance = 6_000_000;
+    game.teams[1].transfer_budget = 3_000_000;
+
+    let result = counter_offer(
+        &mut game,
+        "player-counter-accept",
+        "offer-counter-accept",
+        1_050_000,
+    )
+    .expect("counter offer should be evaluated");
+
+    assert_eq!(result, "accepted");
+    let player = game
+        .players
+        .iter()
+        .find(|player| player.id == "player-counter-accept")
+        .unwrap();
+    assert_eq!(player.team_id.as_deref(), Some("team-2"));
+    assert_eq!(
+        player.transfer_offers[0].status,
+        TransferOfferStatus::Accepted
+    );
+    assert_eq!(
+        game.teams
+            .iter()
+            .find(|team| team.id == "team-1")
+            .unwrap()
+            .finance,
+        6_050_000
+    );
+    assert_eq!(
+        game.teams
+            .iter()
+            .find(|team| team.id == "team-2")
+            .unwrap()
+            .finance,
+        4_950_000
+    );
+}
+
+#[test]
+fn excessive_counter_offer_is_rejected_and_closes_the_negotiation() {
+    let mut player = make_user_player("player-counter-reject");
+    player.market_value = 1_000_000;
+    player
+        .transfer_offers
+        .push(make_pending_incoming_offer("offer-counter-reject", 900_000));
+
+    let mut game = make_game_with_player(player, vec![], 5_000_000, 2_000_000);
+    game.teams[1].finance = 6_000_000;
+    game.teams[1].transfer_budget = 3_000_000;
+
+    let result = counter_offer(
+        &mut game,
+        "player-counter-reject",
+        "offer-counter-reject",
+        1_400_000,
+    )
+    .expect("counter offer should be evaluated");
+
+    assert_eq!(result, "rejected");
+    let player = game
+        .players
+        .iter()
+        .find(|player| player.id == "player-counter-reject")
+        .unwrap();
+    assert_eq!(player.team_id.as_deref(), Some("team-1"));
+    assert_eq!(
+        player.transfer_offers[0].status,
+        TransferOfferStatus::Rejected
+    );
+    assert_eq!(
+        game.teams
+            .iter()
+            .find(|team| team.id == "team-1")
+            .unwrap()
+            .finance,
+        5_000_000
+    );
+    assert_eq!(
+        game.teams
+            .iter()
+            .find(|team| team.id == "team-2")
+            .unwrap()
+            .finance,
+        6_000_000
+    );
 }

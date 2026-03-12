@@ -207,6 +207,19 @@ pub fn generate_incoming_transfer_offers(game: &mut Game) {
     }
 }
 
+fn buyer_counter_offer_ceiling(
+    current_date: NaiveDate,
+    player: &domain::player::Player,
+    current_offer_fee: u64,
+    buyer_team: &domain::team::Team,
+) -> u64 {
+    let baseline_fee = suggested_incoming_fee(current_date, player).max(current_offer_fee);
+    let ceiling = ((baseline_fee as f64) * 1.2).round() as u64;
+    ceiling
+        .min(buyer_team.transfer_budget.max(0) as u64)
+        .min(buyer_team.finance.max(0) as u64)
+}
+
 /// Submit a transfer bid from user's team for a player.
 /// The AI evaluates the bid and accepts/rejects based on fee vs market value.
 pub fn make_transfer_bid(game: &mut Game, player_id: &str, fee: u64) -> Result<String, String> {
@@ -334,6 +347,72 @@ pub fn respond_to_offer(
     }
 
     Ok(())
+}
+
+pub fn counter_offer(
+    game: &mut Game,
+    player_id: &str,
+    offer_id: &str,
+    requested_fee: u64,
+) -> Result<String, String> {
+    let user_team_id = game.manager.team_id.clone().ok_or("No user team")?;
+
+    let player = game
+        .players
+        .iter()
+        .find(|p| p.id == player_id && p.team_id.as_deref() == Some(&user_team_id))
+        .ok_or("Player not found or not yours")?;
+
+    let offer = player
+        .transfer_offers
+        .iter()
+        .find(|offer| offer.id == offer_id && offer.status == TransferOfferStatus::Pending)
+        .ok_or("Offer not found or not pending")?;
+
+    if requested_fee <= offer.fee {
+        return Err("Counter offer must exceed current offer".into());
+    }
+
+    let buyer_team = game
+        .teams
+        .iter()
+        .find(|team| team.id == offer.from_team_id)
+        .ok_or("Buying team not found")?;
+
+    let buyer_team_id = buyer_team.id.clone();
+    let current_date = game.clock.current_date.date_naive();
+    let counter_ceiling = buyer_counter_offer_ceiling(current_date, player, offer.fee, buyer_team);
+    let accepted = requested_fee <= counter_ceiling;
+
+    if let Some(player) = game
+        .players
+        .iter_mut()
+        .find(|player| player.id == player_id)
+        && let Some(offer) = player
+            .transfer_offers
+            .iter_mut()
+            .find(|offer| offer.id == offer_id)
+    {
+        if accepted {
+            offer.fee = requested_fee;
+            offer.status = TransferOfferStatus::Accepted;
+        } else {
+            offer.status = TransferOfferStatus::Rejected;
+        }
+    }
+
+    if accepted {
+        execute_transfer(
+            game,
+            player_id,
+            &buyer_team_id,
+            &user_team_id,
+            requested_fee,
+        )?;
+        return Ok("accepted".into());
+    }
+
+    Ok("rejected".into())
 }
 
 /// Transfer a player between teams, adjusting finances.
