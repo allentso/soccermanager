@@ -77,6 +77,15 @@ pub fn respond_to_offer(
     offer_id: String,
     accept: bool,
 ) -> Result<Game, String> {
+    respond_to_offer_internal(&state, &player_id, &offer_id, accept)
+}
+
+fn respond_to_offer_internal(
+    state: &StateManager,
+    player_id: &str,
+    offer_id: &str,
+    accept: bool,
+) -> Result<Game, String> {
     info!(
         "[cmd] respond_to_offer: player_id={}, offer_id={}, accept={}",
         player_id, offer_id, accept
@@ -85,7 +94,7 @@ pub fn respond_to_offer(
         .get_game(|g| g.clone())
         .ok_or("No active game session".to_string())?;
 
-    ofm_core::transfers::respond_to_offer(&mut game, &player_id, &offer_id, accept)?;
+    ofm_core::transfers::respond_to_offer(&mut game, player_id, offer_id, accept)?;
     state.set_game(game.clone());
     Ok(game)
 }
@@ -144,7 +153,7 @@ pub fn send_scout(
 
 #[cfg(test)]
 mod tests {
-    use super::{counter_offer_internal, make_transfer_bid_internal};
+    use super::{counter_offer_internal, make_transfer_bid_internal, respond_to_offer_internal};
     use chrono::{TimeZone, Utc};
     use domain::manager::Manager;
     use domain::player::{Player, PlayerAttributes, Position, TransferOffer, TransferOfferStatus};
@@ -351,6 +360,38 @@ mod tests {
                 .and_then(|player| player.team_id.clone())
                 .as_deref(),
             Some("team-1")
+        );
+    }
+
+    #[test]
+    fn respond_to_offer_internal_returns_game_and_updates_state() {
+        let state = StateManager::new();
+        state.set_game(make_game());
+
+        let response =
+            respond_to_offer_internal(&state, "player-1", "offer-1", false).expect("response");
+
+        let player = response
+            .players
+            .iter()
+            .find(|player| player.id == "player-1")
+            .expect("player should exist");
+        assert_eq!(player.team_id.as_deref(), Some("team-1"));
+        assert_eq!(
+            player.transfer_offers[0].status,
+            TransferOfferStatus::Rejected
+        );
+
+        let stored_game = state.get_game(|game| game.clone()).expect("stored game");
+        let stored_player = stored_game
+            .players
+            .iter()
+            .find(|player| player.id == "player-1")
+            .expect("stored player should exist");
+        assert_eq!(stored_player.team_id.as_deref(), Some("team-1"));
+        assert_eq!(
+            stored_player.transfer_offers[0].status,
+            TransferOfferStatus::Rejected
         );
     }
 }
