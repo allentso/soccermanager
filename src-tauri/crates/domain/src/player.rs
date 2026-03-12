@@ -179,9 +179,19 @@ pub enum PlayerPromiseKind {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default)]
 pub struct PlayerPromise {
     pub kind: PlayerPromiseKind,
     pub matches_remaining: u8,
+}
+
+impl Default for PlayerPromise {
+    fn default() -> Self {
+        Self {
+            kind: PlayerPromiseKind::PlayingTime,
+            matches_remaining: 0,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
