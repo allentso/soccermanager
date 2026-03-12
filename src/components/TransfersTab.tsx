@@ -34,6 +34,13 @@ interface TransfersTabProps {
 
 type TabView = "my_list" | "market" | "loans" | "offers";
 
+type CounterTarget = {
+  player: PlayerData;
+  offerId: string;
+  fromTeamId: string;
+  fee: number;
+};
+
 export default function TransfersTab({
   gameState,
   onSelectPlayer,
@@ -50,6 +57,12 @@ export default function TransfersTab({
   const [bidAmount, setBidAmount] = useState("");
   const [bidResult, setBidResult] = useState<string | null>(null);
   const [bidLoading, setBidLoading] = useState(false);
+  const [counterTarget, setCounterTarget] = useState<CounterTarget | null>(
+    null,
+  );
+  const [counterAmount, setCounterAmount] = useState("");
+  const [counterLoading, setCounterLoading] = useState(false);
+  const [counterError, setCounterError] = useState<string | null>(null);
 
   const handleMakeBid = async () => {
     if (!bidTarget || !bidAmount) return;
@@ -90,6 +103,33 @@ export default function TransfersTab({
       if (onGameUpdate) onGameUpdate(game);
     } catch (err) {
       console.error("Failed to respond to offer:", err);
+    }
+  };
+
+  const handleCounterOffer = async () => {
+    if (!counterTarget || !counterAmount) return;
+
+    setCounterLoading(true);
+    setCounterError(null);
+
+    try {
+      const requestedFee = Math.round(parseFloat(counterAmount) * 1_000_000);
+      const response = await invoke<{ result: string; game: GameStateData }>(
+        "counter_offer",
+        {
+          playerId: counterTarget.player.id,
+          offerId: counterTarget.offerId,
+          requestedFee,
+        },
+      );
+
+      if (onGameUpdate) onGameUpdate(response.game);
+      setCounterTarget(null);
+      setCounterAmount("");
+    } catch (err: any) {
+      setCounterError(err?.toString() || "error");
+    } finally {
+      setCounterLoading(false);
     }
   };
 
@@ -496,6 +536,29 @@ export default function TransfersTab({
                                           >
                                             <X className="w-3 h-3" />
                                           </button>
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setCounterTarget({
+                                                player,
+                                                offerId: offer.id,
+                                                fromTeamId: offer.from_team_id,
+                                                fee: offer.fee,
+                                              });
+                                              setCounterAmount(
+                                                (offer.fee / 1_000_000).toFixed(
+                                                  1,
+                                                ),
+                                              );
+                                              setCounterError(null);
+                                            }}
+                                            aria-label="Counter Offer"
+                                            className="flex items-center gap-1 px-2 py-1 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-500 text-xs font-heading font-bold uppercase tracking-wider"
+                                            title="Counter Offer"
+                                          >
+                                            <Gavel className="w-3 h-3" />{" "}
+                                            Counter
+                                          </button>
                                         </div>
                                       )}
                                   </div>
@@ -611,6 +674,76 @@ export default function TransfersTab({
               </button>
               <button
                 onClick={() => setBidTarget(null)}
+                className="px-4 py-2 bg-gray-200 dark:bg-navy-700 text-gray-600 dark:text-gray-300 rounded-lg font-heading font-bold text-sm uppercase tracking-wider hover:bg-gray-300 dark:hover:bg-navy-600 transition-colors"
+              >
+                {t("transfers.close")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {counterTarget && (
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+          onClick={() => setCounterTarget(null)}
+        >
+          <div
+            className="bg-white dark:bg-navy-800 rounded-xl shadow-2xl border border-gray-200 dark:border-navy-600 p-6 w-full max-w-sm"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-sm font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3">
+              Counter Offer
+            </h3>
+            <div className="flex items-center gap-3 mb-4">
+              <Badge
+                variant={positionBadgeVariant(counterTarget.player.position)}
+                size="sm"
+              >
+                {translatePositionAbbreviation(
+                  t,
+                  counterTarget.player.position,
+                )}
+              </Badge>
+              <div>
+                <p className="font-semibold text-sm text-gray-800 dark:text-gray-200">
+                  {counterTarget.player.full_name}
+                </p>
+                <p className="text-xs text-gray-400">
+                  {getTeamName(gameState.teams, counterTarget.fromTeamId)} •
+                  Current offer {formatVal(counterTarget.fee)}
+                </p>
+              </div>
+            </div>
+            <label
+              htmlFor="counter-offer-amount"
+              className="text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1 block"
+            >
+              Counter Amount
+            </label>
+            <input
+              id="counter-offer-amount"
+              type="number"
+              step="0.1"
+              min="0"
+              value={counterAmount}
+              onChange={(e) => setCounterAmount(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg bg-gray-50 dark:bg-navy-700 border border-gray-200 dark:border-navy-600 text-sm text-gray-800 dark:text-gray-200 mb-3 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
+            />
+            {counterError && (
+              <div className="text-xs font-heading font-bold uppercase tracking-wider mb-3 text-red-500">
+                {counterError}
+              </div>
+            )}
+            <div className="flex gap-2">
+              <button
+                onClick={handleCounterOffer}
+                disabled={counterLoading}
+                className="flex-1 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg font-heading font-bold text-sm uppercase tracking-wider transition-colors disabled:opacity-50"
+              >
+                {counterLoading ? "Submitting" : "Submit Counter"}
+              </button>
+              <button
+                onClick={() => setCounterTarget(null)}
                 className="px-4 py-2 bg-gray-200 dark:bg-navy-700 text-gray-600 dark:text-gray-300 rounded-lg font-heading font-bold text-sm uppercase tracking-wider hover:bg-gray-300 dark:hover:bg-navy-600 transition-colors"
               >
                 {t("transfers.close")}

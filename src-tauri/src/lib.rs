@@ -114,6 +114,7 @@ pub fn run() {
             toggle_loan_list,
             make_transfer_bid,
             respond_to_offer,
+            counter_offer,
             send_scout,
             check_season_complete,
             advance_to_next_season,

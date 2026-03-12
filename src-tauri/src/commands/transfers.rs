@@ -83,6 +83,31 @@ pub fn respond_to_offer(
 }
 
 #[tauri::command]
+pub fn counter_offer(
+    state: State<'_, StateManager>,
+    player_id: String,
+    offer_id: String,
+    requested_fee: u64,
+) -> Result<serde_json::Value, String> {
+    info!(
+        "[cmd] counter_offer: player_id={}, offer_id={}, requested_fee={}",
+        player_id, offer_id, requested_fee
+    );
+    let mut game = state
+        .get_game(|g| g.clone())
+        .ok_or("No active game session".to_string())?;
+
+    let result =
+        ofm_core::transfers::counter_offer(&mut game, &player_id, &offer_id, requested_fee)?;
+    state.set_game(game.clone());
+
+    Ok(serde_json::json!({
+        "result": result,
+        "game": game,
+    }))
+}
+
+#[tauri::command]
 pub fn send_scout(
     state: State<'_, StateManager>,
     scout_id: String,
