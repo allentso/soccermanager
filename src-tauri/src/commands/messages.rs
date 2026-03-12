@@ -110,6 +110,15 @@ pub fn resolve_message_action(
     action_id: String,
     option_id: Option<String>,
 ) -> Result<serde_json::Value, String> {
+    resolve_message_action_internal(&state, &message_id, &action_id, option_id.as_deref())
+}
+
+fn resolve_message_action_internal(
+    state: &StateManager,
+    message_id: &str,
+    action_id: &str,
+    option_id: Option<&str>,
+) -> Result<serde_json::Value, String> {
     info!(
         "[cmd] resolve_message_action: msg={}, action={}, option={:?}",
         message_id, action_id, option_id
@@ -119,10 +128,10 @@ pub fn resolve_message_action(
         .ok_or("No active game session".to_string())?;
 
     // Try to apply player conversation or random event response
-    let (effect, effect_i18n_key, effect_i18n_params) = if let Some(opt) = &option_id {
+    let (effect, effect_i18n_key, effect_i18n_params) = if let Some(opt) = option_id {
         // Try player events first, then random events
         let player_effect =
-            ofm_core::player_events::apply_player_response(&mut game, &message_id, &action_id, opt);
+            ofm_core::player_events::apply_player_response(&mut game, message_id, action_id, opt);
         if let Some(player_effect) = player_effect {
             (
                 Some(player_effect.message),
@@ -132,10 +141,7 @@ pub fn resolve_message_action(
         } else {
             (
                 ofm_core::random_events::apply_event_response(
-                    &mut game,
-                    &message_id,
-                    &action_id,
-                    opt,
+                    &mut game, message_id, action_id, opt,
                 ),
                 None,
                 None,
@@ -162,7 +168,7 @@ pub fn resolve_message_action(
 
 #[cfg(test)]
 mod tests {
-    use super::clear_old_messages_internal;
+    use super::{clear_old_messages_internal, resolve_message_action_internal};
     use chrono::{TimeZone, Utc};
     use domain::manager::Manager;
     use domain::message::{ActionType, InboxMessage, MessageAction};
@@ -213,6 +219,24 @@ mod tests {
             date.to_string(),
         );
         message.read = true;
+        message
+    }
+
+    fn actionable_message(id: &str, date: &str) -> InboxMessage {
+        let mut message = InboxMessage::new(
+            id.to_string(),
+            "Subject".to_string(),
+            "Body".to_string(),
+            "Board".to_string(),
+            date.to_string(),
+        );
+        message.actions.push(MessageAction {
+            id: format!("action-{}", id),
+            label: "Acknowledge".to_string(),
+            action_type: ActionType::Acknowledge,
+            resolved: false,
+            label_key: None,
+        });
         message
     }
 
@@ -273,5 +297,27 @@ mod tests {
             .collect();
         assert_eq!(stored_ids.len(), 3);
         assert!(!stored_ids.contains(&"remove-stale"));
+    }
+
+    #[test]
+    fn resolve_message_action_internal_marks_action_resolved_and_updates_state() {
+        let state = StateManager::new();
+        let mut game = make_game();
+        game.messages = vec![actionable_message("msg-1", "2026-08-20")];
+        state.set_game(game);
+
+        let response = resolve_message_action_internal(&state, "msg-1", "action-msg-1", None)
+            .expect("response");
+
+        assert!(response["effect"].is_null());
+        assert!(response["effect_i18n_key"].is_null());
+        assert!(response["effect_i18n_params"].is_null());
+        assert_eq!(
+            response["game"]["messages"][0]["actions"][0]["resolved"].as_bool(),
+            Some(true)
+        );
+
+        let stored_game = state.get_game(|game| game.clone()).expect("stored game");
+        assert_eq!(stored_game.messages[0].actions[0].resolved, true);
     }
 }
