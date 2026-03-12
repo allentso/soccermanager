@@ -44,7 +44,7 @@ fn hire_staff_internal(state: &StateManager, staff_id: &str) -> Result<Game, Str
 
 #[cfg(test)]
 mod tests {
-    use super::hire_staff_internal;
+    use super::{hire_staff_internal, release_staff_internal};
     use chrono::{TimeZone, Utc};
     use domain::manager::Manager;
     use domain::staff::{Staff, StaffAttributes, StaffRole};
@@ -85,6 +85,12 @@ mod tests {
         staff
     }
 
+    fn make_employed_staff() -> Staff {
+        let mut staff = make_staff();
+        staff.team_id = Some("team-1".to_string());
+        staff
+    }
+
     fn make_game() -> Game {
         let clock = GameClock::new(Utc.with_ymd_and_hms(2026, 8, 1, 12, 0, 0).unwrap());
         let mut manager = Manager::new(
@@ -102,6 +108,27 @@ mod tests {
             vec![make_team()],
             vec![],
             vec![make_staff()],
+            vec![],
+        )
+    }
+
+    fn make_game_with_employed_staff() -> Game {
+        let clock = GameClock::new(Utc.with_ymd_and_hms(2026, 8, 1, 12, 0, 0).unwrap());
+        let mut manager = Manager::new(
+            "manager-1".to_string(),
+            "Test".to_string(),
+            "Manager".to_string(),
+            "1980-01-01".to_string(),
+            "England".to_string(),
+        );
+        manager.hire("team-1".to_string());
+
+        Game::new(
+            clock,
+            manager,
+            vec![make_team()],
+            vec![],
+            vec![make_employed_staff()],
             vec![],
         )
     }
@@ -140,10 +167,37 @@ mod tests {
         assert_eq!(stored_staff.team_id.as_deref(), Some("team-1"));
         assert_eq!(stored_team.season_expenses, 12_000);
     }
+
+    #[test]
+    fn release_staff_internal_updates_state() {
+        let state = StateManager::new();
+        state.set_game(make_game_with_employed_staff());
+
+        let response = release_staff_internal(&state, "staff-1").expect("response");
+        let staff = response
+            .staff
+            .iter()
+            .find(|staff| staff.id == "staff-1")
+            .unwrap();
+
+        assert!(staff.team_id.is_none());
+
+        let stored_game = state.get_game(|game| game.clone()).expect("stored game");
+        let stored_staff = stored_game
+            .staff
+            .iter()
+            .find(|staff| staff.id == "staff-1")
+            .expect("stored staff should exist");
+        assert!(stored_staff.team_id.is_none());
+    }
 }
 
 #[tauri::command]
 pub fn release_staff(state: State<'_, StateManager>, staff_id: String) -> Result<Game, String> {
+    release_staff_internal(&state, &staff_id)
+}
+
+fn release_staff_internal(state: &StateManager, staff_id: &str) -> Result<Game, String> {
     info!("[cmd] release_staff: staff_id={}", staff_id);
     let mut game = state
         .get_game(|g| g.clone())
