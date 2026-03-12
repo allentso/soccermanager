@@ -273,6 +273,38 @@ mod tests {
         serde_json::to_string(&game).unwrap()
     }
 
+    fn legacy_game_json_with_partial_morale_core() -> String {
+        let mut json: serde_json::Value =
+            serde_json::from_str(&minimal_game_json()).expect("minimal game json should parse");
+
+        json["players"][0]["morale_core"] = serde_json::json!({
+            "manager_trust": 63,
+            "unresolved_issue": {
+                "category": "PlayingTime",
+                "severity": 55
+            },
+            "recent_treatment": null
+        });
+
+        serde_json::to_string(&json).expect("legacy game json should serialize")
+    }
+
+    fn legacy_game_json_with_partial_transfer_offer() -> String {
+        let mut json: serde_json::Value =
+            serde_json::from_str(&minimal_game_json()).expect("minimal game json should parse");
+
+        json["players"][0]["transfer_offers"] = serde_json::json!([
+            {
+                "id": "offer-legacy-1",
+                "from_team_id": "team-999",
+                "fee": 900000,
+                "wage_offered": 0
+            }
+        ]);
+
+        serde_json::to_string(&json).expect("legacy game json should serialize")
+    }
+
     #[test]
     fn test_has_legacy_db() {
         let dir = tempfile::tempdir().unwrap();
@@ -397,6 +429,79 @@ mod tests {
         assert!(results.is_empty());
         assert!(!legacy_path.exists()); // Renamed even if empty
         assert!(dir.path().join("saves.db.migrated").exists());
+    }
+
+    #[test]
+    fn test_migrate_legacy_save_with_partial_morale_core_defaults_new_fields() {
+        let dir = tempfile::tempdir().unwrap();
+        let legacy_path = dir.path().join("saves.db");
+        let saves_dir = dir.path().join("saves");
+        let json = legacy_game_json_with_partial_morale_core();
+
+        create_legacy_db(
+            &legacy_path,
+            &[("old-save-1", "Legacy Morale Save", "Test Manager", &json)],
+        );
+
+        let mut sm = SaveManager::init(&saves_dir).unwrap();
+        let results = migrate_legacy_saves(dir.path(), &mut sm).unwrap();
+
+        assert_eq!(results.len(), 1);
+        assert!(matches!(&results[0], LegacyMigrationResult::Success { .. }));
+
+        let save_id = &sm.list_saves()[0].id;
+        let loaded = sm.load_game(save_id).unwrap();
+        let player = loaded
+            .players
+            .iter()
+            .find(|player| player.id == "p-001")
+            .unwrap();
+
+        assert_eq!(player.morale_core.manager_trust, 63);
+        assert_eq!(
+            player
+                .morale_core
+                .unresolved_issue
+                .as_ref()
+                .map(|issue| issue.severity),
+            Some(55)
+        );
+        assert_eq!(player.morale_core.pending_promise, None);
+        assert_eq!(player.morale_core.talk_cooldown_until, None);
+    }
+
+    #[test]
+    fn test_migrate_legacy_save_with_partial_transfer_offer_defaults_negotiation_fields() {
+        let dir = tempfile::tempdir().unwrap();
+        let legacy_path = dir.path().join("saves.db");
+        let saves_dir = dir.path().join("saves");
+        let json = legacy_game_json_with_partial_transfer_offer();
+
+        create_legacy_db(
+            &legacy_path,
+            &[("old-save-2", "Legacy Transfer Save", "Test Manager", &json)],
+        );
+
+        let mut sm = SaveManager::init(&saves_dir).unwrap();
+        let results = migrate_legacy_saves(dir.path(), &mut sm).unwrap();
+
+        assert_eq!(results.len(), 1);
+        assert!(matches!(&results[0], LegacyMigrationResult::Success { .. }));
+
+        let save_id = &sm.list_saves()[0].id;
+        let loaded = sm.load_game(save_id).unwrap();
+        let player = loaded
+            .players
+            .iter()
+            .find(|player| player.id == "p-001")
+            .unwrap();
+
+        assert_eq!(player.transfer_offers.len(), 1);
+        assert_eq!(player.transfer_offers[0].id, "offer-legacy-1");
+        assert_eq!(player.transfer_offers[0].from_team_id, "team-999");
+        assert_eq!(player.transfer_offers[0].fee, 900_000);
+        assert_eq!(format!("{:?}", player.transfer_offers[0].status), "Pending");
+        assert_eq!(player.transfer_offers[0].date, "");
     }
 
     #[test]

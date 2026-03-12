@@ -195,6 +195,14 @@ impl Default for PlayerMoraleCore {
     }
 }
 
+fn default_transfer_offer_status() -> TransferOfferStatus {
+    TransferOfferStatus::Pending
+}
+
+fn default_transfer_offer_date() -> String {
+    String::new()
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct PlayerSeasonStats {
     pub appearances: u32,
@@ -223,7 +231,9 @@ pub struct TransferOffer {
     pub from_team_id: String,
     pub fee: u64,
     pub wage_offered: u32,
+    #[serde(default = "default_transfer_offer_status")]
     pub status: TransferOfferStatus,
+    #[serde(default = "default_transfer_offer_date")]
     pub date: String,
 }
 
