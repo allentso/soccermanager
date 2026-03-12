@@ -9,6 +9,10 @@ pub fn toggle_transfer_list(
     state: State<'_, StateManager>,
     player_id: String,
 ) -> Result<Game, String> {
+    toggle_transfer_list_internal(&state, &player_id)
+}
+
+fn toggle_transfer_list_internal(state: &StateManager, player_id: &str) -> Result<Game, String> {
     info!("[cmd] toggle_transfer_list: player_id={}", player_id);
     let mut game = state
         .get_game(|g| g.clone())
@@ -25,6 +29,10 @@ pub fn toggle_transfer_list(
 
 #[tauri::command]
 pub fn toggle_loan_list(state: State<'_, StateManager>, player_id: String) -> Result<Game, String> {
+    toggle_loan_list_internal(&state, &player_id)
+}
+
+fn toggle_loan_list_internal(state: &StateManager, player_id: &str) -> Result<Game, String> {
     info!("[cmd] toggle_loan_list: player_id={}", player_id);
     let mut game = state
         .get_game(|g| g.clone())
@@ -153,7 +161,10 @@ pub fn send_scout(
 
 #[cfg(test)]
 mod tests {
-    use super::{counter_offer_internal, make_transfer_bid_internal, respond_to_offer_internal};
+    use super::{
+        counter_offer_internal, make_transfer_bid_internal, respond_to_offer_internal,
+        toggle_loan_list_internal, toggle_transfer_list_internal,
+    };
     use chrono::{TimeZone, Utc};
     use domain::manager::Manager;
     use domain::player::{Player, PlayerAttributes, Position, TransferOffer, TransferOfferStatus};
@@ -393,5 +404,51 @@ mod tests {
             stored_player.transfer_offers[0].status,
             TransferOfferStatus::Rejected
         );
+    }
+
+    #[test]
+    fn toggle_transfer_list_internal_updates_state() {
+        let state = StateManager::new();
+        state.set_game(make_game());
+
+        let response = toggle_transfer_list_internal(&state, "player-1").expect("response");
+
+        let player = response
+            .players
+            .iter()
+            .find(|player| player.id == "player-1")
+            .expect("player should exist");
+        assert!(player.transfer_listed);
+
+        let stored_game = state.get_game(|game| game.clone()).expect("stored game");
+        let stored_player = stored_game
+            .players
+            .iter()
+            .find(|player| player.id == "player-1")
+            .expect("stored player should exist");
+        assert!(stored_player.transfer_listed);
+    }
+
+    #[test]
+    fn toggle_loan_list_internal_updates_state() {
+        let state = StateManager::new();
+        state.set_game(make_game());
+
+        let response = toggle_loan_list_internal(&state, "player-1").expect("response");
+
+        let player = response
+            .players
+            .iter()
+            .find(|player| player.id == "player-1")
+            .expect("player should exist");
+        assert!(player.loan_listed);
+
+        let stored_game = state.get_game(|game| game.clone()).expect("stored game");
+        let stored_player = stored_game
+            .players
+            .iter()
+            .find(|player| player.id == "player-1")
+            .expect("stored player should exist");
+        assert!(stored_player.loan_listed);
     }
 }
