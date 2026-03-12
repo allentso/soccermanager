@@ -63,6 +63,150 @@ fn minimum_acceptable_fee(
     ((player.market_value as f64) * multiplier).round() as u64
 }
 
+fn incoming_interest_score(current_date: NaiveDate, player: &domain::player::Player) -> i32 {
+    let mut score = 0;
+
+    if player.transfer_listed {
+        score += 30;
+    }
+
+    if let Some(days_remaining) =
+        contract_days_remaining(current_date, player.contract_end.as_deref())
+    {
+        if days_remaining <= 60 {
+            score += 40;
+        } else if days_remaining <= 180 {
+            score += 25;
+        } else if days_remaining <= 365 {
+            score += 10;
+        }
+    }
+
+    if player.market_value >= 1_000_000 {
+        score += 20;
+    } else if player.market_value >= 500_000 {
+        score += 10;
+    }
+
+    if player.morale <= 45 {
+        score += 10;
+    }
+
+    score
+}
+
+fn suggested_incoming_fee(current_date: NaiveDate, player: &domain::player::Player) -> u64 {
+    let mut multiplier: f64 = if player.transfer_listed { 0.9 } else { 1.0 };
+
+    if let Some(days_remaining) =
+        contract_days_remaining(current_date, player.contract_end.as_deref())
+    {
+        if days_remaining <= 60 {
+            multiplier -= 0.15;
+        } else if days_remaining <= 180 {
+            multiplier -= 0.1;
+        }
+    }
+
+    if player.morale <= 45 {
+        multiplier -= 0.05;
+    }
+
+    let multiplier = multiplier.clamp(0.7, 1.05);
+    ((player.market_value as f64) * multiplier).round() as u64
+}
+
+fn has_open_incoming_offer_from_club(player: &domain::player::Player, club_id: &str) -> bool {
+    player
+        .transfer_offers
+        .iter()
+        .any(|offer| offer.from_team_id == club_id && offer.status == TransferOfferStatus::Pending)
+}
+
+pub fn generate_incoming_transfer_offers(game: &mut Game) {
+    let Some(user_team_id) = game.manager.team_id.clone() else {
+        return;
+    };
+
+    let current_date = game.clock.current_date.date_naive();
+    let today = game.clock.current_date.format("%Y-%m-%d").to_string();
+
+    let buyer_ids: Vec<String> = game
+        .teams
+        .iter()
+        .filter(|team| team.id != user_team_id)
+        .map(|team| team.id.clone())
+        .collect();
+
+    for buyer_id in buyer_ids {
+        let Some(buyer_team) = game.teams.iter().find(|team| team.id == buyer_id) else {
+            continue;
+        };
+
+        let mut chosen_player_id: Option<String> = None;
+        let mut chosen_score = i32::MIN;
+        let mut chosen_fee = 0_u64;
+
+        for player in &game.players {
+            if player.team_id.as_deref() != Some(user_team_id.as_str()) {
+                continue;
+            }
+
+            if has_open_incoming_offer_from_club(player, &buyer_id) {
+                continue;
+            }
+
+            let score = incoming_interest_score(current_date, player);
+            if score < 35 {
+                continue;
+            }
+
+            let fee = suggested_incoming_fee(current_date, player);
+            if buyer_team.transfer_budget < fee as i64 || buyer_team.finance < fee as i64 {
+                continue;
+            }
+
+            if score > chosen_score {
+                chosen_player_id = Some(player.id.clone());
+                chosen_score = score;
+                chosen_fee = fee;
+            }
+        }
+
+        let Some(player_id) = chosen_player_id else {
+            continue;
+        };
+
+        let Some(player) = game
+            .players
+            .iter_mut()
+            .find(|player| player.id == player_id)
+        else {
+            continue;
+        };
+
+        player.transfer_offers.push(domain::player::TransferOffer {
+            id: Uuid::new_v4().to_string(),
+            from_team_id: buyer_id.clone(),
+            fee: chosen_fee,
+            wage_offered: 0,
+            status: TransferOfferStatus::Pending,
+            date: today.clone(),
+        });
+
+        let player_name = player.full_name.clone();
+        let buyer_name = buyer_team.name.clone();
+        let message = crate::messages::incoming_transfer_offer_message(
+            &player_id,
+            &player_name,
+            &buyer_name,
+            chosen_fee,
+            &today,
+        );
+        game.messages.push(message);
+    }
+}
+
 /// Submit a transfer bid from user's team for a player.
 /// The AI evaluates the bid and accepts/rejects based on fee vs market value.
 pub fn make_transfer_bid(game: &mut Game, player_id: &str, fee: u64) -> Result<String, String> {

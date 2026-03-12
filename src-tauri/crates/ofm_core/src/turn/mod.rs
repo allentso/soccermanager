@@ -8,6 +8,7 @@ use crate::player_events;
 use crate::random_events;
 use crate::scouting;
 use crate::training;
+use crate::transfers;
 use chrono::Datelike;
 use domain::league::FixtureStatus;
 use domain::player::Position as DomainPosition;
@@ -54,6 +55,7 @@ pub fn process_day(game: &mut Game) {
     player_events::check_player_events(game);
     random_events::check_random_events(game);
     scouting::process_scouting(game);
+    transfers::generate_incoming_transfer_offers(game);
 
     news::generate_weekly_digest_news(game, &today);
     news::generate_pre_match_messages(game, &today);
@@ -76,6 +78,7 @@ pub fn finish_live_match_day(game: &mut Game) {
     player_events::check_player_events(game);
     random_events::check_random_events(game);
     scouting::process_scouting(game);
+    transfers::generate_incoming_transfer_offers(game);
     news::generate_weekly_digest_news(game, &today);
     news::generate_pre_match_messages(game, &today);
     game.clock.advance_days(1);

@@ -1,10 +1,11 @@
 use chrono::{TimeZone, Utc};
 use domain::manager::Manager;
-use domain::player::{Player, PlayerAttributes, Position};
+use domain::message::MessageCategory;
+use domain::player::{Player, PlayerAttributes, Position, TransferOffer, TransferOfferStatus};
 use domain::team::Team;
 use ofm_core::clock::GameClock;
 use ofm_core::game::Game;
-use ofm_core::transfers::make_transfer_bid;
+use ofm_core::transfers::{generate_incoming_transfer_offers, make_transfer_bid};
 
 fn default_attrs() -> PlayerAttributes {
     PlayerAttributes {
@@ -44,6 +45,12 @@ fn make_player(id: &str) -> Player {
     player.contract_end = Some("2028-06-30".to_string());
     player.market_value = 1_000_000;
     player.morale = 70;
+    player
+}
+
+fn make_user_player(id: &str) -> Player {
+    let mut player = make_player(id);
+    player.team_id = Some("team-1".to_string());
     player
 }
 
@@ -134,19 +141,15 @@ fn key_player_is_harder_to_buy_than_fringe_player() {
     star.attributes.dribbling = 86;
     star.attributes.pace = 84;
 
-    let mut star_game = make_game_with_player(
-        star,
-        vec!["player-star".to_string()],
-        5_000_000,
-        2_000_000,
-    );
+    let mut star_game =
+        make_game_with_player(star, vec!["player-star".to_string()], 5_000_000, 2_000_000);
     let star_result =
         make_transfer_bid(&mut star_game, "player-star", 1_250_000).expect("star bid");
 
     let fringe = make_player("player-fringe");
     let mut fringe_game = make_game_with_player(fringe, vec![], 5_000_000, 2_000_000);
-    let fringe_result = make_transfer_bid(&mut fringe_game, "player-fringe", 1_250_000)
-        .expect("fringe bid");
+    let fringe_result =
+        make_transfer_bid(&mut fringe_game, "player-fringe", 1_250_000).expect("fringe bid");
 
     assert_eq!(star_result, "rejected");
     assert_eq!(fringe_result, "accepted");
@@ -163,4 +166,97 @@ fn low_transfer_budget_cannot_behave_unrealistically() {
         .expect_err("bid should be blocked by transfer budget");
 
     assert_eq!(error, "Transfer budget too low");
+}
+
+#[test]
+fn generates_pending_incoming_offer_for_contract_risk_player() {
+    let mut player = make_user_player("player-contract-risk");
+    player.contract_end = Some("2026-09-01".to_string());
+    player.market_value = 1_200_000;
+
+    let mut game = make_game_with_player(player, vec![], 5_000_000, 2_000_000);
+    game.teams[1].finance = 6_000_000;
+    game.teams[1].transfer_budget = 3_000_000;
+
+    generate_incoming_transfer_offers(&mut game);
+
+    let player = game
+        .players
+        .iter()
+        .find(|player| player.id == "player-contract-risk")
+        .unwrap();
+
+    assert_eq!(player.transfer_offers.len(), 1);
+    assert_eq!(
+        player.transfer_offers[0].status,
+        TransferOfferStatus::Pending
+    );
+    assert_eq!(player.transfer_offers[0].from_team_id, "team-2");
+    assert_eq!(player.team_id.as_deref(), Some("team-1"));
+    assert!(game.messages.iter().any(|message| {
+        message.category == MessageCategory::Transfer
+            && message.context.player_id.as_deref() == Some("player-contract-risk")
+    }));
+}
+
+#[test]
+fn does_not_duplicate_pending_incoming_offer_from_same_club() {
+    let mut player = make_user_player("player-duplicate");
+    player.contract_end = Some("2026-09-01".to_string());
+    player.transfer_offers.push(TransferOffer {
+        id: "offer-existing".to_string(),
+        from_team_id: "team-2".to_string(),
+        fee: 900_000,
+        wage_offered: 0,
+        status: TransferOfferStatus::Pending,
+        date: "2026-08-01".to_string(),
+    });
+
+    let mut game = make_game_with_player(player, vec![], 5_000_000, 2_000_000);
+    game.teams[1].finance = 6_000_000;
+    game.teams[1].transfer_budget = 3_000_000;
+
+    generate_incoming_transfer_offers(&mut game);
+
+    let player = game
+        .players
+        .iter()
+        .find(|player| player.id == "player-duplicate")
+        .unwrap();
+
+    assert_eq!(player.transfer_offers.len(), 1);
+    assert_eq!(player.transfer_offers[0].id, "offer-existing");
+    assert!(game.messages.is_empty());
+}
+
+#[test]
+fn contract_risk_player_draws_interest_before_similar_stable_player() {
+    let mut risky = make_user_player("player-risky");
+    risky.contract_end = Some("2026-09-01".to_string());
+    risky.market_value = 1_100_000;
+
+    let mut stable = make_user_player("player-stable");
+    stable.contract_end = Some("2028-06-30".to_string());
+    stable.market_value = 1_100_000;
+
+    let mut game = make_game_with_player(risky, vec![], 5_000_000, 2_000_000);
+    game.players.push(stable);
+    game.teams[1].finance = 6_000_000;
+    game.teams[1].transfer_budget = 3_000_000;
+
+    generate_incoming_transfer_offers(&mut game);
+
+    let risky = game
+        .players
+        .iter()
+        .find(|player| player.id == "player-risky")
+        .unwrap();
+    let stable = game
+        .players
+        .iter()
+        .find(|player| player.id == "player-stable")
+        .unwrap();
+
+    assert_eq!(risky.transfer_offers.len(), 1);
+    assert!(stable.transfer_offers.is_empty());
 }
