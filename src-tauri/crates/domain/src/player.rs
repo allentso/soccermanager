@@ -158,9 +158,19 @@ pub struct PlayerIssue {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default)]
 pub struct RecentTreatmentMemory {
     pub action_key: String,
     pub times_recently_used: u8,
+}
+
+impl Default for RecentTreatmentMemory {
+    fn default() -> Self {
+        Self {
+            action_key: String::new(),
+            times_recently_used: 0,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
