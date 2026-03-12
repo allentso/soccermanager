@@ -34,6 +34,7 @@ fn minimum_acceptable_fee(
     current_date: NaiveDate,
     player: &domain::player::Player,
     owner_team: &domain::team::Team,
+    buyer_team: &domain::team::Team,
 ) -> u64 {
     let mut multiplier: f64 = if player.transfer_listed { 0.8 } else { 1.2 };
 
@@ -59,8 +60,74 @@ fn minimum_acceptable_fee(
         multiplier -= 0.05;
     }
 
+    let openness_score = player_move_openness_score(current_date, player, owner_team, buyer_team);
+    if openness_score >= 60 {
+        multiplier -= 0.20;
+    } else if openness_score >= 40 {
+        multiplier -= 0.10;
+    }
+
     let multiplier = multiplier.clamp(0.55, 1.6);
     ((player.market_value as f64) * multiplier).round() as u64
+}
+
+fn player_move_openness_score(
+    current_date: NaiveDate,
+    player: &domain::player::Player,
+    owner_team: &domain::team::Team,
+    buyer_team: &domain::team::Team,
+) -> i32 {
+    let mut score = 0;
+
+    if player.morale <= 45 {
+        score += 20;
+    } else if player.morale <= 60 {
+        score += 10;
+    }
+
+    if player.stats.appearances <= 2 {
+        score += 15;
+    } else if player.stats.appearances <= 5 {
+        score += 8;
+    }
+
+    if let Some(days_remaining) =
+        contract_days_remaining(current_date, player.contract_end.as_deref())
+    {
+        if days_remaining <= 180 {
+            score += 20;
+        } else if days_remaining <= 365 {
+            score += 10;
+        }
+    }
+
+    let reputation_gap = buyer_team.reputation as i32 - owner_team.reputation as i32;
+    if reputation_gap >= 200 {
+        score += 25;
+    } else if reputation_gap >= 75 {
+        score += 15;
+    }
+
+    if player.transfer_listed {
+        score += 10;
+    }
+
+    score
+}
+
+fn apply_blocked_move_consequences(player: &mut domain::player::Player, openness_score: i32) {
+    if openness_score < 40 {
+        return;
+    }
+
+    let morale_drop = if openness_score >= 60 { 10 } else { 6 };
+    player.morale = (i16::from(player.morale) - morale_drop).clamp(0, 100) as u8;
+    player.morale_core.manager_trust =
+        (i16::from(player.morale_core.manager_trust) - 5).clamp(0, 100) as u8;
+    player.morale_core.unresolved_issue = Some(domain::player::PlayerIssue {
+        category: domain::player::PlayerIssueCategory::Contract,
+        severity: if openness_score >= 60 { 75 } else { 60 },
+    });
 }
 
 fn incoming_interest_score(current_date: NaiveDate, player: &domain::player::Player) -> i32 {
@@ -257,9 +324,11 @@ pub fn make_transfer_bid(game: &mut Game, player_id: &str, fee: u64) -> Result<S
         .find(|t| t.id == owner_team_id)
         .ok_or("Owner team not found")?;
 
+    let buyer_team = my_team;
+
     let current_date = game.clock.current_date.date_naive();
 
-    let threshold = minimum_acceptable_fee(current_date, player, owner_team);
+    let threshold = minimum_acceptable_fee(current_date, player, owner_team, buyer_team);
 
     let offer_id = Uuid::new_v4().to_string();
     let date = game.clock.current_date.format("%Y-%m-%d").to_string();
@@ -330,6 +399,18 @@ pub fn respond_to_offer(
 
     let from_team_id = offer.from_team_id.clone();
     let fee = offer.fee;
+    let current_date = game.clock.current_date.date_naive();
+    let owner_team = game
+        .teams
+        .iter()
+        .find(|team| team.id == user_team_id)
+        .ok_or("User team not found")?;
+    let buyer_team = game
+        .teams
+        .iter()
+        .find(|team| team.id == from_team_id)
+        .ok_or("Buying team not found")?;
+    let openness_score = player_move_openness_score(current_date, player, owner_team, buyer_team);
 
     // Update offer status
     if let Some(p) = game.players.iter_mut().find(|p| p.id == player_id)
@@ -344,6 +425,12 @@ pub fn respond_to_offer(
 
     if accept {
         execute_transfer(game, player_id, &from_team_id, &user_team_id, fee)?;
+    } else if let Some(player) = game
+        .players
+        .iter_mut()
+        .find(|player| player.id == player_id)
+    {
+        apply_blocked_move_consequences(player, openness_score);
     }
 
     Ok(())
@@ -423,12 +510,36 @@ fn execute_transfer(
     from_team_id: &str,
     fee: u64,
 ) -> Result<(), String> {
+    let departing_starter_ids: Vec<String> = game
+        .teams
+        .iter()
+        .find(|team| team.id == from_team_id)
+        .filter(|team| team.starting_xi_ids.iter().any(|id| id == player_id))
+        .map(|team| {
+            team.starting_xi_ids
+                .iter()
+                .filter(|id| id.as_str() != player_id)
+                .cloned()
+                .collect()
+        })
+        .unwrap_or_default();
+
     // Move player
     if let Some(p) = game.players.iter_mut().find(|p| p.id == player_id) {
         p.team_id = Some(to_team_id.to_string());
         p.transfer_listed = false;
         p.loan_listed = false;
         // Remove from any starting XI
+    }
+
+    if !departing_starter_ids.is_empty() {
+        for player in &mut game.players {
+            if player.team_id.as_deref() == Some(from_team_id)
+                && departing_starter_ids.iter().any(|id| id == &player.id)
+            {
+                player.morale = (i16::from(player.morale) - 4).clamp(0, 100) as u8;
+            }
+        }
     }
 
     // Debit buying team

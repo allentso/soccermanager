@@ -1,7 +1,9 @@
 use chrono::{TimeZone, Utc};
 use domain::manager::Manager;
 use domain::message::MessageCategory;
-use domain::player::{Player, PlayerAttributes, Position, TransferOffer, TransferOfferStatus};
+use domain::player::{
+    Player, PlayerAttributes, PlayerIssueCategory, Position, TransferOffer, TransferOfferStatus,
+};
 use domain::team::Team;
 use ofm_core::clock::GameClock;
 use ofm_core::game::Game;
@@ -397,4 +399,95 @@ fn excessive_counter_offer_is_rejected_and_closes_the_negotiation() {
             .finance,
         6_000_000
     );
+}
+
+#[test]
+fn unhappy_player_with_bigger_ambition_gap_is_easier_to_buy() {
+    let mut open_player = make_player("player-open");
+    open_player.contract_end = Some("2028-06-30".to_string());
+    open_player.morale = 35;
+    open_player.stats.appearances = 1;
+
+    let mut open_game = make_game_with_player(open_player, vec![], 5_000_000, 2_000_000);
+    open_game.teams[0].reputation = 700;
+    open_game.teams[1].reputation = 350;
+    let open_result = make_transfer_bid(&mut open_game, "player-open", 1_050_000)
+        .expect("open-player bid should be evaluated");
+
+    let mut content_player = make_player("player-content");
+    content_player.contract_end = Some("2028-06-30".to_string());
+    content_player.morale = 80;
+    content_player.stats.appearances = 12;
+
+    let mut content_game = make_game_with_player(content_player, vec![], 5_000_000, 2_000_000);
+    content_game.teams[0].reputation = 700;
+    content_game.teams[1].reputation = 350;
+    let content_result = make_transfer_bid(&mut content_game, "player-content", 1_050_000)
+        .expect("content-player bid should be evaluated");
+
+    assert_eq!(open_result, "accepted");
+    assert_eq!(content_result, "rejected");
+}
+
+#[test]
+fn blocking_open_player_move_reduces_morale_and_creates_contract_issue() {
+    let mut player = make_user_player("player-blocked");
+    player.contract_end = Some("2028-06-30".to_string());
+    player.morale = 42;
+    player.stats.appearances = 0;
+    player
+        .transfer_offers
+        .push(make_pending_incoming_offer("offer-blocked", 950_000));
+
+    let mut game = make_game_with_player(player, vec![], 5_000_000, 2_000_000);
+    game.teams[0].reputation = 350;
+    game.teams[1].reputation = 700;
+    game.teams[1].finance = 6_000_000;
+    game.teams[1].transfer_budget = 3_000_000;
+
+    respond_to_offer(&mut game, "player-blocked", "offer-blocked", false)
+        .expect("rejecting a pending offer should succeed");
+
+    let player = game
+        .players
+        .iter()
+        .find(|player| player.id == "player-blocked")
+        .unwrap();
+    assert!(player.morale < 42);
+    assert_eq!(
+        player
+            .morale_core
+            .unresolved_issue
+            .as_ref()
+            .map(|issue| issue.category.clone()),
+        Some(PlayerIssueCategory::Contract)
+    );
+}
+
+#[test]
+fn selling_key_player_can_reduce_remaining_starters_morale() {
+    let mut key_player = make_user_player("player-key-sale");
+    key_player
+        .transfer_offers
+        .push(make_pending_incoming_offer("offer-key-sale", 1_000_000));
+
+    let mut teammate = make_user_player("player-teammate");
+    teammate.morale = 75;
+
+    let mut game = make_game_with_player(key_player, vec![], 5_000_000, 2_000_000);
+    game.players.push(teammate);
+    game.teams[0].starting_xi_ids =
+        vec!["player-key-sale".to_string(), "player-teammate".to_string()];
+    game.teams[1].finance = 6_000_000;
+    game.teams[1].transfer_budget = 3_000_000;
+
+    respond_to_offer(&mut game, "player-key-sale", "offer-key-sale", true)
+        .expect("accepting the pending offer should succeed");
+
+    let teammate = game
+        .players
+        .iter()
+        .find(|player| player.id == "player-teammate")
+        .unwrap();
+    assert!(teammate.morale < 75);
 }
