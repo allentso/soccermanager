@@ -1,6 +1,7 @@
 use chrono::{TimeZone, Utc};
 use domain::manager::Manager;
 use domain::message::MessageCategory;
+use domain::news::{NewsArticle, NewsCategory};
 use domain::player::{
     Player, PlayerAttributes, PlayerIssueCategory, Position, TransferOffer, TransferOfferStatus,
 };
@@ -411,8 +412,8 @@ fn unhappy_player_with_bigger_ambition_gap_is_easier_to_buy() {
     let mut open_game = make_game_with_player(open_player, vec![], 5_000_000, 2_000_000);
     open_game.teams[0].reputation = 700;
     open_game.teams[1].reputation = 350;
-    let open_result = make_transfer_bid(&mut open_game, "player-open", 1_050_000)
-        .expect("open-player bid should be evaluated");
+    let open_result =
+        make_transfer_bid(&mut open_game, "player-open", 1_050_000).expect("open-player bid");
 
     let mut content_player = make_player("player-content");
     content_player.contract_end = Some("2028-06-30".to_string());
@@ -423,7 +424,7 @@ fn unhappy_player_with_bigger_ambition_gap_is_easier_to_buy() {
     content_game.teams[0].reputation = 700;
     content_game.teams[1].reputation = 350;
     let content_result = make_transfer_bid(&mut content_game, "player-content", 1_050_000)
-        .expect("content-player bid should be evaluated");
+        .expect("content-player bid");
 
     assert_eq!(open_result, "accepted");
     assert_eq!(content_result, "rejected");
@@ -490,4 +491,75 @@ fn selling_key_player_can_reduce_remaining_starters_morale() {
         .find(|player| player.id == "player-teammate")
         .unwrap();
     assert!(teammate.morale < 75);
+}
+
+#[test]
+fn accepted_major_transfer_generates_news_article() {
+    let mut player = make_player("player-news-major");
+    player.market_value = 1_400_000;
+
+    let mut game = make_game_with_player(player, vec![], 5_000_000, 2_000_000);
+
+    let result = make_transfer_bid(&mut game, "player-news-major", 1_700_000)
+        .expect("major transfer bid should succeed");
+
+    assert_eq!(result, "accepted");
+    let article = game
+        .news
+        .iter()
+        .find(|article| article.id == "transfer_news_player-news-major_team-2_team-1_2026-08-01")
+        .expect("major transfer should create a news article");
+    assert_eq!(article.category, NewsCategory::TransferRumour);
+    assert_eq!(
+        article.team_ids,
+        vec!["team-2".to_string(), "team-1".to_string()]
+    );
+    assert_eq!(article.player_ids, vec!["player-news-major".to_string()]);
+}
+
+#[test]
+fn smaller_completed_transfer_does_not_generate_news_article() {
+    let mut player = make_player("player-news-small");
+    player.market_value = 350_000;
+    player.transfer_listed = true;
+
+    let mut game = make_game_with_player(player, vec![], 5_000_000, 2_000_000);
+
+    let result = make_transfer_bid(&mut game, "player-news-small", 300_000)
+        .expect("small transfer bid should succeed");
+
+    assert_eq!(result, "accepted");
+    assert!(game.news.is_empty());
+}
+
+#[test]
+fn completed_transfer_news_is_not_duplicated_when_article_already_exists() {
+    let mut player = make_player("player-news-dup");
+    player.market_value = 1_400_000;
+
+    let mut game = make_game_with_player(player, vec![], 5_000_000, 2_000_000);
+    game.news.push(
+        NewsArticle::new(
+            "transfer_news_player-news-dup_team-2_team-1_2026-08-01".to_string(),
+            "Existing transfer story".to_string(),
+            "Existing body".to_string(),
+            "League Chronicle".to_string(),
+            "2026-08-01".to_string(),
+            NewsCategory::TransferRumour,
+        )
+        .with_teams(vec!["team-2".to_string(), "team-1".to_string()])
+        .with_players(vec!["player-news-dup".to_string()]),
+    );
+
+    let result = make_transfer_bid(&mut game, "player-news-dup", 1_700_000)
+        .expect("major transfer bid should succeed");
+
+    assert_eq!(result, "accepted");
+    assert_eq!(
+        game.news
+            .iter()
+            .filter(|article| article.id == "transfer_news_player-news-dup_team-2_team-1_2026-08-01")
+            .count(),
+        1
+    );
 }

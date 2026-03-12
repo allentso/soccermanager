@@ -256,6 +256,40 @@ pub fn season_preview_article(team_names: &[String], date: &str) -> NewsArticle 
     )
 }
 
+pub fn major_transfer_article(
+    id: &str,
+    player_id: &str,
+    player_name: &str,
+    from_team_id: &str,
+    from_team_name: &str,
+    to_team_id: &str,
+    to_team_name: &str,
+    fee: u64,
+    date: &str,
+) -> NewsArticle {
+    let fee_display = if fee >= 1_000_000 {
+        format!("€{:.1}M", fee as f64 / 1_000_000.0)
+    } else if fee >= 1_000 {
+        format!("€{}K", fee / 1_000)
+    } else {
+        format!("€{}", fee)
+    };
+
+    NewsArticle::new(
+        id.to_string(),
+        format!("{} Complete Move to {}", player_name, to_team_name),
+        format!(
+            "{} have completed the signing of {} from {} for {}.",
+            to_team_name, player_name, from_team_name, fee_display
+        ),
+        "League Chronicle".to_string(),
+        date.to_string(),
+        NewsCategory::TransferRumour,
+    )
+    .with_teams(vec![from_team_id.to_string(), to_team_id.to_string()])
+    .with_players(vec![player_id.to_string()])
+}
+
 pub fn weekly_digest_article(
     id: &str,
     week_label: &str,

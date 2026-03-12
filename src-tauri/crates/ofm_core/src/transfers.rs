@@ -287,6 +287,10 @@ fn buyer_counter_offer_ceiling(
         .min(buyer_team.finance.max(0) as u64)
 }
 
+fn should_generate_major_transfer_news(player: &domain::player::Player, fee: u64) -> bool {
+    fee >= 1_000_000 || player.market_value >= 1_000_000
+}
+
 /// Submit a transfer bid from user's team for a player.
 /// The AI evaluates the bid and accepts/rejects based on fee vs market value.
 pub fn make_transfer_bid(game: &mut Game, player_id: &str, fee: u64) -> Result<String, String> {
@@ -510,6 +514,25 @@ fn execute_transfer(
     from_team_id: &str,
     fee: u64,
 ) -> Result<(), String> {
+    let player_snapshot = game
+        .players
+        .iter()
+        .find(|player| player.id == player_id)
+        .cloned()
+        .ok_or("Player not found")?;
+    let from_team_name = game
+        .teams
+        .iter()
+        .find(|team| team.id == from_team_id)
+        .map(|team| team.name.clone())
+        .unwrap_or_else(|| from_team_id.to_string());
+    let to_team_name = game
+        .teams
+        .iter()
+        .find(|team| team.id == to_team_id)
+        .map(|team| team.name.clone())
+        .unwrap_or_else(|| to_team_id.to_string());
+    let today = game.clock.current_date.format("%Y-%m-%d").to_string();
     let departing_starter_ids: Vec<String> = game
         .teams
         .iter()
@@ -557,6 +580,26 @@ fn execute_transfer(
         // Remove from starting XI
         if let Some(pos) = t.starting_xi_ids.iter().position(|id| id == player_id) {
             t.starting_xi_ids.remove(pos);
+        }
+    }
+
+    if should_generate_major_transfer_news(&player_snapshot, fee) {
+        let article_id = format!(
+            "transfer_news_{}_{}_{}_{}",
+            player_id, from_team_id, to_team_id, today
+        );
+        if !game.news.iter().any(|article| article.id == article_id) {
+            game.news.push(crate::news::major_transfer_article(
+                &article_id,
+                player_id,
+                &player_snapshot.full_name,
+                from_team_id,
+                &from_team_name,
+                to_team_id,
+                &to_team_name,
+                fee,
+                &today,
+            ));
         }
     }
 
