@@ -45,6 +45,14 @@ pub fn make_transfer_bid(
     player_id: String,
     fee: u64,
 ) -> Result<serde_json::Value, String> {
+    make_transfer_bid_internal(&state, &player_id, fee)
+}
+
+fn make_transfer_bid_internal(
+    state: &StateManager,
+    player_id: &str,
+    fee: u64,
+) -> Result<serde_json::Value, String> {
     info!(
         "[cmd] make_transfer_bid: player_id={}, fee={}",
         player_id, fee
@@ -53,7 +61,7 @@ pub fn make_transfer_bid(
         .get_game(|g| g.clone())
         .ok_or("No active game session".to_string())?;
 
-    let result = ofm_core::transfers::make_transfer_bid(&mut game, &player_id, fee)?;
+    let result = ofm_core::transfers::make_transfer_bid(&mut game, player_id, fee)?;
     state.set_game(game.clone());
 
     Ok(serde_json::json!({
@@ -136,7 +144,7 @@ pub fn send_scout(
 
 #[cfg(test)]
 mod tests {
-    use super::counter_offer_internal;
+    use super::{counter_offer_internal, make_transfer_bid_internal};
     use chrono::{TimeZone, Utc};
     use domain::manager::Manager;
     use domain::player::{Player, PlayerAttributes, Position, TransferOffer, TransferOfferStatus};
@@ -245,6 +253,48 @@ mod tests {
         )
     }
 
+    fn make_bid_target_player() -> Player {
+        let mut player = Player::new(
+            "player-2".to_string(),
+            "P. Two".to_string(),
+            "Player Two".to_string(),
+            "2000-01-01".to_string(),
+            "England".to_string(),
+            Position::Forward,
+            default_attrs(),
+        );
+        player.team_id = Some("team-2".to_string());
+        player.contract_end = Some("2028-06-30".to_string());
+        player.market_value = 1_000_000;
+        player.morale = 35;
+        player.stats.appearances = 1;
+        player
+    }
+
+    fn make_bid_game() -> Game {
+        let clock = GameClock::new(Utc.with_ymd_and_hms(2026, 8, 1, 12, 0, 0).unwrap());
+        let mut manager = Manager::new(
+            "manager-1".to_string(),
+            "Test".to_string(),
+            "Manager".to_string(),
+            "1980-01-01".to_string(),
+            "England".to_string(),
+        );
+        manager.hire("team-1".to_string());
+
+        let mut game = Game::new(
+            clock,
+            manager,
+            vec![make_user_team(), make_buyer_team()],
+            vec![make_bid_target_player()],
+            vec![],
+            vec![],
+        );
+        game.teams[0].reputation = 700;
+        game.teams[1].reputation = 350;
+        game
+    }
+
     #[test]
     fn counter_offer_internal_returns_payload_and_updates_state() {
         let state = StateManager::new();
@@ -272,6 +322,35 @@ mod tests {
                 .and_then(|player| player.team_id.clone())
                 .as_deref(),
             Some("team-2")
+        );
+    }
+
+    #[test]
+    fn make_transfer_bid_internal_returns_payload_and_updates_state() {
+        let state = StateManager::new();
+        state.set_game(make_bid_game());
+
+        let response = make_transfer_bid_internal(&state, "player-2", 1_050_000).expect("response");
+
+        assert_eq!(response["result"].as_str(), Some("accepted"));
+        assert_eq!(
+            response["game"]["players"][0]["team_id"].as_str(),
+            Some("team-1")
+        );
+        assert_eq!(
+            response["game"]["players"][0]["transfer_offers"][0]["status"].as_str(),
+            Some("Accepted")
+        );
+
+        let stored_game = state.get_game(|game| game.clone()).expect("stored game");
+        assert_eq!(
+            stored_game
+                .players
+                .iter()
+                .find(|player| player.id == "player-2")
+                .and_then(|player| player.team_id.clone())
+                .as_deref(),
+            Some("team-1")
         );
     }
 }
