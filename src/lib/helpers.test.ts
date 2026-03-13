@@ -2,8 +2,11 @@ import { describe, it, expect } from "vitest";
 import {
   getTeamName,
   getTeamShort,
+  expectedFixtureCount,
   findNextFixture,
+  hasFullLeagueSchedule,
   getLocale,
+  isSeasonComplete,
   formatMatchDate,
   formatDate,
   formatDateFull,
@@ -146,6 +149,76 @@ describe("findNextFixture", () => {
   it("returns undefined for non-matching team", () => {
     const fixtures = [makeFixture({ home_team_id: "other", away_team_id: "other2" })];
     expect(findNextFixture(fixtures, "team_1")).toBeUndefined();
+  });
+});
+
+describe("season helpers", () => {
+  it("computes the expected double round-robin fixture count for even-sized leagues", () => {
+    expect(expectedFixtureCount(16)).toBe(240);
+    expect(expectedFixtureCount(4)).toBe(12);
+  });
+
+  it("treats odd-sized or undersized leagues as incomplete schedules", () => {
+    expect(expectedFixtureCount(1)).toBeNull();
+    expect(expectedFixtureCount(3)).toBeNull();
+  });
+
+  it("requires a full plausible schedule before marking the season complete", () => {
+    const truncatedLeague = {
+      id: "league-1",
+      name: "League",
+      season: 1,
+      fixtures: [
+        makeFixture({ id: "f1", status: "Completed" }),
+        makeFixture({ id: "f2", status: "Completed", home_team_id: "team_3", away_team_id: "team_4" }),
+      ],
+      standings: [
+        { team_id: "team_1", played: 1, won: 1, drawn: 0, lost: 0, goals_for: 2, goals_against: 0, points: 3 },
+        { team_id: "team_2", played: 1, won: 0, drawn: 0, lost: 1, goals_for: 0, goals_against: 2, points: 0 },
+        { team_id: "team_3", played: 1, won: 0, drawn: 0, lost: 1, goals_for: 0, goals_against: 1, points: 0 },
+        { team_id: "team_4", played: 1, won: 1, drawn: 0, lost: 0, goals_for: 1, goals_against: 0, points: 3 },
+      ],
+    };
+
+    expect(hasFullLeagueSchedule(truncatedLeague)).toBe(false);
+    expect(isSeasonComplete(truncatedLeague)).toBe(false);
+  });
+
+  it("marks the season complete when the full schedule exists and every fixture is completed", () => {
+    const fixtures: FixtureData[] = [];
+    let fixtureCounter = 1;
+    for (const homeTeamId of ["team_1", "team_2", "team_3", "team_4"]) {
+      for (const awayTeamId of ["team_1", "team_2", "team_3", "team_4"]) {
+        if (homeTeamId === awayTeamId) {
+          continue;
+        }
+        fixtures.push(
+          makeFixture({
+            id: `f${fixtureCounter}`,
+            home_team_id: homeTeamId,
+            away_team_id: awayTeamId,
+            status: "Completed",
+          }),
+        );
+        fixtureCounter += 1;
+      }
+    }
+
+    const fullLeague = {
+      id: "league-1",
+      name: "League",
+      season: 1,
+      fixtures,
+      standings: [
+        { team_id: "team_1", played: 6, won: 6, drawn: 0, lost: 0, goals_for: 12, goals_against: 2, points: 18 },
+        { team_id: "team_2", played: 6, won: 3, drawn: 0, lost: 3, goals_for: 8, goals_against: 8, points: 9 },
+        { team_id: "team_3", played: 6, won: 2, drawn: 0, lost: 4, goals_for: 6, goals_against: 10, points: 6 },
+        { team_id: "team_4", played: 6, won: 1, drawn: 0, lost: 5, goals_for: 4, goals_against: 10, points: 3 },
+      ],
+    };
+
+    expect(hasFullLeagueSchedule(fullLeague)).toBe(true);
+    expect(isSeasonComplete(fullLeague)).toBe(true);
   });
 });
 

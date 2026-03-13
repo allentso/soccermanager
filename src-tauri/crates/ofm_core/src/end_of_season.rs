@@ -2,20 +2,37 @@ use crate::game::Game;
 use crate::schedule::generate_league;
 use crate::season_awards::compute_season_awards;
 use chrono::Duration;
-use domain::league::FixtureStatus;
+use domain::league::{FixtureStatus, League};
 use domain::message::*;
 use domain::player::PlayerSeasonStats;
 use domain::team::{FinancialTransaction, FinancialTransactionKind, TeamSeasonRecord};
 
+pub fn expected_fixture_count(team_count: usize) -> Option<usize> {
+    if team_count >= 2 && team_count % 2 == 0 {
+        Some(team_count * (team_count - 1))
+    } else {
+        None
+    }
+}
+
+pub fn has_full_schedule(league: &League) -> bool {
+    match expected_fixture_count(league.standings.len()) {
+        Some(expected_fixture_count) => league.fixtures.len() == expected_fixture_count,
+        None => false,
+    }
+}
+
+pub fn is_league_complete(league: &League) -> bool {
+    has_full_schedule(league)
+        && league
+            .fixtures
+            .iter()
+            .all(|fixture| fixture.status == FixtureStatus::Completed)
+}
+
 /// Check if the season is complete (all fixtures played).
 pub fn is_season_complete(game: &Game) -> bool {
-    game.league.as_ref().is_some_and(|league| {
-        !league.fixtures.is_empty()
-            && league
-                .fixtures
-                .iter()
-                .all(|f| f.status == FixtureStatus::Completed)
-    })
+    game.league.as_ref().is_some_and(is_league_complete)
 }
 
 const PRIZE_MONEY_BY_POSITION: [i64; 10] = [

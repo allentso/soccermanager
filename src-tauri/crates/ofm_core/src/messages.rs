@@ -241,6 +241,7 @@ pub fn transfer_complete_message(player_name: &str, fee: u64, date: &str) -> Inb
 }
 
 pub fn incoming_transfer_offer_message(
+    offer_id: &str,
     player_id: &str,
     player_name: &str,
     buying_team_name: &str,
@@ -256,7 +257,7 @@ pub fn incoming_transfer_offer_message(
     };
 
     InboxMessage::new(
-        format!("transfer_offer_{}_{}", player_id, date),
+        format!("transfer_offer_{}", offer_id),
         format!("Incoming Offer for {}", player_name),
         format!(
             "{} have submitted an offer of {} for {}. Review the bid in the Transfers tab to accept or reject it.",

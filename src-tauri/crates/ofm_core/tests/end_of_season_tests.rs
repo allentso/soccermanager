@@ -212,6 +212,57 @@ fn season_not_complete_with_empty_fixtures() {
     assert!(!is_season_complete(&game));
 }
 
+#[test]
+fn season_not_complete_with_truncated_completed_fixture_list() {
+    let mut game = make_completed_season_game();
+    game.teams.push(make_team("team3", "Third FC"));
+    game.teams.push(make_team("team4", "Fourth FC"));
+
+    if let Some(league) = &mut game.league {
+        league.standings = vec![
+            make_standing("team1", 1, 0, 0, 2, 0),
+            make_standing("team4", 1, 0, 0, 1, 0),
+            make_standing("team3", 0, 0, 1, 0, 1),
+            make_standing("team2", 0, 0, 1, 0, 2),
+        ];
+        league.fixtures = vec![
+            Fixture {
+                id: "f1".to_string(),
+                matchday: 1,
+                date: "2026-08-01".to_string(),
+                home_team_id: "team1".to_string(),
+                away_team_id: "team2".to_string(),
+                status: FixtureStatus::Completed,
+                result: Some(MatchResult {
+                    home_goals: 2,
+                    away_goals: 0,
+                    home_scorers: vec![],
+                    away_scorers: vec![],
+                }),
+            },
+            Fixture {
+                id: "f2".to_string(),
+                matchday: 1,
+                date: "2026-08-01".to_string(),
+                home_team_id: "team3".to_string(),
+                away_team_id: "team4".to_string(),
+                status: FixtureStatus::Completed,
+                result: Some(MatchResult {
+                    home_goals: 0,
+                    away_goals: 1,
+                    home_scorers: vec![],
+                    away_scorers: vec![],
+                }),
+            },
+        ];
+    }
+
+    assert!(
+        !is_season_complete(&game),
+        "A truncated fixture list must not count as a completed season"
+    );
+}
+
 // ---------------------------------------------------------------------------
 // process_end_of_season — summary
 // ---------------------------------------------------------------------------

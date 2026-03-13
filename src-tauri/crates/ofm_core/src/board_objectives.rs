@@ -1,3 +1,4 @@
+use crate::end_of_season;
 use crate::game::{BoardObjective, Game, ObjectiveType};
 use domain::league::FixtureStatus;
 use domain::message::*;
@@ -96,13 +97,6 @@ fn satisfaction_delta(met_count: usize, total: usize) -> i8 {
     }
 }
 
-fn is_league_complete(fixtures: &[domain::league::Fixture]) -> bool {
-    !fixtures.is_empty()
-        && fixtures
-            .iter()
-            .all(|fixture| fixture.status == FixtureStatus::Completed)
-}
-
 /// Generate board objectives for the current season.
 /// Called at season start or when no objectives exist.
 pub fn generate_objectives(game: &mut Game) {
@@ -180,7 +174,7 @@ pub fn update_objective_progress(game: &mut Game) {
         .unwrap_or(99);
     let user_standing = standings.iter().find(|s| s.team_id == user_team_id);
 
-    let league_complete = is_league_complete(&league.fixtures);
+    let league_complete = end_of_season::is_league_complete(league);
 
     // Count user goals from completed fixtures
     let user_goals: u32 = league

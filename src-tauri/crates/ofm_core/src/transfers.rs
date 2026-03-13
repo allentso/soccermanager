@@ -252,8 +252,10 @@ pub fn generate_incoming_transfer_offers(game: &mut Game) {
             continue;
         };
 
+        let offer_id = Uuid::new_v4().to_string();
+
         player.transfer_offers.push(domain::player::TransferOffer {
-            id: Uuid::new_v4().to_string(),
+            id: offer_id.clone(),
             from_team_id: buyer_id.clone(),
             fee: chosen_fee,
             wage_offered: 0,
@@ -264,6 +266,7 @@ pub fn generate_incoming_transfer_offers(game: &mut Game) {
         let player_name = player.full_name.clone();
         let buyer_name = buyer_team.name.clone();
         let message = crate::messages::incoming_transfer_offer_message(
+            &offer_id,
             &player_id,
             &player_name,
             &buyer_name,

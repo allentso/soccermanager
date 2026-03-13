@@ -136,20 +136,62 @@ impl SaveManager {
         let entry = self
             .index
             .find(save_id)
-            .ok_or_else(|| format!("Save '{}' not found", save_id))?;
+            .ok_or_else(|| format!("Save '{}' not found", save_id))?
+            .clone();
 
         let db_path = self.saves_dir.join(&entry.db_filename);
+        let save_name = entry.name.clone();
         debug!("[save_manager] loading game from {}", save_id);
 
         let db = GameDatabase::open(&db_path)?;
         let mut game = self.read_game_from_db(&db)?;
+        let mut needs_resave = false;
 
         if player_identity::upgrade_game_player_identities(&mut game) {
             info!(
                 "[save_manager] upgraded legacy player identities for save {}",
                 save_id
             );
-            self.save_game(&game, save_id)?;
+            needs_resave = true;
+        }
+
+        if league_repo::needs_cleanup(
+            db.conn(),
+            game.league.as_ref().map(|league| league.id.as_str()),
+        )? {
+            info!(
+                "[save_manager] cleaning stale league rows for save {}",
+                save_id
+            );
+            needs_resave = true;
+        }
+
+        drop(db);
+
+        if needs_resave {
+            let db = GameDatabase::open(&db_path)?;
+            self.write_game_to_db(&db, &game, save_id, &save_name)?;
+            drop(db);
+
+            let checksum = compute_checksum(&db_path)?;
+            let now = Utc::now().to_rfc3339();
+            let manager_name = format!("{} {}", game.manager.first_name, game.manager.last_name);
+
+            let updated = self.index.update(&SaveEntry {
+                id: save_id.to_string(),
+                name: save_name,
+                manager_name,
+                db_filename: entry.db_filename.clone(),
+                checksum,
+                created_at: entry.created_at.clone(),
+                last_played_at: now,
+            });
+
+            if !updated {
+                return Err(format!("Failed to update index for save '{}'", save_id));
+            }
+
+            write_index(&self.index_path, &self.index)?;
         }
 
         Ok(game)
@@ -385,6 +427,7 @@ fn parse_objective_type(s: &str) -> ObjectiveType {
 mod tests {
     use super::*;
     use chrono::TimeZone;
+    use domain::league::{Fixture, FixtureStatus, League, StandingEntry};
     use domain::player::{PlayerAttributes, Position};
     use domain::staff::{StaffAttributes, StaffRole};
     use domain::team::Team;
@@ -469,6 +512,68 @@ mod tests {
             scouting_assignments: vec![],
             board_objectives: vec![],
         }
+    }
+
+    fn sample_game_with_league() -> Game {
+        let start = Utc.with_ymd_and_hms(2026, 7, 1, 0, 0, 0).unwrap();
+        let clock = GameClock::new(start);
+        let mut manager = domain::manager::Manager::new(
+            "mgr-user".to_string(),
+            "John".to_string(),
+            "Smith".to_string(),
+            "1990-01-15".to_string(),
+            "British".to_string(),
+        );
+        manager.hire("team-001".to_string());
+
+        let team_one = Team::new(
+            "team-001".to_string(),
+            "London FC".to_string(),
+            "LFC".to_string(),
+            "GB".to_string(),
+            "London".to_string(),
+            "London Stadium".to_string(),
+            50000,
+        );
+        let team_two = Team::new(
+            "team-002".to_string(),
+            "Rivals FC".to_string(),
+            "RFC".to_string(),
+            "GB".to_string(),
+            "Manchester".to_string(),
+            "Rivals Stadium".to_string(),
+            42000,
+        );
+
+        let league = League {
+            id: "league-current".to_string(),
+            name: "Premier Division".to_string(),
+            season: 2027,
+            fixtures: vec![Fixture {
+                id: "fix-current".to_string(),
+                matchday: 1,
+                date: "2027-08-15".to_string(),
+                home_team_id: "team-001".to_string(),
+                away_team_id: "team-002".to_string(),
+                status: FixtureStatus::Scheduled,
+                result: None,
+            }],
+            standings: vec![
+                StandingEntry::new("team-001".to_string()),
+                StandingEntry::new("team-002".to_string()),
+            ],
+        };
+
+        let mut game = Game::new(
+            clock,
+            manager,
+            vec![team_one, team_two],
+            vec![],
+            vec![],
+            vec![],
+        );
+        game.league = Some(league);
+        game
     }
 
     #[test]
@@ -748,5 +853,63 @@ mod tests {
         let mut sm = SaveManager::init(&saves_dir).unwrap();
         let result = sm.new_game_from_save("nonexistent");
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_load_game_cleans_stale_league_rows() {
+        let dir = tempfile::tempdir().unwrap();
+        let saves_dir = dir.path().join("saves");
+
+        let mut sm = SaveManager::init(&saves_dir).unwrap();
+        let game = sample_game_with_league();
+        let save_id = sm.create_save(&game, "League Cleanup Career").unwrap();
+        let db_path = saves_dir.join(format!("{}.db", save_id));
+
+        {
+            let db = GameDatabase::open(&db_path).unwrap();
+            db.conn()
+                .execute(
+                    "INSERT INTO league (id, name, season) VALUES (?1, ?2, ?3)",
+                    rusqlite::params!["league-stale", "Premier Division", 2026],
+                )
+                .unwrap();
+            db.conn()
+                .execute(
+                    "INSERT INTO fixtures (id, league_id, matchday, date, home_team_id, away_team_id, status, result)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                    rusqlite::params![
+                        "fix-stale",
+                        "league-stale",
+                        1,
+                        "2026-08-15",
+                        "team-001",
+                        "team-002",
+                        "Completed",
+                        None::<String>,
+                    ],
+                )
+                .unwrap();
+        }
+
+        let loaded = sm.load_game(&save_id).unwrap();
+        let loaded_league = loaded.league.expect("league should load");
+
+        assert_eq!(loaded_league.id, "league-current");
+        assert_eq!(loaded_league.season, 2027);
+        assert_eq!(loaded_league.fixtures.len(), 1);
+        assert_eq!(loaded_league.fixtures[0].id, "fix-current");
+
+        let db = GameDatabase::open(&db_path).unwrap();
+        let league_count: i64 = db
+            .conn()
+            .query_row("SELECT COUNT(*) FROM league", [], |row| row.get(0))
+            .unwrap();
+        let fixture_count: i64 = db
+            .conn()
+            .query_row("SELECT COUNT(*) FROM fixtures", [], |row| row.get(0))
+            .unwrap();
+
+        assert_eq!(league_count, 1);
+        assert_eq!(fixture_count, 1);
     }
 }

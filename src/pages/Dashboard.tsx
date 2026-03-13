@@ -29,7 +29,10 @@ import {
 } from "../components/dashboard/dashboardHelpers";
 import { useAdvanceTime } from "../hooks/useAdvanceTime";
 import { Cpu, Eye, Gamepad2 } from "lucide-react";
-import { formatDateFull } from "../lib/helpers";
+import {
+  formatDateFull,
+  isSeasonComplete as isLeagueSeasonComplete,
+} from "../lib/helpers";
 import { useTranslation } from "react-i18next";
 import { useSettingsStore } from "../store/settingsStore";
 
@@ -150,10 +153,7 @@ export default function Dashboard(): JSX.Element {
     });
   }, [activeTab]);
 
-  // Detect if season is complete (all fixtures played)
-  const seasonComplete = gameState?.league?.fixtures
-    ? gameState.league.fixtures.every((f) => f.status === "Completed")
-    : false;
+  const seasonComplete = isLeagueSeasonComplete(gameState?.league);
 
   // Advance-time hook
   const {

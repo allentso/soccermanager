@@ -246,6 +246,42 @@ fn does_not_duplicate_pending_incoming_offer_from_same_club() {
 }
 
 #[test]
+fn incoming_offer_messages_from_multiple_clubs_get_unique_ids() {
+    let mut player = make_user_player("player-message-ids");
+    player.contract_end = Some("2026-09-01".to_string());
+    player.market_value = 1_200_000;
+
+    let mut game = make_game_with_player(player, vec![], 5_000_000, 2_000_000);
+    game.teams[1].finance = 6_000_000;
+    game.teams[1].transfer_budget = 3_000_000;
+
+    let mut extra_buyer = Team::new(
+        "team-3".to_string(),
+        "Buyer FC".to_string(),
+        "BUY".to_string(),
+        "England".to_string(),
+        "Manchester".to_string(),
+        "Buyer Ground".to_string(),
+        30_000,
+    );
+    extra_buyer.finance = 6_000_000;
+    extra_buyer.transfer_budget = 3_000_000;
+    game.teams.push(extra_buyer);
+
+    generate_incoming_transfer_offers(&mut game);
+
+    let message_ids: Vec<&str> = game
+        .messages
+        .iter()
+        .map(|message| message.id.as_str())
+        .collect();
+    let unique_message_ids: std::collections::HashSet<&str> = message_ids.iter().copied().collect();
+
+    assert_eq!(message_ids.len(), 2);
+    assert_eq!(unique_message_ids.len(), 2);
+}
+
+#[test]
 fn contract_risk_player_draws_interest_before_similar_stable_player() {
     let mut risky = make_user_player("player-risky");
     risky.contract_end = Some("2026-09-01".to_string());
