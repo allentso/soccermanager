@@ -2,7 +2,10 @@ use log::info;
 use serde::Serialize;
 use tauri::State;
 
-use ofm_core::contracts::{RenewalDecision, RenewalOffer};
+use domain::player::RenewalSessionStatus;
+use ofm_core::contracts::{
+    DelegatedRenewalOptions, DelegatedRenewalReport, RenewalDecision, RenewalOffer,
+};
 use ofm_core::game::Game;
 use ofm_core::state::StateManager;
 
@@ -14,6 +17,14 @@ pub struct RenewalCommandResponse {
     pub game: Game,
     pub suggested_wage: Option<u32>,
     pub suggested_years: Option<u32>,
+    pub session_status: RenewalSessionStatus,
+    pub is_terminal: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct DelegatedRenewalCommandResponse {
+    pub game: Game,
+    pub report: DelegatedRenewalReport,
 }
 
 #[tauri::command]
@@ -25,6 +36,32 @@ pub async fn propose_renewal(
     contract_years: u32,
 ) -> Result<RenewalCommandResponse, String> {
     let response = propose_renewal_internal(&state, &player_id, weekly_wage, contract_years)?;
+
+    if let Some(save_id) = state.get_save_id() {
+        let mut sm = sm_state
+            .0
+            .lock()
+            .map_err(|error| format!("Lock error: {}", error))?;
+        sm.save_game(&response.game, &save_id)?;
+    }
+
+    Ok(response)
+}
+
+#[tauri::command]
+pub async fn delegate_renewals(
+    state: State<'_, StateManager>,
+    sm_state: State<'_, SaveManagerState>,
+    player_ids: Option<Vec<String>>,
+    max_wage_increase_pct: u32,
+    max_contract_years: u32,
+) -> Result<DelegatedRenewalCommandResponse, String> {
+    let response = delegate_renewals_internal(
+        &state,
+        player_ids,
+        max_wage_increase_pct,
+        max_contract_years,
+    )?;
 
     if let Some(save_id) = state.get_save_id() {
         let mut sm = sm_state
@@ -68,15 +105,47 @@ fn propose_renewal_internal(
         game,
         suggested_wage: outcome.suggested_wage,
         suggested_years: outcome.suggested_years,
+        session_status: outcome.session_status,
+        is_terminal: outcome.is_terminal,
     })
+}
+
+fn delegate_renewals_internal(
+    state: &StateManager,
+    player_ids: Option<Vec<String>>,
+    max_wage_increase_pct: u32,
+    max_contract_years: u32,
+) -> Result<DelegatedRenewalCommandResponse, String> {
+    info!(
+        "[cmd] delegate_renewals: player_ids={:?}, max_wage_increase_pct={}, max_contract_years={}",
+        player_ids, max_wage_increase_pct, max_contract_years
+    );
+
+    let mut game = state
+        .get_game(|g: &Game| g.clone())
+        .ok_or("No active game session".to_string())?;
+
+    let report = ofm_core::contracts::delegate_renewals(
+        &mut game,
+        DelegatedRenewalOptions {
+            player_ids,
+            max_wage_increase_pct,
+            max_contract_years,
+        },
+    )?;
+
+    state.set_game(game.clone());
+
+    Ok(DelegatedRenewalCommandResponse { game, report })
 }
 
 #[cfg(test)]
 mod tests {
-    use super::propose_renewal_internal;
+    use super::{delegate_renewals_internal, propose_renewal_internal};
     use chrono::{TimeZone, Utc};
     use domain::manager::Manager;
     use domain::player::{Player, PlayerAttributes, Position};
+    use domain::staff::{Staff, StaffAttributes, StaffRole};
     use domain::team::Team;
     use ofm_core::clock::GameClock;
     use ofm_core::contracts::RenewalDecision;
@@ -125,6 +194,24 @@ mod tests {
         player
     }
 
+    fn make_assistant_manager() -> Staff {
+        let mut staff = Staff::new(
+            "staff-1".to_string(),
+            "Alex".to_string(),
+            "Assistant".to_string(),
+            "1985-01-01".to_string(),
+            StaffRole::AssistantManager,
+            StaffAttributes {
+                coaching: 82,
+                judging_ability: 76,
+                judging_potential: 74,
+                physiotherapy: 30,
+            },
+        );
+        staff.team_id = Some("team-1".to_string());
+        staff
+    }
+
     fn make_team() -> Team {
         let mut team = Team::new(
             "team-1".to_string(),
@@ -157,7 +244,7 @@ mod tests {
             manager,
             vec![make_team()],
             vec![make_player()],
-            vec![],
+            vec![make_assistant_manager()],
             vec![],
         )
     }
@@ -170,6 +257,7 @@ mod tests {
         let response = propose_renewal_internal(&state, "player-1", 15_000, 3).expect("response");
 
         assert!(matches!(response.outcome, RenewalDecision::Accepted));
+        assert!(response.is_terminal);
         let player = response
             .game
             .players
@@ -186,6 +274,40 @@ mod tests {
             .find(|player| player.id == "player-1")
             .expect("stored player should exist");
         assert_eq!(stored_player.wage, 15_000);
+        assert_eq!(stored_player.contract_end.as_deref(), Some("2029-08-01"));
+    }
+
+    #[test]
+    fn delegate_renewals_internal_returns_report_and_updates_state() {
+        let state = StateManager::new();
+        state.set_game(make_game());
+
+        let response =
+            delegate_renewals_internal(&state, Some(vec!["player-1".to_string()]), 35, 3)
+                .expect("response");
+
+        assert_eq!(response.report.success_count, 1);
+        assert_eq!(response.report.failure_count, 0);
+        assert_eq!(response.report.stalled_count, 0);
+        let player = response
+            .game
+            .players
+            .iter()
+            .find(|player| player.id == "player-1")
+            .expect("player should exist");
+        assert_eq!(player.contract_end.as_deref(), Some("2029-08-01"));
+        assert!(response
+            .game
+            .messages
+            .iter()
+            .any(|message| message.id.starts_with("delegated_renewals_")));
+
+        let stored_game = state.get_game(|game| game.clone()).expect("stored game");
+        let stored_player = stored_game
+            .players
+            .iter()
+            .find(|player| player.id == "player-1")
+            .expect("stored player should exist");
         assert_eq!(stored_player.contract_end.as_deref(), Some("2029-08-01"));
     }
 }

@@ -518,6 +518,7 @@ mod tests {
         );
         assert_eq!(player.morale_core.pending_promise, None);
         assert_eq!(player.morale_core.talk_cooldown_until, None);
+        assert_eq!(player.morale_core.renewal_state, None);
     }
 
     #[test]

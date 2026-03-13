@@ -4,7 +4,7 @@ use domain::manager::Manager;
 use domain::message::{ActionOption, ActionType, MessageAction, MessageContext};
 use domain::player::{
     Player, PlayerAttributes, PlayerIssue, PlayerIssueCategory, PlayerMoraleCore, PlayerPromise,
-    PlayerPromiseKind, Position,
+    PlayerPromiseKind, Position, RenewalSessionOutcome, RenewalSessionStatus,
 };
 use domain::team::Team;
 use ofm_core::clock::GameClock;
@@ -762,6 +762,7 @@ fn unresolved_issue_can_cap_visible_morale_growth() {
         recent_treatment: None,
         pending_promise: None,
         talk_cooldown_until: None,
+        renewal_state: None,
     };
     inject_player_message(&mut game, "morale_talk_p_fwd0", "p_fwd0", "respond");
 
@@ -790,6 +791,7 @@ fn trust_changes_even_when_visible_morale_is_capped() {
         recent_treatment: None,
         pending_promise: None,
         talk_cooldown_until: None,
+        renewal_state: None,
     };
     inject_player_message(&mut game, "morale_talk_p_fwd0", "p_fwd0", "respond");
 
@@ -1190,6 +1192,31 @@ fn contract_reassure_boosts_morale() {
 }
 
 #[test]
+fn contract_reassure_marks_player_open_to_renewal() {
+    let mut game = make_game();
+    inject_player_message(&mut game, "contract_concern_p_fwd0", "p_fwd0", "respond");
+
+    player_events::apply_player_response(
+        &mut game,
+        "contract_concern_p_fwd0",
+        "respond",
+        "reassure",
+    );
+
+    let player = game.players.iter().find(|p| p.id == "p_fwd0").unwrap();
+    let renewal_state = player
+        .morale_core
+        .renewal_state
+        .as_ref()
+        .expect("renewal state should exist");
+    assert_eq!(renewal_state.status, RenewalSessionStatus::Open);
+    assert_eq!(
+        renewal_state.last_outcome,
+        Some(RenewalSessionOutcome::Stalled)
+    );
+}
+
+#[test]
 fn contract_noncommittal_generally_negative() {
     let mut game = make_game();
     game.players
@@ -1243,6 +1270,38 @@ fn contract_no_renewal_tanks_morale() {
         p.morale < 65,
         "No renewal should tank morale, got {}",
         p.morale
+    );
+}
+
+#[test]
+fn contract_no_renewal_blocks_future_renewal_talks() {
+    let mut game = make_game();
+    let expected_blocked_until = (game.clock.current_date + chrono::Duration::days(60))
+        .format("%Y-%m-%d")
+        .to_string();
+    inject_player_message(&mut game, "contract_concern_p_fwd0", "p_fwd0", "respond");
+
+    player_events::apply_player_response(
+        &mut game,
+        "contract_concern_p_fwd0",
+        "respond",
+        "no_renewal",
+    );
+
+    let player = game.players.iter().find(|p| p.id == "p_fwd0").unwrap();
+    let renewal_state = player
+        .morale_core
+        .renewal_state
+        .as_ref()
+        .expect("renewal state should exist");
+    assert_eq!(renewal_state.status, RenewalSessionStatus::Blocked);
+    assert_eq!(
+        renewal_state.last_outcome,
+        Some(RenewalSessionOutcome::BlockedByManager)
+    );
+    assert_eq!(
+        renewal_state.manager_blocked_until.as_deref(),
+        Some(expected_blocked_until.as_str())
     );
 }
 

@@ -178,6 +178,49 @@ pub enum PlayerPromiseKind {
     PlayingTime,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+pub enum RenewalSessionStatus {
+    #[default]
+    Idle,
+    Open,
+    Agreed,
+    Blocked,
+    Stalled,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+pub enum RenewalSessionOutcome {
+    #[default]
+    None,
+    AcceptedByManager,
+    AcceptedByAssistant,
+    RejectedByPlayer,
+    BlockedByManager,
+    Stalled,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default)]
+pub struct ContractRenewalState {
+    pub status: RenewalSessionStatus,
+    pub manager_blocked_until: Option<String>,
+    pub last_attempt_date: Option<String>,
+    pub last_assistant_attempt_date: Option<String>,
+    pub last_outcome: Option<RenewalSessionOutcome>,
+}
+
+impl Default for ContractRenewalState {
+    fn default() -> Self {
+        Self {
+            status: RenewalSessionStatus::Idle,
+            manager_blocked_until: None,
+            last_attempt_date: None,
+            last_assistant_attempt_date: None,
+            last_outcome: None,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(default)]
 pub struct PlayerPromise {
@@ -195,12 +238,14 @@ impl Default for PlayerPromise {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default)]
 pub struct PlayerMoraleCore {
     pub manager_trust: u8,
     pub unresolved_issue: Option<PlayerIssue>,
     pub recent_treatment: Option<RecentTreatmentMemory>,
     pub pending_promise: Option<PlayerPromise>,
     pub talk_cooldown_until: Option<String>,
+    pub renewal_state: Option<ContractRenewalState>,
 }
 
 impl Default for PlayerMoraleCore {
@@ -211,6 +256,7 @@ impl Default for PlayerMoraleCore {
             recent_treatment: None,
             pending_promise: None,
             talk_cooldown_until: None,
+            renewal_state: None,
         }
     }
 }

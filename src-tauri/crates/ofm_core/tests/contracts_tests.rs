@@ -1,9 +1,15 @@
 use chrono::{TimeZone, Utc};
 use domain::manager::Manager;
-use domain::player::{Player, PlayerAttributes, Position};
+use domain::player::{
+    ContractRenewalState, Player, PlayerAttributes, Position, RenewalSessionStatus,
+};
+use domain::staff::{Staff, StaffAttributes, StaffRole};
 use domain::team::Team;
 use ofm_core::clock::GameClock;
-use ofm_core::contracts::{RenewalDecision, RenewalOffer, evaluate_renewal_offer, propose_renewal};
+use ofm_core::contracts::{
+    DelegatedRenewalOptions, DelegatedRenewalResultStatus, RenewalDecision, RenewalOffer,
+    delegate_renewals, evaluate_renewal_offer, propose_renewal,
+};
 use ofm_core::game::Game;
 
 fn default_attrs() -> PlayerAttributes {
@@ -62,6 +68,24 @@ fn make_team() -> Team {
     team.reputation = 50;
     team.wage_budget = 50_000;
     team
+}
+
+fn make_assistant_manager() -> Staff {
+    let mut staff = Staff::new(
+        "staff-1".to_string(),
+        "Alex".to_string(),
+        "Assistant".to_string(),
+        "1985-01-01".to_string(),
+        StaffRole::AssistantManager,
+        StaffAttributes {
+            coaching: 82,
+            judging_ability: 76,
+            judging_potential: 74,
+            physiotherapy: 30,
+        },
+    );
+    staff.team_id = Some("team-1".to_string());
+    staff
 }
 
 fn make_game() -> Game {
@@ -244,4 +268,84 @@ fn shorter_remaining_term_increases_renewal_demands() {
         expiring_outcome.decision,
         RenewalDecision::CounterOffer
     ));
+}
+
+#[test]
+fn low_manager_trust_player_can_refuse_manual_renewal_even_at_fair_terms() {
+    let mut game = make_game();
+    game.players[0].morale_core.manager_trust = 18;
+
+    let outcome = propose_renewal(
+        &mut game,
+        "player-1",
+        RenewalOffer {
+            weekly_wage: 15_000,
+            contract_years: 3,
+        },
+    )
+    .expect("renewal should produce an outcome");
+
+    assert!(matches!(outcome.decision, RenewalDecision::Rejected));
+}
+
+#[test]
+fn manager_block_prevents_manual_renewal_until_it_expires() {
+    let mut game = make_game();
+    game.players[0].morale_core.renewal_state = Some(ContractRenewalState {
+        status: RenewalSessionStatus::Blocked,
+        manager_blocked_until: Some("2026-09-01".to_string()),
+        last_attempt_date: None,
+        last_assistant_attempt_date: None,
+        last_outcome: None,
+    });
+
+    let outcome = propose_renewal(
+        &mut game,
+        "player-1",
+        RenewalOffer {
+            weekly_wage: 16_000,
+            contract_years: 3,
+        },
+    )
+    .expect("renewal should produce an outcome");
+
+    assert!(matches!(outcome.decision, RenewalDecision::Rejected));
+    assert_eq!(outcome.session_status, RenewalSessionStatus::Blocked);
+    assert!(outcome.is_terminal);
+}
+
+#[test]
+fn assistant_can_complete_routine_delegate_renewal_even_when_manager_trust_is_low() {
+    let mut game = make_game();
+    game.staff.push(make_assistant_manager());
+    game.players[0].morale_core.manager_trust = 24;
+    game.players[0].morale = 74;
+
+    let report = delegate_renewals(
+        &mut game,
+        DelegatedRenewalOptions {
+            player_ids: Some(vec!["player-1".to_string()]),
+            max_wage_increase_pct: 35,
+            max_contract_years: 3,
+        },
+    )
+    .expect("assistant delegation should return a report");
+
+    assert_eq!(report.success_count, 1);
+    assert_eq!(report.failure_count, 0);
+    assert_eq!(report.stalled_count, 0);
+    assert_eq!(report.cases.len(), 1);
+    assert_eq!(report.cases[0].player_id, "player-1");
+    assert_eq!(
+        report.cases[0].status,
+        DelegatedRenewalResultStatus::Successful
+    );
+
+    let player = game
+        .players
+        .iter()
+        .find(|player| player.id == "player-1")
+        .unwrap();
+    assert_eq!(player.contract_end.as_deref(), Some("2029-08-01"));
+    assert!(player.wage >= 14_000);
 }

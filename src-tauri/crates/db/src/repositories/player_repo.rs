@@ -414,6 +414,7 @@ mod tests {
             recent_treatment: None,
             pending_promise: None,
             talk_cooldown_until: None,
+            renewal_state: None,
         };
 
         upsert_player(db.conn(), &player).unwrap();

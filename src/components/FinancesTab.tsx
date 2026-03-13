@@ -68,6 +68,15 @@ interface ResolveMessageActionResult {
   effect_i18n_params?: Record<string, string> | null;
 }
 
+interface DelegatedRenewalResponseData {
+  game: GameStateData;
+  report: {
+    success_count: number;
+    failure_count: number;
+    stalled_count: number;
+  };
+}
+
 function isChooseOptionAction(
   actionType: MessageAction["action_type"],
 ): actionType is {
@@ -109,6 +118,9 @@ export default function FinancesTab({
     );
   const weeklySuffix = t("finances.perWeekSuffix", "/wk");
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [delegatedRenewalsSummary, setDelegatedRenewalsSummary] = useState<
+    string | null
+  >(null);
 
   const roster = gameState.players.filter((p) => p.team_id === myTeam.id);
   const totalWages = roster.reduce((s, p) => s + p.wage, 0);
@@ -161,6 +173,39 @@ export default function FinancesTab({
       onGameUpdate?.(updated);
     } catch (error) {
       console.error("Failed to upgrade facility:", error);
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  async function handleDelegateRenewals(): Promise<void> {
+    if (contractRiskPlayers.length === 0) {
+      return;
+    }
+
+    const loadingKey = "delegate-renewals";
+    setActionLoading(loadingKey);
+    setDelegatedRenewalsSummary(null);
+
+    try {
+      const result = await invoke<DelegatedRenewalResponseData>(
+        "delegate_renewals",
+        {
+          playerIds: contractRiskPlayers.map(({ player }) => player.id),
+          maxWageIncreasePct: 35,
+          maxContractYears: 3,
+        },
+      );
+      onGameUpdate?.(result.game);
+      setDelegatedRenewalsSummary(
+        t("finances.delegatedRenewalsSummary", {
+          successes: result.report.success_count,
+          stalled: result.report.stalled_count,
+          failures: result.report.failure_count,
+        }),
+      );
+    } catch (error) {
+      console.error("Failed to delegate renewals:", error);
     } finally {
       setActionLoading(null);
     }
@@ -364,12 +409,31 @@ export default function FinancesTab({
 
             <div className="rounded-xl border border-gray-200 dark:border-navy-600 bg-gray-50 dark:bg-navy-800 p-4 space-y-3">
               <div className="flex items-center justify-between gap-3">
-                <p className="text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                  {t("finances.contractRisk")}
-                </p>
-                <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                  {t("finances.atRiskWages", { amount: atRiskWages })}
-                </p>
+                <div className="space-y-1">
+                  <p className="text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                    {t("finances.contractRisk")}
+                  </p>
+                  {delegatedRenewalsSummary ? (
+                    <p className="text-xs text-gray-600 dark:text-gray-400">
+                      {delegatedRenewalsSummary}
+                    </p>
+                  ) : null}
+                </div>
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                    {t("finances.atRiskWages", { amount: atRiskWages })}
+                  </p>
+                  {contractRiskPlayers.length > 0 ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => void handleDelegateRenewals()}
+                      disabled={actionLoading === "delegate-renewals"}
+                    >
+                      {t("finances.delegateMostRenewals")}
+                    </Button>
+                  ) : null}
+                </div>
               </div>
 
               {contractRiskPlayers.length > 0 ? (

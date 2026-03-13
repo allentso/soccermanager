@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { useState } from "react";
+import { beforeEach } from "vitest";
 import { describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 import type { GameStateData, PlayerData, TeamData } from "../store/gameStore";
@@ -16,6 +17,7 @@ vi.mock("react-i18next", () => ({
       if (key === "common.contract") return "Contract";
       if (key === "common.renewContract") return "Renew Contract";
       if (key === "common.cancel") return "Cancel";
+      if (key === "common.done") return "Done";
       if (key === "common.submit") return "Submit";
       if (key === "common.condition") return "Condition";
       if (key === "common.morale") return "Morale";
@@ -51,6 +53,10 @@ vi.mock("react-i18next", () => ({
       if (key === "playerProfile.renewalRejected") return "Offer rejected";
       if (key === "playerProfile.renewalCounter")
         return `Wants more: €${params?.wage}/wk for ${params?.years} years`;
+      if (key === "playerProfile.renewalBlocked")
+        return "Talks are blocked after your earlier decision";
+      if (key === "playerProfile.delegateRenewal")
+        return "Delegate to Assistant";
       if (key === "playerProfile.attributes") return "Attributes";
       if (key === "playerProfile.seasonStats") return "Season Stats";
       if (key === "playerProfile.careerHistory") return "Career History";
@@ -217,6 +223,10 @@ function RenewalHarness({ initialPlayer }: { initialPlayer?: PlayerData }) {
 }
 
 describe("PlayerProfile contract surfaces", () => {
+  beforeEach(() => {
+    vi.mocked(invoke).mockReset();
+  });
+
   it("renders expiry date, years remaining, and contract risk for the selected player", () => {
     const player = createPlayer();
     const gameState = createGameState(player);
@@ -271,6 +281,8 @@ describe("PlayerProfile contract surfaces", () => {
       game: updatedGame,
       suggested_wage: null,
       suggested_years: null,
+      session_status: "agreed",
+      is_terminal: true,
     });
 
     render(<RenewalHarness />);
@@ -297,6 +309,10 @@ describe("PlayerProfile contract surfaces", () => {
       expect(screen.getByText("Expires 2029-08-01")).toBeInTheDocument();
       expect(screen.getAllByText("€15,000/wk").length).toBeGreaterThan(0);
       expect(screen.getByText("Stable")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Done" })).toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: "Submit Offer" }),
+      ).not.toBeInTheDocument();
     });
   });
 
@@ -306,6 +322,8 @@ describe("PlayerProfile contract surfaces", () => {
       game: createGameState(createPlayer()),
       suggested_wage: null,
       suggested_years: null,
+      session_status: "stalled",
+      is_terminal: false,
     });
 
     render(<RenewalHarness />);
@@ -330,6 +348,8 @@ describe("PlayerProfile contract surfaces", () => {
       game: createGameState(createPlayer()),
       suggested_wage: 16000,
       suggested_years: 4,
+      session_status: "open",
+      is_terminal: false,
     });
 
     render(<RenewalHarness />);
@@ -347,6 +367,53 @@ describe("PlayerProfile contract surfaces", () => {
       expect(
         screen.getByText("Wants more: €16000/wk for 4 years"),
       ).toBeInTheDocument();
+    });
+  });
+
+  it("can delegate a single renewal attempt to the assistant", async () => {
+    const delegatedPlayer = createPlayer({
+      contract_end: "2029-08-01",
+      wage: 14000,
+    });
+    const updatedGame = createGameState(delegatedPlayer);
+
+    vi.mocked(invoke).mockResolvedValue({
+      game: updatedGame,
+      report: {
+        success_count: 1,
+        failure_count: 0,
+        stalled_count: 0,
+        cases: [
+          {
+            player_id: "player-1",
+            player_name: "John Smith",
+            status: "successful",
+            agreed_wage: 14000,
+            agreed_years: 3,
+            note: "I was able to close this one without needing you to step in.",
+          },
+        ],
+      },
+    });
+
+    render(<RenewalHarness />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Renew Contract" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Delegate to Assistant" }),
+    );
+
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith("delegate_renewals", {
+        playerIds: ["player-1"],
+        maxWageIncreasePct: 35,
+        maxContractYears: 3,
+      });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("Offer accepted")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Done" })).toBeInTheDocument();
     });
   });
 });

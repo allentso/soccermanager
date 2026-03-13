@@ -93,6 +93,7 @@ pub fn run() {
             advance_time_with_mode,
             upgrade_facility,
             propose_renewal,
+            delegate_renewals,
             set_formation,
             set_starting_xi,
             set_play_style,

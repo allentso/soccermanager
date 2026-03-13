@@ -1,5 +1,9 @@
 use crate::game::Game;
-use domain::player::{Player, PlayerPromise, PlayerPromiseKind, RecentTreatmentMemory};
+use chrono::Days;
+use domain::player::{
+    ContractRenewalState, Player, PlayerPromise, PlayerPromiseKind, RecentTreatmentMemory,
+    RenewalSessionOutcome, RenewalSessionStatus,
+};
 use rand::Rng;
 use serde::Serialize;
 use std::collections::HashMap;
@@ -655,6 +659,37 @@ pub fn apply_player_response(
 
         if should_apply_talk_cooldown(message_id) {
             player.morale_core.talk_cooldown_until = Some(current_day);
+        }
+
+        if message_id.starts_with("contract_concern_") {
+            let renewal_state = player
+                .morale_core
+                .renewal_state
+                .get_or_insert_with(ContractRenewalState::default);
+
+            match option_id {
+                "reassure" => {
+                    renewal_state.status = RenewalSessionStatus::Open;
+                    renewal_state.manager_blocked_until = None;
+                    renewal_state.last_outcome = Some(RenewalSessionOutcome::Stalled);
+                }
+                "noncommittal" => {
+                    renewal_state.status = RenewalSessionStatus::Stalled;
+                    renewal_state.last_outcome = Some(RenewalSessionOutcome::Stalled);
+                }
+                "no_renewal" => {
+                    let blocked_until = game
+                        .clock
+                        .current_date
+                        .date_naive()
+                        .checked_add_days(Days::new(60))
+                        .map(|date| date.format("%Y-%m-%d").to_string());
+                    renewal_state.status = RenewalSessionStatus::Blocked;
+                    renewal_state.manager_blocked_until = blocked_until;
+                    renewal_state.last_outcome = Some(RenewalSessionOutcome::BlockedByManager);
+                }
+                _ => {}
+            }
         }
     }
 

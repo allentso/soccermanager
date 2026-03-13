@@ -44,6 +44,10 @@ vi.mock("react-i18next", () => ({
       if (key === "finances.wageBudgetUsed")
         return `${params?.percent}% of wage budget used`;
       if (key === "finances.contractRisk") return "Contract Risk";
+      if (key === "finances.delegateMostRenewals")
+        return "Delegate Most Renewals";
+      if (key === "finances.delegatedRenewalsSummary")
+        return `${params?.successes} done, ${params?.stalled} pending, ${params?.failures} failed`;
       if (key === "finances.contractRiskCritical") return "Critical";
       if (key === "finances.contractRiskWarning") return "Warning";
       if (key === "finances.contractRiskStable") return "Stable";
@@ -498,5 +502,75 @@ describe("FinancesTab facilities", () => {
     );
 
     expect(onSelectPlayer).toHaveBeenCalledWith("player-critical");
+  });
+
+  it("delegates risky renewals to the assistant and publishes the updated state", async () => {
+    const riskyPlayers = [
+      createPlayer({
+        id: "player-critical",
+        full_name: "Alex Critical",
+        wage: 35000,
+        contract_end: "2025-04-30",
+      }),
+      createPlayer({
+        id: "player-warning",
+        full_name: "Ben Warning",
+        wage: 25000,
+        contract_end: "2025-10-15",
+      }),
+    ];
+    const initialState = createGameState(
+      { wage_budget: 50000 },
+      [],
+      riskyPlayers,
+    );
+    const updatedState = createGameState(
+      { wage_budget: 50000 },
+      [],
+      [
+        createPlayer({
+          id: "player-critical",
+          full_name: "Alex Critical",
+          wage: 36000,
+          contract_end: "2028-01-20",
+        }),
+        createPlayer({
+          id: "player-warning",
+          full_name: "Ben Warning",
+          wage: 25000,
+          contract_end: "2025-10-15",
+        }),
+      ],
+    );
+    const onGameUpdate = vi.fn();
+
+    mockedInvoke.mockResolvedValue({
+      game: updatedState,
+      report: {
+        success_count: 1,
+        failure_count: 0,
+        stalled_count: 1,
+        cases: [],
+      },
+    });
+
+    render(
+      <FinancesTab gameState={initialState} onGameUpdate={onGameUpdate} />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Delegate Most Renewals" }),
+    );
+
+    await waitFor(() => {
+      expect(mockedInvoke).toHaveBeenCalledWith("delegate_renewals", {
+        playerIds: ["player-critical", "player-warning"],
+        maxWageIncreasePct: 35,
+        maxContractYears: 3,
+      });
+    });
+
+    expect(onGameUpdate).toHaveBeenCalledWith(updatedState);
+    expect(screen.getByText("1 done, 1 pending, 0 failed")).toBeInTheDocument();
   });
 });

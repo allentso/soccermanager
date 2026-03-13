@@ -48,6 +48,24 @@ interface RenewalResponseData {
   game: GameStateData;
   suggested_wage: number | null;
   suggested_years: number | null;
+  session_status: "idle" | "open" | "agreed" | "blocked" | "stalled";
+  is_terminal: boolean;
+}
+
+interface DelegatedRenewalCaseData {
+  player_id: string;
+  status: "successful" | "failed" | "stalled";
+  note: string;
+}
+
+interface DelegatedRenewalResponseData {
+  game: GameStateData;
+  report: {
+    success_count: number;
+    failure_count: number;
+    stalled_count: number;
+    cases: DelegatedRenewalCaseData[];
+  };
 }
 
 type RenewalStatus =
@@ -55,6 +73,7 @@ type RenewalStatus =
   | "accepted"
   | "rejected"
   | "counter_offer"
+  | "blocked"
   | "error";
 
 function getTeamNameLocal(
@@ -171,6 +190,9 @@ export default function PlayerProfile({
   const [renewalSuggestedYears, setRenewalSuggestedYears] = useState<
     number | null
   >(null);
+  const [renewalSessionStatus, setRenewalSessionStatus] =
+    useState<RenewalResponseData["session_status"]>("idle");
+  const [renewalIsTerminal, setRenewalIsTerminal] = useState(false);
   const ovr = calcOvr(player);
   const age = calcAge(player.date_of_birth);
   const teamName = getTeamNameLocal(
@@ -204,6 +226,7 @@ export default function PlayerProfile({
     renewalOfferedWage > managerTeam.wage_budget;
   const renewalSubmitDisabled =
     renewalSubmitting ||
+    renewalIsTerminal ||
     !isRenewalWageValid ||
     !isRenewalLengthValid ||
     exceedsWageBudget;
@@ -218,6 +241,8 @@ export default function PlayerProfile({
     setRenewalError(null);
     setRenewalSuggestedWage(null);
     setRenewalSuggestedYears(null);
+    setRenewalSessionStatus("idle");
+    setRenewalIsTerminal(false);
     setShowRenewalModal(true);
   }
 
@@ -230,6 +255,10 @@ export default function PlayerProfile({
   }
 
   function getRenewalStatusMessage(): string | null {
+    if (renewalSessionStatus === "blocked" || renewalStatus === "blocked") {
+      return t("playerProfile.renewalBlocked");
+    }
+
     if (renewalStatus === "accepted") {
       return t("playerProfile.renewalAccepted");
     }
@@ -288,6 +317,12 @@ export default function PlayerProfile({
       setRenewalStatus(result.outcome);
       setRenewalSuggestedWage(result.suggested_wage);
       setRenewalSuggestedYears(result.suggested_years);
+      setRenewalSessionStatus(result.session_status);
+      setRenewalIsTerminal(result.is_terminal);
+
+      if (result.session_status === "blocked") {
+        setRenewalStatus("blocked");
+      }
 
       if (result.outcome === "counter_offer") {
         if (result.suggested_wage !== null) {
@@ -298,6 +333,64 @@ export default function PlayerProfile({
           setRenewalLength(String(result.suggested_years));
         }
       }
+    } catch (error) {
+      setRenewalStatus("error");
+      setRenewalError(String(error));
+    } finally {
+      setRenewalSubmitting(false);
+    }
+  }
+
+  async function handleDelegateRenewal(): Promise<void> {
+    if (renewalSubmitting) {
+      return;
+    }
+
+    setRenewalSubmitting(true);
+    setRenewalError(null);
+
+    try {
+      const result = await invoke<DelegatedRenewalResponseData>(
+        "delegate_renewals",
+        {
+          playerIds: [player.id],
+          maxWageIncreasePct: 35,
+          maxContractYears: 3,
+        },
+      );
+
+      onGameUpdate?.(result.game);
+      const delegatedCase = result.report.cases.find(
+        (renewalCase) => renewalCase.player_id === player.id,
+      );
+
+      if (!delegatedCase) {
+        setRenewalStatus("error");
+        setRenewalError("Assistant report did not include this player.");
+        return;
+      }
+
+      if (delegatedCase.status === "successful") {
+        setRenewalStatus("accepted");
+        setRenewalSessionStatus("agreed");
+        setRenewalIsTerminal(true);
+        setRenewalSuggestedWage(null);
+        setRenewalSuggestedYears(null);
+        return;
+      }
+
+      if (delegatedCase.status === "stalled") {
+        setRenewalStatus("rejected");
+        setRenewalSessionStatus("stalled");
+        setRenewalIsTerminal(false);
+        setRenewalError(delegatedCase.note);
+        return;
+      }
+
+      setRenewalStatus("blocked");
+      setRenewalSessionStatus("blocked");
+      setRenewalIsTerminal(true);
+      setRenewalError(delegatedCase.note);
     } catch (error) {
       setRenewalStatus("error");
       setRenewalError(String(error));
@@ -932,6 +1025,7 @@ export default function PlayerProfile({
                   step="1"
                   value={renewalWage}
                   onChange={(event) => setRenewalWage(event.target.value)}
+                  disabled={renewalIsTerminal}
                   className="w-full px-3 py-2 rounded-lg bg-gray-50 dark:bg-navy-700 border border-gray-200 dark:border-navy-600 text-sm text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
                 />
               </div>
@@ -951,6 +1045,7 @@ export default function PlayerProfile({
                   step="1"
                   value={renewalLength}
                   onChange={(event) => setRenewalLength(event.target.value)}
+                  disabled={renewalIsTerminal}
                   className="w-full px-3 py-2 rounded-lg bg-gray-50 dark:bg-navy-700 border border-gray-200 dark:border-navy-600 text-sm text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
                 />
               </div>
@@ -977,15 +1072,30 @@ export default function PlayerProfile({
             ) : null}
 
             <div className="flex gap-2 justify-end">
-              <Button variant="ghost" onClick={closeRenewalModal}>
-                {t("common.cancel")}
-              </Button>
-              <Button
-                onClick={() => void handleRenewalSubmit()}
-                disabled={renewalSubmitDisabled}
-              >
-                {t("playerProfile.renewalSubmit")}
-              </Button>
+              {renewalIsTerminal ? (
+                <Button variant="ghost" onClick={closeRenewalModal}>
+                  {t("common.done")}
+                </Button>
+              ) : (
+                <>
+                  <Button variant="ghost" onClick={closeRenewalModal}>
+                    {t("common.cancel")}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => void handleDelegateRenewal()}
+                    disabled={renewalSubmitting}
+                  >
+                    {t("playerProfile.delegateRenewal")}
+                  </Button>
+                  <Button
+                    onClick={() => void handleRenewalSubmit()}
+                    disabled={renewalSubmitDisabled}
+                  >
+                    {t("playerProfile.renewalSubmit")}
+                  </Button>
+                </>
+              )}
             </div>
           </div>
         </DashboardModalFrame>
