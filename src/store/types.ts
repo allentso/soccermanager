@@ -200,6 +200,27 @@ export interface ScoutReportData {
   confidence_key: string;
 }
 
+export interface DelegatedRenewalCaseMessageData {
+  player_id: string;
+  player_name: string;
+  status: string;
+  agreed_wage?: number | null;
+  agreed_years?: number | null;
+  note_key?: string;
+  note_params?: Record<string, string>;
+}
+
+export interface DelegatedRenewalReportMessageData {
+  success_count: number;
+  failure_count: number;
+  stalled_count: number;
+  cases: DelegatedRenewalCaseMessageData[];
+}
+
+export interface PlayerSelectionOptions {
+  openRenewal?: boolean;
+}
+
 export interface MessageContext {
   team_id: string | null;
   player_id: string | null;
@@ -211,6 +232,7 @@ export interface MessageContext {
     away_goals: number;
   };
   scout_report?: ScoutReportData;
+  delegated_renewal_report?: DelegatedRenewalReportMessageData;
 }
 
 export interface MessageData {

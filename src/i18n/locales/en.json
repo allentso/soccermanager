@@ -628,6 +628,8 @@
     "wageBudgetUsed": "{{percent}}% of wage budget used",
     "contractRisk": "Contract Risk",
     "delegateMostRenewals": "Delegate Most Renewals",
+    "delegateSelectedRenewals": "Delegate Selected Renewals",
+    "selectAllAtRisk": "Select all",
     "delegatedRenewalsSummary": "{{successes}} done, {{stalled}} pending, {{failures}} failed",
     "contractRiskCritical": "Critical",
     "contractRiskWarning": "Warning",
@@ -1549,6 +1551,22 @@
         "subject": "{{player}} — Contract Running Down",
         "body0": "{{player}} has approached you regarding their contract situation. With only {{days}} days remaining on their deal, they want to know where they stand.\n\n\"Boss, my contract is running down. I need to know if I'm part of your plans going forward or if I should start looking elsewhere.\"",
         "body1": "Your assistant flags that {{player}}'s contract expires in roughly {{months}} month(s). The player has been asking around the dressing room about their future.\n\nIt might be wise to have a conversation before they become unsettled — or before other clubs start circling."
+      },
+      "delegatedRenewals": {
+        "subject": "Assistant Report — Contract Renewals",
+        "body": "Boss, I went through our renewal list at {{team}}. {{successes}} completed, {{stalled}} still pending, {{failures}} failed.",
+        "case": {
+          "successful": "Completed: {{player}} agreed to {{years}} year(s) on €{{wage}}/wk.",
+          "stalled": "Still difficult: {{player}} — {{detail}}",
+          "failed": "Failed: {{player}} — {{detail}}"
+        },
+        "notes": {
+          "managerBlocked": "You told me not to reopen contract talks yet.",
+          "completed": "I was able to close this one without needing you to step in.",
+          "beyondLimits": "Their camp want around €{{wage}}/wk for {{years}} years, which is beyond the delegation limits.",
+          "prefersManager": "They would listen, but they still want about €{{wage}}/wk for {{years}} years and prefer to hear from you directly.",
+          "relationshipBlocked": "They are not willing to commit through me under the current relationship and contract situation."
+        }
       },
       "scoutReport": {
         "subject": "Scout Report: {{player}}",

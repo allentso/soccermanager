@@ -1,4 +1,4 @@
-import { GameStateData } from "../../store/gameStore";
+import { GameStateData, PlayerSelectionOptions } from "../../store/gameStore";
 import HomeTab from "../HomeTab";
 import SquadTab from "../SquadTab";
 import TacticsTab from "../TacticsTab";
@@ -23,7 +23,7 @@ interface DashboardTabContentProps {
   seasonComplete: boolean;
   visitedOnboardingTabs: ReadonlySet<string>;
   initialMessageId: string | null;
-  onSelectPlayer: (id: string) => void;
+  onSelectPlayer: (id: string, options?: PlayerSelectionOptions) => void;
   onSelectTeam: (id: string) => void;
   onGameUpdate: (state: GameStateData) => void;
   onNavigate: (tab: string, context?: { messageId?: string }) => void;

@@ -628,6 +628,8 @@
     "wageBudgetUsed": "{{percent}}% do orçamento salarial usado",
     "contractRisk": "Risco contratual",
     "delegateMostRenewals": "Delegar a maioria das renovações",
+    "delegateSelectedRenewals": "Delegar renovações selecionadas",
+    "selectAllAtRisk": "Selecionar tudo",
     "delegatedRenewalsSummary": "{{successes}} concluídas, {{stalled}} pendentes, {{failures}} falhas",
     "contractRiskCritical": "Crítico",
     "contractRiskWarning": "Alerta",
@@ -1549,6 +1551,22 @@
         "subject": "{{player}} — Contrato Chegando ao Fim",
         "body0": "{{player}} veio falar com você sobre a situação do contrato. Com apenas {{days}} dias restantes, ele quer saber qual é a posição dele.\n\n\"Chefe, meu contrato está acabando. Preciso saber se faço parte dos seus planos ou se devo começar a procurar outro lugar.\"",
         "body1": "Seu assistente alerta que o contrato de {{player}} expira em aproximadamente {{months}} mês(es). O jogador tem perguntado no vestiário sobre seu futuro.\n\nPode ser prudente ter uma conversa antes que ele fique insatisfeito — ou antes que outros clubes comecem a circular."
+      },
+      "delegatedRenewals": {
+        "subject": "Relatório do assistente — Renovações contratuais",
+        "body": "Chefe, revisei nossa lista de renovações no {{team}}. {{successes}} concluídas, {{stalled}} ainda pendentes e {{failures}} falhas.",
+        "case": {
+          "successful": "Concluída: {{player}} aceitou {{years}} ano(s) por €{{wage}}/semana.",
+          "stalled": "Continua difícil: {{player}} — {{detail}}",
+          "failed": "Falhou: {{player}} — {{detail}}"
+        },
+        "notes": {
+          "managerBlocked": "Você me disse para ainda não reabrir as conversas contratuais.",
+          "completed": "Consegui fechar essa sem que você precisasse intervir.",
+          "beyondLimits": "O estafe deles quer cerca de €{{wage}}/semana por {{years}} anos, acima dos limites da delegação.",
+          "prefersManager": "Eles até ouviriam, mas ainda querem cerca de €{{wage}}/semana por {{years}} anos e preferem falar diretamente com você.",
+          "relationshipBlocked": "Eles não estão dispostos a se comprometer por meu intermédio com o relacionamento e a situação contratual atuais."
+        }
       },
       "scoutReport": {
         "subject": "Relatório de Observação: {{player}}",

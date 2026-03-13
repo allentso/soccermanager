@@ -137,6 +137,8 @@ pub async fn select_team(
     let staff_msg = ofm_core::messages::staff_advice_message(&team_name, &team_id, &date_str);
     game.messages.push(staff_msg);
 
+    ofm_core::player_events::generate_contract_concern_messages(&mut game, false);
+
     // Save to new per-save DB
     let manager_name = format!("{} {}", game.manager.first_name, game.manager.last_name);
     let save_name = format!("{}'s Career", manager_name);

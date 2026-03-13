@@ -1,6 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { GameStateData, MessageAction, MessageData } from "../store/gameStore";
+import {
+  GameStateData,
+  MessageAction,
+  MessageData,
+  PlayerSelectionOptions,
+} from "../store/gameStore";
 import { Card, CardHeader, CardBody, Badge, ProgressBar, Button } from "./ui";
 import { User } from "lucide-react";
 import {
@@ -100,7 +105,7 @@ function isPendingSponsorOffer(message: MessageData): boolean {
 interface FinancesTabProps {
   gameState: GameStateData;
   onGameUpdate?: (state: GameStateData) => void;
-  onSelectPlayer?: (id: string) => void;
+  onSelectPlayer?: (id: string, options?: PlayerSelectionOptions) => void;
 }
 
 export default function FinancesTab({
@@ -121,6 +126,9 @@ export default function FinancesTab({
   const [delegatedRenewalsSummary, setDelegatedRenewalsSummary] = useState<
     string | null
   >(null);
+  const [selectedRiskPlayerIds, setSelectedRiskPlayerIds] = useState<string[]>(
+    [],
+  );
 
   const roster = gameState.players.filter((p) => p.team_id === myTeam.id);
   const totalWages = roster.reduce((s, p) => s + p.wage, 0);
@@ -163,6 +171,45 @@ export default function FinancesTab({
     (sum, { player }) => sum + player.wage,
     0,
   );
+  const selectedRiskPlayers = contractRiskPlayers.filter(({ player }) =>
+    selectedRiskPlayerIds.includes(player.id),
+  );
+  const allRiskPlayerIds = contractRiskPlayers.map(({ player }) => player.id);
+
+  useEffect(() => {
+    setSelectedRiskPlayerIds((currentIds) => {
+      const availableIdSet = new Set(allRiskPlayerIds);
+      const nextIds = currentIds.filter((playerId) =>
+        availableIdSet.has(playerId),
+      );
+
+      if (nextIds.length > 0) {
+        return nextIds;
+      }
+
+      return allRiskPlayerIds;
+    });
+  }, [allRiskPlayerIds.join("|")]);
+
+  function handleToggleRiskPlayer(playerId: string): void {
+    setSelectedRiskPlayerIds((currentIds) => {
+      if (currentIds.includes(playerId)) {
+        return currentIds.filter((currentId) => currentId !== playerId);
+      }
+
+      return [...currentIds, playerId];
+    });
+  }
+
+  function handleToggleAllRiskPlayers(): void {
+    setSelectedRiskPlayerIds((currentIds) => {
+      if (currentIds.length === allRiskPlayerIds.length) {
+        return [];
+      }
+
+      return allRiskPlayerIds;
+    });
+  }
 
   async function handleUpgradeFacility(facility: FacilityId): Promise<void> {
     setActionLoading(facility);
@@ -179,7 +226,7 @@ export default function FinancesTab({
   }
 
   async function handleDelegateRenewals(): Promise<void> {
-    if (contractRiskPlayers.length === 0) {
+    if (selectedRiskPlayers.length === 0) {
       return;
     }
 
@@ -191,7 +238,7 @@ export default function FinancesTab({
       const result = await invoke<DelegatedRenewalResponseData>(
         "delegate_renewals",
         {
-          playerIds: contractRiskPlayers.map(({ player }) => player.id),
+          playerIds: selectedRiskPlayers.map(({ player }) => player.id),
           maxWageIncreasePct: 35,
           maxContractYears: 3,
         },
@@ -424,14 +471,26 @@ export default function FinancesTab({
                     {t("finances.atRiskWages", { amount: atRiskWages })}
                   </p>
                   {contractRiskPlayers.length > 0 ? (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => void handleDelegateRenewals()}
-                      disabled={actionLoading === "delegate-renewals"}
-                    >
-                      {t("finances.delegateMostRenewals")}
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={handleToggleAllRiskPlayers}
+                      >
+                        {t("finances.selectAllAtRisk")}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => void handleDelegateRenewals()}
+                        disabled={
+                          actionLoading === "delegate-renewals" ||
+                          selectedRiskPlayers.length === 0
+                        }
+                      >
+                        {t("finances.delegateSelectedRenewals")}
+                      </Button>
+                    </div>
                   ) : null}
                 </div>
               </div>
@@ -443,22 +502,31 @@ export default function FinancesTab({
                       key={player.id}
                       className="rounded-lg border border-gray-200 dark:border-navy-600 bg-white dark:bg-navy-700 p-3 flex items-start justify-between gap-3"
                     >
-                      <div className="space-y-1">
-                        <p className="font-semibold text-sm text-gray-900 dark:text-gray-100">
-                          {player.full_name}
-                        </p>
-                        <p className="text-xs text-gray-600 dark:text-gray-400">
-                          {t("finances.contractExpiresOn", {
-                            date: player.contract_end,
-                          })}
-                        </p>
-                        <p className="text-xs text-gray-600 dark:text-gray-400">
-                          {t("playerProfile.yearsRemaining")}:{" "}
-                          {getContractYearsRemaining(
-                            player.contract_end,
-                            gameState.clock.current_date,
-                          )}
-                        </p>
+                      <div className="flex items-start gap-3">
+                        <input
+                          type="checkbox"
+                          checked={selectedRiskPlayerIds.includes(player.id)}
+                          onChange={() => handleToggleRiskPlayer(player.id)}
+                          aria-label={`Select ${player.full_name}`}
+                          className="mt-1 h-4 w-4 rounded border-gray-300 text-primary-500 focus:ring-primary-500/30"
+                        />
+                        <div className="space-y-1">
+                          <p className="font-semibold text-sm text-gray-900 dark:text-gray-100">
+                            {player.full_name}
+                          </p>
+                          <p className="text-xs text-gray-600 dark:text-gray-400">
+                            {t("finances.contractExpiresOn", {
+                              date: player.contract_end,
+                            })}
+                          </p>
+                          <p className="text-xs text-gray-600 dark:text-gray-400">
+                            {t("playerProfile.yearsRemaining")}:{" "}
+                            {getContractYearsRemaining(
+                              player.contract_end,
+                              gameState.clock.current_date,
+                            )}
+                          </p>
+                        </div>
                       </div>
                       <div className="flex flex-col items-end gap-2">
                         <Badge variant={getContractRiskBadgeVariant(riskLevel)}>
@@ -475,7 +543,9 @@ export default function FinancesTab({
                             variant="outline"
                             onClick={(event) => {
                               event.stopPropagation();
-                              onSelectPlayer(player.id);
+                              onSelectPlayer(player.id, {
+                                openRenewal: true,
+                              });
                             }}
                           >
                             {t("common.renewContract")}

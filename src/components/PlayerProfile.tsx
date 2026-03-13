@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import {
   formatDate,
@@ -32,12 +32,14 @@ import {
 import { TraitList } from "./TraitBadge";
 import { useTranslation } from "react-i18next";
 import { countryName } from "../lib/countries";
+import { resolveBackendText } from "../utils/backendI18n";
 import DashboardModalFrame from "./dashboard/DashboardModalFrame";
 
 interface PlayerProfileProps {
   player: PlayerData;
   gameState: GameStateData;
   isOwnClub: boolean;
+  startWithRenewalModal?: boolean;
   onClose: () => void;
   onSelectTeam?: (id: string) => void;
   onGameUpdate?: (g: GameStateData) => void;
@@ -56,6 +58,8 @@ interface DelegatedRenewalCaseData {
   player_id: string;
   status: "successful" | "failed" | "stalled";
   note: string;
+  note_key?: string;
+  note_params?: Record<string, string>;
 }
 
 interface DelegatedRenewalResponseData {
@@ -155,6 +159,7 @@ export default function PlayerProfile({
   player,
   gameState,
   isOwnClub,
+  startWithRenewalModal = false,
   onClose,
   onSelectTeam,
   onGameUpdate,
@@ -193,6 +198,8 @@ export default function PlayerProfile({
   const [renewalSessionStatus, setRenewalSessionStatus] =
     useState<RenewalResponseData["session_status"]>("idle");
   const [renewalIsTerminal, setRenewalIsTerminal] = useState(false);
+  const [hasConsumedInitialRenewalIntent, setHasConsumedInitialRenewalIntent] =
+    useState(false);
   const ovr = calcOvr(player);
   const age = calcAge(player.date_of_birth);
   const teamName = getTeamNameLocal(
@@ -253,6 +260,29 @@ export default function PlayerProfile({
 
     setShowRenewalModal(false);
   }
+
+  useEffect(() => {
+    setHasConsumedInitialRenewalIntent(false);
+  }, [player.id, startWithRenewalModal]);
+
+  useEffect(() => {
+    if (
+      !isOwnClub ||
+      !startWithRenewalModal ||
+      showRenewalModal ||
+      hasConsumedInitialRenewalIntent
+    ) {
+      return;
+    }
+
+    setHasConsumedInitialRenewalIntent(true);
+    openRenewalModal();
+  }, [
+    hasConsumedInitialRenewalIntent,
+    isOwnClub,
+    showRenewalModal,
+    startWithRenewalModal,
+  ]);
 
   function getRenewalStatusMessage(): string | null {
     if (renewalSessionStatus === "blocked" || renewalStatus === "blocked") {
@@ -383,14 +413,26 @@ export default function PlayerProfile({
         setRenewalStatus("rejected");
         setRenewalSessionStatus("stalled");
         setRenewalIsTerminal(false);
-        setRenewalError(delegatedCase.note);
+        setRenewalError(
+          resolveBackendText(
+            delegatedCase.note_key,
+            delegatedCase.note,
+            delegatedCase.note_params,
+          ),
+        );
         return;
       }
 
       setRenewalStatus("blocked");
       setRenewalSessionStatus("blocked");
       setRenewalIsTerminal(true);
-      setRenewalError(delegatedCase.note);
+      setRenewalError(
+        resolveBackendText(
+          delegatedCase.note_key,
+          delegatedCase.note,
+          delegatedCase.note_params,
+        ),
+      );
     } catch (error) {
       setRenewalStatus("error");
       setRenewalError(String(error));

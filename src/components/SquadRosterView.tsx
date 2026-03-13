@@ -1,6 +1,10 @@
 import { useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import type { GameStateData, PlayerData } from "../store/gameStore";
+import type {
+  GameStateData,
+  PlayerData,
+  PlayerSelectionOptions,
+} from "../store/gameStore";
 import { Badge, Button, Card, ProgressBar, Select, CountryFlag } from "./ui";
 import {
   AlertTriangle,
@@ -40,7 +44,7 @@ interface SquadRosterViewProps {
   gameState: GameStateData;
   managerId: string;
   onGameUpdate?: (g: GameStateData) => void;
-  onSelectPlayer: (id: string) => void;
+  onSelectPlayer: (id: string, options?: PlayerSelectionOptions) => void;
 }
 
 type FilterScope = "all" | "xi" | "bench" | "outOfPosition" | "injured";
@@ -548,22 +552,31 @@ export default function SquadRosterView({
                         </Badge>
                       </td>
                       <td className="py-2.5 px-4">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            onSelectPlayer(player.id);
-                          }}
-                        >
-                          {t("common.renewContract")}
-                        </Button>
+                        {player.contract_end &&
+                        contractRiskLevel !== "stable" ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              onSelectPlayer(player.id, {
+                                openRenewal: true,
+                              });
+                            }}
+                          >
+                            {t("common.renewContract")}
+                          </Button>
+                        ) : (
+                          <span className="text-xs text-gray-500 dark:text-gray-400">
+                            —
+                          </span>
+                        )}
                       </td>
-                      <td className="py-2.5 px-4">
+                      <td className="py-2.5 px-4 text-right">
                         <span
-                          className={`font-heading font-bold text-base tabular-nums ${
-                            ovr >= 75
-                              ? "text-success-500 dark:text-success-400"
+                          className={`font-heading font-bold text-sm ${
+                            ovr >= 80
+                              ? "text-primary-500"
                               : ovr >= 55
                                 ? "text-accent-600 dark:text-accent-400"
                                 : "text-gray-500 dark:text-gray-400"

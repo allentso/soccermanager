@@ -628,6 +628,8 @@
     "wageBudgetUsed": "{{percent}}% del budget salariale utilizzato",
     "contractRisk": "Rischio contrattuale",
     "delegateMostRenewals": "Delega la maggior parte dei rinnovi",
+    "delegateSelectedRenewals": "Delega i rinnovi selezionati",
+    "selectAllAtRisk": "Seleziona tutto",
     "delegatedRenewalsSummary": "{{successes}} fatti, {{stalled}} in attesa, {{failures}} falliti",
     "contractRiskCritical": "Critico",
     "contractRiskWarning": "Attenzione",
@@ -1482,6 +1484,22 @@
         "subject": "{{player}} — Contratto in scadenza",
         "body0": "{{player}} ti ha avvicinato per parlare della sua situazione contrattuale. Con solo {{days}} giorni rimanenti, vuole sapere qual è la sua posizione.\n\n\"Mister, il mio contratto sta scadendo. Ho bisogno di sapere se faccio parte dei tuoi piani futuri o se devo iniziare a guardarmi intorno.\"",
         "body1": "Il tuo assistente segnala che il contratto di {{player}} scade tra circa {{months}} mese/i. Il giocatore sta chiedendo in giro nello spogliatoio informazioni sul suo futuro.\n\nPotrebbe essere saggio parlarne prima che si agiti — o prima che altri club inizino a farsi avanti."
+      },
+      "delegatedRenewals": {
+        "subject": "Rapporto dell'assistente — Rinnovi contrattuali",
+        "body": "Mister, ho esaminato la nostra lista rinnovi a {{team}}. {{successes}} conclusi, {{stalled}} ancora in sospeso, {{failures}} falliti.",
+        "case": {
+          "successful": "Concluso: {{player}} ha accettato {{years}} anno/i a €{{wage}}/settimana.",
+          "stalled": "Ancora complicato: {{player}} — {{detail}}",
+          "failed": "Fallito: {{player}} — {{detail}}"
+        },
+        "notes": {
+          "managerBlocked": "Mi hai detto di non riaprire ancora i colloqui contrattuali.",
+          "completed": "Sono riuscito a chiudere questa trattativa senza il tuo intervento.",
+          "beyondLimits": "Il loro entourage chiede circa €{{wage}}/settimana per {{years}} anni, oltre i limiti della delega.",
+          "prefersManager": "Ascolterebbero, ma vogliono ancora circa €{{wage}}/settimana per {{years}} anni e preferiscono parlare direttamente con te.",
+          "relationshipBlocked": "Non sono disposti a impegnarsi tramite me con l'attuale rapporto e situazione contrattuale."
+        }
       },
       "scoutReport": {
         "subject": "Rapporto osservatore: {{player}}",

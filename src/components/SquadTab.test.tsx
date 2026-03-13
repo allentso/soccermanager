@@ -228,6 +228,8 @@ describe("SquadTab", () => {
       screen.getAllByRole("button", { name: "Renew Contract" })[0],
     );
 
-    expect(onSelectPlayer).toHaveBeenCalledWith("gk1");
+    expect(onSelectPlayer).toHaveBeenCalledWith("gk1", {
+      openRenewal: true,
+    });
   });
 });

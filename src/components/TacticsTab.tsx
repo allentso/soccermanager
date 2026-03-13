@@ -1,7 +1,11 @@
 import type { DragEvent, JSX } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import type { GameStateData, PlayerData } from "../store/gameStore";
+import type {
+  GameStateData,
+  PlayerData,
+  PlayerSelectionOptions,
+} from "../store/gameStore";
 import { useTranslation } from "react-i18next";
 import {
   applyLineupDrop,
@@ -30,7 +34,7 @@ import TacticsSetupPanel from "./TacticsSetupPanel";
 
 interface TacticsTabProps {
   gameState: GameStateData;
-  onSelectPlayer: (id: string) => void;
+  onSelectPlayer: (id: string, options?: PlayerSelectionOptions) => void;
   onGameUpdate: (g: GameStateData) => void;
 }
 

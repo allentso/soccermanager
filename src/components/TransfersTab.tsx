@@ -1,6 +1,10 @@
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { GameStateData, PlayerData } from "../store/gameStore";
+import {
+  GameStateData,
+  PlayerData,
+  PlayerSelectionOptions,
+} from "../store/gameStore";
 import { Card, CardBody, Badge, CountryFlag } from "./ui";
 import {
   Search,
@@ -27,7 +31,7 @@ import { translatePositionAbbreviation } from "./SquadTab.helpers";
 
 interface TransfersTabProps {
   gameState: GameStateData;
-  onSelectPlayer: (id: string) => void;
+  onSelectPlayer: (id: string, options?: PlayerSelectionOptions) => void;
   onSelectTeam: (id: string) => void;
   onGameUpdate?: (game: GameStateData) => void;
 }

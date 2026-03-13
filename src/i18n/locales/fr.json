@@ -628,6 +628,8 @@
     "wageBudgetUsed": "{{percent}}% du budget salarial utilisé",
     "contractRisk": "Risque contractuel",
     "delegateMostRenewals": "Déléguer la plupart des renouvellements",
+    "delegateSelectedRenewals": "Déléguer les renouvellements sélectionnés",
+    "selectAllAtRisk": "Tout sélectionner",
     "delegatedRenewalsSummary": "{{successes}} réglés, {{stalled}} en attente, {{failures}} échoués",
     "contractRiskCritical": "Critique",
     "contractRiskWarning": "Alerte",
@@ -1547,12 +1549,28 @@
       },
       "contractConcern": {
         "subject": "{{player}} — Contrat en fin de course",
-        "body0": "{{player}} est venu vous parler de sa situation contractuelle. Avec seulement {{days}} jours restants sur son contrat, il veut savoir où il en est.\n\n\"Coach, mon contrat arrive à sa fin. J'ai besoin de savoir si je fais partie de vos plans pour l'avenir ou si je dois commencer à regarder ailleurs.\"",
-        "body1": "Votre adjoint vous signale que le contrat de {{player}} expire dans environ {{months}} mois. Le joueur a commencé à poser des questions dans le vestiaire au sujet de son avenir.\n\nIl serait sans doute judicieux d'avoir une conversation avant qu'il ne devienne inquiet — ou avant que d'autres clubs ne commencent à tourner autour."
+        "body0": "{{player}} est venu te voir au sujet de sa situation contractuelle. Avec seulement {{days}} jours restants sur son contrat, il veut savoir à quoi s'en tenir.\n\n\"Coach, mon contrat arrive à son terme. J'ai besoin de savoir si je fais partie de tes plans ou si je dois chercher ailleurs.\"",
+        "body1": "Ton adjoint signale que le contrat de {{player}} expire dans environ {{months}} mois. Le joueur s'interroge déjà dans le vestiaire sur son avenir.\n\nMieux vaut sans doute en parler avant qu'il ne se trouble ou que d'autres clubs ne commencent à tourner autour."
+      },
+      "delegatedRenewals": {
+        "subject": "Rapport de l'adjoint — Renouvellements",
+        "body": "Coach, j'ai passé en revue notre liste de renouvellements à {{team}}. {{successes}} conclus, {{stalled}} encore en attente, {{failures}} échoués.",
+        "case": {
+          "successful": "Conclu : {{player}} a accepté {{years}} an(s) à €{{wage}}/semaine.",
+          "stalled": "Toujours compliqué : {{player}} — {{detail}}",
+          "failed": "Échec : {{player}} — {{detail}}"
+        },
+        "notes": {
+          "managerBlocked": "Tu m'as dit de ne pas rouvrir les discussions contractuelles pour l'instant.",
+          "completed": "J'ai pu régler ce dossier sans que tu aies besoin d'intervenir.",
+          "beyondLimits": "Le clan du joueur veut environ €{{wage}}/semaine pour {{years}} ans, au-delà des limites de délégation.",
+          "prefersManager": "Ils écouteraient, mais demandent encore environ €{{wage}}/semaine pour {{years}} ans et préfèrent parler directement avec toi.",
+          "relationshipBlocked": "Ils ne sont pas prêts à s'engager par mon intermédiaire dans le contexte relationnel et contractuel actuel."
+        }
       },
       "scoutReport": {
-        "subject": "Scout Report: {{player}}",
-        "body": "Your scout {{scout}} has completed their assessment of {{player}}. Full report available in the scouting section."
+        "subject": "Rapport de scout : {{player}}",
+        "body": "Votre recruteur {{scout}} a terminé son évaluation de {{player}}. Rapport complet disponible dans la section recrutement."
       }
     },
     "news": {

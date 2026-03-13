@@ -628,6 +628,8 @@
     "wageBudgetUsed": "{{percent}}% del presupuesto salarial usado",
     "contractRisk": "Riesgo contractual",
     "delegateMostRenewals": "Delegar la mayoría de renovaciones",
+    "delegateSelectedRenewals": "Delegar renovaciones seleccionadas",
+    "selectAllAtRisk": "Seleccionar todo",
     "delegatedRenewalsSummary": "{{successes}} hechas, {{stalled}} pendientes, {{failures}} fallidas",
     "contractRiskCritical": "Crítico",
     "contractRiskWarning": "Advertencia",
@@ -1547,12 +1549,28 @@
       },
       "contractConcern": {
         "subject": "{{player}} — Contrato por terminar",
-        "body0": "{{player}} se ha acercado a ti para hablar de su situación contractual. Con solo {{days}} días restantes en su contrato, quiere saber cuál es su situación.\n\n\"Míster, mi contrato se está acabando. Necesito saber si entro en tus planes de cara al futuro o si debería empezar a buscar en otro sitio.\"",
-        "body1": "Tu asistente te avisa de que el contrato de {{player}} vence en aproximadamente {{months}} mes(es). El jugador ha estado preguntando en el vestuario sobre su futuro.\n\nQuizá sea conveniente tener una conversación antes de que se inquiete... o antes de que otros clubes empiecen a rondar."
+        "body0": "{{player}} se ha acercado para hablar de su situación contractual. Con solo {{days}} días restantes en su acuerdo, quiere saber cuál es su situación.\n\n\"Míster, mi contrato se está acabando. Necesito saber si sigo en tus planes o si debo empezar a mirar otras opciones.\"",
+        "body1": "Tu asistente señala que el contrato de {{player}} expira en aproximadamente {{months}} mes(es). El jugador ya ha estado preguntando en el vestuario por su futuro.\n\nConviene hablar con él antes de que se inquiete o de que otros clubes empiecen a rondar."
+      },
+      "delegatedRenewals": {
+        "subject": "Informe del asistente — Renovaciones",
+        "body": "Míster, revisé nuestra lista de renovaciones en {{team}}. {{successes}} cerradas, {{stalled}} aún pendientes y {{failures}} fallidas.",
+        "case": {
+          "successful": "Cerrada: {{player}} aceptó {{years}} año(s) por €{{wage}}/semana.",
+          "stalled": "Sigue complicado: {{player}} — {{detail}}",
+          "failed": "Fallida: {{player}} — {{detail}}"
+        },
+        "notes": {
+          "managerBlocked": "Me dijiste que todavía no reabriera las conversaciones contractuales.",
+          "completed": "Pude cerrar esta sin que tuvieras que intervenir.",
+          "beyondLimits": "Su entorno pide alrededor de €{{wage}}/semana por {{years}} años, fuera de los límites de delegación.",
+          "prefersManager": "Escucharían, pero siguen pidiendo unos €{{wage}}/semana por {{years}} años y prefieren hablar contigo directamente.",
+          "relationshipBlocked": "No están dispuestos a comprometerse a través de mí con la relación y situación contractual actuales."
+        }
       },
       "scoutReport": {
-        "subject": "Scout Report: {{player}}",
-        "body": "Your scout {{scout}} has completed their assessment of {{player}}. Full report available in the scouting section."
+        "subject": "Informe del ojeador: {{player}}",
+        "body": "Tu ojeador {{scout}} ha completado su evaluación de {{player}}. Informe completo disponible en la sección de ojeo."
       }
     },
     "news": {

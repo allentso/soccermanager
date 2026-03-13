@@ -46,6 +46,9 @@ vi.mock("react-i18next", () => ({
       if (key === "finances.contractRisk") return "Contract Risk";
       if (key === "finances.delegateMostRenewals")
         return "Delegate Most Renewals";
+      if (key === "finances.delegateSelectedRenewals")
+        return "Delegate Selected Renewals";
+      if (key === "finances.selectAllAtRisk") return "Select all";
       if (key === "finances.delegatedRenewalsSummary")
         return `${params?.successes} done, ${params?.stalled} pending, ${params?.failures} failed`;
       if (key === "finances.contractRiskCritical") return "Critical";
@@ -501,10 +504,12 @@ describe("FinancesTab facilities", () => {
       screen.getAllByRole("button", { name: "Renew Contract" })[0],
     );
 
-    expect(onSelectPlayer).toHaveBeenCalledWith("player-critical");
+    expect(onSelectPlayer).toHaveBeenCalledWith("player-critical", {
+      openRenewal: true,
+    });
   });
 
-  it("delegates risky renewals to the assistant and publishes the updated state", async () => {
+  it("delegates only the selected risky renewals to the assistant and publishes the updated state", async () => {
     const riskyPlayers = [
       createPlayer({
         id: "player-critical",
@@ -558,13 +563,15 @@ describe("FinancesTab facilities", () => {
       <FinancesTab gameState={initialState} onGameUpdate={onGameUpdate} />,
     );
 
+    fireEvent.click(screen.getByLabelText("Select Ben Warning"));
+
     fireEvent.click(
-      screen.getByRole("button", { name: "Delegate Most Renewals" }),
+      screen.getByRole("button", { name: "Delegate Selected Renewals" }),
     );
 
     await waitFor(() => {
       expect(mockedInvoke).toHaveBeenCalledWith("delegate_renewals", {
-        playerIds: ["player-critical", "player-warning"],
+        playerIds: ["player-critical"],
         maxWageIncreasePct: 35,
         maxContractYears: 3,
       });

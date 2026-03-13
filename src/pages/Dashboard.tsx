@@ -5,7 +5,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { MatchModeType } from "../hooks/useAdvanceTime";
 import { useGameStore } from "../store/gameStore";
-import type { GameStateData } from "../store/gameStore";
+import type { GameStateData, PlayerSelectionOptions } from "../store/gameStore";
 import PlayerProfile from "../components/PlayerProfile";
 import TeamProfile from "../components/TeamProfile";
 import DashboardAlerts from "../components/dashboard/DashboardAlerts";
@@ -78,6 +78,8 @@ export default function Dashboard(): JSX.Element {
   const [isExitingToMenu, setIsExitingToMenu] = useState(false);
 
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
+  const [selectedPlayerOptions, setSelectedPlayerOptions] =
+    useState<PlayerSelectionOptions | null>(null);
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
@@ -247,6 +249,7 @@ export default function Dashboard(): JSX.Element {
 
   function clearProfileSelection(): void {
     setSelectedPlayerId(null);
+    setSelectedPlayerOptions(null);
     setSelectedTeamId(null);
   }
 
@@ -267,12 +270,14 @@ export default function Dashboard(): JSX.Element {
       pushHistory();
       setSelectedTeamId(context.messageId);
       setSelectedPlayerId(null);
+      setSelectedPlayerOptions(null);
       return;
     }
     // Special: navigate to a player profile
     if (tab === "__selectPlayer" && context?.messageId) {
       pushHistory();
       setSelectedPlayerId(context.messageId);
+      setSelectedPlayerOptions(null);
       setSelectedTeamId(null);
       return;
     }
@@ -292,6 +297,7 @@ export default function Dashboard(): JSX.Element {
       setNavHistory((h) => h.slice(0, -1));
       setActiveTab(prev.tab);
       setSelectedPlayerId(prev.playerId);
+      setSelectedPlayerOptions(null);
       setSelectedTeamId(prev.teamId);
     } else {
       clearProfileSelection();
@@ -315,9 +321,10 @@ export default function Dashboard(): JSX.Element {
     }
   };
 
-  function selectPlayer(id: string): void {
+  function selectPlayer(id: string, options?: PlayerSelectionOptions): void {
     pushHistory();
     setSelectedPlayerId(id);
+    setSelectedPlayerOptions(options ?? null);
     setSelectedTeamId(null);
   }
 
@@ -325,6 +332,7 @@ export default function Dashboard(): JSX.Element {
     pushHistory();
     setSelectedTeamId(id);
     setSelectedPlayerId(null);
+    setSelectedPlayerOptions(null);
   }
 
   function handleSearchFocus(): void {
@@ -341,6 +349,7 @@ export default function Dashboard(): JSX.Element {
 
   function handleSelectSearchPlayer(playerId: string): void {
     setSelectedPlayerId(playerId);
+    setSelectedPlayerOptions(null);
     setSearchQuery("");
   }
 
@@ -509,6 +518,9 @@ export default function Dashboard(): JSX.Element {
                   player={player}
                   gameState={gameState}
                   isOwnClub={isOwnClub}
+                  startWithRenewalModal={
+                    selectedPlayerOptions?.openRenewal === true
+                  }
                   onClose={handleBack}
                   onSelectTeam={selectTeam}
                   onGameUpdate={setGameState}

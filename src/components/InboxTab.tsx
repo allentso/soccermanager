@@ -67,6 +67,64 @@ interface ResolveMessageActionResult {
   effect_i18n_params?: Record<string, string> | null;
 }
 
+function renderDelegatedRenewalReport(
+  message: MessageData,
+): JSX.Element | null {
+  const report = message.context?.delegated_renewal_report;
+
+  if (!report || report.cases.length === 0) {
+    return null;
+  }
+
+  return (
+    <div
+      className="mt-6 rounded-xl border border-gray-100 bg-gray-50 p-4 dark:border-navy-600 dark:bg-navy-700"
+      data-testid="delegated-renewal-report"
+    >
+      <div className="space-y-2">
+        {report.cases.map((renewalCase, index) => {
+          const detail = resolveBackendText(
+            renewalCase.note_key,
+            "",
+            renewalCase.note_params,
+          );
+
+          const line =
+            renewalCase.status === "successful"
+              ? resolveBackendText(
+                  "be.msg.delegatedRenewals.case.successful",
+                  `Completed: ${renewalCase.player_name} agreed to ${String(renewalCase.agreed_years ?? 0)} year(s) on €${String(renewalCase.agreed_wage ?? 0)}/wk.`,
+                  {
+                    player: renewalCase.player_name,
+                    years: String(renewalCase.agreed_years ?? 0),
+                    wage: String(renewalCase.agreed_wage ?? 0),
+                  },
+                )
+              : renewalCase.status === "stalled"
+                ? resolveBackendText(
+                    "be.msg.delegatedRenewals.case.stalled",
+                    `Still difficult: ${renewalCase.player_name} — ${detail}`,
+                    {
+                      player: renewalCase.player_name,
+                      detail,
+                    },
+                  )
+                : resolveBackendText(
+                    "be.msg.delegatedRenewals.case.failed",
+                    `Failed: ${renewalCase.player_name} — ${detail}`,
+                    {
+                      player: renewalCase.player_name,
+                      detail,
+                    },
+                  );
+
+          return renderMessageBodyLine(`• ${line}`, index);
+        })}
+      </div>
+    </div>
+  );
+}
+
 type MessageSortOrder = "newest" | "oldest";
 
 type DeleteModalState =
@@ -951,6 +1009,8 @@ export default function InboxTab({
                   {selectedMessage.body
                     .split("\n")
                     .map((line, index) => renderMessageBodyLine(line, index))}
+
+                  {renderDelegatedRenewalReport(selectedMessage)}
 
                   {/* Scout report player card */}
                   {selectedMessage.context?.scout_report && (

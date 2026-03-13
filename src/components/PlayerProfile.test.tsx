@@ -68,6 +68,14 @@ vi.mock("react-i18next", () => ({
   }),
 }));
 
+vi.mock("../utils/backendI18n", () => ({
+  resolveBackendText: (
+    _key?: string,
+    fallback?: string,
+    _params?: Record<string, string>,
+  ) => fallback ?? "",
+}));
+
 vi.mock("../lib/countries", () => ({
   countryMarker: () => "🏴",
   countryName: () => "England",

@@ -348,4 +348,30 @@ fn assistant_can_complete_routine_delegate_renewal_even_when_manager_trust_is_lo
         .unwrap();
     assert_eq!(player.contract_end.as_deref(), Some("2029-08-01"));
     assert!(player.wage >= 14_000);
+
+    let report_message = game
+        .messages
+        .iter()
+        .find(|message| message.id.starts_with("delegated_renewals_"))
+        .expect("assistant delegation should create an inbox report");
+    assert_eq!(
+        report_message.subject_key.as_deref(),
+        Some("be.msg.delegatedRenewals.subject")
+    );
+    assert_eq!(
+        report_message.body_key.as_deref(),
+        Some("be.msg.delegatedRenewals.body")
+    );
+    assert_eq!(
+        report_message.sender_key.as_deref(),
+        Some("be.sender.assistantManager")
+    );
+    let structured_report = report_message
+        .context
+        .delegated_renewal_report
+        .as_ref()
+        .expect("assistant report should carry structured i18n-safe case data");
+    assert_eq!(structured_report.success_count, 1);
+    assert_eq!(structured_report.cases.len(), 1);
+    assert_eq!(structured_report.cases[0].status, "successful");
 }

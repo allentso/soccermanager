@@ -582,6 +582,36 @@ fn contract_pressure_intensifies_as_expiry_approaches() {
 }
 
 #[test]
+fn seeding_first_day_contract_concerns_adds_messages_without_extra_morale_pressure() {
+    let mut game = make_game();
+    let player = game.players.iter_mut().find(|p| p.id == "p_fwd0").unwrap();
+    player.morale = 80;
+    player.contract_end = Some(
+        (game.clock.current_date + chrono::Duration::days(20))
+            .format("%Y-%m-%d")
+            .to_string(),
+    );
+
+    player_events::generate_contract_concern_messages(&mut game, false);
+
+    assert!(
+        game.messages
+            .iter()
+            .any(|message| message.id == "contract_concern_p_fwd0_final"),
+        "First-day contract concern should be seeded immediately"
+    );
+    assert_eq!(
+        game.players
+            .iter()
+            .find(|p| p.id == "p_fwd0")
+            .unwrap()
+            .morale,
+        80,
+        "Seeding the first-day inbox should not apply the daily morale penalty twice"
+    );
+}
+
+#[test]
 fn no_contract_concern_beyond_twelve_months() {
     let mut game = make_game();
     let end_date = (game.clock.current_date + chrono::Duration::days(420))

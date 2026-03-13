@@ -96,6 +96,31 @@ pub struct MessageContext {
     pub match_result: Option<ContextMatchResult>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub scout_report: Option<ScoutReportData>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub delegated_renewal_report: Option<DelegatedRenewalReportData>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DelegatedRenewalReportData {
+    pub success_count: u32,
+    pub failure_count: u32,
+    pub stalled_count: u32,
+    pub cases: Vec<DelegatedRenewalCaseData>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DelegatedRenewalCaseData {
+    pub player_id: String,
+    pub player_name: String,
+    pub status: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agreed_wage: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agreed_years: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub note_key: Option<String>,
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    pub note_params: HashMap<String, String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

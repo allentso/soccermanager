@@ -1,11 +1,14 @@
 use crate::game::Game;
 use chrono::{Datelike, Months, NaiveDate};
-use domain::message::{InboxMessage, MessageCategory, MessageContext, MessagePriority};
+use domain::message::{
+    DelegatedRenewalCaseData as DelegatedRenewalCaseMessageData, DelegatedRenewalReportData,
+    InboxMessage, MessageCategory, MessageContext, MessagePriority,
+};
 use domain::player::{ContractRenewalState, Player, RenewalSessionOutcome, RenewalSessionStatus};
 use domain::staff::StaffRole;
 use domain::team::Team;
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ContractWarningStage {
@@ -81,6 +84,10 @@ pub struct DelegatedRenewalCase {
     pub agreed_wage: Option<u32>,
     pub agreed_years: Option<u32>,
     pub note: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub note_key: Option<String>,
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    pub note_params: HashMap<String, String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -349,11 +356,14 @@ pub fn delegate_renewals(
             agreed_wage: None,
             agreed_years: None,
             note: String::new(),
+            note_key: None,
+            note_params: HashMap::new(),
         };
 
         if has_active_manager_block(player, current_date) {
             report.failure_count += 1;
             case.note = "You told me not to reopen contract talks yet.".to_string();
+            case.note_key = Some("be.msg.delegatedRenewals.notes.managerBlocked".to_string());
             report.cases.push(case);
             continue;
         }
@@ -365,6 +375,11 @@ pub fn delegate_renewals(
                 "Their camp want around €{}/wk for {} years, which is beyond the delegation limits.",
                 expected_wage, expected_years
             );
+            case.note_key = Some("be.msg.delegatedRenewals.notes.beyondLimits".to_string());
+            case.note_params = delegated_note_params(&[
+                ("wage", expected_wage.to_string()),
+                ("years", expected_years.to_string()),
+            ]);
             let player = &mut game.players[player_index];
             let state = player
                 .morale_core
@@ -400,6 +415,7 @@ pub fn delegate_renewals(
             case.agreed_wage = Some(player.wage);
             case.agreed_years = Some(agreed_years);
             case.note = "I was able to close this one without needing you to step in.".to_string();
+            case.note_key = Some("be.msg.delegatedRenewals.notes.completed".to_string());
             report.cases.push(case);
             continue;
         }
@@ -411,6 +427,11 @@ pub fn delegate_renewals(
                 "They would listen, but they still want about €{}/wk for {} years and prefer to hear from you directly.",
                 expected_wage, expected_years
             );
+            case.note_key = Some("be.msg.delegatedRenewals.notes.prefersManager".to_string());
+            case.note_params = delegated_note_params(&[
+                ("wage", expected_wage.to_string()),
+                ("years", expected_years.to_string()),
+            ]);
             let player = &mut game.players[player_index];
             let state = player
                 .morale_core
@@ -425,6 +446,7 @@ pub fn delegate_renewals(
 
         report.failure_count += 1;
         case.note = "They are not willing to commit through me under the current relationship and contract situation.".to_string();
+        case.note_key = Some("be.msg.delegatedRenewals.notes.relationshipBlocked".to_string());
         let player = &mut game.players[player_index];
         let state = player
             .morale_core
@@ -694,6 +716,13 @@ fn round_up_to_nearest_thousand(value: u32) -> u32 {
     ((value + 999) / 1000) * 1000
 }
 
+fn delegated_note_params(entries: &[(&str, String)]) -> HashMap<String, String> {
+    entries
+        .iter()
+        .map(|(key, value)| ((*key).to_string(), value.clone()))
+        .collect()
+}
+
 fn contract_days_remaining(contract_end: Option<&str>, current_date: NaiveDate) -> Option<i64> {
     let contract_end = contract_end?;
     let contract_end_date = NaiveDate::parse_from_str(contract_end, "%Y-%m-%d").ok()?;
@@ -748,55 +777,54 @@ fn delegated_renewal_report_message(
     report: &DelegatedRenewalReport,
     id_suffix: usize,
 ) -> InboxMessage {
-    let mut lines = vec![format!(
-        "Boss, I went through our renewal list at {}.",
-        team_name
-    )];
-
-    for case in report
-        .cases
-        .iter()
-        .filter(|case| case.status == DelegatedRenewalResultStatus::Successful)
-    {
-        lines.push(format!(
-            "Completed: {} agreed to {} year(s) on €{}/wk.",
-            case.player_name,
-            case.agreed_years.unwrap_or(0),
-            case.agreed_wage.unwrap_or(0)
-        ));
-    }
-
-    for case in report
-        .cases
-        .iter()
-        .filter(|case| case.status == DelegatedRenewalResultStatus::Stalled)
-    {
-        lines.push(format!(
-            "Still difficult: {} — {}",
-            case.player_name, case.note
-        ));
-    }
-
-    for case in report
-        .cases
-        .iter()
-        .filter(|case| case.status == DelegatedRenewalResultStatus::Failed)
-    {
-        lines.push(format!("Failed: {} — {}", case.player_name, case.note));
-    }
-
     InboxMessage::new(
         format!("delegated_renewals_{}_{}", date, id_suffix),
         "Assistant Report — Contract Renewals".to_string(),
-        lines.join("\n\n"),
+        format!(
+            "Boss, I went through our renewal list at {}. {} completed, {} still pending, {} failed.",
+            team_name, report.success_count, report.stalled_count, report.failure_count
+        ),
         "Assistant Manager".to_string(),
         date.to_string(),
     )
     .with_category(MessageCategory::Contract)
     .with_priority(MessagePriority::High)
     .with_sender_role("Assistant Manager")
+    .with_i18n(
+        "be.msg.delegatedRenewals.subject",
+        "be.msg.delegatedRenewals.body",
+        delegated_note_params(&[
+            ("team", team_name.to_string()),
+            ("successes", report.success_count.to_string()),
+            ("stalled", report.stalled_count.to_string()),
+            ("failures", report.failure_count.to_string()),
+        ]),
+    )
+    .with_sender_i18n("be.sender.assistantManager", "be.role.assistantManager")
     .with_context(MessageContext {
         team_id: Some(team_id.to_string()),
+        delegated_renewal_report: Some(DelegatedRenewalReportData {
+            success_count: report.success_count,
+            failure_count: report.failure_count,
+            stalled_count: report.stalled_count,
+            cases: report
+                .cases
+                .iter()
+                .map(|case| DelegatedRenewalCaseMessageData {
+                    player_id: case.player_id.clone(),
+                    player_name: case.player_name.clone(),
+                    status: match case.status {
+                        DelegatedRenewalResultStatus::Successful => "successful".to_string(),
+                        DelegatedRenewalResultStatus::Failed => "failed".to_string(),
+                        DelegatedRenewalResultStatus::Stalled => "stalled".to_string(),
+                    },
+                    agreed_wage: case.agreed_wage,
+                    agreed_years: case.agreed_years,
+                    note_key: case.note_key.clone(),
+                    note_params: case.note_params.clone(),
+                })
+                .collect(),
+        }),
         ..Default::default()
     })
 }

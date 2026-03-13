@@ -628,6 +628,8 @@
     "wageBudgetUsed": "{{percent}}% des Gehaltsbudgets genutzt",
     "contractRisk": "Vertragsrisiko",
     "delegateMostRenewals": "Meiste Verlängerungen delegieren",
+    "delegateSelectedRenewals": "Ausgewählte Verlängerungen delegieren",
+    "selectAllAtRisk": "Alle auswählen",
     "delegatedRenewalsSummary": "{{successes}} erledigt, {{stalled}} offen, {{failures}} gescheitert",
     "contractRiskCritical": "Kritisch",
     "contractRiskWarning": "Warnung",
@@ -1547,12 +1549,28 @@
       },
       "contractConcern": {
         "subject": "{{player}} — Vertrag läuft aus",
-        "body0": "{{player}} hat dich wegen seiner Vertragssituation angesprochen. Mit nur noch {{days}} Tagen Restlaufzeit möchte der Spieler wissen, woran er ist.\n\n\"Trainer, mein Vertrag läuft aus. Ich muss wissen, ob ich weiter Teil deiner Pläne bin oder ob ich mich besser anderweitig umschaue.\"",
-        "body1": "Dein Assistent weist darauf hin, dass der Vertrag von {{player}} in etwa {{months}} Monat(en) ausläuft. Der Spieler hat sich in der Kabine bereits nach seiner Zukunft erkundigt.\n\nEs wäre wohl klug, das Gespräch zu suchen, bevor Unruhe entsteht — oder bevor andere Vereine aufmerksam werden."
+        "body0": "{{player}} hat dich wegen seiner Vertragssituation angesprochen. Mit nur noch {{days}} Tagen Restlaufzeit möchte er wissen, woran er ist.\n\n\"Boss, mein Vertrag läuft aus. Ich muss wissen, ob ich weiter Teil deiner Pläne bin oder mich anderswo umsehen soll.\"",
+        "body1": "Dein Assistent weist darauf hin, dass der Vertrag von {{player}} in etwa {{months}} Monat(en) ausläuft. Der Spieler hat in der Kabine bereits nach seiner Zukunft gefragt.\n\nEs wäre klug, bald das Gespräch zu suchen – bevor er unruhig wird oder andere Klubs aufmerksam werden."
+      },
+      "delegatedRenewals": {
+        "subject": "Assistentenbericht — Vertragsverlängerungen",
+        "body": "Boss, ich habe unsere Verlängerungsliste bei {{team}} durchgearbeitet. {{successes}} abgeschlossen, {{stalled}} noch offen, {{failures}} gescheitert.",
+        "case": {
+          "successful": "Abgeschlossen: {{player}} hat {{years}} Jahr(e) zu €{{wage}}/Woche akzeptiert.",
+          "stalled": "Weiter schwierig: {{player}} — {{detail}}",
+          "failed": "Gescheitert: {{player}} — {{detail}}"
+        },
+        "notes": {
+          "managerBlocked": "Du hast mir gesagt, ich soll die Vertragsgespräche noch nicht wieder aufnehmen.",
+          "completed": "Ich konnte das ohne dein Eingreifen abschließen.",
+          "beyondLimits": "Die Spielerseite will etwa €{{wage}}/Woche für {{years}} Jahre, das liegt außerhalb der Delegationsgrenzen.",
+          "prefersManager": "Sie würden zuhören, wollen aber noch etwa €{{wage}}/Woche für {{years}} Jahre und bevorzugen ein Gespräch direkt mit dir.",
+          "relationshipBlocked": "Unter der aktuellen Beziehung und Vertragssituation wollen sie sich über mich nicht festlegen."
+        }
       },
       "scoutReport": {
-        "subject": "Scout Report: {{player}}",
-        "body": "Your scout {{scout}} has completed their assessment of {{player}}. Full report available in the scouting section."
+        "subject": "Scout-Bericht: {{player}}",
+        "body": "Dein Scout {{scout}} hat seine Einschätzung zu {{player}} abgeschlossen. Der vollständige Bericht ist im Scouting-Bereich verfügbar."
       }
     },
     "news": {

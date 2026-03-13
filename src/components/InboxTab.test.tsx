@@ -60,6 +60,19 @@ beforeAll(function defineMatchMedia(): void {
     "translation",
     {
       "test.effectFeedback": "Resolved morale {{delta}}",
+      "be.msg.delegatedRenewals.subject":
+        "Assistant Report — Contract Renewals",
+      "be.msg.delegatedRenewals.body":
+        "Boss, I went through our renewal list at {{team}}. {{successes}} completed, {{stalled}} still pending, {{failures}} failed.",
+      "be.msg.delegatedRenewals.case.successful":
+        "Completed: {{player}} agreed to {{years}} year(s) on €{{wage}}/wk.",
+      "be.msg.delegatedRenewals.case.stalled":
+        "Still difficult: {{player}} — {{detail}}",
+      "be.msg.delegatedRenewals.case.failed": "Failed: {{player}} — {{detail}}",
+      "be.msg.delegatedRenewals.notes.beyondLimits":
+        "Their camp want around €{{wage}}/wk for {{years}} years, which is beyond the delegation limits.",
+      "be.msg.delegatedRenewals.notes.relationshipBlocked":
+        "They are not willing to commit through me under the current relationship and contract situation.",
     },
     true,
     true,
@@ -402,6 +415,79 @@ describe("InboxTab", function (): void {
     });
 
     expect(onGameUpdate).toHaveBeenCalledWith(resolvedGameState);
+  });
+
+  it("renders delegated renewal report details from localized structured context", function (): void {
+    renderInboxTab({
+      gameState: createGameState([
+        createMessage({
+          id: "delegated_renewals_2025-01-01_0",
+          read: true,
+          category: "Contract",
+          subject_key: "be.msg.delegatedRenewals.subject",
+          body_key: "be.msg.delegatedRenewals.body",
+          i18n_params: {
+            team: "Test FC",
+            successes: "1",
+            stalled: "1",
+            failures: "1",
+          },
+          context: {
+            team_id: "t1",
+            player_id: null,
+            fixture_id: null,
+            match_result: null,
+            delegated_renewal_report: {
+              success_count: 1,
+              failure_count: 1,
+              stalled_count: 1,
+              cases: [
+                {
+                  player_id: "p1",
+                  player_name: "Alex Done",
+                  status: "successful",
+                  agreed_wage: 24000,
+                  agreed_years: 3,
+                },
+                {
+                  player_id: "p2",
+                  player_name: "Ben Pending",
+                  status: "stalled",
+                  note_key: "be.msg.delegatedRenewals.notes.beyondLimits",
+                  note_params: { wage: "26000", years: "4" },
+                },
+                {
+                  player_id: "p3",
+                  player_name: "Chris Failed",
+                  status: "failed",
+                  note_key:
+                    "be.msg.delegatedRenewals.notes.relationshipBlocked",
+                  note_params: {},
+                },
+              ],
+            },
+          },
+        }),
+      ]),
+      initialMessageId: "delegated_renewals_2025-01-01_0",
+    });
+
+    expect(screen.getByTestId("delegated-renewal-report")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Completed: Alex Done agreed to 3 year(s) on €24000/wk.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Still difficult: Ben Pending — Their camp want around €26000/wk for 4 years, which is beyond the delegation limits.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Failed: Chris Failed — They are not willing to commit through me under the current relationship and contract situation.",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("tells the user that player-event response outcomes vary", function (): void {
