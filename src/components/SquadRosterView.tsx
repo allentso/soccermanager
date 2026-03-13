@@ -86,7 +86,8 @@ export default function SquadRosterView({
       (a, b) =>
         (posOrder[normalisePosition(a.position)] || 99) -
           (posOrder[normalisePosition(b.position)] || 99) ||
-        calcOvr(b) - calcOvr(a),
+        calcOvr(b, b.natural_position || b.position) -
+          calcOvr(a, a.natural_position || a.position),
     );
 
   const playersById = useMemo(
@@ -181,11 +182,19 @@ export default function SquadRosterView({
       };
 
       switch (sortKey) {
-        case "pos":
+        case "pos": {
+          const aPosition = xiIds.has(a.id)
+            ? xiActivePosition.get(a.id) || a.position
+            : a.natural_position || a.position;
+          const bPosition = xiIds.has(b.id)
+            ? xiActivePosition.get(b.id) || b.position
+            : b.natural_position || b.position;
+
           return (
             (posOrder[getPos(a)] || 99) - (posOrder[getPos(b)] || 99) ||
-            calcOvr(b) - calcOvr(a)
+            calcOvr(b, bPosition) - calcOvr(a, aPosition)
           );
+        }
         case "name":
           return a.full_name.localeCompare(b.full_name);
         case "age":
@@ -194,8 +203,16 @@ export default function SquadRosterView({
           return a.condition - b.condition;
         case "morale":
           return a.morale - b.morale;
-        case "ovr":
-          return calcOvr(a) - calcOvr(b);
+        case "ovr": {
+          const aPosition = xiIds.has(a.id)
+            ? xiActivePosition.get(a.id) || a.position
+            : a.natural_position || a.position;
+          const bPosition = xiIds.has(b.id)
+            ? xiActivePosition.get(b.id) || b.position
+            : b.natural_position || b.position;
+
+          return calcOvr(a, aPosition) - calcOvr(b, bPosition);
+        }
         default:
           return 0;
       }
@@ -384,12 +401,12 @@ export default function SquadRosterView({
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-navy-600">
               {filteredRoster.map((player) => {
-                const ovr = calcOvr(player);
-                const age = calcAge(player.date_of_birth);
                 const inXI = xiIds.has(player.id);
                 const currentPos = inXI
                   ? xiActivePosition.get(player.id) || player.position
-                  : player.position;
+                  : player.natural_position || player.position;
+                const ovr = calcOvr(player, currentPos);
+                const age = calcAge(player.date_of_birth);
                 const wrongPos = inXI && isOutOfPosition(player);
                 const contractRiskLevel = getContractRiskLevel(
                   player.contract_end,

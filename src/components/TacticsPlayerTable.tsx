@@ -111,7 +111,7 @@ function renderTableRow(props: {
   const isHighlighted = highlightedPlayerId === player.id;
   const isWrongPosition =
     section === "xi" && isPlayerOutOfPosition(player, activePosition);
-  const overallRating = calcOvr(player);
+  const overallRating = calcOvr(player, activePosition);
 
   return (
     <tr
@@ -130,7 +130,7 @@ function renderTableRow(props: {
             variant={positionBadgeVariant(normalizedActivePosition)}
             size="sm"
           >
-            {translatePositionAbbreviation(t, normalizedActivePosition)}
+            {translatePositionAbbreviation(t, activePosition)}
           </Badge>
           {isWrongPosition ? (
             <span

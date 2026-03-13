@@ -18,6 +18,12 @@ pub struct Player {
     #[serde(default)]
     pub alternate_positions: Vec<Position>,
 
+    #[serde(default)]
+    pub footedness: Footedness,
+
+    #[serde(default = "default_weak_foot")]
+    pub weak_foot: u8,
+
     // Core attributes 0-100
     pub attributes: PlayerAttributes,
 
@@ -58,42 +64,65 @@ pub struct Player {
     pub morale_core: PlayerMoraleCore,
 }
 
-#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 pub enum Position {
     #[default]
     Goalkeeper,
     Defender,
     Midfielder,
     Forward,
+    RightBack,
+    CenterBack,
+    LeftBack,
+    RightWingBack,
+    LeftWingBack,
+    DefensiveMidfielder,
+    CentralMidfielder,
+    AttackingMidfielder,
+    RightMidfielder,
+    LeftMidfielder,
+    RightWinger,
+    LeftWinger,
+    Striker,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum PlayerTrait {
-    // Physical
-    Speedster, // pace >= 85
-    Tank,      // strength >= 85 && stamina >= 75
-    Agile,     // agility >= 85
-    Tireless,  // stamina >= 90
-    // Technical
-    Playmaker,    // passing >= 80 && vision >= 80
-    Sharpshooter, // shooting >= 85
-    Dribbler,     // dribbling >= 85
-    BallWinner,   // tackling >= 80 && aggression >= 70
-    Rock,         // defending >= 85 && positioning >= 75
-    // Mental
-    Leader,     // leadership >= 85 && teamwork >= 75
-    CoolHead,   // composure >= 85 && decisions >= 80
-    Visionary,  // vision >= 85
-    HotHead,    // aggression >= 85 && composure < 50
-    TeamPlayer, // teamwork >= 85
-    // Goalkeeper
-    SafeHands,       // handling >= 85 (GK only)
-    CatReflexes,     // reflexes >= 85 (GK only)
-    AerialDominance, // aerial >= 85
-    // Combo / Special
-    CompleteForward, // FWD: shooting >= 75 && dribbling >= 75 && pace >= 70 && strength >= 70
-    Engine,          // MID: stamina >= 85 && pace >= 70 && teamwork >= 75
-    SetPieceSpecialist, // passing >= 80 && shooting >= 75 && vision >= 75
+impl Position {
+    pub fn is_legacy_bucket(&self) -> bool {
+        matches!(
+            self,
+            Position::Goalkeeper | Position::Defender | Position::Midfielder | Position::Forward
+        )
+    }
+
+    pub fn to_group_position(&self) -> Position {
+        match self {
+            Position::Goalkeeper => Position::Goalkeeper,
+            Position::Defender
+            | Position::RightBack
+            | Position::CenterBack
+            | Position::LeftBack
+            | Position::RightWingBack
+            | Position::LeftWingBack => Position::Defender,
+            Position::Midfielder
+            | Position::DefensiveMidfielder
+            | Position::CentralMidfielder
+            | Position::AttackingMidfielder
+            | Position::RightMidfielder
+            | Position::LeftMidfielder => Position::Midfielder,
+            Position::Forward
+            | Position::RightWinger
+            | Position::LeftWinger
+            | Position::Striker => Position::Forward,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub enum Footedness {
+    Left,
+    #[default]
+    Right,
+    Both,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -136,6 +165,10 @@ pub struct PlayerAttributes {
 
 fn default_attr() -> u8 {
     50
+}
+
+fn default_weak_foot() -> u8 {
+    2
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -270,6 +303,7 @@ fn default_transfer_offer_date() -> String {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(default)]
 pub struct PlayerSeasonStats {
     pub appearances: u32,
     pub goals: u32,
@@ -309,6 +343,35 @@ pub enum TransferOfferStatus {
     Accepted,
     Rejected,
     Withdrawn,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum PlayerTrait {
+    // Physical
+    Speedster, // pace >= 85
+    Tank,      // strength >= 85 && stamina >= 75
+    Agile,     // agility >= 85
+    Tireless,  // stamina >= 90
+    // Technical
+    Playmaker,    // passing >= 80 && vision >= 80
+    Sharpshooter, // shooting >= 85
+    Dribbler,     // dribbling >= 85
+    BallWinner,   // tackling >= 80 && aggression >= 70
+    Rock,         // defending >= 85 && positioning >= 75
+    // Mental
+    Leader,     // leadership >= 85 && teamwork >= 75
+    CoolHead,   // composure >= 85 && decisions >= 80
+    Visionary,  // vision >= 85
+    HotHead,    // aggression >= 85 && composure < 50
+    TeamPlayer, // teamwork >= 85
+    // Goalkeeper
+    SafeHands,       // handling >= 85 (GK only)
+    CatReflexes,     // reflexes >= 85 (GK only)
+    AerialDominance, // aerial >= 85
+    // Combo / Special
+    CompleteForward, // FWD: shooting >= 75 && dribbling >= 75 && pace >= 70 && strength >= 70
+    Engine,          // MID: stamina >= 85 && pace >= 70 && teamwork >= 75
+    SetPieceSpecialist, // passing >= 80 && shooting >= 75 && vision >= 75
 }
 
 /// Derive traits purely from a player's attributes (position-independent).
@@ -408,6 +471,8 @@ impl Player {
             natural_position: position.clone(),
             position,
             alternate_positions: Vec::new(),
+            footedness: Footedness::default(),
+            weak_foot: default_weak_foot(),
             attributes,
             condition: 100,
             morale: 100,
@@ -425,5 +490,94 @@ impl Player {
             transfer_offers: Vec::new(),
             morale_core: PlayerMoraleCore::default(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn sample_attributes() -> PlayerAttributes {
+        PlayerAttributes {
+            pace: 70,
+            stamina: 72,
+            strength: 65,
+            agility: 68,
+            passing: 74,
+            shooting: 61,
+            tackling: 58,
+            dribbling: 69,
+            defending: 56,
+            positioning: 67,
+            vision: 73,
+            decisions: 71,
+            composure: 66,
+            aggression: 54,
+            teamwork: 76,
+            leadership: 49,
+            handling: 20,
+            reflexes: 24,
+            aerial: 44,
+        }
+    }
+
+    #[test]
+    fn player_new_defaults_footedness_and_weak_foot() {
+        let player = Player::new(
+            "p-001".to_string(),
+            "J. Smith".to_string(),
+            "John Smith".to_string(),
+            "2000-01-15".to_string(),
+            "GB".to_string(),
+            Position::Midfielder,
+            sample_attributes(),
+        );
+
+        assert_eq!(player.footedness, Footedness::Right);
+        assert_eq!(player.weak_foot, 2);
+    }
+
+    #[test]
+    fn position_group_conversion_maps_granular_positions_back_to_legacy_groups() {
+        assert_eq!(Position::RightBack.to_group_position(), Position::Defender);
+        assert_eq!(
+            Position::AttackingMidfielder.to_group_position(),
+            Position::Midfielder,
+        );
+        assert_eq!(Position::LeftWinger.to_group_position(), Position::Forward);
+    }
+
+    #[test]
+    fn player_deserialization_defaults_missing_foot_fields() {
+        let player: Player = serde_json::from_value(serde_json::json!({
+            "id": "p-legacy",
+            "match_name": "J. Legacy",
+            "full_name": "John Legacy",
+            "date_of_birth": "2000-01-15",
+            "nationality": "GB",
+            "position": "Midfielder",
+            "natural_position": "Midfielder",
+            "alternate_positions": [],
+            "attributes": sample_attributes(),
+            "condition": 100,
+            "morale": 100,
+            "injury": null,
+            "team_id": null,
+            "traits": [],
+            "contract_end": null,
+            "wage": 0,
+            "market_value": 0,
+            "stats": {},
+            "career": [],
+            "transfer_listed": false,
+            "loan_listed": false,
+            "transfer_offers": [],
+            "morale_core": {}
+        }))
+        .expect("legacy player json should deserialize");
+
+        assert_eq!(player.footedness, Footedness::Right);
+        assert_eq!(player.weak_foot, 2);
+        assert_eq!(player.natural_position, Position::Midfielder);
     }
 }

@@ -6,6 +6,7 @@ use crate::commands::round_summary::{build_round_summary_dto, RoundSummaryDto};
 use ofm_core::contracts::contract_warning_stage;
 use ofm_core::game::Game;
 use ofm_core::live_match_manager::{self, MatchMode};
+use ofm_core::player_rating::{effective_rating_for_assignment, formation_slots, natural_ovr};
 use ofm_core::state::StateManager;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -198,42 +199,6 @@ fn build_blocker(id: &str, severity: &str, text: String, tab: &str) -> serde_jso
     })
 }
 
-fn parse_formation_slots(formation: &str) -> (usize, usize, usize) {
-    let parts: Vec<usize> = formation
-        .split('-')
-        .filter_map(|part| part.parse().ok())
-        .collect();
-
-    match parts.len() {
-        4 => (parts[0], parts[1] + parts[2], parts[3]),
-        3 => (parts[0], parts[1], parts[2]),
-        _ => (4, 4, 2),
-    }
-}
-
-fn player_overall(player: &domain::player::Player) -> u32 {
-    let attrs = &player.attributes;
-    u32::from(attrs.pace)
-        + u32::from(attrs.stamina)
-        + u32::from(attrs.strength)
-        + u32::from(attrs.agility)
-        + u32::from(attrs.passing)
-        + u32::from(attrs.shooting)
-        + u32::from(attrs.tackling)
-        + u32::from(attrs.dribbling)
-        + u32::from(attrs.defending)
-        + u32::from(attrs.positioning)
-        + u32::from(attrs.vision)
-        + u32::from(attrs.decisions)
-        + u32::from(attrs.composure)
-        + u32::from(attrs.aggression)
-        + u32::from(attrs.teamwork)
-        + u32::from(attrs.leadership)
-        + u32::from(attrs.handling)
-        + u32::from(attrs.reflexes)
-        + u32::from(attrs.aerial)
-}
-
 fn build_effective_healthy_starting_xi_ids(
     saved_xi_ids: &[String],
     roster: &[&domain::player::Player],
@@ -262,53 +227,62 @@ fn build_effective_healthy_starting_xi_ids(
         .copied()
         .filter(|player| !used.contains(&player.id))
         .collect();
-    remaining_players.sort_by(|a, b| player_overall(b).cmp(&player_overall(a)));
+    remaining_players.sort_by(|a, b| {
+        natural_ovr(b)
+            .partial_cmp(&natural_ovr(a))
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+
+    let slots = formation_slots(formation);
 
     if valid_saved_ids.len() >= 8 {
         let mut xi_ids = valid_saved_ids;
-        xi_ids.extend(
-            remaining_players
-                .into_iter()
-                .map(|player| player.id.clone()),
-        );
+        while xi_ids.len() < 11 {
+            let slot = slots.get(xi_ids.len());
+            let best_index = remaining_players
+                .iter()
+                .enumerate()
+                .max_by(|(_, left), (_, right)| {
+                    let left_rating = slot.map_or_else(
+                        || natural_ovr(left),
+                        |slot| effective_rating_for_assignment(left, slot),
+                    );
+                    let right_rating = slot.map_or_else(
+                        || natural_ovr(right),
+                        |slot| effective_rating_for_assignment(right, slot),
+                    );
+                    left_rating
+                        .partial_cmp(&right_rating)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                })
+                .map(|(index, _)| index);
+
+            let Some(best_index) = best_index else {
+                break;
+            };
+
+            let player = remaining_players.remove(best_index);
+            xi_ids.push(player.id.clone());
+        }
         xi_ids.truncate(11);
         return xi_ids;
     }
-
-    let (defenders_needed, midfielders_needed, forwards_needed) = parse_formation_slots(formation);
     let mut xi_ids = Vec::new();
 
-    let mut pick_position = |position: domain::player::Position, count: usize| {
-        let mut candidates: Vec<&domain::player::Player> = healthy_roster
+    for slot in slots.iter().take(11) {
+        let best_player = healthy_roster
             .iter()
             .copied()
-            .filter(|player| player.position == position && !used.contains(&player.id))
-            .collect();
-        candidates.sort_by(|a, b| player_overall(b).cmp(&player_overall(a)));
+            .filter(|player| !used.contains(&player.id))
+            .max_by(|left, right| {
+                effective_rating_for_assignment(left, slot)
+                    .partial_cmp(&effective_rating_for_assignment(right, slot))
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            });
 
-        for player in candidates.into_iter().take(count) {
-            if used.insert(player.id.clone()) {
-                xi_ids.push(player.id.clone());
-            }
-        }
-    };
-
-    pick_position(domain::player::Position::Goalkeeper, 1);
-    pick_position(domain::player::Position::Defender, defenders_needed);
-    pick_position(domain::player::Position::Midfielder, midfielders_needed);
-    pick_position(domain::player::Position::Forward, forwards_needed);
-
-    let mut fallback_players: Vec<&domain::player::Player> = healthy_roster
-        .iter()
-        .copied()
-        .filter(|player| !used.contains(&player.id))
-        .collect();
-    fallback_players.sort_by(|a, b| player_overall(b).cmp(&player_overall(a)));
-
-    for player in fallback_players {
-        if xi_ids.len() >= 11 {
+        let Some(player) = best_player else {
             break;
-        }
+        };
 
         if used.insert(player.id.clone()) {
             xi_ids.push(player.id.clone());
@@ -399,7 +373,11 @@ fn key_contract_risk_blocker(
         .copied()
         .filter(|player| effective_xi_id_set.contains(player.id.as_str()))
         .collect();
-    effective_xi_players.sort_by(|a, b| player_overall(b).cmp(&player_overall(a)));
+    effective_xi_players.sort_by(|a, b| {
+        natural_ovr(b)
+            .partial_cmp(&natural_ovr(a))
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
 
     let risky_key_players: Vec<&str> = effective_xi_players
         .into_iter()

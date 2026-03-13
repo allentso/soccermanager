@@ -94,6 +94,8 @@ export interface PlayerData {
   position: string;
   natural_position: string;
   alternate_positions: string[];
+  footedness?: string;
+  weak_foot?: number;
   training_focus: string | null;
   attributes: {
     pace: number;

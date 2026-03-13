@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import {
+  calcOvr,
   formatDate,
   formatWeeklyAmount,
   getContractRiskBadgeVariant,
   getContractRiskLevel,
   getContractYearsRemaining,
+  positionBadgeVariant,
 } from "../lib/helpers";
 import { PlayerData, TeamData, GameStateData } from "../store/gameStore";
 import {
@@ -34,6 +36,7 @@ import { useTranslation } from "react-i18next";
 import { countryName } from "../lib/countries";
 import { resolveBackendText } from "../utils/backendI18n";
 import DashboardModalFrame from "./dashboard/DashboardModalFrame";
+import { translatePositionLabel } from "./SquadTab.helpers";
 
 interface PlayerProfileProps {
   player: PlayerData;
@@ -90,24 +93,6 @@ function getTeamNameLocal(
   return teams.find((t) => t.id === id)?.name ?? unknown;
 }
 
-function calcOvr(p: PlayerData): number {
-  const a = p.attributes;
-  return Math.round(
-    (a.pace +
-      a.stamina +
-      a.strength +
-      a.passing +
-      a.shooting +
-      a.tackling +
-      a.dribbling +
-      a.defending +
-      a.positioning +
-      a.vision +
-      a.decisions) /
-      11,
-  );
-}
-
 function calcAge(dob: string): number {
   const birth = new Date(dob);
   const now = new Date("2026-07-01");
@@ -131,23 +116,6 @@ function formatWage(val: number, weeklySuffix: string): string {
   return formatWeeklyAmount(`€${val.toLocaleString()}`, weeklySuffix);
 }
 
-const positionBadgeVariant = (
-  pos: string,
-): "accent" | "primary" | "success" | "danger" => {
-  switch (pos) {
-    case "Goalkeeper":
-      return "accent";
-    case "Defender":
-      return "primary";
-    case "Midfielder":
-      return "success";
-    case "Forward":
-      return "danger";
-    default:
-      return "primary";
-  }
-};
-
 function attrColor(val: number): string {
   if (val >= 80) return "text-primary-500 dark:text-primary-400";
   if (val >= 60) return "text-accent-600 dark:text-accent-400";
@@ -166,6 +134,14 @@ export default function PlayerProfile({
 }: PlayerProfileProps) {
   const { t, i18n } = useTranslation();
   const weeklySuffix = t("finances.perWeekSuffix", "/wk");
+  const primaryPosition = player.natural_position || player.position;
+  const footednessLabel = t(
+    `common.footedness.${player.footedness || "Right"}`,
+    {
+      defaultValue: player.footedness || "Right",
+    },
+  );
+  const weakFootValue = player.weak_foot ?? 2;
 
   const resolveInjuryName = (injuryName: string): string => {
     if (injuryName.includes(".")) {
@@ -200,7 +176,7 @@ export default function PlayerProfile({
   const [renewalIsTerminal, setRenewalIsTerminal] = useState(false);
   const [hasConsumedInitialRenewalIntent, setHasConsumedInitialRenewalIntent] =
     useState(false);
-  const ovr = calcOvr(player);
+  const ovr = calcOvr(player, primaryPosition);
   const age = calcAge(player.date_of_birth);
   const teamName = getTeamNameLocal(
     gameState.teams,
@@ -574,17 +550,13 @@ export default function PlayerProfile({
                 {player.full_name}
               </h2>
               <div className="flex items-center gap-3 mt-2">
-                <Badge
-                  variant={positionBadgeVariant(
-                    player.natural_position || player.position,
-                  )}
-                >
-                  {player.natural_position || player.position}
+                <Badge variant={positionBadgeVariant(primaryPosition)}>
+                  {translatePositionLabel(t, primaryPosition)}
                 </Badge>
                 {player.alternate_positions?.map((ap) => (
-                  <span key={ap} title={`Can also play ${ap}`}>
-                    <Badge variant="neutral">{ap}</Badge>
-                  </span>
+                  <Badge key={ap} variant="neutral">
+                    {translatePositionLabel(t, ap)}
+                  </Badge>
                 ))}
                 <span className="text-gray-400 text-sm">
                   <CountryFlag
@@ -597,6 +569,16 @@ export default function PlayerProfile({
                 <span className="text-gray-500">•</span>
                 <span className="text-gray-400 text-sm">
                   {t("common.age")} {age}
+                </span>
+                <span className="text-gray-500">•</span>
+                <span className="text-gray-400 text-sm">
+                  {t("common.footednessLabel", { defaultValue: "Foot" })}:{" "}
+                  {footednessLabel}
+                </span>
+                <span className="text-gray-500">•</span>
+                <span className="text-gray-400 text-sm">
+                  {t("common.weakFoot", { defaultValue: "Weak foot" })}:{" "}
+                  {weakFootValue}/5
                 </span>
               </div>
               <p className="text-gray-400 text-sm mt-2 flex items-center gap-1.5">

@@ -27,7 +27,10 @@ import {
 } from "../lib/helpers";
 import { useTranslation } from "react-i18next";
 import { countryName } from "../lib/countries";
-import { translatePositionAbbreviation } from "./SquadTab.helpers";
+import {
+  normalisePosition,
+  translatePositionAbbreviation,
+} from "./SquadTab.helpers";
 
 interface TransfersTabProps {
   gameState: GameStateData;
@@ -167,7 +170,12 @@ export default function TransfersTab({
 
   const applyFilters = (list: PlayerData[]) => {
     return list.filter((p) => {
-      if (posFilter && p.position !== posFilter) return false;
+      if (
+        posFilter &&
+        normalisePosition(p.natural_position || p.position) !== posFilter
+      ) {
+        return false;
+      }
       if (search.length >= 2) {
         const q = search.toLowerCase();
         if (
@@ -400,7 +408,10 @@ export default function TransfersTab({
                 </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-navy-600">
                   {filteredList.map((player) => {
-                    const ovr = calcOvr(player);
+                    const ovr = calcOvr(
+                      player,
+                      player.natural_position || player.position,
+                    );
                     const age = calcAge(player.date_of_birth);
                     const offersForThisPlayer = player.transfer_offers;
                     return (

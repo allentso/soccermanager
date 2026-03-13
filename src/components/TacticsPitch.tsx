@@ -228,6 +228,9 @@ export default function TacticsPitch({
                 const wrongPos = player
                   ? isPlayerOutOfPosition(player, slot.position)
                   : false;
+                const slotRating = player
+                  ? calcOvr(player, slot.position)
+                  : null;
 
                 return (
                   <div
@@ -261,7 +264,7 @@ export default function TacticsPitch({
                         <div
                           className={getPitchRatingClassName(player, wrongPos)}
                         >
-                          {calcOvr(player)}
+                          {slotRating}
                         </div>
                         <div className="text-[9px] font-heading font-bold uppercase tracking-wider leading-none text-white/70">
                           {translatePositionAbbreviation(t, slot.position)}
@@ -302,48 +305,55 @@ export default function TacticsPitch({
           </div>
           {benchPlayers.length > 0 ? (
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
-              {benchPlayers.map((player) => (
-                <button
-                  key={player.id}
-                  type="button"
-                  draggable={!player.injury}
-                  data-testid={`pitch-bench-player-${player.id}`}
-                  onClick={() => onLineupPlayerClick(player.id, "bench")}
-                  onDragStart={(event) => {
-                    if (!player.injury) {
-                      onDragStart(event, player.id, "bench", null);
-                    }
-                  }}
-                  onDragEnd={onDragEnd}
-                  className={getBenchPlayerButtonClassName({
-                    dragState,
-                    comparePlayerId,
-                    player,
-                    selectedPlayerId,
-                  })}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="truncate text-sm font-heading font-bold text-white">
-                        {player.match_name}
+              {benchPlayers.map((player) => {
+                const benchRating = calcOvr(
+                  player,
+                  player.natural_position || player.position,
+                );
+
+                return (
+                  <button
+                    key={player.id}
+                    type="button"
+                    draggable={!player.injury}
+                    data-testid={`pitch-bench-player-${player.id}`}
+                    onClick={() => onLineupPlayerClick(player.id, "bench")}
+                    onDragStart={(event) => {
+                      if (!player.injury) {
+                        onDragStart(event, player.id, "bench", null);
+                      }
+                    }}
+                    onDragEnd={onDragEnd}
+                    className={getBenchPlayerButtonClassName({
+                      dragState,
+                      comparePlayerId,
+                      player,
+                      selectedPlayerId,
+                    })}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-heading font-bold text-white">
+                          {player.match_name}
+                        </div>
+                        <div className="mt-1 text-sm uppercase tracking-wider text-white/60">
+                          {translatePositionAbbreviation(
+                            t,
+                            player.natural_position || player.position,
+                          )}
+                        </div>
                       </div>
-                      <div className="mt-1 text-sm uppercase tracking-wider text-white/60">
-                        {translatePositionAbbreviation(
-                          t,
-                          player.natural_position || player.position,
-                        )}
+                      <div className="shrink-0 rounded-full border border-primary-200 bg-primary-500/80 px-2 py-1 text-xs font-heading font-bold text-white">
+                        {benchRating}
                       </div>
                     </div>
-                    <div className="shrink-0 rounded-full border border-primary-200 bg-primary-500/80 px-2 py-1 text-xs font-heading font-bold text-white">
-                      {calcOvr(player)}
+                    <div className="mt-2 flex items-center justify-between gap-2 text-sm text-white/60">
+                      <span>{player.condition}%</span>
+                      <span>{player.morale}</span>
                     </div>
-                  </div>
-                  <div className="mt-2 flex items-center justify-between gap-2 text-sm text-white/60">
-                    <span>{player.condition}%</span>
-                    <span>{player.morale}</span>
-                  </div>
-                </button>
-              ))}
+                  </button>
+                );
+              })}
             </div>
           ) : (
             <div className="rounded-xl border border-dashed border-white/15 bg-black/10 px-3 py-4 text-sm text-white/50">

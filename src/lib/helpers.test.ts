@@ -169,20 +169,26 @@ describe("getLocale", () => {
 });
 
 describe("calcOvr", () => {
-  it("calculates overall from 11 core attributes", () => {
-    const player = makePlayer();
-    // All 11 core attrs are 70 → OVR = 70
-    expect(calcOvr(player)).toBe(70);
+  it("calculates positional overall from the player's natural role", () => {
+    const player = makePlayer({
+      position: "CentralMidfielder",
+      natural_position: "CentralMidfielder",
+    });
+
+    expect(calcOvr(player)).toBe(68);
   });
 
-  it("rounds to nearest integer", () => {
+  it("rounds positional overall to the nearest integer", () => {
     const player = makePlayer({
+      position: "CentralMidfielder",
+      natural_position: "CentralMidfielder",
       attributes: {
         ...makePlayer().attributes,
-        pace: 71, // only this differs → (71 + 10*70) / 11 = 770.09... → 70
+        passing: 73,
       },
     });
-    expect(calcOvr(player)).toBe(70);
+
+    expect(calcOvr(player)).toBe(69);
   });
 });
 
@@ -221,8 +227,11 @@ describe("positionBadgeVariant", () => {
   it("returns correct variant for each position", () => {
     expect(positionBadgeVariant("Goalkeeper")).toBe("accent");
     expect(positionBadgeVariant("Defender")).toBe("primary");
+    expect(positionBadgeVariant("CenterBack")).toBe("primary");
     expect(positionBadgeVariant("Midfielder")).toBe("success");
+    expect(positionBadgeVariant("AttackingMidfielder")).toBe("success");
     expect(positionBadgeVariant("Forward")).toBe("danger");
+    expect(positionBadgeVariant("Striker")).toBe("danger");
   });
 
   it("returns 'primary' for unknown position", () => {

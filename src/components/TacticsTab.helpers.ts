@@ -1,6 +1,7 @@
 import { calcAge, calcOvr } from "../lib/helpers";
 import type { PlayerData } from "../store/gameStore";
 import {
+  buildPitchRows,
   buildStartingXIIds,
   getPreferredPositions,
   isPlayerOutOfPosition,
@@ -77,7 +78,8 @@ export function buildTacticsRoster(
       return (
         (POSITION_ORDER[normalisePosition(leftPlayer.position)] ?? 99) -
           (POSITION_ORDER[normalisePosition(rightPlayer.position)] ?? 99) ||
-        calcOvr(rightPlayer) - calcOvr(leftPlayer)
+        calcOvr(rightPlayer, rightPlayer.natural_position || rightPlayer.position) -
+          calcOvr(leftPlayer, leftPlayer.natural_position || leftPlayer.position)
       );
     });
 }
@@ -94,6 +96,7 @@ export function resolveStartingXiIds({
     savedStartingXiIds,
     formation,
   );
+  const slotPositions = buildPitchRows(formation).flatMap((row) => row.positions);
 
   if (!pendingStartingXiIds || pendingStartingXiIds.length === 0) {
     return baseIds;
@@ -101,10 +104,21 @@ export function resolveStartingXiIds({
 
   const validPendingIds = pendingStartingXiIds.filter((id) => playersById.has(id));
   const usedPlayerIds = new Set(validPendingIds);
-  const fillPlayerIds = availablePlayers
-    .filter((player) => !usedPlayerIds.has(player.id))
-    .sort((leftPlayer, rightPlayer) => calcOvr(rightPlayer) - calcOvr(leftPlayer))
-    .map((player) => player.id);
+  const fillPlayerIds: string[] = [];
+
+  while (validPendingIds.length + fillPlayerIds.length < 11) {
+    const slotPosition = slotPositions[validPendingIds.length + fillPlayerIds.length];
+    const bestPlayer = availablePlayers
+      .filter((player) => !usedPlayerIds.has(player.id))
+      .sort(
+        (leftPlayer, rightPlayer) =>
+          calcOvr(rightPlayer, slotPosition) - calcOvr(leftPlayer, slotPosition),
+      )[0];
+
+    if (!bestPlayer) break;
+    fillPlayerIds.push(bestPlayer.id);
+    usedPlayerIds.add(bestPlayer.id);
+  }
 
   return [...validPendingIds, ...fillPlayerIds].slice(0, 11);
 }
@@ -115,10 +129,10 @@ export function getSectionPlayerPosition(
   xiActivePosition: Map<string, string>,
 ): string {
   if (section === "xi") {
-    return normalisePosition(xiActivePosition.get(player.id) ?? player.position);
+    return xiActivePosition.get(player.id) ?? player.position;
   }
 
-  return normalisePosition(player.natural_position || player.position);
+  return player.natural_position || player.position;
 }
 
 export function sortTacticsPlayers(
@@ -127,16 +141,15 @@ export function sortTacticsPlayers(
 ): PlayerData[] {
   const { section, sortDir, sortKey, xiActivePosition } = context;
   const sortedPlayers = [...players].sort((leftPlayer, rightPlayer) => {
+    const leftPosition = getSectionPlayerPosition(leftPlayer, section, xiActivePosition);
+    const rightPosition = getSectionPlayerPosition(rightPlayer, section, xiActivePosition);
+
     switch (sortKey) {
       case "pos":
         return (
-          (POSITION_ORDER[
-            getSectionPlayerPosition(leftPlayer, section, xiActivePosition)
-          ] ?? 99) -
-            (POSITION_ORDER[
-              getSectionPlayerPosition(rightPlayer, section, xiActivePosition)
-            ] ?? 99) ||
-          calcOvr(rightPlayer) - calcOvr(leftPlayer)
+          (POSITION_ORDER[normalisePosition(leftPosition)] ?? 99) -
+            (POSITION_ORDER[normalisePosition(rightPosition)] ?? 99) ||
+          calcOvr(rightPlayer, rightPosition) - calcOvr(leftPlayer, leftPosition)
         );
       case "name":
         return leftPlayer.full_name.localeCompare(rightPlayer.full_name);
@@ -147,7 +160,7 @@ export function sortTacticsPlayers(
       case "morale":
         return leftPlayer.morale - rightPlayer.morale;
       case "ovr":
-        return calcOvr(leftPlayer) - calcOvr(rightPlayer);
+        return calcOvr(leftPlayer, leftPosition) - calcOvr(rightPlayer, rightPosition);
       default:
         return 0;
     }
@@ -165,7 +178,9 @@ export function matchesTacticsPlayerFilters(
   context: TacticsPlayerFilterContext,
 ): boolean {
   const { playerSearch, positionFilter, section, xiActivePosition } = context;
-  const currentPosition = getSectionPlayerPosition(player, section, xiActivePosition);
+  const currentPosition = normalisePosition(
+    getSectionPlayerPosition(player, section, xiActivePosition),
+  );
   const preferredPositions = getPreferredPositions(player);
   const normalizedSearch = playerSearch.trim().toLowerCase();
 

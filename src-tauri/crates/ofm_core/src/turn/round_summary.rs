@@ -1,4 +1,5 @@
 use crate::game::Game;
+use crate::player_rating::{effective_rating_for_assignment, formation_slots, natural_ovr};
 use domain::league::{Fixture, FixtureStatus, StandingEntry};
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
@@ -336,43 +337,47 @@ fn sort_standings(mut standings: Vec<StandingEntry>) -> Vec<StandingEntry> {
 
 fn team_strength(game: &Game, team_id: &str) -> f64 {
     let team = game.teams.iter().find(|team| team.id == team_id);
-    let selected_players = match team {
-        Some(team) if !team.starting_xi_ids.is_empty() => game
-            .players
-            .iter()
-            .filter(|player| team.starting_xi_ids.iter().any(|id| id == &player.id))
-            .collect::<Vec<_>>(),
-        _ => game
-            .players
-            .iter()
-            .filter(|player| player.team_id.as_deref() == Some(team_id))
-            .collect::<Vec<_>>(),
-    };
+    match team {
+        Some(team) if !team.starting_xi_ids.is_empty() => {
+            let slots = formation_slots(&team.formation);
+            let rated_players: Vec<f64> = team
+                .starting_xi_ids
+                .iter()
+                .enumerate()
+                .filter_map(|(index, player_id)| {
+                    let player = game.players.iter().find(|player| &player.id == player_id)?;
+                    let slot = slots
+                        .get(index)
+                        .cloned()
+                        .unwrap_or_else(|| player.natural_position.clone());
+                    Some(effective_rating_for_assignment(player, &slot))
+                })
+                .collect();
 
-    if selected_players.is_empty() {
-        return 0.0;
+            if rated_players.is_empty() {
+                0.0
+            } else {
+                rated_players.iter().sum::<f64>() / rated_players.len() as f64
+            }
+        }
+        _ => {
+            let selected_players = game
+                .players
+                .iter()
+                .filter(|player| player.team_id.as_deref() == Some(team_id))
+                .collect::<Vec<_>>();
+
+            if selected_players.is_empty() {
+                0.0
+            } else {
+                selected_players
+                    .iter()
+                    .map(|player| natural_ovr(player))
+                    .sum::<f64>()
+                    / selected_players.len() as f64
+            }
+        }
     }
-
-    selected_players
-        .iter()
-        .map(|player| player_overall(player))
-        .sum::<f64>()
-        / selected_players.len() as f64
-}
-
-fn player_overall(player: &domain::player::Player) -> f64 {
-    (player.attributes.pace as f64
-        + player.attributes.stamina as f64
-        + player.attributes.strength as f64
-        + player.attributes.passing as f64
-        + player.attributes.shooting as f64
-        + player.attributes.tackling as f64
-        + player.attributes.dribbling as f64
-        + player.attributes.defending as f64
-        + player.attributes.positioning as f64
-        + player.attributes.vision as f64
-        + player.attributes.decisions as f64)
-        / 11.0
 }
 
 fn team_name(game: &Game, team_id: &str) -> String {

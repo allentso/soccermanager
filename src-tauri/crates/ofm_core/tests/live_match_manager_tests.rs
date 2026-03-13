@@ -12,9 +12,10 @@ use ofm_core::live_match_manager::{self, MatchMode};
 // ---------------------------------------------------------------------------
 
 fn default_attrs(pos: Position) -> PlayerAttributes {
-    let is_gk = matches!(pos, Position::Goalkeeper);
-    let is_def = matches!(pos, Position::Defender);
-    let is_fwd = matches!(pos, Position::Forward);
+    let group = pos.to_group_position();
+    let is_gk = matches!(group, Position::Goalkeeper);
+    let is_def = matches!(group, Position::Defender);
+    let is_fwd = matches!(group, Position::Forward);
     PlayerAttributes {
         pace: 65,
         stamina: 65,
@@ -426,6 +427,48 @@ fn injured_players_excluded_from_xi() {
         snap.home_team.players.len() <= 11,
         "Starting XI should have at most 11"
     );
+}
+
+#[test]
+fn slot_aware_xi_selection_prefers_true_fullback_for_fullback_slot() {
+    let mut game = make_game_with_fixture();
+
+    let specialist_rb = game
+        .players
+        .iter_mut()
+        .find(|player| player.id == "team1_def0")
+        .unwrap();
+    specialist_rb.position = Position::RightBack;
+    specialist_rb.natural_position = Position::RightBack;
+    specialist_rb.attributes.pace = 86;
+    specialist_rb.attributes.stamina = 84;
+    specialist_rb.attributes.tackling = 80;
+    specialist_rb.attributes.defending = 76;
+    specialist_rb.attributes.positioning = 74;
+    specialist_rb.attributes.passing = 68;
+    specialist_rb.attributes.dribbling = 66;
+
+    let stronger_cb = game
+        .players
+        .iter_mut()
+        .find(|player| player.id == "team1_def1")
+        .unwrap();
+    stronger_cb.position = Position::CenterBack;
+    stronger_cb.natural_position = Position::CenterBack;
+    stronger_cb.attributes.defending = 90;
+    stronger_cb.attributes.tackling = 88;
+    stronger_cb.attributes.positioning = 86;
+    stronger_cb.attributes.strength = 88;
+    stronger_cb.attributes.pace = 58;
+    stronger_cb.attributes.stamina = 64;
+    stronger_cb.attributes.passing = 52;
+    stronger_cb.attributes.dribbling = 48;
+
+    let session =
+        live_match_manager::create_live_match(&game, 0, MatchMode::Instant, false).unwrap();
+    let snap = session.snapshot();
+
+    assert_eq!(snap.home_team.players[1].id, "team1_def0");
 }
 
 // ---------------------------------------------------------------------------

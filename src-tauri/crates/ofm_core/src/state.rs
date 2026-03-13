@@ -115,9 +115,10 @@ mod tests {
     use domain::team::Team;
 
     fn default_attrs(pos: Position) -> PlayerAttributes {
-        let is_gk = matches!(pos, Position::Goalkeeper);
-        let is_def = matches!(pos, Position::Defender);
-        let is_fwd = matches!(pos, Position::Forward);
+        let group = pos.to_group_position();
+        let is_gk = matches!(group, Position::Goalkeeper);
+        let is_def = matches!(group, Position::Defender);
+        let is_fwd = matches!(group, Position::Forward);
 
         PlayerAttributes {
             pace: 65,

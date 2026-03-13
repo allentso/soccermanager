@@ -115,11 +115,12 @@ fn build_engine_team(game: &Game, team_id: &str) -> engine::TeamData {
         .iter()
         .filter(|p| p.team_id.as_deref() == Some(team_id))
         .map(|p| {
-            let pos = match p.position {
+            let pos = match p.position.to_group_position() {
                 DomainPosition::Goalkeeper => engine::Position::Goalkeeper,
                 DomainPosition::Defender => engine::Position::Defender,
                 DomainPosition::Midfielder => engine::Position::Midfielder,
                 DomainPosition::Forward => engine::Position::Forward,
+                _ => engine::Position::Midfielder,
             };
             engine::PlayerData {
                 id: p.id.clone(),

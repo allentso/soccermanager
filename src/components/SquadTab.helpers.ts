@@ -23,12 +23,116 @@ export const CORE_POSITIONS = [
   "Forward",
 ] as const;
 
+const CANONICAL_POSITION_MAP: Record<string, string> = {
+  gk: "Goalkeeper",
+  goalkeeper: "Goalkeeper",
+  defender: "Defender",
+  def: "Defender",
+  wingback: "Defender",
+  midfielder: "Midfielder",
+  mid: "Midfielder",
+  forward: "Forward",
+  fwd: "Forward",
+  winger: "Forward",
+  rb: "RightBack",
+  rightback: "RightBack",
+  cb: "CenterBack",
+  centerback: "CenterBack",
+  centreback: "CenterBack",
+  lb: "LeftBack",
+  leftback: "LeftBack",
+  rwb: "RightWingBack",
+  rightwingback: "RightWingBack",
+  lwb: "LeftWingBack",
+  leftwingback: "LeftWingBack",
+  dm: "DefensiveMidfielder",
+  defensivemidfielder: "DefensiveMidfielder",
+  cm: "CentralMidfielder",
+  centralmidfielder: "CentralMidfielder",
+  am: "AttackingMidfielder",
+  attackingmidfielder: "AttackingMidfielder",
+  rm: "RightMidfielder",
+  rightmidfielder: "RightMidfielder",
+  lm: "LeftMidfielder",
+  leftmidfielder: "LeftMidfielder",
+  rw: "RightWinger",
+  rightwinger: "RightWinger",
+  lw: "LeftWinger",
+  leftwinger: "LeftWinger",
+  st: "Striker",
+  striker: "Striker",
+};
+
+const POSITION_GROUPS: Record<string, string> = {
+  Goalkeeper: "Goalkeeper",
+  Defender: "Defender",
+  Midfielder: "Midfielder",
+  Forward: "Forward",
+  RightBack: "Defender",
+  CenterBack: "Defender",
+  LeftBack: "Defender",
+  RightWingBack: "Defender",
+  LeftWingBack: "Defender",
+  DefensiveMidfielder: "Midfielder",
+  CentralMidfielder: "Midfielder",
+  AttackingMidfielder: "Midfielder",
+  RightMidfielder: "Midfielder",
+  LeftMidfielder: "Midfielder",
+  RightWinger: "Forward",
+  LeftWinger: "Forward",
+  Striker: "Forward",
+};
+
+const POSITION_LABELS: Record<string, string> = {
+  Goalkeeper: "Goalkeeper",
+  Defender: "Defender",
+  Midfielder: "Midfielder",
+  Forward: "Forward",
+  RightBack: "Right Back",
+  CenterBack: "Center Back",
+  LeftBack: "Left Back",
+  RightWingBack: "Right Wing-Back",
+  LeftWingBack: "Left Wing-Back",
+  DefensiveMidfielder: "Defensive Midfielder",
+  CentralMidfielder: "Central Midfielder",
+  AttackingMidfielder: "Attacking Midfielder",
+  RightMidfielder: "Right Midfielder",
+  LeftMidfielder: "Left Midfielder",
+  RightWinger: "Right Winger",
+  LeftWinger: "Left Winger",
+  Striker: "Striker",
+};
+
 const POSITION_CODES: Record<string, string> = {
   Goalkeeper: "GK",
   Defender: "DEF",
   Midfielder: "MID",
   Forward: "FWD",
+  RightBack: "RB",
+  CenterBack: "CB",
+  LeftBack: "LB",
+  RightWingBack: "RWB",
+  LeftWingBack: "LWB",
+  DefensiveMidfielder: "DM",
+  CentralMidfielder: "CM",
+  AttackingMidfielder: "AM",
+  RightMidfielder: "RM",
+  LeftMidfielder: "LM",
+  RightWinger: "RW",
+  LeftWinger: "LW",
+  Striker: "ST",
 };
+
+function normaliseKey(value: string): string {
+  return value.toLowerCase().replace(/[^a-z]/g, "");
+}
+
+export function canonicalPosition(position: string): string {
+  const trimmed = position.trim();
+  if (!trimmed) return trimmed;
+
+  return CANONICAL_POSITION_MAP[normaliseKey(trimmed)] || trimmed;
+}
 
 export function parseFormationSlots(formation: string): {
   def: number;
@@ -46,43 +150,33 @@ export function parseFormationSlots(formation: string): {
 }
 
 export function normalisePosition(position: string): string {
-  const trimmed = position.trim();
-  if (!trimmed) return trimmed;
-
-  const lower = trimmed.toLowerCase();
-  if (lower.includes("keep")) return "Goalkeeper";
-  if (lower.includes("mid")) return "Midfielder";
-  if (
-    lower.includes("back") ||
-    lower.includes("defender") ||
-    lower.includes("centre-half") ||
-    lower.includes("center-half")
-  )
-    return "Defender";
-  if (lower.includes("wing")) return "Midfielder";
-  if (
-    lower.includes("forw") ||
-    lower.includes("strik") ||
-    lower.includes("att")
-  ) {
-    return "Forward";
-  }
-
-  return trimmed;
+  const canonical = canonicalPosition(position);
+  return POSITION_GROUPS[canonical] || canonical;
 }
 
 export function positionCode(position: string): string {
-  const normalized = normalisePosition(position);
+  const normalized = canonicalPosition(position);
   return (
     POSITION_CODES[normalized] || normalized.substring(0, 3).toUpperCase()
   );
+}
+
+export function translatePositionLabel(
+  translate: (key: string, options?: { defaultValue?: string }) => string,
+  position: string,
+): string {
+  const canonical = canonicalPosition(position);
+
+  return translate(`common.positions.${canonical}`, {
+    defaultValue: POSITION_LABELS[canonical] || canonical,
+  });
 }
 
 export function translatePositionAbbreviation(
   translate: (key: string, options?: { defaultValue?: string }) => string,
   position: string,
 ): string {
-  const normalized = normalisePosition(position);
+  const normalized = canonicalPosition(position);
 
   return translate(`common.posAbbr.${normalized}`, {
     defaultValue: positionCode(position),
@@ -97,7 +191,7 @@ export function getPreferredPositions(player: PlayerData): string[] {
         ...(player.alternate_positions || []),
       ]
         .filter(Boolean)
-        .map(normalisePosition),
+        .map(canonicalPosition),
     ),
   ];
 }
@@ -108,16 +202,102 @@ export function buildPitchRows(formation: string): PitchRow[] {
     .map(Number)
     .filter((value) => !Number.isNaN(value));
 
+  const defenderLine = (count: number): string[] => {
+    switch (count) {
+      case 3:
+        return ["CenterBack", "CenterBack", "CenterBack"];
+      case 4:
+        return ["RightBack", "CenterBack", "CenterBack", "LeftBack"];
+      case 5:
+        return [
+          "RightWingBack",
+          "CenterBack",
+          "CenterBack",
+          "CenterBack",
+          "LeftWingBack",
+        ];
+      default:
+        return Array(count).fill("CenterBack");
+    }
+  };
+
+  const midfieldLine = (count: number): string[] => {
+    switch (count) {
+      case 2:
+        return ["CentralMidfielder", "CentralMidfielder"];
+      case 3:
+        return [
+          "DefensiveMidfielder",
+          "CentralMidfielder",
+          "AttackingMidfielder",
+        ];
+      case 4:
+        return [
+          "RightMidfielder",
+          "CentralMidfielder",
+          "CentralMidfielder",
+          "LeftMidfielder",
+        ];
+      case 5:
+        return [
+          "RightMidfielder",
+          "DefensiveMidfielder",
+          "CentralMidfielder",
+          "AttackingMidfielder",
+          "LeftMidfielder",
+        ];
+      default:
+        return Array(count).fill("CentralMidfielder");
+    }
+  };
+
+  const deepMidfieldLine = (count: number): string[] => {
+    switch (count) {
+      case 1:
+        return ["DefensiveMidfielder"];
+      case 2:
+        return ["DefensiveMidfielder", "CentralMidfielder"];
+      default:
+        return Array(count).fill("DefensiveMidfielder");
+    }
+  };
+
+  const attackingMidfieldLine = (count: number): string[] => {
+    switch (count) {
+      case 1:
+        return ["AttackingMidfielder"];
+      case 2:
+        return ["AttackingMidfielder", "AttackingMidfielder"];
+      case 3:
+        return ["RightMidfielder", "AttackingMidfielder", "LeftMidfielder"];
+      default:
+        return Array(count).fill("AttackingMidfielder");
+    }
+  };
+
+  const forwardLine = (count: number): string[] => {
+    switch (count) {
+      case 1:
+        return ["Striker"];
+      case 2:
+        return ["Striker", "Striker"];
+      case 3:
+        return ["RightWinger", "Striker", "LeftWinger"];
+      default:
+        return Array(count).fill("Striker");
+    }
+  };
+
   if (parts.length === 4) {
     const forwardY = parts[3] === 1 ? "16%" : "20%";
     const attackingMidY = parts[3] === 1 ? "40%" : "38%";
 
     return [
       { label: "GK", y: "88%", positions: ["Goalkeeper"] },
-      { label: "DEF", y: "70%", positions: Array(parts[0]).fill("Defender") },
-      { label: "DM", y: "54%", positions: Array(parts[1]).fill("Midfielder") },
-      { label: "AM", y: attackingMidY, positions: Array(parts[2]).fill("Midfielder") },
-      { label: "FWD", y: forwardY, positions: Array(parts[3]).fill("Forward") },
+      { label: "DEF", y: "70%", positions: defenderLine(parts[0]) },
+      { label: "DM", y: "54%", positions: deepMidfieldLine(parts[1]) },
+      { label: "AM", y: attackingMidY, positions: attackingMidfieldLine(parts[2]) },
+      { label: "FWD", y: forwardY, positions: forwardLine(parts[3]) },
     ];
   }
 
@@ -127,9 +307,9 @@ export function buildPitchRows(formation: string): PitchRow[] {
 
   return [
     { label: "GK", y: "88%", positions: ["Goalkeeper"] },
-    { label: "DEF", y: "70%", positions: Array(slots.def).fill("Defender") },
-    { label: "MID", y: midfieldY, positions: Array(slots.mid).fill("Midfielder") },
-    { label: "FWD", y: forwardY, positions: Array(slots.fwd).fill("Forward") },
+    { label: "DEF", y: "70%", positions: defenderLine(slots.def) },
+    { label: "MID", y: midfieldY, positions: midfieldLine(slots.mid) },
+    { label: "FWD", y: forwardY, positions: forwardLine(slots.fwd) },
   ];
 }
 
@@ -154,7 +334,7 @@ export function buildStartingXIIds(
   savedIds: string[],
   formation: string,
 ): string[] {
-  const slots = parseFormationSlots(formation);
+  const slotPositions = buildPitchRows(formation).flatMap((row) => row.positions);
   const byId = new Map(available.map((player) => [player.id, player]));
   const validSavedIds: string[] = [];
   const used = new Set<string>();
@@ -168,39 +348,35 @@ export function buildStartingXIIds(
   }
 
   if (validSavedIds.length >= 8) {
-    const remaining = available
-      .filter((player) => !used.has(player.id))
-      .sort((a, b) => calcOvr(b) - calcOvr(a))
-      .map((player) => player.id);
-    return [...validSavedIds, ...remaining].slice(0, 11);
+    const xi = [...validSavedIds];
+    while (xi.length < 11) {
+      const slotPosition = slotPositions[xi.length];
+      const candidates = available.filter((player) => !used.has(player.id));
+      const bestPlayer = candidates.sort(
+        (a, b) => calcOvr(b, slotPosition) - calcOvr(a, slotPosition),
+      )[0];
+
+      if (!bestPlayer) break;
+      xi.push(bestPlayer.id);
+      used.add(bestPlayer.id);
+    }
+    return xi.slice(0, 11);
   }
 
   const xi: string[] = [];
-  const pick = (position: string, count: number) => {
-    const candidates = available
-      .filter(
-        (player) =>
-          normalisePosition(player.position) === position && !used.has(player.id),
-      )
-      .sort((a, b) => calcOvr(b) - calcOvr(a));
+  slotPositions.slice(0, 11).forEach((slotPosition) => {
+    const candidates = available.filter((player) => !used.has(player.id));
+    const bestPlayer = candidates.sort(
+      (a, b) => calcOvr(b, slotPosition) - calcOvr(a, slotPosition),
+    )[0];
 
-    for (let index = 0; index < count && index < candidates.length; index += 1) {
-      xi.push(candidates[index].id);
-      used.add(candidates[index].id);
+    if (bestPlayer) {
+      xi.push(bestPlayer.id);
+      used.add(bestPlayer.id);
     }
-  };
+  });
 
-  pick("Goalkeeper", 1);
-  pick("Defender", slots.def);
-  pick("Midfielder", slots.mid);
-  pick("Forward", slots.fwd);
-
-  const remaining = available
-    .filter((player) => !used.has(player.id))
-    .sort((a, b) => calcOvr(b) - calcOvr(a))
-    .map((player) => player.id);
-
-  return [...xi, ...remaining].slice(0, 11);
+  return xi;
 }
 
 export function buildPitchSlotRows(
@@ -230,7 +406,7 @@ export function buildActivePositionMap(
   pitchSlotRows.forEach((row) => {
     row.slots.forEach((slot) => {
       if (slot.player) {
-        map.set(slot.player.id, normalisePosition(slot.position));
+        map.set(slot.player.id, canonicalPosition(slot.position));
       }
     });
   });
@@ -241,8 +417,13 @@ export function isPlayerOutOfPosition(
   player: PlayerData,
   currentPos: string,
 ): boolean {
+  const canonicalCurrentPos = canonicalPosition(currentPos);
   const normalizedCurrentPos = normalisePosition(currentPos);
-  return !getPreferredPositions(player).includes(normalizedCurrentPos);
+  return !getPreferredPositions(player).some(
+    (position) =>
+      position === canonicalCurrentPos ||
+      normalisePosition(position) === normalizedCurrentPos,
+  );
 }
 
 export function applyLineupDrop(

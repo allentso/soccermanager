@@ -12,7 +12,7 @@ use super::definitions::NamesDefinition;
 
 /// Compute a sensible alternate position based on primary position and attributes.
 fn compute_alternate_position(primary: &Position, attrs: &PlayerAttributes) -> Option<Position> {
-    match primary {
+    match primary.to_group_position() {
         Position::Goalkeeper => None,
         Position::Defender => {
             // Defenders with good passing/vision → Midfielder
@@ -42,6 +42,7 @@ fn compute_alternate_position(primary: &Position, attrs: &PlayerAttributes) -> O
                 None
             }
         }
+        _ => None,
     }
 }
 
@@ -150,9 +151,10 @@ pub(super) fn generate_random_player_from_def(
     let birth_day = rng.gen_range(1..29);
     let dob = format!("{:04}-{:02}-{:02}", birth_year, birth_month, birth_day);
 
-    let is_gk = matches!(position, Position::Goalkeeper);
-    let is_def = matches!(position, Position::Defender);
-    let is_fwd = matches!(position, Position::Forward);
+    let group = position.to_group_position();
+    let is_gk = matches!(group, Position::Goalkeeper);
+    let is_def = matches!(group, Position::Defender);
+    let is_fwd = matches!(group, Position::Forward);
 
     let attributes = PlayerAttributes {
         pace: rng.gen_range(40..95),

@@ -10,6 +10,8 @@ pub mod live_match_manager;
 pub mod messages;
 pub mod news;
 pub mod player_events;
+pub mod player_identity;
+pub mod player_rating;
 pub mod random_events;
 pub mod schedule;
 pub mod scouting;

@@ -71,7 +71,12 @@ export default function HomeTab({
       : 0;
   const avgOvr =
     roster.length > 0
-      ? Math.round(roster.reduce((s, p) => s + calcOvr(p), 0) / roster.length)
+      ? Math.round(
+          roster.reduce(
+            (s, p) => s + calcOvr(p, p.natural_position || p.position),
+            0,
+          ) / roster.length,
+        )
       : 0;
   const exhaustedCount = roster.filter((p) => p.condition < 40).length;
   const resolveInjuryName = (injuryName: string): string => {

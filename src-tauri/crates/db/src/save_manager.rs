@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 
 use ofm_core::clock::GameClock;
 use ofm_core::game::{BoardObjective, Game, ObjectiveType, ScoutingAssignment};
+use ofm_core::player_identity;
 
 use crate::game_database::GameDatabase;
 use crate::repositories::{
@@ -131,7 +132,7 @@ impl SaveManager {
     }
 
     /// Load a Game from a save database.
-    pub fn load_game(&self, save_id: &str) -> Result<Game, String> {
+    pub fn load_game(&mut self, save_id: &str) -> Result<Game, String> {
         let entry = self
             .index
             .find(save_id)
@@ -141,7 +142,17 @@ impl SaveManager {
         debug!("[save_manager] loading game from {}", save_id);
 
         let db = GameDatabase::open(&db_path)?;
-        self.read_game_from_db(&db)
+        let mut game = self.read_game_from_db(&db)?;
+
+        if player_identity::upgrade_game_player_identities(&mut game) {
+            info!(
+                "[save_manager] upgraded legacy player identities for save {}",
+                save_id
+            );
+            self.save_game(&game, save_id)?;
+        }
+
+        Ok(game)
     }
 
     /// Delete a save (removes DB file and index entry).
@@ -166,7 +177,7 @@ impl SaveManager {
     /// Create a new game by loading an existing save, stripping session data,
     /// and resetting the clock. Returns the loaded Game with clean session state.
     /// This does NOT create a new save — the caller should use `create_save` afterwards.
-    pub fn new_game_from_save(&self, source_save_id: &str) -> Result<Game, String> {
+    pub fn new_game_from_save(&mut self, source_save_id: &str) -> Result<Game, String> {
         let mut game = self.load_game(source_save_id)?;
 
         // Strip session-specific data
@@ -572,7 +583,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let saves_dir = dir.path().join("saves");
 
-        let sm = SaveManager::init(&saves_dir).unwrap();
+        let mut sm = SaveManager::init(&saves_dir).unwrap();
         let result = sm.load_game("nonexistent");
         assert!(result.is_err());
     }
@@ -734,7 +745,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let saves_dir = dir.path().join("saves");
 
-        let sm = SaveManager::init(&saves_dir).unwrap();
+        let mut sm = SaveManager::init(&saves_dir).unwrap();
         let result = sm.new_game_from_save("nonexistent");
         assert!(result.is_err());
     }

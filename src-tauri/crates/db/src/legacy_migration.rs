@@ -4,6 +4,7 @@ use std::fs;
 use std::path::Path;
 
 use ofm_core::game::Game;
+use ofm_core::player_identity;
 
 use crate::save_manager::SaveManager;
 
@@ -157,8 +158,10 @@ fn migrate_single_save(
     row: &LegacySaveRow,
     save_manager: &mut SaveManager,
 ) -> Result<String, String> {
-    let game: Game = serde_json::from_str(&row.game_data)
+    let mut game: Game = serde_json::from_str(&row.game_data)
         .map_err(|e| format!("Failed to parse game JSON: {}", e))?;
+
+    player_identity::upgrade_game_player_identities(&mut game);
 
     save_manager.create_save(&game, &row.name)
 }
@@ -289,6 +292,40 @@ mod tests {
         serde_json::to_string(&json).expect("legacy game json should serialize")
     }
 
+    fn legacy_game_json_for_position_identity_upgrade() -> String {
+        let mut json: serde_json::Value =
+            serde_json::from_str(&minimal_game_json()).expect("minimal game json should parse");
+
+        json["teams"][0]["formation"] = serde_json::json!("4-4-2");
+        json["teams"][0]["starting_xi_ids"] = serde_json::json!(["legacy-gk", "p-001"]);
+        json["players"][0]["position"] = serde_json::json!("Defender");
+        json["players"][0]["natural_position"] = serde_json::json!("Defender");
+        json["players"][0]["alternate_positions"] = serde_json::json!([]);
+        json["players"][0]["attributes"] = serde_json::json!({
+            "pace": 84,
+            "stamina": 82,
+            "strength": 63,
+            "agility": 72,
+            "passing": 64,
+            "shooting": 40,
+            "tackling": 77,
+            "dribbling": 62,
+            "defending": 72,
+            "positioning": 66,
+            "vision": 58,
+            "decisions": 64,
+            "composure": 60,
+            "aggression": 64,
+            "teamwork": 74,
+            "leadership": 44,
+            "handling": 20,
+            "reflexes": 20,
+            "aerial": 46
+        });
+
+        serde_json::to_string(&json).expect("legacy game json should serialize")
+    }
+
     fn legacy_game_json_with_partial_transfer_offer() -> String {
         let mut json: serde_json::Value =
             serde_json::from_str(&minimal_game_json()).expect("minimal game json should parse");
@@ -398,8 +435,8 @@ mod tests {
 
         // New save should be loadable
         assert_eq!(sm.list_saves().len(), 1);
-        let save_id = &sm.list_saves()[0].id;
-        let loaded = sm.load_game(save_id).unwrap();
+        let save_id = sm.list_saves()[0].id.clone();
+        let loaded = sm.load_game(&save_id).unwrap();
         assert_eq!(loaded.manager.first_name, "Test");
     }
 
@@ -499,8 +536,8 @@ mod tests {
         assert_eq!(results.len(), 1);
         assert!(matches!(&results[0], LegacyMigrationResult::Success { .. }));
 
-        let save_id = &sm.list_saves()[0].id;
-        let loaded = sm.load_game(save_id).unwrap();
+        let save_id = sm.list_saves()[0].id.clone();
+        let loaded = sm.load_game(&save_id).unwrap();
         let player = loaded
             .players
             .iter()
@@ -539,8 +576,8 @@ mod tests {
         assert_eq!(results.len(), 1);
         assert!(matches!(&results[0], LegacyMigrationResult::Success { .. }));
 
-        let save_id = &sm.list_saves()[0].id;
-        let loaded = sm.load_game(save_id).unwrap();
+        let save_id = sm.list_saves()[0].id.clone();
+        let loaded = sm.load_game(&save_id).unwrap();
         let player = loaded
             .players
             .iter()
@@ -578,8 +615,8 @@ mod tests {
         assert_eq!(results.len(), 1);
         assert!(matches!(&results[0], LegacyMigrationResult::Success { .. }));
 
-        let save_id = &sm.list_saves()[0].id;
-        let loaded = sm.load_game(save_id).unwrap();
+        let save_id = sm.list_saves()[0].id.clone();
+        let loaded = sm.load_game(&save_id).unwrap();
         let team = loaded
             .teams
             .iter()
@@ -614,8 +651,8 @@ mod tests {
         assert_eq!(results.len(), 1);
         assert!(matches!(&results[0], LegacyMigrationResult::Success { .. }));
 
-        let save_id = &sm.list_saves()[0].id;
-        let loaded = sm.load_game(save_id).unwrap();
+        let save_id = sm.list_saves()[0].id.clone();
+        let loaded = sm.load_game(&save_id).unwrap();
         let team = loaded
             .teams
             .iter()
@@ -655,8 +692,8 @@ mod tests {
         assert_eq!(results.len(), 1);
         assert!(matches!(&results[0], LegacyMigrationResult::Success { .. }));
 
-        let save_id = &sm.list_saves()[0].id;
-        let loaded = sm.load_game(save_id).unwrap();
+        let save_id = sm.list_saves()[0].id.clone();
+        let loaded = sm.load_game(&save_id).unwrap();
         let player = loaded
             .players
             .iter()
@@ -695,8 +732,8 @@ mod tests {
         assert_eq!(results.len(), 1);
         assert!(matches!(&results[0], LegacyMigrationResult::Success { .. }));
 
-        let save_id = &sm.list_saves()[0].id;
-        let loaded = sm.load_game(save_id).unwrap();
+        let save_id = sm.list_saves()[0].id.clone();
+        let loaded = sm.load_game(&save_id).unwrap();
         let player = loaded
             .players
             .iter()
@@ -710,6 +747,42 @@ mod tests {
 
         assert_eq!(format!("{:?}", pending_promise.kind), "PlayingTime");
         assert_eq!(pending_promise.matches_remaining, 0);
+    }
+
+    #[test]
+    fn test_migrate_legacy_save_upgrades_player_identity_fields() {
+        let dir = tempfile::tempdir().unwrap();
+        let legacy_path = dir.path().join("saves.db");
+        let saves_dir = dir.path().join("saves");
+        let json = legacy_game_json_for_position_identity_upgrade();
+
+        create_legacy_db(
+            &legacy_path,
+            &[("old-save-7", "Legacy Identity Save", "Test Manager", &json)],
+        );
+
+        let mut sm = SaveManager::init(&saves_dir).unwrap();
+        let results = migrate_legacy_saves(dir.path(), &mut sm).unwrap();
+
+        assert_eq!(results.len(), 1);
+        assert!(matches!(&results[0], LegacyMigrationResult::Success { .. }));
+
+        let save_id = sm.list_saves()[0].id.clone();
+        let loaded = sm.load_game(&save_id).unwrap();
+        let player = loaded
+            .players
+            .iter()
+            .find(|player| player.id == "p-001")
+            .unwrap();
+
+        assert_eq!(player.natural_position, domain::player::Position::RightBack);
+        assert_eq!(player.footedness, domain::player::Footedness::Right);
+        assert!(player.weak_foot >= 2);
+        assert!(
+            player
+                .alternate_positions
+                .contains(&domain::player::Position::RightWingBack)
+        );
     }
 
     #[test]

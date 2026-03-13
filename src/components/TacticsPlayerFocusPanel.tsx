@@ -3,7 +3,7 @@ import type { PlayerData } from "../store/gameStore";
 import { Badge, Button, Card, CountryFlag } from "./ui";
 import { GitCompareArrows } from "lucide-react";
 import { calcAge, calcOvr, positionBadgeVariant } from "../lib/helpers";
-import { normalisePosition } from "./SquadTab.helpers";
+import { normalisePosition, translatePositionLabel } from "./SquadTab.helpers";
 
 const ATTRIBUTE_GROUPS: {
   labelKey: string;
@@ -69,6 +69,8 @@ function PlayerSummary({
 }) {
   const { t } = useTranslation();
   const normalizedPosition = getNormalizedPlayerPosition(player);
+  const displayPosition = player.natural_position || player.position;
+  const overallRating = calcOvr(player, displayPosition);
 
   return (
     <div className="rounded-xl border border-gray-200 dark:border-navy-600 bg-gray-50 dark:bg-navy-800/70 px-4 py-4">
@@ -82,14 +84,14 @@ function PlayerSummary({
           </p>
           <div className="flex items-center gap-2 mt-2 flex-wrap">
             <Badge variant={positionBadgeVariant(normalizedPosition)} size="sm">
-              {t(`common.positions.${normalizedPosition}`, {
-                defaultValue: player.natural_position || player.position,
-              })}
+              {translatePositionLabel(t, displayPosition)}
             </Badge>
             <span className="text-xs text-gray-500 dark:text-gray-400">
-              <CountryFlag code={player.nationality} className="text-xs leading-none mr-1" />
-              {t("common.age", "Age")}{" "}
-              {calcAge(player.date_of_birth)}
+              <CountryFlag
+                code={player.nationality}
+                className="text-xs leading-none mr-1"
+              />
+              {t("common.age", "Age")} {calcAge(player.date_of_birth)}
             </span>
           </div>
         </div>
@@ -98,7 +100,7 @@ function PlayerSummary({
             {t("common.ovr", "OVR")}
           </div>
           <div className="text-3xl font-heading font-bold text-primary-500 dark:text-primary-400">
-            {calcOvr(player)}
+            {overallRating}
           </div>
         </div>
       </div>
