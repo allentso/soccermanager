@@ -166,4 +166,4 @@ Merci de faire partie de l'aventure. Construisons quelque chose de génial ensem
 
 ---
 
-*Version alpha 0.1.2*
+*Version alpha 0.2.0*
