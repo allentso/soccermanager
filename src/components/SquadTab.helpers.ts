@@ -320,82 +320,12 @@ export function getPitchRowWidth(slotCount: number): string {
   if (slotCount === 2) return "50%";
   return "28%";
 }
-
 export function getPitchSlotWidth(slotCount: number): number {
   if (slotCount >= 5) return 66;
   if (slotCount === 4) return 70;
   if (slotCount === 3) return 74;
   if (slotCount === 2) return 78;
   return 82;
-}
-
-function sideAgnosticPosition(position: string): string {
-  if (position.startsWith("Left")) {
-    return position.slice(4);
-  }
-
-  if (position.startsWith("Right")) {
-    return position.slice(5);
-  }
-
-  return position;
-}
-
-function isMirroredSidePair(leftPosition: string, rightPosition: string): boolean {
-  return (
-    leftPosition.startsWith("Left") &&
-    rightPosition.startsWith("Right") &&
-    sideAgnosticPosition(leftPosition) === sideAgnosticPosition(rightPosition)
-  );
-}
-
-function canonicalizeSavedXiOrder(
-  xiIds: string[],
-  rows: PitchRow[],
-  playersById: Map<string, PlayerData>,
-): string[] {
-  const normalizedXiIds = [...xiIds];
-  let rowStartIndex = 0;
-
-  rows.forEach((row) => {
-    const leftPosition = row.positions[0];
-    const rightPosition = row.positions[row.positions.length - 1];
-
-    if (!leftPosition || !rightPosition) {
-      rowStartIndex += row.positions.length;
-      return;
-    }
-
-    if (!isMirroredSidePair(leftPosition, rightPosition)) {
-      rowStartIndex += row.positions.length;
-      return;
-    }
-
-    const leftIndex = rowStartIndex;
-    const rightIndex = rowStartIndex + row.positions.length - 1;
-    const leftPlayer = playersById.get(normalizedXiIds[leftIndex]);
-    const rightPlayer = playersById.get(normalizedXiIds[rightIndex]);
-
-    rowStartIndex += row.positions.length;
-
-    if (!leftPlayer || !rightPlayer) {
-      return;
-    }
-
-    const currentFit =
-      calcOvr(leftPlayer, leftPosition) + calcOvr(rightPlayer, rightPosition);
-    const swappedFit =
-      calcOvr(leftPlayer, rightPosition) + calcOvr(rightPlayer, leftPosition);
-
-    if (swappedFit > currentFit) {
-      [normalizedXiIds[leftIndex], normalizedXiIds[rightIndex]] = [
-        normalizedXiIds[rightIndex],
-        normalizedXiIds[leftIndex],
-      ];
-    }
-  });
-
-  return normalizedXiIds;
 }
 
 export function buildStartingXIIds(
@@ -418,7 +348,7 @@ export function buildStartingXIIds(
   }
 
   if (validSavedIds.length >= 8) {
-    const xi = canonicalizeSavedXiOrder(validSavedIds, rows, byId);
+    const xi = [...validSavedIds];
     while (xi.length < 11) {
       const slotPosition = slotPositions[xi.length];
       const candidates = available.filter((player) => !used.has(player.id));

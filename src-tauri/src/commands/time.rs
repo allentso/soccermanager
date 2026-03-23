@@ -6,9 +6,7 @@ use crate::commands::round_summary::{build_round_summary_dto, RoundSummaryDto};
 use ofm_core::contracts::contract_warning_stage;
 use ofm_core::game::Game;
 use ofm_core::live_match_manager::{self, MatchMode};
-use ofm_core::player_rating::{
-    canonicalize_saved_xi_ids, effective_rating_for_assignment, formation_slots, natural_ovr,
-};
+use ofm_core::player_rating::{effective_rating_for_assignment, formation_slots, natural_ovr};
 use ofm_core::state::StateManager;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -238,7 +236,7 @@ fn build_effective_healthy_starting_xi_ids(
     let slots = formation_slots(formation);
 
     if valid_saved_ids.len() >= 8 {
-        let mut xi_ids = canonicalize_saved_xi_ids(&valid_saved_ids, formation, &healthy_roster);
+        let mut xi_ids = valid_saved_ids;
         while xi_ids.len() < 11 {
             let slot = slots.get(xi_ids.len());
             let best_index = remaining_players

@@ -1,11 +1,14 @@
 use chrono::Utc;
 use log::{debug, info, warn};
+use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use domain::player::{Player, Position};
 use ofm_core::clock::GameClock;
 use ofm_core::game::{BoardObjective, Game, ObjectiveType, ScoutingAssignment};
 use ofm_core::player_identity;
+use ofm_core::player_rating::{effective_rating_for_assignment, formation_slots};
 
 use crate::game_database::GameDatabase;
 use crate::repositories::{
@@ -64,11 +67,14 @@ impl SaveManager {
         let save_id = uuid::Uuid::new_v4().to_string();
         let db_filename = format!("{}.db", save_id);
         let db_path = self.saves_dir.join(&db_filename);
+        let mut persisted_game = game.clone();
+
+        canonicalize_game_starting_xi_ids(&mut persisted_game);
 
         debug!("[save_manager] creating save {} at {:?}", save_id, db_path);
 
         let db = GameDatabase::open(&db_path)?;
-        self.write_game_to_db(&db, game, &save_id, save_name)?;
+        self.write_game_to_db(&db, &persisted_game, &save_id, save_name)?;
         drop(db);
 
         let checksum = compute_checksum(&db_path)?;
@@ -101,11 +107,14 @@ impl SaveManager {
 
         let db_path = self.saves_dir.join(&entry.db_filename);
         let save_name = entry.name.clone();
+        let mut persisted_game = game.clone();
+
+        canonicalize_game_starting_xi_ids(&mut persisted_game);
 
         debug!("[save_manager] saving game to {}", save_id);
 
         let db = GameDatabase::open(&db_path)?;
-        self.write_game_to_db(&db, game, save_id, &save_name)?;
+        self.write_game_to_db(&db, &persisted_game, save_id, &save_name)?;
         drop(db);
 
         let checksum = compute_checksum(&db_path)?;
@@ -146,6 +155,14 @@ impl SaveManager {
         let db = GameDatabase::open(&db_path)?;
         let mut game = self.read_game_from_db(&db)?;
         let mut needs_resave = false;
+
+        if canonicalize_game_starting_xi_ids(&mut game) {
+            info!(
+                "[save_manager] canonicalized saved starting XI order for save {}",
+                save_id
+            );
+            needs_resave = true;
+        }
 
         if player_identity::upgrade_game_player_identities(&mut game) {
             info!(
@@ -414,6 +431,110 @@ impl SaveManager {
     }
 }
 
+pub(crate) fn canonicalize_game_starting_xi_ids(game: &mut Game) -> bool {
+    let players_by_id: HashMap<String, Player> = game
+        .players
+        .iter()
+        .cloned()
+        .map(|player| (player.id.clone(), player))
+        .collect();
+    let mut changed = false;
+
+    for team in &mut game.teams {
+        changed |= canonicalize_team_starting_xi_ids(team, &players_by_id);
+    }
+
+    changed
+}
+
+fn canonicalize_team_starting_xi_ids(
+    team: &mut domain::team::Team,
+    players_by_id: &HashMap<String, Player>,
+) -> bool {
+    let row_lengths = formation_row_lengths(&team.formation);
+    let slots = formation_slots(&team.formation);
+    let mut row_start_index = 0;
+    let mut changed = false;
+
+    for row_length in row_lengths {
+        if row_length < 2 {
+            row_start_index += row_length;
+            continue;
+        }
+
+        let left_index = row_start_index;
+        let right_index = row_start_index + row_length - 1;
+        let left_slot = slots.get(left_index);
+        let right_slot = slots.get(right_index);
+
+        row_start_index += row_length;
+
+        let (Some(left_slot), Some(right_slot)) = (left_slot, right_slot) else {
+            continue;
+        };
+
+        if !is_mirrored_side_pair(left_slot, right_slot) {
+            continue;
+        }
+
+        let left_player = team
+            .starting_xi_ids
+            .get(left_index)
+            .and_then(|id| players_by_id.get(id));
+        let right_player = team
+            .starting_xi_ids
+            .get(right_index)
+            .and_then(|id| players_by_id.get(id));
+
+        let (Some(left_player), Some(right_player)) = (left_player, right_player) else {
+            continue;
+        };
+
+        let current_fit = effective_rating_for_assignment(left_player, left_slot)
+            + effective_rating_for_assignment(right_player, right_slot);
+        let swapped_fit = effective_rating_for_assignment(left_player, right_slot)
+            + effective_rating_for_assignment(right_player, left_slot);
+
+        if swapped_fit > current_fit {
+            team.starting_xi_ids.swap(left_index, right_index);
+            changed = true;
+        }
+    }
+
+    changed
+}
+
+fn formation_row_lengths(formation: &str) -> Vec<usize> {
+    let parts: Vec<usize> = formation
+        .split('-')
+        .filter_map(|part| part.parse::<usize>().ok())
+        .collect();
+
+    match parts.as_slice() {
+        [defenders, midfielders, forwards] => vec![1, *defenders, *midfielders, *forwards],
+        [defenders, deep_midfielders, attacking_midfielders, forwards] => {
+            vec![
+                1,
+                *defenders,
+                *deep_midfielders,
+                *attacking_midfielders,
+                *forwards,
+            ]
+        }
+        _ => formation_row_lengths("4-4-2"),
+    }
+}
+
+fn is_mirrored_side_pair(left_position: &Position, right_position: &Position) -> bool {
+    matches!(
+        (left_position, right_position),
+        (Position::LeftBack, Position::RightBack)
+            | (Position::LeftWingBack, Position::RightWingBack)
+            | (Position::LeftMidfielder, Position::RightMidfielder)
+            | (Position::LeftWinger, Position::RightWinger)
+    )
+}
+
 fn parse_objective_type(s: &str) -> ObjectiveType {
     match s {
         "LeaguePosition" => ObjectiveType::LeaguePosition,
@@ -428,9 +549,10 @@ mod tests {
     use super::*;
     use chrono::TimeZone;
     use domain::league::{Fixture, FixtureStatus, League, StandingEntry};
-    use domain::player::{PlayerAttributes, Position};
+    use domain::player::{Footedness, Player, PlayerAttributes, Position};
     use domain::staff::{StaffAttributes, StaffRole};
     use domain::team::Team;
+    use rusqlite::params;
 
     fn sample_game() -> Game {
         let start = Utc.with_ymd_and_hms(2026, 7, 1, 0, 0, 0).unwrap();
@@ -576,6 +698,95 @@ mod tests {
         game
     }
 
+    fn make_lineup_player(id: &str, position: Position, footedness: Footedness) -> Player {
+        let mut player = Player::new(
+            id.to_string(),
+            id.to_uppercase(),
+            format!("Player {}", id),
+            "2000-01-01".to_string(),
+            "GB".to_string(),
+            position.clone(),
+            PlayerAttributes {
+                pace: 70,
+                stamina: 70,
+                strength: 70,
+                agility: 70,
+                passing: 70,
+                shooting: 70,
+                tackling: 70,
+                dribbling: 70,
+                defending: 70,
+                positioning: 70,
+                vision: 70,
+                decisions: 70,
+                composure: 70,
+                aggression: 70,
+                teamwork: 70,
+                leadership: 70,
+                handling: 20,
+                reflexes: 20,
+                aerial: 70,
+            },
+        );
+        player.natural_position = position;
+        player.footedness = footedness;
+        player.weak_foot = 1;
+        player.team_id = Some("team-001".to_string());
+        player
+    }
+
+    fn sample_game_with_side_specific_starting_xi(mirrored: bool) -> Game {
+        let start = Utc.with_ymd_and_hms(2026, 7, 1, 0, 0, 0).unwrap();
+        let clock = GameClock::new(start);
+        let mut manager = domain::manager::Manager::new(
+            "mgr-user".to_string(),
+            "John".to_string(),
+            "Smith".to_string(),
+            "1990-01-15".to_string(),
+            "British".to_string(),
+        );
+        manager.hire("team-001".to_string());
+
+        let mut team = Team::new(
+            "team-001".to_string(),
+            "London FC".to_string(),
+            "LFC".to_string(),
+            "GB".to_string(),
+            "London".to_string(),
+            "London Stadium".to_string(),
+            50000,
+        );
+        team.formation = "4-4-2".to_string();
+        team.starting_xi_ids = if mirrored {
+            vec![
+                "gk", "rb", "cb1", "cb2", "lb", "rm", "cm1", "cm2", "lm", "st1", "st2",
+            ]
+        } else {
+            vec![
+                "gk", "lb", "cb1", "cb2", "rb", "lm", "cm1", "cm2", "rm", "st1", "st2",
+            ]
+        }
+        .into_iter()
+        .map(str::to_string)
+        .collect();
+
+        let players = vec![
+            make_lineup_player("gk", Position::Goalkeeper, Footedness::Right),
+            make_lineup_player("lb", Position::LeftBack, Footedness::Left),
+            make_lineup_player("cb1", Position::CenterBack, Footedness::Right),
+            make_lineup_player("cb2", Position::CenterBack, Footedness::Right),
+            make_lineup_player("rb", Position::RightBack, Footedness::Right),
+            make_lineup_player("lm", Position::LeftMidfielder, Footedness::Left),
+            make_lineup_player("cm1", Position::CentralMidfielder, Footedness::Right),
+            make_lineup_player("cm2", Position::CentralMidfielder, Footedness::Right),
+            make_lineup_player("rm", Position::RightMidfielder, Footedness::Right),
+            make_lineup_player("st1", Position::Striker, Footedness::Right),
+            make_lineup_player("st2", Position::Striker, Footedness::Right),
+        ];
+
+        Game::new(clock, manager, vec![team], players, vec![], vec![])
+    }
+
     #[test]
     fn test_init_creates_directory() {
         let dir = tempfile::tempdir().unwrap();
@@ -651,6 +862,93 @@ mod tests {
         // Reload and verify
         let loaded = sm.load_game(&save_id).unwrap();
         assert_eq!(loaded.manager.reputation, 999);
+    }
+
+    #[test]
+    fn test_create_save_canonicalizes_mirrored_starting_xi_order_on_write() {
+        let dir = tempfile::tempdir().unwrap();
+        let saves_dir = dir.path().join("saves");
+
+        let mut sm = SaveManager::init(&saves_dir).unwrap();
+        let game = sample_game_with_side_specific_starting_xi(true);
+
+        let save_id = sm.create_save(&game, "Mirrored XI Career").unwrap();
+        let db_path = saves_dir.join(format!("{}.db", save_id));
+        let db = GameDatabase::open(&db_path).unwrap();
+        let starting_xi_json: String = db
+            .conn()
+            .query_row(
+                "SELECT starting_xi_ids FROM teams WHERE id = ?1",
+                params!["team-001"],
+                |row| row.get(0),
+            )
+            .unwrap();
+        let starting_xi_ids: Vec<String> = serde_json::from_str(&starting_xi_json).unwrap();
+
+        assert_eq!(
+            starting_xi_ids,
+            vec![
+                "gk", "lb", "cb1", "cb2", "rb", "lm", "cm1", "cm2", "rm", "st1", "st2"
+            ]
+            .into_iter()
+            .map(str::to_string)
+            .collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn test_load_game_repairs_existing_mirrored_starting_xi_order() {
+        let dir = tempfile::tempdir().unwrap();
+        let saves_dir = dir.path().join("saves");
+
+        let mut sm = SaveManager::init(&saves_dir).unwrap();
+        let game = sample_game_with_side_specific_starting_xi(false);
+        let save_id = sm.create_save(&game, "Repair XI Career").unwrap();
+        let db_path = saves_dir.join(format!("{}.db", save_id));
+
+        {
+            let db = GameDatabase::open(&db_path).unwrap();
+            let mirrored_xi_json = serde_json::to_string(&vec![
+                "gk", "rb", "cb1", "cb2", "lb", "rm", "cm1", "cm2", "lm", "st1", "st2",
+            ])
+            .unwrap();
+            db.conn()
+                .execute(
+                    "UPDATE teams SET starting_xi_ids = ?1 WHERE id = ?2",
+                    params![mirrored_xi_json, "team-001"],
+                )
+                .unwrap();
+        }
+
+        let loaded = sm.load_game(&save_id).unwrap();
+        let team = loaded
+            .teams
+            .iter()
+            .find(|team| team.id == "team-001")
+            .unwrap();
+
+        assert_eq!(
+            team.starting_xi_ids,
+            vec![
+                "gk", "lb", "cb1", "cb2", "rb", "lm", "cm1", "cm2", "rm", "st1", "st2"
+            ]
+            .into_iter()
+            .map(str::to_string)
+            .collect::<Vec<_>>()
+        );
+
+        let db = GameDatabase::open(&db_path).unwrap();
+        let starting_xi_json: String = db
+            .conn()
+            .query_row(
+                "SELECT starting_xi_ids FROM teams WHERE id = ?1",
+                params!["team-001"],
+                |row| row.get(0),
+            )
+            .unwrap();
+        let starting_xi_ids: Vec<String> = serde_json::from_str(&starting_xi_json).unwrap();
+
+        assert_eq!(starting_xi_ids, team.starting_xi_ids);
     }
 
     #[test]

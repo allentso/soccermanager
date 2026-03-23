@@ -1,5 +1,5 @@
 use crate::game::Game;
-use crate::player_rating::{canonicalize_saved_xi_ids, formation_slots};
+use crate::player_rating::formation_slots;
 use domain::player::{Footedness, Player, Position};
 use std::collections::HashMap;
 
@@ -52,15 +52,8 @@ fn build_assigned_slot_map(game: &Game) -> HashMap<String, Position> {
     let mut slot_map = HashMap::new();
 
     for team in &game.teams {
-        let team_players: Vec<&Player> = game
-            .players
-            .iter()
-            .filter(|player| player.team_id.as_deref() == Some(team.id.as_str()))
-            .collect();
-        let normalized_xi_ids =
-            canonicalize_saved_xi_ids(&team.starting_xi_ids, &team.formation, &team_players);
         let slots = formation_slots(&team.formation);
-        for (index, player_id) in normalized_xi_ids.iter().enumerate() {
+        for (index, player_id) in team.starting_xi_ids.iter().enumerate() {
             if let Some(slot) = slots.get(index) {
                 slot_map.insert(player_id.clone(), slot.clone());
             }

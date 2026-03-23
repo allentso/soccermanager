@@ -6,7 +6,7 @@ use std::path::Path;
 use ofm_core::game::Game;
 use ofm_core::player_identity;
 
-use crate::save_manager::SaveManager;
+use crate::save_manager::{SaveManager, canonicalize_game_starting_xi_ids};
 
 /// A row extracted from the legacy `saves.db` file.
 #[derive(Debug)]
@@ -161,6 +161,7 @@ fn migrate_single_save(
     let mut game: Game = serde_json::from_str(&row.game_data)
         .map_err(|e| format!("Failed to parse game JSON: {}", e))?;
 
+    canonicalize_game_starting_xi_ids(&mut game);
     player_identity::upgrade_game_player_identities(&mut game);
 
     save_manager.create_save(&game, &row.name)
@@ -290,6 +291,94 @@ mod tests {
         });
 
         serde_json::to_string(&json).expect("legacy game json should serialize")
+    }
+
+    fn legacy_game_json_with_mirrored_starting_xi() -> String {
+        use chrono::{TimeZone, Utc};
+        use domain::player::{Footedness, Player, PlayerAttributes, Position};
+        use ofm_core::clock::GameClock;
+
+        let start = Utc.with_ymd_and_hms(2026, 7, 1, 0, 0, 0).unwrap();
+        let clock = GameClock::new(start);
+        let mut manager = domain::manager::Manager::new(
+            "mgr-001".to_string(),
+            "Test".to_string(),
+            "Manager".to_string(),
+            "1990-01-01".to_string(),
+            "GB".to_string(),
+        );
+        manager.hire("team-001".to_string());
+
+        let mut team = domain::team::Team::new(
+            "team-001".to_string(),
+            "Test FC".to_string(),
+            "TFC".to_string(),
+            "GB".to_string(),
+            "London".to_string(),
+            "Test Stadium".to_string(),
+            30000,
+        );
+        team.formation = "4-4-2".to_string();
+        team.starting_xi_ids = vec![
+            "gk", "rb", "cb1", "cb2", "lb", "rm", "cm1", "cm2", "lm", "st1", "st2",
+        ]
+        .into_iter()
+        .map(str::to_string)
+        .collect();
+
+        let make_player = |id: &str, position: Position, footedness: Footedness| {
+            let mut player = Player::new(
+                id.to_string(),
+                id.to_uppercase(),
+                format!("Player {}", id),
+                "2000-01-01".to_string(),
+                "GB".to_string(),
+                position.clone(),
+                PlayerAttributes {
+                    pace: 70,
+                    stamina: 70,
+                    strength: 70,
+                    agility: 70,
+                    passing: 70,
+                    shooting: 70,
+                    tackling: 70,
+                    dribbling: 70,
+                    defending: 70,
+                    positioning: 70,
+                    vision: 70,
+                    decisions: 70,
+                    composure: 70,
+                    aggression: 70,
+                    teamwork: 70,
+                    leadership: 70,
+                    handling: 20,
+                    reflexes: 20,
+                    aerial: 70,
+                },
+            );
+            player.natural_position = position;
+            player.footedness = footedness;
+            player.weak_foot = 1;
+            player.team_id = Some("team-001".to_string());
+            player
+        };
+
+        let players = vec![
+            make_player("gk", Position::Goalkeeper, Footedness::Right),
+            make_player("lb", Position::LeftBack, Footedness::Left),
+            make_player("cb1", Position::CenterBack, Footedness::Right),
+            make_player("cb2", Position::CenterBack, Footedness::Right),
+            make_player("rb", Position::RightBack, Footedness::Right),
+            make_player("lm", Position::LeftMidfielder, Footedness::Left),
+            make_player("cm1", Position::CentralMidfielder, Footedness::Right),
+            make_player("cm2", Position::CentralMidfielder, Footedness::Right),
+            make_player("rm", Position::RightMidfielder, Footedness::Right),
+            make_player("st1", Position::Striker, Footedness::Right),
+            make_player("st2", Position::Striker, Footedness::Right),
+        ];
+
+        let game = Game::new(clock, manager, vec![team], players, vec![], vec![]);
+        serde_json::to_string(&game).expect("legacy mirrored xi game json should serialize")
     }
 
     fn legacy_game_json_for_position_identity_upgrade() -> String {
@@ -775,13 +864,59 @@ mod tests {
             .find(|player| player.id == "p-001")
             .unwrap();
 
-        assert_eq!(player.natural_position, domain::player::Position::RightBack);
-        assert_eq!(player.footedness, domain::player::Footedness::Right);
+        assert_eq!(player.natural_position, domain::player::Position::LeftBack);
+        assert_eq!(player.footedness, domain::player::Footedness::Left);
         assert!(player.weak_foot >= 2);
         assert!(
             player
                 .alternate_positions
-                .contains(&domain::player::Position::RightWingBack)
+                .contains(&domain::player::Position::LeftWingBack)
+        );
+    }
+
+    #[test]
+    fn test_migrate_legacy_save_canonicalizes_mirrored_starting_xi_order() {
+        let dir = tempfile::tempdir().unwrap();
+        let legacy_path = dir.path().join("saves.db");
+        let saves_dir = dir.path().join("saves");
+        let json = legacy_game_json_with_mirrored_starting_xi();
+
+        create_legacy_db(
+            &legacy_path,
+            &[(
+                "old-save-8",
+                "Legacy Mirrored XI Save",
+                "Test Manager",
+                &json,
+            )],
+        );
+
+        let mut sm = SaveManager::init(&saves_dir).unwrap();
+        let results = migrate_legacy_saves(dir.path(), &mut sm).unwrap();
+
+        assert_eq!(results.len(), 1);
+        assert!(matches!(&results[0], LegacyMigrationResult::Success { .. }));
+
+        let save_entry = &sm.list_saves()[0];
+        let db_path = saves_dir.join(&save_entry.db_filename);
+        let db = Connection::open(&db_path).unwrap();
+        let starting_xi_json: String = db
+            .query_row(
+                "SELECT starting_xi_ids FROM teams WHERE id = ?1",
+                params!["team-001"],
+                |row| row.get(0),
+            )
+            .unwrap();
+        let starting_xi_ids: Vec<String> = serde_json::from_str(&starting_xi_json).unwrap();
+
+        assert_eq!(
+            starting_xi_ids,
+            vec![
+                "gk", "lb", "cb1", "cb2", "rb", "lm", "cm1", "cm2", "rm", "st1", "st2"
+            ]
+            .into_iter()
+            .map(str::to_string)
+            .collect::<Vec<_>>()
         );
     }
 

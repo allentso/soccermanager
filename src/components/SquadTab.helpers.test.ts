@@ -229,7 +229,7 @@ describe("SquadTab helpers", () => {
     expect(activeMap.get("f2")).toBe("Striker");
   });
 
-  it("canonicalizes saved xi order for side-specific wide roles", () => {
+  it("preserves saved xi order for side-specific wide roles", () => {
     const available = [
       makePlayer("gk", "Goalkeeper"),
       makePlayer("rb", "RightBack", {
@@ -268,14 +268,14 @@ describe("SquadTab helpers", () => {
 
     expect(ids).toEqual([
       "gk",
-      "lb",
+      "rb",
       "cb1",
       "cb2",
-      "rb",
-      "lm",
+      "lb",
+      "rm",
       "cm1",
       "cm2",
-      "rm",
+      "lm",
       "st1",
       "st2",
     ]);
