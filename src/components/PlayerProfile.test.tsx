@@ -57,6 +57,8 @@ vi.mock("react-i18next", () => ({
         return "Talks are blocked after your earlier decision";
       if (key === "playerProfile.delegateRenewal")
         return "Delegate to Assistant";
+      if (key === "playerProfile.renewalDelegateMissingReport")
+        return "Assistant report did not include this player.";
       if (key === "playerProfile.attributes") return "Attributes";
       if (key === "playerProfile.seasonStats") return "Season Stats";
       if (key === "playerProfile.careerHistory") return "Career History";
@@ -422,6 +424,31 @@ describe("PlayerProfile contract surfaces", () => {
     await waitFor(() => {
       expect(screen.getByText("Offer accepted")).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Done" })).toBeInTheDocument();
+    });
+  });
+
+  it("shows a localized error when the assistant report omits the player", async () => {
+    vi.mocked(invoke).mockResolvedValue({
+      game: createGameState(createPlayer()),
+      report: {
+        success_count: 0,
+        failure_count: 0,
+        stalled_count: 0,
+        cases: [],
+      },
+    });
+
+    render(<RenewalHarness />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Renew Contract" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Delegate to Assistant" }),
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("Assistant report did not include this player."),
+      ).toBeInTheDocument();
     });
   });
 });

@@ -1,28 +1,82 @@
 use domain::player::{Footedness, Player, Position};
+use std::collections::HashMap;
 
 pub fn formation_slots(formation: &str) -> Vec<Position> {
+    formation_slot_rows(formation)
+        .into_iter()
+        .flatten()
+        .collect()
+}
+
+pub fn canonicalize_saved_xi_ids(
+    xi_ids: &[String],
+    formation: &str,
+    players: &[&Player],
+) -> Vec<String> {
+    let mut normalized_xi_ids = xi_ids.to_vec();
+    let players_by_id: HashMap<&str, &Player> = players
+        .iter()
+        .map(|player| (player.id.as_str(), *player))
+        .collect();
+    let mut row_start_index = 0;
+
+    for row in formation_slot_rows(formation) {
+        let left_position = row.first();
+        let right_position = row.last();
+
+        if let (Some(left_position), Some(right_position)) = (left_position, right_position) {
+            if is_mirrored_side_pair(left_position, right_position) {
+                let left_index = row_start_index;
+                let right_index = row_start_index + row.len() - 1;
+                let left_player = normalized_xi_ids
+                    .get(left_index)
+                    .and_then(|id| players_by_id.get(id.as_str()))
+                    .copied();
+                let right_player = normalized_xi_ids
+                    .get(right_index)
+                    .and_then(|id| players_by_id.get(id.as_str()))
+                    .copied();
+
+                if let (Some(left_player), Some(right_player)) = (left_player, right_player) {
+                    let current_fit = effective_rating_for_assignment(left_player, left_position)
+                        + effective_rating_for_assignment(right_player, right_position);
+                    let swapped_fit = effective_rating_for_assignment(left_player, right_position)
+                        + effective_rating_for_assignment(right_player, left_position);
+
+                    if swapped_fit > current_fit {
+                        normalized_xi_ids.swap(left_index, right_index);
+                    }
+                }
+            }
+        }
+
+        row_start_index += row.len();
+    }
+
+    normalized_xi_ids
+}
+
+fn formation_slot_rows(formation: &str) -> Vec<Vec<Position>> {
     let parts: Vec<usize> = formation
         .split('-')
         .filter_map(|part| part.parse::<usize>().ok())
         .collect();
 
     match parts.as_slice() {
-        [defenders, midfielders, forwards] => {
-            let mut slots = vec![Position::Goalkeeper];
-            slots.extend(defender_line(*defenders));
-            slots.extend(midfield_line(*midfielders));
-            slots.extend(forward_line(*forwards));
-            slots
-        }
-        [defenders, deep_midfielders, attacking_midfielders, forwards] => {
-            let mut slots = vec![Position::Goalkeeper];
-            slots.extend(defender_line(*defenders));
-            slots.extend(deep_midfield_line(*deep_midfielders));
-            slots.extend(attacking_midfield_line(*attacking_midfielders));
-            slots.extend(forward_line(*forwards));
-            slots
-        }
-        _ => formation_slots("4-4-2"),
+        [defenders, midfielders, forwards] => vec![
+            vec![Position::Goalkeeper],
+            defender_line(*defenders),
+            midfield_line(*midfielders),
+            forward_line(*forwards),
+        ],
+        [defenders, deep_midfielders, attacking_midfielders, forwards] => vec![
+            vec![Position::Goalkeeper],
+            defender_line(*defenders),
+            deep_midfield_line(*deep_midfielders),
+            attacking_midfield_line(*attacking_midfielders),
+            forward_line(*forwards),
+        ],
+        _ => formation_slot_rows("4-4-2"),
     }
 }
 
@@ -55,17 +109,17 @@ fn defender_line(count: usize) -> Vec<Position> {
             Position::CenterBack,
         ],
         4 => vec![
-            Position::RightBack,
-            Position::CenterBack,
-            Position::CenterBack,
             Position::LeftBack,
+            Position::CenterBack,
+            Position::CenterBack,
+            Position::RightBack,
         ],
         5 => vec![
-            Position::RightWingBack,
-            Position::CenterBack,
-            Position::CenterBack,
-            Position::CenterBack,
             Position::LeftWingBack,
+            Position::CenterBack,
+            Position::CenterBack,
+            Position::CenterBack,
+            Position::RightWingBack,
         ],
         _ => vec![Position::CenterBack; count],
     }
@@ -80,17 +134,17 @@ fn midfield_line(count: usize) -> Vec<Position> {
             Position::AttackingMidfielder,
         ],
         4 => vec![
-            Position::RightMidfielder,
-            Position::CentralMidfielder,
-            Position::CentralMidfielder,
             Position::LeftMidfielder,
+            Position::CentralMidfielder,
+            Position::CentralMidfielder,
+            Position::RightMidfielder,
         ],
         5 => vec![
-            Position::RightMidfielder,
+            Position::LeftMidfielder,
             Position::DefensiveMidfielder,
             Position::CentralMidfielder,
             Position::AttackingMidfielder,
-            Position::LeftMidfielder,
+            Position::RightMidfielder,
         ],
         _ => vec![Position::CentralMidfielder; count],
     }
@@ -109,9 +163,9 @@ fn attacking_midfield_line(count: usize) -> Vec<Position> {
         1 => vec![Position::AttackingMidfielder],
         2 => vec![Position::AttackingMidfielder, Position::AttackingMidfielder],
         3 => vec![
-            Position::RightMidfielder,
-            Position::AttackingMidfielder,
             Position::LeftMidfielder,
+            Position::AttackingMidfielder,
+            Position::RightMidfielder,
         ],
         _ => vec![Position::AttackingMidfielder; count],
     }
@@ -122,12 +176,28 @@ fn forward_line(count: usize) -> Vec<Position> {
         1 => vec![Position::Striker],
         2 => vec![Position::Striker, Position::Striker],
         3 => vec![
-            Position::RightWinger,
-            Position::Striker,
             Position::LeftWinger,
+            Position::Striker,
+            Position::RightWinger,
         ],
         _ => vec![Position::Striker; count],
     }
+}
+
+fn side_agnostic_position(position: &Position) -> Option<&'static str> {
+    match position {
+        Position::LeftBack | Position::RightBack => Some("Back"),
+        Position::LeftWingBack | Position::RightWingBack => Some("WingBack"),
+        Position::LeftMidfielder | Position::RightMidfielder => Some("Midfielder"),
+        Position::LeftWinger | Position::RightWinger => Some("Winger"),
+        _ => None,
+    }
+}
+
+fn is_mirrored_side_pair(left_position: &Position, right_position: &Position) -> bool {
+    slot_side(left_position) == Some(Side::Left)
+        && slot_side(right_position) == Some(Side::Right)
+        && side_agnostic_position(left_position) == side_agnostic_position(right_position)
 }
 
 fn primary_position(player: &Player) -> Position {
@@ -327,7 +397,7 @@ fn weighted_average(values: &[(u8, i32)]) -> f64 {
         / 100.0
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 enum Side {
     Left,
     Right,
@@ -390,16 +460,79 @@ mod tests {
             formation_slots("4-4-2"),
             vec![
                 Position::Goalkeeper,
-                Position::RightBack,
-                Position::CenterBack,
-                Position::CenterBack,
                 Position::LeftBack,
-                Position::RightMidfielder,
-                Position::CentralMidfielder,
-                Position::CentralMidfielder,
+                Position::CenterBack,
+                Position::CenterBack,
+                Position::RightBack,
                 Position::LeftMidfielder,
+                Position::CentralMidfielder,
+                Position::CentralMidfielder,
+                Position::RightMidfielder,
                 Position::Striker,
                 Position::Striker,
+            ]
+        );
+    }
+
+    #[test]
+    fn canonicalize_saved_xi_ids_swaps_wide_players_into_correct_side_slots() {
+        let mut left_back = make_player(Position::LeftBack);
+        left_back.id = "lb".to_string();
+        left_back.natural_position = Position::LeftBack;
+        left_back.footedness = Footedness::Left;
+        left_back.weak_foot = 1;
+
+        let mut right_back = make_player(Position::RightBack);
+        right_back.id = "rb".to_string();
+        right_back.natural_position = Position::RightBack;
+        right_back.footedness = Footedness::Right;
+        right_back.weak_foot = 1;
+
+        let mut left_midfielder = make_player(Position::LeftMidfielder);
+        left_midfielder.id = "lm".to_string();
+        left_midfielder.natural_position = Position::LeftMidfielder;
+        left_midfielder.footedness = Footedness::Left;
+        left_midfielder.weak_foot = 1;
+
+        let mut right_midfielder = make_player(Position::RightMidfielder);
+        right_midfielder.id = "rm".to_string();
+        right_midfielder.natural_position = Position::RightMidfielder;
+        right_midfielder.footedness = Footedness::Right;
+        right_midfielder.weak_foot = 1;
+
+        let players = vec![&left_back, &right_back, &left_midfielder, &right_midfielder];
+        let normalized = canonicalize_saved_xi_ids(
+            &[
+                "gk".to_string(),
+                "rb".to_string(),
+                "cb1".to_string(),
+                "cb2".to_string(),
+                "lb".to_string(),
+                "rm".to_string(),
+                "cm1".to_string(),
+                "cm2".to_string(),
+                "lm".to_string(),
+                "st1".to_string(),
+                "st2".to_string(),
+            ],
+            "4-4-2",
+            &players,
+        );
+
+        assert_eq!(
+            normalized,
+            vec![
+                "gk".to_string(),
+                "lb".to_string(),
+                "cb1".to_string(),
+                "cb2".to_string(),
+                "rb".to_string(),
+                "lm".to_string(),
+                "cm1".to_string(),
+                "cm2".to_string(),
+                "rm".to_string(),
+                "st1".to_string(),
+                "st2".to_string(),
             ]
         );
     }

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, beforeEach } from "vitest";
 
 import type {
   FixtureData,
@@ -12,7 +12,13 @@ import {
   getLeagueDigestArticles,
   getNextOpponentWidgetData,
   getOnboardingCompletionState,
+  loadVisitedOnboardingTabs,
+  saveVisitedOnboardingTabs,
 } from "./HomeTab.helpers";
+
+beforeEach(function (): void {
+  localStorage.clear();
+});
 
 function createTeam(overrides: Partial<TeamData> = {}): TeamData {
   return {
@@ -373,5 +379,60 @@ describe("HomeTab.helpers", function (): void {
     const state = getOnboardingCompletionState(gameState, new Set<string>());
 
     expect(state.showOnboarding).toBe(false);
+  });
+
+  it("persists visited onboarding tabs per save", function (): void {
+    const gameState = createGameState();
+    const otherGameState = createGameState({
+      clock: {
+        current_date: "2025-02-03T00:00:00Z",
+        start_date: "2025-02-01T00:00:00Z",
+      },
+      manager: {
+        ...createGameState().manager,
+        id: "manager-2",
+      },
+    });
+
+    saveVisitedOnboardingTabs(
+      gameState,
+      new Set<string>(["Squad", "Training"]),
+      localStorage,
+    );
+
+    expect(Array.from(loadVisitedOnboardingTabs(gameState, localStorage))).toEqual([
+      "Squad",
+      "Training",
+    ]);
+    expect(Array.from(loadVisitedOnboardingTabs(otherGameState, localStorage))).toEqual(
+      [],
+    );
+  });
+
+  it("keeps onboarding completed after reloading persisted progress", function (): void {
+    const gameState = createGameState({
+      messages: [
+        createMessage({
+          id: "message-1",
+          read: true,
+        }),
+      ],
+    });
+
+    saveVisitedOnboardingTabs(
+      gameState,
+      new Set<string>(["Squad", "Staff", "Tactics", "Training"]),
+      localStorage,
+    );
+
+    const reloadedVisitedTabs = loadVisitedOnboardingTabs(gameState, localStorage);
+    const state = getOnboardingCompletionState(gameState, reloadedVisitedTabs);
+
+    expect(state.hasVisitedSquadPage).toBe(true);
+    expect(state.hasVisitedStaffPage).toBe(true);
+    expect(state.hasVisitedTacticsPage).toBe(true);
+    expect(state.hasVisitedTrainingPage).toBe(true);
+    expect(state.hasReadInbox).toBe(true);
+    expect(state.completedSteps).toBe(5);
   });
 });

@@ -852,6 +852,7 @@
     "renewalCounter": "Quiere más: €{{wage}}/semana por {{years}} años",
     "renewalBlocked": "Las conversaciones están bloqueadas tras tu decisión anterior",
     "delegateRenewal": "Delegar al asistente",
+    "renewalDelegateMissingReport": "El informe del asistente no incluía a este jugador.",
     "attributes": "Atributos",
     "attributesHidden": "Atributos Ocultos",
     "scoutToView": "Ojea o ficha a este jugador para ver los atributos detallados.",

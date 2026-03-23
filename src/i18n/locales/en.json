@@ -852,6 +852,7 @@
     "renewalCounter": "Wants more: €{{wage}}/wk for {{years}} years",
     "renewalBlocked": "Talks are blocked after your earlier decision",
     "delegateRenewal": "Delegate to Assistant",
+    "renewalDelegateMissingReport": "Assistant report did not include this player.",
     "attributes": "Attributes",
     "attributesHidden": "Attributes Hidden",
     "scoutToView": "Scout this player or sign them to view detailed attributes.",

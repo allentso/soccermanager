@@ -8,6 +8,12 @@ import type {
 
 const ONBOARDING_VISIBLE_DAYS = 7;
 const ONBOARDING_PAGE_TABS = new Set(["Squad", "Staff", "Tactics", "Training"]);
+const ONBOARDING_STORAGE_KEY_PREFIX = "ofm-onboarding-visited-tabs";
+
+interface StorageLike {
+  getItem(key: string): string | null;
+  setItem(key: string, value: string): void;
+}
 
 export interface OnboardingCompletionState {
   completedSteps: number;
@@ -111,6 +117,68 @@ export function getLeagueDigestArticles(
 
 export function isOnboardingPageTab(tab: string): boolean {
   return ONBOARDING_PAGE_TABS.has(tab);
+}
+
+function getOnboardingStorageKey(gameState: GameStateData): string {
+  return `${ONBOARDING_STORAGE_KEY_PREFIX}:${gameState.manager.id}:${gameState.clock.start_date}`;
+}
+
+function getDefaultStorage(): StorageLike | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  return window.localStorage;
+}
+
+export function loadVisitedOnboardingTabs(
+  gameState: GameStateData,
+  storage: StorageLike | null = getDefaultStorage(),
+): Set<string> {
+  if (!storage) {
+    return new Set<string>();
+  }
+
+  const storedValue = storage.getItem(getOnboardingStorageKey(gameState));
+
+  if (!storedValue) {
+    return new Set<string>();
+  }
+
+  try {
+    const parsedValue: unknown = JSON.parse(storedValue);
+
+    if (!Array.isArray(parsedValue)) {
+      return new Set<string>();
+    }
+
+    return new Set<string>(
+      parsedValue.filter(
+        (tab): tab is string => typeof tab === "string" && isOnboardingPageTab(tab),
+      ),
+    );
+  } catch {
+    return new Set<string>();
+  }
+}
+
+export function saveVisitedOnboardingTabs(
+  gameState: GameStateData,
+  visitedTabs: ReadonlySet<string>,
+  storage: StorageLike | null = getDefaultStorage(),
+): void {
+  if (!storage) {
+    return;
+  }
+
+  const persistedTabs = Array.from(visitedTabs).filter((tab) =>
+    isOnboardingPageTab(tab),
+  );
+
+  storage.setItem(
+    getOnboardingStorageKey(gameState),
+    JSON.stringify(persistedTabs),
+  );
 }
 
 export function getOnboardingCompletionState(

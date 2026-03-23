@@ -119,10 +119,36 @@ describe("SquadTab helpers", () => {
     expect(rows[3].positions).toHaveLength(3);
     expect(rows[4].positions).toHaveLength(1);
     expect(rows[1].positions).toEqual([
-      "RightBack",
-      "CenterBack",
-      "CenterBack",
       "LeftBack",
+      "CenterBack",
+      "CenterBack",
+      "RightBack",
+    ]);
+  });
+
+  it("keeps wide side-specific roles in left-to-right pitch order across formations", () => {
+    expect(buildPitchRows("4-4-2")[2].positions).toEqual([
+      "LeftMidfielder",
+      "CentralMidfielder",
+      "CentralMidfielder",
+      "RightMidfielder",
+    ]);
+    expect(buildPitchRows("5-3-2")[1].positions).toEqual([
+      "LeftWingBack",
+      "CenterBack",
+      "CenterBack",
+      "CenterBack",
+      "RightWingBack",
+    ]);
+    expect(buildPitchRows("4-2-3-1")[3].positions).toEqual([
+      "LeftMidfielder",
+      "AttackingMidfielder",
+      "RightMidfielder",
+    ]);
+    expect(buildPitchRows("4-3-3")[3].positions).toEqual([
+      "LeftWinger",
+      "Striker",
+      "RightWinger",
     ]);
   });
 
@@ -181,14 +207,14 @@ describe("SquadTab helpers", () => {
   it("builds pitch slot rows and active position map from xi ids", () => {
     const players = [
       makePlayer("gk", "Goalkeeper"),
-      makePlayer("d1", "RightBack"),
+      makePlayer("d1", "LeftBack"),
       makePlayer("d2", "CenterBack"),
       makePlayer("d3", "CenterBack"),
-      makePlayer("d4", "LeftBack"),
-      makePlayer("m1", "RightMidfielder"),
+      makePlayer("d4", "RightBack"),
+      makePlayer("m1", "LeftMidfielder"),
       makePlayer("m2", "CentralMidfielder"),
       makePlayer("m3", "CentralMidfielder"),
-      makePlayer("m4", "LeftMidfielder"),
+      makePlayer("m4", "RightMidfielder"),
       makePlayer("f1", "Striker"),
       makePlayer("f2", "Striker"),
     ];
@@ -198,9 +224,61 @@ describe("SquadTab helpers", () => {
     const activeMap = buildActivePositionMap(slotRows);
 
     expect(slotRows[0].slots[0].player?.id).toBe("gk");
-    expect(activeMap.get("d1")).toBe("RightBack");
-    expect(activeMap.get("m1")).toBe("RightMidfielder");
+    expect(activeMap.get("d1")).toBe("LeftBack");
+    expect(activeMap.get("m1")).toBe("LeftMidfielder");
     expect(activeMap.get("f2")).toBe("Striker");
+  });
+
+  it("canonicalizes saved xi order for side-specific wide roles", () => {
+    const available = [
+      makePlayer("gk", "Goalkeeper"),
+      makePlayer("rb", "RightBack", {
+        natural_position: "RightBack",
+        footedness: "Right",
+        weak_foot: 1,
+      }),
+      makePlayer("cb1", "CenterBack"),
+      makePlayer("cb2", "CenterBack"),
+      makePlayer("lb", "LeftBack", {
+        natural_position: "LeftBack",
+        footedness: "Left",
+        weak_foot: 1,
+      }),
+      makePlayer("rm", "RightMidfielder", {
+        natural_position: "RightMidfielder",
+        footedness: "Right",
+        weak_foot: 1,
+      }),
+      makePlayer("cm1", "CentralMidfielder"),
+      makePlayer("cm2", "CentralMidfielder"),
+      makePlayer("lm", "LeftMidfielder", {
+        natural_position: "LeftMidfielder",
+        footedness: "Left",
+        weak_foot: 1,
+      }),
+      makePlayer("st1", "Striker"),
+      makePlayer("st2", "Striker"),
+    ];
+
+    const ids = buildStartingXIIds(
+      available,
+      ["gk", "rb", "cb1", "cb2", "lb", "rm", "cm1", "cm2", "lm", "st1", "st2"],
+      "4-4-2",
+    );
+
+    expect(ids).toEqual([
+      "gk",
+      "lb",
+      "cb1",
+      "cb2",
+      "rb",
+      "lm",
+      "cm1",
+      "cm2",
+      "rm",
+      "st1",
+      "st2",
+    ]);
   });
 
   it("swaps XI players when dragging from one slot to another", () => {

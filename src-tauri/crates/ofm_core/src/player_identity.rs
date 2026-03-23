@@ -1,4 +1,5 @@
 use crate::game::Game;
+use crate::player_rating::{canonicalize_saved_xi_ids, formation_slots};
 use domain::player::{Footedness, Player, Position};
 use std::collections::HashMap;
 
@@ -41,15 +42,25 @@ pub fn upgrade_player_identity(player: &mut Player, assigned_slot: Option<&Posit
 fn needs_identity_upgrade(player: &Player) -> bool {
     player.position.is_legacy_bucket()
         || player.natural_position.is_legacy_bucket()
-        || player.alternate_positions.iter().any(Position::is_legacy_bucket)
+        || player
+            .alternate_positions
+            .iter()
+            .any(Position::is_legacy_bucket)
 }
 
 fn build_assigned_slot_map(game: &Game) -> HashMap<String, Position> {
     let mut slot_map = HashMap::new();
 
     for team in &game.teams {
+        let team_players: Vec<&Player> = game
+            .players
+            .iter()
+            .filter(|player| player.team_id.as_deref() == Some(team.id.as_str()))
+            .collect();
+        let normalized_xi_ids =
+            canonicalize_saved_xi_ids(&team.starting_xi_ids, &team.formation, &team_players);
         let slots = formation_slots(&team.formation);
-        for (index, player_id) in team.starting_xi_ids.iter().enumerate() {
+        for (index, player_id) in normalized_xi_ids.iter().enumerate() {
             if let Some(slot) = slots.get(index) {
                 slot_map.insert(player_id.clone(), slot.clone());
             }
@@ -57,107 +68,6 @@ fn build_assigned_slot_map(game: &Game) -> HashMap<String, Position> {
     }
 
     slot_map
-}
-
-fn formation_slots(formation: &str) -> Vec<Position> {
-    let parts: Vec<usize> = formation
-        .split('-')
-        .filter_map(|part| part.parse::<usize>().ok())
-        .collect();
-
-    match parts.as_slice() {
-        [defenders, midfielders, forwards] => {
-            let mut slots = vec![Position::Goalkeeper];
-            slots.extend(defender_line(*defenders));
-            slots.extend(midfield_line(*midfielders));
-            slots.extend(forward_line(*forwards));
-            slots
-        }
-        [defenders, deep_midfielders, attacking_midfielders, forwards] => {
-            let mut slots = vec![Position::Goalkeeper];
-            slots.extend(defender_line(*defenders));
-            slots.extend(deep_midfield_line(*deep_midfielders));
-            slots.extend(attacking_midfield_line(*attacking_midfielders));
-            slots.extend(forward_line(*forwards));
-            slots
-        }
-        _ => formation_slots("4-4-2"),
-    }
-}
-
-fn defender_line(count: usize) -> Vec<Position> {
-    match count {
-        3 => vec![Position::CenterBack, Position::CenterBack, Position::CenterBack],
-        4 => vec![
-            Position::RightBack,
-            Position::CenterBack,
-            Position::CenterBack,
-            Position::LeftBack,
-        ],
-        5 => vec![
-            Position::RightWingBack,
-            Position::CenterBack,
-            Position::CenterBack,
-            Position::CenterBack,
-            Position::LeftWingBack,
-        ],
-        _ => vec![Position::CenterBack; count],
-    }
-}
-
-fn midfield_line(count: usize) -> Vec<Position> {
-    match count {
-        2 => vec![Position::CentralMidfielder, Position::CentralMidfielder],
-        3 => vec![
-            Position::CentralMidfielder,
-            Position::CentralMidfielder,
-            Position::CentralMidfielder,
-        ],
-        4 => vec![
-            Position::RightMidfielder,
-            Position::CentralMidfielder,
-            Position::CentralMidfielder,
-            Position::LeftMidfielder,
-        ],
-        5 => vec![
-            Position::RightMidfielder,
-            Position::CentralMidfielder,
-            Position::CentralMidfielder,
-            Position::CentralMidfielder,
-            Position::LeftMidfielder,
-        ],
-        _ => vec![Position::CentralMidfielder; count],
-    }
-}
-
-fn deep_midfield_line(count: usize) -> Vec<Position> {
-    match count {
-        1 => vec![Position::DefensiveMidfielder],
-        2 => vec![Position::DefensiveMidfielder, Position::DefensiveMidfielder],
-        _ => vec![Position::DefensiveMidfielder; count],
-    }
-}
-
-fn attacking_midfield_line(count: usize) -> Vec<Position> {
-    match count {
-        1 => vec![Position::AttackingMidfielder],
-        2 => vec![Position::AttackingMidfielder, Position::AttackingMidfielder],
-        3 => vec![
-            Position::RightMidfielder,
-            Position::AttackingMidfielder,
-            Position::LeftMidfielder,
-        ],
-        _ => vec![Position::AttackingMidfielder; count],
-    }
-}
-
-fn forward_line(count: usize) -> Vec<Position> {
-    match count {
-        1 => vec![Position::Striker],
-        2 => vec![Position::Striker, Position::Striker],
-        3 => vec![Position::RightWinger, Position::Striker, Position::LeftWinger],
-        _ => vec![Position::Striker; count],
-    }
 }
 
 fn infer_natural_position(player: &Player, assigned_slot: Option<&Position>) -> Position {
@@ -270,19 +180,61 @@ fn candidate_alternate_positions(
 ) -> Vec<Position> {
     let mut candidates = match natural_position {
         Position::Goalkeeper => vec![],
-        Position::RightBack => vec![Position::RightWingBack, Position::CenterBack, Position::LeftBack],
-        Position::CenterBack => vec![Position::RightBack, Position::LeftBack, Position::DefensiveMidfielder],
-        Position::LeftBack => vec![Position::LeftWingBack, Position::CenterBack, Position::RightBack],
-        Position::RightWingBack => vec![Position::RightBack, Position::RightMidfielder, Position::LeftWingBack],
-        Position::LeftWingBack => vec![Position::LeftBack, Position::LeftMidfielder, Position::RightWingBack],
+        Position::RightBack => vec![
+            Position::RightWingBack,
+            Position::CenterBack,
+            Position::LeftBack,
+        ],
+        Position::CenterBack => vec![
+            Position::RightBack,
+            Position::LeftBack,
+            Position::DefensiveMidfielder,
+        ],
+        Position::LeftBack => vec![
+            Position::LeftWingBack,
+            Position::CenterBack,
+            Position::RightBack,
+        ],
+        Position::RightWingBack => vec![
+            Position::RightBack,
+            Position::RightMidfielder,
+            Position::LeftWingBack,
+        ],
+        Position::LeftWingBack => vec![
+            Position::LeftBack,
+            Position::LeftMidfielder,
+            Position::RightWingBack,
+        ],
         Position::DefensiveMidfielder => vec![Position::CentralMidfielder, Position::CenterBack],
-        Position::CentralMidfielder => vec![Position::DefensiveMidfielder, Position::AttackingMidfielder],
+        Position::CentralMidfielder => {
+            vec![Position::DefensiveMidfielder, Position::AttackingMidfielder]
+        }
         Position::AttackingMidfielder => vec![Position::CentralMidfielder, Position::Striker],
-        Position::RightMidfielder => vec![Position::RightWinger, Position::CentralMidfielder, Position::LeftMidfielder],
-        Position::LeftMidfielder => vec![Position::LeftWinger, Position::CentralMidfielder, Position::RightMidfielder],
-        Position::RightWinger => vec![Position::Striker, Position::LeftWinger, Position::RightMidfielder],
-        Position::LeftWinger => vec![Position::Striker, Position::RightWinger, Position::LeftMidfielder],
-        Position::Striker => vec![Position::AttackingMidfielder, Position::RightWinger, Position::LeftWinger],
+        Position::RightMidfielder => vec![
+            Position::RightWinger,
+            Position::CentralMidfielder,
+            Position::LeftMidfielder,
+        ],
+        Position::LeftMidfielder => vec![
+            Position::LeftWinger,
+            Position::CentralMidfielder,
+            Position::RightMidfielder,
+        ],
+        Position::RightWinger => vec![
+            Position::Striker,
+            Position::LeftWinger,
+            Position::RightMidfielder,
+        ],
+        Position::LeftWinger => vec![
+            Position::Striker,
+            Position::RightWinger,
+            Position::LeftMidfielder,
+        ],
+        Position::Striker => vec![
+            Position::AttackingMidfielder,
+            Position::RightWinger,
+            Position::LeftWinger,
+        ],
         Position::Defender => vec![Position::CenterBack],
         Position::Midfielder => vec![Position::CentralMidfielder],
         Position::Forward => vec![Position::Striker],
@@ -297,7 +249,11 @@ fn candidate_alternate_positions(
     candidates
 }
 
-fn infer_footedness(player: &Player, natural_position: &Position, assigned_slot: Option<&Position>) -> Footedness {
+fn infer_footedness(
+    player: &Player,
+    natural_position: &Position,
+    assigned_slot: Option<&Position>,
+) -> Footedness {
     if let Some(side_foot) = side_foot_from_position(natural_position) {
         return side_foot;
     }
@@ -318,7 +274,11 @@ fn infer_footedness(player: &Player, natural_position: &Position, assigned_slot:
     }
 }
 
-fn infer_weak_foot(player: &Player, alternate_positions: &[Position], footedness: Footedness) -> u8 {
+fn infer_weak_foot(
+    player: &Player,
+    alternate_positions: &[Position],
+    footedness: Footedness,
+) -> u8 {
     if footedness == Footedness::Both {
         return 5;
     }
@@ -438,7 +398,11 @@ fn score_position(player: &Player, position: &Position) -> i32 {
 }
 
 fn weighted_sum(values: &[(u8, i32)]) -> i32 {
-    values.iter().map(|(value, weight)| *value as i32 * *weight).sum::<i32>() / 100
+    values
+        .iter()
+        .map(|(value, weight)| *value as i32 * *weight)
+        .sum::<i32>()
+        / 100
 }
 
 fn average(values: &[u8]) -> i32 {
@@ -599,14 +563,14 @@ mod tests {
         team.formation = "4-4-2".to_string();
         team.starting_xi_ids = vec![
             "p-gk".to_string(),
-            "p-rb".to_string(),
+            "p-lb".to_string(),
             "p-cb1".to_string(),
             "p-cb2".to_string(),
-            "p-lb".to_string(),
-            "p-rm".to_string(),
+            "p-rb".to_string(),
+            "p-lm".to_string(),
             "p-cm1".to_string(),
             "p-cm2".to_string(),
-            "p-lm".to_string(),
+            "p-rm".to_string(),
             "p-st1".to_string(),
             "p-st2".to_string(),
         ];

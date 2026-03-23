@@ -372,7 +372,7 @@ export default function PlayerProfile({
 
       if (!delegatedCase) {
         setRenewalStatus("error");
-        setRenewalError("Assistant report did not include this player.");
+        setRenewalError(t("playerProfile.renewalDelegateMissingReport"));
         return;
       }
 

@@ -19,7 +19,11 @@ import DashboardHeader, {
 import DashboardMatchConfirmModal from "../components/dashboard/DashboardMatchConfirmModal";
 import DashboardSidebar from "../components/dashboard/DashboardSidebar";
 import DashboardTabContent from "../components/dashboard/DashboardTabContent";
-import { isOnboardingPageTab } from "../components/HomeTab.helpers";
+import {
+  isOnboardingPageTab,
+  loadVisitedOnboardingTabs,
+  saveVisitedOnboardingTabs,
+} from "../components/HomeTab.helpers";
 import {
   getDashboardAlerts,
   getDashboardSearchResults,
@@ -138,7 +142,20 @@ export default function Dashboard(): JSX.Element {
   ]);
 
   useEffect(() => {
+    if (!gameState) {
+      setVisitedOnboardingTabs(new Set<string>());
+      return;
+    }
+
+    setVisitedOnboardingTabs(loadVisitedOnboardingTabs(gameState));
+  }, [gameState]);
+
+  useEffect(() => {
     if (!isOnboardingPageTab(activeTab)) {
+      return;
+    }
+
+    if (!gameState) {
       return;
     }
 
@@ -149,9 +166,10 @@ export default function Dashboard(): JSX.Element {
 
       const nextTabs = new Set(currentTabs);
       nextTabs.add(activeTab);
+      saveVisitedOnboardingTabs(gameState, nextTabs);
       return nextTabs;
     });
-  }, [activeTab]);
+  }, [activeTab, gameState]);
 
   const seasonComplete = isLeagueSeasonComplete(gameState?.league);
 
