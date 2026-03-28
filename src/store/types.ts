@@ -290,7 +290,33 @@ export interface FixtureData {
     away_goals: number;
     home_scorers: { player_id: string; minute: number }[];
     away_scorers: { player_id: string; minute: number }[];
+    report?: CompactMatchReportData | null;
   };
+}
+
+export interface CompactMatchEventData {
+  minute: number;
+  event_type: string;
+  side: "Home" | "Away";
+  player_id: string | null;
+  secondary_player_id: string | null;
+}
+
+export interface CompactTeamMatchStatsData {
+  possession_pct: number;
+  shots: number;
+  shots_on_target: number;
+  fouls: number;
+  corners: number;
+  yellow_cards: number;
+  red_cards: number;
+}
+
+export interface CompactMatchReportData {
+  total_minutes: number;
+  home_stats: CompactTeamMatchStatsData;
+  away_stats: CompactTeamMatchStatsData;
+  events: CompactMatchEventData[];
 }
 
 export interface StandingData {

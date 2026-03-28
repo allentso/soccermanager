@@ -283,6 +283,7 @@ fn bench_complaint_after_5_missed_matches() {
                     minute: 45,
                 }],
                 away_scorers: vec![],
+                report: None,
             }),
         })
         .collect();
@@ -337,6 +338,7 @@ fn bench_complaint_not_for_gk() {
                 away_goals: 0,
                 home_scorers: vec![],
                 away_scorers: vec![],
+                report: None,
             }),
         })
         .collect();
@@ -380,6 +382,7 @@ fn bench_complaint_not_with_fewer_than_5_fixtures() {
                 away_goals: 0,
                 home_scorers: vec![],
                 away_scorers: vec![],
+                report: None,
             }),
         })
         .collect();

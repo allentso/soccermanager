@@ -455,6 +455,7 @@ mod tests {
                 away_goals,
                 home_scorers: vec![],
                 away_scorers: vec![],
+                report: None,
             }),
         }
     }

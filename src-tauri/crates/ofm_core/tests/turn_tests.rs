@@ -436,6 +436,13 @@ fn apply_match_report_updates_fixture_status() {
     let result = fixture.result.as_ref().unwrap();
     assert_eq!(result.home_goals, 2);
     assert_eq!(result.away_goals, 1);
+    let persisted_report = result
+        .report
+        .as_ref()
+        .expect("compact report should persist");
+    assert_eq!(persisted_report.total_minutes, 90);
+    assert_eq!(persisted_report.home_stats.possession_pct, 50);
+    assert_eq!(persisted_report.away_stats.possession_pct, 50);
 }
 
 #[test]
@@ -1248,6 +1255,7 @@ fn make_round_summary_game() -> Game {
                         player_id: "t2_fwd0".to_string(),
                         minute: 77,
                     }],
+                    report: None,
                 }),
             },
             Fixture {
@@ -1272,6 +1280,7 @@ fn make_round_summary_game() -> Game {
                         },
                     ],
                     away_scorers: vec![],
+                    report: None,
                 }),
             },
         ],

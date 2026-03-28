@@ -1124,6 +1124,8 @@
     "otherMatches": "Outros Jogos",
     "otherMatchesToday": "Outros Jogos de Hoje",
     "otherMatchesUnavailable": "O contexto dos outros jogos ainda não está disponível para este encontro.",
+    "viewDetails": "Ver detalhes",
+    "matchDetails": "Detalhes do Jogo",
     "scorers": "Marcadores",
     "noGoals": "Sem golos marcados.",
     "matchComplete": "Jogo completo.",

@@ -43,12 +43,42 @@ pub struct MatchResult {
     pub away_goals: u8,
     pub home_scorers: Vec<GoalEvent>,
     pub away_scorers: Vec<GoalEvent>,
+    #[serde(default)]
+    pub report: Option<CompactMatchReport>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GoalEvent {
     pub player_id: String,
     pub minute: u8,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct CompactMatchReport {
+    pub total_minutes: u8,
+    pub home_stats: CompactTeamMatchStats,
+    pub away_stats: CompactTeamMatchStats,
+    pub events: Vec<CompactMatchEvent>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct CompactTeamMatchStats {
+    pub possession_pct: u8,
+    pub shots: u16,
+    pub shots_on_target: u16,
+    pub fouls: u16,
+    pub corners: u16,
+    pub yellow_cards: u8,
+    pub red_cards: u8,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct CompactMatchEvent {
+    pub minute: u8,
+    pub event_type: String,
+    pub side: String,
+    pub player_id: Option<String>,
+    pub secondary_player_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

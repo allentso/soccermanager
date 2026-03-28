@@ -288,6 +288,7 @@ fn check_random_events_board_confidence_triggers_on_losses() {
                     away_goals: 2,
                     home_scorers: vec![],
                     away_scorers: vec![],
+                    report: None,
                 }),
             },
             Fixture {
@@ -303,6 +304,7 @@ fn check_random_events_board_confidence_triggers_on_losses() {
                     away_goals: 1,
                     home_scorers: vec![],
                     away_scorers: vec![],
+                    report: None,
                 }),
             },
             Fixture {
@@ -318,6 +320,7 @@ fn check_random_events_board_confidence_triggers_on_losses() {
                     away_goals: 1,
                     home_scorers: vec![],
                     away_scorers: vec![],
+                    report: None,
                 }),
             },
         ],
@@ -363,6 +366,7 @@ fn check_random_events_board_confidence_no_trigger_without_losses() {
                     away_goals: 0,
                     home_scorers: vec![],
                     away_scorers: vec![],
+                    report: None,
                 }),
             },
             Fixture {
@@ -378,6 +382,7 @@ fn check_random_events_board_confidence_no_trigger_without_losses() {
                     away_goals: 1,
                     home_scorers: vec![],
                     away_scorers: vec![],
+                    report: None,
                 }),
             },
             Fixture {
@@ -393,6 +398,7 @@ fn check_random_events_board_confidence_no_trigger_without_losses() {
                     away_goals: 0,
                     home_scorers: vec![],
                     away_scorers: vec![],
+                    report: None,
                 }),
             },
         ],

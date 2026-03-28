@@ -76,6 +76,7 @@ fn make_completed_fixture(id: &str, home: &str, away: &str, hg: u8, ag: u8) -> F
             away_goals: ag,
             home_scorers: vec![],
             away_scorers: vec![],
+            report: None,
         }),
     }
 }
@@ -243,6 +244,7 @@ fn season_not_complete_with_truncated_completed_fixture_list() {
                     away_goals: 0,
                     home_scorers: vec![],
                     away_scorers: vec![],
+                    report: None,
                 }),
             },
             Fixture {
@@ -258,6 +260,7 @@ fn season_not_complete_with_truncated_completed_fixture_list() {
                     away_goals: 1,
                     home_scorers: vec![],
                     away_scorers: vec![],
+                    report: None,
                 }),
             },
         ];

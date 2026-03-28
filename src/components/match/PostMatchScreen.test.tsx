@@ -1,7 +1,8 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import PostMatchScreen from "./PostMatchScreen";
+import type { FixtureData, GameStateData } from "../../store/gameStore";
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(),
@@ -21,6 +22,15 @@ vi.mock("react-i18next", () => ({
       }
       if (key === "match.otherMatchesUnavailable") {
         return "Other match context unavailable for this fixture yet.";
+      }
+      if (key === "match.viewDetails") {
+        return "View details";
+      }
+      if (key === "match.matchDetails") {
+        return "Match Details";
+      }
+      if (key === "common.close") {
+        return "Close";
       }
       if (key === "match.roundSummaryUnavailable") {
         return "Round summary unavailable.";
@@ -246,22 +256,207 @@ function makeGameState() {
         history: [],
       },
     ],
-    players: [],
+    players: [
+      {
+        id: "p1",
+        match_name: "Alice",
+        full_name: "Alice Forward",
+        date_of_birth: "2000-01-01",
+        nationality: "GB",
+        position: "Forward",
+        natural_position: "Forward",
+        alternate_positions: [],
+        training_focus: null,
+        attributes: {
+          pace: 70,
+          stamina: 70,
+          strength: 70,
+          agility: 70,
+          passing: 70,
+          shooting: 70,
+          tackling: 40,
+          dribbling: 70,
+          defending: 40,
+          positioning: 70,
+          vision: 70,
+          decisions: 70,
+          composure: 70,
+          aggression: 50,
+          teamwork: 70,
+          leadership: 60,
+          handling: 20,
+          reflexes: 20,
+          aerial: 50,
+        },
+        condition: 90,
+        morale: 70,
+        injury: null,
+        team_id: "team1",
+        contract_end: null,
+        wage: 10000,
+        market_value: 1000000,
+        stats: {
+          appearances: 0,
+          goals: 0,
+          assists: 0,
+          clean_sheets: 0,
+          avg_rating: 0,
+          minutes_played: 0,
+          yellow_cards: 0,
+          red_cards: 0,
+        },
+        form: [],
+        personality: null,
+        morale_core: {
+          base: 70,
+          confidence: 70,
+          manager_trust: 70,
+          happiness: 70,
+          pending_promise: null,
+          unresolved_issue: null,
+          last_playing_time_concern: null,
+        },
+      },
+      {
+        id: "p2",
+        match_name: "Bob",
+        full_name: "Bob Forward",
+        date_of_birth: "2000-01-01",
+        nationality: "GB",
+        position: "Forward",
+        natural_position: "Forward",
+        alternate_positions: [],
+        training_focus: null,
+        attributes: {
+          pace: 70,
+          stamina: 70,
+          strength: 70,
+          agility: 70,
+          passing: 70,
+          shooting: 70,
+          tackling: 40,
+          dribbling: 70,
+          defending: 40,
+          positioning: 70,
+          vision: 70,
+          decisions: 70,
+          composure: 70,
+          aggression: 50,
+          teamwork: 70,
+          leadership: 60,
+          handling: 20,
+          reflexes: 20,
+          aerial: 50,
+        },
+        condition: 90,
+        morale: 70,
+        injury: null,
+        team_id: "team2",
+        contract_end: null,
+        wage: 10000,
+        market_value: 1000000,
+        stats: {
+          appearances: 0,
+          goals: 0,
+          assists: 0,
+          clean_sheets: 0,
+          avg_rating: 0,
+          minutes_played: 0,
+          yellow_cards: 0,
+          red_cards: 0,
+        },
+        form: [],
+        personality: null,
+        morale_core: {
+          base: 70,
+          confidence: 70,
+          manager_trust: 70,
+          happiness: 70,
+          pending_promise: null,
+          unresolved_issue: null,
+          last_playing_time_concern: null,
+        },
+      },
+    ],
     staff: [],
     messages: [],
     news: [],
     league: null,
     scouting_assignments: [],
     board_objectives: [],
-  };
+  } as unknown as GameStateData;
+}
+
+function makeReportedFixture(id: string) {
+  return {
+    id,
+    matchday: 4,
+    date: "2026-08-01",
+    home_team_id: "team1",
+    away_team_id: "team2",
+    competition: "League" as const,
+    status: "Completed" as const,
+    result: {
+      home_goals: 2,
+      away_goals: 1,
+      home_scorers: [{ player_id: "p1", minute: 12 }],
+      away_scorers: [{ player_id: "p2", minute: 68 }],
+      report: {
+        total_minutes: 90,
+        home_stats: {
+          possession_pct: 54,
+          shots: 13,
+          shots_on_target: 6,
+          fouls: 8,
+          corners: 5,
+          yellow_cards: 1,
+          red_cards: 0,
+        },
+        away_stats: {
+          possession_pct: 46,
+          shots: 9,
+          shots_on_target: 4,
+          fouls: 11,
+          corners: 3,
+          yellow_cards: 2,
+          red_cards: 0,
+        },
+        events: [
+          {
+            minute: 12,
+            event_type: "Goal",
+            side: "Home" as const,
+            player_id: "p1",
+            secondary_player_id: null,
+          },
+          {
+            minute: 68,
+            event_type: "Goal",
+            side: "Away" as const,
+            player_id: "p2",
+            secondary_player_id: null,
+          },
+        ],
+      },
+    },
+  } as FixtureData;
 }
 
 describe("PostMatchScreen", function (): void {
   it("renders the round summary mini table and scorer list when summary data exists", function (): void {
+    const gameState = makeGameState();
+    gameState.league = {
+      id: "league-1",
+      name: "League",
+      season: 1,
+      fixtures: [makeReportedFixture("fx1")],
+      standings: [],
+    };
+
     render(
       <PostMatchScreen
         snapshot={makeSnapshot()}
-        gameState={makeGameState()}
+        gameState={gameState}
         currentFixture={{
           id: "fixture-1",
           matchday: 4,
@@ -328,8 +523,72 @@ describe("PostMatchScreen", function (): void {
 
     expect(screen.getByText("Matchday 4")).toBeInTheDocument();
     expect(screen.getByText("Alpha FC 2 - 1 Beta FC")).toBeInTheDocument();
+    expect(screen.getByText("Alice 12' • Bob 68'")).toBeInTheDocument();
+    expect(screen.getByText("View details")).toBeInTheDocument();
     expect(screen.getByText("1. Alpha FC")).toBeInTheDocument();
     expect(screen.getByText("1. Alice")).toBeInTheDocument();
+  });
+
+  it("opens a read-only detail modal for another completed fixture", function (): void {
+    const gameState = makeGameState();
+    gameState.league = {
+      id: "league-1",
+      name: "League",
+      season: 1,
+      fixtures: [makeReportedFixture("fx1")],
+      standings: [],
+    };
+
+    render(
+      <PostMatchScreen
+        snapshot={makeSnapshot()}
+        gameState={gameState}
+        currentFixture={{
+          id: "fixture-1",
+          matchday: 4,
+          date: "2026-08-01",
+          home_team_id: "team1",
+          away_team_id: "team2",
+          competition: "League",
+          status: "Completed",
+          result: null,
+        }}
+        userSide="Home"
+        isSpectator={false}
+        importantEvents={[]}
+        roundSummary={{
+          matchday: 4,
+          is_complete: true,
+          pending_fixture_count: 0,
+          completed_results: [
+            {
+              fixture_id: "fx1",
+              home_team_id: "team1",
+              home_team_name: "Alpha FC",
+              away_team_id: "team2",
+              away_team_name: "Beta FC",
+              home_goals: 2,
+              away_goals: 1,
+            },
+          ],
+          standings_delta: [],
+          notable_upset: null,
+          top_scorer_delta: [],
+        }}
+        onPressConference={() => {}}
+        onFinish={() => {}}
+      />,
+    );
+
+    fireEvent.click(screen.getByText("View details"));
+
+    expect(screen.getByText("Match Details")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("Alpha FC 2 - 1 Beta FC").length,
+    ).toBeGreaterThan(0);
+    expect(screen.getAllByText("Alice").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("12'").length).toBeGreaterThan(0);
+    expect(screen.getByText("Close")).toBeInTheDocument();
   });
 
   it("renders a friendly empty state when the round summary is null", function (): void {

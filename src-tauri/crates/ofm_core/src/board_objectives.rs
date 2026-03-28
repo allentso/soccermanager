@@ -441,6 +441,7 @@ mod tests {
                     away_goals: 1,
                     home_scorers: vec![],
                     away_scorers: vec![],
+                    report: None,
                 }),
             },
             Fixture {
@@ -456,6 +457,7 @@ mod tests {
                     away_goals: 3,
                     home_scorers: vec![],
                     away_scorers: vec![],
+                    report: None,
                 }),
             },
         ];
@@ -498,6 +500,7 @@ mod tests {
                     away_goals,
                     home_scorers: vec![],
                     away_scorers: vec![],
+                    report: None,
                 }),
             }
         };
@@ -646,6 +649,7 @@ mod tests {
             away_goals: 1,
             home_scorers: vec![],
             away_scorers: vec![],
+            report: None,
         });
         game.league = Some(league);
 

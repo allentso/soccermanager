@@ -249,6 +249,7 @@ mod tests {
                         minute: 23,
                     }],
                     away_scorers: vec![],
+                    report: None,
                 }),
             },
         ];

@@ -1,10 +1,62 @@
 use crate::game::Game;
 use crate::messages;
-use domain::league::{FixtureStatus, GoalEvent, MatchResult};
+use domain::league::{
+    CompactMatchEvent, CompactMatchReport, CompactTeamMatchStats, FixtureStatus, GoalEvent,
+    MatchResult,
+};
 use domain::player::{
     PlayerIssue, PlayerIssueCategory, PlayerPromiseKind, Position as DomainPosition,
 };
 use log::debug;
+
+fn compact_team_stats(stats: &engine::TeamStats, possession_pct: u8) -> CompactTeamMatchStats {
+    CompactTeamMatchStats {
+        possession_pct,
+        shots: stats.shots,
+        shots_on_target: stats.shots_on_target,
+        fouls: stats.fouls,
+        corners: stats.corners,
+        yellow_cards: stats.yellow_cards,
+        red_cards: stats.red_cards,
+    }
+}
+
+fn compact_match_report(report: &engine::MatchReport) -> CompactMatchReport {
+    let home_possession_pct = report.home_possession.round().clamp(0.0, 100.0) as u8;
+    let away_possession_pct = (100.0 - report.home_possession).round().clamp(0.0, 100.0) as u8;
+
+    let events = report
+        .events
+        .iter()
+        .filter(|event| {
+            matches!(
+                event.event_type,
+                engine::EventType::Goal
+                    | engine::EventType::PenaltyGoal
+                    | engine::EventType::PenaltyMiss
+                    | engine::EventType::YellowCard
+                    | engine::EventType::RedCard
+                    | engine::EventType::SecondYellow
+                    | engine::EventType::Injury
+                    | engine::EventType::Substitution
+            )
+        })
+        .map(|event| CompactMatchEvent {
+            minute: event.minute,
+            event_type: format!("{:?}", event.event_type),
+            side: format!("{:?}", event.side),
+            player_id: event.player_id.clone(),
+            secondary_player_id: event.secondary_player_id.clone(),
+        })
+        .collect();
+
+    CompactMatchReport {
+        total_minutes: report.total_minutes,
+        home_stats: compact_team_stats(&report.home_stats, home_possession_pct),
+        away_stats: compact_team_stats(&report.away_stats, away_possession_pct),
+        events,
+    }
+}
 
 /// Apply a completed match report to the game state: update fixture, standings,
 /// player stats, stamina, and generate messages. Public so Tauri can call it
@@ -45,6 +97,7 @@ pub fn apply_match_report(
         away_goals: report.away_goals,
         home_scorers,
         away_scorers,
+        report: Some(compact_match_report(report)),
     };
     let mut counts_for_standings = false;
 

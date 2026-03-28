@@ -2,6 +2,7 @@ import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useTranslation } from "react-i18next";
 import { FixtureData, GameStateData } from "../../store/gameStore";
+import type { CompactMatchEventData } from "../../store/types";
 import {
   MatchSnapshot,
   MatchEvent,
@@ -54,6 +55,9 @@ export default function PostMatchScreen({
   const teamTalkOptions = getTeamTalkOptions(t);
   const [selectedTalk, setSelectedTalk] = useState<TeamTalkTone | null>(null);
   const [talkDelivered, setTalkDelivered] = useState(false);
+  const [selectedOtherFixtureId, setSelectedOtherFixtureId] = useState<
+    string | null
+  >(null);
   const [talkResults, setTalkResults] = useState<
     {
       player_id: string;
@@ -84,16 +88,141 @@ export default function PostMatchScreen({
   const summaryTitle = isLeagueFixture
     ? t("match.roundSummary")
     : t("match.otherMatches");
-  const summaryContextLabel = roundSummary
-    ? isLeagueFixture
+  const summaryContextLabel = isLeagueFixture
+    ? roundSummary
       ? t("schedule.matchday", {
           number: roundSummary.matchday,
         })
-      : t("match.otherMatchesToday")
-    : null;
+      : null
+    : currentFixture
+      ? t("match.otherMatchesToday")
+      : null;
   const summaryEmptyState = isLeagueFixture
     ? t("match.roundSummaryUnavailable")
     : t("match.otherMatchesUnavailable");
+  const shouldRenderSummaryBody = isLeagueFixture
+    ? roundSummary !== null
+    : currentFixture !== null;
+  const getTeamNameById = (teamId: string) =>
+    gameState.teams.find((team) => team.id === teamId)?.name || teamId;
+  const getTeamShortName = (teamId: string, fallbackName: string) =>
+    gameState.teams.find((team) => team.id === teamId)?.short_name ||
+    fallbackName.substring(0, 3).toUpperCase();
+  const getPlayerDisplayName = (playerId: string | null | undefined) => {
+    if (!playerId) return t("common.unknown");
+
+    return (
+      gameState.players.find((player) => player.id === playerId)?.match_name ||
+      playerId
+    );
+  };
+  const getFixtureReport = (fixture: FixtureData | null | undefined) =>
+    fixture?.result?.report || null;
+  const formatOtherMatchScorers = (fixture: FixtureData) => {
+    if (!fixture.result) {
+      return null;
+    }
+
+    const scorers = [
+      ...fixture.result.home_scorers,
+      ...fixture.result.away_scorers,
+    ]
+      .sort((left, right) => left.minute - right.minute)
+      .map(
+        (scorer) =>
+          `${getPlayerDisplayName(scorer.player_id)} ${scorer.minute}'`,
+      );
+
+    if (scorers.length === 0) {
+      return null;
+    }
+
+    return scorers.slice(0, 3).join(" • ");
+  };
+  const formatOtherMatchStats = (fixture: FixtureData) => {
+    const report = getFixtureReport(fixture);
+    if (!report) {
+      return null;
+    }
+
+    const totalYellowCards =
+      report.home_stats.yellow_cards + report.away_stats.yellow_cards;
+
+    return [
+      `${report.home_stats.possession_pct}-${report.away_stats.possession_pct} ${t("match.possession")}`,
+      `${report.home_stats.shots + report.away_stats.shots} ${t("match.shots")}`,
+      `${totalYellowCards} ${t("match.yellowCards")}`,
+    ].join(" • ");
+  };
+  const formatOtherMatchEvent = (event: CompactMatchEventData) => {
+    const primaryPlayer = getPlayerDisplayName(event.player_id);
+
+    switch (event.event_type) {
+      case "Goal":
+        return event.secondary_player_id
+          ? `${primaryPlayer} (${t("match.assist", {
+              name: getPlayerDisplayName(event.secondary_player_id),
+            })})`
+          : primaryPlayer;
+      case "PenaltyGoal":
+        return `${primaryPlayer} (P)`;
+      case "PenaltyMiss":
+        return `${primaryPlayer} (P)`;
+      case "Substitution":
+        return `${primaryPlayer} ${t("match.subFor", {
+          name: getPlayerDisplayName(event.secondary_player_id),
+        })}`;
+      default:
+        return primaryPlayer;
+    }
+  };
+  const otherMatchEntries = isLeagueFixture
+    ? (roundSummary?.completed_results || [])
+        .filter((result) => result.fixture_id !== currentFixture?.id)
+        .map((result) => {
+          const fixture = gameState.league?.fixtures.find(
+            (candidate) => candidate.id === result.fixture_id,
+          );
+
+          if (!fixture || !fixture.result) {
+            return null;
+          }
+
+          return {
+            fixture,
+            homeTeamName: result.home_team_name,
+            awayTeamName: result.away_team_name,
+          };
+        })
+        .filter(
+          (
+            entry,
+          ): entry is {
+            fixture: FixtureData;
+            homeTeamName: string;
+            awayTeamName: string;
+          } => entry !== null,
+        )
+    : (gameState.league?.fixtures || [])
+        .filter(
+          (fixture) =>
+            fixture.id !== currentFixture?.id &&
+            fixture.status === "Completed" &&
+            fixture.result &&
+            fixture.date === currentFixture?.date &&
+            fixture.competition === currentFixture?.competition,
+        )
+        .map((fixture) => ({
+          fixture,
+          homeTeamName: getTeamNameById(fixture.home_team_id),
+          awayTeamName: getTeamNameById(fixture.away_team_id),
+        }));
+  const selectedOtherFixture = selectedOtherFixtureId
+    ? otherMatchEntries.find(
+        (entry) => entry.fixture.id === selectedOtherFixtureId,
+      )?.fixture || null
+    : null;
+  const selectedOtherFixtureReport = getFixtureReport(selectedOtherFixture);
 
   // Key events (goals, cards, subs)
   const keyEvents = importantEvents.filter((e) =>
@@ -166,10 +295,10 @@ export default function PostMatchScreen({
       <header
         className={`border-b border-navy-700 px-4 py-8 ${
           resultType === "win"
-            ? "bg-gradient-to-r from-primary-900/50 via-navy-900 to-primary-900/50"
+            ? "bg-linear-to-r from-primary-900/50 via-navy-900 to-primary-900/50"
             : resultType === "loss"
-              ? "bg-gradient-to-r from-red-900/30 via-navy-900 to-red-900/30"
-              : "bg-gradient-to-r from-navy-800 via-navy-900 to-navy-800"
+              ? "bg-linear-to-r from-red-900/30 via-navy-900 to-red-900/30"
+              : "bg-linear-to-r from-navy-800 via-navy-900 to-navy-800"
         }`}
       >
         <div className="max-w-5xl mx-auto text-center">
@@ -333,86 +462,129 @@ export default function PostMatchScreen({
                 </h3>
               </div>
 
-              {roundSummary ? (
+              {shouldRenderSummaryBody ? (
                 <div className="flex flex-col gap-4">
                   <div>
-                    <p className="text-sm font-heading font-bold text-gray-200 mb-2">
-                      {summaryContextLabel}
-                    </p>
-                    <div className="flex flex-col gap-1 text-xs text-gray-300">
-                      {roundSummary.completed_results.length > 0 ? (
-                        roundSummary.completed_results.map((result) => (
-                          <div
-                            key={result.fixture_id}
-                            className="flex items-center justify-between gap-3"
-                          >
-                            <span className="truncate">
-                              {result.home_team_name} {result.home_goals} -{" "}
-                              {result.away_goals} {result.away_team_name}
-                            </span>
-                          </div>
-                        ))
-                      ) : (
-                        <p className="text-gray-500">{t("common.none")}</p>
-                      )}
-                    </div>
-                  </div>
+                    {summaryContextLabel && (
+                      <p className="text-sm font-heading font-bold text-gray-200 mb-2">
+                        {summaryContextLabel}
+                      </p>
+                    )}
+                    <div className="flex flex-col gap-2 text-xs text-gray-300">
+                      {otherMatchEntries.length > 0 ? (
+                        otherMatchEntries.map((entry) => {
+                          const scorerSummary = formatOtherMatchScorers(
+                            entry.fixture,
+                          );
+                          const statSummary = formatOtherMatchStats(
+                            entry.fixture,
+                          );
 
-                  <div>
-                    <p className="text-[10px] font-heading font-bold uppercase tracking-widest text-gray-500 mb-2">
-                      {t("home.leagueTable")}
-                    </p>
-                    <div className="flex flex-col gap-1 text-xs">
-                      {roundSummary.standings_delta.slice(0, 5).map((entry) => (
-                        <div
-                          key={entry.team_id}
-                          className="flex items-center justify-between gap-3 text-gray-300"
-                        >
-                          <span>
-                            {entry.current_position}. {entry.team_name}
-                          </span>
-                          <span className="font-heading font-bold tabular-nums text-gray-400">
-                            {entry.points}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div>
-                    <p className="text-[10px] font-heading font-bold uppercase tracking-widest text-gray-500 mb-2">
-                      {t("home.topScorers")}
-                    </p>
-                    <div className="flex flex-col gap-1 text-xs">
-                      {roundSummary.top_scorer_delta.length > 0 ? (
-                        roundSummary.top_scorer_delta
-                          .slice(0, 5)
-                          .map((entry) => (
+                          return (
                             <div
-                              key={entry.player_id}
-                              className="flex items-center justify-between gap-3 text-gray-300"
+                              key={entry.fixture.id}
+                              className="rounded-lg bg-navy-700/40 px-3 py-2"
                             >
-                              <span className="truncate">
-                                {entry.current_rank}. {entry.player_name}
-                              </span>
-                              <span className="font-heading font-bold tabular-nums text-accent-400">
-                                {entry.current_goals}
-                              </span>
+                              <div className="flex items-center justify-between gap-3">
+                                <span className="truncate font-medium text-gray-200">
+                                  {entry.homeTeamName}{" "}
+                                  {entry.fixture.result?.home_goals} -{" "}
+                                  {entry.fixture.result?.away_goals}{" "}
+                                  {entry.awayTeamName}
+                                </span>
+                                {entry.fixture.result?.report && (
+                                  <button
+                                    onClick={() =>
+                                      setSelectedOtherFixtureId(
+                                        entry.fixture.id,
+                                      )
+                                    }
+                                    className="shrink-0 rounded-md px-2 py-1 text-[10px] font-heading font-bold uppercase tracking-widest text-accent-400 hover:bg-navy-600/60"
+                                  >
+                                    {t("match.viewDetails")}
+                                  </button>
+                                )}
+                              </div>
+                              {scorerSummary && (
+                                <p className="mt-1 text-[11px] text-gray-400">
+                                  {scorerSummary}
+                                </p>
+                              )}
+                              {statSummary && (
+                                <p className="mt-1 text-[10px] uppercase tracking-wider text-gray-500">
+                                  {statSummary}
+                                </p>
+                              )}
                             </div>
-                          ))
+                          );
+                        })
                       ) : (
-                        <p className="text-gray-500">{t("home.noGoals")}</p>
+                        <p className="text-gray-500">{summaryEmptyState}</p>
                       )}
                     </div>
                   </div>
 
-                  {roundSummary.notable_upset && (
-                    <div className="rounded-lg bg-navy-700/50 px-3 py-2 text-xs text-gray-300">
-                      {roundSummary.notable_upset.underdog_team_name}{" "}
-                      {roundSummary.notable_upset.home_goals} -{" "}
-                      {roundSummary.notable_upset.away_goals}{" "}
-                      {roundSummary.notable_upset.favorite_team_name}
-                    </div>
+                  {isLeagueFixture && roundSummary && (
+                    <>
+                      <div>
+                        <p className="text-[10px] font-heading font-bold uppercase tracking-widest text-gray-500 mb-2">
+                          {t("home.leagueTable")}
+                        </p>
+                        <div className="flex flex-col gap-1 text-xs">
+                          {roundSummary.standings_delta
+                            .slice(0, 5)
+                            .map((entry) => (
+                              <div
+                                key={entry.team_id}
+                                className="flex items-center justify-between gap-3 text-gray-300"
+                              >
+                                <span>
+                                  {entry.current_position}. {entry.team_name}
+                                </span>
+                                <span className="font-heading font-bold tabular-nums text-gray-400">
+                                  {entry.points}
+                                </span>
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+
+                      <div>
+                        <p className="text-[10px] font-heading font-bold uppercase tracking-widest text-gray-500 mb-2">
+                          {t("home.topScorers")}
+                        </p>
+                        <div className="flex flex-col gap-1 text-xs">
+                          {roundSummary.top_scorer_delta.length > 0 ? (
+                            roundSummary.top_scorer_delta
+                              .slice(0, 5)
+                              .map((entry) => (
+                                <div
+                                  key={entry.player_id}
+                                  className="flex items-center justify-between gap-3 text-gray-300"
+                                >
+                                  <span className="truncate">
+                                    {entry.current_rank}. {entry.player_name}
+                                  </span>
+                                  <span className="font-heading font-bold tabular-nums text-accent-400">
+                                    {entry.current_goals}
+                                  </span>
+                                </div>
+                              ))
+                          ) : (
+                            <p className="text-gray-500">{t("home.noGoals")}</p>
+                          )}
+                        </div>
+                      </div>
+
+                      {roundSummary.notable_upset && (
+                        <div className="rounded-lg bg-navy-700/50 px-3 py-2 text-xs text-gray-300">
+                          {roundSummary.notable_upset.underdog_team_name}{" "}
+                          {roundSummary.notable_upset.home_goals} -{" "}
+                          {roundSummary.notable_upset.away_goals}{" "}
+                          {roundSummary.notable_upset.favorite_team_name}
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               ) : (
@@ -421,7 +593,6 @@ export default function PostMatchScreen({
             </div>
           </div>
 
-          {/* Center: Post-Match Team Talk */}
           <div className="flex flex-col gap-4">
             {!isSpectator && userSide ? (
               <div className="bg-navy-800 rounded-xl border border-navy-700 p-4">
@@ -599,6 +770,143 @@ export default function PostMatchScreen({
         </div>
       </div>
 
+      {selectedOtherFixture && selectedOtherFixtureReport && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
+          <div className="w-full max-w-3xl rounded-2xl border border-navy-700 bg-navy-900 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-navy-700 px-5 py-4">
+              <div>
+                <p className="text-xs font-heading uppercase tracking-widest text-gray-500">
+                  {t("match.matchDetails")}
+                </p>
+                <p className="text-lg font-heading font-bold text-white">
+                  {getTeamNameById(selectedOtherFixture.home_team_id)}{" "}
+                  {selectedOtherFixture.result?.home_goals} -{" "}
+                  {selectedOtherFixture.result?.away_goals}{" "}
+                  {getTeamNameById(selectedOtherFixture.away_team_id)}
+                </p>
+              </div>
+              <button
+                onClick={() => setSelectedOtherFixtureId(null)}
+                className="rounded-lg px-3 py-2 text-sm font-heading font-bold uppercase tracking-wider text-gray-400 hover:bg-navy-800 hover:text-white"
+              >
+                {t("common.close")}
+              </button>
+            </div>
+
+            <div className="grid gap-5 p-5 md:grid-cols-[1.15fr_0.85fr]">
+              <div className="rounded-xl border border-navy-700 bg-navy-800 p-4">
+                <h4 className="mb-3 text-xs font-heading font-bold uppercase tracking-widest text-gray-500">
+                  {t("match.matchEvents")}
+                </h4>
+                {selectedOtherFixtureReport.events.length > 0 ? (
+                  <div className="flex max-h-96 flex-col gap-2 overflow-auto">
+                    {selectedOtherFixtureReport.events.map((event, index) => {
+                      const display = getEventDisplay({
+                        ...event,
+                        zone: "Midfield",
+                      } as MatchEvent);
+                      const sideTeamId =
+                        event.side === "Home"
+                          ? selectedOtherFixture.home_team_id
+                          : selectedOtherFixture.away_team_id;
+                      const sideFallbackName =
+                        event.side === "Home"
+                          ? getTeamNameById(selectedOtherFixture.home_team_id)
+                          : getTeamNameById(selectedOtherFixture.away_team_id);
+
+                      return (
+                        <div
+                          key={`${event.minute}-${event.event_type}-${index}`}
+                          className="flex items-center gap-2 text-xs"
+                        >
+                          <span className="w-8 text-right font-heading tabular-nums text-gray-500">
+                            {event.minute}'
+                          </span>
+                          <span>{display.icon}</span>
+                          <span
+                            className={`${display.color} flex-1 truncate font-medium`}
+                          >
+                            {formatOtherMatchEvent(event)}
+                          </span>
+                          <Badge
+                            variant={
+                              event.side === "Home" ? "primary" : "accent"
+                            }
+                            size="sm"
+                          >
+                            {getTeamShortName(sideTeamId, sideFallbackName)}
+                          </Badge>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-500">
+                    {t("match.quietMatch")}
+                  </p>
+                )}
+              </div>
+
+              <div className="flex flex-col gap-4">
+                <div className="rounded-xl border border-navy-700 bg-navy-800 p-4">
+                  <h4 className="mb-3 text-xs font-heading font-bold uppercase tracking-widest text-gray-500">
+                    {t("match.quickStats")}
+                  </h4>
+                  <QuickStat
+                    label={t("match.possession")}
+                    home={`${selectedOtherFixtureReport.home_stats.possession_pct}%`}
+                    away={`${selectedOtherFixtureReport.away_stats.possession_pct}%`}
+                    homePct={
+                      selectedOtherFixtureReport.home_stats.possession_pct
+                    }
+                  />
+                  <QuickStat
+                    label={t("match.shots")}
+                    home={selectedOtherFixtureReport.home_stats.shots}
+                    away={selectedOtherFixtureReport.away_stats.shots}
+                  />
+                  <QuickStat
+                    label={t("match.shotsOnTarget")}
+                    home={selectedOtherFixtureReport.home_stats.shots_on_target}
+                    away={selectedOtherFixtureReport.away_stats.shots_on_target}
+                  />
+                  <QuickStat
+                    label={t("match.fouls")}
+                    home={selectedOtherFixtureReport.home_stats.fouls}
+                    away={selectedOtherFixtureReport.away_stats.fouls}
+                  />
+                  <QuickStat
+                    label={t("match.corners")}
+                    home={selectedOtherFixtureReport.home_stats.corners}
+                    away={selectedOtherFixtureReport.away_stats.corners}
+                  />
+                  <QuickStat
+                    label={t("match.yellowCards")}
+                    home={selectedOtherFixtureReport.home_stats.yellow_cards}
+                    away={selectedOtherFixtureReport.away_stats.yellow_cards}
+                  />
+                </div>
+
+                <div className="rounded-xl border border-navy-700 bg-navy-800 p-4">
+                  <h4 className="mb-3 text-xs font-heading font-bold uppercase tracking-widest text-gray-500">
+                    {t("match.scorers")}
+                  </h4>
+                  {formatOtherMatchScorers(selectedOtherFixture) ? (
+                    <p className="text-xs text-gray-300">
+                      {formatOtherMatchScorers(selectedOtherFixture)}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-gray-500">
+                      {t("match.noGoals")}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Footer */}
       <footer className="bg-navy-800 border-t border-navy-700 px-6 py-4">
         <div className="max-w-5xl mx-auto flex justify-between items-center">
@@ -616,7 +924,7 @@ export default function PostMatchScreen({
             {!isSpectator && (
               <button
                 onClick={onPressConference}
-                className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 rounded-xl font-heading font-bold uppercase tracking-wider text-sm text-white shadow-lg shadow-primary-500/20 transition-all"
+                className="flex items-center gap-2 px-8 py-3 bg-linear-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 rounded-xl font-heading font-bold uppercase tracking-wider text-sm text-white shadow-lg shadow-primary-500/20 transition-all"
               >
                 {t("match.pressConference")}
                 <ChevronRight className="w-4 h-4" />
