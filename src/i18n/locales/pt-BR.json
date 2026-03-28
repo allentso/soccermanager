@@ -1369,6 +1369,19 @@
         "subject": "Temporada {{season}} — Premiação concedida",
         "body": "A diretoria confirmou um prêmio de €{{amount}} pelo seu {{position}}º lugar na liga. O valor já foi adicionado ao saldo do clube."
       },
+      "seasonReview": {
+        "subject": "Revisão da Temporada {{season}}",
+        "body": {
+          "champion": "Parabéns! {{team}} é campeão da liga! Uma conquista incrível.\n\nA diretoria está absolutamente encantada com seu desempenho. Você terminou com {{points}} pontos.\n\nEsperamos defender o título na próxima temporada.",
+          "topFour": "Uma temporada sólida para {{team}}. Você terminou em {{position}}º lugar com {{points}} pontos.\n\nA diretoria está satisfeita com a campanha. Vamos buscar o título na próxima temporada.",
+          "midTable": "{{team}} terminou a temporada em {{position}}º lugar com {{points}} pontos.\n\nUma campanha intermediária. A diretoria espera melhora na próxima temporada. Precisamos ser mais competitivos.",
+          "lowerHalf": "Uma temporada decepcionante para {{team}}. Terminar em {{position}}º lugar com apenas {{points}} pontos está abaixo das expectativas.\n\nA diretoria está preocupada. Melhorias significativas serão necessárias na próxima temporada, ou sua posição poderá ser reavaliada."
+        }
+      },
+      "newSeasonSchedule": {
+        "subject": "Temporada {{season}} — Nova Tabela Divulgada",
+        "body": "A tabela da Temporada {{season}} foi divulgada! A nova campanha começa em 4 semanas.\n\nUse este intervalo para avaliar seu elenco, fazer os ajustes necessários e se preparar para os desafios que virão.\n\nBoa sorte!"
+      },
       "fitness": {
         "critical": {
           "subject": "URGENTE: Crise de Condição Física",

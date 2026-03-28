@@ -388,14 +388,19 @@ export function getLocale(lang?: string): string {
 }
 
 function parseDateInput(dateStr: string): Date | null {
-  const value = /^\d{4}-\d{2}-\d{2}$/.test(dateStr)
-    ? new Date(`${dateStr}T00:00:00`)
-    : new Date(dateStr);
-
+  // Always extract just the YYYY-MM-DD portion so that RFC3339 timestamps from
+  // the backend (e.g. "2026-09-12T00:00:00Z") and plain date strings
+  // (e.g. "2026-09-12") are treated as the same calendar day regardless of the
+  // viewer's timezone.  Using local noon (T12:00:00) avoids any date-rollover
+  // for UTC offsets between -12 and +14.
+  const dateOnly = dateStr.substring(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateOnly)) {
+    return null;
+  }
+  const value = new Date(`${dateOnly}T12:00:00`);
   if (Number.isNaN(value.getTime())) {
     return null;
   }
-
   return value;
 }
 

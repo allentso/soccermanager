@@ -1369,6 +1369,19 @@
         "subject": "Saison {{season}} — Prime attribuée",
         "body": "Le conseil a confirmé une prime de €{{amount}} pour votre {{position}}e place en championnat. Le montant a été ajouté au solde du club."
       },
+      "seasonReview": {
+        "subject": "Bilan de la Saison {{season}}",
+        "body": {
+          "champion": "Félicitations ! {{team}} est champion de la ligue ! Une réalisation incroyable.\n\nLe conseil d'administration est absolument ravi de vos performances. Vous avez terminé avec {{points}} points.\n\nNous espérons défendre le titre la saison prochaine.",
+          "topFour": "Une solide saison pour {{team}}. Vous avez terminé à la {{position}}e place avec {{points}} points.\n\nLe conseil est satisfait de la campagne. Visons le titre la saison prochaine.",
+          "midTable": "{{team}} a terminé la saison à la {{position}}e place avec {{points}} points.\n\nUne saison de milieu de tableau. Le conseil attend des améliorations la saison prochaine. Nous devons être plus compétitifs.",
+          "lowerHalf": "Une saison décevante pour {{team}}. Terminer à la {{position}}e place avec seulement {{points}} points est en dessous des attentes.\n\nLe conseil est préoccupé. Des améliorations significatives seront nécessaires la saison prochaine, sinon votre poste pourrait être remis en question."
+        }
+      },
+      "newSeasonSchedule": {
+        "subject": "Saison {{season}} — Nouveau Calendrier Publié",
+        "body": "Le calendrier de la Saison {{season}} a été publié ! La nouvelle campagne commence dans 4 semaines.\n\nProfitez de cette pause pour évaluer votre effectif, effectuer les changements nécessaires et vous préparer aux défis à venir.\n\nBonne chance !"
+      },
       "fitness": {
         "critical": {
           "subject": "URGENT : Crise de Forme Physique de l'Effectif",

@@ -129,9 +129,7 @@ fn weekly_digest_suffix(game: &Game) -> String {
 }
 
 fn season_has_started(league: &League) -> bool {
-    league.fixtures.iter().any(|fixture| {
-        fixture.counts_for_league_standings() && fixture.status == FixtureStatus::Completed
-    }) || league.standings.iter().any(|entry| entry.played > 0)
+    crate::end_of_season::season_has_started(league)
 }
 
 fn title_race_is_newsworthy(leader: &StandingEntry, challenger: &StandingEntry) -> bool {

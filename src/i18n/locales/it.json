@@ -1319,6 +1319,19 @@
           "subject": "Stagione {{season}} — Premio assegnato",
           "body": "Il consiglio ha confermato un premio di €{{amount}} per il tuo {{position}}º posto in campionato. L'importo è stato aggiunto al saldo del club."
         },
+        "seasonReview": {
+          "subject": "Bilancio della Stagione {{season}}",
+          "body": {
+            "champion": "Congratulazioni! {{team}} è campione della lega! Un risultato incredibile.\n\nIl consiglio è assolutamente soddisfatto delle tue prestazioni. Hai terminato con {{points}} punti.\n\nNon vediamo l'ora di difendere il titolo la prossima stagione.",
+            "topFour": "Una stagione solida per {{team}}. Hai terminato al {{position}}º posto con {{points}} punti.\n\nIl consiglio è soddisfatto della campagna. Puntiamo al titolo la prossima stagione.",
+            "midTable": "{{team}} ha terminato la stagione al {{position}}º posto con {{points}} punti.\n\nUn piazzamento a metà classifica. Il consiglio si aspetta miglioramenti la prossima stagione. Dobbiamo essere più competitivi.",
+            "lowerHalf": "Una stagione deludente per {{team}}. Terminare al {{position}}º posto con soli {{points}} punti è al di sotto delle aspettative.\n\nIl consiglio è preoccupato. Saranno necessari miglioramenti significativi nella prossima stagione, altrimenti la tua posizione potrebbe essere messa in discussione."
+          }
+        },
+        "newSeasonSchedule": {
+          "subject": "Stagione {{season}} — Nuovo Calendario Pubblicato",
+          "body": "Il calendario della Stagione {{season}} è stato pubblicato! La nuova campagna inizia tra 4 settimane.\n\nUsa questa pausa per valutare la tua rosa, apportare le modifiche necessarie e prepararti alle sfide che ti attendono.\n\nIn bocca al lupo!"
+        },
         "fitness": {
           "critical": {
             "subject": "URGENTE: Crisi di condizione della rosa",

@@ -1369,6 +1369,19 @@
         "subject": "Season {{season}} Prize Money Awarded",
         "body": "The board has confirmed a prize payout of €{{amount}} for your {{position}}-place league finish. The amount has been added to the club balance."
       },
+      "seasonReview": {
+        "subject": "Season {{season}} Review",
+        "body": {
+          "champion": "Congratulations! {{team}} are league champions! What an incredible achievement.\n\nThe board is absolutely delighted with your performance. You finished on {{points}} points.\n\nWe look forward to defending the title next season.",
+          "topFour": "A solid season for {{team}}. You finished in {{position}}{{suffix}} place with {{points}} points.\n\nThe board is satisfied with the campaign. Let's push for the title next season.",
+          "midTable": "{{team}} finished the season in {{position}}{{suffix}} place with {{points}} points.\n\nA mid-table finish. The board expects improvement next season. We need to be more competitive.",
+          "lowerHalf": "A disappointing season for {{team}}. Finishing {{position}}{{suffix}} with only {{points}} points is below expectations.\n\nThe board is concerned. Significant improvement will be needed next season, or your position may come under review."
+        }
+      },
+      "newSeasonSchedule": {
+        "subject": "Season {{season}} — New Schedule Released",
+        "body": "The schedule for Season {{season}} has been released! The new campaign kicks off in 4 weeks.\n\nUse this break to assess your squad, make any necessary changes, and prepare for the challenges ahead.\n\nGood luck!"
+      },
       "fitness": {
         "critical": {
           "subject": "URGENT: Squad Fitness Crisis",

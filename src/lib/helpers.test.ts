@@ -424,3 +424,84 @@ describe("formatDateShort", () => {
     expect(result).not.toMatch(/2026/);
   });
 });
+
+// ---------------------------------------------------------------------------
+// parseDateInput consistency — timezone safety
+// ---------------------------------------------------------------------------
+
+describe("date parsing timezone consistency", () => {
+  // The game clock is serialized as a UTC RFC3339 string (e.g. "2026-09-12T00:00:00Z").
+  // Message dates are stored as YYYY-MM-DD strings (e.g. "2026-09-12").
+  // Both representations of the same calendar day must render identically in all
+  // timezones — otherwise the game header and inbox message dates can disagree.
+
+  it("renders YYYY-MM-DD and UTC midnight RFC3339 for the same day identically", () => {
+    const plain = formatDateFull("2026-09-12", "en");
+    const utcMidnight = formatDateFull("2026-09-12T00:00:00Z", "en");
+    expect(plain).toBe(utcMidnight);
+  });
+
+  it("renders YYYY-MM-DD and RFC3339 with positive UTC offset for the same day identically", () => {
+    const plain = formatDateFull("2026-09-12", "en");
+    const withOffset = formatDateFull("2026-09-12T00:00:00+03:00", "en");
+    expect(plain).toBe(withOffset);
+  });
+
+  it("renders YYYY-MM-DD and RFC3339 with negative UTC offset for the same day identically", () => {
+    const plain = formatDateFull("2026-09-12", "en");
+    const withOffset = formatDateFull("2026-09-12T21:00:00-03:00", "en");
+    expect(plain).toBe(withOffset);
+  });
+
+  it("preserves the correct calendar day for UTC midnight dates across formats", () => {
+    // September 12, 2026 is a Saturday
+    const result = formatDateFull("2026-09-12T00:00:00Z", "en");
+    expect(result).toMatch(/Saturday/);
+    expect(result).toMatch(/September/);
+    expect(result).toMatch(/12/);
+    expect(result).toMatch(/2026/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// isSeasonComplete — new season guard (all fixtures scheduled)
+// ---------------------------------------------------------------------------
+
+describe("isSeasonComplete with unplayed season", () => {
+  // Build a full 4-team schedule where every fixture is Scheduled.
+  // isSeasonComplete must return false — a freshly generated season must not
+  // be detected as complete before a single match has been played.
+  function makeFullScheduledLeague() {
+    const teamIds = ["team_1", "team_2", "team_3", "team_4"];
+    const fixtures: FixtureData[] = [];
+    let counter = 1;
+    for (const home of teamIds) {
+      for (const away of teamIds) {
+        if (home === away) continue;
+        fixtures.push(makeFixture({
+          id: `f${counter++}`,
+          home_team_id: home,
+          away_team_id: away,
+          status: "Scheduled",
+          competition: "League",
+        }));
+      }
+    }
+    return {
+      id: "league-1",
+      name: "League",
+      season: 1,
+      fixtures,
+      standings: teamIds.map(id => ({
+        team_id: id, played: 0, won: 0, drawn: 0, lost: 0,
+        goals_for: 0, goals_against: 0, points: 0,
+      })),
+    };
+  }
+
+  it("returns false when the schedule is full but no matches have been played", () => {
+    const league = makeFullScheduledLeague();
+    expect(hasFullLeagueSchedule(league)).toBe(true);
+    expect(isSeasonComplete(league)).toBe(false);
+  });
+});

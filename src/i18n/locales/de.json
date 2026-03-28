@@ -1369,6 +1369,19 @@
         "subject": "Saison {{season}} — Preisgeld ausgezahlt",
         "body": "Der Vorstand hat eine Preisgeldzahlung in Höhe von €{{amount}} für deinen {{position}}. Tabellenplatz bestätigt. Der Betrag wurde dem Vereinskonto gutgeschrieben."
       },
+      "seasonReview": {
+        "subject": "Saisonrückblick {{season}}",
+        "body": {
+          "champion": "Herzlichen Glückwunsch! {{team}} ist Ligameister! Eine unglaubliche Leistung.\n\nDer Vorstand ist absolut begeistert von deiner Leistung. Du hast die Saison mit {{points}} Punkten abgeschlossen.\n\nWir freuen uns darauf, den Titel in der nächsten Saison zu verteidigen.",
+          "topFour": "Eine solide Saison für {{team}}. Du hast den {{position}}. Platz mit {{points}} Punkten belegt.\n\nDer Vorstand ist mit der Kampagne zufrieden. Lass uns in der nächsten Saison nach dem Titel greifen.",
+          "midTable": "{{team}} hat die Saison auf dem {{position}}. Platz mit {{points}} Punkten beendet.\n\nEin mittelmäßiges Abschneiden. Der Vorstand erwartet Verbesserungen in der nächsten Saison. Wir müssen wettbewerbsfähiger werden.",
+          "lowerHalf": "Eine enttäuschende Saison für {{team}}. Den {{position}}. Platz mit nur {{points}} Punkten zu belegen liegt unter den Erwartungen.\n\nDer Vorstand ist besorgt. In der nächsten Saison sind erhebliche Verbesserungen erforderlich, sonst könnte deine Position überprüft werden."
+        }
+      },
+      "newSeasonSchedule": {
+        "subject": "Saison {{season}} — Neuer Spielplan veröffentlicht",
+        "body": "Der Spielplan für Saison {{season}} wurde veröffentlicht! Die neue Kampagne beginnt in 4 Wochen.\n\nNutze diese Pause, um deinen Kader zu bewerten, notwendige Änderungen vorzunehmen und dich auf die kommenden Herausforderungen vorzubereiten.\n\nViel Erfolg!"
+      },
       "fitness": {
         "critical": {
           "subject": "DRINGEND: Fitness-Krise im Kader",
