@@ -93,6 +93,7 @@ const makeFixture = (overrides: Partial<FixtureData> = {}): FixtureData => ({
   date: "2026-08-01",
   home_team_id: "team_1",
   away_team_id: "team_2",
+  competition: "League",
   status: "Scheduled",
   result: null,
   ...overrides,
@@ -182,6 +183,51 @@ describe("season helpers", () => {
 
     expect(hasFullLeagueSchedule(truncatedLeague)).toBe(false);
     expect(isSeasonComplete(truncatedLeague)).toBe(false);
+  });
+
+  it("ignores friendlies when validating league schedule completeness", () => {
+    const competitiveFixtures: FixtureData[] = [];
+    let fixtureCounter = 1;
+    for (const homeTeamId of ["team_1", "team_2", "team_3", "team_4"]) {
+      for (const awayTeamId of ["team_1", "team_2", "team_3", "team_4"]) {
+        if (homeTeamId === awayTeamId) {
+          continue;
+        }
+        competitiveFixtures.push(
+          makeFixture({
+            id: `f${fixtureCounter}`,
+            home_team_id: homeTeamId,
+            away_team_id: awayTeamId,
+            status: "Completed",
+          }),
+        );
+        fixtureCounter += 1;
+      }
+    }
+
+    const leagueWithFriendly = {
+      id: "league-1",
+      name: "League",
+      season: 1,
+      fixtures: [
+        makeFixture({
+          id: "friendly-1",
+          competition: "Friendly",
+          matchday: 0,
+          status: "Completed",
+        }),
+        ...competitiveFixtures,
+      ],
+      standings: [
+        { team_id: "team_1", played: 6, won: 6, drawn: 0, lost: 0, goals_for: 12, goals_against: 2, points: 18 },
+        { team_id: "team_2", played: 6, won: 3, drawn: 0, lost: 3, goals_for: 8, goals_against: 8, points: 9 },
+        { team_id: "team_3", played: 6, won: 2, drawn: 0, lost: 4, goals_for: 6, goals_against: 10, points: 6 },
+        { team_id: "team_4", played: 6, won: 1, drawn: 0, lost: 5, goals_for: 4, goals_against: 10, points: 3 },
+      ],
+    };
+
+    expect(hasFullLeagueSchedule(leagueWithFriendly)).toBe(true);
+    expect(isSeasonComplete(leagueWithFriendly)).toBe(true);
   });
 
   it("marks the season complete when the full schedule exists and every fixture is completed", () => {
@@ -330,6 +376,14 @@ describe("formatMatchDate", () => {
     // Both should produce non-empty strings; Spanish should differ from English
     expect(en.length).toBeGreaterThan(0);
     expect(es.length).toBeGreaterThan(0);
+  });
+
+  it("parses RFC3339 timestamps from backend news articles", () => {
+    const result = formatMatchDate("2026-07-27T12:00:00+00:00", "en");
+
+    expect(result).not.toBe("Invalid Date");
+    expect(result).toMatch(/Jul/);
+    expect(result).toMatch(/27/);
   });
 });
 

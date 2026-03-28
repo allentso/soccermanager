@@ -118,9 +118,18 @@ pub async fn select_team(
     use chrono::Duration;
     let season_start = game.clock.current_date + Duration::days(30);
     let team_ids: Vec<String> = game.teams.iter().map(|t| t.id.clone()).collect();
-    let league =
+    let mut league =
         ofm_core::schedule::generate_league("Premier Division", 2026, &team_ids, season_start);
+    let opponents: Vec<String> = team_ids
+        .iter()
+        .filter(|candidate_team_id| candidate_team_id.as_str() != team_id)
+        .cloned()
+        .collect();
+    let friendlies =
+        ofm_core::schedule::generate_preseason_friendlies(&team_id, &opponents, season_start, 3);
+    ofm_core::schedule::append_fixtures(&mut league, friendlies);
     game.league = Some(league);
+    ofm_core::season_context::refresh_game_context(&mut game);
 
     // Rich templated messages
     let date_str = game.clock.current_date.to_rfc3339();
@@ -133,6 +142,12 @@ pub async fn select_team(
         &date_str,
     );
     game.messages.push(season_msg);
+
+    let team_names: Vec<String> = game.teams.iter().map(|team| team.name.clone()).collect();
+    game.news.push(ofm_core::news::season_preview_article(
+        &team_names,
+        &date_str,
+    ));
 
     let staff_msg = ofm_core::messages::staff_advice_message(&team_name, &team_id, &date_str);
     game.messages.push(staff_msg);
@@ -188,7 +203,8 @@ pub async fn load_game(
         .0
         .lock()
         .map_err(|e| format!("Lock error: {}", e))?;
-    let game = sm.load_game(&save_id)?;
+    let mut game = sm.load_game(&save_id)?;
+    ofm_core::season_context::refresh_game_context(&mut game);
 
     let mgr_name = format!("{} {}", game.manager.first_name, game.manager.last_name);
 

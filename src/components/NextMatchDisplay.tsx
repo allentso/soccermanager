@@ -43,6 +43,12 @@ export default function NextMatchDisplay({
   const opponentId = isHome
     ? nextFixture.away_team_id
     : nextFixture.home_team_id;
+  const fixtureLabel =
+    nextFixture.competition === "League"
+      ? t("home.matchdayN", { n: nextFixture.matchday })
+      : nextFixture.competition === "PreseasonTournament"
+        ? t("season.preseasonTournament")
+        : t("season.friendly");
 
   return (
     <div className="flex items-center justify-between py-6 px-4 bg-gray-50 dark:bg-navy-800 rounded-lg border border-gray-100 dark:border-navy-600 transition-colors">
@@ -63,7 +69,7 @@ export default function NextMatchDisplay({
         </span>
         <Badge variant="neutral">{formatMatchDate(nextFixture.date)}</Badge>
         <span className="text-xs text-gray-400 dark:text-gray-500">
-          {t("home.matchdayN", { n: nextFixture.matchday })}
+          {fixtureLabel}
         </span>
         <Badge variant={isHome ? "success" : "accent"} size="sm">
           {isHome ? t("home.home") : t("home.away")}

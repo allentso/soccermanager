@@ -604,6 +604,7 @@ pub fn skip_to_match_day(state: State<'_, StateManager>) -> Result<serde_json::V
 mod tests {
     use super::{advance_time_with_mode_internal, compute_blocking_actions};
     use chrono::{TimeZone, Utc};
+    use domain::league::{Fixture, FixtureCompetition, FixtureStatus};
     use domain::manager::Manager;
     use domain::message::{InboxMessage, MessagePriority};
     use domain::player::{Injury, Player, PlayerAttributes, Position};
@@ -1015,15 +1016,17 @@ mod tests {
                     date: "2025-06-15".to_string(),
                     home_team_id: "team1".to_string(),
                     away_team_id: "team2".to_string(),
-                    status: domain::league::FixtureStatus::Scheduled,
+                    competition: FixtureCompetition::League,
+                    status: FixtureStatus::Scheduled,
                     result: None,
                 },
-                domain::league::Fixture {
+                Fixture {
                     id: "fix2".to_string(),
                     matchday: 1,
                     date: "2025-06-15".to_string(),
                     home_team_id: "team3".to_string(),
                     away_team_id: "team4".to_string(),
+                    competition: FixtureCompetition::League,
                     status: domain::league::FixtureStatus::Scheduled,
                     result: None,
                 },

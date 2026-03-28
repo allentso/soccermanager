@@ -31,6 +31,7 @@ import {
   normalisePosition,
   translatePositionAbbreviation,
 } from "./SquadTab.helpers";
+import { resolveSeasonContext } from "../lib/seasonContext";
 
 interface TransfersTabProps {
   gameState: GameStateData;
@@ -140,7 +141,31 @@ export default function TransfersTab({
     }
   };
 
-  const myTeam = gameState.teams.find((tm) => tm.id === userTeamId);
+  const myTeam = gameState.teams.find(
+    (team) => team.id === gameState.manager.team_id,
+  );
+  const seasonContext = resolveSeasonContext(gameState);
+  const transferWindow = seasonContext.transfer_window;
+  const transferWindowVariant =
+    transferWindow.status === "DeadlineDay"
+      ? "danger"
+      : transferWindow.status === "Open"
+        ? "success"
+        : "neutral";
+  const transferWindowSummary =
+    transferWindow.status === "DeadlineDay"
+      ? t("season.windowClosesToday")
+      : transferWindow.status === "Open" &&
+          transferWindow.days_remaining !== null
+        ? t("season.windowClosesInDays", {
+            count: transferWindow.days_remaining,
+          })
+        : transferWindow.status === "Closed" &&
+            transferWindow.days_until_opens !== null
+          ? t("season.windowOpensInDays", {
+              count: transferWindow.days_until_opens,
+            })
+          : t("season.windowClosed");
 
   // My team's transfer-listed players
   const myTransferList = gameState.players.filter(
@@ -240,12 +265,20 @@ export default function TransfersTab({
         <Card accent="primary" className="mb-5">
           <div className="bg-gradient-to-r from-navy-700 to-navy-800 p-5 rounded-t-xl flex items-center gap-6">
             <div className="flex-1">
-              <h2 className="text-lg font-heading font-bold text-white uppercase tracking-wide flex items-center gap-2">
-                <TrendingUp className="w-5 h-5 text-accent-400" />
-                {t("transfers.centre")}
-              </h2>
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="text-lg font-heading font-bold text-white uppercase tracking-wide flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5 text-accent-400" />
+                  {t("transfers.centre")}
+                </h2>
+                <Badge variant={transferWindowVariant} size="sm">
+                  {t(`season.transferWindowStatus.${transferWindow.status}`)}
+                </Badge>
+              </div>
               <p className="text-gray-400 text-xs mt-0.5">
                 {t("transfers.transferWindow", { team: myTeam.name })}
+              </p>
+              <p className="text-gray-500 text-xs mt-1">
+                {transferWindowSummary}
               </p>
             </div>
             <div className="hidden md:flex gap-4">

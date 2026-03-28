@@ -173,6 +173,34 @@
     "unavailablePlayers": "Jogadores indisponíveis",
     "daysUnavailable": "{{count}} dia(s) restante(s)"
   },
+  "season": {
+    "preseasonStatus": "Status da pré-temporada",
+    "preseasonFocus": "Use este período para preparar o elenco, revisar o mercado e chegar pronto para a estreia.",
+    "friendly": "Amistoso",
+    "preseasonTournament": "Torneio de pré-temporada",
+    "opener": "Estreia da temporada",
+    "startsOn": "Começa em {{date}}",
+    "startsInDays": "Faltam {{count}} dia(s) para a estreia",
+    "noOpener": "A estreia ainda não foi agendada.",
+    "standingsLocked": "A classificação será liberada depois do início dos jogos oficiais.",
+    "tournamentsPreseasonHint": "Tabelas e disputas por prêmios aparecerão quando a temporada começar.",
+    "windowClosed": "Janela fechada",
+    "windowClosesToday": "Dia final da janela",
+    "windowClosesInDays": "Faltam {{count}} dia(s) para o fechamento da janela",
+    "windowOpensInDays": "Faltam {{count}} dia(s) para a abertura da janela",
+    "windowOpensOn": "A janela abre em {{date}}",
+    "windowClosesOn": "A janela fecha em {{date}}",
+    "phases": {
+      "Preseason": "Pré-temporada",
+      "InSeason": "Temporada em andamento",
+      "PostSeason": "Pós-temporada"
+    },
+    "transferWindowStatus": {
+      "Closed": "Janela Fechada",
+      "Open": "Janela Aberta",
+      "DeadlineDay": "Dia Final"
+    }
+  },
   "teamSelect": {
     "title": "Escolha Seu Clube",
     "subtitle": "Selecione o time que você quer comandar",
@@ -681,6 +709,7 @@
     "unread": "Não lidas ({{count}})",
     "urgent": "Urgente",
     "important": "Importante",
+    "effectOutcomeLabel": "Desfecho",
     "chooseResponse": "Escolha sua resposta",
     "responded": "Resposta enviada",
     "markAllRead": "Marcar todas como lidas",
@@ -1649,7 +1678,7 @@
         "body": "A Primeira Divisão está pronta para começar com {{teamCount}} times disputando o título.\n\nAs previsões de pré-temporada apontam o {{favourite}} como favorito, mas o {{darkHorse}} pode ser a surpresa desta campanha.\n\nCom novos treinadores assumindo o comando em alguns clubes, esta temporada promete ser uma das mais competitivas da história recente. Cada ponto vai importar na corrida pelo título.\n\nTimes: {{teamList}}"
       },
       "weeklyDigest": {
-        "headline": "Resumo Semanal — {{weekLabel}}",
+        "headline": "Resumo Semanal — Semana de {{weekStart}}",
         "bodyNoTopScorer": "O mais recente resumo semanal chegou. {{leader}} lidera a tabela e {{storylineCount}} narrativa(s) estão moldando a divisão nesta semana.",
         "bodyWithTopScorer": "O mais recente resumo semanal chegou. {{leader}} lidera a tabela, enquanto {{topScorer}} comanda a artilharia com {{topScorerGoals}} gol(s). {{storylineCount}} narrativa(s) estão moldando a divisão nesta semana."
       },

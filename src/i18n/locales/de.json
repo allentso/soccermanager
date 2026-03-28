@@ -173,6 +173,34 @@
     "unavailablePlayers": "Nicht verfügbare Spieler",
     "daysUnavailable": "Noch {{count}} Tag(e)"
   },
+  "season": {
+    "preseasonStatus": "Status der Vorbereitung",
+    "preseasonFocus": "Nutze diese Phase, um deinen Kader vorzubereiten, Transfergeschäfte zu prüfen und bereit in den Saisonstart zu gehen.",
+    "friendly": "Freundschaftsspiel",
+    "preseasonTournament": "Vorbereitungsturnier",
+    "opener": "Saisonauftakt",
+    "startsOn": "Startet am {{date}}",
+    "startsInDays": "Noch {{count}} Tag(e) bis zum Saisonstart",
+    "noOpener": "Der Saisonauftakt ist noch nicht angesetzt.",
+    "standingsLocked": "Die Tabelle wird freigeschaltet, sobald Pflichtspiele begonnen haben.",
+    "tournamentsPreseasonHint": "Tabellen und Auszeichnungen erscheinen, sobald die Saison läuft.",
+    "windowClosed": "Transferfenster geschlossen",
+    "windowClosesToday": "Transferschluss heute",
+    "windowClosesInDays": "Noch {{count}} Tag(e) bis zum Ende des Transferfensters",
+    "windowOpensInDays": "Noch {{count}} Tag(e) bis zur Öffnung des Transferfensters",
+    "windowOpensOn": "Das Transferfenster öffnet am {{date}}",
+    "windowClosesOn": "Das Transferfenster schließt am {{date}}",
+    "phases": {
+      "Preseason": "Vorbereitung",
+      "InSeason": "Saison läuft",
+      "PostSeason": "Nachsaison"
+    },
+    "transferWindowStatus": {
+      "Closed": "Fenster Geschlossen",
+      "Open": "Fenster Offen",
+      "DeadlineDay": "Stichtag"
+    }
+  },
   "teamSelect": {
     "title": "Wähle Deinen Verein",
     "subtitle": "Wähle das Team, das du trainieren möchtest",
@@ -681,6 +709,7 @@
     "unread": "Ungelesen ({{count}})",
     "urgent": "Dringend",
     "important": "Wichtig",
+    "effectOutcomeLabel": "Ergebnis",
     "chooseResponse": "Wähle deine Antwort",
     "responded": "Antwort gesendet",
     "markAllRead": "Alle als gelesen markieren",
@@ -1649,7 +1678,7 @@
         "body": "Die Erste Division steht vor dem Start mit {{teamCount}} Teams im Titelkampf.\n\nDie Voraussagen sehen {{favourite}} als Favorit, aber {{darkHorse}} könnte die Überraschung dieser Saison sein.\n\nMit neuen Trainern bei einigen Vereinen verspricht diese Saison eine der wettbewerbsintensivsten der jüngeren Geschichte zu werden. Jeder Punkt wird im Titelkampf zählen.\n\nTeams: {{teamList}}"
       },
       "weeklyDigest": {
-        "headline": "Wochendigest — {{weekLabel}}",
+        "headline": "Wochendigest — Woche vom {{weekStart}}",
         "bodyNoTopScorer": "Der aktuelle Wochendigest ist da. {{leader}} führen die Tabelle an, und {{storylineCount}} Storyline(s) prägen die Liga in dieser Woche.",
         "bodyWithTopScorer": "Der aktuelle Wochendigest ist da. {{leader}} führen die Tabelle an, während {{topScorer}} mit {{topScorerGoals}} Tor(en) die Torjägerliste anführt. {{storylineCount}} Storyline(s) prägen die Liga in dieser Woche."
       },

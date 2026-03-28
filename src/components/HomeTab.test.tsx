@@ -32,6 +32,7 @@ vi.mock("react-i18next", () => ({
       if (key === "dashboard.news") return "News";
       if (key === "dashboard.schedule") return "Schedule";
       if (key === "home.matchdayN") return `Matchday ${params?.n}`;
+      if (key === "season.friendly") return "Friendly";
       if (key === "home.home") return "Home";
       if (key === "home.away") return "Away";
       if (key === "home.pointsShort") return `${params?.points} pts`;
@@ -147,6 +148,7 @@ function createFixture(overrides: Partial<FixtureData> = {}): FixtureData {
     date: "2025-01-12",
     home_team_id: "team-1",
     away_team_id: "team-2",
+    competition: "League",
     status: "Scheduled",
     result: null,
     ...overrides,

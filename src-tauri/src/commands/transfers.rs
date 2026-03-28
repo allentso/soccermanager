@@ -168,6 +168,7 @@ mod tests {
     use chrono::{TimeZone, Utc};
     use domain::manager::Manager;
     use domain::player::{Player, PlayerAttributes, Position, TransferOffer, TransferOfferStatus};
+    use domain::season::TransferWindowStatus;
     use domain::team::Team;
     use ofm_core::clock::GameClock;
     use ofm_core::game::Game;
@@ -263,14 +264,16 @@ mod tests {
         );
         manager.hire("team-1".to_string());
 
-        Game::new(
+        let mut game = Game::new(
             clock,
             manager,
             vec![make_user_team(), make_buyer_team()],
             vec![make_player_with_offer()],
             vec![],
             vec![],
-        )
+        );
+        game.season_context.transfer_window.status = TransferWindowStatus::Open;
+        game
     }
 
     fn make_bid_target_player() -> Player {
@@ -310,6 +313,7 @@ mod tests {
             vec![],
             vec![],
         );
+        game.season_context.transfer_window.status = TransferWindowStatus::Open;
         game.teams[0].reputation = 700;
         game.teams[1].reputation = 350;
         game

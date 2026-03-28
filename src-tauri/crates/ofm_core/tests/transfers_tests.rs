@@ -5,6 +5,7 @@ use domain::news::{NewsArticle, NewsCategory};
 use domain::player::{
     Player, PlayerAttributes, PlayerIssueCategory, Position, TransferOffer, TransferOfferStatus,
 };
+use domain::season::TransferWindowStatus;
 use domain::team::Team;
 use ofm_core::clock::GameClock;
 use ofm_core::game::Game;
@@ -117,7 +118,7 @@ fn make_game_with_player(
     );
     manager.hire("team-1".to_string());
 
-    Game::new(
+    let mut game = Game::new(
         clock,
         manager,
         vec![
@@ -127,7 +128,43 @@ fn make_game_with_player(
         vec![player],
         vec![],
         vec![],
-    )
+    );
+    game.season_context.transfer_window.status = TransferWindowStatus::Open;
+    game
+}
+
+#[test]
+fn incoming_transfer_offers_do_not_arrive_when_window_is_closed() {
+    let mut player = make_user_player("player-window-closed");
+    player.contract_end = Some("2026-09-01".to_string());
+    player.market_value = 1_200_000;
+
+    let mut game = make_game_with_player(player, vec![], 5_000_000, 2_000_000);
+    game.season_context.transfer_window.status = TransferWindowStatus::Closed;
+    game.teams[1].finance = 6_000_000;
+    game.teams[1].transfer_budget = 3_000_000;
+
+    generate_incoming_transfer_offers(&mut game);
+
+    let player = game
+        .players
+        .iter()
+        .find(|player| player.id == "player-window-closed")
+        .unwrap();
+    assert!(player.transfer_offers.is_empty());
+    assert!(game.messages.is_empty());
+}
+
+#[test]
+fn transfer_bid_is_rejected_when_window_is_closed() {
+    let player = make_player("player-bid-closed");
+    let mut game = make_game_with_player(player, vec![], 5_000_000, 2_000_000);
+    game.season_context.transfer_window.status = TransferWindowStatus::Closed;
+
+    let error = make_transfer_bid(&mut game, "player-bid-closed", 1_000_000)
+        .expect_err("closed transfer window should reject bids");
+
+    assert_eq!(error, "Transfer window is closed");
 }
 
 #[test]

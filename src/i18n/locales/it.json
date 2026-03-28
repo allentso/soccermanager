@@ -173,6 +173,34 @@
     "unavailablePlayers": "Giocatori indisponibili",
     "daysUnavailable": "{{count}} giorno/i rimanente/i"
   },
+  "season": {
+    "preseasonStatus": "Stato del precampionato",
+    "preseasonFocus": "Sfrutta questo periodo per preparare la rosa, seguire il mercato e arrivare pronto al via della stagione.",
+    "friendly": "Amichevole",
+    "preseasonTournament": "Torneo precampionato",
+    "opener": "Esordio stagionale",
+    "startsOn": "Inizia il {{date}}",
+    "startsInDays": "Mancano {{count}} giorno/i al debutto",
+    "noOpener": "L'inizio della stagione non è ancora programmato.",
+    "standingsLocked": "La classifica si sbloccherà quando inizieranno le partite ufficiali.",
+    "tournamentsPreseasonHint": "Classifiche e corse ai premi appariranno quando la stagione entrerà nel vivo.",
+    "windowClosed": "Mercato chiuso",
+    "windowClosesToday": "Ultimo giorno di mercato",
+    "windowClosesInDays": "Mancano {{count}} giorno/i alla chiusura del mercato",
+    "windowOpensInDays": "Mancano {{count}} giorno/i all'apertura del mercato",
+    "windowOpensOn": "Il mercato apre il {{date}}",
+    "windowClosesOn": "Il mercato chiude il {{date}}",
+    "phases": {
+      "Preseason": "Precampionato",
+      "InSeason": "Stagione in corso",
+      "PostSeason": "Post-stagione"
+    },
+    "transferWindowStatus": {
+      "Closed": "Mercato Chiuso",
+      "Open": "Mercato Aperto",
+      "DeadlineDay": "Ultimo Giorno"
+    }
+  },
   "teamSelect": {
     "title": "Scegli il tuo club",
     "subtitle": "Seleziona la squadra che vuoi allenare",
@@ -681,6 +709,7 @@
     "unread": "Non letti ({{count}})",
     "urgent": "Urgente",
     "important": "Importante",
+    "effectOutcomeLabel": "Esito",
     "chooseResponse": "Scegli la tua risposta",
     "responded": "Risposta inviata",
     "markAllRead": "Segna tutto come letto",
@@ -1582,7 +1611,7 @@
         "body": "La Premier Division è pronta a partire con {{teamCount}} squadre in lotta per il titolo.\n\nI pronostici di inizio stagione indicano {{favourite}} come favorita, ma {{darkHorse}} potrebbe essere la sorpresa da seguire in questa campagna.\n\nCon nuovi allenatori alla guida di alcuni club, questa stagione promette di essere una delle più competitive degli ultimi tempi. Ogni punto conterà nella corsa al titolo.\n\nSquadre: {{teamList}}"
       },
       "weeklyDigest": {
-        "headline": "Digest Settimanale — {{weekLabel}}",
+        "headline": "Digest Settimanale — Settimana del {{weekStart}}",
         "bodyNoTopScorer": "È arrivato l'ultimo digest settimanale. {{leader}} guida la classifica e {{storylineCount}} trama/e stanno plasmando la divisione questa settimana.",
         "bodyWithTopScorer": "È arrivato l'ultimo digest settimanale. {{leader}} guida la classifica, mentre {{topScorer}} comanda la classifica marcatori con {{topScorerGoals}} gol. {{storylineCount}} trama/e stanno plasmando la divisione questa settimana."
       },

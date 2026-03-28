@@ -1,5 +1,7 @@
 use chrono::{TimeZone, Utc};
-use domain::league::{Fixture, FixtureStatus, League, MatchResult, StandingEntry};
+use domain::league::{
+    Fixture, FixtureCompetition, FixtureStatus, League, MatchResult, StandingEntry,
+};
 use domain::manager::Manager;
 use domain::player::{Player, PlayerAttributes, PlayerSeasonStats, Position};
 use domain::team::{FinancialTransactionKind, Team};
@@ -67,6 +69,7 @@ fn make_completed_fixture(id: &str, home: &str, away: &str, hg: u8, ag: u8) -> F
         date: "2025-06-01".to_string(),
         home_team_id: home.to_string(),
         away_team_id: away.to_string(),
+        competition: FixtureCompetition::League,
         status: FixtureStatus::Completed,
         result: Some(MatchResult {
             home_goals: hg,
@@ -189,6 +192,7 @@ fn season_not_complete_with_scheduled_fixtures() {
             date: "2026-06-01".to_string(),
             home_team_id: "team1".to_string(),
             away_team_id: "team2".to_string(),
+            competition: FixtureCompetition::League,
             status: FixtureStatus::Scheduled,
             result: None,
         });
@@ -232,6 +236,7 @@ fn season_not_complete_with_truncated_completed_fixture_list() {
                 date: "2026-08-01".to_string(),
                 home_team_id: "team1".to_string(),
                 away_team_id: "team2".to_string(),
+                competition: FixtureCompetition::League,
                 status: FixtureStatus::Completed,
                 result: Some(MatchResult {
                     home_goals: 2,
@@ -246,6 +251,7 @@ fn season_not_complete_with_truncated_completed_fixture_list() {
                 date: "2026-08-01".to_string(),
                 home_team_id: "team3".to_string(),
                 away_team_id: "team4".to_string(),
+                competition: FixtureCompetition::League,
                 status: FixtureStatus::Completed,
                 result: Some(MatchResult {
                     home_goals: 0,
@@ -530,7 +536,16 @@ fn news_cleared() {
     ));
 
     process_end_of_season(&mut game);
-    assert!(game.news.is_empty(), "News should be cleared");
+    assert_eq!(
+        game.news.len(),
+        1,
+        "Old news should be replaced by the new season preview"
+    );
+    assert_ne!(game.news[0].id, "n1");
+    assert_eq!(
+        game.news[0].category,
+        domain::news::NewsCategory::SeasonPreview
+    );
 }
 
 // ---------------------------------------------------------------------------

@@ -4,6 +4,7 @@ use domain::manager::Manager;
 use domain::message::InboxMessage;
 use domain::news::NewsArticle;
 use domain::player::Player;
+use domain::season::SeasonContext;
 use domain::staff::Staff;
 use domain::team::Team;
 
@@ -48,6 +49,8 @@ pub struct Game {
     pub scouting_assignments: Vec<ScoutingAssignment>,
     #[serde(default)]
     pub board_objectives: Vec<BoardObjective>,
+    #[serde(default)]
+    pub season_context: SeasonContext,
 }
 
 impl Game {
@@ -59,7 +62,7 @@ impl Game {
         staff: Vec<Staff>,
         messages: Vec<InboxMessage>,
     ) -> Self {
-        Self {
+        let mut game = Self {
             clock,
             manager,
             teams,
@@ -70,6 +73,9 @@ impl Game {
             league: None,
             scouting_assignments: vec![],
             board_objectives: vec![],
-        }
+            season_context: SeasonContext::default(),
+        };
+        crate::season_context::refresh_game_context(&mut game);
+        game
     }
 }

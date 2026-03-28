@@ -3,5 +3,6 @@ pub mod manager;
 pub mod message;
 pub mod news;
 pub mod player;
+pub mod season;
 pub mod staff;
 pub mod team;

@@ -173,6 +173,34 @@
     "unavailablePlayers": "Unavailable Players",
     "daysUnavailable": "{{count}} day(s) remaining"
   },
+  "season": {
+    "preseasonStatus": "Preseason Status",
+    "preseasonFocus": "Use this time to prepare your squad, review transfer business, and get ready for the opening day.",
+    "friendly": "Friendly",
+    "preseasonTournament": "Preseason Tournament",
+    "opener": "Season Opener",
+    "startsOn": "Starts on {{date}}",
+    "startsInDays": "{{count}} day(s) to kickoff",
+    "noOpener": "Opening day not scheduled yet.",
+    "standingsLocked": "League standings will unlock after competitive matches begin.",
+    "tournamentsPreseasonHint": "Competition tables and award races will appear once the season gets underway.",
+    "windowClosed": "Transfer window closed",
+    "windowClosesToday": "Transfer deadline day",
+    "windowClosesInDays": "{{count}} day(s) left in the window",
+    "windowOpensInDays": "{{count}} day(s) until the window opens",
+    "windowOpensOn": "Window opens on {{date}}",
+    "windowClosesOn": "Window closes on {{date}}",
+    "phases": {
+      "Preseason": "Preseason",
+      "InSeason": "In Season",
+      "PostSeason": "Postseason"
+    },
+    "transferWindowStatus": {
+      "Closed": "Window Closed",
+      "Open": "Window Open",
+      "DeadlineDay": "Deadline Day"
+    }
+  },
   "teamSelect": {
     "title": "Choose Your Club",
     "subtitle": "Select the team you want to manage",
@@ -681,6 +709,7 @@
     "unread": "Unread ({{count}})",
     "urgent": "Urgent",
     "important": "Important",
+    "effectOutcomeLabel": "Outcome",
     "chooseResponse": "Choose your response",
     "responded": "Response sent",
     "markAllRead": "Mark all read",
@@ -1649,7 +1678,7 @@
         "body": "The Premier Division is set to kick off with {{teamCount}} teams vying for the title.\n\nPre-season predictions have {{favourite}} as the early favourites, but {{darkHorse}} could be the dark horse to watch this campaign.\n\nWith new managers taking the reins at some clubs, this season promises to be one of the most competitive in recent memory. Every point will matter as the race for the title heats up.\n\nTeams: {{teamList}}"
       },
       "weeklyDigest": {
-        "headline": "Weekly Digest — {{weekLabel}}",
+        "headline": "Weekly Digest — Week of {{weekStart}}",
         "bodyNoTopScorer": "The latest weekly digest is here. {{leader}} lead the table, and {{storylineCount}} storyline(s) are shaping the division this week.",
         "bodyWithTopScorer": "The latest weekly digest is here. {{leader}} lead the table, while {{topScorer}} heads the scoring charts with {{topScorerGoals}} goal(s). {{storylineCount}} storyline(s) are shaping the division this week."
       },

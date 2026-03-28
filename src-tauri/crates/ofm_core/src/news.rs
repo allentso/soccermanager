@@ -292,14 +292,14 @@ pub fn major_transfer_article(
 
 pub fn weekly_digest_article(
     id: &str,
-    week_label: &str,
+    week_start: &str,
     leader: &str,
     top_scorer: &str,
     top_scorer_goals: u32,
     storyline_count: usize,
     date: &str,
 ) -> NewsArticle {
-    let headline = format!("Weekly Digest — {}", week_label);
+    let headline = format!("Weekly Digest — Week of {}", week_start);
     let (body, body_key) = if top_scorer.is_empty() {
         (
             format!(
@@ -331,7 +331,7 @@ pub fn weekly_digest_article(
         body_key,
         "be.source.leagueChronicle",
         params(&[
-            ("weekLabel", week_label),
+            ("weekStart", week_start),
             ("leader", leader),
             ("topScorer", top_scorer),
             ("topScorerGoals", &top_scorer_goals.to_string()),

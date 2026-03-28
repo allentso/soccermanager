@@ -173,6 +173,34 @@
     "unavailablePlayers": "Joueurs indisponibles",
     "daysUnavailable": "{{count}} jour(s) restant(s)"
   },
+  "season": {
+    "preseasonStatus": "État de la présaison",
+    "preseasonFocus": "Profitez de cette période pour préparer votre effectif, suivre le mercato et arriver prêt pour la reprise.",
+    "friendly": "Match amical",
+    "preseasonTournament": "Tournoi de présaison",
+    "opener": "Coup d'envoi de la saison",
+    "startsOn": "Débute le {{date}}",
+    "startsInDays": "{{count}} jour(s) avant le coup d'envoi",
+    "noOpener": "Le début de saison n'est pas encore programmé.",
+    "standingsLocked": "Le classement sera disponible une fois les matchs officiels commencés.",
+    "tournamentsPreseasonHint": "Les classements et courses aux récompenses apparaîtront lorsque la saison sera lancée.",
+    "windowClosed": "Mercato fermé",
+    "windowClosesToday": "Dernier jour du mercato",
+    "windowClosesInDays": "{{count}} jour(s) restants avant la fermeture du mercato",
+    "windowOpensInDays": "{{count}} jour(s) avant l'ouverture du mercato",
+    "windowOpensOn": "Le mercato ouvre le {{date}}",
+    "windowClosesOn": "Le mercato ferme le {{date}}",
+    "phases": {
+      "Preseason": "Présaison",
+      "InSeason": "Saison en cours",
+      "PostSeason": "Après-saison"
+    },
+    "transferWindowStatus": {
+      "Closed": "Mercato Fermé",
+      "Open": "Mercato Ouvert",
+      "DeadlineDay": "Dernier Jour"
+    }
+  },
   "teamSelect": {
     "title": "Choisissez Votre Club",
     "subtitle": "Sélectionnez l'équipe que vous voulez entraîner",
@@ -681,6 +709,7 @@
     "unread": "Non lus ({{count}})",
     "urgent": "Urgent",
     "important": "Important",
+    "effectOutcomeLabel": "Résultat",
     "chooseResponse": "Choisissez votre réponse",
     "responded": "Réponse envoyée",
     "markAllRead": "Tout marquer comme lu",
@@ -1649,7 +1678,7 @@
         "body": "La Première Division est prête à démarrer avec {{teamCount}} équipes en lice pour le titre.\n\nLes pronostics de pré-saison désignent {{favourite}} comme favori, mais {{darkHorse}} pourrait être la surprise de cette campagne.\n\nAvec de nouveaux managers aux commandes de certains clubs, cette saison promet d'être l'une des plus compétitives de mémoire récente. Chaque point comptera dans la course au titre.\n\nÉquipes : {{teamList}}"
       },
       "weeklyDigest": {
-        "headline": "Digest Hebdomadaire — {{weekLabel}}",
+        "headline": "Digest Hebdomadaire — Semaine du {{weekStart}}",
         "bodyNoTopScorer": "Le dernier digest hebdomadaire est là. {{leader}} mène le classement et {{storylineCount}} intrigue(s) façonnent la division cette semaine.",
         "bodyWithTopScorer": "Le dernier digest hebdomadaire est là. {{leader}} mène le classement, tandis que {{topScorer}} domine le classement des buteurs avec {{topScorerGoals}} but(s). {{storylineCount}} intrigue(s) façonnent la division cette semaine."
       },

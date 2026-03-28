@@ -1,4 +1,5 @@
 import { findNextFixture } from "../lib/helpers";
+import { hasCompetitiveStandings } from "../lib/seasonContext";
 import type {
   FixtureData,
   GameStateData,
@@ -87,7 +88,11 @@ export function getNextOpponentWidgetData(
     return null;
   }
 
-  const standingEntry = league.standings.find((entry) => entry.team_id === opponentId);
+  const canShowStandings =
+    hasCompetitiveStandings(gameState) && nextFixture.competition === "League";
+  const standingEntry = canShowStandings
+    ? league.standings.find((entry) => entry.team_id === opponentId)
+    : null;
 
   return {
     fixture: nextFixture,
@@ -95,7 +100,9 @@ export function getNextOpponentWidgetData(
     opponent,
     recentForm: opponent.form.slice(-5),
     standingPoints: standingEntry?.points ?? null,
-    standingPosition: getStandingPosition(gameState, opponentId),
+    standingPosition: canShowStandings
+      ? getStandingPosition(gameState, opponentId)
+      : null,
   };
 }
 

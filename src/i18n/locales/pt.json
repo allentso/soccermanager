@@ -173,6 +173,34 @@
     "unavailablePlayers": "Jogadores indisponíveis",
     "daysUnavailable": "{{count}} dia(s) restantes"
   },
+  "season": {
+    "preseasonStatus": "Estado da pré-época",
+    "preseasonFocus": "Use este período para preparar o plantel, rever o mercado e chegar pronto ao arranque da época.",
+    "friendly": "Amigável",
+    "preseasonTournament": "Torneio de pré-época",
+    "opener": "Jogo inaugural",
+    "startsOn": "Começa a {{date}}",
+    "startsInDays": "Faltam {{count}} dia(s) para o arranque",
+    "noOpener": "O arranque da época ainda não foi agendado.",
+    "standingsLocked": "A classificação será desbloqueada depois do início dos jogos oficiais.",
+    "tournamentsPreseasonHint": "Tabelas e corridas pelos prémios aparecerão quando a época arrancar.",
+    "windowClosed": "Janela fechada",
+    "windowClosesToday": "Último dia da janela",
+    "windowClosesInDays": "Faltam {{count}} dia(s) para o fecho da janela",
+    "windowOpensInDays": "Faltam {{count}} dia(s) para a abertura da janela",
+    "windowOpensOn": "A janela abre a {{date}}",
+    "windowClosesOn": "A janela fecha a {{date}}",
+    "phases": {
+      "Preseason": "Pré-época",
+      "InSeason": "Época em curso",
+      "PostSeason": "Pós-época"
+    },
+    "transferWindowStatus": {
+      "Closed": "Janela Fechada",
+      "Open": "Janela Aberta",
+      "DeadlineDay": "Dia Final"
+    }
+  },
   "teamSelect": {
     "title": "Escolhe o Teu Clube",
     "subtitle": "Seleciona a equipa que queres treinar",
@@ -681,6 +709,7 @@
     "unread": "Por ler ({{count}})",
     "urgent": "Urgente",
     "important": "Importante",
+    "effectOutcomeLabel": "Desfecho",
     "chooseResponse": "Escolhe a tua resposta",
     "responded": "Resposta enviada",
     "markAllRead": "Marcar todas como lidas",
@@ -1649,7 +1678,7 @@
         "body": "A Primeira Divisão está pronta para arrancar com {{teamCount}} equipas a disputar o título.\n\nAs previsões de pré-época apontam o {{favourite}} como favorito, mas o {{darkHorse}} pode ser a surpresa desta campanha.\n\nCom novos treinadores a assumir o comando em alguns clubes, esta época promete ser uma das mais competitivas da memória recente. Cada ponto vai contar na corrida pelo título.\n\nEquipas: {{teamList}}"
       },
       "weeklyDigest": {
-        "headline": "Resumo Semanal — {{weekLabel}}",
+        "headline": "Resumo Semanal — Semana de {{weekStart}}",
         "bodyNoTopScorer": "Já chegou o mais recente resumo semanal. {{leader}} lidera a tabela e {{storylineCount}} narrativa(s) estão a marcar a divisão esta semana.",
         "bodyWithTopScorer": "Já chegou o mais recente resumo semanal. {{leader}} lidera a tabela, enquanto {{topScorer}} comanda a lista de marcadores com {{topScorerGoals}} golo(s). {{storylineCount}} narrativa(s) estão a marcar a divisão esta semana."
       },

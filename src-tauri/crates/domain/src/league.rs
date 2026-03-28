@@ -9,13 +9,23 @@ pub struct League {
     pub standings: Vec<StandingEntry>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+pub enum FixtureCompetition {
+    #[default]
+    League,
+    Friendly,
+    PreseasonTournament,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct Fixture {
     pub id: String,
     pub matchday: u32,
     pub date: String, // ISO 8601 date
     pub home_team_id: String,
     pub away_team_id: String,
+    pub competition: FixtureCompetition,
     pub status: FixtureStatus,
     pub result: Option<MatchResult>,
 }
@@ -87,6 +97,12 @@ impl StandingEntry {
     }
 }
 
+impl Fixture {
+    pub fn counts_for_league_standings(&self) -> bool {
+        matches!(self.competition, FixtureCompetition::League)
+    }
+}
+
 impl League {
     pub fn new(id: String, name: String, season: u32, team_ids: &[String]) -> Self {
         let standings = team_ids
@@ -113,5 +129,20 @@ impl League {
                 .then(b.goals_for.cmp(&a.goals_for))
         });
         sorted
+    }
+}
+
+impl Default for Fixture {
+    fn default() -> Self {
+        Self {
+            id: String::new(),
+            matchday: 0,
+            date: String::new(),
+            home_team_id: String::new(),
+            away_team_id: String::new(),
+            competition: FixtureCompetition::League,
+            status: FixtureStatus::Scheduled,
+            result: None,
+        }
     }
 }

@@ -46,25 +46,29 @@ pub fn apply_match_report(
         home_scorers,
         away_scorers,
     };
+    let mut counts_for_standings = false;
 
     // Update fixture status, standings
     if let Some(league) = game.league.as_mut() {
         let fixture = &mut league.fixtures[fixture_index];
         fixture.status = FixtureStatus::Completed;
+        counts_for_standings = fixture.counts_for_league_standings();
 
-        if let Some(entry) = league
-            .standings
-            .iter_mut()
-            .find(|e| e.team_id == home_team_id)
-        {
-            entry.record_result(result.home_goals, result.away_goals);
-        }
-        if let Some(entry) = league
-            .standings
-            .iter_mut()
-            .find(|e| e.team_id == away_team_id)
-        {
-            entry.record_result(result.away_goals, result.home_goals);
+        if counts_for_standings {
+            if let Some(entry) = league
+                .standings
+                .iter_mut()
+                .find(|e| e.team_id == home_team_id)
+            {
+                entry.record_result(result.home_goals, result.away_goals);
+            }
+            if let Some(entry) = league
+                .standings
+                .iter_mut()
+                .find(|e| e.team_id == away_team_id)
+            {
+                entry.record_result(result.away_goals, result.home_goals);
+            }
         }
 
         fixture.result = Some(result);
@@ -82,10 +86,13 @@ pub fn apply_match_report(
     update_post_match_morale(game, report, home_team_id, away_team_id);
 
     // Update team form (last 5 results)
-    update_team_form(game, report, home_team_id, away_team_id);
+    if counts_for_standings {
+        update_team_form(game, report, home_team_id, away_team_id);
+    }
 
     // Update board satisfaction based on match result
-    if let Some(user_team_id) = &game.manager.team_id
+    if counts_for_standings
+        && let Some(user_team_id) = &game.manager.team_id
         && (*user_team_id == home_team_id || *user_team_id == away_team_id)
     {
         let user_goals = if *user_team_id == home_team_id {
@@ -139,7 +146,8 @@ pub fn apply_match_report(
     }
 
     // Generate match result message for user's team
-    if let Some(user_team_id) = &game.manager.team_id
+    if counts_for_standings
+        && let Some(user_team_id) = &game.manager.team_id
         && (*user_team_id == home_team_id || *user_team_id == away_team_id)
     {
         let fixture = &game.league.as_ref().unwrap().fixtures[fixture_index];
@@ -173,7 +181,9 @@ pub fn apply_match_report(
     }
 
     // Generate match report news article
-    super::news::generate_match_news(game, fixture_index, home_team_id, away_team_id, report);
+    if counts_for_standings {
+        super::news::generate_match_news(game, fixture_index, home_team_id, away_team_id, report);
+    }
 }
 
 // ---------------------------------------------------------------------------

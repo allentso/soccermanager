@@ -324,6 +324,14 @@ export function getTeamShort(teams: TeamData[], id: string): string {
   return teams.find(t => t.id === id)?.short_name ?? "???";
 }
 
+export function isCompetitiveFixture(fixture: FixtureData): boolean {
+  return !fixture.competition || fixture.competition === "League";
+}
+
+export function getCompetitiveFixtures(fixtures: FixtureData[]): FixtureData[] {
+  return fixtures.filter(isCompetitiveFixture);
+}
+
 export function findNextFixture(fixtures: FixtureData[], teamId: string): FixtureData | undefined {
   return fixtures.find(f =>
     f.status === "Scheduled" && (f.home_team_id === teamId || f.away_team_id === teamId)
@@ -345,7 +353,7 @@ export function hasFullLeagueSchedule(league: LeagueData): boolean {
     return false;
   }
 
-  return league.fixtures.length === expectedCount;
+  return getCompetitiveFixtures(league.fixtures).length === expectedCount;
 }
 
 export function isSeasonComplete(league: LeagueData | null | undefined): boolean {
@@ -353,7 +361,7 @@ export function isSeasonComplete(league: LeagueData | null | undefined): boolean
     return false;
   }
 
-  return league.fixtures.every((fixture) => fixture.status === "Completed");
+  return getCompetitiveFixtures(league.fixtures).every((fixture) => fixture.status === "Completed");
 }
 
 const LANG_LOCALE: Record<string, string> = { en: "en-US", es: "es-ES", pt: "pt-BR", fr: "fr-FR", de: "de-DE", it: "it-IT" };
@@ -363,23 +371,39 @@ export function getLocale(lang?: string): string {
   return LANG_LOCALE[lang] || lang;
 }
 
+function parseDateInput(dateStr: string): Date | null {
+  const value = /^\d{4}-\d{2}-\d{2}$/.test(dateStr)
+    ? new Date(`${dateStr}T00:00:00`)
+    : new Date(dateStr);
+
+  if (Number.isNaN(value.getTime())) {
+    return null;
+  }
+
+  return value;
+}
+
 export function formatMatchDate(dateStr: string, locale?: string): string {
-  const d = new Date(dateStr + "T00:00:00");
+  const d = parseDateInput(dateStr);
+  if (!d) return dateStr;
   return d.toLocaleDateString(getLocale(locale), { weekday: "short", month: "short", day: "numeric" });
 }
 
 export function formatDate(dateStr: string, locale?: string, opts?: Intl.DateTimeFormatOptions): string {
-  const d = new Date(dateStr);
+  const d = parseDateInput(dateStr);
+  if (!d) return dateStr;
   return d.toLocaleDateString(getLocale(locale), opts || { year: "numeric", month: "long", day: "numeric" });
 }
 
 export function formatDateFull(dateStr: string, locale?: string): string {
-  const d = new Date(dateStr);
+  const d = parseDateInput(dateStr);
+  if (!d) return dateStr;
   return d.toLocaleDateString(getLocale(locale), { weekday: "long", year: "numeric", month: "long", day: "numeric" });
 }
 
 export function formatDateShort(dateStr: string, locale?: string): string {
-  const d = new Date(dateStr);
+  const d = parseDateInput(dateStr);
+  if (!d) return dateStr;
   return d.toLocaleDateString(getLocale(locale), { month: "short", day: "numeric" });
 }
 

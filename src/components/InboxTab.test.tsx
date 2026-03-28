@@ -16,24 +16,56 @@ import type {
 } from "../store/gameStore";
 import InboxTab from "./InboxTab";
 
+const mockTranslationState = vi.hoisted(function () {
+  return {
+    language: "en",
+    translations: {
+      en: {
+        "inbox.effectOutcomeLabel": "Outcome",
+      },
+      "pt-BR": {
+        "inbox.effectOutcomeLabel": "Desfecho",
+      },
+    } as Record<string, Record<string, string>>,
+  };
+});
+
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(),
 }));
 
 vi.mock("react-i18next", async (importOriginal) => {
   const actual = await importOriginal<typeof import("react-i18next")>();
+  const mockI18n = {
+    get language(): string {
+      return mockTranslationState.language;
+    },
+    async changeLanguage(language: string): Promise<string> {
+      mockTranslationState.language = language;
+      return language;
+    },
+  };
 
   return {
     ...actual,
     useTranslation: () => ({
       t: (key: string, value?: unknown) => {
+        const resolved =
+          mockTranslationState.translations[mockTranslationState.language]?.[
+            key
+          ];
+
+        if (resolved) {
+          return resolved;
+        }
+
         if (typeof value === "string") {
           return value;
         }
 
         return key;
       },
-      i18n: { language: "en" },
+      i18n: mockI18n,
     }),
   };
 });
@@ -415,6 +447,63 @@ describe("InboxTab", function (): void {
     });
 
     expect(onGameUpdate).toHaveBeenCalledWith(resolvedGameState);
+  });
+
+  it("renders the outcome label from the active locale", async function (): Promise<void> {
+    const previousLanguage = mockTranslationState.language;
+    const onGameUpdate = vi.fn();
+    const action: MessageAction = {
+      id: "respond",
+      label: "Respond",
+      action_type: {
+        ChooseOption: {
+          options: [
+            {
+              id: "praise_back",
+              label: "Return the praise",
+              description: "Tell them how much you value their contribution.",
+            },
+          ],
+        },
+      },
+      resolved: false,
+    };
+    const resolvedGameState = createGameState([
+      createMessage({ id: "happy_player_p1", read: true, actions: [action] }),
+    ]);
+
+    mockedInvoke.mockResolvedValue({
+      game: resolvedGameState,
+      effect: "Player beams at the praise. Morale +3",
+      effect_i18n_key: "test.effectFeedback",
+      effect_i18n_params: { delta: "+3" },
+    });
+
+    mockTranslationState.language = "pt-BR";
+
+    try {
+      renderInboxTab({
+        gameState: createGameState([
+          createMessage({
+            id: "happy_player_p1",
+            read: true,
+            actions: [action],
+          }),
+        ]),
+        initialMessageId: "happy_player_p1",
+        onGameUpdate,
+      });
+
+      fireEvent.click(screen.getByText("Return the praise"));
+
+      await waitFor(function (): void {
+        expect(
+          screen.getByText("Desfecho: Resolved morale +3"),
+        ).toBeInTheDocument();
+      });
+    } finally {
+      mockTranslationState.language = previousLanguage;
+    }
   });
 
   it("renders delegated renewal report details from localized structured context", function (): void {

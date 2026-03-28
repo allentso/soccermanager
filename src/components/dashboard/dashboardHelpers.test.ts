@@ -182,6 +182,7 @@ describe("dashboardHelpers", function (): void {
       date: "2025-01-10",
       home_team_id: "team-1",
       away_team_id: "team-2",
+      competition: "League" as const,
       status: "Scheduled" as const,
       result: null,
     };

@@ -61,6 +61,7 @@ pub fn process_day(game: &mut Game) {
     news::generate_pre_match_messages(game, &today);
     debug!("[turn] process_day {}: complete, advancing clock", today);
     game.clock.advance_days(1);
+    crate::season_context::refresh_game_context(game);
 }
 
 /// Called after a live match finishes to complete the day:
@@ -82,6 +83,7 @@ pub fn finish_live_match_day(game: &mut Game) {
     news::generate_weekly_digest_news(game, &today);
     news::generate_pre_match_messages(game, &today);
     game.clock.advance_days(1);
+    crate::season_context::refresh_game_context(game);
 }
 
 // ---------------------------------------------------------------------------

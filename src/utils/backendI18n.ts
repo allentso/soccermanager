@@ -44,6 +44,10 @@ const LEGACY_DELEGATED_RENEWALS_MANAGER_BLOCKED_RE =
   /^You told me not to reopen contract talks yet\.$/;
 const LEGACY_DELEGATED_RENEWALS_RELATIONSHIP_BLOCKED_RE =
   /^They are not willing to commit through me under the current relationship and contract situation\.$/;
+const LEGACY_WEEKLY_DIGEST_WEEK_LABEL_RE =
+  /^Week of (?<weekStart>\d{4}-\d{2}-\d{2})$/;
+const LEGACY_WEEKLY_DIGEST_HEADLINE_RE =
+  /^Weekly Digest — Week of (?<weekStart>\d{4}-\d{2}-\d{2})$/;
 
 /**
  * Resolve a backend i18n key with params, falling back to the raw string.
@@ -324,13 +328,42 @@ function resolveActionOption(
   };
 }
 
+function normalizeNewsParams(article: NewsArticle): Record<string, string> | undefined {
+  const params = article.i18n_params ? { ...article.i18n_params } : {};
+
+  if (article.headline_key !== 'be.news.weeklyDigest.headline') {
+    return Object.keys(params).length > 0 ? params : article.i18n_params;
+  }
+
+  if (!params.weekStart && params.weekLabel) {
+    const weekLabelMatch = params.weekLabel.match(LEGACY_WEEKLY_DIGEST_WEEK_LABEL_RE);
+
+    if (weekLabelMatch?.groups?.weekStart) {
+      params.weekStart = weekLabelMatch.groups.weekStart;
+    }
+  }
+
+  if (!params.weekStart) {
+    const headlineMatch = article.headline.match(LEGACY_WEEKLY_DIGEST_HEADLINE_RE);
+
+    if (headlineMatch?.groups?.weekStart) {
+      params.weekStart = headlineMatch.groups.weekStart;
+    }
+  }
+
+  delete params.weekLabel;
+
+  return Object.keys(params).length > 0 ? params : undefined;
+}
+
 /**
  * Resolve all translatable fields on a news article, returning a copy with resolved strings.
  */
 export function resolveNewsArticle(article: NewsArticle): NewsArticle {
-  const p = article.i18n_params;
+  const p = normalizeNewsParams(article);
   return {
     ...article,
+    i18n_params: p,
     headline: resolve(article.headline_key, article.headline, p),
     body: resolve(article.body_key, article.body, p),
     source: resolve(article.source_key, article.source, p),

@@ -354,6 +354,25 @@ describe("resolveNewsArticle", () => {
     expect(result.source).toBe("Press");
   });
 
+  it("localizes legacy weekly digest headlines that still carry an English weekLabel param", async () => {
+    const previousLanguage = i18n.language;
+    await i18n.changeLanguage("pt-BR");
+
+    try {
+      const article = makeNewsArticle({
+        headline: "Weekly Digest — Week of 2026-07-27",
+        headline_key: "be.news.weeklyDigest.headline",
+        i18n_params: { weekLabel: "Week of 2026-07-27" },
+      });
+
+      const result = resolveNewsArticle(article);
+
+      expect(result.headline).toBe("Resumo Semanal — Semana de 2026-07-27");
+    } finally {
+      await i18n.changeLanguage(previousLanguage);
+    }
+  });
+
   it("preserves non-translatable fields", () => {
     const article = makeNewsArticle({ id: "n_5", category: "transfer", read: true });
     const result = resolveNewsArticle(article);

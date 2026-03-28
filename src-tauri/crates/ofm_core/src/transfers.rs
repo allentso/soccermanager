@@ -1,6 +1,7 @@
 use crate::game::Game;
 use chrono::NaiveDate;
 use domain::player::TransferOfferStatus;
+use domain::season::TransferWindowStatus;
 use uuid::Uuid;
 
 enum PlayerImportance {
@@ -190,7 +191,18 @@ fn has_open_incoming_offer_from_club(player: &domain::player::Player, club_id: &
         .any(|offer| offer.from_team_id == club_id && offer.status == TransferOfferStatus::Pending)
 }
 
+fn transfer_window_is_open(game: &Game) -> bool {
+    matches!(
+        game.season_context.transfer_window.status,
+        TransferWindowStatus::Open | TransferWindowStatus::DeadlineDay
+    )
+}
+
 pub fn generate_incoming_transfer_offers(game: &mut Game) {
+    if !transfer_window_is_open(game) {
+        return;
+    }
+
     let Some(user_team_id) = game.manager.team_id.clone() else {
         return;
     };
@@ -297,6 +309,10 @@ fn should_generate_major_transfer_news(player: &domain::player::Player, fee: u64
 /// Submit a transfer bid from user's team for a player.
 /// The AI evaluates the bid and accepts/rejects based on fee vs market value.
 pub fn make_transfer_bid(game: &mut Game, player_id: &str, fee: u64) -> Result<String, String> {
+    if !transfer_window_is_open(game) {
+        return Err("Transfer window is closed".into());
+    }
+
     let user_team_id = game.manager.team_id.clone().ok_or("No user team")?;
 
     let player = game
@@ -390,6 +406,10 @@ pub fn respond_to_offer(
     offer_id: &str,
     accept: bool,
 ) -> Result<(), String> {
+    if accept && !transfer_window_is_open(game) {
+        return Err("Transfer window is closed".into());
+    }
+
     let user_team_id = game.manager.team_id.clone().ok_or("No user team")?;
 
     let player = game
@@ -449,6 +469,10 @@ pub fn counter_offer(
     offer_id: &str,
     requested_fee: u64,
 ) -> Result<String, String> {
+    if !transfer_window_is_open(game) {
+        return Err("Transfer window is closed".into());
+    }
+
     let user_team_id = game.manager.team_id.clone().ok_or("No user team")?;
 
     let player = game

@@ -283,6 +283,7 @@ export interface FixtureData {
   date: string;
   home_team_id: string;
   away_team_id: string;
+  competition: "League" | "Friendly" | "PreseasonTournament";
   status: "Scheduled" | "InProgress" | "Completed";
   result: null | {
     home_goals: number;
@@ -309,6 +310,26 @@ export interface LeagueData {
   season: number;
   fixtures: FixtureData[];
   standings: StandingData[];
+}
+
+export type SeasonPhase = "Preseason" | "InSeason" | "PostSeason";
+
+export type TransferWindowStatus = "Closed" | "Open" | "DeadlineDay";
+
+export interface TransferWindowContextData {
+  status: TransferWindowStatus;
+  opens_on: string | null;
+  closes_on: string | null;
+  days_until_opens: number | null;
+  days_remaining: number | null;
+}
+
+export interface SeasonContextData {
+  phase: SeasonPhase;
+  season_start: string | null;
+  season_end: string | null;
+  days_until_season_start: number | null;
+  transfer_window: TransferWindowContextData;
 }
 
 export interface NewsMatchScore {
@@ -376,4 +397,5 @@ export interface GameStateData {
   league: LeagueData | null;
   scouting_assignments: ScoutingAssignment[];
   board_objectives: BoardObjective[];
+  season_context?: SeasonContextData;
 }

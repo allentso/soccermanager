@@ -416,7 +416,7 @@ impl SaveManager {
             })
             .collect();
 
-        Ok(Game {
+        let mut game = Game {
             clock,
             manager,
             teams,
@@ -427,7 +427,11 @@ impl SaveManager {
             league,
             scouting_assignments,
             board_objectives,
-        })
+            season_context: domain::season::SeasonContext::default(),
+        };
+        ofm_core::season_context::refresh_game_context(&mut game);
+
+        Ok(game)
     }
 }
 
@@ -548,7 +552,7 @@ fn parse_objective_type(s: &str) -> ObjectiveType {
 mod tests {
     use super::*;
     use chrono::TimeZone;
-    use domain::league::{Fixture, FixtureStatus, League, StandingEntry};
+    use domain::league::{Fixture, FixtureCompetition, FixtureStatus, League, StandingEntry};
     use domain::player::{Footedness, Player, PlayerAttributes, Position};
     use domain::staff::{StaffAttributes, StaffRole};
     use domain::team::Team;
@@ -633,6 +637,7 @@ mod tests {
             league: None,
             scouting_assignments: vec![],
             board_objectives: vec![],
+            season_context: domain::season::SeasonContext::default(),
         }
     }
 
@@ -677,6 +682,7 @@ mod tests {
                 date: "2027-08-15".to_string(),
                 home_team_id: "team-001".to_string(),
                 away_team_id: "team-002".to_string(),
+                competition: FixtureCompetition::League,
                 status: FixtureStatus::Scheduled,
                 result: None,
             }],

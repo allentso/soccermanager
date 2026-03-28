@@ -1,5 +1,7 @@
 use chrono::{TimeZone, Utc};
-use domain::league::{Fixture, FixtureStatus, GoalEvent, League, MatchResult, StandingEntry};
+use domain::league::{
+    Fixture, FixtureCompetition, FixtureStatus, GoalEvent, League, MatchResult, StandingEntry,
+};
 use domain::manager::Manager;
 use domain::message::{ActionOption, ActionType, MessageAction, MessageContext};
 use domain::player::{
@@ -271,6 +273,7 @@ fn bench_complaint_after_5_missed_matches() {
             date: format!("2025-06-{:02}", 10 + i),
             home_team_id: "team1".to_string(),
             away_team_id: "team2".to_string(),
+            competition: FixtureCompetition::League,
             status: FixtureStatus::Completed,
             result: Some(MatchResult {
                 home_goals: 1,
@@ -327,6 +330,7 @@ fn bench_complaint_not_for_gk() {
             date: format!("2025-06-{:02}", 10 + i),
             home_team_id: "team1".to_string(),
             away_team_id: "team2".to_string(),
+            competition: FixtureCompetition::League,
             status: FixtureStatus::Completed,
             result: Some(MatchResult {
                 home_goals: 0,
@@ -369,6 +373,7 @@ fn bench_complaint_not_with_fewer_than_5_fixtures() {
             date: format!("2025-06-{:02}", 10 + i),
             home_team_id: "team1".to_string(),
             away_team_id: "team2".to_string(),
+            competition: FixtureCompetition::League,
             status: FixtureStatus::Completed,
             result: Some(MatchResult {
                 home_goals: 0,

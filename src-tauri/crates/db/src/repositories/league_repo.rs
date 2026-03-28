@@ -1,4 +1,4 @@
-use domain::league::{Fixture, FixtureStatus, League, StandingEntry};
+use domain::league::{Fixture, FixtureCompetition, FixtureStatus, League, StandingEntry};
 use rusqlite::{Connection, params};
 
 /// Insert or replace the league row and its fixtures + standings.
@@ -17,14 +17,15 @@ pub fn upsert_league(conn: &Connection, league: &League) -> Result<(), String> {
     .map_err(|e| format!("Failed to upsert league: {}", e))?;
 
     for f in &league.fixtures {
+        let competition_str = format!("{:?}", f.competition);
         let status_str = format!("{:?}", f.status);
         let result_json = f
             .result
             .as_ref()
             .map(|r| serde_json::to_string(r).unwrap_or_default());
         conn.execute(
-            "INSERT INTO fixtures (id, league_id, matchday, date, home_team_id, away_team_id, status, result)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+            "INSERT INTO fixtures (id, league_id, matchday, date, home_team_id, away_team_id, competition, status, result)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
             params![
                 f.id,
                 league.id,
@@ -32,6 +33,7 @@ pub fn upsert_league(conn: &Connection, league: &League) -> Result<(), String> {
                 f.date,
                 f.home_team_id,
                 f.away_team_id,
+                competition_str,
                 status_str,
                 result_json,
             ],
@@ -69,6 +71,14 @@ fn parse_fixture_status(s: &str) -> FixtureStatus {
     }
 }
 
+fn parse_fixture_competition(s: &str) -> FixtureCompetition {
+    match s {
+        "Friendly" => FixtureCompetition::Friendly,
+        "PreseasonTournament" => FixtureCompetition::PreseasonTournament,
+        _ => FixtureCompetition::League,
+    }
+}
+
 /// Load the league (if any). Returns None if the league table is empty.
 pub fn load_league(conn: &Connection) -> Result<Option<League>, String> {
     let mut stmt = conn
@@ -94,21 +104,23 @@ pub fn load_league(conn: &Connection) -> Result<Option<League>, String> {
     // Load fixtures
     let mut fix_stmt = conn
         .prepare(
-            "SELECT id, matchday, date, home_team_id, away_team_id, status, result
+            "SELECT id, matchday, date, home_team_id, away_team_id, competition, status, result
              FROM fixtures WHERE league_id = ?1 ORDER BY matchday, id",
         )
         .map_err(|e| format!("Failed to prepare fixtures query: {}", e))?;
 
     let fixture_rows = fix_stmt
         .query_map(params![league_id], |row| {
-            let status_str: String = row.get(5)?;
-            let result_json: Option<String> = row.get(6)?;
+            let competition_str: String = row.get(5)?;
+            let status_str: String = row.get(6)?;
+            let result_json: Option<String> = row.get(7)?;
             Ok(Fixture {
                 id: row.get(0)?,
                 matchday: row.get(1)?,
                 date: row.get(2)?,
                 home_team_id: row.get(3)?,
                 away_team_id: row.get(4)?,
+                competition: parse_fixture_competition(&competition_str),
                 status: parse_fixture_status(&status_str),
                 result: result_json.and_then(|j| serde_json::from_str(&j).ok()),
             })
@@ -217,6 +229,7 @@ mod tests {
                 date: "2026-08-15".to_string(),
                 home_team_id: "team-001".to_string(),
                 away_team_id: "team-002".to_string(),
+                competition: FixtureCompetition::League,
                 status: FixtureStatus::Scheduled,
                 result: None,
             },
@@ -226,6 +239,7 @@ mod tests {
                 date: "2026-08-22".to_string(),
                 home_team_id: "team-002".to_string(),
                 away_team_id: "team-001".to_string(),
+                competition: FixtureCompetition::Friendly,
                 status: FixtureStatus::Completed,
                 result: Some(MatchResult {
                     home_goals: 2,
@@ -266,6 +280,7 @@ mod tests {
         assert_eq!(loaded.fixtures[0].status, FixtureStatus::Scheduled);
         assert!(loaded.fixtures[0].result.is_none());
         assert_eq!(loaded.fixtures[1].status, FixtureStatus::Completed);
+        assert_eq!(loaded.fixtures[1].competition, FixtureCompetition::Friendly);
         assert!(loaded.fixtures[1].result.is_some());
         let result = loaded.fixtures[1].result.as_ref().unwrap();
         assert_eq!(result.home_goals, 2);
@@ -303,6 +318,7 @@ mod tests {
             date: "2026-08-29".to_string(),
             home_team_id: "team-001".to_string(),
             away_team_id: "team-002".to_string(),
+            competition: FixtureCompetition::League,
             status: FixtureStatus::Scheduled,
             result: None,
         }];
@@ -329,6 +345,7 @@ mod tests {
                 date: "2027-08-15".to_string(),
                 home_team_id: "team-001".to_string(),
                 away_team_id: "team-002".to_string(),
+                competition: FixtureCompetition::League,
                 status: FixtureStatus::Scheduled,
                 result: None,
             }],

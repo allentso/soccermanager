@@ -60,6 +60,7 @@ function createFixture(overrides: Partial<FixtureData> = {}): FixtureData {
     date: "2025-01-10",
     home_team_id: "team-1",
     away_team_id: "team-2",
+    competition: "League",
     status: "Scheduled",
     result: null,
     ...overrides,
