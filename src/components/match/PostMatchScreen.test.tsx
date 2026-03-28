@@ -13,6 +13,15 @@ vi.mock("react-i18next", () => ({
       if (key === "schedule.matchday") {
         return `Matchday ${params?.number}`;
       }
+      if (key === "match.otherMatches") {
+        return "Other Matches";
+      }
+      if (key === "match.otherMatchesToday") {
+        return "Other Matches Today";
+      }
+      if (key === "match.otherMatchesUnavailable") {
+        return "Other match context unavailable for this fixture yet.";
+      }
       if (key === "match.roundSummaryUnavailable") {
         return "Round summary unavailable.";
       }
@@ -253,6 +262,16 @@ describe("PostMatchScreen", function (): void {
       <PostMatchScreen
         snapshot={makeSnapshot()}
         gameState={makeGameState()}
+        currentFixture={{
+          id: "fixture-1",
+          matchday: 4,
+          date: "2026-08-01",
+          home_team_id: "team1",
+          away_team_id: "team2",
+          competition: "League",
+          status: "Completed",
+          result: null,
+        }}
         userSide="Home"
         isSpectator={false}
         importantEvents={[]}
@@ -318,6 +337,16 @@ describe("PostMatchScreen", function (): void {
       <PostMatchScreen
         snapshot={makeSnapshot()}
         gameState={makeGameState()}
+        currentFixture={{
+          id: "friendly-1",
+          matchday: 0,
+          date: "2026-07-20",
+          home_team_id: "team1",
+          away_team_id: "team2",
+          competition: "Friendly",
+          status: "Completed",
+          result: null,
+        }}
         userSide="Home"
         isSpectator={false}
         importantEvents={[]}
@@ -327,6 +356,9 @@ describe("PostMatchScreen", function (): void {
       />,
     );
 
-    expect(screen.getByText("Round summary unavailable.")).toBeInTheDocument();
+    expect(screen.getByText("Other Matches")).toBeInTheDocument();
+    expect(
+      screen.getByText("Other match context unavailable for this fixture yet."),
+    ).toBeInTheDocument();
   });
 });

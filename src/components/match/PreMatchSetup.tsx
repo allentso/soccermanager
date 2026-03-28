@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useTranslation } from "react-i18next";
-import { GameStateData } from "../../store/gameStore";
+import { FixtureData, GameStateData } from "../../store/gameStore";
+import { getFixtureDisplayLabel } from "../../lib/helpers";
 import { MatchSnapshot, FORMATIONS, PLAY_STYLES } from "./types";
 import PreMatchLineup, {
   parseFormationNeeds,
@@ -26,6 +27,7 @@ import {
 interface PreMatchSetupProps {
   snapshot: MatchSnapshot;
   gameState: GameStateData;
+  currentFixture?: FixtureData | null;
   userSide: "Home" | "Away";
   onStart: () => void;
   onUpdateSnapshot: (snap: MatchSnapshot) => void;
@@ -43,6 +45,7 @@ const PLAY_STYLE_ICONS: Record<string, React.ReactNode> = {
 export default function PreMatchSetup({
   snapshot,
   gameState,
+  currentFixture,
   userSide,
   onStart,
   onUpdateSnapshot,
@@ -67,6 +70,9 @@ export default function PreMatchSetup({
     gameState.teams.find((t) => t.id === snapshot.away_team.id)?.colors
       ?.primary || "#6366f1";
   const userColor = userSide === "Home" ? homeTeamColor : awayTeamColor;
+  const fixtureLabel = currentFixture
+    ? getFixtureDisplayLabel(t, currentFixture)
+    : t("match.matchDay");
 
   // All squad players for this team
   const allSquadPlayers = gameState.players.filter(
@@ -244,7 +250,7 @@ export default function PreMatchSetup({
 
             <div className="text-center">
               <p className="text-xs font-heading uppercase tracking-widest text-accent-400 mb-1">
-                {t("match.matchDay")}
+                {fixtureLabel}
               </p>
               <p className="text-3xl font-heading font-bold text-gray-500">
                 VS

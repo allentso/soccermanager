@@ -1,3 +1,4 @@
+import type { TFunction } from "i18next";
 import { TeamData, FixtureData, LeagueData, PlayerData } from "../store/gameStore";
 
 const POSITION_ALIASES: Record<string, string> = {
@@ -322,6 +323,21 @@ export function getTeamName(teams: TeamData[], id: string | null): string {
 
 export function getTeamShort(teams: TeamData[], id: string): string {
   return teams.find(t => t.id === id)?.short_name ?? "???";
+}
+
+export function getFixtureDisplayLabel(
+  t: TFunction,
+  fixture: FixtureData,
+): string {
+  if (fixture.competition === "PreseasonTournament") {
+    return t("season.preseasonTournament");
+  }
+
+  if (fixture.competition === "Friendly") {
+    return t("season.friendly");
+  }
+
+  return t("common.matchday", { n: fixture.matchday });
 }
 
 export function isCompetitiveFixture(fixture: FixtureData): boolean {

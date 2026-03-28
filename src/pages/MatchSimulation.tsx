@@ -9,6 +9,7 @@ import {
   MatchDayStage,
   RoundSummary,
 } from "../components/match/types";
+import { resolveMatchFixture } from "../components/match/helpers";
 import PreMatchSetup from "../components/match/PreMatchSetup";
 import MatchLive from "../components/match/MatchLive";
 import HalfTimeBreak from "../components/match/HalfTimeBreak";
@@ -266,6 +267,12 @@ export default function MatchSimulation() {
     );
   }
 
+  const currentFixture = resolveMatchFixture(
+    gameState,
+    snapshot,
+    routeState?.fixtureIndex,
+  );
+
   // Render the current stage
   switch (stage) {
     case "prematch":
@@ -273,6 +280,7 @@ export default function MatchSimulation() {
         <PreMatchSetup
           snapshot={snapshot}
           gameState={gameState}
+          currentFixture={currentFixture}
           userSide={userSide || "Home"}
           onStart={handleStartMatch}
           onUpdateSnapshot={handleSnapshotUpdate}
@@ -314,6 +322,7 @@ export default function MatchSimulation() {
         <PostMatchScreen
           snapshot={snapshot}
           gameState={gameState}
+          currentFixture={currentFixture}
           userSide={userSide}
           isSpectator={isSpectator}
           importantEvents={importantEvents}

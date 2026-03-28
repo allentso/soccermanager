@@ -2,7 +2,7 @@ import { AlertCircle } from "lucide-react";
 import type { JSX } from "react";
 import { useTranslation } from "react-i18next";
 
-import { getTeamName } from "../../lib/helpers";
+import { getFixtureDisplayLabel, getTeamName } from "../../lib/helpers";
 import type { FixtureData, TeamData } from "../../store/gameStore";
 import type { MatchModeType } from "../../hooks/useAdvanceTime";
 import type { DashboardMatchModeMeta } from "./DashboardHeader";
@@ -47,7 +47,7 @@ export default function DashboardMatchConfirmModal({
       {todayMatchFixture && (
         <div className="mb-4 rounded-xl bg-gray-50 p-4 text-center dark:bg-navy-700">
           <p className="mb-2 text-xs font-heading uppercase tracking-widest text-gray-400">
-            {t("common.matchday", { n: todayMatchFixture.matchday })}
+            {getFixtureDisplayLabel(t, todayMatchFixture)}
           </p>
           <p className="text-lg font-heading font-bold text-gray-900 dark:text-white">
             {getTeamName(teams, todayMatchFixture.home_team_id)}{" "}

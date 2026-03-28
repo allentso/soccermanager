@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useTranslation } from "react-i18next";
-import { GameStateData } from "../../store/gameStore";
+import { FixtureData, GameStateData } from "../../store/gameStore";
 import {
   MatchSnapshot,
   MatchEvent,
@@ -30,6 +30,7 @@ import {
 interface PostMatchScreenProps {
   snapshot: MatchSnapshot;
   gameState: GameStateData;
+  currentFixture?: FixtureData | null;
   userSide: "Home" | "Away" | null;
   isSpectator: boolean;
   importantEvents: MatchEvent[];
@@ -41,6 +42,7 @@ interface PostMatchScreenProps {
 export default function PostMatchScreen({
   snapshot,
   gameState,
+  currentFixture,
   userSide,
   isSpectator,
   importantEvents,
@@ -76,6 +78,22 @@ export default function PostMatchScreen({
 
   const resultType =
     userScore > oppScore ? "win" : userScore < oppScore ? "loss" : "draw";
+  const isLeagueFixture =
+    currentFixture?.competition !== "Friendly" &&
+    currentFixture?.competition !== "PreseasonTournament";
+  const summaryTitle = isLeagueFixture
+    ? t("match.roundSummary")
+    : t("match.otherMatches");
+  const summaryContextLabel = roundSummary
+    ? isLeagueFixture
+      ? t("schedule.matchday", {
+          number: roundSummary.matchday,
+        })
+      : t("match.otherMatchesToday")
+    : null;
+  const summaryEmptyState = isLeagueFixture
+    ? t("match.roundSummaryUnavailable")
+    : t("match.otherMatchesUnavailable");
 
   // Key events (goals, cards, subs)
   const keyEvents = importantEvents.filter((e) =>
@@ -311,7 +329,7 @@ export default function PostMatchScreen({
               <div className="flex items-center gap-2 mb-3">
                 <BarChart3 className="w-4 h-4 text-accent-400" />
                 <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500">
-                  {t("match.roundSummary")}
+                  {summaryTitle}
                 </h3>
               </div>
 
@@ -319,9 +337,7 @@ export default function PostMatchScreen({
                 <div className="flex flex-col gap-4">
                   <div>
                     <p className="text-sm font-heading font-bold text-gray-200 mb-2">
-                      {t("schedule.matchday", {
-                        number: roundSummary.matchday,
-                      })}
+                      {summaryContextLabel}
                     </p>
                     <div className="flex flex-col gap-1 text-xs text-gray-300">
                       {roundSummary.completed_results.length > 0 ? (
@@ -400,9 +416,7 @@ export default function PostMatchScreen({
                   )}
                 </div>
               ) : (
-                <p className="text-xs text-gray-500">
-                  {t("match.roundSummaryUnavailable")}
-                </p>
+                <p className="text-xs text-gray-500">{summaryEmptyState}</p>
               )}
             </div>
           </div>

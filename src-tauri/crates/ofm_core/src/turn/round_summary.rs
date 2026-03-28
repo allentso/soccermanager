@@ -80,7 +80,7 @@ pub fn build_round_summary(
     let round_fixtures: Vec<&Fixture> = league
         .fixtures
         .iter()
-        .filter(|fixture| fixture.matchday == matchday)
+        .filter(|fixture| fixture.matchday == matchday && fixture.counts_for_league_standings())
         .collect();
 
     if round_fixtures.is_empty() {

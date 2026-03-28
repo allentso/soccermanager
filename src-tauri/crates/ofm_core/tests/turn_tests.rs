@@ -1439,3 +1439,18 @@ fn build_round_summary_returns_none_when_round_has_no_completed_matches() {
 
     assert!(summary.is_none());
 }
+
+#[test]
+fn build_round_summary_ignores_non_competitive_matchday_zero_fixtures() {
+    let mut game = make_round_summary_game();
+    let league = game.league.as_mut().unwrap();
+
+    league.fixtures.iter_mut().for_each(|fixture| {
+        fixture.matchday = 0;
+        fixture.competition = FixtureCompetition::Friendly;
+    });
+
+    let summary = turn::build_round_summary(&game, 0, &previous_round_standings());
+
+    assert!(summary.is_none());
+}
