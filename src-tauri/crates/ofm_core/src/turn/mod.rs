@@ -16,6 +16,19 @@ use log::{debug, info};
 pub use news::generate_matchday_news;
 pub use post_match::apply_match_report;
 
+/// Progress injury recovery by one day for all currently injured players.
+/// Injuries with 1 day remaining are cleared.
+fn progress_injury_recovery(game: &mut Game) {
+    for player in game.players.iter_mut() {
+        if let Some(mut injury) = player.injury.take() {
+            if injury.days_remaining > 1 {
+                injury.days_remaining -= 1;
+                player.injury = Some(injury);
+            }
+        }
+    }
+}
+
 /// Process a single day advance.
 pub fn process_day(game: &mut Game) {
     let today = game.clock.current_date.format("%Y-%m-%d").to_string();
@@ -45,6 +58,7 @@ pub fn process_day(game: &mut Game) {
 
     // Player conversations, random events, and scouting
     player_events::check_player_events(game);
+    progress_injury_recovery(game);
     random_events::check_random_events(game);
     scouting::process_scouting(game);
 
@@ -64,6 +78,7 @@ pub fn finish_live_match_day(game: &mut Game) {
     board_objectives::update_objective_progress(game);
 
     player_events::check_player_events(game);
+    progress_injury_recovery(game);
     random_events::check_random_events(game);
     scouting::process_scouting(game);
     news::generate_pre_match_messages(game, &today);
