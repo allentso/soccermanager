@@ -20,11 +20,11 @@ pub use post_match::apply_match_report;
 /// Injuries with 1 day remaining are cleared.
 fn progress_injury_recovery(game: &mut Game) {
     for player in game.players.iter_mut() {
-        if let Some(mut injury) = player.injury.take() {
-            if injury.days_remaining > 1 {
-                injury.days_remaining -= 1;
-                player.injury = Some(injury);
-            }
+        if let Some(mut injury) = player.injury.take()
+            && injury.days_remaining > 1
+        {
+            injury.days_remaining -= 1;
+            player.injury = Some(injury);
         }
     }
 }
