@@ -1214,6 +1214,15 @@
     "submitting": "Envoi...",
     "leaveConference": "Quitter la Conférence",
     "nextQuestion": "Question Suivante",
+    "pressReport": {
+      "headlineManagerQuote": "{{team}} Entraîneur: {{quote}}",
+      "headlinePressConf": "Conférence de Presse: \"{{quote}}\" — entraîneur de {{team}}",
+      "headlinePostMatch": "Après-Match: {{team}} sur {{result}}",
+      "bodyIntro": "Après le résultat {{result}}, l'entraîneur de {{team}} a pris la parole face à la presse.",
+      "bodyOutro": "La conférence a couvert le résultat, l'approche tactique et les prochaines échéances de l'équipe.",
+      "bodySingle": "L'entraîneur de {{team}} s'est exprimé brièvement après le résultat {{result}}.",
+      "bodyNone": "L'entraîneur de {{team}} a décliné de s'exprimer longuement après le résultat {{result}}."
+    },
     "press": {
       "result": {
         "questions": {

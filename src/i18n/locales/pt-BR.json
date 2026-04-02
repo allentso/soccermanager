@@ -1179,6 +1179,15 @@
     "submitting": "Enviando...",
     "leaveConference": "Encerrar Coletiva",
     "nextQuestion": "Próxima Pergunta",
+    "pressReport": {
+      "headlineManagerQuote": "{{team}} Técnico: {{quote}}",
+      "headlinePressConf": "Coletiva de Imprensa: \"{{quote}}\" — técnico do {{team}}",
+      "headlinePostMatch": "Pós-Jogo: {{team}} sobre {{result}}",
+      "bodyIntro": "Após o resultado {{result}}, o técnico do {{team}} falou com a imprensa.",
+      "bodyOutro": "A coletiva abordou o resultado, a abordagem tática e o que está por vir para o time.",
+      "bodySingle": "O técnico do {{team}} falou brevemente após o resultado {{result}}.",
+      "bodyNone": "O técnico do {{team}} não quis falar longamente após o resultado {{result}}."
+    },
     "press": {
       "result": {
         "questions": {

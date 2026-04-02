@@ -1214,6 +1214,15 @@
     "submitting": "Enviando...",
     "leaveConference": "Salir de la Rueda",
     "nextQuestion": "Siguiente Pregunta",
+    "pressReport": {
+      "headlineManagerQuote": "{{team}} Técnico: {{quote}}",
+      "headlinePressConf": "Rueda de Prensa: \"{{quote}}\" — técnico del {{team}}",
+      "headlinePostMatch": "Post-Partido: {{team}} sobre {{result}}",
+      "bodyIntro": "Tras el resultado {{result}}, el técnico del {{team}} atendió a la prensa.",
+      "bodyOutro": "La conferencia abordó el resultado, el enfoque táctico y los próximos retos del equipo.",
+      "bodySingle": "El técnico del {{team}} habló brevemente tras el resultado {{result}}.",
+      "bodyNone": "El técnico del {{team}} declinó hablar en profundidad tras el resultado {{result}}."
+    },
     "press": {
       "result": {
         "questions": {

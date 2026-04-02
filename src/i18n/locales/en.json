@@ -1214,6 +1214,15 @@
     "submitting": "Submitting...",
     "leaveConference": "Leave Conference",
     "nextQuestion": "Next Question",
+    "pressReport": {
+      "headlineManagerQuote": "{{team}} Manager: {{quote}}",
+      "headlinePressConf": "Press Conference: \"{{quote}}\" — {{team}} boss",
+      "headlinePostMatch": "Post-Match: {{team}} on {{result}}",
+      "bodyIntro": "Speaking after the {{result}} result, the {{team}} manager addressed the press.",
+      "bodyOutro": "The conference covered the result, tactical approach, and what lies ahead for the team.",
+      "bodySingle": "The {{team}} manager spoke briefly after the {{result}} result.",
+      "bodyNone": "The {{team}} manager declined to speak at length after the {{result}} result."
+    },
     "press": {
       "result": {
         "questions": {
