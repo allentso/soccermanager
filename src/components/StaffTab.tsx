@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { GameStateData, StaffData } from "../store/gameStore";
-import { Card, CardBody, Badge, ProgressBar } from "./ui";
+import { Card, CardBody, Badge, CountryFlag, ProgressBar } from "./ui";
 import {
   UserCog,
   Search,
@@ -19,6 +19,7 @@ import {
   formatVal,
   formatWeeklyAmount,
 } from "../lib/helpers";
+import { countryName } from "../lib/countries";
 import { useTranslation } from "react-i18next";
 
 interface StaffTabProps {
@@ -60,7 +61,7 @@ function ovrRating(s: StaffData): number {
 }
 
 export default function StaffTab({ gameState, onGameUpdate }: StaffTabProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const weeklySuffix = t("finances.perWeekSuffix", "/wk");
   const userTeamId = gameState.manager.team_id;
   const [view, setView] = useState<"mystaff" | "available">("mystaff");
@@ -226,6 +227,14 @@ export default function StaffTab({ gameState, onGameUpdate }: StaffTabProps) {
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                         {t(`staff.roles.${staff.role}`)} — {t("common.age")}{" "}
                         {age}
+                        <span className="ml-1.5 inline-flex items-center gap-1 align-middle">
+                          <CountryFlag
+                            code={staff.nationality}
+                            locale={i18n.language}
+                            className="text-xs leading-none"
+                          />
+                          <span>{countryName(staff.nationality, i18n.language)}</span>
+                        </span>
                         {staff.team_id && view === "available" && (
                           <span className="ml-1.5">
                             @ {getTeamName(gameState.teams, staff.team_id)}

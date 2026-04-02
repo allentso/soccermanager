@@ -1,46 +1,32 @@
 import { describe, it, expect } from "vitest";
 import {
-  countryFlag,
-  countryMarker,
   countryName,
   allCountries,
   isValidCountryCode,
   normaliseNationality,
-  shouldUseCountryCodeBadge,
+  resolveCountryFlagCode,
 } from "./countries";
 
 // ---------------------------------------------------------------------------
-// countryFlag
+// resolveCountryFlagCode
 // ---------------------------------------------------------------------------
 
-describe("countryFlag", () => {
-  it("returns flag emoji for valid alpha-2 codes", () => {
-    // US flag = 🇺🇸 (regional indicator U + S)
-    expect(countryFlag("US")).toBe("🇺🇸");
-    expect(countryFlag("GB")).toBe("🇬🇧");
-    expect(countryFlag("BR")).toBe("🇧🇷");
+describe("resolveCountryFlagCode", () => {
+  it("returns a valid code when an SVG flag is available", () => {
+    expect(resolveCountryFlagCode("US")).toBe("US");
+    expect(resolveCountryFlagCode("GB")).toBe("GB");
+    expect(resolveCountryFlagCode("br")).toBe("BR");
   });
 
-  it("handles lowercase input", () => {
-    expect(countryFlag("us")).toBe("🇺🇸");
+  it("normalises demonym values before resolving", () => {
+    expect(resolveCountryFlagCode("English")).toBe("GB");
+    expect(resolveCountryFlagCode("Brazilian")).toBe("BR");
   });
 
-  it("returns empty string for invalid input", () => {
-    expect(countryFlag("")).toBe("");
-    expect(countryFlag("X")).toBe("");
-    expect(countryFlag("USA")).toBe("");
-  });
-});
-
-describe("countryMarker", () => {
-  it("uses ISO country code badges on Windows platforms", () => {
-    expect(shouldUseCountryCodeBadge("Win32")).toBe(true);
-    expect(countryMarker("br", "Windows NT 10.0")).toBe("BR");
-  });
-
-  it("uses flag emoji on non-Windows platforms", () => {
-    expect(shouldUseCountryCodeBadge("MacIntel")).toBe(false);
-    expect(countryMarker("BR", "Linux x86_64")).toBe("🇧🇷");
+  it("returns null for invalid values", () => {
+    expect(resolveCountryFlagCode("")).toBeNull();
+    expect(resolveCountryFlagCode("X")).toBeNull();
+    expect(resolveCountryFlagCode("USA")).toBeNull();
   });
 });
 

@@ -1,9 +1,14 @@
+import * as FlagIcons from "country-flag-icons/react/3x2";
 import {
-  countryMarker,
   countryName,
   isValidCountryCode,
   normaliseNationality,
+  resolveCountryFlagCode,
 } from "../../lib/countries";
+
+type FlagComponent = (props: React.SVGProps<SVGSVGElement>) => React.JSX.Element;
+
+const flagIcons = FlagIcons as Record<string, FlagComponent>;
 
 interface CountryFlagProps {
   code: string;
@@ -24,6 +29,9 @@ export function CountryFlag({
     return null;
   }
 
+  const flagCode = resolveCountryFlagCode(normalisedCode);
+  const FlagIcon = flagCode ? flagIcons[flagCode.replace(/-/g, "_")] : null;
+
   const accessibleLabel =
     title ?? countryName(normalisedCode, locale) ?? normalisedCode;
   const classes = [
@@ -36,14 +44,30 @@ export function CountryFlag({
     .filter(Boolean)
     .join(" ");
 
+  if (!FlagIcon) {
+    return (
+      <span
+        role="img"
+        aria-label={accessibleLabel}
+        title={accessibleLabel}
+        className={[
+          classes,
+          "rounded border border-white/15 bg-black/10 px-1 py-0.5 font-heading text-[0.65em] font-bold leading-none tracking-wide",
+        ].join(" ")}
+      >
+        {normalisedCode}
+      </span>
+    );
+  }
+
   return (
-    <span
-      role="img"
-      aria-label={accessibleLabel}
-      title={accessibleLabel}
-      className={classes}
-    >
-      {countryMarker(normalisedCode)}
+    <span className={classes} title={accessibleLabel}>
+      <FlagIcon
+        role="img"
+        aria-label={accessibleLabel}
+        focusable="false"
+        className="h-[1em] w-[1.5em] rounded-[2px] shadow-sm"
+      />
     </span>
   );
 }

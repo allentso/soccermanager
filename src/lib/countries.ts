@@ -2,9 +2,10 @@
  * Country / nationality utilities powered by i18n-iso-countries.
  *
  * All nationalities are stored as ISO 3166-1 alpha-2 codes (e.g. "GB", "ES").
- * This module resolves codes → localised names and flag emoji.
+ * This module resolves codes to localised names and SVG-backed flag lookups.
  */
 import countries from "i18n-iso-countries";
+import { hasFlag } from "country-flag-icons";
 import enLocale from "i18n-iso-countries/langs/en.json";
 import esLocale from "i18n-iso-countries/langs/es.json";
 import ptLocale from "i18n-iso-countries/langs/pt.json";
@@ -19,51 +20,6 @@ countries.registerLocale(ptLocale);
 countries.registerLocale(frLocale);
 countries.registerLocale(deLocale);
 countries.registerLocale(itLocale);
-
-/**
- * Convert an ISO alpha-2 code to a flag emoji.
- * Works well on macOS/Linux/Android/iOS.
- * On Windows, renders as two-letter regional indicator pair (still identifiable).
- */
-export function countryFlag(alpha2: string): string {
-  if (!alpha2 || alpha2.length !== 2) return "";
-  const code = alpha2.toUpperCase();
-  return String.fromCodePoint(
-    ...[...code].map((c) => 0x1f1e6 + c.charCodeAt(0) - 65)
-  );
-}
-
-type NavigatorWithUserAgentData = Navigator & {
-  userAgentData?: {
-    platform?: string;
-  };
-};
-
-function getPlatformName(): string {
-  if (typeof navigator === "undefined") {
-    return "";
-  }
-
-  const navigatorWithUserAgentData = navigator as NavigatorWithUserAgentData;
-
-  return navigatorWithUserAgentData.userAgentData?.platform ?? navigator.platform ?? navigator.userAgent ?? "";
-}
-
-/**
- * Determine whether to use a country code badge instead of a flag emoji.
- * Windows doesn't support flag emojis well, so we use a country code badge instead.
- */
-export function shouldUseCountryCodeBadge(platform = getPlatformName()): boolean {
-  return /win/i.test(platform);
-}
-
-export function countryMarker(alpha2: string, platform = getPlatformName()): string {
-  if (!alpha2 || alpha2.length !== 2) return "";
-
-  return shouldUseCountryCodeBadge(platform)
-    ? alpha2.toUpperCase()
-    : countryFlag(alpha2);
-}
 
 function getBaseLocale(locale: string): string {
   if (!locale) return "en";
@@ -110,6 +66,19 @@ export function allCountries(locale = "en"): { code: string; name: string }[] {
 export function isValidCountryCode(code: string): boolean {
   if (!code || code.length !== 2) return false;
   return countries.isValid(code.toUpperCase());
+}
+
+/**
+ * Resolve a nationality value to a valid ISO alpha-2 code that has an SVG flag asset.
+ */
+export function resolveCountryFlagCode(value: string): string | null {
+  const normalisedCode = normaliseNationality(value).toUpperCase();
+
+  if (!isValidCountryCode(normalisedCode)) {
+    return null;
+  }
+
+  return hasFlag(normalisedCode) ? normalisedCode : null;
 }
 
 /**

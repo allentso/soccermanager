@@ -1,9 +1,8 @@
 import { TeamData, GameStateData, PlayerData } from "../store/gameStore";
-import { Card, CardHeader, CardBody, Badge, ProgressBar, CountryFlag } from "./ui";
+import { Card, CardHeader, CardBody, Badge, ProgressBar, CountryFlag, TeamLocation } from "./ui";
 import {
   ArrowLeft,
   Shield,
-  MapPin,
   Calendar,
   DollarSign,
   Users,
@@ -155,9 +154,12 @@ export default function TeamProfile({
                 {team.name}
               </h2>
               <div className="flex items-center gap-4 mt-2 text-white/80 text-sm">
-                <span className="flex items-center gap-1.5">
-                  <MapPin className="w-4 h-4" /> {team.city}, {team.country}
-                </span>
+                <TeamLocation
+                  city={team.city}
+                  countryCode={team.country}
+                  locale={i18n.language}
+                  className="text-white/80"
+                />
                 <span className="flex items-center gap-1.5">
                   <Calendar className="w-4 h-4" /> {t("teams.est")}{" "}
                   {team.founded_year}

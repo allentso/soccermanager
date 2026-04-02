@@ -3,11 +3,11 @@ import { invoke } from "@tauri-apps/api/core";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useGameStore, GameStateData, PlayerData } from "../store/gameStore";
-import { Card, CardBody, Badge, ThemeToggle } from "../components/ui";
-import { ArrowLeft, Users, MapPin, Trophy, Landmark, ChevronRight, Star, Loader2 } from "lucide-react";
+import { Card, CardBody, Badge, TeamLocation, ThemeToggle } from "../components/ui";
+import { ArrowLeft, Users, Trophy, Landmark, ChevronRight, Star, Loader2 } from "lucide-react";
 
 export default function TeamSelection() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const { gameState, setGameState, setGameActive } = useGameStore();
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
@@ -145,10 +145,14 @@ export default function TeamSelection() {
                           <h3 className="font-heading font-bold text-white uppercase tracking-wide text-sm">
                             {team.name}
                           </h3>
-                          <p className="text-xs text-gray-300 flex items-center gap-1 mt-0.5">
-                            <MapPin className="w-3 h-3" />
-                            {team.city}, {team.country}
-                          </p>
+                          <TeamLocation
+                            city={team.city}
+                            countryCode={team.country}
+                            locale={i18n.language}
+                            className="mt-0.5 text-xs text-gray-300"
+                            iconClassName="w-3 h-3"
+                            flagClassName="text-xs leading-none"
+                          />
                         </div>
                       </div>
                       {isSelected && (

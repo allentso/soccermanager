@@ -6,6 +6,11 @@ import { invoke } from "@tauri-apps/api/core";
 import type { GameStateData, PlayerData, TeamData } from "../store/gameStore";
 import PlayerProfile from "./PlayerProfile";
 
+function hasWeeklyWage(text: string, amount: number): boolean {
+  const numberPortion = amount.toLocaleString();
+  return text.replace(/\s+/g, "").includes(`€${numberPortion}/wk`);
+}
+
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(),
 }));
@@ -79,10 +84,10 @@ vi.mock("../utils/backendI18n", () => ({
 }));
 
 vi.mock("../lib/countries", () => ({
-  countryMarker: () => "🏴",
   countryName: () => "England",
   isValidCountryCode: () => true,
   normaliseNationality: (value: string) => value,
+  resolveCountryFlagCode: () => "GB",
 }));
 
 function createTeam(overrides: Partial<TeamData> = {}): TeamData {
@@ -255,7 +260,11 @@ describe("PlayerProfile contract surfaces", () => {
     expect(screen.getByText("Years Remaining")).toBeInTheDocument();
     expect(screen.getByText("Contract Risk")).toBeInTheDocument();
     expect(screen.getByText("Critical")).toBeInTheDocument();
-    expect(screen.getAllByText("€12,000/wk").length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText((_, element) =>
+        hasWeeklyWage(element?.textContent ?? "", 12000),
+      ).length,
+    ).toBeGreaterThan(0);
   });
 
   it("validates renewal offers before submission", async () => {
@@ -317,7 +326,11 @@ describe("PlayerProfile contract surfaces", () => {
     await waitFor(() => {
       expect(screen.getByText("Offer accepted")).toBeInTheDocument();
       expect(screen.getByText("Expires 2029-08-01")).toBeInTheDocument();
-      expect(screen.getAllByText("€15,000/wk").length).toBeGreaterThan(0);
+      expect(
+        screen.getAllByText((_, element) =>
+          hasWeeklyWage(element?.textContent ?? "", 15000),
+        ).length,
+      ).toBeGreaterThan(0);
       expect(screen.getByText("Stable")).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Done" })).toBeInTheDocument();
       expect(

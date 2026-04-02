@@ -1,6 +1,6 @@
 import { GameStateData } from "../store/gameStore";
-import { Card, CardBody, Badge } from "./ui";
-import { MapPin, Users, Trophy } from "lucide-react";
+import { Card, CardBody, Badge, TeamLocation } from "./ui";
+import { Users, Trophy } from "lucide-react";
 import { calcOvr as calcPlayerOvr, formatVal } from "../lib/helpers";
 import { useTranslation } from "react-i18next";
 
@@ -10,7 +10,7 @@ interface TeamsListTabProps {
 }
 
 export default function TeamsListTab({ gameState, onSelectTeam }: TeamsListTabProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const userTeamId = gameState.manager.team_id;
 
   const allStandings = gameState.league?.standings
@@ -61,9 +61,14 @@ export default function TeamsListTab({ gameState, onSelectTeam }: TeamsListTabPr
                       {team.name}
                       {isUser && <Badge variant="accent" size="sm" className="ml-2 align-middle">{t('teams.yourTeam')}</Badge>}
                     </h3>
-                    <p className="text-white/70 text-xs flex items-center gap-1.5 mt-0.5">
-                      <MapPin className="w-3 h-3" /> {team.city}, {team.country}
-                    </p>
+                    <TeamLocation
+                      city={team.city}
+                      countryCode={team.country}
+                      locale={i18n.language}
+                      className="mt-0.5 text-white/70 text-xs"
+                      iconClassName="w-3 h-3"
+                      flagClassName="text-xs leading-none"
+                    />
                   </div>
                   {leaguePos > 0 && (
                     <div className="bg-black/20 backdrop-blur rounded-lg px-3 py-1.5 text-center">

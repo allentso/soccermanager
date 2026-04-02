@@ -347,8 +347,8 @@ The engine uses a "snapshot" pattern (`PlayerSnap`) to work around Rust's borrow
 ### 6. ISO Alpha-2 Country Codes
 
 All nationalities are stored as ISO 3166-1 alpha-2 codes (e.g., `"GB"`, `"ES"`) rather than demonyms. This enables:
-- Flag emoji rendering via `i18n-iso-countries` on the frontend
 - Locale-aware country name display
+- SVG-backed country flag rendering on the frontend
 - Consistent data format across backend and frontend
 
 ### 7. Frontend Tab Architecture
