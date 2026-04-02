@@ -3,15 +3,11 @@ import { invoke } from "@tauri-apps/api/core";
 import {
   calcOvr,
   formatDate,
-  formatWeeklyAmount,
   getContractRiskBadgeVariant,
   getContractRiskLevel,
   getContractYearsRemaining,
   positionBadgeVariant,
 } from "../lib/helpers";
-import {
-  annualAmountToWeeklyCommitment,
-} from "../lib/finance";
 import { PlayerData, TeamData, GameStateData } from "../store/gameStore";
 import {
   Button,
@@ -32,16 +28,11 @@ import {
   Heart,
   Activity,
   AlertTriangle,
-  ScanSearch,
 } from "lucide-react";
 import { TraitList } from "./TraitBadge";
 import { useTranslation } from "react-i18next";
 import { countryName } from "../lib/countries";
 import { resolveBackendText } from "../utils/backendI18n";
-import DashboardModalFrame from "./dashboard/DashboardModalFrame";
-import NegotiationFeedbackPanel, {
-  type NegotiationFeedbackPanelData,
-} from "./NegotiationFeedbackPanel";
 import { translatePositionLabel } from "./SquadTab.helpers";
 import {
   formatPlayerMarketValue,
@@ -51,6 +42,22 @@ import {
   getPlayerTeamName,
   resolvePlayerInjuryName,
 } from "./PlayerProfile.helpers";
+import PlayerProfileRenewalModal from "./PlayerProfileRenewalModal";
+import PlayerProfileScoutAction from "./PlayerProfileScoutAction";
+import {
+  type DelegatedRenewalCaseData,
+  type DelegatedRenewalResponseData,
+  getRenewalStatusClassName,
+  getRenewalStatusMessage,
+  type RenewalProjectionData,
+  type RenewalResponseData,
+  type RenewalStatus,
+  shouldDisableRenewalSubmit,
+} from "./PlayerProfile.renewal";
+import {
+  getScoutAvailability,
+  type PlayerProfileScoutStatus,
+} from "./PlayerProfile.scouting";
 
 interface PlayerProfileProps {
   player: PlayerData;
@@ -61,60 +68,6 @@ interface PlayerProfileProps {
   onSelectTeam?: (id: string) => void;
   onGameUpdate?: (g: GameStateData) => void;
 }
-
-interface RenewalResponseData {
-  outcome: "accepted" | "rejected" | "counter_offer";
-  game: GameStateData;
-  suggested_wage: number | null;
-  suggested_years: number | null;
-  session_status: "idle" | "open" | "agreed" | "blocked" | "stalled";
-  is_terminal: boolean;
-  cooled_off?: boolean;
-  feedback?: NegotiationFeedbackData | null;
-}
-
-interface RenewalProjectionData {
-  projection: {
-    current_annual_wage_bill: number;
-    projected_annual_wage_bill: number;
-    annual_wage_budget: number;
-    annual_soft_cap: number;
-    current_weekly_wage_spend: number;
-    projected_weekly_wage_spend: number;
-    current_cash_runway_weeks: number | null;
-    projected_cash_runway_weeks: number | null;
-    currently_over_budget: boolean;
-    policy_allows: boolean;
-  };
-}
-
-type NegotiationFeedbackData = NegotiationFeedbackPanelData;
-
-interface DelegatedRenewalCaseData {
-  player_id: string;
-  status: "successful" | "failed" | "stalled";
-  note: string;
-  note_key?: string;
-  note_params?: Record<string, string>;
-}
-
-interface DelegatedRenewalResponseData {
-  game: GameStateData;
-  report: {
-    success_count: number;
-    failure_count: number;
-    stalled_count: number;
-    cases: DelegatedRenewalCaseData[];
-  };
-}
-
-type RenewalStatus =
-  | "idle"
-  | "accepted"
-  | "rejected"
-  | "counter_offer"
-  | "blocked"
-  | "error";
 
 export default function PlayerProfile({
   player,
@@ -140,9 +93,9 @@ export default function PlayerProfile({
     return null;
   }
 
-  const [scoutStatus, setScoutStatus] = useState<
-    "idle" | "sending" | "sent" | "error"
-  >("idle");
+  const [scoutStatus, setScoutStatus] = useState<PlayerProfileScoutStatus>(
+    "idle",
+  );
   const [scoutError, setScoutError] = useState<string | null>(null);
   const [showRenewalModal, setShowRenewalModal] = useState(false);
   const [renewalWage, setRenewalWage] = useState("");
@@ -196,12 +149,31 @@ export default function PlayerProfile({
     isRenewalWageValid &&
     renewalProjection !== null &&
     !renewalProjection.policy_allows;
-  const renewalSubmitDisabled =
-    renewalSubmitting ||
-    renewalIsTerminal ||
-    !isRenewalWageValid ||
-    !isRenewalLengthValid ||
-    renewalViolatesSoftCap;
+  const renewalSubmitDisabled = shouldDisableRenewalSubmit({
+    renewalSubmitting,
+    renewalIsTerminal,
+    isRenewalWageValid,
+    isRenewalLengthValid,
+    renewalViolatesSoftCap,
+  });
+  const renewalStatusMessage = getRenewalStatusMessage(
+    {
+      renewalSessionStatus,
+      renewalStatus,
+      renewalSuggestedWage,
+      renewalSuggestedYears,
+      renewalError,
+    },
+    t,
+  );
+  const renewalStatusClassName = getRenewalStatusClassName(renewalStatus);
+  const scoutAvailability = getScoutAvailability({
+    staff: gameState.staff,
+    scoutingAssignments: gameState.scouting_assignments || [],
+    managerTeamId: gameState.manager.team_id,
+    playerId: player.id,
+    scoutStatus,
+  });
 
   const isGK = player.position === "Goalkeeper";
 
@@ -287,49 +259,6 @@ export default function PlayerProfile({
     };
   }, [isRenewalWageValid, player.id, renewalOfferedWage, showRenewalModal]);
 
-  function getRenewalStatusMessage(): string | null {
-    if (renewalSessionStatus === "blocked" || renewalStatus === "blocked") {
-      return t("playerProfile.renewalBlocked");
-    }
-
-    if (renewalStatus === "accepted") {
-      return t("playerProfile.renewalAccepted");
-    }
-
-    if (renewalStatus === "rejected") {
-      return t("playerProfile.renewalRejected");
-    }
-
-    if (
-      renewalStatus === "counter_offer" &&
-      renewalSuggestedWage !== null &&
-      renewalSuggestedYears !== null
-    ) {
-      return t("playerProfile.renewalCounter", {
-        wage: renewalSuggestedWage,
-        years: renewalSuggestedYears,
-      });
-    }
-
-    return renewalError;
-  }
-
-  function getRenewalStatusClassName(): string {
-    if (renewalStatus === "accepted") {
-      return "text-primary-500";
-    }
-
-    if (renewalStatus === "rejected" || renewalStatus === "error") {
-      return "text-red-500";
-    }
-
-    if (renewalStatus === "counter_offer") {
-      return "text-accent-600 dark:text-accent-400";
-    }
-
-    return "text-gray-500 dark:text-gray-400";
-  }
-
   async function handleRenewalSubmit(): Promise<void> {
     if (renewalSubmitDisabled) {
       return;
@@ -398,9 +327,10 @@ export default function PlayerProfile({
       );
 
       onGameUpdate?.(result.game);
-      const delegatedCase = result.report.cases.find(
-        (renewalCase) => renewalCase.player_id === player.id,
-      );
+      const delegatedCase: DelegatedRenewalCaseData | undefined =
+        result.report.cases.find(
+          (renewalCase) => renewalCase.player_id === player.id,
+        );
 
       if (!delegatedCase) {
         setRenewalStatus("error");
@@ -642,80 +572,39 @@ export default function PlayerProfile({
             {/* Scout button for non-own players */}
             {!isOwnClub &&
               onGameUpdate &&
-              (() => {
-                const scouts = gameState.staff.filter(
-                  (s) =>
-                    s.role === "Scout" &&
-                    s.team_id === gameState.manager.team_id,
-                );
-                const alreadyScouting = (
-                  gameState.scouting_assignments || []
-                ).some((a) => a.player_id === player.id);
-                const allBusy =
-                  scouts.length > 0 &&
-                  scouts.every((s) =>
-                    (gameState.scouting_assignments || []).some(
-                      (a) => a.scout_id === s.id,
-                    ),
-                  );
-                const canScout =
-                  scouts.length > 0 &&
-                  !alreadyScouting &&
-                  !allBusy &&
-                  scoutStatus !== "sent";
-                return (
-                  <div className="mt-3">
-                    {scouts.length === 0 ? (
-                      <p className="text-xs text-gray-500">
-                        Hire a scout to evaluate players
-                      </p>
-                    ) : alreadyScouting || scoutStatus === "sent" ? (
-                      <span className="text-xs text-primary-400 font-heading font-bold uppercase tracking-wider flex items-center gap-1.5">
-                        <ScanSearch className="w-3.5 h-3.5" /> Scouting in
-                        progress
-                      </span>
-                    ) : (
-                      <button
-                        disabled={!canScout || scoutStatus === "sending"}
-                        onClick={async () => {
-                          const availableScout = scouts.find(
-                            (s) =>
-                              !(gameState.scouting_assignments || []).some(
-                                (a) => a.scout_id === s.id,
-                              ),
-                          );
-                          if (!availableScout) return;
-                          setScoutStatus("sending");
-                          setScoutError(null);
-                          try {
-                            const updated = await invoke<GameStateData>(
-                              "send_scout",
-                              {
-                                scoutId: availableScout.id,
-                                playerId: player.id,
-                              },
-                            );
-                            onGameUpdate(updated);
-                            setScoutStatus("sent");
-                          } catch (err) {
-                            setScoutError(String(err));
-                            setScoutStatus("error");
-                          }
-                        }}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-500/20 text-primary-400 hover:bg-primary-500/30 transition-colors text-xs font-heading font-bold uppercase tracking-wider disabled:opacity-50"
-                      >
-                        <ScanSearch className="w-3.5 h-3.5" />
-                        {scoutStatus === "sending"
-                          ? "Sending..."
-                          : "Scout Player"}
-                      </button>
-                    )}
-                    {scoutError && (
-                      <p className="text-xs text-red-400 mt-1">{scoutError}</p>
-                    )}
-                  </div>
-                );
-              })()}
+              <div className="mt-3">
+                <PlayerProfileScoutAction
+                  availability={scoutAvailability}
+                  scoutStatus={scoutStatus}
+                  scoutError={scoutError}
+                  onScout={() => {
+                    const availableScout = scoutAvailability.availableScout;
+                    if (!availableScout) {
+                      return;
+                    }
+
+                    void (async () => {
+                      setScoutStatus("sending");
+                      setScoutError(null);
+
+                      try {
+                        const updated = await invoke<GameStateData>(
+                          "send_scout",
+                          {
+                            scoutId: availableScout.id,
+                            playerId: player.id,
+                          },
+                        );
+                        onGameUpdate(updated);
+                        setScoutStatus("sent");
+                      } catch (err) {
+                        setScoutError(String(err));
+                        setScoutStatus("error");
+                      }
+                    })();
+                  }}
+                />
+              </div>}
 
             {/* Key stats in header */}
             <div className="hidden md:grid grid-cols-2 gap-3">
@@ -1060,187 +949,29 @@ export default function PlayerProfile({
         </Card>
       </div>
 
-      {showRenewalModal ? (
-        <DashboardModalFrame maxWidthClassName="max-w-md">
-          <div className="space-y-4">
-            <div>
-              <h3 className="text-lg font-heading font-bold uppercase tracking-wider text-gray-900 dark:text-gray-100">
-                {t("playerProfile.renewalTitle")}
-              </h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                {player.full_name}
-              </p>
-            </div>
-
-            <div className="space-y-3">
-              <div>
-                <label
-                  htmlFor="renewal-wage"
-                  className="text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 block mb-1"
-                >
-                  {t("playerProfile.renewalWage")}
-                </label>
-                <input
-                  id="renewal-wage"
-                  type="number"
-                  min="1"
-                  step="1"
-                  value={renewalWage}
-                  onChange={(event) => setRenewalWage(event.target.value)}
-                  disabled={renewalIsTerminal}
-                  className="w-full px-3 py-2 rounded-lg bg-gray-50 dark:bg-navy-700 border border-gray-200 dark:border-navy-600 text-sm text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
-                />
-              </div>
-
-              <div>
-                <label
-                  htmlFor="renewal-length"
-                  className="text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 block mb-1"
-                >
-                  {t("playerProfile.renewalLength")}
-                </label>
-                <input
-                  id="renewal-length"
-                  type="number"
-                  min="1"
-                  max="5"
-                  step="1"
-                  value={renewalLength}
-                  onChange={(event) => setRenewalLength(event.target.value)}
-                  disabled={renewalIsTerminal}
-                  className="w-full px-3 py-2 rounded-lg bg-gray-50 dark:bg-navy-700 border border-gray-200 dark:border-navy-600 text-sm text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
-                />
-              </div>
-            </div>
-
-            {!isRenewalWageValid && renewalWage !== "" ? (
-              <p className="text-sm text-red-500">
-                {t("playerProfile.renewalInvalidWage")}
-              </p>
-            ) : null}
-
-            {renewalViolatesSoftCap ? (
-              <p className="text-sm text-red-500">
-                {t("playerProfile.renewalBudgetWarning", {
-                  defaultValue: "Offer exceeds the board wage pressure limit",
-                })}
-              </p>
-            ) : null}
-
-            {renewalProjection ? (
-              <div className="rounded-lg border border-gray-200 dark:border-navy-600 bg-gray-50 dark:bg-navy-700/40 p-3 space-y-2">
-                <p className="text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                  {t("playerProfile.renewalProjectionTitle", {
-                    defaultValue: "Projected financial impact",
-                  })}
-                </p>
-                <p className="text-xs text-gray-600 dark:text-gray-300">
-                  {t("playerProfile.renewalProjectionWageBill", {
-                    before: formatPlayerWage(
-                      renewalProjection.current_annual_wage_bill,
-                      weeklySuffix,
-                    ),
-                    after: formatPlayerWage(
-                      renewalProjection.projected_annual_wage_bill,
-                      weeklySuffix,
-                    ),
-                    defaultValue:
-                      "Weekly wage bill {{before}} -> {{after}}",
-                  })}
-                </p>
-                <p className="text-xs text-gray-600 dark:text-gray-300">
-                  {t("playerProfile.renewalProjectionBudgetUsage", {
-                    before:
-                      renewalProjection.annual_wage_budget > 0
-                        ? Math.round(
-                          (renewalProjection.current_annual_wage_bill /
-                            renewalProjection.annual_wage_budget) *
-                          100,
-                        )
-                        : 0,
-                    after:
-                      renewalProjection.annual_wage_budget > 0
-                        ? Math.round(
-                          (renewalProjection.projected_annual_wage_bill /
-                            renewalProjection.annual_wage_budget) *
-                          100,
-                        )
-                        : 0,
-                    defaultValue:
-                      "Wage budget use {{before}}% -> {{after}}%",
-                  })}
-                </p>
-                <p className="text-xs text-gray-600 dark:text-gray-300">
-                  {t("playerProfile.renewalProjectionRunway", {
-                    before:
-                      renewalProjection.current_cash_runway_weeks === null
-                        ? t("finances.runwayStable")
-                        : t("finances.runwayWeeks", {
-                          count: renewalProjection.current_cash_runway_weeks,
-                        }),
-                    after:
-                      renewalProjection.projected_cash_runway_weeks === null
-                        ? t("finances.runwayStable")
-                        : t("finances.runwayWeeks", {
-                          count: renewalProjection.projected_cash_runway_weeks,
-                        }),
-                    defaultValue: "Cash runway {{before}} -> {{after}}",
-                  })}
-                </p>
-              </div>
-            ) : null}
-
-            {getRenewalStatusMessage() ? (
-              <p
-                className={`text-sm font-medium ${getRenewalStatusClassName()}`}
-              >
-                {getRenewalStatusMessage()}
-              </p>
-            ) : null}
-
-            {renewalCooledOff ? (
-              <p className="text-sm text-amber-600 dark:text-amber-300">
-                {t("playerProfile.renewalCooledOff")}
-              </p>
-            ) : null}
-
-            <NegotiationFeedbackPanel
-              feedback={renewalFeedback}
-              titleKey="playerProfile.renewalConversationTitle"
-              roundKey="playerProfile.renewalRound"
-              patienceKey="playerProfile.renewalPatience"
-              tensionKey="playerProfile.renewalTension"
-            />
-
-            <div className="flex gap-2 justify-end">
-              {renewalIsTerminal ? (
-                <Button variant="ghost" onClick={closeRenewalModal}>
-                  {t("common.done")}
-                </Button>
-              ) : (
-                <>
-                  <Button variant="ghost" onClick={closeRenewalModal}>
-                    {t("common.cancel")}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => void handleDelegateRenewal()}
-                    disabled={renewalSubmitting}
-                  >
-                    {t("playerProfile.delegateRenewal")}
-                  </Button>
-                  <Button
-                    onClick={() => void handleRenewalSubmit()}
-                    disabled={renewalSubmitDisabled}
-                  >
-                    {t("playerProfile.renewalSubmit")}
-                  </Button>
-                </>
-              )}
-            </div>
-          </div>
-        </DashboardModalFrame>
-      ) : null}
+      <PlayerProfileRenewalModal
+        show={showRenewalModal}
+        playerName={player.full_name}
+        t={t}
+        weeklySuffix={weeklySuffix}
+        renewalWage={renewalWage}
+        renewalLength={renewalLength}
+        renewalIsTerminal={renewalIsTerminal}
+        isRenewalWageValid={isRenewalWageValid}
+        renewalViolatesSoftCap={renewalViolatesSoftCap}
+        renewalProjection={renewalProjection}
+        renewalStatusMessage={renewalStatusMessage}
+        renewalStatusClassName={renewalStatusClassName}
+        renewalCooledOff={renewalCooledOff}
+        renewalFeedback={renewalFeedback}
+        renewalSubmitting={renewalSubmitting}
+        renewalSubmitDisabled={renewalSubmitDisabled}
+        onWageChange={setRenewalWage}
+        onLengthChange={setRenewalLength}
+        onClose={closeRenewalModal}
+        onDelegate={() => void handleDelegateRenewal()}
+        onSubmit={() => void handleRenewalSubmit()}
+      />
     </div>
   );
 }
