@@ -28,8 +28,12 @@ pub struct Player {
     pub attributes: PlayerAttributes,
 
     // Dynamic match/season values
-    pub condition: u8, // 0-100 (stamina/match fitness)
+    pub condition: u8, // 0-100 (short-term energy; depletes during matches, recovers daily)
     pub morale: u8,    // 0-100
+    /// Long-term physical shape (0–100). Determines how fast condition depletes and
+    /// recovers, and modulates injury risk. Changes slowly over weeks.
+    #[serde(default = "default_fitness")]
+    pub fitness: u8,
 
     pub injury: Option<Injury>,
     pub team_id: Option<String>,
@@ -169,6 +173,10 @@ fn default_attr() -> u8 {
 
 fn default_weak_foot() -> u8 {
     2
+}
+
+fn default_fitness() -> u8 {
+    75
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -488,6 +496,7 @@ impl Player {
             attributes,
             condition: 100,
             morale: 100,
+            fitness: 75,
             injury: None,
             team_id: None,
             traits,

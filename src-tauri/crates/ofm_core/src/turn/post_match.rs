@@ -503,6 +503,16 @@ fn deplete_match_stamina(game: &mut Game, team_id: &str, report: &engine::MatchR
             let base_depletion = 40.0 * (1.0 - stamina_factor * 0.4);
             let depletion = (base_depletion * minutes_factor) as u8;
             player.condition = player.condition.saturating_sub(depletion);
+
+            // Regular match play improves fitness for players with significant time.
+            // 60+ minutes builds sharpness; probabilistic to keep changes gradual.
+            if minutes >= 60 {
+                use rand::Rng;
+                let mut rng = rand::thread_rng();
+                if rng.gen_bool(0.3) && player.fitness < 100 {
+                    player.fitness = player.fitness.saturating_add(1);
+                }
+            }
         }
     }
 }

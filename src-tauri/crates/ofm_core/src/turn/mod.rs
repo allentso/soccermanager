@@ -144,6 +144,7 @@ fn build_engine_team(game: &Game, team_id: &str) -> engine::TeamData {
                 name: p.match_name.clone(),
                 position: pos,
                 condition: p.condition,
+                fitness: p.fitness,
                 pace: p.attributes.pace,
                 stamina: p.attributes.stamina,
                 strength: p.attributes.strength,
