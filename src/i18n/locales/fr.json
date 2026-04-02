@@ -16,7 +16,9 @@
     "manager": "Entraîneur : {{name}}",
     "deleteSave": "Supprimer la sauvegarde",
     "noResults": "Aucun résultat",
-    "importedDescription": "Base de données de monde importée"
+    "importedDescription": "Base de données de monde importée",
+    "invalidWorldDb": "Fichier de base de données de monde invalide : {{error}}",
+    "failedStartGame": "Échec du démarrage du jeu : {{error}}"
   },
   "createManager": {
     "title": "Créer un Entraîneur",
@@ -319,6 +321,12 @@
       "LeftWinger": "Ailier gauche",
       "Striker": "Avant-centre"
     },
+    "positionGroups": {
+      "Goalkeeper": "Gardiens",
+      "Defender": "Défenseurs",
+      "Midfielder": "Milieux",
+      "Forward": "Attaquants"
+    },
     "posAbbr": {
       "Goalkeeper": "GAR",
       "Defender": "DEF",
@@ -521,6 +529,19 @@
     "staffAlert": "Alerte du Staff",
     "staffWarning": "Avertissement du Staff",
     "staffSuggestion": "Suggestion du Staff",
+    "staffAdvice": {
+      "critical": "Crise de condition physique ! {{criticalCount}} joueur(s) en état critique. {{scheduleAdvice}}",
+      "warn": "L'équipe est fatiguée (moy. {{avgCondition}}%, {{exhaustedCount}} en dessous de 40%). {{scheduleAdvice}}",
+      "ok": "La condition physique de l'équipe est bonne. Vous pourriez passer à Équilibré ou Intensif pour plus de développement.",
+      "scheduleAdvice": {
+        "criticalIntense": "Passez immédiatement à un programme Équilibré ou Léger.",
+        "criticalBalanced": "Envisagez un programme Léger ou un focus Récupération.",
+        "criticalLight": "Définissez le focus sur Récupération jusqu'à amélioration de la condition.",
+        "warnIntense": "Un programme Équilibré donnerait plus de temps de récupération.",
+        "warnBalanced": "Un programme Léger pourrait aider l'équipe à rebondir.",
+        "warnLight": "Le focus Récupération maximiserait la récupération de condition."
+      }
+    },
     "focuses": {
       "Physical": {
         "label": "Physique",
@@ -764,7 +785,15 @@
     "boardVeryPleased": "La direction est très satisfaite de votre travail.",
     "boardSatisfied": "La direction est satisfaite de vos performances.",
     "boardConcerns": "La direction a des inquiétudes concernant les résultats.",
-    "boardThreat": "Votre poste est sérieusement menacé."
+    "boardThreat": "Votre poste est sérieusement menacé.",
+    "board": "Direction",
+    "fans": "Supporters",
+    "born": "Né le",
+    "fanAdore": "Les supporters vous adorent !",
+    "fanBehind": "Les supporters soutiennent l'équipe.",
+    "fanMixed": "Le sentiment des supporters est mitigé.",
+    "fanRestless": "Les supporters s'impatientent.",
+    "fanUnrest": "Agitation parmi les supporters — des protestations sont probables."
   },
   "boardObjectives": {
     "objective": {
@@ -951,7 +980,11 @@
     "nApps": "{{count}} matchs",
     "nGoals": "{{count}} buts",
     "nAssists": "{{count}} passes D.",
-    "daysRemaining": "{{count}} jours restants — Joueur indisponible"
+    "daysRemaining": "{{count}} jours restants — Joueur indisponible",
+    "renewalProjectionTitle": "Impact financier projeté",
+    "renewalProjectionWageBill": "Masse salariale hebdomadaire {{before}} → {{after}}",
+    "renewalProjectionBudgetUsage": "Utilisation du budget salarial {{before}}% → {{after}}%",
+    "renewalProjectionRunway": "Réserve de trésorerie {{before}} → {{after}}"
   },
   "teamProfile": {
     "clubInfo": "Informations du Club",
@@ -1189,6 +1222,15 @@
     "submitting": "Envoi...",
     "leaveConference": "Quitter la Conférence",
     "nextQuestion": "Question Suivante",
+    "pressReport": {
+      "headlineManagerQuote": "{{team}} Entraîneur: {{quote}}",
+      "headlinePressConf": "Conférence de Presse: \"{{quote}}\" — entraîneur de {{team}}",
+      "headlinePostMatch": "Après-Match: {{team}} sur {{result}}",
+      "bodyIntro": "Après le résultat {{result}}, l'entraîneur de {{team}} a pris la parole face à la presse.",
+      "bodyOutro": "La conférence a couvert le résultat, l'approche tactique et les prochaines échéances de l'équipe.",
+      "bodySingle": "L'entraîneur de {{team}} s'est exprimé brièvement après le résultat {{result}}.",
+      "bodyNone": "L'entraîneur de {{team}} a décliné de s'exprimer longuement après le résultat {{result}}."
+    },
     "press": {
       "result": {
         "questions": {
@@ -1392,6 +1434,13 @@
     "playerOfYear": "Joueur de l'Année",
     "avgRating": "Note moyenne : {{rating}}",
     "continueDashboard": "Continuer vers le Tableau de Bord"
+  },
+  "notifications": {
+    "attentionRequired": "Attention Requise",
+    "resolveBeforeContinuing": "Résolvez ces problèmes avant de continuer",
+    "goTo": "Aller à",
+    "reviewIssues": "Examiner les problèmes",
+    "continueAnyway": "Continuer quand même"
   },
   "squadCompare": {
     "compare": "Comparer"

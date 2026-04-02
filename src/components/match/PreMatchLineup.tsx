@@ -39,7 +39,7 @@ export function getPositionOvr(p: EnginePlayerData): number {
           p.aerial +
           p.positioning +
           p.composure) /
-          7,
+        7,
       );
     case "Defender":
       return Math.round(
@@ -48,7 +48,7 @@ export function getPositionOvr(p: EnginePlayerData): number {
           p.strength +
           p.positioning +
           p.aerial) /
-          7,
+        7,
       );
     case "Midfielder":
       return Math.round(
@@ -58,7 +58,7 @@ export function getPositionOvr(p: EnginePlayerData): number {
           p.stamina +
           p.dribbling +
           p.teamwork) /
-          7,
+        7,
       );
     case "Forward":
       return Math.round(
@@ -68,7 +68,7 @@ export function getPositionOvr(p: EnginePlayerData): number {
           p.composure +
           p.strength +
           p.positioning) /
-          7,
+        7,
       );
     default:
       return 50;
@@ -228,8 +228,8 @@ export default function PreMatchLineup({
               <div key={pos} className="mb-3">
                 <div className="flex items-center justify-between mb-1">
                   <div className="flex items-center gap-1.5">
-                    <p className="text-[10px] font-heading uppercase tracking-widest text-gray-600 dark:text-gray-500">
-                      {pos}s
+                    <p className="text-[10px] font-heading uppercase tracking-widest text-gray-600">
+                      {t(`common.positionGroups.${pos}`)}
                     </p>
                     {!balanced && (
                       <span className="flex items-center gap-0.5">
@@ -265,8 +265,7 @@ export default function PreMatchLineup({
                     <button
                       key={p.id}
                       onClick={() => onSelectStarter(isSelected ? null : p.id)}
-                      className={`flex items-center gap-2 py-1.5 px-2 rounded w-full text-left transition-all ${
-                        isSelected
+                      className={`flex items-center gap-2 py-1.5 px-2 rounded w-full text-left transition-all ${isSelected
                           ? "bg-primary-500/20 ring-1 ring-primary-500/50"
                             : "hover:bg-gray-100 dark:hover:bg-navy-700/50"
                       }`}
@@ -351,8 +350,7 @@ export default function PreMatchLineup({
                   <button
                     key={bp.id}
                     onClick={() => (selectedStarterId ? onSwap(bp.id) : null)}
-                    className={`flex items-center gap-2 py-1.5 px-2 rounded w-full text-left transition-all ${
-                      selectedStarterId
+                    className={`flex items-center gap-2 py-1.5 px-2 rounded w-full text-left transition-all ${selectedStarterId
                         ? "hover:bg-primary-500/20 hover:ring-1 hover:ring-primary-500/50 cursor-pointer"
                      : "hover:bg-gray-100 dark:hover:bg-navy-700/50"
                     }`}
@@ -408,7 +406,7 @@ export default function PreMatchLineup({
                   {oppTeam.name}
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {oppTeam.formation} · {oppTeam.play_style}
+                  {oppTeam.formation} · {t(`tactics.playStyles.${oppTeam.play_style}`, oppTeam.play_style)}
                 </p>
               </div>
             </div>

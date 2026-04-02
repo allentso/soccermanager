@@ -16,7 +16,9 @@
     "manager": "Treinador: {{name}}",
     "deleteSave": "Excluir save",
     "noResults": "Sem resultados",
-    "importedDescription": "Banco de dados importado"
+    "importedDescription": "Banco de dados importado",
+    "invalidWorldDb": "Arquivo de banco de dados de mundo inválido: {{error}}",
+    "failedStartGame": "Falha ao iniciar o jogo: {{error}}"
   },
   "createManager": {
     "title": "Criar Treinador",
@@ -319,6 +321,12 @@
       "LeftWinger": "Ponta esquerda",
       "Striker": "Centroavante"
     },
+    "positionGroups": {
+      "Goalkeeper": "Goleiros",
+      "Defender": "Defensores",
+      "Midfielder": "Meias",
+      "Forward": "Atacantes"
+    },
     "posAbbr": {
       "Goalkeeper": "GOL",
       "Defender": "ZAG",
@@ -521,6 +529,19 @@
     "staffAlert": "Alerta da Comissão",
     "staffWarning": "Aviso da Comissão",
     "staffSuggestion": "Sugestão da Comissão",
+    "staffAdvice": {
+      "critical": "Crise de condição física! {{criticalCount}} jogador(es) em estado crítico. {{scheduleAdvice}}",
+      "warn": "O elenco está cansado (média {{avgCondition}}%, {{exhaustedCount}} abaixo de 40%). {{scheduleAdvice}}",
+      "ok": "A condição física do elenco está alta. Você pode mudar para Equilibrado ou Intenso para mais desenvolvimento.",
+      "scheduleAdvice": {
+        "criticalIntense": "Mude para uma programação Equilibrada ou Leve imediatamente.",
+        "criticalBalanced": "Considere uma programação Leve ou foco em Recuperação.",
+        "criticalLight": "Defina o foco em Recuperação até a condição melhorar.",
+        "warnIntense": "Uma programação Equilibrada daria mais tempo de recuperação.",
+        "warnBalanced": "Uma programação Leve poderia ajudar o elenco a se recuperar.",
+        "warnLight": "O foco em Recuperação maximizaria a recuperação de condição."
+      }
+    },
     "focuses": {
       "Physical": {
         "label": "Físico",
@@ -764,7 +785,15 @@
     "boardVeryPleased": "A diretoria está muito satisfeita com seu trabalho.",
     "boardSatisfied": "A diretoria está satisfeita com seu desempenho.",
     "boardConcerns": "A diretoria tem preocupações com os resultados.",
-    "boardThreat": "Sua posição está seriamente ameaçada."
+    "boardThreat": "Sua posição está seriamente ameaçada.",
+    "board": "Diretoria",
+    "fans": "Torcida",
+    "born": "Nascido em",
+    "fanAdore": "Os torcedores te adoram!",
+    "fanBehind": "A torcida está com o time.",
+    "fanMixed": "O sentimento da torcida está dividido.",
+    "fanRestless": "A torcida está ficando impaciente.",
+    "fanUnrest": "Agitação entre os torcedores — protestos prováveis."
   },
   "boardObjectives": {
     "objective": {
@@ -951,7 +980,11 @@
     "nApps": "{{count}} jogos",
     "nGoals": "{{count}} gols",
     "nAssists": "{{count}} assistências",
-    "daysRemaining": "{{count}} dias restantes — Jogador indisponível para seleção"
+    "daysRemaining": "{{count}} dias restantes — Jogador indisponível para seleção",
+    "renewalProjectionTitle": "Impacto financeiro projetado",
+    "renewalProjectionWageBill": "Folha de salários semanal {{before}} → {{after}}",
+    "renewalProjectionBudgetUsage": "Uso do orçamento salarial {{before}}% → {{after}}%",
+    "renewalProjectionRunway": "Reserva de caixa {{before}} → {{after}}"
   },
   "teamProfile": {
     "clubInfo": "Informações do Clube",
@@ -1154,6 +1187,15 @@
     "submitting": "Enviando...",
     "leaveConference": "Encerrar Coletiva",
     "nextQuestion": "Próxima Pergunta",
+    "pressReport": {
+      "headlineManagerQuote": "{{team}} Técnico: {{quote}}",
+      "headlinePressConf": "Coletiva de Imprensa: \"{{quote}}\" — técnico do {{team}}",
+      "headlinePostMatch": "Pós-Jogo: {{team}} sobre {{result}}",
+      "bodyIntro": "Após o resultado {{result}}, o técnico do {{team}} falou com a imprensa.",
+      "bodyOutro": "A coletiva abordou o resultado, a abordagem tática e o que está por vir para o time.",
+      "bodySingle": "O técnico do {{team}} falou brevemente após o resultado {{result}}.",
+      "bodyNone": "O técnico do {{team}} não quis falar longamente após o resultado {{result}}."
+    },
     "press": {
       "result": {
         "questions": {
@@ -1357,6 +1399,13 @@
     "playerOfYear": "Jogador do Ano",
     "avgRating": "Nota média: {{rating}}",
     "continueDashboard": "Continuar para o Painel"
+  },
+  "notifications": {
+    "attentionRequired": "Atenção Necessária",
+    "resolveBeforeContinuing": "Resolva estes problemas antes de continuar",
+    "goTo": "Ir para",
+    "reviewIssues": "Revisar Problemas",
+    "continueAnyway": "Continuar mesmo assim"
   },
   "squadCompare": {
     "compare": "Comparar"

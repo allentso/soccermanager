@@ -16,7 +16,9 @@
     "manager": "Manager: {{name}}",
     "deleteSave": "Delete save",
     "noResults": "No results",
-    "importedDescription": "Imported world database"
+    "importedDescription": "Imported world database",
+    "invalidWorldDb": "Invalid world database file: {{error}}",
+    "failedStartGame": "Failed to start game: {{error}}"
   },
   "createManager": {
     "title": "Create Manager",
@@ -319,6 +321,12 @@
       "LeftWinger": "Left Winger",
       "Striker": "Striker"
     },
+    "positionGroups": {
+      "Goalkeeper": "Goalkeepers",
+      "Defender": "Defenders",
+      "Midfielder": "Midfielders",
+      "Forward": "Forwards"
+    },
     "posAbbr": {
       "Goalkeeper": "GK",
       "Defender": "DEF",
@@ -521,6 +529,19 @@
     "staffAlert": "Staff Alert",
     "staffWarning": "Staff Warning",
     "staffSuggestion": "Staff Suggestion",
+    "staffAdvice": {
+      "critical": "Fitness crisis! {{criticalCount}} player(s) in critical condition. {{scheduleAdvice}}",
+      "warn": "Squad is tired (avg {{avgCondition}}%, {{exhaustedCount}} below 40%). {{scheduleAdvice}}",
+      "ok": "Squad fitness is high. You could switch to Balanced or Intense for more development.",
+      "scheduleAdvice": {
+        "criticalIntense": "Switch to a Balanced or Light schedule immediately.",
+        "criticalBalanced": "Consider a Light schedule or Recovery focus.",
+        "criticalLight": "Set focus to Recovery until fitness improves.",
+        "warnIntense": "A Balanced schedule would give more recovery time.",
+        "warnBalanced": "A Light schedule could help the squad bounce back.",
+        "warnLight": "Recovery focus would maximise fitness recovery."
+      }
+    },
     "focuses": {
       "Physical": {
         "label": "Physical",
@@ -764,7 +785,15 @@
     "boardVeryPleased": "The board is very pleased with your work.",
     "boardSatisfied": "The board is satisfied with your performance.",
     "boardConcerns": "The board has concerns about results.",
-    "boardThreat": "Your position is under serious threat."
+    "boardThreat": "Your position is under serious threat.",
+    "board": "Board",
+    "fans": "Fans",
+    "born": "Born",
+    "fanAdore": "The fans adore you!",
+    "fanBehind": "Fans are behind the team.",
+    "fanMixed": "Fan sentiment is mixed.",
+    "fanRestless": "Fans are growing restless.",
+    "fanUnrest": "Fan unrest — protests likely."
   },
   "boardObjectives": {
     "objective": {
@@ -951,7 +980,11 @@
     "nApps": "{{count}} apps",
     "nGoals": "{{count}} goals",
     "nAssists": "{{count}} assists",
-    "daysRemaining": "{{count}} days remaining — Player unavailable for selection"
+    "daysRemaining": "{{count}} days remaining — Player unavailable for selection",
+    "renewalProjectionTitle": "Projected financial impact",
+    "renewalProjectionWageBill": "Weekly wage bill {{before}} → {{after}}",
+    "renewalProjectionBudgetUsage": "Wage budget use {{before}}% → {{after}}%",
+    "renewalProjectionRunway": "Cash runway {{before}} → {{after}}"
   },
   "teamProfile": {
     "clubInfo": "Club Information",
@@ -1189,6 +1222,15 @@
     "submitting": "Submitting...",
     "leaveConference": "Leave Conference",
     "nextQuestion": "Next Question",
+    "pressReport": {
+      "headlineManagerQuote": "{{team}} Manager: {{quote}}",
+      "headlinePressConf": "Press Conference: \"{{quote}}\" — {{team}} boss",
+      "headlinePostMatch": "Post-Match: {{team}} on {{result}}",
+      "bodyIntro": "Speaking after the {{result}} result, the {{team}} manager addressed the press.",
+      "bodyOutro": "The conference covered the result, tactical approach, and what lies ahead for the team.",
+      "bodySingle": "The {{team}} manager spoke briefly after the {{result}} result.",
+      "bodyNone": "The {{team}} manager declined to speak at length after the {{result}} result."
+    },
     "press": {
       "result": {
         "questions": {
@@ -1392,6 +1434,13 @@
     "playerOfYear": "Player of the Year",
     "avgRating": "Avg rating: {{rating}}",
     "continueDashboard": "Continue to Dashboard"
+  },
+  "notifications": {
+    "attentionRequired": "Attention Required",
+    "resolveBeforeContinuing": "Resolve these issues before continuing",
+    "goTo": "Go to",
+    "reviewIssues": "Review Issues",
+    "continueAnyway": "Continue Anyway"
   },
   "squadCompare": {
     "compare": "Compare"

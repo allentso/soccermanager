@@ -26,7 +26,7 @@ export default function ManagerTab({ gameState }: ManagerTabProps) {
             <h2 className="text-2xl font-heading font-bold text-white uppercase tracking-wide">{mgr.first_name} {mgr.last_name}</h2>
             <p className="text-gray-400 text-sm mt-1">
               <CountryFlag code={mgr.nationality} locale={i18n.language} className="mr-1 text-sm leading-none" />
-              {countryName(mgr.nationality, i18n.language)} • Born {formatDate(mgr.date_of_birth, i18n.language)}
+              {countryName(mgr.nationality, i18n.language)} • {t('manager.born')} {formatDate(mgr.date_of_birth, i18n.language)}
             </p>
             {myTeam && <p className="text-primary-400 text-sm font-semibold mt-0.5">{t('manager.managerOf', { team: myTeam.name })}</p>}
           </div>
@@ -61,7 +61,7 @@ export default function ManagerTab({ gameState }: ManagerTabProps) {
             <div>
               <div className="text-center mb-2">
                 <p className="font-heading font-bold text-3xl text-gray-800 dark:text-gray-100">{mgr.satisfaction}%</p>
-                <p className="text-[10px] text-gray-400 dark:text-gray-500 font-heading uppercase tracking-wider mt-0.5">Board</p>
+                <p className="text-[10px] text-gray-400 dark:text-gray-500 font-heading uppercase tracking-wider mt-0.5">{t('manager.board')}</p>
               </div>
               <ProgressBar value={mgr.satisfaction} variant="auto" size="md" />
               <p className="text-[10px] text-gray-400 dark:text-gray-500 text-center mt-2">
@@ -75,15 +75,15 @@ export default function ManagerTab({ gameState }: ManagerTabProps) {
             <div>
               <div className="text-center mb-2">
                 <p className="font-heading font-bold text-3xl text-gray-800 dark:text-gray-100">{mgr.fan_approval ?? 50}%</p>
-                <p className="text-[10px] text-gray-400 dark:text-gray-500 font-heading uppercase tracking-wider mt-0.5">Fans</p>
+                <p className="text-[10px] text-gray-400 dark:text-gray-500 font-heading uppercase tracking-wider mt-0.5">{t('manager.fans')}</p>
               </div>
               <ProgressBar value={mgr.fan_approval ?? 50} variant="auto" size="md" />
               <p className="text-[10px] text-gray-400 dark:text-gray-500 text-center mt-2">
-                {(mgr.fan_approval ?? 50) >= 80 ? "The fans adore you!" :
-                 (mgr.fan_approval ?? 50) >= 60 ? "Fans are behind the team." :
-                 (mgr.fan_approval ?? 50) >= 40 ? "Fan sentiment is mixed." :
-                 (mgr.fan_approval ?? 50) >= 20 ? "Fans are growing restless." :
-                 "Fan unrest — protests likely."}
+                {(mgr.fan_approval ?? 50) >= 80 ? t('manager.fanAdore') :
+                 (mgr.fan_approval ?? 50) >= 60 ? t('manager.fanBehind') :
+                 (mgr.fan_approval ?? 50) >= 40 ? t('manager.fanMixed') :
+                 (mgr.fan_approval ?? 50) >= 20 ? t('manager.fanRestless') :
+                 t('manager.fanUnrest')}
               </p>
             </div>
           </div>

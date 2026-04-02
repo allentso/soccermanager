@@ -563,6 +563,8 @@ pub fn submit_press_conference(
     away_score: u8,
     user_team_name: String,
     user_team_id: String,
+    prerendered_body: Option<String>,
+    prerendered_headline: Option<String>,
 ) -> Result<serde_json::Value, String> {
     info!(
         "[cmd] submit_press_conference: {} {} - {} {}",
@@ -651,38 +653,42 @@ pub fn submit_press_conference(
         "{} {} - {} {}",
         home_team, home_score, away_score, away_team
     );
-    let headline = if quotes.is_empty() {
-        format!("Post-Match: {} on {}", user_team_name, result_str)
-    } else {
-        let sources = [
-            format!("{} Manager: {}", user_team_name, quotes[0]),
-            format!(
-                "Press Conference: \"{}\" — {} boss",
-                quotes[0].trim_matches('"'),
-                user_team_name
-            ),
-        ];
-        sources[rng.gen_range(0..sources.len())].clone()
-    };
+    let headline = prerendered_headline.unwrap_or_else(|| {
+        if quotes.is_empty() {
+            format!("Post-Match: {} on {}", user_team_name, result_str)
+        } else {
+            let sources = [
+                format!("{} Manager: {}", user_team_name, quotes[0]),
+                format!(
+                    "Press Conference: \"{}\" — {} boss",
+                    quotes[0].trim_matches('"'),
+                    user_team_name
+                ),
+            ];
+            sources[rng.gen_range(0..sources.len())].clone()
+        }
+    });
 
-    let body = if quotes.len() > 1 {
-        format!(
-            "Speaking after the {} result, the {} manager addressed the press.\n\n{}\n\n\
-            The conference covered the result, tactical approach, and what lies ahead for the team.",
-            result_str, user_team_name,
-            quotes.iter().map(|q| format!("• {}", q)).collect::<Vec<_>>().join("\n")
-        )
-    } else if quotes.len() == 1 {
-        format!(
-            "The {} manager spoke briefly after the {} result.\n\n{}",
-            user_team_name, result_str, quotes[0]
-        )
-    } else {
-        format!(
-            "The {} manager declined to speak at length after the {} result.",
-            user_team_name, result_str
-        )
-    };
+    let body = prerendered_body.unwrap_or_else(|| {
+        if quotes.len() > 1 {
+            format!(
+                "Speaking after the {} result, the {} manager addressed the press.\n\n{}\n\n\
+                The conference covered the result, tactical approach, and what lies ahead for the team.",
+                result_str, user_team_name,
+                quotes.iter().map(|q| format!("• {}", q)).collect::<Vec<_>>().join("\n")
+            )
+        } else if quotes.len() == 1 {
+            format!(
+                "The {} manager spoke briefly after the {} result.\n\n{}",
+                user_team_name, result_str, quotes[0]
+            )
+        } else {
+            format!(
+                "The {} manager declined to speak at length after the {} result.",
+                user_team_name, result_str
+            )
+        }
+    });
 
     let article_id = format!("press_conf_{}", today);
     let article = domain::news::NewsArticle::new(

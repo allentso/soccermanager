@@ -16,7 +16,9 @@
     "manager": "Allenatore: {{name}}",
     "deleteSave": "Elimina salvataggio",
     "noResults": "Nessun risultato",
-    "importedDescription": "Database del mondo importato"
+    "importedDescription": "Database del mondo importato",
+    "invalidWorldDb": "File di database del mondo non valido: {{error}}",
+    "failedStartGame": "Impossibile avviare il gioco: {{error}}"
   },
   "createManager": {
     "title": "Crea allenatore",
@@ -319,6 +321,12 @@
       "LeftWinger": "Ala sinistra",
       "Striker": "Punta"
     },
+    "positionGroups": {
+      "Goalkeeper": "Portieri",
+      "Defender": "Difensori",
+      "Midfielder": "Centrocampisti",
+      "Forward": "Attaccanti"
+    },
     "posAbbr": {
       "Goalkeeper": "POR",
       "Defender": "DIF",
@@ -521,6 +529,19 @@
     "staffAlert": "Allerta staff",
     "staffWarning": "Avviso staff",
     "staffSuggestion": "Suggerimento staff",
+    "staffAdvice": {
+      "critical": "Crisi di forma fisica! {{criticalCount}} giocatore/i in condizioni critiche. {{scheduleAdvice}}",
+      "warn": "La squadra è stanca (media {{avgCondition}}%, {{exhaustedCount}} sotto il 40%). {{scheduleAdvice}}",
+      "ok": "La forma fisica della squadra è alta. Potresti passare a Bilanciato o Intenso per più sviluppo.",
+      "scheduleAdvice": {
+        "criticalIntense": "Passa immediatamente a un programma Bilanciato o Leggero.",
+        "criticalBalanced": "Considera un programma Leggero o il focus Recupero.",
+        "criticalLight": "Imposta il focus su Recupero finché la condizione non migliora.",
+        "warnIntense": "Un programma Bilanciato darebbe più tempo di recupero.",
+        "warnBalanced": "Un programma Leggero potrebbe aiutare la squadra a riprendersi.",
+        "warnLight": "Il focus Recupero massimizzerebbe il recupero della condizione."
+      }
+    },
     "focuses": {
       "Physical": {
         "label": "Fisico",
@@ -764,7 +785,15 @@
     "boardVeryPleased": "La dirigenza è molto soddisfatta del tuo lavoro.",
     "boardSatisfied": "La dirigenza è soddisfatta delle tue prestazioni.",
     "boardConcerns": "La dirigenza ha preoccupazioni sui risultati.",
-    "boardThreat": "La tua posizione è seriamente a rischio."
+    "boardThreat": "La tua posizione è seriamente a rischio.",
+    "board": "Consiglio",
+    "fans": "Tifosi",
+    "born": "Nato il",
+    "fanAdore": "I tifosi ti adorano!",
+    "fanBehind": "I tifosi supportano la squadra.",
+    "fanMixed": "Il sentimento dei tifosi è contrastante.",
+    "fanRestless": "I tifosi stanno diventando irrequieti.",
+    "fanUnrest": "Agitazione tra i tifosi — probabili proteste."
   },
   "boardObjectives": {
     "objective": {
@@ -951,7 +980,11 @@
     "nApps": "{{count}} presenze",
     "nGoals": "{{count}} gol",
     "nAssists": "{{count}} assist",
-    "daysRemaining": "{{count}} giorni rimanenti — giocatore non disponibile per la selezione"
+    "daysRemaining": "{{count}} giorni rimanenti — giocatore non disponibile per la selezione",
+    "renewalProjectionTitle": "Impatto finanziario previsto",
+    "renewalProjectionWageBill": "Costo salariale settimanale {{before}} → {{after}}",
+    "renewalProjectionBudgetUsage": "Utilizzo budget salariale {{before}}% → {{after}}%",
+    "renewalProjectionRunway": "Riserva di cassa {{before}} → {{after}}"
   },
   "teamProfile": {
     "clubInfo": "Informazioni club",
@@ -1189,6 +1222,15 @@
     "submitting": "Invio in corso...",
     "leaveConference": "Lascia conferenza",
     "nextQuestion": "Prossima domanda",
+    "pressReport": {
+      "headlineManagerQuote": "{{team}} Allenatore: {{quote}}",
+      "headlinePressConf": "Conferenza Stampa: \"{{quote}}\" — allenatore del {{team}}",
+      "headlinePostMatch": "Post-Partita: {{team}} su {{result}}",
+      "bodyIntro": "Dopo il risultato {{result}}, l'allenatore del {{team}} ha parlato con la stampa.",
+      "bodyOutro": "La conferenza ha toccato il risultato, l'approccio tattico e le prospettive future del team.",
+      "bodySingle": "L'allenatore del {{team}} ha parlato brevemente dopo il risultato {{result}}.",
+      "bodyNone": "L'allenatore del {{team}} ha rifiutato di parlare a lungo dopo il risultato {{result}}."
+    },
     "press": {
       "result": {
         "questions": {
@@ -1374,6 +1416,16 @@
     "notAssigned": "Non assegnato",
     "keyStats": "Statistiche chiave",
     "continueDashboard": "Continua alla dashboard"
+  },
+  "notifications": {
+    "attentionRequired": "Attenzione Richiesta",
+    "resolveBeforeContinuing": "Risolvi questi problemi prima di continuare",
+    "goTo": "Vai a",
+    "reviewIssues": "Esamina i problemi",
+    "continueAnyway": "Continua comunque"
+  },
+  "squadCompare": {
+    "compare": "Confronta"
   },
   "be": {
     "sender": {

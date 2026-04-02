@@ -245,7 +245,7 @@ export default function PreMatchSetup({
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400">
                   {t("match.home")} · {snapshot.home_team.formation} ·{" "}
-                  {snapshot.home_team.play_style}
+                  {t(`tactics.playStyles.${snapshot.home_team.play_style}`, snapshot.home_team.play_style)}
                 </p>
               </div>
             </div>
@@ -266,7 +266,7 @@ export default function PreMatchSetup({
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400">
                   {t("match.away")} · {snapshot.away_team.formation} ·{" "}
-                  {snapshot.away_team.play_style}
+                  {t(`tactics.playStyles.${snapshot.away_team.play_style}`, snapshot.away_team.play_style)}
                 </p>
               </div>
               <div
@@ -307,8 +307,7 @@ export default function PreMatchSetup({
                   <button
                     key={f}
                     onClick={() => handleFormationChange(f)}
-                    className={`py-2.5 rounded-lg text-sm font-heading font-bold transition-all ${
-                      userTeam.formation === f
+                    className={`py-2.5 rounded-lg text-sm font-heading font-bold transition-all ${userTeam.formation === f
                         ? "bg-primary-500/20 text-primary-400 ring-2 ring-primary-500/50"
                         : "bg-gray-100 text-gray-600 hover:text-gray-900 hover:bg-gray-200 dark:bg-navy-700 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-navy-600"
                     }`}
@@ -329,8 +328,7 @@ export default function PreMatchSetup({
                   <button
                     key={s.id}
                     onClick={() => handlePlayStyleChange(s.id)}
-                    className={`flex items-center gap-2 py-2.5 px-3 rounded-lg text-sm font-heading font-bold transition-all ${
-                      userTeam.play_style === s.id
+                    className={`flex items-center gap-2 py-2.5 px-3 rounded-lg text-sm font-heading font-bold transition-all ${userTeam.play_style === s.id
                         ? "bg-primary-500/20 text-primary-400 ring-2 ring-primary-500/50"
                         : "bg-gray-100 text-gray-600 hover:text-gray-900 hover:bg-gray-200 dark:bg-navy-700 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-navy-600"
                     }`}

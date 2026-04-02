@@ -87,7 +87,7 @@ export default function TacticsSetupPanel({
                 )}`}
               >
                 {style.icon}
-                {t(`common.playStyles.${style.id}`)}
+                {t(`tactics.playStyles.${style.id}`, style.id)}
               </button>
             ))}
           </div>

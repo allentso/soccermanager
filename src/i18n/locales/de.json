@@ -16,7 +16,9 @@
     "manager": "Trainer: {{name}}",
     "deleteSave": "Spielstand löschen",
     "noResults": "Keine Ergebnisse",
-    "importedDescription": "Importierte Weltdatenbank"
+    "importedDescription": "Importierte Weltdatenbank",
+    "invalidWorldDb": "Ungültige Welt-Datenbankdatei: {{error}}",
+    "failedStartGame": "Spiel konnte nicht gestartet werden: {{error}}"
   },
   "createManager": {
     "title": "Manager erstellen",
@@ -319,6 +321,12 @@
       "LeftWinger": "Linker Flügelspieler",
       "Striker": "Stürmer"
     },
+    "positionGroups": {
+      "Goalkeeper": "Torhüter",
+      "Defender": "Verteidiger",
+      "Midfielder": "Mittelfeldspieler",
+      "Forward": "Stürmer"
+    },
     "posAbbr": {
       "Goalkeeper": "TW",
       "Defender": "AV",
@@ -521,6 +529,19 @@
     "staffAlert": "Staff-Alarm",
     "staffWarning": "Staff-Warnung",
     "staffSuggestion": "Staff-Vorschlag",
+    "staffAdvice": {
+      "critical": "Fitnesskrisis! {{criticalCount}} Spieler in kritischem Zustand. {{scheduleAdvice}}",
+      "warn": "Das Team ist müde (Durchschn. {{avgCondition}}%, {{exhaustedCount}} unter 40%). {{scheduleAdvice}}",
+      "ok": "Die Teamfitness ist hoch. Du könntest zu Ausgewogen oder Intensiv wechseln, um mehr Entwicklung zu fördern.",
+      "scheduleAdvice": {
+        "criticalIntense": "Wechsle sofort zu einem Ausgewogenen oder Leichten Zeitplan.",
+        "criticalBalanced": "Erwäge einen Leichten Zeitplan oder den Fokus Erholung.",
+        "criticalLight": "Setze den Fokus auf Erholung, bis sich die Fitness verbessert.",
+        "warnIntense": "Ein Ausgewogener Zeitplan würde mehr Erholungszeit geben.",
+        "warnBalanced": "Ein Leichter Zeitplan könnte dem Team helfen, sich zu erholen.",
+        "warnLight": "Erholungsfokus würde die Fitness-Erholung maximieren."
+      }
+    },
     "focuses": {
       "Physical": {
         "label": "Physisch",
@@ -764,7 +785,15 @@
     "boardVeryPleased": "Der Vorstand ist sehr zufrieden mit deiner Arbeit.",
     "boardSatisfied": "Der Vorstand ist zufrieden mit deiner Leistung.",
     "boardConcerns": "Der Vorstand hat Bedenken wegen der Ergebnisse.",
-    "boardThreat": "Deine Position ist ernsthaft gefährdet."
+    "boardThreat": "Deine Position ist ernsthaft gefährdet.",
+    "board": "Vorstand",
+    "fans": "Fans",
+    "born": "Geboren am",
+    "fanAdore": "Die Fans lieben dich!",
+    "fanBehind": "Die Fans stehen hinter dem Team.",
+    "fanMixed": "Die Stimmung der Fans ist gemischt.",
+    "fanRestless": "Die Fans werden unruhig.",
+    "fanUnrest": "Unruhe unter den Fans — Proteste sind wahrscheinlich."
   },
   "boardObjectives": {
     "objective": {
@@ -951,7 +980,11 @@
     "nApps": "{{count}} Einsätze",
     "nGoals": "{{count}} Tore",
     "nAssists": "{{count}} Vorlagen",
-    "daysRemaining": "{{count}} Tage verbleibend — Spieler nicht verfügbar"
+    "daysRemaining": "{{count}} Tage verbleibend — Spieler nicht verfügbar",
+    "renewalProjectionTitle": "Projizierter finanzieller Einfluss",
+    "renewalProjectionWageBill": "Wöchentliche Lohnkosten {{before}} → {{after}}",
+    "renewalProjectionBudgetUsage": "Gehaltsbudget-Nutzung {{before}}% → {{after}}%",
+    "renewalProjectionRunway": "Kassenreserve {{before}} → {{after}}"
   },
   "teamProfile": {
     "clubInfo": "Vereinsinformationen",
@@ -1189,6 +1222,15 @@
     "submitting": "Wird gesendet...",
     "leaveConference": "Konferenz verlassen",
     "nextQuestion": "Nächste Frage",
+    "pressReport": {
+      "headlineManagerQuote": "{{team}} Trainer: {{quote}}",
+      "headlinePressConf": "Pressekonferenz: \"{{quote}}\" — Trainer von {{team}}",
+      "headlinePostMatch": "Nach dem Spiel: {{team}} über {{result}}",
+      "bodyIntro": "Nach dem Ergebnis {{result}} sprach der Trainer von {{team}} mit der Presse.",
+      "bodyOutro": "Die Konferenz behandelte das Ergebnis, den taktischen Ansatz und die nächsten Schritte des Teams.",
+      "bodySingle": "Der Trainer von {{team}} sprach kurz nach dem Ergebnis {{result}}.",
+      "bodyNone": "Der Trainer von {{team}} lehnte ein ausführliches Statement nach dem Ergebnis {{result}} ab."
+    },
     "press": {
       "result": {
         "questions": {
@@ -1392,6 +1434,13 @@
     "playerOfYear": "Spieler des Jahres",
     "avgRating": "Durchschnittsbewertung: {{rating}}",
     "continueDashboard": "Weiter zum Dashboard"
+  },
+  "notifications": {
+    "attentionRequired": "Aufmerksamkeit erforderlich",
+    "resolveBeforeContinuing": "Behebe diese Probleme, bevor du weitermachst",
+    "goTo": "Gehe zu",
+    "reviewIssues": "Probleme überprüfen",
+    "continueAnyway": "Trotzdem fortfahren"
   },
   "squadCompare": {
     "compare": "Vergleichen"

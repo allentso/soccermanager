@@ -20,7 +20,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { calcOvr, calcAge, formatVal, getTeamName } from "../lib/helpers";
-import { normalisePosition } from "./SquadTab.helpers";
+import { normalisePosition, translatePositionAbbreviation, translatePositionLabel } from "./SquadTab.helpers";
 import { countryName } from "../lib/countries";
 
 interface ScoutingTabProps {
@@ -217,7 +217,7 @@ export default function ScoutingTab({
                         {player.full_name}
                       </button>
                       <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {player.natural_position || player.position} · {team}
+                        {translatePositionLabel(t, player.natural_position || player.position)} · {team}
                       </p>
                     </div>
                     <div className="text-right">
@@ -363,11 +363,10 @@ export default function ScoutingTab({
                         setPosFilter(pos);
                         setPage(0);
                       }}
-                      className={`px-2.5 py-1 rounded-lg text-xs font-heading font-bold uppercase tracking-wider transition-colors ${
-                        posFilter === pos
+                      className={`px-2.5 py-1 rounded-lg text-xs font-heading font-bold uppercase tracking-wider transition-colors ${posFilter === pos
                           ? "bg-primary-500 text-white"
                           : "bg-gray-100 dark:bg-navy-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-navy-600"
-                      }`}
+                        }`}
                     >
                       {pos === "All" ? t("common.all") : pos.slice(0, 3)}
                     </button>
@@ -455,7 +454,7 @@ export default function ScoutingTab({
                             }
                             size="sm"
                           >
-                            {p.position.slice(0, 3)}
+                            {translatePositionAbbreviation(t, p.position)}
                           </Badge>
                         </td>
                         <td className="text-center py-2 px-1 text-gray-600 dark:text-gray-400">
