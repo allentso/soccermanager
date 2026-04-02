@@ -1130,3 +1130,95 @@ fn check_random_events_all_message_types_generated() {
         "Should generate training injury messages over 5000 days"
     );
 }
+
+// ---------------------------------------------------------------------------
+// Fitness affects injury probability
+// ---------------------------------------------------------------------------
+
+#[test]
+fn unfit_players_get_more_training_injuries() {
+    // Players with very low fitness should be injured more often than peak-fitness players.
+    // We run many simulated days and compare injury message counts.
+
+    fn run_days_and_count_injury_msgs(fitness: u8) -> usize {
+        let clock = GameClock::new(Utc.with_ymd_and_hms(2025, 1, 1, 12, 0, 0).unwrap());
+        let mut manager = Manager::new(
+            "mgr1".to_string(),
+            "Test".to_string(),
+            "Manager".to_string(),
+            "1980-01-01".to_string(),
+            "England".to_string(),
+        );
+        manager.hire("team1".to_string());
+        let team = Team::new(
+            "team1".to_string(),
+            "Test FC".to_string(),
+            "TFC".to_string(),
+            "England".to_string(),
+            "London".to_string(),
+            "Stadium".to_string(),
+            40_000,
+        );
+        // Single player so all picks go to them
+        let mut player = Player::new(
+            "p1".to_string(),
+            "TestPlayer".to_string(),
+            "TestPlayer".to_string(),
+            "1995-01-01".to_string(),
+            "England".to_string(),
+            Position::Midfielder,
+            PlayerAttributes {
+                pace: 60,
+                stamina: 60,
+                strength: 60,
+                agility: 60,
+                passing: 60,
+                shooting: 60,
+                tackling: 60,
+                dribbling: 60,
+                defending: 60,
+                positioning: 60,
+                vision: 60,
+                decisions: 60,
+                composure: 60,
+                aggression: 60,
+                teamwork: 60,
+                leadership: 60,
+                handling: 30,
+                reflexes: 30,
+                aerial: 60,
+            },
+        );
+        player.team_id = Some("team1".to_string());
+        player.fitness = fitness;
+
+        let mut game = Game::new(clock, manager, vec![team], vec![player], vec![], vec![]);
+
+        let mut injury_count = 0;
+        for _ in 0..3000 {
+            let before = game.players[0].injury.is_some();
+            check_random_events(&mut game);
+            let after = game.players[0].injury.is_some();
+            if !before && after {
+                injury_count += 1;
+                // Clear injury so player is eligible again
+                game.players[0].injury = None;
+            }
+            // Clear injury messages so the ID dedup doesn't block future events
+            game.messages
+                .retain(|m| !m.id.starts_with("training_injury_"));
+            game.clock.advance_days(1);
+        }
+        injury_count
+    }
+
+    let unfit_injuries = run_days_and_count_injury_msgs(20);
+    let peak_injuries = run_days_and_count_injury_msgs(95);
+
+    assert!(
+        unfit_injuries > peak_injuries,
+        "Unfit players ({} injuries) should be injured more than peak-fitness players ({} injuries)",
+        unfit_injuries,
+        peak_injuries
+    );
+}

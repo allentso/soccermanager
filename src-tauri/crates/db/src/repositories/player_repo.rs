@@ -30,8 +30,8 @@ pub fn upsert_player(conn: &Connection, p: &Player) -> Result<(), String> {
           attributes, condition, morale, injury, team_id, traits,
           contract_end, wage, market_value, stats, career,
           transfer_listed, loan_listed, transfer_offers, alternate_positions,
-          natural_position, training_focus, morale_core, footedness, weak_foot)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26)",
+          natural_position, training_focus, morale_core, footedness, weak_foot, fitness)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27)",
         params![
             p.id,
             p.match_name,
@@ -59,6 +59,7 @@ pub fn upsert_player(conn: &Connection, p: &Player) -> Result<(), String> {
             morale_core_json,
             footedness_str,
             p.weak_foot,
+            p.fitness,
         ],
     )
     .map_err(|e| format!("Failed to upsert player: {}", e))?;
@@ -124,7 +125,7 @@ pub fn load_all_players(conn: &Connection) -> Result<Vec<Player>, String> {
                     attributes, condition, morale, injury, team_id, traits,
                     contract_end, wage, market_value, stats, career,
                     transfer_listed, loan_listed, transfer_offers, alternate_positions,
-                    natural_position, training_focus, morale_core, footedness, weak_foot
+                    natural_position, training_focus, morale_core, footedness, weak_foot, fitness
              FROM players",
         )
         .map_err(|e| format!("Failed to prepare players query: {}", e))?;
@@ -148,7 +149,7 @@ pub fn load_players_by_team(conn: &Connection, team_id: &str) -> Result<Vec<Play
                     attributes, condition, morale, injury, team_id, traits,
                     contract_end, wage, market_value, stats, career,
                     transfer_listed, loan_listed, transfer_offers, alternate_positions,
-                    natural_position, training_focus, morale_core, footedness, weak_foot
+                    natural_position, training_focus, morale_core, footedness, weak_foot, fitness
              FROM players WHERE team_id = ?1",
         )
         .map_err(|e| format!("Failed to prepare players query: {}", e))?;
@@ -178,6 +179,7 @@ fn row_to_player(row: &rusqlite::Row) -> rusqlite::Result<Player> {
     let morale_core_json: String = row.get(23)?;
     let footedness_str: String = row.get(24)?;
     let weak_foot: u8 = row.get(25)?;
+    let fitness: u8 = row.get(26).unwrap_or(75); // default 75 for saves before V13
     let transfer_listed_int: i32 = row.get(17)?;
     let loan_listed_int: i32 = row.get(18)?;
     let market_value_i64: i64 = row.get(14)?;
@@ -223,6 +225,7 @@ fn row_to_player(row: &rusqlite::Row) -> rusqlite::Result<Player> {
         }),
         condition: row.get(7)?,
         morale: row.get(8)?,
+        fitness,
         injury: injury_json.and_then(|j| serde_json::from_str(&j).ok()),
         team_id: row.get(10)?,
         traits: serde_json::from_str(&traits_json).unwrap_or_default(),
@@ -481,5 +484,28 @@ mod tests {
         );
         assert_eq!(loaded[0].footedness, Footedness::Left);
         assert_eq!(loaded[0].weak_foot, 3);
+    }
+
+    #[test]
+    fn test_player_fitness_roundtrip() {
+        let db = test_db();
+        let mut player = sample_player("p-001", None);
+        player.fitness = 88;
+
+        upsert_player(db.conn(), &player).unwrap();
+        let loaded = load_all_players(db.conn()).unwrap();
+
+        assert_eq!(loaded[0].fitness, 88, "Fitness should round-trip through DB");
+    }
+
+    #[test]
+    fn test_player_fitness_default_on_new() {
+        let db = test_db();
+        let player = sample_player("p-001", None);
+        assert_eq!(player.fitness, 75, "New player should start with fitness=75");
+
+        upsert_player(db.conn(), &player).unwrap();
+        let loaded = load_all_players(db.conn()).unwrap();
+        assert_eq!(loaded[0].fitness, 75);
     }
 }

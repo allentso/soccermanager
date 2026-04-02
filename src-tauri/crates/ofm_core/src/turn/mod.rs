@@ -22,6 +22,19 @@ pub use round_summary::{
     build_round_summary,
 };
 
+/// Progress injury recovery by one day for all currently injured players.
+/// Players with 1 day remaining are cleared (fully recovered).
+fn progress_injury_recovery(game: &mut Game) {
+    for player in game.players.iter_mut() {
+        if let Some(mut injury) = player.injury.take()
+            && injury.days_remaining > 1
+        {
+            injury.days_remaining -= 1;
+            player.injury = Some(injury);
+        }
+    }
+}
+
 /// Process a single day advance.
 pub fn process_day(game: &mut Game) {
     let today = game.clock.current_date.format("%Y-%m-%d").to_string();
@@ -53,6 +66,7 @@ pub fn process_day(game: &mut Game) {
 
     // Player conversations, random events, and scouting
     player_events::check_player_events(game);
+    progress_injury_recovery(game);
     random_events::check_random_events(game);
     scouting::process_scouting(game);
     transfers::generate_incoming_transfer_offers(game);
@@ -77,6 +91,7 @@ pub fn finish_live_match_day(game: &mut Game) {
     board_objectives::update_objective_progress(game);
 
     player_events::check_player_events(game);
+    progress_injury_recovery(game);
     random_events::check_random_events(game);
     scouting::process_scouting(game);
     transfers::generate_incoming_transfer_offers(game);
@@ -129,6 +144,7 @@ fn build_engine_team(game: &Game, team_id: &str) -> engine::TeamData {
                 name: p.match_name.clone(),
                 position: pos,
                 condition: p.condition,
+                fitness: p.fitness,
                 pace: p.attributes.pace,
                 stamina: p.attributes.stamina,
                 strength: p.attributes.strength,

@@ -4,7 +4,7 @@ mod responses;
 
 pub use responses::apply_event_response;
 
-use crate::contracts::{ContractWarningStage, contract_warning_stage};
+use crate::contracts::{contract_warning_stage, ContractWarningStage};
 use crate::game::Game;
 use chrono::Datelike;
 use domain::message::*;
@@ -16,6 +16,22 @@ fn params(pairs: &[(&str, &str)]) -> HashMap<String, String> {
         .iter()
         .map(|(k, v)| (k.to_string(), v.to_string()))
         .collect()
+}
+
+/// Injury probability multiplier based on fitness. Less fit players are more
+/// prone to training ground injuries.
+fn injury_probability_from_fitness(fitness: u8) -> f64 {
+    if fitness < 30 {
+        3.0
+    } else if fitness < 50 {
+        2.0
+    } else if fitness < 70 {
+        1.5
+    } else if fitness >= 90 {
+        0.7
+    } else {
+        1.0
+    }
 }
 
 fn action(id: &str, label: &str, label_key: &str, action_type: ActionType) -> MessageAction {
@@ -72,15 +88,15 @@ pub fn check_random_events(game: &mut Game) {
         }
     }
 
-    // --- 2. Training ground injury (2% chance per day, non-match days) ---
+    // --- 2. Training ground injury (fitness-weighted probability, non-match days) ---
     {
         let has_match = game.league.as_ref().is_some_and(|l| {
             l.fixtures
                 .iter()
                 .any(|f| f.date == today && f.status == domain::league::FixtureStatus::Scheduled)
         });
-        if !has_match && rng.gen_range(0..50) == 0 {
-            // Pick a random non-injured player
+        if !has_match {
+            // Pick a random non-injured player, biased toward less fit players.
             let eligible: Vec<&domain::player::Player> = game
                 .players
                 .iter()
@@ -88,34 +104,40 @@ pub fn check_random_events(game: &mut Game) {
                 .collect();
             if !eligible.is_empty() {
                 let player = eligible[rng.gen_range(0..eligible.len())];
-                let msg_id = format!("training_injury_{}_{}", player.id, today);
-                if !existing_ids.contains(&msg_id) {
-                    let days = rng.gen_range(3..=14);
-                    let injury_names = [
-                        "common.injuries.minorMuscleStrain",
-                        "common.injuries.twistedAnkle",
-                        "common.injuries.kneeBruise",
-                        "common.injuries.hamstringTightness",
-                        "common.injuries.calfStrain",
-                    ];
-                    let injury_name = injury_names[rng.gen_range(0..injury_names.len())];
+                // Base 2% chance, scaled by fitness: less fit → higher probability
+                let fitness_mult = injury_probability_from_fitness(player.fitness);
+                let base_prob = 1.0_f64 / 50.0;
+                let injury_prob = (base_prob * fitness_mult).min(1.0);
+                if rng.gen_bool(injury_prob) {
+                    let msg_id = format!("training_injury_{}_{}", player.id, today);
+                    if !existing_ids.contains(&msg_id) {
+                        let days = rng.gen_range(3..=14);
+                        let injury_names = [
+                            "common.injuries.minorMuscleStrain",
+                            "common.injuries.twistedAnkle",
+                            "common.injuries.kneeBruise",
+                            "common.injuries.hamstringTightness",
+                            "common.injuries.calfStrain",
+                        ];
+                        let injury_name = injury_names[rng.gen_range(0..injury_names.len())];
 
-                    new_messages.push(message_builders::training_injury_message(
-                        &msg_id,
-                        &player.id,
-                        &player.match_name,
-                        injury_name,
-                        days,
-                        &today,
-                    ));
+                        new_messages.push(message_builders::training_injury_message(
+                            &msg_id,
+                            &player.id,
+                            &player.match_name,
+                            injury_name,
+                            days,
+                            &today,
+                        ));
 
-                    // Apply the injury
-                    let pid = player.id.clone();
-                    if let Some(p) = game.players.iter_mut().find(|p| p.id == pid) {
-                        p.injury = Some(domain::player::Injury {
-                            name: injury_name.to_string(),
-                            days_remaining: days,
-                        });
+                        // Apply the injury
+                        let pid = player.id.clone();
+                        if let Some(p) = game.players.iter_mut().find(|p| p.id == pid) {
+                            p.injury = Some(domain::player::Injury {
+                                name: injury_name.to_string(),
+                                days_remaining: days,
+                            });
+                        }
                     }
                 }
             }

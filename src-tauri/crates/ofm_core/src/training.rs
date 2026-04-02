@@ -178,23 +178,38 @@ pub fn process_training(game: &mut Game, weekday_num: u32) {
                 }
             };
 
-            // Skip injured players
+            // Age, morale, and current condition all affect recovery rate.
+            // Older players recover more slowly; high morale aids recovery;
+            // severely fatigued players have a harder time bouncing back.
+            let age = estimate_age(&player.date_of_birth);
+            let age_rec = recovery_factor_from_age(age);
+            let morale_rec = recovery_factor_from_morale(player.morale);
+            let condition_rec = recovery_factor_from_condition(player.condition);
+            let fitness_rec = recovery_factor_from_fitness(player.fitness);
+
+            // Injured players: half base recovery, scaled by age and morale.
+            // Fitness decays slowly during injury (inactive = losing sharpness).
             if player.injury.is_some() {
-                let recovery = (recovery_base * 0.5) as u8;
+                let recovery = (recovery_base * 0.5 * age_rec * morale_rec * fitness_rec) as u8;
                 player.condition = (player.condition + recovery).min(100);
+                player.fitness = clamp_fitness(player.fitness as i16 - 1);
                 continue;
             }
 
             // On rest days: only recovery, no attribute gains
             if !is_training_day {
                 let stamina_factor = player.attributes.stamina as f64 / 100.0;
-                let recovery = (recovery_base * (0.5 + stamina_factor * 0.5)) as u8;
+                let recovery = (recovery_base
+                    * (0.5 + stamina_factor * 0.5)
+                    * age_rec
+                    * morale_rec
+                    * condition_rec
+                    * fitness_rec) as u8;
                 player.condition = (player.condition + recovery).min(100);
                 continue;
             }
 
-            // Age factor: younger players grow faster, older players slower
-            let age = estimate_age(&player.date_of_birth);
+            // Age factor for attribute gains: younger players grow faster, older players slower
             let age_factor = if age <= 21 {
                 1.5
             } else if age <= 25 {
@@ -217,16 +232,62 @@ pub fn process_training(game: &mut Game, weekday_num: u32) {
             // Apply attribute gains based on player's effective focus
             apply_focus_gains(&mut player.attributes, player_focus, gain);
 
+            // Apply fitness changes based on training focus.
+            // Physical training builds fitness; non-physical days slowly decay it if peak.
+            // Recovery focus gives a tiny fitness boost.
+            apply_fitness_change(&mut player.fitness, player_focus, intensity_mult);
+
             // Apply condition: deplete from training, then recover
             player.condition = player.condition.saturating_sub(condition_cost);
             let stamina_factor = player.attributes.stamina as f64 / 100.0;
-            let recovery = (recovery_base * (0.5 + stamina_factor * 0.5)) as u8;
+            let recovery = (recovery_base
+                * (0.5 + stamina_factor * 0.5)
+                * age_rec
+                * morale_rec
+                * condition_rec
+                * fitness_rec) as u8;
             player.condition = (player.condition + recovery).min(100);
         }
     }
 }
 
-/// Probabilistic attribute gain: gain=0.3 means 30% chance of +1, capped at 99.
+/// Apply fitness changes based on training focus.
+/// Physical training builds fitness (probabilistic small gains).
+/// Recovery focus gives a tiny boost. Non-physical training slowly decays high fitness.
+fn apply_fitness_change(fitness: &mut u8, focus: &TrainingFocus, intensity_mult: f64) {
+    use rand::Rng;
+    let mut rng = rand::thread_rng();
+    match focus {
+        TrainingFocus::Physical => {
+            // Physical training is the primary way to build fitness.
+            // Higher intensity → higher gain probability.
+            let gain_prob = 0.015 * intensity_mult; // 0.0075–0.0225 per session
+            let roll: f64 = rng.gen_range(0.0..1.0);
+            if roll < gain_prob && *fitness < 100 {
+                *fitness = fitness.saturating_add(1);
+            }
+        }
+        TrainingFocus::Recovery => {
+            // Recovery days give a tiny fitness nudge.
+            let roll: f64 = rng.gen_range(0.0..1.0);
+            if roll < 0.05 && *fitness < 100 {
+                *fitness = fitness.saturating_add(1);
+            }
+        }
+        _ => {
+            // Non-physical training: very slight decay if player is already very fit
+            // (fitness above 85 needs active maintenance).
+            if *fitness > 85 {
+                let roll: f64 = rng.gen_range(0.0..1.0);
+                if roll < 0.05 {
+                    *fitness = fitness.saturating_sub(1);
+                }
+            }
+        }
+    }
+}
+
+
 fn try_gain(current: &mut u8, gain: f64) {
     use rand::Rng;
     if *current >= 99 {
@@ -291,4 +352,61 @@ fn estimate_age(dob: &str) -> u32 {
     // this is close enough for growth factor purposes.
     let current_year: u32 = 2025;
     current_year.saturating_sub(birth_year)
+}
+
+/// Recovery multiplier from age: younger players bounce back faster.
+fn recovery_factor_from_age(age: u32) -> f64 {
+    if age <= 21 {
+        1.10
+    } else if age <= 25 {
+        1.05
+    } else if age <= 29 {
+        1.00
+    } else if age <= 33 {
+        0.85
+    } else {
+        0.70
+    }
+}
+
+/// Recovery multiplier from morale: players in good spirits recover better.
+fn recovery_factor_from_morale(morale: u8) -> f64 {
+    if morale >= 70 {
+        1.10
+    } else if morale >= 40 {
+        1.00
+    } else {
+        0.90
+    }
+}
+
+/// Recovery multiplier from current condition: severely fatigued players recover more slowly.
+fn recovery_factor_from_condition(condition: u8) -> f64 {
+    if condition < 30 {
+        0.80
+    } else if condition < 50 {
+        0.90
+    } else {
+        1.00
+    }
+}
+
+/// Recovery multiplier from fitness: fitter players recover condition faster.
+fn recovery_factor_from_fitness(fitness: u8) -> f64 {
+    if fitness < 30 {
+        0.75
+    } else if fitness < 50 {
+        0.88
+    } else if fitness < 70 {
+        1.00
+    } else if fitness < 90 {
+        1.12
+    } else {
+        1.20
+    }
+}
+
+/// Clamp a fitness value to 0–100.
+fn clamp_fitness(val: i16) -> u8 {
+    val.clamp(0, 100) as u8
 }

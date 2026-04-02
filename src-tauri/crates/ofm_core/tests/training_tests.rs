@@ -728,3 +728,108 @@ fn all_intensities_run_without_panic() {
         training::process_training(&mut game, 0);
     }
 }
+
+// ---------------------------------------------------------------------------
+// Fitness system tests
+// ---------------------------------------------------------------------------
+
+#[test]
+fn high_fitness_player_recovers_condition_faster_on_rest_day() {
+    // Two players identical except fitness
+    let mut game_low = make_game();
+    let mut game_high = make_game();
+
+    for p in game_low.players.iter_mut() {
+        p.fitness = 20; // very unfit
+        p.condition = 50;
+    }
+    for p in game_high.players.iter_mut() {
+        p.fitness = 95; // peak fitness
+        p.condition = 50;
+    }
+
+    // Wednesday (2) is rest day for Balanced schedule
+    training::process_training(&mut game_low, 2);
+    training::process_training(&mut game_high, 2);
+
+    let avg_low = game_low
+        .players
+        .iter()
+        .map(|p| p.condition as f64)
+        .sum::<f64>()
+        / game_low.players.len() as f64;
+    let avg_high = game_high
+        .players
+        .iter()
+        .map(|p| p.condition as f64)
+        .sum::<f64>()
+        / game_high.players.len() as f64;
+
+    assert!(
+        avg_high > avg_low,
+        "High fitness players ({:.1}) should recover more than low fitness ({:.1})",
+        avg_high,
+        avg_low
+    );
+}
+
+#[test]
+fn physical_training_can_increase_fitness() {
+    let mut game = make_game();
+    game.teams[0].training_focus = TrainingFocus::Physical;
+    game.teams[0].training_intensity = TrainingIntensity::High;
+    game.teams[0].training_schedule = TrainingSchedule::Intense;
+
+    // Set a below-peak fitness so gains are possible
+    for p in game.players.iter_mut() {
+        p.fitness = 70;
+    }
+
+    let initial_fitness: Vec<u8> = game.players.iter().map(|p| p.fitness).collect();
+
+    // Train many sessions to trigger probabilistic fitness gain
+    for _ in 0..500 {
+        for p in game.players.iter_mut() {
+            p.condition = 90;
+        }
+        training::process_training(&mut game, 0); // Monday = training day
+    }
+
+    let final_fitness: Vec<u8> = game.players.iter().map(|p| p.fitness).collect();
+    let any_gain = initial_fitness
+        .iter()
+        .zip(final_fitness.iter())
+        .any(|(i, f)| f > i);
+
+    assert!(
+        any_gain,
+        "Physical training should increase fitness after many sessions"
+    );
+}
+
+#[test]
+fn injured_player_loses_fitness_over_time() {
+    let mut game = make_game();
+    let p1 = game.players.iter_mut().find(|p| p.id == "p1").unwrap();
+    p1.fitness = 80;
+    p1.injury = Some(domain::player::Injury {
+        name: "Hamstring".to_string(),
+        days_remaining: 30,
+    });
+
+    let initial_fitness = game.players.iter().find(|p| p.id == "p1").unwrap().fitness;
+
+    // Simulate 20 rest days with the injury
+    for _ in 0..20 {
+        training::process_training(&mut game, 2); // rest day
+    }
+
+    let final_fitness = game.players.iter().find(|p| p.id == "p1").unwrap().fitness;
+
+    assert!(
+        final_fitness < initial_fitness,
+        "Injured player's fitness ({}) should decay below initial ({})",
+        final_fitness,
+        initial_fitness
+    );
+}
