@@ -12,7 +12,6 @@ import {
 import {
   Eye,
   ScanSearch,
-  Clock,
   User,
   Search,
   ChevronLeft,
@@ -32,6 +31,7 @@ import {
   filterScoutablePlayers,
   paginateScoutablePlayers,
 } from "./ScoutingTab.model";
+import ScoutingAssignmentsList from "./ScoutingAssignmentsList";
 import ScoutingOverviewCards from "./ScoutingOverviewCards";
 
 interface ScoutingTabProps {
@@ -111,57 +111,13 @@ export default function ScoutingTab({
         }}
       />
 
-      {/* Active Assignments */}
-      {assignments.length > 0 && (
-        <Card>
-          <CardHeader>{t("scouting.activeScoutingAssignments")}</CardHeader>
-          <CardBody>
-            <div className="flex flex-col gap-2">
-              {assignments.map((a) => {
-                const scout = gameState.staff.find((s) => s.id === a.scout_id);
-                const player = gameState.players.find(
-                  (p) => p.id === a.player_id,
-                );
-                if (!scout || !player) return null;
-                const team = player.team_id
-                  ? getTeamName(gameState.teams, player.team_id)
-                  : t("common.freeAgent");
-                return (
-                  <div
-                    key={a.id}
-                    className="flex items-center gap-4 p-3 rounded-lg bg-gray-50 dark:bg-navy-700/50"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <button
-                        onClick={() => onSelectPlayer?.(player.id)}
-                        className="font-heading font-bold text-sm text-gray-800 dark:text-gray-100 hover:text-primary-500 transition-colors truncate block"
-                      >
-                        {player.full_name}
-                      </button>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {translatePositionLabel(t, player.natural_position || player.position)} · {team}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {t("scouting.scoutLabel", {
-                          name: `${scout.first_name} ${scout.last_name}`,
-                        })}
-                      </p>
-                      <div className="flex items-center gap-1.5 justify-end mt-0.5">
-                        <Clock className="w-3 h-3 text-accent-500" />
-                        <span className="text-xs font-heading font-bold text-accent-500">
-                          {t("scouting.daysLeft", { days: a.days_remaining })}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </CardBody>
-        </Card>
-      )}
+      <ScoutingAssignmentsList
+        assignments={assignments}
+        scouts={scouts}
+        players={gameState.players}
+        teams={gameState.teams}
+        onSelectPlayer={onSelectPlayer}
+      />
 
       {/* Scout Staff Details */}
       {scouts.length > 0 && (
