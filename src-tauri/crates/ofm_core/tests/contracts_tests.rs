@@ -124,6 +124,7 @@ fn accepted_offer_updates_wage_and_term_correctly() {
     .expect("renewal should succeed");
 
     assert!(matches!(outcome.decision, RenewalDecision::Accepted));
+    assert!(outcome.feedback.is_some());
     let player = game.players.iter().find(|p| p.id == "player-1").unwrap();
     assert_eq!(player.wage, 15_000);
     assert_eq!(player.contract_end.as_deref(), Some("2029-08-01"));
@@ -167,6 +168,9 @@ fn counter_offer_returns_understandable_feedback() {
     assert!(matches!(outcome.decision, RenewalDecision::CounterOffer));
     assert_eq!(outcome.suggested_wage, Some(14_000));
     assert_eq!(outcome.suggested_years, Some(3));
+    let feedback = outcome.feedback.expect("feedback should be present");
+    assert_eq!(feedback.round, 1);
+    assert!(feedback.tension > 0);
 }
 
 #[test]
@@ -297,6 +301,7 @@ fn manager_block_prevents_manual_renewal_until_it_expires() {
         last_attempt_date: None,
         last_assistant_attempt_date: None,
         last_outcome: None,
+        conversation_round: 0,
     });
 
     let outcome = propose_renewal(

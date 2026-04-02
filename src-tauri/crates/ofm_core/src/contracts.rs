@@ -4,6 +4,7 @@ use domain::message::{
     DelegatedRenewalCaseData as DelegatedRenewalCaseMessageData, DelegatedRenewalReportData,
     InboxMessage, MessageCategory, MessageContext, MessagePriority,
 };
+use domain::negotiation::{NegotiationFeedback, NegotiationMood};
 use domain::player::{ContractRenewalState, Player, RenewalSessionOutcome, RenewalSessionStatus};
 use domain::staff::StaffRole;
 use domain::team::Team;
@@ -59,6 +60,7 @@ pub struct RenewalOutcome {
     pub suggested_years: Option<u32>,
     pub session_status: RenewalSessionStatus,
     pub is_terminal: bool,
+    pub feedback: Option<NegotiationFeedback>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -104,6 +106,7 @@ fn renewal_outcome(
     suggested_years: Option<u32>,
     session_status: RenewalSessionStatus,
     is_terminal: bool,
+    feedback: Option<NegotiationFeedback>,
 ) -> RenewalOutcome {
     RenewalOutcome {
         decision,
@@ -111,6 +114,7 @@ fn renewal_outcome(
         suggested_years,
         session_status,
         is_terminal,
+        feedback,
     }
 }
 
@@ -120,29 +124,60 @@ pub fn evaluate_renewal_offer(
     current_date: NaiveDate,
     offer: &RenewalOffer,
 ) -> RenewalOutcome {
+    let round = next_renewal_round(player, None);
     let expected_wage = expected_wage(player, team, current_date);
     let expected_years = expected_contract_years(player, current_date);
     let minimum_wage = minimum_acceptable_wage(player.wage);
 
     if offer.weekly_wage < minimum_wage || offer.contract_years == 0 {
+        let feedback = build_renewal_feedback(
+            player,
+            current_date,
+            RenewalDecision::Rejected,
+            RenewalSessionStatus::Stalled,
+            round,
+            expected_wage,
+            false,
+        );
         return renewal_outcome(
             RenewalDecision::Rejected,
             None,
             None,
             RenewalSessionStatus::Stalled,
             false,
+            Some(feedback),
         );
     }
 
     if offer.weekly_wage >= expected_wage && offer.contract_years >= expected_years {
+        let feedback = build_renewal_feedback(
+            player,
+            current_date,
+            RenewalDecision::Accepted,
+            RenewalSessionStatus::Agreed,
+            round,
+            expected_wage,
+            false,
+        );
         return renewal_outcome(
             RenewalDecision::Accepted,
             None,
             None,
             RenewalSessionStatus::Agreed,
             true,
+            Some(feedback),
         );
     }
+
+    let feedback = build_renewal_feedback(
+        player,
+        current_date,
+        RenewalDecision::CounterOffer,
+        RenewalSessionStatus::Open,
+        round,
+        expected_wage,
+        false,
+    );
 
     renewal_outcome(
         RenewalDecision::CounterOffer,
@@ -150,6 +185,7 @@ pub fn evaluate_renewal_offer(
         Some(expected_years),
         RenewalSessionStatus::Open,
         false,
+        Some(feedback),
     )
 }
 
@@ -183,6 +219,7 @@ pub fn propose_renewal(
 
     let current_date = game.clock.current_date.date_naive();
     let today = current_date.format("%Y-%m-%d").to_string();
+    let round = next_renewal_round(&game.players[player_index], Some(today.as_str()));
 
     if has_active_manager_block(&game.players[player_index], current_date) {
         return Ok(renewal_outcome(
@@ -191,6 +228,15 @@ pub fn propose_renewal(
             None,
             RenewalSessionStatus::Blocked,
             true,
+            Some(build_renewal_feedback(
+                &game.players[player_index],
+                current_date,
+                RenewalDecision::Rejected,
+                RenewalSessionStatus::Blocked,
+                round,
+                0,
+                false,
+            )),
         ));
     }
 
@@ -207,24 +253,43 @@ pub fn propose_renewal(
             None,
             RenewalSessionStatus::Agreed,
             true,
+            Some(build_renewal_feedback(
+                &game.players[player_index],
+                current_date,
+                RenewalDecision::Accepted,
+                RenewalSessionStatus::Agreed,
+                round,
+                game.players[player_index].wage,
+                false,
+            )),
         ));
     }
 
     let expected_wage = expected_wage(&game.players[player_index], &team, current_date);
     let mut outcome =
         evaluate_renewal_offer(&game.players[player_index], &team, current_date, &offer);
-
-    if should_manual_renewal_fail_on_relationship(
+    let relationship_blocked = should_manual_renewal_fail_on_relationship(
         &game.players[player_index],
         expected_wage,
         offer.weekly_wage,
-    ) {
+    );
+
+    if relationship_blocked {
         outcome = renewal_outcome(
             RenewalDecision::Rejected,
             None,
             None,
             RenewalSessionStatus::Stalled,
             false,
+            Some(build_renewal_feedback(
+                &game.players[player_index],
+                current_date,
+                RenewalDecision::Rejected,
+                RenewalSessionStatus::Stalled,
+                round,
+                expected_wage,
+                true,
+            )),
         );
     }
 
@@ -244,12 +309,22 @@ pub fn propose_renewal(
         state.manager_blocked_until = None;
         state.last_attempt_date = Some(today);
         state.last_outcome = Some(RenewalSessionOutcome::AcceptedByManager);
+        state.conversation_round = round;
         return Ok(renewal_outcome(
             RenewalDecision::Accepted,
             None,
             None,
             RenewalSessionStatus::Agreed,
             true,
+            Some(build_renewal_feedback(
+                player,
+                current_date,
+                RenewalDecision::Accepted,
+                RenewalSessionStatus::Agreed,
+                round,
+                expected_wage,
+                false,
+            )),
         ));
     }
 
@@ -259,6 +334,7 @@ pub fn propose_renewal(
         .renewal_state
         .get_or_insert_with(ContractRenewalState::default);
     state.last_attempt_date = Some(today);
+    state.conversation_round = round;
 
     match outcome.decision {
         RenewalDecision::Rejected => {
@@ -270,6 +346,18 @@ pub fn propose_renewal(
             state.last_outcome = Some(RenewalSessionOutcome::Stalled);
         }
         RenewalDecision::Accepted => {}
+    }
+
+    if outcome.feedback.is_none() {
+        outcome.feedback = Some(build_renewal_feedback(
+            player,
+            current_date,
+            outcome.decision.clone(),
+            outcome.session_status.clone(),
+            round,
+            expected_wage,
+            relationship_blocked,
+        ));
     }
 
     Ok(outcome)
@@ -388,6 +476,7 @@ pub fn delegate_renewals(
             state.status = RenewalSessionStatus::Stalled;
             state.last_assistant_attempt_date = Some(today.clone());
             state.last_outcome = Some(RenewalSessionOutcome::Stalled);
+            state.conversation_round = 0;
             report.cases.push(case);
             continue;
         }
@@ -409,6 +498,7 @@ pub fn delegate_renewals(
             state.manager_blocked_until = None;
             state.last_assistant_attempt_date = Some(today.clone());
             state.last_outcome = Some(RenewalSessionOutcome::AcceptedByAssistant);
+            state.conversation_round = 0;
 
             report.success_count += 1;
             case.status = DelegatedRenewalResultStatus::Successful;
@@ -440,6 +530,7 @@ pub fn delegate_renewals(
             state.status = RenewalSessionStatus::Open;
             state.last_assistant_attempt_date = Some(today.clone());
             state.last_outcome = Some(RenewalSessionOutcome::Stalled);
+            state.conversation_round = 0;
             report.cases.push(case);
             continue;
         }
@@ -455,6 +546,7 @@ pub fn delegate_renewals(
         state.status = RenewalSessionStatus::Stalled;
         state.last_assistant_attempt_date = Some(today.clone());
         state.last_outcome = Some(RenewalSessionOutcome::RejectedByPlayer);
+        state.conversation_round = 0;
         report.cases.push(case);
     }
 
@@ -616,6 +708,115 @@ fn expected_contract_years(player: &Player, current_date: NaiveDate) -> u32 {
 
 fn minimum_acceptable_wage(current_wage: u32) -> u32 {
     ((current_wage as f32) * 0.85).floor() as u32
+}
+
+fn next_renewal_round(player: &Player, today: Option<&str>) -> u8 {
+    let Some(state) = player.morale_core.renewal_state.as_ref() else {
+        return 1;
+    };
+
+    if let Some(today) = today {
+        if state.last_attempt_date.as_deref() != Some(today) {
+            return 1;
+        }
+    }
+
+    state.conversation_round.saturating_add(1).max(1)
+}
+
+fn build_renewal_feedback(
+    player: &Player,
+    current_date: NaiveDate,
+    decision: RenewalDecision,
+    session_status: RenewalSessionStatus,
+    round: u8,
+    expected_wage: u32,
+    relationship_blocked: bool,
+) -> NegotiationFeedback {
+    let trust = player.morale_core.manager_trust;
+    let remaining_days = remaining_contract_days(player, current_date);
+    let urgency_pressure = if remaining_days <= 90 {
+        24
+    } else if remaining_days <= 180 {
+        16
+    } else if remaining_days <= 365 {
+        8
+    } else {
+        2
+    };
+    let morale_pressure = if player.morale <= 40 {
+        24
+    } else if player.morale <= 60 {
+        12
+    } else {
+        0
+    };
+    let trust_pressure = if trust <= 25 {
+        26
+    } else if trust <= 40 {
+        12
+    } else {
+        0
+    };
+    let value_pressure = if player.market_value >= 2_000_000 {
+        12
+    } else if player.market_value >= 750_000 {
+        6
+    } else {
+        0
+    };
+    let tension = (22 + urgency_pressure + morale_pressure + trust_pressure + value_pressure)
+        .clamp(10, 92) as u8;
+    let patience = (100_i32 - i32::from(round.saturating_sub(1)) * 18 - i32::from(tension) / 3)
+        .clamp(18, 92) as u8;
+
+    let (mood, headline_key, detail_key) = if session_status == RenewalSessionStatus::Blocked {
+        (
+            NegotiationMood::Guarded,
+            "playerProfile.renewalFeedbackBlockedHeadline",
+            Some("playerProfile.renewalFeedbackBlockedDetail"),
+        )
+    } else if decision == RenewalDecision::Accepted && round >= 2 {
+        (
+            NegotiationMood::Positive,
+            "playerProfile.renewalFeedbackAcceptedLateHeadline",
+            Some("playerProfile.renewalFeedbackAcceptedLateDetail"),
+        )
+    } else if decision == RenewalDecision::Accepted {
+        (
+            NegotiationMood::Positive,
+            "playerProfile.renewalFeedbackAcceptedHeadline",
+            Some("playerProfile.renewalFeedbackAcceptedDetail"),
+        )
+    } else if relationship_blocked || tension >= 70 {
+        (
+            NegotiationMood::Tense,
+            "playerProfile.renewalFeedbackTenseHeadline",
+            Some("playerProfile.renewalFeedbackTenseDetail"),
+        )
+    } else if expected_wage > player.wage || round >= 2 {
+        (
+            NegotiationMood::Firm,
+            "playerProfile.renewalFeedbackFirmHeadline",
+            Some("playerProfile.renewalFeedbackFirmDetail"),
+        )
+    } else {
+        (
+            NegotiationMood::Calm,
+            "playerProfile.renewalFeedbackCalmHeadline",
+            Some("playerProfile.renewalFeedbackCalmDetail"),
+        )
+    };
+
+    NegotiationFeedback {
+        mood,
+        headline_key: headline_key.to_string(),
+        detail_key: detail_key.map(str::to_string),
+        tension,
+        patience,
+        round,
+        params: HashMap::new(),
+    }
 }
 
 fn should_manual_renewal_fail_on_relationship(

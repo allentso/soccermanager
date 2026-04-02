@@ -240,6 +240,7 @@ pub struct ContractRenewalState {
     pub last_attempt_date: Option<String>,
     pub last_assistant_attempt_date: Option<String>,
     pub last_outcome: Option<RenewalSessionOutcome>,
+    pub conversation_round: u8,
 }
 
 impl Default for ContractRenewalState {
@@ -250,6 +251,7 @@ impl Default for ContractRenewalState {
             last_attempt_date: None,
             last_assistant_attempt_date: None,
             last_outcome: None,
+            conversation_round: 0,
         }
     }
 }

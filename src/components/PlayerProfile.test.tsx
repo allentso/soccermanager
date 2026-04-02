@@ -64,6 +64,16 @@ vi.mock("react-i18next", () => ({
         return "Delegate to Assistant";
       if (key === "playerProfile.renewalDelegateMissingReport")
         return "Assistant report did not include this player.";
+      if (key === "playerProfile.renewalConversationTitle")
+        return "Negotiation pulse";
+      if (key === "playerProfile.renewalRound")
+        return `Round ${params?.count}`;
+      if (key === "playerProfile.renewalPatience") return "Patience";
+      if (key === "playerProfile.renewalTension") return "Tension";
+      if (key === "playerProfile.renewalFeedbackFirmHeadline")
+        return "They want stronger terms before moving.";
+      if (key === "playerProfile.renewalFeedbackFirmDetail")
+        return "The discussion is still open, but wage level and contract length need to feel clearly worthwhile from their side.";
       if (key === "playerProfile.attributes") return "Attributes";
       if (key === "playerProfile.seasonStats") return "Season Stats";
       if (key === "playerProfile.careerHistory") return "Career History";
@@ -373,6 +383,15 @@ describe("PlayerProfile contract surfaces", () => {
       suggested_years: 4,
       session_status: "open",
       is_terminal: false,
+      feedback: {
+        mood: "firm",
+        headline_key: "playerProfile.renewalFeedbackFirmHeadline",
+        detail_key: "playerProfile.renewalFeedbackFirmDetail",
+        tension: 58,
+        patience: 64,
+        round: 1,
+        params: {},
+      },
     });
 
     render(<RenewalHarness />);
@@ -390,6 +409,13 @@ describe("PlayerProfile contract surfaces", () => {
       expect(
         screen.getByText("Wants more: €16000/wk for 4 years"),
       ).toBeInTheDocument();
+      expect(screen.getByText("Negotiation pulse")).toBeInTheDocument();
+      expect(
+        screen.getByText("They want stronger terms before moving."),
+      ).toBeInTheDocument();
+      expect(screen.getByText("Round 1")).toBeInTheDocument();
+      expect(screen.getByText("Patience")).toBeInTheDocument();
+      expect(screen.getByText("Tension")).toBeInTheDocument();
     });
   });
 

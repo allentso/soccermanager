@@ -2,14 +2,13 @@ use log::info;
 use serde::Serialize;
 use tauri::State;
 
+use domain::negotiation::NegotiationFeedback;
 use domain::player::RenewalSessionStatus;
 use ofm_core::contracts::{
     DelegatedRenewalOptions, DelegatedRenewalReport, RenewalDecision, RenewalOffer,
 };
 use ofm_core::game::Game;
 use ofm_core::state::StateManager;
-
-use crate::SaveManagerState;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct RenewalCommandResponse {
@@ -19,6 +18,7 @@ pub struct RenewalCommandResponse {
     pub suggested_years: Option<u32>,
     pub session_status: RenewalSessionStatus,
     pub is_terminal: bool,
+    pub feedback: Option<NegotiationFeedback>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -30,48 +30,26 @@ pub struct DelegatedRenewalCommandResponse {
 #[tauri::command]
 pub async fn propose_renewal(
     state: State<'_, StateManager>,
-    sm_state: State<'_, SaveManagerState>,
     player_id: String,
     weekly_wage: u32,
     contract_years: u32,
 ) -> Result<RenewalCommandResponse, String> {
-    let response = propose_renewal_internal(&state, &player_id, weekly_wage, contract_years)?;
-
-    if let Some(save_id) = state.get_save_id() {
-        let mut sm = sm_state
-            .0
-            .lock()
-            .map_err(|error| format!("Lock error: {}", error))?;
-        sm.save_game(&response.game, &save_id)?;
-    }
-
-    Ok(response)
+    propose_renewal_internal(&state, &player_id, weekly_wage, contract_years)
 }
 
 #[tauri::command]
 pub async fn delegate_renewals(
     state: State<'_, StateManager>,
-    sm_state: State<'_, SaveManagerState>,
     player_ids: Option<Vec<String>>,
     max_wage_increase_pct: u32,
     max_contract_years: u32,
 ) -> Result<DelegatedRenewalCommandResponse, String> {
-    let response = delegate_renewals_internal(
+    delegate_renewals_internal(
         &state,
         player_ids,
         max_wage_increase_pct,
         max_contract_years,
-    )?;
-
-    if let Some(save_id) = state.get_save_id() {
-        let mut sm = sm_state
-            .0
-            .lock()
-            .map_err(|error| format!("Lock error: {}", error))?;
-        sm.save_game(&response.game, &save_id)?;
-    }
-
-    Ok(response)
+    )
 }
 
 fn propose_renewal_internal(
@@ -107,6 +85,7 @@ fn propose_renewal_internal(
         suggested_years: outcome.suggested_years,
         session_status: outcome.session_status,
         is_terminal: outcome.is_terminal,
+        feedback: outcome.feedback,
     })
 }
 
@@ -143,6 +122,7 @@ fn delegate_renewals_internal(
 mod tests {
     use super::{delegate_renewals_internal, propose_renewal_internal};
     use chrono::{TimeZone, Utc};
+    use db::save_manager::SaveManager;
     use domain::manager::Manager;
     use domain::player::{Player, PlayerAttributes, Position};
     use domain::staff::{Staff, StaffAttributes, StaffRole};
@@ -151,6 +131,35 @@ mod tests {
     use ofm_core::contracts::RenewalDecision;
     use ofm_core::game::Game;
     use ofm_core::state::StateManager;
+    use std::fs;
+    use std::path::{Path, PathBuf};
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    struct TempSaveDir {
+        path: PathBuf,
+    }
+
+    impl TempSaveDir {
+        fn new() -> Self {
+            let unique = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("system clock should be after unix epoch")
+                .as_nanos();
+            let path = std::env::temp_dir().join(format!("ofm-contract-tests-{}", unique));
+            fs::create_dir_all(&path).expect("temporary saves dir should be created");
+            Self { path }
+        }
+
+        fn path(&self) -> &Path {
+            &self.path
+        }
+    }
+
+    impl Drop for TempSaveDir {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.path);
+        }
+    }
 
     fn default_attrs() -> PlayerAttributes {
         PlayerAttributes {
@@ -309,5 +318,108 @@ mod tests {
             .find(|player| player.id == "player-1")
             .expect("stored player should exist");
         assert_eq!(stored_player.contract_end.as_deref(), Some("2029-08-01"));
+    }
+
+    #[test]
+    fn renewal_changes_only_persist_after_explicit_save() {
+        let temp_dir = TempSaveDir::new();
+        let mut save_manager = SaveManager::init(temp_dir.path()).expect("save manager");
+        let game = make_game();
+        let save_id = save_manager
+            .create_save(&game, "Renewal Persistence Test")
+            .expect("save should be created");
+
+        let state = StateManager::new();
+        state.set_game(
+            save_manager
+                .load_game(&save_id)
+                .expect("saved game should load"),
+        );
+        state.set_save_id(save_id.clone());
+
+        let response = propose_renewal_internal(&state, "player-1", 15_000, 3).expect("response");
+        assert!(matches!(response.outcome, RenewalDecision::Accepted));
+
+        let persisted_before_manual_save = save_manager
+            .load_game(&save_id)
+            .expect("save should remain readable");
+        let persisted_player = persisted_before_manual_save
+            .players
+            .iter()
+            .find(|player| player.id == "player-1")
+            .expect("persisted player should exist");
+        assert_eq!(persisted_player.wage, 12_000);
+        assert_eq!(persisted_player.contract_end.as_deref(), Some("2026-10-15"));
+
+        let updated_game = state.get_game(|game| game.clone()).expect("updated game state");
+        save_manager
+            .save_game(&updated_game, &save_id)
+            .expect("manual save should persist renewal");
+
+        let persisted_after_manual_save = save_manager
+            .load_game(&save_id)
+            .expect("updated save should load");
+        let saved_player = persisted_after_manual_save
+            .players
+            .iter()
+            .find(|player| player.id == "player-1")
+            .expect("saved player should exist");
+        assert_eq!(saved_player.wage, 15_000);
+        assert_eq!(saved_player.contract_end.as_deref(), Some("2029-08-01"));
+    }
+
+    #[test]
+    fn delegated_renewal_changes_only_persist_after_explicit_save() {
+        let temp_dir = TempSaveDir::new();
+        let mut save_manager = SaveManager::init(temp_dir.path()).expect("save manager");
+        let game = make_game();
+        let save_id = save_manager
+            .create_save(&game, "Delegated Renewal Persistence Test")
+            .expect("save should be created");
+
+        let state = StateManager::new();
+        state.set_game(
+            save_manager
+                .load_game(&save_id)
+                .expect("saved game should load"),
+        );
+        state.set_save_id(save_id.clone());
+
+        let response = delegate_renewals_internal(&state, Some(vec!["player-1".to_string()]), 35, 3)
+            .expect("delegated renewal should succeed");
+        assert_eq!(response.report.success_count, 1);
+
+        let persisted_before_manual_save = save_manager
+            .load_game(&save_id)
+            .expect("save should remain readable");
+        let persisted_player = persisted_before_manual_save
+            .players
+            .iter()
+            .find(|player| player.id == "player-1")
+            .expect("persisted player should exist");
+        assert_eq!(persisted_player.contract_end.as_deref(), Some("2026-10-15"));
+        assert!(persisted_before_manual_save
+            .messages
+            .iter()
+            .all(|message| !message.id.starts_with("delegated_renewals_")));
+
+        let updated_game = state.get_game(|game| game.clone()).expect("updated game state");
+        save_manager
+            .save_game(&updated_game, &save_id)
+            .expect("manual save should persist delegated renewal");
+
+        let persisted_after_manual_save = save_manager
+            .load_game(&save_id)
+            .expect("updated save should load");
+        let saved_player = persisted_after_manual_save
+            .players
+            .iter()
+            .find(|player| player.id == "player-1")
+            .expect("saved player should exist");
+        assert_eq!(saved_player.contract_end.as_deref(), Some("2029-08-01"));
+        assert!(persisted_after_manual_save
+            .messages
+            .iter()
+            .any(|message| message.id.starts_with("delegated_renewals_")));
     }
 }
