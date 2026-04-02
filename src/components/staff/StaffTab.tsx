@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { GameStateData, StaffData } from "../store/gameStore";
-import { Card, CardBody, Badge, CountryFlag, ProgressBar } from "./ui";
+import { GameStateData, StaffData } from "../../store/gameStore";
+import { Card, CardBody, Badge, CountryFlag, ProgressBar } from "../ui";
 import {
   UserCog,
   Search,
@@ -18,8 +18,8 @@ import {
   calcAge,
   formatVal,
   formatWeeklyAmount,
-} from "../lib/helpers";
-import { countryName } from "../lib/countries";
+} from "../../lib/helpers";
+import { countryName } from "../../lib/countries";
 import { useTranslation } from "react-i18next";
 
 interface StaffTabProps {

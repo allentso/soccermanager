@@ -1,13 +1,13 @@
 import { useState } from "react";
-import { GameStateData, FixtureData } from "../store/gameStore";
-import { Card, CardBody, Badge } from "./ui";
+import { GameStateData, FixtureData } from "../../store/gameStore";
+import { Card, CardBody, Badge } from "../ui";
 import {
   Calendar as CalendarIcon,
   TableProperties,
   Trophy,
 } from "lucide-react";
-import { getTeamName, formatMatchDate } from "../lib/helpers";
-import { resolveSeasonContext } from "../lib/seasonContext";
+import { getTeamName, formatMatchDate } from "../../lib/helpers";
+import { resolveSeasonContext } from "../../lib/seasonContext";
 import { useTranslation } from "react-i18next";
 
 interface ScheduleTabProps {

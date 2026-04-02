@@ -1,4 +1,4 @@
-import { GameStateData, PlayerData } from "../store/gameStore";
+import { GameStateData, PlayerData } from "../../store/gameStore";
 import {
   Card,
   CardHeader,
@@ -6,12 +6,12 @@ import {
   Badge,
   ProgressBar,
   CountryFlag,
-} from "./ui";
-import { calcOvr, calcAge, positionBadgeVariant } from "../lib/helpers";
-import { TraitList } from "./TraitBadge";
+} from "../ui";
+import { calcOvr, calcAge, positionBadgeVariant } from "../../lib/helpers";
+import { TraitList } from "../TraitBadge";
 import { useTranslation } from "react-i18next";
-import { countryName } from "../lib/countries";
-import { translatePositionAbbreviation } from "./squad/SquadTab.helpers";
+import { countryName } from "../../lib/countries";
+import { translatePositionAbbreviation } from "../squad/SquadTab.helpers";
 import { GraduationCap, TrendingUp, Star, Users, Sparkles } from "lucide-react";
 
 interface YouthAcademyTabProps {

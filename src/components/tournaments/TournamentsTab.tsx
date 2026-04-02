@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { GameStateData, FixtureData } from "../store/gameStore";
-import { Card, CardHeader, CardBody, Badge } from "./ui";
+import { GameStateData, FixtureData } from "../../store/gameStore";
+import { Card, CardHeader, CardBody, Badge } from "../ui";
 import {
   Trophy,
   Calendar,
@@ -16,8 +16,8 @@ import {
   getCompetitiveFixtures,
   getTeamName,
   formatMatchDate,
-} from "../lib/helpers";
-import { resolveSeasonContext } from "../lib/seasonContext";
+} from "../../lib/helpers";
+import { resolveSeasonContext } from "../../lib/seasonContext";
 import { useTranslation } from "react-i18next";
 
 interface AwardEntry {

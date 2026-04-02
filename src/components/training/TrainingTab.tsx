@@ -1,7 +1,7 @@
 import { useState, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { GameStateData } from "../store/gameStore";
-import { Card, CardHeader, CardBody, ProgressBar, Select } from "./ui";
+import { GameStateData } from "../../store/gameStore";
+import { Card, CardHeader, CardBody, ProgressBar, Select } from "../ui";
 import {
   HeartPulse,
   Crosshair,
@@ -20,7 +20,7 @@ import {
   Users,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { translatePositionAbbreviation } from "./squad/SquadTab.helpers";
+import { translatePositionAbbreviation } from "../squad/SquadTab.helpers";
 
 interface TrainingTabProps {
   gameState: GameStateData;

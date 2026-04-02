@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { GameStateData, NewsArticle } from "../store/gameStore";
-import { getTeamName, formatMatchDate as fmtMatchDate } from "../lib/helpers";
+import { GameStateData, NewsArticle } from "../../store/gameStore";
+import { getTeamName, formatMatchDate as fmtMatchDate } from "../../lib/helpers";
 import {
   Newspaper,
   Trophy,
@@ -14,8 +14,8 @@ import {
   Filter,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { resolveNewsArticle } from "../utils/backendI18n";
-import { Select } from "./ui";
+import { resolveNewsArticle } from "../../utils/backendI18n";
+import { Select } from "../ui";
 
 const CAT_ICONS: Record<string, React.ReactNode> = {
   MatchReport: <Newspaper className="w-4 h-4" />,

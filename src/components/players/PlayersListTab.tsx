@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
-import { GameStateData, PlayerSelectionOptions } from "../store/gameStore";
-import { Card, CardBody, Badge, Select, CountryFlag } from "./ui";
+import { GameStateData, PlayerSelectionOptions } from "../../store/gameStore";
+import { Card, CardBody, Badge, Select, CountryFlag } from "../ui";
 import {
   Search,
   Filter,
@@ -16,12 +16,12 @@ import {
   calcAge,
   formatVal,
   positionBadgeVariant,
-} from "../lib/helpers";
+} from "../../lib/helpers";
 import { useTranslation } from "react-i18next";
 import {
   normalisePosition,
   translatePositionAbbreviation,
-} from "./squad/SquadTab.helpers";
+} from "../squad/SquadTab.helpers";
 
 interface PlayersListTabProps {
   gameState: GameStateData;

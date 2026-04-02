@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useTranslation } from "react-i18next";
-import { GameStateData } from "../store/gameStore";
+import { GameStateData } from "../../store/gameStore";
 import {
   Card,
   CardHeader,
@@ -9,7 +9,7 @@ import {
   Badge,
   ProgressBar,
   CountryFlag,
-} from "./ui";
+} from "../ui";
 import {
   Eye,
   ScanSearch,
@@ -19,9 +19,9 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
-import { calcOvr, calcAge, formatVal, getTeamName } from "../lib/helpers";
-import { normalisePosition, translatePositionAbbreviation, translatePositionLabel } from "./squad/SquadTab.helpers";
-import { countryName } from "../lib/countries";
+import { calcOvr, calcAge, formatVal, getTeamName } from "../../lib/helpers";
+import { normalisePosition, translatePositionAbbreviation, translatePositionLabel } from "../squad/SquadTab.helpers";
+import { countryName } from "../../lib/countries";
 
 interface ScoutingTabProps {
   gameState: GameStateData;

@@ -1,7 +1,7 @@
-import { GameStateData } from "../store/gameStore";
-import { Card, CardBody, Badge, TeamLocation } from "./ui";
+import { GameStateData } from "../../store/gameStore";
+import { Card, CardBody, Badge, TeamLocation } from "../ui";
 import { Users, Trophy } from "lucide-react";
-import { calcOvr as calcPlayerOvr, formatVal } from "../lib/helpers";
+import { calcOvr as calcPlayerOvr, formatVal } from "../../lib/helpers";
 import { useTranslation } from "react-i18next";
 
 interface TeamsListTabProps {

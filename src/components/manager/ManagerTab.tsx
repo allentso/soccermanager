@@ -1,8 +1,8 @@
-import { GameStateData } from "../store/gameStore";
-import { Card, CardHeader, CardBody, ProgressBar, CountryFlag } from "./ui";
-import { formatDate } from "../lib/helpers";
+import { GameStateData } from "../../store/gameStore";
+import { Card, CardHeader, CardBody, ProgressBar, CountryFlag } from "../ui";
+import { formatDate } from "../../lib/helpers";
 import { useTranslation } from "react-i18next";
-import { countryName } from "../lib/countries";
+import { countryName } from "../../lib/countries";
 
 interface ManagerTabProps {
   gameState: GameStateData;
