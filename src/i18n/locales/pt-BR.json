@@ -814,6 +814,19 @@
     "negotiationRound": "Rodada {{count}}",
     "negotiationPatience": "Paciência",
     "negotiationTension": "Tensão",
+    "negotiationHistory": "Troca recente",
+    "lastBidLabel": "Sua última proposta",
+    "lastClubSignalLabel": "O último sinal deles",
+    "lastCounterLabel": "Sua última contra-oferta",
+    "currentOfferLabel": "A oferta atual deles",
+    "offerStatusPending": "Em aberto",
+    "offerStatusAccepted": "Aceita",
+    "offerStatusRejected": "Rejeitada",
+    "offerStatusWithdrawn": "As conversas esfriaram",
+    "negotiationExpiredError": "As conversas esfriaram antes de você conseguir responder. Inicie uma nova negociação se o clube voltar.",
+    "resumeNegotiationHint": "As conversas ainda estão vivas com este clube.",
+    "resumeNegotiationHeadline": "O outro clube está esperando seu próximo movimento.",
+    "resumeNegotiationDetail": "O último sinal deles apontou para {{fee}}.",
     "transferFeedbackAcceptedHeadline": "O outro clube está pronto para fechar negócio.",
     "transferFeedbackAcceptedDetail": "Seu valor entrou na zona de conforto deles, então a conversa andou rápido.",
     "transferFeedbackCounterHeadline": "Eles querem mais antes de bater o martelo.",
@@ -902,6 +915,7 @@
     "renewalRejected": "Proposta recusada",
     "renewalCounter": "Quer mais: €{{wage}}/semana por {{years}} anos",
     "renewalBlocked": "As conversas estão bloqueadas após sua decisão anterior",
+    "renewalCooledOff": "As conversas anteriores esfriaram, então isto recomeça como uma nova negociação.",
     "delegateRenewal": "Delegar ao assistente",
     "renewalDelegateMissingReport": "O relatório do assistente não incluía este jogador.",
     "renewalConversationTitle": "Pulso da negociação",
@@ -1149,19 +1163,46 @@
         },
         "responses": {
           "win": {
-            "humble": { "tone": "Humilde", "text": "Os jogadores trabalharam duro. Nos preparamos bem e executamos o plano de jogo." },
-            "confident": { "tone": "Confiante", "text": "Fomos o melhor time do começo ao fim. Um resultado merecido." },
-            "deflect": { "tone": "Desviar", "text": "São só três pontos. Agora vamos para a próxima." }
+            "humble": {
+              "tone": "Humilde",
+              "text": "Os jogadores trabalharam duro. Nos preparamos bem e executamos o plano de jogo."
+            },
+            "confident": {
+              "tone": "Confiante",
+              "text": "Fomos o melhor time do começo ao fim. Um resultado merecido."
+            },
+            "deflect": {
+              "tone": "Desviar",
+              "text": "São só três pontos. Agora vamos para a próxima."
+            }
           },
           "loss": {
-            "accept": { "tone": "Assumir", "text": "Hoje não fomos bons o suficiente. Temos que entender o que deu errado." },
-            "defiant": { "tone": "Desafiante", "text": "Não acho que merecíamos perder. Criamos chances suficientes." },
-            "deflect": { "tone": "Desviar", "text": "Prefiro não ficar remoendo isso. Estaremos prontos para a próxima partida." }
+            "accept": {
+              "tone": "Assumir",
+              "text": "Hoje não fomos bons o suficiente. Temos que entender o que deu errado."
+            },
+            "defiant": {
+              "tone": "Desafiante",
+              "text": "Não acho que merecíamos perder. Criamos chances suficientes."
+            },
+            "deflect": {
+              "tone": "Desviar",
+              "text": "Prefiro não ficar remoendo isso. Estaremos prontos para a próxima partida."
+            }
           },
           "draw": {
-            "fair": { "tone": "Justo", "text": "Foi um resultado justo. Os dois times tiveram chances." },
-            "frustrated": { "tone": "Frustrado", "text": "A gente deveria ter vencido. Perdemos oportunidades demais." },
-            "positive": { "tone": "Positivo", "text": "Um ponto é um ponto. Dá para tirar coisas boas do jogo de hoje." }
+            "fair": {
+              "tone": "Justo",
+              "text": "Foi um resultado justo. Os dois times tiveram chances."
+            },
+            "frustrated": {
+              "tone": "Frustrado",
+              "text": "A gente deveria ter vencido. Perdemos oportunidades demais."
+            },
+            "positive": {
+              "tone": "Positivo",
+              "text": "Um ponto é um ponto. Dá para tirar coisas boas do jogo de hoje."
+            }
           }
         }
       },
@@ -1171,17 +1212,35 @@
           "default": "Você pode comentar a atuação de {{playerName}} hoje?"
         },
         "responses": {
-          "praise": { "tone": "Elogio", "text": "{{playerName}} foi fantástico. É um jogador-chave para nós e a dedicação dele é exemplar." },
-          "demanding": { "tone": "Exigente", "text": "{{playerName}} pode render mais. Espero mais de um jogador da qualidade dele." },
-          "deflect": { "tone": "Desviar", "text": "Não gosto de destacar indivíduos. Futebol é jogo coletivo." }
+          "praise": {
+            "tone": "Elogio",
+            "text": "{{playerName}} foi fantástico. É um jogador-chave para nós e a dedicação dele é exemplar."
+          },
+          "demanding": {
+            "tone": "Exigente",
+            "text": "{{playerName}} pode render mais. Espero mais de um jogador da qualidade dele."
+          },
+          "deflect": {
+            "tone": "Desviar",
+            "text": "Não gosto de destacar indivíduos. Futebol é jogo coletivo."
+          }
         }
       },
       "tactics": {
         "question": "Pode nos explicar sua abordagem tática hoje?",
         "responses": {
-          "detailed": { "tone": "Detalhado", "text": "Montamos a equipe para controlar o meio-campo e usar a largura. Acho que a estrutura funcionou bem." },
-          "brief": { "tone": "Direto", "text": "Tínhamos um plano e os jogadores executaram. É isso que importa." },
-          "evasive": { "tone": "Evasivo", "text": "Prefiro não revelar muita coisa. Todo time tem seus segredos." }
+          "detailed": {
+            "tone": "Detalhado",
+            "text": "Montamos a equipe para controlar o meio-campo e usar a largura. Acho que a estrutura funcionou bem."
+          },
+          "brief": {
+            "tone": "Direto",
+            "text": "Tínhamos um plano e os jogadores executaram. É isso que importa."
+          },
+          "evasive": {
+            "tone": "Evasivo",
+            "text": "Prefiro não revelar muita coisa. Todo time tem seus segredos."
+          }
         }
       },
       "fans": {
@@ -1192,28 +1251,64 @@
         },
         "responses": {
           "win": {
-            "grateful": { "tone": "Humilde", "text": "A torcida é incrível. Ela nos empurra em cada jogo e merece atuações como a de hoje." },
-            "shared": { "tone": "Confiante", "text": "Todo mundo comemora junto — jogadores, comissão e torcedores. Essa vitória também é deles." },
-            "deflect": { "tone": "Desviar", "text": "A torcida sabe o que representamos. Nós só focamos no campo." }
+            "grateful": {
+              "tone": "Humilde",
+              "text": "A torcida é incrível. Ela nos empurra em cada jogo e merece atuações como a de hoje."
+            },
+            "shared": {
+              "tone": "Confiante",
+              "text": "Todo mundo comemora junto — jogadores, comissão e torcedores. Essa vitória também é deles."
+            },
+            "deflect": {
+              "tone": "Desviar",
+              "text": "A torcida sabe o que representamos. Nós só focamos no campo."
+            }
           },
           "loss": {
-            "apologize": { "tone": "Assumir", "text": "Eu entendo completamente a frustração deles. Eles merecem mais e vamos trabalhar duro para entregar isso." },
-            "patience": { "tone": "Focado", "text": "Peço paciência. Estamos construindo algo e dias ruins acontecem. Vamos voltar mais fortes." },
-            "curt": { "tone": "Seco", "text": "Não vou comentar coisas ditas no calor do momento. Vamos seguir em frente." }
+            "apologize": {
+              "tone": "Assumir",
+              "text": "Eu entendo completamente a frustração deles. Eles merecem mais e vamos trabalhar duro para entregar isso."
+            },
+            "patience": {
+              "tone": "Focado",
+              "text": "Peço paciência. Estamos construindo algo e dias ruins acontecem. Vamos voltar mais fortes."
+            },
+            "curt": {
+              "tone": "Seco",
+              "text": "Não vou comentar coisas ditas no calor do momento. Vamos seguir em frente."
+            }
           },
           "draw": {
-            "appreciate": { "tone": "Positivo", "text": "Eu valorizo cada torcedor que vem nos ver. A energia deles levanta o time." },
-            "understand": { "tone": "Justo", "text": "Eles querem nos ver vencer e eu também. Vamos continuar insistindo até os resultados aparecerem." },
-            "curt": { "tone": "Seco", "text": "Eu não me envolvo com o que acontece nas arquibancadas. Meu foco está no campo." }
+            "appreciate": {
+              "tone": "Positivo",
+              "text": "Eu valorizo cada torcedor que vem nos ver. A energia deles levanta o time."
+            },
+            "understand": {
+              "tone": "Justo",
+              "text": "Eles querem nos ver vencer e eu também. Vamos continuar insistindo até os resultados aparecerem."
+            },
+            "curt": {
+              "tone": "Seco",
+              "text": "Eu não me envolvo com o que acontece nas arquibancadas. Meu foco está no campo."
+            }
           }
         }
       },
       "ahead": {
         "question": "Qual é o seu foco para a próxima partida?",
         "responses": {
-          "focused": { "tone": "Focado", "text": "Primeiro recuperação, depois preparação. Vamos jogo a jogo." },
-          "ambitious": { "tone": "Ambicioso", "text": "Queremos continuar construindo embalo. O objetivo está claro." },
-          "curt": { "tone": "Seco", "text": "Próxima pergunta, por favor. A gente se preocupa com isso quando chegar a hora." }
+          "focused": {
+            "tone": "Focado",
+            "text": "Primeiro recuperação, depois preparação. Vamos jogo a jogo."
+          },
+          "ambitious": {
+            "tone": "Ambicioso",
+            "text": "Queremos continuar construindo embalo. O objetivo está claro."
+          },
+          "curt": {
+            "tone": "Seco",
+            "text": "Próxima pergunta, por favor. A gente se preocupa com isso quando chegar a hora."
+          }
         }
       }
     },

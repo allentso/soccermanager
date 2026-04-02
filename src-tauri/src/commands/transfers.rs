@@ -1,5 +1,5 @@
-use log::info;
 use domain::negotiation::NegotiationFeedback;
+use log::info;
 use tauri::State;
 
 use ofm_core::game::Game;
@@ -266,6 +266,7 @@ mod tests {
             from_team_id: "team-2".to_string(),
             fee: 900_000,
             wage_offered: 0,
+            last_manager_fee: None,
             negotiation_round: 1,
             suggested_counter_fee: None,
             status: TransferOfferStatus::Pending,
@@ -350,7 +351,10 @@ mod tests {
 
         assert_eq!(response.decision, TransferNegotiationDecision::Accepted);
         assert_eq!(response.game.players[0].team_id.as_deref(), Some("team-2"));
-        assert_eq!(response.game.players[0].transfer_offers[0].status, TransferOfferStatus::Accepted);
+        assert_eq!(
+            response.game.players[0].transfer_offers[0].status,
+            TransferOfferStatus::Accepted
+        );
 
         let stored_game = state.get_game(|game| game.clone()).expect("stored game");
         assert_eq!(
@@ -373,7 +377,10 @@ mod tests {
 
         assert_eq!(response.decision, TransferNegotiationDecision::Accepted);
         assert_eq!(response.game.players[0].team_id.as_deref(), Some("team-1"));
-        assert_eq!(response.game.players[0].transfer_offers[0].status, TransferOfferStatus::Accepted);
+        assert_eq!(
+            response.game.players[0].transfer_offers[0].status,
+            TransferOfferStatus::Accepted
+        );
 
         let stored_game = state.get_game(|game| game.clone()).expect("stored game");
         assert_eq!(

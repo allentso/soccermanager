@@ -60,6 +60,8 @@ vi.mock("react-i18next", () => ({
         return `Wants more: €${params?.wage}/wk for ${params?.years} years`;
       if (key === "playerProfile.renewalBlocked")
         return "Talks are blocked after your earlier decision";
+      if (key === "playerProfile.renewalCooledOff")
+        return "Previous talks cooled off, so this starts as a fresh conversation.";
       if (key === "playerProfile.delegateRenewal")
         return "Delegate to Assistant";
       if (key === "playerProfile.renewalDelegateMissingReport")
@@ -416,6 +418,47 @@ describe("PlayerProfile contract surfaces", () => {
       expect(screen.getByText("Round 1")).toBeInTheDocument();
       expect(screen.getByText("Patience")).toBeInTheDocument();
       expect(screen.getByText("Tension")).toBeInTheDocument();
+    });
+  });
+
+  it("shows a cooled-off notice when stale talks reset before a new offer", async () => {
+    vi.mocked(invoke).mockResolvedValue({
+      outcome: "counter_offer",
+      game: createGameState(createPlayer()),
+      suggested_wage: 15500,
+      suggested_years: 3,
+      session_status: "open",
+      is_terminal: false,
+      cooled_off: true,
+      feedback: {
+        mood: "calm",
+        headline_key: "playerProfile.renewalFeedbackCalmHeadline",
+        detail_key: "playerProfile.renewalFeedbackCalmDetail",
+        tension: 34,
+        patience: 76,
+        round: 1,
+        params: {},
+      },
+    });
+
+    render(<RenewalHarness />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Renew Contract" }));
+    fireEvent.change(screen.getByLabelText("Offered Wage"), {
+      target: { value: "13500" },
+    });
+    fireEvent.change(screen.getByLabelText("Contract Length"), {
+      target: { value: "2" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Submit Offer" }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(
+          "Previous talks cooled off, so this starts as a fresh conversation.",
+        ),
+      ).toBeInTheDocument();
+      expect(screen.getByText("Round 1")).toBeInTheDocument();
     });
   });
 

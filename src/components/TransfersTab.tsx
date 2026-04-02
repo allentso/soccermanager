@@ -4,6 +4,7 @@ import {
   GameStateData,
   PlayerData,
   PlayerSelectionOptions,
+  TransferOfferData,
 } from "../store/gameStore";
 import { Card, CardBody, Badge, CountryFlag } from "./ui";
 import {
@@ -62,6 +63,156 @@ type TransferNegotiationResponseData = {
   game: GameStateData;
 };
 
+function getOutgoingNegotiationOffer(
+  player: PlayerData,
+  userTeamId: string | null,
+): TransferOfferData | null {
+  if (!userTeamId) {
+    return null;
+  }
+
+  return (
+    player.transfer_offers.find(
+      (offer) =>
+        offer.from_team_id === userTeamId && offer.status === "Pending",
+    ) ?? null
+  );
+}
+
+function buildResumedBidFeedback(
+  offer: TransferOfferData | null,
+): TransferNegotiationFeedbackData | null {
+  if (!offer) {
+    return null;
+  }
+
+  const round = Math.max(offer.negotiation_round || 1, 1);
+  const tension = Math.min(36 + (round - 1) * 16, 84);
+  const patience = Math.max(82 - (round - 1) * 16, 30);
+
+  return {
+    mood: round >= 3 ? "tense" : "firm",
+    headline_key: "transfers.resumeNegotiationHeadline",
+    detail_key: "transfers.resumeNegotiationDetail",
+    tension,
+    patience,
+    round,
+    params: {
+      fee: String(offer.suggested_counter_fee ?? offer.fee),
+    },
+  };
+}
+
+function buildResumedCounterFeedback(
+  offer: TransferOfferData | null,
+): TransferNegotiationFeedbackData | null {
+  if (!offer) {
+    return null;
+  }
+
+  const round = Math.max(offer.negotiation_round || 1, 1);
+  const tension = Math.min(40 + (round - 1) * 14, 86);
+  const patience = Math.max(78 - (round - 1) * 14, 28);
+
+  return {
+    mood: round >= 3 ? "tense" : "firm",
+    headline_key: "transfers.resumeNegotiationHeadline",
+    detail_key: "transfers.resumeNegotiationDetail",
+    tension,
+    patience,
+    round,
+    params: {
+      fee: String(offer.suggested_counter_fee ?? offer.fee),
+    },
+  };
+}
+
+function renderNegotiationHistory(
+  t: (key: string, options?: Record<string, string | number>) => string,
+  offer: TransferOfferData | null,
+  mode: "outgoing" | "incoming",
+) {
+  if (!offer || offer.negotiation_round < 2) {
+    return null;
+  }
+
+  const managerLabel =
+    mode === "outgoing"
+      ? t("transfers.lastBidLabel")
+      : t("transfers.lastCounterLabel");
+  const clubLabel =
+    mode === "outgoing"
+      ? t("transfers.lastClubSignalLabel")
+      : t("transfers.currentOfferLabel");
+  const managerFee = offer.last_manager_fee;
+  const clubFee = offer.suggested_counter_fee ?? offer.fee;
+
+  return (
+    <div className="rounded-lg border border-gray-200 dark:border-navy-700 bg-white/70 dark:bg-navy-900/40 p-3 mb-3 space-y-2">
+      <p className="text-[11px] font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+        {t("transfers.negotiationHistory")}
+      </p>
+      {managerFee !== null && managerFee !== undefined ? (
+        <div className="flex items-center justify-between gap-3 text-xs text-gray-600 dark:text-gray-300">
+          <span>{managerLabel}</span>
+          <span className="font-semibold tabular-nums text-gray-900 dark:text-gray-100">
+            {formatVal(managerFee)}
+          </span>
+        </div>
+      ) : null}
+      <div className="flex items-center justify-between gap-3 text-xs text-gray-600 dark:text-gray-300">
+        <span>{clubLabel}</span>
+        <span className="font-semibold tabular-nums text-gray-900 dark:text-gray-100">
+          {formatVal(clubFee)}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function getTransferOfferStatusLabel(
+  t: (key: string, options?: Record<string, string | number>) => string,
+  status: TransferOfferData["status"],
+): string {
+  switch (status) {
+    case "Pending":
+      return t("transfers.offerStatusPending");
+    case "Accepted":
+      return t("transfers.offerStatusAccepted");
+    case "Rejected":
+      return t("transfers.offerStatusRejected");
+    case "Withdrawn":
+      return t("transfers.offerStatusWithdrawn");
+    default:
+      return status;
+  }
+}
+
+function getTransferOfferBadgeVariant(status: TransferOfferData["status"]) {
+  switch (status) {
+    case "Pending":
+      return "accent" as const;
+    case "Accepted":
+      return "success" as const;
+    case "Withdrawn":
+      return "neutral" as const;
+    case "Rejected":
+    default:
+      return "danger" as const;
+  }
+}
+
+function mapTransferNegotiationError(
+  t: (key: string, options?: Record<string, string | number>) => string,
+  error: string,
+): string {
+  if (error.includes("Offer not found or not pending")) {
+    return t("transfers.negotiationExpiredError");
+  }
+
+  return error;
+}
+
 export default function TransfersTab({
   gameState,
   onSelectPlayer,
@@ -93,6 +244,40 @@ export default function TransfersTab({
   >(null);
   const [counterFeedback, setCounterFeedback] =
     useState<TransferNegotiationFeedbackData | null>(null);
+
+  const openBidNegotiation = (player: PlayerData) => {
+    const existingOffer = getOutgoingNegotiationOffer(player, userTeamId);
+
+    setBidTarget(player);
+    setBidAmount(
+      (
+        (existingOffer?.suggested_counter_fee ?? existingOffer?.fee ?? player.market_value) /
+        1_000_000
+      ).toFixed(existingOffer ? 2 : 1),
+    );
+    setBidResult(null);
+    setBidFeedback(buildResumedBidFeedback(existingOffer));
+  };
+
+  const openCounterNegotiation = (
+    player: PlayerData,
+    offer: TransferOfferData,
+  ) => {
+    setCounterTarget({
+      player,
+      offerId: offer.id,
+      fromTeamId: offer.from_team_id,
+      fee: offer.fee,
+    });
+    setCounterAmount(
+      ((offer.suggested_counter_fee ?? offer.fee) / 1_000_000).toFixed(
+        offer.negotiation_round > 1 ? 2 : 1,
+      ),
+    );
+    setCounterError(null);
+    setCounterResult(null);
+    setCounterFeedback(buildResumedCounterFeedback(offer));
+  };
 
   const handleMakeBid = async () => {
     if (!bidTarget || !bidAmount) return;
@@ -177,7 +362,9 @@ export default function TransfersTab({
         }, 1500);
       }
     } catch (err: any) {
-      setCounterError(err?.toString() || "error");
+      setCounterError(
+        mapTransferNegotiationError(t, err?.toString() || "error"),
+      );
     } finally {
       setCounterLoading(false);
     }
@@ -186,6 +373,14 @@ export default function TransfersTab({
   const myTeam = gameState.teams.find(
     (team) => team.id === gameState.manager.team_id,
   );
+  const activeBidOffer = bidTarget
+    ? getOutgoingNegotiationOffer(bidTarget, userTeamId)
+    : null;
+  const activeCounterOffer = counterTarget
+    ? counterTarget.player.transfer_offers.find(
+      (offer) => offer.id === counterTarget.offerId,
+    ) ?? null
+    : null;
   const seasonContext = resolveSeasonContext(gameState);
   const transferWindow = seasonContext.transfer_window;
   const transferWindowVariant =
@@ -198,15 +393,15 @@ export default function TransfersTab({
     transferWindow.status === "DeadlineDay"
       ? t("season.windowClosesToday")
       : transferWindow.status === "Open" &&
-          transferWindow.days_remaining !== null
+        transferWindow.days_remaining !== null
         ? t("season.windowClosesInDays", {
-            count: transferWindow.days_remaining,
-          })
+          count: transferWindow.days_remaining,
+        })
         : transferWindow.status === "Closed" &&
-            transferWindow.days_until_opens !== null
+          transferWindow.days_until_opens !== null
           ? t("season.windowOpensInDays", {
-              count: transferWindow.days_until_opens,
-            })
+            count: transferWindow.days_until_opens,
+          })
           : t("season.windowClosed");
 
   // My team's transfer-listed players
@@ -263,31 +458,31 @@ export default function TransfersTab({
     icon: React.ReactNode;
     count: number;
   }[] = [
-    {
-      id: "my_list",
-      label: t("transfers.myTransferList"),
-      icon: <ShoppingCart className="w-4 h-4" />,
-      count: myTransferList.length + myLoanList.length,
-    },
-    {
-      id: "market",
-      label: t("transfers.transferMarket"),
-      icon: <TrendingUp className="w-4 h-4" />,
-      count: marketPlayers.length,
-    },
-    {
-      id: "loans",
-      label: t("transfers.loanMarket"),
-      icon: <ArrowRightLeft className="w-4 h-4" />,
-      count: loanPlayers.length,
-    },
-    {
-      id: "offers",
-      label: t("transfers.offers"),
-      icon: <Handshake className="w-4 h-4" />,
-      count: playersWithOffers.length,
-    },
-  ];
+      {
+        id: "my_list",
+        label: t("transfers.myTransferList"),
+        icon: <ShoppingCart className="w-4 h-4" />,
+        count: myTransferList.length + myLoanList.length,
+      },
+      {
+        id: "market",
+        label: t("transfers.transferMarket"),
+        icon: <TrendingUp className="w-4 h-4" />,
+        count: marketPlayers.length,
+      },
+      {
+        id: "loans",
+        label: t("transfers.loanMarket"),
+        icon: <ArrowRightLeft className="w-4 h-4" />,
+        count: loanPlayers.length,
+      },
+      {
+        id: "offers",
+        label: t("transfers.offers"),
+        icon: <Handshake className="w-4 h-4" />,
+        count: playersWithOffers.length,
+      },
+    ];
 
   const currentList =
     view === "my_list"
@@ -362,11 +557,10 @@ export default function TransfersTab({
           <button
             key={tab.id}
             onClick={() => setView(tab.id)}
-            className={`px-4 py-2 rounded-lg font-heading font-bold text-sm uppercase tracking-wider transition-all flex items-center gap-1.5 ${
-              view === tab.id
-                ? "bg-primary-500 text-white shadow-md shadow-primary-500/20"
-                : "bg-white dark:bg-navy-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-navy-600 hover:text-gray-700 dark:hover:text-gray-200"
-            }`}
+            className={`px-4 py-2 rounded-lg font-heading font-bold text-sm uppercase tracking-wider transition-all flex items-center gap-1.5 ${view === tab.id
+              ? "bg-primary-500 text-white shadow-md shadow-primary-500/20"
+              : "bg-white dark:bg-navy-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-navy-600 hover:text-gray-700 dark:hover:text-gray-200"
+              }`}
           >
             {tab.icon} {tab.label} ({tab.count})
           </button>
@@ -584,16 +778,12 @@ export default function TransfersTab({
                                       )}
                                     </span>
                                     <Badge
-                                      variant={
-                                        offer.status === "Pending"
-                                          ? "accent"
-                                          : offer.status === "Accepted"
-                                            ? "success"
-                                            : "danger"
-                                      }
+                                      variant={getTransferOfferBadgeVariant(
+                                        offer.status,
+                                      )}
                                       size="sm"
                                     >
-                                      {formatVal(offer.fee)} — {offer.status}
+                                      {formatVal(offer.fee)} — {getTransferOfferStatusLabel(t, offer.status)}
                                     </Badge>
                                     {offer.status === "Pending" &&
                                       player.team_id === userTeamId && (
@@ -629,18 +819,7 @@ export default function TransfersTab({
                                           <button
                                             onClick={(e) => {
                                               e.stopPropagation();
-                                              setCounterTarget({
-                                                player,
-                                                offerId: offer.id,
-                                                fromTeamId: offer.from_team_id,
-                                                fee: offer.fee,
-                                              });
-                                              setCounterAmount(
-                                                (offer.fee / 1_000_000).toFixed(
-                                                  1,
-                                                ),
-                                              );
-                                              setCounterError(null);
+                                              openCounterNegotiation(player, offer);
                                             }}
                                             aria-label={t("transfers.counterOffer")}
                                             className="flex items-center gap-1 px-2 py-1 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-500 text-xs font-heading font-bold uppercase tracking-wider"
@@ -662,11 +841,7 @@ export default function TransfersTab({
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setBidTarget(player);
-                                setBidAmount(
-                                  (player.market_value / 1_000_000).toFixed(1),
-                                );
-                                setBidResult(null);
+                                openBidNegotiation(player);
                               }}
                               className="flex items-center gap-1 px-3 py-1.5 bg-primary-500/10 hover:bg-primary-500/20 text-primary-500 rounded-lg text-xs font-heading font-bold uppercase tracking-wider transition-colors"
                             >
@@ -702,7 +877,11 @@ export default function TransfersTab({
       {bidTarget && (
         <div
           className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-          onClick={() => setBidTarget(null)}
+          onClick={() => {
+            setBidTarget(null);
+            setBidFeedback(null);
+            setBidResult(null);
+          }}
         >
           <div
             className="bg-white dark:bg-navy-800 rounded-xl shadow-2xl border border-gray-200 dark:border-navy-600 p-6 w-full max-w-sm"
@@ -730,6 +909,11 @@ export default function TransfersTab({
                 </p>
               </div>
             </div>
+            {getOutgoingNegotiationOffer(bidTarget, userTeamId) ? (
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                {t("transfers.resumeNegotiationHint")}
+              </p>
+            ) : null}
             <label className="text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1 block">
               {t("transfers.bidAmount")}
             </label>
@@ -749,6 +933,7 @@ export default function TransfersTab({
               tensionKey="transfers.negotiationTension"
               className="mb-3"
             />
+            {renderNegotiationHistory(t, activeBidOffer, "outgoing")}
             {bidResult && (
               <div
                 className={`text-xs font-heading font-bold uppercase tracking-wider mb-3 ${bidResult === "accepted" ? "text-green-500" : bidResult === "rejected" ? "text-red-500" : "text-amber-500"}`}
@@ -759,7 +944,7 @@ export default function TransfersTab({
                     ? t("transfers.bidRejected")
                     : bidResult === "counter_offer"
                       ? t("transfers.bidCountered")
-                    : bidResult}
+                      : bidResult}
               </div>
             )}
             <div className="flex gap-2">
@@ -773,7 +958,11 @@ export default function TransfersTab({
                   : t("transfers.submitBid")}
               </button>
               <button
-                onClick={() => setBidTarget(null)}
+                onClick={() => {
+                  setBidTarget(null);
+                  setBidFeedback(null);
+                  setBidResult(null);
+                }}
                 className="px-4 py-2 bg-gray-200 dark:bg-navy-700 text-gray-600 dark:text-gray-300 rounded-lg font-heading font-bold text-sm uppercase tracking-wider hover:bg-gray-300 dark:hover:bg-navy-600 transition-colors"
               >
                 {t("transfers.close")}
@@ -785,7 +974,13 @@ export default function TransfersTab({
       {counterTarget && (
         <div
           className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-          onClick={() => setCounterTarget(null)}
+          onClick={() => {
+            setCounterTarget(null);
+            setCounterAmount("");
+            setCounterError(null);
+            setCounterResult(null);
+            setCounterFeedback(null);
+          }}
         >
           <div
             className="bg-white dark:bg-navy-800 rounded-xl shadow-2xl border border-gray-200 dark:border-navy-600 p-6 w-full max-w-sm"
@@ -816,6 +1011,11 @@ export default function TransfersTab({
                 </p>
               </div>
             </div>
+            {counterFeedback ? (
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                {t("transfers.resumeNegotiationHint")}
+              </p>
+            ) : null}
             <label
               htmlFor="counter-offer-amount"
               className="text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1 block"
@@ -839,6 +1039,7 @@ export default function TransfersTab({
               tensionKey="transfers.negotiationTension"
               className="mb-3"
             />
+            {renderNegotiationHistory(t, activeCounterOffer, "incoming")}
             {counterResult && (
               <div
                 className={`text-xs font-heading font-bold uppercase tracking-wider mb-3 ${counterResult === "accepted" ? "text-green-500" : counterResult === "rejected" ? "text-red-500" : "text-amber-500"}`}
@@ -866,7 +1067,13 @@ export default function TransfersTab({
                   : t("transfers.submitCounter")}
               </button>
               <button
-                onClick={() => setCounterTarget(null)}
+                onClick={() => {
+                  setCounterTarget(null);
+                  setCounterAmount("");
+                  setCounterError(null);
+                  setCounterResult(null);
+                  setCounterFeedback(null);
+                }}
                 className="px-4 py-2 bg-gray-200 dark:bg-navy-700 text-gray-600 dark:text-gray-300 rounded-lg font-heading font-bold text-sm uppercase tracking-wider hover:bg-gray-300 dark:hover:bg-navy-600 transition-colors"
               >
                 {t("transfers.close")}

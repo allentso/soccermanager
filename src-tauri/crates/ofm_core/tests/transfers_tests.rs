@@ -67,6 +67,7 @@ fn make_pending_incoming_offer(id: &str, fee: u64) -> TransferOffer {
         from_team_id: "team-2".to_string(),
         fee,
         wage_offered: 0,
+        last_manager_fee: None,
         negotiation_round: 1,
         suggested_counter_fee: None,
         status: TransferOfferStatus::Pending,
@@ -243,6 +244,48 @@ fn repeated_bid_advances_transfer_negotiation_round() {
 }
 
 #[test]
+fn stale_outgoing_transfer_negotiation_is_withdrawn_before_new_bid() {
+    let mut player = make_player("player-stale-bid");
+    player.morale = 35;
+    player.stats.appearances = 1;
+    player.transfer_offers.push(TransferOffer {
+        id: "offer-stale".to_string(),
+        from_team_id: "team-1".to_string(),
+        fee: 900_000,
+        wage_offered: 0,
+        last_manager_fee: Some(900_000),
+        negotiation_round: 2,
+        suggested_counter_fee: Some(1_150_000),
+        status: TransferOfferStatus::Pending,
+        date: "2026-07-15".to_string(),
+    });
+
+    let mut game = make_game_with_player(player, vec![], 5_000_000, 2_000_000);
+    game.teams[0].reputation = 700;
+    game.teams[1].reputation = 350;
+
+    let result = make_transfer_bid(&mut game, "player-stale-bid", 900_000).expect("new bid");
+
+    assert_eq!(result.decision, TransferNegotiationDecision::CounterOffer);
+    assert_eq!(result.feedback.round, 1);
+
+    let player = game
+        .players
+        .iter()
+        .find(|player| player.id == "player-stale-bid")
+        .expect("player present");
+    assert!(player.transfer_offers.iter().any(|offer| {
+        offer.id == "offer-stale" && offer.status == TransferOfferStatus::Withdrawn
+    }));
+    assert!(player.transfer_offers.iter().any(|offer| {
+        offer.id != "offer-stale"
+            && offer.from_team_id == "team-1"
+            && offer.status == TransferOfferStatus::Pending
+            && offer.negotiation_round == 1
+    }));
+}
+
+#[test]
 fn low_transfer_budget_cannot_behave_unrealistically() {
     let mut player = make_player("player-budget");
     player.transfer_listed = true;
@@ -295,6 +338,7 @@ fn does_not_duplicate_pending_incoming_offer_from_same_club() {
         from_team_id: "team-2".to_string(),
         fee: 900_000,
         wage_offered: 0,
+        last_manager_fee: None,
         negotiation_round: 1,
         suggested_counter_fee: None,
         status: TransferOfferStatus::Pending,

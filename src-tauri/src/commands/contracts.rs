@@ -18,6 +18,7 @@ pub struct RenewalCommandResponse {
     pub suggested_years: Option<u32>,
     pub session_status: RenewalSessionStatus,
     pub is_terminal: bool,
+    pub cooled_off: bool,
     pub feedback: Option<NegotiationFeedback>,
 }
 
@@ -85,6 +86,7 @@ fn propose_renewal_internal(
         suggested_years: outcome.suggested_years,
         session_status: outcome.session_status,
         is_terminal: outcome.is_terminal,
+        cooled_off: outcome.cooled_off,
         feedback: outcome.feedback,
     })
 }

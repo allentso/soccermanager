@@ -58,6 +58,7 @@ interface RenewalResponseData {
   suggested_years: number | null;
   session_status: "idle" | "open" | "agreed" | "blocked" | "stalled";
   is_terminal: boolean;
+  cooled_off?: boolean;
   feedback?: NegotiationFeedbackData | null;
 }
 
@@ -180,6 +181,7 @@ export default function PlayerProfile({
   const [renewalSessionStatus, setRenewalSessionStatus] =
     useState<RenewalResponseData["session_status"]>("idle");
   const [renewalIsTerminal, setRenewalIsTerminal] = useState(false);
+  const [renewalCooledOff, setRenewalCooledOff] = useState(false);
   const [renewalFeedback, setRenewalFeedback] =
     useState<NegotiationFeedbackData | null>(null);
   const [hasConsumedInitialRenewalIntent, setHasConsumedInitialRenewalIntent] =
@@ -234,6 +236,7 @@ export default function PlayerProfile({
     setRenewalSuggestedYears(null);
     setRenewalSessionStatus("idle");
     setRenewalIsTerminal(false);
+    setRenewalCooledOff(false);
     setRenewalFeedback(null);
     setShowRenewalModal(true);
   }
@@ -320,6 +323,7 @@ export default function PlayerProfile({
     setRenewalSubmitting(true);
     setRenewalStatus("idle");
     setRenewalError(null);
+    setRenewalCooledOff(false);
 
     try {
       const result = await invoke<RenewalResponseData>("propose_renewal", {
@@ -334,6 +338,7 @@ export default function PlayerProfile({
       setRenewalSuggestedYears(result.suggested_years);
       setRenewalSessionStatus(result.session_status);
       setRenewalIsTerminal(result.is_terminal);
+      setRenewalCooledOff(result.cooled_off ?? false);
       setRenewalFeedback(result.feedback ?? null);
 
       if (result.session_status === "blocked") {
@@ -352,6 +357,7 @@ export default function PlayerProfile({
     } catch (error) {
       setRenewalStatus("error");
       setRenewalError(String(error));
+      setRenewalCooledOff(false);
     } finally {
       setRenewalSubmitting(false);
     }
@@ -364,6 +370,7 @@ export default function PlayerProfile({
 
     setRenewalSubmitting(true);
     setRenewalError(null);
+    setRenewalCooledOff(false);
 
     try {
       const result = await invoke<DelegatedRenewalResponseData>(
@@ -392,6 +399,7 @@ export default function PlayerProfile({
         setRenewalIsTerminal(true);
         setRenewalSuggestedWage(null);
         setRenewalSuggestedYears(null);
+        setRenewalCooledOff(false);
         setRenewalFeedback(null);
         return;
       }
@@ -400,6 +408,7 @@ export default function PlayerProfile({
         setRenewalStatus("rejected");
         setRenewalSessionStatus("stalled");
         setRenewalIsTerminal(false);
+        setRenewalCooledOff(false);
         setRenewalFeedback(null);
         setRenewalError(
           resolveBackendText(
@@ -414,6 +423,7 @@ export default function PlayerProfile({
       setRenewalStatus("blocked");
       setRenewalSessionStatus("blocked");
       setRenewalIsTerminal(true);
+      setRenewalCooledOff(false);
       setRenewalFeedback(null);
       setRenewalError(
         resolveBackendText(
@@ -425,6 +435,7 @@ export default function PlayerProfile({
     } catch (error) {
       setRenewalStatus("error");
       setRenewalError(String(error));
+      setRenewalCooledOff(false);
     } finally {
       setRenewalSubmitting(false);
     }
@@ -1105,6 +1116,12 @@ export default function PlayerProfile({
                 className={`text-sm font-medium ${getRenewalStatusClassName()}`}
               >
                 {getRenewalStatusMessage()}
+              </p>
+            ) : null}
+
+            {renewalCooledOff ? (
+              <p className="text-sm text-amber-600 dark:text-amber-300">
+                {t("playerProfile.renewalCooledOff")}
               </p>
             ) : null}
 

@@ -320,6 +320,42 @@ fn manager_block_prevents_manual_renewal_until_it_expires() {
 }
 
 #[test]
+fn stale_manual_renewal_talks_cool_off_and_restart_from_round_one() {
+    let mut game = make_game();
+    game.players[0].morale_core.renewal_state = Some(ContractRenewalState {
+        status: RenewalSessionStatus::Open,
+        manager_blocked_until: None,
+        last_attempt_date: Some("2026-08-10".to_string()),
+        last_assistant_attempt_date: None,
+        last_outcome: None,
+        conversation_round: 3,
+    });
+    game.clock = GameClock::new(Utc.with_ymd_and_hms(2026, 8, 26, 12, 0, 0).unwrap());
+
+    let outcome = propose_renewal(
+        &mut game,
+        "player-1",
+        RenewalOffer {
+            weekly_wage: 13_000,
+            contract_years: 2,
+        },
+    )
+    .expect("renewal should produce an outcome");
+
+    assert!(outcome.cooled_off);
+    let feedback = outcome.feedback.expect("feedback should be present");
+    assert_eq!(feedback.round, 1);
+
+    let renewal_state = game.players[0]
+        .morale_core
+        .renewal_state
+        .as_ref()
+        .expect("renewal state should be stored");
+    assert_eq!(renewal_state.conversation_round, 1);
+    assert_eq!(renewal_state.last_attempt_date.as_deref(), Some("2026-08-26"));
+}
+
+#[test]
 fn assistant_can_complete_routine_delegate_renewal_even_when_manager_trust_is_low() {
     let mut game = make_game();
     game.staff.push(make_assistant_manager());

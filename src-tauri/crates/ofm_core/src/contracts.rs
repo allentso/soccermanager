@@ -11,6 +11,8 @@ use domain::team::Team;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
+const RENEWAL_SESSION_STALE_DAYS: i64 = 14;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ContractWarningStage {
     TwelveMonths,
@@ -60,6 +62,7 @@ pub struct RenewalOutcome {
     pub suggested_years: Option<u32>,
     pub session_status: RenewalSessionStatus,
     pub is_terminal: bool,
+    pub cooled_off: bool,
     pub feedback: Option<NegotiationFeedback>,
 }
 
@@ -106,6 +109,7 @@ fn renewal_outcome(
     suggested_years: Option<u32>,
     session_status: RenewalSessionStatus,
     is_terminal: bool,
+    cooled_off: bool,
     feedback: Option<NegotiationFeedback>,
 ) -> RenewalOutcome {
     RenewalOutcome {
@@ -114,6 +118,7 @@ fn renewal_outcome(
         suggested_years,
         session_status,
         is_terminal,
+        cooled_off,
         feedback,
     }
 }
@@ -145,6 +150,7 @@ pub fn evaluate_renewal_offer(
             None,
             RenewalSessionStatus::Stalled,
             false,
+            false,
             Some(feedback),
         );
     }
@@ -165,6 +171,7 @@ pub fn evaluate_renewal_offer(
             None,
             RenewalSessionStatus::Agreed,
             true,
+            false,
             Some(feedback),
         );
     }
@@ -184,6 +191,7 @@ pub fn evaluate_renewal_offer(
         Some(expected_wage),
         Some(expected_years),
         RenewalSessionStatus::Open,
+        false,
         false,
         Some(feedback),
     )
@@ -218,6 +226,7 @@ pub fn propose_renewal(
     }
 
     let current_date = game.clock.current_date.date_naive();
+    let cooled_off = cool_stale_renewal_session(&mut game.players[player_index], current_date);
     let today = current_date.format("%Y-%m-%d").to_string();
     let round = next_renewal_round(&game.players[player_index], Some(today.as_str()));
 
@@ -228,6 +237,7 @@ pub fn propose_renewal(
             None,
             RenewalSessionStatus::Blocked,
             true,
+            cooled_off,
             Some(build_renewal_feedback(
                 &game.players[player_index],
                 current_date,
@@ -253,6 +263,7 @@ pub fn propose_renewal(
             None,
             RenewalSessionStatus::Agreed,
             true,
+            cooled_off,
             Some(build_renewal_feedback(
                 &game.players[player_index],
                 current_date,
@@ -268,6 +279,7 @@ pub fn propose_renewal(
     let expected_wage = expected_wage(&game.players[player_index], &team, current_date);
     let mut outcome =
         evaluate_renewal_offer(&game.players[player_index], &team, current_date, &offer);
+    outcome.cooled_off = cooled_off;
     let relationship_blocked = should_manual_renewal_fail_on_relationship(
         &game.players[player_index],
         expected_wage,
@@ -281,6 +293,7 @@ pub fn propose_renewal(
             None,
             RenewalSessionStatus::Stalled,
             false,
+            cooled_off,
             Some(build_renewal_feedback(
                 &game.players[player_index],
                 current_date,
@@ -316,6 +329,7 @@ pub fn propose_renewal(
             None,
             RenewalSessionStatus::Agreed,
             true,
+            cooled_off,
             Some(build_renewal_feedback(
                 player,
                 current_date,
@@ -722,6 +736,36 @@ fn next_renewal_round(player: &Player, today: Option<&str>) -> u8 {
     }
 
     state.conversation_round.saturating_add(1).max(1)
+}
+
+fn cool_stale_renewal_session(player: &mut Player, current_date: NaiveDate) -> bool {
+    let Some(state) = player.morale_core.renewal_state.as_mut() else {
+        return false;
+    };
+
+    if matches!(
+        state.status,
+        RenewalSessionStatus::Blocked | RenewalSessionStatus::Agreed | RenewalSessionStatus::Idle
+    ) {
+        return false;
+    }
+
+    let Some(last_attempt_date) = state.last_attempt_date.as_deref() else {
+        return false;
+    };
+
+    let Ok(last_attempt) = NaiveDate::parse_from_str(last_attempt_date, "%Y-%m-%d") else {
+        return false;
+    };
+
+    if (current_date - last_attempt).num_days() < RENEWAL_SESSION_STALE_DAYS {
+        return false;
+    }
+
+    state.status = RenewalSessionStatus::Idle;
+    state.last_outcome = None;
+    state.conversation_round = 0;
+    true
 }
 
 fn build_renewal_feedback(

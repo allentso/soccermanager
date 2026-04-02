@@ -6,6 +6,8 @@ use domain::season::TransferWindowStatus;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+const TRANSFER_NEGOTIATION_STALE_DAYS: i64 = 14;
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum TransferNegotiationDecision {
@@ -209,6 +211,31 @@ fn has_open_incoming_offer_from_club(player: &domain::player::Player, club_id: &
         .any(|offer| offer.from_team_id == club_id && offer.status == TransferOfferStatus::Pending)
 }
 
+fn offer_is_stale(current_date: NaiveDate, offer: &domain::player::TransferOffer) -> bool {
+    if offer.status != TransferOfferStatus::Pending {
+        return false;
+    }
+
+    let Ok(offer_date) = NaiveDate::parse_from_str(&offer.date, "%Y-%m-%d") else {
+        return false;
+    };
+
+    (current_date - offer_date).num_days() >= TRANSFER_NEGOTIATION_STALE_DAYS
+}
+
+fn expire_stale_transfer_offers(game: &mut Game) {
+    let current_date = game.clock.current_date.date_naive();
+
+    for player in &mut game.players {
+        for offer in &mut player.transfer_offers {
+            if offer_is_stale(current_date, offer) {
+                offer.status = TransferOfferStatus::Withdrawn;
+                offer.suggested_counter_fee = None;
+            }
+        }
+    }
+}
+
 fn find_open_offer_from_club<'a>(
     player: &'a domain::player::Player,
     club_id: &str,
@@ -252,6 +279,7 @@ fn upsert_transfer_offer(
     fee: u64,
     status: TransferOfferStatus,
     date: &str,
+    last_manager_fee: Option<u64>,
     negotiation_round: u8,
     suggested_counter_fee: Option<u64>,
 ) -> String {
@@ -263,6 +291,7 @@ fn upsert_transfer_offer(
         offer.fee = fee;
         offer.status = status;
         offer.date = date.to_string();
+        offer.last_manager_fee = last_manager_fee;
         offer.negotiation_round = negotiation_round;
         offer.suggested_counter_fee = suggested_counter_fee;
         return offer.id.clone();
@@ -274,6 +303,7 @@ fn upsert_transfer_offer(
         from_team_id: from_team_id.to_string(),
         fee,
         wage_offered: 0,
+        last_manager_fee,
         negotiation_round,
         suggested_counter_fee,
         status,
@@ -290,6 +320,8 @@ fn transfer_window_is_open(game: &Game) -> bool {
 }
 
 pub fn generate_incoming_transfer_offers(game: &mut Game) {
+    expire_stale_transfer_offers(game);
+
     if !transfer_window_is_open(game) {
         return;
     }
@@ -362,6 +394,7 @@ pub fn generate_incoming_transfer_offers(game: &mut Game) {
             from_team_id: buyer_id.clone(),
             fee: chosen_fee,
             wage_offered: 0,
+            last_manager_fee: None,
             negotiation_round: 1,
             suggested_counter_fee: None,
             status: TransferOfferStatus::Pending,
@@ -420,6 +453,8 @@ pub fn make_transfer_bid(
     player_id: &str,
     fee: u64,
 ) -> Result<TransferNegotiationOutcome, String> {
+    expire_stale_transfer_offers(game);
+
     if !transfer_window_is_open(game) {
         return Err("Transfer window is closed".into());
     }
@@ -501,6 +536,7 @@ pub fn make_transfer_bid(
                 fee,
                 TransferOfferStatus::Accepted,
                 &date,
+                Some(fee),
                 round,
                 None,
             );
@@ -545,6 +581,7 @@ pub fn make_transfer_bid(
                 fee,
                 TransferOfferStatus::Pending,
                 &date,
+                Some(fee),
                 round,
                 Some(suggested_fee),
             );
@@ -585,6 +622,7 @@ pub fn make_transfer_bid(
             fee,
             TransferOfferStatus::Rejected,
             &date,
+            Some(fee),
             round,
             None,
         );
@@ -613,6 +651,8 @@ pub fn respond_to_offer(
     offer_id: &str,
     accept: bool,
 ) -> Result<(), String> {
+    expire_stale_transfer_offers(game);
+
     if accept && !transfer_window_is_open(game) {
         return Err("Transfer window is closed".into());
     }
@@ -676,6 +716,8 @@ pub fn counter_offer(
     offer_id: &str,
     requested_fee: u64,
 ) -> Result<TransferNegotiationOutcome, String> {
+    expire_stale_transfer_offers(game);
+
     if !transfer_window_is_open(game) {
         return Err("Transfer window is closed".into());
     }
@@ -735,10 +777,12 @@ pub fn counter_offer(
         if accepted {
             offer.fee = requested_fee;
             offer.status = TransferOfferStatus::Accepted;
+            offer.last_manager_fee = Some(requested_fee);
             offer.negotiation_round = round;
             offer.suggested_counter_fee = None;
         } else if requested_fee > counter_window {
             offer.status = TransferOfferStatus::Rejected;
+            offer.last_manager_fee = Some(requested_fee);
             offer.negotiation_round = round;
             offer.suggested_counter_fee = None;
         }
@@ -782,6 +826,7 @@ pub fn counter_offer(
         {
             offer.fee = suggested_fee;
             offer.status = TransferOfferStatus::Pending;
+            offer.last_manager_fee = Some(requested_fee);
             offer.negotiation_round = round;
             offer.suggested_counter_fee = Some(suggested_fee);
             offer.date = date;

@@ -15,12 +15,29 @@ vi.mock("react-i18next", () => ({
       if (key === "finances.perWeekSuffix") return "/wk";
       if (key === "common.nResults") return `${params?.count} results`;
       if (key === "common.action") return "Action";
+      if (key === "transfers.transferMarket") return "Transfer Market";
       if (key === "transfers.offers") return "Offers";
       if (key === "transfers.counterOffer") return "Counter Offer";
       if (key === "transfers.counterAmount") return "Counter Amount";
       if (key === "transfers.submitCounter") return "Submit Counter";
       if (key === "transfers.close") return "Close";
       if (key === "transfers.counter") return "Counter";
+      if (key === "transfers.bid") return "Bid";
+      if (key === "transfers.makeBid") return "Make Transfer Bid";
+      if (key === "transfers.bidAmount") return "Bid Amount (€M)";
+      if (key === "transfers.resumeNegotiationHint") return "Talks are still live with this club.";
+      if (key === "transfers.resumeNegotiationHeadline") return "The other club are waiting for your next move.";
+      if (key === "transfers.resumeNegotiationDetail") return `Their last signal pointed toward ${params?.fee}.`;
+      if (key === "transfers.negotiationHistory") return "Recent exchange";
+      if (key === "transfers.lastBidLabel") return "Your last bid";
+      if (key === "transfers.lastClubSignalLabel") return "Their last signal";
+      if (key === "transfers.lastCounterLabel") return "Your last counter";
+      if (key === "transfers.currentOfferLabel") return "Their current offer";
+      if (key === "transfers.offerStatusPending") return "Live";
+      if (key === "transfers.offerStatusAccepted") return "Accepted";
+      if (key === "transfers.offerStatusRejected") return "Rejected";
+      if (key === "transfers.offerStatusWithdrawn") return "Talks cooled off";
+      if (key === "transfers.negotiationExpiredError") return "Talks cooled off before you could answer. Start a new negotiation if the club comes back.";
       if (key === "transfers.acceptOffer") return "Accept";
       if (key === "transfers.rejectOffer") return "Reject";
       if (key === "transfers.negotiationPulse") return "Negotiation pulse";
@@ -141,6 +158,9 @@ function createPlayer(overrides: Partial<PlayerData> = {}): PlayerData {
         from_team_id: "team-2",
         fee: 900000,
         wage_offered: 0,
+        last_manager_fee: null,
+        negotiation_round: 1,
+        suggested_counter_fee: null,
         status: "Pending",
         date: "2026-08-01",
       },
@@ -216,6 +236,9 @@ describe("TransfersTab", function (): void {
             from_team_id: "team-2",
             fee: 1200000,
             wage_offered: 0,
+            last_manager_fee: 1200000,
+            negotiation_round: 2,
+            suggested_counter_fee: null,
             status: "Rejected",
             date: "2026-08-01",
           },
@@ -269,5 +292,148 @@ describe("TransfersTab", function (): void {
     expect(
       screen.getByText("They want more before shaking hands."),
     ).toBeInTheDocument();
+  });
+
+  it("resumes an existing outgoing transfer negotiation when reopening the bid modal", function (): void {
+    const state = createGameState([
+      createPlayer({
+        id: "player-market-1",
+        team_id: "team-2",
+        transfer_listed: true,
+        transfer_offers: [
+          {
+            id: "offer-user-1",
+            from_team_id: "team-1",
+            fee: 900000,
+            wage_offered: 0,
+            last_manager_fee: 900000,
+            negotiation_round: 2,
+            suggested_counter_fee: 1150000,
+            status: "Pending",
+            date: "2026-08-01",
+          },
+        ],
+      }),
+    ]);
+
+    render(
+      <TransfersTab
+        gameState={state}
+        onSelectPlayer={vi.fn()}
+        onSelectTeam={vi.fn()}
+        onGameUpdate={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /transfer market/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^bid$/i }));
+
+    expect(screen.getByText("Talks are still live with this club.")).toBeInTheDocument();
+    expect(screen.getByText("The other club are waiting for your next move.")).toBeInTheDocument();
+    expect(screen.getByText("Their last signal pointed toward 1150000.")).toBeInTheDocument();
+    expect(screen.getByText("Recent exchange")).toBeInTheDocument();
+    expect(screen.getByText("Your last bid")).toBeInTheDocument();
+    expect(screen.getByText("Their last signal")).toBeInTheDocument();
+    expect(screen.getByText("Round 2")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("1.15")).toBeInTheDocument();
+  });
+
+  it("resumes an incoming transfer negotiation when reopening the counter-offer modal", function (): void {
+    const state = createGameState([
+      createPlayer({
+        transfer_offers: [
+          {
+            id: "offer-1",
+            from_team_id: "team-2",
+            fee: 1150000,
+            wage_offered: 0,
+            last_manager_fee: 1200000,
+            negotiation_round: 2,
+            suggested_counter_fee: 1150000,
+            status: "Pending",
+            date: "2026-08-01",
+          },
+        ],
+      }),
+    ]);
+
+    render(
+      <TransfersTab
+        gameState={state}
+        onSelectPlayer={vi.fn()}
+        onSelectTeam={vi.fn()}
+        onGameUpdate={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /offers/i }));
+    fireEvent.click(screen.getByRole("button", { name: /counter offer/i }));
+
+    expect(screen.getByText("Talks are still live with this club.")).toBeInTheDocument();
+    expect(screen.getByText("The other club are waiting for your next move.")).toBeInTheDocument();
+    expect(screen.getByText("Their last signal pointed toward 1150000.")).toBeInTheDocument();
+    expect(screen.getByText("Recent exchange")).toBeInTheDocument();
+    expect(screen.getByText("Your last counter")).toBeInTheDocument();
+    expect(screen.getByText("Their current offer")).toBeInTheDocument();
+    expect(screen.getByText("Round 2")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("1.15")).toBeInTheDocument();
+  });
+
+  it("shows a localized message when a counter-offer expires before submission", async function (): Promise<void> {
+    mockedInvoke.mockRejectedValue("Offer not found or not pending");
+
+    render(
+      <TransfersTab
+        gameState={createGameState()}
+        onSelectPlayer={vi.fn()}
+        onSelectTeam={vi.fn()}
+        onGameUpdate={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /offers/i }));
+    fireEvent.click(screen.getByRole("button", { name: /counter offer/i }));
+    fireEvent.click(screen.getByRole("button", { name: /submit counter/i }));
+
+    await waitFor(function (): void {
+      expect(
+        screen.getByText(
+          "Talks cooled off before you could answer. Start a new negotiation if the club comes back.",
+        ),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it("renders withdrawn transfer offers with a localized cooled-off status", function (): void {
+    const state = createGameState([
+      createPlayer({
+        transfer_offers: [
+          {
+            id: "offer-withdrawn",
+            from_team_id: "team-2",
+            fee: 850000,
+            wage_offered: 0,
+            last_manager_fee: 900000,
+            negotiation_round: 2,
+            suggested_counter_fee: null,
+            status: "Withdrawn",
+            date: "2026-08-01",
+          },
+        ],
+      }),
+    ]);
+
+    render(
+      <TransfersTab
+        gameState={state}
+        onSelectPlayer={vi.fn()}
+        onSelectTeam={vi.fn()}
+        onGameUpdate={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /offers/i }));
+
+    expect(screen.getByText(/Talks cooled off/i)).toBeInTheDocument();
   });
 });

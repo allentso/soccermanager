@@ -138,6 +138,9 @@ export interface TransferOfferData {
   from_team_id: string;
   fee: number;
   wage_offered: number;
+  last_manager_fee: number | null;
+  negotiation_round: number;
+  suggested_counter_fee: number | null;
   status: "Pending" | "Accepted" | "Rejected" | "Withdrawn";
   date: string;
 }
@@ -164,11 +167,11 @@ export interface StaffData {
 export interface MessageAction {
   id: string;
   label: string;
-  action_type: 
-    | "Acknowledge"
-    | "Dismiss"
-    | { NavigateTo: { route: string } }
-    | { ChooseOption: { options: MessageActionOption[] } };
+  action_type:
+  | "Acknowledge"
+  | "Dismiss"
+  | { NavigateTo: { route: string } }
+  | { ChooseOption: { options: MessageActionOption[] } };
   resolved: boolean;
   label_key?: string;
 }

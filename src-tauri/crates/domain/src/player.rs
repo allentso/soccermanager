@@ -337,6 +337,8 @@ pub struct TransferOffer {
     pub from_team_id: String,
     pub fee: u64,
     pub wage_offered: u32,
+    #[serde(default)]
+    pub last_manager_fee: Option<u64>,
     #[serde(default = "default_transfer_offer_round")]
     pub negotiation_round: u8,
     #[serde(default)]

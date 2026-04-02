@@ -814,6 +814,19 @@
     "negotiationRound": "Runde {{count}}",
     "negotiationPatience": "Geduld",
     "negotiationTension": "Spannung",
+    "negotiationHistory": "Letzter Austausch",
+    "lastBidLabel": "Dein letztes Angebot",
+    "lastClubSignalLabel": "Ihr letztes Signal",
+    "lastCounterLabel": "Dein letztes Gegenangebot",
+    "currentOfferLabel": "Ihr aktuelles Angebot",
+    "offerStatusPending": "Offen",
+    "offerStatusAccepted": "Angenommen",
+    "offerStatusRejected": "Abgelehnt",
+    "offerStatusWithdrawn": "Die Gespräche sind abgekühlt",
+    "negotiationExpiredError": "Die Gespräche sind abgekühlt, bevor du antworten konntest. Starte eine neue Verhandlung, falls der Klub zurückkommt.",
+    "resumeNegotiationHint": "Die Gespräche mit diesem Klub laufen noch.",
+    "resumeNegotiationHeadline": "Der andere Klub wartet auf deinen nächsten Schritt.",
+    "resumeNegotiationDetail": "Ihr letztes Signal deutete auf {{fee}} hin.",
     "transferFeedbackAcceptedHeadline": "Der andere Klub ist bereit, Geschäfte zu machen.",
     "transferFeedbackAcceptedDetail": "Deine Zahl lag in ihrer Wohlfühlzone, deshalb ging das Gespräch schnell voran.",
     "transferFeedbackCounterHeadline": "Sie wollen mehr, bevor sie einschlagen.",
@@ -902,6 +915,7 @@
     "renewalRejected": "Angebot abgelehnt",
     "renewalCounter": "Will mehr: €{{wage}}/Woche für {{years}} Jahre",
     "renewalBlocked": "Gespräche sind nach deiner früheren Entscheidung blockiert",
+    "renewalCooledOff": "Die früheren Gespräche sind abgekühlt, deshalb beginnt das jetzt wieder als neues Gespräch.",
     "delegateRenewal": "An Assistenten delegieren",
     "renewalDelegateMissingReport": "Der Assistentenbericht enthielt diesen Spieler nicht.",
     "renewalConversationTitle": "Verhandlungsstimmung",
@@ -1184,19 +1198,46 @@
         },
         "responses": {
           "win": {
-            "humble": { "tone": "Bescheiden", "text": "Die Jungs haben hart gearbeitet. Wir waren gut vorbereitet und haben den Matchplan umgesetzt." },
-            "confident": { "tone": "Selbstbewusst", "text": "Wir waren von Anfang bis Ende die bessere Mannschaft. Ein verdienter Sieg." },
-            "deflect": { "tone": "Ausweichend", "text": "Es sind nur drei Punkte. Jetzt geht der Blick auf das nächste Spiel." }
+            "humble": {
+              "tone": "Bescheiden",
+              "text": "Die Jungs haben hart gearbeitet. Wir waren gut vorbereitet und haben den Matchplan umgesetzt."
+            },
+            "confident": {
+              "tone": "Selbstbewusst",
+              "text": "Wir waren von Anfang bis Ende die bessere Mannschaft. Ein verdienter Sieg."
+            },
+            "deflect": {
+              "tone": "Ausweichend",
+              "text": "Es sind nur drei Punkte. Jetzt geht der Blick auf das nächste Spiel."
+            }
           },
           "loss": {
-            "accept": { "tone": "Ehrlich", "text": "Heute waren wir nicht gut genug. Wir müssen analysieren, was schiefgelaufen ist." },
-            "defiant": { "tone": "Kämpferisch", "text": "Ich finde nicht, dass wir eine Niederlage verdient hatten. Wir haben genug Chancen kreiert." },
-            "deflect": { "tone": "Ausweichend", "text": "Ich möchte nicht weiter darauf herumreiten. Wir werden für das nächste Spiel bereit sein." }
+            "accept": {
+              "tone": "Ehrlich",
+              "text": "Heute waren wir nicht gut genug. Wir müssen analysieren, was schiefgelaufen ist."
+            },
+            "defiant": {
+              "tone": "Kämpferisch",
+              "text": "Ich finde nicht, dass wir eine Niederlage verdient hatten. Wir haben genug Chancen kreiert."
+            },
+            "deflect": {
+              "tone": "Ausweichend",
+              "text": "Ich möchte nicht weiter darauf herumreiten. Wir werden für das nächste Spiel bereit sein."
+            }
           },
           "draw": {
-            "fair": { "tone": "Fair", "text": "Es war ein gerechtes Ergebnis. Beide Teams hatten ihre Chancen." },
-            "frustrated": { "tone": "Frustriert", "text": "Wir hätten das Spiel gewinnen müssen. Zu viele vergebene Möglichkeiten." },
-            "positive": { "tone": "Positiv", "text": "Ein Punkt ist ein Punkt. Aus heute kann man trotzdem Positives mitnehmen." }
+            "fair": {
+              "tone": "Fair",
+              "text": "Es war ein gerechtes Ergebnis. Beide Teams hatten ihre Chancen."
+            },
+            "frustrated": {
+              "tone": "Frustriert",
+              "text": "Wir hätten das Spiel gewinnen müssen. Zu viele vergebene Möglichkeiten."
+            },
+            "positive": {
+              "tone": "Positiv",
+              "text": "Ein Punkt ist ein Punkt. Aus heute kann man trotzdem Positives mitnehmen."
+            }
           }
         }
       },
@@ -1206,17 +1247,35 @@
           "default": "Können Sie die Leistung von {{playerName}} heute kommentieren?"
         },
         "responses": {
-          "praise": { "tone": "Lobend", "text": "{{playerName}} war fantastisch. Er ist ein Schlüsselspieler für uns und seine Arbeitsrate ist vorbildlich." },
-          "demanding": { "tone": "Anspruchsvoll", "text": "{{playerName}} kann noch mehr bringen. Von einem Spieler seiner Qualität erwarte ich mehr." },
-          "deflect": { "tone": "Ausweichend", "text": "Ich stelle ungern einzelne Spieler heraus. Es ist ein Mannschaftsspiel." }
+          "praise": {
+            "tone": "Lobend",
+            "text": "{{playerName}} war fantastisch. Er ist ein Schlüsselspieler für uns und seine Arbeitsrate ist vorbildlich."
+          },
+          "demanding": {
+            "tone": "Anspruchsvoll",
+            "text": "{{playerName}} kann noch mehr bringen. Von einem Spieler seiner Qualität erwarte ich mehr."
+          },
+          "deflect": {
+            "tone": "Ausweichend",
+            "text": "Ich stelle ungern einzelne Spieler heraus. Es ist ein Mannschaftsspiel."
+          }
         }
       },
       "tactics": {
         "question": "Können Sie uns Ihren taktischen Ansatz heute erklären?",
         "responses": {
-          "detailed": { "tone": "Detailliert", "text": "Wir wollten das Mittelfeld kontrollieren und die Breite nutzen. Ich denke, die Struktur hat gut funktioniert." },
-          "brief": { "tone": "Knapp", "text": "Wir hatten einen Plan, und die Spieler haben ihn umgesetzt. Das ist alles, was zählt." },
-          "evasive": { "tone": "Ausweichend", "text": "Ich möchte nicht zu viel verraten. Jede Mannschaft hat ihre Geheimnisse." }
+          "detailed": {
+            "tone": "Detailliert",
+            "text": "Wir wollten das Mittelfeld kontrollieren und die Breite nutzen. Ich denke, die Struktur hat gut funktioniert."
+          },
+          "brief": {
+            "tone": "Knapp",
+            "text": "Wir hatten einen Plan, und die Spieler haben ihn umgesetzt. Das ist alles, was zählt."
+          },
+          "evasive": {
+            "tone": "Ausweichend",
+            "text": "Ich möchte nicht zu viel verraten. Jede Mannschaft hat ihre Geheimnisse."
+          }
         }
       },
       "fans": {
@@ -1227,28 +1286,64 @@
         },
         "responses": {
           "win": {
-            "grateful": { "tone": "Bescheiden", "text": "Die Fans sind unglaublich. Sie treiben uns in jedem Spiel an, und wir schulden ihnen Leistungen wie heute." },
-            "shared": { "tone": "Selbstbewusst", "text": "Wir feiern alle gemeinsam — Spieler, Staff und Fans. Dieser Sieg gehört auch ihnen." },
-            "deflect": { "tone": "Ausweichend", "text": "Die Fans wissen, wofür wir stehen. Wir konzentrieren uns einfach auf den Platz." }
+            "grateful": {
+              "tone": "Bescheiden",
+              "text": "Die Fans sind unglaublich. Sie treiben uns in jedem Spiel an, und wir schulden ihnen Leistungen wie heute."
+            },
+            "shared": {
+              "tone": "Selbstbewusst",
+              "text": "Wir feiern alle gemeinsam — Spieler, Staff und Fans. Dieser Sieg gehört auch ihnen."
+            },
+            "deflect": {
+              "tone": "Ausweichend",
+              "text": "Die Fans wissen, wofür wir stehen. Wir konzentrieren uns einfach auf den Platz."
+            }
           },
           "loss": {
-            "apologize": { "tone": "Ehrlich", "text": "Ich verstehe ihren Frust vollkommen. Sie verdienen Besseres, und wir werden hart arbeiten, um das zu liefern." },
-            "patience": { "tone": "Fokussiert", "text": "Ich bitte um Geduld. Wir bauen hier etwas auf, und schlechte Tage gehören dazu. Wir kommen stärker zurück." },
-            "curt": { "tone": "Knapp", "text": "Ich kommentiere nichts, was im Eifer des Gefechts gesagt wird. Wir schauen nach vorn." }
+            "apologize": {
+              "tone": "Ehrlich",
+              "text": "Ich verstehe ihren Frust vollkommen. Sie verdienen Besseres, und wir werden hart arbeiten, um das zu liefern."
+            },
+            "patience": {
+              "tone": "Fokussiert",
+              "text": "Ich bitte um Geduld. Wir bauen hier etwas auf, und schlechte Tage gehören dazu. Wir kommen stärker zurück."
+            },
+            "curt": {
+              "tone": "Knapp",
+              "text": "Ich kommentiere nichts, was im Eifer des Gefechts gesagt wird. Wir schauen nach vorn."
+            }
           },
           "draw": {
-            "appreciate": { "tone": "Positiv", "text": "Ich schätze jeden einzelnen Fan, der kommt, um uns zu sehen. Ihre Energie hebt die Mannschaft." },
-            "understand": { "tone": "Fair", "text": "Sie wollen uns gewinnen sehen, und ich auch. Wir werden weiter alles geben, bis die Ergebnisse kommen." },
-            "curt": { "tone": "Knapp", "text": "Ich beschäftige mich nicht mit dem, was auf den Rängen passiert. Mein Fokus liegt auf dem Platz." }
+            "appreciate": {
+              "tone": "Positiv",
+              "text": "Ich schätze jeden einzelnen Fan, der kommt, um uns zu sehen. Ihre Energie hebt die Mannschaft."
+            },
+            "understand": {
+              "tone": "Fair",
+              "text": "Sie wollen uns gewinnen sehen, und ich auch. Wir werden weiter alles geben, bis die Ergebnisse kommen."
+            },
+            "curt": {
+              "tone": "Knapp",
+              "text": "Ich beschäftige mich nicht mit dem, was auf den Rängen passiert. Mein Fokus liegt auf dem Platz."
+            }
           }
         }
       },
       "ahead": {
         "question": "Worauf liegt Ihr Fokus vor dem nächsten Spiel?",
         "responses": {
-          "focused": { "tone": "Fokussiert", "text": "Zuerst Regeneration, dann Vorbereitung. Wir nehmen ein Spiel nach dem anderen." },
-          "ambitious": { "tone": "Ambitioniert", "text": "Wir wollen den Schwung weiter mitnehmen. Das Ziel ist klar." },
-          "curt": { "tone": "Knapp", "text": "Nächste Frage, bitte. Darum kümmern wir uns, wenn es so weit ist." }
+          "focused": {
+            "tone": "Fokussiert",
+            "text": "Zuerst Regeneration, dann Vorbereitung. Wir nehmen ein Spiel nach dem anderen."
+          },
+          "ambitious": {
+            "tone": "Ambitioniert",
+            "text": "Wir wollen den Schwung weiter mitnehmen. Das Ziel ist klar."
+          },
+          "curt": {
+            "tone": "Knapp",
+            "text": "Nächste Frage, bitte. Darum kümmern wir uns, wenn es so weit ist."
+          }
         }
       }
     },
