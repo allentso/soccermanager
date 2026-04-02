@@ -28,6 +28,11 @@ import {
   type TrainingGroupData,
 } from "../../services/trainingService";
 import { getTrainingStaffAdvice } from "./trainingAdvice";
+import {
+  buildPlayerGroupMap,
+  reassignPlayerTrainingGroup,
+  sortTrainingRoster,
+} from "./trainingGroupsModel";
 
 interface TrainingTabProps {
   gameState: GameStateData;
@@ -557,42 +562,11 @@ function TrainingGroupsCard({
 
   // Assign player to a group (or remove from all groups if groupId is "")
   const setPlayerGroup = (playerId: string, groupId: string) => {
-    // Remove from any current group
-    let newGroups = groups.map((g) => ({
-      ...g,
-      player_ids: g.player_ids.filter((pid) => pid !== playerId),
-    }));
-    // Add to the target group if specified
-    if (groupId) {
-      newGroups = newGroups.map((g) =>
-        g.id === groupId
-          ? { ...g, player_ids: [...g.player_ids, playerId] }
-          : g,
-      );
-    }
-    saveGroups(newGroups);
+    saveGroups(reassignPlayerTrainingGroup(groups, playerId, groupId));
   };
 
-  // Lookup: player ID → group
-  const playerGroupMap = new Map<string, TrainingGroup>();
-  for (const g of groups) {
-    for (const pid of g.player_ids) {
-      playerGroupMap.set(pid, g);
-    }
-  }
-
-  // Sort roster: by position then name
-  const posOrd: Record<string, number> = {
-    Goalkeeper: 1,
-    Defender: 2,
-    Midfielder: 3,
-    Forward: 4,
-  };
-  const sortedRoster = [...roster].sort((a, b) => {
-    const pa = posOrd[a.natural_position || a.position] || 99;
-    const pb = posOrd[b.natural_position || b.position] || 99;
-    return pa - pb || a.match_name.localeCompare(b.match_name);
-  });
+  const playerGroupMap = buildPlayerGroupMap(groups);
+  const sortedRoster = sortTrainingRoster(roster);
 
   return (
     <Card>
