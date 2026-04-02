@@ -27,6 +27,7 @@ import {
   setTrainingSchedule,
   type TrainingGroupData,
 } from "../../services/trainingService";
+import { getTrainingStaffAdvice } from "./trainingAdvice";
 
 interface TrainingTabProps {
   gameState: GameStateData;
@@ -153,49 +154,13 @@ export default function TrainingTab({
 
   const activeFocusAttrs = TRAINING_FOCUS_ATTRS[currentFocus] || [];
 
-  // Staff advice logic
-  const getStaffAdvice = (): {
-    level: "ok" | "warn" | "critical";
-    message: string;
-  } | null => {
-    if (criticalCount >= 3) {
-      const scheduleAdvice =
-        currentSchedule === "Intense"
-          ? t("training.staffAdvice.scheduleAdvice.criticalIntense")
-          : currentSchedule === "Balanced"
-            ? t("training.staffAdvice.scheduleAdvice.criticalBalanced")
-            : t("training.staffAdvice.scheduleAdvice.criticalLight");
-      return {
-        level: "critical",
-        message: t("training.staffAdvice.critical", { criticalCount, scheduleAdvice }),
-      };
-    }
-    if (avgCondition < 50 || exhaustedCount >= 4) {
-      const scheduleAdvice =
-        currentSchedule === "Intense"
-          ? t("training.staffAdvice.scheduleAdvice.warnIntense")
-          : currentSchedule === "Balanced"
-            ? t("training.staffAdvice.scheduleAdvice.warnBalanced")
-            : t("training.staffAdvice.scheduleAdvice.warnLight");
-      return {
-        level: "warn",
-        message: t("training.staffAdvice.warn", { avgCondition, exhaustedCount, scheduleAdvice }),
-      };
-    }
-    if (
-      avgCondition >= 80 &&
-      currentSchedule === "Light" &&
-      currentFocus !== "Recovery"
-    ) {
-      return {
-        level: "ok",
-        message: t("training.staffAdvice.ok"),
-      };
-    }
-    return null;
-  };
-
-  const staffAdvice = getStaffAdvice();
+  const staffAdvice = getTrainingStaffAdvice(t, {
+    criticalCount,
+    avgCondition,
+    exhaustedCount,
+    currentSchedule,
+    currentFocus,
+  });
 
   return (
     <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-5">

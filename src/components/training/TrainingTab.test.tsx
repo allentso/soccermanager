@@ -14,6 +14,12 @@ vi.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string, params?: Record<string, string | number>, fallback?: string) => {
       if (key === "common.noTeam") return "No team";
+      if (key === "training.staffAlert") return "Staff alert";
+      if (key === "training.staffWarning") return "Staff warning";
+      if (key === "training.staffSuggestion") return "Staff suggestion";
+      if (key === "training.staffAdvice.critical") return `Critical advice ${params?.criticalCount} ${params?.scheduleAdvice}`;
+      if (key === "training.staffAdvice.warn") return `Warning advice ${params?.avgCondition} ${params?.exhaustedCount} ${params?.scheduleAdvice}`;
+      if (key === "training.staffAdvice.ok") return "Squad is in a good place";
       if (key === "training.weeklySchedule") return "Weekly Schedule";
       if (key === "training.trainingFocus") return "Training Focus";
       if (key === "training.intensity") return "Intensity";
@@ -29,6 +35,9 @@ vi.mock("react-i18next", () => ({
       if (key === "training.train") return "Train";
       if (key === "training.rest") return "Rest";
       if (key.startsWith("training.schedules.")) return key.replace("training.schedules.", "");
+      if (key.startsWith("training.staffAdvice.scheduleAdvice.")) {
+        return key.replace("training.staffAdvice.scheduleAdvice.", "");
+      }
       if (key.startsWith("training.focuses.")) return key.replace("training.focuses.", "");
       if (key.startsWith("training.intensities.")) return key.replace("training.intensities.", "");
       if (key.startsWith("training.days.")) return key.replace("training.days.", "");
@@ -191,5 +200,20 @@ describe("TrainingTab", () => {
       });
       expect(onGameUpdate).toHaveBeenCalledWith(updatedState);
     });
+  });
+
+  it("renders the critical staff advice banner for an exhausted squad", () => {
+    const exhaustedState = createGameState(true);
+    exhaustedState.players = [
+      createPlayer({ id: "p1", condition: 18 }),
+      createPlayer({ id: "p2", condition: 20 }),
+      createPlayer({ id: "p3", condition: 24 }),
+      createPlayer({ id: "p4", condition: 55 }),
+    ];
+
+    render(<TrainingTab gameState={exhaustedState} />);
+
+    expect(screen.getByText("Staff alert")).toBeInTheDocument();
+    expect(screen.getByText(/Critical advice/)).toBeInTheDocument();
   });
 });
