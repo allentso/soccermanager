@@ -35,19 +35,6 @@ fn progress_injury_recovery(game: &mut Game) {
     }
 }
 
-/// Progress injury recovery by one day for all currently injured players.
-/// Injuries with 1 day remaining are cleared.
-fn progress_injury_recovery(game: &mut Game) {
-    for player in game.players.iter_mut() {
-        if let Some(mut injury) = player.injury.take()
-            && injury.days_remaining > 1
-        {
-            injury.days_remaining -= 1;
-            player.injury = Some(injury);
-        }
-    }
-}
-
 /// Process a single day advance.
 pub fn process_day(game: &mut Game) {
     let today = game.clock.current_date.format("%Y-%m-%d").to_string();
