@@ -54,6 +54,16 @@ fn make_player() -> Player {
     player
 }
 
+fn make_player_with(id: &str, wage: u32, contract_end: &str) -> Player {
+    let mut player = make_player();
+    player.id = id.to_string();
+    player.match_name = id.to_string();
+    player.full_name = format!("Player {}", id);
+    player.wage = wage;
+    player.contract_end = Some(contract_end.to_string());
+    player
+}
+
 fn make_team() -> Team {
     let mut team = Team::new(
         "team-1".to_string(),
@@ -352,7 +362,10 @@ fn stale_manual_renewal_talks_cool_off_and_restart_from_round_one() {
         .as_ref()
         .expect("renewal state should be stored");
     assert_eq!(renewal_state.conversation_round, 1);
-    assert_eq!(renewal_state.last_attempt_date.as_deref(), Some("2026-08-26"));
+    assert_eq!(
+        renewal_state.last_attempt_date.as_deref(),
+        Some("2026-08-26")
+    );
 }
 
 #[test]
@@ -415,4 +428,66 @@ fn assistant_can_complete_routine_delegate_renewal_even_when_manager_trust_is_lo
     assert_eq!(structured_report.success_count, 1);
     assert_eq!(structured_report.cases.len(), 1);
     assert_eq!(structured_report.cases[0].status, "successful");
+}
+
+#[test]
+fn renewal_is_blocked_when_offer_pushes_healthy_club_far_over_soft_cap() {
+    let mut game = make_game();
+    game.teams[0].wage_budget = 200_000;
+
+    let err = propose_renewal(
+        &mut game,
+        "player-1",
+        RenewalOffer {
+            weekly_wage: 250_000,
+            contract_years: 3,
+        },
+    )
+    .expect_err("renewal should be blocked by wage policy");
+
+    assert!(err.contains("board wage policy"));
+}
+
+#[test]
+fn renewal_allows_small_increase_for_legacy_over_budget_saves() {
+    let mut game = make_game();
+    game.teams[0].wage_budget = 50_000;
+    game.players[0].wage = 48_000;
+    game.players
+        .push(make_player_with("player-2", 40_000, "2027-06-30"));
+
+    let outcome = propose_renewal(
+        &mut game,
+        "player-1",
+        RenewalOffer {
+            weekly_wage: 70_000,
+            contract_years: 2,
+        },
+    );
+
+    assert!(
+        outcome.is_ok(),
+        "legacy saves should allow manageable wage increases without policy lock"
+    );
+}
+
+#[test]
+fn renewal_blocks_large_worsening_for_legacy_over_budget_saves() {
+    let mut game = make_game();
+    game.teams[0].wage_budget = 50_000;
+    game.players[0].wage = 48_000;
+    game.players
+        .push(make_player_with("player-2", 40_000, "2027-06-30"));
+
+    let err = propose_renewal(
+        &mut game,
+        "player-1",
+        RenewalOffer {
+            weekly_wage: 120_000,
+            contract_years: 3,
+        },
+    )
+    .expect_err("large worsening should still be blocked");
+
+    assert!(err.contains("board wage policy"));
 }

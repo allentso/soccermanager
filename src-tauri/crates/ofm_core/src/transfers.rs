@@ -1,4 +1,5 @@
 use crate::game::Game;
+use crate::finances::calc_annual_wages;
 use chrono::NaiveDate;
 use domain::negotiation::{NegotiationFeedback, NegotiationMood};
 use domain::player::TransferOfferStatus;
@@ -22,6 +23,20 @@ pub struct TransferNegotiationOutcome {
     pub suggested_fee: Option<u64>,
     pub is_terminal: bool,
     pub feedback: NegotiationFeedback,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct TransferBidFinancialProjection {
+    pub transfer_budget_before: i64,
+    pub transfer_budget_after: i64,
+    pub finance_before: i64,
+    pub finance_after: i64,
+    pub annual_wage_bill_before: i64,
+    pub annual_wage_bill_after: i64,
+    pub annual_wage_budget: i64,
+    pub projected_wage_budget_usage_pct: i64,
+    pub exceeds_transfer_budget: bool,
+    pub exceeds_finance: bool,
 }
 
 enum PlayerImportance {
@@ -444,6 +459,58 @@ fn transfer_outcome(
         is_terminal,
         feedback,
     }
+}
+
+pub fn project_transfer_bid_financial_impact(
+    game: &Game,
+    player_id: &str,
+    fee: u64,
+) -> Result<TransferBidFinancialProjection, String> {
+    let user_team_id = game
+        .manager
+        .team_id
+        .clone()
+        .ok_or_else(|| "No user team".to_string())?;
+
+    let player = game
+        .players
+        .iter()
+        .find(|player| player.id == player_id)
+        .ok_or_else(|| "Player not found".to_string())?;
+
+    if player.team_id.as_deref() == Some(user_team_id.as_str()) {
+        return Err("Cannot bid on your own player".to_string());
+    }
+
+    let team = game
+        .teams
+        .iter()
+        .find(|team| team.id == user_team_id)
+        .ok_or_else(|| "User team not found".to_string())?;
+
+    let annual_wage_bill_before = calc_annual_wages(game, &team.id);
+    let annual_wage_bill_after = annual_wage_bill_before + player.wage as i64;
+    let projected_wage_budget_usage_pct = if team.wage_budget > 0 {
+        ((annual_wage_bill_after as f64 / team.wage_budget as f64) * 100.0).round() as i64
+    } else {
+        0
+    };
+
+    let transfer_budget_after = team.transfer_budget - fee as i64;
+    let finance_after = team.finance - fee as i64;
+
+    Ok(TransferBidFinancialProjection {
+        transfer_budget_before: team.transfer_budget,
+        transfer_budget_after,
+        finance_before: team.finance,
+        finance_after,
+        annual_wage_bill_before,
+        annual_wage_bill_after,
+        annual_wage_budget: team.wage_budget,
+        projected_wage_budget_usage_pct,
+        exceeds_transfer_budget: transfer_budget_after < 0,
+        exceeds_finance: finance_after < 0,
+    })
 }
 
 /// Submit a transfer bid from user's team for a player.

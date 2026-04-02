@@ -5,7 +5,8 @@ use tauri::State;
 use domain::negotiation::NegotiationFeedback;
 use domain::player::RenewalSessionStatus;
 use ofm_core::contracts::{
-    DelegatedRenewalOptions, DelegatedRenewalReport, RenewalDecision, RenewalOffer,
+    DelegatedRenewalOptions, DelegatedRenewalReport, RenewalDecision, RenewalFinancialProjection,
+    RenewalOffer,
 };
 use ofm_core::game::Game;
 use ofm_core::state::StateManager;
@@ -26,6 +27,11 @@ pub struct RenewalCommandResponse {
 pub struct DelegatedRenewalCommandResponse {
     pub game: Game,
     pub report: DelegatedRenewalReport,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct RenewalFinancialProjectionCommandResponse {
+    pub projection: RenewalFinancialProjection,
 }
 
 #[tauri::command]
@@ -51,6 +57,15 @@ pub async fn delegate_renewals(
         max_wage_increase_pct,
         max_contract_years,
     )
+}
+
+#[tauri::command]
+pub async fn preview_renewal_financial_impact(
+    state: State<'_, StateManager>,
+    player_id: String,
+    weekly_wage: u32,
+) -> Result<RenewalFinancialProjectionCommandResponse, String> {
+    preview_renewal_financial_impact_internal(&state, &player_id, weekly_wage)
 }
 
 fn propose_renewal_internal(
@@ -120,9 +135,35 @@ fn delegate_renewals_internal(
     Ok(DelegatedRenewalCommandResponse { game, report })
 }
 
+fn preview_renewal_financial_impact_internal(
+    state: &StateManager,
+    player_id: &str,
+    weekly_wage: u32,
+) -> Result<RenewalFinancialProjectionCommandResponse, String> {
+    info!(
+        "[cmd] preview_renewal_financial_impact: player_id={}, weekly_wage={}",
+        player_id, weekly_wage
+    );
+
+    let game = state
+        .get_game(|g: &Game| g.clone())
+        .ok_or("No active game session".to_string())?;
+
+    let projection = ofm_core::contracts::project_renewal_financial_impact(
+        &game,
+        player_id,
+        weekly_wage,
+    )?;
+
+    Ok(RenewalFinancialProjectionCommandResponse { projection })
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{delegate_renewals_internal, propose_renewal_internal};
+    use super::{
+        delegate_renewals_internal, preview_renewal_financial_impact_internal,
+        propose_renewal_internal,
+    };
     use chrono::{TimeZone, Utc};
     use db::save_manager::SaveManager;
     use domain::manager::Manager;
@@ -423,5 +464,19 @@ mod tests {
             .messages
             .iter()
             .any(|message| message.id.starts_with("delegated_renewals_")));
+    }
+
+    #[test]
+    fn preview_renewal_financial_impact_internal_returns_projection() {
+        let state = StateManager::new();
+        state.set_game(make_game());
+
+        let response =
+            preview_renewal_financial_impact_internal(&state, "player-1", 15_000).expect("response");
+
+        assert_eq!(response.projection.annual_wage_budget, 50_000);
+        assert_eq!(response.projection.current_annual_wage_bill, 12_000);
+        assert_eq!(response.projection.projected_annual_wage_bill, 15_000);
+        assert!(response.projection.policy_allows);
     }
 }

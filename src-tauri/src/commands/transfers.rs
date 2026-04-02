@@ -4,7 +4,9 @@ use tauri::State;
 
 use ofm_core::game::Game;
 use ofm_core::state::StateManager;
-use ofm_core::transfers::{TransferNegotiationDecision, TransferNegotiationOutcome};
+use ofm_core::transfers::{
+    TransferBidFinancialProjection, TransferNegotiationDecision, TransferNegotiationOutcome,
+};
 
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct TransferNegotiationCommandResponse {
@@ -13,6 +15,11 @@ pub struct TransferNegotiationCommandResponse {
     pub is_terminal: bool,
     pub feedback: NegotiationFeedback,
     pub game: Game,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct TransferBidFinancialProjectionCommandResponse {
+    pub projection: TransferBidFinancialProjection,
 }
 
 #[tauri::command]
@@ -67,6 +74,15 @@ pub fn make_transfer_bid(
     make_transfer_bid_internal(&state, &player_id, fee)
 }
 
+#[tauri::command]
+pub fn preview_transfer_bid_financial_impact(
+    state: State<'_, StateManager>,
+    player_id: String,
+    fee: u64,
+) -> Result<TransferBidFinancialProjectionCommandResponse, String> {
+    preview_transfer_bid_financial_impact_internal(&state, &player_id, fee)
+}
+
 fn make_transfer_bid_internal(
     state: &StateManager,
     player_id: &str,
@@ -84,6 +100,25 @@ fn make_transfer_bid_internal(
     state.set_game(game.clone());
 
     Ok(map_transfer_negotiation_response(result, game))
+}
+
+fn preview_transfer_bid_financial_impact_internal(
+    state: &StateManager,
+    player_id: &str,
+    fee: u64,
+) -> Result<TransferBidFinancialProjectionCommandResponse, String> {
+    info!(
+        "[cmd] preview_transfer_bid_financial_impact: player_id={}, fee={}",
+        player_id, fee
+    );
+
+    let game = state
+        .get_game(|g| g.clone())
+        .ok_or("No active game session".to_string())?;
+
+    let projection = ofm_core::transfers::project_transfer_bid_financial_impact(&game, player_id, fee)?;
+
+    Ok(TransferBidFinancialProjectionCommandResponse { projection })
 }
 
 #[tauri::command]
@@ -180,7 +215,8 @@ pub fn send_scout(
 #[cfg(test)]
 mod tests {
     use super::{
-        counter_offer_internal, make_transfer_bid_internal, respond_to_offer_internal,
+        counter_offer_internal, make_transfer_bid_internal,
+        preview_transfer_bid_financial_impact_internal, respond_to_offer_internal,
         toggle_loan_list_internal, toggle_transfer_list_internal,
     };
     use chrono::{TimeZone, Utc};
@@ -510,5 +546,22 @@ mod tests {
             .find(|player| player.id == "player-1")
             .expect("stored player should exist");
         assert!(stored_player.loan_listed);
+    }
+
+    #[test]
+    fn preview_transfer_bid_financial_impact_internal_returns_projection() {
+        let state = StateManager::new();
+        state.set_game(make_bid_game());
+
+        let response =
+            preview_transfer_bid_financial_impact_internal(&state, "player-2", 1_000_000)
+                .expect("response");
+
+        assert_eq!(response.projection.transfer_budget_before, 2_000_000);
+        assert_eq!(response.projection.transfer_budget_after, 1_000_000);
+        assert_eq!(response.projection.finance_before, 5_000_000);
+        assert_eq!(response.projection.finance_after, 4_000_000);
+        assert!(!response.projection.exceeds_transfer_budget);
+        assert!(!response.projection.exceeds_finance);
     }
 }

@@ -25,6 +25,18 @@ vi.mock("react-i18next", () => ({
       if (key === "transfers.bid") return "Bid";
       if (key === "transfers.makeBid") return "Make Transfer Bid";
       if (key === "transfers.bidAmount") return "Bid Amount (€M)";
+      if (key === "transfers.submitBid") return "Submit Bid";
+      if (key === "transfers.bidImpactTitle") return "Projected impact";
+      if (key === "transfers.bidImpactTransferBudget")
+        return `Transfer budget ${params?.before} -> ${params?.after}`;
+      if (key === "transfers.bidImpactBalance")
+        return `Club balance ${params?.before} -> ${params?.after}`;
+      if (key === "transfers.bidImpactWagePressure")
+        return `Projected wage budget usage ${params?.percent}%`;
+      if (key === "transfers.bidImpactOverTransferBudget")
+        return "This bid exceeds your transfer budget";
+      if (key === "transfers.bidImpactOverBalance")
+        return "This bid would push the club into debt";
       if (key === "transfers.resumeNegotiationHint") return "Talks are still live with this club.";
       if (key === "transfers.resumeNegotiationHeadline") return "The other club are waiting for your next move.";
       if (key === "transfers.resumeNegotiationDetail") return `Their last signal pointed toward ${params?.fee}.`;
@@ -224,6 +236,31 @@ function createGameState(players: PlayerData[] = [createPlayer()]): GameStateDat
 describe("TransfersTab", function (): void {
   beforeEach(function resetMocks(): void {
     mockedInvoke.mockReset();
+    mockedInvoke.mockImplementation(
+      async (command: string, payload?: any) => {
+        if (command === "preview_transfer_bid_financial_impact") {
+          const fee = Number(payload?.fee ?? 0);
+          const transferBudgetBefore = 2000000;
+          const financeBefore = 5000000;
+          return {
+            projection: {
+              transfer_budget_before: transferBudgetBefore,
+              transfer_budget_after: transferBudgetBefore - fee,
+              finance_before: financeBefore,
+              finance_after: financeBefore - fee,
+              annual_wage_bill_before: 1000,
+              annual_wage_bill_after: 2000,
+              annual_wage_budget: 50000,
+              projected_wage_budget_usage_pct: 4,
+              exceeds_transfer_budget: transferBudgetBefore - fee < 0,
+              exceeds_finance: financeBefore - fee < 0,
+            },
+          };
+        }
+
+        return {};
+      },
+    );
   });
 
   it("submits a counter offer for a pending incoming bid and publishes the updated game", async function (): Promise<void> {
@@ -435,5 +472,39 @@ describe("TransfersTab", function (): void {
     fireEvent.click(screen.getByRole("button", { name: /offers/i }));
 
     expect(screen.getByText(/Talks cooled off/i)).toBeInTheDocument();
+  });
+
+  it("shows bid impact preview and blocks impossible bids", async function (): Promise<void> {
+    const state = createGameState([
+      createPlayer({
+        id: "player-market-1",
+        team_id: "team-2",
+        transfer_listed: true,
+        transfer_offers: [],
+        market_value: 1800000,
+      }),
+    ]);
+
+    render(
+      <TransfersTab
+        gameState={state}
+        onSelectPlayer={vi.fn()}
+        onSelectTeam={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /transfer market/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^bid$/i }));
+    fireEvent.change(screen.getByLabelText(/bid amount/i), {
+      target: { value: "9.0" },
+    });
+
+    await waitFor(function (): void {
+      expect(screen.getByText("Projected impact")).toBeInTheDocument();
+      expect(
+        screen.getByText("This bid exceeds your transfer budget"),
+      ).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /submit bid/i })).toBeDisabled();
+    });
   });
 });

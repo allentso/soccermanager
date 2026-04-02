@@ -9,6 +9,9 @@ import {
   getContractYearsRemaining,
   positionBadgeVariant,
 } from "../lib/helpers";
+import {
+  annualAmountToWeeklyCommitment,
+} from "../lib/finance";
 import { PlayerData, TeamData, GameStateData } from "../store/gameStore";
 import {
   Button,
@@ -60,6 +63,21 @@ interface RenewalResponseData {
   is_terminal: boolean;
   cooled_off?: boolean;
   feedback?: NegotiationFeedbackData | null;
+}
+
+interface RenewalProjectionData {
+  projection: {
+    current_annual_wage_bill: number;
+    projected_annual_wage_bill: number;
+    annual_wage_budget: number;
+    annual_soft_cap: number;
+    current_weekly_wage_spend: number;
+    projected_weekly_wage_spend: number;
+    current_cash_runway_weeks: number | null;
+    projected_cash_runway_weeks: number | null;
+    currently_over_budget: boolean;
+    policy_allows: boolean;
+  };
 }
 
 type NegotiationFeedbackData = NegotiationFeedbackPanelData;
@@ -120,7 +138,8 @@ function formatValue(val: number): string {
 }
 
 function formatWage(val: number, weeklySuffix: string): string {
-  return formatWeeklyAmount(`€${val.toLocaleString()}`, weeklySuffix);
+  const weeklyWage = annualAmountToWeeklyCommitment(val);
+  return formatWeeklyAmount(`€${weeklyWage.toLocaleString()}`, weeklySuffix);
 }
 
 function attrColor(val: number): string {
@@ -184,6 +203,8 @@ export default function PlayerProfile({
   const [renewalCooledOff, setRenewalCooledOff] = useState(false);
   const [renewalFeedback, setRenewalFeedback] =
     useState<NegotiationFeedbackData | null>(null);
+  const [renewalProjection, setRenewalProjection] =
+    useState<RenewalProjectionData["projection"] | null>(null);
   const [hasConsumedInitialRenewalIntent, setHasConsumedInitialRenewalIntent] =
     useState(false);
   const ovr = calcOvr(player, primaryPosition);
@@ -193,9 +214,6 @@ export default function PlayerProfile({
     player.team_id,
     t("common.freeAgent"),
     t("common.unknown"),
-  );
-  const managerTeam = gameState.teams.find(
-    (team) => team.id === gameState.manager.team_id,
   );
   const contractRiskLevel = getContractRiskLevel(
     player.contract_end,
@@ -213,16 +231,16 @@ export default function PlayerProfile({
     Number.isFinite(renewalOfferedWage) && renewalOfferedWage > 0;
   const isRenewalLengthValid =
     Number.isInteger(renewalOfferedYears) && renewalOfferedYears > 0;
-  const exceedsWageBudget =
+  const renewalViolatesSoftCap =
     isRenewalWageValid &&
-    managerTeam !== undefined &&
-    renewalOfferedWage > managerTeam.wage_budget;
+    renewalProjection !== null &&
+    !renewalProjection.policy_allows;
   const renewalSubmitDisabled =
     renewalSubmitting ||
     renewalIsTerminal ||
     !isRenewalWageValid ||
     !isRenewalLengthValid ||
-    exceedsWageBudget;
+    renewalViolatesSoftCap;
 
   const isGK = player.position === "Goalkeeper";
 
@@ -238,6 +256,7 @@ export default function PlayerProfile({
     setRenewalIsTerminal(false);
     setRenewalCooledOff(false);
     setRenewalFeedback(null);
+    setRenewalProjection(null);
     setShowRenewalModal(true);
   }
 
@@ -271,6 +290,41 @@ export default function PlayerProfile({
     showRenewalModal,
     startWithRenewalModal,
   ]);
+
+  useEffect(() => {
+    if (!showRenewalModal || !isRenewalWageValid) {
+      setRenewalProjection(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadProjection = async (): Promise<void> => {
+      try {
+        const result = await invoke<RenewalProjectionData>(
+          "preview_renewal_financial_impact",
+          {
+            playerId: player.id,
+            weeklyWage: renewalOfferedWage,
+          },
+        );
+
+        if (!cancelled) {
+          setRenewalProjection(result.projection ?? null);
+        }
+      } catch {
+        if (!cancelled) {
+          setRenewalProjection(null);
+        }
+      }
+    };
+
+    loadProjection();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isRenewalWageValid, player.id, renewalOfferedWage, showRenewalModal]);
 
   function getRenewalStatusMessage(): string | null {
     if (renewalSessionStatus === "blocked" || renewalStatus === "blocked") {
@@ -520,24 +574,24 @@ export default function PlayerProfile({
     },
     ...(isGK
       ? [
-          {
-            label: t("common.attrGroups.goalkeeper"),
-            attrs: [
-              {
-                name: t("common.attributes.handling"),
-                value: player.attributes.handling,
-              },
-              {
-                name: t("common.attributes.reflexes"),
-                value: player.attributes.reflexes,
-              },
-              {
-                name: t("common.attributes.aerial"),
-                value: player.attributes.aerial,
-              },
-            ],
-          },
-        ]
+        {
+          label: t("common.attrGroups.goalkeeper"),
+          attrs: [
+            {
+              name: t("common.attributes.handling"),
+              value: player.attributes.handling,
+            },
+            {
+              name: t("common.attributes.reflexes"),
+              value: player.attributes.reflexes,
+            },
+            {
+              name: t("common.attributes.aerial"),
+              value: player.attributes.aerial,
+            },
+          ],
+        },
+      ]
       : []),
   ];
 
@@ -559,13 +613,12 @@ export default function PlayerProfile({
         <div className="bg-linear-to-r from-navy-700 to-navy-800 p-8 rounded-t-xl">
           <div className="flex items-start gap-6">
             <div
-              className={`w-24 h-24 rounded-2xl flex items-center justify-center font-heading font-bold text-4xl border-2 ${
-                ovr >= 75
+              className={`w-24 h-24 rounded-2xl flex items-center justify-center font-heading font-bold text-4xl border-2 ${ovr >= 75
                   ? "bg-primary-500/20 text-primary-400 border-primary-500/30"
                   : ovr >= 55
                     ? "bg-accent-500/20 text-accent-400 border-accent-500/30"
                     : "bg-gray-500/20 text-gray-400 border-gray-500/30"
-              }`}
+                }`}
             >
               {ovr}
             </div>
@@ -811,8 +864,8 @@ export default function PlayerProfile({
                 value={
                   player.contract_end
                     ? t("finances.contractExpiresOn", {
-                        date: player.contract_end,
-                      })
+                      date: player.contract_end,
+                    })
                     : t("playerProfile.noContract")
                 }
               />
@@ -907,7 +960,7 @@ export default function PlayerProfile({
                         <span className="font-heading font-bold text-sm w-8 text-right tabular-nums text-gray-700 dark:text-gray-200">
                           {Math.round(
                             group.attrs.reduce((s, a) => s + a.value, 0) /
-                              group.attrs.length,
+                            group.attrs.length,
                           )}
                         </span>
                       </div>
@@ -1105,10 +1158,75 @@ export default function PlayerProfile({
               </p>
             ) : null}
 
-            {exceedsWageBudget ? (
+            {renewalViolatesSoftCap ? (
               <p className="text-sm text-red-500">
-                {t("playerProfile.renewalBudgetWarning")}
+                {t("playerProfile.renewalBudgetWarning", {
+                  defaultValue: "Offer exceeds the board wage pressure limit",
+                })}
               </p>
+            ) : null}
+
+            {renewalProjection ? (
+              <div className="rounded-lg border border-gray-200 dark:border-navy-600 bg-gray-50 dark:bg-navy-700/40 p-3 space-y-2">
+                <p className="text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                  {t("playerProfile.renewalProjectionTitle", {
+                    defaultValue: "Projected financial impact",
+                  })}
+                </p>
+                <p className="text-xs text-gray-600 dark:text-gray-300">
+                  {t("playerProfile.renewalProjectionWageBill", {
+                    before: formatWage(
+                      renewalProjection.current_annual_wage_bill,
+                      weeklySuffix,
+                    ),
+                    after: formatWage(
+                      renewalProjection.projected_annual_wage_bill,
+                      weeklySuffix,
+                    ),
+                    defaultValue:
+                      "Weekly wage bill {{before}} -> {{after}}",
+                  })}
+                </p>
+                <p className="text-xs text-gray-600 dark:text-gray-300">
+                  {t("playerProfile.renewalProjectionBudgetUsage", {
+                    before:
+                      renewalProjection.annual_wage_budget > 0
+                        ? Math.round(
+                          (renewalProjection.current_annual_wage_bill /
+                            renewalProjection.annual_wage_budget) *
+                          100,
+                        )
+                        : 0,
+                    after:
+                      renewalProjection.annual_wage_budget > 0
+                        ? Math.round(
+                          (renewalProjection.projected_annual_wage_bill /
+                            renewalProjection.annual_wage_budget) *
+                          100,
+                        )
+                        : 0,
+                    defaultValue:
+                      "Wage budget use {{before}}% -> {{after}}%",
+                  })}
+                </p>
+                <p className="text-xs text-gray-600 dark:text-gray-300">
+                  {t("playerProfile.renewalProjectionRunway", {
+                    before:
+                      renewalProjection.current_cash_runway_weeks === null
+                        ? t("finances.runwayStable")
+                        : t("finances.runwayWeeks", {
+                          count: renewalProjection.current_cash_runway_weeks,
+                        }),
+                    after:
+                      renewalProjection.projected_cash_runway_weeks === null
+                        ? t("finances.runwayStable")
+                        : t("finances.runwayWeeks", {
+                          count: renewalProjection.projected_cash_runway_weeks,
+                        }),
+                    defaultValue: "Cash runway {{before}} -> {{after}}",
+                  })}
+                </p>
+              </div>
             ) : null}
 
             {getRenewalStatusMessage() ? (

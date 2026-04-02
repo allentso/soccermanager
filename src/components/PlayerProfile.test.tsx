@@ -68,6 +68,14 @@ vi.mock("react-i18next", () => ({
         return "Assistant report did not include this player.";
       if (key === "playerProfile.renewalConversationTitle")
         return "Negotiation pulse";
+      if (key === "playerProfile.renewalProjectionTitle")
+        return "Projected financial impact";
+      if (key === "playerProfile.renewalProjectionWageBill")
+        return `Weekly wage bill ${params?.before} -> ${params?.after}`;
+      if (key === "playerProfile.renewalProjectionBudgetUsage")
+        return `Wage budget use ${params?.before}% -> ${params?.after}%`;
+      if (key === "playerProfile.renewalProjectionRunway")
+        return `Cash runway ${params?.before} -> ${params?.after}`;
       if (key === "playerProfile.renewalRound")
         return `Round ${params?.count}`;
       if (key === "playerProfile.renewalPatience") return "Patience";
@@ -274,13 +282,37 @@ describe("PlayerProfile contract surfaces", () => {
     expect(screen.getByText("Critical")).toBeInTheDocument();
     expect(
       screen.getAllByText((_, element) =>
-        hasWeeklyWage(element?.textContent ?? "", 12000),
+        hasWeeklyWage(element?.textContent ?? "", 230),
       ).length,
     ).toBeGreaterThan(0);
   });
 
   it("validates renewal offers before submission", async () => {
-    vi.mocked(invoke).mockResolvedValue(createGameState(createPlayer()));
+    vi.mocked(invoke).mockImplementation(
+      async (command: string, payload?: any) => {
+        if (command === "preview_renewal_financial_impact") {
+          const offered = Number(payload?.weeklyWage ?? 0);
+          return {
+            projection: {
+              current_annual_wage_bill: 24000,
+              projected_annual_wage_bill: 24000 - 12000 + offered,
+              annual_wage_budget: 50000,
+              annual_soft_cap: 55000,
+              current_weekly_wage_spend: 461,
+              projected_weekly_wage_spend: Math.round(
+                (24000 - 12000 + offered) / 52,
+              ),
+              current_cash_runway_weeks: 1084,
+              projected_cash_runway_weeks: 500,
+              currently_over_budget: false,
+              policy_allows: offered <= 55000,
+            },
+          };
+        }
+
+        return createGameState(createPlayer());
+      },
+    );
 
     render(<RenewalHarness />);
 
@@ -296,8 +328,13 @@ describe("PlayerProfile contract surfaces", () => {
       target: { value: "60000" },
     });
 
-    expect(screen.getByText("Exceeds wage budget")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Submit Offer" })).toBeDisabled();
+    await waitFor(() => {
+      expect(screen.getByText("Exceeds wage budget")).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "Submit Offer" }),
+      ).toBeDisabled();
+      expect(screen.getByText("Projected financial impact")).toBeInTheDocument();
+    });
   });
 
   it("submits a renewal offer and refreshes contract data when accepted", async () => {
@@ -340,7 +377,7 @@ describe("PlayerProfile contract surfaces", () => {
       expect(screen.getByText("Expires 2029-08-01")).toBeInTheDocument();
       expect(
         screen.getAllByText((_, element) =>
-          hasWeeklyWage(element?.textContent ?? "", 15000),
+          hasWeeklyWage(element?.textContent ?? "", 288),
         ).length,
       ).toBeGreaterThan(0);
       expect(screen.getByText("Stable")).toBeInTheDocument();

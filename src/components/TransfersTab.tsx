@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import {
   GameStateData,
@@ -26,6 +26,9 @@ import {
   formatWeeklyAmount,
   positionBadgeVariant,
 } from "../lib/helpers";
+import {
+  annualAmountToWeeklyCommitment,
+} from "../lib/finance";
 import { useTranslation } from "react-i18next";
 import { countryName } from "../lib/countries";
 import {
@@ -61,6 +64,21 @@ type TransferNegotiationResponseData = {
   is_terminal: boolean;
   feedback: TransferNegotiationFeedbackData;
   game: GameStateData;
+};
+
+type TransferBidProjectionData = {
+  projection: {
+    transfer_budget_before: number;
+    transfer_budget_after: number;
+    finance_before: number;
+    finance_after: number;
+    annual_wage_bill_before: number;
+    annual_wage_bill_after: number;
+    annual_wage_budget: number;
+    projected_wage_budget_usage_pct: number;
+    exceeds_transfer_budget: boolean;
+    exceeds_finance: boolean;
+  };
 };
 
 function getOutgoingNegotiationOffer(
@@ -233,6 +251,8 @@ export default function TransfersTab({
   const [bidLoading, setBidLoading] = useState(false);
   const [bidFeedback, setBidFeedback] =
     useState<TransferNegotiationFeedbackData | null>(null);
+  const [bidProjection, setBidProjection] =
+    useState<TransferBidProjectionData["projection"] | null>(null);
   const [counterTarget, setCounterTarget] = useState<CounterTarget | null>(
     null,
   );
@@ -257,6 +277,7 @@ export default function TransfersTab({
     );
     setBidResult(null);
     setBidFeedback(buildResumedBidFeedback(existingOffer));
+    setBidProjection(null);
   };
 
   const openCounterNegotiation = (
@@ -494,6 +515,57 @@ export default function TransfersTab({
           : playersWithOffers;
 
   const filteredList = applyFilters(currentList);
+  const weeklyWageBudget = myTeam
+    ? annualAmountToWeeklyCommitment(myTeam.wage_budget)
+    : 0;
+  const bidAmountMillions = Number.parseFloat(bidAmount);
+  const bidFee = Number.isFinite(bidAmountMillions)
+    ? Math.round(bidAmountMillions * 1_000_000)
+    : null;
+
+  useEffect(() => {
+    if (!bidTarget || bidFee === null || bidFee <= 0) {
+      setBidProjection(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadProjection = async (): Promise<void> => {
+      try {
+        const result = await invoke<TransferBidProjectionData>(
+          "preview_transfer_bid_financial_impact",
+          {
+            playerId: bidTarget.id,
+            fee: bidFee,
+          },
+        );
+
+        if (!cancelled) {
+          setBidProjection(result.projection ?? null);
+        }
+      } catch {
+        if (!cancelled) {
+          setBidProjection(null);
+        }
+      }
+    };
+
+    loadProjection();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [bidFee, bidTarget]);
+
+  const bidSubmitDisabled =
+    bidLoading ||
+    bidResult === "accepted" ||
+    bidFee === null ||
+    bidFee <= 0 ||
+    bidProjection === null ||
+    bidProjection.exceeds_transfer_budget ||
+    bidProjection.exceeds_finance;
 
   return (
     <div className="max-w-6xl mx-auto">
@@ -533,7 +605,7 @@ export default function TransfersTab({
                 </p>
                 <p className="font-heading font-bold text-lg text-white">
                   {formatWeeklyAmount(
-                    formatVal(myTeam.wage_budget),
+                    formatVal(weeklyWageBudget),
                     weeklySuffix,
                   )}
                 </p>
@@ -735,7 +807,7 @@ export default function TransfersTab({
                           {formatVal(player.market_value)}
                         </td>
                         <td className="py-2.5 px-4 text-sm text-gray-600 dark:text-gray-400 tabular-nums">
-                          {formatVal(player.wage * 52)}/yr
+                          {formatVal(player.wage)}/yr
                         </td>
                         <td className="py-2.5 px-4">
                           <span
@@ -881,6 +953,7 @@ export default function TransfersTab({
             setBidTarget(null);
             setBidFeedback(null);
             setBidResult(null);
+            setBidProjection(null);
           }}
         >
           <div
@@ -914,10 +987,11 @@ export default function TransfersTab({
                 {t("transfers.resumeNegotiationHint")}
               </p>
             ) : null}
-            <label className="text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1 block">
+            <label htmlFor="bid-amount" className="text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1 block">
               {t("transfers.bidAmount")}
             </label>
             <input
+              id="bid-amount"
               type="number"
               step="0.1"
               min="0"
@@ -925,6 +999,49 @@ export default function TransfersTab({
               onChange={(e) => setBidAmount(e.target.value)}
               className="w-full px-3 py-2 rounded-lg bg-gray-50 dark:bg-navy-700 border border-gray-200 dark:border-navy-600 text-sm text-gray-800 dark:text-gray-200 mb-3 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
             />
+            {myTeam && bidFee !== null && bidProjection ? (
+              <div className="rounded-lg border border-gray-200 dark:border-navy-700 bg-white/70 dark:bg-navy-900/40 p-3 mb-3 space-y-2">
+                <p className="text-[11px] font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                  {t("transfers.bidImpactTitle", {
+                    defaultValue: "Projected impact",
+                  })}
+                </p>
+                <p className="text-xs text-gray-600 dark:text-gray-300">
+                  {t("transfers.bidImpactTransferBudget", {
+                    before: formatVal(bidProjection.transfer_budget_before),
+                    after: formatVal(bidProjection.transfer_budget_after),
+                    defaultValue: "Transfer budget {{before}} -> {{after}}",
+                  })}
+                </p>
+                <p className="text-xs text-gray-600 dark:text-gray-300">
+                  {t("transfers.bidImpactBalance", {
+                    before: formatVal(bidProjection.finance_before),
+                    after: formatVal(bidProjection.finance_after),
+                    defaultValue: "Club balance {{before}} -> {{after}}",
+                  })}
+                </p>
+                <p className="text-xs text-gray-600 dark:text-gray-300">
+                  {t("transfers.bidImpactWagePressure", {
+                    percent: bidProjection.projected_wage_budget_usage_pct,
+                    defaultValue: "Projected wage budget usage {{percent}}%",
+                  })}
+                </p>
+                {bidProjection.exceeds_transfer_budget ? (
+                  <p className="text-xs text-red-500">
+                    {t("transfers.bidImpactOverTransferBudget", {
+                      defaultValue: "This bid exceeds your transfer budget",
+                    })}
+                  </p>
+                ) : null}
+                {bidProjection.exceeds_finance ? (
+                  <p className="text-xs text-red-500">
+                    {t("transfers.bidImpactOverBalance", {
+                      defaultValue: "This bid would push the club into debt",
+                    })}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
             <NegotiationFeedbackPanel
               feedback={bidFeedback}
               titleKey="transfers.negotiationPulse"
@@ -950,7 +1067,7 @@ export default function TransfersTab({
             <div className="flex gap-2">
               <button
                 onClick={handleMakeBid}
-                disabled={bidLoading || bidResult === "accepted"}
+                disabled={bidSubmitDisabled}
                 className="flex-1 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg font-heading font-bold text-sm uppercase tracking-wider transition-colors disabled:opacity-50"
               >
                 {bidLoading
@@ -962,6 +1079,7 @@ export default function TransfersTab({
                   setBidTarget(null);
                   setBidFeedback(null);
                   setBidResult(null);
+                  setBidProjection(null);
                 }}
                 className="px-4 py-2 bg-gray-200 dark:bg-navy-700 text-gray-600 dark:text-gray-300 rounded-lg font-heading font-bold text-sm uppercase tracking-wider hover:bg-gray-300 dark:hover:bg-navy-600 transition-colors"
               >

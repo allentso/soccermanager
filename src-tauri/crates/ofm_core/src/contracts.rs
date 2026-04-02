@@ -1,3 +1,4 @@
+use crate::finances::calc_cash_runway_weeks;
 use crate::game::Game;
 use chrono::{Datelike, Months, NaiveDate};
 use domain::message::{
@@ -12,6 +13,9 @@ use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
 const RENEWAL_SESSION_STALE_DAYS: i64 = 14;
+const WAGE_SOFT_CAP_PCT: i64 = 110;
+const LEGACY_OVER_BUDGET_GRACE_PCT: i64 = 3;
+const LEGACY_OVER_BUDGET_GRACE_MIN: i64 = 25_000;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ContractWarningStage {
@@ -64,6 +68,20 @@ pub struct RenewalOutcome {
     pub is_terminal: bool,
     pub cooled_off: bool,
     pub feedback: Option<NegotiationFeedback>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct RenewalFinancialProjection {
+    pub current_annual_wage_bill: i64,
+    pub projected_annual_wage_bill: i64,
+    pub annual_wage_budget: i64,
+    pub annual_soft_cap: i64,
+    pub current_weekly_wage_spend: i64,
+    pub projected_weekly_wage_spend: i64,
+    pub current_cash_runway_weeks: Option<i64>,
+    pub projected_cash_runway_weeks: Option<i64>,
+    pub currently_over_budget: bool,
+    pub policy_allows: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -121,6 +139,113 @@ fn renewal_outcome(
         cooled_off,
         feedback,
     }
+}
+
+fn annual_team_wage_bill(game: &Game, team_id: &str) -> i64 {
+    let player_wages: i64 = game
+        .players
+        .iter()
+        .filter(|player| player.team_id.as_deref() == Some(team_id))
+        .map(|player| player.wage as i64)
+        .sum();
+
+    let staff_wages: i64 = game
+        .staff
+        .iter()
+        .filter(|staff_member| staff_member.team_id.as_deref() == Some(team_id))
+        .map(|staff_member| staff_member.wage as i64)
+        .sum();
+
+    player_wages + staff_wages
+}
+
+fn projected_annual_wage_bill(
+    game: &Game,
+    team_id: &str,
+    current_player_wage: u32,
+    offered_wage: u32,
+) -> i64 {
+    annual_team_wage_bill(game, team_id) - current_player_wage as i64 + offered_wage as i64
+}
+
+fn renewal_wage_policy_allows(
+    game: &Game,
+    team: &Team,
+    current_player_wage: u32,
+    offered_wage: u32,
+) -> bool {
+    let current_bill = annual_team_wage_bill(game, &team.id);
+    let projected_bill =
+        projected_annual_wage_bill(game, &team.id, current_player_wage, offered_wage);
+    let soft_cap = (team.wage_budget * WAGE_SOFT_CAP_PCT) / 100;
+
+    if current_bill <= team.wage_budget {
+        return projected_bill <= soft_cap;
+    }
+
+    if projected_bill <= current_bill {
+        return true;
+    }
+
+    let legacy_grace = std::cmp::max(
+        (team.wage_budget * LEGACY_OVER_BUDGET_GRACE_PCT) / 100,
+        LEGACY_OVER_BUDGET_GRACE_MIN,
+    );
+
+    projected_bill <= current_bill + legacy_grace
+}
+
+fn renewal_wage_policy_error_message(team: &Team) -> String {
+    format!(
+        "Renewal blocked by board wage policy. Keep annual wages near €{} to recover.",
+        team.wage_budget
+    )
+}
+
+pub fn project_renewal_financial_impact(
+    game: &Game,
+    player_id: &str,
+    offered_wage: u32,
+) -> Result<RenewalFinancialProjection, String> {
+    let player = game
+        .players
+        .iter()
+        .find(|player| player.id == player_id)
+        .ok_or_else(|| "Player not found".to_string())?;
+    let team_id = player
+        .team_id
+        .as_deref()
+        .ok_or_else(|| "Player has no team".to_string())?;
+    let team = game
+        .teams
+        .iter()
+        .find(|team| team.id == team_id)
+        .ok_or_else(|| "Team not found".to_string())?;
+
+    let current_bill = annual_team_wage_bill(game, team_id);
+    let projected_bill = projected_annual_wage_bill(game, team_id, player.wage, offered_wage);
+    let annual_wage_budget = team.wage_budget;
+    let annual_soft_cap = (annual_wage_budget * WAGE_SOFT_CAP_PCT) / 100;
+    let current_weekly_wage_spend = current_bill / 52;
+    let projected_weekly_wage_spend = projected_bill / 52;
+
+    let current_cash_runway_weeks =
+        calc_cash_runway_weeks(team.finance, -current_weekly_wage_spend);
+    let projected_cash_runway_weeks =
+        calc_cash_runway_weeks(team.finance, -projected_weekly_wage_spend);
+
+    Ok(RenewalFinancialProjection {
+        current_annual_wage_bill: current_bill,
+        projected_annual_wage_bill: projected_bill,
+        annual_wage_budget,
+        annual_soft_cap,
+        current_weekly_wage_spend,
+        projected_weekly_wage_spend,
+        current_cash_runway_weeks,
+        projected_cash_runway_weeks,
+        currently_over_budget: current_bill > annual_wage_budget,
+        policy_allows: renewal_wage_policy_allows(game, team, player.wage, offered_wage),
+    })
 }
 
 pub fn evaluate_renewal_offer(
@@ -307,6 +432,15 @@ pub fn propose_renewal(
     }
 
     if outcome.decision == RenewalDecision::Accepted {
+        if !renewal_wage_policy_allows(
+            game,
+            &team,
+            game.players[player_index].wage,
+            offer.weekly_wage,
+        ) {
+            return Err(renewal_wage_policy_error_message(&team));
+        }
+
         let new_contract_end = current_date
             .checked_add_months(Months::new(offer.contract_years * 12))
             .ok_or("Unable to calculate new contract end date".to_string())?;
@@ -498,11 +632,32 @@ pub fn delegate_renewals(
         let delegation_score = assistant_delegation_score(assistant, player, current_date);
 
         if delegation_score >= 95 {
+            let agreed_wage = expected_wage.min(max_wage);
+            if !renewal_wage_policy_allows(game, &team, player.wage, agreed_wage) {
+                report.stalled_count += 1;
+                case.status = DelegatedRenewalResultStatus::Stalled;
+                case.note = "I could progress the talks, but board wage limits prevented this renewal from being completed.".to_string();
+                case.note_key = Some("be.msg.delegatedRenewals.notes.boardWagePolicy".to_string());
+                case.note_params =
+                    delegated_note_params(&[("budget", team.wage_budget.to_string())]);
+                let player = &mut game.players[player_index];
+                let state = player
+                    .morale_core
+                    .renewal_state
+                    .get_or_insert_with(ContractRenewalState::default);
+                state.status = RenewalSessionStatus::Stalled;
+                state.last_assistant_attempt_date = Some(today.clone());
+                state.last_outcome = Some(RenewalSessionOutcome::Stalled);
+                state.conversation_round = 0;
+                report.cases.push(case);
+                continue;
+            }
+
             let new_contract_end = current_date
                 .checked_add_months(Months::new(agreed_years * 12))
                 .ok_or("Unable to calculate delegated contract end date".to_string())?;
             let player = &mut game.players[player_index];
-            player.wage = expected_wage.min(max_wage);
+            player.wage = agreed_wage;
             player.contract_end = Some(new_contract_end.format("%Y-%m-%d").to_string());
             let state = player
                 .morale_core
