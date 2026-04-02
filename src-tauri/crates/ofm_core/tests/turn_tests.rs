@@ -2,8 +2,8 @@ use chrono::{TimeZone, Utc};
 use domain::league::{Fixture, FixtureCompetition, FixtureStatus, League, StandingEntry};
 use domain::manager::Manager;
 use domain::player::{
-    Player, PlayerAttributes, PlayerIssue, PlayerIssueCategory, PlayerPromise, PlayerPromiseKind,
-    Position,
+    Injury, Player, PlayerAttributes, PlayerIssue, PlayerIssueCategory, PlayerPromise,
+    PlayerPromiseKind, Position,
 };
 use domain::team::Team;
 use engine::report::{GoalDetail, MatchReport, PlayerMatchStats, TeamStats};
@@ -1104,6 +1104,92 @@ fn stamina_depletion_varies_by_attribute() {
         "High stamina player ({}) should retain more condition than low ({}) ",
         high_stam.condition,
         low_stam.condition
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Injury recovery progression tests
+// ---------------------------------------------------------------------------
+
+#[test]
+fn process_day_progresses_injury_recovery() {
+    let mut game = make_game_with_match();
+    // Ensure non-match path by moving fixture date away from today
+    game.league.as_mut().unwrap().fixtures[0].date = "2025-06-20".to_string();
+    // Detach manager to skip user-specific random/player events
+    game.manager.team_id = None;
+
+    let short = game.players.iter_mut().find(|p| p.id == "t1_def0").unwrap();
+    short.injury = Some(Injury {
+        name: "Hamstring".to_string(),
+        days_remaining: 1,
+    });
+    let long = game.players.iter_mut().find(|p| p.id == "t1_mid0").unwrap();
+    long.injury = Some(Injury {
+        name: "Ankle".to_string(),
+        days_remaining: 3,
+    });
+
+    turn::process_day(&mut game);
+
+    let short_after = game.players.iter().find(|p| p.id == "t1_def0").unwrap();
+    assert!(
+        short_after.injury.is_none(),
+        "1-day injury should be cleared after a day"
+    );
+
+    let long_after = game.players.iter().find(|p| p.id == "t1_mid0").unwrap();
+    assert_eq!(
+        long_after.injury.as_ref().map(|inj| inj.days_remaining),
+        Some(2),
+        "3-day injury should decrement to 2 after a day"
+    );
+}
+
+#[test]
+fn finish_live_match_day_progresses_injury_recovery() {
+    let mut game = make_game_with_match();
+    // Detach manager to skip user-specific random/player events
+    game.manager.team_id = None;
+
+    let recovering = game.players.iter_mut().find(|p| p.id == "t2_def1").unwrap();
+    recovering.injury = Some(Injury {
+        name: "Knee".to_string(),
+        days_remaining: 2,
+    });
+
+    turn::finish_live_match_day(&mut game);
+
+    let recovering_after = game.players.iter().find(|p| p.id == "t2_def1").unwrap();
+    assert_eq!(
+        recovering_after
+            .injury
+            .as_ref()
+            .map(|inj| inj.days_remaining),
+        Some(1),
+        "2-day injury should decrement to 1 after live match day ends"
+    );
+}
+
+#[test]
+fn injury_with_zero_days_is_cleared() {
+    let mut game = make_game_with_match();
+    game.league.as_mut().unwrap().fixtures[0].date = "2025-06-20".to_string();
+    game.manager.team_id = None;
+
+    // Defensive: even if someone somehow creates an injury with 0 days, it should clear
+    let p = game.players.iter_mut().find(|p| p.id == "t1_def1").unwrap();
+    p.injury = Some(Injury {
+        name: "Bruise".to_string(),
+        days_remaining: 0,
+    });
+
+    turn::process_day(&mut game);
+
+    let p_after = game.players.iter().find(|p| p.id == "t1_def1").unwrap();
+    assert!(
+        p_after.injury.is_none(),
+        "0-day injury should be cleared after a day"
     );
 }
 
