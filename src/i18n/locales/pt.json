@@ -1408,6 +1408,13 @@
     "avgRating": "Classificação média: {{rating}}",
     "continueDashboard": "Continuar para o Painel"
   },
+  "notifications": {
+    "attentionRequired": "Atenção Necessária",
+    "resolveBeforeContinuing": "Resolve estes problemas antes de continuar",
+    "goTo": "Ir para",
+    "reviewIssues": "Rever Problemas",
+    "continueAnyway": "Continuar mesmo assim"
+  },
   "squadCompare": {
     "compare": "Comparar"
   },

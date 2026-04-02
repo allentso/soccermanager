@@ -1373,6 +1373,13 @@
     "avgRating": "Nota média: {{rating}}",
     "continueDashboard": "Continuar para o Painel"
   },
+  "notifications": {
+    "attentionRequired": "Atenção Necessária",
+    "resolveBeforeContinuing": "Resolva estes problemas antes de continuar",
+    "goTo": "Ir para",
+    "reviewIssues": "Revisar Problemas",
+    "continueAnyway": "Continuar mesmo assim"
+  },
   "squadCompare": {
     "compare": "Comparar"
   },

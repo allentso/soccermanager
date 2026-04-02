@@ -1390,6 +1390,16 @@
     "keyStats": "Statistiche chiave",
     "continueDashboard": "Continua alla dashboard"
   },
+  "notifications": {
+    "attentionRequired": "Attenzione Richiesta",
+    "resolveBeforeContinuing": "Risolvi questi problemi prima di continuare",
+    "goTo": "Vai a",
+    "reviewIssues": "Esamina i problemi",
+    "continueAnyway": "Continua comunque"
+  },
+  "squadCompare": {
+    "compare": "Confronta"
+  },
   "be": {
     "sender": {
       "boardOfDirectors": "Consiglio di amministrazione",

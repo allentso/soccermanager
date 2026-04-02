@@ -1408,6 +1408,13 @@
     "avgRating": "Durchschnittsbewertung: {{rating}}",
     "continueDashboard": "Weiter zum Dashboard"
   },
+  "notifications": {
+    "attentionRequired": "Aufmerksamkeit erforderlich",
+    "resolveBeforeContinuing": "Behebe diese Probleme, bevor du weitermachst",
+    "goTo": "Gehe zu",
+    "reviewIssues": "Probleme überprüfen",
+    "continueAnyway": "Trotzdem fortfahren"
+  },
   "squadCompare": {
     "compare": "Vergleichen"
   },
