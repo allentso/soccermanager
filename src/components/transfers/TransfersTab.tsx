@@ -46,6 +46,14 @@ import {
   type TransferBidProjectionData,
   type TransferNegotiationResponseData,
 } from "../../services/transfersService";
+import {
+  buildResumedBidFeedback,
+  buildResumedCounterFeedback,
+  getOutgoingNegotiationOffer,
+  getTransferOfferBadgeVariant,
+  getTransferOfferStatusLabel,
+  mapTransferNegotiationError,
+} from "./TransfersTab.helpers";
 
 interface TransfersTabProps {
   gameState: GameStateData;
@@ -64,70 +72,6 @@ type CounterTarget = {
 };
 
 type TransferNegotiationFeedbackData = NegotiationFeedbackPanelData;
-
-function getOutgoingNegotiationOffer(
-  player: PlayerData,
-  userTeamId: string | null,
-): TransferOfferData | null {
-  if (!userTeamId) {
-    return null;
-  }
-
-  return (
-    player.transfer_offers.find(
-      (offer) =>
-        offer.from_team_id === userTeamId && offer.status === "Pending",
-    ) ?? null
-  );
-}
-
-function buildResumedBidFeedback(
-  offer: TransferOfferData | null,
-): TransferNegotiationFeedbackData | null {
-  if (!offer) {
-    return null;
-  }
-
-  const round = Math.max(offer.negotiation_round || 1, 1);
-  const tension = Math.min(36 + (round - 1) * 16, 84);
-  const patience = Math.max(82 - (round - 1) * 16, 30);
-
-  return {
-    mood: round >= 3 ? "tense" : "firm",
-    headline_key: "transfers.resumeNegotiationHeadline",
-    detail_key: "transfers.resumeNegotiationDetail",
-    tension,
-    patience,
-    round,
-    params: {
-      fee: String(offer.suggested_counter_fee ?? offer.fee),
-    },
-  };
-}
-
-function buildResumedCounterFeedback(
-  offer: TransferOfferData | null,
-): TransferNegotiationFeedbackData | null {
-  if (!offer) {
-    return null;
-  }
-
-  const round = Math.max(offer.negotiation_round || 1, 1);
-  const tension = Math.min(40 + (round - 1) * 14, 86);
-  const patience = Math.max(78 - (round - 1) * 14, 28);
-
-  return {
-    mood: round >= 3 ? "tense" : "firm",
-    headline_key: "transfers.resumeNegotiationHeadline",
-    detail_key: "transfers.resumeNegotiationDetail",
-    tension,
-    patience,
-    round,
-    params: {
-      fee: String(offer.suggested_counter_fee ?? offer.fee),
-    },
-  };
-}
 
 function renderNegotiationHistory(
   t: (key: string, options?: Record<string, string | number>) => string,
@@ -170,49 +114,6 @@ function renderNegotiationHistory(
       </div>
     </div>
   );
-}
-
-function getTransferOfferStatusLabel(
-  t: (key: string, options?: Record<string, string | number>) => string,
-  status: TransferOfferData["status"],
-): string {
-  switch (status) {
-    case "Pending":
-      return t("transfers.offerStatusPending");
-    case "Accepted":
-      return t("transfers.offerStatusAccepted");
-    case "Rejected":
-      return t("transfers.offerStatusRejected");
-    case "Withdrawn":
-      return t("transfers.offerStatusWithdrawn");
-    default:
-      return status;
-  }
-}
-
-function getTransferOfferBadgeVariant(status: TransferOfferData["status"]) {
-  switch (status) {
-    case "Pending":
-      return "accent" as const;
-    case "Accepted":
-      return "success" as const;
-    case "Withdrawn":
-      return "neutral" as const;
-    case "Rejected":
-    default:
-      return "danger" as const;
-  }
-}
-
-function mapTransferNegotiationError(
-  t: (key: string, options?: Record<string, string | number>) => string,
-  error: string,
-): string {
-  if (error.includes("Offer not found or not pending")) {
-    return t("transfers.negotiationExpiredError");
-  }
-
-  return error;
 }
 
 export default function TransfersTab({

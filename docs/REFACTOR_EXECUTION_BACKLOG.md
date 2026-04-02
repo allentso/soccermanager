@@ -20,11 +20,12 @@ This backlog turns the architecture audit into an execution plan. Each step is i
 
 ## Phase 2: Frontend Feature Decomposition
 
-- [ ] Step 2.1: Split `TransfersTab` into container, query/model helpers, and action panels.
-- [ ] Step 2.2: Split `TrainingTab` into container, schedule/focus panels, and training-group module.
-- [ ] Step 2.3: Split `ScoutingTab` into container, scout overview, assignment list, and player search modules.
-- [ ] Step 2.4: Split `HomeTab` into smaller dashboard widgets and view-model helpers.
-- [ ] Step 2.5: Refactor `TeamProfile` to reuse shared helper logic and remove duplicated formatting/domain calculations.
+- [x] Step 2.1: Extract `TransfersTab` pure negotiation helpers into a dedicated module.
+- [ ] Step 2.2: Split `TransfersTab` into container, query/model helpers, and action panels.
+- [ ] Step 2.3: Split `TrainingTab` into container, schedule/focus panels, and training-group module.
+- [ ] Step 2.4: Split `ScoutingTab` into container, scout overview, assignment list, and player search modules.
+- [ ] Step 2.5: Split `HomeTab` into smaller dashboard widgets and view-model helpers.
+- [ ] Step 2.6: Refactor `TeamProfile` to reuse shared helper logic and remove duplicated formatting/domain calculations.
 
 ## Phase 3: Backend Command Boundary
 
