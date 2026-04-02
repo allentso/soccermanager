@@ -43,6 +43,14 @@ import NegotiationFeedbackPanel, {
   type NegotiationFeedbackPanelData,
 } from "./NegotiationFeedbackPanel";
 import { translatePositionLabel } from "./SquadTab.helpers";
+import {
+  formatPlayerMarketValue,
+  formatPlayerWage,
+  getAttributeColorClass,
+  getPlayerAge,
+  getPlayerTeamName,
+  resolvePlayerInjuryName,
+} from "./PlayerProfile.helpers";
 
 interface PlayerProfileProps {
   player: PlayerData;
@@ -108,47 +116,6 @@ type RenewalStatus =
   | "blocked"
   | "error";
 
-function getTeamNameLocal(
-  teams: TeamData[],
-  id: string | null,
-  freeAgent: string,
-  unknown: string,
-): string {
-  if (!id) return freeAgent;
-  return teams.find((t) => t.id === id)?.name ?? unknown;
-}
-
-function calcAge(dob: string): number {
-  const birth = new Date(dob);
-  const now = new Date("2026-07-01");
-  let age = now.getFullYear() - birth.getFullYear();
-  if (
-    now.getMonth() < birth.getMonth() ||
-    (now.getMonth() === birth.getMonth() && now.getDate() < birth.getDate())
-  ) {
-    age--;
-  }
-  return age;
-}
-
-function formatValue(val: number): string {
-  if (val >= 1_000_000) return `€${(val / 1_000_000).toFixed(1)}M`;
-  if (val >= 1_000) return `€${(val / 1_000).toFixed(0)}K`;
-  return `€${val}`;
-}
-
-function formatWage(val: number, weeklySuffix: string): string {
-  const weeklyWage = annualAmountToWeeklyCommitment(val);
-  return formatWeeklyAmount(`€${weeklyWage.toLocaleString()}`, weeklySuffix);
-}
-
-function attrColor(val: number): string {
-  if (val >= 80) return "text-primary-500 dark:text-primary-400";
-  if (val >= 60) return "text-accent-600 dark:text-accent-400";
-  if (val >= 40) return "text-gray-600 dark:text-gray-400";
-  return "text-red-500 dark:text-red-400";
-}
-
 export default function PlayerProfile({
   player,
   gameState,
@@ -168,14 +135,6 @@ export default function PlayerProfile({
     },
   );
   const weakFootValue = player.weak_foot ?? 2;
-
-  const resolveInjuryName = (injuryName: string): string => {
-    if (injuryName.includes(".")) {
-      return t(injuryName, { defaultValue: injuryName });
-    }
-
-    return t(`common.injuries.${injuryName}`, { defaultValue: injuryName });
-  };
 
   if (!player) {
     return null;
@@ -208,12 +167,14 @@ export default function PlayerProfile({
   const [hasConsumedInitialRenewalIntent, setHasConsumedInitialRenewalIntent] =
     useState(false);
   const ovr = calcOvr(player, primaryPosition);
-  const age = calcAge(player.date_of_birth);
-  const teamName = getTeamNameLocal(
+  const age = getPlayerAge(player.date_of_birth);
+  const teamName = getPlayerTeamName(
     gameState.teams,
     player.team_id,
-    t("common.freeAgent"),
-    t("common.unknown"),
+    {
+      freeAgent: t("common.freeAgent"),
+      unknown: t("common.unknown"),
+    },
   );
   const contractRiskLevel = getContractRiskLevel(
     player.contract_end,
@@ -614,10 +575,10 @@ export default function PlayerProfile({
           <div className="flex items-start gap-6">
             <div
               className={`w-24 h-24 rounded-2xl flex items-center justify-center font-heading font-bold text-4xl border-2 ${ovr >= 75
-                  ? "bg-primary-500/20 text-primary-400 border-primary-500/30"
-                  : ovr >= 55
-                    ? "bg-accent-500/20 text-accent-400 border-accent-500/30"
-                    : "bg-gray-500/20 text-gray-400 border-gray-500/30"
+                ? "bg-primary-500/20 text-primary-400 border-primary-500/30"
+                : ovr >= 55
+                  ? "bg-accent-500/20 text-accent-400 border-accent-500/30"
+                  : "bg-gray-500/20 text-gray-400 border-gray-500/30"
                 }`}
             >
               {ovr}
@@ -783,7 +744,7 @@ export default function PlayerProfile({
                   {t("common.value")}
                 </p>
                 <p className="font-heading font-bold text-xl mt-0.5 text-white">
-                  {formatValue(player.market_value)}
+                  {formatPlayerMarketValue(player.market_value)}
                 </p>
               </div>
               <div className="bg-white/5 rounded-xl px-5 py-3 text-center min-w-25">
@@ -791,7 +752,7 @@ export default function PlayerProfile({
                   {t("common.wage")}
                 </p>
                 <p className="font-heading font-bold text-xl mt-0.5 text-white">
-                  {formatWage(player.wage, weeklySuffix)}
+                  {formatPlayerWage(player.wage, weeklySuffix)}
                 </p>
               </div>
             </div>
@@ -812,12 +773,12 @@ export default function PlayerProfile({
           />
           <QuickStat
             label={t("common.value")}
-            value={formatValue(player.market_value)}
+            value={formatPlayerMarketValue(player.market_value)}
             color="text-gray-700 dark:text-gray-200"
           />
           <QuickStat
             label={t("common.wage")}
-            value={formatWage(player.wage, weeklySuffix)}
+            value={formatPlayerWage(player.wage, weeklySuffix)}
             color="text-gray-700 dark:text-gray-200"
           />
         </div>
@@ -833,7 +794,7 @@ export default function PlayerProfile({
               </div>
               <div>
                 <p className="font-semibold text-sm text-red-600 dark:text-red-400">
-                  {resolveInjuryName(player.injury.name)}
+                  {resolvePlayerInjuryName(player.injury.name, t)}
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400">
                   {t("playerProfile.daysRemaining", {
@@ -891,12 +852,12 @@ export default function PlayerProfile({
               <InfoRow
                 icon={<DollarSign className="w-4 h-4" />}
                 label={t("finances.marketValue")}
-                value={formatValue(player.market_value)}
+                value={formatPlayerMarketValue(player.market_value)}
               />
               <InfoRow
                 icon={<TrendingUp className="w-4 h-4" />}
                 label={t("playerProfile.weeklyWage")}
-                value={formatWage(player.wage, weeklySuffix)}
+                value={formatPlayerWage(player.wage, weeklySuffix)}
               />
               <InfoRow
                 icon={<Heart className="w-4 h-4" />}
@@ -946,7 +907,7 @@ export default function PlayerProfile({
                             className="flex-1"
                           />
                           <span
-                            className={`font-heading font-bold text-sm w-8 text-right tabular-nums ${attrColor(attr.value)}`}
+                            className={`font-heading font-bold text-sm w-8 text-right tabular-nums ${getAttributeColorClass(attr.value)}`}
                           >
                             {attr.value}
                           </span>
@@ -1175,11 +1136,11 @@ export default function PlayerProfile({
                 </p>
                 <p className="text-xs text-gray-600 dark:text-gray-300">
                   {t("playerProfile.renewalProjectionWageBill", {
-                    before: formatWage(
+                    before: formatPlayerWage(
                       renewalProjection.current_annual_wage_bill,
                       weeklySuffix,
                     ),
-                    after: formatWage(
+                    after: formatPlayerWage(
                       renewalProjection.projected_annual_wage_bill,
                       weeklySuffix,
                     ),

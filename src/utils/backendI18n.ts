@@ -6,6 +6,11 @@ import type {
   NewsArticle,
   BoardObjective,
 } from '../store/gameStore';
+import {
+  inferLegacyDelegatedRenewalsParams,
+  normalizeNewsParams,
+  resolveLegacyDelegatedRenewalsMessage,
+} from './backendI18n.legacy';
 
 const PLAYER_EVENT_PREFIX_TO_GROUP: Record<string, string> = {
   morale_talk_: 'moraleCrisis',
@@ -28,26 +33,6 @@ const PLAYER_EVENT_OPTION_ID_TO_KEY: Record<string, string> = {
   noncommittal: 'noncommittal',
   no_renewal: 'noRenewal',
 };
-
-const LEGACY_DELEGATED_RENEWALS_PREFIX = 'delegated_renewals_';
-const LEGACY_DELEGATED_RENEWALS_SUMMARY_RE =
-  /^Boss, I went through our renewal list at (?<team>.+)\. (?<successes>\d+) completed, (?<stalled>\d+) still pending, (?<failures>\d+) failed\.$/;
-const LEGACY_DELEGATED_RENEWALS_SUCCESS_RE =
-  /^Completed: (?<player>.+) agreed to (?<years>\d+) year\(s\) on €(?<wage>\d+)\/wk\.$/;
-const LEGACY_DELEGATED_RENEWALS_STATUS_RE =
-  /^(?<status>Still difficult|Failed): (?<player>.+) — (?<detail>.+)$/;
-const LEGACY_DELEGATED_RENEWALS_BEYOND_LIMITS_RE =
-  /^Their camp want around €(?<wage>\d+)\/wk for (?<years>\d+) years, which is beyond the delegation limits\.$/;
-const LEGACY_DELEGATED_RENEWALS_PREFERS_MANAGER_RE =
-  /^They would listen, but they still want about €(?<wage>\d+)\/wk for (?<years>\d+) years and prefer to hear from you directly\.$/;
-const LEGACY_DELEGATED_RENEWALS_MANAGER_BLOCKED_RE =
-  /^You told me not to reopen contract talks yet\.$/;
-const LEGACY_DELEGATED_RENEWALS_RELATIONSHIP_BLOCKED_RE =
-  /^They are not willing to commit through me under the current relationship and contract situation\.$/;
-const LEGACY_WEEKLY_DIGEST_WEEK_LABEL_RE =
-  /^Week of (?<weekStart>\d{4}-\d{2}-\d{2})$/;
-const LEGACY_WEEKLY_DIGEST_HEADLINE_RE =
-  /^Weekly Digest — Week of (?<weekStart>\d{4}-\d{2}-\d{2})$/;
 
 /**
  * Resolve a backend i18n key with params, falling back to the raw string.
@@ -132,137 +117,6 @@ function inferPlayerEventOptionBaseKey(messageId: string, optionId: string): str
   return `be.msg.playerEvent.options.${group}.${optionKey}`;
 }
 
-function inferLegacyDelegatedRenewalsParams(message: MessageData): Record<string, string> | undefined {
-  if (!message.id.startsWith(LEGACY_DELEGATED_RENEWALS_PREFIX)) {
-    return undefined;
-  }
-
-  const summaryLine = message.body
-    .split('\n')
-    .map((line) => line.trim())
-    .find((line) => line.length > 0);
-
-  const match = summaryLine?.match(LEGACY_DELEGATED_RENEWALS_SUMMARY_RE);
-  if (!match?.groups) {
-    return undefined;
-  }
-
-  return {
-    team: match.groups.team,
-    successes: match.groups.successes,
-    stalled: match.groups.stalled,
-    failures: match.groups.failures,
-  };
-}
-
-function resolveLegacyDelegatedRenewalsDetail(detail: string): string {
-  const beyondLimits = detail.match(LEGACY_DELEGATED_RENEWALS_BEYOND_LIMITS_RE);
-  if (beyondLimits?.groups) {
-    return resolve('be.msg.delegatedRenewals.notes.beyondLimits', detail, {
-      wage: beyondLimits.groups.wage,
-      years: beyondLimits.groups.years,
-    });
-  }
-
-  const prefersManager = detail.match(LEGACY_DELEGATED_RENEWALS_PREFERS_MANAGER_RE);
-  if (prefersManager?.groups) {
-    return resolve('be.msg.delegatedRenewals.notes.prefersManager', detail, {
-      wage: prefersManager.groups.wage,
-      years: prefersManager.groups.years,
-    });
-  }
-
-  if (LEGACY_DELEGATED_RENEWALS_MANAGER_BLOCKED_RE.test(detail)) {
-    return resolve('be.msg.delegatedRenewals.notes.managerBlocked', detail);
-  }
-
-  if (LEGACY_DELEGATED_RENEWALS_RELATIONSHIP_BLOCKED_RE.test(detail)) {
-    return resolve('be.msg.delegatedRenewals.notes.relationshipBlocked', detail);
-  }
-
-  return detail;
-}
-
-function resolveLegacyDelegatedRenewalsBody(body: string): string {
-  const lines = body.split('\n');
-
-  return lines
-    .map((line) => {
-      const trimmed = line.trim();
-
-      if (trimmed.length === 0) {
-        return line;
-      }
-
-      const summary = trimmed.match(LEGACY_DELEGATED_RENEWALS_SUMMARY_RE);
-      if (summary?.groups) {
-        return resolve('be.msg.delegatedRenewals.body', trimmed, {
-          team: summary.groups.team,
-          successes: summary.groups.successes,
-          stalled: summary.groups.stalled,
-          failures: summary.groups.failures,
-        });
-      }
-
-      const success = trimmed.match(LEGACY_DELEGATED_RENEWALS_SUCCESS_RE);
-      if (success?.groups) {
-        return resolve('be.msg.delegatedRenewals.case.successful', trimmed, {
-          player: success.groups.player,
-          years: success.groups.years,
-          wage: success.groups.wage,
-        });
-      }
-
-      const status = trimmed.match(LEGACY_DELEGATED_RENEWALS_STATUS_RE);
-      if (status?.groups) {
-        const detail = resolveLegacyDelegatedRenewalsDetail(status.groups.detail);
-        const key =
-          status.groups.status === 'Still difficult'
-            ? 'be.msg.delegatedRenewals.case.stalled'
-            : 'be.msg.delegatedRenewals.case.failed';
-
-        return resolve(key, trimmed, {
-          player: status.groups.player,
-          detail,
-        });
-      }
-
-      return line;
-    })
-    .join('\n');
-}
-
-function resolveLegacyDelegatedRenewalsMessage(
-  msg: MessageData,
-  params?: Record<string, string>,
-): MessageData {
-  if (!msg.id.startsWith(LEGACY_DELEGATED_RENEWALS_PREFIX)) {
-    return msg;
-  }
-
-  if (msg.subject_key || msg.body_key || msg.sender_key || msg.sender_role_key) {
-    return msg;
-  }
-
-  if (msg.context?.delegated_renewal_report?.cases?.length) {
-    return {
-      ...msg,
-      subject: resolve('be.msg.delegatedRenewals.subject', msg.subject, params),
-      body: resolve('be.msg.delegatedRenewals.body', msg.body, params),
-      sender: resolve('be.sender.assistantManager', msg.sender),
-      sender_role: resolve('be.role.assistantManager', msg.sender_role),
-    };
-  }
-
-  return {
-    ...msg,
-    subject: resolve('be.msg.delegatedRenewals.subject', msg.subject, params),
-    body: resolveLegacyDelegatedRenewalsBody(msg.body),
-    sender: resolve('be.sender.assistantManager', msg.sender),
-    sender_role: resolve('be.role.assistantManager', msg.sender_role),
-  };
-}
-
 /**
  * Resolve all translatable fields on a message, returning a copy with resolved strings.
  */
@@ -279,7 +133,7 @@ export function resolveMessage(msg: MessageData): MessageData {
     actions: msg.actions.map((action) => resolveAction(action, msg.id, p)),
   };
 
-  return resolveLegacyDelegatedRenewalsMessage(resolved, p);
+  return resolveLegacyDelegatedRenewalsMessage(resolved, resolve, p);
 }
 
 /**
@@ -326,34 +180,6 @@ function resolveActionOption(
     label: resolve(labelKey, option.label, params),
     description: resolve(descriptionKey, option.description, params),
   };
-}
-
-function normalizeNewsParams(article: NewsArticle): Record<string, string> | undefined {
-  const params = article.i18n_params ? { ...article.i18n_params } : {};
-
-  if (article.headline_key !== 'be.news.weeklyDigest.headline') {
-    return Object.keys(params).length > 0 ? params : article.i18n_params;
-  }
-
-  if (!params.weekStart && params.weekLabel) {
-    const weekLabelMatch = params.weekLabel.match(LEGACY_WEEKLY_DIGEST_WEEK_LABEL_RE);
-
-    if (weekLabelMatch?.groups?.weekStart) {
-      params.weekStart = weekLabelMatch.groups.weekStart;
-    }
-  }
-
-  if (!params.weekStart) {
-    const headlineMatch = article.headline.match(LEGACY_WEEKLY_DIGEST_HEADLINE_RE);
-
-    if (headlineMatch?.groups?.weekStart) {
-      params.weekStart = headlineMatch.groups.weekStart;
-    }
-  }
-
-  delete params.weekLabel;
-
-  return Object.keys(params).length > 0 ? params : undefined;
 }
 
 /**

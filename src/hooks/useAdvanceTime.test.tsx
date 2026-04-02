@@ -23,7 +23,13 @@ function HookHarness(props: {
   hasMatchToday: boolean;
 }): JSX.Element {
   const [, setGameState] = useState<GameStateData | null>(null);
-  const { blockerModal, handleConfirmMatch, handleContinue, showMatchConfirm } =
+  const {
+    blockerModal,
+    handleConfirmMatch,
+    handleContinue,
+    handleSkipToMatchDay,
+    showMatchConfirm,
+  } =
     useAdvanceTime(
       (state) => setGameState(state),
       props.hasMatchToday,
@@ -35,6 +41,7 @@ function HookHarness(props: {
     <div>
       <button onClick={() => void handleContinue()}>Continue</button>
       <button onClick={handleConfirmMatch}>Confirm Match</button>
+      <button onClick={() => void handleSkipToMatchDay()}>Skip</button>
       <div data-testid="show-match-confirm">{String(showMatchConfirm)}</div>
       <div data-testid="blocker-count">
         {blockerModal?.blockers.length ?? 0}
@@ -152,5 +159,27 @@ describe("useAdvanceTime", function (): void {
     });
 
     expect(navigateMock).not.toHaveBeenCalled();
+  });
+
+  it("checks blocking actions before skipping to match day and stops when blockers exist", async function (): Promise<void> {
+    mockedInvoke.mockResolvedValueOnce([
+      {
+        id: "contract_expiry",
+        severity: "warning",
+        tab: "Finances",
+        text: "A contract decision is still pending",
+      },
+    ]);
+
+    render(<HookHarness hasMatchToday={false} defaultMatchMode="live" />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Skip" }));
+
+    await waitFor(function (): void {
+      expect(mockedInvoke).toHaveBeenCalledWith("check_blocking_actions");
+    });
+
+    expect(screen.getByTestId("blocker-count")).toHaveTextContent("1");
+    expect(mockedInvoke).toHaveBeenCalledTimes(1);
   });
 });

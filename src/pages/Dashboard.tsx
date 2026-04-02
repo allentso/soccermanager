@@ -19,6 +19,7 @@ import DashboardHeader, {
 import DashboardMatchConfirmModal from "../components/dashboard/DashboardMatchConfirmModal";
 import DashboardSidebar from "../components/dashboard/DashboardSidebar";
 import DashboardTabContent from "../components/dashboard/DashboardTabContent";
+import { createDashboardTabContentModel } from "../components/dashboard/dashboardTabContentModel";
 import {
   isOnboardingPageTab,
   loadVisitedOnboardingTabs,
@@ -417,6 +418,19 @@ export default function Dashboard(): JSX.Element {
   const activeTabLabel = TAB_TRANSLATION_KEYS[activeTab]
     ? t(TAB_TRANSLATION_KEYS[activeTab])
     : activeTab;
+  const dashboardTabContentModel = createDashboardTabContentModel({
+    activeTab,
+    gameState,
+    seasonComplete,
+    visitedOnboardingTabs,
+    initialMessageId,
+    handlers: {
+      onSelectPlayer: selectPlayer,
+      onSelectTeam: selectTeam,
+      onGameUpdate: setGameState,
+      onNavigate: handleNavigate,
+    },
+  });
 
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-navy-900 flex transition-colors duration-300">
@@ -565,17 +579,7 @@ export default function Dashboard(): JSX.Element {
 
           {/* Tab content — hidden when a profile is open */}
           {!selectedPlayerId && !selectedTeamId && (
-            <DashboardTabContent
-              activeTab={activeTab}
-              gameState={gameState}
-              seasonComplete={seasonComplete}
-              visitedOnboardingTabs={visitedOnboardingTabs}
-              initialMessageId={initialMessageId}
-              onSelectPlayer={selectPlayer}
-              onSelectTeam={selectTeam}
-              onGameUpdate={setGameState}
-              onNavigate={handleNavigate}
-            />
+            <DashboardTabContent viewModel={dashboardTabContentModel} />
           )}
         </div>
       </main>

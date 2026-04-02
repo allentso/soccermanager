@@ -1,4 +1,3 @@
-import { GameStateData, PlayerSelectionOptions } from "../../store/gameStore";
 import HomeTab from "../HomeTab";
 import SquadTab from "../SquadTab";
 import TacticsTab from "../TacticsTab";
@@ -16,30 +15,30 @@ import InboxTab from "../InboxTab";
 import ManagerTab from "../ManagerTab";
 import NewsTab from "../NewsTab";
 import EndOfSeasonScreen from "../EndOfSeasonScreen";
+import type { DashboardTabContentModel } from "./dashboardTabContentModel";
 
 interface DashboardTabContentProps {
-  activeTab: string;
-  gameState: GameStateData;
-  seasonComplete: boolean;
-  visitedOnboardingTabs: ReadonlySet<string>;
-  initialMessageId: string | null;
-  onSelectPlayer: (id: string, options?: PlayerSelectionOptions) => void;
-  onSelectTeam: (id: string) => void;
-  onGameUpdate: (state: GameStateData) => void;
-  onNavigate: (tab: string, context?: { messageId?: string }) => void;
+  viewModel: DashboardTabContentModel;
 }
 
 export default function DashboardTabContent({
-  activeTab,
-  gameState,
-  seasonComplete,
-  visitedOnboardingTabs,
-  initialMessageId,
-  onSelectPlayer,
-  onSelectTeam,
-  onGameUpdate,
-  onNavigate,
+  viewModel,
 }: DashboardTabContentProps) {
+  const {
+    activeTab,
+    gameState,
+    initialMessageId,
+    managerId,
+    seasonComplete,
+    visitedOnboardingTabs,
+    handlers: {
+      onGameUpdate,
+      onNavigate,
+      onSelectPlayer,
+      onSelectTeam,
+    },
+  } = viewModel;
+
   return (
     <>
       {/* End-of-season screen when all fixtures are complete */}
@@ -58,7 +57,7 @@ export default function DashboardTabContent({
       {activeTab === "Squad" && (
         <SquadTab
           gameState={gameState}
-          managerId={gameState.manager.id}
+          managerId={managerId}
           onSelectPlayer={onSelectPlayer}
           onGameUpdate={onGameUpdate}
         />

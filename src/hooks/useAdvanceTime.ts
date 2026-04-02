@@ -2,27 +2,12 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { GameStateData } from "../store/gameStore";
-
-export interface BlockerData {
-  id: string;
-  severity: string;
-  text: string;
-  tab: string;
-}
-
-export interface BlockerModal {
-  blockers: BlockerData[];
-  pendingAction?: () => void;
-}
-
-interface AdvanceTimeWithModeResponse {
-  action: string;
-  game?: GameStateData;
-  snapshot?: unknown;
-  fixture_index?: number;
-  mode?: string;
-  round_summary?: unknown;
-}
+import {
+  AdvanceTimeWithModeResponse,
+  BlockerModal,
+  checkBlockingActions,
+  SkipToMatchDayResponse,
+} from "./useAdvanceTime.helpers";
 
 export type MatchModeType = "live" | "spectator" | "delegate";
 
@@ -46,6 +31,16 @@ export function useAdvanceTime(
     }
   }, [settingsLoaded, defaultMatchMode]);
 
+  function resetTransientUi(options?: {
+    showContinueMenu?: boolean;
+    showMatchConfirm?: boolean;
+    blockerModal?: BlockerModal | null;
+  }): void {
+    setShowContinueMenu(options?.showContinueMenu ?? false);
+    setShowMatchConfirm(options?.showMatchConfirm ?? false);
+    setBlockerModal(options?.blockerModal ?? null);
+  }
+
   const doAdvance = async (effectiveMode: string) => {
     console.info("[useAdvanceTime] doAdvance:start", {
       effectiveMode,
@@ -53,9 +48,7 @@ export function useAdvanceTime(
       matchMode,
     });
     setIsAdvancing(true);
-    setShowContinueMenu(false);
-    setShowMatchConfirm(false);
-    setBlockerModal(null);
+    resetTransientUi();
     try {
       const result = await invoke<AdvanceTimeWithModeResponse>("advance_time_with_mode", { mode: effectiveMode });
       console.info("[useAdvanceTime] doAdvance:result", {
@@ -99,24 +92,14 @@ export function useAdvanceTime(
         effectiveMode,
       });
       if (mode) setMatchMode(mode as MatchModeType);
-      setShowContinueMenu(false);
-      setShowMatchConfirm(true);
+      resetTransientUi({ showMatchConfirm: true });
       return;
     }
     if (isAdvancing) return;
-    // Check for blocking actions before advancing
-    try {
-      const blockers = await invoke<BlockerData[]>("check_blocking_actions");
-      console.info("[useAdvanceTime] handleContinue:blockers", {
-        count: blockers.length,
-        blockers,
-      });
-      if (blockers.length > 0) {
-        setBlockerModal({ blockers, pendingAction: () => doAdvance(effectiveMode) });
-        return;
-      }
-    } catch (err) {
-      console.warn("[useAdvanceTime] handleContinue:blockerCheckFailed", err);
+    const blockers = await checkBlockingActions("handleContinue");
+    if (blockers.length > 0) {
+      setBlockerModal({ blockers, pendingAction: () => doAdvance(effectiveMode) });
+      return;
     }
     doAdvance(effectiveMode);
   };
@@ -129,19 +112,10 @@ export function useAdvanceTime(
   const handleSkipToMatchDay = async () => {
     if (isAdvancing) return;
     console.info("[useAdvanceTime] handleSkipToMatchDay:start");
-    // Check blockers before starting skip
-    try {
-      const blockers = await invoke<BlockerData[]>("check_blocking_actions");
-      console.info("[useAdvanceTime] handleSkipToMatchDay:blockers", {
-        count: blockers.length,
-        blockers,
-      });
-      if (blockers.length > 0) {
-        setBlockerModal({ blockers, pendingAction: doSkipToMatchDay });
-        return;
-      }
-    } catch (err) {
-      console.warn("[useAdvanceTime] handleSkipToMatchDay:blockerCheckFailed", err);
+    const blockers = await checkBlockingActions("handleSkipToMatchDay");
+    if (blockers.length > 0) {
+      setBlockerModal({ blockers, pendingAction: doSkipToMatchDay });
+      return;
     }
     doSkipToMatchDay();
   };
@@ -149,10 +123,9 @@ export function useAdvanceTime(
   const doSkipToMatchDay = async () => {
     console.info("[useAdvanceTime] doSkipToMatchDay:start");
     setIsAdvancing(true);
-    setShowContinueMenu(false);
-    setBlockerModal(null);
+    resetTransientUi();
     try {
-      const result = await invoke<{ action: string; game?: GameStateData; blockers?: BlockerData[]; days_skipped?: number }>("skip_to_match_day");
+      const result = await invoke<SkipToMatchDayResponse>("skip_to_match_day");
       console.info("[useAdvanceTime] doSkipToMatchDay:result", {
         action: result.action,
         daysSkipped: result.days_skipped,
