@@ -16,7 +16,9 @@
     "manager": "Entrenador: {{name}}",
     "deleteSave": "Eliminar partida",
     "noResults": "Sin resultados",
-    "importedDescription": "Base de datos de mundo importada"
+    "importedDescription": "Base de datos de mundo importada",
+    "invalidWorldDb": "Archivo de base de datos de mundo inválido: {{error}}",
+    "failedStartGame": "Error al iniciar el juego: {{error}}"
   },
   "createManager": {
     "title": "Crear Mánager",
@@ -521,6 +523,19 @@
     "staffAlert": "Alerta del Staff",
     "staffWarning": "Aviso del Staff",
     "staffSuggestion": "Sugerencia del Staff",
+    "staffAdvice": {
+      "critical": "¡Crisis de condición física! {{criticalCount}} jugador(es) en estado crítico. {{scheduleAdvice}}",
+      "warn": "El equipo está cansado (media {{avgCondition}}%, {{exhaustedCount}} por debajo del 40%). {{scheduleAdvice}}",
+      "ok": "La condición física del equipo es alta. Podrías cambiar a Equilibrado o Intenso para más desarrollo.",
+      "scheduleAdvice": {
+        "criticalIntense": "Cambia a un horario Equilibrado o Ligero inmediatamente.",
+        "criticalBalanced": "Considera un horario Ligero o enfoque en Recuperación.",
+        "criticalLight": "Establece el foco en Recuperación hasta que mejore la condición.",
+        "warnIntense": "Un horario Equilibrado daría más tiempo de recuperación.",
+        "warnBalanced": "Un horario Ligero podría ayudar al equipo a recuperarse.",
+        "warnLight": "El foco en Recuperación maximizaría la recuperación de la condición."
+      }
+    },
     "focuses": {
       "Physical": {
         "label": "Físico",

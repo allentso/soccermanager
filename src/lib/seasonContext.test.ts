@@ -172,4 +172,34 @@ describe("seasonContext", function (): void {
     expect(context.phase).toBe("Preseason");
     expect(context.season_start).toBe("2026-08-01");
   });
+
+  it("keeps the transfer window closed before the preseason opening threshold", function (): void {
+    const context = resolveSeasonContext(
+      createGameState({
+        clock: {
+          current_date: "2026-06-30T12:00:00Z",
+          start_date: "2026-06-01T12:00:00Z",
+        },
+      }),
+    );
+
+    expect(context.transfer_window.status).toBe("Closed");
+    expect(context.transfer_window.days_until_opens).toBe(2);
+    expect(context.transfer_window.opens_on).toBe("2026-07-02");
+    expect(context.transfer_window.closes_on).toBe("2026-08-31");
+  });
+
+  it("marks deadline day when the transfer window reaches its closing threshold", function (): void {
+    const context = resolveSeasonContext(
+      createGameState({
+        clock: {
+          current_date: "2026-08-31T12:00:00Z",
+          start_date: "2026-07-01T12:00:00Z",
+        },
+      }),
+    );
+
+    expect(context.transfer_window.status).toBe("DeadlineDay");
+    expect(context.transfer_window.days_remaining).toBe(0);
+  });
 });

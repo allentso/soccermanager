@@ -16,7 +16,9 @@
     "manager": "Allenatore: {{name}}",
     "deleteSave": "Elimina salvataggio",
     "noResults": "Nessun risultato",
-    "importedDescription": "Database del mondo importato"
+    "importedDescription": "Database del mondo importato",
+    "invalidWorldDb": "File di database del mondo non valido: {{error}}",
+    "failedStartGame": "Impossibile avviare il gioco: {{error}}"
   },
   "createManager": {
     "title": "Crea allenatore",
@@ -521,6 +523,19 @@
     "staffAlert": "Allerta staff",
     "staffWarning": "Avviso staff",
     "staffSuggestion": "Suggerimento staff",
+    "staffAdvice": {
+      "critical": "Crisi di forma fisica! {{criticalCount}} giocatore/i in condizioni critiche. {{scheduleAdvice}}",
+      "warn": "La squadra è stanca (media {{avgCondition}}%, {{exhaustedCount}} sotto il 40%). {{scheduleAdvice}}",
+      "ok": "La forma fisica della squadra è alta. Potresti passare a Bilanciato o Intenso per più sviluppo.",
+      "scheduleAdvice": {
+        "criticalIntense": "Passa immediatamente a un programma Bilanciato o Leggero.",
+        "criticalBalanced": "Considera un programma Leggero o il focus Recupero.",
+        "criticalLight": "Imposta il focus su Recupero finché la condizione non migliora.",
+        "warnIntense": "Un programma Bilanciato darebbe più tempo di recupero.",
+        "warnBalanced": "Un programma Leggero potrebbe aiutare la squadra a riprendersi.",
+        "warnLight": "Il focus Recupero massimizzerebbe il recupero della condizione."
+      }
+    },
     "focuses": {
       "Physical": {
         "label": "Fisico",

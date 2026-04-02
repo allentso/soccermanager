@@ -16,7 +16,9 @@
     "manager": "Treinador: {{name}}",
     "deleteSave": "Excluir save",
     "noResults": "Sem resultados",
-    "importedDescription": "Banco de dados importado"
+    "importedDescription": "Banco de dados importado",
+    "invalidWorldDb": "Arquivo de banco de dados de mundo inválido: {{error}}",
+    "failedStartGame": "Falha ao iniciar o jogo: {{error}}"
   },
   "createManager": {
     "title": "Criar Treinador",
@@ -521,6 +523,19 @@
     "staffAlert": "Alerta da Comissão",
     "staffWarning": "Aviso da Comissão",
     "staffSuggestion": "Sugestão da Comissão",
+    "staffAdvice": {
+      "critical": "Crise de condição física! {{criticalCount}} jogador(es) em estado crítico. {{scheduleAdvice}}",
+      "warn": "O elenco está cansado (média {{avgCondition}}%, {{exhaustedCount}} abaixo de 40%). {{scheduleAdvice}}",
+      "ok": "A condição física do elenco está alta. Você pode mudar para Equilibrado ou Intenso para mais desenvolvimento.",
+      "scheduleAdvice": {
+        "criticalIntense": "Mude para uma programação Equilibrada ou Leve imediatamente.",
+        "criticalBalanced": "Considere uma programação Leve ou foco em Recuperação.",
+        "criticalLight": "Defina o foco em Recuperação até a condição melhorar.",
+        "warnIntense": "Uma programação Equilibrada daria mais tempo de recuperação.",
+        "warnBalanced": "Uma programação Leve poderia ajudar o elenco a se recuperar.",
+        "warnLight": "O foco em Recuperação maximizaria a recuperação de condição."
+      }
+    },
     "focuses": {
       "Physical": {
         "label": "Físico",

@@ -160,25 +160,25 @@ export default function TrainingTab({
     if (criticalCount >= 3) {
       const scheduleAdvice =
         currentSchedule === "Intense"
-          ? "Switch to a Balanced or Light schedule immediately."
+          ? t("training.staffAdvice.scheduleAdvice.criticalIntense")
           : currentSchedule === "Balanced"
-            ? "Consider a Light schedule or Recovery focus."
-            : "Set focus to Recovery until fitness improves.";
+            ? t("training.staffAdvice.scheduleAdvice.criticalBalanced")
+            : t("training.staffAdvice.scheduleAdvice.criticalLight");
       return {
         level: "critical",
-        message: `Fitness crisis! ${criticalCount} players in critical condition. ${scheduleAdvice}`,
+        message: t("training.staffAdvice.critical", { criticalCount, scheduleAdvice }),
       };
     }
     if (avgCondition < 50 || exhaustedCount >= 4) {
       const scheduleAdvice =
         currentSchedule === "Intense"
-          ? "A Balanced schedule would give more recovery time."
+          ? t("training.staffAdvice.scheduleAdvice.warnIntense")
           : currentSchedule === "Balanced"
-            ? "A Light schedule could help the squad bounce back."
-            : "Recovery focus would maximise fitness recovery.";
+            ? t("training.staffAdvice.scheduleAdvice.warnBalanced")
+            : t("training.staffAdvice.scheduleAdvice.warnLight");
       return {
         level: "warn",
-        message: `Squad is tired (avg ${avgCondition}%, ${exhaustedCount} below 40%). ${scheduleAdvice}`,
+        message: t("training.staffAdvice.warn", { avgCondition, exhaustedCount, scheduleAdvice }),
       };
     }
     if (
@@ -188,8 +188,7 @@ export default function TrainingTab({
     ) {
       return {
         level: "ok",
-        message:
-          "Squad fitness is high. You could switch to Balanced or Intense for more development.",
+        message: t("training.staffAdvice.ok"),
       };
     }
     return null;
@@ -204,13 +203,12 @@ export default function TrainingTab({
         {/* Staff advice banner */}
         {staffAdvice && (
           <div
-            className={`flex items-start gap-3 p-4 rounded-xl border-2 ${
-              staffAdvice.level === "critical"
+            className={`flex items-start gap-3 p-4 rounded-xl border-2 ${staffAdvice.level === "critical"
                 ? "bg-red-50 dark:bg-red-500/10 border-red-300 dark:border-red-500/40"
                 : staffAdvice.level === "warn"
                   ? "bg-amber-50 dark:bg-amber-500/10 border-amber-300 dark:border-amber-500/40"
                   : "bg-blue-50 dark:bg-blue-500/10 border-blue-300 dark:border-blue-500/40"
-            }`}
+              }`}
           >
             {staffAdvice.level === "critical" ? (
               <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
@@ -221,13 +219,12 @@ export default function TrainingTab({
             )}
             <div>
               <p
-                className={`text-xs font-heading font-bold uppercase tracking-wider mb-0.5 ${
-                  staffAdvice.level === "critical"
+                className={`text-xs font-heading font-bold uppercase tracking-wider mb-0.5 ${staffAdvice.level === "critical"
                     ? "text-red-600 dark:text-red-400"
                     : staffAdvice.level === "warn"
                       ? "text-amber-600 dark:text-amber-400"
                       : "text-blue-600 dark:text-blue-400"
-                }`}
+                  }`}
               >
                 {staffAdvice.level === "critical"
                   ? t("training.staffAlert")
@@ -252,11 +249,10 @@ export default function TrainingTab({
                   key={sId}
                   disabled={isSaving}
                   onClick={() => handleSetSchedule(sId)}
-                  className={`flex-1 p-3 rounded-xl text-left transition-all border-2 ${
-                    currentSchedule === sId
+                  className={`flex-1 p-3 rounded-xl text-left transition-all border-2 ${currentSchedule === sId
                       ? "border-primary-500 bg-primary-50 dark:bg-primary-500/10 shadow-md shadow-primary-500/10"
                       : "border-gray-200 dark:border-navy-600 hover:border-gray-300 dark:hover:border-navy-500"
-                  } ${isSaving ? "opacity-60 pointer-events-none" : ""}`}
+                    } ${isSaving ? "opacity-60 pointer-events-none" : ""}`}
                 >
                   <div className={`mb-1.5 ${SCHEDULE_COLORS[sId]}`}>
                     {SCHEDULE_ICONS[sId]}
@@ -279,15 +275,13 @@ export default function TrainingTab({
                 return (
                   <div
                     key={dayKey}
-                    className={`text-center py-2 rounded-lg transition-all ${
-                      isToday
+                    className={`text-center py-2 rounded-lg transition-all ${isToday
                         ? "ring-2 ring-accent-400 dark:ring-accent-500"
                         : ""
-                    } ${
-                      isTraining
+                      } ${isTraining
                         ? "bg-primary-100 dark:bg-primary-500/15 text-primary-700 dark:text-primary-300"
                         : "bg-gray-50 dark:bg-navy-700/50 text-gray-400 dark:text-gray-500"
-                    }`}
+                      }`}
                   >
                     <p className="text-[10px] font-heading font-bold uppercase tracking-wider mb-0.5">
                       {t(`training.days.${dayKey}`)}
@@ -326,11 +320,10 @@ export default function TrainingTab({
                   key={fId}
                   disabled={isSaving}
                   onClick={() => handleSetTraining(fId, currentIntensity)}
-                  className={`p-4 rounded-xl text-left transition-all border-2 ${
-                    currentFocus === fId
+                  className={`p-4 rounded-xl text-left transition-all border-2 ${currentFocus === fId
                       ? "border-primary-500 bg-primary-50 dark:bg-primary-500/10 shadow-md shadow-primary-500/10"
                       : "border-gray-200 dark:border-navy-600 hover:border-gray-300 dark:hover:border-navy-500"
-                  } ${isSaving ? "opacity-60 pointer-events-none" : ""}`}
+                    } ${isSaving ? "opacity-60 pointer-events-none" : ""}`}
                 >
                   <div className="mb-2 text-gray-600 dark:text-gray-300">
                     {TRAINING_FOCUS_ICONS[fId]}
@@ -371,11 +364,10 @@ export default function TrainingTab({
                     key={iId}
                     disabled={isSaving}
                     onClick={() => handleSetTraining(currentFocus, iId)}
-                    className={`flex-1 p-3 rounded-lg text-left transition-all border-2 ${
-                      currentIntensity === iId
+                    className={`flex-1 p-3 rounded-lg text-left transition-all border-2 ${currentIntensity === iId
                         ? "border-primary-500 bg-primary-50 dark:bg-primary-500/10"
                         : "border-gray-200 dark:border-navy-600 hover:border-gray-300 dark:hover:border-navy-500"
-                    } ${isSaving ? "opacity-60 pointer-events-none" : ""}`}
+                      } ${isSaving ? "opacity-60 pointer-events-none" : ""}`}
                   >
                     <p
                       className={`font-heading font-bold text-sm uppercase tracking-wider ${INTENSITY_COLORS[iId]}`}
@@ -487,13 +479,12 @@ export default function TrainingTab({
                 .map((p) => (
                   <div key={p.id} className="flex items-center px-4 py-2 gap-3">
                     <span
-                      className={`text-sm font-medium flex-1 truncate ${
-                        p.condition < 25
+                      className={`text-sm font-medium flex-1 truncate ${p.condition < 25
                           ? "text-red-600 dark:text-red-400"
                           : p.condition < 40
                             ? "text-amber-600 dark:text-amber-400"
                             : "text-gray-800 dark:text-gray-200"
-                      }`}
+                        }`}
                     >
                       {p.match_name}
                     </span>

@@ -16,7 +16,9 @@
     "manager": "Manager: {{name}}",
     "deleteSave": "Delete save",
     "noResults": "No results",
-    "importedDescription": "Imported world database"
+    "importedDescription": "Imported world database",
+    "invalidWorldDb": "Invalid world database file: {{error}}",
+    "failedStartGame": "Failed to start game: {{error}}"
   },
   "createManager": {
     "title": "Create Manager",
@@ -521,6 +523,19 @@
     "staffAlert": "Staff Alert",
     "staffWarning": "Staff Warning",
     "staffSuggestion": "Staff Suggestion",
+    "staffAdvice": {
+      "critical": "Fitness crisis! {{criticalCount}} player(s) in critical condition. {{scheduleAdvice}}",
+      "warn": "Squad is tired (avg {{avgCondition}}%, {{exhaustedCount}} below 40%). {{scheduleAdvice}}",
+      "ok": "Squad fitness is high. You could switch to Balanced or Intense for more development.",
+      "scheduleAdvice": {
+        "criticalIntense": "Switch to a Balanced or Light schedule immediately.",
+        "criticalBalanced": "Consider a Light schedule or Recovery focus.",
+        "criticalLight": "Set focus to Recovery until fitness improves.",
+        "warnIntense": "A Balanced schedule would give more recovery time.",
+        "warnBalanced": "A Light schedule could help the squad bounce back.",
+        "warnLight": "Recovery focus would maximise fitness recovery."
+      }
+    },
     "focuses": {
       "Physical": {
         "label": "Physical",

@@ -131,7 +131,7 @@ export default function MainMenu() {
       const today = new Date();
       const age = Math.floor(
         (today.getTime() - birthDate.getTime()) /
-          (365.25 * 24 * 60 * 60 * 1000),
+        (365.25 * 24 * 60 * 60 * 1000),
       );
       if (isNaN(age)) {
         errors.dob = t("validation.invalidDate");
@@ -236,7 +236,7 @@ export default function MainMenu() {
         });
         setSelectedWorldId(info.id);
       } catch (err) {
-        alert("Invalid world database file: " + String(err));
+        alert(t("menu.invalidWorldDb", { error: String(err) }));
       }
     };
     reader.readAsText(file);
@@ -286,7 +286,7 @@ export default function MainMenu() {
       navigate("/select-team");
     } catch (error) {
       console.error("Failed to start game:", error);
-      alert("Failed to start game: " + String(error));
+      alert(t("menu.failedStartGame", { error: String(error) }));
     } finally {
       setIsStarting(false);
     }
@@ -463,11 +463,10 @@ export default function MainMenu() {
                   </label>
                   <input
                     maxLength={30}
-                    className={`w-full bg-gray-50 dark:bg-navy-900 border text-gray-900 dark:text-white rounded-lg p-3 outline-none focus:ring-2 transition-all placeholder:text-gray-400 dark:placeholder:text-gray-500 ${
-                      formErrors.firstName
+                    className={`w-full bg-gray-50 dark:bg-navy-900 border text-gray-900 dark:text-white rounded-lg p-3 outline-none focus:ring-2 transition-all placeholder:text-gray-400 dark:placeholder:text-gray-500 ${formErrors.firstName
                         ? "border-red-400 dark:border-red-500 focus:border-red-500 focus:ring-red-500/20"
                         : "border-gray-300 dark:border-navy-600 focus:border-primary-500 focus:ring-primary-500/20"
-                    }`}
+                      }`}
                     placeholder={t("createManager.placeholderFirst")}
                     value={formData.firstName}
                     onChange={(e) => {
@@ -491,11 +490,10 @@ export default function MainMenu() {
                   </label>
                   <input
                     maxLength={30}
-                    className={`w-full bg-gray-50 dark:bg-navy-900 border text-gray-900 dark:text-white rounded-lg p-3 outline-none focus:ring-2 transition-all placeholder:text-gray-400 dark:placeholder:text-gray-500 ${
-                      formErrors.lastName
+                    className={`w-full bg-gray-50 dark:bg-navy-900 border text-gray-900 dark:text-white rounded-lg p-3 outline-none focus:ring-2 transition-all placeholder:text-gray-400 dark:placeholder:text-gray-500 ${formErrors.lastName
                         ? "border-red-400 dark:border-red-500 focus:border-red-500 focus:ring-red-500/20"
                         : "border-gray-300 dark:border-navy-600 focus:border-primary-500 focus:ring-primary-500/20"
-                    }`}
+                      }`}
                     placeholder={t("createManager.placeholderLast")}
                     value={formData.lastName}
                     onChange={(e) => {
@@ -564,13 +562,12 @@ export default function MainMenu() {
                         toggleNationalityDropdown();
                       }
                     }}
-                    className={`w-full flex items-center justify-between bg-gray-50 dark:bg-navy-900 border text-left rounded-lg p-3 outline-none transition-all ${
-                      formErrors.nationality
+                    className={`w-full flex items-center justify-between bg-gray-50 dark:bg-navy-900 border text-left rounded-lg p-3 outline-none transition-all ${formErrors.nationality
                         ? "border-red-400 dark:border-red-500"
                         : nationalityOpen
                           ? "border-primary-500 ring-2 ring-primary-500/20"
                           : "border-gray-300 dark:border-navy-600"
-                    }`}
+                      }`}
                   >
                     <span
                       className={
@@ -649,11 +646,10 @@ export default function MainMenu() {
                                   nationality: "",
                                 }));
                               }}
-                              className={`w-full text-left px-3 py-2 text-sm flex items-center justify-between transition-colors ${
-                                formData.nationality === nat.code
+                              className={`w-full text-left px-3 py-2 text-sm flex items-center justify-between transition-colors ${formData.nationality === nat.code
                                   ? "bg-primary-50 dark:bg-primary-500/10 text-primary-600 dark:text-primary-400"
                                   : "text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-navy-600"
-                              }`}
+                                }`}
                             >
                               <div className="flex items-center gap-2">
                                 <CountryFlag

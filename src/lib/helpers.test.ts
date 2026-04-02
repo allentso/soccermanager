@@ -4,6 +4,7 @@ import {
   getTeamShort,
   expectedFixtureCount,
   findNextFixture,
+  getContractRiskLevel,
   hasFullLeagueSchedule,
   getLocale,
   isSeasonComplete,
@@ -315,6 +316,20 @@ describe("calcAge", () => {
   it("calculates age relative to 2026", () => {
     expect(calcAge("1996-01-15")).toBe(30);
     expect(calcAge("2000-06-01")).toBe(26);
+  });
+});
+
+describe("getContractRiskLevel", () => {
+  it("marks contracts expiring within 180 days as critical", () => {
+    expect(getContractRiskLevel("2026-12-28", "2026-07-01")).toBe("critical");
+  });
+
+  it("marks contracts expiring within 365 days as warning", () => {
+    expect(getContractRiskLevel("2027-06-30", "2026-07-01")).toBe("warning");
+  });
+
+  it("marks longer contracts as stable", () => {
+    expect(getContractRiskLevel("2027-07-02", "2026-07-01")).toBe("stable");
   });
 });
 

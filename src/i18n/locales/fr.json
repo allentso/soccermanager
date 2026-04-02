@@ -16,7 +16,9 @@
     "manager": "Entraîneur : {{name}}",
     "deleteSave": "Supprimer la sauvegarde",
     "noResults": "Aucun résultat",
-    "importedDescription": "Base de données de monde importée"
+    "importedDescription": "Base de données de monde importée",
+    "invalidWorldDb": "Fichier de base de données de monde invalide : {{error}}",
+    "failedStartGame": "Échec du démarrage du jeu : {{error}}"
   },
   "createManager": {
     "title": "Créer un Entraîneur",
@@ -521,6 +523,19 @@
     "staffAlert": "Alerte du Staff",
     "staffWarning": "Avertissement du Staff",
     "staffSuggestion": "Suggestion du Staff",
+    "staffAdvice": {
+      "critical": "Crise de condition physique ! {{criticalCount}} joueur(s) en état critique. {{scheduleAdvice}}",
+      "warn": "L'équipe est fatiguée (moy. {{avgCondition}}%, {{exhaustedCount}} en dessous de 40%). {{scheduleAdvice}}",
+      "ok": "La condition physique de l'équipe est bonne. Vous pourriez passer à Équilibré ou Intensif pour plus de développement.",
+      "scheduleAdvice": {
+        "criticalIntense": "Passez immédiatement à un programme Équilibré ou Léger.",
+        "criticalBalanced": "Envisagez un programme Léger ou un focus Récupération.",
+        "criticalLight": "Définissez le focus sur Récupération jusqu'à amélioration de la condition.",
+        "warnIntense": "Un programme Équilibré donnerait plus de temps de récupération.",
+        "warnBalanced": "Un programme Léger pourrait aider l'équipe à rebondir.",
+        "warnLight": "Le focus Récupération maximiserait la récupération de condition."
+      }
+    },
     "focuses": {
       "Physical": {
         "label": "Physique",

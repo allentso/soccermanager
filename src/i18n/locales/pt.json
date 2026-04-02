@@ -16,7 +16,9 @@
     "manager": "Treinador: {{name}}",
     "deleteSave": "Eliminar jogo",
     "noResults": "Sem resultados",
-    "importedDescription": "Base de dados de mundo importada"
+    "importedDescription": "Base de dados de mundo importada",
+    "invalidWorldDb": "Ficheiro de base de dados de mundo inválido: {{error}}",
+    "failedStartGame": "Falha ao iniciar o jogo: {{error}}"
   },
   "createManager": {
     "title": "Criar Treinador",
@@ -521,6 +523,19 @@
     "staffAlert": "Alerta do Staff",
     "staffWarning": "Aviso do Staff",
     "staffSuggestion": "Sugestão do Staff",
+    "staffAdvice": {
+      "critical": "Crise de condição física! {{criticalCount}} jogador(es) em estado crítico. {{scheduleAdvice}}",
+      "warn": "O plantel está cansado (média {{avgCondition}}%, {{exhaustedCount}} abaixo de 40%). {{scheduleAdvice}}",
+      "ok": "A condição física do plantel está alta. Podes mudar para Equilibrado ou Intenso para mais desenvolvimento.",
+      "scheduleAdvice": {
+        "criticalIntense": "Muda para um horário Equilibrado ou Leve imediatamente.",
+        "criticalBalanced": "Considera um horário Leve ou foco em Recuperação.",
+        "criticalLight": "Define o foco em Recuperação até a condição melhorar.",
+        "warnIntense": "Um horário Equilibrado daria mais tempo de recuperação.",
+        "warnBalanced": "Um horário Leve poderia ajudar o plantel a recuperar.",
+        "warnLight": "O foco em Recuperação maximizaria a recuperação de condição."
+      }
+    },
     "focuses": {
       "Physical": {
         "label": "Físico",

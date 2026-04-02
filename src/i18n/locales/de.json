@@ -16,7 +16,9 @@
     "manager": "Trainer: {{name}}",
     "deleteSave": "Spielstand löschen",
     "noResults": "Keine Ergebnisse",
-    "importedDescription": "Importierte Weltdatenbank"
+    "importedDescription": "Importierte Weltdatenbank",
+    "invalidWorldDb": "Ungültige Welt-Datenbankdatei: {{error}}",
+    "failedStartGame": "Spiel konnte nicht gestartet werden: {{error}}"
   },
   "createManager": {
     "title": "Manager erstellen",
@@ -521,6 +523,19 @@
     "staffAlert": "Staff-Alarm",
     "staffWarning": "Staff-Warnung",
     "staffSuggestion": "Staff-Vorschlag",
+    "staffAdvice": {
+      "critical": "Fitnesskrisis! {{criticalCount}} Spieler in kritischem Zustand. {{scheduleAdvice}}",
+      "warn": "Das Team ist müde (Durchschn. {{avgCondition}}%, {{exhaustedCount}} unter 40%). {{scheduleAdvice}}",
+      "ok": "Die Teamfitness ist hoch. Du könntest zu Ausgewogen oder Intensiv wechseln, um mehr Entwicklung zu fördern.",
+      "scheduleAdvice": {
+        "criticalIntense": "Wechsle sofort zu einem Ausgewogenen oder Leichten Zeitplan.",
+        "criticalBalanced": "Erwäge einen Leichten Zeitplan oder den Fokus Erholung.",
+        "criticalLight": "Setze den Fokus auf Erholung, bis sich die Fitness verbessert.",
+        "warnIntense": "Ein Ausgewogener Zeitplan würde mehr Erholungszeit geben.",
+        "warnBalanced": "Ein Leichter Zeitplan könnte dem Team helfen, sich zu erholen.",
+        "warnLight": "Erholungsfokus würde die Fitness-Erholung maximieren."
+      }
+    },
     "focuses": {
       "Physical": {
         "label": "Physisch",
