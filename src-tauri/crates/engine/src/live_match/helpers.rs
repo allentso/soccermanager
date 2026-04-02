@@ -1,6 +1,6 @@
 use rand::Rng;
 
-use crate::shared::{PlayStylePhase, PlayerSnap, home_mod, play_style_modifier};
+use crate::shared::{home_mod, play_style_modifier, PlayStylePhase, PlayerSnap};
 use crate::types::{PlayerData, Position, Side, TeamData};
 
 use super::{LiveMatchState, SetPieceTakers};
@@ -19,7 +19,7 @@ impl LiveMatchState {
             }
             let stamina_factor = p.stamina as f64 / 100.0;
             // Higher stamina → less depletion per minute
-            let depletion = fatigue_rate * (1.0 - stamina_factor * 0.6);
+            let depletion = fatigue_rate * (1.0 - stamina_factor * 0.5);
             if let Some(cond) = self.player_conditions.get_mut(&p.id) {
                 *cond = (*cond - depletion).max(5.0);
             }

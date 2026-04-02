@@ -16,6 +16,10 @@ import {
   getContractYearsRemaining,
   positionBadgeVariant,
 } from "../lib/helpers";
+import {
+  annualAmountToWeeklyCommitment,
+  getTeamFinanceSnapshot,
+} from "../lib/finance";
 import { useTranslation } from "react-i18next";
 import ContextMenu from "./ContextMenu";
 import { translatePositionAbbreviation } from "./SquadTab.helpers";
@@ -131,19 +135,19 @@ export default function FinancesTab({
   );
 
   const roster = gameState.players.filter((p) => p.team_id === myTeam.id);
-  const totalWages = roster.reduce((s, p) => s + p.wage, 0);
+  const teamStaff = gameState.staff.filter(
+    (staffMember) => staffMember.team_id === myTeam.id,
+  );
+  const financeSnapshot = getTeamFinanceSnapshot(myTeam, roster, teamStaff);
+  const totalWages = financeSnapshot.weeklyWageSpend;
   const totalValue = roster.reduce((s, p) => s + p.market_value, 0);
   const facilities = myTeam.facilities ?? DEFAULT_FACILITIES;
   const activeSponsorship = myTeam.sponsorship ?? null;
-  const weeklySponsorIncome = activeSponsorship?.base_value ?? 0;
-  const projectedWeeklyNet = weeklySponsorIncome - totalWages;
-  const cashRunwayWeeks =
-    projectedWeeklyNet < 0
-      ? Math.max(0, Math.floor(myTeam.finance / Math.abs(projectedWeeklyNet)))
-      : null;
-  const wageBudgetUsagePercent = Math.round(
-    (totalWages / Math.max(1, myTeam.wage_budget)) * 100,
-  );
+  const weeklySponsorIncome = financeSnapshot.weeklySponsorIncome;
+  const projectedWeeklyNet = financeSnapshot.projectedWeeklyNet;
+  const cashRunwayWeeks = financeSnapshot.cashRunwayWeeks;
+  const wageBudgetUsagePercent = financeSnapshot.wageBudgetUsagePercent;
+  const weeklyWageBudget = financeSnapshot.weeklyWageBudget;
   const sponsorOffers = gameState.messages
     .filter(isPendingSponsorOffer)
     .map(resolveMessage);
@@ -168,7 +172,7 @@ export default function FinancesTab({
       return leftDate.localeCompare(rightDate);
     });
   const atRiskWages = contractRiskPlayers.reduce(
-    (sum, { player }) => sum + player.wage,
+    (sum, { player }) => sum + annualAmountToWeeklyCommitment(player.wage),
     0,
   );
   const selectedRiskPlayers = contractRiskPlayers.filter(({ player }) =>
@@ -355,9 +359,9 @@ export default function FinancesTab({
             </p>
             <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
               {t("finances.budget")}:{" "}
-              {formatWeeklyAmount(formatVal(myTeam.wage_budget), weeklySuffix)}{" "}
+              {formatWeeklyAmount(formatVal(weeklyWageBudget), weeklySuffix)}{" "}
               —{" "}
-              {totalWages <= myTeam.wage_budget ? (
+              {totalWages <= weeklyWageBudget ? (
                 <span className="text-primary-500">
                   {t("finances.underBudget")}
                 </span>
@@ -369,9 +373,9 @@ export default function FinancesTab({
           <ProgressBar
             value={Math.min(
               100,
-              Math.round((totalWages / Math.max(1, myTeam.wage_budget)) * 100),
+              Math.round((totalWages / Math.max(1, weeklyWageBudget)) * 100),
             )}
-            variant={totalWages <= myTeam.wage_budget ? "success" : "danger"}
+            variant={totalWages <= weeklyWageBudget ? "success" : "danger"}
             size="md"
             showLabel
           />
@@ -447,7 +451,7 @@ export default function FinancesTab({
               <ProgressBar
                 value={Math.min(100, wageBudgetUsagePercent)}
                 variant={
-                  totalWages <= myTeam.wage_budget ? "success" : "danger"
+                  totalWages <= weeklyWageBudget ? "success" : "danger"
                 }
                 size="md"
                 showLabel
@@ -535,7 +539,7 @@ export default function FinancesTab({
                             : t("finances.contractRiskWarning")}
                         </Badge>
                         <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">
-                          €{player.wage.toLocaleString()}/wk
+                          €{annualAmountToWeeklyCommitment(player.wage).toLocaleString()}/wk
                         </span>
                         {onSelectPlayer ? (
                           <Button
@@ -789,7 +793,7 @@ export default function FinancesTab({
                           </Badge>
                         </td>
                         <td className="py-3 px-5 text-sm font-medium text-gray-700 dark:text-gray-300">
-                          €{p.wage.toLocaleString()}
+                          €{annualAmountToWeeklyCommitment(p.wage).toLocaleString()}
                         </td>
                         <td className="py-3 px-5 text-sm text-gray-600 dark:text-gray-400">
                           {formatVal(p.market_value)}

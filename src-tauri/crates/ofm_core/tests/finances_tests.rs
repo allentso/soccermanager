@@ -122,6 +122,21 @@ fn calc_wages_sums_player_and_staff_wages_for_a_team() {
 }
 
 #[test]
+fn calc_annual_wages_sums_full_contract_values_for_a_team() {
+    let game = make_monday_game();
+
+    let annual_wages = finances::calc_annual_wages(&game, "team1");
+
+    assert_eq!(annual_wages, 88_400);
+}
+
+#[test]
+fn calc_cash_runway_weeks_uses_projected_weekly_net() {
+    assert_eq!(finances::calc_cash_runway_weeks(180_000, -30_000), Some(6));
+    assert_eq!(finances::calc_cash_runway_weeks(180_000, 5_000), None);
+}
+
+#[test]
 fn calc_matchday_uses_explicit_attendance_and_ticket_inputs() {
     let revenue = finances::calc_matchday(40_000, 2, 0.75, 20.0);
 
@@ -312,6 +327,30 @@ fn warning_when_low_runway() {
         .collect();
     // After deducting wages (1700), finance=1700, weeks_left=1700/1700=1 → < 4
     assert_eq!(warning_msgs.len(), 1, "Should send low reserves warning");
+}
+
+#[test]
+fn sponsorship_income_prevents_false_low_runway_warning() {
+    let mut game = make_monday_game();
+    game.teams[0].finance = 3_400;
+    game.teams[0].sponsorship = Some(Sponsorship {
+        sponsor_name: "Acme Corp".to_string(),
+        base_value: 2_000,
+        remaining_weeks: 8,
+        bonus_criteria: vec![],
+    });
+
+    finances::process_weekly_finances(&mut game);
+
+    let warning_msgs: Vec<_> = game
+        .messages
+        .iter()
+        .filter(|m| m.id.starts_with("finance_warning_"))
+        .collect();
+    assert!(
+        warning_msgs.is_empty(),
+        "Positive sponsorship support should avoid a false runway warning"
+    );
 }
 
 #[test]

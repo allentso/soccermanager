@@ -4,6 +4,8 @@ import type {
   PlayerData,
   TeamData,
 } from "../../store/gameStore";
+import { formatVal } from "../../lib/helpers";
+import { getTeamFinanceSnapshot } from "../../lib/finance";
 import { buildStartingXIIds } from "../SquadTab.helpers";
 
 export interface DashboardAlert {
@@ -115,6 +117,12 @@ export function getDashboardAlerts(
   const roster = myTeam
     ? gameState.players.filter((player) => player.team_id === myTeam.id)
     : [];
+  const teamStaff = myTeam
+    ? gameState.staff.filter((staffMember) => staffMember.team_id === myTeam.id)
+    : [];
+  const financeSnapshot = myTeam
+    ? getTeamFinanceSnapshot(myTeam, roster, teamStaff)
+    : null;
   const exhaustedCount = roster.filter((player) => player.condition < 25).length;
   const urgentUnreadCount = gameState.messages.filter((message) => {
     return !message.read && message.priority === "Urgent";
@@ -173,6 +181,47 @@ export function getDashboardAlerts(
       tab: "Inbox",
       severity: "warn",
     });
+  }
+
+  if (myTeam && financeSnapshot) {
+    if (myTeam.finance < 0 || financeSnapshot.runwayStatus === "critical") {
+      alerts.push({
+        id: "finance_crisis",
+        text: t("dashboard.alerts.financeCrisis", {
+          balance: formatVal(myTeam.finance),
+          weeks: financeSnapshot.cashRunwayWeeks ?? 0,
+          defaultValue:
+            "Finances critical — balance {{balance}}, runway {{weeks}} week(s)",
+        }),
+        tab: "Finances",
+        severity: "warn",
+      });
+    } else if (financeSnapshot.runwayStatus === "warning") {
+      alerts.push({
+        id: "finance_runway",
+        text: t("dashboard.alerts.financeRunway", {
+          count: financeSnapshot.cashRunwayWeeks,
+          defaultValue: "Cash runway down to {{count}} week(s)",
+        }),
+        tab: "Finances",
+        severity: "warn",
+      });
+    }
+
+    if (
+      financeSnapshot.wageBudgetStatus === "warning" ||
+      financeSnapshot.wageBudgetStatus === "critical"
+    ) {
+      alerts.push({
+        id: "wage_pressure",
+        text: t("dashboard.alerts.wagePressure", {
+          percent: financeSnapshot.wageBudgetUsagePercent,
+          defaultValue: "Wage bill at {{percent}}% of budget",
+        }),
+        tab: "Finances",
+        severity: "warn",
+      });
+    }
   }
 
   if (hasMatchToday && savedStartingXi.length > 0 && healthyXiCount < 11) {

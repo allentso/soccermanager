@@ -491,7 +491,7 @@ fn deplete_match_stamina(game: &mut Game, team_id: &str) {
     for player in game.players.iter_mut() {
         if player.team_id.as_deref() == Some(team_id) {
             let stamina_factor = player.attributes.stamina as f64 / 100.0;
-            let depletion = (25.0 * (1.0 - stamina_factor * 0.5)) as u8;
+            let depletion = (40.0 * (1.0 - stamina_factor * 0.4)) as u8;
             player.condition = player.condition.saturating_sub(depletion);
         }
     }

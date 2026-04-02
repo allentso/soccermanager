@@ -32,6 +32,32 @@ pub fn calc_wages(game: &Game, team_id: &str) -> i64 {
     player_wages + staff_wages
 }
 
+pub fn calc_annual_wages(game: &Game, team_id: &str) -> i64 {
+    let player_wages: i64 = game
+        .players
+        .iter()
+        .filter(|player| player.team_id.as_deref() == Some(team_id))
+        .map(|player| player.wage as i64)
+        .sum();
+
+    let staff_wages: i64 = game
+        .staff
+        .iter()
+        .filter(|staff_member| staff_member.team_id.as_deref() == Some(team_id))
+        .map(|staff_member| staff_member.wage as i64)
+        .sum();
+
+    player_wages + staff_wages
+}
+
+pub fn calc_cash_runway_weeks(balance: i64, projected_weekly_net: i64) -> Option<i64> {
+    if projected_weekly_net >= 0 {
+        return None;
+    }
+
+    Some(std::cmp::max(0, balance / projected_weekly_net.abs()))
+}
+
 pub fn calc_matchday(
     stadium_capacity: u32,
     home_match_count: i64,
@@ -240,26 +266,11 @@ fn generate_financial_warnings(game: &mut Game, today: &str) {
 
     let mut new_messages: Vec<InboxMessage> = Vec::new();
 
-    // Calculate weekly wage bill
-    let weekly_wages: i64 = game
-        .players
-        .iter()
-        .filter(|p| p.team_id.as_deref() == Some(&user_team_id))
-        .map(|p| p.wage as i64 / 52)
-        .sum::<i64>()
-        + game
-            .staff
-            .iter()
-            .filter(|s| s.team_id.as_deref() == Some(&user_team_id))
-            .map(|s| s.wage as i64 / 52)
-            .sum::<i64>();
-
-    // Weeks of runway
-    let weeks_left = if weekly_wages > 0 {
-        team.finance / weekly_wages
-    } else {
-        999
-    };
+    let weekly_wages = calc_wages(game, &user_team_id);
+    let annual_wages = calc_annual_wages(game, &user_team_id);
+    let weekly_sponsorship_income = team.sponsorship.as_ref().map(|s| s.base_value).unwrap_or(0);
+    let projected_weekly_net = weekly_sponsorship_income - weekly_wages;
+    let weeks_left = calc_cash_runway_weeks(team.finance, projected_weekly_net).unwrap_or(999);
 
     // Critical: finances negative
     if team.finance < 0 {
@@ -334,10 +345,9 @@ fn generate_financial_warnings(game: &mut Game, today: &str) {
         }
     }
     // Over budget warning: wages exceed budget
-    else if weekly_wages * 52 > team.wage_budget {
+    else if annual_wages > team.wage_budget {
         let msg_id = format!("wage_over_budget_{}", today);
         if !existing_ids.contains(&msg_id) {
-            let annual_wages = weekly_wages * 52;
             new_messages.push(
                 InboxMessage::new(
                     msg_id,

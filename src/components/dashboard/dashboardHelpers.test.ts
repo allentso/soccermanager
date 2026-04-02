@@ -297,6 +297,26 @@ describe("dashboardHelpers", function (): void {
     expect(alertIds).toContain("matchxi");
   });
 
+  it("builds dashboard alerts for finance pressure", function (): void {
+    const team = createTeam({
+      finance: 25000,
+      wage_budget: 500000,
+    });
+    const gameState = createGameState({
+      teams: [team],
+      players: [
+        createPlayer({ id: "p1", wage: 300000 }),
+        createPlayer({ id: "p2", wage: 300000 }),
+      ],
+    });
+
+    const alerts = getDashboardAlerts(gameState, false, translateDashboardAlert);
+    const alertIds = alerts.map((alert) => alert.id);
+
+    expect(alertIds).toContain("finance_crisis");
+    expect(alertIds).toContain("wage_pressure");
+  });
+
   it("does not warn about an incomplete Starting XI when a healthy roster can normalize a partial saved lineup", function (): void {
     const roster = [
       createPlayer({ id: "p1", position: "Goalkeeper", natural_position: "Goalkeeper" }),
