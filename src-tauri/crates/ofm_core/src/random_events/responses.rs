@@ -45,7 +45,10 @@ pub fn apply_event_response(
                         a.resolved = true;
                     }
                 }
-                Some(format!("Sponsorship accepted! +€{}", format_money(amount)))
+                Some(format!(
+                    "Sponsorship deal signed! You will receive €{}/week for 12 weeks.",
+                    format_money(amount)
+                ))
             }
             "decline" => {
                 if let Some(msg) = game.messages.iter_mut().find(|m| m.id == message_id) {

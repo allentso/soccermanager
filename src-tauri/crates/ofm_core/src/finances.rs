@@ -203,12 +203,12 @@ pub fn process_weekly_finances(game: &mut Game) {
         if sponsorship_income > 0 {
             team.finance += sponsorship_income;
             team.season_income += sponsorship_income;
+        }
 
-            if let Some(sponsorship) = team.sponsorship.as_mut() {
-                sponsorship.remaining_weeks = sponsorship.remaining_weeks.saturating_sub(1);
-                if sponsorship.remaining_weeks == 0 {
-                    team.sponsorship = None;
-                }
+        if let Some(sponsorship) = team.sponsorship.as_mut() {
+            sponsorship.remaining_weeks = sponsorship.remaining_weeks.saturating_sub(1);
+            if sponsorship.remaining_weeks == 0 {
+                team.sponsorship = None;
             }
         }
     }

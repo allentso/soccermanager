@@ -33,9 +33,11 @@ pub fn has_full_schedule(league: &League) -> bool {
 /// standing entry records a played match. Used as a guard to prevent premature
 /// end-of-season processing for a season that has not yet kicked off.
 pub fn season_has_started(league: &League) -> bool {
-    league.fixtures.iter().any(|f| {
-        f.counts_for_league_standings() && f.status == FixtureStatus::Completed
-    }) || league.standings.iter().any(|e| e.played > 0)
+    league
+        .fixtures
+        .iter()
+        .any(|f| f.counts_for_league_standings() && f.status == FixtureStatus::Completed)
+        || league.standings.iter().any(|e| e.played > 0)
 }
 
 pub fn is_league_complete(league: &League) -> bool {
@@ -186,7 +188,7 @@ pub fn process_end_of_season(game: &mut Game) -> EndOfSeasonSummary {
                 team.finance += prize_money;
                 team.season_income += prize_money;
                 team.financial_ledger.push(FinancialTransaction {
-                    date: today.clone(),
+                    date: last_fixture_date.clone(),
                     description: format!(
                         "Season {} prize money for {}{} place",
                         season,
