@@ -52,7 +52,11 @@ fn compute_coaching_bonus(game: &Game, team_id: &str, focus: &TrainingFocus) -> 
         let has_specialist = coaching_staff
             .iter()
             .any(|s| s.specialization.as_ref() == Some(&target_spec));
-        if has_specialist { 1.25 } else { 1.0 }
+        if has_specialist {
+            1.25
+        } else {
+            1.0
+        }
     } else {
         1.0
     };
@@ -164,11 +168,11 @@ pub fn process_training(game: &mut Game, weekday_num: u32) {
 
             // Recovery amount: rest days get boosted recovery (like Recovery focus)
             let recovery_base: f64 = if !is_training_day {
-                10.0 * plan.bonus.physio_mult * plan.medical_facility_mult
+                7.0 * plan.bonus.physio_mult * plan.medical_facility_mult
             } else {
                 match player_focus {
                     TrainingFocus::Recovery => {
-                        12.0 * plan.bonus.physio_mult * plan.medical_facility_mult
+                        9.0 * plan.bonus.physio_mult * plan.medical_facility_mult
                     }
                     _ => 3.0 * plan.bonus.physio_mult * plan.medical_facility_mult,
                 }
