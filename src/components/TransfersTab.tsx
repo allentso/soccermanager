@@ -32,6 +32,9 @@ import {
   translatePositionAbbreviation,
 } from "./SquadTab.helpers";
 import { resolveSeasonContext } from "../lib/seasonContext";
+import NegotiationFeedbackPanel, {
+  type NegotiationFeedbackPanelData,
+} from "./NegotiationFeedbackPanel";
 
 interface TransfersTabProps {
   gameState: GameStateData;
@@ -49,6 +52,16 @@ type CounterTarget = {
   fee: number;
 };
 
+type TransferNegotiationFeedbackData = NegotiationFeedbackPanelData;
+
+type TransferNegotiationResponseData = {
+  decision: "accepted" | "rejected" | "counter_offer";
+  suggested_fee: number | null;
+  is_terminal: boolean;
+  feedback: TransferNegotiationFeedbackData;
+  game: GameStateData;
+};
+
 export default function TransfersTab({
   gameState,
   onSelectPlayer,
@@ -63,35 +76,51 @@ export default function TransfersTab({
   const [posFilter, setPosFilter] = useState<string | null>(null);
   const [bidTarget, setBidTarget] = useState<PlayerData | null>(null);
   const [bidAmount, setBidAmount] = useState("");
-  const [bidResult, setBidResult] = useState<string | null>(null);
+  const [bidResult, setBidResult] = useState<
+    TransferNegotiationResponseData["decision"] | "error" | null
+  >(null);
   const [bidLoading, setBidLoading] = useState(false);
+  const [bidFeedback, setBidFeedback] =
+    useState<TransferNegotiationFeedbackData | null>(null);
   const [counterTarget, setCounterTarget] = useState<CounterTarget | null>(
     null,
   );
   const [counterAmount, setCounterAmount] = useState("");
   const [counterLoading, setCounterLoading] = useState(false);
   const [counterError, setCounterError] = useState<string | null>(null);
+  const [counterResult, setCounterResult] = useState<
+    TransferNegotiationResponseData["decision"] | "error" | null
+  >(null);
+  const [counterFeedback, setCounterFeedback] =
+    useState<TransferNegotiationFeedbackData | null>(null);
 
   const handleMakeBid = async () => {
     if (!bidTarget || !bidAmount) return;
     setBidLoading(true);
     setBidResult(null);
+    setBidFeedback(null);
     try {
       const fee = Math.round(parseFloat(bidAmount) * 1_000_000);
-      const res = await invoke<{ result: string; game: GameStateData }>(
+      const res = await invoke<TransferNegotiationResponseData>(
         "make_transfer_bid",
         { playerId: bidTarget.id, fee },
       );
-      setBidResult(res.result);
+      setBidResult(res.decision);
+      setBidFeedback(res.feedback);
       if (onGameUpdate) onGameUpdate(res.game);
-      if (res.result === "accepted") {
+      if (res.suggested_fee !== null) {
+        setBidAmount((res.suggested_fee / 1_000_000).toFixed(2));
+      }
+      if (res.decision === "accepted") {
         setTimeout(() => {
           setBidTarget(null);
           setBidResult(null);
+          setBidFeedback(null);
         }, 2000);
       }
     } catch (err: any) {
       setBidResult(err?.toString() || "error");
+      setBidFeedback(null);
     } finally {
       setBidLoading(false);
     }
@@ -119,10 +148,12 @@ export default function TransfersTab({
 
     setCounterLoading(true);
     setCounterError(null);
+    setCounterResult(null);
+    setCounterFeedback(null);
 
     try {
       const requestedFee = Math.round(parseFloat(counterAmount) * 1_000_000);
-      const response = await invoke<{ result: string; game: GameStateData }>(
+      const response = await invoke<TransferNegotiationResponseData>(
         "counter_offer",
         {
           playerId: counterTarget.player.id,
@@ -132,8 +163,19 @@ export default function TransfersTab({
       );
 
       if (onGameUpdate) onGameUpdate(response.game);
-      setCounterTarget(null);
-      setCounterAmount("");
+      setCounterResult(response.decision);
+      setCounterFeedback(response.feedback);
+      if (response.suggested_fee !== null) {
+        setCounterAmount((response.suggested_fee / 1_000_000).toFixed(2));
+      }
+      if (response.decision === "accepted") {
+        setTimeout(() => {
+          setCounterTarget(null);
+          setCounterAmount("");
+          setCounterResult(null);
+          setCounterFeedback(null);
+        }, 1500);
+      }
     } catch (err: any) {
       setCounterError(err?.toString() || "error");
     } finally {
@@ -434,7 +476,7 @@ export default function TransfersTab({
                     )}
                     {(view === "market" || view === "loans") && (
                       <th className="py-3 px-4 font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                        Action
+                        {t("common.action")}
                       </th>
                     )}
                   </tr>
@@ -566,7 +608,7 @@ export default function TransfersTab({
                                               );
                                             }}
                                             className="p-1 rounded bg-green-500/20 hover:bg-green-500/30 text-green-500"
-                                            title="Accept"
+                                            title={t("transfers.acceptOffer")}
                                           >
                                             <Check className="w-3 h-3" />
                                           </button>
@@ -580,7 +622,7 @@ export default function TransfersTab({
                                               );
                                             }}
                                             className="p-1 rounded bg-red-500/20 hover:bg-red-500/30 text-red-500"
-                                            title="Reject"
+                                            title={t("transfers.rejectOffer")}
                                           >
                                             <X className="w-3 h-3" />
                                           </button>
@@ -600,12 +642,12 @@ export default function TransfersTab({
                                               );
                                               setCounterError(null);
                                             }}
-                                            aria-label="Counter Offer"
+                                            aria-label={t("transfers.counterOffer")}
                                             className="flex items-center gap-1 px-2 py-1 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-500 text-xs font-heading font-bold uppercase tracking-wider"
-                                            title="Counter Offer"
+                                            title={t("transfers.counterOffer")}
                                           >
                                             <Gavel className="w-3 h-3" />{" "}
-                                            Counter
+                                            {t("transfers.counter")}
                                           </button>
                                         </div>
                                       )}
@@ -628,7 +670,7 @@ export default function TransfersTab({
                               }}
                               className="flex items-center gap-1 px-3 py-1.5 bg-primary-500/10 hover:bg-primary-500/20 text-primary-500 rounded-lg text-xs font-heading font-bold uppercase tracking-wider transition-colors"
                             >
-                              <Gavel className="w-3 h-3" /> Bid
+                              <Gavel className="w-3 h-3" /> {t("transfers.bid")}
                             </button>
                           </td>
                         )}
@@ -699,6 +741,14 @@ export default function TransfersTab({
               onChange={(e) => setBidAmount(e.target.value)}
               className="w-full px-3 py-2 rounded-lg bg-gray-50 dark:bg-navy-700 border border-gray-200 dark:border-navy-600 text-sm text-gray-800 dark:text-gray-200 mb-3 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
             />
+            <NegotiationFeedbackPanel
+              feedback={bidFeedback}
+              titleKey="transfers.negotiationPulse"
+              roundKey="transfers.negotiationRound"
+              patienceKey="transfers.negotiationPatience"
+              tensionKey="transfers.negotiationTension"
+              className="mb-3"
+            />
             {bidResult && (
               <div
                 className={`text-xs font-heading font-bold uppercase tracking-wider mb-3 ${bidResult === "accepted" ? "text-green-500" : bidResult === "rejected" ? "text-red-500" : "text-amber-500"}`}
@@ -707,6 +757,8 @@ export default function TransfersTab({
                   ? t("transfers.bidAccepted")
                   : bidResult === "rejected"
                     ? t("transfers.bidRejected")
+                    : bidResult === "counter_offer"
+                      ? t("transfers.bidCountered")
                     : bidResult}
               </div>
             )}
@@ -740,7 +792,7 @@ export default function TransfersTab({
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="text-sm font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3">
-              Counter Offer
+              {t("transfers.counterOffer")}
             </h3>
             <div className="flex items-center gap-3 mb-4">
               <Badge
@@ -758,7 +810,9 @@ export default function TransfersTab({
                 </p>
                 <p className="text-xs text-gray-400">
                   {getTeamName(gameState.teams, counterTarget.fromTeamId)} •
-                  Current offer {formatVal(counterTarget.fee)}
+                  {t("transfers.currentOffer", {
+                    fee: formatVal(counterTarget.fee),
+                  })}
                 </p>
               </div>
             </div>
@@ -766,7 +820,7 @@ export default function TransfersTab({
               htmlFor="counter-offer-amount"
               className="text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1 block"
             >
-              Counter Amount
+              {t("transfers.counterAmount")}
             </label>
             <input
               id="counter-offer-amount"
@@ -777,6 +831,25 @@ export default function TransfersTab({
               onChange={(e) => setCounterAmount(e.target.value)}
               className="w-full px-3 py-2 rounded-lg bg-gray-50 dark:bg-navy-700 border border-gray-200 dark:border-navy-600 text-sm text-gray-800 dark:text-gray-200 mb-3 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
             />
+            <NegotiationFeedbackPanel
+              feedback={counterFeedback}
+              titleKey="transfers.negotiationPulse"
+              roundKey="transfers.negotiationRound"
+              patienceKey="transfers.negotiationPatience"
+              tensionKey="transfers.negotiationTension"
+              className="mb-3"
+            />
+            {counterResult && (
+              <div
+                className={`text-xs font-heading font-bold uppercase tracking-wider mb-3 ${counterResult === "accepted" ? "text-green-500" : counterResult === "rejected" ? "text-red-500" : "text-amber-500"}`}
+              >
+                {counterResult === "accepted"
+                  ? t("transfers.counterAccepted")
+                  : counterResult === "rejected"
+                    ? t("transfers.counterRejected")
+                    : t("transfers.counterCountered")}
+              </div>
+            )}
             {counterError && (
               <div className="text-xs font-heading font-bold uppercase tracking-wider mb-3 text-red-500">
                 {counterError}
@@ -785,10 +858,12 @@ export default function TransfersTab({
             <div className="flex gap-2">
               <button
                 onClick={handleCounterOffer}
-                disabled={counterLoading}
+                disabled={counterLoading || counterResult === "accepted"}
                 className="flex-1 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg font-heading font-bold text-sm uppercase tracking-wider transition-colors disabled:opacity-50"
               >
-                {counterLoading ? "Submitting" : "Submit Counter"}
+                {counterLoading
+                  ? t("transfers.submitting")
+                  : t("transfers.submitCounter")}
               </button>
               <button
                 onClick={() => setCounterTarget(null)}

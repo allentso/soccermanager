@@ -304,6 +304,10 @@ fn default_transfer_offer_date() -> String {
     String::new()
 }
 
+fn default_transfer_offer_round() -> u8 {
+    0
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(default)]
 pub struct PlayerSeasonStats {
@@ -333,6 +337,10 @@ pub struct TransferOffer {
     pub from_team_id: String,
     pub fee: u64,
     pub wage_offered: u32,
+    #[serde(default = "default_transfer_offer_round")]
+    pub negotiation_round: u8,
+    #[serde(default)]
+    pub suggested_counter_fee: Option<u64>,
     #[serde(default = "default_transfer_offer_status")]
     pub status: TransferOfferStatus,
     #[serde(default = "default_transfer_offer_date")]

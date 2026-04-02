@@ -1,8 +1,19 @@
 use log::info;
+use domain::negotiation::NegotiationFeedback;
 use tauri::State;
 
 use ofm_core::game::Game;
 use ofm_core::state::StateManager;
+use ofm_core::transfers::{TransferNegotiationDecision, TransferNegotiationOutcome};
+
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct TransferNegotiationCommandResponse {
+    pub decision: TransferNegotiationDecision,
+    pub suggested_fee: Option<u64>,
+    pub is_terminal: bool,
+    pub feedback: NegotiationFeedback,
+    pub game: Game,
+}
 
 #[tauri::command]
 pub fn toggle_transfer_list(
@@ -52,7 +63,7 @@ pub fn make_transfer_bid(
     state: State<'_, StateManager>,
     player_id: String,
     fee: u64,
-) -> Result<serde_json::Value, String> {
+) -> Result<TransferNegotiationCommandResponse, String> {
     make_transfer_bid_internal(&state, &player_id, fee)
 }
 
@@ -60,7 +71,7 @@ fn make_transfer_bid_internal(
     state: &StateManager,
     player_id: &str,
     fee: u64,
-) -> Result<serde_json::Value, String> {
+) -> Result<TransferNegotiationCommandResponse, String> {
     info!(
         "[cmd] make_transfer_bid: player_id={}, fee={}",
         player_id, fee
@@ -72,10 +83,7 @@ fn make_transfer_bid_internal(
     let result = ofm_core::transfers::make_transfer_bid(&mut game, player_id, fee)?;
     state.set_game(game.clone());
 
-    Ok(serde_json::json!({
-        "result": result,
-        "game": game,
-    }))
+    Ok(map_transfer_negotiation_response(result, game))
 }
 
 #[tauri::command]
@@ -113,7 +121,7 @@ pub fn counter_offer(
     player_id: String,
     offer_id: String,
     requested_fee: u64,
-) -> Result<serde_json::Value, String> {
+) -> Result<TransferNegotiationCommandResponse, String> {
     counter_offer_internal(&state, &player_id, &offer_id, requested_fee)
 }
 
@@ -122,7 +130,7 @@ fn counter_offer_internal(
     player_id: &str,
     offer_id: &str,
     requested_fee: u64,
-) -> Result<serde_json::Value, String> {
+) -> Result<TransferNegotiationCommandResponse, String> {
     info!(
         "[cmd] counter_offer: player_id={}, offer_id={}, requested_fee={}",
         player_id, offer_id, requested_fee
@@ -134,10 +142,20 @@ fn counter_offer_internal(
     let result = ofm_core::transfers::counter_offer(&mut game, player_id, offer_id, requested_fee)?;
     state.set_game(game.clone());
 
-    Ok(serde_json::json!({
-        "result": result,
-        "game": game,
-    }))
+    Ok(map_transfer_negotiation_response(result, game))
+}
+
+fn map_transfer_negotiation_response(
+    outcome: TransferNegotiationOutcome,
+    game: Game,
+) -> TransferNegotiationCommandResponse {
+    TransferNegotiationCommandResponse {
+        decision: outcome.decision,
+        suggested_fee: outcome.suggested_fee,
+        is_terminal: outcome.is_terminal,
+        feedback: outcome.feedback,
+        game,
+    }
 }
 
 #[tauri::command]
@@ -173,6 +191,7 @@ mod tests {
     use ofm_core::clock::GameClock;
     use ofm_core::game::Game;
     use ofm_core::state::StateManager;
+    use ofm_core::transfers::TransferNegotiationDecision;
 
     fn default_attrs() -> PlayerAttributes {
         PlayerAttributes {
@@ -247,6 +266,8 @@ mod tests {
             from_team_id: "team-2".to_string(),
             fee: 900_000,
             wage_offered: 0,
+            negotiation_round: 1,
+            suggested_counter_fee: None,
             status: TransferOfferStatus::Pending,
             date: "2026-08-01".to_string(),
         });
@@ -327,15 +348,9 @@ mod tests {
         let response =
             counter_offer_internal(&state, "player-1", "offer-1", 1_050_000).expect("response");
 
-        assert_eq!(response["result"].as_str(), Some("accepted"));
-        assert_eq!(
-            response["game"]["players"][0]["team_id"].as_str(),
-            Some("team-2")
-        );
-        assert_eq!(
-            response["game"]["players"][0]["transfer_offers"][0]["status"].as_str(),
-            Some("Accepted")
-        );
+        assert_eq!(response.decision, TransferNegotiationDecision::Accepted);
+        assert_eq!(response.game.players[0].team_id.as_deref(), Some("team-2"));
+        assert_eq!(response.game.players[0].transfer_offers[0].status, TransferOfferStatus::Accepted);
 
         let stored_game = state.get_game(|game| game.clone()).expect("stored game");
         assert_eq!(
@@ -356,15 +371,9 @@ mod tests {
 
         let response = make_transfer_bid_internal(&state, "player-2", 1_050_000).expect("response");
 
-        assert_eq!(response["result"].as_str(), Some("accepted"));
-        assert_eq!(
-            response["game"]["players"][0]["team_id"].as_str(),
-            Some("team-1")
-        );
-        assert_eq!(
-            response["game"]["players"][0]["transfer_offers"][0]["status"].as_str(),
-            Some("Accepted")
-        );
+        assert_eq!(response.decision, TransferNegotiationDecision::Accepted);
+        assert_eq!(response.game.players[0].team_id.as_deref(), Some("team-1"));
+        assert_eq!(response.game.players[0].transfer_offers[0].status, TransferOfferStatus::Accepted);
 
         let stored_game = state.get_game(|game| game.clone()).expect("stored game");
         assert_eq!(
@@ -376,6 +385,46 @@ mod tests {
                 .as_deref(),
             Some("team-1")
         );
+    }
+
+    #[test]
+    fn make_transfer_bid_internal_can_return_counter_offer_feedback() {
+        let state = StateManager::new();
+        state.set_game(make_bid_game());
+
+        let response = make_transfer_bid_internal(&state, "player-2", 900_000).expect("response");
+
+        assert_eq!(response.decision, TransferNegotiationDecision::CounterOffer);
+        assert_eq!(response.suggested_fee, Some(950_000));
+        assert!(!response.is_terminal);
+        assert_eq!(response.feedback.round, 1);
+
+        let stored_game = state.get_game(|game| game.clone()).expect("stored game");
+        assert_eq!(
+            stored_game
+                .players
+                .iter()
+                .find(|player| player.id == "player-2")
+                .and_then(|player| player.team_id.clone())
+                .as_deref(),
+            Some("team-2")
+        );
+    }
+
+    #[test]
+    fn make_transfer_bid_internal_uses_existing_negotiation_round_on_follow_up_bid() {
+        let state = StateManager::new();
+        state.set_game(make_bid_game());
+
+        let first = make_transfer_bid_internal(&state, "player-2", 900_000).expect("first bid");
+        assert_eq!(first.decision, TransferNegotiationDecision::CounterOffer);
+        assert_eq!(first.feedback.round, 1);
+
+        let second = make_transfer_bid_internal(&state, "player-2", 950_000).expect("second bid");
+
+        assert_eq!(second.decision, TransferNegotiationDecision::Accepted);
+        assert_eq!(second.feedback.round, 2);
+        assert_eq!(second.game.players[0].team_id.as_deref(), Some("team-1"));
     }
 
     #[test]

@@ -14,6 +14,22 @@ vi.mock("react-i18next", () => ({
     t: (key: string, params?: Record<string, string | number>) => {
       if (key === "finances.perWeekSuffix") return "/wk";
       if (key === "common.nResults") return `${params?.count} results`;
+      if (key === "common.action") return "Action";
+      if (key === "transfers.offers") return "Offers";
+      if (key === "transfers.counterOffer") return "Counter Offer";
+      if (key === "transfers.counterAmount") return "Counter Amount";
+      if (key === "transfers.submitCounter") return "Submit Counter";
+      if (key === "transfers.close") return "Close";
+      if (key === "transfers.counter") return "Counter";
+      if (key === "transfers.acceptOffer") return "Accept";
+      if (key === "transfers.rejectOffer") return "Reject";
+      if (key === "transfers.negotiationPulse") return "Negotiation pulse";
+      if (key === "transfers.negotiationRound") return `Round ${params?.count}`;
+      if (key === "transfers.negotiationPatience") return "Patience";
+      if (key === "transfers.negotiationTension") return "Tension";
+      if (key === "transfers.counterCountered") return "They pushed back with a lower number.";
+      if (key === "transfers.transferFeedbackCounterHeadline") return "They want more before shaking hands.";
+      if (key === "transfers.transferFeedbackCounterDetail") return `The bid was close enough to keep talking, but their side are signalling a price nearer ${params?.fee}.`;
       return key;
     },
     i18n: { language: "en" },
@@ -209,7 +225,18 @@ describe("TransfersTab", function (): void {
     const onGameUpdate = vi.fn();
 
     mockedInvoke.mockResolvedValue({
-      result: "rejected",
+      decision: "counter_offer",
+      suggested_fee: 1150000,
+      is_terminal: false,
+      feedback: {
+        mood: "firm",
+        headline_key: "transfers.transferFeedbackCounterHeadline",
+        detail_key: "transfers.transferFeedbackCounterDetail",
+        tension: 63,
+        patience: 54,
+        round: 2,
+        params: { fee: "1150000" },
+      },
       game: updatedState,
     });
 
@@ -222,7 +249,7 @@ describe("TransfersTab", function (): void {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: /transfers.offers/i }));
+    fireEvent.click(screen.getByRole("button", { name: /offers/i }));
     fireEvent.click(screen.getByRole("button", { name: /counter offer/i }));
     fireEvent.change(screen.getByLabelText(/counter amount/i), {
       target: { value: "1.2" },
@@ -238,5 +265,9 @@ describe("TransfersTab", function (): void {
     });
 
     expect(onGameUpdate).toHaveBeenCalledWith(updatedState);
+    expect(screen.getByText("Negotiation pulse")).toBeInTheDocument();
+    expect(
+      screen.getByText("They want more before shaking hands."),
+    ).toBeInTheDocument();
   });
 });

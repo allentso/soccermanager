@@ -1,8 +1,26 @@
 use crate::game::Game;
 use chrono::NaiveDate;
+use domain::negotiation::{NegotiationFeedback, NegotiationMood};
 use domain::player::TransferOfferStatus;
 use domain::season::TransferWindowStatus;
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum TransferNegotiationDecision {
+    Accepted,
+    Rejected,
+    CounterOffer,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct TransferNegotiationOutcome {
+    pub decision: TransferNegotiationDecision,
+    pub suggested_fee: Option<u64>,
+    pub is_terminal: bool,
+    pub feedback: NegotiationFeedback,
+}
 
 enum PlayerImportance {
     Key,
@@ -191,6 +209,79 @@ fn has_open_incoming_offer_from_club(player: &domain::player::Player, club_id: &
         .any(|offer| offer.from_team_id == club_id && offer.status == TransferOfferStatus::Pending)
 }
 
+fn find_open_offer_from_club<'a>(
+    player: &'a domain::player::Player,
+    club_id: &str,
+) -> Option<&'a domain::player::TransferOffer> {
+    player
+        .transfer_offers
+        .iter()
+        .find(|offer| offer.from_team_id == club_id && offer.status == TransferOfferStatus::Pending)
+}
+
+fn negotiation_round_from_offer(offer: Option<&domain::player::TransferOffer>) -> u8 {
+    offer
+        .map(|offer| offer.negotiation_round.max(1).saturating_add(1))
+        .unwrap_or(1)
+}
+
+fn transfer_negotiation_metrics(
+    round: u8,
+    stalled: bool,
+    respected_signal: bool,
+) -> (u8, u8) {
+    let mut tension = 34_i16 + (i16::from(round.saturating_sub(1)) * 16);
+    let mut patience = 82_i16 - (i16::from(round.saturating_sub(1)) * 18);
+
+    if stalled {
+        tension += 12;
+        patience -= 12;
+    }
+
+    if respected_signal {
+        tension -= 8;
+        patience += 8;
+    }
+
+    (tension.clamp(20, 90) as u8, patience.clamp(18, 86) as u8)
+}
+
+fn upsert_transfer_offer(
+    player: &mut domain::player::Player,
+    from_team_id: &str,
+    fee: u64,
+    status: TransferOfferStatus,
+    date: &str,
+    negotiation_round: u8,
+    suggested_counter_fee: Option<u64>,
+) -> String {
+    if let Some(offer) = player
+        .transfer_offers
+        .iter_mut()
+        .find(|offer| offer.from_team_id == from_team_id && offer.status == TransferOfferStatus::Pending)
+    {
+        offer.fee = fee;
+        offer.status = status;
+        offer.date = date.to_string();
+        offer.negotiation_round = negotiation_round;
+        offer.suggested_counter_fee = suggested_counter_fee;
+        return offer.id.clone();
+    }
+
+    let offer_id = Uuid::new_v4().to_string();
+    player.transfer_offers.push(domain::player::TransferOffer {
+        id: offer_id.clone(),
+        from_team_id: from_team_id.to_string(),
+        fee,
+        wage_offered: 0,
+        negotiation_round,
+        suggested_counter_fee,
+        status,
+        date: date.to_string(),
+    });
+    offer_id
+}
+
 fn transfer_window_is_open(game: &Game) -> bool {
     matches!(
         game.season_context.transfer_window.status,
@@ -271,6 +362,8 @@ pub fn generate_incoming_transfer_offers(game: &mut Game) {
             from_team_id: buyer_id.clone(),
             fee: chosen_fee,
             wage_offered: 0,
+            negotiation_round: 1,
+            suggested_counter_fee: None,
             status: TransferOfferStatus::Pending,
             date: today.clone(),
         });
@@ -306,9 +399,27 @@ fn should_generate_major_transfer_news(player: &domain::player::Player, fee: u64
     fee >= 1_000_000 || player.market_value >= 1_000_000
 }
 
+fn transfer_outcome(
+    decision: TransferNegotiationDecision,
+    suggested_fee: Option<u64>,
+    is_terminal: bool,
+    feedback: NegotiationFeedback,
+) -> TransferNegotiationOutcome {
+    TransferNegotiationOutcome {
+        decision,
+        suggested_fee,
+        is_terminal,
+        feedback,
+    }
+}
+
 /// Submit a transfer bid from user's team for a player.
-/// The AI evaluates the bid and accepts/rejects based on fee vs market value.
-pub fn make_transfer_bid(game: &mut Game, player_id: &str, fee: u64) -> Result<String, String> {
+/// The AI evaluates the bid and can accept, reject, or counter based on club context.
+pub fn make_transfer_bid(
+    game: &mut Game,
+    player_id: &str,
+    fee: u64,
+) -> Result<TransferNegotiationOutcome, String> {
     if !transfer_window_is_open(game) {
         return Err("Transfer window is closed".into());
     }
@@ -352,31 +463,49 @@ pub fn make_transfer_bid(game: &mut Game, player_id: &str, fee: u64) -> Result<S
     let current_date = game.clock.current_date.date_naive();
 
     let threshold = minimum_acceptable_fee(current_date, player, owner_team, buyer_team);
-
-    let offer_id = Uuid::new_v4().to_string();
     let date = game.clock.current_date.format("%Y-%m-%d").to_string();
-
-    let status = if fee >= threshold {
-        TransferOfferStatus::Accepted
+    let existing_offer = find_open_offer_from_club(player, &user_team_id);
+    let previous_fee = existing_offer.map(|offer| offer.fee);
+    let previous_counter_fee = existing_offer.and_then(|offer| offer.suggested_counter_fee);
+    let round = negotiation_round_from_offer(existing_offer);
+    let respected_signal = previous_counter_fee
+        .map(|counter| fee >= counter.saturating_mul(95) / 100)
+        .unwrap_or(false);
+    let stalled = previous_fee
+        .map(|previous| fee <= previous.saturating_add(50_000))
+        .unwrap_or(false);
+    let concession = if respected_signal {
+        ((threshold as f64) * 0.04).round() as u64
+    } else if round >= 3 && !stalled {
+        ((threshold as f64) * 0.02).round() as u64
     } else {
-        TransferOfferStatus::Rejected
+        0
     };
-
-    let offer = domain::player::TransferOffer {
-        id: offer_id.clone(),
-        from_team_id: user_team_id.clone(),
-        fee,
-        wage_offered: 0,
-        status: status.clone(),
-        date: date.clone(),
+    let adjusted_threshold = threshold.saturating_sub(concession);
+    let counter_floor_ratio = if round >= 2 && stalled {
+        0.94
+    } else if round >= 3 {
+        0.92
+    } else {
+        0.88
     };
+    let counter_floor = ((adjusted_threshold as f64) * counter_floor_ratio).round() as u64;
+    let openness_score = player_move_openness_score(current_date, player, owner_team, buyer_team);
+    let (tension, patience) = transfer_negotiation_metrics(round, stalled, respected_signal);
 
-    // Add offer to player
-    if let Some(p) = game.players.iter_mut().find(|p| p.id == player_id) {
-        p.transfer_offers.push(offer);
-    }
+    if fee >= adjusted_threshold {
+        if let Some(p) = game.players.iter_mut().find(|p| p.id == player_id) {
+            upsert_transfer_offer(
+                p,
+                &user_team_id,
+                fee,
+                TransferOfferStatus::Accepted,
+                &date,
+                round,
+                None,
+            );
+        }
 
-    if status == TransferOfferStatus::Accepted {
         // Execute transfer
         execute_transfer(game, player_id, &user_team_id, &owner_team_id, fee)?;
 
@@ -390,13 +519,91 @@ pub fn make_transfer_bid(game: &mut Game, player_id: &str, fee: u64) -> Result<S
 
         let msg = crate::messages::transfer_complete_message(&player_name, fee, &date);
         game.messages.push(msg);
+
+        return Ok(transfer_outcome(
+            TransferNegotiationDecision::Accepted,
+            None,
+            true,
+            build_transfer_feedback(
+                "transfers.transferFeedbackAcceptedHeadline",
+                "transfers.transferFeedbackAcceptedDetail",
+                NegotiationMood::Positive,
+                tension.saturating_sub(8),
+                patience.saturating_add(6).min(90),
+                round,
+                &[("fee", fee.to_string())],
+            ),
+        ));
     }
 
-    Ok(if status == TransferOfferStatus::Accepted {
-        "accepted".into()
-    } else {
-        "rejected".into()
-    })
+    if fee >= counter_floor {
+        let suggested_fee = round_transfer_fee(adjusted_threshold);
+        if let Some(p) = game.players.iter_mut().find(|p| p.id == player_id) {
+            upsert_transfer_offer(
+                p,
+                &user_team_id,
+                fee,
+                TransferOfferStatus::Pending,
+                &date,
+                round,
+                Some(suggested_fee),
+            );
+        }
+
+        return Ok(transfer_outcome(
+            TransferNegotiationDecision::CounterOffer,
+            Some(suggested_fee),
+            false,
+            build_transfer_feedback(
+                "transfers.transferFeedbackCounterHeadline",
+                "transfers.transferFeedbackCounterDetail",
+                if openness_score >= 45 {
+                    NegotiationMood::Firm
+                } else {
+                    NegotiationMood::Tense
+                },
+                if openness_score >= 45 {
+                    tension.saturating_sub(6)
+                } else {
+                    tension.saturating_add(6).min(90)
+                },
+                if openness_score >= 45 {
+                    patience.saturating_add(4).min(90)
+                } else {
+                    patience.saturating_sub(4)
+                },
+                round,
+                &[("fee", suggested_fee.to_string())],
+            ),
+        ));
+    }
+
+    if let Some(p) = game.players.iter_mut().find(|p| p.id == player_id) {
+        upsert_transfer_offer(
+            p,
+            &user_team_id,
+            fee,
+            TransferOfferStatus::Rejected,
+            &date,
+            round,
+            None,
+        );
+    }
+
+    Ok(transfer_outcome(
+        TransferNegotiationDecision::Rejected,
+        None,
+        true,
+        build_transfer_feedback(
+            "transfers.transferFeedbackRejectedHeadline",
+            "transfers.transferFeedbackRejectedDetail",
+            NegotiationMood::Guarded,
+            tension.saturating_add(10).min(92),
+            patience.saturating_sub(14),
+            round,
+            &[("fee", round_transfer_fee(adjusted_threshold).to_string())],
+        ),
+    ))
 }
 
 /// Respond to an incoming transfer offer on one of user's players.
@@ -468,7 +675,7 @@ pub fn counter_offer(
     player_id: &str,
     offer_id: &str,
     requested_fee: u64,
-) -> Result<String, String> {
+) -> Result<TransferNegotiationOutcome, String> {
     if !transfer_window_is_open(game) {
         return Err("Transfer window is closed".into());
     }
@@ -499,8 +706,22 @@ pub fn counter_offer(
 
     let buyer_team_id = buyer_team.id.clone();
     let current_date = game.clock.current_date.date_naive();
+    let round = offer.negotiation_round.max(1).saturating_add(1);
+    let respected_signal = offer
+        .suggested_counter_fee
+        .map(|suggested| requested_fee <= suggested.saturating_add(50_000))
+        .unwrap_or(false);
+    let stalled = requested_fee > offer.fee.saturating_add(175_000);
+    let (tension, patience) = transfer_negotiation_metrics(round, stalled, respected_signal);
     let counter_ceiling = buyer_counter_offer_ceiling(current_date, player, offer.fee, buyer_team);
-    let accepted = requested_fee <= counter_ceiling;
+    let budget_cap = (buyer_team.transfer_budget.max(0) as u64)
+        .min(buyer_team.finance.max(0) as u64);
+    let goodwill_margin = if respected_signal { 50_000 } else { 0 };
+    let accepted = requested_fee <= counter_ceiling.saturating_add(goodwill_margin).min(budget_cap);
+    let counter_window = ((counter_ceiling as f64)
+        * if round >= 3 && stalled { 1.03 } else { 1.08 })
+        .round() as u64;
+    let date = game.clock.current_date.format("%Y-%m-%d").to_string();
 
     if let Some(player) = game
         .players
@@ -514,9 +735,14 @@ pub fn counter_offer(
         if accepted {
             offer.fee = requested_fee;
             offer.status = TransferOfferStatus::Accepted;
-        } else {
+            offer.negotiation_round = round;
+            offer.suggested_counter_fee = None;
+        } else if requested_fee > counter_window {
             offer.status = TransferOfferStatus::Rejected;
+            offer.negotiation_round = round;
+            offer.suggested_counter_fee = None;
         }
+        offer.date = date.clone();
     }
 
     if accepted {
@@ -527,10 +753,101 @@ pub fn counter_offer(
             &user_team_id,
             requested_fee,
         )?;
-        return Ok("accepted".into());
+        return Ok(transfer_outcome(
+            TransferNegotiationDecision::Accepted,
+            None,
+            true,
+            build_transfer_feedback(
+                "transfers.transferFeedbackAcceptedHeadline",
+                "transfers.transferFeedbackAcceptedDetail",
+                NegotiationMood::Positive,
+                tension.saturating_sub(8),
+                patience.saturating_add(8).min(92),
+                round,
+                &[("fee", requested_fee.to_string())],
+            ),
+        ));
     }
 
-    Ok("rejected".into())
+    if requested_fee <= counter_window {
+        let suggested_fee = round_transfer_fee(counter_ceiling);
+        if let Some(player) = game
+            .players
+            .iter_mut()
+            .find(|player| player.id == player_id)
+            && let Some(offer) = player
+                .transfer_offers
+                .iter_mut()
+                .find(|offer| offer.id == offer_id)
+        {
+            offer.fee = suggested_fee;
+            offer.status = TransferOfferStatus::Pending;
+            offer.negotiation_round = round;
+            offer.suggested_counter_fee = Some(suggested_fee);
+            offer.date = date;
+        }
+
+        return Ok(transfer_outcome(
+            TransferNegotiationDecision::CounterOffer,
+            Some(suggested_fee),
+            false,
+            build_transfer_feedback(
+                "transfers.transferFeedbackCounterHeadline",
+                "transfers.transferFeedbackCounterDetail",
+                NegotiationMood::Firm,
+                tension,
+                patience,
+                round,
+                &[("fee", suggested_fee.to_string())],
+            ),
+        ));
+    }
+
+    Ok(transfer_outcome(
+        TransferNegotiationDecision::Rejected,
+        None,
+        true,
+        build_transfer_feedback(
+            "transfers.transferFeedbackRejectedHeadline",
+            "transfers.transferFeedbackRejectedDetail",
+            NegotiationMood::Tense,
+            tension.saturating_add(10).min(92),
+            patience.saturating_sub(12),
+            round,
+            &[("fee", round_transfer_fee(counter_ceiling).to_string())],
+        ),
+    ))
+}
+
+fn round_transfer_fee(value: u64) -> u64 {
+    if value == 0 {
+        return 0;
+    }
+
+    ((value + 49_999) / 50_000) * 50_000
+}
+
+fn build_transfer_feedback(
+    headline_key: &str,
+    detail_key: &str,
+    mood: NegotiationMood,
+    tension: u8,
+    patience: u8,
+    round: u8,
+    params: &[(&str, String)],
+) -> NegotiationFeedback {
+    NegotiationFeedback {
+        mood,
+        headline_key: headline_key.to_string(),
+        detail_key: Some(detail_key.to_string()),
+        tension,
+        patience,
+        round,
+        params: params
+            .iter()
+            .map(|(key, value)| ((*key).to_string(), value.clone()))
+            .collect(),
+    }
 }
 
 /// Transfer a player between teams, adjusting finances.

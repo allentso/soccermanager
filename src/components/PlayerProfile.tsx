@@ -36,6 +36,9 @@ import { useTranslation } from "react-i18next";
 import { countryName } from "../lib/countries";
 import { resolveBackendText } from "../utils/backendI18n";
 import DashboardModalFrame from "./dashboard/DashboardModalFrame";
+import NegotiationFeedbackPanel, {
+  type NegotiationFeedbackPanelData,
+} from "./NegotiationFeedbackPanel";
 import { translatePositionLabel } from "./SquadTab.helpers";
 
 interface PlayerProfileProps {
@@ -58,15 +61,7 @@ interface RenewalResponseData {
   feedback?: NegotiationFeedbackData | null;
 }
 
-interface NegotiationFeedbackData {
-  mood: "calm" | "firm" | "tense" | "positive" | "guarded";
-  headline_key: string;
-  detail_key?: string | null;
-  tension: number;
-  patience: number;
-  round: number;
-  params?: Record<string, string>;
-}
+type NegotiationFeedbackData = NegotiationFeedbackPanelData;
 
 interface DelegatedRenewalCaseData {
   player_id: string;
@@ -1113,63 +1108,13 @@ export default function PlayerProfile({
               </p>
             ) : null}
 
-            {renewalFeedback ? (
-              <div className="rounded-xl border border-gray-200 dark:border-navy-700 bg-gray-50 dark:bg-navy-800/80 p-3 space-y-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-[11px] font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                      {t("playerProfile.renewalConversationTitle")}
-                    </p>
-                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100 mt-1">
-                      {t(renewalFeedback.headline_key, {
-                        ...(renewalFeedback.params ?? {}),
-                        defaultValue: renewalFeedback.headline_key,
-                      })}
-                    </p>
-                  </div>
-                  <Badge variant="neutral">
-                    {t("playerProfile.renewalRound", {
-                      count: renewalFeedback.round,
-                      defaultValue: `Round ${renewalFeedback.round}`,
-                    })}
-                  </Badge>
-                </div>
-
-                {renewalFeedback.detail_key ? (
-                  <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed">
-                    {t(renewalFeedback.detail_key, {
-                      ...(renewalFeedback.params ?? {}),
-                      defaultValue: renewalFeedback.detail_key,
-                    })}
-                  </p>
-                ) : null}
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <p className="text-[11px] font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                      {t("playerProfile.renewalPatience")}
-                    </p>
-                    <ProgressBar
-                      value={renewalFeedback.patience}
-                      variant="success"
-                      size="md"
-                      showLabel
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-[11px] font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                      {t("playerProfile.renewalTension")}
-                    </p>
-                    <ProgressBar
-                      value={renewalFeedback.tension}
-                      variant="danger"
-                      size="md"
-                      showLabel
-                    />
-                  </div>
-                </div>
-              </div>
-            ) : null}
+            <NegotiationFeedbackPanel
+              feedback={renewalFeedback}
+              titleKey="playerProfile.renewalConversationTitle"
+              roundKey="playerProfile.renewalRound"
+              patienceKey="playerProfile.renewalPatience"
+              tensionKey="playerProfile.renewalTension"
+            />
 
             <div className="flex gap-2 justify-end">
               {renewalIsTerminal ? (

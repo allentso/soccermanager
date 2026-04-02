@@ -11,6 +11,7 @@ use ofm_core::clock::GameClock;
 use ofm_core::game::Game;
 use ofm_core::transfers::{
     counter_offer, generate_incoming_transfer_offers, make_transfer_bid, respond_to_offer,
+    TransferNegotiationDecision,
 };
 
 fn default_attrs() -> PlayerAttributes {
@@ -66,6 +67,8 @@ fn make_pending_incoming_offer(id: &str, fee: u64) -> TransferOffer {
         from_team_id: "team-2".to_string(),
         fee,
         wage_offered: 0,
+        negotiation_round: 1,
+        suggested_counter_fee: None,
         status: TransferOfferStatus::Pending,
         date: "2026-08-01".to_string(),
     }
@@ -177,7 +180,7 @@ fn expiring_contract_lowers_resistance_to_sale() {
     let result = make_transfer_bid(&mut game, "player-expiring", 1_000_000)
         .expect("bid should be evaluated");
 
-    assert_eq!(result, "accepted");
+    assert_eq!(result.decision, TransferNegotiationDecision::Accepted);
     assert_eq!(
         game.players
             .iter()
@@ -204,8 +207,39 @@ fn key_player_is_harder_to_buy_than_fringe_player() {
     let fringe_result =
         make_transfer_bid(&mut fringe_game, "player-fringe", 1_250_000).expect("fringe bid");
 
-    assert_eq!(star_result, "rejected");
-    assert_eq!(fringe_result, "accepted");
+    assert_eq!(star_result.decision, TransferNegotiationDecision::CounterOffer);
+    assert!(star_result.suggested_fee.is_some());
+    assert_eq!(fringe_result.decision, TransferNegotiationDecision::Accepted);
+}
+
+#[test]
+fn repeated_bid_advances_transfer_negotiation_round() {
+    let mut player = make_player("player-repeat-bid");
+    player.morale = 35;
+    player.stats.appearances = 1;
+    let mut game = make_game_with_player(player, vec![], 5_000_000, 2_000_000);
+    game.teams[0].reputation = 700;
+    game.teams[1].reputation = 350;
+
+    let first_result =
+        make_transfer_bid(&mut game, "player-repeat-bid", 900_000).expect("first bid");
+
+    assert_eq!(first_result.decision, TransferNegotiationDecision::CounterOffer);
+    assert_eq!(first_result.feedback.round, 1);
+    assert_eq!(first_result.suggested_fee, Some(950_000));
+
+    let second_result =
+        make_transfer_bid(&mut game, "player-repeat-bid", 950_000).expect("second bid");
+
+    assert_eq!(second_result.decision, TransferNegotiationDecision::Accepted);
+    assert_eq!(second_result.feedback.round, 2);
+    assert_eq!(
+        game.players
+            .iter()
+            .find(|player| player.id == "player-repeat-bid")
+            .and_then(|player| player.team_id.as_deref()),
+        Some("team-1")
+    );
 }
 
 #[test]
@@ -261,6 +295,8 @@ fn does_not_duplicate_pending_incoming_offer_from_same_club() {
         from_team_id: "team-2".to_string(),
         fee: 900_000,
         wage_offered: 0,
+        negotiation_round: 1,
+        suggested_counter_fee: None,
         status: TransferOfferStatus::Pending,
         date: "2026-08-01".to_string(),
     });
@@ -397,7 +433,7 @@ fn reasonable_counter_offer_is_accepted_and_executes_transfer() {
     )
     .expect("counter offer should be evaluated");
 
-    assert_eq!(result, "accepted");
+    assert_eq!(result.decision, TransferNegotiationDecision::Accepted);
     let player = game
         .players
         .iter()
@@ -446,7 +482,7 @@ fn excessive_counter_offer_is_rejected_and_closes_the_negotiation() {
     )
     .expect("counter offer should be evaluated");
 
-    assert_eq!(result, "rejected");
+    assert_eq!(result.decision, TransferNegotiationDecision::Rejected);
     let player = game
         .players
         .iter()
@@ -499,8 +535,8 @@ fn unhappy_player_with_bigger_ambition_gap_is_easier_to_buy() {
     let content_result = make_transfer_bid(&mut content_game, "player-content", 1_050_000)
         .expect("content-player bid");
 
-    assert_eq!(open_result, "accepted");
-    assert_eq!(content_result, "rejected");
+    assert_eq!(open_result.decision, TransferNegotiationDecision::Accepted);
+    assert_eq!(content_result.decision, TransferNegotiationDecision::Rejected);
 }
 
 #[test]
@@ -576,7 +612,7 @@ fn accepted_major_transfer_generates_news_article() {
     let result = make_transfer_bid(&mut game, "player-news-major", 1_700_000)
         .expect("major transfer bid should succeed");
 
-    assert_eq!(result, "accepted");
+    assert_eq!(result.decision, TransferNegotiationDecision::Accepted);
     let article = game
         .news
         .iter()
@@ -601,7 +637,7 @@ fn smaller_completed_transfer_does_not_generate_news_article() {
     let result = make_transfer_bid(&mut game, "player-news-small", 300_000)
         .expect("small transfer bid should succeed");
 
-    assert_eq!(result, "accepted");
+    assert_eq!(result.decision, TransferNegotiationDecision::Accepted);
     assert!(game.news.is_empty());
 }
 
@@ -627,7 +663,7 @@ fn completed_transfer_news_is_not_duplicated_when_article_already_exists() {
     let result = make_transfer_bid(&mut game, "player-news-dup", 1_700_000)
         .expect("major transfer bid should succeed");
 
-    assert_eq!(result, "accepted");
+    assert_eq!(result.decision, TransferNegotiationDecision::Accepted);
     assert_eq!(
         game.news
             .iter()
