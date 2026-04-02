@@ -6,7 +6,7 @@ import type {
 } from "../../store/gameStore";
 import { formatVal } from "../../lib/helpers";
 import { getTeamFinanceSnapshot } from "../../lib/finance";
-import { buildStartingXIIds } from "../SquadTab.helpers";
+import { buildStartingXIIds } from "../squad/SquadTab.helpers";
 
 export interface DashboardAlert {
   id: string;

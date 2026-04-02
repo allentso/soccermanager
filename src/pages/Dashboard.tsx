@@ -6,25 +6,29 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { MatchModeType } from "../hooks/useAdvanceTime";
 import { useGameStore } from "../store/gameStore";
 import type { GameStateData, PlayerSelectionOptions } from "../store/gameStore";
-import PlayerProfile from "../components/PlayerProfile";
-import TeamProfile from "../components/TeamProfile";
-import DashboardAlerts from "../components/dashboard/DashboardAlerts";
-import DashboardBlockerModal from "../components/dashboard/DashboardBlockerModal";
-import DashboardCloseConfirmModal from "../components/dashboard/DashboardCloseConfirmModal";
-import DashboardExitConfirmModal from "../components/dashboard/DashboardExitConfirmModal";
-import DashboardExitSavingModal from "../components/dashboard/DashboardExitSavingModal";
 import DashboardHeader, {
   type DashboardMatchModeMeta,
 } from "../components/dashboard/DashboardHeader";
-import DashboardMatchConfirmModal from "../components/dashboard/DashboardMatchConfirmModal";
+import DashboardOverlays from "../components/dashboard/DashboardOverlays";
 import DashboardSidebar from "../components/dashboard/DashboardSidebar";
-import DashboardTabContent from "../components/dashboard/DashboardTabContent";
+import DashboardWorkspaceContent from "../components/dashboard/DashboardWorkspaceContent";
+import {
+  createDashboardProfileNavigationState,
+  goBackDashboardProfile,
+  hasDashboardProfileHistory,
+  navigateDashboardProfiles,
+  openDashboardSearchPlayer,
+  openDashboardSearchTeam,
+  selectDashboardPlayer,
+  selectDashboardTeam,
+  type DashboardNavigateContext,
+} from "../components/dashboard/dashboardProfileNavigation";
 import { createDashboardTabContentModel } from "../components/dashboard/dashboardTabContentModel";
 import {
   isOnboardingPageTab,
   loadVisitedOnboardingTabs,
   saveVisitedOnboardingTabs,
-} from "../components/HomeTab.helpers";
+} from "../components/home/HomeTab.helpers";
 import {
   getDashboardAlerts,
   getDashboardSearchResults,
@@ -81,23 +85,16 @@ export default function Dashboard(): JSX.Element {
   const [isSaving, setIsSaving] = useState(false);
   const [saveFlash, setSaveFlash] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const [activeTab, setActiveTab] = useState("Home");
+  const [profileNavigation, setProfileNavigation] = useState(() =>
+    createDashboardProfileNavigationState("Home"),
+  );
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [isExitingToMenu, setIsExitingToMenu] = useState(false);
-
-  const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
-  const [selectedPlayerOptions, setSelectedPlayerOptions] =
-    useState<PlayerSelectionOptions | null>(null);
-  const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
-  const [initialMessageId, setInitialMessageId] = useState<string | null>(null);
   const [visitedOnboardingTabs, setVisitedOnboardingTabs] = useState<
     Set<string>
   >(new Set<string>());
-  const [navHistory, setNavHistory] = useState<
-    Array<{ tab: string; playerId: string | null; teamId: string | null }>
-  >([]);
 
   // Fetch initial state
   useEffect(() => {
@@ -152,7 +149,7 @@ export default function Dashboard(): JSX.Element {
   }, [gameState]);
 
   useEffect(() => {
-    if (!isOnboardingPageTab(activeTab)) {
+    if (!isOnboardingPageTab(profileNavigation.activeTab)) {
       return;
     }
 
@@ -161,16 +158,16 @@ export default function Dashboard(): JSX.Element {
     }
 
     setVisitedOnboardingTabs((currentTabs) => {
-      if (currentTabs.has(activeTab)) {
+      if (currentTabs.has(profileNavigation.activeTab)) {
         return currentTabs;
       }
 
       const nextTabs = new Set(currentTabs);
-      nextTabs.add(activeTab);
+      nextTabs.add(profileNavigation.activeTab);
       saveVisitedOnboardingTabs(gameState, nextTabs);
       return nextTabs;
     });
-  }, [activeTab, gameState]);
+  }, [gameState, profileNavigation.activeTab]);
 
   const seasonComplete = isLeagueSeasonComplete(gameState?.league);
 
@@ -266,61 +263,22 @@ export default function Dashboard(): JSX.Element {
 
   const currentModeMeta = MODE_META[matchMode];
 
-  function clearProfileSelection(): void {
-    setSelectedPlayerId(null);
-    setSelectedPlayerOptions(null);
-    setSelectedTeamId(null);
-  }
-
-  function resetToTab(tab: string, messageId?: string): void {
-    setNavHistory([]);
-    setActiveTab(tab);
-    clearProfileSelection();
-    setInitialMessageId(messageId ?? null);
-  }
-
   function handleNavClick(tab: string): void {
-    resetToTab(tab);
+    setProfileNavigation((currentState) =>
+      navigateDashboardProfiles(currentState, tab),
+    );
   }
 
-  function handleNavigate(tab: string, context?: { messageId?: string }): void {
-    // Special: navigate to a team profile
-    if (tab === "__selectTeam" && context?.messageId) {
-      pushHistory();
-      setSelectedTeamId(context.messageId);
-      setSelectedPlayerId(null);
-      setSelectedPlayerOptions(null);
-      return;
-    }
-    // Special: navigate to a player profile
-    if (tab === "__selectPlayer" && context?.messageId) {
-      pushHistory();
-      setSelectedPlayerId(context.messageId);
-      setSelectedPlayerOptions(null);
-      setSelectedTeamId(null);
-      return;
-    }
-    resetToTab(tab, context?.messageId);
-  }
-
-  function pushHistory(): void {
-    setNavHistory((prev) => [
-      ...prev,
-      { tab: activeTab, playerId: selectedPlayerId, teamId: selectedTeamId },
-    ]);
+  function handleNavigate(tab: string, context?: DashboardNavigateContext): void {
+    setProfileNavigation((currentState) =>
+      navigateDashboardProfiles(currentState, tab, context),
+    );
   }
 
   function handleBack(): void {
-    if (navHistory.length > 0) {
-      const prev = navHistory[navHistory.length - 1];
-      setNavHistory((h) => h.slice(0, -1));
-      setActiveTab(prev.tab);
-      setSelectedPlayerId(prev.playerId);
-      setSelectedPlayerOptions(null);
-      setSelectedTeamId(prev.teamId);
-    } else {
-      clearProfileSelection();
-    }
+    setProfileNavigation((currentState) =>
+      goBackDashboardProfile(currentState),
+    );
   }
 
   const handleExitToMenu = async () => {
@@ -341,17 +299,15 @@ export default function Dashboard(): JSX.Element {
   };
 
   function selectPlayer(id: string, options?: PlayerSelectionOptions): void {
-    pushHistory();
-    setSelectedPlayerId(id);
-    setSelectedPlayerOptions(options ?? null);
-    setSelectedTeamId(null);
+    setProfileNavigation((currentState) =>
+      selectDashboardPlayer(currentState, id, options),
+    );
   }
 
   function selectTeam(id: string): void {
-    pushHistory();
-    setSelectedTeamId(id);
-    setSelectedPlayerId(null);
-    setSelectedPlayerOptions(null);
+    setProfileNavigation((currentState) =>
+      selectDashboardTeam(currentState, id),
+    );
   }
 
   function handleSearchFocus(): void {
@@ -367,13 +323,16 @@ export default function Dashboard(): JSX.Element {
   }
 
   function handleSelectSearchPlayer(playerId: string): void {
-    setSelectedPlayerId(playerId);
-    setSelectedPlayerOptions(null);
+    setProfileNavigation((currentState) =>
+      openDashboardSearchPlayer(currentState, playerId),
+    );
     setSearchQuery("");
   }
 
   function handleSelectSearchTeam(teamId: string): void {
-    setSelectedTeamId(teamId);
+    setProfileNavigation((currentState) =>
+      openDashboardSearchTeam(currentState, teamId),
+    );
     setSearchQuery("");
   }
 
@@ -411,19 +370,16 @@ export default function Dashboard(): JSX.Element {
   const myTeamName = getManagerTeamName(gameState);
   const searchResults = getDashboardSearchResults(gameState, searchQuery);
   const dashboardAlerts = getDashboardAlerts(gameState, hasMatchToday, t);
-  const hasProfileHistory =
-    navHistory.length > 0 ||
-    selectedPlayerId !== null ||
-    selectedTeamId !== null;
-  const activeTabLabel = TAB_TRANSLATION_KEYS[activeTab]
-    ? t(TAB_TRANSLATION_KEYS[activeTab])
-    : activeTab;
+  const hasProfileHistory = hasDashboardProfileHistory(profileNavigation);
+  const activeTabLabel = TAB_TRANSLATION_KEYS[profileNavigation.activeTab]
+    ? t(TAB_TRANSLATION_KEYS[profileNavigation.activeTab])
+    : profileNavigation.activeTab;
   const dashboardTabContentModel = createDashboardTabContentModel({
-    activeTab,
+    activeTab: profileNavigation.activeTab,
     gameState,
     seasonComplete,
     visitedOnboardingTabs,
-    initialMessageId,
+    initialMessageId: profileNavigation.initialMessageId,
     handlers: {
       onSelectPlayer: selectPlayer,
       onSelectTeam: selectTeam,
@@ -435,7 +391,7 @@ export default function Dashboard(): JSX.Element {
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-navy-900 flex transition-colors duration-300">
       <DashboardSidebar
-        activeTab={activeTab}
+        activeTab={profileNavigation.activeTab}
         collapsed={isSidebarCollapsed}
         onNavClick={handleNavClick}
         onToggleCollapse={() => {
@@ -452,48 +408,25 @@ export default function Dashboard(): JSX.Element {
         }}
       />
 
-      {isExitingToMenu && <DashboardExitSavingModal />}
-
-      {showExitConfirm && (
-        <DashboardExitConfirmModal
-          onCancel={() => setShowExitConfirm(false)}
-          onConfirm={() => {
-            setShowExitConfirm(false);
-            void handleExitToMenu();
-          }}
-        />
-      )}
-
-      {showCloseConfirm && (
-        <DashboardCloseConfirmModal
-          onCancel={() => setShowCloseConfirm(false)}
-          onQuitWithoutSave={() => handleCloseQuit(false)}
-          onSaveAndQuit={() => handleCloseQuit(true)}
-        />
-      )}
-
-      {showMatchConfirm && (
-        <DashboardMatchConfirmModal
-          matchMode={matchMode}
-          modeMeta={currentModeMeta}
-          onCancel={() => setShowMatchConfirm(false)}
-          onConfirm={handleConfirmMatch}
-          teams={gameState.teams}
-          todayMatchFixture={todayMatchFixture}
-        />
-      )}
-
-      {blockerModal && (
-        <DashboardBlockerModal
-          blockerModal={blockerModal}
-          onClose={() => setBlockerModal(null)}
-          onContinueAnyway={blockerModal.pendingAction ?? null}
-          onNavigate={(tab) => {
-            setBlockerModal(null);
-            handleNavigate(tab);
-          }}
-        />
-      )}
+      <DashboardOverlays
+        blockerModal={blockerModal}
+        currentModeMeta={currentModeMeta}
+        handleConfirmMatch={handleConfirmMatch}
+        handleExitToMenu={handleExitToMenu}
+        handleNavigate={handleNavigate}
+        handleCloseQuit={handleCloseQuit}
+        isExitingToMenu={isExitingToMenu}
+        matchMode={matchMode}
+        setBlockerModal={setBlockerModal}
+        setShowCloseConfirm={setShowCloseConfirm}
+        setShowExitConfirm={setShowExitConfirm}
+        setShowMatchConfirm={setShowMatchConfirm}
+        showCloseConfirm={showCloseConfirm}
+        showExitConfirm={showExitConfirm}
+        showMatchConfirm={showMatchConfirm}
+        teams={gameState.teams}
+        todayMatchFixture={todayMatchFixture}
+      />
 
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col h-screen overflow-hidden">
@@ -527,61 +460,17 @@ export default function Dashboard(): JSX.Element {
           teams={gameState.teams}
         />
 
-        {/* Dashboard Content */}
-        <div className="flex-1 overflow-auto p-6 bg-gray-100 dark:bg-navy-900">
-          {!selectedPlayerId && !selectedTeamId && (
-            <DashboardAlerts
-              alerts={dashboardAlerts}
-              onNavigate={handleNavigate}
-            />
-          )}
-
-          {/* Inline Player Profile Page */}
-          {selectedPlayerId &&
-            !selectedTeamId &&
-            (() => {
-              const player = gameState.players.find(
-                (p) => p.id === selectedPlayerId,
-              );
-              if (!player) return null;
-              const isOwnClub = player.team_id === gameState.manager.team_id;
-              return (
-                <PlayerProfile
-                  player={player}
-                  gameState={gameState}
-                  isOwnClub={isOwnClub}
-                  startWithRenewalModal={
-                    selectedPlayerOptions?.openRenewal === true
-                  }
-                  onClose={handleBack}
-                  onSelectTeam={selectTeam}
-                  onGameUpdate={setGameState}
-                />
-              );
-            })()}
-
-          {/* Inline Team Profile Page */}
-          {selectedTeamId &&
-            (() => {
-              const team = gameState.teams.find((t) => t.id === selectedTeamId);
-              if (!team) return null;
-              const isOwnTeam = team.id === gameState.manager.team_id;
-              return (
-                <TeamProfile
-                  team={team}
-                  gameState={gameState}
-                  isOwnTeam={isOwnTeam}
-                  onClose={handleBack}
-                  onSelectPlayer={selectPlayer}
-                />
-              );
-            })()}
-
-          {/* Tab content — hidden when a profile is open */}
-          {!selectedPlayerId && !selectedTeamId && (
-            <DashboardTabContent viewModel={dashboardTabContentModel} />
-          )}
-        </div>
+        <DashboardWorkspaceContent
+          dashboardAlerts={dashboardAlerts}
+          gameState={gameState}
+          profileNavigation={profileNavigation}
+          dashboardTabContentModel={dashboardTabContentModel}
+          onBack={handleBack}
+          onNavigate={handleNavigate}
+          onSelectPlayer={selectPlayer}
+          onSelectTeam={selectTeam}
+          onGameUpdate={setGameState}
+        />
       </main>
     </div>
   );

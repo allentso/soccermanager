@@ -21,7 +21,7 @@ import { useTranslation } from "react-i18next";
 import {
   normalisePosition,
   translatePositionAbbreviation,
-} from "./SquadTab.helpers";
+} from "./squad/SquadTab.helpers";
 
 interface PlayersListTabProps {
   gameState: GameStateData;

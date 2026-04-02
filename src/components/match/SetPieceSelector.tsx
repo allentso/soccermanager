@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { PlayerData } from "../../store/gameStore";
-import { normalisePosition } from "../SquadTab.helpers";
+import { normalisePosition } from "../squad/SquadTab.helpers";
 import { Badge } from "../ui";
 import { ArrowUpDown, Check } from "lucide-react";
 

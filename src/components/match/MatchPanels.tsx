@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 import { MatchSnapshot, MatchEvent, EnginePlayerData } from "./types";
 import { getEventDisplay, getPlayerName } from "./helpers";
 import { Badge } from "../ui";
-import { translatePositionAbbreviation } from "../SquadTab.helpers";
+import { translatePositionAbbreviation } from "../squad/SquadTab.helpers";
 
 export function EventFeed({
   events,

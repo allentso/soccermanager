@@ -20,7 +20,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { calcOvr, calcAge, formatVal, getTeamName } from "../lib/helpers";
-import { normalisePosition, translatePositionAbbreviation, translatePositionLabel } from "./SquadTab.helpers";
+import { normalisePosition, translatePositionAbbreviation, translatePositionLabel } from "./squad/SquadTab.helpers";
 import { countryName } from "../lib/countries";
 
 interface ScoutingTabProps {

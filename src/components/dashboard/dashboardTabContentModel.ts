@@ -2,10 +2,7 @@ import type {
     GameStateData,
     PlayerSelectionOptions,
 } from "../../store/gameStore";
-
-export interface DashboardNavigateContext {
-    messageId?: string;
-}
+import type { DashboardNavigateContext } from "./dashboardProfileNavigation";
 
 export interface DashboardTabContentHandlers {
     onSelectPlayer: (id: string, options?: PlayerSelectionOptions) => void;

@@ -4,7 +4,7 @@ import { MatchSnapshot, EnginePlayerData } from "./types";
 import { getPlayerName } from "./helpers";
 import { Badge } from "../ui";
 import { RefreshCw, AlertTriangle, UserMinus, UserPlus } from "lucide-react";
-import { translatePositionAbbreviation } from "../SquadTab.helpers";
+import { translatePositionAbbreviation } from "../squad/SquadTab.helpers";
 
 export function SubPanel({
   snapshot,

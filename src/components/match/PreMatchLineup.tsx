@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 import { MatchSnapshot, EnginePlayerData } from "./types";
 import { Badge } from "../ui";
 import { ArrowUpDown, AlertTriangle, Wand2 } from "lucide-react";
-import { translatePositionAbbreviation } from "../SquadTab.helpers";
+import { translatePositionAbbreviation } from "../squad/SquadTab.helpers";
 
 export const POSITION_KEY_STATS: Record<
   string,

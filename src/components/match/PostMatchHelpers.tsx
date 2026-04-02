@@ -3,7 +3,7 @@ import { MatchSnapshot, MatchEvent } from "./types";
 import { getPlayerName } from "./helpers";
 import { Badge } from "../ui";
 import { Circle, Star } from "lucide-react";
-import { translatePositionAbbreviation } from "../SquadTab.helpers";
+import { translatePositionAbbreviation } from "../squad/SquadTab.helpers";
 
 // ---------------------------------------------------------------------------
 // QuickStat bar

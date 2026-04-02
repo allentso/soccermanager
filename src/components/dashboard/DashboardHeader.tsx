@@ -14,7 +14,7 @@ import { getTeamName } from "../../lib/helpers";
 import type { PlayerData, TeamData } from "../../store/gameStore";
 import type { MatchModeType } from "../../hooks/useAdvanceTime";
 import { Badge, ThemeToggle } from "../ui";
-import { translatePositionAbbreviation } from "../SquadTab.helpers";
+import { translatePositionAbbreviation } from "../squad/SquadTab.helpers";
 import { getPlayerBadgeVariant } from "./dashboardHelpers";
 
 export interface DashboardMatchModeMeta {

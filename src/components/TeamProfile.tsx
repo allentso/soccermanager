@@ -12,7 +12,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { countryName } from "../lib/countries";
 import { formatWeeklyAmount } from "../lib/helpers";
-import { translatePositionAbbreviation } from "./SquadTab.helpers";
+import { translatePositionAbbreviation } from "./squad/SquadTab.helpers";
 
 interface TeamProfileProps {
   team: TeamData;
