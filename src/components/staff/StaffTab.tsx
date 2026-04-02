@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
 import { GameStateData, StaffData } from "../../store/gameStore";
 import { Card, CardBody, Badge, CountryFlag, ProgressBar } from "../ui";
 import {
@@ -21,6 +20,7 @@ import {
 } from "../../lib/helpers";
 import { countryName } from "../../lib/countries";
 import { useTranslation } from "react-i18next";
+import { hireStaff, releaseStaff } from "../../services/staffService";
 
 interface StaffTabProps {
   gameState: GameStateData;
@@ -75,7 +75,7 @@ export default function StaffTab({ gameState, onGameUpdate }: StaffTabProps) {
   const handleHire = async (staffId: string) => {
     setActionLoading(staffId);
     try {
-      const updated = await invoke<GameStateData>("hire_staff", { staffId });
+      const updated = await hireStaff(staffId);
       onGameUpdate?.(updated);
     } catch (err) {
       console.error("Failed to hire staff:", err);
@@ -87,7 +87,7 @@ export default function StaffTab({ gameState, onGameUpdate }: StaffTabProps) {
   const handleRelease = async (staffId: string) => {
     setActionLoading(staffId);
     try {
-      const updated = await invoke<GameStateData>("release_staff", { staffId });
+      const updated = await releaseStaff(staffId);
       onGameUpdate?.(updated);
     } catch (err) {
       console.error("Failed to release staff:", err);
