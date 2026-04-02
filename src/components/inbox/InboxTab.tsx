@@ -1,9 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
 import type { JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import type { GameStateData } from "../../store/gameStore";
+import {
+  clearOldMessages,
+  deleteMessage,
+  deleteMessages,
+  markAllMessagesRead,
+  markMessageRead,
+  resolveMessageAction,
+  type ResolveMessageActionResult,
+} from "../../services/inboxService";
 import { resolveBackendText, resolveMessage } from "../../utils/backendI18n";
 import InboxDeleteConfirmModal from "./InboxDeleteConfirmModal";
 import InboxMessageDetailPane from "./InboxMessageDetailPane";
@@ -15,7 +23,6 @@ import {
   getNavigationTarget,
   isNavigateAction,
   type MessageSortOrder,
-  type ResolveMessageActionResult,
   sortInboxMessages,
 } from "./inboxHelpers";
 
@@ -105,12 +112,7 @@ export default function InboxTab({
 
     if (message && !message.read) {
       try {
-        const updatedGameState = await invoke<GameStateData>(
-          "mark_message_read",
-          {
-            messageId,
-          },
-        );
+        const updatedGameState = await markMessageRead(messageId);
         onGameUpdate(updatedGameState);
       } catch {}
     }
@@ -140,14 +142,7 @@ export default function InboxTab({
     }
 
     try {
-      const result = await invoke<ResolveMessageActionResult>(
-        "resolve_message_action",
-        {
-          messageId,
-          actionId,
-          optionId: optionId ?? null,
-        },
-      );
+      const result = await resolveMessageAction(messageId, actionId, optionId);
 
       onGameUpdate(result.game);
 
@@ -165,16 +160,14 @@ export default function InboxTab({
 
   async function handleMarkAllRead(): Promise<void> {
     try {
-      const updatedGameState = await invoke<GameStateData>(
-        "mark_all_messages_read",
-      );
+      const updatedGameState = await markAllMessagesRead();
       onGameUpdate(updatedGameState);
     } catch {}
   }
 
   async function handleClearOld(): Promise<void> {
     try {
-      const updatedGameState = await invoke<GameStateData>("clear_old_messages");
+      const updatedGameState = await clearOldMessages();
       onGameUpdate(updatedGameState);
       setSelectedMessageId(null);
     } catch {}
@@ -193,14 +186,10 @@ export default function InboxTab({
 
       if (deleteModalState.mode === "single") {
         deletedMessageIds = [deleteModalState.messageId];
-        updatedGameState = await invoke<GameStateData>("delete_message", {
-          messageId: deleteModalState.messageId,
-        });
+        updatedGameState = await deleteMessage(deleteModalState.messageId);
       } else {
         deletedMessageIds = deleteModalState.messageIds;
-        updatedGameState = await invoke<GameStateData>("delete_messages", {
-          messageIds: deleteModalState.messageIds,
-        });
+        updatedGameState = await deleteMessages(deleteModalState.messageIds);
         setBulkSelectionEnabled(false);
       }
 

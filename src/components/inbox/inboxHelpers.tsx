@@ -37,13 +37,6 @@ export interface NavigationTarget {
   shouldResolveAction: boolean;
 }
 
-export interface ResolveMessageActionResult {
-  game: GameStateData;
-  effect: string | null;
-  effect_i18n_key?: string | null;
-  effect_i18n_params?: Record<string, string | number> | null;
-}
-
 export type MessageSortOrder = "newest" | "oldest";
 
 export type DeleteModalState =
