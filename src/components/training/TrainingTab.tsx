@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import { GameStateData } from "../../store/gameStore";
 import { Card, CardHeader, CardBody, ProgressBar, Select } from "../ui";
 import {
@@ -14,25 +14,15 @@ import {
   Feather,
   AlertTriangle,
   Info,
-  Plus,
-  Trash2,
-  Users,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { translatePositionAbbreviation } from "../squad/SquadTab.helpers";
 import {
-  setPlayerTrainingFocus,
   setTraining,
-  setTrainingGroups,
   setTrainingSchedule,
-  type TrainingGroupData,
 } from "../../services/trainingService";
 import { getTrainingStaffAdvice } from "./trainingAdvice";
-import {
-  buildPlayerGroupMap,
-  reassignPlayerTrainingGroup,
-  sortTrainingRoster,
-} from "./trainingGroupsModel";
+import TrainingGroupsCard from "./TrainingGroupsCard";
 
 interface TrainingTabProps {
   gameState: GameStateData;
@@ -386,6 +376,8 @@ export default function TrainingTab({
           roster={roster}
           isSaving={isSaving}
           setIsSaving={setIsSaving}
+          trainingFocusIds={TRAINING_FOCUS_IDS}
+          trainingFocusIcons={TRAINING_FOCUS_ICONS}
         />
       </div>
 
@@ -473,272 +465,5 @@ export default function TrainingTab({
         </Card>
       </div>
     </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Training Groups sub-component
-// ---------------------------------------------------------------------------
-
-type TrainingGroup = TrainingGroupData;
-
-interface TrainingGroupsCardProps {
-  gameState: GameStateData;
-  onGameUpdate?: (state: GameStateData) => void;
-  roster: GameStateData["players"];
-  isSaving: boolean;
-  setIsSaving: (v: boolean) => void;
-}
-
-function TrainingGroupsCard({
-  gameState,
-  onGameUpdate,
-  roster,
-  isSaving,
-  setIsSaving,
-}: TrainingGroupsCardProps) {
-  const { t } = useTranslation();
-  const myTeam = gameState.teams.find(
-    (tm) => tm.id === gameState.manager.team_id,
-  );
-  const groups: TrainingGroup[] = (myTeam as any)?.training_groups ?? [];
-  const teamFocus = myTeam?.training_focus || "Physical";
-
-  const saveGroups = useCallback(
-    async (newGroups: TrainingGroup[]) => {
-      setIsSaving(true);
-      try {
-        const updated = await setTrainingGroups(newGroups);
-        onGameUpdate?.(updated);
-      } catch (err) {
-        console.error("Failed to save training groups:", err);
-      } finally {
-        setIsSaving(false);
-      }
-    },
-    [onGameUpdate, setIsSaving],
-  );
-
-  const addGroup = () => {
-    if (groups.length >= 5) return;
-    const idx = groups.length;
-    const defaultName = t(
-      `training.groups.defaultGroupNames.${idx}`,
-      `Group ${idx + 1}`,
-    );
-    const newGroup: TrainingGroup = {
-      id: `grp_${Date.now()}`,
-      name: defaultName,
-      focus: "Physical",
-      player_ids: [],
-    };
-    saveGroups([...groups, newGroup]);
-  };
-
-  const removeGroup = (groupId: string) => {
-    saveGroups(groups.filter((g) => g.id !== groupId));
-  };
-
-  const updateGroupFocus = (groupId: string, focus: string) => {
-    saveGroups(groups.map((g) => (g.id === groupId ? { ...g, focus } : g)));
-  };
-
-  const updateGroupName = (groupId: string, name: string) => {
-    saveGroups(groups.map((g) => (g.id === groupId ? { ...g, name } : g)));
-  };
-
-  // Set individual player training focus override (or clear it)
-  const setPlayerFocus = async (playerId: string, focus: string) => {
-    setIsSaving(true);
-    try {
-      const updated = await setPlayerTrainingFocus(playerId, focus || null);
-      onGameUpdate?.(updated);
-    } catch (err) {
-      console.error("Failed to set player training focus:", err);
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  // Assign player to a group (or remove from all groups if groupId is "")
-  const setPlayerGroup = (playerId: string, groupId: string) => {
-    saveGroups(reassignPlayerTrainingGroup(groups, playerId, groupId));
-  };
-
-  const playerGroupMap = buildPlayerGroupMap(groups);
-  const sortedRoster = sortTrainingRoster(roster);
-
-  return (
-    <Card>
-      <CardHeader
-        action={
-          groups.length < 5 ? (
-            <button
-              onClick={addGroup}
-              disabled={isSaving}
-              className="flex items-center gap-1.5 text-xs font-heading font-bold uppercase tracking-wider text-primary-500 hover:text-primary-400 transition-colors disabled:opacity-50"
-            >
-              <Plus className="w-4 h-4" /> {t("training.groups.addGroup")}
-            </button>
-          ) : null
-        }
-      >
-        {t("training.groups.trainingGroups")}
-      </CardHeader>
-      <CardBody>
-        {/* Group chips with inline editing */}
-        {groups.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-4">
-            {groups.map((group) => {
-              const count = group.player_ids.length;
-              return (
-                <div
-                  key={group.id}
-                  className="flex items-center gap-2 bg-gray-50 dark:bg-navy-700/50 border border-gray-200 dark:border-navy-600 rounded-lg px-3 py-1.5"
-                >
-                  <div className="text-gray-400 dark:text-gray-500">
-                    {TRAINING_FOCUS_ICONS[group.focus] ? (
-                      <span className="[&>svg]:w-4 [&>svg]:h-4">
-                        {TRAINING_FOCUS_ICONS[group.focus]}
-                      </span>
-                    ) : (
-                      <Users className="w-4 h-4" />
-                    )}
-                  </div>
-                  <input
-                    type="text"
-                    value={group.name}
-                    onChange={(e) => updateGroupName(group.id, e.target.value)}
-                    className="bg-transparent text-xs font-heading font-bold uppercase tracking-wider text-gray-800 dark:text-gray-200 border-none outline-none w-20"
-                  />
-                  <Select
-                    value={group.focus}
-                    onChange={(e) => updateGroupFocus(group.id, e.target.value)}
-                    disabled={isSaving}
-                    variant="muted"
-                    selectSize="xs"
-                    className="w-28"
-                  >
-                    {TRAINING_FOCUS_IDS.map((fId) => (
-                      <option key={fId} value={fId}>
-                        {t(`training.focuses.${fId}.label`)}
-                      </option>
-                    ))}
-                  </Select>
-                  <span className="text-[10px] text-gray-400 tabular-nums">
-                    {count}
-                  </span>
-                  <button
-                    onClick={() => removeGroup(group.id)}
-                    disabled={isSaving}
-                    className="text-red-400 hover:text-red-500 transition-colors disabled:opacity-50"
-                    title={t("training.groups.removeGroup")}
-                  >
-                    <Trash2 className="w-3 h-3" />
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {groups.length === 0 ? (
-          <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
-            {t("training.groups.noGroups")}
-          </p>
-        ) : (
-          /* Player roster table with inline group assignment */
-          <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-navy-600">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="bg-gray-50 dark:bg-navy-700/50">
-                  <th className="py-2 px-3 text-[10px] font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">
-                    {t("common.player")}
-                  </th>
-                  <th className="py-2 px-3 text-[10px] font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">
-                    {t("common.position")}
-                  </th>
-                  <th className="py-2 px-3 text-[10px] font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">
-                    {t("training.groups.group")}
-                  </th>
-                  <th className="py-2 px-3 text-[10px] font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">
-                    {t("training.effectiveFocus")}
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-navy-600">
-                {sortedRoster.map((p) => {
-                  const pg = playerGroupMap.get(p.id);
-                  const hasIndividualFocus = !!p.training_focus;
-                  const effectiveFocus =
-                    p.training_focus || (pg ? pg.focus : teamFocus);
-                  return (
-                    <tr
-                      key={p.id}
-                      className="hover:bg-gray-50 dark:hover:bg-navy-700/30 transition-colors"
-                    >
-                      <td className="py-1.5 px-3 text-sm font-medium text-gray-800 dark:text-gray-200 truncate max-w-[160px]">
-                        {p.match_name}
-                      </td>
-                      <td className="py-1.5 px-3 text-xs text-gray-500 dark:text-gray-400">
-                        {translatePositionAbbreviation(
-                          t,
-                          p.natural_position || p.position,
-                        )}
-                      </td>
-                      <td className="py-1.5 px-3">
-                        <Select
-                          value={pg?.id || ""}
-                          onChange={(e) => setPlayerGroup(p.id, e.target.value)}
-                          disabled={isSaving}
-                          variant="muted"
-                          selectSize="xs"
-                          fullWidth
-                          wrapperClassName="w-full max-w-[120px]"
-                        >
-                          <option value="">
-                            {t("training.groups.teamDefault")}
-                          </option>
-                          {groups.map((g) => (
-                            <option key={g.id} value={g.id}>
-                              {g.name}
-                            </option>
-                          ))}
-                        </Select>
-                      </td>
-                      <td className="py-1.5 px-3">
-                        <Select
-                          value={p.training_focus || ""}
-                          onChange={(e) => setPlayerFocus(p.id, e.target.value)}
-                          disabled={isSaving}
-                          variant={
-                            hasIndividualFocus ? "highlighted" : "placeholder"
-                          }
-                          selectSize="xs"
-                          fullWidth
-                          wrapperClassName="w-full max-w-[110px]"
-                        >
-                          <option value="">
-                            {t(`training.focuses.${effectiveFocus}.label`)} ↩
-                          </option>
-                          {TRAINING_FOCUS_IDS.map((fId) => (
-                            <option key={fId} value={fId}>
-                              {t(`training.focuses.${fId}.label`)}
-                            </option>
-                          ))}
-                        </Select>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-        <p className="text-xs text-gray-400 dark:text-gray-500 mt-3">
-          {t("training.groups.trainingGroupsDesc")}
-        </p>
-      </CardBody>
-    </Card>
   );
 }
