@@ -54,6 +54,12 @@ import {
   getTransferOfferStatusLabel,
   mapTransferNegotiationError,
 } from "./TransfersTab.helpers";
+import {
+  deriveTransferCollections,
+  filterTransferPlayers,
+  getCurrentTransferList,
+  type TransferTabView,
+} from "./TransfersTab.model";
 
 interface TransfersTabProps {
   gameState: GameStateData;
@@ -61,8 +67,6 @@ interface TransfersTabProps {
   onSelectTeam: (id: string) => void;
   onGameUpdate?: (game: GameStateData) => void;
 }
-
-type TabView = "my_list" | "market" | "loans" | "offers";
 
 type CounterTarget = {
   player: PlayerData;
@@ -125,7 +129,7 @@ export default function TransfersTab({
   const { t, i18n } = useTranslation();
   const weeklySuffix = t("finances.perWeekSuffix", "/wk");
   const userTeamId = gameState.manager.team_id;
-  const [view, setView] = useState<TabView>("my_list");
+  const [view, setView] = useState<TransferTabView>("my_list");
   const [search, setSearch] = useState("");
   const [posFilter, setPosFilter] = useState<string | null>(null);
   const [bidTarget, setBidTarget] = useState<PlayerData | null>(null);
@@ -300,56 +304,19 @@ export default function TransfersTab({
           })
           : t("season.windowClosed");
 
-  // My team's transfer-listed players
-  const myTransferList = gameState.players.filter(
-    (p) => p.team_id === userTeamId && p.transfer_listed,
-  );
-  const myLoanList = gameState.players.filter(
-    (p) => p.team_id === userTeamId && p.loan_listed,
-  );
-
-  // Market: all transfer-listed players from other teams
-  const marketPlayers = gameState.players.filter(
-    (p) => p.transfer_listed && p.team_id !== userTeamId,
-  );
-
-  // Loans available: all loan-listed players from other teams
-  const loanPlayers = gameState.players.filter(
-    (p) => p.loan_listed && p.team_id !== userTeamId,
-  );
-
-  // Players with offers involving user's team (either incoming to user's players or user's bids)
-  const playersWithOffers = gameState.players.filter(
-    (p) =>
-      p.transfer_offers.length > 0 &&
-      (p.team_id === userTeamId ||
-        p.transfer_offers.some((o) => o.from_team_id === userTeamId)),
-  );
-
-  const applyFilters = (list: PlayerData[]) => {
-    return list.filter((p) => {
-      if (
-        posFilter &&
-        normalisePosition(p.natural_position || p.position) !== posFilter
-      ) {
-        return false;
-      }
-      if (search.length >= 2) {
-        const q = search.toLowerCase();
-        if (
-          !p.full_name.toLowerCase().includes(q) &&
-          !p.nationality.toLowerCase().includes(q)
-        )
-          return false;
-      }
-      return true;
-    });
-  };
+  const transferCollections = deriveTransferCollections(gameState, userTeamId);
+  const {
+    myTransferList,
+    myLoanList,
+    marketPlayers,
+    loanPlayers,
+    playersWithOffers,
+  } = transferCollections;
 
   const positions = ["Goalkeeper", "Defender", "Midfielder", "Forward"];
 
   const tabs: {
-    id: TabView;
+    id: TransferTabView;
     label: string;
     icon: React.ReactNode;
     count: number;
@@ -380,16 +347,8 @@ export default function TransfersTab({
       },
     ];
 
-  const currentList =
-    view === "my_list"
-      ? [...myTransferList, ...myLoanList]
-      : view === "market"
-        ? marketPlayers
-        : view === "loans"
-          ? loanPlayers
-          : playersWithOffers;
-
-  const filteredList = applyFilters(currentList);
+  const currentList = getCurrentTransferList(view, transferCollections);
+  const filteredList = filterTransferPlayers(currentList, search, posFilter);
   const weeklyWageBudget = myTeam
     ? annualAmountToWeeklyCommitment(myTeam.wage_budget)
     : 0;
