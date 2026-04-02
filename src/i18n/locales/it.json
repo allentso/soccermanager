@@ -966,7 +966,11 @@
     "nApps": "{{count}} presenze",
     "nGoals": "{{count}} gol",
     "nAssists": "{{count}} assist",
-    "daysRemaining": "{{count}} giorni rimanenti — giocatore non disponibile per la selezione"
+    "daysRemaining": "{{count}} giorni rimanenti — giocatore non disponibile per la selezione",
+    "renewalProjectionTitle": "Impatto finanziario previsto",
+    "renewalProjectionWageBill": "Costo salariale settimanale {{before}} → {{after}}",
+    "renewalProjectionBudgetUsage": "Utilizzo budget salariale {{before}}% → {{after}}%",
+    "renewalProjectionRunway": "Riserva di cassa {{before}} → {{after}}"
   },
   "teamProfile": {
     "clubInfo": "Informazioni club",
