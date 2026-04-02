@@ -1,5 +1,4 @@
 import { useState, useCallback } from "react";
-import { invoke } from "@tauri-apps/api/core";
 import { GameStateData } from "../../store/gameStore";
 import { Card, CardHeader, CardBody, ProgressBar, Select } from "../ui";
 import {
@@ -21,6 +20,13 @@ import {
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { translatePositionAbbreviation } from "../squad/SquadTab.helpers";
+import {
+  setPlayerTrainingFocus,
+  setTraining,
+  setTrainingGroups,
+  setTrainingSchedule,
+  type TrainingGroupData,
+} from "../../services/trainingService";
 
 interface TrainingTabProps {
   gameState: GameStateData;
@@ -124,10 +130,7 @@ export default function TrainingTab({
   const handleSetTraining = async (focus: string, intensity: string) => {
     setIsSaving(true);
     try {
-      const updated = await invoke<GameStateData>("set_training", {
-        focus,
-        intensity,
-      });
+      const updated = await setTraining(focus, intensity);
       onGameUpdate?.(updated);
     } catch (err) {
       console.error("Failed to set training:", err);
@@ -139,9 +142,7 @@ export default function TrainingTab({
   const handleSetSchedule = async (schedule: string) => {
     setIsSaving(true);
     try {
-      const updated = await invoke<GameStateData>("set_training_schedule", {
-        schedule,
-      });
+      const updated = await setTrainingSchedule(schedule);
       onGameUpdate?.(updated);
     } catch (err) {
       console.error("Failed to set schedule:", err);
@@ -509,12 +510,7 @@ export default function TrainingTab({
 // Training Groups sub-component
 // ---------------------------------------------------------------------------
 
-interface TrainingGroup {
-  id: string;
-  name: string;
-  focus: string;
-  player_ids: string[];
-}
+type TrainingGroup = TrainingGroupData;
 
 interface TrainingGroupsCardProps {
   gameState: GameStateData;
@@ -542,9 +538,7 @@ function TrainingGroupsCard({
     async (newGroups: TrainingGroup[]) => {
       setIsSaving(true);
       try {
-        const updated = await invoke<GameStateData>("set_training_groups", {
-          groups: newGroups,
-        });
+        const updated = await setTrainingGroups(newGroups);
         onGameUpdate?.(updated);
       } catch (err) {
         console.error("Failed to save training groups:", err);
@@ -587,10 +581,7 @@ function TrainingGroupsCard({
   const setPlayerFocus = async (playerId: string, focus: string) => {
     setIsSaving(true);
     try {
-      const updated = await invoke<GameStateData>("set_player_training_focus", {
-        playerId,
-        focus: focus || null,
-      });
+      const updated = await setPlayerTrainingFocus(playerId, focus || null);
       onGameUpdate?.(updated);
     } catch (err) {
       console.error("Failed to set player training focus:", err);
