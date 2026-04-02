@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
 import { useTranslation } from "react-i18next";
 import { GameStateData } from "../../store/gameStore";
 import {
@@ -22,6 +21,7 @@ import {
 import { calcOvr, calcAge, formatVal, getTeamName } from "../../lib/helpers";
 import { normalisePosition, translatePositionAbbreviation, translatePositionLabel } from "../squad/SquadTab.helpers";
 import { countryName } from "../../lib/countries";
+import { sendScout } from "../../services/scoutingService";
 
 interface ScoutingTabProps {
   gameState: GameStateData;
@@ -107,10 +107,7 @@ export default function ScoutingTab({
     const scout = availableScouts[0];
     setSending(playerId);
     try {
-      const updated = await invoke<GameStateData>("send_scout", {
-        scoutId: scout.id,
-        playerId,
-      });
+      const updated = await sendScout(scout.id, playerId);
       onGameUpdate(updated);
     } catch (err) {
       console.error("Failed to send scout:", err);
