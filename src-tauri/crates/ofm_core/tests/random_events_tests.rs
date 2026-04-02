@@ -1168,10 +1168,25 @@ fn unfit_players_get_more_training_injuries() {
             "England".to_string(),
             Position::Midfielder,
             PlayerAttributes {
-                pace: 60, stamina: 60, strength: 60, agility: 60,
-                passing: 60, shooting: 60, tackling: 60, dribbling: 60, defending: 60,
-                positioning: 60, vision: 60, decisions: 60, composure: 60,
-                aggression: 60, teamwork: 60, leadership: 60, handling: 30, reflexes: 30, aerial: 60,
+                pace: 60,
+                stamina: 60,
+                strength: 60,
+                agility: 60,
+                passing: 60,
+                shooting: 60,
+                tackling: 60,
+                dribbling: 60,
+                defending: 60,
+                positioning: 60,
+                vision: 60,
+                decisions: 60,
+                composure: 60,
+                aggression: 60,
+                teamwork: 60,
+                leadership: 60,
+                handling: 30,
+                reflexes: 30,
+                aerial: 60,
             },
         );
         player.team_id = Some("team1".to_string());
@@ -1190,7 +1205,8 @@ fn unfit_players_get_more_training_injuries() {
                 game.players[0].injury = None;
             }
             // Clear injury messages so the ID dedup doesn't block future events
-            game.messages.retain(|m| !m.id.starts_with("training_injury_"));
+            game.messages
+                .retain(|m| !m.id.starts_with("training_injury_"));
             game.clock.advance_days(1);
         }
         injury_count
