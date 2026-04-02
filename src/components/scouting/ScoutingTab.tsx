@@ -27,6 +27,11 @@ import {
   scoutAssignmentCount,
   scoutMaxSlots,
 } from "./ScoutingTab.helpers";
+import {
+  buildAlreadyScoutingIds,
+  filterScoutablePlayers,
+  paginateScoutablePlayers,
+} from "./ScoutingTab.model";
 
 interface ScoutingTabProps {
   gameState: GameStateData;
@@ -54,41 +59,17 @@ export default function ScoutingTab({
   const assignments = gameState.scouting_assignments || [];
   const availableScouts = calculateAvailableScouts(scouts, assignments);
 
-  // Players from other teams that can be scouted
-  const allScoutable = gameState.players
-    .filter((p) => p.team_id !== myTeamId)
-    .filter(
-      (p) =>
-        posFilter === "All" ||
-        normalisePosition(p.natural_position || p.position) === posFilter,
-    )
-    .filter((p) => {
-      if (!searchQuery) return true;
-      const q = searchQuery.toLowerCase();
-      return (
-        p.full_name.toLowerCase().includes(q) ||
-        p.nationality.toLowerCase().includes(q) ||
-        (p.team_id &&
-          getTeamName(gameState.teams, p.team_id).toLowerCase().includes(q))
-      );
-    })
-    .sort(
-      (a, b) =>
-        calcOvr(b, b.natural_position || b.position) -
-        calcOvr(a, a.natural_position || a.position),
-    );
+  const allScoutable = filterScoutablePlayers({
+    players: gameState.players,
+    teams: gameState.teams,
+    myTeamId,
+    posFilter,
+    searchQuery,
+  });
+  const { totalPages, safePage, players: scoutablePlayers } =
+    paginateScoutablePlayers(allScoutable, page, SCOUTING_PAGE_SIZE);
 
-  const totalPages = Math.max(
-    1,
-    Math.ceil(allScoutable.length / SCOUTING_PAGE_SIZE),
-  );
-  const safePage = Math.min(page, totalPages - 1);
-  const scoutablePlayers = allScoutable.slice(
-    safePage * SCOUTING_PAGE_SIZE,
-    (safePage + 1) * SCOUTING_PAGE_SIZE,
-  );
-
-  const alreadyScoutingIds = new Set(assignments.map((a) => a.player_id));
+  const alreadyScoutingIds = buildAlreadyScoutingIds(assignments);
 
   const handleSendScout = async (playerId: string) => {
     if (availableScouts.length === 0) return;

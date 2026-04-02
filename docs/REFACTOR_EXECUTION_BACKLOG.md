@@ -29,9 +29,10 @@ This backlog turns the architecture audit into an execution plan. Each step is i
 - [x] Step 2.7: Extract `TrainingTab` training-groups card into a dedicated module.
 - [x] Step 2.8: Finish `TrainingTab` container split with schedule/focus panels.
 - [x] Step 2.9: Extract `ScoutingTab` scout capacity and availability helpers.
-- [ ] Step 2.10: Split `ScoutingTab` into container, scout overview, assignment list, and player search modules.
-- [ ] Step 2.11: Split `HomeTab` into smaller dashboard widgets and view-model helpers.
-- [ ] Step 2.12: Refactor `TeamProfile` to reuse shared helper logic and remove duplicated formatting/domain calculations.
+- [x] Step 2.10: Extract `ScoutingTab` player filtering, sorting, and pagination into model helpers.
+- [ ] Step 2.11: Split `ScoutingTab` into container, scout overview, assignment list, and player search modules.
+- [ ] Step 2.12: Split `HomeTab` into smaller dashboard widgets and view-model helpers.
+- [ ] Step 2.13: Refactor `TeamProfile` to reuse shared helper logic and remove duplicated formatting/domain calculations.
 
 ## Phase 3: Backend Command Boundary
 
