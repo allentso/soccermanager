@@ -22,11 +22,12 @@ This backlog turns the architecture audit into an execution plan. Each step is i
 
 - [x] Step 2.1: Extract `TransfersTab` pure negotiation helpers into a dedicated module.
 - [x] Step 2.2: Extract `TransfersTab` list derivation and filtering into query/model helpers.
-- [ ] Step 2.3: Split `TransfersTab` into container and action panels.
-- [ ] Step 2.4: Split `TrainingTab` into container, schedule/focus panels, and training-group module.
-- [ ] Step 2.5: Split `ScoutingTab` into container, scout overview, assignment list, and player search modules.
-- [ ] Step 2.6: Split `HomeTab` into smaller dashboard widgets and view-model helpers.
-- [ ] Step 2.7: Refactor `TeamProfile` to reuse shared helper logic and remove duplicated formatting/domain calculations.
+- [x] Step 2.3: Extract `TransfersTab` bid negotiation action panel.
+- [ ] Step 2.4: Extract `TransfersTab` counter-offer action panel and finish the container split.
+- [ ] Step 2.5: Split `TrainingTab` into container, schedule/focus panels, and training-group module.
+- [ ] Step 2.6: Split `ScoutingTab` into container, scout overview, assignment list, and player search modules.
+- [ ] Step 2.7: Split `HomeTab` into smaller dashboard widgets and view-model helpers.
+- [ ] Step 2.8: Refactor `TeamProfile` to reuse shared helper logic and remove duplicated formatting/domain calculations.
 
 ## Phase 3: Backend Command Boundary
 

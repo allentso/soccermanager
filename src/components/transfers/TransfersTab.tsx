@@ -31,13 +31,14 @@ import {
 import { useTranslation } from "react-i18next";
 import { countryName } from "../../lib/countries";
 import {
-  normalisePosition,
   translatePositionAbbreviation,
 } from "../squad/SquadTab.helpers";
 import { resolveSeasonContext } from "../../lib/seasonContext";
 import NegotiationFeedbackPanel, {
   type NegotiationFeedbackPanelData,
 } from "../NegotiationFeedbackPanel";
+import TransferBidModal from "./TransferBidModal";
+import TransferNegotiationHistory from "./TransferNegotiationHistory";
 import {
   counterOffer,
   makeTransferBid,
@@ -76,49 +77,6 @@ type CounterTarget = {
 };
 
 type TransferNegotiationFeedbackData = NegotiationFeedbackPanelData;
-
-function renderNegotiationHistory(
-  t: (key: string, options?: Record<string, string | number>) => string,
-  offer: TransferOfferData | null,
-  mode: "outgoing" | "incoming",
-) {
-  if (!offer || offer.negotiation_round < 2) {
-    return null;
-  }
-
-  const managerLabel =
-    mode === "outgoing"
-      ? t("transfers.lastBidLabel")
-      : t("transfers.lastCounterLabel");
-  const clubLabel =
-    mode === "outgoing"
-      ? t("transfers.lastClubSignalLabel")
-      : t("transfers.currentOfferLabel");
-  const managerFee = offer.last_manager_fee;
-  const clubFee = offer.suggested_counter_fee ?? offer.fee;
-
-  return (
-    <div className="rounded-lg border border-gray-200 dark:border-navy-700 bg-white/70 dark:bg-navy-900/40 p-3 mb-3 space-y-2">
-      <p className="text-[11px] font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-        {t("transfers.negotiationHistory")}
-      </p>
-      {managerFee !== null && managerFee !== undefined ? (
-        <div className="flex items-center justify-between gap-3 text-xs text-gray-600 dark:text-gray-300">
-          <span>{managerLabel}</span>
-          <span className="font-semibold tabular-nums text-gray-900 dark:text-gray-100">
-            {formatVal(managerFee)}
-          </span>
-        </div>
-      ) : null}
-      <div className="flex items-center justify-between gap-3 text-xs text-gray-600 dark:text-gray-300">
-        <span>{clubLabel}</span>
-        <span className="font-semibold tabular-nums text-gray-900 dark:text-gray-100">
-          {formatVal(clubFee)}
-        </span>
-      </div>
-    </div>
-  );
-}
 
 export default function TransfersTab({
   gameState,
@@ -778,147 +736,28 @@ export default function TransfersTab({
       )}
       {/* Bid Modal */}
       {bidTarget && (
-        <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-          onClick={() => {
+        <TransferBidModal
+          bidTarget={bidTarget}
+          teams={gameState.teams}
+          bidAmount={bidAmount}
+          onBidAmountChange={setBidAmount}
+          myTeam={myTeam}
+          bidFee={bidFee}
+          bidProjection={bidProjection}
+          bidFeedback={bidFeedback}
+          activeBidOffer={activeBidOffer}
+          hasExistingOffer={activeBidOffer !== null}
+          bidResult={bidResult}
+          bidLoading={bidLoading}
+          bidSubmitDisabled={bidSubmitDisabled}
+          onSubmit={handleMakeBid}
+          onClose={() => {
             setBidTarget(null);
             setBidFeedback(null);
             setBidResult(null);
             setBidProjection(null);
           }}
-        >
-          <div
-            className="bg-white dark:bg-navy-800 rounded-xl shadow-2xl border border-gray-200 dark:border-navy-600 p-6 w-full max-w-sm"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 className="text-sm font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3">
-              {t("transfers.makeBid")}
-            </h3>
-            <div className="flex items-center gap-3 mb-4">
-              <Badge
-                variant={positionBadgeVariant(bidTarget.position)}
-                size="sm"
-              >
-                {translatePositionAbbreviation(t, bidTarget.position)}
-              </Badge>
-              <div>
-                <p className="font-semibold text-sm text-gray-800 dark:text-gray-200">
-                  {bidTarget.full_name}
-                </p>
-                <p className="text-xs text-gray-400">
-                  {getTeamName(gameState.teams, bidTarget.team_id)} •{" "}
-                  {t("transfers.playerValue", {
-                    value: formatVal(bidTarget.market_value),
-                  })}
-                </p>
-              </div>
-            </div>
-            {getOutgoingNegotiationOffer(bidTarget, userTeamId) ? (
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-                {t("transfers.resumeNegotiationHint")}
-              </p>
-            ) : null}
-            <label htmlFor="bid-amount" className="text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1 block">
-              {t("transfers.bidAmount")}
-            </label>
-            <input
-              id="bid-amount"
-              type="number"
-              step="0.1"
-              min="0"
-              value={bidAmount}
-              onChange={(e) => setBidAmount(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg bg-gray-50 dark:bg-navy-700 border border-gray-200 dark:border-navy-600 text-sm text-gray-800 dark:text-gray-200 mb-3 focus:outline-none focus:ring-2 focus:ring-primary-500/50"
-            />
-            {myTeam && bidFee !== null && bidProjection ? (
-              <div className="rounded-lg border border-gray-200 dark:border-navy-700 bg-white/70 dark:bg-navy-900/40 p-3 mb-3 space-y-2">
-                <p className="text-[11px] font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                  {t("transfers.bidImpactTitle", {
-                    defaultValue: "Projected impact",
-                  })}
-                </p>
-                <p className="text-xs text-gray-600 dark:text-gray-300">
-                  {t("transfers.bidImpactTransferBudget", {
-                    before: formatVal(bidProjection.transfer_budget_before),
-                    after: formatVal(bidProjection.transfer_budget_after),
-                    defaultValue: "Transfer budget {{before}} -> {{after}}",
-                  })}
-                </p>
-                <p className="text-xs text-gray-600 dark:text-gray-300">
-                  {t("transfers.bidImpactBalance", {
-                    before: formatVal(bidProjection.finance_before),
-                    after: formatVal(bidProjection.finance_after),
-                    defaultValue: "Club balance {{before}} -> {{after}}",
-                  })}
-                </p>
-                <p className="text-xs text-gray-600 dark:text-gray-300">
-                  {t("transfers.bidImpactWagePressure", {
-                    percent: bidProjection.projected_wage_budget_usage_pct,
-                    defaultValue: "Projected wage budget usage {{percent}}%",
-                  })}
-                </p>
-                {bidProjection.exceeds_transfer_budget ? (
-                  <p className="text-xs text-red-500">
-                    {t("transfers.bidImpactOverTransferBudget", {
-                      defaultValue: "This bid exceeds your transfer budget",
-                    })}
-                  </p>
-                ) : null}
-                {bidProjection.exceeds_finance ? (
-                  <p className="text-xs text-red-500">
-                    {t("transfers.bidImpactOverBalance", {
-                      defaultValue: "This bid would push the club into debt",
-                    })}
-                  </p>
-                ) : null}
-              </div>
-            ) : null}
-            <NegotiationFeedbackPanel
-              feedback={bidFeedback}
-              titleKey="transfers.negotiationPulse"
-              roundKey="transfers.negotiationRound"
-              patienceKey="transfers.negotiationPatience"
-              tensionKey="transfers.negotiationTension"
-              className="mb-3"
-            />
-            {renderNegotiationHistory(t, activeBidOffer, "outgoing")}
-            {bidResult && (
-              <div
-                className={`text-xs font-heading font-bold uppercase tracking-wider mb-3 ${bidResult === "accepted" ? "text-green-500" : bidResult === "rejected" ? "text-red-500" : "text-amber-500"}`}
-              >
-                {bidResult === "accepted"
-                  ? t("transfers.bidAccepted")
-                  : bidResult === "rejected"
-                    ? t("transfers.bidRejected")
-                    : bidResult === "counter_offer"
-                      ? t("transfers.bidCountered")
-                      : bidResult}
-              </div>
-            )}
-            <div className="flex gap-2">
-              <button
-                onClick={handleMakeBid}
-                disabled={bidSubmitDisabled}
-                className="flex-1 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg font-heading font-bold text-sm uppercase tracking-wider transition-colors disabled:opacity-50"
-              >
-                {bidLoading
-                  ? t("transfers.submitting")
-                  : t("transfers.submitBid")}
-              </button>
-              <button
-                onClick={() => {
-                  setBidTarget(null);
-                  setBidFeedback(null);
-                  setBidResult(null);
-                  setBidProjection(null);
-                }}
-                className="px-4 py-2 bg-gray-200 dark:bg-navy-700 text-gray-600 dark:text-gray-300 rounded-lg font-heading font-bold text-sm uppercase tracking-wider hover:bg-gray-300 dark:hover:bg-navy-600 transition-colors"
-              >
-                {t("transfers.close")}
-              </button>
-            </div>
-          </div>
-        </div>
+        />
       )}
       {counterTarget && (
         <div
@@ -988,7 +827,10 @@ export default function TransfersTab({
               tensionKey="transfers.negotiationTension"
               className="mb-3"
             />
-            {renderNegotiationHistory(t, activeCounterOffer, "incoming")}
+            <TransferNegotiationHistory
+              offer={activeCounterOffer}
+              mode="incoming"
+            />
             {counterResult && (
               <div
                 className={`text-xs font-heading font-bold uppercase tracking-wider mb-3 ${counterResult === "accepted" ? "text-green-500" : counterResult === "rejected" ? "text-red-500" : "text-amber-500"}`}
