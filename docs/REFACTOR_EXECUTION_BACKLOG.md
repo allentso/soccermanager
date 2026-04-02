@@ -11,7 +11,7 @@ This backlog turns the architecture audit into an execution plan. Each step is i
 
 ## Phase 1: Frontend Transport Boundary
 
-- [ ] Step 1.1: Extract `useAdvanceTime` transport calls into a frontend service.
+- [x] Step 1.1: Extract `useAdvanceTime` transport calls into a frontend service.
 - [ ] Step 1.2: Extract `StaffTab` hire/release transport calls into a frontend service.
 - [ ] Step 1.3: Extract `TrainingTab` training/schedule/group transport calls into a frontend service.
 - [ ] Step 1.4: Extract `ScoutingTab` scout dispatch transport call into a frontend service.

@@ -1,13 +1,12 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { invoke } from "@tauri-apps/api/core";
 import { GameStateData } from "../store/gameStore";
+import type { BlockerModal } from "./useAdvanceTime.helpers";
 import {
-  AdvanceTimeWithModeResponse,
-  BlockerModal,
+  advanceTimeWithMode,
   checkBlockingActions,
-  SkipToMatchDayResponse,
-} from "./useAdvanceTime.helpers";
+  skipToMatchDay,
+} from "../services/advanceTimeService";
 
 export type MatchModeType = "live" | "spectator" | "delegate";
 
@@ -50,7 +49,7 @@ export function useAdvanceTime(
     setIsAdvancing(true);
     resetTransientUi();
     try {
-      const result = await invoke<AdvanceTimeWithModeResponse>("advance_time_with_mode", { mode: effectiveMode });
+      const result = await advanceTimeWithMode(effectiveMode);
       console.info("[useAdvanceTime] doAdvance:result", {
         action: result.action,
         fixtureIndex: result.fixture_index,
@@ -125,7 +124,7 @@ export function useAdvanceTime(
     setIsAdvancing(true);
     resetTransientUi();
     try {
-      const result = await invoke<SkipToMatchDayResponse>("skip_to_match_day");
+      const result = await skipToMatchDay();
       console.info("[useAdvanceTime] doSkipToMatchDay:result", {
         action: result.action,
         daysSkipped: result.days_skipped,
