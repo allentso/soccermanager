@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
 import {
   GameStateData,
   PlayerData,
@@ -39,6 +38,14 @@ import { resolveSeasonContext } from "../../lib/seasonContext";
 import NegotiationFeedbackPanel, {
   type NegotiationFeedbackPanelData,
 } from "../NegotiationFeedbackPanel";
+import {
+  counterOffer,
+  makeTransferBid,
+  previewTransferBidFinancialImpact,
+  respondToOffer,
+  type TransferBidProjectionData,
+  type TransferNegotiationResponseData,
+} from "../../services/transfersService";
 
 interface TransfersTabProps {
   gameState: GameStateData;
@@ -57,29 +64,6 @@ type CounterTarget = {
 };
 
 type TransferNegotiationFeedbackData = NegotiationFeedbackPanelData;
-
-type TransferNegotiationResponseData = {
-  decision: "accepted" | "rejected" | "counter_offer";
-  suggested_fee: number | null;
-  is_terminal: boolean;
-  feedback: TransferNegotiationFeedbackData;
-  game: GameStateData;
-};
-
-type TransferBidProjectionData = {
-  projection: {
-    transfer_budget_before: number;
-    transfer_budget_after: number;
-    finance_before: number;
-    finance_after: number;
-    annual_wage_bill_before: number;
-    annual_wage_bill_after: number;
-    annual_wage_budget: number;
-    projected_wage_budget_usage_pct: number;
-    exceeds_transfer_budget: boolean;
-    exceeds_finance: boolean;
-  };
-};
 
 function getOutgoingNegotiationOffer(
   player: PlayerData,
@@ -307,10 +291,7 @@ export default function TransfersTab({
     setBidFeedback(null);
     try {
       const fee = Math.round(parseFloat(bidAmount) * 1_000_000);
-      const res = await invoke<TransferNegotiationResponseData>(
-        "make_transfer_bid",
-        { playerId: bidTarget.id, fee },
-      );
+      const res = await makeTransferBid(bidTarget.id, fee);
       setBidResult(res.decision);
       setBidFeedback(res.feedback);
       if (onGameUpdate) onGameUpdate(res.game);
@@ -338,11 +319,7 @@ export default function TransfersTab({
     accept: boolean,
   ) => {
     try {
-      const game = await invoke<GameStateData>("respond_to_offer", {
-        playerId,
-        offerId,
-        accept,
-      });
+      const game = await respondToOffer(playerId, offerId, accept);
       if (onGameUpdate) onGameUpdate(game);
     } catch (err) {
       console.error("Failed to respond to offer:", err);
@@ -359,13 +336,10 @@ export default function TransfersTab({
 
     try {
       const requestedFee = Math.round(parseFloat(counterAmount) * 1_000_000);
-      const response = await invoke<TransferNegotiationResponseData>(
-        "counter_offer",
-        {
-          playerId: counterTarget.player.id,
-          offerId: counterTarget.offerId,
-          requestedFee,
-        },
+      const response = await counterOffer(
+        counterTarget.player.id,
+        counterTarget.offerId,
+        requestedFee,
       );
 
       if (onGameUpdate) onGameUpdate(response.game);
@@ -533,12 +507,9 @@ export default function TransfersTab({
 
     const loadProjection = async (): Promise<void> => {
       try {
-        const result = await invoke<TransferBidProjectionData>(
-          "preview_transfer_bid_financial_impact",
-          {
-            playerId: bidTarget.id,
-            fee: bidFee,
-          },
+        const result = await previewTransferBidFinancialImpact(
+          bidTarget.id,
+          bidFee,
         );
 
         if (!cancelled) {
