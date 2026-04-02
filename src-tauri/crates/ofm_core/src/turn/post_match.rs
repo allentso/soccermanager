@@ -131,9 +131,9 @@ pub fn apply_match_report(
     apply_player_stats(game, report, home_team_id, away_team_id);
     resolve_post_match_promises(game, report, home_team_id, away_team_id);
 
-    // Deplete stamina for players who played
-    deplete_match_stamina(game, home_team_id);
-    deplete_match_stamina(game, away_team_id);
+    // Deplete stamina for players who played, scaled by minutes on pitch
+    deplete_match_stamina(game, home_team_id, report);
+    deplete_match_stamina(game, away_team_id, report);
 
     // Update morale based on result and individual performance
     update_post_match_morale(game, report, home_team_id, away_team_id);
@@ -256,7 +256,7 @@ fn apply_player_stats(
             player.stats.assists += ps.assists as u32;
             player.stats.yellow_cards += ps.yellow_cards as u32;
             player.stats.red_cards += ps.red_cards as u32;
-            player.stats.minutes_played += 90;
+            player.stats.minutes_played += ps.minutes_played as u32;
 
             // Update average rating (running average)
             if player.stats.appearances == 1 {
@@ -487,11 +487,21 @@ fn update_team_form(
     }
 }
 
-fn deplete_match_stamina(game: &mut Game, team_id: &str) {
+fn deplete_match_stamina(game: &mut Game, team_id: &str, report: &engine::MatchReport) {
     for player in game.players.iter_mut() {
         if player.team_id.as_deref() == Some(team_id) {
+            let minutes = report
+                .player_stats
+                .get(&player.id)
+                .map(|ps| ps.minutes_played)
+                .unwrap_or(0);
+            if minutes == 0 {
+                continue; // Did not play, no depletion
+            }
+            let minutes_factor = minutes as f64 / 90.0;
             let stamina_factor = player.attributes.stamina as f64 / 100.0;
-            let depletion = (40.0 * (1.0 - stamina_factor * 0.4)) as u8;
+            let base_depletion = 40.0 * (1.0 - stamina_factor * 0.4);
+            let depletion = (base_depletion * minutes_factor) as u8;
             player.condition = player.condition.saturating_sub(depletion);
         }
     }

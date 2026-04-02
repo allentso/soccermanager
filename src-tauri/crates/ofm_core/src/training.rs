@@ -178,9 +178,17 @@ pub fn process_training(game: &mut Game, weekday_num: u32) {
                 }
             };
 
-            // Skip injured players
+            // Age, morale, and current condition all affect recovery rate.
+            // Older players recover more slowly; high morale aids recovery;
+            // severely fatigued players have a harder time bouncing back.
+            let age = estimate_age(&player.date_of_birth);
+            let age_rec = recovery_factor_from_age(age);
+            let morale_rec = recovery_factor_from_morale(player.morale);
+            let condition_rec = recovery_factor_from_condition(player.condition);
+
+            // Injured players: half base recovery, scaled by age and morale
             if player.injury.is_some() {
-                let recovery = (recovery_base * 0.5) as u8;
+                let recovery = (recovery_base * 0.5 * age_rec * morale_rec) as u8;
                 player.condition = (player.condition + recovery).min(100);
                 continue;
             }
@@ -188,13 +196,16 @@ pub fn process_training(game: &mut Game, weekday_num: u32) {
             // On rest days: only recovery, no attribute gains
             if !is_training_day {
                 let stamina_factor = player.attributes.stamina as f64 / 100.0;
-                let recovery = (recovery_base * (0.5 + stamina_factor * 0.5)) as u8;
+                let recovery = (recovery_base
+                    * (0.5 + stamina_factor * 0.5)
+                    * age_rec
+                    * morale_rec
+                    * condition_rec) as u8;
                 player.condition = (player.condition + recovery).min(100);
                 continue;
             }
 
-            // Age factor: younger players grow faster, older players slower
-            let age = estimate_age(&player.date_of_birth);
+            // Age factor for attribute gains: younger players grow faster, older players slower
             let age_factor = if age <= 21 {
                 1.5
             } else if age <= 25 {
@@ -220,7 +231,11 @@ pub fn process_training(game: &mut Game, weekday_num: u32) {
             // Apply condition: deplete from training, then recover
             player.condition = player.condition.saturating_sub(condition_cost);
             let stamina_factor = player.attributes.stamina as f64 / 100.0;
-            let recovery = (recovery_base * (0.5 + stamina_factor * 0.5)) as u8;
+            let recovery = (recovery_base
+                * (0.5 + stamina_factor * 0.5)
+                * age_rec
+                * morale_rec
+                * condition_rec) as u8;
             player.condition = (player.condition + recovery).min(100);
         }
     }
@@ -291,4 +306,41 @@ fn estimate_age(dob: &str) -> u32 {
     // this is close enough for growth factor purposes.
     let current_year: u32 = 2025;
     current_year.saturating_sub(birth_year)
+}
+
+/// Recovery multiplier from age: younger players bounce back faster.
+fn recovery_factor_from_age(age: u32) -> f64 {
+    if age <= 21 {
+        1.10
+    } else if age <= 25 {
+        1.05
+    } else if age <= 29 {
+        1.00
+    } else if age <= 33 {
+        0.85
+    } else {
+        0.70
+    }
+}
+
+/// Recovery multiplier from morale: players in good spirits recover better.
+fn recovery_factor_from_morale(morale: u8) -> f64 {
+    if morale >= 70 {
+        1.10
+    } else if morale >= 40 {
+        1.00
+    } else {
+        0.90
+    }
+}
+
+/// Recovery multiplier from current condition: severely fatigued players recover more slowly.
+fn recovery_factor_from_condition(condition: u8) -> f64 {
+    if condition < 30 {
+        0.80
+    } else if condition < 50 {
+        0.90
+    } else {
+        1.00
+    }
 }

@@ -6,8 +6,8 @@ use domain::player::{
     Position,
 };
 use domain::team::Team;
-use engine::Side;
 use engine::report::{GoalDetail, MatchReport, PlayerMatchStats, TeamStats};
+use engine::Side;
 use ofm_core::clock::GameClock;
 use ofm_core::game::Game;
 use ofm_core::turn;
@@ -256,8 +256,61 @@ fn report_with_scorer(home_goals: u8, away_goals: u8, scorer_id: &str, side: Sid
     }
 }
 
-// ---------------------------------------------------------------------------
-// process_day tests
+/// Creates a match report where all 22 players played the full 90 minutes.
+/// Use this for stamina depletion tests.
+fn full_squad_report(home_goals: u8, away_goals: u8) -> MatchReport {
+    let prefixes = ["t1_gk", "t2_gk"];
+    let mut player_stats: HashMap<String, PlayerMatchStats> = HashMap::new();
+    // Add GKs
+    for prefix in &prefixes {
+        player_stats.insert(
+            prefix.to_string(),
+            PlayerMatchStats {
+                minutes_played: 90,
+                ..Default::default()
+            },
+        );
+    }
+    // Add outfield players
+    for prefix in ["t1", "t2"] {
+        for i in 0..4 {
+            player_stats.insert(
+                format!("{}_def{}", prefix, i),
+                PlayerMatchStats {
+                    minutes_played: 90,
+                    ..Default::default()
+                },
+            );
+            player_stats.insert(
+                format!("{}_mid{}", prefix, i),
+                PlayerMatchStats {
+                    minutes_played: 90,
+                    ..Default::default()
+                },
+            );
+        }
+        for i in 0..2 {
+            player_stats.insert(
+                format!("{}_fwd{}", prefix, i),
+                PlayerMatchStats {
+                    minutes_played: 90,
+                    ..Default::default()
+                },
+            );
+        }
+    }
+    MatchReport {
+        home_goals,
+        away_goals,
+        home_stats: TeamStats::default(),
+        away_stats: TeamStats::default(),
+        events: vec![],
+        goals: vec![],
+        player_stats,
+        home_possession: 50.0,
+        total_minutes: 90,
+    }
+}
 // ---------------------------------------------------------------------------
 
 #[test]
@@ -546,7 +599,7 @@ fn apply_match_report_gk_no_clean_sheet_on_conceding() {
 #[test]
 fn apply_match_report_depletes_stamina() {
     let mut game = make_game_with_match();
-    let report = empty_report(1, 0);
+    let report = full_squad_report(1, 0);
     turn::apply_match_report(&mut game, 0, "team1", "team2", &report);
 
     // All players on both teams should have reduced condition
@@ -1041,7 +1094,7 @@ fn stamina_depletion_varies_by_attribute() {
         p.condition = 100;
     }
 
-    let report = empty_report(1, 0);
+    let report = full_squad_report(1, 0);
     turn::apply_match_report(&mut game, 0, "team1", "team2", &report);
 
     let high_stam = game.players.iter().find(|p| p.id == "t1_mid0").unwrap();
