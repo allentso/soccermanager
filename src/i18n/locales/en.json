@@ -321,6 +321,12 @@
       "LeftWinger": "Left Winger",
       "Striker": "Striker"
     },
+    "positionGroups": {
+      "Goalkeeper": "Goalkeepers",
+      "Defender": "Defenders",
+      "Midfielder": "Midfielders",
+      "Forward": "Forwards"
+    },
     "posAbbr": {
       "Goalkeeper": "GK",
       "Defender": "DEF",

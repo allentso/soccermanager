@@ -321,6 +321,12 @@
       "LeftWinger": "Extremo izquierdo",
       "Striker": "Delantero centro"
     },
+    "positionGroups": {
+      "Goalkeeper": "Porteros",
+      "Defender": "Defensores",
+      "Midfielder": "Centrocampistas",
+      "Forward": "Delanteros"
+    },
     "posAbbr": {
       "Goalkeeper": "POR",
       "Defender": "DEF",

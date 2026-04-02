@@ -321,6 +321,12 @@
       "LeftWinger": "Ala sinistra",
       "Striker": "Punta"
     },
+    "positionGroups": {
+      "Goalkeeper": "Portieri",
+      "Defender": "Difensori",
+      "Midfielder": "Centrocampisti",
+      "Forward": "Attaccanti"
+    },
     "posAbbr": {
       "Goalkeeper": "POR",
       "Defender": "DIF",

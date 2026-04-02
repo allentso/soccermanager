@@ -321,6 +321,12 @@
       "LeftWinger": "Extremo esquerdo",
       "Striker": "Ponta de lança"
     },
+    "positionGroups": {
+      "Goalkeeper": "Guarda-Redes",
+      "Defender": "Defesas",
+      "Midfielder": "Médios",
+      "Forward": "Avançados"
+    },
     "posAbbr": {
       "Goalkeeper": "GR",
       "Defender": "DEF",

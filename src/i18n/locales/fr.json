@@ -321,6 +321,12 @@
       "LeftWinger": "Ailier gauche",
       "Striker": "Avant-centre"
     },
+    "positionGroups": {
+      "Goalkeeper": "Gardiens",
+      "Defender": "Défenseurs",
+      "Midfielder": "Milieux",
+      "Forward": "Attaquants"
+    },
     "posAbbr": {
       "Goalkeeper": "GAR",
       "Defender": "DEF",

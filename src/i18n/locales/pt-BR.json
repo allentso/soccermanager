@@ -321,6 +321,12 @@
       "LeftWinger": "Ponta esquerda",
       "Striker": "Centroavante"
     },
+    "positionGroups": {
+      "Goalkeeper": "Goleiros",
+      "Defender": "Defensores",
+      "Midfielder": "Meias",
+      "Forward": "Atacantes"
+    },
     "posAbbr": {
       "Goalkeeper": "GOL",
       "Defender": "ZAG",
