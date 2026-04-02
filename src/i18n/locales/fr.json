@@ -785,7 +785,15 @@
     "boardVeryPleased": "La direction est très satisfaite de votre travail.",
     "boardSatisfied": "La direction est satisfaite de vos performances.",
     "boardConcerns": "La direction a des inquiétudes concernant les résultats.",
-    "boardThreat": "Votre poste est sérieusement menacé."
+    "boardThreat": "Votre poste est sérieusement menacé.",
+    "board": "Direction",
+    "fans": "Supporters",
+    "born": "Né le",
+    "fanAdore": "Les supporters vous adorent !",
+    "fanBehind": "Les supporters soutiennent l'équipe.",
+    "fanMixed": "Le sentiment des supporters est mitigé.",
+    "fanRestless": "Les supporters s'impatientent.",
+    "fanUnrest": "Agitation parmi les supporters — des protestations sont probables."
   },
   "boardObjectives": {
     "objective": {

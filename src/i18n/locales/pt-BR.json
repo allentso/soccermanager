@@ -785,7 +785,15 @@
     "boardVeryPleased": "A diretoria está muito satisfeita com seu trabalho.",
     "boardSatisfied": "A diretoria está satisfeita com seu desempenho.",
     "boardConcerns": "A diretoria tem preocupações com os resultados.",
-    "boardThreat": "Sua posição está seriamente ameaçada."
+    "boardThreat": "Sua posição está seriamente ameaçada.",
+    "board": "Diretoria",
+    "fans": "Torcida",
+    "born": "Nascido em",
+    "fanAdore": "Os torcedores te adoram!",
+    "fanBehind": "A torcida está com o time.",
+    "fanMixed": "O sentimento da torcida está dividido.",
+    "fanRestless": "A torcida está ficando impaciente.",
+    "fanUnrest": "Agitação entre os torcedores — protestos prováveis."
   },
   "boardObjectives": {
     "objective": {

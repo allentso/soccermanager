@@ -785,7 +785,15 @@
     "boardVeryPleased": "A direção está muito satisfeita com o teu trabalho.",
     "boardSatisfied": "A direção está satisfeita com o teu desempenho.",
     "boardConcerns": "A direção tem preocupações com os resultados.",
-    "boardThreat": "A tua posição está seriamente ameaçada."
+    "boardThreat": "A tua posição está seriamente ameaçada.",
+    "board": "Direção",
+    "fans": "Adeptos",
+    "born": "Nascido em",
+    "fanAdore": "Os adeptos adoram-te!",
+    "fanBehind": "Os adeptos estão com a equipa.",
+    "fanMixed": "O sentimento dos adeptos está dividido.",
+    "fanRestless": "Os adeptos estão a ficar impacientes.",
+    "fanUnrest": "Agitação entre os adeptos — protestos prováveis."
   },
   "boardObjectives": {
     "objective": {

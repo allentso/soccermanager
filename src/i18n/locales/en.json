@@ -785,7 +785,15 @@
     "boardVeryPleased": "The board is very pleased with your work.",
     "boardSatisfied": "The board is satisfied with your performance.",
     "boardConcerns": "The board has concerns about results.",
-    "boardThreat": "Your position is under serious threat."
+    "boardThreat": "Your position is under serious threat.",
+    "board": "Board",
+    "fans": "Fans",
+    "born": "Born",
+    "fanAdore": "The fans adore you!",
+    "fanBehind": "Fans are behind the team.",
+    "fanMixed": "Fan sentiment is mixed.",
+    "fanRestless": "Fans are growing restless.",
+    "fanUnrest": "Fan unrest — protests likely."
   },
   "boardObjectives": {
     "objective": {
