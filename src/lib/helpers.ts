@@ -1,5 +1,6 @@
 import type { TFunction } from "i18next";
 import { TeamData, FixtureData, LeagueData, PlayerData } from "../store/gameStore";
+import { CONTRACT_RISK_DAYS } from "./domainConstants";
 
 const POSITION_ALIASES: Record<string, string> = {
   gk: "Goalkeeper",
@@ -475,8 +476,8 @@ export function getContractRiskLevel(
 
   const daysUntilExpiry = getDaysUntil(contractEnd, currentDate);
 
-  if (daysUntilExpiry <= 180) return "critical";
-  if (daysUntilExpiry <= 365) return "warning";
+  if (daysUntilExpiry <= CONTRACT_RISK_DAYS.critical) return "critical";
+  if (daysUntilExpiry <= CONTRACT_RISK_DAYS.warning) return "warning";
   return "stable";
 }
 

@@ -5,10 +5,9 @@ import type {
   TransferWindowContextData,
   TransferWindowStatus,
 } from "../store/gameStore";
+import { TRANSFER_WINDOW_DAYS } from "./domainConstants";
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
-const TRANSFER_WINDOW_PRESEASON_DAYS = 30;
-const TRANSFER_WINDOW_POST_START_DAYS = 30;
 
 const DEFAULT_TRANSFER_WINDOW: TransferWindowContextData = {
   status: "Closed",
@@ -107,8 +106,8 @@ function deriveTransferWindowContext(
     return DEFAULT_TRANSFER_WINDOW;
   }
 
-  const opensOn = addDays(seasonStart, -TRANSFER_WINDOW_PRESEASON_DAYS);
-  const closesOn = addDays(seasonStart, TRANSFER_WINDOW_POST_START_DAYS);
+  const opensOn = addDays(seasonStart, -TRANSFER_WINDOW_DAYS.preseasonOpenLead);
+  const closesOn = addDays(seasonStart, TRANSFER_WINDOW_DAYS.postSeasonStartClose);
 
   let status: TransferWindowStatus = "Closed";
   let daysUntilOpens: number | null = null;
