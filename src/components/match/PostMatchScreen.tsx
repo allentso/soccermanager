@@ -12,7 +12,7 @@ import {
 } from "./types";
 import { getEventDisplay, getPlayerName } from "./helpers";
 import { getTalkIcon } from "./TeamTalkIcons";
-import { Badge } from "../ui";
+import { Badge, ThemeToggle } from "../ui";
 import {
   QuickStat,
   renderScorers,
@@ -290,25 +290,26 @@ export default function PostMatchScreen({
   };
 
   return (
-    <div className="min-h-screen bg-navy-900 text-white flex flex-col">
+    <div className="min-h-screen bg-gray-100 text-gray-900 dark:bg-navy-900 dark:text-white flex flex-col transition-colors duration-300">
       {/* Result Header */}
       <header
-        className={`border-b border-navy-700 px-4 py-8 ${
+        className={`border-b border-gray-200 dark:border-navy-700 px-4 py-8 transition-colors duration-300 ${
           resultType === "win"
-            ? "bg-linear-to-r from-primary-900/50 via-navy-900 to-primary-900/50"
+            ? "bg-linear-to-r from-primary-100 via-white to-primary-100 dark:from-primary-900/50 dark:via-navy-900 dark:to-primary-900/50"
             : resultType === "loss"
-              ? "bg-linear-to-r from-red-900/30 via-navy-900 to-red-900/30"
-              : "bg-linear-to-r from-navy-800 via-navy-900 to-navy-800"
+              ? "bg-linear-to-r from-red-100 via-white to-red-100 dark:from-red-900/30 dark:via-navy-900 dark:to-red-900/30"
+              : "bg-linear-to-r from-gray-200 via-white to-gray-200 dark:from-navy-800 dark:via-navy-900 dark:to-navy-800"
         }`}
       >
-        <div className="max-w-5xl mx-auto text-center">
+        <div className="max-w-5xl mx-auto text-center relative">
+          <ThemeToggle className="absolute right-0 top-0" />
           {/* Result badge */}
           {!isSpectator && userSide && (
             <div className="mb-4">
               {resultType === "win" && (
-                <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-primary-500/20 rounded-full">
-                  <Trophy className="w-4 h-4 text-accent-400" />
-                  <span className="font-heading font-bold text-sm uppercase tracking-widest text-primary-400">
+                <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-primary-100 dark:bg-primary-500/20 rounded-full transition-colors duration-300">
+                  <Trophy className="w-4 h-4 text-accent-700 dark:text-accent-400" />
+                  <span className="font-heading font-bold text-sm uppercase tracking-widest text-primary-700 dark:text-primary-400">
                     {t("match.victory")}
                   </span>
                 </div>
@@ -345,32 +346,32 @@ export default function PostMatchScreen({
               >
                 {snapshot.home_team.name.substring(0, 3).toUpperCase()}
               </div>
-              <p className="font-heading font-bold text-lg text-gray-200">
-                {snapshot.home_team.name}
-              </p>
+                <p className="font-heading font-bold text-lg text-gray-800 dark:text-gray-200">
+                  {snapshot.home_team.name}
+                </p>
             </div>
 
             <div className="flex items-center gap-5">
-              <span className="text-6xl font-heading font-bold text-white tabular-nums">
-                {snapshot.home_score}
-              </span>
+                <span className="text-6xl font-heading font-bold text-gray-900 dark:text-white tabular-nums">
+                  {snapshot.home_score}
+                </span>
               <div className="text-center">
-                <p className="text-xs font-heading uppercase tracking-widest text-accent-400">
+                <p className="text-xs font-heading uppercase tracking-widest text-accent-700 dark:text-accent-400">
                   {t("match.fullTime")}
                 </p>
-                <p className="text-lg font-heading font-bold text-gray-600">
+                <p className="text-lg font-heading font-bold text-gray-500 dark:text-gray-500">
                   {t("match.ft")}
                 </p>
               </div>
-              <span className="text-6xl font-heading font-bold text-white tabular-nums">
+              <span className="text-6xl font-heading font-bold text-gray-900 dark:text-white tabular-nums">
                 {snapshot.away_score}
               </span>
             </div>
 
             <div className="flex items-center gap-4">
-              <p className="font-heading font-bold text-lg text-gray-200">
-                {snapshot.away_team.name}
-              </p>
+                <p className="font-heading font-bold text-lg text-gray-800 dark:text-gray-200">
+                  {snapshot.away_team.name}
+                </p>
               <div
                 className="w-16 h-16 rounded-xl flex items-center justify-center font-heading font-bold text-lg"
                 style={{
@@ -391,19 +392,19 @@ export default function PostMatchScreen({
         <div className="max-w-5xl mx-auto px-6 py-6 grid grid-cols-3 gap-6">
           {/* Left: Match Events */}
           <div className="flex flex-col gap-4">
-            <div className="bg-navy-800 rounded-xl border border-navy-700 p-4">
-              <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500 mb-3">
+            <div className="bg-white dark:bg-navy-800 rounded-xl border border-gray-200 dark:border-navy-700 shadow-sm p-4 transition-colors duration-300">
+              <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 mb-3">
                 {t("match.matchEvents")}
               </h3>
               {keyEvents.length === 0 ? (
-                <p className="text-xs text-gray-600">{t("match.quietMatch")}</p>
+                <p className="text-xs text-gray-600 dark:text-gray-500">{t("match.quietMatch")}</p>
               ) : (
                 <div className="flex flex-col gap-2">
                   {keyEvents.map((evt, i) => {
                     const display = getEventDisplay(evt);
                     return (
                       <div key={i} className="flex items-center gap-2 text-xs">
-                        <span className="text-gray-600 tabular-nums w-6 text-right font-heading">
+                        <span className="text-gray-600 dark:text-gray-500 tabular-nums w-6 text-right font-heading">
                           {evt.minute}'
                         </span>
                         <span>{display.icon}</span>
@@ -428,10 +429,10 @@ export default function PostMatchScreen({
             </div>
 
             {/* Quick Stats */}
-            <div className="bg-navy-800 rounded-xl border border-navy-700 p-4">
+            <div className="bg-white dark:bg-navy-800 rounded-xl border border-gray-200 dark:border-navy-700 shadow-sm p-4 transition-colors duration-300">
               <div className="flex items-center gap-2 mb-3">
-                <BarChart3 className="w-4 h-4 text-gray-500" />
-                <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500">
+                <BarChart3 className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">
                   {t("match.quickStats")}
                 </h3>
               </div>
@@ -454,10 +455,10 @@ export default function PostMatchScreen({
               />
             </div>
 
-            <div className="bg-navy-800 rounded-xl border border-navy-700 p-4">
+            <div className="bg-white dark:bg-navy-800 rounded-xl border border-gray-200 dark:border-navy-700 shadow-sm p-4 transition-colors duration-300">
               <div className="flex items-center gap-2 mb-3">
                 <BarChart3 className="w-4 h-4 text-accent-400" />
-                <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500">
+                <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">
                   {summaryTitle}
                 </h3>
               </div>
@@ -466,11 +467,11 @@ export default function PostMatchScreen({
                 <div className="flex flex-col gap-4">
                   <div>
                     {summaryContextLabel && (
-                      <p className="text-sm font-heading font-bold text-gray-200 mb-2">
+                      <p className="text-sm font-heading font-bold text-gray-800 dark:text-gray-200 mb-2">
                         {summaryContextLabel}
                       </p>
                     )}
-                    <div className="flex flex-col gap-2 text-xs text-gray-300">
+                    <div className="flex flex-col gap-2 text-xs text-gray-700 dark:text-gray-300">
                       {otherMatchEntries.length > 0 ? (
                         otherMatchEntries.map((entry) => {
                           const scorerSummary = formatOtherMatchScorers(
@@ -483,10 +484,10 @@ export default function PostMatchScreen({
                           return (
                             <div
                               key={entry.fixture.id}
-                              className="rounded-lg bg-navy-700/40 px-3 py-2"
+                                className="rounded-lg bg-gray-100 dark:bg-navy-700/40 px-3 py-2 transition-colors duration-300"
                             >
                               <div className="flex items-center justify-between gap-3">
-                                <span className="truncate font-medium text-gray-200">
+                                <span className="truncate font-medium text-gray-800 dark:text-gray-200">
                                   {entry.homeTeamName}{" "}
                                   {entry.fixture.result?.home_goals} -{" "}
                                   {entry.fixture.result?.away_goals}{" "}
@@ -499,19 +500,19 @@ export default function PostMatchScreen({
                                         entry.fixture.id,
                                       )
                                     }
-                                    className="shrink-0 rounded-md px-2 py-1 text-[10px] font-heading font-bold uppercase tracking-widest text-accent-400 hover:bg-navy-600/60"
+                                    className="shrink-0 rounded-md px-2 py-1 text-[10px] font-heading font-bold uppercase tracking-widest text-accent-400 hover:bg-gray-200 dark:hover:bg-navy-600/60 transition-colors"
                                   >
                                     {t("match.viewDetails")}
                                   </button>
                                 )}
                               </div>
                               {scorerSummary && (
-                                <p className="mt-1 text-[11px] text-gray-400">
+                                <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
                                   {scorerSummary}
                                 </p>
                               )}
                               {statSummary && (
-                                <p className="mt-1 text-[10px] uppercase tracking-wider text-gray-500">
+                                <p className="mt-1 text-[10px] uppercase tracking-wider text-gray-500 dark:text-gray-400">
                                   {statSummary}
                                 </p>
                               )}
@@ -519,7 +520,7 @@ export default function PostMatchScreen({
                           );
                         })
                       ) : (
-                        <p className="text-gray-500">{summaryEmptyState}</p>
+                        <p className="text-gray-500 dark:text-gray-400">{summaryEmptyState}</p>
                       )}
                     </div>
                   </div>
@@ -527,7 +528,7 @@ export default function PostMatchScreen({
                   {isLeagueFixture && roundSummary && (
                     <>
                       <div>
-                        <p className="text-[10px] font-heading font-bold uppercase tracking-widest text-gray-500 mb-2">
+                        <p className="text-[10px] font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 mb-2">
                           {t("home.leagueTable")}
                         </p>
                         <div className="flex flex-col gap-1 text-xs">
@@ -536,12 +537,12 @@ export default function PostMatchScreen({
                             .map((entry) => (
                               <div
                                 key={entry.team_id}
-                                className="flex items-center justify-between gap-3 text-gray-300"
+                                className="flex items-center justify-between gap-3 text-gray-700 dark:text-gray-300"
                               >
                                 <span>
                                   {entry.current_position}. {entry.team_name}
                                 </span>
-                                <span className="font-heading font-bold tabular-nums text-gray-400">
+                                <span className="font-heading font-bold tabular-nums text-gray-500 dark:text-gray-400">
                                   {entry.points}
                                 </span>
                               </div>
@@ -550,7 +551,7 @@ export default function PostMatchScreen({
                       </div>
 
                       <div>
-                        <p className="text-[10px] font-heading font-bold uppercase tracking-widest text-gray-500 mb-2">
+                        <p className="text-[10px] font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 mb-2">
                           {t("home.topScorers")}
                         </p>
                         <div className="flex flex-col gap-1 text-xs">
@@ -560,7 +561,7 @@ export default function PostMatchScreen({
                               .map((entry) => (
                                 <div
                                   key={entry.player_id}
-                                  className="flex items-center justify-between gap-3 text-gray-300"
+                                  className="flex items-center justify-between gap-3 text-gray-700 dark:text-gray-300"
                                 >
                                   <span className="truncate">
                                     {entry.current_rank}. {entry.player_name}
@@ -571,13 +572,13 @@ export default function PostMatchScreen({
                                 </div>
                               ))
                           ) : (
-                            <p className="text-gray-500">{t("home.noGoals")}</p>
+                            <p className="text-gray-500 dark:text-gray-400">{t("home.noGoals")}</p>
                           )}
                         </div>
                       </div>
 
                       {roundSummary.notable_upset && (
-                        <div className="rounded-lg bg-navy-700/50 px-3 py-2 text-xs text-gray-300">
+                        <div className="rounded-lg bg-gray-100 dark:bg-navy-700/50 px-3 py-2 text-xs text-gray-700 dark:text-gray-300 transition-colors duration-300">
                           {roundSummary.notable_upset.underdog_team_name}{" "}
                           {roundSummary.notable_upset.home_goals} -{" "}
                           {roundSummary.notable_upset.away_goals}{" "}
@@ -588,24 +589,24 @@ export default function PostMatchScreen({
                   )}
                 </div>
               ) : (
-                <p className="text-xs text-gray-500">{summaryEmptyState}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">{summaryEmptyState}</p>
               )}
             </div>
           </div>
 
           <div className="flex flex-col gap-4">
             {!isSpectator && userSide ? (
-              <div className="bg-navy-800 rounded-xl border border-navy-700 p-4">
+              <div className="bg-white dark:bg-navy-800 rounded-xl border border-gray-200 dark:border-navy-700 shadow-sm p-4 transition-colors duration-300">
                 <div className="flex items-center gap-2 mb-4">
                   <MessageCircle className="w-4 h-4 text-accent-400" />
-                  <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500">
+                  <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">
                     {t("match.postMatchTeamTalk")}
                   </h3>
                 </div>
 
                 {!talkDelivered ? (
                   <>
-                    <p className="text-xs text-gray-400 mb-3">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
                       {t("match.addressPlayers")}
                     </p>
                     <div className="flex flex-col gap-2">
@@ -618,7 +619,7 @@ export default function PostMatchScreen({
                             className={`flex items-center gap-3 p-3 rounded-lg text-left transition-all ${
                               selectedTalk === opt.id
                                 ? "bg-primary-500/20 ring-2 ring-primary-500/50"
-                                : "bg-navy-700/50 hover:bg-navy-700"
+                                : "bg-gray-100 hover:bg-gray-200 dark:bg-navy-700/50 dark:hover:bg-navy-700"
                             }`}
                           >
                             <span className="text-xl">
@@ -630,7 +631,7 @@ export default function PostMatchScreen({
                                   className={`text-sm font-heading font-bold ${
                                     selectedTalk === opt.id
                                       ? "text-primary-400"
-                                      : "text-gray-200"
+                                      : "text-gray-800 dark:text-gray-200"
                                   }`}
                                 >
                                   {opt.label}
@@ -639,7 +640,7 @@ export default function PostMatchScreen({
                                   <Star className="w-3 h-3 text-accent-400" />
                                 )}
                               </div>
-                              <p className="text-[11px] text-gray-500">
+                              <p className="text-[11px] text-gray-500 dark:text-gray-400">
                                 {opt.description}
                               </p>
                             </div>
@@ -677,22 +678,22 @@ export default function PostMatchScreen({
                             key={r.player_id}
                             className="flex items-center gap-2 px-2 py-1 text-xs"
                           >
-                            <span className="text-gray-400 flex-1 truncate">
+                            <span className="text-gray-500 dark:text-gray-400 flex-1 truncate">
                               {r.player_name}
                             </span>
                             <span
-                              className={`font-heading font-bold tabular-nums ${r.delta > 0 ? "text-green-400" : r.delta < 0 ? "text-red-400" : "text-gray-500"}`}
+                              className={`font-heading font-bold tabular-nums ${r.delta > 0 ? "text-green-400" : r.delta < 0 ? "text-red-400" : "text-gray-500 dark:text-gray-400"}`}
                             >
                               {r.delta > 0 ? "+" : ""}
                               {r.delta}
                             </span>
-                            <div className="w-12 h-1.5 bg-navy-600 rounded-full overflow-hidden">
+                            <div className="w-12 h-1.5 bg-gray-300 dark:bg-navy-600 rounded-full overflow-hidden transition-colors duration-300">
                               <div
                                 className={`h-full rounded-full ${r.new_morale >= 70 ? "bg-green-500" : r.new_morale >= 40 ? "bg-yellow-500" : "bg-red-500"}`}
                                 style={{ width: `${r.new_morale}%` }}
                               />
                             </div>
-                            <span className="text-gray-500 tabular-nums w-6 text-right">
+                            <span className="text-gray-500 dark:text-gray-400 tabular-nums w-6 text-right">
                               {r.new_morale}
                             </span>
                           </div>
@@ -703,11 +704,11 @@ export default function PostMatchScreen({
                 )}
               </div>
             ) : (
-              <div className="bg-navy-800 rounded-xl border border-navy-700 p-4 flex flex-col items-center justify-center py-12">
-                <p className="text-lg font-heading font-bold text-gray-400 mb-2">
+              <div className="bg-white dark:bg-navy-800 rounded-xl border border-gray-200 dark:border-navy-700 shadow-sm p-4 flex flex-col items-center justify-center py-12 transition-colors duration-300">
+                <p className="text-lg font-heading font-bold text-gray-500 dark:text-gray-400 mb-2">
                   {t("match.matchOver")}
                 </p>
-                <p className="text-sm text-gray-500 text-center">
+                <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
                   {snapshot.home_score} - {snapshot.away_score}
                 </p>
               </div>
@@ -727,8 +728,8 @@ export default function PostMatchScreen({
               />
             ))}
 
-            <div className="bg-navy-800 rounded-xl border border-navy-700 p-4">
-              <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500 mb-3">
+            <div className="bg-white dark:bg-navy-800 rounded-xl border border-gray-200 dark:border-navy-700 shadow-sm p-4 transition-colors duration-300">
+              <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 mb-3">
                 {t("match.scorers")}
               </h3>
               {renderScorers(snapshot, importantEvents, "Home")}
@@ -737,28 +738,28 @@ export default function PostMatchScreen({
                 (e) =>
                   e.event_type === "Goal" || e.event_type === "PenaltyGoal",
               ).length === 0 && (
-                <p className="text-xs text-gray-600">{t("match.noGoals")}</p>
+                <p className="text-xs text-gray-600 dark:text-gray-500">{t("match.noGoals")}</p>
               )}
             </div>
 
             {/* Substitutions made */}
             {snapshot.substitutions.length > 0 && (
-              <div className="bg-navy-800 rounded-xl border border-navy-700 p-4">
-                <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500 mb-3">
+                <div className="bg-white dark:bg-navy-800 rounded-xl border border-gray-200 dark:border-navy-700 shadow-sm p-4 transition-colors duration-300">
+                  <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 mb-3">
                   {t("match.substitutions")}
                 </h3>
                 <div className="flex flex-col gap-2">
                   {snapshot.substitutions.map((sub, i) => (
                     <div key={i} className="flex items-center gap-2 text-xs">
-                      <span className="text-gray-600 tabular-nums w-6 text-right font-heading">
+                      <span className="text-gray-600 dark:text-gray-500 tabular-nums w-6 text-right font-heading">
                         {sub.minute}'
                       </span>
                       <span className="text-green-400">↑</span>
-                      <span className="text-gray-300 truncate flex-1">
+                      <span className="text-gray-700 dark:text-gray-300 truncate flex-1">
                         {getPlayerName(snapshot, sub.player_on_id)}
                       </span>
                       <span className="text-red-400">↓</span>
-                      <span className="text-gray-500 truncate">
+                      <span className="text-gray-500 dark:text-gray-400 truncate">
                         {getPlayerName(snapshot, sub.player_off_id)}
                       </span>
                     </div>
@@ -772,30 +773,30 @@ export default function PostMatchScreen({
 
       {selectedOtherFixture && selectedOtherFixtureReport && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
-          <div className="w-full max-w-3xl rounded-2xl border border-navy-700 bg-navy-900 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-navy-700 px-5 py-4">
+          <div className="w-full max-w-3xl rounded-2xl border border-gray-200 dark:border-navy-700 bg-white dark:bg-navy-900 shadow-2xl transition-colors duration-300">
+            <div className="flex items-center justify-between border-b border-gray-200 dark:border-navy-700 px-5 py-4">
               <div>
-                <p className="text-xs font-heading uppercase tracking-widest text-gray-500">
+                <p className="text-xs font-heading uppercase tracking-widest text-gray-500 dark:text-gray-400">
                   {t("match.matchDetails")}
                 </p>
-                <p className="text-lg font-heading font-bold text-white">
+                <p className="text-lg font-heading font-bold text-gray-900 dark:text-white">
                   {getTeamNameById(selectedOtherFixture.home_team_id)}{" "}
                   {selectedOtherFixture.result?.home_goals} -{" "}
                   {selectedOtherFixture.result?.away_goals}{" "}
                   {getTeamNameById(selectedOtherFixture.away_team_id)}
                 </p>
               </div>
-              <button
-                onClick={() => setSelectedOtherFixtureId(null)}
-                className="rounded-lg px-3 py-2 text-sm font-heading font-bold uppercase tracking-wider text-gray-400 hover:bg-navy-800 hover:text-white"
-              >
+                <button
+                  onClick={() => setSelectedOtherFixtureId(null)}
+                  className="rounded-lg px-3 py-2 text-sm font-heading font-bold uppercase tracking-wider text-gray-500 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-navy-800 dark:hover:text-white transition-colors"
+                >
                 {t("common.close")}
               </button>
             </div>
 
             <div className="grid gap-5 p-5 md:grid-cols-[1.15fr_0.85fr]">
-              <div className="rounded-xl border border-navy-700 bg-navy-800 p-4">
-                <h4 className="mb-3 text-xs font-heading font-bold uppercase tracking-widest text-gray-500">
+              <div className="rounded-xl border border-gray-200 dark:border-navy-700 bg-gray-50 dark:bg-navy-800 p-4 transition-colors duration-300">
+                <h4 className="mb-3 text-xs font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">
                   {t("match.matchEvents")}
                 </h4>
                 {selectedOtherFixtureReport.events.length > 0 ? (
@@ -819,7 +820,7 @@ export default function PostMatchScreen({
                           key={`${event.minute}-${event.event_type}-${index}`}
                           className="flex items-center gap-2 text-xs"
                         >
-                          <span className="w-8 text-right font-heading tabular-nums text-gray-500">
+                          <span className="w-8 text-right font-heading tabular-nums text-gray-500 dark:text-gray-400">
                             {event.minute}'
                           </span>
                           <span>{display.icon}</span>
@@ -841,15 +842,15 @@ export default function PostMatchScreen({
                     })}
                   </div>
                 ) : (
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
                     {t("match.quietMatch")}
                   </p>
                 )}
               </div>
 
               <div className="flex flex-col gap-4">
-                <div className="rounded-xl border border-navy-700 bg-navy-800 p-4">
-                  <h4 className="mb-3 text-xs font-heading font-bold uppercase tracking-widest text-gray-500">
+                <div className="rounded-xl border border-gray-200 dark:border-navy-700 bg-gray-50 dark:bg-navy-800 p-4 transition-colors duration-300">
+                  <h4 className="mb-3 text-xs font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">
                     {t("match.quickStats")}
                   </h4>
                   <QuickStat
@@ -887,16 +888,16 @@ export default function PostMatchScreen({
                   />
                 </div>
 
-                <div className="rounded-xl border border-navy-700 bg-navy-800 p-4">
-                  <h4 className="mb-3 text-xs font-heading font-bold uppercase tracking-widest text-gray-500">
+                <div className="rounded-xl border border-gray-200 dark:border-navy-700 bg-gray-50 dark:bg-navy-800 p-4 transition-colors duration-300">
+                  <h4 className="mb-3 text-xs font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">
                     {t("match.scorers")}
                   </h4>
                   {formatOtherMatchScorers(selectedOtherFixture) ? (
-                    <p className="text-xs text-gray-300">
+                    <p className="text-xs text-gray-700 dark:text-gray-300">
                       {formatOtherMatchScorers(selectedOtherFixture)}
                     </p>
                   ) : (
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
                       {t("match.noGoals")}
                     </p>
                   )}
@@ -908,16 +909,16 @@ export default function PostMatchScreen({
       )}
 
       {/* Footer */}
-      <footer className="bg-navy-800 border-t border-navy-700 px-6 py-4">
+      <footer className="bg-white dark:bg-navy-800 border-t border-gray-200 dark:border-navy-700 px-6 py-4 transition-colors duration-300">
         <div className="max-w-5xl mx-auto flex justify-between items-center">
-          <p className="text-xs text-gray-600 font-heading uppercase tracking-wider">
+          <p className="text-xs text-gray-600 dark:text-gray-500 font-heading uppercase tracking-wider">
             {isSpectator ? t("match.matchComplete") : t("match.addressPress")}
           </p>
           <div className="flex items-center gap-3">
-            <button
-              onClick={onFinish}
-              className="flex items-center gap-2 px-6 py-3 bg-navy-700 hover:bg-navy-600 rounded-xl font-heading font-bold uppercase tracking-wider text-sm text-gray-300 transition-colors"
-            >
+              <button
+                onClick={onFinish}
+                className="flex items-center gap-2 px-6 py-3 bg-gray-200 hover:bg-gray-300 dark:bg-navy-700 dark:hover:bg-navy-600 rounded-xl font-heading font-bold uppercase tracking-wider text-sm text-gray-700 dark:text-gray-300 transition-colors"
+              >
               {t("match.skip")}
               <ChevronRight className="w-4 h-4" />
             </button>

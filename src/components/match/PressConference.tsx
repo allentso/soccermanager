@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { GameStateData } from "../../store/gameStore";
 import { MatchSnapshot } from "./types";
-import { Badge } from "../ui";
+import { Badge, ThemeToggle } from "../ui";
 import { ChevronRight, Mic, MessageSquare } from "lucide-react";
 
 interface PressConferenceProps {
@@ -322,17 +322,18 @@ export default function PressConference({
     userSide === "Home" ? snapshot.home_team.name : snapshot.away_team.name;
 
   return (
-    <div className="min-h-screen bg-navy-900 text-white flex flex-col">
+    <div className="min-h-screen bg-gray-100 text-gray-900 dark:bg-navy-900 dark:text-white flex flex-col transition-colors duration-300">
       {/* Header */}
-      <header className="bg-gradient-to-r from-navy-800 via-navy-900 to-navy-800 border-b border-navy-700 px-4 py-6">
-        <div className="max-w-3xl mx-auto text-center">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-navy-700 rounded-full mb-3">
+      <header className="bg-linear-to-r from-gray-200 via-white to-gray-200 dark:from-navy-800 dark:via-navy-900 dark:to-navy-800 border-b border-gray-200 dark:border-navy-700 px-4 py-6 transition-colors duration-300">
+        <div className="max-w-3xl mx-auto text-center relative">
+          <ThemeToggle className="absolute right-0 top-0" />
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-gray-200 dark:bg-navy-700 rounded-full mb-3 transition-colors duration-300">
             <Mic className="w-4 h-4 text-accent-400" />
-            <span className="font-heading font-bold text-xs uppercase tracking-widest text-gray-300">
+            <span className="font-heading font-bold text-xs uppercase tracking-widest text-gray-700 dark:text-gray-300">
               {t("match.pressConference")}
             </span>
           </div>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-gray-500 dark:text-gray-400">
             {t("match.pressSubtitle", { team: userTeamName })}
           </p>
           <div className="flex items-center justify-center gap-1 mt-3">
@@ -344,7 +345,7 @@ export default function PressConference({
                     ? "bg-primary-500"
                     : i === currentIdx
                       ? "bg-primary-400"
-                      : "bg-navy-700"
+                      : "bg-gray-300 dark:bg-navy-700"
                 }`}
               />
             ))}
@@ -358,21 +359,21 @@ export default function PressConference({
           <div className="max-w-2xl w-full">
             {/* Journalist */}
             <div className="flex items-start gap-4 mb-8">
-              <div className="w-12 h-12 rounded-full bg-navy-700 flex items-center justify-center flex-shrink-0">
-                <MessageSquare className="w-5 h-5 text-gray-400" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="font-heading font-bold text-sm text-gray-200">
-                    {currentQ.journalist}
-                  </span>
+               <div className="w-12 h-12 rounded-full bg-gray-200 dark:bg-navy-700 flex items-center justify-center flex-shrink-0 transition-colors duration-300">
+                 <MessageSquare className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+               </div>
+               <div>
+                 <div className="flex items-center gap-2 mb-1">
+                   <span className="font-heading font-bold text-sm text-gray-800 dark:text-gray-200">
+                     {currentQ.journalist}
+                   </span>
                   <Badge variant="neutral" size="sm">
                     {currentQ.outlet}
                   </Badge>
                 </div>
-                <p className="text-lg text-gray-300 leading-relaxed italic">
-                  "{currentQ.question}"
-                </p>
+                 <p className="text-lg text-gray-700 dark:text-gray-300 leading-relaxed italic">
+                   "{currentQ.question}"
+                 </p>
               </div>
             </div>
 
@@ -385,14 +386,14 @@ export default function PressConference({
                     key={r.id}
                     onClick={() => handleAnswer(r.id)}
                     disabled={hasAnswered}
-                    className={`p-4 rounded-xl text-left transition-all ${
-                      isSelected
-                        ? "bg-primary-500/20 ring-2 ring-primary-500/50"
-                        : hasAnswered
-                          ? "bg-navy-800/50 opacity-40"
-                          : "bg-navy-800 hover:bg-navy-700 border border-navy-700"
-                    }`}
-                  >
+                     className={`p-4 rounded-xl text-left transition-all ${
+                       isSelected
+                         ? "bg-primary-500/20 ring-2 ring-primary-500/50"
+                       : hasAnswered
+                          ? "bg-gray-200/70 dark:bg-navy-800/50 opacity-40"
+                          : "bg-white hover:bg-gray-100 border border-gray-200 dark:bg-navy-800 dark:hover:bg-navy-700 dark:border-navy-700"
+                     }`}
+                   >
                     <div className="flex items-center gap-2 mb-1">
                       <Badge
                         variant={isSelected ? "primary" : "neutral"}
@@ -401,10 +402,10 @@ export default function PressConference({
                         {r.tone}
                       </Badge>
                     </div>
-                    <p
-                      className={`text-sm ${isSelected ? "text-gray-200" : "text-gray-400"}`}
-                    >
-                      "{r.text}"
+                     <p
+                       className={`text-sm ${isSelected ? "text-gray-800 dark:text-gray-200" : "text-gray-500 dark:text-gray-400"}`}
+                     >
+                       "{r.text}"
                     </p>
                   </button>
                 );
@@ -432,11 +433,11 @@ export default function PressConference({
       </div>
 
       {/* Skip button */}
-      <footer className="bg-navy-800 border-t border-navy-700 px-6 py-3">
+      <footer className="bg-white dark:bg-navy-800 border-t border-gray-200 dark:border-navy-700 px-6 py-3 transition-colors duration-300">
         <div className="max-w-3xl mx-auto flex justify-end">
           <button
             onClick={onFinish}
-            className="text-xs font-heading uppercase tracking-wider text-gray-600 hover:text-gray-400 transition-colors"
+            className="text-xs font-heading uppercase tracking-wider text-gray-600 hover:text-gray-800 dark:text-gray-500 dark:hover:text-gray-300 transition-colors"
           >
             {t("match.skipConference")}
           </button>

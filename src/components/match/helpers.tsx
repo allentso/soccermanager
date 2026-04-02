@@ -26,12 +26,12 @@ export const EVENT_ICONS: Record<
 > = {
   Goal: {
     icon: <Circle className="w-4 h-4 fill-current" />,
-    color: "text-accent-400",
+    color: "text-accent-700 dark:text-accent-400",
     important: true,
   },
   PenaltyGoal: {
     icon: <CircleDot className="w-4 h-4" />,
-    color: "text-accent-400",
+    color: "text-accent-700 dark:text-accent-400",
     important: true,
   },
   PenaltyMiss: {
@@ -66,64 +66,64 @@ export const EVENT_ICONS: Record<
   },
   KickOff: {
     icon: <Play className="w-3.5 h-3.5 fill-current" />,
-    color: "text-gray-400",
+    color: "text-gray-700 dark:text-gray-400",
     important: true,
   },
   HalfTime: {
     icon: <Pause className="w-3.5 h-3.5" />,
-    color: "text-gray-400",
+    color: "text-gray-700 dark:text-gray-400",
     important: true,
   },
   SecondHalfStart: {
     icon: <Play className="w-3.5 h-3.5 fill-current" />,
-    color: "text-gray-400",
+    color: "text-gray-700 dark:text-gray-400",
     important: true,
   },
   FullTime: {
     icon: <Flag className="w-4 h-4" />,
-    color: "text-gray-400",
+    color: "text-gray-700 dark:text-gray-400",
     important: true,
   },
   ShotSaved: {
     icon: <Hand className="w-4 h-4" />,
-    color: "text-green-400",
+    color: "text-green-700 dark:text-green-400",
     important: false,
   },
   ShotOffTarget: {
     icon: <ArrowUpRight className="w-4 h-4" />,
-    color: "text-gray-500",
+    color: "text-gray-700 dark:text-gray-500",
     important: false,
   },
   ShotBlocked: {
     icon: <Shield className="w-4 h-4" />,
-    color: "text-gray-500",
+    color: "text-gray-700 dark:text-gray-500",
     important: false,
   },
   Corner: {
     icon: <CornerDownRight className="w-4 h-4" />,
-    color: "text-gray-500",
+    color: "text-gray-700 dark:text-gray-500",
     important: false,
   },
   FreeKick: {
     icon: <Ruler className="w-4 h-4" />,
-    color: "text-gray-500",
+    color: "text-gray-700 dark:text-gray-500",
     important: false,
   },
   Foul: {
     icon: <AlertTriangle className="w-4 h-4" />,
-    color: "text-yellow-600",
+    color: "text-yellow-700 dark:text-yellow-500",
     important: false,
   },
   PenaltyAwarded: {
     icon: <Zap className="w-4 h-4" />,
-    color: "text-accent-400",
+    color: "text-accent-700 dark:text-accent-400",
     important: true,
   },
 };
 
 const DEFAULT_DISPLAY = {
   icon: <Circle className="w-3 h-3" />,
-  color: "text-gray-400",
+  color: "text-gray-700 dark:text-gray-400",
   important: false,
 };
 

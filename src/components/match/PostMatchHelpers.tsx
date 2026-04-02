@@ -31,14 +31,14 @@ export function QuickStat({
         <span className="font-heading font-bold text-primary-400 tabular-nums">
           {home}
         </span>
-        <span className="text-gray-600 font-heading uppercase tracking-wider text-[10px]">
+        <span className="text-gray-600 dark:text-gray-500 font-heading uppercase tracking-wider text-[10px]">
           {label}
         </span>
         <span className="font-heading font-bold text-indigo-400 tabular-nums">
           {away}
         </span>
       </div>
-      <div className="flex h-1 bg-navy-700 rounded-full overflow-hidden">
+      <div className="flex h-1 bg-gray-300 dark:bg-navy-700 rounded-full overflow-hidden transition-colors duration-300">
         <div className="h-full bg-primary-500" style={{ width: `${pct}%` }} />
         <div
           className="h-full bg-indigo-500"
@@ -77,11 +77,11 @@ export function renderScorers(
       </p>
       {goals.map((g, i) => (
         <div key={i} className="flex items-center gap-2 text-xs py-0.5">
-          <span className="text-gray-600 tabular-nums w-6 text-right font-heading">
+          <span className="text-gray-600 dark:text-gray-500 tabular-nums w-6 text-right font-heading">
             {g.minute}'
           </span>
           <Circle className="w-3 h-3 fill-current text-accent-400" />
-          <span className="text-gray-200 font-medium">
+          <span className="text-gray-800 dark:text-gray-200 font-medium">
             {getPlayerName(snapshot, g.player_id)}
           </span>
           {g.event_type === "PenaltyGoal" && (
@@ -165,10 +165,10 @@ export function PlayerRatingsPanel({
   const motm = sorted[0];
 
   return (
-    <div className="bg-navy-800 rounded-xl border border-navy-700 p-4">
+    <div className="bg-white dark:bg-navy-800 rounded-xl border border-gray-200 dark:border-navy-700 shadow-sm p-4 transition-colors duration-300">
       <div className="flex items-center gap-2 mb-3">
-        <Star className="w-4 h-4 text-accent-400" />
-        <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500">
+        <Star className="w-4 h-4 text-accent-700 dark:text-accent-400" />
+        <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">
           {t("match.ratings", { team: team.name })}
         </h3>
         <div
@@ -177,17 +177,17 @@ export function PlayerRatingsPanel({
         />
       </div>
       {motm && side === (userSide || "Home") && (
-        <div className="flex items-center gap-3 mb-3 p-2 bg-accent-500/10 rounded-lg border border-accent-500/20">
-          <div className="w-8 h-8 rounded-lg bg-accent-500/20 flex items-center justify-center">
-            <span className="text-sm font-heading font-bold text-accent-400">
+        <div className="flex items-center gap-3 mb-3 p-2 bg-accent-50 dark:bg-accent-500/10 rounded-lg border border-accent-200 dark:border-accent-500/20 transition-colors duration-300">
+          <div className="w-8 h-8 rounded-lg bg-accent-100 dark:bg-accent-500/20 flex items-center justify-center transition-colors duration-300">
+            <span className="text-sm font-heading font-bold text-accent-700 dark:text-accent-400">
               {motm.rating.toFixed(1)}
             </span>
           </div>
           <div>
-            <p className="text-xs font-heading font-bold text-accent-400 uppercase tracking-wider">
+            <p className="text-xs font-heading font-bold text-accent-700 dark:text-accent-400 uppercase tracking-wider">
               {t("match.motm")}
             </p>
-            <p className="text-sm text-gray-200 font-medium">{motm.name}</p>
+            <p className="text-sm text-gray-800 dark:text-gray-200 font-medium">{motm.name}</p>
           </div>
         </div>
       )}
@@ -200,20 +200,20 @@ export function PlayerRatingsPanel({
             <span
               className={`font-heading font-bold tabular-nums w-8 ${
                 p.rating >= 8
-                  ? "text-accent-400"
+                  ? "text-accent-700 dark:text-accent-400"
                   : p.rating >= 7
-                    ? "text-green-400"
-                    : p.rating >= 6
-                      ? "text-gray-300"
-                      : p.rating >= 5
-                        ? "text-yellow-400"
+                    ? "text-green-700 dark:text-green-400"
+                  : p.rating >= 6
+                      ? "text-gray-600 dark:text-gray-300"
+                  : p.rating >= 5
+                        ? "text-yellow-700 dark:text-yellow-400"
                         : "text-red-400"
               }`}
             >
               {p.rating.toFixed(1)}
             </span>
-            <span className="text-gray-400 truncate flex-1">{p.name}</span>
-            <span className="text-gray-600 text-[10px] font-heading uppercase">
+            <span className="text-gray-600 dark:text-gray-400 truncate flex-1">{p.name}</span>
+            <span className="text-gray-600 dark:text-gray-500 text-[10px] font-heading uppercase">
               {translatePositionAbbreviation(t, p.position)}
             </span>
           </div>
