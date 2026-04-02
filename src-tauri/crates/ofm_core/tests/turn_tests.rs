@@ -375,6 +375,37 @@ fn process_day_no_league_no_crash() {
 }
 
 #[test]
+fn process_day_progresses_injury_recovery() {
+    let mut game = make_game_with_match();
+    // Ensure non-match path and skip user-specific random/player events.
+    game.league.as_mut().unwrap().fixtures[0].date = "2025-06-20".to_string();
+    game.manager.team_id = None;
+
+    let short = game.players.iter_mut().find(|p| p.id == "t1_def0").unwrap();
+    short.injury = Some(Injury {
+        name: "Hamstring".to_string(),
+        days_remaining: 1,
+    });
+    let long = game.players.iter_mut().find(|p| p.id == "t1_mid0").unwrap();
+    long.injury = Some(Injury {
+        name: "Ankle".to_string(),
+        days_remaining: 3,
+    });
+
+    turn::process_day(&mut game);
+
+    let short_after = game.players.iter().find(|p| p.id == "t1_def0").unwrap();
+    assert!(short_after.injury.is_none(), "1-day injury should clear");
+
+    let long_after = game.players.iter().find(|p| p.id == "t1_mid0").unwrap();
+    assert_eq!(
+        long_after.injury.as_ref().map(|inj| inj.days_remaining),
+        Some(2),
+        "Injury should decrement by one day"
+    );
+}
+
+#[test]
 fn process_day_generates_match_result_message() {
     let mut game = make_game_with_match();
     turn::process_day(&mut game);
@@ -436,6 +467,31 @@ fn finish_live_match_day_advances_clock() {
     let before = game.clock.current_date;
     turn::finish_live_match_day(&mut game);
     assert_eq!((game.clock.current_date - before).num_days(), 1);
+}
+
+#[test]
+fn finish_live_match_day_progresses_injury_recovery() {
+    let mut game = make_game_with_match();
+    // Skip user-specific random/player events.
+    game.manager.team_id = None;
+
+    let recovering = game.players.iter_mut().find(|p| p.id == "t2_def1").unwrap();
+    recovering.injury = Some(Injury {
+        name: "Knee".to_string(),
+        days_remaining: 2,
+    });
+
+    turn::finish_live_match_day(&mut game);
+
+    let recovering_after = game.players.iter().find(|p| p.id == "t2_def1").unwrap();
+    assert_eq!(
+        recovering_after
+            .injury
+            .as_ref()
+            .map(|inj| inj.days_remaining),
+        Some(1),
+        "Injury should decrement by one day at end of live-match day"
+    );
 }
 
 // ---------------------------------------------------------------------------
