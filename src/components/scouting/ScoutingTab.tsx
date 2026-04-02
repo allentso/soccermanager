@@ -22,6 +22,11 @@ import { calcOvr, calcAge, formatVal, getTeamName } from "../../lib/helpers";
 import { normalisePosition, translatePositionAbbreviation, translatePositionLabel } from "../squad/SquadTab.helpers";
 import { countryName } from "../../lib/countries";
 import { sendScout } from "../../services/scoutingService";
+import {
+  calculateAvailableScouts,
+  scoutAssignmentCount,
+  scoutMaxSlots,
+} from "./ScoutingTab.helpers";
 
 interface ScoutingTabProps {
   gameState: GameStateData;
@@ -47,24 +52,7 @@ export default function ScoutingTab({
     (s) => s.role === "Scout" && s.team_id === myTeamId,
   );
   const assignments = gameState.scouting_assignments || [];
-
-  // Determine scout capacity: judging_ability >= 80 → 5 slots, >= 60 → 4, >= 40 → 3, >= 20 → 2, else 1
-  const scoutMaxSlots = (ability: number) =>
-    ability >= 80
-      ? 5
-      : ability >= 60
-        ? 4
-        : ability >= 40
-          ? 3
-          : ability >= 20
-            ? 2
-            : 1;
-  const scoutAssignmentCount = (scoutId: string) =>
-    assignments.filter((a) => a.scout_id === scoutId).length;
-  const availableScouts = scouts.filter(
-    (s) =>
-      scoutAssignmentCount(s.id) < scoutMaxSlots(s.attributes.judging_ability),
-  );
+  const availableScouts = calculateAvailableScouts(scouts, assignments);
 
   // Players from other teams that can be scouted
   const allScoutable = gameState.players
@@ -245,7 +233,7 @@ export default function ScoutingTab({
           <CardBody>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {scouts.map((s) => {
-                const count = scoutAssignmentCount(s.id);
+                const count = scoutAssignmentCount(assignments, s.id);
                 const maxSlots = scoutMaxSlots(s.attributes.judging_ability);
                 const isFull = count >= maxSlots;
                 const scoutAssigns = assignments.filter(
