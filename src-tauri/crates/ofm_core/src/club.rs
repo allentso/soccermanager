@@ -17,7 +17,10 @@ pub fn next_upgrade_cost(team: &Team, facility_type: &FacilityType) -> i64 {
 pub fn upgrade_facility(team: &mut Team, facility_type: FacilityType) -> Result<i64, String> {
     let cost = next_upgrade_cost(team, &facility_type);
     if team.finance < cost {
-        return Err(format!("Insufficient funds for facility upgrade: need €{}", cost));
+        return Err(format!(
+            "Insufficient funds for facility upgrade: need €{}",
+            cost
+        ));
     }
 
     team.finance -= cost;

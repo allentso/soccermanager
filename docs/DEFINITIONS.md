@@ -22,7 +22,7 @@ Controls the first and last names used when generating players and staff.
   "version": 1,
   "description": "My custom name pools",
   "pools": {
-    "GB": {
+    "ENG": {
       "first_names": ["James", "Harry", "Jack"],
       "last_names": ["Smith", "Johnson", "Brown"]
     },
@@ -38,12 +38,13 @@ Controls the first and last names used when generating players and staff.
 |-------|------|----------|-------------|
 | `version` | `number` | No | Schema version (currently `1`) |
 | `description` | `string` | No | Human-readable description |
-| `pools` | `object` | **Yes** | Map of ISO 3166-1 alpha-2 country code → name pool |
+| `pools` | `object` | **Yes** | Map of nationality code → name pool |
 | `pools.<CODE>.first_names` | `string[]` | **Yes** | List of first names for this nationality |
 | `pools.<CODE>.last_names` | `string[]` | **Yes** | List of last names for this nationality |
 
 **Notes:**
-- Country codes **must** be uppercase ISO 3166-1 alpha-2 (e.g. `"GB"`, `"ES"`, `"BR"`).
+- Codes should be uppercase short nationality codes. Most use ISO 3166-1 alpha-2 (for example `"ES"`, `"BR"`), but football nations may use project-owned codes such as `"ENG"`, `"SCO"`, `"WAL"`, and `"NIR"`.
+- Legacy `"GB"` pools are still accepted and used as a fallback for British football nations when a dedicated pool is missing.
 - You can add as many or as few nationalities as you like.
 - The generator picks names from the pool matching the player's nationality. If a nationality has no pool entry, a random pool is used as fallback.
 - More names = more variety. The default pools have 20 first names and 20 last names each.
@@ -63,7 +64,7 @@ Controls the teams created during world generation.
       "name": "London FC",
       "short_name": "LFC",
       "city": "London",
-      "country": "GB",
+      "country": "ENG",
       "colors": {
         "primary": "#dc2626",
         "secondary": "#ffffff"
@@ -90,7 +91,7 @@ Controls the teams created during world generation.
 | `name` | `string` | **Yes** | — | Full team name |
 | `short_name` | `string` | No | Auto-generated from initials | 2-3 letter abbreviation |
 | `city` | `string` | **Yes** | — | City name |
-| `country` | `string` | **Yes** | — | ISO 3166-1 alpha-2 country code |
+| `country` | `string` | **Yes** | — | Team location / football identity code |
 | `colors.primary` | `string` | **Yes** | — | Primary color (hex, e.g. `"#dc2626"`) |
 | `colors.secondary` | `string` | **Yes** | — | Secondary color (hex) |
 | `play_style` | `string` | No | `"Balanced"` | One of: `Attacking`, `Defensive`, `Possession`, `Counter`, `HighPress`, `Balanced` |
@@ -108,11 +109,16 @@ Controls the teams created during world generation.
 
 ## Country Codes
 
-All nationality and country fields use **ISO 3166-1 alpha-2** codes. Common codes:
+Nationality and team-country fields use short uppercase codes. Most are **ISO 3166-1 alpha-2**, but football nations can use dedicated codes where needed. Common codes:
 
 | Code | Country |
 |------|---------|
-| `GB` | United Kingdom |
+| `ENG` | England |
+| `SCO` | Scotland |
+| `WAL` | Wales |
+| `NIR` | Northern Ireland |
+| `IE` | Republic of Ireland |
+| `GB` | Legacy British umbrella code, still accepted for compatibility |
 | `ES` | Spain |
 | `DE` | Germany |
 | `FR` | France |
@@ -125,7 +131,7 @@ All nationality and country fields use **ISO 3166-1 alpha-2** codes. Common code
 | `HR` | Croatia |
 | `SE` | Sweden |
 
-For the full list, see [ISO 3166-1 alpha-2 on Wikipedia](https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2).
+For the full ISO list, see [ISO 3166-1 alpha-2 on Wikipedia](https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2). Football-specific codes are defined by the game itself.
 
 ---
 

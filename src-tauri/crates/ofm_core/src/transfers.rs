@@ -1,5 +1,5 @@
-use crate::game::Game;
 use crate::finances::calc_annual_wages;
+use crate::game::Game;
 use chrono::NaiveDate;
 use domain::negotiation::{NegotiationFeedback, NegotiationMood};
 use domain::player::TransferOfferStatus;
@@ -267,11 +267,7 @@ fn negotiation_round_from_offer(offer: Option<&domain::player::TransferOffer>) -
         .unwrap_or(1)
 }
 
-fn transfer_negotiation_metrics(
-    round: u8,
-    stalled: bool,
-    respected_signal: bool,
-) -> (u8, u8) {
+fn transfer_negotiation_metrics(round: u8, stalled: bool, respected_signal: bool) -> (u8, u8) {
     let mut tension = 34_i16 + (i16::from(round.saturating_sub(1)) * 16);
     let mut patience = 82_i16 - (i16::from(round.saturating_sub(1)) * 18);
 
@@ -298,11 +294,9 @@ fn upsert_transfer_offer(
     negotiation_round: u8,
     suggested_counter_fee: Option<u64>,
 ) -> String {
-    if let Some(offer) = player
-        .transfer_offers
-        .iter_mut()
-        .find(|offer| offer.from_team_id == from_team_id && offer.status == TransferOfferStatus::Pending)
-    {
+    if let Some(offer) = player.transfer_offers.iter_mut().find(|offer| {
+        offer.from_team_id == from_team_id && offer.status == TransferOfferStatus::Pending
+    }) {
         offer.fee = fee;
         offer.status = status;
         offer.date = date.to_string();
@@ -823,13 +817,15 @@ pub fn counter_offer(
     let stalled = requested_fee > offer.fee.saturating_add(175_000);
     let (tension, patience) = transfer_negotiation_metrics(round, stalled, respected_signal);
     let counter_ceiling = buyer_counter_offer_ceiling(current_date, player, offer.fee, buyer_team);
-    let budget_cap = (buyer_team.transfer_budget.max(0) as u64)
-        .min(buyer_team.finance.max(0) as u64);
+    let budget_cap =
+        (buyer_team.transfer_budget.max(0) as u64).min(buyer_team.finance.max(0) as u64);
     let goodwill_margin = if respected_signal { 50_000 } else { 0 };
-    let accepted = requested_fee <= counter_ceiling.saturating_add(goodwill_margin).min(budget_cap);
-    let counter_window = ((counter_ceiling as f64)
-        * if round >= 3 && stalled { 1.03 } else { 1.08 })
-        .round() as u64;
+    let accepted = requested_fee
+        <= counter_ceiling
+            .saturating_add(goodwill_margin)
+            .min(budget_cap);
+    let counter_window =
+        ((counter_ceiling as f64) * if round >= 3 && stalled { 1.03 } else { 1.08 }).round() as u64;
     let date = game.clock.current_date.format("%Y-%m-%d").to_string();
 
     if let Some(player) = game

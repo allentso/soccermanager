@@ -163,6 +163,7 @@ fn migrate_single_save(
 
     canonicalize_game_starting_xi_ids(&mut game);
     player_identity::upgrade_game_player_identities(&mut game);
+    ofm_core::football_identity::upgrade_game_football_identities(&mut game);
 
     save_manager.create_save(&game, &row.name)
 }

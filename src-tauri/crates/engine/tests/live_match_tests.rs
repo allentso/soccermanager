@@ -17,6 +17,7 @@ fn make_player(id: &str, name: &str, pos: Position, skill: u8) -> PlayerData {
         name: name.to_string(),
         position: pos,
         condition: 90,
+        fitness: 75,
         pace: skill,
         stamina: skill,
         strength: skill,
@@ -884,6 +885,35 @@ fn report_has_player_stats() {
 }
 
 #[test]
+fn report_tracks_minutes_for_live_match_starters() {
+    let mut state = make_live_match(false);
+    let snapshot = state.snapshot();
+    let starter_ids: Vec<String> = snapshot
+        .home_team
+        .players
+        .iter()
+        .chain(snapshot.away_team.players.iter())
+        .map(|player| player.id.clone())
+        .collect();
+    let mut rng = seeded_rng(42);
+    run_to_finish(&mut state, &mut rng);
+
+    let report = state.into_report();
+    for player_id in starter_ids {
+        let stats = report
+            .player_stats
+            .get(&player_id)
+            .unwrap_or_else(|| panic!("Missing report stats for {}", player_id));
+        assert!(
+            stats.minutes_played > 0,
+            "Expected minutes for {}, got {}",
+            player_id,
+            stats.minutes_played
+        );
+    }
+}
+
+#[test]
 fn report_has_team_stats() {
     let mut state = make_live_match(false);
     let mut rng = seeded_rng(42);
@@ -1184,6 +1214,7 @@ fn make_player_with_traits(
         name: name.to_string(),
         position: pos,
         condition: 90,
+        fitness: 75,
         pace: skill,
         stamina: skill,
         strength: skill,

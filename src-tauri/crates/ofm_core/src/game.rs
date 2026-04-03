@@ -75,6 +75,7 @@ impl Game {
             board_objectives: vec![],
             season_context: SeasonContext::default(),
         };
+        crate::football_identity::upgrade_game_football_identities(&mut game);
         crate::season_context::refresh_game_context(&mut game);
         game
     }

@@ -628,7 +628,7 @@ fn apply_sponsor_accept_adds_finance() {
     let result = apply_event_response(&mut game, "sponsor_2025-06-15", "respond", "accept");
 
     assert!(result.is_some());
-    assert!(result.unwrap().contains("accepted"));
+    assert!(result.unwrap().contains("deal signed"));
     assert_eq!(game.teams[0].finance, initial_finance);
     assert_eq!(game.teams[0].season_income, 0);
     let sponsorship = game.teams[0]

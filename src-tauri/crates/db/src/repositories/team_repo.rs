@@ -28,18 +28,19 @@ pub fn upsert_team(conn: &Connection, t: &Team) -> Result<(), String> {
 
     conn.execute(
         "INSERT OR REPLACE INTO teams
-         (id, name, short_name, country, city, stadium_name, stadium_capacity,
+         (id, name, short_name, country, football_nation, city, stadium_name, stadium_capacity,
           finance, manager_id, reputation, wage_budget, transfer_budget,
          season_income, season_expenses, formation, play_style,
          training_focus, training_intensity, training_schedule,
          founded_year, colors_primary, colors_secondary,
          starting_xi_ids, match_roles, form, history, training_groups, financial_ledger, sponsorship, facilities)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29, ?30)",
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29, ?30, ?31)",
         params![
             t.id,
             t.name,
             t.short_name,
             t.country,
+            t.football_nation,
             t.city,
             t.stadium_name,
             t.stadium_capacity,
@@ -119,49 +120,50 @@ fn parse_training_schedule(s: &str) -> TrainingSchedule {
 }
 
 fn row_to_team(row: &rusqlite::Row) -> rusqlite::Result<Team> {
-    let starting_xi_json: String = row.get(22)?;
-    let match_roles_json: String = row.get(23)?;
-    let form_json: String = row.get(24)?;
-    let history_json: String = row.get(25)?;
-    let training_groups_json: String = row.get(26)?;
-    let financial_ledger_json: String = row.get(27)?;
-    let sponsorship_json: String = row.get(28)?;
-    let facilities_json: String = row.get(29)?;
-    let play_style_str: String = row.get(15)?;
-    let training_focus_str: String = row.get(16)?;
-    let training_intensity_str: String = row.get(17)?;
-    let training_schedule_str: String = row.get(18)?;
+    let starting_xi_json: String = row.get(23)?;
+    let match_roles_json: String = row.get(24)?;
+    let form_json: String = row.get(25)?;
+    let history_json: String = row.get(26)?;
+    let training_groups_json: String = row.get(27)?;
+    let financial_ledger_json: String = row.get(28)?;
+    let sponsorship_json: String = row.get(29)?;
+    let facilities_json: String = row.get(30)?;
+    let play_style_str: String = row.get(16)?;
+    let training_focus_str: String = row.get(17)?;
+    let training_intensity_str: String = row.get(18)?;
+    let training_schedule_str: String = row.get(19)?;
 
     Ok(Team {
         id: row.get(0)?,
         name: row.get(1)?,
         short_name: row.get(2)?,
         country: row.get(3)?,
-        city: row.get(4)?,
-        stadium_name: row.get(5)?,
-        stadium_capacity: row.get(6)?,
-        finance: row.get(7)?,
-        manager_id: row.get(8)?,
-        reputation: row.get(9)?,
-        wage_budget: row.get(10)?,
-        transfer_budget: row.get(11)?,
-        season_income: row.get(12)?,
-        season_expenses: row.get(13)?,
+        football_nation: row.get(4)?,
+        city: row.get(5)?,
+        stadium_name: row.get(6)?,
+        stadium_capacity: row.get(7)?,
+        finance: row.get(8)?,
+        manager_id: row.get(9)?,
+        reputation: row.get(10)?,
+        wage_budget: row.get(11)?,
+        transfer_budget: row.get(12)?,
+        season_income: row.get(13)?,
+        season_expenses: row.get(14)?,
         financial_ledger: serde_json::from_str::<Vec<FinancialTransaction>>(&financial_ledger_json)
             .unwrap_or_default(),
         sponsorship: serde_json::from_str::<Option<Sponsorship>>(&sponsorship_json)
             .unwrap_or_default(),
         facilities: serde_json::from_str::<Facilities>(&facilities_json).unwrap_or_default(),
-        formation: row.get(14)?,
+        formation: row.get(15)?,
         play_style: parse_play_style(&play_style_str),
         training_focus: parse_training_focus(&training_focus_str),
         training_intensity: parse_training_intensity(&training_intensity_str),
         training_schedule: parse_training_schedule(&training_schedule_str),
         training_groups: serde_json::from_str(&training_groups_json).unwrap_or_default(),
-        founded_year: row.get(19)?,
+        founded_year: row.get(20)?,
         colors: TeamColors {
-            primary: row.get(20)?,
-            secondary: row.get(21)?,
+            primary: row.get(21)?,
+            secondary: row.get(22)?,
         },
         starting_xi_ids: serde_json::from_str(&starting_xi_json).unwrap_or_default(),
         match_roles: serde_json::from_str(&match_roles_json).unwrap_or_default(),
@@ -174,7 +176,7 @@ fn row_to_team(row: &rusqlite::Row) -> rusqlite::Result<Team> {
 pub fn load_all_teams(conn: &Connection) -> Result<Vec<Team>, String> {
     let mut stmt = conn
         .prepare(
-            "SELECT id, name, short_name, country, city, stadium_name, stadium_capacity,
+            "SELECT id, name, short_name, country, football_nation, city, stadium_name, stadium_capacity,
                     finance, manager_id, reputation, wage_budget, transfer_budget,
                     season_income, season_expenses, formation, play_style,
                     training_focus, training_intensity, training_schedule,
@@ -199,7 +201,7 @@ pub fn load_all_teams(conn: &Connection) -> Result<Vec<Team>, String> {
 pub fn load_team(conn: &Connection, id: &str) -> Result<Option<Team>, String> {
     let mut stmt = conn
         .prepare(
-            "SELECT id, name, short_name, country, city, stadium_name, stadium_capacity,
+            "SELECT id, name, short_name, country, football_nation, city, stadium_name, stadium_capacity,
                     finance, manager_id, reputation, wage_budget, transfer_budget,
                     season_income, season_expenses, formation, play_style,
                     training_focus, training_intensity, training_schedule,
@@ -258,6 +260,7 @@ mod tests {
         assert_eq!(loaded.id, "team-001");
         assert_eq!(loaded.name, "London FC");
         assert_eq!(loaded.short_name, "TST");
+        assert_eq!(loaded.football_nation, "GB");
         assert_eq!(loaded.play_style, PlayStyle::Possession);
         assert_eq!(loaded.finance, 5_000_000);
         assert_eq!(loaded.stadium_capacity, 50000);

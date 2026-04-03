@@ -52,11 +52,7 @@ fn compute_coaching_bonus(game: &Game, team_id: &str, focus: &TrainingFocus) -> 
         let has_specialist = coaching_staff
             .iter()
             .any(|s| s.specialization.as_ref() == Some(&target_spec));
-        if has_specialist {
-            1.25
-        } else {
-            1.0
-        }
+        if has_specialist { 1.25 } else { 1.0 }
     } else {
         1.0
     };
@@ -286,7 +282,6 @@ fn apply_fitness_change(fitness: &mut u8, focus: &TrainingFocus, intensity_mult:
         }
     }
 }
-
 
 fn try_gain(current: &mut u8, gain: f64) {
     use rand::Rng;

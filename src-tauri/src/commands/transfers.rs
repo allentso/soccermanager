@@ -116,7 +116,8 @@ fn preview_transfer_bid_financial_impact_internal(
         .get_game(|g| g.clone())
         .ok_or("No active game session".to_string())?;
 
-    let projection = ofm_core::transfers::project_transfer_bid_financial_impact(&game, player_id, fee)?;
+    let projection =
+        ofm_core::transfers::project_transfer_bid_financial_impact(&game, player_id, fee)?;
 
     Ok(TransferBidFinancialProjectionCommandResponse { projection })
 }

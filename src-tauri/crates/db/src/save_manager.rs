@@ -144,6 +144,14 @@ impl SaveManager {
             needs_resave = true;
         }
 
+        if ofm_core::football_identity::upgrade_game_football_identities(&mut game) {
+            info!(
+                "[save_manager] upgraded football identity fields for save {}",
+                save_id
+            );
+            needs_resave = true;
+        }
+
         if league_repo::needs_cleanup(
             db.conn(),
             game.league.as_ref().map(|league| league.id.as_str()),
@@ -644,6 +652,29 @@ mod tests {
         assert_eq!(loaded.staff.len(), 1);
         assert_eq!(loaded.clock.start_date, game.clock.start_date);
         assert_eq!(loaded.clock.current_date, game.clock.current_date);
+    }
+
+    #[test]
+    fn test_load_game_upgrades_football_identity_fields() {
+        let dir = tempfile::tempdir().unwrap();
+        let saves_dir = dir.path().join("saves");
+
+        let mut sm = SaveManager::init(&saves_dir).unwrap();
+        let mut game = sample_game();
+        game.manager.football_nation.clear();
+        game.manager.birth_country = None;
+        game.teams[0].football_nation.clear();
+        game.players[0].football_nation.clear();
+        game.players[0].birth_country = None;
+
+        let save_id = sm.create_save(&game, "Legacy Identity Career").unwrap();
+        let loaded = sm.load_game(&save_id).unwrap();
+
+        assert_eq!(loaded.manager.football_nation, "ENG");
+        assert_eq!(loaded.manager.birth_country, None);
+        assert_eq!(loaded.teams[0].football_nation, "ENG");
+        assert_eq!(loaded.players[0].football_nation, "GB");
+        assert_eq!(loaded.players[0].birth_country, None);
     }
 
     #[test]

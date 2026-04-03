@@ -149,11 +149,8 @@ fn preview_renewal_financial_impact_internal(
         .get_game(|g: &Game| g.clone())
         .ok_or("No active game session".to_string())?;
 
-    let projection = ofm_core::contracts::project_renewal_financial_impact(
-        &game,
-        player_id,
-        weekly_wage,
-    )?;
+    let projection =
+        ofm_core::contracts::project_renewal_financial_impact(&game, player_id, weekly_wage)?;
 
     Ok(RenewalFinancialProjectionCommandResponse { projection })
 }
@@ -394,7 +391,9 @@ mod tests {
         assert_eq!(persisted_player.wage, 12_000);
         assert_eq!(persisted_player.contract_end.as_deref(), Some("2026-10-15"));
 
-        let updated_game = state.get_game(|game| game.clone()).expect("updated game state");
+        let updated_game = state
+            .get_game(|game| game.clone())
+            .expect("updated game state");
         save_manager
             .save_game(&updated_game, &save_id)
             .expect("manual save should persist renewal");
@@ -428,8 +427,9 @@ mod tests {
         );
         state.set_save_id(save_id.clone());
 
-        let response = delegate_renewals_internal(&state, Some(vec!["player-1".to_string()]), 35, 3)
-            .expect("delegated renewal should succeed");
+        let response =
+            delegate_renewals_internal(&state, Some(vec!["player-1".to_string()]), 35, 3)
+                .expect("delegated renewal should succeed");
         assert_eq!(response.report.success_count, 1);
 
         let persisted_before_manual_save = save_manager
@@ -446,7 +446,9 @@ mod tests {
             .iter()
             .all(|message| !message.id.starts_with("delegated_renewals_")));
 
-        let updated_game = state.get_game(|game| game.clone()).expect("updated game state");
+        let updated_game = state
+            .get_game(|game| game.clone())
+            .expect("updated game state");
         save_manager
             .save_game(&updated_game, &save_id)
             .expect("manual save should persist delegated renewal");
@@ -471,8 +473,8 @@ mod tests {
         let state = StateManager::new();
         state.set_game(make_game());
 
-        let response =
-            preview_renewal_financial_impact_internal(&state, "player-1", 15_000).expect("response");
+        let response = preview_renewal_financial_impact_internal(&state, "player-1", 15_000)
+            .expect("response");
 
         assert_eq!(response.projection.annual_wage_budget, 50_000);
         assert_eq!(response.projection.current_annual_wage_bill, 12_000);

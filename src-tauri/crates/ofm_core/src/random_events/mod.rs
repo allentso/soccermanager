@@ -4,7 +4,7 @@ mod responses;
 
 pub use responses::apply_event_response;
 
-use crate::contracts::{contract_warning_stage, ContractWarningStage};
+use crate::contracts::{ContractWarningStage, contract_warning_stage};
 use crate::game::Game;
 use chrono::Datelike;
 use domain::message::*;

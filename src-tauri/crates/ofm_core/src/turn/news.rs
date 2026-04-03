@@ -398,7 +398,9 @@ mod tests {
     use crate::clock::GameClock;
     use crate::game::Game;
     use chrono::{TimeZone, Utc};
-    use domain::league::{Fixture, FixtureCompetition, FixtureStatus, League, MatchResult, StandingEntry};
+    use domain::league::{
+        Fixture, FixtureCompetition, FixtureStatus, League, MatchResult, StandingEntry,
+    };
     use domain::manager::Manager;
     use domain::message::{MessageCategory, MessagePriority};
     use domain::news::NewsCategory;

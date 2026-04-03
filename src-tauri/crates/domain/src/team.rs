@@ -6,6 +6,8 @@ pub struct Team {
     pub name: String,
     pub short_name: String,
     pub country: String,
+    #[serde(default)]
+    pub football_nation: String,
     pub city: String,
     pub stadium_name: String,
     pub stadium_capacity: u32,
@@ -245,11 +247,13 @@ impl Team {
         stadium_name: String,
         stadium_capacity: u32,
     ) -> Self {
+        let football_nation = crate::identity::normalize_football_nation_code(&country);
         Self {
             id,
             name,
             short_name,
             country,
+            football_nation,
             city,
             stadium_name,
             stadium_capacity,

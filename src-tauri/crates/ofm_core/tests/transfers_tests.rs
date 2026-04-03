@@ -10,8 +10,8 @@ use domain::team::Team;
 use ofm_core::clock::GameClock;
 use ofm_core::game::Game;
 use ofm_core::transfers::{
-    counter_offer, generate_incoming_transfer_offers, make_transfer_bid, respond_to_offer,
-    TransferNegotiationDecision,
+    TransferNegotiationDecision, counter_offer, generate_incoming_transfer_offers,
+    make_transfer_bid, respond_to_offer,
 };
 
 fn default_attrs() -> PlayerAttributes {
@@ -208,9 +208,15 @@ fn key_player_is_harder_to_buy_than_fringe_player() {
     let fringe_result =
         make_transfer_bid(&mut fringe_game, "player-fringe", 1_250_000).expect("fringe bid");
 
-    assert_eq!(star_result.decision, TransferNegotiationDecision::CounterOffer);
+    assert_eq!(
+        star_result.decision,
+        TransferNegotiationDecision::CounterOffer
+    );
     assert!(star_result.suggested_fee.is_some());
-    assert_eq!(fringe_result.decision, TransferNegotiationDecision::Accepted);
+    assert_eq!(
+        fringe_result.decision,
+        TransferNegotiationDecision::Accepted
+    );
 }
 
 #[test]
@@ -225,14 +231,20 @@ fn repeated_bid_advances_transfer_negotiation_round() {
     let first_result =
         make_transfer_bid(&mut game, "player-repeat-bid", 900_000).expect("first bid");
 
-    assert_eq!(first_result.decision, TransferNegotiationDecision::CounterOffer);
+    assert_eq!(
+        first_result.decision,
+        TransferNegotiationDecision::CounterOffer
+    );
     assert_eq!(first_result.feedback.round, 1);
     assert_eq!(first_result.suggested_fee, Some(950_000));
 
     let second_result =
         make_transfer_bid(&mut game, "player-repeat-bid", 950_000).expect("second bid");
 
-    assert_eq!(second_result.decision, TransferNegotiationDecision::Accepted);
+    assert_eq!(
+        second_result.decision,
+        TransferNegotiationDecision::Accepted
+    );
     assert_eq!(second_result.feedback.round, 2);
     assert_eq!(
         game.players
@@ -580,7 +592,10 @@ fn unhappy_player_with_bigger_ambition_gap_is_easier_to_buy() {
         .expect("content-player bid");
 
     assert_eq!(open_result.decision, TransferNegotiationDecision::Accepted);
-    assert_eq!(content_result.decision, TransferNegotiationDecision::Rejected);
+    assert_eq!(
+        content_result.decision,
+        TransferNegotiationDecision::Rejected
+    );
 }
 
 #[test]

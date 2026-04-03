@@ -344,12 +344,15 @@ The backend uses `Mutex<Option<Game>>` rather than `RwLock` or actor patterns. T
 
 The engine uses a "snapshot" pattern (`PlayerSnap`) to work around Rust's borrow checker. Before resolving an action, it clones the relevant player data into a lightweight struct, releasing the immutable borrow on `MatchContext`. This allows event emission (which needs `&mut self`) to happen in the same function.
 
-### 6. ISO Alpha-2 Country Codes
+### 6. Football Identity Codes
 
-All nationalities are stored as ISO 3166-1 alpha-2 codes (e.g., `"GB"`, `"ES"`) rather than demonyms. This enables:
-- Locale-aware country name display
-- SVG-backed country flag rendering on the frontend
-- Consistent data format across backend and frontend
+The game now distinguishes between general country data and football-facing identity data.
+Most countries still use ISO 3166-1 alpha-2 codes (for example, `"ES"`, `"DE"`, `"BR"`), but football-specific identities can use project-owned short codes where the sport diverges from ISO country data, such as `"ENG"`, `"SCO"`, `"WAL"`, and `"NIR"`.
+
+This enables:
+- Locale-aware country and football-nation display
+- Backward compatibility for legacy demonyms and `GB` saves
+- Correct modeling of football nations without forcing a full non-ISO rewrite for the rest of the world
 
 ### 7. Frontend Tab Architecture
 

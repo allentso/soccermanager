@@ -1,6 +1,6 @@
 use rand::Rng;
 
-use crate::shared::{home_mod, play_style_modifier, PlayStylePhase, PlayerSnap};
+use crate::shared::{PlayStylePhase, PlayerSnap, home_mod, play_style_modifier};
 use crate::types::{PlayerData, Position, Side, TeamData};
 
 use super::{LiveMatchState, SetPieceTakers};

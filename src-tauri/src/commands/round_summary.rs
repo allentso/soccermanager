@@ -1,10 +1,6 @@
 use domain::league::StandingEntry;
 use ofm_core::turn::{
-    NotableUpset,
-    RoundResultSummary,
-    RoundSummary,
-    StandingDelta,
-    TopScorerDelta,
+    NotableUpset, RoundResultSummary, RoundSummary, StandingDelta, TopScorerDelta,
 };
 use serde::{Deserialize, Serialize};
 

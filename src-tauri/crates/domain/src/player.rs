@@ -7,6 +7,10 @@ pub struct Player {
     pub full_name: String,
     pub date_of_birth: String,
     pub nationality: String,
+    #[serde(default)]
+    pub football_nation: String,
+    #[serde(default)]
+    pub birth_country: Option<String>,
 
     pub position: Position,
 
@@ -482,12 +486,16 @@ impl Player {
         attributes: PlayerAttributes,
     ) -> Self {
         let traits = compute_traits(&attributes, &position);
+        let football_nation = crate::identity::normalize_football_nation_code(&nationality);
+        let birth_country = crate::identity::derive_birth_country_code(&nationality);
         Self {
             id,
             match_name,
             full_name,
             date_of_birth,
             nationality,
+            football_nation,
+            birth_country,
             natural_position: position.clone(),
             position,
             alternate_positions: Vec::new(),

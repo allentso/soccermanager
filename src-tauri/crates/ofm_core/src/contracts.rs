@@ -1,7 +1,6 @@
 use crate::contract_wage_policy::{
     project_renewal_financial_impact as project_renewal_financial_impact_service,
-    renewal_wage_policy_allows,
-    renewal_wage_policy_error_message,
+    renewal_wage_policy_allows, renewal_wage_policy_error_message,
 };
 use crate::delegated_renewals::delegate_renewals as delegate_renewals_service;
 use crate::game::Game;
@@ -807,4 +806,3 @@ fn contract_expired_message(
     .with_priority(MessagePriority::Urgent)
     .with_sender_role("Assistant Manager")
 }
-

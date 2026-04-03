@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   countryName,
   allCountries,
+  allNationalities,
   isValidCountryCode,
   normaliseNationality,
   resolveCountryFlagCode,
@@ -16,11 +17,13 @@ describe("resolveCountryFlagCode", () => {
     expect(resolveCountryFlagCode("US")).toBe("US");
     expect(resolveCountryFlagCode("GB")).toBe("GB");
     expect(resolveCountryFlagCode("br")).toBe("BR");
+    expect(resolveCountryFlagCode("IE")).toBe("IE");
   });
 
   it("normalises demonym values before resolving", () => {
-    expect(resolveCountryFlagCode("English")).toBe("GB");
+    expect(resolveCountryFlagCode("English")).toBeNull();
     expect(resolveCountryFlagCode("Brazilian")).toBe("BR");
+    expect(resolveCountryFlagCode("Irish")).toBe("IE");
   });
 
   it("returns null for invalid values", () => {
@@ -38,6 +41,7 @@ describe("countryName", () => {
   it("returns English country name by default", () => {
     expect(countryName("GB")).toMatch(/United Kingdom/);
     expect(countryName("US")).toMatch(/United States/);
+    expect(countryName("ENG")).toBe("England");
   });
 
   it("returns localised name for supported locales", () => {
@@ -49,6 +53,9 @@ describe("countryName", () => {
 
     const nameIt = countryName("DE", "it");
     expect(nameIt).toBe("Germania");
+
+    const englandEs = countryName("ENG", "es");
+    expect(englandEs).toBe("Inglaterra");
   });
 
   it("falls back to English for unknown locale", () => {
@@ -96,6 +103,20 @@ describe("allCountries", () => {
   });
 });
 
+describe("allNationalities", () => {
+  it("surfaces football nations and excludes legacy GB from the selectable list", () => {
+    const list = allNationalities("en");
+    const codes = list.map((country) => country.code);
+
+    expect(codes).toContain("ENG");
+    expect(codes).toContain("SCO");
+    expect(codes).toContain("WAL");
+    expect(codes).toContain("NIR");
+    expect(codes).toContain("IE");
+    expect(codes).not.toContain("GB");
+  });
+});
+
 // ---------------------------------------------------------------------------
 // isValidCountryCode
 // ---------------------------------------------------------------------------
@@ -105,6 +126,8 @@ describe("isValidCountryCode", () => {
     expect(isValidCountryCode("US")).toBe(true);
     expect(isValidCountryCode("GB")).toBe(true);
     expect(isValidCountryCode("br")).toBe(true); // case-insensitive
+    expect(isValidCountryCode("ENG")).toBe(true);
+    expect(isValidCountryCode("NIR")).toBe(true);
   });
 
   it("returns false for invalid codes", () => {
@@ -123,10 +146,15 @@ describe("normaliseNationality", () => {
   it("returns alpha-2 code as-is if already valid", () => {
     expect(normaliseNationality("GB")).toBe("GB");
     expect(normaliseNationality("ES")).toBe("ES");
+    expect(normaliseNationality("ENG")).toBe("ENG");
   });
 
   it("converts known demonyms to alpha-2 codes", () => {
-    expect(normaliseNationality("English")).toBe("GB");
+    expect(normaliseNationality("English")).toBe("ENG");
+    expect(normaliseNationality("Scottish")).toBe("SCO");
+    expect(normaliseNationality("Welsh")).toBe("WAL");
+    expect(normaliseNationality("Irish")).toBe("IE");
+    expect(normaliseNationality("Northern Irish")).toBe("NIR");
     expect(normaliseNationality("Spanish")).toBe("ES");
     expect(normaliseNationality("Brazilian")).toBe("BR");
     expect(normaliseNationality("German")).toBe("DE");

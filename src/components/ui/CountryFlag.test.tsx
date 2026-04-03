@@ -15,4 +15,10 @@ describe("CountryFlag", () => {
 
     expect(container).toBeEmptyDOMElement();
   });
+
+  it("renders a text badge fallback for football nation codes without SVG assets", () => {
+    render(<CountryFlag code="ENG" locale="en" />);
+
+    expect(screen.getByRole("img", { name: "England" })).toHaveTextContent("ENG");
+  });
 });

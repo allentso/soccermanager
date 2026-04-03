@@ -18,7 +18,7 @@ import {
   Check,
   Power,
 } from "lucide-react";
-import { countryName, allCountries } from "../lib/countries";
+import { countryName, allNationalities } from "../lib/countries";
 
 interface SaveEntry {
   id: string;
@@ -78,7 +78,7 @@ export default function MainMenu() {
   const [selectedWorldId, setSelectedWorldId] = useState<string>("random");
   const [isLoadingWorlds, setIsLoadingWorlds] = useState(false);
 
-  const countriesList = allCountries(i18n.language);
+  const countriesList = allNationalities(i18n.language);
   const normalisedNationalitySearch = normaliseSearchText(nationalitySearch);
 
   const filteredNationalities = countriesList.filter((nationality) => {

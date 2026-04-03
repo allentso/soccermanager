@@ -6,8 +6,7 @@ pub use crate::application::live_match::FinishLiveMatchResponse;
 use crate::application::live_match::{
     apply_match_command as apply_match_command_service,
     finish_live_match as finish_live_match_service,
-    get_match_snapshot as get_match_snapshot_service,
-    start_live_match as start_live_match_service,
+    get_match_snapshot as get_match_snapshot_service, start_live_match as start_live_match_service,
     step_live_match as step_live_match_service,
 };
 use crate::application::team_talk::apply_team_talk as apply_team_talk_service;

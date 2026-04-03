@@ -6,6 +6,7 @@ pub mod contracts;
 pub mod delegated_renewals;
 pub mod end_of_season;
 pub mod finances;
+pub mod football_identity;
 pub mod game;
 pub mod generator;
 pub mod live_match_manager;
