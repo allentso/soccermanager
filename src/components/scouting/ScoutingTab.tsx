@@ -6,13 +6,11 @@ import {
   CardHeader,
   CardBody,
   Badge,
-  ProgressBar,
   CountryFlag,
 } from "../ui";
 import {
   Eye,
   ScanSearch,
-  User,
   Search,
   ChevronLeft,
   ChevronRight,
@@ -23,7 +21,6 @@ import { countryName } from "../../lib/countries";
 import { sendScout } from "../../services/scoutingService";
 import {
   calculateAvailableScouts,
-  scoutAssignmentCount,
   scoutMaxSlots,
 } from "./ScoutingTab.helpers";
 import {
@@ -33,6 +30,7 @@ import {
 } from "./ScoutingTab.model";
 import ScoutingAssignmentsList from "./ScoutingAssignmentsList";
 import ScoutingOverviewCards from "./ScoutingOverviewCards";
+import ScoutingScoutDetailsCard from "./ScoutingScoutDetailsCard";
 
 interface ScoutingTabProps {
   gameState: GameStateData;
@@ -119,97 +117,11 @@ export default function ScoutingTab({
         onSelectPlayer={onSelectPlayer}
       />
 
-      {/* Scout Staff Details */}
-      {scouts.length > 0 && (
-        <Card>
-          <CardHeader>{t("scouting.yourScouts")}</CardHeader>
-          <CardBody>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {scouts.map((s) => {
-                const count = scoutAssignmentCount(assignments, s.id);
-                const maxSlots = scoutMaxSlots(s.attributes.judging_ability);
-                const isFull = count >= maxSlots;
-                const scoutAssigns = assignments.filter(
-                  (a) => a.scout_id === s.id,
-                );
-                return (
-                  <div
-                    key={s.id}
-                    className="p-3 rounded-lg border border-gray-200 dark:border-navy-600"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-lg bg-accent-500/10 flex items-center justify-center">
-                        <Eye className="w-4 h-4 text-accent-500" />
-                      </div>
-                      <div className="flex-1">
-                        <p className="font-heading font-bold text-sm text-gray-800 dark:text-gray-100">
-                          {s.first_name} {s.last_name}
-                        </p>
-                        <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5 flex items-center gap-1">
-                          <CountryFlag
-                            code={s.nationality}
-                            locale={i18n.language}
-                            className="text-xs leading-none"
-                          />
-                          <span>
-                            {countryName(s.nationality, i18n.language)}
-                          </span>
-                        </div>
-                      </div>
-                      <Badge variant={isFull ? "accent" : "success"} size="sm">
-                        {count}/{maxSlots} {t("scouting.slots")}
-                      </Badge>
-                    </div>
-                    <div className="mt-2 grid grid-cols-2 gap-2">
-                      <div>
-                        <p className="text-[10px] text-gray-400 dark:text-gray-500 font-heading uppercase">
-                          {t("scouting.judgingAbility")}
-                        </p>
-                        <ProgressBar
-                          value={s.attributes.judging_ability}
-                          variant="auto"
-                          size="sm"
-                        />
-                      </div>
-                      <div>
-                        <p className="text-[10px] text-gray-400 dark:text-gray-500 font-heading uppercase">
-                          {t("scouting.judgingPotential")}
-                        </p>
-                        <ProgressBar
-                          value={s.attributes.judging_potential}
-                          variant="auto"
-                          size="sm"
-                        />
-                      </div>
-                    </div>
-                    {scoutAssigns.length > 0 && (
-                      <div className="mt-2 flex flex-col gap-1">
-                        {scoutAssigns.map((a) => {
-                          const tp = gameState.players.find(
-                            (p) => p.id === a.player_id,
-                          );
-                          return tp ? (
-                            <p
-                              key={a.id}
-                              className="text-xs text-gray-500 dark:text-gray-400"
-                            >
-                              {t("scouting.scoutLabel", { name: "" })}
-                              <span className="font-heading font-bold text-gray-700 dark:text-gray-300">
-                                {tp.full_name}
-                              </span>{" "}
-                              — {a.days_remaining}d
-                            </p>
-                          ) : null;
-                        })}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </CardBody>
-        </Card>
-      )}
+      <ScoutingScoutDetailsCard
+        scouts={scouts}
+        assignments={assignments}
+        players={gameState.players}
+      />
 
       {scouts.length === 0 && (
         <Card>

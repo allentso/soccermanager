@@ -32,9 +32,10 @@ This backlog turns the architecture audit into an execution plan. Each step is i
 - [x] Step 2.10: Extract `ScoutingTab` player filtering, sorting, and pagination into model helpers.
 - [x] Step 2.11: Extract `ScoutingTab` scout overview cards into a dedicated component.
 - [x] Step 2.12: Extract `ScoutingTab` active assignments list into a dedicated component.
-- [ ] Step 2.13: Finish `ScoutingTab` container split with scout details and player search modules.
-- [ ] Step 2.14: Split `HomeTab` into smaller dashboard widgets and view-model helpers.
-- [ ] Step 2.15: Refactor `TeamProfile` to reuse shared helper logic and remove duplicated formatting/domain calculations.
+- [x] Step 2.13: Extract `ScoutingTab` scout details card into a dedicated component.
+- [ ] Step 2.14: Extract `ScoutingTab` player search module into a dedicated component.
+- [ ] Step 2.15: Split `HomeTab` into smaller dashboard widgets and view-model helpers.
+- [ ] Step 2.16: Refactor `TeamProfile` to reuse shared helper logic and remove duplicated formatting/domain calculations.
 
 ## Phase 3: Backend Command Boundary
 
