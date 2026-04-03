@@ -544,6 +544,13 @@ fn apply_match_report_updates_player_stats() {
     let scorer = game.players.iter().find(|p| p.id == "t1_fwd0").unwrap();
     assert_eq!(scorer.stats.appearances, 1);
     assert_eq!(scorer.stats.goals, 2);
+    assert_eq!(scorer.stats.shots, 3);
+    assert_eq!(scorer.stats.shots_on_target, 2);
+    assert_eq!(scorer.stats.passes_completed, 30);
+    assert_eq!(scorer.stats.passes_attempted, 35);
+    assert_eq!(scorer.stats.tackles_won, 2);
+    assert_eq!(scorer.stats.interceptions, 1);
+    assert_eq!(scorer.stats.fouls_committed, 1);
     assert!(scorer.stats.avg_rating > 0.0);
 }
 

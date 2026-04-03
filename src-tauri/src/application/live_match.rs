@@ -35,13 +35,18 @@ pub fn finish_live_match(state: &StateManager) -> Result<FinishLiveMatchResponse
         .get_game(|g| g.clone())
         .ok_or("No active game session")?;
 
-    ofm_core::turn::apply_match_report(
+    let mut captures = Vec::new();
+    ofm_core::turn::apply_match_report_with_capture(
         &mut game,
         fixture_index,
         &home_team_id,
         &away_team_id,
         &report,
+        &mut |capture| captures.push(capture),
     );
+    for capture in captures {
+        state.append_stats_state(capture);
+    }
 
     let round_summary = build_round_summary_dto(&game, round_matchday, &round_previous_standings);
 

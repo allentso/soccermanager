@@ -7,6 +7,29 @@ use crate::application::time_blockers::compute_blocking_actions as compute_block
 use ofm_core::game::Game;
 use ofm_core::state::StateManager;
 
+fn advance_time_internal(state: &StateManager) -> Result<Game, String> {
+    let mut current_game = state
+        .get_game(|g| g.clone())
+        .ok_or("No active game session".to_string())?;
+
+    info!(
+        "[cmd] advance_time: date={}",
+        current_game.clock.current_date.format("%Y-%m-%d")
+    );
+
+    let mut captures = Vec::new();
+    ofm_core::turn::process_day_with_capture(&mut current_game, &mut |capture| {
+        captures.push(capture);
+    });
+
+    for capture in captures {
+        state.append_stats_state(capture);
+    }
+
+    state.set_game(current_game.clone());
+    Ok(current_game)
+}
+
 fn advance_time_with_mode_internal(
     state: &StateManager,
     mode: &str,
@@ -28,18 +51,7 @@ pub fn advance_time_with_mode(
 
 #[tauri::command]
 pub fn advance_time(state: State<'_, StateManager>) -> Result<Game, String> {
-    let mut current_game = state
-        .get_game(|g| g.clone())
-        .ok_or("No active game session".to_string())?;
-
-    info!(
-        "[cmd] advance_time: date={}",
-        current_game.clock.current_date.format("%Y-%m-%d")
-    );
-    ofm_core::turn::process_day(&mut current_game);
-
-    state.set_game(current_game.clone());
-    Ok(current_game)
+    advance_time_internal(&state)
 }
 
 pub fn compute_blocking_actions(game: &Game) -> Vec<serde_json::Value> {
@@ -101,7 +113,13 @@ pub fn skip_to_match_day(state: State<'_, StateManager>) -> Result<serde_json::V
             break;
         }
 
-        ofm_core::turn::process_day(&mut game);
+        let mut captures = Vec::new();
+        ofm_core::turn::process_day_with_capture(&mut game, &mut |capture| {
+            captures.push(capture);
+        });
+        for capture in captures {
+            state.append_stats_state(capture);
+        }
         days_skipped += 1;
 
         let blockers = compute_blocking_actions(&game);
@@ -143,6 +161,7 @@ mod tests {
     use domain::manager::Manager;
     use domain::message::{InboxMessage, MessagePriority};
     use domain::player::{Injury, Player, PlayerAttributes, Position};
+    use domain::stats::StatsState;
     use domain::team::Team;
     use ofm_core::clock::GameClock;
     use ofm_core::game::Game;
@@ -237,6 +256,48 @@ mod tests {
         Game::new(clock, manager, vec![team], players, vec![], vec![])
     }
 
+    fn make_game_with_matchday() -> Game {
+        let mut game = make_game(22);
+        let today = game.clock.current_date.format("%Y-%m-%d").to_string();
+        let mut opponent_team = Team::new(
+            "team2".to_string(),
+            "Rival FC".to_string(),
+            "RIV".to_string(),
+            "England".to_string(),
+            "Rivaltown".to_string(),
+            "Rival Ground".to_string(),
+            21_000,
+        );
+        opponent_team.starting_xi_ids = game.players.iter().skip(11).take(11).map(|p| p.id.clone()).collect();
+        game.teams.push(opponent_team);
+
+        for player in game.players.iter_mut().skip(11) {
+            player.team_id = Some("team2".to_string());
+        }
+
+        game.teams[0].starting_xi_ids = game.players.iter().take(11).map(|p| p.id.clone()).collect();
+        game.league = Some(domain::league::League {
+            id: "league-1".to_string(),
+            name: "League".to_string(),
+            season: 2025,
+            fixtures: vec![Fixture {
+                id: "fixture-1".to_string(),
+                matchday: 1,
+                date: today,
+                home_team_id: "team1".to_string(),
+                away_team_id: "team2".to_string(),
+                competition: FixtureCompetition::League,
+                status: FixtureStatus::Scheduled,
+                result: None,
+            }],
+            standings: vec![
+                domain::league::StandingEntry::new("team1".to_string()),
+                domain::league::StandingEntry::new("team2".to_string()),
+            ],
+        });
+        game
+    }
+
     fn make_message(id: &str, priority: MessagePriority, read: bool) -> InboxMessage {
         let mut message = InboxMessage::new(
             id.to_string(),
@@ -254,6 +315,21 @@ mod tests {
         blockers
             .iter()
             .find(|blocker| blocker.get("id").and_then(Value::as_str) == Some(id))
+    }
+
+    #[test]
+    fn advance_time_records_match_history_in_active_stats_state() {
+        let state = StateManager::new();
+        state.set_game(make_game_with_matchday());
+        state.set_stats_state(StatsState::default());
+
+        let advanced = super::advance_time_internal(&state).unwrap();
+        let stats = state.get_stats_state(|current| current.clone()).unwrap();
+
+        assert_eq!(advanced.clock.current_date.date_naive(), Utc.with_ymd_and_hms(2025, 6, 16, 12, 0, 0).unwrap().date_naive());
+        assert!(!stats.player_matches.is_empty(), "expected player match history to be recorded");
+        assert_eq!(stats.team_matches.len(), 2);
+        assert_eq!(stats.player_matches[0].fixture_id, "fixture-1");
     }
 
     #[test]

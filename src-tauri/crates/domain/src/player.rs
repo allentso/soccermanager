@@ -331,6 +331,13 @@ pub struct PlayerSeasonStats {
     pub red_cards: u32,
     pub avg_rating: f32,
     pub minutes_played: u32,
+    pub shots: u32,
+    pub shots_on_target: u32,
+    pub passes_completed: u32,
+    pub passes_attempted: u32,
+    pub tackles_won: u32,
+    pub interceptions: u32,
+    pub fouls_committed: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

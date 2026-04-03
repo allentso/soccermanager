@@ -1,4 +1,5 @@
 use chrono::Utc;
+use domain::stats::StatsState;
 
 use ofm_core::clock::GameClock;
 use ofm_core::game::{BoardObjective, Game, ObjectiveType, ScoutingAssignment};
@@ -6,7 +7,7 @@ use ofm_core::game::{BoardObjective, Game, ObjectiveType, ScoutingAssignment};
 use crate::game_database::GameDatabase;
 use crate::repositories::{
     league_repo, manager_repo, message_repo, meta_repo, news_repo, objective_repo, player_repo,
-    scouting_repo, staff_repo, team_repo,
+    scouting_repo, staff_repo, stats_repo, team_repo,
 };
 
 pub struct GamePersistenceWriter;
@@ -71,6 +72,12 @@ impl GamePersistenceWriter {
         scouting_repo::upsert_scouting_list(conn, &scouting_rows)?;
 
         Ok(())
+    }
+}
+
+impl GamePersistenceWriter {
+    pub fn write_stats_state(db: &GameDatabase, stats: &StatsState) -> Result<(), String> {
+        stats_repo::replace_stats_state(db.conn(), stats)
     }
 }
 
@@ -141,6 +148,12 @@ impl GamePersistenceReader {
         ofm_core::season_context::refresh_game_context(&mut game);
 
         Ok(game)
+    }
+}
+
+impl GamePersistenceReader {
+    pub fn read_stats_state(db: &GameDatabase) -> Result<StatsState, String> {
+        stats_repo::load_stats_state(db.conn())
     }
 }
 

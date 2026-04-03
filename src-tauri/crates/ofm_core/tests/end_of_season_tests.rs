@@ -128,6 +128,7 @@ fn make_completed_season_game() -> Game {
         minutes_played: 2700,
         yellow_cards: 3,
         red_cards: 0,
+        ..PlayerSeasonStats::default()
     };
 
     let mut p2 = make_player("p2", "Rival", "team2", Position::Forward);
@@ -140,6 +141,7 @@ fn make_completed_season_game() -> Game {
         minutes_played: 2500,
         yellow_cards: 1,
         red_cards: 0,
+        ..PlayerSeasonStats::default()
     };
 
     let fixtures = vec![

@@ -1,5 +1,6 @@
 use chrono::Utc;
 use log::{debug, info};
+use domain::stats::StatsState;
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -110,6 +111,45 @@ impl SaveManager {
 
         info!("[save_manager] saved game to {}", save_id);
         Ok(())
+    }
+
+    pub fn save_stats_state(&mut self, stats: &StatsState, save_id: &str) -> Result<(), String> {
+        let entry = self
+            .save_index
+            .find(save_id)
+            .ok_or_else(|| format!("Save '{}' not found", save_id))?
+            .clone();
+
+        let db_path = self.saves_dir.join(&entry.db_filename);
+        let db = GameDatabase::open(&db_path)?;
+        GamePersistenceWriter::write_stats_state(&db, stats)?;
+        drop(db);
+
+        let checksum = compute_checksum(&db_path)?;
+        let now = Utc::now().to_rfc3339();
+        self.save_index.update_save(SaveEntry {
+            id: save_id.to_string(),
+            name: entry.name,
+            manager_name: entry.manager_name,
+            db_filename: entry.db_filename,
+            checksum,
+            created_at: entry.created_at,
+            last_played_at: now,
+        })?;
+
+        Ok(())
+    }
+
+    pub fn load_stats_state(&mut self, save_id: &str) -> Result<StatsState, String> {
+        let entry = self
+            .save_index
+            .find(save_id)
+            .ok_or_else(|| format!("Save '{}' not found", save_id))?
+            .clone();
+
+        let db_path = self.saves_dir.join(&entry.db_filename);
+        let db = GameDatabase::open(&db_path)?;
+        GamePersistenceReader::read_stats_state(&db)
     }
 
     /// Load a Game from a save database.
@@ -363,6 +403,7 @@ mod tests {
     use chrono::TimeZone;
     use domain::league::{Fixture, FixtureCompetition, FixtureStatus, League, StandingEntry};
     use domain::player::{Footedness, Player, PlayerAttributes, Position};
+    use domain::stats::{PlayerMatchStatsRecord, StatsState, TeamMatchStatsRecord};
     use domain::staff::{StaffAttributes, StaffRole};
     use domain::team::Team;
     use ofm_core::clock::GameClock;
@@ -513,6 +554,61 @@ mod tests {
         );
         game.league = Some(league);
         game
+    }
+
+    fn sample_stats_state() -> StatsState {
+        StatsState {
+            player_matches: vec![PlayerMatchStatsRecord {
+                fixture_id: "fix-current".to_string(),
+                season: 2027,
+                matchday: 1,
+                date: "2027-08-15".to_string(),
+                competition: FixtureCompetition::League,
+                player_id: "p-001".to_string(),
+                team_id: "team-001".to_string(),
+                opponent_team_id: "team-002".to_string(),
+                home_team_id: "team-001".to_string(),
+                away_team_id: "team-002".to_string(),
+                home_goals: 2,
+                away_goals: 1,
+                minutes_played: 90,
+                goals: 1,
+                assists: 1,
+                shots: 4,
+                shots_on_target: 2,
+                passes_completed: 38,
+                passes_attempted: 44,
+                tackles_won: 3,
+                interceptions: 2,
+                fouls_committed: 1,
+                yellow_cards: 0,
+                red_cards: 0,
+                rating: 7.8,
+            }],
+            team_matches: vec![TeamMatchStatsRecord {
+                fixture_id: "fix-current".to_string(),
+                season: 2027,
+                matchday: 1,
+                date: "2027-08-15".to_string(),
+                competition: FixtureCompetition::League,
+                team_id: "team-001".to_string(),
+                opponent_team_id: "team-002".to_string(),
+                home_team_id: "team-001".to_string(),
+                away_team_id: "team-002".to_string(),
+                goals_for: 2,
+                goals_against: 1,
+                possession_pct: 54,
+                shots: 12,
+                shots_on_target: 6,
+                passes_completed: 410,
+                passes_attempted: 470,
+                tackles_won: 15,
+                interceptions: 9,
+                fouls_committed: 11,
+                yellow_cards: 2,
+                red_cards: 0,
+            }],
+        }
     }
 
     fn make_lineup_player(id: &str, position: Position, footedness: Footedness) -> Player {
@@ -702,6 +798,43 @@ mod tests {
         // Reload and verify
         let loaded = sm.load_game(&save_id).unwrap();
         assert_eq!(loaded.manager.reputation, 999);
+    }
+
+    #[test]
+    fn test_save_and_load_stats_state_roundtrip() {
+        let dir = tempfile::tempdir().unwrap();
+        let saves_dir = dir.path().join("saves");
+
+        let mut sm = SaveManager::init(&saves_dir).unwrap();
+        let game = sample_game_with_league();
+        let stats = sample_stats_state();
+
+        let save_id = sm.create_save(&game, "Stats Career").unwrap();
+        sm.save_stats_state(&stats, &save_id).unwrap();
+
+        let loaded_stats = sm.load_stats_state(&save_id).unwrap();
+
+        assert_eq!(loaded_stats.player_matches.len(), 1);
+        assert_eq!(loaded_stats.team_matches.len(), 1);
+        assert_eq!(loaded_stats.player_matches[0].player_id, "p-001");
+        assert_eq!(loaded_stats.player_matches[0].shots, 4);
+        assert_eq!(loaded_stats.team_matches[0].team_id, "team-001");
+        assert_eq!(loaded_stats.team_matches[0].shots_on_target, 6);
+    }
+
+    #[test]
+    fn test_load_stats_state_without_saved_history_returns_empty_state() {
+        let dir = tempfile::tempdir().unwrap();
+        let saves_dir = dir.path().join("saves");
+
+        let mut sm = SaveManager::init(&saves_dir).unwrap();
+        let game = sample_game();
+        let save_id = sm.create_save(&game, "Legacy Style Career").unwrap();
+
+        let loaded_stats = sm.load_stats_state(&save_id).unwrap();
+
+        assert!(loaded_stats.player_matches.is_empty());
+        assert!(loaded_stats.team_matches.is_empty());
     }
 
     #[test]

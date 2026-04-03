@@ -1,5 +1,6 @@
 use crate::game::Game;
 use crate::live_match_manager::LiveMatchSession;
+use domain::stats::StatsState;
 use std::sync::Mutex;
 
 fn set_option<T>(mutex: &Mutex<Option<T>>, value: T) {
@@ -40,6 +41,7 @@ fn cloned_option<T: Clone>(mutex: &Mutex<Option<T>>) -> Option<T> {
 
 pub struct StateManager {
     pub active_game: Mutex<Option<Game>>,
+    pub active_stats: Mutex<Option<StatsState>>,
     pub live_match: Mutex<Option<LiveMatchSession>>,
     pub active_save_id: Mutex<Option<String>>,
 }
@@ -54,6 +56,7 @@ impl StateManager {
     pub fn new() -> Self {
         Self {
             active_game: Mutex::new(None),
+            active_stats: Mutex::new(None),
             live_match: Mutex::new(None),
             active_save_id: Mutex::new(None),
         }
@@ -72,6 +75,37 @@ impl StateManager {
 
     pub fn clear_game(&self) {
         clear_option(&self.active_game);
+        clear_option(&self.active_stats);
+    }
+
+    pub fn set_stats_state(&self, stats: StatsState) {
+        set_option(&self.active_stats, stats);
+    }
+
+    pub fn get_stats_state<F, R>(&self, f: F) -> Option<R>
+    where
+        F: FnOnce(&StatsState) -> R,
+    {
+        with_option(&self.active_stats, f)
+    }
+
+    pub fn with_stats_state<F, R>(&self, f: F) -> Option<R>
+    where
+        F: FnOnce(&mut StatsState) -> R,
+    {
+        with_option_mut(&self.active_stats, f)
+    }
+
+    pub fn clear_stats_state(&self) {
+        clear_option(&self.active_stats);
+    }
+
+    pub fn append_stats_state(&self, stats: StatsState) {
+        let mut lock = self.active_stats.lock().unwrap();
+        match lock.as_mut() {
+            Some(current) => current.append(stats),
+            None => *lock = Some(stats),
+        }
     }
 
     pub fn set_save_id(&self, id: String) {

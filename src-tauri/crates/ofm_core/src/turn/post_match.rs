@@ -7,6 +7,7 @@ use domain::league::{
 use domain::player::{
     PlayerIssue, PlayerIssueCategory, PlayerPromiseKind, Position as DomainPosition,
 };
+use domain::stats::{PlayerMatchStatsRecord, StatsState, TeamMatchStatsRecord};
 use log::debug;
 
 fn compact_team_stats(stats: &engine::TeamStats, possession_pct: u8) -> CompactTeamMatchStats {
@@ -68,6 +69,26 @@ pub fn apply_match_report(
     away_team_id: &str,
     report: &engine::MatchReport,
 ) {
+    apply_match_report_with_capture(
+        game,
+        fixture_index,
+        home_team_id,
+        away_team_id,
+        report,
+        &mut |_| {},
+    );
+}
+
+pub fn apply_match_report_with_capture<F>(
+    game: &mut Game,
+    fixture_index: usize,
+    home_team_id: &str,
+    away_team_id: &str,
+    report: &engine::MatchReport,
+    on_capture: &mut F,
+) where
+    F: FnMut(StatsState),
+{
     debug!(
         "[turn] apply_match_report: fixture #{}, score {} - {}",
         fixture_index, report.home_goals, report.away_goals
@@ -126,6 +147,14 @@ pub fn apply_match_report(
 
         fixture.result = Some(result);
     }
+
+    on_capture(build_stats_state_capture(
+        game,
+        fixture_index,
+        home_team_id,
+        away_team_id,
+        report,
+    ));
 
     // Update player season stats from the engine report
     apply_player_stats(game, report, home_team_id, away_team_id);
@@ -239,6 +268,128 @@ pub fn apply_match_report(
     }
 }
 
+fn build_stats_state_capture(
+    game: &Game,
+    fixture_index: usize,
+    home_team_id: &str,
+    away_team_id: &str,
+    report: &engine::MatchReport,
+) -> StatsState {
+    let Some(league) = game.league.as_ref() else {
+        return StatsState::default();
+    };
+    let Some(fixture) = league.fixtures.get(fixture_index) else {
+        return StatsState::default();
+    };
+
+    let home_possession_pct = report.home_possession.round().clamp(0.0, 100.0) as u8;
+    let away_possession_pct = (100.0 - report.home_possession).round().clamp(0.0, 100.0) as u8;
+    let team_by_player_id: std::collections::HashMap<&str, &str> = game
+        .players
+        .iter()
+        .filter_map(|player| player.team_id.as_deref().map(|team_id| (player.id.as_str(), team_id)))
+        .collect();
+
+    let player_matches = report
+        .player_stats
+        .iter()
+        .filter_map(|(player_id, stats)| {
+            let team_id = *team_by_player_id.get(player_id.as_str())?;
+            if team_id != home_team_id && team_id != away_team_id {
+                return None;
+            }
+
+            let opponent_team_id = if team_id == home_team_id {
+                away_team_id
+            } else {
+                home_team_id
+            };
+
+            Some(PlayerMatchStatsRecord {
+                fixture_id: fixture.id.clone(),
+                season: league.season,
+                matchday: fixture.matchday,
+                date: fixture.date.clone(),
+                competition: fixture.competition.clone(),
+                player_id: player_id.clone(),
+                team_id: team_id.to_string(),
+                opponent_team_id: opponent_team_id.to_string(),
+                home_team_id: home_team_id.to_string(),
+                away_team_id: away_team_id.to_string(),
+                home_goals: report.home_goals,
+                away_goals: report.away_goals,
+                minutes_played: stats.minutes_played,
+                goals: stats.goals,
+                assists: stats.assists,
+                shots: stats.shots,
+                shots_on_target: stats.shots_on_target,
+                passes_completed: stats.passes_completed,
+                passes_attempted: stats.passes_attempted,
+                tackles_won: stats.tackles_won,
+                interceptions: stats.interceptions,
+                fouls_committed: stats.fouls_committed,
+                yellow_cards: stats.yellow_cards,
+                red_cards: stats.red_cards,
+                rating: stats.rating,
+            })
+        })
+        .collect();
+
+    let team_matches = vec![
+        TeamMatchStatsRecord {
+            fixture_id: fixture.id.clone(),
+            season: league.season,
+            matchday: fixture.matchday,
+            date: fixture.date.clone(),
+            competition: fixture.competition.clone(),
+            team_id: home_team_id.to_string(),
+            opponent_team_id: away_team_id.to_string(),
+            home_team_id: home_team_id.to_string(),
+            away_team_id: away_team_id.to_string(),
+            goals_for: report.home_goals,
+            goals_against: report.away_goals,
+            possession_pct: home_possession_pct,
+            shots: report.home_stats.shots,
+            shots_on_target: report.home_stats.shots_on_target,
+            passes_completed: report.home_stats.passes_completed,
+            passes_attempted: report.home_stats.passes_completed + report.home_stats.passes_intercepted,
+            tackles_won: report.home_stats.tackles,
+            interceptions: report.home_stats.interceptions,
+            fouls_committed: report.home_stats.fouls,
+            yellow_cards: report.home_stats.yellow_cards,
+            red_cards: report.home_stats.red_cards,
+        },
+        TeamMatchStatsRecord {
+            fixture_id: fixture.id.clone(),
+            season: league.season,
+            matchday: fixture.matchday,
+            date: fixture.date.clone(),
+            competition: fixture.competition.clone(),
+            team_id: away_team_id.to_string(),
+            opponent_team_id: home_team_id.to_string(),
+            home_team_id: home_team_id.to_string(),
+            away_team_id: away_team_id.to_string(),
+            goals_for: report.away_goals,
+            goals_against: report.home_goals,
+            possession_pct: away_possession_pct,
+            shots: report.away_stats.shots,
+            shots_on_target: report.away_stats.shots_on_target,
+            passes_completed: report.away_stats.passes_completed,
+            passes_attempted: report.away_stats.passes_completed + report.away_stats.passes_intercepted,
+            tackles_won: report.away_stats.tackles,
+            interceptions: report.away_stats.interceptions,
+            fouls_committed: report.away_stats.fouls,
+            yellow_cards: report.away_stats.yellow_cards,
+            red_cards: report.away_stats.red_cards,
+        },
+    ];
+
+    StatsState {
+        player_matches,
+        team_matches,
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Post-match: feed engine report stats back into domain Player models
 // ---------------------------------------------------------------------------
@@ -257,6 +408,13 @@ fn apply_player_stats(
             player.stats.yellow_cards += ps.yellow_cards as u32;
             player.stats.red_cards += ps.red_cards as u32;
             player.stats.minutes_played += ps.minutes_played as u32;
+            player.stats.shots += ps.shots as u32;
+            player.stats.shots_on_target += ps.shots_on_target as u32;
+            player.stats.passes_completed += ps.passes_completed as u32;
+            player.stats.passes_attempted += ps.passes_attempted as u32;
+            player.stats.tackles_won += ps.tackles_won as u32;
+            player.stats.interceptions += ps.interceptions as u32;
+            player.stats.fouls_committed += ps.fouls_committed as u32;
 
             // Update average rating (running average)
             if player.stats.appearances == 1 {

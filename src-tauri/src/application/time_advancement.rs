@@ -86,7 +86,16 @@ pub fn advance_time_with_mode(
             );
             state.set_live_match(session);
 
-            ofm_core::turn::simulate_other_matches(&mut game, &today, Some(index));
+            let mut captures = Vec::new();
+            ofm_core::turn::simulate_other_matches_with_capture(
+                &mut game,
+                &today,
+                Some(index),
+                &mut |capture| captures.push(capture),
+            );
+            for capture in captures {
+                state.append_stats_state(capture);
+            }
             let round_summary =
                 round_context
                     .as_ref()
@@ -118,15 +127,26 @@ pub fn advance_time_with_mode(
             let away_team_id = session.away_team_id.clone();
             let report = session.match_state.into_report();
 
-            ofm_core::turn::simulate_other_matches(&mut game, &today, Some(index));
+            let mut captures = Vec::new();
+            ofm_core::turn::simulate_other_matches_with_capture(
+                &mut game,
+                &today,
+                Some(index),
+                &mut |capture| captures.push(capture),
+            );
 
-            ofm_core::turn::apply_match_report(
+            ofm_core::turn::apply_match_report_with_capture(
                 &mut game,
                 index,
                 &home_team_id,
                 &away_team_id,
                 &report,
+                &mut |capture| captures.push(capture),
             );
+
+            for capture in captures {
+                state.append_stats_state(capture);
+            }
 
             let round_summary =
                 round_context
@@ -152,7 +172,13 @@ pub fn advance_time_with_mode(
                 "[cmd] advance_time_with_mode: normal_advance date={}, mode={}",
                 today, mode
             );
-            ofm_core::turn::process_day(&mut game);
+            let mut captures = Vec::new();
+            ofm_core::turn::process_day_with_capture(&mut game, &mut |capture| {
+                captures.push(capture);
+            });
+            for capture in captures {
+                state.append_stats_state(capture);
+            }
             let round_summary =
                 round_context
                     .as_ref()

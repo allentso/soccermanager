@@ -10,13 +10,14 @@ use crate::scouting;
 use crate::training;
 use crate::transfers;
 use chrono::Datelike;
+use domain::stats::StatsState;
 use domain::league::FixtureStatus;
 use domain::player::Position as DomainPosition;
 use log::{debug, info};
 
 // Re-export public items
 pub use news::generate_matchday_news;
-pub use post_match::apply_match_report;
+pub use post_match::{apply_match_report, apply_match_report_with_capture};
 pub use round_summary::{
     NotableUpset, RoundResultSummary, RoundSummary, StandingDelta, TopScorerDelta,
     build_round_summary,
@@ -37,6 +38,13 @@ fn progress_injury_recovery(game: &mut Game) {
 
 /// Process a single day advance.
 pub fn process_day(game: &mut Game) {
+    process_day_with_capture(game, &mut |_| {});
+}
+
+pub fn process_day_with_capture<F>(game: &mut Game, on_capture: &mut F)
+where
+    F: FnMut(StatsState),
+{
     let today = game.clock.current_date.format("%Y-%m-%d").to_string();
 
     let has_match_today = game.league.as_ref().is_some_and(|league| {
@@ -48,7 +56,7 @@ pub fn process_day(game: &mut Game) {
 
     if has_match_today {
         info!("[turn] process_day {}: matchday", today);
-        simulate_matchday(game, &today);
+        simulate_matchday_with_capture(game, &today, on_capture);
     } else {
         let weekday_num = game.clock.current_date.weekday().num_days_from_monday();
         training::process_training(game, weekday_num);
@@ -182,15 +190,29 @@ fn build_engine_team(game: &Game, team_id: &str) -> engine::TeamData {
 // Matchday simulation using the engine crate
 // ---------------------------------------------------------------------------
 
-fn simulate_matchday(game: &mut Game, today: &str) {
+fn simulate_matchday_with_capture<F>(game: &mut Game, today: &str, on_capture: &mut F)
+where
+    F: FnMut(StatsState),
+{
     info!("[turn] simulate_matchday: {}", today);
-    simulate_other_matches(game, today, None);
+    simulate_other_matches_with_capture(game, today, None, on_capture);
     generate_matchday_news(game, today);
 }
 
 /// Simulate all scheduled matches for `today`, optionally skipping one fixture
 /// (the user's live match). Called by both process_day and advance_time_with_mode.
 pub fn simulate_other_matches(game: &mut Game, today: &str, skip_fixture: Option<usize>) {
+    simulate_other_matches_with_capture(game, today, skip_fixture, &mut |_| {});
+}
+
+pub fn simulate_other_matches_with_capture<F>(
+    game: &mut Game,
+    today: &str,
+    skip_fixture: Option<usize>,
+    on_capture: &mut F,
+) where
+    F: FnMut(StatsState),
+{
     debug!(
         "[turn] simulate_other_matches: date={}, skip={:?}",
         today, skip_fixture
@@ -210,12 +232,14 @@ pub fn simulate_other_matches(game: &mut Game, today: &str, skip_fixture: Option
     });
 
     for idx in fixture_indices {
-        simulate_single_match(game, idx);
+        simulate_single_match_with_capture(game, idx, on_capture);
     }
 }
 
-/// Simulate a single fixture by index using the engine and update game state.
-fn simulate_single_match(game: &mut Game, idx: usize) {
+fn simulate_single_match_with_capture<F>(game: &mut Game, idx: usize, on_capture: &mut F)
+where
+    F: FnMut(StatsState),
+{
     let (home_team_id, away_team_id) = {
         let f = &game.league.as_ref().unwrap().fixtures[idx];
         (f.home_team_id.clone(), f.away_team_id.clone())
@@ -247,5 +271,5 @@ fn simulate_single_match(game: &mut Game, idx: usize) {
         "[turn] match result: {} {} - {} {} (fixture #{})",
         home_name, report.home_goals, report.away_goals, away_name, idx
     );
-    apply_match_report(game, idx, &home_team_id, &away_team_id, &report);
+    apply_match_report_with_capture(game, idx, &home_team_id, &away_team_id, &report, on_capture);
 }

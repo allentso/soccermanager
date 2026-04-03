@@ -1,7 +1,7 @@
 use rusqlite_migration::{M, Migrations};
 
 /// Number of migrations defined. Keep in sync with the vec in `all_migrations`.
-pub const MIGRATION_COUNT: usize = 14;
+pub const MIGRATION_COUNT: usize = 15;
 
 /// All migrations for a per-save game database.
 /// Each save `.db` file gets this schema applied via `rusqlite_migration`.
@@ -35,6 +35,8 @@ pub fn all_migrations() -> Migrations<'static> {
         M::up(include_str!("sql/v013_player_fitness.sql")),
         // V14: Explicit football identity fields for teams and people
         M::up(include_str!("sql/v014_football_identity.sql")),
+        // V15: Historical player and team match stats
+        M::up(include_str!("sql/v015_match_stats_history.sql")),
     ])
 }
 
@@ -73,7 +75,15 @@ mod tests {
         assert!(tables.contains(&"managers".to_string()), "missing managers");
         assert!(tables.contains(&"teams".to_string()), "missing teams");
         assert!(tables.contains(&"players".to_string()), "missing players");
+        assert!(
+            tables.contains(&"player_match_stats".to_string()),
+            "missing player_match_stats"
+        );
         assert!(tables.contains(&"staff".to_string()), "missing staff");
+        assert!(
+            tables.contains(&"team_match_stats".to_string()),
+            "missing team_match_stats"
+        );
         assert!(tables.contains(&"league".to_string()), "missing league");
         assert!(tables.contains(&"fixtures".to_string()), "missing fixtures");
         assert!(

@@ -447,6 +447,13 @@ mod tests {
         player.stats.appearances = 20;
         player.stats.goals = 5;
         player.stats.assists = 8;
+        player.stats.shots = 42;
+        player.stats.shots_on_target = 21;
+        player.stats.passes_completed = 510;
+        player.stats.passes_attempted = 612;
+        player.stats.tackles_won = 33;
+        player.stats.interceptions = 19;
+        player.stats.fouls_committed = 14;
 
         upsert_player(db.conn(), &player).unwrap();
         let loaded = load_all_players(db.conn()).unwrap();
@@ -454,6 +461,48 @@ mod tests {
         assert_eq!(loaded[0].stats.appearances, 20);
         assert_eq!(loaded[0].stats.goals, 5);
         assert_eq!(loaded[0].stats.assists, 8);
+        assert_eq!(loaded[0].stats.shots, 42);
+        assert_eq!(loaded[0].stats.shots_on_target, 21);
+        assert_eq!(loaded[0].stats.passes_completed, 510);
+        assert_eq!(loaded[0].stats.passes_attempted, 612);
+        assert_eq!(loaded[0].stats.tackles_won, 33);
+        assert_eq!(loaded[0].stats.interceptions, 19);
+        assert_eq!(loaded[0].stats.fouls_committed, 14);
+    }
+
+    #[test]
+    fn test_legacy_player_stats_defaults_new_fields() {
+        let db = test_db();
+        let player = sample_player("p-legacy", None);
+
+        upsert_player(db.conn(), &player).unwrap();
+        db.conn()
+            .execute(
+                "UPDATE players SET stats = ?1 WHERE id = ?2",
+                params![
+                    r#"{"appearances":12,"goals":4,"assists":6,"minutes_played":900}"#,
+                    "p-legacy"
+                ],
+            )
+            .unwrap();
+
+        let loaded = load_all_players(db.conn()).unwrap();
+        let loaded_player = loaded
+            .iter()
+            .find(|candidate| candidate.id == "p-legacy")
+            .unwrap();
+
+        assert_eq!(loaded_player.stats.appearances, 12);
+        assert_eq!(loaded_player.stats.goals, 4);
+        assert_eq!(loaded_player.stats.assists, 6);
+        assert_eq!(loaded_player.stats.minutes_played, 900);
+        assert_eq!(loaded_player.stats.shots, 0);
+        assert_eq!(loaded_player.stats.shots_on_target, 0);
+        assert_eq!(loaded_player.stats.passes_completed, 0);
+        assert_eq!(loaded_player.stats.passes_attempted, 0);
+        assert_eq!(loaded_player.stats.tackles_won, 0);
+        assert_eq!(loaded_player.stats.interceptions, 0);
+        assert_eq!(loaded_player.stats.fouls_committed, 0);
     }
 
     #[test]

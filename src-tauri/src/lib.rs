@@ -125,6 +125,7 @@ pub fn run() {
             get_season_awards,
             resolve_message_action,
             start_live_match,
+            get_player_match_history,
             step_live_match,
             apply_match_command,
             get_match_snapshot,

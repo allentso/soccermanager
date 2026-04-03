@@ -2,6 +2,7 @@ use log::info;
 use tauri::State;
 
 use db::save_index::SaveEntry;
+use domain::stats::StatsState;
 use domain::manager::Manager;
 use ofm_core::clock::GameClock;
 use ofm_core::game::Game;
@@ -85,6 +86,7 @@ pub async fn start_new_game(
         new_game.staff.len()
     );
     state.set_game(new_game.clone());
+    state.set_stats_state(StatsState::default());
     Ok(new_game)
 }
 
@@ -166,6 +168,7 @@ pub async fn select_team(
     state.set_save_id(save_id);
 
     state.set_game(game.clone());
+    state.set_stats_state(StatsState::default());
     Ok(game)
 }
 
@@ -204,12 +207,14 @@ pub async fn load_game(
         .lock()
         .map_err(|e| format!("Lock error: {}", e))?;
     let mut game = sm.load_game(&save_id)?;
+    let stats_state = sm.load_stats_state(&save_id)?;
     ofm_core::season_context::refresh_game_context(&mut game);
 
     let mgr_name = format!("{} {}", game.manager.first_name, game.manager.last_name);
 
     state.set_save_id(save_id);
     state.set_game(game);
+    state.set_stats_state(stats_state);
     Ok(mgr_name)
 }
 
@@ -239,7 +244,11 @@ pub async fn save_game(
         .0
         .lock()
         .map_err(|e| format!("Lock error: {}", e))?;
-    sm.save_game(&game, &save_id)
+    sm.save_game(&game, &save_id)?;
+    let stats_state = state
+        .get_stats_state(|stats| stats.clone())
+        .unwrap_or_default();
+    sm.save_stats_state(&stats_state, &save_id)
 }
 
 /// Save the current game and clear the active session so the player returns to the main menu.
@@ -260,6 +269,10 @@ pub async fn exit_to_menu(
             .lock()
             .map_err(|e| format!("Lock error: {}", e))?;
         sm.save_game(&game, &save_id)?;
+        let stats_state = state
+            .get_stats_state(|stats| stats.clone())
+            .unwrap_or_default();
+        sm.save_stats_state(&stats_state, &save_id)?;
     }
 
     // Clear the in-memory game state

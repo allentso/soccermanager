@@ -74,6 +74,13 @@ export interface PlayerSeasonStats {
   red_cards: number;
   avg_rating: number;
   minutes_played: number;
+  shots?: number;
+  shots_on_target?: number;
+  passes_completed?: number;
+  passes_attempted?: number;
+  tackles_won?: number;
+  interceptions?: number;
+  fouls_committed?: number;
 }
 
 export interface CareerEntry {

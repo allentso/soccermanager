@@ -5,13 +5,21 @@ import { PlayerData, GameStateData } from "../../store/gameStore";
 import { ArrowLeft } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { resolveBackendText } from "../../utils/backendI18n";
-import { getPlayerAge, getPlayerTeamName } from "./PlayerProfile.helpers";
+import {
+  buildPlayerAdvancedStats,
+  getPlayerAge,
+  getPlayerTeamName,
+} from "./PlayerProfile.helpers";
+import PlayerProfileAdvancedStatsCard from "./PlayerProfileAdvancedStatsCard";
 import { buildPlayerAttributeGroups } from "./PlayerProfile.attributes";
 import PlayerProfileAttributesCard from "./PlayerProfileAttributesCard";
 import PlayerProfileCareerHistoryCard from "./PlayerProfileCareerHistoryCard";
 import PlayerProfileContractCard from "./PlayerProfileContractCard";
 import PlayerProfileHeroCard from "./PlayerProfileHeroCard";
 import PlayerProfileInjuryBanner from "./PlayerProfileInjuryBanner";
+import PlayerProfileRecentMatchesCard, {
+  type PlayerRecentMatchEntry,
+} from "./PlayerProfileRecentMatchesCard";
 import PlayerProfileRenewalModal from "./PlayerProfileRenewalModal";
 import PlayerProfileSeasonStatsCard from "./PlayerProfileSeasonStatsCard";
 import {
@@ -88,6 +96,7 @@ export default function PlayerProfile({
     useState<NegotiationFeedbackData | null>(null);
   const [renewalProjection, setRenewalProjection] =
     useState<RenewalProjectionData["projection"] | null>(null);
+  const [recentMatches, setRecentMatches] = useState<PlayerRecentMatchEntry[]>([]);
   const [hasConsumedInitialRenewalIntent, setHasConsumedInitialRenewalIntent] =
     useState(false);
   const ovr = calcOvr(player, primaryPosition);
@@ -146,6 +155,7 @@ export default function PlayerProfile({
     scoutStatus,
   });
   const attrGroups = buildPlayerAttributeGroups(player, t);
+  const advancedStats = buildPlayerAdvancedStats(player, gameState.players);
 
   function openRenewalModal(): void {
     setRenewalWage(String(player.wage));
@@ -228,6 +238,54 @@ export default function PlayerProfile({
       cancelled = true;
     };
   }, [isRenewalWageValid, player.id, renewalOfferedWage, showRenewalModal]);
+
+  useEffect(() => {
+    if (player.stats.appearances <= 0) {
+      setRecentMatches([]);
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadRecentMatches = async (): Promise<void> => {
+      try {
+        const result = await invoke<PlayerRecentMatchEntry[]>(
+          "get_player_match_history",
+          {
+            playerId: player.id,
+            limit: 5,
+          },
+        );
+
+        if (!cancelled) {
+          setRecentMatches((current) => {
+            if (
+              current.length === result.length &&
+              current.every(
+                (entry, index) => entry.fixture_id === result[index]?.fixture_id,
+              )
+            ) {
+              return current;
+            }
+
+            return result;
+          });
+        }
+      } catch {
+        if (!cancelled) {
+          setRecentMatches((current) =>
+            current.length === 0 ? current : [],
+          );
+        }
+      }
+    };
+
+    void loadRecentMatches();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [player.id, player.stats.appearances]);
 
   async function handleRenewalSubmit(): Promise<void> {
     if (renewalSubmitDisabled) {
@@ -444,7 +502,11 @@ export default function PlayerProfile({
 
         <PlayerProfileSeasonStatsCard stats={player.stats} t={t} />
 
+        <PlayerProfileAdvancedStatsCard summary={advancedStats} t={t} />
+
         <PlayerProfileCareerHistoryCard career={player.career} t={t} />
+
+        <PlayerProfileRecentMatchesCard matches={recentMatches} t={t} />
       </div>
 
       <PlayerProfileRenewalModal
