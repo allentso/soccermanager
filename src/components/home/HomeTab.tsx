@@ -19,7 +19,9 @@ import { translatePositionAbbreviation } from "../squad/SquadTab.helpers";
 import HomeLeagueDigestCard from "./HomeLeagueDigestCard";
 import HomeLeaguePositionCard from "./HomeLeaguePositionCard";
 import HomeNextOpponentCard from "./HomeNextOpponentCard";
+import HomeSquadOverviewCard from "./HomeSquadOverviewCard";
 import HomeSeasonStatusCard from "./HomeSeasonStatusCard";
+import HomeUnavailablePlayersCard from "./HomeUnavailablePlayersCard";
 import {
   Trophy,
   Dumbbell,
@@ -306,123 +308,24 @@ export default function HomeTab({
         </Card>
       )}
 
-      {unavailablePlayers.length > 0 && (
-        <Card>
-          <CardHeader
-            action={
-              <button
-                onClick={() => onNavigate?.("Squad")}
-                className="text-primary-500 dark:text-primary-400 text-xs font-heading font-bold uppercase tracking-wider hover:text-primary-600 dark:hover:text-primary-300 transition-colors"
-              >
-                {t("dashboard.squad")}
-              </button>
-            }
-          >
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-red-500" />
-              {t("home.unavailablePlayers")}
-            </div>
-          </CardHeader>
-          <CardBody>
-            <div className="flex flex-col gap-2.5">
-              {unavailablePlayers.map((player) => (
-                <div
-                  key={player.id}
-                  className="flex flex-col gap-2 rounded-lg border border-gray-100 px-3 py-2.5 dark:border-navy-700 sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="truncate text-sm font-heading font-bold text-gray-800 dark:text-gray-200">
-                        {player.full_name}
-                      </span>
-                      <Badge variant="danger" size="sm">
-                        {t("common.injured")}
-                      </Badge>
-                    </div>
-                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                      {player.injury
-                        ? resolveInjuryName(player.injury.name)
-                        : ""}{" "}
-                      ·{" "}
-                      {t("home.daysUnavailable", {
-                        count: player.injury?.days_remaining ?? 0,
-                      })}
-                    </p>
-                  </div>
-                  <div className="text-xs font-heading font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">
-                    {t(`common.positions.${player.position}`, {
-                      defaultValue: player.position,
-                    })}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardBody>
-        </Card>
-      )}
+      <HomeUnavailablePlayersCard
+        players={unavailablePlayers}
+        resolveInjuryName={resolveInjuryName}
+        onNavigate={onNavigate}
+      />
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         {/* Squad Fitness */}
-        <Card>
-          <CardHeader
-            action={
-              <button
-                onClick={() => onNavigate?.("Training")}
-                className="text-primary-500 dark:text-primary-400 text-xs font-heading font-bold uppercase tracking-wider hover:text-primary-600 dark:hover:text-primary-300 transition-colors"
-              >
-                {t("dashboard.training")}
-              </button>
-            }
-          >
-            {t("home.squadOverview")}
-          </CardHeader>
-          <CardBody>
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-gray-500 dark:text-gray-400">
-                  {t("home.avgCondition")}
-                </span>
-                <span className="font-heading font-bold text-sm text-gray-800 dark:text-gray-100">
-                  {avgCondition}%
-                </span>
-              </div>
-              <ProgressBar value={avgCondition} variant="auto" size="md" />
-
-              <div className="flex items-center justify-between mt-1">
-                <span className="text-xs text-gray-500 dark:text-gray-400">
-                  {t("home.avgOvr")}
-                </span>
-                <span className="font-heading font-bold text-sm text-gray-800 dark:text-gray-100">
-                  {avgOvr}
-                </span>
-              </div>
-
-              {exhaustedCount > 0 && (
-                <div className="flex items-center gap-1.5 mt-1 text-amber-500 dark:text-amber-400">
-                  <AlertTriangle className="w-3.5 h-3.5" />
-                  <span className="text-xs font-heading">
-                    {t("home.exhaustedPlayers", { count: exhaustedCount })}
-                  </span>
-                </div>
-              )}
-
-              <div className="mt-2 pt-2 border-t border-gray-100 dark:border-navy-700 flex items-center gap-2">
-                <Dumbbell className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500" />
-                <span className="text-xs text-gray-500 dark:text-gray-400">
-                  {t("home.scheduleLabel")}
-                </span>
-                <span
-                  className={`text-xs font-heading font-bold flex items-center gap-1 ${schedIcons.color}`}
-                >
-                  {schedIcons.icon} {schedLabel}
-                </span>
-                <span className="text-xs text-gray-400 dark:text-gray-500 ml-auto">
-                  {t(`common.trainingFocuses.${focus}`, focus)}
-                </span>
-              </div>
-            </div>
-          </CardBody>
-        </Card>
+        <HomeSquadOverviewCard
+          avgCondition={avgCondition}
+          avgOvr={avgOvr}
+          exhaustedCount={exhaustedCount}
+          scheduleIcon={schedIcons.icon}
+          scheduleColorClass={schedIcons.color}
+          scheduleLabel={schedLabel}
+          focus={focus}
+          onNavigate={onNavigate}
+        />
 
         {/* Recent Results */}
         <Card>
