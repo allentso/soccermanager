@@ -59,5 +59,5 @@ This backlog turns the architecture audit into an execution plan. Each step is i
 ## Phase 5: Verification Sweep
 
 - [x] Step 5.1: Run broader frontend regression slices around dashboard/navigation flows.
-- [ ] Step 5.2: Run broader backend Rust test slices for refactored command and domain modules.
+- [x] Step 5.2: Run broader backend Rust test slices for refactored command and domain modules.
 - [ ] Step 5.3: Review remaining hotspots and close residual SOLID violations that still materially affect change risk.
