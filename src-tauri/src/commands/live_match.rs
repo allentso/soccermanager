@@ -2,64 +2,25 @@ use log::info;
 use ofm_core::player_events::{pick_response_band, ResponseBandWeights, ResponseOutcomeBand};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
-use serde::{Deserialize, Serialize};
 use tauri::State;
 
-use crate::commands::round_summary::{build_round_summary_dto, RoundSummaryDto};
+pub use crate::application::live_match::FinishLiveMatchResponse;
+use crate::application::live_match::{
+    apply_match_command as apply_match_command_service,
+    finish_live_match as finish_live_match_service,
+    get_match_snapshot as get_match_snapshot_service,
+    start_live_match as start_live_match_service,
+    step_live_match as step_live_match_service,
+};
 use ofm_core::game::Game;
-use ofm_core::live_match_manager::{self, MatchMode};
 use ofm_core::state::StateManager;
 
 // ---------------------------------------------------------------------------
 // Live Match Commands
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct FinishLiveMatchResponse {
-    pub game: Game,
-    pub round_summary: Option<RoundSummaryDto>,
-}
-
 fn finish_live_match_internal(state: &StateManager) -> Result<FinishLiveMatchResponse, String> {
-    info!("[cmd] finish_live_match");
-    let session = state.take_live_match().ok_or("No active live match")?;
-
-    let fixture_index = session.fixture_index;
-    let round_matchday = session.round_matchday;
-    let round_previous_standings = session.round_previous_standings.clone();
-    let home_team_id = session.home_team_id.clone();
-    let away_team_id = session.away_team_id.clone();
-
-    let report = session.match_state.into_report();
-    info!(
-        "[cmd] finish_live_match: fixture_index={}, home_team_id={}, away_team_id={}, events={}",
-        fixture_index,
-        home_team_id,
-        away_team_id,
-        report.events.len()
-    );
-
-    let mut game = state
-        .get_game(|g| g.clone())
-        .ok_or("No active game session")?;
-
-    ofm_core::turn::apply_match_report(
-        &mut game,
-        fixture_index,
-        &home_team_id,
-        &away_team_id,
-        &report,
-    );
-
-    let round_summary = build_round_summary_dto(&game, round_matchday, &round_previous_standings);
-
-    ofm_core::turn::finish_live_match_day(&mut game);
-
-    state.set_game(game.clone());
-    Ok(FinishLiveMatchResponse {
-        game,
-        round_summary,
-    })
+    finish_live_match_service(state)
 }
 
 fn team_talk_action_key(tone: &str, context: &str) -> String {
@@ -421,34 +382,7 @@ pub fn start_live_match(
     mode: String,
     allows_extra_time: bool,
 ) -> Result<engine::MatchSnapshot, String> {
-    info!(
-        "[cmd] start_live_match: fixture={}, mode={}, extra_time={}",
-        fixture_index, mode, allows_extra_time
-    );
-    let game = state
-        .get_game(|g| g.clone())
-        .ok_or("No active game session")?;
-
-    let match_mode = match mode.as_str() {
-        "spectator" => MatchMode::Spectator,
-        "instant" => MatchMode::Instant,
-        _ => MatchMode::Live,
-    };
-
-    let session =
-        live_match_manager::create_live_match(&game, fixture_index, match_mode, allows_extra_time)?;
-    let snapshot = session.snapshot();
-    info!(
-        "[cmd] start_live_match: created fixture={}, phase={:?}, home_team={}, away_team={}, home_players={}, away_players={}",
-        fixture_index,
-        snapshot.phase,
-        snapshot.home_team.name,
-        snapshot.away_team.name,
-        snapshot.home_team.players.len(),
-        snapshot.away_team.players.len()
-    );
-    state.set_live_match(session);
-    Ok(snapshot)
+    start_live_match_service(&state, fixture_index, &mode, allows_extra_time)
 }
 
 /// Step the live match forward by N minutes. Returns the events from each minute.
@@ -457,29 +391,7 @@ pub fn step_live_match(
     state: State<'_, StateManager>,
     minutes: u16,
 ) -> Result<Vec<engine::MinuteResult>, String> {
-    log::debug!("[cmd] step_live_match: minutes={}", minutes);
-    let results = state
-        .with_live_match(|session| {
-            if minutes <= 1 {
-                vec![session.step()]
-            } else {
-                session.step_many(minutes)
-            }
-        })
-        .ok_or_else(|| "No active live match".to_string())?;
-
-    if let Some(last) = results.last() {
-        info!(
-            "[cmd] step_live_match: minutes={}, result_count={}, last_minute={}, phase={:?}, finished={}",
-            minutes,
-            results.len(),
-            last.minute,
-            last.phase,
-            last.is_finished
-        );
-    }
-
-    Ok(results)
+    step_live_match_service(&state, minutes)
 }
 
 /// Apply a match command (substitution, tactic change, set piece taker, etc.)
@@ -488,39 +400,13 @@ pub fn apply_match_command(
     state: State<'_, StateManager>,
     command: engine::MatchCommand,
 ) -> Result<engine::MatchSnapshot, String> {
-    info!("[cmd] apply_match_command: {:?}", command);
-    let snapshot = state
-        .with_live_match(|session| {
-            session.apply_command(command)?;
-            Ok::<engine::MatchSnapshot, String>(session.snapshot())
-        })
-        .ok_or_else(|| "No active live match".to_string())??;
-
-    info!(
-        "[cmd] apply_match_command: snapshot phase={:?}, minute={}, home_players={}, away_players={}",
-        snapshot.phase,
-        snapshot.current_minute,
-        snapshot.home_team.players.len(),
-        snapshot.away_team.players.len()
-    );
-
-    Ok(snapshot)
+    apply_match_command_service(&state, command)
 }
 
 /// Get current match snapshot without advancing time.
 #[tauri::command]
 pub fn get_match_snapshot(state: State<'_, StateManager>) -> Result<engine::MatchSnapshot, String> {
-    log::debug!("[cmd] get_match_snapshot");
-    let snapshot = state
-        .with_live_match(|session| session.snapshot())
-        .ok_or_else(|| "No active live match".to_string())?;
-
-    info!(
-        "[cmd] get_match_snapshot: phase={:?}, minute={}, home_team={}, away_team={}",
-        snapshot.phase, snapshot.current_minute, snapshot.home_team.name, snapshot.away_team.name
-    );
-
-    Ok(snapshot)
+    get_match_snapshot_service(&state)
 }
 
 /// Finish the live match: generate report, update game state, clean up.
