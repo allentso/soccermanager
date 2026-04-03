@@ -54,7 +54,7 @@ This backlog turns the architecture audit into an execution plan. Each step is i
 - [x] Step 4.1: Split `SaveManager` into index management and persistence orchestration.
 - [x] Step 4.2: Split `SaveManager` DB read/write responsibilities into dedicated collaborators.
 - [x] Step 4.3: Split contract wage-policy and financial projection logic from renewal negotiation logic.
-- [ ] Step 4.4: Split delegated renewal/report generation from contract negotiation flow.
+- [x] Step 4.4: Split delegated renewal/report generation from contract negotiation flow.
 
 ## Phase 5: Verification Sweep
 
