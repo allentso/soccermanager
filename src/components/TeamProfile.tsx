@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { TeamData, GameStateData, PlayerData } from "../store/gameStore";
 import { Card, CardHeader, CardBody, Badge, ProgressBar, CountryFlag, TeamLocation } from "./ui";
 import {
@@ -14,6 +16,12 @@ import { countryName } from "../lib/countries";
 import { calcAge, calcOvr, formatVal, formatWeeklyAmount, positionBadgeVariant } from "../lib/helpers";
 import { translatePositionAbbreviation } from "./squad/SquadTab.helpers";
 import { buildTeamProfileViewModel } from "./TeamProfile.helpers";
+import TeamProfileAdvancedStatsCard, {
+  type TeamStatsOverview,
+} from "./TeamProfileAdvancedStatsCard";
+import TeamProfileRecentMatchesCard, {
+  type TeamRecentMatchEntry,
+} from "./TeamProfileRecentMatchesCard";
 
 interface TeamProfileProps {
   team: TeamData;
@@ -31,9 +39,71 @@ export default function TeamProfile({
   onSelectPlayer,
 }: TeamProfileProps) {
   const { t, i18n } = useTranslation();
+  const [teamStatsOverview, setTeamStatsOverview] =
+    useState<TeamStatsOverview | null>(null);
+  const [recentMatches, setRecentMatches] = useState<TeamRecentMatchEntry[]>([]);
   const weeklySuffix = t("finances.perWeekSuffix", "/wk");
   const { roster, avgOvr, totalWages, totalValue, manager, leaguePos, standings } =
     buildTeamProfileViewModel(team, gameState);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadTeamStatsOverview = async (): Promise<void> => {
+      try {
+        const result = await invoke<TeamStatsOverview | null>(
+          "get_team_stats_overview",
+          {
+            teamId: team.id,
+          },
+        );
+
+        if (!cancelled) {
+          setTeamStatsOverview(result);
+        }
+      } catch {
+        if (!cancelled) {
+          setTeamStatsOverview(null);
+        }
+      }
+    };
+
+    void loadTeamStatsOverview();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [team.id]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadRecentMatches = async (): Promise<void> => {
+      try {
+        const result = await invoke<TeamRecentMatchEntry[] | null>(
+          "get_team_match_history",
+          {
+            teamId: team.id,
+            limit: 5,
+          },
+        );
+
+        if (!cancelled) {
+          setRecentMatches(Array.isArray(result) ? result : []);
+        }
+      } catch {
+        if (!cancelled) {
+          setRecentMatches([]);
+        }
+      }
+    };
+
+    void loadRecentMatches();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [team.id]);
 
   return (
     <div className="max-w-6xl mx-auto">
@@ -279,6 +349,12 @@ export default function TeamProfile({
             </CardBody>
           </Card>
         )}
+
+        {teamStatsOverview && (
+          <TeamProfileAdvancedStatsCard overview={teamStatsOverview} t={t} />
+        )}
+
+        <TeamProfileRecentMatchesCard matches={recentMatches} t={t} />
 
         {/* Full Roster Table */}
         <Card className="lg:col-span-3">

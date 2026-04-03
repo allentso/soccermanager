@@ -9,6 +9,7 @@ import {
   buildPlayerAdvancedStats,
   getPlayerAge,
   getPlayerTeamName,
+  type PlayerAdvancedStatsSummary,
 } from "./PlayerProfile.helpers";
 import PlayerProfileAdvancedStatsCard from "./PlayerProfileAdvancedStatsCard";
 import { buildPlayerAttributeGroups } from "./PlayerProfile.attributes";
@@ -46,6 +47,13 @@ interface PlayerProfileProps {
   onClose: () => void;
   onSelectTeam?: (id: string) => void;
   onGameUpdate?: (g: GameStateData) => void;
+}
+
+function areAdvancedStatsEqual(
+  left: PlayerAdvancedStatsSummary,
+  right: PlayerAdvancedStatsSummary,
+): boolean {
+  return JSON.stringify(left) === JSON.stringify(right);
 }
 
 export default function PlayerProfile({
@@ -96,6 +104,8 @@ export default function PlayerProfile({
     useState<NegotiationFeedbackData | null>(null);
   const [renewalProjection, setRenewalProjection] =
     useState<RenewalProjectionData["projection"] | null>(null);
+  const [advancedStatsOverride, setAdvancedStatsOverride] =
+    useState<PlayerAdvancedStatsSummary | null>(null);
   const [recentMatches, setRecentMatches] = useState<PlayerRecentMatchEntry[]>([]);
   const [hasConsumedInitialRenewalIntent, setHasConsumedInitialRenewalIntent] =
     useState(false);
@@ -155,7 +165,8 @@ export default function PlayerProfile({
     scoutStatus,
   });
   const attrGroups = buildPlayerAttributeGroups(player, t);
-  const advancedStats = buildPlayerAdvancedStats(player, gameState.players);
+  const fallbackAdvancedStats = buildPlayerAdvancedStats(player, gameState.players);
+  const advancedStats = advancedStatsOverride ?? fallbackAdvancedStats;
 
   function openRenewalModal(): void {
     setRenewalWage(String(player.wage));
@@ -238,6 +249,47 @@ export default function PlayerProfile({
       cancelled = true;
     };
   }, [isRenewalWageValid, player.id, renewalOfferedWage, showRenewalModal]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    setAdvancedStatsOverride((current) => (current === null ? current : null));
+
+    const loadAdvancedStats = async (): Promise<void> => {
+      try {
+        const result = await invoke<PlayerAdvancedStatsSummary>(
+          "get_player_stats_overview",
+          {
+            playerId: player.id,
+          },
+        );
+
+        if (!cancelled && !areAdvancedStatsEqual(result, fallbackAdvancedStats)) {
+          setAdvancedStatsOverride(result);
+        }
+      } catch {
+        if (!cancelled) {
+          setAdvancedStatsOverride((current) => (current === null ? current : null));
+        }
+      }
+    };
+
+    void loadAdvancedStats();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    player.id,
+    player.stats.minutes_played,
+    player.stats.shots,
+    player.stats.shots_on_target,
+    player.stats.passes_completed,
+    player.stats.passes_attempted,
+    player.stats.tackles_won,
+    player.stats.interceptions,
+    player.stats.fouls_committed,
+  ]);
 
   useEffect(() => {
     if (player.stats.appearances <= 0) {

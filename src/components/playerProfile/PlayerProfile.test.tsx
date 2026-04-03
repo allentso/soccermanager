@@ -267,6 +267,37 @@ function createGameState(player: PlayerData): GameStateData {
   };
 }
 
+function createAdvancedStatsSummary() {
+  return {
+    percentileEligible: false,
+    metrics: {
+      shots: { total: 0, per90: null, percentile: null },
+      shotsOnTarget: { total: 0, per90: null, percentile: null },
+      passes: {
+        completed: 0,
+        attempted: 0,
+        accuracy: null,
+        percentile: null,
+      },
+      tacklesWon: { total: 0, per90: null, percentile: null },
+      interceptions: { total: 0, per90: null, percentile: null },
+      foulsCommitted: { total: 0, per90: null, percentile: null },
+    },
+  };
+}
+
+function defaultInvokeResponse(command: string) {
+  if (command === "get_player_stats_overview") {
+    return createAdvancedStatsSummary();
+  }
+
+  if (command === "get_player_match_history") {
+    return [];
+  }
+
+  return createGameState(createPlayer());
+}
+
 function RenewalHarness({ initialPlayer }: { initialPlayer?: PlayerData }) {
   const [gameState, setGameState] = useState<GameStateData>(
     createGameState(initialPlayer ?? createPlayer()),
@@ -286,13 +317,9 @@ function RenewalHarness({ initialPlayer }: { initialPlayer?: PlayerData }) {
 describe("PlayerProfile contract surfaces", () => {
   beforeEach(() => {
     vi.mocked(invoke).mockReset();
-    vi.mocked(invoke).mockImplementation(async (command: string) => {
-      if (command === "get_player_match_history") {
-        return [];
-      }
-
-      return createGameState(createPlayer());
-    });
+    vi.mocked(invoke).mockImplementation(async (command: string) =>
+      defaultInvokeResponse(command),
+    );
   });
 
   it("renders expiry date, years remaining, and contract risk for the selected player", () => {
@@ -340,7 +367,7 @@ describe("PlayerProfile contract surfaces", () => {
     expect(onSelectTeam).toHaveBeenCalledWith("team-1");
   });
 
-  it("renders advanced stats from season totals and same-position peers", () => {
+  it("loads advanced stats from the backend overview query", async () => {
     const player = createPlayer({
       stats: {
         appearances: 10,
@@ -395,6 +422,33 @@ describe("PlayerProfile contract surfaces", () => {
       players: [player, peerA, peerB],
     };
 
+    vi.mocked(invoke).mockImplementation(async (command: string) => {
+      if (command === "get_player_stats_overview") {
+        return {
+          percentileEligible: true,
+          metrics: {
+            shots: { total: 33, per90: 6.6, percentile: 88 },
+            shotsOnTarget: { total: 14, per90: 2.8, percentile: 81 },
+            passes: {
+              completed: 144,
+              attempted: 180,
+              accuracy: 80,
+              percentile: 77,
+            },
+            tacklesWon: { total: 15, per90: 3, percentile: 72 },
+            interceptions: { total: 11, per90: 2.2, percentile: 70 },
+            foulsCommitted: { total: 8, per90: 1.6, percentile: 41 },
+          },
+        };
+      }
+
+      if (command === "get_player_match_history") {
+        return [];
+      }
+
+      return defaultInvokeResponse(command);
+    });
+
     render(
       <PlayerProfile
         player={player}
@@ -404,11 +458,16 @@ describe("PlayerProfile contract surfaces", () => {
       />,
     );
 
-    expect(screen.getByText("Advanced Stats")).toBeInTheDocument();
-    expect(screen.getByText("Shots")).toBeInTheDocument();
-    expect(screen.getByText("Pass Accuracy")).toBeInTheDocument();
-    expect(screen.getAllByText("80%").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("100th").length).toBeGreaterThan(0);
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith("get_player_stats_overview", {
+        playerId: "player-1",
+      });
+      expect(screen.getByText("Advanced Stats")).toBeInTheDocument();
+      expect(screen.getByText("Shots")).toBeInTheDocument();
+      expect(screen.getAllByText("33").length).toBeGreaterThan(0);
+      expect(screen.getAllByText("80%").length).toBeGreaterThan(0);
+      expect(screen.getByText("88th")).toBeInTheDocument();
+    });
   });
 
   it("loads and renders recent player match history", async () => {
@@ -453,7 +512,7 @@ describe("PlayerProfile contract surfaces", () => {
         ];
       }
 
-      return createGameState(createPlayer());
+      return defaultInvokeResponse(command);
     });
 
     render(
@@ -500,7 +559,7 @@ describe("PlayerProfile contract surfaces", () => {
           };
         }
 
-        return createGameState(createPlayer());
+        return defaultInvokeResponse(command);
       },
     );
 
@@ -534,13 +593,19 @@ describe("PlayerProfile contract surfaces", () => {
     });
     const updatedGame = createGameState(updatedPlayer);
 
-    vi.mocked(invoke).mockResolvedValue({
-      outcome: "accepted",
-      game: updatedGame,
-      suggested_wage: null,
-      suggested_years: null,
-      session_status: "agreed",
-      is_terminal: true,
+    vi.mocked(invoke).mockImplementation(async (command: string) => {
+      if (command === "propose_renewal") {
+        return {
+          outcome: "accepted",
+          game: updatedGame,
+          suggested_wage: null,
+          suggested_years: null,
+          session_status: "agreed",
+          is_terminal: true,
+        };
+      }
+
+      return defaultInvokeResponse(command);
     });
 
     render(<RenewalHarness />);
@@ -579,13 +644,19 @@ describe("PlayerProfile contract surfaces", () => {
   });
 
   it("shows a rejected state when the renewal offer is turned down", async () => {
-    vi.mocked(invoke).mockResolvedValue({
-      outcome: "rejected",
-      game: createGameState(createPlayer()),
-      suggested_wage: null,
-      suggested_years: null,
-      session_status: "stalled",
-      is_terminal: false,
+    vi.mocked(invoke).mockImplementation(async (command: string) => {
+      if (command === "propose_renewal") {
+        return {
+          outcome: "rejected",
+          game: createGameState(createPlayer()),
+          suggested_wage: null,
+          suggested_years: null,
+          session_status: "stalled",
+          is_terminal: false,
+        };
+      }
+
+      return defaultInvokeResponse(command);
     });
 
     render(<RenewalHarness />);
@@ -605,22 +676,28 @@ describe("PlayerProfile contract surfaces", () => {
   });
 
   it("shows improved terms when the player wants more", async () => {
-    vi.mocked(invoke).mockResolvedValue({
-      outcome: "counter_offer",
-      game: createGameState(createPlayer()),
-      suggested_wage: 16000,
-      suggested_years: 4,
-      session_status: "open",
-      is_terminal: false,
-      feedback: {
-        mood: "firm",
-        headline_key: "playerProfile.renewalFeedbackFirmHeadline",
-        detail_key: "playerProfile.renewalFeedbackFirmDetail",
-        tension: 58,
-        patience: 64,
-        round: 1,
-        params: {},
-      },
+    vi.mocked(invoke).mockImplementation(async (command: string) => {
+      if (command === "propose_renewal") {
+        return {
+          outcome: "counter_offer",
+          game: createGameState(createPlayer()),
+          suggested_wage: 16000,
+          suggested_years: 4,
+          session_status: "open",
+          is_terminal: false,
+          feedback: {
+            mood: "firm",
+            headline_key: "playerProfile.renewalFeedbackFirmHeadline",
+            detail_key: "playerProfile.renewalFeedbackFirmDetail",
+            tension: 58,
+            patience: 64,
+            round: 1,
+            params: {},
+          },
+        };
+      }
+
+      return defaultInvokeResponse(command);
     });
 
     render(<RenewalHarness />);
@@ -649,23 +726,29 @@ describe("PlayerProfile contract surfaces", () => {
   });
 
   it("shows a cooled-off notice when stale talks reset before a new offer", async () => {
-    vi.mocked(invoke).mockResolvedValue({
-      outcome: "counter_offer",
-      game: createGameState(createPlayer()),
-      suggested_wage: 15500,
-      suggested_years: 3,
-      session_status: "open",
-      is_terminal: false,
-      cooled_off: true,
-      feedback: {
-        mood: "calm",
-        headline_key: "playerProfile.renewalFeedbackCalmHeadline",
-        detail_key: "playerProfile.renewalFeedbackCalmDetail",
-        tension: 34,
-        patience: 76,
-        round: 1,
-        params: {},
-      },
+    vi.mocked(invoke).mockImplementation(async (command: string) => {
+      if (command === "propose_renewal") {
+        return {
+          outcome: "counter_offer",
+          game: createGameState(createPlayer()),
+          suggested_wage: 15500,
+          suggested_years: 3,
+          session_status: "open",
+          is_terminal: false,
+          cooled_off: true,
+          feedback: {
+            mood: "calm",
+            headline_key: "playerProfile.renewalFeedbackCalmHeadline",
+            detail_key: "playerProfile.renewalFeedbackCalmDetail",
+            tension: 34,
+            patience: 76,
+            round: 1,
+            params: {},
+          },
+        };
+      }
+
+      return defaultInvokeResponse(command);
     });
 
     render(<RenewalHarness />);
@@ -696,23 +779,29 @@ describe("PlayerProfile contract surfaces", () => {
     });
     const updatedGame = createGameState(delegatedPlayer);
 
-    vi.mocked(invoke).mockResolvedValue({
-      game: updatedGame,
-      report: {
-        success_count: 1,
-        failure_count: 0,
-        stalled_count: 0,
-        cases: [
-          {
-            player_id: "player-1",
-            player_name: "John Smith",
-            status: "successful",
-            agreed_wage: 14000,
-            agreed_years: 3,
-            note: "I was able to close this one without needing you to step in.",
+    vi.mocked(invoke).mockImplementation(async (command: string) => {
+      if (command === "delegate_renewals") {
+        return {
+          game: updatedGame,
+          report: {
+            success_count: 1,
+            failure_count: 0,
+            stalled_count: 0,
+            cases: [
+              {
+                player_id: "player-1",
+                player_name: "John Smith",
+                status: "successful",
+                agreed_wage: 14000,
+                agreed_years: 3,
+                note: "I was able to close this one without needing you to step in.",
+              },
+            ],
           },
-        ],
-      },
+        };
+      }
+
+      return defaultInvokeResponse(command);
     });
 
     render(<RenewalHarness />);
@@ -737,14 +826,20 @@ describe("PlayerProfile contract surfaces", () => {
   });
 
   it("shows a localized error when the assistant report omits the player", async () => {
-    vi.mocked(invoke).mockResolvedValue({
-      game: createGameState(createPlayer()),
-      report: {
-        success_count: 0,
-        failure_count: 0,
-        stalled_count: 0,
-        cases: [],
-      },
+    vi.mocked(invoke).mockImplementation(async (command: string) => {
+      if (command === "delegate_renewals") {
+        return {
+          game: createGameState(createPlayer()),
+          report: {
+            success_count: 0,
+            failure_count: 0,
+            stalled_count: 0,
+            cases: [],
+          },
+        };
+      }
+
+      return defaultInvokeResponse(command);
     });
 
     render(<RenewalHarness />);
