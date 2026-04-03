@@ -20,7 +20,9 @@ import HomeLeagueDigestCard from "./HomeLeagueDigestCard";
 import HomeLeaguePositionCard from "./HomeLeaguePositionCard";
 import HomeLatestNewsCard from "./HomeLatestNewsCard";
 import HomeNextOpponentCard from "./HomeNextOpponentCard";
+import HomePlayerMomentumCard from "./HomePlayerMomentumCard";
 import HomeRecentResultsCard from "./HomeRecentResultsCard";
+import HomeRecentMessagesCard from "./HomeRecentMessagesCard";
 import HomeSquadOverviewCard from "./HomeSquadOverviewCard";
 import HomeSeasonStatusCard from "./HomeSeasonStatusCard";
 import HomeUnavailablePlayersCard from "./HomeUnavailablePlayersCard";
@@ -150,6 +152,9 @@ export default function HomeTab({
   const latestNews = (gameState.news || [])
     .sort((a, b) => b.date.localeCompare(a.date))
     .slice(0, 2);
+  const recentMessages = (gameState.messages || [])
+    .slice(0, 4)
+    .map(resolveMessage);
   const nextOpponent = getNextOpponentWidgetData(gameState);
   const leagueDigestArticles =
     getLeagueDigestArticles(gameState).map(resolveNewsArticle);
@@ -343,144 +348,19 @@ export default function HomeTab({
         />
       </div>
 
-      {/* Player Momentum */}
       {roster.length > 0 && (hotPlayers.length > 0 || coldPlayers.length > 0) && (
-        <Card>
-          <CardHeader
-            action={
-              <button
-                onClick={() => onNavigate?.("Squad")}
-                className="text-primary-500 dark:text-primary-400 text-xs font-heading font-bold uppercase tracking-wider hover:text-primary-600 dark:hover:text-primary-300 transition-colors"
-              >
-                {t("dashboard.squad")}
-              </button>
-            }
-          >
-            {t("home.playerMomentum", "Player Momentum")}
-          </CardHeader>
-          <CardBody>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {hotPlayers.length > 0 && (
-                <div>
-                  <div className="flex items-center gap-1.5 mb-2">
-                    <TrendingUp className="w-3.5 h-3.5 text-green-500" />
-                    <span className="text-[10px] font-heading font-bold uppercase tracking-widest text-green-500">
-                      {t("home.inForm")}
-                    </span>
-                  </div>
-                  <div className="flex flex-col gap-1.5">
-                    {hotPlayers.map((player) => (
-                      <div
-                        key={player.id}
-                        className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-green-500/5 dark:bg-green-500/10"
-                      >
-                        <span className="text-xs font-medium text-gray-800 dark:text-gray-200 flex-1 truncate">
-                          {player.full_name}
-                        </span>
-                        <Badge variant="success" size="sm">
-                          {translatePositionAbbreviation(t, player.position)}
-                        </Badge>
-                        <span className="text-xs font-heading font-bold text-green-500 tabular-nums w-8 text-right">
-                          {player.morale}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {coldPlayers.length > 0 && (
-                <div>
-                  <div className="flex items-center gap-1.5 mb-2">
-                    <TrendingDown className="w-3.5 h-3.5 text-red-500" />
-                    <span className="text-[10px] font-heading font-bold uppercase tracking-widest text-red-500">
-                      {t("home.lowMorale")}
-                    </span>
-                  </div>
-                  <div className="flex flex-col gap-1.5">
-                    {coldPlayers.map((player) => (
-                      <div
-                        key={player.id}
-                        className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-red-500/5 dark:bg-red-500/10"
-                      >
-                        <span className="text-xs font-medium text-gray-800 dark:text-gray-200 flex-1 truncate">
-                          {player.full_name}
-                        </span>
-                        <Badge variant="danger" size="sm">
-                          {translatePositionAbbreviation(t, player.position)}
-                        </Badge>
-                        <span className="text-xs font-heading font-bold text-red-500 tabular-nums w-8 text-right">
-                          {player.morale}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </CardBody>
-        </Card>
+        <HomePlayerMomentumCard
+          hotPlayers={hotPlayers}
+          coldPlayers={coldPlayers}
+          onNavigate={onNavigate}
+        />
       )}
 
-      {/* Recent Messages */}
-      <Card>
-        <CardHeader
-          action={
-            <button
-              onClick={() => onNavigate?.("Inbox")}
-              className="text-primary-500 dark:text-primary-400 text-xs font-heading font-bold uppercase tracking-wider hover:text-primary-600 dark:hover:text-primary-300 transition-colors"
-            >
-              {t("home.viewAll")}
-            </button>
-          }
-        >
-          {t("home.recentMessages")}
-        </CardHeader>
-        <CardBody className="p-0">
-          <div className="divide-y divide-gray-100 dark:divide-navy-600">
-            {(gameState.messages || []).length === 0 ? (
-              <p className="text-gray-500 dark:text-gray-400 p-6 text-sm">
-                {t("home.noMessages")}
-              </p>
-            ) : (
-              (gameState.messages || [])
-                .slice(0, 4)
-                .map(resolveMessage)
-                .map((message) => (
-                  <div
-                    key={message.id}
-                    onClick={() => onNavigate?.("Inbox", { messageId: message.id })}
-                    className={`flex gap-4 px-6 py-3.5 hover:bg-gray-50 dark:hover:bg-navy-600/50 cursor-pointer transition-colors ${!message.read ? "border-l-4 border-l-primary-500" : "border-l-4 border-l-transparent"}`}
-                  >
-                    <div
-                      className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 font-heading font-bold text-sm ${
-                        message.read
-                          ? "bg-gray-100 dark:bg-navy-600 text-gray-400 dark:text-gray-500"
-                          : "bg-primary-500/10 dark:bg-primary-500/20 text-primary-600 dark:text-primary-400"
-                      }`}
-                    >
-                      {message.sender.charAt(0)}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <h4
-                        className={`font-semibold text-sm ${message.read ? "text-gray-500 dark:text-gray-400" : "text-gray-900 dark:text-gray-100"}`}
-                      >
-                        {message.subject}
-                      </h4>
-                      <p
-                        className={`text-xs truncate mt-0.5 ${message.read ? "text-gray-400 dark:text-gray-500" : "text-gray-600 dark:text-gray-300"}`}
-                      >
-                        {message.body}
-                      </p>
-                    </div>
-                    <span className="text-[10px] text-gray-400 dark:text-gray-500 flex-shrink-0 mt-1">
-                      {formatDateShort(message.date, lang)}
-                    </span>
-                  </div>
-                ))
-            )}
-          </div>
-        </CardBody>
-      </Card>
+      <HomeRecentMessagesCard
+        messages={recentMessages}
+        lang={lang}
+        onNavigate={onNavigate}
+      />
     </div>
   );
 }
