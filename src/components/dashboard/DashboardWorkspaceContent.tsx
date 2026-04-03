@@ -1,6 +1,6 @@
 import type { GameStateData } from "../../store/gameStore";
 import PlayerProfile from "../playerProfile/PlayerProfile";
-import TeamProfile from "../TeamProfile";
+import TeamProfile from "../teamProfile";
 import DashboardAlerts from "./DashboardAlerts";
 import type { DashboardAlert } from "./dashboardHelpers";
 import type { DashboardProfileNavigationState } from "./dashboardProfileNavigation";

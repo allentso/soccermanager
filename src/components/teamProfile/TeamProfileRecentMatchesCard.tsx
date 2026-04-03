@@ -1,29 +1,19 @@
-import { Card, CardBody, CardHeader } from "./ui";
+import { Card, CardBody, CardHeader } from "../ui";
 
-type TranslateFn = (key: string) => string;
-
-export interface TeamRecentMatchEntry {
-  fixtureId: string;
-  date: string;
-  competition: string;
-  matchday: number;
-  opponentTeamId: string;
-  opponentName: string;
-  goalsFor: number;
-  goalsAgainst: number;
-  possessionPct: number;
-  shots: number;
-  shotsOnTarget: number;
-}
-
-function resolveLabel(t: TranslateFn, key: string, fallback: string): string {
-  const translated = t(key);
-  return translated === key ? fallback : translated;
-}
+import type { TeamProfileTranslate, TeamRecentMatchEntry } from "./TeamProfile.types";
 
 interface TeamProfileRecentMatchesCardProps {
   matches: TeamRecentMatchEntry[];
-  t: TranslateFn;
+  t: TeamProfileTranslate;
+}
+
+function resolveLabel(
+  t: TeamProfileTranslate,
+  key: string,
+  fallback: string,
+): string {
+  const translated = t(key);
+  return translated === key ? fallback : translated;
 }
 
 export default function TeamProfileRecentMatchesCard({

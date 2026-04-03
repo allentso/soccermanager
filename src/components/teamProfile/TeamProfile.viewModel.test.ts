@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import type { GameStateData, PlayerData, TeamData } from "../store/gameStore";
-import { buildTeamProfileViewModel } from "./TeamProfile.helpers";
+import type { GameStateData, PlayerData, TeamData } from "../../store/gameStore";
+import { buildTeamProfileViewModel } from "./TeamProfile.viewModel";
 
 function createTeam(overrides: Partial<TeamData> = {}): TeamData {
   return {
@@ -160,7 +160,7 @@ function createGameState(overrides: Partial<GameStateData> = {}): GameStateData 
   };
 }
 
-describe("TeamProfile.helpers", () => {
+describe("TeamProfile.viewModel", () => {
   it("builds a sorted roster and derived team summary", () => {
     const gameState = createGameState();
 

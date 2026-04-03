@@ -1,33 +1,17 @@
-import { Card, CardBody, CardHeader } from "./ui";
+import { Card, CardBody, CardHeader } from "../ui";
 
-type TranslateFn = (key: string) => string;
-
-export interface TeamStatsOverview {
-  matchesPlayed: number;
-  goalsFor: number;
-  goalsAgainst: number;
-  goalDifference: number;
-  possessionAverage: number | null;
-  metrics: {
-    shots: { total: number; perMatch: number | null };
-    shotsOnTarget: { total: number; perMatch: number | null };
-    passes: {
-      completed: number;
-      attempted: number;
-      accuracy: number | null;
-    };
-    tacklesWon: { total: number; perMatch: number | null };
-    interceptions: { total: number; perMatch: number | null };
-    foulsCommitted: { total: number; perMatch: number | null };
-  };
-}
+import type { TeamProfileTranslate, TeamStatsOverview } from "./TeamProfile.types";
 
 interface TeamProfileAdvancedStatsCardProps {
   overview: TeamStatsOverview;
-  t: TranslateFn;
+  t: TeamProfileTranslate;
 }
 
-function resolveLabel(t: TranslateFn, key: string, fallback: string): string {
+function resolveLabel(
+  t: TeamProfileTranslate,
+  key: string,
+  fallback: string,
+): string {
   const translated = t(key);
   return translated === key ? fallback : translated;
 }
@@ -104,15 +88,35 @@ export default function TeamProfileAdvancedStatsCard({
     matchesPlayed: resolveLabel(t, "teamProfile.matchesPlayed", "Matches"),
     goalsFor: resolveLabel(t, "common.gf", "GF"),
     possession: resolveLabel(t, "teamProfile.possession", "Possession"),
-    goalDifference: resolveLabel(t, "teamProfile.goalDifference", "Goal Difference"),
+    goalDifference: resolveLabel(
+      t,
+      "teamProfile.goalDifference",
+      "Goal Difference",
+    ),
     shots: resolveLabel(t, "teamProfile.shots", "Shots"),
-    shotsOnTarget: resolveLabel(t, "teamProfile.shotsOnTarget", "Shots On Target"),
+    shotsOnTarget: resolveLabel(
+      t,
+      "teamProfile.shotsOnTarget",
+      "Shots On Target",
+    ),
     passes: resolveLabel(t, "teamProfile.passes", "Passes"),
     tacklesWon: resolveLabel(t, "teamProfile.tacklesWon", "Tackles Won"),
-    interceptions: resolveLabel(t, "teamProfile.interceptions", "Interceptions"),
-    foulsCommitted: resolveLabel(t, "teamProfile.foulsCommitted", "Fouls Committed"),
+    interceptions: resolveLabel(
+      t,
+      "teamProfile.interceptions",
+      "Interceptions",
+    ),
+    foulsCommitted: resolveLabel(
+      t,
+      "teamProfile.foulsCommitted",
+      "Fouls Committed",
+    ),
     perMatch: resolveLabel(t, "teamProfile.perMatch", "Per Match"),
-    passAccuracy: resolveLabel(t, "teamProfile.passAccuracy", "Pass Accuracy"),
+    passAccuracy: resolveLabel(
+      t,
+      "teamProfile.passAccuracy",
+      "Pass Accuracy",
+    ),
   };
 
   return (

@@ -262,7 +262,7 @@ vi.mock("../components/playerProfile/PlayerProfile", () => ({
   ),
 }));
 
-vi.mock("../components/TeamProfile", () => ({
+vi.mock("../components/teamProfile", () => ({
   default: ({ onClose, onSelectPlayer }: any) => (
     <div>
       <span>Team Profile Mock</span>

@@ -2,7 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 
-import type { GameStateData, PlayerData, TeamData } from "../store/gameStore";
+import type { GameStateData, PlayerData, TeamData } from "../../store/gameStore";
 import TeamProfile from "./TeamProfile";
 
 vi.mock("@tauri-apps/api/core", () => ({
@@ -75,7 +75,7 @@ vi.mock("react-i18next", () => ({
   }),
 }));
 
-vi.mock("../lib/countries", () => ({
+vi.mock("../../lib/countries", () => ({
   countryName: () => "England",
   isValidCountryCode: () => true,
   normaliseNationality: (value: string) => value,
