@@ -1,5 +1,5 @@
 use chrono::Utc;
-use log::{debug, info, warn};
+use log::{debug, info};
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -15,15 +15,13 @@ use crate::repositories::{
     league_repo, manager_repo, message_repo, meta_repo, news_repo, objective_repo, player_repo,
     scouting_repo, staff_repo, team_repo,
 };
-use crate::save_index::{
-    self, SaveEntry, SaveIndex, compute_checksum, load_or_rebuild_index, write_index,
-};
+use crate::save_index::{SaveEntry, compute_checksum};
+use crate::save_index_manager::SaveIndexManager;
 
 /// Manages save sessions: creating, loading, saving, deleting, and listing.
 pub struct SaveManager {
     saves_dir: PathBuf,
-    index_path: PathBuf,
-    index: SaveIndex,
+    save_index: SaveIndexManager,
 }
 
 impl SaveManager {
@@ -31,34 +29,17 @@ impl SaveManager {
     pub fn init(saves_dir: &Path) -> Result<Self, String> {
         fs::create_dir_all(saves_dir)
             .map_err(|e| format!("Failed to create saves directory: {}", e))?;
-
-        let index_path = saves_dir.join("save_index.json");
-        let (index, validations) = load_or_rebuild_index(&index_path, saves_dir)?;
-
-        for v in &validations {
-            if let save_index::DbValidation::Invalid { filename, reason } = v {
-                warn!(
-                    "[save_manager] invalid database during init: {} — {}",
-                    filename, reason
-                );
-            }
-        }
-
-        info!(
-            "[save_manager] initialized with {} saves",
-            index.saves.len()
-        );
+        let save_index = SaveIndexManager::init(saves_dir)?;
 
         Ok(Self {
             saves_dir: saves_dir.to_path_buf(),
-            index_path,
-            index,
+            save_index,
         })
     }
 
     /// List all save entries.
     pub fn list_saves(&self) -> &[SaveEntry] {
-        &self.index.saves
+        self.save_index.list_saves()
     }
 
     /// Create a new save from the current in-memory Game state.
@@ -91,8 +72,7 @@ impl SaveManager {
             last_played_at: now,
         };
 
-        self.index.add(entry);
-        write_index(&self.index_path, &self.index)?;
+        self.save_index.record_new_save(entry)?;
 
         info!("[save_manager] created save {}", save_id);
         Ok(save_id)
@@ -101,7 +81,7 @@ impl SaveManager {
     /// Save the current Game state to an existing save.
     pub fn save_game(&mut self, game: &Game, save_id: &str) -> Result<(), String> {
         let entry = self
-            .index
+            .save_index
             .find(save_id)
             .ok_or_else(|| format!("Save '{}' not found", save_id))?;
 
@@ -121,7 +101,7 @@ impl SaveManager {
         let now = Utc::now().to_rfc3339();
         let manager_name = format!("{} {}", game.manager.first_name, game.manager.last_name);
 
-        let updated = self.index.update(&SaveEntry {
+        self.save_index.update_save(SaveEntry {
             id: save_id.to_string(),
             name: save_name,
             manager_name,
@@ -129,13 +109,8 @@ impl SaveManager {
             checksum,
             created_at: entry.created_at.clone(),
             last_played_at: now,
-        });
+        })?;
 
-        if !updated {
-            return Err(format!("Failed to update index for save '{}'", save_id));
-        }
-
-        write_index(&self.index_path, &self.index)?;
         info!("[save_manager] saved game to {}", save_id);
         Ok(())
     }
@@ -143,7 +118,7 @@ impl SaveManager {
     /// Load a Game from a save database.
     pub fn load_game(&mut self, save_id: &str) -> Result<Game, String> {
         let entry = self
-            .index
+            .save_index
             .find(save_id)
             .ok_or_else(|| format!("Save '{}' not found", save_id))?
             .clone();
@@ -194,7 +169,7 @@ impl SaveManager {
             let now = Utc::now().to_rfc3339();
             let manager_name = format!("{} {}", game.manager.first_name, game.manager.last_name);
 
-            let updated = self.index.update(&SaveEntry {
+            self.save_index.update_save(SaveEntry {
                 id: save_id.to_string(),
                 name: save_name,
                 manager_name,
@@ -202,13 +177,7 @@ impl SaveManager {
                 checksum,
                 created_at: entry.created_at.clone(),
                 last_played_at: now,
-            });
-
-            if !updated {
-                return Err(format!("Failed to update index for save '{}'", save_id));
-            }
-
-            write_index(&self.index_path, &self.index)?;
+            })?;
         }
 
         Ok(game)
@@ -216,7 +185,7 @@ impl SaveManager {
 
     /// Delete a save (removes DB file and index entry).
     pub fn delete_save(&mut self, save_id: &str) -> Result<bool, String> {
-        let entry = match self.index.find(save_id) {
+        let entry = match self.save_index.find(save_id) {
             Some(e) => e.clone(),
             None => return Ok(false),
         };
@@ -227,8 +196,7 @@ impl SaveManager {
             debug!("[save_manager] deleted file {:?}", db_path);
         }
 
-        self.index.remove(save_id);
-        write_index(&self.index_path, &self.index)?;
+        self.save_index.remove_save(save_id)?;
         info!("[save_manager] deleted save {}", save_id);
         Ok(true)
     }
