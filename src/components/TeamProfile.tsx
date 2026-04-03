@@ -11,8 +11,9 @@ import {
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { countryName } from "../lib/countries";
-import { formatWeeklyAmount } from "../lib/helpers";
+import { calcAge, calcOvr, formatVal, formatWeeklyAmount, positionBadgeVariant } from "../lib/helpers";
 import { translatePositionAbbreviation } from "./squad/SquadTab.helpers";
+import { buildTeamProfileViewModel } from "./TeamProfile.helpers";
 
 interface TeamProfileProps {
   team: TeamData;
@@ -21,58 +22,6 @@ interface TeamProfileProps {
   onClose: () => void;
   onSelectPlayer?: (id: string) => void;
 }
-
-function formatMoney(val: number): string {
-  if (val >= 1_000_000) return `€${(val / 1_000_000).toFixed(1)}M`;
-  if (val >= 1_000) return `€${(val / 1_000).toFixed(0)}K`;
-  return `€${val}`;
-}
-
-function calcPlayerOvr(p: PlayerData): number {
-  const a = p.attributes;
-  return Math.round(
-    (a.pace +
-      a.stamina +
-      a.strength +
-      a.passing +
-      a.shooting +
-      a.tackling +
-      a.dribbling +
-      a.defending +
-      a.positioning +
-      a.vision +
-      a.decisions) /
-      11,
-  );
-}
-
-function calcAge(dob: string): number {
-  const birth = new Date(dob);
-  return 2026 - birth.getFullYear();
-}
-
-function formatVal(v: number): string {
-  if (v >= 1_000_000) return `€${(v / 1_000_000).toFixed(1)}M`;
-  if (v >= 1_000) return `€${(v / 1_000).toFixed(0)}K`;
-  return `€${v}`;
-}
-
-const positionBadgeVariant = (
-  pos: string,
-): "accent" | "primary" | "success" | "danger" => {
-  switch (pos) {
-    case "Goalkeeper":
-      return "accent";
-    case "Defender":
-      return "primary";
-    case "Midfielder":
-      return "success";
-    case "Forward":
-      return "danger";
-    default:
-      return "primary";
-  }
-};
 
 export default function TeamProfile({
   team,
@@ -83,43 +32,8 @@ export default function TeamProfile({
 }: TeamProfileProps) {
   const { t, i18n } = useTranslation();
   const weeklySuffix = t("finances.perWeekSuffix", "/wk");
-  const roster = gameState.players
-    .filter((p) => p.team_id === team.id)
-    .sort((a, b) => {
-      const posOrder: Record<string, number> = {
-        Goalkeeper: 1,
-        Defender: 2,
-        Midfielder: 3,
-        Forward: 4,
-      };
-      return (posOrder[a.position] || 99) - (posOrder[b.position] || 99);
-    });
-
-  const avgOvr =
-    roster.length > 0
-      ? Math.round(
-          roster.reduce((sum, p) => sum + calcPlayerOvr(p), 0) / roster.length,
-        )
-      : 0;
-
-  const totalWages = roster.reduce((sum, p) => sum + p.wage, 0);
-  const totalValue = roster.reduce((sum, p) => sum + p.market_value, 0);
-
-  const manager =
-    gameState.manager.team_id === team.id ? gameState.manager : null;
-
-  const allStandings = gameState.league?.standings
-    ? [...gameState.league.standings].sort(
-        (a, b) =>
-          b.points - a.points ||
-          b.goals_for - b.goals_against - (a.goals_for - a.goals_against) ||
-          b.goals_for - a.goals_for,
-      )
-    : [];
-  const leaguePos = allStandings.findIndex((s) => s.team_id === team.id) + 1;
-  const standings = gameState.league?.standings.find(
-    (s) => s.team_id === team.id,
-  );
+  const { roster, avgOvr, totalWages, totalValue, manager, leaguePos, standings } =
+    buildTeamProfileViewModel(team, gameState);
 
   return (
     <div className="max-w-6xl mx-auto">
@@ -276,38 +190,38 @@ export default function TeamProfile({
                 <InfoRow
                   icon={<DollarSign className="w-4 h-4" />}
                   label={t("teamProfile.balance")}
-                  value={formatMoney(team.finance)}
+                  value={formatVal(team.finance)}
                 />
                 <InfoRow
                   icon={<DollarSign className="w-4 h-4" />}
                   label={t("finances.wageBudget")}
                   value={formatWeeklyAmount(
-                    formatMoney(team.wage_budget),
+                    formatVal(team.wage_budget),
                     weeklySuffix,
                   )}
                 />
                 <InfoRow
                   icon={<DollarSign className="w-4 h-4" />}
                   label={t("finances.transferBudget")}
-                  value={formatMoney(team.transfer_budget)}
+                  value={formatVal(team.transfer_budget)}
                 />
                 <InfoRow
                   icon={<DollarSign className="w-4 h-4" />}
                   label={t("teamProfile.totalWages")}
                   value={formatWeeklyAmount(
-                    formatMoney(totalWages),
+                    formatVal(totalWages),
                     weeklySuffix,
                   )}
                 />
                 <InfoRow
                   icon={<DollarSign className="w-4 h-4" />}
                   label={t("finances.squadValue")}
-                  value={formatMoney(totalValue)}
+                  value={formatVal(totalValue)}
                 />
                 <InfoRow
                   icon={<DollarSign className="w-4 h-4" />}
                   label={t("finances.seasonIncome")}
-                  value={formatMoney(team.season_income)}
+                  value={formatVal(team.season_income)}
                 />
               </div>
             </CardBody>
@@ -325,7 +239,7 @@ export default function TeamProfile({
                 <InfoRow
                   icon={<DollarSign className="w-4 h-4" />}
                   label={t("finances.squadValue")}
-                  value={formatMoney(totalValue)}
+                  value={formatVal(totalValue)}
                 />
                 <InfoRow
                   icon={<Trophy className="w-4 h-4" />}
@@ -403,7 +317,10 @@ export default function TeamProfile({
                 </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-navy-600">
                   {roster.map((player) => {
-                    const ovr = calcPlayerOvr(player);
+                    const ovr = calcOvr(
+                      player,
+                      player.natural_position || player.position,
+                    );
                     const age = calcAge(player.date_of_birth);
                     return (
                       <tr
