@@ -17,7 +17,9 @@ import {
 } from "./HomeTab.helpers";
 import { translatePositionAbbreviation } from "../squad/SquadTab.helpers";
 import HomeLeagueDigestCard from "./HomeLeagueDigestCard";
+import HomeLeaguePositionCard from "./HomeLeaguePositionCard";
 import HomeNextOpponentCard from "./HomeNextOpponentCard";
+import HomeSeasonStatusCard from "./HomeSeasonStatusCard";
 import {
   Trophy,
   Dumbbell,
@@ -202,78 +204,17 @@ export default function HomeTab({
   return (
     <div className="max-w-6xl mx-auto flex flex-col gap-5">
       {isPreseason && (
-        <Card accent="primary">
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <CalendarClock className="w-4 h-4 text-primary-500" />
-              {t("season.preseasonStatus")}
-            </div>
-          </CardHeader>
-          <CardBody>
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-              <div className="flex flex-col gap-2">
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant="accent" size="sm">
-                    {t(`season.phases.${seasonContext.phase}`)}
-                  </Badge>
-                  <Badge variant={transferWindowVariant} size="sm">
-                    {t(`season.transferWindowStatus.${transferWindow.status}`)}
-                  </Badge>
-                </div>
-                <p className="text-sm text-gray-700 dark:text-gray-300">
-                  {t("season.preseasonFocus")}
-                </p>
-              </div>
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2 md:min-w-[22rem]">
-                <div className="rounded-xl bg-gray-50 px-4 py-3 dark:bg-navy-700/50">
-                  <p className="text-[10px] font-heading font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">
-                    {t("season.opener")}
-                  </p>
-                  <p className="mt-1 text-sm font-heading font-bold text-gray-800 dark:text-gray-100">
-                    {seasonStartLabel
-                      ? t("season.startsOn", { date: seasonStartLabel })
-                      : t("season.noOpener")}
-                  </p>
-                  {seasonContext.days_until_season_start !== null && (
-                    <p className="mt-1 text-xs text-primary-500 dark:text-primary-400">
-                      {t("season.startsInDays", {
-                        count: seasonContext.days_until_season_start,
-                      })}
-                    </p>
-                  )}
-                </div>
-                <div className="rounded-xl bg-gray-50 px-4 py-3 dark:bg-navy-700/50">
-                  <p className="text-[10px] font-heading font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">
-                    {t("transfers.centre")}
-                  </p>
-                  <p className="mt-1 text-sm font-heading font-bold text-gray-800 dark:text-gray-100">
-                    {transferWindowSummary}
-                  </p>
-                  {(transferWindow.opens_on || transferWindow.closes_on) && (
-                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                      {transferWindow.status === "Closed" &&
-                      transferWindow.opens_on
-                        ? t("season.windowOpensOn", {
-                            date: formatDateShort(
-                              transferWindow.opens_on,
-                              lang,
-                            ),
-                          })
-                        : transferWindow.closes_on
-                          ? t("season.windowClosesOn", {
-                              date: formatDateShort(
-                                transferWindow.closes_on,
-                                lang,
-                              ),
-                            })
-                          : transferWindowSummary}
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
-          </CardBody>
-        </Card>
+        <HomeSeasonStatusCard
+          phase={seasonContext.phase}
+          seasonStartLabel={seasonStartLabel}
+          daysUntilSeasonStart={seasonContext.days_until_season_start}
+          transferWindowStatus={transferWindow.status}
+          transferWindowVariant={transferWindowVariant}
+          transferWindowSummary={transferWindowSummary}
+          transferWindowOpensOn={transferWindow.opens_on}
+          transferWindowClosesOn={transferWindow.closes_on}
+          lang={lang}
+        />
       )}
 
       {/* Onboarding — Getting Started Checklist */}
@@ -297,151 +238,15 @@ export default function HomeTab({
         </Card>
 
         {/* League Position */}
-        <Card accent="accent">
-          <CardHeader
-            action={
-              <button
-                onClick={() => onNavigate?.("Schedule")}
-                className="text-primary-500 dark:text-primary-400 text-xs font-heading font-bold uppercase tracking-wider hover:text-primary-600 dark:hover:text-primary-300 transition-colors"
-              >
-                {t("home.standings")}
-              </button>
-            }
-          >
-            {t("home.leaguePosition")}
-          </CardHeader>
-          <CardBody>
-            {isPreseason ? (
-              <div className="flex flex-col items-center gap-2 py-4 text-center">
-                <Badge variant="accent" size="sm">
-                  {t(`season.phases.${seasonContext.phase}`)}
-                </Badge>
-                <p className="text-sm font-heading font-bold text-gray-800 dark:text-gray-100">
-                  {seasonStartLabel
-                    ? t("season.startsOn", { date: seasonStartLabel })
-                    : t("season.noOpener")}
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 max-w-xs">
-                  {t("season.standingsLocked")}
-                </p>
-              </div>
-            ) : myStanding && myStandingData ? (
-              <div className="flex flex-col items-center gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-16 h-16 rounded-xl bg-accent-500/10 flex items-center justify-center">
-                    <span className="text-3xl font-heading font-bold text-accent-500">
-                      {myStanding}
-                    </span>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 font-heading uppercase tracking-wider">
-                      {myStanding === 1
-                        ? t("common.place.1")
-                        : myStanding === 2
-                          ? t("common.place.2")
-                          : myStanding === 3
-                            ? t("common.place.3")
-                            : t("common.place.other", { n: myStanding })}
-                    </p>
-                    <p className="text-lg font-heading font-bold text-gray-800 dark:text-gray-100">
-                      {myStandingData.points} pts
-                    </p>
-                  </div>
-                </div>
-                <div className="w-full grid grid-cols-4 text-center gap-1">
-                  <div>
-                    <p className="text-xs text-gray-400 dark:text-gray-500 font-heading uppercase">
-                      P
-                    </p>
-                    <p className="text-sm font-heading font-bold text-gray-700 dark:text-gray-300">
-                      {myStandingData.played}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-400 dark:text-gray-500 font-heading uppercase">
-                      W
-                    </p>
-                    <p className="text-sm font-heading font-bold text-green-500">
-                      {myStandingData.won}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-400 dark:text-gray-500 font-heading uppercase">
-                      D
-                    </p>
-                    <p className="text-sm font-heading font-bold text-gray-500">
-                      {myStandingData.drawn}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-400 dark:text-gray-500 font-heading uppercase">
-                      L
-                    </p>
-                    <p className="text-sm font-heading font-bold text-red-500">
-                      {myStandingData.lost}
-                    </p>
-                  </div>
-                </div>
-                {/* Form (recent 5) */}
-                {myTeam &&
-                  myTeam.form &&
-                  myTeam.form.length > 0 &&
-                  (() => {
-                    const form = myTeam.form;
-                    const last3 = form.slice(-3);
-                    const winStreak =
-                      last3.length >= 3 && last3.every((r) => r === "W");
-                    const loseStreak =
-                      last3.length >= 3 && last3.every((r) => r === "L");
-                    const unbeaten =
-                      form.length >= 4 && form.every((r) => r !== "L");
-                    return (
-                      <div className="flex flex-col items-center gap-1.5 mt-1">
-                        <div className="flex gap-1.5">
-                          {form.map((res, i) => (
-                            <span
-                              key={i}
-                              className={`w-6 h-6 rounded flex items-center justify-center text-[10px] font-heading font-bold text-white ${
-                                res === "W"
-                                  ? "bg-green-500"
-                                  : res === "L"
-                                    ? "bg-red-500"
-                                    : "bg-gray-400"
-                              }`}
-                            >
-                              {res}
-                            </span>
-                          ))}
-                        </div>
-                        {winStreak && (
-                          <span className="text-[10px] font-heading font-bold text-green-500 uppercase tracking-wider">
-                            {t("home.winningStreak")}
-                          </span>
-                        )}
-                        {loseStreak && (
-                          <span className="text-[10px] font-heading font-bold text-red-500 uppercase tracking-wider">
-                            {t("home.losingStreak")}
-                          </span>
-                        )}
-                        {!winStreak && !loseStreak && unbeaten && (
-                          <span className="text-[10px] font-heading font-bold text-primary-500 uppercase tracking-wider">
-                            {t("home.unbeatenRun")}
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })()}
-              </div>
-            ) : (
-              <div className="flex flex-col items-center gap-2 py-4">
-                <Trophy className="w-8 h-8 text-gray-300 dark:text-navy-600" />
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {t("home.noLeague")}
-                </p>
-              </div>
-            )}
-          </CardBody>
-        </Card>
+        <HomeLeaguePositionCard
+          isPreseason={isPreseason}
+          phase={seasonContext.phase}
+          seasonStartLabel={seasonStartLabel}
+          myStanding={myStanding}
+          myStandingData={myStandingData}
+          teamForm={myTeam?.form ?? []}
+          onNavigate={onNavigate}
+        />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">

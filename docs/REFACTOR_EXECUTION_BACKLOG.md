@@ -36,7 +36,7 @@ This backlog turns the architecture audit into an execution plan. Each step is i
 - [x] Step 2.14: Extract `ScoutingTab` player search module into a dedicated component.
 - [x] Step 2.15: Extract `HomeTab` onboarding checklist card into a dedicated component.
 - [x] Step 2.16: Extract `HomeTab` next-opponent and league-digest widgets into dedicated components.
-- [ ] Step 2.17: Extract `HomeTab` season-status and league-position widgets into dedicated components.
+- [x] Step 2.17: Extract `HomeTab` season-status and league-position widgets into dedicated components.
 - [ ] Step 2.18: Extract `HomeTab` squad status, momentum, and inbox summary widgets to finish the container split.
 - [ ] Step 2.19: Refactor `TeamProfile` to reuse shared helper logic and remove duplicated formatting/domain calculations.
 
