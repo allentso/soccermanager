@@ -18,7 +18,9 @@ import {
 import { translatePositionAbbreviation } from "../squad/SquadTab.helpers";
 import HomeLeagueDigestCard from "./HomeLeagueDigestCard";
 import HomeLeaguePositionCard from "./HomeLeaguePositionCard";
+import HomeLatestNewsCard from "./HomeLatestNewsCard";
 import HomeNextOpponentCard from "./HomeNextOpponentCard";
+import HomeRecentResultsCard from "./HomeRecentResultsCard";
 import HomeSquadOverviewCard from "./HomeSquadOverviewCard";
 import HomeSeasonStatusCard from "./HomeSeasonStatusCard";
 import HomeUnavailablePlayersCard from "./HomeUnavailablePlayersCard";
@@ -327,128 +329,18 @@ export default function HomeTab({
           onNavigate={onNavigate}
         />
 
-        {/* Recent Results */}
-        <Card>
-          <CardHeader
-            action={
-              <button
-                onClick={() => onNavigate?.("Schedule")}
-                className="text-primary-500 dark:text-primary-400 text-xs font-heading font-bold uppercase tracking-wider hover:text-primary-600 dark:hover:text-primary-300 transition-colors"
-              >
-                {t("dashboard.schedule")}
-              </button>
-            }
-          >
-            {t("home.recentResults")}
-          </CardHeader>
-          <CardBody className="p-0">
-            {recentResults.length === 0 ? (
-              <p className="text-gray-500 dark:text-gray-400 text-xs p-5">
-                {t("home.noMatches")}
-              </p>
-            ) : (
-              <div className="divide-y divide-gray-100 dark:divide-navy-600">
-                {recentResults
-                  .slice(-5)
-                  .reverse()
-                  .map((result) => {
-                    return (
-                      <div
-                        key={result.fixture.id}
-                        className="flex items-center px-4 py-2.5 gap-3"
-                      >
-                        <span
-                          className={`w-5 h-5 rounded flex items-center justify-center text-[9px] font-heading font-bold text-white flex-shrink-0 ${
-                            result.resultCode === "W"
-                              ? "bg-green-500"
-                              : result.resultCode === "L"
-                                ? "bg-red-500"
-                                : "bg-gray-400"
-                          }`}
-                        >
-                          {result.resultCode}
-                        </span>
-                        <span className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0 w-6">
-                          {result.isHome
-                            ? t("home.home").charAt(0)
-                            : t("home.away").charAt(0)}
-                        </span>
-                        <span className="text-sm font-medium text-gray-800 dark:text-gray-200 flex-1 truncate">
-                          {getTeamName(gameState.teams, result.opponentId)}
-                        </span>
-                        <span className="text-sm font-heading font-bold text-gray-700 dark:text-gray-300 tabular-nums">
-                          {result.myGoals} – {result.opponentGoals}
-                        </span>
-                      </div>
-                    );
-                  })}
-              </div>
-            )}
-          </CardBody>
-        </Card>
+        <HomeRecentResultsCard
+          recentResults={recentResults}
+          teams={gameState.teams}
+          onNavigate={onNavigate}
+        />
 
-        {/* Latest News + Messages */}
-        <Card>
-          <CardHeader
-            action={
-              <button
-                onClick={() => onNavigate?.("News")}
-                className="text-primary-500 dark:text-primary-400 text-xs font-heading font-bold uppercase tracking-wider hover:text-primary-600 dark:hover:text-primary-300 transition-colors"
-              >
-                {t("home.allNews")}
-              </button>
-            }
-          >
-            {t("home.latestNews")}
-          </CardHeader>
-          <CardBody className="p-0">
-            {latestNews.length === 0 ? (
-              <div className="flex flex-col items-center gap-2 py-6">
-                <Newspaper className="w-8 h-8 text-gray-300 dark:text-navy-600" />
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {t("home.noNews")}
-                </p>
-              </div>
-            ) : (
-              <div className="divide-y divide-gray-100 dark:divide-navy-600">
-                {latestNews.map((article) => (
-                  <button
-                    key={article.id}
-                    onClick={() => onNavigate?.("News")}
-                    className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-navy-700/50 transition-colors"
-                  >
-                    <p className="text-xs text-gray-400 dark:text-gray-500 mb-0.5">
-                      {formatDateShort(article.date, lang)} · {article.source}
-                    </p>
-                    <p className="text-sm font-heading font-bold text-gray-800 dark:text-gray-200 leading-snug line-clamp-2">
-                      {article.headline}
-                    </p>
-                    {article.match_score && (
-                      <div className="flex items-center gap-1.5 mt-1">
-                        <span className="text-[10px] text-gray-500 dark:text-gray-400">
-                          {getTeamName(
-                            gameState.teams,
-                            article.match_score.home_team_id,
-                          )}
-                        </span>
-                        <span className="text-[10px] font-heading font-bold text-primary-500">
-                          {article.match_score.home_goals}–
-                          {article.match_score.away_goals}
-                        </span>
-                        <span className="text-[10px] text-gray-500 dark:text-gray-400">
-                          {getTeamName(
-                            gameState.teams,
-                            article.match_score.away_team_id,
-                          )}
-                        </span>
-                      </div>
-                    )}
-                  </button>
-                ))}
-              </div>
-            )}
-          </CardBody>
-        </Card>
+        <HomeLatestNewsCard
+          articles={latestNews}
+          teams={gameState.teams}
+          lang={lang}
+          onNavigate={onNavigate}
+        />
       </div>
 
       {/* Player Momentum */}
