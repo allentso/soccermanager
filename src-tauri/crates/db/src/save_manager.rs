@@ -5,16 +5,13 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use domain::player::{Player, Position};
-use ofm_core::clock::GameClock;
-use ofm_core::game::{BoardObjective, Game, ObjectiveType, ScoutingAssignment};
+use ofm_core::game::Game;
 use ofm_core::player_identity;
 use ofm_core::player_rating::{effective_rating_for_assignment, formation_slots};
 
 use crate::game_database::GameDatabase;
-use crate::repositories::{
-    league_repo, manager_repo, message_repo, meta_repo, news_repo, objective_repo, player_repo,
-    scouting_repo, staff_repo, team_repo,
-};
+use crate::game_persistence::{GamePersistenceReader, GamePersistenceWriter};
+use crate::repositories::league_repo;
 use crate::save_index::{SaveEntry, compute_checksum};
 use crate::save_index_manager::SaveIndexManager;
 
@@ -55,7 +52,7 @@ impl SaveManager {
         debug!("[save_manager] creating save {} at {:?}", save_id, db_path);
 
         let db = GameDatabase::open(&db_path)?;
-        self.write_game_to_db(&db, &persisted_game, &save_id, save_name)?;
+        GamePersistenceWriter::write_game(&db, &persisted_game, &save_id, save_name)?;
         drop(db);
 
         let checksum = compute_checksum(&db_path)?;
@@ -94,7 +91,7 @@ impl SaveManager {
         debug!("[save_manager] saving game to {}", save_id);
 
         let db = GameDatabase::open(&db_path)?;
-        self.write_game_to_db(&db, &persisted_game, save_id, &save_name)?;
+        GamePersistenceWriter::write_game(&db, &persisted_game, save_id, &save_name)?;
         drop(db);
 
         let checksum = compute_checksum(&db_path)?;
@@ -128,7 +125,7 @@ impl SaveManager {
         debug!("[save_manager] loading game from {}", save_id);
 
         let db = GameDatabase::open(&db_path)?;
-        let mut game = self.read_game_from_db(&db)?;
+        let mut game = GamePersistenceReader::read_game(&db)?;
         let mut needs_resave = false;
 
         if canonicalize_game_starting_xi_ids(&mut game) {
@@ -162,7 +159,7 @@ impl SaveManager {
 
         if needs_resave {
             let db = GameDatabase::open(&db_path)?;
-            self.write_game_to_db(&db, &game, save_id, &save_name)?;
+            GamePersistenceWriter::write_game(&db, &game, save_id, &save_name)?;
             drop(db);
 
             let checksum = compute_checksum(&db_path)?;
@@ -244,161 +241,6 @@ impl SaveManager {
             "[save_manager] created new game template from save {}",
             source_save_id
         );
-        Ok(game)
-    }
-
-    /// Write the full Game state to a database.
-    fn write_game_to_db(
-        &self,
-        db: &GameDatabase,
-        game: &Game,
-        save_id: &str,
-        save_name: &str,
-    ) -> Result<(), String> {
-        let conn = db.conn();
-        let now = Utc::now().to_rfc3339();
-
-        // Meta
-        meta_repo::upsert_meta(
-            conn,
-            &meta_repo::GameMeta {
-                save_id: save_id.to_string(),
-                save_name: save_name.to_string(),
-                manager_id: game.manager.id.clone(),
-                start_date: game.clock.start_date.to_rfc3339(),
-                game_date: game.clock.current_date.to_rfc3339(),
-                created_at: now.clone(),
-                last_played_at: now,
-            },
-        )?;
-
-        // Manager
-        manager_repo::upsert_manager(conn, &game.manager)?;
-
-        // Teams
-        team_repo::upsert_teams(conn, &game.teams)?;
-
-        // Players
-        player_repo::upsert_players(conn, &game.players)?;
-
-        // Staff
-        staff_repo::upsert_staff_list(conn, &game.staff)?;
-
-        // Messages
-        message_repo::upsert_messages(conn, &game.messages)?;
-
-        // News
-        news_repo::upsert_news_list(conn, &game.news)?;
-
-        // League
-        if let Some(ref league) = game.league {
-            league_repo::upsert_league(conn, league)?;
-        }
-
-        // Board objectives
-        let obj_rows: Vec<objective_repo::BoardObjectiveRow> = game
-            .board_objectives
-            .iter()
-            .map(|o| objective_repo::BoardObjectiveRow {
-                id: o.id.clone(),
-                description: o.description.clone(),
-                target: o.target,
-                objective_type: format!("{:?}", o.objective_type),
-                met: o.met,
-            })
-            .collect();
-        objective_repo::upsert_objectives(conn, &obj_rows)?;
-
-        // Scouting assignments
-        let scout_rows: Vec<scouting_repo::ScoutingAssignmentRow> = game
-            .scouting_assignments
-            .iter()
-            .map(|s| scouting_repo::ScoutingAssignmentRow {
-                id: s.id.clone(),
-                scout_id: s.scout_id.clone(),
-                player_id: s.player_id.clone(),
-                days_remaining: s.days_remaining,
-            })
-            .collect();
-        scouting_repo::upsert_scouting_list(conn, &scout_rows)?;
-
-        Ok(())
-    }
-
-    /// Read the full Game state from a database.
-    fn read_game_from_db(&self, db: &GameDatabase) -> Result<Game, String> {
-        let conn = db.conn();
-
-        let meta = meta_repo::load_meta(conn)?
-            .ok_or_else(|| "No game_meta found in database".to_string())?;
-
-        // Parse dates from meta
-        let start_date = chrono::DateTime::parse_from_rfc3339(&meta.start_date)
-            .map_err(|e| format!("Invalid start_date: {}", e))?
-            .with_timezone(&Utc);
-        let game_date = chrono::DateTime::parse_from_rfc3339(&meta.game_date)
-            .map_err(|e| format!("Invalid game_date: {}", e))?
-            .with_timezone(&Utc);
-
-        let mut clock = GameClock::new(start_date);
-        clock.current_date = game_date;
-
-        // Manager
-        let manager = manager_repo::load_manager(conn, &meta.manager_id)?
-            .ok_or_else(|| format!("Manager '{}' not found", meta.manager_id))?;
-
-        // Teams, players, staff
-        let teams = team_repo::load_all_teams(conn)?;
-        let players = player_repo::load_all_players(conn)?;
-        let staff = staff_repo::load_all_staff(conn)?;
-
-        // Messages, news
-        let messages = message_repo::load_all_messages(conn)?;
-        let news = news_repo::load_all_news(conn)?;
-
-        // League
-        let league = league_repo::load_league(conn)?;
-
-        // Board objectives
-        let obj_rows = objective_repo::load_all_objectives(conn)?;
-        let board_objectives: Vec<BoardObjective> = obj_rows
-            .into_iter()
-            .map(|o| BoardObjective {
-                id: o.id,
-                description: o.description,
-                target: o.target,
-                objective_type: parse_objective_type(&o.objective_type),
-                met: o.met,
-            })
-            .collect();
-
-        // Scouting
-        let scout_rows = scouting_repo::load_all_scouting(conn)?;
-        let scouting_assignments: Vec<ScoutingAssignment> = scout_rows
-            .into_iter()
-            .map(|s| ScoutingAssignment {
-                id: s.id,
-                scout_id: s.scout_id,
-                player_id: s.player_id,
-                days_remaining: s.days_remaining,
-            })
-            .collect();
-
-        let mut game = Game {
-            clock,
-            manager,
-            teams,
-            players,
-            staff,
-            messages,
-            news,
-            league,
-            scouting_assignments,
-            board_objectives,
-            season_context: domain::season::SeasonContext::default(),
-        };
-        ofm_core::season_context::refresh_game_context(&mut game);
-
         Ok(game)
     }
 }
@@ -507,15 +349,6 @@ fn is_mirrored_side_pair(left_position: &Position, right_position: &Position) ->
     )
 }
 
-fn parse_objective_type(s: &str) -> ObjectiveType {
-    match s {
-        "LeaguePosition" => ObjectiveType::LeaguePosition,
-        "Wins" => ObjectiveType::Wins,
-        "GoalsScored" => ObjectiveType::GoalsScored,
-        _ => ObjectiveType::Wins,
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -524,6 +357,8 @@ mod tests {
     use domain::player::{Footedness, Player, PlayerAttributes, Position};
     use domain::staff::{StaffAttributes, StaffRole};
     use domain::team::Team;
+    use ofm_core::clock::GameClock;
+    use ofm_core::game::{BoardObjective, ObjectiveType, ScoutingAssignment};
     use rusqlite::params;
 
     fn sample_game() -> Game {
