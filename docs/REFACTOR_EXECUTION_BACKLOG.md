@@ -44,7 +44,7 @@ This backlog turns the architecture audit into an execution plan. Each step is i
 
 ## Phase 3: Backend Command Boundary
 
-- [ ] Step 3.1: Extract `advance_time_with_mode` orchestration from `src-tauri/src/commands/time.rs` into application services.
+- [x] Step 3.1: Extract `advance_time_with_mode` orchestration from `src-tauri/src/commands/time.rs` into application services.
 - [ ] Step 3.2: Extract blocker evaluation and lineup preflight from `src-tauri/src/commands/time.rs`.
 - [ ] Step 3.3: Extract live match orchestration from `src-tauri/src/commands/live_match.rs`.
 - [ ] Step 3.4: Extract team-talk response modelling from `src-tauri/src/commands/live_match.rs`.
