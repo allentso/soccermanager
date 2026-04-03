@@ -3,21 +3,14 @@ import { useTranslation } from "react-i18next";
 import { GameStateData } from "../../store/gameStore";
 import {
   Card,
-  CardHeader,
   CardBody,
-  Badge,
-  CountryFlag,
 } from "../ui";
 import {
   Eye,
   ScanSearch,
-  Search,
-  ChevronLeft,
-  ChevronRight,
 } from "lucide-react";
-import { calcOvr, calcAge, formatVal, getTeamName } from "../../lib/helpers";
-import { normalisePosition, translatePositionAbbreviation, translatePositionLabel } from "../squad/SquadTab.helpers";
-import { countryName } from "../../lib/countries";
+import { calcOvr } from "../../lib/helpers";
+import { normalisePosition, translatePositionLabel } from "../squad/SquadTab.helpers";
 import { sendScout } from "../../services/scoutingService";
 import {
   calculateAvailableScouts,
@@ -31,6 +24,7 @@ import {
 import ScoutingAssignmentsList from "./ScoutingAssignmentsList";
 import ScoutingOverviewCards from "./ScoutingOverviewCards";
 import ScoutingScoutDetailsCard from "./ScoutingScoutDetailsCard";
+import ScoutingPlayerSearchCard from "./ScoutingPlayerSearchCard";
 
 interface ScoutingTabProps {
   gameState: GameStateData;
@@ -138,196 +132,34 @@ export default function ScoutingTab({
         </Card>
       )}
 
-      {/* Player Search for Scouting */}
       {scouts.length > 0 && (
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-3 w-full">
-              <span>{t("scouting.findPlayers")}</span>
-              <div className="ml-auto flex items-center gap-2">
-                {["All", "Goalkeeper", "Defender", "Midfielder", "Forward"].map(
-                  (pos) => (
-                    <button
-                      key={pos}
-                      onClick={() => {
-                        setPosFilter(pos);
-                        setPage(0);
-                      }}
-                      className={`px-2.5 py-1 rounded-lg text-xs font-heading font-bold uppercase tracking-wider transition-colors ${posFilter === pos
-                          ? "bg-primary-500 text-white"
-                          : "bg-gray-100 dark:bg-navy-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-navy-600"
-                        }`}
-                    >
-                      {pos === "All" ? t("common.all") : pos.slice(0, 3)}
-                    </button>
-                  ),
-                )}
-              </div>
-            </div>
-          </CardHeader>
-          <CardBody>
-            <div className="relative mb-3">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <input
-                type="text"
-                placeholder={t("scouting.searchPlaceholder")}
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  setPage(0);
-                }}
-                className="w-full pl-9 pr-4 py-2 text-sm bg-gray-50 dark:bg-navy-700 border border-gray-200 dark:border-navy-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/50 text-gray-800 dark:text-gray-100 placeholder:text-gray-400"
-              />
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-xs text-gray-500 dark:text-gray-400 font-heading uppercase tracking-wider border-b border-gray-100 dark:border-navy-700">
-                    <th className="text-left py-2 px-2">
-                      {t("scouting.player")}
-                    </th>
-                    <th className="text-left py-2 px-1">{t("scouting.pos")}</th>
-                    <th className="text-center py-2 px-1">
-                      {t("scouting.age")}
-                    </th>
-                    <th className="text-left py-2 px-1">
-                      {t("scouting.team")}
-                    </th>
-                    <th className="text-center py-2 px-1">
-                      {t("scouting.value")}
-                    </th>
-                    <th className="text-right py-2 px-2">
-                      {t("scouting.action")}
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {scoutablePlayers.map((p) => {
-                    const isScouting = alreadyScoutingIds.has(p.id);
-                    const team = p.team_id
-                      ? getTeamName(gameState.teams, p.team_id)
-                      : t("common.freeAgent");
-                    return (
-                      <tr
-                        key={p.id}
-                        className="border-b border-gray-50 dark:border-navy-700/50 hover:bg-gray-50 dark:hover:bg-navy-700/30 transition-colors"
-                      >
-                        <td className="py-2 px-2">
-                          <button
-                            onClick={() => onSelectPlayer?.(p.id)}
-                            className="font-heading font-bold text-gray-800 dark:text-gray-100 hover:text-primary-500 transition-colors text-left"
-                          >
-                            {p.full_name}
-                          </button>
-                          <div className="text-[10px] text-gray-400 mt-0.5 flex items-center gap-1">
-                            <CountryFlag
-                              code={p.nationality}
-                              locale={i18n.language}
-                              className="text-xs leading-none"
-                            />
-                            <span>
-                              {countryName(p.nationality, i18n.language)}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="py-2 px-1">
-                          <Badge
-                            variant={
-                              p.position === "Goalkeeper"
-                                ? "accent"
-                                : p.position === "Defender"
-                                  ? "primary"
-                                  : p.position === "Midfielder"
-                                    ? "success"
-                                    : "danger"
-                            }
-                            size="sm"
-                          >
-                            {translatePositionAbbreviation(t, p.position)}
-                          </Badge>
-                        </td>
-                        <td className="text-center py-2 px-1 text-gray-600 dark:text-gray-400">
-                          {calcAge(p.date_of_birth)}
-                        </td>
-                        <td className="py-2 px-1 text-gray-600 dark:text-gray-400 text-xs truncate max-w-[120px]">
-                          {team}
-                        </td>
-                        <td className="text-center py-2 px-1 text-gray-600 dark:text-gray-400 text-xs">
-                          {formatVal(p.market_value)}
-                        </td>
-                        <td className="text-right py-2 px-2">
-                          {isScouting ? (
-                            <span className="text-xs text-primary-400 font-heading font-bold">
-                              {t("scouting.scoutingInProgress")}
-                            </span>
-                          ) : availableScouts.length === 0 ? (
-                            <span className="text-xs text-gray-400">
-                              {t("scouting.noScoutsFree")}
-                            </span>
-                          ) : (
-                            <button
-                              disabled={sending === p.id}
-                              onClick={() => handleSendScout(p.id)}
-                              className="flex items-center gap-1 ml-auto px-2.5 py-1 rounded-lg bg-primary-500/10 text-primary-500 hover:bg-primary-500/20 transition-colors text-xs font-heading font-bold uppercase tracking-wider disabled:opacity-50"
-                            >
-                              <ScanSearch className="w-3 h-3" />
-                              {sending === p.id
-                                ? "..."
-                                : t("scouting.scoutBtn")}
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-              {scoutablePlayers.length === 0 && (
-                <p className="text-center text-sm text-gray-400 py-4">
-                  {t("scouting.noPlayersFound")}
-                </p>
-              )}
-            </div>
-
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-navy-700 mt-3">
-                <span className="text-xs text-gray-400 dark:text-gray-500">
-                  {t("scouting.showingRange", {
-                    from: safePage * SCOUTING_PAGE_SIZE + 1,
-                    to: Math.min(
-                      (safePage + 1) * SCOUTING_PAGE_SIZE,
-                      allScoutable.length,
-                    ),
-                    total: allScoutable.length,
-                  })}
-                </span>
-                <div className="flex items-center gap-2">
-                  <button
-                    disabled={safePage === 0}
-                    onClick={() => setPage((p) => Math.max(0, p - 1))}
-                    className="p-1.5 rounded-lg bg-gray-100 dark:bg-navy-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-navy-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                  </button>
-                  <span className="text-xs font-heading font-bold text-gray-500 dark:text-gray-400 tabular-nums">
-                    {safePage + 1} / {totalPages}
-                  </span>
-                  <button
-                    disabled={safePage >= totalPages - 1}
-                    onClick={() =>
-                      setPage((p) => Math.min(totalPages - 1, p + 1))
-                    }
-                    className="p-1.5 rounded-lg bg-gray-100 dark:bg-navy-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-navy-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                  >
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            )}
-          </CardBody>
-        </Card>
+        <ScoutingPlayerSearchCard
+          players={scoutablePlayers}
+          teams={gameState.teams}
+          posFilter={posFilter}
+          searchQuery={searchQuery}
+          alreadyScoutingIds={alreadyScoutingIds}
+          availableScoutCount={availableScouts.length}
+          sendingPlayerId={sending}
+          safePage={safePage}
+          totalPages={totalPages}
+          totalPlayers={allScoutable.length}
+          pageSize={SCOUTING_PAGE_SIZE}
+          onPositionFilterChange={(position) => {
+            setPosFilter(position);
+            setPage(0);
+          }}
+          onSearchQueryChange={(query) => {
+            setSearchQuery(query);
+            setPage(0);
+          }}
+          onSelectPlayer={onSelectPlayer}
+          onSendScout={handleSendScout}
+          onPreviousPage={() => setPage((currentPage) => Math.max(0, currentPage - 1))}
+          onNextPage={() =>
+            setPage((currentPage) => Math.min(totalPages - 1, currentPage + 1))
+          }
+        />
       )}
     </div>
   );
