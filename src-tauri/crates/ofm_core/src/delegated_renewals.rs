@@ -1,8 +1,8 @@
 use crate::contract_wage_policy::renewal_wage_policy_allows;
 use crate::contracts::{
-    contract_warning_stage, expected_contract_years, expected_wage, has_active_manager_block,
-    round_up_to_nearest_thousand, ContractWarningStage, DelegatedRenewalCase,
-    DelegatedRenewalOptions, DelegatedRenewalReport, DelegatedRenewalResultStatus,
+    ContractWarningStage, DelegatedRenewalCase, DelegatedRenewalOptions, DelegatedRenewalReport,
+    DelegatedRenewalResultStatus, contract_warning_stage, expected_contract_years, expected_wage,
+    has_active_manager_block, round_up_to_nearest_thousand,
 };
 use crate::game::Game;
 use chrono::{Months, NaiveDate};

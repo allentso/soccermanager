@@ -1,9 +1,7 @@
 use log::{info, warn};
 use std::path::{Path, PathBuf};
 
-use crate::save_index::{
-    self, SaveEntry, SaveIndex, load_or_rebuild_index, write_index,
-};
+use crate::save_index::{self, SaveEntry, SaveIndex, load_or_rebuild_index, write_index};
 
 pub struct SaveIndexManager {
     index_path: PathBuf,
@@ -24,7 +22,10 @@ impl SaveIndexManager {
             }
         }
 
-        info!("[save_manager] initialized with {} saves", index.saves.len());
+        info!(
+            "[save_manager] initialized with {} saves",
+            index.saves.len()
+        );
 
         Ok(Self { index_path, index })
     }

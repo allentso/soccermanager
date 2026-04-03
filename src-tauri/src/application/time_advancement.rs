@@ -87,11 +87,12 @@ pub fn advance_time_with_mode(
             state.set_live_match(session);
 
             ofm_core::turn::simulate_other_matches(&mut game, &today, Some(index));
-            let round_summary = round_context
-                .as_ref()
-                .and_then(|(matchday, previous_standings)| {
-                    build_round_summary_dto(&game, *matchday, previous_standings)
-                });
+            let round_summary =
+                round_context
+                    .as_ref()
+                    .and_then(|(matchday, previous_standings)| {
+                        build_round_summary_dto(&game, *matchday, previous_standings)
+                    });
             state.set_game(game);
 
             Ok(AdvanceTimeWithModeResponse {
@@ -127,11 +128,12 @@ pub fn advance_time_with_mode(
                 &report,
             );
 
-            let round_summary = round_context
-                .as_ref()
-                .and_then(|(matchday, previous_standings)| {
-                    build_round_summary_dto(&game, *matchday, previous_standings)
-                });
+            let round_summary =
+                round_context
+                    .as_ref()
+                    .and_then(|(matchday, previous_standings)| {
+                        build_round_summary_dto(&game, *matchday, previous_standings)
+                    });
 
             ofm_core::turn::finish_live_match_day(&mut game);
             state.set_game(game.clone());
@@ -151,11 +153,12 @@ pub fn advance_time_with_mode(
                 today, mode
             );
             ofm_core::turn::process_day(&mut game);
-            let round_summary = round_context
-                .as_ref()
-                .and_then(|(matchday, previous_standings)| {
-                    build_round_summary_dto(&game, *matchday, previous_standings)
-                });
+            let round_summary =
+                round_context
+                    .as_ref()
+                    .and_then(|(matchday, previous_standings)| {
+                        build_round_summary_dto(&game, *matchday, previous_standings)
+                    });
             state.set_game(game.clone());
 
             Ok(AdvanceTimeWithModeResponse {
