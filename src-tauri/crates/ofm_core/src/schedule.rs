@@ -1,5 +1,5 @@
 use chrono::{DateTime, Duration, Utc};
-use domain::league::{Fixture, FixtureStatus, League};
+use domain::league::{Fixture, FixtureCompetition, FixtureStatus, League};
 use uuid::Uuid;
 
 /// Generate a full double round-robin schedule (home & away) for the given teams.
@@ -43,6 +43,7 @@ pub fn generate_league(
                 date: date_str.clone(),
                 home_team_id: team_ids[home_idx].clone(),
                 away_team_id: team_ids[away_idx].clone(),
+                competition: FixtureCompetition::League,
                 status: FixtureStatus::Scheduled,
                 result: None,
             };
@@ -73,6 +74,7 @@ pub fn generate_league(
                 date: date_str.clone(),
                 home_team_id: team_ids[home_idx].clone(),
                 away_team_id: team_ids[away_idx].clone(),
+                competition: FixtureCompetition::League,
                 status: FixtureStatus::Scheduled,
                 result: None,
             };
@@ -86,6 +88,52 @@ pub fn generate_league(
     }
 
     league
+}
+
+pub fn generate_preseason_friendlies(
+    user_team_id: &str,
+    opponent_ids: &[String],
+    season_start: DateTime<Utc>,
+    max_friendlies: usize,
+) -> Vec<Fixture> {
+    opponent_ids
+        .iter()
+        .filter(|opponent_id| opponent_id.as_str() != user_team_id)
+        .take(max_friendlies)
+        .enumerate()
+        .map(|(index, opponent_id)| {
+            let weeks_before_start = (max_friendlies.saturating_sub(index)) as i64;
+            let date = (season_start - Duration::days(weeks_before_start * 7))
+                .format("%Y-%m-%d")
+                .to_string();
+            let (home_team_id, away_team_id) = if index % 2 == 0 {
+                (user_team_id.to_string(), opponent_id.clone())
+            } else {
+                (opponent_id.clone(), user_team_id.to_string())
+            };
+
+            Fixture {
+                id: Uuid::new_v4().to_string(),
+                matchday: 0,
+                date,
+                home_team_id,
+                away_team_id,
+                competition: FixtureCompetition::Friendly,
+                status: FixtureStatus::Scheduled,
+                result: None,
+            }
+        })
+        .collect()
+}
+
+pub fn append_fixtures(league: &mut League, mut additional_fixtures: Vec<Fixture>) {
+    league.fixtures.append(&mut additional_fixtures);
+    league.fixtures.sort_by(|left, right| {
+        left.date
+            .cmp(&right.date)
+            .then(left.matchday.cmp(&right.matchday))
+            .then(left.id.cmp(&right.id))
+    });
 }
 
 #[cfg(test)]
@@ -150,5 +198,30 @@ mod tests {
         for f in &league.fixtures {
             assert_ne!(f.home_team_id, f.away_team_id);
         }
+    }
+
+    #[test]
+    fn generate_preseason_friendlies_marks_fixtures_as_friendlies() {
+        let start = Utc.with_ymd_and_hms(2026, 8, 1, 0, 0, 0).unwrap();
+        let friendlies = generate_preseason_friendlies(
+            "team_1",
+            &[
+                "team_2".to_string(),
+                "team_3".to_string(),
+                "team_4".to_string(),
+            ],
+            start,
+            3,
+        );
+
+        assert_eq!(friendlies.len(), 3);
+        assert!(
+            friendlies
+                .iter()
+                .all(|fixture| fixture.competition == FixtureCompetition::Friendly)
+        );
+        assert!(friendlies.iter().all(|fixture| fixture.matchday == 0));
+        assert_eq!(friendlies[0].date, "2026-07-11");
+        assert_eq!(friendlies[2].date, "2026-07-25");
     }
 }

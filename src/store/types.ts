@@ -3,6 +3,19 @@ export interface TeamColors {
   secondary: string;
 }
 
+export interface FacilitiesData {
+  training: number;
+  medical: number;
+  scouting: number;
+}
+
+export interface SponsorshipData {
+  sponsor_name: string;
+  base_value: number;
+  remaining_weeks: number;
+  bonus_criteria: unknown[];
+}
+
 export interface TeamSeasonRecord {
   season: number;
   league_position: number;
@@ -44,6 +57,8 @@ export interface TeamData {
   training_schedule: string;
   founded_year: number;
   colors: TeamColors;
+  facilities?: FacilitiesData;
+  sponsorship?: SponsorshipData | null;
   starting_xi_ids: string[];
   match_roles?: TeamMatchRolesData;
   form: string[];
@@ -59,6 +74,13 @@ export interface PlayerSeasonStats {
   red_cards: number;
   avg_rating: number;
   minutes_played: number;
+  shots?: number;
+  shots_on_target?: number;
+  passes_completed?: number;
+  passes_attempted?: number;
+  tackles_won?: number;
+  interceptions?: number;
+  fouls_committed?: number;
 }
 
 export interface CareerEntry {
@@ -79,6 +101,8 @@ export interface PlayerData {
   position: string;
   natural_position: string;
   alternate_positions: string[];
+  footedness?: string;
+  weak_foot?: number;
   training_focus: string | null;
   attributes: {
     pace: number;
@@ -121,6 +145,9 @@ export interface TransferOfferData {
   from_team_id: string;
   fee: number;
   wage_offered: number;
+  last_manager_fee: number | null;
+  negotiation_round: number;
+  suggested_counter_fee: number | null;
   status: "Pending" | "Accepted" | "Rejected" | "Withdrawn";
   date: string;
 }
@@ -147,11 +174,11 @@ export interface StaffData {
 export interface MessageAction {
   id: string;
   label: string;
-  action_type: 
-    | "Acknowledge"
-    | "Dismiss"
-    | { NavigateTo: { route: string } }
-    | { ChooseOption: { options: MessageActionOption[] } };
+  action_type:
+  | "Acknowledge"
+  | "Dismiss"
+  | { NavigateTo: { route: string } }
+  | { ChooseOption: { options: MessageActionOption[] } };
   resolved: boolean;
   label_key?: string;
 }
@@ -185,6 +212,27 @@ export interface ScoutReportData {
   confidence_key: string;
 }
 
+export interface DelegatedRenewalCaseMessageData {
+  player_id: string;
+  player_name: string;
+  status: string;
+  agreed_wage?: number | null;
+  agreed_years?: number | null;
+  note_key?: string;
+  note_params?: Record<string, string>;
+}
+
+export interface DelegatedRenewalReportMessageData {
+  success_count: number;
+  failure_count: number;
+  stalled_count: number;
+  cases: DelegatedRenewalCaseMessageData[];
+}
+
+export interface PlayerSelectionOptions {
+  openRenewal?: boolean;
+}
+
 export interface MessageContext {
   team_id: string | null;
   player_id: string | null;
@@ -196,6 +244,7 @@ export interface MessageContext {
     away_goals: number;
   };
   scout_report?: ScoutReportData;
+  delegated_renewal_report?: DelegatedRenewalReportMessageData;
 }
 
 export interface MessageData {
@@ -244,13 +293,40 @@ export interface FixtureData {
   date: string;
   home_team_id: string;
   away_team_id: string;
+  competition: "League" | "Friendly" | "PreseasonTournament";
   status: "Scheduled" | "InProgress" | "Completed";
   result: null | {
     home_goals: number;
     away_goals: number;
     home_scorers: { player_id: string; minute: number }[];
     away_scorers: { player_id: string; minute: number }[];
+    report?: CompactMatchReportData | null;
   };
+}
+
+export interface CompactMatchEventData {
+  minute: number;
+  event_type: string;
+  side: "Home" | "Away";
+  player_id: string | null;
+  secondary_player_id: string | null;
+}
+
+export interface CompactTeamMatchStatsData {
+  possession_pct: number;
+  shots: number;
+  shots_on_target: number;
+  fouls: number;
+  corners: number;
+  yellow_cards: number;
+  red_cards: number;
+}
+
+export interface CompactMatchReportData {
+  total_minutes: number;
+  home_stats: CompactTeamMatchStatsData;
+  away_stats: CompactTeamMatchStatsData;
+  events: CompactMatchEventData[];
 }
 
 export interface StandingData {
@@ -270,6 +346,26 @@ export interface LeagueData {
   season: number;
   fixtures: FixtureData[];
   standings: StandingData[];
+}
+
+export type SeasonPhase = "Preseason" | "InSeason" | "PostSeason";
+
+export type TransferWindowStatus = "Closed" | "Open" | "DeadlineDay";
+
+export interface TransferWindowContextData {
+  status: TransferWindowStatus;
+  opens_on: string | null;
+  closes_on: string | null;
+  days_until_opens: number | null;
+  days_remaining: number | null;
+}
+
+export interface SeasonContextData {
+  phase: SeasonPhase;
+  season_start: string | null;
+  season_end: string | null;
+  days_until_season_start: number | null;
+  transfer_window: TransferWindowContextData;
 }
 
 export interface NewsMatchScore {
@@ -337,4 +433,5 @@ export interface GameStateData {
   league: LeagueData | null;
   scouting_assignments: ScoutingAssignment[];
   board_objectives: BoardObjective[];
+  season_context?: SeasonContextData;
 }

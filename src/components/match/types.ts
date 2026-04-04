@@ -97,6 +97,58 @@ export interface MinuteResult {
   is_finished: boolean;
 }
 
+export interface RoundResultSummary {
+  fixture_id: string;
+  home_team_id: string;
+  home_team_name: string;
+  away_team_id: string;
+  away_team_name: string;
+  home_goals: number;
+  away_goals: number;
+}
+
+export interface StandingDelta {
+  team_id: string;
+  team_name: string;
+  previous_position: number;
+  current_position: number;
+  points: number;
+  points_delta: number;
+}
+
+export interface NotableUpset {
+  fixture_id: string;
+  favorite_team_id: string;
+  favorite_team_name: string;
+  favorite_strength: number;
+  underdog_team_id: string;
+  underdog_team_name: string;
+  underdog_strength: number;
+  strength_gap: number;
+  home_goals: number;
+  away_goals: number;
+}
+
+export interface TopScorerDelta {
+  player_id: string;
+  player_name: string;
+  team_id: string;
+  previous_rank: number;
+  current_rank: number;
+  previous_goals: number;
+  current_goals: number;
+}
+
+export interface RoundSummary {
+  matchday: number;
+  is_complete: boolean;
+  pending_fixture_count: number;
+  completed_results: RoundResultSummary[];
+  standings_delta: StandingDelta[];
+  notable_upset: NotableUpset | null;
+  top_scorer_delta: TopScorerDelta[];
+}
+
 export type SimSpeed = "paused" | "slow" | "normal" | "fast" | "instant";
 
 export type MatchDayStage =

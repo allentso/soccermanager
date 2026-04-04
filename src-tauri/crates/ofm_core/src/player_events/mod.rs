@@ -1,8 +1,12 @@
 mod message_builders;
 mod responses;
 
-pub use responses::{PlayerResponseEffect, apply_player_response};
+pub use responses::{
+    PlayerResponseEffect, ResponseBandWeights, ResponseOutcomeBand, apply_player_response,
+    build_response_band_weights, pick_response_band,
+};
 
+use crate::contracts::contract_warning_stage;
 use crate::game::Game;
 use domain::message::InboxMessage;
 use rand::Rng;
@@ -10,6 +14,61 @@ use rand::Rng;
 use message_builders::{
     bench_complaint_message, contract_concern_message, happy_player_message, low_morale_message,
 };
+
+fn talk_cooldown_active(player: &domain::player::Player, today: &str) -> bool {
+    player.morale_core.talk_cooldown_until.as_deref() == Some(today)
+}
+
+pub fn generate_contract_concern_messages(game: &mut Game, apply_morale_pressure: bool) {
+    let today = game.clock.current_date.format("%Y-%m-%d").to_string();
+    let user_team_id = match game.manager.team_id.clone() {
+        Some(id) => id,
+        None => return,
+    };
+    let current_date = game.clock.current_date.date_naive();
+    let existing_ids: std::collections::HashSet<String> = game
+        .messages
+        .iter()
+        .map(|message| message.id.clone())
+        .collect();
+    let mut new_messages: Vec<InboxMessage> = Vec::new();
+
+    for player in game.players.iter_mut() {
+        if player.team_id.as_deref() != Some(&user_team_id) {
+            continue;
+        }
+
+        let Some(stage) = contract_warning_stage(player.contract_end.as_deref(), current_date)
+        else {
+            continue;
+        };
+
+        let msg_id = format!("contract_concern_{}_{}", player.id, stage.message_suffix());
+
+        if existing_ids.contains(&msg_id) {
+            continue;
+        }
+
+        if apply_morale_pressure {
+            player.morale = (player.morale as i16 - stage.morale_pressure()).clamp(5, 100) as u8;
+        }
+
+        if let Some(end_str) = &player.contract_end
+            && let Ok(end_date) = chrono::NaiveDate::parse_from_str(end_str, "%Y-%m-%d")
+        {
+            let days_remaining = (end_date - current_date).num_days();
+            new_messages.push(contract_concern_message(
+                &msg_id,
+                &player.id,
+                &player.match_name,
+                days_remaining,
+                &today,
+            ));
+        }
+    }
+
+    game.messages.extend(new_messages);
+}
 
 /// Check all player-related events and generate inbox messages.
 /// Called once per day from process_day().
@@ -50,6 +109,9 @@ pub fn check_player_events(game: &mut Game) {
             continue;
         }
         if player.injury.is_some() {
+            continue;
+        }
+        if talk_cooldown_active(player, &today) {
             continue;
         }
 
@@ -95,6 +157,9 @@ pub fn check_player_events(game: &mut Game) {
                     continue;
                 }
                 if player.position == domain::player::Position::Goalkeeper {
+                    continue;
+                }
+                if talk_cooldown_active(player, &today) {
                     continue;
                 }
 
@@ -145,6 +210,9 @@ pub fn check_player_events(game: &mut Game) {
             if player.team_id.as_deref() != Some(&user_team_id) {
                 continue;
             }
+            if talk_cooldown_active(player, &today) {
+                continue;
+            }
 
             let msg_id = format!("happy_player_{}", player.id);
             if existing_ids.contains(&msg_id) {
@@ -162,35 +230,6 @@ pub fn check_player_events(game: &mut Game) {
         }
     }
 
-    // --- 4. Contract concern (< 90 days remaining) ---
-    {
-        let current_date = game.clock.current_date.date_naive();
-        for player in game.players.iter() {
-            if player.team_id.as_deref() != Some(&user_team_id) {
-                continue;
-            }
-
-            let msg_id = format!("contract_concern_{}", player.id);
-            if existing_ids.contains(&msg_id) {
-                continue;
-            }
-
-            if let Some(end_str) = &player.contract_end
-                && let Ok(end_date) = chrono::NaiveDate::parse_from_str(end_str, "%Y-%m-%d")
-            {
-                let days_remaining = (end_date - current_date).num_days();
-                if days_remaining > 0 && days_remaining <= 90 {
-                    new_messages.push(contract_concern_message(
-                        &msg_id,
-                        &player.id,
-                        &player.match_name,
-                        days_remaining,
-                        &today,
-                    ));
-                }
-            }
-        }
-    }
-
     game.messages.extend(new_messages);
+    generate_contract_concern_messages(game, true);
 }

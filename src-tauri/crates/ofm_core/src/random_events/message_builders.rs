@@ -18,7 +18,7 @@ pub(super) fn sponsor_offer_message(
         format!("Sponsorship Offer — {}", sponsor),
         format!(
             "Good news, boss! {} has expressed interest in becoming a sponsor of {}.\n\n\
-            They're offering a one-time payment of €{} in exchange for advertising space at the training ground.\n\n\
+            They're offering a weekly payment of €{} over the next 12 weeks in exchange for advertising space at the training ground.\n\n\
             This seems like a reasonable deal, but it's your call.",
             sponsor, team_name, format_money(amount)
         ),

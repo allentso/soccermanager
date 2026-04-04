@@ -56,11 +56,13 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
   },
 
   updateSettings: async (partial) => {
-    const merged = mergeWithDefaultSettings({ ...get().settings, ...partial });
+    const previousSettings = get().settings;
+    const merged = mergeWithDefaultSettings({ ...previousSettings, ...partial });
     set({ settings: merged });
     try {
       await persistSettings(merged);
     } catch (err) {
+      set({ settings: previousSettings });
       console.error("Failed to save settings:", err);
     }
   },

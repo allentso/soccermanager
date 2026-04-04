@@ -239,3 +239,46 @@ pub fn transfer_complete_message(player_name: &str, fee: u64, date: &str) -> Inb
     .with_priority(MessagePriority::Normal)
     .with_sender_role("Director of Football")
 }
+
+pub fn incoming_transfer_offer_message(
+    offer_id: &str,
+    player_id: &str,
+    player_name: &str,
+    buying_team_name: &str,
+    fee: u64,
+    date: &str,
+) -> InboxMessage {
+    let fee_display = if fee >= 1_000_000 {
+        format!("€{:.1}M", fee as f64 / 1_000_000.0)
+    } else if fee >= 1_000 {
+        format!("€{}K", fee / 1_000)
+    } else {
+        format!("€{}", fee)
+    };
+
+    InboxMessage::new(
+        format!("transfer_offer_{}", offer_id),
+        format!("Incoming Offer for {}", player_name),
+        format!(
+            "{} have submitted an offer of {} for {}. Review the bid in the Transfers tab to accept or reject it.",
+            buying_team_name, fee_display, player_name
+        ),
+        "Director of Football".to_string(),
+        date.to_string(),
+    )
+    .with_category(MessageCategory::Transfer)
+    .with_priority(MessagePriority::High)
+    .with_sender_role("Director of Football")
+    .with_action(action(
+        "view_transfers",
+        "Review Offer",
+        "be.msg.transferOffer.actionReview",
+        ActionType::NavigateTo {
+            route: "/dashboard?tab=Transfers".to_string(),
+        },
+    ))
+    .with_context(MessageContext {
+        player_id: Some(player_id.to_string()),
+        ..Default::default()
+    })
+}

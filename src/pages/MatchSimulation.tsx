@@ -7,7 +7,9 @@ import {
   MatchSnapshot,
   MatchEvent,
   MatchDayStage,
+  RoundSummary,
 } from "../components/match/types";
+import { resolveMatchFixture } from "../components/match/helpers";
 import PreMatchSetup from "../components/match/PreMatchSetup";
 import MatchLive from "../components/match/MatchLive";
 import HalfTimeBreak from "../components/match/HalfTimeBreak";
@@ -24,6 +26,11 @@ interface MatchRouteState {
   snapshot?: MatchSnapshot;
 }
 
+interface FinishLiveMatchResponse {
+  game: GameStateData;
+  round_summary?: RoundSummary | null;
+}
+
 export default function MatchSimulation() {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -38,6 +45,8 @@ export default function MatchSimulation() {
   const [importantEvents, setImportantEvents] = useState<MatchEvent[]>([]);
   const [userSide, setUserSide] = useState<"Home" | "Away" | null>(null);
   const [isSpectator, setIsSpectator] = useState(matchMode === "spectator");
+  const [roundSummary, setRoundSummary] = useState<RoundSummary | null>(null);
+  const [hasFinalizedMatch, setHasFinalizedMatch] = useState(false);
 
   useEffect(() => {
     console.info("[MatchSimulation] mount", {
@@ -179,10 +188,38 @@ export default function MatchSimulation() {
     setStage("second_half");
   }, []);
 
+  const finalizeMatch = useCallback(async (): Promise<boolean> => {
+    if (hasFinalizedMatch) {
+      return true;
+    }
+
+    try {
+      console.info("[MatchSimulation] finalizeMatch:start");
+      const response =
+        await invoke<FinishLiveMatchResponse>("finish_live_match");
+      console.info("[MatchSimulation] finalizeMatch:success", {
+        hasRoundSummary: !!response.round_summary,
+        hasUpdatedGame: !!response.game,
+      });
+      setGameState(response.game);
+      setRoundSummary(response.round_summary ?? null);
+      setHasFinalizedMatch(true);
+      return true;
+    } catch (err) {
+      console.error("Failed to finish match:", err);
+      return false;
+    }
+  }, [hasFinalizedMatch, setGameState]);
+
   const handleFullTime = useCallback(() => {
     console.info("[MatchSimulation] handleFullTime");
-    setStage("postmatch");
-  }, []);
+    void (async () => {
+      const finalized = await finalizeMatch();
+      if (finalized) {
+        setStage("postmatch");
+      }
+    })();
+  }, [finalizeMatch]);
 
   const handlePressConference = useCallback(() => {
     console.info("[MatchSimulation] handlePressConference");
@@ -190,18 +227,12 @@ export default function MatchSimulation() {
   }, []);
 
   const handleFinishMatch = useCallback(async () => {
-    try {
-      console.info("[MatchSimulation] handleFinishMatch:start");
-      const updatedGame = await invoke<GameStateData>("finish_live_match");
-      console.info("[MatchSimulation] handleFinishMatch:success", {
-        hasUpdatedGame: !!updatedGame,
-      });
-      setGameState(updatedGame);
+    console.info("[MatchSimulation] handleFinishMatch:start");
+    const finalized = await finalizeMatch();
+    if (finalized) {
       navigate("/dashboard");
-    } catch (err) {
-      console.error("Failed to finish match:", err);
     }
-  }, [setGameState, navigate]);
+  }, [finalizeMatch, navigate]);
 
   const handleSnapshotUpdate = useCallback((snap: MatchSnapshot) => {
     console.info("[MatchSimulation] handleSnapshotUpdate", {
@@ -225,16 +256,22 @@ export default function MatchSimulation() {
   // Loading state
   if (!snapshot || !gameState) {
     return (
-      <div className="min-h-screen bg-navy-900 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-100 dark:bg-navy-900 flex items-center justify-center transition-colors duration-300">
         <div className="flex flex-col items-center gap-3">
           <div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin" />
-          <span className="text-gray-400 font-heading uppercase tracking-wider text-sm">
+          <span className="text-gray-500 dark:text-gray-400 font-heading uppercase tracking-wider text-sm">
             {t("dashboard.loading")}
           </span>
         </div>
       </div>
     );
   }
+
+  const currentFixture = resolveMatchFixture(
+    gameState,
+    snapshot,
+    routeState?.fixtureIndex,
+  );
 
   // Render the current stage
   switch (stage) {
@@ -243,6 +280,7 @@ export default function MatchSimulation() {
         <PreMatchSetup
           snapshot={snapshot}
           gameState={gameState}
+          currentFixture={currentFixture}
           userSide={userSide || "Home"}
           onStart={handleStartMatch}
           onUpdateSnapshot={handleSnapshotUpdate}
@@ -284,9 +322,11 @@ export default function MatchSimulation() {
         <PostMatchScreen
           snapshot={snapshot}
           gameState={gameState}
+          currentFixture={currentFixture}
           userSide={userSide}
           isSpectator={isSpectator}
           importantEvents={importantEvents}
+          roundSummary={roundSummary}
           onPressConference={handlePressConference}
           onFinish={handleFinishMatch}
         />

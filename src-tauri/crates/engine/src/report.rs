@@ -100,6 +100,23 @@ impl MatchReport {
         away_possession_ticks: u32,
         total_minutes: u8,
     ) -> Self {
+        Self::from_events_with_players(
+            events,
+            home_possession_ticks,
+            away_possession_ticks,
+            total_minutes,
+            Vec::new(),
+        )
+    }
+
+    /// Build the report while also assigning minutes played for tracked players.
+    pub fn from_events_with_players(
+        events: Vec<MatchEvent>,
+        home_possession_ticks: u32,
+        away_possession_ticks: u32,
+        total_minutes: u8,
+        tracked_player_ids: Vec<String>,
+    ) -> Self {
         let mut home_stats = TeamStats::default();
         let mut away_stats = TeamStats::default();
         let mut goals = Vec::new();
@@ -255,6 +272,13 @@ impl MatchReport {
             }
         }
 
+        populate_minutes_played(
+            &events,
+            total_minutes,
+            &tracked_player_ids,
+            &mut player_stats,
+        );
+
         let total_poss = home_possession_ticks + away_possession_ticks;
         let home_possession = if total_poss > 0 {
             home_possession_ticks as f64 / total_poss as f64 * 100.0
@@ -273,5 +297,49 @@ impl MatchReport {
             home_possession,
             total_minutes,
         }
+    }
+}
+
+fn populate_minutes_played(
+    events: &[MatchEvent],
+    total_minutes: u8,
+    tracked_player_ids: &[String],
+    player_stats: &mut HashMap<String, PlayerMatchStats>,
+) {
+    let mut minutes_by_player: HashMap<String, u8> = tracked_player_ids
+        .iter()
+        .cloned()
+        .map(|player_id| (player_id, total_minutes))
+        .collect();
+
+    for event in events {
+        match event.event_type {
+            EventType::Substitution => {
+                if let Some(ref player_off_id) = event.secondary_player_id {
+                    minutes_by_player
+                        .insert(player_off_id.clone(), event.minute.min(total_minutes));
+                }
+                if let Some(ref player_on_id) = event.player_id {
+                    minutes_by_player.insert(
+                        player_on_id.clone(),
+                        total_minutes.saturating_sub(event.minute),
+                    );
+                }
+            }
+            EventType::RedCard | EventType::SecondYellow => {
+                if let Some(ref player_id) = event.player_id {
+                    let dismissed_at = event.minute.min(total_minutes);
+                    minutes_by_player
+                        .entry(player_id.clone())
+                        .and_modify(|minutes| *minutes = (*minutes).min(dismissed_at))
+                        .or_insert(dismissed_at);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    for (player_id, minutes_played) in minutes_by_player {
+        player_stats.entry(player_id).or_default().minutes_played = minutes_played;
     }
 }

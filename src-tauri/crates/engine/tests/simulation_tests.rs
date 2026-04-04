@@ -12,6 +12,7 @@ fn make_player(id: &str, name: &str, position: Position, skill: u8) -> PlayerDat
         name: name.to_string(),
         position,
         condition: 90,
+        fitness: 75,
         pace: skill,
         stamina: skill,
         strength: skill,
@@ -368,6 +369,27 @@ fn total_minutes_at_least_90() {
         "Total minutes: {}",
         report.total_minutes
     );
+}
+
+#[test]
+fn report_tracks_minutes_for_all_starters() {
+    let home = make_team("home", "Home FC", 60, PlayStyle::Balanced);
+    let away = make_team("away", "Away FC", 60, PlayStyle::Balanced);
+    let config = MatchConfig::default();
+    let report = simulate_with_rng(&home, &away, &config, &mut seeded_rng(55));
+
+    for player in home.players.iter().chain(away.players.iter()) {
+        let stats = report
+            .player_stats
+            .get(&player.id)
+            .unwrap_or_else(|| panic!("Missing report stats for {}", player.id));
+        assert!(
+            stats.minutes_played > 0,
+            "Expected minutes for {}, got {}",
+            player.id,
+            stats.minutes_played
+        );
+    }
 }
 
 // ---------------------------------------------------------------------------

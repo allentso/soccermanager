@@ -1,13 +1,18 @@
 use crate::game::Game;
 use crate::messages;
 use crate::news;
-use domain::league::{Fixture, FixtureStatus, League};
+use chrono::Datelike;
+use domain::league::{Fixture, FixtureStatus, League, StandingEntry};
 
 fn completed_fixtures_for_day<'a>(league: &'a League, today: &str) -> Vec<&'a Fixture> {
     league
         .fixtures
         .iter()
-        .filter(|fixture| fixture.date == today && fixture.status == FixtureStatus::Completed)
+        .filter(|fixture| {
+            fixture.date == today
+                && fixture.status == FixtureStatus::Completed
+                && fixture.counts_for_league_standings()
+        })
         .collect()
 }
 
@@ -104,6 +109,7 @@ fn scheduled_user_fixtures_for_date<'a>(
         .filter(|fixture| {
             fixture.date == target_date
                 && fixture.status == FixtureStatus::Scheduled
+                && fixture.counts_for_league_standings()
                 && (fixture.home_team_id == user_team_id || fixture.away_team_id == user_team_id)
         })
         .collect()
@@ -115,6 +121,165 @@ fn opponent_for_fixture<'a>(fixture: &'a Fixture, user_team_id: &str) -> (&'a st
     } else {
         (&fixture.home_team_id, false)
     }
+}
+
+fn weekly_digest_suffix(game: &Game) -> String {
+    let iso_week = game.clock.current_date.iso_week();
+    format!("{}_w{:02}", iso_week.year(), iso_week.week())
+}
+
+fn season_has_started(league: &League) -> bool {
+    crate::end_of_season::season_has_started(league)
+}
+
+fn title_race_is_newsworthy(leader: &StandingEntry, challenger: &StandingEntry) -> bool {
+    leader.played >= 5
+        && challenger.played >= 5
+        && leader.points > 0
+        && leader.points.saturating_sub(challenger.points) <= 3
+}
+
+fn has_equivalent_storyline(game: &Game, candidate: &domain::news::NewsArticle) -> bool {
+    game.news.iter().any(|article| {
+        article.category == candidate.category
+            && article.headline_key == candidate.headline_key
+            && article.body_key == candidate.body_key
+            && article.source_key == candidate.source_key
+            && article.team_ids == candidate.team_ids
+            && article.player_ids == candidate.player_ids
+            && article.i18n_params == candidate.i18n_params
+    })
+}
+
+fn unbeaten_run_length(form: &[String]) -> u32 {
+    let mut streak = 0;
+
+    for result in form.iter().rev() {
+        if result == "L" {
+            break;
+        }
+
+        if result == "W" || result == "D" {
+            streak += 1;
+        }
+    }
+
+    streak
+}
+
+fn top_scorer_summary(game: &Game) -> Option<(String, u32)> {
+    game.players
+        .iter()
+        .filter(|player| player.stats.goals > 0)
+        .max_by(|a, b| {
+            a.stats
+                .goals
+                .cmp(&b.stats.goals)
+                .then_with(|| a.match_name.cmp(&b.match_name))
+        })
+        .map(|player| (player.match_name.clone(), player.stats.goals))
+}
+
+fn weekly_storyline_articles(
+    game: &Game,
+    suffix: &str,
+    date: &str,
+) -> Vec<domain::news::NewsArticle> {
+    let mut articles = Vec::new();
+    let league = match &game.league {
+        Some(league) => league,
+        None => return articles,
+    };
+
+    let sorted_standings = league.sorted_standings();
+    if sorted_standings.len() >= 2 {
+        let leader = &sorted_standings[0];
+        let challenger = &sorted_standings[1];
+
+        if title_race_is_newsworthy(leader, challenger) {
+            let leader_name = team_name(game, &leader.team_id);
+            let challenger_name = team_name(game, &challenger.team_id);
+            let gap = leader.points.saturating_sub(challenger.points);
+            let article = news::title_race_storyline_article(
+                &format!("storyline_title_race_{}", suffix),
+                &leader.team_id,
+                &leader_name,
+                &challenger.team_id,
+                &challenger_name,
+                gap,
+                date,
+            );
+
+            if !has_equivalent_storyline(game, &article) {
+                articles.push(article);
+            }
+        }
+    }
+
+    if let Some(team) = game
+        .teams
+        .iter()
+        .map(|team| (team, unbeaten_run_length(&team.form)))
+        .filter(|(_, streak)| *streak >= 5)
+        .max_by_key(|(_, streak)| *streak)
+        .map(|(team, streak)| (team.id.clone(), team.name.clone(), streak))
+    {
+        let article = news::unbeaten_streak_storyline_article(
+            &format!("storyline_unbeaten_streak_{}", suffix),
+            &team.0,
+            &team.1,
+            team.2,
+            date,
+        );
+
+        if !has_equivalent_storyline(game, &article) {
+            articles.push(article);
+        }
+    }
+
+    articles
+}
+
+pub(super) fn generate_weekly_digest_news(game: &mut Game, today: &str) {
+    if game.clock.current_date.weekday().num_days_from_monday() != 0 {
+        return;
+    }
+
+    let league = match &game.league {
+        Some(league) => league,
+        None => return,
+    };
+
+    if !season_has_started(league) {
+        return;
+    }
+
+    let suffix = weekly_digest_suffix(game);
+    let digest_id = format!("weekly_digest_{}", suffix);
+    if game.news.iter().any(|article| article.id == digest_id) {
+        return;
+    }
+
+    let date = game.clock.current_date.to_rfc3339();
+    let sorted_standings = league.sorted_standings();
+    let leader = sorted_standings
+        .first()
+        .map(|entry| team_name(game, &entry.team_id))
+        .unwrap_or_else(|| "Unknown".to_string());
+    let storylines = weekly_storyline_articles(game, &suffix, &date);
+    let (top_scorer, top_scorer_goals) =
+        top_scorer_summary(game).unwrap_or_else(|| (String::new(), 0));
+
+    game.news.push(news::weekly_digest_article(
+        &digest_id,
+        today,
+        &leader,
+        &top_scorer,
+        top_scorer_goals,
+        storylines.len(),
+        &date,
+    ));
+    game.news.extend(storylines);
 }
 
 /// Generate a match report news article for the completed fixture.
@@ -226,11 +391,16 @@ pub(super) fn generate_pre_match_messages(game: &mut Game, today: &str) {
 
 #[cfg(test)]
 mod tests {
-    use super::{generate_match_news, generate_matchday_news, generate_pre_match_messages};
+    use super::{
+        generate_match_news, generate_matchday_news, generate_pre_match_messages,
+        generate_weekly_digest_news,
+    };
     use crate::clock::GameClock;
     use crate::game::Game;
     use chrono::{TimeZone, Utc};
-    use domain::league::{Fixture, FixtureStatus, League, MatchResult, StandingEntry};
+    use domain::league::{
+        Fixture, FixtureCompetition, FixtureStatus, League, MatchResult, StandingEntry,
+    };
     use domain::manager::Manager;
     use domain::message::{MessageCategory, MessagePriority};
     use domain::news::NewsCategory;
@@ -278,12 +448,14 @@ mod tests {
             date: date.to_string(),
             home_team_id: home_team_id.to_string(),
             away_team_id: away_team_id.to_string(),
+            competition: FixtureCompetition::League,
             status,
             result: result.map(|(home_goals, away_goals)| MatchResult {
                 home_goals,
                 away_goals,
                 home_scorers: vec![],
                 away_scorers: vec![],
+                report: None,
             }),
         }
     }
@@ -385,6 +557,39 @@ mod tests {
         });
 
         game
+    }
+
+    fn set_current_date(game: &mut Game, year: i32, month: u32, day: u32) {
+        game.clock = GameClock::new(Utc.with_ymd_and_hms(year, month, day, 12, 0, 0).unwrap());
+    }
+
+    fn standing_mut<'a>(game: &'a mut Game, team_id: &str) -> &'a mut StandingEntry {
+        game.league
+            .as_mut()
+            .unwrap()
+            .standings
+            .iter_mut()
+            .find(|entry| entry.team_id == team_id)
+            .unwrap()
+    }
+
+    fn team_mut<'a>(game: &'a mut Game, team_id: &str) -> &'a mut Team {
+        game.teams
+            .iter_mut()
+            .find(|team| team.id == team_id)
+            .unwrap()
+    }
+
+    fn reset_to_preseason(game: &mut Game) {
+        let league = game.league.as_mut().unwrap();
+        for fixture in &mut league.fixtures {
+            fixture.status = FixtureStatus::Scheduled;
+        }
+        league.standings = vec![
+            StandingEntry::new("team1".to_string()),
+            StandingEntry::new("team2".to_string()),
+            StandingEntry::new("team3".to_string()),
+        ];
     }
 
     #[test]
@@ -572,6 +777,221 @@ mod tests {
             game.messages
                 .iter()
                 .filter(|message| message.id == "prematch_fx1")
+                .count(),
+            1
+        );
+    }
+
+    #[test]
+    fn generate_weekly_digest_news_only_runs_on_monday_cadence() {
+        let mut game = make_game("2025-08-12", FixtureStatus::Completed);
+
+        generate_weekly_digest_news(&mut game, "2025-08-12");
+
+        assert!(
+            game.news
+                .iter()
+                .all(|article| !article.id.starts_with("weekly_digest_"))
+        );
+
+        set_current_date(&mut game, 2025, 8, 11);
+        generate_weekly_digest_news(&mut game, "2025-08-11");
+
+        assert!(
+            game.news
+                .iter()
+                .any(|article| article.id.starts_with("weekly_digest_"))
+        );
+    }
+
+    #[test]
+    fn generate_weekly_digest_news_skips_preseason_even_on_monday() {
+        let mut game = make_game("2025-08-11", FixtureStatus::Scheduled);
+        set_current_date(&mut game, 2025, 8, 11);
+        reset_to_preseason(&mut game);
+
+        generate_weekly_digest_news(&mut game, "2025-08-11");
+
+        assert!(
+            game.news
+                .iter()
+                .all(|article| !article.id.starts_with("weekly_digest_"))
+        );
+        assert!(
+            game.news
+                .iter()
+                .all(|article| !article.id.starts_with("storyline_"))
+        );
+    }
+
+    #[test]
+    fn generate_weekly_digest_news_creates_storylines_from_standings_and_form() {
+        let mut game = make_game("2025-08-11", FixtureStatus::Completed);
+        set_current_date(&mut game, 2025, 8, 11);
+
+        let alpha = standing_mut(&mut game, "team1");
+        alpha.played = 10;
+        alpha.points = 25;
+        alpha.goals_for = 18;
+        alpha.goals_against = 8;
+
+        let beta = standing_mut(&mut game, "team2");
+        beta.played = 10;
+        beta.points = 24;
+        beta.goals_for = 16;
+        beta.goals_against = 9;
+
+        let gamma = standing_mut(&mut game, "team3");
+        gamma.played = 10;
+        gamma.points = 7;
+        gamma.goals_for = 6;
+        gamma.goals_against = 15;
+
+        team_mut(&mut game, "team1").form = vec![
+            "D".to_string(),
+            "W".to_string(),
+            "W".to_string(),
+            "W".to_string(),
+            "W".to_string(),
+        ];
+
+        generate_weekly_digest_news(&mut game, "2025-08-11");
+
+        let weekly_digest = game
+            .news
+            .iter()
+            .find(|article| article.id.starts_with("weekly_digest_"))
+            .unwrap();
+        assert_eq!(weekly_digest.category, NewsCategory::Editorial);
+        assert_eq!(
+            weekly_digest.headline_key.as_deref(),
+            Some("be.news.weeklyDigest.headline")
+        );
+        assert_eq!(
+            weekly_digest.i18n_params.get("weekStart"),
+            Some(&"2025-08-11".to_string())
+        );
+        assert!(weekly_digest.i18n_params.get("weekLabel").is_none());
+
+        let title_race = game
+            .news
+            .iter()
+            .find(|article| article.id.starts_with("storyline_title_race_"))
+            .unwrap();
+        assert_eq!(title_race.category, NewsCategory::Editorial);
+        assert_eq!(
+            title_race.headline_key.as_deref(),
+            Some("be.news.storyline.titleRace.headline")
+        );
+        assert_eq!(
+            title_race.body_key.as_deref(),
+            Some("be.news.storyline.titleRace.body")
+        );
+        assert_eq!(
+            title_race.i18n_params.get("leader"),
+            Some(&"Alpha FC".to_string())
+        );
+        assert_eq!(
+            title_race.i18n_params.get("challenger"),
+            Some(&"Beta FC".to_string())
+        );
+        assert_eq!(title_race.i18n_params.get("gap"), Some(&"1".to_string()));
+
+        let unbeaten = game
+            .news
+            .iter()
+            .find(|article| article.id.starts_with("storyline_unbeaten_streak_"))
+            .unwrap();
+        assert_eq!(unbeaten.category, NewsCategory::Editorial);
+        assert_eq!(
+            unbeaten.headline_key.as_deref(),
+            Some("be.news.storyline.unbeatenStreak.headline")
+        );
+        assert_eq!(
+            unbeaten.body_key.as_deref(),
+            Some("be.news.storyline.unbeatenStreak.body")
+        );
+        assert_eq!(
+            unbeaten.i18n_params.get("team"),
+            Some(&"Alpha FC".to_string())
+        );
+        assert_eq!(
+            unbeaten.i18n_params.get("runLength"),
+            Some(&"5".to_string())
+        );
+    }
+
+    #[test]
+    fn generate_weekly_digest_news_does_not_duplicate_same_week() {
+        let mut game = make_game("2025-08-11", FixtureStatus::Completed);
+        set_current_date(&mut game, 2025, 8, 11);
+
+        generate_weekly_digest_news(&mut game, "2025-08-11");
+        generate_weekly_digest_news(&mut game, "2025-08-11");
+
+        assert_eq!(
+            game.news
+                .iter()
+                .filter(|article| article.id.starts_with("weekly_digest_"))
+                .count(),
+            1
+        );
+    }
+
+    #[test]
+    fn generate_weekly_digest_news_does_not_repeat_identical_storylines_in_later_weeks() {
+        let mut game = make_game("2025-08-11", FixtureStatus::Completed);
+        set_current_date(&mut game, 2025, 8, 11);
+
+        let alpha = standing_mut(&mut game, "team1");
+        alpha.played = 10;
+        alpha.points = 25;
+        alpha.goals_for = 18;
+        alpha.goals_against = 8;
+
+        let beta = standing_mut(&mut game, "team2");
+        beta.played = 10;
+        beta.points = 24;
+        beta.goals_for = 16;
+        beta.goals_against = 9;
+
+        let gamma = standing_mut(&mut game, "team3");
+        gamma.played = 10;
+        gamma.points = 7;
+        gamma.goals_for = 6;
+        gamma.goals_against = 15;
+
+        team_mut(&mut game, "team1").form = vec![
+            "D".to_string(),
+            "W".to_string(),
+            "W".to_string(),
+            "W".to_string(),
+            "W".to_string(),
+        ];
+
+        generate_weekly_digest_news(&mut game, "2025-08-11");
+
+        set_current_date(&mut game, 2025, 8, 18);
+        generate_weekly_digest_news(&mut game, "2025-08-18");
+
+        assert_eq!(
+            game.news
+                .iter()
+                .filter(|article| article.id.starts_with("weekly_digest_"))
+                .count(),
+            2
+        );
+        assert_eq!(
+            game.news
+                .iter()
+                .filter(|article| article.id.starts_with("storyline_title_race_"))
+                .count(),
+            1
+        );
+        assert_eq!(
+            game.news
+                .iter()
+                .filter(|article| article.id.starts_with("storyline_unbeaten_streak_"))
                 .count(),
             1
         );

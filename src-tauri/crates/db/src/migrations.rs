@@ -1,7 +1,7 @@
 use rusqlite_migration::{M, Migrations};
 
 /// Number of migrations defined. Keep in sync with the vec in `all_migrations`.
-pub const MIGRATION_COUNT: usize = 6;
+pub const MIGRATION_COUNT: usize = 15;
 
 /// All migrations for a per-save game database.
 /// Each save `.db` file gets this schema applied via `rusqlite_migration`.
@@ -19,6 +19,24 @@ pub fn all_migrations() -> Migrations<'static> {
         M::up(include_str!("sql/v005_player_training_focus.sql")),
         // V6: Team match roles defaults
         M::up(include_str!("sql/v006_team_match_roles.sql")),
+        // V7: Team financial ledger
+        M::up(include_str!("sql/v007_team_financial_ledger.sql")),
+        // V8: Team sponsorship state
+        M::up(include_str!("sql/v008_team_sponsorship.sql")),
+        // V9: Team facilities state
+        M::up(include_str!("sql/v009_team_facilities.sql")),
+        // V10: Hidden per-player morale architecture state
+        M::up(include_str!("sql/v010_player_morale_core.sql")),
+        // V11: Player footedness identity fields
+        M::up(include_str!("sql/v011_player_footedness.sql")),
+        // V12: Fixture competition metadata
+        M::up(include_str!("sql/v012_fixture_competition.sql")),
+        // V13: Player long-term fitness value
+        M::up(include_str!("sql/v013_player_fitness.sql")),
+        // V14: Explicit football identity fields for teams and people
+        M::up(include_str!("sql/v014_football_identity.sql")),
+        // V15: Historical player and team match stats
+        M::up(include_str!("sql/v015_match_stats_history.sql")),
     ])
 }
 
@@ -57,7 +75,15 @@ mod tests {
         assert!(tables.contains(&"managers".to_string()), "missing managers");
         assert!(tables.contains(&"teams".to_string()), "missing teams");
         assert!(tables.contains(&"players".to_string()), "missing players");
+        assert!(
+            tables.contains(&"player_match_stats".to_string()),
+            "missing player_match_stats"
+        );
         assert!(tables.contains(&"staff".to_string()), "missing staff");
+        assert!(
+            tables.contains(&"team_match_stats".to_string()),
+            "missing team_match_stats"
+        );
         assert!(tables.contains(&"league".to_string()), "missing league");
         assert!(tables.contains(&"fixtures".to_string()), "missing fixtures");
         assert!(

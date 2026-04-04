@@ -277,6 +277,44 @@ describe("resolveMessage", () => {
     expect(result.sender_role).toBe("Staff");
   });
 
+  it("localizes legacy delegated renewal messages without persisted i18n keys", async () => {
+    const previousLanguage = i18n.language;
+    await i18n.changeLanguage("pt-BR");
+
+    try {
+      const msg = makeMessage({
+        id: "delegated_renewals_2026-07-01_0",
+        subject: "Assistant Report — Contract Renewals",
+        body:
+          "Boss, I went through our renewal list at Lisbon Sporting. 4 completed, 2 still pending, 1 failed.\n\nCompleted: Claes agreed to 1 year(s) on €5000/wk.\nStill difficult: Vieira — Their camp want around €25000/wk for 3 years, which is beyond the delegation limits.\nFailed: Fernandes — You told me not to reopen contract talks yet.",
+        sender: "Assistant Manager",
+        sender_role: "Assistant Manager",
+      });
+
+      const result = resolveMessage(msg);
+
+      expect(result.subject).toBe(
+        "Relatório do assistente — Renovações contratuais",
+      );
+      expect(result.sender).toBe("Auxiliar Técnico");
+      expect(result.sender_role).toBe("Auxiliar Técnico");
+      expect(result.body).toContain(
+        "Chefe, revisei nossa lista de renovações no Lisbon Sporting. 4 concluídas, 2 ainda pendentes e 1 falhas.",
+      );
+      expect(result.body).toContain(
+        "Concluída: Claes aceitou 1 ano(s) por €5000/semana.",
+      );
+      expect(result.body).toContain(
+        "Continua difícil: Vieira — O estafe deles quer cerca de €25000/semana por 3 anos, acima dos limites da delegação.",
+      );
+      expect(result.body).toContain(
+        "Falhou: Fernandes — Você me disse para ainda não reabrir as conversas contratuais.",
+      );
+    } finally {
+      await i18n.changeLanguage(previousLanguage);
+    }
+  });
+
   it("preserves non-translatable fields", () => {
     const msg = makeMessage({ id: "msg_99", read: true, category: "transfer" });
     const result = resolveMessage(msg);
@@ -314,6 +352,25 @@ describe("resolveNewsArticle", () => {
     expect(result.headline).toBe("Big News");
     expect(result.body).toBe("Details here");
     expect(result.source).toBe("Press");
+  });
+
+  it("localizes legacy weekly digest headlines that still carry an English weekLabel param", async () => {
+    const previousLanguage = i18n.language;
+    await i18n.changeLanguage("pt-BR");
+
+    try {
+      const article = makeNewsArticle({
+        headline: "Weekly Digest — Week of 2026-07-27",
+        headline_key: "be.news.weeklyDigest.headline",
+        i18n_params: { weekLabel: "Week of 2026-07-27" },
+      });
+
+      const result = resolveNewsArticle(article);
+
+      expect(result.headline).toBe("Resumo Semanal — Semana de 2026-07-27");
+    } finally {
+      await i18n.changeLanguage(previousLanguage);
+    }
   });
 
   it("preserves non-translatable fields", () => {

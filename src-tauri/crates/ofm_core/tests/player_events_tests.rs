@@ -1,8 +1,13 @@
 use chrono::{TimeZone, Utc};
-use domain::league::{Fixture, FixtureStatus, GoalEvent, League, MatchResult, StandingEntry};
+use domain::league::{
+    Fixture, FixtureCompetition, FixtureStatus, GoalEvent, League, MatchResult, StandingEntry,
+};
 use domain::manager::Manager;
 use domain::message::{ActionOption, ActionType, MessageAction, MessageContext};
-use domain::player::{Player, PlayerAttributes, Position};
+use domain::player::{
+    Player, PlayerAttributes, PlayerIssue, PlayerIssueCategory, PlayerMoraleCore, PlayerPromise,
+    PlayerPromiseKind, Position, RenewalSessionOutcome, RenewalSessionStatus,
+};
 use domain::team::Team;
 use ofm_core::clock::GameClock;
 use ofm_core::game::Game;
@@ -268,6 +273,7 @@ fn bench_complaint_after_5_missed_matches() {
             date: format!("2025-06-{:02}", 10 + i),
             home_team_id: "team1".to_string(),
             away_team_id: "team2".to_string(),
+            competition: FixtureCompetition::League,
             status: FixtureStatus::Completed,
             result: Some(MatchResult {
                 home_goals: 1,
@@ -277,6 +283,7 @@ fn bench_complaint_after_5_missed_matches() {
                     minute: 45,
                 }],
                 away_scorers: vec![],
+                report: None,
             }),
         })
         .collect();
@@ -324,12 +331,14 @@ fn bench_complaint_not_for_gk() {
             date: format!("2025-06-{:02}", 10 + i),
             home_team_id: "team1".to_string(),
             away_team_id: "team2".to_string(),
+            competition: FixtureCompetition::League,
             status: FixtureStatus::Completed,
             result: Some(MatchResult {
                 home_goals: 0,
                 away_goals: 0,
                 home_scorers: vec![],
                 away_scorers: vec![],
+                report: None,
             }),
         })
         .collect();
@@ -366,12 +375,14 @@ fn bench_complaint_not_with_fewer_than_5_fixtures() {
             date: format!("2025-06-{:02}", 10 + i),
             home_team_id: "team1".to_string(),
             away_team_id: "team2".to_string(),
+            competition: FixtureCompetition::League,
             status: FixtureStatus::Completed,
             result: Some(MatchResult {
                 home_goals: 0,
                 away_goals: 0,
                 home_scorers: vec![],
                 away_scorers: vec![],
+                report: None,
             }),
         })
         .collect();
@@ -437,35 +448,181 @@ fn happy_player_message_with_high_morale() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn contract_concern_within_90_days() {
-    let mut game = make_game();
-    // Set contract end 60 days from now
-    let end_date = (game.clock.current_date + chrono::Duration::days(60))
+fn contract_warning_cadence_changes_by_horizon() {
+    let mut twelve_month_game = make_game();
+    let twelve_month_end = (twelve_month_game.clock.current_date + chrono::Duration::days(330))
         .format("%Y-%m-%d")
         .to_string();
-    game.players
+    twelve_month_game
+        .players
         .iter_mut()
         .find(|p| p.id == "p_fwd0")
         .unwrap()
-        .contract_end = Some(end_date);
+        .contract_end = Some(twelve_month_end);
 
-    player_events::check_player_events(&mut game);
+    player_events::check_player_events(&mut twelve_month_game);
 
-    let contract_msgs: Vec<_> = game
-        .messages
-        .iter()
-        .filter(|m| m.id == "contract_concern_p_fwd0")
-        .collect();
     assert!(
-        !contract_msgs.is_empty(),
-        "Should generate contract concern for player with <90 days remaining"
+        twelve_month_game
+            .messages
+            .iter()
+            .any(|m| m.id == "contract_concern_p_fwd0_12m"),
+        "Should generate a 12-month contract warning"
+    );
+
+    let mut six_month_game = make_game();
+    let six_month_end = (six_month_game.clock.current_date + chrono::Duration::days(150))
+        .format("%Y-%m-%d")
+        .to_string();
+    six_month_game
+        .players
+        .iter_mut()
+        .find(|p| p.id == "p_fwd0")
+        .unwrap()
+        .contract_end = Some(six_month_end);
+
+    player_events::check_player_events(&mut six_month_game);
+
+    assert!(
+        six_month_game
+            .messages
+            .iter()
+            .any(|m| m.id == "contract_concern_p_fwd0_6m"),
+        "Should generate a 6-month contract warning"
+    );
+
+    let mut three_month_game = make_game();
+    let three_month_end = (three_month_game.clock.current_date + chrono::Duration::days(60))
+        .format("%Y-%m-%d")
+        .to_string();
+    three_month_game
+        .players
+        .iter_mut()
+        .find(|p| p.id == "p_fwd0")
+        .unwrap()
+        .contract_end = Some(three_month_end);
+
+    player_events::check_player_events(&mut three_month_game);
+
+    assert!(
+        three_month_game
+            .messages
+            .iter()
+            .any(|m| m.id == "contract_concern_p_fwd0_3m"),
+        "Should generate a 3-month contract warning"
+    );
+
+    let mut final_weeks_game = make_game();
+    let final_weeks_end = (final_weeks_game.clock.current_date + chrono::Duration::days(20))
+        .format("%Y-%m-%d")
+        .to_string();
+    final_weeks_game
+        .players
+        .iter_mut()
+        .find(|p| p.id == "p_fwd0")
+        .unwrap()
+        .contract_end = Some(final_weeks_end);
+
+    player_events::check_player_events(&mut final_weeks_game);
+
+    assert!(
+        final_weeks_game
+            .messages
+            .iter()
+            .any(|m| m.id == "contract_concern_p_fwd0_final"),
+        "Should generate a final-weeks contract warning"
     );
 }
 
 #[test]
-fn no_contract_concern_beyond_90_days() {
+fn contract_pressure_intensifies_as_expiry_approaches() {
+    let mut twelve_month_game = make_game();
+    let mut final_weeks_game = make_game();
+
+    let twelve_month_player = twelve_month_game
+        .players
+        .iter_mut()
+        .find(|p| p.id == "p_fwd0")
+        .unwrap();
+    twelve_month_player.morale = 80;
+    twelve_month_player.contract_end = Some(
+        (twelve_month_game.clock.current_date + chrono::Duration::days(330))
+            .format("%Y-%m-%d")
+            .to_string(),
+    );
+
+    let final_weeks_player = final_weeks_game
+        .players
+        .iter_mut()
+        .find(|p| p.id == "p_fwd0")
+        .unwrap();
+    final_weeks_player.morale = 80;
+    final_weeks_player.contract_end = Some(
+        (final_weeks_game.clock.current_date + chrono::Duration::days(20))
+            .format("%Y-%m-%d")
+            .to_string(),
+    );
+
+    player_events::check_player_events(&mut twelve_month_game);
+    player_events::check_player_events(&mut final_weeks_game);
+
+    let twelve_month_morale = twelve_month_game
+        .players
+        .iter()
+        .find(|p| p.id == "p_fwd0")
+        .unwrap()
+        .morale;
+    let final_weeks_morale = final_weeks_game
+        .players
+        .iter()
+        .find(|p| p.id == "p_fwd0")
+        .unwrap()
+        .morale;
+
+    assert!(
+        twelve_month_morale < 80,
+        "Even the early warning window should apply some morale pressure"
+    );
+    assert!(
+        final_weeks_morale < twelve_month_morale,
+        "Morale pressure should intensify as expiry gets closer"
+    );
+}
+
+#[test]
+fn seeding_first_day_contract_concerns_adds_messages_without_extra_morale_pressure() {
     let mut game = make_game();
-    let end_date = (game.clock.current_date + chrono::Duration::days(120))
+    let player = game.players.iter_mut().find(|p| p.id == "p_fwd0").unwrap();
+    player.morale = 80;
+    player.contract_end = Some(
+        (game.clock.current_date + chrono::Duration::days(20))
+            .format("%Y-%m-%d")
+            .to_string(),
+    );
+
+    player_events::generate_contract_concern_messages(&mut game, false);
+
+    assert!(
+        game.messages
+            .iter()
+            .any(|message| message.id == "contract_concern_p_fwd0_final"),
+        "First-day contract concern should be seeded immediately"
+    );
+    assert_eq!(
+        game.players
+            .iter()
+            .find(|p| p.id == "p_fwd0")
+            .unwrap()
+            .morale,
+        80,
+        "Seeding the first-day inbox should not apply the daily morale penalty twice"
+    );
+}
+
+#[test]
+fn no_contract_concern_beyond_twelve_months() {
+    let mut game = make_game();
+    let end_date = (game.clock.current_date + chrono::Duration::days(420))
         .format("%Y-%m-%d")
         .to_string();
     game.players
@@ -479,11 +636,11 @@ fn no_contract_concern_beyond_90_days() {
     let contract_msgs: Vec<_> = game
         .messages
         .iter()
-        .filter(|m| m.id == "contract_concern_p_fwd0")
+        .filter(|m| m.id.starts_with("contract_concern_p_fwd0"))
         .collect();
     assert!(
         contract_msgs.is_empty(),
-        "No contract concern when >90 days remaining"
+        "No contract concern when more than 12 months remain"
     );
 }
 
@@ -574,8 +731,8 @@ fn morale_talk_promise_time_big_boost() {
     }
     let avg_delta = total_delta as f64 / runs as f64;
     assert!(
-        avg_delta >= 10.0,
-        "Promise time should give big boost (10-16), avg: {:.1}",
+        avg_delta >= 8.0,
+        "Promise time should generally remain a strong positive option, avg: {:.1}",
         avg_delta
     );
 }
@@ -627,6 +784,241 @@ fn morale_talk_unknown_option_returns_none() {
         "nonexistent",
     );
     assert!(result.is_none());
+}
+
+#[test]
+fn unresolved_issue_can_cap_visible_morale_growth() {
+    let mut game = make_game();
+    let player = game.players.iter_mut().find(|p| p.id == "p_fwd0").unwrap();
+    player.morale = 70;
+    player.morale_core = PlayerMoraleCore {
+        manager_trust: 50,
+        unresolved_issue: Some(PlayerIssue {
+            category: PlayerIssueCategory::Contract,
+            severity: 80,
+        }),
+        recent_treatment: None,
+        pending_promise: None,
+        talk_cooldown_until: None,
+        renewal_state: None,
+    };
+    inject_player_message(&mut game, "morale_talk_p_fwd0", "p_fwd0", "respond");
+
+    player_events::apply_player_response(
+        &mut game,
+        "morale_talk_p_fwd0",
+        "respond",
+        "promise_time",
+    );
+
+    let player = game.players.iter().find(|p| p.id == "p_fwd0").unwrap();
+    assert!(player.morale <= 70);
+}
+
+#[test]
+fn trust_changes_even_when_visible_morale_is_capped() {
+    let mut game = make_game();
+    let player = game.players.iter_mut().find(|p| p.id == "p_fwd0").unwrap();
+    player.morale = 70;
+    player.morale_core = PlayerMoraleCore {
+        manager_trust: 50,
+        unresolved_issue: Some(PlayerIssue {
+            category: PlayerIssueCategory::Contract,
+            severity: 80,
+        }),
+        recent_treatment: None,
+        pending_promise: None,
+        talk_cooldown_until: None,
+        renewal_state: None,
+    };
+    inject_player_message(&mut game, "morale_talk_p_fwd0", "p_fwd0", "respond");
+
+    player_events::apply_player_response(
+        &mut game,
+        "morale_talk_p_fwd0",
+        "respond",
+        "promise_time",
+    );
+
+    let player = game.players.iter().find(|p| p.id == "p_fwd0").unwrap();
+    assert!(player.morale <= 70);
+    assert!(player.morale_core.manager_trust > 50);
+}
+
+#[test]
+fn repeated_treatment_becomes_less_effective_over_time() {
+    let mut game = make_game();
+    let player = game.players.iter_mut().find(|p| p.id == "p_fwd0").unwrap();
+    player.morale = 20;
+    inject_player_message(&mut game, "morale_talk_p_fwd0", "p_fwd0", "respond");
+
+    player_events::apply_player_response(
+        &mut game,
+        "morale_talk_p_fwd0",
+        "respond",
+        "promise_time",
+    );
+    let after_first = game
+        .players
+        .iter()
+        .find(|p| p.id == "p_fwd0")
+        .unwrap()
+        .morale_core
+        .clone();
+
+    player_events::apply_player_response(
+        &mut game,
+        "morale_talk_p_fwd0",
+        "respond",
+        "promise_time",
+    );
+    let player = game.players.iter().find(|p| p.id == "p_fwd0").unwrap();
+
+    assert!(player.morale_core.recent_treatment.is_some());
+    assert_eq!(
+        player
+            .morale_core
+            .recent_treatment
+            .as_ref()
+            .unwrap()
+            .times_recently_used,
+        2
+    );
+    assert!(player.morale_core.manager_trust - after_first.manager_trust < 6);
+}
+
+#[test]
+fn promise_time_records_a_playing_time_promise() {
+    let mut game = make_game();
+    inject_player_message(&mut game, "morale_talk_p_fwd0", "p_fwd0", "respond");
+
+    player_events::apply_player_response(
+        &mut game,
+        "morale_talk_p_fwd0",
+        "respond",
+        "promise_time",
+    );
+
+    let player = game.players.iter().find(|p| p.id == "p_fwd0").unwrap();
+    assert_eq!(
+        player.morale_core.pending_promise,
+        Some(PlayerPromise {
+            kind: PlayerPromiseKind::PlayingTime,
+            matches_remaining: 1,
+        })
+    );
+}
+
+#[test]
+fn recent_player_talk_enters_cooldown_and_blocks_same_day_repeat() {
+    let mut game = make_game();
+    let player = game.players.iter_mut().find(|p| p.id == "p_fwd0").unwrap();
+    player.morale = 20;
+    inject_player_message(&mut game, "morale_talk_p_fwd0", "p_fwd0", "respond");
+
+    player_events::apply_player_response(&mut game, "morale_talk_p_fwd0", "respond", "encourage");
+
+    let player = game.players.iter().find(|p| p.id == "p_fwd0").unwrap();
+    assert!(player.morale_core.talk_cooldown_until.is_some());
+
+    game.messages.clear();
+    for _ in 0..50 {
+        player_events::check_player_events(&mut game);
+    }
+
+    assert!(
+        game.messages
+            .iter()
+            .all(|message| message.id != "morale_talk_p_fwd0"),
+        "cooldown should block immediate repeat morale talks"
+    );
+}
+
+#[test]
+fn weighted_response_bias_changes_with_player_context() {
+    let mut volatile = make_player("volatile", "Volatile", "team1", Position::Forward);
+    volatile.attributes.aggression = 95;
+    volatile.attributes.composure = 20;
+    volatile.attributes.leadership = 20;
+    volatile.morale_core.manager_trust = 30;
+
+    let mut composed = make_player("composed", "Composed", "team1", Position::Forward);
+    composed.attributes.aggression = 20;
+    composed.attributes.composure = 95;
+    composed.attributes.leadership = 95;
+    composed.morale_core.manager_trust = 75;
+
+    let volatile_weights = player_events::build_response_band_weights(
+        &volatile,
+        "morale_talk_volatile",
+        "work_harder",
+    );
+    let composed_weights = player_events::build_response_band_weights(
+        &composed,
+        "morale_talk_composed",
+        "work_harder",
+    );
+
+    let volatile_negative = volatile_weights.strong_negative + volatile_weights.mild_negative;
+    let volatile_positive = volatile_weights.strong_positive + volatile_weights.mild_positive;
+    let composed_negative = composed_weights.strong_negative + composed_weights.mild_negative;
+    let composed_positive = composed_weights.strong_positive + composed_weights.mild_positive;
+
+    assert!(volatile_negative > volatile_positive);
+    assert!(composed_positive > composed_negative);
+}
+
+#[test]
+fn repeated_identical_talk_reduces_positive_weight() {
+    let fresh = make_player("fresh", "Fresh", "team1", Position::Forward);
+
+    let mut repeated = make_player("repeated", "Repeated", "team1", Position::Forward);
+    repeated.morale_core.recent_treatment = Some(domain::player::RecentTreatmentMemory {
+        action_key: "morale_talk:encourage".to_string(),
+        times_recently_used: 2,
+    });
+
+    let fresh_weights =
+        player_events::build_response_band_weights(&fresh, "morale_talk_fresh", "encourage");
+    let repeated_weights =
+        player_events::build_response_band_weights(&repeated, "morale_talk_repeated", "encourage");
+
+    let fresh_positive = fresh_weights.strong_positive + fresh_weights.mild_positive;
+    let repeated_positive = repeated_weights.strong_positive + repeated_weights.mild_positive;
+
+    assert!(repeated_positive < fresh_positive);
+}
+
+#[test]
+fn deterministic_weighted_band_selection_uses_roll_boundaries() {
+    let weights = player_events::ResponseBandWeights {
+        strong_positive: 2,
+        mild_positive: 3,
+        neutral: 2,
+        mild_negative: 1,
+        strong_negative: 2,
+    };
+
+    assert_eq!(
+        player_events::pick_response_band(&weights, 0),
+        player_events::ResponseOutcomeBand::StrongPositive
+    );
+    assert_eq!(
+        player_events::pick_response_band(&weights, 2),
+        player_events::ResponseOutcomeBand::MildPositive
+    );
+    assert_eq!(
+        player_events::pick_response_band(&weights, 5),
+        player_events::ResponseOutcomeBand::Neutral
+    );
+    assert_eq!(
+        player_events::pick_response_band(&weights, 7),
+        player_events::ResponseOutcomeBand::MildNegative
+    );
+    assert_eq!(
+        player_events::pick_response_band(&weights, 8),
+        player_events::ResponseOutcomeBand::StrongNegative
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -838,6 +1230,31 @@ fn contract_reassure_boosts_morale() {
 }
 
 #[test]
+fn contract_reassure_marks_player_open_to_renewal() {
+    let mut game = make_game();
+    inject_player_message(&mut game, "contract_concern_p_fwd0", "p_fwd0", "respond");
+
+    player_events::apply_player_response(
+        &mut game,
+        "contract_concern_p_fwd0",
+        "respond",
+        "reassure",
+    );
+
+    let player = game.players.iter().find(|p| p.id == "p_fwd0").unwrap();
+    let renewal_state = player
+        .morale_core
+        .renewal_state
+        .as_ref()
+        .expect("renewal state should exist");
+    assert_eq!(renewal_state.status, RenewalSessionStatus::Open);
+    assert_eq!(
+        renewal_state.last_outcome,
+        Some(RenewalSessionOutcome::Stalled)
+    );
+}
+
+#[test]
 fn contract_noncommittal_generally_negative() {
     let mut game = make_game();
     game.players
@@ -891,6 +1308,38 @@ fn contract_no_renewal_tanks_morale() {
         p.morale < 65,
         "No renewal should tank morale, got {}",
         p.morale
+    );
+}
+
+#[test]
+fn contract_no_renewal_blocks_future_renewal_talks() {
+    let mut game = make_game();
+    let expected_blocked_until = (game.clock.current_date + chrono::Duration::days(60))
+        .format("%Y-%m-%d")
+        .to_string();
+    inject_player_message(&mut game, "contract_concern_p_fwd0", "p_fwd0", "respond");
+
+    player_events::apply_player_response(
+        &mut game,
+        "contract_concern_p_fwd0",
+        "respond",
+        "no_renewal",
+    );
+
+    let player = game.players.iter().find(|p| p.id == "p_fwd0").unwrap();
+    let renewal_state = player
+        .morale_core
+        .renewal_state
+        .as_ref()
+        .expect("renewal state should exist");
+    assert_eq!(renewal_state.status, RenewalSessionStatus::Blocked);
+    assert_eq!(
+        renewal_state.last_outcome,
+        Some(RenewalSessionOutcome::BlockedByManager)
+    );
+    assert_eq!(
+        renewal_state.manager_blocked_until.as_deref(),
+        Some(expected_blocked_until.as_str())
     );
 }
 

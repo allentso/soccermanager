@@ -1,5 +1,6 @@
 use super::format_money;
 use crate::game::Game;
+use domain::team::{Sponsorship, SponsorshipBonusCriterion};
 use rand::Rng;
 
 /// Apply the effect of a sponsor offer choice.
@@ -13,7 +14,6 @@ pub fn apply_event_response(
         let user_team_id = game.manager.team_id.clone()?;
         match option_id {
             "accept" => {
-                // Extract amount from message body (stored in i18n_params)
                 let amount = game
                     .messages
                     .iter()
@@ -21,9 +21,23 @@ pub fn apply_event_response(
                     .and_then(|m| m.i18n_params.get("amount"))
                     .and_then(|a| a.parse::<u64>().ok())
                     .unwrap_or(100_000);
+                let sponsor_name = game
+                    .messages
+                    .iter()
+                    .find(|m| m.id == message_id)
+                    .and_then(|m| m.i18n_params.get("sponsor"))
+                    .cloned()
+                    .unwrap_or_else(|| "Sponsor".to_string());
                 if let Some(team) = game.teams.iter_mut().find(|t| t.id == user_team_id) {
-                    team.finance += amount as i64;
-                    team.season_income += amount as i64;
+                    team.sponsorship = Some(Sponsorship {
+                        sponsor_name,
+                        base_value: amount as i64,
+                        remaining_weeks: 12,
+                        bonus_criteria: vec![SponsorshipBonusCriterion::UnbeatenRun {
+                            required_matches: 3,
+                            bonus_amount: amount as i64 / 4,
+                        }],
+                    });
                 }
                 // Mark resolved
                 if let Some(msg) = game.messages.iter_mut().find(|m| m.id == message_id) {
@@ -31,7 +45,10 @@ pub fn apply_event_response(
                         a.resolved = true;
                     }
                 }
-                Some(format!("Sponsorship accepted! +€{}", format_money(amount)))
+                Some(format!(
+                    "Sponsorship deal signed! You will receive €{}/week for 12 weeks.",
+                    format_money(amount)
+                ))
             }
             "decline" => {
                 if let Some(msg) = game.messages.iter_mut().find(|m| m.id == message_id) {

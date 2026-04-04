@@ -1,8 +1,15 @@
 import { describe, it, expect } from "vitest";
-import { getPlayerName, phaseLabel, calcOvr, getEventDisplay } from "./helpers";
+import {
+  getPlayerName,
+  phaseLabel,
+  calcOvr,
+  getEventDisplay,
+  resolveMatchFixture,
+} from "./helpers";
 import i18n from "../../i18n";
 import { getTeamTalkOptions } from "./types";
 import type { MatchSnapshot, EnginePlayerData, EngineTeamData } from "./types";
+import type { GameStateData } from "../../store/gameStore";
 
 // ---------------------------------------------------------------------------
 // Minimal fixtures
@@ -87,6 +94,41 @@ describe("getPlayerName", () => {
 
   it("returns the id when player not found", () => {
     expect(getPlayerName(snapshot, "unknown_id")).toBe("unknown_id");
+  });
+});
+
+describe("resolveMatchFixture", () => {
+  const gameState = {
+    league: {
+      id: "league-1",
+      name: "League",
+      season: 1,
+      fixtures: [
+        {
+          id: "fixture-1",
+          matchday: 3,
+          date: "2026-08-01",
+          home_team_id: "home1",
+          away_team_id: "away1",
+          competition: "League",
+          status: "Scheduled",
+          result: null,
+        },
+      ],
+      standings: [],
+    },
+  } as unknown as GameStateData;
+
+  it("resolves the fixture by index when available", () => {
+    expect(resolveMatchFixture(gameState, makeSnapshot(), 0)?.id).toBe("fixture-1");
+  });
+
+  it("falls back to matching the snapshot teams", () => {
+    expect(resolveMatchFixture(gameState, makeSnapshot())?.id).toBe("fixture-1");
+  });
+
+  it("returns null when no league fixtures are available", () => {
+    expect(resolveMatchFixture({ league: null } as unknown as GameStateData, makeSnapshot())).toBeNull();
   });
 });
 

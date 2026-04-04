@@ -9,13 +9,23 @@ pub struct League {
     pub standings: Vec<StandingEntry>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+pub enum FixtureCompetition {
+    #[default]
+    League,
+    Friendly,
+    PreseasonTournament,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct Fixture {
     pub id: String,
     pub matchday: u32,
     pub date: String, // ISO 8601 date
     pub home_team_id: String,
     pub away_team_id: String,
+    pub competition: FixtureCompetition,
     pub status: FixtureStatus,
     pub result: Option<MatchResult>,
 }
@@ -33,12 +43,42 @@ pub struct MatchResult {
     pub away_goals: u8,
     pub home_scorers: Vec<GoalEvent>,
     pub away_scorers: Vec<GoalEvent>,
+    #[serde(default)]
+    pub report: Option<CompactMatchReport>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GoalEvent {
     pub player_id: String,
     pub minute: u8,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct CompactMatchReport {
+    pub total_minutes: u8,
+    pub home_stats: CompactTeamMatchStats,
+    pub away_stats: CompactTeamMatchStats,
+    pub events: Vec<CompactMatchEvent>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct CompactTeamMatchStats {
+    pub possession_pct: u8,
+    pub shots: u16,
+    pub shots_on_target: u16,
+    pub fouls: u16,
+    pub corners: u16,
+    pub yellow_cards: u8,
+    pub red_cards: u8,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct CompactMatchEvent {
+    pub minute: u8,
+    pub event_type: String,
+    pub side: String,
+    pub player_id: Option<String>,
+    pub secondary_player_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -87,6 +127,12 @@ impl StandingEntry {
     }
 }
 
+impl Fixture {
+    pub fn counts_for_league_standings(&self) -> bool {
+        matches!(self.competition, FixtureCompetition::League)
+    }
+}
+
 impl League {
     pub fn new(id: String, name: String, season: u32, team_ids: &[String]) -> Self {
         let standings = team_ids
@@ -113,5 +159,20 @@ impl League {
                 .then(b.goals_for.cmp(&a.goals_for))
         });
         sorted
+    }
+}
+
+impl Default for Fixture {
+    fn default() -> Self {
+        Self {
+            id: String::new(),
+            matchday: 0,
+            date: String::new(),
+            home_team_id: String::new(),
+            away_team_id: String::new(),
+            competition: FixtureCompetition::League,
+            status: FixtureStatus::Scheduled,
+            result: None,
+        }
     }
 }

@@ -217,6 +217,10 @@ mod tests {
         let (first, last) = pick_name_from_def("ES", &names_def, &mut rng);
         assert!(!first.is_empty());
         assert!(!last.is_empty());
+        // Football identity falls back to GB pool if a dedicated pool does not exist yet.
+        let (eng_first, eng_last) = pick_name_from_def("ENG", &names_def, &mut rng);
+        assert!(!eng_first.is_empty());
+        assert!(!eng_last.is_empty());
         // Unknown code falls back to any pool
         let (first2, last2) = pick_name_from_def("ZZ", &names_def, &mut rng);
         assert!(!first2.is_empty());
@@ -230,28 +234,28 @@ mod tests {
             .iter()
             .map(|p| p.nationality.to_string())
             .collect();
-        let mut gb_count = 0;
+        let mut eng_count = 0;
         for _ in 0..100 {
             let nat = pick_nationality_from_def("England", &codes, &mut rng);
-            if nat == "GB" {
-                gb_count += 1;
+            if nat == "ENG" {
+                eng_count += 1;
             }
         }
         assert!(
-            gb_count > 30,
-            "GB players should be weighted: got {}/100",
-            gb_count
+            eng_count > 30,
+            "ENG players should be weighted: got {}/100",
+            eng_count
         );
     }
 
     #[test]
-    fn test_all_nationalities_are_iso_alpha2() {
+    fn test_all_nationalities_use_short_uppercase_codes() {
         let (_, players, staff) = generate_world(None);
         for p in &players {
             assert_eq!(
-                p.nationality.len(),
-                2,
-                "Player {} has non-ISO nationality: {}",
+                p.nationality.len() == 2 || p.nationality.len() == 3,
+                true,
+                "Player {} has invalid nationality code: {}",
                 p.full_name,
                 p.nationality
             );
@@ -264,9 +268,9 @@ mod tests {
         }
         for s in &staff {
             assert_eq!(
-                s.nationality.len(),
-                2,
-                "Staff {} has non-ISO nationality: {}",
+                s.nationality.len() == 2 || s.nationality.len() == 3,
+                true,
+                "Staff {} has invalid nationality code: {}",
                 s.first_name,
                 s.nationality
             );
@@ -299,5 +303,25 @@ mod tests {
         let json2 = serde_json::to_string(&teams_def).unwrap();
         let parsed2: TeamsDefinition = serde_json::from_str(&json2).unwrap();
         assert_eq!(parsed2.teams.len(), teams_def.teams.len());
+    }
+
+    #[test]
+    fn test_default_names_include_british_home_nation_pools() {
+        let names_def = default_names_definition();
+
+        for code in ["ENG", "SCO", "WAL", "NIR", "IE", "GB"] {
+            let pool = names_def
+                .pools
+                .get(code)
+                .unwrap_or_else(|| panic!("missing pool {code}"));
+            assert!(
+                !pool.first_names.is_empty(),
+                "pool {code} should have first names"
+            );
+            assert!(
+                !pool.last_names.is_empty(),
+                "pool {code} should have last names"
+            );
+        }
     }
 }

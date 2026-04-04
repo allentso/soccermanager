@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 import { MatchSnapshot, EnginePlayerData } from "./types";
 import { Badge } from "../ui";
 import { ArrowUpDown, AlertTriangle, Wand2 } from "lucide-react";
-import { translatePositionAbbreviation } from "../SquadTab.helpers";
+import { translatePositionAbbreviation } from "../squad/SquadTab.helpers";
 
 export const POSITION_KEY_STATS: Record<
   string,
@@ -39,7 +39,7 @@ export function getPositionOvr(p: EnginePlayerData): number {
           p.aerial +
           p.positioning +
           p.composure) /
-          7,
+        7,
       );
     case "Defender":
       return Math.round(
@@ -48,7 +48,7 @@ export function getPositionOvr(p: EnginePlayerData): number {
           p.strength +
           p.positioning +
           p.aerial) /
-          7,
+        7,
       );
     case "Midfielder":
       return Math.round(
@@ -58,7 +58,7 @@ export function getPositionOvr(p: EnginePlayerData): number {
           p.stamina +
           p.dribbling +
           p.teamwork) /
-          7,
+        7,
       );
     case "Forward":
       return Math.round(
@@ -68,7 +68,7 @@ export function getPositionOvr(p: EnginePlayerData): number {
           p.composure +
           p.strength +
           p.positioning) /
-          7,
+        7,
       );
     default:
       return 50;
@@ -150,9 +150,9 @@ export default function PreMatchLineup({
   return (
     <div className="flex flex-col gap-4">
       {/* Formation Balance Bar + Auto-Select */}
-      <div className="bg-navy-800 rounded-xl border border-navy-700 p-3 flex items-center justify-between">
+      <div className="bg-white dark:bg-navy-800 rounded-xl border border-gray-200 dark:border-navy-700 shadow-sm p-3 flex items-center justify-between transition-colors duration-300">
         <div className="flex items-center gap-4">
-          <span className="text-[10px] font-heading uppercase tracking-widest text-gray-600">
+          <span className="text-[10px] font-heading uppercase tracking-widest text-gray-700 dark:text-gray-500">
             {t("match.formationFit")}
           </span>
           {(["Goalkeeper", "Defender", "Midfielder", "Forward"] as const).map(
@@ -164,15 +164,15 @@ export default function PreMatchLineup({
               const ok = actual === needed;
               return (
                 <div key={pos} className="flex items-center gap-1">
-                  <span className="text-[10px] font-heading uppercase tracking-widest text-gray-500">
+                    <span className="text-[10px] font-heading uppercase tracking-widest text-gray-600 dark:text-gray-400">
                     {translatePositionAbbreviation(t, pos)}
                   </span>
                   <span
-                    className={`text-sm font-heading font-bold tabular-nums ${ok ? "text-primary-400" : "text-amber-400"}`}
+                    className={`text-sm font-heading font-bold tabular-nums ${ok ? "text-primary-700 dark:text-primary-400" : "text-amber-600 dark:text-amber-400"}`}
                   >
                     {actual}/{needed}
                   </span>
-                  {!ok && <AlertTriangle className="w-3 h-3 text-amber-400" />}
+                  {!ok && <AlertTriangle className="w-3 h-3 text-amber-600 dark:text-amber-400" />}
                 </div>
               );
             },
@@ -183,9 +183,9 @@ export default function PreMatchLineup({
           disabled={isAutoSelecting}
           className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-heading font-bold uppercase tracking-wider transition-all ${
             isAutoSelecting
-              ? "bg-navy-700 text-gray-500 cursor-wait"
-              : "bg-accent-500/20 text-accent-400 hover:bg-accent-500/30 hover:text-accent-300"
-          }`}
+                ? "bg-gray-200 dark:bg-navy-700 text-gray-600 dark:text-gray-400 cursor-wait"
+              : "bg-accent-100 text-accent-700 hover:bg-accent-200 dark:bg-accent-500/20 dark:text-accent-300 dark:hover:bg-accent-500/30"
+           }`}
         >
           <Wand2 className="w-3.5 h-3.5" />
           {isAutoSelecting ? t("match.selecting") : t("match.autoSelectXI")}
@@ -194,16 +194,16 @@ export default function PreMatchLineup({
 
       <div className="grid grid-cols-2 gap-4">
         {/* Starting XI */}
-        <div className="bg-navy-800 rounded-xl border border-navy-700 p-4">
+        <div className="bg-white dark:bg-navy-800 rounded-xl border border-gray-200 dark:border-navy-700 shadow-sm p-4 transition-colors duration-300">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500">
+            <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">
               {t("match.startingXI")}
             </h3>
             <div className="flex items-center gap-2">
               {selectedStarterId && (
                 <button
                   onClick={() => onSelectStarter(null)}
-                  className="text-[10px] text-gray-500 hover:text-gray-300 font-heading uppercase tracking-wider"
+                    className="text-[10px] text-gray-500 hover:text-gray-800 dark:hover:text-gray-300 font-heading uppercase tracking-wider"
                 >
                   {t("match.cancel")}
                 </button>
@@ -229,7 +229,7 @@ export default function PreMatchLineup({
                 <div className="flex items-center justify-between mb-1">
                   <div className="flex items-center gap-1.5">
                     <p className="text-[10px] font-heading uppercase tracking-widest text-gray-600">
-                      {pos}s
+                      {t(`common.positionGroups.${pos}`)}
                     </p>
                     {!balanced && (
                       <span className="flex items-center gap-0.5">
@@ -242,7 +242,7 @@ export default function PreMatchLineup({
                   </div>
                   {/* Stat column headers */}
                   <div className="flex items-center gap-0">
-                    <span className="text-[8px] font-heading uppercase tracking-widest text-gray-600 w-7 text-center">
+                      <span className="text-[8px] font-heading uppercase tracking-widest text-gray-600 dark:text-gray-500 w-7 text-center">
                       OVR
                     </span>
                     {keyStats.map((s) => (
@@ -265,10 +265,9 @@ export default function PreMatchLineup({
                     <button
                       key={p.id}
                       onClick={() => onSelectStarter(isSelected ? null : p.id)}
-                      className={`flex items-center gap-2 py-1.5 px-2 rounded w-full text-left transition-all ${
-                        isSelected
+                      className={`flex items-center gap-2 py-1.5 px-2 rounded w-full text-left transition-all ${isSelected
                           ? "bg-primary-500/20 ring-1 ring-primary-500/50"
-                          : "hover:bg-navy-700/50"
+                            : "hover:bg-gray-100 dark:hover:bg-navy-700/50"
                       }`}
                     >
                       <div
@@ -280,7 +279,7 @@ export default function PreMatchLineup({
                       >
                         {posOvr}
                       </div>
-                      <span className="text-sm text-gray-200 font-medium flex-1 truncate">
+                      <span className="text-sm text-gray-800 dark:text-gray-200 font-medium flex-1 truncate">
                         {p.name}
                       </span>
                       {isSelected && (
@@ -315,9 +314,9 @@ export default function PreMatchLineup({
         </div>
 
         {/* Bench */}
-        <div className="bg-navy-800 rounded-xl border border-navy-700 p-4">
+        <div className="bg-white dark:bg-navy-800 rounded-xl border border-gray-200 dark:border-navy-700 shadow-sm p-4 transition-colors duration-300">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500">
+            <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">
               {t("match.substitutes")}
             </h3>
             <Badge variant="neutral" size="sm">
@@ -325,7 +324,7 @@ export default function PreMatchLineup({
             </Badge>
           </div>
           {userBench.length === 0 ? (
-            <p className="text-xs text-gray-600">
+            <p className="text-xs text-gray-600 dark:text-gray-500">
               {t("match.noBenchAvailable2")}
             </p>
           ) : (
@@ -334,7 +333,7 @@ export default function PreMatchLineup({
               <div className="flex items-center gap-2 px-2 pb-1">
                 <span className="w-7" />
                 <span className="flex-1" />
-                <span className="text-[8px] font-heading uppercase tracking-widest text-gray-600 w-8 text-center">
+                 <span className="text-[8px] font-heading uppercase tracking-widest text-gray-600 dark:text-gray-500 w-8 text-center">
                   POS
                 </span>
                 <span className="text-[8px] font-heading uppercase tracking-widest text-gray-600 w-[84px] text-center">
@@ -351,16 +350,15 @@ export default function PreMatchLineup({
                   <button
                     key={bp.id}
                     onClick={() => (selectedStarterId ? onSwap(bp.id) : null)}
-                    className={`flex items-center gap-2 py-1.5 px-2 rounded w-full text-left transition-all ${
-                      selectedStarterId
+                    className={`flex items-center gap-2 py-1.5 px-2 rounded w-full text-left transition-all ${selectedStarterId
                         ? "hover:bg-primary-500/20 hover:ring-1 hover:ring-primary-500/50 cursor-pointer"
-                        : "hover:bg-navy-700/50"
+                     : "hover:bg-gray-100 dark:hover:bg-navy-700/50"
                     }`}
                   >
-                    <div className="w-7 h-7 rounded-full bg-navy-600 flex items-center justify-center text-[10px] font-heading font-bold text-gray-400 flex-shrink-0">
+                    <div className="w-7 h-7 rounded-full bg-gray-200 dark:bg-navy-600 flex items-center justify-center text-[10px] font-heading font-bold text-gray-500 dark:text-gray-400 flex-shrink-0 transition-colors duration-300">
                       {posOvr}
                     </div>
-                    <span className="text-sm text-gray-300 font-medium flex-1 truncate">
+                    <span className="text-sm text-gray-700 dark:text-gray-300 font-medium flex-1 truncate">
                       {bp.name}
                     </span>
                     <Badge variant="neutral" size="sm">
@@ -388,8 +386,8 @@ export default function PreMatchLineup({
           )}
 
           {/* Opponent Info */}
-          <div className="mt-6 pt-4 border-t border-navy-700">
-            <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500 mb-3">
+          <div className="mt-6 pt-4 border-t border-gray-200 dark:border-navy-700">
+            <h3 className="text-xs font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 mb-3">
               {t("match.opponent")}
             </h3>
             <div className="flex items-center gap-3 mb-2">
@@ -404,11 +402,11 @@ export default function PreMatchLineup({
                 {oppTeam.name.substring(0, 3).toUpperCase()}
               </div>
               <div>
-                <p className="font-heading font-bold text-sm text-gray-200">
+                <p className="font-heading font-bold text-sm text-gray-800 dark:text-gray-200">
                   {oppTeam.name}
                 </p>
-                <p className="text-xs text-gray-500">
-                  {oppTeam.formation} · {oppTeam.play_style}
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {oppTeam.formation} · {t(`tactics.playStyles.${oppTeam.play_style}`, oppTeam.play_style)}
                 </p>
               </div>
             </div>

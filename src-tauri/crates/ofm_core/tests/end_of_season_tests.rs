@@ -1,8 +1,10 @@
 use chrono::{TimeZone, Utc};
-use domain::league::{Fixture, FixtureStatus, League, MatchResult, StandingEntry};
+use domain::league::{
+    Fixture, FixtureCompetition, FixtureStatus, League, MatchResult, StandingEntry,
+};
 use domain::manager::Manager;
 use domain::player::{Player, PlayerAttributes, PlayerSeasonStats, Position};
-use domain::team::Team;
+use domain::team::{FinancialTransactionKind, Team};
 use ofm_core::clock::GameClock;
 use ofm_core::end_of_season::{is_season_complete, process_end_of_season};
 use ofm_core::game::{BoardObjective, Game, ObjectiveType};
@@ -67,12 +69,14 @@ fn make_completed_fixture(id: &str, home: &str, away: &str, hg: u8, ag: u8) -> F
         date: "2025-06-01".to_string(),
         home_team_id: home.to_string(),
         away_team_id: away.to_string(),
+        competition: FixtureCompetition::League,
         status: FixtureStatus::Completed,
         result: Some(MatchResult {
             home_goals: hg,
             away_goals: ag,
             home_scorers: vec![],
             away_scorers: vec![],
+            report: None,
         }),
     }
 }
@@ -124,6 +128,7 @@ fn make_completed_season_game() -> Game {
         minutes_played: 2700,
         yellow_cards: 3,
         red_cards: 0,
+        ..PlayerSeasonStats::default()
     };
 
     let mut p2 = make_player("p2", "Rival", "team2", Position::Forward);
@@ -136,6 +141,7 @@ fn make_completed_season_game() -> Game {
         minutes_played: 2500,
         yellow_cards: 1,
         red_cards: 0,
+        ..PlayerSeasonStats::default()
     };
 
     let fixtures = vec![
@@ -181,17 +187,12 @@ fn season_complete_when_all_fixtures_completed() {
 
 #[test]
 fn season_not_complete_with_scheduled_fixtures() {
+    // One of the two league fixtures is still Scheduled.
+    // has_full_schedule returns true (2 == 2), but .all(Completed) returns false.
     let mut game = make_completed_season_game();
     if let Some(league) = &mut game.league {
-        league.fixtures.push(Fixture {
-            id: "f3".to_string(),
-            matchday: 2,
-            date: "2026-06-01".to_string(),
-            home_team_id: "team1".to_string(),
-            away_team_id: "team2".to_string(),
-            status: FixtureStatus::Scheduled,
-            result: None,
-        });
+        league.fixtures[1].status = FixtureStatus::Scheduled;
+        league.fixtures[1].result = None;
     }
     assert!(!is_season_complete(&game));
 }
@@ -210,6 +211,61 @@ fn season_not_complete_with_empty_fixtures() {
         league.fixtures.clear();
     }
     assert!(!is_season_complete(&game));
+}
+
+#[test]
+fn season_not_complete_with_truncated_completed_fixture_list() {
+    let mut game = make_completed_season_game();
+    game.teams.push(make_team("team3", "Third FC"));
+    game.teams.push(make_team("team4", "Fourth FC"));
+
+    if let Some(league) = &mut game.league {
+        league.standings = vec![
+            make_standing("team1", 1, 0, 0, 2, 0),
+            make_standing("team4", 1, 0, 0, 1, 0),
+            make_standing("team3", 0, 0, 1, 0, 1),
+            make_standing("team2", 0, 0, 1, 0, 2),
+        ];
+        league.fixtures = vec![
+            Fixture {
+                id: "f1".to_string(),
+                matchday: 1,
+                date: "2026-08-01".to_string(),
+                home_team_id: "team1".to_string(),
+                away_team_id: "team2".to_string(),
+                competition: FixtureCompetition::League,
+                status: FixtureStatus::Completed,
+                result: Some(MatchResult {
+                    home_goals: 2,
+                    away_goals: 0,
+                    home_scorers: vec![],
+                    away_scorers: vec![],
+                    report: None,
+                }),
+            },
+            Fixture {
+                id: "f2".to_string(),
+                matchday: 1,
+                date: "2026-08-01".to_string(),
+                home_team_id: "team3".to_string(),
+                away_team_id: "team4".to_string(),
+                competition: FixtureCompetition::League,
+                status: FixtureStatus::Completed,
+                result: Some(MatchResult {
+                    home_goals: 0,
+                    away_goals: 1,
+                    home_scorers: vec![],
+                    away_scorers: vec![],
+                    report: None,
+                }),
+            },
+        ];
+    }
+
+    assert!(
+        !is_season_complete(&game),
+        "A truncated fixture list must not count as a completed season"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -479,12 +535,128 @@ fn news_cleared() {
     ));
 
     process_end_of_season(&mut game);
-    assert!(game.news.is_empty(), "News should be cleared");
+    assert_eq!(
+        game.news.len(),
+        1,
+        "Old news should be replaced by the new season preview"
+    );
+    assert_ne!(game.news[0].id, "n1");
+    assert_eq!(
+        game.news[0].category,
+        domain::news::NewsCategory::SeasonPreview
+    );
 }
 
 // ---------------------------------------------------------------------------
 // process_end_of_season — messages
 // ---------------------------------------------------------------------------
+
+#[test]
+fn champion_receives_prize_money_and_ledger_entry() {
+    let mut game = make_completed_season_game();
+    let initial_finance = game
+        .teams
+        .iter()
+        .find(|team| team.id == "team1")
+        .unwrap()
+        .finance;
+
+    process_end_of_season(&mut game);
+
+    let team1 = game.teams.iter().find(|team| team.id == "team1").unwrap();
+    assert_eq!(team1.finance, initial_finance + 5_000_000);
+    assert_eq!(team1.season_income, 5_000_000);
+    assert_eq!(team1.financial_ledger.len(), 1);
+    assert_eq!(
+        team1.financial_ledger[0].kind,
+        FinancialTransactionKind::PrizeMoney
+    );
+    assert_eq!(team1.financial_ledger[0].amount, 5_000_000);
+}
+
+#[test]
+fn top_half_finish_receives_expected_prize_money() {
+    let mut game = make_completed_season_game();
+    game.teams.push(make_team("team3", "Third FC"));
+    game.teams.push(make_team("team4", "Fourth FC"));
+
+    if let Some(league) = &mut game.league {
+        league.standings = vec![
+            make_standing("team2", 6, 0, 0, 12, 2),
+            make_standing("team1", 4, 0, 2, 8, 5),
+            make_standing("team3", 2, 0, 4, 4, 8),
+            make_standing("team4", 0, 0, 6, 2, 12),
+        ];
+    }
+
+    let initial_finance = game
+        .teams
+        .iter()
+        .find(|team| team.id == "team1")
+        .unwrap()
+        .finance;
+
+    process_end_of_season(&mut game);
+
+    let team1 = game.teams.iter().find(|team| team.id == "team1").unwrap();
+    assert_eq!(team1.finance, initial_finance + 3_000_000);
+}
+
+#[test]
+fn lower_table_finish_receives_expected_prize_money() {
+    let mut game = make_completed_season_game();
+
+    for i in 3..=10 {
+        let team_id = format!("team{}", i);
+        game.teams
+            .push(make_team(&team_id, &format!("Team{} FC", i)));
+    }
+
+    if let Some(league) = &mut game.league {
+        let mut standings = Vec::new();
+
+        for i in 2..=10 {
+            standings.push(make_standing(&format!("team{}", i), 10, 2, 6, 20, 15));
+        }
+
+        standings.push(make_standing("team1", 0, 0, 18, 2, 40));
+        league.standings = standings;
+    }
+
+    let initial_finance = game
+        .teams
+        .iter()
+        .find(|team| team.id == "team1")
+        .unwrap()
+        .finance;
+
+    process_end_of_season(&mut game);
+
+    let team1 = game.teams.iter().find(|team| team.id == "team1").unwrap();
+    assert_eq!(team1.finance, initial_finance + 150_000);
+}
+
+#[test]
+fn prize_money_message_sent_once_per_season() {
+    let mut game = make_completed_season_game();
+    game.messages.push(domain::message::InboxMessage::new(
+        "season_payout_1".to_string(),
+        "Already exists".to_string(),
+        "...".to_string(),
+        "Board".to_string(),
+        "2026-05-20".to_string(),
+    ));
+
+    process_end_of_season(&mut game);
+
+    let payout_messages = game
+        .messages
+        .iter()
+        .filter(|message| message.id == "season_payout_1")
+        .count();
+
+    assert_eq!(payout_messages, 1);
+}
 
 #[test]
 fn season_end_message_sent() {
@@ -662,4 +834,211 @@ fn satisfaction_adjusted_after_season() {
     process_end_of_season(&mut game);
     // With no objectives, evaluate_objectives returns 0, so satisfaction unchanged
     assert_eq!(game.manager.satisfaction, initial_sat);
+}
+
+// ---------------------------------------------------------------------------
+// is_season_complete — season not started guard
+// ---------------------------------------------------------------------------
+
+#[test]
+fn season_not_complete_when_no_matches_played() {
+    // Full schedule exists but all fixtures are still Scheduled (preseason state).
+    // is_season_complete must return false — we must not trigger end-of-season
+    // processing before the campaign has even begun.
+    let mut game = make_completed_season_game();
+    if let Some(league) = &mut game.league {
+        for fixture in &mut league.fixtures {
+            fixture.status = FixtureStatus::Scheduled;
+            fixture.result = None;
+        }
+        for standing in &mut league.standings {
+            *standing = StandingEntry::new(standing.team_id.clone());
+        }
+    }
+    assert!(
+        !is_season_complete(&game),
+        "Season with no matches played must not be considered complete"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// process_end_of_season — message dates
+// ---------------------------------------------------------------------------
+
+#[test]
+fn season_end_messages_dated_on_last_fixture_date() {
+    // make_completed_season_game() sets the clock to 2026-05-20 but both league
+    // fixtures are dated 2025-06-01 (see make_completed_fixture).
+    // End-of-season messages must be dated on the last completed fixture date
+    // (2025-06-01), not on the clock date (2026-05-20).
+    let mut game = make_completed_season_game();
+    process_end_of_season(&mut game);
+
+    let board_msg = game
+        .messages
+        .iter()
+        .find(|m| m.id == "season_end_1")
+        .expect("season_end_1 message must be present");
+    assert_eq!(
+        board_msg.date, "2025-06-01",
+        "Board review must be dated on the last fixture date, not the clock date"
+    );
+
+    let payout_msg = game
+        .messages
+        .iter()
+        .find(|m| m.id == "season_payout_1")
+        .expect("season_payout_1 message must be present");
+    assert_eq!(
+        payout_msg.date, "2025-06-01",
+        "Prize money message must be dated on the last fixture date"
+    );
+
+    let schedule_msg = game
+        .messages
+        .iter()
+        .find(|m| m.id == "new_season_2")
+        .expect("new_season_2 message must be present");
+    assert_eq!(
+        schedule_msg.date, "2025-06-01",
+        "New season schedule message must be dated on the last fixture date"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// process_end_of_season — i18n on end-of-season messages
+// ---------------------------------------------------------------------------
+
+#[test]
+fn season_end_board_message_has_i18n_keys() {
+    let mut game = make_completed_season_game();
+    process_end_of_season(&mut game);
+
+    let msg = game
+        .messages
+        .iter()
+        .find(|m| m.id == "season_end_1")
+        .expect("season_end_1 message must be present");
+
+    assert_eq!(
+        msg.subject_key.as_deref(),
+        Some("be.msg.seasonReview.subject"),
+        "Board review subject must have i18n key"
+    );
+    assert!(
+        msg.body_key.is_some(),
+        "Board review body must have an i18n key"
+    );
+    assert!(
+        msg.body_key
+            .as_deref()
+            .unwrap_or("")
+            .starts_with("be.msg.seasonReview.body."),
+        "Board review body key must be under be.msg.seasonReview.body, got: {:?}",
+        msg.body_key
+    );
+    assert!(
+        msg.i18n_params.contains_key("season"),
+        "Board review i18n params must contain 'season'"
+    );
+    assert!(
+        msg.i18n_params.contains_key("team"),
+        "Board review i18n params must contain 'team'"
+    );
+    assert!(
+        msg.i18n_params.contains_key("points"),
+        "Board review i18n params must contain 'points'"
+    );
+}
+
+#[test]
+fn season_end_board_message_has_sender_i18n() {
+    let mut game = make_completed_season_game();
+    process_end_of_season(&mut game);
+
+    let msg = game
+        .messages
+        .iter()
+        .find(|m| m.id == "season_end_1")
+        .expect("season_end_1 message must be present");
+
+    assert_eq!(
+        msg.sender_key.as_deref(),
+        Some("be.sender.boardOfDirectors"),
+        "Board review sender must have i18n key"
+    );
+    assert_eq!(
+        msg.sender_role_key.as_deref(),
+        Some("be.role.chairman"),
+        "Board review sender role must have i18n key"
+    );
+}
+
+#[test]
+fn season_end_new_schedule_message_has_i18n_keys() {
+    let mut game = make_completed_season_game();
+    process_end_of_season(&mut game);
+
+    let msg = game
+        .messages
+        .iter()
+        .find(|m| m.id == "new_season_2")
+        .expect("new_season_2 message must be present");
+
+    assert_eq!(
+        msg.subject_key.as_deref(),
+        Some("be.msg.newSeasonSchedule.subject"),
+        "New season schedule subject must have i18n key"
+    );
+    assert_eq!(
+        msg.body_key.as_deref(),
+        Some("be.msg.newSeasonSchedule.body"),
+        "New season schedule body must have i18n key"
+    );
+    assert_eq!(
+        msg.sender_key.as_deref(),
+        Some("be.sender.leagueOffice"),
+        "New season schedule sender must have i18n key"
+    );
+    assert_eq!(
+        msg.sender_role_key.as_deref(),
+        Some("be.role.competitionSecretary"),
+        "New season schedule sender role must have i18n key"
+    );
+    assert!(
+        msg.i18n_params.contains_key("season"),
+        "New season schedule i18n params must contain 'season'"
+    );
+}
+
+#[test]
+fn season_end_board_message_top_four_uses_correct_body_key() {
+    let mut game = make_completed_season_game();
+    // Make team1 finish 2nd (top-4 branch)
+    if let Some(league) = &mut game.league {
+        league.standings = vec![
+            make_standing("team2", 2, 0, 0, 3, 1),
+            make_standing("team1", 0, 0, 2, 1, 3),
+        ];
+    }
+    process_end_of_season(&mut game);
+
+    let msg = game
+        .messages
+        .iter()
+        .find(|m| m.id == "season_end_1")
+        .unwrap();
+    assert_eq!(
+        msg.body_key.as_deref(),
+        Some("be.msg.seasonReview.body.topFour"),
+        "2nd-place finish should use topFour body key"
+    );
+    assert!(
+        msg.i18n_params.contains_key("position"),
+        "topFour key must include position param"
+    );
+    assert!(
+        msg.i18n_params.contains_key("suffix"),
+        "topFour key must include suffix param"
+    );
 }

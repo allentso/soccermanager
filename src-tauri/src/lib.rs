@@ -1,3 +1,4 @@
+mod application;
 mod commands;
 use commands::*;
 
@@ -91,6 +92,10 @@ pub fn run() {
             get_active_game,
             advance_time,
             advance_time_with_mode,
+            upgrade_facility,
+            propose_renewal,
+            delegate_renewals,
+            preview_renewal_financial_impact,
             set_formation,
             set_starting_xi,
             set_play_style,
@@ -111,13 +116,19 @@ pub fn run() {
             toggle_transfer_list,
             toggle_loan_list,
             make_transfer_bid,
+            preview_transfer_bid_financial_impact,
             respond_to_offer,
+            counter_offer,
             send_scout,
             check_season_complete,
             advance_to_next_season,
             get_season_awards,
             resolve_message_action,
             start_live_match,
+            get_player_match_history,
+            get_player_stats_overview,
+            get_team_match_history,
+            get_team_stats_overview,
             step_live_match,
             apply_match_command,
             get_match_snapshot,

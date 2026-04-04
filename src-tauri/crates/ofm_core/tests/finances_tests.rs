@@ -1,9 +1,11 @@
 use chrono::{TimeZone, Utc};
-use domain::league::{Fixture, FixtureStatus, League, MatchResult, StandingEntry};
+use domain::league::{
+    Fixture, FixtureCompetition, FixtureStatus, League, MatchResult, StandingEntry,
+};
 use domain::manager::Manager;
 use domain::player::{Player, PlayerAttributes, Position};
 use domain::staff::{Staff, StaffAttributes, StaffRole};
-use domain::team::Team;
+use domain::team::{Sponsorship, SponsorshipBonusCriterion, Team};
 use ofm_core::clock::GameClock;
 use ofm_core::finances;
 use ofm_core::game::Game;
@@ -111,6 +113,118 @@ fn make_monday_game() -> Game {
 // ---------------------------------------------------------------------------
 
 #[test]
+fn calc_wages_sums_player_and_staff_wages_for_a_team() {
+    let game = make_monday_game();
+
+    let weekly_wages = finances::calc_wages(&game, "team1");
+
+    assert_eq!(weekly_wages, 1_700);
+}
+
+#[test]
+fn calc_annual_wages_sums_full_contract_values_for_a_team() {
+    let game = make_monday_game();
+
+    let annual_wages = finances::calc_annual_wages(&game, "team1");
+
+    assert_eq!(annual_wages, 88_400);
+}
+
+#[test]
+fn calc_cash_runway_weeks_uses_projected_weekly_net() {
+    assert_eq!(finances::calc_cash_runway_weeks(180_000, -30_000), Some(6));
+    assert_eq!(finances::calc_cash_runway_weeks(180_000, 5_000), None);
+}
+
+#[test]
+fn calc_matchday_uses_explicit_attendance_and_ticket_inputs() {
+    let revenue = finances::calc_matchday(40_000, 2, 0.75, 20.0);
+
+    assert_eq!(revenue, 1_200_000);
+}
+
+#[test]
+fn calc_upkeep_defaults_to_zero_for_now() {
+    let game = make_monday_game();
+
+    let upkeep = finances::calc_upkeep(&game.teams[0]);
+
+    assert_eq!(upkeep, 0);
+}
+
+#[test]
+fn evaluate_sponsorship_bonus_sums_met_criteria_for_team_context() {
+    let sponsorship = Sponsorship {
+        sponsor_name: "Acme Corp".to_string(),
+        base_value: 100_000,
+        remaining_weeks: 8,
+        bonus_criteria: vec![
+            SponsorshipBonusCriterion::LeaguePosition {
+                max_position: 2,
+                bonus_amount: 50_000,
+            },
+            SponsorshipBonusCriterion::UnbeatenRun {
+                required_matches: 3,
+                bonus_amount: 25_000,
+            },
+        ],
+    };
+
+    let bonus = finances::evaluate_sponsorship_bonus(
+        Some(1),
+        &["W".to_string(), "D".to_string(), "W".to_string()],
+        &sponsorship,
+    );
+
+    assert_eq!(bonus, 75_000);
+}
+
+#[test]
+fn weekly_sponsorship_payout_is_applied_and_duration_decrements_on_monday() {
+    let mut game = make_monday_game();
+    let initial_finance = game.teams[0].finance;
+    game.teams[0].form = vec!["W".to_string(), "D".to_string(), "W".to_string()];
+    game.teams[0].sponsorship = Some(Sponsorship {
+        sponsor_name: "Acme Corp".to_string(),
+        base_value: 100_000,
+        remaining_weeks: 2,
+        bonus_criteria: vec![SponsorshipBonusCriterion::UnbeatenRun {
+            required_matches: 3,
+            bonus_amount: 25_000,
+        }],
+    });
+
+    finances::process_weekly_finances(&mut game);
+
+    let wages = (52_000 + 26_000 + 10_400) / 52;
+    let expected_sponsor_income = 125_000;
+    assert_eq!(
+        game.teams[0].finance,
+        initial_finance - wages + expected_sponsor_income
+    );
+    assert_eq!(game.teams[0].season_income, expected_sponsor_income);
+    assert_eq!(
+        game.teams[0].sponsorship.as_ref().unwrap().remaining_weeks,
+        1
+    );
+}
+
+#[test]
+fn sponsorship_expires_after_the_final_weekly_tick() {
+    let mut game = make_monday_game();
+    game.teams[0].sponsorship = Some(Sponsorship {
+        sponsor_name: "Acme Corp".to_string(),
+        base_value: 100_000,
+        remaining_weeks: 1,
+        bonus_criteria: vec![],
+    });
+
+    finances::process_weekly_finances(&mut game);
+
+    assert!(game.teams[0].sponsorship.is_none());
+}
+
+#[test]
 fn wages_deducted_on_monday() {
     let mut game = make_monday_game();
     let initial_finance = game.teams[0].finance;
@@ -216,6 +330,30 @@ fn warning_when_low_runway() {
 }
 
 #[test]
+fn sponsorship_income_prevents_false_low_runway_warning() {
+    let mut game = make_monday_game();
+    game.teams[0].finance = 3_400;
+    game.teams[0].sponsorship = Some(Sponsorship {
+        sponsor_name: "Acme Corp".to_string(),
+        base_value: 2_000,
+        remaining_weeks: 8,
+        bonus_criteria: vec![],
+    });
+
+    finances::process_weekly_finances(&mut game);
+
+    let warning_msgs: Vec<_> = game
+        .messages
+        .iter()
+        .filter(|m| m.id.starts_with("finance_warning_"))
+        .collect();
+    assert!(
+        warning_msgs.is_empty(),
+        "Positive sponsorship support should avoid a false runway warning"
+    );
+}
+
+#[test]
 fn wage_over_budget_warning() {
     let mut game = make_monday_game();
     game.teams[0].finance = 5_000_000; // healthy
@@ -295,12 +433,14 @@ fn home_match_generates_income() {
             date: "2025-06-14".to_string(), // Saturday, within 7 days of Monday 2025-06-16
             home_team_id: "team1".to_string(),
             away_team_id: "team2".to_string(),
+            competition: FixtureCompetition::League,
             status: FixtureStatus::Completed,
             result: Some(MatchResult {
                 home_goals: 2,
                 away_goals: 1,
                 home_scorers: vec![],
                 away_scorers: vec![],
+                report: None,
             }),
         }],
         standings: vec![StandingEntry::new("team1".to_string())],
@@ -339,12 +479,14 @@ fn away_match_no_income() {
             date: "2025-06-14".to_string(),
             home_team_id: "team2".to_string(), // team1 is away
             away_team_id: "team1".to_string(),
+            competition: FixtureCompetition::League,
             status: FixtureStatus::Completed,
             result: Some(MatchResult {
                 home_goals: 0,
                 away_goals: 1,
                 home_scorers: vec![],
                 away_scorers: vec![],
+                report: None,
             }),
         }],
         standings: vec![StandingEntry::new("team1".to_string())],

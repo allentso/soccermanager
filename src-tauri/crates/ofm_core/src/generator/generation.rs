@@ -12,7 +12,7 @@ use super::definitions::NamesDefinition;
 
 /// Compute a sensible alternate position based on primary position and attributes.
 fn compute_alternate_position(primary: &Position, attrs: &PlayerAttributes) -> Option<Position> {
-    match primary {
+    match primary.to_group_position() {
         Position::Goalkeeper => None,
         Position::Defender => {
             // Defenders with good passing/vision → Midfielder
@@ -42,6 +42,7 @@ fn compute_alternate_position(primary: &Position, attrs: &PlayerAttributes) -> O
                 None
             }
         }
+        _ => None,
     }
 }
 
@@ -68,14 +69,22 @@ pub(super) fn pick_name_from_def(
     names_def: &NamesDefinition,
     rng: &mut impl rand::RngCore,
 ) -> (String, String) {
-    if let Some(pool) = names_def.pools.get(nationality)
-        && !pool.first_names.is_empty()
-        && !pool.last_names.is_empty()
-    {
-        let first = pool.first_names[rng.gen_range(0..pool.first_names.len())].clone();
-        let last = pool.last_names[rng.gen_range(0..pool.last_names.len())].clone();
-        return (first, last);
+    let candidate_codes = match nationality {
+        "ENG" | "SCO" | "WAL" | "NIR" => vec![nationality, "GB"],
+        _ => vec![nationality],
+    };
+
+    for candidate in candidate_codes {
+        if let Some(pool) = names_def.pools.get(candidate)
+            && !pool.first_names.is_empty()
+            && !pool.last_names.is_empty()
+        {
+            let first = pool.first_names[rng.gen_range(0..pool.first_names.len())].clone();
+            let last = pool.last_names[rng.gen_range(0..pool.last_names.len())].clone();
+            return (first, last);
+        }
     }
+
     // Fallback: pick from any available pool
     let keys: Vec<&String> = names_def.pools.keys().collect();
     if let Some(key) = keys.first() {
@@ -89,7 +98,12 @@ pub(super) fn pick_name_from_def(
 
 pub(super) fn country_to_iso(country: &str) -> &str {
     match country {
-        "England" | "GB" => "GB",
+        "England" | "ENG" => "ENG",
+        "Scotland" | "SCO" => "SCO",
+        "Wales" | "WAL" => "WAL",
+        "Northern Ireland" | "NIR" => "NIR",
+        "Ireland" | "Republic of Ireland" | "IE" => "IE",
+        "GB" => "GB",
         "Spain" | "ES" => "ES",
         "Germany" | "DE" => "DE",
         "France" | "FR" => "FR",
@@ -102,8 +116,12 @@ pub(super) fn country_to_iso(country: &str) -> &str {
         "Croatia" | "HR" => "HR",
         "Sweden" | "SE" => "SE",
         other => {
-            // If already 2-letter code, return as-is
-            if other.len() == 2 { other } else { "GB" }
+            // If already a short code, return as-is.
+            if other.len() == 2 || other.len() == 3 {
+                other
+            } else {
+                "ENG"
+            }
         }
     }
 }
@@ -150,9 +168,10 @@ pub(super) fn generate_random_player_from_def(
     let birth_day = rng.gen_range(1..29);
     let dob = format!("{:04}-{:02}-{:02}", birth_year, birth_month, birth_day);
 
-    let is_gk = matches!(position, Position::Goalkeeper);
-    let is_def = matches!(position, Position::Defender);
-    let is_fwd = matches!(position, Position::Forward);
+    let group = position.to_group_position();
+    let is_gk = matches!(group, Position::Goalkeeper);
+    let is_def = matches!(group, Position::Defender);
+    let is_fwd = matches!(group, Position::Forward);
 
     let attributes = PlayerAttributes {
         pace: rng.gen_range(40..95),

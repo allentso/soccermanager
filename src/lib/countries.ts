@@ -1,10 +1,11 @@
 /**
  * Country / nationality utilities powered by i18n-iso-countries.
  *
- * All nationalities are stored as ISO 3166-1 alpha-2 codes (e.g. "GB", "ES").
- * This module resolves codes → localised names and flag emoji.
+ * The app still accepts ISO alpha-2 codes for most countries, but also supports
+ * football-specific identities where the sport diverges from ISO country data.
  */
 import countries from "i18n-iso-countries";
+import { hasFlag } from "country-flag-icons";
 import enLocale from "i18n-iso-countries/langs/en.json";
 import esLocale from "i18n-iso-countries/langs/es.json";
 import ptLocale from "i18n-iso-countries/langs/pt.json";
@@ -20,55 +21,118 @@ countries.registerLocale(frLocale);
 countries.registerLocale(deLocale);
 countries.registerLocale(itLocale);
 
-/**
- * Convert an ISO alpha-2 code to a flag emoji.
- * Works well on macOS/Linux/Android/iOS.
- * On Windows, renders as two-letter regional indicator pair (still identifiable).
- */
-export function countryFlag(alpha2: string): string {
-  if (!alpha2 || alpha2.length !== 2) return "";
-  const code = alpha2.toUpperCase();
-  return String.fromCodePoint(
-    ...[...code].map((c) => 0x1f1e6 + c.charCodeAt(0) - 65)
-  );
+type SupportedLocale = "en" | "es" | "pt" | "fr" | "de" | "it";
+
+interface FootballIdentityDefinition {
+  code: string;
+  names: Record<SupportedLocale, string>;
+  aliases: string[];
+  flagCode?: string;
+  selectable?: boolean;
 }
 
-type NavigatorWithUserAgentData = Navigator & {
-  userAgentData?: {
-    platform?: string;
-  };
+const FOOTBALL_IDENTITIES: Record<string, FootballIdentityDefinition> = {
+  ENG: {
+    code: "ENG",
+    names: {
+      en: "England",
+      es: "Inglaterra",
+      pt: "Inglaterra",
+      fr: "Angleterre",
+      de: "England",
+      it: "Inghilterra",
+    },
+    aliases: ["english", "england"],
+    selectable: true,
+  },
+  SCO: {
+    code: "SCO",
+    names: {
+      en: "Scotland",
+      es: "Escocia",
+      pt: "Escócia",
+      fr: "Écosse",
+      de: "Schottland",
+      it: "Scozia",
+    },
+    aliases: ["scottish", "scotland"],
+    selectable: true,
+  },
+  WAL: {
+    code: "WAL",
+    names: {
+      en: "Wales",
+      es: "Gales",
+      pt: "País de Gales",
+      fr: "Pays de Galles",
+      de: "Wales",
+      it: "Galles",
+    },
+    aliases: ["welsh", "wales"],
+    selectable: true,
+  },
+  NIR: {
+    code: "NIR",
+    names: {
+      en: "Northern Ireland",
+      es: "Irlanda del Norte",
+      pt: "Irlanda do Norte",
+      fr: "Irlande du Nord",
+      de: "Nordirland",
+      it: "Irlanda del Nord",
+    },
+    aliases: ["northern irish", "northern ireland"],
+    selectable: true,
+  },
+  IE: {
+    code: "IE",
+    names: {
+      en: "Republic of Ireland",
+      es: "República de Irlanda",
+      pt: "República da Irlanda",
+      fr: "République d'Irlande",
+      de: "Republik Irland",
+      it: "Repubblica d'Irlanda",
+    },
+    aliases: ["irish", "republic of ireland", "ireland"],
+    flagCode: "IE",
+    selectable: true,
+  },
 };
 
-function getPlatformName(): string {
-  if (typeof navigator === "undefined") {
-    return "";
-  }
-
-  const navigatorWithUserAgentData = navigator as NavigatorWithUserAgentData;
-
-  return navigatorWithUserAgentData.userAgentData?.platform ?? navigator.platform ?? navigator.userAgent ?? "";
-}
-
-/**
- * Determine whether to use a country code badge instead of a flag emoji.
- * Windows doesn't support flag emojis well, so we use a country code badge instead.
- */
-export function shouldUseCountryCodeBadge(platform = getPlatformName()): boolean {
-  return /win/i.test(platform);
-}
-
-export function countryMarker(alpha2: string, platform = getPlatformName()): string {
-  if (!alpha2 || alpha2.length !== 2) return "";
-
-  return shouldUseCountryCodeBadge(platform)
-    ? alpha2.toUpperCase()
-    : countryFlag(alpha2);
-}
+const ALIAS_TO_CODE = Object.values(FOOTBALL_IDENTITIES).reduce<Record<string, string>>(
+  (map, identity) => {
+    for (const alias of identity.aliases) {
+      map[alias] = identity.code;
+    }
+    return map;
+  },
+  {
+    british: "GB",
+    uk: "GB",
+    "united kingdom": "GB",
+    "great britain": "GB",
+  },
+);
 
 function getBaseLocale(locale: string): string {
   if (!locale) return "en";
   // Convert 'pt-BR' to 'pt'
   return locale.split('-')[0].toLowerCase();
+}
+
+function getFootballIdentity(code: string): FootballIdentityDefinition | undefined {
+  return FOOTBALL_IDENTITIES[code.toUpperCase()];
+}
+
+function getFootballIdentityName(code: string, locale: string): string | null {
+  const identity = getFootballIdentity(code);
+  if (!identity) {
+    return null;
+  }
+
+  const baseLocale = getBaseLocale(locale) as SupportedLocale;
+  return identity.names[baseLocale] ?? identity.names.en;
 }
 
 /**
@@ -77,11 +141,18 @@ function getBaseLocale(locale: string): string {
  */
 export function countryName(alpha2: string, locale = "en"): string {
   if (!alpha2) return "";
+  const normalisedCode = normaliseNationality(alpha2).toUpperCase();
+  const footballIdentityName = getFootballIdentityName(normalisedCode, locale);
+
+  if (footballIdentityName) {
+    return footballIdentityName;
+  }
+
   const baseLocale = getBaseLocale(locale);
-  const name = countries.getName(alpha2.toUpperCase(), baseLocale);
+  const name = countries.getName(normalisedCode, baseLocale);
   if (name) return name;
   // Fallback to English
-  return countries.getName(alpha2.toUpperCase(), "en") ?? alpha2;
+  return countries.getName(normalisedCode, "en") ?? alpha2;
 }
 
 /**
@@ -105,11 +176,62 @@ export function allCountries(locale = "en"): { code: string; name: string }[] {
 }
 
 /**
+ * Get selectable nationalities for football-facing UI.
+ * This excludes legacy GB while surfacing the UK football nations explicitly.
+ */
+export function allNationalities(locale = "en"): { code: string; name: string }[] {
+  const footballCodes = new Set(
+    Object.values(FOOTBALL_IDENTITIES)
+      .filter((identity) => identity.selectable)
+      .map((identity) => identity.code),
+  );
+
+  const isoNationalities = allCountries(locale)
+    .filter(({ code }) => code !== "GB" && !footballCodes.has(code))
+    .map(({ code }) => ({ code, name: countryName(code, locale) }));
+
+  const footballNationalities = Object.values(FOOTBALL_IDENTITIES)
+    .filter((identity) => identity.selectable)
+    .map((identity) => ({
+      code: identity.code,
+      name: countryName(identity.code, locale),
+    }));
+
+  return [...footballNationalities, ...isoNationalities]
+    .sort((a, b) => a.name.localeCompare(b.name, getBaseLocale(locale)));
+}
+
+/**
  * Validate that a string is a valid ISO alpha-2 country code.
  */
 export function isValidCountryCode(code: string): boolean {
-  if (!code || code.length !== 2) return false;
-  return countries.isValid(code.toUpperCase());
+  if (!code) return false;
+
+  const upper = code.toUpperCase();
+  if (getFootballIdentity(upper)) {
+    return true;
+  }
+
+  if (upper.length !== 2) return false;
+  return countries.isValid(upper);
+}
+
+/**
+ * Resolve a nationality value to a valid ISO alpha-2 code that has an SVG flag asset.
+ */
+export function resolveCountryFlagCode(value: string): string | null {
+  const normalisedCode = normaliseNationality(value).toUpperCase();
+
+  const footballIdentity = getFootballIdentity(normalisedCode);
+  if (footballIdentity?.flagCode) {
+    return footballIdentity.flagCode;
+  }
+
+  if (!isValidCountryCode(normalisedCode)) {
+    return null;
+  }
+
+  return hasFlag(normalisedCode) ? normalisedCode : null;
 }
 
 /**
@@ -117,10 +239,12 @@ export function isValidCountryCode(code: string): boolean {
  * Used for backward compatibility with older save files.
  */
 const DEMONYM_TO_CODE: Record<string, string> = {
-  English: "GB",
+  English: "ENG",
   British: "GB",
-  Scottish: "GB",
-  Welsh: "GB",
+  Scottish: "SCO",
+  Welsh: "WAL",
+  Irish: "IE",
+  "Northern Irish": "NIR",
   Spanish: "ES",
   German: "DE",
   French: "FR",
@@ -147,8 +271,11 @@ const DEMONYM_TO_CODE: Record<string, string> = {
 export function normaliseNationality(value: string): string {
   if (!value) return "";
   const upper = value.toUpperCase();
+  if (getFootballIdentity(upper)) return upper;
   // Already a valid 2-letter code?
   if (upper.length === 2 && countries.isValid(upper)) return upper;
+  const alias = ALIAS_TO_CODE[value.trim().toLowerCase()];
+  if (alias) return alias;
   // Try demonym map
   return DEMONYM_TO_CODE[value] ?? value;
 }

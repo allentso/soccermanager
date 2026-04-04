@@ -10,14 +10,16 @@ pub fn upsert_manager(conn: &Connection, m: &Manager) -> Result<(), String> {
 
     conn.execute(
         "INSERT OR REPLACE INTO managers
-         (id, first_name, last_name, date_of_birth, nationality, reputation, satisfaction, fan_approval, team_id, career_stats, career_history)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+         (id, first_name, last_name, date_of_birth, nationality, football_nation, birth_country, reputation, satisfaction, fan_approval, team_id, career_stats, career_history)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
         params![
             m.id,
             m.first_name,
             m.last_name,
             m.date_of_birth,
             m.nationality,
+            m.football_nation,
+            m.birth_country,
             m.reputation,
             m.satisfaction,
             m.fan_approval,
@@ -34,25 +36,27 @@ pub fn upsert_manager(conn: &Connection, m: &Manager) -> Result<(), String> {
 pub fn load_manager(conn: &Connection, id: &str) -> Result<Option<Manager>, String> {
     let mut stmt = conn
         .prepare(
-            "SELECT id, first_name, last_name, date_of_birth, nationality, reputation, satisfaction, fan_approval, team_id, career_stats, career_history
+            "SELECT id, first_name, last_name, date_of_birth, nationality, football_nation, birth_country, reputation, satisfaction, fan_approval, team_id, career_stats, career_history
              FROM managers WHERE id = ?1",
         )
         .map_err(|e| format!("Failed to prepare manager query: {}", e))?;
 
     let mut rows = stmt
         .query_map(params![id], |row| {
-            let career_stats_json: String = row.get(9)?;
-            let career_history_json: String = row.get(10)?;
+            let career_stats_json: String = row.get(11)?;
+            let career_history_json: String = row.get(12)?;
             Ok((
                 row.get::<_, String>(0)?,
                 row.get::<_, String>(1)?,
                 row.get::<_, String>(2)?,
                 row.get::<_, String>(3)?,
                 row.get::<_, String>(4)?,
-                row.get::<_, u32>(5)?,
-                row.get::<_, u8>(6)?,
-                row.get::<_, u8>(7)?,
-                row.get::<_, Option<String>>(8)?,
+                row.get::<_, String>(5)?,
+                row.get::<_, Option<String>>(6)?,
+                row.get::<_, u32>(7)?,
+                row.get::<_, u8>(8)?,
+                row.get::<_, u8>(9)?,
+                row.get::<_, Option<String>>(10)?,
                 career_stats_json,
                 career_history_json,
             ))
@@ -66,6 +70,8 @@ pub fn load_manager(conn: &Connection, id: &str) -> Result<Option<Manager>, Stri
             last_name,
             dob,
             nationality,
+            football_nation,
+            birth_country,
             reputation,
             satisfaction,
             fan_approval,
@@ -84,6 +90,8 @@ pub fn load_manager(conn: &Connection, id: &str) -> Result<Option<Manager>, Stri
                 last_name,
                 date_of_birth: dob,
                 nationality,
+                football_nation,
+                birth_country,
                 reputation,
                 satisfaction,
                 fan_approval,
@@ -101,7 +109,7 @@ pub fn load_manager(conn: &Connection, id: &str) -> Result<Option<Manager>, Stri
 pub fn load_all_managers(conn: &Connection) -> Result<Vec<Manager>, String> {
     let mut stmt = conn
         .prepare(
-            "SELECT id, first_name, last_name, date_of_birth, nationality, reputation, satisfaction, fan_approval, team_id, career_stats, career_history
+            "SELECT id, first_name, last_name, date_of_birth, nationality, football_nation, birth_country, reputation, satisfaction, fan_approval, team_id, career_stats, career_history
              FROM managers",
         )
         .map_err(|e| format!("Failed to prepare managers query: {}", e))?;
@@ -114,12 +122,14 @@ pub fn load_all_managers(conn: &Connection) -> Result<Vec<Manager>, String> {
                 row.get::<_, String>(2)?,
                 row.get::<_, String>(3)?,
                 row.get::<_, String>(4)?,
-                row.get::<_, u32>(5)?,
-                row.get::<_, u8>(6)?,
-                row.get::<_, u8>(7)?,
-                row.get::<_, Option<String>>(8)?,
-                row.get::<_, String>(9)?,
-                row.get::<_, String>(10)?,
+                row.get::<_, String>(5)?,
+                row.get::<_, Option<String>>(6)?,
+                row.get::<_, u32>(7)?,
+                row.get::<_, u8>(8)?,
+                row.get::<_, u8>(9)?,
+                row.get::<_, Option<String>>(10)?,
+                row.get::<_, String>(11)?,
+                row.get::<_, String>(12)?,
             ))
         })
         .map_err(|e| format!("Failed to query managers: {}", e))?;
@@ -132,6 +142,8 @@ pub fn load_all_managers(conn: &Connection) -> Result<Vec<Manager>, String> {
             last_name,
             dob,
             nationality,
+            football_nation,
+            birth_country,
             reputation,
             satisfaction,
             fan_approval,
@@ -149,6 +161,8 @@ pub fn load_all_managers(conn: &Connection) -> Result<Vec<Manager>, String> {
             last_name,
             date_of_birth: dob,
             nationality,
+            football_nation,
+            birth_country,
             reputation,
             satisfaction,
             fan_approval,
@@ -196,6 +210,8 @@ mod tests {
         assert_eq!(loaded.reputation, 750);
         assert_eq!(loaded.satisfaction, 100);
         assert_eq!(loaded.fan_approval, 50);
+        assert_eq!(loaded.football_nation, "GB");
+        assert_eq!(loaded.birth_country, None);
     }
 
     #[test]

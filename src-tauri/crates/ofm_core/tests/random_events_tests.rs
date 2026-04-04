@@ -1,12 +1,17 @@
 use chrono::{TimeZone, Utc};
-use domain::league::{Fixture, FixtureStatus, League, MatchResult, StandingEntry};
+use domain::league::{
+    Fixture, FixtureCompetition, FixtureStatus, League, MatchResult, StandingEntry,
+};
 use domain::manager::Manager;
-use domain::message::*;
+use domain::message::{
+    ActionOption, ActionType, InboxMessage, MessageAction, MessageCategory, MessageContext,
+    MessagePriority,
+};
 use domain::player::{Player, PlayerAttributes, Position};
-use domain::team::Team;
+use domain::team::{SponsorshipBonusCriterion, Team};
 use ofm_core::clock::GameClock;
 use ofm_core::game::Game;
-use ofm_core::random_events::{apply_event_response, check_random_events};
+use ofm_core::random_events::{apply_event_response, check_random_events, rival_interest_weight};
 use std::collections::HashMap;
 
 // ---------------------------------------------------------------------------
@@ -96,6 +101,7 @@ fn make_game_with_league() -> Game {
             date: today,
             home_team_id: "team1".to_string(),
             away_team_id: "team2".to_string(),
+            competition: FixtureCompetition::League,
             status: FixtureStatus::Scheduled,
             result: None,
         }],
@@ -275,12 +281,14 @@ fn check_random_events_board_confidence_triggers_on_losses() {
                 date: "2025-06-01".to_string(),
                 home_team_id: "team1".to_string(),
                 away_team_id: "opp1".to_string(),
+                competition: FixtureCompetition::League,
                 status: FixtureStatus::Completed,
                 result: Some(MatchResult {
                     home_goals: 0,
                     away_goals: 2,
                     home_scorers: vec![],
                     away_scorers: vec![],
+                    report: None,
                 }),
             },
             Fixture {
@@ -289,12 +297,14 @@ fn check_random_events_board_confidence_triggers_on_losses() {
                 date: "2025-06-05".to_string(),
                 home_team_id: "opp2".to_string(),
                 away_team_id: "team1".to_string(),
+                competition: FixtureCompetition::League,
                 status: FixtureStatus::Completed,
                 result: Some(MatchResult {
                     home_goals: 3,
                     away_goals: 1,
                     home_scorers: vec![],
                     away_scorers: vec![],
+                    report: None,
                 }),
             },
             Fixture {
@@ -303,12 +313,14 @@ fn check_random_events_board_confidence_triggers_on_losses() {
                 date: "2025-06-10".to_string(),
                 home_team_id: "team1".to_string(),
                 away_team_id: "opp3".to_string(),
+                competition: FixtureCompetition::League,
                 status: FixtureStatus::Completed,
                 result: Some(MatchResult {
                     home_goals: 0,
                     away_goals: 1,
                     home_scorers: vec![],
                     away_scorers: vec![],
+                    report: None,
                 }),
             },
         ],
@@ -347,12 +359,14 @@ fn check_random_events_board_confidence_no_trigger_without_losses() {
                 date: "2025-06-01".to_string(),
                 home_team_id: "team1".to_string(),
                 away_team_id: "opp1".to_string(),
+                competition: FixtureCompetition::League,
                 status: FixtureStatus::Completed,
                 result: Some(MatchResult {
                     home_goals: 3,
                     away_goals: 0,
                     home_scorers: vec![],
                     away_scorers: vec![],
+                    report: None,
                 }),
             },
             Fixture {
@@ -361,12 +375,14 @@ fn check_random_events_board_confidence_no_trigger_without_losses() {
                 date: "2025-06-05".to_string(),
                 home_team_id: "team1".to_string(),
                 away_team_id: "opp2".to_string(),
+                competition: FixtureCompetition::League,
                 status: FixtureStatus::Completed,
                 result: Some(MatchResult {
                     home_goals: 2,
                     away_goals: 1,
                     home_scorers: vec![],
                     away_scorers: vec![],
+                    report: None,
                 }),
             },
             Fixture {
@@ -375,12 +391,14 @@ fn check_random_events_board_confidence_no_trigger_without_losses() {
                 date: "2025-06-10".to_string(),
                 home_team_id: "team1".to_string(),
                 away_team_id: "opp3".to_string(),
+                competition: FixtureCompetition::League,
                 status: FixtureStatus::Completed,
                 result: Some(MatchResult {
                     home_goals: 1,
                     away_goals: 0,
                     home_scorers: vec![],
                     away_scorers: vec![],
+                    report: None,
                 }),
             },
         ],
@@ -416,6 +434,7 @@ fn check_random_events_international_callup_with_upcoming_match() {
             date: future_date,
             home_team_id: "team1".to_string(),
             away_team_id: "opp1".to_string(),
+            competition: FixtureCompetition::League,
             status: FixtureStatus::Scheduled,
             result: None,
         }],
@@ -509,6 +528,28 @@ fn check_random_events_rival_interest_structure() {
 }
 
 #[test]
+fn expiring_contract_players_draw_more_rival_interest() {
+    let current_date = Utc
+        .with_ymd_and_hms(2025, 6, 15, 12, 0, 0)
+        .unwrap()
+        .date_naive();
+
+    let mut expiring_player = make_player("expiring", "Expiring Star", "team1");
+    expiring_player.contract_end = Some("2025-08-01".to_string());
+
+    let mut secure_player = make_player("secure", "Secure Squad", "team1");
+    secure_player.contract_end = Some("2028-06-30".to_string());
+
+    let expiring_weight = rival_interest_weight(&expiring_player, current_date);
+    let secure_weight = rival_interest_weight(&secure_player, current_date);
+
+    assert!(
+        expiring_weight > secure_weight,
+        "Players with expiring deals should attract more rival interest"
+    );
+}
+
+#[test]
 fn check_random_events_community_event_structure() {
     let mut game = make_game();
     for _ in 0..2000 {
@@ -534,6 +575,7 @@ fn check_random_events_community_event_structure() {
 fn sponsor_message(amount: u64) -> InboxMessage {
     let mut params = HashMap::new();
     params.insert("amount".to_string(), amount.to_string());
+    params.insert("sponsor".to_string(), "Test Sponsor".to_string());
     InboxMessage {
         id: "sponsor_2025-06-15".to_string(),
         subject: "Sponsorship Offer".to_string(),
@@ -586,9 +628,20 @@ fn apply_sponsor_accept_adds_finance() {
     let result = apply_event_response(&mut game, "sponsor_2025-06-15", "respond", "accept");
 
     assert!(result.is_some());
-    assert!(result.unwrap().contains("accepted"));
-    assert_eq!(game.teams[0].finance, initial_finance + 100_000);
-    assert_eq!(game.teams[0].season_income, 100_000);
+    assert!(result.unwrap().contains("deal signed"));
+    assert_eq!(game.teams[0].finance, initial_finance);
+    assert_eq!(game.teams[0].season_income, 0);
+    let sponsorship = game.teams[0]
+        .sponsorship
+        .as_ref()
+        .expect("accepted sponsor should create active sponsorship state");
+    assert_eq!(sponsorship.base_value, 100_000);
+    assert_eq!(sponsorship.remaining_weeks, 12);
+    assert_eq!(sponsorship.sponsor_name, "Test Sponsor");
+    assert!(matches!(
+        sponsorship.bonus_criteria.as_slice(),
+        [SponsorshipBonusCriterion::UnbeatenRun { .. }]
+    ));
     // Actions should be resolved
     let msg = game
         .messages
@@ -609,6 +662,7 @@ fn apply_sponsor_decline_no_finance_change() {
     assert!(result.is_some());
     assert!(result.unwrap().contains("declined"));
     assert_eq!(game.teams[0].finance, initial_finance);
+    assert!(game.teams[0].sponsorship.is_none());
     let msg = game
         .messages
         .iter()
@@ -1074,5 +1128,97 @@ fn check_random_events_all_message_types_generated() {
     assert!(
         has_injury,
         "Should generate training injury messages over 5000 days"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Fitness affects injury probability
+// ---------------------------------------------------------------------------
+
+#[test]
+fn unfit_players_get_more_training_injuries() {
+    // Players with very low fitness should be injured more often than peak-fitness players.
+    // We run many simulated days and compare injury message counts.
+
+    fn run_days_and_count_injury_msgs(fitness: u8) -> usize {
+        let clock = GameClock::new(Utc.with_ymd_and_hms(2025, 1, 1, 12, 0, 0).unwrap());
+        let mut manager = Manager::new(
+            "mgr1".to_string(),
+            "Test".to_string(),
+            "Manager".to_string(),
+            "1980-01-01".to_string(),
+            "England".to_string(),
+        );
+        manager.hire("team1".to_string());
+        let team = Team::new(
+            "team1".to_string(),
+            "Test FC".to_string(),
+            "TFC".to_string(),
+            "England".to_string(),
+            "London".to_string(),
+            "Stadium".to_string(),
+            40_000,
+        );
+        // Single player so all picks go to them
+        let mut player = Player::new(
+            "p1".to_string(),
+            "TestPlayer".to_string(),
+            "TestPlayer".to_string(),
+            "1995-01-01".to_string(),
+            "England".to_string(),
+            Position::Midfielder,
+            PlayerAttributes {
+                pace: 60,
+                stamina: 60,
+                strength: 60,
+                agility: 60,
+                passing: 60,
+                shooting: 60,
+                tackling: 60,
+                dribbling: 60,
+                defending: 60,
+                positioning: 60,
+                vision: 60,
+                decisions: 60,
+                composure: 60,
+                aggression: 60,
+                teamwork: 60,
+                leadership: 60,
+                handling: 30,
+                reflexes: 30,
+                aerial: 60,
+            },
+        );
+        player.team_id = Some("team1".to_string());
+        player.fitness = fitness;
+
+        let mut game = Game::new(clock, manager, vec![team], vec![player], vec![], vec![]);
+
+        let mut injury_count = 0;
+        for _ in 0..3000 {
+            let before = game.players[0].injury.is_some();
+            check_random_events(&mut game);
+            let after = game.players[0].injury.is_some();
+            if !before && after {
+                injury_count += 1;
+                // Clear injury so player is eligible again
+                game.players[0].injury = None;
+            }
+            // Clear injury messages so the ID dedup doesn't block future events
+            game.messages
+                .retain(|m| !m.id.starts_with("training_injury_"));
+            game.clock.advance_days(1);
+        }
+        injury_count
+    }
+
+    let unfit_injuries = run_days_and_count_injury_msgs(20);
+    let peak_injuries = run_days_and_count_injury_msgs(95);
+
+    assert!(
+        unfit_injuries > peak_injuries,
+        "Unfit players ({} injuries) should be injured more than peak-fitness players ({} injuries)",
+        unfit_injuries,
+        peak_injuries
     );
 }
