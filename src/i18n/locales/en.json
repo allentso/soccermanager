@@ -1019,46 +1019,19 @@
         },
         "responses": {
           "win": {
-            "humble": {
-              "tone": "Humble",
-              "text": "The players worked hard. We prepared well and executed the game plan."
-            },
-            "confident": {
-              "tone": "Confident",
-              "text": "We were the better side from start to finish. A deserved result."
-            },
-            "deflect": {
-              "tone": "Deflect",
-              "text": "It's just three points. We move on to the next one."
-            }
+            "humble": { "tone": "Humble", "text": "The players worked hard. We prepared well and executed the game plan." },
+            "confident": { "tone": "Confident", "text": "We were the better side from start to finish. A deserved result." },
+            "deflect": { "tone": "Deflect", "text": "It's just three points. We move on to the next one." }
           },
           "loss": {
-            "accept": {
-              "tone": "Accept",
-              "text": "We weren't good enough today. We have to look at what went wrong."
-            },
-            "defiant": {
-              "tone": "Defiant",
-              "text": "I don't think we deserved to lose. We created enough chances."
-            },
-            "deflect": {
-              "tone": "Deflect",
-              "text": "I'd rather not dwell on it. We'll be ready for the next match."
-            }
+            "accept": { "tone": "Accept", "text": "We weren't good enough today. We have to look at what went wrong." },
+            "defiant": { "tone": "Defiant", "text": "I don't think we deserved to lose. We created enough chances." },
+            "deflect": { "tone": "Deflect", "text": "I'd rather not dwell on it. We'll be ready for the next match." }
           },
           "draw": {
-            "fair": {
-              "tone": "Fair",
-              "text": "It was a fair result. Both teams had chances."
-            },
-            "frustrated": {
-              "tone": "Frustrated",
-              "text": "We should have won that. Too many missed opportunities."
-            },
-            "positive": {
-              "tone": "Positive",
-              "text": "A point is a point. There are positives to take from today."
-            }
+            "fair": { "tone": "Fair", "text": "It was a fair result. Both teams had chances." },
+            "frustrated": { "tone": "Frustrated", "text": "We should have won that. Too many missed opportunities." },
+            "positive": { "tone": "Positive", "text": "A point is a point. There are positives to take from today." }
           }
         }
       },
@@ -1068,35 +1041,17 @@
           "default": "Can you comment on {{playerName}}'s performance today?"
         },
         "responses": {
-          "praise": {
-            "tone": "Praise",
-            "text": "{{playerName}} has been fantastic. They're a key player for us and their work rate is exemplary."
-          },
-          "demanding": {
-            "tone": "Demanding",
-            "text": "{{playerName}} can do better. I expect more from a player of their quality."
-          },
-          "deflect": {
-            "tone": "Deflect",
-            "text": "I don't like to single out individuals. It's a team game."
-          }
+          "praise": { "tone": "Praise", "text": "{{playerName}} has been fantastic. They're a key player for us and their work rate is exemplary." },
+          "demanding": { "tone": "Demanding", "text": "{{playerName}} can do better. I expect more from a player of their quality." },
+          "deflect": { "tone": "Deflect", "text": "I don't like to single out individuals. It's a team game." }
         }
       },
       "tactics": {
         "question": "Can you talk us through your tactical approach today?",
         "responses": {
-          "detailed": {
-            "tone": "Detailed",
-            "text": "We set up to control the midfield and use our width. I think the shape worked well."
-          },
-          "brief": {
-            "tone": "Brief",
-            "text": "We had a plan and the players executed it. That's all that matters."
-          },
-          "evasive": {
-            "tone": "Evasive",
-            "text": "I'd rather not give away too much. Every team has their secrets."
-          }
+          "detailed": { "tone": "Detailed", "text": "We set up to control the midfield and use our width. I think the shape worked well." },
+          "brief": { "tone": "Brief", "text": "We had a plan and the players executed it. That's all that matters." },
+          "evasive": { "tone": "Evasive", "text": "I'd rather not give away too much. Every team has their secrets." }
         }
       },
       "fans": {
@@ -1107,64 +1062,28 @@
         },
         "responses": {
           "win": {
-            "grateful": {
-              "tone": "Humble",
-              "text": "The fans are incredible. They drive us forward every match and we owe them performances like today."
-            },
-            "shared": {
-              "tone": "Confident",
-              "text": "We all celebrate together — players, staff, and supporters. This is their victory too."
-            },
-            "deflect": {
-              "tone": "Deflect",
-              "text": "The fans know what we're about. We just focus on the pitch."
-            }
+            "grateful": { "tone": "Humble", "text": "The fans are incredible. They drive us forward every match and we owe them performances like today." },
+            "shared": { "tone": "Confident", "text": "We all celebrate together — players, staff, and supporters. This is their victory too." },
+            "deflect": { "tone": "Deflect", "text": "The fans know what we're about. We just focus on the pitch." }
           },
           "loss": {
-            "apologize": {
-              "tone": "Accept",
-              "text": "I understand their frustration completely. They deserve better and we'll work hard to deliver."
-            },
-            "patience": {
-              "tone": "Focused",
-              "text": "I ask for patience. We're building something and bad days happen. We'll come back stronger."
-            },
-            "curt": {
-              "tone": "Curt",
-              "text": "I won't comment on things said in the heat of the moment. Let's move on."
-            }
+            "apologize": { "tone": "Accept", "text": "I understand their frustration completely. They deserve better and we'll work hard to deliver." },
+            "patience": { "tone": "Focused", "text": "I ask for patience. We're building something and bad days happen. We'll come back stronger." },
+            "curt": { "tone": "Curt", "text": "I won't comment on things said in the heat of the moment. Let's move on." }
           },
           "draw": {
-            "appreciate": {
-              "tone": "Positive",
-              "text": "I appreciate every single supporter who comes to watch us. Their energy lifts the team."
-            },
-            "understand": {
-              "tone": "Fair",
-              "text": "They want to see us win and so do I. We'll keep pushing until the results come."
-            },
-            "curt": {
-              "tone": "Curt",
-              "text": "I don't get involved with what happens in the stands. My focus is on the pitch."
-            }
+            "appreciate": { "tone": "Positive", "text": "I appreciate every single supporter who comes to watch us. Their energy lifts the team." },
+            "understand": { "tone": "Fair", "text": "They want to see us win and so do I. We'll keep pushing until the results come." },
+            "curt": { "tone": "Curt", "text": "I don't get involved with what happens in the stands. My focus is on the pitch." }
           }
         }
       },
       "ahead": {
         "question": "What's your focus going into the next match?",
         "responses": {
-          "focused": {
-            "tone": "Focused",
-            "text": "Recovery first, then preparation. We take it one game at a time."
-          },
-          "ambitious": {
-            "tone": "Ambitious",
-            "text": "We want to keep building momentum. The target is clear."
-          },
-          "curt": {
-            "tone": "Curt",
-            "text": "Next question, please. We'll worry about that when it comes."
-          }
+          "focused": { "tone": "Focused", "text": "Recovery first, then preparation. We take it one game at a time." },
+          "ambitious": { "tone": "Ambitious", "text": "We want to keep building momentum. The target is clear." },
+          "curt": { "tone": "Curt", "text": "Next question, please. We'll worry about that when it comes." }
         }
       }
     },
@@ -1716,7 +1635,8 @@
     "day": "DD",
     "month": "Month",
     "year": "YYYY"
-  },
+  }
+,
   "sacked": {
     "title": "You've Been Sacked",
     "subtitle": "The board has lost confidence in your ability to manage the club.",
