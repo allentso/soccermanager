@@ -37,6 +37,43 @@ function normaliseSearchText(value: string): string {
     .toLowerCase();
 }
 
+/**
+ * Minimum manager age (years) on create — historical rule, unchanged here on purpose.
+ * Opinion (retraca, git 1631b76): this floor should probably be removed or lowered (~18);
+ * leaving as-is until product agrees.
+ */
+const MANAGER_MINIMUM_AGE = 30;
+
+function flooredAgeFromIsoDate(isoDob: string): number | null {
+  if (!isoDob) return null;
+  const birthDate = new Date(isoDob);
+  if (Number.isNaN(birthDate.getTime())) return null;
+  const today = new Date();
+  const age = Math.floor(
+    (today.getTime() - birthDate.getTime()) /
+      (365.25 * 24 * 60 * 60 * 1000),
+  );
+  return Number.isNaN(age) ? null : age;
+}
+
+const CREATE_MANAGER_FIELD_ORDER = [
+  "firstName",
+  "lastName",
+  "dob",
+  "nationality",
+] as const;
+
+function focusFirstCreateManagerError(errors: Record<string, string>): void {
+  const first = CREATE_MANAGER_FIELD_ORDER.find((k) => errors[k]);
+  if (!first) return;
+  const root = document.getElementById(`create-manager-field-${first}`);
+  root?.scrollIntoView({ behavior: "smooth", block: "center" });
+  const focusable = root?.querySelector<HTMLElement>(
+    "input:not([type=hidden]), button:not([disabled]), select, textarea",
+  );
+  focusable?.focus({ preventScroll: true });
+}
+
 function logNationalityDebug(
   message: string,
   details?: Record<string, unknown>,
@@ -81,6 +118,18 @@ export default function MainMenu() {
   const countriesList = allNationalities(i18n.language);
   const normalisedNationalitySearch = normaliseSearchText(nationalitySearch);
 
+  /** Same messages as `validateForm` for DOB, so the age rule surfaces as the user edits. */
+  const dobLiveRuleMessage = (() => {
+    if (!formData.dob) return null;
+    const age = flooredAgeFromIsoDate(formData.dob);
+    if (age === null) return t("validation.invalidDate");
+    if (age < MANAGER_MINIMUM_AGE)
+      return t("validation.minAge", { min: MANAGER_MINIMUM_AGE });
+    if (age > 99) return t("validation.invalidDob");
+    return null;
+  })();
+  const dobDisplayedError = formErrors.dob || dobLiveRuleMessage;
+
   const filteredNationalities = countriesList.filter((nationality) => {
     const normalisedName = normaliseSearchText(nationality.name);
     const normalisedCode = normaliseSearchText(nationality.code);
@@ -100,7 +149,10 @@ export default function MainMenu() {
     setNationalitySearch("");
   };
 
-  const validateForm = (): boolean => {
+  const validateForm = (): {
+    ok: boolean;
+    errors: Record<string, string>;
+  } => {
     const errors: Record<string, string> = {};
     if (!formData.firstName.trim()) {
       errors.firstName = t("validation.required", {
@@ -127,16 +179,11 @@ export default function MainMenu() {
     if (!formData.dob) {
       errors.dob = t("validation.required", { field: t("createManager.dob") });
     } else {
-      const birthDate = new Date(formData.dob);
-      const today = new Date();
-      const age = Math.floor(
-        (today.getTime() - birthDate.getTime()) /
-        (365.25 * 24 * 60 * 60 * 1000),
-      );
-      if (isNaN(age)) {
+      const age = flooredAgeFromIsoDate(formData.dob);
+      if (age === null) {
         errors.dob = t("validation.invalidDate");
-      } else if (age < 30) {
-        errors.dob = t("validation.minAge");
+      } else if (age < MANAGER_MINIMUM_AGE) {
+        errors.dob = t("validation.minAge", { min: MANAGER_MINIMUM_AGE });
       } else if (age > 99) {
         errors.dob = t("validation.invalidDob");
       }
@@ -146,12 +193,21 @@ export default function MainMenu() {
         field: t("createManager.countryOfOrigin", "Country/Region of Origin"),
       });
     setFormErrors(errors);
-    return Object.keys(errors).length === 0;
+    return {
+      ok: Object.keys(errors).length === 0,
+      errors,
+    };
   };
 
   const handleGoToWorldSelect = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validateForm()) return;
+    const validation = validateForm();
+    if (!validation.ok) {
+      requestAnimationFrame(() =>
+        focusFirstCreateManagerError(validation.errors),
+      );
+      return;
+    }
     setMenuState("world");
     loadWorldDatabases();
   };
@@ -457,7 +513,7 @@ export default function MainMenu() {
 
               {/* Name fields with labels */}
               <div className="flex gap-3">
-                <div className="flex-1">
+                <div className="flex-1" id="create-manager-field-firstName">
                   <label className="block text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">
                     {t("createManager.firstName")}
                   </label>
@@ -484,7 +540,7 @@ export default function MainMenu() {
                     </p>
                   )}
                 </div>
-                <div className="flex-1">
+                <div className="flex-1" id="create-manager-field-lastName">
                   <label className="block text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">
                     {t("createManager.lastName")}
                   </label>
@@ -514,7 +570,7 @@ export default function MainMenu() {
               </div>
 
               {/* Date of Birth with label */}
-              <div>
+              <div id="create-manager-field-dob">
                 <label className="block text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">
                   {t("createManager.dob")}
                 </label>
@@ -527,22 +583,19 @@ export default function MainMenu() {
                     }));
                     setFormErrors((prev) => ({ ...prev, dob: "" }));
                   }}
-                  error={!!formErrors.dob}
+                  error={!!dobDisplayedError}
                 />
-                {formErrors.dob ? (
+                {dobDisplayedError && (
                   <p className="flex items-center gap-1 text-xs text-red-500 mt-1">
-                    <AlertCircle className="w-3 h-3" />
-                    {formErrors.dob}
-                  </p>
-                ) : (
-                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                    {t("createManager.minAge")}
+                    <AlertCircle className="w-3 h-3 shrink-0" />
+                    {dobDisplayedError}
                   </p>
                 )}
               </div>
 
               {/* Country/Region combobox — elevate stacking when open so the menu paints above the submit button */}
               <div
+                id="create-manager-field-nationality"
                 ref={nationalityRef}
                 className={nationalityOpen ? "relative z-50" : undefined}
               >
