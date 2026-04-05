@@ -339,7 +339,7 @@ export default function MainMenu() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-navy-900 transition-colors duration-500 relative overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-navy-900 transition-colors duration-500 relative overflow-x-hidden">
       {/* Background gradient accents */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -right-40 w-96 h-96 bg-primary-500/10 dark:bg-primary-500/5 rounded-full blur-3xl" />
@@ -541,8 +541,11 @@ export default function MainMenu() {
                 )}
               </div>
 
-              {/* Country/Region combobox */}
-              <div ref={nationalityRef}>
+              {/* Country/Region combobox — elevate stacking when open so the menu paints above the submit button */}
+              <div
+                ref={nationalityRef}
+                className={nationalityOpen ? "relative z-50" : undefined}
+              >
                 <label className="block text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">
                   {t(
                     "createManager.countryOfOrigin",
@@ -602,7 +605,7 @@ export default function MainMenu() {
 
                   {nationalityOpen && (
                     <div
-                      className="absolute z-50 top-full mt-1 left-0 right-0 bg-white dark:bg-navy-700 rounded-lg shadow-xl border border-gray-200 dark:border-navy-600 overflow-hidden"
+                      className="absolute z-50 bottom-full mb-1 left-0 right-0 bg-white dark:bg-navy-700 rounded-lg shadow-xl border border-gray-200 dark:border-navy-600 overflow-hidden"
                       onMouseDown={(event) => {
                         event.stopPropagation();
                         logNationalityDebug("dropdown panel mousedown");
@@ -618,7 +621,7 @@ export default function MainMenu() {
                           className="w-full bg-gray-50 dark:bg-navy-800 border border-gray-200 dark:border-navy-600 text-gray-900 dark:text-white rounded-md px-3 py-2 text-sm outline-none focus:border-primary-500 transition-colors placeholder:text-gray-400 dark:placeholder:text-gray-500"
                         />
                       </div>
-                      <div className="max-h-48 overflow-y-auto">
+                      <div className="max-h-[min(20rem,calc(100vh-9rem))] overflow-y-auto overscroll-contain">
                         {filteredNationalities.length === 0 ? (
                           <p className="px-3 py-2 text-xs text-gray-400 dark:text-gray-500">
                             {t("menu.noResults")}
