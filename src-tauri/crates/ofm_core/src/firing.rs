@@ -47,10 +47,8 @@ pub fn check_manager_firing(game: &mut Game) -> bool {
         if !has_message(game, BOARD_FINAL_WARNING_ID) {
             send_final_warning(game);
         }
-    } else if satisfaction <= WARN_THRESHOLD {
-        if !has_message(game, BOARD_WARNING_ID) {
-            send_warning(game);
-        }
+    } else if satisfaction <= WARN_THRESHOLD && !has_message(game, BOARD_WARNING_ID) {
+        send_warning(game);
     }
 
     false

@@ -75,7 +75,11 @@ impl Manager {
     }
 
     pub fn fire(&mut self, date: &str) {
-        if let Some(entry) = self.career_history.iter_mut().find(|e| e.end_date.is_none()) {
+        if let Some(entry) = self
+            .career_history
+            .iter_mut()
+            .find(|e| e.end_date.is_none())
+        {
             entry.end_date = Some(date.to_string());
         }
         self.team_id = None;
