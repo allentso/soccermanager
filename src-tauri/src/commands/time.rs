@@ -344,6 +344,20 @@ pub fn skip_to_match_day(state: State<'_, StateManager>) -> Result<serde_json::V
         ofm_core::turn::process_day(&mut game);
         days_skipped += 1;
 
+        // Check if the manager was fired during this day
+        if game.manager.team_id.is_none() {
+            info!(
+                "[cmd] skip_to_match_day: manager fired after {} days",
+                days_skipped
+            );
+            state.set_game(game.clone());
+            return Ok(serde_json::json!({
+                "action": "fired",
+                "game": game,
+                "days_skipped": days_skipped
+            }));
+        }
+
         // After processing, check if blocking actions arose
         let blockers = compute_blocking_actions(&game);
         if !blockers.is_empty() {
@@ -476,6 +490,13 @@ pub fn advance_time_with_mode(
             ofm_core::turn::finish_live_match_day(&mut game);
             state.set_game(game.clone());
 
+            if game.manager.team_id.is_none() {
+                return Ok(serde_json::json!({
+                    "action": "fired",
+                    "game": game
+                }));
+            }
+
             Ok(serde_json::json!({
                 "action": "advanced",
                 "game": game
@@ -489,6 +510,13 @@ pub fn advance_time_with_mode(
             // Normal advance: simulate everything including user match
             ofm_core::turn::process_day(&mut game);
             state.set_game(game.clone());
+
+            if game.manager.team_id.is_none() {
+                return Ok(serde_json::json!({
+                    "action": "fired",
+                    "game": game
+                }));
+            }
 
             Ok(serde_json::json!({
                 "action": "advanced",

@@ -1019,19 +1019,46 @@
         },
         "responses": {
           "win": {
-            "humble": { "tone": "Humble", "text": "Les joueurs ont beaucoup travaillé. Nous nous sommes bien préparés et avons exécuté le plan de jeu." },
-            "confident": { "tone": "Confiant", "text": "Nous avons été supérieurs du début à la fin. Résultat mérité." },
-            "deflect": { "tone": "Évasif", "text": "Ce ne sont que trois points. On passe au prochain match." }
+            "humble": {
+              "tone": "Humble",
+              "text": "Les joueurs ont beaucoup travaillé. Nous nous sommes bien préparés et avons exécuté le plan de jeu."
+            },
+            "confident": {
+              "tone": "Confiant",
+              "text": "Nous avons été supérieurs du début à la fin. Résultat mérité."
+            },
+            "deflect": {
+              "tone": "Évasif",
+              "text": "Ce ne sont que trois points. On passe au prochain match."
+            }
           },
           "loss": {
-            "accept": { "tone": "Lucide", "text": "Nous n'avons pas été assez bons aujourd'hui. Nous devons comprendre ce qui a cloché." },
-            "defiant": { "tone": "Combatif", "text": "Je ne pense pas que nous méritions de perdre. Nous avons créé assez d'occasions." },
-            "deflect": { "tone": "Évasif", "text": "Je préfère ne pas m'y attarder. Nous serons prêts pour le prochain match." }
+            "accept": {
+              "tone": "Lucide",
+              "text": "Nous n'avons pas été assez bons aujourd'hui. Nous devons comprendre ce qui a cloché."
+            },
+            "defiant": {
+              "tone": "Combatif",
+              "text": "Je ne pense pas que nous méritions de perdre. Nous avons créé assez d'occasions."
+            },
+            "deflect": {
+              "tone": "Évasif",
+              "text": "Je préfère ne pas m'y attarder. Nous serons prêts pour le prochain match."
+            }
           },
           "draw": {
-            "fair": { "tone": "Juste", "text": "C'était un résultat juste. Les deux équipes ont eu leurs occasions." },
-            "frustrated": { "tone": "Frustré", "text": "Nous aurions dû gagner. Trop d'occasions gâchées." },
-            "positive": { "tone": "Positif", "text": "Un point reste un point. Il y a des éléments positifs à retenir aujourd'hui." }
+            "fair": {
+              "tone": "Juste",
+              "text": "C'était un résultat juste. Les deux équipes ont eu leurs occasions."
+            },
+            "frustrated": {
+              "tone": "Frustré",
+              "text": "Nous aurions dû gagner. Trop d'occasions gâchées."
+            },
+            "positive": {
+              "tone": "Positif",
+              "text": "Un point reste un point. Il y a des éléments positifs à retenir aujourd'hui."
+            }
           }
         }
       },
@@ -1041,17 +1068,35 @@
           "default": "Pouvez-vous commenter la performance de {{playerName}} aujourd'hui ?"
         },
         "responses": {
-          "praise": { "tone": "Éloge", "text": "{{playerName}} a été fantastique. C'est un joueur clé pour nous et son engagement est exemplaire." },
-          "demanding": { "tone": "Exigeant", "text": "{{playerName}} peut faire mieux. J'attends davantage d'un joueur de sa qualité." },
-          "deflect": { "tone": "Évasif", "text": "Je n'aime pas mettre en avant les individualités. C'est un sport collectif." }
+          "praise": {
+            "tone": "Éloge",
+            "text": "{{playerName}} a été fantastique. C'est un joueur clé pour nous et son engagement est exemplaire."
+          },
+          "demanding": {
+            "tone": "Exigeant",
+            "text": "{{playerName}} peut faire mieux. J'attends davantage d'un joueur de sa qualité."
+          },
+          "deflect": {
+            "tone": "Évasif",
+            "text": "Je n'aime pas mettre en avant les individualités. C'est un sport collectif."
+          }
         }
       },
       "tactics": {
         "question": "Pouvez-vous nous expliquer votre approche tactique aujourd'hui ?",
         "responses": {
-          "detailed": { "tone": "Détaillé", "text": "Nous nous étions organisés pour contrôler le milieu et utiliser la largeur. Je pense que la structure a bien fonctionné." },
-          "brief": { "tone": "Bref", "text": "Nous avions un plan et les joueurs l'ont appliqué. C'est tout ce qui compte." },
-          "evasive": { "tone": "Évasif", "text": "Je préfère ne pas trop en dévoiler. Chaque équipe a ses secrets." }
+          "detailed": {
+            "tone": "Détaillé",
+            "text": "Nous nous étions organisés pour contrôler le milieu et utiliser la largeur. Je pense que la structure a bien fonctionné."
+          },
+          "brief": {
+            "tone": "Bref",
+            "text": "Nous avions un plan et les joueurs l'ont appliqué. C'est tout ce qui compte."
+          },
+          "evasive": {
+            "tone": "Évasif",
+            "text": "Je préfère ne pas trop en dévoiler. Chaque équipe a ses secrets."
+          }
         }
       },
       "fans": {
@@ -1062,28 +1107,64 @@
         },
         "responses": {
           "win": {
-            "grateful": { "tone": "Humble", "text": "Les supporters sont incroyables. Ils nous poussent à chaque match et nous leur devons des prestations comme celle d'aujourd'hui." },
-            "shared": { "tone": "Confiant", "text": "Nous célébrons tous ensemble — joueurs, staff et supporters. Cette victoire est aussi la leur." },
-            "deflect": { "tone": "Évasif", "text": "Les supporters savent ce que nous représentons. Nous restons concentrés sur le terrain." }
+            "grateful": {
+              "tone": "Humble",
+              "text": "Les supporters sont incroyables. Ils nous poussent à chaque match et nous leur devons des prestations comme celle d'aujourd'hui."
+            },
+            "shared": {
+              "tone": "Confiant",
+              "text": "Nous célébrons tous ensemble — joueurs, staff et supporters. Cette victoire est aussi la leur."
+            },
+            "deflect": {
+              "tone": "Évasif",
+              "text": "Les supporters savent ce que nous représentons. Nous restons concentrés sur le terrain."
+            }
           },
           "loss": {
-            "apologize": { "tone": "Lucide", "text": "Je comprends totalement leur frustration. Ils méritent mieux et nous allons travailler dur pour leur offrir cela." },
-            "patience": { "tone": "Concentré", "text": "Je demande de la patience. Nous construisons quelque chose et les mauvais jours arrivent. Nous reviendrons plus forts." },
-            "curt": { "tone": "Sec", "text": "Je ne commenterai pas des mots prononcés sous le coup de l'émotion. Passons à la suite." }
+            "apologize": {
+              "tone": "Lucide",
+              "text": "Je comprends totalement leur frustration. Ils méritent mieux et nous allons travailler dur pour leur offrir cela."
+            },
+            "patience": {
+              "tone": "Concentré",
+              "text": "Je demande de la patience. Nous construisons quelque chose et les mauvais jours arrivent. Nous reviendrons plus forts."
+            },
+            "curt": {
+              "tone": "Sec",
+              "text": "Je ne commenterai pas des mots prononcés sous le coup de l'émotion. Passons à la suite."
+            }
           },
           "draw": {
-            "appreciate": { "tone": "Positif", "text": "J'apprécie chaque supporter qui vient nous voir. Leur énergie porte l'équipe." },
-            "understand": { "tone": "Juste", "text": "Ils veulent nous voir gagner, et moi aussi. Nous allons continuer à pousser jusqu'à obtenir les résultats." },
-            "curt": { "tone": "Sec", "text": "Je ne me mêle pas de ce qui se passe dans les tribunes. Mon attention est sur le terrain." }
+            "appreciate": {
+              "tone": "Positif",
+              "text": "J'apprécie chaque supporter qui vient nous voir. Leur énergie porte l'équipe."
+            },
+            "understand": {
+              "tone": "Juste",
+              "text": "Ils veulent nous voir gagner, et moi aussi. Nous allons continuer à pousser jusqu'à obtenir les résultats."
+            },
+            "curt": {
+              "tone": "Sec",
+              "text": "Je ne me mêle pas de ce qui se passe dans les tribunes. Mon attention est sur le terrain."
+            }
           }
         }
       },
       "ahead": {
         "question": "Sur quoi portera votre attention avant le prochain match ?",
         "responses": {
-          "focused": { "tone": "Concentré", "text": "D'abord la récupération, puis la préparation. Nous prenons les matchs un par un." },
-          "ambitious": { "tone": "Ambitieux", "text": "Nous voulons continuer à créer une dynamique. L'objectif est clair." },
-          "curt": { "tone": "Sec", "text": "Question suivante, s'il vous plaît. Nous y penserons en temps voulu." }
+          "focused": {
+            "tone": "Concentré",
+            "text": "D'abord la récupération, puis la préparation. Nous prenons les matchs un par un."
+          },
+          "ambitious": {
+            "tone": "Ambitieux",
+            "text": "Nous voulons continuer à créer une dynamique. L'objectif est clair."
+          },
+          "curt": {
+            "tone": "Sec",
+            "text": "Question suivante, s'il vous plaît. Nous y penserons en temps voulu."
+          }
         }
       }
     },
@@ -1492,6 +1573,18 @@
       "scoutReport": {
         "subject": "Scout Report: {{player}}",
         "body": "Your scout {{scout}} has completed their assessment of {{player}}. Full report available in the scouting section."
+      },
+      "boardWarning": {
+        "subject": "Inquiétude du Conseil — Bilan de Performance",
+        "body": "Le conseil d'administration est de plus en plus préoccupé par les résultats récents au {{team}}. Votre poste fera l'objet d'un examen sérieux si aucune amélioration n'est constatée dans un avenir proche."
+      },
+      "boardFinalWarning": {
+        "subject": "Dernier Avertissement — Amélioration Immédiate Requise",
+        "body": "Ceci est votre dernier avertissement. Le conseil du {{team}} a perdu patience face aux résultats actuels. Sans amélioration immédiate et significative, nous n'aurons d'autre choix que de reconsidérer votre position."
+      },
+      "boardFired": {
+        "subject": "Avis de Licenciement — {{team}}",
+        "body": "Le conseil d'administration du {{team}} a décidé de vous relever de vos fonctions d'entraîneur, avec effet immédiat. Nous vous remercions pour votre service et vous souhaitons bonne chance pour la suite de votre carrière."
       }
     },
     "news": {
@@ -1623,5 +1716,22 @@
     "day": "JJ",
     "month": "Mois",
     "year": "AAAA"
+  },
+  "sacked": {
+    "title": "Vous Êtes Limogé",
+    "subtitle": "Le conseil d'administration a perdu confiance en votre capacité à diriger le club.",
+    "teamLabel": "Club",
+    "finalSatisfaction": "Confiance du Conseil",
+    "careerOverview": "Bilan de Carrière",
+    "matchesManaged": "Matchs",
+    "wins": "Victoires",
+    "draws": "Nuls",
+    "losses": "Défaites",
+    "winRate": "% Victoires",
+    "bestFinish": "Meilleur Classement",
+    "trophies": "Trophées",
+    "careerHistory": "Historique",
+    "returnToMenu": "Retour au Menu Principal",
+    "present": "Actuel"
   }
 }

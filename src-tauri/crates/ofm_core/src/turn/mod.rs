@@ -49,6 +49,9 @@ pub fn process_day(game: &mut Game) {
     scouting::process_scouting(game);
 
     news::generate_pre_match_messages(game, &today);
+
+    crate::firing::check_manager_firing(game);
+
     debug!("[turn] process_day {}: complete, advancing clock", today);
     game.clock.advance_days(1);
 }
@@ -67,6 +70,9 @@ pub fn finish_live_match_day(game: &mut Game) {
     random_events::check_random_events(game);
     scouting::process_scouting(game);
     news::generate_pre_match_messages(game, &today);
+
+    crate::firing::check_manager_firing(game);
+
     game.clock.advance_days(1);
 }
 

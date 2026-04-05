@@ -56,11 +56,12 @@ pub fn ai_decide<R: Rng>(
         Side::Away => snap.away_subs_made,
     };
 
-    if subs_made < snap.max_subs
-        && let Some(sub_cmd) =
+    if subs_made < snap.max_subs {
+        if let Some(sub_cmd) =
             consider_substitution(match_state, side, profile, minute, subs_made, rng)
-    {
-        commands.push(sub_cmd);
+        {
+            commands.push(sub_cmd);
+        }
     }
 
     // --- Tactical adjustments ---
@@ -163,15 +164,16 @@ fn consider_substitution<R: Rng>(
                 })
                 .collect();
 
-            if let Some(player_off) = candidates.last()
-                && let Some(attacker_on) =
+            if let Some(player_off) = candidates.last() {
+                if let Some(attacker_on) =
                     find_best_bench_replacement(bench, Position::Forward, &snap.sent_off)
-            {
-                return Some(MatchCommand::Substitute {
-                    side,
-                    player_off_id: player_off.id.clone(),
-                    player_on_id: attacker_on.id.clone(),
-                });
+                {
+                    return Some(MatchCommand::Substitute {
+                        side,
+                        player_off_id: player_off.id.clone(),
+                        player_on_id: attacker_on.id.clone(),
+                    });
+                }
             }
         }
     }
@@ -187,15 +189,16 @@ fn consider_substitution<R: Rng>(
                 .filter(|p| p.position == Position::Forward && !snap.sent_off.contains(&p.id))
                 .collect();
 
-            if let Some(player_off) = forwards.first()
-                && let Some(defender_on) =
+            if let Some(player_off) = forwards.first() {
+                if let Some(defender_on) =
                     find_best_bench_replacement(bench, Position::Defender, &snap.sent_off)
-            {
-                return Some(MatchCommand::Substitute {
-                    side,
-                    player_off_id: player_off.id.clone(),
-                    player_on_id: defender_on.id.clone(),
-                });
+                {
+                    return Some(MatchCommand::Substitute {
+                        side,
+                        player_off_id: player_off.id.clone(),
+                        player_on_id: defender_on.id.clone(),
+                    });
+                }
             }
         }
     }

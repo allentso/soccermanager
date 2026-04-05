@@ -56,7 +56,10 @@ export function useAdvanceTime(
         hasGame: !!result.game,
         hasSnapshot: !!result.snapshot,
       });
-      if (result.action === "live_match") {
+      if (result.action === "fired") {
+        if (result.game) setGameState(result.game as GameStateData);
+        navigate("/sacked");
+      } else if (result.action === "live_match") {
         navigate("/match", {
           state: {
             fixtureIndex: result.fixture_index,
@@ -150,6 +153,11 @@ export function useAdvanceTime(
         blockerCount: result.blockers?.length ?? 0,
         hasGame: !!result.game,
       });
+      if (result.action === "fired") {
+        if (result.game) setGameState(result.game as GameStateData);
+        navigate("/sacked");
+        return;
+      }
       if (result.game) setGameState(result.game as GameStateData);
       if (result.action === "blocked" && result.blockers && result.blockers.length > 0) {
         setBlockerModal({ blockers: result.blockers });

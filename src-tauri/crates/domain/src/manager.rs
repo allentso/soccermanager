@@ -74,7 +74,10 @@ impl Manager {
         self.team_id = Some(team_id);
     }
 
-    pub fn fire(&mut self) {
+    pub fn fire(&mut self, date: &str) {
+        if let Some(entry) = self.career_history.iter_mut().find(|e| e.end_date.is_none()) {
+            entry.end_date = Some(date.to_string());
+        }
         self.team_id = None;
     }
 
