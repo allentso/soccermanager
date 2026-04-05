@@ -122,7 +122,7 @@ fn send_warning(game: &mut Game) {
 
     let msg = InboxMessage::new(
         BOARD_WARNING_ID.to_string(),
-        format!("Board Concern — Performance Review"),
+        "Board Concern — Performance Review".to_string(),
         format!(
             "The board is growing increasingly concerned with recent results at {}. \
              Your position will come under serious review if there is no improvement in the near future.",
@@ -162,7 +162,7 @@ fn send_final_warning(game: &mut Game) {
 
     let msg = InboxMessage::new(
         BOARD_FINAL_WARNING_ID.to_string(),
-        format!("Final Warning — Immediate Improvement Required"),
+        "Final Warning — Immediate Improvement Required".to_string(),
         format!(
             "This is your final warning. The board at {} has lost patience with the current run of results. \
              Unless there is an immediate and significant improvement, we will have no choice but to consider your position.",
