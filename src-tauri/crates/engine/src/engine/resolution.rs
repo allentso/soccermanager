@@ -1,4 +1,4 @@
-use rand::Rng;
+use rand::{Rng, RngExt};
 
 use crate::event::{EventType, MatchEvent};
 use crate::shared::{PlayStylePhase, TraitContext, home_mod, play_style_modifier, trait_bonus};
@@ -52,7 +52,7 @@ fn resolve_buildup<R: Rng>(
     let ball_zone = ctx.ball_zone;
 
     let success_chance = (pass_skill * 1.3) / (pass_skill * 1.3 + press);
-    if rng.gen_range(0.0..1.0f64) < success_chance {
+    if rng.random_range(0.0..1.0f64) < success_chance {
         ctx.emit(
             MatchEvent::new(minute, EventType::PassCompleted, att_side, ball_zone)
                 .with_player(&passer.id),
@@ -109,14 +109,14 @@ fn resolve_midfield<R: Rng>(
     let def_eff = def_rating * def_mod * home_mod(def_side, ctx.config);
     let success = att_eff / (att_eff + def_eff);
 
-    if rng.gen_range(0.0..1.0f64) < success {
+    if rng.random_range(0.0..1.0f64) < success {
         ctx.emit(
             MatchEvent::new(minute, EventType::PassCompleted, att_side, Zone::Midfield)
                 .with_player(&attacker.id),
         );
         ctx.ball_zone = Zone::attacking_third(att_side);
     } else {
-        if rng.gen_range(0.0..1.0f64) < 0.6 {
+        if rng.random_range(0.0..1.0f64) < 0.6 {
             ctx.emit(
                 MatchEvent::new(minute, EventType::Tackle, def_side, Zone::Midfield)
                     .with_player(&defender.id),
@@ -175,13 +175,13 @@ fn resolve_attacking_third<R: Rng>(
     let success = att_eff / (att_eff + def_eff);
     let zone = Zone::attacking_third(att_side);
 
-    if rng.gen_range(0.0..1.0f64) < success {
+    if rng.random_range(0.0..1.0f64) < success {
         ctx.emit(
             MatchEvent::new(minute, EventType::Dribble, att_side, zone).with_player(&attacker.id),
         );
         ctx.ball_zone = Zone::attacking_box(att_side);
     } else {
-        let is_tackle = rng.gen_range(0.0..1.0f64) < 0.5;
+        let is_tackle = rng.random_range(0.0..1.0f64) < 0.5;
         if is_tackle {
             ctx.emit(
                 MatchEvent::new(minute, EventType::DribbleTackled, att_side, zone)
@@ -199,9 +199,9 @@ fn resolve_attacking_third<R: Rng>(
                     .with_player(&defender.id),
             );
         }
-        if rng.gen_range(0.0..1.0f64) < 0.25 {
+        if rng.random_range(0.0..1.0f64) < 0.25 {
             ctx.emit(MatchEvent::new(minute, EventType::Corner, att_side, zone));
-            if rng.gen_range(0.0..1.0f64) < 0.30 {
+            if rng.random_range(0.0..1.0f64) < 0.30 {
                 ctx.ball_zone = Zone::attacking_box(att_side);
                 return;
             }
@@ -229,8 +229,8 @@ fn resolve_shot<R: Rng>(ctx: &mut MatchContext, minute: u8, att_side: Side, rng:
         (ctx.config.shot_accuracy_base + (shoot_rating - 50.0) / 200.0).clamp(0.15, 0.85);
     let zone = Zone::attacking_box(att_side);
 
-    if rng.gen_range(0.0..1.0f64) > accuracy {
-        if rng.gen_range(0.0..1.0f64) < 0.4 {
+    if rng.random_range(0.0..1.0f64) > accuracy {
+        if rng.random_range(0.0..1.0f64) < 0.4 {
             ctx.emit(
                 MatchEvent::new(minute, EventType::ShotBlocked, att_side, zone)
                     .with_player(&shooter.id),
@@ -247,7 +247,7 @@ fn resolve_shot<R: Rng>(ctx: &mut MatchContext, minute: u8, att_side: Side, rng:
     let conversion =
         (ctx.config.goal_conversion_base + (shoot_rating - gk_rating) / 150.0).clamp(0.10, 0.70);
 
-    if rng.gen_range(0.0..1.0f64) < conversion {
+    if rng.random_range(0.0..1.0f64) < conversion {
         ctx.emit(
             MatchEvent::new(minute, EventType::Goal, att_side, zone)
                 .with_player(&shooter.id)

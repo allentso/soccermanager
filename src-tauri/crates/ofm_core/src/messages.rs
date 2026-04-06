@@ -2,7 +2,7 @@ mod match_messages;
 pub use match_messages::{match_result_message, pre_match_message};
 
 use domain::message::*;
-use rand::Rng;
+use rand::RngExt;
 use std::collections::HashMap;
 
 /// Helper to build a HashMap<String, String> from key-value pairs.
@@ -27,7 +27,7 @@ fn action(id: &str, label: &str, label_key: &str, action_type: ActionType) -> Me
 /// Message template system — generates rich messages with variations.
 
 pub fn welcome_message(team_name: &str, team_id: &str, date: &str) -> InboxMessage {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let variations = [
         (
             format!("Welcome to {}", team_name),
@@ -61,7 +61,7 @@ pub fn welcome_message(team_name: &str, team_id: &str, date: &str) -> InboxMessa
         ),
     ];
 
-    let idx = rng.gen_range(0..variations.len());
+    let idx = rng.random_range(0..variations.len());
     let (subject, body) = &variations[idx];
 
     InboxMessage::new(
@@ -101,7 +101,7 @@ pub fn welcome_message(team_name: &str, team_id: &str, date: &str) -> InboxMessa
 }
 
 pub fn season_schedule_message(league_name: &str, season_start: &str, date: &str) -> InboxMessage {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let variations = [
         format!(
             "The {} schedule has been released. The season kicks off on {}.\n\n\
@@ -117,7 +117,7 @@ pub fn season_schedule_message(league_name: &str, season_start: &str, date: &str
         ),
     ];
 
-    let idx = rng.gen_range(0..variations.len());
+    let idx = rng.random_range(0..variations.len());
 
     InboxMessage::new(
         "season_1".to_string(),

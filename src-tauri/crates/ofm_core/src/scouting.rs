@@ -1,7 +1,7 @@
 use crate::game::{Game, ScoutingAssignment};
 use domain::message::*;
 use domain::staff::StaffRole;
-use rand::Rng;
+use rand::RngExt;
 use std::collections::HashMap;
 use uuid::Uuid;
 
@@ -170,7 +170,7 @@ fn build_scout_report(
     team_name: Option<&str>,
     date: &str,
 ) -> InboxMessage {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
 
     // Accuracy: higher judging = less noise on reported attributes
     let noise_range = if judging_ability >= 80 {
@@ -184,7 +184,7 @@ fn build_scout_report(
     };
 
     let mut fuzz = |val: u8| -> u8 {
-        let delta: i16 = rng.gen_range(-(noise_range as i16)..=(noise_range as i16));
+        let delta: i16 = rng.random_range(-(noise_range as i16)..=(noise_range as i16));
         ((val as i16) + delta).clamp(1, 99) as u8
     };
 
@@ -216,7 +216,7 @@ fn build_scout_report(
     // Shuffle indices to determine which attrs are hidden
     let mut indices: Vec<usize> = (0..6).collect();
     for i in (1..indices.len()).rev() {
-        let j = rng.gen_range(0..=i);
+        let j = rng.random_range(0..=i);
         indices.swap(i, j);
     }
     let revealed: std::collections::HashSet<usize> =

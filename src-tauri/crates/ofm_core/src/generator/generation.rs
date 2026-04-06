@@ -1,7 +1,7 @@
 use domain::player::{Player, PlayerAttributes, Position};
 use domain::staff::{Staff, StaffAttributes, StaffRole};
 use domain::team::PlayStyle;
-use rand::Rng;
+use rand::{Rng, RngExt};
 use uuid::Uuid;
 
 use super::definitions::NamesDefinition;
@@ -50,16 +50,16 @@ fn compute_alternate_position(primary: &Position, attrs: &PlayerAttributes) -> O
 pub(super) fn pick_nationality_from_def(
     team_country: &str,
     available_codes: &[String],
-    rng: &mut impl rand::RngCore,
+    rng: &mut impl Rng,
 ) -> String {
     // Map team country name → ISO code for the 60% local weight
     let local_code = country_to_iso(team_country);
-    if rng.gen_range(0..100) < 60 {
+    if rng.random_range(0..100) < 60 {
         local_code.to_string()
     } else if available_codes.is_empty() {
         local_code.to_string()
     } else {
-        available_codes[rng.gen_range(0..available_codes.len())].clone()
+        available_codes[rng.random_range(0..available_codes.len())].clone()
     }
 }
 
@@ -67,7 +67,7 @@ pub(super) fn pick_nationality_from_def(
 pub(super) fn pick_name_from_def(
     nationality: &str,
     names_def: &NamesDefinition,
-    rng: &mut impl rand::RngCore,
+    rng: &mut impl Rng,
 ) -> (String, String) {
     let candidate_codes = match nationality {
         "ENG" | "SCO" | "WAL" | "NIR" => vec![nationality, "GB"],
@@ -79,8 +79,8 @@ pub(super) fn pick_name_from_def(
             && !pool.first_names.is_empty()
             && !pool.last_names.is_empty()
         {
-            let first = pool.first_names[rng.gen_range(0..pool.first_names.len())].clone();
-            let last = pool.last_names[rng.gen_range(0..pool.last_names.len())].clone();
+            let first = pool.first_names[rng.random_range(0..pool.first_names.len())].clone();
+            let last = pool.last_names[rng.random_range(0..pool.last_names.len())].clone();
             return (first, last);
         }
     }
@@ -89,8 +89,8 @@ pub(super) fn pick_name_from_def(
     let keys: Vec<&String> = names_def.pools.keys().collect();
     if let Some(key) = keys.first() {
         let pool = &names_def.pools[*key];
-        let first = pool.first_names[rng.gen_range(0..pool.first_names.len())].clone();
-        let last = pool.last_names[rng.gen_range(0..pool.last_names.len())].clone();
+        let first = pool.first_names[rng.random_range(0..pool.first_names.len())].clone();
+        let last = pool.last_names[rng.random_range(0..pool.last_names.len())].clone();
         return (first, last);
     }
     ("Player".to_string(), "Unknown".to_string())
@@ -142,7 +142,7 @@ pub(super) fn generate_random_player_from_def(
     index: usize,
     nationality: &str,
     names_def: &NamesDefinition,
-    rng: &mut impl rand::RngCore,
+    rng: &mut impl Rng,
 ) -> Player {
     let (first_name, last_name) = pick_name_from_def(nationality, names_def, rng);
     let full_name = format!("{} {}", first_name, last_name);
@@ -162,10 +162,10 @@ pub(super) fn generate_random_player_from_def(
     let p_id = Uuid::new_v4().to_string();
     let nationality = nationality.to_string();
 
-    let age = rng.gen_range(17..36);
+    let age = rng.random_range(17..36);
     let birth_year = 2026 - age;
-    let birth_month = rng.gen_range(1..13);
-    let birth_day = rng.gen_range(1..29);
+    let birth_month = rng.random_range(1..13);
+    let birth_day = rng.random_range(1..29);
     let dob = format!("{:04}-{:02}-{:02}", birth_year, birth_month, birth_day);
 
     let group = position.to_group_position();
@@ -174,56 +174,56 @@ pub(super) fn generate_random_player_from_def(
     let is_fwd = matches!(group, Position::Forward);
 
     let attributes = PlayerAttributes {
-        pace: rng.gen_range(40..95),
-        stamina: rng.gen_range(40..95),
-        strength: rng.gen_range(40..95),
-        agility: rng.gen_range(40..95),
-        passing: rng.gen_range(40..95),
+        pace: rng.random_range(40..95),
+        stamina: rng.random_range(40..95),
+        strength: rng.random_range(40..95),
+        agility: rng.random_range(40..95),
+        passing: rng.random_range(40..95),
         shooting: if is_gk {
-            rng.gen_range(20..50)
+            rng.random_range(20..50)
         } else {
-            rng.gen_range(40..95)
+            rng.random_range(40..95)
         },
         tackling: if is_gk || is_fwd {
-            rng.gen_range(20..60)
+            rng.random_range(20..60)
         } else {
-            rng.gen_range(40..95)
+            rng.random_range(40..95)
         },
         dribbling: if is_gk {
-            rng.gen_range(20..50)
+            rng.random_range(20..50)
         } else {
-            rng.gen_range(40..95)
+            rng.random_range(40..95)
         },
         defending: if is_gk {
-            rng.gen_range(25..55)
+            rng.random_range(25..55)
         } else if is_def {
-            rng.gen_range(55..95)
+            rng.random_range(55..95)
         } else {
-            rng.gen_range(40..95)
+            rng.random_range(40..95)
         },
-        positioning: rng.gen_range(40..95),
-        vision: rng.gen_range(40..95),
-        decisions: rng.gen_range(40..95),
-        composure: rng.gen_range(40..95),
-        aggression: rng.gen_range(30..90),
-        teamwork: rng.gen_range(45..95),
-        leadership: rng.gen_range(30..90),
+        positioning: rng.random_range(40..95),
+        vision: rng.random_range(40..95),
+        decisions: rng.random_range(40..95),
+        composure: rng.random_range(40..95),
+        aggression: rng.random_range(30..90),
+        teamwork: rng.random_range(45..95),
+        leadership: rng.random_range(30..90),
         handling: if is_gk {
-            rng.gen_range(50..95)
+            rng.random_range(50..95)
         } else {
-            rng.gen_range(10..35)
+            rng.random_range(10..35)
         },
         reflexes: if is_gk {
-            rng.gen_range(50..95)
+            rng.random_range(50..95)
         } else {
-            rng.gen_range(20..50)
+            rng.random_range(20..50)
         },
         aerial: if is_gk {
-            rng.gen_range(50..95)
+            rng.random_range(50..95)
         } else if is_def {
-            rng.gen_range(45..90)
+            rng.random_range(45..90)
         } else {
-            rng.gen_range(30..75)
+            rng.random_range(30..75)
         },
     };
 
@@ -252,7 +252,7 @@ pub(super) fn generate_random_player_from_def(
     let base_value = (ovr as f64).powi(2) * 500.0;
     let market_value = (base_value * age_factor) as u64;
     let wage = (market_value / 200).max(500) as u32;
-    let contract_years = rng.gen_range(1..5);
+    let contract_years = rng.random_range(1..5);
     let contract_end = format!("{}-06-30", 2026 + contract_years);
 
     let mut player = Player::new(
@@ -268,11 +268,11 @@ pub(super) fn generate_random_player_from_def(
     player.market_value = market_value;
     player.wage = wage;
     player.contract_end = Some(contract_end);
-    player.condition = rng.gen_range(75..100);
-    player.morale = rng.gen_range(40..76);
+    player.condition = rng.random_range(75..100);
+    player.morale = rng.random_range(40..76);
 
     // ~40% of outfield players get an alternate position based on attributes
-    if !is_gk && rng.gen_range(0..5) < 2 {
+    if !is_gk && rng.random_range(0..5) < 2 {
         let alt = compute_alternate_position(&player.position, &player.attributes);
         if let Some(pos) = alt {
             player.alternate_positions.push(pos);
@@ -287,42 +287,42 @@ pub(super) fn generate_random_staff_from_def(
     role: StaffRole,
     nationality: &str,
     names_def: &NamesDefinition,
-    rng: &mut impl rand::RngCore,
+    rng: &mut impl Rng,
 ) -> Staff {
     let (first_name, last_name) = pick_name_from_def(nationality, names_def, rng);
-    let age = rng.gen_range(30..60);
+    let age = rng.random_range(30..60);
     let birth_year = 2026 - age;
     let dob = format!(
         "{:04}-{:02}-{:02}",
         birth_year,
-        rng.gen_range(1..13),
-        rng.gen_range(1..29)
+        rng.random_range(1..13),
+        rng.random_range(1..29)
     );
 
     let attributes = match &role {
         StaffRole::AssistantManager => StaffAttributes {
-            coaching: rng.gen_range(50..90),
-            judging_ability: rng.gen_range(50..85),
-            judging_potential: rng.gen_range(40..80),
-            physiotherapy: rng.gen_range(20..50),
+            coaching: rng.random_range(50..90),
+            judging_ability: rng.random_range(50..85),
+            judging_potential: rng.random_range(40..80),
+            physiotherapy: rng.random_range(20..50),
         },
         StaffRole::Coach => StaffAttributes {
-            coaching: rng.gen_range(55..95),
-            judging_ability: rng.gen_range(40..75),
-            judging_potential: rng.gen_range(30..70),
-            physiotherapy: rng.gen_range(20..45),
+            coaching: rng.random_range(55..95),
+            judging_ability: rng.random_range(40..75),
+            judging_potential: rng.random_range(30..70),
+            physiotherapy: rng.random_range(20..45),
         },
         StaffRole::Scout => StaffAttributes {
-            coaching: rng.gen_range(20..50),
-            judging_ability: rng.gen_range(60..95),
-            judging_potential: rng.gen_range(55..95),
-            physiotherapy: rng.gen_range(10..30),
+            coaching: rng.random_range(20..50),
+            judging_ability: rng.random_range(60..95),
+            judging_potential: rng.random_range(55..95),
+            physiotherapy: rng.random_range(10..30),
         },
         StaffRole::Physio => StaffAttributes {
-            coaching: rng.gen_range(10..40),
-            judging_ability: rng.gen_range(20..50),
-            judging_potential: rng.gen_range(15..45),
-            physiotherapy: rng.gen_range(60..95),
+            coaching: rng.random_range(10..40),
+            judging_ability: rng.random_range(20..50),
+            judging_potential: rng.random_range(15..45),
+            physiotherapy: rng.random_range(60..95),
         },
     };
 
@@ -343,23 +343,23 @@ pub(super) fn generate_random_staff_unattached_from_def(
     role: StaffRole,
     nationality: &str,
     names_def: &NamesDefinition,
-    rng: &mut impl rand::RngCore,
+    rng: &mut impl Rng,
 ) -> Staff {
     let (first_name, last_name) = pick_name_from_def(nationality, names_def, rng);
-    let age = rng.gen_range(28..55);
+    let age = rng.random_range(28..55);
     let birth_year = 2026 - age;
     let dob = format!(
         "{:04}-{:02}-{:02}",
         birth_year,
-        rng.gen_range(1..13),
-        rng.gen_range(1..29)
+        rng.random_range(1..13),
+        rng.random_range(1..29)
     );
 
     let attributes = StaffAttributes {
-        coaching: rng.gen_range(30..80),
-        judging_ability: rng.gen_range(30..80),
-        judging_potential: rng.gen_range(25..75),
-        physiotherapy: rng.gen_range(25..75),
+        coaching: rng.random_range(30..80),
+        judging_ability: rng.random_range(30..80),
+        judging_potential: rng.random_range(25..75),
+        physiotherapy: rng.random_range(25..75),
     };
 
     let mut s = Staff::new(

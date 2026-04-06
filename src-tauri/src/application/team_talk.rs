@@ -1,7 +1,7 @@
 use ofm_core::game::Game;
 use ofm_core::player_events::{pick_response_band, ResponseBandWeights, ResponseOutcomeBand};
 use rand::rngs::StdRng;
-use rand::{Rng, SeedableRng};
+use rand::{RngExt, SeedableRng};
 
 fn team_talk_action_key(tone: &str, context: &str) -> String {
     format!("team_talk:{}:{}", tone, context)
@@ -328,7 +328,7 @@ pub fn apply_team_talk(
 
         let base_morale = i16::from(player.morale);
         let weights = build_team_talk_weights(player, tone, context);
-        let roll = rng.gen_range(0..team_talk_weight_total(&weights));
+        let roll = rng.random_range(0..team_talk_weight_total(&weights));
         let band = pick_response_band(&weights, roll);
         let delta = cap_team_talk_delta(
             reduce_by_recent_team_talk(team_talk_delta_for_band(tone, band), player, &action_key),
