@@ -78,7 +78,7 @@ pub fn compute_checksum(path: &Path) -> Result<String, String> {
     let mut hasher = Sha256::new();
     hasher.update(&data);
     let result = hasher.finalize();
-    Ok(format!("{:x}", result))
+    Ok(result.iter().map(|byte| format!("{:02x}", byte)).collect())
 }
 
 /// Load save index from a JSON file. Returns None if the file doesn't exist.

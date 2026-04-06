@@ -10,7 +10,7 @@ use domain::player::Player;
 use domain::staff::{Staff, StaffRole};
 use domain::team::TeamColors;
 use log::{debug, info};
-use rand::Rng;
+use rand::RngExt;
 use uuid::Uuid;
 
 use generation::*;
@@ -25,7 +25,7 @@ pub fn generate_world(
     data_dir: Option<&std::path::Path>,
 ) -> (Vec<domain::team::Team>, Vec<Player>, Vec<Staff>) {
     info!("[generator] generate_world: data_dir={:?}", data_dir);
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let mut teams_out = Vec::new();
     let mut players = Vec::new();
     let mut staff = Vec::new();
@@ -88,13 +88,13 @@ pub fn generate_world(
             tdef.country.clone(),
             tdef.city.clone(),
             stadium,
-            rng.gen_range(10000..80000),
+            rng.random_range(10000..80000),
         );
-        team.finance = rng.gen_range(fin_range[0]..fin_range[1]);
-        team.reputation = rng.gen_range(rep_range[0]..rep_range[1]);
+        team.finance = rng.random_range(fin_range[0]..fin_range[1]);
+        team.reputation = rng.random_range(rep_range[0]..rep_range[1]);
         team.wage_budget = (team.finance as f64 * 0.06) as i64;
         team.transfer_budget = (team.finance as f64 * 0.15) as i64;
-        team.founded_year = rng.gen_range(1880..1960);
+        team.founded_year = rng.random_range(1880..1960);
         team.colors = TeamColors {
             primary: tdef.colors.primary.clone(),
             secondary: tdef.colors.secondary.clone(),
@@ -107,9 +107,9 @@ pub fn generate_world(
             let nationality = pick_nationality_from_def(&tdef.country, &country_codes, &mut rng);
             let mut player =
                 generate_random_player_from_def(&team_id, j, &nationality, &names_def, &mut rng);
-            if rng.gen_range(0..100) < 12 {
+            if rng.random_range(0..100) < 12 {
                 player.transfer_listed = true;
-            } else if rng.gen_range(0..100) < 8 {
+            } else if rng.random_range(0..100) < 8 {
                 player.loan_listed = true;
             }
             players.push(player);
@@ -151,7 +151,7 @@ pub fn generate_world(
         StaffRole::AssistantManager,
     ];
     for role in &free_roles {
-        let nat = &country_codes[rng.gen_range(0..country_codes.len())];
+        let nat = &country_codes[rng.random_range(0..country_codes.len())];
         let s = generate_random_staff_unattached_from_def(role.clone(), nat, &names_def, &mut rng);
         staff.push(s);
     }
@@ -211,7 +211,7 @@ mod tests {
 
     #[test]
     fn test_pick_name_from_def() {
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         let names_def = default_names_definition();
         // Known nationality (ISO alpha-2)
         let (first, last) = pick_name_from_def("ES", &names_def, &mut rng);
@@ -229,7 +229,7 @@ mod tests {
 
     #[test]
     fn test_pick_nationality_weighted() {
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         let codes: Vec<String> = NATIONALITY_POOLS
             .iter()
             .map(|p| p.nationality.to_string())

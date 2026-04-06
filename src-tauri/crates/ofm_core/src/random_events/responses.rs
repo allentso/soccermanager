@@ -1,7 +1,7 @@
 use super::format_money;
 use crate::game::Game;
 use domain::team::{Sponsorship, SponsorshipBonusCriterion};
-use rand::Rng;
+use rand::RngExt;
 
 /// Apply the effect of a sponsor offer choice.
 pub fn apply_event_response(
@@ -99,10 +99,10 @@ pub fn apply_event_response(
             "listen_fans" => {
                 // Small morale boost across squad
                 let user_team_id = game.manager.team_id.clone().unwrap_or_default();
-                let mut rng = rand::thread_rng();
+                let mut rng = rand::rng();
                 for p in game.players.iter_mut() {
                     if p.team_id.as_deref() == Some(&user_team_id) {
-                        p.morale = (p.morale as i16 + rng.gen_range(1..=3)).clamp(10, 100) as u8;
+                        p.morale = (p.morale as i16 + rng.random_range(1..=3)).clamp(10, 100) as u8;
                     }
                 }
                 if let Some(msg) = game.messages.iter_mut().find(|m| m.id == message_id) {
@@ -145,8 +145,8 @@ pub fn apply_event_response(
                 if let Some(pid) = &player_id
                     && let Some(p) = game.players.iter_mut().find(|p| p.id == *pid)
                 {
-                    let mut rng = rand::thread_rng();
-                    p.morale = (p.morale as i16 + rng.gen_range(3..=8)).clamp(10, 100) as u8;
+                    let mut rng = rand::rng();
+                    p.morale = (p.morale as i16 + rng.random_range(3..=8)).clamp(10, 100) as u8;
                 }
                 if let Some(msg) = game.messages.iter_mut().find(|m| m.id == message_id) {
                     for a in msg.actions.iter_mut() {
@@ -163,8 +163,8 @@ pub fn apply_event_response(
                 if let Some(pid) = &player_id
                     && let Some(p) = game.players.iter_mut().find(|p| p.id == *pid)
                 {
-                    let mut rng = rand::thread_rng();
-                    p.morale = (p.morale as i16 - rng.gen_range(3..=8)).clamp(10, 100) as u8;
+                    let mut rng = rand::rng();
+                    p.morale = (p.morale as i16 - rng.random_range(3..=8)).clamp(10, 100) as u8;
                 }
                 if let Some(msg) = game.messages.iter_mut().find(|m| m.id == message_id) {
                     for a in msg.actions.iter_mut() {

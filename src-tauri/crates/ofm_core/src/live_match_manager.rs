@@ -305,7 +305,7 @@ pub fn create_live_match(
 
     Ok(LiveMatchSession {
         match_state,
-        rng: StdRng::from_entropy(),
+        rng: StdRng::from_rng(&mut rand::rng()),
         mode,
         fixture_index,
         round_matchday: fixture.matchday,

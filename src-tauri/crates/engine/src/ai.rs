@@ -1,4 +1,4 @@
-use rand::Rng;
+use rand::{Rng, RngExt};
 
 use crate::live_match::{LiveMatchState, MatchCommand, MatchPhase};
 use crate::types::{PlayStyle, PlayerData, Position, Side};
@@ -152,7 +152,7 @@ fn consider_substitution<R: Rng>(
     if goal_diff < 0 && minute >= 65 && subs_made < 3 {
         // Bring on an attacker if losing
         let chance = 0.03 * experience_factor * (1.0 + (minute as f64 - 65.0) / 25.0);
-        if rng.gen_range(0.0..1.0f64) < chance {
+        if rng.random_range(0.0..1.0f64) < chance {
             // Find a defender or midfielder to take off
             let candidates: Vec<&PlayerData> = team
                 .players
@@ -179,7 +179,7 @@ fn consider_substitution<R: Rng>(
     // --- Defensive substitutions (winning and past 80') ---
     if goal_diff > 0 && minute >= 80 && subs_made < 3 {
         let chance = 0.04 * experience_factor;
-        if rng.gen_range(0.0..1.0f64) < chance {
+        if rng.random_range(0.0..1.0f64) < chance {
             // Bring on a defender
             let forwards: Vec<&PlayerData> = team
                 .players
@@ -269,7 +269,7 @@ fn consider_tactic_change<R: Rng>(
     if goal_diff <= -2
         && minute >= 70
         && team.play_style != PlayStyle::Attacking
-        && rng.gen_range(0.0..1.0f64) < base_chance * 3.0
+        && rng.random_range(0.0..1.0f64) < base_chance * 3.0
     {
         return Some(MatchCommand::ChangePlayStyle {
             side,
@@ -282,7 +282,7 @@ fn consider_tactic_change<R: Rng>(
         && minute >= 75
         && team.play_style != PlayStyle::Attacking
         && team.play_style != PlayStyle::HighPress
-        && rng.gen_range(0.0..1.0f64) < base_chance * 2.0
+        && rng.random_range(0.0..1.0f64) < base_chance * 2.0
     {
         return Some(MatchCommand::ChangePlayStyle {
             side,
@@ -294,7 +294,7 @@ fn consider_tactic_change<R: Rng>(
     if goal_diff >= 1
         && minute >= 80
         && team.play_style != PlayStyle::Defensive
-        && rng.gen_range(0.0..1.0f64) < base_chance * 2.0
+        && rng.random_range(0.0..1.0f64) < base_chance * 2.0
     {
         return Some(MatchCommand::ChangePlayStyle {
             side,
@@ -306,7 +306,7 @@ fn consider_tactic_change<R: Rng>(
     if goal_diff >= 2
         && minute >= 85
         && team.play_style != PlayStyle::Defensive
-        && rng.gen_range(0.0..1.0f64) < base_chance * 4.0
+        && rng.random_range(0.0..1.0f64) < base_chance * 4.0
     {
         return Some(MatchCommand::ChangePlayStyle {
             side,

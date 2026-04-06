@@ -1,5 +1,5 @@
 use log::info;
-use rand::Rng;
+use rand::RngExt;
 use tauri::State;
 
 pub use crate::application::live_match::FinishLiveMatchResponse;
@@ -87,7 +87,7 @@ pub fn apply_team_talk(
     let mut game = state
         .get_game(|g| g.clone())
         .ok_or("No active game session")?;
-    let seed = rand::thread_rng().gen::<u64>();
+    let seed = rand::rng().random::<u64>();
     let results = apply_team_talk_internal(&mut game, &tone, &context, seed)?;
 
     state.set_game(game);
@@ -118,7 +118,7 @@ pub fn submit_press_conference(
         .ok_or("No active game session")?;
 
     let today = game.clock.current_date.format("%Y-%m-%d").to_string();
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
 
     // Build news article from press conference answers
     let mut quotes: Vec<String> = Vec::new();
@@ -152,14 +152,14 @@ pub fn submit_press_conference(
 
         // Morale effects based on tone
         match tone {
-            "Humble" | "Fair" | "Positive" | "Focused" => morale_delta += rng.gen_range(1..=3),
-            "Confident" | "Ambitious" => morale_delta += rng.gen_range(2..=5),
-            "Defiant" | "Frustrated" => morale_delta += rng.gen_range(-2..=2),
-            "Curt" | "Evasive" => morale_delta += rng.gen_range(-3..=0),
-            "Accept" | "Detailed" => morale_delta += rng.gen_range(0..=2),
-            "Deflect" => morale_delta += rng.gen_range(-1..=1),
-            "Praise" => morale_delta += rng.gen_range(3..=6),
-            "Demanding" => morale_delta += rng.gen_range(-2..=3),
+            "Humble" | "Fair" | "Positive" | "Focused" => morale_delta += rng.random_range(1..=3),
+            "Confident" | "Ambitious" => morale_delta += rng.random_range(2..=5),
+            "Defiant" | "Frustrated" => morale_delta += rng.random_range(-2..=2),
+            "Curt" | "Evasive" => morale_delta += rng.random_range(-3..=0),
+            "Accept" | "Detailed" => morale_delta += rng.random_range(0..=2),
+            "Deflect" => morale_delta += rng.random_range(-1..=1),
+            "Praise" => morale_delta += rng.random_range(3..=6),
+            "Demanding" => morale_delta += rng.random_range(-2..=3),
             _ => {}
         }
 
@@ -168,10 +168,10 @@ pub fn submit_press_conference(
             if let Some(pid) = answer.get("player_id").and_then(|v| v.as_str()) {
                 if !pid.is_empty() {
                     let player_delta: i16 = match tone {
-                        "Praise" => rng.gen_range(4..=8),
-                        "Demanding" => rng.gen_range(-3..=4),
-                        "Deflect" => rng.gen_range(-2..=1),
-                        _ => rng.gen_range(0..=3),
+                        "Praise" => rng.random_range(4..=8),
+                        "Demanding" => rng.random_range(-3..=4),
+                        "Deflect" => rng.random_range(-2..=1),
+                        _ => rng.random_range(0..=3),
                     };
                     if let Some(p) = game.players.iter_mut().find(|p| p.id == pid) {
                         p.morale = ((p.morale as i16) + player_delta).clamp(10, 100) as u8;
@@ -208,7 +208,7 @@ pub fn submit_press_conference(
                     user_team_name
                 ),
             ];
-            sources[rng.gen_range(0..sources.len())].clone()
+            sources[rng.random_range(0..sources.len())].clone()
         }
     });
 
