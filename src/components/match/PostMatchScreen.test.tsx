@@ -532,8 +532,8 @@ describe("PostMatchScreen", function (): void {
               },
             ],
           }}
-          onPressConference={() => {}}
-          onFinish={() => {}}
+          onPressConference={() => { }}
+          onFinish={() => { }}
         />
       </ThemeProvider>,
     );
@@ -593,8 +593,8 @@ describe("PostMatchScreen", function (): void {
             notable_upset: null,
             top_scorer_delta: [],
           }}
-          onPressConference={() => {}}
-          onFinish={() => {}}
+          onPressConference={() => { }}
+          onFinish={() => { }}
         />
       </ThemeProvider>,
     );
@@ -630,8 +630,8 @@ describe("PostMatchScreen", function (): void {
           isSpectator={false}
           importantEvents={[]}
           roundSummary={null}
-          onPressConference={() => {}}
-          onFinish={() => {}}
+          onPressConference={() => { }}
+          onFinish={() => { }}
         />
       </ThemeProvider>,
     );
