@@ -3,14 +3,11 @@ import type {
     PlayerSeasonStats,
     TeamData,
 } from "../../store/gameStore";
+import type { TOptions } from "i18next";
 import { annualAmountToWeeklyCommitment } from "../../lib/finance";
 import { formatWeeklyAmount } from "../../lib/helpers";
 
-interface TranslateOptions {
-    defaultValue?: string;
-}
-
-type TranslateFn = (key: string, options?: TranslateOptions) => string;
+type TranslateFn = (key: string, options?: TOptions) => string;
 
 interface PlayerAdvancedMetric {
     total: number;
@@ -218,14 +215,14 @@ export function buildPlayerAdvancedStats(
                 per90: calculatePer90(shots, minutesPlayed),
                 percentile: canComputePercentiles
                     ? metricPercentile(
-                          peers,
-                          (stats) =>
-                              calculatePer90(
-                                  statValue(stats.shots),
-                                  statValue(stats.minutes_played),
-                              ),
-                          player.stats,
-                      )
+                        peers,
+                        (stats) =>
+                            calculatePer90(
+                                statValue(stats.shots),
+                                statValue(stats.minutes_played),
+                            ),
+                        player.stats,
+                    )
                     : null,
             },
             shotsOnTarget: {
@@ -233,14 +230,14 @@ export function buildPlayerAdvancedStats(
                 per90: calculatePer90(shotsOnTarget, minutesPlayed),
                 percentile: canComputePercentiles
                     ? metricPercentile(
-                          peers,
-                          (stats) =>
-                              calculatePer90(
-                                  statValue(stats.shots_on_target),
-                                  statValue(stats.minutes_played),
-                              ),
-                          player.stats,
-                      )
+                        peers,
+                        (stats) =>
+                            calculatePer90(
+                                statValue(stats.shots_on_target),
+                                statValue(stats.minutes_played),
+                            ),
+                        player.stats,
+                    )
                     : null,
             },
             passes: {
@@ -249,14 +246,14 @@ export function buildPlayerAdvancedStats(
                 accuracy: calculatePassAccuracy(passesCompleted, passesAttempted),
                 percentile: canComputePercentiles
                     ? metricPercentile(
-                          peers,
-                          (stats) =>
-                              calculatePassAccuracy(
-                                  statValue(stats.passes_completed),
-                                  statValue(stats.passes_attempted),
-                              ),
-                          player.stats,
-                      )
+                        peers,
+                        (stats) =>
+                            calculatePassAccuracy(
+                                statValue(stats.passes_completed),
+                                statValue(stats.passes_attempted),
+                            ),
+                        player.stats,
+                    )
                     : null,
             },
             tacklesWon: {
@@ -264,14 +261,14 @@ export function buildPlayerAdvancedStats(
                 per90: calculatePer90(tacklesWon, minutesPlayed),
                 percentile: canComputePercentiles
                     ? metricPercentile(
-                          peers,
-                          (stats) =>
-                              calculatePer90(
-                                  statValue(stats.tackles_won),
-                                  statValue(stats.minutes_played),
-                              ),
-                          player.stats,
-                      )
+                        peers,
+                        (stats) =>
+                            calculatePer90(
+                                statValue(stats.tackles_won),
+                                statValue(stats.minutes_played),
+                            ),
+                        player.stats,
+                    )
                     : null,
             },
             interceptions: {
@@ -279,14 +276,14 @@ export function buildPlayerAdvancedStats(
                 per90: calculatePer90(interceptions, minutesPlayed),
                 percentile: canComputePercentiles
                     ? metricPercentile(
-                          peers,
-                          (stats) =>
-                              calculatePer90(
-                                  statValue(stats.interceptions),
-                                  statValue(stats.minutes_played),
-                              ),
-                          player.stats,
-                      )
+                        peers,
+                        (stats) =>
+                            calculatePer90(
+                                statValue(stats.interceptions),
+                                statValue(stats.minutes_played),
+                            ),
+                        player.stats,
+                    )
                     : null,
             },
             foulsCommitted: {
@@ -294,14 +291,14 @@ export function buildPlayerAdvancedStats(
                 per90: calculatePer90(foulsCommitted, minutesPlayed),
                 percentile: canComputePercentiles
                     ? metricPercentile(
-                          peers,
-                          (stats) =>
-                              calculatePer90(
-                                  statValue(stats.fouls_committed),
-                                  statValue(stats.minutes_played),
-                              ),
-                          player.stats,
-                      )
+                        peers,
+                        (stats) =>
+                            calculatePer90(
+                                statValue(stats.fouls_committed),
+                                statValue(stats.minutes_played),
+                            ),
+                        player.stats,
+                    )
                     : null,
             },
         },
