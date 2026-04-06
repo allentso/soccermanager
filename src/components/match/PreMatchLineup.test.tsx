@@ -6,7 +6,24 @@ import type { EnginePlayerData, EngineTeamData } from "./types";
 
 // Mock react-i18next
 vi.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string, opts?: Record<string, unknown>) => opts?.count !== undefined ? `${key}:${opts.count}` : key }),
+  useTranslation: () => ({
+    t: (key: string, arg?: unknown) => {
+      if (typeof arg === "string") {
+        return arg;
+      }
+
+      if (
+        typeof arg === "object" &&
+        arg !== null &&
+        "count" in arg &&
+        typeof (arg as Record<string, unknown>).count !== "undefined"
+      ) {
+        return `${key}:${String((arg as Record<string, unknown>).count)}`;
+      }
+
+      return key;
+    },
+  }),
 }));
 
 // ---------------------------------------------------------------------------
