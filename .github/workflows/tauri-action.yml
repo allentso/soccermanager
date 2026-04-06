@@ -8,6 +8,7 @@ on:
 
 jobs:
   publish-tauri:
+    environment: ${{ vars.RELEASE_ENVIRONMENT || 'release' }}
     permissions:
       contents: write
     strategy:
@@ -59,6 +60,14 @@ jobs:
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Apple code-signing certificate (.p12 as base64) and identity.
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # Notarization credentials (either Apple ID password flow or App Store Connect API key flow).
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
         with:
           tagName: v__VERSION__
           releaseName: "Openfoot Manager v__VERSION__"
