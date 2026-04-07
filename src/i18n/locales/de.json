@@ -92,7 +92,8 @@
       "incompleteStartingXi": "Startelf unvollständig — stelle deine Aufstellung ein",
       "urgentUnread": "{{count}} dringende Nachricht(en) ungelesen",
       "matchTodayStartingXi": "Heute ist Spieltag! Stelle deine Startelf ein"
-    }
+    },
+    "unemployedBanner": "Sie sind derzeit ohne Verein. Jobangebote könnten in Ihrem Posteingang eintreffen."
   },
   "continueMenu": {
     "goToField": "Aufs Spielfeld",
@@ -2037,6 +2038,7 @@
     "careerHistory": "Karriereverlauf",
     "returnToMenu": "Zurück zum Hauptmenü",
     "present": "Aktuell",
-    "bestLabel": "Beste"
+    "bestLabel": "Beste",
+    "dismissalLetter": "Der Vorstand hat beschlossen, Sie mit sofortiger Wirkung als Trainer von {{team}} zu entlassen.\n\nWir danken Ihnen für Ihre Dienste und wünschen Ihnen alles Gute für Ihre weitere Karriere.\n\nMit freundlichen Grüßen,\nDer Vorstand"
   }
 }

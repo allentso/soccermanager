@@ -92,7 +92,8 @@
       "incompleteStartingXi": "El once inicial está incompleto — ajusta tu alineación",
       "urgentUnread": "{{count}} mensaje(s) urgente(s) sin leer",
       "matchTodayStartingXi": "¡Hay partido hoy! Ajusta tu once inicial"
-    }
+    },
+    "unemployedBanner": "Actualmente no tiene club. Las ofertas de trabajo pueden llegar a su bandeja de entrada."
   },
   "continueMenu": {
     "goToField": "Ir al Campo",
@@ -2037,6 +2038,7 @@
     "careerHistory": "Historial",
     "returnToMenu": "Volver al Menú Principal",
     "present": "Actual",
-    "bestLabel": "Mejor"
+    "bestLabel": "Mejor",
+    "dismissalLetter": "La junta directiva ha decidido relevarle de sus funciones como entrenador de {{team}}, con efecto inmediato.\n\nLe agradecemos sus servicios y le deseamos lo mejor en su futura carrera.\n\nAtentamente,\nLa Junta Directiva"
   }
 }

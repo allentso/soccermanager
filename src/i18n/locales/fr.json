@@ -92,7 +92,8 @@
       "incompleteStartingXi": "Le onze de départ est incomplet — définissez votre composition",
       "urgentUnread": "{{count}} message(s) urgent(s) non lu(s)",
       "matchTodayStartingXi": "Match aujourd'hui ! Définissez votre onze de départ"
-    }
+    },
+    "unemployedBanner": "Vous êtes actuellement sans club. Des offres d'emploi pourraient arriver dans votre boîte de réception."
   },
   "continueMenu": {
     "goToField": "Aller sur le Terrain",
@@ -2037,6 +2038,7 @@
     "careerHistory": "Historique",
     "returnToMenu": "Retour au Menu Principal",
     "present": "Actuel",
-    "bestLabel": "Meilleur"
+    "bestLabel": "Meilleur",
+    "dismissalLetter": "Le conseil d'administration a décidé de vous relever de vos fonctions d'entraîneur de {{team}}, avec effet immédiat.\n\nNous vous remercions pour vos services et vous souhaitons bonne chance pour la suite de votre carrière.\n\nCordialement,\nLe Conseil d'Administration"
   }
 }

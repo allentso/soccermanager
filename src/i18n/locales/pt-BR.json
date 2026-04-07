@@ -92,7 +92,8 @@
       "incompleteStartingXi": "A escalação titular está incompleta — ajuste seu time",
       "urgentUnread": "{{count}} mensagem(ns) urgente(s) não lida(s)",
       "matchTodayStartingXi": "Tem jogo hoje! Ajuste sua escalação titular"
-    }
+    },
+    "unemployedBanner": "Você está atualmente sem clube. Ofertas de emprego podem chegar na sua caixa de entrada."
   },
   "continueMenu": {
     "goToField": "Ir para o Campo",
@@ -2037,6 +2038,7 @@
     "careerHistory": "Histórico",
     "returnToMenu": "Voltar ao Menu Principal",
     "present": "Atual",
-    "bestLabel": "Melhor"
+    "bestLabel": "Melhor",
+    "dismissalLetter": "O conselho de administração decidiu dispensá-lo das suas funções como treinador do {{team}}, com efeito imediato.\n\nAgradecemos pelos seus serviços e desejamos-lhe o melhor para a sua futura carreira.\n\nAtenciosamente,\nO Conselho de Administração"
   }
 }
