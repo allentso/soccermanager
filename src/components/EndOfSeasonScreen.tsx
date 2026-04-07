@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { GameStateData } from "../store/gameStore";
 import { useGameStore } from "../store/gameStore";
@@ -33,7 +32,6 @@ interface EndOfSeasonScreenProps {
 
 export default function EndOfSeasonScreen({ gameState, onGameUpdate }: EndOfSeasonScreenProps) {
   const { t } = useTranslation();
-  const navigate = useNavigate();
   const setShowFiredModal = useGameStore((s) => s.setShowFiredModal);
   const [loading, setLoading] = useState(false);
   const [summary, setSummary] = useState<EndOfSeasonSummary | null>(null);
