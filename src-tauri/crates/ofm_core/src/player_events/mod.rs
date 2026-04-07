@@ -9,7 +9,7 @@ pub use responses::{
 use crate::contracts::contract_warning_stage;
 use crate::game::Game;
 use domain::message::InboxMessage;
-use rand::Rng;
+use rand::RngExt;
 
 use message_builders::{
     bench_complaint_message, contract_concern_message, happy_player_message, low_morale_message,
@@ -85,7 +85,7 @@ pub fn check_player_events(game: &mut Game) {
 
     let mut new_messages: Vec<InboxMessage> = Vec::new();
 
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
 
     // Global daily cap: at most 2 player-initiated messages per day
     let today_message_count = game
@@ -120,7 +120,7 @@ pub fn check_player_events(game: &mut Game) {
             continue;
         }
 
-        if player.morale < 30 && rng.gen_range(0..5) == 0 {
+        if player.morale < 30 && rng.random_range(0..5) == 0 {
             new_messages.push(low_morale_message(
                 &msg_id,
                 &player.id,
@@ -189,7 +189,7 @@ pub fn check_player_events(game: &mut Game) {
                 } else {
                     1.0
                 };
-                if ovr >= 55 && player.morale < 50 && app_ratio < 0.3 && rng.gen_range(0..10) == 0 {
+                if ovr >= 55 && player.morale < 50 && app_ratio < 0.3 && rng.random_range(0..10) == 0 {
                     new_messages.push(bench_complaint_message(
                         &msg_id,
                         &player.id,
@@ -219,7 +219,7 @@ pub fn check_player_events(game: &mut Game) {
                 continue;
             }
 
-            if player.morale >= 90 && rng.gen_range(0..100) == 0 {
+            if player.morale >= 90 && rng.random_range(0..100) == 0 {
                 new_messages.push(happy_player_message(
                     &msg_id,
                     &player.id,

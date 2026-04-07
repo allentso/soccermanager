@@ -2,7 +2,7 @@ mod match_report;
 pub use match_report::match_report_article;
 
 use domain::news::*;
-use rand::Rng;
+use rand::{Rng, RngExt};
 use std::collections::HashMap;
 
 /// Helper to build a HashMap<String, String> from key-value pairs.
@@ -63,7 +63,7 @@ pub fn league_roundup_article(
     results: &[(String, u8, String, u8)], // (home_name, home_goals, away_name, away_goals)
     date: &str,
 ) -> NewsArticle {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let results_text = result_lines(results);
     let biggest_winner = biggest_winner_name(results);
 
@@ -104,8 +104,8 @@ pub fn league_roundup_article(
         "be.source.sportsGazette",
     ];
     let sources = ["League Wire", "The Football Herald", "Sports Gazette"];
-    let src_idx = rng.gen_range(0..sources.len());
-    let headline_idx = rng.gen_range(0..headlines.len());
+    let src_idx = rng.random_range(0..sources.len());
+    let headline_idx = rng.random_range(0..headlines.len());
 
     NewsArticle::new(
         format!("roundup_md{}", matchday),
@@ -135,7 +135,7 @@ pub fn standings_update_article(
     top_teams: &[(String, u32, i16)], // (team_name, points, goal_diff)
     date: &str,
 ) -> NewsArticle {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
 
     let leader = top_teams
         .first()
@@ -164,8 +164,8 @@ pub fn standings_update_article(
         "be.source.leagueChronicle",
     ];
     let sources = ["League Wire", "The Football Herald", "League Chronicle"];
-    let src_idx = rng.gen_range(0..sources.len());
-    let headline_idx = rng.gen_range(0..headlines.len());
+    let src_idx = rng.random_range(0..sources.len());
+    let headline_idx = rng.random_range(0..headlines.len());
 
     NewsArticle::new(
         format!("standings_md{}", matchday),
@@ -188,14 +188,14 @@ pub fn standings_update_article(
 }
 
 fn preview_contenders<'a>(team_names: &'a [String], rng: &mut impl Rng) -> (&'a str, &'a str) {
-    let favourite = &team_names[rng.gen_range(0..team_names.len())];
+    let favourite = &team_names[rng.random_range(0..team_names.len())];
 
     if team_names.len() == 1 {
         return (favourite.as_str(), favourite.as_str());
     }
 
     let dark_horse = loop {
-        let pick = &team_names[rng.gen_range(0..team_names.len())];
+        let pick = &team_names[rng.random_range(0..team_names.len())];
         if pick != favourite {
             break pick;
         }
@@ -206,7 +206,7 @@ fn preview_contenders<'a>(team_names: &'a [String], rng: &mut impl Rng) -> (&'a 
 
 /// Generate a season preview article at the start of the season.
 pub fn season_preview_article(team_names: &[String], date: &str) -> NewsArticle {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
 
     let (favourite, dark_horse) = preview_contenders(team_names, &mut rng);
 
@@ -233,7 +233,7 @@ pub fn season_preview_article(team_names: &[String], date: &str) -> NewsArticle 
         format!("Can {} Claim the Title? Season Preview", favourite),
     ];
 
-    let headline_idx = rng.gen_range(0..headlines.len());
+    let headline_idx = rng.random_range(0..headlines.len());
 
     NewsArticle::new(
         "season_preview".to_string(),

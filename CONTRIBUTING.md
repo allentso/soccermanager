@@ -1,16 +1,16 @@
 # CONTRIBUTING
 
-Thank your for taking the time to read this, and for showing your interest in supporting us!
+Thank you for taking the time to read this and for showing your interest in supporting the project.
 
-There are several ways you can contribute with the project, whether you are a programmer or just a fan of this type of project, it means a lot if you can help us in any meaningful way. This game was born out of a dissatisfaction with alternatives in the market, and was built by a footbal fan, so I assume that if you're here, you want to be part of this and you're also a football fan.
+There are several ways to contribute, whether you are a programmer or just a fan of this type of game. Any meaningful help is appreciated. This game was born from dissatisfaction with market alternatives and was built by a football fan for football fans.
 
-If you can't code, but you have other skills that you can help us, don't worry, you can still do it. And if you can't do either of the things we proposed, you can still help us:
+If you do not code, you can still help in many ways:
 
 - Give us a star!
 - Tweet about the project!
 - Refer this project in your project's readme!
 - Tell your friends about us!
-- Share us on facebook!
+- Share us on Facebook!
 - Donate to the project _(not available yet)_
 - Make a video about it!
 - Play it!
@@ -29,10 +29,10 @@ If you really want to help us directly, thank you very much! We have a few jobs 
   Do you think we can improve our documentation somehow? You can propose changes to the text, or write useful tutorials or examples on how to do certain things in the game.
 
 - **Translation**  
-  The game is still not translatable, but it soon will be. If you want to translate the game to your own language, you will be able to do that. We will soon provide a platform to do that. You will also be able to translate the documentation to your language.
+  Localization contributions are welcome. You can help improve existing translations and add new locales for both the game UI and documentation.
 
 - **Create new content**  
-  You can create content to the game, like images, logos, database improvements, whatever you'd like. Soon this option will be available, and you will be able to submit your new content proposal easily.
+  You can propose and contribute content for the game, such as images, logos, and database improvements. Please open an Issue first so we can align scope and format.
 
 ## Submitting code
 
@@ -75,7 +75,7 @@ The frontend is built with React, TypeScript, and TailwindCSS in the `src/` dire
 
 ### Fork and Pull
 
-We work with a [Fork & Pull](https://docs.github.com/en/github/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/about-pull-requests#fork--pull) method. Fork this repo, write your code in a feature branch (make sure it is up to date with the project's `develop` branch) and open a **Pull Request** to the `develop` repository, describing your changes or even referencing the **Issue** that inspired your code.
+We work with a [Fork & Pull](https://docs.github.com/en/github/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/about-pull-requests#fork--pull) method. Fork this repo, write your code in a feature branch (make sure it is up to date with the `develop` branch), and open a **Pull Request** targeting `develop`, describing your changes and referencing the **Issue** that inspired your code when applicable.
 
 If you're working on a new feature that has no prior **Issue** related to it, please open an **Issue** describing the feature and then reference it in your new **Pull Request**.
 
@@ -94,13 +94,19 @@ If you're working on a new feature that has no prior **Issue** related to it, pl
 
 ### Tests
 
-Whenever you're adding a new feature to the backend, you must add tests to ensure that your feature works as expected.
+Whenever you add a new feature (backend or frontend), include tests to ensure it behaves as expected.
 
 Write unit tests in the same file as your code using the `#[cfg(test)]` module, as is standard in the Rust community.
 
-Run all tests before opening a Pull Request:
+Run all relevant tests before opening a Pull Request:
+
+```bash
+npm test
+```
 
 ```bash
 cd src-tauri
-cargo test
+cargo test --workspace
 ```
+
+If your change affects both layers, run both test suites.

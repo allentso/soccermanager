@@ -1,4 +1,4 @@
-use rand::Rng;
+use rand::{Rng, RngExt};
 
 use crate::event::{EventType, MatchEvent};
 use crate::types::{Position, Side, Zone};
@@ -42,7 +42,7 @@ impl LiveMatchState {
         let zone = Zone::attacking_box(kicking_side);
 
         // Now mutate penalty_state
-        let scored = rng.gen_range(0.0..1.0f64) < conversion;
+        let scored = rng.random_range(0.0..1.0f64) < conversion;
         if scored {
             let evt = MatchEvent::new(minute, EventType::PenaltyGoal, kicking_side, zone)
                 .with_player(&taker.id);
@@ -139,7 +139,7 @@ impl LiveMatchState {
         let conversion = (0.75 + (shoot_skill - gk_skill) / 300.0).clamp(0.55, 0.92);
         let zone = Zone::attacking_box(att_side);
 
-        if rng.gen_range(0.0..1.0f64) < conversion {
+        if rng.random_range(0.0..1.0f64) < conversion {
             let evt = MatchEvent::new(minute, EventType::PenaltyGoal, att_side, zone)
                 .with_player(&taker.id);
             self.events.push(evt.clone());

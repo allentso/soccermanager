@@ -4,7 +4,7 @@ use domain::player::{
     ContractRenewalState, Player, PlayerPromise, PlayerPromiseKind, RecentTreatmentMemory,
     RenewalSessionOutcome, RenewalSessionStatus,
 };
-use rand::Rng;
+use rand::RngExt;
 use serde::Serialize;
 use std::collections::HashMap;
 
@@ -269,7 +269,7 @@ fn banded_morale_talk_outcome<R: rand::Rng + ?Sized>(
     rng: &mut R,
 ) -> ResponseOutcome {
     let weights = build_response_band_weights(player, message_id, option_id);
-    let roll = rng.gen_range(0..weights.total());
+    let roll = rng.random_range(0..weights.total());
     let band = pick_response_band(&weights, roll);
 
     match option_id {
@@ -467,7 +467,7 @@ pub fn apply_player_response(
         .find(|m| m.id == message_id)
         .and_then(|m| m.context.player_id.clone())?;
 
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
 
     // Get personality factor for this player
     let pf = game
@@ -490,7 +490,7 @@ pub fn apply_player_response(
         match option_id {
             "explain" => {
                 // Moderate; only works on composed players
-                let d = rng.gen_range(-2..=6) + (pf / 4);
+                let d = rng.random_range(-2..=6) + (pf / 4);
                 if d >= 0 {
                     outcome(
                         d,
@@ -507,7 +507,7 @@ pub fn apply_player_response(
             }
             "promise_chance" => {
                 // PROMISE — big boost now, tracked for consequences
-                let d = rng.gen_range(8..=14);
+                let d = rng.random_range(8..=14);
                 outcome(
                     d,
                     "be.msg.playerEvent.effects.benchComplaint.promiseChance",
@@ -519,7 +519,7 @@ pub fn apply_player_response(
             }
             "prove_yourself" => {
                 // Very risky — high-aggression players rebel
-                let d = rng.gen_range(-10..=6) + (pf / 3);
+                let d = rng.random_range(-10..=6) + (pf / 3);
                 if d >= 0 {
                     outcome(
                         d,
@@ -539,7 +539,7 @@ pub fn apply_player_response(
     } else if message_id.starts_with("happy_player_") {
         match option_id {
             "praise_back" => {
-                let d = rng.gen_range(2..=5);
+                let d = rng.random_range(2..=5);
                 outcome(
                     d,
                     "be.msg.playerEvent.effects.happyPlayer.praiseBack",
@@ -548,7 +548,7 @@ pub fn apply_player_response(
             }
             "stay_professional" => {
                 // Neutral — can slightly drop morale on volatile players
-                let d = rng.gen_range(-2..=3) + (pf / 6);
+                let d = rng.random_range(-2..=3) + (pf / 6);
                 if d >= 0 {
                     outcome(
                         d,
@@ -565,7 +565,7 @@ pub fn apply_player_response(
             }
             "higher_expectations" => {
                 // Risky: leaders respond well, others feel pressured
-                let d = rng.gen_range(-6..=4) + (pf / 3);
+                let d = rng.random_range(-6..=4) + (pf / 3);
                 if d >= 0 {
                     outcome(
                         d,
@@ -586,7 +586,7 @@ pub fn apply_player_response(
         match option_id {
             "reassure" => {
                 // Sets expectation of renewal — moderate boost
-                let d = rng.gen_range(4..=10);
+                let d = rng.random_range(4..=10);
                 outcome(
                     d,
                     "be.msg.playerEvent.effects.contractConcern.reassure",
@@ -595,7 +595,7 @@ pub fn apply_player_response(
             }
             "noncommittal" => {
                 // Almost always negative — players hate uncertainty
-                let d = rng.gen_range(-8..=0) + (pf / 5);
+                let d = rng.random_range(-8..=0) + (pf / 5);
                 if d >= 0 {
                     outcome(
                         d,
@@ -611,7 +611,7 @@ pub fn apply_player_response(
                 }
             }
             "no_renewal" => {
-                let d = rng.gen_range(-15..=-8);
+                let d = rng.random_range(-15..=-8);
                 outcome(
                     d,
                     "be.msg.playerEvent.effects.contractConcern.noRenewal",
@@ -700,7 +700,7 @@ pub fn apply_player_response(
         let mut affected = 0u8;
         for p in game.players.iter_mut() {
             if p.id != player_id && p.team_id.as_deref() == Some(&user_team_id) {
-                let loss = rng.gen_range(2..=5);
+                let loss = rng.random_range(2..=5);
                 p.morale = (p.morale as i16 - loss as i16).clamp(10, 100) as u8;
                 affected += 1;
             }

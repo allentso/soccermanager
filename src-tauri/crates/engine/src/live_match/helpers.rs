@@ -1,4 +1,4 @@
-use rand::Rng;
+use rand::{Rng, RngExt};
 
 use crate::shared::{PlayStylePhase, PlayerSnap, home_mod, play_style_modifier};
 use crate::types::{PlayerData, Position, Side, TeamData};
@@ -72,7 +72,7 @@ impl LiveMatchState {
         if pool.is_empty() {
             return PlayerSnap::from(&team.players[0]);
         }
-        PlayerSnap::from(pool[rng.gen_range(0..pool.len())])
+        PlayerSnap::from(pool[rng.random_range(0..pool.len())])
     }
 
     pub(super) fn snap_player_by_id(&self, player_id: &str, side: Side) -> PlayerSnap {

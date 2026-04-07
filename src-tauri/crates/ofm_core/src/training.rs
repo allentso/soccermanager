@@ -251,21 +251,21 @@ pub fn process_training(game: &mut Game, weekday_num: u32) {
 /// Physical training builds fitness (probabilistic small gains).
 /// Recovery focus gives a tiny boost. Non-physical training slowly decays high fitness.
 fn apply_fitness_change(fitness: &mut u8, focus: &TrainingFocus, intensity_mult: f64) {
-    use rand::Rng;
-    let mut rng = rand::thread_rng();
+    use rand::RngExt;
+    let mut rng = rand::rng();
     match focus {
         TrainingFocus::Physical => {
             // Physical training is the primary way to build fitness.
             // Higher intensity → higher gain probability.
             let gain_prob = 0.015 * intensity_mult; // 0.0075–0.0225 per session
-            let roll: f64 = rng.gen_range(0.0..1.0);
+            let roll: f64 = rng.random_range(0.0..1.0);
             if roll < gain_prob && *fitness < 100 {
                 *fitness = fitness.saturating_add(1);
             }
         }
         TrainingFocus::Recovery => {
             // Recovery days give a tiny fitness nudge.
-            let roll: f64 = rng.gen_range(0.0..1.0);
+            let roll: f64 = rng.random_range(0.0..1.0);
             if roll < 0.05 && *fitness < 100 {
                 *fitness = fitness.saturating_add(1);
             }
@@ -274,7 +274,7 @@ fn apply_fitness_change(fitness: &mut u8, focus: &TrainingFocus, intensity_mult:
             // Non-physical training: very slight decay if player is already very fit
             // (fitness above 85 needs active maintenance).
             if *fitness > 85 {
-                let roll: f64 = rng.gen_range(0.0..1.0);
+                let roll: f64 = rng.random_range(0.0..1.0);
                 if roll < 0.05 {
                     *fitness = fitness.saturating_sub(1);
                 }
@@ -284,12 +284,12 @@ fn apply_fitness_change(fitness: &mut u8, focus: &TrainingFocus, intensity_mult:
 }
 
 fn try_gain(current: &mut u8, gain: f64) {
-    use rand::Rng;
+    use rand::RngExt;
     if *current >= 99 {
         return;
     }
-    let mut rng = rand::thread_rng();
-    let roll: f64 = rng.gen_range(0.0..1.0);
+    let mut rng = rand::rng();
+    let roll: f64 = rng.random_range(0.0..1.0);
     if roll < gain {
         *current = (*current + 1).min(99);
     }

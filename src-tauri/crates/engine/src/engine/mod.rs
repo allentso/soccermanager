@@ -1,7 +1,7 @@
 mod fouls;
 mod resolution;
 
-use rand::Rng;
+use rand::{Rng, RngExt};
 
 use crate::event::{EventType, MatchEvent};
 use crate::report::MatchReport;
@@ -14,7 +14,7 @@ use crate::types::{MatchConfig, PlayerData, Position, Side, TeamData, Zone};
 
 /// Simulate a full match between two teams and return a detailed report.
 pub fn simulate(home: &TeamData, away: &TeamData, config: &MatchConfig) -> MatchReport {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     simulate_with_rng(home, away, config, &mut rng)
 }
 
@@ -38,7 +38,7 @@ pub fn simulate_with_rng<R: Rng>(
     ctx.possession = Side::Home;
 
     // --- First half (minutes 1–45 + stoppage) ---
-    let first_half_stoppage = rng.gen_range(0..=config.stoppage_time_max);
+    let first_half_stoppage = rng.random_range(0..=config.stoppage_time_max);
     let first_half_end = 45 + first_half_stoppage;
     for minute in 1..=first_half_end {
         simulate_minute(&mut ctx, minute, rng);
@@ -62,7 +62,7 @@ pub fn simulate_with_rng<R: Rng>(
     ));
 
     // --- Second half (minutes 46–90 + stoppage) ---
-    let second_half_stoppage = rng.gen_range(0..=config.stoppage_time_max);
+    let second_half_stoppage = rng.random_range(0..=config.stoppage_time_max);
     let match_end = 90 + first_half_stoppage + second_half_stoppage;
     for minute in second_half_start..=match_end {
         simulate_minute(&mut ctx, minute, rng);
@@ -177,7 +177,7 @@ fn snap_player<R: Rng>(
     if pool.is_empty() {
         return PlayerSnap::from(&team.players[0]);
     }
-    PlayerSnap::from(pool[rng.gen_range(0..pool.len())])
+    PlayerSnap::from(pool[rng.random_range(0..pool.len())])
 }
 
 // ---------------------------------------------------------------------------
@@ -190,7 +190,7 @@ fn simulate_minute<R: Rng>(ctx: &mut MatchContext, minute: u8, rng: &mut R) {
         Side::Away => ctx.away_possession_ticks += 1,
     }
 
-    let actions = rng.gen_range(1..=3u8);
+    let actions = rng.random_range(1..=3u8);
     for _ in 0..actions {
         resolution::resolve_action(ctx, minute, rng);
     }
@@ -201,7 +201,7 @@ fn simulate_minute<R: Rng>(ctx: &mut MatchContext, minute: u8, rng: &mut R) {
     let mid_att = resolution::effective_midfield(ctx, poss_side);
     let mid_def = resolution::effective_midfield(ctx, def_side);
     let retain = mid_att / (mid_att + mid_def);
-    if rng.gen_range(0.0..1.0f64) > retain {
+    if rng.random_range(0.0..1.0f64) > retain {
         ctx.possession = def_side;
         ctx.ball_zone = Zone::Midfield;
     }

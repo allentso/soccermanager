@@ -12,13 +12,40 @@
 
 **A free and open source football management simulation game**
 
-[Features](#features) • [Screenshots](#screenshots) • [Installation](#installation) • [Contributing](#contributing) • [License](#license)
+[Features](#features) • [Screenshots](#screenshots) • [Installation](#installation--development) • [Contributing](#contributing) • [License](#license)
 
 </div>
 
 ---
 
 **Openfoot Manager** is a free and open source football/soccer manager game, licensed under the [GPLv3](LICENSE.md), inspired by the famous franchise Football Manager&trade;.
+
+## FEATURES
+
+- **Text-based match simulation** with event-driven commentary and score progression.
+- **Full squad management** for roles, depth planning, and player development decisions.
+- **Transfer and contract workflows** to buy, sell, and negotiate player moves.
+- **Training and staff systems** to improve performance through coaching and planning.
+- **Dynamic inbox and news generation** that keeps you updated on club and world events.
+- **Scouting support** for discovering talent and evaluating future signings.
+- **Persistent game data** backed by SQLite for local saves and progression.
+- **Modern desktop app experience** built with Tauri + React for speed and low overhead.
+- **Multi-language support** with i18n foundations and community translation growth.
+- **Free and open source** under GPLv3, with community-driven development.
+
+## SCREENSHOTS
+
+Click any image to open the full-size version.
+
+<a href="images/screenshots/inbox.png"><img src="images/screenshots/inbox.png" alt="Inbox screen" width="220" /></a>
+<a href="images/screenshots/news.png"><img src="images/screenshots/news.png" alt="News screen" width="220" /></a>
+<a href="images/screenshots/manage_squad.png"><img src="images/screenshots/manage_squad.png" alt="Manage squad screen" width="220" /></a>
+
+<a href="images/screenshots/matchlive.png"><img src="images/screenshots/matchlive.png" alt="Match live screen" width="220" /></a>
+<a href="images/screenshots/training.png"><img src="images/screenshots/training.png" alt="Training screen" width="220" /></a>
+<a href="images/screenshots/playertalk.png"><img src="images/screenshots/playertalk.png" alt="Player talk screen" width="220" /></a>
+
+<a href="images/screenshots/presstalk.png"><img src="images/screenshots/presstalk.png" alt="Press talk screen" width="220" /></a>
 
 ## ARCHITECTURE
 
@@ -53,7 +80,19 @@ npm run tauri dev
 
 ## CONTRIBUTING
 
-Check the [CONTRIBUTING](CONTRIBUTING.md) file for more information on how to contribute.
+Contributions are welcome. For full guidelines, read [CONTRIBUTING](CONTRIBUTING.md).
+
+Quick contribution checklist:
+
+1. Open an Issue first for bugs, enhancements, or larger feature ideas.
+2. Work from a feature branch and open Pull Requests targeting `develop`.
+3. Run tests before submitting:
+
+```bash
+npm test
+cd src-tauri
+cargo test --workspace
+```
 
 ## LICENSE
 

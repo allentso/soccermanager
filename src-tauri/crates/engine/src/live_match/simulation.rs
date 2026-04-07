@@ -1,4 +1,4 @@
-use rand::Rng;
+use rand::{Rng, RngExt};
 
 use crate::event::{EventType, MatchEvent};
 use crate::types::{Side, Zone};
@@ -15,7 +15,7 @@ impl LiveMatchState {
         self.current_minute = 0;
         self.ball_zone = Zone::Midfield;
         self.possession = Side::Home;
-        self.first_half_stoppage = rng.gen_range(0..=self.config.stoppage_time_max);
+        self.first_half_stoppage = rng.random_range(0..=self.config.stoppage_time_max);
 
         let evt = MatchEvent::new(0, EventType::KickOff, Side::Home, Zone::Midfield);
         self.events.push(evt.clone());
@@ -39,7 +39,7 @@ impl LiveMatchState {
         self.current_minute = start_min;
         self.ball_zone = Zone::Midfield;
         self.possession = Side::Away;
-        self.second_half_stoppage = rng.gen_range(0..=self.config.stoppage_time_max);
+        self.second_half_stoppage = rng.random_range(0..=self.config.stoppage_time_max);
 
         let evt = MatchEvent::new(
             start_min,
@@ -67,7 +67,7 @@ impl LiveMatchState {
         self.current_minute = start_min;
         self.ball_zone = Zone::Midfield;
         self.possession = Side::Home;
-        self.et_second_half_stoppage = rng.gen_range(0..=2); // short stoppage in ET
+        self.et_second_half_stoppage = rng.random_range(0..=2); // short stoppage in ET
 
         let evt = MatchEvent::new(
             start_min,
@@ -96,7 +96,7 @@ impl LiveMatchState {
             self.current_minute = 91;
             self.ball_zone = Zone::Midfield;
             self.possession = Side::Home;
-            self.et_first_half_stoppage = rng.gen_range(0..=2);
+            self.et_first_half_stoppage = rng.random_range(0..=2);
 
             let evt = MatchEvent::new(91, EventType::KickOff, Side::Home, Zone::Midfield);
             self.events.push(evt.clone());
@@ -167,7 +167,7 @@ impl LiveMatchState {
 
         // Simulate 1-3 actions per minute
         let mut minute_events = Vec::new();
-        let actions = rng.gen_range(1..=3u8);
+        let actions = rng.random_range(1..=3u8);
         for _ in 0..actions {
             let new_events = self.resolve_action(minute, rng);
             minute_events.extend(new_events);
@@ -179,7 +179,7 @@ impl LiveMatchState {
         let mid_att = self.effective_midfield(poss_side);
         let mid_def = self.effective_midfield(def_side);
         let retain = mid_att / (mid_att + mid_def);
-        if rng.gen_range(0.0..1.0f64) > retain {
+        if rng.random_range(0.0..1.0f64) > retain {
             self.possession = def_side;
             self.ball_zone = Zone::Midfield;
         }

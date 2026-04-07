@@ -1,6 +1,6 @@
 use super::{action, format_money, params};
 use domain::message::*;
-use rand::Rng;
+use rand::RngExt;
 
 // ---------------------------------------------------------------------------
 // Message builders
@@ -65,7 +65,7 @@ pub(super) fn training_injury_message(
     days: u32,
     date: &str,
 ) -> InboxMessage {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let variations = [
         format!(
             "Bad news from the training ground. {} has picked up a {} during today's session.\n\n\
@@ -82,7 +82,7 @@ pub(super) fn training_injury_message(
             days
         ),
     ];
-    let idx = rng.gen_range(0..variations.len());
+    let idx = rng.random_range(0..variations.len());
 
     InboxMessage::new(
         msg_id.to_string(),
@@ -124,7 +124,7 @@ pub(super) fn media_story_message(
     is_positive: bool,
     date: &str,
 ) -> InboxMessage {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
 
     let (subject, body) = if is_positive {
         let stories = [
@@ -146,7 +146,7 @@ pub(super) fn media_story_message(
                 ),
             ),
         ];
-        stories[rng.gen_range(0..stories.len())].clone()
+        stories[rng.random_range(0..stories.len())].clone()
     } else {
         let stories = [
             (
@@ -168,7 +168,7 @@ pub(super) fn media_story_message(
                 ),
             ),
         ];
-        stories[rng.gen_range(0..stories.len())].clone()
+        stories[rng.random_range(0..stories.len())].clone()
     };
 
     InboxMessage::new(
@@ -242,7 +242,7 @@ pub(super) fn international_callup_message(
 }
 
 pub(super) fn community_event_message(msg_id: &str, team_name: &str, date: &str) -> InboxMessage {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let events = [
         (
             "Community Open Day",
@@ -270,7 +270,7 @@ pub(super) fn community_event_message(msg_id: &str, team_name: &str, date: &str)
             ),
         ),
     ];
-    let idx = rng.gen_range(0..events.len());
+    let idx = rng.random_range(0..events.len());
     let (subject, body) = &events[idx];
 
     InboxMessage::new(

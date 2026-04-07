@@ -1,6 +1,6 @@
 use super::params;
 use domain::news::*;
-use rand::Rng;
+use rand::RngExt;
 
 fn result_text(home_name: &str, away_name: &str, home_goals: u8, away_goals: u8) -> String {
     if home_goals > away_goals {
@@ -80,7 +80,7 @@ pub fn match_report_article(
     away_scorers: &[(String, u32)],
     date: &str,
 ) -> NewsArticle {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
 
     let result_text = result_text(home_name, away_name, home_goals, away_goals);
     let scorer_parts = scorer_parts(home_name, away_name, home_scorers, away_scorers);
@@ -108,7 +108,7 @@ pub fn match_report_article(
         ),
     ];
 
-    let idx = rng.gen_range(0..commentary.len());
+    let idx = rng.random_range(0..commentary.len());
 
     let headline = if home_goals > away_goals {
         let headlines = [
@@ -122,7 +122,7 @@ pub fn match_report_article(
             ),
             format!("Clinical {} See Off {}", home_name, away_name),
         ];
-        headlines[rng.gen_range(0..headlines.len())].clone()
+        headlines[rng.random_range(0..headlines.len())].clone()
     } else if away_goals > home_goals {
         let headlines = [
             format!(
@@ -132,7 +132,7 @@ pub fn match_report_article(
             format!("{} Stun {} on the Road", away_name, home_name),
             format!("Away Day Delight for {}", away_name),
         ];
-        headlines[rng.gen_range(0..headlines.len())].clone()
+        headlines[rng.random_range(0..headlines.len())].clone()
     } else {
         let headlines = [
             format!(
@@ -142,7 +142,7 @@ pub fn match_report_article(
             format!("{} and {} Share the Spoils", home_name, away_name),
             format!("Stalemate at {}'s Ground", home_name),
         ];
-        headlines[rng.gen_range(0..headlines.len())].clone()
+        headlines[rng.random_range(0..headlines.len())].clone()
     };
 
     let source_keys = [
@@ -157,7 +157,7 @@ pub fn match_report_article(
         "Match Day Press",
         "League Chronicle",
     ];
-    let src_idx = rng.gen_range(0..sources.len());
+    let src_idx = rng.random_range(0..sources.len());
     let source = sources[src_idx];
     let source_key = source_keys[src_idx];
 
@@ -165,7 +165,7 @@ pub fn match_report_article(
 
     // Determine outcome for i18n key
     let outcome = outcome_key(home_goals, away_goals);
-    let headline_variant = rng.gen_range(0..3u8);
+    let headline_variant = rng.random_range(0..3u8);
 
     NewsArticle::new(
         format!("report_{}", fixture_id),

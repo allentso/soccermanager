@@ -1,4 +1,4 @@
-use rand::Rng;
+use rand::{Rng, RngExt};
 
 use crate::event::{EventType, MatchEvent};
 use crate::shared::{PlayStylePhase, PlayerSnap, TraitContext, play_style_modifier, trait_bonus};
@@ -48,7 +48,7 @@ impl LiveMatchState {
         let ball_zone = self.ball_zone;
 
         let success_chance = (pass_skill * 1.3) / (pass_skill * 1.3 + press);
-        if rng.gen_range(0.0..1.0f64) < success_chance {
+        if rng.random_range(0.0..1.0f64) < success_chance {
             let evt = MatchEvent::new(minute, EventType::PassCompleted, att_side, ball_zone)
                 .with_player(&passer.id);
             self.events.push(evt.clone());
@@ -109,14 +109,14 @@ impl LiveMatchState {
         let def_eff = def_rating * def_mod * crate::shared::home_mod(def_side, &self.config);
         let success = att_eff / (att_eff + def_eff);
 
-        if rng.gen_range(0.0..1.0f64) < success {
+        if rng.random_range(0.0..1.0f64) < success {
             let evt = MatchEvent::new(minute, EventType::PassCompleted, att_side, Zone::Midfield)
                 .with_player(&attacker.id);
             self.events.push(evt.clone());
             events.push(evt);
             self.ball_zone = Zone::attacking_third(att_side);
         } else {
-            if rng.gen_range(0.0..1.0f64) < 0.6 {
+            if rng.random_range(0.0..1.0f64) < 0.6 {
                 let evt = MatchEvent::new(minute, EventType::Tackle, def_side, Zone::Midfield)
                     .with_player(&defender.id);
                 self.events.push(evt.clone());
@@ -178,14 +178,14 @@ impl LiveMatchState {
         let success = att_eff / (att_eff + def_eff);
         let zone = Zone::attacking_third(att_side);
 
-        if rng.gen_range(0.0..1.0f64) < success {
+        if rng.random_range(0.0..1.0f64) < success {
             let evt = MatchEvent::new(minute, EventType::Dribble, att_side, zone)
                 .with_player(&attacker.id);
             self.events.push(evt.clone());
             events.push(evt);
             self.ball_zone = Zone::attacking_box(att_side);
         } else {
-            let is_tackle = rng.gen_range(0.0..1.0f64) < 0.5;
+            let is_tackle = rng.random_range(0.0..1.0f64) < 0.5;
             if is_tackle {
                 let evt1 = MatchEvent::new(minute, EventType::DribbleTackled, att_side, zone)
                     .with_player(&attacker.id)
@@ -205,11 +205,11 @@ impl LiveMatchState {
                 self.events.push(evt.clone());
                 events.push(evt);
             }
-            if rng.gen_range(0.0..1.0f64) < 0.25 {
+            if rng.random_range(0.0..1.0f64) < 0.25 {
                 let evt = MatchEvent::new(minute, EventType::Corner, att_side, zone);
                 self.events.push(evt.clone());
                 events.push(evt);
-                if rng.gen_range(0.0..1.0f64) < 0.30 {
+                if rng.random_range(0.0..1.0f64) < 0.30 {
                     self.ball_zone = Zone::attacking_box(att_side);
                     return events;
                 }
@@ -242,8 +242,8 @@ impl LiveMatchState {
             (self.config.shot_accuracy_base + (shoot_rating - 50.0) / 200.0).clamp(0.15, 0.85);
         let zone = Zone::attacking_box(att_side);
 
-        if rng.gen_range(0.0..1.0f64) > accuracy {
-            if rng.gen_range(0.0..1.0f64) < 0.4 {
+        if rng.random_range(0.0..1.0f64) > accuracy {
+            if rng.random_range(0.0..1.0f64) < 0.4 {
                 let evt = MatchEvent::new(minute, EventType::ShotBlocked, att_side, zone)
                     .with_player(&shooter.id);
                 self.events.push(evt.clone());
@@ -262,7 +262,7 @@ impl LiveMatchState {
         let conversion = (self.config.goal_conversion_base + (shoot_rating - gk_rating) / 150.0)
             .clamp(0.10, 0.70);
 
-        if rng.gen_range(0.0..1.0f64) < conversion {
+        if rng.random_range(0.0..1.0f64) < conversion {
             let evt = MatchEvent::new(minute, EventType::Goal, att_side, zone)
                 .with_player(&shooter.id)
                 .with_secondary(&assister.id);
@@ -300,7 +300,7 @@ impl LiveMatchState {
         let foul_chance = self.config.foul_probability
             * (0.6 + aggression_mod * 0.8)
             * trait_bonus(fouler, TraitContext::Foul);
-        if rng.gen_range(0.0..1.0f64) >= foul_chance {
+        if rng.random_range(0.0..1.0f64) >= foul_chance {
             return events;
         }
 
@@ -312,7 +312,7 @@ impl LiveMatchState {
 
         let att_side = fouling_side.opposite();
 
-        if zone.is_box_for(att_side) && rng.gen_range(0.0..1.0f64) < self.config.penalty_probability
+        if zone.is_box_for(att_side) && rng.random_range(0.0..1.0f64) < self.config.penalty_probability
         {
             let evt = MatchEvent::new(minute, EventType::PenaltyAwarded, att_side, zone);
             self.events.push(evt.clone());
@@ -328,7 +328,7 @@ impl LiveMatchState {
         let card_events = self.maybe_card(minute, fouling_side, &fouler.id, zone, rng);
         events.extend(card_events);
 
-        if rng.gen_range(0.0..1.0f64) < self.config.injury_probability {
+        if rng.random_range(0.0..1.0f64) < self.config.injury_probability {
             let evt =
                 MatchEvent::new(minute, EventType::Injury, att_side, zone).with_player(&fouled.id);
             self.events.push(evt.clone());
@@ -348,11 +348,11 @@ impl LiveMatchState {
     ) -> Vec<MatchEvent> {
         let mut events = Vec::new();
 
-        if rng.gen_range(0.0..1.0f64) >= self.config.yellow_card_probability {
+        if rng.random_range(0.0..1.0f64) >= self.config.yellow_card_probability {
             return events;
         }
 
-        if rng.gen_range(0.0..1.0f64) < self.config.red_card_probability {
+        if rng.random_range(0.0..1.0f64) < self.config.red_card_probability {
             let evt =
                 MatchEvent::new(minute, EventType::RedCard, side, zone).with_player(fouler_id);
             self.events.push(evt.clone());
