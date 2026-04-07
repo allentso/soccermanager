@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { GameStateData } from "../store/gameStore";
+import { useGameStore } from "../store/gameStore";
 import type { BlockerModal } from "./useAdvanceTime.helpers";
 import {
   advanceTimeWithMode,
@@ -17,6 +18,7 @@ export function useAdvanceTime(
   settingsLoaded: boolean,
 ) {
   const navigate = useNavigate();
+  const setShowFiredModal = useGameStore((s) => s.setShowFiredModal);
   const [isAdvancing, setIsAdvancing] = useState(false);
   const [showContinueMenu, setShowContinueMenu] = useState(false);
   const [showMatchConfirm, setShowMatchConfirm] = useState(false);
@@ -59,7 +61,7 @@ export function useAdvanceTime(
       });
       if (result.action === "fired") {
         if (result.game) setGameState(result.game as GameStateData);
-        navigate("/sacked");
+        setShowFiredModal(true);
       } else if (result.action === "live_match") {
         navigate("/match", {
           state: {
@@ -136,7 +138,7 @@ export function useAdvanceTime(
       });
       if (result.action === "fired") {
         if (result.game) setGameState(result.game as GameStateData);
-        navigate("/sacked");
+        setShowFiredModal(true);
         return;
       }
       if (result.game) setGameState(result.game as GameStateData);

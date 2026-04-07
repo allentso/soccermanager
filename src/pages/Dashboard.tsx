@@ -10,6 +10,7 @@ import DashboardHeader, {
   type DashboardMatchModeMeta,
 } from "../components/dashboard/DashboardHeader";
 import DashboardOverlays from "../components/dashboard/DashboardOverlays";
+import FiredModal from "../components/dashboard/FiredModal";
 import DashboardSidebar from "../components/dashboard/DashboardSidebar";
 import DashboardWorkspaceContent from "../components/dashboard/DashboardWorkspaceContent";
 import {
@@ -427,6 +428,7 @@ export default function Dashboard(): JSX.Element {
         teams={gameState.teams}
         todayMatchFixture={todayMatchFixture}
       />
+      <FiredModal />
 
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col h-screen overflow-hidden">

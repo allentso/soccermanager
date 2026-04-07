@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { GameStateData } from "../store/gameStore";
+import { useGameStore } from "../store/gameStore";
 import { Card, CardBody } from "./ui";
 import { Trophy, Award, Star, ArrowRight, Crown } from "lucide-react";
 
@@ -33,6 +34,7 @@ interface EndOfSeasonScreenProps {
 export default function EndOfSeasonScreen({ gameState, onGameUpdate }: EndOfSeasonScreenProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const setShowFiredModal = useGameStore((s) => s.setShowFiredModal);
   const [loading, setLoading] = useState(false);
   const [summary, setSummary] = useState<EndOfSeasonSummary | null>(null);
   const [step, setStep] = useState<"review" | "done">("review");
@@ -62,7 +64,7 @@ export default function EndOfSeasonScreen({ gameState, onGameUpdate }: EndOfSeas
       const result = await invoke<{ action?: string; game: GameStateData; summary: EndOfSeasonSummary }>("advance_to_next_season");
       if (result.action === "fired") {
         onGameUpdate(result.game);
-        navigate("/sacked");
+        setShowFiredModal(true);
         return;
       }
       setSummary(result.summary);
