@@ -16,6 +16,7 @@ export function useAdvanceTime(
   hasMatchToday: boolean,
   defaultMatchMode: MatchModeType | undefined,
   settingsLoaded: boolean,
+  isUnemployed: boolean,
 ) {
   const navigate = useNavigate();
   const setShowFiredModal = useGameStore((s) => s.setShowFiredModal);
@@ -83,8 +84,9 @@ export function useAdvanceTime(
 
   const handleContinue = async (mode?: string) => {
     const effectiveMode = mode || matchMode;
+    const resolvedMode = isUnemployed ? "delegate" : effectiveMode;
     console.info("[useAdvanceTime] handleContinue", {
-      effectiveMode,
+      effectiveMode: resolvedMode,
       hasMatchToday,
       isAdvancing,
       matchMode,
@@ -93,7 +95,7 @@ export function useAdvanceTime(
     // If there's a match today, show confirmation modal first
     if (hasMatchToday && !showMatchConfirm) {
       console.info("[useAdvanceTime] handleContinue:showMatchConfirm", {
-        effectiveMode,
+        effectiveMode: resolvedMode,
       });
       if (mode) setMatchMode(mode as MatchModeType);
       resetTransientUi({ showMatchConfirm: true });
@@ -102,10 +104,10 @@ export function useAdvanceTime(
     if (isAdvancing) return;
     const blockers = await checkBlockingActions("handleContinue");
     if (blockers.length > 0) {
-      setBlockerModal({ blockers, pendingAction: () => doAdvance(effectiveMode) });
+      setBlockerModal({ blockers, pendingAction: () => doAdvance(resolvedMode) });
       return;
     }
-    doAdvance(effectiveMode);
+    doAdvance(resolvedMode);
   };
 
   const handleConfirmMatch = () => {
