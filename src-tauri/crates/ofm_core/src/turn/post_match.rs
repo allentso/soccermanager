@@ -287,7 +287,12 @@ fn build_stats_state_capture(
     let team_by_player_id: std::collections::HashMap<&str, &str> = game
         .players
         .iter()
-        .filter_map(|player| player.team_id.as_deref().map(|team_id| (player.id.as_str(), team_id)))
+        .filter_map(|player| {
+            player
+                .team_id
+                .as_deref()
+                .map(|team_id| (player.id.as_str(), team_id))
+        })
         .collect();
 
     let player_matches = report
@@ -352,7 +357,8 @@ fn build_stats_state_capture(
             shots: report.home_stats.shots,
             shots_on_target: report.home_stats.shots_on_target,
             passes_completed: report.home_stats.passes_completed,
-            passes_attempted: report.home_stats.passes_completed + report.home_stats.passes_intercepted,
+            passes_attempted: report.home_stats.passes_completed
+                + report.home_stats.passes_intercepted,
             tackles_won: report.home_stats.tackles,
             interceptions: report.home_stats.interceptions,
             fouls_committed: report.home_stats.fouls,
@@ -375,7 +381,8 @@ fn build_stats_state_capture(
             shots: report.away_stats.shots,
             shots_on_target: report.away_stats.shots_on_target,
             passes_completed: report.away_stats.passes_completed,
-            passes_attempted: report.away_stats.passes_completed + report.away_stats.passes_intercepted,
+            passes_attempted: report.away_stats.passes_completed
+                + report.away_stats.passes_intercepted,
             tackles_won: report.away_stats.tackles,
             interceptions: report.away_stats.interceptions,
             fouls_committed: report.away_stats.fouls,

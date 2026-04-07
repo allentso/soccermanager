@@ -2036,6 +2036,7 @@
     "trophies": "Trofeos",
     "careerHistory": "Historial",
     "returnToMenu": "Volver al Menú Principal",
-    "present": "Actual"
+    "present": "Actual",
+    "bestLabel": "Mejor"
   }
 }

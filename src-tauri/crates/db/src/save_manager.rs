@@ -1,6 +1,6 @@
 use chrono::Utc;
-use log::{debug, info};
 use domain::stats::StatsState;
+use log::{debug, info};
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -403,8 +403,8 @@ mod tests {
     use chrono::TimeZone;
     use domain::league::{Fixture, FixtureCompetition, FixtureStatus, League, StandingEntry};
     use domain::player::{Footedness, Player, PlayerAttributes, Position};
-    use domain::stats::{PlayerMatchStatsRecord, StatsState, TeamMatchStatsRecord};
     use domain::staff::{StaffAttributes, StaffRole};
+    use domain::stats::{PlayerMatchStatsRecord, StatsState, TeamMatchStatsRecord};
     use domain::team::Team;
     use ofm_core::clock::GameClock;
     use ofm_core::game::{BoardObjective, ObjectiveType, ScoutingAssignment};

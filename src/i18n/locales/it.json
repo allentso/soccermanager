@@ -1972,6 +1972,7 @@
     "trophies": "Trofei",
     "careerHistory": "Cronologia",
     "returnToMenu": "Torna al Menu Principale",
-    "present": "Attuale"
+    "present": "Attuale",
+    "bestLabel": "Migliore"
   }
 }

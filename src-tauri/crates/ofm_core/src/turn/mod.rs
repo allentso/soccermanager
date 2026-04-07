@@ -10,9 +10,9 @@ use crate::scouting;
 use crate::training;
 use crate::transfers;
 use chrono::Datelike;
-use domain::stats::StatsState;
 use domain::league::FixtureStatus;
 use domain::player::Position as DomainPosition;
+use domain::stats::StatsState;
 use log::{debug, info};
 
 // Re-export public items

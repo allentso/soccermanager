@@ -189,7 +189,11 @@ pub fn check_player_events(game: &mut Game) {
                 } else {
                     1.0
                 };
-                if ovr >= 55 && player.morale < 50 && app_ratio < 0.3 && rng.random_range(0..10) == 0 {
+                if ovr >= 55
+                    && player.morale < 50
+                    && app_ratio < 0.3
+                    && rng.random_range(0..10) == 0
+                {
                     new_messages.push(bench_complaint_message(
                         &msg_id,
                         &player.id,

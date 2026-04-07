@@ -37,9 +37,12 @@ export default function Sacked() {
     : "0.0";
 
   const posLabel = (pos: number) => {
-    if (pos === 1) return "1st";
-    if (pos === 2) return "2nd";
-    if (pos === 3) return "3rd";
+    const mod100 = pos % 100;
+    if (mod100 >= 11 && mod100 <= 13) return `${pos}th`;
+    const mod10 = pos % 10;
+    if (mod10 === 1) return `${pos}st`;
+    if (mod10 === 2) return `${pos}nd`;
+    if (mod10 === 3) return `${pos}rd`;
     return `${pos}th`;
   };
 
@@ -124,7 +127,7 @@ export default function Sacked() {
                       <span>{entry.draws}D</span>{" "}
                       <span className="text-red-500 font-bold">{entry.losses}L</span>
                       {entry.best_league_position && (
-                        <span className="ml-2 text-gray-400">Best: {posLabel(entry.best_league_position)}</span>
+                        <span className="ml-2 text-gray-400">{t("sacked.bestLabel")}: {posLabel(entry.best_league_position)}</span>
                       )}
                     </div>
                   </div>

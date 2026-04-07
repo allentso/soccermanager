@@ -39,8 +39,10 @@ pub fn check_manager_firing(game: &mut Game) -> bool {
             execute_firing(game);
             return true;
         }
-        // No prior warning — send one now instead of instant-firing
-        if !has_message(game, BOARD_FINAL_WARNING_ID) {
+        // No prior warning — send the initial warning first (normal progression)
+        if !has_message(game, BOARD_WARNING_ID) {
+            send_warning(game);
+        } else if !has_message(game, BOARD_FINAL_WARNING_ID) {
             send_final_warning(game);
         }
     } else if satisfaction <= FINAL_WARN_THRESHOLD {
@@ -266,9 +268,9 @@ mod tests {
         let fired = check_manager_firing(&mut game);
         assert!(!fired);
         assert!(game.manager.team_id.is_some());
-        // Should send a final warning instead
+        // Should send the initial warning first (normal progression)
         assert_eq!(game.messages.len(), 1);
-        assert_eq!(game.messages[0].id, BOARD_FINAL_WARNING_ID);
+        assert_eq!(game.messages[0].id, BOARD_WARNING_ID);
     }
 
     #[test]
