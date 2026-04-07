@@ -33,6 +33,7 @@ interface DashboardSidebarProps {
   teamName: string | null;
   onNavigateSettings: () => void;
   onExitClick: () => void;
+  isUnemployed: boolean;
 }
 
 interface NavItemProps {
@@ -106,6 +107,7 @@ export default function DashboardSidebar({
   teamName,
   onNavigateSettings,
   onExitClick,
+  isUnemployed,
 }: DashboardSidebarProps): JSX.Element {
   const { t } = useTranslation();
 
@@ -249,21 +251,25 @@ export default function DashboardSidebar({
           onClick={() => onNavClick("Schedule")}
         />
 
-        {collapsed ? null : (
-          <p className="text-[10px] text-gray-500 uppercase tracking-widest font-heading px-3 pt-3 pb-1">
-            {t("dashboard.sectionClub")}
-          </p>
+        {!isUnemployed && (
+          <>
+            {collapsed ? null : (
+              <p className="text-[10px] text-gray-500 uppercase tracking-widest font-heading px-3 pt-3 pb-1">
+                {t("dashboard.sectionClub")}
+              </p>
+            )}
+            {clubItems.map((item) => (
+              <NavItem
+                key={item.tab}
+                icon={item.icon}
+                label={item.label}
+                active={activeTab === item.tab}
+                collapsed={collapsed}
+                onClick={() => onNavClick(item.tab)}
+              />
+            ))}
+          </>
         )}
-        {clubItems.map((item) => (
-          <NavItem
-            key={item.tab}
-            icon={item.icon}
-            label={item.label}
-            active={activeTab === item.tab}
-            collapsed={collapsed}
-            onClick={() => onNavClick(item.tab)}
-          />
-        ))}
 
         {collapsed ? null : (
           <p className="text-[10px] text-gray-500 uppercase tracking-widest font-heading px-3 pt-3 pb-1">
