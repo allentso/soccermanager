@@ -256,6 +256,156 @@ pub fn season_preview_article(team_names: &[String], date: &str) -> NewsArticle 
     )
 }
 
+pub fn major_transfer_article(
+    id: &str,
+    player_id: &str,
+    player_name: &str,
+    from_team_id: &str,
+    from_team_name: &str,
+    to_team_id: &str,
+    to_team_name: &str,
+    fee: u64,
+    date: &str,
+) -> NewsArticle {
+    let fee_display = if fee >= 1_000_000 {
+        format!("€{:.1}M", fee as f64 / 1_000_000.0)
+    } else if fee >= 1_000 {
+        format!("€{}K", fee / 1_000)
+    } else {
+        format!("€{}", fee)
+    };
+
+    NewsArticle::new(
+        id.to_string(),
+        format!("{} Complete Move to {}", player_name, to_team_name),
+        format!(
+            "{} have completed the signing of {} from {} for {}.",
+            to_team_name, player_name, from_team_name, fee_display
+        ),
+        "League Chronicle".to_string(),
+        date.to_string(),
+        NewsCategory::TransferRumour,
+    )
+    .with_teams(vec![from_team_id.to_string(), to_team_id.to_string()])
+    .with_players(vec![player_id.to_string()])
+}
+
+pub fn weekly_digest_article(
+    id: &str,
+    week_start: &str,
+    leader: &str,
+    top_scorer: &str,
+    top_scorer_goals: u32,
+    storyline_count: usize,
+    date: &str,
+) -> NewsArticle {
+    let headline = format!("Weekly Digest — Week of {}", week_start);
+    let (body, body_key) = if top_scorer.is_empty() {
+        (
+            format!(
+                "The latest weekly digest is here. {} lead the table, and {} storyline(s) are shaping the division this week.",
+                leader, storyline_count
+            ),
+            "be.news.weeklyDigest.bodyNoTopScorer",
+        )
+    } else {
+        (
+            format!(
+                "The latest weekly digest is here. {} lead the table, while {} heads the scoring charts with {} goal(s). {} storyline(s) are shaping the division this week.",
+                leader, top_scorer, top_scorer_goals, storyline_count
+            ),
+            "be.news.weeklyDigest.bodyWithTopScorer",
+        )
+    };
+
+    NewsArticle::new(
+        id.to_string(),
+        headline,
+        body,
+        "League Chronicle".to_string(),
+        date.to_string(),
+        NewsCategory::Editorial,
+    )
+    .with_i18n(
+        "be.news.weeklyDigest.headline",
+        body_key,
+        "be.source.leagueChronicle",
+        params(&[
+            ("weekStart", week_start),
+            ("leader", leader),
+            ("topScorer", top_scorer),
+            ("topScorerGoals", &top_scorer_goals.to_string()),
+            ("storylineCount", &storyline_count.to_string()),
+        ]),
+    )
+}
+
+pub fn title_race_storyline_article(
+    id: &str,
+    leader_team_id: &str,
+    leader: &str,
+    challenger_team_id: &str,
+    challenger: &str,
+    gap: u32,
+    date: &str,
+) -> NewsArticle {
+    NewsArticle::new(
+        id.to_string(),
+        format!(
+            "Title Race Tightens — {} Lead {} by {} Point(s)",
+            leader, challenger, gap
+        ),
+        format!(
+            "{} remain in front, but {} are only {} point(s) behind as the title race takes shape.",
+            leader, challenger, gap
+        ),
+        "League Chronicle".to_string(),
+        date.to_string(),
+        NewsCategory::Editorial,
+    )
+    .with_teams(vec![
+        leader_team_id.to_string(),
+        challenger_team_id.to_string(),
+    ])
+    .with_i18n(
+        "be.news.storyline.titleRace.headline",
+        "be.news.storyline.titleRace.body",
+        "be.source.leagueChronicle",
+        params(&[
+            ("leader", leader),
+            ("challenger", challenger),
+            ("gap", &gap.to_string()),
+        ]),
+    )
+}
+
+pub fn unbeaten_streak_storyline_article(
+    id: &str,
+    team_id: &str,
+    team: &str,
+    run_length: u32,
+    date: &str,
+) -> NewsArticle {
+    NewsArticle::new(
+        id.to_string(),
+        format!("{} Extend Unbeaten Run to {}", team, run_length),
+        format!(
+            "{} have gone {} match(es) without defeat and are building real momentum.",
+            team, run_length
+        ),
+        "League Chronicle".to_string(),
+        date.to_string(),
+        NewsCategory::Editorial,
+    )
+    .with_teams(vec![team_id.to_string()])
+    .with_i18n(
+        "be.news.storyline.unbeatenStreak.headline",
+        "be.news.storyline.unbeatenStreak.body",
+        "be.source.leagueChronicle",
+        params(&[("team", team), ("runLength", &run_length.to_string())]),
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::{league_roundup_article, season_preview_article, standings_update_article};

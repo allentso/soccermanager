@@ -1,7 +1,7 @@
 {
   "app": {
     "name": "OpenFoot Manager",
-    "version": "v0.1.2-alpha"
+    "version": "v0.2.0-alpha"
   },
   "menu": {
     "newGame": "Novo Jogo",
@@ -16,7 +16,9 @@
     "manager": "Treinador: {{name}}",
     "deleteSave": "Excluir save",
     "noResults": "Sem resultados",
-    "importedDescription": "Banco de dados importado"
+    "importedDescription": "Banco de dados importado",
+    "invalidWorldDb": "Arquivo de banco de dados de mundo inválido: {{error}}",
+    "failedStartGame": "Falha ao iniciar o jogo: {{error}}"
   },
   "createManager": {
     "title": "Criar Treinador",
@@ -134,6 +136,7 @@
   },
   "home": {
     "nextMatch": "Próxima Partida",
+    "nextOpponent": "Próximo Adversário",
     "leaguePosition": "Posição na Liga",
     "standings": "Classificação",
     "noLeague": "Nenhum dado da liga ainda.",
@@ -159,6 +162,9 @@
     "boardObjectives": "Objetivos da Diretoria",
     "seasonComplete": "Temporada encerrada.",
     "noLeagueSchedule": "Sem dados da liga.",
+    "noUpcomingOpponent": "Nenhuma próxima partida da liga.",
+    "leagueDigest": "Resumo da Liga",
+    "noLeagueDigest": "Ainda não há resumo da liga.",
     "scheduleLabel": "Calendário:",
     "home": "Casa",
     "away": "Fora",
@@ -168,6 +174,34 @@
     "objectivesMet": "{{done}}/{{total}} objetivos cumpridos — Satisfação da diretoria: {{pct}}%",
     "unavailablePlayers": "Jogadores indisponíveis",
     "daysUnavailable": "{{count}} dia(s) restante(s)"
+  },
+  "season": {
+    "preseasonStatus": "Status da pré-temporada",
+    "preseasonFocus": "Use este período para preparar o elenco, revisar o mercado e chegar pronto para a estreia.",
+    "friendly": "Amistoso",
+    "preseasonTournament": "Torneio de pré-temporada",
+    "opener": "Estreia da temporada",
+    "startsOn": "Começa em {{date}}",
+    "startsInDays": "Faltam {{count}} dia(s) para a estreia",
+    "noOpener": "A estreia ainda não foi agendada.",
+    "standingsLocked": "A classificação será liberada depois do início dos jogos oficiais.",
+    "tournamentsPreseasonHint": "Tabelas e disputas por prêmios aparecerão quando a temporada começar.",
+    "windowClosed": "Janela fechada",
+    "windowClosesToday": "Dia final da janela",
+    "windowClosesInDays": "Faltam {{count}} dia(s) para o fechamento da janela",
+    "windowOpensInDays": "Faltam {{count}} dia(s) para a abertura da janela",
+    "windowOpensOn": "A janela abre em {{date}}",
+    "windowClosesOn": "A janela fecha em {{date}}",
+    "phases": {
+      "Preseason": "Pré-temporada",
+      "InSeason": "Temporada em andamento",
+      "PostSeason": "Pós-temporada"
+    },
+    "transferWindowStatus": {
+      "Closed": "Janela Fechada",
+      "Open": "Janela Aberta",
+      "DeadlineDay": "Dia Final"
+    }
   },
   "teamSelect": {
     "title": "Escolha Seu Clube",
@@ -231,6 +265,7 @@
     "all": "Todos",
     "allPlayers": "Todos os jogadores",
     "cancel": "Cancelar",
+    "done": "Concluído",
     "confirm": "Confirmar",
     "save": "Salvar",
     "search": "Pesquisar",
@@ -257,6 +292,7 @@
     "position": "Posição",
     "nationality": "Nacionalidade",
     "contract": "Contrato",
+    "renewContract": "Renovar contrato",
     "status": "Status",
     "average": "Média",
     "goalsFor": "GP",
@@ -270,14 +306,53 @@
       "Goalkeeper": "Goleiro",
       "Defender": "Zagueiro",
       "Midfielder": "Meio-campista",
-      "Forward": "Atacante"
+      "Forward": "Atacante",
+      "RightBack": "Lateral direito",
+      "CenterBack": "Zagueiro central",
+      "LeftBack": "Lateral esquerdo",
+      "RightWingBack": "Ala direito",
+      "LeftWingBack": "Ala esquerdo",
+      "DefensiveMidfielder": "Volante",
+      "CentralMidfielder": "Meio-campista central",
+      "AttackingMidfielder": "Meia ofensivo",
+      "RightMidfielder": "Meio-campista direito",
+      "LeftMidfielder": "Meio-campista esquerdo",
+      "RightWinger": "Ponta direita",
+      "LeftWinger": "Ponta esquerda",
+      "Striker": "Centroavante"
+    },
+    "positionGroups": {
+      "Goalkeeper": "Goleiros",
+      "Defender": "Defensores",
+      "Midfielder": "Meias",
+      "Forward": "Atacantes"
     },
     "posAbbr": {
       "Goalkeeper": "GOL",
       "Defender": "ZAG",
       "Midfielder": "MEI",
-      "Forward": "ATA"
+      "Forward": "ATA",
+      "RightBack": "LD",
+      "CenterBack": "ZC",
+      "LeftBack": "LE",
+      "RightWingBack": "AD",
+      "LeftWingBack": "AE",
+      "DefensiveMidfielder": "VOL",
+      "CentralMidfielder": "MC",
+      "AttackingMidfielder": "MO",
+      "RightMidfielder": "MD",
+      "LeftMidfielder": "ME",
+      "RightWinger": "PD",
+      "LeftWinger": "PE",
+      "Striker": "CA"
     },
+    "footedness": {
+      "Left": "Esquerdo",
+      "Right": "Direito",
+      "Both": "Ambos"
+    },
+    "footednessLabel": "Pé",
+    "weakFoot": "Pé ruim",
     "playStyles": {
       "Balanced": "Equilibrado",
       "Attacking": "Ofensivo",
@@ -454,6 +529,19 @@
     "staffAlert": "Alerta da Comissão",
     "staffWarning": "Aviso da Comissão",
     "staffSuggestion": "Sugestão da Comissão",
+    "staffAdvice": {
+      "critical": "Crise de condição física! {{criticalCount}} jogador(es) em estado crítico. {{scheduleAdvice}}",
+      "warn": "O elenco está cansado (média {{avgCondition}}%, {{exhaustedCount}} abaixo de 40%). {{scheduleAdvice}}",
+      "ok": "A condição física do elenco está alta. Você pode mudar para Equilibrado ou Intenso para mais desenvolvimento.",
+      "scheduleAdvice": {
+        "criticalIntense": "Mude para uma programação Equilibrada ou Leve imediatamente.",
+        "criticalBalanced": "Considere uma programação Leve ou foco em Recuperação.",
+        "criticalLight": "Defina o foco em Recuperação até a condição melhorar.",
+        "warnIntense": "Uma programação Equilibrada daria mais tempo de recuperação.",
+        "warnBalanced": "Uma programação Leve poderia ajudar o elenco a se recuperar.",
+        "warnLight": "O foco em Recuperação maximizaria a recuperação de condição."
+      }
+    },
     "focuses": {
       "Physical": {
         "label": "Físico",
@@ -592,7 +680,45 @@
     "perWeekSuffix": "/sem",
     "wagePerWeek": "Salário/sem",
     "marketValue": "Valor de Mercado",
-    "until": "Até {{year}}"
+    "until": "Até {{year}}",
+    "facilities": "Instalações",
+    "facilityTraining": "Centro de treino",
+    "facilityMedical": "Centro médico",
+    "facilityScouting": "Departamento de olheiros",
+    "facilityTrainingEffect": "Melhora a eficácia do treino ao longo do tempo.",
+    "facilityMedicalEffect": "Melhora a recuperação e o suporte médico dos jogadores.",
+    "facilityScoutingEffect": "Melhora a qualidade da observação e a profundidade das informações.",
+    "facilityLevel": "Nível {{level}}",
+    "nextUpgradeCost": "Próxima melhoria: €{{amount}}",
+    "upgradeFacility": "Melhorar",
+    "insufficientFunds": "Fundos insuficientes",
+    "sponsors": "Patrocinadores",
+    "activeSponsor": "Patrocinador ativo",
+    "noActiveSponsor": "Nenhum patrocinador ativo",
+    "sponsorWeeklyValue": "Valor semanal: €{{amount}}",
+    "sponsorRemainingWeeks": "{{count}} semanas restantes",
+    "pendingSponsorOffers": "Ofertas pendentes",
+    "noPendingSponsorOffers": "Nenhuma oferta de patrocínio pendente",
+    "cashFlow": "Fluxo de caixa",
+    "weeklyWageSpend": "Gasto salarial semanal",
+    "weeklySponsorIncome": "Receita semanal de patrocínio",
+    "projectedWeeklyNet": "Líquido semanal projetado",
+    "cashRunway": "Autonomia financeira",
+    "runwayWeeks": "{{count}} semanas no ritmo atual",
+    "runwayStable": "Estável no ritmo atual",
+    "wagePressure": "Pressão salarial",
+    "wageBudgetUsed": "{{percent}}% do orçamento salarial usado",
+    "contractRisk": "Risco contratual",
+    "delegateMostRenewals": "Delegar a maioria das renovações",
+    "delegateSelectedRenewals": "Delegar renovações selecionadas",
+    "selectAllAtRisk": "Selecionar tudo",
+    "delegatedRenewalsSummary": "{{successes}} concluídas, {{stalled}} pendentes, {{failures}} falhas",
+    "contractRiskCritical": "Crítico",
+    "contractRiskWarning": "Alerta",
+    "contractRiskStable": "Estável",
+    "contractExpiresOn": "Expira em {{date}}",
+    "atRiskWages": "€{{amount}}/semana em risco",
+    "noContractRisks": "Sem riscos contratuais iminentes"
   },
   "inbox": {
     "title": "Caixa de Entrada",
@@ -604,6 +730,7 @@
     "unread": "Não lidas ({{count}})",
     "urgent": "Urgente",
     "important": "Importante",
+    "effectOutcomeLabel": "Desfecho",
     "chooseResponse": "Escolha sua resposta",
     "responded": "Resposta enviada",
     "markAllRead": "Marcar todas como lidas",
@@ -658,7 +785,15 @@
     "boardVeryPleased": "A diretoria está muito satisfeita com seu trabalho.",
     "boardSatisfied": "A diretoria está satisfeita com seu desempenho.",
     "boardConcerns": "A diretoria tem preocupações com os resultados.",
-    "boardThreat": "Sua posição está seriamente ameaçada."
+    "boardThreat": "Sua posição está seriamente ameaçada.",
+    "board": "Diretoria",
+    "fans": "Torcida",
+    "born": "Nascido em",
+    "fanAdore": "Os torcedores te adoram!",
+    "fanBehind": "A torcida está com o time.",
+    "fanMixed": "O sentimento da torcida está dividido.",
+    "fanRestless": "A torcida está ficando impaciente.",
+    "fanUnrest": "Agitação entre os torcedores — protestos prováveis."
   },
   "boardObjectives": {
     "objective": {
@@ -685,13 +820,48 @@
     "none": "Nenhuma",
     "listed": "Listados",
     "makeBid": "Fazer Proposta",
+    "bid": "Ofertar",
     "playerValue": "Valor: {{value}}",
     "bidAmount": "Valor da Proposta",
     "bidAccepted": "Proposta aceita!",
+    "bidCountered": "Eles voltaram com condições revisadas.",
     "bidRejected": "Proposta rejeitada.",
     "submitting": "Enviando...",
     "submitBid": "Enviar Proposta",
-    "close": "Fechar"
+    "close": "Fechar",
+    "counter": "Contra-ofertar",
+    "counterOffer": "Contra-oferta",
+    "currentOffer": "Oferta atual {{fee}}",
+    "counterAmount": "Valor da contra-oferta",
+    "submitCounter": "Enviar contra-oferta",
+    "counterAccepted": "Contra-oferta aceita.",
+    "counterRejected": "Contra-oferta rejeitada.",
+    "counterCountered": "Eles devolveram com um valor menor.",
+    "acceptOffer": "Aceitar",
+    "rejectOffer": "Rejeitar",
+    "negotiationPulse": "Pulso da negociação",
+    "negotiationRound": "Rodada {{count}}",
+    "negotiationPatience": "Paciência",
+    "negotiationTension": "Tensão",
+    "negotiationHistory": "Troca recente",
+    "lastBidLabel": "Sua última proposta",
+    "lastClubSignalLabel": "O último sinal deles",
+    "lastCounterLabel": "Sua última contra-oferta",
+    "currentOfferLabel": "A oferta atual deles",
+    "offerStatusPending": "Em aberto",
+    "offerStatusAccepted": "Aceita",
+    "offerStatusRejected": "Rejeitada",
+    "offerStatusWithdrawn": "As conversas esfriaram",
+    "negotiationExpiredError": "As conversas esfriaram antes de você conseguir responder. Inicie uma nova negociação se o clube voltar.",
+    "resumeNegotiationHint": "As conversas ainda estão vivas com este clube.",
+    "resumeNegotiationHeadline": "O outro clube está esperando seu próximo movimento.",
+    "resumeNegotiationDetail": "O último sinal deles apontou para {{fee}}.",
+    "transferFeedbackAcceptedHeadline": "O outro clube está pronto para fechar negócio.",
+    "transferFeedbackAcceptedDetail": "Seu valor entrou na zona de conforto deles, então a conversa andou rápido.",
+    "transferFeedbackCounterHeadline": "Eles querem mais antes de bater o martelo.",
+    "transferFeedbackCounterDetail": "A proposta ficou perto o bastante para manter a conversa, mas o lado deles aponta para um valor mais próximo de {{fee}}.",
+    "transferFeedbackRejectedHeadline": "Eles encerraram esta rodada.",
+    "transferFeedbackRejectedDetail": "A proposta não os moveu o suficiente. Você precisaria de um valor mais forte, mais perto de {{fee}}, para reabrir conversas sérias."
   },
   "schedule": {
     "noSchedule": "Nenhum calendário de liga disponível.",
@@ -762,10 +932,55 @@
     "dateOfBirth": "Data de Nascimento",
     "noContract": "Sem contrato",
     "weeklyWage": "Salário Semanal",
+    "yearsRemaining": "Anos restantes",
+    "contractRisk": "Risco contratual",
+    "renewalTitle": "Renovar contrato",
+    "renewalWage": "Salário oferecido",
+    "renewalLength": "Duração do contrato",
+    "renewalSubmit": "Enviar proposta",
+    "renewalInvalidWage": "Informe um salário semanal válido",
+    "renewalBudgetWarning": "Ultrapassa o orçamento salarial",
+    "renewalAccepted": "Proposta aceita",
+    "renewalRejected": "Proposta recusada",
+    "renewalCounter": "Quer mais: €{{wage}}/semana por {{years}} anos",
+    "renewalBlocked": "As conversas estão bloqueadas após sua decisão anterior",
+    "renewalCooledOff": "As conversas anteriores esfriaram, então isto recomeça como uma nova negociação.",
+    "delegateRenewal": "Delegar ao assistente",
+    "renewalDelegateMissingReport": "O relatório do assistente não incluía este jogador.",
+    "renewalConversationTitle": "Pulso da negociação",
+    "renewalRound": "Rodada {{count}}",
+    "renewalPatience": "Paciência",
+    "renewalTension": "Tensão",
+    "renewalFeedbackCalmHeadline": "O entorno do jogador ainda está disposto a ouvir.",
+    "renewalFeedbackCalmDetail": "Por enquanto, é principalmente uma conversa de negócios. O momento importa, mas a relação ainda não está realmente sob pressão.",
+    "renewalFeedbackFirmHeadline": "Eles querem condições melhores antes de avançar.",
+    "renewalFeedbackFirmDetail": "A conversa segue aberta, mas salário e duração precisam parecer claramente mais vantajosos para o lado deles.",
+    "renewalFeedbackTenseHeadline": "A conversa está ficando difícil.",
+    "renewalFeedbackTenseDetail": "Pouca confiança, moral baixa ou pressão contratual estão endurecendo a posição deles. Outra oferta fraca pode encerrar tudo.",
+    "renewalFeedbackAcceptedHeadline": "O pacote convenceu rapidamente.",
+    "renewalFeedbackAcceptedDetail": "A oferta ficou perto o bastante do que eles queriam, então a negociação permaneceu construtiva.",
+    "renewalFeedbackAcceptedLateHeadline": "Eles aceitaram, mas a paciência já estava no limite.",
+    "renewalFeedbackAcceptedLateDetail": "Você fechou o acordo depois de uma conversa mais dura. O lado deles esteve perto de abandonar a negociação.",
+    "renewalFeedbackBlockedHeadline": "Eles não vão reabrir a conversa por enquanto.",
+    "renewalFeedbackBlockedDetail": "Sua postura anterior ainda influencia o clima, então o entorno do jogador não quer retomar as conversas agora.",
     "attributes": "Atributos",
     "attributesHidden": "Atributos Ocultos",
     "scoutToView": "Escale um olheiro ou contrate o jogador para ver os atributos detalhados.",
     "seasonStats": "Estatísticas da Temporada",
+    "advancedStats": "Estatísticas avançadas",
+    "shots": "Finalizações",
+    "shotsOnTarget": "Finalizações no gol",
+    "passes": "Passes",
+    "tacklesWon": "Desarmes ganhos",
+    "interceptions": "Interceptações",
+    "foulsCommitted": "Faltas cometidas",
+    "per90": "Por 90 min",
+    "passAccuracy": "Precisão de passe",
+    "percentile": "Percentil",
+    "percentileUnavailable": "Percentil indisponível",
+    "recentMatches": "Partidas recentes",
+    "vs": "vs",
+    "noRecentMatches": "Sem dados de partidas recentes",
     "apps": "Jogos",
     "goals": "Gols",
     "assists": "Assistências",
@@ -779,7 +994,11 @@
     "nApps": "{{count}} jogos",
     "nGoals": "{{count}} gols",
     "nAssists": "{{count}} assistências",
-    "daysRemaining": "{{count}} dias restantes — Jogador indisponível para seleção"
+    "daysRemaining": "{{count}} dias restantes — Jogador indisponível para seleção",
+    "renewalProjectionTitle": "Impacto financeiro projetado",
+    "renewalProjectionWageBill": "Folha de salários semanal {{before}} → {{after}}",
+    "renewalProjectionBudgetUsage": "Uso do orçamento salarial {{before}}% → {{after}}%",
+    "renewalProjectionRunway": "Reserva de caixa {{before}} → {{after}}"
   },
   "teamProfile": {
     "clubInfo": "Informações do Clube",
@@ -792,7 +1011,20 @@
     "seasonHistory": "Histórico de Temporadas",
     "balance": "Saldo",
     "totalWages": "Total de Salários",
-    "managerLabel": "Treinador:"
+    "managerLabel": "Treinador:",
+    "advancedStats": "Estatísticas da equipe",
+    "matchesPlayed": "Partidas",
+    "possession": "Posse de bola",
+    "goalDifference": "Saldo de gols",
+    "shots": "Finalizações",
+    "shotsOnTarget": "Finalizações no gol",
+    "passes": "Passes",
+    "tacklesWon": "Desarmes ganhos",
+    "interceptions": "Interceptações",
+    "foulsCommitted": "Faltas cometidas",
+    "perMatch": "Por partida",
+    "passAccuracy": "Precisão de passe",
+    "recentMatches": "Partidas recentes"
   },
   "settings": {
     "title": "Configurações",
@@ -964,9 +1196,16 @@
     "matchOver": "Partida Encerrada",
     "ratings": "Notas do {{team}}",
     "motm": "Melhor em Campo",
+    "roundSummary": "Resumo da Rodada",
+    "roundSummaryUnavailable": "Resumo da rodada indisponível.",
+    "otherMatches": "Outros Jogos",
+    "otherMatchesToday": "Outros Jogos de Hoje",
+    "otherMatchesUnavailable": "O contexto dos outros jogos ainda não está disponível para esta partida.",
+    "viewDetails": "Ver detalhes",
+    "matchDetails": "Detalhes da Partida",
     "scorers": "Artilheiros",
     "noGoals": "Nenhum gol marcado.",
-    "matchComplete": "Partida encerrada.",
+    "matchComplete": "Partida completa.",
     "addressPress": "Fale com a imprensa ou volte ao painel.",
     "skip": "Pular",
     "pressConference": "Coletiva de Imprensa",
@@ -975,6 +1214,15 @@
     "submitting": "Enviando...",
     "leaveConference": "Encerrar Coletiva",
     "nextQuestion": "Próxima Pergunta",
+    "pressReport": {
+      "headlineManagerQuote": "{{team}} Técnico: {{quote}}",
+      "headlinePressConf": "Coletiva de Imprensa: \"{{quote}}\" — técnico do {{team}}",
+      "headlinePostMatch": "Pós-Jogo: {{team}} sobre {{result}}",
+      "bodyIntro": "Após o resultado {{result}}, o técnico do {{team}} falou com a imprensa.",
+      "bodyOutro": "A coletiva abordou o resultado, a abordagem tática e o que está por vir para o time.",
+      "bodySingle": "O técnico do {{team}} falou brevemente após o resultado {{result}}.",
+      "bodyNone": "O técnico do {{team}} não quis falar longamente após o resultado {{result}}."
+    },
     "press": {
       "result": {
         "questions": {
@@ -984,19 +1232,46 @@
         },
         "responses": {
           "win": {
-            "humble": { "tone": "Humilde", "text": "Os jogadores trabalharam duro. Nos preparamos bem e executamos o plano de jogo." },
-            "confident": { "tone": "Confiante", "text": "Fomos o melhor time do começo ao fim. Um resultado merecido." },
-            "deflect": { "tone": "Desviar", "text": "São só três pontos. Agora vamos para a próxima." }
+            "humble": {
+              "tone": "Humilde",
+              "text": "Os jogadores trabalharam duro. Nos preparamos bem e executamos o plano de jogo."
+            },
+            "confident": {
+              "tone": "Confiante",
+              "text": "Fomos o melhor time do começo ao fim. Um resultado merecido."
+            },
+            "deflect": {
+              "tone": "Desviar",
+              "text": "São só três pontos. Agora vamos para a próxima."
+            }
           },
           "loss": {
-            "accept": { "tone": "Assumir", "text": "Hoje não fomos bons o suficiente. Temos que entender o que deu errado." },
-            "defiant": { "tone": "Desafiante", "text": "Não acho que merecíamos perder. Criamos chances suficientes." },
-            "deflect": { "tone": "Desviar", "text": "Prefiro não ficar remoendo isso. Estaremos prontos para a próxima partida." }
+            "accept": {
+              "tone": "Assumir",
+              "text": "Hoje não fomos bons o suficiente. Temos que entender o que deu errado."
+            },
+            "defiant": {
+              "tone": "Desafiante",
+              "text": "Não acho que merecíamos perder. Criamos chances suficientes."
+            },
+            "deflect": {
+              "tone": "Desviar",
+              "text": "Prefiro não ficar remoendo isso. Estaremos prontos para a próxima partida."
+            }
           },
           "draw": {
-            "fair": { "tone": "Justo", "text": "Foi um resultado justo. Os dois times tiveram chances." },
-            "frustrated": { "tone": "Frustrado", "text": "A gente deveria ter vencido. Perdemos oportunidades demais." },
-            "positive": { "tone": "Positivo", "text": "Um ponto é um ponto. Dá para tirar coisas boas do jogo de hoje." }
+            "fair": {
+              "tone": "Justo",
+              "text": "Foi um resultado justo. Os dois times tiveram chances."
+            },
+            "frustrated": {
+              "tone": "Frustrado",
+              "text": "A gente deveria ter vencido. Perdemos oportunidades demais."
+            },
+            "positive": {
+              "tone": "Positivo",
+              "text": "Um ponto é um ponto. Dá para tirar coisas boas do jogo de hoje."
+            }
           }
         }
       },
@@ -1006,17 +1281,35 @@
           "default": "Você pode comentar a atuação de {{playerName}} hoje?"
         },
         "responses": {
-          "praise": { "tone": "Elogio", "text": "{{playerName}} foi fantástico. É um jogador-chave para nós e a dedicação dele é exemplar." },
-          "demanding": { "tone": "Exigente", "text": "{{playerName}} pode render mais. Espero mais de um jogador da qualidade dele." },
-          "deflect": { "tone": "Desviar", "text": "Não gosto de destacar indivíduos. Futebol é jogo coletivo." }
+          "praise": {
+            "tone": "Elogio",
+            "text": "{{playerName}} foi fantástico. É um jogador-chave para nós e a dedicação dele é exemplar."
+          },
+          "demanding": {
+            "tone": "Exigente",
+            "text": "{{playerName}} pode render mais. Espero mais de um jogador da qualidade dele."
+          },
+          "deflect": {
+            "tone": "Desviar",
+            "text": "Não gosto de destacar indivíduos. Futebol é jogo coletivo."
+          }
         }
       },
       "tactics": {
         "question": "Pode nos explicar sua abordagem tática hoje?",
         "responses": {
-          "detailed": { "tone": "Detalhado", "text": "Montamos a equipe para controlar o meio-campo e usar a largura. Acho que a estrutura funcionou bem." },
-          "brief": { "tone": "Direto", "text": "Tínhamos um plano e os jogadores executaram. É isso que importa." },
-          "evasive": { "tone": "Evasivo", "text": "Prefiro não revelar muita coisa. Todo time tem seus segredos." }
+          "detailed": {
+            "tone": "Detalhado",
+            "text": "Montamos a equipe para controlar o meio-campo e usar a largura. Acho que a estrutura funcionou bem."
+          },
+          "brief": {
+            "tone": "Direto",
+            "text": "Tínhamos um plano e os jogadores executaram. É isso que importa."
+          },
+          "evasive": {
+            "tone": "Evasivo",
+            "text": "Prefiro não revelar muita coisa. Todo time tem seus segredos."
+          }
         }
       },
       "fans": {
@@ -1027,28 +1320,64 @@
         },
         "responses": {
           "win": {
-            "grateful": { "tone": "Humilde", "text": "A torcida é incrível. Ela nos empurra em cada jogo e merece atuações como a de hoje." },
-            "shared": { "tone": "Confiante", "text": "Todo mundo comemora junto — jogadores, comissão e torcedores. Essa vitória também é deles." },
-            "deflect": { "tone": "Desviar", "text": "A torcida sabe o que representamos. Nós só focamos no campo." }
+            "grateful": {
+              "tone": "Humilde",
+              "text": "A torcida é incrível. Ela nos empurra em cada jogo e merece atuações como a de hoje."
+            },
+            "shared": {
+              "tone": "Confiante",
+              "text": "Todo mundo comemora junto — jogadores, comissão e torcedores. Essa vitória também é deles."
+            },
+            "deflect": {
+              "tone": "Desviar",
+              "text": "A torcida sabe o que representamos. Nós só focamos no campo."
+            }
           },
           "loss": {
-            "apologize": { "tone": "Assumir", "text": "Eu entendo completamente a frustração deles. Eles merecem mais e vamos trabalhar duro para entregar isso." },
-            "patience": { "tone": "Focado", "text": "Peço paciência. Estamos construindo algo e dias ruins acontecem. Vamos voltar mais fortes." },
-            "curt": { "tone": "Seco", "text": "Não vou comentar coisas ditas no calor do momento. Vamos seguir em frente." }
+            "apologize": {
+              "tone": "Assumir",
+              "text": "Eu entendo completamente a frustração deles. Eles merecem mais e vamos trabalhar duro para entregar isso."
+            },
+            "patience": {
+              "tone": "Focado",
+              "text": "Peço paciência. Estamos construindo algo e dias ruins acontecem. Vamos voltar mais fortes."
+            },
+            "curt": {
+              "tone": "Seco",
+              "text": "Não vou comentar coisas ditas no calor do momento. Vamos seguir em frente."
+            }
           },
           "draw": {
-            "appreciate": { "tone": "Positivo", "text": "Eu valorizo cada torcedor que vem nos ver. A energia deles levanta o time." },
-            "understand": { "tone": "Justo", "text": "Eles querem nos ver vencer e eu também. Vamos continuar insistindo até os resultados aparecerem." },
-            "curt": { "tone": "Seco", "text": "Eu não me envolvo com o que acontece nas arquibancadas. Meu foco está no campo." }
+            "appreciate": {
+              "tone": "Positivo",
+              "text": "Eu valorizo cada torcedor que vem nos ver. A energia deles levanta o time."
+            },
+            "understand": {
+              "tone": "Justo",
+              "text": "Eles querem nos ver vencer e eu também. Vamos continuar insistindo até os resultados aparecerem."
+            },
+            "curt": {
+              "tone": "Seco",
+              "text": "Eu não me envolvo com o que acontece nas arquibancadas. Meu foco está no campo."
+            }
           }
         }
       },
       "ahead": {
         "question": "Qual é o seu foco para a próxima partida?",
         "responses": {
-          "focused": { "tone": "Focado", "text": "Primeiro recuperação, depois preparação. Vamos jogo a jogo." },
-          "ambitious": { "tone": "Ambicioso", "text": "Queremos continuar construindo embalo. O objetivo está claro." },
-          "curt": { "tone": "Seco", "text": "Próxima pergunta, por favor. A gente se preocupa com isso quando chegar a hora." }
+          "focused": {
+            "tone": "Focado",
+            "text": "Primeiro recuperação, depois preparação. Vamos jogo a jogo."
+          },
+          "ambitious": {
+            "tone": "Ambicioso",
+            "text": "Queremos continuar construindo embalo. O objetivo está claro."
+          },
+          "curt": {
+            "tone": "Seco",
+            "text": "Próxima pergunta, por favor. A gente se preocupa com isso quando chegar a hora."
+          }
         }
       }
     },
@@ -1097,6 +1426,13 @@
     "playerOfYear": "Jogador do Ano",
     "avgRating": "Nota média: {{rating}}",
     "continueDashboard": "Continuar para o Painel"
+  },
+  "notifications": {
+    "attentionRequired": "Atenção Necessária",
+    "resolveBeforeContinuing": "Resolva estes problemas antes de continuar",
+    "goTo": "Ir para",
+    "reviewIssues": "Revisar Problemas",
+    "continueAnyway": "Continuar mesmo assim"
   },
   "squadCompare": {
     "compare": "Comparar"
@@ -1238,6 +1574,23 @@
         "subject": "Folha Salarial Acima do Orçamento",
         "body": "Nossa folha salarial anual (€{{annualWages}}) atualmente excede o orçamento salarial definido (€{{wageBudget}}).\n\nEmbora possamos sustentar isso no curto prazo, a diretoria prefere ver a folha salarial sob controle."
       },
+      "seasonPayout": {
+        "subject": "Temporada {{season}} — Premiação concedida",
+        "body": "A diretoria confirmou um prêmio de €{{amount}} pelo seu {{position}}º lugar na liga. O valor já foi adicionado ao saldo do clube."
+      },
+      "seasonReview": {
+        "subject": "Revisão da Temporada {{season}}",
+        "body": {
+          "champion": "Parabéns! {{team}} é campeão da liga! Uma conquista incrível.\n\nA diretoria está absolutamente encantada com seu desempenho. Você terminou com {{points}} pontos.\n\nEsperamos defender o título na próxima temporada.",
+          "topFour": "Uma temporada sólida para {{team}}. Você terminou em {{position}}º lugar com {{points}} pontos.\n\nA diretoria está satisfeita com a campanha. Vamos buscar o título na próxima temporada.",
+          "midTable": "{{team}} terminou a temporada em {{position}}º lugar com {{points}} pontos.\n\nUma campanha intermediária. A diretoria espera melhora na próxima temporada. Precisamos ser mais competitivos.",
+          "lowerHalf": "Uma temporada decepcionante para {{team}}. Terminar em {{position}}º lugar com apenas {{points}} pontos está abaixo das expectativas.\n\nA diretoria está preocupada. Melhorias significativas serão necessárias na próxima temporada, ou sua posição poderá ser reavaliada."
+        }
+      },
+      "newSeasonSchedule": {
+        "subject": "Temporada {{season}} — Nova Tabela Divulgada",
+        "body": "A tabela da Temporada {{season}} foi divulgada! A nova campanha começa em 4 semanas.\n\nUse este intervalo para avaliar seu elenco, fazer os ajustes necessários e se preparar para os desafios que virão.\n\nBoa sorte!"
+      },
       "fitness": {
         "critical": {
           "subject": "URGENTE: Crise de Condição Física",
@@ -1368,7 +1721,7 @@
       },
       "sponsor": {
         "subject": "Oferta de Patrocínio — {{sponsor}}",
-        "body": "Boas notícias, chefe! {{sponsor}} demonstrou interesse em se tornar patrocinador do {{team}}.\n\nEles estão oferecendo um pagamento único de €{{amount}} em troca de espaço publicitário no centro de treinamento.\n\nParece um bom negócio, mas a decisão é sua.",
+        "body": "Boas notícias, chefe! {{sponsor}} demonstrou interesse em se tornar patrocinador do {{team}}.\n\nEles estão oferecendo um pagamento semanal de €{{amount}} nas próximas 12 semanas em troca de espaço publicitário no centro de treinamento.\n\nParece um bom negócio, mas a decisão é sua.",
         "options": {
           "accept": {
             "label": "Aceitar o acordo",
@@ -1489,6 +1842,23 @@
         "body0": "{{player}} veio falar com você sobre a situação do contrato. Com apenas {{days}} dias restantes, ele quer saber qual é a posição dele.\n\n\"Chefe, meu contrato está acabando. Preciso saber se faço parte dos seus planos ou se devo começar a procurar outro lugar.\"",
         "body1": "Seu assistente alerta que o contrato de {{player}} expira em aproximadamente {{months}} mês(es). O jogador tem perguntado no vestiário sobre seu futuro.\n\nPode ser prudente ter uma conversa antes que ele fique insatisfeito — ou antes que outros clubes comecem a circular."
       },
+      "delegatedRenewals": {
+        "subject": "Relatório do assistente — Renovações contratuais",
+        "body": "Chefe, revisei nossa lista de renovações no {{team}}. {{successes}} concluídas, {{stalled}} ainda pendentes e {{failures}} falhas.",
+        "case": {
+          "successful": "Concluída: {{player}} aceitou {{years}} ano(s) por €{{wage}}/semana.",
+          "stalled": "Continua difícil: {{player}} — {{detail}}",
+          "failed": "Falhou: {{player}} — {{detail}}"
+        },
+        "notes": {
+          "managerBlocked": "Você me disse para ainda não reabrir as conversas contratuais.",
+          "completed": "Consegui fechar essa sem que você precisasse intervir.",
+          "beyondLimits": "O estafe deles quer cerca de €{{wage}}/semana por {{years}} anos, acima dos limites da delegação.",
+          "boardWagePolicy": "A política salarial da diretoria bloqueia esta renovação. Mantenha os salários anuais perto de €{{budget}} enquanto nos recuperamos.",
+          "prefersManager": "Eles até ouviriam, mas ainda querem cerca de €{{wage}}/semana por {{years}} anos e preferem falar diretamente com você.",
+          "relationshipBlocked": "Eles não estão dispostos a se comprometer por meu intermédio com o relacionamento e a situação contratual atuais."
+        }
+      },
       "scoutReport": {
         "subject": "Relatório de Observação: {{player}}",
         "body": "Seu olheiro {{scout}} concluiu a avaliação de {{player}}. Relatório completo disponível na seção de observação."
@@ -1546,6 +1916,21 @@
         "headline1": "Temporada da Primeira Divisão Prestes a Começar",
         "headline2": "O {{favourite}} Pode Conquistar o Título? Prévia da Temporada",
         "body": "A Primeira Divisão está pronta para começar com {{teamCount}} times disputando o título.\n\nAs previsões de pré-temporada apontam o {{favourite}} como favorito, mas o {{darkHorse}} pode ser a surpresa desta campanha.\n\nCom novos treinadores assumindo o comando em alguns clubes, esta temporada promete ser uma das mais competitivas da história recente. Cada ponto vai importar na corrida pelo título.\n\nTimes: {{teamList}}"
+      },
+      "weeklyDigest": {
+        "headline": "Resumo Semanal — Semana de {{weekStart}}",
+        "bodyNoTopScorer": "O mais recente resumo semanal chegou. {{leader}} lidera a tabela e {{storylineCount}} narrativa(s) estão moldando a divisão nesta semana.",
+        "bodyWithTopScorer": "O mais recente resumo semanal chegou. {{leader}} lidera a tabela, enquanto {{topScorer}} comanda a artilharia com {{topScorerGoals}} gol(s). {{storylineCount}} narrativa(s) estão moldando a divisão nesta semana."
+      },
+      "storyline": {
+        "titleRace": {
+          "headline": "A briga pelo título esquenta — {{leader}} abre {{gap}} ponto(s) sobre {{challenger}}",
+          "body": "{{leader}} segue na frente, mas {{challenger}} está a apenas {{gap}} ponto(s) enquanto a corrida pelo título ganha forma."
+        },
+        "unbeatenStreak": {
+          "headline": "{{team}} amplia sequência invicta para {{runLength}}",
+          "body": "{{team}} já soma {{runLength}} jogo(s) sem perder e está ganhando embalo de verdade."
+        }
       }
     }
   },
@@ -1635,8 +2020,7 @@
     "day": "DD",
     "month": "Mês",
     "year": "AAAA"
-  }
-,
+  },
   "sacked": {
     "title": "Você Foi Demitido",
     "subtitle": "A diretoria perdeu confiança na sua capacidade de comandar o clube.",

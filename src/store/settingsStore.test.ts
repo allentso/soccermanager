@@ -89,14 +89,22 @@ describe("useSettingsStore", () => {
     });
   });
 
-  it("keeps the local update when saving fails and reports the error", async () => {
+  it("rolls back the local update when saving fails and reports the error", async () => {
     const error = new Error("save failed");
     vi.mocked(invoke).mockRejectedValue(error);
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
 
+    useSettingsStore.setState({
+      settings: {
+        ...DEFAULT_SETTINGS,
+        match_speed: "normal",
+      },
+      loaded: true,
+    });
+
     await useSettingsStore.getState().updateSettings({ match_speed: "fast" });
 
-    expect(useSettingsStore.getState().settings.match_speed).toBe("fast");
+    expect(useSettingsStore.getState().settings.match_speed).toBe("normal");
     expect(consoleError).toHaveBeenCalledWith("Failed to save settings:", error);
 
     consoleError.mockRestore();

@@ -7,6 +7,10 @@ pub struct Staff {
     pub last_name: String,
     pub date_of_birth: String,
     pub nationality: String,
+    #[serde(default)]
+    pub football_nation: String,
+    #[serde(default)]
+    pub birth_country: Option<String>,
     pub role: StaffRole,
 
     // Attributes 0-100
@@ -66,6 +70,8 @@ impl Staff {
             last_name,
             date_of_birth,
             nationality: String::new(),
+            football_nation: String::new(),
+            birth_country: None,
             role,
             attributes,
             team_id: None,

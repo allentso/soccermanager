@@ -1,46 +1,35 @@
 import { describe, it, expect } from "vitest";
 import {
-  countryFlag,
-  countryMarker,
   countryName,
   allCountries,
+  allNationalities,
   isValidCountryCode,
   normaliseNationality,
-  shouldUseCountryCodeBadge,
+  resolveCountryFlagCode,
 } from "./countries";
 
 // ---------------------------------------------------------------------------
-// countryFlag
+// resolveCountryFlagCode
 // ---------------------------------------------------------------------------
 
-describe("countryFlag", () => {
-  it("returns flag emoji for valid alpha-2 codes", () => {
-    // US flag = 🇺🇸 (regional indicator U + S)
-    expect(countryFlag("US")).toBe("🇺🇸");
-    expect(countryFlag("GB")).toBe("🇬🇧");
-    expect(countryFlag("BR")).toBe("🇧🇷");
+describe("resolveCountryFlagCode", () => {
+  it("returns a valid code when an SVG flag is available", () => {
+    expect(resolveCountryFlagCode("US")).toBe("US");
+    expect(resolveCountryFlagCode("GB")).toBe("GB");
+    expect(resolveCountryFlagCode("br")).toBe("BR");
+    expect(resolveCountryFlagCode("IE")).toBe("IE");
   });
 
-  it("handles lowercase input", () => {
-    expect(countryFlag("us")).toBe("🇺🇸");
+  it("normalises demonym values before resolving", () => {
+    expect(resolveCountryFlagCode("English")).toBeNull();
+    expect(resolveCountryFlagCode("Brazilian")).toBe("BR");
+    expect(resolveCountryFlagCode("Irish")).toBe("IE");
   });
 
-  it("returns empty string for invalid input", () => {
-    expect(countryFlag("")).toBe("");
-    expect(countryFlag("X")).toBe("");
-    expect(countryFlag("USA")).toBe("");
-  });
-});
-
-describe("countryMarker", () => {
-  it("uses ISO country code badges on Windows platforms", () => {
-    expect(shouldUseCountryCodeBadge("Win32")).toBe(true);
-    expect(countryMarker("br", "Windows NT 10.0")).toBe("BR");
-  });
-
-  it("uses flag emoji on non-Windows platforms", () => {
-    expect(shouldUseCountryCodeBadge("MacIntel")).toBe(false);
-    expect(countryMarker("BR", "Linux x86_64")).toBe("🇧🇷");
+  it("returns null for invalid values", () => {
+    expect(resolveCountryFlagCode("")).toBeNull();
+    expect(resolveCountryFlagCode("X")).toBeNull();
+    expect(resolveCountryFlagCode("USA")).toBeNull();
   });
 });
 
@@ -52,6 +41,7 @@ describe("countryName", () => {
   it("returns English country name by default", () => {
     expect(countryName("GB")).toMatch(/United Kingdom/);
     expect(countryName("US")).toMatch(/United States/);
+    expect(countryName("ENG")).toBe("England");
   });
 
   it("returns localised name for supported locales", () => {
@@ -63,6 +53,9 @@ describe("countryName", () => {
 
     const nameIt = countryName("DE", "it");
     expect(nameIt).toBe("Germania");
+
+    const englandEs = countryName("ENG", "es");
+    expect(englandEs).toBe("Inglaterra");
   });
 
   it("falls back to English for unknown locale", () => {
@@ -110,6 +103,20 @@ describe("allCountries", () => {
   });
 });
 
+describe("allNationalities", () => {
+  it("surfaces football nations and excludes legacy GB from the selectable list", () => {
+    const list = allNationalities("en");
+    const codes = list.map((country) => country.code);
+
+    expect(codes).toContain("ENG");
+    expect(codes).toContain("SCO");
+    expect(codes).toContain("WAL");
+    expect(codes).toContain("NIR");
+    expect(codes).toContain("IE");
+    expect(codes).not.toContain("GB");
+  });
+});
+
 // ---------------------------------------------------------------------------
 // isValidCountryCode
 // ---------------------------------------------------------------------------
@@ -119,6 +126,8 @@ describe("isValidCountryCode", () => {
     expect(isValidCountryCode("US")).toBe(true);
     expect(isValidCountryCode("GB")).toBe(true);
     expect(isValidCountryCode("br")).toBe(true); // case-insensitive
+    expect(isValidCountryCode("ENG")).toBe(true);
+    expect(isValidCountryCode("NIR")).toBe(true);
   });
 
   it("returns false for invalid codes", () => {
@@ -137,10 +146,15 @@ describe("normaliseNationality", () => {
   it("returns alpha-2 code as-is if already valid", () => {
     expect(normaliseNationality("GB")).toBe("GB");
     expect(normaliseNationality("ES")).toBe("ES");
+    expect(normaliseNationality("ENG")).toBe("ENG");
   });
 
   it("converts known demonyms to alpha-2 codes", () => {
-    expect(normaliseNationality("English")).toBe("GB");
+    expect(normaliseNationality("English")).toBe("ENG");
+    expect(normaliseNationality("Scottish")).toBe("SCO");
+    expect(normaliseNationality("Welsh")).toBe("WAL");
+    expect(normaliseNationality("Irish")).toBe("IE");
+    expect(normaliseNationality("Northern Irish")).toBe("NIR");
     expect(normaliseNationality("Spanish")).toBe("ES");
     expect(normaliseNationality("Brazilian")).toBe("BR");
     expect(normaliseNationality("German")).toBe("DE");

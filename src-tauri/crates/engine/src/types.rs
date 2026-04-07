@@ -36,6 +36,9 @@ pub struct PlayerData {
     pub name: String,
     pub position: Position,
     pub condition: u8, // 0-100
+    /// Long-term physical shape (0-100). Multiplies stamina depletion rate in-match.
+    #[serde(default = "default_fitness")]
+    pub fitness: u8,
 
     // Physical
     pub pace: u8,
@@ -79,6 +82,10 @@ pub struct PlayerData {
 
 fn default_engine_attr() -> u8 {
     50
+}
+
+fn default_fitness() -> u8 {
+    75
 }
 
 impl PlayerData {
@@ -207,7 +214,7 @@ impl Default for MatchConfig {
             home_advantage: 1.08,
             shot_accuracy_base: 0.45,
             goal_conversion_base: 0.30,
-            fatigue_per_minute: 0.15,
+            fatigue_per_minute: 0.20,
             foul_probability: 0.12,
             yellow_card_probability: 0.30,
             red_card_probability: 0.04,

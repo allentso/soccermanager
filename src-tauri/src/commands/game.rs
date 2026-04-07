@@ -2,6 +2,7 @@ use log::info;
 use tauri::State;
 
 use db::save_index::SaveEntry;
+use domain::stats::StatsState;
 use domain::manager::Manager;
 use ofm_core::clock::GameClock;
 use ofm_core::game::Game;
@@ -85,6 +86,7 @@ pub async fn start_new_game(
         new_game.staff.len()
     );
     state.set_game(new_game.clone());
+    state.set_stats_state(StatsState::default());
     Ok(new_game)
 }
 
@@ -118,9 +120,18 @@ pub async fn select_team(
     use chrono::Duration;
     let season_start = game.clock.current_date + Duration::days(30);
     let team_ids: Vec<String> = game.teams.iter().map(|t| t.id.clone()).collect();
-    let league =
+    let mut league =
         ofm_core::schedule::generate_league("Premier Division", 2026, &team_ids, season_start);
+    let opponents: Vec<String> = team_ids
+        .iter()
+        .filter(|candidate_team_id| candidate_team_id.as_str() != team_id)
+        .cloned()
+        .collect();
+    let friendlies =
+        ofm_core::schedule::generate_preseason_friendlies(&team_id, &opponents, season_start, 3);
+    ofm_core::schedule::append_fixtures(&mut league, friendlies);
     game.league = Some(league);
+    ofm_core::season_context::refresh_game_context(&mut game);
 
     // Rich templated messages
     let date_str = game.clock.current_date.to_rfc3339();
@@ -134,8 +145,16 @@ pub async fn select_team(
     );
     game.messages.push(season_msg);
 
+    let team_names: Vec<String> = game.teams.iter().map(|team| team.name.clone()).collect();
+    game.news.push(ofm_core::news::season_preview_article(
+        &team_names,
+        &date_str,
+    ));
+
     let staff_msg = ofm_core::messages::staff_advice_message(&team_name, &team_id, &date_str);
     game.messages.push(staff_msg);
+
+    ofm_core::player_events::generate_contract_concern_messages(&mut game, false);
 
     // Save to new per-save DB
     let manager_name = format!("{} {}", game.manager.first_name, game.manager.last_name);
@@ -149,6 +168,7 @@ pub async fn select_team(
     state.set_save_id(save_id);
 
     state.set_game(game.clone());
+    state.set_stats_state(StatsState::default());
     Ok(game)
 }
 
@@ -182,16 +202,19 @@ pub async fn load_game(
     save_id: String,
 ) -> Result<String, String> {
     info!("[cmd] load_game: save_id={}", save_id);
-    let sm = sm_state
+    let mut sm = sm_state
         .0
         .lock()
         .map_err(|e| format!("Lock error: {}", e))?;
-    let game = sm.load_game(&save_id)?;
+    let mut game = sm.load_game(&save_id)?;
+    let stats_state = sm.load_stats_state(&save_id)?;
+    ofm_core::season_context::refresh_game_context(&mut game);
 
     let mgr_name = format!("{} {}", game.manager.first_name, game.manager.last_name);
 
     state.set_save_id(save_id);
     state.set_game(game);
+    state.set_stats_state(stats_state);
     Ok(mgr_name)
 }
 
@@ -221,7 +244,11 @@ pub async fn save_game(
         .0
         .lock()
         .map_err(|e| format!("Lock error: {}", e))?;
-    sm.save_game(&game, &save_id)
+    sm.save_game(&game, &save_id)?;
+    let stats_state = state
+        .get_stats_state(|stats| stats.clone())
+        .unwrap_or_default();
+    sm.save_stats_state(&stats_state, &save_id)
 }
 
 /// Save the current game and clear the active session so the player returns to the main menu.
@@ -242,6 +269,10 @@ pub async fn exit_to_menu(
             .lock()
             .map_err(|e| format!("Lock error: {}", e))?;
         sm.save_game(&game, &save_id)?;
+        let stats_state = state
+            .get_stats_state(|stats| stats.clone())
+            .unwrap_or_default();
+        sm.save_stats_state(&stats_state, &save_id)?;
     }
 
     // Clear the in-memory game state

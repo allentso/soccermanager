@@ -1,4 +1,5 @@
 use crate::game::Game;
+use crate::player_rating::{effective_rating_for_assignment, formation_slots, natural_ovr};
 use domain::player::Position as DomainPosition;
 use engine::{PlayStyle, PlayerData, Position, TeamData};
 
@@ -25,54 +26,44 @@ pub(super) fn build_team_with_bench(game: &Game, team_id: &str) -> (TeamData, Ve
     };
 
     // Collect all available (non-injured) players for this team
-    let mut all_players: Vec<PlayerData> = game
+    let available_players: Vec<&domain::player::Player> = game
         .players
         .iter()
         .filter(|p| p.team_id.as_deref() == Some(team_id) && p.injury.is_none())
-        .map(to_engine_player)
         .collect();
-
-    // Sort by position priority (GK, DEF, MID, FWD) then by overall desc
-    all_players.sort_by(|a, b| {
-        position_order(&a.position)
-            .cmp(&position_order(&b.position))
-            .then(
-                b.overall()
-                    .partial_cmp(&a.overall())
-                    .unwrap_or(std::cmp::Ordering::Equal),
-            )
-    });
-
-    // Pick starting XI based on formation
-    let (gk_count, def_count, mid_count, fwd_count) = parse_formation(&formation);
+    let slots = formation_slots(&formation);
+    let mut used_ids = std::collections::HashSet::new();
     let mut starting_xi = Vec::with_capacity(11);
-    let mut bench = Vec::new();
 
-    let mut gk_picked = 0u8;
-    let mut def_picked = 0u8;
-    let mut mid_picked = 0u8;
-    let mut fwd_picked = 0u8;
+    for slot in slots.iter().take(11) {
+        let best_player = available_players
+            .iter()
+            .copied()
+            .filter(|player| !used_ids.contains(&player.id))
+            .max_by(|left, right| {
+                effective_rating_for_assignment(left, slot)
+                    .partial_cmp(&effective_rating_for_assignment(right, slot))
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            });
 
-    for player in all_players {
-        let needed = match player.position {
-            Position::Goalkeeper => gk_picked < gk_count,
-            Position::Defender => def_picked < def_count,
-            Position::Midfielder => mid_picked < mid_count,
-            Position::Forward => fwd_picked < fwd_count,
+        let Some(player) = best_player else {
+            break;
         };
 
-        if needed && starting_xi.len() < 11 {
-            match player.position {
-                Position::Goalkeeper => gk_picked += 1,
-                Position::Defender => def_picked += 1,
-                Position::Midfielder => mid_picked += 1,
-                Position::Forward => fwd_picked += 1,
-            }
-            starting_xi.push(player);
-        } else {
-            bench.push(player);
-        }
+        used_ids.insert(player.id.clone());
+        starting_xi.push(to_engine_player(player));
     }
+
+    let mut bench_domain: Vec<&domain::player::Player> = available_players
+        .into_iter()
+        .filter(|player| !used_ids.contains(&player.id))
+        .collect();
+    bench_domain.sort_by(|left, right| {
+        natural_ovr(right)
+            .partial_cmp(&natural_ovr(left))
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+    let bench = bench_domain.into_iter().map(to_engine_player).collect();
 
     let team_data = TeamData {
         id: team_id.to_string(),
@@ -86,17 +77,20 @@ pub(super) fn build_team_with_bench(game: &Game, team_id: &str) -> (TeamData, Ve
 }
 
 fn to_engine_player(p: &domain::player::Player) -> PlayerData {
-    let pos = match p.position {
+    let pos = match p.position.to_group_position() {
         DomainPosition::Goalkeeper => Position::Goalkeeper,
         DomainPosition::Defender => Position::Defender,
         DomainPosition::Midfielder => Position::Midfielder,
         DomainPosition::Forward => Position::Forward,
+        _ => Position::Midfielder,
     };
+
     PlayerData {
         id: p.id.clone(),
         name: p.match_name.clone(),
         position: pos,
         condition: p.condition,
+        fitness: p.fitness,
         pace: p.attributes.pace,
         stamina: p.attributes.stamina,
         strength: p.attributes.strength,
@@ -180,27 +174,4 @@ pub fn auto_select_set_pieces(
         .map(|p| p.id.clone());
 
     (captain, penalty, free_kick, corner)
-}
-
-fn position_order(pos: &Position) -> u8 {
-    match pos {
-        Position::Goalkeeper => 0,
-        Position::Defender => 1,
-        Position::Midfielder => 2,
-        Position::Forward => 3,
-    }
-}
-
-fn parse_formation(formation: &str) -> (u8, u8, u8, u8) {
-    // Parse "4-4-2", "4-3-3", "3-5-2", etc.
-    let parts: Vec<u8> = formation
-        .split('-')
-        .filter_map(|s| s.parse().ok())
-        .collect();
-
-    match parts.len() {
-        3 => (1, parts[0], parts[1], parts[2]),
-        4 => (parts[0], parts[1], parts[2], parts[3]),
-        _ => (1, 4, 4, 2), // fallback 4-4-2
-    }
 }

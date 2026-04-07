@@ -31,7 +31,7 @@ managed through migrations.
 
 ### 2. Database Schema (per save `.db` file)
 
-Managed by `rusqlite_migration`. Initial migration (V1):
+Managed by `rusqlite_migration`. The initial schema starts at V1, and the current save schema also includes later additive migrations such as V14 for football identity fields.
 
 ```sql
 -- Game clock / session metadata
@@ -52,6 +52,8 @@ CREATE TABLE managers (
     last_name       TEXT NOT NULL,
     date_of_birth   TEXT NOT NULL,
     nationality     TEXT NOT NULL,
+    football_nation TEXT NOT NULL DEFAULT '',
+    birth_country   TEXT,
     reputation      INTEGER NOT NULL DEFAULT 500,
     satisfaction    INTEGER NOT NULL DEFAULT 100,
     fan_approval    INTEGER NOT NULL DEFAULT 50,
@@ -65,6 +67,7 @@ CREATE TABLE teams (
     name                TEXT NOT NULL,
     short_name          TEXT NOT NULL,
     country             TEXT NOT NULL,
+    football_nation     TEXT NOT NULL DEFAULT '',
     city                TEXT NOT NULL,
     stadium_name        TEXT NOT NULL,
     stadium_capacity    INTEGER NOT NULL,
@@ -94,6 +97,8 @@ CREATE TABLE players (
     full_name           TEXT NOT NULL,
     date_of_birth       TEXT NOT NULL,
     nationality         TEXT NOT NULL,
+    football_nation     TEXT NOT NULL DEFAULT '',
+    birth_country       TEXT,
     position            TEXT NOT NULL,
     attributes          TEXT NOT NULL,    -- JSON for PlayerAttributes
     condition           INTEGER NOT NULL DEFAULT 100,
@@ -117,6 +122,8 @@ CREATE TABLE staff (
     last_name           TEXT NOT NULL,
     date_of_birth       TEXT NOT NULL,
     nationality         TEXT NOT NULL,
+    football_nation     TEXT NOT NULL DEFAULT '',
+    birth_country       TEXT,
     role                TEXT NOT NULL,
     attributes          TEXT NOT NULL,   -- JSON for StaffAttributes
     team_id             TEXT,
@@ -199,6 +206,13 @@ CREATE TABLE scouting_assignments (
     days_remaining  INTEGER NOT NULL
 );
 ```
+
+### Football Identity Notes
+
+- Legacy saves may still store `nationality` / `country` values such as `"GB"`, `"British"`, or demonyms like `"English"`.
+- New additive columns persist the normalized football-facing identity separately from the legacy source fields.
+- Load-time migration fills missing `football_nation` and `birth_country` values conservatively and auto-resaves upgraded saves.
+- Ambiguous legacy `GB` values are not blanket-rewritten. Deterministic cases, such as known bundled English clubs, can be upgraded to `ENG` via migration heuristics.
 
 ### 3. Save Index (`save_index.json`)
 

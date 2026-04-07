@@ -1,21 +1,82 @@
 use crate::game::Game;
-use crate::schedule::generate_league;
+use crate::schedule::{append_fixtures, generate_league, generate_preseason_friendlies};
 use crate::season_awards::compute_season_awards;
 use chrono::Duration;
-use domain::league::FixtureStatus;
+use domain::league::{FixtureStatus, League};
 use domain::message::*;
 use domain::player::PlayerSeasonStats;
-use domain::team::TeamSeasonRecord;
+use domain::team::{FinancialTransaction, FinancialTransactionKind, TeamSeasonRecord};
+
+pub fn expected_fixture_count(team_count: usize) -> Option<usize> {
+    if team_count >= 2 && team_count % 2 == 0 {
+        Some(team_count * (team_count - 1))
+    } else {
+        None
+    }
+}
+
+pub fn has_full_schedule(league: &League) -> bool {
+    match expected_fixture_count(league.standings.len()) {
+        Some(expected_fixture_count) => {
+            league
+                .fixtures
+                .iter()
+                .filter(|fixture| fixture.counts_for_league_standings())
+                .count()
+                == expected_fixture_count
+        }
+        None => false,
+    }
+}
+
+/// Returns true if at least one competitive fixture has been completed or any
+/// standing entry records a played match. Used as a guard to prevent premature
+/// end-of-season processing for a season that has not yet kicked off.
+pub fn season_has_started(league: &League) -> bool {
+    league
+        .fixtures
+        .iter()
+        .any(|f| f.counts_for_league_standings() && f.status == FixtureStatus::Completed)
+        || league.standings.iter().any(|e| e.played > 0)
+}
+
+pub fn is_league_complete(league: &League) -> bool {
+    season_has_started(league)
+        && has_full_schedule(league)
+        && league
+            .fixtures
+            .iter()
+            .filter(|fixture| fixture.counts_for_league_standings())
+            .all(|fixture| fixture.status == FixtureStatus::Completed)
+}
 
 /// Check if the season is complete (all fixtures played).
 pub fn is_season_complete(game: &Game) -> bool {
-    game.league.as_ref().is_some_and(|league| {
-        !league.fixtures.is_empty()
-            && league
-                .fixtures
-                .iter()
-                .all(|f| f.status == FixtureStatus::Completed)
-    })
+    game.league.as_ref().is_some_and(is_league_complete)
+}
+
+const PRIZE_MONEY_BY_POSITION: [i64; 10] = [
+    5_000_000, 3_000_000, 1_500_000, 750_000, 400_000, 300_000, 250_000, 200_000, 175_000, 150_000,
+];
+
+fn position_suffix(position: u32) -> &'static str {
+    match position {
+        1 => "st",
+        2 => "nd",
+        3 => "rd",
+        _ => "th",
+    }
+}
+
+fn prize_money_for_position(position: u32) -> i64 {
+    if position == 0 {
+        return 0;
+    }
+
+    PRIZE_MONEY_BY_POSITION
+        .get(position.saturating_sub(1) as usize)
+        .copied()
+        .unwrap_or(150_000)
 }
 
 /// Process end-of-season: record history, compute awards, reset stats, generate next season.
@@ -28,6 +89,17 @@ pub fn process_end_of_season(game: &mut Game) -> EndOfSeasonSummary {
 
     let season = league.season;
     let league_name = league.name.clone();
+    let today = game.clock.current_date.format("%Y-%m-%d").to_string();
+    // Messages should be dated on the last match day, not on the clock date
+    // (which may already be one day ahead due to process_day advancing the clock).
+    let last_fixture_date = league
+        .fixtures
+        .iter()
+        .filter(|f| f.counts_for_league_standings() && f.status == FixtureStatus::Completed)
+        .map(|f| f.date.as_str())
+        .max()
+        .unwrap_or(today.as_str())
+        .to_string();
 
     // 1. Compute final standings
     let final_standings = league.sorted_standings();
@@ -96,9 +168,12 @@ pub fn process_end_of_season(game: &mut Game) -> EndOfSeasonSummary {
     // 4. Record team season history
     for (idx, standing) in final_standings.iter().enumerate() {
         if let Some(team) = game.teams.iter_mut().find(|t| t.id == standing.team_id) {
+            let position = (idx + 1) as u32;
+            let prize_money = prize_money_for_position(position);
+
             team.history.push(TeamSeasonRecord {
                 season,
-                league_position: (idx + 1) as u32,
+                league_position: position,
                 played: standing.played,
                 won: standing.won,
                 drawn: standing.drawn,
@@ -108,6 +183,22 @@ pub fn process_end_of_season(game: &mut Game) -> EndOfSeasonSummary {
             });
             // Reset form
             team.form.clear();
+
+            if prize_money > 0 {
+                team.finance += prize_money;
+                team.season_income += prize_money;
+                team.financial_ledger.push(FinancialTransaction {
+                    date: last_fixture_date.clone(),
+                    description: format!(
+                        "Season {} prize money for {}{} place",
+                        season,
+                        position,
+                        position_suffix(position)
+                    ),
+                    amount: prize_money,
+                    kind: FinancialTransactionKind::PrizeMoney,
+                });
+            }
         }
     }
 
@@ -204,18 +295,27 @@ pub fn process_end_of_season(game: &mut Game) -> EndOfSeasonSummary {
     let team_ids: Vec<String> = game.teams.iter().map(|t| t.id.clone()).collect();
     // Start date: roughly a year after current start, or a few weeks from now
     let next_start = game.clock.current_date + Duration::days(28); // 4 weeks break
-    let new_league = generate_league(&league_name, next_season, &team_ids, next_start);
+    let mut new_league = generate_league(&league_name, next_season, &team_ids, next_start);
+    if !user_team_id.is_empty() {
+        let opponents: Vec<String> = team_ids
+            .iter()
+            .filter(|team_id| team_id.as_str() != user_team_id)
+            .cloned()
+            .collect();
+        let friendlies = generate_preseason_friendlies(&user_team_id, &opponents, next_start, 3);
+        append_fixtures(&mut new_league, friendlies);
+    }
     game.league = Some(new_league);
 
-    // 8. Send end-of-season messages
-    let today = game.clock.current_date.format("%Y-%m-%d").to_string();
+    let preview_date = game.clock.current_date.to_rfc3339();
+    let team_names: Vec<String> = game.teams.iter().map(|team| team.name.clone()).collect();
+    game.news.push(crate::news::season_preview_article(
+        &team_names,
+        &preview_date,
+    ));
 
-    let pos_suffix = match user_position {
-        1 => "st",
-        2 => "nd",
-        3 => "rd",
-        _ => "th",
-    };
+    // 8. Send end-of-season messages
+    let pos_suffix = position_suffix(user_position);
 
     let user_team_name = game
         .teams
@@ -256,23 +356,85 @@ pub fn process_end_of_season(game: &mut Game) -> EndOfSeasonSummary {
     let existing_ids: std::collections::HashSet<String> =
         game.messages.iter().map(|m| m.id.clone()).collect();
 
+    let payout_msg_id = format!("season_payout_{}", season);
+    let user_prize_money = prize_money_for_position(user_position);
+    if user_prize_money > 0 && !existing_ids.contains(&payout_msg_id) {
+        let payout_message = InboxMessage::new(
+            payout_msg_id,
+            format!("Season {} Prize Money Awarded", season),
+            format!(
+                "The board has confirmed a prize payout of €{} for your {}{}-place league finish. The amount has been added to the club balance.",
+                user_prize_money,
+                user_position,
+                pos_suffix
+            ),
+            "Board of Directors".to_string(),
+            last_fixture_date.clone(),
+        )
+        .with_category(MessageCategory::Finance)
+        .with_priority(MessagePriority::High)
+        .with_sender_role("Chairman")
+        .with_i18n("be.msg.seasonPayout.subject", "be.msg.seasonPayout.body", {
+            let mut params = std::collections::HashMap::new();
+            params.insert("season".to_string(), season.to_string());
+            params.insert("amount".to_string(), user_prize_money.to_string());
+            params.insert("position".to_string(), user_position.to_string());
+            params
+        })
+        .with_sender_i18n("be.sender.boardOfDirectors", "be.role.chairman");
+        game.messages.push(payout_message);
+    }
+
     let msg_id = format!("season_end_{}", season);
     if !existing_ids.contains(&msg_id) {
+        let (body_key, mut i18n_params) = if user_position == 1 {
+            let mut p = std::collections::HashMap::new();
+            p.insert("team".to_string(), user_team_name.clone());
+            p.insert("points".to_string(), summary.user_points.to_string());
+            ("be.msg.seasonReview.body.champion", p)
+        } else if user_position <= 4 {
+            let mut p = std::collections::HashMap::new();
+            p.insert("team".to_string(), user_team_name.clone());
+            p.insert("position".to_string(), user_position.to_string());
+            p.insert("suffix".to_string(), pos_suffix.to_string());
+            p.insert("points".to_string(), summary.user_points.to_string());
+            ("be.msg.seasonReview.body.topFour", p)
+        } else if user_position <= summary.total_teams / 2 {
+            let mut p = std::collections::HashMap::new();
+            p.insert("team".to_string(), user_team_name.clone());
+            p.insert("position".to_string(), user_position.to_string());
+            p.insert("suffix".to_string(), pos_suffix.to_string());
+            p.insert("points".to_string(), summary.user_points.to_string());
+            ("be.msg.seasonReview.body.midTable", p)
+        } else {
+            let mut p = std::collections::HashMap::new();
+            p.insert("team".to_string(), user_team_name.clone());
+            p.insert("position".to_string(), user_position.to_string());
+            p.insert("suffix".to_string(), pos_suffix.to_string());
+            p.insert("points".to_string(), summary.user_points.to_string());
+            ("be.msg.seasonReview.body.lowerHalf", p)
+        };
+        i18n_params.insert("season".to_string(), season.to_string());
+
         let msg = InboxMessage::new(
             msg_id,
             format!("Season {} Review", season),
             board_msg,
             "Board of Directors".to_string(),
-            today.clone(),
+            last_fixture_date.clone(),
         )
         .with_category(MessageCategory::BoardDirective)
         .with_priority(MessagePriority::High)
-        .with_sender_role("Chairman");
+        .with_sender_role("Chairman")
+        .with_i18n("be.msg.seasonReview.subject", body_key, i18n_params)
+        .with_sender_i18n("be.sender.boardOfDirectors", "be.role.chairman");
         game.messages.push(msg);
     }
 
     let sched_msg_id = format!("new_season_{}", next_season);
     if !existing_ids.contains(&sched_msg_id) {
+        let mut sched_params = std::collections::HashMap::new();
+        sched_params.insert("season".to_string(), next_season.to_string());
         let sched_msg = InboxMessage::new(
             sched_msg_id,
             format!("Season {} — New Schedule Released", next_season),
@@ -283,13 +445,21 @@ pub fn process_end_of_season(game: &mut Game) -> EndOfSeasonSummary {
                 next_season
             ),
             "League Office".to_string(),
-            today,
+            last_fixture_date,
         )
         .with_category(MessageCategory::LeagueInfo)
         .with_priority(MessagePriority::Normal)
-        .with_sender_role("Competition Secretary");
+        .with_sender_role("Competition Secretary")
+        .with_i18n(
+            "be.msg.newSeasonSchedule.subject",
+            "be.msg.newSeasonSchedule.body",
+            sched_params,
+        )
+        .with_sender_i18n("be.sender.leagueOffice", "be.role.competitionSecretary");
         game.messages.push(sched_msg);
     }
+
+    crate::season_context::refresh_game_context(game);
 
     summary
 }

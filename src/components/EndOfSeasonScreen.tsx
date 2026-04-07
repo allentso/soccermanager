@@ -44,8 +44,8 @@ export default function EndOfSeasonScreen({ gameState, onGameUpdate }: EndOfSeas
   // Compute standings for display
   const standings = league
     ? [...league.standings].sort((a, b) =>
-        b.points - a.points || (b.goals_for - b.goals_against) - (a.goals_for - a.goals_against) || b.goals_for - a.goals_for
-      )
+      b.points - a.points || (b.goals_for - b.goals_against) - (a.goals_for - a.goals_against) || b.goals_for - a.goals_for
+    )
     : [];
 
   const userStandingIdx = standings.findIndex(s => s.team_id === userTeamId);
@@ -76,10 +76,10 @@ export default function EndOfSeasonScreen({ gameState, onGameUpdate }: EndOfSeas
   };
 
   const posLabel = (pos: number) => {
-    if (pos === 1) return "1st";
-    if (pos === 2) return "2nd";
-    if (pos === 3) return "3rd";
-    return `${pos}th`;
+    if (pos === 1) return t("common.place.1");
+    if (pos === 2) return t("common.place.2");
+    if (pos === 3) return t("common.place.3");
+    return t("common.place.other", { n: pos });
   };
 
   return (
@@ -88,11 +88,10 @@ export default function EndOfSeasonScreen({ gameState, onGameUpdate }: EndOfSeas
         <>
           {/* Hero */}
           <div className="text-center mb-8">
-            <div className={`w-20 h-20 mx-auto rounded-2xl flex items-center justify-center mb-4 ${
-              isChampion
+            <div className={`w-20 h-20 mx-auto rounded-2xl flex items-center justify-center mb-4 ${isChampion
                 ? "bg-gradient-to-br from-accent-400 to-accent-600 shadow-lg shadow-accent-500/30"
                 : "bg-gradient-to-br from-navy-700 to-navy-800"
-            }`}>
+              }`}>
               {isChampion ? <Crown className="w-10 h-10 text-white" /> : <Trophy className="w-10 h-10 text-gray-300" />}
             </div>
             <h1 className="text-3xl font-heading font-bold text-gray-900 dark:text-gray-100 uppercase tracking-wide">
@@ -127,11 +126,11 @@ export default function EndOfSeasonScreen({ gameState, onGameUpdate }: EndOfSeas
                   </div>
                 </div>
                 <div className="flex items-center justify-center gap-8 text-sm">
-                  <span className="text-green-500 font-heading font-bold">{userStanding?.won || 0}W</span>
-                  <span className="text-gray-500 font-heading font-bold">{userStanding?.drawn || 0}D</span>
-                  <span className="text-red-500 font-heading font-bold">{userStanding?.lost || 0}L</span>
+                  <span className="text-green-500 font-heading font-bold">{userStanding?.won || 0}{t('common.won')}</span>
+                  <span className="text-gray-500 font-heading font-bold">{userStanding?.drawn || 0}{t('common.drawn')}</span>
+                  <span className="text-red-500 font-heading font-bold">{userStanding?.lost || 0}{t('common.lost')}</span>
                   <span className="text-gray-400">
-                    {userStanding?.goals_for || 0} GF — {userStanding?.goals_against || 0} GA
+                    {userStanding?.goals_for || 0} {t('common.gf')} — {userStanding?.goals_against || 0} {t('common.ga')}
                   </span>
                 </div>
               </div>

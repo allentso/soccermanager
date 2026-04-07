@@ -1,3 +1,4 @@
+use crate::end_of_season;
 use crate::game::{BoardObjective, Game, ObjectiveType};
 use domain::league::FixtureStatus;
 use domain::message::*;
@@ -96,13 +97,6 @@ fn satisfaction_delta(met_count: usize, total: usize) -> i8 {
     }
 }
 
-fn is_league_complete(fixtures: &[domain::league::Fixture]) -> bool {
-    !fixtures.is_empty()
-        && fixtures
-            .iter()
-            .all(|fixture| fixture.status == FixtureStatus::Completed)
-}
-
 /// Generate board objectives for the current season.
 /// Called at season start or when no objectives exist.
 pub fn generate_objectives(game: &mut Game) {
@@ -180,7 +174,7 @@ pub fn update_objective_progress(game: &mut Game) {
         .unwrap_or(99);
     let user_standing = standings.iter().find(|s| s.team_id == user_team_id);
 
-    let league_complete = is_league_complete(&league.fixtures);
+    let league_complete = end_of_season::is_league_complete(league);
 
     // Count user goals from completed fixtures
     let user_goals: u32 = league
@@ -233,7 +227,9 @@ mod tests {
     use crate::clock::GameClock;
     use crate::game::{BoardObjective, Game, ObjectiveType};
     use chrono::{TimeZone, Utc};
-    use domain::league::{Fixture, FixtureStatus, League, MatchResult, StandingEntry};
+    use domain::league::{
+        Fixture, FixtureCompetition, FixtureStatus, League, MatchResult, StandingEntry,
+    };
     use domain::manager::Manager;
     use domain::message::{InboxMessage, MessageCategory, MessagePriority};
     use domain::team::Team;
@@ -438,12 +434,14 @@ mod tests {
                 date: "2025-08-01".to_string(),
                 home_team_id: "team1".to_string(),
                 away_team_id: "team2".to_string(),
+                competition: FixtureCompetition::League,
                 status: FixtureStatus::Completed,
                 result: Some(MatchResult {
                     home_goals: 2,
                     away_goals: 1,
                     home_scorers: vec![],
                     away_scorers: vec![],
+                    report: None,
                 }),
             },
             Fixture {
@@ -452,12 +450,14 @@ mod tests {
                 date: "2025-08-08".to_string(),
                 home_team_id: "team3".to_string(),
                 away_team_id: "team1".to_string(),
+                competition: FixtureCompetition::League,
                 status: FixtureStatus::Completed,
                 result: Some(MatchResult {
                     home_goals: 0,
                     away_goals: 3,
                     home_scorers: vec![],
                     away_scorers: vec![],
+                    report: None,
                 }),
             },
         ];
@@ -472,7 +472,7 @@ mod tests {
 
     #[test]
     fn update_objective_progress_only_marks_league_position_met_after_all_fixtures_finish() {
-        let mut game = make_game(80, 1, 3);
+        let mut game = make_game(80, 1, 4);
         game.board_objectives = vec![make_objective(
             "obj_position",
             ObjectiveType::LeaguePosition,
@@ -481,76 +481,161 @@ mod tests {
         )];
 
         let mut league = game.league.clone().unwrap();
+        let fixture = |id: &str,
+                       matchday: u32,
+                       home_team_id: &str,
+                       away_team_id: &str,
+                       status: FixtureStatus,
+                       score: Option<(u8, u8)>| {
+            Fixture {
+                id: id.to_string(),
+                matchday,
+                date: format!("2025-08-{:02}", matchday),
+                home_team_id: home_team_id.to_string(),
+                away_team_id: away_team_id.to_string(),
+                competition: FixtureCompetition::League,
+                status,
+                result: score.map(|(home_goals, away_goals)| MatchResult {
+                    home_goals,
+                    away_goals,
+                    home_scorers: vec![],
+                    away_scorers: vec![],
+                    report: None,
+                }),
+            }
+        };
         league.standings = vec![
             StandingEntry {
                 team_id: "team1".to_string(),
-                played: 2,
-                won: 2,
-                drawn: 0,
+                played: 6,
+                won: 5,
+                drawn: 1,
                 lost: 0,
-                goals_for: 4,
-                goals_against: 0,
-                points: 6,
+                goals_for: 12,
+                goals_against: 3,
+                points: 16,
             },
             StandingEntry {
                 team_id: "team2".to_string(),
-                played: 2,
-                won: 1,
-                drawn: 0,
-                lost: 1,
-                goals_for: 2,
-                goals_against: 2,
-                points: 3,
+                played: 6,
+                won: 3,
+                drawn: 1,
+                lost: 2,
+                goals_for: 7,
+                goals_against: 6,
+                points: 10,
             },
             StandingEntry {
                 team_id: "team3".to_string(),
-                played: 2,
+                played: 6,
+                won: 1,
+                drawn: 2,
+                lost: 3,
+                goals_for: 4,
+                goals_against: 8,
+                points: 5,
+            },
+            StandingEntry {
+                team_id: "team4".to_string(),
+                played: 6,
                 won: 0,
-                drawn: 0,
-                lost: 2,
-                goals_for: 0,
-                goals_against: 4,
-                points: 0,
+                drawn: 2,
+                lost: 4,
+                goals_for: 2,
+                goals_against: 8,
+                points: 2,
             },
         ];
         league.fixtures = vec![
-            Fixture {
-                id: "f1".to_string(),
-                matchday: 1,
-                date: "2025-08-01".to_string(),
-                home_team_id: "team1".to_string(),
-                away_team_id: "team2".to_string(),
-                status: FixtureStatus::Completed,
-                result: Some(MatchResult {
-                    home_goals: 2,
-                    away_goals: 0,
-                    home_scorers: vec![],
-                    away_scorers: vec![],
-                }),
-            },
-            Fixture {
-                id: "f2".to_string(),
-                matchday: 2,
-                date: "2025-08-08".to_string(),
-                home_team_id: "team2".to_string(),
-                away_team_id: "team3".to_string(),
-                status: FixtureStatus::Completed,
-                result: Some(MatchResult {
-                    home_goals: 1,
-                    away_goals: 0,
-                    home_scorers: vec![],
-                    away_scorers: vec![],
-                }),
-            },
-            Fixture {
-                id: "f3".to_string(),
-                matchday: 3,
-                date: "2025-08-15".to_string(),
-                home_team_id: "team3".to_string(),
-                away_team_id: "team1".to_string(),
-                status: FixtureStatus::Scheduled,
-                result: None,
-            },
+            fixture(
+                "f1",
+                1,
+                "team1",
+                "team2",
+                FixtureStatus::Completed,
+                Some((2, 0)),
+            ),
+            fixture(
+                "f2",
+                2,
+                "team3",
+                "team4",
+                FixtureStatus::Completed,
+                Some((1, 0)),
+            ),
+            fixture(
+                "f3",
+                3,
+                "team1",
+                "team3",
+                FixtureStatus::Completed,
+                Some((3, 1)),
+            ),
+            fixture(
+                "f4",
+                4,
+                "team2",
+                "team4",
+                FixtureStatus::Completed,
+                Some((2, 1)),
+            ),
+            fixture(
+                "f5",
+                5,
+                "team1",
+                "team4",
+                FixtureStatus::Completed,
+                Some((2, 0)),
+            ),
+            fixture(
+                "f6",
+                6,
+                "team2",
+                "team3",
+                FixtureStatus::Completed,
+                Some((1, 1)),
+            ),
+            fixture(
+                "f7",
+                7,
+                "team2",
+                "team1",
+                FixtureStatus::Completed,
+                Some((0, 1)),
+            ),
+            fixture(
+                "f8",
+                8,
+                "team4",
+                "team3",
+                FixtureStatus::Completed,
+                Some((0, 0)),
+            ),
+            fixture(
+                "f9",
+                9,
+                "team3",
+                "team1",
+                FixtureStatus::Completed,
+                Some((0, 2)),
+            ),
+            fixture(
+                "f10",
+                10,
+                "team4",
+                "team2",
+                FixtureStatus::Completed,
+                Some((1, 2)),
+            ),
+            fixture(
+                "f11",
+                11,
+                "team4",
+                "team1",
+                FixtureStatus::Completed,
+                Some((1, 2)),
+            ),
+            fixture("f12", 12, "team3", "team2", FixtureStatus::Scheduled, None),
         ];
         game.league = Some(league.clone());
 
@@ -558,12 +643,13 @@ mod tests {
 
         assert!(!objective_by_id(&game, "obj_position").met);
 
-        league.fixtures[2].status = FixtureStatus::Completed;
-        league.fixtures[2].result = Some(MatchResult {
+        league.fixtures[11].status = FixtureStatus::Completed;
+        league.fixtures[11].result = Some(MatchResult {
             home_goals: 0,
-            away_goals: 2,
+            away_goals: 1,
             home_scorers: vec![],
             away_scorers: vec![],
+            report: None,
         });
         game.league = Some(league);
 

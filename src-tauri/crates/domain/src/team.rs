@@ -6,6 +6,8 @@ pub struct Team {
     pub name: String,
     pub short_name: String,
     pub country: String,
+    #[serde(default)]
+    pub football_nation: String,
     pub city: String,
     pub stadium_name: String,
     pub stadium_capacity: u32,
@@ -20,6 +22,12 @@ pub struct Team {
     pub transfer_budget: i64,
     pub season_income: i64,
     pub season_expenses: i64,
+    #[serde(default)]
+    pub financial_ledger: Vec<FinancialTransaction>,
+    #[serde(default)]
+    pub sponsorship: Option<Sponsorship>,
+    #[serde(default)]
+    pub facilities: Facilities,
 
     // Tactical
     pub formation: String,
@@ -159,6 +167,76 @@ pub struct TeamSeasonRecord {
     pub goals_against: u32,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum FinancialTransactionKind {
+    PrizeMoney,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct FinancialTransaction {
+    pub date: String,
+    pub description: String,
+    pub amount: i64,
+    pub kind: FinancialTransactionKind,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum SponsorshipBonusCriterion {
+    LeaguePosition {
+        max_position: u32,
+        bonus_amount: i64,
+    },
+    UnbeatenRun {
+        required_matches: usize,
+        bonus_amount: i64,
+    },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(default)]
+pub struct Sponsorship {
+    pub sponsor_name: String,
+    pub base_value: i64,
+    pub remaining_weeks: u32,
+    pub bonus_criteria: Vec<SponsorshipBonusCriterion>,
+}
+
+impl Default for Sponsorship {
+    fn default() -> Self {
+        Self {
+            sponsor_name: String::new(),
+            base_value: 0,
+            remaining_weeks: 0,
+            bonus_criteria: Vec::new(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum FacilityType {
+    Training,
+    Medical,
+    Scouting,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(default)]
+pub struct Facilities {
+    pub training: u8,
+    pub medical: u8,
+    pub scouting: u8,
+}
+
+impl Default for Facilities {
+    fn default() -> Self {
+        Self {
+            training: 1,
+            medical: 1,
+            scouting: 1,
+        }
+    }
+}
+
 impl Team {
     pub fn new(
         id: String,
@@ -169,11 +247,13 @@ impl Team {
         stadium_name: String,
         stadium_capacity: u32,
     ) -> Self {
+        let football_nation = crate::identity::normalize_football_nation_code(&country);
         Self {
             id,
             name,
             short_name,
             country,
+            football_nation,
             city,
             stadium_name,
             stadium_capacity,
@@ -184,6 +264,9 @@ impl Team {
             transfer_budget: 500_000,
             season_income: 0,
             season_expenses: 0,
+            financial_ledger: Vec::new(),
+            sponsorship: None,
+            facilities: Facilities::default(),
             formation: "4-4-2".to_string(),
             play_style: PlayStyle::Balanced,
             training_focus: TrainingFocus::default(),

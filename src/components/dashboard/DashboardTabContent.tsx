@@ -1,45 +1,44 @@
-import { GameStateData } from "../../store/gameStore";
-import HomeTab from "../HomeTab";
-import SquadTab from "../SquadTab";
-import TacticsTab from "../TacticsTab";
-import TrainingTab from "../TrainingTab";
-import ScheduleTab from "../ScheduleTab";
-import FinancesTab from "../FinancesTab";
-import TransfersTab from "../TransfersTab";
-import PlayersListTab from "../PlayersListTab";
-import TeamsListTab from "../TeamsListTab";
-import TournamentsTab from "../TournamentsTab";
-import ScoutingTab from "../ScoutingTab";
-import YouthAcademyTab from "../YouthAcademyTab";
-import StaffTab from "../StaffTab";
-import InboxTab from "../InboxTab";
-import ManagerTab from "../ManagerTab";
-import NewsTab from "../NewsTab";
+import HomeTab from "../home/HomeTab";
+import SquadTab from "../squad/SquadTab";
+import TacticsTab from "../tactics/TacticsTab";
+import TrainingTab from "../training/TrainingTab";
+import ScheduleTab from "../schedule/ScheduleTab";
+import FinancesTab from "../finances/FinancesTab";
+import TransfersTab from "../transfers/TransfersTab";
+import PlayersListTab from "../players/PlayersListTab";
+import TeamsListTab from "../teams/TeamsListTab";
+import TournamentsTab from "../tournaments/TournamentsTab";
+import ScoutingTab from "../scouting/ScoutingTab";
+import YouthAcademyTab from "../youthAcademy/YouthAcademyTab";
+import StaffTab from "../staff/StaffTab";
+import InboxTab from "../inbox/InboxTab";
+import ManagerTab from "../manager/ManagerTab";
+import NewsTab from "../news/NewsTab";
 import EndOfSeasonScreen from "../EndOfSeasonScreen";
+import type { DashboardTabContentModel } from "./dashboardTabContentModel";
 
 interface DashboardTabContentProps {
-  activeTab: string;
-  gameState: GameStateData;
-  seasonComplete: boolean;
-  visitedOnboardingTabs: ReadonlySet<string>;
-  initialMessageId: string | null;
-  onSelectPlayer: (id: string) => void;
-  onSelectTeam: (id: string) => void;
-  onGameUpdate: (state: GameStateData) => void;
-  onNavigate: (tab: string, context?: { messageId?: string }) => void;
+  viewModel: DashboardTabContentModel;
 }
 
 export default function DashboardTabContent({
-  activeTab,
-  gameState,
-  seasonComplete,
-  visitedOnboardingTabs,
-  initialMessageId,
-  onSelectPlayer,
-  onSelectTeam,
-  onGameUpdate,
-  onNavigate,
+  viewModel,
 }: DashboardTabContentProps) {
+  const {
+    activeTab,
+    gameState,
+    initialMessageId,
+    managerId,
+    seasonComplete,
+    visitedOnboardingTabs,
+    handlers: {
+      onGameUpdate,
+      onNavigate,
+      onSelectPlayer,
+      onSelectTeam,
+    },
+  } = viewModel;
+
   return (
     <>
       {/* End-of-season screen when all fixtures are complete */}
@@ -58,7 +57,7 @@ export default function DashboardTabContent({
       {activeTab === "Squad" && (
         <SquadTab
           gameState={gameState}
-          managerId={gameState.manager.id}
+          managerId={managerId}
           onSelectPlayer={onSelectPlayer}
           onGameUpdate={onGameUpdate}
         />
@@ -81,7 +80,11 @@ export default function DashboardTabContent({
       )}
 
       {activeTab === "Finances" && (
-        <FinancesTab gameState={gameState} onSelectPlayer={onSelectPlayer} />
+        <FinancesTab
+          gameState={gameState}
+          onGameUpdate={onGameUpdate}
+          onSelectPlayer={onSelectPlayer}
+        />
       )}
 
       {activeTab === "Transfers" && (

@@ -1,10 +1,10 @@
 import { useEffect, lazy, Suspense } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import MainMenu from "./pages/MainMenu";
 import { useSettingsStore } from "./store/settingsStore";
 import i18n from "./i18n";
 import "./App.css";
 
+const MainMenu = lazy(() => import("./pages/MainMenu"));
 const TeamSelection = lazy(() => import("./pages/TeamSelection"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const MatchSimulation = lazy(() => import("./pages/MatchSimulation"));
@@ -39,7 +39,10 @@ function App() {
   }, [settings.ui_scale]);
 
   useEffect(() => {
-    document.documentElement.classList.toggle("high-contrast", settings.high_contrast);
+    document.documentElement.classList.toggle(
+      "high-contrast",
+      settings.high_contrast,
+    );
   }, [settings.high_contrast]);
 
   // Apply saved language from settings once loaded (overrides OS detection)
@@ -66,5 +69,3 @@ function App() {
 }
 
 export default App;
-
-

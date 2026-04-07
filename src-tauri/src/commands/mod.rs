@@ -1,19 +1,26 @@
+pub mod club;
+pub mod contracts;
 pub mod game;
 pub mod live_match;
 pub mod messages;
+pub mod round_summary;
 pub mod season;
 pub mod settings;
+pub mod stats;
 pub mod squad;
 pub mod staff;
 pub mod time;
 pub mod transfers;
 pub mod world;
 
+pub use club::*;
+pub use contracts::*;
 pub use game::*;
 pub use live_match::*;
 pub use messages::*;
 pub use season::*;
 pub use settings::*;
+pub use stats::*;
 pub use squad::*;
 pub use staff::*;
 pub use time::*;

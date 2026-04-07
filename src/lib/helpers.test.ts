@@ -2,8 +2,12 @@ import { describe, it, expect } from "vitest";
 import {
   getTeamName,
   getTeamShort,
+  expectedFixtureCount,
   findNextFixture,
+  getContractRiskLevel,
+  hasFullLeagueSchedule,
   getLocale,
+  isSeasonComplete,
   formatMatchDate,
   formatDate,
   formatDateFull,
@@ -90,6 +94,7 @@ const makeFixture = (overrides: Partial<FixtureData> = {}): FixtureData => ({
   date: "2026-08-01",
   home_team_id: "team_1",
   away_team_id: "team_2",
+  competition: "League",
   status: "Scheduled",
   result: null,
   ...overrides,
@@ -149,6 +154,121 @@ describe("findNextFixture", () => {
   });
 });
 
+describe("season helpers", () => {
+  it("computes the expected double round-robin fixture count for even-sized leagues", () => {
+    expect(expectedFixtureCount(16)).toBe(240);
+    expect(expectedFixtureCount(4)).toBe(12);
+  });
+
+  it("treats odd-sized or undersized leagues as incomplete schedules", () => {
+    expect(expectedFixtureCount(1)).toBeNull();
+    expect(expectedFixtureCount(3)).toBeNull();
+  });
+
+  it("requires a full plausible schedule before marking the season complete", () => {
+    const truncatedLeague = {
+      id: "league-1",
+      name: "League",
+      season: 1,
+      fixtures: [
+        makeFixture({ id: "f1", status: "Completed" }),
+        makeFixture({ id: "f2", status: "Completed", home_team_id: "team_3", away_team_id: "team_4" }),
+      ],
+      standings: [
+        { team_id: "team_1", played: 1, won: 1, drawn: 0, lost: 0, goals_for: 2, goals_against: 0, points: 3 },
+        { team_id: "team_2", played: 1, won: 0, drawn: 0, lost: 1, goals_for: 0, goals_against: 2, points: 0 },
+        { team_id: "team_3", played: 1, won: 0, drawn: 0, lost: 1, goals_for: 0, goals_against: 1, points: 0 },
+        { team_id: "team_4", played: 1, won: 1, drawn: 0, lost: 0, goals_for: 1, goals_against: 0, points: 3 },
+      ],
+    };
+
+    expect(hasFullLeagueSchedule(truncatedLeague)).toBe(false);
+    expect(isSeasonComplete(truncatedLeague)).toBe(false);
+  });
+
+  it("ignores friendlies when validating league schedule completeness", () => {
+    const competitiveFixtures: FixtureData[] = [];
+    let fixtureCounter = 1;
+    for (const homeTeamId of ["team_1", "team_2", "team_3", "team_4"]) {
+      for (const awayTeamId of ["team_1", "team_2", "team_3", "team_4"]) {
+        if (homeTeamId === awayTeamId) {
+          continue;
+        }
+        competitiveFixtures.push(
+          makeFixture({
+            id: `f${fixtureCounter}`,
+            home_team_id: homeTeamId,
+            away_team_id: awayTeamId,
+            status: "Completed",
+          }),
+        );
+        fixtureCounter += 1;
+      }
+    }
+
+    const leagueWithFriendly = {
+      id: "league-1",
+      name: "League",
+      season: 1,
+      fixtures: [
+        makeFixture({
+          id: "friendly-1",
+          competition: "Friendly",
+          matchday: 0,
+          status: "Completed",
+        }),
+        ...competitiveFixtures,
+      ],
+      standings: [
+        { team_id: "team_1", played: 6, won: 6, drawn: 0, lost: 0, goals_for: 12, goals_against: 2, points: 18 },
+        { team_id: "team_2", played: 6, won: 3, drawn: 0, lost: 3, goals_for: 8, goals_against: 8, points: 9 },
+        { team_id: "team_3", played: 6, won: 2, drawn: 0, lost: 4, goals_for: 6, goals_against: 10, points: 6 },
+        { team_id: "team_4", played: 6, won: 1, drawn: 0, lost: 5, goals_for: 4, goals_against: 10, points: 3 },
+      ],
+    };
+
+    expect(hasFullLeagueSchedule(leagueWithFriendly)).toBe(true);
+    expect(isSeasonComplete(leagueWithFriendly)).toBe(true);
+  });
+
+  it("marks the season complete when the full schedule exists and every fixture is completed", () => {
+    const fixtures: FixtureData[] = [];
+    let fixtureCounter = 1;
+    for (const homeTeamId of ["team_1", "team_2", "team_3", "team_4"]) {
+      for (const awayTeamId of ["team_1", "team_2", "team_3", "team_4"]) {
+        if (homeTeamId === awayTeamId) {
+          continue;
+        }
+        fixtures.push(
+          makeFixture({
+            id: `f${fixtureCounter}`,
+            home_team_id: homeTeamId,
+            away_team_id: awayTeamId,
+            status: "Completed",
+          }),
+        );
+        fixtureCounter += 1;
+      }
+    }
+
+    const fullLeague = {
+      id: "league-1",
+      name: "League",
+      season: 1,
+      fixtures,
+      standings: [
+        { team_id: "team_1", played: 6, won: 6, drawn: 0, lost: 0, goals_for: 12, goals_against: 2, points: 18 },
+        { team_id: "team_2", played: 6, won: 3, drawn: 0, lost: 3, goals_for: 8, goals_against: 8, points: 9 },
+        { team_id: "team_3", played: 6, won: 2, drawn: 0, lost: 4, goals_for: 6, goals_against: 10, points: 6 },
+        { team_id: "team_4", played: 6, won: 1, drawn: 0, lost: 5, goals_for: 4, goals_against: 10, points: 3 },
+      ],
+    };
+
+    expect(hasFullLeagueSchedule(fullLeague)).toBe(true);
+    expect(isSeasonComplete(fullLeague)).toBe(true);
+  });
+});
+
 describe("getLocale", () => {
   it("maps known language codes", () => {
     expect(getLocale("en")).toBe("en-US");
@@ -169,20 +289,26 @@ describe("getLocale", () => {
 });
 
 describe("calcOvr", () => {
-  it("calculates overall from 11 core attributes", () => {
-    const player = makePlayer();
-    // All 11 core attrs are 70 → OVR = 70
-    expect(calcOvr(player)).toBe(70);
+  it("calculates positional overall from the player's natural role", () => {
+    const player = makePlayer({
+      position: "CentralMidfielder",
+      natural_position: "CentralMidfielder",
+    });
+
+    expect(calcOvr(player)).toBe(68);
   });
 
-  it("rounds to nearest integer", () => {
+  it("rounds positional overall to the nearest integer", () => {
     const player = makePlayer({
+      position: "CentralMidfielder",
+      natural_position: "CentralMidfielder",
       attributes: {
         ...makePlayer().attributes,
-        pace: 71, // only this differs → (71 + 10*70) / 11 = 770.09... → 70
+        passing: 73,
       },
     });
-    expect(calcOvr(player)).toBe(70);
+
+    expect(calcOvr(player)).toBe(69);
   });
 });
 
@@ -190,6 +316,20 @@ describe("calcAge", () => {
   it("calculates age relative to 2026", () => {
     expect(calcAge("1996-01-15")).toBe(30);
     expect(calcAge("2000-06-01")).toBe(26);
+  });
+});
+
+describe("getContractRiskLevel", () => {
+  it("marks contracts expiring within 180 days as critical", () => {
+    expect(getContractRiskLevel("2026-12-28", "2026-07-01")).toBe("critical");
+  });
+
+  it("marks contracts expiring within 365 days as warning", () => {
+    expect(getContractRiskLevel("2027-06-30", "2026-07-01")).toBe("warning");
+  });
+
+  it("marks longer contracts as stable", () => {
+    expect(getContractRiskLevel("2027-07-02", "2026-07-01")).toBe("stable");
   });
 });
 
@@ -221,8 +361,11 @@ describe("positionBadgeVariant", () => {
   it("returns correct variant for each position", () => {
     expect(positionBadgeVariant("Goalkeeper")).toBe("accent");
     expect(positionBadgeVariant("Defender")).toBe("primary");
+    expect(positionBadgeVariant("CenterBack")).toBe("primary");
     expect(positionBadgeVariant("Midfielder")).toBe("success");
+    expect(positionBadgeVariant("AttackingMidfielder")).toBe("success");
     expect(positionBadgeVariant("Forward")).toBe("danger");
+    expect(positionBadgeVariant("Striker")).toBe("danger");
   });
 
   it("returns 'primary' for unknown position", () => {
@@ -248,6 +391,14 @@ describe("formatMatchDate", () => {
     // Both should produce non-empty strings; Spanish should differ from English
     expect(en.length).toBeGreaterThan(0);
     expect(es.length).toBeGreaterThan(0);
+  });
+
+  it("parses RFC3339 timestamps from backend news articles", () => {
+    const result = formatMatchDate("2026-07-27T12:00:00+00:00", "en");
+
+    expect(result).not.toBe("Invalid Date");
+    expect(result).toMatch(/Jul/);
+    expect(result).toMatch(/27/);
   });
 });
 
@@ -286,5 +437,86 @@ describe("formatDateShort", () => {
   it("does not include year", () => {
     const result = formatDateShort("2026-08-15T12:00:00", "en");
     expect(result).not.toMatch(/2026/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// parseDateInput consistency — timezone safety
+// ---------------------------------------------------------------------------
+
+describe("date parsing timezone consistency", () => {
+  // The game clock is serialized as a UTC RFC3339 string (e.g. "2026-09-12T00:00:00Z").
+  // Message dates are stored as YYYY-MM-DD strings (e.g. "2026-09-12").
+  // Both representations of the same calendar day must render identically in all
+  // timezones — otherwise the game header and inbox message dates can disagree.
+
+  it("renders YYYY-MM-DD and UTC midnight RFC3339 for the same day identically", () => {
+    const plain = formatDateFull("2026-09-12", "en");
+    const utcMidnight = formatDateFull("2026-09-12T00:00:00Z", "en");
+    expect(plain).toBe(utcMidnight);
+  });
+
+  it("renders YYYY-MM-DD and RFC3339 with positive UTC offset for the same day identically", () => {
+    const plain = formatDateFull("2026-09-12", "en");
+    const withOffset = formatDateFull("2026-09-12T00:00:00+03:00", "en");
+    expect(plain).toBe(withOffset);
+  });
+
+  it("renders YYYY-MM-DD and RFC3339 with negative UTC offset for the same day identically", () => {
+    const plain = formatDateFull("2026-09-12", "en");
+    const withOffset = formatDateFull("2026-09-12T21:00:00-03:00", "en");
+    expect(plain).toBe(withOffset);
+  });
+
+  it("preserves the correct calendar day for UTC midnight dates across formats", () => {
+    // September 12, 2026 is a Saturday
+    const result = formatDateFull("2026-09-12T00:00:00Z", "en");
+    expect(result).toMatch(/Saturday/);
+    expect(result).toMatch(/September/);
+    expect(result).toMatch(/12/);
+    expect(result).toMatch(/2026/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// isSeasonComplete — new season guard (all fixtures scheduled)
+// ---------------------------------------------------------------------------
+
+describe("isSeasonComplete with unplayed season", () => {
+  // Build a full 4-team schedule where every fixture is Scheduled.
+  // isSeasonComplete must return false — a freshly generated season must not
+  // be detected as complete before a single match has been played.
+  function makeFullScheduledLeague() {
+    const teamIds = ["team_1", "team_2", "team_3", "team_4"];
+    const fixtures: FixtureData[] = [];
+    let counter = 1;
+    for (const home of teamIds) {
+      for (const away of teamIds) {
+        if (home === away) continue;
+        fixtures.push(makeFixture({
+          id: `f${counter++}`,
+          home_team_id: home,
+          away_team_id: away,
+          status: "Scheduled",
+          competition: "League",
+        }));
+      }
+    }
+    return {
+      id: "league-1",
+      name: "League",
+      season: 1,
+      fixtures,
+      standings: teamIds.map(id => ({
+        team_id: id, played: 0, won: 0, drawn: 0, lost: 0,
+        goals_for: 0, goals_against: 0, points: 0,
+      })),
+    };
+  }
+
+  it("returns false when the schedule is full but no matches have been played", () => {
+    const league = makeFullScheduledLeague();
+    expect(hasFullLeagueSchedule(league)).toBe(true);
+    expect(isSeasonComplete(league)).toBe(false);
   });
 });

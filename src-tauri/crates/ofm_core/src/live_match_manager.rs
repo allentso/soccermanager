@@ -10,6 +10,7 @@ use std::collections::HashSet;
 
 use crate::game::Game;
 
+use domain::league::StandingEntry;
 use domain::team::MatchRoles;
 use engine::ai::{self, AiProfile};
 use engine::{LiveMatchState, MatchCommand, MatchConfig, MatchSnapshot, MinuteResult, Side};
@@ -93,6 +94,8 @@ pub struct LiveMatchSession {
     pub rng: StdRng,
     pub mode: MatchMode,
     pub fixture_index: usize,
+    pub round_matchday: u32,
+    pub round_previous_standings: Vec<StandingEntry>,
     pub home_team_id: String,
     pub away_team_id: String,
     pub user_side: Option<Side>,
@@ -305,6 +308,8 @@ pub fn create_live_match(
         rng: StdRng::from_entropy(),
         mode,
         fixture_index,
+        round_matchday: fixture.matchday,
+        round_previous_standings: league.standings.clone(),
         home_team_id,
         away_team_id,
         user_side,

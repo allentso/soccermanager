@@ -6,28 +6,15 @@ import type {
   NewsArticle,
   BoardObjective,
 } from '../store/gameStore';
-
-const PLAYER_EVENT_PREFIX_TO_GROUP: Record<string, string> = {
-  morale_talk_: 'moraleCrisis',
-  bench_complaint_: 'benchComplaint',
-  happy_player_: 'happyPlayer',
-  contract_concern_: 'contractConcern',
-};
-
-const PLAYER_EVENT_OPTION_ID_TO_KEY: Record<string, string> = {
-  encourage: 'encourage',
-  promise_time: 'promiseTime',
-  work_harder: 'workHarder',
-  explain: 'explain',
-  promise_chance: 'promiseChance',
-  prove_yourself: 'proveYourself',
-  praise_back: 'praiseBack',
-  stay_professional: 'stayProfessional',
-  higher_expectations: 'higherExpectations',
-  reassure: 'reassure',
-  noncommittal: 'noncommittal',
-  no_renewal: 'noRenewal',
-};
+import {
+  inferLegacyDelegatedRenewalsParams,
+  normalizeNewsParams,
+  resolveLegacyDelegatedRenewalsMessage,
+} from './backendI18n.legacy';
+import {
+  inferPlayerEventActionLabelKey,
+  inferPlayerEventOptionBaseKey,
+} from './backendI18nPlayerEvents.ts';
 
 /**
  * Resolve a backend i18n key with params, falling back to the raw string.
@@ -79,52 +66,23 @@ function resolveParamValues(params?: Record<string, string>): Record<string, str
   return resolved;
 }
 
-function inferPlayerEventGroup(messageId: string): string | undefined {
-  for (const [prefix, group] of Object.entries(PLAYER_EVENT_PREFIX_TO_GROUP)) {
-    if (messageId.startsWith(prefix)) {
-      return group;
-    }
-  }
-
-  return undefined;
-}
-
-function inferPlayerEventActionLabelKey(messageId: string, actionId: string): string | undefined {
-  if (!inferPlayerEventGroup(messageId)) {
-    return undefined;
-  }
-
-  if (actionId === 'respond') {
-    return 'be.msg.playerEvent.respond';
-  }
-
-  return undefined;
-}
-
-function inferPlayerEventOptionBaseKey(messageId: string, optionId: string): string | undefined {
-  const group = inferPlayerEventGroup(messageId);
-  const optionKey = PLAYER_EVENT_OPTION_ID_TO_KEY[optionId];
-
-  if (!group || !optionKey) {
-    return undefined;
-  }
-
-  return `be.msg.playerEvent.options.${group}.${optionKey}`;
-}
-
 /**
  * Resolve all translatable fields on a message, returning a copy with resolved strings.
  */
 export function resolveMessage(msg: MessageData): MessageData {
-  const p = resolveParamValues(msg.i18n_params);
-  return {
+  const inferredParams = msg.i18n_params ?? inferLegacyDelegatedRenewalsParams(msg);
+  const p = resolveParamValues(inferredParams);
+  const resolved = {
     ...msg,
+    i18n_params: inferredParams,
     subject: resolve(msg.subject_key, msg.subject, p),
     body: resolve(msg.body_key, msg.body, p),
     sender: resolve(msg.sender_key, msg.sender, p),
     sender_role: resolve(msg.sender_role_key, msg.sender_role, p),
     actions: msg.actions.map((action) => resolveAction(action, msg.id, p)),
   };
+
+  return resolveLegacyDelegatedRenewalsMessage(resolved, resolve, p);
 }
 
 /**
@@ -177,9 +135,10 @@ function resolveActionOption(
  * Resolve all translatable fields on a news article, returning a copy with resolved strings.
  */
 export function resolveNewsArticle(article: NewsArticle): NewsArticle {
-  const p = article.i18n_params;
+  const p = normalizeNewsParams(article);
   return {
     ...article,
+    i18n_params: p,
     headline: resolve(article.headline_key, article.headline, p),
     body: resolve(article.body_key, article.body, p),
     source: resolve(article.source_key, article.source, p),

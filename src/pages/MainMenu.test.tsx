@@ -237,6 +237,20 @@ describe("MainMenu", () => {
     ).toBeInTheDocument();
   });
 
+  it("allows selecting England instead of legacy GB", () => {
+    render(<MainMenu />);
+
+    openCreateManagerForm();
+    fillManagerDetails();
+    selectNationality("en", "ENG");
+
+    expect(
+      screen.getByRole("button", {
+        name: /england/i,
+      }),
+    ).toBeInTheDocument();
+  });
+
   it("preserves nationality when a stale date picker callback fires after selection", () => {
     render(<MainMenu />);
 

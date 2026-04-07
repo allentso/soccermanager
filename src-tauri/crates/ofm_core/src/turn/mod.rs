@@ -1,5 +1,6 @@
 mod news;
 mod post_match;
+mod round_summary;
 
 use crate::board_objectives;
 use crate::game::Game;
@@ -7,17 +8,43 @@ use crate::player_events;
 use crate::random_events;
 use crate::scouting;
 use crate::training;
+use crate::transfers;
 use chrono::Datelike;
+use domain::stats::StatsState;
 use domain::league::FixtureStatus;
 use domain::player::Position as DomainPosition;
 use log::{debug, info};
 
 // Re-export public items
 pub use news::generate_matchday_news;
-pub use post_match::apply_match_report;
+pub use post_match::{apply_match_report, apply_match_report_with_capture};
+pub use round_summary::{
+    NotableUpset, RoundResultSummary, RoundSummary, StandingDelta, TopScorerDelta,
+    build_round_summary,
+};
+
+/// Progress injury recovery by one day for all currently injured players.
+/// Players with 1 day remaining are cleared (fully recovered).
+fn progress_injury_recovery(game: &mut Game) {
+    for player in game.players.iter_mut() {
+        if let Some(mut injury) = player.injury.take()
+            && injury.days_remaining > 1
+        {
+            injury.days_remaining -= 1;
+            player.injury = Some(injury);
+        }
+    }
+}
 
 /// Process a single day advance.
 pub fn process_day(game: &mut Game) {
+    process_day_with_capture(game, &mut |_| {});
+}
+
+pub fn process_day_with_capture<F>(game: &mut Game, on_capture: &mut F)
+where
+    F: FnMut(StatsState),
+{
     let today = game.clock.current_date.format("%Y-%m-%d").to_string();
 
     let has_match_today = game.league.as_ref().is_some_and(|league| {
@@ -29,12 +56,14 @@ pub fn process_day(game: &mut Game) {
 
     if has_match_today {
         info!("[turn] process_day {}: matchday", today);
-        simulate_matchday(game, &today);
+        simulate_matchday_with_capture(game, &today, on_capture);
     } else {
         let weekday_num = game.clock.current_date.weekday().num_days_from_monday();
         training::process_training(game, weekday_num);
         training::check_squad_fitness_warnings(game);
     }
+
+    crate::contracts::process_contract_expiries(game);
 
     // Weekly financial processing (wages, matchday income, warnings)
     crate::finances::process_weekly_finances(game);
@@ -45,15 +74,19 @@ pub fn process_day(game: &mut Game) {
 
     // Player conversations, random events, and scouting
     player_events::check_player_events(game);
+    progress_injury_recovery(game);
     random_events::check_random_events(game);
     scouting::process_scouting(game);
+    transfers::generate_incoming_transfer_offers(game);
 
+    news::generate_weekly_digest_news(game, &today);
     news::generate_pre_match_messages(game, &today);
 
     crate::firing::check_manager_firing(game);
 
     debug!("[turn] process_day {}: complete, advancing clock", today);
     game.clock.advance_days(1);
+    crate::season_context::refresh_game_context(game);
 }
 
 /// Called after a live match finishes to complete the day:
@@ -63,17 +96,23 @@ pub fn finish_live_match_day(game: &mut Game) {
     info!("[turn] finish_live_match_day: {}", today);
     generate_matchday_news(game, &today);
 
+    crate::contracts::process_contract_expiries(game);
+
     board_objectives::generate_objectives(game);
     board_objectives::update_objective_progress(game);
 
     player_events::check_player_events(game);
+    progress_injury_recovery(game);
     random_events::check_random_events(game);
     scouting::process_scouting(game);
+    transfers::generate_incoming_transfer_offers(game);
+    news::generate_weekly_digest_news(game, &today);
     news::generate_pre_match_messages(game, &today);
 
     crate::firing::check_manager_firing(game);
 
     game.clock.advance_days(1);
+    crate::season_context::refresh_game_context(game);
 }
 
 // ---------------------------------------------------------------------------
@@ -107,17 +146,19 @@ fn build_engine_team(game: &Game, team_id: &str) -> engine::TeamData {
         .iter()
         .filter(|p| p.team_id.as_deref() == Some(team_id))
         .map(|p| {
-            let pos = match p.position {
+            let pos = match p.position.to_group_position() {
                 DomainPosition::Goalkeeper => engine::Position::Goalkeeper,
                 DomainPosition::Defender => engine::Position::Defender,
                 DomainPosition::Midfielder => engine::Position::Midfielder,
                 DomainPosition::Forward => engine::Position::Forward,
+                _ => engine::Position::Midfielder,
             };
             engine::PlayerData {
                 id: p.id.clone(),
                 name: p.match_name.clone(),
                 position: pos,
                 condition: p.condition,
+                fitness: p.fitness,
                 pace: p.attributes.pace,
                 stamina: p.attributes.stamina,
                 strength: p.attributes.strength,
@@ -155,15 +196,29 @@ fn build_engine_team(game: &Game, team_id: &str) -> engine::TeamData {
 // Matchday simulation using the engine crate
 // ---------------------------------------------------------------------------
 
-fn simulate_matchday(game: &mut Game, today: &str) {
+fn simulate_matchday_with_capture<F>(game: &mut Game, today: &str, on_capture: &mut F)
+where
+    F: FnMut(StatsState),
+{
     info!("[turn] simulate_matchday: {}", today);
-    simulate_other_matches(game, today, None);
+    simulate_other_matches_with_capture(game, today, None, on_capture);
     generate_matchday_news(game, today);
 }
 
 /// Simulate all scheduled matches for `today`, optionally skipping one fixture
 /// (the user's live match). Called by both process_day and advance_time_with_mode.
 pub fn simulate_other_matches(game: &mut Game, today: &str, skip_fixture: Option<usize>) {
+    simulate_other_matches_with_capture(game, today, skip_fixture, &mut |_| {});
+}
+
+pub fn simulate_other_matches_with_capture<F>(
+    game: &mut Game,
+    today: &str,
+    skip_fixture: Option<usize>,
+    on_capture: &mut F,
+) where
+    F: FnMut(StatsState),
+{
     debug!(
         "[turn] simulate_other_matches: date={}, skip={:?}",
         today, skip_fixture
@@ -183,12 +238,14 @@ pub fn simulate_other_matches(game: &mut Game, today: &str, skip_fixture: Option
     });
 
     for idx in fixture_indices {
-        simulate_single_match(game, idx);
+        simulate_single_match_with_capture(game, idx, on_capture);
     }
 }
 
-/// Simulate a single fixture by index using the engine and update game state.
-fn simulate_single_match(game: &mut Game, idx: usize) {
+fn simulate_single_match_with_capture<F>(game: &mut Game, idx: usize, on_capture: &mut F)
+where
+    F: FnMut(StatsState),
+{
     let (home_team_id, away_team_id) = {
         let f = &game.league.as_ref().unwrap().fixtures[idx];
         (f.home_team_id.clone(), f.away_team_id.clone())
@@ -220,5 +277,5 @@ fn simulate_single_match(game: &mut Game, idx: usize) {
         "[turn] match result: {} {} - {} {} (fixture #{})",
         home_name, report.home_goals, report.away_goals, away_name, idx
     );
-    apply_match_report(game, idx, &home_team_id, &away_team_id, &report);
+    apply_match_report_with_capture(game, idx, &home_team_id, &away_team_id, &report, on_capture);
 }
