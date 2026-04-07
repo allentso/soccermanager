@@ -31,6 +31,7 @@ interface DashboardHeaderProps {
   hasProfileHistory: boolean;
   hasMatchToday: boolean;
   isAdvancing: boolean;
+  isUnemployed: boolean;
   isSaving: boolean;
   matchMode: MatchModeType;
   matchedPlayers: PlayerData[];
@@ -246,6 +247,7 @@ export default function DashboardHeader({
   hasProfileHistory,
   hasMatchToday,
   isAdvancing,
+  isUnemployed,
   isSaving,
   matchMode,
   matchedPlayers,
@@ -365,82 +367,93 @@ export default function DashboardHeader({
           {renderSaveButtonIcon(isSaving)}
           {getSaveButtonLabel(t, saveFlash, isSaving)}
         </button>
-        <div className="relative">
-          <div className="flex">
-            <button
-              onClick={handleContinueClick}
-              disabled={isAdvancing || seasonComplete}
-              className={getContinueButtonClassName(
-                currentModeMeta,
-                isAdvancing,
-                seasonComplete,
-              )}
-            >
-              {renderContinueButtonContent(
-                t,
-                hasMatchToday,
-                isAdvancing,
-                seasonComplete,
-                currentModeMeta,
-              )}
-              <ChevronRight
-                className={`h-4 w-4 ${isAdvancing ? "animate-pulse" : ""}`}
-              />
-            </button>
-            <button
-              onClick={handleContinueMenuToggleClick}
-              className={getContinueDropdownButtonClassName(currentModeMeta)}
-            >
-              <ChevronDown className="h-4 w-4" />
-            </button>
-          </div>
-
-          {showContinueMenu && (
-            <div className="absolute right-0 top-full z-20 mt-1 w-64 rounded-lg border border-gray-200 bg-white py-1 shadow-xl dark:border-navy-600 dark:bg-navy-700">
-              {(["live", "spectator", "delegate"] as const).map((mode) => {
-                const isActive = matchMode === mode;
-                const optionMeta = modeMeta[mode];
-
-                return (
-                  <button
-                    key={mode}
-                    onClick={() => onSelectMatchMode(mode)}
-                    className={getModeOptionClassName(isActive)}
-                  >
-                    <span className={getModeOptionIconClassName(isActive)}>
-                      {optionMeta.icon}
-                    </span>
-                    <div className="flex-1">
-                      <span className="text-xs font-heading font-bold uppercase tracking-wide text-gray-800 dark:text-gray-100">
-                        {optionMeta.label}
-                      </span>
-                      <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-                        {optionMeta.desc}
-                      </p>
-                    </div>
-                    {isActive && (
-                      <span className="text-xs font-bold text-primary-500">
-                        ✓
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-              <div className="my-1 border-t border-gray-200 dark:border-navy-600" />
+        {isUnemployed ? (
+          <button
+            onClick={handleContinueClick}
+            disabled={isAdvancing}
+            className="bg-linear-to-r from-gray-600 to-gray-700 flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-heading font-bold uppercase tracking-wider text-white shadow-md transition-all hover:cursor-pointer hover:brightness-110 hover:shadow-lg disabled:cursor-wait disabled:opacity-70"
+          >
+            <span>{isAdvancing ? t("dashboard.simulating") : t("dashboard.continue")}</span>
+            <ChevronRight className={`h-4 w-4 ${isAdvancing ? "animate-pulse" : ""}`} />
+          </button>
+        ) : (
+          <div className="relative">
+            <div className="flex">
               <button
-                onClick={handleSkipToMatchDayClick}
-                className="w-full px-4 py-2.5 text-left text-sm transition-colors hover:bg-gray-50 dark:hover:bg-navy-600"
+                onClick={handleContinueClick}
+                disabled={isAdvancing || seasonComplete}
+                className={getContinueButtonClassName(
+                  currentModeMeta,
+                  isAdvancing,
+                  seasonComplete,
+                )}
               >
-                <span className="text-xs font-heading font-bold uppercase tracking-wide text-gray-800 dark:text-gray-100">
-                  {t("continueMenu.skipToMatchDay")}
-                </span>
-                <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-                  {t("continueMenu.skipToMatchDayDesc")}
-                </p>
+                {renderContinueButtonContent(
+                  t,
+                  hasMatchToday,
+                  isAdvancing,
+                  seasonComplete,
+                  currentModeMeta,
+                )}
+                <ChevronRight
+                  className={`h-4 w-4 ${isAdvancing ? "animate-pulse" : ""}`}
+                />
+              </button>
+              <button
+                onClick={handleContinueMenuToggleClick}
+                className={getContinueDropdownButtonClassName(currentModeMeta)}
+              >
+                <ChevronDown className="h-4 w-4" />
               </button>
             </div>
-          )}
-        </div>
+
+            {showContinueMenu && (
+              <div className="absolute right-0 top-full z-20 mt-1 w-64 rounded-lg border border-gray-200 bg-white py-1 shadow-xl dark:border-navy-600 dark:bg-navy-700">
+                {(["live", "spectator", "delegate"] as const).map((mode) => {
+                  const isActive = matchMode === mode;
+                  const optionMeta = modeMeta[mode];
+
+                  return (
+                    <button
+                      key={mode}
+                      onClick={() => onSelectMatchMode(mode)}
+                      className={getModeOptionClassName(isActive)}
+                    >
+                      <span className={getModeOptionIconClassName(isActive)}>
+                        {optionMeta.icon}
+                      </span>
+                      <div className="flex-1">
+                        <span className="text-xs font-heading font-bold uppercase tracking-wide text-gray-800 dark:text-gray-100">
+                          {optionMeta.label}
+                        </span>
+                        <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                          {optionMeta.desc}
+                        </p>
+                      </div>
+                      {isActive && (
+                        <span className="text-xs font-bold text-primary-500">
+                          ✓
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+                <div className="my-1 border-t border-gray-200 dark:border-navy-600" />
+                <button
+                  onClick={handleSkipToMatchDayClick}
+                  className="w-full px-4 py-2.5 text-left text-sm transition-colors hover:bg-gray-50 dark:hover:bg-navy-600"
+                >
+                  <span className="text-xs font-heading font-bold uppercase tracking-wide text-gray-800 dark:text-gray-100">
+                    {t("continueMenu.skipToMatchDay")}
+                  </span>
+                  <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                    {t("continueMenu.skipToMatchDayDesc")}
+                  </p>
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </header>
   );
