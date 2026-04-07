@@ -215,6 +215,7 @@ describe("DashboardWorkspaceContent", () => {
         onSelectPlayer={vi.fn()}
         onSelectTeam={vi.fn()}
         onGameUpdate={vi.fn()}
+        isUnemployed={false}
       />,
     );
 
@@ -256,6 +257,7 @@ describe("DashboardWorkspaceContent", () => {
         onSelectPlayer={vi.fn()}
         onSelectTeam={vi.fn()}
         onGameUpdate={vi.fn()}
+        isUnemployed={false}
       />,
     );
 
@@ -294,6 +296,7 @@ describe("DashboardWorkspaceContent", () => {
         onSelectPlayer={vi.fn()}
         onSelectTeam={vi.fn()}
         onGameUpdate={vi.fn()}
+        isUnemployed={false}
       />,
     );
 

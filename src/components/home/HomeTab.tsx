@@ -258,7 +258,7 @@ export default function HomeTab({
           seasonStartLabel={seasonStartLabel}
           myStanding={myStanding}
           myStandingData={myStandingData}
-          teamForm={myTeam?.form ?? []}
+          teamForm={[]}
           onNavigate={onNavigate}
         />
       )}
