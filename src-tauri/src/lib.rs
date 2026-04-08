@@ -141,7 +141,9 @@ pub fn run() {
             exit_to_menu,
             get_settings,
             save_settings,
-            clear_all_saves
+            clear_all_saves,
+            get_available_jobs,
+            apply_for_job
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
