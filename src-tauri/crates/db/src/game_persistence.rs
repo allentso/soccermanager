@@ -144,6 +144,7 @@ impl GamePersistenceReader {
             scouting_assignments,
             board_objectives,
             season_context: domain::season::SeasonContext::default(),
+            days_since_last_job_offer: None,
         };
         ofm_core::season_context::refresh_game_context(&mut game);
 
