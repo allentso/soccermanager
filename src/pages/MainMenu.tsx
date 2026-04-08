@@ -46,13 +46,33 @@ const MANAGER_MINIMUM_AGE = 30;
 
 function flooredAgeFromIsoDate(isoDob: string): number | null {
   if (!isoDob) return null;
-  const birthDate = new Date(isoDob);
-  if (Number.isNaN(birthDate.getTime())) return null;
+
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(isoDob);
+  if (!match) return null;
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const birthDate = new Date(year, month - 1, day);
+
+  if (
+    Number.isNaN(birthDate.getTime()) ||
+    birthDate.getFullYear() !== year ||
+    birthDate.getMonth() !== month - 1 ||
+    birthDate.getDate() !== day
+  ) {
+    return null;
+  }
+
   const today = new Date();
-  const age = Math.floor(
-    (today.getTime() - birthDate.getTime()) /
-      (365.25 * 24 * 60 * 60 * 1000),
-  );
+  let age = today.getFullYear() - year;
+  const hasHadBirthdayThisYear =
+    today.getMonth() > month - 1 ||
+    (today.getMonth() === month - 1 && today.getDate() >= day);
+
+  if (!hasHadBirthdayThisYear) {
+    age -= 1;
+  }
   return Number.isNaN(age) ? null : age;
 }
 
