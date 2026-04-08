@@ -9,6 +9,7 @@ pub mod finances;
 pub mod firing;
 pub mod football_identity;
 pub mod game;
+pub mod job_offers;
 pub mod generator;
 pub mod live_match_manager;
 pub mod messages;
