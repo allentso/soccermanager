@@ -309,7 +309,11 @@ pub fn check_random_events(game: &mut Game) {
                         }
                     })
                     .count();
-                let msg_id = format!("board_confidence_{}", today);
+                let last_loss_date = last3
+                    .last()
+                    .map(|f| f.date.clone())
+                    .unwrap_or(today.clone());
+                let msg_id = format!("board_confidence_{}", last_loss_date);
                 if losses >= 3 && !existing_ids.contains(&msg_id) {
                     new_messages.push(builders_reports::board_confidence_message(&msg_id, &today));
                 }
