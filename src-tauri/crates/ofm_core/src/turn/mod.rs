@@ -83,6 +83,7 @@ where
     news::generate_pre_match_messages(game, &today);
 
     crate::firing::check_manager_firing(game);
+    crate::job_offers::check_job_offers(game);
 
     debug!("[turn] process_day {}: complete, advancing clock", today);
     game.clock.advance_days(1);
@@ -110,6 +111,7 @@ pub fn finish_live_match_day(game: &mut Game) {
     news::generate_pre_match_messages(game, &today);
 
     crate::firing::check_manager_firing(game);
+    crate::job_offers::check_job_offers(game);
 
     game.clock.advance_days(1);
     crate::season_context::refresh_game_context(game);
