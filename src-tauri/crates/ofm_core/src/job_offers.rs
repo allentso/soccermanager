@@ -230,10 +230,7 @@ fn send_job_offer(game: &mut Game, opportunity: &JobOpportunity, _rng: &mut impl
                 ActionOption {
                     id: "accept".to_string(),
                     label: "Accept the position".to_string(),
-                    description: format!(
-                        "Join {} as their new manager",
-                        opportunity.team_name
-                    ),
+                    description: format!("Join {} as their new manager", opportunity.team_name),
                     label_key: Some("be.msg.jobOffer.accept".to_string()),
                     description_key: None,
                 },
@@ -320,11 +317,7 @@ pub fn apply_for_job(game: &mut Game, team_id: &str) -> JobApplicationResult {
 
     let team_rep = team.reputation;
     let mgr_rep = game.manager.reputation;
-    let gap = if team_rep > mgr_rep {
-        team_rep - mgr_rep
-    } else {
-        0
-    };
+    let gap = team_rep.saturating_sub(mgr_rep);
 
     let success_pct = if gap == 0 {
         90
@@ -421,10 +414,10 @@ pub fn apply_job_offer_response(
         .map(|t| t.name.clone())
         .unwrap_or_default();
 
-    if let Some(msg) = game.messages.iter_mut().find(|m| m.id == message_id) {
-        if let Some(action) = msg.actions.iter_mut().find(|a| a.id == action_id) {
-            action.resolved = true;
-        }
+    if let Some(msg) = game.messages.iter_mut().find(|m| m.id == message_id)
+        && let Some(action) = msg.actions.iter_mut().find(|a| a.id == action_id)
+    {
+        action.resolved = true;
     }
 
     match option_id {
@@ -516,7 +509,11 @@ mod tests {
         assert!(result.is_ok());
         assert_eq!(game.manager.team_id, Some("team2".to_string()));
         assert_eq!(
-            game.teams.iter().find(|t| t.id == "team2").unwrap().manager_id,
+            game.teams
+                .iter()
+                .find(|t| t.id == "team2")
+                .unwrap()
+                .manager_id,
             Some("mgr1".to_string())
         );
     }
@@ -553,7 +550,11 @@ mod tests {
     fn hire_manager_sends_welcome_message() {
         let mut game = make_game(10, false);
         hire_manager(&mut game, "team2", "2026-11-01").unwrap();
-        assert!(game.messages.iter().any(|m| m.id.starts_with("job_welcome_")));
+        assert!(
+            game.messages
+                .iter()
+                .any(|m| m.id.starts_with("job_welcome_"))
+        );
     }
 
     #[test]
@@ -706,9 +707,7 @@ mod tests {
         .with_action(MessageAction {
             id: "respond_team2".to_string(),
             label: "Respond".to_string(),
-            action_type: ActionType::ChooseOption {
-                options: vec![],
-            },
+            action_type: ActionType::ChooseOption { options: vec![] },
             resolved: false,
             label_key: None,
         });

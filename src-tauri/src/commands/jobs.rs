@@ -4,9 +4,7 @@ use ofm_core::state::StateManager;
 use tauri::State;
 
 #[tauri::command]
-pub fn get_available_jobs(
-    state: State<'_, StateManager>,
-) -> Result<Vec<JobOpportunity>, String> {
+pub fn get_available_jobs(state: State<'_, StateManager>) -> Result<Vec<JobOpportunity>, String> {
     info!("[cmd] get_available_jobs");
     let game = state
         .get_game(|g| g.clone())
