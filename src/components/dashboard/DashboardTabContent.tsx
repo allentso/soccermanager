@@ -50,6 +50,7 @@ export default function DashboardTabContent({
         <HomeTab
           gameState={gameState}
           onNavigate={onNavigate}
+          onGameUpdate={onGameUpdate}
           visitedOnboardingTabs={visitedOnboardingTabs}
         />
       )}

@@ -39,10 +39,12 @@ import {
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import HomeOnboardingChecklistCard from "./HomeOnboardingChecklistCard";
+import JobOpportunitiesCard from "./JobOpportunitiesCard";
 
 interface HomeTabProps {
   gameState: GameStateData;
   onNavigate?: (tab: string, context?: { messageId?: string }) => void;
+  onGameUpdate?: (state: GameStateData) => void;
   visitedOnboardingTabs: ReadonlySet<string>;
 }
 
@@ -62,6 +64,7 @@ const SCHEDULE_ICONS: Record<string, { icon: React.ReactNode; color: string }> =
 export default function HomeTab({
   gameState,
   onNavigate,
+  onGameUpdate,
   visitedOnboardingTabs,
 }: HomeTabProps) {
   const { t, i18n } = useTranslation();
@@ -252,15 +255,23 @@ export default function HomeTab({
           />
         </div>
       ) : (
-        <HomeLeaguePositionCard
-          isPreseason={isPreseason}
-          phase={seasonContext.phase}
-          seasonStartLabel={seasonStartLabel}
-          myStanding={myStanding}
-          myStandingData={myStandingData}
-          teamForm={[]}
-          onNavigate={onNavigate}
-        />
+        <>
+          <HomeLeaguePositionCard
+            isPreseason={isPreseason}
+            phase={seasonContext.phase}
+            seasonStartLabel={seasonStartLabel}
+            myStanding={myStanding}
+            myStandingData={myStandingData}
+            teamForm={[]}
+            onNavigate={onNavigate}
+          />
+          {onGameUpdate && (
+            <JobOpportunitiesCard
+              gameState={gameState}
+              onGameUpdate={onGameUpdate}
+            />
+          )}
+        </>
       )}
 
       {myTeam && (
