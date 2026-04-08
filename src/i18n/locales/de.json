@@ -765,7 +765,8 @@
       "Contract": "Vertrag",
       "ScoutReport": "Scout",
       "Media": "Medien",
-      "System": "System"
+      "System": "System",
+      "JobOffer": "Stellenangebote"
     }
   },
   "manager": {
@@ -2040,5 +2041,15 @@
     "present": "Aktuell",
     "bestLabel": "Beste",
     "dismissalLetter": "Der Vorstand hat beschlossen, Sie mit sofortiger Wirkung als Trainer von {{team}} zu entlassen.\n\nWir danken Ihnen für Ihre Dienste und wünschen Ihnen alles Gute für Ihre weitere Karriere.\n\nMit freundlichen Grüßen,\nDer Vorstand"
+  },
+  "jobs": {
+    "opportunitiesTitle": "Stellenangebote",
+    "applyButton": "Bewerben",
+    "applicationSent": "Bewerbung...",
+    "hired": "Sie wurden als Trainer ernannt!",
+    "rejected": "Ihre Bewerbung war leider nicht erfolgreich.",
+    "noJobs": "Derzeit keine Stellen verfügbar.",
+    "leaguePosition": "Letzte Saison: {{position}}",
+    "refresh": "Nach neuen Stellen suchen"
   }
 }

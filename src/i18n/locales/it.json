@@ -765,7 +765,8 @@
       "Contract": "Contratto",
       "ScoutReport": "Osservatore",
       "Media": "Media",
-      "System": "Sistema"
+      "System": "Sistema",
+      "JobOffer": "Offerte di lavoro"
     }
   },
   "manager": {
@@ -1976,5 +1977,15 @@
     "present": "Attuale",
     "bestLabel": "Migliore",
     "dismissalLetter": "Il consiglio di amministrazione ha deciso di sollevarla dall'incarico di allenatore del {{team}}, con effetto immediato.\n\nLa ringraziamo per i suoi servizi e le auguriamo il meglio per la sua futura carriera.\n\nCordiali saluti,\nIl Consiglio di Amministrazione"
+  },
+  "jobs": {
+    "opportunitiesTitle": "Opportunità di lavoro",
+    "applyButton": "Candidati",
+    "applicationSent": "Candidatura...",
+    "hired": "Sei stato nominato allenatore!",
+    "rejected": "La tua candidatura non è andata a buon fine.",
+    "noJobs": "Nessuna posizione disponibile al momento.",
+    "leaguePosition": "Ultima stagione: {{position}}",
+    "refresh": "Cerca nuove posizioni"
   }
 }

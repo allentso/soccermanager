@@ -765,7 +765,8 @@
       "Contract": "Contrat",
       "ScoutReport": "Recruteur",
       "Media": "Médias",
-      "System": "Système"
+      "System": "Système",
+      "JobOffer": "Offres d'emploi"
     }
   },
   "manager": {
@@ -2040,5 +2041,15 @@
     "present": "Actuel",
     "bestLabel": "Meilleur",
     "dismissalLetter": "Le conseil d'administration a décidé de vous relever de vos fonctions d'entraîneur de {{team}}, avec effet immédiat.\n\nNous vous remercions pour vos services et vous souhaitons bonne chance pour la suite de votre carrière.\n\nCordialement,\nLe Conseil d'Administration"
+  },
+  "jobs": {
+    "opportunitiesTitle": "Opportunités d'emploi",
+    "applyButton": "Postuler",
+    "applicationSent": "Candidature...",
+    "hired": "Vous avez été nommé entraîneur !",
+    "rejected": "Votre candidature n'a pas été retenue.",
+    "noJobs": "Aucun poste disponible actuellement.",
+    "leaguePosition": "Dernière saison : {{position}}",
+    "refresh": "Vérifier les nouvelles offres"
   }
 }

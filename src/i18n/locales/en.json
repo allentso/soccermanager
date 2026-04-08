@@ -765,7 +765,8 @@
       "Contract": "Contract",
       "ScoutReport": "Scout",
       "Media": "Media",
-      "System": "System"
+      "System": "System",
+      "JobOffer": "Job Offers"
     }
   },
   "manager": {
@@ -2040,5 +2041,15 @@
     "present": "Present",
     "bestLabel": "Best",
     "dismissalLetter": "The board of directors has decided to relieve you of your duties as manager of {{team}}, effective immediately.\n\nWe thank you for your service and wish you well in your future career.\n\nYours sincerely,\nThe Board of Directors"
+  },
+  "jobs": {
+    "opportunitiesTitle": "Job Opportunities",
+    "applyButton": "Apply",
+    "applicationSent": "Applying...",
+    "hired": "You have been appointed manager!",
+    "rejected": "Your application was unsuccessful.",
+    "noJobs": "No positions currently available.",
+    "leaguePosition": "Last Season: {{position}}",
+    "refresh": "Check for new positions"
   }
 }

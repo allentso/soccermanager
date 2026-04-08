@@ -765,7 +765,8 @@
       "Contract": "Contrato",
       "ScoutReport": "Observação",
       "Media": "Media",
-      "System": "Sistema"
+      "System": "Sistema",
+      "JobOffer": "Ofertas de emprego"
     }
   },
   "manager": {
@@ -2040,5 +2041,15 @@
     "present": "Atual",
     "bestLabel": "Melhor",
     "dismissalLetter": "O conselho de administração decidiu dispensá-lo das suas funções como treinador do {{team}}, com efeito imediato.\n\nAgradecemos pelos seus serviços e desejamos-lhe o melhor para a sua futura carreira.\n\nAtenciosamente,\nO Conselho de Administração"
+  },
+  "jobs": {
+    "opportunitiesTitle": "Oportunidades de emprego",
+    "applyButton": "Candidatar-se",
+    "applicationSent": "Candidatando...",
+    "hired": "Você foi nomeado treinador!",
+    "rejected": "Sua candidatura não foi bem-sucedida.",
+    "noJobs": "Nenhuma posição disponível no momento.",
+    "leaguePosition": "Última temporada: {{position}}",
+    "refresh": "Verificar novas vagas"
   }
 }

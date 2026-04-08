@@ -765,7 +765,8 @@
       "Contract": "Contrato",
       "ScoutReport": "Ojeador",
       "Media": "Medios",
-      "System": "Sistema"
+      "System": "Sistema",
+      "JobOffer": "Ofertas de empleo"
     }
   },
   "manager": {
@@ -2040,5 +2041,15 @@
     "present": "Actual",
     "bestLabel": "Mejor",
     "dismissalLetter": "La junta directiva ha decidido relevarle de sus funciones como entrenador de {{team}}, con efecto inmediato.\n\nLe agradecemos sus servicios y le deseamos lo mejor en su futura carrera.\n\nAtentamente,\nLa Junta Directiva"
+  },
+  "jobs": {
+    "opportunitiesTitle": "Oportunidades de empleo",
+    "applyButton": "Postular",
+    "applicationSent": "Postulando...",
+    "hired": "¡Has sido nombrado entrenador!",
+    "rejected": "Tu solicitud no fue exitosa.",
+    "noJobs": "No hay puestos disponibles actualmente.",
+    "leaguePosition": "Última temporada: {{position}}",
+    "refresh": "Buscar nuevas ofertas"
   }
 }
