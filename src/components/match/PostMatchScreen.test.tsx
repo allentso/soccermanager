@@ -1,12 +1,14 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import type { ReactElement } from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import { ThemeProvider } from "../../context/ThemeContext";
 import PostMatchScreen from "./PostMatchScreen";
 import type { FixtureData, GameStateData } from "../../store/gameStore";
+import { ThemeProvider } from "../../context/ThemeContext";
 
-// jsdom doesn't implement matchMedia — ThemeProvider needs it for getInitialTheme
+vi.mock("@tauri-apps/api/core", () => ({
+  invoke: vi.fn(),
+}));
+
 Object.defineProperty(window, "matchMedia", {
   writable: true,
   value: vi.fn().mockImplementation((query: string) => ({
@@ -20,19 +22,6 @@ Object.defineProperty(window, "matchMedia", {
     dispatchEvent: vi.fn(),
   })),
 });
-
-beforeEach(() => {
-  localStorage.clear();
-  document.documentElement.classList.remove("dark");
-});
-
-function renderPostMatch(ui: ReactElement) {
-  return render(<ThemeProvider>{ui}</ThemeProvider>);
-}
-
-vi.mock("@tauri-apps/api/core", () => ({
-  invoke: vi.fn(),
-}));
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
@@ -479,72 +468,74 @@ describe("PostMatchScreen", function (): void {
       standings: [],
     };
 
-    renderPostMatch(
-      <PostMatchScreen
-        snapshot={makeSnapshot()}
-        gameState={gameState}
-        currentFixture={{
-          id: "fixture-1",
-          matchday: 4,
-          date: "2026-08-01",
-          home_team_id: "team1",
-          away_team_id: "team2",
-          competition: "League",
-          status: "Completed",
-          result: null,
-        }}
-        userSide="Home"
-        isSpectator={false}
-        importantEvents={[]}
-        roundSummary={{
-          matchday: 4,
-          is_complete: true,
-          pending_fixture_count: 0,
-          completed_results: [
-            {
-              fixture_id: "fx1",
-              home_team_id: "team1",
-              home_team_name: "Alpha FC",
-              away_team_id: "team2",
-              away_team_name: "Beta FC",
-              home_goals: 2,
-              away_goals: 1,
-            },
-          ],
-          standings_delta: [
-            {
-              team_id: "team1",
-              team_name: "Alpha FC",
-              previous_position: 2,
-              current_position: 1,
-              points: 12,
-              points_delta: 3,
-            },
-            {
-              team_id: "team2",
-              team_name: "Beta FC",
-              previous_position: 1,
-              current_position: 2,
-              points: 10,
-              points_delta: 0,
-            },
-          ],
-          notable_upset: null,
-          top_scorer_delta: [
-            {
-              player_id: "p1",
-              player_name: "Alice",
-              team_id: "team1",
-              previous_rank: 2,
-              current_rank: 1,
-              previous_goals: 4,
-              current_goals: 6,
-            },
-          ],
-        }}
-        onPressConference={() => {}}
-        onFinish={() => {}}
-      />,
+    render(
+      <ThemeProvider>
+        <PostMatchScreen
+          snapshot={makeSnapshot()}
+          gameState={gameState}
+          currentFixture={{
+            id: "fixture-1",
+            matchday: 4,
+            date: "2026-08-01",
+            home_team_id: "team1",
+            away_team_id: "team2",
+            competition: "League",
+            status: "Completed",
+            result: null,
+          }}
+          userSide="Home"
+          isSpectator={false}
+          importantEvents={[]}
+          roundSummary={{
+            matchday: 4,
+            is_complete: true,
+            pending_fixture_count: 0,
+            completed_results: [
+              {
+                fixture_id: "fx1",
+                home_team_id: "team1",
+                home_team_name: "Alpha FC",
+                away_team_id: "team2",
+                away_team_name: "Beta FC",
+                home_goals: 2,
+                away_goals: 1,
+              },
+            ],
+            standings_delta: [
+              {
+                team_id: "team1",
+                team_name: "Alpha FC",
+                previous_position: 2,
+                current_position: 1,
+                points: 12,
+                points_delta: 3,
+              },
+              {
+                team_id: "team2",
+                team_name: "Beta FC",
+                previous_position: 1,
+                current_position: 2,
+                points: 10,
+                points_delta: 0,
+              },
+            ],
+            notable_upset: null,
+            top_scorer_delta: [
+              {
+                player_id: "p1",
+                player_name: "Alice",
+                team_id: "team1",
+                previous_rank: 2,
+                current_rank: 1,
+                previous_goals: 4,
+                current_goals: 6,
+              },
+            ],
+          }}
+          onPressConference={() => { }}
+          onFinish={() => { }}
+        />
+      </ThemeProvider>,
     );
 
     expect(screen.getByText("Matchday 4")).toBeInTheDocument();
@@ -565,45 +556,47 @@ describe("PostMatchScreen", function (): void {
       standings: [],
     };
 
-    renderPostMatch(
-      <PostMatchScreen
-        snapshot={makeSnapshot()}
-        gameState={gameState}
-        currentFixture={{
-          id: "fixture-1",
-          matchday: 4,
-          date: "2026-08-01",
-          home_team_id: "team1",
-          away_team_id: "team2",
-          competition: "League",
-          status: "Completed",
-          result: null,
-        }}
-        userSide="Home"
-        isSpectator={false}
-        importantEvents={[]}
-        roundSummary={{
-          matchday: 4,
-          is_complete: true,
-          pending_fixture_count: 0,
-          completed_results: [
-            {
-              fixture_id: "fx1",
-              home_team_id: "team1",
-              home_team_name: "Alpha FC",
-              away_team_id: "team2",
-              away_team_name: "Beta FC",
-              home_goals: 2,
-              away_goals: 1,
-            },
-          ],
-          standings_delta: [],
-          notable_upset: null,
-          top_scorer_delta: [],
-        }}
-        onPressConference={() => {}}
-        onFinish={() => {}}
-      />,
+    render(
+      <ThemeProvider>
+        <PostMatchScreen
+          snapshot={makeSnapshot()}
+          gameState={gameState}
+          currentFixture={{
+            id: "fixture-1",
+            matchday: 4,
+            date: "2026-08-01",
+            home_team_id: "team1",
+            away_team_id: "team2",
+            competition: "League",
+            status: "Completed",
+            result: null,
+          }}
+          userSide="Home"
+          isSpectator={false}
+          importantEvents={[]}
+          roundSummary={{
+            matchday: 4,
+            is_complete: true,
+            pending_fixture_count: 0,
+            completed_results: [
+              {
+                fixture_id: "fx1",
+                home_team_id: "team1",
+                home_team_name: "Alpha FC",
+                away_team_id: "team2",
+                away_team_name: "Beta FC",
+                home_goals: 2,
+                away_goals: 1,
+              },
+            ],
+            standings_delta: [],
+            notable_upset: null,
+            top_scorer_delta: [],
+          }}
+          onPressConference={() => { }}
+          onFinish={() => { }}
+        />
+      </ThemeProvider>,
     );
 
     fireEvent.click(screen.getByText("View details"));
@@ -618,27 +611,29 @@ describe("PostMatchScreen", function (): void {
   });
 
   it("renders a friendly empty state when the round summary is null", function (): void {
-    renderPostMatch(
-      <PostMatchScreen
-        snapshot={makeSnapshot()}
-        gameState={makeGameState()}
-        currentFixture={{
-          id: "friendly-1",
-          matchday: 0,
-          date: "2026-07-20",
-          home_team_id: "team1",
-          away_team_id: "team2",
-          competition: "Friendly",
-          status: "Completed",
-          result: null,
-        }}
-        userSide="Home"
-        isSpectator={false}
-        importantEvents={[]}
-        roundSummary={null}
-        onPressConference={() => {}}
-        onFinish={() => {}}
-      />,
+    render(
+      <ThemeProvider>
+        <PostMatchScreen
+          snapshot={makeSnapshot()}
+          gameState={makeGameState()}
+          currentFixture={{
+            id: "friendly-1",
+            matchday: 0,
+            date: "2026-07-20",
+            home_team_id: "team1",
+            away_team_id: "team2",
+            competition: "Friendly",
+            status: "Completed",
+            result: null,
+          }}
+          userSide="Home"
+          isSpectator={false}
+          importantEvents={[]}
+          roundSummary={null}
+          onPressConference={() => { }}
+          onFinish={() => { }}
+        />
+      </ThemeProvider>,
     );
 
     expect(screen.getByText("Other Matches")).toBeInTheDocument();
