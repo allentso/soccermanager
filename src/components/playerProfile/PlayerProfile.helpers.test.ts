@@ -153,8 +153,13 @@ describe("PlayerProfile.helpers", function (): void {
     });
 
     it("resolves injury names for explicit keys and plain injuries", function (): void {
-        const translate = (key: string, options?: { defaultValue?: string }): string => {
-            return options?.defaultValue ? `${key}:${options.defaultValue}` : key;
+        const translate = (
+            key: string,
+            options?: { defaultValue?: unknown },
+        ): string => {
+            return typeof options?.defaultValue === "string"
+                ? `${key}:${options.defaultValue}`
+                : key;
         };
 
         expect(resolvePlayerInjuryName("injuries.hamstring", translate)).toBe(

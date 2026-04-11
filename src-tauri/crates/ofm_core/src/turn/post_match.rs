@@ -523,8 +523,8 @@ fn update_post_match_morale(
     home_team_id: &str,
     away_team_id: &str,
 ) {
-    use rand::Rng;
-    let mut rng = rand::thread_rng();
+    use rand::RngExt;
+    let mut rng = rand::rng();
 
     let home_won = report.home_goals > report.away_goals;
     let away_won = report.away_goals > report.home_goals;
@@ -542,12 +542,12 @@ fn update_post_match_morale(
         // Team result effect — scale loss impact by goal difference
         let goal_diff = (report.home_goals as i16 - report.away_goals as i16).abs();
         let result_delta: i16 = if (is_home && home_won) || (!is_home && away_won) {
-            rng.gen_range(3..=8) // Win boost
+            rng.random_range(3..=8) // Win boost
         } else if is_draw {
-            rng.gen_range(-2..=3) // Draw: mild
+            rng.random_range(-2..=3) // Draw: mild
         } else {
             // Base loss: -5 to -2, plus extra -3 per goal margin beyond 1
-            let base_loss = rng.gen_range(-5..=-2);
+            let base_loss = rng.random_range(-5..=-2);
             let margin_penalty = (goal_diff - 1).max(0) * -3;
             base_loss + margin_penalty // e.g. 3-0 loss → -5..-2 + -6 = -11..-8
         };
@@ -585,8 +585,8 @@ fn update_team_form(
     home_team_id: &str,
     away_team_id: &str,
 ) {
-    use rand::Rng;
-    let mut rng = rand::thread_rng();
+    use rand::RngExt;
+    let mut rng = rand::rng();
 
     let home_result = if report.home_goals > report.away_goals {
         "W"
@@ -625,9 +625,9 @@ fn update_team_form(
         if form.len() >= 3 {
             let last3: Vec<&str> = form.iter().rev().take(3).map(|s| s.as_str()).collect();
             let streak_delta: i16 = if last3.iter().all(|r| *r == "W") {
-                rng.gen_range(2..=5) // 3+ win streak: small global morale boost
+                rng.random_range(2..=5) // 3+ win streak: small global morale boost
             } else if last3.iter().all(|r| *r == "L") {
-                rng.gen_range(-10..=-5) // 3+ loss streak: significant morale drop
+                rng.random_range(-10..=-5) // 3+ loss streak: significant morale drop
             } else {
                 0
             };
@@ -665,9 +665,9 @@ fn deplete_match_stamina(game: &mut Game, team_id: &str, report: &engine::MatchR
             // Regular match play improves fitness for players with significant time.
             // 60+ minutes builds sharpness; probabilistic to keep changes gradual.
             if minutes >= 60 {
-                use rand::Rng;
-                let mut rng = rand::thread_rng();
-                if rng.gen_bool(0.3) && player.fitness < 100 {
+                use rand::RngExt;
+                let mut rng = rand::rng();
+                if rng.random_bool(0.3) && player.fitness < 100 {
                     player.fitness = player.fitness.saturating_add(1);
                 }
             }

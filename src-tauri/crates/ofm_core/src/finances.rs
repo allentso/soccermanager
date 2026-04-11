@@ -2,7 +2,7 @@ use crate::game::Game;
 use chrono::Datelike;
 use domain::message::*;
 use domain::team::{Sponsorship, SponsorshipBonusCriterion, Team};
-use rand::Rng;
+use rand::RngExt;
 
 fn action(id: &str, label: &str, label_key: &str, action_type: ActionType) -> MessageAction {
     MessageAction {
@@ -229,9 +229,9 @@ pub fn process_weekly_finances(game: &mut Game) {
                 .unwrap_or(0);
 
             if home_count > 0 {
-                let mut rng = rand::thread_rng();
-                let attendance_pct = rng.gen_range(60..=92) as f64 / 100.0;
-                let avg_ticket = rng.gen_range(15..=25) as f64;
+                let mut rng = rand::rng();
+                let attendance_pct = rng.random_range(60..=92) as f64 / 100.0;
+                let avg_ticket = rng.random_range(15..=25) as f64;
                 let total_revenue = calc_matchday(
                     team.stadium_capacity,
                     home_count,

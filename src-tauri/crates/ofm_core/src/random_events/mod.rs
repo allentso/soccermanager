@@ -8,7 +8,7 @@ use crate::contracts::{ContractWarningStage, contract_warning_stage};
 use crate::game::Game;
 use chrono::Datelike;
 use domain::message::*;
-use rand::Rng;
+use rand::RngExt;
 use std::collections::HashMap;
 
 fn params(pairs: &[(&str, &str)]) -> HashMap<String, String> {
@@ -56,20 +56,20 @@ pub fn check_random_events(game: &mut Game) {
     let existing_ids: std::collections::HashSet<String> =
         game.messages.iter().map(|m| m.id.clone()).collect();
 
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let mut new_messages: Vec<InboxMessage> = Vec::new();
 
     // --- 1. Sponsor offer (1% chance per day) ---
     {
         let msg_id = format!("sponsor_{}", today);
-        if !existing_ids.contains(&msg_id) && rng.gen_range(0..100) == 0 {
+        if !existing_ids.contains(&msg_id) && rng.random_range(0..100) == 0 {
             let team_name = game
                 .teams
                 .iter()
                 .find(|t| t.id == user_team_id)
                 .map(|t| t.name.as_str())
                 .unwrap_or("Your Club");
-            let amount = rng.gen_range(5..=30) * 10_000; // 50k - 300k
+            let amount = rng.random_range(5..=30) * 10_000; // 50k - 300k
             let sponsor_names = [
                 "GreenTech Industries",
                 "Nova Sports",
@@ -80,7 +80,7 @@ pub fn check_random_events(game: &mut Game) {
                 "FreshBrew Co.",
                 "CityLink Telecom",
             ];
-            let sponsor = sponsor_names[rng.gen_range(0..sponsor_names.len())];
+            let sponsor = sponsor_names[rng.random_range(0..sponsor_names.len())];
 
             new_messages.push(message_builders::sponsor_offer_message(
                 &msg_id, team_name, sponsor, amount, &today,
@@ -103,15 +103,15 @@ pub fn check_random_events(game: &mut Game) {
                 .filter(|p| p.team_id.as_deref() == Some(&user_team_id) && p.injury.is_none())
                 .collect();
             if !eligible.is_empty() {
-                let player = eligible[rng.gen_range(0..eligible.len())];
+                let player = eligible[rng.random_range(0..eligible.len())];
                 // Base 2% chance, scaled by fitness: less fit → higher probability
                 let fitness_mult = injury_probability_from_fitness(player.fitness);
                 let base_prob = 1.0_f64 / 50.0;
                 let injury_prob = (base_prob * fitness_mult).min(1.0);
-                if rng.gen_bool(injury_prob) {
+                if rng.random_bool(injury_prob) {
                     let msg_id = format!("training_injury_{}_{}", player.id, today);
                     if !existing_ids.contains(&msg_id) {
-                        let days = rng.gen_range(3..=14);
+                        let days = rng.random_range(3..=14);
                         let injury_names = [
                             "common.injuries.minorMuscleStrain",
                             "common.injuries.twistedAnkle",
@@ -119,7 +119,7 @@ pub fn check_random_events(game: &mut Game) {
                             "common.injuries.hamstringTightness",
                             "common.injuries.calfStrain",
                         ];
-                        let injury_name = injury_names[rng.gen_range(0..injury_names.len())];
+                        let injury_name = injury_names[rng.random_range(0..injury_names.len())];
 
                         new_messages.push(message_builders::training_injury_message(
                             &msg_id,
@@ -147,7 +147,7 @@ pub fn check_random_events(game: &mut Game) {
     // --- 3. Media story (2% chance per day) ---
     {
         let msg_id = format!("media_{}", today);
-        if !existing_ids.contains(&msg_id) && rng.gen_range(0..50) == 0 {
+        if !existing_ids.contains(&msg_id) && rng.random_range(0..50) == 0 {
             let team_name = game
                 .teams
                 .iter()
@@ -162,8 +162,8 @@ pub fn check_random_events(game: &mut Game) {
                 .filter(|p| p.team_id.as_deref() == Some(&user_team_id))
                 .collect();
             if !team_players.is_empty() {
-                let player = team_players[rng.gen_range(0..team_players.len())];
-                let is_positive = rng.gen_bool(0.6); // 60% positive stories
+                let player = team_players[rng.random_range(0..team_players.len())];
+                let is_positive = rng.random_bool(0.6); // 60% positive stories
 
                 new_messages.push(message_builders::media_story_message(
                     &msg_id,
@@ -178,9 +178,9 @@ pub fn check_random_events(game: &mut Game) {
                 let pid = player.id.clone();
                 if let Some(p) = game.players.iter_mut().find(|p| p.id == pid) {
                     let delta: i16 = if is_positive {
-                        rng.gen_range(2..=5)
+                        rng.random_range(2..=5)
                     } else {
-                        rng.gen_range(-5..=-1)
+                        rng.random_range(-5..=-1)
                     };
                     p.morale = ((p.morale as i16) + delta).clamp(10, 100) as u8;
                 }
@@ -206,14 +206,14 @@ pub fn check_random_events(game: &mut Game) {
             })
         });
 
-        if upcoming_match.is_some() && rng.gen_range(0..50) == 0 {
+        if upcoming_match.is_some() && rng.random_range(0..50) == 0 {
             let eligible: Vec<&domain::player::Player> = game
                 .players
                 .iter()
                 .filter(|p| p.team_id.as_deref() == Some(&user_team_id) && p.injury.is_none())
                 .collect();
             if !eligible.is_empty() {
-                let player = eligible[rng.gen_range(0..eligible.len())];
+                let player = eligible[rng.random_range(0..eligible.len())];
                 let msg_id = format!("intl_callup_{}_{}", player.id, today);
                 if !existing_ids.contains(&msg_id) {
                     new_messages.push(message_builders::international_callup_message(
@@ -225,7 +225,7 @@ pub fn check_random_events(game: &mut Game) {
                     // Morale boost for being called up
                     let pid = player.id.clone();
                     if let Some(p) = game.players.iter_mut().find(|p| p.id == pid) {
-                        p.morale = (p.morale as i16 + rng.gen_range(3..=8)).clamp(10, 100) as u8;
+                        p.morale = (p.morale as i16 + rng.random_range(3..=8)).clamp(10, 100) as u8;
                     }
                 }
             }
@@ -235,7 +235,7 @@ pub fn check_random_events(game: &mut Game) {
     // --- 5. Community event / club milestone (1% chance per day) ---
     {
         let msg_id = format!("community_{}", today);
-        if !existing_ids.contains(&msg_id) && rng.gen_range(0..100) == 0 {
+        if !existing_ids.contains(&msg_id) && rng.random_range(0..100) == 0 {
             let team_name = game
                 .teams
                 .iter()
@@ -320,7 +320,7 @@ pub fn check_random_events(game: &mut Game) {
     // --- 8. Fan petition (2% chance per day) ---
     {
         let msg_id = format!("fan_petition_{}", today);
-        if !existing_ids.contains(&msg_id) && rng.gen_range(0..50) == 0 {
+        if !existing_ids.contains(&msg_id) && rng.random_range(0..50) == 0 {
             let team_name = game
                 .teams
                 .iter()
@@ -336,7 +336,7 @@ pub fn check_random_events(game: &mut Game) {
     // --- 9. Rival interest in player (2% chance per day) ---
     {
         let msg_id = format!("rival_interest_{}", today);
-        if !existing_ids.contains(&msg_id) && rng.gen_range(0..50) == 0 {
+        if !existing_ids.contains(&msg_id) && rng.random_range(0..50) == 0 {
             let current_date = game.clock.current_date.date_naive();
             let eligible: Vec<&domain::player::Player> = game
                 .players
@@ -345,7 +345,7 @@ pub fn check_random_events(game: &mut Game) {
                 .collect();
             if !eligible.is_empty() {
                 let player = choose_rival_interest_target(&eligible, current_date, &mut rng)
-                    .unwrap_or(eligible[rng.gen_range(0..eligible.len())]);
+                    .unwrap_or(eligible[rng.random_range(0..eligible.len())]);
                 let rival_names = [
                     "FC Rival",
                     "Sporting Ambition",
@@ -353,7 +353,7 @@ pub fn check_random_events(game: &mut Game) {
                     "Real Progress",
                     "Bayern Elite",
                 ];
-                let rival = rival_names[rng.gen_range(0..rival_names.len())];
+                let rival = rival_names[rng.random_range(0..rival_names.len())];
                 new_messages.push(builders_reports::rival_interest_message(
                     &msg_id,
                     &player.id,
@@ -406,7 +406,7 @@ fn choose_rival_interest_target<'a, R: rand::Rng + ?Sized>(
         return None;
     }
 
-    let mut roll = rng.gen_range(0..total_weight);
+    let mut roll = rng.random_range(0..total_weight);
     for player in eligible {
         let weight = rival_interest_weight(player, current_date);
         if roll < weight {

@@ -1,4 +1,4 @@
-use rand::Rng;
+use rand::{Rng, RngExt};
 
 use crate::event::{EventType, MatchEvent};
 use crate::shared::{PlayerSnap, TraitContext, trait_bonus};
@@ -22,7 +22,7 @@ pub(super) fn maybe_foul<R: Rng>(
     let foul_chance = ctx.config.foul_probability
         * (0.6 + aggression_mod * 0.8)
         * trait_bonus(fouler_snap, TraitContext::Foul);
-    if rng.gen_range(0.0..1.0f64) >= foul_chance {
+    if rng.random_range(0.0..1.0f64) >= foul_chance {
         return;
     }
 
@@ -34,7 +34,7 @@ pub(super) fn maybe_foul<R: Rng>(
 
     let att_side = fouling_side.opposite();
 
-    if zone.is_box_for(att_side) && rng.gen_range(0.0..1.0f64) < ctx.config.penalty_probability {
+    if zone.is_box_for(att_side) && rng.random_range(0.0..1.0f64) < ctx.config.penalty_probability {
         ctx.emit(MatchEvent::new(
             minute,
             EventType::PenaltyAwarded,
@@ -48,7 +48,7 @@ pub(super) fn maybe_foul<R: Rng>(
 
     maybe_card(ctx, minute, fouling_side, &fouler_snap.id, zone, rng);
 
-    if rng.gen_range(0.0..1.0f64) < ctx.config.injury_probability {
+    if rng.random_range(0.0..1.0f64) < ctx.config.injury_probability {
         ctx.emit(
             MatchEvent::new(minute, EventType::Injury, att_side, zone).with_player(&fouled_snap.id),
         );
@@ -71,11 +71,11 @@ fn maybe_card<R: Rng>(
         .map(|p| p.aggression as f64 / 100.0)
         .unwrap_or(0.5);
     let card_chance = ctx.config.yellow_card_probability * (0.5 + aggression_factor);
-    if rng.gen_range(0.0..1.0f64) >= card_chance {
+    if rng.random_range(0.0..1.0f64) >= card_chance {
         return;
     }
 
-    if rng.gen_range(0.0..1.0f64) < ctx.config.red_card_probability {
+    if rng.random_range(0.0..1.0f64) < ctx.config.red_card_probability {
         ctx.emit(MatchEvent::new(minute, EventType::RedCard, side, zone).with_player(fouler_id));
         ctx.sent_off.insert(fouler_id.to_string());
         return;
@@ -103,7 +103,7 @@ fn resolve_penalty<R: Rng>(ctx: &mut MatchContext, minute: u8, att_side: Side, r
     let conversion = (0.75 + (shoot_skill - gk_skill) / 300.0).clamp(0.55, 0.92);
     let zone = Zone::attacking_box(att_side);
 
-    if rng.gen_range(0.0..1.0f64) < conversion {
+    if rng.random_range(0.0..1.0f64) < conversion {
         ctx.emit(
             MatchEvent::new(minute, EventType::PenaltyGoal, att_side, zone).with_player(&taker.id),
         );

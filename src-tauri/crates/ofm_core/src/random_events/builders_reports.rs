@@ -1,6 +1,6 @@
 use super::{action, params};
 use domain::message::*;
-use rand::Rng;
+use rand::RngExt;
 
 // ---------------------------------------------------------------------------
 // Periodic / condition-triggered message builders
@@ -79,7 +79,7 @@ pub(super) fn mood_report_message(
 }
 
 pub(super) fn board_confidence_message(msg_id: &str, date: &str) -> InboxMessage {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let variations = [
         "The board has called an urgent meeting. Three consecutive defeats have raised serious concerns about the team's direction.\n\n\
         \"We need to see improvement quickly. The fans are restless and results must change.\"\n\n\
@@ -88,7 +88,7 @@ pub(super) fn board_confidence_message(msg_id: &str, date: &str) -> InboxMessage
         \"We backed you with resources and time. The results simply aren't good enough. What's your plan?\"\n\n\
         Choose your response carefully.",
     ];
-    let idx = rng.gen_range(0..variations.len());
+    let idx = rng.random_range(0..variations.len());
 
     InboxMessage::new(
         msg_id.to_string(),
@@ -154,7 +154,7 @@ pub(super) fn board_confidence_message(msg_id: &str, date: &str) -> InboxMessage
 }
 
 pub(super) fn fan_petition_message(msg_id: &str, team_name: &str, date: &str) -> InboxMessage {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let petitions = [
         (
             "Fan Petition — More Attacking Football",
@@ -184,7 +184,7 @@ pub(super) fn fan_petition_message(msg_id: &str, team_name: &str, date: &str) ->
             ),
         ),
     ];
-    let idx = rng.gen_range(0..petitions.len());
+    let idx = rng.random_range(0..petitions.len());
     let (subject, body) = &petitions[idx];
 
     InboxMessage::new(
@@ -240,7 +240,7 @@ pub(super) fn rival_interest_message(
     rival_name: &str,
     date: &str,
 ) -> InboxMessage {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let variations = [
         format!(
             "We've received word that {} have been making enquiries about {}.\n\n\
@@ -257,7 +257,7 @@ pub(super) fn rival_interest_message(
             player_name, rival_name
         ),
     ];
-    let idx = rng.gen_range(0..variations.len());
+    let idx = rng.random_range(0..variations.len());
 
     InboxMessage::new(
         msg_id.to_string(),

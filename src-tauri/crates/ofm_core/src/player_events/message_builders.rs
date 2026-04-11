@@ -1,5 +1,5 @@
 use domain::message::*;
-use rand::Rng;
+use rand::RngExt;
 use std::collections::HashMap;
 
 /// Helper to build a HashMap<String, String> from key-value pairs.
@@ -43,7 +43,7 @@ pub(crate) fn low_morale_message(
     morale: u8,
     date: &str,
 ) -> InboxMessage {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let variations = [
         format!(
             "Boss, {} has asked for a private meeting. They seem really down lately and want to talk about their situation at the club.\n\n\
@@ -56,7 +56,7 @@ pub(crate) fn low_morale_message(
             player_name, morale
         ),
     ];
-    let idx = rng.gen_range(0..variations.len());
+    let idx = rng.random_range(0..variations.len());
 
     InboxMessage::new(
         msg_id.to_string(),
@@ -116,7 +116,7 @@ pub(crate) fn bench_complaint_message(
     player_name: &str,
     date: &str,
 ) -> InboxMessage {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let variations = [
         format!(
             "Boss, {} has come to see you. They're frustrated about their lack of game time in recent matches and want to know what they need to do to get back in the team.\n\n\
@@ -129,7 +129,7 @@ pub(crate) fn bench_complaint_message(
             player_name
         ),
     ];
-    let idx = rng.gen_range(0..variations.len());
+    let idx = rng.random_range(0..variations.len());
 
     InboxMessage::new(
         msg_id.to_string(),
@@ -189,7 +189,7 @@ pub(crate) fn happy_player_message(
     player_name: &str,
     date: &str,
 ) -> InboxMessage {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let variations = [
         format!(
             "{} stopped by your office with a big smile. They're feeling great about their form and the team's direction.\n\n\
@@ -202,7 +202,7 @@ pub(crate) fn happy_player_message(
             player_name
         ),
     ];
-    let idx = rng.gen_range(0..variations.len());
+    let idx = rng.random_range(0..variations.len());
 
     InboxMessage::new(
         msg_id.to_string(),
@@ -264,7 +264,7 @@ pub(crate) fn contract_concern_message(
     date: &str,
 ) -> InboxMessage {
     let months = (days_remaining as f64 / 30.0).ceil() as u32;
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let variations = [
         format!(
             "{} has approached you regarding their contract situation. With only {} days remaining on their deal, they want to know where they stand.\n\n\
@@ -277,7 +277,7 @@ pub(crate) fn contract_concern_message(
             player_name, months
         ),
     ];
-    let idx = rng.gen_range(0..variations.len());
+    let idx = rng.random_range(0..variations.len());
 
     InboxMessage::new(
         msg_id.to_string(),

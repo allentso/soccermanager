@@ -1,6 +1,6 @@
 use super::{action, params};
 use domain::message::*;
-use rand::Rng;
+use rand::RngExt;
 
 pub fn pre_match_message(
     fixture_id: &str,
@@ -11,7 +11,7 @@ pub fn pre_match_message(
     match_date: &str,
     date: &str,
 ) -> InboxMessage {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let venue = if is_home { "home" } else { "away" };
 
     let variations = [
@@ -46,7 +46,7 @@ pub fn pre_match_message(
         ),
     ];
 
-    let idx = rng.gen_range(0..variations.len());
+    let idx = rng.random_range(0..variations.len());
 
     InboxMessage::new(
         format!("prematch_{}", fixture_id),
@@ -120,7 +120,7 @@ pub fn match_result_message(
         "Draw"
     };
 
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let body = match outcome {
         "Victory" => {
             let v = [
@@ -137,7 +137,7 @@ pub fn match_result_message(
                     home_name, home_goals, away_goals, away_name, matchday
                 ),
             ];
-            v[rng.gen_range(0..v.len())].clone()
+            v[rng.random_range(0..v.len())].clone()
         }
         "Defeat" => {
             let v = [
@@ -154,7 +154,7 @@ pub fn match_result_message(
                     home_name, home_goals, away_goals, away_name, matchday
                 ),
             ];
-            v[rng.gen_range(0..v.len())].clone()
+            v[rng.random_range(0..v.len())].clone()
         }
         _ => {
             format!(
@@ -209,7 +209,7 @@ pub fn match_result_message(
             if outcome == "Draw" {
                 String::new()
             } else {
-                rng.gen_range(0..2u8).to_string()
+                rng.random_range(0..2u8).to_string()
             }
         ),
         {

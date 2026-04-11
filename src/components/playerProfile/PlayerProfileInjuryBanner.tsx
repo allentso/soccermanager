@@ -1,10 +1,11 @@
 import { AlertTriangle } from "lucide-react";
 import { resolvePlayerInjuryName } from "./PlayerProfile.helpers";
 import { Card, CardBody } from "../ui";
+import type { TOptions } from "i18next";
 
 type TranslateFn = (
     key: string,
-    options?: Record<string, string | number>,
+    options?: TOptions,
 ) => string;
 
 interface PlayerProfileInjuryBannerProps {
