@@ -87,7 +87,7 @@ function focusFirstCreateManagerError(errors: Record<string, string>): void {
   const first = CREATE_MANAGER_FIELD_ORDER.find((k) => errors[k]);
   if (!first) return;
   const root = document.getElementById(`create-manager-field-${first}`);
-  root?.scrollIntoView({ behavior: "smooth", block: "center" });
+  root?.scrollIntoView?.({ behavior: "smooth", block: "center" });
   const focusable = root?.querySelector<HTMLElement>(
     "input:not([type=hidden]), button:not([disabled]), select, textarea",
   );

@@ -1,8 +1,34 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import type { ReactElement } from "react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { ThemeProvider } from "../../context/ThemeContext";
 import PostMatchScreen from "./PostMatchScreen";
 import type { FixtureData, GameStateData } from "../../store/gameStore";
+
+// jsdom doesn't implement matchMedia — ThemeProvider needs it for getInitialTheme
+Object.defineProperty(window, "matchMedia", {
+  writable: true,
+  value: vi.fn().mockImplementation((query: string) => ({
+    matches: query === "(prefers-color-scheme: dark)",
+    media: query,
+    onchange: null,
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+  })),
+});
+
+beforeEach(() => {
+  localStorage.clear();
+  document.documentElement.classList.remove("dark");
+});
+
+function renderPostMatch(ui: ReactElement) {
+  return render(<ThemeProvider>{ui}</ThemeProvider>);
+}
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(),
@@ -453,7 +479,7 @@ describe("PostMatchScreen", function (): void {
       standings: [],
     };
 
-    render(
+    renderPostMatch(
       <PostMatchScreen
         snapshot={makeSnapshot()}
         gameState={gameState}
@@ -539,7 +565,7 @@ describe("PostMatchScreen", function (): void {
       standings: [],
     };
 
-    render(
+    renderPostMatch(
       <PostMatchScreen
         snapshot={makeSnapshot()}
         gameState={gameState}
@@ -592,7 +618,7 @@ describe("PostMatchScreen", function (): void {
   });
 
   it("renders a friendly empty state when the round summary is null", function (): void {
-    render(
+    renderPostMatch(
       <PostMatchScreen
         snapshot={makeSnapshot()}
         gameState={makeGameState()}
