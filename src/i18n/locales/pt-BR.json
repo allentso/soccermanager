@@ -1876,6 +1876,20 @@
       "boardFired": {
         "subject": "Notificação de Demissão — {{team}}",
         "body": "A diretoria do {{team}} decidiu demiti-lo de suas funções como treinador, com efeito imediato. Agradecemos pelo seu serviço e desejamos o melhor em sua futura carreira."
+      },
+      "jobOffer": {
+        "subject": "Vaga de Treinador — {{team}}",
+        "body": "A diretoria do {{team}} ({{city}}) está em busca de um novo treinador para conduzir o clube. Posição na última temporada: {{league_position}}.\n\nApós analisar o seu currículo, acreditamos que você pode ser o candidato certo. Teria interesse em aceitar este desafio?",
+        "accept": "Aceitar o cargo",
+        "decline": "Recusar a oferta"
+      },
+      "jobHired": {
+        "subject": "Bem-vindo ao {{team}}",
+        "body": "A diretoria do {{team}} tem o prazer de recebê-lo como novo treinador. Estamos ansiosos para trabalhar com você e alcançar grandes feitos juntos."
+      },
+      "jobRejection": {
+        "subject": "Atualização da Candidatura — {{team}}",
+        "body": "Obrigado pelo seu interesse no cargo de treinador do {{team}}. Após cuidadosa análise, decidimos seguir com outros candidatos. Desejamos o melhor em sua futura carreira."
       }
     },
     "news": {

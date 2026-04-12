@@ -1876,6 +1876,20 @@
       "boardFired": {
         "subject": "Kündigungsmitteilung — {{team}}",
         "body": "Der Vorstand von {{team}} hat beschlossen, Sie mit sofortiger Wirkung von Ihren Aufgaben als Trainer zu entbinden. Wir danken Ihnen für Ihre Arbeit und wünschen Ihnen alles Gute für Ihre weitere Karriere."
+      },
+      "jobOffer": {
+        "subject": "Trainervakanz — {{team}}",
+        "body": "Der Vorstand von {{team}} ({{city}}) sucht einen neuen Trainer, der den Verein in die Zukunft führt. Platzierung letzte Saison: {{league_position}}.\n\nNach Prüfung Ihrer Unterlagen glauben wir, dass Sie der richtige Kandidat sein könnten. Hätten Sie Interesse an dieser Herausforderung?",
+        "accept": "Position annehmen",
+        "decline": "Angebot ablehnen"
+      },
+      "jobHired": {
+        "subject": "Willkommen bei {{team}}",
+        "body": "Der Vorstand von {{team}} freut sich, Sie als neuen Trainer begrüßen zu dürfen. Wir freuen uns auf die Zusammenarbeit und darauf, gemeinsam Großes zu erreichen."
+      },
+      "jobRejection": {
+        "subject": "Bewerbungsupdate — {{team}}",
+        "body": "Vielen Dank für Ihr Interesse an der Trainerposition bei {{team}}. Nach sorgfältiger Überlegung haben wir uns für andere Kandidaten entschieden. Wir wünschen Ihnen alles Gute für Ihre weitere Karriere."
       }
     },
     "news": {

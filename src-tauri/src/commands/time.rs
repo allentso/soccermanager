@@ -81,6 +81,8 @@ pub fn skip_to_match_day(state: State<'_, StateManager>) -> Result<serde_json::V
         .get_game(|g| g.clone())
         .ok_or("No active game session")?;
 
+    // Precondition: manager must be employed at entry — guarantees that any later
+    // `team_id.is_none()` inside the loop is a real firing transition, not a stale state.
     let user_team_id = game.manager.team_id.clone().ok_or("No team assigned")?;
     info!(
         "[cmd] skip_to_match_day: start_date={}, user_team_id={}",
@@ -122,7 +124,9 @@ pub fn skip_to_match_day(state: State<'_, StateManager>) -> Result<serde_json::V
         }
         days_skipped += 1;
 
-        // Check if the manager was fired during this day
+        // Detect a firing that happened *during* this skip. Because the function
+        // errors out above when the manager starts unemployed, seeing `team_id.is_none()`
+        // here can only mean a real employed → unemployed transition.
         if game.manager.team_id.is_none() {
             info!(
                 "[cmd] skip_to_match_day: manager fired after {} days",

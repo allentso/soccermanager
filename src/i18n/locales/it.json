@@ -1812,6 +1812,20 @@
       "boardFired": {
         "subject": "Avviso di Esonero — {{team}}",
         "body": "Il consiglio di amministrazione del {{team}} ha deciso di sollevarti dal tuo incarico di allenatore, con effetto immediato. Ti ringraziamo per il tuo servizio e ti auguriamo il meglio per la tua futura carriera."
+      },
+      "jobOffer": {
+        "subject": "Posizione Vacante — {{team}}",
+        "body": "Il consiglio del {{team}} ({{city}}) sta cercando un nuovo allenatore per guidare il club. Posizione lo scorso anno: {{league_position}}.\n\nDopo aver esaminato il tuo curriculum, crediamo che tu possa essere la persona giusta. Saresti interessato ad accettare questa sfida?",
+        "accept": "Accetta la posizione",
+        "decline": "Rifiuta l'offerta"
+      },
+      "jobHired": {
+        "subject": "Benvenuto al {{team}}",
+        "body": "Il consiglio di amministrazione del {{team}} è lieto di darti il benvenuto come nuovo allenatore. Non vediamo l'ora di lavorare con te e raggiungere grandi traguardi insieme."
+      },
+      "jobRejection": {
+        "subject": "Aggiornamento Candidatura — {{team}}",
+        "body": "Grazie per il tuo interesse per la posizione di allenatore al {{team}}. Dopo un'attenta valutazione, abbiamo deciso di proseguire con altri candidati. Ti auguriamo il meglio per la tua futura carriera."
       }
     },
     "news": {

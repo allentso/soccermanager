@@ -422,6 +422,15 @@ pub fn apply_job_offer_response(
 
     match option_id {
         "accept" => {
+            // Guard against accepting an old offer after being (re)hired elsewhere.
+            // Without this, the stale "accept" would leave the previous club's
+            // manager_id set and its career entry open.
+            if game.manager.team_id.is_some() {
+                return Some(format!(
+                    "You are already employed and cannot accept the offer from {}",
+                    team_name
+                ));
+            }
             let today = game.clock.current_date.format("%Y-%m-%d").to_string();
             match hire_manager(game, &team_id, &today) {
                 Ok(name) => Some(format!("You have been appointed manager of {}", name)),
@@ -729,5 +738,47 @@ mod tests {
         let mut game = make_game(10, false);
         let result = apply_job_offer_response(&mut game, "sponsor_123", "action1", "accept");
         assert!(result.is_none());
+    }
+
+    #[test]
+    fn apply_job_offer_response_accept_rejected_when_already_employed() {
+        let mut game = make_game(50, true);
+        let msg = InboxMessage::new(
+            "job_offer_team2_2026-11-01".to_string(),
+            "Offer".to_string(),
+            "Join us".to_string(),
+            "Board".to_string(),
+            "2026-11-01".to_string(),
+        )
+        .with_context(MessageContext {
+            team_id: Some("team2".to_string()),
+            player_id: None,
+            fixture_id: None,
+            match_result: None,
+            scout_report: None,
+            delegated_renewal_report: None,
+        })
+        .with_action(MessageAction {
+            id: "respond_team2".to_string(),
+            label: "Respond".to_string(),
+            action_type: ActionType::ChooseOption { options: vec![] },
+            resolved: false,
+            label_key: None,
+        });
+        game.messages.push(msg);
+
+        let effect = apply_job_offer_response(
+            &mut game,
+            "job_offer_team2_2026-11-01",
+            "respond_team2",
+            "accept",
+        );
+        assert!(effect.is_some());
+        assert!(effect.unwrap().contains("already employed"));
+        // Previous team assignment must be untouched.
+        assert_eq!(game.manager.team_id, Some("team1".to_string()));
+        assert_eq!(game.teams[0].manager_id, Some("mgr1".to_string()));
+        // No new career entry opened.
+        assert_eq!(game.manager.career_history.len(), 0);
     }
 }

@@ -1876,6 +1876,20 @@
       "boardFired": {
         "subject": "Avis de Licenciement — {{team}}",
         "body": "Le conseil d'administration du {{team}} a décidé de vous relever de vos fonctions d'entraîneur, avec effet immédiat. Nous vous remercions pour votre service et vous souhaitons bonne chance pour la suite de votre carrière."
+      },
+      "jobOffer": {
+        "subject": "Poste d'entraîneur — {{team}}",
+        "body": "Le conseil du {{team}} ({{city}}) cherche un nouvel entraîneur pour guider le club. Classement la saison dernière : {{league_position}}.\n\nAprès avoir examiné votre parcours, nous pensons que vous pourriez être le bon candidat. Seriez-vous intéressé par ce défi ?",
+        "accept": "Accepter le poste",
+        "decline": "Décliner l'offre"
+      },
+      "jobHired": {
+        "subject": "Bienvenue au {{team}}",
+        "body": "Le conseil d'administration du {{team}} est ravi de vous accueillir comme nouvel entraîneur. Nous sommes impatients de travailler avec vous et d'accomplir de grandes choses ensemble."
+      },
+      "jobRejection": {
+        "subject": "Suivi de Candidature — {{team}}",
+        "body": "Merci de votre intérêt pour le poste d'entraîneur au {{team}}. Après mûre réflexion, nous avons décidé de poursuivre avec d'autres candidats. Nous vous souhaitons bonne chance pour la suite de votre carrière."
       }
     },
     "news": {

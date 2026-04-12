@@ -1876,6 +1876,20 @@
       "boardFired": {
         "subject": "Notice of Dismissal — {{team}}",
         "body": "The board of directors at {{team}} has decided to relieve you of your duties as manager, effective immediately. We thank you for your service and wish you well in your future career."
+      },
+      "jobOffer": {
+        "subject": "Managerial Vacancy — {{team}}",
+        "body": "The board at {{team}} ({{city}}) is looking for a new manager to lead the club forward. Last season finish: {{league_position}}.\n\nAfter reviewing your credentials, we believe you could be the right fit. Would you be interested in taking on this challenge?",
+        "accept": "Accept the position",
+        "decline": "Decline the offer"
+      },
+      "jobHired": {
+        "subject": "Welcome to {{team}}",
+        "body": "The board of directors at {{team}} is delighted to welcome you as the new manager. We look forward to working with you and achieving great things together."
+      },
+      "jobRejection": {
+        "subject": "Application Update — {{team}}",
+        "body": "Thank you for your interest in the managerial position at {{team}}. After careful consideration, we have decided to pursue other candidates. We wish you the best in your future career."
       }
     },
     "news": {
