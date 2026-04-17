@@ -37,6 +37,71 @@ function normaliseSearchText(value: string): string {
     .toLowerCase();
 }
 
+/**
+ * Minimum manager age (years) on create — historical rule, unchanged here on purpose.
+ * Opinion (retraca, git 1631b76): this floor should probably be removed or lowered (~18);
+ * leaving as-is until product agrees.
+ */
+const MANAGER_MINIMUM_AGE = 30;
+
+function flooredAgeFromIsoDate(isoDob: string): number | null {
+  if (!isoDob) return null;
+
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(isoDob);
+  if (!match) return null;
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const birthDate = new Date(year, month - 1, day);
+
+  if (
+    Number.isNaN(birthDate.getTime()) ||
+    birthDate.getFullYear() !== year ||
+    birthDate.getMonth() !== month - 1 ||
+    birthDate.getDate() !== day
+  ) {
+    return null;
+  }
+
+  const today = new Date();
+  let age = today.getFullYear() - year;
+  const hasHadBirthdayThisYear =
+    today.getMonth() > month - 1 ||
+    (today.getMonth() === month - 1 && today.getDate() >= day);
+
+  if (!hasHadBirthdayThisYear) {
+    age -= 1;
+  }
+  return Number.isNaN(age) ? null : age;
+}
+
+const CREATE_MANAGER_FIELD_ORDER = [
+  "firstName",
+  "lastName",
+  "dob",
+  "nationality",
+] as const;
+
+function prefersReducedMotion(): boolean {
+  if (typeof window === "undefined") return false;
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+function focusFirstCreateManagerError(errors: Record<string, string>): void {
+  const first = CREATE_MANAGER_FIELD_ORDER.find((k) => errors[k]);
+  if (!first) return;
+  const root = document.getElementById(`create-manager-field-${first}`);
+  root?.scrollIntoView?.({
+    behavior: prefersReducedMotion() ? "auto" : "smooth",
+    block: "center",
+  });
+  const focusable = root?.querySelector<HTMLElement>(
+    "input:not([type=hidden]), button:not([disabled]), select, textarea",
+  );
+  focusable?.focus({ preventScroll: true });
+}
+
 function logNationalityDebug(
   message: string,
   details?: Record<string, unknown>,
@@ -81,6 +146,18 @@ export default function MainMenu() {
   const countriesList = allNationalities(i18n.language);
   const normalisedNationalitySearch = normaliseSearchText(nationalitySearch);
 
+  /** Same messages as `validateForm` for DOB, so the age rule surfaces as the user edits. */
+  const dobLiveRuleMessage = (() => {
+    if (!formData.dob) return null;
+    const age = flooredAgeFromIsoDate(formData.dob);
+    if (age === null) return t("validation.invalidDate");
+    if (age < MANAGER_MINIMUM_AGE)
+      return t("validation.minAge", { min: MANAGER_MINIMUM_AGE });
+    if (age > 99) return t("validation.invalidDob");
+    return null;
+  })();
+  const dobDisplayedError = formErrors.dob || dobLiveRuleMessage;
+
   const filteredNationalities = countriesList.filter((nationality) => {
     const normalisedName = normaliseSearchText(nationality.name);
     const normalisedCode = normaliseSearchText(nationality.code);
@@ -100,7 +177,10 @@ export default function MainMenu() {
     setNationalitySearch("");
   };
 
-  const validateForm = (): boolean => {
+  const validateForm = (): {
+    ok: boolean;
+    errors: Record<string, string>;
+  } => {
     const errors: Record<string, string> = {};
     if (!formData.firstName.trim()) {
       errors.firstName = t("validation.required", {
@@ -127,16 +207,11 @@ export default function MainMenu() {
     if (!formData.dob) {
       errors.dob = t("validation.required", { field: t("createManager.dob") });
     } else {
-      const birthDate = new Date(formData.dob);
-      const today = new Date();
-      const age = Math.floor(
-        (today.getTime() - birthDate.getTime()) /
-        (365.25 * 24 * 60 * 60 * 1000),
-      );
-      if (isNaN(age)) {
+      const age = flooredAgeFromIsoDate(formData.dob);
+      if (age === null) {
         errors.dob = t("validation.invalidDate");
-      } else if (age < 30) {
-        errors.dob = t("validation.minAge");
+      } else if (age < MANAGER_MINIMUM_AGE) {
+        errors.dob = t("validation.minAge", { min: MANAGER_MINIMUM_AGE });
       } else if (age > 99) {
         errors.dob = t("validation.invalidDob");
       }
@@ -146,12 +221,21 @@ export default function MainMenu() {
         field: t("createManager.countryOfOrigin", "Country/Region of Origin"),
       });
     setFormErrors(errors);
-    return Object.keys(errors).length === 0;
+    return {
+      ok: Object.keys(errors).length === 0,
+      errors,
+    };
   };
 
   const handleGoToWorldSelect = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validateForm()) return;
+    const validation = validateForm();
+    if (!validation.ok) {
+      requestAnimationFrame(() =>
+        focusFirstCreateManagerError(validation.errors),
+      );
+      return;
+    }
     setMenuState("world");
     loadWorldDatabases();
   };
@@ -339,7 +423,7 @@ export default function MainMenu() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-navy-900 transition-colors duration-500 relative overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-navy-900 transition-colors duration-500 relative overflow-x-hidden">
       {/* Background gradient accents */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -right-40 w-96 h-96 bg-primary-500/10 dark:bg-primary-500/5 rounded-full blur-3xl" />
@@ -457,7 +541,7 @@ export default function MainMenu() {
 
               {/* Name fields with labels */}
               <div className="flex gap-3">
-                <div className="flex-1">
+                <div className="flex-1" id="create-manager-field-firstName">
                   <label className="block text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">
                     {t("createManager.firstName")}
                   </label>
@@ -484,7 +568,7 @@ export default function MainMenu() {
                     </p>
                   )}
                 </div>
-                <div className="flex-1">
+                <div className="flex-1" id="create-manager-field-lastName">
                   <label className="block text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">
                     {t("createManager.lastName")}
                   </label>
@@ -514,7 +598,7 @@ export default function MainMenu() {
               </div>
 
               {/* Date of Birth with label */}
-              <div>
+              <div id="create-manager-field-dob">
                 <label className="block text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">
                   {t("createManager.dob")}
                 </label>
@@ -527,22 +611,22 @@ export default function MainMenu() {
                     }));
                     setFormErrors((prev) => ({ ...prev, dob: "" }));
                   }}
-                  error={!!formErrors.dob}
+                  error={!!dobDisplayedError}
                 />
-                {formErrors.dob ? (
+                {dobDisplayedError && (
                   <p className="flex items-center gap-1 text-xs text-red-500 mt-1">
-                    <AlertCircle className="w-3 h-3" />
-                    {formErrors.dob}
-                  </p>
-                ) : (
-                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                    {t("createManager.minAge")}
+                    <AlertCircle className="w-3 h-3 shrink-0" />
+                    {dobDisplayedError}
                   </p>
                 )}
               </div>
 
-              {/* Country/Region combobox */}
-              <div ref={nationalityRef}>
+              {/* Country/Region combobox — elevate stacking when open so the menu paints above the submit button */}
+              <div
+                id="create-manager-field-nationality"
+                ref={nationalityRef}
+                className={nationalityOpen ? "relative z-50" : undefined}
+              >
                 <label className="block text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">
                   {t(
                     "createManager.countryOfOrigin",
@@ -602,7 +686,7 @@ export default function MainMenu() {
 
                   {nationalityOpen && (
                     <div
-                      className="absolute z-50 top-full mt-1 left-0 right-0 bg-white dark:bg-navy-700 rounded-lg shadow-xl border border-gray-200 dark:border-navy-600 overflow-hidden"
+                      className="absolute z-50 bottom-full mb-1 left-0 right-0 bg-white dark:bg-navy-700 rounded-lg shadow-xl border border-gray-200 dark:border-navy-600 overflow-hidden"
                       onMouseDown={(event) => {
                         event.stopPropagation();
                         logNationalityDebug("dropdown panel mousedown");
@@ -618,7 +702,7 @@ export default function MainMenu() {
                           className="w-full bg-gray-50 dark:bg-navy-800 border border-gray-200 dark:border-navy-600 text-gray-900 dark:text-white rounded-md px-3 py-2 text-sm outline-none focus:border-primary-500 transition-colors placeholder:text-gray-400 dark:placeholder:text-gray-500"
                         />
                       </div>
-                      <div className="max-h-48 overflow-y-auto">
+                      <div className="max-h-[min(20rem,calc(100vh-9rem))] overflow-y-auto overscroll-contain">
                         {filteredNationalities.length === 0 ? (
                           <p className="px-3 py-2 text-xs text-gray-400 dark:text-gray-500">
                             {t("menu.noResults")}

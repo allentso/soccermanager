@@ -31,14 +31,13 @@
     "selectCountry": "Sélectionner le Pays/Région...",
     "searchNationalities": "Rechercher une nationalité...",
     "chooseWorld": "Choisir le Monde",
-    "minAge": "Âge minimum : 30 ans",
     "placeholderFirst": "ex. José",
     "placeholderLast": "ex. Mourinho"
   },
   "validation": {
     "required": "{{field}} est obligatoire",
     "maxLength": "{{field}} ne doit pas dépasser {{max}} caractères",
-    "minAge": "L'entraîneur doit avoir au moins 30 ans",
+    "minAge": "L'entraîneur doit avoir au moins {{min}} ans — modifie la date de naissance pour continuer.",
     "invalidDate": "Date invalide",
     "invalidDob": "Date de naissance invalide"
   },

@@ -31,14 +31,13 @@
     "selectCountry": "Select Country/Region...",
     "searchNationalities": "Search nationalities...",
     "chooseWorld": "Choose World",
-    "minAge": "Minimum age: 30 years",
     "placeholderFirst": "e.g. José",
     "placeholderLast": "e.g. Mourinho"
   },
   "validation": {
     "required": "{{field}} is required",
     "maxLength": "{{field}} must not exceed {{max}} characters",
-    "minAge": "Manager must be at least 30 years old",
+    "minAge": "Manager must be at least {{min}} years old — change the date of birth to continue.",
     "invalidDate": "Invalid date",
     "invalidDob": "Invalid date of birth"
   },

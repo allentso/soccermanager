@@ -170,6 +170,16 @@ describe("MainMenu", () => {
 
       return null;
     });
+    // MainMenu defers focus with requestAnimationFrame; defer one microtask so React
+    // commits setFormErrors before focus runs (matches real rAF ordering).
+    vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
+      queueMicrotask(() => cb(0));
+      return 0;
+    });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it.each(["es", "de", "fr", "it", "pt", "pt-BR"])(
@@ -309,5 +319,64 @@ describe("MainMenu", () => {
         }),
       );
     });
+  });
+
+  it("focuses the first invalid field when submitting an empty Create Manager form", async () => {
+    render(<MainMenu />);
+
+    openCreateManagerForm();
+    fireEvent.click(screen.getByText("createManager.chooseWorld"));
+
+    await waitFor(() => {
+      expect(
+        screen.getByPlaceholderText("createManager.placeholderFirst"),
+      ).toHaveFocus();
+    });
+    expect(mockedInvoke).not.toHaveBeenCalledWith("list_world_databases");
+  });
+
+  it("focuses the next invalid field in order when earlier fields are valid", async () => {
+    render(<MainMenu />);
+
+    openCreateManagerForm();
+    fireEvent.change(
+      screen.getByPlaceholderText("createManager.placeholderFirst"),
+      { target: { value: "Ada" } },
+    );
+    fireEvent.click(screen.getByText("createManager.chooseWorld"));
+
+    await waitFor(() => {
+      expect(
+        screen.getByPlaceholderText("createManager.placeholderLast"),
+      ).toHaveFocus();
+    });
+  });
+
+  it("shows min-age feedback for an underage DOB, blocks progression, and focuses the DOB field on submit", async () => {
+    render(<MainMenu />);
+
+    openCreateManagerForm();
+    fireEvent.change(
+      screen.getByPlaceholderText("createManager.placeholderFirst"),
+      { target: { value: "Ada" } },
+    );
+    fireEvent.change(
+      screen.getByPlaceholderText("createManager.placeholderLast"),
+      { target: { value: "Lovelace" } },
+    );
+    fireEvent.change(screen.getByLabelText("manager-date-of-birth"), {
+      target: { value: "2010-06-15" },
+    });
+
+    expect(screen.getByText("validation.minAge")).toBeInTheDocument();
+
+    selectNationality("en", "ES");
+    fireEvent.click(screen.getByText("createManager.chooseWorld"));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("manager-date-of-birth")).toHaveFocus();
+    });
+    expect(mockedInvoke).not.toHaveBeenCalledWith("list_world_databases");
+    expect(screen.queryByTestId("world-select")).not.toBeInTheDocument();
   });
 });
