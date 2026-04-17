@@ -339,6 +339,10 @@ fn check_random_events_board_confidence_triggers_on_losses() {
         1,
         "Board confidence message should trigger after 3 losses"
     );
+    // Use the most recent lost match as the msg id
+    assert_eq!(board_msgs[0].id, "board_confidence_2025-06-10");
+    // Date of the message should still be game date
+    assert_eq!(board_msgs[0].date, _today);
     assert_eq!(board_msgs[0].category, MessageCategory::BoardDirective);
     assert_eq!(board_msgs[0].priority, MessagePriority::Urgent);
     assert_choose_option_keys(board_msgs[0]);
