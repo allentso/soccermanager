@@ -158,13 +158,20 @@ fn resolve_message_action_internal(
                 Some(player_effect.i18n_params),
             )
         } else {
-            (
-                ofm_core::random_events::apply_event_response(
-                    &mut game, message_id, action_id, opt,
-                ),
-                None,
-                None,
-            )
+            let random_effect = ofm_core::random_events::apply_event_response(
+                &mut game, message_id, action_id, opt,
+            );
+            if random_effect.is_some() {
+                (random_effect, None, None)
+            } else {
+                (
+                    ofm_core::job_offers::apply_job_offer_response(
+                        &mut game, message_id, action_id, opt,
+                    ),
+                    None,
+                    None,
+                )
+            }
         }
     } else {
         // Standard resolve — just mark action as resolved

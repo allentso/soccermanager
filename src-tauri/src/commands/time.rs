@@ -81,6 +81,8 @@ pub fn skip_to_match_day(state: State<'_, StateManager>) -> Result<serde_json::V
         .get_game(|g| g.clone())
         .ok_or("No active game session")?;
 
+    // Precondition: manager must be employed at entry — guarantees that any later
+    // `team_id.is_none()` inside the loop is a real firing transition, not a stale state.
     let user_team_id = game.manager.team_id.clone().ok_or("No team assigned")?;
     info!(
         "[cmd] skip_to_match_day: start_date={}, user_team_id={}",
@@ -122,6 +124,23 @@ pub fn skip_to_match_day(state: State<'_, StateManager>) -> Result<serde_json::V
         }
         days_skipped += 1;
 
+        // Detect a firing that happened *during* this skip. Because the function
+        // errors out above when the manager starts unemployed, seeing `team_id.is_none()`
+        // here can only mean a real employed → unemployed transition.
+        if game.manager.team_id.is_none() {
+            info!(
+                "[cmd] skip_to_match_day: manager fired after {} days",
+                days_skipped
+            );
+            state.set_game(game.clone());
+            return Ok(serde_json::json!({
+                "action": "fired",
+                "game": game,
+                "days_skipped": days_skipped
+            }));
+        }
+
+        // After processing, check if blocking actions arose
         let blockers = compute_blocking_actions(&game);
         if !blockers.is_empty() {
             info!(
@@ -268,14 +287,21 @@ mod tests {
             "Rival Ground".to_string(),
             21_000,
         );
-        opponent_team.starting_xi_ids = game.players.iter().skip(11).take(11).map(|p| p.id.clone()).collect();
+        opponent_team.starting_xi_ids = game
+            .players
+            .iter()
+            .skip(11)
+            .take(11)
+            .map(|p| p.id.clone())
+            .collect();
         game.teams.push(opponent_team);
 
         for player in game.players.iter_mut().skip(11) {
             player.team_id = Some("team2".to_string());
         }
 
-        game.teams[0].starting_xi_ids = game.players.iter().take(11).map(|p| p.id.clone()).collect();
+        game.teams[0].starting_xi_ids =
+            game.players.iter().take(11).map(|p| p.id.clone()).collect();
         game.league = Some(domain::league::League {
             id: "league-1".to_string(),
             name: "League".to_string(),
@@ -326,8 +352,16 @@ mod tests {
         let advanced = super::advance_time_internal(&state).unwrap();
         let stats = state.get_stats_state(|current| current.clone()).unwrap();
 
-        assert_eq!(advanced.clock.current_date.date_naive(), Utc.with_ymd_and_hms(2025, 6, 16, 12, 0, 0).unwrap().date_naive());
-        assert!(!stats.player_matches.is_empty(), "expected player match history to be recorded");
+        assert_eq!(
+            advanced.clock.current_date.date_naive(),
+            Utc.with_ymd_and_hms(2025, 6, 16, 12, 0, 0)
+                .unwrap()
+                .date_naive()
+        );
+        assert!(
+            !stats.player_matches.is_empty(),
+            "expected player match history to be recorded"
+        );
         assert_eq!(stats.team_matches.len(), 2);
         assert_eq!(stats.player_matches[0].fixture_id, "fixture-1");
     }

@@ -91,7 +91,8 @@
       "incompleteStartingXi": "El once inicial está incompleto — ajusta tu alineación",
       "urgentUnread": "{{count}} mensaje(s) urgente(s) sin leer",
       "matchTodayStartingXi": "¡Hay partido hoy! Ajusta tu once inicial"
-    }
+    },
+    "unemployedBanner": "Actualmente no tiene club. Las ofertas de trabajo pueden llegar a su bandeja de entrada."
   },
   "continueMenu": {
     "goToField": "Ir al Campo",
@@ -763,7 +764,8 @@
       "Contract": "Contrato",
       "ScoutReport": "Ojeador",
       "Media": "Medios",
-      "System": "Sistema"
+      "System": "Sistema",
+      "JobOffer": "Ofertas de empleo"
     }
   },
   "manager": {
@@ -1861,6 +1863,32 @@
       "scoutReport": {
         "subject": "Informe del ojeador: {{player}}",
         "body": "Tu ojeador {{scout}} ha completado su evaluación de {{player}}. Informe completo disponible en la sección de ojeo."
+      },
+      "boardWarning": {
+        "subject": "Preocupación de la Directiva — Revisión de Resultados",
+        "body": "La directiva está cada vez más preocupada con los resultados recientes en {{team}}. Tu puesto será objeto de una seria revisión si no hay mejora en un futuro próximo."
+      },
+      "boardFinalWarning": {
+        "subject": "Último Aviso — Se Requiere Mejora Inmediata",
+        "body": "Este es tu último aviso. La directiva del {{team}} ha perdido la paciencia con la racha actual de resultados. A menos que haya una mejora inmediata y significativa, no tendremos más remedio que reconsiderar tu puesto."
+      },
+      "boardFired": {
+        "subject": "Notificación de Destitución — {{team}}",
+        "body": "La junta directiva del {{team}} ha decidido relevarte de tus funciones como entrenador, con efecto inmediato. Te agradecemos tu servicio y te deseamos lo mejor en tu futura carrera."
+      },
+      "jobOffer": {
+        "subject": "Vacante de Entrenador — {{team}}",
+        "body": "La directiva del {{team}} ({{city}}) busca un nuevo entrenador que lidere al club. Posición la temporada pasada: {{league_position}}.\n\nTras revisar tu trayectoria, creemos que podrías ser el candidato adecuado. ¿Te interesaría asumir este reto?",
+        "accept": "Aceptar el puesto",
+        "decline": "Rechazar la oferta"
+      },
+      "jobHired": {
+        "subject": "Bienvenido al {{team}}",
+        "body": "La junta directiva del {{team}} se complace en darte la bienvenida como nuevo entrenador. Esperamos trabajar contigo y lograr grandes cosas juntos."
+      },
+      "jobRejection": {
+        "subject": "Actualización de Candidatura — {{team}}",
+        "body": "Gracias por tu interés en el puesto de entrenador en {{team}}. Tras una cuidadosa consideración, hemos decidido seguir con otros candidatos. Te deseamos lo mejor en tu futura carrera."
       }
     },
     "news": {
@@ -2007,5 +2035,34 @@
     "day": "DD",
     "month": "Mes",
     "year": "AAAA"
+  },
+  "sacked": {
+    "title": "Has Sido Destituido",
+    "subtitle": "La directiva ha perdido la confianza en tu capacidad para dirigir el club.",
+    "teamLabel": "Club",
+    "finalSatisfaction": "Confianza de la Directiva",
+    "careerOverview": "Resumen de Carrera",
+    "matchesManaged": "Partidos",
+    "wins": "Victorias",
+    "draws": "Empates",
+    "losses": "Derrotas",
+    "winRate": "% Victorias",
+    "bestFinish": "Mejor Posición",
+    "trophies": "Trofeos",
+    "careerHistory": "Historial",
+    "returnToMenu": "Volver al Menú Principal",
+    "present": "Actual",
+    "bestLabel": "Mejor",
+    "dismissalLetter": "La junta directiva ha decidido relevarle de sus funciones como entrenador de {{team}}, con efecto inmediato.\n\nLe agradecemos sus servicios y le deseamos lo mejor en su futura carrera.\n\nAtentamente,\nLa Junta Directiva"
+  },
+  "jobs": {
+    "opportunitiesTitle": "Oportunidades de empleo",
+    "applyButton": "Postular",
+    "applicationSent": "Postulando...",
+    "hired": "¡Has sido nombrado entrenador!",
+    "rejected": "Tu solicitud no fue exitosa.",
+    "noJobs": "No hay puestos disponibles actualmente.",
+    "leaguePosition": "Última temporada: {{position}}",
+    "refresh": "Buscar nuevas ofertas"
   }
 }

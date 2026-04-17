@@ -91,7 +91,8 @@
       "incompleteStartingXi": "O onze inicial está incompleto — define a tua equipa",
       "urgentUnread": "{{count}} mensagem(ns) urgente(s) por ler",
       "matchTodayStartingXi": "Jogo hoje! Define o teu onze inicial"
-    }
+    },
+    "unemployedBanner": "Você está atualmente sem clube. Ofertas de emprego podem chegar na sua caixa de entrada."
   },
   "continueMenu": {
     "goToField": "Ir para o Campo",
@@ -763,7 +764,8 @@
       "Contract": "Contrato",
       "ScoutReport": "Observação",
       "Media": "Media",
-      "System": "Sistema"
+      "System": "Sistema",
+      "JobOffer": "Ofertas de emprego"
     }
   },
   "manager": {
@@ -1861,6 +1863,32 @@
       "scoutReport": {
         "subject": "Scout Report: {{player}}",
         "body": "Your scout {{scout}} has completed their assessment of {{player}}. Full report available in the scouting section."
+      },
+      "boardWarning": {
+        "subject": "Preocupação da Direção — Revisão de Desempenho",
+        "body": "A direção está cada vez mais preocupada com os resultados recentes no {{team}}. A sua posição será seriamente revista se não houver melhoria num futuro próximo."
+      },
+      "boardFinalWarning": {
+        "subject": "Último Aviso — Melhoria Imediata Necessária",
+        "body": "Este é o seu último aviso. A direção do {{team}} perdeu a paciência com a série atual de resultados. A menos que haja uma melhoria imediata e significativa, não teremos outra escolha senão reconsiderar a sua posição."
+      },
+      "boardFired": {
+        "subject": "Notificação de Demissão — {{team}}",
+        "body": "A direção do {{team}} decidiu demiti-lo das suas funções como treinador, com efeito imediato. Agradecemos o seu serviço e desejamos-lhe o melhor na sua futura carreira."
+      },
+      "jobOffer": {
+        "subject": "Vaga de Treinador — {{team}}",
+        "body": "A direção do {{team}} ({{city}}) procura um novo treinador para liderar o clube. Classificação na última época: {{league_position}}.\n\nApós analisar o seu percurso, acreditamos que poderá ser o candidato certo. Teria interesse em aceitar este desafio?",
+        "accept": "Aceitar o cargo",
+        "decline": "Recusar a oferta"
+      },
+      "jobHired": {
+        "subject": "Bem-vindo ao {{team}}",
+        "body": "A direção do {{team}} tem o prazer de o receber como novo treinador. Estamos ansiosos por trabalhar consigo e alcançar grandes feitos juntos."
+      },
+      "jobRejection": {
+        "subject": "Atualização da Candidatura — {{team}}",
+        "body": "Obrigado pelo seu interesse no cargo de treinador do {{team}}. Após ponderação cuidadosa, decidimos avançar com outros candidatos. Desejamos-lhe o melhor na sua futura carreira."
       }
     },
     "news": {
@@ -2007,5 +2035,34 @@
     "day": "DD",
     "month": "Mês",
     "year": "AAAA"
+  },
+  "sacked": {
+    "title": "Foi Demitido",
+    "subtitle": "A direção perdeu confiança na sua capacidade de gerir o clube.",
+    "teamLabel": "Clube",
+    "finalSatisfaction": "Confiança da Direção",
+    "careerOverview": "Resumo da Carreira",
+    "matchesManaged": "Jogos",
+    "wins": "Vitórias",
+    "draws": "Empates",
+    "losses": "Derrotas",
+    "winRate": "% Vitórias",
+    "bestFinish": "Melhor Posição",
+    "trophies": "Troféus",
+    "careerHistory": "Histórico",
+    "returnToMenu": "Voltar ao Menu Principal",
+    "present": "Atual",
+    "bestLabel": "Melhor",
+    "dismissalLetter": "O conselho de administração decidiu dispensá-lo das suas funções como treinador do {{team}}, com efeito imediato.\n\nAgradecemos pelos seus serviços e desejamos-lhe o melhor para a sua futura carreira.\n\nAtenciosamente,\nO Conselho de Administração"
+  },
+  "jobs": {
+    "opportunitiesTitle": "Oportunidades de emprego",
+    "applyButton": "Candidatar-se",
+    "applicationSent": "Candidatando...",
+    "hired": "Você foi nomeado treinador!",
+    "rejected": "Sua candidatura não foi bem-sucedida.",
+    "noJobs": "Nenhuma posição disponível no momento.",
+    "leaguePosition": "Última temporada: {{position}}",
+    "refresh": "Verificar novas vagas"
   }
 }

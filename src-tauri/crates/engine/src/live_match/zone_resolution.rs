@@ -312,7 +312,8 @@ impl LiveMatchState {
 
         let att_side = fouling_side.opposite();
 
-        if zone.is_box_for(att_side) && rng.random_range(0.0..1.0f64) < self.config.penalty_probability
+        if zone.is_box_for(att_side)
+            && rng.random_range(0.0..1.0f64) < self.config.penalty_probability
         {
             let evt = MatchEvent::new(minute, EventType::PenaltyAwarded, att_side, zone);
             self.events.push(evt.clone());

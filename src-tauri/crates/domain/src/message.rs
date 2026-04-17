@@ -17,6 +17,7 @@ pub enum MessageCategory {
     ScoutReport,
     Media,
     System,
+    JobOffer,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

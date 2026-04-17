@@ -91,7 +91,8 @@
       "incompleteStartingXi": "Startelf unvollständig — stelle deine Aufstellung ein",
       "urgentUnread": "{{count}} dringende Nachricht(en) ungelesen",
       "matchTodayStartingXi": "Heute ist Spieltag! Stelle deine Startelf ein"
-    }
+    },
+    "unemployedBanner": "Sie sind derzeit ohne Verein. Jobangebote könnten in Ihrem Posteingang eintreffen."
   },
   "continueMenu": {
     "goToField": "Aufs Spielfeld",
@@ -763,7 +764,8 @@
       "Contract": "Vertrag",
       "ScoutReport": "Scout",
       "Media": "Medien",
-      "System": "System"
+      "System": "System",
+      "JobOffer": "Stellenangebote"
     }
   },
   "manager": {
@@ -1861,6 +1863,32 @@
       "scoutReport": {
         "subject": "Scout-Bericht: {{player}}",
         "body": "Dein Scout {{scout}} hat seine Einschätzung zu {{player}} abgeschlossen. Der vollständige Bericht ist im Scouting-Bereich verfügbar."
+      },
+      "boardWarning": {
+        "subject": "Bedenken des Vorstands — Leistungsüberprüfung",
+        "body": "Der Vorstand ist zunehmend besorgt über die jüngsten Ergebnisse bei {{team}}. Ihre Position wird ernsthaft überprüft, wenn sich die Lage nicht in naher Zukunft verbessert."
+      },
+      "boardFinalWarning": {
+        "subject": "Letzte Warnung — Sofortige Verbesserung Erforderlich",
+        "body": "Dies ist Ihre letzte Warnung. Der Vorstand von {{team}} hat die Geduld mit der aktuellen Ergebnisserie verloren. Ohne sofortige und deutliche Verbesserung werden wir keine andere Wahl haben, als Ihre Position zu überdenken."
+      },
+      "boardFired": {
+        "subject": "Kündigungsmitteilung — {{team}}",
+        "body": "Der Vorstand von {{team}} hat beschlossen, Sie mit sofortiger Wirkung von Ihren Aufgaben als Trainer zu entbinden. Wir danken Ihnen für Ihre Arbeit und wünschen Ihnen alles Gute für Ihre weitere Karriere."
+      },
+      "jobOffer": {
+        "subject": "Trainervakanz — {{team}}",
+        "body": "Der Vorstand von {{team}} ({{city}}) sucht einen neuen Trainer, der den Verein in die Zukunft führt. Platzierung letzte Saison: {{league_position}}.\n\nNach Prüfung Ihrer Unterlagen glauben wir, dass Sie der richtige Kandidat sein könnten. Hätten Sie Interesse an dieser Herausforderung?",
+        "accept": "Position annehmen",
+        "decline": "Angebot ablehnen"
+      },
+      "jobHired": {
+        "subject": "Willkommen bei {{team}}",
+        "body": "Der Vorstand von {{team}} freut sich, Sie als neuen Trainer begrüßen zu dürfen. Wir freuen uns auf die Zusammenarbeit und darauf, gemeinsam Großes zu erreichen."
+      },
+      "jobRejection": {
+        "subject": "Bewerbungsupdate — {{team}}",
+        "body": "Vielen Dank für Ihr Interesse an der Trainerposition bei {{team}}. Nach sorgfältiger Überlegung haben wir uns für andere Kandidaten entschieden. Wir wünschen Ihnen alles Gute für Ihre weitere Karriere."
       }
     },
     "news": {
@@ -2007,5 +2035,34 @@
     "day": "TT",
     "month": "Monat",
     "year": "JJJJ"
+  },
+  "sacked": {
+    "title": "Sie Wurden Entlassen",
+    "subtitle": "Der Vorstand hat das Vertrauen in Ihre Fähigkeit, den Verein zu führen, verloren.",
+    "teamLabel": "Verein",
+    "finalSatisfaction": "Vertrauen des Vorstands",
+    "careerOverview": "Karriereübersicht",
+    "matchesManaged": "Spiele",
+    "wins": "Siege",
+    "draws": "Unentschieden",
+    "losses": "Niederlagen",
+    "winRate": "Siegquote",
+    "bestFinish": "Beste Platzierung",
+    "trophies": "Trophäen",
+    "careerHistory": "Karriereverlauf",
+    "returnToMenu": "Zurück zum Hauptmenü",
+    "present": "Aktuell",
+    "bestLabel": "Beste",
+    "dismissalLetter": "Der Vorstand hat beschlossen, Sie mit sofortiger Wirkung als Trainer von {{team}} zu entlassen.\n\nWir danken Ihnen für Ihre Dienste und wünschen Ihnen alles Gute für Ihre weitere Karriere.\n\nMit freundlichen Grüßen,\nDer Vorstand"
+  },
+  "jobs": {
+    "opportunitiesTitle": "Stellenangebote",
+    "applyButton": "Bewerben",
+    "applicationSent": "Bewerbung...",
+    "hired": "Sie wurden als Trainer ernannt!",
+    "rejected": "Ihre Bewerbung war leider nicht erfolgreich.",
+    "noJobs": "Derzeit keine Stellen verfügbar.",
+    "leaguePosition": "Letzte Saison: {{position}}",
+    "refresh": "Nach neuen Stellen suchen"
   }
 }

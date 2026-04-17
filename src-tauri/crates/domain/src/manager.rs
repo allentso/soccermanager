@@ -21,6 +21,11 @@ pub struct Manager {
     pub fan_approval: u8, // 0 to 100 — fan sentiment
     pub team_id: Option<String>,
 
+    // Board warning stage at current club: 0 = none, 1 = warning, 2 = final warning.
+    // Reset to 0 on hire so warnings don't carry over between clubs.
+    #[serde(default)]
+    pub warning_stage: u8,
+
     // Career stats (cumulative)
     pub career_stats: ManagerCareerStats,
 
@@ -73,6 +78,7 @@ impl Manager {
             satisfaction: 100,
             fan_approval: 50,
             team_id: None,
+            warning_stage: 0,
             career_stats: ManagerCareerStats::default(),
             career_history: Vec::new(),
         }
@@ -80,10 +86,19 @@ impl Manager {
 
     pub fn hire(&mut self, team_id: String) {
         self.team_id = Some(team_id);
+        self.warning_stage = 0;
     }
 
-    pub fn fire(&mut self) {
+    pub fn fire(&mut self, date: &str) {
+        if let Some(entry) = self
+            .career_history
+            .iter_mut()
+            .find(|e| e.end_date.is_none())
+        {
+            entry.end_date = Some(date.to_string());
+        }
         self.team_id = None;
+        self.warning_stage = 0;
     }
 
     pub fn full_name(&self) -> String {

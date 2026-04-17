@@ -35,6 +35,7 @@ function HookHarness(props: {
       props.hasMatchToday,
       props.defaultMatchMode,
       true,
+      false,
     );
 
   return (

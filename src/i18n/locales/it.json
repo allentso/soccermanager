@@ -91,7 +91,8 @@
       "incompleteStartingXi": "XI titolare incompleto — imposta la tua formazione",
       "urgentUnread": "{{count}} messaggio/i urgente/i non letto/i",
       "matchTodayStartingXi": "C'è partita oggi! Imposta il tuo XI titolare"
-    }
+    },
+    "unemployedBanner": "Attualmente sei senza club. Le offerte di lavoro potrebbero arrivare nella tua casella di posta."
   },
   "continueMenu": {
     "goToField": "Vai in campo",
@@ -763,7 +764,8 @@
       "Contract": "Contratto",
       "ScoutReport": "Osservatore",
       "Media": "Media",
-      "System": "Sistema"
+      "System": "Sistema",
+      "JobOffer": "Offerte di lavoro"
     }
   },
   "manager": {
@@ -1797,6 +1799,32 @@
       "scoutReport": {
         "subject": "Rapporto osservatore: {{player}}",
         "body": "Il tuo osservatore {{scout}} ha completato la valutazione di {{player}}. Rapporto completo disponibile nella sezione osservazione."
+      },
+      "boardWarning": {
+        "subject": "Preoccupazione del Consiglio — Revisione delle Prestazioni",
+        "body": "Il consiglio è sempre più preoccupato per i recenti risultati al {{team}}. La tua posizione sarà seriamente rivista se non ci sarà un miglioramento nel prossimo futuro."
+      },
+      "boardFinalWarning": {
+        "subject": "Ultimo Avvertimento — Miglioramento Immediato Richiesto",
+        "body": "Questo è il tuo ultimo avvertimento. Il consiglio del {{team}} ha perso la pazienza con l'attuale serie di risultati. Senza un miglioramento immediato e significativo, non avremo altra scelta che riconsiderare la tua posizione."
+      },
+      "boardFired": {
+        "subject": "Avviso di Esonero — {{team}}",
+        "body": "Il consiglio di amministrazione del {{team}} ha deciso di sollevarti dal tuo incarico di allenatore, con effetto immediato. Ti ringraziamo per il tuo servizio e ti auguriamo il meglio per la tua futura carriera."
+      },
+      "jobOffer": {
+        "subject": "Posizione Vacante — {{team}}",
+        "body": "Il consiglio del {{team}} ({{city}}) sta cercando un nuovo allenatore per guidare il club. Posizione lo scorso anno: {{league_position}}.\n\nDopo aver esaminato il tuo curriculum, crediamo che tu possa essere la persona giusta. Saresti interessato ad accettare questa sfida?",
+        "accept": "Accetta la posizione",
+        "decline": "Rifiuta l'offerta"
+      },
+      "jobHired": {
+        "subject": "Benvenuto al {{team}}",
+        "body": "Il consiglio di amministrazione del {{team}} è lieto di darti il benvenuto come nuovo allenatore. Non vediamo l'ora di lavorare con te e raggiungere grandi traguardi insieme."
+      },
+      "jobRejection": {
+        "subject": "Aggiornamento Candidatura — {{team}}",
+        "body": "Grazie per il tuo interesse per la posizione di allenatore al {{team}}. Dopo un'attenta valutazione, abbiamo deciso di proseguire con altri candidati. Ti auguriamo il meglio per la tua futura carriera."
       }
     },
     "news": {
@@ -1943,5 +1971,34 @@
     "day": "GG",
     "month": "Mese",
     "year": "AAAA"
+  },
+  "sacked": {
+    "title": "Sei Stato Esonerato",
+    "subtitle": "Il consiglio ha perso fiducia nella tua capacità di gestire il club.",
+    "teamLabel": "Club",
+    "finalSatisfaction": "Fiducia del Consiglio",
+    "careerOverview": "Riepilogo Carriera",
+    "matchesManaged": "Partite",
+    "wins": "Vittorie",
+    "draws": "Pareggi",
+    "losses": "Sconfitte",
+    "winRate": "% Vittorie",
+    "bestFinish": "Miglior Piazzamento",
+    "trophies": "Trofei",
+    "careerHistory": "Cronologia",
+    "returnToMenu": "Torna al Menu Principale",
+    "present": "Attuale",
+    "bestLabel": "Migliore",
+    "dismissalLetter": "Il consiglio di amministrazione ha deciso di sollevarla dall'incarico di allenatore del {{team}}, con effetto immediato.\n\nLa ringraziamo per i suoi servizi e le auguriamo il meglio per la sua futura carriera.\n\nCordiali saluti,\nIl Consiglio di Amministrazione"
+  },
+  "jobs": {
+    "opportunitiesTitle": "Opportunità di lavoro",
+    "applyButton": "Candidati",
+    "applicationSent": "Candidatura...",
+    "hired": "Sei stato nominato allenatore!",
+    "rejected": "La tua candidatura non è andata a buon fine.",
+    "noJobs": "Nessuna posizione disponibile al momento.",
+    "leaguePosition": "Ultima stagione: {{position}}",
+    "refresh": "Cerca nuove posizioni"
   }
 }

@@ -91,7 +91,8 @@
       "incompleteStartingXi": "Starting XI incomplete — set your lineup",
       "urgentUnread": "{{count}} urgent message(s) unread",
       "matchTodayStartingXi": "Match today! Set your starting XI"
-    }
+    },
+    "unemployedBanner": "You are currently without a club. Job offers may arrive in your inbox."
   },
   "continueMenu": {
     "goToField": "Go to the Field",
@@ -763,7 +764,8 @@
       "Contract": "Contract",
       "ScoutReport": "Scout",
       "Media": "Media",
-      "System": "System"
+      "System": "System",
+      "JobOffer": "Job Offers"
     }
   },
   "manager": {
@@ -1861,6 +1863,32 @@
       "scoutReport": {
         "subject": "Scout Report: {{player}}",
         "body": "Your scout {{scout}} has completed their assessment of {{player}}. Full report available in the scouting section."
+      },
+      "boardWarning": {
+        "subject": "Board Concern — Performance Review",
+        "body": "The board is growing increasingly concerned with recent results at {{team}}. Your position will come under serious review if there is no improvement in the near future."
+      },
+      "boardFinalWarning": {
+        "subject": "Final Warning — Immediate Improvement Required",
+        "body": "This is your final warning. The board at {{team}} has lost patience with the current run of results. Unless there is an immediate and significant improvement, we will have no choice but to consider your position."
+      },
+      "boardFired": {
+        "subject": "Notice of Dismissal — {{team}}",
+        "body": "The board of directors at {{team}} has decided to relieve you of your duties as manager, effective immediately. We thank you for your service and wish you well in your future career."
+      },
+      "jobOffer": {
+        "subject": "Managerial Vacancy — {{team}}",
+        "body": "The board at {{team}} ({{city}}) is looking for a new manager to lead the club forward. Last season finish: {{league_position}}.\n\nAfter reviewing your credentials, we believe you could be the right fit. Would you be interested in taking on this challenge?",
+        "accept": "Accept the position",
+        "decline": "Decline the offer"
+      },
+      "jobHired": {
+        "subject": "Welcome to {{team}}",
+        "body": "The board of directors at {{team}} is delighted to welcome you as the new manager. We look forward to working with you and achieving great things together."
+      },
+      "jobRejection": {
+        "subject": "Application Update — {{team}}",
+        "body": "Thank you for your interest in the managerial position at {{team}}. After careful consideration, we have decided to pursue other candidates. We wish you the best in your future career."
       }
     },
     "news": {
@@ -2007,5 +2035,34 @@
     "day": "DD",
     "month": "Month",
     "year": "YYYY"
+  },
+  "sacked": {
+    "title": "You've Been Sacked",
+    "subtitle": "The board has lost confidence in your ability to manage the club.",
+    "teamLabel": "Club",
+    "finalSatisfaction": "Board Confidence",
+    "careerOverview": "Career Overview",
+    "matchesManaged": "Matches",
+    "wins": "Wins",
+    "draws": "Draws",
+    "losses": "Losses",
+    "winRate": "Win Rate",
+    "bestFinish": "Best Finish",
+    "trophies": "Trophies",
+    "careerHistory": "Career History",
+    "returnToMenu": "Return to Main Menu",
+    "present": "Present",
+    "bestLabel": "Best",
+    "dismissalLetter": "The board of directors has decided to relieve you of your duties as manager of {{team}}, effective immediately.\n\nWe thank you for your service and wish you well in your future career.\n\nYours sincerely,\nThe Board of Directors"
+  },
+  "jobs": {
+    "opportunitiesTitle": "Job Opportunities",
+    "applyButton": "Apply",
+    "applicationSent": "Applying...",
+    "hired": "You have been appointed manager!",
+    "rejected": "Your application was unsuccessful.",
+    "noJobs": "No positions currently available.",
+    "leaguePosition": "Last Season: {{position}}",
+    "refresh": "Check for new positions"
   }
 }

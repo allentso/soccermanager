@@ -2,8 +2,8 @@ use log::info;
 use tauri::State;
 
 use db::save_index::SaveEntry;
-use domain::stats::StatsState;
 use domain::manager::Manager;
+use domain::stats::StatsState;
 use ofm_core::clock::GameClock;
 use ofm_core::game::Game;
 use ofm_core::state::StateManager;

@@ -1,4 +1,5 @@
 import {
+  Briefcase,
   ClipboardList,
   Crosshair,
   DollarSign,
@@ -87,6 +88,7 @@ const CATEGORY_ICONS: Record<string, ReactNode> = {
   ScoutReport: <ScanSearch className="w-4 h-4" />,
   Media: <Newspaper className="w-4 h-4" />,
   System: <Info className="w-4 h-4" />,
+  JobOffer: <Briefcase className="w-4 h-4" />,
 };
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -104,6 +106,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   ScoutReport: "text-cyan-500",
   Media: "text-orange-500",
   System: "text-gray-400",
+  JobOffer: "text-blue-500",
 };
 
 export function getCategoryIcon(category: string): ReactNode {

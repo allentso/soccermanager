@@ -51,6 +51,8 @@ pub struct Game {
     pub board_objectives: Vec<BoardObjective>,
     #[serde(default)]
     pub season_context: SeasonContext,
+    #[serde(default)]
+    pub days_since_last_job_offer: Option<u32>,
 }
 
 impl Game {
@@ -74,6 +76,7 @@ impl Game {
             scouting_assignments: vec![],
             board_objectives: vec![],
             season_context: SeasonContext::default(),
+            days_since_last_job_offer: None,
         };
         crate::football_identity::upgrade_game_football_identities(&mut game);
         crate::season_context::refresh_game_context(&mut game);

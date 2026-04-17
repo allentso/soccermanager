@@ -39,10 +39,12 @@ import {
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import HomeOnboardingChecklistCard from "./HomeOnboardingChecklistCard";
+import JobOpportunitiesCard from "./JobOpportunitiesCard";
 
 interface HomeTabProps {
   gameState: GameStateData;
   onNavigate?: (tab: string, context?: { messageId?: string }) => void;
+  onGameUpdate?: (state: GameStateData) => void;
   visitedOnboardingTabs: ReadonlySet<string>;
 }
 
@@ -62,6 +64,7 @@ const SCHEDULE_ICONS: Record<string, { icon: React.ReactNode; color: string }> =
 export default function HomeTab({
   gameState,
   onNavigate,
+  onGameUpdate,
   visitedOnboardingTabs,
 }: HomeTabProps) {
   const { t, i18n } = useTranslation();
@@ -205,7 +208,7 @@ export default function HomeTab({
 
   return (
     <div className="max-w-6xl mx-auto flex flex-col gap-5">
-      {isPreseason && (
+      {myTeam && isPreseason && (
         <HomeSeasonStatusCard
           phase={seasonContext.phase}
           seasonStartLabel={seasonStartLabel}
@@ -220,7 +223,7 @@ export default function HomeTab({
       )}
 
       {/* Onboarding — Getting Started Checklist */}
-      {onboardingState.showOnboarding &&
+      {myTeam && onboardingState.showOnboarding &&
         completedSteps < onboardingSteps.length && (
           <HomeOnboardingChecklistCard
             completedSteps={completedSteps}
@@ -230,123 +233,147 @@ export default function HomeTab({
           />
         )}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        {/* Next Match Card */}
-        <Card accent="primary" className="md:col-span-2">
-          <CardHeader>{t("home.nextMatch")}</CardHeader>
-          <CardBody>
-            <NextMatchDisplay gameState={gameState} />
-          </CardBody>
-        </Card>
+      {myTeam ? (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          {/* Next Match Card */}
+          <Card accent="primary" className="md:col-span-2">
+            <CardHeader>{t("home.nextMatch")}</CardHeader>
+            <CardBody>
+              <NextMatchDisplay gameState={gameState} />
+            </CardBody>
+          </Card>
 
-        {/* League Position */}
-        <HomeLeaguePositionCard
-          isPreseason={isPreseason}
-          phase={seasonContext.phase}
-          seasonStartLabel={seasonStartLabel}
-          myStanding={myStanding}
-          myStandingData={myStandingData}
-          teamForm={myTeam?.form ?? []}
-          onNavigate={onNavigate}
-        />
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        <HomeNextOpponentCard
-          nextOpponent={nextOpponent}
-          lang={lang}
-          onNavigate={onNavigate}
-        />
-
-        <HomeLeagueDigestCard
-          articles={leagueDigestArticles}
-          lang={lang}
-          onNavigate={onNavigate}
-        />
-      </div>
-
-      {/* Board Objectives */}
-      {boardObjectives.length > 0 && (
-        <Card>
-          <CardHeader>
-            {t("manager.boardStatus", "Board Objectives")}
-          </CardHeader>
-          <CardBody>
-            <div className="flex flex-col gap-2.5">
-              {boardObjectives.map((obj) => (
-                <div key={obj.id} className="flex items-center gap-3">
-                  {obj.met ? (
-                    <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />
-                  ) : (
-                    <Circle className="w-4 h-4 text-gray-300 dark:text-navy-600 flex-shrink-0" />
-                  )}
-                  <span
-                    className={`text-sm ${obj.met ? "text-green-600 dark:text-green-400 line-through" : "text-gray-700 dark:text-gray-300"}`}
-                  >
-                    {obj.description}
-                  </span>
-                  <Badge
-                    variant={obj.met ? "success" : "neutral"}
-                    size="sm"
-                    className="ml-auto"
-                  >
-                    {obj.met ? t("home.met") : t("home.inProgress")}
-                  </Badge>
-                </div>
-              ))}
-            </div>
-            <div className="mt-3 pt-2 border-t border-gray-100 dark:border-navy-700">
-              <p className="text-[10px] text-gray-400 dark:text-gray-500">
-                {t("home.objectivesMet", {
-                  done: boardObjectives.filter((o) => o.met).length,
-                  total: boardObjectives.length,
-                  pct: gameState.manager.satisfaction,
-                })}
-              </p>
-            </div>
-          </CardBody>
-        </Card>
+          {/* League Position */}
+          <HomeLeaguePositionCard
+            isPreseason={isPreseason}
+            phase={seasonContext.phase}
+            seasonStartLabel={seasonStartLabel}
+            myStanding={myStanding}
+            myStandingData={myStandingData}
+            teamForm={myTeam?.form ?? []}
+            onNavigate={onNavigate}
+          />
+        </div>
+      ) : (
+        <>
+          <HomeLeaguePositionCard
+            isPreseason={isPreseason}
+            phase={seasonContext.phase}
+            seasonStartLabel={seasonStartLabel}
+            myStanding={myStanding}
+            myStandingData={myStandingData}
+            teamForm={[]}
+            onNavigate={onNavigate}
+          />
+          {onGameUpdate && (
+            <JobOpportunitiesCard
+              gameState={gameState}
+              onGameUpdate={onGameUpdate}
+            />
+          )}
+        </>
       )}
 
-      <HomeUnavailablePlayersCard
-        players={unavailablePlayers}
-        resolveInjuryName={resolveInjuryName}
-        onNavigate={onNavigate}
-      />
+      {myTeam && (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <HomeNextOpponentCard
+              nextOpponent={nextOpponent}
+              lang={lang}
+              onNavigate={onNavigate}
+            />
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        {/* Squad Fitness */}
-        <HomeSquadOverviewCard
-          avgCondition={avgCondition}
-          avgOvr={avgOvr}
-          exhaustedCount={exhaustedCount}
-          scheduleIcon={schedIcons.icon}
-          scheduleColorClass={schedIcons.color}
-          scheduleLabel={schedLabel}
-          focus={focus}
-          onNavigate={onNavigate}
-        />
+            <HomeLeagueDigestCard
+              articles={leagueDigestArticles}
+              lang={lang}
+              onNavigate={onNavigate}
+            />
+          </div>
 
-        <HomeRecentResultsCard
-          recentResults={recentResults}
-          teams={gameState.teams}
-          onNavigate={onNavigate}
-        />
+          {/* Board Objectives */}
+          {boardObjectives.length > 0 && (
+            <Card>
+              <CardHeader>
+                {t("manager.boardStatus", "Board Objectives")}
+              </CardHeader>
+              <CardBody>
+                <div className="flex flex-col gap-2.5">
+                  {boardObjectives.map((obj) => (
+                    <div key={obj.id} className="flex items-center gap-3">
+                      {obj.met ? (
+                        <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />
+                      ) : (
+                        <Circle className="w-4 h-4 text-gray-300 dark:text-navy-600 flex-shrink-0" />
+                      )}
+                      <span
+                        className={`text-sm ${obj.met ? "text-green-600 dark:text-green-400 line-through" : "text-gray-700 dark:text-gray-300"}`}
+                      >
+                        {obj.description}
+                      </span>
+                      <Badge
+                        variant={obj.met ? "success" : "neutral"}
+                        size="sm"
+                        className="ml-auto"
+                      >
+                        {obj.met ? t("home.met") : t("home.inProgress")}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-3 pt-2 border-t border-gray-100 dark:border-navy-700">
+                  <p className="text-[10px] text-gray-400 dark:text-gray-500">
+                    {t("home.objectivesMet", {
+                      done: boardObjectives.filter((o) => o.met).length,
+                      total: boardObjectives.length,
+                      pct: gameState.manager.satisfaction,
+                    })}
+                  </p>
+                </div>
+              </CardBody>
+            </Card>
+          )}
 
-        <HomeLatestNewsCard
-          articles={latestNews}
-          teams={gameState.teams}
-          lang={lang}
-          onNavigate={onNavigate}
-        />
-      </div>
+          <HomeUnavailablePlayersCard
+            players={unavailablePlayers}
+            resolveInjuryName={resolveInjuryName}
+            onNavigate={onNavigate}
+          />
 
-      {roster.length > 0 && (hotPlayers.length > 0 || coldPlayers.length > 0) && (
-        <HomePlayerMomentumCard
-          hotPlayers={hotPlayers}
-          coldPlayers={coldPlayers}
-          onNavigate={onNavigate}
-        />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            {/* Squad Fitness */}
+            <HomeSquadOverviewCard
+              avgCondition={avgCondition}
+              avgOvr={avgOvr}
+              exhaustedCount={exhaustedCount}
+              scheduleIcon={schedIcons.icon}
+              scheduleColorClass={schedIcons.color}
+              scheduleLabel={schedLabel}
+              focus={focus}
+              onNavigate={onNavigate}
+            />
+
+            <HomeRecentResultsCard
+              recentResults={recentResults}
+              teams={gameState.teams}
+              onNavigate={onNavigate}
+            />
+
+            <HomeLatestNewsCard
+              articles={latestNews}
+              teams={gameState.teams}
+              lang={lang}
+              onNavigate={onNavigate}
+            />
+          </div>
+
+          {roster.length > 0 && (hotPlayers.length > 0 || coldPlayers.length > 0) && (
+            <HomePlayerMomentumCard
+              hotPlayers={hotPlayers}
+              coldPlayers={coldPlayers}
+              onNavigate={onNavigate}
+            />
+          )}
+        </>
       )}
 
       <HomeRecentMessagesCard

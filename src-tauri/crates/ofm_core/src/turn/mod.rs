@@ -10,9 +10,9 @@ use crate::scouting;
 use crate::training;
 use crate::transfers;
 use chrono::Datelike;
-use domain::stats::StatsState;
 use domain::league::FixtureStatus;
 use domain::player::Position as DomainPosition;
+use domain::stats::StatsState;
 use log::{debug, info};
 
 // Re-export public items
@@ -81,6 +81,10 @@ where
 
     news::generate_weekly_digest_news(game, &today);
     news::generate_pre_match_messages(game, &today);
+
+    crate::firing::check_manager_firing(game);
+    crate::job_offers::check_job_offers(game);
+
     debug!("[turn] process_day {}: complete, advancing clock", today);
     game.clock.advance_days(1);
     crate::season_context::refresh_game_context(game);
@@ -105,6 +109,10 @@ pub fn finish_live_match_day(game: &mut Game) {
     transfers::generate_incoming_transfer_offers(game);
     news::generate_weekly_digest_news(game, &today);
     news::generate_pre_match_messages(game, &today);
+
+    crate::firing::check_manager_firing(game);
+    crate::job_offers::check_job_offers(game);
+
     game.clock.advance_days(1);
     crate::season_context::refresh_game_context(game);
 }

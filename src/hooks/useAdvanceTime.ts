@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { GameStateData } from "../store/gameStore";
+import { useGameStore } from "../store/gameStore";
 import type { BlockerModal } from "./useAdvanceTime.helpers";
 import {
   advanceTimeWithMode,
@@ -15,8 +16,10 @@ export function useAdvanceTime(
   hasMatchToday: boolean,
   defaultMatchMode: MatchModeType | undefined,
   settingsLoaded: boolean,
+  isUnemployed: boolean,
 ) {
   const navigate = useNavigate();
+  const setShowFiredModal = useGameStore((s) => s.setShowFiredModal);
   const [isAdvancing, setIsAdvancing] = useState(false);
   const [showContinueMenu, setShowContinueMenu] = useState(false);
   const [showMatchConfirm, setShowMatchConfirm] = useState(false);
@@ -57,7 +60,10 @@ export function useAdvanceTime(
         hasGame: !!result.game,
         hasSnapshot: !!result.snapshot,
       });
-      if (result.action === "live_match") {
+      if (result.action === "fired") {
+        if (result.game) setGameState(result.game as GameStateData);
+        setShowFiredModal(true);
+      } else if (result.action === "live_match") {
         navigate("/match", {
           state: {
             fixtureIndex: result.fixture_index,
@@ -78,8 +84,9 @@ export function useAdvanceTime(
 
   const handleContinue = async (mode?: string) => {
     const effectiveMode = mode || matchMode;
+    const resolvedMode = isUnemployed ? "delegate" : effectiveMode;
     console.info("[useAdvanceTime] handleContinue", {
-      effectiveMode,
+      effectiveMode: resolvedMode,
       hasMatchToday,
       isAdvancing,
       matchMode,
@@ -88,7 +95,7 @@ export function useAdvanceTime(
     // If there's a match today, show confirmation modal first
     if (hasMatchToday && !showMatchConfirm) {
       console.info("[useAdvanceTime] handleContinue:showMatchConfirm", {
-        effectiveMode,
+        effectiveMode: resolvedMode,
       });
       if (mode) setMatchMode(mode as MatchModeType);
       resetTransientUi({ showMatchConfirm: true });
@@ -97,10 +104,10 @@ export function useAdvanceTime(
     if (isAdvancing) return;
     const blockers = await checkBlockingActions("handleContinue");
     if (blockers.length > 0) {
-      setBlockerModal({ blockers, pendingAction: () => doAdvance(effectiveMode) });
+      setBlockerModal({ blockers, pendingAction: () => doAdvance(resolvedMode) });
       return;
     }
-    doAdvance(effectiveMode);
+    doAdvance(resolvedMode);
   };
 
   const handleConfirmMatch = () => {
@@ -131,6 +138,11 @@ export function useAdvanceTime(
         blockerCount: result.blockers?.length ?? 0,
         hasGame: !!result.game,
       });
+      if (result.action === "fired") {
+        if (result.game) setGameState(result.game as GameStateData);
+        setShowFiredModal(true);
+        return;
+      }
       if (result.game) setGameState(result.game as GameStateData);
       if (result.action === "blocked" && result.blockers && result.blockers.length > 0) {
         setBlockerModal({ blockers: result.blockers });

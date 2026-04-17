@@ -9,8 +9,7 @@ use super::dto::{
     PlayerStatsOverviewDto, PlayerStatsOverviewMetricsDto,
 };
 use super::shared::{
-    calculate_pass_accuracy, calculate_per90, competition_label, opponent_name,
-    percentile_rank,
+    calculate_pass_accuracy, calculate_per90, competition_label, opponent_name, percentile_rank,
 };
 
 const DEFAULT_MINIMUM_MINUTES: u32 = 180;
@@ -213,7 +212,11 @@ fn build_history_overview(
     let game = state
         .get_game(|game| game.clone())
         .ok_or("No active game session".to_string())?;
-    let Some(player) = game.players.iter().find(|candidate| candidate.id == player_id) else {
+    let Some(player) = game
+        .players
+        .iter()
+        .find(|candidate| candidate.id == player_id)
+    else {
         return Err("Player not found".to_string());
     };
     let target_position = position_key(player).clone();
@@ -228,7 +231,10 @@ fn build_history_overview(
         let mut records_by_player: HashMap<String, Vec<PlayerMatchStatsRecord>> = HashMap::new();
 
         for record in &stats.player_matches {
-            if same_position_ids.iter().any(|candidate_id| candidate_id == &record.player_id) {
+            if same_position_ids
+                .iter()
+                .any(|candidate_id| candidate_id == &record.player_id)
+            {
                 records_by_player
                     .entry(record.player_id.clone())
                     .or_default()
@@ -255,7 +261,10 @@ fn build_history_overview(
         .filter_map(|candidate_id| history_aggregates.get(candidate_id).cloned())
         .collect::<Vec<_>>();
 
-    Ok(Some(build_overview_from_aggregate(player_aggregate, &peers)))
+    Ok(Some(build_overview_from_aggregate(
+        player_aggregate,
+        &peers,
+    )))
 }
 
 fn build_legacy_overview(
@@ -265,7 +274,11 @@ fn build_legacy_overview(
     let game = state
         .get_game(|game| game.clone())
         .ok_or("No active game session".to_string())?;
-    let Some(player) = game.players.iter().find(|candidate| candidate.id == player_id) else {
+    let Some(player) = game
+        .players
+        .iter()
+        .find(|candidate| candidate.id == player_id)
+    else {
         return Err("Player not found".to_string());
     };
     let target_position = position_key(player).clone();

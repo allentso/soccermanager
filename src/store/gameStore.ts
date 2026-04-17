@@ -41,9 +41,11 @@ interface GameStore {
   managerName: string | null;
   gameState: GameStateData | null;
   isDirty: boolean;
+  showFiredModal: boolean;
   setGameActive: (active: boolean, managerName?: string) => void;
   setGameState: (state: GameStateData) => void;
   markClean: () => void;
+  setShowFiredModal: (show: boolean) => void;
   clearGame: () => void;
 }
 
@@ -52,19 +54,22 @@ export const useGameStore = create<GameStore>((set) => ({
   managerName: null,
   gameState: null,
   isDirty: false,
-  setGameActive: (active, managerName) => set({ 
-    hasActiveGame: active, 
-    managerName: managerName || null 
+  showFiredModal: false,
+  setGameActive: (active, managerName) => set({
+    hasActiveGame: active,
+    managerName: managerName || null
   }),
   setGameState: (state) => set({
     gameState: state,
     isDirty: true,
   }),
   markClean: () => set({ isDirty: false }),
+  setShowFiredModal: (show) => set({ showFiredModal: show }),
   clearGame: () => set({
     hasActiveGame: false,
     managerName: null,
     gameState: null,
     isDirty: false,
+    showFiredModal: false,
   }),
 }));

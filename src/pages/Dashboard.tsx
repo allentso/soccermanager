@@ -10,6 +10,7 @@ import DashboardHeader, {
   type DashboardMatchModeMeta,
 } from "../components/dashboard/DashboardHeader";
 import DashboardOverlays from "../components/dashboard/DashboardOverlays";
+import FiredModal from "../components/dashboard/FiredModal";
 import DashboardSidebar from "../components/dashboard/DashboardSidebar";
 import DashboardWorkspaceContent from "../components/dashboard/DashboardWorkspaceContent";
 import {
@@ -44,6 +45,8 @@ import {
 } from "../lib/helpers";
 import { useTranslation } from "react-i18next";
 import { useSettingsStore } from "../store/settingsStore";
+
+const CLUB_TABS = new Set(["Squad", "Tactics", "Training", "Staff", "Scouting", "Youth", "Finances", "Transfers"]);
 
 const TAB_TRANSLATION_KEYS: Record<string, string> = {
   Home: "dashboard.home",
@@ -115,6 +118,7 @@ export default function Dashboard(): JSX.Element {
     fetchState();
   }, [hasActiveGame, navigate, setGameState]);
 
+  const isUnemployed = gameState?.manager.team_id === null;
   const todayMatchFixture = gameState ? getTodayMatchFixture(gameState) : null;
   const hasMatchToday = todayMatchFixture !== null;
 
@@ -169,6 +173,13 @@ export default function Dashboard(): JSX.Element {
     });
   }, [gameState, profileNavigation.activeTab]);
 
+  // Reset to Home tab if current tab is a club tab and manager is unemployed
+  useEffect(() => {
+    if (isUnemployed && profileNavigation.activeTab && CLUB_TABS.has(profileNavigation.activeTab)) {
+      setProfileNavigation((s) => navigateDashboardProfiles(s, "Home"));
+    }
+  }, [isUnemployed, profileNavigation.activeTab]);
+
   const seasonComplete = isLeagueSeasonComplete(gameState?.league);
 
   // Advance-time hook
@@ -190,6 +201,7 @@ export default function Dashboard(): JSX.Element {
     hasMatchToday,
     settings.default_match_mode,
     settingsLoaded,
+    isUnemployed ?? false,
   );
 
   const handleSave = useCallback(async () => {
@@ -401,6 +413,7 @@ export default function Dashboard(): JSX.Element {
         managerName={managerName}
         teamName={myTeamName}
         onNavigateSettings={handleNavigateSettings}
+        isUnemployed={isUnemployed ?? false}
         onExitClick={() => {
           if (!isExitingToMenu) {
             setShowExitConfirm(true);
@@ -427,6 +440,7 @@ export default function Dashboard(): JSX.Element {
         teams={gameState.teams}
         todayMatchFixture={todayMatchFixture}
       />
+      <FiredModal />
 
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col h-screen overflow-hidden">
@@ -457,6 +471,7 @@ export default function Dashboard(): JSX.Element {
           searchQuery={searchQuery}
           seasonComplete={seasonComplete}
           showContinueMenu={showContinueMenu}
+          isUnemployed={isUnemployed ?? false}
           teams={gameState.teams}
         />
 
@@ -470,6 +485,7 @@ export default function Dashboard(): JSX.Element {
           onSelectPlayer={selectPlayer}
           onSelectTeam={selectTeam}
           onGameUpdate={setGameState}
+          isUnemployed={isUnemployed ?? false}
         />
       </main>
     </div>

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useTranslation } from "react-i18next";
 import { GameStateData } from "../store/gameStore";
+import { useGameStore } from "../store/gameStore";
 import { Card, CardBody } from "./ui";
 import { Trophy, Award, Star, ArrowRight, Crown } from "lucide-react";
 
@@ -31,6 +32,7 @@ interface EndOfSeasonScreenProps {
 
 export default function EndOfSeasonScreen({ gameState, onGameUpdate }: EndOfSeasonScreenProps) {
   const { t } = useTranslation();
+  const setShowFiredModal = useGameStore((s) => s.setShowFiredModal);
   const [loading, setLoading] = useState(false);
   const [summary, setSummary] = useState<EndOfSeasonSummary | null>(null);
   const [step, setStep] = useState<"review" | "done">("review");
@@ -57,7 +59,12 @@ export default function EndOfSeasonScreen({ gameState, onGameUpdate }: EndOfSeas
     if (loading) return;
     setLoading(true);
     try {
-      const result = await invoke<{ game: GameStateData; summary: EndOfSeasonSummary }>("advance_to_next_season");
+      const result = await invoke<{ action?: string; game: GameStateData; summary: EndOfSeasonSummary }>("advance_to_next_season");
+      if (result.action === "fired") {
+        onGameUpdate(result.game);
+        setShowFiredModal(true);
+        return;
+      }
       setSummary(result.summary);
       onGameUpdate(result.game);
       setStep("done");
