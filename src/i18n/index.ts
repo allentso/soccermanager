@@ -7,6 +7,7 @@ import fr from "./locales/fr.json";
 import de from "./locales/de.json";
 import ptBR from "./locales/pt-BR.json";
 import it from "./locales/it.json";
+import zhCN from "./locales/zh-CN.json";
 
 export const SUPPORTED_LANGUAGES = [
   { code: "en", label: "English" },
@@ -16,6 +17,7 @@ export const SUPPORTED_LANGUAGES = [
   { code: "de", label: "Deutsch" },
   { code: "it", label: "Italiano" },
   { code: "pt-BR", label: "Português (Brasil)" },
+  { code: "zh-CN", label: "简体中文" },
 ] as const;
 
 const SUPPORTED_CODES: string[] = SUPPORTED_LANGUAGES.map(l => l.code);
@@ -40,6 +42,7 @@ i18n.use(initReactI18next).init({
     de: { translation: de },
     it: { translation: it },
     "pt-BR": { translation: ptBR },
+    "zh-CN": { translation: zhCN },
   },
   lng: detectInitialLanguage(),
   fallbackLng: "en",
