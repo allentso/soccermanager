@@ -278,7 +278,12 @@ fn process_day_fires_ai_manager_after_heavy_losing_run() {
         .iter_mut()
         .find(|team| team.id == "team2")
         .unwrap()
-        .form = vec!["L".to_string(), "L".to_string(), "L".to_string(), "L".to_string()];
+        .form = vec![
+        "L".to_string(),
+        "L".to_string(),
+        "L".to_string(),
+        "L".to_string(),
+    ];
 
     let mut ai_manager = Manager::new(
         "mgr2".to_string(),

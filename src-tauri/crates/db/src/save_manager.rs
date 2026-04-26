@@ -168,12 +168,19 @@ impl SaveManager {
         let mut game = GamePersistenceReader::read_game(&db)?;
         let mut needs_resave = false;
         let manager_count_before = game.managers.len();
-        let assigned_manager_count_before =
-            game.teams.iter().filter(|team| team.manager_id.is_some()).count();
+        let assigned_manager_count_before = game
+            .teams
+            .iter()
+            .filter(|team| team.manager_id.is_some())
+            .count();
 
         ofm_core::ai_hiring::seed_ai_managers(&mut game);
         if game.managers.len() != manager_count_before
-            || game.teams.iter().filter(|team| team.manager_id.is_some()).count()
+            || game
+                .teams
+                .iter()
+                .filter(|team| team.manager_id.is_some())
+                .count()
                 != assigned_manager_count_before
         {
             info!(
@@ -494,7 +501,14 @@ mod tests {
             },
         );
 
-        Game::new(clock, manager, vec![team], vec![player], vec![staff], vec![])
+        Game::new(
+            clock,
+            manager,
+            vec![team],
+            vec![player],
+            vec![staff],
+            vec![],
+        )
     }
 
     fn sample_game_with_league() -> Game {
@@ -838,7 +852,12 @@ mod tests {
         let loaded = sm.load_game(&save_id).unwrap();
 
         assert_eq!(loaded.managers.len(), 2);
-        assert!(loaded.managers.iter().any(|manager| manager.id == "mgr-user"));
+        assert!(
+            loaded
+                .managers
+                .iter()
+                .any(|manager| manager.id == "mgr-user")
+        );
         assert!(loaded.managers.iter().any(|manager| {
             manager.id == "mgr-ai" && manager.team_id.as_deref() == Some("team-003")
         }));
