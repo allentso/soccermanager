@@ -6,6 +6,7 @@ use domain::player::{
     Injury, Player, PlayerAttributes, PlayerIssue, PlayerIssueCategory, PlayerPromise,
     PlayerPromiseKind, Position,
 };
+use domain::staff::{Staff, StaffAttributes, StaffRole};
 use domain::team::Team;
 use engine::Side;
 use engine::report::{GoalDetail, MatchReport, PlayerMatchStats, TeamStats};
@@ -97,6 +98,25 @@ fn make_team(id: &str, name: &str) -> Team {
         "Stadium".to_string(),
         40_000,
     )
+}
+
+fn make_staff(id: &str, team_id: &str, role: StaffRole, first_name: &str, last_name: &str) -> Staff {
+    let mut staff = Staff::new(
+        id.to_string(),
+        first_name.to_string(),
+        last_name.to_string(),
+        "1980-01-01".to_string(),
+        role,
+        StaffAttributes {
+            coaching: 60,
+            judging_ability: 60,
+            judging_potential: 60,
+            physiotherapy: 20,
+        },
+    );
+    staff.nationality = "England".to_string();
+    staff.team_id = Some(team_id.to_string());
+    staff
 }
 
 fn make_squad(team_id: &str, prefix: &str) -> Vec<Player> {
@@ -305,6 +325,46 @@ fn process_day_fires_ai_manager_after_heavy_losing_run() {
             && article.team_ids.contains(&"team2".to_string())
     }));
     assert_eq!(game.manager.team_id.as_deref(), Some("team1"));
+}
+
+#[test]
+fn process_day_hires_replacement_for_long_vacant_ai_club() {
+    let mut game = make_game_without_match_today();
+    game.staff.push(make_staff(
+        "staff-team2",
+        "team2",
+        StaffRole::AssistantManager,
+        "Marco",
+        "Rossi",
+    ));
+
+    let mut fired_manager = Manager::new(
+        "mgr2".to_string(),
+        "Former".to_string(),
+        "Boss".to_string(),
+        "1978-03-12".to_string(),
+        "England".to_string(),
+    );
+    fired_manager.hire("team2".to_string());
+    fired_manager.fire("2025-06-14");
+    game.managers.push(fired_manager.clone());
+    game.vacant_team_days.insert("team2".to_string(), 6);
+
+    turn::process_day(&mut game);
+
+    let replacement_manager_id = game
+        .teams
+        .iter()
+        .find(|team| team.id == "team2")
+        .and_then(|team| team.manager_id.clone())
+        .expect("aged vacancy should be filled during daily processing");
+
+    assert_ne!(replacement_manager_id, fired_manager.id);
+    assert!(game
+        .managers
+        .iter()
+        .any(|manager| manager.id == replacement_manager_id && manager.team_id.as_deref() == Some("team2")));
+    assert!(!game.vacant_team_days.contains_key("team2"));
 }
 
 /// Creates a match report where all 22 players played the full 90 minutes.

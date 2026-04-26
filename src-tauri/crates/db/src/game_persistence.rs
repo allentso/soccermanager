@@ -21,6 +21,8 @@ impl GamePersistenceWriter {
     ) -> Result<(), String> {
         let conn = db.conn();
         let now = Utc::now().to_rfc3339();
+        let vacant_team_days_json = serde_json::to_string(&game.vacant_team_days)
+            .map_err(|error| format!("Failed to serialize vacant team days: {}", error))?;
         let manager_id = if game.manager_id.is_empty() {
             game.manager.id.clone()
         } else {
@@ -43,6 +45,7 @@ impl GamePersistenceWriter {
                 game_date: game.clock.current_date.to_rfc3339(),
                 created_at: now.clone(),
                 last_played_at: now,
+                vacant_team_days_json,
             },
         )?;
 
@@ -164,6 +167,7 @@ impl GamePersistenceReader {
             board_objectives,
             season_context: domain::season::SeasonContext::default(),
             days_since_last_job_offer: None,
+            vacant_team_days: serde_json::from_str(&meta.vacant_team_days_json).unwrap_or_default(),
         };
         ofm_core::season_context::refresh_game_context(&mut game);
 

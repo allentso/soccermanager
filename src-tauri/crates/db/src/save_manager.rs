@@ -918,6 +918,23 @@ mod tests {
     }
 
     #[test]
+    fn test_save_and_load_roundtrips_vacant_team_days() {
+        let dir = tempfile::tempdir().unwrap();
+        let saves_dir = dir.path().join("saves");
+
+        let mut sm = SaveManager::init(&saves_dir).unwrap();
+        let mut game = sample_game_with_league();
+        game.vacant_team_days.insert("team-002".to_string(), 4);
+        game.vacant_team_days.insert("team-003".to_string(), 2);
+
+        let save_id = sm.create_save(&game, "Vacancy Tracker").unwrap();
+        let loaded = sm.load_game(&save_id).unwrap();
+
+        assert_eq!(loaded.vacant_team_days.get("team-002"), Some(&4));
+        assert_eq!(loaded.vacant_team_days.get("team-003"), Some(&2));
+    }
+
+    #[test]
     fn test_save_and_load_stats_state_roundtrip() {
         let dir = tempfile::tempdir().unwrap();
         let saves_dir = dir.path().join("saves");

@@ -1,9 +1,9 @@
 use crate::game::Game;
 use domain::manager::{Manager, ManagerCareerEntry};
 use domain::staff::{Staff, StaffRole};
-use std::collections::HashSet;
 
 const BASE_AI_MANAGER_SATISFACTION: i32 = 50;
+const AI_MANAGER_REPLACEMENT_DELAY_DAYS: u32 = 7;
 
 fn manager_seed_staff<'a>(staff: &'a [Staff], team_id: &str) -> Option<&'a Staff> {
     staff.iter()
@@ -16,11 +16,28 @@ fn manager_seed_staff<'a>(staff: &'a [Staff], team_id: &str) -> Option<&'a Staff
         })
 }
 
-fn seeded_manager_id(team_id: &str, source_staff: &Staff) -> String {
-    format!("mgr_{}_{}", team_id, source_staff.id)
+fn next_seeded_manager_id(game: &Game, team_id: &str, source_staff: &Staff) -> String {
+    let base_id = format!("mgr_{}_{}", team_id, source_staff.id);
+    if !game.managers.iter().any(|manager| manager.id == base_id) {
+        return base_id;
+    }
+
+    let mut sequence = 2;
+    loop {
+        let candidate = format!("{}_{}", base_id, sequence);
+        if !game.managers.iter().any(|manager| manager.id == candidate) {
+            return candidate;
+        }
+        sequence += 1;
+    }
 }
 
-fn create_seeded_manager(game: &Game, team_id: &str, source_staff: &Staff) -> Option<Manager> {
+fn create_seeded_manager(
+    game: &Game,
+    team_id: &str,
+    source_staff: &Staff,
+    manager_id: String,
+) -> Option<Manager> {
     let team = game.teams.iter().find(|team| team.id == team_id)?;
     let nationality = if source_staff.nationality.is_empty() {
         team.country.clone()
@@ -29,7 +46,7 @@ fn create_seeded_manager(game: &Game, team_id: &str, source_staff: &Staff) -> Op
     };
 
     let mut manager = Manager::new(
-        seeded_manager_id(team_id, source_staff),
+        manager_id,
         source_staff.first_name.clone(),
         source_staff.last_name.clone(),
         source_staff.date_of_birth.clone(),
@@ -72,6 +89,16 @@ fn ai_manager_satisfaction(form: &[String]) -> u8 {
     satisfaction.clamp(0, 100) as u8
 }
 
+fn team_has_manager_history(game: &Game, team_id: &str) -> bool {
+    game.managers.iter().any(|manager| {
+        manager.team_id.as_deref() == Some(team_id)
+            || manager
+                .career_history
+                .iter()
+                .any(|entry| entry.team_id == team_id)
+    })
+}
+
 pub fn seed_ai_managers(game: &mut Game) {
     if game.manager_id.is_empty() {
         game.manager_id = game.manager.id.clone();
@@ -79,7 +106,6 @@ pub fn seed_ai_managers(game: &mut Game) {
     game.sync_user_manager_record();
 
     let user_team_id = game.manager.team_id.clone();
-    let existing_manager_ids: HashSet<String> = game.managers.iter().map(|manager| manager.id.clone()).collect();
 
     let team_ids_to_seed: Vec<String> = game
         .teams
@@ -91,6 +117,7 @@ pub fn seed_ai_managers(game: &mut Game) {
                 .and_then(|manager_id| game.managers.iter().find(|manager| &manager.id == manager_id))
                 .is_none()
         })
+        .filter(|team| !team_has_manager_history(game, &team.id))
         .map(|team| team.id.clone())
         .collect();
 
@@ -98,17 +125,61 @@ pub fn seed_ai_managers(game: &mut Game) {
         let Some(source_staff) = manager_seed_staff(&game.staff, &team_id) else {
             continue;
         };
-        let manager_id = seeded_manager_id(&team_id, source_staff);
-        if existing_manager_ids.contains(&manager_id) {
-            continue;
-        }
-        let Some(manager) = create_seeded_manager(game, &team_id, source_staff) else {
+        let manager_id = next_seeded_manager_id(game, &team_id, source_staff);
+        let Some(manager) = create_seeded_manager(game, &team_id, source_staff, manager_id) else {
             continue;
         };
         if let Some(team) = game.teams.iter_mut().find(|team| team.id == team_id) {
             team.manager_id = Some(manager.id.clone());
         }
         game.managers.push(manager);
+    }
+
+    game.sync_user_manager_record();
+}
+
+pub fn process_vacant_ai_clubs(game: &mut Game) {
+    let user_team_id = game.manager.team_id.clone();
+
+    let occupied_team_ids: Vec<String> = game
+        .teams
+        .iter()
+        .filter(|team| team.manager_id.is_some())
+        .map(|team| team.id.clone())
+        .collect();
+    for team_id in occupied_team_ids {
+        game.vacant_team_days.remove(&team_id);
+    }
+
+    let vacant_team_ids: Vec<String> = game
+        .teams
+        .iter()
+        .filter(|team| Some(team.id.clone()) != user_team_id)
+        .filter(|team| team.manager_id.is_none())
+        .map(|team| team.id.clone())
+        .collect();
+
+    for team_id in vacant_team_ids {
+        let days_vacant = game.vacant_team_days.get(&team_id).copied().unwrap_or(0) + 1;
+        game.vacant_team_days.insert(team_id.clone(), days_vacant);
+
+        if days_vacant < AI_MANAGER_REPLACEMENT_DELAY_DAYS {
+            continue;
+        }
+
+        let Some(source_staff) = manager_seed_staff(&game.staff, &team_id) else {
+            continue;
+        };
+        let manager_id = next_seeded_manager_id(game, &team_id, source_staff);
+        let Some(manager) = create_seeded_manager(game, &team_id, source_staff, manager_id) else {
+            continue;
+        };
+
+        if let Some(team) = game.teams.iter_mut().find(|team| team.id == team_id) {
+            team.manager_id = Some(manager.id.clone());
+        }
+        game.managers.push(manager);
+        game.vacant_team_days.remove(&team_id);
     }
 
     game.sync_user_manager_record();
@@ -139,7 +210,7 @@ pub fn update_ai_manager_satisfaction(game: &mut Game) {
 
 #[cfg(test)]
 mod tests {
-    use super::{seed_ai_managers, update_ai_manager_satisfaction};
+    use super::{process_vacant_ai_clubs, seed_ai_managers, update_ai_manager_satisfaction};
     use crate::clock::GameClock;
     use crate::game::Game;
     use chrono::{TimeZone, Utc};
@@ -242,5 +313,83 @@ mod tests {
             rival_manager.satisfaction <= 10,
             "Four straight defeats should push an AI manager into the firing zone"
         );
+    }
+
+    #[test]
+    fn seed_ai_managers_does_not_refill_historic_vacancy() {
+        let mut game = make_game();
+        seed_ai_managers(&mut game);
+
+        let previous_manager_id = game
+            .teams
+            .iter()
+            .find(|team| team.id == "team2")
+            .and_then(|team| team.manager_id.clone())
+            .unwrap();
+
+        if let Some(team) = game.teams.iter_mut().find(|team| team.id == "team2") {
+            team.manager_id = None;
+        }
+        if let Some(manager) = game
+            .managers
+            .iter_mut()
+            .find(|manager| manager.id == previous_manager_id)
+        {
+            manager.fire("2026-07-15");
+        }
+
+        seed_ai_managers(&mut game);
+
+        assert!(game
+            .teams
+            .iter()
+            .find(|team| team.id == "team2")
+            .and_then(|team| team.manager_id.clone())
+            .is_none());
+        assert!(game
+            .managers
+            .iter()
+            .all(|manager| manager.id != format!("{}_2", previous_manager_id)));
+    }
+
+    #[test]
+    fn process_vacant_ai_clubs_hires_replacement_after_delay() {
+        let mut game = make_game();
+        seed_ai_managers(&mut game);
+
+        let previous_manager_id = game
+            .teams
+            .iter()
+            .find(|team| team.id == "team2")
+            .and_then(|team| team.manager_id.clone())
+            .unwrap();
+
+        if let Some(team) = game.teams.iter_mut().find(|team| team.id == "team2") {
+            team.manager_id = None;
+        }
+        if let Some(manager) = game
+            .managers
+            .iter_mut()
+            .find(|manager| manager.id == previous_manager_id)
+        {
+            manager.fire("2026-07-15");
+        }
+        game.vacant_team_days.insert("team2".to_string(), 6);
+
+        process_vacant_ai_clubs(&mut game);
+
+        let replacement_manager_id = game
+            .teams
+            .iter()
+            .find(|team| team.id == "team2")
+            .and_then(|team| team.manager_id.clone())
+            .expect("vacant AI club should get a replacement manager after the delay");
+
+        assert_ne!(replacement_manager_id, previous_manager_id);
+        assert!(game
+            .managers
+            .iter()
+            .any(|manager| manager.id == replacement_manager_id && manager.team_id.as_deref() == Some("team2")));
+        assert!(!game.vacant_team_days.contains_key("team2"));
     }
 }

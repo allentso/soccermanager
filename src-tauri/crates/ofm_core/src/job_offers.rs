@@ -37,6 +37,9 @@ pub fn hire_manager(game: &mut Game, team_id: &str, date: &str) -> Result<String
         .iter()
         .find(|t| t.id == team_id)
         .ok_or_else(|| format!("Team {} not found", team_id))?;
+    if team.manager_id.is_some() {
+        return Err(format!("Team {} is not vacant", team_id));
+    }
     let team_name = team.name.clone();
     let manager_id = game.manager.id.clone();
 
@@ -61,6 +64,8 @@ pub fn hire_manager(game: &mut Game, team_id: &str, date: &str) -> Result<String
 
     // Reset satisfaction to neutral
     game.manager.satisfaction = 50;
+    game.sync_user_manager_record();
+    game.vacant_team_days.remove(team_id);
 
     // Clear job offer timer
     game.days_since_last_job_offer = None;
@@ -136,7 +141,7 @@ fn get_offer_candidates(game: &Game, rng: &mut impl rand::Rng) -> Vec<JobOpportu
         .iter()
         .filter(|t| {
             let diff = (t.reputation as i32 - mgr_rep as i32).unsigned_abs();
-            diff <= 200
+            t.manager_id.is_none() && diff <= 200
         })
         .map(|t| JobOpportunity {
             team_id: t.id.clone(),
@@ -153,7 +158,7 @@ fn get_offer_candidates(game: &Game, rng: &mut impl rand::Rng) -> Vec<JobOpportu
             .iter()
             .filter(|t| {
                 let diff = (t.reputation as i32 - mgr_rep as i32).unsigned_abs();
-                diff <= 400
+                t.manager_id.is_none() && diff <= 400
             })
             .map(|t| JobOpportunity {
                 team_id: t.id.clone(),
@@ -270,7 +275,7 @@ pub fn get_available_jobs(game: &Game) -> Vec<JobOpportunity> {
         .iter()
         .filter(|t| {
             let diff = (t.reputation as i32 - mgr_rep as i32).unsigned_abs();
-            diff <= 200
+            t.manager_id.is_none() && diff <= 200
         })
         .map(|t| JobOpportunity {
             team_id: t.id.clone(),
@@ -287,7 +292,7 @@ pub fn get_available_jobs(game: &Game) -> Vec<JobOpportunity> {
             .iter()
             .filter(|t| {
                 let diff = (t.reputation as i32 - mgr_rep as i32).unsigned_abs();
-                diff <= 400
+                t.manager_id.is_none() && diff <= 400
             })
             .map(|t| JobOpportunity {
                 team_id: t.id.clone(),
@@ -311,8 +316,9 @@ pub fn apply_for_job(game: &mut Game, team_id: &str) -> JobApplicationResult {
     }
 
     let team = match game.teams.iter().find(|t| t.id == team_id) {
-        Some(t) => t,
+        Some(t) if t.manager_id.is_none() => t,
         None => return JobApplicationResult::InvalidTeam,
+        Some(_) => return JobApplicationResult::InvalidTeam,
     };
 
     let team_rep = team.reputation;
@@ -528,6 +534,20 @@ mod tests {
     }
 
     #[test]
+    fn hire_manager_syncs_user_manager_record() {
+        let mut game = make_game(10, false);
+
+        hire_manager(&mut game, "team2", "2026-11-01").unwrap();
+
+        let stored_manager = game
+            .managers
+            .iter()
+            .find(|manager| manager.id == "mgr1")
+            .unwrap();
+        assert_eq!(stored_manager.team_id.as_deref(), Some("team2"));
+    }
+
+    #[test]
     fn hire_manager_creates_career_entry() {
         let mut game = make_game(10, false);
         hire_manager(&mut game, "team2", "2026-11-01").unwrap();
@@ -606,6 +626,21 @@ mod tests {
     }
 
     #[test]
+    fn get_available_jobs_only_returns_vacant_clubs() {
+        let mut game = make_game(10, false);
+        game.teams
+            .iter_mut()
+            .find(|team| team.id == "team2")
+            .unwrap()
+            .manager_id = Some("mgr-ai".to_string());
+
+        let jobs = get_available_jobs(&game);
+
+        assert!(jobs.iter().any(|job| job.team_id == "team1"));
+        assert!(!jobs.iter().any(|job| job.team_id == "team2"));
+    }
+
+    #[test]
     fn get_available_jobs_capped_at_4() {
         let mut game = make_game(10, false);
         for i in 4..=10 {
@@ -637,6 +672,24 @@ mod tests {
         let mut game = make_game(10, false);
         let result = apply_for_job(&mut game, "nonexistent");
         assert_eq!(result, JobApplicationResult::InvalidTeam);
+    }
+
+    #[test]
+    fn apply_for_job_occupied_team_returns_invalid() {
+        let mut game = make_game(10, false);
+        game.teams
+            .iter_mut()
+            .find(|team| team.id == "team2")
+            .unwrap()
+            .manager_id = Some("mgr-ai".to_string());
+
+        let result = apply_for_job(&mut game, "team2");
+
+        assert_eq!(result, JobApplicationResult::InvalidTeam);
+        assert!(
+            game.messages.is_empty(),
+            "occupied clubs should not generate application responses"
+        );
     }
 
     #[test]
