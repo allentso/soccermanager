@@ -1932,6 +1932,16 @@
         "headline2": "Can {{favourite}} Claim the Title? Season Preview",
         "body": "The Premier Division is set to kick off with {{teamCount}} teams vying for the title.\n\nPre-season predictions have {{favourite}} as the early favourites, but {{darkHorse}} could be the dark horse to watch this campaign.\n\nWith new managers taking the reins at some clubs, this season promises to be one of the most competitive in recent memory. Every point will matter as the race for the title heats up.\n\nTeams: {{teamList}}"
       },
+      "managerialChange": {
+        "headline": "{{team}} sack {{manager}}",
+        "body": "{{team}} have dismissed {{manager}} after a damaging run of results, leaving the club searching for a new manager."
+      },
+      "seasonAwards": {
+        "headline": "Season {{season}} Awards",
+        "bodyBoth": "Season {{season}} concluded with {{goldenBootWinner}} ({{goldenBootTeam}}) lifting the Golden Boot with {{goldenBootGoals}} goals. Player of the Year went to {{potyWinner}} ({{potyTeam}}) with an average rating of {{potyRating}}.",
+        "bodyGoldenBootOnly": "Season {{season}} closed with {{goldenBootWinner}} ({{goldenBootTeam}}) crowned top scorer with {{goldenBootGoals}} goals.",
+        "bodyPotyOnly": "Season {{season}} ended with {{potyWinner}} ({{potyTeam}}) named Player of the Year, posting an average rating of {{potyRating}}."
+      },
       "weeklyDigest": {
         "headline": "Weekly Digest — Week of {{weekStart}}",
         "bodyNoTopScorer": "The latest weekly digest is here. {{leader}} lead the table, and {{storylineCount}} storyline(s) are shaping the division this week.",

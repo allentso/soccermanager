@@ -1,6 +1,7 @@
 use chrono::{TimeZone, Utc};
 use domain::league::{Fixture, FixtureCompetition, FixtureStatus, League, StandingEntry};
 use domain::manager::Manager;
+use domain::news::NewsCategory;
 use domain::player::{
     Injury, Player, PlayerAttributes, PlayerIssue, PlayerIssueCategory, PlayerPromise,
     PlayerPromiseKind, Position,
@@ -180,6 +181,14 @@ fn make_game_with_match() -> Game {
     game
 }
 
+fn make_game_without_match_today() -> Game {
+    let mut game = make_game_with_match();
+    if let Some(league) = &mut game.league {
+        league.fixtures[0].date = "2025-06-16".to_string();
+    }
+    game
+}
+
 fn empty_report(home_goals: u8, away_goals: u8) -> MatchReport {
     MatchReport {
         home_goals,
@@ -254,6 +263,43 @@ fn report_with_scorer(home_goals: u8, away_goals: u8, scorer_id: &str, side: Sid
         home_possession: 55.0,
         total_minutes: 90,
     }
+}
+
+#[test]
+fn process_day_fires_ai_manager_after_heavy_losing_run() {
+    let mut game = make_game_without_match_today();
+
+    game.teams
+        .iter_mut()
+        .find(|team| team.id == "team2")
+        .unwrap()
+        .manager_id = Some("mgr2".to_string());
+    game.teams
+        .iter_mut()
+        .find(|team| team.id == "team2")
+        .unwrap()
+        .form = vec!["L".to_string(), "L".to_string(), "L".to_string(), "L".to_string()];
+
+    let mut ai_manager = Manager::new(
+        "mgr2".to_string(),
+        "Marco".to_string(),
+        "Rossi".to_string(),
+        "1978-03-12".to_string(),
+        "Italy".to_string(),
+    );
+    ai_manager.hire("team2".to_string());
+    ai_manager.warning_stage = 1;
+    game.managers.push(ai_manager);
+
+    turn::process_day(&mut game);
+
+    let rival_team = game.teams.iter().find(|team| team.id == "team2").unwrap();
+    assert!(rival_team.manager_id.is_none());
+    assert!(game.news.iter().any(|article| {
+        article.category == NewsCategory::ManagerialChange
+            && article.team_ids.contains(&"team2".to_string())
+    }));
+    assert_eq!(game.manager.team_id.as_deref(), Some("team1"));
 }
 
 /// Creates a match report where all 22 players played the full 90 minutes.

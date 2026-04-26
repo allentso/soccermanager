@@ -38,6 +38,10 @@ pub struct ScoutingAssignment {
 pub struct Game {
     pub clock: GameClock,
     pub manager: Manager,
+    #[serde(default)]
+    pub manager_id: String,
+    #[serde(default)]
+    pub managers: Vec<Manager>,
     pub teams: Vec<Team>,
     pub players: Vec<Player>,
     pub staff: Vec<Staff>,
@@ -64,9 +68,13 @@ impl Game {
         staff: Vec<Staff>,
         messages: Vec<InboxMessage>,
     ) -> Self {
+        let manager_id = manager.id.clone();
+        let managers = vec![manager.clone()];
         let mut game = Self {
             clock,
             manager,
+            manager_id,
+            managers,
             teams,
             players,
             staff,
@@ -81,5 +89,18 @@ impl Game {
         crate::football_identity::upgrade_game_football_identities(&mut game);
         crate::season_context::refresh_game_context(&mut game);
         game
+    }
+
+    pub fn sync_user_manager_record(&mut self) {
+        let user_manager_id = self.manager_id.clone();
+        if let Some(existing) = self
+            .managers
+            .iter_mut()
+            .find(|manager| manager.id == user_manager_id)
+        {
+            *existing = self.manager.clone();
+        } else {
+            self.managers.push(self.manager.clone());
+        }
     }
 }

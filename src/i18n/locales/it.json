@@ -1868,6 +1868,16 @@
         "headline2": "{{favourite}} riuscirà a conquistare il titolo? Anteprima stagione",
         "body": "La Premier Division è pronta a partire con {{teamCount}} squadre in lotta per il titolo.\n\nI pronostici di inizio stagione indicano {{favourite}} come favorita, ma {{darkHorse}} potrebbe essere la sorpresa da seguire in questa campagna.\n\nCon nuovi allenatori alla guida di alcuni club, questa stagione promette di essere una delle più competitive degli ultimi tempi. Ogni punto conterà nella corsa al titolo.\n\nSquadre: {{teamList}}"
       },
+      "managerialChange": {
+        "headline": "{{team}} esonera {{manager}}",
+        "body": "{{team}} ha esonerato {{manager}} dopo una serie negativa di risultati e ora è alla ricerca di un nuovo allenatore."
+      },
+      "seasonAwards": {
+        "headline": "Premi della stagione {{season}}",
+        "bodyBoth": "La stagione {{season}} si è conclusa con {{goldenBootWinner}} ({{goldenBootTeam}}) che ha alzato la Scarpa d'Oro con {{goldenBootGoals}} gol. Il Giocatore dell'Anno è stato {{potyWinner}} ({{potyTeam}}), con una media voto di {{potyRating}}.",
+        "bodyGoldenBootOnly": "La stagione {{season}} si è chiusa con {{goldenBootWinner}} ({{goldenBootTeam}}) incoronato capocannoniere con {{goldenBootGoals}} gol.",
+        "bodyPotyOnly": "La stagione {{season}} si è conclusa con {{potyWinner}} ({{potyTeam}}) eletto Giocatore dell'Anno, con una media voto di {{potyRating}}."
+      },
       "weeklyDigest": {
         "headline": "Digest Settimanale — Settimana del {{weekStart}}",
         "bodyNoTopScorer": "È arrivato l'ultimo digest settimanale. {{leader}} guida la classifica e {{storylineCount}} trama/e stanno plasmando la divisione questa settimana.",

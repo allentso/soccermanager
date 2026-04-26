@@ -1932,6 +1932,16 @@
         "headline2": "{{favourite}} Peut-il Décrocher le Titre ? Avant-Saison",
         "body": "La Première Division est prête à démarrer avec {{teamCount}} équipes en lice pour le titre.\n\nLes pronostics de pré-saison désignent {{favourite}} comme favori, mais {{darkHorse}} pourrait être la surprise de cette campagne.\n\nAvec de nouveaux managers aux commandes de certains clubs, cette saison promet d'être l'une des plus compétitives de mémoire récente. Chaque point comptera dans la course au titre.\n\nÉquipes : {{teamList}}"
       },
+      "managerialChange": {
+        "headline": "{{team}} limoge {{manager}}",
+        "body": "{{team}} a limogé {{manager}} après une série de mauvais résultats et recherche désormais un nouvel entraîneur."
+      },
+      "seasonAwards": {
+        "headline": "Prix de la saison {{season}}",
+        "bodyBoth": "La saison {{season}} s'est conclue avec {{goldenBootWinner}} ({{goldenBootTeam}}) remportant le Soulier d'Or avec {{goldenBootGoals}} buts. Le Joueur de l'Année a été attribué à {{potyWinner}} ({{potyTeam}}), avec une note moyenne de {{potyRating}}.",
+        "bodyGoldenBootOnly": "La saison {{season}} s'est terminée avec {{goldenBootWinner}} ({{goldenBootTeam}}) sacré meilleur buteur avec {{goldenBootGoals}} buts.",
+        "bodyPotyOnly": "La saison {{season}} s'est terminée avec {{potyWinner}} ({{potyTeam}}) nommé Joueur de l'Année, avec une note moyenne de {{potyRating}}."
+      },
       "weeklyDigest": {
         "headline": "Digest Hebdomadaire — Semaine du {{weekStart}}",
         "bodyNoTopScorer": "Le dernier digest hebdomadaire est là. {{leader}} mène le classement et {{storylineCount}} intrigue(s) façonnent la division cette semaine.",

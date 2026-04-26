@@ -1932,6 +1932,16 @@
         "headline2": "¿Puede {{favourite}} Reclamar el Título? Previa de Temporada",
         "body": "La Primera División está lista para comenzar con {{teamCount}} equipos compitiendo por el título.\n\nLas predicciones de pretemporada tienen a {{favourite}} como favorito, pero {{darkHorse}} podría ser la revelación de esta campaña.\n\nCon nuevos entrenadores tomando las riendas en algunos clubes, esta temporada promete ser una de las más competitivas en la memoria reciente. Cada punto importará en la carrera por el título.\n\nEquipos: {{teamList}}"
       },
+      "managerialChange": {
+        "headline": "{{team}} destituye a {{manager}}",
+        "body": "{{team}} ha destituido a {{manager}} tras una racha de malos resultados y ahora busca un nuevo entrenador."
+      },
+      "seasonAwards": {
+        "headline": "Premios de la temporada {{season}}",
+        "bodyBoth": "La temporada {{season}} concluyó con {{goldenBootWinner}} ({{goldenBootTeam}}) levantando la Bota de Oro con {{goldenBootGoals}} goles. El Jugador del Año fue {{potyWinner}} ({{potyTeam}}), con una valoración media de {{potyRating}}.",
+        "bodyGoldenBootOnly": "La temporada {{season}} terminó con {{goldenBootWinner}} ({{goldenBootTeam}}) coronado como máximo goleador con {{goldenBootGoals}} goles.",
+        "bodyPotyOnly": "La temporada {{season}} terminó con {{potyWinner}} ({{potyTeam}}) nombrado Jugador del Año, con una valoración media de {{potyRating}}."
+      },
       "weeklyDigest": {
         "headline": "Resumen Semanal — Semana del {{weekStart}}",
         "bodyNoTopScorer": "Ya está aquí el último resumen semanal. {{leader}} lidera la tabla y {{storylineCount}} historia(s) marcan la división esta semana.",

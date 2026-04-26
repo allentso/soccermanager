@@ -115,6 +115,8 @@ pub async fn select_team(
     if let Some(t) = game.teams.iter_mut().find(|t| t.id == team_id) {
         t.manager_id = Some(game.manager.id.clone());
     }
+    game.manager_id = game.manager.id.clone();
+    ofm_core::ai_hiring::seed_ai_managers(&mut game);
 
     // Generate league schedule — season starts 1 month after game start
     use chrono::Duration;
@@ -208,6 +210,7 @@ pub async fn load_game(
         .map_err(|e| format!("Lock error: {}", e))?;
     let mut game = sm.load_game(&save_id)?;
     let stats_state = sm.load_stats_state(&save_id)?;
+    ofm_core::ai_hiring::seed_ai_managers(&mut game);
     ofm_core::season_context::refresh_game_context(&mut game);
 
     let mgr_name = format!("{} {}", game.manager.first_name, game.manager.last_name);

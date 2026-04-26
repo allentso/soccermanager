@@ -1,3 +1,4 @@
+pub mod ai_hiring;
 pub mod board_objectives;
 pub mod clock;
 pub mod club;
@@ -18,6 +19,7 @@ pub mod player_events;
 pub mod player_identity;
 pub mod player_rating;
 pub mod random_events;
+pub mod reputation;
 pub mod schedule;
 pub mod scouting;
 pub mod season_awards;

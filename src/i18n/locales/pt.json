@@ -1932,6 +1932,16 @@
         "headline2": "Pode o {{favourite}} Conquistar o Título? Antevisão da Época",
         "body": "A Primeira Divisão está pronta para arrancar com {{teamCount}} equipas a disputar o título.\n\nAs previsões de pré-época apontam o {{favourite}} como favorito, mas o {{darkHorse}} pode ser a surpresa desta campanha.\n\nCom novos treinadores a assumir o comando em alguns clubes, esta época promete ser uma das mais competitivas da memória recente. Cada ponto vai contar na corrida pelo título.\n\nEquipas: {{teamList}}"
       },
+      "managerialChange": {
+        "headline": "{{team}} despede {{manager}}",
+        "body": "{{team}} despediu {{manager}} após uma série de maus resultados e procura agora um novo treinador."
+      },
+      "seasonAwards": {
+        "headline": "Prémios da época {{season}}",
+        "bodyBoth": "A época {{season}} terminou com {{goldenBootWinner}} ({{goldenBootTeam}}) a conquistar a Bota de Ouro com {{goldenBootGoals}} golos. O Jogador do Ano foi {{potyWinner}} ({{potyTeam}}), com uma classificação média de {{potyRating}}.",
+        "bodyGoldenBootOnly": "A época {{season}} terminou com {{goldenBootWinner}} ({{goldenBootTeam}}) coroado melhor marcador com {{goldenBootGoals}} golos.",
+        "bodyPotyOnly": "A época {{season}} terminou com {{potyWinner}} ({{potyTeam}}) eleito Jogador do Ano, com uma classificação média de {{potyRating}}."
+      },
       "weeklyDigest": {
         "headline": "Resumo Semanal — Semana de {{weekStart}}",
         "bodyNoTopScorer": "Já chegou o mais recente resumo semanal. {{leader}} lidera a tabela e {{storylineCount}} narrativa(s) estão a marcar a divisão esta semana.",

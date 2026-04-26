@@ -1932,6 +1932,16 @@
         "headline2": "Kann {{favourite}} den Titel Holen? Saisonvorschau",
         "body": "Die Erste Division steht vor dem Start mit {{teamCount}} Teams im Titelkampf.\n\nDie Voraussagen sehen {{favourite}} als Favorit, aber {{darkHorse}} könnte die Überraschung dieser Saison sein.\n\nMit neuen Trainern bei einigen Vereinen verspricht diese Saison eine der wettbewerbsintensivsten der jüngeren Geschichte zu werden. Jeder Punkt wird im Titelkampf zählen.\n\nTeams: {{teamList}}"
       },
+      "managerialChange": {
+        "headline": "{{team}} trennt sich von {{manager}}",
+        "body": "{{team}} hat {{manager}} nach einer schwachen Ergebnisserie entlassen und sucht nun einen neuen Trainer."
+      },
+      "seasonAwards": {
+        "headline": "Saisonpreise {{season}}",
+        "bodyBoth": "Saison {{season}} endete damit, dass {{goldenBootWinner}} ({{goldenBootTeam}}) mit {{goldenBootGoals}} Toren den Goldenen Schuh gewann. Spieler des Jahres wurde {{potyWinner}} ({{potyTeam}}) mit einer Durchschnittsbewertung von {{potyRating}}.",
+        "bodyGoldenBootOnly": "Saison {{season}} endete damit, dass {{goldenBootWinner}} ({{goldenBootTeam}}) mit {{goldenBootGoals}} Toren Torschutzenkonig wurde.",
+        "bodyPotyOnly": "Saison {{season}} endete damit, dass {{potyWinner}} ({{potyTeam}}) mit einer Durchschnittsbewertung von {{potyRating}} zum Spieler des Jahres gewahlt wurde."
+      },
       "weeklyDigest": {
         "headline": "Wochendigest — Woche vom {{weekStart}}",
         "bodyNoTopScorer": "Der aktuelle Wochendigest ist da. {{leader}} führen die Tabelle an, und {{storylineCount}} Storyline(s) prägen die Liga in dieser Woche.",

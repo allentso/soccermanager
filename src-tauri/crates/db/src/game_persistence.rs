@@ -21,13 +21,24 @@ impl GamePersistenceWriter {
     ) -> Result<(), String> {
         let conn = db.conn();
         let now = Utc::now().to_rfc3339();
+        let manager_id = if game.manager_id.is_empty() {
+            game.manager.id.clone()
+        } else {
+            game.manager_id.clone()
+        };
+        let mut managers = game.managers.clone();
+        if let Some(existing) = managers.iter_mut().find(|manager| manager.id == manager_id) {
+            *existing = game.manager.clone();
+        } else {
+            managers.push(game.manager.clone());
+        }
 
         meta_repo::upsert_meta(
             conn,
             &meta_repo::GameMeta {
                 save_id: save_id.to_string(),
                 save_name: save_name.to_string(),
-                manager_id: game.manager.id.clone(),
+                manager_id: manager_id.clone(),
                 start_date: game.clock.start_date.to_rfc3339(),
                 game_date: game.clock.current_date.to_rfc3339(),
                 created_at: now.clone(),
@@ -35,7 +46,9 @@ impl GamePersistenceWriter {
             },
         )?;
 
-        manager_repo::upsert_manager(conn, &game.manager)?;
+        for manager in &managers {
+            manager_repo::upsert_manager(conn, manager)?;
+        }
         team_repo::upsert_teams(conn, &game.teams)?;
         player_repo::upsert_players(conn, &game.players)?;
         staff_repo::upsert_staff_list(conn, &game.staff)?;
@@ -102,6 +115,10 @@ impl GamePersistenceReader {
 
         let manager = manager_repo::load_manager(conn, &meta.manager_id)?
             .ok_or_else(|| format!("Manager '{}' not found", meta.manager_id))?;
+        let mut managers = manager_repo::load_all_managers(conn)?;
+        if managers.is_empty() {
+            managers.push(manager.clone());
+        }
         let teams = team_repo::load_all_teams(conn)?;
         let players = player_repo::load_all_players(conn)?;
         let staff = staff_repo::load_all_staff(conn)?;
@@ -134,6 +151,8 @@ impl GamePersistenceReader {
 
         let mut game = Game {
             clock,
+            manager_id: meta.manager_id.clone(),
+            managers,
             manager,
             teams,
             players,
