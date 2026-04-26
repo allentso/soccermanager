@@ -1818,6 +1818,10 @@
         "accept": "Accetta la posizione",
         "decline": "Rifiuta l'offerta"
       },
+      "jobOfferExpired": {
+        "subject": "Posizione assegnata — {{team}}",
+        "body": "La panchina vacante di {{team}} è stata ormai assegnata, quindi questa offerta non è più disponibile."
+      },
       "jobHired": {
         "subject": "Benvenuto al {{team}}",
         "body": "Il consiglio di amministrazione del {{team}} è lieto di darti il benvenuto come nuovo allenatore. Non vediamo l'ora di lavorare con te e raggiungere grandi traguardi insieme."

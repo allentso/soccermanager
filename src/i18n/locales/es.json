@@ -1882,6 +1882,10 @@
         "accept": "Aceptar el puesto",
         "decline": "Rechazar la oferta"
       },
+      "jobOfferExpired": {
+        "subject": "Puesto cubierto — {{team}}",
+        "body": "La vacante en {{team}} ya ha sido cubierta, por lo que esta oferta ya no está disponible."
+      },
       "jobHired": {
         "subject": "Bienvenido al {{team}}",
         "body": "La junta directiva del {{team}} se complace en darte la bienvenida como nuevo entrenador. Esperamos trabajar contigo y lograr grandes cosas juntos."

@@ -6,11 +6,13 @@ const BASE_AI_MANAGER_SATISFACTION: i32 = 50;
 const AI_MANAGER_REPLACEMENT_DELAY_DAYS: u32 = 7;
 
 fn manager_seed_staff<'a>(staff: &'a [Staff], team_id: &str) -> Option<&'a Staff> {
-    staff.iter()
+    staff
+        .iter()
         .filter(|member| member.team_id.as_deref() == Some(team_id))
         .find(|member| member.role == StaffRole::AssistantManager)
         .or_else(|| {
-            staff.iter()
+            staff
+                .iter()
                 .filter(|member| member.team_id.as_deref() == Some(team_id))
                 .min_by(|left, right| left.id.cmp(&right.id))
         })
@@ -82,7 +84,9 @@ fn ai_manager_satisfaction(form: &[String]) -> u8 {
         }
     }
 
-    if form.iter().rev().take(4).count() == 4 && form.iter().rev().take(4).all(|result| result == "L") {
+    if form.iter().rev().take(4).count() == 4
+        && form.iter().rev().take(4).all(|result| result == "L")
+    {
         satisfaction -= 12;
     }
 
@@ -114,7 +118,11 @@ pub fn seed_ai_managers(game: &mut Game) {
         .filter(|team| {
             team.manager_id
                 .as_ref()
-                .and_then(|manager_id| game.managers.iter().find(|manager| &manager.id == manager_id))
+                .and_then(|manager_id| {
+                    game.managers
+                        .iter()
+                        .find(|manager| &manager.id == manager_id)
+                })
                 .is_none()
         })
         .filter(|team| !team_has_manager_history(game, &team.id))
@@ -132,6 +140,7 @@ pub fn seed_ai_managers(game: &mut Game) {
         if let Some(team) = game.teams.iter_mut().find(|team| team.id == team_id) {
             team.manager_id = Some(manager.id.clone());
         }
+        crate::job_offers::expire_outstanding_job_offers_for_team(game, &team_id);
         game.managers.push(manager);
     }
 
@@ -178,6 +187,7 @@ pub fn process_vacant_ai_clubs(game: &mut Game) {
         if let Some(team) = game.teams.iter_mut().find(|team| team.id == team_id) {
             team.manager_id = Some(manager.id.clone());
         }
+        crate::job_offers::expire_outstanding_job_offers_for_team(game, &team_id);
         game.managers.push(manager);
         game.vacant_team_days.remove(&team_id);
     }
@@ -215,6 +225,7 @@ mod tests {
     use crate::game::Game;
     use chrono::{TimeZone, Utc};
     use domain::manager::Manager;
+    use domain::message::{ActionType, InboxMessage, MessageAction, MessageContext};
     use domain::staff::{Staff, StaffAttributes, StaffRole};
     use domain::team::Team;
 
@@ -230,7 +241,13 @@ mod tests {
         )
     }
 
-    fn make_staff(id: &str, team_id: &str, role: StaffRole, first_name: &str, last_name: &str) -> Staff {
+    fn make_staff(
+        id: &str,
+        team_id: &str,
+        role: StaffRole,
+        first_name: &str,
+        last_name: &str,
+    ) -> Staff {
         let mut staff = Staff::new(
             id.to_string(),
             first_name.to_string(),
@@ -270,8 +287,20 @@ mod tests {
             vec![user_team, rival_team],
             vec![],
             vec![
-                make_staff("staff1", "team1", StaffRole::AssistantManager, "Amy", "Assistant"),
-                make_staff("staff2", "team2", StaffRole::AssistantManager, "Marco", "Rossi"),
+                make_staff(
+                    "staff1",
+                    "team1",
+                    StaffRole::AssistantManager,
+                    "Amy",
+                    "Assistant",
+                ),
+                make_staff(
+                    "staff2",
+                    "team2",
+                    StaffRole::AssistantManager,
+                    "Marco",
+                    "Rossi",
+                ),
             ],
             vec![],
         )
@@ -300,7 +329,12 @@ mod tests {
             .iter_mut()
             .find(|team| team.id == "team2")
             .unwrap()
-            .form = vec!["L".to_string(), "L".to_string(), "L".to_string(), "L".to_string()];
+            .form = vec![
+            "L".to_string(),
+            "L".to_string(),
+            "L".to_string(),
+            "L".to_string(),
+        ];
 
         update_ai_manager_satisfaction(&mut game);
 
@@ -340,16 +374,18 @@ mod tests {
 
         seed_ai_managers(&mut game);
 
-        assert!(game
-            .teams
-            .iter()
-            .find(|team| team.id == "team2")
-            .and_then(|team| team.manager_id.clone())
-            .is_none());
-        assert!(game
-            .managers
-            .iter()
-            .all(|manager| manager.id != format!("{}_2", previous_manager_id)));
+        assert!(
+            game.teams
+                .iter()
+                .find(|team| team.id == "team2")
+                .and_then(|team| team.manager_id.clone())
+                .is_none()
+        );
+        assert!(
+            game.managers
+                .iter()
+                .all(|manager| manager.id != format!("{}_2", previous_manager_id))
+        );
     }
 
     #[test]
@@ -386,10 +422,79 @@ mod tests {
             .expect("vacant AI club should get a replacement manager after the delay");
 
         assert_ne!(replacement_manager_id, previous_manager_id);
-        assert!(game
-            .managers
-            .iter()
-            .any(|manager| manager.id == replacement_manager_id && manager.team_id.as_deref() == Some("team2")));
+        assert!(
+            game.managers
+                .iter()
+                .any(|manager| manager.id == replacement_manager_id
+                    && manager.team_id.as_deref() == Some("team2"))
+        );
         assert!(!game.vacant_team_days.contains_key("team2"));
+    }
+
+    #[test]
+    fn process_vacant_ai_clubs_expires_outstanding_job_offer_for_filled_team() {
+        let mut game = make_game();
+        seed_ai_managers(&mut game);
+
+        let previous_manager_id = game
+            .teams
+            .iter()
+            .find(|team| team.id == "team2")
+            .and_then(|team| team.manager_id.clone())
+            .unwrap();
+
+        if let Some(team) = game.teams.iter_mut().find(|team| team.id == "team2") {
+            team.manager_id = None;
+        }
+        if let Some(manager) = game
+            .managers
+            .iter_mut()
+            .find(|manager| manager.id == previous_manager_id)
+        {
+            manager.fire("2026-07-15");
+        }
+        game.vacant_team_days.insert("team2".to_string(), 6);
+        game.messages.push(
+            InboxMessage::new(
+                "job_offer_team2_2026-07-15".to_string(),
+                "Offer".to_string(),
+                "Join us".to_string(),
+                "Board".to_string(),
+                "2026-07-15".to_string(),
+            )
+            .with_context(MessageContext {
+                team_id: Some("team2".to_string()),
+                player_id: None,
+                fixture_id: None,
+                match_result: None,
+                scout_report: None,
+                delegated_renewal_report: None,
+            })
+            .with_action(MessageAction {
+                id: "respond_team2".to_string(),
+                label: "Respond".to_string(),
+                action_type: ActionType::ChooseOption { options: vec![] },
+                resolved: false,
+                label_key: None,
+            }),
+        );
+
+        process_vacant_ai_clubs(&mut game);
+
+        let offer = game
+            .messages
+            .iter()
+            .find(|message| message.id == "job_offer_team2_2026-07-15")
+            .unwrap();
+        assert!(offer.read);
+        assert!(offer.actions.iter().all(|action| action.resolved));
+        assert_eq!(
+            offer.subject_key.as_deref(),
+            Some("be.msg.jobOfferExpired.subject")
+        );
+        assert_eq!(
+            offer.body_key.as_deref(),
+            Some("be.msg.jobOfferExpired.body")
+        );
     }
 }

@@ -1882,6 +1882,10 @@
         "accept": "Aceitar o cargo",
         "decline": "Recusar a oferta"
       },
+      "jobOfferExpired": {
+        "subject": "Vaga preenchida — {{team}}",
+        "body": "A vaga no {{team}} já foi preenchida, então esta oferta não está mais disponível."
+      },
       "jobHired": {
         "subject": "Bem-vindo ao {{team}}",
         "body": "A diretoria do {{team}} tem o prazer de recebê-lo como novo treinador. Estamos ansiosos para trabalhar com você e alcançar grandes feitos juntos."

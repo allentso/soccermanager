@@ -1882,6 +1882,10 @@
         "accept": "Accept the position",
         "decline": "Decline the offer"
       },
+      "jobOfferExpired": {
+        "subject": "Position Filled — {{team}}",
+        "body": "The vacancy at {{team}} has now been filled, so this offer is no longer available."
+      },
       "jobHired": {
         "subject": "Welcome to {{team}}",
         "body": "The board of directors at {{team}} is delighted to welcome you as the new manager. We look forward to working with you and achieving great things together."

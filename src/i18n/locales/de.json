@@ -1882,6 +1882,10 @@
         "accept": "Position annehmen",
         "decline": "Angebot ablehnen"
       },
+      "jobOfferExpired": {
+        "subject": "Stelle besetzt — {{team}}",
+        "body": "Die vakante Stelle bei {{team}} wurde inzwischen besetzt, daher ist dieses Angebot nicht mehr verfügbar."
+      },
       "jobHired": {
         "subject": "Willkommen bei {{team}}",
         "body": "Der Vorstand von {{team}} freut sich, Sie als neuen Trainer begrüßen zu dürfen. Wir freuen uns auf die Zusammenarbeit und darauf, gemeinsam Großes zu erreichen."

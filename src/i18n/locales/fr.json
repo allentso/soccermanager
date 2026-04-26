@@ -1882,6 +1882,10 @@
         "accept": "Accepter le poste",
         "decline": "Décliner l'offre"
       },
+      "jobOfferExpired": {
+        "subject": "Poste pourvu — {{team}}",
+        "body": "Le poste vacant à {{team}} a désormais été pourvu, cette offre n'est donc plus disponible."
+      },
       "jobHired": {
         "subject": "Bienvenue au {{team}}",
         "body": "Le conseil d'administration du {{team}} est ravi de vous accueillir comme nouvel entraîneur. Nous sommes impatients de travailler avec vous et d'accomplir de grandes choses ensemble."

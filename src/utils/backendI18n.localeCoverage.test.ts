@@ -46,6 +46,8 @@ const REQUIRED_KEYS = [
   "be.msg.jobOffer.body",
   "be.msg.jobOffer.accept",
   "be.msg.jobOffer.decline",
+  "be.msg.jobOfferExpired.subject",
+  "be.msg.jobOfferExpired.body",
   "be.msg.jobHired.subject",
   "be.msg.jobHired.body",
   "be.msg.jobRejection.subject",

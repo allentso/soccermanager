@@ -30,6 +30,32 @@ fn params(pairs: &[(&str, &str)]) -> HashMap<String, String> {
         .collect()
 }
 
+pub(crate) fn expire_outstanding_job_offers_for_team(game: &mut Game, team_id: &str) {
+    let team_name = game
+        .teams
+        .iter()
+        .find(|team| team.id == team_id)
+        .map(|team| team.name.clone())
+        .unwrap_or_else(|| team_id.to_string());
+
+    for message in game.messages.iter_mut().filter(|message| {
+        message.id.starts_with("job_offer_") && message.context.team_id.as_deref() == Some(team_id)
+    }) {
+        message.read = true;
+        message.subject = format!("Position Filled — {}", team_name);
+        message.body = format!(
+            "The vacancy at {} has now been filled, so this offer is no longer available.",
+            team_name
+        );
+        message.subject_key = Some("be.msg.jobOfferExpired.subject".to_string());
+        message.body_key = Some("be.msg.jobOfferExpired.body".to_string());
+        message.i18n_params = params(&[("team", &team_name)]);
+        for action in &mut message.actions {
+            action.resolved = true;
+        }
+    }
+}
+
 /// Shared hiring flow used by both offer-accept and application-accept paths.
 pub fn hire_manager(game: &mut Game, team_id: &str, date: &str) -> Result<String, String> {
     let team = game
@@ -66,6 +92,7 @@ pub fn hire_manager(game: &mut Game, team_id: &str, date: &str) -> Result<String
     game.manager.satisfaction = 50;
     game.sync_user_manager_record();
     game.vacant_team_days.remove(team_id);
+    expire_outstanding_job_offers_for_team(game, team_id);
 
     // Clear job offer timer
     game.days_since_last_job_offer = None;
@@ -584,6 +611,54 @@ mod tests {
                 .iter()
                 .any(|m| m.id.starts_with("job_welcome_"))
         );
+    }
+
+    #[test]
+    fn hire_manager_resolves_outstanding_offer_for_team() {
+        let mut game = make_game(10, false);
+        let msg = InboxMessage::new(
+            "job_offer_team2_2026-11-01".to_string(),
+            "Offer".to_string(),
+            "Join us".to_string(),
+            "Board".to_string(),
+            "2026-11-01".to_string(),
+        )
+        .with_context(MessageContext {
+            team_id: Some("team2".to_string()),
+            player_id: None,
+            fixture_id: None,
+            match_result: None,
+            scout_report: None,
+            delegated_renewal_report: None,
+        })
+        .with_action(MessageAction {
+            id: "respond_team2".to_string(),
+            label: "Respond".to_string(),
+            action_type: ActionType::ChooseOption { options: vec![] },
+            resolved: false,
+            label_key: None,
+        });
+        game.messages.push(msg);
+
+        hire_manager(&mut game, "team2", "2026-11-01").unwrap();
+
+        let offer = game
+            .messages
+            .iter()
+            .find(|message| message.id == "job_offer_team2_2026-11-01")
+            .unwrap();
+        assert!(offer.read);
+        assert!(offer.actions.iter().all(|action| action.resolved));
+        assert_eq!(
+            offer.subject_key.as_deref(),
+            Some("be.msg.jobOfferExpired.subject")
+        );
+        assert_eq!(
+            offer.body_key.as_deref(),
+            Some("be.msg.jobOfferExpired.body")
+        );
+        assert!(offer.subject.contains("Position Filled"));
+        assert!(offer.body.contains("no longer available"));
     }
 
     #[test]
