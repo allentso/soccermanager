@@ -20,17 +20,35 @@ export const SUPPORTED_LANGUAGES = [
   { code: "zh-CN", label: "简体中文" },
 ] as const;
 
-const SUPPORTED_CODES: string[] = SUPPORTED_LANGUAGES.map(l => l.code);
+const SUPPORTED_CODES = new Map(
+  SUPPORTED_LANGUAGES.map((language) => [
+    language.code.toLowerCase(),
+    language.code,
+  ]),
+);
+
+const SIMPLIFIED_CHINESE_LOCALES = new Set(["zh", "zh-cn", "zh-sg", "zh-my"]);
+
+export function resolveSupportedLanguage(locale: string): string {
+  const normalized = locale.trim().replace(/_/g, "-").toLowerCase();
+  const exactMatch = SUPPORTED_CODES.get(normalized);
+  if (exactMatch) return exactMatch;
+
+  if (
+    SIMPLIFIED_CHINESE_LOCALES.has(normalized) ||
+    normalized.startsWith("zh-hans")
+  ) {
+    return "zh-CN";
+  }
+
+  const base = normalized.split("-")[0];
+  return SUPPORTED_CODES.get(base) ?? "en";
+}
 
 /** Detect the best initial language from the browser / OS locale */
 function detectInitialLanguage(): string {
   const nav = navigator.language; // e.g. "pt-BR", "es-419", "en-US"
-  // Exact match first (e.g. pt-BR)
-  if (SUPPORTED_CODES.includes(nav)) return nav;
-  // Base language match (e.g. "es-419" -> "es")
-  const base = nav.split("-")[0];
-  if (SUPPORTED_CODES.includes(base)) return base;
-  return "en";
+  return resolveSupportedLanguage(nav);
 }
 
 i18n.use(initReactI18next).init({
