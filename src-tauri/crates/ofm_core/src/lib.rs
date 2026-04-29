@@ -24,6 +24,7 @@ pub mod schedule;
 pub mod scouting;
 pub mod season_awards;
 pub mod season_context;
+pub mod squad_safety;
 pub mod state;
 pub mod training;
 pub mod transfers;

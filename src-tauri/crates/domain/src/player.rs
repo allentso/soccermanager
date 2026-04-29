@@ -245,6 +245,16 @@ pub enum RenewalSessionOutcome {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum ContractExitIntent {
+    LetExpire {
+        set_on: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        reason: Option<String>,
+    },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(default)]
 pub struct ContractRenewalState {
     pub status: RenewalSessionStatus,
@@ -253,6 +263,7 @@ pub struct ContractRenewalState {
     pub last_assistant_attempt_date: Option<String>,
     pub last_outcome: Option<RenewalSessionOutcome>,
     pub conversation_round: u8,
+    pub exit_intent: Option<ContractExitIntent>,
 }
 
 impl Default for ContractRenewalState {
@@ -264,6 +275,7 @@ impl Default for ContractRenewalState {
             last_assistant_attempt_date: None,
             last_outcome: None,
             conversation_round: 0,
+            exit_intent: None,
         }
     }
 }

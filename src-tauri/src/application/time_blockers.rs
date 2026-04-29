@@ -3,6 +3,7 @@ use log::info;
 use ofm_core::contracts::contract_warning_stage;
 use ofm_core::game::Game;
 use ofm_core::player_rating::{effective_rating_for_assignment, formation_slots, natural_ovr};
+use ofm_core::squad_safety::{project_user_team_planned_exit_safety, user_team_squad_safety};
 
 fn user_team_context<'a>(
     game: &'a Game,
@@ -168,6 +169,43 @@ fn incomplete_starting_xi_blocker(
     })
 }
 
+fn squad_size_crisis_blocker(game: &Game) -> Option<serde_json::Value> {
+    let safety = user_team_squad_safety(game)?;
+
+    (safety.projected_roster_size < 11).then(|| {
+        build_blocker(
+            "squad_size_crisis",
+            "warn",
+            format!(
+                "Squad has only {} contracted player(s) — sign players before match day",
+                safety.projected_roster_size
+            ),
+            "Squad",
+        )
+    })
+}
+
+fn planned_contract_exit_crisis_blocker(game: &Game) -> Option<serde_json::Value> {
+    let planned_exit_report = project_user_team_planned_exit_safety(game)?;
+
+    (!planned_exit_report.squad_safety.can_field_matchday_squad).then(|| {
+        let mut names = planned_exit_report.departing_player_names;
+        names.sort();
+        let listed_names = names.into_iter().take(3).collect::<Vec<_>>().join(", ");
+        build_blocker(
+            "planned_contract_exit_crisis",
+            "warn",
+            format!(
+                "Planned contract exits would leave only {} healthy player(s) and {} goalkeeper(s): {}",
+                planned_exit_report.squad_safety.healthy_players,
+                planned_exit_report.squad_safety.healthy_goalkeepers,
+                listed_names
+            ),
+            "Squad",
+        )
+    })
+}
+
 fn urgent_unread_messages_blocker(game: &Game) -> Option<serde_json::Value> {
     let urgent_unread = game
         .messages
@@ -277,6 +315,14 @@ pub fn compute_blocking_actions(game: &Game) -> Vec<serde_json::Value> {
     }
 
     if let Some(blocker) = incomplete_starting_xi_blocker(&effective_healthy_xi_ids, &roster) {
+        blockers.push(blocker);
+    }
+
+    if let Some(blocker) = squad_size_crisis_blocker(game) {
+        blockers.push(blocker);
+    }
+
+    if let Some(blocker) = planned_contract_exit_crisis_blocker(game) {
         blockers.push(blocker);
     }
 

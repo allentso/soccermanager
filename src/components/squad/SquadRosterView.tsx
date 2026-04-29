@@ -11,7 +11,10 @@ import {
   ChevronDown,
   ChevronUp,
   Repeat,
+  RotateCcw,
   ShoppingCart,
+  TimerOff,
+  Trash2,
   User,
   Users,
 } from "lucide-react";
@@ -28,6 +31,10 @@ import {
 import { TraitList } from "../TraitBadge";
 import { useTranslation } from "react-i18next";
 import ContextMenu from "../ContextMenu";
+import {
+  clearContractExitIntent,
+  setContractExitIntent,
+} from "../../services/contractService";
 import {
   buildActivePositionMap,
   buildPitchRows,
@@ -64,6 +71,12 @@ export default function SquadRosterView({
   const [statusFilter, setStatusFilter] = useState<FilterScope>("all");
   const [sortKey, setSortKey] = useState<SortKey>("pos");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [contractActionPlayerId, setContractActionPlayerId] = useState<
+    string | null
+  >(null);
+  const [contractActionError, setContractActionError] = useState<string | null>(
+    null,
+  );
 
   if (!myTeam) {
     return (
@@ -85,9 +98,9 @@ export default function SquadRosterView({
     .sort(
       (a, b) =>
         (posOrder[normalisePosition(a.position)] || 99) -
-          (posOrder[normalisePosition(b.position)] || 99) ||
+        (posOrder[normalisePosition(b.position)] || 99) ||
         calcOvr(b, b.natural_position || b.position) -
-          calcOvr(a, a.natural_position || a.position),
+        calcOvr(a, a.natural_position || a.position),
     );
 
   const playersById = useMemo(
@@ -230,6 +243,25 @@ export default function SquadRosterView({
   ).length;
   const injuredCount = roster.filter((player) => player.injury).length;
 
+  const updateContractExitIntent = async (
+    playerId: string,
+    shouldLetExpire: boolean,
+  ): Promise<void> => {
+    setContractActionPlayerId(playerId);
+    setContractActionError(null);
+
+    try {
+      const result = shouldLetExpire
+        ? await setContractExitIntent(playerId, "manager_squad_action")
+        : await clearContractExitIntent(playerId);
+      onGameUpdate?.(result.game);
+    } catch (error) {
+      setContractActionError(String(error));
+    } finally {
+      setContractActionPlayerId(null);
+    }
+  };
+
   const renderPreferredPositionMeta = (player: PlayerData) => (
     <div className="text-xs text-gray-400 dark:text-gray-500 flex items-center gap-1.5 flex-wrap">
       <CountryFlag code={player.nationality} className="text-sm leading-none" />
@@ -333,11 +365,10 @@ export default function SquadRosterView({
               setStatusFilter("all");
             }}
             disabled={!hasActiveFilters}
-            className={`px-3 py-2 rounded-lg text-xs font-heading font-bold uppercase tracking-wider transition-all ${
-              hasActiveFilters
+            className={`px-3 py-2 rounded-lg text-xs font-heading font-bold uppercase tracking-wider transition-all ${hasActiveFilters
                 ? "bg-gray-100 dark:bg-navy-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-navy-600"
                 : "bg-gray-100 dark:bg-navy-700 text-gray-400 cursor-not-allowed"
-            }`}
+              }`}
           >
             {t("common.clear", "Clear")}
           </button>
@@ -418,6 +449,11 @@ export default function SquadRosterView({
                     : contractRiskLevel === "warning"
                       ? t("finances.contractRiskWarning")
                       : t("finances.contractRiskStable");
+                const hasLetExpireIntent =
+                  player.morale_core?.renewal_state?.exit_intent?.kind ===
+                  "let_expire";
+                const isContractActionSubmitting =
+                  contractActionPlayerId === player.id;
 
                 const contextItems = [
                   {
@@ -426,17 +462,55 @@ export default function SquadRosterView({
                     onClick: () => onSelectPlayer(player.id),
                   },
                   {
+                    label: t("common.renewContract"),
+                    icon: <Repeat className="w-4 h-4" />,
+                    disabled: !player.contract_end,
+                    onClick: () =>
+                      onSelectPlayer(player.id, {
+                        openRenewal: true,
+                      }),
+                  },
+                  hasLetExpireIntent
+                    ? {
+                      label: t("playerProfile.reopenContractTalks"),
+                      icon: <RotateCcw className="w-4 h-4" />,
+                      disabled:
+                        !player.contract_end || isContractActionSubmitting,
+                      onClick: () => {
+                        void updateContractExitIntent(player.id, false);
+                      },
+                    }
+                    : {
+                      label: t("playerProfile.letContractExpire"),
+                      icon: <TimerOff className="w-4 h-4" />,
+                      disabled:
+                        !player.contract_end || isContractActionSubmitting,
+                      onClick: () => {
+                        void updateContractExitIntent(player.id, true);
+                      },
+                    },
+                  {
+                    label: t("playerProfile.terminateContract"),
+                    icon: <Trash2 className="w-4 h-4" />,
+                    danger: true,
+                    disabled: !player.contract_end,
+                    onClick: () =>
+                      onSelectPlayer(player.id, {
+                        openTermination: true,
+                      }),
+                  },
+                  {
                     label: "",
                     icon: undefined,
-                    onClick: () => {},
+                    onClick: () => { },
                     divider: true,
                   },
                   {
                     label: player.transfer_listed
                       ? t(
-                          "squad.removeFromTransferList",
-                          "Remove from transfer list",
-                        )
+                        "squad.removeFromTransferList",
+                        "Remove from transfer list",
+                      )
                       : t("squad.addToTransferList", "Add to transfer list"),
                     icon: <ShoppingCart className="w-4 h-4" />,
                     onClick: async () => {
@@ -552,8 +626,8 @@ export default function SquadRosterView({
                           <div>
                             {player.contract_end
                               ? t("finances.contractExpiresOn", {
-                                  date: player.contract_end,
-                                })
+                                date: player.contract_end,
+                              })
                               : "—"}
                           </div>
                         </div>
@@ -570,7 +644,7 @@ export default function SquadRosterView({
                       </td>
                       <td className="py-2.5 px-4">
                         {player.contract_end &&
-                        contractRiskLevel !== "stable" ? (
+                          contractRiskLevel !== "stable" ? (
                           <Button
                             size="sm"
                             variant="outline"
@@ -591,13 +665,12 @@ export default function SquadRosterView({
                       </td>
                       <td className="py-2.5 px-4 text-right">
                         <span
-                          className={`font-heading font-bold text-sm ${
-                            ovr >= 80
+                          className={`font-heading font-bold text-sm ${ovr >= 80
                               ? "text-primary-500"
                               : ovr >= 55
                                 ? "text-accent-600 dark:text-accent-400"
                                 : "text-gray-500 dark:text-gray-400"
-                          }`}
+                            }`}
                         >
                           {ovr}
                         </span>
@@ -615,6 +688,12 @@ export default function SquadRosterView({
           ) : null}
         </div>
       </Card>
+
+      {contractActionError ? (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300">
+          {contractActionError}
+        </div>
+      ) : null}
     </div>
   );
 }

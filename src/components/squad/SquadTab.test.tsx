@@ -1,12 +1,20 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { invoke } from "@tauri-apps/api/core";
 import type { GameStateData, PlayerData, TeamData } from "../../store/gameStore";
 import SquadTab from "./SquadTab";
+
+vi.mock("@tauri-apps/api/core", () => ({
+  invoke: vi.fn(),
+}));
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string, fallback?: string | Record<string, unknown>) => {
       if (key === "common.renewContract") return "Renew Contract";
+      if (key === "playerProfile.letContractExpire") return "Let Expire";
+      if (key === "playerProfile.reopenContractTalks") return "Reopen Talks";
+      if (key === "playerProfile.terminateContract") return "Terminate Now";
       if (key === "playerProfile.yearsRemaining") return "Years Remaining";
       if (key === "finances.contractRisk") return "Contract Risk";
       if (key === "finances.contractRiskCritical") return "Critical";
@@ -188,6 +196,12 @@ const makeGameState = (): GameStateData => {
 };
 
 describe("SquadTab", () => {
+  const mockedInvoke = vi.mocked(invoke);
+
+  beforeEach(() => {
+    mockedInvoke.mockReset();
+  });
+
   it("renders only the full roster table and not the moved tactics controls", () => {
     render(
       <SquadTab
@@ -230,6 +244,84 @@ describe("SquadTab", () => {
 
     expect(onSelectPlayer).toHaveBeenCalledWith("gk1", {
       openRenewal: true,
+    });
+  });
+
+  it("offers contract actions from the roster context menu", async () => {
+    const gameState = makeGameState();
+    const onGameUpdate = vi.fn();
+    const onSelectPlayer = vi.fn();
+    mockedInvoke.mockResolvedValue({ game: gameState });
+
+    render(
+      <SquadTab
+        gameState={gameState}
+        managerId="mgr1"
+        onSelectPlayer={onSelectPlayer}
+        onGameUpdate={onGameUpdate}
+      />,
+    );
+
+    const playerRow = screen.getByText("Player gk1").closest("tr");
+    expect(playerRow).not.toBeNull();
+    fireEvent.contextMenu(playerRow as HTMLTableRowElement);
+
+    fireEvent.click(screen.getByRole("button", { name: "Let Expire" }));
+
+    await waitFor(() => {
+      expect(mockedInvoke).toHaveBeenCalledWith("set_contract_exit_intent", {
+        playerId: "gk1",
+        reason: "manager_squad_action",
+      });
+      expect(onGameUpdate).toHaveBeenCalledWith(gameState);
+    });
+
+    fireEvent.contextMenu(playerRow as HTMLTableRowElement);
+    fireEvent.click(screen.getByRole("button", { name: "Terminate Now" }));
+
+    expect(onSelectPlayer).toHaveBeenCalledWith("gk1", {
+      openTermination: true,
+    });
+  });
+
+  it("reopens talks from context menu for planned-expiry players", async () => {
+    const gameState = makeGameState();
+    gameState.players[0].morale_core = {
+      manager_trust: 50,
+      renewal_state: {
+        status: "blocked",
+        manager_blocked_until: null,
+        last_attempt_date: "2026-08-01",
+        last_assistant_attempt_date: null,
+        last_outcome: "BlockedByManager",
+        conversation_round: 0,
+        exit_intent: {
+          kind: "let_expire",
+          set_on: "2026-08-01",
+          reason: "manager_squad_action",
+        },
+      },
+    };
+    mockedInvoke.mockResolvedValue({ game: gameState });
+
+    render(
+      <SquadTab
+        gameState={gameState}
+        managerId="mgr1"
+        onSelectPlayer={vi.fn()}
+        onGameUpdate={vi.fn()}
+      />,
+    );
+
+    const playerRow = screen.getByText("Player gk1").closest("tr");
+    expect(playerRow).not.toBeNull();
+    fireEvent.contextMenu(playerRow as HTMLTableRowElement);
+    fireEvent.click(screen.getByRole("button", { name: "Reopen Talks" }));
+
+    await waitFor(() => {
+      expect(mockedInvoke).toHaveBeenCalledWith("clear_contract_exit_intent", {
+        playerId: "gk1",
+      });
     });
   });
 });

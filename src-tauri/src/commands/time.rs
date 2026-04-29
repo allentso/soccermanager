@@ -179,7 +179,10 @@ mod tests {
     use domain::league::{Fixture, FixtureCompetition, FixtureStatus};
     use domain::manager::Manager;
     use domain::message::{InboxMessage, MessagePriority};
-    use domain::player::{Injury, Player, PlayerAttributes, Position};
+    use domain::player::{
+        ContractExitIntent, ContractRenewalState, Injury, Player, PlayerAttributes, Position,
+        RenewalSessionStatus,
+    };
     use domain::stats::StatsState;
     use domain::team::Team;
     use ofm_core::clock::GameClock;
@@ -344,6 +347,27 @@ mod tests {
             .find(|blocker| blocker.get("id").and_then(Value::as_str) == Some(id))
     }
 
+    fn mark_player_let_expire(game: &mut Game, player_id: &str) {
+        let player = game
+            .players
+            .iter_mut()
+            .find(|player| player.id == player_id)
+            .unwrap();
+        player.contract_end = Some("2025-08-01".to_string());
+        player.morale_core.renewal_state = Some(ContractRenewalState {
+            status: RenewalSessionStatus::Blocked,
+            manager_blocked_until: None,
+            last_attempt_date: Some("2025-06-15".to_string()),
+            last_assistant_attempt_date: None,
+            last_outcome: None,
+            conversation_round: 0,
+            exit_intent: Some(ContractExitIntent::LetExpire {
+                set_on: "2025-06-15".to_string(),
+                reason: Some("test".to_string()),
+            }),
+        });
+    }
+
     #[test]
     fn advance_time_records_match_history_in_active_stats_state() {
         let state = StateManager::new();
@@ -433,6 +457,38 @@ mod tests {
 
         assert!(blocker_by_id(&blockers, "injured_xi").is_some());
         assert!(blocker_by_id(&blockers, "incomplete_xi").is_none());
+        assert!(blocker_by_id(&blockers, "squad_size_crisis").is_some());
+    }
+
+    #[test]
+    fn unsafe_planned_contract_exits_trigger_squad_crisis_blocker() {
+        let mut game = make_game(11);
+        mark_player_let_expire(&mut game, "p11");
+
+        let blockers = compute_blocking_actions(&game);
+
+        let planned_exit = blocker_by_id(&blockers, "planned_contract_exit_crisis").unwrap();
+        assert_eq!(
+            planned_exit.get("severity").and_then(Value::as_str),
+            Some("warn")
+        );
+        assert_eq!(
+            planned_exit.get("tab").and_then(Value::as_str),
+            Some("Squad")
+        );
+        let text = planned_exit.get("text").and_then(Value::as_str).unwrap();
+        assert!(text.contains("10 healthy player(s)"));
+        assert!(text.contains("Player 11"));
+    }
+
+    #[test]
+    fn safe_planned_contract_exits_do_not_trigger_squad_crisis_blocker() {
+        let mut game = make_game(12);
+        mark_player_let_expire(&mut game, "p12");
+
+        let blockers = compute_blocking_actions(&game);
+
+        assert!(blocker_by_id(&blockers, "planned_contract_exit_crisis").is_none());
     }
 
     #[test]
