@@ -1887,6 +1887,10 @@
         "headline": "{{team}} nomina {{manager}}",
         "body": "{{team}} ha nominato {{manager}} come nuovo allenatore dopo essersi mosso rapidamente per colmare la vacanza del club."
       },
+      "majorTransfer": {
+        "headline": "{{player}} completa il trasferimento al {{toTeam}}",
+        "body": "{{toTeam}} ha completato l'acquisto di {{player}} da {{fromTeam}} per {{fee}}."
+      },
       "seasonAwards": {
         "headline": "Premi della stagione {{season}}",
         "bodyBoth": "La stagione {{season}} si è conclusa con {{goldenBootWinner}} ({{goldenBootTeam}}) che ha alzato la Scarpa d'Oro con {{goldenBootGoals}} gol. Il Giocatore dell'Anno è stato {{potyWinner}} ({{potyTeam}}), con una media voto di {{potyRating}}.",

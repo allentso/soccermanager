@@ -1951,6 +1951,10 @@
         "headline": "{{team}} nombra a {{manager}}",
         "body": "{{team}} ha nombrado a {{manager}} como su nuevo entrenador tras moverse rápido para cubrir la vacante del club."
       },
+      "majorTransfer": {
+        "headline": "{{player}} completa su fichaje por {{toTeam}}",
+        "body": "{{toTeam}} ha completado el fichaje de {{player}} procedente de {{fromTeam}} por {{fee}}."
+      },
       "seasonAwards": {
         "headline": "Premios de la temporada {{season}}",
         "bodyBoth": "La temporada {{season}} concluyó con {{goldenBootWinner}} ({{goldenBootTeam}}) levantando la Bota de Oro con {{goldenBootGoals}} goles. El Jugador del Año fue {{potyWinner}} ({{potyTeam}}), con una valoración media de {{potyRating}}.",

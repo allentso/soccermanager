@@ -65,6 +65,8 @@ const REQUIRED_KEYS = [
   "be.news.seasonAwards.bodyBoth",
   "be.news.seasonAwards.bodyGoldenBootOnly",
   "be.news.seasonAwards.bodyPotyOnly",
+  "be.news.majorTransfer.headline",
+  "be.news.majorTransfer.body",
   "boardObjectives.objective.LeaguePosition",
   "boardObjectives.objective.Wins",
   "boardObjectives.objective.GoalsScored",

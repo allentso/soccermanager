@@ -1951,6 +1951,10 @@
         "headline": "{{team}} nomeia {{manager}}",
         "body": "{{team}} nomeou {{manager}} como novo treinador depois de agir rapidamente para preencher a vaga no clube."
       },
+      "majorTransfer": {
+        "headline": "{{player}} completa transferência para o {{toTeam}}",
+        "body": "{{toTeam}} concluiu a contratação de {{player}} ao {{fromTeam}} por {{fee}}."
+      },
       "seasonAwards": {
         "headline": "Prémios da época {{season}}",
         "bodyBoth": "A época {{season}} terminou com {{goldenBootWinner}} ({{goldenBootTeam}}) a conquistar a Bota de Ouro com {{goldenBootGoals}} golos. O Jogador do Ano foi {{potyWinner}} ({{potyTeam}}), com uma classificação média de {{potyRating}}.",

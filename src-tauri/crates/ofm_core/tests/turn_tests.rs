@@ -100,7 +100,13 @@ fn make_team(id: &str, name: &str) -> Team {
     )
 }
 
-fn make_staff(id: &str, team_id: &str, role: StaffRole, first_name: &str, last_name: &str) -> Staff {
+fn make_staff(
+    id: &str,
+    team_id: &str,
+    role: StaffRole,
+    first_name: &str,
+    last_name: &str,
+) -> Staff {
     let mut staff = Staff::new(
         id.to_string(),
         first_name.to_string(),
@@ -194,6 +200,7 @@ fn make_game_with_match() -> Game {
             StandingEntry::new("team1".to_string()),
             StandingEntry::new("team2".to_string()),
         ],
+        transfer_log: vec![],
     };
 
     let mut game = Game::new(clock, manager, vec![team1, team2], players, vec![], vec![]);
@@ -360,10 +367,12 @@ fn process_day_hires_replacement_for_long_vacant_ai_club() {
         .expect("aged vacancy should be filled during daily processing");
 
     assert_ne!(replacement_manager_id, fired_manager.id);
-    assert!(game
-        .managers
-        .iter()
-        .any(|manager| manager.id == replacement_manager_id && manager.team_id.as_deref() == Some("team2")));
+    assert!(
+        game.managers
+            .iter()
+            .any(|manager| manager.id == replacement_manager_id
+                && manager.team_id.as_deref() == Some("team2"))
+    );
     assert!(!game.vacant_team_days.contains_key("team2"));
 }
 
@@ -1547,6 +1556,7 @@ fn make_round_summary_game() -> Game {
             standing_entry("team3", 11, 31, 18, 8),
             standing_entry("team4", 11, 27, 19, 14),
         ],
+        transfer_log: vec![],
     };
 
     let mut game = Game::new(

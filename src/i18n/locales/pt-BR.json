@@ -1951,6 +1951,10 @@
         "headline": "{{team}} nomeia {{manager}}",
         "body": "{{team}} nomeou {{manager}} como novo treinador depois de agir rapidamente para preencher a vaga no clube."
       },
+      "majorTransfer": {
+        "headline": "{{player}} conclui transferência para o {{toTeam}}",
+        "body": "{{toTeam}} concluiu a contratação de {{player}} do {{fromTeam}} por {{fee}}."
+      },
       "seasonAwards": {
         "headline": "Prêmios da temporada {{season}}",
         "bodyBoth": "A temporada {{season}} terminou com {{goldenBootWinner}} ({{goldenBootTeam}}) conquistando a Chuteira de Ouro com {{goldenBootGoals}} gols. O Jogador do Ano foi {{potyWinner}} ({{potyTeam}}), com uma nota média de {{potyRating}}.",

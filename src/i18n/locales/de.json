@@ -1951,6 +1951,10 @@
         "headline": "{{team}} verpflichtet {{manager}}",
         "body": "{{team}} hat {{manager}} als neuen Trainer vorgestellt, nachdem der Verein die vakante Stelle zügig besetzt hat."
       },
+      "majorTransfer": {
+        "headline": "{{player}} wechselt zu {{toTeam}}",
+        "body": "{{toTeam}} hat die Verpflichtung von {{player}} von {{fromTeam}} für {{fee}} abgeschlossen."
+      },
       "seasonAwards": {
         "headline": "Saisonpreise {{season}}",
         "bodyBoth": "Saison {{season}} endete damit, dass {{goldenBootWinner}} ({{goldenBootTeam}}) mit {{goldenBootGoals}} Toren den Goldenen Schuh gewann. Spieler des Jahres wurde {{potyWinner}} ({{potyTeam}}) mit einer Durchschnittsbewertung von {{potyRating}}.",

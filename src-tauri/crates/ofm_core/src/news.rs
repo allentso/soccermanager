@@ -396,7 +396,7 @@ pub fn major_transfer_article(
 
     NewsArticle::new(
         id.to_string(),
-        format!("{} Complete Move to {}", player_name, to_team_name),
+        format!("{} Completes Move to {}", player_name, to_team_name),
         format!(
             "{} have completed the signing of {} from {} for {}.",
             to_team_name, player_name, from_team_name, fee_display
@@ -407,6 +407,17 @@ pub fn major_transfer_article(
     )
     .with_teams(vec![from_team_id.to_string(), to_team_id.to_string()])
     .with_players(vec![player_id.to_string()])
+    .with_i18n(
+        "be.news.majorTransfer.headline",
+        "be.news.majorTransfer.body",
+        "be.source.leagueChronicle",
+        params(&[
+            ("player", player_name),
+            ("fromTeam", from_team_name),
+            ("toTeam", to_team_name),
+            ("fee", &fee_display),
+        ]),
+    )
 }
 
 pub fn weekly_digest_article(

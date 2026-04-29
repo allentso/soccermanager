@@ -1951,6 +1951,10 @@
         "headline": "{{team}} appoint {{manager}}",
         "body": "{{team}} have appointed {{manager}} as their new manager after moving quickly to fill the vacancy at the club."
       },
+      "majorTransfer": {
+        "headline": "{{player}} Completes Move to {{toTeam}}",
+        "body": "{{toTeam}} have completed the signing of {{player}} from {{fromTeam}} for {{fee}}."
+      },
       "seasonAwards": {
         "headline": "Season {{season}} Awards",
         "bodyBoth": "Season {{season}} concluded with {{goldenBootWinner}} ({{goldenBootTeam}}) lifting the Golden Boot with {{goldenBootGoals}} goals. Player of the Year went to {{potyWinner}} ({{potyTeam}}) with an average rating of {{potyRating}}.",
