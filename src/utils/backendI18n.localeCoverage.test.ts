@@ -7,6 +7,7 @@ import fr from "../i18n/locales/fr.json";
 import itLocale from "../i18n/locales/it.json";
 import ptBR from "../i18n/locales/pt-BR.json";
 import pt from "../i18n/locales/pt.json";
+import zhCN from "../i18n/locales/zh-CN.json";
 
 type LocaleTree = Record<string, unknown>;
 
@@ -18,6 +19,7 @@ const LOCALES: Record<string, LocaleTree> = {
   it: itLocale,
   pt,
   "pt-BR": ptBR,
+  "zh-CN": zhCN,
 };
 
 const REQUIRED_KEYS = [
@@ -84,6 +86,35 @@ function getNestedValue(tree: LocaleTree, keyPath: string): unknown {
     }, tree);
 }
 
+function collectMissingKeys(
+  reference: LocaleTree,
+  candidate: LocaleTree,
+  path: string[] = [],
+): string[] {
+  return Object.entries(reference).flatMap(([key, value]) => {
+    const nextPath = [...path, key];
+    const candidateValue = candidate[key];
+
+    if (value !== null && typeof value === "object" && !Array.isArray(value)) {
+      if (
+        candidateValue === null ||
+        typeof candidateValue !== "object" ||
+        Array.isArray(candidateValue)
+      ) {
+        return [nextPath.join(".")];
+      }
+
+      return collectMissingKeys(
+        value as LocaleTree,
+        candidateValue as LocaleTree,
+        nextPath,
+      );
+    }
+
+    return candidateValue === undefined ? [nextPath.join(".")] : [];
+  });
+}
+
 describe("backend i18n locale coverage", () => {
   it("keeps required backend-facing translation keys in every supported locale", () => {
     const missingKeysByLocale = Object.entries(LOCALES).reduce<
@@ -101,5 +132,9 @@ describe("backend i18n locale coverage", () => {
     }, {});
 
     expect(missingKeysByLocale).toEqual({});
+  });
+
+  it("keeps zh-CN aligned with the English translation key set", () => {
+    expect(collectMissingKeys(en, zhCN)).toEqual([]);
   });
 });
