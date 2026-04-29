@@ -121,6 +121,9 @@ vi.mock("react-i18next", () => ({
       if (key === "playerProfile.noRecentMatches") return "No recent match data";
       if (key === "playerProfile.careerHistory") return "Career History";
       if (key === "playerProfile.noCareer") return "No Career";
+      if (key === "scouting.noScoutsHint") return "Hire a scout first";
+      if (key === "scouting.scoutingInProgress") return "Scouting in progress";
+      if (key === "scouting.scoutBtn") return "Scout";
       if (key === "finances.wagePerWeek") return "Wage/wk";
       return key;
     },

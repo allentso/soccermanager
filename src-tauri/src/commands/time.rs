@@ -578,6 +578,17 @@ mod tests {
             .unwrap();
         assert!(text.contains("Player 10"));
         assert!(text.contains("Player 11"));
+        assert_eq!(
+            contract_blocker.get("text_key").and_then(Value::as_str),
+            Some("notifications.blockers.keyContractRisk")
+        );
+        assert_eq!(
+            contract_blocker
+                .get("text_params")
+                .and_then(|params| params.get("players"))
+                .and_then(Value::as_str),
+            Some("Player 10, Player 11")
+        );
     }
 
     #[test]
@@ -616,6 +627,17 @@ mod tests {
         let text = finance_blocker.get("text").and_then(Value::as_str).unwrap();
         assert!(text.contains("60000"));
         assert!(text.contains("wage budget"));
+        assert_eq!(
+            finance_blocker.get("text_key").and_then(Value::as_str),
+            Some("notifications.blockers.contractWageRisk")
+        );
+        assert_eq!(
+            finance_blocker
+                .get("text_params")
+                .and_then(|params| params.get("amount"))
+                .and_then(Value::as_str),
+            Some("60000")
+        );
     }
 
     fn make_round_summary_game() -> Game {
