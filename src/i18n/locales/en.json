@@ -1880,7 +1880,14 @@
         "subject": "Managerial Vacancy — {{team}}",
         "body": "The board at {{team}} ({{city}}) is looking for a new manager to lead the club forward. Last season finish: {{league_position}}.\n\nAfter reviewing your credentials, we believe you could be the right fit. Would you be interested in taking on this challenge?",
         "accept": "Accept the position",
-        "decline": "Decline the offer"
+        "decline": "Decline the offer",
+        "effects": {
+          "accepted": "You have been appointed manager of {{team}}",
+          "declined": "You declined the offer from {{team}}",
+          "alreadyEmployed": "You are already employed and cannot accept the offer from {{team}}",
+          "unavailable": "The offer from {{team}} is no longer available because the position has been filled",
+          "failed": "Could not accept the offer from {{team}}"
+        }
       },
       "jobOfferExpired": {
         "subject": "Position Filled — {{team}}",
@@ -1939,6 +1946,10 @@
       "managerialChange": {
         "headline": "{{team}} sack {{manager}}",
         "body": "{{team}} have dismissed {{manager}} after a damaging run of results, leaving the club searching for a new manager."
+      },
+      "managerialAppointment": {
+        "headline": "{{team}} appoint {{manager}}",
+        "body": "{{team}} have appointed {{manager}} as their new manager after moving quickly to fill the vacancy at the club."
       },
       "seasonAwards": {
         "headline": "Season {{season}} Awards",

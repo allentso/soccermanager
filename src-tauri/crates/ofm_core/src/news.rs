@@ -257,6 +257,33 @@ pub fn season_preview_article(team_names: &[String], date: &str) -> NewsArticle 
     )
 }
 
+pub fn managerial_appointment_article(
+    manager_id: &str,
+    manager_name: &str,
+    team_id: &str,
+    team_name: &str,
+    date: &str,
+) -> NewsArticle {
+    NewsArticle::new(
+        format!("managerial_appointment_{}_{}", team_id, date),
+        format!("{} appoint {}", team_name, manager_name),
+        format!(
+            "{} have appointed {} as their new manager after moving quickly to fill the vacancy at the club.",
+            team_name, manager_name
+        ),
+        "League Wire".to_string(),
+        date.to_string(),
+        NewsCategory::ManagerialChange,
+    )
+    .with_teams(vec![team_id.to_string()])
+    .with_i18n(
+        "be.news.managerialAppointment.headline",
+        "be.news.managerialAppointment.body",
+        "be.source.leagueWire",
+        params(&[("team", team_name), ("manager", manager_name), ("managerId", manager_id)]),
+    )
+}
+
 /// Generate the end-of-season awards ceremony news article.
 ///
 /// Returns `None` when neither marquee award (Golden Boot, Player of the Year) has a winner —
@@ -277,10 +304,7 @@ pub fn season_awards_article(
     if let Some(gb) = golden_boot {
         i18n_params.insert("goldenBootWinner".to_string(), gb.player_name.clone());
         i18n_params.insert("goldenBootTeam".to_string(), gb.team_name.clone());
-        i18n_params.insert(
-            "goldenBootGoals".to_string(),
-            (gb.value as u32).to_string(),
-        );
+        i18n_params.insert("goldenBootGoals".to_string(), (gb.value as u32).to_string());
     }
     if let Some(p) = poty {
         i18n_params.insert("potyWinner".to_string(), p.player_name.clone());
@@ -306,10 +330,7 @@ pub fn season_awards_article(
         (Some(gb), None) => (
             format!(
                 "Season {} closed with {} ({}) crowned top scorer with {} goals.",
-                season,
-                gb.player_name,
-                gb.team_name,
-                gb.value as u32,
+                season, gb.player_name, gb.team_name, gb.value as u32,
             ),
             "be.news.seasonAwards.bodyGoldenBootOnly",
         ),
@@ -775,8 +796,7 @@ mod tests {
     #[test]
     fn season_awards_article_celebrates_golden_boot_winner() {
         let mut awards = empty_awards();
-        awards.golden_boot =
-            vec![award_entry("p1", "Star Striker", "team1", "Test FC", 22.0)];
+        awards.golden_boot = vec![award_entry("p1", "Star Striker", "team1", "Test FC", 22.0)];
 
         let article = season_awards_article(&awards, 3, "2026-05-20")
             .expect("expected an awards article when Golden Boot has a winner");
@@ -803,8 +823,7 @@ mod tests {
     #[test]
     fn season_awards_article_celebrates_player_of_the_year_winner() {
         let mut awards = empty_awards();
-        awards.player_of_year =
-            vec![award_entry("p2", "Magnifique", "team2", "Rival FC", 8.4)];
+        awards.player_of_year = vec![award_entry("p2", "Magnifique", "team2", "Rival FC", 8.4)];
 
         let article = season_awards_article(&awards, 2, "2026-05-20")
             .expect("expected an awards article when POTY has a winner");
@@ -818,10 +837,8 @@ mod tests {
     #[test]
     fn season_awards_article_celebrates_both_winners_when_both_exist() {
         let mut awards = empty_awards();
-        awards.golden_boot =
-            vec![award_entry("p1", "Striker", "team1", "Test FC", 18.0)];
-        awards.player_of_year =
-            vec![award_entry("p2", "Maestro", "team2", "Rival FC", 7.9)];
+        awards.golden_boot = vec![award_entry("p1", "Striker", "team1", "Test FC", 18.0)];
+        awards.player_of_year = vec![award_entry("p2", "Maestro", "team2", "Rival FC", 7.9)];
 
         let article = season_awards_article(&awards, 5, "2026-05-20").unwrap();
 
@@ -836,10 +853,8 @@ mod tests {
     #[test]
     fn season_awards_article_dedupes_team_ids_when_winners_share_a_club() {
         let mut awards = empty_awards();
-        awards.golden_boot =
-            vec![award_entry("p1", "Striker", "team1", "Test FC", 18.0)];
-        awards.player_of_year =
-            vec![award_entry("p2", "Maestro", "team1", "Test FC", 7.9)];
+        awards.golden_boot = vec![award_entry("p1", "Striker", "team1", "Test FC", 18.0)];
+        awards.player_of_year = vec![award_entry("p2", "Maestro", "team1", "Test FC", 7.9)];
 
         let article = season_awards_article(&awards, 1, "2026-05-20").unwrap();
 
@@ -850,10 +865,8 @@ mod tests {
     #[test]
     fn season_awards_article_uses_i18n_keys_for_localization() {
         let mut awards = empty_awards();
-        awards.golden_boot =
-            vec![award_entry("p1", "Striker", "team1", "Test FC", 18.0)];
-        awards.player_of_year =
-            vec![award_entry("p2", "Maestro", "team2", "Rival FC", 7.9)];
+        awards.golden_boot = vec![award_entry("p1", "Striker", "team1", "Test FC", 18.0)];
+        awards.player_of_year = vec![award_entry("p2", "Maestro", "team2", "Rival FC", 7.9)];
 
         let article = season_awards_article(&awards, 4, "2026-05-20").unwrap();
 

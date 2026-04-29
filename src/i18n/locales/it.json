@@ -1816,7 +1816,14 @@
         "subject": "Posizione Vacante — {{team}}",
         "body": "Il consiglio del {{team}} ({{city}}) sta cercando un nuovo allenatore per guidare il club. Posizione lo scorso anno: {{league_position}}.\n\nDopo aver esaminato il tuo curriculum, crediamo che tu possa essere la persona giusta. Saresti interessato ad accettare questa sfida?",
         "accept": "Accetta la posizione",
-        "decline": "Rifiuta l'offerta"
+        "decline": "Rifiuta l'offerta",
+        "effects": {
+          "accepted": "Sei stato nominato allenatore del {{team}}",
+          "declined": "Hai rifiutato l'offerta del {{team}}",
+          "alreadyEmployed": "Hai già un incarico e non puoi accettare l'offerta del {{team}}",
+          "unavailable": "L'offerta del {{team}} non è più disponibile perché la posizione è già stata assegnata",
+          "failed": "Non è stato possibile accettare l'offerta del {{team}}"
+        }
       },
       "jobOfferExpired": {
         "subject": "Posizione assegnata — {{team}}",
@@ -1875,6 +1882,10 @@
       "managerialChange": {
         "headline": "{{team}} esonera {{manager}}",
         "body": "{{team}} ha esonerato {{manager}} dopo una serie negativa di risultati e ora è alla ricerca di un nuovo allenatore."
+      },
+      "managerialAppointment": {
+        "headline": "{{team}} nomina {{manager}}",
+        "body": "{{team}} ha nominato {{manager}} come nuovo allenatore dopo essersi mosso rapidamente per colmare la vacanza del club."
       },
       "seasonAwards": {
         "headline": "Premi della stagione {{season}}",

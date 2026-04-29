@@ -1880,7 +1880,14 @@
         "subject": "Vaga de Treinador — {{team}}",
         "body": "A direção do {{team}} ({{city}}) procura um novo treinador para liderar o clube. Classificação na última época: {{league_position}}.\n\nApós analisar o seu percurso, acreditamos que poderá ser o candidato certo. Teria interesse em aceitar este desafio?",
         "accept": "Aceitar o cargo",
-        "decline": "Recusar a oferta"
+        "decline": "Recusar a oferta",
+        "effects": {
+          "accepted": "Foi nomeado treinador do {{team}}",
+          "declined": "Recusou a oferta do {{team}}",
+          "alreadyEmployed": "Já está empregado e não pode aceitar a oferta do {{team}}",
+          "unavailable": "A oferta do {{team}} já não está disponível porque a vaga foi preenchida",
+          "failed": "Não foi possível aceitar a oferta do {{team}}"
+        }
       },
       "jobOfferExpired": {
         "subject": "Vaga preenchida — {{team}}",
@@ -1939,6 +1946,10 @@
       "managerialChange": {
         "headline": "{{team}} despede {{manager}}",
         "body": "{{team}} despediu {{manager}} após uma série de maus resultados e procura agora um novo treinador."
+      },
+      "managerialAppointment": {
+        "headline": "{{team}} nomeia {{manager}}",
+        "body": "{{team}} nomeou {{manager}} como novo treinador depois de agir rapidamente para preencher a vaga no clube."
       },
       "seasonAwards": {
         "headline": "Prémios da época {{season}}",

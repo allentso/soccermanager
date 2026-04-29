@@ -183,11 +183,25 @@ pub fn process_vacant_ai_clubs(game: &mut Game) {
         let Some(manager) = create_seeded_manager(game, &team_id, source_staff, manager_id) else {
             continue;
         };
+        let team_name = game
+            .teams
+            .iter()
+            .find(|team| team.id == team_id)
+            .map(|team| team.name.clone())
+            .unwrap_or_else(|| team_id.clone());
+        let today = game.clock.current_date.format("%Y-%m-%d").to_string();
 
         if let Some(team) = game.teams.iter_mut().find(|team| team.id == team_id) {
             team.manager_id = Some(manager.id.clone());
         }
         crate::job_offers::expire_outstanding_job_offers_for_team(game, &team_id);
+        game.news.push(crate::news::managerial_appointment_article(
+            &manager.id,
+            &manager.full_name(),
+            &team_id,
+            &team_name,
+            &today,
+        ));
         game.managers.push(manager);
         game.vacant_team_days.remove(&team_id);
     }
@@ -429,6 +443,40 @@ mod tests {
                     && manager.team_id.as_deref() == Some("team2"))
         );
         assert!(!game.vacant_team_days.contains_key("team2"));
+    }
+
+    #[test]
+    fn process_vacant_ai_clubs_creates_managerial_appointment_news_for_replacement() {
+        let mut game = make_game();
+        seed_ai_managers(&mut game);
+
+        let previous_manager_id = game
+            .teams
+            .iter()
+            .find(|team| team.id == "team2")
+            .and_then(|team| team.manager_id.clone())
+            .unwrap();
+
+        if let Some(team) = game.teams.iter_mut().find(|team| team.id == "team2") {
+            team.manager_id = None;
+        }
+        if let Some(manager) = game
+            .managers
+            .iter_mut()
+            .find(|manager| manager.id == previous_manager_id)
+        {
+            manager.fire("2026-07-15");
+        }
+        game.vacant_team_days.insert("team2".to_string(), 6);
+
+        process_vacant_ai_clubs(&mut game);
+
+        assert!(game.news.iter().any(|article| {
+            article.category == domain::news::NewsCategory::ManagerialChange
+                && article.team_ids.contains(&"team2".to_string())
+                && article.headline_key.as_deref() == Some("be.news.managerialAppointment.headline")
+                && article.body_key.as_deref() == Some("be.news.managerialAppointment.body")
+        }));
     }
 
     #[test]
