@@ -113,6 +113,8 @@ export interface PlayerMoraleCoreData {
   renewal_state?: ContractRenewalStateData | null;
 }
 
+export type PlayerSquadRole = "Senior" | "Youth";
+
 export interface PlayerData {
   id: string;
   match_name: string;
@@ -150,6 +152,7 @@ export interface PlayerData {
   morale: number;
   injury: null | { name: string; days_remaining: number };
   team_id: string | null;
+  squad_role?: PlayerSquadRole;
   contract_end: string | null;
   wage: number;
   market_value: number;

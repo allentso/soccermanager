@@ -287,6 +287,7 @@
     "wage": "Salário",
     "name": "Nome",
     "team": "Time",
+    "viewTeam": "Ver time",
     "player": "Jogador",
     "actions": "Ações",
     "position": "Posição",
@@ -689,13 +690,13 @@
     "facilityMedicalEffect": "Melhora a recuperação e o suporte médico dos jogadores.",
     "facilityScoutingEffect": "Melhora a qualidade da observação e a profundidade das informações.",
     "facilityLevel": "Nível {{level}}",
-    "nextUpgradeCost": "Próxima melhoria: €{{amount}}",
+    "nextUpgradeCost": "Próxima melhoria: {{amount}}",
     "upgradeFacility": "Melhorar",
     "insufficientFunds": "Fundos insuficientes",
     "sponsors": "Patrocinadores",
     "activeSponsor": "Patrocinador ativo",
     "noActiveSponsor": "Nenhum patrocinador ativo",
-    "sponsorWeeklyValue": "Valor semanal: €{{amount}}",
+    "sponsorWeeklyValue": "Valor semanal: {{amount}}",
     "sponsorRemainingWeeks": "{{count}} semanas restantes",
     "pendingSponsorOffers": "Ofertas pendentes",
     "noPendingSponsorOffers": "Nenhuma oferta de patrocínio pendente",
@@ -717,7 +718,7 @@
     "contractRiskWarning": "Alerta",
     "contractRiskStable": "Estável",
     "contractExpiresOn": "Expira em {{date}}",
-    "atRiskWages": "€{{amount}}/semana em risco",
+    "atRiskWages": "{{amount}}/semana em risco",
     "noContractRisks": "Sem riscos contratuais iminentes"
   },
   "inbox": {
@@ -1523,14 +1524,14 @@
     },
     "source": {
       "sportsGazette": "Gazeta Esportiva",
-      "footballHerald": "O Arauto do Futebol",
+      "playersUnder21": "{{count}} jogadores na base",
       "matchDayPress": "Imprensa do Jogo",
       "leagueChronicle": "Crônica da Liga",
       "leagueWire": "Notícias da Liga"
     },
     "msg": {
       "welcome": {
-        "subject0": "Bem-vindo ao {{team}}",
+        "noYouthPlayers": "Nenhum jogador está atualmente alocado à academia de base.",
         "subject1": "Nova Era no {{team}}",
         "subject2": "{{team}} Aguarda Sua Liderança",
         "body0": "A diretoria do {{team}} tem o prazer de recebê-lo como novo treinador.\n\nTemos grandes expectativas para sua gestão e acreditamos que você pode levar este clube à glória. Sua primeira tarefa será revisar o elenco e preparar um plano tático para a próxima temporada.\n\nDesejamos a você a melhor sorte.",
@@ -1539,6 +1540,8 @@
         "actionReview": "Revisar Elenco",
         "actionThank": "Agradecer à Diretoria"
       },
+      "delegateToYouthAcademy": "Enviar para a academia de base",
+      "promoteToSeniorSquad": "Promover ao elenco principal",
       "schedule": {
         "subject": "Calendário da Temporada Divulgado",
         "body0": "O calendário da {{league}} foi divulgado. A temporada começa em {{start}}.\n\nRevise a lista de jogos e certifique-se de que seu elenco está pronto para os desafios que vêm pela frente. A preparação de pré-temporada será crucial.",
@@ -1865,16 +1868,16 @@
         "subject": "Relatório do assistente — Renovações contratuais",
         "body": "Chefe, revisei nossa lista de renovações no {{team}}. {{successes}} concluídas, {{stalled}} ainda pendentes e {{failures}} falhas.",
         "case": {
-          "successful": "Concluída: {{player}} aceitou {{years}} ano(s) por €{{wage}}/semana.",
+          "successful": "Concluída: {{player}} aceitou {{years}} ano(s) por {{wage}}/semana.",
           "stalled": "Continua difícil: {{player}} — {{detail}}",
           "failed": "Falhou: {{player}} — {{detail}}"
         },
         "notes": {
           "managerBlocked": "Você me disse para ainda não reabrir as conversas contratuais.",
           "completed": "Consegui fechar essa sem que você precisasse intervir.",
-          "beyondLimits": "O estafe deles quer cerca de €{{wage}}/semana por {{years}} anos, acima dos limites da delegação.",
-          "boardWagePolicy": "A política salarial da diretoria bloqueia esta renovação. Mantenha os salários anuais perto de €{{budget}} enquanto nos recuperamos.",
-          "prefersManager": "Eles até ouviriam, mas ainda querem cerca de €{{wage}}/semana por {{years}} anos e preferem falar diretamente com você.",
+          "beyondLimits": "O estafe deles quer cerca de {{wage}}/semana por {{years}} anos, acima dos limites da delegação.",
+          "boardWagePolicy": "A política salarial da diretoria bloqueia esta renovação. Mantenha os salários anuais perto de {{budget}} enquanto nos recuperamos.",
+          "prefersManager": "Eles até ouviriam, mas ainda querem cerca de {{wage}}/semana por {{years}} anos e preferem falar diretamente com você.",
           "relationshipBlocked": "Eles não estão dispostos a se comprometer por meu intermédio com o relacionamento e a situação contratual atuais."
         }
       },

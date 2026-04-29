@@ -41,6 +41,8 @@ pub struct Player {
 
     pub injury: Option<Injury>,
     pub team_id: Option<String>,
+    #[serde(default)]
+    pub squad_role: SquadRole,
 
     // Traits / flairs derived from attributes
     #[serde(default)]
@@ -131,6 +133,13 @@ pub enum Footedness {
     #[default]
     Right,
     Both,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub enum SquadRole {
+    #[default]
+    Senior,
+    Youth,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -526,6 +535,7 @@ impl Player {
             fitness: 75,
             injury: None,
             team_id: None,
+            squad_role: SquadRole::Senior,
             traits,
             contract_end: None,
             wage: 0,
@@ -583,6 +593,8 @@ mod tests {
 
         assert_eq!(player.footedness, Footedness::Right);
         assert_eq!(player.weak_foot, 2);
+        assert_eq!(player.squad_role, SquadRole::Senior);
+        assert_eq!(player.squad_role, SquadRole::Senior);
     }
 
     #[test]

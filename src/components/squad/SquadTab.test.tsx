@@ -15,6 +15,8 @@ vi.mock("react-i18next", () => ({
       if (key === "playerProfile.letContractExpire") return "Let Expire";
       if (key === "playerProfile.reopenContractTalks") return "Reopen Talks";
       if (key === "playerProfile.terminateContract") return "Terminate Now";
+      if (key === "youthAcademy.delegateToYouthAcademy")
+        return "Delegate to youth academy";
       if (key === "playerProfile.yearsRemaining") return "Years Remaining";
       if (key === "finances.contractRisk") return "Contract Risk";
       if (key === "finances.contractRiskCritical") return "Critical";
@@ -322,6 +324,47 @@ describe("SquadTab", () => {
       expect(mockedInvoke).toHaveBeenCalledWith("clear_contract_exit_intent", {
         playerId: "gk1",
       });
+    });
+  });
+
+  it("delegates eligible players to the youth academy from the roster context menu", async () => {
+    const gameState = makeGameState();
+    gameState.players[0].date_of_birth = "2008-01-01";
+    const updatedGameState = {
+      ...gameState,
+      players: gameState.players.map((player) =>
+        player.id === "gk1" ? { ...player, squad_role: "Youth" as const } : player,
+      ),
+      teams: gameState.teams.map((team) => ({
+        ...team,
+        starting_xi_ids: team.starting_xi_ids.filter((id) => id !== "gk1"),
+      })),
+    };
+    const onGameUpdate = vi.fn();
+    mockedInvoke.mockResolvedValue(updatedGameState);
+
+    render(
+      <SquadTab
+        gameState={gameState}
+        managerId="mgr1"
+        onSelectPlayer={vi.fn()}
+        onGameUpdate={onGameUpdate}
+      />,
+    );
+
+    const playerRow = screen.getByText("Player gk1").closest("tr");
+    expect(playerRow).not.toBeNull();
+    fireEvent.contextMenu(playerRow as HTMLTableRowElement);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Delegate to youth academy" }),
+    );
+
+    await waitFor(() => {
+      expect(mockedInvoke).toHaveBeenCalledWith("set_player_squad_role", {
+        playerId: "gk1",
+        squadRole: "Youth",
+      });
+      expect(onGameUpdate).toHaveBeenCalledWith(updatedGameState);
     });
   });
 });

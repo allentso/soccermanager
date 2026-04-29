@@ -108,6 +108,7 @@ pub fn run() {
             set_training_schedule,
             set_training_groups,
             set_player_training_focus,
+            set_player_squad_role,
             hire_staff,
             release_staff,
             mark_message_read,

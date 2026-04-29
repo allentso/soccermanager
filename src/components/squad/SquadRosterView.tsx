@@ -1,5 +1,4 @@
 import { useMemo, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
 import type {
   GameStateData,
   PlayerData,
@@ -21,6 +20,7 @@ import {
 import {
   calcAge,
   calcOvr,
+  formatExactMoney,
   formatWeeklyAmount,
   formatVal,
   getContractRiskBadgeVariant,
@@ -28,6 +28,7 @@ import {
   getContractYearsRemaining,
   positionBadgeVariant,
 } from "../../lib/helpers";
+import { canDelegateToYouthAcademy, isSeniorSquadPlayer } from "../../lib/playerSquad";
 import { TraitList } from "../TraitBadge";
 import { useTranslation } from "react-i18next";
 import ContextMenu from "../ContextMenu";
@@ -35,6 +36,11 @@ import {
   clearContractExitIntent,
   setContractExitIntent,
 } from "../../services/contractService";
+import { setPlayerSquadRole } from "../../services/squadService";
+import {
+  toggleLoanList,
+  toggleTransferList,
+} from "../../services/transfersService";
 import {
   buildActivePositionMap,
   buildPitchRows,
@@ -46,6 +52,13 @@ import {
   normalisePosition,
   translatePositionAbbreviation,
 } from "./SquadTab.helpers";
+import {
+  buildDelegateToYouthAcademyMenuItem,
+  buildDividerMenuItem,
+  buildToggleLoanListMenuItem,
+  buildToggleTransferListMenuItem,
+  buildViewProfileMenuItem,
+} from "../playerActions/playerContextMenuItems";
 
 interface SquadRosterViewProps {
   gameState: GameStateData;
@@ -94,7 +107,9 @@ export default function SquadRosterView({
   };
 
   const roster = gameState.players
-    .filter((player) => player.team_id === myTeam.id)
+    .filter(
+      (player) => player.team_id === myTeam.id && isSeniorSquadPlayer(player),
+    )
     .sort(
       (a, b) =>
         (posOrder[normalisePosition(a.position)] || 99) -
@@ -366,8 +381,8 @@ export default function SquadRosterView({
             }}
             disabled={!hasActiveFilters}
             className={`px-3 py-2 rounded-lg text-xs font-heading font-bold uppercase tracking-wider transition-all ${hasActiveFilters
-                ? "bg-gray-100 dark:bg-navy-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-navy-600"
-                : "bg-gray-100 dark:bg-navy-700 text-gray-400 cursor-not-allowed"
+              ? "bg-gray-100 dark:bg-navy-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-navy-600"
+              : "bg-gray-100 dark:bg-navy-700 text-gray-400 cursor-not-allowed"
               }`}
           >
             {t("common.clear", "Clear")}
@@ -456,11 +471,7 @@ export default function SquadRosterView({
                   contractActionPlayerId === player.id;
 
                 const contextItems = [
-                  {
-                    label: t("squad.viewProfile", "View profile"),
-                    icon: <User className="w-4 h-4" />,
-                    onClick: () => onSelectPlayer(player.id),
-                  },
+                  buildViewProfileMenuItem(t, () => onSelectPlayer(player.id)),
                   {
                     label: t("common.renewContract"),
                     icon: <Repeat className="w-4 h-4" />,
@@ -499,51 +510,42 @@ export default function SquadRosterView({
                         openTermination: true,
                       }),
                   },
-                  {
-                    label: "",
-                    icon: undefined,
-                    onClick: () => { },
-                    divider: true,
-                  },
-                  {
-                    label: player.transfer_listed
-                      ? t(
-                        "squad.removeFromTransferList",
-                        "Remove from transfer list",
-                      )
-                      : t("squad.addToTransferList", "Add to transfer list"),
-                    icon: <ShoppingCart className="w-4 h-4" />,
-                    onClick: async () => {
+                  buildDividerMenuItem(),
+                  buildToggleTransferListMenuItem(
+                    t,
+                    player.transfer_listed,
+                    async () => {
                       try {
-                        const updated = await invoke<GameStateData>(
-                          "toggle_transfer_list",
-                          { playerId: player.id },
-                        );
+                        const updated = await toggleTransferList(player.id);
                         onGameUpdate?.(updated);
                       } catch {
                         return;
                       }
                     },
-                  },
-                  {
-                    label: player.loan_listed
-                      ? t("squad.removeFromLoanList", "Remove from loan list")
-                      : t("squad.addToLoanList", "Add to loan list"),
-                    icon: <Repeat className="w-4 h-4" />,
-                    onClick: async () => {
-                      try {
-                        const updated = await invoke<GameStateData>(
-                          "toggle_loan_list",
-                          {
-                            playerId: player.id,
-                          },
-                        );
-                        onGameUpdate?.(updated);
-                      } catch {
-                        return;
-                      }
-                    },
-                  },
+                  ),
+                  buildToggleLoanListMenuItem(t, player.loan_listed, async () => {
+                    try {
+                      const updated = await toggleLoanList(player.id);
+                      onGameUpdate?.(updated);
+                    } catch {
+                      return;
+                    }
+                  }),
+                  ...(canDelegateToYouthAcademy(player)
+                    ? [
+                      buildDelegateToYouthAcademyMenuItem(t, async () => {
+                        try {
+                          const updated = await setPlayerSquadRole(
+                            player.id,
+                            "Youth",
+                          );
+                          onGameUpdate?.(updated);
+                        } catch {
+                          return;
+                        }
+                      }),
+                    ]
+                    : []),
                 ];
 
                 return (
@@ -611,7 +613,7 @@ export default function SquadRosterView({
                       </td>
                       <td className="py-2.5 px-4 text-xs text-gray-600 dark:text-gray-400 font-medium whitespace-nowrap">
                         {formatWeeklyAmount(
-                          `€${player.wage.toLocaleString()}`,
+                          formatExactMoney(player.wage),
                           weeklySuffix,
                         )}
                       </td>
@@ -666,10 +668,10 @@ export default function SquadRosterView({
                       <td className="py-2.5 px-4 text-right">
                         <span
                           className={`font-heading font-bold text-sm ${ovr >= 80
-                              ? "text-primary-500"
-                              : ovr >= 55
-                                ? "text-accent-600 dark:text-accent-400"
-                                : "text-gray-500 dark:text-gray-400"
+                            ? "text-primary-500"
+                            : ovr >= 55
+                              ? "text-accent-600 dark:text-accent-400"
+                              : "text-gray-500 dark:text-gray-400"
                             }`}
                         >
                           {ovr}

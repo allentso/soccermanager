@@ -287,6 +287,7 @@
     "wage": "Gehalt",
     "name": "Name",
     "team": "Team",
+    "viewTeam": "Team ansehen",
     "player": "Spieler",
     "actions": "Aktionen",
     "position": "Position",
@@ -689,13 +690,13 @@
     "facilityMedicalEffect": "Verbessert Regeneration und medizinische Betreuung.",
     "facilityScoutingEffect": "Verbessert die Scouting-Qualität und Informationstiefe.",
     "facilityLevel": "Stufe {{level}}",
-    "nextUpgradeCost": "Nächstes Upgrade: €{{amount}}",
+    "nextUpgradeCost": "Nächstes Upgrade: {{amount}}",
     "upgradeFacility": "Ausbauen",
     "insufficientFunds": "Nicht genug Geld",
     "sponsors": "Sponsoren",
     "activeSponsor": "Aktiver Sponsor",
     "noActiveSponsor": "Kein aktiver Sponsor",
-    "sponsorWeeklyValue": "Wöchentlicher Betrag: €{{amount}}",
+    "sponsorWeeklyValue": "Wöchentlicher Betrag: {{amount}}",
     "sponsorRemainingWeeks": "{{count}} Wochen verbleibend",
     "pendingSponsorOffers": "Offene Angebote",
     "noPendingSponsorOffers": "Keine offenen Sponsorangebote",
@@ -717,7 +718,7 @@
     "contractRiskWarning": "Warnung",
     "contractRiskStable": "Stabil",
     "contractExpiresOn": "Läuft aus: {{date}}",
-    "atRiskWages": "€{{amount}}/Woche gefährdet",
+    "atRiskWages": "{{amount}}/Woche gefährdet",
     "noContractRisks": "Keine kurzfristigen Vertragsrisiken"
   },
   "inbox": {
@@ -1523,14 +1524,14 @@
     },
     "source": {
       "sportsGazette": "Sportgazette",
-      "footballHerald": "Der Fußball-Herold",
+      "playersUnder21": "{{count}} Akademiespieler",
       "matchDayPress": "Spieltagspresse",
       "leagueChronicle": "Liga-Chronik",
       "leagueWire": "Liga-Ticker"
     },
     "msg": {
       "welcome": {
-        "subject0": "Willkommen bei {{team}}",
+        "noYouthPlayers": "Derzeit sind keine Spieler der Jugendakademie zugewiesen.",
         "subject1": "Neue Ära bei {{team}}",
         "subject2": "{{team}} Erwartet Ihre Führung",
         "body0": "Der Vorstand von {{team}} freut sich, Sie als neuen Trainer begrüßen zu dürfen.\n\nWir haben große Hoffnungen in Ihre Amtszeit und glauben, dass Sie diesen Verein zum Ruhm führen können. Ihre erste Aufgabe wird es sein, den Kader zu überprüfen und einen taktischen Plan für die kommende Saison vorzubereiten.\n\nWir wünschen Ihnen viel Erfolg.",
@@ -1539,6 +1540,8 @@
         "actionReview": "Kader überprüfen",
         "actionThank": "Dem Vorstand danken"
       },
+      "delegateToYouthAcademy": "In die Jugendakademie versetzen",
+      "promoteToSeniorSquad": "In den Profikader befördern",
       "schedule": {
         "subject": "Saisonspielplan veröffentlicht",
         "body0": "Der Spielplan der {{league}} wurde veröffentlicht. Die Saison beginnt am {{start}}.\n\nÜberprüfen Sie die Spielliste und stellen Sie sicher, dass Ihr Kader für die kommenden Herausforderungen bereit ist. Die Vorbereitung wird entscheidend sein.",
@@ -1865,16 +1868,16 @@
         "subject": "Assistentenbericht — Vertragsverlängerungen",
         "body": "Boss, ich habe unsere Verlängerungsliste bei {{team}} durchgearbeitet. {{successes}} abgeschlossen, {{stalled}} noch offen, {{failures}} gescheitert.",
         "case": {
-          "successful": "Abgeschlossen: {{player}} hat {{years}} Jahr(e) zu €{{wage}}/Woche akzeptiert.",
+          "successful": "Abgeschlossen: {{player}} hat {{years}} Jahr(e) zu {{wage}}/Woche akzeptiert.",
           "stalled": "Weiter schwierig: {{player}} — {{detail}}",
           "failed": "Gescheitert: {{player}} — {{detail}}"
         },
         "notes": {
           "managerBlocked": "Du hast mir gesagt, ich soll die Vertragsgespräche noch nicht wieder aufnehmen.",
           "completed": "Ich konnte das ohne dein Eingreifen abschließen.",
-          "beyondLimits": "Die Spielerseite will etwa €{{wage}}/Woche für {{years}} Jahre, das liegt außerhalb der Delegationsgrenzen.",
-          "boardWagePolicy": "Die Gehaltspolitik des Vorstands blockiert diese Verlängerung. Halte die Jahreslöhne während der Erholung nahe bei €{{budget}}.",
-          "prefersManager": "Sie würden zuhören, wollen aber noch etwa €{{wage}}/Woche für {{years}} Jahre und bevorzugen ein Gespräch direkt mit dir.",
+          "beyondLimits": "Die Spielerseite will etwa {{wage}}/Woche für {{years}} Jahre, das liegt außerhalb der Delegationsgrenzen.",
+          "boardWagePolicy": "Die Gehaltspolitik des Vorstands blockiert diese Verlängerung. Halte die Jahreslöhne während der Erholung nahe bei {{budget}}.",
+          "prefersManager": "Sie würden zuhören, wollen aber noch etwa {{wage}}/Woche für {{years}} Jahre und bevorzugen ein Gespräch direkt mit dir.",
           "relationshipBlocked": "Unter der aktuellen Beziehung und Vertragssituation wollen sie sich über mich nicht festlegen."
         }
       },

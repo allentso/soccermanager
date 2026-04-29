@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { calcOvr, getContractRiskLevel } from "../../lib/helpers";
+import { calcOvr, formatExactMoney, getContractRiskLevel } from "../../lib/helpers";
 import { PlayerData, GameStateData } from "../../store/gameStore";
 import { ArrowLeft } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -736,11 +736,7 @@ export default function PlayerProfile({
                     {t("playerProfile.terminationSeverance")}
                   </span>
                   <span className="font-semibold text-gray-900 dark:text-gray-100">
-                    {new Intl.NumberFormat(i18n.language, {
-                      style: "currency",
-                      currency: "EUR",
-                      maximumFractionDigits: 0,
-                    }).format(terminationPreview.severance_cost)}
+                    {formatExactMoney(terminationPreview.severance_cost)}
                   </span>
                 </div>
                 <div className="mt-3 flex items-center justify-between gap-4">
