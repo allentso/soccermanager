@@ -168,6 +168,69 @@ async function githubJsonRequest(url, token) {
   return response.json();
 }
 
+function isFullSha(value) {
+  return /^[0-9a-f]{40}$/i.test(value ?? '');
+}
+
+function parsePositiveInteger(value, fallback) {
+  if (!value) {
+    return fallback;
+  }
+
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+async function listWorkflowRuns(repository, workflowFile, token, branch) {
+  const searchParams = new URLSearchParams({ per_page: '100' });
+
+  if (branch) {
+    searchParams.set('branch', branch);
+  }
+
+  const url = `https://api.github.com/repos/${repository}/actions/workflows/${workflowFile}/runs?${searchParams.toString()}`;
+  const payload = await githubJsonRequest(url, token);
+  return Array.isArray(payload.workflow_runs) ? payload.workflow_runs : [];
+}
+
+async function waitForWorkflowRunsToComplete(repository, workflowFile, token, branch, headSha) {
+  const pollIntervalMs = parsePositiveInteger(process.env.RELEASE_SOURCE_WORKFLOW_POLL_INTERVAL_MS, 10000);
+  const timeoutMs = parsePositiveInteger(process.env.RELEASE_SOURCE_WORKFLOW_TIMEOUT_MS, 30 * 60 * 1000);
+  const deadline = Date.now() + timeoutMs;
+  const normalizedHeadSha = isFullSha(headSha) ? headSha.toLowerCase() : '';
+
+  while (true) {
+    const workflowRuns = await listWorkflowRuns(repository, workflowFile, token, branch);
+    const activeRuns = workflowRuns.filter((run) => {
+      if (!run.status || run.status === 'completed') {
+        return false;
+      }
+
+      if (normalizedHeadSha) {
+        return (run.head_sha ?? '').toLowerCase() === normalizedHeadSha;
+      }
+
+      return true;
+    });
+
+    if (activeRuns.length === 0) {
+      return;
+    }
+
+    const runSummary = activeRuns
+      .map((run) => `${run.id}:${run.status}:${run.head_branch ?? 'unknown'}`)
+      .join(', ');
+
+    console.log(`Waiting for ${workflowFile} to finish before generating the manifest: ${runSummary}`);
+
+    if (Date.now() >= deadline) {
+      throw new Error(`Timed out waiting for ${workflowFile} to complete.`);
+    }
+
+    await delay(pollIntervalMs);
+  }
+}
+
 async function downloadAsset(url, token) {
   const response = await fetch(url, {
     headers: {
@@ -224,6 +287,14 @@ async function buildManifest() {
   const releaseStream = getOptionalEnv('RELEASE_STREAM', 'stable');
   const manifestFilename = getOptionalEnv('RELEASE_MANIFEST_FILE', 'release-manifest.json');
   const checksumsFilename = getOptionalEnv('RELEASE_CHECKSUMS_FILE', 'checksums.txt');
+  const sourceWorkflowFile = process.env.RELEASE_SOURCE_WORKFLOW_FILE;
+  const sourceWorkflowBranch = process.env.RELEASE_SOURCE_WORKFLOW_BRANCH;
+  const sourceWorkflowHeadSha = process.env.RELEASE_SOURCE_WORKFLOW_HEAD_SHA;
+
+  if (sourceWorkflowFile) {
+    await waitForWorkflowRunsToComplete(repository, sourceWorkflowFile, token, sourceWorkflowBranch, sourceWorkflowHeadSha);
+  }
+
   const tag = await resolveReleaseTag();
   const release = await fetchReleaseByTag(repository, tag, token);
   const assets = [];

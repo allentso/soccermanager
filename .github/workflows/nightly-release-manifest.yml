@@ -8,8 +8,12 @@ on:
     inputs:
       release_tag:
         description: Nightly release tag to process
-        required: false
+        required: true
         type: string
+
+concurrency:
+  group: nightly-release-metadata
+  cancel-in-progress: true
 
 jobs:
   publish-nightly-release-metadata:
@@ -29,6 +33,17 @@ jobs:
         with:
           node-version: 20
 
+      - name: Validate release tag input
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+          if [ -z "${RELEASE_TAG:-}" ]; then
+            echo "release_tag is required for manual runs."
+            exit 1
+          fi
+
       - name: Generate nightly release manifest
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -37,6 +52,9 @@ jobs:
           RELEASE_STREAM: nightly
           RELEASE_MANIFEST_FILE: nightly-release-manifest.json
           RELEASE_CHECKSUMS_FILE: nightly-checksums.txt
+          RELEASE_SOURCE_WORKFLOW_FILE: ${{ github.event_name == 'release' && 'nightly-tauri-action.yml' || '' }}
+          RELEASE_SOURCE_WORKFLOW_BRANCH: ${{ github.event_name == 'release' && github.event.release.target_commitish == 'develop' && 'develop' || '' }}
+          RELEASE_SOURCE_WORKFLOW_HEAD_SHA: ${{ github.event_name == 'release' && github.event.release.target_commitish != 'develop' && github.event.release.target_commitish || '' }}
         run: node .github/scripts/generate-release-manifest.mjs
 
       - name: Upload nightly manifest assets to release
