@@ -84,7 +84,7 @@ export default function MatchSimulation() {
             ? "Away"
             : null,
     });
-  }, [gameState, snapshot?.home_team.id, snapshot?.away_team.id, matchMode]);
+  }, [gameState, snapshot, matchMode]);
 
   useEffect(() => {
     console.info("[MatchSimulation] stage", {
@@ -164,7 +164,7 @@ export default function MatchSimulation() {
     return () => {
       isCancelled = true;
     };
-  }, [matchMode, navigate, routeState?.fixtureIndex]);
+  }, [matchMode, navigate, routeState?.fixtureIndex, routeState?.snapshot]);
 
   // Skip pre-match for spectators
   useEffect(() => {
@@ -282,7 +282,7 @@ export default function MatchSimulation() {
           snapshot={snapshot}
           gameState={gameState}
           currentFixture={currentFixture}
-          userSide={userSide || "Home"}
+          userSide={userSide}
           onStart={handleStartMatch}
           onUpdateSnapshot={handleSnapshotUpdate}
         />
@@ -310,7 +310,7 @@ export default function MatchSimulation() {
         <HalfTimeBreak
           snapshot={snapshot}
           gameState={gameState}
-          userSide={userSide || "Home"}
+          userSide={userSide}
           isSpectator={isSpectator}
           importantEvents={importantEvents}
           onResume={handleResumeFromHalfTime}
@@ -338,7 +338,7 @@ export default function MatchSimulation() {
         <PressConference
           snapshot={snapshot}
           gameState={gameState}
-          userSide={userSide || "Home"}
+          userSide={userSide}
           onFinish={handleFinishMatch}
           onGameUpdate={setGameState}
         />
