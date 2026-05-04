@@ -1,6 +1,7 @@
 import type { GameStateData } from "../../store/gameStore";
 import { Card, CardHeader, CardBody, Badge } from "../ui";
 import { formatDateShort } from "../../lib/helpers";
+import { isSeniorSquadPlayer } from "../../lib/playerSquad";
 import { resolveSeasonContext } from "../../lib/seasonContext";
 import NextMatchDisplay from "../NextMatchDisplay";
 import {
@@ -73,7 +74,9 @@ export default function HomeTab({
   );
   const league = gameState.league;
   const roster = myTeam
-    ? gameState.players.filter((p) => p.team_id === myTeam.id)
+    ? gameState.players.filter(
+        (p) => p.team_id === myTeam.id && isSeniorSquadPlayer(p),
+      )
     : [];
   const {
     avgCondition,
