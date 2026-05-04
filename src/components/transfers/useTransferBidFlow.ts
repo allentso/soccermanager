@@ -126,7 +126,7 @@ export function useTransferBidFlow({
     };
 
     const handleMakeBid = async (): Promise<void> => {
-        if (!bidTarget || !bidAmount) {
+        if (!bidTarget || bidFee === null || bidFee <= 0) {
             return;
         }
 
@@ -135,8 +135,7 @@ export function useTransferBidFlow({
         setBidFeedback(null);
 
         try {
-            const fee = Math.round(parseFloat(bidAmount) * 1_000_000);
-            const response = await makeTransferBid(bidTarget.id, fee);
+            const response = await makeTransferBid(bidTarget.id, bidFee);
             setBidResult(response.decision);
             setBidFeedback(response.feedback);
             onGameUpdate?.(response.game);
