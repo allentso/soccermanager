@@ -11,10 +11,8 @@ import {
   ChevronUp,
   Repeat,
   RotateCcw,
-  ShoppingCart,
   TimerOff,
   Trash2,
-  User,
   Users,
 } from "lucide-react";
 import {

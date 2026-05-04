@@ -1,4 +1,5 @@
-import type { PlayerData, PlayerSquadRole } from "../store/gameStore";
+import type { PlayerData } from "../store/gameStore";
+import type { PlayerSquadRole } from "../store/types";
 import { calcAge } from "./helpers";
 
 export function getPlayerSquadRole(

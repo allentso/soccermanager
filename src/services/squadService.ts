@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 
-import type { GameStateData, PlayerSquadRole } from "../store/gameStore";
+import type { GameStateData } from "../store/gameStore";
+import type { PlayerSquadRole } from "../store/types";
 
 export async function setPlayerSquadRole(
     playerId: string,
