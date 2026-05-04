@@ -2,6 +2,8 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import PlayerProfileScoutAction from "./PlayerProfileScoutAction";
+import type { StaffData } from "../../store/gameStore";
+import type { ScoutAvailability } from "./PlayerProfile.scouting";
 
 vi.mock("react-i18next", () => ({
     useTranslation: () => ({
@@ -15,12 +17,42 @@ vi.mock("react-i18next", () => ({
 }));
 
 describe("PlayerProfileScoutAction", () => {
+    const scout: StaffData = {
+        id: "scout-1",
+        first_name: "Sam",
+        last_name: "Scout",
+        date_of_birth: "1990-01-01",
+        nationality: "ES",
+        role: "Scout",
+        attributes: {
+            coaching: 0,
+            judging_ability: 14,
+            judging_potential: 15,
+            physiotherapy: 0,
+        },
+        team_id: "team-1",
+        specialization: null,
+        wage: 1500,
+        contract_end: "2027-06-30",
+    };
+
+    function buildAvailability(overrides: Partial<ScoutAvailability>): ScoutAvailability {
+        return {
+            scouts: [scout],
+            availableScout: scout,
+            alreadyScouting: false,
+            allBusy: false,
+            canScout: true,
+            ...overrides,
+        };
+    }
+
     it("renders translated scout actions", () => {
         const onScout = vi.fn();
 
         render(
             <PlayerProfileScoutAction
-                availability={{ scouts: [{ id: "scout-1" }], alreadyScouting: false, canScout: true }}
+                availability={buildAvailability({})}
                 scoutStatus="idle"
                 scoutError={null}
                 onScout={onScout}
@@ -36,7 +68,11 @@ describe("PlayerProfileScoutAction", () => {
     it("renders translated hints and progress states", () => {
         const { rerender } = render(
             <PlayerProfileScoutAction
-                availability={{ scouts: [], alreadyScouting: false, canScout: false }}
+                availability={buildAvailability({
+                    scouts: [],
+                    availableScout: null,
+                    canScout: false,
+                })}
                 scoutStatus="idle"
                 scoutError={null}
                 onScout={vi.fn()}
@@ -47,7 +83,10 @@ describe("PlayerProfileScoutAction", () => {
 
         rerender(
             <PlayerProfileScoutAction
-                availability={{ scouts: [{ id: "scout-1" }], alreadyScouting: true, canScout: false }}
+                availability={buildAvailability({
+                    alreadyScouting: true,
+                    canScout: false,
+                })}
                 scoutStatus="sent"
                 scoutError={null}
                 onScout={vi.fn()}

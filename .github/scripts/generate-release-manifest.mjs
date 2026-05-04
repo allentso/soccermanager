@@ -2,8 +2,33 @@ import { createHash } from 'node:crypto';
 import { readFile, writeFile } from 'node:fs/promises';
 
 const INCLUDED_EXTENSIONS = new Set(['.exe', '.msi', '.dmg', '.pkg', '.appimage', '.deb', '.rpm']);
-const EXCLUDED_FILENAMES = new Set(['release-manifest.json', 'checksums.txt']);
+const EXCLUDED_FILENAMES = new Set([
+  'release-manifest.json',
+  'checksums.txt',
+  'nightly-release-manifest.json',
+  'nightly-checksums.txt',
+]);
 const EXCLUDED_SUFFIXES = ['.sig', '.blockmap', '.spdx.json'];
+
+function getOptionalEnv(name, fallback) {
+  return process.env[name] || fallback;
+}
+
+function getExcludedFilenames() {
+  const excluded = new Set(EXCLUDED_FILENAMES);
+  const configuredManifest = process.env.RELEASE_MANIFEST_FILE;
+  const configuredChecksums = process.env.RELEASE_CHECKSUMS_FILE;
+
+  if (configuredManifest) {
+    excluded.add(configuredManifest.toLowerCase());
+  }
+
+  if (configuredChecksums) {
+    excluded.add(configuredChecksums.toLowerCase());
+  }
+
+  return excluded;
+}
 
 function getRequiredEnv(name) {
   const value = process.env[name];
@@ -34,8 +59,9 @@ function getExtension(filename) {
 
 function shouldIncludeAsset(asset) {
   const lowerName = asset.name.toLowerCase();
+  const excludedFilenames = getExcludedFilenames();
 
-  if (EXCLUDED_FILENAMES.has(lowerName)) {
+  if (excludedFilenames.has(lowerName)) {
     return false;
   }
 
@@ -195,6 +221,9 @@ async function fetchReleaseByTag(repository, tag, token) {
 async function buildManifest() {
   const repository = getRequiredEnv('GITHUB_REPOSITORY');
   const token = getRequiredEnv('GITHUB_TOKEN');
+  const releaseStream = getOptionalEnv('RELEASE_STREAM', 'stable');
+  const manifestFilename = getOptionalEnv('RELEASE_MANIFEST_FILE', 'release-manifest.json');
+  const checksumsFilename = getOptionalEnv('RELEASE_CHECKSUMS_FILE', 'checksums.txt');
   const tag = await resolveReleaseTag();
   const release = await fetchReleaseByTag(repository, tag, token);
   const assets = [];
@@ -226,7 +255,7 @@ async function buildManifest() {
 
   const manifest = {
     schemaVersion: 1,
-    product: 'OpenfootManager',
+    product: 'Openfoot Manager',
     repository,
     tag,
     version: tag.startsWith('v') ? tag.slice(1) : tag,
@@ -240,8 +269,8 @@ async function buildManifest() {
 
   const checksumLines = assets.map((asset) => `${asset.sha256}  ${asset.name}`);
 
-  await writeFile('release-manifest.json', `${JSON.stringify(manifest, null, 2)}\n`);
-  await writeFile('checksums.txt', `${checksumLines.join('\n')}\n`);
+  await writeFile(manifestFilename, `${JSON.stringify(manifest, null, 2)}\n`);
+  await writeFile(checksumsFilename, `${checksumLines.join('\n')}\n`);
 }
 
 buildManifest().catch((error) => {
