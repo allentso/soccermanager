@@ -171,6 +171,7 @@ pub struct TeamSeasonRecord {
 pub enum FinancialTransactionKind {
     PrizeMoney,
     ContractTermination,
+    BoardSupport,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

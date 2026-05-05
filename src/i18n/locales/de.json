@@ -714,6 +714,11 @@
     "cashRunway": "Finanzielle Reichweite",
     "runwayWeeks": "{{count}} Wochen bei aktuellem Verlauf",
     "runwayStable": "Bei aktuellem Verlauf stabil",
+    "boardSupport": "Vorstandshilfe",
+    "boardSupportDescription": "Fordere eine Notfinanzierung vom Vorstand an, um den Cashflow zu stabilisieren. Das kostet Vertrauen und schmälert meist das Transferbudget.",
+    "requestBoardSupport": "Hilfe anfordern",
+    "boardSupportUnavailable": "Vorstandshilfe ist nur für Clubs in Schulden oder mit akutem Liquiditätsdruck verfügbar.",
+    "boardSupportSummary": "Der Vorstand hat {{amount}} Notfinanzierung genehmigt. Das Transferbudget sinkt um {{transferBudgetReduction}} und das Vorstandsvertrauen fällt um {{satisfactionPenalty}}.",
     "wagePressure": "Gehaltsdruck",
     "wageBudgetUsed": "{{percent}}% des Gehaltsbudgets genutzt",
     "contractRisk": "Vertragsrisiko",
@@ -811,7 +816,8 @@
     "objective": {
       "LeaguePosition": "Beende die Saison unter den Top {{target}}",
       "Wins": "Gewinne mindestens {{target}} Spiele",
-      "GoalsScored": "Erziele mindestens {{target}} Tore"
+      "GoalsScored": "Erziele mindestens {{target}} Tore",
+      "FinancialStability": "Halte die Lohnausgaben bei hochstens {{target}} % des Budgets"
     }
   },
   "transfers": {

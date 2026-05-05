@@ -714,6 +714,11 @@
     "cashRunway": "现金续航",
     "runwayWeeks": "按当前节奏可维持 {{count}} 周",
     "runwayStable": "按当前节奏保持稳定",
+    "boardSupport": "董事会支持",
+    "boardSupportDescription": "向董事会申请紧急资金以稳定现金流。这会损害信任，并通常压缩转会预算。",
+    "requestBoardSupport": "申请支持",
+    "boardSupportUnavailable": "董事会支持仅提供给负债或接近现金危机的俱乐部。",
+    "boardSupportSummary": "董事会批准了 {{amount}} 的紧急资金。转会预算减少 {{transferBudgetReduction}}，董事会信任下降 {{satisfactionPenalty}}。",
     "wagePressure": "工资压力",
     "wageBudgetUsed": "已使用工资预算 {{percent}}%",
     "contractRisk": "合同风险",
@@ -811,7 +816,8 @@
     "objective": {
       "LeaguePosition": "联赛排名进入前 {{target}}",
       "Wins": "至少赢得 {{target}} 场比赛",
-      "GoalsScored": "至少打进 {{target}} 个进球"
+      "GoalsScored": "至少打进 {{target}} 个进球",
+      "FinancialStability": "将工资支出控制在预算的 {{target}}% 以内"
     }
   },
   "transfers": {

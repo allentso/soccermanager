@@ -714,6 +714,11 @@
     "cashRunway": "Autonomia financeira",
     "runwayWeeks": "{{count}} semanas no ritmo atual",
     "runwayStable": "Estável no ritmo atual",
+    "boardSupport": "Apoio da diretoria",
+    "boardSupportDescription": "Peça financiamento de emergência à diretoria para estabilizar o caixa. Isso reduz a confiança e normalmente aperta o orçamento de transferências.",
+    "requestBoardSupport": "Solicitar apoio",
+    "boardSupportUnavailable": "O apoio da diretoria é reservado para clubes endividados ou perto de uma crise de caixa.",
+    "boardSupportSummary": "A diretoria aprovou {{amount}} em financiamento de emergência. O orçamento de transferências cai {{transferBudgetReduction}} e a confiança recua {{satisfactionPenalty}}.",
     "wagePressure": "Pressão salarial",
     "wageBudgetUsed": "{{percent}}% do orçamento salarial usado",
     "contractRisk": "Risco contratual",
@@ -811,7 +816,8 @@
     "objective": {
       "LeaguePosition": "Termine entre os {{target}} primeiros",
       "Wins": "Vença pelo menos {{target}} partidas",
-      "GoalsScored": "Marque pelo menos {{target}} gols"
+      "GoalsScored": "Marque pelo menos {{target}} gols",
+      "FinancialStability": "Mantenha a folha salarial em ou abaixo de {{target}}% do orçamento"
     }
   },
   "transfers": {

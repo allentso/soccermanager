@@ -595,12 +595,20 @@ fn contract_pressure_intensifies_as_expiry_approaches() {
 #[test]
 fn takeover_contract_review_replaces_first_day_contract_spam() {
     let mut game = make_game();
-    game.players.iter_mut().find(|p| p.id == "p_fwd0").unwrap().contract_end = Some(
+    game.players
+        .iter_mut()
+        .find(|p| p.id == "p_fwd0")
+        .unwrap()
+        .contract_end = Some(
         (game.clock.current_date + chrono::Duration::days(20))
             .format("%Y-%m-%d")
             .to_string(),
     );
-    game.players.iter_mut().find(|p| p.id == "p_fwd1").unwrap().contract_end = Some(
+    game.players
+        .iter_mut()
+        .find(|p| p.id == "p_fwd1")
+        .unwrap()
+        .contract_end = Some(
         (game.clock.current_date + chrono::Duration::days(150))
             .format("%Y-%m-%d")
             .to_string(),

@@ -28,7 +28,7 @@ import {
 import { useTranslation } from "react-i18next";
 import ContextMenu from "../ContextMenu";
 import { translatePositionAbbreviation } from "../squad/SquadTab.helpers";
-import { resolveMessage } from "../../utils/backendI18n";
+import { resolveBackendError, resolveMessage } from "../../utils/backendI18n";
 
 type FacilityId = "Training" | "Medical" | "Scouting";
 
@@ -75,6 +75,28 @@ function formatSignedAmount(value: number): string {
   return value < 0 ? `-${formatted}` : formatted;
 }
 
+function facilityUpgradeBlockReason(
+  snapshot: TeamFinanceSnapshotData,
+): string | null {
+  if (snapshot.currentlyOverBudget) {
+    return "Facility upgrades are blocked while the club is over its wage budget.";
+  }
+
+  if (snapshot.overallStatus === "critical") {
+    return "Facility upgrades are blocked while the club is in critical financial distress.";
+  }
+
+  return null;
+}
+
+function boardSupportAvailable(snapshot: TeamFinanceSnapshotData): boolean {
+  return (
+    snapshot.currentlyInDebt ||
+    snapshot.runwayStatus === "warning" ||
+    snapshot.runwayStatus === "critical"
+  );
+}
+
 function mapLocalFinanceSnapshot(
   team: GameStateData["teams"][number],
   snapshot: ReturnType<typeof getTeamFinanceSnapshot>,
@@ -109,6 +131,15 @@ interface DelegatedRenewalResponseData {
     success_count: number;
     failure_count: number;
     stalled_count: number;
+  };
+}
+
+interface BoardSupportResponseData {
+  game: GameStateData;
+  result: {
+    support_amount: number;
+    transfer_budget_reduction: number;
+    satisfaction_penalty: number;
   };
 }
 
@@ -161,6 +192,13 @@ export default function FinancesTab({
   );
   const [remoteFinanceSnapshot, setRemoteFinanceSnapshot] =
     useState<TeamFinanceSnapshotData | null>(null);
+  const [facilityUpgradeError, setFacilityUpgradeError] = useState<string | null>(
+    null,
+  );
+  const [boardSupportFeedback, setBoardSupportFeedback] = useState<{
+    tone: "success" | "error";
+    text: string;
+  } | null>(null);
 
   const roster = gameState.players.filter((p) => p.team_id === myTeam.id);
   const teamStaff = gameState.staff.filter(
@@ -184,6 +222,7 @@ export default function FinancesTab({
   const sponsorOffers = gameState.messages
     .filter(isPendingSponsorOffer)
     .map(resolveMessage);
+  const canRequestBoardSupport = boardSupportAvailable(financeSnapshot);
   const contractRiskPlayers = roster
     .map((player) => {
       const riskLevel = getContractRiskLevel(
@@ -270,6 +309,7 @@ export default function FinancesTab({
   }
 
   async function handleUpgradeFacility(facility: FacilityId): Promise<void> {
+    setFacilityUpgradeError(null);
     setActionLoading(facility);
     try {
       const updated = await invoke<GameStateData>("upgrade_facility", {
@@ -278,6 +318,38 @@ export default function FinancesTab({
       onGameUpdate?.(updated);
     } catch (error) {
       console.error("Failed to upgrade facility:", error);
+      setFacilityUpgradeError(resolveBackendError(error));
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  async function handleRequestBoardSupport(): Promise<void> {
+    const loadingKey = "board-support";
+    setBoardSupportFeedback(null);
+    setActionLoading(loadingKey);
+
+    try {
+      const response = await invoke<BoardSupportResponseData>(
+        "request_board_support",
+      );
+      onGameUpdate?.(response.game);
+      setBoardSupportFeedback({
+        tone: "success",
+        text: t("finances.boardSupportSummary", {
+          amount: formatExactMoney(response.result.support_amount),
+          transferBudgetReduction: formatExactMoney(
+            response.result.transfer_budget_reduction,
+          ),
+          satisfactionPenalty: response.result.satisfaction_penalty,
+        }),
+      });
+    } catch (error) {
+      console.error("Failed to request board support:", error);
+      setBoardSupportFeedback({
+        tone: "error",
+        text: resolveBackendError(error),
+      });
     } finally {
       setActionLoading(null);
     }
@@ -485,6 +557,37 @@ export default function FinancesTab({
                   : t("finances.runwayWeeks", { count: cashRunwayWeeks })}
               </p>
             </div>
+          </div>
+          <div className="mt-4 rounded-xl border border-gray-200 dark:border-navy-600 bg-gray-50 dark:bg-navy-800 p-4 space-y-3">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div className="space-y-1">
+                <p className="text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                  {t("finances.boardSupport")}
+                </p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  {t("finances.boardSupportDescription")}
+                </p>
+              </div>
+              <Button
+                disabled={!canRequestBoardSupport || actionLoading === "board-support"}
+                onClick={() => void handleRequestBoardSupport()}
+                size="sm"
+              >
+                {t("finances.requestBoardSupport")}
+              </Button>
+            </div>
+            {boardSupportFeedback ? (
+              <p
+                className={`text-sm ${boardSupportFeedback.tone === "error" ? "text-red-500" : "text-primary-500"}`}
+              >
+                {boardSupportFeedback.text}
+              </p>
+            ) : null}
+            {!canRequestBoardSupport ? (
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                {t("finances.boardSupportUnavailable")}
+              </p>
+            ) : null}
           </div>
         </CardBody>
       </Card>
@@ -748,8 +851,11 @@ export default function FinancesTab({
             {FACILITY_DEFINITIONS.map((facility) => {
               const level = facilities[facility.levelKey];
               const nextUpgradeCost = getFacilityUpgradeCost(level);
-              const canUpgrade = myTeam.finance >= nextUpgradeCost;
+              const financeBlockReason = facilityUpgradeBlockReason(financeSnapshot);
+              const canAffordUpgrade = myTeam.finance >= nextUpgradeCost;
+              const canUpgrade = canAffordUpgrade && !financeBlockReason;
               const isLoading = actionLoading === facility.id;
+              const upgradeReason = financeBlockReason ?? facilityUpgradeError;
 
               return (
                 <div
@@ -781,10 +887,13 @@ export default function FinancesTab({
                     >
                       {t("finances.upgradeFacility")}
                     </Button>
-                    {!canUpgrade && (
+                    {!canAffordUpgrade && !upgradeReason && (
                       <p className="text-xs text-red-500">
                         {t("finances.insufficientFunds")}
                       </p>
+                    )}
+                    {upgradeReason && (
+                      <p className="text-xs text-red-500">{upgradeReason}</p>
                     )}
                   </div>
                 </div>
