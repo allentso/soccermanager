@@ -10,6 +10,7 @@ vi.mock("react-i18next", () => ({
       if (key === "news.noNews") return "No news";
       if (key === "news.newsWillAppear") return "News will appear soon";
       if (key === "common.all") return "All";
+      if (key === "common.viewTeam") return "View team";
       if (key === "news.allTeams") return "All Teams";
       if (key === "news.backToNews") return "Back to news";
       if (key === "news.nArticles") return `${params?.count} articles`;
@@ -138,5 +139,21 @@ describe("NewsTab", () => {
     fireEvent.click(screen.getAllByRole("button", { name: "Alpha FC" })[0]);
 
     expect(onSelectTeam).toHaveBeenCalledWith("team-1");
+  });
+
+  it("offers linked-team context menu actions on article cards", () => {
+    const onSelectTeam = vi.fn();
+
+    render(
+      <NewsTab
+        gameState={createGameState([createNewsArticle()])}
+        onSelectTeam={onSelectTeam}
+      />,
+    );
+
+    fireEvent.contextMenu(screen.getByTestId("news-article-news-1"));
+    fireEvent.click(screen.getByRole("button", { name: "View team: Beta FC" }));
+
+    expect(onSelectTeam).toHaveBeenCalledWith("team-2");
   });
 });
