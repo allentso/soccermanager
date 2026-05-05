@@ -131,6 +131,7 @@ export default function ScoutingTab({
         players={gameState.players}
         teams={gameState.teams}
         onSelectPlayer={onSelectPlayer}
+        onSelectTeam={onSelectTeam}
       />
 
       <ScoutingScoutDetailsCard

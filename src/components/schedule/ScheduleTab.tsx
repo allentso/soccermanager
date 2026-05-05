@@ -101,8 +101,8 @@ export default function ScheduleTab({
                 <span className="text-sm font-heading font-bold text-gray-800 dark:text-gray-100">
                   {seasonContext.season_start
                     ? t("season.startsOn", {
-                        date: formatMatchDate(seasonContext.season_start),
-                      })
+                      date: formatMatchDate(seasonContext.season_start),
+                    })
                     : t("season.noOpener")}
                 </span>
               </div>
@@ -118,22 +118,20 @@ export default function ScheduleTab({
       <div className="flex gap-2 mb-5">
         <button
           onClick={() => setView("fixtures")}
-          className={`px-4 py-2 rounded-lg font-heading font-bold text-sm uppercase tracking-wider transition-all ${
-            view === "fixtures"
+          className={`px-4 py-2 rounded-lg font-heading font-bold text-sm uppercase tracking-wider transition-all ${view === "fixtures"
               ? "bg-primary-500 text-white shadow-md shadow-primary-500/20"
               : "bg-white dark:bg-navy-800 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 border border-gray-200 dark:border-navy-600"
-          }`}
+            }`}
         >
           <CalendarIcon className="w-4 h-4 inline mr-1.5 -mt-0.5" />{" "}
           {t("schedule.fixtures")}
         </button>
         <button
           onClick={() => setView("standings")}
-          className={`px-4 py-2 rounded-lg font-heading font-bold text-sm uppercase tracking-wider transition-all ${
-            view === "standings"
+          className={`px-4 py-2 rounded-lg font-heading font-bold text-sm uppercase tracking-wider transition-all ${view === "standings"
               ? "bg-primary-500 text-white shadow-md shadow-primary-500/20"
               : "bg-white dark:bg-navy-800 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 border border-gray-200 dark:border-navy-600"
-          }`}
+            }`}
         >
           <TableProperties className="w-4 h-4 inline mr-1.5 -mt-0.5" />{" "}
           {t("schedule.standings")}
@@ -219,8 +217,8 @@ export default function ScheduleTab({
                 <p className="text-xs text-gray-500 dark:text-gray-400">
                   {seasonContext.season_start
                     ? t("season.startsOn", {
-                        date: formatMatchDate(seasonContext.season_start),
-                      })
+                      date: formatMatchDate(seasonContext.season_start),
+                    })
                     : t("season.noOpener")}
                 </p>
               </div>
