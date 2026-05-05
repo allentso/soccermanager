@@ -32,15 +32,10 @@ fn upgrade_facility_internal(state: &StateManager, facility: &str) -> Result<Gam
     let snapshot = finances::team_finance_snapshot(&game, &team_id)
         .ok_or("be.error.managedTeamNotFound".to_string())?;
     if snapshot.currently_over_budget {
-        return Err(
-            "Facility upgrades are blocked while the club is over its wage budget.".to_string(),
-        );
+        return Err("be.error.finance.facilityUpgradeOverBudget".to_string());
     }
     if matches!(snapshot.overall_status, FinanceHealthLevel::Critical) {
-        return Err(
-            "Facility upgrades are blocked while the club is in critical financial distress."
-                .to_string(),
-        );
+        return Err("be.error.finance.facilityUpgradeCritical".to_string());
     }
 
     let team = game
@@ -170,7 +165,7 @@ mod tests {
 
         let error = upgrade_facility_internal(&state, "Training").expect_err("should fail");
 
-        assert!(error.contains("over its wage budget"));
+        assert_eq!(error, "be.error.finance.facilityUpgradeOverBudget");
 
         let stored_game = state
             .get_game(|current| current.clone())

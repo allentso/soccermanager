@@ -1578,6 +1578,16 @@
       "seasonNotComplete": "Season is not yet complete",
       "managedTeamNotFound": "Managed team not found",
       "unknownFacilityType": "Unknown facility type",
+      "finance": {
+        "boardSupportUnavailable": "Emergency board support is only available when cash reserves are under pressure.",
+        "boardSupportAlreadyUsed": "The board has already approved emergency support this season.",
+        "sponsorPitchUnavailable": "Sponsor pitches are only available when the club is under wage or cash pressure.",
+        "sponsorPitchPendingOffer": "There is already a sponsor offer waiting for your decision.",
+        "sponsorPitchAlreadyAttemptedToday": "The commercial team has already pitched sponsors today.",
+        "sponsorPitchActiveSponsor": "An active sponsorship deal is already in place.",
+        "facilityUpgradeOverBudget": "Facility upgrades are blocked while the club is over its wage budget.",
+        "facilityUpgradeCritical": "Facility upgrades are blocked while the club is in critical financial distress."
+      },
       "createManager": {
         "nameRequired": "First name and last name are required.",
         "nameMaxLength": "First name and last name must not exceed 30 characters.",

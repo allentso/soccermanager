@@ -1578,6 +1578,16 @@
       "seasonNotComplete": "赛季尚未结束",
       "managedTeamNotFound": "未找到你执教的球队",
       "unknownFacilityType": "未知的设施类型",
+      "finance": {
+        "boardSupportUnavailable": "只有当现金储备承压时，董事会紧急支持才可用。",
+        "boardSupportAlreadyUsed": "董事会本赛季已经批准过一次紧急支持。",
+        "sponsorPitchUnavailable": "只有当俱乐部面临工资或现金压力时，才能发起赞助接洽。",
+        "sponsorPitchPendingOffer": "已经有一份赞助报价在等待你的决定。",
+        "sponsorPitchAlreadyAttemptedToday": "商务团队今天已经接洽过赞助商。",
+        "sponsorPitchActiveSponsor": "当前已经有生效中的赞助协议。",
+        "facilityUpgradeOverBudget": "当俱乐部超出工资预算时，设施升级会被禁止。",
+        "facilityUpgradeCritical": "当俱乐部处于严重财务困境时，设施升级会被禁止。"
+      },
       "createManager": {
         "nameRequired": "名字和姓氏均为必填项。",
         "nameMaxLength": "名字和姓氏都不能超过 30 个字符。",

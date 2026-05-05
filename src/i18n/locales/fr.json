@@ -1578,6 +1578,16 @@
       "seasonNotComplete": "La saison n'est pas encore terminée",
       "managedTeamNotFound": "Équipe gérée introuvable",
       "unknownFacilityType": "Type d'installation inconnu",
+      "finance": {
+        "boardSupportUnavailable": "Le soutien d'urgence du conseil n'est disponible que lorsque la trésorerie est sous pression.",
+        "boardSupportAlreadyUsed": "Le conseil a déjà accordé un soutien d'urgence cette saison.",
+        "sponsorPitchUnavailable": "La recherche de sponsor n'est disponible que lorsque le club subit une pression salariale ou de trésorerie.",
+        "sponsorPitchPendingOffer": "Une offre de sponsor attend déjà votre décision.",
+        "sponsorPitchAlreadyAttemptedToday": "L'équipe commerciale a déjà sollicité des sponsors aujourd'hui.",
+        "sponsorPitchActiveSponsor": "Un contrat de sponsoring est déjà en cours.",
+        "facilityUpgradeOverBudget": "Les améliorations d'installations sont bloquées tant que le club dépasse son budget salarial.",
+        "facilityUpgradeCritical": "Les améliorations d'installations sont bloquées tant que le club traverse une crise financière critique."
+      },
       "createManager": {
         "nameRequired": "Le prénom et le nom sont requis.",
         "nameMaxLength": "Le prénom et le nom ne doivent pas dépasser 30 caractères.",
