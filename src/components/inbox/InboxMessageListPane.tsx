@@ -78,11 +78,9 @@ export default function InboxMessageListPane({
                       type="checkbox"
                       checked={selectedMessageIds.includes(message.id)}
                       onChange={() => onToggleMessageSelection(message.id)}
-                      aria-label={t(
-                        "inbox.selectMessageForDeletion",
-                        "Select {{subject}}",
-                        { subject: message.subject },
-                      )}
+                      aria-label={t("inbox.selectMessageForDeletion", {
+                        subject: message.subject,
+                      })}
                       data-testid={`inbox-select-message-${message.id}`}
                       className="h-4 w-4 rounded border-gray-300 text-primary-500 focus:ring-primary-500/30"
                     />

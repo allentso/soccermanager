@@ -126,7 +126,7 @@ export default function FinancesTab({
     return (
       <p className="text-gray-500 dark:text-gray-400">{t("common.noTeam")}</p>
     );
-  const weeklySuffix = t("finances.perWeekSuffix", "/wk");
+  const weeklySuffix = t("finances.perWeekSuffix");
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [delegatedRenewalsSummary, setDelegatedRenewalsSummary] = useState<
     string | null
@@ -680,10 +680,7 @@ export default function FinancesTab({
                 })
               ) : (
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  {t(
-                    "finances.noPendingSponsorOffers",
-                    "No pending sponsor offers",
-                  )}
+                  {t("finances.noPendingSponsorOffers")}
                 </p>
               )}
             </div>
@@ -777,7 +774,7 @@ export default function FinancesTab({
                     const contextItems = onSelectPlayer
                       ? [
                         {
-                          label: t("squad.viewProfile", "View profile"),
+                          label: t("squad.viewProfile"),
                           icon: <User className="w-4 h-4" />,
                           onClick: () => onSelectPlayer(p.id),
                         },

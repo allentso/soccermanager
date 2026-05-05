@@ -1,6 +1,7 @@
 {
   "app": {
     "name": "OpenFoot Manager",
+    "publisher": "Sturdy Robot",
     "version": "v0.2.0-alpha"
   },
   "menu": {
@@ -90,7 +91,10 @@
       "injuredStartingXi": "{{count}} giocatore/i infortunato/i nell'XI titolare — sostituiscili",
       "incompleteStartingXi": "XI titolare incompleto — imposta la tua formazione",
       "urgentUnread": "{{count}} messaggio/i urgente/i non letto/i",
-      "matchTodayStartingXi": "C'è partita oggi! Imposta il tuo XI titolare"
+      "matchTodayStartingXi": "C'è partita oggi! Imposta il tuo XI titolare",
+      "financeCrisis": "Finanze critiche — saldo {{balance}}, autonomia {{weeks}} settimana/e",
+      "financeRunway": "Autonomia di cassa ridotta a {{count}} settimana/e",
+      "wagePressure": "Monte ingaggi al {{percent}}% del budget"
     },
     "unemployedBanner": "Attualmente sei senza club. Le offerte di lavoro potrebbero arrivare nella tua casella di posta."
   },
@@ -203,6 +207,25 @@
       "DeadlineDay": "Ultimo Giorno"
     }
   },
+  "endOfSeason": {
+    "seasonComplete": "Stagione conclusa",
+    "champions": "Campioni!",
+    "position": "Posizione",
+    "points": "Punti",
+    "finalStandings": "Classifica finale (Top 5)",
+    "leagueChampions": "Campioni del campionato",
+    "startNextSeason": "Inizia la prossima stagione",
+    "processing": "Elaborazione...",
+    "statsArchived": "Le statistiche dei giocatori verranno archiviate. Verrà generato un nuovo calendario.",
+    "seasonLine": "{{league}} — Stagione {{season}}",
+    "newSeason": "Stagione {{n}}",
+    "newScheduleReleased": "Il nuovo calendario è stato pubblicato. Buona fortuna!",
+    "goldenBoot": "Scarpa d'Oro",
+    "nGoals": "{{count}} gol",
+    "playerOfYear": "Giocatore dell'anno",
+    "avgRating": "Valutazione media: {{rating}}",
+    "continueDashboard": "Continua alla dashboard"
+  },
   "teamSelect": {
     "title": "Scegli il tuo club",
     "subtitle": "Seleziona la squadra che vuoi allenare",
@@ -216,7 +239,8 @@
     "repWorldClass": "Di livello mondiale",
     "repStrong": "Forte",
     "repAverage": "Media",
-    "repDeveloping": "In crescita"
+    "repDeveloping": "In crescita",
+    "failedToSelectTeam": "Selezione della squadra non riuscita: {{error}}"
   },
   "youthAcademy": {
     "title": "Settore giovanile",
@@ -240,7 +264,9 @@
     "potExcellent": "Eccellente",
     "potPromising": "Promettente",
     "potDecent": "Discreto",
-    "potLimited": "Limitato"
+    "potLimited": "Limitato",
+    "delegateToYouthAcademy": "Delega al settore giovanile",
+    "promoteToSeniorSquad": "Promuovi in prima squadra"
   },
   "common": {
     "loading": "Caricamento...",
@@ -733,6 +759,7 @@
     "important": "Importante",
     "effectOutcomeLabel": "Esito",
     "chooseResponse": "Scegli la tua risposta",
+    "chooseResponseOutcomeVaries": "Scegli la tua risposta — l'esito può variare",
     "responded": "Risposta inviata",
     "markAllRead": "Segna tutto come letto",
     "clearOld": "Pulisci vecchi",
@@ -825,6 +852,12 @@
     "bid": "Offri",
     "playerValue": "Valore: {{value}}",
     "bidAmount": "Importo offerta (€M)",
+    "bidImpactTitle": "Impatto previsto",
+    "bidImpactTransferBudget": "Budget trasferimenti {{before}} → {{after}}",
+    "bidImpactBalance": "Saldo del club {{before}} → {{after}}",
+    "bidImpactWagePressure": "Utilizzo previsto del budget stipendi {{percent}}%",
+    "bidImpactOverTransferBudget": "Questa offerta supera il tuo budget trasferimenti",
+    "bidImpactOverBalance": "Questa offerta porterebbe il club in debito",
     "bidAccepted": "Offerta accettata! Giocatore ingaggiato.",
     "bidCountered": "Sono tornati con condizioni riviste.",
     "bidRejected": "Offerta rifiutata — importo troppo basso.",
@@ -911,6 +944,29 @@
     "overview": "Panoramica",
     "leagueTable": "Classifica campionato",
     "topScorers": "Marcatori",
+    "loadingAwards": "Caricamento premi...",
+    "awards": {
+      "goldenBootTitle": "Scarpa d'Oro",
+      "goldenBootSubtitle": "Migliori marcatori",
+      "assistKingTitle": "Re degli assist",
+      "assistKingSubtitle": "Più assist",
+      "playerOfYearTitle": "Giocatore dell'anno",
+      "playerOfYearSubtitle": "Miglior media voto (min. 5 presenze)",
+      "goldenGloveTitle": "Guanto d'Oro",
+      "goldenGloveSubtitle": "Più clean sheet (POR)",
+      "everPresentTitle": "Sempre presente",
+      "everPresentSubtitle": "Più presenze",
+      "youngPlayerTitle": "Giovane dell'anno",
+      "youngPlayerSubtitle": "Miglior media voto U21 (min. 3 presenze)",
+      "noDataYet": "Nessun dato per ora",
+      "units": {
+        "goals": "gol",
+        "assists": "assist",
+        "rating": "voto",
+        "cleanSheets": "clean sheet",
+        "apps": "pres."
+      }
+    },
     "noGoals": "Ancora nessun gol segnato."
   },
   "news": {
@@ -941,7 +997,7 @@
     "renewalLength": "Durata del contratto",
     "renewalSubmit": "Invia offerta",
     "renewalInvalidWage": "Inserisci uno stipendio settimanale valido",
-    "renewalBudgetWarning": "Supera il budget salari",
+    "renewalBudgetWarning": "L'offerta supera il limite di pressione salariale fissato dalla dirigenza",
     "renewalAccepted": "Offerta accettata",
     "renewalRejected": "Offerta rifiutata",
     "renewalCounter": "Vuole di più: €{{wage}}/settimana per {{years}} anni",
@@ -990,6 +1046,9 @@
     "percentile": "Percentile",
     "percentileUnavailable": "Percentile non disponibile",
     "recentMatches": "Partite recenti",
+    "recentMatchesScore": "Risultato",
+    "recentMatchesGoalsAssists": "G / A",
+    "recentMatchesRating": "Voto",
     "vs": "vs",
     "noRecentMatches": "Nessun dato sulle partite recenti",
     "apps": "Pres",
@@ -1046,6 +1105,21 @@
     "languageDesc": "Scegli la lingua dell'interfaccia",
     "currency": "Valuta",
     "currencyDesc": "Come vengono mostrati i valori monetari",
+    "currencyOptions": {
+      "eur": "Euro",
+      "gbp": "Sterlina",
+      "usd": "Dollaro"
+    },
+    "languages": {
+      "en": "Inglese",
+      "es": "Spagnolo",
+      "pt": "Portoghese",
+      "fr": "Francese",
+      "de": "Tedesco",
+      "it": "Italiano",
+      "ptBR": "Portoghese (Brasile)",
+      "zhCN": "Cinese semplificato"
+    },
     "gameplay": "Gameplay",
     "defaultMatchMode": "Modalità partita predefinita",
     "defaultMatchModeDesc": "Come iniziano le partite quando premi Continua",
@@ -1139,6 +1213,8 @@
     "scoutBtn": "Osserva",
     "noPlayersFound": "Nessun giocatore trovato con questa ricerca.",
     "showingRange": "Mostrati {{from}}–{{to}} di {{total}}",
+    "previousPage": "Pagina precedente",
+    "nextPage": "Pagina successiva",
     "viewPlayer": "Vedi",
     "condition": "Condizione",
     "morale": "Morale",
@@ -1475,6 +1551,28 @@
     "compare": "Confronta"
   },
   "be": {
+    "error": {
+      "noActiveGameSession": "Nessuna partita attiva",
+      "noActiveSaveSession": "Nessuna sessione di salvataggio attiva",
+      "teamNotFound": "Squadra non trovata",
+      "noTeamAssigned": "Nessuna squadra assegnata",
+      "playerNotFound": "Giocatore non trovato",
+      "invalidSquadRole": "Ruolo della rosa non valido",
+      "staffMemberNotFound": "Membro dello staff non trovato",
+      "staffMemberAlreadyEmployed": "Questo membro dello staff è già impiegato da una squadra",
+      "noActiveLiveMatch": "Nessuna partita live attiva",
+      "seasonNotComplete": "La stagione non è ancora conclusa",
+      "managedTeamNotFound": "Squadra gestita non trovata",
+      "unknownFacilityType": "Tipo di struttura sconosciuto",
+      "createManager": {
+        "nameRequired": "Nome e cognome sono obbligatori.",
+        "nameMaxLength": "Nome e cognome non possono superare i 30 caratteri.",
+        "nationalityRequired": "La nazionalità è obbligatoria.",
+        "invalidDobFormat": "Data di nascita non valida. Usa il formato AAAA-MM-GG.",
+        "minAge": "L'allenatore deve avere almeno 30 anni.",
+        "invalidDob": "Data di nascita non valida."
+      }
+    },
     "sender": {
       "boardOfDirectors": "Consiglio di amministrazione",
       "leagueOffice": "Ufficio della lega",
@@ -1506,6 +1604,7 @@
     },
     "source": {
       "sportsGazette": "Gazzetta Sportiva",
+      "footballHerald": "L'Araldo del Calcio",
       "playersUnder21": "{{count}} giocatori del vivaio",
       "matchDayPress": "Stampa del Giorno Partita",
       "leagueChronicle": "Cronaca della Lega",
@@ -1514,6 +1613,7 @@
     "msg": {
       "welcome": {
         "noYouthPlayers": "Nessun giocatore è attualmente assegnato al settore giovanile.",
+        "subject0": "Benvenuto al {{team}}",
         "subject1": "Nuova era al {{team}}",
         "subject2": "{{team}} attende la tua leadership",
         "body0": "Il consiglio di amministrazione del {{team}} è lieto di darti il benvenuto come nuovo allenatore.\n\nRiponiamo grandi speranze nel tuo incarico e crediamo che tu possa portare questo club alla gloria. Il tuo primo compito sarà valutare la rosa e preparare un piano tattico per la prossima stagione.\n\nTi auguriamo il meglio.",
@@ -1521,6 +1621,52 @@
         "body2": "Benvenuto al {{team}}! Tifosi e staff sono entusiasti del futuro sotto la tua guida.\n\nTi consigliamo di iniziare valutando punti di forza e debolezza della rosa, poi impostare la tua formazione preferita e il tuo regime di allenamento.\n\nLa prossima stagione sarà una vera prova: rendici orgogliosi.",
         "actionReview": "Rivedi rosa",
         "actionThank": "Ringrazia la dirigenza"
+      },
+      "matchResult": {
+        "subject": {
+          "victory": "Vittoria: {{home}} {{homeGoals}} - {{awayGoals}} {{away}}",
+          "defeat": "Sconfitta: {{home}} {{homeGoals}} - {{awayGoals}} {{away}}",
+          "draw": "Pareggio: {{home}} {{homeGoals}} - {{awayGoals}} {{away}}"
+        },
+        "body": {
+          "victory0": "Triplice fischio: {{home}} {{homeGoals}} - {{awayGoals}} {{away}}.\n\nUn risultato eccellente! La squadra ha offerto una prova convincente. Giornata {{matchday}}: continuiamo su questa strada.",
+          "victory1": "Finale: {{home}} {{homeGoals}} - {{awayGoals}} {{away}}.\n\nTre punti in cassaforte! I ragazzi hanno mostrato grande carattere. Giornata {{matchday}} completata.",
+          "defeat0": "Triplice fischio: {{home}} {{homeGoals}} - {{awayGoals}} {{away}}.\n\nUn risultato deludente. Dovremo ricompattarci e lavorare sugli aspetti che ci hanno penalizzato. Giornata {{matchday}}: c'è ancora tempo per rimetterci in carreggiata.",
+          "defeat1": "Risultato finale: {{home}} {{homeGoals}} - {{awayGoals}} {{away}}.\n\nNon era il risultato che volevamo. Dopo la giornata {{matchday}}, la dirigenza vorrà vedere dei miglioramenti. Analizza cosa non ha funzionato e prepara la prossima sfida.",
+          "draw": "Triplice fischio: {{home}} {{homeGoals}} - {{awayGoals}} {{away}}.\n\nUn punto conquistato nella giornata {{matchday}}. In base agli altri risultati, potrebbe rivelarsi prezioso. La squadra ha lottato con determinazione ma non è riuscita a trovare il gol decisivo."
+        },
+        "actionStandings": "Vedi classifica"
+      },
+      "staffAdvice": {
+        "subject": "Rapporto dello staff — Vacanze in panchina",
+        "body": "Mister, ho dato un'occhiata alla situazione dello staff al {{team}} e volevo segnalarti alcuni punti:\n\n• Un buon Allenatore migliora sensibilmente l'efficacia degli allenamenti: i tuoi giocatori cresceranno più in fretta.\n• Un Fisioterapista qualificato aiuta a prevenire gli infortuni e accelera il recupero tra una partita e l'altra.\n• I nostri Osservatori possono aiutarti a individuare obiettivi di mercato e valutare gli avversari.\n\nTi consiglio vivamente di colmare eventuali vacanze prima dell'inizio della stagione. Puoi trovare il personale disponibile nella sezione Staff.\n\nDacci un'occhiata quando puoi.",
+        "actionView": "Vedi staff"
+      },
+      "boardExpect": {
+        "subject": "{{team}} — Obiettivi stagionali",
+        "body": "La dirigenza ha fissato le seguenti aspettative per questa stagione:\n\n• Chiudere nella metà alta della classifica\n• Mantenere stabilità finanziaria\n• Sviluppare giovani talenti provenienti dal vivaio\n\nRaggiungere questi obiettivi rafforzerà la tua posizione. Il mancato rispetto delle aspettative minime potrebbe portare a una revisione del tuo incarico.\n\nAbbiamo fiducia nelle tue capacità.",
+        "actionAccept": "Accetta obiettivi"
+      },
+      "boardObjectives": {
+        "subject": "Stagione {{season}} — Obiettivi della dirigenza",
+        "body": "La dirigenza ha fissato i seguenti obiettivi per questa stagione:\n\n1. Chiudere tra le prime {{expectedPos}}\n2. Vincere almeno {{winTarget}} partite\n3. Segnare almeno {{goalsTarget}} gol\n\nRaggiungere questi traguardi aumenterà la fiducia della dirigenza nel tuo operato. Il mancato rispetto delle aspettative potrebbe comportare budget ridotti o ulteriori conseguenze."
+      },
+      "trainingInjury": {
+        "subject": "Infortunio — {{player}} ({{injury}})",
+        "body0": "Brutte notizie dal campo di allenamento. {{player}} ha riportato un {{injury}} durante la sessione di oggi.\n\nLo staff medico stima {{days}} giorni di stop. Monitoreremo attentamente il recupero.",
+        "body1": "Purtroppo {{player}} si è fermato in allenamento oggi a causa di un {{injury}}.\n\nPrima valutazione: circa {{days}} giorni ai box. Ti terremo aggiornato sui progressi."
+      },
+      "mediaPositive": {
+        "subject": "Stampa positiva — {{player}}",
+        "body": "I giornali locali stanno dedicando oggi un articolo molto positivo a {{player}}.\n\nMettono in evidenza l'ottimo momento di forma recente e l'impegno mostrato per il {{team}}. Questo tipo di copertura fa bene sia alla fiducia del giocatore sia all'immagine del club."
+      },
+      "mediaNegative": {
+        "subject": "Stampa negativa — {{player}}",
+        "body": "Oggi i tabloid hanno pubblicato alcuni articoli poco lusinghieri su {{player}}.\n\nI giornalisti stanno mettendo in discussione la sua forma e il suo impegno verso il {{team}}. Questo potrebbe incidere sul morale del giocatore: forse sarebbe il caso di parlarci."
+      },
+      "intlCallup": {
+        "subject": "Convocazione in nazionale — {{player}}",
+        "body": "{{player}} è stato convocato dalla nazionale {{nationality}} per la prossima finestra internazionale.\n\nÈ un grande onore per il giocatore e riflette positivamente anche sul club. Tornerà di buon umore, anche se conviene tenere d'occhio il suo livello di fatica."
       },
       "delegateToYouthAcademy": "Assegna al settore giovanile",
       "promoteToSeniorSquad": "Promuovi in prima squadra",

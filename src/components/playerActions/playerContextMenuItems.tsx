@@ -32,7 +32,7 @@ export function buildViewProfileMenuItem(
     onClick: () => void,
 ): ContextMenuItem {
     return {
-        label: t("squad.viewProfile", "View profile"),
+        label: t("squad.viewProfile"),
         icon: <User className="w-4 h-4" />,
         onClick,
     };
@@ -43,7 +43,7 @@ export function buildViewTeamMenuItem(
     onClick: () => void,
 ): ContextMenuItem {
     return {
-        label: t("common.viewTeam", "View team"),
+        label: t("common.viewTeam"),
         icon: <Building2 className="w-4 h-4" />,
         onClick,
     };
@@ -56,8 +56,8 @@ export function buildToggleTransferListMenuItem(
 ): ContextMenuItem {
     return {
         label: transferListed
-            ? t("squad.removeFromTransferList", "Remove from transfer list")
-            : t("squad.addToTransferList", "Add to transfer list"),
+            ? t("squad.removeFromTransferList")
+            : t("squad.addToTransferList"),
         icon: <ShoppingCart className="w-4 h-4" />,
         onClick,
     };
@@ -70,8 +70,8 @@ export function buildToggleLoanListMenuItem(
 ): ContextMenuItem {
     return {
         label: loanListed
-            ? t("squad.removeFromLoanList", "Remove from loan list")
-            : t("squad.addToLoanList", "Add to loan list"),
+            ? t("squad.removeFromLoanList")
+            : t("squad.addToLoanList"),
         icon: <Repeat className="w-4 h-4" />,
         onClick,
     };
@@ -100,7 +100,7 @@ export function buildMakeTransferBidMenuItem(
     onClick: () => void,
 ): ContextMenuItem {
     return {
-        label: t("transfers.makeBid", "Make Transfer Bid"),
+        label: t("transfers.makeBid"),
         icon: <Gavel className="w-4 h-4" />,
         onClick,
     };
@@ -111,7 +111,7 @@ export function buildDelegateToYouthAcademyMenuItem(
     onClick: () => void,
 ): ContextMenuItem {
     return {
-        label: t("youthAcademy.delegateToYouthAcademy", "Delegate to youth academy"),
+        label: t("youthAcademy.delegateToYouthAcademy"),
         icon: <GraduationCap className="w-4 h-4" />,
         onClick,
     };
@@ -122,7 +122,7 @@ export function buildPromoteToSeniorSquadMenuItem(
     onClick: () => void,
 ): ContextMenuItem {
     return {
-        label: t("youthAcademy.promoteToSeniorSquad", "Promote to senior squad"),
+        label: t("youthAcademy.promoteToSeniorSquad"),
         icon: <ArrowUp className="w-4 h-4" />,
         onClick,
     };

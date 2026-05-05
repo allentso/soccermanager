@@ -30,26 +30,26 @@ pub async fn start_new_game(
     let first_name = first_name.trim().to_string();
     let last_name = last_name.trim().to_string();
     if first_name.is_empty() || last_name.is_empty() {
-        return Err("First name and last name are required.".to_string());
+        return Err("be.error.createManager.nameRequired".to_string());
     }
     if first_name.len() > 30 || last_name.len() > 30 {
-        return Err("First name and last name must not exceed 30 characters.".to_string());
+        return Err("be.error.createManager.nameMaxLength".to_string());
     }
     let nationality = nationality.trim().to_string();
     if nationality.is_empty() {
-        return Err("Nationality is required.".to_string());
+        return Err("be.error.createManager.nationalityRequired".to_string());
     }
 
     // Validate DOB: must be a valid date and manager must be at least 30 years old
     let birth_date = chrono::NaiveDate::parse_from_str(&dob, "%Y-%m-%d")
-        .map_err(|_| "Invalid date of birth. Use YYYY-MM-DD format.".to_string())?;
+        .map_err(|_| "be.error.createManager.invalidDobFormat".to_string())?;
     let today = chrono::Utc::now().date_naive();
     let age = today.signed_duration_since(birth_date).num_days() / 365;
     if age < 30 {
-        return Err("Manager must be at least 30 years old.".to_string());
+        return Err("be.error.createManager.minAge".to_string());
     }
     if age > 99 {
-        return Err("Invalid date of birth.".to_string());
+        return Err("be.error.createManager.invalidDob".to_string());
     }
 
     let manager = Manager::new(
@@ -100,14 +100,14 @@ pub async fn select_team(
     info!("[cmd] select_team: team_id={}", team_id);
     let mut game = state
         .get_game(|g: &Game| g.clone())
-        .ok_or("No active game session".to_string())?;
+        .ok_or("be.error.noActiveGameSession".to_string())?;
 
     // Validate team exists
     let team = game
         .teams
         .iter()
         .find(|t| t.id == team_id)
-        .ok_or("Team not found".to_string())?;
+        .ok_or("be.error.teamNotFound".to_string())?;
     let team_name = team.name.clone();
 
     // Assign manager to team
@@ -226,7 +226,7 @@ pub async fn get_active_game(state: State<'_, StateManager>) -> Result<Game, Str
     log::debug!("[cmd] get_active_game");
     state
         .get_game(|g: &Game| g.clone())
-        .ok_or("No active game session".to_string())
+        .ok_or("be.error.noActiveGameSession".to_string())
 }
 
 #[tauri::command]
@@ -237,11 +237,11 @@ pub async fn save_game(
     info!("[cmd] save_game");
     let game = state
         .get_game(|g: &Game| g.clone())
-        .ok_or("No active game session".to_string())?;
+        .ok_or("be.error.noActiveGameSession".to_string())?;
 
     let save_id = state
         .get_save_id()
-        .ok_or("No active save session".to_string())?;
+        .ok_or("be.error.noActiveSaveSession".to_string())?;
 
     let mut sm = sm_state
         .0
@@ -263,7 +263,7 @@ pub async fn exit_to_menu(
     info!("[cmd] exit_to_menu");
     let game = state
         .get_game(|g: &Game| g.clone())
-        .ok_or("No active game session")?;
+        .ok_or("be.error.noActiveGameSession")?;
 
     // Auto-save
     if let Some(save_id) = state.get_save_id() {

@@ -95,12 +95,12 @@ export default function PlayerProfileHeroCard({
                             </span>
                             <span className="text-gray-500">•</span>
                             <span className="text-gray-400 text-sm">
-                                {t("common.footednessLabel", { defaultValue: "Foot" })}: {" "}
+                                {t("common.footednessLabel")}: {" "}
                                 {footednessLabel}
                             </span>
                             <span className="text-gray-500">•</span>
                             <span className="text-gray-400 text-sm">
-                                {t("common.weakFoot", { defaultValue: "Weak foot" })}: {" "}
+                                {t("common.weakFoot")}: {" "}
                                 {weakFootValue}/5
                             </span>
                         </div>

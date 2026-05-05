@@ -435,10 +435,7 @@ export function SubPanel({
               ) : selectedPlayer ? (
                  <div className="mx-4 mt-3 p-3 bg-gray-100 dark:bg-navy-700/30 rounded-xl border border-gray-200 dark:border-navy-600/50 text-center transition-colors duration-300">
                    <p className="text-xs text-gray-500 dark:text-gray-400 font-heading uppercase tracking-wider">
-                    {t(
-                      "match.selectBenchToCompare",
-                      "Select a bench player to compare",
-                    )}
+                    {t("match.selectBenchToCompare")}
                   </p>
                 </div>
               ) : null}

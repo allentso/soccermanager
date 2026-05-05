@@ -10,7 +10,7 @@ use ofm_core::state::StateManager;
 fn advance_time_internal(state: &StateManager) -> Result<Game, String> {
     let mut current_game = state
         .get_game(|g| g.clone())
-        .ok_or("No active game session".to_string())?;
+        .ok_or("be.error.noActiveGameSession".to_string())?;
 
     info!(
         "[cmd] advance_time: date={}",
@@ -63,7 +63,7 @@ pub fn check_blocking_actions(state: State<'_, StateManager>) -> Result<serde_js
     log::debug!("[cmd] check_blocking_actions");
     let game = state
         .get_game(|g| g.clone())
-        .ok_or("No active game session")?;
+        .ok_or("be.error.noActiveGameSession")?;
 
     let blockers = compute_blocking_actions(&game);
     info!(
@@ -79,11 +79,11 @@ pub fn skip_to_match_day(state: State<'_, StateManager>) -> Result<serde_json::V
     info!("[cmd] skip_to_match_day");
     let mut game = state
         .get_game(|g| g.clone())
-        .ok_or("No active game session")?;
+        .ok_or("be.error.noActiveGameSession")?;
 
     // Precondition: manager must be employed at entry — guarantees that any later
     // `team_id.is_none()` inside the loop is a real firing transition, not a stale state.
-    let user_team_id = game.manager.team_id.clone().ok_or("No team assigned")?;
+    let user_team_id = game.manager.team_id.clone().ok_or("be.error.noTeamAssigned")?;
     info!(
         "[cmd] skip_to_match_day: start_date={}, user_team_id={}",
         game.clock.current_date.format("%Y-%m-%d"),
