@@ -34,12 +34,12 @@ fn toggle_transfer_list_internal(state: &StateManager, player_id: &str) -> Resul
     info!("[cmd] toggle_transfer_list: player_id={}", player_id);
     let mut game = state
         .get_game(|g| g.clone())
-        .ok_or("No active game session".to_string())?;
+        .ok_or("be.error.noActiveGameSession".to_string())?;
 
     if let Some(p) = game.players.iter_mut().find(|p| p.id == player_id) {
         p.transfer_listed = !p.transfer_listed;
     } else {
-        return Err("Player not found".into());
+        return Err("be.error.playerNotFound".into());
     }
     state.set_game(game.clone());
     Ok(game)
@@ -54,12 +54,12 @@ fn toggle_loan_list_internal(state: &StateManager, player_id: &str) -> Result<Ga
     info!("[cmd] toggle_loan_list: player_id={}", player_id);
     let mut game = state
         .get_game(|g| g.clone())
-        .ok_or("No active game session".to_string())?;
+        .ok_or("be.error.noActiveGameSession".to_string())?;
 
     if let Some(p) = game.players.iter_mut().find(|p| p.id == player_id) {
         p.loan_listed = !p.loan_listed;
     } else {
-        return Err("Player not found".into());
+        return Err("be.error.playerNotFound".into());
     }
     state.set_game(game.clone());
     Ok(game)
@@ -94,7 +94,7 @@ fn make_transfer_bid_internal(
     );
     let mut game = state
         .get_game(|g| g.clone())
-        .ok_or("No active game session".to_string())?;
+        .ok_or("be.error.noActiveGameSession".to_string())?;
 
     let result = ofm_core::transfers::make_transfer_bid(&mut game, player_id, fee)?;
     state.set_game(game.clone());
@@ -114,7 +114,7 @@ fn preview_transfer_bid_financial_impact_internal(
 
     let game = state
         .get_game(|g| g.clone())
-        .ok_or("No active game session".to_string())?;
+        .ok_or("be.error.noActiveGameSession".to_string())?;
 
     let projection =
         ofm_core::transfers::project_transfer_bid_financial_impact(&game, player_id, fee)?;
@@ -144,7 +144,7 @@ fn respond_to_offer_internal(
     );
     let mut game = state
         .get_game(|g| g.clone())
-        .ok_or("No active game session".to_string())?;
+        .ok_or("be.error.noActiveGameSession".to_string())?;
 
     ofm_core::transfers::respond_to_offer(&mut game, player_id, offer_id, accept)?;
     state.set_game(game.clone());
@@ -173,7 +173,7 @@ fn counter_offer_internal(
     );
     let mut game = state
         .get_game(|g| g.clone())
-        .ok_or("No active game session".to_string())?;
+        .ok_or("be.error.noActiveGameSession".to_string())?;
 
     let result = ofm_core::transfers::counter_offer(&mut game, player_id, offer_id, requested_fee)?;
     state.set_game(game.clone());
@@ -206,7 +206,7 @@ pub fn send_scout(
     );
     let mut game = state
         .get_game(|g| g.clone())
-        .ok_or("No active game session".to_string())?;
+        .ok_or("be.error.noActiveGameSession".to_string())?;
 
     ofm_core::scouting::send_scout(&mut game, &scout_id, &player_id)?;
     state.set_game(game.clone());

@@ -73,7 +73,7 @@ export default function ScoutPlayerCard({ report, onPlayerClick }: ScoutPlayerCa
         {onPlayerClick && (
           <div className="text-xs text-gray-400 hover:text-primary-400 transition-colors flex items-center gap-1">
             <Eye className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">{t('scouting.viewPlayer', 'View')}</span>
+            <span className="hidden sm:inline">{t('scouting.viewPlayer')}</span>
           </div>
         )}
       </div>
@@ -91,12 +91,12 @@ export default function ScoutPlayerCard({ report, onPlayerClick }: ScoutPlayerCa
           </span>
           {report.condition !== null && (
             <span className="flex items-center gap-1">
-              {t('scouting.condition', 'Condition')}: {report.condition}%
+              {t('scouting.condition')}: {report.condition}%
             </span>
           )}
           {report.morale !== null && (
             <span className="flex items-center gap-1">
-              {t('scouting.morale', 'Morale')}: {report.morale}/100
+              {t('scouting.morale')}: {report.morale}/100
             </span>
           )}
         </div>
@@ -105,7 +105,7 @@ export default function ScoutPlayerCard({ report, onPlayerClick }: ScoutPlayerCa
         <div className="space-y-1.5">
           <p className="text-xs font-heading font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 flex items-center gap-1.5">
             <BarChart3 className="w-3 h-3" />
-            {t('scouting.estimatedAttributes', 'Estimated Attributes')} ({discoveredCount}/6)
+            {t('scouting.estimatedAttributes')} ({discoveredCount}/6)
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
             {attrs.map(attr => (
@@ -125,7 +125,7 @@ export default function ScoutPlayerCard({ report, onPlayerClick }: ScoutPlayerCa
                 ) : (
                   <div className="flex-1 flex items-center gap-1.5 text-gray-400 dark:text-gray-500">
                     <EyeOff className="w-3 h-3" />
-                    <span className="text-xs italic">{t('scouting.undiscovered', 'Not discovered')}</span>
+                    <span className="text-xs italic">{t('scouting.undiscovered')}</span>
                   </div>
                 )}
               </div>

@@ -1,6 +1,7 @@
 {
   "app": {
     "name": "OpenFoot Manager",
+    "publisher": "Sturdy Robot",
     "version": "v0.2.0-alpha"
   },
   "menu": {
@@ -90,7 +91,10 @@
       "injuredStartingXi": "{{count}} verletzte(r) Spieler in der Startelf — ersetze sie",
       "incompleteStartingXi": "Startelf unvollständig — stelle deine Aufstellung ein",
       "urgentUnread": "{{count}} dringende Nachricht(en) ungelesen",
-      "matchTodayStartingXi": "Heute ist Spieltag! Stelle deine Startelf ein"
+      "matchTodayStartingXi": "Heute ist Spieltag! Stelle deine Startelf ein",
+      "financeCrisis": "Finanzen kritisch — Kontostand {{balance}}, Reichweite {{weeks}} Woche(n)",
+      "financeRunway": "Liquidität reicht nur noch für {{count}} Woche(n)",
+      "wagePressure": "Lohnkosten bei {{percent}}% des Budgets"
     },
     "unemployedBanner": "Sie sind derzeit ohne Verein. Jobangebote könnten in Ihrem Posteingang eintreffen."
   },
@@ -216,7 +220,8 @@
     "repWorldClass": "Weltklasse",
     "repStrong": "Stark",
     "repAverage": "Durchschnittlich",
-    "repDeveloping": "In Entwicklung"
+    "repDeveloping": "In Entwicklung",
+    "failedToSelectTeam": "Teamauswahl fehlgeschlagen: {{error}}"
   },
   "youthAcademy": {
     "title": "Jugendakademie",
@@ -240,7 +245,9 @@
     "potExcellent": "Hervorragend",
     "potPromising": "Vielversprechend",
     "potDecent": "Ordentlich",
-    "potLimited": "Begrenzt"
+    "potLimited": "Begrenzt",
+    "delegateToYouthAcademy": "An die Jugendakademie delegieren",
+    "promoteToSeniorSquad": "In den Profikader befördern"
   },
   "common": {
     "loading": "Lädt...",
@@ -733,6 +740,7 @@
     "important": "Wichtig",
     "effectOutcomeLabel": "Ergebnis",
     "chooseResponse": "Wähle deine Antwort",
+    "chooseResponseOutcomeVaries": "Wähle deine Antwort — das Ergebnis kann variieren",
     "responded": "Antwort gesendet",
     "markAllRead": "Alle als gelesen markieren",
     "clearOld": "Alte löschen",
@@ -825,6 +833,12 @@
     "bid": "Bieten",
     "playerValue": "Wert: {{value}}",
     "bidAmount": "Angebotssumme (€M)",
+    "bidImpactTitle": "Prognostizierte Auswirkungen",
+    "bidImpactTransferBudget": "Transferbudget {{before}} → {{after}}",
+    "bidImpactBalance": "Vereinsguthaben {{before}} → {{after}}",
+    "bidImpactWagePressure": "Prognostizierte Nutzung des Lohnbudgets {{percent}}%",
+    "bidImpactOverTransferBudget": "Dieses Angebot überschreitet dein Transferbudget",
+    "bidImpactOverBalance": "Dieses Angebot würde den Verein in die Schulden bringen",
     "bidAccepted": "Angebot angenommen! Spieler verpflichtet.",
     "bidCountered": "Sie kommen mit geänderten Bedingungen zurück.",
     "bidRejected": "Angebot abgelehnt — Summe zu niedrig.",
@@ -911,6 +925,29 @@
     "overview": "Übersicht",
     "leagueTable": "Ligatabelle",
     "topScorers": "Torjäger",
+    "loadingAwards": "Auszeichnungen werden geladen...",
+    "awards": {
+      "goldenBootTitle": "Goldener Schuh",
+      "goldenBootSubtitle": "Top-Torjäger",
+      "assistKingTitle": "Assist-König",
+      "assistKingSubtitle": "Meiste Vorlagen",
+      "playerOfYearTitle": "Spieler des Jahres",
+      "playerOfYearSubtitle": "Bester Notenschnitt (mind. 5 Einsätze)",
+      "goldenGloveTitle": "Goldener Handschuh",
+      "goldenGloveSubtitle": "Meiste Weiße Westen (TW)",
+      "everPresentTitle": "Dauerbrenner",
+      "everPresentSubtitle": "Meiste Einsätze",
+      "youngPlayerTitle": "Nachwuchsspieler des Jahres",
+      "youngPlayerSubtitle": "Bester U21-Notenschnitt (mind. 3 Einsätze)",
+      "noDataYet": "Noch keine Daten",
+      "units": {
+        "goals": "Tore",
+        "assists": "Vorlagen",
+        "rating": "Note",
+        "cleanSheets": "Weiße Westen",
+        "apps": "Spiele"
+      }
+    },
     "noGoals": "Noch keine Tore erzielt."
   },
   "news": {
@@ -941,7 +978,7 @@
     "renewalLength": "Vertragslaufzeit",
     "renewalSubmit": "Angebot abgeben",
     "renewalInvalidWage": "Gib ein gültiges Wochengehalt ein",
-    "renewalBudgetWarning": "Überschreitet das Gehaltsbudget",
+    "renewalBudgetWarning": "Angebot überschreitet die vom Vorstand gesetzte Lohndruckgrenze",
     "renewalAccepted": "Angebot angenommen",
     "renewalRejected": "Angebot abgelehnt",
     "renewalCounter": "Will mehr: €{{wage}}/Woche für {{years}} Jahre",
@@ -990,6 +1027,9 @@
     "percentile": "Perzentil",
     "percentileUnavailable": "Perzentil nicht verfügbar",
     "recentMatches": "Letzte Spiele",
+    "recentMatchesScore": "Ergebnis",
+    "recentMatchesGoalsAssists": "T / V",
+    "recentMatchesRating": "Note",
     "vs": "vs",
     "noRecentMatches": "Keine aktuellen Spieldaten",
     "apps": "Einsätze",
@@ -1046,6 +1086,21 @@
     "languageDesc": "Wähle die Anzeigesprache",
     "currency": "Währung",
     "currencyDesc": "Anzeige der Geldwerte",
+    "currencyOptions": {
+      "eur": "Euro",
+      "gbp": "Pfund",
+      "usd": "Dollar"
+    },
+    "languages": {
+      "en": "Englisch",
+      "es": "Spanisch",
+      "pt": "Portugiesisch",
+      "fr": "Französisch",
+      "de": "Deutsch",
+      "it": "Italienisch",
+      "ptBR": "Portugiesisch (Brasilien)",
+      "zhCN": "Vereinfachtes Chinesisch"
+    },
     "gameplay": "Gameplay",
     "defaultMatchMode": "Standard-Spielmodus",
     "defaultMatchModeDesc": "Wie Spiele starten, wenn du auf Weiter klickst",
@@ -1139,6 +1194,8 @@
     "noPlayersFound": "Keine Spieler gefunden, die deiner Suche entsprechen.",
     "scoutingPlayer": "Scouting: <strong>{{name}}</strong> — {{days}}T verbleibend",
     "showingRange": "Zeige {{from}}–{{to}} von {{total}}",
+    "previousPage": "Vorherige Seite",
+    "nextPage": "Nächste Seite",
     "viewPlayer": "Ansehen",
     "condition": "Fitness",
     "morale": "Moral",
@@ -1465,6 +1522,7 @@
     "startNextSeason": "Nächste Saison starten",
     "processing": "Verarbeitung...",
     "statsArchived": "Spielerstatistiken werden archiviert. Ein neuer Spielplan wird erstellt.",
+    "seasonLine": "{{league}} — Saison {{season}}",
     "newSeason": "Saison {{n}}",
     "newScheduleReleased": "Der neue Spielplan wurde veröffentlicht. Viel Glück!",
     "goldenBoot": "Goldener Schuh",
@@ -1493,6 +1551,28 @@
     "compare": "Vergleichen"
   },
   "be": {
+    "error": {
+      "noActiveGameSession": "Keine aktive Spielsitzung",
+      "noActiveSaveSession": "Keine aktive Speicherstandsitzung",
+      "teamNotFound": "Team nicht gefunden",
+      "noTeamAssigned": "Kein Team zugewiesen",
+      "playerNotFound": "Spieler nicht gefunden",
+      "invalidSquadRole": "Ungültige Kaderrolle",
+      "staffMemberNotFound": "Mitarbeiter nicht gefunden",
+      "staffMemberAlreadyEmployed": "Dieser Mitarbeiter ist bereits bei einem Team angestellt",
+      "noActiveLiveMatch": "Kein aktives Live-Spiel",
+      "seasonNotComplete": "Die Saison ist noch nicht abgeschlossen",
+      "managedTeamNotFound": "Betreutes Team nicht gefunden",
+      "unknownFacilityType": "Unbekannter Einrichtungstyp",
+      "createManager": {
+        "nameRequired": "Vorname und Nachname sind erforderlich.",
+        "nameMaxLength": "Vorname und Nachname dürfen jeweils höchstens 30 Zeichen lang sein.",
+        "nationalityRequired": "Nationalität ist erforderlich.",
+        "invalidDobFormat": "Ungültiges Geburtsdatum. Verwende das Format JJJJ-MM-TT.",
+        "minAge": "Der Manager muss mindestens 30 Jahre alt sein.",
+        "invalidDob": "Ungültiges Geburtsdatum."
+      }
+    },
     "sender": {
       "boardOfDirectors": "Vorstand",
       "leagueOffice": "Ligabüro",
@@ -1524,6 +1604,7 @@
     },
     "source": {
       "sportsGazette": "Sportgazette",
+      "footballHerald": "Der Football Herald",
       "playersUnder21": "{{count}} Akademiespieler",
       "matchDayPress": "Spieltagspresse",
       "leagueChronicle": "Liga-Chronik",
@@ -1532,6 +1613,7 @@
     "msg": {
       "welcome": {
         "noYouthPlayers": "Derzeit sind keine Spieler der Jugendakademie zugewiesen.",
+        "subject0": "Willkommen bei {{team}}",
         "subject1": "Neue Ära bei {{team}}",
         "subject2": "{{team}} Erwartet Ihre Führung",
         "body0": "Der Vorstand von {{team}} freut sich, Sie als neuen Trainer begrüßen zu dürfen.\n\nWir haben große Hoffnungen in Ihre Amtszeit und glauben, dass Sie diesen Verein zum Ruhm führen können. Ihre erste Aufgabe wird es sein, den Kader zu überprüfen und einen taktischen Plan für die kommende Saison vorzubereiten.\n\nWir wünschen Ihnen viel Erfolg.",

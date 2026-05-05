@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll } from "vitest";
 import i18n from "../i18n";
 import {
   resolveBackendText,
+  resolveBackendError,
   resolveMessage,
   resolveAction,
   resolveNewsArticle,
@@ -416,5 +417,23 @@ describe("resolveBackendText", () => {
     const result = resolveBackendText("test.effect", "fallback", { delta: "+3" });
 
     expect(result).toBe("Morale +3");
+  });
+});
+
+describe("resolveBackendError", () => {
+  it("resolves backend error keys", () => {
+    i18n.addResourceBundle("en", "translation", {
+      "be.error.noActiveGameSession": "No active game session",
+    }, true, true);
+
+    expect(resolveBackendError("be.error.noActiveGameSession")).toBe(
+      "No active game session",
+    );
+  });
+
+  it("keeps raw backend errors when no translation key exists", () => {
+    expect(resolveBackendError(new Error("Something raw happened"))).toBe(
+      "Something raw happened",
+    );
   });
 });

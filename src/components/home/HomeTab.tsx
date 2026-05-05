@@ -297,7 +297,7 @@ export default function HomeTab({
           {boardObjectives.length > 0 && (
             <Card>
               <CardHeader>
-                {t("manager.boardStatus", "Board Objectives")}
+                {t("home.boardObjectives")}
               </CardHeader>
               <CardBody>
                 <div className="flex flex-col gap-2.5">

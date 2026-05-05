@@ -546,46 +546,52 @@ export default function TournamentsTab({
             <>
               <AwardCard
                 icon={<Zap className="w-5 h-5 text-accent-500" />}
-                title="Golden Boot"
-                subtitle="Top Scorers"
+                title={t("tournaments.awards.goldenBootTitle")}
+                subtitle={t("tournaments.awards.goldenBootSubtitle")}
                 entries={awards.golden_boot}
-                unit="goals"
+                unit={t("tournaments.awards.units.goals")}
+                emptyText={t("tournaments.awards.noDataYet")}
               />
               <AwardCard
                 icon={<Star className="w-5 h-5 text-purple-500" />}
-                title="Assist King"
-                subtitle="Most Assists"
+                title={t("tournaments.awards.assistKingTitle")}
+                subtitle={t("tournaments.awards.assistKingSubtitle")}
                 entries={awards.assist_king}
-                unit="assists"
+                unit={t("tournaments.awards.units.assists")}
+                emptyText={t("tournaments.awards.noDataYet")}
               />
               <AwardCard
                 icon={<Trophy className="w-5 h-5 text-primary-500" />}
-                title="Player of the Year"
-                subtitle="Best Avg Rating (min 5 apps)"
+                title={t("tournaments.awards.playerOfYearTitle")}
+                subtitle={t("tournaments.awards.playerOfYearSubtitle")}
                 entries={awards.player_of_year}
-                unit="rating"
+                unit={t("tournaments.awards.units.rating")}
+                emptyText={t("tournaments.awards.noDataYet")}
                 decimal
               />
               <AwardCard
                 icon={<Shield className="w-5 h-5 text-blue-500" />}
-                title="Golden Glove"
-                subtitle="Most Clean Sheets (GKs)"
+                title={t("tournaments.awards.goldenGloveTitle")}
+                subtitle={t("tournaments.awards.goldenGloveSubtitle")}
                 entries={awards.clean_sheet_king}
-                unit="clean sheets"
+                unit={t("tournaments.awards.units.cleanSheets")}
+                emptyText={t("tournaments.awards.noDataYet")}
               />
               <AwardCard
                 icon={<Users className="w-5 h-5 text-green-500" />}
-                title="Ever Present"
-                subtitle="Most Appearances"
+                title={t("tournaments.awards.everPresentTitle")}
+                subtitle={t("tournaments.awards.everPresentSubtitle")}
                 entries={awards.most_appearances}
-                unit="apps"
+                unit={t("tournaments.awards.units.apps")}
+                emptyText={t("tournaments.awards.noDataYet")}
               />
               <AwardCard
                 icon={<Star className="w-5 h-5 text-amber-500" />}
-                title="Young Player of the Year"
-                subtitle="Best U21 Avg Rating (min 3 apps)"
+                title={t("tournaments.awards.youngPlayerTitle")}
+                subtitle={t("tournaments.awards.youngPlayerSubtitle")}
                 entries={awards.young_player}
-                unit="rating"
+                unit={t("tournaments.awards.units.rating")}
+                emptyText={t("tournaments.awards.noDataYet")}
                 decimal
               />
             </>
@@ -593,7 +599,7 @@ export default function TournamentsTab({
             <div className="col-span-full text-center py-12">
               <Award className="w-12 h-12 text-gray-300 dark:text-navy-600 mx-auto mb-3" />
               <p className="text-sm text-gray-400 dark:text-gray-500">
-                Loading awards...
+                {t("tournaments.loadingAwards")}
               </p>
             </div>
           )}
@@ -609,6 +615,7 @@ function AwardCard({
   subtitle,
   entries,
   unit,
+  emptyText,
   decimal,
 }: {
   icon: React.ReactNode;
@@ -616,6 +623,7 @@ function AwardCard({
   subtitle: string;
   entries: AwardEntry[];
   unit: string;
+  emptyText: string;
   decimal?: boolean;
 }) {
   return (
@@ -634,7 +642,7 @@ function AwardCard({
       <CardBody className="p-0">
         {entries.length === 0 ? (
           <p className="p-4 text-sm text-gray-400 dark:text-gray-500 text-center">
-            No data yet
+            {emptyText}
           </p>
         ) : (
           <div className="divide-y divide-gray-100 dark:divide-navy-600">

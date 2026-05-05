@@ -251,7 +251,7 @@ export default function ScoutingPlayerSearchCard({
             </span>
             <div className="flex items-center gap-2">
               <button
-                aria-label="Previous page"
+                aria-label={t("scouting.previousPage")}
                 disabled={safePage === 0}
                 onClick={onPreviousPage}
                 className="p-1.5 rounded-lg bg-gray-100 dark:bg-navy-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-navy-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
@@ -262,7 +262,7 @@ export default function ScoutingPlayerSearchCard({
                 {safePage + 1} / {totalPages}
               </span>
               <button
-                aria-label="Next page"
+                aria-label={t("scouting.nextPage")}
                 disabled={safePage >= totalPages - 1}
                 onClick={onNextPage}
                 className="p-1.5 rounded-lg bg-gray-100 dark:bg-navy-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-navy-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"

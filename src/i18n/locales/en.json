@@ -1,6 +1,7 @@
 {
   "app": {
     "name": "OpenFoot Manager",
+    "publisher": "Sturdy Robot",
     "version": "v0.2.0-alpha"
   },
   "menu": {
@@ -90,7 +91,10 @@
       "injuredStartingXi": "{{count}} injured player(s) in Starting XI — replace them",
       "incompleteStartingXi": "Starting XI incomplete — set your lineup",
       "urgentUnread": "{{count}} urgent message(s) unread",
-      "matchTodayStartingXi": "Match today! Set your starting XI"
+      "matchTodayStartingXi": "Match today! Set your starting XI",
+      "financeCrisis": "Finances critical — balance {{balance}}, runway {{weeks}} week(s)",
+      "financeRunway": "Cash runway down to {{count}} week(s)",
+      "wagePressure": "Wage bill at {{percent}}% of budget"
     },
     "unemployedBanner": "You are currently without a club. Job offers may arrive in your inbox."
   },
@@ -216,7 +220,8 @@
     "repWorldClass": "World Class",
     "repStrong": "Strong",
     "repAverage": "Average",
-    "repDeveloping": "Developing"
+    "repDeveloping": "Developing",
+    "failedToSelectTeam": "Failed to select team: {{error}}"
   },
   "youthAcademy": {
     "title": "Youth Academy",
@@ -735,6 +740,7 @@
     "important": "Important",
     "effectOutcomeLabel": "Outcome",
     "chooseResponse": "Choose your response",
+    "chooseResponseOutcomeVaries": "Choose your response — outcome varies",
     "responded": "Response sent",
     "markAllRead": "Mark all read",
     "clearOld": "Clear old",
@@ -827,6 +833,12 @@
     "bid": "Bid",
     "playerValue": "Value: {{value}}",
     "bidAmount": "Bid Amount (€M)",
+    "bidImpactTitle": "Projected impact",
+    "bidImpactTransferBudget": "Transfer budget {{before}} → {{after}}",
+    "bidImpactBalance": "Club balance {{before}} → {{after}}",
+    "bidImpactWagePressure": "Projected wage budget usage {{percent}}%",
+    "bidImpactOverTransferBudget": "This bid exceeds your transfer budget",
+    "bidImpactOverBalance": "This bid would push the club into debt",
     "bidAccepted": "Bid accepted! Player signed.",
     "bidCountered": "They came back with revised terms.",
     "bidRejected": "Bid rejected — offer too low.",
@@ -913,6 +925,29 @@
     "overview": "Overview",
     "leagueTable": "League Table",
     "topScorers": "Top Scorers",
+    "loadingAwards": "Loading awards...",
+    "awards": {
+      "goldenBootTitle": "Golden Boot",
+      "goldenBootSubtitle": "Top Scorers",
+      "assistKingTitle": "Assist King",
+      "assistKingSubtitle": "Most Assists",
+      "playerOfYearTitle": "Player of the Year",
+      "playerOfYearSubtitle": "Best Avg Rating (min 5 apps)",
+      "goldenGloveTitle": "Golden Glove",
+      "goldenGloveSubtitle": "Most Clean Sheets (GKs)",
+      "everPresentTitle": "Ever Present",
+      "everPresentSubtitle": "Most Appearances",
+      "youngPlayerTitle": "Young Player of the Year",
+      "youngPlayerSubtitle": "Best U21 Avg Rating (min 3 apps)",
+      "noDataYet": "No data yet",
+      "units": {
+        "goals": "goals",
+        "assists": "assists",
+        "rating": "rating",
+        "cleanSheets": "clean sheets",
+        "apps": "apps"
+      }
+    },
     "noGoals": "No goals scored yet."
   },
   "news": {
@@ -943,7 +978,7 @@
     "renewalLength": "Contract Length",
     "renewalSubmit": "Submit Offer",
     "renewalInvalidWage": "Enter a valid weekly wage",
-    "renewalBudgetWarning": "Exceeds wage budget",
+    "renewalBudgetWarning": "Offer exceeds the board wage pressure limit",
     "renewalAccepted": "Offer accepted",
     "renewalRejected": "Offer rejected",
     "renewalCounter": "Wants more: €{{wage}}/wk for {{years}} years",
@@ -992,6 +1027,9 @@
     "percentile": "Percentile",
     "percentileUnavailable": "Percentile unavailable",
     "recentMatches": "Recent Matches",
+    "recentMatchesScore": "Score",
+    "recentMatchesGoalsAssists": "G / A",
+    "recentMatchesRating": "Rating",
     "vs": "vs",
     "noRecentMatches": "No recent match data",
     "apps": "Apps",
@@ -1048,6 +1086,21 @@
     "languageDesc": "Choose the display language",
     "currency": "Currency",
     "currencyDesc": "How monetary values are displayed",
+    "currencyOptions": {
+      "eur": "Euro",
+      "gbp": "Pound",
+      "usd": "Dollar"
+    },
+    "languages": {
+      "en": "English",
+      "es": "Spanish",
+      "pt": "Portuguese",
+      "fr": "French",
+      "de": "German",
+      "it": "Italian",
+      "ptBR": "Portuguese (Brazil)",
+      "zhCN": "Simplified Chinese"
+    },
     "gameplay": "Gameplay",
     "defaultMatchMode": "Default Match Mode",
     "defaultMatchModeDesc": "How matches start when you press Continue",
@@ -1141,6 +1194,8 @@
     "scoutBtn": "Scout",
     "noPlayersFound": "No players found matching your search.",
     "showingRange": "Showing {{from}}–{{to}} of {{total}}",
+    "previousPage": "Previous page",
+    "nextPage": "Next page",
     "viewPlayer": "View",
     "condition": "Condition",
     "morale": "Morale",
@@ -1467,6 +1522,7 @@
     "startNextSeason": "Start Next Season",
     "processing": "Processing...",
     "statsArchived": "Player stats will be archived. A new schedule will be generated.",
+    "seasonLine": "{{league}} — Season {{season}}",
     "newSeason": "Season {{n}}",
     "newScheduleReleased": "The new schedule has been released. Good luck!",
     "goldenBoot": "Golden Boot",
@@ -1495,6 +1551,28 @@
     "compare": "Compare"
   },
   "be": {
+    "error": {
+      "noActiveGameSession": "No active game session",
+      "noActiveSaveSession": "No active save session",
+      "teamNotFound": "Team not found",
+      "noTeamAssigned": "No team assigned",
+      "playerNotFound": "Player not found",
+      "invalidSquadRole": "Invalid squad role",
+      "staffMemberNotFound": "Staff member not found",
+      "staffMemberAlreadyEmployed": "Staff member already employed by a team",
+      "noActiveLiveMatch": "No active live match",
+      "seasonNotComplete": "Season is not yet complete",
+      "managedTeamNotFound": "Managed team not found",
+      "unknownFacilityType": "Unknown facility type",
+      "createManager": {
+        "nameRequired": "First name and last name are required.",
+        "nameMaxLength": "First name and last name must not exceed 30 characters.",
+        "nationalityRequired": "Nationality is required.",
+        "invalidDobFormat": "Invalid date of birth. Use YYYY-MM-DD format.",
+        "minAge": "Manager must be at least 30 years old.",
+        "invalidDob": "Invalid date of birth."
+      }
+    },
     "sender": {
       "boardOfDirectors": "Board of Directors",
       "leagueOffice": "League Office",

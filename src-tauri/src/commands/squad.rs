@@ -29,13 +29,13 @@ pub fn set_formation(state: State<'_, StateManager>, formation: String) -> Resul
     info!("[cmd] set_formation: {}", formation);
     let mut game = state
         .get_game(|g| g.clone())
-        .ok_or("No active game session".to_string())?;
+        .ok_or("be.error.noActiveGameSession".to_string())?;
 
     let team_id = game
         .manager
         .team_id
         .clone()
-        .ok_or("No team assigned".to_string())?;
+        .ok_or("be.error.noTeamAssigned".to_string())?;
 
     // Parse formation into (def, mid, fwd) counts
     let parts: Vec<usize> = formation
@@ -105,13 +105,13 @@ pub fn set_starting_xi(
     info!("[cmd] set_starting_xi: {} players", player_ids.len());
     let mut game = state
         .get_game(|g| g.clone())
-        .ok_or("No active game session".to_string())?;
+        .ok_or("be.error.noActiveGameSession".to_string())?;
 
     let team_id = game
         .manager
         .team_id
         .clone()
-        .ok_or("No team assigned".to_string())?;
+        .ok_or("be.error.noTeamAssigned".to_string())?;
 
     if let Some(team) = game.teams.iter_mut().find(|t| t.id == team_id) {
         team.starting_xi_ids = player_ids;
@@ -126,13 +126,13 @@ pub fn set_play_style(state: State<'_, StateManager>, play_style: String) -> Res
     info!("[cmd] set_play_style: {}", play_style);
     let mut game = state
         .get_game(|g| g.clone())
-        .ok_or("No active game session".to_string())?;
+        .ok_or("be.error.noActiveGameSession".to_string())?;
 
     let team_id = game
         .manager
         .team_id
         .clone()
-        .ok_or("No team assigned".to_string())?;
+        .ok_or("be.error.noTeamAssigned".to_string())?;
 
     let style = match play_style.as_str() {
         "Attacking" => domain::team::PlayStyle::Attacking,
@@ -159,13 +159,13 @@ pub fn set_team_match_roles(
     info!("[cmd] set_team_match_roles");
     let mut game = state
         .get_game(|g| g.clone())
-        .ok_or("No active game session".to_string())?;
+        .ok_or("be.error.noActiveGameSession".to_string())?;
 
     let team_id = game
         .manager
         .team_id
         .clone()
-        .ok_or("No team assigned".to_string())?;
+        .ok_or("be.error.noTeamAssigned".to_string())?;
 
     if let Some(team) = game.teams.iter_mut().find(|t| t.id == team_id) {
         team.match_roles = match_roles;
@@ -187,13 +187,13 @@ pub fn set_training(
     );
     let mut game = state
         .get_game(|g| g.clone())
-        .ok_or("No active game session".to_string())?;
+        .ok_or("be.error.noActiveGameSession".to_string())?;
 
     let team_id = game
         .manager
         .team_id
         .clone()
-        .ok_or("No team assigned".to_string())?;
+        .ok_or("be.error.noTeamAssigned".to_string())?;
 
     let training_focus = match focus.as_str() {
         "Physical" => domain::team::TrainingFocus::Physical,
@@ -229,13 +229,13 @@ pub fn set_training_schedule(
     info!("[cmd] set_training_schedule: {}", schedule);
     let mut game = state
         .get_game(|g| g.clone())
-        .ok_or("No active game session".to_string())?;
+        .ok_or("be.error.noActiveGameSession".to_string())?;
 
     let team_id = game
         .manager
         .team_id
         .clone()
-        .ok_or("No team assigned".to_string())?;
+        .ok_or("be.error.noTeamAssigned".to_string())?;
 
     let training_schedule = match schedule.as_str() {
         "Intense" => domain::team::TrainingSchedule::Intense,
@@ -260,13 +260,13 @@ pub fn set_training_groups(
     info!("[cmd] set_training_groups: {} groups", groups.len());
     let mut game = state
         .get_game(|g| g.clone())
-        .ok_or("No active game session".to_string())?;
+        .ok_or("be.error.noActiveGameSession".to_string())?;
 
     let team_id = game
         .manager
         .team_id
         .clone()
-        .ok_or("No team assigned".to_string())?;
+        .ok_or("be.error.noTeamAssigned".to_string())?;
 
     if let Some(team) = game.teams.iter_mut().find(|t| t.id == team_id) {
         team.training_groups = groups;
@@ -288,7 +288,7 @@ pub fn set_player_training_focus(
     );
     let mut game = state
         .get_game(|g| g.clone())
-        .ok_or("No active game session".to_string())?;
+        .ok_or("be.error.noActiveGameSession".to_string())?;
 
     let training_focus = focus.and_then(|f| match f.as_str() {
         "Physical" => Some(domain::team::TrainingFocus::Physical),
@@ -303,7 +303,7 @@ pub fn set_player_training_focus(
     if let Some(player) = game.players.iter_mut().find(|p| p.id == player_id) {
         player.training_focus = training_focus;
     } else {
-        return Err(format!("Player not found: {}", player_id));
+        return Err("be.error.playerNotFound".to_string());
     }
 
     state.set_game(game.clone());
@@ -330,21 +330,21 @@ fn set_player_squad_role_internal(
     );
     let mut game = state
         .get_game(|g| g.clone())
-        .ok_or("No active game session".to_string())?;
+        .ok_or("be.error.noActiveGameSession".to_string())?;
 
     let team_id = game
         .manager
         .team_id
         .clone()
-        .ok_or("No team assigned".to_string())?;
-    let target_role = parse_squad_role(squad_role).ok_or("Invalid squad role".to_string())?;
+        .ok_or("be.error.noTeamAssigned".to_string())?;
+    let target_role = parse_squad_role(squad_role).ok_or("be.error.invalidSquadRole".to_string())?;
     let current_date = game.clock.current_date.date_naive();
 
     let player_index = game
         .players
         .iter()
         .position(|player| player.id == player_id)
-        .ok_or("Player not found".to_string())?;
+        .ok_or("be.error.playerNotFound".to_string())?;
 
     if game.players[player_index].team_id.as_deref() != Some(team_id.as_str()) {
         return Err("Player is not in your squad".to_string());
@@ -378,7 +378,7 @@ pub fn auto_select_set_pieces(
     log::debug!("[cmd] auto_select_set_pieces: {} players", player_ids.len());
     let game = state
         .get_game(|g| g.clone())
-        .ok_or("No active game session".to_string())?;
+        .ok_or("be.error.noActiveGameSession".to_string())?;
 
     let (captain, penalty, free_kick, corner) =
         ofm_core::live_match_manager::auto_select_set_pieces(&game, &player_ids);

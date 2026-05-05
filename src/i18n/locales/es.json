@@ -1,6 +1,7 @@
 {
   "app": {
     "name": "OpenFoot Manager",
+    "publisher": "Sturdy Robot",
     "version": "v0.2.0-alpha"
   },
   "menu": {
@@ -90,7 +91,10 @@
       "injuredStartingXi": "{{count}} jugador(es) lesionado(s) en el once inicial — reemplázalos",
       "incompleteStartingXi": "El once inicial está incompleto — ajusta tu alineación",
       "urgentUnread": "{{count}} mensaje(s) urgente(s) sin leer",
-      "matchTodayStartingXi": "¡Hay partido hoy! Ajusta tu once inicial"
+      "matchTodayStartingXi": "¡Hay partido hoy! Ajusta tu once inicial",
+      "financeCrisis": "Finanzas críticas — saldo {{balance}}, margen {{weeks}} semana(s)",
+      "financeRunway": "Margen de caja reducido a {{count}} semana(s)",
+      "wagePressure": "Masa salarial al {{percent}}% del presupuesto"
     },
     "unemployedBanner": "Actualmente no tiene club. Las ofertas de trabajo pueden llegar a su bandeja de entrada."
   },
@@ -216,7 +220,8 @@
     "repWorldClass": "Clase Mundial",
     "repStrong": "Fuerte",
     "repAverage": "Medio",
-    "repDeveloping": "En Desarrollo"
+    "repDeveloping": "En Desarrollo",
+    "failedToSelectTeam": "No se pudo seleccionar el equipo: {{error}}"
   },
   "youthAcademy": {
     "title": "Cantera",
@@ -240,7 +245,9 @@
     "potExcellent": "Excelente",
     "potPromising": "Prometedor",
     "potDecent": "Decente",
-    "potLimited": "Limitado"
+    "potLimited": "Limitado",
+    "delegateToYouthAcademy": "Delegar a la cantera",
+    "promoteToSeniorSquad": "Ascender al primer equipo"
   },
   "common": {
     "loading": "Cargando...",
@@ -733,6 +740,7 @@
     "important": "Importante",
     "effectOutcomeLabel": "Resultado",
     "chooseResponse": "Elige tu respuesta",
+    "chooseResponseOutcomeVaries": "Elige tu respuesta — el resultado puede variar",
     "responded": "Respuesta enviada",
     "markAllRead": "Marcar todo como leído",
     "clearOld": "Borrar antiguas",
@@ -825,6 +833,12 @@
     "bid": "Ofertar",
     "playerValue": "Valor: {{value}}",
     "bidAmount": "Cantidad de Oferta (€M)",
+    "bidImpactTitle": "Impacto previsto",
+    "bidImpactTransferBudget": "Presupuesto de fichajes {{before}} → {{after}}",
+    "bidImpactBalance": "Saldo del club {{before}} → {{after}}",
+    "bidImpactWagePressure": "Uso previsto del presupuesto salarial {{percent}}%",
+    "bidImpactOverTransferBudget": "Esta oferta supera tu presupuesto de fichajes",
+    "bidImpactOverBalance": "Esta oferta llevaría al club a la deuda",
     "bidAccepted": "¡Oferta aceptada! Jugador fichado.",
     "bidCountered": "Respondieron con condiciones revisadas.",
     "bidRejected": "Oferta rechazada — cantidad insuficiente.",
@@ -911,6 +925,29 @@
     "overview": "Resumen",
     "leagueTable": "Tabla de Liga",
     "topScorers": "Máximos Goleadores",
+    "loadingAwards": "Cargando premios...",
+    "awards": {
+      "goldenBootTitle": "Bota de Oro",
+      "goldenBootSubtitle": "Máximos goleadores",
+      "assistKingTitle": "Rey de las asistencias",
+      "assistKingSubtitle": "Más asistencias",
+      "playerOfYearTitle": "Jugador del Año",
+      "playerOfYearSubtitle": "Mejor valoración media (mín. 5 partidos)",
+      "goldenGloveTitle": "Guante de Oro",
+      "goldenGloveSubtitle": "Más porterías a cero (POR)",
+      "everPresentTitle": "Siempre presente",
+      "everPresentSubtitle": "Más apariciones",
+      "youngPlayerTitle": "Jugador Joven del Año",
+      "youngPlayerSubtitle": "Mejor valoración media sub-21 (mín. 3 partidos)",
+      "noDataYet": "Aún no hay datos",
+      "units": {
+        "goals": "goles",
+        "assists": "asist.",
+        "rating": "nota",
+        "cleanSheets": "porterías a cero",
+        "apps": "part."
+      }
+    },
     "noGoals": "Ningún gol marcado todavía."
   },
   "news": {
@@ -941,7 +978,7 @@
     "renewalLength": "Duración del contrato",
     "renewalSubmit": "Enviar oferta",
     "renewalInvalidWage": "Introduce un salario semanal válido",
-    "renewalBudgetWarning": "Supera el presupuesto salarial",
+    "renewalBudgetWarning": "La oferta supera el límite de presión salarial fijado por la directiva",
     "renewalAccepted": "Oferta aceptada",
     "renewalRejected": "Oferta rechazada",
     "renewalCounter": "Quiere más: €{{wage}}/semana por {{years}} años",
@@ -990,6 +1027,9 @@
     "percentile": "Percentil",
     "percentileUnavailable": "Percentil no disponible",
     "recentMatches": "Partidos recientes",
+    "recentMatchesScore": "Marcador",
+    "recentMatchesGoalsAssists": "G / A",
+    "recentMatchesRating": "Nota",
     "vs": "vs",
     "noRecentMatches": "Sin datos de partidos recientes",
     "apps": "Partidos",
@@ -1046,6 +1086,21 @@
     "languageDesc": "Elige el idioma de visualización",
     "currency": "Moneda",
     "currencyDesc": "Cómo se muestran los valores monetarios",
+    "currencyOptions": {
+      "eur": "Euro",
+      "gbp": "Libra",
+      "usd": "Dólar"
+    },
+    "languages": {
+      "en": "Inglés",
+      "es": "Español",
+      "pt": "Portugués",
+      "fr": "Francés",
+      "de": "Alemán",
+      "it": "Italiano",
+      "ptBR": "Portugués (Brasil)",
+      "zhCN": "Chino simplificado"
+    },
     "gameplay": "Jugabilidad",
     "defaultMatchMode": "Modo de Partido por Defecto",
     "defaultMatchModeDesc": "Cómo empiezan los partidos al pulsar Continuar",
@@ -1139,6 +1194,8 @@
     "noPlayersFound": "No se encontraron jugadores con tu búsqueda.",
     "scoutingPlayer": "Ojeando: <strong>{{name}}</strong> — {{days}}d restantes",
     "showingRange": "Mostrando {{from}}–{{to}} de {{total}}",
+    "previousPage": "Página anterior",
+    "nextPage": "Página siguiente",
     "viewPlayer": "Ver",
     "condition": "Condición",
     "morale": "Moral",
@@ -1465,6 +1522,7 @@
     "startNextSeason": "Iniciar Siguiente Temporada",
     "processing": "Procesando...",
     "statsArchived": "Las estadísticas de jugadores serán archivadas. Se generará un nuevo calendario.",
+    "seasonLine": "{{league}} — Temporada {{season}}",
     "newSeason": "Temporada {{n}}",
     "newScheduleReleased": "¡El nuevo calendario ha sido publicado. ¡Buena suerte!",
     "goldenBoot": "Bota de Oro",
@@ -1493,6 +1551,28 @@
     "compare": "Comparar"
   },
   "be": {
+    "error": {
+      "noActiveGameSession": "No hay una sesión de juego activa",
+      "noActiveSaveSession": "No hay una sesión de guardado activa",
+      "teamNotFound": "Equipo no encontrado",
+      "noTeamAssigned": "No hay ningún equipo asignado",
+      "playerNotFound": "Jugador no encontrado",
+      "invalidSquadRole": "Rol de plantilla no válido",
+      "staffMemberNotFound": "Miembro del personal no encontrado",
+      "staffMemberAlreadyEmployed": "Ese miembro del personal ya está contratado por un equipo",
+      "noActiveLiveMatch": "No hay ningún partido en vivo activo",
+      "seasonNotComplete": "La temporada aún no ha terminado",
+      "managedTeamNotFound": "No se encontró el equipo gestionado",
+      "unknownFacilityType": "Tipo de instalación desconocido",
+      "createManager": {
+        "nameRequired": "El nombre y el apellido son obligatorios.",
+        "nameMaxLength": "El nombre y el apellido no pueden superar los 30 caracteres.",
+        "nationalityRequired": "La nacionalidad es obligatoria.",
+        "invalidDobFormat": "Fecha de nacimiento no válida. Usa el formato AAAA-MM-DD.",
+        "minAge": "El mánager debe tener al menos 30 años.",
+        "invalidDob": "Fecha de nacimiento no válida."
+      }
+    },
     "sender": {
       "boardOfDirectors": "Junta Directiva",
       "leagueOffice": "Oficina de la Liga",
@@ -1524,6 +1604,7 @@
     },
     "source": {
       "sportsGazette": "Gaceta Deportiva",
+      "footballHerald": "El Heraldo del Fútbol",
       "playersUnder21": "{{count}} jugadores de cantera",
       "matchDayPress": "Prensa del Partido",
       "leagueChronicle": "Crónica de la Liga",
@@ -1532,6 +1613,7 @@
     "msg": {
       "welcome": {
         "noYouthPlayers": "No hay jugadores asignados actualmente a la cantera.",
+        "subject0": "Bienvenido a {{team}}",
         "subject1": "Nueva Era en {{team}}",
         "subject2": "{{team}} Espera Tu Liderazgo",
         "body0": "La junta directiva de {{team}} está encantada de darle la bienvenida como nuevo entrenador.\n\nTenemos grandes esperanzas en su gestión y creemos que puede llevar a este club a la gloria. Su primera tarea será revisar la plantilla y preparar un plan táctico para la próxima temporada.\n\nLe deseamos la mejor de las suertes.",
