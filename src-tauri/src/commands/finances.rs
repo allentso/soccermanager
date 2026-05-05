@@ -3,7 +3,8 @@ use serde::Serialize;
 use tauri::State;
 
 use ofm_core::finances::{
-    BoardSupportResult, MarketingCampaignResult, SponsorPitchResult, TeamFinanceSnapshot,
+    BoardSupportResult, FinanceActionPreviews, MarketingCampaignResult, SponsorPitchResult,
+    TeamFinanceSnapshot,
 };
 use ofm_core::game::Game;
 use ofm_core::state::StateManager;
@@ -11,6 +12,7 @@ use ofm_core::state::StateManager;
 #[derive(Debug, Clone, Serialize)]
 pub struct FinanceSnapshotCommandResponse {
     pub snapshot: TeamFinanceSnapshot,
+    pub previews: FinanceActionPreviews,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -60,8 +62,10 @@ fn get_finance_snapshot_internal(
 
     let snapshot = ofm_core::finances::team_finance_snapshot(&game, &resolved_team_id)
         .ok_or("be.error.managedTeamNotFound".to_string())?;
+    let previews = ofm_core::finances::finance_action_previews(&game, &resolved_team_id)
+        .unwrap_or_default();
 
-    Ok(FinanceSnapshotCommandResponse { snapshot })
+    Ok(FinanceSnapshotCommandResponse { snapshot, previews })
 }
 
 #[tauri::command]
@@ -246,6 +250,24 @@ mod tests {
         assert_eq!(response.snapshot.annual_wage_bill, 52_000);
         assert_eq!(response.snapshot.weekly_wage_spend, 1_000);
         assert_eq!(response.snapshot.weekly_wage_budget, 120_000 / 52);
+        assert!(response.previews.board_support.is_none());
+        assert!(response.previews.sponsor_pitch.is_none());
+        assert!(response.previews.marketing_campaign.is_none());
+    }
+
+    #[test]
+    fn get_finance_snapshot_internal_includes_recovery_previews_for_pressured_club() {
+        let state = StateManager::new();
+        let mut game = make_game();
+        game.teams[0].finance = -25_000;
+        game.teams[0].wage_budget = 40_000;
+        state.set_game(game);
+
+        let response = get_finance_snapshot_internal(&state, None).expect("response");
+
+        assert!(response.previews.board_support.is_some());
+        assert!(response.previews.sponsor_pitch.is_some());
+        assert!(response.previews.marketing_campaign.is_some());
     }
 
     #[test]

@@ -1594,7 +1594,7 @@
         "marketingCampaignUnavailable": "Les campagnes marketing ne sont disponibles que lorsque le club subit une pression salariale ou de trésorerie.",
         "marketingCampaignCoolingDown": "L'équipe commerciale a besoin de temps avant de relancer une autre campagne marketing.",
         "facilityUpgradeOverBudget": "Les améliorations d'installations sont bloquées tant que le club dépasse son budget salarial.",
-        "facilityUpgradeCritical": "Les améliorations d'installations sont bloquées tant que le club traverse une crise financière critique."
+        "facilityUpgradeCritical": "Les améliorations d'installations sont bloquées tant que le club subit une forte pression financière."
       },
       "createManager": {
         "nameRequired": "Le prénom et le nom sont requis.",

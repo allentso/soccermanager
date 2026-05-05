@@ -257,6 +257,37 @@ fn request_board_support_rejects_second_support_package_in_same_season() {
 }
 
 #[test]
+fn finance_action_previews_are_available_without_mutating_state() {
+    let mut game = make_monday_game();
+    game.teams[0].finance = -40_000;
+    game.teams[0].wage_budget = 50_000;
+
+    let previews = finances::finance_action_previews(&game, "team1").expect("previews");
+
+    assert!(previews.board_support.is_some());
+    assert!(previews.sponsor_pitch.is_some());
+    assert!(previews.marketing_campaign.is_some());
+    assert_eq!(game.teams[0].finance, -40_000);
+    assert!(game.messages.is_empty());
+    assert!(game.teams[0].financial_ledger.is_empty());
+}
+
+#[test]
+fn request_board_support_can_recover_runway_without_random_events() {
+    let mut game = make_monday_game();
+    game.teams[0].finance = 13_600;
+
+    let preview = finances::preview_board_support(&game, "team1").expect("preview");
+    let result = finances::request_board_support(&mut game, "team1").expect("support");
+    let snapshot = finances::team_finance_snapshot(&game, "team1").expect("snapshot");
+
+    assert_eq!(result.support_amount, preview.support_amount);
+    assert_eq!(result.transfer_budget_reduction, preview.transfer_budget_reduction);
+    assert_eq!(result.satisfaction_penalty, preview.satisfaction_penalty);
+    assert_eq!(snapshot.overall_status, finances::FinanceHealthLevel::Stable);
+}
+
+#[test]
 fn request_sponsor_pitch_creates_pending_offer_for_over_budget_team() {
     let mut game = make_monday_game();
     game.teams[0].wage_budget = 50_000;
@@ -575,6 +606,28 @@ fn critical_finances_reduce_board_satisfaction_more_aggressively() {
         Some("be.msg.financeBoardPressure.bodyCritical")
     );
     assert_eq!(pressure_msgs[0].priority, domain::message::MessagePriority::Urgent);
+}
+
+#[test]
+fn repeated_critical_finance_weeks_continue_to_reduce_satisfaction() {
+    let mut game = make_monday_game();
+    game.teams[0].finance = -50_000;
+    game.manager.satisfaction = 80;
+
+    finances::process_weekly_finances(&mut game);
+    game.clock.current_date += chrono::Duration::days(7);
+    finances::process_weekly_finances(&mut game);
+    game.clock.current_date += chrono::Duration::days(7);
+    finances::process_weekly_finances(&mut game);
+
+    assert_eq!(game.manager.satisfaction, 68);
+    assert_eq!(
+        game.messages
+            .iter()
+            .filter(|message| message.id.starts_with("finance_board_pressure_"))
+            .count(),
+        3
+    );
 }
 
 #[test]

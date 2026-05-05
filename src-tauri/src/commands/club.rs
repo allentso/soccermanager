@@ -34,7 +34,10 @@ fn upgrade_facility_internal(state: &StateManager, facility: &str) -> Result<Gam
     if snapshot.currently_over_budget {
         return Err("be.error.finance.facilityUpgradeOverBudget".to_string());
     }
-    if matches!(snapshot.overall_status, FinanceHealthLevel::Critical) {
+    if matches!(
+        snapshot.overall_status,
+        FinanceHealthLevel::Warning | FinanceHealthLevel::Critical
+    ) {
         return Err("be.error.finance.facilityUpgradeCritical".to_string());
     }
 
@@ -177,5 +180,19 @@ mod tests {
             .expect("stored team should exist");
         assert_eq!(stored_team.facilities.training, 1);
         assert_eq!(stored_team.finance, 1_000_000);
+    }
+
+    #[test]
+    fn upgrade_facility_internal_rejects_warning_finance_clubs() {
+        let state = StateManager::new();
+        let mut game = make_game();
+        game.teams[0].finance = 40_000;
+        game.teams[0].wage_budget = 1_000_000;
+        game.players.push(make_player("player-1", "team-1", 260_000));
+        state.set_game(game);
+
+        let error = upgrade_facility_internal(&state, "Medical").expect_err("should fail");
+
+        assert_eq!(error, "be.error.finance.facilityUpgradeCritical");
     }
 }

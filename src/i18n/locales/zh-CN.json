@@ -1594,7 +1594,7 @@
         "marketingCampaignUnavailable": "只有当俱乐部面临工资或现金压力时，才能发起营销活动。",
         "marketingCampaignCoolingDown": "商务团队在再次发起营销活动前还需要一些时间。",
         "facilityUpgradeOverBudget": "当俱乐部超出工资预算时，设施升级会被禁止。",
-        "facilityUpgradeCritical": "当俱乐部处于严重财务困境时，设施升级会被禁止。"
+        "facilityUpgradeCritical": "当俱乐部面临严重财务压力时，设施升级会被禁止。"
       },
       "createManager": {
         "nameRequired": "名字和姓氏均为必填项。",

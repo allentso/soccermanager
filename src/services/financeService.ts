@@ -23,8 +23,34 @@ interface BackendTeamFinanceSnapshotData {
     marketing_campaign_cooldown_days_remaining: number;
 }
 
+interface BackendBoardSupportPreviewData {
+    support_amount: number;
+    transfer_budget_reduction: number;
+    satisfaction_penalty: number;
+}
+
+interface BackendSponsorPitchPreviewData {
+    sponsor_name: string;
+    weekly_amount: number;
+    duration_weeks: number;
+}
+
+interface BackendMarketingCampaignPreviewData {
+    gross_revenue: number;
+    campaign_cost: number;
+    net_income: number;
+    cooldown_days: number;
+}
+
+interface BackendFinanceActionPreviewsData {
+    board_support?: BackendBoardSupportPreviewData | null;
+    sponsor_pitch?: BackendSponsorPitchPreviewData | null;
+    marketing_campaign?: BackendMarketingCampaignPreviewData | null;
+}
+
 interface BackendFinanceSnapshotResponseData {
     snapshot: BackendTeamFinanceSnapshotData;
+    previews?: BackendFinanceActionPreviewsData | null;
 }
 
 export interface TeamFinanceSnapshotData {
@@ -42,6 +68,36 @@ export interface TeamFinanceSnapshotData {
     runwayStatus: FinanceHealthLevelData;
     overallStatus: FinanceHealthLevelData;
     marketingCampaignCooldownDaysRemaining: number;
+}
+
+export interface BoardSupportPreviewData {
+    supportAmount: number;
+    transferBudgetReduction: number;
+    satisfactionPenalty: number;
+}
+
+export interface SponsorPitchPreviewData {
+    sponsorName: string;
+    weeklyAmount: number;
+    durationWeeks: number;
+}
+
+export interface MarketingCampaignPreviewData {
+    grossRevenue: number;
+    campaignCost: number;
+    netIncome: number;
+    cooldownDays: number;
+}
+
+export interface FinanceRecoveryPreviewsData {
+    boardSupport: BoardSupportPreviewData | null;
+    sponsorPitch: SponsorPitchPreviewData | null;
+    marketingCampaign: MarketingCampaignPreviewData | null;
+}
+
+export interface FinanceSnapshotData {
+    snapshot: TeamFinanceSnapshotData;
+    previews: FinanceRecoveryPreviewsData;
 }
 
 function mapSnapshot(
@@ -66,9 +122,40 @@ function mapSnapshot(
     };
 }
 
+function mapPreviews(
+    previews?: BackendFinanceActionPreviewsData | null,
+): FinanceRecoveryPreviewsData {
+    return {
+        boardSupport: previews?.board_support
+            ? {
+                supportAmount: previews.board_support.support_amount,
+                transferBudgetReduction:
+                    previews.board_support.transfer_budget_reduction,
+                satisfactionPenalty:
+                    previews.board_support.satisfaction_penalty,
+            }
+            : null,
+        sponsorPitch: previews?.sponsor_pitch
+            ? {
+                sponsorName: previews.sponsor_pitch.sponsor_name,
+                weeklyAmount: previews.sponsor_pitch.weekly_amount,
+                durationWeeks: previews.sponsor_pitch.duration_weeks,
+            }
+            : null,
+        marketingCampaign: previews?.marketing_campaign
+            ? {
+                grossRevenue: previews.marketing_campaign.gross_revenue,
+                campaignCost: previews.marketing_campaign.campaign_cost,
+                netIncome: previews.marketing_campaign.net_income,
+                cooldownDays: previews.marketing_campaign.cooldown_days,
+            }
+            : null,
+    };
+}
+
 export async function getFinanceSnapshot(
     teamId?: string,
-): Promise<TeamFinanceSnapshotData> {
+): Promise<FinanceSnapshotData> {
     const response = await invoke<BackendFinanceSnapshotResponseData>(
         "get_finance_snapshot",
         {
@@ -76,5 +163,8 @@ export async function getFinanceSnapshot(
         },
     );
 
-    return mapSnapshot(response.snapshot);
+    return {
+        snapshot: mapSnapshot(response.snapshot),
+        previews: mapPreviews(response.previews),
+    };
 }

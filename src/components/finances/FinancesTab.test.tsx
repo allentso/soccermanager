@@ -53,6 +53,8 @@ vi.mock("react-i18next", () => ({
         return "Review the pending offer first.";
       if (key === "finances.sponsorPitchSummary")
         return `${params?.sponsor} will pay ${params?.amount} for ${params?.weeks} weeks`;
+      if (key === "finances.boardSupportSummary")
+        return `Board could inject ${params?.amount}, cut transfer budget by ${params?.transferBudgetReduction}, confidence -${params?.satisfactionPenalty}`;
       if (key === "finances.cashFlow") return "Cash Flow";
       if (key === "finances.weeklyWageSpend") return "Weekly Wage Spend";
       if (key === "finances.weeklySponsorIncome")
@@ -614,6 +616,76 @@ describe("FinancesTab facilities", () => {
     ).toBeInTheDocument();
   });
 
+  it("renders recovery previews from the backend finance snapshot", async () => {
+    const initialState = createGameState(
+      { wage_budget: 50000, finance: -30000 },
+      [],
+      [createPlayer({ wage: 5200000 })],
+    );
+
+    mockedInvoke.mockImplementation((command) => {
+      if (command === "get_finance_snapshot") {
+        return Promise.resolve({
+          snapshot: {
+            annual_wage_bill: 5200000,
+            weekly_wage_spend: 100000,
+            weekly_wage_budget: 962,
+            weekly_recurring_income: 0,
+            weekly_sponsor_income: 0,
+            projected_weekly_net: -100000,
+            cash_runway_weeks: 3,
+            wage_budget_usage_percent: 10400,
+            currently_in_debt: true,
+            currently_over_budget: true,
+            wage_budget_status: "critical",
+            runway_status: "critical",
+            overall_status: "critical",
+            marketing_campaign_cooldown_days_remaining: 0,
+          },
+          previews: {
+            board_support: {
+              support_amount: 150000,
+              transfer_budget_reduction: 75000,
+              satisfaction_penalty: 12,
+            },
+            sponsor_pitch: {
+              sponsor_name: "Summit Capital",
+              weekly_amount: 85000,
+              duration_weeks: 12,
+            },
+            marketing_campaign: {
+              gross_revenue: 150000,
+              campaign_cost: 37500,
+              net_income: 112500,
+              cooldown_days: 28,
+            },
+          },
+        });
+      }
+
+      return Promise.reject(new Error(`Unexpected command: ${command}`));
+    });
+
+    render(<FinancesTab gameState={initialState} />);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(
+          "Board could inject €150,000, cut transfer budget by €75,000, confidence -12",
+        ),
+      ).toBeInTheDocument();
+    });
+
+    expect(
+      screen.getByText("Summit Capital will pay €85,000 for 12 weeks"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Campaign netted €112,500 after €37,500 in spend (€150,000 gross). Cooldown: 28 days",
+      ),
+    ).toBeInTheDocument();
+  });
+
   it("disables the marketing campaign action while the campaign is cooling down", async () => {
     const initialState = createGameState(
       { wage_budget: 50000, finance: -30000 },
@@ -657,6 +729,41 @@ describe("FinancesTab facilities", () => {
     expect(
       screen.getByText("Marketing campaign available again in 9 days"),
     ).toBeInTheDocument();
+  });
+
+  it("blocks facility upgrades when the backend reports warning-level financial distress", async () => {
+    const gameState = createGameState({ finance: 1000000 });
+
+    mockedInvoke.mockImplementation((command) => {
+      if (command === "get_finance_snapshot") {
+        return Promise.resolve({
+          snapshot: {
+            annual_wage_bill: 88400,
+            weekly_wage_spend: 1700,
+            weekly_wage_budget: 38461,
+            weekly_recurring_income: 0,
+            weekly_sponsor_income: 0,
+            projected_weekly_net: -1700,
+            cash_runway_weeks: 8,
+            wage_budget_usage_percent: 4,
+            currently_in_debt: false,
+            currently_over_budget: false,
+            wage_budget_status: "stable",
+            runway_status: "warning",
+            overall_status: "warning",
+            marketing_campaign_cooldown_days_remaining: 0,
+          },
+        });
+      }
+
+      return Promise.reject(new Error(`Unexpected command: ${command}`));
+    });
+
+    render(<FinancesTab gameState={gameState} />);
+
+    await waitFor(() => {
+      expect(screen.getAllByRole("button", { name: "Upgrade" })[0]).toBeDisabled();
+    });
   });
 
   it("renders a cash-flow projection panel using wages, sponsorship income, and runway", () => {
