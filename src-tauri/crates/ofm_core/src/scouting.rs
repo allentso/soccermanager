@@ -144,6 +144,8 @@ pub fn process_scouting(game: &mut Game) {
                 &player.attributes,
                 player.morale,
                 player.condition,
+                player.ovr,
+                player.potential,
                 judging_ability,
                 judging_potential,
                 team_name.as_deref(),
@@ -165,6 +167,8 @@ fn build_scout_report(
     attrs: &domain::player::PlayerAttributes,
     morale: u8,
     condition: u8,
+    player_ovr: u8,
+    player_potential: u8,
     judging_ability: u8,
     judging_potential: u8,
     team_name: Option<&str>,
@@ -248,31 +252,46 @@ fn build_scout_report(
         None
     };
 
-    // Overall assessment based on revealed attrs only
-    let revealed_vals: Vec<u32> = (0..6).filter_map(|i| to_opt(i).map(|v| v as u32)).collect();
-    let avg_attrs = if revealed_vals.is_empty() {
-        0
+    // Overall rating assessment based on the player's position-weighted OVR (fuzzed by scout ability).
+    // Fall back to attribute average if OVR is unavailable (legacy players).
+    let rating_base = if player_ovr > 0 {
+        let delta: i16 = rng.random_range(-(noise_range as i16)..=(noise_range as i16));
+        ((player_ovr as i16) + delta).clamp(1, 99) as u32
     } else {
-        revealed_vals.iter().sum::<u32>() / revealed_vals.len() as u32
+        let revealed_vals: Vec<u32> =
+            (0..6).filter_map(|i| to_opt(i).map(|v| v as u32)).collect();
+        if revealed_vals.is_empty() {
+            0
+        } else {
+            revealed_vals.iter().sum::<u32>() / revealed_vals.len() as u32
+        }
     };
 
-    let rating_key = if avg_attrs >= 80 {
+    let rating_key = if rating_base >= 80 {
         "common.scoutRatings.excellent"
-    } else if avg_attrs >= 70 {
+    } else if rating_base >= 70 {
         "common.scoutRatings.veryGood"
-    } else if avg_attrs >= 60 {
+    } else if rating_base >= 60 {
         "common.scoutRatings.good"
-    } else if avg_attrs >= 50 {
+    } else if rating_base >= 50 {
         "common.scoutRatings.average"
     } else {
         "common.scoutRatings.belowAverage"
     };
 
-    // Potential assessment (based on judging_potential accuracy)
+    // Potential assessment: use the player's actual potential (fuzzed) when the scout
+    // has sufficient judging_potential skill.  High-potential scouts can also spot
+    // Wonderkid-level talent accurately.
     let potential_key = if judging_potential >= 70 {
-        if avg_attrs >= 75 {
+        let fuzzed_potential = if player_potential > 0 {
+            let delta: i16 = rng.random_range(-(noise_range as i16)..=(noise_range as i16));
+            ((player_potential as i16) + delta).clamp(1, 99) as u32
+        } else {
+            rating_base // fallback to fuzzed OVR if no potential stored
+        };
+        if fuzzed_potential >= 85 {
             "common.scoutPotential.worldClass"
-        } else if avg_attrs >= 60 {
+        } else if fuzzed_potential >= 70 {
             "common.scoutPotential.strong"
         } else {
             "common.scoutPotential.moderate"
@@ -306,7 +325,7 @@ fn build_scout_report(
         physical,
         condition: reported_condition,
         morale: reported_morale,
-        avg_rating: Some(avg_attrs),
+        avg_rating: Some(rating_base),
         rating_key: rating_key.to_string(),
         potential_key: potential_key.to_string(),
         confidence_key: confidence_key.to_string(),

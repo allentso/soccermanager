@@ -33,6 +33,7 @@ const TRAIT_META: Record<string, TraitMeta> = {
   CompleteForward:    { icon: <Star className="w-3 h-3" />,           color: "text-accent-400 bg-accent-500/10 ring-accent-500/30",  category: "special"    },
   Engine:             { icon: <Cog className="w-3 h-3" />,            color: "text-primary-400 bg-primary-500/10 ring-primary-500/30", category: "special"  },
   SetPieceSpecialist: { icon: <CircleDot className="w-3 h-3" />,      color: "text-lime-400 bg-lime-500/10 ring-lime-500/30",        category: "special"    },
+  Wonderkid:          { icon: <Sparkles className="w-3 h-3" />,       color: "text-pink-400 bg-pink-500/10 ring-pink-500/30",        category: "special"    },
 };
 
 export function getTraitMeta(trait: string): (TraitMeta & { label: string; description: string }) | null {

@@ -2198,6 +2198,10 @@
     "SetPieceSpecialist": {
       "label": "定位球专家",
       "desc": "定位球极具杀伤力"
+    },
+    "Wonderkid": {
+      "label": "天才少年",
+      "desc": "潜力非凡的年轻才俊"
     }
   },
   "date": {

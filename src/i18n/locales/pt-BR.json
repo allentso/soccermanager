@@ -2202,6 +2202,10 @@
     "SetPieceSpecialist": {
       "label": "Espec. Bola Parada",
       "desc": "Letal nas cobranças"
+    },
+    "Wonderkid": {
+      "label": "Prodígio",
+      "desc": "Jovem talento com potencial excepcional"
     }
   },
   "date": {

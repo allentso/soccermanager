@@ -2,6 +2,7 @@ mod fitness_warnings;
 pub use fitness_warnings::check_squad_fitness_warnings;
 
 use crate::game::Game;
+use crate::player_rating::refresh_player_derived;
 use domain::staff::{CoachingSpecialization, StaffRole};
 use domain::team::{TrainingFocus, TrainingIntensity, TrainingSchedule};
 
@@ -232,6 +233,10 @@ pub fn process_training(game: &mut Game, weekday_num: u32) {
             // Physical training builds fitness; non-physical days slowly decay it if peak.
             // Recovery focus gives a tiny fitness boost.
             apply_fitness_change(&mut player.fitness, player_focus, intensity_mult);
+
+            // Refresh position-weighted OVR and traits after attribute gains.
+            // We use a fixed current year of 2026 (the game epoch).
+            refresh_player_derived(player, 2026);
 
             // Apply condition: deplete from training, then recover
             player.condition = player.condition.saturating_sub(condition_cost);

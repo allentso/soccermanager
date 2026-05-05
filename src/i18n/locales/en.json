@@ -2198,6 +2198,10 @@
     "SetPieceSpecialist": {
       "label": "Set Piece Spec.",
       "desc": "Deadly from dead balls"
+    },
+    "Wonderkid": {
+      "label": "Wonderkid",
+      "desc": "Young talent with exceptional potential"
     }
   },
   "date": {

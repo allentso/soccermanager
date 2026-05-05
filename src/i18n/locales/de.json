@@ -2202,6 +2202,10 @@
     "SetPieceSpecialist": {
       "label": "Standardspezialist",
       "desc": "Tödlich bei ruhenden Bällen"
+    },
+    "Wonderkid": {
+      "label": "Wunderkind",
+      "desc": "Junges Talent mit außergewöhnlichem Potenzial"
     }
   },
   "date": {
