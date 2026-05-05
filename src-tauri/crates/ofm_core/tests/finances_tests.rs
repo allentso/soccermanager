@@ -137,6 +137,86 @@ fn calc_cash_runway_weeks_uses_projected_weekly_net() {
 }
 
 #[test]
+fn team_finance_snapshot_uses_canonical_backend_values() {
+    let mut game = make_monday_game();
+    game.teams[0].sponsorship = Some(Sponsorship {
+        sponsor_name: "Acme Corp".to_string(),
+        base_value: 2_000,
+        remaining_weeks: 8,
+        bonus_criteria: vec![],
+    });
+
+    let snapshot = finances::team_finance_snapshot(&game, "team1").expect("snapshot");
+
+    assert_eq!(snapshot.annual_wage_bill, 88_400);
+    assert_eq!(snapshot.weekly_wage_spend, 1_700);
+    assert_eq!(snapshot.weekly_wage_budget, 2_000_000 / 52);
+    assert_eq!(snapshot.weekly_sponsor_income, 2_000);
+    assert_eq!(snapshot.weekly_recurring_income, 2_000);
+    assert_eq!(snapshot.projected_weekly_net, 300);
+    assert_eq!(snapshot.cash_runway_weeks, None);
+    assert_eq!(snapshot.wage_budget_usage_percent, 4);
+    assert!(!snapshot.currently_in_debt);
+    assert!(!snapshot.currently_over_budget);
+}
+
+#[test]
+fn team_finance_snapshot_flags_wage_pressure() {
+    let mut game = make_monday_game();
+    game.teams[0].wage_budget = 80_000;
+
+    let snapshot = finances::team_finance_snapshot(&game, "team1").expect("snapshot");
+
+    assert!(snapshot.currently_over_budget);
+    assert_eq!(snapshot.wage_budget_usage_percent, 110);
+    assert_eq!(
+        snapshot.wage_budget_status,
+        finances::FinanceHealthLevel::Warning
+    );
+    assert_eq!(
+        snapshot.overall_status,
+        finances::FinanceHealthLevel::Warning
+    );
+}
+
+#[test]
+fn team_finance_snapshot_flags_runway_crisis() {
+    let mut game = make_monday_game();
+    game.teams[0].finance = 3_400;
+
+    let snapshot = finances::team_finance_snapshot(&game, "team1").expect("snapshot");
+
+    assert_eq!(snapshot.projected_weekly_net, -1_700);
+    assert_eq!(snapshot.cash_runway_weeks, Some(2));
+    assert_eq!(
+        snapshot.runway_status,
+        finances::FinanceHealthLevel::Critical
+    );
+    assert_eq!(
+        snapshot.overall_status,
+        finances::FinanceHealthLevel::Critical
+    );
+}
+
+#[test]
+fn team_finance_snapshot_treats_negative_balance_as_critical() {
+    let mut game = make_monday_game();
+    game.teams[0].finance = -1;
+
+    let snapshot = finances::team_finance_snapshot(&game, "team1").expect("snapshot");
+
+    assert!(snapshot.currently_in_debt);
+    assert_eq!(
+        snapshot.runway_status,
+        finances::FinanceHealthLevel::Critical
+    );
+    assert_eq!(
+        snapshot.overall_status,
+        finances::FinanceHealthLevel::Critical
+    );
+}
+
+#[test]
 fn calc_matchday_uses_explicit_attendance_and_ticket_inputs() {
     let revenue = finances::calc_matchday(40_000, 2, 0.75, 20.0);
 

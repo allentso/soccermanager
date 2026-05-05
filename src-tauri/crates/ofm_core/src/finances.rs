@@ -3,6 +3,90 @@ use chrono::Datelike;
 use domain::message::*;
 use domain::team::{Sponsorship, SponsorshipBonusCriterion, Team};
 use rand::RngExt;
+use serde::Serialize;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FinanceHealthLevel {
+    Stable,
+    Watch,
+    Warning,
+    Critical,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct TeamFinanceSnapshot {
+    pub annual_wage_bill: i64,
+    pub weekly_wage_spend: i64,
+    pub weekly_wage_budget: i64,
+    pub weekly_recurring_income: i64,
+    pub weekly_sponsor_income: i64,
+    pub projected_weekly_net: i64,
+    pub cash_runway_weeks: Option<i64>,
+    pub wage_budget_usage_percent: u32,
+    pub currently_in_debt: bool,
+    pub currently_over_budget: bool,
+    pub wage_budget_status: FinanceHealthLevel,
+    pub runway_status: FinanceHealthLevel,
+    pub overall_status: FinanceHealthLevel,
+}
+
+fn wage_budget_status(usage_percent: u32) -> FinanceHealthLevel {
+    if usage_percent > 110 {
+        return FinanceHealthLevel::Critical;
+    }
+
+    if usage_percent > 100 {
+        return FinanceHealthLevel::Warning;
+    }
+
+    if usage_percent >= 85 {
+        return FinanceHealthLevel::Watch;
+    }
+
+    FinanceHealthLevel::Stable
+}
+
+fn runway_status(balance: i64, runway_weeks: Option<i64>) -> FinanceHealthLevel {
+    if balance < 0 {
+        return FinanceHealthLevel::Critical;
+    }
+
+    let Some(runway_weeks) = runway_weeks else {
+        return FinanceHealthLevel::Stable;
+    };
+
+    if runway_weeks <= 4 {
+        return FinanceHealthLevel::Critical;
+    }
+
+    if runway_weeks <= 8 {
+        return FinanceHealthLevel::Warning;
+    }
+
+    if runway_weeks <= 12 {
+        return FinanceHealthLevel::Watch;
+    }
+
+    FinanceHealthLevel::Stable
+}
+
+fn most_severe_level(left: FinanceHealthLevel, right: FinanceHealthLevel) -> FinanceHealthLevel {
+    fn severity(level: FinanceHealthLevel) -> u8 {
+        match level {
+            FinanceHealthLevel::Stable => 0,
+            FinanceHealthLevel::Watch => 1,
+            FinanceHealthLevel::Warning => 2,
+            FinanceHealthLevel::Critical => 3,
+        }
+    }
+
+    if severity(left) >= severity(right) {
+        left
+    } else {
+        right
+    }
+}
 
 fn action(id: &str, label: &str, label_key: &str, action_type: ActionType) -> MessageAction {
     MessageAction {
@@ -71,6 +155,37 @@ pub fn calc_matchday(
 
 pub fn calc_upkeep(_team: &Team) -> i64 {
     0
+}
+
+pub fn team_finance_snapshot(game: &Game, team_id: &str) -> Option<TeamFinanceSnapshot> {
+    let team = game.teams.iter().find(|team| team.id == team_id)?;
+    let annual_wage_bill = calc_annual_wages(game, team_id);
+    let weekly_wage_spend = calc_wages(game, team_id);
+    let weekly_wage_budget = team.wage_budget / 52;
+    let weekly_sponsor_income = team.sponsorship.as_ref().map(|s| s.base_value).unwrap_or(0);
+    let weekly_recurring_income = weekly_sponsor_income;
+    let projected_weekly_net = weekly_recurring_income - weekly_wage_spend;
+    let cash_runway_weeks = calc_cash_runway_weeks(team.finance, projected_weekly_net);
+    let wage_budget_usage_percent = ((annual_wage_bill * 100) / std::cmp::max(1, team.wage_budget))
+        .clamp(0, u32::MAX as i64) as u32;
+    let wage_budget_status = wage_budget_status(wage_budget_usage_percent);
+    let runway_status = runway_status(team.finance, cash_runway_weeks);
+
+    Some(TeamFinanceSnapshot {
+        annual_wage_bill,
+        weekly_wage_spend,
+        weekly_wage_budget,
+        weekly_recurring_income,
+        weekly_sponsor_income,
+        projected_weekly_net,
+        cash_runway_weeks,
+        wage_budget_usage_percent,
+        currently_in_debt: team.finance < 0,
+        currently_over_budget: annual_wage_bill > team.wage_budget,
+        wage_budget_status,
+        runway_status,
+        overall_status: most_severe_level(wage_budget_status, runway_status),
+    })
 }
 
 pub fn evaluate_sponsorship_bonus(

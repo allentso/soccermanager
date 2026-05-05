@@ -93,6 +93,7 @@ pub fn run() {
             advance_time,
             advance_time_with_mode,
             upgrade_facility,
+            get_finance_snapshot,
             propose_renewal,
             delegate_renewals,
             preview_renewal_financial_impact,
