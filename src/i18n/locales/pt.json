@@ -2122,19 +2122,19 @@
         }
       },
       "transferRumour": {
-        "headline0": "{{player}} Attracting Interest from Several Clubs",
-        "headline1": "Clubs Circle as {{player}} Future Remains Uncertain",
-        "headline2": "{{player}} Linked with Move Away from {{team}}",
-        "body0": "Sources close to the situation suggest that {{player}} could be on the move, with multiple clubs reportedly monitoring the {{team}} player. {{team}} have not commented publicly, but the speculation is unlikely to die down soon.",
-        "body1": "{{player}} is understood to have attracted attention from clubs across the division. The {{team}} star has been one of the standout performers this season, and it is believed that offers could materialise before the window closes.",
-        "body2": "Transfer whispers are growing louder around {{player}}, with the {{team}} player said to be weighing their options. Agent talks are rumoured to have taken place, though nothing has been confirmed."
+        "headline0": "{{player}} desperta o interesse de vários clubes",
+        "headline1": "Clubes rodeiam {{player}}, cujo futuro permanece incerto",
+        "headline2": "{{player}} associado a uma saída do {{team}}",
+        "body0": "Fontes próximas da situação sugerem que {{player}} poderá sair, com vários clubes a monitorar o jogador do {{team}}. O {{team}} não se pronunciou publicamente, mas a especulação dificilmente se irá dissipar tão cedo.",
+        "body1": "{{player}} teria atraído a atenção de clubes de toda a divisão. A estrela do {{team}} foi um dos jogadores mais em destaque esta temporada, e acredita-se que propostas poderão concretizar-se antes do encerramento do mercado.",
+        "body2": "Os rumores de transferência em torno de {{player}} estão a crescer, com o jogador do {{team}} alegadamente a ponderar as suas opções. Diz-se que já houve conversas com agentes, embora nada tenha sido confirmado."
       },
       "injuryNews": {
-        "headline0": "{{player}} Injury Blow for {{team}}",
-        "headline1": "{{player}} Set for Spell on the Sidelines",
-        "headline2": "{{duration}} — {{team}} Sweating on Key Player",
-        "body0": "{{team}} have confirmed that {{player}} has picked up an injury and is expected to be sidelined for {{duration}}. The club will assess the situation before providing a further update.",
-        "body1": "{{player}} suffered a setback in training, with the {{team}} player ruled out for {{duration}}. The absence will be a significant blow as the season reaches a critical stage."
+        "headline0": "Lesão de {{player}} é um golpe para o {{team}}",
+        "headline1": "{{player}} preparado para um período de paragem",
+        "headline2": "{{duration}} — {{team}} ansioso em relação a jogador-chave",
+        "body0": "O {{team}} confirmou que {{player}} sofreu uma lesão e deverá ficar fora de combate durante {{duration}}. O clube irá avaliar a situação antes de prestar uma atualização adicional.",
+        "body1": "{{player}} sofreu um revés no treino, com o jogador do {{team}} afastado por {{duration}}. A ausência será um golpe significativo enquanto a temporada atinge uma fase decisiva."
       }
     }
   },

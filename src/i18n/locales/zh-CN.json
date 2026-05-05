@@ -1640,7 +1640,7 @@
       "matchDayPress": "比赛日新闻",
       "leagueChronicle": "联赛纪事",
       "leagueWire": "联赛快讯",
-      "transferIntelligence": "Transfer Intelligence"
+      "transferIntelligence": "转会情报"
     },
     "msg": {
       "welcome": {
@@ -2118,19 +2118,19 @@
         }
       },
       "transferRumour": {
-        "headline0": "{{player}} Attracting Interest from Several Clubs",
-        "headline1": "Clubs Circle as {{player}} Future Remains Uncertain",
-        "headline2": "{{player}} Linked with Move Away from {{team}}",
-        "body0": "Sources close to the situation suggest that {{player}} could be on the move, with multiple clubs reportedly monitoring the {{team}} player. {{team}} have not commented publicly, but the speculation is unlikely to die down soon.",
-        "body1": "{{player}} is understood to have attracted attention from clubs across the division. The {{team}} star has been one of the standout performers this season, and it is believed that offers could materialise before the window closes.",
-        "body2": "Transfer whispers are growing louder around {{player}}, with the {{team}} player said to be weighing their options. Agent talks are rumoured to have taken place, though nothing has been confirmed."
+        "headline0": "{{player}}引发多家俱乐部关注",
+        "headline1": "{{player}}前途未卜，各俱乐部蠢蠢欲动",
+        "headline2": "{{player}}被传离开{{team}}",
+        "body0": "知情人士透露，{{player}}可能即将转会，多家俱乐部据报正在密切关注这名{{team}}球员。{{team}}方面尚未公开表态，但相关传言短期内恐难平息。",
+        "body1": "据悉，{{player}}已引起联赛多家俱乐部的兴趣。这名{{team}}球员本赛季表现出色，外界认为在转会窗口关闭前，正式报价或将出现。",
+        "body2": "围绕{{player}}的转会传言愈演愈烈，据称这名{{team}}球员正在权衡自己的选择。据报经纪人层面已有接触，但目前尚无任何官方确认。"
       },
       "injuryNews": {
-        "headline0": "{{player}} Injury Blow for {{team}}",
-        "headline1": "{{player}} Set for Spell on the Sidelines",
-        "headline2": "{{duration}} — {{team}} Sweating on Key Player",
-        "body0": "{{team}} have confirmed that {{player}} has picked up an injury and is expected to be sidelined for {{duration}}. The club will assess the situation before providing a further update.",
-        "body1": "{{player}} suffered a setback in training, with the {{team}} player ruled out for {{duration}}. The absence will be a significant blow as the season reaches a critical stage."
+        "headline0": "{{player}}受伤，{{team}}遭受打击",
+        "headline1": "{{player}}即将缺席一段时间",
+        "headline2": "{{duration}}——{{team}}为主力球员的伤情担忧",
+        "body0": "{{team}}已证实{{player}}受伤，预计将缺阵{{duration}}。俱乐部将评估伤情后发布进一步的最新消息。",
+        "body1": "{{player}}在训练中遭遇挫折，这名{{team}}球员将缺席{{duration}}。在赛季进入关键阶段之际，这一缺阵将是重大打击。"
       }
     }
   },
