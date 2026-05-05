@@ -6,7 +6,7 @@ export type FinanceHealthLevelData =
     | "warning"
     | "critical";
 
-export interface TeamFinanceSnapshotData {
+interface BackendTeamFinanceSnapshotData {
     annual_wage_bill: number;
     weekly_wage_spend: number;
     weekly_wage_budget: number;
@@ -22,14 +22,55 @@ export interface TeamFinanceSnapshotData {
     overall_status: FinanceHealthLevelData;
 }
 
-export interface FinanceSnapshotResponseData {
-    snapshot: TeamFinanceSnapshotData;
+interface BackendFinanceSnapshotResponseData {
+    snapshot: BackendTeamFinanceSnapshotData;
+}
+
+export interface TeamFinanceSnapshotData {
+    annualWageBill: number;
+    weeklyWageSpend: number;
+    weeklyWageBudget: number;
+    weeklyRecurringIncome: number;
+    weeklySponsorIncome: number;
+    projectedWeeklyNet: number;
+    cashRunwayWeeks: number | null;
+    wageBudgetUsagePercent: number;
+    currentlyInDebt: boolean;
+    currentlyOverBudget: boolean;
+    wageBudgetStatus: FinanceHealthLevelData;
+    runwayStatus: FinanceHealthLevelData;
+    overallStatus: FinanceHealthLevelData;
+}
+
+function mapSnapshot(
+    snapshot: BackendTeamFinanceSnapshotData,
+): TeamFinanceSnapshotData {
+    return {
+        annualWageBill: snapshot.annual_wage_bill,
+        weeklyWageSpend: snapshot.weekly_wage_spend,
+        weeklyWageBudget: snapshot.weekly_wage_budget,
+        weeklyRecurringIncome: snapshot.weekly_recurring_income,
+        weeklySponsorIncome: snapshot.weekly_sponsor_income,
+        projectedWeeklyNet: snapshot.projected_weekly_net,
+        cashRunwayWeeks: snapshot.cash_runway_weeks,
+        wageBudgetUsagePercent: snapshot.wage_budget_usage_percent,
+        currentlyInDebt: snapshot.currently_in_debt,
+        currentlyOverBudget: snapshot.currently_over_budget,
+        wageBudgetStatus: snapshot.wage_budget_status,
+        runwayStatus: snapshot.runway_status,
+        overallStatus: snapshot.overall_status,
+    };
 }
 
 export async function getFinanceSnapshot(
     teamId?: string,
-): Promise<FinanceSnapshotResponseData> {
-    return invoke<FinanceSnapshotResponseData>("get_finance_snapshot", {
-        teamId: teamId ?? null,
-    });
+): Promise<TeamFinanceSnapshotData> {
+    const response = await invoke<BackendFinanceSnapshotResponseData>(
+        "get_finance_snapshot",
+        {
+            teamId: teamId ?? null,
+        },
+    );
+
+    return mapSnapshot(response.snapshot);
 }

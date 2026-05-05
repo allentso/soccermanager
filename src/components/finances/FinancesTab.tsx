@@ -21,6 +21,10 @@ import {
   annualAmountToWeeklyCommitment,
   getTeamFinanceSnapshot,
 } from "../../lib/finance";
+import {
+  getFinanceSnapshot,
+  type TeamFinanceSnapshotData,
+} from "../../services/financeService";
 import { useTranslation } from "react-i18next";
 import ContextMenu from "../ContextMenu";
 import { translatePositionAbbreviation } from "../squad/SquadTab.helpers";
@@ -69,6 +73,27 @@ function getFacilityUpgradeCost(level: number): number {
 function formatSignedAmount(value: number): string {
   const formatted = formatVal(Math.abs(value));
   return value < 0 ? `-${formatted}` : formatted;
+}
+
+function mapLocalFinanceSnapshot(
+  team: GameStateData["teams"][number],
+  snapshot: ReturnType<typeof getTeamFinanceSnapshot>,
+): TeamFinanceSnapshotData {
+  return {
+    annualWageBill: snapshot.annualWageBill,
+    weeklyWageSpend: snapshot.weeklyWageSpend,
+    weeklyWageBudget: snapshot.weeklyWageBudget,
+    weeklyRecurringIncome: snapshot.weeklySponsorIncome,
+    weeklySponsorIncome: snapshot.weeklySponsorIncome,
+    projectedWeeklyNet: snapshot.projectedWeeklyNet,
+    cashRunwayWeeks: snapshot.cashRunwayWeeks,
+    wageBudgetUsagePercent: snapshot.wageBudgetUsagePercent,
+    currentlyInDebt: team.finance < 0,
+    currentlyOverBudget: snapshot.annualWageBill > team.wage_budget,
+    wageBudgetStatus: snapshot.wageBudgetStatus,
+    runwayStatus: snapshot.runwayStatus,
+    overallStatus: snapshot.overallStatus,
+  };
 }
 
 interface ResolveMessageActionResult {
@@ -134,12 +159,19 @@ export default function FinancesTab({
   const [selectedRiskPlayerIds, setSelectedRiskPlayerIds] = useState<string[]>(
     [],
   );
+  const [remoteFinanceSnapshot, setRemoteFinanceSnapshot] =
+    useState<TeamFinanceSnapshotData | null>(null);
 
   const roster = gameState.players.filter((p) => p.team_id === myTeam.id);
   const teamStaff = gameState.staff.filter(
     (staffMember) => staffMember.team_id === myTeam.id,
   );
-  const financeSnapshot = getTeamFinanceSnapshot(myTeam, roster, teamStaff);
+  const financeSnapshot =
+    remoteFinanceSnapshot ??
+    mapLocalFinanceSnapshot(
+      myTeam,
+      getTeamFinanceSnapshot(myTeam, roster, teamStaff),
+    );
   const totalWages = financeSnapshot.weeklyWageSpend;
   const totalValue = roster.reduce((s, p) => s + p.market_value, 0);
   const facilities = myTeam.facilities ?? DEFAULT_FACILITIES;
@@ -180,6 +212,27 @@ export default function FinancesTab({
     selectedRiskPlayerIds.includes(player.id),
   );
   const allRiskPlayerIds = contractRiskPlayers.map(({ player }) => player.id);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void getFinanceSnapshot(myTeam.id)
+      .then((snapshot) => {
+        if (!cancelled) {
+          setRemoteFinanceSnapshot(snapshot);
+        }
+      })
+      .catch((error) => {
+        console.error("Failed to load finance snapshot:", error);
+        if (!cancelled) {
+          setRemoteFinanceSnapshot(null);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [gameState, myTeam.id]);
 
   useEffect(() => {
     setSelectedRiskPlayerIds((currentIds) => {

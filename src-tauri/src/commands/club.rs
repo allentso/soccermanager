@@ -1,6 +1,7 @@
 use log::info;
 use tauri::State;
 
+use ofm_core::finances::{self, FinanceHealthLevel};
 use ofm_core::game::Game;
 use ofm_core::state::StateManager;
 
@@ -28,6 +29,21 @@ fn upgrade_facility_internal(state: &StateManager, facility: &str) -> Result<Gam
         _ => return Err("be.error.unknownFacilityType".to_string()),
     };
 
+    let snapshot = finances::team_finance_snapshot(&game, &team_id)
+        .ok_or("be.error.managedTeamNotFound".to_string())?;
+    if snapshot.currently_over_budget {
+        return Err(
+            "Facility upgrades are blocked while the club is over its wage budget."
+                .to_string(),
+        );
+    }
+    if matches!(snapshot.overall_status, FinanceHealthLevel::Critical) {
+        return Err(
+            "Facility upgrades are blocked while the club is in critical financial distress."
+                .to_string(),
+        );
+    }
+
     let team = game
         .teams
         .iter_mut()
@@ -45,10 +61,50 @@ mod tests {
     use super::upgrade_facility_internal;
     use chrono::{TimeZone, Utc};
     use domain::manager::Manager;
+    use domain::player::{Player, PlayerAttributes, Position};
     use domain::team::Team;
     use ofm_core::clock::GameClock;
     use ofm_core::game::Game;
     use ofm_core::state::StateManager;
+
+    fn default_attrs() -> PlayerAttributes {
+        PlayerAttributes {
+            pace: 60,
+            stamina: 60,
+            strength: 60,
+            agility: 60,
+            passing: 60,
+            shooting: 60,
+            tackling: 60,
+            dribbling: 60,
+            defending: 60,
+            positioning: 60,
+            vision: 60,
+            decisions: 60,
+            composure: 60,
+            aggression: 60,
+            teamwork: 60,
+            leadership: 60,
+            handling: 30,
+            reflexes: 30,
+            aerial: 60,
+        }
+    }
+
+    fn make_player(id: &str, team_id: &str, wage: u32) -> Player {
+        let mut player = Player::new(
+            id.to_string(),
+            "Player".to_string(),
+            "Player".to_string(),
+            "1995-01-01".to_string(),
+            "England".to_string(),
+            Position::Forward,
+            default_attrs(),
+        );
+        player.team_id = Some(team_id.to_string());
+        player.wage = wage;
+        player
+    }
 
     fn make_team() -> Team {
         let mut team = Team::new(
@@ -102,5 +158,27 @@ mod tests {
             .expect("stored team should exist");
         assert_eq!(stored_team.facilities.medical, 2);
         assert_eq!(stored_team.finance, 750_000);
+    }
+
+    #[test]
+    fn upgrade_facility_internal_rejects_over_budget_clubs() {
+        let state = StateManager::new();
+        let mut game = make_game();
+        game.teams[0].wage_budget = 100_000;
+        game.players.push(make_player("player-1", "team-1", 220_000));
+        state.set_game(game);
+
+        let error = upgrade_facility_internal(&state, "Training").expect_err("should fail");
+
+        assert!(error.contains("over its wage budget"));
+
+        let stored_game = state.get_game(|current| current.clone()).expect("stored game");
+        let stored_team = stored_game
+            .teams
+            .iter()
+            .find(|team| team.id == "team-1")
+            .expect("stored team should exist");
+        assert_eq!(stored_team.facilities.training, 1);
+        assert_eq!(stored_team.finance, 1_000_000);
     }
 }

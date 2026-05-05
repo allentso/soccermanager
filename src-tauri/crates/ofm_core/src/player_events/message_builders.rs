@@ -334,3 +334,52 @@ pub(crate) fn contract_concern_message(
     )
     .with_sender_i18n("be.sender.assistantManager", "be.role.assistantManager")
 }
+
+pub(crate) fn takeover_contract_review_message(
+    msg_id: &str,
+    total_expiring_this_season: usize,
+    urgent_contracts: usize,
+    final_weeks_contracts: usize,
+    date: &str,
+) -> InboxMessage {
+    let body = match (urgent_contracts, final_weeks_contracts) {
+        (0, _) => format!(
+            "Your assistant has reviewed the squad contracts after your arrival. {} player(s) are due to come up for renewal this season, but none require an immediate decision today.\n\nStart mapping out who you want to keep so the situation stays under control.",
+            total_expiring_this_season,
+        ),
+        (_, 0) => format!(
+            "Your assistant has reviewed the squad contracts after your arrival. {} player(s) are due to come up for renewal this season, and {} already need attention inside the next six months.\n\nYou do not need to solve everything at once, but these cases should be near the top of your early workload.",
+            total_expiring_this_season, urgent_contracts,
+        ),
+        _ => format!(
+            "Your assistant has reviewed the squad contracts after your arrival. {} player(s) are due to come up for renewal this season, {} need attention inside the next six months, and {} are already in the final month.\n\nStabilize the urgent cases first, then work through the wider renewal list in stages.",
+            total_expiring_this_season, urgent_contracts, final_weeks_contracts,
+        ),
+    };
+
+    InboxMessage::new(
+        msg_id.to_string(),
+        "Assistant Manager - Contract Review".to_string(),
+        body,
+        "Assistant Manager".to_string(),
+        date.to_string(),
+    )
+    .with_category(MessageCategory::Contract)
+    .with_priority(MessagePriority::High)
+    .with_sender_role("Assistant Manager")
+    .with_action(action(
+        "view_squad",
+        "Review Squad Contracts",
+        "be.msg.staffAdvice.actionReview",
+        ActionType::NavigateTo {
+            route: "/dashboard?tab=Squad".to_string(),
+        },
+    ))
+    .with_action(action(
+        "ack",
+        "Acknowledge",
+        "be.msg.event.ack",
+        ActionType::Acknowledge,
+    ))
+    .with_context(MessageContext::default())
+}
