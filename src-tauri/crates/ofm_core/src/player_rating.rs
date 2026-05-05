@@ -71,8 +71,6 @@ fn player_age(date_of_birth: &str, current_year: u32) -> u32 {
     current_year.saturating_sub(birth_year)
 }
 
-
-
 fn formation_slot_rows(formation: &str) -> Vec<Vec<Position>> {
     let parts: Vec<usize> = formation
         .split('-')

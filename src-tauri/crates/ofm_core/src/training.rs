@@ -103,6 +103,11 @@ struct TeamTrainingPlan {
 /// the team default.
 /// `weekday_num` is 0=Mon .. 6=Sun (chrono Weekday::num_days_from_monday()).
 pub fn process_training(game: &mut Game, weekday_num: u32) {
+    // Derive the current year from the game clock for accurate age calculations.
+    let current_year = game.clock.current_date.format("%Y").to_string()
+        .parse::<u32>()
+        .unwrap_or(2026);
+
     // Collect plans for all teams (immutable borrow)
     let team_plans: Vec<TeamTrainingPlan> = game
         .teams
@@ -235,8 +240,7 @@ pub fn process_training(game: &mut Game, weekday_num: u32) {
             apply_fitness_change(&mut player.fitness, player_focus, intensity_mult);
 
             // Refresh position-weighted OVR and traits after attribute gains.
-            // We use a fixed current year of 2026 (the game epoch).
-            refresh_player_derived(player, 2026);
+            refresh_player_derived(player, current_year);
 
             // Apply condition: deplete from training, then recover
             player.condition = player.condition.saturating_sub(condition_cost);
