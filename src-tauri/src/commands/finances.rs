@@ -2,7 +2,9 @@ use log::info;
 use serde::Serialize;
 use tauri::State;
 
-use ofm_core::finances::{BoardSupportResult, SponsorPitchResult, TeamFinanceSnapshot};
+use ofm_core::finances::{
+    BoardSupportResult, MarketingCampaignResult, SponsorPitchResult, TeamFinanceSnapshot,
+};
 use ofm_core::game::Game;
 use ofm_core::state::StateManager;
 
@@ -21,6 +23,12 @@ pub struct BoardSupportCommandResponse {
 pub struct SponsorPitchCommandResponse {
     pub game: Game,
     pub result: SponsorPitchResult,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct MarketingCampaignCommandResponse {
+    pub game: Game,
+    pub result: MarketingCampaignResult,
 }
 
 #[tauri::command]
@@ -70,6 +78,13 @@ pub async fn request_sponsor_pitch(
     request_sponsor_pitch_internal(&state)
 }
 
+#[tauri::command]
+pub async fn request_marketing_campaign(
+    state: State<'_, StateManager>,
+) -> Result<MarketingCampaignCommandResponse, String> {
+    request_marketing_campaign_internal(&state)
+}
+
 fn request_board_support_internal(
     state: &StateManager,
 ) -> Result<BoardSupportCommandResponse, String> {
@@ -112,11 +127,32 @@ fn request_sponsor_pitch_internal(
     Ok(SponsorPitchCommandResponse { game, result })
 }
 
+fn request_marketing_campaign_internal(
+    state: &StateManager,
+) -> Result<MarketingCampaignCommandResponse, String> {
+    info!("[cmd] request_marketing_campaign");
+
+    let mut game = state
+        .get_game(|g: &Game| g.clone())
+        .ok_or("be.error.noActiveGameSession".to_string())?;
+
+    let team_id = game
+        .manager
+        .team_id
+        .clone()
+        .ok_or("be.error.noTeamAssigned".to_string())?;
+
+    let result = ofm_core::finances::request_marketing_campaign(&mut game, &team_id)?;
+
+    state.set_game(game.clone());
+    Ok(MarketingCampaignCommandResponse { game, result })
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
         get_finance_snapshot_internal, request_board_support_internal,
-        request_sponsor_pitch_internal,
+        request_marketing_campaign_internal, request_sponsor_pitch_internal,
     };
     use chrono::{TimeZone, Utc};
     use domain::manager::Manager;
@@ -252,5 +288,32 @@ mod tests {
             .messages
             .iter()
             .any(|message| message.id == response.result.message_id));
+    }
+
+    #[test]
+    fn request_marketing_campaign_internal_updates_managed_team_state() {
+        let state = StateManager::new();
+        let mut game = make_game();
+        game.teams[0].wage_budget = 50_000;
+        game.teams[0].finance = -40_000;
+        state.set_game(game);
+
+        let response = request_marketing_campaign_internal(&state).expect("response");
+
+        assert!(response.result.net_income > 0);
+        assert_eq!(response.result.net_income, response.result.gross_revenue - response.result.campaign_cost);
+        assert_eq!(
+            response
+                .game
+                .teams[0]
+                .financial_ledger
+                .iter()
+                .filter(|entry| entry.kind == domain::team::FinancialTransactionKind::CommercialCampaign)
+                .count(),
+            2
+        );
+
+        let stored_game = state.get_game(|current| current.clone()).expect("stored game");
+        assert!(stored_game.teams[0].finance > -40_000);
     }
 }

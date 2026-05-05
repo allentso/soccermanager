@@ -724,6 +724,11 @@
     "noActiveSponsor": "Nessuno sponsor attivo",
     "pitchSponsor": "Cerca sponsor",
     "sponsorPitchDescription": "Chiedi al team commerciale di trovare uno sponsor a breve termine per un club sotto pressione finanziaria.",
+    "marketingCampaign": "Campagna marketing",
+    "launchMarketingCampaign": "Lancia campagna",
+    "marketingCampaignDescription": "Avvia una campagna una tantum di merchandising e promozione per ottenere liquidità immediata quando il club è sotto pressione.",
+    "marketingCampaignUnavailable": "Le campagne marketing sono riservate ai club sotto pressione salariale o di cassa.",
+    "marketingCampaignSummary": "La campagna ha generato {{netIncome}} netti dopo {{cost}} di spesa ({{grossRevenue}} lordi). Recupero: {{days}} giorni.",
     "sponsorPitchUnavailable": "La ricerca sponsor è riservata ai club sotto pressione salariale o di cassa.",
     "sponsorPitchActiveSponsor": "C'è già un accordo di sponsorizzazione attivo.",
     "sponsorPitchPendingOffer": "Valuta prima l'offerta di sponsorizzazione in sospeso.",
@@ -1585,6 +1590,8 @@
         "sponsorPitchPendingOffer": "C'è già un'offerta di sponsorizzazione in attesa della tua decisione.",
         "sponsorPitchAlreadyAttemptedToday": "Il team commerciale ha già contattato sponsor oggi.",
         "sponsorPitchActiveSponsor": "Esiste già un accordo di sponsorizzazione attivo.",
+        "marketingCampaignUnavailable": "Le campagne marketing sono disponibili solo quando il club è sotto pressione salariale o di cassa.",
+        "marketingCampaignCoolingDown": "Il team commerciale ha bisogno di tempo prima di avviare un'altra campagna marketing.",
         "facilityUpgradeOverBudget": "I potenziamenti delle strutture sono bloccati finché il club supera il budget salariale.",
         "facilityUpgradeCritical": "I potenziamenti delle strutture sono bloccati finché il club è in grave difficoltà finanziaria."
       },
@@ -1718,6 +1725,11 @@
       "wageOverBudget": {
         "subject": "Monte ingaggi oltre il budget",
         "body": "Il nostro monte ingaggi annuale (€{{annualWages}}) supera attualmente il budget stipendi assegnato (€{{wageBudget}}).\n\nAnche se possiamo sostenerlo nel breve periodo, il consiglio preferirebbe vedere il monte ingaggi tornare sotto controllo."
+      },
+      "financeBoardPressure": {
+        "subject": "Consiglio — Pressione finanziaria",
+        "bodyWarning": "Il consiglio resta preoccupato per la situazione finanziaria del club. La fiducia nel tuo operato è scesa di {{penalty}} punti questa settimana.\n\nDevi migliorare la situazione salariale e la liquidità a breve termine prima che la pazienza si assottigli ulteriormente.",
+        "bodyCritical": "Il consiglio ha riesaminato il peggioramento della situazione finanziaria del club e la fiducia nel tuo operato è scesa di {{penalty}} punti questa settimana.\n\nLiquidità e impegni salariali sono ormai in stato critico. Ci si aspetta un intervento immediato."
       },
       "seasonPayout": {
         "subject": "Stagione {{season}} — Premio assegnato",

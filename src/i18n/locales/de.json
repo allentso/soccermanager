@@ -705,6 +705,11 @@
     "noActiveSponsor": "Kein aktiver Sponsor",
     "pitchSponsor": "Sponsor ansprechen",
     "sponsorPitchDescription": "Lass das Kommerz-Team nach einem kurzfristigen Sponsordeal für finanziell unter Druck stehende Clubs suchen.",
+    "marketingCampaign": "Marketingkampagne",
+    "launchMarketingCampaign": "Kampagne starten",
+    "marketingCampaignDescription": "Starte eine einmalige Merchandise- und Outreach-Kampagne, um bei finanziellem Druck sofort Geld hereinzuholen.",
+    "marketingCampaignUnavailable": "Marketingkampagnen sind Clubs mit Gehalts- oder Liquiditätsdruck vorbehalten.",
+    "marketingCampaignSummary": "Die Kampagne brachte netto {{netIncome}} nach {{cost}} Aufwand ({{grossRevenue}} brutto). Abklingzeit: {{days}} Tage.",
     "sponsorPitchUnavailable": "Sponsorengespräche sind Clubs mit Gehalts- oder Liquiditätsdruck vorbehalten.",
     "sponsorPitchActiveSponsor": "Es gibt bereits einen aktiven Sponsorenvertrag.",
     "sponsorPitchPendingOffer": "Prüfe zuerst das offene Sponsorangebot.",
@@ -1585,6 +1590,8 @@
         "sponsorPitchPendingOffer": "Es wartet bereits ein Sponsorangebot auf deine Entscheidung.",
         "sponsorPitchAlreadyAttemptedToday": "Das Kommerz-Team hat heute bereits Sponsoren angesprochen.",
         "sponsorPitchActiveSponsor": "Es gibt bereits einen aktiven Sponsorenvertrag.",
+        "marketingCampaignUnavailable": "Marketingkampagnen sind nur verfügbar, wenn der Club unter Gehalts- oder Liquiditätsdruck steht.",
+        "marketingCampaignCoolingDown": "Das Kommerz-Team braucht Zeit, bevor es eine weitere Marketingkampagne startet.",
         "facilityUpgradeOverBudget": "Ausbauten sind blockiert, solange der Club sein Gehaltsbudget überschreitet.",
         "facilityUpgradeCritical": "Ausbauten sind blockiert, solange sich der Club in kritischer finanzieller Notlage befindet."
       },
@@ -1701,6 +1708,11 @@
       "wageOverBudget": {
         "subject": "Gehaltsbudget überschritten",
         "body": "Unsere jährlichen Gehaltskosten (€{{annualWages}}) übersteigen derzeit das vorgesehene Gehaltsbudget (€{{wageBudget}}).\n\nKurzfristig ist das noch tragbar, aber der Vorstand würde die Gehaltskosten lieber wieder unter Kontrolle sehen."
+      },
+      "financeBoardPressure": {
+        "subject": "Vorstandssitzung — Finanzdruck",
+        "bodyWarning": "Der Vorstand bleibt wegen der finanziellen Lage des Clubs besorgt. Das Vertrauen in Ihre Arbeit ist diese Woche um {{penalty}} Punkte gesunken.\n\nSie müssen die Gehaltslage und den kurzfristigen Kassenbestand verbessern, bevor die Geduld weiter schwindet.",
+        "bodyCritical": "Der Vorstand hat die sich verschlechternde Finanzlage des Clubs geprüft, und das Vertrauen in Ihre Arbeit ist diese Woche um {{penalty}} Punkte gesunken.\n\nLiquidität und Gehaltsverpflichtungen befinden sich nun in einem kritischen Zustand. Sofortiges Gegensteuern wird erwartet."
       },
       "seasonPayout": {
         "subject": "Saison {{season}} — Preisgeld ausgezahlt",

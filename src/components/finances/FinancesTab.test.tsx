@@ -34,6 +34,15 @@ vi.mock("react-i18next", () => ({
       if (key === "finances.pitchSponsor") return "Pitch Sponsor";
       if (key === "finances.sponsorPitchDescription")
         return "Ask the commercial team to chase a short-term sponsor deal.";
+      if (key === "finances.marketingCampaign") return "Marketing Campaign";
+      if (key === "finances.launchMarketingCampaign")
+        return "Launch Campaign";
+      if (key === "finances.marketingCampaignDescription")
+        return "Push a one-off merchandise and outreach campaign for immediate cash.";
+      if (key === "finances.marketingCampaignUnavailable")
+        return "Marketing campaigns are reserved for clubs under wage or cash pressure.";
+      if (key === "finances.marketingCampaignSummary")
+        return `Campaign netted ${params?.netIncome} after ${params?.cost} in spend (${params?.grossRevenue} gross). Cooldown: ${params?.days} days`;
       if (key === "finances.sponsorPitchUnavailable")
         return "Sponsor pitches are reserved for clubs under wage or cash pressure.";
       if (key === "finances.sponsorPitchActiveSponsor")
@@ -530,6 +539,73 @@ describe("FinancesTab facilities", () => {
     expect(onGameUpdate).toHaveBeenCalledWith(updatedState);
     expect(
       screen.getByText("Summit Capital will pay €85,000 for 12 weeks"),
+    ).toBeInTheDocument();
+  });
+
+  it("launches a marketing campaign for a pressured club and publishes the updated state", async () => {
+    const initialState = createGameState(
+      { wage_budget: 50000, finance: -30000 },
+      [],
+      [createPlayer({ wage: 5200000 })],
+    );
+    const updatedState = createGameState(
+      { wage_budget: 50000, finance: 82500 },
+      [],
+      [createPlayer({ wage: 5200000 })],
+    );
+    const onGameUpdate = vi.fn();
+
+    mockedInvoke.mockImplementation((command) => {
+      if (command === "get_finance_snapshot") {
+        return Promise.resolve({
+          snapshot: {
+            annual_wage_bill: 5200000,
+            weekly_wage_spend: 100000,
+            weekly_wage_budget: 962,
+            weekly_recurring_income: 0,
+            weekly_sponsor_income: 0,
+            projected_weekly_net: -100000,
+            cash_runway_weeks: 3,
+            wage_budget_usage_percent: 10400,
+            currently_in_debt: true,
+            currently_over_budget: true,
+            wage_budget_status: "critical",
+            runway_status: "critical",
+            overall_status: "critical",
+          },
+        });
+      }
+
+      if (command === "request_marketing_campaign") {
+        return Promise.resolve({
+          game: updatedState,
+          result: {
+            gross_revenue: 150000,
+            campaign_cost: 37500,
+            net_income: 112500,
+            cooldown_days: 28,
+          },
+        });
+      }
+
+      return Promise.reject(new Error(`Unexpected command: ${command}`));
+    });
+
+    render(
+      <FinancesTab gameState={initialState} onGameUpdate={onGameUpdate} />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Launch Campaign" }));
+
+    await waitFor(() => {
+      expect(mockedInvoke).toHaveBeenCalledWith("request_marketing_campaign");
+    });
+
+    expect(onGameUpdate).toHaveBeenCalledWith(updatedState);
+    expect(
+      screen.getByText(
+        "Campaign netted €112,500 after €37,500 in spend (€150,000 gross). Cooldown: 28 days",
+      ),
     ).toBeInTheDocument();
   });
 
