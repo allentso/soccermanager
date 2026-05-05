@@ -130,6 +130,8 @@ function mapLocalFinanceSnapshot(
     wageBudgetStatus: snapshot.wageBudgetStatus,
     runwayStatus: snapshot.runwayStatus,
     overallStatus: snapshot.overallStatus,
+    marketingCampaignCooldownDaysRemaining:
+      snapshot.marketingCampaignCooldownDaysRemaining,
   };
 }
 
@@ -251,7 +253,12 @@ export default function FinancesTab({
     remoteFinanceSnapshot ??
     mapLocalFinanceSnapshot(
       myTeam,
-      getTeamFinanceSnapshot(myTeam, roster, teamStaff),
+      getTeamFinanceSnapshot(
+        myTeam,
+        roster,
+        teamStaff,
+        gameState.clock.current_date,
+      ),
     );
   const totalWages = financeSnapshot.weeklyWageSpend;
   const totalValue = roster.reduce((s, p) => s + p.market_value, 0);
@@ -274,7 +281,9 @@ export default function FinancesTab({
     sponsorPitchAvailable(financeSnapshot) &&
     !hasPendingSponsorOffer &&
     !hasActiveSponsor;
-  const canRequestMarketingCampaign = marketingCampaignAvailable(financeSnapshot);
+  const canRequestMarketingCampaign =
+    marketingCampaignAvailable(financeSnapshot) &&
+    financeSnapshot.marketingCampaignCooldownDaysRemaining === 0;
   const sponsorPitchDisabledReason = hasActiveSponsor
     ? t("finances.sponsorPitchActiveSponsor")
     : hasPendingSponsorOffer
@@ -282,9 +291,14 @@ export default function FinancesTab({
       : !sponsorPitchAvailable(financeSnapshot)
         ? t("finances.sponsorPitchUnavailable")
         : null;
-  const marketingCampaignDisabledReason = !canRequestMarketingCampaign
-    ? t("finances.marketingCampaignUnavailable")
-    : null;
+  const marketingCampaignDisabledReason =
+    financeSnapshot.marketingCampaignCooldownDaysRemaining > 0
+      ? t("finances.marketingCampaignCoolingDown", {
+          days: financeSnapshot.marketingCampaignCooldownDaysRemaining,
+        })
+      : !marketingCampaignAvailable(financeSnapshot)
+        ? t("finances.marketingCampaignUnavailable")
+        : null;
   const contractRiskPlayers = roster
     .map((player) => {
       const riskLevel = getContractRiskLevel(

@@ -709,6 +709,7 @@
     "launchMarketingCampaign": "Launch Campaign",
     "marketingCampaignDescription": "Push a one-off merchandise and outreach campaign for an immediate cash boost when the club is under pressure.",
     "marketingCampaignUnavailable": "Marketing campaigns are reserved for clubs under wage or cash pressure.",
+    "marketingCampaignCoolingDown": "Marketing campaign available again in {{days}} days.",
     "marketingCampaignSummary": "Campaign netted {{netIncome}} after {{cost}} in spend ({{grossRevenue}} gross). Cooldown: {{days}} days.",
     "sponsorPitchUnavailable": "Sponsor pitches are reserved for clubs under wage or cash pressure.",
     "sponsorPitchActiveSponsor": "An active sponsorship is already in place.",

@@ -709,6 +709,7 @@
     "launchMarketingCampaign": "Kampagne starten",
     "marketingCampaignDescription": "Starte eine einmalige Merchandise- und Outreach-Kampagne, um bei finanziellem Druck sofort Geld hereinzuholen.",
     "marketingCampaignUnavailable": "Marketingkampagnen sind Clubs mit Gehalts- oder Liquiditätsdruck vorbehalten.",
+    "marketingCampaignCoolingDown": "Marketingkampagne in {{days}} Tagen wieder verfügbar.",
     "marketingCampaignSummary": "Die Kampagne brachte netto {{netIncome}} nach {{cost}} Aufwand ({{grossRevenue}} brutto). Abklingzeit: {{days}} Tage.",
     "sponsorPitchUnavailable": "Sponsorengespräche sind Clubs mit Gehalts- oder Liquiditätsdruck vorbehalten.",
     "sponsorPitchActiveSponsor": "Es gibt bereits einen aktiven Sponsorenvertrag.",
