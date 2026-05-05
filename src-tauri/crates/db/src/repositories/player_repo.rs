@@ -243,6 +243,8 @@ fn row_to_player(row: &rusqlite::Row) -> rusqlite::Result<Player> {
         team_id: row.get(12)?,
         squad_role: parse_squad_role(&squad_role_str),
         traits: serde_json::from_str(&traits_json).unwrap_or_default(),
+        ovr: 0,
+        potential: 0,
         contract_end: row.get(14)?,
         wage: row.get(15)?,
         market_value: market_value_i64 as u64,

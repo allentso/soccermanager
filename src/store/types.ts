@@ -171,6 +171,10 @@ export interface PlayerData {
   transfer_offers: TransferOfferData[];
   traits: string[];
   morale_core?: PlayerMoraleCoreData;
+  /** Position-weighted overall rating (1–99). Computed by the backend from the player's natural position. */
+  ovr?: number;
+  /** Player's potential ceiling (1–99). Set at generation; higher than ovr for young players. */
+  potential?: number;
 }
 
 export interface TransferOfferData {

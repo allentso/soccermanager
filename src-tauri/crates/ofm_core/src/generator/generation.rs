@@ -5,6 +5,7 @@ use rand::{Rng, RngExt};
 use uuid::Uuid;
 
 use super::definitions::NamesDefinition;
+use crate::player_rating::{generate_potential, refresh_player_derived};
 
 // ---------------------------------------------------------------------------
 // Helper functions for world generation
@@ -227,7 +228,14 @@ pub(super) fn generate_random_player_from_def(
         },
     };
 
-    let ovr = (attributes.pace as u32
+    // Compute position-weighted OVR and use it for market value / wage.
+    // We create the player first, then call refresh_player_derived to populate
+    // ovr, potential, and traits using the proper weighted formula.
+    let birth_year: u32 = dob.split('-').next().and_then(|y| y.parse().ok()).unwrap_or(2000);
+    let current_year: u32 = 2026;
+
+    // Temporary simple average for market-value sizing before refresh
+    let approx_ovr = (attributes.pace as u32
         + attributes.stamina as u32
         + attributes.strength as u32
         + attributes.passing as u32
@@ -249,7 +257,7 @@ pub(super) fn generate_random_player_from_def(
     } else {
         0.4
     };
-    let base_value = (ovr as f64).powi(2) * 500.0;
+    let base_value = (approx_ovr as f64).powi(2) * 500.0;
     let market_value = (base_value * age_factor) as u64;
     let wage = (market_value / 200).max(500) as u32;
     let contract_years = if age <= 21 {
@@ -288,6 +296,16 @@ pub(super) fn generate_random_player_from_def(
             player.alternate_positions.push(pos);
         }
     }
+
+    // Set position-weighted OVR, potential, and traits (Wonderkid included if applicable)
+    let player_age = current_year.saturating_sub(birth_year);
+    // Pre-generate a potential so Wonderkid trait is assigned correctly on first refresh
+    let temp_ovr = {
+        use crate::player_rating::natural_ovr;
+        natural_ovr(&player).round() as u8
+    };
+    player.potential = generate_potential(temp_ovr, player_age);
+    refresh_player_derived(&mut player, current_year);
 
     player
 }

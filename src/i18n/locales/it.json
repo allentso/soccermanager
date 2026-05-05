@@ -2202,6 +2202,10 @@
     "SetPieceSpecialist": {
       "label": "Spec. piazzati",
       "desc": "Micidiale sui calci piazzati"
+    },
+    "Wonderkid": {
+      "label": "Predestinato",
+      "desc": "Giovane talento con potenziale eccezionale"
     }
   },
   "date": {

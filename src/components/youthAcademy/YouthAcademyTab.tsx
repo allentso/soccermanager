@@ -1,4 +1,4 @@
-import { GameStateData, PlayerData } from "../../store/gameStore";
+import { GameStateData } from "../../store/gameStore";
 import {
   Card,
   CardHeader,
@@ -7,7 +7,7 @@ import {
   ProgressBar,
   CountryFlag,
 } from "../ui";
-import { calcOvr, calcAge, positionBadgeVariant } from "../../lib/helpers";
+import { calcAge, positionBadgeVariant } from "../../lib/helpers";
 import { isYouthAcademyPlayer } from "../../lib/playerSquad";
 import { TraitList } from "../TraitBadge";
 import { useTranslation } from "react-i18next";
@@ -22,16 +22,6 @@ interface YouthAcademyTabProps {
   gameState: GameStateData;
   onSelectPlayer?: (id: string) => void;
   onGameUpdate?: (game: GameStateData) => void;
-}
-
-// Estimate potential: younger players with good attributes have higher ceiling
-function estimatePotential(player: PlayerData): number {
-  const ovr = calcOvr(player, player.natural_position || player.position);
-  const age = calcAge(player.date_of_birth);
-  // Young players get a bonus: the younger they are with decent OVR, the higher the ceiling
-  const ageFactor = Math.max(0, (23 - age) * 2.5); // +2.5 per year under 23
-  const potential = Math.min(99, Math.round(ovr + ageFactor));
-  return potential;
 }
 
 function getPotentialLabel(
@@ -67,8 +57,8 @@ export default function YouthAcademyTab({
     .map((p) => ({
       ...p,
       age: calcAge(p.date_of_birth),
-      ovr: calcOvr(p, p.natural_position || p.position),
-      potential: estimatePotential(p),
+      ovr: p.ovr ?? 0,
+      potential: p.potential ?? 0,
     }))
     .sort((a, b) => b.potential - a.potential);
 
