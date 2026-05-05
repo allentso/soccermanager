@@ -252,7 +252,17 @@ pub(super) fn generate_random_player_from_def(
     let base_value = (ovr as f64).powi(2) * 500.0;
     let market_value = (base_value * age_factor) as u64;
     let wage = (market_value / 200).max(500) as u32;
-    let contract_years = rng.random_range(1..5);
+    let contract_years = if age <= 21 {
+        rng.random_range(3..6)
+    } else if age <= 27 {
+        rng.random_range(2..5)
+    } else if age <= 31 {
+        rng.random_range(2..4)
+    } else if rng.random_range(0..100) < 40 {
+        1
+    } else {
+        2
+    };
     let contract_end = format!("{}-06-30", 2026 + contract_years);
 
     let mut player = Player::new(
