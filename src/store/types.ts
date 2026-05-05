@@ -16,6 +16,13 @@ export interface SponsorshipData {
   bonus_criteria: unknown[];
 }
 
+export interface FinancialTransactionData {
+  date: string;
+  description: string;
+  amount: number;
+  kind: string;
+}
+
 export interface TeamSeasonRecord {
   season: number;
   league_position: number;
@@ -50,6 +57,7 @@ export interface TeamData {
   transfer_budget: number;
   season_income: number;
   season_expenses: number;
+  financial_ledger?: FinancialTransactionData[];
   formation: string;
   play_style: string;
   training_focus: string;

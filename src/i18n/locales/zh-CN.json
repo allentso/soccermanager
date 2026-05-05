@@ -709,6 +709,7 @@
     "launchMarketingCampaign": "发起活动",
     "marketingCampaignDescription": "当俱乐部面临压力时，发起一次性的周边销售和推广活动，立即回笼现金。",
     "marketingCampaignUnavailable": "营销活动仅适用于面临工资或现金压力的俱乐部。",
+    "marketingCampaignCoolingDown": "营销活动将在 {{days}} 天后再次可用。",
     "marketingCampaignSummary": "本次活动净收入 {{netIncome}}，支出 {{cost}}，总收入 {{grossRevenue}}。冷却时间：{{days}} 天。",
     "sponsorPitchUnavailable": "只有处于工资或现金压力下的俱乐部才能发起赞助接洽。",
     "sponsorPitchActiveSponsor": "当前已经有生效中的赞助合同。",

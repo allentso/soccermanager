@@ -728,6 +728,7 @@
     "launchMarketingCampaign": "Lancia campagna",
     "marketingCampaignDescription": "Avvia una campagna una tantum di merchandising e promozione per ottenere liquidità immediata quando il club è sotto pressione.",
     "marketingCampaignUnavailable": "Le campagne marketing sono riservate ai club sotto pressione salariale o di cassa.",
+    "marketingCampaignCoolingDown": "La campagna marketing sarà di nuovo disponibile tra {{days}} giorni.",
     "marketingCampaignSummary": "La campagna ha generato {{netIncome}} netti dopo {{cost}} di spesa ({{grossRevenue}} lordi). Recupero: {{days}} giorni.",
     "sponsorPitchUnavailable": "La ricerca sponsor è riservata ai club sotto pressione salariale o di cassa.",
     "sponsorPitchActiveSponsor": "C'è già un accordo di sponsorizzazione attivo.",

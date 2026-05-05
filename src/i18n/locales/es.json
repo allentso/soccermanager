@@ -709,6 +709,7 @@
     "launchMarketingCampaign": "Lanzar campaña",
     "marketingCampaignDescription": "Lanza una campaña puntual de merchandising y promoción para generar caja inmediata cuando el club esté bajo presión.",
     "marketingCampaignUnavailable": "Las campañas de marketing están reservadas a clubes con presión salarial o de caja.",
+    "marketingCampaignCoolingDown": "La campaña de marketing volverá a estar disponible en {{days}} días.",
     "marketingCampaignSummary": "La campaña dejó {{netIncome}} netos tras {{cost}} de gasto ({{grossRevenue}} brutos). Enfriamiento: {{days}} días.",
     "sponsorPitchUnavailable": "La búsqueda de patrocinadores está reservada a clubes con presión salarial o de caja.",
     "sponsorPitchActiveSponsor": "Ya hay un patrocinio activo en marcha.",

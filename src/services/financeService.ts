@@ -20,6 +20,7 @@ interface BackendTeamFinanceSnapshotData {
     wage_budget_status: FinanceHealthLevelData;
     runway_status: FinanceHealthLevelData;
     overall_status: FinanceHealthLevelData;
+    marketing_campaign_cooldown_days_remaining: number;
 }
 
 interface BackendFinanceSnapshotResponseData {
@@ -40,6 +41,7 @@ export interface TeamFinanceSnapshotData {
     wageBudgetStatus: FinanceHealthLevelData;
     runwayStatus: FinanceHealthLevelData;
     overallStatus: FinanceHealthLevelData;
+    marketingCampaignCooldownDaysRemaining: number;
 }
 
 function mapSnapshot(
@@ -59,6 +61,8 @@ function mapSnapshot(
         wageBudgetStatus: snapshot.wage_budget_status,
         runwayStatus: snapshot.runway_status,
         overallStatus: snapshot.overall_status,
+        marketingCampaignCooldownDaysRemaining:
+            snapshot.marketing_campaign_cooldown_days_remaining,
     };
 }
 

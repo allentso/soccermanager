@@ -45,6 +45,7 @@ pub struct TeamFinanceSnapshot {
     pub wage_budget_status: FinanceHealthLevel,
     pub runway_status: FinanceHealthLevel,
     pub overall_status: FinanceHealthLevel,
+    pub marketing_campaign_cooldown_days_remaining: u32,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -224,6 +225,10 @@ pub fn team_finance_snapshot(game: &Game, team_id: &str) -> Option<TeamFinanceSn
         wage_budget_status,
         runway_status,
         overall_status: most_severe_level(wage_budget_status, runway_status),
+        marketing_campaign_cooldown_days_remaining: marketing_campaign_cooldown_days_remaining(
+            team,
+            game.clock.current_date.date_naive(),
+        ),
     })
 }
 
@@ -348,6 +353,19 @@ fn most_recent_marketing_campaign_date(team: &Team) -> Option<NaiveDate> {
         .filter(|entry| entry.kind == FinancialTransactionKind::CommercialCampaign)
         .filter_map(|entry| NaiveDate::parse_from_str(&entry.date, "%Y-%m-%d").ok())
         .max()
+}
+
+fn marketing_campaign_cooldown_days_remaining(team: &Team, today: NaiveDate) -> u32 {
+    let Some(last_campaign) = most_recent_marketing_campaign_date(team) else {
+        return 0;
+    };
+
+    let days_since = (today - last_campaign).num_days();
+    if days_since >= MARKETING_CAMPAIGN_COOLDOWN_DAYS {
+        0
+    } else {
+        (MARKETING_CAMPAIGN_COOLDOWN_DAYS - days_since) as u32
+    }
 }
 
 fn marketing_campaign_gross_revenue(team: &Team, snapshot: &TeamFinanceSnapshot) -> i64 {
@@ -515,9 +533,7 @@ pub fn request_marketing_campaign(
         .find(|team| team.id == team_id)
         .ok_or("be.error.managedTeamNotFound".to_string())?;
 
-    if most_recent_marketing_campaign_date(team)
-        .is_some_and(|last_campaign| (today - last_campaign).num_days() < MARKETING_CAMPAIGN_COOLDOWN_DAYS)
-    {
+    if marketing_campaign_cooldown_days_remaining(team, today) > 0 {
         return Err("be.error.finance.marketingCampaignCoolingDown".to_string());
     }
 

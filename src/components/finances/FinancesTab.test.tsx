@@ -41,6 +41,8 @@ vi.mock("react-i18next", () => ({
         return "Push a one-off merchandise and outreach campaign for immediate cash.";
       if (key === "finances.marketingCampaignUnavailable")
         return "Marketing campaigns are reserved for clubs under wage or cash pressure.";
+      if (key === "finances.marketingCampaignCoolingDown")
+        return `Marketing campaign available again in ${params?.days} days`;
       if (key === "finances.marketingCampaignSummary")
         return `Campaign netted ${params?.netIncome} after ${params?.cost} in spend (${params?.grossRevenue} gross). Cooldown: ${params?.days} days`;
       if (key === "finances.sponsorPitchUnavailable")
@@ -507,6 +509,7 @@ describe("FinancesTab facilities", () => {
             wage_budget_status: "critical",
             runway_status: "watch",
             overall_status: "critical",
+            marketing_campaign_cooldown_days_remaining: 0,
           },
         });
       }
@@ -572,6 +575,7 @@ describe("FinancesTab facilities", () => {
             wage_budget_status: "critical",
             runway_status: "critical",
             overall_status: "critical",
+            marketing_campaign_cooldown_days_remaining: 0,
           },
         });
       }
@@ -606,6 +610,51 @@ describe("FinancesTab facilities", () => {
       screen.getByText(
         "Campaign netted €112,500 after €37,500 in spend (€150,000 gross). Cooldown: 28 days",
       ),
+    ).toBeInTheDocument();
+  });
+
+  it("disables the marketing campaign action while the campaign is cooling down", async () => {
+    const initialState = createGameState(
+      { wage_budget: 50000, finance: -30000 },
+      [],
+      [createPlayer({ wage: 5200000 })],
+    );
+
+    mockedInvoke.mockImplementation((command) => {
+      if (command === "get_finance_snapshot") {
+        return Promise.resolve({
+          snapshot: {
+            annual_wage_bill: 5200000,
+            weekly_wage_spend: 100000,
+            weekly_wage_budget: 962,
+            weekly_recurring_income: 0,
+            weekly_sponsor_income: 0,
+            projected_weekly_net: -100000,
+            cash_runway_weeks: 3,
+            wage_budget_usage_percent: 10400,
+            currently_in_debt: true,
+            currently_over_budget: true,
+            wage_budget_status: "critical",
+            runway_status: "critical",
+            overall_status: "critical",
+            marketing_campaign_cooldown_days_remaining: 9,
+          },
+        });
+      }
+
+      return Promise.reject(new Error(`Unexpected command: ${command}`));
+    });
+
+    render(<FinancesTab gameState={initialState} />);
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "Launch Campaign" }),
+      ).toBeDisabled();
+    });
+
+    expect(
+      screen.getByText("Marketing campaign available again in 9 days"),
     ).toBeInTheDocument();
   });
 

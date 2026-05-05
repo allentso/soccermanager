@@ -5,7 +5,9 @@ use domain::league::{
 use domain::manager::Manager;
 use domain::player::{Player, PlayerAttributes, Position};
 use domain::staff::{Staff, StaffAttributes, StaffRole};
-use domain::team::{FinancialTransactionKind, Sponsorship, SponsorshipBonusCriterion, Team};
+use domain::team::{
+    FinancialTransaction, FinancialTransactionKind, Sponsorship, SponsorshipBonusCriterion, Team,
+};
 use ofm_core::clock::GameClock;
 use ofm_core::finances;
 use ofm_core::game::Game;
@@ -346,6 +348,21 @@ fn request_marketing_campaign_respects_cooldown() {
         .expect_err("second campaign should fail");
 
     assert_eq!(error, "be.error.finance.marketingCampaignCoolingDown");
+}
+
+#[test]
+fn team_finance_snapshot_reports_marketing_campaign_cooldown() {
+    let mut game = make_monday_game();
+    game.teams[0].financial_ledger.push(FinancialTransaction {
+        date: "2025-06-02".to_string(),
+        description: "Marketing campaign merchandise revenue".to_string(),
+        amount: 120_000,
+        kind: FinancialTransactionKind::CommercialCampaign,
+    });
+
+    let snapshot = finances::team_finance_snapshot(&game, "team1").expect("snapshot");
+
+    assert_eq!(snapshot.marketing_campaign_cooldown_days_remaining, 14);
 }
 
 #[test]
