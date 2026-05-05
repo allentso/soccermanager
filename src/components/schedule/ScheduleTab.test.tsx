@@ -18,6 +18,7 @@ vi.mock("react-i18next", () => ({
       if (key === "schedule.fixtures") return "Fixtures";
       if (key === "schedule.standings") return "Standings";
       if (key === "common.team") return "Team";
+      if (key === "common.viewTeam") return "View team";
       if (key === "common.played") return "P";
       if (key === "common.won") return "W";
       if (key === "common.drawn") return "D";
@@ -165,6 +166,17 @@ describe("ScheduleTab", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /Standings/i }));
     fireEvent.click(screen.getByText("Beta FC"));
+
+    expect(onSelectTeam).toHaveBeenCalledWith("team-2");
+  });
+
+  it("offers context menu actions for fixture teams", () => {
+    const onSelectTeam = vi.fn();
+
+    render(<ScheduleTab gameState={createGameState(true)} onSelectTeam={onSelectTeam} />);
+
+    fireEvent.contextMenu(screen.getByTestId("schedule-fixture-fixture-1"));
+    fireEvent.click(screen.getByRole("button", { name: "View team: Beta FC" }));
 
     expect(onSelectTeam).toHaveBeenCalledWith("team-2");
   });

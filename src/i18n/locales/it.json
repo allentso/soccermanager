@@ -761,6 +761,8 @@
     "chooseResponse": "Scegli la tua risposta",
     "chooseResponseOutcomeVaries": "Scegli la tua risposta — l'esito può variare",
     "responded": "Risposta inviata",
+    "openMessage": "Apri messaggio",
+    "markAsRead": "Segna come letto",
     "markAllRead": "Segna tutto come letto",
     "clearOld": "Pulisci vecchi",
     "sortLabel": "Ordina",

@@ -742,6 +742,8 @@
     "chooseResponse": "选择你的回应",
     "chooseResponseOutcomeVaries": "选择你的回应——结果会有所不同",
     "responded": "回应已发送",
+    "openMessage": "打开消息",
+    "markAsRead": "标记为已读",
     "markAllRead": "全部标为已读",
     "clearOld": "清理旧消息",
     "sortLabel": "排序",
