@@ -56,6 +56,28 @@ pub struct BoardSupportResult {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct SponsorPitchPreview {
+    pub sponsor_name: String,
+    pub weekly_amount: i64,
+    pub duration_weeks: u32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub struct MarketingCampaignPreview {
+    pub gross_revenue: i64,
+    pub campaign_cost: i64,
+    pub net_income: i64,
+    pub cooldown_days: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Default)]
+pub struct FinanceActionPreviews {
+    pub board_support: Option<BoardSupportResult>,
+    pub sponsor_pitch: Option<SponsorPitchPreview>,
+    pub marketing_campaign: Option<MarketingCampaignPreview>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct SponsorPitchResult {
     pub message_id: String,
     pub sponsor_name: String,
@@ -376,6 +398,14 @@ fn sponsor_pitch_available(snapshot: &TeamFinanceSnapshot) -> bool {
         )
 }
 
+fn board_support_available(snapshot: &TeamFinanceSnapshot) -> bool {
+    snapshot.currently_in_debt
+        || matches!(
+            snapshot.runway_status,
+            FinanceHealthLevel::Warning | FinanceHealthLevel::Critical
+        )
+}
+
 fn marketing_campaign_available(snapshot: &TeamFinanceSnapshot) -> bool {
     snapshot.currently_over_budget
         || snapshot.currently_in_debt
@@ -504,7 +534,48 @@ fn sponsor_pitch_weekly_amount(team: &Team, snapshot: &TeamFinanceSnapshot) -> i
         )
 }
 
-pub fn request_sponsor_pitch(game: &mut Game, team_id: &str) -> Result<SponsorPitchResult, String> {
+pub fn preview_board_support(game: &Game, team_id: &str) -> Result<BoardSupportResult, String> {
+    let snapshot =
+        team_finance_snapshot(game, team_id).ok_or("be.error.managedTeamNotFound".to_string())?;
+
+    if !board_support_available(&snapshot) {
+        return Err("be.error.finance.boardSupportUnavailable".to_string());
+    }
+
+    let season = board_support_season(game);
+    let team = game
+        .teams
+        .iter()
+        .find(|team| team.id == team_id)
+        .ok_or("be.error.managedTeamNotFound".to_string())?;
+
+    if team.financial_ledger.iter().any(|entry| {
+        entry.kind == FinancialTransactionKind::BoardSupport
+            && entry.description == format!("Board support package for season {}", season)
+    }) {
+        return Err("be.error.finance.boardSupportAlreadyUsed".to_string());
+    }
+
+    let reserve_target = std::cmp::max(
+        snapshot.weekly_wage_spend * BOARD_SUPPORT_TARGET_RUNWAY_WEEKS,
+        BOARD_SUPPORT_MIN_AMOUNT,
+    );
+    let support_amount = (reserve_target - team.finance)
+        .max(BOARD_SUPPORT_MIN_AMOUNT)
+        .min(BOARD_SUPPORT_MAX_AMOUNT);
+    let transfer_budget_reduction = std::cmp::min(team.transfer_budget.max(0), support_amount / 2);
+
+    Ok(BoardSupportResult {
+        support_amount,
+        transfer_budget_reduction,
+        satisfaction_penalty: BOARD_SUPPORT_SATISFACTION_PENALTY,
+    })
+}
+
+pub fn preview_sponsor_pitch(
+    game: &Game,
+    team_id: &str,
+) -> Result<SponsorPitchPreview, String> {
     let snapshot =
         team_finance_snapshot(game, team_id).ok_or("be.error.managedTeamNotFound".to_string())?;
 
@@ -535,32 +606,17 @@ pub fn request_sponsor_pitch(game: &mut Game, team_id: &str) -> Result<SponsorPi
         return Err("be.error.finance.sponsorPitchActiveSponsor".to_string());
     }
 
-    let weekly_amount = sponsor_pitch_weekly_amount(team, &snapshot);
-    let sponsor_name = sponsor_pitch_partner(team_id, game.clock.current_date).to_string();
-    let team_name = team.name.clone();
-    let date = game.clock.current_date.format("%Y-%m-%d").to_string();
-
-    game.messages
-        .push(crate::random_events::sponsor_offer_message(
-            &message_id,
-            &team_name,
-            &sponsor_name,
-            weekly_amount as u64,
-            &date,
-        ));
-
-    Ok(SponsorPitchResult {
-        message_id,
-        sponsor_name,
-        weekly_amount,
+    Ok(SponsorPitchPreview {
+        sponsor_name: sponsor_pitch_partner(team_id, game.clock.current_date).to_string(),
+        weekly_amount: sponsor_pitch_weekly_amount(team, &snapshot),
         duration_weeks: SPONSOR_PITCH_DURATION_WEEKS,
     })
 }
 
-pub fn request_marketing_campaign(
-    game: &mut Game,
+pub fn preview_marketing_campaign(
+    game: &Game,
     team_id: &str,
-) -> Result<MarketingCampaignResult, String> {
+) -> Result<MarketingCampaignPreview, String> {
     let snapshot =
         team_finance_snapshot(game, team_id).ok_or("be.error.managedTeamNotFound".to_string())?;
 
@@ -581,14 +637,71 @@ pub fn request_marketing_campaign(
 
     let gross_revenue = marketing_campaign_gross_revenue(team, &snapshot);
     let campaign_cost = marketing_campaign_cost(gross_revenue);
-    let net_income = gross_revenue - campaign_cost;
+
+    Ok(MarketingCampaignPreview {
+        gross_revenue,
+        campaign_cost,
+        net_income: gross_revenue - campaign_cost,
+        cooldown_days: MARKETING_CAMPAIGN_COOLDOWN_DAYS as u32,
+    })
+}
+
+pub fn finance_action_previews(game: &Game, team_id: &str) -> Option<FinanceActionPreviews> {
+    game.teams.iter().find(|team| team.id == team_id)?;
+
+    Some(FinanceActionPreviews {
+        board_support: preview_board_support(game, team_id).ok(),
+        sponsor_pitch: preview_sponsor_pitch(game, team_id).ok(),
+        marketing_campaign: preview_marketing_campaign(game, team_id).ok(),
+    })
+}
+
+pub fn request_sponsor_pitch(game: &mut Game, team_id: &str) -> Result<SponsorPitchResult, String> {
+    let preview = preview_sponsor_pitch(game, team_id)?;
+    let message_id = sponsor_pitch_message_id(game);
+    let weekly_amount = preview.weekly_amount;
+    let sponsor_name = preview.sponsor_name;
+    let team = game
+        .teams
+        .iter()
+        .find(|team| team.id == team_id)
+        .ok_or("be.error.managedTeamNotFound".to_string())?;
+    let team_name = team.name.clone();
+    let date = game.clock.current_date.format("%Y-%m-%d").to_string();
+
+    game.messages
+        .push(crate::random_events::sponsor_offer_message(
+            &message_id,
+            &team_name,
+            &sponsor_name,
+            weekly_amount as u64,
+            &date,
+        ));
+
+    Ok(SponsorPitchResult {
+        message_id,
+        sponsor_name,
+        weekly_amount,
+        duration_weeks: preview.duration_weeks,
+    })
+}
+
+pub fn request_marketing_campaign(
+    game: &mut Game,
+    team_id: &str,
+) -> Result<MarketingCampaignResult, String> {
+    let preview = preview_marketing_campaign(game, team_id)?;
+    let today = game.clock.current_date.date_naive();
+    let gross_revenue = preview.gross_revenue;
+    let campaign_cost = preview.campaign_cost;
+    let net_income = preview.net_income;
     let today_label = today.format("%Y-%m-%d").to_string();
     let message = marketing_campaign_message(
         &today_label,
         gross_revenue,
         campaign_cost,
         net_income,
-        MARKETING_CAMPAIGN_COOLDOWN_DAYS as u32,
+        preview.cooldown_days,
     );
     let message_id = message.id.clone();
     let team = game
@@ -619,45 +732,20 @@ pub fn request_marketing_campaign(
         gross_revenue,
         campaign_cost,
         net_income,
-        cooldown_days: MARKETING_CAMPAIGN_COOLDOWN_DAYS as u32,
+        cooldown_days: preview.cooldown_days,
     })
 }
 
 pub fn request_board_support(game: &mut Game, team_id: &str) -> Result<BoardSupportResult, String> {
-    let snapshot =
-        team_finance_snapshot(game, team_id).ok_or("be.error.managedTeamNotFound".to_string())?;
-
-    if !snapshot.currently_in_debt
-        && !matches!(
-            snapshot.runway_status,
-            FinanceHealthLevel::Warning | FinanceHealthLevel::Critical
-        )
-    {
-        return Err("be.error.finance.boardSupportUnavailable".to_string());
-    }
-
+    let preview = preview_board_support(game, team_id)?;
     let season = board_support_season(game);
     let team = game
         .teams
         .iter_mut()
         .find(|team| team.id == team_id)
         .ok_or("be.error.managedTeamNotFound".to_string())?;
-
-    if team.financial_ledger.iter().any(|entry| {
-        entry.kind == FinancialTransactionKind::BoardSupport
-            && entry.description == format!("Board support package for season {}", season)
-    }) {
-        return Err("be.error.finance.boardSupportAlreadyUsed".to_string());
-    }
-
-    let reserve_target = std::cmp::max(
-        snapshot.weekly_wage_spend * BOARD_SUPPORT_TARGET_RUNWAY_WEEKS,
-        BOARD_SUPPORT_MIN_AMOUNT,
-    );
-    let support_amount = (reserve_target - team.finance)
-        .max(BOARD_SUPPORT_MIN_AMOUNT)
-        .min(BOARD_SUPPORT_MAX_AMOUNT);
-    let transfer_budget_reduction = std::cmp::min(team.transfer_budget.max(0), support_amount / 2);
+    let support_amount = preview.support_amount;
+    let transfer_budget_reduction = preview.transfer_budget_reduction;
 
     team.finance += support_amount;
     team.season_income += support_amount;
@@ -672,13 +760,9 @@ pub fn request_board_support(game: &mut Game, team_id: &str) -> Result<BoardSupp
     game.manager.satisfaction = game
         .manager
         .satisfaction
-        .saturating_sub(BOARD_SUPPORT_SATISFACTION_PENALTY);
+        .saturating_sub(preview.satisfaction_penalty);
 
-    Ok(BoardSupportResult {
-        support_amount,
-        transfer_budget_reduction,
-        satisfaction_penalty: BOARD_SUPPORT_SATISFACTION_PENALTY,
-    })
+    Ok(preview)
 }
 
 pub fn evaluate_sponsorship_bonus(

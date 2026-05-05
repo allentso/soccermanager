@@ -1594,7 +1594,7 @@
         "marketingCampaignUnavailable": "Marketingkampagnen sind nur verfügbar, wenn der Club unter Gehalts- oder Liquiditätsdruck steht.",
         "marketingCampaignCoolingDown": "Das Kommerz-Team braucht Zeit, bevor es eine weitere Marketingkampagne startet.",
         "facilityUpgradeOverBudget": "Ausbauten sind blockiert, solange der Club sein Gehaltsbudget überschreitet.",
-        "facilityUpgradeCritical": "Ausbauten sind blockiert, solange sich der Club in kritischer finanzieller Notlage befindet."
+        "facilityUpgradeCritical": "Ausbauten sind blockiert, solange der Club unter erheblichem finanziellem Druck steht."
       },
       "createManager": {
         "nameRequired": "Vorname und Nachname sind erforderlich.",

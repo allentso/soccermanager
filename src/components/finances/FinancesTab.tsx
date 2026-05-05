@@ -23,6 +23,7 @@ import {
 } from "../../lib/finance";
 import {
   getFinanceSnapshot,
+  type FinanceSnapshotData,
   type TeamFinanceSnapshotData,
 } from "../../services/financeService";
 import { useTranslation } from "react-i18next";
@@ -82,7 +83,10 @@ function facilityUpgradeBlockReason(
     return "be.error.finance.facilityUpgradeOverBudget";
   }
 
-  if (snapshot.overallStatus === "critical") {
+  if (
+    snapshot.overallStatus === "warning" ||
+    snapshot.overallStatus === "critical"
+  ) {
     return "be.error.finance.facilityUpgradeCritical";
   }
 
@@ -228,8 +232,8 @@ export default function FinancesTab({
   const [selectedRiskPlayerIds, setSelectedRiskPlayerIds] = useState<string[]>(
     [],
   );
-  const [remoteFinanceSnapshot, setRemoteFinanceSnapshot] =
-    useState<TeamFinanceSnapshotData | null>(null);
+  const [remoteFinanceData, setRemoteFinanceData] =
+    useState<FinanceSnapshotData | null>(null);
   const [facilityUpgradeError, setFacilityUpgradeError] = useState<string | null>(
     null,
   );
@@ -251,7 +255,7 @@ export default function FinancesTab({
     (staffMember) => staffMember.team_id === myTeam.id,
   );
   const financeSnapshot =
-    remoteFinanceSnapshot ??
+    remoteFinanceData?.snapshot ??
     mapLocalFinanceSnapshot(
       myTeam,
       getTeamFinanceSnapshot(
@@ -261,6 +265,7 @@ export default function FinancesTab({
         gameState.clock.current_date,
       ),
     );
+  const recoveryPreviews = remoteFinanceData?.previews ?? null;
   const totalWages = financeSnapshot.weeklyWageSpend;
   const totalValue = roster.reduce((s, p) => s + p.market_value, 0);
   const facilities = myTeam.facilities ?? DEFAULT_FACILITIES;
@@ -300,6 +305,32 @@ export default function FinancesTab({
       : !marketingCampaignAvailable(financeSnapshot)
         ? t("finances.marketingCampaignUnavailable")
         : null;
+  const boardSupportPreviewText = recoveryPreviews?.boardSupport
+    ? t("finances.boardSupportSummary", {
+        amount: formatExactMoney(recoveryPreviews.boardSupport.supportAmount),
+        transferBudgetReduction: formatExactMoney(
+          recoveryPreviews.boardSupport.transferBudgetReduction,
+        ),
+        satisfactionPenalty: recoveryPreviews.boardSupport.satisfactionPenalty,
+      })
+    : null;
+  const sponsorPitchPreviewText = recoveryPreviews?.sponsorPitch
+    ? t("finances.sponsorPitchSummary", {
+        sponsor: recoveryPreviews.sponsorPitch.sponsorName,
+        amount: formatExactMoney(recoveryPreviews.sponsorPitch.weeklyAmount),
+        weeks: recoveryPreviews.sponsorPitch.durationWeeks,
+      })
+    : null;
+  const marketingCampaignPreviewText = recoveryPreviews?.marketingCampaign
+    ? t("finances.marketingCampaignSummary", {
+        netIncome: formatExactMoney(recoveryPreviews.marketingCampaign.netIncome),
+        grossRevenue: formatExactMoney(
+          recoveryPreviews.marketingCampaign.grossRevenue,
+        ),
+        cost: formatExactMoney(recoveryPreviews.marketingCampaign.campaignCost),
+        days: recoveryPreviews.marketingCampaign.cooldownDays,
+      })
+    : null;
   const contractRiskPlayers = roster
     .map((player) => {
       const riskLevel = getContractRiskLevel(
@@ -333,15 +364,15 @@ export default function FinancesTab({
     let cancelled = false;
 
     void getFinanceSnapshot(myTeam.id)
-      .then((snapshot) => {
+      .then((financeData) => {
         if (!cancelled) {
-          setRemoteFinanceSnapshot(snapshot);
+          setRemoteFinanceData(financeData);
         }
       })
       .catch((error) => {
         console.error("Failed to load finance snapshot:", error);
         if (!cancelled) {
-          setRemoteFinanceSnapshot(null);
+          setRemoteFinanceData(null);
         }
       });
 
@@ -703,6 +734,11 @@ export default function FinancesTab({
                 <p className="text-sm text-gray-600 dark:text-gray-400">
                   {t("finances.boardSupportDescription")}
                 </p>
+                {boardSupportPreviewText ? (
+                  <p className="text-xs text-gray-600 dark:text-gray-400">
+                    {boardSupportPreviewText}
+                  </p>
+                ) : null}
               </div>
               <Button
                 disabled={!canRequestBoardSupport || actionLoading === "board-support"}
@@ -913,6 +949,11 @@ export default function FinancesTab({
                     <p className="text-sm text-gray-600 dark:text-gray-400">
                       {t("finances.sponsorPitchDescription")}
                     </p>
+                    {sponsorPitchPreviewText ? (
+                      <p className="text-xs text-gray-600 dark:text-gray-400">
+                        {sponsorPitchPreviewText}
+                      </p>
+                    ) : null}
                   </div>
                   <Button
                     size="sm"
@@ -951,6 +992,11 @@ export default function FinancesTab({
                     <p className="text-sm text-gray-600 dark:text-gray-400">
                       {t("finances.marketingCampaignDescription")}
                     </p>
+                    {marketingCampaignPreviewText ? (
+                      <p className="text-xs text-gray-600 dark:text-gray-400">
+                        {marketingCampaignPreviewText}
+                      </p>
+                    ) : null}
                   </div>
                   <Button
                     size="sm"
