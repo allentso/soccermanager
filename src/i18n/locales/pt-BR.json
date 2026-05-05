@@ -1640,7 +1640,8 @@
       "playersUnder21": "{{count}} jogadores na base",
       "matchDayPress": "Imprensa do Jogo",
       "leagueChronicle": "Crônica da Liga",
-      "leagueWire": "Notícias da Liga"
+      "leagueWire": "Notícias da Liga",
+      "transferIntelligence": "Transfer Intelligence"
     },
     "msg": {
       "welcome": {
@@ -2119,6 +2120,21 @@
           "headline": "{{team}} amplia sequência invicta para {{runLength}}",
           "body": "{{team}} já soma {{runLength}} jogo(s) sem perder e está ganhando embalo de verdade."
         }
+      },
+      "transferRumour": {
+        "headline0": "{{player}} Attracting Interest from Several Clubs",
+        "headline1": "Clubs Circle as {{player}} Future Remains Uncertain",
+        "headline2": "{{player}} Linked with Move Away from {{team}}",
+        "body0": "Sources close to the situation suggest that {{player}} could be on the move, with multiple clubs reportedly monitoring the {{team}} player. {{team}} have not commented publicly, but the speculation is unlikely to die down soon.",
+        "body1": "{{player}} is understood to have attracted attention from clubs across the division. The {{team}} star has been one of the standout performers this season, and it is believed that offers could materialise before the window closes.",
+        "body2": "Transfer whispers are growing louder around {{player}}, with the {{team}} player said to be weighing their options. Agent talks are rumoured to have taken place, though nothing has been confirmed."
+      },
+      "injuryNews": {
+        "headline0": "{{player}} Injury Blow for {{team}}",
+        "headline1": "{{player}} Set for Spell on the Sidelines",
+        "headline2": "{{duration}} — {{team}} Sweating on Key Player",
+        "body0": "{{team}} have confirmed that {{player}} has picked up an injury and is expected to be sidelined for {{duration}}. The club will assess the situation before providing a further update.",
+        "body1": "{{player}} suffered a setback in training, with the {{team}} player ruled out for {{duration}}. The absence will be a significant blow as the season reaches a critical stage."
       }
     }
   },
