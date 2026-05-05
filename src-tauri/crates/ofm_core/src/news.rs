@@ -573,8 +573,8 @@ pub fn transfer_rumour_gossip_article(
             player_name, from_team_name
         ),
         format!(
-            "Transfer whispers are growing louder around {}, with the {} midfielder/forward \
-            said to be weighing his options. Agent talks are rumoured to have taken place, \
+            "Transfer whispers are growing louder around {}, with the {} player \
+            said to be weighing their options. Agent talks are rumoured to have taken place, \
             though nothing has been confirmed.",
             player_name, from_team_name
         ),
