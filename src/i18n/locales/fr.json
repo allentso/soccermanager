@@ -742,6 +742,8 @@
     "chooseResponse": "Choisissez votre réponse",
     "chooseResponseOutcomeVaries": "Choisissez votre réponse — l'issue peut varier",
     "responded": "Réponse envoyée",
+    "openMessage": "Ouvrir le message",
+    "markAsRead": "Marquer comme lu",
     "markAllRead": "Tout marquer comme lu",
     "clearOld": "Effacer les anciens",
     "sortLabel": "Trier",
