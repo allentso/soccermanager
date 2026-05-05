@@ -90,6 +90,7 @@ const REQUIRED_KEYS = [
   "boardObjectives.objective.LeaguePosition",
   "boardObjectives.objective.Wins",
   "boardObjectives.objective.GoalsScored",
+  "boardObjectives.objective.FinancialStability",
 ] as const;
 
 function getNestedValue(tree: LocaleTree, keyPath: string): unknown {

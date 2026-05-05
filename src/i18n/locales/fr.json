@@ -714,6 +714,11 @@
     "cashRunway": "Autonomie de trésorerie",
     "runwayWeeks": "{{count}} semaines au rythme actuel",
     "runwayStable": "Stable au rythme actuel",
+    "boardSupport": "Soutien du conseil",
+    "boardSupportDescription": "Demandez un financement d'urgence au conseil pour stabiliser la trésorerie. Cela réduit la confiance et resserre souvent le budget transferts.",
+    "requestBoardSupport": "Demander un soutien",
+    "boardSupportUnavailable": "Le soutien du conseil est réservé aux clubs endettés ou proches d'une crise de trésorerie.",
+    "boardSupportSummary": "Le conseil a accordé {{amount}} de financement d'urgence. Le budget transferts baisse de {{transferBudgetReduction}} et la confiance du conseil recule de {{satisfactionPenalty}}.",
     "wagePressure": "Pression salariale",
     "wageBudgetUsed": "{{percent}}% du budget salarial utilisé",
     "contractRisk": "Risque contractuel",
@@ -811,7 +816,8 @@
     "objective": {
       "LeaguePosition": "Terminez dans le top {{target}}",
       "Wins": "Remportez au moins {{target}} matchs",
-      "GoalsScored": "Marquez au moins {{target}} buts"
+      "GoalsScored": "Marquez au moins {{target}} buts",
+      "FinancialStability": "Maintenez la masse salariale a {{target}} % du budget ou moins"
     }
   },
   "transfers": {

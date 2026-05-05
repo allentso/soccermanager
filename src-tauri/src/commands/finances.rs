@@ -2,13 +2,19 @@ use log::info;
 use serde::Serialize;
 use tauri::State;
 
-use ofm_core::finances::TeamFinanceSnapshot;
+use ofm_core::finances::{BoardSupportResult, TeamFinanceSnapshot};
 use ofm_core::game::Game;
 use ofm_core::state::StateManager;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct FinanceSnapshotCommandResponse {
     pub snapshot: TeamFinanceSnapshot,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct BoardSupportCommandResponse {
+    pub game: Game,
+    pub result: BoardSupportResult,
 }
 
 #[tauri::command]
@@ -44,9 +50,37 @@ fn get_finance_snapshot_internal(
     Ok(FinanceSnapshotCommandResponse { snapshot })
 }
 
+#[tauri::command]
+pub async fn request_board_support(
+    state: State<'_, StateManager>,
+) -> Result<BoardSupportCommandResponse, String> {
+    request_board_support_internal(&state)
+}
+
+fn request_board_support_internal(
+    state: &StateManager,
+) -> Result<BoardSupportCommandResponse, String> {
+    info!("[cmd] request_board_support");
+
+    let mut game = state
+        .get_game(|g: &Game| g.clone())
+        .ok_or("be.error.noActiveGameSession".to_string())?;
+
+    let team_id = game
+        .manager
+        .team_id
+        .clone()
+        .ok_or("be.error.noTeamAssigned".to_string())?;
+
+    let result = ofm_core::finances::request_board_support(&mut game, &team_id)?;
+
+    state.set_game(game.clone());
+    Ok(BoardSupportCommandResponse { game, result })
+}
+
 #[cfg(test)]
 mod tests {
-    use super::get_finance_snapshot_internal;
+    use super::{get_finance_snapshot_internal, request_board_support_internal};
     use chrono::{TimeZone, Utc};
     use domain::manager::Manager;
     use domain::player::{Player, PlayerAttributes, Position};
@@ -67,6 +101,7 @@ mod tests {
         );
         team.finance = 500_000;
         team.wage_budget = 120_000;
+        team.transfer_budget = 300_000;
         team.manager_id = Some("manager-1".to_string());
         team
     }
@@ -138,5 +173,24 @@ mod tests {
         assert_eq!(response.snapshot.annual_wage_bill, 52_000);
         assert_eq!(response.snapshot.weekly_wage_spend, 1_000);
         assert_eq!(response.snapshot.weekly_wage_budget, 120_000 / 52);
+    }
+
+    #[test]
+    fn request_board_support_internal_updates_managed_team_state() {
+        let state = StateManager::new();
+        let mut game = make_game();
+        game.teams[0].finance = -25_000;
+        game.manager.satisfaction = 70;
+        state.set_game(game);
+
+        let response = request_board_support_internal(&state).expect("response");
+
+        assert!(response.result.support_amount >= 150_000);
+        assert!(response.game.teams[0].finance > 0);
+        assert_eq!(response.game.manager.satisfaction, 58);
+
+        let stored_game = state.get_game(|current| current.clone()).expect("stored game");
+        assert!(stored_game.teams[0].finance > 0);
+        assert_eq!(stored_game.manager.satisfaction, 58);
     }
 }

@@ -186,6 +186,7 @@ fn parse_objective_type(value: &str) -> ObjectiveType {
         "LeaguePosition" => ObjectiveType::LeaguePosition,
         "Wins" => ObjectiveType::Wins,
         "GoalsScored" => ObjectiveType::GoalsScored,
+        "FinancialStability" => ObjectiveType::FinancialStability,
         _ => ObjectiveType::Wins,
     }
 }

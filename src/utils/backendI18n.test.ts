@@ -36,6 +36,7 @@ beforeAll(async () => {
     "boardObjectives.objective.LeaguePosition": "Finish in the top {{target}}",
     "boardObjectives.objective.Wins": "Win at least {{target}} matches",
     "boardObjectives.objective.GoalsScored": "Score at least {{target}} goals",
+    "boardObjectives.objective.FinancialStability": "Keep wage spending at or below {{target}}% of budget",
   }, true, true);
 });
 

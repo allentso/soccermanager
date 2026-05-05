@@ -27,6 +27,10 @@ function resolve(key: string | undefined, fallback: string, params?: Record<stri
   return resolved;
 }
 
+function isTranslationKey(value: string): boolean {
+  return value.includes('.') && i18n.t(value) !== value;
+}
+
 function extractErrorMessage(error: unknown): string {
   if (typeof error === "string") return error;
   if (error instanceof Error) return error.message;
@@ -65,6 +69,8 @@ function boardObjectiveFallback(objective: BoardObjective): string {
       return `Win at least ${objective.target} matches`;
     case 'GoalsScored':
       return `Score at least ${objective.target} goals`;
+    case 'FinancialStability':
+      return `Keep wage spending at or below ${objective.target}% of budget`;
     default:
       return objective.description;
   }

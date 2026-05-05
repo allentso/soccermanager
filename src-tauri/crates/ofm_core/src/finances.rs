@@ -1,9 +1,16 @@
 use crate::game::Game;
 use chrono::Datelike;
 use domain::message::*;
-use domain::team::{Sponsorship, SponsorshipBonusCriterion, Team};
+use domain::team::{
+    FinancialTransaction, FinancialTransactionKind, Sponsorship, SponsorshipBonusCriterion, Team,
+};
 use rand::RngExt;
 use serde::Serialize;
+
+const BOARD_SUPPORT_MIN_AMOUNT: i64 = 150_000;
+const BOARD_SUPPORT_MAX_AMOUNT: i64 = 1_000_000;
+const BOARD_SUPPORT_TARGET_RUNWAY_WEEKS: i64 = 8;
+const BOARD_SUPPORT_SATISFACTION_PENALTY: u8 = 12;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -29,6 +36,13 @@ pub struct TeamFinanceSnapshot {
     pub wage_budget_status: FinanceHealthLevel,
     pub runway_status: FinanceHealthLevel,
     pub overall_status: FinanceHealthLevel,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub struct BoardSupportResult {
+    pub support_amount: i64,
+    pub transfer_budget_reduction: i64,
+    pub satisfaction_penalty: u8,
 }
 
 fn wage_budget_status(usage_percent: u32) -> FinanceHealthLevel {
@@ -185,6 +199,74 @@ pub fn team_finance_snapshot(game: &Game, team_id: &str) -> Option<TeamFinanceSn
         wage_budget_status,
         runway_status,
         overall_status: most_severe_level(wage_budget_status, runway_status),
+    })
+}
+
+fn board_support_season(game: &Game) -> u32 {
+    game.league
+        .as_ref()
+        .map(|league| league.season)
+        .unwrap_or(game.clock.current_date.year().max(0) as u32)
+}
+
+pub fn request_board_support(game: &mut Game, team_id: &str) -> Result<BoardSupportResult, String> {
+    let snapshot = team_finance_snapshot(game, team_id)
+        .ok_or("be.error.managedTeamNotFound".to_string())?;
+
+    if !snapshot.currently_in_debt
+        && !matches!(
+            snapshot.runway_status,
+            FinanceHealthLevel::Warning | FinanceHealthLevel::Critical
+        )
+    {
+        return Err(
+            "Emergency board support is only available when cash reserves are under pressure."
+                .to_string(),
+        );
+    }
+
+    let season = board_support_season(game);
+    let team = game
+        .teams
+        .iter_mut()
+        .find(|team| team.id == team_id)
+        .ok_or("be.error.managedTeamNotFound".to_string())?;
+
+    if team.financial_ledger.iter().any(|entry| {
+        entry.kind == FinancialTransactionKind::BoardSupport
+            && entry.description == format!("Board support package for season {}", season)
+    }) {
+        return Err("The board has already approved emergency support this season.".to_string());
+    }
+
+    let reserve_target = std::cmp::max(
+        snapshot.weekly_wage_spend * BOARD_SUPPORT_TARGET_RUNWAY_WEEKS,
+        BOARD_SUPPORT_MIN_AMOUNT,
+    );
+    let support_amount = (reserve_target - team.finance)
+        .max(BOARD_SUPPORT_MIN_AMOUNT)
+        .min(BOARD_SUPPORT_MAX_AMOUNT);
+    let transfer_budget_reduction = std::cmp::min(team.transfer_budget.max(0), support_amount / 2);
+
+    team.finance += support_amount;
+    team.season_income += support_amount;
+    team.transfer_budget = (team.transfer_budget - transfer_budget_reduction).max(0);
+    team.financial_ledger.push(FinancialTransaction {
+        date: game.clock.current_date.format("%Y-%m-%d").to_string(),
+        description: format!("Board support package for season {}", season),
+        amount: support_amount,
+        kind: FinancialTransactionKind::BoardSupport,
+    });
+
+    game.manager.satisfaction = game
+        .manager
+        .satisfaction
+        .saturating_sub(BOARD_SUPPORT_SATISFACTION_PENALTY);
+
+    Ok(BoardSupportResult {
+        support_amount,
+        transfer_budget_reduction,
+        satisfaction_penalty: BOARD_SUPPORT_SATISFACTION_PENALTY,
     })
 }
 

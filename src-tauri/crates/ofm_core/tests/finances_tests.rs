@@ -5,7 +5,7 @@ use domain::league::{
 use domain::manager::Manager;
 use domain::player::{Player, PlayerAttributes, Position};
 use domain::staff::{Staff, StaffAttributes, StaffRole};
-use domain::team::{Sponsorship, SponsorshipBonusCriterion, Team};
+use domain::team::{FinancialTransactionKind, Sponsorship, SponsorshipBonusCriterion, Team};
 use ofm_core::clock::GameClock;
 use ofm_core::finances;
 use ofm_core::game::Game;
@@ -214,6 +214,44 @@ fn team_finance_snapshot_treats_negative_balance_as_critical() {
         snapshot.overall_status,
         finances::FinanceHealthLevel::Critical
     );
+}
+
+#[test]
+fn request_board_support_recovers_cash_crisis_and_applies_board_costs() {
+    let mut game = make_monday_game();
+    game.teams[0].finance = -25_000;
+    game.teams[0].transfer_budget = 300_000;
+    game.manager.satisfaction = 70;
+
+    let result = finances::request_board_support(&mut game, "team1").expect("support");
+
+    assert!(result.support_amount >= 150_000);
+    assert_eq!(result.transfer_budget_reduction, result.support_amount / 2);
+    assert_eq!(result.satisfaction_penalty, 12);
+    assert_eq!(game.manager.satisfaction, 58);
+    assert_eq!(game.teams[0].season_income, result.support_amount);
+    assert_eq!(
+        game.teams[0].transfer_budget,
+        300_000 - result.transfer_budget_reduction
+    );
+    assert_eq!(
+        game.teams[0].financial_ledger.last().expect("ledger").kind,
+        FinancialTransactionKind::BoardSupport
+    );
+    assert!(game.teams[0].finance > 0);
+}
+
+#[test]
+fn request_board_support_rejects_second_support_package_in_same_season() {
+    let mut game = make_monday_game();
+    game.teams[0].finance = -25_000;
+
+    finances::request_board_support(&mut game, "team1").expect("first support");
+    game.teams[0].finance = -10_000;
+
+    let error = finances::request_board_support(&mut game, "team1").expect_err("should fail");
+
+    assert!(error.contains("already approved emergency support this season"));
 }
 
 #[test]
