@@ -148,7 +148,9 @@ export default function DashboardTabContent({
         />
       )}
 
-      {activeTab === "Manager" && <ManagerTab gameState={gameState} />}
+      {activeTab === "Manager" && (
+        <ManagerTab gameState={gameState} onSelectTeam={onSelectTeam} />
+      )}
 
       {activeTab === "News" && (
         <NewsTab gameState={gameState} onSelectTeam={onSelectTeam} />

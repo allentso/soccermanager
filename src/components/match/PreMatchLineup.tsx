@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 import { MatchSnapshot, EnginePlayerData } from "./types";
 import { Badge } from "../ui";
 import { ArrowUpDown, AlertTriangle, Wand2 } from "lucide-react";
+import ContextMenu from "../ContextMenu";
 import { translatePositionAbbreviation } from "../squad/SquadTab.helpers";
 
 export const POSITION_KEY_STATS: Record<
@@ -261,9 +262,10 @@ export default function PreMatchLineup({
                 {players.map((p) => {
                   const posOvr = getPositionOvr(p);
                   const isSelected = selectedStarterId === p.id;
-                  return (
+                  const starterButton = (
                     <button
                       key={p.id}
+                      data-testid={`pre-match-starter-${p.id}`}
                       onClick={() => onSelectStarter(isSelected ? null : p.id)}
                       className={`flex items-center gap-2 py-1.5 px-2 rounded w-full text-left transition-all ${isSelected
                           ? "bg-primary-500/20 ring-1 ring-primary-500/50"
@@ -307,6 +309,22 @@ export default function PreMatchLineup({
                       </span>
                     </button>
                   );
+
+                  return (
+                    <ContextMenu
+                      items={[
+                        {
+                          label: isSelected
+                            ? t("match.cancel")
+                            : t("match.selectForSwap", "Select for swap"),
+                          onClick: () => onSelectStarter(isSelected ? null : p.id),
+                        },
+                      ]}
+                      key={p.id}
+                    >
+                      {starterButton}
+                    </ContextMenu>
+                  );
                 })}
               </div>
             );
@@ -346,9 +364,10 @@ export default function PreMatchLineup({
               {userBench.map((bp) => {
                 const posOvr = getPositionOvr(bp);
                 const keyStats = POSITION_KEY_STATS[bp.position] || [];
-                return (
+                const benchButton = (
                   <button
                     key={bp.id}
+                    data-testid={`pre-match-bench-${bp.id}`}
                     onClick={() => (selectedStarterId ? onSwap(bp.id) : null)}
                     className={`flex items-center gap-2 py-1.5 px-2 rounded w-full text-left transition-all ${selectedStarterId
                         ? "hover:bg-primary-500/20 hover:ring-1 hover:ring-primary-500/50 cursor-pointer"
@@ -380,6 +399,27 @@ export default function PreMatchLineup({
                       {Math.round(bp.condition)}%
                     </span>
                   </button>
+                );
+
+                if (!selectedStarterId) {
+                  return benchButton;
+                }
+
+                return (
+                  <ContextMenu
+                    items={[
+                      {
+                        label: t(
+                          "match.swapWithSelectedStarter",
+                          "Swap with selected starter",
+                        ),
+                        onClick: () => onSwap(bp.id),
+                      },
+                    ]}
+                    key={bp.id}
+                  >
+                    {benchButton}
+                  </ContextMenu>
                 );
               })}
             </div>

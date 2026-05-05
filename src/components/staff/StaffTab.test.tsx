@@ -173,4 +173,49 @@ describe("StaffTab", () => {
       expect(onGameUpdate).toHaveBeenCalledWith(updatedState);
     });
   });
+
+  it("offers a hire action from the staff card context menu", async () => {
+    const updatedState = createGameState([]);
+    const onGameUpdate = vi.fn();
+    invokeMock.mockResolvedValue(updatedState);
+
+    render(
+      <StaffTab
+        gameState={createGameState([
+          createStaff({ id: "staff-2", first_name: "Sam", last_name: "Scout", role: "Scout", team_id: null }),
+        ])}
+        onGameUpdate={onGameUpdate}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Available 1/i }));
+    fireEvent.contextMenu(screen.getByTestId("staff-card-staff-2"));
+    fireEvent.click(screen.getAllByRole("button", { name: "Hire staff" })[1]);
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("hire_staff", { staffId: "staff-2" });
+      expect(onGameUpdate).toHaveBeenCalledWith(updatedState);
+    });
+  });
+
+  it("offers a release action from the staff card context menu", async () => {
+    const updatedState = createGameState([]);
+    const onGameUpdate = vi.fn();
+    invokeMock.mockResolvedValue(updatedState);
+
+    render(
+      <StaffTab
+        gameState={createGameState([createStaff()])}
+        onGameUpdate={onGameUpdate}
+      />,
+    );
+
+    fireEvent.contextMenu(screen.getByTestId("staff-card-staff-1"));
+    fireEvent.click(screen.getAllByRole("button", { name: "Release staff" })[1]);
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("release_staff", { staffId: "staff-1" });
+      expect(onGameUpdate).toHaveBeenCalledWith(updatedState);
+    });
+  });
 });
