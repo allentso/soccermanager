@@ -45,6 +45,8 @@ const REQUIRED_KEYS = [
   "be.msg.financeBoardPressure.subject",
   "be.msg.financeBoardPressure.bodyWarning",
   "be.msg.financeBoardPressure.bodyCritical",
+  "be.msg.marketingCampaign.subject",
+  "be.msg.marketingCampaign.body",
   "be.msg.boardFired.subject",
   "be.msg.boardFired.body",
   "be.msg.jobOffer.subject",

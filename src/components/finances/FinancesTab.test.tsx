@@ -584,6 +584,7 @@ describe("FinancesTab facilities", () => {
         return Promise.resolve({
           game: updatedState,
           result: {
+            message_id: "marketing_campaign_2025-06-16",
             gross_revenue: 150000,
             campaign_cost: 37500,
             net_income: 112500,

@@ -302,6 +302,11 @@ mod tests {
 
         assert!(response.result.net_income > 0);
         assert_eq!(response.result.net_income, response.result.gross_revenue - response.result.campaign_cost);
+        assert!(response
+            .game
+            .messages
+            .iter()
+            .any(|message| message.id == response.result.message_id));
         assert_eq!(
             response
                 .game
@@ -315,5 +320,9 @@ mod tests {
 
         let stored_game = state.get_game(|current| current.clone()).expect("stored game");
         assert!(stored_game.teams[0].finance > -40_000);
+        assert!(stored_game
+            .messages
+            .iter()
+            .any(|message| message.id == response.result.message_id));
     }
 }

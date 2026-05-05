@@ -173,6 +173,7 @@ interface SponsorPitchResponseData {
 interface MarketingCampaignResponseData {
   game: GameStateData;
   result: {
+    message_id: string;
     gross_revenue: number;
     campaign_cost: number;
     net_income: number;
