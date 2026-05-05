@@ -11,6 +11,9 @@ const BOARD_SUPPORT_MIN_AMOUNT: i64 = 150_000;
 const BOARD_SUPPORT_MAX_AMOUNT: i64 = 1_000_000;
 const BOARD_SUPPORT_TARGET_RUNWAY_WEEKS: i64 = 8;
 const BOARD_SUPPORT_SATISFACTION_PENALTY: u8 = 12;
+const SPONSOR_PITCH_DURATION_WEEKS: u32 = 12;
+const SPONSOR_PITCH_MIN_WEEKLY_AMOUNT: i64 = 40_000;
+const SPONSOR_PITCH_MAX_WEEKLY_AMOUNT: i64 = 180_000;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -43,6 +46,14 @@ pub struct BoardSupportResult {
     pub support_amount: i64,
     pub transfer_budget_reduction: i64,
     pub satisfaction_penalty: u8,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct SponsorPitchResult {
+    pub message_id: String,
+    pub sponsor_name: String,
+    pub weekly_amount: i64,
+    pub duration_weeks: u32,
 }
 
 fn wage_budget_status(usage_percent: u32) -> FinanceHealthLevel {
@@ -207,6 +218,127 @@ fn board_support_season(game: &Game) -> u32 {
         .as_ref()
         .map(|league| league.season)
         .unwrap_or(game.clock.current_date.year().max(0) as u32)
+}
+
+fn sponsor_pitch_available(snapshot: &TeamFinanceSnapshot) -> bool {
+    snapshot.currently_over_budget
+        || snapshot.currently_in_debt
+        || matches!(
+            snapshot.wage_budget_status,
+            FinanceHealthLevel::Warning | FinanceHealthLevel::Critical
+        )
+        || matches!(
+            snapshot.runway_status,
+            FinanceHealthLevel::Warning | FinanceHealthLevel::Critical
+        )
+}
+
+fn has_pending_sponsor_offer(game: &Game) -> bool {
+    game.messages.iter().any(|message| {
+        message.id.starts_with("sponsor_") && message.actions.iter().any(|action| !action.resolved)
+    })
+}
+
+fn sponsor_pitch_message_id(game: &Game) -> String {
+    format!("sponsor_pitch_{}", game.clock.current_date.format("%Y-%m-%d"))
+}
+
+fn sponsor_pitch_partner(
+    team_id: &str,
+    current_date: chrono::DateTime<chrono::Utc>,
+) -> &'static str {
+    const SPONSORS: [&str; 8] = [
+        "Northstar Logistics",
+        "Harbor Bank",
+        "Crest Mobile",
+        "Vertex Nutrition",
+        "Iron Peak Tools",
+        "Brightline Energy",
+        "Summit Capital",
+        "Evergreen Foods",
+    ];
+
+    let seed = team_id.bytes().fold(current_date.ordinal() as usize, |acc, byte| {
+        acc.wrapping_mul(31).wrapping_add(byte as usize)
+    });
+
+    SPONSORS[seed % SPONSORS.len()]
+}
+
+fn sponsor_pitch_weekly_amount(team: &Team, snapshot: &TeamFinanceSnapshot) -> i64 {
+    let reputation_component = team.reputation as i64 * 1_500;
+    let pressure_component = match snapshot.overall_status {
+        FinanceHealthLevel::Stable => 0,
+        FinanceHealthLevel::Watch => 5_000,
+        FinanceHealthLevel::Warning => 15_000,
+        FinanceHealthLevel::Critical => 25_000,
+    };
+    let wage_pressure_bonus = if snapshot.currently_over_budget {
+        15_000
+    } else {
+        0
+    };
+    let debt_bonus = if snapshot.currently_in_debt { 20_000 } else { 0 };
+
+    (SPONSOR_PITCH_MIN_WEEKLY_AMOUNT
+        + reputation_component
+        + pressure_component
+        + wage_pressure_bonus
+        + debt_bonus)
+        .clamp(SPONSOR_PITCH_MIN_WEEKLY_AMOUNT, SPONSOR_PITCH_MAX_WEEKLY_AMOUNT)
+}
+
+pub fn request_sponsor_pitch(game: &mut Game, team_id: &str) -> Result<SponsorPitchResult, String> {
+    let snapshot = team_finance_snapshot(game, team_id)
+        .ok_or("be.error.managedTeamNotFound".to_string())?;
+
+    if !sponsor_pitch_available(&snapshot) {
+        return Err(
+            "Sponsor pitches are only available when the club is under wage or cash pressure."
+                .to_string(),
+        );
+    }
+
+    if has_pending_sponsor_offer(game) {
+        return Err("There is already a sponsor offer waiting for your decision.".to_string());
+    }
+
+    let message_id = sponsor_pitch_message_id(game);
+    if game.messages.iter().any(|message| message.id == message_id) {
+        return Err("The commercial team has already pitched sponsors today.".to_string());
+    }
+
+    let team = game
+        .teams
+        .iter()
+        .find(|team| team.id == team_id)
+        .ok_or("be.error.managedTeamNotFound".to_string())?;
+
+    if team.sponsorship.as_ref().is_some_and(|sponsorship| {
+        sponsorship.remaining_weeks > 0 && sponsorship.base_value > 0
+    }) {
+        return Err("An active sponsorship deal is already in place.".to_string());
+    }
+
+    let weekly_amount = sponsor_pitch_weekly_amount(team, &snapshot);
+    let sponsor_name = sponsor_pitch_partner(team_id, game.clock.current_date).to_string();
+    let team_name = team.name.clone();
+    let date = game.clock.current_date.format("%Y-%m-%d").to_string();
+
+    game.messages.push(crate::random_events::sponsor_offer_message(
+        &message_id,
+        &team_name,
+        &sponsor_name,
+        weekly_amount as u64,
+        &date,
+    ));
+
+    Ok(SponsorPitchResult {
+        message_id,
+        sponsor_name,
+        weekly_amount,
+        duration_weeks: SPONSOR_PITCH_DURATION_WEEKS,
+    })
 }
 
 pub fn request_board_support(game: &mut Game, team_id: &str) -> Result<BoardSupportResult, String> {

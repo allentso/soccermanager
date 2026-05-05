@@ -95,6 +95,7 @@ pub fn run() {
             upgrade_facility,
             get_finance_snapshot,
             request_board_support,
+            request_sponsor_pitch,
             propose_renewal,
             delegate_renewals,
             preview_renewal_financial_impact,

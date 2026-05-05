@@ -97,6 +97,17 @@ function boardSupportAvailable(snapshot: TeamFinanceSnapshotData): boolean {
   );
 }
 
+function sponsorPitchAvailable(snapshot: TeamFinanceSnapshotData): boolean {
+  return (
+    snapshot.currentlyOverBudget ||
+    snapshot.currentlyInDebt ||
+    snapshot.wageBudgetStatus === "warning" ||
+    snapshot.wageBudgetStatus === "critical" ||
+    snapshot.runwayStatus === "warning" ||
+    snapshot.runwayStatus === "critical"
+  );
+}
+
 function mapLocalFinanceSnapshot(
   team: GameStateData["teams"][number],
   snapshot: ReturnType<typeof getTeamFinanceSnapshot>,
@@ -140,6 +151,16 @@ interface BoardSupportResponseData {
     support_amount: number;
     transfer_budget_reduction: number;
     satisfaction_penalty: number;
+  };
+}
+
+interface SponsorPitchResponseData {
+  game: GameStateData;
+  result: {
+    message_id: string;
+    sponsor_name: string;
+    weekly_amount: number;
+    duration_weeks: number;
   };
 }
 
@@ -199,6 +220,10 @@ export default function FinancesTab({
     tone: "success" | "error";
     text: string;
   } | null>(null);
+  const [sponsorPitchFeedback, setSponsorPitchFeedback] = useState<{
+    tone: "success" | "error";
+    text: string;
+  } | null>(null);
 
   const roster = gameState.players.filter((p) => p.team_id === myTeam.id);
   const teamStaff = gameState.staff.filter(
@@ -223,6 +248,21 @@ export default function FinancesTab({
     .filter(isPendingSponsorOffer)
     .map(resolveMessage);
   const canRequestBoardSupport = boardSupportAvailable(financeSnapshot);
+  const hasPendingSponsorOffer = sponsorOffers.length > 0;
+  const hasActiveSponsor = Boolean(
+    activeSponsorship && activeSponsorship.remaining_weeks > 0,
+  );
+  const canRequestSponsorPitch =
+    sponsorPitchAvailable(financeSnapshot) &&
+    !hasPendingSponsorOffer &&
+    !hasActiveSponsor;
+  const sponsorPitchDisabledReason = hasActiveSponsor
+    ? t("finances.sponsorPitchActiveSponsor")
+    : hasPendingSponsorOffer
+      ? t("finances.sponsorPitchPendingOffer")
+      : !sponsorPitchAvailable(financeSnapshot)
+        ? t("finances.sponsorPitchUnavailable")
+        : null;
   const contractRiskPlayers = roster
     .map((player) => {
       const riskLevel = getContractRiskLevel(
@@ -347,6 +387,35 @@ export default function FinancesTab({
     } catch (error) {
       console.error("Failed to request board support:", error);
       setBoardSupportFeedback({
+        tone: "error",
+        text: resolveBackendError(error),
+      });
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  async function handleRequestSponsorPitch(): Promise<void> {
+    const loadingKey = "sponsor-pitch";
+    setSponsorPitchFeedback(null);
+    setActionLoading(loadingKey);
+
+    try {
+      const response = await invoke<SponsorPitchResponseData>(
+        "request_sponsor_pitch",
+      );
+      onGameUpdate?.(response.game);
+      setSponsorPitchFeedback({
+        tone: "success",
+        text: t("finances.sponsorPitchSummary", {
+          sponsor: response.result.sponsor_name,
+          amount: formatExactMoney(response.result.weekly_amount),
+          weeks: response.result.duration_weeks,
+        }),
+      });
+    } catch (error) {
+      console.error("Failed to pitch sponsors:", error);
+      setSponsorPitchFeedback({
         tone: "error",
         text: resolveBackendError(error),
       });
@@ -768,6 +837,44 @@ export default function FinancesTab({
               <p className="text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                 {t("finances.pendingSponsorOffers")}
               </p>
+              <div className="rounded-lg border border-gray-200 dark:border-navy-600 bg-white dark:bg-navy-700 p-4 space-y-3">
+                <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                  <div className="space-y-1">
+                    <h3 className="font-semibold text-sm text-gray-900 dark:text-gray-100">
+                      {t("finances.pitchSponsor")}
+                    </h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      {t("finances.sponsorPitchDescription")}
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={() => void handleRequestSponsorPitch()}
+                    disabled={
+                      actionLoading === "sponsor-pitch" ||
+                      !canRequestSponsorPitch
+                    }
+                  >
+                    {t("finances.pitchSponsor")}
+                  </Button>
+                </div>
+                {sponsorPitchDisabledReason ? (
+                  <p className="text-xs text-gray-600 dark:text-gray-400">
+                    {sponsorPitchDisabledReason}
+                  </p>
+                ) : null}
+                {sponsorPitchFeedback ? (
+                  <p
+                    className={
+                      sponsorPitchFeedback.tone === "error"
+                        ? "text-sm text-red-500"
+                        : "text-sm text-primary-500"
+                    }
+                  >
+                    {sponsorPitchFeedback.text}
+                  </p>
+                ) : null}
+              </div>
               {sponsorOffers.length > 0 ? (
                 sponsorOffers.map((message) => {
                   const sponsorAction = message.actions.find(
