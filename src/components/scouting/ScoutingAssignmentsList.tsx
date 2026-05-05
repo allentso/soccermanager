@@ -8,6 +8,11 @@ import type {
   TeamData,
 } from "../../store/gameStore";
 import { getTeamName } from "../../lib/helpers";
+import ContextMenu from "../ContextMenu";
+import {
+  buildViewProfileMenuItem,
+  buildViewTeamMenuItem,
+} from "../playerActions/playerContextMenuItems";
 import { translatePositionLabel } from "../squad/SquadTab.helpers";
 import { Card, CardBody, CardHeader } from "../ui";
 
@@ -17,6 +22,7 @@ interface ScoutingAssignmentsListProps {
   players: PlayerData[];
   teams: TeamData[];
   onSelectPlayer?: (id: string) => void;
+  onSelectTeam?: (id: string) => void;
 }
 
 export default function ScoutingAssignmentsList({
@@ -25,6 +31,7 @@ export default function ScoutingAssignmentsList({
   players,
   teams,
   onSelectPlayer,
+  onSelectTeam,
 }: ScoutingAssignmentsListProps) {
   const { t } = useTranslation();
 
@@ -48,37 +55,48 @@ export default function ScoutingAssignmentsList({
             const team = player.team_id
               ? getTeamName(teams, player.team_id)
               : t("common.freeAgent");
+            const contextItems = [
+              buildViewProfileMenuItem(t, () => onSelectPlayer?.(player.id)),
+            ];
+
+            if (player.team_id) {
+              contextItems.push(
+                buildViewTeamMenuItem(t, () => onSelectTeam?.(player.team_id!)),
+              );
+            }
 
             return (
-              <div
-                key={assignment.id}
-                className="flex items-center gap-4 p-3 rounded-lg bg-gray-50 dark:bg-navy-700/50"
-              >
-                <div className="flex-1 min-w-0">
-                  <button
-                    onClick={() => onSelectPlayer?.(player.id)}
-                    className="font-heading font-bold text-sm text-gray-800 dark:text-gray-100 hover:text-primary-500 transition-colors truncate block"
-                  >
-                    {player.full_name}
-                  </button>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    {translatePositionLabel(t, player.natural_position || player.position)} · {team}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    {t("scouting.scoutLabel", {
-                      name: `${scout.first_name} ${scout.last_name}`,
-                    })}
-                  </p>
-                  <div className="flex items-center gap-1.5 justify-end mt-0.5">
-                    <Clock className="w-3 h-3 text-accent-500" />
-                    <span className="text-xs font-heading font-bold text-accent-500">
-                      {t("scouting.daysLeft", { days: assignment.days_remaining })}
-                    </span>
+              <ContextMenu items={contextItems} key={assignment.id}>
+                <div
+                  className="flex items-center gap-4 p-3 rounded-lg bg-gray-50 dark:bg-navy-700/50"
+                  data-testid={`scouting-assignment-${assignment.id}`}
+                >
+                  <div className="flex-1 min-w-0">
+                    <button
+                      onClick={() => onSelectPlayer?.(player.id)}
+                      className="font-heading font-bold text-sm text-gray-800 dark:text-gray-100 hover:text-primary-500 transition-colors truncate block"
+                    >
+                      {player.full_name}
+                    </button>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {translatePositionLabel(t, player.natural_position || player.position)} · {team}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {t("scouting.scoutLabel", {
+                        name: `${scout.first_name} ${scout.last_name}`,
+                      })}
+                    </p>
+                    <div className="flex items-center gap-1.5 justify-end mt-0.5">
+                      <Clock className="w-3 h-3 text-accent-500" />
+                      <span className="text-xs font-heading font-bold text-accent-500">
+                        {t("scouting.daysLeft", { days: assignment.days_remaining })}
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
+              </ContextMenu>
             );
           })}
         </div>
