@@ -1711,6 +1711,10 @@
         "bodyWarning": "The board remains concerned about the club's finances. Confidence in your management has fallen by {{penalty}} points this week.\n\nYou need to improve the wage position and short-term cash outlook before patience wears thinner.",
         "bodyCritical": "The board has reviewed the club's worsening financial position and confidence in your management has fallen by {{penalty}} points this week.\n\nCash reserves and wage commitments are now in a critical state. Immediate corrective action is expected."
       },
+      "marketingCampaign": {
+        "subject": "Marketing Campaign Report",
+        "body": "The commercial push has finished with gross sales of €{{grossRevenue}}. After €{{campaignCost}} in campaign costs, the club banks €{{netIncome}} in fresh income.\n\nThe commercial team will need {{days}} days before launching another campaign."
+      },
       "seasonPayout": {
         "subject": "Season {{season}} Prize Money Awarded",
         "body": "The board has confirmed a prize payout of €{{amount}} for your {{position}}-place league finish. The amount has been added to the club balance."

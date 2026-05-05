@@ -311,6 +311,7 @@ fn request_marketing_campaign_generates_cash_for_pressured_club() {
     assert!(result.campaign_cost > 0);
     assert!(result.net_income > 0);
     assert_eq!(result.cooldown_days, 28);
+    assert!(result.message_id.starts_with("marketing_campaign_"));
     assert_eq!(game.teams[0].finance, -60_000 + result.net_income);
     assert_eq!(game.teams[0].season_income, result.gross_revenue);
     assert_eq!(game.teams[0].season_expenses, result.campaign_cost);
@@ -322,6 +323,14 @@ fn request_marketing_campaign_generates_cash_for_pressured_club() {
             .count(),
         2
     );
+    let message = game
+        .messages
+        .iter()
+        .find(|message| message.id == result.message_id)
+        .expect("marketing campaign message");
+    assert_eq!(message.subject_key.as_deref(), Some("be.msg.marketingCampaign.subject"));
+    assert_eq!(message.body_key.as_deref(), Some("be.msg.marketingCampaign.body"));
+    assert_eq!(message.sender_key.as_deref(), Some("be.sender.commercialDirector"));
 }
 
 #[test]

@@ -1715,6 +1715,10 @@
         "bodyWarning": "Le conseil reste préoccupé par la situation financière du club. La confiance dans votre gestion a chuté de {{penalty}} points cette semaine.\n\nVous devez améliorer la masse salariale et la trésorerie à court terme avant que la patience ne s'épuise davantage.",
         "bodyCritical": "Le conseil a réévalué la détérioration de la situation financière du club, et sa confiance dans votre gestion a chuté de {{penalty}} points cette semaine.\n\nLa trésorerie et les engagements salariaux sont désormais dans un état critique. Des mesures immédiates sont attendues."
       },
+      "marketingCampaign": {
+        "subject": "Rapport de campagne marketing",
+        "body": "L'opération commerciale est terminée avec €{{grossRevenue}} de ventes brutes. Après €{{campaignCost}} de coûts de campagne, le club encaisse €{{netIncome}} de revenus supplémentaires.\n\nL'équipe commerciale devra attendre {{days}} jours avant de lancer une nouvelle campagne."
+      },
       "seasonPayout": {
         "subject": "Saison {{season}} — Prime attribuée",
         "body": "Le conseil a confirmé une prime de €{{amount}} pour votre {{position}}e place en championnat. Le montant a été ajouté au solde du club."

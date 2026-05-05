@@ -63,8 +63,9 @@ pub struct SponsorPitchResult {
     pub duration_weeks: u32,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct MarketingCampaignResult {
+    pub message_id: String,
     pub gross_revenue: i64,
     pub campaign_cost: i64,
     pub net_income: i64,
@@ -314,6 +315,47 @@ fn finance_board_pressure_message(
     ))
 }
 
+fn marketing_campaign_message(
+    today: &str,
+    gross_revenue: i64,
+    campaign_cost: i64,
+    net_income: i64,
+    cooldown_days: u32,
+) -> InboxMessage {
+    InboxMessage::new(
+        format!("marketing_campaign_{}", today),
+        "Marketing Campaign Report".to_string(),
+        format!(
+            "The commercial push has finished with gross sales of €{}. After €{} in campaign costs, the club banks €{} in fresh income.\n\nThe commercial team will need {} days before launching another campaign.",
+            gross_revenue, campaign_cost, net_income, cooldown_days
+        ),
+        "Commercial Director".to_string(),
+        today.to_string(),
+    )
+    .with_category(MessageCategory::Finance)
+    .with_priority(MessagePriority::Normal)
+    .with_sender_role("Commercial Director")
+    .with_i18n(
+        "be.msg.marketingCampaign.subject",
+        "be.msg.marketingCampaign.body",
+        {
+            let mut p = std::collections::HashMap::new();
+            p.insert("grossRevenue".to_string(), gross_revenue.to_string());
+            p.insert("campaignCost".to_string(), campaign_cost.to_string());
+            p.insert("netIncome".to_string(), net_income.to_string());
+            p.insert("days".to_string(), cooldown_days.to_string());
+            p
+        },
+    )
+    .with_sender_i18n("be.sender.commercialDirector", "be.role.commercialDirector")
+    .with_action(action(
+        "ack",
+        "Understood",
+        "be.msg.event.ack",
+        ActionType::Acknowledge,
+    ))
+}
+
 fn board_support_season(game: &Game) -> u32 {
     game.league
         .as_ref()
@@ -541,6 +583,14 @@ pub fn request_marketing_campaign(
     let campaign_cost = marketing_campaign_cost(gross_revenue);
     let net_income = gross_revenue - campaign_cost;
     let today_label = today.format("%Y-%m-%d").to_string();
+    let message = marketing_campaign_message(
+        &today_label,
+        gross_revenue,
+        campaign_cost,
+        net_income,
+        MARKETING_CAMPAIGN_COOLDOWN_DAYS as u32,
+    );
+    let message_id = message.id.clone();
     let team = game
         .teams
         .iter_mut()
@@ -562,8 +612,10 @@ pub fn request_marketing_campaign(
         amount: gross_revenue,
         kind: FinancialTransactionKind::CommercialCampaign,
     });
+    game.messages.push(message);
 
     Ok(MarketingCampaignResult {
+        message_id,
         gross_revenue,
         campaign_cost,
         net_income,

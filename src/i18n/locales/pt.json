@@ -1715,6 +1715,10 @@
         "bodyWarning": "A direção continua preocupada com a situação financeira do clube. A confiança na sua gestão caiu {{penalty}} pontos esta semana.\n\nPrecisa de melhorar a posição salarial e a tesouraria de curto prazo antes que a paciência diminua ainda mais.",
         "bodyCritical": "A direção reviu o agravamento da situação financeira do clube e a confiança na sua gestão caiu {{penalty}} pontos esta semana.\n\nA tesouraria e os compromissos salariais estão agora num estado crítico. Esperam-se medidas imediatas."
       },
+      "marketingCampaign": {
+        "subject": "Relatório da campanha de marketing",
+        "body": "A ação comercial terminou com vendas brutas de €{{grossRevenue}}. Depois de €{{campaignCost}} em custos de campanha, o clube encaixa €{{netIncome}} de nova receita.\n\nA equipa comercial precisará de {{days}} dias antes de lançar outra campanha."
+      },
       "seasonPayout": {
         "subject": "Época {{season}} — Prémio atribuído",
         "body": "A direção confirmou um prémio de €{{amount}} pelo teu {{position}}.º lugar na liga. O valor foi adicionado ao saldo do clube."
