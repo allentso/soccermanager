@@ -108,6 +108,10 @@ function sponsorPitchAvailable(snapshot: TeamFinanceSnapshotData): boolean {
   );
 }
 
+function marketingCampaignAvailable(snapshot: TeamFinanceSnapshotData): boolean {
+  return sponsorPitchAvailable(snapshot);
+}
+
 function mapLocalFinanceSnapshot(
   team: GameStateData["teams"][number],
   snapshot: ReturnType<typeof getTeamFinanceSnapshot>,
@@ -161,6 +165,16 @@ interface SponsorPitchResponseData {
     sponsor_name: string;
     weekly_amount: number;
     duration_weeks: number;
+  };
+}
+
+interface MarketingCampaignResponseData {
+  game: GameStateData;
+  result: {
+    gross_revenue: number;
+    campaign_cost: number;
+    net_income: number;
+    cooldown_days: number;
   };
 }
 
@@ -224,6 +238,10 @@ export default function FinancesTab({
     tone: "success" | "error";
     text: string;
   } | null>(null);
+  const [marketingCampaignFeedback, setMarketingCampaignFeedback] = useState<{
+    tone: "success" | "error";
+    text: string;
+  } | null>(null);
 
   const roster = gameState.players.filter((p) => p.team_id === myTeam.id);
   const teamStaff = gameState.staff.filter(
@@ -256,6 +274,7 @@ export default function FinancesTab({
     sponsorPitchAvailable(financeSnapshot) &&
     !hasPendingSponsorOffer &&
     !hasActiveSponsor;
+  const canRequestMarketingCampaign = marketingCampaignAvailable(financeSnapshot);
   const sponsorPitchDisabledReason = hasActiveSponsor
     ? t("finances.sponsorPitchActiveSponsor")
     : hasPendingSponsorOffer
@@ -263,6 +282,9 @@ export default function FinancesTab({
       : !sponsorPitchAvailable(financeSnapshot)
         ? t("finances.sponsorPitchUnavailable")
         : null;
+  const marketingCampaignDisabledReason = !canRequestMarketingCampaign
+    ? t("finances.marketingCampaignUnavailable")
+    : null;
   const contractRiskPlayers = roster
     .map((player) => {
       const riskLevel = getContractRiskLevel(
@@ -416,6 +438,36 @@ export default function FinancesTab({
     } catch (error) {
       console.error("Failed to pitch sponsors:", error);
       setSponsorPitchFeedback({
+        tone: "error",
+        text: resolveBackendError(error),
+      });
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  async function handleRequestMarketingCampaign(): Promise<void> {
+    const loadingKey = "marketing-campaign";
+    setMarketingCampaignFeedback(null);
+    setActionLoading(loadingKey);
+
+    try {
+      const response = await invoke<MarketingCampaignResponseData>(
+        "request_marketing_campaign",
+      );
+      onGameUpdate?.(response.game);
+      setMarketingCampaignFeedback({
+        tone: "success",
+        text: t("finances.marketingCampaignSummary", {
+          netIncome: formatExactMoney(response.result.net_income),
+          grossRevenue: formatExactMoney(response.result.gross_revenue),
+          cost: formatExactMoney(response.result.campaign_cost),
+          days: response.result.cooldown_days,
+        }),
+      });
+    } catch (error) {
+      console.error("Failed to launch marketing campaign:", error);
+      setMarketingCampaignFeedback({
         tone: "error",
         text: resolveBackendError(error),
       });
@@ -872,6 +924,44 @@ export default function FinancesTab({
                     }
                   >
                     {sponsorPitchFeedback.text}
+                  </p>
+                ) : null}
+              </div>
+              <div className="rounded-lg border border-gray-200 dark:border-navy-600 bg-white dark:bg-navy-700 p-4 space-y-3">
+                <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                  <div className="space-y-1">
+                    <h3 className="font-semibold text-sm text-gray-900 dark:text-gray-100">
+                      {t("finances.marketingCampaign")}
+                    </h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      {t("finances.marketingCampaignDescription")}
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={() => void handleRequestMarketingCampaign()}
+                    disabled={
+                      actionLoading === "marketing-campaign" ||
+                      !canRequestMarketingCampaign
+                    }
+                  >
+                    {t("finances.launchMarketingCampaign")}
+                  </Button>
+                </div>
+                {marketingCampaignDisabledReason ? (
+                  <p className="text-xs text-gray-600 dark:text-gray-400">
+                    {marketingCampaignDisabledReason}
+                  </p>
+                ) : null}
+                {marketingCampaignFeedback ? (
+                  <p
+                    className={
+                      marketingCampaignFeedback.tone === "error"
+                        ? "text-sm text-red-500"
+                        : "text-sm text-primary-500"
+                    }
+                  >
+                    {marketingCampaignFeedback.text}
                   </p>
                 ) : null}
               </div>

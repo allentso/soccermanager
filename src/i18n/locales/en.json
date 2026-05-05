@@ -705,6 +705,11 @@
     "noActiveSponsor": "No active sponsor",
     "pitchSponsor": "Pitch Sponsor",
     "sponsorPitchDescription": "Ask the commercial team to chase a short-term sponsor deal for clubs under financial pressure.",
+    "marketingCampaign": "Marketing Campaign",
+    "launchMarketingCampaign": "Launch Campaign",
+    "marketingCampaignDescription": "Push a one-off merchandise and outreach campaign for an immediate cash boost when the club is under pressure.",
+    "marketingCampaignUnavailable": "Marketing campaigns are reserved for clubs under wage or cash pressure.",
+    "marketingCampaignSummary": "Campaign netted {{netIncome}} after {{cost}} in spend ({{grossRevenue}} gross). Cooldown: {{days}} days.",
     "sponsorPitchUnavailable": "Sponsor pitches are reserved for clubs under wage or cash pressure.",
     "sponsorPitchActiveSponsor": "An active sponsorship is already in place.",
     "sponsorPitchPendingOffer": "Review the pending sponsor offer before pitching again.",
@@ -1585,6 +1590,8 @@
         "sponsorPitchPendingOffer": "There is already a sponsor offer waiting for your decision.",
         "sponsorPitchAlreadyAttemptedToday": "The commercial team has already pitched sponsors today.",
         "sponsorPitchActiveSponsor": "An active sponsorship deal is already in place.",
+        "marketingCampaignUnavailable": "Marketing campaigns are only available when the club is under wage or cash pressure.",
+        "marketingCampaignCoolingDown": "The commercial team needs time before running another marketing campaign.",
         "facilityUpgradeOverBudget": "Facility upgrades are blocked while the club is over its wage budget.",
         "facilityUpgradeCritical": "Facility upgrades are blocked while the club is in critical financial distress."
       },
@@ -1697,6 +1704,11 @@
       "wageOverBudget": {
         "subject": "Wage Bill Exceeds Budget",
         "body": "Our annual wage bill (€{{annualWages}}) currently exceeds the allocated wage budget (€{{wageBudget}}).\n\nWhile we can sustain this in the short term, the board would prefer to see the wage bill brought under control."
+      },
+      "financeBoardPressure": {
+        "subject": "Board Review — Financial Pressure",
+        "bodyWarning": "The board remains concerned about the club's finances. Confidence in your management has fallen by {{penalty}} points this week.\n\nYou need to improve the wage position and short-term cash outlook before patience wears thinner.",
+        "bodyCritical": "The board has reviewed the club's worsening financial position and confidence in your management has fallen by {{penalty}} points this week.\n\nCash reserves and wage commitments are now in a critical state. Immediate corrective action is expected."
       },
       "seasonPayout": {
         "subject": "Season {{season}} Prize Money Awarded",

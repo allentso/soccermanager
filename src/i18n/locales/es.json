@@ -705,6 +705,11 @@
     "noActiveSponsor": "Sin patrocinador activo",
     "pitchSponsor": "Buscar patrocinador",
     "sponsorPitchDescription": "Pide al equipo comercial que busque un patrocinio a corto plazo para un club bajo presión financiera.",
+    "marketingCampaign": "Campaña de marketing",
+    "launchMarketingCampaign": "Lanzar campaña",
+    "marketingCampaignDescription": "Lanza una campaña puntual de merchandising y promoción para generar caja inmediata cuando el club esté bajo presión.",
+    "marketingCampaignUnavailable": "Las campañas de marketing están reservadas a clubes con presión salarial o de caja.",
+    "marketingCampaignSummary": "La campaña dejó {{netIncome}} netos tras {{cost}} de gasto ({{grossRevenue}} brutos). Enfriamiento: {{days}} días.",
     "sponsorPitchUnavailable": "La búsqueda de patrocinadores está reservada a clubes con presión salarial o de caja.",
     "sponsorPitchActiveSponsor": "Ya hay un patrocinio activo en marcha.",
     "sponsorPitchPendingOffer": "Revisa primero la oferta de patrocinio pendiente.",
@@ -1585,6 +1590,8 @@
         "sponsorPitchPendingOffer": "Ya hay una oferta de patrocinio esperando tu decisión.",
         "sponsorPitchAlreadyAttemptedToday": "El equipo comercial ya ha contactado patrocinadores hoy.",
         "sponsorPitchActiveSponsor": "Ya existe un acuerdo de patrocinio activo.",
+        "marketingCampaignUnavailable": "Las campañas de marketing solo están disponibles cuando el club sufre presión salarial o de caja.",
+        "marketingCampaignCoolingDown": "El equipo comercial necesita tiempo antes de lanzar otra campaña de marketing.",
         "facilityUpgradeOverBudget": "Las mejoras de instalaciones están bloqueadas mientras el club supere su presupuesto salarial.",
         "facilityUpgradeCritical": "Las mejoras de instalaciones están bloqueadas mientras el club esté en una crisis financiera crítica."
       },
@@ -1701,6 +1708,11 @@
       "wageOverBudget": {
         "subject": "La masa salarial supera el presupuesto",
         "body": "Nuestra masa salarial anual (€{{annualWages}}) supera actualmente el presupuesto salarial asignado (€{{wageBudget}}).\n\nAunque podemos sostenerlo a corto plazo, la directiva preferiría ver la masa salarial bajo control."
+      },
+      "financeBoardPressure": {
+        "subject": "Revisión de la directiva — Presión financiera",
+        "bodyWarning": "La directiva sigue preocupada por las finanzas del club. La confianza en tu gestión ha caído {{penalty}} puntos esta semana.\n\nNecesitas mejorar la situación salarial y la caja a corto plazo antes de que la paciencia se agote aún más.",
+        "bodyCritical": "La directiva ha revisado el deterioro financiero del club y la confianza en tu gestión ha caído {{penalty}} puntos esta semana.\n\nLa caja y los compromisos salariales están ya en una situación crítica. Se esperan medidas inmediatas."
       },
       "seasonPayout": {
         "subject": "Temporada {{season}} — Premio económico concedido",

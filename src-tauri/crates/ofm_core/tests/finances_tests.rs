@@ -279,8 +279,8 @@ fn request_sponsor_pitch_rejects_healthy_club() {
     game.teams[0].wage_budget = 5_000_000;
     game.teams[0].finance = 2_000_000;
 
-    let error = finances::request_sponsor_pitch(&mut game, "team1")
-        .expect_err("healthy club should fail");
+    let error =
+        finances::request_sponsor_pitch(&mut game, "team1").expect_err("healthy club should fail");
 
     assert_eq!(error, "be.error.finance.sponsorPitchUnavailable");
 }
@@ -295,6 +295,57 @@ fn request_sponsor_pitch_rejects_when_offer_is_already_pending() {
         .expect_err("second pending pitch should fail");
 
     assert_eq!(error, "be.error.finance.sponsorPitchPendingOffer");
+}
+
+#[test]
+fn request_marketing_campaign_generates_cash_for_pressured_club() {
+    let mut game = make_monday_game();
+    game.teams[0].wage_budget = 50_000;
+    game.teams[0].finance = -60_000;
+
+    let result = finances::request_marketing_campaign(&mut game, "team1").expect("campaign");
+
+    assert!(result.gross_revenue >= result.net_income);
+    assert!(result.campaign_cost > 0);
+    assert!(result.net_income > 0);
+    assert_eq!(result.cooldown_days, 28);
+    assert_eq!(game.teams[0].finance, -60_000 + result.net_income);
+    assert_eq!(game.teams[0].season_income, result.gross_revenue);
+    assert_eq!(game.teams[0].season_expenses, result.campaign_cost);
+    assert_eq!(
+        game.teams[0]
+            .financial_ledger
+            .iter()
+            .filter(|entry| entry.kind == FinancialTransactionKind::CommercialCampaign)
+            .count(),
+        2
+    );
+}
+
+#[test]
+fn request_marketing_campaign_rejects_healthy_club() {
+    let mut game = make_monday_game();
+    game.teams[0].wage_budget = 5_000_000;
+    game.teams[0].finance = 2_000_000;
+
+    let error = finances::request_marketing_campaign(&mut game, "team1")
+        .expect_err("healthy club should fail");
+
+    assert_eq!(error, "be.error.finance.marketingCampaignUnavailable");
+}
+
+#[test]
+fn request_marketing_campaign_respects_cooldown() {
+    let mut game = make_monday_game();
+    game.teams[0].wage_budget = 50_000;
+    game.teams[0].finance = -10_000;
+
+    finances::request_marketing_campaign(&mut game, "team1").expect("first campaign");
+
+    let error = finances::request_marketing_campaign(&mut game, "team1")
+        .expect_err("second campaign should fail");
+
+    assert_eq!(error, "be.error.finance.marketingCampaignCoolingDown");
 }
 
 #[test]
@@ -435,6 +486,7 @@ fn no_processing_on_non_monday() {
 fn no_warning_when_finances_healthy() {
     let mut game = make_monday_game();
     game.teams[0].finance = 5_000_000;
+    game.manager.satisfaction = 77;
 
     finances::process_weekly_finances(&mut game);
 
@@ -447,6 +499,56 @@ fn no_warning_when_finances_healthy() {
         finance_msgs.is_empty(),
         "No warning when finances are healthy"
     );
+    assert_eq!(game.manager.satisfaction, 77);
+}
+
+#[test]
+fn warning_finances_reduce_board_satisfaction_midseason() {
+    let mut game = make_monday_game();
+    game.teams[0].wage_budget = 80_000;
+    game.manager.satisfaction = 60;
+
+    finances::process_weekly_finances(&mut game);
+
+    assert_eq!(game.manager.satisfaction, 58);
+
+    let pressure_msgs: Vec<_> = game
+        .messages
+        .iter()
+        .filter(|m| m.id.starts_with("finance_board_pressure_"))
+        .collect();
+    assert_eq!(pressure_msgs.len(), 1);
+    assert_eq!(
+        pressure_msgs[0].subject_key.as_deref(),
+        Some("be.msg.financeBoardPressure.subject")
+    );
+    assert_eq!(
+        pressure_msgs[0].body_key.as_deref(),
+        Some("be.msg.financeBoardPressure.bodyWarning")
+    );
+}
+
+#[test]
+fn critical_finances_reduce_board_satisfaction_more_aggressively() {
+    let mut game = make_monday_game();
+    game.teams[0].finance = 3_400;
+    game.manager.satisfaction = 60;
+
+    finances::process_weekly_finances(&mut game);
+
+    assert_eq!(game.manager.satisfaction, 56);
+
+    let pressure_msgs: Vec<_> = game
+        .messages
+        .iter()
+        .filter(|m| m.id.starts_with("finance_board_pressure_"))
+        .collect();
+    assert_eq!(pressure_msgs.len(), 1);
+    assert_eq!(
+        pressure_msgs[0].body_key.as_deref(),
+        Some("be.msg.financeBoardPressure.bodyCritical")
+    );
+    assert_eq!(pressure_msgs[0].priority, domain::message::MessagePriority::Urgent);
 }
 
 #[test]

@@ -705,6 +705,11 @@
     "noActiveSponsor": "无当前赞助商",
     "pitchSponsor": "接洽赞助商",
     "sponsorPitchDescription": "让商务团队为处于财务压力下的俱乐部争取一份短期赞助合同。",
+    "marketingCampaign": "营销活动",
+    "launchMarketingCampaign": "发起活动",
+    "marketingCampaignDescription": "当俱乐部面临压力时，发起一次性的周边销售和推广活动，立即回笼现金。",
+    "marketingCampaignUnavailable": "营销活动仅适用于面临工资或现金压力的俱乐部。",
+    "marketingCampaignSummary": "本次活动净收入 {{netIncome}}，支出 {{cost}}，总收入 {{grossRevenue}}。冷却时间：{{days}} 天。",
     "sponsorPitchUnavailable": "只有处于工资或现金压力下的俱乐部才能发起赞助接洽。",
     "sponsorPitchActiveSponsor": "当前已经有生效中的赞助合同。",
     "sponsorPitchPendingOffer": "请先处理当前待定的赞助报价。",
@@ -1585,6 +1590,8 @@
         "sponsorPitchPendingOffer": "已经有一份赞助报价在等待你的决定。",
         "sponsorPitchAlreadyAttemptedToday": "商务团队今天已经接洽过赞助商。",
         "sponsorPitchActiveSponsor": "当前已经有生效中的赞助协议。",
+        "marketingCampaignUnavailable": "只有当俱乐部面临工资或现金压力时，才能发起营销活动。",
+        "marketingCampaignCoolingDown": "商务团队在再次发起营销活动前还需要一些时间。",
         "facilityUpgradeOverBudget": "当俱乐部超出工资预算时，设施升级会被禁止。",
         "facilityUpgradeCritical": "当俱乐部处于严重财务困境时，设施升级会被禁止。"
       },
@@ -1697,6 +1704,11 @@
       "wageOverBudget": {
         "subject": "薪资支出超出预算",
         "body": "我们的年度薪资支出(€{{annualWages}})目前已超过分配的薪资预算(€{{wageBudget}})。\n\n短期内尚可维持,但董事会希望看到薪资支出得到控制。"
+      },
+      "financeBoardPressure": {
+        "subject": "董事会审查——财务压力",
+        "bodyWarning": "董事会仍然担忧俱乐部的财务状况。本周其对你执教的信心下降了 {{penalty}} 点。\n\n你需要改善薪资结构和短期现金状况，否则他们的耐心会继续下降。",
+        "bodyCritical": "董事会已经审查了俱乐部持续恶化的财务状况，本周其对你执教的信心下降了 {{penalty}} 点。\n\n现金储备和薪资承诺都已处于危险状态，董事会希望你立即采取纠正措施。"
       },
       "seasonPayout": {
         "subject": "{{season}}赛季奖金发放",
