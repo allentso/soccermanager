@@ -4,6 +4,7 @@ import { MatchSnapshot, EnginePlayerData } from "./types";
 import { getPlayerName } from "./helpers";
 import { Badge } from "../ui";
 import { RefreshCw, AlertTriangle, UserMinus, UserPlus } from "lucide-react";
+import ContextMenu from "../ContextMenu";
 import { translatePositionAbbreviation } from "../squad/SquadTab.helpers";
 
 export function SubPanel({
@@ -290,9 +291,10 @@ export function SubPanel({
                         const isSelected = selectedOff === p.id;
                         const isSubOn = subbedOnIds.has(p.id);
                         const ovr = getOvr(p);
-                        return (
+                        const offPlayerRow = (
                           <tr
                             key={p.id}
+                            data-testid={`sub-panel-off-${p.id}`}
                             onClick={() => {
                               handleSelectOffPlayer(p.id);
                             }}
@@ -343,6 +345,26 @@ export function SubPanel({
                               </div>
                             </td>
                           </tr>
+                        );
+
+                        return (
+                          <ContextMenu
+                            items={[
+                              {
+                                label: isSelected
+                                  ? t("common.cancel")
+                                  : t(
+                                      "match.selectToTakeOff",
+                                      "Select to take off",
+                                    ),
+                                icon: <UserMinus className="w-4 h-4" />,
+                                onClick: () => handleSelectOffPlayer(p.id),
+                              },
+                            ]}
+                            key={p.id}
+                          >
+                            {offPlayerRow}
+                          </ContextMenu>
                         );
                       })}
                   </tbody>
@@ -467,9 +489,10 @@ export function SubPanel({
                         const posMatch = selectedPlayer
                           ? p.position === selectedPlayer.position
                           : true;
-                        return (
+                        const benchRow = (
                           <tr
                             key={p.id}
+                            data-testid={`sub-panel-bench-${p.id}`}
                             onClick={() => {
                               handleSelectBenchPlayer(p.id);
                             }}
@@ -518,6 +541,44 @@ export function SubPanel({
                               </div>
                             </td>
                           </tr>
+                        );
+
+                        return (
+                          <ContextMenu
+                            items={
+                              selectedOff
+                                ? [
+                                    {
+                                      label:
+                                        selectedBench === p.id
+                                          ? t(
+                                              "match.clearReplacementSelection",
+                                              "Clear replacement",
+                                            )
+                                          : t(
+                                              "match.selectReplacementMenu",
+                                              "Select replacement",
+                                            ),
+                                      icon: <UserPlus className="w-4 h-4" />,
+                                      onClick: () => handleSelectBenchPlayer(p.id),
+                                    },
+                                  ]
+                                : [
+                                    {
+                                      label: t(
+                                        "match.selectPlayerToTakeOffFirst",
+                                        "Select player to take off first",
+                                      ),
+                                      icon: <UserPlus className="w-4 h-4" />,
+                                      onClick: () => {},
+                                      disabled: true,
+                                    },
+                                  ]
+                            }
+                            key={p.id}
+                          >
+                            {benchRow}
+                          </ContextMenu>
                         );
                       })}
                     </tbody>

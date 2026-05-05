@@ -257,16 +257,63 @@ describe("PreMatchLineup component", () => {
     expect(onSelectStarter).toHaveBeenCalledWith("m1");
   });
 
+  it("offers a context menu action to select a starter for swapping", () => {
+    const onSelectStarter = vi.fn();
+
+    render(<PreMatchLineup {...defaultProps} onSelectStarter={onSelectStarter} />);
+
+    fireEvent.contextMenu(screen.getByTestId("pre-match-starter-m1"));
+    fireEvent.click(screen.getByRole("button", { name: "Select for swap" }));
+
+    expect(onSelectStarter).toHaveBeenCalledWith("m1");
+  });
+
   it("shows swap prompt when a starter is selected", () => {
     render(<PreMatchLineup {...defaultProps} selectedStarterId="m1" />);
     expect(screen.getByText("match.swapPrompt")).toBeInTheDocument();
     expect(screen.getByText("match.cancel")).toBeInTheDocument();
   });
 
+  it("offers a context menu action to clear the selected starter", () => {
+    const onSelectStarter = vi.fn();
+
+    render(
+      <PreMatchLineup
+        {...defaultProps}
+        selectedStarterId="m1"
+        onSelectStarter={onSelectStarter}
+      />,
+    );
+
+    fireEvent.contextMenu(screen.getByTestId("pre-match-starter-m1"));
+    fireEvent.click(screen.getAllByRole("button", { name: "match.cancel" })[1]);
+
+    expect(onSelectStarter).toHaveBeenCalledWith(null);
+  });
+
   it("calls onSwap when bench player is clicked while a starter is selected", () => {
     const onSwap = vi.fn();
     render(<PreMatchLineup {...defaultProps} selectedStarterId="m1" onSwap={onSwap} />);
     fireEvent.click(screen.getByText("Bench One"));
+    expect(onSwap).toHaveBeenCalledWith("b1");
+  });
+
+  it("offers a context menu action to swap in a bench player", () => {
+    const onSwap = vi.fn();
+
+    render(
+      <PreMatchLineup
+        {...defaultProps}
+        selectedStarterId="m1"
+        onSwap={onSwap}
+      />,
+    );
+
+    fireEvent.contextMenu(screen.getByTestId("pre-match-bench-b1"));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Swap with selected starter" }),
+    );
+
     expect(onSwap).toHaveBeenCalledWith("b1");
   });
 
