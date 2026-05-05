@@ -2,7 +2,7 @@ use log::info;
 use serde::Serialize;
 use tauri::State;
 
-use ofm_core::finances::{BoardSupportResult, TeamFinanceSnapshot};
+use ofm_core::finances::{BoardSupportResult, SponsorPitchResult, TeamFinanceSnapshot};
 use ofm_core::game::Game;
 use ofm_core::state::StateManager;
 
@@ -15,6 +15,12 @@ pub struct FinanceSnapshotCommandResponse {
 pub struct BoardSupportCommandResponse {
     pub game: Game,
     pub result: BoardSupportResult,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct SponsorPitchCommandResponse {
+    pub game: Game,
+    pub result: SponsorPitchResult,
 }
 
 #[tauri::command]
@@ -57,6 +63,13 @@ pub async fn request_board_support(
     request_board_support_internal(&state)
 }
 
+#[tauri::command]
+pub async fn request_sponsor_pitch(
+    state: State<'_, StateManager>,
+) -> Result<SponsorPitchCommandResponse, String> {
+    request_sponsor_pitch_internal(&state)
+}
+
 fn request_board_support_internal(
     state: &StateManager,
 ) -> Result<BoardSupportCommandResponse, String> {
@@ -78,9 +91,33 @@ fn request_board_support_internal(
     Ok(BoardSupportCommandResponse { game, result })
 }
 
+fn request_sponsor_pitch_internal(
+    state: &StateManager,
+) -> Result<SponsorPitchCommandResponse, String> {
+    info!("[cmd] request_sponsor_pitch");
+
+    let mut game = state
+        .get_game(|g: &Game| g.clone())
+        .ok_or("be.error.noActiveGameSession".to_string())?;
+
+    let team_id = game
+        .manager
+        .team_id
+        .clone()
+        .ok_or("be.error.noTeamAssigned".to_string())?;
+
+    let result = ofm_core::finances::request_sponsor_pitch(&mut game, &team_id)?;
+
+    state.set_game(game.clone());
+    Ok(SponsorPitchCommandResponse { game, result })
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{get_finance_snapshot_internal, request_board_support_internal};
+    use super::{
+        get_finance_snapshot_internal, request_board_support_internal,
+        request_sponsor_pitch_internal,
+    };
     use chrono::{TimeZone, Utc};
     use domain::manager::Manager;
     use domain::player::{Player, PlayerAttributes, Position};
@@ -192,5 +229,28 @@ mod tests {
         let stored_game = state.get_game(|current| current.clone()).expect("stored game");
         assert!(stored_game.teams[0].finance > 0);
         assert_eq!(stored_game.manager.satisfaction, 58);
+    }
+
+    #[test]
+    fn request_sponsor_pitch_internal_creates_pending_offer() {
+        let state = StateManager::new();
+        let mut game = make_game();
+        game.teams[0].wage_budget = 50_000;
+        state.set_game(game);
+
+        let response = request_sponsor_pitch_internal(&state).expect("response");
+
+        assert!(response.result.weekly_amount >= 40_000);
+        assert!(response
+            .game
+            .messages
+            .iter()
+            .any(|message| message.id == response.result.message_id));
+
+        let stored_game = state.get_game(|current| current.clone()).expect("stored game");
+        assert!(stored_game
+            .messages
+            .iter()
+            .any(|message| message.id == response.result.message_id));
     }
 }

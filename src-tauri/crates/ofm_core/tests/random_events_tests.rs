@@ -696,6 +696,25 @@ fn apply_sponsor_no_manager_team_returns_none() {
     assert!(result.is_none());
 }
 
+#[test]
+fn apply_sponsor_accept_parses_formatted_amount_param() {
+    let mut game = make_game();
+    let mut message = sponsor_message(100_000);
+    message
+        .i18n_params
+        .insert("amount".to_string(), "100,000".to_string());
+    game.messages.push(message);
+
+    let result = apply_event_response(&mut game, "sponsor_2025-06-15", "respond", "accept");
+
+    assert!(result.is_some());
+    let sponsorship = game.teams[0]
+        .sponsorship
+        .as_ref()
+        .expect("accepted sponsor should create active sponsorship state");
+    assert_eq!(sponsorship.base_value, 100_000);
+}
+
 fn board_message() -> InboxMessage {
     InboxMessage {
         id: "board_confidence_2025-06-15".to_string(),

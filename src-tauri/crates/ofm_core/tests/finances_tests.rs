@@ -255,6 +255,49 @@ fn request_board_support_rejects_second_support_package_in_same_season() {
 }
 
 #[test]
+fn request_sponsor_pitch_creates_pending_offer_for_over_budget_team() {
+    let mut game = make_monday_game();
+    game.teams[0].wage_budget = 50_000;
+
+    let result = finances::request_sponsor_pitch(&mut game, "team1").expect("pitch response");
+
+    assert_eq!(result.duration_weeks, 12);
+    assert!(result.weekly_amount >= 40_000);
+    let message = game
+        .messages
+        .iter()
+        .find(|message| message.id == result.message_id)
+        .expect("sponsor offer message");
+    assert!(message.id.starts_with("sponsor_"));
+    assert!(message.actions.iter().any(|action| !action.resolved));
+    assert!(message.subject.contains(&result.sponsor_name));
+}
+
+#[test]
+fn request_sponsor_pitch_rejects_healthy_club() {
+    let mut game = make_monday_game();
+    game.teams[0].wage_budget = 5_000_000;
+    game.teams[0].finance = 2_000_000;
+
+    let error = finances::request_sponsor_pitch(&mut game, "team1")
+        .expect_err("healthy club should fail");
+
+    assert!(error.contains("under wage or cash pressure"));
+}
+
+#[test]
+fn request_sponsor_pitch_rejects_when_offer_is_already_pending() {
+    let mut game = make_monday_game();
+    game.teams[0].wage_budget = 50_000;
+    finances::request_sponsor_pitch(&mut game, "team1").expect("first pitch");
+
+    let error = finances::request_sponsor_pitch(&mut game, "team1")
+        .expect_err("second pending pitch should fail");
+
+    assert!(error.contains("already a sponsor offer"));
+}
+
+#[test]
 fn calc_matchday_uses_explicit_attendance_and_ticket_inputs() {
     let revenue = finances::calc_matchday(40_000, 2, 0.75, 20.0);
 
