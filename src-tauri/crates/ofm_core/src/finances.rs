@@ -293,19 +293,16 @@ pub fn request_sponsor_pitch(game: &mut Game, team_id: &str) -> Result<SponsorPi
         .ok_or("be.error.managedTeamNotFound".to_string())?;
 
     if !sponsor_pitch_available(&snapshot) {
-        return Err(
-            "Sponsor pitches are only available when the club is under wage or cash pressure."
-                .to_string(),
-        );
+        return Err("be.error.finance.sponsorPitchUnavailable".to_string());
     }
 
     if has_pending_sponsor_offer(game) {
-        return Err("There is already a sponsor offer waiting for your decision.".to_string());
+        return Err("be.error.finance.sponsorPitchPendingOffer".to_string());
     }
 
     let message_id = sponsor_pitch_message_id(game);
     if game.messages.iter().any(|message| message.id == message_id) {
-        return Err("The commercial team has already pitched sponsors today.".to_string());
+        return Err("be.error.finance.sponsorPitchAlreadyAttemptedToday".to_string());
     }
 
     let team = game
@@ -317,7 +314,7 @@ pub fn request_sponsor_pitch(game: &mut Game, team_id: &str) -> Result<SponsorPi
     if team.sponsorship.as_ref().is_some_and(|sponsorship| {
         sponsorship.remaining_weeks > 0 && sponsorship.base_value > 0
     }) {
-        return Err("An active sponsorship deal is already in place.".to_string());
+        return Err("be.error.finance.sponsorPitchActiveSponsor".to_string());
     }
 
     let weekly_amount = sponsor_pitch_weekly_amount(team, &snapshot);
@@ -351,10 +348,7 @@ pub fn request_board_support(game: &mut Game, team_id: &str) -> Result<BoardSupp
             FinanceHealthLevel::Warning | FinanceHealthLevel::Critical
         )
     {
-        return Err(
-            "Emergency board support is only available when cash reserves are under pressure."
-                .to_string(),
-        );
+        return Err("be.error.finance.boardSupportUnavailable".to_string());
     }
 
     let season = board_support_season(game);
@@ -368,7 +362,7 @@ pub fn request_board_support(game: &mut Game, team_id: &str) -> Result<BoardSupp
         entry.kind == FinancialTransactionKind::BoardSupport
             && entry.description == format!("Board support package for season {}", season)
     }) {
-        return Err("The board has already approved emergency support this season.".to_string());
+        return Err("be.error.finance.boardSupportAlreadyUsed".to_string());
     }
 
     let reserve_target = std::cmp::max(

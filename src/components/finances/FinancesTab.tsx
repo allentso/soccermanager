@@ -79,11 +79,11 @@ function facilityUpgradeBlockReason(
   snapshot: TeamFinanceSnapshotData,
 ): string | null {
   if (snapshot.currentlyOverBudget) {
-    return "Facility upgrades are blocked while the club is over its wage budget.";
+    return "be.error.finance.facilityUpgradeOverBudget";
   }
 
   if (snapshot.overallStatus === "critical") {
-    return "Facility upgrades are blocked while the club is in critical financial distress.";
+    return "be.error.finance.facilityUpgradeCritical";
   }
 
   return null;
@@ -962,7 +962,9 @@ export default function FinancesTab({
               const canAffordUpgrade = myTeam.finance >= nextUpgradeCost;
               const canUpgrade = canAffordUpgrade && !financeBlockReason;
               const isLoading = actionLoading === facility.id;
-              const upgradeReason = financeBlockReason ?? facilityUpgradeError;
+              const upgradeReason = financeBlockReason
+                ? resolveBackendError(financeBlockReason)
+                : facilityUpgradeError;
 
               return (
                 <div

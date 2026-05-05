@@ -251,7 +251,7 @@ fn request_board_support_rejects_second_support_package_in_same_season() {
 
     let error = finances::request_board_support(&mut game, "team1").expect_err("should fail");
 
-    assert!(error.contains("already approved emergency support this season"));
+    assert_eq!(error, "be.error.finance.boardSupportAlreadyUsed");
 }
 
 #[test]
@@ -282,7 +282,7 @@ fn request_sponsor_pitch_rejects_healthy_club() {
     let error = finances::request_sponsor_pitch(&mut game, "team1")
         .expect_err("healthy club should fail");
 
-    assert!(error.contains("under wage or cash pressure"));
+    assert_eq!(error, "be.error.finance.sponsorPitchUnavailable");
 }
 
 #[test]
@@ -294,7 +294,7 @@ fn request_sponsor_pitch_rejects_when_offer_is_already_pending() {
     let error = finances::request_sponsor_pitch(&mut game, "team1")
         .expect_err("second pending pitch should fail");
 
-    assert!(error.contains("already a sponsor offer"));
+    assert_eq!(error, "be.error.finance.sponsorPitchPendingOffer");
 }
 
 #[test]
