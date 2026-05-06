@@ -1641,7 +1641,7 @@
       "matchDayPress": "Stampa del Giorno Partita",
       "leagueChronicle": "Cronaca della Lega",
       "leagueWire": "Filo della Lega",
-      "transferIntelligence": "Transfer Intelligence"
+      "transferIntelligence": "Informazioni sui Trasferimenti"
     },
     "msg": {
       "welcome": {
@@ -2132,9 +2132,11 @@
       "injuryNews": {
         "headline0": "Brutto colpo per il {{team}}: infortunio per {{player}}",
         "headline1": "{{player}} destinato a un periodo di stop",
-        "headline2": "{{duration}} — il {{team}} trema per un giocatore chiave",
-        "body0": "Il {{team}} ha confermato che {{player}} ha riportato un infortunio e si prevede che rimarrà fuori per {{duration}}. Il club valuterà la situazione prima di fornire ulteriori aggiornamenti.",
-        "body1": "{{player}} ha subito un problema in allenamento: il giocatore del {{team}} è stato escluso per {{duration}}. L'assenza sarà un duro colpo mentre la stagione entra in una fase decisiva."
+        "headline2": "~{{weeksOut}} settimana/e — il {{team}} trema per un giocatore chiave",
+        "body0Days": "Il {{team}} ha confermato che {{player}} ha riportato un infortunio e si prevede che rimarrà fuori {{daysOut}} giorno/i. Il club valuterà la situazione prima di fornire ulteriori aggiornamenti.",
+        "body0Weeks": "Il {{team}} ha confermato che {{player}} ha riportato un infortunio e si prevede che rimarrà fuori circa {{weeksOut}} settimana/e. Il club valuterà la situazione prima di fornire ulteriori aggiornamenti.",
+        "body1Days": "{{player}} ha subito un problema in allenamento: il giocatore del {{team}} è stato escluso per {{daysOut}} giorno/i. L'assenza sarà un duro colpo mentre la stagione entra in una fase decisiva.",
+        "body1Weeks": "{{player}} ha subito un problema in allenamento: il giocatore del {{team}} è stato escluso per circa {{weeksOut}} settimana/e. L'assenza sarà un duro colpo mentre la stagione entra in una fase decisiva."
       }
     }
   },

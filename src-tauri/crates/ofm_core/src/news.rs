@@ -553,7 +553,7 @@ pub fn transfer_rumour_gossip_article(
 
     let headlines = [
         format!("{} Attracting Interest from Several Clubs", player_name),
-        format!("Clubs Circle as {} Future Remains Uncertain", player_name),
+        format!("Clubs Circle as {}'s Future Remains Uncertain", player_name),
         format!("{} Linked with Move Away from {}", player_name, from_team_name),
     ];
     let headline_idx = rng.random_range(0..headlines.len());
@@ -615,41 +615,48 @@ pub fn injury_news_article(
     player_name: &str,
     team_id: &str,
     team_name: &str,
-    injury_name_key: &str,
+    _injury_name_key: &str,
     days_out: u32,
     date: &str,
 ) -> NewsArticle {
     let mut rng = rand::rng();
 
+    let is_short = days_out <= 7;
     let weeks = (days_out + 6) / 7;
-    let duration_text = if days_out <= 7 {
+    // Body keys: locale-specific phrasing for days (short) vs weeks (long).
+    // headline2 (contains duration) is only picked for long injuries so the locale
+    // template can use {{weeksOut}} without needing a conditional.
+    let duration_suffix = if is_short { "Days" } else { "Weeks" };
+    let duration_display = if is_short {
         format!("{} day(s)", days_out)
     } else {
-        format!("around {} week(s)", weeks)
+        format!("~{} week(s)", weeks)
     };
+
+    let headline_count = if is_short { 2 } else { 3 };
+    let headline_idx = rng.random_range(0..headline_count);
 
     let headlines = [
         format!("{} Injury Blow for {}", player_name, team_name),
         format!("{} Set for Spell on the Sidelines", player_name),
-        format!("{} Ruled Out — {} Sweating on Key Player", duration_text, team_name),
+        format!("{} — {} Sweating on Key Player", duration_display, team_name),
     ];
-    let headline_idx = rng.random_range(0..headlines.len());
 
+    let body_idx = rng.random_range(0..2_usize);
     let bodies = [
         format!(
             "{} have confirmed that {} has picked up an injury and is expected to be \
             sidelined for {}. The club will assess the situation before providing \
             a further update.",
-            team_name, player_name, duration_text
+            team_name, player_name, duration_display
         ),
         format!(
-            "{} suffered a setback in training, with the {} star ruled out for \
+            "{} suffered a setback in training, with the {} player ruled out for \
             {}. The absence will be a significant blow as the season reaches a \
             critical stage.",
-            player_name, team_name, duration_text
+            player_name, team_name, duration_display
         ),
     ];
-    let body_idx = rng.random_range(0..bodies.len());
 
     let source_keys = [
         "be.source.leagueWire",
@@ -671,13 +678,13 @@ pub fn injury_news_article(
     .with_players(vec![player_id.to_string()])
     .with_i18n(
         &format!("be.news.injuryNews.headline{}", headline_idx),
-        &format!("be.news.injuryNews.body{}", body_idx),
+        &format!("be.news.injuryNews.body{}{}", body_idx, duration_suffix),
         source_keys[src_idx],
         params(&[
             ("player", player_name),
             ("team", team_name),
-            ("duration", &duration_text),
-            ("injuryName", injury_name_key),
+            ("daysOut", &days_out.to_string()),
+            ("weeksOut", &weeks.to_string()),
         ]),
     )
 }
@@ -1133,8 +1140,9 @@ mod tests {
         assert!(article.body_key.as_deref().unwrap().starts_with("be.news.injuryNews.body"));
         assert_eq!(article.i18n_params.get("player").map(|s| s.as_str()), Some("Bruno Costa"));
         assert_eq!(article.i18n_params.get("team").map(|s| s.as_str()), Some("Beta FC"));
-        // 14 days ≈ 2 weeks → duration text should mention "week"
-        assert!(article.i18n_params.get("duration").unwrap().contains("week"));
+        // 14 days ≈ 2 weeks → long injury selects Weeks body variant
+        assert!(article.body_key.as_deref().unwrap().ends_with("Weeks"));
+        assert_eq!(article.i18n_params.get("weeksOut").map(|s| s.as_str()), Some("2"));
     }
 
     #[test]
@@ -1150,6 +1158,9 @@ mod tests {
             5,
             "2026-09-01",
         );
-        assert!(article.i18n_params.get("duration").unwrap().contains("day"));
+        // Short injury selects Days body variant and never picks headline2
+        assert!(article.body_key.as_deref().unwrap().ends_with("Days"));
+        assert_eq!(article.i18n_params.get("daysOut").map(|s| s.as_str()), Some("5"));
+        assert_ne!(article.headline_key.as_deref().unwrap(), "be.news.injuryNews.headline2");
     }
 }

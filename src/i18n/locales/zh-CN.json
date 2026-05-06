@@ -2128,9 +2128,11 @@
       "injuryNews": {
         "headline0": "{{player}}受伤，{{team}}遭受打击",
         "headline1": "{{player}}即将缺席一段时间",
-        "headline2": "{{duration}}——{{team}}为主力球员的伤情担忧",
-        "body0": "{{team}}已证实{{player}}受伤，预计将缺阵{{duration}}。俱乐部将评估伤情后发布进一步的最新消息。",
-        "body1": "{{player}}在训练中遭遇挫折，这名{{team}}球员将缺席{{duration}}。在赛季进入关键阶段之际，这一缺阵将是重大打击。"
+        "headline2": "约{{weeksOut}}周——{{team}}为主力球员的伤情担忧",
+        "body0Days": "{{team}}已证实{{player}}受伤，预计将缺阵{{daysOut}}天。俱乐部将评估伤情后发布进一步的最新消息。",
+        "body0Weeks": "{{team}}已证实{{player}}受伤，预计将缺阵约{{weeksOut}}周。俱乐部将评估伤情后发布进一步的最新消息。",
+        "body1Days": "{{player}}在训练中遭遇挫折，这名{{team}}球员将缺席{{daysOut}}天。在赛季进入关键阶段之际，这一缺阵将是重大打击。",
+        "body1Weeks": "{{player}}在训练中遭遇挫折，这名{{team}}球员将缺席约{{weeksOut}}周。在赛季进入关键阶段之际，这一缺阵将是重大打击。"
       }
     }
   },

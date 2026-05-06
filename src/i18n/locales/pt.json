@@ -1641,7 +1641,7 @@
       "matchDayPress": "Imprensa do Jogo",
       "leagueChronicle": "Crónica da Liga",
       "leagueWire": "Notícias da Liga",
-      "transferIntelligence": "Transfer Intelligence"
+      "transferIntelligence": "Inteligência de Transferências"
     },
     "msg": {
       "welcome": {
@@ -2132,9 +2132,11 @@
       "injuryNews": {
         "headline0": "Lesão de {{player}} é um golpe para o {{team}}",
         "headline1": "{{player}} preparado para um período de paragem",
-        "headline2": "{{duration}} — {{team}} ansioso em relação a jogador-chave",
-        "body0": "O {{team}} confirmou que {{player}} sofreu uma lesão e deverá ficar fora de combate durante {{duration}}. O clube irá avaliar a situação antes de prestar uma atualização adicional.",
-        "body1": "{{player}} sofreu um revés no treino, com o jogador do {{team}} afastado por {{duration}}. A ausência será um golpe significativo enquanto a temporada atinge uma fase decisiva."
+        "headline2": "~{{weeksOut}} semana(s) — {{team}} ansioso em relação a jogador-chave",
+        "body0Days": "O {{team}} confirmou que {{player}} sofreu uma lesão e deverá ficar fora de combate durante {{daysOut}} dia(s). O clube irá avaliar a situação antes de prestar uma atualização adicional.",
+        "body0Weeks": "O {{team}} confirmou que {{player}} sofreu uma lesão e deverá ficar fora de combate durante cerca de {{weeksOut}} semana(s). O clube irá avaliar a situação antes de prestar uma atualização adicional.",
+        "body1Days": "{{player}} sofreu um revés no treino, com o jogador do {{team}} afastado por {{daysOut}} dia(s). A ausência será um golpe significativo enquanto a temporada atinge uma fase decisiva.",
+        "body1Weeks": "{{player}} sofreu um revés no treino, com o jogador do {{team}} afastado por cerca de {{weeksOut}} semana(s). A ausência será um golpe significativo enquanto a temporada atinge uma fase decisiva."
       }
     }
   },

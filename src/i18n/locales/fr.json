@@ -1641,7 +1641,7 @@
       "matchDayPress": "Presse du Match",
       "leagueChronicle": "Chronique de la Ligue",
       "leagueWire": "Fil de la Ligue",
-      "transferIntelligence": "Transfer Intelligence"
+      "transferIntelligence": "Renseignements Transferts"
     },
     "msg": {
       "welcome": {
@@ -2132,9 +2132,11 @@
       "injuryNews": {
         "headline0": "Coup dur pour {{team}} : blessure de {{player}}",
         "headline1": "{{player}} contraint à une période d'indisponibilité",
-        "headline2": "{{duration}} — {{team}} dans l'inquiétude pour un joueur clé",
-        "body0": "{{team}} a confirmé que {{player}} s'est blessé et devrait être indisponible pendant {{duration}}. Le club évaluera la situation avant de fournir une mise à jour supplémentaire.",
-        "body1": "{{player}} a subi un revers à l'entraînement, le joueur de {{team}} étant écarté pour {{duration}}. Cette absence sera un coup significatif alors que la saison entre dans une phase cruciale."
+        "headline2": "~{{weeksOut}} semaine(s) — {{team}} dans l'inquiétude pour un joueur clé",
+        "body0Days": "{{team}} a confirmé que {{player}} s'est blessé et devrait être indisponible pendant {{daysOut}} jour(s). Le club évaluera la situation avant de fournir une mise à jour supplémentaire.",
+        "body0Weeks": "{{team}} a confirmé que {{player}} s'est blessé et devrait être indisponible pendant environ {{weeksOut}} semaine(s). Le club évaluera la situation avant de fournir une mise à jour supplémentaire.",
+        "body1Days": "{{player}} a subi un revers à l'entraînement, le joueur de {{team}} étant écarté pour {{daysOut}} jour(s). Cette absence sera un coup significatif alors que la saison entre dans une phase cruciale.",
+        "body1Weeks": "{{player}} a subi un revers à l'entraînement, le joueur de {{team}} étant écarté pour environ {{weeksOut}} semaine(s). Cette absence sera un coup significatif alors que la saison entre dans une phase cruciale."
       }
     }
   },
