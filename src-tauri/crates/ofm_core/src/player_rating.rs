@@ -58,7 +58,7 @@ pub fn generate_potential(ovr: u8, age: u32) -> u8 {
         23..=25 => rng.random_range(0u8..=7),
         _ => 0,
     };
-    (ovr.saturating_add(bonus)).min(99).max(ovr)
+    (ovr.saturating_add(bonus)).min(99).max(ovr.max(1))
 }
 
 /// Parse birth year from a "YYYY-MM-DD" date string and return approximate age.
