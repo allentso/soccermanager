@@ -228,13 +228,12 @@ pub(super) fn generate_random_player_from_def(
         },
     };
 
-    // Compute position-weighted OVR and use it for market value / wage.
-    // We create the player first, then call refresh_player_derived to populate
-    // ovr, potential, and traits using the proper weighted formula.
+    // Derived ratings are populated later by refresh_player_derived using the
+    // proper position-weighted formula. For initial market-value sizing here,
+    // use a temporary simple average until the player's derived fields are refreshed.
     let birth_year: u32 = dob.split('-').next().and_then(|y| y.parse().ok()).unwrap_or(2000);
     let current_year: u32 = 2026;
 
-    // Temporary simple average for market-value sizing before refresh
     let approx_ovr = (attributes.pace as u32
         + attributes.stamina as u32
         + attributes.strength as u32
