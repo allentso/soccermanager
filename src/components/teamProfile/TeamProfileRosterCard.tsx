@@ -64,7 +64,7 @@ export default function TeamProfileRosterCard({
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-navy-600">
               {roster.map((player) => {
-                const ovr = calcOvr(
+                const ovr = player.ovr ?? calcOvr(
                   player,
                   player.natural_position || player.position,
                 );
