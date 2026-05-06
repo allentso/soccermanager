@@ -2119,7 +2119,7 @@
       },
       "transferRumour": {
         "headline0": "{{player}} Attracting Interest from Several Clubs",
-        "headline1": "Clubs Circle as {{player}} Future Remains Uncertain",
+        "headline1": "Clubs Circle as {{player}}'s Future Remains Uncertain",
         "headline2": "{{player}} Linked with Move Away from {{team}}",
         "body0": "Sources close to the situation suggest that {{player}} could be on the move, with multiple clubs reportedly monitoring the {{team}} player. {{team}} have not commented publicly, but the speculation is unlikely to die down soon.",
         "body1": "{{player}} is understood to have attracted attention from clubs across the division. The {{team}} star has been one of the standout performers this season, and it is believed that offers could materialise before the window closes.",
@@ -2128,9 +2128,11 @@
       "injuryNews": {
         "headline0": "{{player}} Injury Blow for {{team}}",
         "headline1": "{{player}} Set for Spell on the Sidelines",
-        "headline2": "{{duration}} — {{team}} Sweating on Key Player",
-        "body0": "{{team}} have confirmed that {{player}} has picked up an injury and is expected to be sidelined for {{duration}}. The club will assess the situation before providing a further update.",
-        "body1": "{{player}} suffered a setback in training, with the {{team}} player ruled out for {{duration}}. The absence will be a significant blow as the season reaches a critical stage."
+        "headline2": "~{{weeksOut}} week(s) — {{team}} Sweating on Key Player",
+        "body0Days": "{{team}} have confirmed that {{player}} has picked up an injury and is expected to be sidelined for {{daysOut}} day(s). The club will assess the situation before providing a further update.",
+        "body0Weeks": "{{team}} have confirmed that {{player}} has picked up an injury and is expected to be sidelined for around {{weeksOut}} week(s). The club will assess the situation before providing a further update.",
+        "body1Days": "{{player}} suffered a setback in training, with the {{team}} player ruled out for {{daysOut}} day(s). The absence will be a significant blow as the season reaches a critical stage.",
+        "body1Weeks": "{{player}} suffered a setback in training, with the {{team}} player ruled out for around {{weeksOut}} week(s). The absence will be a significant blow as the season reaches a critical stage."
       }
     }
   },

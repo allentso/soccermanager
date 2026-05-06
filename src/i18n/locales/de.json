@@ -1641,7 +1641,7 @@
       "matchDayPress": "Spieltagspresse",
       "leagueChronicle": "Liga-Chronik",
       "leagueWire": "Liga-Ticker",
-      "transferIntelligence": "Transfer Intelligence"
+      "transferIntelligence": "Transferinformationen"
     },
     "msg": {
       "welcome": {
@@ -2132,9 +2132,11 @@
       "injuryNews": {
         "headline0": "Verletzungsrückschlag für {{team}} — {{player}} fällt aus",
         "headline1": "{{player}} muss Pause einlegen",
-        "headline2": "{{duration}} — {{team}} bangt um Schlüsselspieler",
-        "body0": "{{team}} hat bestätigt, dass {{player}} verletzt ist und voraussichtlich für {{duration}} ausfallen wird. Der Verein wird die Situation weiter beobachten und zu gegebener Zeit eine weitere Einschätzung abgeben.",
-        "body1": "{{player}} erlitt beim Training einen Rückschlag. Der {{team}}-Spieler fällt für {{duration}} aus. Die Abwesenheit dürfte ein empfindlicher Verlust sein, da die Saison eine entscheidende Phase erreicht."
+        "headline2": "~{{weeksOut}} Woche(n) — {{team}} bangt um Schlüsselspieler",
+        "body0Days": "{{team}} hat bestätigt, dass {{player}} verletzt ist und voraussichtlich {{daysOut}} Tag(e) ausfallen wird. Der Verein wird die Situation weiter beobachten und zu gegebener Zeit eine weitere Einschätzung abgeben.",
+        "body0Weeks": "{{team}} hat bestätigt, dass {{player}} verletzt ist und voraussichtlich rund {{weeksOut}} Woche(n) ausfallen wird. Der Verein wird die Situation weiter beobachten und zu gegebener Zeit eine weitere Einschätzung abgeben.",
+        "body1Days": "{{player}} erlitt beim Training einen Rückschlag. Der {{team}}-Spieler fällt für {{daysOut}} Tag(e) aus. Die Abwesenheit dürfte ein empfindlicher Verlust sein, da die Saison eine entscheidende Phase erreicht.",
+        "body1Weeks": "{{player}} erlitt beim Training einen Rückschlag. Der {{team}}-Spieler fällt für rund {{weeksOut}} Woche(n) aus. Die Abwesenheit dürfte ein empfindlicher Verlust sein, da die Saison eine entscheidende Phase erreicht."
       }
     }
   },
