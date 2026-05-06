@@ -173,8 +173,8 @@ export default function PlayersListTab({
         break;
       case "ovr":
         cmp =
-          calcOvr(a, a.natural_position || a.position) -
-          calcOvr(b, b.natural_position || b.position);
+          (a.ovr ?? calcOvr(a, a.natural_position || a.position)) -
+          (b.ovr ?? calcOvr(b, b.natural_position || b.position));
         break;
       case "value":
         cmp = (a.market_value || 0) - (b.market_value || 0);
@@ -331,7 +331,7 @@ export default function PlayersListTab({
                 {filtered
                   .slice((page - 1) * pageSize, page * pageSize)
                   .map((player) => {
-                    const ovr = calcOvr(
+                    const ovr = player.ovr ?? calcOvr(
                       player,
                       player.natural_position || player.position,
                     );
