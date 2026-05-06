@@ -228,9 +228,8 @@ pub(super) fn generate_random_player_from_def(
         },
     };
 
-    // Derived ratings are populated later by refresh_player_derived using the
-    // proper position-weighted formula. For initial market-value sizing here,
-    // use a temporary simple average until the player's derived fields are refreshed.
+    // For initial market-value sizing, use a temporary simple attribute average.
+    // The accurate position-weighted OVR is computed by refresh_player_derived() below.
     let birth_year: u32 = dob.split('-').next().and_then(|y| y.parse().ok()).unwrap_or(2000);
     let current_year: u32 = 2026;
 
