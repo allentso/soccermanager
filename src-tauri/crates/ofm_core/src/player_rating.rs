@@ -49,6 +49,7 @@ pub fn refresh_player_derived(player: &mut Player, current_year: u32) {
 
 /// Generate a potential rating for a newly-created player based on current OVR and age.
 /// Returns a value in [1, 99] that is always >= `ovr`.
+/// The lower bound of 1 (via `ovr.max(1)`) ensures potential is never 0 even when `ovr` is 0.
 pub fn generate_potential(ovr: u8, age: u32) -> u8 {
     let mut rng = rand::rng();
     let bonus: u8 = match age {
