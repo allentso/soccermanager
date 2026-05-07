@@ -169,7 +169,6 @@ pub fn check_random_events(game: &mut Game) {
                                     &player_name,
                                     actual_team_id,
                                     &team_name,
-                                    injury_name,
                                     days as u32,
                                     &date_str,
                                 ));

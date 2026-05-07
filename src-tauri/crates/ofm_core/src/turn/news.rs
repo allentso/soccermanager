@@ -266,7 +266,10 @@ fn rumour_candidates(game: &Game) -> Vec<(String, String, String, String)> {
                 .contract_end
                 .as_deref()
                 .and_then(|end| chrono::NaiveDate::parse_from_str(end, "%Y-%m-%d").ok())
-                .map(|end| (end - current_date).num_days() <= 365)
+                .map(|end| {
+                    let days = (end - current_date).num_days();
+                    (1..=365).contains(&days)
+                })
                 .unwrap_or(false);
             let low_morale = p.morale <= 45;
             high_value || short_contract || low_morale
