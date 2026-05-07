@@ -152,8 +152,8 @@ export default function NewsTab({ gameState, onSelectTeam }: NewsTabProps) {
             setPage(0);
           }}
           className={`px-3 py-1.5 rounded-full text-xs font-heading font-bold uppercase tracking-wider transition-colors ${!filterCategory
-              ? "bg-primary-500 text-white shadow-sm"
-              : "bg-gray-100 dark:bg-navy-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-navy-600"
+            ? "bg-primary-500 text-white shadow-sm"
+            : "bg-gray-100 dark:bg-navy-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-navy-600"
             }`}
         >
           {t("common.all")}
@@ -166,8 +166,8 @@ export default function NewsTab({ gameState, onSelectTeam }: NewsTabProps) {
               setPage(0);
             }}
             className={`px-3 py-1.5 rounded-full text-xs font-heading font-bold uppercase tracking-wider transition-colors ${filterCategory === cat
-                ? "bg-primary-500 text-white shadow-sm"
-                : "bg-gray-100 dark:bg-navy-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-navy-600"
+              ? "bg-primary-500 text-white shadow-sm"
+              : "bg-gray-100 dark:bg-navy-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-navy-600"
               }`}
           >
             {t(`news.categories.${cat}`)}

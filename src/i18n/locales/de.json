@@ -2101,6 +2101,10 @@
         "headline": "{{player}} wechselt zu {{toTeam}}",
         "body": "{{toTeam}} hat die Verpflichtung von {{player}} von {{fromTeam}} für {{fee}} abgeschlossen."
       },
+      "transferRoundup": {
+        "headline": "Transferüberblick — Woche vom {{weekStart}}",
+        "body": "Auf dem Transfermarkt war in dieser Woche viel los. {{transferCount}} abgeschlossene Wechsel stachen ligaweit heraus.\n\n{{deals}}"
+      },
       "seasonAwards": {
         "headline": "Saisonpreise {{season}}",
         "bodyBoth": "Saison {{season}} endete damit, dass {{goldenBootWinner}} ({{goldenBootTeam}}) mit {{goldenBootGoals}} Toren den Goldenen Schuh gewann. Spieler des Jahres wurde {{potyWinner}} ({{potyTeam}}) mit einer Durchschnittsbewertung von {{potyRating}}.",

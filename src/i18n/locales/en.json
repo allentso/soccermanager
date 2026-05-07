@@ -2097,6 +2097,10 @@
         "headline": "{{player}} Completes Move to {{toTeam}}",
         "body": "{{toTeam}} have completed the signing of {{player}} from {{fromTeam}} for {{fee}}."
       },
+      "transferRoundup": {
+        "headline": "Transfer Roundup — Week of {{weekStart}}",
+        "body": "The transfer market stayed busy this week. {{transferCount}} completed deal(s) stood out across the division.\n\n{{deals}}"
+      },
       "seasonAwards": {
         "headline": "Season {{season}} Awards",
         "bodyBoth": "Season {{season}} concluded with {{goldenBootWinner}} ({{goldenBootTeam}}) lifting the Golden Boot with {{goldenBootGoals}} goals. Player of the Year went to {{potyWinner}} ({{potyTeam}}) with an average rating of {{potyRating}}.",

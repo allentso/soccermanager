@@ -2097,6 +2097,10 @@
         "headline": "{{player}}转会至{{toTeam}}",
         "body": "{{toTeam}}已完成从{{fromTeam}}签下{{player}}的交易,转会费为{{fee}}。"
       },
+      "transferRoundup": {
+        "headline": "转会综述——{{weekStart}}当周",
+        "body": "本周转会市场依旧活跃,联赛中共有{{transferCount}}笔已完成的交易最受关注。\n\n{{deals}}"
+      },
       "seasonAwards": {
         "headline": "第{{season}}赛季奖项",
         "bodyBoth": "第{{season}}赛季落下帷幕,{{goldenBootWinner}}（{{goldenBootTeam}}）以{{goldenBootGoals}}粒进球荣膺金靴奖。年度最佳球员由{{potyWinner}}（{{potyTeam}}）获得,其平均评分为{{potyRating}}。",

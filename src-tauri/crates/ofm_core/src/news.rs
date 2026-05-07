@@ -300,19 +300,24 @@ pub fn transfer_roundup_article(
     transfers: &[(String, String, String, String, String, String, u64)],
     date: &str,
 ) -> NewsArticle {
-    let body = format!(
-        "The transfer market stayed busy this week. Here are the biggest completed deals:\n\n{}",
-        transfers
-            .iter()
-            .map(|(player, from_team, to_team, _, _, _, fee)| format!(
+    let deals = transfers
+        .iter()
+        .map(|(player, from_team, to_team, _, _, _, fee)| {
+            format!(
                 "  {}: {} -> {} ({})",
                 player,
                 from_team,
                 to_team,
                 format_transfer_fee(*fee)
-            ))
-            .collect::<Vec<_>>()
-            .join("\n")
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    let headline = format!("Transfer Roundup — Week of {}", week_start);
+    let body = format!(
+        "The transfer market stayed busy this week. {} completed deal(s) stood out across the division.\n\n{}",
+        transfers.len(),
+        deals
     );
 
     let mut team_ids = Vec::new();
@@ -331,7 +336,7 @@ pub fn transfer_roundup_article(
 
     NewsArticle::new(
         id.to_string(),
-        format!("Transfer Roundup — Week of {}", week_start),
+        headline,
         body,
         "Transfer Intelligence".to_string(),
         date.to_string(),
@@ -339,6 +344,16 @@ pub fn transfer_roundup_article(
     )
     .with_teams(team_ids)
     .with_players(player_ids)
+    .with_i18n(
+        "be.news.transferRoundup.headline",
+        "be.news.transferRoundup.body",
+        "be.source.transferIntelligence",
+        params(&[
+            ("weekStart", week_start),
+            ("transferCount", &transfers.len().to_string()),
+            ("deals", &deals),
+        ]),
+    )
 }
 
 /// Generate the end-of-season awards ceremony news article.
@@ -1274,9 +1289,44 @@ mod tests {
 
         assert_eq!(article.category, NewsCategory::TransferRoundup);
         assert!(article.headline.contains("Transfer Roundup"));
-        assert!(article.body.contains("Adam Smith: Alpha FC -> Beta FC (€1.8M)"));
-        assert!(article.body.contains("Bruno Costa: Gamma FC -> Delta FC (€850K)"));
-        assert_eq!(article.player_ids, vec!["player-1".to_string(), "player-2".to_string()]);
+        assert!(
+            article
+                .body
+                .contains("Adam Smith: Alpha FC -> Beta FC (€1.8M)")
+        );
+        assert!(
+            article
+                .body
+                .contains("Bruno Costa: Gamma FC -> Delta FC (€850K)")
+        );
+        assert_eq!(
+            article.headline_key.as_deref(),
+            Some("be.news.transferRoundup.headline")
+        );
+        assert_eq!(
+            article.body_key.as_deref(),
+            Some("be.news.transferRoundup.body")
+        );
+        assert_eq!(
+            article.source_key.as_deref(),
+            Some("be.source.transferIntelligence")
+        );
+        assert_eq!(
+            article.i18n_params.get("weekStart"),
+            Some(&"2026-08-03".to_string())
+        );
+        assert_eq!(
+            article.i18n_params.get("transferCount"),
+            Some(&"2".to_string())
+        );
+        assert!(article
+            .i18n_params
+            .get("deals")
+            .is_some_and(|deals| deals.contains("Adam Smith: Alpha FC -> Beta FC (€1.8M)")));
+        assert_eq!(
+            article.player_ids,
+            vec!["player-1".to_string(), "player-2".to_string()]
+        );
         assert_eq!(
             article.team_ids,
             vec![
