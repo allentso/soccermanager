@@ -1044,8 +1044,14 @@ mod tests {
         assert_eq!(article.category, NewsCategory::MatchReport);
         assert!(article.body.to_lowercase().contains("friendly action"));
         assert!(article.headline.to_lowercase().contains("friendly report"));
-        assert!(article.headline_key.is_none());
-        assert!(article.body_key.is_none());
+        assert_eq!(
+            article.headline_key.as_deref(),
+            Some("be.news.matchReport.reportFriendly.title")
+        );
+        assert_eq!(
+            article.body_key.as_deref(),
+            Some("be.news.matchReport.reportFriendly.body")
+        );
     }
 
     #[test]
@@ -1143,8 +1149,14 @@ mod tests {
         assert_eq!(digest.category, NewsCategory::Editorial);
         assert!(digest.headline.contains("Preseason Digest"));
         assert!(digest.body.contains("Training camps"));
-        assert!(digest.headline_key.is_none());
-        assert!(digest.body_key.is_none());
+        assert_eq!(
+            digest.headline_key.as_deref(),
+            Some("be.news.preseasonDigest.headline")
+        );
+        assert_eq!(
+            digest.body_key.as_deref(),
+            Some("be.news.preseasonDigest.bodyNoResults")
+        );
         assert!(
             game.news
                 .iter()
@@ -1192,6 +1204,14 @@ mod tests {
             .iter()
             .find(|article| article.id.starts_with("preseason_digest_"))
             .unwrap();
+        assert_eq!(
+            digest.headline_key.as_deref(),
+            Some("be.news.preseasonDigest.headline")
+        );
+        assert_eq!(
+            digest.body_key.as_deref(),
+            Some("be.news.preseasonDigest.bodyWithResults")
+        );
         assert!(digest.body.contains("Alpha FC 2 - 1 Beta FC"));
         assert!(digest.body.contains("Gamma FC 0 - 0 Beta FC"));
         assert!(digest.body.contains("friendly result(s)"));

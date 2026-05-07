@@ -2102,7 +2102,9 @@
         "headline0": "Resumen Jornada {{matchday}}: {{totalGoals}} Goles en un Día de Acción",
         "headline1": "Primera División Jornada {{matchday}}: Todos los Resultados",
         "headline2": "Lluvia de Goles en la Jornada {{matchday}}",
-        "body": "La Jornada {{matchday}} ha concluido. Estos son los resultados completos:\n\n{{results}}\n\n{{totalGoals}} goles marcados en {{matchCount}} partidos."
+        "body": "La Jornada {{matchday}} ha concluido. Estos son los resultados completos:\n\n{{results}}\n\n{{totalGoals}} goles marcados en {{matchCount}} partidos.{{biggestWinnerLine}}",
+        "resultLine": "  {{home}} {{homeGoals}} - {{awayGoals}} {{away}}",
+        "biggestWinnerLine": " {{biggestWinner}} logró la victoria más amplia del día."
       },
       "standings": {
         "headline0": "{{leader}} Lidera Tras la Jornada {{matchday}}",
@@ -2144,6 +2146,16 @@
         "headline": "Resumen Semanal — Semana del {{weekStart}}",
         "bodyNoTopScorer": "Ya está aquí el último resumen semanal. {{leader}} lidera la tabla y {{storylineCount}} historia(s) marcan la división esta semana.",
         "bodyWithTopScorer": "Ya está aquí el último resumen semanal. {{leader}} lidera la tabla, mientras {{topScorer}} encabeza la clasificación de goleadores con {{topScorerGoals}} gol(es). {{storylineCount}} historia(s) marcan la división esta semana."
+      },
+      "preseasonDigest": {
+        "headline": "Resumen de pretemporada — Semana del {{weekStart}}",
+        "bodyNoResults": "Ya está aquí el último resumen de pretemporada. Las concentraciones, las decisiones de plantilla y los movimientos de mercado continúan por toda la división mientras los clubes se preparan para la jornada inaugural.{{unbeatenLine}}",
+        "bodyWithResults": "Ya está aquí el último resumen de pretemporada. Esta semana se disputaron {{resultCount}} amistoso(s) en toda la división, con {{totalGoals}} gol(es) anotado(s).\n\nResultados:\n{{results}}{{unbeatenLine}}",
+        "resultLine": "  {{home}} {{homeGoals}} - {{awayGoals}} {{away}}",
+        "unbeatenLine": {
+          "one": "\n\n{{team}} sigue invicto en la pretemporada.",
+          "two": "\n\n{{first}} y {{second}} siguen invictos en la pretemporada."
+        }
       },
       "storyline": {
         "titleRace": {

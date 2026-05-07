@@ -22,6 +22,28 @@ fn result_lines(results: &[(String, u8, String, u8)]) -> Vec<String> {
         .collect()
 }
 
+#[derive(Serialize)]
+struct RoundupResultParam<'a> {
+    home: &'a str,
+    home_goals: u8,
+    away: &'a str,
+    away_goals: u8,
+}
+
+fn roundup_results_data(results: &[(String, u8, String, u8)]) -> String {
+    let entries: Vec<RoundupResultParam<'_>> = results
+        .iter()
+        .map(|(home, home_goals, away, away_goals)| RoundupResultParam {
+            home,
+            home_goals: *home_goals,
+            away,
+            away_goals: *away_goals,
+        })
+        .collect();
+
+    serde_json::to_string(&entries).unwrap_or_else(|_| "[]".to_string())
+}
+
 fn biggest_winner_name(results: &[(String, u8, String, u8)]) -> String {
     results
         .iter()
@@ -71,15 +93,31 @@ fn standings_data(top_teams: &[(String, u32, i16)]) -> String {
     let entries: Vec<StandingsLineParam<'_>> = top_teams
         .iter()
         .enumerate()
-        .map(|(idx, (name, points, goal_difference))| StandingsLineParam {
-            rank: idx + 1,
-            team: name,
-            points: *points,
-            goal_difference: goal_difference_text(*goal_difference),
-        })
+        .map(
+            |(idx, (name, points, goal_difference))| StandingsLineParam {
+                rank: idx + 1,
+                team: name,
+                points: *points,
+                goal_difference: goal_difference_text(*goal_difference),
+            },
+        )
         .collect();
 
     serde_json::to_string(&entries).unwrap_or_else(|_| "[]".to_string())
+}
+
+fn preseason_unbeaten_line(unbeaten_teams: &[String]) -> String {
+    match unbeaten_teams {
+        [] => String::new(),
+        [team] => format!("\n\n{} remain unbeaten in preseason.", team),
+        [first, second, ..] => {
+            format!("\n\n{} and {} remain unbeaten in preseason.", first, second)
+        }
+    }
+}
+
+fn preseason_unbeaten_data(unbeaten_teams: &[String]) -> String {
+    serde_json::to_string(unbeaten_teams).unwrap_or_else(|_| "[]".to_string())
 }
 
 /// Generate a league roundup article summarising all matchday results.
@@ -90,6 +128,7 @@ pub fn league_roundup_article(
 ) -> NewsArticle {
     let mut rng = rand::rng();
     let results_text = result_lines(results);
+    let results_data = roundup_results_data(results);
     let biggest_winner = biggest_winner_name(results);
 
     let mut body = format!(
@@ -149,6 +188,7 @@ pub fn league_roundup_article(
             ("totalGoals", &total_goals.to_string()),
             ("matchCount", &results.len().to_string()),
             ("results", &results_text.join("\n")),
+            ("resultsData", &results_data),
             ("biggestWinner", &biggest_winner),
         ]),
     )
@@ -590,30 +630,34 @@ pub fn preseason_digest_article(
     unbeaten_teams: &[String],
     date: &str,
 ) -> NewsArticle {
-    let mut body = if results.is_empty() {
-        "The latest preseason digest is here. Training camps, selection decisions, and transfer business continue across the division as clubs prepare for opening day.".to_string()
-    } else {
-        let total_goals: u32 = results
-            .iter()
-            .map(|(_, home_goals, _, away_goals)| u32::from(*home_goals) + u32::from(*away_goals))
-            .sum();
-        let results_text = result_lines(results);
+    let results_text = result_lines(results);
+    let results_data = roundup_results_data(results);
+    let total_goals: u32 = results
+        .iter()
+        .map(|(_, home_goals, _, away_goals)| u32::from(*home_goals) + u32::from(*away_goals))
+        .sum();
+    let unbeaten_line = preseason_unbeaten_line(unbeaten_teams);
+    let unbeaten_teams_data = preseason_unbeaten_data(unbeaten_teams);
 
-        format!(
-            "The latest preseason digest is here. {} friendly result(s) were played across the division this week, producing {} goal(s).\n\nResults:\n{}",
-            results.len(),
-            total_goals,
-            results_text.join("\n")
+    let (mut body, body_key) = if results.is_empty() {
+        (
+            "The latest preseason digest is here. Training camps, selection decisions, and transfer business continue across the division as clubs prepare for opening day.".to_string(),
+            "be.news.preseasonDigest.bodyNoResults",
+        )
+    } else {
+        (
+            format!(
+                "The latest preseason digest is here. {} friendly result(s) were played across the division this week, producing {} goal(s).\n\nResults:\n{}",
+                results.len(),
+                total_goals,
+                results_text.join("\n")
+            ),
+            "be.news.preseasonDigest.bodyWithResults",
         )
     };
 
-    match unbeaten_teams {
-        [] => {}
-        [team] => body.push_str(&format!("\n\n{} remain unbeaten in preseason.", team)),
-        [first, second, ..] => body.push_str(&format!(
-            "\n\n{} and {} remain unbeaten in preseason.",
-            first, second
-        )),
+    if !unbeaten_line.is_empty() {
+        body.push_str(&unbeaten_line);
     }
 
     NewsArticle::new(
@@ -623,6 +667,20 @@ pub fn preseason_digest_article(
         "League Chronicle".to_string(),
         date.to_string(),
         NewsCategory::Editorial,
+    )
+    .with_i18n(
+        "be.news.preseasonDigest.headline",
+        body_key,
+        "be.source.leagueChronicle",
+        params(&[
+            ("weekStart", week_start),
+            ("resultCount", &results.len().to_string()),
+            ("totalGoals", &total_goals.to_string()),
+            ("results", &results_text.join("\n")),
+            ("resultsData", &results_data),
+            ("unbeatenLine", &unbeaten_line),
+            ("unbeatenTeamsData", &unbeaten_teams_data),
+        ]),
     )
 }
 
@@ -961,6 +1019,11 @@ mod tests {
             article.i18n_params.get("results"),
             Some(&"  Alpha FC 3 - 0 Beta FC\n  Gamma FC 1 - 1 Delta FC".to_string())
         );
+        let results_data = article.i18n_params.get("resultsData").unwrap();
+        assert!(results_data.contains("\"home\":\"Alpha FC\""));
+        assert!(results_data.contains("\"home_goals\":3"));
+        assert!(results_data.contains("\"away\":\"Beta FC\""));
+        assert!(results_data.contains("\"away_goals\":0"));
         assert_eq!(
             article.i18n_params.get("biggestWinner"),
             Some(&"Alpha FC".to_string())
@@ -1042,7 +1105,10 @@ mod tests {
             Some(&"Unknown".to_string())
         );
         assert_eq!(article.i18n_params.get("standings"), Some(&String::new()));
-        assert_eq!(article.i18n_params.get("standingsData"), Some(&"[]".to_string()));
+        assert_eq!(
+            article.i18n_params.get("standingsData"),
+            Some(&"[]".to_string())
+        );
     }
 
     #[test]

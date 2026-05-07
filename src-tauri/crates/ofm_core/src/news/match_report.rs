@@ -348,11 +348,7 @@ mod tests {
         assert_eq!(score.home_goals, 2);
         assert_eq!(score.away_goals, 1);
 
-        assert!(
-            article
-                .body
-                .contains("Alpha FC 2-1 Beta FC")
-        );
+        assert!(article.body.contains("Alpha FC 2-1 Beta FC"));
         assert!(
             article
                 .body
@@ -416,11 +412,7 @@ mod tests {
             "2025-06-22",
         );
 
-        assert!(
-            article
-                .body
-                .contains("Alpha FC 1-3 Beta FC")
-        );
+        assert!(article.body.contains("Alpha FC 1-3 Beta FC"));
         assert_eq!(
             article.i18n_params.get("winner"),
             Some(&"Beta FC".to_string())
@@ -459,11 +451,7 @@ mod tests {
             "2025-06-29",
         );
 
-        assert!(
-            article
-                .body
-                .contains("Alpha FC 0-0 Beta FC")
-        );
+        assert!(article.body.contains("Alpha FC 0-0 Beta FC"));
         assert!(!article.body.contains("Goals:"));
         assert!(
             article
@@ -511,6 +499,9 @@ mod tests {
             article.i18n_params.get("scorersSection"),
             Some(&String::new())
         );
-        assert_eq!(article.i18n_params.get("scorersData"), Some(&"[]".to_string()));
+        assert_eq!(
+            article.i18n_params.get("scorersData"),
+            Some(&"[]".to_string())
+        );
     }
 }

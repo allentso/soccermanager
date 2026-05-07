@@ -2098,7 +2098,9 @@
         "headline0": "第{{matchday}}轮综述:精彩一天共入{{totalGoals}}球",
         "headline1": "超级联赛第{{matchday}}轮:全部结果",
         "headline2": "第{{matchday}}轮进球如潮",
-        "body": "第{{matchday}}轮已尘埃落定。以下是完整结果:\n\n{{results}}\n\n{{matchCount}}场比赛共打进{{totalGoals}}球。"
+        "body": "第{{matchday}}轮已尘埃落定。以下是完整结果:\n\n{{results}}\n\n{{matchCount}}场比赛共打进{{totalGoals}}球。{{biggestWinnerLine}}",
+        "resultLine": "  {{home}} {{homeGoals}} - {{awayGoals}} {{away}}",
+        "biggestWinnerLine": " {{biggestWinner}}拿下了当日最悬殊的一场胜利。"
       },
       "standings": {
         "headline0": "第{{matchday}}轮过后{{leader}}高居榜首",
@@ -2140,6 +2142,16 @@
         "headline": "每周摘要——{{weekStart}}当周",
         "bodyNoTopScorer": "最新的每周摘要来了。{{leader}}领跑积分榜,本周有{{storylineCount}}条故事线影响着联赛格局。",
         "bodyWithTopScorer": "最新的每周摘要来了。{{leader}}领跑积分榜,{{topScorer}}以{{topScorerGoals}}球位居射手榜首。本周有{{storylineCount}}条故事线影响着联赛格局。"
+      },
+      "preseasonDigest": {
+        "headline": "季前摘要——{{weekStart}}当周",
+        "bodyNoResults": "最新的季前摘要来了。各队仍在继续进行训练营、阵容取舍和转会运作，为揭幕战做准备。{{unbeatenLine}}",
+        "bodyWithResults": "最新的季前摘要来了。本周联赛范围内进行了{{resultCount}}场友谊赛，共产生{{totalGoals}}粒进球。\n\n结果：\n{{results}}{{unbeatenLine}}",
+        "resultLine": "  {{home}} {{homeGoals}} - {{awayGoals}} {{away}}",
+        "unbeatenLine": {
+          "one": "\n\n{{team}}在季前赛中仍保持不败。",
+          "two": "\n\n{{first}}和{{second}}在季前赛中仍保持不败。"
+        }
       },
       "storyline": {
         "titleRace": {
