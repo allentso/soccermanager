@@ -115,6 +115,121 @@ type StandingsEntryParam = {
   goalDifference?: string;
 };
 
+type RoundupResultParam = {
+  home: string;
+  home_goals?: string | number;
+  homeGoals?: string | number;
+  away: string;
+  away_goals?: string | number;
+  awayGoals?: string | number;
+};
+
+function normalizePreseasonDigestParams(
+  article: NewsArticle,
+  params?: Record<string, string>,
+): Record<string, string> | undefined {
+  if (
+    article.body_key !== 'be.news.preseasonDigest.bodyNoResults' &&
+    article.body_key !== 'be.news.preseasonDigest.bodyWithResults'
+  ) {
+    return params;
+  }
+
+  if (!params) {
+    return params;
+  }
+
+  const normalized = { ...params };
+
+  if (params.resultsData) {
+    try {
+      const results = JSON.parse(params.resultsData) as RoundupResultParam[];
+      normalized.results = results
+        .map((result) =>
+          resolve(
+            'be.news.preseasonDigest.resultLine',
+            `  ${result.home} ${result.home_goals ?? result.homeGoals ?? ''} - ${result.away_goals ?? result.awayGoals ?? ''} ${result.away}`,
+            {
+              home: result.home,
+              homeGoals: String(result.home_goals ?? result.homeGoals ?? ''),
+              away: result.away,
+              awayGoals: String(result.away_goals ?? result.awayGoals ?? ''),
+            },
+          ),
+        )
+        .join('\n');
+    } catch {
+      return params;
+    }
+  }
+
+  if (params.unbeatenTeamsData) {
+    try {
+      const teams = JSON.parse(params.unbeatenTeamsData) as string[];
+      normalized.unbeatenLine = teams.length === 0
+        ? ''
+        : teams.length === 1
+          ? resolve(
+            'be.news.preseasonDigest.unbeatenLine.one',
+            `\n\n${teams[0]} remain unbeaten in preseason.`,
+            { team: teams[0] },
+          )
+          : resolve(
+            'be.news.preseasonDigest.unbeatenLine.two',
+            `\n\n${teams[0]} and ${teams[1]} remain unbeaten in preseason.`,
+            { first: teams[0], second: teams[1] },
+          );
+    } catch {
+      return params;
+    }
+  }
+
+  return normalized;
+}
+
+function normalizeRoundupParams(
+  article: NewsArticle,
+  params?: Record<string, string>,
+): Record<string, string> | undefined {
+  if (article.body_key !== 'be.news.roundup.body' || !params) {
+    return params;
+  }
+
+  const normalized = { ...params };
+
+  if (params.resultsData) {
+    try {
+      const results = JSON.parse(params.resultsData) as RoundupResultParam[];
+      normalized.results = results
+        .map((result) =>
+          resolve(
+            'be.news.roundup.resultLine',
+            `  ${result.home} ${result.home_goals ?? result.homeGoals ?? ''} - ${result.away_goals ?? result.awayGoals ?? ''} ${result.away}`,
+            {
+              home: result.home,
+              homeGoals: String(result.home_goals ?? result.homeGoals ?? ''),
+              away: result.away,
+              awayGoals: String(result.away_goals ?? result.awayGoals ?? ''),
+            },
+          ),
+        )
+        .join('\n');
+    } catch {
+      return params;
+    }
+  }
+
+  normalized.biggestWinnerLine = params.biggestWinner?.trim()
+    ? resolve(
+      'be.news.roundup.biggestWinnerLine',
+      ` ${params.biggestWinner} recorded the biggest win of the day.`,
+      { biggestWinner: params.biggestWinner },
+    )
+    : '';
+
+  return normalized;
+}
+
 function normalizeStandingsParams(
   article: NewsArticle,
   params?: Record<string, string>,
@@ -295,7 +410,13 @@ export function resolveNewsArticle(article: NewsArticle): NewsArticle {
     article,
     normalizeMatchReportParams(
       article,
-      normalizeStandingsParams(article, normalizeNewsParams(article)),
+      normalizeStandingsParams(
+        article,
+        normalizeRoundupParams(
+          article,
+          normalizePreseasonDigestParams(article, normalizeNewsParams(article)),
+        ),
+      ),
     ),
   );
   return {

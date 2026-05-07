@@ -2102,7 +2102,9 @@
         "headline0": "Spieltag {{matchday}} Zusammenfassung: {{totalGoals}} Tore an einem Actionreichen Tag",
         "headline1": "Erste Division Spieltag {{matchday}}: Alle Ergebnisse",
         "headline2": "Tore Satt am Spieltag {{matchday}}",
-        "body": "Spieltag {{matchday}} ist abgeschlossen. Hier sind die vollständigen Ergebnisse:\n\n{{results}}\n\n{{totalGoals}} Tore in {{matchCount}} Spielen erzielt."
+        "body": "Spieltag {{matchday}} ist abgeschlossen. Hier sind die vollständigen Ergebnisse:\n\n{{results}}\n\n{{totalGoals}} Tore in {{matchCount}} Spielen erzielt.{{biggestWinnerLine}}",
+        "resultLine": "  {{home}} {{homeGoals}} - {{awayGoals}} {{away}}",
+        "biggestWinnerLine": " {{biggestWinner}} verbuchte den höchsten Sieg des Tages."
       },
       "standings": {
         "headline0": "{{leader}} Führt Nach Spieltag {{matchday}}",
@@ -2144,6 +2146,16 @@
         "headline": "Wochendigest — Woche vom {{weekStart}}",
         "bodyNoTopScorer": "Der aktuelle Wochendigest ist da. {{leader}} führen die Tabelle an, und {{storylineCount}} Storyline(s) prägen die Liga in dieser Woche.",
         "bodyWithTopScorer": "Der aktuelle Wochendigest ist da. {{leader}} führen die Tabelle an, während {{topScorer}} mit {{topScorerGoals}} Tor(en) die Torjägerliste anführt. {{storylineCount}} Storyline(s) prägen die Liga in dieser Woche."
+      },
+      "preseasonDigest": {
+        "headline": "Vorbereitungsspiegel — Woche vom {{weekStart}}",
+        "bodyNoResults": "Der aktuelle Vorbereitungsspiegel ist da. Trainingslager, Kaderentscheidungen und Transfergeschäfte laufen in der ganzen Liga weiter, während sich die Klubs auf den Auftakt vorbereiten.{{unbeatenLine}}",
+        "bodyWithResults": "Der aktuelle Vorbereitungsspiegel ist da. In dieser Woche wurden ligaweit {{resultCount}} Freundschaftsspiel-Ergebnis(se) ausgetragen und dabei {{totalGoals}} Tor(e) erzielt.\n\nErgebnisse:\n{{results}}{{unbeatenLine}}",
+        "resultLine": "  {{home}} {{homeGoals}} - {{awayGoals}} {{away}}",
+        "unbeatenLine": {
+          "one": "\n\n{{team}} bleibt in der Vorbereitung ungeschlagen.",
+          "two": "\n\n{{first}} und {{second}} bleiben in der Vorbereitung ungeschlagen."
+        }
       },
       "storyline": {
         "titleRace": {

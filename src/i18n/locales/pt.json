@@ -2102,7 +2102,9 @@
         "headline0": "Resumo da Jornada {{matchday}}: {{totalGoals}} Golos num Dia Repleto de Acção",
         "headline1": "Primeira Divisão Jornada {{matchday}}: Todos os Resultados",
         "headline2": "Chuva de Golos na Jornada {{matchday}}",
-        "body": "A Jornada {{matchday}} está concluída. Aqui estão os resultados completos:\n\n{{results}}\n\n{{totalGoals}} golos marcados em {{matchCount}} jogos."
+        "body": "A Jornada {{matchday}} está concluída. Aqui estão os resultados completos:\n\n{{results}}\n\n{{totalGoals}} golos marcados em {{matchCount}} jogos.{{biggestWinnerLine}}",
+        "resultLine": "  {{home}} {{homeGoals}} - {{awayGoals}} {{away}}",
+        "biggestWinnerLine": " O {{biggestWinner}} registou a maior vitória do dia."
       },
       "standings": {
         "headline0": "{{leader}} Lidera Após a Jornada {{matchday}}",
@@ -2144,6 +2146,16 @@
         "headline": "Resumo Semanal — Semana de {{weekStart}}",
         "bodyNoTopScorer": "Já chegou o mais recente resumo semanal. {{leader}} lidera a tabela e {{storylineCount}} narrativa(s) estão a marcar a divisão esta semana.",
         "bodyWithTopScorer": "Já chegou o mais recente resumo semanal. {{leader}} lidera a tabela, enquanto {{topScorer}} comanda a lista de marcadores com {{topScorerGoals}} golo(s). {{storylineCount}} narrativa(s) estão a marcar a divisão esta semana."
+      },
+      "preseasonDigest": {
+        "headline": "Resumo da pré-época — Semana de {{weekStart}}",
+        "bodyNoResults": "Já chegou o mais recente resumo da pré-época. Estágios de treino, decisões de selecção e negócios de transferências continuam por toda a divisão enquanto os clubes se preparam para a jornada inaugural.{{unbeatenLine}}",
+        "bodyWithResults": "Já chegou o mais recente resumo da pré-época. Esta semana disputaram-se {{resultCount}} amigável(is) por toda a divisão, com {{totalGoals}} golo(s) marcados.\n\nResultados:\n{{results}}{{unbeatenLine}}",
+        "resultLine": "  {{home}} {{homeGoals}} - {{awayGoals}} {{away}}",
+        "unbeatenLine": {
+          "one": "\n\n{{team}} continua invicto na pré-época.",
+          "two": "\n\n{{first}} e {{second}} continuam invictos na pré-época."
+        }
       },
       "storyline": {
         "titleRace": {
