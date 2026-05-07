@@ -21,6 +21,14 @@ vi.mock("react-i18next", () => ({
         return `${key}:${String((arg as Record<string, unknown>).count)}`;
       }
 
+      if (key === "match.selectForSwap") {
+        return "Select for swap";
+      }
+
+      if (key === "match.swapWithSelectedStarter") {
+        return "Swap with selected starter";
+      }
+
       return key;
     },
   }),

@@ -382,10 +382,7 @@ export function SubPanel({
                               {
                                 label: isSelected
                                   ? t("common.cancel")
-                                  : t(
-                                    "match.selectToTakeOff",
-                                    "Select to take off",
-                                  ),
+                                  : t("match.selectToTakeOff"),
                                 icon: <UserMinus className="w-4 h-4" />,
                                 onClick: () => handleSelectOffPlayer(p.id),
                               },
@@ -588,24 +585,15 @@ export function SubPanel({
                                   {
                                     label:
                                       selectedBench === p.id
-                                        ? t(
-                                          "match.clearReplacementSelection",
-                                          "Clear replacement",
-                                        )
-                                        : t(
-                                          "match.selectReplacementMenu",
-                                          "Select replacement",
-                                        ),
+                                        ? t("match.clearReplacementSelection")
+                                        : t("match.selectReplacementMenu"),
                                     icon: <UserPlus className="w-4 h-4" />,
                                     onClick: () => handleSelectBenchPlayer(p.id),
                                   },
                                 ]
                                 : [
                                   {
-                                    label: t(
-                                      "match.selectPlayerToTakeOffFirst",
-                                      "Select player to take off first",
-                                    ),
+                                    label: t("match.selectPlayerToTakeOffFirst"),
                                     icon: <UserPlus className="w-4 h-4" />,
                                     onClick: () => { },
                                     disabled: true,
