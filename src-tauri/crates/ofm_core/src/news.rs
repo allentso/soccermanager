@@ -300,6 +300,20 @@ pub fn transfer_roundup_article(
     transfers: &[(String, String, String, String, String, String, u64)],
     date: &str,
 ) -> NewsArticle {
+    let deals_data = serde_json::to_string(
+        &transfers
+            .iter()
+            .map(|(player, from_team, to_team, _, _, _, fee)| {
+                serde_json::json!({
+                    "player": player,
+                    "fromTeam": from_team,
+                    "toTeam": to_team,
+                    "fee": format_transfer_fee(*fee),
+                })
+            })
+            .collect::<Vec<_>>(),
+    )
+    .unwrap_or_default();
     let deals = transfers
         .iter()
         .map(|(player, from_team, to_team, _, _, _, fee)| {
@@ -352,6 +366,7 @@ pub fn transfer_roundup_article(
             ("weekStart", week_start),
             ("transferCount", &transfers.len().to_string()),
             ("deals", &deals),
+            ("dealsData", &deals_data),
         ]),
     )
 }
@@ -1319,10 +1334,18 @@ mod tests {
             article.i18n_params.get("transferCount"),
             Some(&"2".to_string())
         );
-        assert!(article
-            .i18n_params
-            .get("deals")
-            .is_some_and(|deals| deals.contains("Adam Smith: Alpha FC -> Beta FC (€1.8M)")));
+        assert!(
+            article
+                .i18n_params
+                .get("deals")
+                .is_some_and(|deals| deals.contains("Adam Smith: Alpha FC -> Beta FC (€1.8M)"))
+        );
+        assert!(
+            article
+                .i18n_params
+                .get("dealsData")
+                .is_some_and(|deals| deals.contains("\"fromTeam\":\"Alpha FC\""))
+        );
         assert_eq!(
             article.player_ids,
             vec!["player-1".to_string(), "player-2".to_string()]

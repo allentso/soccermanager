@@ -71,7 +71,7 @@ function buildArticleTeamMenuItems(
     return [];
   }
 
-  return article.team_ids.map((teamId) => ({
+  return (article.team_ids ?? []).map((teamId) => ({
     ...buildViewTeamMenuItem(t, () => onSelectTeam(teamId)),
     label: `${t("common.viewTeam")}: ${getTeamName(gameState.teams, teamId)}`,
   }));
@@ -330,9 +330,9 @@ function HeroArticle({
           <p className="text-[10px] text-gray-400 dark:text-gray-600 font-heading uppercase tracking-widest">
             — {article.source}
           </p>
-          {article.team_ids.length > 0 && onSelectTeam && (
+          {(article.team_ids ?? []).length > 0 && onSelectTeam && (
             <div className="flex gap-1.5">
-              {article.team_ids.slice(0, 3).map((tid) => (
+              {(article.team_ids ?? []).slice(0, 3).map((tid) => (
                 <span
                   key={tid}
                   onClick={(e) => {
@@ -530,9 +530,9 @@ function ArticleDetail({
             <p className="text-[10px] text-gray-400 dark:text-gray-600 font-heading uppercase tracking-widest">
               — {article.source}
             </p>
-            {article.team_ids.length > 0 && onSelectTeam && (
+            {(article.team_ids ?? []).length > 0 && onSelectTeam && (
               <div className="flex flex-wrap gap-2">
-                {article.team_ids.map((tid) => (
+                {(article.team_ids ?? []).map((tid) => (
                   <button
                     key={tid}
                     onClick={() => onSelectTeam(tid)}

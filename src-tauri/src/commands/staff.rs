@@ -216,7 +216,11 @@ fn release_staff_internal(state: &StateManager, staff_id: &str) -> Result<Game, 
         .ok_or("be.error.staffMemberNotFound".to_string())?;
 
     if staff.team_id.as_deref() != Some(&team_id) {
-        return Err("Staff member does not belong to your team".to_string());
+        return Err("be.error.staffMemberNotInTeam".to_string());
+    }
+
+    if let Some(team) = game.teams.iter_mut().find(|team| team.id == team_id) {
+        team.season_expenses = team.season_expenses.saturating_sub(staff.wage as i64);
     }
 
     staff.team_id = None;

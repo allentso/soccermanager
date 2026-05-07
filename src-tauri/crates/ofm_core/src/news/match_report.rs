@@ -108,9 +108,17 @@ pub fn match_report_article(
     let player_ids = scorer_player_ids(home_scorers, away_scorers);
 
     if !is_league_fixture {
-        let context = match competition {
-            FixtureCompetition::Friendly => "friendly",
-            FixtureCompetition::PreseasonTournament => "preseason tournament",
+        let (context, title_key, body_key) = match competition {
+            FixtureCompetition::Friendly => (
+                "friendly",
+                "be.news.matchReport.reportFriendly.title",
+                "be.news.matchReport.reportFriendly.body",
+            ),
+            FixtureCompetition::PreseasonTournament => (
+                "preseason tournament",
+                "be.news.matchReport.reportPreseason.title",
+                "be.news.matchReport.reportPreseason.body",
+            ),
             FixtureCompetition::League => unreachable!("league fixtures use the localized branch"),
         };
 
@@ -134,6 +142,20 @@ pub fn match_report_article(
         )
         .with_teams(vec![home_team_id.to_string(), away_team_id.to_string()])
         .with_players(player_ids)
+        .with_i18n(
+            title_key,
+            body_key,
+            source_key,
+            params(&[
+                ("home", home_name),
+                ("away", away_name),
+                ("homeGoals", &home_goals.to_string()),
+                ("awayGoals", &away_goals.to_string()),
+                ("context", context),
+                ("result", &result_text),
+                ("scorers", &scorers_text),
+            ]),
+        )
         .with_score(NewsMatchScore {
             home_team_id: home_team_id.to_string(),
             away_team_id: away_team_id.to_string(),
@@ -200,6 +222,11 @@ pub fn match_report_article(
     // Determine outcome for i18n key
     let outcome = outcome_key(home_goals, away_goals);
     let headline_variant = rng.random_range(0..3u8);
+    let body_key = if scorer_parts.is_empty() {
+        format!("be.news.matchReport.body{}.noScorers", idx)
+    } else {
+        format!("be.news.matchReport.body{}", idx)
+    };
 
     NewsArticle::new(
         format!("report_{}", fixture_id),
@@ -222,7 +249,7 @@ pub fn match_report_article(
             "be.news.matchReport.headline.{}.{}",
             outcome, headline_variant
         ),
-        &format!("be.news.matchReport.body{}", idx),
+        &body_key,
         source_key,
         {
             let mut p = params(&[
@@ -231,8 +258,10 @@ pub fn match_report_article(
                 ("homeGoals", &home_goals.to_string()),
                 ("awayGoals", &away_goals.to_string()),
                 ("matchday", &matchday.to_string()),
-                ("scorers", &scorer_parts.join(", ")),
             ]);
+            if !scorer_parts.is_empty() {
+                p.insert("scorers".to_string(), scorer_parts.join(", "));
+            }
             // For winner-specific headlines
             if home_goals > away_goals {
                 p.insert("winner".to_string(), home_name.to_string());
@@ -450,8 +479,8 @@ mod tests {
         assert_eq!(article.category, NewsCategory::MatchReport);
         assert!(article.body.to_lowercase().contains("friendly action"));
         assert!(article.headline.to_lowercase().contains("friendly report"));
-        assert!(article.headline_key.is_none());
-        assert!(article.body_key.is_none());
-        assert!(article.source_key.is_none());
+        assert_eq!(article.headline_key.as_deref(), Some("be.news.matchReport.reportFriendly.title"));
+        assert_eq!(article.body_key.as_deref(), Some("be.news.matchReport.reportFriendly.body"));
+        assert!(article.source_key.is_some());
     }
 }

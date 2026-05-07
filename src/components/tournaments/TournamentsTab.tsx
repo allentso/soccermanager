@@ -239,8 +239,8 @@ export default function TournamentsTab({
             key={v}
             onClick={() => setView(v)}
             className={`px-4 py-2 rounded-lg font-heading font-bold text-sm uppercase tracking-wider transition-all ${view === v
-                ? "bg-primary-500 text-white shadow-md shadow-primary-500/20"
-                : "bg-white dark:bg-navy-800 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 border border-gray-200 dark:border-navy-600"
+              ? "bg-primary-500 text-white shadow-md shadow-primary-500/20"
+              : "bg-white dark:bg-navy-800 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 border border-gray-200 dark:border-navy-600"
               }`}
           >
             {v === "overview" ? (
@@ -256,7 +256,7 @@ export default function TournamentsTab({
             ) : v === "awards" ? (
               <>
                 <Award className="w-4 h-4 inline mr-1.5 -mt-0.5" />
-                Awards
+                {t("tournaments.awardsTab")}
               </>
             ) : (
               <>
@@ -731,8 +731,8 @@ function AwardCard({
                 >
                   <span
                     className={`font-heading font-bold text-sm w-5 text-center ${i === 0
-                        ? "text-accent-500"
-                        : "text-gray-400 dark:text-gray-500"
+                      ? "text-accent-500"
+                      : "text-gray-400 dark:text-gray-500"
                       }`}
                   >
                     {i + 1}
@@ -740,8 +740,8 @@ function AwardCard({
                   <div className="flex-1 min-w-0">
                     <p
                       className={`text-sm font-semibold truncate ${i === 0
-                          ? "text-gray-900 dark:text-gray-100"
-                          : "text-gray-700 dark:text-gray-300"
+                        ? "text-gray-900 dark:text-gray-100"
+                        : "text-gray-700 dark:text-gray-300"
                         }`}
                     >
                       {entry.player_name}
@@ -752,8 +752,8 @@ function AwardCard({
                   </div>
                   <span
                     className={`font-heading font-bold tabular-nums ${i === 0
-                        ? "text-lg text-accent-500"
-                        : "text-sm text-gray-600 dark:text-gray-400"
+                      ? "text-lg text-accent-500"
+                      : "text-sm text-gray-600 dark:text-gray-400"
                       }`}
                   >
                     {decimal ? entry.value.toFixed(2) : entry.value}

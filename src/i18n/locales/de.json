@@ -829,7 +829,7 @@
       "LeaguePosition": "Beende die Saison unter den Top {{target}}",
       "Wins": "Gewinne mindestens {{target}} Spiele",
       "GoalsScored": "Erziele mindestens {{target}} Tore",
-      "FinancialStability": "Halte die Lohnausgaben bei hochstens {{target}} % des Budgets"
+      "FinancialStability": "Halte die Lohnausgaben bei höchstens {{target}} % des Budgets"
     }
   },
   "transfers": {
@@ -946,6 +946,7 @@
     "leagueTable": "Ligatabelle",
     "topScorers": "Torjäger",
     "loadingAwards": "Auszeichnungen werden geladen...",
+    "awardsTab": "Auszeichnungen",
     "awards": {
       "goldenBootTitle": "Goldener Schuh",
       "goldenBootSubtitle": "Top-Torjäger",
@@ -1581,6 +1582,10 @@
       "invalidSquadRole": "Ungültige Kaderrolle",
       "staffMemberNotFound": "Mitarbeiter nicht gefunden",
       "staffMemberAlreadyEmployed": "Dieser Mitarbeiter ist bereits bei einem Team angestellt",
+      "playerNotInSquad": "Spieler ist nicht in deinem Kader",
+      "invalidDateOfBirth": "Ungültiges Geburtsdatum",
+      "youthAcademyOverage": "Nur Spieler im Alter von 21 Jahren oder jünger können der Jugendakademie beitreten",
+      "staffMemberNotInTeam": "Mitarbeiter gehört nicht zu deinem Team",
       "noActiveLiveMatch": "Kein aktives Live-Spiel",
       "seasonNotComplete": "Die Saison ist noch nicht abgeschlossen",
       "managedTeamNotFound": "Betreutes Team nicht gefunden",
@@ -1760,6 +1765,9 @@
       "event": {
         "ack": "Understood",
         "respond": "Respond"
+      },
+      "action": {
+        "viewFinances": "Finanzen ansehen"
       },
       "playerEvent": {
         "respond": "Antworten",
@@ -2069,7 +2077,18 @@
         },
         "body0": "Am Spieltag {{matchday}} endete das Spiel {{home}} {{homeGoals}} - {{awayGoals}} {{away}}. Das Ergebnis könnte Auswirkungen auf die Tabelle im weiteren Saisonverlauf haben.\n\nTore: {{scorers}}",
         "body1": "Das Spiel endete {{home}} {{homeGoals}} - {{awayGoals}} {{away}} in einem Duell am Spieltag {{matchday}}. Beide Seiten gaben alles in einer spannenden Begegnung.\n\nTore: {{scorers}}",
-        "body2": "Spieltag {{matchday}} bot eine weitere spannende Begegnung zwischen {{home}} und {{away}} ({{homeGoals}}-{{awayGoals}}). Die Fans erlebten ein wettbewerbsfähiges Spiel.\n\nTore: {{scorers}}"
+        "body2": "Spieltag {{matchday}} bot eine weitere spannende Begegnung zwischen {{home}} und {{away}} ({{homeGoals}}-{{awayGoals}}). Die Fans erlebten ein wettbewerbsfähiges Spiel.\n\nTore: {{scorers}}",
+        "body0.noScorers": "Am Spieltag {{matchday}} endete das Spiel {{home}} {{homeGoals}} - {{awayGoals}} {{away}}. Das Ergebnis könnte Auswirkungen auf die Tabelle im weiteren Saisonverlauf haben.",
+        "body1.noScorers": "Das Spiel endete {{home}} {{homeGoals}} - {{awayGoals}} {{away}} in einem Duell am Spieltag {{matchday}}. Beide Seiten gaben alles in einer spannenden Begegnung.",
+        "body2.noScorers": "Spieltag {{matchday}} bot eine weitere spannende Begegnung zwischen {{home}} und {{away}} ({{homeGoals}}-{{awayGoals}}). Die Fans erlebten ein wettbewerbsfähiges Spiel.",
+        "reportFriendly": {
+          "title": "{{home}} {{homeGoals}} - {{awayGoals}} {{away}}: Freundschaftsspiel-Bericht",
+          "body": "Im Freundschaftsspiel endete die Partie mit {{result}}. Beide Teams nutzten das Spiel, um vor dem Pflichtspielbetrieb Rhythmus aufzubauen.{{scorers}}"
+        },
+        "reportPreseason": {
+          "title": "{{home}} {{homeGoals}} - {{awayGoals}} {{away}}: Vorbereitungsturnier-Bericht",
+          "body": "Im Vorbereitungsturnier endete die Partie mit {{result}}. Beide Teams nutzten das Spiel, um vor dem Pflichtspielbetrieb Rhythmus aufzubauen.{{scorers}}"
+        }
       },
       "roundup": {
         "headline0": "Spieltag {{matchday}} Zusammenfassung: {{totalGoals}} Tore an einem Actionreichen Tag",
@@ -2103,7 +2122,8 @@
       },
       "transferRoundup": {
         "headline": "Transferüberblick — Woche vom {{weekStart}}",
-        "body": "Auf dem Transfermarkt war in dieser Woche viel los. {{transferCount}} abgeschlossene Wechsel stachen ligaweit heraus.\n\n{{deals}}"
+        "body": "Auf dem Transfermarkt war in dieser Woche viel los. {{transferCount}} abgeschlossene Wechsel stachen ligaweit heraus.\n\n{{deals}}",
+        "dealLine": "  {{player}}: von {{fromTeam}} zu {{toTeam}} ({{fee}})"
       },
       "seasonAwards": {
         "headline": "Saisonpreise {{season}}",

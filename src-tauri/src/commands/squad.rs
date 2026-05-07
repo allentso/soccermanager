@@ -289,6 +289,11 @@ pub fn set_player_training_focus(
     let mut game = state
         .get_game(|g| g.clone())
         .ok_or("be.error.noActiveGameSession".to_string())?;
+    let team_id = game
+        .manager
+        .team_id
+        .clone()
+        .ok_or("be.error.noTeamAssigned".to_string())?;
 
     let training_focus = focus.and_then(|f| match f.as_str() {
         "Physical" => Some(domain::team::TrainingFocus::Physical),
@@ -300,7 +305,11 @@ pub fn set_player_training_focus(
         _ => None,
     });
 
-    if let Some(player) = game.players.iter_mut().find(|p| p.id == player_id) {
+    if let Some(player) = game
+        .players
+        .iter_mut()
+        .find(|p| p.id == player_id && p.team_id.as_deref() == Some(team_id.as_str()))
+    {
         player.training_focus = training_focus;
     } else {
         return Err("be.error.playerNotFound".to_string());
@@ -347,14 +356,14 @@ fn set_player_squad_role_internal(
         .ok_or("be.error.playerNotFound".to_string())?;
 
     if game.players[player_index].team_id.as_deref() != Some(team_id.as_str()) {
-        return Err("Player is not in your squad".to_string());
+        return Err("be.error.playerNotInSquad".to_string());
     }
 
     if matches!(target_role, domain::player::SquadRole::Youth) {
         let age = player_age_on(current_date, &game.players[player_index].date_of_birth)
-            .ok_or("Invalid player date of birth".to_string())?;
+            .ok_or("be.error.invalidDateOfBirth".to_string())?;
         if age > 21 {
-            return Err("Only players aged 21 or under can join the youth academy".to_string());
+            return Err("be.error.youthAcademyOverage".to_string());
         }
     }
 
@@ -501,7 +510,7 @@ mod tests {
 
         assert_eq!(
             error,
-            "Only players aged 21 or under can join the youth academy"
+            "be.error.youthAcademyOverage"
         );
     }
 }

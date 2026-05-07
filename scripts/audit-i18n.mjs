@@ -4,7 +4,10 @@ import ts from "typescript";
 
 const ROOT = process.cwd();
 const SRC_DIR = path.join(ROOT, "src");
-const RUST_DIR = path.join(ROOT, "src-tauri", "src");
+const RUST_DIRS = [
+  path.join(ROOT, "src-tauri", "src"),
+  path.join(ROOT, "src-tauri", "crates"),
+];
 const LOCALES_DIR = path.join(SRC_DIR, "i18n", "locales");
 
 const FRONTEND_EXTENSIONS = new Set([".ts", ".tsx"]);
@@ -98,7 +101,10 @@ function collectMissingKeys(reference, candidate, pathSegments = []) {
       return collectMissingKeys(value, candidateValue, nextPath);
     }
 
-    return candidateValue === undefined ? [nextPath.join(".")] : [];
+    return candidateValue === undefined ||
+      (candidateValue !== null && typeof candidateValue === "object")
+      ? [nextPath.join(".")]
+      : [];
   });
 }
 
@@ -219,9 +225,12 @@ function scanFrontend() {
 }
 
 function scanRust() {
-  const files = walkFiles(
-    RUST_DIR,
-    (filePath) => path.extname(filePath) === ".rs" && !RUST_IGNORE_RE.test(filePath),
+  const files = RUST_DIRS.flatMap((dir) =>
+    walkFiles(
+      dir,
+      (filePath) =>
+        path.extname(filePath) === ".rs" && !RUST_IGNORE_RE.test(filePath),
+    ),
   );
   const findings = [];
   const stringLiteralRe = /"([^"\\]*(?:\\.[^"\\]*)*)"/g;

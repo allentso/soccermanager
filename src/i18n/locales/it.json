@@ -965,6 +965,7 @@
     "leagueTable": "Classifica campionato",
     "topScorers": "Marcatori",
     "loadingAwards": "Caricamento premi...",
+    "awardsTab": "Premi",
     "awards": {
       "goldenBootTitle": "Scarpa d'Oro",
       "goldenBootSubtitle": "Migliori marcatori",
@@ -1581,6 +1582,10 @@
       "invalidSquadRole": "Ruolo della rosa non valido",
       "staffMemberNotFound": "Membro dello staff non trovato",
       "staffMemberAlreadyEmployed": "Questo membro dello staff è già impiegato da una squadra",
+      "playerNotInSquad": "Il giocatore non fa parte della tua rosa",
+      "invalidDateOfBirth": "Data di nascita non valida",
+      "youthAcademyOverage": "Solo i giocatori di 21 anni o meno possono entrare nell'accademia giovanile",
+      "staffMemberNotInTeam": "Questo membro dello staff non appartiene alla tua squadra",
       "noActiveLiveMatch": "Nessuna partita live attiva",
       "seasonNotComplete": "La stagione non è ancora conclusa",
       "managedTeamNotFound": "Squadra gestita non trovata",
@@ -1777,6 +1782,9 @@
       "event": {
         "ack": "Capito",
         "respond": "Rispondi"
+      },
+      "action": {
+        "viewFinances": "Vedi finanze"
       },
       "playerEvent": {
         "respond": "Rispondi",
@@ -2069,7 +2077,18 @@
         },
         "body0": "Nella giornata {{matchday}}, la partita si è chiusa sul {{home}} {{homeGoals}} - {{awayGoals}} {{away}}. Il risultato potrebbe avere implicazioni sulla classifica con il proseguire della stagione.\n\nGol: {{scorers}}",
         "body1": "La partita si è conclusa {{home}} {{homeGoals}} - {{awayGoals}} {{away}} in una sfida della giornata {{matchday}}. Entrambe le squadre hanno dato tutto in un confronto avvincente.\n\nGol: {{scorers}}",
-        "body2": "La giornata {{matchday}} ha regalato un'altra sfida emozionante tra {{home}} e {{away}} ({{homeGoals}}-{{awayGoals}}). I tifosi hanno assistito a una partita competitiva.\n\nGol: {{scorers}}"
+        "body2": "La giornata {{matchday}} ha regalato un'altra sfida emozionante tra {{home}} e {{away}} ({{homeGoals}}-{{awayGoals}}). I tifosi hanno assistito a una partita competitiva.\n\nGol: {{scorers}}",
+        "body0.noScorers": "Nella giornata {{matchday}}, la partita si è chiusa sul {{home}} {{homeGoals}} - {{awayGoals}} {{away}}. Il risultato potrebbe avere implicazioni sulla classifica con il proseguire della stagione.",
+        "body1.noScorers": "La partita si è conclusa {{home}} {{homeGoals}} - {{awayGoals}} {{away}} in una sfida della giornata {{matchday}}. Entrambe le squadre hanno dato tutto in un confronto avvincente.",
+        "body2.noScorers": "La giornata {{matchday}} ha regalato un'altra sfida emozionante tra {{home}} e {{away}} ({{homeGoals}}-{{awayGoals}}). I tifosi hanno assistito a una partita competitiva.",
+        "reportFriendly": {
+          "title": "{{home}} {{homeGoals}} - {{awayGoals}} {{away}}: resoconto amichevole",
+          "body": "Nell'amichevole, {{result}}. Entrambe le squadre hanno sfruttato la gara per mettere minuti nelle gambe prima dell'inizio della stagione ufficiale.{{scorers}}"
+        },
+        "reportPreseason": {
+          "title": "{{home}} {{homeGoals}} - {{awayGoals}} {{away}}: resoconto del torneo precampionato",
+          "body": "Nel torneo precampionato, {{result}}. Entrambe le squadre hanno sfruttato la gara per mettere minuti nelle gambe prima dell'inizio della stagione ufficiale.{{scorers}}"
+        }
       },
       "roundup": {
         "headline0": "Riepilogo giornata {{matchday}}: {{totalGoals}} gol in una giornata ricca di azione",
@@ -2103,7 +2122,8 @@
       },
       "transferRoundup": {
         "headline": "Riepilogo trasferimenti — Settimana del {{weekStart}}",
-        "body": "Il mercato trasferimenti è rimasto molto attivo questa settimana. {{transferCount}} affare/i concluso/i si è distinto in tutta la divisione.\n\n{{deals}}"
+        "body": "Il mercato trasferimenti è rimasto molto attivo questa settimana. {{transferCount}} affare/i concluso/i si è distinto in tutta la divisione.\n\n{{deals}}",
+        "dealLine": "  {{player}}: da {{fromTeam}} a {{toTeam}} ({{fee}})"
       },
       "seasonAwards": {
         "headline": "Premi della stagione {{season}}",
@@ -2137,7 +2157,7 @@
       "injuryNews": {
         "headline0": "Brutto colpo per il {{team}}: infortunio per {{player}}",
         "headline1": "{{player}} destinato a un periodo di stop",
-        "headline2": "~{{weeksOut}} settimana/e — il {{team}} trema per un giocatore chiave",
+        "headline2": "{{weeksOut}} settimana/e — il {{team}} trema per un giocatore chiave",
         "body0Days": "Il {{team}} ha confermato che {{player}} ha riportato un infortunio e si prevede che rimarrà fuori {{daysOut}} giorno/i. Il club valuterà la situazione prima di fornire ulteriori aggiornamenti.",
         "body0Weeks": "Il {{team}} ha confermato che {{player}} ha riportato un infortunio e si prevede che rimarrà fuori circa {{weeksOut}} settimana/e. Il club valuterà la situazione prima di fornire ulteriori aggiornamenti.",
         "body1Days": "{{player}} ha subito un problema in allenamento: il giocatore del {{team}} è stato escluso per {{daysOut}} giorno/i. L'assenza sarà un duro colpo mentre la stagione entra in una fase decisiva.",

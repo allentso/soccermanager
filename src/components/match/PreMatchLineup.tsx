@@ -183,8 +183,8 @@ export default function PreMatchLineup({
           onClick={onAutoSelect}
           disabled={isAutoSelecting}
           className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-heading font-bold uppercase tracking-wider transition-all ${isAutoSelecting
-              ? "bg-gray-200 dark:bg-navy-700 text-gray-600 dark:text-gray-400 cursor-wait"
-              : "bg-accent-100 text-accent-700 hover:bg-accent-200 dark:bg-accent-500/20 dark:text-accent-300 dark:hover:bg-accent-500/30"
+            ? "bg-gray-200 dark:bg-navy-700 text-gray-600 dark:text-gray-400 cursor-wait"
+            : "bg-accent-100 text-accent-700 hover:bg-accent-200 dark:bg-accent-500/20 dark:text-accent-300 dark:hover:bg-accent-500/30"
             }`}
         >
           <Wand2 className="w-3.5 h-3.5" />
@@ -363,14 +363,21 @@ export default function PreMatchLineup({
               {userBench.map((bp) => {
                 const posOvr = getPositionOvr(bp);
                 const keyStats = POSITION_KEY_STATS[bp.position] || [];
+                const canSwap = Boolean(selectedStarterId);
                 const benchButton = (
                   <button
                     key={bp.id}
                     data-testid={`pre-match-bench-${bp.id}`}
-                    onClick={() => (selectedStarterId ? onSwap(bp.id) : null)}
-                    className={`flex items-center gap-2 py-1.5 px-2 rounded w-full text-left transition-all ${selectedStarterId
+                    disabled={!canSwap}
+                    aria-disabled={!canSwap}
+                    onClick={() => {
+                      if (canSwap) {
+                        onSwap(bp.id);
+                      }
+                    }}
+                    className={`flex items-center gap-2 py-1.5 px-2 rounded w-full text-left transition-all ${canSwap
                       ? "hover:bg-primary-500/20 hover:ring-1 hover:ring-primary-500/50 cursor-pointer"
-                      : "hover:bg-gray-100 dark:hover:bg-navy-700/50"
+                      : "opacity-60 cursor-not-allowed"
                       }`}
                   >
                     <div className="w-7 h-7 rounded-full bg-gray-200 dark:bg-navy-600 flex items-center justify-center text-[10px] font-heading font-bold text-gray-500 dark:text-gray-400 flex-shrink-0 transition-colors duration-300">

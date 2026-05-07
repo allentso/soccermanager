@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
 
+import {
+  collectMissingKeys,
+  type LocaleTree,
+} from "../i18n/i18nTestHelpers";
 import de from "../i18n/locales/de.json";
 import en from "../i18n/locales/en.json";
 import es from "../i18n/locales/es.json";
@@ -8,8 +12,6 @@ import itLocale from "../i18n/locales/it.json";
 import ptBR from "../i18n/locales/pt-BR.json";
 import pt from "../i18n/locales/pt.json";
 import zhCN from "../i18n/locales/zh-CN.json";
-
-type LocaleTree = Record<string, unknown>;
 
 const LOCALES: Record<string, LocaleTree> = {
   de,
@@ -118,35 +120,6 @@ function getNestedValue(tree: LocaleTree, keyPath: string): unknown {
 
       return (value as Record<string, unknown>)[segment];
     }, tree);
-}
-
-function collectMissingKeys(
-  reference: LocaleTree,
-  candidate: LocaleTree,
-  path: string[] = [],
-): string[] {
-  return Object.entries(reference).flatMap(([key, value]) => {
-    const nextPath = [...path, key];
-    const candidateValue = candidate[key];
-
-    if (value !== null && typeof value === "object" && !Array.isArray(value)) {
-      if (
-        candidateValue === null ||
-        typeof candidateValue !== "object" ||
-        Array.isArray(candidateValue)
-      ) {
-        return [nextPath.join(".")];
-      }
-
-      return collectMissingKeys(
-        value as LocaleTree,
-        candidateValue as LocaleTree,
-        nextPath,
-      );
-    }
-
-    return candidateValue === undefined ? [nextPath.join(".")] : [];
-  });
 }
 
 describe("backend i18n locale coverage", () => {

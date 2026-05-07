@@ -58,7 +58,7 @@ export default function YouthAcademyTab({
       ...p,
       age: calcAge(p.date_of_birth),
       ovr: p.ovr ?? 0,
-      potential: p.potential ?? 0,
+      potential: p.potential ?? 1,
     }))
     .sort((a, b) => b.potential - a.potential);
 
@@ -312,10 +312,10 @@ export default function YouthAcademyTab({
                         <td className="py-2.5 px-4 text-center">
                           <span
                             className={`text-xs font-heading font-bold tabular-nums ${player.condition >= 70
-                                ? "text-green-500"
-                                : player.condition >= 40
-                                  ? "text-yellow-500"
-                                  : "text-red-500"
+                              ? "text-green-500"
+                              : player.condition >= 40
+                                ? "text-yellow-500"
+                                : "text-red-500"
                               }`}
                           >
                             {player.condition}%

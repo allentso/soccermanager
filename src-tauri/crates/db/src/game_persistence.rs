@@ -132,14 +132,16 @@ impl GamePersistenceReader {
         let objective_rows = objective_repo::load_all_objectives(conn)?;
         let board_objectives: Vec<BoardObjective> = objective_rows
             .into_iter()
-            .map(|objective| BoardObjective {
-                id: objective.id,
-                description: objective.description,
-                target: objective.target,
-                objective_type: parse_objective_type(&objective.objective_type),
-                met: objective.met,
+            .map(|objective| {
+                Ok(BoardObjective {
+                    id: objective.id,
+                    description: objective.description,
+                    target: objective.target,
+                    objective_type: parse_objective_type(&objective.objective_type)?,
+                    met: objective.met,
+                })
             })
-            .collect();
+            .collect::<Result<_, String>>()?;
 
         let scouting_rows = scouting_repo::load_all_scouting(conn)?;
         let scouting_assignments: Vec<ScoutingAssignment> = scouting_rows
@@ -181,12 +183,12 @@ impl GamePersistenceReader {
     }
 }
 
-fn parse_objective_type(value: &str) -> ObjectiveType {
+fn parse_objective_type(value: &str) -> Result<ObjectiveType, String> {
     match value {
-        "LeaguePosition" => ObjectiveType::LeaguePosition,
-        "Wins" => ObjectiveType::Wins,
-        "GoalsScored" => ObjectiveType::GoalsScored,
-        "FinancialStability" => ObjectiveType::FinancialStability,
-        _ => ObjectiveType::Wins,
+        "LeaguePosition" => Ok(ObjectiveType::LeaguePosition),
+        "Wins" => Ok(ObjectiveType::Wins),
+        "GoalsScored" => Ok(ObjectiveType::GoalsScored),
+        "FinancialStability" => Ok(ObjectiveType::FinancialStability),
+        _ => Err(format!("unknown objective type: {}", value)),
     }
 }
