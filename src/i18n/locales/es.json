@@ -226,6 +226,11 @@
   "youthAcademy": {
     "title": "Cantera",
     "playersUnder21": "{{count}} jugadores ≤21",
+    "recoveryTitle": "Desarrolla tu cantera",
+    "recoveryDescription": "Envía a los jugadores sub-21 elegibles desde el plantel principal o abre ojeo para buscar más promesas.",
+    "eligibleSeniorPlayers": "{{count}} jugadores elegibles del primer equipo",
+    "openScouting": "Abrir ojeo",
+    "noEligibleSeniorPlayers": "No hay jugadores sub-21 elegibles en el plantel principal en este momento.",
     "youthPlayers": "Jugadores Jóvenes",
     "avgOvr": "Media OVR",
     "avgPotential": "Media Potencial",

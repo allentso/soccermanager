@@ -226,6 +226,11 @@
   "youthAcademy": {
     "title": "Academia de Jovens",
     "playersUnder21": "{{count}} jogadores ≤21",
+    "recoveryTitle": "Construir a tua academia",
+    "recoveryDescription": "Delega jogadores sub-21 elegíveis do plantel principal ou abre o scouting para procurares mais promessas.",
+    "eligibleSeniorPlayers": "{{count}} jogadores elegíveis do plantel principal",
+    "openScouting": "Abrir scouting",
+    "noEligibleSeniorPlayers": "Não existem jogadores sub-21 elegíveis no plantel principal neste momento.",
     "youthPlayers": "Jogadores Jovens",
     "avgOvr": "Média OVR",
     "avgPotential": "Média Potencial",

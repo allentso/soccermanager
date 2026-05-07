@@ -226,6 +226,11 @@
   "youthAcademy": {
     "title": "青训营",
     "playersUnder21": "{{count}} 名 ≤21 岁球员",
+    "recoveryTitle": "建设你的青训营",
+    "recoveryDescription": "可将一线队中符合条件的 21 岁以下球员下放到青训营，或打开球探页面继续寻找新苗子。",
+    "eligibleSeniorPlayers": "{{count}} 名符合条件的一线队球员",
+    "openScouting": "打开球探",
+    "noEligibleSeniorPlayers": "当前没有符合条件的 21 岁以下一线队球员可下放。",
     "youthPlayers": "青训球员",
     "avgOvr": "平均综合",
     "avgPotential": "平均潜力",

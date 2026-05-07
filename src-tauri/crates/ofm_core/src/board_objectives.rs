@@ -219,12 +219,12 @@ pub fn update_objective_progress(game: &mut Game) {
                 ObjectiveType::LeaguePosition => user_pos <= obj.target,
                 ObjectiveType::Wins => user_wins >= obj.target,
                 ObjectiveType::GoalsScored => user_goals >= obj.target,
-                ObjectiveType::FinancialStability => finance_snapshot.as_ref().is_some_and(
-                    |snapshot| {
+                ObjectiveType::FinancialStability => {
+                    finance_snapshot.as_ref().is_some_and(|snapshot| {
                         !snapshot.currently_in_debt
                             && snapshot.wage_budget_usage_percent <= obj.target
-                    },
-                ),
+                    })
+                }
             };
     }
 }
@@ -624,7 +624,8 @@ mod tests {
     }
 
     #[test]
-    fn update_objective_progress_tracks_financial_stability_from_finance_snapshot_only_after_completion() {
+    fn update_objective_progress_tracks_financial_stability_from_finance_snapshot_only_after_completion()
+     {
         let mut game = make_game(60, 1, 2);
         game.board_objectives = vec![make_objective(
             "obj_finance",

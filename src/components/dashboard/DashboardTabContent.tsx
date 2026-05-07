@@ -136,6 +136,7 @@ export default function DashboardTabContent({
           gameState={gameState}
           onGameUpdate={onGameUpdate}
           onSelectPlayer={onSelectPlayer}
+          onNavigate={onNavigate}
         />
       )}
 

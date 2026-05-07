@@ -226,6 +226,11 @@
   "youthAcademy": {
     "title": "Jugendakademie",
     "playersUnder21": "{{count}} Spieler ≤21",
+    "recoveryTitle": "Akademie aufbauen",
+    "recoveryDescription": "Verschiebe berechtigte U21-Spieler aus dem Profikader oder öffne das Scouting, um weitere Talente zu finden.",
+    "eligibleSeniorPlayers": "{{count}} berechtigte Profispieler",
+    "openScouting": "Scouting öffnen",
+    "noEligibleSeniorPlayers": "Derzeit stehen keine berechtigten U21-Profispieler zur Verfügung.",
     "youthPlayers": "Jugendspieler",
     "avgOvr": "Ø OVR",
     "avgPotential": "Ø Potenzial",

@@ -226,6 +226,11 @@
   "youthAcademy": {
     "title": "Youth Academy",
     "playersUnder21": "{{count}} academy players",
+    "recoveryTitle": "Build your academy",
+    "recoveryDescription": "Delegate eligible under-21 players from your senior squad or open scouting to look for more prospects.",
+    "eligibleSeniorPlayers": "{{count}} eligible senior players",
+    "openScouting": "Open scouting",
+    "noEligibleSeniorPlayers": "No eligible under-21 senior players are available right now.",
     "youthPlayers": "Youth Players",
     "avgOvr": "Avg OVR",
     "avgPotential": "Avg Potential",

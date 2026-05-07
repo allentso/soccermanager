@@ -226,6 +226,11 @@
   "youthAcademy": {
     "title": "Académie des Jeunes",
     "playersUnder21": "{{count}} joueurs ≤21",
+    "recoveryTitle": "Construire votre centre",
+    "recoveryDescription": "Envoyez les joueurs U21 éligibles depuis l'effectif senior ou ouvrez le scouting pour trouver d'autres prospects.",
+    "eligibleSeniorPlayers": "{{count}} joueurs seniors éligibles",
+    "openScouting": "Ouvrir le scouting",
+    "noEligibleSeniorPlayers": "Aucun joueur senior U21 éligible n'est disponible pour le moment.",
     "youthPlayers": "Joueurs Jeunes",
     "avgOvr": "Moy. OVR",
     "avgPotential": "Moy. Potentiel",
