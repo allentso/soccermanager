@@ -615,7 +615,6 @@ pub fn injury_news_article(
     player_name: &str,
     team_id: &str,
     team_name: &str,
-    _injury_name_key: &str,
     days_out: u32,
     date: &str,
 ) -> NewsArticle {
@@ -1127,7 +1126,6 @@ mod tests {
             "Bruno Costa",
             "team-2",
             "Beta FC",
-            "common.injuries.hamstringTightness",
             14,
             "2026-08-10",
         );
@@ -1154,7 +1152,6 @@ mod tests {
             "Carlos Diaz",
             "team-3",
             "Gamma FC",
-            "common.injuries.kneeBruise",
             5,
             "2026-09-01",
         );
