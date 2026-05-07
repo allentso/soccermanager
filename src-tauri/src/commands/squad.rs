@@ -282,6 +282,14 @@ pub fn set_player_training_focus(
     player_id: String,
     focus: Option<String>,
 ) -> Result<Game, String> {
+    set_player_training_focus_internal(&state, &player_id, focus.as_deref())
+}
+
+fn set_player_training_focus_internal(
+    state: &StateManager,
+    player_id: &str,
+    focus: Option<&str>,
+) -> Result<Game, String> {
     info!(
         "[cmd] set_player_training_focus: player={}, focus={:?}",
         player_id, focus
@@ -295,7 +303,7 @@ pub fn set_player_training_focus(
         .clone()
         .ok_or("be.error.noTeamAssigned".to_string())?;
 
-    let training_focus = focus.and_then(|f| match f.as_str() {
+    let training_focus = focus.and_then(|f| match f {
         "Physical" => Some(domain::team::TrainingFocus::Physical),
         "Technical" => Some(domain::team::TrainingFocus::Technical),
         "Tactical" => Some(domain::team::TrainingFocus::Tactical),
@@ -403,11 +411,12 @@ pub fn auto_select_set_pieces(
 
 #[cfg(test)]
 mod tests {
-    use super::set_player_squad_role_internal;
+    use super::{set_player_squad_role_internal, set_player_training_focus_internal};
     use chrono::{TimeZone, Utc};
     use domain::manager::Manager;
     use domain::player::{Player, PlayerAttributes, Position, SquadRole};
     use domain::team::Team;
+    use domain::team::TrainingFocus;
     use ofm_core::clock::GameClock;
     use ofm_core::game::Game;
     use ofm_core::state::StateManager;
@@ -437,23 +446,31 @@ mod tests {
     }
 
     fn make_user_team() -> Team {
-        let mut team = Team::new(
-            "team-1".to_string(),
-            "User FC".to_string(),
-            "USR".to_string(),
-            "England".to_string(),
-            "London".to_string(),
-            "User Ground".to_string(),
-            25_000,
-        );
+        let mut team = make_team("team-1", "User FC", "USR");
         team.manager_id = Some("manager-1".to_string());
         team.starting_xi_ids = vec!["player-1".to_string()];
         team
     }
 
+    fn make_team(id: &str, name: &str, short_name: &str) -> Team {
+        Team::new(
+            id.to_string(),
+            name.to_string(),
+            short_name.to_string(),
+            "England".to_string(),
+            "London".to_string(),
+            format!("{} Ground", name),
+            25_000,
+        )
+    }
+
     fn make_player(date_of_birth: &str) -> Player {
+        make_player_for_team("player-1", "team-1", date_of_birth)
+    }
+
+    fn make_player_for_team(id: &str, team_id: &str, date_of_birth: &str) -> Player {
         let mut player = Player::new(
-            "player-1".to_string(),
+            id.to_string(),
             "P. One".to_string(),
             "Player One".to_string(),
             date_of_birth.to_string(),
@@ -461,7 +478,7 @@ mod tests {
             Position::Forward,
             default_attrs(),
         );
-        player.team_id = Some("team-1".to_string());
+        player.team_id = Some(team_id.to_string());
         player
     }
 
@@ -510,5 +527,50 @@ mod tests {
         let error = set_player_squad_role_internal(&state, "player-1", "Youth").expect_err("error");
 
         assert_eq!(error, "be.error.youthAcademyOverage");
+    }
+
+    #[test]
+    fn set_player_training_focus_internal_rejects_players_from_other_teams() {
+        let state = StateManager::new();
+        let clock = GameClock::new(Utc.with_ymd_and_hms(2026, 8, 1, 12, 0, 0).unwrap());
+        let mut manager = Manager::new(
+            "manager-1".to_string(),
+            "Test".to_string(),
+            "Manager".to_string(),
+            "1980-01-01".to_string(),
+            "England".to_string(),
+        );
+        manager.hire("team-1".to_string());
+
+        let other_player = make_player_for_team("player-2", "team-2", "2004-01-01");
+        let game = Game::new(
+            clock,
+            manager,
+            vec![make_user_team(), make_team("team-2", "Rivals FC", "RIV")],
+            vec![make_player("2008-01-01"), other_player],
+            vec![],
+            vec![],
+        );
+        state.set_game(game);
+
+        let error = set_player_training_focus_internal(&state, "player-2", Some("Technical"))
+            .expect_err("cross-team player should be rejected");
+
+        assert_eq!(error, "be.error.playerNotFound");
+
+        let stored_game = state.get_game(|game| game.clone()).expect("stored game");
+        let other_player = stored_game
+            .players
+            .iter()
+            .find(|player| player.id == "player-2")
+            .expect("other player");
+        assert_eq!(other_player.training_focus, None);
+
+        let user_player = stored_game
+            .players
+            .iter()
+            .find(|player| player.id == "player-1")
+            .expect("user player");
+        assert_ne!(user_player.training_focus, Some(TrainingFocus::Technical));
     }
 }

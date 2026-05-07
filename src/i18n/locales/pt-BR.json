@@ -2178,7 +2178,7 @@
       "injuryNews": {
         "headline0": "Lesão de {{player}} é um golpe para o {{team}}",
         "headline1": "{{player}} encaminhado para um período no departamento médico",
-        "headline2": "~{{weeksOut}} semana(s) — {{team}} preocupado com jogador-chave",
+        "headline2": "{{weeksOut}} semana(s) — {{team}} preocupado com jogador-chave",
         "body0Days": "O {{team}} confirmou que {{player}} sofreu uma lesão e deve ficar afastado por {{daysOut}} dia(s). O clube avaliará a situação antes de fornecer uma atualização adicional.",
         "body0Weeks": "O {{team}} confirmou que {{player}} sofreu uma lesão e deve ficar afastado por cerca de {{weeksOut}} semana(s). O clube avaliará a situação antes de fornecer uma atualização adicional.",
         "body1Days": "{{player}} sofreu um contratempo no treino, com o jogador do {{team}} descartado por {{daysOut}} dia(s). A ausência será um golpe significativo enquanto a temporada entra em uma fase decisiva.",

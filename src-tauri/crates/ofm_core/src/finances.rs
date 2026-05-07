@@ -220,6 +220,15 @@ pub fn calc_upkeep(_team: &Team) -> i64 {
     0
 }
 
+fn estimated_weekly_matchday_income(game: &Game, team: &Team) -> i64 {
+    let recent_home_match_count = count_recent_home_matches(game, &team.id);
+    if recent_home_match_count == 0 {
+        return 0;
+    }
+
+    calc_matchday(team.stadium_capacity, recent_home_match_count, 0.76, 20.0)
+}
+
 pub fn team_finance_snapshot(game: &Game, team_id: &str) -> Option<TeamFinanceSnapshot> {
     let team = game.teams.iter().find(|team| team.id == team_id)?;
     let annual_wage_bill = calc_annual_wages(game, team_id);
@@ -234,7 +243,8 @@ pub fn team_finance_snapshot(game: &Game, team_id: &str) -> Option<TeamFinanceSn
                 + evaluate_sponsorship_bonus(current_position, &team.form, sponsorship)
         })
         .unwrap_or(0);
-    let weekly_recurring_income = weekly_sponsor_income;
+    let weekly_matchday_income = estimated_weekly_matchday_income(game, team);
+    let weekly_recurring_income = weekly_sponsor_income + weekly_matchday_income;
     let projected_weekly_net = weekly_recurring_income - weekly_wage_spend;
     let cash_runway_weeks = calc_cash_runway_weeks(team.finance, projected_weekly_net);
     let wage_budget_usage_percent = ((annual_wage_bill * 100) / std::cmp::max(1, team.wage_budget))
@@ -334,7 +344,7 @@ fn finance_board_pressure_message(
     .with_action(action(
         "view_finances",
         "View Finances",
-        "be.msg.event.ack",
+        "be.msg.action.viewFinances",
         ActionType::NavigateTo {
             route: "/dashboard?tab=Finances".to_string(),
         },
@@ -968,12 +978,14 @@ fn generate_financial_warnings(game: &mut Game, today: &str) {
 
     let mut new_messages: Vec<InboxMessage> = Vec::new();
 
+    let snapshot = match team_finance_snapshot(game, &user_team_id) {
+        Some(snapshot) => snapshot,
+        None => return,
+    };
+
     let weekly_wages = calc_wages(game, &user_team_id);
     let annual_wages = calc_annual_wages(game, &user_team_id);
-    let weekly_sponsorship_income = team.sponsorship.as_ref().map(|s| s.base_value).unwrap_or(0);
-    let projected_weekly_net = weekly_sponsorship_income - weekly_wages;
-    let weeks_left = calc_cash_runway_weeks(team.finance, projected_weekly_net).unwrap_or(999);
-    let snapshot = team_finance_snapshot(game, &user_team_id);
+    let weeks_left = snapshot.cash_runway_weeks.unwrap_or(999);
 
     // Critical: finances negative
     if team.finance < 0 {
@@ -1085,17 +1097,15 @@ fn generate_financial_warnings(game: &mut Game, today: &str) {
         }
     }
 
-    if let Some(snapshot) = snapshot {
-        let penalty = weekly_finance_satisfaction_penalty(&snapshot);
-        if penalty > 0 {
-            let msg_id = format!("finance_board_pressure_{}", today);
-            if !existing_ids.contains(&msg_id) {
-                new_messages.push(finance_board_pressure_message(
-                    today,
-                    snapshot.overall_status,
-                    penalty,
-                ));
-            }
+    let penalty = weekly_finance_satisfaction_penalty(&snapshot);
+    if penalty > 0 {
+        let msg_id = format!("finance_board_pressure_{}", today);
+        if !existing_ids.contains(&msg_id) {
+            new_messages.push(finance_board_pressure_message(
+                today,
+                snapshot.overall_status,
+                penalty,
+            ));
         }
     }
 

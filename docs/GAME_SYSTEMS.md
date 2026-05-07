@@ -334,7 +334,8 @@ The news system generates public-facing articles about league events, displayed 
 | **MatchReport** | After each fixture | Score, scorers, commentary variations |
 | **LeagueRoundup** | After each matchday | Summary of all results |
 | **StandingsUpdate** | After each matchday | Current league positions |
-| **TransferRumour** | Weekly digest (Monday) + major completed transfers | Gossip/speculation about notable AI players; confirmed major move announcements |
+| **TransferRumour** | Weekly digest (Monday) | Gossip/speculation about notable AI players |
+| **TransferRoundup** | Weekly digest (Monday) + major completed transfers | Confirmed major move announcements and roundup coverage |
 | **InjuryNews** | When a notable player (market value ≥ €500K or starting XI) suffers a training injury | Injury duration and impact report |
 | **ManagerialChange** | Manager firing or vacancy fill | Public dismissal and appointment coverage |
 | **SeasonPreview** | End of season / preseason rollover | Preseason analysis and contenders |
