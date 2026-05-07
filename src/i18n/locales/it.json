@@ -2101,6 +2101,10 @@
         "headline": "{{player}} completa il trasferimento al {{toTeam}}",
         "body": "{{toTeam}} ha completato l'acquisto di {{player}} da {{fromTeam}} per {{fee}}."
       },
+      "transferRoundup": {
+        "headline": "Riepilogo trasferimenti — Settimana del {{weekStart}}",
+        "body": "Il mercato trasferimenti è rimasto molto attivo questa settimana. {{transferCount}} affare/i concluso/i si è distinto in tutta la divisione.\n\n{{deals}}"
+      },
       "seasonAwards": {
         "headline": "Premi della stagione {{season}}",
         "bodyBoth": "La stagione {{season}} si è conclusa con {{goldenBootWinner}} ({{goldenBootTeam}}) che ha alzato la Scarpa d'Oro con {{goldenBootGoals}} gol. Il Giocatore dell'Anno è stato {{potyWinner}} ({{potyTeam}}), con una media voto di {{potyRating}}.",

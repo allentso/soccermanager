@@ -375,6 +375,36 @@ describe("resolveNewsArticle", () => {
     }
   });
 
+  it("localizes transfer roundup articles through backend keys", async () => {
+    const previousLanguage = i18n.language;
+    await i18n.changeLanguage("pt-BR");
+
+    try {
+      const article = makeNewsArticle({
+        headline: "Transfer Roundup — Week of 2026-07-27",
+        headline_key: "be.news.transferRoundup.headline",
+        body: "The transfer market stayed busy this week.",
+        body_key: "be.news.transferRoundup.body",
+        source: "Transfer Intelligence",
+        source_key: "be.source.transferIntelligence",
+        i18n_params: {
+          weekStart: "2026-07-27",
+          transferCount: "2",
+          deals: "  Adam Smith: Alpha FC -> Beta FC (€1.8M)",
+        },
+      });
+
+      const result = resolveNewsArticle(article);
+
+      expect(result.headline).toBe("Resumo de Transferências — Semana de 2026-07-27");
+      expect(result.body).toContain("2 transferência(s) concluída(s)");
+      expect(result.body).toContain("Adam Smith: Alpha FC -> Beta FC (€1.8M)");
+      expect(result.source).toBe("Inteligência de Transferências");
+    } finally {
+      await i18n.changeLanguage(previousLanguage);
+    }
+  });
+
   it("preserves non-translatable fields", () => {
     const article = makeNewsArticle({ id: "n_5", category: "transfer", read: true });
     const result = resolveNewsArticle(article);

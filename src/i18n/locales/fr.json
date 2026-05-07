@@ -2101,6 +2101,10 @@
         "headline": "{{player}} rejoint {{toTeam}}",
         "body": "{{toTeam}} a finalisé le recrutement de {{player}} en provenance de {{fromTeam}} pour {{fee}}."
       },
+      "transferRoundup": {
+        "headline": "Résumé des Transferts — Semaine du {{weekStart}}",
+        "body": "Le marché des transferts est resté animé cette semaine. {{transferCount}} transfert(s) conclu(s) ont marqué la division.\n\n{{deals}}"
+      },
       "seasonAwards": {
         "headline": "Prix de la saison {{season}}",
         "bodyBoth": "La saison {{season}} s'est conclue avec {{goldenBootWinner}} ({{goldenBootTeam}}) remportant le Soulier d'Or avec {{goldenBootGoals}} buts. Le Joueur de l'Année a été attribué à {{potyWinner}} ({{potyTeam}}), avec une note moyenne de {{potyRating}}.",

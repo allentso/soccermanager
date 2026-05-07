@@ -2101,6 +2101,10 @@
         "headline": "{{player}} completa transferência para o {{toTeam}}",
         "body": "{{toTeam}} concluiu a contratação de {{player}} ao {{fromTeam}} por {{fee}}."
       },
+      "transferRoundup": {
+        "headline": "Resumo de Transferências — Semana de {{weekStart}}",
+        "body": "O mercado de transferências manteve-se agitado esta semana. {{transferCount}} transferência(s) concluída(s) destacaram-se por toda a divisão.\n\n{{deals}}"
+      },
       "seasonAwards": {
         "headline": "Prémios da época {{season}}",
         "bodyBoth": "A época {{season}} terminou com {{goldenBootWinner}} ({{goldenBootTeam}}) a conquistar a Bota de Ouro com {{goldenBootGoals}} golos. O Jogador do Ano foi {{potyWinner}} ({{potyTeam}}), com uma classificação média de {{potyRating}}.",
