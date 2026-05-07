@@ -1,4 +1,3 @@
-import type { TFunction } from "i18next";
 import {
     ArrowUp,
     Building2,
@@ -11,6 +10,11 @@ import {
 } from "lucide-react";
 
 import type { ContextMenuItem } from "../ContextMenu";
+
+type MenuTranslateFn = (
+    key: string,
+    options?: Record<string, string | number>,
+) => string;
 
 export type ScoutMenuState =
     | "ready"
@@ -28,7 +32,7 @@ export function buildDividerMenuItem(): ContextMenuItem {
 }
 
 export function buildViewProfileMenuItem(
-    t: TFunction,
+    t: MenuTranslateFn,
     onClick: () => void,
 ): ContextMenuItem {
     return {
@@ -39,7 +43,7 @@ export function buildViewProfileMenuItem(
 }
 
 export function buildViewTeamMenuItem(
-    t: TFunction,
+    t: MenuTranslateFn,
     onClick: () => void,
 ): ContextMenuItem {
     return {
@@ -50,7 +54,7 @@ export function buildViewTeamMenuItem(
 }
 
 export function buildToggleTransferListMenuItem(
-    t: TFunction,
+    t: MenuTranslateFn,
     transferListed: boolean,
     onClick: () => void,
 ): ContextMenuItem {
@@ -64,7 +68,7 @@ export function buildToggleTransferListMenuItem(
 }
 
 export function buildToggleLoanListMenuItem(
-    t: TFunction,
+    t: MenuTranslateFn,
     loanListed: boolean,
     onClick: () => void,
 ): ContextMenuItem {
@@ -78,7 +82,7 @@ export function buildToggleLoanListMenuItem(
 }
 
 export function buildScoutPlayerMenuItem(
-    t: TFunction,
+    t: MenuTranslateFn,
     state: ScoutMenuState,
     onClick: () => void,
 ): ContextMenuItem {
@@ -96,7 +100,7 @@ export function buildScoutPlayerMenuItem(
 }
 
 export function buildMakeTransferBidMenuItem(
-    t: TFunction,
+    t: MenuTranslateFn,
     onClick: () => void,
 ): ContextMenuItem {
     return {
@@ -107,7 +111,7 @@ export function buildMakeTransferBidMenuItem(
 }
 
 export function buildDelegateToYouthAcademyMenuItem(
-    t: TFunction,
+    t: MenuTranslateFn,
     onClick: () => void,
 ): ContextMenuItem {
     return {
@@ -118,7 +122,7 @@ export function buildDelegateToYouthAcademyMenuItem(
 }
 
 export function buildPromoteToSeniorSquadMenuItem(
-    t: TFunction,
+    t: MenuTranslateFn,
     onClick: () => void,
 ): ContextMenuItem {
     return {
