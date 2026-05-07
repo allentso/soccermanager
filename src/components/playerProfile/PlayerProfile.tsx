@@ -127,7 +127,7 @@ export default function PlayerProfile({
     useState(false);
   const [hasConsumedInitialTerminationIntent, setHasConsumedInitialTerminationIntent] =
     useState(false);
-  const ovr = calcOvr(player, primaryPosition);
+  const ovr = player.ovr ?? calcOvr(player, primaryPosition);
   const age = getPlayerAge(player.date_of_birth);
   const teamName = getPlayerTeamName(
     gameState.teams,

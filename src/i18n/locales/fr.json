@@ -2202,6 +2202,10 @@
     "SetPieceSpecialist": {
       "label": "Spéc. Coups de Pied",
       "desc": "Mortel sur coups de pied arrêtés"
+    },
+    "Wonderkid": {
+      "label": "Enfant Prodige",
+      "desc": "Jeune talent au potentiel exceptionnel"
     }
   },
   "date": {

@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 use domain::player::{Player, Position};
 use ofm_core::game::Game;
 use ofm_core::player_identity;
-use ofm_core::player_rating::{effective_rating_for_assignment, formation_slots};
+use ofm_core::player_rating::{effective_rating_for_assignment, formation_slots, refresh_player_derived};
 
 use crate::game_database::GameDatabase;
 use crate::game_persistence::{GamePersistenceReader, GamePersistenceWriter};
@@ -210,6 +210,29 @@ impl SaveManager {
             info!(
                 "[save_manager] upgraded football identity fields for save {}",
                 save_id
+            );
+            needs_resave = true;
+        }
+
+        // Backfill OVR/potential for players from older saves that don't have them yet.
+        // We use the game clock year so age is accurate.
+        let current_year = game.clock.current_date.format("%Y").to_string()
+            .parse::<u32>()
+            .unwrap_or(2026);
+        let backfill_count = game
+            .players
+            .iter()
+            .filter(|p| p.ovr == 0)
+            .count();
+        if backfill_count > 0 {
+            for player in game.players.iter_mut() {
+                if player.ovr == 0 {
+                    refresh_player_derived(player, current_year);
+                }
+            }
+            info!(
+                "[save_manager] backfilled OVR/potential for {} players in save {}",
+                backfill_count, save_id
             );
             needs_resave = true;
         }
