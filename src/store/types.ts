@@ -451,6 +451,12 @@ export interface ScoutingAssignment {
   days_remaining: number;
 }
 
+export interface YouthScoutingAssignment {
+  id: string;
+  scout_id: string;
+  days_remaining: number;
+}
+
 export interface GameStateData {
   clock: {
     current_date: string;
@@ -476,6 +482,7 @@ export interface GameStateData {
   news: NewsArticle[];
   league: LeagueData | null;
   scouting_assignments: ScoutingAssignment[];
+  youth_scouting_assignments?: YouthScoutingAssignment[];
   board_objectives: BoardObjective[];
   season_context?: SeasonContextData;
 }

@@ -1,4 +1,4 @@
-use crate::game::{Game, ScoutingAssignment};
+use crate::game::{Game, ScoutingAssignment, YouthScoutingAssignment};
 use domain::message::*;
 use domain::staff::StaffRole;
 use rand::RngExt;
@@ -28,15 +28,25 @@ pub fn scout_max_assignments(judging_ability: u8) -> usize {
     }
 }
 
-/// Send a scout to evaluate a player. Returns an error string if invalid.
-pub fn send_scout(game: &mut Game, scout_id: &str, player_id: &str) -> Result<(), String> {
+fn scout_assignment_count(game: &Game, scout_id: &str) -> usize {
+    game.scouting_assignments
+        .iter()
+        .filter(|assignment| assignment.scout_id == scout_id)
+        .count()
+        + game
+            .youth_scouting_assignments
+            .iter()
+            .filter(|assignment| assignment.scout_id == scout_id)
+            .count()
+}
+
+fn resolve_user_scout<'a>(game: &'a Game, scout_id: &str) -> Result<&'a domain::staff::Staff, String> {
     let user_team_id = game.manager.team_id.as_ref().ok_or("No team")?;
 
-    // Validate scout exists and belongs to user's team
     let scout = game
         .staff
         .iter()
-        .find(|s| s.id == scout_id)
+        .find(|staff_member| staff_member.id == scout_id)
         .ok_or("Scout not found")?;
     if scout.role != StaffRole::Scout {
         return Err("Staff member is not a scout".to_string());
@@ -44,6 +54,38 @@ pub fn send_scout(game: &mut Game, scout_id: &str, player_id: &str) -> Result<()
     if scout.team_id.as_ref() != Some(user_team_id) {
         return Err("Scout does not belong to your team".to_string());
     }
+
+    Ok(scout)
+}
+
+fn assignment_days_for_player_scouting(judging_ability: u8) -> u32 {
+    if judging_ability >= 80 {
+        2
+    } else if judging_ability >= 60 {
+        3
+    } else if judging_ability >= 40 {
+        4
+    } else {
+        5
+    }
+}
+
+fn assignment_days_for_youth_scouting(judging_potential: u8) -> u32 {
+    if judging_potential >= 80 {
+        4
+    } else if judging_potential >= 60 {
+        5
+    } else if judging_potential >= 40 {
+        6
+    } else {
+        7
+    }
+}
+
+/// Send a scout to evaluate a player. Returns an error string if invalid.
+pub fn send_scout(game: &mut Game, scout_id: &str, player_id: &str) -> Result<(), String> {
+    let user_team_id = game.manager.team_id.as_ref().ok_or("No team")?;
+    let scout = resolve_user_scout(game, scout_id)?;
 
     // Validate player exists and is not on user's team
     let player = game
@@ -57,11 +99,7 @@ pub fn send_scout(game: &mut Game, scout_id: &str, player_id: &str) -> Result<()
 
     // Check scout capacity: higher ability = more concurrent assignments
     let max_slots = scout_max_assignments(scout.attributes.judging_ability);
-    let current_count = game
-        .scouting_assignments
-        .iter()
-        .filter(|a| a.scout_id == scout_id)
-        .count();
+    let current_count = scout_assignment_count(game, scout_id);
     if current_count >= max_slots {
         return Err(format!(
             "Scout is at capacity ({}/{} assignments). Higher judging ability allows more.",
@@ -79,16 +117,7 @@ pub fn send_scout(game: &mut Game, scout_id: &str, player_id: &str) -> Result<()
     }
 
     // Create assignment (2-5 days depending on scout quality)
-    let judging = scout.attributes.judging_ability as u32;
-    let days = if judging >= 80 {
-        2
-    } else if judging >= 60 {
-        3
-    } else if judging >= 40 {
-        4
-    } else {
-        5
-    };
+    let days = assignment_days_for_player_scouting(scout.attributes.judging_ability);
 
     game.scouting_assignments.push(ScoutingAssignment {
         id: Uuid::new_v4().to_string(),
@@ -100,11 +129,33 @@ pub fn send_scout(game: &mut Game, scout_id: &str, player_id: &str) -> Result<()
     Ok(())
 }
 
+pub fn start_youth_scouting(game: &mut Game, scout_id: &str) -> Result<(), String> {
+    let scout = resolve_user_scout(game, scout_id)?;
+    let max_slots = scout_max_assignments(scout.attributes.judging_ability);
+    let current_count = scout_assignment_count(game, scout_id);
+    if current_count >= max_slots {
+        return Err(format!(
+            "Scout is at capacity ({}/{} assignments). Higher judging ability allows more.",
+            current_count, max_slots
+        ));
+    }
+
+    let days = assignment_days_for_youth_scouting(scout.attributes.judging_potential);
+    game.youth_scouting_assignments.push(YouthScoutingAssignment {
+        id: Uuid::new_v4().to_string(),
+        scout_id: scout_id.to_string(),
+        days_remaining: days,
+    });
+
+    Ok(())
+}
+
 /// Process scouting assignments daily. Called from process_day().
 /// Decrements days, delivers reports when complete.
 pub fn process_scouting(game: &mut Game) {
     let today = game.clock.current_date.format("%Y-%m-%d").to_string();
     let mut completed: Vec<ScoutingAssignment> = Vec::new();
+    let mut completed_youth: Vec<YouthScoutingAssignment> = Vec::new();
 
     for assignment in game.scouting_assignments.iter_mut() {
         if assignment.days_remaining > 0 {
@@ -115,8 +166,19 @@ pub fn process_scouting(game: &mut Game) {
         }
     }
 
+    for assignment in game.youth_scouting_assignments.iter_mut() {
+        if assignment.days_remaining > 0 {
+            assignment.days_remaining -= 1;
+        }
+        if assignment.days_remaining == 0 {
+            completed_youth.push(assignment.clone());
+        }
+    }
+
     // Remove completed assignments
     game.scouting_assignments.retain(|a| a.days_remaining > 0);
+    game.youth_scouting_assignments
+        .retain(|assignment| assignment.days_remaining > 0);
 
     // Generate reports for completed assignments
     for assignment in &completed {
@@ -154,6 +216,99 @@ pub fn process_scouting(game: &mut Game) {
             game.messages.push(msg);
         }
     }
+
+    for assignment in &completed_youth {
+        complete_youth_scouting_assignment(game, assignment, &today);
+    }
+}
+
+fn complete_youth_scouting_assignment(
+    game: &mut Game,
+    assignment: &YouthScoutingAssignment,
+    date: &str,
+) {
+    let Some(scout) = game
+        .staff
+        .iter()
+        .find(|staff_member| staff_member.id == assignment.scout_id)
+        .cloned()
+    else {
+        return;
+    };
+    let Some(user_team_id) = game.manager.team_id.clone() else {
+        return;
+    };
+    let Some(team) = game
+        .teams
+        .iter()
+        .find(|candidate| candidate.id == user_team_id)
+        .cloned()
+    else {
+        return;
+    };
+
+    let recruit = crate::generator::generate_youth_academy_recruit(&team);
+    let recruit_id = recruit.id.clone();
+    let recruit_name = recruit.full_name.clone();
+    let recruit_position = format!("{:?}", recruit.position);
+    game.players.push(recruit);
+
+    let scout_name = format!("{} {}", scout.first_name, scout.last_name);
+    game.messages.push(build_youth_recruitment_report(
+        &assignment.id,
+        &scout_name,
+        &team.id,
+        &team.name,
+        &recruit_id,
+        &recruit_name,
+        &recruit_position,
+        date,
+    ));
+}
+
+fn build_youth_recruitment_report(
+    assignment_id: &str,
+    scout_name: &str,
+    team_id: &str,
+    team_name: &str,
+    player_id: &str,
+    player_name: &str,
+    position: &str,
+    date: &str,
+) -> InboxMessage {
+    InboxMessage::new(
+        format!("youth-scout-{}", assignment_id),
+        "Youth prospect found".to_string(),
+        format!(
+            "{} has signed {} to the {} academy as a {} prospect.",
+            scout_name, player_name, team_name, position
+        ),
+        scout_name.to_string(),
+        date.to_string(),
+    )
+    .with_category(MessageCategory::ScoutReport)
+    .with_sender_role("Scout")
+    .with_action(MessageAction {
+        id: "view_player".to_string(),
+        label: "View profile".to_string(),
+        action_type: ActionType::NavigateTo {
+            route: format!("/player/{}", player_id),
+        },
+        resolved: false,
+        label_key: Some("squad.viewProfile".to_string()),
+    })
+    .with_action(MessageAction {
+        id: "ack".to_string(),
+        label: "Noted".to_string(),
+        action_type: ActionType::Acknowledge,
+        resolved: false,
+        label_key: Some("be.msg.event.ack".to_string()),
+    })
+    .with_context(MessageContext {
+        team_id: Some(team_id.to_string()),
+        player_id: Some(player_id.to_string()),
+        ..MessageContext::default()
+    })
 }
 
 fn build_scout_report(

@@ -1,12 +1,14 @@
 use chrono::{TimeZone, Utc};
 use domain::manager::Manager;
 use domain::message::*;
-use domain::player::{Player, PlayerAttributes, Position};
+use domain::player::{Player, PlayerAttributes, Position, SquadRole};
 use domain::staff::{Staff, StaffAttributes, StaffRole};
 use domain::team::Team;
 use ofm_core::clock::GameClock;
 use ofm_core::game::Game;
-use ofm_core::scouting::{process_scouting, scout_max_assignments, send_scout};
+use ofm_core::scouting::{
+    process_scouting, scout_max_assignments, send_scout, start_youth_scouting,
+};
 
 // ---------------------------------------------------------------------------
 // Test helpers
@@ -178,6 +180,29 @@ fn send_scout_rejects_non_scout_staff() {
     assert!(result.unwrap_err().contains("not a scout"));
 }
 
+#[test]
+fn start_youth_scouting_creates_assignment() {
+    let mut game = make_game();
+
+    start_youth_scouting(&mut game, "scout1").unwrap();
+
+    assert_eq!(game.youth_scouting_assignments.len(), 1);
+    assert_eq!(game.youth_scouting_assignments[0].scout_id, "scout1");
+}
+
+#[test]
+fn start_youth_scouting_respects_shared_scout_capacity() {
+    let mut game = make_game();
+    game.staff[0].attributes.judging_ability = 20;
+    send_scout(&mut game, "scout1", "p2").unwrap();
+    start_youth_scouting(&mut game, "scout1").unwrap();
+
+    let result = start_youth_scouting(&mut game, "scout1");
+
+    assert!(result.is_err());
+    assert!(result.unwrap_err().contains("capacity"));
+}
+
 // ---------------------------------------------------------------------------
 // process_scouting — report generation
 // ---------------------------------------------------------------------------
@@ -231,6 +256,38 @@ fn report_has_scout_report_data() {
     assert_eq!(report.nationality, "BR");
     assert!(report.team_name.is_some(), "Should have team name");
     assert_eq!(report.team_name.as_deref(), Some("Rival FC"));
+}
+
+#[test]
+fn process_scouting_completes_youth_recruitment() {
+    let mut game = make_game();
+    let initial_player_count = game.players.len();
+
+    start_youth_scouting(&mut game, "scout1").unwrap();
+    complete_scouting(&mut game);
+
+    assert_eq!(game.players.len(), initial_player_count + 1);
+    assert!(game.youth_scouting_assignments.is_empty());
+
+    let recruit = game.players.last().expect("expected a new recruit");
+    assert_eq!(recruit.team_id.as_deref(), Some("team1"));
+    assert_eq!(recruit.squad_role, SquadRole::Youth);
+
+    let msg = game
+        .messages
+        .iter()
+        .find(|message| message.subject == "Youth prospect found")
+        .expect("expected a youth recruitment report");
+    assert_eq!(msg.category, MessageCategory::ScoutReport);
+    assert_eq!(msg.context.player_id.as_deref(), Some(recruit.id.as_str()));
+    assert_eq!(msg.actions.len(), 2);
+    assert!(matches!(
+        msg.actions[0].action_type,
+        ActionType::NavigateTo { .. }
+    ));
+    if let ActionType::NavigateTo { route } = &msg.actions[0].action_type {
+        assert_eq!(route, &format!("/player/{}", recruit.id));
+    }
 }
 
 #[test]

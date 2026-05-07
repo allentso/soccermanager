@@ -312,6 +312,7 @@ impl SaveManager {
         game.messages.clear();
         game.news.clear();
         game.scouting_assignments.clear();
+        game.youth_scouting_assignments.clear();
         game.board_objectives.clear();
 
         // Reset clock to start date
@@ -464,7 +465,9 @@ mod tests {
     use domain::stats::{PlayerMatchStatsRecord, StatsState, TeamMatchStatsRecord};
     use domain::team::Team;
     use ofm_core::clock::GameClock;
-    use ofm_core::game::{BoardObjective, ObjectiveType, ScoutingAssignment};
+    use ofm_core::game::{
+        BoardObjective, ObjectiveType, ScoutingAssignment, YouthScoutingAssignment,
+    };
     use rusqlite::params;
 
     fn sample_game() -> Game {
@@ -1352,12 +1355,20 @@ mod tests {
             player_id: "p-001".to_string(),
             days_remaining: 7,
         });
+        game.youth_scouting_assignments
+            .push(YouthScoutingAssignment {
+                id: "ysa-001".to_string(),
+                scout_id: "staff-001".to_string(),
+                days_remaining: 5,
+            });
 
         let save_id = sm.create_save(&game, "With Scouting").unwrap();
         let loaded = sm.load_game(&save_id).unwrap();
 
         assert_eq!(loaded.scouting_assignments.len(), 1);
         assert_eq!(loaded.scouting_assignments[0].days_remaining, 7);
+        assert_eq!(loaded.youth_scouting_assignments.len(), 1);
+        assert_eq!(loaded.youth_scouting_assignments[0].days_remaining, 5);
     }
 
     #[test]
@@ -1383,6 +1394,12 @@ mod tests {
             player_id: "p-001".to_string(),
             days_remaining: 5,
         });
+        game.youth_scouting_assignments
+            .push(YouthScoutingAssignment {
+                id: "ysa-1".to_string(),
+                scout_id: "staff-001".to_string(),
+                days_remaining: 6,
+            });
         game.manager.reputation = 999;
 
         let save_id = sm.create_save(&game, "Source Save").unwrap();
@@ -1394,6 +1411,7 @@ mod tests {
         assert!(new_game.messages.is_empty());
         assert!(new_game.news.is_empty());
         assert!(new_game.scouting_assignments.is_empty());
+        assert!(new_game.youth_scouting_assignments.is_empty());
         assert!(new_game.board_objectives.is_empty());
         assert!(new_game.league.is_none());
 

@@ -11,3 +11,11 @@ export async function sendScout(
     playerId,
   });
 }
+
+export async function startYouthScouting(
+  scoutId: string,
+): Promise<GameStateData> {
+  return invoke<GameStateData>("start_youth_scouting", {
+    scoutId,
+  });
+}

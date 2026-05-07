@@ -2,7 +2,9 @@ use chrono::Utc;
 use domain::stats::StatsState;
 
 use ofm_core::clock::GameClock;
-use ofm_core::game::{BoardObjective, Game, ObjectiveType, ScoutingAssignment};
+use ofm_core::game::{
+    BoardObjective, Game, ObjectiveType, ScoutingAssignment, YouthScoutingAssignment,
+};
 
 use crate::game_database::GameDatabase;
 use crate::repositories::{
@@ -87,6 +89,17 @@ impl GamePersistenceWriter {
             .collect();
         scouting_repo::upsert_scouting_list(conn, &scouting_rows)?;
 
+        let youth_scouting_rows: Vec<scouting_repo::YouthScoutingAssignmentRow> = game
+            .youth_scouting_assignments
+            .iter()
+            .map(|assignment| scouting_repo::YouthScoutingAssignmentRow {
+                id: assignment.id.clone(),
+                scout_id: assignment.scout_id.clone(),
+                days_remaining: assignment.days_remaining,
+            })
+            .collect();
+        scouting_repo::upsert_youth_scouting_list(conn, &youth_scouting_rows)?;
+
         Ok(())
     }
 }
@@ -153,6 +166,15 @@ impl GamePersistenceReader {
                 days_remaining: assignment.days_remaining,
             })
             .collect();
+        let youth_scouting_rows = scouting_repo::load_all_youth_scouting(conn)?;
+        let youth_scouting_assignments: Vec<YouthScoutingAssignment> = youth_scouting_rows
+            .into_iter()
+            .map(|assignment| YouthScoutingAssignment {
+                id: assignment.id,
+                scout_id: assignment.scout_id,
+                days_remaining: assignment.days_remaining,
+            })
+            .collect();
 
         let mut game = Game {
             clock,
@@ -166,6 +188,7 @@ impl GamePersistenceReader {
             news,
             league,
             scouting_assignments,
+            youth_scouting_assignments,
             board_objectives,
             season_context: domain::season::SeasonContext::default(),
             days_since_last_job_offer: None,

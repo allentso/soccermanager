@@ -9,7 +9,7 @@ import {
   Eye,
   ScanSearch,
 } from "lucide-react";
-import { sendScout } from "../../services/scoutingService";
+import { sendScout, startYouthScouting } from "../../services/scoutingService";
 import {
   calculateAvailableScouts,
   scoutMaxSlots,
@@ -23,6 +23,7 @@ import ScoutingAssignmentsList from "./ScoutingAssignmentsList";
 import ScoutingOverviewCards from "./ScoutingOverviewCards";
 import ScoutingScoutDetailsCard from "./ScoutingScoutDetailsCard";
 import ScoutingPlayerSearchCard from "./ScoutingPlayerSearchCard";
+import ScoutingYouthRecruitmentCard from "./ScoutingYouthRecruitmentCard";
 import TransferBidModal from "../transfers/TransferBidModal";
 import { useTransferBidFlow } from "../transfers/useTransferBidFlow";
 
@@ -45,6 +46,7 @@ export default function ScoutingTab({
   const [searchQuery, setSearchQuery] = useState("");
   const [posFilter, setPosFilter] = useState<string>("All");
   const [sending, setSending] = useState<string | null>(null);
+  const [startingYouthSearch, setStartingYouthSearch] = useState(false);
   const [page, setPage] = useState(0);
   const {
     bidTarget,
@@ -72,7 +74,9 @@ export default function ScoutingTab({
     (s) => s.role === "Scout" && s.team_id === myTeamId,
   );
   const assignments = gameState.scouting_assignments || [];
-  const availableScouts = calculateAvailableScouts(scouts, assignments);
+  const youthAssignments = gameState.youth_scouting_assignments || [];
+  const allAssignments = [...assignments, ...youthAssignments];
+  const availableScouts = calculateAvailableScouts(scouts, allAssignments);
 
   const allScoutable = filterScoutablePlayers({
     players: gameState.players,
@@ -100,6 +104,20 @@ export default function ScoutingTab({
     }
   };
 
+  const handleStartYouthScouting = async () => {
+    if (availableScouts.length === 0) return;
+    const scout = availableScouts[0];
+    setStartingYouthSearch(true);
+    try {
+      const updated = await startYouthScouting(scout.id);
+      onGameUpdate(updated);
+    } catch (err) {
+      console.error("Failed to start youth scouting:", err);
+    } finally {
+      setStartingYouthSearch(false);
+    }
+  };
+
   return (
     <div className="max-w-6xl mx-auto flex flex-col gap-5">
       {/* Header */}
@@ -112,7 +130,7 @@ export default function ScoutingTab({
 
       <ScoutingOverviewCards
         scouts={scouts}
-        assignmentCount={assignments.length}
+        assignmentCount={allAssignments.length}
         availableScoutCount={availableScouts.length}
         totalCapacity={scouts.reduce(
           (sum, scout) => sum + scoutMaxSlots(scout.attributes.judging_ability),
@@ -133,6 +151,18 @@ export default function ScoutingTab({
         onSelectPlayer={onSelectPlayer}
         onSelectTeam={onSelectTeam}
       />
+
+      {scouts.length > 0 && (
+        <ScoutingYouthRecruitmentCard
+          youthAssignments={youthAssignments}
+          scouts={scouts}
+          availableScoutCount={availableScouts.length}
+          isStarting={startingYouthSearch}
+          onStartSearch={() => {
+            void handleStartYouthScouting();
+          }}
+        />
+      )}
 
       <ScoutingScoutDetailsCard
         scouts={scouts}

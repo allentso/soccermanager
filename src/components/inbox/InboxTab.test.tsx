@@ -394,6 +394,34 @@ describe("InboxTab", function (): void {
     expect(mockedInvoke).not.toHaveBeenCalled();
   });
 
+  it("navigates to a player route without resolving the message action", async function (): Promise<void> {
+    const onNavigate = vi.fn();
+    const action: MessageAction = {
+      id: "action-1",
+      label: "Open Player",
+      action_type: { NavigateTo: { route: "/player/player-99" } },
+      resolved: false,
+    };
+
+    renderInboxTab({
+      gameState: createGameState([
+        createMessage({ id: "m1", read: true, actions: [action] }),
+      ]),
+      initialMessageId: "m1",
+      onNavigate,
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Open Player" }));
+
+    await waitFor(function (): void {
+      expect(onNavigate).toHaveBeenCalledWith("__selectPlayer", {
+        messageId: "player-99",
+      });
+    });
+
+    expect(mockedInvoke).not.toHaveBeenCalled();
+  });
+
   it("navigates to a dashboard tab and still resolves the action", async function (): Promise<void> {
     const onGameUpdate = vi.fn();
     const onNavigate = vi.fn();
