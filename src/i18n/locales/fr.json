@@ -2087,13 +2087,15 @@
         "body0.noScorers": "Dans l'action de la Journée {{matchday}}, le match s'est terminé {{home}} {{homeGoals}} - {{awayGoals}} {{away}}. Le résultat pourrait avoir des implications sur le classement au fil de la saison.",
         "body1.noScorers": "Le match s'est terminé {{home}} {{homeGoals}} - {{awayGoals}} {{away}} lors d'un choc de la Journée {{matchday}}. Les deux équipes ont tout donné dans une rencontre passionnante.",
         "body2.noScorers": "La Journée {{matchday}} a offert une autre rencontre passionnante entre {{home}} et {{away}} ({{homeGoals}}-{{awayGoals}}). Les fans ont eu droit à un match compétitif.",
+        "scorer": "{{player}} ({{minute}}', {{team}})",
+        "scorersSection": "\n\nButs : {{scorers}}",
         "reportFriendly": {
           "title": "{{home}} {{homeGoals}} - {{awayGoals}} {{away}} : compte-rendu amical",
-          "body": "En match amical, {{result}}. Les deux équipes ont utilisé cette rencontre pour gagner en rythme avant le début de la compétition officielle.{{scorers}}"
+          "body": "En match amical, {{home}} {{homeGoals}} - {{awayGoals}} {{away}}. Les deux équipes ont utilisé cette rencontre pour gagner en rythme avant le début de la compétition officielle.{{scorersSection}}"
         },
         "reportPreseason": {
           "title": "{{home}} {{homeGoals}} - {{awayGoals}} {{away}} : compte-rendu du tournoi de présaison",
-          "body": "Dans le tournoi de présaison, {{result}}. Les deux équipes ont utilisé cette rencontre pour gagner en rythme avant le début de la compétition officielle.{{scorers}}"
+          "body": "Dans le tournoi de présaison, {{home}} {{homeGoals}} - {{awayGoals}} {{away}}. Les deux équipes ont utilisé cette rencontre pour gagner en rythme avant le début de la compétition officielle.{{scorersSection}}"
         }
       },
       "roundup": {
@@ -2106,7 +2108,8 @@
         "headline0": "{{leader}} en Tête Après la Journée {{matchday}}",
         "headline1": "Classement de Première Division : {{leader}} au Sommet",
         "headline2": "Mise à Jour du Classement — Journée {{matchday}}",
-        "body": "Après la Journée {{matchday}}, {{leader}} trône en tête du classement de Première Division.\n\nClassement :\n{{standings}}"
+        "body": "Après la Journée {{matchday}}, {{leader}} trône en tête du classement de Première Division.\n\nClassement :\n{{standings}}",
+        "entry": "  {{rank}}. {{team}} — {{points}} pts (Diff.: {{goalDifference}})"
       },
       "seasonPreview": {
         "headline0": "Avant-Saison : {{teamCount}} Équipes en Lice pour la Gloire",

@@ -2087,13 +2087,15 @@
         "body0.noScorers": "Am Spieltag {{matchday}} endete das Spiel {{home}} {{homeGoals}} - {{awayGoals}} {{away}}. Das Ergebnis könnte Auswirkungen auf die Tabelle im weiteren Saisonverlauf haben.",
         "body1.noScorers": "Das Spiel endete {{home}} {{homeGoals}} - {{awayGoals}} {{away}} in einem Duell am Spieltag {{matchday}}. Beide Seiten gaben alles in einer spannenden Begegnung.",
         "body2.noScorers": "Spieltag {{matchday}} bot eine weitere spannende Begegnung zwischen {{home}} und {{away}} ({{homeGoals}}-{{awayGoals}}). Die Fans erlebten ein wettbewerbsfähiges Spiel.",
+        "scorer": "{{player}} ({{minute}}', {{team}})",
+        "scorersSection": "\n\nTore: {{scorers}}",
         "reportFriendly": {
           "title": "{{home}} {{homeGoals}} - {{awayGoals}} {{away}}: Freundschaftsspiel-Bericht",
-          "body": "Im Freundschaftsspiel endete die Partie mit {{result}}. Beide Teams nutzten das Spiel, um vor dem Pflichtspielbetrieb Rhythmus aufzubauen.{{scorers}}"
+          "body": "Im Freundschaftsspiel endete die Partie mit {{home}} {{homeGoals}} - {{awayGoals}} {{away}}. Beide Teams nutzten das Spiel, um vor dem Pflichtspielbetrieb Rhythmus aufzubauen.{{scorersSection}}"
         },
         "reportPreseason": {
           "title": "{{home}} {{homeGoals}} - {{awayGoals}} {{away}}: Vorbereitungsturnier-Bericht",
-          "body": "Im Vorbereitungsturnier endete die Partie mit {{result}}. Beide Teams nutzten das Spiel, um vor dem Pflichtspielbetrieb Rhythmus aufzubauen.{{scorers}}"
+          "body": "Im Vorbereitungsturnier endete die Partie mit {{home}} {{homeGoals}} - {{awayGoals}} {{away}}. Beide Teams nutzten das Spiel, um vor dem Pflichtspielbetrieb Rhythmus aufzubauen.{{scorersSection}}"
         }
       },
       "roundup": {
@@ -2106,7 +2108,8 @@
         "headline0": "{{leader}} Führt Nach Spieltag {{matchday}}",
         "headline1": "Erste Division Tabelle: {{leader}} an der Spitze",
         "headline2": "Tabellen-Update — Spieltag {{matchday}}",
-        "body": "Nach Spieltag {{matchday}} steht {{leader}} an der Spitze der Ersten Division.\n\nTabelle:\n{{standings}}"
+        "body": "Nach Spieltag {{matchday}} steht {{leader}} an der Spitze der Ersten Division.\n\nTabelle:\n{{standings}}",
+        "entry": "  {{rank}}. {{team}} — {{points}} Pkt. (TD: {{goalDifference}})"
       },
       "seasonPreview": {
         "headline0": "Saisonvorschau: {{teamCount}} Teams Kämpfen um den Titel",

@@ -412,6 +412,83 @@ describe("resolveNewsArticle", () => {
     }
   });
 
+  it("localizes friendly match report scorer sections through backend keys", async () => {
+    const previousLanguage = i18n.language;
+    await i18n.changeLanguage("pt-BR");
+
+    try {
+      const article = makeNewsArticle({
+        headline: "Alpha FC 2 - 1 Beta FC: friendly report",
+        headline_key: "be.news.matchReport.reportFriendly.title",
+        body: "In friendly action, Alpha FC 2-1 Beta FC. Both sides used the fixture to build sharpness before the competitive campaign.\n\nGoals: Alice (10', Alpha FC)",
+        body_key: "be.news.matchReport.reportFriendly.body",
+        source: "Sports Gazette",
+        source_key: "be.source.sportsGazette",
+        i18n_params: {
+          home: "Alpha FC",
+          away: "Beta FC",
+          homeGoals: "2",
+          awayGoals: "1",
+          scorersSection: "\n\nGoals: Alice (10', Alpha FC)",
+          scorersData: JSON.stringify([
+            {
+              player: "Alice",
+              minute: 10,
+              team: "Alpha FC",
+            },
+          ]),
+        },
+      });
+
+      const result = resolveNewsArticle(article);
+
+      expect(result.headline).toBe("Alpha FC 2 - 1 Beta FC: resumo do amistoso");
+      expect(result.body).toContain("No amistoso, Alpha FC 2 - 1 Beta FC.");
+      expect(result.body).toContain("Gols: Alice (10', Alpha FC)");
+      expect(result.source).toBe("Gazeta Esportiva");
+    } finally {
+      await i18n.changeLanguage(previousLanguage);
+    }
+  });
+
+  it("localizes standings entries through backend keys", async () => {
+    const previousLanguage = i18n.language;
+    await i18n.changeLanguage("pt-BR");
+
+    try {
+      const article = makeNewsArticle({
+        headline: "Table update",
+        headline_key: "be.news.standings.headline2",
+        body: "After Matchday 4, Alpha FC sit at the top of the Premier Division table.\n\nStandings:\n  1. Alpha FC — 12 pts (GD: +5)",
+        body_key: "be.news.standings.body",
+        source: "League Wire",
+        source_key: "be.source.leagueWire",
+        i18n_params: {
+          matchday: "4",
+          leader: "Alpha FC",
+          standings: "  1. Alpha FC — 12 pts (GD: +5)",
+          standingsData: JSON.stringify([
+            {
+              rank: 1,
+              team: "Alpha FC",
+              points: 12,
+              goal_difference: "+5",
+            },
+          ]),
+        },
+      });
+
+      const result = resolveNewsArticle(article);
+
+      expect(result.headline).toBe("Atualização da Classificação — Rodada 4");
+      expect(result.body).toContain("Após a Rodada 4, o Alpha FC está no topo da tabela da Primeira Divisão.");
+      expect(result.body).toContain("1. Alpha FC — 12 pts (SG: +5)");
+      expect(result.source).toBe("Notícias da Liga");
+    } finally {
+      await i18n.changeLanguage(previousLanguage);
+    }
+  });
+
   it("preserves non-translatable fields", () => {
     const article = makeNewsArticle({ id: "n_5", category: "transfer", read: true });
     const result = resolveNewsArticle(article);

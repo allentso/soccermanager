@@ -2,24 +2,17 @@ use super::params;
 use domain::league::FixtureCompetition;
 use domain::news::*;
 use rand::RngExt;
+use serde::Serialize;
 
-fn result_text(home_name: &str, away_name: &str, home_goals: u8, away_goals: u8) -> String {
-    if home_goals > away_goals {
-        format!(
-            "{} secured a {}-{} victory over {}",
-            home_name, home_goals, away_goals, away_name
-        )
-    } else if away_goals > home_goals {
-        format!(
-            "{} claimed a {}-{} win against {}",
-            away_name, away_goals, home_goals, home_name
-        )
-    } else {
-        format!(
-            "{} and {} played out a {}-{} draw",
-            home_name, away_name, home_goals, away_goals
-        )
-    }
+fn scoreline_text(home_name: &str, away_name: &str, home_goals: u8, away_goals: u8) -> String {
+    format!("{} {}-{} {}", home_name, home_goals, away_goals, away_name)
+}
+
+#[derive(Serialize)]
+struct MatchReportScorerParam<'a> {
+    player: &'a str,
+    minute: u32,
+    team: &'a str,
 }
 
 fn scorer_parts(
@@ -49,12 +42,39 @@ fn scorer_player_ids(
         .collect()
 }
 
-fn scorers_text(parts: &[String]) -> String {
+fn scorers_section(parts: &[String]) -> String {
     if parts.is_empty() {
         String::new()
     } else {
         format!("\n\nGoals: {}", parts.join(", "))
     }
+}
+
+fn scorer_params_json(
+    home_name: &str,
+    away_name: &str,
+    home_scorers: &[(String, u32)],
+    away_scorers: &[(String, u32)],
+) -> String {
+    let scorers: Vec<MatchReportScorerParam<'_>> = home_scorers
+        .iter()
+        .map(|(player, minute)| MatchReportScorerParam {
+            player,
+            minute: *minute,
+            team: home_name,
+        })
+        .chain(
+            away_scorers
+                .iter()
+                .map(|(player, minute)| MatchReportScorerParam {
+                    player,
+                    minute: *minute,
+                    team: away_name,
+                }),
+        )
+        .collect();
+
+    serde_json::to_string(&scorers).unwrap_or_else(|_| "[]".to_string())
 }
 
 fn outcome_key(home_goals: u8, away_goals: u8) -> &'static str {
@@ -85,9 +105,10 @@ pub fn match_report_article(
     let mut rng = rand::rng();
     let is_league_fixture = matches!(competition, FixtureCompetition::League);
 
-    let result_text = result_text(home_name, away_name, home_goals, away_goals);
+    let scoreline = scoreline_text(home_name, away_name, home_goals, away_goals);
     let scorer_parts = scorer_parts(home_name, away_name, home_scorers, away_scorers);
-    let scorers_text = scorers_text(&scorer_parts);
+    let scorers_section = scorers_section(&scorer_parts);
+    let scorers_data = scorer_params_json(home_name, away_name, home_scorers, away_scorers);
 
     let source_keys = [
         "be.source.sportsGazette",
@@ -134,7 +155,7 @@ pub fn match_report_article(
             ),
             format!(
                 "In {} action, {}. Both sides used the fixture to build sharpness before the competitive campaign.{}",
-                context, result_text, scorers_text
+                context, scoreline, scorers_section
             ),
             source.to_string(),
             date.to_string(),
@@ -152,8 +173,8 @@ pub fn match_report_article(
                 ("homeGoals", &home_goals.to_string()),
                 ("awayGoals", &away_goals.to_string()),
                 ("context", context),
-                ("result", &result_text),
-                ("scorers", &scorers_text),
+                ("scorersSection", &scorers_section),
+                ("scorersData", &scorers_data),
             ]),
         )
         .with_score(NewsMatchScore {
@@ -166,19 +187,19 @@ pub fn match_report_article(
 
     let commentary = [
         format!(
-            "In Matchday {} action, {}. The result could have implications on the league standings as the season progresses.{}",
-            matchday, result_text, scorers_text
+            "In Matchday {} action, the match ended {}. The result could have implications on the league standings as the season progresses.{}",
+            matchday, scoreline, scorers_section
         ),
         format!(
-            "{} in a Matchday {} clash at {}. Both sides gave their all in an engaging contest.{}",
-            result_text,
+            "The match ended {} in a Matchday {} clash at {}. Both sides gave their all in an engaging contest.{}",
+            scoreline,
             matchday,
             format!("{}'s ground", home_name),
-            scorers_text
+            scorers_section
         ),
         format!(
-            "Matchday {} delivered another exciting encounter as {}. The fans were treated to a competitive fixture.{}",
-            matchday, result_text, scorers_text
+            "Matchday {} delivered another exciting encounter as {} took on {}. The final score was {}. The fans were treated to a competitive fixture.{}",
+            matchday, home_name, away_name, scoreline, scorers_section
         ),
     ];
 
@@ -258,10 +279,8 @@ pub fn match_report_article(
                 ("homeGoals", &home_goals.to_string()),
                 ("awayGoals", &away_goals.to_string()),
                 ("matchday", &matchday.to_string()),
+                ("scorers", &scorer_parts.join(", ")),
             ]);
-            if !scorer_parts.is_empty() {
-                p.insert("scorers".to_string(), scorer_parts.join(", "));
-            }
             // For winner-specific headlines
             if home_goals > away_goals {
                 p.insert("winner".to_string(), home_name.to_string());
@@ -332,7 +351,7 @@ mod tests {
         assert!(
             article
                 .body
-                .contains("Alpha FC secured a 2-1 victory over Beta FC")
+                .contains("Alpha FC 2-1 Beta FC")
         );
         assert!(
             article
@@ -400,7 +419,7 @@ mod tests {
         assert!(
             article
                 .body
-                .contains("Beta FC claimed a 3-1 win against Alpha FC")
+                .contains("Alpha FC 1-3 Beta FC")
         );
         assert_eq!(
             article.i18n_params.get("winner"),
@@ -443,7 +462,7 @@ mod tests {
         assert!(
             article
                 .body
-                .contains("Alpha FC and Beta FC played out a 0-0 draw")
+                .contains("Alpha FC 0-0 Beta FC")
         );
         assert!(!article.body.contains("Goals:"));
         assert!(
@@ -488,5 +507,10 @@ mod tests {
             Some("be.news.matchReport.reportFriendly.body")
         );
         assert!(article.source_key.is_some());
+        assert_eq!(
+            article.i18n_params.get("scorersSection"),
+            Some(&String::new())
+        );
+        assert_eq!(article.i18n_params.get("scorersData"), Some(&"[]".to_string()));
     }
 }

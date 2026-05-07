@@ -2083,13 +2083,15 @@
         "body0.noScorers": "In Matchday {{matchday}} action, the match ended {{home}} {{homeGoals}} - {{awayGoals}} {{away}}. The result could have implications on the league standings as the season progresses.",
         "body1.noScorers": "The match ended {{home}} {{homeGoals}} - {{awayGoals}} {{away}} in a Matchday {{matchday}} clash. Both sides gave their all in an engaging contest.",
         "body2.noScorers": "Matchday {{matchday}} delivered another exciting encounter as {{home}} faced {{away}} ({{homeGoals}}-{{awayGoals}}). The fans were treated to a competitive fixture.",
+        "scorer": "{{player}} ({{minute}}', {{team}})",
+        "scorersSection": "\n\nGoals: {{scorers}}",
         "reportFriendly": {
           "title": "{{home}} {{homeGoals}} - {{awayGoals}} {{away}}: Friendly report",
-          "body": "In friendly action, {{result}}. Both sides used the fixture to build sharpness before the competitive campaign.{{scorers}}"
+          "body": "In friendly action, {{home}} {{homeGoals}} - {{awayGoals}} {{away}}. Both sides used the fixture to build sharpness before the competitive campaign.{{scorersSection}}"
         },
         "reportPreseason": {
           "title": "{{home}} {{homeGoals}} - {{awayGoals}} {{away}}: Preseason tournament report",
-          "body": "In preseason tournament action, {{result}}. Both sides used the fixture to build sharpness before the competitive campaign.{{scorers}}"
+          "body": "In preseason tournament action, {{home}} {{homeGoals}} - {{awayGoals}} {{away}}. Both sides used the fixture to build sharpness before the competitive campaign.{{scorersSection}}"
         }
       },
       "roundup": {
@@ -2102,7 +2104,8 @@
         "headline0": "{{leader}} Lead the Way After Matchday {{matchday}}",
         "headline1": "Premier Division Table: {{leader}} on Top",
         "headline2": "Standings Update — Matchday {{matchday}}",
-        "body": "After Matchday {{matchday}}, {{leader}} sit at the top of the Premier Division table.\n\nStandings:\n{{standings}}"
+        "body": "After Matchday {{matchday}}, {{leader}} sit at the top of the Premier Division table.\n\nStandings:\n{{standings}}",
+        "entry": "  {{rank}}. {{team}} — {{points}} pts (GD: {{goalDifference}})"
       },
       "seasonPreview": {
         "headline0": "Season Preview: {{teamCount}} Teams Battle for Glory",
