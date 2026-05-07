@@ -1709,7 +1709,7 @@
       },
       "boardObjectives": {
         "subject": "Temporada {{season}} — Objetivos da Diretoria",
-        "body": "A diretoria definiu os seguintes objetivos para esta temporada:\n\n1. Terminar entre os {{expectedPos}} primeiros\n2. Vencer pelo menos {{winTarget}} partidas\n3. Marcar pelo menos {{goalsTarget}} gols\n\nCumprir essas metas vai aumentar a confiança da diretoria no seu trabalho. Não atender às expectativas pode resultar em orçamentos menores ou em outras consequências."
+        "body": "A diretoria definiu os seguintes objetivos para esta temporada:\n\n1. Terminar entre os {{expectedPos}} primeiros\n2. Vencer pelo menos {{winTarget}} partidas\n3. Marcar pelo menos {{goalsTarget}} gols\n4. Manter a folha salarial em ou abaixo de {{financeTarget}}% do orçamento\n\nCumprir essas metas vai aumentar a confiança da diretoria no seu trabalho. Não atender às expectativas pode resultar em orçamentos menores ou em outras consequências."
       },
       "financeCritical": {
         "subject": "URGENTE: Clube Endividado",
@@ -2154,7 +2154,8 @@
         "resultLine": "  {{home}} {{homeGoals}} - {{awayGoals}} {{away}}",
         "unbeatenLine": {
           "one": "\n\n{{team}} segue invicto na pré-temporada.",
-          "two": "\n\n{{first}} e {{second}} seguem invictos na pré-temporada."
+          "two": "\n\n{{first}} e {{second}} seguem invictos na pré-temporada.",
+          "multiple": "\n\n{{teams}} seguem invictos na pré-temporada."
         }
       },
       "storyline": {

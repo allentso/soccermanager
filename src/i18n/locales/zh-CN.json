@@ -1649,6 +1649,7 @@
     "source": {
       "sportsGazette": "体育公报",
       "footballHerald": "足球先驱报",
+      "playersUnder21": "U21球员",
       "matchDayPress": "比赛日新闻",
       "leagueChronicle": "联赛纪事",
       "leagueWire": "联赛快讯",
@@ -2150,7 +2151,8 @@
         "resultLine": "  {{home}} {{homeGoals}} - {{awayGoals}} {{away}}",
         "unbeatenLine": {
           "one": "\n\n{{team}}在季前赛中仍保持不败。",
-          "two": "\n\n{{first}}和{{second}}在季前赛中仍保持不败。"
+          "two": "\n\n{{first}}和{{second}}在季前赛中仍保持不败。",
+          "multiple": "\n\n{{teams}}在季前赛中仍保持不败。"
         }
       },
       "storyline": {

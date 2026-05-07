@@ -1709,7 +1709,7 @@
       },
       "boardObjectives": {
         "subject": "Temporada {{season}} — Objetivos de la directiva",
-        "body": "La directiva ha establecido los siguientes objetivos para esta temporada:\n\n1. Terminar entre los primeros {{expectedPos}}\n2. Ganar al menos {{winTarget}} partidos\n3. Marcar al menos {{goalsTarget}} goles\n\nCumplir estos objetivos mejorará la confianza de la directiva en tu gestión. No alcanzar las expectativas puede dar lugar a recortes de presupuesto u otras consecuencias."
+        "body": "La directiva ha establecido los siguientes objetivos para esta temporada:\n\n1. Terminar entre los primeros {{expectedPos}}\n2. Ganar al menos {{winTarget}} partidos\n3. Marcar al menos {{goalsTarget}} goles\n4. Mantener el gasto salarial en o por debajo del {{financeTarget}}% del presupuesto\n\nCumplir estos objetivos mejorará la confianza de la directiva en tu gestión. No alcanzar las expectativas puede dar lugar a recortes de presupuesto u otras consecuencias."
       },
       "financeCritical": {
         "subject": "URGENTE: Club endeudado",
@@ -2154,7 +2154,8 @@
         "resultLine": "  {{home}} {{homeGoals}} - {{awayGoals}} {{away}}",
         "unbeatenLine": {
           "one": "\n\n{{team}} sigue invicto en la pretemporada.",
-          "two": "\n\n{{first}} y {{second}} siguen invictos en la pretemporada."
+          "two": "\n\n{{first}} y {{second}} siguen invictos en la pretemporada.",
+          "multiple": "\n\n{{teams}} siguen invictos en la pretemporada."
         }
       },
       "storyline": {
@@ -2178,7 +2179,7 @@
       "injuryNews": {
         "headline0": "Lesión de {{player}}: golpe duro para {{team}}",
         "headline1": "{{player}} se perderá una etapa en el banquillo",
-        "headline2": "~{{weeksOut}} semana(s) — {{team}} angustiado por un jugador clave",
+        "headline2": "{{weeksOut}} semana(s) — {{team}} angustiado por un jugador clave",
         "body0Days": "{{team}} ha confirmado que {{player}} ha sufrido una lesión y se espera que esté de baja durante {{daysOut}} día(s). El club evaluará la situación antes de ofrecer una nueva actualización.",
         "body0Weeks": "{{team}} ha confirmado que {{player}} ha sufrido una lesión y se espera que esté de baja durante unas {{weeksOut}} semana(s). El club evaluará la situación antes de ofrecer una nueva actualización.",
         "body1Days": "{{player}} sufrió un contratiempo en el entrenamiento y el jugador del {{team}} fue descartado durante {{daysOut}} día(s). La ausencia será un golpe significativo mientras la temporada alcanza una fase crucial.",

@@ -1683,8 +1683,8 @@
         "actionStandings": "Vedi classifica"
       },
       "staffAdvice": {
-        "subject": "Rapporto dello staff — Vacanze in panchina",
-        "body": "Mister, ho dato un'occhiata alla situazione dello staff al {{team}} e volevo segnalarti alcuni punti:\n\n• Un buon Allenatore migliora sensibilmente l'efficacia degli allenamenti: i tuoi giocatori cresceranno più in fretta.\n• Un Fisioterapista qualificato aiuta a prevenire gli infortuni e accelera il recupero tra una partita e l'altra.\n• I nostri Osservatori possono aiutarti a individuare obiettivi di mercato e valutare gli avversari.\n\nTi consiglio vivamente di colmare eventuali vacanze prima dell'inizio della stagione. Puoi trovare il personale disponibile nella sezione Staff.\n\nDacci un'occhiata quando puoi.",
+        "subject": "Rapporto dello staff — Posti vacanti nello staff",
+        "body": "Mister, ho dato un'occhiata alla situazione dello staff al {{team}} e volevo segnalarti alcuni punti:\n\n• Un buon Allenatore migliora sensibilmente l'efficacia degli allenamenti: i tuoi giocatori cresceranno più in fretta.\n• Un Fisioterapista qualificato aiuta a prevenire gli infortuni e accelera il recupero tra una partita e l'altra.\n• I nostri Osservatori possono aiutarti a individuare obiettivi di mercato e valutare gli avversari.\n\nTi consiglio vivamente di colmare eventuali posti vacanti prima dell'inizio della stagione. Puoi trovare il personale disponibile nella sezione Staff.\n\nDacci un'occhiata quando puoi.",
         "actionView": "Vedi staff"
       },
       "boardExpect": {
@@ -2154,7 +2154,8 @@
         "resultLine": "  {{home}} {{homeGoals}} - {{awayGoals}} {{away}}",
         "unbeatenLine": {
           "one": "\n\n{{team}} resta imbattuto nel precampionato.",
-          "two": "\n\n{{first}} e {{second}} restano imbattuti nel precampionato."
+          "two": "\n\n{{first}} e {{second}} restano imbattuti nel precampionato.",
+          "multiple": "\n\n{{teams}} restano imbattuti nel precampionato."
         }
       },
       "storyline": {
