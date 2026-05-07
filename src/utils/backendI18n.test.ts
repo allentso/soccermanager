@@ -390,7 +390,14 @@ describe("resolveNewsArticle", () => {
         i18n_params: {
           weekStart: "2026-07-27",
           transferCount: "2",
-          deals: "  Adam Smith: Alpha FC -> Beta FC (€1.8M)",
+          dealsData: JSON.stringify([
+            {
+              player: "Adam Smith",
+              fromTeam: "Alpha FC",
+              toTeam: "Beta FC",
+              fee: "€1.8M",
+            },
+          ]),
         },
       });
 
@@ -398,7 +405,7 @@ describe("resolveNewsArticle", () => {
 
       expect(result.headline).toBe("Resumo de Transferências — Semana de 2026-07-27");
       expect(result.body).toContain("2 transferência(s) concluída(s)");
-      expect(result.body).toContain("Adam Smith: Alpha FC -> Beta FC (€1.8M)");
+      expect(result.body).toContain("Adam Smith: de Alpha FC para Beta FC (€1.8M)");
       expect(result.source).toBe("Inteligência de Transferências");
     } finally {
       await i18n.changeLanguage(previousLanguage);

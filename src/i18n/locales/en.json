@@ -946,6 +946,7 @@
     "leagueTable": "League Table",
     "topScorers": "Top Scorers",
     "loadingAwards": "Loading awards...",
+    "awardsTab": "Awards",
     "awards": {
       "goldenBootTitle": "Golden Boot",
       "goldenBootSubtitle": "Top Scorers",
@@ -1581,6 +1582,10 @@
       "invalidSquadRole": "Invalid squad role",
       "staffMemberNotFound": "Staff member not found",
       "staffMemberAlreadyEmployed": "Staff member already employed by a team",
+      "playerNotInSquad": "Player is not in your squad",
+      "invalidDateOfBirth": "Invalid date of birth",
+      "youthAcademyOverage": "Only players aged 21 or under can join the youth academy",
+      "staffMemberNotInTeam": "Staff member does not belong to your team",
       "noActiveLiveMatch": "No active live match",
       "seasonNotComplete": "Season is not yet complete",
       "managedTeamNotFound": "Managed team not found",
@@ -1694,7 +1699,7 @@
       },
       "boardObjectives": {
         "subject": "Season {{season}} — Board Objectives",
-        "body": "The board has set the following objectives for this season:\n\n1. Finish in the top {{expectedPos}}\n2. Win at least {{winTarget}} matches\n3. Score at least {{goalsTarget}} goals\n\nMeeting these targets will improve the board's confidence in your management. Failure to meet expectations may result in reduced budgets or further consequences."
+        "body": "The board has set the following objectives for this season:\n\n1. Finish in the top {{expectedPos}}\n2. Win at least {{winTarget}} matches\n3. Score at least {{goalsTarget}} goals\n4. Keep wage spending at or below {{financeTarget}}% of the budget\n\nMeeting these targets will improve the board's confidence in your management. Failure to meet expectations may result in reduced budgets or further consequences."
       },
       "financeCritical": {
         "subject": "URGENT: Club in Debt",
@@ -1756,6 +1761,9 @@
       "event": {
         "ack": "Understood",
         "respond": "Respond"
+      },
+      "action": {
+        "viewFinances": "View Finances"
       },
       "playerEvent": {
         "respond": "Respond",
@@ -2065,7 +2073,18 @@
         },
         "body0": "In Matchday {{matchday}} action, the match ended {{home}} {{homeGoals}} - {{awayGoals}} {{away}}. The result could have implications on the league standings as the season progresses.\n\nGoals: {{scorers}}",
         "body1": "The match ended {{home}} {{homeGoals}} - {{awayGoals}} {{away}} in a Matchday {{matchday}} clash. Both sides gave their all in an engaging contest.\n\nGoals: {{scorers}}",
-        "body2": "Matchday {{matchday}} delivered another exciting encounter as {{home}} faced {{away}} ({{homeGoals}}-{{awayGoals}}). The fans were treated to a competitive fixture.\n\nGoals: {{scorers}}"
+        "body2": "Matchday {{matchday}} delivered another exciting encounter as {{home}} faced {{away}} ({{homeGoals}}-{{awayGoals}}). The fans were treated to a competitive fixture.\n\nGoals: {{scorers}}",
+        "body0.noScorers": "In Matchday {{matchday}} action, the match ended {{home}} {{homeGoals}} - {{awayGoals}} {{away}}. The result could have implications on the league standings as the season progresses.",
+        "body1.noScorers": "The match ended {{home}} {{homeGoals}} - {{awayGoals}} {{away}} in a Matchday {{matchday}} clash. Both sides gave their all in an engaging contest.",
+        "body2.noScorers": "Matchday {{matchday}} delivered another exciting encounter as {{home}} faced {{away}} ({{homeGoals}}-{{awayGoals}}). The fans were treated to a competitive fixture.",
+        "reportFriendly": {
+          "title": "{{home}} {{homeGoals}} - {{awayGoals}} {{away}}: Friendly report",
+          "body": "In friendly action, {{result}}. Both sides used the fixture to build sharpness before the competitive campaign.{{scorers}}"
+        },
+        "reportPreseason": {
+          "title": "{{home}} {{homeGoals}} - {{awayGoals}} {{away}}: Preseason tournament report",
+          "body": "In preseason tournament action, {{result}}. Both sides used the fixture to build sharpness before the competitive campaign.{{scorers}}"
+        }
       },
       "roundup": {
         "headline0": "Matchday {{matchday}} Round-Up: {{totalGoals}} Goals in Action-Packed Day",
@@ -2099,7 +2118,8 @@
       },
       "transferRoundup": {
         "headline": "Transfer Roundup — Week of {{weekStart}}",
-        "body": "The transfer market stayed busy this week. {{transferCount}} completed deal(s) stood out across the division.\n\n{{deals}}"
+        "body": "The transfer market stayed busy this week. {{transferCount}} completed deal(s) stood out across the division.\n\n{{deals}}",
+        "dealLine": "  {{player}}: {{fromTeam}} -> {{toTeam}} ({{fee}})"
       },
       "seasonAwards": {
         "headline": "Season {{season}} Awards",

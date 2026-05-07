@@ -946,6 +946,7 @@
     "leagueTable": "Tabela da Liga",
     "topScorers": "Melhores Marcadores",
     "loadingAwards": "A carregar prémios...",
+    "awardsTab": "Prémios",
     "awards": {
       "goldenBootTitle": "Bota de Ouro",
       "goldenBootSubtitle": "Melhores marcadores",
@@ -1581,6 +1582,10 @@
       "invalidSquadRole": "Função de plantel inválida",
       "staffMemberNotFound": "Membro da equipa técnica não encontrado",
       "staffMemberAlreadyEmployed": "Este membro da equipa técnica já está empregado por uma equipa",
+      "playerNotInSquad": "O jogador não faz parte do teu plantel",
+      "invalidDateOfBirth": "Data de nascimento inválida",
+      "youthAcademyOverage": "Apenas jogadores com 21 anos ou menos podem integrar a academia jovem",
+      "staffMemberNotInTeam": "Este membro da equipa técnica não pertence à tua equipa",
       "noActiveLiveMatch": "Nenhum jogo ao vivo ativo",
       "seasonNotComplete": "A época ainda não terminou",
       "managedTeamNotFound": "Equipa gerida não encontrada",
@@ -1760,6 +1765,9 @@
       "event": {
         "ack": "Understood",
         "respond": "Respond"
+      },
+      "action": {
+        "viewFinances": "Ver finanças"
       },
       "playerEvent": {
         "respond": "Responder",
@@ -2069,7 +2077,18 @@
         },
         "body0": "Na acção da Jornada {{matchday}}, o jogo terminou {{home}} {{homeGoals}} - {{awayGoals}} {{away}}. O resultado poderá ter implicações na classificação à medida que a época avança.\n\nGolos: {{scorers}}",
         "body1": "O jogo terminou {{home}} {{homeGoals}} - {{awayGoals}} {{away}} num confronto da Jornada {{matchday}}. Ambas as equipas deram tudo num encontro envolvente.\n\nGolos: {{scorers}}",
-        "body2": "A Jornada {{matchday}} trouxe mais um encontro emocionante entre {{home}} e {{away}} ({{homeGoals}}-{{awayGoals}}). Os adeptos assistiram a um jogo competitivo.\n\nGolos: {{scorers}}"
+        "body2": "A Jornada {{matchday}} trouxe mais um encontro emocionante entre {{home}} e {{away}} ({{homeGoals}}-{{awayGoals}}). Os adeptos assistiram a um jogo competitivo.\n\nGolos: {{scorers}}",
+        "body0.noScorers": "Na acção da Jornada {{matchday}}, o jogo terminou {{home}} {{homeGoals}} - {{awayGoals}} {{away}}. O resultado poderá ter implicações na classificação à medida que a época avança.",
+        "body1.noScorers": "O jogo terminou {{home}} {{homeGoals}} - {{awayGoals}} {{away}} num confronto da Jornada {{matchday}}. Ambas as equipas deram tudo num encontro envolvente.",
+        "body2.noScorers": "A Jornada {{matchday}} trouxe mais um encontro emocionante entre {{home}} e {{away}} ({{homeGoals}}-{{awayGoals}}). Os adeptos assistiram a um jogo competitivo.",
+        "reportFriendly": {
+          "title": "{{home}} {{homeGoals}} - {{awayGoals}} {{away}}: resumo do amigável",
+          "body": "No amigável, {{result}}. Ambas as equipas usaram o jogo para ganhar ritmo antes do arranque oficial da época.{{scorers}}"
+        },
+        "reportPreseason": {
+          "title": "{{home}} {{homeGoals}} - {{awayGoals}} {{away}}: resumo do torneio de pré-época",
+          "body": "No torneio de pré-época, {{result}}. Ambas as equipas usaram o jogo para ganhar ritmo antes do arranque oficial da época.{{scorers}}"
+        }
       },
       "roundup": {
         "headline0": "Resumo da Jornada {{matchday}}: {{totalGoals}} Golos num Dia Repleto de Acção",
@@ -2103,7 +2122,8 @@
       },
       "transferRoundup": {
         "headline": "Resumo de Transferências — Semana de {{weekStart}}",
-        "body": "O mercado de transferências manteve-se agitado esta semana. {{transferCount}} transferência(s) concluída(s) destacaram-se por toda a divisão.\n\n{{deals}}"
+        "body": "O mercado de transferências manteve-se agitado esta semana. {{transferCount}} transferência(s) concluída(s) destacaram-se por toda a divisão.\n\n{{deals}}",
+        "dealLine": "  {{player}}: de {{fromTeam}} para {{toTeam}} ({{fee}})"
       },
       "seasonAwards": {
         "headline": "Prémios da época {{season}}",
@@ -2137,7 +2157,7 @@
       "injuryNews": {
         "headline0": "Lesão de {{player}} é um golpe para o {{team}}",
         "headline1": "{{player}} preparado para um período de paragem",
-        "headline2": "~{{weeksOut}} semana(s) — {{team}} ansioso em relação a jogador-chave",
+        "headline2": "{{weeksOut}} semana(s) — {{team}} ansioso em relação a jogador-chave",
         "body0Days": "O {{team}} confirmou que {{player}} sofreu uma lesão e deverá ficar fora de combate durante {{daysOut}} dia(s). O clube irá avaliar a situação antes de prestar uma atualização adicional.",
         "body0Weeks": "O {{team}} confirmou que {{player}} sofreu uma lesão e deverá ficar fora de combate durante cerca de {{weeksOut}} semana(s). O clube irá avaliar a situação antes de prestar uma atualização adicional.",
         "body1Days": "{{player}} sofreu um revés no treino, com o jogador do {{team}} afastado por {{daysOut}} dia(s). A ausência será um golpe significativo enquanto a temporada atinge uma fase decisiva.",

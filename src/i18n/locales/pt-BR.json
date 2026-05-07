@@ -710,7 +710,7 @@
     "marketingCampaignDescription": "Lance uma campanha pontual de merchandising e divulgação para gerar caixa imediato quando o clube estiver sob pressão.",
     "marketingCampaignUnavailable": "Campanhas de marketing são reservadas a clubes sob pressão salarial ou de caixa.",
     "marketingCampaignCoolingDown": "A campanha de marketing ficará disponível novamente em {{days}} dias.",
-    "marketingCampaignSummary": "A campanha gerou {{netIncome}} líquidos após {{cost}} de gasto ({{grossRevenue}} brutos). Intervalo: {{days}} dias.",
+    "marketingCampaignSummary": "A campanha gerou {{netIncome}} líquidos após {{campaignCost}} de gasto ({{grossRevenue}} brutos). Intervalo: {{days}} dias.",
     "sponsorPitchUnavailable": "A busca por patrocinadores é reservada a clubes sob pressão salarial ou de caixa.",
     "sponsorPitchActiveSponsor": "Já existe um patrocínio ativo em andamento.",
     "sponsorPitchPendingOffer": "Analise primeiro a oferta de patrocínio pendente.",
@@ -946,6 +946,7 @@
     "leagueTable": "Tabela da Liga",
     "topScorers": "Artilheiros",
     "loadingAwards": "Carregando prêmios...",
+    "awardsTab": "Prêmios",
     "awards": {
       "goldenBootTitle": "Chuteira de Ouro",
       "goldenBootSubtitle": "Artilheiros",
@@ -1581,6 +1582,10 @@
       "invalidSquadRole": "Função de elenco inválida",
       "staffMemberNotFound": "Membro da comissão não encontrado",
       "staffMemberAlreadyEmployed": "Esse membro da comissão já está empregado por um time",
+      "playerNotInSquad": "O jogador não faz parte do seu elenco",
+      "invalidDateOfBirth": "Data de nascimento inválida",
+      "youthAcademyOverage": "Apenas jogadores com 21 anos ou menos podem entrar na base",
+      "staffMemberNotInTeam": "Este membro da comissão não pertence ao seu time",
       "noActiveLiveMatch": "Nenhuma partida ao vivo ativa",
       "seasonNotComplete": "A temporada ainda não terminou",
       "managedTeamNotFound": "Time comandado não encontrado",
@@ -1760,6 +1765,9 @@
       "event": {
         "ack": "Entendido",
         "respond": "Responder"
+      },
+      "action": {
+        "viewFinances": "Ver finanças"
       },
       "playerEvent": {
         "respond": "Responder",
@@ -2069,7 +2077,18 @@
         },
         "body0": "Na ação da Rodada {{matchday}}, o jogo terminou {{home}} {{homeGoals}} - {{awayGoals}} {{away}}. O resultado pode ter implicações na classificação ao longo da temporada.\n\nGols: {{scorers}}",
         "body1": "O jogo terminou {{home}} {{homeGoals}} - {{awayGoals}} {{away}} em um confronto da Rodada {{matchday}}. Os dois times deram tudo em um jogo envolvente.\n\nGols: {{scorers}}",
-        "body2": "A Rodada {{matchday}} trouxe mais um jogo emocionante entre {{home}} e {{away}} ({{homeGoals}}-{{awayGoals}}). Os torcedores assistiram a uma partida competitiva.\n\nGols: {{scorers}}"
+        "body2": "A Rodada {{matchday}} trouxe mais um jogo emocionante entre {{home}} e {{away}} ({{homeGoals}}-{{awayGoals}}). Os torcedores assistiram a uma partida competitiva.\n\nGols: {{scorers}}",
+        "body0.noScorers": "Na ação da Rodada {{matchday}}, o jogo terminou {{home}} {{homeGoals}} - {{awayGoals}} {{away}}. O resultado pode ter implicações na classificação ao longo da temporada.",
+        "body1.noScorers": "O jogo terminou {{home}} {{homeGoals}} - {{awayGoals}} {{away}} em um confronto da Rodada {{matchday}}. Os dois times deram tudo em um jogo envolvente.",
+        "body2.noScorers": "A Rodada {{matchday}} trouxe mais um jogo emocionante entre {{home}} e {{away}} ({{homeGoals}}-{{awayGoals}}). Os torcedores assistiram a uma partida competitiva.",
+        "reportFriendly": {
+          "title": "{{home}} {{homeGoals}} - {{awayGoals}} {{away}}: resumo do amistoso",
+          "body": "No amistoso, {{result}}. Os dois times usaram o jogo para ganhar ritmo antes do início oficial da temporada.{{scorers}}"
+        },
+        "reportPreseason": {
+          "title": "{{home}} {{homeGoals}} - {{awayGoals}} {{away}}: resumo do torneio de pré-temporada",
+          "body": "No torneio de pré-temporada, {{result}}. Os dois times usaram o jogo para ganhar ritmo antes do início oficial da temporada.{{scorers}}"
+        }
       },
       "roundup": {
         "headline0": "Resumo da Rodada {{matchday}}: {{totalGoals}} Gols em um Dia de Ação",
@@ -2103,7 +2122,8 @@
       },
       "transferRoundup": {
         "headline": "Resumo de Transferências — Semana de {{weekStart}}",
-        "body": "O mercado de transferências seguiu agitado nesta semana. {{transferCount}} transferência(s) concluída(s) se destacaram pela divisão.\n\n{{deals}}"
+        "body": "O mercado de transferências seguiu agitado nesta semana. {{transferCount}} transferência(s) concluída(s) se destacaram pela divisão.\n\n{{deals}}",
+        "dealLine": "  {{player}}: de {{fromTeam}} para {{toTeam}} ({{fee}})"
       },
       "seasonAwards": {
         "headline": "Prêmios da temporada {{season}}",

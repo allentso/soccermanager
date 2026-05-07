@@ -45,9 +45,8 @@ export default function ScoutPlayerCard({ report, onPlayerClick }: ScoutPlayerCa
   return (
     <div
       onClick={() => onPlayerClick?.(report.player_id)}
-      className={`mt-4 rounded-xl border border-gray-200 dark:border-navy-600 bg-gradient-to-br from-gray-50 to-white dark:from-navy-700 dark:to-navy-800 overflow-hidden ${
-        onPlayerClick ? "cursor-pointer hover:border-primary-400 dark:hover:border-primary-500 hover:shadow-md transition-all" : ""
-      }`}
+      className={`mt-4 rounded-xl border border-gray-200 dark:border-navy-600 bg-gradient-to-br from-gray-50 to-white dark:from-navy-700 dark:to-navy-800 overflow-hidden ${onPlayerClick ? "cursor-pointer hover:border-primary-400 dark:hover:border-primary-500 hover:shadow-md transition-all" : ""
+        }`}
     >
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 bg-navy-700 dark:bg-navy-900">
@@ -147,7 +146,7 @@ export default function ScoutPlayerCard({ report, onPlayerClick }: ScoutPlayerCa
           </span>
           <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-bold bg-gray-100 dark:bg-navy-600 ${confidenceColor(report.confidence_key)}`}>
             <Eye className="w-3 h-3" />
-            {t('scouting.confidence', 'Confidence')}: {t(report.confidence_key)}
+            {t('scouting.confidence')}: {t(report.confidence_key)}
           </span>
         </div>
       </div>

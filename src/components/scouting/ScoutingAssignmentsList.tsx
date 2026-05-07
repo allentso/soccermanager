@@ -55,13 +55,17 @@ export default function ScoutingAssignmentsList({
             const team = player.team_id
               ? getTeamName(teams, player.team_id)
               : t("common.freeAgent");
-            const contextItems = [
-              buildViewProfileMenuItem(t, () => onSelectPlayer?.(player.id)),
-            ];
+            const contextItems = [];
 
-            if (player.team_id) {
+            if (onSelectPlayer) {
               contextItems.push(
-                buildViewTeamMenuItem(t, () => onSelectTeam?.(player.team_id!)),
+                buildViewProfileMenuItem(t, () => onSelectPlayer(player.id)),
+              );
+            }
+
+            if (player.team_id && onSelectTeam) {
+              contextItems.push(
+                buildViewTeamMenuItem(t, () => onSelectTeam(player.team_id!)),
               );
             }
 

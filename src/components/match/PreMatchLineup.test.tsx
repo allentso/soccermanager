@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import { getPositionOvr, parseFormationNeeds, condColor, statColor, getStatVal, POSITION_KEY_STATS } from "./PreMatchLineup";
 import PreMatchLineup from "./PreMatchLineup";
 import type { EnginePlayerData, EngineTeamData } from "./types";
@@ -286,7 +286,11 @@ describe("PreMatchLineup component", () => {
     );
 
     fireEvent.contextMenu(screen.getByTestId("pre-match-starter-m1"));
-    fireEvent.click(screen.getAllByRole("button", { name: "match.cancel" })[1]);
+    fireEvent.click(
+      within(screen.getByRole("menu")).getByRole("button", {
+        name: "match.cancel",
+      }),
+    );
 
     expect(onSelectStarter).toHaveBeenCalledWith(null);
   });

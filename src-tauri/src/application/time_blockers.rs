@@ -22,7 +22,6 @@ fn user_team_context<'a>(
 fn build_blocker(
     id: &str,
     severity: &str,
-    text: String,
     tab: &str,
     text_key: Option<&str>,
     text_params: Option<serde_json::Value>,
@@ -30,7 +29,6 @@ fn build_blocker(
     serde_json::json!({
         "id": id,
         "severity": severity,
-        "text": text,
         "text_key": text_key,
         "text_params": text_params,
         "tab": tab
@@ -151,7 +149,6 @@ fn injured_starting_xi_blocker(
         build_blocker(
             "injured_xi",
             "warn",
-            String::new(),
             "Squad",
             Some("notifications.blockers.injuredXi"),
             Some(serde_json::json!({
@@ -173,7 +170,6 @@ fn incomplete_starting_xi_blocker(
         build_blocker(
             "incomplete_xi",
             "warn",
-            String::new(),
             "Squad",
             Some("notifications.blockers.incompleteXi"),
             Some(serde_json::json!({
@@ -191,7 +187,6 @@ fn squad_size_crisis_blocker(game: &Game) -> Option<serde_json::Value> {
         build_blocker(
             "squad_size_crisis",
             "warn",
-            String::new(),
             "Squad",
             Some("notifications.blockers.squadSizeCrisis"),
             Some(serde_json::json!({
@@ -213,7 +208,6 @@ fn planned_contract_exit_crisis_blocker(game: &Game) -> Option<serde_json::Value
         build_blocker(
             "planned_contract_exit_crisis",
             "warn",
-            String::new(),
             "Squad",
             Some("notifications.blockers.plannedContractExitCrisis"),
             Some(serde_json::json!({
@@ -239,7 +233,6 @@ fn urgent_unread_messages_blocker(game: &Game) -> Option<serde_json::Value> {
         build_blocker(
             "urgent_messages",
             "info",
-            String::new(),
             "Inbox",
             Some("notifications.blockers.urgentMessages"),
             Some(serde_json::json!({
@@ -284,7 +277,6 @@ fn key_contract_risk_blocker(
         build_blocker(
             "key_contract_risk",
             "warn",
-            String::new(),
             "Squad",
             Some("notifications.blockers.keyContractRisk"),
             Some(serde_json::json!({
@@ -314,7 +306,6 @@ fn contract_wage_risk_blocker(
         build_blocker(
             "contract_wage_risk",
             "warn",
-            String::new(),
             "Finances",
             Some("notifications.blockers.contractWageRisk"),
             Some(serde_json::json!({

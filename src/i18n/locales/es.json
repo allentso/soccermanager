@@ -946,6 +946,7 @@
     "leagueTable": "Tabla de Liga",
     "topScorers": "Máximos Goleadores",
     "loadingAwards": "Cargando premios...",
+    "awardsTab": "Premios",
     "awards": {
       "goldenBootTitle": "Bota de Oro",
       "goldenBootSubtitle": "Máximos goleadores",
@@ -1581,6 +1582,10 @@
       "invalidSquadRole": "Rol de plantilla no válido",
       "staffMemberNotFound": "Miembro del personal no encontrado",
       "staffMemberAlreadyEmployed": "Ese miembro del personal ya está contratado por un equipo",
+      "playerNotInSquad": "El jugador no está en tu plantilla",
+      "invalidDateOfBirth": "Fecha de nacimiento no válida",
+      "youthAcademyOverage": "Solo los jugadores de 21 años o menos pueden unirse a la academia juvenil",
+      "staffMemberNotInTeam": "El miembro del personal no pertenece a tu equipo",
       "noActiveLiveMatch": "No hay ningún partido en vivo activo",
       "seasonNotComplete": "La temporada aún no ha terminado",
       "managedTeamNotFound": "No se encontró el equipo gestionado",
@@ -1760,6 +1765,9 @@
       "event": {
         "ack": "Understood",
         "respond": "Respond"
+      },
+      "action": {
+        "viewFinances": "Ver finanzas"
       },
       "playerEvent": {
         "respond": "Responder",
@@ -2069,7 +2077,18 @@
         },
         "body0": "En la acción de la Jornada {{matchday}}, el partido terminó {{home}} {{homeGoals}} - {{awayGoals}} {{away}}. El resultado podría tener implicaciones en la clasificación a medida que avanza la temporada.\n\nGoles: {{scorers}}",
         "body1": "El partido terminó {{home}} {{homeGoals}} - {{awayGoals}} {{away}} en un choque de la Jornada {{matchday}}. Ambos equipos dieron todo en un encuentro apasionante.\n\nGoles: {{scorers}}",
-        "body2": "La Jornada {{matchday}} trajo otro encuentro emocionante entre {{home}} y {{away}} ({{homeGoals}}-{{awayGoals}}). Los aficionados disfrutaron de un partido competitivo.\n\nGoles: {{scorers}}"
+        "body2": "La Jornada {{matchday}} trajo otro encuentro emocionante entre {{home}} y {{away}} ({{homeGoals}}-{{awayGoals}}). Los aficionados disfrutaron de un partido competitivo.\n\nGoles: {{scorers}}",
+        "body0.noScorers": "En la acción de la Jornada {{matchday}}, el partido terminó {{home}} {{homeGoals}} - {{awayGoals}} {{away}}. El resultado podría tener implicaciones en la clasificación a medida que avanza la temporada.",
+        "body1.noScorers": "El partido terminó {{home}} {{homeGoals}} - {{awayGoals}} {{away}} en un choque de la Jornada {{matchday}}. Ambos equipos dieron todo en un encuentro apasionante.",
+        "body2.noScorers": "La Jornada {{matchday}} trajo otro encuentro emocionante entre {{home}} y {{away}} ({{homeGoals}}-{{awayGoals}}). Los aficionados disfrutaron de un partido competitivo.",
+        "reportFriendly": {
+          "title": "{{home}} {{homeGoals}} - {{awayGoals}} {{away}}: Crónica del amistoso",
+          "body": "En el amistoso, {{result}}. Ambos equipos usaron el partido para ganar ritmo antes de la competición oficial.{{scorers}}"
+        },
+        "reportPreseason": {
+          "title": "{{home}} {{homeGoals}} - {{awayGoals}} {{away}}: Crónica del torneo de pretemporada",
+          "body": "En el torneo de pretemporada, {{result}}. Ambos equipos usaron el partido para ganar ritmo antes de la competición oficial.{{scorers}}"
+        }
       },
       "roundup": {
         "headline0": "Resumen Jornada {{matchday}}: {{totalGoals}} Goles en un Día de Acción",
@@ -2103,7 +2122,8 @@
       },
       "transferRoundup": {
         "headline": "Resumen de Fichajes — Semana del {{weekStart}}",
-        "body": "El mercado de fichajes siguió muy activo esta semana. {{transferCount}} traspaso(s) cerrado(s) destacaron en toda la división.\n\n{{deals}}"
+        "body": "El mercado de fichajes siguió muy activo esta semana. {{transferCount}} traspaso(s) cerrado(s) destacaron en toda la división.\n\n{{deals}}",
+        "dealLine": "  {{player}}: de {{fromTeam}} a {{toTeam}} ({{fee}})"
       },
       "seasonAwards": {
         "headline": "Premios de la temporada {{season}}",

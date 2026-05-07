@@ -946,6 +946,7 @@
     "leagueTable": "联赛积分榜",
     "topScorers": "射手榜",
     "loadingAwards": "正在加载奖项...",
+    "awardsTab": "奖项",
     "awards": {
       "goldenBootTitle": "金靴奖",
       "goldenBootSubtitle": "最佳射手",
@@ -1581,6 +1582,10 @@
       "invalidSquadRole": "无效的阵容角色",
       "staffMemberNotFound": "未找到职员",
       "staffMemberAlreadyEmployed": "该职员已受雇于某支球队",
+      "playerNotInSquad": "球员不在你的阵容中",
+      "invalidDateOfBirth": "出生日期无效",
+      "youthAcademyOverage": "只有21岁及以下的球员才能加入青训学院",
+      "staffMemberNotInTeam": "该工作人员不属于你的球队",
       "noActiveLiveMatch": "当前没有进行中的实时比赛",
       "seasonNotComplete": "赛季尚未结束",
       "managedTeamNotFound": "未找到你执教的球队",
@@ -1756,6 +1761,9 @@
       "event": {
         "ack": "明白了",
         "respond": "回应"
+      },
+      "action": {
+        "viewFinances": "查看财务"
       },
       "playerEvent": {
         "respond": "回应",
@@ -2065,7 +2073,18 @@
         },
         "body0": "在第{{matchday}}轮的比赛中,最终比分为{{home}} {{homeGoals}} - {{awayGoals}} {{away}}。随着赛季推进,这一结果可能对联赛积分榜产生影响。\n\n进球:{{scorers}}",
         "body1": "第{{matchday}}轮的对决中,比赛最终以{{home}} {{homeGoals}} - {{awayGoals}} {{away}}结束。双方在精彩的较量中都倾尽全力。\n\n进球:{{scorers}}",
-        "body2": "第{{matchday}}轮再现精彩对决,{{home}}迎战{{away}}({{homeGoals}}-{{awayGoals}})。球迷们享受了一场势均力敌的比赛。\n\n进球:{{scorers}}"
+        "body2": "第{{matchday}}轮再现精彩对决,{{home}}迎战{{away}}({{homeGoals}}-{{awayGoals}})。球迷们享受了一场势均力敌的比赛。\n\n进球:{{scorers}}",
+        "body0.noScorers": "在第{{matchday}}轮的比赛中,最终比分为{{home}} {{homeGoals}} - {{awayGoals}} {{away}}。随着赛季推进,这一结果可能对联赛积分榜产生影响。",
+        "body1.noScorers": "第{{matchday}}轮的对决中,比赛最终以{{home}} {{homeGoals}} - {{awayGoals}} {{away}}结束。双方在精彩的较量中都倾尽全力。",
+        "body2.noScorers": "第{{matchday}}轮再现精彩对决,{{home}}迎战{{away}}({{homeGoals}}-{{awayGoals}})。球迷们享受了一场势均力敌的比赛。",
+        "reportFriendly": {
+          "title": "{{home}} {{homeGoals}} - {{awayGoals}} {{away}}: 友谊赛战报",
+          "body": "在友谊赛中,{{result}}。双方都把这场比赛当作正式赛季开始前的热身机会。{{scorers}}"
+        },
+        "reportPreseason": {
+          "title": "{{home}} {{homeGoals}} - {{awayGoals}} {{away}}: 季前锦标赛战报",
+          "body": "在季前锦标赛中,{{result}}。双方都把这场比赛当作正式赛季开始前的热身机会。{{scorers}}"
+        }
       },
       "roundup": {
         "headline0": "第{{matchday}}轮综述:精彩一天共入{{totalGoals}}球",
@@ -2099,7 +2118,8 @@
       },
       "transferRoundup": {
         "headline": "转会综述——{{weekStart}}当周",
-        "body": "本周转会市场依旧活跃,联赛中共有{{transferCount}}笔已完成的交易最受关注。\n\n{{deals}}"
+        "body": "本周转会市场依旧活跃,联赛中共有{{transferCount}}笔已完成的交易最受关注。\n\n{{deals}}",
+        "dealLine": "  {{player}}：从{{fromTeam}}转会至{{toTeam}}（{{fee}}）"
       },
       "seasonAwards": {
         "headline": "第{{season}}赛季奖项",

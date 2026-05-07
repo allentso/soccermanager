@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type KeyboardEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { MatchSnapshot, EnginePlayerData } from "./types";
 import { getPlayerName } from "./helpers";
@@ -35,7 +35,9 @@ export function SubPanel({
       .filter((s) => s.side === side)
       .map((s) => s.player_off_id),
   );
-  const availableBench = bench.filter((p) => !subbedOffIds.has(p.id));
+  const availableBench = bench.filter(
+    (p) => !subbedOffIds.has(p.id) && !subbedOnIds.has(p.id),
+  );
   const selectedPlayer = selectedOff
     ? team.players.find((p) => p.id === selectedOff)
     : null;
@@ -118,6 +120,27 @@ export function SubPanel({
     }
 
     onSubstitute(selectedOff, selectedBench);
+  };
+
+  const handleInteractiveRowKeyDown = (
+    event: KeyboardEvent<HTMLElement>,
+    action: () => void,
+  ) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      action();
+      return;
+    }
+
+    if (event.key === "ContextMenu" || (event.shiftKey && event.key === "F10")) {
+      event.preventDefault();
+      event.currentTarget.dispatchEvent(
+        new MouseEvent("contextmenu", {
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+    }
   };
 
   // Comparison bar component
@@ -236,10 +259,10 @@ export function SubPanel({
                           >
                             <div
                               className={`w-8 h-8 rounded-full flex items-center justify-center text-[9px] font-heading font-bold border-2 transition-all ${isSelected
-                                  ? "bg-red-500/80 border-red-300 text-white ring-2 ring-red-500/50"
-                                  : p.condition < 50
-                                    ? "bg-yellow-600/70 border-yellow-400 text-white"
-                                    : "bg-primary-500/60 border-primary-300/50 text-white"
+                                ? "bg-red-500/80 border-red-300 text-white ring-2 ring-red-500/50"
+                                : p.condition < 50
+                                  ? "bg-yellow-600/70 border-yellow-400 text-white"
+                                  : "bg-primary-500/60 border-primary-300/50 text-white"
                                 }`}
                             >
                               {Math.round(p.condition)}
@@ -297,9 +320,17 @@ export function SubPanel({
                             onClick={() => {
                               handleSelectOffPlayer(p.id);
                             }}
+                            onKeyDown={(event) => {
+                              handleInteractiveRowKeyDown(event, () => {
+                                handleSelectOffPlayer(p.id);
+                              });
+                            }}
+                            role="button"
+                            tabIndex={0}
+                            aria-pressed={isSelected}
                             className={`cursor-pointer transition-colors text-sm ${isSelected
-                                ? "bg-red-500/10"
-                                : "hover:bg-gray-100 dark:hover:bg-navy-700/50"
+                              ? "bg-red-500/10"
+                              : "hover:bg-gray-100 dark:hover:bg-navy-700/50"
                               }`}
                           >
                             <td className="py-2 pr-2">
@@ -494,11 +525,20 @@ export function SubPanel({
                             onClick={() => {
                               handleSelectBenchPlayer(p.id);
                             }}
+                            onKeyDown={(event) => {
+                              handleInteractiveRowKeyDown(event, () => {
+                                handleSelectBenchPlayer(p.id);
+                              });
+                            }}
+                            role="button"
+                            tabIndex={0}
+                            aria-pressed={selectedBench === p.id}
+                            aria-disabled={!selectedOff}
                             className={`transition-colors text-sm ${selectedOff
-                                ? selectedBench === p.id
-                                  ? "cursor-pointer bg-green-500/15 ring-1 ring-green-500/30"
-                                  : "cursor-pointer hover:bg-green-500/10"
-                                : "opacity-60"
+                              ? selectedBench === p.id
+                                ? "cursor-pointer bg-green-500/15 ring-1 ring-green-500/30"
+                                : "cursor-pointer hover:bg-green-500/10"
+                              : "opacity-60"
                               }`}
                           >
                             <td className="py-2 pr-2">

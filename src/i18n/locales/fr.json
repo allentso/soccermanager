@@ -946,6 +946,7 @@
     "leagueTable": "Tableau de la Ligue",
     "topScorers": "Meilleurs Buteurs",
     "loadingAwards": "Chargement des récompenses...",
+    "awardsTab": "Récompenses",
     "awards": {
       "goldenBootTitle": "Soulier d'or",
       "goldenBootSubtitle": "Meilleurs buteurs",
@@ -1581,6 +1582,10 @@
       "invalidSquadRole": "Rôle d'effectif invalide",
       "staffMemberNotFound": "Membre du staff introuvable",
       "staffMemberAlreadyEmployed": "Ce membre du staff est déjà employé par une équipe",
+      "playerNotInSquad": "Le joueur ne fait pas partie de votre effectif",
+      "invalidDateOfBirth": "Date de naissance invalide",
+      "youthAcademyOverage": "Seuls les joueurs âgés de 21 ans ou moins peuvent rejoindre le centre de formation",
+      "staffMemberNotInTeam": "Ce membre du staff n'appartient pas à votre équipe",
       "noActiveLiveMatch": "Aucun match en direct actif",
       "seasonNotComplete": "La saison n'est pas encore terminée",
       "managedTeamNotFound": "Équipe gérée introuvable",
@@ -1698,7 +1703,7 @@
       },
       "boardObjectives": {
         "subject": "Saison {{season}} — Objectifs du Conseil",
-        "body": "Le conseil a fixé les objectifs suivants pour cette saison :\n\n1. Terminer dans le top {{expectedPos}}\n2. Remporter au moins {{winTarget}} matchs\n3. Marquer au moins {{goalsTarget}} buts\n\nAtteindre ces objectifs renforcera la confiance du conseil dans votre gestion. Ne pas répondre aux attentes peut entraîner une baisse des budgets ou d'autres conséquences."
+        "body": "Le conseil a fixé les objectifs suivants pour cette saison :\n\n1. Terminer dans le top {{expectedPos}}\n2. Remporter au moins {{winTarget}} matchs\n3. Marquer au moins {{goalsTarget}} buts\n4. Maintenir la masse salariale à {{financeTarget}} % du budget ou moins\n\nAtteindre ces objectifs renforcera la confiance du conseil dans votre gestion. Ne pas répondre aux attentes peut entraîner une baisse des budgets ou d'autres conséquences."
       },
       "financeCritical": {
         "subject": "URGENT : Club endetté",
@@ -1760,6 +1765,9 @@
       "event": {
         "ack": "Understood",
         "respond": "Respond"
+      },
+      "action": {
+        "viewFinances": "Voir les finances"
       },
       "playerEvent": {
         "respond": "Répondre",
@@ -2069,7 +2077,18 @@
         },
         "body0": "Dans l'action de la Journée {{matchday}}, le match s'est terminé {{home}} {{homeGoals}} - {{awayGoals}} {{away}}. Le résultat pourrait avoir des implications sur le classement au fil de la saison.\n\nButs : {{scorers}}",
         "body1": "Le match s'est terminé {{home}} {{homeGoals}} - {{awayGoals}} {{away}} lors d'un choc de la Journée {{matchday}}. Les deux équipes ont tout donné dans une rencontre passionnante.\n\nButs : {{scorers}}",
-        "body2": "La Journée {{matchday}} a offert une autre rencontre passionnante entre {{home}} et {{away}} ({{homeGoals}}-{{awayGoals}}). Les fans ont eu droit à un match compétitif.\n\nButs : {{scorers}}"
+        "body2": "La Journée {{matchday}} a offert une autre rencontre passionnante entre {{home}} et {{away}} ({{homeGoals}}-{{awayGoals}}). Les fans ont eu droit à un match compétitif.\n\nButs : {{scorers}}",
+        "body0.noScorers": "Dans l'action de la Journée {{matchday}}, le match s'est terminé {{home}} {{homeGoals}} - {{awayGoals}} {{away}}. Le résultat pourrait avoir des implications sur le classement au fil de la saison.",
+        "body1.noScorers": "Le match s'est terminé {{home}} {{homeGoals}} - {{awayGoals}} {{away}} lors d'un choc de la Journée {{matchday}}. Les deux équipes ont tout donné dans une rencontre passionnante.",
+        "body2.noScorers": "La Journée {{matchday}} a offert une autre rencontre passionnante entre {{home}} et {{away}} ({{homeGoals}}-{{awayGoals}}). Les fans ont eu droit à un match compétitif.",
+        "reportFriendly": {
+          "title": "{{home}} {{homeGoals}} - {{awayGoals}} {{away}} : compte-rendu amical",
+          "body": "En match amical, {{result}}. Les deux équipes ont utilisé cette rencontre pour gagner en rythme avant le début de la compétition officielle.{{scorers}}"
+        },
+        "reportPreseason": {
+          "title": "{{home}} {{homeGoals}} - {{awayGoals}} {{away}} : compte-rendu du tournoi de présaison",
+          "body": "Dans le tournoi de présaison, {{result}}. Les deux équipes ont utilisé cette rencontre pour gagner en rythme avant le début de la compétition officielle.{{scorers}}"
+        }
       },
       "roundup": {
         "headline0": "Résumé Journée {{matchday}} : {{totalGoals}} Buts dans une Journée Riche en Action",
@@ -2103,7 +2122,8 @@
       },
       "transferRoundup": {
         "headline": "Résumé des Transferts — Semaine du {{weekStart}}",
-        "body": "Le marché des transferts est resté animé cette semaine. {{transferCount}} transfert(s) conclu(s) ont marqué la division.\n\n{{deals}}"
+        "body": "Le marché des transferts est resté animé cette semaine. {{transferCount}} transfert(s) conclu(s) ont marqué la division.\n\n{{deals}}",
+        "dealLine": "  {{player}} : de {{fromTeam}} à {{toTeam}} ({{fee}})"
       },
       "seasonAwards": {
         "headline": "Prix de la saison {{season}}",
@@ -2137,7 +2157,7 @@
       "injuryNews": {
         "headline0": "Coup dur pour {{team}} : blessure de {{player}}",
         "headline1": "{{player}} contraint à une période d'indisponibilité",
-        "headline2": "~{{weeksOut}} semaine(s) — {{team}} dans l'inquiétude pour un joueur clé",
+        "headline2": "{{weeksOut}} semaine(s) — {{team}} dans l'inquiétude pour un joueur clé",
         "body0Days": "{{team}} a confirmé que {{player}} s'est blessé et devrait être indisponible pendant {{daysOut}} jour(s). Le club évaluera la situation avant de fournir une mise à jour supplémentaire.",
         "body0Weeks": "{{team}} a confirmé que {{player}} s'est blessé et devrait être indisponible pendant environ {{weeksOut}} semaine(s). Le club évaluera la situation avant de fournir une mise à jour supplémentaire.",
         "body1Days": "{{player}} a subi un revers à l'entraînement, le joueur de {{team}} étant écarté pour {{daysOut}} jour(s). Cette absence sera un coup significatif alors que la saison entre dans une phase cruciale.",

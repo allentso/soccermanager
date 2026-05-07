@@ -140,28 +140,28 @@ fn refresh_does_not_lower_preserved_potential_below_ovr() {
 
 #[test]
 fn refresh_awards_wonderkid_trait_for_young_high_potential_player() {
-    // Build a player aged ~19 with striker attributes good enough to have potential >= 75
-    // and enough gap between OVR and potential.
-    let mut player = make_player(Position::Forward, striker_attrs(), "2007-01-01");
-    // Force conditions: potential set to a high value, OVR will be high too,
-    // but for a 19-year-old the generate_potential adds a large bonus.
-    player.potential = 0; // will be generated fresh
-    refresh_player_derived(&mut player, 2026);
+    const MAX_ATTEMPTS: usize = 32;
 
-    let has_wonderkid = player.traits.contains(&PlayerTrait::Wonderkid);
+    for _ in 0..MAX_ATTEMPTS {
+        let mut player = make_player(Position::Forward, striker_attrs(), "2007-01-01");
+        player.potential = 0;
+        refresh_player_derived(&mut player, 2026);
 
-    // With striker_attrs (shooting 88, pace 80 etc.) the OVR is likely ~75+
-    // and potential for a 19-year-old gets a +8..+22 bonus.
-    // Whether Wonderkid is awarded depends on the random bonus, so only check
-    // that if the conditions are met the trait exists (or the trait is absent if not met).
-    if player.potential >= 75 && player.potential.saturating_sub(player.ovr) >= 10 {
-        assert!(
-            has_wonderkid,
-            "Should have Wonderkid trait when potential={} ovr={} age~19",
-            player.potential,
-            player.ovr
-        );
+        if player.potential >= 75 && player.potential.saturating_sub(player.ovr) >= 10 {
+            assert!(
+                player.traits.contains(&PlayerTrait::Wonderkid),
+                "Should have Wonderkid trait when potential={} ovr={} age~19",
+                player.potential,
+                player.ovr
+            );
+            return;
+        }
     }
+
+    panic!(
+        "Failed to generate a qualifying young high-potential player within {} attempts",
+        MAX_ATTEMPTS
+    );
 }
 
 #[test]

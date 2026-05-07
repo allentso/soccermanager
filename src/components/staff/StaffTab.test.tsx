@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
 import type { GameStateData, StaffData, TeamData } from "../../store/gameStore";
@@ -190,7 +190,11 @@ describe("StaffTab", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /Available 1/i }));
     fireEvent.contextMenu(screen.getByTestId("staff-card-staff-2"));
-    fireEvent.click(screen.getAllByRole("button", { name: "Hire staff" })[1]);
+    fireEvent.click(
+      within(screen.getByRole("menu")).getByRole("button", {
+        name: "Hire staff",
+      }),
+    );
 
     await waitFor(() => {
       expect(invokeMock).toHaveBeenCalledWith("hire_staff", { staffId: "staff-2" });
@@ -211,7 +215,11 @@ describe("StaffTab", () => {
     );
 
     fireEvent.contextMenu(screen.getByTestId("staff-card-staff-1"));
-    fireEvent.click(screen.getAllByRole("button", { name: "Release staff" })[1]);
+    fireEvent.click(
+      within(screen.getByRole("menu")).getByRole("button", {
+        name: "Release staff",
+      }),
+    );
 
     await waitFor(() => {
       expect(invokeMock).toHaveBeenCalledWith("release_staff", { staffId: "staff-1" });

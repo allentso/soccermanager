@@ -33,6 +33,11 @@ import { resolveBackendError, resolveMessage } from "../../utils/backendI18n";
 
 type FacilityId = "Training" | "Medical" | "Scouting";
 
+interface FacilityUpgradeErrorState {
+  facilityId: FacilityId;
+  message: string;
+}
+
 interface FacilityDefinition {
   effectKey: string;
   id: FacilityId;
@@ -234,9 +239,8 @@ export default function FinancesTab({
   );
   const [remoteFinanceData, setRemoteFinanceData] =
     useState<FinanceSnapshotData | null>(null);
-  const [facilityUpgradeError, setFacilityUpgradeError] = useState<string | null>(
-    null,
-  );
+  const [facilityUpgradeError, setFacilityUpgradeError] =
+    useState<FacilityUpgradeErrorState | null>(null);
   const [boardSupportFeedback, setBoardSupportFeedback] = useState<{
     tone: "success" | "error";
     text: string;
@@ -278,58 +282,81 @@ export default function FinancesTab({
   const sponsorOffers = gameState.messages
     .filter(isPendingSponsorOffer)
     .map(resolveMessage);
-  const canRequestBoardSupport = boardSupportAvailable(financeSnapshot);
   const hasPendingSponsorOffer = sponsorOffers.length > 0;
   const hasActiveSponsor = Boolean(
     activeSponsorship && activeSponsorship.remaining_weeks > 0,
   );
+  const previewsLoaded = remoteFinanceData !== null;
+  const previewBoardSupportAvailable = recoveryPreviews
+    ? Boolean(recoveryPreviews.boardSupport)
+    : null;
+  const previewSponsorPitchAvailable = recoveryPreviews
+    ? Boolean(recoveryPreviews.sponsorPitch)
+    : null;
+  const previewMarketingCampaignAvailable = recoveryPreviews
+    ? Boolean(recoveryPreviews.marketingCampaign)
+    : null;
+  const canRequestBoardSupport = previewsLoaded
+    ? previewBoardSupportAvailable ?? false
+    : boardSupportAvailable(financeSnapshot);
   const canRequestSponsorPitch =
-    sponsorPitchAvailable(financeSnapshot) &&
+    (previewsLoaded
+      ? previewSponsorPitchAvailable ?? false
+      : sponsorPitchAvailable(financeSnapshot)) &&
     !hasPendingSponsorOffer &&
     !hasActiveSponsor;
   const canRequestMarketingCampaign =
-    marketingCampaignAvailable(financeSnapshot) &&
+    (previewsLoaded
+      ? previewMarketingCampaignAvailable ?? false
+      : marketingCampaignAvailable(financeSnapshot)) &&
     financeSnapshot.marketingCampaignCooldownDaysRemaining === 0;
   const sponsorPitchDisabledReason = hasActiveSponsor
     ? t("finances.sponsorPitchActiveSponsor")
     : hasPendingSponsorOffer
       ? t("finances.sponsorPitchPendingOffer")
-      : !sponsorPitchAvailable(financeSnapshot)
+      : !(previewsLoaded
+        ? previewSponsorPitchAvailable ?? false
+        : sponsorPitchAvailable(financeSnapshot))
         ? t("finances.sponsorPitchUnavailable")
         : null;
   const marketingCampaignDisabledReason =
     financeSnapshot.marketingCampaignCooldownDaysRemaining > 0
       ? t("finances.marketingCampaignCoolingDown", {
-          days: financeSnapshot.marketingCampaignCooldownDaysRemaining,
-        })
-      : !marketingCampaignAvailable(financeSnapshot)
+        days: financeSnapshot.marketingCampaignCooldownDaysRemaining,
+      })
+      : !(previewsLoaded
+        ? previewMarketingCampaignAvailable ?? false
+        : marketingCampaignAvailable(financeSnapshot))
         ? t("finances.marketingCampaignUnavailable")
         : null;
   const boardSupportPreviewText = recoveryPreviews?.boardSupport
     ? t("finances.boardSupportSummary", {
-        amount: formatExactMoney(recoveryPreviews.boardSupport.supportAmount),
-        transferBudgetReduction: formatExactMoney(
-          recoveryPreviews.boardSupport.transferBudgetReduction,
-        ),
-        satisfactionPenalty: recoveryPreviews.boardSupport.satisfactionPenalty,
-      })
+      amount: formatExactMoney(recoveryPreviews.boardSupport.supportAmount),
+      transferBudgetReduction: formatExactMoney(
+        recoveryPreviews.boardSupport.transferBudgetReduction,
+      ),
+      satisfactionPenalty: recoveryPreviews.boardSupport.satisfactionPenalty,
+    })
     : null;
   const sponsorPitchPreviewText = recoveryPreviews?.sponsorPitch
     ? t("finances.sponsorPitchSummary", {
-        sponsor: recoveryPreviews.sponsorPitch.sponsorName,
-        amount: formatExactMoney(recoveryPreviews.sponsorPitch.weeklyAmount),
-        weeks: recoveryPreviews.sponsorPitch.durationWeeks,
-      })
+      sponsor: recoveryPreviews.sponsorPitch.sponsorName,
+      amount: formatExactMoney(recoveryPreviews.sponsorPitch.weeklyAmount),
+      weeks: recoveryPreviews.sponsorPitch.durationWeeks,
+    })
     : null;
   const marketingCampaignPreviewText = recoveryPreviews?.marketingCampaign
     ? t("finances.marketingCampaignSummary", {
-        netIncome: formatExactMoney(recoveryPreviews.marketingCampaign.netIncome),
-        grossRevenue: formatExactMoney(
-          recoveryPreviews.marketingCampaign.grossRevenue,
-        ),
+      netIncome: formatExactMoney(recoveryPreviews.marketingCampaign.netIncome),
+      grossRevenue: formatExactMoney(
+        recoveryPreviews.marketingCampaign.grossRevenue,
+      ),
         cost: formatExactMoney(recoveryPreviews.marketingCampaign.campaignCost),
-        days: recoveryPreviews.marketingCampaign.cooldownDays,
-      })
+        campaignCost: formatExactMoney(
+          recoveryPreviews.marketingCampaign.campaignCost,
+        ),
+      days: recoveryPreviews.marketingCampaign.cooldownDays,
+    })
     : null;
   const contractRiskPlayers = roster
     .map((player) => {
@@ -362,6 +389,8 @@ export default function FinancesTab({
 
   useEffect(() => {
     let cancelled = false;
+
+    setRemoteFinanceData(null);
 
     void getFinanceSnapshot(myTeam.id)
       .then((financeData) => {
@@ -426,7 +455,10 @@ export default function FinancesTab({
       onGameUpdate?.(updated);
     } catch (error) {
       console.error("Failed to upgrade facility:", error);
-      setFacilityUpgradeError(resolveBackendError(error));
+      setFacilityUpgradeError({
+        facilityId: facility,
+        message: resolveBackendError(error),
+      });
     } finally {
       setActionLoading(null);
     }
@@ -1115,7 +1147,9 @@ export default function FinancesTab({
               const isLoading = actionLoading === facility.id;
               const upgradeReason = financeBlockReason
                 ? resolveBackendError(financeBlockReason)
-                : facilityUpgradeError;
+                : facilityUpgradeError?.facilityId === facility.id
+                  ? facilityUpgradeError.message
+                  : null;
 
               return (
                 <div

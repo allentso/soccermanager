@@ -225,7 +225,15 @@ pub fn team_finance_snapshot(game: &Game, team_id: &str) -> Option<TeamFinanceSn
     let annual_wage_bill = calc_annual_wages(game, team_id);
     let weekly_wage_spend = calc_wages(game, team_id);
     let weekly_wage_budget = team.wage_budget / 52;
-    let weekly_sponsor_income = team.sponsorship.as_ref().map(|s| s.base_value).unwrap_or(0);
+    let current_position = current_league_position(game, team_id);
+    let weekly_sponsor_income = team
+        .sponsorship
+        .as_ref()
+        .map(|sponsorship| {
+            sponsorship.base_value
+                + evaluate_sponsorship_bonus(current_position, &team.form, sponsorship)
+        })
+        .unwrap_or(0);
     let weekly_recurring_income = weekly_sponsor_income;
     let projected_weekly_net = weekly_recurring_income - weekly_wage_spend;
     let cash_runway_weeks = calc_cash_runway_weeks(team.finance, projected_weekly_net);
@@ -317,15 +325,11 @@ fn finance_board_pressure_message(
     .with_category(MessageCategory::BoardDirective)
     .with_priority(priority)
     .with_sender_role("Chairman")
-    .with_i18n(
-        "be.msg.financeBoardPressure.subject",
-        body_key,
-        {
-            let mut p = std::collections::HashMap::new();
-            p.insert("penalty".to_string(), penalty.to_string());
-            p
-        },
-    )
+    .with_i18n("be.msg.financeBoardPressure.subject", body_key, {
+        let mut p = std::collections::HashMap::new();
+        p.insert("penalty".to_string(), penalty.to_string());
+        p
+    })
     .with_sender_i18n("be.sender.boardOfDirectors", "be.role.chairman")
     .with_action(action(
         "view_finances",
@@ -449,14 +453,22 @@ fn marketing_campaign_gross_revenue(team: &Team, snapshot: &TeamFinanceSnapshot)
         FinanceHealthLevel::Warning => 25_000,
         FinanceHealthLevel::Critical => 40_000,
     };
-    let debt_bonus = if snapshot.currently_in_debt { 20_000 } else { 0 };
+    let debt_bonus = if snapshot.currently_in_debt {
+        20_000
+    } else {
+        0
+    };
     let wage_pressure_bonus = if snapshot.currently_over_budget {
         15_000
     } else {
         0
     };
 
-    (reputation_component + stadium_component + pressure_component + debt_bonus + wage_pressure_bonus)
+    (reputation_component
+        + stadium_component
+        + pressure_component
+        + debt_bonus
+        + wage_pressure_bonus)
         .clamp(
             MARKETING_CAMPAIGN_MIN_GROSS_REVENUE,
             MARKETING_CAMPAIGN_MAX_GROSS_REVENUE,
@@ -572,10 +584,7 @@ pub fn preview_board_support(game: &Game, team_id: &str) -> Result<BoardSupportR
     })
 }
 
-pub fn preview_sponsor_pitch(
-    game: &Game,
-    team_id: &str,
-) -> Result<SponsorPitchPreview, String> {
+pub fn preview_sponsor_pitch(game: &Game, team_id: &str) -> Result<SponsorPitchPreview, String> {
     let snapshot =
         team_finance_snapshot(game, team_id).ok_or("be.error.managedTeamNotFound".to_string())?;
 
@@ -997,7 +1006,7 @@ fn generate_financial_warnings(game: &mut Game, today: &str) {
                     },
                 )
                 .with_sender_i18n("be.sender.boardOfDirectors", "be.role.chairman")
-                .with_action(action("view_finances", "View Finances", "be.msg.event.ack",
+                .with_action(action("view_finances", "View Finances", "be.msg.action.viewFinances",
                     ActionType::NavigateTo { route: "/dashboard?tab=Finances".to_string() }))
             );
         }
@@ -1033,7 +1042,7 @@ fn generate_financial_warnings(game: &mut Game, today: &str) {
                     },
                 )
                 .with_sender_i18n("be.sender.financialDirector", "be.role.financialDirector")
-                .with_action(action("view_finances", "View Finances", "be.msg.event.ack",
+                .with_action(action("view_finances", "View Finances", "be.msg.action.viewFinances",
                     ActionType::NavigateTo { route: "/dashboard?tab=Finances".to_string() }))
             );
         }
@@ -1070,7 +1079,7 @@ fn generate_financial_warnings(game: &mut Game, today: &str) {
                     },
                 )
                 .with_sender_i18n("be.sender.financialDirector", "be.role.financialDirector")
-                .with_action(action("view_finances", "View Finances", "be.msg.event.ack",
+                .with_action(action("view_finances", "View Finances", "be.msg.action.viewFinances",
                     ActionType::NavigateTo { route: "/dashboard?tab=Finances".to_string() }))
             );
         }

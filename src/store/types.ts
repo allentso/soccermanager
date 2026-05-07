@@ -16,11 +16,17 @@ export interface SponsorshipData {
   bonus_criteria: unknown[];
 }
 
+export type TransactionKind =
+  | "PrizeMoney"
+  | "ContractTermination"
+  | "BoardSupport"
+  | "CommercialCampaign";
+
 export interface FinancialTransactionData {
   date: string;
   description: string;
   amount: number;
-  kind: string;
+  kind: TransactionKind;
 }
 
 export interface TeamSeasonRecord {

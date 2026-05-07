@@ -133,6 +133,14 @@ export default function ManagerTab({ gameState, onSelectTeam }: ManagerTabProps)
                       key={i}
                       data-testid={`manager-history-${entry.team_id}`}
                       onClick={canSelectTeam ? () => onSelectTeam(entry.team_id) : undefined}
+                      onKeyDown={canSelectTeam ? (event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          onSelectTeam(entry.team_id);
+                        }
+                      } : undefined}
+                      role={canSelectTeam ? "button" : undefined}
+                      tabIndex={canSelectTeam ? 0 : undefined}
                       className={canSelectTeam ? "cursor-pointer hover:bg-gray-50 dark:hover:bg-navy-700/30 transition-colors" : undefined}
                     >
                       <td className="py-3 px-5 font-semibold text-sm text-gray-800 dark:text-gray-200">{entry.team_name}</td>

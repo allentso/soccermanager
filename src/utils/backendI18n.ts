@@ -94,6 +94,40 @@ function resolveParamValues(params?: Record<string, string>): Record<string, str
   return resolved;
 }
 
+type TransferRoundupDealParam = {
+  player: string;
+  fromTeam: string;
+  toTeam: string;
+  fee: string;
+};
+
+function normalizeTransferRoundupParams(
+  article: NewsArticle,
+  params?: Record<string, string>,
+): Record<string, string> | undefined {
+  if (article.body_key !== 'be.news.transferRoundup.body' || !params?.dealsData) {
+    return params;
+  }
+
+  try {
+    const deals = JSON.parse(params.dealsData) as TransferRoundupDealParam[];
+    return {
+      ...params,
+      deals: deals
+        .map((deal) =>
+          resolve(
+            'be.news.transferRoundup.dealLine',
+            `  ${deal.player}: ${deal.fromTeam} -> ${deal.toTeam} (${deal.fee})`,
+            deal,
+          ),
+        )
+        .join('\n'),
+    };
+  } catch {
+    return params;
+  }
+}
+
 /**
  * Resolve all translatable fields on a message, returning a copy with resolved strings.
  */
@@ -163,7 +197,7 @@ function resolveActionOption(
  * Resolve all translatable fields on a news article, returning a copy with resolved strings.
  */
 export function resolveNewsArticle(article: NewsArticle): NewsArticle {
-  const p = normalizeNewsParams(article);
+  const p = normalizeTransferRoundupParams(article, normalizeNewsParams(article));
   return {
     ...article,
     i18n_params: p,

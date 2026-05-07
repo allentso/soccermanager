@@ -357,6 +357,24 @@ mod tests {
     }
 
     #[test]
+    fn test_player_ovr_potential_roundtrip() {
+        let db = test_db();
+        let mut player = sample_player("p-rated", Some("team-001"));
+        player.ovr = 78;
+        player.potential = 85;
+
+        upsert_player(db.conn(), &player).unwrap();
+        let loaded = load_all_players(db.conn()).unwrap();
+        let stored = loaded
+            .iter()
+            .find(|candidate| candidate.id == "p-rated")
+            .expect("stored player should exist");
+
+        assert_eq!(stored.ovr, 78);
+        assert_eq!(stored.potential, 85);
+    }
+
+    #[test]
     fn test_upsert_players_batch() {
         let db = test_db();
         let players = vec![
