@@ -1,9 +1,10 @@
 use crate::game::Game;
 use crate::messages;
 use crate::news;
-use chrono::Datelike;
+use chrono::{Datelike, Duration, NaiveDate};
 use domain::league::{Fixture, FixtureStatus, League, StandingEntry};
 use rand::RngExt;
+use std::collections::HashMap;
 
 fn completed_fixtures_for_day<'a>(league: &'a League, today: &str) -> Vec<&'a Fixture> {
     league
@@ -327,6 +328,113 @@ fn weekly_rumour_articles(game: &Game, suffix: &str, date: &str) -> Vec<domain::
         .collect()
 }
 
+fn completed_preseason_fixtures_for_window<'a>(
+    league: &'a League,
+    current_date: NaiveDate,
+    window_days: i64,
+) -> Vec<&'a Fixture> {
+    let window_start = current_date - Duration::days(window_days.saturating_sub(1));
+
+    league
+        .fixtures
+        .iter()
+        .filter(|fixture| {
+            fixture.status == FixtureStatus::Completed
+                && matches!(
+                    fixture.competition,
+                    domain::league::FixtureCompetition::Friendly
+                        | domain::league::FixtureCompetition::PreseasonTournament
+                )
+                && NaiveDate::parse_from_str(&fixture.date, "%Y-%m-%d")
+                    .map(|fixture_date| {
+                        fixture_date >= window_start && fixture_date <= current_date
+                    })
+                    .unwrap_or(false)
+        })
+        .collect()
+}
+
+fn preseason_unbeaten_teams(game: &Game) -> Vec<String> {
+    let Some(league) = &game.league else {
+        return Vec::new();
+    };
+
+    let mut records: HashMap<String, (u32, u32)> = HashMap::new();
+
+    for fixture in &league.fixtures {
+        if fixture.status != FixtureStatus::Completed
+            || !matches!(
+                fixture.competition,
+                domain::league::FixtureCompetition::Friendly
+                    | domain::league::FixtureCompetition::PreseasonTournament
+            )
+        {
+            continue;
+        }
+
+        let Some(result) = &fixture.result else {
+            continue;
+        };
+
+        let home_record = records
+            .entry(fixture.home_team_id.clone())
+            .or_insert((0, 0));
+        home_record.0 += 1;
+        if result.home_goals < result.away_goals {
+            home_record.1 += 1;
+        }
+
+        let away_record = records
+            .entry(fixture.away_team_id.clone())
+            .or_insert((0, 0));
+        away_record.0 += 1;
+        if result.away_goals < result.home_goals {
+            away_record.1 += 1;
+        }
+    }
+
+    let mut unbeaten: Vec<(String, u32)> = records
+        .into_iter()
+        .filter(|(_, (played, losses))| *played >= 2 && *losses == 0)
+        .map(|(team_id, (played, _))| (team_name(game, &team_id), played))
+        .collect();
+    unbeaten.sort_by(|left, right| right.1.cmp(&left.1).then(left.0.cmp(&right.0)));
+
+    unbeaten.into_iter().map(|(team, _)| team).collect()
+}
+
+fn generate_preseason_digest_news(game: &mut Game, today: &str) {
+    let suffix = weekly_digest_suffix(game);
+    let digest_id = format!("preseason_digest_{}", suffix);
+    if game.news.iter().any(|article| article.id == digest_id) {
+        return;
+    }
+
+    let current_date = game.clock.current_date.date_naive();
+    let date = game.clock.current_date.to_rfc3339();
+    let (results, unbeaten_teams) = {
+        let Some(league) = &game.league else {
+            return;
+        };
+
+        let fixtures = completed_preseason_fixtures_for_window(league, current_date, 7);
+        (
+            matchday_results(game, &fixtures),
+            preseason_unbeaten_teams(game),
+        )
+    };
+
+    game.news.push(news::preseason_digest_article(
+        &digest_id,
+        today,
+        &results,
+        &unbeaten_teams,
+        &date,
+    ));
+    game.news
+        .extend(weekly_rumour_articles(game, &suffix, &date));
+}
+
 pub(super) fn generate_weekly_digest_news(game: &mut Game, today: &str) {
     if game.clock.current_date.weekday().num_days_from_monday() != 0 {
         return;
@@ -338,6 +446,7 @@ pub(super) fn generate_weekly_digest_news(game: &mut Game, today: &str) {
     };
 
     if !season_has_started(league) {
+        generate_preseason_digest_news(game, today);
         return;
     }
 
@@ -398,6 +507,7 @@ pub(super) fn generate_match_news(
         report.away_goals,
         home_team_id,
         away_team_id,
+        fixture.competition.clone(),
         fixture.matchday,
         &home_scorers,
         &away_scorers,
@@ -816,6 +926,23 @@ mod tests {
     }
 
     #[test]
+    fn generate_match_news_for_friendly_uses_preseason_framing() {
+        let mut game = make_game("2025-08-12", FixtureStatus::Completed);
+        game.league.as_mut().unwrap().fixtures[0].competition =
+            domain::league::FixtureCompetition::Friendly;
+        let report = make_report(vec![], 2, 1);
+
+        generate_match_news(&mut game, 0, "team1", "team2", &report);
+
+        let article = &game.news[0];
+        assert_eq!(article.category, NewsCategory::MatchReport);
+        assert!(article.body.to_lowercase().contains("friendly action"));
+        assert!(article.headline.to_lowercase().contains("friendly report"));
+        assert!(article.headline_key.is_none());
+        assert!(article.body_key.is_none());
+    }
+
+    #[test]
     fn generate_pre_match_messages_adds_preview_metadata_for_user_fixture_three_days_ahead() {
         let mut game = make_game("2025-08-15", FixtureStatus::Scheduled);
 
@@ -895,13 +1022,23 @@ mod tests {
     }
 
     #[test]
-    fn generate_weekly_digest_news_skips_preseason_even_on_monday() {
+    fn generate_weekly_digest_news_creates_preseason_digest_even_on_monday() {
         let mut game = make_game("2025-08-11", FixtureStatus::Scheduled);
         set_current_date(&mut game, 2025, 8, 11);
         reset_to_preseason(&mut game);
 
         generate_weekly_digest_news(&mut game, "2025-08-11");
 
+        let digest = game
+            .news
+            .iter()
+            .find(|article| article.id.starts_with("preseason_digest_"))
+            .unwrap();
+        assert_eq!(digest.category, NewsCategory::Editorial);
+        assert!(digest.headline.contains("Preseason Digest"));
+        assert!(digest.body.contains("Training camps"));
+        assert!(digest.headline_key.is_none());
+        assert!(digest.body_key.is_none());
         assert!(
             game.news
                 .iter()
@@ -911,6 +1048,65 @@ mod tests {
             game.news
                 .iter()
                 .all(|article| !article.id.starts_with("storyline_"))
+        );
+    }
+
+    #[test]
+    fn preseason_digest_summarizes_recent_friendly_results_without_league_table_copy() {
+        let mut game = make_game("2025-08-11", FixtureStatus::Scheduled);
+        set_current_date(&mut game, 2025, 8, 11);
+        reset_to_preseason(&mut game);
+
+        let league = game.league.as_mut().unwrap();
+        league.fixtures[0].competition = domain::league::FixtureCompetition::Friendly;
+        league.fixtures[0].status = FixtureStatus::Completed;
+        league.fixtures[0].date = "2025-08-09".to_string();
+        league.fixtures[0].result = Some(domain::league::MatchResult {
+            home_goals: 2,
+            away_goals: 1,
+            home_scorers: vec![],
+            away_scorers: vec![],
+            report: None,
+        });
+        league.fixtures[1].competition = domain::league::FixtureCompetition::Friendly;
+        league.fixtures[1].status = FixtureStatus::Completed;
+        league.fixtures[1].date = "2025-08-10".to_string();
+        league.fixtures[1].result = Some(domain::league::MatchResult {
+            home_goals: 0,
+            away_goals: 0,
+            home_scorers: vec![],
+            away_scorers: vec![],
+            report: None,
+        });
+
+        generate_weekly_digest_news(&mut game, "2025-08-11");
+
+        let digest = game
+            .news
+            .iter()
+            .find(|article| article.id.starts_with("preseason_digest_"))
+            .unwrap();
+        assert!(digest.body.contains("Alpha FC 2 - 1 Beta FC"));
+        assert!(digest.body.contains("Gamma FC 0 - 0 Beta FC"));
+        assert!(digest.body.contains("friendly result(s)"));
+        assert!(!digest.body.contains("lead the table"));
+    }
+
+    #[test]
+    fn generate_weekly_digest_news_does_not_duplicate_same_preseason_week() {
+        let mut game = make_game("2025-08-11", FixtureStatus::Scheduled);
+        set_current_date(&mut game, 2025, 8, 11);
+        reset_to_preseason(&mut game);
+
+        generate_weekly_digest_news(&mut game, "2025-08-11");
+        generate_weekly_digest_news(&mut game, "2025-08-11");
+
+        assert_eq!(
+            game.news
+                .iter()
+                .filter(|article| article.id.starts_with("preseason_digest_"))
+                .count(),
+            1
         );
     }
 
@@ -1167,6 +1363,43 @@ mod tests {
         assert!(
             rumours_about_user_player.is_empty(),
             "should not generate rumours about user's own players"
+        );
+    }
+
+    #[test]
+    fn preseason_digest_includes_transfer_rumours_for_notable_ai_players() {
+        let mut game = make_game("2025-08-11", FixtureStatus::Scheduled);
+        set_current_date(&mut game, 2025, 8, 11);
+        reset_to_preseason(&mut game);
+
+        let mut notable_player = Player::new(
+            "ai-preseason-notable".to_string(),
+            "Preseason".to_string(),
+            "Preseason Notable".to_string(),
+            "1997-06-01".to_string(),
+            "England".to_string(),
+            Position::Forward,
+            default_attrs(),
+        );
+        notable_player.team_id = Some("team2".to_string());
+        notable_player.market_value = 1_500_000;
+        game.players.push(notable_player);
+
+        generate_weekly_digest_news(&mut game, "2025-08-11");
+
+        let rumours: Vec<_> = game
+            .news
+            .iter()
+            .filter(|article| article.category == NewsCategory::TransferRumour)
+            .collect();
+        assert!(
+            !rumours.is_empty(),
+            "expected preseason transfer rumour articles"
+        );
+        assert!(
+            rumours
+                .iter()
+                .any(|article| article.id.starts_with("rumour_ai-preseason-notable_"))
         );
     }
 }

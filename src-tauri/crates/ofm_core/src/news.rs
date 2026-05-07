@@ -470,6 +470,49 @@ pub fn weekly_digest_article(
     )
 }
 
+pub fn preseason_digest_article(
+    id: &str,
+    week_start: &str,
+    results: &[(String, u8, String, u8)],
+    unbeaten_teams: &[String],
+    date: &str,
+) -> NewsArticle {
+    let mut body = if results.is_empty() {
+        "The latest preseason digest is here. Training camps, selection decisions, and transfer business continue across the division as clubs prepare for opening day.".to_string()
+    } else {
+        let total_goals: u32 = results
+            .iter()
+            .map(|(_, home_goals, _, away_goals)| u32::from(*home_goals) + u32::from(*away_goals))
+            .sum();
+        let results_text = result_lines(results);
+
+        format!(
+            "The latest preseason digest is here. {} friendly result(s) were played across the division this week, producing {} goal(s).\n\nResults:\n{}",
+            results.len(),
+            total_goals,
+            results_text.join("\n")
+        )
+    };
+
+    match unbeaten_teams {
+        [] => {}
+        [team] => body.push_str(&format!("\n\n{} remain unbeaten in preseason.", team)),
+        [first, second, ..] => body.push_str(&format!(
+            "\n\n{} and {} remain unbeaten in preseason.",
+            first, second
+        )),
+    }
+
+    NewsArticle::new(
+        id.to_string(),
+        format!("Preseason Digest — Week of {}", week_start),
+        body,
+        "League Chronicle".to_string(),
+        date.to_string(),
+        NewsCategory::Editorial,
+    )
+}
+
 pub fn title_race_storyline_article(
     id: &str,
     leader_team_id: &str,
@@ -554,7 +597,10 @@ pub fn transfer_rumour_gossip_article(
     let headlines = [
         format!("{} Attracting Interest from Several Clubs", player_name),
         format!("Clubs Circle as {}'s Future Remains Uncertain", player_name),
-        format!("{} Linked with Move Away from {}", player_name, from_team_name),
+        format!(
+            "{} Linked with Move Away from {}",
+            player_name, from_team_name
+        ),
     ];
     let headline_idx = rng.random_range(0..headlines.len());
     let headline = headlines[headline_idx].clone();
@@ -587,7 +633,11 @@ pub fn transfer_rumour_gossip_article(
         "be.source.sportsGazette",
         "be.source.footballHerald",
     ];
-    let sources = ["Transfer Intelligence", "Sports Gazette", "The Football Herald"];
+    let sources = [
+        "Transfer Intelligence",
+        "Sports Gazette",
+        "The Football Herald",
+    ];
     let src_idx = rng.random_range(0..sources.len());
 
     NewsArticle::new(
@@ -638,7 +688,10 @@ pub fn injury_news_article(
     let headlines = [
         format!("{} Injury Blow for {}", player_name, team_name),
         format!("{} Set for Spell on the Sidelines", player_name),
-        format!("{} — {} Sweating on Key Player", duration_display, team_name),
+        format!(
+            "{} — {} Sweating on Key Player",
+            duration_display, team_name
+        ),
     ];
 
     let body_idx = rng.random_range(0..2_usize);
@@ -1101,20 +1154,36 @@ mod tests {
         assert_eq!(article.category, NewsCategory::TransferRumour);
         assert_eq!(article.team_ids, vec!["team-1".to_string()]);
         assert_eq!(article.player_ids, vec!["player-1".to_string()]);
-        assert!(article.headline_key.as_deref().unwrap().starts_with("be.news.transferRumour.headline"));
-        assert!(article.body_key.as_deref().unwrap().starts_with("be.news.transferRumour.body"));
+        assert!(
+            article
+                .headline_key
+                .as_deref()
+                .unwrap()
+                .starts_with("be.news.transferRumour.headline")
+        );
+        assert!(
+            article
+                .body_key
+                .as_deref()
+                .unwrap()
+                .starts_with("be.news.transferRumour.body")
+        );
         let valid_sources = [
             ("Transfer Intelligence", "be.source.transferIntelligence"),
             ("Sports Gazette", "be.source.sportsGazette"),
             ("The Football Herald", "be.source.footballHerald"),
         ];
-        assert!(
-            valid_sources
-                .iter()
-                .any(|(src, key)| article.source == *src && article.source_key.as_deref() == Some(*key))
+        assert!(valid_sources.iter().any(
+            |(src, key)| article.source == *src && article.source_key.as_deref() == Some(*key)
+        ));
+        assert_eq!(
+            article.i18n_params.get("player").map(|s| s.as_str()),
+            Some("Adam Smith")
         );
-        assert_eq!(article.i18n_params.get("player").map(|s| s.as_str()), Some("Adam Smith"));
-        assert_eq!(article.i18n_params.get("team").map(|s| s.as_str()), Some("Alpha FC"));
+        assert_eq!(
+            article.i18n_params.get("team").map(|s| s.as_str()),
+            Some("Alpha FC")
+        );
     }
 
     #[test]
@@ -1134,13 +1203,34 @@ mod tests {
         assert_eq!(article.category, NewsCategory::InjuryNews);
         assert_eq!(article.team_ids, vec!["team-2".to_string()]);
         assert_eq!(article.player_ids, vec!["player-2".to_string()]);
-        assert!(article.headline_key.as_deref().unwrap().starts_with("be.news.injuryNews.headline"));
-        assert!(article.body_key.as_deref().unwrap().starts_with("be.news.injuryNews.body"));
-        assert_eq!(article.i18n_params.get("player").map(|s| s.as_str()), Some("Bruno Costa"));
-        assert_eq!(article.i18n_params.get("team").map(|s| s.as_str()), Some("Beta FC"));
+        assert!(
+            article
+                .headline_key
+                .as_deref()
+                .unwrap()
+                .starts_with("be.news.injuryNews.headline")
+        );
+        assert!(
+            article
+                .body_key
+                .as_deref()
+                .unwrap()
+                .starts_with("be.news.injuryNews.body")
+        );
+        assert_eq!(
+            article.i18n_params.get("player").map(|s| s.as_str()),
+            Some("Bruno Costa")
+        );
+        assert_eq!(
+            article.i18n_params.get("team").map(|s| s.as_str()),
+            Some("Beta FC")
+        );
         // 14 days ≈ 2 weeks → long injury selects Weeks body variant
         assert!(article.body_key.as_deref().unwrap().ends_with("Weeks"));
-        assert_eq!(article.i18n_params.get("weeksOut").map(|s| s.as_str()), Some("2"));
+        assert_eq!(
+            article.i18n_params.get("weeksOut").map(|s| s.as_str()),
+            Some("2")
+        );
     }
 
     #[test]
@@ -1157,7 +1247,13 @@ mod tests {
         );
         // Short injury selects Days body variant and never picks headline2
         assert!(article.body_key.as_deref().unwrap().ends_with("Days"));
-        assert_eq!(article.i18n_params.get("daysOut").map(|s| s.as_str()), Some("5"));
-        assert_ne!(article.headline_key.as_deref().unwrap(), "be.news.injuryNews.headline2");
+        assert_eq!(
+            article.i18n_params.get("daysOut").map(|s| s.as_str()),
+            Some("5")
+        );
+        assert_ne!(
+            article.headline_key.as_deref().unwrap(),
+            "be.news.injuryNews.headline2"
+        );
     }
 }

@@ -124,13 +124,7 @@ pub async fn select_team(
     let team_ids: Vec<String> = game.teams.iter().map(|t| t.id.clone()).collect();
     let mut league =
         ofm_core::schedule::generate_league("Premier Division", 2026, &team_ids, season_start);
-    let opponents: Vec<String> = team_ids
-        .iter()
-        .filter(|candidate_team_id| candidate_team_id.as_str() != team_id)
-        .cloned()
-        .collect();
-    let friendlies =
-        ofm_core::schedule::generate_preseason_friendlies(&team_id, &opponents, season_start, 3);
+    let friendlies = ofm_core::schedule::generate_preseason_friendlies(&team_ids, season_start, 4);
     ofm_core::schedule::append_fixtures(&mut league, friendlies);
     game.league = Some(league);
     ofm_core::season_context::refresh_game_context(&mut game);
