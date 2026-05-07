@@ -19,6 +19,8 @@ use generation::*;
 const MAX_OPENING_EXPIRING_CONTRACTS: usize = 2;
 const MIN_OPENING_RUNWAY_WEEKS: i64 = 16;
 const OPENING_SHORT_CONTRACT_END: &str = "2027-06-30";
+const OPENING_YOUTH_ACADEMY_SIZE: usize = 3;
+const OPENING_YOUTH_MAX_AGE: i32 = 21;
 
 fn target_wage_usage_percent(reputation: u32) -> i64 {
     if reputation >= 750 {
@@ -46,7 +48,10 @@ fn normalize_opening_contracts(players: &mut [Player]) {
 
     expiring_indices.sort_by_key(|index| players[*index].date_of_birth.clone());
 
-    for index in expiring_indices.into_iter().skip(MAX_OPENING_EXPIRING_CONTRACTS) {
+    for index in expiring_indices
+        .into_iter()
+        .skip(MAX_OPENING_EXPIRING_CONTRACTS)
+    {
         if let Some(contract_end) = players[index].contract_end.as_deref()
             && let Ok(year) = contract_end[0..4].parse::<i32>()
         {
@@ -55,7 +60,104 @@ fn normalize_opening_contracts(players: &mut [Player]) {
     }
 }
 
+fn opening_player_age(date_of_birth: &str) -> Option<i32> {
+    use chrono::{Datelike, NaiveDate};
+
+    let opening_date = NaiveDate::from_ymd_opt(2026, 7, 1)?;
+    let birth_date = NaiveDate::parse_from_str(date_of_birth, "%Y-%m-%d").ok()?;
+    let mut age = opening_date.year() - birth_date.year();
+
+    if (birth_date.month(), birth_date.day()) > (opening_date.month(), opening_date.day()) {
+        age -= 1;
+    }
+
+    Some(age)
+}
+
+fn is_opening_youth_candidate(player: &Player) -> bool {
+    use domain::player::Position;
+
+    player.position != Position::Goalkeeper
+        && opening_player_age(&player.date_of_birth).is_some_and(|age| age <= OPENING_YOUTH_MAX_AGE)
+}
+
+fn sort_opening_youth_indices(players: &[Player], indices: &mut [usize]) {
+    indices.sort_by(|left, right| {
+        players[*right]
+            .date_of_birth
+            .cmp(&players[*left].date_of_birth)
+            .then_with(|| players[*left].ovr.cmp(&players[*right].ovr))
+    });
+}
+
+fn apply_opening_youth_assignments(players: &mut [Player], candidate_indices: Vec<usize>) -> usize {
+    use domain::player::SquadRole;
+
+    let mut assigned = 0;
+
+    for index in candidate_indices
+        .into_iter()
+        .take(OPENING_YOUTH_ACADEMY_SIZE)
+    {
+        if players[index].squad_role != SquadRole::Youth {
+            players[index].squad_role = SquadRole::Youth;
+            assigned += 1;
+        }
+    }
+
+    assigned
+}
+
+fn seed_opening_youth_academy(players: &mut [Player]) {
+    let mut eligible_indices: Vec<usize> = players
+        .iter()
+        .enumerate()
+        .filter(|(_, player)| is_opening_youth_candidate(player))
+        .map(|(index, _)| index)
+        .collect();
+
+    sort_opening_youth_indices(players, &mut eligible_indices);
+    apply_opening_youth_assignments(players, eligible_indices);
+}
+
+pub fn repair_opening_youth_academies(game: &mut crate::game::Game) -> bool {
+    use chrono::Duration;
+    use domain::player::SquadRole;
+
+    if game
+        .players
+        .iter()
+        .any(|player| player.squad_role == SquadRole::Youth)
+    {
+        return false;
+    }
+
+    if game.clock.current_date > game.clock.start_date + Duration::days(30) {
+        return false;
+    }
+
+    let team_ids: Vec<String> = game.teams.iter().map(|team| team.id.clone()).collect();
+    let mut repaired = false;
+
+    for team_id in team_ids {
+        let mut candidate_indices: Vec<usize> = game
+            .players
+            .iter()
+            .enumerate()
+            .filter(|(_, player)| player.team_id.as_deref() == Some(team_id.as_str()))
+            .filter(|(_, player)| is_opening_youth_candidate(player))
+            .map(|(index, _)| index)
+            .collect();
+
+        sort_opening_youth_indices(&game.players, &mut candidate_indices);
+        repaired |= apply_opening_youth_assignments(&mut game.players, candidate_indices) > 0;
+    }
+
+    repaired
+}
+
 fn normalize_generated_team(team: &mut Team, players: &mut [Player]) {
+    seed_opening_youth_academy(players);
     normalize_opening_contracts(players);
 
     let annual_wage_bill: i64 = players.iter().map(|player| player.wage as i64).sum();
@@ -224,7 +326,7 @@ pub fn generate_world(
 mod tests {
     use super::data::{NATIONALITY_POOLS, TEAM_TEMPLATES};
     use super::*;
-    use domain::player::Position;
+    use domain::player::{Position, SquadRole};
 
     #[test]
     fn test_generate_world_team_count() {
@@ -300,6 +402,42 @@ mod tests {
     }
 
     #[test]
+    fn test_generate_world_seeds_opening_youth_academies() {
+        let (teams, players, _) = generate_world(None);
+
+        for team in &teams {
+            let youth_players: Vec<_> = players
+                .iter()
+                .filter(|player| player.team_id.as_deref() == Some(team.id.as_str()))
+                .filter(|player| player.squad_role == SquadRole::Youth)
+                .collect();
+
+            assert_eq!(
+                youth_players.len(),
+                OPENING_YOUTH_ACADEMY_SIZE,
+                "{} should open with {} youth academy players",
+                team.name,
+                OPENING_YOUTH_ACADEMY_SIZE
+            );
+            assert!(
+                youth_players.iter().all(|player| {
+                    opening_player_age(&player.date_of_birth)
+                        .is_some_and(|age| age <= OPENING_YOUTH_MAX_AGE)
+                }),
+                "{} has an overage opening youth player",
+                team.name
+            );
+            assert!(
+                youth_players
+                    .iter()
+                    .all(|player| player.position != Position::Goalkeeper),
+                "{} should keep opening youth players in outfield reserve slots",
+                team.name
+            );
+        }
+    }
+
+    #[test]
     fn test_generate_world_limits_immediate_contract_pressure() {
         for _ in 0..8 {
             let (teams, players, _) = generate_world(None);
@@ -307,7 +445,9 @@ mod tests {
                 let expiring_contracts = players
                     .iter()
                     .filter(|player| player.team_id.as_deref() == Some(team.id.as_str()))
-                    .filter(|player| player.contract_end.as_deref() == Some(OPENING_SHORT_CONTRACT_END))
+                    .filter(|player| {
+                        player.contract_end.as_deref() == Some(OPENING_SHORT_CONTRACT_END)
+                    })
                     .count();
 
                 assert!(

@@ -226,6 +226,11 @@
   "youthAcademy": {
     "title": "Base",
     "playersUnder21": "{{count}} jogadores ≤21",
+    "recoveryTitle": "Monte sua base",
+    "recoveryDescription": "Envie jogadores sub-21 elegíveis do elenco principal ou abra o scouting para buscar mais promessas.",
+    "eligibleSeniorPlayers": "{{count}} jogadores elegíveis do elenco principal",
+    "openScouting": "Abrir scouting",
+    "noEligibleSeniorPlayers": "Não há jogadores sub-21 elegíveis no elenco principal neste momento.",
     "youthPlayers": "Jogadores da Base",
     "avgOvr": "OVR Médio",
     "avgPotential": "Potencial Médio",

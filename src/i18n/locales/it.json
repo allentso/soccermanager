@@ -245,6 +245,11 @@
   "youthAcademy": {
     "title": "Settore giovanile",
     "playersUnder21": "{{count}} giocatori ≤21",
+    "recoveryTitle": "Costruisci il vivaio",
+    "recoveryDescription": "Assegna gli under 21 idonei dalla prima squadra oppure apri lo scouting per cercare altri prospetti.",
+    "eligibleSeniorPlayers": "{{count}} giocatori idonei della prima squadra",
+    "openScouting": "Apri scouting",
+    "noEligibleSeniorPlayers": "Al momento non ci sono under 21 idonei nella prima squadra.",
     "youthPlayers": "Giocatori giovani",
     "avgOvr": "OVR medio",
     "avgPotential": "Potenziale medio",

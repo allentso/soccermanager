@@ -163,7 +163,13 @@ pub(super) fn generate_random_player_from_def(
     let p_id = Uuid::new_v4().to_string();
     let nationality = nationality.to_string();
 
-    let age = rng.random_range(17..36);
+    // Reserve slots across the back line, midfield, and attack always start youth-aged
+    // so each club can open with real academy prospects instead of an empty youth squad.
+    let age = if matches!(index, 8 | 15 | 21) {
+        rng.random_range(17..22)
+    } else {
+        rng.random_range(17..36)
+    };
     let birth_year = 2026 - age;
     let birth_month = rng.random_range(1..13);
     let birth_day = rng.random_range(1..29);

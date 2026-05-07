@@ -14,6 +14,14 @@ vi.mock("react-i18next", () => ({
     t: (key: string, params?: Record<string, string | number>) => {
       if (key === "youthAcademy.title") return "Youth Academy";
       if (key === "youthAcademy.playersUnder21") return `${params?.count} youth players`;
+      if (key === "youthAcademy.recoveryTitle") return "Build your academy";
+      if (key === "youthAcademy.recoveryDescription")
+        return "Delegate eligible under-21 players from your senior squad or open scouting to look for more prospects.";
+      if (key === "youthAcademy.eligibleSeniorPlayers")
+        return `${params?.count} eligible senior players`;
+      if (key === "youthAcademy.openScouting") return "Open scouting";
+      if (key === "youthAcademy.noEligibleSeniorPlayers")
+        return "No eligible under-21 senior players are available right now.";
       if (key === "youthAcademy.youthPlayers") return "Youth Players";
       if (key === "youthAcademy.avgOvr") return "Avg OVR";
       if (key === "youthAcademy.avgPotential") return "Avg Potential";
@@ -21,6 +29,8 @@ vi.mock("react-i18next", () => ({
       if (key === "youthAcademy.youthCoach") return "Youth Coach";
       if (key === "youthAcademy.youthProspects") return "Youth Prospects";
       if (key === "youthAcademy.noYouthPlayers") return "No youth players";
+      if (key === "youthAcademy.delegateToYouthAcademy")
+        return "Delegate to youth academy";
       if (key === "youthAcademy.promoteToSeniorSquad")
         return "Promote to senior squad";
       if (key === "youthAcademy.player") return "Player";
@@ -186,6 +196,73 @@ describe("YouthAcademyTab", () => {
     );
 
     expect(screen.getByText("No youth players")).toBeInTheDocument();
+    expect(screen.getByText("Build your academy")).toBeInTheDocument();
+    expect(screen.getByText("1 eligible senior players")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Delegate to youth academy" }),
+    ).toBeInTheDocument();
+  });
+
+  it("delegates eligible senior players from the recovery card", async () => {
+    const gameState = createGameState([
+      createPlayer({
+        id: "player-young-senior",
+        full_name: "Senior Prospect",
+        date_of_birth: "2008-01-01",
+      }),
+    ]);
+    const updatedGameState = {
+      ...gameState,
+      players: gameState.players.map((player) =>
+        player.id === "player-young-senior"
+          ? { ...player, squad_role: "Youth" as const }
+          : player,
+      ),
+    };
+    const onGameUpdate = vi.fn();
+    mockedInvoke.mockResolvedValue(updatedGameState);
+
+    render(
+      <YouthAcademyTab
+        gameState={gameState}
+        onGameUpdate={onGameUpdate}
+        onSelectPlayer={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Delegate to youth academy" }),
+    );
+
+    await waitFor(() => {
+      expect(mockedInvoke).toHaveBeenCalledWith("set_player_squad_role", {
+        playerId: "player-young-senior",
+        squadRole: "Youth",
+      });
+      expect(onGameUpdate).toHaveBeenCalledWith(updatedGameState);
+    });
+  });
+
+  it("opens the scouting tab from the recovery card", () => {
+    const onNavigate = vi.fn();
+
+    render(
+      <YouthAcademyTab
+        gameState={createGameState([
+          createPlayer({
+            id: "player-young-senior",
+            full_name: "Senior Prospect",
+            date_of_birth: "2008-01-01",
+          }),
+        ])}
+        onNavigate={onNavigate}
+        onSelectPlayer={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Open scouting" }));
+
+    expect(onNavigate).toHaveBeenCalledWith("Scouting");
   });
 
   it("shows youth prospects only and routes row selection", () => {
