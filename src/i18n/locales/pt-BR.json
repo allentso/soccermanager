@@ -2003,6 +2003,13 @@
         "body0": "{{player}} veio falar com você sobre a situação do contrato. Com apenas {{days}} dias restantes, ele quer saber qual é a posição dele.\n\n\"Chefe, meu contrato está acabando. Preciso saber se faço parte dos seus planos ou se devo começar a procurar outro lugar.\"",
         "body1": "Seu assistente alerta que o contrato de {{player}} expira em aproximadamente {{months}} mês(es). O jogador tem perguntado no vestiário sobre seu futuro.\n\nPode ser prudente ter uma conversa antes que ele fique insatisfeito — ou antes que outros clubes comecem a circular."
       },
+      "takeoverContractReview": {
+        "subject": "Assistente Técnico - Revisão de Contratos",
+        "bodyNoneUrgent": "Seu assistente revisou os contratos do elenco após a sua chegada. {{totalExpiring}} jogador(es) devem entrar em negociação de renovação nesta temporada, mas nenhum exige uma decisão imediata hoje.\n\nComece a mapear quem você quer manter para que a situação fique sob controle.",
+        "bodyUrgent": "Seu assistente revisou os contratos do elenco após a sua chegada. {{totalExpiring}} jogador(es) devem entrar em negociação de renovação nesta temporada, e {{urgentContracts}} já precisam de atenção nos próximos seis meses.\n\nVocê não precisa resolver tudo de uma vez, mas esses casos devem ficar entre as suas primeiras prioridades.",
+        "bodyFinalMonth": "Seu assistente revisou os contratos do elenco após a sua chegada. {{totalExpiring}} jogador(es) devem entrar em negociação de renovação nesta temporada, {{urgentContracts}} precisam de atenção nos próximos seis meses e {{finalMonthContracts}} já estão no último mês.\n\nEstabilize primeiro os casos urgentes e depois avance sobre o restante da lista por etapas.",
+        "actionReview": "Revisar Contratos do Elenco"
+      },
       "delegatedRenewals": {
         "subject": "Relatório do assistente — Renovações contratuais",
         "body": "Chefe, revisei nossa lista de renovações no {{team}}. {{successes}} concluídas, {{stalled}} ainda pendentes e {{failures}} falhas.",

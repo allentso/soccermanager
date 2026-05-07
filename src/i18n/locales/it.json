@@ -2003,6 +2003,13 @@
         "body0": "{{player}} ti ha avvicinato per parlare della sua situazione contrattuale. Con solo {{days}} giorni rimanenti, vuole sapere qual è la sua posizione.\n\n\"Mister, il mio contratto sta scadendo. Ho bisogno di sapere se faccio parte dei tuoi piani futuri o se devo iniziare a guardarmi intorno.\"",
         "body1": "Il tuo assistente segnala che il contratto di {{player}} scade tra circa {{months}} mese/i. Il giocatore sta chiedendo in giro nello spogliatoio informazioni sul suo futuro.\n\nPotrebbe essere saggio parlarne prima che si agiti — o prima che altri club inizino a farsi avanti."
       },
+      "takeoverContractReview": {
+        "subject": "Vice allenatore - Revisione contratti",
+        "bodyNoneUrgent": "Il tuo vice allenatore ha rivisto i contratti della rosa dopo il tuo arrivo. {{totalExpiring}} giocatore/i andranno in scadenza in questa stagione, ma nessuno richiede una decisione immediata oggi.\n\nInizia a definire chi vuoi trattenere così da mantenere la situazione sotto controllo.",
+        "bodyUrgent": "Il tuo vice allenatore ha rivisto i contratti della rosa dopo il tuo arrivo. {{totalExpiring}} giocatore/i andranno in scadenza in questa stagione e {{urgentContracts}} richiedono già attenzione nei prossimi sei mesi.\n\nNon serve risolvere tutto subito, ma questi casi dovrebbero essere tra le tue prime priorità.",
+        "bodyFinalMonth": "Il tuo vice allenatore ha rivisto i contratti della rosa dopo il tuo arrivo. {{totalExpiring}} giocatore/i andranno in scadenza in questa stagione, {{urgentContracts}} richiedono attenzione nei prossimi sei mesi e {{finalMonthContracts}} sono già entrati nell'ultimo mese.\n\nStabilizza prima i casi urgenti, poi affronta il resto della lista per fasi.",
+        "actionReview": "Rivedi i contratti della rosa"
+      },
       "delegatedRenewals": {
         "subject": "Rapporto dell'assistente — Rinnovi contrattuali",
         "body": "Mister, ho esaminato la nostra lista rinnovi a {{team}}. {{successes}} conclusi, {{stalled}} ancora in sospeso, {{failures}} falliti.",

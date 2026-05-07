@@ -75,8 +75,8 @@ export default function HomeTab({
   const league = gameState.league;
   const roster = myTeam
     ? gameState.players.filter(
-        (p) => p.team_id === myTeam.id && isSeniorSquadPlayer(p),
-      )
+      (p) => p.team_id === myTeam.id && isSeniorSquadPlayer(p),
+    )
     : [];
   const {
     avgCondition,
@@ -150,7 +150,8 @@ export default function HomeTab({
   // Latest news
   const latestNews = (gameState.news || [])
     .sort((a, b) => b.date.localeCompare(a.date))
-    .slice(0, 2);
+    .slice(0, 2)
+    .map(resolveNewsArticle);
   const recentMessages = (gameState.messages || [])
     .slice(0, 4)
     .map(resolveMessage);
