@@ -213,6 +213,21 @@ pub fn send_scout(
     Ok(game)
 }
 
+#[tauri::command]
+pub fn start_youth_scouting(
+    state: State<'_, StateManager>,
+    scout_id: String,
+) -> Result<Game, String> {
+    info!("[cmd] start_youth_scouting: scout_id={}", scout_id);
+    let mut game = state
+        .get_game(|g| g.clone())
+        .ok_or("be.error.noActiveGameSession".to_string())?;
+
+    ofm_core::scouting::start_youth_scouting(&mut game, &scout_id)?;
+    state.set_game(game.clone());
+    Ok(game)
+}
+
 #[cfg(test)]
 mod tests {
     use super::{

@@ -1,5 +1,7 @@
 import type { ScoutingAssignment, StaffData } from "../../store/gameStore";
 
+type ScoutWorkloadAssignment = Pick<ScoutingAssignment, "scout_id">;
+
 export function scoutMaxSlots(ability: number): number {
   return ability >= 80
     ? 5
@@ -13,7 +15,7 @@ export function scoutMaxSlots(ability: number): number {
 }
 
 export function scoutAssignmentCount(
-  assignments: ScoutingAssignment[],
+  assignments: ScoutWorkloadAssignment[],
   scoutId: string,
 ): number {
   return assignments.filter((assignment) => assignment.scout_id === scoutId).length;
@@ -21,7 +23,7 @@ export function scoutAssignmentCount(
 
 export function calculateAvailableScouts(
   scouts: StaffData[],
-  assignments: ScoutingAssignment[],
+  assignments: ScoutWorkloadAssignment[],
 ): StaffData[] {
   return scouts.filter(
     (scout) =>

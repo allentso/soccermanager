@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 
-import { sendScout } from "./scoutingService";
+import { sendScout, startYouthScouting } from "./scoutingService";
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(),
@@ -22,6 +22,16 @@ describe("scoutingService", () => {
     expect(mockedInvoke).toHaveBeenCalledWith("send_scout", {
       scoutId: "staff-1",
       playerId: "player-1",
+    });
+  });
+
+  it("calls the youth scouting backend command", async () => {
+    const response = { manager: { id: "manager-1" } };
+    mockedInvoke.mockResolvedValueOnce(response);
+
+    await expect(startYouthScouting("staff-1")).resolves.toBe(response);
+    expect(mockedInvoke).toHaveBeenCalledWith("start_youth_scouting", {
+      scoutId: "staff-1",
     });
   });
 });

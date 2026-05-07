@@ -37,6 +37,13 @@ pub struct ScoutingAssignment {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct YouthScoutingAssignment {
+    pub id: String,
+    pub scout_id: String,
+    pub days_remaining: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Game {
     pub clock: GameClock,
     pub manager: Manager,
@@ -53,6 +60,8 @@ pub struct Game {
     pub league: Option<League>,
     #[serde(default)]
     pub scouting_assignments: Vec<ScoutingAssignment>,
+    #[serde(default)]
+    pub youth_scouting_assignments: Vec<YouthScoutingAssignment>,
     #[serde(default)]
     pub board_objectives: Vec<BoardObjective>,
     #[serde(default)]
@@ -86,6 +95,7 @@ impl Game {
             news: vec![],
             league: None,
             scouting_assignments: vec![],
+            youth_scouting_assignments: vec![],
             board_objectives: vec![],
             season_context: SeasonContext::default(),
             days_since_last_job_offer: None,

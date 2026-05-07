@@ -7,6 +7,7 @@ import type {
   ScoutingAssignment,
   StaffData,
   TeamData,
+  YouthScoutingAssignment,
 } from "../../store/gameStore";
 import ScoutingTab from "./ScoutingTab";
 
@@ -27,6 +28,16 @@ vi.mock("react-i18next", () => ({
       if (key === "scouting.yourScouts") return "Your Scouts";
       if (key === "scouting.noScouts") return "No scouts";
       if (key === "scouting.noScoutsHint") return "Hire a scout first";
+      if (key === "scouting.youthRecruitment") return "Youth Recruitment";
+      if (key === "scouting.youthRecruitmentHint") {
+        return "Use a scout to search for academy prospects.";
+      }
+      if (key === "scouting.startYouthSearch") return "Start youth search";
+      if (key === "scouting.activeYouthSearches") {
+        return `${params?.count} active youth searches`;
+      }
+      if (key === "scouting.noYouthSearches") return "No youth searches running";
+      if (key === "scouting.youthProspectSearch") return "Youth prospect search";
       if (key === "scouting.findPlayers") return "Find Players";
       if (key === "scouting.searchPlaceholder") return "Search players";
       if (key === "scouting.player") return "Player";
@@ -187,6 +198,7 @@ function createScout(overrides: Partial<StaffData> = {}): StaffData {
 function createGameState(options?: {
   scouts?: StaffData[];
   assignments?: ScoutingAssignment[];
+  youthAssignments?: YouthScoutingAssignment[];
   players?: PlayerData[];
 }): GameStateData {
   return {
@@ -224,6 +236,7 @@ function createGameState(options?: {
     news: [],
     league: null,
     scouting_assignments: options?.assignments ?? [],
+    youth_scouting_assignments: options?.youthAssignments ?? [],
     board_objectives: [],
   };
 }
@@ -240,6 +253,18 @@ describe("ScoutingTab", () => {
 
     expect(screen.getByText("No scouts")).toBeInTheDocument();
     expect(screen.getByText("Hire a scout first")).toBeInTheDocument();
+  });
+
+  it("renders the youth recruitment card when scouts are available", () => {
+    render(
+      <ScoutingTab
+        gameState={createGameState({ scouts: [createScout()] })}
+        onGameUpdate={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("Youth Recruitment")).toBeInTheDocument();
+    expect(screen.getByText("No youth searches running")).toBeInTheDocument();
   });
 
   it("sends a scout assignment and forwards the updated state", async () => {
@@ -260,6 +285,31 @@ describe("ScoutingTab", () => {
       expect(invokeMock).toHaveBeenCalledWith("send_scout", {
         scoutId: "staff-1",
         playerId: "player-1",
+      });
+      expect(onGameUpdate).toHaveBeenCalledWith(updatedState);
+    });
+  });
+
+  it("starts a youth scouting search and forwards the updated state", async () => {
+    const updatedState = createGameState({
+      scouts: [createScout()],
+      youthAssignments: [{ id: "ysa-1", scout_id: "staff-1", days_remaining: 5 }],
+    });
+    const onGameUpdate = vi.fn();
+    invokeMock.mockResolvedValue(updatedState);
+
+    render(
+      <ScoutingTab
+        gameState={createGameState({ scouts: [createScout()] })}
+        onGameUpdate={onGameUpdate}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Start youth search" }));
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("start_youth_scouting", {
+        scoutId: "staff-1",
       });
       expect(onGameUpdate).toHaveBeenCalledWith(updatedState);
     });
