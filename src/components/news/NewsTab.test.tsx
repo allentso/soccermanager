@@ -156,4 +156,34 @@ describe("NewsTab", () => {
 
     expect(onSelectTeam).toHaveBeenCalledWith("team-2");
   });
+
+  it("filters dedicated transfer roundup articles by category", () => {
+    render(
+      <NewsTab
+        gameState={createGameState([
+          createNewsArticle({
+            id: "news-transfer-roundup",
+            headline: "Transfer roundup headline",
+            category: "TransferRoundup",
+          }),
+          createNewsArticle({
+            id: "news-league-roundup",
+            headline: "League roundup headline",
+            category: "LeagueRoundup",
+            date: "2026-07-31",
+          }),
+        ])}
+        onSelectTeam={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "TransferRoundup" }));
+
+    expect(
+      screen.getByRole("button", { name: /Transfer roundup headline/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /League roundup headline/i }),
+    ).not.toBeInTheDocument();
+  });
 });

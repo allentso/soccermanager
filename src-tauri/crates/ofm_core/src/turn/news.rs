@@ -354,6 +354,82 @@ fn completed_preseason_fixtures_for_window<'a>(
         .collect()
 }
 
+fn completed_transfers_for_window(
+    game: &Game,
+    current_date: NaiveDate,
+    window_days: i64,
+) -> Vec<(String, String, String, String, String, String, u64)> {
+    let Some(league) = &game.league else {
+        return Vec::new();
+    };
+
+    let window_start = current_date - Duration::days(window_days.saturating_sub(1));
+    let mut transfers: Vec<_> = league
+        .transfer_log
+        .iter()
+        .filter_map(|transfer| {
+            let transfer_date = NaiveDate::parse_from_str(&transfer.date, "%Y-%m-%d").ok()?;
+            if transfer_date < window_start || transfer_date > current_date {
+                return None;
+            }
+
+            Some((
+                player_match_name_or_id(game, &transfer.player_id),
+                team_name(game, &transfer.from_team_id),
+                team_name(game, &transfer.to_team_id),
+                transfer.player_id.clone(),
+                transfer.from_team_id.clone(),
+                transfer.to_team_id.clone(),
+                transfer.fee,
+                transfer.date.clone(),
+            ))
+        })
+        .collect();
+
+    transfers.sort_by(|left, right| right.6.cmp(&left.6).then(right.7.cmp(&left.7)));
+    transfers.truncate(3);
+    transfers
+        .into_iter()
+        .map(
+            |(player, from_team, to_team, player_id, from_team_id, to_team_id, fee, _)| {
+                (
+                    player,
+                    from_team,
+                    to_team,
+                    player_id,
+                    from_team_id,
+                    to_team_id,
+                    fee,
+                )
+            },
+        )
+        .collect()
+}
+
+fn weekly_transfer_roundup_article(
+    game: &Game,
+    suffix: &str,
+    week_start: &str,
+    date: &str,
+) -> Option<domain::news::NewsArticle> {
+    let article_id = format!("weekly_transfer_roundup_{}", suffix);
+    if game.news.iter().any(|article| article.id == article_id) {
+        return None;
+    }
+
+    let transfers = completed_transfers_for_window(game, game.clock.current_date.date_naive(), 7);
+    if transfers.is_empty() {
+        return None;
+    }
+
+    Some(news::transfer_roundup_article(
+        &article_id,
+        week_start,
+        &transfers,
+        date,
+    ))
+}
+
 fn preseason_unbeaten_teams(game: &Game) -> Vec<String> {
     let Some(league) = &game.league else {
         return Vec::new();
@@ -431,6 +507,9 @@ fn generate_preseason_digest_news(game: &mut Game, today: &str) {
         &unbeaten_teams,
         &date,
     ));
+    if let Some(roundup) = weekly_transfer_roundup_article(game, &suffix, today, &date) {
+        game.news.push(roundup);
+    }
     game.news
         .extend(weekly_rumour_articles(game, &suffix, &date));
 }
@@ -476,6 +555,9 @@ pub(super) fn generate_weekly_digest_news(game: &mut Game, today: &str) {
         storylines.len(),
         &date,
     ));
+    if let Some(roundup) = weekly_transfer_roundup_article(game, &suffix, today, &date) {
+        game.news.push(roundup);
+    }
     game.news.extend(storylines);
     game.news.extend(rumours);
 }
@@ -790,6 +872,30 @@ mod tests {
             StandingEntry::new("team2".to_string()),
             StandingEntry::new("team3".to_string()),
         ];
+    }
+
+    fn add_completed_transfer(
+        game: &mut Game,
+        date: &str,
+        player_id: &str,
+        player_name: &str,
+        from_team_id: &str,
+        to_team_id: &str,
+        fee: u64,
+    ) {
+        game.players
+            .push(make_player(player_id, player_name, to_team_id));
+        game.league
+            .as_mut()
+            .unwrap()
+            .transfer_log
+            .push(domain::league::CompletedTransfer {
+                date: date.to_string(),
+                from_team_id: from_team_id.to_string(),
+                to_team_id: to_team_id.to_string(),
+                player_id: player_id.to_string(),
+                fee,
+            });
     }
 
     #[test]
@@ -1111,6 +1217,54 @@ mod tests {
     }
 
     #[test]
+    fn preseason_digest_includes_weekly_transfer_roundup_for_recent_moves() {
+        let mut game = make_game("2025-08-11", FixtureStatus::Scheduled);
+        set_current_date(&mut game, 2025, 8, 11);
+        reset_to_preseason(&mut game);
+        add_completed_transfer(
+            &mut game,
+            "2025-08-09",
+            "player-transfer-1",
+            "Marcos",
+            "team2",
+            "team3",
+            1_800_000,
+        );
+        add_completed_transfer(
+            &mut game,
+            "2025-08-10",
+            "player-transfer-2",
+            "Elliot",
+            "team3",
+            "team2",
+            950_000,
+        );
+
+        generate_weekly_digest_news(&mut game, "2025-08-11");
+
+        let roundup = game
+            .news
+            .iter()
+            .find(|article| article.id.starts_with("weekly_transfer_roundup_"))
+            .expect("expected a weekly transfer roundup article");
+        assert_eq!(roundup.category, NewsCategory::TransferRoundup);
+        assert!(roundup.headline.contains("Transfer Roundup"));
+        assert!(roundup.body.contains("Marcos: Beta FC -> Gamma FC (€1.8M)"));
+        assert!(roundup.body.contains("Elliot: Gamma FC -> Beta FC (€950K)"));
+        assert_eq!(roundup.player_ids.len(), 2);
+        assert!(
+            roundup
+                .player_ids
+                .contains(&"player-transfer-1".to_string())
+        );
+        assert!(
+            roundup
+                .player_ids
+                .contains(&"player-transfer-2".to_string())
+        );
+    }
+
+    #[test]
     fn generate_weekly_digest_news_creates_storylines_from_standings_and_form() {
         let mut game = make_game("2025-08-11", FixtureStatus::Completed);
         set_current_date(&mut game, 2025, 8, 11);
@@ -1205,12 +1359,62 @@ mod tests {
             unbeaten.i18n_params.get("runLength"),
             Some(&"5".to_string())
         );
+        assert!(
+            game.news
+                .iter()
+                .all(|article| !article.id.starts_with("weekly_transfer_roundup_"))
+        );
+    }
+
+    #[test]
+    fn weekly_digest_includes_transfer_roundup_for_recent_completed_moves() {
+        let mut game = make_game("2025-08-11", FixtureStatus::Completed);
+        set_current_date(&mut game, 2025, 8, 11);
+        add_completed_transfer(
+            &mut game,
+            "2025-08-08",
+            "player-transfer-3",
+            "Nico",
+            "team2",
+            "team3",
+            2_400_000,
+        );
+        add_completed_transfer(
+            &mut game,
+            "2025-08-10",
+            "player-transfer-4",
+            "Rui",
+            "team3",
+            "team2",
+            1_250_000,
+        );
+
+        generate_weekly_digest_news(&mut game, "2025-08-11");
+
+        let roundup = game
+            .news
+            .iter()
+            .find(|article| article.id.starts_with("weekly_transfer_roundup_"))
+            .expect("expected a weekly transfer roundup article");
+        assert_eq!(roundup.category, NewsCategory::TransferRoundup);
+        assert!(roundup.body.contains("Nico: Beta FC -> Gamma FC (€2.4M)"));
+        assert!(roundup.body.contains("Rui: Gamma FC -> Beta FC (€1.2M)"));
     }
 
     #[test]
     fn generate_weekly_digest_news_does_not_duplicate_same_week() {
         let mut game = make_game("2025-08-11", FixtureStatus::Completed);
         set_current_date(&mut game, 2025, 8, 11);
+
+        add_completed_transfer(
+            &mut game,
+            "2025-08-10",
+            "player-transfer-5",
+            "Dario",
+            "team2",
+            "team3",
+            1_600_000,
+        );
 
         generate_weekly_digest_news(&mut game, "2025-08-11");
         generate_weekly_digest_news(&mut game, "2025-08-11");
@@ -1219,6 +1423,13 @@ mod tests {
             game.news
                 .iter()
                 .filter(|article| article.id.starts_with("weekly_digest_"))
+                .count(),
+            1
+        );
+        assert_eq!(
+            game.news
+                .iter()
+                .filter(|article| article.id.starts_with("weekly_transfer_roundup_"))
                 .count(),
             1
         );
