@@ -346,7 +346,8 @@ fn set_player_squad_role_internal(
         .team_id
         .clone()
         .ok_or("be.error.noTeamAssigned".to_string())?;
-    let target_role = parse_squad_role(squad_role).ok_or("be.error.invalidSquadRole".to_string())?;
+    let target_role =
+        parse_squad_role(squad_role).ok_or("be.error.invalidSquadRole".to_string())?;
     let current_date = game.clock.current_date.date_naive();
 
     let player_index = game
@@ -508,9 +509,6 @@ mod tests {
 
         let error = set_player_squad_role_internal(&state, "player-1", "Youth").expect_err("error");
 
-        assert_eq!(
-            error,
-            "be.error.youthAcademyOverage"
-        );
+        assert_eq!(error, "be.error.youthAcademyOverage");
     }
 }

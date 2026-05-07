@@ -479,8 +479,14 @@ mod tests {
         assert_eq!(article.category, NewsCategory::MatchReport);
         assert!(article.body.to_lowercase().contains("friendly action"));
         assert!(article.headline.to_lowercase().contains("friendly report"));
-        assert_eq!(article.headline_key.as_deref(), Some("be.news.matchReport.reportFriendly.title"));
-        assert_eq!(article.body_key.as_deref(), Some("be.news.matchReport.reportFriendly.body"));
+        assert_eq!(
+            article.headline_key.as_deref(),
+            Some("be.news.matchReport.reportFriendly.title")
+        );
+        assert_eq!(
+            article.body_key.as_deref(),
+            Some("be.news.matchReport.reportFriendly.body")
+        );
         assert!(article.source_key.is_some());
     }
 }

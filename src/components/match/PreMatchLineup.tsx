@@ -315,7 +315,7 @@ export default function PreMatchLineup({
                         {
                           label: isSelected
                             ? t("match.cancel")
-                            : t("match.selectForSwap", "Select for swap"),
+                              : t("match.selectForSwap"),
                           onClick: () => onSelectStarter(isSelected ? null : p.id),
                         },
                       ]}
@@ -415,10 +415,7 @@ export default function PreMatchLineup({
                   <ContextMenu
                     items={[
                       {
-                        label: t(
-                          "match.swapWithSelectedStarter",
-                          "Swap with selected starter",
-                        ),
+                        label: t("match.swapWithSelectedStarter"),
                         onClick: () => onSwap(bp.id),
                       },
                     ]}

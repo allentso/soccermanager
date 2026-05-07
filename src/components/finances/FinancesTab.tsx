@@ -351,10 +351,10 @@ export default function FinancesTab({
       grossRevenue: formatExactMoney(
         recoveryPreviews.marketingCampaign.grossRevenue,
       ),
-        cost: formatExactMoney(recoveryPreviews.marketingCampaign.campaignCost),
-        campaignCost: formatExactMoney(
-          recoveryPreviews.marketingCampaign.campaignCost,
-        ),
+      cost: formatExactMoney(recoveryPreviews.marketingCampaign.campaignCost),
+      campaignCost: formatExactMoney(
+        recoveryPreviews.marketingCampaign.campaignCost,
+      ),
       days: recoveryPreviews.marketingCampaign.cooldownDays,
     })
     : null;

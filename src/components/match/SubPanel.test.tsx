@@ -24,6 +24,22 @@ vi.mock("react-i18next", () => ({
                 return "Cancel";
             }
 
+            if (key === "match.selectToTakeOff") {
+                return "Select to take off";
+            }
+
+            if (key === "match.clearReplacementSelection") {
+                return "Clear replacement";
+            }
+
+            if (key === "match.selectReplacementMenu") {
+                return "Select replacement";
+            }
+
+            if (key === "match.selectPlayerToTakeOffFirst") {
+                return "Select player to take off first";
+            }
+
             if (key === "match.confirmSubstitution") {
                 return "Confirm substitution";
             }
