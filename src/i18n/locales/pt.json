@@ -2003,6 +2003,13 @@
         "body0": "{{player}} veio falar contigo sobre a sua situação contratual. Com apenas {{days}} dias restantes no contrato, quer saber com o que pode contar.\n\n\"Mister, o meu contrato está a chegar ao fim. Preciso de saber se faço parte dos teus planos para o futuro ou se devo começar a procurar noutro lado.\"",
         "body1": "O teu adjunto assinala que o contrato de {{player}} expira dentro de aproximadamente {{months}} mês(es). O jogador tem andado a perguntar no balneário sobre o seu futuro.\n\nTalvez seja sensato teres uma conversa antes que ele fique inquieto — ou antes que outros clubes comecem a rondar."
       },
+      "takeoverContractReview": {
+        "subject": "Treinador Adjunto - Revisão de Contratos",
+        "bodyNoneUrgent": "O teu adjunto reviu os contratos do plantel após a tua chegada. {{totalExpiring}} jogador(es) terminam contrato nesta época, mas nenhum exige uma decisão imediata hoje.\n\nComeça a definir quem queres manter para que a situação permaneça sob controlo.",
+        "bodyUrgent": "O teu adjunto reviu os contratos do plantel após a tua chegada. {{totalExpiring}} jogador(es) terminam contrato nesta época e {{urgentContracts}} já exigem atenção nos próximos seis meses.\n\nNão precisas de resolver tudo de uma vez, mas estes casos devem estar entre as tuas prioridades iniciais.",
+        "bodyFinalMonth": "O teu adjunto reviu os contratos do plantel após a tua chegada. {{totalExpiring}} jogador(es) terminam contrato nesta época, {{urgentContracts}} exigem atenção nos próximos seis meses e {{finalMonthContracts}} já entraram no último mês.\n\nEstabiliza primeiro os casos urgentes e depois trata do resto da lista por etapas.",
+        "actionReview": "Rever Contratos do Plantel"
+      },
       "delegatedRenewals": {
         "subject": "Relatório do adjunto — Renovações contratuais",
         "body": "Mister, passei pela nossa lista de renovações no {{team}}. {{successes}} concluídas, {{stalled}} ainda pendentes e {{failures}} falhadas.",

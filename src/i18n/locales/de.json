@@ -2003,6 +2003,13 @@
         "body0": "{{player}} hat dich wegen seiner Vertragssituation angesprochen. Mit nur noch {{days}} Tagen Restlaufzeit möchte er wissen, woran er ist.\n\n\"Boss, mein Vertrag läuft aus. Ich muss wissen, ob ich weiter Teil deiner Pläne bin oder mich anderswo umsehen soll.\"",
         "body1": "Dein Assistent weist darauf hin, dass der Vertrag von {{player}} in etwa {{months}} Monat(en) ausläuft. Der Spieler hat in der Kabine bereits nach seiner Zukunft gefragt.\n\nEs wäre klug, bald das Gespräch zu suchen – bevor er unruhig wird oder andere Klubs aufmerksam werden."
       },
+      "takeoverContractReview": {
+        "subject": "Assistenztrainer - Vertragsprüfung",
+        "bodyNoneUrgent": "Dein Assistenztrainer hat nach deiner Ankunft die Verträge des Kaders geprüft. {{totalExpiring}} Spieler laufen in dieser Saison aus, aber keiner erfordert heute eine sofortige Entscheidung.\n\nLege früh fest, wen du halten willst, damit die Situation unter Kontrolle bleibt.",
+        "bodyUrgent": "Dein Assistenztrainer hat nach deiner Ankunft die Verträge des Kaders geprüft. {{totalExpiring}} Spieler laufen in dieser Saison aus und {{urgentContracts}} erfordern bereits in den nächsten sechs Monaten Aufmerksamkeit.\n\nDu musst nicht alles auf einmal lösen, aber diese Fälle sollten weit oben auf deiner ersten Arbeitsliste stehen.",
+        "bodyFinalMonth": "Dein Assistenztrainer hat nach deiner Ankunft die Verträge des Kaders geprüft. {{totalExpiring}} Spieler laufen in dieser Saison aus, {{urgentContracts}} erfordern in den nächsten sechs Monaten Aufmerksamkeit und {{finalMonthContracts}} sind bereits im letzten Vertragsmonat.\n\nStabilisiere zuerst die dringenden Fälle und arbeite dann die restliche Liste schrittweise ab.",
+        "actionReview": "Kaderverträge prüfen"
+      },
       "delegatedRenewals": {
         "subject": "Assistentenbericht — Vertragsverlängerungen",
         "body": "Boss, ich habe unsere Verlängerungsliste bei {{team}} durchgearbeitet. {{successes}} abgeschlossen, {{stalled}} noch offen, {{failures}} gescheitert.",

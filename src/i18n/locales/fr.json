@@ -2003,6 +2003,13 @@
         "body0": "{{player}} est venu te voir au sujet de sa situation contractuelle. Avec seulement {{days}} jours restants sur son contrat, il veut savoir à quoi s'en tenir.\n\n\"Coach, mon contrat arrive à son terme. J'ai besoin de savoir si je fais partie de tes plans ou si je dois chercher ailleurs.\"",
         "body1": "Ton adjoint signale que le contrat de {{player}} expire dans environ {{months}} mois. Le joueur s'interroge déjà dans le vestiaire sur son avenir.\n\nMieux vaut sans doute en parler avant qu'il ne se trouble ou que d'autres clubs ne commencent à tourner autour."
       },
+      "takeoverContractReview": {
+        "subject": "Entraîneur Adjoint - Revue des Contrats",
+        "bodyNoneUrgent": "Votre entraîneur adjoint a passé en revue les contrats de l'effectif après votre arrivée. {{totalExpiring}} joueur(s) arrivent en fin de contrat cette saison, mais aucun ne demande une décision immédiate aujourd'hui.\n\nCommencez à définir ceux que vous souhaitez conserver afin de garder la situation sous contrôle.",
+        "bodyUrgent": "Votre entraîneur adjoint a passé en revue les contrats de l'effectif après votre arrivée. {{totalExpiring}} joueur(s) arrivent en fin de contrat cette saison et {{urgentContracts}} demandent déjà de l'attention dans les six prochains mois.\n\nVous n'avez pas besoin de tout régler d'un coup, mais ces dossiers doivent figurer en tête de vos priorités initiales.",
+        "bodyFinalMonth": "Votre entraîneur adjoint a passé en revue les contrats de l'effectif après votre arrivée. {{totalExpiring}} joueur(s) arrivent en fin de contrat cette saison, {{urgentContracts}} demandent de l'attention dans les six prochains mois et {{finalMonthContracts}} sont déjà dans leur dernier mois.\n\nStabilisez d'abord les cas urgents, puis avancez sur le reste de la liste par étapes.",
+        "actionReview": "Examiner les contrats de l'effectif"
+      },
       "delegatedRenewals": {
         "subject": "Rapport de l'adjoint — Renouvellements",
         "body": "Coach, j'ai passé en revue notre liste de renouvellements à {{team}}. {{successes}} conclus, {{stalled}} encore en attente, {{failures}} échoués.",

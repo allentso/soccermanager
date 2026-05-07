@@ -214,22 +214,18 @@ pub fn update_objective_progress(game: &mut Game) {
     let finance_snapshot = finances::team_finance_snapshot(game, &user_team_id);
 
     for obj in game.board_objectives.iter_mut() {
-        match obj.objective_type {
-            ObjectiveType::LeaguePosition => {
-                obj.met = league_complete && user_pos <= obj.target;
-            }
-            ObjectiveType::Wins => {
-                obj.met = user_wins >= obj.target;
-            }
-            ObjectiveType::GoalsScored => {
-                obj.met = user_goals >= obj.target;
-            }
-            ObjectiveType::FinancialStability => {
-                obj.met = finance_snapshot.as_ref().is_some_and(|snapshot| {
-                    !snapshot.currently_in_debt && snapshot.wage_budget_usage_percent <= obj.target
-                });
-            }
-        }
+        obj.met = league_complete
+            && match obj.objective_type {
+                ObjectiveType::LeaguePosition => user_pos <= obj.target,
+                ObjectiveType::Wins => user_wins >= obj.target,
+                ObjectiveType::GoalsScored => user_goals >= obj.target,
+                ObjectiveType::FinancialStability => finance_snapshot.as_ref().is_some_and(
+                    |snapshot| {
+                        !snapshot.currently_in_debt
+                            && snapshot.wage_budget_usage_percent <= obj.target
+                    },
+                ),
+            };
     }
 }
 
@@ -458,7 +454,7 @@ mod tests {
     }
 
     #[test]
-    fn update_objective_progress_updates_each_objective_from_league_state() {
+    fn update_objective_progress_keeps_all_objectives_in_progress_until_league_completion() {
         let mut game = make_game(60, 1, 3);
         game.board_objectives = vec![
             make_objective("obj_position", ObjectiveType::LeaguePosition, 1, false),
@@ -539,14 +535,97 @@ mod tests {
         update_objective_progress(&mut game);
 
         assert!(!objective_by_id(&game, "obj_position").met);
-        assert!(objective_by_id(&game, "obj_wins").met);
+        assert!(!objective_by_id(&game, "obj_wins").met);
         assert!(!objective_by_id(&game, "obj_goals").met);
+        assert!(!objective_by_id(&game, "obj_finance").met);
+    }
+
+    #[test]
+    fn update_objective_progress_marks_every_objective_met_once_league_is_complete() {
+        let mut game = make_game(60, 1, 2);
+        game.board_objectives = vec![
+            make_objective("obj_position", ObjectiveType::LeaguePosition, 1, false),
+            make_objective("obj_wins", ObjectiveType::Wins, 2, false),
+            make_objective("obj_goals", ObjectiveType::GoalsScored, 5, false),
+            make_objective("obj_finance", ObjectiveType::FinancialStability, 100, false),
+        ];
+        game.teams
+            .iter_mut()
+            .find(|team| team.id == "team1")
+            .unwrap()
+            .wage_budget = 300_000;
+        game.players.push(make_player("player-1", "team1", 220_000));
+
+        let mut league = game.league.clone().unwrap();
+        league.standings = vec![
+            StandingEntry {
+                team_id: "team1".to_string(),
+                played: 2,
+                won: 2,
+                drawn: 0,
+                lost: 0,
+                goals_for: 5,
+                goals_against: 1,
+                points: 6,
+            },
+            StandingEntry {
+                team_id: "team2".to_string(),
+                played: 2,
+                won: 0,
+                drawn: 0,
+                lost: 2,
+                goals_for: 1,
+                goals_against: 5,
+                points: 0,
+            },
+        ];
+        league.fixtures = vec![
+            Fixture {
+                id: "f1".to_string(),
+                matchday: 1,
+                date: "2025-08-01".to_string(),
+                home_team_id: "team1".to_string(),
+                away_team_id: "team2".to_string(),
+                competition: FixtureCompetition::League,
+                status: FixtureStatus::Completed,
+                result: Some(MatchResult {
+                    home_goals: 2,
+                    away_goals: 0,
+                    home_scorers: vec![],
+                    away_scorers: vec![],
+                    report: None,
+                }),
+            },
+            Fixture {
+                id: "f2".to_string(),
+                matchday: 2,
+                date: "2025-08-08".to_string(),
+                home_team_id: "team2".to_string(),
+                away_team_id: "team1".to_string(),
+                competition: FixtureCompetition::League,
+                status: FixtureStatus::Completed,
+                result: Some(MatchResult {
+                    home_goals: 1,
+                    away_goals: 3,
+                    home_scorers: vec![],
+                    away_scorers: vec![],
+                    report: None,
+                }),
+            },
+        ];
+        game.league = Some(league);
+
+        update_objective_progress(&mut game);
+
+        assert!(objective_by_id(&game, "obj_position").met);
+        assert!(objective_by_id(&game, "obj_wins").met);
+        assert!(objective_by_id(&game, "obj_goals").met);
         assert!(objective_by_id(&game, "obj_finance").met);
     }
 
     #[test]
-    fn update_objective_progress_tracks_financial_stability_from_finance_snapshot() {
-        let mut game = make_game(60, 1, 3);
+    fn update_objective_progress_tracks_financial_stability_from_finance_snapshot_only_after_completion() {
+        let mut game = make_game(60, 1, 2);
         game.board_objectives = vec![make_objective(
             "obj_finance",
             ObjectiveType::FinancialStability,
@@ -563,6 +642,65 @@ mod tests {
         update_objective_progress(&mut game);
 
         assert!(!objective_by_id(&game, "obj_finance").met);
+
+        let mut league = game.league.clone().unwrap();
+        league.standings = vec![
+            StandingEntry {
+                team_id: "team1".to_string(),
+                played: 2,
+                won: 2,
+                drawn: 0,
+                lost: 0,
+                goals_for: 3,
+                goals_against: 1,
+                points: 6,
+            },
+            StandingEntry {
+                team_id: "team2".to_string(),
+                played: 2,
+                won: 0,
+                drawn: 0,
+                lost: 2,
+                goals_for: 1,
+                goals_against: 3,
+                points: 0,
+            },
+        ];
+        league.fixtures = vec![
+            Fixture {
+                id: "f1".to_string(),
+                matchday: 1,
+                date: "2025-08-01".to_string(),
+                home_team_id: "team1".to_string(),
+                away_team_id: "team2".to_string(),
+                competition: FixtureCompetition::League,
+                status: FixtureStatus::Completed,
+                result: Some(MatchResult {
+                    home_goals: 1,
+                    away_goals: 0,
+                    home_scorers: vec![],
+                    away_scorers: vec![],
+                    report: None,
+                }),
+            },
+            Fixture {
+                id: "f2".to_string(),
+                matchday: 2,
+                date: "2025-08-08".to_string(),
+                home_team_id: "team2".to_string(),
+                away_team_id: "team1".to_string(),
+                competition: FixtureCompetition::League,
+                status: FixtureStatus::Completed,
+                result: Some(MatchResult {
+                    home_goals: 1,
+                    away_goals: 1,
+                    home_scorers: vec![],
+                    away_scorers: vec![],
+                    report: None,
+                }),
+            },
+        ];
+        game.league = Some(league);
 
         game.teams
             .iter_mut()

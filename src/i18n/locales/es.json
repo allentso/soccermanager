@@ -2003,6 +2003,13 @@
         "body0": "{{player}} se ha acercado para hablar de su situación contractual. Con solo {{days}} días restantes en su acuerdo, quiere saber cuál es su situación.\n\n\"Míster, mi contrato se está acabando. Necesito saber si sigo en tus planes o si debo empezar a mirar otras opciones.\"",
         "body1": "Tu asistente señala que el contrato de {{player}} expira en aproximadamente {{months}} mes(es). El jugador ya ha estado preguntando en el vestuario por su futuro.\n\nConviene hablar con él antes de que se inquiete o de que otros clubes empiecen a rondar."
       },
+      "takeoverContractReview": {
+        "subject": "Segundo Entrenador - Revisión de Contratos",
+        "bodyNoneUrgent": "Tu segundo entrenador ha revisado los contratos de la plantilla tras tu llegada. {{totalExpiring}} jugador(es) terminan contrato esta temporada, pero ninguno requiere una decisión inmediata hoy.\n\nEmpieza a definir a quién quieres mantener para que la situación siga bajo control.",
+        "bodyUrgent": "Tu segundo entrenador ha revisado los contratos de la plantilla tras tu llegada. {{totalExpiring}} jugador(es) terminan contrato esta temporada y {{urgentContracts}} ya requieren atención en los próximos seis meses.\n\nNo hace falta resolverlo todo de una vez, pero estos casos deberían estar entre tus primeras prioridades.",
+        "bodyFinalMonth": "Tu segundo entrenador ha revisado los contratos de la plantilla tras tu llegada. {{totalExpiring}} jugador(es) terminan contrato esta temporada, {{urgentContracts}} requieren atención en los próximos seis meses y {{finalMonthContracts}} ya están en el último mes.\n\nEstabiliza primero los casos urgentes y luego avanza con el resto de la lista por etapas.",
+        "actionReview": "Revisar Contratos de la Plantilla"
+      },
       "delegatedRenewals": {
         "subject": "Informe del asistente — Renovaciones",
         "body": "Míster, revisé nuestra lista de renovaciones en {{team}}. {{successes}} cerradas, {{stalled}} aún pendientes y {{failures}} fallidas.",
