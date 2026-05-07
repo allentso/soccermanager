@@ -25,8 +25,10 @@ fn result_lines(results: &[(String, u8, String, u8)]) -> Vec<String> {
 #[derive(Serialize)]
 struct RoundupResultParam<'a> {
     home: &'a str,
+    #[serde(rename = "homeGoals")]
     home_goals: u8,
     away: &'a str,
+    #[serde(rename = "awayGoals")]
     away_goals: u8,
 }
 
@@ -1022,9 +1024,9 @@ mod tests {
         );
         let results_data = article.i18n_params.get("resultsData").unwrap();
         assert!(results_data.contains("\"home\":\"Alpha FC\""));
-        assert!(results_data.contains("\"home_goals\":3"));
+        assert!(results_data.contains("\"homeGoals\":3"));
         assert!(results_data.contains("\"away\":\"Beta FC\""));
-        assert!(results_data.contains("\"away_goals\":0"));
+        assert!(results_data.contains("\"awayGoals\":0"));
         assert_eq!(
             article.i18n_params.get("biggestWinner"),
             Some(&"Alpha FC".to_string())

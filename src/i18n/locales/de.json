@@ -2154,7 +2154,8 @@
         "resultLine": "  {{home}} {{homeGoals}} - {{awayGoals}} {{away}}",
         "unbeatenLine": {
           "one": "\n\n{{team}} bleibt in der Vorbereitung ungeschlagen.",
-          "two": "\n\n{{first}} und {{second}} bleiben in der Vorbereitung ungeschlagen."
+          "two": "\n\n{{first}} und {{second}} bleiben in der Vorbereitung ungeschlagen.",
+          "multiple": "\n\n{{teams}} bleiben in der Vorbereitung ungeschlagen."
         }
       },
       "storyline": {

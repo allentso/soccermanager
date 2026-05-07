@@ -3,7 +3,7 @@ use crate::messages;
 use crate::news;
 use chrono::{Datelike, Duration, NaiveDate};
 use domain::league::{Fixture, FixtureStatus, League, StandingEntry};
-use rand::RngExt;
+use rand::seq::SliceRandom;
 use std::collections::HashMap;
 
 fn completed_fixtures_for_day<'a>(league: &'a League, today: &str) -> Vec<&'a Fixture> {
@@ -297,15 +297,9 @@ fn weekly_rumour_articles(game: &Game, suffix: &str, date: &str) -> Vec<domain::
 
     // Pick at most 2 distinct players
     let count = (candidates.len()).min(2);
-    let mut chosen_indices: Vec<usize> = Vec::new();
-    let mut attempts = 0;
-    while chosen_indices.len() < count && attempts < 20 {
-        let idx = rng.random_range(0..candidates.len());
-        if !chosen_indices.contains(&idx) {
-            chosen_indices.push(idx);
-        }
-        attempts += 1;
-    }
+    let mut chosen_indices: Vec<usize> = (0..candidates.len()).collect();
+    chosen_indices.shuffle(&mut rng);
+    chosen_indices.truncate(count);
 
     chosen_indices
         .into_iter()

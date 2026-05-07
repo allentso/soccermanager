@@ -141,6 +141,28 @@ function normalizePreseasonDigestParams(
 
   const normalized = { ...params };
 
+  type ListFormatConstructor = new (
+    locales?: string | string[],
+    options?: { style?: 'long' | 'short' | 'narrow'; type?: 'conjunction' | 'disjunction' | 'unit' },
+  ) => { format(items: string[]): string };
+
+  const formatTeamList = (teams: string[]): string => {
+    const listFormat = (Intl as typeof Intl & { ListFormat?: ListFormatConstructor }).ListFormat;
+
+    if (typeof Intl !== 'undefined' && typeof listFormat === 'function') {
+      return new listFormat(i18n.resolvedLanguage || i18n.language || undefined, {
+        style: 'long',
+        type: 'conjunction',
+      }).format(teams);
+    }
+
+    if (teams.length <= 1) {
+      return teams[0] ?? '';
+    }
+
+    return `${teams.slice(0, -1).join(', ')} and ${teams[teams.length - 1]}`;
+  };
+
   if (params.resultsData) {
     try {
       const results = JSON.parse(params.resultsData) as RoundupResultParam[];
@@ -166,6 +188,7 @@ function normalizePreseasonDigestParams(
   if (params.unbeatenTeamsData) {
     try {
       const teams = JSON.parse(params.unbeatenTeamsData) as string[];
+      const teamList = formatTeamList(teams);
       normalized.unbeatenLine = teams.length === 0
         ? ''
         : teams.length === 1
@@ -174,11 +197,17 @@ function normalizePreseasonDigestParams(
             `\n\n${teams[0]} remain unbeaten in preseason.`,
             { team: teams[0] },
           )
-          : resolve(
-            'be.news.preseasonDigest.unbeatenLine.two',
-            `\n\n${teams[0]} and ${teams[1]} remain unbeaten in preseason.`,
-            { first: teams[0], second: teams[1] },
-          );
+          : teams.length === 2
+            ? resolve(
+              'be.news.preseasonDigest.unbeatenLine.two',
+              `\n\n${teams[0]} and ${teams[1]} remain unbeaten in preseason.`,
+              { first: teams[0], second: teams[1] },
+            )
+            : resolve(
+              'be.news.preseasonDigest.unbeatenLine.multiple',
+              `\n\n${teamList} remain unbeaten in preseason.`,
+              { teams: teamList, count: String(teams.length) },
+            );
     } catch {
       return params;
     }

@@ -2154,7 +2154,8 @@
         "resultLine": "  {{home}} {{homeGoals}} - {{awayGoals}} {{away}}",
         "unbeatenLine": {
           "one": "\n\n{{team}} continua invicto na pré-época.",
-          "two": "\n\n{{first}} e {{second}} continuam invictos na pré-época."
+          "two": "\n\n{{first}} e {{second}} continuam invictos na pré-época.",
+          "multiple": "\n\n{{teams}} continuam invictos na pré-época."
         }
       },
       "storyline": {

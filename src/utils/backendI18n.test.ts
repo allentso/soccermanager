@@ -577,6 +577,33 @@ describe("resolveNewsArticle", () => {
     }
   });
 
+  it("includes every unbeaten team when more than two clubs remain unbeaten", async () => {
+    const previousLanguage = i18n.language;
+    await i18n.changeLanguage("pt-BR");
+
+    try {
+      const article = makeNewsArticle({
+        headline: "Preseason Digest — Week of 2025-08-11",
+        headline_key: "be.news.preseasonDigest.headline",
+        body: "The latest preseason digest is here. Training camps, selection decisions, and transfer business continue across the division as clubs prepare for opening day.\n\nAlpha FC, Gamma FC, and Delta FC remain unbeaten in preseason.",
+        body_key: "be.news.preseasonDigest.bodyNoResults",
+        source: "League Chronicle",
+        source_key: "be.source.leagueChronicle",
+        i18n_params: {
+          weekStart: "2025-08-11",
+          unbeatenLine: "\n\nAlpha FC, Gamma FC, and Delta FC remain unbeaten in preseason.",
+          unbeatenTeamsData: JSON.stringify(["Alpha FC", "Gamma FC", "Delta FC"]),
+        },
+      });
+
+      const result = resolveNewsArticle(article);
+
+      expect(result.body).toContain("Alpha FC, Gamma FC e Delta FC seguem invictos na pré-temporada.");
+    } finally {
+      await i18n.changeLanguage(previousLanguage);
+    }
+  });
+
   it("preserves non-translatable fields", () => {
     const article = makeNewsArticle({ id: "n_5", category: "transfer", read: true });
     const result = resolveNewsArticle(article);

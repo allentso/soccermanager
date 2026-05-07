@@ -2150,7 +2150,8 @@
         "resultLine": "  {{home}} {{homeGoals}} - {{awayGoals}} {{away}}",
         "unbeatenLine": {
           "one": "\n\n{{team}} remain unbeaten in preseason.",
-          "two": "\n\n{{first}} and {{second}} remain unbeaten in preseason."
+          "two": "\n\n{{first}} and {{second}} remain unbeaten in preseason.",
+          "multiple": "\n\n{{teams}} remain unbeaten in preseason."
         }
       },
       "storyline": {
