@@ -1640,7 +1640,8 @@
       "playersUnder21": "{{count}} joueurs du centre",
       "matchDayPress": "Presse du Match",
       "leagueChronicle": "Chronique de la Ligue",
-      "leagueWire": "Fil de la Ligue"
+      "leagueWire": "Fil de la Ligue",
+      "transferIntelligence": "Renseignements Transferts"
     },
     "msg": {
       "welcome": {
@@ -2119,6 +2120,23 @@
           "headline": "{{team}} porte sa série d'invincibilité à {{runLength}}",
           "body": "{{team}} reste sur {{runLength}} match(es) sans défaite et prend un vrai élan."
         }
+      },
+      "transferRumour": {
+        "headline0": "{{player}} suscite l'intérêt de plusieurs clubs",
+        "headline1": "Les clubs s'approchent alors que l'avenir de {{player}} reste incertain",
+        "headline2": "{{player}} lié à un départ de {{team}}",
+        "body0": "Des sources proches de la situation suggèrent que {{player}} pourrait partir, plusieurs clubs surveillant apparemment le joueur de {{team}}. {{team}} n'a pas commenté publiquement, mais la spéculation est peu susceptible de s'estomper rapidement.",
+        "body1": "{{player}} aurait attiré l'attention de clubs de toute la division. La star de {{team}} a été l'un des joueurs les plus remarquables cette saison, et on pense que des offres pourraient se concrétiser avant la fermeture du mercato.",
+        "body2": "Les rumeurs de transfert autour de {{player}} s'intensifient, le joueur de {{team}} étant dit en train de peser ses options. Des discussions avec des agents auraient eu lieu, bien que rien n'ait été confirmé."
+      },
+      "injuryNews": {
+        "headline0": "Coup dur pour {{team}} : blessure de {{player}}",
+        "headline1": "{{player}} contraint à une période d'indisponibilité",
+        "headline2": "~{{weeksOut}} semaine(s) — {{team}} dans l'inquiétude pour un joueur clé",
+        "body0Days": "{{team}} a confirmé que {{player}} s'est blessé et devrait être indisponible pendant {{daysOut}} jour(s). Le club évaluera la situation avant de fournir une mise à jour supplémentaire.",
+        "body0Weeks": "{{team}} a confirmé que {{player}} s'est blessé et devrait être indisponible pendant environ {{weeksOut}} semaine(s). Le club évaluera la situation avant de fournir une mise à jour supplémentaire.",
+        "body1Days": "{{player}} a subi un revers à l'entraînement, le joueur de {{team}} étant écarté pour {{daysOut}} jour(s). Cette absence sera un coup significatif alors que la saison entre dans une phase cruciale.",
+        "body1Weeks": "{{player}} a subi un revers à l'entraînement, le joueur de {{team}} étant écarté pour environ {{weeksOut}} semaine(s). Cette absence sera un coup significatif alors que la saison entre dans une phase cruciale."
       }
     }
   },

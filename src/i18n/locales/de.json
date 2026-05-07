@@ -1640,7 +1640,8 @@
       "playersUnder21": "{{count}} Akademiespieler",
       "matchDayPress": "Spieltagspresse",
       "leagueChronicle": "Liga-Chronik",
-      "leagueWire": "Liga-Ticker"
+      "leagueWire": "Liga-Ticker",
+      "transferIntelligence": "Transferinformationen"
     },
     "msg": {
       "welcome": {
@@ -2119,6 +2120,23 @@
           "headline": "{{team}} baut die Ungeschlagen-Serie auf {{runLength}} aus",
           "body": "{{team}} ist seit {{runLength}} Spiel(en) ungeschlagen und gewinnt spürbar an Momentum."
         }
+      },
+      "transferRumour": {
+        "headline0": "{{player}} zieht Interesse mehrerer Vereine auf sich",
+        "headline1": "Vereine umkreisen {{player}}, dessen Zukunft ungewiss bleibt",
+        "headline2": "{{player}} mit Wechsel weg von {{team}} in Verbindung gebracht",
+        "body0": "Quellen nahe der Situation deuten an, dass {{player}} wechseln könnte, da mehrere Vereine den {{team}}-Spieler angeblich beobachten. {{team}} hat sich öffentlich nicht geäußert, aber die Gerüchte werden so schnell nicht verstummen.",
+        "body1": "{{player}} soll das Interesse mehrerer Vereine aus der Liga geweckt haben. Der {{team}}-Star gehörte in dieser Saison zu den herausragenden Akteuren, und man geht davon aus, dass sich Angebote vor Schließung des Transferfensters konkretisieren könnten.",
+        "body2": "Die Transfergerüchte um {{player}} werden immer lauter. Der {{team}}-Spieler soll seine Optionen abwägen. Gespräche mit Beratern haben Berichten zufolge stattgefunden, auch wenn bisher nichts bestätigt wurde."
+      },
+      "injuryNews": {
+        "headline0": "Verletzungsrückschlag für {{team}} — {{player}} fällt aus",
+        "headline1": "{{player}} muss Pause einlegen",
+        "headline2": "~{{weeksOut}} Woche(n) — {{team}} bangt um Schlüsselspieler",
+        "body0Days": "{{team}} hat bestätigt, dass {{player}} verletzt ist und voraussichtlich {{daysOut}} Tag(e) ausfallen wird. Der Verein wird die Situation weiter beobachten und zu gegebener Zeit eine weitere Einschätzung abgeben.",
+        "body0Weeks": "{{team}} hat bestätigt, dass {{player}} verletzt ist und voraussichtlich rund {{weeksOut}} Woche(n) ausfallen wird. Der Verein wird die Situation weiter beobachten und zu gegebener Zeit eine weitere Einschätzung abgeben.",
+        "body1Days": "{{player}} erlitt beim Training einen Rückschlag. Der {{team}}-Spieler fällt für {{daysOut}} Tag(e) aus. Die Abwesenheit dürfte ein empfindlicher Verlust sein, da die Saison eine entscheidende Phase erreicht.",
+        "body1Weeks": "{{player}} erlitt beim Training einen Rückschlag. Der {{team}}-Spieler fällt für rund {{weeksOut}} Woche(n) aus. Die Abwesenheit dürfte ein empfindlicher Verlust sein, da die Saison eine entscheidende Phase erreicht."
       }
     }
   },

@@ -1640,7 +1640,8 @@
       "playersUnder21": "{{count}} jogadores na academia",
       "matchDayPress": "Imprensa do Jogo",
       "leagueChronicle": "Crónica da Liga",
-      "leagueWire": "Notícias da Liga"
+      "leagueWire": "Notícias da Liga",
+      "transferIntelligence": "Inteligência de Transferências"
     },
     "msg": {
       "welcome": {
@@ -2119,6 +2120,23 @@
           "headline": "{{team}} prolonga série invicta para {{runLength}}",
           "body": "{{team}} soma {{runLength}} jogo(s) sem perder e está a ganhar verdadeiro embalo."
         }
+      },
+      "transferRumour": {
+        "headline0": "{{player}} desperta o interesse de vários clubes",
+        "headline1": "Clubes rodeiam {{player}}, cujo futuro permanece incerto",
+        "headline2": "{{player}} associado a uma saída do {{team}}",
+        "body0": "Fontes próximas da situação sugerem que {{player}} poderá sair, com vários clubes a monitorar o jogador do {{team}}. O {{team}} não se pronunciou publicamente, mas a especulação dificilmente se irá dissipar tão cedo.",
+        "body1": "{{player}} teria atraído a atenção de clubes de toda a divisão. A estrela do {{team}} foi um dos jogadores mais em destaque esta temporada, e acredita-se que propostas poderão concretizar-se antes do encerramento do mercado.",
+        "body2": "Os rumores de transferência em torno de {{player}} estão a crescer, com o jogador do {{team}} alegadamente a ponderar as suas opções. Diz-se que já houve conversas com agentes, embora nada tenha sido confirmado."
+      },
+      "injuryNews": {
+        "headline0": "Lesão de {{player}} é um golpe para o {{team}}",
+        "headline1": "{{player}} preparado para um período de paragem",
+        "headline2": "~{{weeksOut}} semana(s) — {{team}} ansioso em relação a jogador-chave",
+        "body0Days": "O {{team}} confirmou que {{player}} sofreu uma lesão e deverá ficar fora de combate durante {{daysOut}} dia(s). O clube irá avaliar a situação antes de prestar uma atualização adicional.",
+        "body0Weeks": "O {{team}} confirmou que {{player}} sofreu uma lesão e deverá ficar fora de combate durante cerca de {{weeksOut}} semana(s). O clube irá avaliar a situação antes de prestar uma atualização adicional.",
+        "body1Days": "{{player}} sofreu um revés no treino, com o jogador do {{team}} afastado por {{daysOut}} dia(s). A ausência será um golpe significativo enquanto a temporada atinge uma fase decisiva.",
+        "body1Weeks": "{{player}} sofreu um revés no treino, com o jogador do {{team}} afastado por cerca de {{weeksOut}} semana(s). A ausência será um golpe significativo enquanto a temporada atinge uma fase decisiva."
       }
     }
   },

@@ -1639,7 +1639,8 @@
       "footballHerald": "足球先驱报",
       "matchDayPress": "比赛日新闻",
       "leagueChronicle": "联赛纪事",
-      "leagueWire": "联赛快讯"
+      "leagueWire": "联赛快讯",
+      "transferIntelligence": "转会情报"
     },
     "msg": {
       "welcome": {
@@ -2115,6 +2116,23 @@
           "headline": "{{team}}不败纪录延续至{{runLength}}场",
           "body": "{{team}}已连续{{runLength}}场比赛保持不败,势头正劲。"
         }
+      },
+      "transferRumour": {
+        "headline0": "{{player}}引发多家俱乐部关注",
+        "headline1": "{{player}}前途未卜，各俱乐部蠢蠢欲动",
+        "headline2": "{{player}}被传离开{{team}}",
+        "body0": "知情人士透露，{{player}}可能即将转会，多家俱乐部据报正在密切关注这名{{team}}球员。{{team}}方面尚未公开表态，但相关传言短期内恐难平息。",
+        "body1": "据悉，{{player}}已引起联赛多家俱乐部的兴趣。这名{{team}}球员本赛季表现出色，外界认为在转会窗口关闭前，正式报价或将出现。",
+        "body2": "围绕{{player}}的转会传言愈演愈烈，据称这名{{team}}球员正在权衡自己的选择。据报经纪人层面已有接触，但目前尚无任何官方确认。"
+      },
+      "injuryNews": {
+        "headline0": "{{player}}受伤，{{team}}遭受打击",
+        "headline1": "{{player}}即将缺席一段时间",
+        "headline2": "约{{weeksOut}}周——{{team}}为主力球员的伤情担忧",
+        "body0Days": "{{team}}已证实{{player}}受伤，预计将缺阵{{daysOut}}天。俱乐部将评估伤情后发布进一步的最新消息。",
+        "body0Weeks": "{{team}}已证实{{player}}受伤，预计将缺阵约{{weeksOut}}周。俱乐部将评估伤情后发布进一步的最新消息。",
+        "body1Days": "{{player}}在训练中遭遇挫折，这名{{team}}球员将缺席{{daysOut}}天。在赛季进入关键阶段之际，这一缺阵将是重大打击。",
+        "body1Weeks": "{{player}}在训练中遭遇挫折，这名{{team}}球员将缺席约{{weeksOut}}周。在赛季进入关键阶段之际，这一缺阵将是重大打击。"
       }
     }
   },

@@ -536,6 +536,158 @@ pub fn unbeaten_streak_storyline_article(
     )
 }
 
+/// Generate a speculative transfer rumour article linking a player to other clubs.
+///
+/// Unlike `major_transfer_article` (which reports a completed move), this function
+/// produces gossip-style speculation. The article is attributed to a tabloid-leaning
+/// source and uses hedged language ("according to sources", "understood to be", etc.).
+pub fn transfer_rumour_gossip_article(
+    id: &str,
+    player_id: &str,
+    player_name: &str,
+    from_team_id: &str,
+    from_team_name: &str,
+    date: &str,
+) -> NewsArticle {
+    let mut rng = rand::rng();
+
+    let headlines = [
+        format!("{} Attracting Interest from Several Clubs", player_name),
+        format!("Clubs Circle as {}'s Future Remains Uncertain", player_name),
+        format!("{} Linked with Move Away from {}", player_name, from_team_name),
+    ];
+    let headline_idx = rng.random_range(0..headlines.len());
+    let headline = headlines[headline_idx].clone();
+
+    let bodies = [
+        format!(
+            "Sources close to the situation suggest that {} could be on the move, with multiple \
+            clubs reportedly monitoring the {} player. {} have not commented publicly, but \
+            the speculation is unlikely to die down soon.",
+            player_name, from_team_name, from_team_name
+        ),
+        format!(
+            "{} is understood to have attracted attention from clubs across the division. \
+            The {} star has been one of the standout performers this season, and it is \
+            believed that offers could materialise before the window closes.",
+            player_name, from_team_name
+        ),
+        format!(
+            "Transfer whispers are growing louder around {}, with the {} player \
+            said to be weighing their options. Agent talks are rumoured to have taken place, \
+            though nothing has been confirmed.",
+            player_name, from_team_name
+        ),
+    ];
+    let body_idx = rng.random_range(0..bodies.len());
+    let body = bodies[body_idx].clone();
+
+    let source_keys = [
+        "be.source.transferIntelligence",
+        "be.source.sportsGazette",
+        "be.source.footballHerald",
+    ];
+    let sources = ["Transfer Intelligence", "Sports Gazette", "The Football Herald"];
+    let src_idx = rng.random_range(0..sources.len());
+
+    NewsArticle::new(
+        id.to_string(),
+        headline,
+        body,
+        sources[src_idx].to_string(),
+        date.to_string(),
+        NewsCategory::TransferRumour,
+    )
+    .with_teams(vec![from_team_id.to_string()])
+    .with_players(vec![player_id.to_string()])
+    .with_i18n(
+        &format!("be.news.transferRumour.headline{}", headline_idx),
+        &format!("be.news.transferRumour.body{}", body_idx),
+        source_keys[src_idx],
+        params(&[("player", player_name), ("team", from_team_name)]),
+    )
+}
+
+/// Generate a news article reporting that a notable player has been injured.
+pub fn injury_news_article(
+    id: &str,
+    player_id: &str,
+    player_name: &str,
+    team_id: &str,
+    team_name: &str,
+    days_out: u32,
+    date: &str,
+) -> NewsArticle {
+    let mut rng = rand::rng();
+
+    let is_short = days_out <= 7;
+    let weeks = (days_out + 6) / 7;
+    // Body keys: locale-specific phrasing for days (short) vs weeks (long).
+    // headline2 (contains duration) is only picked for long injuries so the locale
+    // template can use {{weeksOut}} without needing a conditional.
+    let duration_suffix = if is_short { "Days" } else { "Weeks" };
+    let duration_display = if is_short {
+        format!("{} day(s)", days_out)
+    } else {
+        format!("~{} week(s)", weeks)
+    };
+
+    let headline_count = if is_short { 2 } else { 3 };
+    let headline_idx = rng.random_range(0..headline_count);
+
+    let headlines = [
+        format!("{} Injury Blow for {}", player_name, team_name),
+        format!("{} Set for Spell on the Sidelines", player_name),
+        format!("{} — {} Sweating on Key Player", duration_display, team_name),
+    ];
+
+    let body_idx = rng.random_range(0..2_usize);
+    let bodies = [
+        format!(
+            "{} have confirmed that {} has picked up an injury and is expected to be \
+            sidelined for {}. The club will assess the situation before providing \
+            a further update.",
+            team_name, player_name, duration_display
+        ),
+        format!(
+            "{} suffered a setback in training, with the {} player ruled out for \
+            {}. The absence will be a significant blow as the season reaches a \
+            critical stage.",
+            player_name, team_name, duration_display
+        ),
+    ];
+
+    let source_keys = [
+        "be.source.leagueWire",
+        "be.source.footballHerald",
+        "be.source.matchDayPress",
+    ];
+    let sources = ["League Wire", "The Football Herald", "Match Day Press"];
+    let src_idx = rng.random_range(0..sources.len());
+
+    NewsArticle::new(
+        id.to_string(),
+        headlines[headline_idx].clone(),
+        bodies[body_idx].clone(),
+        sources[src_idx].to_string(),
+        date.to_string(),
+        NewsCategory::InjuryNews,
+    )
+    .with_teams(vec![team_id.to_string()])
+    .with_players(vec![player_id.to_string()])
+    .with_i18n(
+        &format!("be.news.injuryNews.headline{}", headline_idx),
+        &format!("be.news.injuryNews.body{}{}", body_idx, duration_suffix),
+        source_keys[src_idx],
+        params(&[
+            ("player", player_name),
+            ("team", team_name),
+            ("daysOut", &days_out.to_string()),
+            ("weeksOut", &weeks.to_string()),
+        ]),
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
@@ -931,5 +1083,81 @@ mod tests {
         assert_ne!(key_both, key_gb);
         assert_ne!(key_both, key_poty);
         assert_ne!(key_gb, key_poty);
+    }
+
+    #[test]
+    fn transfer_rumour_gossip_article_sets_expected_fields() {
+        use super::transfer_rumour_gossip_article;
+        let article = transfer_rumour_gossip_article(
+            "rumour_player1_2026-08-01",
+            "player-1",
+            "Adam Smith",
+            "team-1",
+            "Alpha FC",
+            "2026-08-01",
+        );
+
+        assert_eq!(article.id, "rumour_player1_2026-08-01");
+        assert_eq!(article.category, NewsCategory::TransferRumour);
+        assert_eq!(article.team_ids, vec!["team-1".to_string()]);
+        assert_eq!(article.player_ids, vec!["player-1".to_string()]);
+        assert!(article.headline_key.as_deref().unwrap().starts_with("be.news.transferRumour.headline"));
+        assert!(article.body_key.as_deref().unwrap().starts_with("be.news.transferRumour.body"));
+        let valid_sources = [
+            ("Transfer Intelligence", "be.source.transferIntelligence"),
+            ("Sports Gazette", "be.source.sportsGazette"),
+            ("The Football Herald", "be.source.footballHerald"),
+        ];
+        assert!(
+            valid_sources
+                .iter()
+                .any(|(src, key)| article.source == *src && article.source_key.as_deref() == Some(*key))
+        );
+        assert_eq!(article.i18n_params.get("player").map(|s| s.as_str()), Some("Adam Smith"));
+        assert_eq!(article.i18n_params.get("team").map(|s| s.as_str()), Some("Alpha FC"));
+    }
+
+    #[test]
+    fn injury_news_article_sets_expected_fields() {
+        use super::injury_news_article;
+        let article = injury_news_article(
+            "injury_player2_2026-08-10",
+            "player-2",
+            "Bruno Costa",
+            "team-2",
+            "Beta FC",
+            14,
+            "2026-08-10",
+        );
+
+        assert_eq!(article.id, "injury_player2_2026-08-10");
+        assert_eq!(article.category, NewsCategory::InjuryNews);
+        assert_eq!(article.team_ids, vec!["team-2".to_string()]);
+        assert_eq!(article.player_ids, vec!["player-2".to_string()]);
+        assert!(article.headline_key.as_deref().unwrap().starts_with("be.news.injuryNews.headline"));
+        assert!(article.body_key.as_deref().unwrap().starts_with("be.news.injuryNews.body"));
+        assert_eq!(article.i18n_params.get("player").map(|s| s.as_str()), Some("Bruno Costa"));
+        assert_eq!(article.i18n_params.get("team").map(|s| s.as_str()), Some("Beta FC"));
+        // 14 days ≈ 2 weeks → long injury selects Weeks body variant
+        assert!(article.body_key.as_deref().unwrap().ends_with("Weeks"));
+        assert_eq!(article.i18n_params.get("weeksOut").map(|s| s.as_str()), Some("2"));
+    }
+
+    #[test]
+    fn injury_news_article_short_injury_uses_days() {
+        use super::injury_news_article;
+        let article = injury_news_article(
+            "injury_test_short",
+            "player-3",
+            "Carlos Diaz",
+            "team-3",
+            "Gamma FC",
+            5,
+            "2026-09-01",
+        );
+        // Short injury selects Days body variant and never picks headline2
+        assert!(article.body_key.as_deref().unwrap().ends_with("Days"));
+        assert_eq!(article.i18n_params.get("daysOut").map(|s| s.as_str()), Some("5"));
+        assert_ne!(article.headline_key.as_deref().unwrap(), "be.news.injuryNews.headline2");
     }
 }
