@@ -271,7 +271,11 @@ describe("PreMatchLineup component", () => {
     render(<PreMatchLineup {...defaultProps} onSelectStarter={onSelectStarter} />);
 
     fireEvent.contextMenu(screen.getByTestId("pre-match-starter-m1"));
-    fireEvent.click(screen.getByRole("button", { name: "Select for swap" }));
+    fireEvent.click(
+      within(screen.getByRole("menu")).getByRole("button", {
+        name: "Select for swap",
+      }),
+    );
 
     expect(onSelectStarter).toHaveBeenCalledWith("m1");
   });
@@ -323,7 +327,9 @@ describe("PreMatchLineup component", () => {
 
     fireEvent.contextMenu(screen.getByTestId("pre-match-bench-b1"));
     fireEvent.click(
-      screen.getByRole("button", { name: "Swap with selected starter" }),
+      within(screen.getByRole("menu")).getByRole("button", {
+        name: "Swap with selected starter",
+      }),
     );
 
     expect(onSwap).toHaveBeenCalledWith("b1");

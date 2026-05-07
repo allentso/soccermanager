@@ -60,15 +60,46 @@ export default function TournamentsTab({
   const [view, setView] = useState<
     "overview" | "fixtures" | "standings" | "awards"
   >("overview");
-  const [awards, setAwards] = useState<SeasonAwards | null>(null);
+  const [awardsBySeason, setAwardsBySeason] = useState<
+    Record<number, SeasonAwards>
+  >({});
+  const [awardsLoadState, setAwardsLoadState] = useState<
+    "idle" | "loading" | "error"
+  >("idle");
+  const [awardsRetryCount, setAwardsRetryCount] = useState(0);
+  const currentSeason = league?.season ?? 0;
+  const awards = awardsBySeason[currentSeason] ?? null;
 
   useEffect(() => {
-    if (view === "awards" && !awards) {
-      invoke<SeasonAwards>("get_season_awards")
-        .then(setAwards)
-        .catch(() => { });
+    if (view !== "awards" || awards) {
+      return;
     }
-  }, [view, awards]);
+
+    let cancelled = false;
+    setAwardsLoadState("loading");
+
+    invoke<SeasonAwards>("get_season_awards")
+      .then((nextAwards) => {
+        if (cancelled) {
+          return;
+        }
+
+        setAwardsBySeason((current) => ({
+          ...current,
+          [currentSeason]: nextAwards,
+        }));
+        setAwardsLoadState("idle");
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setAwardsLoadState("error");
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [view, awards, currentSeason, awardsRetryCount]);
 
   if (!league) {
     return (
@@ -149,9 +180,11 @@ export default function TournamentsTab({
   ];
 
   const buildPlayerMenuItems = (playerId: string, teamId?: string | null) => {
-    const items = [
-      buildViewProfileMenuItem(t, () => onSelectPlayer?.(playerId)),
-    ];
+    const items = [];
+
+    if (typeof onSelectPlayer === "function") {
+      items.push(buildViewProfileMenuItem(t, () => onSelectPlayer(playerId)));
+    }
 
     if (teamId) {
       items.push(buildViewTeamMenuItem(t, () => onSelectTeam(teamId)));
@@ -660,6 +693,19 @@ export default function TournamentsTab({
                 onSelectTeam={onSelectTeam}
               />
             </>
+          ) : awardsLoadState === "error" ? (
+            <div className="col-span-full text-center py-12">
+              <Award className="w-12 h-12 text-gray-300 dark:text-navy-600 mx-auto mb-3" />
+              <p className="text-sm text-gray-400 dark:text-gray-500 mb-4">
+                {t("tournaments.awards.noDataYet")}
+              </p>
+              <button
+                onClick={() => setAwardsRetryCount((count) => count + 1)}
+                className="px-4 py-2 rounded-lg font-heading font-bold text-sm uppercase tracking-wider bg-primary-500 text-white hover:bg-primary-600 transition-colors"
+              >
+                Retry
+              </button>
+            </div>
           ) : (
             <div className="col-span-full text-center py-12">
               <Award className="w-12 h-12 text-gray-300 dark:text-navy-600 mx-auto mb-3" />
@@ -696,6 +742,17 @@ function AwardCard({
   onSelectTeam: (id: string) => void;
 }) {
   const { t } = useTranslation();
+  const buildAwardMenuItems = (entry: AwardEntry) => {
+    const items = [buildViewTeamMenuItem(t, () => onSelectTeam(entry.team_id))];
+
+    if (typeof onSelectPlayer === "function") {
+      items.unshift(
+        buildViewProfileMenuItem(t, () => onSelectPlayer(entry.player_id)),
+      );
+    }
+
+    return items;
+  };
 
   return (
     <Card>
@@ -719,10 +776,7 @@ function AwardCard({
           <div className="divide-y divide-gray-100 dark:divide-navy-600">
             {entries.map((entry, i) => (
               <ContextMenu
-                items={[
-                  buildViewProfileMenuItem(t, () => onSelectPlayer?.(entry.player_id)),
-                  buildViewTeamMenuItem(t, () => onSelectTeam(entry.team_id)),
-                ]}
+                items={buildAwardMenuItems(entry)}
                 key={entry.player_id}
               >
                 <div

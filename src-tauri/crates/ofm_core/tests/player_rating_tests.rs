@@ -140,27 +140,23 @@ fn refresh_does_not_lower_preserved_potential_below_ovr() {
 
 #[test]
 fn refresh_awards_wonderkid_trait_for_young_high_potential_player() {
-    const MAX_ATTEMPTS: usize = 32;
+    let mut player = make_player(Position::Forward, striker_attrs(), "2007-01-01");
+    player.ovr = 70;
+    player.potential = 95;
+    refresh_player_derived(&mut player, 2026);
 
-    for _ in 0..MAX_ATTEMPTS {
-        let mut player = make_player(Position::Forward, striker_attrs(), "2007-01-01");
-        player.potential = 0;
-        refresh_player_derived(&mut player, 2026);
+    assert!(
+        player.potential >= 75 && player.potential.saturating_sub(player.ovr) >= 10,
+        "Expected deterministic Wonderkid setup to qualify with potential={} ovr={}",
+        player.potential,
+        player.ovr
+    );
 
-        if player.potential >= 75 && player.potential.saturating_sub(player.ovr) >= 10 {
-            assert!(
-                player.traits.contains(&PlayerTrait::Wonderkid),
-                "Should have Wonderkid trait when potential={} ovr={} age~19",
-                player.potential,
-                player.ovr
-            );
-            return;
-        }
-    }
-
-    panic!(
-        "Failed to generate a qualifying young high-potential player within {} attempts",
-        MAX_ATTEMPTS
+    assert!(
+        player.traits.contains(&PlayerTrait::Wonderkid),
+        "Should have Wonderkid trait when potential={} ovr={} age~19",
+        player.potential,
+        player.ovr
     );
 }
 

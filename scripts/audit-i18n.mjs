@@ -62,12 +62,20 @@ const FRONTEND_ATTRIBUTE_SKIP = new Set([
   "icon",
 ]);
 
+function isIgnoredDir(fullPath) {
+  return FRONTEND_IGNORE_RE.test(fullPath) || RUST_IGNORE_RE.test(fullPath);
+}
+
 function walkFiles(dir, predicate, collected = []) {
   if (!fs.existsSync(dir)) return collected;
 
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     const fullPath = path.join(dir, entry.name);
     if (entry.isDirectory()) {
+      if (isIgnoredDir(fullPath) || predicate(fullPath)) {
+        continue;
+      }
+
       walkFiles(fullPath, predicate, collected);
       continue;
     }
@@ -113,8 +121,10 @@ function isTranslationKey(text) {
 }
 
 function looksLikeRouteOrIdentifier(text) {
+  if (/^[./\\]/.test(text)) return true;
+  if (!/[./\\:\d_-]/.test(text)) return false;
+
   return (
-    /^[./\\]/.test(text) ||
     /^[a-z0-9_-]+$/i.test(text) ||
     /^[a-z0-9_-]+:[a-z0-9:_-]+$/i.test(text)
   );

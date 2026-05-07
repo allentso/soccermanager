@@ -86,6 +86,7 @@ struct StandingsLineParam<'a> {
     rank: usize,
     team: &'a str,
     points: u32,
+    #[serde(rename = "goalDifference")]
     goal_difference: String,
 }
 
@@ -1087,7 +1088,7 @@ mod tests {
         );
         assert_eq!(
             article.i18n_params.get("standingsData"),
-            Some(&"[{\"rank\":1,\"team\":\"Alpha FC\",\"points\":12,\"goal_difference\":\"+5\"},{\"rank\":2,\"team\":\"Beta FC\",\"points\":10,\"goal_difference\":\"+0\"},{\"rank\":3,\"team\":\"Gamma FC\",\"points\":9,\"goal_difference\":\"-3\"}]".to_string())
+            Some(&"[{\"rank\":1,\"team\":\"Alpha FC\",\"points\":12,\"goalDifference\":\"+5\"},{\"rank\":2,\"team\":\"Beta FC\",\"points\":10,\"goalDifference\":\"+0\"},{\"rank\":3,\"team\":\"Gamma FC\",\"points\":9,\"goalDifference\":\"-3\"}]".to_string())
         );
     }
 

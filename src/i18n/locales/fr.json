@@ -829,7 +829,7 @@
       "LeaguePosition": "Terminez dans le top {{target}}",
       "Wins": "Remportez au moins {{target}} matchs",
       "GoalsScored": "Marquez au moins {{target}} buts",
-      "FinancialStability": "Maintenez la masse salariale a {{target}} % du budget ou moins"
+      "FinancialStability": "Maintenez la masse salariale à {{target}} % du budget ou moins"
     }
   },
   "transfers": {

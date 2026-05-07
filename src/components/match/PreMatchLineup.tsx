@@ -263,6 +263,7 @@ export default function PreMatchLineup({
                   const isSelected = selectedStarterId === p.id;
                   const starterButton = (
                     <button
+                      type="button"
                       key={p.id}
                       data-testid={`pre-match-starter-${p.id}`}
                       onClick={() => onSelectStarter(isSelected ? null : p.id)}
@@ -366,6 +367,7 @@ export default function PreMatchLineup({
                 const canSwap = Boolean(selectedStarterId);
                 const benchButton = (
                   <button
+                    type="button"
                     key={bp.id}
                     data-testid={`pre-match-bench-${bp.id}`}
                     disabled={!canSwap}

@@ -160,6 +160,11 @@ interface DelegatedRenewalResponseData {
   };
 }
 
+interface TaggedFinanceSnapshotData {
+  key: string;
+  data: FinanceSnapshotData;
+}
+
 interface BoardSupportResponseData {
   game: GameStateData;
   result: {
@@ -238,7 +243,7 @@ export default function FinancesTab({
     [],
   );
   const [remoteFinanceData, setRemoteFinanceData] =
-    useState<FinanceSnapshotData | null>(null);
+    useState<TaggedFinanceSnapshotData | null>(null);
   const [facilityUpgradeError, setFacilityUpgradeError] =
     useState<FacilityUpgradeErrorState | null>(null);
   const [boardSupportFeedback, setBoardSupportFeedback] = useState<{
@@ -258,18 +263,49 @@ export default function FinancesTab({
   const teamStaff = gameState.staff.filter(
     (staffMember) => staffMember.team_id === myTeam.id,
   );
-  const financeSnapshot =
-    remoteFinanceData?.snapshot ??
-    mapLocalFinanceSnapshot(
+  const financeSnapshotKey = [
+    myTeam.id,
+    gameState.clock.current_date,
+    myTeam.finance,
+    myTeam.wage_budget,
+    myTeam.transfer_budget,
+    myTeam.season_income,
+    myTeam.season_expenses,
+    myTeam.facilities?.training ?? DEFAULT_FACILITIES.training,
+    myTeam.facilities?.medical ?? DEFAULT_FACILITIES.medical,
+    myTeam.facilities?.scouting ?? DEFAULT_FACILITIES.scouting,
+    myTeam.sponsorship?.sponsor_name ?? "",
+    myTeam.sponsorship?.base_value ?? 0,
+    myTeam.sponsorship?.remaining_weeks ?? 0,
+    roster
+      .map(
+        (player) => `${player.id}:${player.wage}:${player.contract_end ?? ""}`,
+      )
+      .join("|"),
+    teamStaff
+      .map((staffMember) => `${staffMember.id}:${staffMember.wage}`)
+      .join("|"),
+    gameState.messages
+      .filter(isPendingSponsorOffer)
+      .map((message) => message.id)
+      .join("|"),
+  ].join("::");
+  const isRemoteFinanceDataCurrent = remoteFinanceData?.key === financeSnapshotKey;
+  const localFinanceSnapshot = mapLocalFinanceSnapshot(
+    myTeam,
+    getTeamFinanceSnapshot(
       myTeam,
-      getTeamFinanceSnapshot(
-        myTeam,
-        roster,
-        teamStaff,
-        gameState.clock.current_date,
-      ),
-    );
-  const recoveryPreviews = remoteFinanceData?.previews ?? null;
+      roster,
+      teamStaff,
+      gameState.clock.current_date,
+    ),
+  );
+  const financeSnapshot = isRemoteFinanceDataCurrent
+    ? remoteFinanceData.data.snapshot
+    : localFinanceSnapshot;
+  const recoveryPreviews = isRemoteFinanceDataCurrent
+    ? remoteFinanceData.data.previews
+    : null;
   const totalWages = financeSnapshot.weeklyWageSpend;
   const totalValue = roster.reduce((s, p) => s + p.market_value, 0);
   const facilities = myTeam.facilities ?? DEFAULT_FACILITIES;
@@ -286,7 +322,7 @@ export default function FinancesTab({
   const hasActiveSponsor = Boolean(
     activeSponsorship && activeSponsorship.remaining_weeks > 0,
   );
-  const previewsLoaded = remoteFinanceData !== null;
+  const previewsLoaded = recoveryPreviews !== null;
   const previewBoardSupportAvailable = recoveryPreviews
     ? Boolean(recoveryPreviews.boardSupport)
     : null;
@@ -389,13 +425,14 @@ export default function FinancesTab({
 
   useEffect(() => {
     let cancelled = false;
+    const requestKey = financeSnapshotKey;
 
     setRemoteFinanceData(null);
 
     void getFinanceSnapshot(myTeam.id)
       .then((financeData) => {
         if (!cancelled) {
-          setRemoteFinanceData(financeData);
+          setRemoteFinanceData({ key: requestKey, data: financeData });
         }
       })
       .catch((error) => {
@@ -408,7 +445,7 @@ export default function FinancesTab({
     return () => {
       cancelled = true;
     };
-  }, [gameState, myTeam.id]);
+  }, [financeSnapshotKey, myTeam.id]);
 
   useEffect(() => {
     setSelectedRiskPlayerIds((currentIds) => {

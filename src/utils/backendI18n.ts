@@ -44,7 +44,7 @@ function extractErrorMessage(error: unknown): string {
     return (error as { message: string }).message;
   }
 
-  return String(error);
+  return "";
 }
 
 export function resolveBackendText(
@@ -58,7 +58,7 @@ export function resolveBackendText(
 export function resolveBackendError(error: unknown): string {
   const message = extractErrorMessage(error).trim();
   if (!message) return "";
-  return resolve(isTranslationKey(message) ? message : undefined, message);
+  return resolve(isTranslationKey(message) ? message : undefined, message || "");
 }
 
 function boardObjectiveFallback(objective: BoardObjective): string {
