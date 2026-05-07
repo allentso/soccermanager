@@ -2087,13 +2087,15 @@
         "body0.noScorers": "En la acción de la Jornada {{matchday}}, el partido terminó {{home}} {{homeGoals}} - {{awayGoals}} {{away}}. El resultado podría tener implicaciones en la clasificación a medida que avanza la temporada.",
         "body1.noScorers": "El partido terminó {{home}} {{homeGoals}} - {{awayGoals}} {{away}} en un choque de la Jornada {{matchday}}. Ambos equipos dieron todo en un encuentro apasionante.",
         "body2.noScorers": "La Jornada {{matchday}} trajo otro encuentro emocionante entre {{home}} y {{away}} ({{homeGoals}}-{{awayGoals}}). Los aficionados disfrutaron de un partido competitivo.",
+        "scorer": "{{player}} ({{minute}}', {{team}})",
+        "scorersSection": "\n\nGoles: {{scorers}}",
         "reportFriendly": {
           "title": "{{home}} {{homeGoals}} - {{awayGoals}} {{away}}: Crónica del amistoso",
-          "body": "En el amistoso, {{result}}. Ambos equipos usaron el partido para ganar ritmo antes de la competición oficial.{{scorers}}"
+          "body": "En el amistoso, {{home}} {{homeGoals}} - {{awayGoals}} {{away}}. Ambos equipos usaron el partido para ganar ritmo antes de la competición oficial.{{scorersSection}}"
         },
         "reportPreseason": {
           "title": "{{home}} {{homeGoals}} - {{awayGoals}} {{away}}: Crónica del torneo de pretemporada",
-          "body": "En el torneo de pretemporada, {{result}}. Ambos equipos usaron el partido para ganar ritmo antes de la competición oficial.{{scorers}}"
+          "body": "En el torneo de pretemporada, {{home}} {{homeGoals}} - {{awayGoals}} {{away}}. Ambos equipos usaron el partido para ganar ritmo antes de la competición oficial.{{scorersSection}}"
         }
       },
       "roundup": {
@@ -2106,7 +2108,8 @@
         "headline0": "{{leader}} Lidera Tras la Jornada {{matchday}}",
         "headline1": "Tabla de la Primera División: {{leader}} en Cabeza",
         "headline2": "Actualización de Clasificación — Jornada {{matchday}}",
-        "body": "Tras la Jornada {{matchday}}, {{leader}} se sitúa en lo más alto de la tabla de la Primera División.\n\nClasificación:\n{{standings}}"
+        "body": "Tras la Jornada {{matchday}}, {{leader}} se sitúa en lo más alto de la tabla de la Primera División.\n\nClasificación:\n{{standings}}",
+        "entry": "  {{rank}}. {{team}} — {{points}} pts (DG: {{goalDifference}})"
       },
       "seasonPreview": {
         "headline0": "Previa de Temporada: {{teamCount}} Equipos Luchan por la Gloria",

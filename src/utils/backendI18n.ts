@@ -101,6 +101,100 @@ type TransferRoundupDealParam = {
   fee: string;
 };
 
+type MatchReportScorerParam = {
+  player: string;
+  minute: string | number;
+  team: string;
+};
+
+type StandingsEntryParam = {
+  rank: number;
+  team: string;
+  points: string | number;
+  goal_difference?: string;
+  goalDifference?: string;
+};
+
+function normalizeStandingsParams(
+  article: NewsArticle,
+  params?: Record<string, string>,
+): Record<string, string> | undefined {
+  if (article.body_key !== 'be.news.standings.body' || !params?.standingsData) {
+    return params;
+  }
+
+  try {
+    const entries = JSON.parse(params.standingsData) as StandingsEntryParam[];
+    return {
+      ...params,
+      standings: entries
+        .map((entry) =>
+          resolve(
+            'be.news.standings.entry',
+            `  ${entry.rank}. ${entry.team} — ${entry.points} pts (GD: ${entry.goal_difference ?? entry.goalDifference ?? ''})`,
+            {
+              rank: String(entry.rank),
+              team: entry.team,
+              points: String(entry.points),
+              goalDifference: String(entry.goal_difference ?? entry.goalDifference ?? ''),
+            },
+          ),
+        )
+        .join('\n'),
+    };
+  } catch {
+    return params;
+  }
+}
+
+function normalizeMatchReportParams(
+  article: NewsArticle,
+  params?: Record<string, string>,
+): Record<string, string> | undefined {
+  if (
+    article.body_key !== 'be.news.matchReport.reportFriendly.body' &&
+    article.body_key !== 'be.news.matchReport.reportPreseason.body'
+  ) {
+    return params;
+  }
+
+  if (!params?.scorersData) {
+    return params;
+  }
+
+  try {
+    const scorers = JSON.parse(params.scorersData) as MatchReportScorerParam[];
+
+    if (scorers.length === 0) {
+      return {
+        ...params,
+        scorersSection: '',
+      };
+    }
+
+    const scorersText = scorers
+      .map((scorer) =>
+        resolve('be.news.matchReport.scorer', `${scorer.player} (${scorer.minute}', ${scorer.team})`, {
+          player: scorer.player,
+          minute: String(scorer.minute),
+          team: scorer.team,
+        }),
+      )
+      .join(', ');
+
+    return {
+      ...params,
+      scorersSection: resolve(
+        'be.news.matchReport.scorersSection',
+        `\n\nGoals: ${scorersText}`,
+        { scorers: scorersText },
+      ),
+    };
+  } catch {
+    return params;
+  }
+}
+
 function normalizeTransferRoundupParams(
   article: NewsArticle,
   params?: Record<string, string>,
@@ -197,7 +291,13 @@ function resolveActionOption(
  * Resolve all translatable fields on a news article, returning a copy with resolved strings.
  */
 export function resolveNewsArticle(article: NewsArticle): NewsArticle {
-  const p = normalizeTransferRoundupParams(article, normalizeNewsParams(article));
+  const p = normalizeTransferRoundupParams(
+    article,
+    normalizeMatchReportParams(
+      article,
+      normalizeStandingsParams(article, normalizeNewsParams(article)),
+    ),
+  );
   return {
     ...article,
     i18n_params: p,

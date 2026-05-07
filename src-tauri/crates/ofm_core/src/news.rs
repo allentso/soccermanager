@@ -4,6 +4,7 @@ pub use match_report::match_report_article;
 use crate::season_awards::SeasonAwards;
 use domain::news::*;
 use rand::{Rng, RngExt};
+use serde::Serialize;
 use std::collections::HashMap;
 
 /// Helper to build a HashMap<String, String> from key-value pairs.
@@ -56,6 +57,29 @@ fn standings_lines(top_teams: &[(String, u32, i16)]) -> Vec<String> {
             )
         })
         .collect()
+}
+
+#[derive(Serialize)]
+struct StandingsLineParam<'a> {
+    rank: usize,
+    team: &'a str,
+    points: u32,
+    goal_difference: String,
+}
+
+fn standings_data(top_teams: &[(String, u32, i16)]) -> String {
+    let entries: Vec<StandingsLineParam<'_>> = top_teams
+        .iter()
+        .enumerate()
+        .map(|(idx, (name, points, goal_difference))| StandingsLineParam {
+            rank: idx + 1,
+            team: name,
+            points: *points,
+            goal_difference: goal_difference_text(*goal_difference),
+        })
+        .collect();
+
+    serde_json::to_string(&entries).unwrap_or_else(|_| "[]".to_string())
 }
 
 /// Generate a league roundup article summarising all matchday results.
@@ -148,6 +172,7 @@ pub fn standings_update_article(
     );
 
     let standings_text = standings_lines(top_teams);
+    let standings_data = standings_data(top_teams);
 
     for line in &standings_text {
         body.push_str(&format!("\n{}", line));
@@ -184,6 +209,7 @@ pub fn standings_update_article(
             ("matchday", &matchday.to_string()),
             ("leader", leader),
             ("standings", &standings_text.join("\n")),
+            ("standingsData", &standings_data),
         ]),
     )
 }
@@ -996,6 +1022,10 @@ mod tests {
             article.i18n_params.get("standings"),
             Some(&"  1. Alpha FC — 12 pts (GD: +5)\n  2. Beta FC — 10 pts (GD: +0)\n  3. Gamma FC — 9 pts (GD: -3)".to_string())
         );
+        assert_eq!(
+            article.i18n_params.get("standingsData"),
+            Some(&"[{\"rank\":1,\"team\":\"Alpha FC\",\"points\":12,\"goal_difference\":\"+5\"},{\"rank\":2,\"team\":\"Beta FC\",\"points\":10,\"goal_difference\":\"+0\"},{\"rank\":3,\"team\":\"Gamma FC\",\"points\":9,\"goal_difference\":\"-3\"}]".to_string())
+        );
     }
 
     #[test]
@@ -1012,6 +1042,7 @@ mod tests {
             Some(&"Unknown".to_string())
         );
         assert_eq!(article.i18n_params.get("standings"), Some(&String::new()));
+        assert_eq!(article.i18n_params.get("standingsData"), Some(&"[]".to_string()));
     }
 
     #[test]

@@ -2087,13 +2087,15 @@
         "body0.noScorers": "Nella giornata {{matchday}}, la partita si è chiusa sul {{home}} {{homeGoals}} - {{awayGoals}} {{away}}. Il risultato potrebbe avere implicazioni sulla classifica con il proseguire della stagione.",
         "body1.noScorers": "La partita si è conclusa {{home}} {{homeGoals}} - {{awayGoals}} {{away}} in una sfida della giornata {{matchday}}. Entrambe le squadre hanno dato tutto in un confronto avvincente.",
         "body2.noScorers": "La giornata {{matchday}} ha regalato un'altra sfida emozionante tra {{home}} e {{away}} ({{homeGoals}}-{{awayGoals}}). I tifosi hanno assistito a una partita competitiva.",
+        "scorer": "{{player}} ({{minute}}', {{team}})",
+        "scorersSection": "\n\nGol: {{scorers}}",
         "reportFriendly": {
           "title": "{{home}} {{homeGoals}} - {{awayGoals}} {{away}}: resoconto amichevole",
-          "body": "Nell'amichevole, {{result}}. Entrambe le squadre hanno sfruttato la gara per mettere minuti nelle gambe prima dell'inizio della stagione ufficiale.{{scorers}}"
+          "body": "Nell'amichevole, {{home}} {{homeGoals}} - {{awayGoals}} {{away}}. Entrambe le squadre hanno sfruttato la gara per mettere minuti nelle gambe prima dell'inizio della stagione ufficiale.{{scorersSection}}"
         },
         "reportPreseason": {
           "title": "{{home}} {{homeGoals}} - {{awayGoals}} {{away}}: resoconto del torneo precampionato",
-          "body": "Nel torneo precampionato, {{result}}. Entrambe le squadre hanno sfruttato la gara per mettere minuti nelle gambe prima dell'inizio della stagione ufficiale.{{scorers}}"
+          "body": "Nel torneo precampionato, {{home}} {{homeGoals}} - {{awayGoals}} {{away}}. Entrambe le squadre hanno sfruttato la gara per mettere minuti nelle gambe prima dell'inizio della stagione ufficiale.{{scorersSection}}"
         }
       },
       "roundup": {
@@ -2106,7 +2108,8 @@
         "headline0": "{{leader}} detta il passo dopo la giornata {{matchday}}",
         "headline1": "Classifica Premier Division: {{leader}} in vetta",
         "headline2": "Aggiornamento classifica — giornata {{matchday}}",
-        "body": "Dopo la giornata {{matchday}}, {{leader}} è al comando della classifica della Premier Division.\n\nClassifica:\n{{standings}}"
+        "body": "Dopo la giornata {{matchday}}, {{leader}} è al comando della classifica della Premier Division.\n\nClassifica:\n{{standings}}",
+        "entry": "  {{rank}}. {{team}} — {{points}} pt (DR: {{goalDifference}})"
       },
       "seasonPreview": {
         "headline0": "Anteprima stagione: {{teamCount}} squadre in corsa per la gloria",

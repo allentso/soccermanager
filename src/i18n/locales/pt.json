@@ -2087,13 +2087,15 @@
         "body0.noScorers": "Na acção da Jornada {{matchday}}, o jogo terminou {{home}} {{homeGoals}} - {{awayGoals}} {{away}}. O resultado poderá ter implicações na classificação à medida que a época avança.",
         "body1.noScorers": "O jogo terminou {{home}} {{homeGoals}} - {{awayGoals}} {{away}} num confronto da Jornada {{matchday}}. Ambas as equipas deram tudo num encontro envolvente.",
         "body2.noScorers": "A Jornada {{matchday}} trouxe mais um encontro emocionante entre {{home}} e {{away}} ({{homeGoals}}-{{awayGoals}}). Os adeptos assistiram a um jogo competitivo.",
+        "scorer": "{{player}} ({{minute}}', {{team}})",
+        "scorersSection": "\n\nGolos: {{scorers}}",
         "reportFriendly": {
           "title": "{{home}} {{homeGoals}} - {{awayGoals}} {{away}}: resumo do amigável",
-          "body": "No amigável, {{result}}. Ambas as equipas usaram o jogo para ganhar ritmo antes do arranque oficial da época.{{scorers}}"
+          "body": "No amigável, {{home}} {{homeGoals}} - {{awayGoals}} {{away}}. Ambas as equipas usaram o jogo para ganhar ritmo antes do arranque oficial da época.{{scorersSection}}"
         },
         "reportPreseason": {
           "title": "{{home}} {{homeGoals}} - {{awayGoals}} {{away}}: resumo do torneio de pré-época",
-          "body": "No torneio de pré-época, {{result}}. Ambas as equipas usaram o jogo para ganhar ritmo antes do arranque oficial da época.{{scorers}}"
+          "body": "No torneio de pré-época, {{home}} {{homeGoals}} - {{awayGoals}} {{away}}. Ambas as equipas usaram o jogo para ganhar ritmo antes do arranque oficial da época.{{scorersSection}}"
         }
       },
       "roundup": {
@@ -2106,7 +2108,8 @@
         "headline0": "{{leader}} Lidera Após a Jornada {{matchday}}",
         "headline1": "Tabela da Primeira Divisão: {{leader}} no Topo",
         "headline2": "Actualização da Classificação — Jornada {{matchday}}",
-        "body": "Após a Jornada {{matchday}}, o {{leader}} está no topo da tabela da Primeira Divisão.\n\nClassificação:\n{{standings}}"
+        "body": "Após a Jornada {{matchday}}, o {{leader}} está no topo da tabela da Primeira Divisão.\n\nClassificação:\n{{standings}}",
+        "entry": "  {{rank}}. {{team}} — {{points}} pts (DG: {{goalDifference}})"
       },
       "seasonPreview": {
         "headline0": "Antevisão da Época: {{teamCount}} Equipas Lutam pela Glória",

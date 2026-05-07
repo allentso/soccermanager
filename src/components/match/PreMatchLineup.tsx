@@ -315,7 +315,7 @@ export default function PreMatchLineup({
                         {
                           label: isSelected
                             ? t("match.cancel")
-                              : t("match.selectForSwap"),
+                            : t("match.selectForSwap"),
                           onClick: () => onSelectStarter(isSelected ? null : p.id),
                         },
                       ]}

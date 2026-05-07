@@ -2083,13 +2083,15 @@
         "body0.noScorers": "在第{{matchday}}轮的比赛中,最终比分为{{home}} {{homeGoals}} - {{awayGoals}} {{away}}。随着赛季推进,这一结果可能对联赛积分榜产生影响。",
         "body1.noScorers": "第{{matchday}}轮的对决中,比赛最终以{{home}} {{homeGoals}} - {{awayGoals}} {{away}}结束。双方在精彩的较量中都倾尽全力。",
         "body2.noScorers": "第{{matchday}}轮再现精彩对决,{{home}}迎战{{away}}({{homeGoals}}-{{awayGoals}})。球迷们享受了一场势均力敌的比赛。",
+        "scorer": "{{player}}（{{team}}，{{minute}}'）",
+        "scorersSection": "\n\n进球:{{scorers}}",
         "reportFriendly": {
           "title": "{{home}} {{homeGoals}} - {{awayGoals}} {{away}}: 友谊赛战报",
-          "body": "在友谊赛中,{{result}}。双方都把这场比赛当作正式赛季开始前的热身机会。{{scorers}}"
+          "body": "在友谊赛中,{{home}} {{homeGoals}} - {{awayGoals}} {{away}}。双方都把这场比赛当作正式赛季开始前的热身机会。{{scorersSection}}"
         },
         "reportPreseason": {
           "title": "{{home}} {{homeGoals}} - {{awayGoals}} {{away}}: 季前锦标赛战报",
-          "body": "在季前锦标赛中,{{result}}。双方都把这场比赛当作正式赛季开始前的热身机会。{{scorers}}"
+          "body": "在季前锦标赛中,{{home}} {{homeGoals}} - {{awayGoals}} {{away}}。双方都把这场比赛当作正式赛季开始前的热身机会。{{scorersSection}}"
         }
       },
       "roundup": {
@@ -2102,7 +2104,8 @@
         "headline0": "第{{matchday}}轮过后{{leader}}高居榜首",
         "headline1": "超级联赛积分榜:{{leader}}领跑",
         "headline2": "积分榜更新——第{{matchday}}轮",
-        "body": "第{{matchday}}轮过后,{{leader}}位居超级联赛积分榜首位。\n\n积分榜:\n{{standings}}"
+        "body": "第{{matchday}}轮过后,{{leader}}位居超级联赛积分榜首位。\n\n积分榜:\n{{standings}}",
+        "entry": "  {{rank}}. {{team}} — {{points}}分（净胜球：{{goalDifference}}）"
       },
       "seasonPreview": {
         "headline0": "赛季前瞻:{{teamCount}}支球队角逐荣耀",
