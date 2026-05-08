@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import i18n from "../i18n";
+import i18n, { i18nReady } from "../i18n";
 import {
   resolveBackendText,
   resolveBackendError,
@@ -20,8 +20,7 @@ import type {
 // ---------------------------------------------------------------------------
 
 beforeAll(async () => {
-  // Ensure i18n is initialized (it auto-inits on import) then add test keys
-  await i18n.init; // no-op if already initialised
+  await i18nReady;
   i18n.addResourceBundle("en", "translation", {
     "test.subject": "Resolved Subject",
     "test.body": "Hello {{name}}, welcome!",

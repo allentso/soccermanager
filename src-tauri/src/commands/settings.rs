@@ -80,7 +80,7 @@ pub fn clear_all_saves(sm_state: tauri::State<crate::SaveManagerState>) -> Resul
         .0
         .lock()
         .map_err(|e| format!("Lock error: {}", e))?;
-    let save_ids: Vec<String> = sm.list_saves().iter().map(|s| s.id.clone()).collect();
+    let save_ids: Vec<String> = sm.load_saves()?.into_iter().map(|s| s.id).collect();
     for id in save_ids {
         sm.delete_save(&id)?;
     }

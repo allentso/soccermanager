@@ -26,7 +26,7 @@ pub struct SaveManager {
 }
 
 impl SaveManager {
-    /// Initialize the SaveManager, loading or rebuilding the save index.
+    /// Initialize the SaveManager without blocking startup on a missing save index.
     pub fn init(saves_dir: &Path) -> Result<Self, String> {
         fs::create_dir_all(saves_dir)
             .map_err(|e| format!("Failed to create saves directory: {}", e))?;
@@ -38,14 +38,25 @@ impl SaveManager {
         })
     }
 
+    fn ensure_save_index_ready(&mut self) -> Result<(), String> {
+        self.save_index.ensure_loaded()
+    }
+
     /// List all save entries.
     pub fn list_saves(&self) -> &[SaveEntry] {
         self.save_index.list_saves()
     }
 
+    pub fn load_saves(&mut self) -> Result<Vec<SaveEntry>, String> {
+        self.ensure_save_index_ready()?;
+        Ok(self.save_index.list_saves().to_vec())
+    }
+
     /// Create a new save from the current in-memory Game state.
     /// Returns the save_id.
     pub fn create_save(&mut self, game: &Game, save_name: &str) -> Result<String, String> {
+        self.ensure_save_index_ready()?;
+
         let save_id = uuid::Uuid::new_v4().to_string();
         let db_filename = format!("{}.db", save_id);
         let db_path = self.saves_dir.join(&db_filename);
@@ -81,6 +92,8 @@ impl SaveManager {
 
     /// Save the current Game state to an existing save.
     pub fn save_game(&mut self, game: &Game, save_id: &str) -> Result<(), String> {
+        self.ensure_save_index_ready()?;
+
         let entry = self
             .save_index
             .find(save_id)
@@ -117,6 +130,8 @@ impl SaveManager {
     }
 
     pub fn save_stats_state(&mut self, stats: &StatsState, save_id: &str) -> Result<(), String> {
+        self.ensure_save_index_ready()?;
+
         let entry = self
             .save_index
             .find(save_id)
@@ -144,6 +159,8 @@ impl SaveManager {
     }
 
     pub fn load_stats_state(&mut self, save_id: &str) -> Result<StatsState, String> {
+        self.ensure_save_index_ready()?;
+
         let entry = self
             .save_index
             .find(save_id)
@@ -157,6 +174,8 @@ impl SaveManager {
 
     /// Load a Game from a save database.
     pub fn load_game(&mut self, save_id: &str) -> Result<Game, String> {
+        self.ensure_save_index_ready()?;
+
         let entry = self
             .save_index
             .find(save_id)
@@ -286,6 +305,8 @@ impl SaveManager {
 
     /// Delete a save (removes DB file and index entry).
     pub fn delete_save(&mut self, save_id: &str) -> Result<bool, String> {
+        self.ensure_save_index_ready()?;
+
         let entry = match self.save_index.find(save_id) {
             Some(e) => e.clone(),
             None => return Ok(false),
@@ -832,6 +853,32 @@ mod tests {
         let sm = SaveManager::init(&saves_dir).unwrap();
         assert!(saves_dir.exists());
         assert!(sm.list_saves().is_empty());
+    }
+
+    #[test]
+    fn test_missing_index_rebuilds_lazily_on_first_save_query() {
+        let dir = tempfile::tempdir().unwrap();
+        let saves_dir = dir.path().join("saves");
+        let index_path = saves_dir.join("save_index.json");
+
+        {
+            let mut sm = SaveManager::init(&saves_dir).unwrap();
+            let game = sample_game();
+            sm.create_save(&game, "Deferred Index Career").unwrap();
+        }
+
+        assert!(index_path.exists());
+        fs::remove_file(&index_path).unwrap();
+        assert!(!index_path.exists());
+
+        let mut sm = SaveManager::init(&saves_dir).unwrap();
+        assert!(sm.list_saves().is_empty());
+        assert!(!index_path.exists());
+
+        let saves = sm.load_saves().unwrap();
+        assert_eq!(saves.len(), 1);
+        assert_eq!(saves[0].name, "Deferred Index Career");
+        assert!(index_path.exists());
     }
 
     #[test]

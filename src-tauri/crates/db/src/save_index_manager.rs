@@ -1,33 +1,65 @@
 use log::{info, warn};
 use std::path::{Path, PathBuf};
 
-use crate::save_index::{self, SaveEntry, SaveIndex, load_or_rebuild_index, write_index};
+use crate::save_index::{self, SaveEntry, SaveIndex, load_index, rebuild_index, write_index};
 
 pub struct SaveIndexManager {
+    saves_dir: PathBuf,
     index_path: PathBuf,
     index: SaveIndex,
+    index_needs_rebuild: bool,
 }
 
 impl SaveIndexManager {
     pub fn init(saves_dir: &Path) -> Result<Self, String> {
         let index_path = saves_dir.join("save_index.json");
-        let (index, validations) = load_or_rebuild_index(&index_path, saves_dir)?;
-
-        for validation in &validations {
-            if let save_index::DbValidation::Invalid { filename, reason } = validation {
-                warn!(
-                    "[save_manager] invalid database during init: {} — {}",
-                    filename, reason
+        let (index, index_needs_rebuild) = match load_index(&index_path)? {
+            Some(index) => (index, false),
+            None => {
+                info!(
+                    "[save_manager] save index missing, deferring rebuild until needed"
                 );
+                (SaveIndex::new(), true)
             }
-        }
+        };
 
         info!(
             "[save_manager] initialized with {} saves",
             index.saves.len()
         );
 
-        Ok(Self { index_path, index })
+        Ok(Self {
+            saves_dir: saves_dir.to_path_buf(),
+            index_path,
+            index,
+            index_needs_rebuild,
+        })
+    }
+
+    pub fn ensure_loaded(&mut self) -> Result<(), String> {
+        if !self.index_needs_rebuild {
+            return Ok(());
+        }
+
+        let (index, validations) = rebuild_index(&self.saves_dir)?;
+
+        for validation in &validations {
+            if let save_index::DbValidation::Invalid { filename, reason } = validation {
+                warn!(
+                    "[save_manager] invalid database during deferred rebuild: {} — {}",
+                    filename, reason
+                );
+            }
+        }
+
+        write_index(&self.index_path, &index)?;
+        self.index = index;
+        self.index_needs_rebuild = false;
+        info!(
+            "[save_manager] deferred save index rebuild loaded {} saves",
+            self.index.saves.len()
+        );
+        Ok(())
     }
 
     pub fn list_saves(&self) -> &[SaveEntry] {

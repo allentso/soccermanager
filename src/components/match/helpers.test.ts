@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { beforeAll, describe, it, expect } from "vitest";
 import {
   getPlayerName,
   phaseLabel,
@@ -6,7 +6,7 @@ import {
   getEventDisplay,
   resolveMatchFixture,
 } from "./helpers";
-import i18n from "../../i18n";
+import i18n, { i18nReady } from "../../i18n";
 import { getTeamTalkOptions } from "./types";
 import type { MatchSnapshot, EnginePlayerData, EngineTeamData } from "./types";
 import type { GameStateData } from "../../store/gameStore";
@@ -63,6 +63,10 @@ const makeSnapshot = (overrides: Partial<MatchSnapshot> = {}): MatchSnapshot => 
   away_yellows: {},
   sent_off: [],
   ...overrides,
+});
+
+beforeAll(async () => {
+  await i18nReady;
 });
 
 // ---------------------------------------------------------------------------

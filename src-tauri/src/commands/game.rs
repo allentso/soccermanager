@@ -171,11 +171,11 @@ pub async fn select_team(
 #[tauri::command]
 pub async fn get_saves(sm_state: State<'_, SaveManagerState>) -> Result<Vec<SaveEntry>, String> {
     log::debug!("[cmd] get_saves");
-    let sm = sm_state
+    let mut sm = sm_state
         .0
         .lock()
         .map_err(|e| format!("Lock error: {}", e))?;
-    Ok(sm.list_saves().to_vec())
+    sm.load_saves()
 }
 
 #[tauri::command]
