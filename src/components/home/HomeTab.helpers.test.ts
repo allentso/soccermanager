@@ -317,18 +317,21 @@ describe("HomeTab.helpers", function (): void {
         full_name: "Hot Player",
         morale: 90,
         condition: 88,
+        ovr: 72,
       }),
       createPlayer({
         id: "player-cold",
         full_name: "Cold Player",
         morale: 35,
         condition: 32,
+        ovr: 58,
       }),
       createPlayer({
         id: "player-injured",
         full_name: "Injured Player",
         morale: 75,
         condition: 64,
+        ovr: 64,
         injury: {
           name: "Hamstring",
           days_remaining: 14,

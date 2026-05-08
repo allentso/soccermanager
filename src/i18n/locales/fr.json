@@ -1311,6 +1311,40 @@
     "ht": "MT",
     "fullTime": "Temps Plein",
     "ft": "TP",
+    "phases": {
+      "PreKickOff": "Avant-match",
+      "FirstHalf": "1re Mi-temps",
+      "HalfTime": "Mi-Temps",
+      "SecondHalf": "2e Mi-temps",
+      "FullTime": "Temps Plein",
+      "ExtraTimeFirstHalf": "1re Période Prol.",
+      "ExtraTimeHalfTime": "Pause Prol.",
+      "ExtraTimeSecondHalf": "2e Période Prol.",
+      "ExtraTimeEnd": "Fin des Prol.",
+      "PenaltyShootout": "Tirs au But",
+      "Finished": "Final"
+    },
+    "eventTypes": {
+      "Goal": "But",
+      "PenaltyGoal": "But sur Penalty",
+      "PenaltyMiss": "Penalty Manqué",
+      "YellowCard": "Carton Jaune",
+      "RedCard": "Carton Rouge",
+      "SecondYellow": "Deuxième Jaune",
+      "Substitution": "Remplacement",
+      "Injury": "Blessure",
+      "KickOff": "Coup d'Envoi",
+      "HalfTime": "Mi-Temps",
+      "SecondHalfStart": "Début de la 2e Mi-temps",
+      "FullTime": "Temps Plein",
+      "ShotSaved": "Arrêt",
+      "ShotOffTarget": "Tir non cadré",
+      "ShotBlocked": "Tir contré",
+      "Corner": "Corner",
+      "FreeKick": "Coup franc",
+      "Foul": "Faute",
+      "PenaltyAwarded": "Penalty accordé"
+    },
     "firstHalfEvents": "Événements de la 1ère Mi-Temps",
     "noMajorEvents": "Pas d'événements majeurs.",
     "teamTalk": "Causerie",
@@ -1680,6 +1714,7 @@
       "scout": "Recruteur"
     },
     "source": {
+      "sportsDaily": "Quotidien Sportif",
       "sportsGazette": "Gazette Sportive",
       "footballHerald": "Le Héraut du Football",
       "playersUnder21": "{{count}} joueurs du centre",
@@ -2103,6 +2138,14 @@
       }
     },
     "news": {
+      "pressConference": {
+        "headlineManagerQuote": "Entraîneur de {{team}} : {{quote}}",
+        "headlinePressConf": "Conférence de Presse : \"{{quote}}\" — entraîneur de {{team}}",
+        "headlinePostMatch": "Après-Match : {{team}} sur {{result}}",
+        "bodyMultiple": "Après le résultat {{result}}, l'entraîneur de {{team}} a pris la parole face à la presse.\n\n{{quotes}}\n\nLa conférence a abordé le résultat, l'approche tactique et la suite pour l'équipe.",
+        "bodySingle": "L'entraîneur de {{team}} s'est exprimé brièvement après le résultat {{result}}.\n\n\"{{quote}}\"",
+        "bodyNone": "L'entraîneur de {{team}} a décliné de s'exprimer longuement après le résultat {{result}}."
+      },
       "matchReport": {
         "headline": {
           "homeWin": {

@@ -1311,6 +1311,40 @@
     "ht": "HT",
     "fullTime": "Full Time",
     "ft": "FT",
+    "phases": {
+      "PreKickOff": "Pre-Match",
+      "FirstHalf": "1st Half",
+      "HalfTime": "Half Time",
+      "SecondHalf": "2nd Half",
+      "FullTime": "Full Time",
+      "ExtraTimeFirstHalf": "ET 1st Half",
+      "ExtraTimeHalfTime": "ET Half Time",
+      "ExtraTimeSecondHalf": "ET 2nd Half",
+      "ExtraTimeEnd": "ET End",
+      "PenaltyShootout": "Penalties",
+      "Finished": "Final"
+    },
+    "eventTypes": {
+      "Goal": "Goal",
+      "PenaltyGoal": "Penalty Goal",
+      "PenaltyMiss": "Penalty Miss",
+      "YellowCard": "Yellow Card",
+      "RedCard": "Red Card",
+      "SecondYellow": "Second Yellow",
+      "Substitution": "Substitution",
+      "Injury": "Injury",
+      "KickOff": "Kick-Off",
+      "HalfTime": "Half Time",
+      "SecondHalfStart": "2nd Half Start",
+      "FullTime": "Full Time",
+      "ShotSaved": "Shot Saved",
+      "ShotOffTarget": "Shot Off Target",
+      "ShotBlocked": "Shot Blocked",
+      "Corner": "Corner",
+      "FreeKick": "Free Kick",
+      "Foul": "Foul",
+      "PenaltyAwarded": "Penalty Awarded"
+    },
     "firstHalfEvents": "First Half Events",
     "noMajorEvents": "No major events.",
     "teamTalk": "Team Talk",
@@ -1680,6 +1714,7 @@
       "scout": "Scout"
     },
     "source": {
+      "sportsDaily": "Sports Daily",
       "sportsGazette": "Sports Gazette",
       "footballHerald": "The Football Herald",
       "matchDayPress": "Match Day Press",
@@ -2099,6 +2134,14 @@
       }
     },
     "news": {
+      "pressConference": {
+        "headlineManagerQuote": "{{team}} Manager: {{quote}}",
+        "headlinePressConf": "Press Conference: \"{{quote}}\" — {{team}} boss",
+        "headlinePostMatch": "Post-Match: {{team}} on {{result}}",
+        "bodyMultiple": "Speaking after the {{result}} result, the {{team}} manager addressed the press.\n\n{{quotes}}\n\nThe conference covered the result, tactical approach, and what lies ahead for the team.",
+        "bodySingle": "The {{team}} manager spoke briefly after the {{result}} result.\n\n\"{{quote}}\"",
+        "bodyNone": "The {{team}} manager declined to speak at length after the {{result}} result."
+      },
       "matchReport": {
         "headline": {
           "homeWin": {

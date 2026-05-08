@@ -2,8 +2,8 @@ import { beforeAll, describe, it, expect } from "vitest";
 import {
   getPlayerName,
   phaseLabel,
-  calcOvr,
   getEventDisplay,
+  getEventTypeLabel,
   resolveMatchFixture,
 } from "./helpers";
 import i18n, { i18nReady } from "../../i18n";
@@ -141,7 +141,9 @@ describe("resolveMatchFixture", () => {
 // ---------------------------------------------------------------------------
 
 describe("phaseLabel", () => {
-  it("maps all known phases", () => {
+  it("maps all known phases in english", async () => {
+    await i18n.changeLanguage("en");
+
     expect(phaseLabel("PreKickOff")).toBe("Pre-Match");
     expect(phaseLabel("FirstHalf")).toBe("1st Half");
     expect(phaseLabel("HalfTime")).toBe("Half Time");
@@ -155,26 +157,18 @@ describe("phaseLabel", () => {
     expect(phaseLabel("Finished")).toBe("Final");
   });
 
+  it("returns translated phase labels for pt-BR", async () => {
+    await i18n.changeLanguage("pt-BR");
+
+    const t = i18n.t.bind(i18n);
+
+    expect(phaseLabel("FirstHalf", t)).toBe("1º Tempo");
+    expect(phaseLabel("SecondHalf", t)).toBe("2º Tempo");
+    expect(phaseLabel("PenaltyShootout", t)).toBe("Pênaltis");
+  });
+
   it("returns the input for unknown phases", () => {
     expect(phaseLabel("SomeOtherPhase")).toBe("SomeOtherPhase");
-  });
-});
-
-// ---------------------------------------------------------------------------
-// calcOvr (match version — averages all attrs)
-// ---------------------------------------------------------------------------
-
-describe("calcOvr (match)", () => {
-  it("averages all attribute values", () => {
-    expect(calcOvr({ pace: 80, shooting: 60, passing: 70 })).toBe(70);
-  });
-
-  it("rounds to nearest integer", () => {
-    expect(calcOvr({ pace: 71, shooting: 72 })).toBe(72); // 143/2 = 71.5 → 72
-  });
-
-  it("returns 0 for empty attributes", () => {
-    expect(calcOvr({})).toBe(0);
   });
 });
 
@@ -205,6 +199,24 @@ describe("getEventDisplay", () => {
     const display = getEventDisplay({ minute: 1, event_type: "UnknownEvent", side: "Home", zone: "Midfield", player_id: null, secondary_player_id: null });
     expect(display.color).toBe("text-gray-700 dark:text-gray-400");
     expect(display.important).toBe(false);
+  });
+});
+
+describe("getEventTypeLabel", () => {
+  it("returns translated event labels for pt-BR", async () => {
+    await i18n.changeLanguage("pt-BR");
+
+    const t = i18n.t.bind(i18n);
+
+    expect(getEventTypeLabel("Goal", t)).toBe("Gol");
+    expect(getEventTypeLabel("SecondHalfStart", t)).toBe("Início do 2º Tempo");
+    expect(getEventTypeLabel("PenaltyAwarded", t)).toBe("Pênalti Marcado");
+  });
+
+  it("falls back to a humanized label for unknown events", async () => {
+    await i18n.changeLanguage("en");
+
+    expect(getEventTypeLabel("UnknownEvent")).toBe("Unknown Event");
   });
 });
 

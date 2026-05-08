@@ -495,6 +495,50 @@ describe("resolveNewsArticle", () => {
     }
   });
 
+  it("localizes press conference articles from stored quote metadata", async () => {
+    const previousLanguage = i18n.language;
+    await i18n.changeLanguage("pt-BR");
+
+    try {
+      const article = makeNewsArticle({
+        headline: 'Press Conference: "The players worked hard. We prepared well and executed the game plan." — Madrid Real boss',
+        headline_key: 'be.news.pressConference.headlinePressConf',
+        body: 'Speaking after the Madrid Real 7 - 1 Rome Gladiators result, the Madrid Real manager addressed the press.\n\n• "The players worked hard. We prepared well and executed the game plan."\n• "First recovery, then preparation. We go one game at a time."\n\nThe conference covered the result, tactical approach, and what lies ahead for the team.',
+        body_key: 'be.news.pressConference.bodyMultiple',
+        source: 'Sports Daily',
+        source_key: 'be.source.sportsDaily',
+        i18n_params: {
+          team: 'Madrid Real',
+          result: 'Madrid Real 7 - 1 Rome Gladiators',
+          quotesData: JSON.stringify([
+            {
+              key: 'match.press.result.responses.win.humble.text',
+              fallback: 'The players worked hard. We prepared well and executed the game plan.',
+              params: {},
+            },
+            {
+              key: 'match.press.ahead.responses.focused.text',
+              fallback: 'First recovery, then preparation. We go one game at a time.',
+              params: {},
+            },
+          ]),
+        },
+      });
+
+      const result = resolveNewsArticle(article);
+
+      expect(result.headline).toBe(
+        'Coletiva de Imprensa: "Os jogadores trabalharam duro. Nos preparamos bem e executamos o plano de jogo." — técnico do Madrid Real',
+      );
+      expect(result.body).toContain('Após o resultado Madrid Real 7 - 1 Rome Gladiators, o técnico do Madrid Real falou com a imprensa.');
+      expect(result.body).toContain('• "Os jogadores trabalharam duro. Nos preparamos bem e executamos o plano de jogo."');
+      expect(result.body).toContain('• "Primeiro recuperação, depois preparação. Vamos jogo a jogo."');
+      expect(result.source).toBe('Diário Esportivo');
+    } finally {
+      await i18n.changeLanguage(previousLanguage);
+    }
+  });
+
   it("localizes standings entries through backend keys", async () => {
     const previousLanguage = i18n.language;
     await i18n.changeLanguage("pt-BR");

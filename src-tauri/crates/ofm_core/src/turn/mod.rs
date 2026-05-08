@@ -228,7 +228,10 @@ mod tests {
 
         finish_live_match_day(&mut game);
 
-        assert_eq!(game.teams[0].finance, initial_finance - ((52_000 + 10_400) / 52));
+        assert_eq!(
+            game.teams[0].finance,
+            initial_finance - ((52_000 + 10_400) / 52)
+        );
     }
 }
 
@@ -274,6 +277,7 @@ fn build_engine_team(game: &Game, team_id: &str) -> engine::TeamData {
                 id: p.id.clone(),
                 name: p.match_name.clone(),
                 position: pos,
+                ovr: p.ovr,
                 condition: p.condition,
                 fitness: p.fitness,
                 pace: p.attributes.pace,

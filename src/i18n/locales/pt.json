@@ -1311,6 +1311,40 @@
     "ht": "INT",
     "fullTime": "Tempo Completo",
     "ft": "TC",
+    "phases": {
+      "PreKickOff": "Pré-jogo",
+      "FirstHalf": "1.ª Parte",
+      "HalfTime": "Intervalo",
+      "SecondHalf": "2.ª Parte",
+      "FullTime": "Tempo Completo",
+      "ExtraTimeFirstHalf": "1.ª Parte do Prolongamento",
+      "ExtraTimeHalfTime": "Intervalo do Prolongamento",
+      "ExtraTimeSecondHalf": "2.ª Parte do Prolongamento",
+      "ExtraTimeEnd": "Fim do Prolongamento",
+      "PenaltyShootout": "Penáltis",
+      "Finished": "Final"
+    },
+    "eventTypes": {
+      "Goal": "Golo",
+      "PenaltyGoal": "Golo de Penálti",
+      "PenaltyMiss": "Penálti Falhado",
+      "YellowCard": "Cartão Amarelo",
+      "RedCard": "Cartão Vermelho",
+      "SecondYellow": "Segundo Amarelo",
+      "Substitution": "Substituição",
+      "Injury": "Lesão",
+      "KickOff": "Pontapé de Saída",
+      "HalfTime": "Intervalo",
+      "SecondHalfStart": "Início da 2.ª Parte",
+      "FullTime": "Tempo Completo",
+      "ShotSaved": "Defesa",
+      "ShotOffTarget": "Remate ao Lado",
+      "ShotBlocked": "Remate Bloqueado",
+      "Corner": "Canto",
+      "FreeKick": "Livre",
+      "Foul": "Falta",
+      "PenaltyAwarded": "Penálti Assinalado"
+    },
     "firstHalfEvents": "Eventos da 1ª Parte",
     "noMajorEvents": "Sem eventos importantes.",
     "teamTalk": "Palestra",
@@ -1680,6 +1714,7 @@
       "scout": "Olheiro"
     },
     "source": {
+      "sportsDaily": "Diário Desportivo",
       "sportsGazette": "Gazeta Desportiva",
       "footballHerald": "O Arauto do Futebol",
       "playersUnder21": "{{count}} jogadores na academia",
@@ -2103,6 +2138,14 @@
       }
     },
     "news": {
+      "pressConference": {
+        "headlineManagerQuote": "{{team}} Treinador: {{quote}}",
+        "headlinePressConf": "Conferência de Imprensa: \"{{quote}}\" — treinador do {{team}}",
+        "headlinePostMatch": "Pós-Jogo: {{team}} sobre {{result}}",
+        "bodyMultiple": "Após o resultado {{result}}, o treinador do {{team}} falou com a imprensa.\n\n{{quotes}}\n\nA conferência abordou o resultado, a abordagem tática e o que se segue para a equipa.",
+        "bodySingle": "O treinador do {{team}} falou brevemente após o resultado {{result}}.\n\n\"{{quote}}\"",
+        "bodyNone": "O treinador do {{team}} recusou falar longamente após o resultado {{result}}."
+      },
       "matchReport": {
         "headline": {
           "homeWin": {

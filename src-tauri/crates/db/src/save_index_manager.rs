@@ -16,9 +16,7 @@ impl SaveIndexManager {
         let (index, index_needs_rebuild) = match load_index(&index_path)? {
             Some(index) => (index, false),
             None => {
-                info!(
-                    "[save_manager] save index missing, deferring rebuild until needed"
-                );
+                info!("[save_manager] save index missing, deferring rebuild until needed");
                 (SaveIndex::new(), true)
             }
         };

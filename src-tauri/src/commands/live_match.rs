@@ -1,5 +1,7 @@
 use log::info;
 use rand::RngExt;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use tauri::State;
 
 pub use crate::application::live_match::FinishLiveMatchResponse;
@@ -12,6 +14,30 @@ use crate::application::live_match::{
 use crate::application::team_talk::apply_team_talk as apply_team_talk_service;
 use ofm_core::game::Game;
 use ofm_core::state::StateManager;
+
+#[derive(Debug, Deserialize)]
+pub struct PressConferenceAnswer {
+    question_id: String,
+    response_id: String,
+    response_tone: String,
+    response_text: String,
+    #[serde(default)]
+    response_text_key: String,
+    #[serde(default)]
+    response_text_params: HashMap<String, String>,
+    question_text: String,
+    #[serde(default)]
+    player_id: String,
+}
+
+#[derive(Debug, Serialize)]
+struct LocalizedPressQuote {
+    #[serde(skip_serializing_if = "String::is_empty")]
+    key: String,
+    fallback: String,
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    params: HashMap<String, String>,
+}
 
 // ---------------------------------------------------------------------------
 // Live Match Commands
@@ -95,11 +121,10 @@ pub fn apply_team_talk(
 }
 
 /// Process press conference answers: generate news article, affect squad morale.
-/// answers: array of { question_id, response_id, response_tone, response_text, question_text }
 #[tauri::command]
 pub fn submit_press_conference(
     state: State<'_, StateManager>,
-    answers: Vec<serde_json::Value>,
+    answers: Vec<PressConferenceAnswer>,
     home_team: String,
     away_team: String,
     home_score: u8,
@@ -122,32 +147,30 @@ pub fn submit_press_conference(
 
     // Build news article from press conference answers
     let mut quotes: Vec<String> = Vec::new();
+    let mut localized_quotes: Vec<LocalizedPressQuote> = Vec::new();
     let mut morale_delta: i16 = 0;
     let mut mentioned_player_ids: Vec<String> = Vec::new();
 
     for answer in &answers {
-        let tone = answer
-            .get("response_tone")
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
-        let text = answer
-            .get("response_text")
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
-        let qid = answer
-            .get("question_id")
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
+        let tone = answer.response_tone.as_str();
+        let text = answer.response_text.as_str();
+        let qid = answer.question_id.as_str();
+
+        let _ = &answer.response_id;
+        let _ = &answer.question_text;
 
         if !text.is_empty() {
             quotes.push(format!("\"{}\"", text));
+            localized_quotes.push(LocalizedPressQuote {
+                key: answer.response_text_key.clone(),
+                fallback: text.to_string(),
+                params: answer.response_text_params.clone(),
+            });
         }
 
         // Track player mentions
-        if let Some(pid) = answer.get("player_id").and_then(|v| v.as_str()) {
-            if !pid.is_empty() {
-                mentioned_player_ids.push(pid.to_string());
-            }
+        if !answer.player_id.is_empty() {
+            mentioned_player_ids.push(answer.player_id.clone());
         }
 
         // Morale effects based on tone
@@ -165,17 +188,15 @@ pub fn submit_press_conference(
 
         // Player-focused question effects
         if qid == "player_focus" {
-            if let Some(pid) = answer.get("player_id").and_then(|v| v.as_str()) {
-                if !pid.is_empty() {
-                    let player_delta: i16 = match tone {
-                        "Praise" => rng.random_range(4..=8),
-                        "Demanding" => rng.random_range(-3..=4),
-                        "Deflect" => rng.random_range(-2..=1),
-                        _ => rng.random_range(0..=3),
-                    };
-                    if let Some(p) = game.players.iter_mut().find(|p| p.id == pid) {
-                        p.morale = ((p.morale as i16) + player_delta).clamp(10, 100) as u8;
-                    }
+            if !answer.player_id.is_empty() {
+                let player_delta: i16 = match tone {
+                    "Praise" => rng.random_range(4..=8),
+                    "Demanding" => rng.random_range(-3..=4),
+                    "Deflect" => rng.random_range(-2..=1),
+                    _ => rng.random_range(0..=3),
+                };
+                if let Some(p) = game.players.iter_mut().find(|p| p.id == answer.player_id) {
+                    p.morale = ((p.morale as i16) + player_delta).clamp(10, 100) as u8;
                 }
             }
         }
@@ -196,42 +217,82 @@ pub fn submit_press_conference(
         "{} {} - {} {}",
         home_team, home_score, away_score, away_team
     );
-    let headline = prerendered_headline.unwrap_or_else(|| {
-        if quotes.is_empty() {
-            format!("Post-Match: {} on {}", user_team_name, result_str)
-        } else {
-            let sources = [
-                format!("{} Manager: {}", user_team_name, quotes[0]),
+    let (headline_key, headline) = if quotes.is_empty() {
+        (
+            "be.news.pressConference.headlinePostMatch",
+            prerendered_headline
+                .unwrap_or_else(|| format!("Post-Match: {} on {}", user_team_name, result_str)),
+        )
+    } else if rng.random::<bool>() {
+        (
+            "be.news.pressConference.headlineManagerQuote",
+            prerendered_headline
+                .unwrap_or_else(|| format!("{} Manager: {}", user_team_name, quotes[0])),
+        )
+    } else {
+        (
+            "be.news.pressConference.headlinePressConf",
+            prerendered_headline.unwrap_or_else(|| {
                 format!(
                     "Press Conference: \"{}\" — {} boss",
                     quotes[0].trim_matches('"'),
                     user_team_name
-                ),
-            ];
-            sources[rng.random_range(0..sources.len())].clone()
-        }
-    });
+                )
+            }),
+        )
+    };
 
-    let body = prerendered_body.unwrap_or_else(|| {
-        if quotes.len() > 1 {
-            format!(
-                "Speaking after the {} result, the {} manager addressed the press.\n\n{}\n\n\
-                The conference covered the result, tactical approach, and what lies ahead for the team.",
-                result_str, user_team_name,
-                quotes.iter().map(|q| format!("• {}", q)).collect::<Vec<_>>().join("\n")
-            )
-        } else if quotes.len() == 1 {
-            format!(
-                "The {} manager spoke briefly after the {} result.\n\n{}",
-                user_team_name, result_str, quotes[0]
-            )
-        } else {
-            format!(
-                "The {} manager declined to speak at length after the {} result.",
-                user_team_name, result_str
-            )
+    let (body_key, body) = if quotes.len() > 1 {
+        (
+            "be.news.pressConference.bodyMultiple",
+            prerendered_body.unwrap_or_else(|| {
+                format!(
+                    "Speaking after the {} result, the {} manager addressed the press.\n\n{}\n\n\
+                    The conference covered the result, tactical approach, and what lies ahead for the team.",
+                    result_str,
+                    user_team_name,
+                    quotes
+                        .iter()
+                        .map(|q| format!("• {}", q))
+                        .collect::<Vec<_>>()
+                        .join("\n")
+                )
+            }),
+        )
+    } else if quotes.len() == 1 {
+        (
+            "be.news.pressConference.bodySingle",
+            prerendered_body.unwrap_or_else(|| {
+                format!(
+                    "The {} manager spoke briefly after the {} result.\n\n{}",
+                    user_team_name, result_str, quotes[0]
+                )
+            }),
+        )
+    } else {
+        (
+            "be.news.pressConference.bodyNone",
+            prerendered_body.unwrap_or_else(|| {
+                format!(
+                    "The {} manager declined to speak at length after the {} result.",
+                    user_team_name, result_str
+                )
+            }),
+        )
+    };
+
+    let mut i18n_params = HashMap::new();
+    i18n_params.insert("team".to_string(), user_team_name.clone());
+    i18n_params.insert("result".to_string(), result_str.clone());
+    if !localized_quotes.is_empty() {
+        if let Ok(serialized_quotes) = serde_json::to_string(&localized_quotes) {
+            i18n_params.insert("quotesData".to_string(), serialized_quotes);
         }
-    });
+        i18n_params.insert(
+            "quote".to_string(),
+            quotes[0].trim_matches('"').to_string(),
+        );
+    }
 
     let article_id = format!("press_conf_{}", today);
     let article = domain::news::NewsArticle::new(
@@ -242,7 +303,14 @@ pub fn submit_press_conference(
         today.clone(),
         domain::news::NewsCategory::MatchReport,
     )
-    .with_teams(vec![user_team_id.clone()]);
+    .with_teams(vec![user_team_id.clone()])
+    .with_players(mentioned_player_ids)
+    .with_i18n(
+        headline_key,
+        body_key,
+        "be.source.sportsDaily",
+        i18n_params,
+    );
 
     game.news.push(article);
     state.set_game(game.clone());

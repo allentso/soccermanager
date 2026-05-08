@@ -2,38 +2,38 @@ import { useTranslation } from "react-i18next";
 import type { PlayerData } from "../../store/gameStore";
 import { Badge, Button, Card, CountryFlag } from "../ui";
 import { GitCompareArrows } from "lucide-react";
-import { calcAge, calcOvr, positionBadgeVariant } from "../../lib/helpers";
+import { calcAge, getPlayerOvr, positionBadgeVariant } from "../../lib/helpers";
 import { normalisePosition, translatePositionLabel } from "../squad/SquadTab.helpers";
 
 const ATTRIBUTE_GROUPS: {
   labelKey: string;
   attrs: Array<keyof PlayerData["attributes"]>;
 }[] = [
-  {
-    labelKey: "common.attrGroups.physical",
-    attrs: ["pace", "stamina", "strength", "agility"],
-  },
-  {
-    labelKey: "common.attrGroups.technical",
-    attrs: ["passing", "shooting", "tackling", "dribbling", "defending"],
-  },
-  {
-    labelKey: "common.attrGroups.mental",
-    attrs: [
-      "positioning",
-      "vision",
-      "decisions",
-      "composure",
-      "aggression",
-      "teamwork",
-      "leadership",
-    ],
-  },
-  {
-    labelKey: "common.attrGroups.goalkeeper",
-    attrs: ["handling", "reflexes", "aerial"],
-  },
-];
+    {
+      labelKey: "common.attrGroups.physical",
+      attrs: ["pace", "stamina", "strength", "agility"],
+    },
+    {
+      labelKey: "common.attrGroups.technical",
+      attrs: ["passing", "shooting", "tackling", "dribbling", "defending"],
+    },
+    {
+      labelKey: "common.attrGroups.mental",
+      attrs: [
+        "positioning",
+        "vision",
+        "decisions",
+        "composure",
+        "aggression",
+        "teamwork",
+        "leadership",
+      ],
+    },
+    {
+      labelKey: "common.attrGroups.goalkeeper",
+      attrs: ["handling", "reflexes", "aerial"],
+    },
+  ];
 
 interface TacticsPlayerFocusPanelProps {
   canConfirmSwap: boolean;
@@ -70,7 +70,7 @@ function PlayerSummary({
   const { t } = useTranslation();
   const normalizedPosition = getNormalizedPlayerPosition(player);
   const displayPosition = player.natural_position || player.position;
-  const overallRating = calcOvr(player, displayPosition);
+  const overallRating = getPlayerOvr(player);
 
   return (
     <div className="rounded-xl border border-gray-200 dark:border-navy-600 bg-gray-50 dark:bg-navy-800/70 px-4 py-4">

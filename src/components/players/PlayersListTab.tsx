@@ -14,9 +14,9 @@ import {
 } from "lucide-react";
 import {
   getTeamName,
-  calcOvr,
   calcAge,
   formatVal,
+  getPlayerOvr,
   positionBadgeVariant,
 } from "../../lib/helpers";
 import { useTranslation } from "react-i18next";
@@ -182,9 +182,7 @@ export default function PlayersListTab({
         cmp = calcAge(a.date_of_birth) - calcAge(b.date_of_birth);
         break;
       case "ovr":
-        cmp =
-          (a.ovr ?? calcOvr(a, a.natural_position || a.position)) -
-          (b.ovr ?? calcOvr(b, b.natural_position || b.position));
+        cmp = getPlayerOvr(a) - getPlayerOvr(b);
         break;
       case "value":
         cmp = (a.market_value || 0) - (b.market_value || 0);
@@ -350,10 +348,7 @@ export default function PlayersListTab({
                 {filtered
                   .slice((page - 1) * pageSize, page * pageSize)
                   .map((player) => {
-                    const ovr = player.ovr ?? calcOvr(
-                      player,
-                      player.natural_position || player.position,
-                    );
+                    const ovr = getPlayerOvr(player);
                     const age = calcAge(player.date_of_birth);
                     const scoutState = alreadyScoutingIds.has(player.id)
                       ? "already-assigned"

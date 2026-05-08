@@ -108,6 +108,12 @@ type MatchReportScorerParam = {
   team: string;
 };
 
+type PressConferenceQuoteParam = {
+  key?: string;
+  fallback?: string;
+  params?: Record<string, string>;
+};
+
 type StandingsEntryParam = {
   rank: number;
   team: string;
@@ -340,6 +346,43 @@ function normalizeMatchReportParams(
   }
 }
 
+function normalizePressConferenceParams(
+  article: NewsArticle,
+  params?: Record<string, string>,
+): Record<string, string> | undefined {
+  const isPressConferenceArticle = article.headline_key?.startsWith('be.news.pressConference.')
+    || article.body_key?.startsWith('be.news.pressConference.');
+
+  if (!isPressConferenceArticle || !params?.quotesData) {
+    return params;
+  }
+
+  try {
+    const quotes = JSON.parse(params.quotesData) as PressConferenceQuoteParam[];
+    const resolvedQuotes = quotes
+      .map((quote) =>
+        resolve(
+          quote.key,
+          quote.fallback ?? '',
+          resolveParamValues(quote.params),
+        ),
+      )
+      .filter((quote) => quote.length > 0);
+
+    if (resolvedQuotes.length === 0) {
+      return params;
+    }
+
+    return {
+      ...params,
+      quote: resolvedQuotes[0],
+      quotes: resolvedQuotes.map((quote) => `• "${quote}"`).join('\n'),
+    };
+  } catch {
+    return params;
+  }
+}
+
 function normalizeTransferRoundupParams(
   article: NewsArticle,
   params?: Record<string, string>,
@@ -441,13 +484,16 @@ function resolveActionOption(
 export function resolveNewsArticle(article: NewsArticle): NewsArticle {
   const p = normalizeTransferRoundupParams(
     article,
-    normalizeMatchReportParams(
+    normalizePressConferenceParams(
       article,
-      normalizeStandingsParams(
+      normalizeMatchReportParams(
         article,
-        normalizeRoundupParams(
+        normalizeStandingsParams(
           article,
-          normalizePreseasonDigestParams(article, normalizeNewsParams(article)),
+          normalizeRoundupParams(
+            article,
+            normalizePreseasonDigestParams(article, normalizeNewsParams(article)),
+          ),
         ),
       ),
     ),

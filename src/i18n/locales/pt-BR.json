@@ -1254,6 +1254,40 @@
     "ht": "INT",
     "fullTime": "Fim de Jogo",
     "ft": "FJ",
+    "phases": {
+      "PreKickOff": "Pré-jogo",
+      "FirstHalf": "1º Tempo",
+      "HalfTime": "Intervalo",
+      "SecondHalf": "2º Tempo",
+      "FullTime": "Fim de Jogo",
+      "ExtraTimeFirstHalf": "1º Tempo da Prorrogação",
+      "ExtraTimeHalfTime": "Intervalo da Prorrogação",
+      "ExtraTimeSecondHalf": "2º Tempo da Prorrogação",
+      "ExtraTimeEnd": "Fim da Prorrogação",
+      "PenaltyShootout": "Pênaltis",
+      "Finished": "Final"
+    },
+    "eventTypes": {
+      "Goal": "Gol",
+      "PenaltyGoal": "Gol de Pênalti",
+      "PenaltyMiss": "Pênalti Perdido",
+      "YellowCard": "Cartão Amarelo",
+      "RedCard": "Cartão Vermelho",
+      "SecondYellow": "Segundo Amarelo",
+      "Substitution": "Substituição",
+      "Injury": "Lesão",
+      "KickOff": "Pontapé Inicial",
+      "HalfTime": "Intervalo",
+      "SecondHalfStart": "Início do 2º Tempo",
+      "FullTime": "Fim de Jogo",
+      "ShotSaved": "Defesa",
+      "ShotOffTarget": "Chute para Fora",
+      "ShotBlocked": "Chute Bloqueado",
+      "Corner": "Escanteio",
+      "FreeKick": "Falta",
+      "Foul": "Falta",
+      "PenaltyAwarded": "Pênalti Marcado"
+    },
     "firstHalfEvents": "Eventos do 1º Tempo",
     "noMajorEvents": "Sem eventos importantes.",
     "teamTalk": "Preleção",
@@ -1680,6 +1714,7 @@
       "scout": "Olheiro"
     },
     "source": {
+      "sportsDaily": "Diário Esportivo",
       "sportsGazette": "Gazeta Esportiva",
       "footballHerald": "O Arauto do Futebol",
       "playersUnder21": "{{count}} jogadores na base",
@@ -2103,6 +2138,14 @@
       }
     },
     "news": {
+      "pressConference": {
+        "headlineManagerQuote": "{{team}} Técnico: {{quote}}",
+        "headlinePressConf": "Coletiva de Imprensa: \"{{quote}}\" — técnico do {{team}}",
+        "headlinePostMatch": "Pós-Jogo: {{team}} sobre {{result}}",
+        "bodyMultiple": "Após o resultado {{result}}, o técnico do {{team}} falou com a imprensa.\n\n{{quotes}}\n\nA coletiva abordou o resultado, a abordagem tática e o que vem pela frente para o time.",
+        "bodySingle": "O técnico do {{team}} falou brevemente após o resultado {{result}}.\n\n\"{{quote}}\"",
+        "bodyNone": "O técnico do {{team}} não quis falar longamente após o resultado {{result}}."
+      },
       "matchReport": {
         "headline": {
           "homeWin": {

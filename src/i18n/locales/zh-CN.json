@@ -1311,6 +1311,40 @@
     "ht": "中场",
     "fullTime": "全场结束",
     "ft": "全场",
+    "phases": {
+      "PreKickOff": "赛前",
+      "FirstHalf": "上半场",
+      "HalfTime": "中场休息",
+      "SecondHalf": "下半场",
+      "FullTime": "全场结束",
+      "ExtraTimeFirstHalf": "加时上半场",
+      "ExtraTimeHalfTime": "加时中场",
+      "ExtraTimeSecondHalf": "加时下半场",
+      "ExtraTimeEnd": "加时结束",
+      "PenaltyShootout": "点球大战",
+      "Finished": "终场"
+    },
+    "eventTypes": {
+      "Goal": "进球",
+      "PenaltyGoal": "点球破门",
+      "PenaltyMiss": "罚失点球",
+      "YellowCard": "黄牌",
+      "RedCard": "红牌",
+      "SecondYellow": "两黄变一红",
+      "Substitution": "换人",
+      "Injury": "受伤",
+      "KickOff": "开球",
+      "HalfTime": "中场休息",
+      "SecondHalfStart": "下半场开始",
+      "FullTime": "全场结束",
+      "ShotSaved": "射门被扑",
+      "ShotOffTarget": "射偏",
+      "ShotBlocked": "射门被封堵",
+      "Corner": "角球",
+      "FreeKick": "任意球",
+      "Foul": "犯规",
+      "PenaltyAwarded": "判罚点球"
+    },
     "firstHalfEvents": "上半场事件",
     "noMajorEvents": "没有重要事件。",
     "teamTalk": "更衣室讲话",
@@ -1680,6 +1714,7 @@
       "scout": "球探"
     },
     "source": {
+      "sportsDaily": "体育日报",
       "sportsGazette": "体育公报",
       "footballHerald": "足球先驱报",
       "playersUnder21": "U21球员",
@@ -2100,6 +2135,14 @@
       }
     },
     "news": {
+      "pressConference": {
+        "headlineManagerQuote": "{{team}}主帅：{{quote}}",
+        "headlinePressConf": "新闻发布会：\"{{quote}}\" —— {{team}}主帅",
+        "headlinePostMatch": "赛后：{{team}}谈{{result}}",
+        "bodyMultiple": "在{{result}}的比赛之后，{{team}}主帅接受了媒体采访。\n\n{{quotes}}\n\n这场发布会谈到了比赛结果、战术安排以及球队接下来的方向。",
+        "bodySingle": "{{team}}主帅在{{result}}的结果后简短发言。\n\n\"{{quote}}\"",
+        "bodyNone": "在{{result}}的结果后，{{team}}主帅拒绝长时间发言。"
+      },
       "matchReport": {
         "headline": {
           "homeWin": {
