@@ -208,13 +208,6 @@ export default function SquadRosterView({
 
       switch (sortKey) {
         case "pos": {
-          const aPosition = xiIds.has(a.id)
-            ? xiActivePosition.get(a.id) || a.position
-            : a.natural_position || a.position;
-          const bPosition = xiIds.has(b.id)
-            ? xiActivePosition.get(b.id) || b.position
-            : b.natural_position || b.position;
-
           const aOvr = getPlayerOvr(a);
           const bOvr = getPlayerOvr(b);
 

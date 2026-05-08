@@ -15,19 +15,24 @@ import type { GameStateData } from "../../store/gameStore";
 // Minimal fixtures
 // ---------------------------------------------------------------------------
 
-const makePlayer = (overrides: Partial<EnginePlayerData> = {}): EnginePlayerData => ({
-  id: "p1",
-  name: "Test Player",
-  position: "Midfielder",
-  condition: 100,
-  pace: 70, stamina: 70, strength: 70, agility: 70,
-  passing: 70, shooting: 70, tackling: 70, dribbling: 70,
-  defending: 70, positioning: 70, vision: 70, decisions: 70,
-  composure: 50, aggression: 50, teamwork: 50,
-  leadership: 50, handling: 30, reflexes: 30, aerial: 50,
-  traits: [],
-  ...overrides,
-});
+const makePlayer = (overrides: Partial<EnginePlayerData> = {}): EnginePlayerData => {
+  const { ovr = 70, ...rest } = overrides;
+
+  return {
+    id: "p1",
+    name: "Test Player",
+    position: "Midfielder",
+    ovr,
+    condition: 100,
+    pace: 70, stamina: 70, strength: 70, agility: 70,
+    passing: 70, shooting: 70, tackling: 70, dribbling: 70,
+    defending: 70, positioning: 70, vision: 70, decisions: 70,
+    composure: 50, aggression: 50, teamwork: 50,
+    leadership: 50, handling: 30, reflexes: 30, aerial: 50,
+    traits: [],
+    ...rest,
+  };
+};
 
 const makeTeam = (overrides: Partial<EngineTeamData> = {}): EngineTeamData => ({
   id: "team1",

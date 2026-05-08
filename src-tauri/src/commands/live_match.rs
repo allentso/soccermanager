@@ -288,10 +288,7 @@ pub fn submit_press_conference(
         if let Ok(serialized_quotes) = serde_json::to_string(&localized_quotes) {
             i18n_params.insert("quotesData".to_string(), serialized_quotes);
         }
-        i18n_params.insert(
-            "quote".to_string(),
-            quotes[0].trim_matches('"').to_string(),
-        );
+        i18n_params.insert("quote".to_string(), quotes[0].trim_matches('"').to_string());
     }
 
     let article_id = format!("press_conf_{}", today);
@@ -305,12 +302,7 @@ pub fn submit_press_conference(
     )
     .with_teams(vec![user_team_id.clone()])
     .with_players(mentioned_player_ids)
-    .with_i18n(
-        headline_key,
-        body_key,
-        "be.source.sportsDaily",
-        i18n_params,
-    );
+    .with_i18n(headline_key, body_key, "be.source.sportsDaily", i18n_params);
 
     game.news.push(article);
     state.set_game(game.clone());
