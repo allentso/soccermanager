@@ -161,10 +161,14 @@ export default function InboxMessageDetailPane({
                     const action = selectedMessage.actions.find(
                       (candidate) => candidate.id === `prospect:${prospect.id}`,
                     );
-                    const options =
+                    const chooseOptionActionType =
                       action && isChooseOptionAction(action.action_type)
-                        ? action.action_type.ChooseOption.options
-                        : [];
+                        ? action.action_type
+                        : null;
+                    const chooseOptionActionId = action?.id ?? null;
+                    const options = chooseOptionActionType
+                      ? chooseOptionActionType.ChooseOption.options
+                      : [];
 
                     return (
                       <div
@@ -194,16 +198,20 @@ export default function InboxMessageDetailPane({
                           <div className="mt-3 text-xs font-heading font-bold uppercase tracking-wider text-primary-500">
                             {t("inbox.responded")}
                           </div>
-                        ) : options.length > 0 ? (
+                        ) : chooseOptionActionId && options.length > 0 ? (
                           <div className="mt-3 flex flex-wrap gap-2">
-                            {options.map((option) => (
+                            {options.map((option: (typeof options)[number]) => (
                               <Button
                                 key={option.id}
                                 type="button"
                                 size="sm"
                                 variant={option.id === "discard" ? "outline" : "primary"}
                                 onClick={() =>
-                                  onAction(selectedMessage.id, action.id, option.id)
+                                  onAction(
+                                    selectedMessage.id,
+                                    chooseOptionActionId,
+                                    option.id,
+                                  )
                                 }
                               >
                                 {option.label}
