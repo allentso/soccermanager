@@ -8,7 +8,7 @@ export async function setPlayerSquadRole(
     squadRole: PlayerSquadRole,
 ): Promise<GameStateData> {
     return invoke<GameStateData>("set_player_squad_role", {
-        player_id: playerId,
+        playerId,
         squadRole,
     });
 }

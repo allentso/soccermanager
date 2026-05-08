@@ -84,7 +84,7 @@ export default function MatchSimulation() {
             ? "Away"
             : null,
     });
-  }, [gameState, snapshot, matchMode]);
+  }, [gameState, snapshot?.home_team.id, snapshot?.away_team.id, matchMode]);
 
   useEffect(() => {
     console.info("[MatchSimulation] stage", {
@@ -277,6 +277,7 @@ export default function MatchSimulation() {
   // Render the current stage
   switch (stage) {
     case "prematch":
+      if (!userSide) return null;
       return (
         <PreMatchSetup
           snapshot={snapshot}
@@ -306,6 +307,7 @@ export default function MatchSimulation() {
       );
 
     case "halftime":
+      if (!userSide) return null;
       return (
         <HalfTimeBreak
           snapshot={snapshot}
@@ -334,6 +336,7 @@ export default function MatchSimulation() {
       );
 
     case "press":
+      if (!userSide) return null;
       return (
         <PressConference
           snapshot={snapshot}
