@@ -128,6 +128,22 @@ export default function InboxMessageDetailPane({
             />
           ) : null}
 
+          {selectedMessage.category === "ScoutReport" &&
+          !selectedMessage.context?.scout_report ? (
+            <div className="mt-6 flex items-center gap-2 rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 dark:border-navy-600 dark:bg-navy-700/60">
+              <span className="text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                {t("scouting.youthTargetLabel")}
+              </span>
+              <Badge variant="neutral" size="sm">
+                {selectedMessage.context?.youth_target_position
+                  ? t(
+                      `common.positions.${selectedMessage.context.youth_target_position}`,
+                    )
+                  : t("scouting.youthAnyPosition")}
+              </Badge>
+            </div>
+          ) : null}
+
           {selectedMessage.context?.match_result ? (
             <div className="mt-6 p-4 bg-gray-50 dark:bg-navy-700 rounded-xl flex items-center justify-center gap-8 border border-gray-100 dark:border-navy-600">
               <span className="font-heading font-bold text-sm text-gray-700 dark:text-gray-200">

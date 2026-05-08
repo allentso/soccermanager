@@ -281,6 +281,7 @@ export interface MessageContext {
   team_id: string | null;
   player_id: string | null;
   fixture_id: string | null;
+  youth_target_position?: string | null;
   match_result: null | {
     home_team_id: string;
     away_team_id: string;

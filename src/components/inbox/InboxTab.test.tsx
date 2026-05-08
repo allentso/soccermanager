@@ -27,6 +27,11 @@ const mockTranslationState = vi.hoisted(function () {
         "inbox.effectOutcomeLabel": "Outcome",
         "inbox.markAsRead": "Mark as read",
         "inbox.openMessage": "Open message",
+        "scouting.youthTargetLabel": "Youth target",
+        "scouting.youthAnyPosition": "Any position",
+        "common.positions.Defender": "Defender",
+        "common.positions.Midfielder": "Midfielder",
+        "common.positions.Forward": "Forward",
         "inbox.sortByDate": "Sort messages by date",
         "inbox.sortLabel": "Sort",
         "inbox.sortNewest": "Newest first",
@@ -149,6 +154,7 @@ function createMessage(overrides: Partial<MessageData> = {}): MessageData {
       team_id: null,
       player_id: null,
       fixture_id: null,
+      youth_target_position: null,
       match_result: null,
     },
     ...overrides,
@@ -679,5 +685,30 @@ describe("InboxTab", function (): void {
     expect(
       screen.getByText("Choose your response — outcome varies"),
     ).toBeInTheDocument();
+  });
+
+  it("shows the selected youth scouting target on youth recruitment reports", function (): void {
+    renderInboxTab({
+      gameState: createGameState([
+        createMessage({
+          id: "youth-scout-1",
+          category: "ScoutReport",
+          read: true,
+          subject: "Youth prospect found",
+          body: "Scout report body",
+          context: {
+            team_id: "t1",
+            player_id: "p1",
+            fixture_id: null,
+            youth_target_position: "Defender",
+            match_result: null,
+          },
+        }),
+      ]),
+      initialMessageId: "youth-scout-1",
+    });
+
+    expect(screen.getByText("Youth target")).toBeInTheDocument();
+    expect(screen.getByText("Defender")).toBeInTheDocument();
   });
 });

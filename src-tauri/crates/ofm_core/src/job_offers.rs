@@ -264,6 +264,7 @@ fn send_job_offer(game: &mut Game, opportunity: &JobOpportunity, _rng: &mut impl
         player_id: None,
         fixture_id: None,
         match_result: None,
+        youth_target_position: None,
         scout_report: None,
         delegated_renewal_report: None,
     })
@@ -689,6 +690,7 @@ mod tests {
             player_id: None,
             fixture_id: None,
             match_result: None,
+            youth_target_position: None,
             scout_report: None,
             delegated_renewal_report: None,
         })
@@ -843,6 +845,7 @@ mod tests {
             player_id: None,
             fixture_id: None,
             match_result: None,
+            youth_target_position: None,
             scout_report: None,
             delegated_renewal_report: None,
         })
@@ -904,6 +907,7 @@ mod tests {
             player_id: None,
             fixture_id: None,
             match_result: None,
+            youth_target_position: None,
             scout_report: None,
             delegated_renewal_report: None,
         })
@@ -954,6 +958,7 @@ mod tests {
             player_id: None,
             fixture_id: None,
             match_result: None,
+            youth_target_position: None,
             scout_report: None,
             delegated_renewal_report: None,
         })

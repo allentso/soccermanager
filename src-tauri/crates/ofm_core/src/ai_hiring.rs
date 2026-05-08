@@ -515,6 +515,7 @@ mod tests {
                 player_id: None,
                 fixture_id: None,
                 match_result: None,
+                youth_target_position: None,
                 scout_report: None,
                 delegated_renewal_report: None,
             })

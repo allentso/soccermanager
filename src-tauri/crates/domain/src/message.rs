@@ -95,6 +95,8 @@ pub struct MessageContext {
     pub player_id: Option<String>,
     pub fixture_id: Option<String>,
     pub match_result: Option<ContextMatchResult>,
+    #[serde(default)]
+    pub youth_target_position: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub scout_report: Option<ScoutReportData>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
