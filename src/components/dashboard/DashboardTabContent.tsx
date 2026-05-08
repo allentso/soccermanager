@@ -119,7 +119,11 @@ export default function DashboardTabContent({
       )}
 
       {activeTab === "Staff" && (
-        <StaffTab gameState={gameState} onGameUpdate={onGameUpdate} />
+        <StaffTab
+          gameState={gameState}
+          onGameUpdate={onGameUpdate}
+          onNavigate={onNavigate}
+        />
       )}
 
       {activeTab === "Scouting" && (

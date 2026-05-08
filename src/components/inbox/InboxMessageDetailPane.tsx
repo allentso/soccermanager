@@ -2,7 +2,7 @@ import { ArrowLeft, CheckCircle2, MailOpen, MessageCircle, Trash2 } from "lucide
 import type { JSX } from "react";
 import { useTranslation } from "react-i18next";
 
-import { formatDateFull, getTeamName } from "../../lib/helpers";
+import { calcAge, formatDateFull, getTeamName } from "../../lib/helpers";
 import type { GameStateData } from "../../store/gameStore";
 import ScoutPlayerCard from "../ScoutPlayerCard";
 import { Badge, Button } from "../ui";
@@ -38,6 +38,7 @@ export default function InboxMessageDetailPane({
   onScoutPlayerClick,
 }: InboxMessageDetailPaneProps): JSX.Element {
   const { t } = useTranslation();
+  const hasYouthProspects = Boolean(selectedMessage?.context?.youth_prospects?.length);
 
   if (!selectedMessage) {
     return (
@@ -129,18 +130,92 @@ export default function InboxMessageDetailPane({
           ) : null}
 
           {selectedMessage.category === "ScoutReport" &&
-          !selectedMessage.context?.scout_report ? (
-            <div className="mt-6 flex items-center gap-2 rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 dark:border-navy-600 dark:bg-navy-700/60">
-              <span className="text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                {t("scouting.youthTargetLabel")}
-              </span>
-              <Badge variant="neutral" size="sm">
-                {selectedMessage.context?.youth_target_position
-                  ? t(
+            !selectedMessage.context?.scout_report ? (
+            <div className="mt-6 flex flex-col gap-3">
+              <div className="flex flex-wrap items-center gap-2 rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 dark:border-navy-600 dark:bg-navy-700/60">
+                <span className="text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                  {t("scouting.youthTargetLabel")}
+                </span>
+                <Badge variant="neutral" size="sm">
+                  {selectedMessage.context?.youth_target_position
+                    ? t(
                       `common.positions.${selectedMessage.context.youth_target_position}`,
                     )
-                  : t("scouting.youthAnyPosition")}
-              </Badge>
+                    : t("scouting.youthAnyPosition")}
+                </Badge>
+                {selectedMessage.context?.youth_search_region ? (
+                  <Badge variant="neutral" size="sm">
+                    {selectedMessage.context.youth_search_region}
+                  </Badge>
+                ) : null}
+                {selectedMessage.context?.youth_search_objective ? (
+                  <Badge variant="neutral" size="sm">
+                    {selectedMessage.context.youth_search_objective}
+                  </Badge>
+                ) : null}
+              </div>
+
+              {selectedMessage.context?.youth_prospects?.length ? (
+                <div className="grid gap-3">
+                  {selectedMessage.context.youth_prospects.map((prospect) => {
+                    const action = selectedMessage.actions.find(
+                      (candidate) => candidate.id === `prospect:${prospect.id}`,
+                    );
+                    const options =
+                      action && isChooseOptionAction(action.action_type)
+                        ? action.action_type.ChooseOption.options
+                        : [];
+
+                    return (
+                      <div
+                        key={prospect.id}
+                        className="rounded-xl border border-gray-200 bg-white p-4 dark:border-navy-600 dark:bg-navy-800/60"
+                      >
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <p className="font-heading font-bold text-base text-gray-900 dark:text-gray-100">
+                              {prospect.full_name}
+                            </p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                              {t(`common.positions.${prospect.position}`)} · Age {calcAge(prospect.date_of_birth)} · {prospect.nationality}
+                            </p>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            <Badge variant="neutral" size="sm">
+                              OVR {prospect.ovr ?? 0}
+                            </Badge>
+                            <Badge variant="neutral" size="sm">
+                              POT {prospect.potential ?? 0}
+                            </Badge>
+                          </div>
+                        </div>
+
+                        {action?.resolved ? (
+                          <div className="mt-3 text-xs font-heading font-bold uppercase tracking-wider text-primary-500">
+                            {t("inbox.responded")}
+                          </div>
+                        ) : options.length > 0 ? (
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {options.map((option) => (
+                              <Button
+                                key={option.id}
+                                type="button"
+                                size="sm"
+                                variant={option.id === "discard" ? "outline" : "primary"}
+                                onClick={() =>
+                                  onAction(selectedMessage.id, action.id, option.id)
+                                }
+                              >
+                                {option.label}
+                              </Button>
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : null}
             </div>
           ) : null}
 
@@ -174,7 +249,7 @@ export default function InboxMessageDetailPane({
             </div>
           ) : null}
 
-          {selectedMessage.actions.length > 0 ? (
+          {selectedMessage.actions.length > 0 && !hasYouthProspects ? (
             <div className="mt-6">
               {selectedMessage.actions.map((action) => {
                 if (isChooseOptionAction(action.action_type)) {

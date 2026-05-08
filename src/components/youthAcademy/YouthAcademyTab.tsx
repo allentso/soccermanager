@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { GameStateData } from "../../store/gameStore";
 import {
   Card,
@@ -17,8 +18,15 @@ import { translatePositionAbbreviation } from "../squad/SquadTab.helpers";
 import ContextMenu from "../ContextMenu";
 import { buildPromoteToSeniorSquadMenuItem, buildViewProfileMenuItem } from "../playerActions/playerContextMenuItems";
 import { setPlayerSquadRole } from "../../services/squadService";
+import {
+  cancelYouthScouting,
+  reassignYouthScouting,
+  startYouthScouting,
+} from "../../services/scoutingService";
 import { GraduationCap, ScanSearch, TrendingUp, Star, Users, Sparkles } from "lucide-react";
 import type { DashboardNavigateContext } from "../dashboard/dashboardProfileNavigation";
+import { calculateAvailableScouts } from "../scouting/ScoutingTab.helpers";
+import ScoutingYouthRecruitmentCard from "../scouting/ScoutingYouthRecruitmentCard";
 
 interface YouthAcademyTabProps {
   gameState: GameStateData;
@@ -49,9 +57,35 @@ export default function YouthAcademyTab({
   onNavigate,
 }: YouthAcademyTabProps) {
   const { t, i18n } = useTranslation();
+  const [selectedYouthScoutId, setSelectedYouthScoutId] = useState("");
+  const [youthRegion, setYouthRegion] = useState("Domestic");
+  const [youthObjective, setYouthObjective] = useState("Balanced");
+  const [youthTargetPosition, setYouthTargetPosition] = useState("");
+  const [startingYouthSearch, setStartingYouthSearch] = useState(false);
+  const [youthSearchError, setYouthSearchError] = useState<string | null>(null);
   const myTeam = gameState.teams.find(
     (tm) => tm.id === gameState.manager.team_id,
   );
+  const scouts = gameState.staff.filter(
+    (staffMember) =>
+      staffMember.role === "Scout" && staffMember.team_id === gameState.manager.team_id,
+  );
+  const youthAssignments = gameState.youth_scouting_assignments || [];
+  const availableScouts = calculateAvailableScouts(
+    scouts,
+    [...(gameState.scouting_assignments || []), ...youthAssignments],
+  );
+
+  useEffect(() => {
+    if (
+      selectedYouthScoutId &&
+      availableScouts.some((scout) => scout.id === selectedYouthScoutId)
+    ) {
+      return;
+    }
+
+    setSelectedYouthScoutId(availableScouts[0]?.id ?? "");
+  }, [availableScouts, selectedYouthScoutId]);
 
   const roster = myTeam
     ? gameState.players.filter((p) => p.team_id === myTeam.id)
@@ -102,6 +136,54 @@ export default function YouthAcademyTab({
       onGameUpdate?.(updated);
     } catch {
       return;
+    }
+  };
+
+  const handleStartYouthScouting = async () => {
+    if (!selectedYouthScoutId || !onGameUpdate) return;
+
+    setStartingYouthSearch(true);
+    setYouthSearchError(null);
+    try {
+      const updated = await startYouthScouting({
+        scoutId: selectedYouthScoutId,
+        region: youthRegion,
+        objective: youthObjective,
+        targetPosition: youthTargetPosition || null,
+      });
+      onGameUpdate(updated);
+      setSelectedYouthScoutId("");
+    } catch (err) {
+      setYouthSearchError(String(err));
+    } finally {
+      setStartingYouthSearch(false);
+    }
+  };
+
+  const handleCancelYouthScouting = async (assignmentId: string) => {
+    if (!onGameUpdate) return;
+
+    setYouthSearchError(null);
+    try {
+      const updated = await cancelYouthScouting(assignmentId);
+      onGameUpdate(updated);
+    } catch (err) {
+      setYouthSearchError(String(err));
+    }
+  };
+
+  const handleReassignYouthScouting = async (
+    assignmentId: string,
+    scoutId: string,
+  ) => {
+    if (!onGameUpdate) return;
+
+    setYouthSearchError(null);
+    try {
+      const updated = await reassignYouthScouting(assignmentId, scoutId);
+      onGameUpdate(updated);
+    } catch (err) {
+      setYouthSearchError(String(err));
     }
   };
 
@@ -244,6 +326,35 @@ export default function YouthAcademyTab({
           )}
         </CardBody>
       </Card>
+
+      {scouts.length > 0 ? (
+        <ScoutingYouthRecruitmentCard
+          title="Youth recruitment workflow"
+          hint="Start, cancel, or reassign academy searches without leaving the Youth Academy view."
+          youthAssignments={youthAssignments}
+          scouts={scouts}
+          availableScouts={availableScouts}
+          isStarting={startingYouthSearch}
+          selectedScoutId={selectedYouthScoutId}
+          region={youthRegion}
+          objective={youthObjective}
+          targetPosition={youthTargetPosition}
+          errorMessage={youthSearchError}
+          onScoutChange={setSelectedYouthScoutId}
+          onRegionChange={setYouthRegion}
+          onObjectiveChange={setYouthObjective}
+          onTargetPositionChange={setYouthTargetPosition}
+          onStartSearch={() => {
+            void handleStartYouthScouting();
+          }}
+          onCancelSearch={(assignmentId) => {
+            void handleCancelYouthScouting(assignmentId);
+          }}
+          onReassignSearch={(assignmentId, scoutId) => {
+            void handleReassignYouthScouting(assignmentId, scoutId);
+          }}
+        />
+      ) : null}
 
       {/* Youth Staff */}
       {youthCoach.length > 0 && (

@@ -282,6 +282,9 @@ export interface MessageContext {
   player_id: string | null;
   fixture_id: string | null;
   youth_target_position?: string | null;
+  youth_search_region?: string | null;
+  youth_search_objective?: string | null;
+  youth_prospects?: PlayerData[];
   match_result: null | {
     home_team_id: string;
     away_team_id: string;
@@ -455,6 +458,8 @@ export interface ScoutingAssignment {
 export interface YouthScoutingAssignment {
   id: string;
   scout_id: string;
+  region?: string;
+  objective?: string;
   target_position?: string | null;
   days_remaining: number;
 }

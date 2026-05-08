@@ -40,6 +40,7 @@ vi.mock("react-i18next", () => ({
       }
       if (key === "scouting.noYouthSearches") return "No youth searches running";
       if (key === "scouting.youthProspectSearch") return "Youth prospect search";
+      if (key === "inbox.responded") return "Responded";
       if (key === "scouting.findPlayers") return "Find Players";
       if (key === "scouting.searchPlaceholder") return "Search players";
       if (key === "scouting.player") return "Player";
@@ -298,7 +299,7 @@ describe("ScoutingTab", () => {
   it("starts a youth scouting search and forwards the updated state", async () => {
     const updatedState = createGameState({
       scouts: [createScout()],
-      youthAssignments: [{ id: "ysa-1", scout_id: "staff-1", target_position: "Defender", days_remaining: 5 }],
+      youthAssignments: [{ id: "ysa-1", scout_id: "staff-1", region: "Domestic", objective: "Balanced", target_position: "Defender", days_remaining: 5 }],
     });
     const onGameUpdate = vi.fn();
     invokeMock.mockResolvedValue(updatedState);
@@ -318,7 +319,55 @@ describe("ScoutingTab", () => {
     await waitFor(() => {
       expect(invokeMock).toHaveBeenCalledWith("start_youth_scouting", {
         scoutId: "staff-1",
+        region: "Domestic",
+        objective: "Balanced",
         targetPosition: "Defender",
+      });
+      expect(onGameUpdate).toHaveBeenCalledWith(updatedState);
+    });
+  });
+
+  it("cancels an active youth scouting assignment", async () => {
+    const updatedState = createGameState({
+      scouts: [createScout()],
+      youthAssignments: [
+        {
+          id: "ysa-1",
+          scout_id: "staff-1",
+          region: "Domestic",
+          objective: "Balanced",
+          target_position: "Defender",
+          days_remaining: 5,
+        },
+      ],
+    });
+    const onGameUpdate = vi.fn();
+    invokeMock.mockResolvedValue(updatedState);
+
+    render(
+      <ScoutingTab
+        gameState={createGameState({
+          scouts: [createScout()],
+          youthAssignments: [
+            {
+              id: "ysa-1",
+              scout_id: "staff-1",
+              region: "Domestic",
+              objective: "Balanced",
+              target_position: "Defender",
+              days_remaining: 5,
+            },
+          ],
+        })}
+        onGameUpdate={onGameUpdate}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("cancel_youth_scouting", {
+        assignmentId: "ysa-1",
       });
       expect(onGameUpdate).toHaveBeenCalledWith(updatedState);
     });

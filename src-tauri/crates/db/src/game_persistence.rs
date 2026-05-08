@@ -5,6 +5,7 @@ use domain::stats::StatsState;
 use ofm_core::clock::GameClock;
 use ofm_core::game::{
     BoardObjective, Game, ObjectiveType, ScoutingAssignment, YouthScoutingAssignment,
+    YouthScoutingObjective, YouthScoutingRegion,
 };
 
 use crate::game_database::GameDatabase;
@@ -96,6 +97,8 @@ impl GamePersistenceWriter {
             .map(|assignment| scouting_repo::YouthScoutingAssignmentRow {
                 id: assignment.id.clone(),
                 scout_id: assignment.scout_id.clone(),
+                region: format!("{:?}", assignment.region),
+                objective: format!("{:?}", assignment.objective),
                 target_position: assignment
                     .target_position
                     .as_ref()
@@ -174,13 +177,17 @@ impl GamePersistenceReader {
         let youth_scouting_rows = scouting_repo::load_all_youth_scouting(conn)?;
         let youth_scouting_assignments: Vec<YouthScoutingAssignment> = youth_scouting_rows
             .into_iter()
-            .map(|assignment| YouthScoutingAssignment {
-                id: assignment.id,
-                scout_id: assignment.scout_id,
-                target_position: assignment.target_position.as_deref().map(parse_position),
-                days_remaining: assignment.days_remaining,
+            .map(|assignment| {
+                Ok(YouthScoutingAssignment {
+                    id: assignment.id,
+                    scout_id: assignment.scout_id,
+                    region: parse_youth_region(&assignment.region)?,
+                    objective: parse_youth_objective(&assignment.objective)?,
+                    target_position: assignment.target_position.as_deref().map(parse_position),
+                    days_remaining: assignment.days_remaining,
+                })
             })
-            .collect();
+            .collect::<Result<_, String>>()?;
 
         let mut game = Game {
             clock,
@@ -242,5 +249,22 @@ fn parse_position(value: &str) -> Position {
         "LeftWinger" => Position::LeftWinger,
         "Striker" => Position::Striker,
         _ => Position::Midfielder,
+    }
+}
+
+fn parse_youth_region(value: &str) -> Result<YouthScoutingRegion, String> {
+    match value {
+        "Domestic" => Ok(YouthScoutingRegion::Domestic),
+        "International" => Ok(YouthScoutingRegion::International),
+        _ => Err(format!("unknown youth scouting region: {}", value)),
+    }
+}
+
+fn parse_youth_objective(value: &str) -> Result<YouthScoutingObjective, String> {
+    match value {
+        "Balanced" => Ok(YouthScoutingObjective::Balanced),
+        "HighPotential" => Ok(YouthScoutingObjective::HighPotential),
+        "ReadySoon" => Ok(YouthScoutingObjective::ReadySoon),
+        _ => Err(format!("unknown youth scouting objective: {}", value)),
     }
 }

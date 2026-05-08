@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 
-import type { GameStateData, PlayerData, TeamData } from "../../store/gameStore";
+import type { GameStateData, PlayerData, StaffData, TeamData } from "../../store/gameStore";
 import YouthAcademyTab from "./YouthAcademyTab";
 
 vi.mock("@tauri-apps/api/core", () => ({
@@ -43,6 +43,20 @@ vi.mock("react-i18next", () => ({
       if (key === "youthAcademy.condition") return "Condition";
       if (key.startsWith("youthAcademy.pot")) return key.replace("youthAcademy.", "");
       if (key.startsWith("common.posAbbr.")) return key.replace("common.posAbbr.", "");
+      if (key === "scouting.youthRecruitment") return "Youth Recruitment";
+      if (key === "scouting.youthRecruitmentHint") return "Use a scout to search for academy prospects.";
+      if (key === "scouting.startYouthSearch") return "Start youth search";
+      if (key === "scouting.activeYouthSearches") return `${params?.count} active youth searches`;
+      if (key === "scouting.noYouthSearches") return "No youth searches running";
+      if (key === "scouting.noScoutsFree") return "No scouts free";
+      if (key === "scouting.youthProspectSearch") return "Youth prospect search";
+      if (key === "scouting.scoutLabel") return params?.name ? `Scout ${params.name}` : "Scout";
+      if (key === "scouting.youthTargetLabel") return "Youth target";
+      if (key === "scouting.youthAnyPosition") return "Any position";
+      if (key === "scouting.daysLeft") return `${params?.days} days left`;
+      if (key === "common.positions.Defender") return "Defender";
+      if (key === "common.positions.Midfielder") return "Midfielder";
+      if (key === "common.positions.Forward") return "Forward";
       return key;
     },
     i18n: { language: "en" },
@@ -180,6 +194,28 @@ function createGameState(players: PlayerData[]): GameStateData {
   };
 }
 
+function createScout(overrides: Partial<StaffData> = {}): StaffData {
+  return {
+    id: "staff-1",
+    first_name: "Sam",
+    last_name: "Scout",
+    date_of_birth: "1985-01-01",
+    nationality: "GB",
+    role: "Scout",
+    attributes: {
+      coaching: 20,
+      judging_ability: 65,
+      judging_potential: 70,
+      physiotherapy: 10,
+    },
+    team_id: "team-1",
+    specialization: null,
+    wage: 1000,
+    contract_end: "2027-06-30",
+    ...overrides,
+  };
+}
+
 describe("YouthAcademyTab", () => {
   it("renders the empty state when the squad has no youth players", () => {
     render(
@@ -263,6 +299,42 @@ describe("YouthAcademyTab", () => {
     fireEvent.click(screen.getByRole("button", { name: "Open scouting" }));
 
     expect(onNavigate).toHaveBeenCalledWith("Scouting");
+  });
+
+  it("starts youth recruitment directly from the youth academy view", async () => {
+    const baseState = createGameState([
+      createPlayer({
+        id: "player-young",
+        full_name: "Rising Star",
+        date_of_birth: "2008-01-01",
+        squad_role: "Youth",
+      }),
+    ]);
+    const gameState = { ...baseState, staff: [createScout()] };
+    const onGameUpdate = vi.fn();
+    mockedInvoke.mockResolvedValue(gameState);
+
+    render(
+      <YouthAcademyTab
+        gameState={gameState}
+        onGameUpdate={onGameUpdate}
+        onSelectPlayer={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("combobox", { name: "Youth target" }));
+    fireEvent.click(screen.getByRole("option", { name: "Defender" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start youth search" }));
+
+    await waitFor(() => {
+      expect(mockedInvoke).toHaveBeenCalledWith("start_youth_scouting", {
+        scoutId: "staff-1",
+        region: "Domestic",
+        objective: "Balanced",
+        targetPosition: "Defender",
+      });
+      expect(onGameUpdate).toHaveBeenCalledWith(gameState);
+    });
   });
 
   it("shows youth prospects only and routes row selection", () => {

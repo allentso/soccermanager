@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { GameStateData } from "../../store/gameStore";
 import {
@@ -9,7 +9,12 @@ import {
   Eye,
   ScanSearch,
 } from "lucide-react";
-import { sendScout, startYouthScouting } from "../../services/scoutingService";
+import {
+  cancelYouthScouting,
+  reassignYouthScouting,
+  sendScout,
+  startYouthScouting,
+} from "../../services/scoutingService";
 import {
   calculateAvailableScouts,
   scoutMaxSlots,
@@ -47,7 +52,11 @@ export default function ScoutingTab({
   const [posFilter, setPosFilter] = useState<string>("All");
   const [sending, setSending] = useState<string | null>(null);
   const [startingYouthSearch, setStartingYouthSearch] = useState(false);
+  const [selectedYouthScoutId, setSelectedYouthScoutId] = useState("");
+  const [youthRegion, setYouthRegion] = useState("Domestic");
+  const [youthObjective, setYouthObjective] = useState("Balanced");
   const [youthTargetPosition, setYouthTargetPosition] = useState("");
+  const [youthSearchError, setYouthSearchError] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   const {
     bidTarget,
@@ -79,6 +88,17 @@ export default function ScoutingTab({
   const allAssignments = [...assignments, ...youthAssignments];
   const availableScouts = calculateAvailableScouts(scouts, allAssignments);
 
+  useEffect(() => {
+    if (
+      selectedYouthScoutId &&
+      availableScouts.some((scout) => scout.id === selectedYouthScoutId)
+    ) {
+      return;
+    }
+
+    setSelectedYouthScoutId(availableScouts[0]?.id ?? "");
+  }, [availableScouts, selectedYouthScoutId]);
+
   const allScoutable = filterScoutablePlayers({
     players: gameState.players,
     teams: gameState.teams,
@@ -106,19 +126,48 @@ export default function ScoutingTab({
   };
 
   const handleStartYouthScouting = async () => {
-    if (availableScouts.length === 0) return;
-    const scout = availableScouts[0];
+    if (!selectedYouthScoutId) return;
     setStartingYouthSearch(true);
+    setYouthSearchError(null);
     try {
-      const updated = await startYouthScouting(
-        scout.id,
-        youthTargetPosition || null,
-      );
+      const updated = await startYouthScouting({
+        scoutId: selectedYouthScoutId,
+        region: youthRegion,
+        objective: youthObjective,
+        targetPosition: youthTargetPosition || null,
+      });
       onGameUpdate(updated);
+      setSelectedYouthScoutId("");
     } catch (err) {
       console.error("Failed to start youth scouting:", err);
+      setYouthSearchError(String(err));
     } finally {
       setStartingYouthSearch(false);
+    }
+  };
+
+  const handleCancelYouthScouting = async (assignmentId: string) => {
+    setYouthSearchError(null);
+    try {
+      const updated = await cancelYouthScouting(assignmentId);
+      onGameUpdate(updated);
+    } catch (err) {
+      console.error("Failed to cancel youth scouting:", err);
+      setYouthSearchError(String(err));
+    }
+  };
+
+  const handleReassignYouthScouting = async (
+    assignmentId: string,
+    scoutId: string,
+  ) => {
+    setYouthSearchError(null);
+    try {
+      const updated = await reassignYouthScouting(assignmentId, scoutId);
+      onGameUpdate(updated);
+    } catch (err) {
+      console.error("Failed to reassign youth scouting:", err);
+      setYouthSearchError(String(err));
     }
   };
 
@@ -160,12 +209,25 @@ export default function ScoutingTab({
         <ScoutingYouthRecruitmentCard
           youthAssignments={youthAssignments}
           scouts={scouts}
-          availableScoutCount={availableScouts.length}
+          availableScouts={availableScouts}
           isStarting={startingYouthSearch}
+          selectedScoutId={selectedYouthScoutId}
+          region={youthRegion}
+          objective={youthObjective}
           targetPosition={youthTargetPosition}
+          errorMessage={youthSearchError}
+          onScoutChange={setSelectedYouthScoutId}
+          onRegionChange={setYouthRegion}
+          onObjectiveChange={setYouthObjective}
           onTargetPositionChange={setYouthTargetPosition}
           onStartSearch={() => {
             void handleStartYouthScouting();
+          }}
+          onCancelSearch={(assignmentId) => {
+            void handleCancelYouthScouting(assignmentId);
+          }}
+          onReassignSearch={(assignmentId, scoutId) => {
+            void handleReassignYouthScouting(assignmentId, scoutId);
           }}
         />
       )}

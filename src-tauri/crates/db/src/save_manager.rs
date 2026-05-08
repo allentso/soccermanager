@@ -1359,6 +1359,8 @@ mod tests {
             .push(YouthScoutingAssignment {
                 id: "ysa-001".to_string(),
                 scout_id: "staff-001".to_string(),
+                region: ofm_core::game::YouthScoutingRegion::Domestic,
+                objective: ofm_core::game::YouthScoutingObjective::Balanced,
                 target_position: Some(domain::player::Position::Defender),
                 days_remaining: 5,
             });
@@ -1403,6 +1405,8 @@ mod tests {
             .push(YouthScoutingAssignment {
                 id: "ysa-1".to_string(),
                 scout_id: "staff-001".to_string(),
+                region: ofm_core::game::YouthScoutingRegion::Domestic,
+                objective: ofm_core::game::YouthScoutingObjective::Balanced,
                 target_position: Some(domain::player::Position::Forward),
                 days_remaining: 6,
             });
