@@ -285,6 +285,8 @@ fn process_scouting_completes_youth_recruitment() {
         .expect("expected a youth recruitment report");
     assert_eq!(msg.category, MessageCategory::ScoutReport);
     assert_eq!(msg.context.player_id.as_deref(), Some(recruit.id.as_str()));
+    assert_eq!(msg.context.youth_target_position.as_deref(), Some("Defender"));
+    assert!(msg.body.contains("defender-focused search"));
     assert_eq!(msg.actions.len(), 2);
     assert!(matches!(
         msg.actions[0].action_type,

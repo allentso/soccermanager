@@ -275,6 +275,7 @@ fn complete_youth_scouting_assignment(
         &recruit_id,
         &recruit_name,
         &recruit_position,
+        assignment.target_position.as_ref(),
         date,
     ));
 }
@@ -287,15 +288,29 @@ fn build_youth_recruitment_report(
     player_id: &str,
     player_name: &str,
     position: &str,
+    target_position: Option<&Position>,
     date: &str,
 ) -> InboxMessage {
-    InboxMessage::new(
-        format!("youth-scout-{}", assignment_id),
-        "Youth prospect found".to_string(),
-        format!(
+    let target_position = target_position.map(|position| position.to_group_position());
+    let body = match target_position.as_ref() {
+        Some(target_position) => format!(
+            "{} has signed {} to the {} academy as a {} prospect after a {}-focused search.",
+            scout_name,
+            player_name,
+            team_name,
+            position,
+            format!("{:?}", target_position).to_lowercase()
+        ),
+        None => format!(
             "{} has signed {} to the {} academy as a {} prospect.",
             scout_name, player_name, team_name, position
         ),
+    };
+
+    InboxMessage::new(
+        format!("youth-scout-{}", assignment_id),
+        "Youth prospect found".to_string(),
+        body,
         scout_name.to_string(),
         date.to_string(),
     )
@@ -320,6 +335,7 @@ fn build_youth_recruitment_report(
     .with_context(MessageContext {
         team_id: Some(team_id.to_string()),
         player_id: Some(player_id.to_string()),
+        youth_target_position: target_position.map(|position| format!("{:?}", position)),
         ..MessageContext::default()
     })
 }
