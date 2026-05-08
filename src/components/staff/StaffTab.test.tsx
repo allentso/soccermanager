@@ -226,4 +226,37 @@ describe("StaffTab", () => {
       expect(onGameUpdate).toHaveBeenCalledWith(updatedState);
     });
   });
+
+  it("shows scout workload details and opens the scouting workflow", () => {
+    const onNavigate = vi.fn();
+
+    render(
+      <StaffTab
+        gameState={{
+          ...createGameState([
+            createStaff({
+              id: "staff-2",
+              first_name: "Sam",
+              last_name: "Scout",
+              role: "Scout",
+            }),
+          ]),
+          scouting_assignments: [
+            { id: "sa-1", scout_id: "staff-2", player_id: "player-1", days_remaining: 2 },
+          ],
+          youth_scouting_assignments: [
+            { id: "ysa-1", scout_id: "staff-2", region: "Domestic", objective: "Balanced", target_position: "Defender", days_remaining: 5 },
+          ],
+        }}
+        onNavigate={onNavigate}
+      />,
+    );
+
+    expect(screen.getByText("2 active assignments")).toBeInTheDocument();
+    expect(screen.getByText("1 youth search")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Open scouting workflow" }));
+
+    expect(onNavigate).toHaveBeenCalledWith("Scouting");
+  });
 });

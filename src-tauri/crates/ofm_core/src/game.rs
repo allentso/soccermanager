@@ -36,10 +36,29 @@ pub struct ScoutingAssignment {
     pub days_remaining: u32,
 }
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum YouthScoutingRegion {
+    #[default]
+    Domestic,
+    International,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum YouthScoutingObjective {
+    #[default]
+    Balanced,
+    HighPotential,
+    ReadySoon,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct YouthScoutingAssignment {
     pub id: String,
     pub scout_id: String,
+    #[serde(default)]
+    pub region: YouthScoutingRegion,
+    #[serde(default)]
+    pub objective: YouthScoutingObjective,
     pub target_position: Option<Position>,
     pub days_remaining: u32,
 }

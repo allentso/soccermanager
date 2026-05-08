@@ -1,6 +1,8 @@
-use crate::game::{Game, ScoutingAssignment, YouthScoutingAssignment};
+use crate::game::{
+    Game, ScoutingAssignment, YouthScoutingAssignment, YouthScoutingObjective, YouthScoutingRegion,
+};
 use domain::message::*;
-use domain::player::Position;
+use domain::player::{Player, Position, SquadRole};
 use domain::staff::StaffRole;
 use rand::RngExt;
 use std::collections::HashMap;
@@ -74,8 +76,12 @@ fn assignment_days_for_player_scouting(judging_ability: u8) -> u32 {
     }
 }
 
-fn assignment_days_for_youth_scouting(judging_potential: u8) -> u32 {
-    if judging_potential >= 80 {
+fn assignment_days_for_youth_scouting(
+    judging_potential: u8,
+    region: YouthScoutingRegion,
+    objective: YouthScoutingObjective,
+) -> u32 {
+    let base = if judging_potential >= 80 {
         4
     } else if judging_potential >= 60 {
         5
@@ -83,7 +89,19 @@ fn assignment_days_for_youth_scouting(judging_potential: u8) -> u32 {
         6
     } else {
         7
-    }
+    };
+
+    let region_modifier = match region {
+        YouthScoutingRegion::Domestic => 0,
+        YouthScoutingRegion::International => 1,
+    };
+    let objective_modifier = match objective {
+        YouthScoutingObjective::Balanced => 0,
+        YouthScoutingObjective::HighPotential => 1,
+        YouthScoutingObjective::ReadySoon => 0,
+    };
+
+    base + region_modifier + objective_modifier
 }
 
 /// Send a scout to evaluate a player. Returns an error string if invalid.
@@ -136,6 +154,8 @@ pub fn send_scout(game: &mut Game, scout_id: &str, player_id: &str) -> Result<()
 pub fn start_youth_scouting(
     game: &mut Game,
     scout_id: &str,
+    region: YouthScoutingRegion,
+    objective: YouthScoutingObjective,
     target_position: Option<Position>,
 ) -> Result<(), String> {
     let scout = resolve_user_scout(game, scout_id)?;
@@ -148,15 +168,70 @@ pub fn start_youth_scouting(
         ));
     }
 
-    let days = assignment_days_for_youth_scouting(scout.attributes.judging_potential);
+    let target_position = target_position.map(|position| position.to_group_position());
+    if game.youth_scouting_assignments.iter().any(|assignment| {
+        assignment.region == region
+            && assignment.objective == objective
+            && assignment.target_position == target_position
+    }) {
+        return Err("A matching youth recruitment search is already active".to_string());
+    }
+
+    let days =
+        assignment_days_for_youth_scouting(scout.attributes.judging_potential, region, objective);
     game.youth_scouting_assignments
         .push(YouthScoutingAssignment {
             id: Uuid::new_v4().to_string(),
             scout_id: scout_id.to_string(),
-            target_position: target_position.map(|position| position.to_group_position()),
+            region,
+            objective,
+            target_position,
             days_remaining: days,
         });
 
+    Ok(())
+}
+
+pub fn cancel_youth_scouting(game: &mut Game, assignment_id: &str) -> Result<(), String> {
+    let original_len = game.youth_scouting_assignments.len();
+    game.youth_scouting_assignments
+        .retain(|assignment| assignment.id != assignment_id);
+
+    if game.youth_scouting_assignments.len() == original_len {
+        return Err("Youth recruitment assignment not found".to_string());
+    }
+
+    Ok(())
+}
+
+pub fn reassign_youth_scouting(
+    game: &mut Game,
+    assignment_id: &str,
+    scout_id: &str,
+) -> Result<(), String> {
+    let assignment_index = game
+        .youth_scouting_assignments
+        .iter()
+        .position(|assignment| assignment.id == assignment_id)
+        .ok_or("Youth recruitment assignment not found")?;
+    let current_scout_id = game.youth_scouting_assignments[assignment_index]
+        .scout_id
+        .clone();
+    if current_scout_id == scout_id {
+        return Err("Scout is already assigned to this search".to_string());
+    }
+
+    let scout = resolve_user_scout(game, scout_id)?;
+    let max_slots = scout_max_assignments(scout.attributes.judging_ability);
+    let current_count = scout_assignment_count(game, scout_id);
+    if current_count >= max_slots {
+        return Err(format!(
+            "Scout is at capacity ({}/{} assignments). Higher judging ability allows more.",
+            current_count, max_slots
+        ));
+    }
+
+    game.youth_scouting_assignments[assignment_index].scout_id = scout_id.to_string();
     Ok(())
 }
 
@@ -257,14 +332,15 @@ fn complete_youth_scouting_assignment(
         return;
     };
 
-    let recruit = crate::generator::generate_youth_academy_recruit(
+    let prospects = generate_youth_recruitment_candidates(
         &team,
+        assignment.region,
+        assignment.objective,
         assignment.target_position.as_ref(),
     );
-    let recruit_id = recruit.id.clone();
-    let recruit_name = recruit.full_name.clone();
-    let recruit_position = format!("{:?}", recruit.position);
-    game.players.push(recruit);
+    if prospects.is_empty() {
+        return;
+    }
 
     let scout_name = format!("{} {}", scout.first_name, scout.last_name);
     game.messages.push(build_youth_recruitment_report(
@@ -272,9 +348,9 @@ fn complete_youth_scouting_assignment(
         &scout_name,
         &team.id,
         &team.name,
-        &recruit_id,
-        &recruit_name,
-        &recruit_position,
+        &prospects,
+        assignment.region,
+        assignment.objective,
         assignment.target_position.as_ref(),
         date,
     ));
@@ -285,29 +361,34 @@ fn build_youth_recruitment_report(
     scout_name: &str,
     team_id: &str,
     team_name: &str,
-    player_id: &str,
-    player_name: &str,
-    position: &str,
+    prospects: &[Player],
+    region: YouthScoutingRegion,
+    objective: YouthScoutingObjective,
     target_position: Option<&Position>,
     date: &str,
 ) -> InboxMessage {
     let target_position = target_position.map(|position| position.to_group_position());
     let body = match target_position.as_ref() {
         Some(target_position) => format!(
-            "{} has signed {} to the {} academy as a {} prospect after a {}-focused search.",
+            "{} has returned {} youth prospects for {} after a {} {} search focused on {}.",
             scout_name,
-            player_name,
+            prospects.len(),
             team_name,
-            position,
-            format!("{:?}", target_position).to_lowercase()
+            region_label(region),
+            objective_label(objective),
+            format!("{:?}", target_position).to_lowercase(),
         ),
         None => format!(
-            "{} has signed {} to the {} academy as a {} prospect.",
-            scout_name, player_name, team_name, position
+            "{} has returned {} youth prospects for {} after a {} {} search.",
+            scout_name,
+            prospects.len(),
+            team_name,
+            region_label(region),
+            objective_label(objective),
         ),
     };
 
-    InboxMessage::new(
+    let message = InboxMessage::new(
         format!("youth-scout-{}", assignment_id),
         "Youth prospect found".to_string(),
         body,
@@ -315,29 +396,246 @@ fn build_youth_recruitment_report(
         date.to_string(),
     )
     .with_category(MessageCategory::ScoutReport)
-    .with_sender_role("Scout")
-    .with_action(MessageAction {
-        id: "view_player".to_string(),
-        label: "View profile".to_string(),
-        action_type: ActionType::NavigateTo {
-            route: format!("/player/{}", player_id),
-        },
-        resolved: false,
-        label_key: Some("squad.viewProfile".to_string()),
-    })
-    .with_action(MessageAction {
-        id: "ack".to_string(),
-        label: "Noted".to_string(),
-        action_type: ActionType::Acknowledge,
-        resolved: false,
-        label_key: Some("be.msg.event.ack".to_string()),
-    })
-    .with_context(MessageContext {
+    .with_sender_role("Scout");
+
+    let message = prospects.iter().fold(message, |message, prospect| {
+        message.with_action(MessageAction {
+            id: format!("prospect:{}", prospect.id),
+            label: prospect.full_name.clone(),
+            action_type: ActionType::ChooseOption {
+                options: youth_prospect_options(),
+            },
+            resolved: false,
+            label_key: None,
+        })
+    });
+
+    message.with_context(MessageContext {
         team_id: Some(team_id.to_string()),
-        player_id: Some(player_id.to_string()),
         youth_target_position: target_position.map(|position| format!("{:?}", position)),
+        youth_search_region: Some(format!("{:?}", region)),
+        youth_search_objective: Some(format!("{:?}", objective)),
+        youth_prospects: Some(prospects.to_vec()),
         ..MessageContext::default()
     })
+}
+
+fn youth_prospect_options() -> Vec<ActionOption> {
+    vec![
+        ActionOption {
+            id: "sign".to_string(),
+            label: "Sign to academy".to_string(),
+            description: "Add this player directly to your youth academy now.".to_string(),
+            label_key: None,
+            description_key: None,
+        },
+        ActionOption {
+            id: "shortlist".to_string(),
+            label: "Shortlist".to_string(),
+            description: "Keep this player for a later decision without committing now."
+                .to_string(),
+            label_key: None,
+            description_key: None,
+        },
+        ActionOption {
+            id: "discard".to_string(),
+            label: "Discard".to_string(),
+            description: "Remove this prospect from the report.".to_string(),
+            label_key: None,
+            description_key: None,
+        },
+    ]
+}
+
+fn region_label(region: YouthScoutingRegion) -> &'static str {
+    match region {
+        YouthScoutingRegion::Domestic => "domestic",
+        YouthScoutingRegion::International => "international",
+    }
+}
+
+fn objective_label(objective: YouthScoutingObjective) -> &'static str {
+    match objective {
+        YouthScoutingObjective::Balanced => "balanced",
+        YouthScoutingObjective::HighPotential => "high-potential",
+        YouthScoutingObjective::ReadySoon => "ready-now",
+    }
+}
+
+fn prospect_score(player: &Player, objective: YouthScoutingObjective) -> (u8, u8) {
+    match objective {
+        YouthScoutingObjective::Balanced => (
+            player.ovr.saturating_add(player.potential / 2),
+            player.potential,
+        ),
+        YouthScoutingObjective::HighPotential => (player.potential, player.ovr),
+        YouthScoutingObjective::ReadySoon => (player.ovr, player.potential),
+    }
+}
+
+fn generate_youth_recruitment_candidates(
+    team: &domain::team::Team,
+    region: YouthScoutingRegion,
+    objective: YouthScoutingObjective,
+    target_position: Option<&Position>,
+) -> Vec<Player> {
+    let pool_size = match objective {
+        YouthScoutingObjective::Balanced => 4,
+        YouthScoutingObjective::HighPotential => 6,
+        YouthScoutingObjective::ReadySoon => 6,
+    };
+    let domestic_nationality = if team.football_nation.is_empty() {
+        Some(team.country.as_str())
+    } else {
+        Some(team.football_nation.as_str())
+    };
+
+    let mut prospects: Vec<Player> = (0..pool_size)
+        .map(|_| {
+            let mut prospect = crate::generator::generate_youth_academy_recruit_with_nationality(
+                team,
+                target_position,
+                match region {
+                    YouthScoutingRegion::Domestic => domestic_nationality,
+                    YouthScoutingRegion::International => None,
+                },
+            );
+            prospect.team_id = None;
+            prospect.squad_role = SquadRole::Youth;
+            prospect
+        })
+        .collect();
+
+    prospects.sort_by(|left, right| {
+        prospect_score(right, objective).cmp(&prospect_score(left, objective))
+    });
+    prospects.truncate(3);
+    prospects
+}
+
+pub struct YouthRecruitmentEffect {
+    pub message: String,
+}
+
+pub fn apply_youth_recruitment_response(
+    game: &mut Game,
+    message_id: &str,
+    action_id: &str,
+    option_id: &str,
+) -> Option<YouthRecruitmentEffect> {
+    let message_index = game
+        .messages
+        .iter()
+        .position(|message| message.id == message_id)?;
+    let action_index = game.messages[message_index]
+        .actions
+        .iter()
+        .position(|action| action.id == action_id)?;
+    let prospect_id = action_id.strip_prefix("prospect:")?;
+
+    let prospects = game.messages[message_index]
+        .context
+        .youth_prospects
+        .clone()?;
+    let prospect_index = prospects
+        .iter()
+        .position(|prospect| prospect.id == prospect_id)?;
+    let prospect = prospects[prospect_index].clone();
+
+    match option_id {
+        "discard" => {
+            let mut remaining = prospects;
+            remaining.remove(prospect_index);
+            let message = &mut game.messages[message_index];
+            message.context.youth_prospects = Some(remaining);
+            message.actions.remove(action_index);
+
+            Some(YouthRecruitmentEffect {
+                message: format!("{} removed from the youth report.", prospect.full_name),
+            })
+        }
+        "sign" => {
+            let mut signed_player = prospect;
+            signed_player.team_id = game.manager.team_id.clone();
+            signed_player.squad_role = SquadRole::Youth;
+            let player_id = signed_player.id.clone();
+            let player_name = signed_player.full_name.clone();
+            game.players.push(signed_player);
+
+            let message = &mut game.messages[message_index];
+            message.context.player_id = Some(player_id);
+            message.context.youth_prospects = None;
+            for action in &mut message.actions {
+                action.resolved = true;
+            }
+
+            Some(YouthRecruitmentEffect {
+                message: format!("{} joined your youth academy.", player_name),
+            })
+        }
+        "shortlist" => {
+            let sender = game.messages[message_index].sender.clone();
+            let date = game.messages[message_index].date.clone();
+            let team_id = game.messages[message_index].context.team_id.clone();
+            let youth_target_position = game.messages[message_index]
+                .context
+                .youth_target_position
+                .clone();
+            let youth_search_region = game.messages[message_index]
+                .context
+                .youth_search_region
+                .clone();
+            let youth_search_objective = game.messages[message_index]
+                .context
+                .youth_search_objective
+                .clone();
+            let prospect_name = prospect.full_name.clone();
+            let shortlist_options = youth_prospect_options();
+
+            game.messages.push(
+                InboxMessage::new(
+                    format!("youth-shortlist-{}", prospect.id),
+                    "Youth prospect shortlisted".to_string(),
+                    format!(
+                        "{} has been kept on your shortlist for a later academy decision.",
+                        prospect_name
+                    ),
+                    sender,
+                    date,
+                )
+                .with_category(MessageCategory::ScoutReport)
+                .with_sender_role("Scout")
+                .with_action(MessageAction {
+                    id: format!("prospect:{}", prospect.id),
+                    label: prospect.full_name.clone(),
+                    action_type: ActionType::ChooseOption {
+                        options: vec![shortlist_options[0].clone(), shortlist_options[2].clone()],
+                    },
+                    resolved: false,
+                    label_key: None,
+                })
+                .with_context(MessageContext {
+                    team_id,
+                    youth_target_position,
+                    youth_search_region,
+                    youth_search_objective,
+                    youth_prospects: Some(vec![prospect]),
+                    ..MessageContext::default()
+                }),
+            );
+
+            let message = &mut game.messages[message_index];
+            message.context.youth_prospects = None;
+            for action in &mut message.actions {
+                action.resolved = true;
+            }
+
+            Some(YouthRecruitmentEffect {
+                message: format!("{} added to your youth shortlist.", prospect_name),
+            })
+        }
+        _ => None,
+    }
 }
 
 fn build_scout_report(

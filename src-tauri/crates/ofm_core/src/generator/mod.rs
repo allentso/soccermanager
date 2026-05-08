@@ -157,12 +157,22 @@ pub fn repair_opening_youth_academies(game: &mut crate::game::Game) -> bool {
 }
 
 pub fn generate_youth_academy_recruit(team: &Team, target_position: Option<&Position>) -> Player {
+    generate_youth_academy_recruit_with_nationality(team, target_position, None)
+}
+
+pub fn generate_youth_academy_recruit_with_nationality(
+    team: &Team,
+    target_position: Option<&Position>,
+    nationality_override: Option<&str>,
+) -> Player {
     use domain::player::SquadRole;
 
     let mut rng = rand::rng();
     let names_def = default_names_definition();
     let country_codes: Vec<String> = names_def.pools.keys().cloned().collect();
-    let nationality = pick_nationality_from_def(&team.country, &country_codes, &mut rng);
+    let nationality = nationality_override
+        .map(str::to_string)
+        .unwrap_or_else(|| pick_nationality_from_def(&team.country, &country_codes, &mut rng));
     let youth_slots: &[usize] = match target_position.map(Position::to_group_position) {
         Some(Position::Defender) => &[8],
         Some(Position::Midfielder) => &[15],

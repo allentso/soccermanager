@@ -22,10 +22,12 @@ import { countryName } from "../../lib/countries";
 import { useTranslation } from "react-i18next";
 import { hireStaff, releaseStaff } from "../../services/staffService";
 import ContextMenu, { type ContextMenuItem } from "../ContextMenu";
+import type { DashboardNavigateContext } from "../dashboard/dashboardProfileNavigation";
 
 interface StaffTabProps {
   gameState: GameStateData;
   onGameUpdate?: (state: GameStateData) => void;
+  onNavigate?: (tab: string, context?: DashboardNavigateContext) => void;
 }
 
 const ROLE_ICONS: Record<string, React.ReactNode> = {
@@ -61,7 +63,7 @@ function ovrRating(s: StaffData): number {
   );
 }
 
-export default function StaffTab({ gameState, onGameUpdate }: StaffTabProps) {
+export default function StaffTab({ gameState, onGameUpdate, onNavigate }: StaffTabProps) {
   const { t, i18n } = useTranslation();
   const weeklySuffix = t("finances.perWeekSuffix", "/wk");
   const userTeamId = gameState.manager.team_id;
@@ -119,8 +121,8 @@ export default function StaffTab({ gameState, onGameUpdate }: StaffTabProps) {
           <button
             onClick={() => setView("mystaff")}
             className={`px-4 py-2 rounded-lg font-heading font-bold text-sm uppercase tracking-wider transition-all flex items-center gap-1.5 ${view === "mystaff"
-                ? "bg-primary-500 text-white shadow-md shadow-primary-500/20"
-                : "bg-white dark:bg-navy-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-navy-600"
+              ? "bg-primary-500 text-white shadow-md shadow-primary-500/20"
+              : "bg-white dark:bg-navy-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-navy-600"
               }`}
           >
             <UserCog className="w-4 h-4" />{" "}
@@ -129,8 +131,8 @@ export default function StaffTab({ gameState, onGameUpdate }: StaffTabProps) {
           <button
             onClick={() => setView("available")}
             className={`px-4 py-2 rounded-lg font-heading font-bold text-sm uppercase tracking-wider transition-all flex items-center gap-1.5 ${view === "available"
-                ? "bg-primary-500 text-white shadow-md shadow-primary-500/20"
-                : "bg-white dark:bg-navy-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-navy-600"
+              ? "bg-primary-500 text-white shadow-md shadow-primary-500/20"
+              : "bg-white dark:bg-navy-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-navy-600"
               }`}
           >
             <UserPlus className="w-4 h-4" />{" "}
@@ -153,8 +155,8 @@ export default function StaffTab({ gameState, onGameUpdate }: StaffTabProps) {
           <button
             onClick={() => setRoleFilter(null)}
             className={`px-3 py-1.5 rounded-lg text-xs font-heading font-bold uppercase tracking-wider transition-all ${!roleFilter
-                ? "bg-primary-500 text-white shadow-sm"
-                : "bg-white dark:bg-navy-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-navy-600"
+              ? "bg-primary-500 text-white shadow-sm"
+              : "bg-white dark:bg-navy-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-navy-600"
               }`}
           >
             {t("common.all")}
@@ -164,8 +166,8 @@ export default function StaffTab({ gameState, onGameUpdate }: StaffTabProps) {
               key={r}
               onClick={() => setRoleFilter(roleFilter === r ? null : r)}
               className={`px-3 py-1.5 rounded-lg text-xs font-heading font-bold uppercase tracking-wider transition-all flex items-center gap-1 ${roleFilter === r
-                  ? "bg-primary-500 text-white shadow-sm"
-                  : "bg-white dark:bg-navy-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-navy-600"
+                ? "bg-primary-500 text-white shadow-sm"
+                : "bg-white dark:bg-navy-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-navy-600"
                 }`}
             >
               {ROLE_ICONS[r]} {t(`staff.roles.${r}`)}
@@ -193,9 +195,27 @@ export default function StaffTab({ gameState, onGameUpdate }: StaffTabProps) {
             const ovr = ovrRating(staff);
             const best = bestAttr(staff);
             const isLoading = actionLoading === staff.id;
+            const scoutingLoad =
+              gameState.scouting_assignments.filter(
+                (assignment) => assignment.scout_id === staff.id,
+              ).length +
+              (gameState.youth_scouting_assignments || []).filter(
+                (assignment) => assignment.scout_id === staff.id,
+              ).length;
+            const youthLoad = (gameState.youth_scouting_assignments || []).filter(
+              (assignment) => assignment.scout_id === staff.id,
+            ).length;
             const contextItems: ContextMenuItem[] =
               view === "mystaff"
                 ? [
+                  ...(staff.role === "Scout" && onNavigate
+                    ? [{
+                      label: "Open scouting workflow",
+                      icon: <Eye className="w-4 h-4" />,
+                      onClick: () => onNavigate("Scouting"),
+                      disabled: false,
+                    } satisfies ContextMenuItem]
+                    : []),
                   {
                     label: t("staff.releaseStaff"),
                     icon: <UserMinus className="w-4 h-4" />,
@@ -275,6 +295,16 @@ export default function StaffTab({ gameState, onGameUpdate }: StaffTabProps) {
                               )}
                             </span>
                           )}
+                          {staff.role === "Scout" ? (
+                            <span className="text-[10px] bg-primary-50 dark:bg-primary-500/10 text-primary-600 dark:text-primary-400 px-1.5 py-0.5 rounded font-heading uppercase tracking-wider">
+                              {scoutingLoad} active assignment{scoutingLoad === 1 ? "" : "s"}
+                            </span>
+                          ) : null}
+                          {staff.role === "Scout" && youthLoad > 0 ? (
+                            <span className="text-[10px] bg-accent-50 dark:bg-accent-500/10 text-accent-600 dark:text-accent-400 px-1.5 py-0.5 rounded font-heading uppercase tracking-wider">
+                              {youthLoad} youth search{youthLoad === 1 ? "" : "es"}
+                            </span>
+                          ) : null}
                         </div>
 
                         {/* Attributes */}
@@ -303,6 +333,16 @@ export default function StaffTab({ gameState, onGameUpdate }: StaffTabProps) {
                             {t(`staff.attrs.${best.key}`)} ({best.value})
                           </span>
                         </p>
+
+                        {staff.role === "Scout" && onNavigate ? (
+                          <button
+                            type="button"
+                            className="mt-3 text-xs font-heading font-bold uppercase tracking-wider text-primary-500 hover:text-primary-600"
+                            onClick={() => onNavigate("Scouting")}
+                          >
+                            Open scouting workflow
+                          </button>
+                        ) : null}
                       </div>
 
                       {/* Action button */}

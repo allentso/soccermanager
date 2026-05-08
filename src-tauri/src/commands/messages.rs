@@ -172,7 +172,15 @@ fn resolve_message_action_internal(
                         Some(effect.i18n_key),
                         Some(effect.i18n_params),
                     ),
-                    None => (None, None, None),
+                    None => match ofm_core::scouting::apply_youth_recruitment_response(
+                        &mut game,
+                        message_id,
+                        action_id,
+                        opt,
+                    ) {
+                        Some(effect) => (Some(effect.message), None, None),
+                        None => (None, None, None),
+                    },
                 }
             }
         }
