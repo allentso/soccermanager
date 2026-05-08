@@ -29,9 +29,10 @@ describe("scoutingService", () => {
     const response = { manager: { id: "manager-1" } };
     mockedInvoke.mockResolvedValueOnce(response);
 
-    await expect(startYouthScouting("staff-1")).resolves.toBe(response);
+    await expect(startYouthScouting("staff-1", "Defender")).resolves.toBe(response);
     expect(mockedInvoke).toHaveBeenCalledWith("start_youth_scouting", {
       scoutId: "staff-1",
+      targetPosition: "Defender",
     });
   });
 });

@@ -1204,6 +1204,8 @@
     "activeYouthSearches": "{{count}} aktive Jugendsuchen",
     "noYouthSearches": "Derzeit laufen keine Jugendrekrutierungssuchen.",
     "youthProspectSearch": "Suche nach Jugendtalent",
+    "youthTargetLabel": "Jugendziel",
+    "youthAnyPosition": "Beliebige Position",
     "activeScoutingAssignments": "Aktive Scoutingaufträge",
     "yourScouts": "Deine Scouts",
     "slots": "Plätze",

@@ -47,6 +47,7 @@ export default function ScoutingTab({
   const [posFilter, setPosFilter] = useState<string>("All");
   const [sending, setSending] = useState<string | null>(null);
   const [startingYouthSearch, setStartingYouthSearch] = useState(false);
+  const [youthTargetPosition, setYouthTargetPosition] = useState("");
   const [page, setPage] = useState(0);
   const {
     bidTarget,
@@ -109,7 +110,10 @@ export default function ScoutingTab({
     const scout = availableScouts[0];
     setStartingYouthSearch(true);
     try {
-      const updated = await startYouthScouting(scout.id);
+      const updated = await startYouthScouting(
+        scout.id,
+        youthTargetPosition || null,
+      );
       onGameUpdate(updated);
     } catch (err) {
       console.error("Failed to start youth scouting:", err);
@@ -158,6 +162,8 @@ export default function ScoutingTab({
           scouts={scouts}
           availableScoutCount={availableScouts.length}
           isStarting={startingYouthSearch}
+          targetPosition={youthTargetPosition}
+          onTargetPositionChange={setYouthTargetPosition}
           onStartSearch={() => {
             void handleStartYouthScouting();
           }}

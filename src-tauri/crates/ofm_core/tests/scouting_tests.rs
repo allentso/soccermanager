@@ -184,10 +184,14 @@ fn send_scout_rejects_non_scout_staff() {
 fn start_youth_scouting_creates_assignment() {
     let mut game = make_game();
 
-    start_youth_scouting(&mut game, "scout1").unwrap();
+    start_youth_scouting(&mut game, "scout1", Some(Position::Defender)).unwrap();
 
     assert_eq!(game.youth_scouting_assignments.len(), 1);
     assert_eq!(game.youth_scouting_assignments[0].scout_id, "scout1");
+    assert_eq!(
+        game.youth_scouting_assignments[0].target_position,
+        Some(Position::Defender)
+    );
 }
 
 #[test]
@@ -195,9 +199,9 @@ fn start_youth_scouting_respects_shared_scout_capacity() {
     let mut game = make_game();
     game.staff[0].attributes.judging_ability = 20;
     send_scout(&mut game, "scout1", "p2").unwrap();
-    start_youth_scouting(&mut game, "scout1").unwrap();
+    start_youth_scouting(&mut game, "scout1", Some(Position::Forward)).unwrap();
 
-    let result = start_youth_scouting(&mut game, "scout1");
+    let result = start_youth_scouting(&mut game, "scout1", Some(Position::Defender));
 
     assert!(result.is_err());
     assert!(result.unwrap_err().contains("capacity"));
@@ -263,7 +267,7 @@ fn process_scouting_completes_youth_recruitment() {
     let mut game = make_game();
     let initial_player_count = game.players.len();
 
-    start_youth_scouting(&mut game, "scout1").unwrap();
+    start_youth_scouting(&mut game, "scout1", Some(Position::Defender)).unwrap();
     complete_scouting(&mut game);
 
     assert_eq!(game.players.len(), initial_player_count + 1);
@@ -272,6 +276,7 @@ fn process_scouting_completes_youth_recruitment() {
     let recruit = game.players.last().expect("expected a new recruit");
     assert_eq!(recruit.team_id.as_deref(), Some("team1"));
     assert_eq!(recruit.squad_role, SquadRole::Youth);
+    assert_eq!(recruit.position.to_group_position(), Position::Defender);
 
     let msg = game
         .messages

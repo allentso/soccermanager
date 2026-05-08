@@ -1,4 +1,5 @@
 use domain::negotiation::NegotiationFeedback;
+use domain::player::Position;
 use log::info;
 use tauri::State;
 
@@ -217,15 +218,34 @@ pub fn send_scout(
 pub fn start_youth_scouting(
     state: State<'_, StateManager>,
     scout_id: String,
+    target_position: Option<String>,
 ) -> Result<Game, String> {
-    info!("[cmd] start_youth_scouting: scout_id={}", scout_id);
+    info!(
+        "[cmd] start_youth_scouting: scout_id={}, target_position={:?}",
+        scout_id, target_position
+    );
     let mut game = state
         .get_game(|g| g.clone())
         .ok_or("be.error.noActiveGameSession".to_string())?;
 
-    ofm_core::scouting::start_youth_scouting(&mut game, &scout_id)?;
+    let target_position = parse_youth_target_position(target_position.as_deref())?;
+
+    ofm_core::scouting::start_youth_scouting(&mut game, &scout_id, target_position)?;
     state.set_game(game.clone());
     Ok(game)
+}
+
+fn parse_youth_target_position(value: Option<&str>) -> Result<Option<Position>, String> {
+    match value {
+        None | Some("") => Ok(None),
+        Some("Defender") => Ok(Some(Position::Defender)),
+        Some("Midfielder") => Ok(Some(Position::Midfielder)),
+        Some("Forward") => Ok(Some(Position::Forward)),
+        Some(other) => Err(format!(
+            "Unsupported youth scouting target position: {}",
+            other
+        )),
+    }
 }
 
 #[cfg(test)]

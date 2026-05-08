@@ -32,6 +32,8 @@ vi.mock("react-i18next", () => ({
       if (key === "scouting.youthRecruitmentHint") {
         return "Use a scout to search for academy prospects.";
       }
+      if (key === "scouting.youthTargetLabel") return "Youth target";
+      if (key === "scouting.youthAnyPosition") return "Any position";
       if (key === "scouting.startYouthSearch") return "Start youth search";
       if (key === "scouting.activeYouthSearches") {
         return `${params?.count} active youth searches`;
@@ -56,6 +58,9 @@ vi.mock("react-i18next", () => ({
       if (key === "scouting.scoutLabel") return params?.name ? `Scout ${params.name}` : "Scout ";
       if (key === "scouting.daysLeft") return `${params?.days} days left`;
       if (key === "common.all") return "All";
+      if (key === "common.positions.Defender") return "Defender";
+      if (key === "common.positions.Midfielder") return "Midfielder";
+      if (key === "common.positions.Forward") return "Forward";
       if (key === "common.freeAgent") return "Free Agent";
       if (key === "common.viewTeam") return "View team";
       if (key === "squad.viewProfile") return "View profile";
@@ -293,7 +298,7 @@ describe("ScoutingTab", () => {
   it("starts a youth scouting search and forwards the updated state", async () => {
     const updatedState = createGameState({
       scouts: [createScout()],
-      youthAssignments: [{ id: "ysa-1", scout_id: "staff-1", days_remaining: 5 }],
+      youthAssignments: [{ id: "ysa-1", scout_id: "staff-1", target_position: "Defender", days_remaining: 5 }],
     });
     const onGameUpdate = vi.fn();
     invokeMock.mockResolvedValue(updatedState);
@@ -305,11 +310,15 @@ describe("ScoutingTab", () => {
       />,
     );
 
+    fireEvent.click(screen.getByRole("combobox", { name: "Youth target" }));
+    fireEvent.click(screen.getByRole("option", { name: "Defender" }));
+
     fireEvent.click(screen.getByRole("button", { name: "Start youth search" }));
 
     await waitFor(() => {
       expect(invokeMock).toHaveBeenCalledWith("start_youth_scouting", {
         scoutId: "staff-1",
+        targetPosition: "Defender",
       });
       expect(onGameUpdate).toHaveBeenCalledWith(updatedState);
     });

@@ -1557,6 +1557,8 @@
     "activeYouthSearches": "{{count}} buscas da base ativas",
     "noYouthSearches": "Nenhuma busca de recrutamento da base está em andamento.",
     "youthProspectSearch": "Busca por promessa da base",
+    "youthTargetLabel": "Alvo da base",
+    "youthAnyPosition": "Qualquer posição",
     "activeScoutingAssignments": "Tarefas de Observação Ativas",
     "yourScouts": "Seus Olheiros",
     "slots": "vagas",

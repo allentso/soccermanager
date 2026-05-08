@@ -14,6 +14,7 @@ pub struct ScoutingAssignmentRow {
 pub struct YouthScoutingAssignmentRow {
     pub id: String,
     pub scout_id: String,
+    pub target_position: Option<String>,
     pub days_remaining: u32,
 }
 
@@ -70,9 +71,14 @@ pub fn upsert_youth_scouting(
     assignment: &YouthScoutingAssignmentRow,
 ) -> Result<(), String> {
     conn.execute(
-        "INSERT OR REPLACE INTO youth_scouting_assignments (id, scout_id, days_remaining)
-         VALUES (?1, ?2, ?3)",
-        params![assignment.id, assignment.scout_id, assignment.days_remaining],
+        "INSERT OR REPLACE INTO youth_scouting_assignments (id, scout_id, target_position, days_remaining)
+         VALUES (?1, ?2, ?3, ?4)",
+        params![
+            assignment.id,
+            assignment.scout_id,
+            assignment.target_position,
+            assignment.days_remaining,
+        ],
     )
     .map_err(|e| format!("Failed to upsert youth scouting assignment: {}", e))?;
     Ok(())
@@ -94,7 +100,9 @@ pub fn load_all_youth_scouting(
     conn: &Connection,
 ) -> Result<Vec<YouthScoutingAssignmentRow>, String> {
     let mut stmt = conn
-        .prepare("SELECT id, scout_id, days_remaining FROM youth_scouting_assignments")
+        .prepare(
+            "SELECT id, scout_id, target_position, days_remaining FROM youth_scouting_assignments",
+        )
         .map_err(|e| format!("Failed to prepare youth scouting query: {}", e))?;
 
     let rows = stmt
@@ -102,7 +110,8 @@ pub fn load_all_youth_scouting(
             Ok(YouthScoutingAssignmentRow {
                 id: row.get(0)?,
                 scout_id: row.get(1)?,
-                days_remaining: row.get(2)?,
+                target_position: row.get(2)?,
+                days_remaining: row.get(3)?,
             })
         })
         .map_err(|e| format!("Failed to query youth scouting: {}", e))?;
@@ -184,12 +193,14 @@ mod tests {
         let assignments = vec![YouthScoutingAssignmentRow {
             id: "ysa-001".to_string(),
             scout_id: "scout-001".to_string(),
+            target_position: Some("Defender".to_string()),
             days_remaining: 5,
         }];
 
         upsert_youth_scouting_list(db.conn(), &assignments).unwrap();
         let loaded = load_all_youth_scouting(db.conn()).unwrap();
         assert_eq!(loaded.len(), 1);
+        assert_eq!(loaded[0].target_position.as_deref(), Some("Defender"));
         assert_eq!(loaded[0].days_remaining, 5);
     }
 }

@@ -3,7 +3,7 @@ use domain::league::League;
 use domain::manager::Manager;
 use domain::message::InboxMessage;
 use domain::news::NewsArticle;
-use domain::player::Player;
+use domain::player::{Player, Position};
 use domain::season::SeasonContext;
 use domain::staff::Staff;
 use domain::team::Team;
@@ -40,6 +40,7 @@ pub struct ScoutingAssignment {
 pub struct YouthScoutingAssignment {
     pub id: String,
     pub scout_id: String,
+    pub target_position: Option<Position>,
     pub days_remaining: u32,
 }
 

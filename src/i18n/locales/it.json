@@ -1223,6 +1223,8 @@
     "activeYouthSearches": "{{count}} ricerche giovanili attive",
     "noYouthSearches": "Nessuna ricerca di reclutamento giovanile è in corso.",
     "youthProspectSearch": "Ricerca prospetto giovanile",
+    "youthTargetLabel": "Obiettivo giovani",
+    "youthAnyPosition": "Qualsiasi posizione",
     "activeScoutingAssignments": "Incarichi di osservazione attivi",
     "yourScouts": "I tuoi osservatori",
     "slots": "slot",

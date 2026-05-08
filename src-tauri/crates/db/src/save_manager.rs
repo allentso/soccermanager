@@ -1359,6 +1359,7 @@ mod tests {
             .push(YouthScoutingAssignment {
                 id: "ysa-001".to_string(),
                 scout_id: "staff-001".to_string(),
+                target_position: Some(domain::player::Position::Defender),
                 days_remaining: 5,
             });
 
@@ -1368,6 +1369,10 @@ mod tests {
         assert_eq!(loaded.scouting_assignments.len(), 1);
         assert_eq!(loaded.scouting_assignments[0].days_remaining, 7);
         assert_eq!(loaded.youth_scouting_assignments.len(), 1);
+        assert_eq!(
+            loaded.youth_scouting_assignments[0].target_position,
+            Some(domain::player::Position::Defender)
+        );
         assert_eq!(loaded.youth_scouting_assignments[0].days_remaining, 5);
     }
 
@@ -1398,6 +1403,7 @@ mod tests {
             .push(YouthScoutingAssignment {
                 id: "ysa-1".to_string(),
                 scout_id: "staff-001".to_string(),
+                target_position: Some(domain::player::Position::Forward),
                 days_remaining: 6,
             });
         game.manager.reputation = 999;

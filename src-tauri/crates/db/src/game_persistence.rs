@@ -1,4 +1,5 @@
 use chrono::Utc;
+use domain::player::Position;
 use domain::stats::StatsState;
 
 use ofm_core::clock::GameClock;
@@ -95,6 +96,10 @@ impl GamePersistenceWriter {
             .map(|assignment| scouting_repo::YouthScoutingAssignmentRow {
                 id: assignment.id.clone(),
                 scout_id: assignment.scout_id.clone(),
+                target_position: assignment
+                    .target_position
+                    .as_ref()
+                    .map(|position| format!("{:?}", position)),
                 days_remaining: assignment.days_remaining,
             })
             .collect();
@@ -172,6 +177,7 @@ impl GamePersistenceReader {
             .map(|assignment| YouthScoutingAssignment {
                 id: assignment.id,
                 scout_id: assignment.scout_id,
+                target_position: assignment.target_position.as_deref().map(parse_position),
                 days_remaining: assignment.days_remaining,
             })
             .collect();
@@ -213,5 +219,28 @@ fn parse_objective_type(value: &str) -> Result<ObjectiveType, String> {
         "GoalsScored" => Ok(ObjectiveType::GoalsScored),
         "FinancialStability" => Ok(ObjectiveType::FinancialStability),
         _ => Err(format!("unknown objective type: {}", value)),
+    }
+}
+
+fn parse_position(value: &str) -> Position {
+    match value {
+        "Goalkeeper" => Position::Goalkeeper,
+        "Defender" => Position::Defender,
+        "Midfielder" => Position::Midfielder,
+        "Forward" => Position::Forward,
+        "RightBack" => Position::RightBack,
+        "CenterBack" => Position::CenterBack,
+        "LeftBack" => Position::LeftBack,
+        "RightWingBack" => Position::RightWingBack,
+        "LeftWingBack" => Position::LeftWingBack,
+        "DefensiveMidfielder" => Position::DefensiveMidfielder,
+        "CentralMidfielder" => Position::CentralMidfielder,
+        "AttackingMidfielder" => Position::AttackingMidfielder,
+        "RightMidfielder" => Position::RightMidfielder,
+        "LeftMidfielder" => Position::LeftMidfielder,
+        "RightWinger" => Position::RightWinger,
+        "LeftWinger" => Position::LeftWinger,
+        "Striker" => Position::Striker,
+        _ => Position::Midfielder,
     }
 }

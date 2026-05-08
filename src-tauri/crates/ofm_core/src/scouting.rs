@@ -1,5 +1,6 @@
 use crate::game::{Game, ScoutingAssignment, YouthScoutingAssignment};
 use domain::message::*;
+use domain::player::Position;
 use domain::staff::StaffRole;
 use rand::RngExt;
 use std::collections::HashMap;
@@ -40,7 +41,10 @@ fn scout_assignment_count(game: &Game, scout_id: &str) -> usize {
             .count()
 }
 
-fn resolve_user_scout<'a>(game: &'a Game, scout_id: &str) -> Result<&'a domain::staff::Staff, String> {
+fn resolve_user_scout<'a>(
+    game: &'a Game,
+    scout_id: &str,
+) -> Result<&'a domain::staff::Staff, String> {
     let user_team_id = game.manager.team_id.as_ref().ok_or("No team")?;
 
     let scout = game
@@ -129,7 +133,11 @@ pub fn send_scout(game: &mut Game, scout_id: &str, player_id: &str) -> Result<()
     Ok(())
 }
 
-pub fn start_youth_scouting(game: &mut Game, scout_id: &str) -> Result<(), String> {
+pub fn start_youth_scouting(
+    game: &mut Game,
+    scout_id: &str,
+    target_position: Option<Position>,
+) -> Result<(), String> {
     let scout = resolve_user_scout(game, scout_id)?;
     let max_slots = scout_max_assignments(scout.attributes.judging_ability);
     let current_count = scout_assignment_count(game, scout_id);
@@ -141,11 +149,13 @@ pub fn start_youth_scouting(game: &mut Game, scout_id: &str) -> Result<(), Strin
     }
 
     let days = assignment_days_for_youth_scouting(scout.attributes.judging_potential);
-    game.youth_scouting_assignments.push(YouthScoutingAssignment {
-        id: Uuid::new_v4().to_string(),
-        scout_id: scout_id.to_string(),
-        days_remaining: days,
-    });
+    game.youth_scouting_assignments
+        .push(YouthScoutingAssignment {
+            id: Uuid::new_v4().to_string(),
+            scout_id: scout_id.to_string(),
+            target_position: target_position.map(|position| position.to_group_position()),
+            days_remaining: days,
+        });
 
     Ok(())
 }
@@ -247,7 +257,10 @@ fn complete_youth_scouting_assignment(
         return;
     };
 
-    let recruit = crate::generator::generate_youth_academy_recruit(&team);
+    let recruit = crate::generator::generate_youth_academy_recruit(
+        &team,
+        assignment.target_position.as_ref(),
+    );
     let recruit_id = recruit.id.clone();
     let recruit_name = recruit.full_name.clone();
     let recruit_position = format!("{:?}", recruit.position);
@@ -413,8 +426,7 @@ fn build_scout_report(
         let delta: i16 = rng.random_range(-(noise_range as i16)..=(noise_range as i16));
         ((player_ovr as i16) + delta).clamp(1, 99) as u32
     } else {
-        let revealed_vals: Vec<u32> =
-            (0..6).filter_map(|i| to_opt(i).map(|v| v as u32)).collect();
+        let revealed_vals: Vec<u32> = (0..6).filter_map(|i| to_opt(i).map(|v| v as u32)).collect();
         if revealed_vals.is_empty() {
             0
         } else {
