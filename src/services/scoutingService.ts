@@ -14,8 +14,10 @@ export async function sendScout(
 
 export async function startYouthScouting(
   scoutId: string,
+  targetPosition?: string | null,
 ): Promise<GameStateData> {
   return invoke<GameStateData>("start_youth_scouting", {
     scoutId,
+    targetPosition: targetPosition ?? null,
   });
 }

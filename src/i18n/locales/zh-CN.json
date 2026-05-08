@@ -1204,6 +1204,8 @@
     "activeYouthSearches": "{{count}} 个进行中的青训搜索",
     "noYouthSearches": "当前没有正在进行的青训招募搜索。",
     "youthProspectSearch": "青训苗子搜索",
+    "youthTargetLabel": "青训目标",
+    "youthAnyPosition": "任意位置",
     "activeScoutingAssignments": "进行中的球探任务",
     "yourScouts": "你的球探",
     "slots": "位",

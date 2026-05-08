@@ -6,7 +6,7 @@ pub mod world_io;
 pub use definitions::*;
 pub use world_io::*;
 
-use domain::player::Player;
+use domain::player::{Player, Position};
 use domain::staff::{Staff, StaffRole};
 use domain::team::Team;
 use domain::team::TeamColors;
@@ -156,14 +156,19 @@ pub fn repair_opening_youth_academies(game: &mut crate::game::Game) -> bool {
     repaired
 }
 
-pub fn generate_youth_academy_recruit(team: &Team) -> Player {
+pub fn generate_youth_academy_recruit(team: &Team, target_position: Option<&Position>) -> Player {
     use domain::player::SquadRole;
 
     let mut rng = rand::rng();
     let names_def = default_names_definition();
     let country_codes: Vec<String> = names_def.pools.keys().cloned().collect();
     let nationality = pick_nationality_from_def(&team.country, &country_codes, &mut rng);
-    let youth_slots = [8_usize, 15, 21];
+    let youth_slots: &[usize] = match target_position.map(Position::to_group_position) {
+        Some(Position::Defender) => &[8],
+        Some(Position::Midfielder) => &[15],
+        Some(Position::Forward) => &[21],
+        _ => &[8, 15, 21],
+    };
     let slot_index = youth_slots[rng.random_range(0..youth_slots.len())];
     let mut player =
         generate_random_player_from_def(&team.id, slot_index, &nationality, &names_def, &mut rng);

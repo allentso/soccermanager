@@ -1204,6 +1204,8 @@
     "activeYouthSearches": "{{count}} búsquedas juveniles activas",
     "noYouthSearches": "No hay búsquedas de captación juvenil en marcha.",
     "youthProspectSearch": "Búsqueda de promesa juvenil",
+    "youthTargetLabel": "Objetivo juvenil",
+    "youthAnyPosition": "Cualquier posición",
     "activeScoutingAssignments": "Asignaciones de Ojeadores Activas",
     "yourScouts": "Tus Ojeadores",
     "slots": "plazas",

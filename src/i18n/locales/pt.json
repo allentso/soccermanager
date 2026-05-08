@@ -1204,6 +1204,8 @@
     "activeYouthSearches": "{{count}} pesquisas jovens ativas",
     "noYouthSearches": "Não há pesquisas de recrutamento jovem em curso.",
     "youthProspectSearch": "Pesquisa de promessa jovem",
+    "youthTargetLabel": "Alvo jovem",
+    "youthAnyPosition": "Qualquer posição",
     "activeScoutingAssignments": "Atribuições de Olheiros Ativas",
     "yourScouts": "Os Teus Olheiros",
     "slots": "vagas",

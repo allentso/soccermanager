@@ -454,6 +454,7 @@ export interface ScoutingAssignment {
 export interface YouthScoutingAssignment {
   id: string;
   scout_id: string;
+  target_position?: string | null;
   days_remaining: number;
 }
 

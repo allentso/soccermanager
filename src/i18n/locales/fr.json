@@ -1204,6 +1204,8 @@
     "activeYouthSearches": "{{count}} recherches de jeunes actives",
     "noYouthSearches": "Aucune recherche de recrutement des jeunes n'est en cours.",
     "youthProspectSearch": "Recherche de jeune prospect",
+    "youthTargetLabel": "Cible jeune",
+    "youthAnyPosition": "N'importe quel poste",
     "activeScoutingAssignments": "Missions de Recrutement Actives",
     "yourScouts": "Vos Recruteurs",
     "slots": "places",

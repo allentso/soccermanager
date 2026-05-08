@@ -1204,6 +1204,8 @@
     "activeYouthSearches": "{{count}} active youth searches",
     "noYouthSearches": "No youth recruitment searches are running.",
     "youthProspectSearch": "Youth prospect search",
+    "youthTargetLabel": "Youth target",
+    "youthAnyPosition": "Any position",
     "activeScoutingAssignments": "Active Scouting Assignments",
     "yourScouts": "Your Scouts",
     "slots": "slots",

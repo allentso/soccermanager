@@ -2,13 +2,15 @@ import { GraduationCap, ScanSearch, Clock } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import type { StaffData, YouthScoutingAssignment } from "../../store/gameStore";
-import { Badge, Button, Card, CardBody, CardHeader } from "../ui";
+import { Badge, Button, Card, CardBody, CardHeader, Select } from "../ui";
 
 interface ScoutingYouthRecruitmentCardProps {
     youthAssignments: YouthScoutingAssignment[];
     scouts: StaffData[];
     availableScoutCount: number;
     isStarting: boolean;
+    targetPosition: string;
+    onTargetPositionChange: (value: string) => void;
     onStartSearch: () => void;
 }
 
@@ -17,6 +19,8 @@ export default function ScoutingYouthRecruitmentCard({
     scouts,
     availableScoutCount,
     isStarting,
+    targetPosition,
+    onTargetPositionChange,
     onStartSearch,
 }: ScoutingYouthRecruitmentCardProps) {
     const { t } = useTranslation();
@@ -41,6 +45,23 @@ export default function ScoutingYouthRecruitmentCard({
                 <p className="text-sm text-gray-500 dark:text-gray-400">
                     {t("scouting.youthRecruitmentHint")}
                 </p>
+
+                <div className="flex flex-col gap-1.5 md:max-w-xs">
+                    <span className="text-xs font-heading uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                        {t("scouting.youthTargetLabel")}
+                    </span>
+                    <Select
+                        selectSize="sm"
+                        value={targetPosition}
+                        aria-label={t("scouting.youthTargetLabel")}
+                        onChange={(event) => onTargetPositionChange(event.target.value)}
+                    >
+                        <option value="">{t("scouting.youthAnyPosition")}</option>
+                        <option value="Defender">{t("common.positions.Defender")}</option>
+                        <option value="Midfielder">{t("common.positions.Midfielder")}</option>
+                        <option value="Forward">{t("common.positions.Forward")}</option>
+                    </Select>
+                </div>
 
                 <div className="flex flex-wrap items-center gap-2">
                     <Badge variant="primary" size="sm">
@@ -81,6 +102,11 @@ export default function ScoutingYouthRecruitmentCard({
                                             {t("scouting.scoutLabel", {
                                                 name: `${scout.first_name} ${scout.last_name}`,
                                             })}
+                                        </p>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                                            {t("scouting.youthTargetLabel")}: {assignment.target_position
+                                                ? t(`common.positions.${assignment.target_position}`)
+                                                : t("scouting.youthAnyPosition")}
                                         </p>
                                     </div>
 
