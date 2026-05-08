@@ -22,6 +22,11 @@ vi.mock("react-i18next", () => ({
       if (key === "staff.noAvailableStaff") return "No available staff";
       if (key === "staff.releaseStaff") return "Release staff";
       if (key === "staff.hireStaff") return "Hire staff";
+      if (key === "staff.openScoutingWorkflow") return "Open scouting workflow";
+      if (key === "staff.activeAssignment") return "active assignment";
+      if (key === "staff.activeAssignments") return "active assignments";
+      if (key === "staff.youthSearch") return "youth search";
+      if (key === "staff.youthSearches") return "youth searches";
       if (key === "common.age") return "Age";
       if (key === "staff.best") return "Best";
       if (key.startsWith("staff.roles.")) return key.replace("staff.roles.", "");

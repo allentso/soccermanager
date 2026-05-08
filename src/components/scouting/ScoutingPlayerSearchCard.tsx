@@ -28,6 +28,7 @@ interface ScoutingPlayerSearchCardProps {
   teams: TeamData[];
   posFilter: string;
   searchQuery: string;
+  errorMessage?: string | null;
   alreadyScoutingIds: Set<string>;
   availableScoutCount: number;
   sendingPlayerId: string | null;
@@ -50,6 +51,7 @@ export default function ScoutingPlayerSearchCard({
   teams,
   posFilter,
   searchQuery,
+  errorMessage,
   alreadyScoutingIds,
   availableScoutCount,
   sendingPlayerId,
@@ -102,6 +104,15 @@ export default function ScoutingPlayerSearchCard({
             className="w-full pl-9 pr-4 py-2 text-sm bg-gray-50 dark:bg-navy-700 border border-gray-200 dark:border-navy-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/50 text-gray-800 dark:text-gray-100 placeholder:text-gray-400"
           />
         </div>
+
+        {errorMessage ? (
+          <p
+            role="alert"
+            className="mb-3 text-xs font-heading font-bold uppercase tracking-wider text-red-500"
+          >
+            {errorMessage}
+          </p>
+        ) : null}
 
         <div className="overflow-x-auto">
           <table className="w-full text-sm">

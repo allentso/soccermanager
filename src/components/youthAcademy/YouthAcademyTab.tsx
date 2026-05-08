@@ -329,8 +329,8 @@ export default function YouthAcademyTab({
 
       {scouts.length > 0 ? (
         <ScoutingYouthRecruitmentCard
-          title="Youth recruitment workflow"
-          hint="Start, cancel, or reassign academy searches without leaving the Youth Academy view."
+          title={t("youthAcademy.recruitmentWorkflowTitle")}
+          hint={t("youthAcademy.recruitmentWorkflowHint")}
           youthAssignments={youthAssignments}
           scouts={scouts}
           availableScouts={availableScouts}

@@ -317,6 +317,51 @@ describe("resolveMessage", () => {
     }
   });
 
+  it("localizes legacy takeover contract review messages without persisted i18n keys", async () => {
+    const previousLanguage = i18n.language;
+    await i18n.changeLanguage("pt-BR");
+
+    try {
+      const msg = makeMessage({
+        id: "contract_review_takeover_team-1",
+        subject: "Assistant Manager - Contract Review",
+        body:
+          "Your assistant has reviewed the squad contracts after your arrival. 2 player(s) are due to come up for renewal this season, but none require an immediate decision today.\n\nStart mapping out who you want to keep so the situation stays under control.",
+        sender: "Assistant Manager",
+        sender_role: "Assistant Manager",
+        actions: [
+          makeAction({
+            id: "view_squad",
+            label: "Review Squad Contracts",
+            action_type: {
+              NavigateTo: {
+                route: "/dashboard?tab=Squad",
+              },
+            },
+          }),
+          makeAction({
+            id: "ack",
+            label: "Acknowledge",
+            action_type: "Acknowledge",
+          }),
+        ],
+      });
+
+      const result = resolveMessage(msg);
+
+      expect(result.subject).toBe("Assistente Técnico - Revisão de Contratos");
+      expect(result.sender).toBe("Auxiliar Técnico");
+      expect(result.sender_role).toBe("Auxiliar Técnico");
+      expect(result.body).toBe(
+        "Seu assistente revisou os contratos do elenco após a sua chegada. 2 jogador(es) devem entrar em negociação de renovação nesta temporada, mas nenhum exige uma decisão imediata hoje.\n\nComece a mapear quem você quer manter para que a situação fique sob controle.",
+      );
+      expect(result.actions[0].label).toBe("Revisar Contratos do Elenco");
+      expect(result.actions[1].label).toBe("Entendido");
+    } finally {
+      await i18n.changeLanguage(previousLanguage);
+    }
+  });
+
   it("preserves non-translatable fields", () => {
     const msg = makeMessage({ id: "msg_99", read: true, category: "transfer" });
     const result = resolveMessage(msg);

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { GameStateData } from "../../store/gameStore";
+import { getErrorMessage } from "../../utils/errorMessage";
 import {
   Card,
   CardBody,
@@ -51,6 +52,7 @@ export default function ScoutingTab({
   const [searchQuery, setSearchQuery] = useState("");
   const [posFilter, setPosFilter] = useState<string>("All");
   const [sending, setSending] = useState<string | null>(null);
+  const [playerSearchError, setPlayerSearchError] = useState<string | null>(null);
   const [startingYouthSearch, setStartingYouthSearch] = useState(false);
   const [selectedYouthScoutId, setSelectedYouthScoutId] = useState("");
   const [youthRegion, setYouthRegion] = useState("Domestic");
@@ -112,14 +114,20 @@ export default function ScoutingTab({
   const alreadyScoutingIds = buildAlreadyScoutingIds(assignments);
 
   const handleSendScout = async (playerId: string) => {
-    if (availableScouts.length === 0) return;
+    if (availableScouts.length === 0) {
+      setPlayerSearchError(null);
+      return;
+    }
     const scout = availableScouts[0];
+    setPlayerSearchError(null);
     setSending(playerId);
     try {
       const updated = await sendScout(scout.id, playerId);
+      setPlayerSearchError(null);
       onGameUpdate(updated);
     } catch (err) {
       console.error("Failed to send scout:", err);
+      setPlayerSearchError(getErrorMessage(err));
     } finally {
       setSending(null);
     }
@@ -259,6 +267,7 @@ export default function ScoutingTab({
           teams={gameState.teams}
           posFilter={posFilter}
           searchQuery={searchQuery}
+          errorMessage={playerSearchError}
           alreadyScoutingIds={alreadyScoutingIds}
           availableScoutCount={availableScouts.length}
           sendingPlayerId={sending}

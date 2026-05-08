@@ -120,15 +120,15 @@ fn make_game() -> Game {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn max_assignments_scales_with_ability() {
-    assert_eq!(scout_max_assignments(90), 5);
-    assert_eq!(scout_max_assignments(80), 5);
-    assert_eq!(scout_max_assignments(79), 4);
-    assert_eq!(scout_max_assignments(60), 4);
-    assert_eq!(scout_max_assignments(59), 3);
-    assert_eq!(scout_max_assignments(40), 3);
-    assert_eq!(scout_max_assignments(39), 2);
-    assert_eq!(scout_max_assignments(20), 2);
+fn max_assignments_is_one_for_all_scouts() {
+    assert_eq!(scout_max_assignments(90), 1);
+    assert_eq!(scout_max_assignments(80), 1);
+    assert_eq!(scout_max_assignments(79), 1);
+    assert_eq!(scout_max_assignments(60), 1);
+    assert_eq!(scout_max_assignments(59), 1);
+    assert_eq!(scout_max_assignments(40), 1);
+    assert_eq!(scout_max_assignments(39), 1);
+    assert_eq!(scout_max_assignments(20), 1);
     assert_eq!(scout_max_assignments(19), 1);
     assert_eq!(scout_max_assignments(0), 1);
 }
@@ -166,7 +166,8 @@ fn send_scout_rejects_unknown_player() {
 fn send_scout_rejects_duplicate_assignment() {
     let mut game = make_game();
     send_scout(&mut game, "scout1", "p2").unwrap();
-    let result = send_scout(&mut game, "scout1", "p2");
+    game.staff.push(make_scout("scout2", "team1", 70, 70));
+    let result = send_scout(&mut game, "scout2", "p2");
     assert!(result.is_err());
     assert!(result.unwrap_err().contains("already being scouted"));
 }
@@ -213,8 +214,22 @@ fn start_youth_scouting_creates_assignment() {
 #[test]
 fn start_youth_scouting_respects_shared_scout_capacity() {
     let mut game = make_game();
-    game.staff[0].attributes.judging_ability = 20;
     send_scout(&mut game, "scout1", "p2").unwrap();
+    let result = start_youth_scouting(
+        &mut game,
+        "scout1",
+        YouthScoutingRegion::Domestic,
+        YouthScoutingObjective::Balanced,
+        Some(Position::Forward),
+    );
+
+    assert!(result.is_err());
+    assert!(result.unwrap_err().contains("already assigned"));
+}
+
+#[test]
+fn send_scout_rejects_when_scout_has_youth_assignment() {
+    let mut game = make_game();
     start_youth_scouting(
         &mut game,
         "scout1",
@@ -224,21 +239,16 @@ fn start_youth_scouting_respects_shared_scout_capacity() {
     )
     .unwrap();
 
-    let result = start_youth_scouting(
-        &mut game,
-        "scout1",
-        YouthScoutingRegion::International,
-        YouthScoutingObjective::HighPotential,
-        Some(Position::Defender),
-    );
+    let result = send_scout(&mut game, "scout1", "p2");
 
     assert!(result.is_err());
-    assert!(result.unwrap_err().contains("capacity"));
+    assert!(result.unwrap_err().contains("already assigned"));
 }
 
 #[test]
 fn start_youth_scouting_rejects_duplicate_search_profile() {
     let mut game = make_game();
+    game.staff.push(make_scout("scout2", "team1", 70, 70));
 
     start_youth_scouting(
         &mut game,
@@ -251,7 +261,7 @@ fn start_youth_scouting_rejects_duplicate_search_profile() {
 
     let result = start_youth_scouting(
         &mut game,
-        "scout1",
+        "scout2",
         YouthScoutingRegion::Domestic,
         YouthScoutingObjective::Balanced,
         Some(Position::Defender),
@@ -358,9 +368,17 @@ fn process_scouting_completes_youth_recruitment_report() {
         .expect("expected youth prospects in message context");
     assert_eq!(prospects.len(), 3);
     assert!(prospects.iter().all(|prospect| prospect.team_id.is_none()));
-    assert!(prospects.iter().all(|prospect| prospect.position.to_group_position() == Position::Defender));
+    assert!(
+        prospects
+            .iter()
+            .all(|prospect| prospect.position.to_group_position() == Position::Defender)
+    );
     assert_eq!(msg.actions.len(), 3);
-    assert!(msg.actions.iter().all(|action| matches!(action.action_type, ActionType::ChooseOption { .. })));
+    assert!(
+        msg.actions
+            .iter()
+            .all(|action| matches!(action.action_type, ActionType::ChooseOption { .. }))
+    );
 }
 
 #[test]
@@ -426,15 +444,15 @@ fn youth_recruitment_response_shortlists_selected_prospect() {
         .clone();
     let action_id = message.actions[1].id.clone();
 
-    let effect =
-        apply_youth_recruitment_response(&mut game, &message.id, &action_id, "shortlist")
-            .expect("expected shortlist effect");
+    let effect = apply_youth_recruitment_response(&mut game, &message.id, &action_id, "shortlist")
+        .expect("expected shortlist effect");
 
     assert!(effect.message.contains("shortlist"));
-    assert!(game
-        .messages
-        .iter()
-        .any(|candidate| candidate.subject == "Youth prospect shortlisted"));
+    assert!(
+        game.messages
+            .iter()
+            .any(|candidate| candidate.subject == "Youth prospect shortlisted")
+    );
 }
 
 #[test]

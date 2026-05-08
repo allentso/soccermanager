@@ -52,18 +52,22 @@ export default function ScoutingYouthRecruitmentCard({
     const canStart = availableScoutCount > 0 && selectedScoutId.length > 0 && !isStarting;
 
     function formatRegion(value?: string): string {
-        if (value === "International") return "International";
-        return "Domestic";
+        if (value === "International") return t("scouting.regionInternational");
+        return t("scouting.regionDomestic");
     }
 
     function formatObjective(value?: string): string {
-        if (value === "HighPotential") return "High potential";
-        if (value === "ReadySoon") return "Ready soon";
-        return "Balanced";
+        if (value === "HighPotential") return t("scouting.objectiveHighPotential");
+        if (value === "ReadySoon") return t("scouting.objectiveReadySoon");
+        return t("scouting.objectiveBalanced");
     }
 
     function getReassignChoices(assignment: YouthScoutingAssignment): StaffData[] {
-        return scouts.filter((scout) => scout.id !== assignment.scout_id);
+        return scouts.filter(
+            (scout) =>
+                scout.id !== assignment.scout_id &&
+                availableScouts.some((candidate) => candidate.id === scout.id),
+        );
     }
 
     return (
@@ -90,15 +94,15 @@ export default function ScoutingYouthRecruitmentCard({
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
                     <div className="flex flex-col gap-1.5">
                         <span className="text-xs font-heading uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                            Scout
+                            {t("scouting.youthSearchScoutLabel")}
                         </span>
                         <Select
                             selectSize="sm"
                             value={selectedScoutId}
-                            aria-label="Youth scout"
+                            aria-label={t("scouting.youthSearchScoutLabel")}
                             onChange={(event) => onScoutChange(event.target.value)}
                         >
-                            <option value="">Select scout</option>
+                            <option value="">{t("scouting.selectScout")}</option>
                             {availableScouts.map((scout) => (
                                 <option key={scout.id} value={scout.id}>
                                     {scout.first_name} {scout.last_name}
@@ -109,32 +113,32 @@ export default function ScoutingYouthRecruitmentCard({
 
                     <div className="flex flex-col gap-1.5">
                         <span className="text-xs font-heading uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                            Region
+                            {t("scouting.youthSearchRegionLabel")}
                         </span>
                         <Select
                             selectSize="sm"
                             value={region}
-                            aria-label="Youth search region"
+                            aria-label={t("scouting.youthSearchRegionLabel")}
                             onChange={(event) => onRegionChange(event.target.value)}
                         >
-                            <option value="Domestic">Domestic</option>
-                            <option value="International">International</option>
+                            <option value="Domestic">{t("scouting.regionDomestic")}</option>
+                            <option value="International">{t("scouting.regionInternational")}</option>
                         </Select>
                     </div>
 
                     <div className="flex flex-col gap-1.5">
                         <span className="text-xs font-heading uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                            Objective
+                            {t("scouting.youthSearchObjectiveLabel")}
                         </span>
                         <Select
                             selectSize="sm"
                             value={objective}
-                            aria-label="Youth search objective"
+                            aria-label={t("scouting.youthSearchObjectiveLabel")}
                             onChange={(event) => onObjectiveChange(event.target.value)}
                         >
-                            <option value="Balanced">Balanced</option>
-                            <option value="HighPotential">High potential</option>
-                            <option value="ReadySoon">Ready soon</option>
+                            <option value="Balanced">{t("scouting.objectiveBalanced")}</option>
+                            <option value="HighPotential">{t("scouting.objectiveHighPotential")}</option>
+                            <option value="ReadySoon">{t("scouting.objectiveReadySoon")}</option>
                         </Select>
                     </div>
 
@@ -234,7 +238,7 @@ export default function ScoutingYouthRecruitmentCard({
                                                 icon={<XCircle className="w-4 h-4" />}
                                                 onClick={() => onCancelSearch(assignment.id)}
                                             >
-                                                Cancel
+                                                {t("scouting.cancelSearch")}
                                             </Button>
                                         </div>
 
@@ -242,7 +246,7 @@ export default function ScoutingYouthRecruitmentCard({
                                             <Select
                                                 selectSize="sm"
                                                 value={reassignTarget}
-                                                aria-label={`Reassign ${assignment.id}`}
+                                                aria-label={`${t("scouting.reassignSearch")} ${assignment.id}`}
                                                 onChange={(event) =>
                                                     setReassignTargets((current) => ({
                                                         ...current,
@@ -252,7 +256,7 @@ export default function ScoutingYouthRecruitmentCard({
                                                 disabled={reassignChoices.length === 0}
                                             >
                                                 {reassignChoices.length === 0 ? (
-                                                    <option value="">No alternate scout</option>
+                                                    <option value="">{t("scouting.noAlternateScout")}</option>
                                                 ) : (
                                                     reassignChoices.map((candidate) => (
                                                         <option key={candidate.id} value={candidate.id}>
@@ -268,7 +272,7 @@ export default function ScoutingYouthRecruitmentCard({
                                                 disabled={reassignChoices.length === 0 || reassignTarget.length === 0}
                                                 onClick={() => onReassignSearch(assignment.id, reassignTarget)}
                                             >
-                                                Reassign
+                                                {t("scouting.reassignSearch")}
                                             </Button>
                                         </div>
                                     </div>

@@ -83,9 +83,15 @@ export function condColor(c: number): string {
 }
 
 export function statColor(v: number): string {
-  if (v >= 75) return "text-primary-400 font-bold";
-  if (v >= 60) return "text-gray-200";
-  return "text-gray-500";
+  if (v >= 75) return "text-primary-500 dark:text-primary-400 font-bold";
+  if (v >= 60) return "text-gray-700 dark:text-gray-200";
+  return "text-gray-500 dark:text-gray-400";
+}
+
+export function starterOvrColor(ovr: number): string {
+  if (ovr >= 70) return "text-primary-600 dark:text-primary-400";
+  if (ovr >= 50) return "text-gray-700 dark:text-gray-300";
+  return "text-red-600 dark:text-red-400";
 }
 
 export function getStatVal(p: EnginePlayerData, key: string): number {
@@ -289,7 +295,7 @@ export default function PreMatchLineup({
                       )}
                       <div className="flex items-center gap-0">
                         <span
-                          className={`text-[10px] font-heading font-bold tabular-nums w-7 text-center ${posOvr >= 70 ? "text-primary-400" : posOvr >= 50 ? "text-gray-300" : "text-red-400"}`}
+                          className={`text-[10px] font-heading font-bold tabular-nums w-7 text-center ${starterOvrColor(posOvr)}`}
                         >
                           {posOvr}
                         </span>
