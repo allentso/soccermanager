@@ -15,20 +15,10 @@ fn params(pairs: &[(&str, &str)]) -> HashMap<String, String> {
         .collect()
 }
 
-/// Determine how many concurrent scouting assignments a scout can handle.
-/// Higher judging_ability = more slots (1 to 5).
+/// Scouts can only handle one assignment at a time across player and youth scouting.
 pub fn scout_max_assignments(judging_ability: u8) -> usize {
-    if judging_ability >= 80 {
-        5
-    } else if judging_ability >= 60 {
-        4
-    } else if judging_ability >= 40 {
-        3
-    } else if judging_ability >= 20 {
-        2
-    } else {
-        1
-    }
+    let _ = judging_ability;
+    1
 }
 
 fn scout_assignment_count(game: &Game, scout_id: &str) -> usize {
@@ -119,12 +109,12 @@ pub fn send_scout(game: &mut Game, scout_id: &str, player_id: &str) -> Result<()
         return Err("Cannot scout your own players".to_string());
     }
 
-    // Check scout capacity: higher ability = more concurrent assignments
+    // Check scout capacity across both player and youth scouting.
     let max_slots = scout_max_assignments(scout.attributes.judging_ability);
     let current_count = scout_assignment_count(game, scout_id);
     if current_count >= max_slots {
         return Err(format!(
-            "Scout is at capacity ({}/{} assignments). Higher judging ability allows more.",
+            "Scout is already assigned to another scouting task ({}/{} assignments).",
             current_count, max_slots
         ));
     }
@@ -163,7 +153,7 @@ pub fn start_youth_scouting(
     let current_count = scout_assignment_count(game, scout_id);
     if current_count >= max_slots {
         return Err(format!(
-            "Scout is at capacity ({}/{} assignments). Higher judging ability allows more.",
+            "Scout is already assigned to another scouting task ({}/{} assignments).",
             current_count, max_slots
         ));
     }
@@ -226,7 +216,7 @@ pub fn reassign_youth_scouting(
     let current_count = scout_assignment_count(game, scout_id);
     if current_count >= max_slots {
         return Err(format!(
-            "Scout is at capacity ({}/{} assignments). Higher judging ability allows more.",
+            "Scout is already assigned to another scouting task ({}/{} assignments).",
             current_count, max_slots
         ));
     }

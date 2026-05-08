@@ -28,6 +28,9 @@ vi.mock("react-i18next", () => ({
       if (key === "youthAcademy.highPotential") return "High Potential";
       if (key === "youthAcademy.youthCoach") return "Youth Coach";
       if (key === "youthAcademy.youthProspects") return "Youth Prospects";
+      if (key === "youthAcademy.recruitmentWorkflowTitle") return "Youth recruitment workflow";
+      if (key === "youthAcademy.recruitmentWorkflowHint")
+        return "Start, cancel, or reassign academy searches without leaving the Youth Academy view.";
       if (key === "youthAcademy.noYouthPlayers") return "No youth players";
       if (key === "youthAcademy.delegateToYouthAcademy")
         return "Delegate to youth academy";
@@ -50,6 +53,18 @@ vi.mock("react-i18next", () => ({
       if (key === "scouting.noYouthSearches") return "No youth searches running";
       if (key === "scouting.noScoutsFree") return "No scouts free";
       if (key === "scouting.youthProspectSearch") return "Youth prospect search";
+      if (key === "scouting.youthSearchScoutLabel") return "Scout";
+      if (key === "scouting.youthSearchRegionLabel") return "Region";
+      if (key === "scouting.youthSearchObjectiveLabel") return "Objective";
+      if (key === "scouting.selectScout") return "Select scout";
+      if (key === "scouting.regionDomestic") return "Domestic";
+      if (key === "scouting.regionInternational") return "International";
+      if (key === "scouting.objectiveBalanced") return "Balanced";
+      if (key === "scouting.objectiveHighPotential") return "High potential";
+      if (key === "scouting.objectiveReadySoon") return "Ready soon";
+      if (key === "scouting.cancelSearch") return "Cancel";
+      if (key === "scouting.reassignSearch") return "Reassign";
+      if (key === "scouting.noAlternateScout") return "No alternate scout";
       if (key === "scouting.scoutLabel") return params?.name ? `Scout ${params.name}` : "Scout";
       if (key === "scouting.youthTargetLabel") return "Youth target";
       if (key === "scouting.youthAnyPosition") return "Any position";

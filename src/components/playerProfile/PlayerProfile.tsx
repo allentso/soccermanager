@@ -180,6 +180,7 @@ export default function PlayerProfile({
   const scoutAvailability = getScoutAvailability({
     staff: gameState.staff,
     scoutingAssignments: gameState.scouting_assignments || [],
+    youthScoutingAssignments: gameState.youth_scouting_assignments || [],
     managerTeamId: gameState.manager.team_id,
     playerId: player.id,
     scoutStatus,

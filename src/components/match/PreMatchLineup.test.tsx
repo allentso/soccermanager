@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent, within } from "@testing-library/react";
-import { getPositionOvr, parseFormationNeeds, condColor, statColor, getStatVal, POSITION_KEY_STATS } from "./PreMatchLineup";
+import { getPositionOvr, parseFormationNeeds, condColor, statColor, starterOvrColor, getStatVal, POSITION_KEY_STATS } from "./PreMatchLineup";
 import PreMatchLineup from "./PreMatchLineup";
 import type { EnginePlayerData, EngineTeamData } from "./types";
 
@@ -135,18 +135,26 @@ describe("condColor", () => {
 
 describe("statColor", () => {
   it("returns primary + bold for high stats (>= 75)", () => {
-    expect(statColor(75)).toBe("text-primary-400 font-bold");
-    expect(statColor(99)).toBe("text-primary-400 font-bold");
+    expect(statColor(75)).toBe("text-primary-500 dark:text-primary-400 font-bold");
+    expect(statColor(99)).toBe("text-primary-500 dark:text-primary-400 font-bold");
   });
 
-  it("returns gray-200 for medium stats (60-74)", () => {
-    expect(statColor(60)).toBe("text-gray-200");
-    expect(statColor(74)).toBe("text-gray-200");
+  it("returns theme-safe neutral for medium stats (60-74)", () => {
+    expect(statColor(60)).toBe("text-gray-700 dark:text-gray-200");
+    expect(statColor(74)).toBe("text-gray-700 dark:text-gray-200");
   });
 
-  it("returns gray-500 for low stats (< 60)", () => {
-    expect(statColor(59)).toBe("text-gray-500");
-    expect(statColor(0)).toBe("text-gray-500");
+  it("returns subdued but readable neutral for low stats (< 60)", () => {
+    expect(statColor(59)).toBe("text-gray-500 dark:text-gray-400");
+    expect(statColor(0)).toBe("text-gray-500 dark:text-gray-400");
+  });
+});
+
+describe("starterOvrColor", () => {
+  it("uses theme-safe colors for each OVR tier", () => {
+    expect(starterOvrColor(72)).toBe("text-primary-600 dark:text-primary-400");
+    expect(starterOvrColor(58)).toBe("text-gray-700 dark:text-gray-300");
+    expect(starterOvrColor(44)).toBe("text-red-600 dark:text-red-400");
   });
 });
 

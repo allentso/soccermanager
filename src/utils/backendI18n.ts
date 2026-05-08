@@ -9,6 +9,7 @@ import type {
 import {
   inferLegacyDelegatedRenewalsParams,
   normalizeNewsParams,
+  resolveLegacyTakeoverContractReviewMessage,
   resolveLegacyDelegatedRenewalsMessage,
 } from './backendI18n.legacy';
 import {
@@ -382,7 +383,10 @@ export function resolveMessage(msg: MessageData): MessageData {
     actions: msg.actions.map((action) => resolveAction(action, msg.id, p)),
   };
 
-  return resolveLegacyDelegatedRenewalsMessage(resolved, resolve, p);
+  return resolveLegacyTakeoverContractReviewMessage(
+    resolveLegacyDelegatedRenewalsMessage(resolved, resolve, p),
+    resolve,
+  );
 }
 
 /**

@@ -3,15 +3,8 @@ import type { ScoutingAssignment, StaffData } from "../../store/gameStore";
 type ScoutWorkloadAssignment = Pick<ScoutingAssignment, "scout_id">;
 
 export function scoutMaxSlots(ability: number): number {
-  return ability >= 80
-    ? 5
-    : ability >= 60
-      ? 4
-      : ability >= 40
-        ? 3
-        : ability >= 20
-          ? 2
-          : 1;
+  void ability;
+  return 1;
 }
 
 export function scoutAssignmentCount(

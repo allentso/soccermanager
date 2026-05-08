@@ -66,6 +66,7 @@ function ovrRating(s: StaffData): number {
 export default function StaffTab({ gameState, onGameUpdate, onNavigate }: StaffTabProps) {
   const { t, i18n } = useTranslation();
   const weeklySuffix = t("finances.perWeekSuffix", "/wk");
+  const openScoutingWorkflowLabel = t("staff.openScoutingWorkflow");
   const userTeamId = gameState.manager.team_id;
   const [view, setView] = useState<"mystaff" | "available">("mystaff");
   const [search, setSearch] = useState("");
@@ -205,12 +206,18 @@ export default function StaffTab({ gameState, onGameUpdate, onNavigate }: StaffT
             const youthLoad = (gameState.youth_scouting_assignments || []).filter(
               (assignment) => assignment.scout_id === staff.id,
             ).length;
+            const scoutingLoadLabel = `${scoutingLoad} ${t(
+              scoutingLoad === 1 ? "staff.activeAssignment" : "staff.activeAssignments",
+            )}`;
+            const youthLoadLabel = `${youthLoad} ${t(
+              youthLoad === 1 ? "staff.youthSearch" : "staff.youthSearches",
+            )}`;
             const contextItems: ContextMenuItem[] =
               view === "mystaff"
                 ? [
                   ...(staff.role === "Scout" && onNavigate
                     ? [{
-                      label: "Open scouting workflow",
+                      label: openScoutingWorkflowLabel,
                       icon: <Eye className="w-4 h-4" />,
                       onClick: () => onNavigate("Scouting"),
                       disabled: false,
@@ -297,12 +304,12 @@ export default function StaffTab({ gameState, onGameUpdate, onNavigate }: StaffT
                           )}
                           {staff.role === "Scout" ? (
                             <span className="text-[10px] bg-primary-50 dark:bg-primary-500/10 text-primary-600 dark:text-primary-400 px-1.5 py-0.5 rounded font-heading uppercase tracking-wider">
-                              {scoutingLoad} active assignment{scoutingLoad === 1 ? "" : "s"}
+                              {scoutingLoadLabel}
                             </span>
                           ) : null}
                           {staff.role === "Scout" && youthLoad > 0 ? (
                             <span className="text-[10px] bg-accent-50 dark:bg-accent-500/10 text-accent-600 dark:text-accent-400 px-1.5 py-0.5 rounded font-heading uppercase tracking-wider">
-                              {youthLoad} youth search{youthLoad === 1 ? "" : "es"}
+                              {youthLoadLabel}
                             </span>
                           ) : null}
                         </div>
@@ -340,7 +347,7 @@ export default function StaffTab({ gameState, onGameUpdate, onNavigate }: StaffT
                             className="mt-3 text-xs font-heading font-bold uppercase tracking-wider text-primary-500 hover:text-primary-600"
                             onClick={() => onNavigate("Scouting")}
                           >
-                            Open scouting workflow
+                            {openScoutingWorkflowLabel}
                           </button>
                         ) : null}
                       </div>

@@ -40,6 +40,18 @@ vi.mock("react-i18next", () => ({
       }
       if (key === "scouting.noYouthSearches") return "No youth searches running";
       if (key === "scouting.youthProspectSearch") return "Youth prospect search";
+      if (key === "scouting.youthSearchScoutLabel") return "Scout";
+      if (key === "scouting.youthSearchRegionLabel") return "Region";
+      if (key === "scouting.youthSearchObjectiveLabel") return "Objective";
+      if (key === "scouting.selectScout") return "Select scout";
+      if (key === "scouting.regionDomestic") return "Domestic";
+      if (key === "scouting.regionInternational") return "International";
+      if (key === "scouting.objectiveBalanced") return "Balanced";
+      if (key === "scouting.objectiveHighPotential") return "High potential";
+      if (key === "scouting.objectiveReadySoon") return "Ready soon";
+      if (key === "scouting.cancelSearch") return "Cancel";
+      if (key === "scouting.reassignSearch") return "Reassign";
+      if (key === "scouting.noAlternateScout") return "No alternate scout";
       if (key === "inbox.responded") return "Responded";
       if (key === "scouting.findPlayers") return "Find Players";
       if (key === "scouting.searchPlaceholder") return "Search players";
@@ -296,6 +308,27 @@ describe("ScoutingTab", () => {
     });
   });
 
+  it("shows scout assignment errors inline in the player search card", async () => {
+    invokeMock.mockRejectedValueOnce(
+      new Error("Scout is already assigned to another scouting task."),
+    );
+
+    render(
+      <ScoutingTab
+        gameState={createGameState({ scouts: [createScout()] })}
+        onGameUpdate={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Scout/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        "Scout is already assigned to another scouting task.",
+      );
+    });
+  });
+
   it("starts a youth scouting search and forwards the updated state", async () => {
     const updatedState = createGameState({
       scouts: [createScout()],
@@ -371,6 +404,40 @@ describe("ScoutingTab", () => {
       });
       expect(onGameUpdate).toHaveBeenCalledWith(updatedState);
     });
+  });
+
+  it("only offers free scouts when reassigning a youth search", () => {
+    render(
+      <ScoutingTab
+        gameState={createGameState({
+          scouts: [createScout(), createScout({ id: "staff-2", first_name: "Alex" })],
+          assignments: [
+            {
+              id: "assignment-1",
+              scout_id: "staff-2",
+              player_id: "player-1",
+              days_remaining: 3,
+            },
+          ],
+          youthAssignments: [
+            {
+              id: "ysa-1",
+              scout_id: "staff-1",
+              region: "Domestic",
+              objective: "Balanced",
+              target_position: "Defender",
+              days_remaining: 5,
+            },
+          ],
+        })}
+        onGameUpdate={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByRole("combobox", { name: "Reassign ysa-1" }),
+    ).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Reassign" })).toBeDisabled();
   });
 
   it("opens and submits a transfer bid from the scouting search context menu", async () => {
