@@ -642,7 +642,7 @@ describe("TransfersTab", function (): void {
     fireEvent.click(screen.getByRole("button", { name: /free agents/i }));
 
     expect(screen.getByText("John Smith")).toBeInTheDocument();
-    expect(screen.getByText("Free Agent")).toBeInTheDocument();
+    expect(screen.getAllByText("Free Agent").length).toBeGreaterThan(0);
 
     fireEvent.click(screen.getByRole("button", { name: /offer contract/i }));
 

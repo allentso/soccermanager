@@ -653,7 +653,7 @@ export default function TransfersTab({
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                onSelectTeam(player.team_id);
+                                onSelectTeam(player.team_id!);
                               }}
                               className="text-sm text-gray-600 dark:text-gray-400 hover:text-primary-500 hover:underline transition-colors"
                             >
