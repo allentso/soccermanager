@@ -16,13 +16,17 @@ vi.mock("react-i18next", () => ({
       if (key === "common.nResults") return `${params?.count} results`;
       if (key === "common.action") return "Action";
       if (key === "common.viewTeam") return "View team";
+      if (key === "common.freeAgent") return "Free Agent";
       if (key === "transfers.transferMarket") return "Transfer Market";
+      if (key === "transfers.freeAgents") return "Free Agents";
       if (key === "transfers.offers") return "Offers";
+      if (key === "transfers.noFreeAgents") return "No free agents available.";
       if (key === "transfers.counterOffer") return "Counter Offer";
       if (key === "transfers.counterAmount") return "Counter Amount";
       if (key === "transfers.submitCounter") return "Submit Counter";
       if (key === "transfers.close") return "Close";
       if (key === "transfers.counter") return "Counter";
+      if (key === "transfers.offerContract") return "Offer Contract";
       if (key === "transfers.bid") return "Bid";
       if (key === "transfers.makeBid") return "Make Transfer Bid";
       if (key === "transfers.bidAmount") return "Bid Amount (€M)";
@@ -68,6 +72,26 @@ vi.mock("react-i18next", () => ({
       if (key === "scouting.scoutBtn") return "Scout";
       if (key === "scouting.scoutingInProgress") return "Scouting in progress";
       if (key === "scouting.noScoutsFree") return "No scouts free";
+      if (key === "playerProfile.renewalWage") return "Offered Wage";
+      if (key === "playerProfile.renewalLength") return "Contract Length";
+      if (key === "playerProfile.renewalProjectionTitle") return "Projected financial impact";
+      if (key === "playerProfile.renewalProjectionWageBill")
+        return `Weekly wage bill ${params?.before} -> ${params?.after}`;
+      if (key === "playerProfile.renewalProjectionBudgetUsage")
+        return `Wage budget use ${params?.before}% -> ${params?.after}%`;
+      if (key === "playerProfile.renewalProjectionRunway")
+        return `Cash runway ${params?.before} -> ${params?.after}`;
+      if (key === "playerProfile.renewalBudgetWarning") return "Budget warning";
+      if (key === "playerProfile.renewalConversationTitle") return "Negotiation pulse";
+      if (key === "playerProfile.renewalRound") return `Round ${params?.count}`;
+      if (key === "playerProfile.renewalPatience") return "Patience";
+      if (key === "playerProfile.renewalTension") return "Tension";
+      if (key === "playerProfile.renewalSubmit") return "Submit Offer";
+      if (key === "playerProfile.renewalAccepted") return "Offer accepted";
+      if (key === "playerProfile.renewalRejected") return "Offer rejected";
+      if (key === "playerProfile.renewalCounter")
+        return `Wants more: ${params?.wage} for ${params?.years} years`;
+      if (key === "playerProfile.renewalBlocked") return "Talks blocked";
       return key;
     },
     i18n: { language: "en" },
@@ -285,6 +309,24 @@ describe("TransfersTab", function (): void {
               projected_wage_budget_usage_pct: 4,
               exceeds_transfer_budget: transferBudgetBefore - fee < 0,
               exceeds_finance: financeBefore - fee < 0,
+            },
+          };
+        }
+
+        if (command === "preview_free_agent_contract_impact") {
+          const wage = Number(payload?.weeklyWage ?? 0);
+          return {
+            projection: {
+              current_annual_wage_bill: 0,
+              projected_annual_wage_bill: wage,
+              annual_wage_budget: 50000,
+              annual_soft_cap: 55000,
+              current_weekly_wage_spend: 0,
+              projected_weekly_wage_spend: wage,
+              current_cash_runway_weeks: 40,
+              projected_cash_runway_weeks: 30,
+              currently_over_budget: false,
+              policy_allows: true,
             },
           };
         }
@@ -574,6 +616,39 @@ describe("TransfersTab", function (): void {
         screen.getByText("This bid exceeds your transfer budget"),
       ).toBeInTheDocument();
       expect(screen.getByRole("button", { name: /submit bid/i })).toBeDisabled();
+    });
+  });
+
+  it("shows free agents in a dedicated view and opens the contract modal", async function (): Promise<void> {
+    const state = createGameState([
+      createPlayer({
+        id: "free-agent-1",
+        team_id: null,
+        contract_end: null,
+        transfer_offers: [],
+        market_value: 600000,
+      }),
+    ]);
+
+    render(
+      <TransfersTab
+        gameState={state}
+        onSelectPlayer={vi.fn()}
+        onSelectTeam={vi.fn()}
+        onGameUpdate={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /free agents/i }));
+
+    expect(screen.getByText("John Smith")).toBeInTheDocument();
+    expect(screen.getByText("Free Agent")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /offer contract/i }));
+
+    await waitFor(function (): void {
+      expect(screen.getByText("Projected financial impact")).toBeInTheDocument();
+      expect(screen.getByLabelText("Offered Wage")).toBeInTheDocument();
     });
   });
 
