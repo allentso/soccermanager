@@ -56,16 +56,16 @@ async function persistSettings(settings: AppSettings) {
 function indexSupportedCurrencies(
   currencies: CurrencyDefinition[] = [],
 ): Record<string, CurrencyDefinition> {
-  const catalog = currencies.reduce<Record<string, CurrencyDefinition>>((acc, currency) => {
+  const index = currencies.reduce<Record<string, CurrencyDefinition>>((acc, currency) => {
     acc[currency.code] = currency;
     return acc;
   }, {});
 
-  if (!catalog[DEFAULT_CURRENCY.code]) {
-    catalog[DEFAULT_CURRENCY.code] = DEFAULT_CURRENCY;
+  if (!index[DEFAULT_CURRENCY.code]) {
+    index[DEFAULT_CURRENCY.code] = DEFAULT_CURRENCY;
   }
 
-  return catalog;
+  return index;
 }
 
 function resolveCurrency(

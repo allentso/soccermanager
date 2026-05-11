@@ -53,8 +53,17 @@ pub fn convert_amount(amount: i64, code: &str) -> Option<i64> {
     Some((amount as f64 * rate).round() as i64)
 }
 
+fn convert_unsigned_amount(amount: u64, code: &str) -> Option<u64> {
+    let rate = currency_definition(code)?.exchange_rate;
+    Some(
+        ((amount as f64) * rate)
+            .round()
+            .clamp(0.0, u64::MAX as f64) as u64,
+    )
+}
+
 pub fn format_compact_number(amount: u64, code: &str) -> Option<String> {
-    let converted = convert_amount(amount as i64, code)? as u64;
+    let converted = convert_unsigned_amount(amount, code)?;
 
     if converted >= 1_000_000 {
         Some(format!("{:.1}M", converted as f64 / 1_000_000.0))

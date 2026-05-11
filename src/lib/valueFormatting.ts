@@ -24,9 +24,11 @@ export function getCurrencySymbol(
 
 function convertCurrencyValue(
     value: number,
-    exchangeRate: number = getFormattingSettings().currency.exchange_rate,
+    exchangeRate?: number,
 ): number {
-    return Math.round(value * exchangeRate);
+    const resolvedExchangeRate =
+        exchangeRate ?? getFormattingSettings().currency.exchange_rate;
+    return Math.round(value * resolvedExchangeRate);
 }
 
 function prefixCurrency(

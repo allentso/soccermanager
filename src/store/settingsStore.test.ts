@@ -79,7 +79,7 @@ describe("useSettingsStore", () => {
     expect(useSettingsStore.getState().currency).toEqual(SUPPORTED_CURRENCIES[0]);
   });
 
-  it("falls back to the default currency metadata when the backend payload is incomplete", async () => {
+  it("falls back to the default currency metadata when the selected currency is unsupported", async () => {
     vi.mocked(invoke).mockResolvedValue({
       settings: {
         currency: "GBP",
