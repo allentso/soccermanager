@@ -95,7 +95,7 @@ describe("DashboardTabContent", () => {
     });
 
     it("falls back to the home content when the active tab is unknown", () => {
-        const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+        const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => { });
 
         renderTabContent("LegacyTab");
 

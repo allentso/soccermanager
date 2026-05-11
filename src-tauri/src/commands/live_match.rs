@@ -175,8 +175,8 @@ pub fn submit_press_conference(
 
         // Morale effects based on stable response identifiers.
         match rid {
-            "humble" | "fair" | "positive" | "focused" | "grateful" | "patience"
-            | "appreciate" | "understand" => morale_delta += rng.random_range(1..=3),
+            "humble" | "fair" | "positive" | "focused" | "grateful" | "patience" | "appreciate"
+            | "understand" => morale_delta += rng.random_range(1..=3),
             "confident" | "ambitious" | "shared" => morale_delta += rng.random_range(2..=5),
             "defiant" | "frustrated" => morale_delta += rng.random_range(-2..=2),
             "curt" | "evasive" => morale_delta += rng.random_range(-3..=0),
