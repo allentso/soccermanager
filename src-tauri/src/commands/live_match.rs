@@ -19,7 +19,8 @@ use ofm_core::state::StateManager;
 pub struct PressConferenceAnswer {
     question_id: String,
     response_id: String,
-    response_tone: String,
+    #[serde(rename = "response_tone")]
+    _response_tone: String,
     response_text: String,
     #[serde(default)]
     response_text_key: String,
@@ -152,11 +153,10 @@ pub fn submit_press_conference(
     let mut mentioned_player_ids: Vec<String> = Vec::new();
 
     for answer in &answers {
-        let tone = answer.response_tone.as_str();
+        let rid = answer.response_id.as_str();
         let text = answer.response_text.as_str();
         let qid = answer.question_id.as_str();
 
-        let _ = &answer.response_id;
         let _ = &answer.question_text;
 
         if !text.is_empty() {
@@ -173,26 +173,27 @@ pub fn submit_press_conference(
             mentioned_player_ids.push(answer.player_id.clone());
         }
 
-        // Morale effects based on tone
-        match tone {
-            "Humble" | "Fair" | "Positive" | "Focused" => morale_delta += rng.random_range(1..=3),
-            "Confident" | "Ambitious" => morale_delta += rng.random_range(2..=5),
-            "Defiant" | "Frustrated" => morale_delta += rng.random_range(-2..=2),
-            "Curt" | "Evasive" => morale_delta += rng.random_range(-3..=0),
-            "Accept" | "Detailed" => morale_delta += rng.random_range(0..=2),
-            "Deflect" => morale_delta += rng.random_range(-1..=1),
-            "Praise" => morale_delta += rng.random_range(3..=6),
-            "Demanding" => morale_delta += rng.random_range(-2..=3),
+        // Morale effects based on stable response identifiers.
+        match rid {
+            "humble" | "fair" | "positive" | "focused" | "grateful" | "patience"
+            | "appreciate" | "understand" => morale_delta += rng.random_range(1..=3),
+            "confident" | "ambitious" | "shared" => morale_delta += rng.random_range(2..=5),
+            "defiant" | "frustrated" => morale_delta += rng.random_range(-2..=2),
+            "curt" | "evasive" => morale_delta += rng.random_range(-3..=0),
+            "accept" | "detailed" | "apologize" => morale_delta += rng.random_range(0..=2),
+            "deflect" => morale_delta += rng.random_range(-1..=1),
+            "praise" => morale_delta += rng.random_range(3..=6),
+            "demanding" => morale_delta += rng.random_range(-2..=3),
             _ => {}
         }
 
         // Player-focused question effects
         if qid == "player_focus" {
             if !answer.player_id.is_empty() {
-                let player_delta: i16 = match tone {
-                    "Praise" => rng.random_range(4..=8),
-                    "Demanding" => rng.random_range(-3..=4),
-                    "Deflect" => rng.random_range(-2..=1),
+                let player_delta: i16 = match rid {
+                    "praise" => rng.random_range(4..=8),
+                    "demanding" => rng.random_range(-3..=4),
+                    "deflect" => rng.random_range(-2..=1),
                     _ => rng.random_range(0..=3),
                 };
                 if let Some(p) = game.players.iter_mut().find(|p| p.id == answer.player_id) {

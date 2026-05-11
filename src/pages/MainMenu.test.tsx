@@ -4,6 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import type { ComponentPropsWithoutRef } from "react";
 
 import { countryName } from "../lib/countries";
+import { resetCountryResourcesCache } from "../components/menu/CreateManagerNationalityField";
 import MainMenu from "./MainMenu";
 
 const navigateMock = vi.fn();
@@ -206,6 +207,7 @@ describe("MainMenu", () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    resetCountryResourcesCache();
   });
 
   it.each(["es", "de", "fr", "it", "pt", "pt-BR"])(

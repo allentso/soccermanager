@@ -49,14 +49,14 @@ export default function DashboardTabContent({
     },
   } = viewModel;
 
-  let content = null;
+  const renderHomeContent = () => {
+    if (seasonComplete) {
+      return (
+        <EndOfSeasonScreen gameState={gameState} onGameUpdate={onGameUpdate} />
+      );
+    }
 
-  if (seasonComplete && activeTab === "Home") {
-    content = (
-      <EndOfSeasonScreen gameState={gameState} onGameUpdate={onGameUpdate} />
-    );
-  } else if (activeTab === "Home") {
-    content = (
+    return (
       <HomeTab
         gameState={gameState}
         onNavigate={onNavigate}
@@ -64,6 +64,14 @@ export default function DashboardTabContent({
         visitedOnboardingTabs={visitedOnboardingTabs}
       />
     );
+  };
+
+  let content = null;
+
+  if (seasonComplete && activeTab === "Home") {
+    content = renderHomeContent();
+  } else if (activeTab === "Home") {
+    content = renderHomeContent();
   } else if (activeTab === "Squad") {
     content = (
       <SquadTab
@@ -153,6 +161,9 @@ export default function DashboardTabContent({
     content = <ManagerTab gameState={gameState} onSelectTeam={onSelectTeam} />;
   } else if (activeTab === "News") {
     content = <NewsTab gameState={gameState} onSelectTeam={onSelectTeam} />;
+  } else {
+    console.warn("DashboardTabContent received unexpected activeTab", activeTab);
+    content = renderHomeContent();
   }
 
   return (

@@ -188,8 +188,7 @@ export function getPlayerName(
 }
 
 export function phaseLabel(phase: string, t?: TranslateFn): string {
-  const fallbackLabel = PHASE_LABELS[phase];
-  if (!fallbackLabel) return phase;
+  const fallbackLabel = PHASE_LABELS[phase] ?? humanizeEventType(phase);
 
   return t
     ? t(`match.phases.${phase}`, { defaultValue: fallbackLabel })

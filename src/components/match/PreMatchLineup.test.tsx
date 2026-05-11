@@ -138,6 +138,16 @@ describe("starterBadgeStyle", () => {
     });
   });
 
+  it("normalizes 3-digit hex colors before applying alpha variants", () => {
+    expect(starterBadgeStyle("#123")).toEqual({
+      backgroundColor: "#11223330",
+      color: "#112233",
+      borderColor: "#11223355",
+      borderWidth: 1,
+      borderStyle: "solid",
+    });
+  });
+
   it("falls back to a readable neutral badge for very light team colors", () => {
     expect(starterBadgeStyle("#ffffff")).toEqual({
       backgroundColor: "#f8fafc",

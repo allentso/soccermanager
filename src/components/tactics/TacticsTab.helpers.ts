@@ -4,6 +4,7 @@ import type { PlayerData } from "../../store/gameStore";
 import {
   buildPitchRows,
   buildStartingXIIds,
+  isPlayerExactForSlot,
   getPreferredPositions,
   isPlayerOutOfPosition,
   normalisePosition,
@@ -77,6 +78,8 @@ function comparePlayersForSlot(
   return (
     Number(isPlayerOutOfPosition(leftPlayer, slotPosition)) -
     Number(isPlayerOutOfPosition(rightPlayer, slotPosition)) ||
+    Number(!isPlayerExactForSlot(leftPlayer, slotPosition)) -
+    Number(!isPlayerExactForSlot(rightPlayer, slotPosition)) ||
     getPlayerOvr(rightPlayer) - getPlayerOvr(leftPlayer) ||
     rightPlayer.condition - leftPlayer.condition ||
     leftPlayer.full_name.localeCompare(rightPlayer.full_name)

@@ -93,4 +93,18 @@ describe("DashboardTabContent", () => {
 
         expect(await screen.findByText("Squad Tab Mock")).toBeInTheDocument();
     });
+
+    it("falls back to the home content when the active tab is unknown", () => {
+        const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+        renderTabContent("LegacyTab");
+
+        expect(screen.getByText("Home Tab Mock")).toBeInTheDocument();
+        expect(warnSpy).toHaveBeenCalledWith(
+            "DashboardTabContent received unexpected activeTab",
+            "LegacyTab",
+        );
+
+        warnSpy.mockRestore();
+    });
 });

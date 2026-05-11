@@ -1,4 +1,4 @@
-import { beforeAll, describe, it, expect } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import {
   getPlayerName,
   phaseLabel,
@@ -72,6 +72,16 @@ const makeSnapshot = (overrides: Partial<MatchSnapshot> = {}): MatchSnapshot => 
 
 beforeAll(async () => {
   await i18nReady;
+});
+
+let defaultLanguage = "en";
+
+beforeAll(() => {
+  defaultLanguage = i18n.resolvedLanguage || i18n.language || "en";
+});
+
+afterEach(async () => {
+  await i18n.changeLanguage(defaultLanguage);
 });
 
 // ---------------------------------------------------------------------------
@@ -172,8 +182,19 @@ describe("phaseLabel", () => {
     expect(phaseLabel("PenaltyShootout", t)).toBe("Pênaltis");
   });
 
-  it("returns the input for unknown phases", () => {
-    expect(phaseLabel("SomeOtherPhase")).toBe("SomeOtherPhase");
+  it("humanizes unknown phases when no fixed label exists", () => {
+    expect(phaseLabel("SomeOtherPhase")).toBe("Some Other Phase");
+  });
+
+  it("passes a humanized default value when translating unknown phases", () => {
+    const translate = vi.fn((_: string, options?: { defaultValue?: string }) => {
+      return options?.defaultValue ?? "";
+    });
+
+    expect(phaseLabel("SomeOtherPhase", translate)).toBe("Some Other Phase");
+    expect(translate).toHaveBeenCalledWith("match.phases.SomeOtherPhase", {
+      defaultValue: "Some Other Phase",
+    });
   });
 });
 

@@ -22,6 +22,10 @@ interface CreateManagerNationalityFieldProps {
 
 let countryResourcesPromise: Promise<CountryResources> | null = null;
 
+export function resetCountryResourcesCache(): void {
+    countryResourcesPromise = null;
+}
+
 function normaliseSearchText(value: string): string {
     return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 }
@@ -120,6 +124,12 @@ export default function CreateManagerNationalityField({
         ? resources?.countryName(nationality, locale) || nationality
         : null;
     const Flag = resources?.CountryFlag;
+    const triggerBorderClassName = error
+        ? "border-red-400 dark:border-red-500"
+        : isOpen
+            ? "border-primary-500 ring-2 ring-primary-500/20"
+            : "border-gray-300 dark:border-navy-600";
+    const triggerClassName = `w-full rounded-lg border bg-gray-50 p-3 text-left transition-all dark:bg-navy-900 ${triggerBorderClassName}`;
 
     const toggleDropdown = () => {
         if (!isOpen && !resources) {
@@ -152,12 +162,7 @@ export default function CreateManagerNationalityField({
                             toggleDropdown();
                         }
                     }}
-                    className={`w-full rounded-lg border bg-gray-50 p-3 text-left transition-all dark:bg-navy-900 ${error
-                        ? "border-red-400 dark:border-red-500"
-                        : isOpen
-                            ? "border-primary-500 ring-2 ring-primary-500/20"
-                            : "border-gray-300 dark:border-navy-600"
-                        }`}
+                    className={triggerClassName}
                 >
                     <span
                         className={

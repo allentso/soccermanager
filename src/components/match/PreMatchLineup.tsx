@@ -50,6 +50,22 @@ export function starterOvrColor(ovr: number): string {
 }
 
 function hexToRgb(color: string): { red: number; green: number; blue: number } | null {
+  const normalized = normalizeHexColor(color);
+
+  if (!normalized) {
+    return null;
+  }
+
+  const hex = normalized.slice(1);
+
+  return {
+    red: Number.parseInt(hex.slice(0, 2), 16),
+    green: Number.parseInt(hex.slice(2, 4), 16),
+    blue: Number.parseInt(hex.slice(4, 6), 16),
+  };
+}
+
+function normalizeHexColor(color: string): string | null {
   const normalized = color.trim();
   const hex = normalized.startsWith("#") ? normalized.slice(1) : normalized;
 
@@ -61,11 +77,7 @@ function hexToRgb(color: string): { red: number; green: number; blue: number } |
     ? hex.split("").map((char) => char + char).join("")
     : hex;
 
-  return {
-    red: Number.parseInt(expanded.slice(0, 2), 16),
-    green: Number.parseInt(expanded.slice(2, 4), 16),
-    blue: Number.parseInt(expanded.slice(4, 6), 16),
-  };
+  return `#${expanded.toLowerCase()}`;
 }
 
 function isLightColor(color: string): boolean {
@@ -80,7 +92,9 @@ function isLightColor(color: string): boolean {
 }
 
 export function starterBadgeStyle(userColor: string): Record<string, string | number> {
-  if (isLightColor(userColor)) {
+  const normalizedHex = normalizeHexColor(userColor);
+
+  if (!normalizedHex || isLightColor(normalizedHex)) {
     return {
       backgroundColor: "#f8fafc",
       color: "#334155",
@@ -91,9 +105,9 @@ export function starterBadgeStyle(userColor: string): Record<string, string | nu
   }
 
   return {
-    backgroundColor: `${userColor}30`,
-    color: userColor,
-    borderColor: `${userColor}55`,
+    backgroundColor: `${normalizedHex}30`,
+    color: normalizedHex,
+    borderColor: `${normalizedHex}55`,
     borderWidth: 1,
     borderStyle: "solid",
   };

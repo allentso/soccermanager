@@ -336,6 +336,8 @@ function comparePlayersForSlot(
   return (
     Number(isPlayerOutOfPosition(leftPlayer, slotPosition)) -
     Number(isPlayerOutOfPosition(rightPlayer, slotPosition)) ||
+    Number(!isPlayerExactForSlot(leftPlayer, slotPosition)) -
+    Number(!isPlayerExactForSlot(rightPlayer, slotPosition)) ||
     getPlayerOvr(rightPlayer) - getPlayerOvr(leftPlayer) ||
     rightPlayer.condition - leftPlayer.condition ||
     leftPlayer.full_name.localeCompare(rightPlayer.full_name)
@@ -434,6 +436,13 @@ export function isPlayerOutOfPosition(
       position === canonicalCurrentPos ||
       normalisePosition(position) === normalizedCurrentPos,
   );
+}
+
+export function isPlayerExactForSlot(
+  player: PlayerData,
+  currentPos: string,
+): boolean {
+  return canonicalPosition(player.natural_position || player.position) === canonicalPosition(currentPos);
 }
 
 export function applyLineupDrop(
