@@ -110,6 +110,17 @@ export function buildMakeTransferBidMenuItem(
     };
 }
 
+export function buildOfferFreeAgentContractMenuItem(
+    t: MenuTranslateFn,
+    onClick: () => void,
+): ContextMenuItem {
+    return {
+        label: t("transfers.offerContract"),
+        icon: <Gavel className="w-4 h-4" />,
+        onClick,
+    };
+}
+
 export function buildDelegateToYouthAcademyMenuItem(
     t: MenuTranslateFn,
     onClick: () => void,

@@ -863,6 +863,7 @@
     "none": "Nenhuma",
     "listed": "Listados",
     "makeBid": "Fazer Proposta",
+    "offerContract": "Oferecer contrato",
     "bid": "Ofertar",
     "playerValue": "Valor: {{value}}",
     "bidAmount": "Valor da Proposta",

@@ -30,7 +30,9 @@ import ScoutingOverviewCards from "./ScoutingOverviewCards";
 import ScoutingScoutDetailsCard from "./ScoutingScoutDetailsCard";
 import ScoutingPlayerSearchCard from "./ScoutingPlayerSearchCard";
 import ScoutingYouthRecruitmentCard from "./ScoutingYouthRecruitmentCard";
+import FreeAgentContractModal from "../transfers/FreeAgentContractModal";
 import TransferBidModal from "../transfers/TransferBidModal";
+import { useFreeAgentContractFlow } from "../transfers/useFreeAgentContractFlow";
 import { useTransferBidFlow } from "../transfers/useTransferBidFlow";
 
 interface ScoutingTabProps {
@@ -77,6 +79,25 @@ export default function ScoutingTab({
     closeBidNegotiation,
     handleMakeBid,
   } = useTransferBidFlow({
+    gameState,
+    onGameUpdate,
+  });
+  const {
+    freeAgentTarget,
+    contractWage,
+    setContractWage,
+    contractLength,
+    setContractLength,
+    contractFeedback,
+    contractProjection,
+    contractSubmitting,
+    contractSubmitDisabled,
+    contractStatusMessage,
+    contractStatusClassName,
+    openFreeAgentContract,
+    closeFreeAgentContract,
+    submitFreeAgentContract,
+  } = useFreeAgentContractFlow({
     gameState,
     onGameUpdate,
   });
@@ -284,6 +305,7 @@ export default function ScoutingTab({
             setPage(0);
           }}
           onBidPlayer={openBidNegotiation}
+          onOfferFreeAgent={openFreeAgentContract}
           onSelectPlayer={onSelectPlayer}
           onSelectTeam={onSelectTeam}
           onSendScout={handleSendScout}
@@ -310,6 +332,24 @@ export default function ScoutingTab({
           bidSubmitDisabled={bidSubmitDisabled}
           onSubmit={handleMakeBid}
           onClose={closeBidNegotiation}
+        />
+      )}
+      {freeAgentTarget && (
+        <FreeAgentContractModal
+          player={freeAgentTarget}
+          teams={gameState.teams}
+          wage={contractWage}
+          onWageChange={setContractWage}
+          contractLength={contractLength}
+          onContractLengthChange={setContractLength}
+          projection={contractProjection}
+          feedback={contractFeedback}
+          statusMessage={contractStatusMessage(t)}
+          statusClassName={contractStatusClassName}
+          submitting={contractSubmitting}
+          submitDisabled={contractSubmitDisabled}
+          onSubmit={submitFreeAgentContract}
+          onClose={closeFreeAgentContract}
         />
       )}
     </div>

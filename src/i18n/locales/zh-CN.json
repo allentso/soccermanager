@@ -863,6 +863,7 @@
     "none": "无",
     "listed": "已挂牌",
     "makeBid": "发起转会出价",
+    "offerContract": "提供合同",
     "bid": "出价",
     "playerValue": "估值:{{value}}",
     "bidAmount": "出价金额(€百万)",

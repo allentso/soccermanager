@@ -34,6 +34,39 @@ fn projected_annual_wage_bill(
     annual_team_wage_bill(game, team_id) - current_player_wage as i64 + offered_wage as i64
 }
 
+pub fn project_contract_offer_financial_impact(
+    game: &Game,
+    team: &Team,
+    current_player_wage: u32,
+    offered_wage: u32,
+) -> RenewalFinancialProjection {
+    let current_bill = annual_team_wage_bill(game, &team.id);
+    let projected_bill =
+        projected_annual_wage_bill(game, &team.id, current_player_wage, offered_wage);
+    let annual_wage_budget = team.wage_budget;
+    let annual_soft_cap = (annual_wage_budget * WAGE_SOFT_CAP_PCT) / 100;
+    let current_weekly_wage_spend = current_bill / 52;
+    let projected_weekly_wage_spend = projected_bill / 52;
+
+    let current_cash_runway_weeks =
+        calc_cash_runway_weeks(team.finance, -current_weekly_wage_spend);
+    let projected_cash_runway_weeks =
+        calc_cash_runway_weeks(team.finance, -projected_weekly_wage_spend);
+
+    RenewalFinancialProjection {
+        current_annual_wage_bill: current_bill,
+        projected_annual_wage_bill: projected_bill,
+        annual_wage_budget,
+        annual_soft_cap,
+        current_weekly_wage_spend,
+        projected_weekly_wage_spend,
+        current_cash_runway_weeks,
+        projected_cash_runway_weeks,
+        currently_over_budget: current_bill > annual_wage_budget,
+        policy_allows: renewal_wage_policy_allows(game, team, current_player_wage, offered_wage),
+    }
+}
+
 pub fn renewal_wage_policy_allows(
     game: &Game,
     team: &Team,
@@ -88,28 +121,10 @@ pub fn project_renewal_financial_impact(
         .find(|team| team.id == team_id)
         .ok_or_else(|| "Team not found".to_string())?;
 
-    let current_bill = annual_team_wage_bill(game, team_id);
-    let projected_bill = projected_annual_wage_bill(game, team_id, player.wage, offered_wage);
-    let annual_wage_budget = team.wage_budget;
-    let annual_soft_cap = (annual_wage_budget * WAGE_SOFT_CAP_PCT) / 100;
-    let current_weekly_wage_spend = current_bill / 52;
-    let projected_weekly_wage_spend = projected_bill / 52;
-
-    let current_cash_runway_weeks =
-        calc_cash_runway_weeks(team.finance, -current_weekly_wage_spend);
-    let projected_cash_runway_weeks =
-        calc_cash_runway_weeks(team.finance, -projected_weekly_wage_spend);
-
-    Ok(RenewalFinancialProjection {
-        current_annual_wage_bill: current_bill,
-        projected_annual_wage_bill: projected_bill,
-        annual_wage_budget,
-        annual_soft_cap,
-        current_weekly_wage_spend,
-        projected_weekly_wage_spend,
-        current_cash_runway_weeks,
-        projected_cash_runway_weeks,
-        currently_over_budget: current_bill > annual_wage_budget,
-        policy_allows: renewal_wage_policy_allows(game, team, player.wage, offered_wage),
-    })
+    Ok(project_contract_offer_financial_impact(
+        game,
+        team,
+        player.wage,
+        offered_wage,
+    ))
 }

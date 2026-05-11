@@ -863,6 +863,7 @@
     "none": "Aucune",
     "listed": "Listés",
     "makeBid": "Faire une Offre de Transfert",
+    "offerContract": "Proposer un contrat",
     "bid": "Offrir",
     "playerValue": "Valeur : {{value}}",
     "bidAmount": "Montant de l'Offre (€M)",

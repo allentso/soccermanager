@@ -882,6 +882,7 @@
     "none": "Nessuno",
     "listed": "In lista",
     "makeBid": "Fai un'offerta",
+    "offerContract": "Offri contratto",
     "bid": "Offri",
     "playerValue": "Valore: {{value}}",
     "bidAmount": "Importo offerta (€M)",

@@ -10,10 +10,11 @@ use ofm_core::clock::GameClock;
 use ofm_core::contracts::{
     DelegatedRenewalOptions, DelegatedRenewalResultStatus, RenewalDecision, RenewalOffer,
     clear_contract_exit_intent, delegate_renewals, evaluate_renewal_offer, has_let_expire_intent,
-    preview_contract_termination, propose_renewal, set_contract_exit_intent,
-    terminate_contract_now,
+    offer_free_agent_contract, preview_contract_termination, project_free_agent_contract_impact,
+    propose_renewal, set_contract_exit_intent, terminate_contract_now,
 };
 use ofm_core::game::Game;
+use domain::season::TransferWindowStatus;
 
 fn default_attrs() -> PlayerAttributes {
     PlayerAttributes {
@@ -151,6 +152,25 @@ fn make_squad_game() -> Game {
         .take(11)
         .map(|player| player.id.clone())
         .collect();
+    game
+}
+
+fn make_free_agent() -> Player {
+    let mut player = make_player();
+    player.id = "free-agent-1".to_string();
+    player.match_name = "F. Agent".to_string();
+    player.full_name = "Free Agent".to_string();
+    player.team_id = None;
+    player.contract_end = None;
+    player.wage = 0;
+    player.market_value = 600_000;
+    player
+}
+
+fn make_free_agent_game() -> Game {
+    let mut game = make_game();
+    game.players = vec![make_free_agent()];
+    game.season_context.transfer_window.status = TransferWindowStatus::Open;
     game
 }
 
@@ -331,6 +351,82 @@ fn high_value_star_expects_more_than_fringe_player() {
         RenewalDecision::CounterOffer
     ));
     assert!(star_outcome.suggested_wage > fringe_outcome.suggested_wage);
+}
+
+#[test]
+fn free_agent_offer_accepts_and_assigns_player_to_manager_team() {
+    let mut game = make_free_agent_game();
+
+    let outcome = offer_free_agent_contract(
+        &mut game,
+        "free-agent-1",
+        RenewalOffer {
+            weekly_wage: 4_000,
+            contract_years: 3,
+        },
+    )
+    .expect("free-agent offer should resolve");
+
+    assert!(matches!(outcome.decision, RenewalDecision::Accepted));
+    let player = game.players.iter().find(|player| player.id == "free-agent-1").unwrap();
+    assert_eq!(player.team_id.as_deref(), Some("team-1"));
+    assert_eq!(player.wage, 4_000);
+    assert_eq!(player.contract_end.as_deref(), Some("2029-08-01"));
+    assert!(game
+        .messages
+        .iter()
+        .any(|message| message.id == "free_agent_signed_free-agent-1"));
+}
+
+#[test]
+fn free_agent_offer_returns_counter_when_terms_are_close_but_short() {
+    let mut game = make_free_agent_game();
+
+    let outcome = offer_free_agent_contract(
+        &mut game,
+        "free-agent-1",
+        RenewalOffer {
+            weekly_wage: 3_000,
+            contract_years: 2,
+        },
+    )
+    .expect("free-agent offer should resolve");
+
+    assert!(matches!(outcome.decision, RenewalDecision::CounterOffer));
+    assert_eq!(outcome.suggested_wage, Some(4_000));
+    assert_eq!(outcome.suggested_years, Some(3));
+    assert_eq!(game.players[0].team_id, None);
+}
+
+#[test]
+fn free_agent_offer_rejects_lowball_terms() {
+    let mut game = make_free_agent_game();
+
+    let outcome = offer_free_agent_contract(
+        &mut game,
+        "free-agent-1",
+        RenewalOffer {
+            weekly_wage: 1_000,
+            contract_years: 1,
+        },
+    )
+    .expect("free-agent offer should resolve");
+
+    assert!(matches!(outcome.decision, RenewalDecision::Rejected));
+    assert_eq!(game.players[0].team_id, None);
+    assert_eq!(game.players[0].wage, 0);
+}
+
+#[test]
+fn free_agent_projection_uses_manager_team_wage_context() {
+    let game = make_free_agent_game();
+
+    let projection =
+        project_free_agent_contract_impact(&game, "free-agent-1", 4_000).expect("projection");
+
+    assert_eq!(projection.current_annual_wage_bill, 12_000);
+    assert_eq!(projection.projected_annual_wage_bill, 16_000);
+    assert!(projection.policy_allows);
 }
 
 #[test]
