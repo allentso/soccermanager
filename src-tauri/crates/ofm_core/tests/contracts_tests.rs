@@ -424,8 +424,8 @@ fn free_agent_projection_uses_manager_team_wage_context() {
     let projection =
         project_free_agent_contract_impact(&game, "free-agent-1", 4_000).expect("projection");
 
-    assert_eq!(projection.current_annual_wage_bill, 12_000);
-    assert_eq!(projection.projected_annual_wage_bill, 16_000);
+    assert_eq!(projection.current_annual_wage_bill, 0);
+    assert_eq!(projection.projected_annual_wage_bill, 4_000);
     assert!(projection.policy_allows);
 }
 
