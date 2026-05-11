@@ -354,13 +354,8 @@ pub fn managerial_appointment_article(
 }
 
 fn format_transfer_fee(fee: u64) -> String {
-    if fee >= 1_000_000 {
-        format!("€{:.1}M", fee as f64 / 1_000_000.0)
-    } else if fee >= 1_000 {
-        format!("€{}K", fee / 1_000)
-    } else {
-        format!("€{}", fee)
-    }
+    crate::currency::format_compact_money(fee, crate::currency::DEFAULT_CURRENCY_CODE)
+        .unwrap_or_else(|| format!("€{}", fee))
 }
 
 pub fn transfer_roundup_article(

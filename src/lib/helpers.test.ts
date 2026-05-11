@@ -103,15 +103,28 @@ const makeFixture = (overrides: Partial<FixtureData> = {}): FixtureData => ({
 });
 
 const originalSettings = useSettingsStore.getState().settings;
+const originalCurrency = useSettingsStore.getState().currency;
+const originalSupportedCurrencies = useSettingsStore.getState().supportedCurrencies;
+const SUPPORTED_CURRENCIES = {
+  EUR: { code: "EUR", symbol: "€", exchange_rate: 1 },
+  GBP: { code: "GBP", symbol: "£", exchange_rate: 0.86 },
+  USD: { code: "USD", symbol: "$", exchange_rate: 1.08 },
+} as const;
 
 beforeEach(() => {
   useSettingsStore.setState({
     settings: { ...originalSettings, currency: "EUR", language: "en" },
+    currency: SUPPORTED_CURRENCIES.EUR,
+    supportedCurrencies: SUPPORTED_CURRENCIES,
   });
 });
 
 afterEach(() => {
-  useSettingsStore.setState({ settings: originalSettings });
+  useSettingsStore.setState({
+    settings: originalSettings,
+    currency: originalCurrency,
+    supportedCurrencies: originalSupportedCurrencies,
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -366,10 +379,11 @@ describe("formatVal", () => {
   it("uses the selected settings currency", () => {
     useSettingsStore.setState({
       settings: { ...useSettingsStore.getState().settings, currency: "GBP" },
+      currency: SUPPORTED_CURRENCIES.GBP,
     });
 
-    expect(formatVal(5000000)).toBe("£5.0M");
-    expect(formatVal(500)).toBe("£500");
+    expect(formatVal(5000000)).toBe("£4.3M");
+    expect(formatVal(500)).toBe("£430");
   });
 });
 
@@ -377,10 +391,11 @@ describe("formatExactMoney", () => {
   it("formats exact amounts using the selected settings currency", () => {
     useSettingsStore.setState({
       settings: { ...useSettingsStore.getState().settings, currency: "USD" },
+      currency: SUPPORTED_CURRENCIES.USD,
     });
 
-    expect(formatExactMoney(125000)).toBe("$125,000");
-    expect(formatExactMoney(-30000)).toBe("-$30,000");
+    expect(formatExactMoney(125000)).toBe("$135,000");
+    expect(formatExactMoney(-30000)).toBe("-$32,400");
   });
 });
 

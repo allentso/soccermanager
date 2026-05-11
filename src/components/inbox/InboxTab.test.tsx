@@ -135,6 +135,12 @@ beforeEach(function resetMocks(): void {
       currency: "EUR",
       language: "en",
     },
+    currency: { code: "EUR", symbol: "€", exchange_rate: 1 },
+    supportedCurrencies: {
+      EUR: { code: "EUR", symbol: "€", exchange_rate: 1 },
+      GBP: { code: "GBP", symbol: "£", exchange_rate: 0.86 },
+      USD: { code: "USD", symbol: "$", exchange_rate: 1.08 },
+    },
   });
 });
 
@@ -578,6 +584,7 @@ describe("InboxTab", function (): void {
         currency: "GBP",
         language: "en",
       },
+      currency: { code: "GBP", symbol: "£", exchange_rate: 0.86 },
     });
 
     renderInboxTab({
@@ -637,12 +644,12 @@ describe("InboxTab", function (): void {
     expect(screen.getByTestId("delegated-renewal-report")).toBeInTheDocument();
     expect(
       screen.getByText(
-        "Completed: Alex Done agreed to 3 year(s) on £24,000/wk.",
+        "Completed: Alex Done agreed to 3 year(s) on £20,640/wk.",
       ),
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        "Still difficult: Ben Pending — Their camp want around £26,000/wk for 4 years, which is beyond the delegation limits.",
+        "Still difficult: Ben Pending — Their camp want around £22,360/wk for 4 years, which is beyond the delegation limits.",
       ),
     ).toBeInTheDocument();
     expect(
