@@ -17,6 +17,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 const RENEWAL_SESSION_STALE_DAYS: i64 = 14;
+const MARKET_VALUE_TO_WAGE_RATIO: u64 = 200;
+const MINIMUM_DEFAULT_WAGE: u64 = 500;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ContractWarningStage {
     TwelveMonths,
@@ -882,7 +884,9 @@ fn reference_player_wage(player: &Player) -> u32 {
         return player.wage;
     }
 
-    round_up_to_nearest_thousand(((player.market_value / 200).max(500)) as u32)
+    round_up_to_nearest_thousand(
+        ((player.market_value / MARKET_VALUE_TO_WAGE_RATIO).max(MINIMUM_DEFAULT_WAGE)) as u32,
+    )
 }
 
 fn importance_wage_multiplier(player: &Player) -> f32 {

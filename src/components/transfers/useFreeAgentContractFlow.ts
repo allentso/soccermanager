@@ -19,6 +19,9 @@ interface UseFreeAgentContractFlowArgs {
   onGameUpdate?: (game: GameStateData) => void;
 }
 
+const MARKET_VALUE_TO_WAGE_RATIO = 200;
+const MINIMUM_DEFAULT_WAGE = 500;
+
 interface UseFreeAgentContractFlowResult {
   freeAgentTarget: PlayerData | null;
   contractWage: string;
@@ -63,7 +66,13 @@ function defaultContractYears(dateOfBirth: string, asOfDate: string): string {
 }
 
 function defaultContractWage(player: PlayerData): string {
-  const baseline = player.wage > 0 ? player.wage : Math.max(Math.round(player.market_value / 200), 500);
+  const baseline =
+    player.wage > 0
+      ? player.wage
+      : Math.max(
+        Math.round(player.market_value / MARKET_VALUE_TO_WAGE_RATIO),
+        MINIMUM_DEFAULT_WAGE,
+      );
   return String(Math.ceil(baseline / 1000) * 1000);
 }
 
