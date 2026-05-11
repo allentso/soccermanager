@@ -1016,7 +1016,7 @@
     "renewalBudgetWarning": "La oferta supera el límite de presión salarial fijado por la directiva",
     "renewalAccepted": "Oferta aceptada",
     "renewalRejected": "Oferta rechazada",
-    "renewalCounter": "Quiere más: €{{wage}}/semana por {{years}} años",
+    "renewalCounter": "Quiere más: {{wage}}/semana por {{years}} años",
     "renewalBlocked": "Las conversaciones están bloqueadas tras tu decisión anterior",
     "renewalCooledOff": "Las conversaciones anteriores se enfriaron, así que esto vuelve a empezar como una negociación nueva.",
     "letContractExpire": "Dejar expirar",
@@ -1746,15 +1746,15 @@
       },
       "financeCritical": {
         "subject": "URGENTE: Club endeudado",
-        "body": "El club tiene actualmente una deuda de €{{amount}}. Esta es una situación insostenible.\n\nLa directiva exige medidas inmediatas para afrontar la crisis financiera. Considera vender jugadores, reducir personal o encontrar fuentes alternativas de ingresos.\n\nNo resolver esto puede tener consecuencias graves para tu puesto."
+        "body": "El club tiene actualmente una deuda de {{amount}}. Esta es una situación insostenible.\n\nLa directiva exige medidas inmediatas para afrontar la crisis financiera. Considera vender jugadores, reducir personal o encontrar fuentes alternativas de ingresos.\n\nNo resolver esto puede tener consecuencias graves para tu puesto."
       },
       "financeWarning": {
         "subject": "Aviso financiero — Reservas bajas",
-        "body": "Nuestras reservas financieras se están agotando. Al ritmo actual de gasto (€{{weeklyWages}}/semana en salarios), nos quedan aproximadamente {{weeksLeft}} semanas de fondos.\n\nTe recomendaría revisar la masa salarial y buscar formas de aumentar los ingresos."
+        "body": "Nuestras reservas financieras se están agotando. Al ritmo actual de gasto ({{weeklyWages}}/semana en salarios), nos quedan aproximadamente {{weeksLeft}} semanas de fondos.\n\nTe recomendaría revisar la masa salarial y buscar formas de aumentar los ingresos."
       },
       "wageOverBudget": {
         "subject": "La masa salarial supera el presupuesto",
-        "body": "Nuestra masa salarial anual (€{{annualWages}}) supera actualmente el presupuesto salarial asignado (€{{wageBudget}}).\n\nAunque podemos sostenerlo a corto plazo, la directiva preferiría ver la masa salarial bajo control."
+        "body": "Nuestra masa salarial anual ({{annualWages}}) supera actualmente el presupuesto salarial asignado ({{wageBudget}}).\n\nAunque podemos sostenerlo a corto plazo, la directiva preferiría ver la masa salarial bajo control."
       },
       "financeBoardPressure": {
         "subject": "Revisión de la directiva — Presión financiera",
@@ -1763,11 +1763,11 @@
       },
       "marketingCampaign": {
         "subject": "Informe de campaña de marketing",
-        "body": "La acción comercial ha terminado con unas ventas brutas de €{{grossRevenue}}. Tras €{{campaignCost}} en costes de campaña, el club ingresa €{{netIncome}} de caja nueva.\n\nEl equipo comercial necesitará {{days}} días antes de lanzar otra campaña."
+        "body": "La acción comercial ha terminado con unas ventas brutas de {{grossRevenue}}. Tras {{campaignCost}} en costes de campaña, el club ingresa {{netIncome}} de caja nueva.\n\nEl equipo comercial necesitará {{days}} días antes de lanzar otra campaña."
       },
       "seasonPayout": {
         "subject": "Temporada {{season}} — Premio económico concedido",
-        "body": "La directiva ha confirmado un pago de €{{amount}} por tu {{position}}.º puesto en la liga. La cantidad ya se ha añadido al balance del club."
+        "body": "La directiva ha confirmado un pago de {{amount}} por tu {{position}}.º puesto en la liga. La cantidad ya se ha añadido al balance del club."
       },
       "seasonReview": {
         "subject": "Revisión de la Temporada {{season}}",
@@ -1915,11 +1915,11 @@
       },
       "sponsor": {
         "subject": "Sponsorship Offer — {{sponsor}}",
-        "body": "Buenas noticias, míster: {{sponsor}} ha mostrado interés en convertirse en patrocinador de {{team}}.\n\nOfrecen un pago semanal de €{{amount}} durante las próximas 12 semanas a cambio de espacio publicitario en el campo de entrenamiento.\n\nParece un acuerdo razonable, pero la decisión es tuya.",
+        "body": "Buenas noticias, míster: {{sponsor}} ha mostrado interés en convertirse en patrocinador de {{team}}.\n\nOfrecen un pago semanal de {{amount}} durante las próximas 12 semanas a cambio de espacio publicitario en el campo de entrenamiento.\n\nParece un acuerdo razonable, pero la decisión es tuya.",
         "options": {
           "accept": {
             "label": "Aceptar el acuerdo",
-            "description": "Recibe €{{amount}} en ingresos de patrocinio."
+            "description": "Recibe {{amount}} en ingresos de patrocinio."
           },
           "decline": {
             "label": "Rechazar cortésmente",

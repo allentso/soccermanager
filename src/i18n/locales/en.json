@@ -1016,7 +1016,7 @@
     "renewalBudgetWarning": "Offer exceeds the board wage pressure limit",
     "renewalAccepted": "Offer accepted",
     "renewalRejected": "Offer rejected",
-    "renewalCounter": "Wants more: €{{wage}}/wk for {{years}} years",
+    "renewalCounter": "Wants more: {{wage}}/wk for {{years}} years",
     "renewalBlocked": "Talks are blocked after your earlier decision",
     "renewalCooledOff": "Previous talks cooled off, so this starts as a fresh conversation.",
     "letContractExpire": "Let Expire",
@@ -1742,15 +1742,15 @@
       },
       "financeCritical": {
         "subject": "URGENT: Club in Debt",
-        "body": "The club is currently €{{amount}} in debt. This is an unsustainable situation.\n\nThe board demands immediate action to address the financial crisis. Consider selling players, reducing staff, or finding alternative income.\n\nFailure to resolve this may have serious consequences for your position."
+        "body": "The club is currently {{amount}} in debt. This is an unsustainable situation.\n\nThe board demands immediate action to address the financial crisis. Consider selling players, reducing staff, or finding alternative income.\n\nFailure to resolve this may have serious consequences for your position."
       },
       "financeWarning": {
         "subject": "Financial Warning — Low Reserves",
-        "body": "Our financial reserves are running low. At the current burn rate (€{{weeklyWages}}/week in wages), we have approximately {{weeksLeft}} weeks of funding remaining.\n\nI'd recommend reviewing the wage bill and exploring ways to boost income."
+        "body": "Our financial reserves are running low. At the current burn rate ({{weeklyWages}}/week in wages), we have approximately {{weeksLeft}} weeks of funding remaining.\n\nI'd recommend reviewing the wage bill and exploring ways to boost income."
       },
       "wageOverBudget": {
         "subject": "Wage Bill Exceeds Budget",
-        "body": "Our annual wage bill (€{{annualWages}}) currently exceeds the allocated wage budget (€{{wageBudget}}).\n\nWhile we can sustain this in the short term, the board would prefer to see the wage bill brought under control."
+        "body": "Our annual wage bill ({{annualWages}}) currently exceeds the allocated wage budget ({{wageBudget}}).\n\nWhile we can sustain this in the short term, the board would prefer to see the wage bill brought under control."
       },
       "financeBoardPressure": {
         "subject": "Board Review — Financial Pressure",
@@ -1759,11 +1759,11 @@
       },
       "marketingCampaign": {
         "subject": "Marketing Campaign Report",
-        "body": "The commercial push has finished with gross sales of €{{grossRevenue}}. After €{{campaignCost}} in campaign costs, the club banks €{{netIncome}} in fresh income.\n\nThe commercial team will need {{days}} days before launching another campaign."
+        "body": "The commercial push has finished with gross sales of {{grossRevenue}}. After {{campaignCost}} in campaign costs, the club banks {{netIncome}} in fresh income.\n\nThe commercial team will need {{days}} days before launching another campaign."
       },
       "seasonPayout": {
         "subject": "Season {{season}} Prize Money Awarded",
-        "body": "The board has confirmed a prize payout of €{{amount}} for your {{position}}-place league finish. The amount has been added to the club balance."
+        "body": "The board has confirmed a prize payout of {{amount}} for your {{position}}-place league finish. The amount has been added to the club balance."
       },
       "seasonReview": {
         "subject": "Season {{season}} Review",
@@ -1911,11 +1911,11 @@
       },
       "sponsor": {
         "subject": "Sponsorship Offer — {{sponsor}}",
-        "body": "Good news, boss! {{sponsor}} has expressed interest in becoming a sponsor of {{team}}.\n\nThey are offering a weekly payment of €{{amount}} over the next 12 weeks in exchange for advertising space at the training ground.\n\nThis seems like a reasonable deal, but it is your call.",
+        "body": "Good news, boss! {{sponsor}} has expressed interest in becoming a sponsor of {{team}}.\n\nThey are offering a weekly payment of {{amount}} over the next 12 weeks in exchange for advertising space at the training ground.\n\nThis seems like a reasonable deal, but it is your call.",
         "options": {
           "accept": {
             "label": "Accept the deal",
-            "description": "Receive €{{amount}} in sponsorship income."
+            "description": "Receive {{amount}} in sponsorship income."
           },
           "decline": {
             "label": "Decline politely",

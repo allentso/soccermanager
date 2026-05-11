@@ -1016,7 +1016,7 @@
     "renewalBudgetWarning": "Angebot überschreitet die vom Vorstand gesetzte Lohndruckgrenze",
     "renewalAccepted": "Angebot angenommen",
     "renewalRejected": "Angebot abgelehnt",
-    "renewalCounter": "Will mehr: €{{wage}}/Woche für {{years}} Jahre",
+    "renewalCounter": "Will mehr: {{wage}}/Woche für {{years}} Jahre",
     "renewalBlocked": "Gespräche sind nach deiner früheren Entscheidung blockiert",
     "renewalCooledOff": "Die früheren Gespräche sind abgekühlt, deshalb beginnt das jetzt wieder als neues Gespräch.",
     "letContractExpire": "Auslaufen lassen",
@@ -1746,15 +1746,15 @@
       },
       "financeCritical": {
         "subject": "DRINGEND: Verein verschuldet",
-        "body": "Der Verein hat derzeit Schulden in Höhe von €{{amount}}. Das ist keine tragfähige Situation.\n\nDer Vorstand verlangt sofortige Maßnahmen, um die Finanzkrise in den Griff zu bekommen. Ziehe Spielerverkäufe, Personalabbau oder alternative Einnahmequellen in Betracht.\n\nWenn das Problem nicht gelöst wird, kann das ernste Folgen für deine Position haben."
+        "body": "Der Verein hat derzeit Schulden in Höhe von {{amount}}. Das ist keine tragfähige Situation.\n\nDer Vorstand verlangt sofortige Maßnahmen, um die Finanzkrise in den Griff zu bekommen. Ziehe Spielerverkäufe, Personalabbau oder alternative Einnahmequellen in Betracht.\n\nWenn das Problem nicht gelöst wird, kann das ernste Folgen für deine Position haben."
       },
       "financeWarning": {
         "subject": "Finanzwarnung — Niedrige Rücklagen",
-        "body": "Unsere finanziellen Rücklagen werden knapp. Beim aktuellen Ausgabentempo (€{{weeklyWages}}/Woche an Gehältern) bleiben uns noch ungefähr {{weeksLeft}} Wochen an Reserven.\n\nIch würde empfehlen, die Gehaltsstruktur zu überprüfen und Wege zur Einnahmesteigerung zu suchen."
+        "body": "Unsere finanziellen Rücklagen werden knapp. Beim aktuellen Ausgabentempo ({{weeklyWages}}/Woche an Gehältern) bleiben uns noch ungefähr {{weeksLeft}} Wochen an Reserven.\n\nIch würde empfehlen, die Gehaltsstruktur zu überprüfen und Wege zur Einnahmesteigerung zu suchen."
       },
       "wageOverBudget": {
         "subject": "Gehaltsbudget überschritten",
-        "body": "Unsere jährlichen Gehaltskosten (€{{annualWages}}) übersteigen derzeit das vorgesehene Gehaltsbudget (€{{wageBudget}}).\n\nKurzfristig ist das noch tragbar, aber der Vorstand würde die Gehaltskosten lieber wieder unter Kontrolle sehen."
+        "body": "Unsere jährlichen Gehaltskosten ({{annualWages}}) übersteigen derzeit das vorgesehene Gehaltsbudget ({{wageBudget}}).\n\nKurzfristig ist das noch tragbar, aber der Vorstand würde die Gehaltskosten lieber wieder unter Kontrolle sehen."
       },
       "financeBoardPressure": {
         "subject": "Vorstandssitzung — Finanzdruck",
@@ -1763,11 +1763,11 @@
       },
       "marketingCampaign": {
         "subject": "Bericht zur Marketingkampagne",
-        "body": "Die kommerzielle Aktion ist abgeschlossen und hat Bruttoverkäufe von €{{grossRevenue}} erzielt. Nach Kampagnenkosten von €{{campaignCost}} bleiben dem Club €{{netIncome}} an frischem Einkommen.\n\nDas Kommerz-Team benötigt {{days}} Tage, bevor eine weitere Kampagne gestartet werden kann."
+        "body": "Die kommerzielle Aktion ist abgeschlossen und hat Bruttoverkäufe von {{grossRevenue}} erzielt. Nach Kampagnenkosten von {{campaignCost}} bleiben dem Club {{netIncome}} an frischem Einkommen.\n\nDas Kommerz-Team benötigt {{days}} Tage, bevor eine weitere Kampagne gestartet werden kann."
       },
       "seasonPayout": {
         "subject": "Saison {{season}} — Preisgeld ausgezahlt",
-        "body": "Der Vorstand hat eine Preisgeldzahlung in Höhe von €{{amount}} für deinen {{position}}. Tabellenplatz bestätigt. Der Betrag wurde dem Vereinskonto gutgeschrieben."
+        "body": "Der Vorstand hat eine Preisgeldzahlung in Höhe von {{amount}} für deinen {{position}}. Tabellenplatz bestätigt. Der Betrag wurde dem Vereinskonto gutgeschrieben."
       },
       "seasonReview": {
         "subject": "Saisonrückblick {{season}}",
@@ -1915,11 +1915,11 @@
       },
       "sponsor": {
         "subject": "Sponsorship Offer — {{sponsor}}",
-        "body": "Gute Nachrichten, Boss! {{sponsor}} hat Interesse bekundet, Sponsor von {{team}} zu werden.\n\nSie bieten in den nächsten 12 Wochen eine wöchentliche Zahlung von €{{amount}} im Austausch für Werbefläche am Trainingsgelände an.\n\nDas scheint ein vernünftiger Deal zu sein, aber die Entscheidung liegt bei dir.",
+        "body": "Gute Nachrichten, Boss! {{sponsor}} hat Interesse bekundet, Sponsor von {{team}} zu werden.\n\nSie bieten in den nächsten 12 Wochen eine wöchentliche Zahlung von {{amount}} im Austausch für Werbefläche am Trainingsgelände an.\n\nDas scheint ein vernünftiger Deal zu sein, aber die Entscheidung liegt bei dir.",
         "options": {
           "accept": {
             "label": "Angebot annehmen",
-            "description": "Erhalte €{{amount}} an Sponsoreneinnahmen."
+            "description": "Erhalte {{amount}} an Sponsoreneinnahmen."
           },
           "decline": {
             "label": "Höflich ablehnen",

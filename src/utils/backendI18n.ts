@@ -1,4 +1,5 @@
 import i18n from '../i18n';
+import { formatExactMoney, formatVal } from "../lib/helpers";
 import type {
   MessageActionOption,
   MessageData,
@@ -22,7 +23,7 @@ import {
  */
 function resolve(key: string | undefined, fallback: string, params?: Record<string, string>): string {
   if (!key) return fallback;
-  const resolved = i18n.t(key, params ?? {});
+  const resolved = i18n.t(key, resolveParamValues(params) ?? {});
   // i18next returns the key itself if not found — fall back to raw string
   if (resolved === key) return fallback;
   return resolved;
@@ -81,6 +82,70 @@ function boardObjectiveFallback(objective: BoardObjective): string {
  * Pre-resolve any param values that are themselves i18n keys (e.g. "common.moods.excellent").
  * A value is treated as a key if it contains a dot and i18next resolves it to something different.
  */
+const MONEY_PARAM_KEYS = new Set([
+  "amount",
+  "annualWages",
+  "budget",
+  "campaignCost",
+  "cost",
+  "fee",
+  "grossRevenue",
+  "netIncome",
+  "transferBudgetReduction",
+  "wage",
+  "wageBudget",
+  "weeklyWages",
+]);
+
+function parseMoneyValue(value: string): { amount: number; compact: boolean } | null {
+  const trimmed = value.trim();
+  const match = trimmed.match(
+    /^(?<sign>-)?(?<symbol>[€£$])?(?<amount>\d[\d,]*(?:\.\d+)?)(?<suffix>[KM])?$/i,
+  );
+
+  if (!match?.groups) {
+    return null;
+  }
+
+  const symbol = match.groups.symbol;
+  if (symbol && symbol !== "€") {
+    return null;
+  }
+
+  const numeric = Number(match.groups.amount.replace(/,/g, ""));
+  if (!Number.isFinite(numeric)) {
+    return null;
+  }
+
+  const scaled =
+    match.groups.suffix?.toUpperCase() === "M"
+      ? numeric * 1_000_000
+      : match.groups.suffix?.toUpperCase() === "K"
+        ? numeric * 1_000
+        : numeric;
+  const signed = match.groups.sign === "-" ? -scaled : scaled;
+
+  return {
+    amount: signed,
+    compact: Boolean(match.groups.suffix),
+  };
+}
+
+function resolveMoneyParamValue(key: string, value: string): string {
+  if (!MONEY_PARAM_KEYS.has(key)) {
+    return value;
+  }
+
+  const parsed = parseMoneyValue(value);
+  if (!parsed) {
+    return value;
+  }
+
+  return parsed.compact
+    ? formatVal(parsed.amount)
+    : formatExactMoney(parsed.amount);
+}
+
 function resolveParamValues(params?: Record<string, string>): Record<string, string> | undefined {
   if (!params) return params;
   const resolved = { ...params };
@@ -89,8 +154,11 @@ function resolveParamValues(params?: Record<string, string>): Record<string, str
       const attempted = i18n.t(value);
       if (attempted !== value) {
         resolved[key] = attempted;
+        continue;
       }
     }
+
+    resolved[key] = resolveMoneyParamValue(key, resolved[key]);
   }
   return resolved;
 }
