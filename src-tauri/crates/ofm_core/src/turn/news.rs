@@ -1060,11 +1060,19 @@ mod tests {
         assert_eq!(message.id, "prematch_fx1");
         assert_eq!(message.category, MessageCategory::MatchPreview);
         assert_eq!(message.priority, MessagePriority::Normal);
-        assert!(message.subject.contains("Beta FC"));
-        assert!(message.subject.contains("(H)"));
+        assert!(message.subject.is_empty());
+        assert!(message.body.is_empty());
+        assert_eq!(
+            message.subject_key.as_deref(),
+            Some("be.msg.preMatch.subject")
+        );
+        assert!(matches!(
+            message.body_key.as_deref(),
+            Some("be.msg.preMatch.body0Home" | "be.msg.preMatch.body1Home")
+        ));
         assert_eq!(message.context.fixture_id.as_deref(), Some("fx1"));
         assert_eq!(message.context.team_id.as_deref(), Some("team2"));
-        assert_eq!(message.i18n_params.get("venue"), Some(&"home".to_string()));
+        assert_eq!(message.i18n_params.get("venue"), Some(&"H".to_string()));
         assert_eq!(
             message.i18n_params.get("opponent"),
             Some(&"Beta FC".to_string())

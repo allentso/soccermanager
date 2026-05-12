@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { GameStateData, PlayerSelectionOptions } from "../../store/gameStore";
-import { getErrorMessage } from "../../utils/errorMessage";
+import { getErrorMessage, resolveTranslatedErrorMessage } from "../../utils/errorMessage";
 import { Card, CardBody, Badge, Select, CountryFlag } from "../ui";
 import ContextMenu from "../ContextMenu";
 import {
@@ -120,7 +120,7 @@ export default function PlayersListTab({
       onGameUpdate?.(updated);
     } catch (error) {
       console.error("Failed to send scout:", error);
-      setScoutError(getErrorMessage(error));
+      setScoutError(resolveTranslatedErrorMessage(getErrorMessage(error), t));
     } finally {
       setSendingPlayerId(null);
     }
@@ -517,7 +517,6 @@ export default function PlayersListTab({
                       from: (page - 1) * pageSize + 1,
                       to: Math.min(page * pageSize, filtered.length),
                       total: filtered.length,
-                      defaultValue: `${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, filtered.length)} of ${filtered.length}`,
                     })}
                   </p>
                   <div className="flex items-center gap-1">

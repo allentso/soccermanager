@@ -282,6 +282,7 @@
     "close": "Close",
     "done": "Done",
     "confirm": "Confirm",
+    "retry": "Retry",
     "save": "Save",
     "search": "Search",
     "noTeam": "No team assigned.",
@@ -298,6 +299,7 @@
     "ovr": "OVR",
     "condition": "Condition",
     "morale": "Morale",
+    "score": "Score",
     "value": "Value",
     "wage": "Wage",
     "name": "Name",
@@ -750,6 +752,7 @@
     "delegateMostRenewals": "Delegate Most Renewals",
     "delegateSelectedRenewals": "Delegate Selected Renewals",
     "selectAllAtRisk": "Select all",
+    "selectRiskPlayer": "Select {{player}}",
     "delegatedRenewalsSummary": "{{successes}} done, {{stalled}} pending, {{failures}} failed",
     "contractRiskCritical": "Critical",
     "contractRiskWarning": "Warning",
@@ -1174,6 +1177,8 @@
     "uiScaleDesc": "Adjust font size and spacing for readability",
     "highContrast": "High Contrast",
     "highContrastDesc": "Boost text contrast in dark mode for improved readability",
+    "switchToLightMode": "Switch to light mode",
+    "switchToDarkMode": "Switch to dark mode",
     "fullscreen": "Fullscreen",
     "fullscreenDesc": "Toggle fullscreen mode for an immersive experience",
     "enterFullscreen": "Enter",
@@ -1675,6 +1680,36 @@
         "facilityUpgradeOverBudget": "Facility upgrades are blocked while the club is over its wage budget.",
         "facilityUpgradeCritical": "Facility upgrades are blocked while the club is under serious financial pressure."
       },
+      "transfers": {
+        "transferWindowClosed": "Transfer window is closed",
+        "cannotBidOnOwnPlayer": "Cannot bid on your own player",
+        "playerHasNoTeam": "Player has no team",
+        "insufficientFunds": "Insufficient funds",
+        "transferBudgetTooLow": "Transfer budget too low",
+        "playerNotOwnedByUser": "Player not found or not yours",
+        "offerNotPending": "Offer not found or not pending",
+        "counterOfferMustExceedCurrentOffer": "Counter offer must exceed current offer"
+      },
+      "contracts": {
+        "playerNotOwnedByClub": "Player does not belong to your club",
+        "unableToCalculateContractEndDate": "Unable to calculate new contract end date",
+        "playerHasNoActiveContract": "Player does not have an active contract",
+        "terminationWouldLeaveMatchdaySquadShort": "Terminating this contract would leave your squad unable to field a matchday XI",
+        "noAssistantManagerAssigned": "No assistant manager assigned to your team",
+        "playerHasNoTeam": "Player has no team",
+        "boardWagePolicy": "Renewal blocked by board wage policy. Keep annual wages near {{budget}} to recover."
+      },
+      "scouting": {
+        "scoutNotFound": "Scout not found",
+        "staffMemberNotScout": "Staff member is not a scout",
+        "scoutNotInTeam": "Scout does not belong to your team",
+        "cannotScoutOwnPlayer": "Cannot scout your own players",
+        "scoutAssignmentFull": "Scout is already assigned to another scouting task ({{currentCount}}/{{maxSlots}} assignments).",
+        "playerAlreadyScouted": "This player is already being scouted",
+        "youthSearchAlreadyActive": "A matching youth recruitment search is already active",
+        "youthAssignmentNotFound": "Youth recruitment assignment not found",
+        "scoutAlreadyAssignedToSearch": "Scout is already assigned to this search"
+      },
       "createManager": {
         "nameRequired": "First name and last name are required.",
         "nameMaxLength": "First name and last name must not exceed 30 characters.",
@@ -1694,6 +1729,7 @@
       "commercialDirector": "Commercial Director",
       "communityManager": "Community Manager",
       "directorOfFootball": "Director of Football",
+      "transferCommittee": "Transfer Committee",
       "intlLiaison": "International Liaison",
       "player": "Player",
       "pressOfficer": "Press Officer",
@@ -1743,6 +1779,10 @@
         "subject": "Upcoming: vs {{opponent}} ({{venue}})",
         "body0": "Your {{venue}} match against {{opponent}} is coming up on {{matchDate}}.\n\nMatchday {{matchday}} of the Premier Division. Make sure your starting XI is in good shape and your tactics are set.\n\nMake the most of playing at {{venue}}.",
         "body1": "Reminder: you face {{opponent}} {{venue}} on {{matchDate}}.\n\nThis is Matchday {{matchday}} — review your squad fitness and consider any tactical adjustments.",
+        "body0Home": "Your home match against {{opponent}} is coming up on {{matchDate}}.\n\nMatchday {{matchday}} of the Premier Division. Make sure your starting XI is in good shape and your tactics are set.\n\nHome advantage could be key in this one.",
+        "body0Away": "Your away match against {{opponent}} is coming up on {{matchDate}}.\n\nMatchday {{matchday}} of the Premier Division. Make sure your starting XI is in good shape and your tactics are set.\n\nMatching their intensity away from home could be key in this one.",
+        "body1Home": "Reminder: you face {{opponent}} at home in 3 days ({{matchDate}}).\n\nThis is Matchday {{matchday}} — review your squad fitness and consider any tactical adjustments. The fans will be behind you at home.",
+        "body1Away": "Reminder: you face {{opponent}} away in 3 days ({{matchDate}}).\n\nThis is Matchday {{matchday}} — review your squad fitness and consider any tactical adjustments. Away form will be tested — pack your strongest lineup.",
         "actionTactics": "Set Tactics",
         "actionScout": "Scout Opponent"
       },
@@ -1770,6 +1810,15 @@
         "subject": "{{team}} — Season Objectives",
         "body": "The board has set the following expectations for this season:\n\n• Finish in the top half of the table\n• Maintain financial stability\n• Develop young talent from the academy\n\nMeeting these objectives will strengthen your position. Failure to meet minimum expectations may result in a review of your tenure.\n\nWe trust in your abilities.",
         "actionAccept": "Accept Objectives"
+      },
+      "transferComplete": {
+        "subject": "Transfer Complete: {{player}}",
+        "body": "The transfer of {{player}} has been completed for a fee of {{fee}}.\n\nThe player has joined the squad and is available for selection."
+      },
+      "transferOffer": {
+        "subject": "Incoming Offer for {{player}}",
+        "body": "{{team}} have submitted an offer of {{fee}} for {{player}}. Review the bid in the Transfers tab to accept or reject it.",
+        "actionReview": "Review Offer"
       },
       "boardObjectives": {
         "subject": "Season {{season}} — Board Objectives",

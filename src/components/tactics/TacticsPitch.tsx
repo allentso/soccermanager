@@ -192,7 +192,7 @@ export default function TacticsPitch({
               onClick={onClearSelection}
               className="text-xs font-heading font-bold uppercase tracking-wider text-accent-400 hover:text-accent-300"
             >
-              {t("common.clear", "Clear")}
+              {t("common.clear")}
             </button>
           ) : null}
         </div>

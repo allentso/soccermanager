@@ -277,7 +277,7 @@ export default function TacticsPlayerFocusPanel({
       <div className="p-4 border-b border-gray-100 dark:border-navy-600 bg-linear-to-r from-navy-700 to-navy-800 rounded-t-xl">
         <h3 className="text-sm font-heading font-bold text-white uppercase tracking-wide flex items-center gap-2">
           <GitCompareArrows className="w-4 h-4 text-accent-400" />
-          {t("squadCompare.compare", "Compare")}
+          {t("squadCompare.compare")}
         </h3>
       </div>
       <div className="p-4">

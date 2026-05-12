@@ -282,6 +282,7 @@
     "close": "关闭",
     "done": "完成",
     "confirm": "确认",
+    "retry": "重试",
     "save": "保存",
     "search": "搜索",
     "noTeam": "未分配球队。",
@@ -298,6 +299,7 @@
     "ovr": "总评",
     "condition": "状态",
     "morale": "士气",
+    "score": "比分",
     "value": "身价",
     "wage": "周薪",
     "name": "姓名",
@@ -750,6 +752,7 @@
     "delegateMostRenewals": "委托处理大多数续约",
     "delegateSelectedRenewals": "委托处理所选续约",
     "selectAllAtRisk": "全选",
+    "selectRiskPlayer": "选择{{player}}",
     "delegatedRenewalsSummary": "{{successes}} 已完成，{{stalled}} 待处理，{{failures}} 失败",
     "contractRiskCritical": "严重",
     "contractRiskWarning": "警告",
@@ -1174,6 +1177,8 @@
     "uiScaleDesc": "调整字号与间距以提升可读性",
     "highContrast": "高对比度",
     "highContrastDesc": "在深色模式下增强文字对比度以提升可读性",
+    "switchToLightMode": "切换到浅色模式",
+    "switchToDarkMode": "切换到深色模式",
     "fullscreen": "全屏",
     "fullscreenDesc": "切换全屏模式以获得沉浸式体验",
     "enterFullscreen": "进入",
@@ -1675,6 +1680,36 @@
         "facilityUpgradeOverBudget": "当俱乐部超出工资预算时，设施升级会被禁止。",
         "facilityUpgradeCritical": "当俱乐部面临严重财务压力时，设施升级会被禁止。"
       },
+      "transfers": {
+        "transferWindowClosed": "转会窗口已关闭",
+        "cannotBidOnOwnPlayer": "你不能为自己的球员报价",
+        "playerHasNoTeam": "该球员没有所属球队",
+        "insufficientFunds": "资金不足",
+        "transferBudgetTooLow": "转会预算过低",
+        "playerNotOwnedByUser": "未找到该球员，或该球员不属于你",
+        "offerNotPending": "未找到报价，或该报价已不再处于待处理状态",
+        "counterOfferMustExceedCurrentOffer": "还价必须高于当前报价"
+      },
+      "contracts": {
+        "playerNotOwnedByClub": "该球员不属于你的俱乐部",
+        "unableToCalculateContractEndDate": "无法计算新的合同结束日期",
+        "playerHasNoActiveContract": "该球员没有有效合同",
+        "terminationWouldLeaveMatchdaySquadShort": "终止这份合同会让你的阵容无法在比赛日排出首发十一人",
+        "noAssistantManagerAssigned": "你的球队没有分配助理教练",
+        "playerHasNoTeam": "该球员没有所属球队",
+        "boardWagePolicy": "这次续约被董事会薪资政策阻止。请将年度工资控制在接近 {{budget}} 的水平以恢复状况。"
+      },
+      "scouting": {
+        "scoutNotFound": "未找到球探",
+        "staffMemberNotScout": "该工作人员不是球探",
+        "scoutNotInTeam": "该球探不属于你的球队",
+        "cannotScoutOwnPlayer": "你不能考察自己的球员",
+        "scoutAssignmentFull": "该球探已经被分配到另一项考察任务（{{currentCount}}/{{maxSlots}} 项分配）。",
+        "playerAlreadyScouted": "这名球员已经在被考察",
+        "youthSearchAlreadyActive": "已有相同的青训招募搜索在进行中",
+        "youthAssignmentNotFound": "未找到青训招募任务",
+        "scoutAlreadyAssignedToSearch": "该球探已经分配给这项搜索"
+      },
       "createManager": {
         "nameRequired": "名字和姓氏均为必填项。",
         "nameMaxLength": "名字和姓氏都不能超过 30 个字符。",
@@ -1694,6 +1729,7 @@
       "commercialDirector": "商务总监",
       "communityManager": "社区经理",
       "directorOfFootball": "足球总监",
+      "transferCommittee": "转会委员会",
       "intlLiaison": "国际联络官",
       "player": "球员",
       "pressOfficer": "新闻官",
@@ -1744,6 +1780,10 @@
         "subject": "即将到来:对阵{{opponent}}({{venue}})",
         "body0": "您在{{matchDate}}将迎来{{venue}}对阵{{opponent}}的比赛。\n\n这是超级联赛第{{matchday}}轮。请确保您的首发阵容状态良好,战术已就绪。\n\n充分利用{{venue}}作战的优势。",
         "body1": "提醒:您将于{{matchDate}}在{{venue}}对阵{{opponent}}。\n\n这是第{{matchday}}轮——请审视阵容体能,并考虑必要的战术调整。",
+        "body0Home": "您将在{{matchDate}}迎来主场对阵{{opponent}}的比赛。\n\n这是超级联赛第{{matchday}}轮。请确保您的首发阵容状态良好,战术已就绪。\n\n主场优势可能会成为这场比赛的关键。",
+        "body0Away": "您将在{{matchDate}}迎来客场对阵{{opponent}}的比赛。\n\n这是超级联赛第{{matchday}}轮。请确保您的首发阵容状态良好,战术已就绪。\n\n客场跟上对手的强度可能会成为这场比赛的关键。",
+        "body1Home": "提醒:3天后（{{matchDate}}）您将主场迎战{{opponent}}。\n\n这是第{{matchday}}轮——请审视阵容体能,并考虑必要的战术调整。主场球迷会站在您身后。",
+        "body1Away": "提醒:3天后（{{matchDate}}）您将客场挑战{{opponent}}。\n\n这是第{{matchday}}轮——请审视阵容体能,并考虑必要的战术调整。客场状态将受到考验——请派出最强阵容。",
         "actionTactics": "设置战术",
         "actionScout": "侦察对手"
       },
@@ -1771,6 +1811,15 @@
         "subject": "{{team}}——赛季目标",
         "body": "董事会为本赛季设定了以下期望:\n\n• 联赛排名进入上半区\n• 保持财务稳健\n• 培养青训营的年轻天才\n\n达成这些目标将巩固您的地位。若未能达到最低期望,可能会对您的任期进行审视。\n\n我们信任您的能力。",
         "actionAccept": "接受目标"
+      },
+      "transferComplete": {
+        "subject": "转会完成：{{player}}",
+        "body": "{{player}}的转会已以{{fee}}完成。\n\n该球员已加入球队并可供选择上场。"
+      },
+      "transferOffer": {
+        "subject": "收到对{{player}}的报价",
+        "body": "{{team}}为{{player}}提交了一份{{fee}}的报价。请在转会标签页中查看该报价并决定接受或拒绝。",
+        "actionReview": "查看报价"
       },
       "boardObjectives": {
         "subject": "{{season}}赛季——董事会目标",

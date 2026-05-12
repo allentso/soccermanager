@@ -181,7 +181,7 @@ export default function InboxMessageDetailPane({
                               {prospect.full_name}
                             </p>
                             <p className="text-sm text-gray-500 dark:text-gray-400">
-                              {t(`common.positions.${prospect.position}`)} · Age {calcAge(prospect.date_of_birth)} · {prospect.nationality}
+                              {t(`common.positions.${prospect.position}`)} · {t("common.age")} {calcAge(prospect.date_of_birth)} · {prospect.nationality}
                             </p>
                           </div>
                           <div className="flex flex-wrap gap-2">

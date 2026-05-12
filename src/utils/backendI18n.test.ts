@@ -754,4 +754,14 @@ describe("resolveBackendError", () => {
       "Something raw happened",
     );
   });
+
+  it("resolves encoded backend error params", () => {
+    i18n.addResourceBundle("en", "translation", {
+      "be.error.contracts.boardWagePolicy": "Renewal blocked by board wage policy. Keep annual wages near {{budget}} to recover.",
+    }, true, true);
+
+    expect(resolveBackendError("be.error.contracts.boardWagePolicy?budget=200000")).toBe(
+      "Renewal blocked by board wage policy. Keep annual wages near 200000 to recover.",
+    );
+  });
 });

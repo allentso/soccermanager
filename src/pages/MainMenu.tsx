@@ -401,7 +401,7 @@ export default function MainMenu() {
           {/* Logo */}
           <img
             src="/openfootlogo.svg"
-            alt="OpenFootball"
+            alt={t("app.name")}
             className="text-center w-full h-full object-cover"
           />
 

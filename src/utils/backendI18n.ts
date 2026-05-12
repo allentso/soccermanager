@@ -48,6 +48,35 @@ function extractErrorMessage(error: unknown): string {
   return "";
 }
 
+function parseBackendErrorMessage(message: string): {
+  key?: string;
+  fallback: string;
+  params?: Record<string, string>;
+} {
+  const trimmed = message.trim();
+  const separatorIndex = trimmed.indexOf("?");
+
+  if (separatorIndex === -1) {
+    return {
+      key: isTranslationKey(trimmed) ? trimmed : undefined,
+      fallback: trimmed,
+    };
+  }
+
+  const key = trimmed.slice(0, separatorIndex);
+  const rawParams = trimmed.slice(separatorIndex + 1);
+
+  if (!isTranslationKey(key)) {
+    return { fallback: trimmed };
+  }
+
+  return {
+    key,
+    fallback: trimmed,
+    params: Object.fromEntries(new URLSearchParams(rawParams).entries()),
+  };
+}
+
 export function resolveBackendText(
   key: string | undefined,
   fallback: string,
@@ -59,7 +88,8 @@ export function resolveBackendText(
 export function resolveBackendError(error: unknown): string {
   const message = extractErrorMessage(error).trim();
   if (!message) return "";
-  return resolve(isTranslationKey(message) ? message : undefined, message || "");
+  const parsed = parseBackendErrorMessage(message);
+  return resolve(parsed.key, parsed.fallback, parsed.params);
 }
 
 function boardObjectiveFallback(objective: BoardObjective): string {

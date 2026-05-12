@@ -152,6 +152,62 @@ function getLine(sourceFile, node) {
   return sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line + 1;
 }
 
+function getFrontendFindingKind(node, sourceFile) {
+  let current = node.parent;
+
+  while (current) {
+    if (ts.isImportDeclaration(current) || ts.isExportDeclaration(current)) {
+      return null;
+    }
+
+    if (ts.isJsxAttribute(current)) {
+      const attributeName = current.name.getText(sourceFile);
+      if (
+        FRONTEND_ATTRIBUTE_ALLOWLIST.has(attributeName) &&
+        !FRONTEND_ATTRIBUTE_SKIP.has(attributeName)
+      ) {
+        return `jsx-attr:${attributeName}`;
+      }
+
+      return null;
+    }
+
+    if (ts.isPropertyAssignment(current)) {
+      const propertyName = current.name.getText(sourceFile).replace(/['"]/g, "");
+      if (FRONTEND_PROPERTY_ALLOWLIST.has(propertyName)) {
+        return `property:${propertyName}`;
+      }
+
+      return null;
+    }
+
+    if (ts.isCallExpression(current)) {
+      const calleeText = current.expression.getText(sourceFile);
+      const argIndex = current.arguments.findIndex(
+        (arg) => arg.pos <= node.pos && node.end <= arg.end,
+      );
+
+      if ((calleeText === "t" || calleeText.endsWith(".t")) && argIndex === 1) {
+        return "t-default";
+      }
+    }
+
+    current = current.parent;
+  }
+
+  return null;
+}
+
+function templateExpressionText(node) {
+  const parts = [node.head.text];
+
+  for (const span of node.templateSpans) {
+    parts.push("${...}", span.literal.text);
+  }
+
+  return parts.join("").trim();
+}
+
 function scanFrontendFile(filePath) {
   const sourceText = fs.readFileSync(filePath, "utf8");
   const sourceFile = ts.createSourceFile(
@@ -187,32 +243,22 @@ function scanFrontendFile(filePath) {
         return;
       }
 
-      const parent = node.parent;
+      const kind = getFrontendFindingKind(node, sourceFile);
+      if (kind) {
+        pushFinding(node, kind, text);
+      }
+    }
 
-      if (ts.isImportDeclaration(parent) || ts.isExportDeclaration(parent)) {
+    if (ts.isTemplateExpression(node)) {
+      const text = templateExpressionText(node);
+      if (!looksLikeUserFacingText(text)) {
         ts.forEachChild(node, visit);
         return;
       }
 
-      if (ts.isJsxAttribute(parent)) {
-        const attributeName = parent.name.getText(sourceFile);
-        if (
-          FRONTEND_ATTRIBUTE_ALLOWLIST.has(attributeName) &&
-          !FRONTEND_ATTRIBUTE_SKIP.has(attributeName)
-        ) {
-          pushFinding(node, `jsx-attr:${attributeName}`, text);
-        }
-      } else if (ts.isCallExpression(parent)) {
-        const calleeText = parent.expression.getText(sourceFile);
-        const argIndex = parent.arguments.indexOf(node);
-        if ((calleeText === "t" || calleeText.endsWith(".t")) && argIndex === 1) {
-          pushFinding(node, "t-default", text);
-        }
-      } else if (ts.isPropertyAssignment(parent)) {
-        const propertyName = parent.name.getText(sourceFile).replace(/['"]/g, "");
-        if (FRONTEND_PROPERTY_ALLOWLIST.has(propertyName)) {
-          pushFinding(node, `property:${propertyName}`, text);
-        }
+      const kind = getFrontendFindingKind(node, sourceFile);
+      if (kind) {
+        pushFinding(node, kind, text);
       }
     }
 

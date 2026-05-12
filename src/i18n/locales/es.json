@@ -282,6 +282,7 @@
     "close": "Cerrar",
     "done": "Listo",
     "confirm": "Confirmar",
+    "retry": "Reintentar",
     "save": "Guardar",
     "search": "Buscar",
     "noTeam": "Ningún equipo asignado.",
@@ -298,6 +299,7 @@
     "ovr": "OVR",
     "condition": "Condición",
     "morale": "Moral",
+    "score": "Marcador",
     "value": "Valor",
     "wage": "Salario",
     "name": "Nombre",
@@ -750,6 +752,7 @@
     "delegateMostRenewals": "Delegar la mayoría de renovaciones",
     "delegateSelectedRenewals": "Delegar renovaciones seleccionadas",
     "selectAllAtRisk": "Seleccionar todo",
+    "selectRiskPlayer": "Seleccionar a {{player}}",
     "delegatedRenewalsSummary": "{{successes}} hechas, {{stalled}} pendientes, {{failures}} fallidas",
     "contractRiskCritical": "Crítico",
     "contractRiskWarning": "Advertencia",
@@ -1174,6 +1177,8 @@
     "uiScaleDesc": "Ajustar tamaño de fuente y espaciado para legibilidad",
     "highContrast": "Alto Contraste",
     "highContrastDesc": "Mejorar contraste de texto en modo oscuro",
+    "switchToLightMode": "Cambiar al modo claro",
+    "switchToDarkMode": "Cambiar al modo oscuro",
     "fullscreen": "Pantalla Completa",
     "fullscreenDesc": "Alternar modo de pantalla completa",
     "enterFullscreen": "Entrar",
@@ -1675,6 +1680,36 @@
         "facilityUpgradeOverBudget": "Las mejoras de instalaciones están bloqueadas mientras el club supere su presupuesto salarial.",
         "facilityUpgradeCritical": "Las mejoras de instalaciones están bloqueadas mientras el club esté bajo una fuerte presión financiera."
       },
+      "transfers": {
+        "transferWindowClosed": "El mercado de fichajes está cerrado",
+        "cannotBidOnOwnPlayer": "No puedes pujar por tu propio jugador",
+        "playerHasNoTeam": "El jugador no tiene equipo",
+        "insufficientFunds": "Fondos insuficientes",
+        "transferBudgetTooLow": "El presupuesto de fichajes es demasiado bajo",
+        "playerNotOwnedByUser": "Jugador no encontrado o no te pertenece",
+        "offerNotPending": "Oferta no encontrada o ya no está pendiente",
+        "counterOfferMustExceedCurrentOffer": "La contraoferta debe superar la oferta actual"
+      },
+      "contracts": {
+        "playerNotOwnedByClub": "El jugador no pertenece a tu club",
+        "unableToCalculateContractEndDate": "No se pudo calcular la nueva fecha de finalización del contrato",
+        "playerHasNoActiveContract": "El jugador no tiene un contrato activo",
+        "terminationWouldLeaveMatchdaySquadShort": "Rescindir este contrato dejaría a tu plantilla sin poder presentar un once para el día del partido",
+        "noAssistantManagerAssigned": "No hay un segundo entrenador asignado a tu equipo",
+        "playerHasNoTeam": "El jugador no tiene equipo",
+        "boardWagePolicy": "La renovación está bloqueada por la política salarial de la directiva. Mantén los salarios anuales cerca de {{budget}} para recuperarte."
+      },
+      "scouting": {
+        "scoutNotFound": "Ojeador no encontrado",
+        "staffMemberNotScout": "El miembro del personal no es un ojeador",
+        "scoutNotInTeam": "El ojeador no pertenece a tu equipo",
+        "cannotScoutOwnPlayer": "No puedes espiar a tus propios jugadores",
+        "scoutAssignmentFull": "El ojeador ya está asignado a otra tarea de observación ({{currentCount}}/{{maxSlots}} asignaciones).",
+        "playerAlreadyScouted": "Este jugador ya está siendo observado",
+        "youthSearchAlreadyActive": "Ya hay una búsqueda de cantera igual activa",
+        "youthAssignmentNotFound": "No se encontró la asignación de captación juvenil",
+        "scoutAlreadyAssignedToSearch": "El ojeador ya está asignado a esta búsqueda"
+      },
       "createManager": {
         "nameRequired": "El nombre y el apellido son obligatorios.",
         "nameMaxLength": "El nombre y el apellido no pueden superar los 30 caracteres.",
@@ -1694,6 +1729,7 @@
       "commercialDirector": "Director Comercial",
       "communityManager": "Responsable de Comunidad",
       "directorOfFootball": "Director Deportivo",
+      "transferCommittee": "Comité de Fichajes",
       "intlLiaison": "Enlace Internacional",
       "player": "Jugador",
       "pressOfficer": "Jefe de Prensa",
@@ -1747,6 +1783,10 @@
         "subject": "Próximo: vs {{opponent}} ({{venue}})",
         "body0": "Su partido de {{venue}} contra {{opponent}} se acerca el {{matchDate}}.\n\nJornada {{matchday}} de la Primera División. Asegúrese de que su once titular esté en buena forma y sus tácticas estén definidas.\n\nAproveche al máximo jugar de {{venue}}.",
         "body1": "Recordatorio: se enfrenta a {{opponent}} de {{venue}} el {{matchDate}}.\n\nEsta es la Jornada {{matchday}} — revise la condición física de su plantilla y considere ajustes tácticos.",
+        "body0Home": "Su partido en casa contra {{opponent}} se acerca el {{matchDate}}.\n\nJornada {{matchday}} de la Primera División. Asegúrese de que su once titular esté en buena forma y sus tácticas estén definidas.\n\nLa ventaja de jugar en casa puede ser clave en este partido.",
+        "body0Away": "Su partido fuera de casa contra {{opponent}} se acerca el {{matchDate}}.\n\nJornada {{matchday}} de la Primera División. Asegúrese de que su once titular esté en buena forma y sus tácticas estén definidas.\n\nIgualar su intensidad fuera de casa puede ser clave en este partido.",
+        "body1Home": "Recordatorio: se enfrenta a {{opponent}} en casa dentro de 3 días ({{matchDate}}).\n\nEsta es la Jornada {{matchday}} — revise la condición física de su plantilla y considere ajustes tácticos. La afición estará de su lado en casa.",
+        "body1Away": "Recordatorio: se enfrenta a {{opponent}} fuera de casa dentro de 3 días ({{matchDate}}).\n\nEsta es la Jornada {{matchday}} — revise la condición física de su plantilla y considere ajustes tácticos. Su rendimiento a domicilio será puesto a prueba — lleve a su once más fuerte.",
         "actionTactics": "Definir Tácticas",
         "actionScout": "Explorar Rival"
       },
@@ -1774,6 +1814,15 @@
         "subject": "{{team}} — Objetivos de Temporada",
         "body": "La junta ha establecido las siguientes expectativas para esta temporada:\n\n• Terminar en la mitad superior de la tabla\n• Mantener la estabilidad financiera\n• Desarrollar jóvenes talentos de la cantera\n\nCumplir estos objetivos fortalecerá su posición. No cumplir las expectativas mínimas puede resultar en una revisión de su cargo.\n\nConfiamos en sus capacidades.",
         "actionAccept": "Aceptar Objetivos"
+      },
+      "transferComplete": {
+        "subject": "Fichaje Completado: {{player}}",
+        "body": "El fichaje de {{player}} se ha completado por una cantidad de {{fee}}.\n\nEl jugador se ha unido a la plantilla y está disponible para ser convocado."
+      },
+      "transferOffer": {
+        "subject": "Oferta Entrante por {{player}}",
+        "body": "{{team}} ha presentado una oferta de {{fee}} por {{player}}. Revise la propuesta en la pestaña de Fichajes para aceptarla o rechazarla.",
+        "actionReview": "Revisar Oferta"
       },
       "boardObjectives": {
         "subject": "Temporada {{season}} — Objetivos de la directiva",

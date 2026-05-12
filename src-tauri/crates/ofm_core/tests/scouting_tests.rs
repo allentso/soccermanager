@@ -152,14 +152,14 @@ fn send_scout_rejects_own_player() {
     let mut game = make_game();
     let result = send_scout(&mut game, "scout1", "p1");
     assert!(result.is_err());
-    assert!(result.unwrap_err().contains("own players"));
+    assert_eq!(result.unwrap_err(), "be.error.scouting.cannotScoutOwnPlayer");
 }
 
 #[test]
 fn send_scout_rejects_unknown_player() {
     let mut game = make_game();
     let result = send_scout(&mut game, "scout1", "nonexistent");
-    assert!(result.is_err());
+    assert_eq!(result.unwrap_err(), "be.error.playerNotFound");
 }
 
 #[test]
@@ -168,8 +168,7 @@ fn send_scout_rejects_duplicate_assignment() {
     send_scout(&mut game, "scout1", "p2").unwrap();
     game.staff.push(make_scout("scout2", "team1", 70, 70));
     let result = send_scout(&mut game, "scout2", "p2");
-    assert!(result.is_err());
-    assert!(result.unwrap_err().contains("already being scouted"));
+    assert_eq!(result.unwrap_err(), "be.error.scouting.playerAlreadyScouted");
 }
 
 #[test]
@@ -178,8 +177,7 @@ fn send_scout_rejects_non_scout_staff() {
     // Replace scout with a coach
     game.staff[0].role = StaffRole::Coach;
     let result = send_scout(&mut game, "scout1", "p2");
-    assert!(result.is_err());
-    assert!(result.unwrap_err().contains("not a scout"));
+    assert_eq!(result.unwrap_err(), "be.error.scouting.staffMemberNotScout");
 }
 
 #[test]
@@ -223,8 +221,10 @@ fn start_youth_scouting_respects_shared_scout_capacity() {
         Some(Position::Forward),
     );
 
-    assert!(result.is_err());
-    assert!(result.unwrap_err().contains("already assigned"));
+    assert_eq!(
+        result.unwrap_err(),
+        "be.error.scouting.scoutAssignmentFull?currentCount=1&maxSlots=1"
+    );
 }
 
 #[test]
@@ -241,8 +241,10 @@ fn send_scout_rejects_when_scout_has_youth_assignment() {
 
     let result = send_scout(&mut game, "scout1", "p2");
 
-    assert!(result.is_err());
-    assert!(result.unwrap_err().contains("already assigned"));
+    assert_eq!(
+        result.unwrap_err(),
+        "be.error.scouting.scoutAssignmentFull?currentCount=1&maxSlots=1"
+    );
 }
 
 #[test]
@@ -267,8 +269,7 @@ fn start_youth_scouting_rejects_duplicate_search_profile() {
         Some(Position::Defender),
     );
 
-    assert!(result.is_err());
-    assert!(result.unwrap_err().contains("already active"));
+    assert_eq!(result.unwrap_err(), "be.error.scouting.youthSearchAlreadyActive");
 }
 
 // ---------------------------------------------------------------------------

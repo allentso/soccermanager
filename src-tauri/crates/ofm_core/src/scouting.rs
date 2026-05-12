@@ -8,6 +8,30 @@ use rand::RngExt;
 use std::collections::HashMap;
 use uuid::Uuid;
 
+const ERR_SCOUT_NOT_FOUND: &str = "be.error.scouting.scoutNotFound";
+const ERR_STAFF_MEMBER_NOT_SCOUT: &str = "be.error.scouting.staffMemberNotScout";
+const ERR_SCOUT_NOT_IN_TEAM: &str = "be.error.scouting.scoutNotInTeam";
+const ERR_CANNOT_SCOUT_OWN_PLAYER: &str = "be.error.scouting.cannotScoutOwnPlayer";
+const ERR_PLAYER_ALREADY_SCOUTED: &str = "be.error.scouting.playerAlreadyScouted";
+const ERR_YOUTH_SEARCH_ALREADY_ACTIVE: &str = "be.error.scouting.youthSearchAlreadyActive";
+const ERR_YOUTH_ASSIGNMENT_NOT_FOUND: &str = "be.error.scouting.youthAssignmentNotFound";
+const ERR_SCOUT_ALREADY_ASSIGNED_TO_SEARCH: &str =
+    "be.error.scouting.scoutAlreadyAssignedToSearch";
+
+fn scouting_error_with_params(key: &str, params: &[(&str, String)]) -> String {
+    if params.is_empty() {
+        return key.to_string();
+    }
+
+    let query = params
+        .iter()
+        .map(|(name, value)| format!("{}={}", name, value))
+        .collect::<Vec<_>>()
+        .join("&");
+
+    format!("{}?{}", key, query)
+}
+
 fn params(pairs: &[(&str, &str)]) -> HashMap<String, String> {
     pairs
         .iter()
@@ -37,18 +61,18 @@ fn resolve_user_scout<'a>(
     game: &'a Game,
     scout_id: &str,
 ) -> Result<&'a domain::staff::Staff, String> {
-    let user_team_id = game.manager.team_id.as_ref().ok_or("No team")?;
+    let user_team_id = game.manager.team_id.as_ref().ok_or("be.error.noTeamAssigned")?;
 
     let scout = game
         .staff
         .iter()
         .find(|staff_member| staff_member.id == scout_id)
-        .ok_or("Scout not found")?;
+        .ok_or(ERR_SCOUT_NOT_FOUND)?;
     if scout.role != StaffRole::Scout {
-        return Err("Staff member is not a scout".to_string());
+        return Err(ERR_STAFF_MEMBER_NOT_SCOUT.to_string());
     }
     if scout.team_id.as_ref() != Some(user_team_id) {
-        return Err("Scout does not belong to your team".to_string());
+        return Err(ERR_SCOUT_NOT_IN_TEAM.to_string());
     }
 
     Ok(scout)
@@ -96,7 +120,7 @@ fn assignment_days_for_youth_scouting(
 
 /// Send a scout to evaluate a player. Returns an error string if invalid.
 pub fn send_scout(game: &mut Game, scout_id: &str, player_id: &str) -> Result<(), String> {
-    let user_team_id = game.manager.team_id.as_ref().ok_or("No team")?;
+    let user_team_id = game.manager.team_id.as_ref().ok_or("be.error.noTeamAssigned")?;
     let scout = resolve_user_scout(game, scout_id)?;
 
     // Validate player exists and is not on user's team
@@ -104,18 +128,21 @@ pub fn send_scout(game: &mut Game, scout_id: &str, player_id: &str) -> Result<()
         .players
         .iter()
         .find(|p| p.id == player_id)
-        .ok_or("Player not found")?;
+        .ok_or("be.error.playerNotFound")?;
     if player.team_id.as_deref() == Some(user_team_id.as_str()) {
-        return Err("Cannot scout your own players".to_string());
+        return Err(ERR_CANNOT_SCOUT_OWN_PLAYER.to_string());
     }
 
     // Check scout capacity across both player and youth scouting.
     let max_slots = scout_max_assignments(scout.attributes.judging_ability);
     let current_count = scout_assignment_count(game, scout_id);
     if current_count >= max_slots {
-        return Err(format!(
-            "Scout is already assigned to another scouting task ({}/{} assignments).",
-            current_count, max_slots
+        return Err(scouting_error_with_params(
+            "be.error.scouting.scoutAssignmentFull",
+            &[
+                ("currentCount", current_count.to_string()),
+                ("maxSlots", max_slots.to_string()),
+            ],
         ));
     }
 
@@ -125,7 +152,7 @@ pub fn send_scout(game: &mut Game, scout_id: &str, player_id: &str) -> Result<()
         .iter()
         .any(|a| a.player_id == player_id)
     {
-        return Err("This player is already being scouted".to_string());
+        return Err(ERR_PLAYER_ALREADY_SCOUTED.to_string());
     }
 
     // Create assignment (2-5 days depending on scout quality)
@@ -152,9 +179,12 @@ pub fn start_youth_scouting(
     let max_slots = scout_max_assignments(scout.attributes.judging_ability);
     let current_count = scout_assignment_count(game, scout_id);
     if current_count >= max_slots {
-        return Err(format!(
-            "Scout is already assigned to another scouting task ({}/{} assignments).",
-            current_count, max_slots
+        return Err(scouting_error_with_params(
+            "be.error.scouting.scoutAssignmentFull",
+            &[
+                ("currentCount", current_count.to_string()),
+                ("maxSlots", max_slots.to_string()),
+            ],
         ));
     }
 
@@ -164,7 +194,7 @@ pub fn start_youth_scouting(
             && assignment.objective == objective
             && assignment.target_position == target_position
     }) {
-        return Err("A matching youth recruitment search is already active".to_string());
+        return Err(ERR_YOUTH_SEARCH_ALREADY_ACTIVE.to_string());
     }
 
     let days =
@@ -188,7 +218,7 @@ pub fn cancel_youth_scouting(game: &mut Game, assignment_id: &str) -> Result<(),
         .retain(|assignment| assignment.id != assignment_id);
 
     if game.youth_scouting_assignments.len() == original_len {
-        return Err("Youth recruitment assignment not found".to_string());
+        return Err(ERR_YOUTH_ASSIGNMENT_NOT_FOUND.to_string());
     }
 
     Ok(())
@@ -203,21 +233,24 @@ pub fn reassign_youth_scouting(
         .youth_scouting_assignments
         .iter()
         .position(|assignment| assignment.id == assignment_id)
-        .ok_or("Youth recruitment assignment not found")?;
+        .ok_or(ERR_YOUTH_ASSIGNMENT_NOT_FOUND)?;
     let current_scout_id = game.youth_scouting_assignments[assignment_index]
         .scout_id
         .clone();
     if current_scout_id == scout_id {
-        return Err("Scout is already assigned to this search".to_string());
+        return Err(ERR_SCOUT_ALREADY_ASSIGNED_TO_SEARCH.to_string());
     }
 
     let scout = resolve_user_scout(game, scout_id)?;
     let max_slots = scout_max_assignments(scout.attributes.judging_ability);
     let current_count = scout_assignment_count(game, scout_id);
     if current_count >= max_slots {
-        return Err(format!(
-            "Scout is already assigned to another scouting task ({}/{} assignments).",
-            current_count, max_slots
+        return Err(scouting_error_with_params(
+            "be.error.scouting.scoutAssignmentFull",
+            &[
+                ("currentCount", current_count.to_string()),
+                ("maxSlots", max_slots.to_string()),
+            ],
         ));
     }
 

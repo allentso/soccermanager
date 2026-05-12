@@ -16,6 +16,13 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 const RENEWAL_SESSION_STALE_DAYS: i64 = 14;
+const ERR_PLAYER_NOT_OWNED_BY_CLUB: &str = "be.error.contracts.playerNotOwnedByClub";
+const ERR_UNABLE_TO_CALCULATE_CONTRACT_END_DATE: &str =
+    "be.error.contracts.unableToCalculateContractEndDate";
+const ERR_PLAYER_HAS_NO_ACTIVE_CONTRACT: &str = "be.error.contracts.playerHasNoActiveContract";
+const ERR_TERMINATION_WOULD_LEAVE_MATCHDAY_SQUAD_SHORT: &str =
+    "be.error.contracts.terminationWouldLeaveMatchdaySquadShort";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ContractWarningStage {
     TwelveMonths,
@@ -250,23 +257,23 @@ pub fn propose_renewal(
         .manager
         .team_id
         .clone()
-        .ok_or("No team assigned".to_string())?;
+        .ok_or("be.error.noTeamAssigned".to_string())?;
 
     let team = game
         .teams
         .iter()
         .find(|candidate| candidate.id == manager_team_id)
-        .ok_or("Manager team not found".to_string())?
+        .ok_or("be.error.managedTeamNotFound".to_string())?
         .clone();
 
     let player_index = game
         .players
         .iter()
         .position(|candidate| candidate.id == player_id)
-        .ok_or("Player not found".to_string())?;
+        .ok_or("be.error.playerNotFound".to_string())?;
 
     if game.players[player_index].team_id.as_deref() != Some(team.id.as_str()) {
-        return Err("Player does not belong to your club".to_string());
+        return Err(ERR_PLAYER_NOT_OWNED_BY_CLUB.to_string());
     }
 
     let current_date = game.clock.current_date.date_naive();
@@ -362,7 +369,7 @@ pub fn propose_renewal(
 
         let new_contract_end = current_date
             .checked_add_months(Months::new(offer.contract_years * 12))
-            .ok_or("Unable to calculate new contract end date".to_string())?;
+            .ok_or(ERR_UNABLE_TO_CALCULATE_CONTRACT_END_DATE.to_string())?;
 
         let player = &mut game.players[player_index];
         player.wage = offer.weekly_wage;
@@ -448,7 +455,7 @@ pub fn set_contract_exit_intent(
     let player = &mut game.players[player_index];
 
     if player.contract_end.is_none() {
-        return Err("Player does not have an active contract".to_string());
+        return Err(ERR_PLAYER_HAS_NO_ACTIVE_CONTRACT.to_string());
     }
 
     let state = player
@@ -498,7 +505,7 @@ pub fn preview_contract_termination(
     let player = owned_player(game, player_id)?;
 
     if player.contract_end.is_none() {
-        return Err("Player does not have an active contract".to_string());
+        return Err(ERR_PLAYER_HAS_NO_ACTIVE_CONTRACT.to_string());
     }
 
     let current_date = game.clock.current_date.date_naive();
@@ -517,17 +524,14 @@ pub fn terminate_contract_now(
     let preview = preview_contract_termination(game, player_id)?;
 
     if !preview.squad_safety.can_field_matchday_squad {
-        return Err(
-            "Terminating this contract would leave your squad unable to field a matchday XI"
-                .to_string(),
-        );
+        return Err(ERR_TERMINATION_WOULD_LEAVE_MATCHDAY_SQUAD_SHORT.to_string());
     }
 
     let player_index = owned_player_index(game, player_id)?;
     let team_id = game.players[player_index]
         .team_id
         .clone()
-        .ok_or("Player does not belong to your club".to_string())?;
+        .ok_or(ERR_PLAYER_NOT_OWNED_BY_CLUB.to_string())?;
     let today = game.clock.current_date.format("%Y-%m-%d").to_string();
 
     if let Some(team) = game
@@ -628,15 +632,15 @@ fn owned_player<'a>(game: &'a Game, player_id: &str) -> Result<&'a Player, Strin
         .manager
         .team_id
         .as_deref()
-        .ok_or("No team assigned".to_string())?;
+        .ok_or("be.error.noTeamAssigned".to_string())?;
     let player = game
         .players
         .iter()
         .find(|candidate| candidate.id == player_id)
-        .ok_or("Player not found".to_string())?;
+        .ok_or("be.error.playerNotFound".to_string())?;
 
     if player.team_id.as_deref() != Some(manager_team_id) {
-        return Err("Player does not belong to your club".to_string());
+        return Err(ERR_PLAYER_NOT_OWNED_BY_CLUB.to_string());
     }
 
     Ok(player)
@@ -647,15 +651,15 @@ fn owned_player_index(game: &Game, player_id: &str) -> Result<usize, String> {
         .manager
         .team_id
         .as_deref()
-        .ok_or("No team assigned".to_string())?;
+        .ok_or("be.error.noTeamAssigned".to_string())?;
     let player_index = game
         .players
         .iter()
         .position(|candidate| candidate.id == player_id)
-        .ok_or("Player not found".to_string())?;
+        .ok_or("be.error.playerNotFound".to_string())?;
 
     if game.players[player_index].team_id.as_deref() != Some(manager_team_id) {
-        return Err("Player does not belong to your club".to_string());
+        return Err(ERR_PLAYER_NOT_OWNED_BY_CLUB.to_string());
     }
 
     Ok(player_index)

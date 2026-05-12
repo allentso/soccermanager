@@ -38,6 +38,7 @@ import { resolveSeasonContext } from "../../lib/seasonContext";
 import { type NegotiationFeedbackPanelData } from "../NegotiationFeedbackPanel";
 import TransferBidModal from "./TransferBidModal";
 import TransferCounterOfferModal from "./TransferCounterOfferModal";
+import { getErrorMessage, resolveTranslatedErrorMessage } from "../../utils/errorMessage";
 import {
   counterOffer,
   respondToOffer,
@@ -46,7 +47,6 @@ import {
   type TransferNegotiationResponseData,
 } from "../../services/transfersService";
 import { sendScout } from "../../services/scoutingService";
-import { getErrorMessage } from "../../utils/errorMessage";
 import {
   buildResumedCounterFeedback,
   getTransferOfferBadgeVariant,
@@ -308,7 +308,7 @@ export default function TransfersTab({
       onGameUpdate?.(updated);
     } catch (error) {
       console.error("Failed to send scout:", error);
-      setScoutError(getErrorMessage(error));
+      setScoutError(resolveTranslatedErrorMessage(getErrorMessage(error), t));
     } finally {
       setScoutingPlayerId(null);
     }
