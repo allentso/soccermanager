@@ -145,7 +145,7 @@ export default function InboxTab({
 
       onGameUpdate(result.game);
 
-      if (result.effect) {
+      if (result.effect || result.effect_i18n_key) {
         const effectParams = result.effect_i18n_params
           ? Object.fromEntries(
             Object.entries(result.effect_i18n_params).map(([key, value]) => [

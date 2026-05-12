@@ -2193,7 +2193,9 @@
           "alreadyEmployed": "Já está empregado e não pode aceitar a oferta do {{team}}",
           "unavailable": "A oferta do {{team}} já não está disponível porque a vaga foi preenchida",
           "failed": "Não foi possível aceitar a oferta do {{team}}"
-        }
+        },
+        "acceptDescription": "Junta-te ao {{team}} como novo treinador",
+        "declineDescription": "Continua a procura de outras oportunidades"
       },
       "jobOfferExpired": {
         "subject": "Vaga preenchida — {{team}}",

@@ -15,8 +15,7 @@ const ERR_CANNOT_SCOUT_OWN_PLAYER: &str = "be.error.scouting.cannotScoutOwnPlaye
 const ERR_PLAYER_ALREADY_SCOUTED: &str = "be.error.scouting.playerAlreadyScouted";
 const ERR_YOUTH_SEARCH_ALREADY_ACTIVE: &str = "be.error.scouting.youthSearchAlreadyActive";
 const ERR_YOUTH_ASSIGNMENT_NOT_FOUND: &str = "be.error.scouting.youthAssignmentNotFound";
-const ERR_SCOUT_ALREADY_ASSIGNED_TO_SEARCH: &str =
-    "be.error.scouting.scoutAlreadyAssignedToSearch";
+const ERR_SCOUT_ALREADY_ASSIGNED_TO_SEARCH: &str = "be.error.scouting.scoutAlreadyAssignedToSearch";
 
 fn scouting_error_with_params(key: &str, params: &[(&str, String)]) -> String {
     if params.is_empty() {
@@ -61,7 +60,11 @@ fn resolve_user_scout<'a>(
     game: &'a Game,
     scout_id: &str,
 ) -> Result<&'a domain::staff::Staff, String> {
-    let user_team_id = game.manager.team_id.as_ref().ok_or("be.error.noTeamAssigned")?;
+    let user_team_id = game
+        .manager
+        .team_id
+        .as_ref()
+        .ok_or("be.error.noTeamAssigned")?;
 
     let scout = game
         .staff
@@ -120,7 +123,11 @@ fn assignment_days_for_youth_scouting(
 
 /// Send a scout to evaluate a player. Returns an error string if invalid.
 pub fn send_scout(game: &mut Game, scout_id: &str, player_id: &str) -> Result<(), String> {
-    let user_team_id = game.manager.team_id.as_ref().ok_or("be.error.noTeamAssigned")?;
+    let user_team_id = game
+        .manager
+        .team_id
+        .as_ref()
+        .ok_or("be.error.noTeamAssigned")?;
     let scout = resolve_user_scout(game, scout_id)?;
 
     // Validate player exists and is not on user's team
@@ -457,9 +464,7 @@ fn youth_prospect_options() -> Vec<ActionOption> {
             label: "Sign to academy".to_string(),
             description: "Add this player directly to your youth academy now.".to_string(),
             label_key: Some("be.msg.youthRecruitment.option.sign.label".to_string()),
-            description_key: Some(
-                "be.msg.youthRecruitment.option.sign.description".to_string(),
-            ),
+            description_key: Some("be.msg.youthRecruitment.option.sign.description".to_string()),
         },
         ActionOption {
             id: "shortlist".to_string(),
@@ -476,26 +481,9 @@ fn youth_prospect_options() -> Vec<ActionOption> {
             label: "Discard".to_string(),
             description: "Remove this prospect from the report.".to_string(),
             label_key: Some("be.msg.youthRecruitment.option.discard.label".to_string()),
-            description_key: Some(
-                "be.msg.youthRecruitment.option.discard.description".to_string(),
-            ),
+            description_key: Some("be.msg.youthRecruitment.option.discard.description".to_string()),
         },
     ]
-}
-
-fn region_label(region: YouthScoutingRegion) -> &'static str {
-    match region {
-        YouthScoutingRegion::Domestic => "domestic",
-        YouthScoutingRegion::International => "international",
-    }
-}
-
-fn objective_label(objective: YouthScoutingObjective) -> &'static str {
-    match objective {
-        YouthScoutingObjective::Balanced => "balanced",
-        YouthScoutingObjective::HighPotential => "high-potential",
-        YouthScoutingObjective::ReadySoon => "ready-now",
-    }
 }
 
 fn prospect_score(player: &Player, objective: YouthScoutingObjective) -> (u8, u8) {
@@ -609,7 +597,10 @@ pub fn apply_youth_recruitment_response(
             let message = &mut game.messages[message_index];
             message.context.player_id = Some(player_id);
             if let Some(prospects) = message.context.youth_prospects.as_mut() {
-                if let Some(updated_prospect) = prospects.iter_mut().find(|candidate| candidate.id == prospect_id) {
+                if let Some(updated_prospect) = prospects
+                    .iter_mut()
+                    .find(|candidate| candidate.id == prospect_id)
+                {
                     updated_prospect.team_id = game.manager.team_id.clone();
                     updated_prospect.squad_role = SquadRole::Youth;
                 }

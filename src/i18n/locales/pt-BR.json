@@ -341,9 +341,40 @@
       "Goalkeeper": "Goleiros",
       "Defender": "Defensores",
       "Midfielder": "Meias",
-      "JobOffer": "Ofertas de emprego"
-    }
-  },
+      "Forward": "Atacantes"
+    },
+    "posAbbr": {
+      "Goalkeeper": "GK",
+      "Defender": "DEF",
+      "Midfielder": "MEI",
+      "Forward": "ATA",
+      "RightBack": "LD",
+      "CenterBack": "ZC",
+      "LeftBack": "LE",
+      "RightWingBack": "AD",
+      "LeftWingBack": "AE",
+      "DefensiveMidfielder": "VOL",
+      "CentralMidfielder": "MC",
+      "AttackingMidfielder": "MEI",
+      "RightMidfielder": "MD",
+      "LeftMidfielder": "ME",
+      "RightWinger": "PD",
+      "LeftWinger": "PE",
+      "Striker": "CA"
+    },
+    "footedness": {
+      "Left": "Esquerdo",
+      "Right": "Direito",
+      "Both": "Ambidestro"
+    },
+    "footednessLabel": "Pé",
+    "weakFoot": "Pé ruim",
+    "playStyles": {
+      "Balanced": "Equilibrado",
+      "Attacking": "Ofensivo",
+      "Defensive": "Defensivo",
+      "Possession": "Posse de bola",
+      "Counter": "Contra-ataque",
       "HighPress": "Pressão Alta"
     },
     "attributes": {
@@ -780,36 +811,6 @@
       "Media": "Mídia",
       "System": "Sistema",
       "JobOffer": "Ofertas de emprego"
-    },
-    "youthRecruitmentReport": {
-      "subject": "Relatório do olheiro — Recrutamento de base",
-      "bodyAny": "{{scout}} concluiu a busca mais recente de recrutamento de base para {{team}}. Encontrei {{count}} promessas no mercado {{regionLabel}} com perfil {{objectiveLabel}}.\n\nRevise os cartões anexos e decida quem deve entrar na academia.",
-      "bodyTargeted": "{{scout}} concluiu a busca mais recente de recrutamento de base para {{team}}. Encontrei {{count}} promessas no mercado {{regionLabel}} com perfil {{objectiveLabel}}, com foco em {{targetLabel}}.\n\nRevise os cartões anexos e decida quem deve entrar na academia."
-    },
-    "youthRecruitment": {
-      "option": {
-        "sign": {
-          "label": "Assinar para a academia",
-          "description": "Ofereça a esta promessa um contrato de base e adicione-a à academia."
-        },
-        "shortlist": {
-          "label": "Pré-selecionar",
-          "description": "Mantenha esta promessa em observação e mova-a para uma mensagem separada de pré-lista."
-        },
-        "discard": {
-          "label": "Descartar",
-          "description": "Dispense esta promessa e remova-a do relatório."
-        }
-      },
-      "effect": {
-        "sign": "{{player}} assinou um contrato de base e entrou na sua academia.",
-        "shortlist": "{{player}} foi adicionado à sua pré-lista de base.",
-        "discard": "{{player}} foi removido do relatório de recrutamento de base."
-      }
-    },
-    "youthRecruitmentShortlist": {
-      "subject": "Promessa da base pré-selecionada",
-      "body": "{{player}} foi movido para sua pré-lista de base. Você pode revisá-lo novamente depois antes de tomar a decisão final."
     }
   },
   "manager": {
@@ -2192,7 +2193,9 @@
           "alreadyEmployed": "Você já está empregado e não pode aceitar a oferta do {{team}}",
           "unavailable": "A oferta do {{team}} não está mais disponível porque a vaga foi preenchida",
           "failed": "Não foi possível aceitar a oferta do {{team}}"
-        }
+        },
+        "acceptDescription": "Assuma o {{team}} como novo treinador",
+        "declineDescription": "Continue procurando outras oportunidades"
       },
       "jobOfferExpired": {
         "subject": "Vaga preenchida — {{team}}",

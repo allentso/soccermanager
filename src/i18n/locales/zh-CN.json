@@ -811,36 +811,6 @@
       "Media": "媒体",
       "System": "系统",
       "JobOffer": "工作邀请"
-    },
-    "youthRecruitmentReport": {
-      "subject": "球探报告——青训招募",
-      "bodyAny": "{{scout}} 已完成 {{team}} 最近一次青训招募搜索。我在 {{regionLabel}} 市场找到了 {{count}} 名符合 {{objectiveLabel}} 方向的潜力球员。\n\n请查看附带的球员卡，并决定谁应该加入青训学院。",
-      "bodyTargeted": "{{scout}} 已完成 {{team}} 最近一次青训招募搜索。我在 {{regionLabel}} 市场找到了 {{count}} 名符合 {{objectiveLabel}} 方向、重点针对 {{targetLabel}} 的潜力球员。\n\n请查看附带的球员卡，并决定谁应该加入青训学院。"
-    },
-    "youthRecruitment": {
-      "option": {
-        "sign": {
-          "label": "签入青训学院",
-          "description": "为这名潜力球员提供青训合同，并将其加入学院。"
-        },
-        "shortlist": {
-          "label": "加入候选名单",
-          "description": "继续观察这名潜力球员，并将其移入单独的候选消息中。"
-        },
-        "discard": {
-          "label": "放弃",
-          "description": "放弃这名潜力球员，并将其从报告中移除。"
-        }
-      },
-      "effect": {
-        "sign": "{{player}} 已签下青训合同并加入你的青训学院。",
-        "shortlist": "{{player}} 已加入你的青训候选名单。",
-        "discard": "{{player}} 已从青训招募报告中移除。"
-      }
-    },
-    "youthRecruitmentShortlist": {
-      "subject": "青训潜力球员已入候选名单",
-      "body": "{{player}} 已移入你的青训候选名单。你可以稍后再次查看，再做最终决定。"
     }
   },
   "manager": {
@@ -2220,7 +2190,9 @@
           "alreadyEmployed": "您目前已有任职,无法接受{{team}}的邀约",
           "unavailable": "{{team}}的职位已有人选,该邀约不再有效",
           "failed": "无法接受{{team}}的邀约"
-        }
+        },
+        "acceptDescription": "成为{{team}}的新任主教练",
+        "declineDescription": "继续寻找其他机会"
       },
       "jobOfferExpired": {
         "subject": "职位已有人选——{{team}}",

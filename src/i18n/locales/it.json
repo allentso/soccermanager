@@ -204,36 +204,7 @@
     "transferWindowStatus": {
       "Closed": "Mercato Chiuso",
       "Open": "Mercato Aperto",
-      "DeadlineDay": "Ultimo Giorno""youthRecruitmentReport": {
-        "subject": "Rapporto dell'osservatore — Reclutamento giovanile",
-        "bodyAny": "{{scout}} ha completato l'ultima ricerca di reclutamento giovanile per {{team}}. Ho trovato {{count}} prospetti nel mercato {{regionLabel}} con un profilo {{objectiveLabel}}.\n\nEsamina le schede allegate e decidi chi deve entrare nell'accademia.",
-        "bodyTargeted": "{{scout}} ha completato l'ultima ricerca di reclutamento giovanile per {{team}}. Ho trovato {{count}} prospetti nel mercato {{regionLabel}} con un profilo {{objectiveLabel}}, focalizzato su {{targetLabel}}.\n\nEsamina le schede allegate e decidi chi deve entrare nell'accademia."
-      },
-      "youthRecruitment": {
-        "option": {
-          "sign": {
-            "label": "Ingaggia per l'accademia",
-            "description": "Offri a questo prospetto un contratto giovanile e aggiungilo all'accademia."
-          },
-          "shortlist": {
-            "label": "Metti in lista",
-            "description": "Tieni questo prospetto in considerazione e spostalo in un messaggio separato di shortlist."
-          },
-          "discard": {
-            "label": "Scarta",
-            "description": "Rinuncia a questo prospetto e rimuovilo dal rapporto."
-          }
-        },
-        "effect": {
-          "sign": "{{player}} ha firmato un contratto giovanile ed è entrato nella tua accademia.",
-          "shortlist": "{{player}} è stato aggiunto alla tua shortlist giovanile.",
-          "discard": "{{player}} è stato rimosso dal rapporto di reclutamento giovanile."
-        }
-      },
-      "youthRecruitmentShortlist": {
-        "subject": "Prospetto giovanile in shortlist",
-        "body": "{{player}} è stato spostato nella tua shortlist giovanile. Potrai rivederlo più tardi prima di prendere una decisione finale."
-      },
+      "DeadlineDay": "Ultimo Giorno"
     }
   },
   "endOfSeason": {
@@ -905,17 +876,17 @@
     "loanMarket": "Mercato prestiti",
     "offers": "Offerte",
     "searchByName": "Cerca per nome...",
-    "noPlayersListed": "Non hai giocatori in lista trasferimenti o prestiti.",
-    "goToProfile": "Vai al profilo di un giocatore per metterlo in lista trasferimenti o prestiti.",
+    "noPlayersListed": "Non hai giocatori nella lista trasferimenti o prestiti.",
+    "goToProfile": "Vai al profilo del giocatore per inserirlo tra i cedibili o prestabili.",
     "noOffers": "Nessuna offerta di trasferimento attiva al momento.",
-    "noTransferMarket": "Nessun giocatore attualmente disponibile per il trasferimento.",
-    "noLoanMarket": "Nessun giocatore attualmente disponibile per il prestito.",
+    "noTransferMarket": "Nessun giocatore disponibile per il trasferimento al momento.",
+    "noLoanMarket": "Nessun giocatore disponibile per il prestito al momento.",
     "transfer": "Trasferimento",
     "loan": "Prestito",
     "none": "Nessuno",
     "listed": "In lista",
     "makeBid": "Fai un'offerta",
-    "bid": "Offri",
+    "bid": "Offerta",
     "playerValue": "Valore: {{value}}",
     "bidAmount": "Importo offerta (€M)",
     "bidImpactTitle": "Impatto previsto",
@@ -923,11 +894,11 @@
     "bidImpactBalance": "Saldo del club {{before}} → {{after}}",
     "bidImpactWagePressure": "Utilizzo previsto del budget stipendi {{percent}}%",
     "bidImpactOverTransferBudget": "Questa offerta supera il tuo budget trasferimenti",
-    "bidImpactOverBalance": "Questa offerta porterebbe il club in debito",
+    "bidImpactOverBalance": "Questa offerta manderebbe il club in rosso",
     "bidAccepted": "Offerta accettata! Giocatore ingaggiato.",
-    "bidCountered": "Sono tornati con condizioni riviste.",
-    "bidRejected": "Offerta rifiutata — importo troppo basso.",
-    "submitting": "Invio in corso...",
+    "bidCountered": "Sono tornati con nuove condizioni.",
+    "bidRejected": "Offerta respinta — cifra troppo bassa.",
+    "submitting": "Invio...",
     "submitBid": "Invia offerta",
     "close": "Chiudi",
     "counter": "Rilancia",
@@ -2165,6 +2136,36 @@
           "relationshipBlocked": "Non sono disposti a impegnarsi tramite me con l'attuale rapporto e situazione contrattuale."
         }
       },
+      "youthRecruitmentReport": {
+        "subject": "Rapporto dell'osservatore — Reclutamento giovanile",
+        "bodyAny": "{{scout}} ha completato l'ultima ricerca di reclutamento giovanile per {{team}}. Ho trovato {{count}} prospetti nel mercato {{regionLabel}} con un profilo {{objectiveLabel}}.\n\nEsamina le schede allegate e decidi chi deve entrare nell'accademia.",
+        "bodyTargeted": "{{scout}} ha completato l'ultima ricerca di reclutamento giovanile per {{team}}. Ho trovato {{count}} prospetti nel mercato {{regionLabel}} con un profilo {{objectiveLabel}}, focalizzato su {{targetLabel}}.\n\nEsamina le schede allegate e decidi chi deve entrare nell'accademia."
+      },
+      "youthRecruitment": {
+        "option": {
+          "sign": {
+            "label": "Ingaggia per l'accademia",
+            "description": "Offri a questo prospetto un contratto giovanile e aggiungilo all'accademia."
+          },
+          "shortlist": {
+            "label": "Metti in lista",
+            "description": "Tieni questo prospetto in considerazione e spostalo in un messaggio separato di shortlist."
+          },
+          "discard": {
+            "label": "Scarta",
+            "description": "Rinuncia a questo prospetto e rimuovilo dal rapporto."
+          }
+        },
+        "effect": {
+          "sign": "{{player}} ha firmato un contratto giovanile ed è entrato nella tua accademia.",
+          "shortlist": "{{player}} è stato aggiunto alla tua shortlist giovanile.",
+          "discard": "{{player}} è stato rimosso dal rapporto di reclutamento giovanile."
+        }
+      },
+      "youthRecruitmentShortlist": {
+        "subject": "Prospetto giovanile in shortlist",
+        "body": "{{player}} è stato spostato nella tua shortlist giovanile. Potrai rivederlo più tardi prima di prendere una decisione finale."
+      },
       "scoutReport": {
         "subject": "Rapporto osservatore: {{player}}",
         "body": "Il tuo osservatore {{scout}} ha completato la valutazione di {{player}}. Rapporto completo disponibile nella sezione osservazione."
@@ -2192,7 +2193,9 @@
           "alreadyEmployed": "Hai già un incarico e non puoi accettare l'offerta del {{team}}",
           "unavailable": "L'offerta del {{team}} non è più disponibile perché la posizione è già stata assegnata",
           "failed": "Non è stato possibile accettare l'offerta del {{team}}"
-        }
+        },
+        "acceptDescription": "Unisciti a {{team}} come nuovo allenatore",
+        "declineDescription": "Continua a cercare altre opportunita"
       },
       "jobOfferExpired": {
         "subject": "Posizione assegnata — {{team}}",
@@ -2220,58 +2223,58 @@
       "matchReport": {
         "headline": {
           "homeWin": {
-            "0": "{{home}} {{homeGoals}} - {{awayGoals}} {{away}}: trionfo dei padroni di casa",
-            "1": "{{home}} piega {{away}} nella giornata {{matchday}}",
-            "2": "{{home}} cinico manda al tappeto {{away}}"
+            "0": "{{home}} {{homeGoals}} - {{awayGoals}} {{away}}: Hosts Triumph",
+            "1": "{{home}} Edge Past {{away}} in Matchday {{matchday}}",
+            "2": "Clinical {{home}} See Off {{away}}"
           },
           "awayWin": {
-            "0": "{{home}} {{homeGoals}} - {{awayGoals}} {{away}}: colpo esterno degli ospiti",
-            "1": "{{away}} sorprende {{home}} in trasferta",
-            "2": "Gioia lontano da casa per {{away}}"
+            "0": "{{home}} {{homeGoals}} - {{awayGoals}} {{away}}: Visitors Strike",
+            "1": "{{away}} Stun {{home}} on the Road",
+            "2": "Away Day Delight for {{away}}"
           },
           "draw": {
-            "0": "{{home}} {{homeGoals}} - {{awayGoals}} {{away}}: tutto in equilibrio",
-            "1": "{{home}} e {{away}} si dividono la posta",
-            "2": "Parità sul campo del {{home}}"
+            "0": "{{home}} {{homeGoals}} - {{awayGoals}} {{away}}: Honours Even",
+            "1": "{{home}} and {{away}} Share the Spoils",
+            "2": "Stalemate at {{home}}'s Ground"
           }
         },
-        "body0": "Nella giornata {{matchday}}, la partita si è chiusa sul {{home}} {{homeGoals}} - {{awayGoals}} {{away}}. Il risultato potrebbe avere implicazioni sulla classifica con il proseguire della stagione.\n\nGol: {{scorers}}",
-        "body1": "La partita si è conclusa {{home}} {{homeGoals}} - {{awayGoals}} {{away}} in una sfida della giornata {{matchday}}. Entrambe le squadre hanno dato tutto in un confronto avvincente.\n\nGol: {{scorers}}",
-        "body2": "La giornata {{matchday}} ha regalato un'altra sfida emozionante tra {{home}} e {{away}} ({{homeGoals}}-{{awayGoals}}). I tifosi hanno assistito a una partita competitiva.\n\nGol: {{scorers}}",
-        "body0.noScorers": "Nella giornata {{matchday}}, la partita si è chiusa sul {{home}} {{homeGoals}} - {{awayGoals}} {{away}}. Il risultato potrebbe avere implicazioni sulla classifica con il proseguire della stagione.",
-        "body1.noScorers": "La partita si è conclusa {{home}} {{homeGoals}} - {{awayGoals}} {{away}} in una sfida della giornata {{matchday}}. Entrambe le squadre hanno dato tutto in un confronto avvincente.",
-        "body2.noScorers": "La giornata {{matchday}} ha regalato un'altra sfida emozionante tra {{home}} e {{away}} ({{homeGoals}}-{{awayGoals}}). I tifosi hanno assistito a una partita competitiva.",
+        "body0": "In Matchday {{matchday}} action, the match ended {{home}} {{homeGoals}} - {{awayGoals}} {{away}}. The result could have implications on the league standings as the season progresses.\n\nGoals: {{scorers}}",
+        "body1": "The match ended {{home}} {{homeGoals}} - {{awayGoals}} {{away}} in a Matchday {{matchday}} clash. Both sides gave their all in an engaging contest.\n\nGoals: {{scorers}}",
+        "body2": "Matchday {{matchday}} delivered another exciting encounter as {{home}} faced {{away}} ({{homeGoals}}-{{awayGoals}}). The fans were treated to a competitive fixture.\n\nGoals: {{scorers}}",
+        "body0.noScorers": "In Matchday {{matchday}} action, the match ended {{home}} {{homeGoals}} - {{awayGoals}} {{away}}. The result could have implications on the league standings as the season progresses.",
+        "body1.noScorers": "The match ended {{home}} {{homeGoals}} - {{awayGoals}} {{away}} in a Matchday {{matchday}} clash. Both sides gave their all in an engaging contest.",
+        "body2.noScorers": "Matchday {{matchday}} delivered another exciting encounter as {{home}} faced {{away}} ({{homeGoals}}-{{awayGoals}}). The fans were treated to a competitive fixture.",
         "scorer": "{{player}} ({{minute}}', {{team}})",
-        "scorersSection": "\n\nGol: {{scorers}}",
+        "scorersSection": "\n\nGoals: {{scorers}}",
         "reportFriendly": {
-          "title": "{{home}} {{homeGoals}} - {{awayGoals}} {{away}}: resoconto amichevole",
-          "body": "Nell'amichevole, {{home}} {{homeGoals}} - {{awayGoals}} {{away}}. Entrambe le squadre hanno sfruttato la gara per mettere minuti nelle gambe prima dell'inizio della stagione ufficiale.{{scorersSection}}"
+          "title": "{{home}} {{homeGoals}} - {{awayGoals}} {{away}}: Friendly report",
+          "body": "In friendly action, {{home}} {{homeGoals}} - {{awayGoals}} {{away}}. Both sides used the fixture to build sharpness before the competitive campaign.{{scorersSection}}"
         },
         "reportPreseason": {
-          "title": "{{home}} {{homeGoals}} - {{awayGoals}} {{away}}: resoconto del torneo precampionato",
-          "body": "Nel torneo precampionato, {{home}} {{homeGoals}} - {{awayGoals}} {{away}}. Entrambe le squadre hanno sfruttato la gara per mettere minuti nelle gambe prima dell'inizio della stagione ufficiale.{{scorersSection}}"
+          "title": "{{home}} {{homeGoals}} - {{awayGoals}} {{away}}: Preseason tournament report",
+          "body": "In preseason tournament action, {{home}} {{homeGoals}} - {{awayGoals}} {{away}}. Both sides used the fixture to build sharpness before the competitive campaign.{{scorersSection}}"
         }
       },
       "roundup": {
-        "headline0": "Riepilogo giornata {{matchday}}: {{totalGoals}} gol in una giornata ricca di azione",
-        "headline1": "Premier Division giornata {{matchday}}: tutti i risultati",
-        "headline2": "Pioggia di gol nella giornata {{matchday}}",
-        "body": "La giornata {{matchday}} è andata in archivio. Ecco tutti i risultati:\n\n{{results}}\n\n{{totalGoals}} gol segnati in {{matchCount}} partite.{{biggestWinnerLine}}",
+        "headline0": "Matchday {{matchday}} Round-Up: {{totalGoals}} Goals in Action-Packed Day",
+        "headline1": "Premier Division Matchday {{matchday}}: All the Results",
+        "headline2": "Goals Galore in Matchday {{matchday}} Action",
+        "body": "Matchday {{matchday}} is in the books. Here are the full results:\n\n{{results}}\n\n{{totalGoals}} goals scored across {{matchCount}} matches.{{biggestWinnerLine}}",
         "resultLine": "  {{home}} {{homeGoals}} - {{awayGoals}} {{away}}",
-        "biggestWinnerLine": " {{biggestWinner}} ha fatto registrare la vittoria più ampia di giornata."
+        "biggestWinnerLine": " {{biggestWinner}} recorded the biggest win of the day."
       },
       "standings": {
-        "headline0": "{{leader}} detta il passo dopo la giornata {{matchday}}",
-        "headline1": "Classifica Premier Division: {{leader}} in vetta",
-        "headline2": "Aggiornamento classifica — giornata {{matchday}}",
-        "body": "Dopo la giornata {{matchday}}, {{leader}} è al comando della classifica della Premier Division.\n\nClassifica:\n{{standings}}",
-        "entry": "  {{rank}}. {{team}} — {{points}} pt (DR: {{goalDifference}})"
+        "headline0": "{{leader}} Lead the Way After Matchday {{matchday}}",
+        "headline1": "Premier Division Table: {{leader}} on Top",
+        "headline2": "Standings Update — Matchday {{matchday}}",
+        "body": "After Matchday {{matchday}}, {{leader}} sit at the top of the Premier Division table.\n\nStandings:\n{{standings}}",
+        "entry": "  {{rank}}. {{team}} — {{points}} pts (GD: {{goalDifference}})"
       },
       "seasonPreview": {
-        "headline0": "Anteprima stagione: {{teamCount}} squadre in corsa per la gloria",
-        "headline1": "La stagione della Premier Division è pronta a iniziare",
-        "headline2": "{{favourite}} riuscirà a conquistare il titolo? Anteprima stagione",
-        "body": "La Premier Division è pronta a partire con {{teamCount}} squadre in lotta per il titolo.\n\nI pronostici di inizio stagione indicano {{favourite}} come favorita, ma {{darkHorse}} potrebbe essere la sorpresa da seguire in questa campagna.\n\nCon nuovi allenatori alla guida di alcuni club, questa stagione promette di essere una delle più competitive degli ultimi tempi. Ogni punto conterà nella corsa al titolo.\n\nSquadre: {{teamList}}"
+        "headline0": "Season Preview: {{teamCount}} Teams Battle for Glory",
+        "headline1": "Premier Division Season Set to Begin",
+        "headline2": "Can {{favourite}} Claim the Title? Season Preview",
+        "body": "The Premier Division is set to kick off with {{teamCount}} teams vying for the title.\n\nPre-season predictions have {{favourite}} as the early favourites, but {{darkHorse}} could be the dark horse to watch this campaign.\n\nWith new managers taking the reins at some clubs, this season promises to be one of the most competitive in recent memory. Every point will matter as the race for the title heats up.\n\nTeams: {{teamList}}"
       },
       "managerialChange": {
         "headline": "{{team}} esonera {{manager}}",

@@ -37,9 +37,9 @@ fn params(pairs: &[(&str, &str)]) -> HashMap<String, String> {
         .collect()
 }
 
-fn response_effect(message: String, i18n_key: &str, team_name: &str) -> JobOfferResponseEffect {
+fn response_effect(i18n_key: &str, team_name: &str) -> JobOfferResponseEffect {
     JobOfferResponseEffect {
-        message,
+        message: String::new(),
         i18n_key: i18n_key.to_string(),
         i18n_params: params(&[("team", team_name)]),
     }
@@ -57,11 +57,8 @@ pub(crate) fn expire_outstanding_job_offers_for_team(game: &mut Game, team_id: &
         message.id.starts_with("job_offer_") && message.context.team_id.as_deref() == Some(team_id)
     }) {
         message.read = true;
-        message.subject = format!("Position Filled — {}", team_name);
-        message.body = format!(
-            "The vacancy at {} has now been filled, so this offer is no longer available.",
-            team_name
-        );
+        message.subject = String::new();
+        message.body = String::new();
         message.subject_key = Some("be.msg.jobOfferExpired.subject".to_string());
         message.body_key = Some("be.msg.jobOfferExpired.body".to_string());
         message.i18n_params = params(&[("team", &team_name)]);
@@ -116,18 +113,14 @@ pub fn hire_manager(game: &mut Game, team_id: &str, date: &str) -> Result<String
     // Send welcome message
     let msg = InboxMessage::new(
         format!("job_welcome_{}_{}", team_id, date),
-        format!("Welcome to {}", team_name),
-        format!(
-            "The board of directors at {} is delighted to welcome you as the new manager. \
-             We look forward to working with you and achieving great things together.",
-            team_name
-        ),
-        "Board of Directors".to_string(),
+        String::new(),
+        String::new(),
+        String::new(),
         date.to_string(),
     )
     .with_category(MessageCategory::BoardDirective)
     .with_priority(MessagePriority::High)
-    .with_sender_role("Chairman")
+    .with_sender_role("")
     .with_i18n(
         "be.msg.jobHired.subject",
         "be.msg.jobHired.body",
@@ -245,20 +238,14 @@ fn send_job_offer(game: &mut Game, opportunity: &JobOpportunity, _rng: &mut impl
 
     let msg = InboxMessage::new(
         msg_id,
-        format!("Managerial Vacancy — {}", opportunity.team_name),
-        format!(
-            "The board at {} ({}) is looking for a new manager to lead the club forward. \
-             Last season finish: {}.\n\n\
-             After reviewing your credentials, we believe you could be the right fit. \
-             Would you be interested in taking on this challenge?",
-            opportunity.team_name, opportunity.city, pos_label
-        ),
-        "Board of Directors".to_string(),
+        String::new(),
+        String::new(),
+        String::new(),
         today.clone(),
     )
     .with_category(MessageCategory::JobOffer)
     .with_priority(MessagePriority::High)
-    .with_sender_role("Chairman")
+    .with_sender_role("")
     .with_context(MessageContext {
         team_id: Some(opportunity.team_id.clone()),
         player_id: None,
@@ -283,27 +270,27 @@ fn send_job_offer(game: &mut Game, opportunity: &JobOpportunity, _rng: &mut impl
     .with_sender_i18n("be.sender.boardOfDirectors", "be.role.chairman")
     .with_action(MessageAction {
         id: format!("respond_{}", opportunity.team_id),
-        label: "Respond".to_string(),
+        label: String::new(),
         action_type: ActionType::ChooseOption {
             options: vec![
                 ActionOption {
                     id: "accept".to_string(),
-                    label: "Accept the position".to_string(),
-                    description: format!("Join {} as their new manager", opportunity.team_name),
+                    label: String::new(),
+                    description: String::new(),
                     label_key: Some("be.msg.jobOffer.accept".to_string()),
-                    description_key: None,
+                    description_key: Some("be.msg.jobOffer.acceptDescription".to_string()),
                 },
                 ActionOption {
                     id: "decline".to_string(),
-                    label: "Decline the offer".to_string(),
-                    description: "Continue looking for other opportunities".to_string(),
+                    label: String::new(),
+                    description: String::new(),
                     label_key: Some("be.msg.jobOffer.decline".to_string()),
-                    description_key: None,
+                    description_key: Some("be.msg.jobOffer.declineDescription".to_string()),
                 },
             ],
         },
         resolved: false,
-        label_key: None,
+        label_key: Some("be.msg.event.respond".to_string()),
     });
 
     info!(
@@ -416,19 +403,14 @@ pub fn apply_for_job(game: &mut Game, team_id: &str) -> JobApplicationResult {
         let team_name = team.name.clone();
         let msg = InboxMessage::new(
             format!("job_rejection_{}_{}", team_id, today),
-            format!("Application Update — {}", team_name),
-            format!(
-                "Thank you for your interest in the managerial position at {}. \
-                 After careful consideration, we have decided to pursue other candidates. \
-                 We wish you the best in your future career.",
-                team_name
-            ),
-            "Board of Directors".to_string(),
+            String::new(),
+            String::new(),
+            String::new(),
             today,
         )
         .with_category(MessageCategory::JobOffer)
         .with_priority(MessagePriority::Normal)
-        .with_sender_role("Chairman")
+        .with_sender_role("")
         .with_i18n(
             "be.msg.jobRejection.subject",
             "be.msg.jobRejection.body",
@@ -486,42 +468,18 @@ pub fn apply_job_offer_response(
             // Without this, the stale "accept" would leave the previous club's
             // manager_id set and its career entry open.
             if game.manager.team_id.is_some() {
-                return Some(response_effect(
-                    format!(
-                        "You are already employed and cannot accept the offer from {}",
-                        team_name
-                    ),
-                    "be.msg.jobOffer.effects.alreadyEmployed",
-                    &team_name,
-                ));
+                return Some(response_effect("be.msg.jobOffer.effects.alreadyEmployed", &team_name));
             }
             let today = game.clock.current_date.format("%Y-%m-%d").to_string();
             match hire_manager(game, &team_id, &today) {
-                Ok(name) => Some(response_effect(
-                    format!("You have been appointed manager of {}", name),
-                    "be.msg.jobOffer.effects.accepted",
-                    &name,
-                )),
-                Err(e) if e.contains("is not vacant") => Some(response_effect(
-                    format!(
-                        "The offer from {} is no longer available because the position has been filled",
-                        team_name
-                    ),
-                    "be.msg.jobOffer.effects.unavailable",
-                    &team_name,
-                )),
-                Err(_) => Some(response_effect(
-                    format!("Could not accept the offer from {}", team_name),
-                    "be.msg.jobOffer.effects.failed",
-                    &team_name,
-                )),
+                Ok(name) => Some(response_effect("be.msg.jobOffer.effects.accepted", &name)),
+                Err(e) if e.contains("is not vacant") => {
+                    Some(response_effect("be.msg.jobOffer.effects.unavailable", &team_name))
+                }
+                Err(_) => Some(response_effect("be.msg.jobOffer.effects.failed", &team_name)),
             }
         }
-        "decline" => Some(response_effect(
-            format!("You declined the offer from {}", team_name),
-            "be.msg.jobOffer.effects.declined",
-            &team_name,
-        )),
+        "decline" => Some(response_effect("be.msg.jobOffer.effects.declined", &team_name)),
         _ => None,
     }
 }
@@ -683,9 +641,9 @@ mod tests {
         let mut game = make_game(10, false);
         let msg = InboxMessage::new(
             "job_offer_team2_2026-11-01".to_string(),
-            "Offer".to_string(),
-            "Join us".to_string(),
-            "Board".to_string(),
+            String::new(),
+            String::new(),
+            String::new(),
             "2026-11-01".to_string(),
         )
         .with_context(MessageContext {
@@ -702,10 +660,10 @@ mod tests {
         })
         .with_action(MessageAction {
             id: "respond_team2".to_string(),
-            label: "Respond".to_string(),
+            label: String::new(),
             action_type: ActionType::ChooseOption { options: vec![] },
             resolved: false,
-            label_key: None,
+            label_key: Some("be.msg.event.respond".to_string()),
         });
         game.messages.push(msg);
 
@@ -726,8 +684,8 @@ mod tests {
             offer.body_key.as_deref(),
             Some("be.msg.jobOfferExpired.body")
         );
-        assert!(offer.subject.contains("Position Filled"));
-        assert!(offer.body.contains("no longer available"));
+        assert!(offer.subject.is_empty());
+        assert!(offer.body.is_empty());
     }
 
     #[test]
@@ -841,9 +799,9 @@ mod tests {
         let mut game = make_game(10, false);
         let msg = InboxMessage::new(
             "job_offer_team2_2026-11-01".to_string(),
-            "Offer".to_string(),
-            "Join us".to_string(),
-            "Board".to_string(),
+            String::new(),
+            String::new(),
+            String::new(),
             "2026-11-01".to_string(),
         )
         .with_context(MessageContext {
@@ -860,19 +818,19 @@ mod tests {
         })
         .with_action(MessageAction {
             id: "respond_team2".to_string(),
-            label: "Respond".to_string(),
+            label: String::new(),
             action_type: ActionType::ChooseOption {
                 options: vec![
                     ActionOption {
                         id: "accept".to_string(),
-                        label: "Accept".to_string(),
+                        label: String::new(),
                         description: String::new(),
                         label_key: None,
                         description_key: None,
                     },
                     ActionOption {
                         id: "decline".to_string(),
-                        label: "Decline".to_string(),
+                        label: String::new(),
                         description: String::new(),
                         label_key: None,
                         description_key: None,
@@ -891,7 +849,7 @@ mod tests {
             "accept",
         );
         let effect = effect.expect("effect");
-        assert!(effect.message.contains("New FC"));
+        assert!(effect.message.is_empty());
         assert_eq!(effect.i18n_key, "be.msg.jobOffer.effects.accepted");
         assert_eq!(
             effect.i18n_params.get("team").map(String::as_str),
@@ -906,9 +864,9 @@ mod tests {
         let mut game = make_game(10, false);
         let msg = InboxMessage::new(
             "job_offer_team2_2026-11-01".to_string(),
-            "Offer".to_string(),
-            "Join us".to_string(),
-            "Board".to_string(),
+            String::new(),
+            String::new(),
+            String::new(),
             "2026-11-01".to_string(),
         )
         .with_context(MessageContext {
@@ -925,10 +883,10 @@ mod tests {
         })
         .with_action(MessageAction {
             id: "respond_team2".to_string(),
-            label: "Respond".to_string(),
+            label: String::new(),
             action_type: ActionType::ChooseOption { options: vec![] },
             resolved: false,
-            label_key: None,
+            label_key: Some("be.msg.event.respond".to_string()),
         });
         game.messages.push(msg);
 
@@ -939,7 +897,7 @@ mod tests {
             "decline",
         );
         let effect = effect.expect("effect");
-        assert!(effect.message.contains("declined"));
+        assert!(effect.message.is_empty());
         assert_eq!(effect.i18n_key, "be.msg.jobOffer.effects.declined");
         assert_eq!(
             effect.i18n_params.get("team").map(String::as_str),
@@ -960,9 +918,9 @@ mod tests {
         let mut game = make_game(50, true);
         let msg = InboxMessage::new(
             "job_offer_team2_2026-11-01".to_string(),
-            "Offer".to_string(),
-            "Join us".to_string(),
-            "Board".to_string(),
+            String::new(),
+            String::new(),
+            String::new(),
             "2026-11-01".to_string(),
         )
         .with_context(MessageContext {
@@ -979,10 +937,10 @@ mod tests {
         })
         .with_action(MessageAction {
             id: "respond_team2".to_string(),
-            label: "Respond".to_string(),
+            label: String::new(),
             action_type: ActionType::ChooseOption { options: vec![] },
             resolved: false,
-            label_key: None,
+            label_key: Some("be.msg.event.respond".to_string()),
         });
         game.messages.push(msg);
 
@@ -993,7 +951,7 @@ mod tests {
             "accept",
         );
         let effect = effect.expect("effect");
-        assert!(effect.message.contains("already employed"));
+        assert!(effect.message.is_empty());
         assert_eq!(effect.i18n_key, "be.msg.jobOffer.effects.alreadyEmployed");
         assert_eq!(
             effect.i18n_params.get("team").map(String::as_str),
@@ -1017,9 +975,9 @@ mod tests {
 
         let msg = InboxMessage::new(
             "job_offer_team2_2026-11-01".to_string(),
-            "Offer".to_string(),
-            "Join us".to_string(),
-            "Board".to_string(),
+            String::new(),
+            String::new(),
+            String::new(),
             "2026-11-01".to_string(),
         )
         .with_context(MessageContext {
@@ -1036,10 +994,10 @@ mod tests {
         })
         .with_action(MessageAction {
             id: "respond_team2".to_string(),
-            label: "Respond".to_string(),
+            label: String::new(),
             action_type: ActionType::ChooseOption { options: vec![] },
             resolved: false,
-            label_key: None,
+            label_key: Some("be.msg.event.respond".to_string()),
         });
         game.messages.push(msg);
 
@@ -1056,7 +1014,7 @@ mod tests {
             effect.i18n_params.get("team").map(String::as_str),
             Some("New FC")
         );
-        assert!(effect.message.contains("no longer available"));
+        assert!(effect.message.is_empty());
         assert_eq!(game.manager.team_id, None);
     }
 }

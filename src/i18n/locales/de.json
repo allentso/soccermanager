@@ -2193,7 +2193,9 @@
           "alreadyEmployed": "Sie sind bereits angestellt und können das Angebot von {{team}} nicht annehmen",
           "unavailable": "Das Angebot von {{team}} ist nicht mehr verfügbar, da die Stelle inzwischen besetzt wurde",
           "failed": "Das Angebot von {{team}} konnte nicht angenommen werden"
-        }
+        },
+        "acceptDescription": "Werde neuer Trainer von {{team}}",
+        "declineDescription": "Suche weiter nach anderen Moeglichkeiten"
       },
       "jobOfferExpired": {
         "subject": "Stelle besetzt — {{team}}",

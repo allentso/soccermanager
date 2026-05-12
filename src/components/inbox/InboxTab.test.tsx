@@ -583,7 +583,7 @@ describe("InboxTab", function (): void {
 
     mockedInvoke.mockResolvedValue({
       game: resolvedGameState,
-      effect: "Player beams at the praise. Morale +3",
+      effect: "",
       effect_i18n_key: "test.effectFeedback",
       effect_i18n_params: { delta: "+3" },
     });
@@ -632,7 +632,7 @@ describe("InboxTab", function (): void {
 
     mockedInvoke.mockResolvedValue({
       game: resolvedGameState,
-      effect: "Player beams at the praise. Morale +3",
+      effect: "",
       effect_i18n_key: "test.effectFeedback",
       effect_i18n_params: { delta: "+3" },
     });
@@ -906,8 +906,8 @@ describe("InboxTab", function (): void {
     expect(screen.getByText("Balanced")).toBeInTheDocument();
     expect(screen.getAllByText("Signed to academy").length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: "View profile" })).toBeInTheDocument();
-    expect(screen.getByText(/Wage\/wk:/)).toBeInTheDocument();
-    expect(screen.getByText(/Market Value:/)).toBeInTheDocument();
+    expect(screen.getAllByText(/Wage\/wk:/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Market Value:/).length).toBeGreaterThan(0);
     expect(
       screen.getByRole("button", { name: "Sign to academy" }),
     ).toBeInTheDocument();

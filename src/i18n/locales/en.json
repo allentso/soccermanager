@@ -2189,7 +2189,9 @@
           "alreadyEmployed": "You are already employed and cannot accept the offer from {{team}}",
           "unavailable": "The offer from {{team}} is no longer available because the position has been filled",
           "failed": "Could not accept the offer from {{team}}"
-        }
+        },
+        "acceptDescription": "Join {{team}} as their new manager",
+        "declineDescription": "Continue looking for other opportunities"
       },
       "jobOfferExpired": {
         "subject": "Position Filled — {{team}}",
