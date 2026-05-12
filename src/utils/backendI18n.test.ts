@@ -545,11 +545,11 @@ describe("resolveNewsArticle", () => {
 
     try {
       const article = makeNewsArticle({
-        headline: 'Press Conference: "The players worked hard. We prepared well and executed the game plan." — Madrid Real boss',
+        headline: '',
         headline_key: 'be.news.pressConference.headlinePressConf',
-        body: 'Speaking after the Madrid Real 7 - 1 Rome Gladiators result, the Madrid Real manager addressed the press.\n\n• "The players worked hard. We prepared well and executed the game plan."\n• "First recovery, then preparation. We go one game at a time."\n\nThe conference covered the result, tactical approach, and what lies ahead for the team.',
+        body: '',
         body_key: 'be.news.pressConference.bodyMultiple',
-        source: 'Sports Daily',
+        source: '',
         source_key: 'be.source.sportsDaily',
         i18n_params: {
           team: 'Madrid Real',

@@ -1669,6 +1669,18 @@
       "seasonNotComplete": "Die Saison ist noch nicht abgeschlossen",
       "managedTeamNotFound": "Betreutes Team nicht gefunden",
       "unknownFacilityType": "Unbekannter Einrichtungstyp",
+      "liveMatch": {
+        "maxSubstitutionsReached": "Maximale Anzahl an Auswechslungen erreicht",
+        "cannotSubstituteSentOffPlayer": "Ein des Feldes verwiesener Spieler kann nicht ausgewechselt werden",
+        "playerNotOnPitch": "Spieler ist nicht auf dem Platz",
+        "playerAlreadySubstitutedOff": "Dieser Spieler wurde bereits ausgewechselt",
+        "playerNotOnBench": "Spieler ist nicht auf der Bank",
+        "playerNotInStartingXi": "Spieler ist nicht in der Startelf"
+      },
+      "worldReadFileFailed": "Die Weltdatenbankdatei konnte nicht gelesen werden.",
+      "worldWriteFileFailed": "Die Weltdatenbankdatei konnte nicht exportiert werden.",
+      "worldWriteDatabaseFailed": "Die importierte Weltdatenbank konnte nicht gespeichert werden.",
+      "saveManagerUnavailable": "Die Speicherdaten sind vorübergehend nicht verfügbar.",
       "finance": {
         "boardSupportUnavailable": "Notfallhilfe des Vorstands ist nur verfügbar, wenn die Geldreserven unter Druck stehen.",
         "boardSupportAlreadyUsed": "Der Vorstand hat in dieser Saison bereits Notfallhilfe genehmigt.",

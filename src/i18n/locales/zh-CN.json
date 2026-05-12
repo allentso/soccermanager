@@ -1669,6 +1669,18 @@
       "seasonNotComplete": "赛季尚未结束",
       "managedTeamNotFound": "未找到你执教的球队",
       "unknownFacilityType": "未知的设施类型",
+      "liveMatch": {
+        "maxSubstitutionsReached": "已达到最大换人次数",
+        "cannotSubstituteSentOffPlayer": "不能换下被罚下的球员",
+        "playerNotOnPitch": "球员不在场上",
+        "playerAlreadySubstitutedOff": "该球员已经被换下",
+        "playerNotOnBench": "球员不在替补席上",
+        "playerNotInStartingXi": "球员不在首发阵容中"
+      },
+      "worldReadFileFailed": "读取世界数据库文件失败。",
+      "worldWriteFileFailed": "导出世界数据库文件失败。",
+      "worldWriteDatabaseFailed": "保存导入的世界数据库失败。",
+      "saveManagerUnavailable": "存档数据暂时不可用。",
       "finance": {
         "boardSupportUnavailable": "只有当现金储备承压时，董事会紧急支持才可用。",
         "boardSupportAlreadyUsed": "董事会本赛季已经批准过一次紧急支持。",

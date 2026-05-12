@@ -10,7 +10,7 @@ fn export_world_database_internal(
 ) -> Result<String, String> {
     let game = state
         .get_game(|g| g.clone())
-        .ok_or("No active game session".to_string())?;
+        .ok_or("be.error.noActiveGameSession".to_string())?;
 
     let world = ofm_core::generator::WorldData {
         name: "Exported World".to_string(),
@@ -24,12 +24,12 @@ fn export_world_database_internal(
     };
 
     let json = ofm_core::generator::export_world_to_json(&world)?;
-    std::fs::write(export_path, json).map_err(|e| format!("Failed to write file: {}", e))?;
+    std::fs::write(export_path, json).map_err(|_| "be.error.worldWriteFileFailed".to_string())?;
     Ok(export_path.to_string_lossy().to_string())
 }
 
 fn write_database_json_to_dir(db_dir: &std::path::Path, json: &str) -> Result<String, String> {
-    std::fs::create_dir_all(db_dir).map_err(|e| e.to_string())?;
+    std::fs::create_dir_all(db_dir).map_err(|_| "be.error.worldWriteDatabaseFailed".to_string())?;
 
     let world = ofm_core::generator::load_world_from_json(json)?;
     let normalized_json = ofm_core::generator::export_world_to_json(&world)?;
@@ -40,7 +40,7 @@ fn write_database_json_to_dir(db_dir: &std::path::Path, json: &str) -> Result<St
     );
     let path = db_dir.join(filename);
     std::fs::write(&path, normalized_json)
-        .map_err(|e| format!("Failed to write database: {}", e))?;
+        .map_err(|_| "be.error.worldWriteDatabaseFailed".to_string())?;
     Ok(path.to_string_lossy().to_string())
 }
 
@@ -229,6 +229,28 @@ mod tests {
     }
 
     #[test]
+    fn export_world_database_internal_requires_active_game() {
+        let temp_dir = TempCommandDir::new();
+        let export_path = temp_dir.path().join("world-export.json");
+        let state = StateManager::new();
+
+        let result = export_world_database_internal(&state, &export_path);
+
+        assert_eq!(result.unwrap_err(), "be.error.noActiveGameSession");
+    }
+
+    #[test]
+    fn export_world_database_internal_returns_write_file_key_on_write_failure() {
+        let temp_dir = TempCommandDir::new();
+        let state = StateManager::new();
+        state.set_game(make_game());
+
+        let result = export_world_database_internal(&state, temp_dir.path());
+
+        assert_eq!(result.unwrap_err(), "be.error.worldWriteFileFailed");
+    }
+
+    #[test]
     fn write_database_json_to_dir_normalizes_imported_world_json() {
         let temp_dir = TempCommandDir::new();
         let json = r##"
@@ -321,5 +343,16 @@ mod tests {
         assert!(result.is_err());
         let written_files = fs::read_dir(temp_dir.path()).unwrap().count();
         assert_eq!(written_files, 0);
+    }
+
+    #[test]
+    fn write_database_json_to_dir_returns_write_database_key_when_dir_cannot_be_created() {
+        let temp_dir = TempCommandDir::new();
+        let blocked_path = temp_dir.path().join("blocked-path");
+        fs::write(&blocked_path, "occupied").expect("blocked path file should be created");
+
+        let result = write_database_json_to_dir(&blocked_path, "{}");
+
+        assert_eq!(result.unwrap_err(), "be.error.worldWriteDatabaseFailed");
     }
 }

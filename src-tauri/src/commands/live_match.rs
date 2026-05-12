@@ -113,7 +113,7 @@ pub fn apply_team_talk(
     info!("[cmd] apply_team_talk: tone={}, context={}", tone, context);
     let mut game = state
         .get_game(|g| g.clone())
-        .ok_or("No active game session")?;
+        .ok_or("be.error.noActiveGameSession")?;
     let seed = rand::rng().random::<u64>();
     let results = apply_team_talk_internal(&mut game, &tone, &context, seed)?;
 
@@ -132,8 +132,8 @@ pub fn submit_press_conference(
     away_score: u8,
     user_team_name: String,
     user_team_id: String,
-    prerendered_body: Option<String>,
-    prerendered_headline: Option<String>,
+    _prerendered_body: Option<String>,
+    _prerendered_headline: Option<String>,
 ) -> Result<serde_json::Value, String> {
     info!(
         "[cmd] submit_press_conference: {} {} - {} {}",
@@ -141,7 +141,7 @@ pub fn submit_press_conference(
     );
     let mut game = state
         .get_game(|g| g.clone())
-        .ok_or("No active game session")?;
+        .ok_or("be.error.noActiveGameSession")?;
 
     let today = game.clock.current_date.format("%Y-%m-%d").to_string();
     let mut rng = rand::rng();
@@ -218,69 +218,23 @@ pub fn submit_press_conference(
         "{} {} - {} {}",
         home_team, home_score, away_score, away_team
     );
-    let (headline_key, headline) = if quotes.is_empty() {
-        (
-            "be.news.pressConference.headlinePostMatch",
-            prerendered_headline
-                .unwrap_or_else(|| format!("Post-Match: {} on {}", user_team_name, result_str)),
-        )
+    let headline_key = if quotes.is_empty() {
+        ("be.news.pressConference.headlinePostMatch",)
     } else if rng.random::<bool>() {
-        (
-            "be.news.pressConference.headlineManagerQuote",
-            prerendered_headline
-                .unwrap_or_else(|| format!("{} Manager: {}", user_team_name, quotes[0])),
-        )
+        ("be.news.pressConference.headlineManagerQuote",)
     } else {
-        (
-            "be.news.pressConference.headlinePressConf",
-            prerendered_headline.unwrap_or_else(|| {
-                format!(
-                    "Press Conference: \"{}\" — {} boss",
-                    quotes[0].trim_matches('"'),
-                    user_team_name
-                )
-            }),
-        )
-    };
+        ("be.news.pressConference.headlinePressConf",)
+    }
+    .0;
 
-    let (body_key, body) = if quotes.len() > 1 {
-        (
-            "be.news.pressConference.bodyMultiple",
-            prerendered_body.unwrap_or_else(|| {
-                format!(
-                    "Speaking after the {} result, the {} manager addressed the press.\n\n{}\n\n\
-                    The conference covered the result, tactical approach, and what lies ahead for the team.",
-                    result_str,
-                    user_team_name,
-                    quotes
-                        .iter()
-                        .map(|q| format!("• {}", q))
-                        .collect::<Vec<_>>()
-                        .join("\n")
-                )
-            }),
-        )
+    let body_key = if quotes.len() > 1 {
+        ("be.news.pressConference.bodyMultiple",)
     } else if quotes.len() == 1 {
-        (
-            "be.news.pressConference.bodySingle",
-            prerendered_body.unwrap_or_else(|| {
-                format!(
-                    "The {} manager spoke briefly after the {} result.\n\n{}",
-                    user_team_name, result_str, quotes[0]
-                )
-            }),
-        )
+        ("be.news.pressConference.bodySingle",)
     } else {
-        (
-            "be.news.pressConference.bodyNone",
-            prerendered_body.unwrap_or_else(|| {
-                format!(
-                    "The {} manager declined to speak at length after the {} result.",
-                    user_team_name, result_str
-                )
-            }),
-        )
-    };
+        ("be.news.pressConference.bodyNone",)
+    }
+    .0;
 
     let mut i18n_params = HashMap::new();
     i18n_params.insert("team".to_string(), user_team_name.clone());
@@ -295,9 +249,9 @@ pub fn submit_press_conference(
     let article_id = format!("press_conf_{}", today);
     let article = domain::news::NewsArticle::new(
         article_id,
-        headline,
-        body,
-        "Sports Daily".to_string(),
+        String::new(),
+        String::new(),
+        String::new(),
         today.clone(),
         domain::news::NewsCategory::MatchReport,
     )

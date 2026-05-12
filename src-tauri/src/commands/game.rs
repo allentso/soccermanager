@@ -10,6 +10,27 @@ use ofm_core::state::StateManager;
 
 use crate::SaveManagerState;
 
+fn load_world_entities_from_path(
+    world_source: &str,
+) -> Result<
+    (
+        Vec<domain::team::Team>,
+        Vec<domain::player::Player>,
+        Vec<domain::staff::Staff>,
+    ),
+    String,
+> {
+    let path = world_source.strip_prefix("file:").unwrap_or(world_source);
+    let json =
+        std::fs::read_to_string(path).map_err(|_| "be.error.worldReadFileFailed".to_string())?;
+    let world = ofm_core::generator::load_world_from_json(&json)?;
+    Ok((world.teams, world.players, world.staff))
+}
+
+fn map_save_manager_lock_error<T>(result: std::sync::LockResult<T>) -> Result<T, String> {
+    result.map_err(|_| "be.error.saveManagerUnavailable".to_string())
+}
+
 /// Step 1: Create manager + generate world. No team assigned yet.
 /// Returns the Game object so the frontend can show team selection.
 /// world_source: "random" (default) or a file path to a JSON world database.
@@ -69,12 +90,7 @@ pub async fn start_new_game(
     let (teams, players, staff) = if world_source == "random" {
         ofm_core::generator::generate_world(None)
     } else {
-        // Try to load from file path (strip "file:" prefix if present)
-        let path = world_source.strip_prefix("file:").unwrap_or(&world_source);
-        let json = std::fs::read_to_string(path)
-            .map_err(|e| format!("Failed to read world database: {}", e))?;
-        let world = ofm_core::generator::load_world_from_json(&json)?;
-        (world.teams, world.players, world.staff)
+        load_world_entities_from_path(&world_source)?
     };
 
     let new_game = Game::new(clock, manager, teams, players, staff, vec![]);
@@ -156,10 +172,7 @@ pub async fn select_team(
     let manager_name = format!("{} {}", game.manager.first_name, game.manager.last_name);
     let save_name = format!("{}'s Career", manager_name);
 
-    let mut sm = sm_state
-        .0
-        .lock()
-        .map_err(|e| format!("Lock error: {}", e))?;
+    let mut sm = map_save_manager_lock_error(sm_state.0.lock())?;
     let save_id = sm.create_save(&game, &save_name)?;
     state.set_save_id(save_id);
 
@@ -171,10 +184,7 @@ pub async fn select_team(
 #[tauri::command]
 pub async fn get_saves(sm_state: State<'_, SaveManagerState>) -> Result<Vec<SaveEntry>, String> {
     log::debug!("[cmd] get_saves");
-    let mut sm = sm_state
-        .0
-        .lock()
-        .map_err(|e| format!("Lock error: {}", e))?;
+    let mut sm = map_save_manager_lock_error(sm_state.0.lock())?;
     sm.load_saves()
 }
 
@@ -184,10 +194,7 @@ pub async fn delete_save(
     save_id: String,
 ) -> Result<bool, String> {
     info!("[cmd] delete_save: save_id={}", save_id);
-    let mut sm = sm_state
-        .0
-        .lock()
-        .map_err(|e| format!("Lock error: {}", e))?;
+    let mut sm = map_save_manager_lock_error(sm_state.0.lock())?;
     sm.delete_save(&save_id)
 }
 
@@ -198,10 +205,7 @@ pub async fn load_game(
     save_id: String,
 ) -> Result<String, String> {
     info!("[cmd] load_game: save_id={}", save_id);
-    let mut sm = sm_state
-        .0
-        .lock()
-        .map_err(|e| format!("Lock error: {}", e))?;
+    let mut sm = map_save_manager_lock_error(sm_state.0.lock())?;
     let mut game = sm.load_game(&save_id)?;
     let stats_state = sm.load_stats_state(&save_id)?;
     ofm_core::ai_hiring::seed_ai_managers(&mut game);
@@ -237,10 +241,7 @@ pub async fn save_game(
         .get_save_id()
         .ok_or("be.error.noActiveSaveSession".to_string())?;
 
-    let mut sm = sm_state
-        .0
-        .lock()
-        .map_err(|e| format!("Lock error: {}", e))?;
+    let mut sm = map_save_manager_lock_error(sm_state.0.lock())?;
     sm.save_game(&game, &save_id)?;
     let stats_state = state
         .get_stats_state(|stats| stats.clone())
@@ -261,10 +262,7 @@ pub async fn exit_to_menu(
 
     // Auto-save
     if let Some(save_id) = state.get_save_id() {
-        let mut sm = sm_state
-            .0
-            .lock()
-            .map_err(|e| format!("Lock error: {}", e))?;
+        let mut sm = map_save_manager_lock_error(sm_state.0.lock())?;
         sm.save_game(&game, &save_id)?;
         let stats_state = state
             .get_stats_state(|stats| stats.clone())
@@ -277,4 +275,31 @@ pub async fn exit_to_menu(
     state.clear_save_id();
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{load_world_entities_from_path, map_save_manager_lock_error};
+    use std::sync::Mutex;
+
+    #[test]
+    fn load_world_entities_from_path_returns_read_file_key_when_missing() {
+        let result =
+            load_world_entities_from_path("file:Z:/definitely-missing/openfootmanager-world.json");
+
+        assert_eq!(result.unwrap_err(), "be.error.worldReadFileFailed");
+    }
+
+    #[test]
+    fn map_save_manager_lock_error_returns_backend_key_for_poisoned_mutex() {
+        let mutex = Mutex::new(());
+        let _ = std::panic::catch_unwind(|| {
+            let _guard = mutex.lock().unwrap();
+            panic!("poison save manager mutex for test");
+        });
+
+        let result = map_save_manager_lock_error(mutex.lock());
+
+        assert_eq!(result.unwrap_err(), "be.error.saveManagerUnavailable");
+    }
 }
