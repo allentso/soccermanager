@@ -2138,6 +2138,14 @@
         "bodyFinalMonth": "Seu assistente revisou os contratos do elenco após a sua chegada. {{totalExpiring}} jogador(es) devem entrar em negociação de renovação nesta temporada, {{urgentContracts}} precisam de atenção nos próximos seis meses e {{finalMonthContracts}} já estão no último mês.\n\nEstabilize primeiro os casos urgentes e depois avance sobre o restante da lista por etapas.",
         "actionReview": "Revisar Contratos do Elenco"
       },
+      "contractExpired": {
+        "subject": "{{player}} sai de graça",
+        "body": "{{player}} deixou o {{team}} após o fim do contrato. O jogador agora está sem clube."
+      },
+      "contractTerminated": {
+        "subject": "{{player}} dispensado",
+        "body": "{{player}} foi dispensado pelo {{team}}. O clube pagou {{severance}} em salários restantes como indenização."
+      },
       "delegatedRenewals": {
         "subject": "Relatório do assistente — Renovações contratuais",
         "body": "Chefe, revisei nossa lista de renovações no {{team}}. {{successes}} concluídas, {{stalled}} ainda pendentes e {{failures}} falhas.",

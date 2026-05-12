@@ -1,4 +1,5 @@
 import { ArrowLeft, CheckCircle2, MailOpen, MessageCircle, Trash2 } from "lucide-react";
+import type { TFunction } from "i18next";
 import type { JSX } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -187,13 +188,14 @@ export default function InboxMessageDetailPane({
                       : [];
                     const signedToAcademy =
                       prospect.team_id === gameState.manager.team_id;
+                    const potential = prospect.potential ?? 0;
                     const potentialLabel = getProspectPotentialLabel(
-                      prospect.potential ?? 0,
+                      potential,
                       t,
                     );
                     const growthRoom = Math.max(
                       0,
-                      (prospect.potential ?? 0) - (prospect.ovr ?? 0),
+                      potential - (prospect.ovr ?? 0),
                     );
 
                     return (
@@ -256,8 +258,8 @@ export default function InboxMessageDetailPane({
                                 <ProgressBar
                                   value={Math.min(
                                     100,
-                                    prospect.potential > 0
-                                      ? ((prospect.ovr ?? 0) / prospect.potential) * 100
+                                    potential > 0
+                                      ? ((prospect.ovr ?? 0) / potential) * 100
                                       : 0,
                                   )}
                                   variant={
@@ -444,7 +446,7 @@ export default function InboxMessageDetailPane({
 }
 
 function translateYouthSearchRegion(
-  t: (key: string, defaultValue?: string) => string,
+  t: TFunction,
   value: string,
 ): string {
   if (value === "International") {
@@ -455,7 +457,7 @@ function translateYouthSearchRegion(
 }
 
 function translateYouthSearchObjective(
-  t: (key: string, defaultValue?: string) => string,
+  t: TFunction,
   value: string,
 ): string {
   if (value === "HighPotential") {
@@ -470,7 +472,7 @@ function translateYouthSearchObjective(
 
 function getProspectPotentialLabel(
   potential: number,
-  t: (key: string) => string,
+  t: TFunction,
 ): { label: string; color: string } {
   if (potential >= 85) {
     return { label: t("youthAcademy.potWorldClass"), color: "text-accent-400" };

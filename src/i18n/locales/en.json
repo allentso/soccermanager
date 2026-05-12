@@ -2134,6 +2134,14 @@
         "bodyFinalMonth": "Your assistant has reviewed the squad contracts after your arrival. {{totalExpiring}} player(s) are due to come up for renewal this season, {{urgentContracts}} need attention inside the next six months, and {{finalMonthContracts}} are already in the final month.\n\nStabilize the urgent cases first, then work through the wider renewal list in stages.",
         "actionReview": "Review Squad Contracts"
       },
+      "contractExpired": {
+        "subject": "{{player}} Leaves on a Free",
+        "body": "{{player}} has left {{team}} after their contract expired. The player is now a free agent."
+      },
+      "contractTerminated": {
+        "subject": "{{player}} Released",
+        "body": "{{player}} has been released by {{team}}. The club paid {{severance}} in remaining wages as severance."
+      },
       "delegatedRenewals": {
         "subject": "Assistant Report — Contract Renewals",
         "body": "Boss, I went through our renewal list at {{team}}. {{successes}} completed, {{stalled}} still pending, {{failures}} failed.",

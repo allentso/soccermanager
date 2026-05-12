@@ -236,11 +236,25 @@ fn terminate_contract_now_releases_player_and_charges_severance() {
         game.teams[0].financial_ledger.last().unwrap().kind,
         FinancialTransactionKind::ContractTermination
     );
-    assert!(
-        game.messages
-            .iter()
-            .any(|message| message.id == "contract_terminated_player-1")
+    let message = game
+        .messages
+        .iter()
+        .find(|message| message.id == "contract_terminated_player-1")
+        .expect("termination should create an inbox message");
+    assert_eq!(
+        message.subject_key.as_deref(),
+        Some("be.msg.contractTerminated.subject")
     );
+    assert_eq!(message.body_key.as_deref(), Some("be.msg.contractTerminated.body"));
+    assert_eq!(message.sender_key.as_deref(), Some("be.sender.assistantManager"));
+    assert_eq!(message.sender_role_key.as_deref(), Some("be.role.assistantManager"));
+    assert!(message.subject.is_empty());
+    assert!(message.body.is_empty());
+    assert!(message.sender.is_empty());
+    assert!(message.sender_role.is_empty());
+    assert_eq!(message.i18n_params.get("player"), Some(&"player-1".to_string()));
+    assert_eq!(message.i18n_params.get("team"), Some(&"Alpha FC".to_string()));
+    assert_eq!(message.i18n_params.get("severance"), Some(&"132000".to_string()));
 }
 
 #[test]

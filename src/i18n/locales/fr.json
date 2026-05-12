@@ -2138,6 +2138,14 @@
         "bodyFinalMonth": "Votre entraîneur adjoint a passé en revue les contrats de l'effectif après votre arrivée. {{totalExpiring}} joueur(s) arrivent en fin de contrat cette saison, {{urgentContracts}} demandent de l'attention dans les six prochains mois et {{finalMonthContracts}} sont déjà dans leur dernier mois.\n\nStabilisez d'abord les cas urgents, puis avancez sur le reste de la liste par étapes.",
         "actionReview": "Examiner les contrats de l'effectif"
       },
+      "contractExpired": {
+        "subject": "{{player}} part libre",
+        "body": "{{player}} a quitté {{team}} à l'expiration de son contrat. Le joueur est désormais libre."
+      },
+      "contractTerminated": {
+        "subject": "{{player}} libéré",
+        "body": "{{player}} a été libéré par {{team}}. Le club a payé {{severance}} en salaires restants à titre d'indemnité."
+      },
       "delegatedRenewals": {
         "subject": "Rapport de l'adjoint — Renouvellements",
         "body": "Coach, j'ai passé en revue notre liste de renouvellements à {{team}}. {{successes}} conclus, {{stalled}} encore en attente, {{failures}} échoués.",

@@ -2135,6 +2135,14 @@
         "bodyFinalMonth": "你的助理教练在你上任后审查了球队合同。本赛季共有{{totalExpiring}}名球员将进入续约期,{{urgentContracts}}人需要在未来六个月内重点处理,而{{finalMonthContracts}}人已经进入最后一个月。\n\n先稳住最紧急的案例,再分阶段处理其余的续约名单。",
         "actionReview": "查看球队合同"
       },
+      "contractExpired": {
+        "subject": "{{player}} 自由离队",
+        "body": "{{player}} 与 {{team}} 的合同到期后离队。这名球员现在是自由球员。"
+      },
+      "contractTerminated": {
+        "subject": "{{player}} 被解约",
+        "body": "{{player}} 已被 {{team}} 解约。俱乐部支付了 {{severance}} 的剩余工资作为解约补偿。"
+      },
       "delegatedRenewals": {
         "subject": "助理教练报告——合同续约",
         "body": "老板,我梳理了{{team}}的续约名单。{{successes}}个已完成,{{stalled}}个仍在推进,{{failures}}个未成。",

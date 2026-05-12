@@ -2138,6 +2138,14 @@
         "bodyFinalMonth": "Dein Assistenztrainer hat nach deiner Ankunft die Verträge des Kaders geprüft. {{totalExpiring}} Spieler laufen in dieser Saison aus, {{urgentContracts}} erfordern in den nächsten sechs Monaten Aufmerksamkeit und {{finalMonthContracts}} sind bereits im letzten Vertragsmonat.\n\nStabilisiere zuerst die dringenden Fälle und arbeite dann die restliche Liste schrittweise ab.",
         "actionReview": "Kaderverträge prüfen"
       },
+      "contractExpired": {
+        "subject": "{{player}} geht ablösefrei",
+        "body": "{{player}} hat {{team}} nach Vertragsende verlassen. Der Spieler ist jetzt vereinslos."
+      },
+      "contractTerminated": {
+        "subject": "{{player}} freigestellt",
+        "body": "{{player}} wurde von {{team}} freigestellt. Der Verein zahlte {{severance}} an verbleibenden Gehältern als Abfindung."
+      },
       "delegatedRenewals": {
         "subject": "Assistentenbericht — Vertragsverlängerungen",
         "body": "Boss, ich habe unsere Verlängerungsliste bei {{team}} durchgearbeitet. {{successes}} abgeschlossen, {{stalled}} noch offen, {{failures}} gescheitert.",

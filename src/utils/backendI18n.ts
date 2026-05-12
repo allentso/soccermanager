@@ -333,6 +333,7 @@ function normalizeMatchReportParams(
   params?: Record<string, string>,
 ): Record<string, string> | undefined {
   if (
+    !article.body_key?.startsWith('be.news.matchReport.body') &&
     article.body_key !== 'be.news.matchReport.reportFriendly.body' &&
     article.body_key !== 'be.news.matchReport.reportPreseason.body'
   ) {
@@ -349,6 +350,7 @@ function normalizeMatchReportParams(
     if (scorers.length === 0) {
       return {
         ...params,
+        scorers: '',
         scorersSection: '',
       };
     }
@@ -365,6 +367,7 @@ function normalizeMatchReportParams(
 
     return {
       ...params,
+      scorers: scorersText,
       scorersSection: resolve(
         'be.news.matchReport.scorersSection',
         `\n\nGoals: ${scorersText}`,

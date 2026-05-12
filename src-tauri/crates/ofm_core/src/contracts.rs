@@ -1018,19 +1018,26 @@ fn contract_expired_message(
     team_name: &str,
     date: &str,
 ) -> InboxMessage {
+    let mut i18n_params = std::collections::HashMap::new();
+    i18n_params.insert("player".to_string(), player_name.to_string());
+    i18n_params.insert("team".to_string(), team_name.to_string());
+
     InboxMessage::new(
         format!("contract_expired_{}", player_id),
-        format!("{} Leaves on a Free", player_name),
-        format!(
-            "{} has left {} after their contract expired. The player is now a free agent.",
-            player_name, team_name
-        ),
-        "Assistant Manager".to_string(),
+        String::new(),
+        String::new(),
+        String::new(),
         date.to_string(),
     )
     .with_category(MessageCategory::Contract)
     .with_priority(MessagePriority::Urgent)
-    .with_sender_role("Assistant Manager")
+    .with_sender_role("")
+    .with_i18n(
+        "be.msg.contractExpired.subject",
+        "be.msg.contractExpired.body",
+        i18n_params,
+    )
+    .with_sender_i18n("be.sender.assistantManager", "be.role.assistantManager")
 }
 
 fn contract_terminated_message(
@@ -1040,17 +1047,25 @@ fn contract_terminated_message(
     severance_cost: i64,
     date: &str,
 ) -> InboxMessage {
+    let mut i18n_params = std::collections::HashMap::new();
+    i18n_params.insert("player".to_string(), player_name.to_string());
+    i18n_params.insert("team".to_string(), team_name.to_string());
+    i18n_params.insert("severance".to_string(), severance_cost.to_string());
+
     InboxMessage::new(
         format!("contract_terminated_{}", player_id),
-        format!("{} Released", player_name),
-        format!(
-            "{} has been released by {}. The club paid {} in remaining wages as severance.",
-            player_name, team_name, severance_cost
-        ),
-        "Assistant Manager".to_string(),
+        String::new(),
+        String::new(),
+        String::new(),
         date.to_string(),
     )
     .with_category(MessageCategory::Contract)
     .with_priority(MessagePriority::Urgent)
-    .with_sender_role("Assistant Manager")
+    .with_sender_role("")
+    .with_i18n(
+        "be.msg.contractTerminated.subject",
+        "be.msg.contractTerminated.body",
+        i18n_params,
+    )
+    .with_sender_i18n("be.sender.assistantManager", "be.role.assistantManager")
 }

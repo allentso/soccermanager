@@ -2138,6 +2138,14 @@
         "bodyFinalMonth": "Il tuo vice allenatore ha rivisto i contratti della rosa dopo il tuo arrivo. {{totalExpiring}} giocatore/i andranno in scadenza in questa stagione, {{urgentContracts}} richiedono attenzione nei prossimi sei mesi e {{finalMonthContracts}} sono già entrati nell'ultimo mese.\n\nStabilizza prima i casi urgenti, poi affronta il resto della lista per fasi.",
         "actionReview": "Rivedi i contratti della rosa"
       },
+      "contractExpired": {
+        "subject": "{{player}} parte a parametro zero",
+        "body": "{{player}} ha lasciato {{team}} alla scadenza del contratto. Il giocatore ora è svincolato."
+      },
+      "contractTerminated": {
+        "subject": "{{player}} svincolato",
+        "body": "{{player}} è stato svincolato da {{team}}. Il club ha pagato {{severance}} in stipendi residui come buonuscita."
+      },
       "delegatedRenewals": {
         "subject": "Rapporto dell'assistente — Rinnovi contrattuali",
         "body": "Mister, ho esaminato la nostra lista rinnovi a {{team}}. {{successes}} conclusi, {{stalled}} ancora in sospeso, {{failures}} falliti.",

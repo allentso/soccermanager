@@ -2168,6 +2168,14 @@
         "bodyFinalMonth": "Tu segundo entrenador ha revisado los contratos de la plantilla tras tu llegada. {{totalExpiring}} jugador(es) terminan contrato esta temporada, {{urgentContracts}} requieren atención en los próximos seis meses y {{finalMonthContracts}} ya están en el último mes.\n\nEstabiliza primero los casos urgentes y luego avanza con el resto de la lista por etapas.",
         "actionReview": "Revisar Contratos de la Plantilla"
       },
+      "contractExpired": {
+        "subject": "{{player}} se marcha libre",
+        "body": "{{player}} ha dejado {{team}} tras expirar su contrato. El jugador ahora es agente libre."
+      },
+      "contractTerminated": {
+        "subject": "{{player}} rescindido",
+        "body": "{{player}} ha sido rescindido por {{team}}. El club pagó {{severance}} en salarios pendientes como indemnización."
+      },
       "delegatedRenewals": {
         "subject": "Informe del asistente — Renovaciones",
         "body": "Míster, revisé nuestra lista de renovaciones en {{team}}. {{successes}} cerradas, {{stalled}} aún pendientes y {{failures}} fallidas.",

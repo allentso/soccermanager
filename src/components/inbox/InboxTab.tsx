@@ -156,7 +156,7 @@ export default function InboxTab({
           : undefined;
         const resolvedEffect = resolveBackendText(
           result.effect_i18n_key ?? undefined,
-          result.effect,
+          result.effect ?? "",
           effectParams,
         );
         setEffectFeedback(resolvedEffect);

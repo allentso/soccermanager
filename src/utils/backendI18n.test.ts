@@ -495,6 +495,50 @@ describe("resolveNewsArticle", () => {
     }
   });
 
+  it("localizes league match report scorers from structured scorer data", async () => {
+    const previousLanguage = i18n.language;
+    await i18n.changeLanguage("pt-BR");
+
+    try {
+      const article = makeNewsArticle({
+        headline: "Alpha FC 2 - 1 Beta FC: Hosts Triumph",
+        headline_key: "be.news.matchReport.headline.homeWin.0",
+        body: "In Matchday 5 action, the match ended Alpha FC 2 - 1 Beta FC. The result could have implications on the league standings as the season progresses.\n\nGoals: Alice (10', Alpha FC), Bob (75', Beta FC)",
+        body_key: "be.news.matchReport.body0",
+        source: "Sports Gazette",
+        source_key: "be.source.sportsGazette",
+        i18n_params: {
+          home: "Alpha FC",
+          away: "Beta FC",
+          homeGoals: "2",
+          awayGoals: "1",
+          matchday: "5",
+          scorers: "",
+          scorersData: JSON.stringify([
+            {
+              player: "Alice",
+              minute: 10,
+              team: "Alpha FC",
+            },
+            {
+              player: "Bob",
+              minute: 75,
+              team: "Beta FC",
+            },
+          ]),
+        },
+      });
+
+      const result = resolveNewsArticle(article);
+
+      expect(result.body).toContain("Na ação da Rodada 5");
+      expect(result.body).toContain("Gols: Alice (10', Alpha FC), Bob (75', Beta FC)");
+      expect(result.source).toBe("Gazeta Esportiva");
+    } finally {
+      await i18n.changeLanguage(previousLanguage);
+    }
+  });
+
   it("localizes press conference articles from stored quote metadata", async () => {
     const previousLanguage = i18n.language;
     await i18n.changeLanguage("pt-BR");

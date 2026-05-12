@@ -324,35 +324,6 @@ pub fn process_end_of_season(game: &mut Game) -> EndOfSeasonSummary {
         .map(|t| t.name.clone())
         .unwrap_or_default();
 
-    let board_msg = if user_position == 1 {
-        format!(
-            "Congratulations! {} are league champions! What an incredible achievement.\n\n\
-            The board is absolutely delighted with your performance. You finished on {} points.\n\n\
-            We look forward to defending the title next season.",
-            user_team_name, summary.user_points
-        )
-    } else if user_position <= 4 {
-        format!(
-            "A solid season for {}. You finished in {}{} place with {} points.\n\n\
-            The board is satisfied with the campaign. Let's push for the title next season.",
-            user_team_name, user_position, pos_suffix, summary.user_points
-        )
-    } else if user_position <= summary.total_teams / 2 {
-        format!(
-            "{} finished the season in {}{} place with {} points.\n\n\
-            A mid-table finish. The board expects improvement next season. \
-            We need to be more competitive.",
-            user_team_name, user_position, pos_suffix, summary.user_points
-        )
-    } else {
-        format!(
-            "A disappointing season for {}. Finishing {}{} with only {} points is below expectations.\n\n\
-            The board is concerned. Significant improvement will be needed next season, \
-            or your position may come under review.",
-            user_team_name, user_position, pos_suffix, summary.user_points
-        )
-    };
-
     let existing_ids: std::collections::HashSet<String> =
         game.messages.iter().map(|m| m.id.clone()).collect();
 
@@ -361,19 +332,14 @@ pub fn process_end_of_season(game: &mut Game) -> EndOfSeasonSummary {
     if user_prize_money > 0 && !existing_ids.contains(&payout_msg_id) {
         let payout_message = InboxMessage::new(
             payout_msg_id,
-            format!("Season {} Prize Money Awarded", season),
-            format!(
-                "The board has confirmed a prize payout of €{} for your {}{}-place league finish. The amount has been added to the club balance.",
-                user_prize_money,
-                user_position,
-                pos_suffix
-            ),
-            "Board of Directors".to_string(),
+            String::new(),
+            String::new(),
+            String::new(),
             last_fixture_date.clone(),
         )
         .with_category(MessageCategory::Finance)
         .with_priority(MessagePriority::High)
-        .with_sender_role("Chairman")
+        .with_sender_role("")
         .with_i18n("be.msg.seasonPayout.subject", "be.msg.seasonPayout.body", {
             let mut params = std::collections::HashMap::new();
             params.insert("season".to_string(), season.to_string());
@@ -418,14 +384,14 @@ pub fn process_end_of_season(game: &mut Game) -> EndOfSeasonSummary {
 
         let msg = InboxMessage::new(
             msg_id,
-            format!("Season {} Review", season),
-            board_msg,
-            "Board of Directors".to_string(),
+            String::new(),
+            String::new(),
+            String::new(),
             last_fixture_date.clone(),
         )
         .with_category(MessageCategory::BoardDirective)
         .with_priority(MessagePriority::High)
-        .with_sender_role("Chairman")
+        .with_sender_role("")
         .with_i18n("be.msg.seasonReview.subject", body_key, i18n_params)
         .with_sender_i18n("be.sender.boardOfDirectors", "be.role.chairman");
         game.messages.push(msg);
@@ -437,19 +403,14 @@ pub fn process_end_of_season(game: &mut Game) -> EndOfSeasonSummary {
         sched_params.insert("season".to_string(), next_season.to_string());
         let sched_msg = InboxMessage::new(
             sched_msg_id,
-            format!("Season {} — New Schedule Released", next_season),
-            format!(
-                "The schedule for Season {} has been released! The new campaign kicks off in 4 weeks.\n\n\
-                Use this break to assess your squad, make any necessary changes, and prepare for the challenges ahead.\n\n\
-                Good luck!",
-                next_season
-            ),
-            "League Office".to_string(),
+            String::new(),
+            String::new(),
+            String::new(),
             last_fixture_date,
         )
         .with_category(MessageCategory::LeagueInfo)
         .with_priority(MessagePriority::Normal)
-        .with_sender_role("Competition Secretary")
+        .with_sender_role("")
         .with_i18n(
             "be.msg.newSeasonSchedule.subject",
             "be.msg.newSeasonSchedule.body",
