@@ -26,7 +26,6 @@ import {
 import { GraduationCap, ScanSearch, TrendingUp, Star, Users, Sparkles } from "lucide-react";
 import type { DashboardNavigateContext } from "../dashboard/dashboardProfileNavigation";
 import { calculateAvailableScouts } from "../scouting/ScoutingTab.helpers";
-import { resolveTranslatedErrorMessage } from "../../utils/errorMessage";
 import ScoutingYouthRecruitmentCard from "../scouting/ScoutingYouthRecruitmentCard";
 
 interface YouthAcademyTabProps {
@@ -155,7 +154,7 @@ export default function YouthAcademyTab({
       onGameUpdate(updated);
       setSelectedYouthScoutId("");
     } catch (err) {
-      setYouthSearchError(resolveTranslatedErrorMessage(err, t));
+      setYouthSearchError(String(err));
     } finally {
       setStartingYouthSearch(false);
     }
@@ -169,7 +168,7 @@ export default function YouthAcademyTab({
       const updated = await cancelYouthScouting(assignmentId);
       onGameUpdate(updated);
     } catch (err) {
-      setYouthSearchError(resolveTranslatedErrorMessage(err, t));
+      setYouthSearchError(String(err));
     }
   };
 
@@ -184,7 +183,7 @@ export default function YouthAcademyTab({
       const updated = await reassignYouthScouting(assignmentId, scoutId);
       onGameUpdate(updated);
     } catch (err) {
-      setYouthSearchError(resolveTranslatedErrorMessage(err, t));
+      setYouthSearchError(String(err));
     }
   };
 

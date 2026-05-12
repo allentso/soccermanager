@@ -282,7 +282,6 @@
     "close": "关闭",
     "done": "完成",
     "confirm": "确认",
-    "retry": "重试",
     "save": "保存",
     "search": "搜索",
     "noTeam": "未分配球队。",
@@ -299,7 +298,6 @@
     "ovr": "总评",
     "condition": "状态",
     "morale": "士气",
-    "score": "比分",
     "value": "身价",
     "wage": "周薪",
     "name": "姓名",
@@ -450,7 +448,9 @@
       "technical": "技术",
       "mental": "心理",
       "goalkeeper": "门将"
-    }
+    },
+    "retry": "重试",
+    "score": "比分"
   },
   "teamSelection": {
     "title": "选择您的俱乐部",
@@ -752,14 +752,14 @@
     "delegateMostRenewals": "委托处理大多数续约",
     "delegateSelectedRenewals": "委托处理所选续约",
     "selectAllAtRisk": "全选",
-    "selectRiskPlayer": "选择{{player}}",
     "delegatedRenewalsSummary": "{{successes}} 已完成，{{stalled}} 待处理，{{failures}} 失败",
     "contractRiskCritical": "严重",
     "contractRiskWarning": "警告",
     "contractRiskStable": "稳定",
     "contractExpiresOn": "到期日 {{date}}",
     "atRiskWages": "风险周薪 €{{amount}}",
-    "noContractRisks": "暂无紧迫合同风险"
+    "noContractRisks": "暂无紧迫合同风险",
+    "selectRiskPlayer": "选择{{player}}"
   },
   "inbox": {
     "title": "收件箱",
@@ -775,6 +775,7 @@
     "chooseResponse": "选择你的回应",
     "chooseResponseOutcomeVaries": "选择你的回应——结果会有所不同",
     "responded": "回应已发送",
+    "youthProspectSigned": "已签入青训学院",
     "openMessage": "打开消息",
     "markAsRead": "标记为已读",
     "markAllRead": "全部标为已读",
@@ -810,6 +811,36 @@
       "Media": "媒体",
       "System": "系统",
       "JobOffer": "工作邀请"
+    },
+    "youthRecruitmentReport": {
+      "subject": "球探报告——青训招募",
+      "bodyAny": "{{scout}} 已完成 {{team}} 最近一次青训招募搜索。我在 {{regionLabel}} 市场找到了 {{count}} 名符合 {{objectiveLabel}} 方向的潜力球员。\n\n请查看附带的球员卡，并决定谁应该加入青训学院。",
+      "bodyTargeted": "{{scout}} 已完成 {{team}} 最近一次青训招募搜索。我在 {{regionLabel}} 市场找到了 {{count}} 名符合 {{objectiveLabel}} 方向、重点针对 {{targetLabel}} 的潜力球员。\n\n请查看附带的球员卡，并决定谁应该加入青训学院。"
+    },
+    "youthRecruitment": {
+      "option": {
+        "sign": {
+          "label": "签入青训学院",
+          "description": "为这名潜力球员提供青训合同，并将其加入学院。"
+        },
+        "shortlist": {
+          "label": "加入候选名单",
+          "description": "继续观察这名潜力球员，并将其移入单独的候选消息中。"
+        },
+        "discard": {
+          "label": "放弃",
+          "description": "放弃这名潜力球员，并将其从报告中移除。"
+        }
+      },
+      "effect": {
+        "sign": "{{player}} 已签下青训合同并加入你的青训学院。",
+        "shortlist": "{{player}} 已加入你的青训候选名单。",
+        "discard": "{{player}} 已从青训招募报告中移除。"
+      }
+    },
+    "youthRecruitmentShortlist": {
+      "subject": "青训潜力球员已入候选名单",
+      "body": "{{player}} 已移入你的青训候选名单。你可以稍后再次查看，再做最终决定。"
     }
   },
   "manager": {
@@ -1177,12 +1208,12 @@
     "uiScaleDesc": "调整字号与间距以提升可读性",
     "highContrast": "高对比度",
     "highContrastDesc": "在深色模式下增强文字对比度以提升可读性",
-    "switchToLightMode": "切换到浅色模式",
-    "switchToDarkMode": "切换到深色模式",
     "fullscreen": "全屏",
     "fullscreenDesc": "切换全屏模式以获得沉浸式体验",
     "enterFullscreen": "进入",
-    "exitFullscreen": "退出"
+    "exitFullscreen": "退出",
+    "switchToLightMode": "切换到浅色模式",
+    "switchToDarkMode": "切换到深色模式"
   },
   "preMatch": {
     "formationFit": "阵型契合度",
@@ -1316,40 +1347,6 @@
     "ht": "中场",
     "fullTime": "全场结束",
     "ft": "全场",
-    "phases": {
-      "PreKickOff": "赛前",
-      "FirstHalf": "上半场",
-      "HalfTime": "中场休息",
-      "SecondHalf": "下半场",
-      "FullTime": "全场结束",
-      "ExtraTimeFirstHalf": "加时上半场",
-      "ExtraTimeHalfTime": "加时中场",
-      "ExtraTimeSecondHalf": "加时下半场",
-      "ExtraTimeEnd": "加时结束",
-      "PenaltyShootout": "点球大战",
-      "Finished": "终场"
-    },
-    "eventTypes": {
-      "Goal": "进球",
-      "PenaltyGoal": "点球破门",
-      "PenaltyMiss": "罚失点球",
-      "YellowCard": "黄牌",
-      "RedCard": "红牌",
-      "SecondYellow": "两黄变一红",
-      "Substitution": "换人",
-      "Injury": "受伤",
-      "KickOff": "开球",
-      "HalfTime": "中场休息",
-      "SecondHalfStart": "下半场开始",
-      "FullTime": "全场结束",
-      "ShotSaved": "射门被扑",
-      "ShotOffTarget": "射偏",
-      "ShotBlocked": "射门被封堵",
-      "Corner": "角球",
-      "FreeKick": "任意球",
-      "Foul": "犯规",
-      "PenaltyAwarded": "判罚点球"
-    },
     "firstHalfEvents": "上半场事件",
     "noMajorEvents": "没有重要事件。",
     "teamTalk": "更衣室讲话",
@@ -1610,7 +1607,41 @@
     "startMatch": "开始比赛",
     "notAssigned": "未指定",
     "keyStats": "关键数据",
-    "continueDashboard": "返回主界面"
+    "continueDashboard": "返回主界面",
+    "phases": {
+      "PreKickOff": "赛前",
+      "FirstHalf": "上半场",
+      "HalfTime": "中场休息",
+      "SecondHalf": "下半场",
+      "FullTime": "全场结束",
+      "ExtraTimeFirstHalf": "加时上半场",
+      "ExtraTimeHalfTime": "加时中场",
+      "ExtraTimeSecondHalf": "加时下半场",
+      "ExtraTimeEnd": "加时结束",
+      "PenaltyShootout": "点球大战",
+      "Finished": "终场"
+    },
+    "eventTypes": {
+      "Goal": "进球",
+      "PenaltyGoal": "点球破门",
+      "PenaltyMiss": "罚失点球",
+      "YellowCard": "黄牌",
+      "RedCard": "红牌",
+      "SecondYellow": "两黄变一红",
+      "Substitution": "换人",
+      "Injury": "受伤",
+      "KickOff": "开球",
+      "HalfTime": "中场休息",
+      "SecondHalfStart": "下半场开始",
+      "FullTime": "全场结束",
+      "ShotSaved": "射门被扑",
+      "ShotOffTarget": "射偏",
+      "ShotBlocked": "射门被封堵",
+      "Corner": "角球",
+      "FreeKick": "任意球",
+      "Foul": "犯规",
+      "PenaltyAwarded": "判罚点球"
+    }
   },
   "endOfSeason": {
     "seasonComplete": "赛季结束",
@@ -1680,6 +1711,14 @@
         "facilityUpgradeOverBudget": "当俱乐部超出工资预算时，设施升级会被禁止。",
         "facilityUpgradeCritical": "当俱乐部面临严重财务压力时，设施升级会被禁止。"
       },
+      "createManager": {
+        "nameRequired": "名字和姓氏均为必填项。",
+        "nameMaxLength": "名字和姓氏都不能超过 30 个字符。",
+        "nationalityRequired": "国籍为必填项。",
+        "invalidDobFormat": "出生日期无效。请使用 YYYY-MM-DD 格式。",
+        "minAge": "经理年龄必须至少为 30 岁。",
+        "invalidDob": "出生日期无效。"
+      },
       "transfers": {
         "transferWindowClosed": "转会窗口已关闭",
         "cannotBidOnOwnPlayer": "你不能为自己的球员报价",
@@ -1709,14 +1748,6 @@
         "youthSearchAlreadyActive": "已有相同的青训招募搜索在进行中",
         "youthAssignmentNotFound": "未找到青训招募任务",
         "scoutAlreadyAssignedToSearch": "该球探已经分配给这项搜索"
-      },
-      "createManager": {
-        "nameRequired": "名字和姓氏均为必填项。",
-        "nameMaxLength": "名字和姓氏都不能超过 30 个字符。",
-        "nationalityRequired": "国籍为必填项。",
-        "invalidDobFormat": "出生日期无效。请使用 YYYY-MM-DD 格式。",
-        "minAge": "经理年龄必须至少为 30 岁。",
-        "invalidDob": "出生日期无效。"
       }
     },
     "sender": {
@@ -1729,11 +1760,11 @@
       "commercialDirector": "商务总监",
       "communityManager": "社区经理",
       "directorOfFootball": "足球总监",
-      "transferCommittee": "转会委员会",
       "intlLiaison": "国际联络官",
       "player": "球员",
       "pressOfficer": "新闻官",
-      "scout": "球探"
+      "scout": "球探",
+      "transferCommittee": "转会委员会"
     },
     "role": {
       "chairman": "主席",
@@ -1750,14 +1781,14 @@
       "scout": "球探"
     },
     "source": {
-      "sportsDaily": "体育日报",
       "sportsGazette": "体育公报",
       "footballHerald": "足球先驱报",
       "playersUnder21": "U21球员",
       "matchDayPress": "比赛日新闻",
       "leagueChronicle": "联赛纪事",
       "leagueWire": "联赛快讯",
-      "transferIntelligence": "转会情报"
+      "transferIntelligence": "转会情报",
+      "sportsDaily": "体育日报"
     },
     "msg": {
       "welcome": {
@@ -1780,12 +1811,12 @@
         "subject": "即将到来:对阵{{opponent}}({{venue}})",
         "body0": "您在{{matchDate}}将迎来{{venue}}对阵{{opponent}}的比赛。\n\n这是超级联赛第{{matchday}}轮。请确保您的首发阵容状态良好,战术已就绪。\n\n充分利用{{venue}}作战的优势。",
         "body1": "提醒:您将于{{matchDate}}在{{venue}}对阵{{opponent}}。\n\n这是第{{matchday}}轮——请审视阵容体能,并考虑必要的战术调整。",
+        "actionTactics": "设置战术",
+        "actionScout": "侦察对手",
         "body0Home": "您将在{{matchDate}}迎来主场对阵{{opponent}}的比赛。\n\n这是超级联赛第{{matchday}}轮。请确保您的首发阵容状态良好,战术已就绪。\n\n主场优势可能会成为这场比赛的关键。",
         "body0Away": "您将在{{matchDate}}迎来客场对阵{{opponent}}的比赛。\n\n这是超级联赛第{{matchday}}轮。请确保您的首发阵容状态良好,战术已就绪。\n\n客场跟上对手的强度可能会成为这场比赛的关键。",
         "body1Home": "提醒:3天后（{{matchDate}}）您将主场迎战{{opponent}}。\n\n这是第{{matchday}}轮——请审视阵容体能,并考虑必要的战术调整。主场球迷会站在您身后。",
-        "body1Away": "提醒:3天后（{{matchDate}}）您将客场挑战{{opponent}}。\n\n这是第{{matchday}}轮——请审视阵容体能,并考虑必要的战术调整。客场状态将受到考验——请派出最强阵容。",
-        "actionTactics": "设置战术",
-        "actionScout": "侦察对手"
+        "body1Away": "提醒:3天后（{{matchDate}}）您将客场挑战{{opponent}}。\n\n这是第{{matchday}}轮——请审视阵容体能,并考虑必要的战术调整。客场状态将受到考验——请派出最强阵容。"
       },
       "matchResult": {
         "subject": {
@@ -1811,15 +1842,6 @@
         "subject": "{{team}}——赛季目标",
         "body": "董事会为本赛季设定了以下期望:\n\n• 联赛排名进入上半区\n• 保持财务稳健\n• 培养青训营的年轻天才\n\n达成这些目标将巩固您的地位。若未能达到最低期望,可能会对您的任期进行审视。\n\n我们信任您的能力。",
         "actionAccept": "接受目标"
-      },
-      "transferComplete": {
-        "subject": "转会完成：{{player}}",
-        "body": "{{player}}的转会已以{{fee}}完成。\n\n该球员已加入球队并可供选择上场。"
-      },
-      "transferOffer": {
-        "subject": "收到对{{player}}的报价",
-        "body": "{{team}}为{{player}}提交了一份{{fee}}的报价。请在转会标签页中查看该报价并决定接受或拒绝。",
-        "actionReview": "查看报价"
       },
       "boardObjectives": {
         "subject": "{{season}}赛季——董事会目标",
@@ -2141,6 +2163,36 @@
           "relationshipBlocked": "在当前的关系和合同状况下,他们不愿通过我方签约。"
         }
       },
+      "youthRecruitmentReport": {
+        "subject": "球探报告——青训招募",
+        "bodyAny": "{{scout}} 已完成 {{team}} 最近一次青训招募搜索。我在 {{regionLabel}} 市场找到了 {{count}} 名符合 {{objectiveLabel}} 方向的潜力球员。\n\n请查看附带的球员卡，并决定谁应该加入青训学院。",
+        "bodyTargeted": "{{scout}} 已完成 {{team}} 最近一次青训招募搜索。我在 {{regionLabel}} 市场找到了 {{count}} 名符合 {{objectiveLabel}} 方向、重点针对 {{targetLabel}} 的潜力球员。\n\n请查看附带的球员卡，并决定谁应该加入青训学院。"
+      },
+      "youthRecruitment": {
+        "option": {
+          "sign": {
+            "label": "签入青训学院",
+            "description": "为这名潜力球员提供青训合同，并将其加入学院。"
+          },
+          "shortlist": {
+            "label": "加入候选名单",
+            "description": "继续观察这名潜力球员，并将其移入单独的候选消息中。"
+          },
+          "discard": {
+            "label": "放弃",
+            "description": "放弃这名潜力球员，并将其从报告中移除。"
+          }
+        },
+        "effect": {
+          "sign": "{{player}} 已签下青训合同并加入你的青训学院。",
+          "shortlist": "{{player}} 已加入你的青训候选名单。",
+          "discard": "{{player}} 已从青训招募报告中移除。"
+        }
+      },
+      "youthRecruitmentShortlist": {
+        "subject": "青训潜力球员已入候选名单",
+        "body": "{{player}} 已移入你的青训候选名单。你可以稍后再次查看，再做最终决定。"
+      },
       "scoutReport": {
         "subject": "球探报告:{{player}}",
         "body": "您的球探{{scout}}已完成对{{player}}的评估。完整报告可在球探工作板块查看。"
@@ -2181,17 +2233,18 @@
       "jobRejection": {
         "subject": "申请结果——{{team}}",
         "body": "感谢您对{{team}}经理职位的关注。经过慎重考虑,我们决定录用其他候选人。祝您未来事业顺利。"
+      },
+      "transferComplete": {
+        "subject": "转会完成：{{player}}",
+        "body": "{{player}}的转会已以{{fee}}完成。\n\n该球员已加入球队并可供选择上场。"
+      },
+      "transferOffer": {
+        "subject": "收到对{{player}}的报价",
+        "body": "{{team}}为{{player}}提交了一份{{fee}}的报价。请在转会标签页中查看该报价并决定接受或拒绝。",
+        "actionReview": "查看报价"
       }
     },
     "news": {
-      "pressConference": {
-        "headlineManagerQuote": "{{team}}主帅：{{quote}}",
-        "headlinePressConf": "新闻发布会：\"{{quote}}\" —— {{team}}主帅",
-        "headlinePostMatch": "赛后：{{team}}谈{{result}}",
-        "bodyMultiple": "在{{result}}的比赛之后，{{team}}主帅接受了媒体采访。\n\n{{quotes}}\n\n这场发布会谈到了比赛结果、战术安排以及球队接下来的方向。",
-        "bodySingle": "{{team}}主帅在{{result}}的结果后简短发言。\n\n\"{{quote}}\"",
-        "bodyNone": "在{{result}}的结果后，{{team}}主帅拒绝长时间发言。"
-      },
       "matchReport": {
         "headline": {
           "homeWin": {
@@ -2313,6 +2366,14 @@
         "body0Weeks": "{{team}}已证实{{player}}受伤，预计将缺阵约{{weeksOut}}周。俱乐部将评估伤情后发布进一步的最新消息。",
         "body1Days": "{{player}}在训练中遭遇挫折，这名{{team}}球员将缺席{{daysOut}}天。在赛季进入关键阶段之际，这一缺阵将是重大打击。",
         "body1Weeks": "{{player}}在训练中遭遇挫折，这名{{team}}球员将缺席约{{weeksOut}}周。在赛季进入关键阶段之际，这一缺阵将是重大打击。"
+      },
+      "pressConference": {
+        "headlineManagerQuote": "{{team}}主帅：{{quote}}",
+        "headlinePressConf": "新闻发布会：\"{{quote}}\" —— {{team}}主帅",
+        "headlinePostMatch": "赛后：{{team}}谈{{result}}",
+        "bodyMultiple": "在{{result}}的比赛之后，{{team}}主帅接受了媒体采访。\n\n{{quotes}}\n\n这场发布会谈到了比赛结果、战术安排以及球队接下来的方向。",
+        "bodySingle": "{{team}}主帅在{{result}}的结果后简短发言。\n\n\"{{quote}}\"",
+        "bodyNone": "在{{result}}的结果后，{{team}}主帅拒绝长时间发言。"
       }
     }
   },

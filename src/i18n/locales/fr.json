@@ -204,7 +204,36 @@
     "transferWindowStatus": {
       "Closed": "Mercato Fermé",
       "Open": "Mercato Ouvert",
-      "DeadlineDay": "Dernier Jour"
+      "DeadlineDay": "Dernier Jour""youthRecruitmentReport": {
+        "subject": "Rapport du recruteur — Recrutement des jeunes",
+        "bodyAny": "{{scout}} a terminé la dernière mission de recrutement des jeunes pour {{team}}. J'ai trouvé {{count}} espoirs sur le marché {{regionLabel}} avec un profil {{objectiveLabel}}.\n\nConsultez les fiches jointes et décidez qui doit rejoindre l'académie.",
+        "bodyTargeted": "{{scout}} a terminé la dernière mission de recrutement des jeunes pour {{team}}. J'ai trouvé {{count}} espoirs sur le marché {{regionLabel}} avec un profil {{objectiveLabel}}, axé sur {{targetLabel}}.\n\nConsultez les fiches jointes et décidez qui doit rejoindre l'académie."
+      },
+      "youthRecruitment": {
+        "option": {
+          "sign": {
+            "label": "Signer pour l'académie",
+            "description": "Proposez à cet espoir un contrat de jeune et ajoutez-le à l'académie."
+          },
+          "shortlist": {
+            "label": "Présélectionner",
+            "description": "Gardez cet espoir en observation et déplacez-le dans un message de présélection séparé."
+          },
+          "discard": {
+            "label": "Écarter",
+            "description": "Renoncez à cet espoir et retirez-le du rapport."
+          }
+        },
+        "effect": {
+          "sign": "{{player}} a signé un contrat de jeune et a rejoint votre académie.",
+          "shortlist": "{{player}} a été ajouté à votre présélection de jeunes.",
+          "discard": "{{player}} a été retiré du rapport de recrutement des jeunes."
+        }
+      },
+      "youthRecruitmentShortlist": {
+        "subject": "Espoir présélectionné",
+        "body": "{{player}} a été déplacé dans votre présélection de jeunes. Vous pourrez le revoir plus tard avant de prendre une décision finale."
+      },
     }
   },
   "teamSelect": {
@@ -282,7 +311,6 @@
     "close": "Fermer",
     "done": "Terminé",
     "confirm": "Confirmer",
-    "retry": "Réessayer",
     "save": "Sauvegarder",
     "search": "Rechercher",
     "noTeam": "Aucune équipe attribuée.",
@@ -299,7 +327,6 @@
     "ovr": "OVR",
     "condition": "Condition",
     "morale": "Moral",
-    "score": "Score",
     "value": "Valeur",
     "wage": "Salaire",
     "name": "Nom",
@@ -450,7 +477,9 @@
       "technical": "Technique",
       "mental": "Mental",
       "goalkeeper": "Gardien"
-    }
+    },
+    "retry": "Réessayer",
+    "score": "Score"
   },
   "teamSelection": {
     "title": "Choisissez Votre Club",
@@ -752,14 +781,14 @@
     "delegateMostRenewals": "Déléguer la plupart des renouvellements",
     "delegateSelectedRenewals": "Déléguer les renouvellements sélectionnés",
     "selectAllAtRisk": "Tout sélectionner",
-    "selectRiskPlayer": "Sélectionner {{player}}",
     "delegatedRenewalsSummary": "{{successes}} réglés, {{stalled}} en attente, {{failures}} échoués",
     "contractRiskCritical": "Critique",
     "contractRiskWarning": "Alerte",
     "contractRiskStable": "Stable",
     "contractExpiresOn": "Expire le {{date}}",
     "atRiskWages": "{{amount}}/semaine à risque",
-    "noContractRisks": "Aucun risque contractuel imminent"
+    "noContractRisks": "Aucun risque contractuel imminent",
+    "selectRiskPlayer": "Sélectionner {{player}}"
   },
   "inbox": {
     "title": "Boîte de Réception",
@@ -775,6 +804,7 @@
     "chooseResponse": "Choisissez votre réponse",
     "chooseResponseOutcomeVaries": "Choisissez votre réponse — l'issue peut varier",
     "responded": "Réponse envoyée",
+    "youthProspectSigned": "Signé pour l'académie",
     "openMessage": "Ouvrir le message",
     "markAsRead": "Marquer comme lu",
     "markAllRead": "Tout marquer comme lu",
@@ -1177,12 +1207,12 @@
     "uiScaleDesc": "Ajuster la taille de police et l'espacement pour la lisibilité",
     "highContrast": "Contraste Élevé",
     "highContrastDesc": "Améliorer le contraste du texte en mode sombre",
-    "switchToLightMode": "Passer au mode clair",
-    "switchToDarkMode": "Passer au mode sombre",
     "fullscreen": "Plein Écran",
     "fullscreenDesc": "Basculer en mode plein écran",
     "enterFullscreen": "Entrer",
-    "exitFullscreen": "Quitter"
+    "exitFullscreen": "Quitter",
+    "switchToLightMode": "Passer au mode clair",
+    "switchToDarkMode": "Passer au mode sombre"
   },
   "preMatch": {
     "formationFit": "Ajustement Formation",
@@ -1316,40 +1346,6 @@
     "ht": "MT",
     "fullTime": "Temps Plein",
     "ft": "TP",
-    "phases": {
-      "PreKickOff": "Avant-match",
-      "FirstHalf": "1re Mi-temps",
-      "HalfTime": "Mi-Temps",
-      "SecondHalf": "2e Mi-temps",
-      "FullTime": "Temps Plein",
-      "ExtraTimeFirstHalf": "1re Période Prol.",
-      "ExtraTimeHalfTime": "Pause Prol.",
-      "ExtraTimeSecondHalf": "2e Période Prol.",
-      "ExtraTimeEnd": "Fin des Prol.",
-      "PenaltyShootout": "Tirs au But",
-      "Finished": "Final"
-    },
-    "eventTypes": {
-      "Goal": "But",
-      "PenaltyGoal": "But sur Penalty",
-      "PenaltyMiss": "Penalty Manqué",
-      "YellowCard": "Carton Jaune",
-      "RedCard": "Carton Rouge",
-      "SecondYellow": "Deuxième Jaune",
-      "Substitution": "Remplacement",
-      "Injury": "Blessure",
-      "KickOff": "Coup d'Envoi",
-      "HalfTime": "Mi-Temps",
-      "SecondHalfStart": "Début de la 2e Mi-temps",
-      "FullTime": "Temps Plein",
-      "ShotSaved": "Arrêt",
-      "ShotOffTarget": "Tir non cadré",
-      "ShotBlocked": "Tir contré",
-      "Corner": "Corner",
-      "FreeKick": "Coup franc",
-      "Foul": "Faute",
-      "PenaltyAwarded": "Penalty accordé"
-    },
     "firstHalfEvents": "Événements de la 1ère Mi-Temps",
     "noMajorEvents": "Pas d'événements majeurs.",
     "teamTalk": "Causerie",
@@ -1610,7 +1606,41 @@
     "startMatch": "Commencer le Match",
     "notAssigned": "Non attribué",
     "keyStats": "Stats Clés",
-    "continueDashboard": "Continuer vers le Tableau de Bord"
+    "continueDashboard": "Continuer vers le Tableau de Bord",
+    "phases": {
+      "PreKickOff": "Avant-match",
+      "FirstHalf": "1re Mi-temps",
+      "HalfTime": "Mi-Temps",
+      "SecondHalf": "2e Mi-temps",
+      "FullTime": "Temps Plein",
+      "ExtraTimeFirstHalf": "1re Période Prol.",
+      "ExtraTimeHalfTime": "Pause Prol.",
+      "ExtraTimeSecondHalf": "2e Période Prol.",
+      "ExtraTimeEnd": "Fin des Prol.",
+      "PenaltyShootout": "Tirs au But",
+      "Finished": "Final"
+    },
+    "eventTypes": {
+      "Goal": "But",
+      "PenaltyGoal": "But sur Penalty",
+      "PenaltyMiss": "Penalty Manqué",
+      "YellowCard": "Carton Jaune",
+      "RedCard": "Carton Rouge",
+      "SecondYellow": "Deuxième Jaune",
+      "Substitution": "Remplacement",
+      "Injury": "Blessure",
+      "KickOff": "Coup d'Envoi",
+      "HalfTime": "Mi-Temps",
+      "SecondHalfStart": "Début de la 2e Mi-temps",
+      "FullTime": "Temps Plein",
+      "ShotSaved": "Arrêt",
+      "ShotOffTarget": "Tir non cadré",
+      "ShotBlocked": "Tir contré",
+      "Corner": "Corner",
+      "FreeKick": "Coup franc",
+      "Foul": "Faute",
+      "PenaltyAwarded": "Penalty accordé"
+    }
   },
   "endOfSeason": {
     "seasonComplete": "Saison Terminée",
@@ -1680,6 +1710,14 @@
         "facilityUpgradeOverBudget": "Les améliorations d'installations sont bloquées tant que le club dépasse son budget salarial.",
         "facilityUpgradeCritical": "Les améliorations d'installations sont bloquées tant que le club subit une forte pression financière."
       },
+      "createManager": {
+        "nameRequired": "Le prénom et le nom sont requis.",
+        "nameMaxLength": "Le prénom et le nom ne doivent pas dépasser 30 caractères.",
+        "nationalityRequired": "La nationalité est requise.",
+        "invalidDobFormat": "Date de naissance invalide. Utilisez le format AAAA-MM-JJ.",
+        "minAge": "L'entraîneur doit avoir au moins 30 ans.",
+        "invalidDob": "Date de naissance invalide."
+      },
       "transfers": {
         "transferWindowClosed": "Le mercato est fermé",
         "cannotBidOnOwnPlayer": "Vous ne pouvez pas faire une offre pour votre propre joueur",
@@ -1709,14 +1747,6 @@
         "youthSearchAlreadyActive": "Une recherche de recrutement jeune identique est déjà active",
         "youthAssignmentNotFound": "Mission de recrutement jeune introuvable",
         "scoutAlreadyAssignedToSearch": "Le recruteur est déjà affecté à cette recherche"
-      },
-      "createManager": {
-        "nameRequired": "Le prénom et le nom sont requis.",
-        "nameMaxLength": "Le prénom et le nom ne doivent pas dépasser 30 caractères.",
-        "nationalityRequired": "La nationalité est requise.",
-        "invalidDobFormat": "Date de naissance invalide. Utilisez le format AAAA-MM-JJ.",
-        "minAge": "L'entraîneur doit avoir au moins 30 ans.",
-        "invalidDob": "Date de naissance invalide."
       }
     },
     "sender": {
@@ -1729,11 +1759,11 @@
       "commercialDirector": "Directeur Commercial",
       "communityManager": "Responsable Communauté",
       "directorOfFootball": "Directeur Sportif",
-      "transferCommittee": "Comité des transferts",
       "intlLiaison": "Chargé des Relations Internationales",
       "player": "Joueur",
       "pressOfficer": "Attaché de Presse",
-      "scout": "Recruteur"
+      "scout": "Recruteur",
+      "transferCommittee": "Comité des transferts"
     },
     "role": {
       "chairman": "Président",
@@ -1750,14 +1780,14 @@
       "scout": "Recruteur"
     },
     "source": {
-      "sportsDaily": "Quotidien Sportif",
       "sportsGazette": "Gazette Sportive",
       "footballHerald": "Le Héraut du Football",
       "playersUnder21": "{{count}} joueurs du centre",
       "matchDayPress": "Presse du Match",
       "leagueChronicle": "Chronique de la Ligue",
       "leagueWire": "Fil de la Ligue",
-      "transferIntelligence": "Renseignements Transferts"
+      "transferIntelligence": "Renseignements Transferts",
+      "sportsDaily": "Quotidien Sportif"
     },
     "msg": {
       "welcome": {
@@ -1783,12 +1813,12 @@
         "subject": "À venir : vs {{opponent}} ({{venue}})",
         "body0": "Votre match {{venue}} contre {{opponent}} approche le {{matchDate}}.\n\nJournée {{matchday}} de la Première Division. Assurez-vous que votre onze titulaire est en forme et que vos tactiques sont en place.\n\nTirez le meilleur parti de jouer à {{venue}}.",
         "body1": "Rappel : vous affrontez {{opponent}} {{venue}} le {{matchDate}}.\n\nC'est la Journée {{matchday}} — vérifiez la condition physique de votre effectif et envisagez des ajustements tactiques.",
+        "actionTactics": "Définir les Tactiques",
+        "actionScout": "Analyser l'Adversaire",
         "body0Home": "Votre match à domicile contre {{opponent}} approche le {{matchDate}}.\n\nJournée {{matchday}} de la Première Division. Assurez-vous que votre onze titulaire est en forme et que vos tactiques sont en place.\n\nL'avantage du terrain pourrait être déterminant dans cette rencontre.",
         "body0Away": "Votre match à l'extérieur contre {{opponent}} approche le {{matchDate}}.\n\nJournée {{matchday}} de la Première Division. Assurez-vous que votre onze titulaire est en forme et que vos tactiques sont en place.\n\nÉgaler leur intensité loin de vos bases pourrait être déterminant dans cette rencontre.",
         "body1Home": "Rappel : vous affrontez {{opponent}} à domicile dans 3 jours ({{matchDate}}).\n\nC'est la Journée {{matchday}} — vérifiez la condition physique de votre effectif et envisagez des ajustements tactiques. Les supporters seront derrière vous à domicile.",
-        "body1Away": "Rappel : vous affrontez {{opponent}} à l'extérieur dans 3 jours ({{matchDate}}).\n\nC'est la Journée {{matchday}} — vérifiez la condition physique de votre effectif et envisagez des ajustements tactiques. Votre forme à l'extérieur sera mise à l'épreuve — alignez votre meilleur onze.",
-        "actionTactics": "Définir les Tactiques",
-        "actionScout": "Analyser l'Adversaire"
+        "body1Away": "Rappel : vous affrontez {{opponent}} à l'extérieur dans 3 jours ({{matchDate}}).\n\nC'est la Journée {{matchday}} — vérifiez la condition physique de votre effectif et envisagez des ajustements tactiques. Votre forme à l'extérieur sera mise à l'épreuve — alignez votre meilleur onze."
       },
       "matchResult": {
         "subject": {
@@ -1814,15 +1844,6 @@
         "subject": "{{team}} — Objectifs de Saison",
         "body": "Le conseil a fixé les attentes suivantes pour cette saison :\n\n• Terminer dans la première moitié du classement\n• Maintenir la stabilité financière\n• Développer les jeunes talents de l'académie\n\nAtteindre ces objectifs renforcera votre position. Ne pas atteindre les attentes minimales pourrait entraîner une remise en question de votre mandat.\n\nNous avons confiance en vos capacités.",
         "actionAccept": "Accepter les Objectifs"
-      },
-      "transferComplete": {
-        "subject": "Transfert conclu : {{player}}",
-        "body": "Le transfert de {{player}} a été finalisé pour un montant de {{fee}}.\n\nLe joueur a rejoint l'effectif et est désormais disponible pour la sélection."
-      },
-      "transferOffer": {
-        "subject": "Offre reçue pour {{player}}",
-        "body": "{{team}} a soumis une offre de {{fee}} pour {{player}}. Consultez l'offre dans l'onglet Transferts pour l'accepter ou la refuser.",
-        "actionReview": "Examiner l'offre"
       },
       "boardObjectives": {
         "subject": "Saison {{season}} — Objectifs du Conseil",
@@ -2184,17 +2205,18 @@
       "jobRejection": {
         "subject": "Suivi de Candidature — {{team}}",
         "body": "Merci de votre intérêt pour le poste d'entraîneur au {{team}}. Après mûre réflexion, nous avons décidé de poursuivre avec d'autres candidats. Nous vous souhaitons bonne chance pour la suite de votre carrière."
+      },
+      "transferComplete": {
+        "subject": "Transfert conclu : {{player}}",
+        "body": "Le transfert de {{player}} a été finalisé pour un montant de {{fee}}.\n\nLe joueur a rejoint l'effectif et est désormais disponible pour la sélection."
+      },
+      "transferOffer": {
+        "subject": "Offre reçue pour {{player}}",
+        "body": "{{team}} a soumis une offre de {{fee}} pour {{player}}. Consultez l'offre dans l'onglet Transferts pour l'accepter ou la refuser.",
+        "actionReview": "Examiner l'offre"
       }
     },
     "news": {
-      "pressConference": {
-        "headlineManagerQuote": "Entraîneur de {{team}} : {{quote}}",
-        "headlinePressConf": "Conférence de Presse : \"{{quote}}\" — entraîneur de {{team}}",
-        "headlinePostMatch": "Après-Match : {{team}} sur {{result}}",
-        "bodyMultiple": "Après le résultat {{result}}, l'entraîneur de {{team}} a pris la parole face à la presse.\n\n{{quotes}}\n\nLa conférence a abordé le résultat, l'approche tactique et la suite pour l'équipe.",
-        "bodySingle": "L'entraîneur de {{team}} s'est exprimé brièvement après le résultat {{result}}.\n\n\"{{quote}}\"",
-        "bodyNone": "L'entraîneur de {{team}} a décliné de s'exprimer longuement après le résultat {{result}}."
-      },
       "matchReport": {
         "headline": {
           "homeWin": {
@@ -2316,6 +2338,14 @@
         "body0Weeks": "{{team}} a confirmé que {{player}} s'est blessé et devrait être indisponible pendant environ {{weeksOut}} semaine(s). Le club évaluera la situation avant de fournir une mise à jour supplémentaire.",
         "body1Days": "{{player}} a subi un revers à l'entraînement, le joueur de {{team}} étant écarté pour {{daysOut}} jour(s). Cette absence sera un coup significatif alors que la saison entre dans une phase cruciale.",
         "body1Weeks": "{{player}} a subi un revers à l'entraînement, le joueur de {{team}} étant écarté pour environ {{weeksOut}} semaine(s). Cette absence sera un coup significatif alors que la saison entre dans une phase cruciale."
+      },
+      "pressConference": {
+        "headlineManagerQuote": "Entraîneur de {{team}} : {{quote}}",
+        "headlinePressConf": "Conférence de Presse : \"{{quote}}\" — entraîneur de {{team}}",
+        "headlinePostMatch": "Après-Match : {{team}} sur {{result}}",
+        "bodyMultiple": "Après le résultat {{result}}, l'entraîneur de {{team}} a pris la parole face à la presse.\n\n{{quotes}}\n\nLa conférence a abordé le résultat, l'approche tactique et la suite pour l'équipe.",
+        "bodySingle": "L'entraîneur de {{team}} s'est exprimé brièvement après le résultat {{result}}.\n\n\"{{quote}}\"",
+        "bodyNone": "L'entraîneur de {{team}} a décliné de s'exprimer longuement après le résultat {{result}}."
       }
     }
   },

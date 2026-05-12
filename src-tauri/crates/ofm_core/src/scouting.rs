@@ -391,30 +391,10 @@ fn build_youth_recruitment_report(
     date: &str,
 ) -> InboxMessage {
     let target_position = target_position.map(|position| position.to_group_position());
-    let body = match target_position.as_ref() {
-        Some(target_position) => format!(
-            "{} has returned {} youth prospects for {} after a {} {} search focused on {}.",
-            scout_name,
-            prospects.len(),
-            team_name,
-            region_label(region),
-            objective_label(objective),
-            format!("{:?}", target_position).to_lowercase(),
-        ),
-        None => format!(
-            "{} has returned {} youth prospects for {} after a {} {} search.",
-            scout_name,
-            prospects.len(),
-            team_name,
-            region_label(region),
-            objective_label(objective),
-        ),
-    };
-
     let message = InboxMessage::new(
         format!("youth-scout-{}", assignment_id),
         "Youth prospect found".to_string(),
-        body,
+        "Youth recruitment report ready".to_string(),
         scout_name.to_string(),
         date.to_string(),
     )
@@ -433,14 +413,41 @@ fn build_youth_recruitment_report(
         })
     });
 
-    message.with_context(MessageContext {
+    let message = message.with_context(MessageContext {
         team_id: Some(team_id.to_string()),
-        youth_target_position: target_position.map(|position| format!("{:?}", position)),
+        youth_target_position: target_position
+            .as_ref()
+            .map(|position| format!("{:?}", position)),
         youth_search_region: Some(format!("{:?}", region)),
         youth_search_objective: Some(format!("{:?}", objective)),
         youth_prospects: Some(prospects.to_vec()),
         ..MessageContext::default()
-    })
+    });
+
+    let mut i18n_params = params(&[
+        ("scout", scout_name),
+        ("count", &prospects.len().to_string()),
+        ("team", team_name),
+        ("regionLabel", region_i18n_key(region)),
+        ("objectiveLabel", objective_i18n_key(objective)),
+    ]);
+    let body_key = if let Some(target_position) = target_position.as_ref() {
+        i18n_params.insert(
+            "targetLabel".to_string(),
+            youth_target_position_i18n_key(target_position).to_string(),
+        );
+        "be.msg.youthRecruitmentReport.bodyTargeted"
+    } else {
+        "be.msg.youthRecruitmentReport.bodyAny"
+    };
+
+    let mut message = message.with_i18n(
+        "be.msg.youthRecruitmentReport.subject",
+        body_key,
+        i18n_params,
+    );
+    message.sender_role_key = Some("be.role.scout".to_string());
+    message
 }
 
 fn youth_prospect_options() -> Vec<ActionOption> {
@@ -449,23 +456,29 @@ fn youth_prospect_options() -> Vec<ActionOption> {
             id: "sign".to_string(),
             label: "Sign to academy".to_string(),
             description: "Add this player directly to your youth academy now.".to_string(),
-            label_key: None,
-            description_key: None,
+            label_key: Some("be.msg.youthRecruitment.option.sign.label".to_string()),
+            description_key: Some(
+                "be.msg.youthRecruitment.option.sign.description".to_string(),
+            ),
         },
         ActionOption {
             id: "shortlist".to_string(),
             label: "Shortlist".to_string(),
             description: "Keep this player for a later decision without committing now."
                 .to_string(),
-            label_key: None,
-            description_key: None,
+            label_key: Some("be.msg.youthRecruitment.option.shortlist.label".to_string()),
+            description_key: Some(
+                "be.msg.youthRecruitment.option.shortlist.description".to_string(),
+            ),
         },
         ActionOption {
             id: "discard".to_string(),
             label: "Discard".to_string(),
             description: "Remove this prospect from the report.".to_string(),
-            label_key: None,
-            description_key: None,
+            label_key: Some("be.msg.youthRecruitment.option.discard.label".to_string()),
+            description_key: Some(
+                "be.msg.youthRecruitment.option.discard.description".to_string(),
+            ),
         },
     ]
 }
@@ -538,6 +551,8 @@ fn generate_youth_recruitment_candidates(
 
 pub struct YouthRecruitmentEffect {
     pub message: String,
+    pub i18n_key: String,
+    pub i18n_params: HashMap<String, String>,
 }
 
 pub fn apply_youth_recruitment_response(
@@ -575,9 +590,15 @@ pub fn apply_youth_recruitment_response(
 
             Some(YouthRecruitmentEffect {
                 message: format!("{} removed from the youth report.", prospect.full_name),
+                i18n_key: "be.msg.youthRecruitment.effect.discard".to_string(),
+                i18n_params: params(&[("player", &prospect.full_name)]),
             })
         }
         "sign" => {
+            if game.players.iter().any(|player| player.id == prospect.id) {
+                return None;
+            }
+
             let mut signed_player = prospect;
             signed_player.team_id = game.manager.team_id.clone();
             signed_player.squad_role = SquadRole::Youth;
@@ -587,13 +608,20 @@ pub fn apply_youth_recruitment_response(
 
             let message = &mut game.messages[message_index];
             message.context.player_id = Some(player_id);
-            message.context.youth_prospects = None;
-            for action in &mut message.actions {
+            if let Some(prospects) = message.context.youth_prospects.as_mut() {
+                if let Some(updated_prospect) = prospects.iter_mut().find(|candidate| candidate.id == prospect_id) {
+                    updated_prospect.team_id = game.manager.team_id.clone();
+                    updated_prospect.squad_role = SquadRole::Youth;
+                }
+            }
+            if let Some(action) = message.actions.get_mut(action_index) {
                 action.resolved = true;
             }
 
             Some(YouthRecruitmentEffect {
                 message: format!("{} joined your youth academy.", player_name),
+                i18n_key: "be.msg.youthRecruitment.effect.sign".to_string(),
+                i18n_params: params(&[("player", &player_name)]),
             })
         }
         "shortlist" => {
@@ -619,10 +647,7 @@ pub fn apply_youth_recruitment_response(
                 InboxMessage::new(
                     format!("youth-shortlist-{}", prospect.id),
                     "Youth prospect shortlisted".to_string(),
-                    format!(
-                        "{} has been kept on your shortlist for a later academy decision.",
-                        prospect_name
-                    ),
+                    "Youth prospect shortlisted for later review".to_string(),
                     sender,
                     date,
                 )
@@ -644,20 +669,55 @@ pub fn apply_youth_recruitment_response(
                     youth_search_objective,
                     youth_prospects: Some(vec![prospect]),
                     ..MessageContext::default()
-                }),
+                })
+                .with_i18n(
+                    "be.msg.youthRecruitmentShortlist.subject",
+                    "be.msg.youthRecruitmentShortlist.body",
+                    params(&[("player", &prospect_name)]),
+                ),
             );
 
-            let message = &mut game.messages[message_index];
-            message.context.youth_prospects = None;
-            for action in &mut message.actions {
-                action.resolved = true;
+            if let Some(shortlist_message) = game.messages.last_mut() {
+                shortlist_message.sender_role_key = Some("be.role.scout".to_string());
             }
+
+            let message = &mut game.messages[message_index];
+            if let Some(remaining) = message.context.youth_prospects.as_mut() {
+                remaining.remove(prospect_index);
+            }
+            message.actions.remove(action_index);
 
             Some(YouthRecruitmentEffect {
                 message: format!("{} added to your youth shortlist.", prospect_name),
+                i18n_key: "be.msg.youthRecruitment.effect.shortlist".to_string(),
+                i18n_params: params(&[("player", &prospect_name)]),
             })
         }
         _ => None,
+    }
+}
+
+fn region_i18n_key(region: YouthScoutingRegion) -> &'static str {
+    match region {
+        YouthScoutingRegion::Domestic => "scouting.regionDomestic",
+        YouthScoutingRegion::International => "scouting.regionInternational",
+    }
+}
+
+fn objective_i18n_key(objective: YouthScoutingObjective) -> &'static str {
+    match objective {
+        YouthScoutingObjective::Balanced => "scouting.objectiveBalanced",
+        YouthScoutingObjective::HighPotential => "scouting.objectiveHighPotential",
+        YouthScoutingObjective::ReadySoon => "scouting.objectiveReadySoon",
+    }
+}
+
+fn youth_target_position_i18n_key(position: &Position) -> &'static str {
+    match position {
+        Position::Defender => "common.positions.Defender",
+        Position::Midfielder => "common.positions.Midfielder",
+        Position::Forward => "common.positions.Forward",
+        _ => "scouting.youthAnyPosition",
     }
 }
 

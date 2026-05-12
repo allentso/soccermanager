@@ -178,7 +178,11 @@ fn resolve_message_action_internal(
                         action_id,
                         opt,
                     ) {
-                        Some(effect) => (Some(effect.message), None, None),
+                            Some(effect) => (
+                                Some(effect.message),
+                                Some(effect.i18n_key),
+                                Some(effect.i18n_params),
+                            ),
                         None => (None, None, None),
                     },
                 }

@@ -351,6 +351,14 @@ fn process_scouting_completes_youth_recruitment_report() {
         .find(|message| message.subject == "Youth prospect found")
         .expect("expected a youth recruitment report");
     assert_eq!(msg.category, MessageCategory::ScoutReport);
+    assert_eq!(
+        msg.subject_key.as_deref(),
+        Some("be.msg.youthRecruitmentReport.subject")
+    );
+    assert!(matches!(
+        msg.body_key.as_deref(),
+        Some("be.msg.youthRecruitmentReport.bodyTargeted")
+    ));
     assert!(msg.context.player_id.is_none());
     assert_eq!(
         msg.context.youth_target_position.as_deref(),
@@ -361,7 +369,15 @@ fn process_scouting_completes_youth_recruitment_report() {
         msg.context.youth_search_objective.as_deref(),
         Some("Balanced")
     );
-    assert!(msg.body.contains("domestic balanced search"));
+    assert_eq!(msg.sender_role_key.as_deref(), Some("be.role.scout"));
+    assert_eq!(
+        msg.i18n_params.get("regionLabel"),
+        Some(&"scouting.regionDomestic".to_string())
+    );
+    assert_eq!(
+        msg.i18n_params.get("objectiveLabel"),
+        Some(&"scouting.objectiveBalanced".to_string())
+    );
     let prospects = msg
         .context
         .youth_prospects
@@ -420,8 +436,18 @@ fn youth_recruitment_response_signs_selected_prospect() {
         .iter()
         .find(|candidate| candidate.id == message.id)
         .expect("expected updated report message");
-    assert!(updated_message.actions.iter().all(|action| action.resolved));
-    assert!(updated_message.context.youth_prospects.is_none());
+    assert!(updated_message.actions[0].resolved);
+    assert!(!updated_message.actions[1].resolved);
+    let updated_prospects = updated_message
+        .context
+        .youth_prospects
+        .as_ref()
+        .expect("expected remaining prospects in report");
+    let signed_prospect = updated_prospects
+        .iter()
+        .find(|player| player.id == prospect_id)
+        .expect("expected signed prospect to remain visible");
+    assert_eq!(signed_prospect.team_id.as_deref(), Some("team1"));
 }
 
 #[test]
@@ -449,10 +475,28 @@ fn youth_recruitment_response_shortlists_selected_prospect() {
         .expect("expected shortlist effect");
 
     assert!(effect.message.contains("shortlist"));
+    assert_eq!(
+        effect.i18n_key,
+        "be.msg.youthRecruitment.effect.shortlist".to_string()
+    );
     assert!(
         game.messages
             .iter()
             .any(|candidate| candidate.subject == "Youth prospect shortlisted")
+    );
+    let updated_message = game
+        .messages
+        .iter()
+        .find(|candidate| candidate.id == message.id)
+        .expect("expected updated original report message");
+    assert_eq!(
+        updated_message
+            .context
+            .youth_prospects
+            .as_ref()
+            .expect("expected remaining prospects")
+            .len(),
+        2
     );
 }
 
