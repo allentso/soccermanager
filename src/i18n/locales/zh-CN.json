@@ -1998,6 +1998,10 @@
             "label": "礼貌婉拒",
             "description": "婉拒邀约。无财务影响。"
           }
+        },
+        "effects": {
+          "accepted": "签下赞助协议！未来12周你每周将收到€{{amount}}。",
+          "declined": "已拒绝赞助。"
         }
       },
       "trainingInjury": {
@@ -2046,6 +2050,11 @@
             "label": "归咎于伤病与运气",
             "description": "将责任推给外部因素。可能说服他们,也可能不会。"
           }
+        },
+        "effects": {
+          "reassureBoard": "你安抚了董事会。他们暂时会再给你一些时间。",
+          "acceptPressure": "你承认了压力。董事会认可你的坦诚。",
+          "blameCircumstances": "董事会并未完全相信这些解释，但他们会继续观察。"
         }
       },
       "fanPetition": {
@@ -2068,6 +2077,11 @@
             "label": "发表公开声明",
             "description": "在新闻发布会上回应请愿。透明且主动。"
           }
+        },
+        "effects": {
+          "listenFans": "你与球迷进行了沟通。球队士气略有提升。",
+          "ignoreFans": "你决定专注于足球事务。球迷有些失望。",
+          "addressPublicly": "你的公开回应收效不错。球迷信心提升了。"
         }
       },
       "rivalInterest": {
@@ -2087,6 +2101,11 @@
             "label": "无可奉告",
             "description": "保持沉默,静观其变。中立立场。"
           }
+        },
+        "effects": {
+          "notForSale": "你明确表示这名球员是非卖品。他感到自己被重视。",
+          "openToOffers": "你表示愿意听取报价。球员因此有些不安。",
+          "noComment": "无可奉告。传闻还会继续发酵……"
         }
       },
       "moraleCrisis": {

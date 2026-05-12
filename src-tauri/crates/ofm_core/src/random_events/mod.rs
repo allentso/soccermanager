@@ -3,7 +3,7 @@ mod message_builders;
 mod responses;
 
 pub(crate) use message_builders::sponsor_offer_message;
-pub use responses::apply_event_response;
+pub use responses::{RandomEventResponseEffect, apply_event_response};
 
 use crate::contracts::{ContractWarningStage, contract_warning_stage};
 use crate::game::Game;

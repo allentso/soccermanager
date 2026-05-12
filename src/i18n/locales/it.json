@@ -2018,6 +2018,10 @@
             "label": "Rifiuta educatamente",
             "description": "Rifiuta l'offerta. Nessun impatto economico."
           }
+        },
+        "effects": {
+          "accepted": "Accordo di sponsorizzazione firmato. Riceverai €{{amount}} a settimana per 12 settimane.",
+          "declined": "Sponsorizzazione rifiutata."
         }
       },
       "community": {
@@ -2049,6 +2053,11 @@
             "label": "Dai la colpa a infortuni e sfortuna",
             "description": "Sposta la responsabilità su fattori esterni. Potrebbe convincerli oppure no."
           }
+        },
+        "effects": {
+          "reassureBoard": "Hai rassicurato la dirigenza. Ti concederà altro tempo, per ora.",
+          "acceptPressure": "Hai riconosciuto la pressione. La dirigenza apprezza la tua onestà.",
+          "blameCircumstances": "La dirigenza non è del tutto convinta dalle scuse, ma aspetterà di vedere."
         }
       },
       "fanPetition": {
@@ -2071,6 +2080,11 @@
             "label": "Fai una dichiarazione pubblica",
             "description": "Rispondi alla petizione in conferenza stampa. Trasparente e proattivo."
           }
+        },
+        "effects": {
+          "listenFans": "Hai dato ascolto ai tifosi. Il morale della squadra è migliorato leggermente.",
+          "ignoreFans": "Hai deciso di concentrarti sul calcio. I tifosi sono un po' delusi.",
+          "addressPublicly": "Il tuo intervento pubblico è stato accolto bene. La fiducia dei tifosi è aumentata."
         }
       },
       "rivalInterest": {
@@ -2090,6 +2104,11 @@
             "label": "Nessun commento",
             "description": "Resta in silenzio e lascia evolvere la situazione. Posizione neutrale."
           }
+        },
+        "effects": {
+          "notForSale": "Hai chiarito che il giocatore non è in vendita. Si sente valorizzato.",
+          "openToOffers": "Hai fatto capire che ascolteresti offerte. Il giocatore è inquieto.",
+          "noComment": "Nessun commento. Le voci continuano a circolare..."
         }
       },
       "moraleCrisis": {

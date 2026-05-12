@@ -303,22 +303,12 @@ fn finance_board_pressure_message(
     severity: FinanceHealthLevel,
     penalty: u8,
 ) -> InboxMessage {
-    let (subject, body, body_key, priority) = match severity {
+    let (body_key, priority) = match severity {
         FinanceHealthLevel::Critical => (
-            "Board Review — Financial Crisis",
-            format!(
-                "The board has reviewed the club's worsening financial position and confidence in your management has fallen by {} points this week.\n\nCash reserves and wage commitments are now in a critical state. Immediate corrective action is expected.",
-                penalty
-            ),
             "be.msg.financeBoardPressure.bodyCritical",
             MessagePriority::Urgent,
         ),
         FinanceHealthLevel::Warning => (
-            "Board Review — Financial Pressure",
-            format!(
-                "The board remains concerned about the club's finances. Confidence in your management has fallen by {} points this week.\n\nYou need to improve the wage position and short-term cash outlook before patience wears thinner.",
-                penalty
-            ),
             "be.msg.financeBoardPressure.bodyWarning",
             MessagePriority::High,
         ),
@@ -327,14 +317,14 @@ fn finance_board_pressure_message(
 
     InboxMessage::new(
         format!("finance_board_pressure_{}", today),
-        subject.to_string(),
-        body,
-        "Board of Directors".to_string(),
+        String::new(),
+        String::new(),
+        String::new(),
         today.to_string(),
     )
     .with_category(MessageCategory::BoardDirective)
     .with_priority(priority)
-    .with_sender_role("Chairman")
+    .with_sender_role("")
     .with_i18n("be.msg.financeBoardPressure.subject", body_key, {
         let mut p = std::collections::HashMap::new();
         p.insert("penalty".to_string(), penalty.to_string());
@@ -343,7 +333,7 @@ fn finance_board_pressure_message(
     .with_sender_i18n("be.sender.boardOfDirectors", "be.role.chairman")
     .with_action(action(
         "view_finances",
-        "View Finances",
+        "",
         "be.msg.action.viewFinances",
         ActionType::NavigateTo {
             route: "/dashboard?tab=Finances".to_string(),
@@ -360,17 +350,14 @@ fn marketing_campaign_message(
 ) -> InboxMessage {
     InboxMessage::new(
         format!("marketing_campaign_{}", today),
-        "Marketing Campaign Report".to_string(),
-        format!(
-            "The commercial push has finished with gross sales of €{}. After €{} in campaign costs, the club banks €{} in fresh income.\n\nThe commercial team will need {} days before launching another campaign.",
-            gross_revenue, campaign_cost, net_income, cooldown_days
-        ),
-        "Commercial Director".to_string(),
+        String::new(),
+        String::new(),
+        String::new(),
         today.to_string(),
     )
     .with_category(MessageCategory::Finance)
     .with_priority(MessagePriority::Normal)
-    .with_sender_role("Commercial Director")
+    .with_sender_role("")
     .with_i18n(
         "be.msg.marketingCampaign.subject",
         "be.msg.marketingCampaign.body",
@@ -386,7 +373,7 @@ fn marketing_campaign_message(
     .with_sender_i18n("be.sender.commercialDirector", "be.role.commercialDirector")
     .with_action(action(
         "ack",
-        "Understood",
+        "",
         "be.msg.event.ack",
         ActionType::Acknowledge,
     ))
@@ -994,20 +981,14 @@ fn generate_financial_warnings(game: &mut Game, today: &str) {
             new_messages.push(
                 InboxMessage::new(
                     msg_id,
-                    "URGENT: Club in Debt".to_string(),
-                    format!(
-                        "The club is currently €{} in debt. This is an unsustainable situation.\n\n\
-                        The board demands immediate action to address the financial crisis. \
-                        Consider selling players, reducing staff, or finding alternative income.\n\n\
-                        Failure to resolve this may have serious consequences for your position.",
-                        format_money((-team.finance) as u64)
-                    ),
-                    "Board of Directors".to_string(),
+                    String::new(),
+                    String::new(),
+                    String::new(),
                     today.to_string(),
                 )
                 .with_category(MessageCategory::Finance)
                 .with_priority(MessagePriority::Urgent)
-                .with_sender_role("Chairman")
+                .with_sender_role("")
                 .with_i18n(
                     "be.msg.financeCritical.subject",
                     "be.msg.financeCritical.body",
@@ -1018,7 +999,7 @@ fn generate_financial_warnings(game: &mut Game, today: &str) {
                     },
                 )
                 .with_sender_i18n("be.sender.boardOfDirectors", "be.role.chairman")
-                .with_action(action("view_finances", "View Finances", "be.msg.action.viewFinances",
+                .with_action(action("view_finances", "", "be.msg.action.viewFinances",
                     ActionType::NavigateTo { route: "/dashboard?tab=Finances".to_string() }))
             );
         }
@@ -1030,19 +1011,14 @@ fn generate_financial_warnings(game: &mut Game, today: &str) {
             new_messages.push(
                 InboxMessage::new(
                     msg_id,
-                    "Financial Warning — Low Reserves".to_string(),
-                    format!(
-                        "Our financial reserves are running low. At the current burn rate (€{}/week in wages), \
-                        we have approximately {} weeks of funding remaining.\n\n\
-                        I'd recommend reviewing the wage bill and exploring ways to boost income.",
-                        format_money(weekly_wages as u64), weeks_left
-                    ),
-                    "Financial Director".to_string(),
+                    String::new(),
+                    String::new(),
+                    String::new(),
                     today.to_string(),
                 )
                 .with_category(MessageCategory::Finance)
                 .with_priority(MessagePriority::High)
-                .with_sender_role("Financial Director")
+                .with_sender_role("")
                 .with_i18n(
                     "be.msg.financeWarning.subject",
                     "be.msg.financeWarning.body",
@@ -1054,7 +1030,7 @@ fn generate_financial_warnings(game: &mut Game, today: &str) {
                     },
                 )
                 .with_sender_i18n("be.sender.financialDirector", "be.role.financialDirector")
-                .with_action(action("view_finances", "View Finances", "be.msg.action.viewFinances",
+                .with_action(action("view_finances", "", "be.msg.action.viewFinances",
                     ActionType::NavigateTo { route: "/dashboard?tab=Finances".to_string() }))
             );
         }
@@ -1066,20 +1042,14 @@ fn generate_financial_warnings(game: &mut Game, today: &str) {
             new_messages.push(
                 InboxMessage::new(
                     msg_id,
-                    "Wage Bill Exceeds Budget".to_string(),
-                    format!(
-                        "Our annual wage bill (€{}) currently exceeds the allocated wage budget (€{}).\n\n\
-                        While we can sustain this in the short term, the board would prefer \
-                        to see the wage bill brought under control.",
-                        format_money(annual_wages as u64),
-                        format_money(team.wage_budget as u64)
-                    ),
-                    "Financial Director".to_string(),
+                    String::new(),
+                    String::new(),
+                    String::new(),
                     today.to_string(),
                 )
                 .with_category(MessageCategory::Finance)
                 .with_priority(MessagePriority::Normal)
-                .with_sender_role("Financial Director")
+                .with_sender_role("")
                 .with_i18n(
                     "be.msg.wageOverBudget.subject",
                     "be.msg.wageOverBudget.body",
@@ -1091,7 +1061,7 @@ fn generate_financial_warnings(game: &mut Game, today: &str) {
                     },
                 )
                 .with_sender_i18n("be.sender.financialDirector", "be.role.financialDirector")
-                .with_action(action("view_finances", "View Finances", "be.msg.action.viewFinances",
+                .with_action(action("view_finances", "", "be.msg.action.viewFinances",
                     ActionType::NavigateTo { route: "/dashboard?tab=Finances".to_string() }))
             );
         }

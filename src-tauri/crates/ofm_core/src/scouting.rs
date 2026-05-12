@@ -400,13 +400,13 @@ fn build_youth_recruitment_report(
     let target_position = target_position.map(|position| position.to_group_position());
     let message = InboxMessage::new(
         format!("youth-scout-{}", assignment_id),
-        "Youth prospect found".to_string(),
-        "Youth recruitment report ready".to_string(),
+        String::new(),
+        String::new(),
         scout_name.to_string(),
         date.to_string(),
     )
     .with_category(MessageCategory::ScoutReport)
-    .with_sender_role("Scout");
+    .with_sender_role("");
 
     let message = prospects.iter().fold(message, |message, prospect| {
         message.with_action(MessageAction {
@@ -461,16 +461,15 @@ fn youth_prospect_options() -> Vec<ActionOption> {
     vec![
         ActionOption {
             id: "sign".to_string(),
-            label: "Sign to academy".to_string(),
-            description: "Add this player directly to your youth academy now.".to_string(),
+            label: String::new(),
+            description: String::new(),
             label_key: Some("be.msg.youthRecruitment.option.sign.label".to_string()),
             description_key: Some("be.msg.youthRecruitment.option.sign.description".to_string()),
         },
         ActionOption {
             id: "shortlist".to_string(),
-            label: "Shortlist".to_string(),
-            description: "Keep this player for a later decision without committing now."
-                .to_string(),
+            label: String::new(),
+            description: String::new(),
             label_key: Some("be.msg.youthRecruitment.option.shortlist.label".to_string()),
             description_key: Some(
                 "be.msg.youthRecruitment.option.shortlist.description".to_string(),
@@ -478,8 +477,8 @@ fn youth_prospect_options() -> Vec<ActionOption> {
         },
         ActionOption {
             id: "discard".to_string(),
-            label: "Discard".to_string(),
-            description: "Remove this prospect from the report.".to_string(),
+            label: String::new(),
+            description: String::new(),
             label_key: Some("be.msg.youthRecruitment.option.discard.label".to_string()),
             description_key: Some("be.msg.youthRecruitment.option.discard.description".to_string()),
         },
@@ -577,7 +576,7 @@ pub fn apply_youth_recruitment_response(
             message.actions.remove(action_index);
 
             Some(YouthRecruitmentEffect {
-                message: format!("{} removed from the youth report.", prospect.full_name),
+                message: String::new(),
                 i18n_key: "be.msg.youthRecruitment.effect.discard".to_string(),
                 i18n_params: params(&[("player", &prospect.full_name)]),
             })
@@ -610,7 +609,7 @@ pub fn apply_youth_recruitment_response(
             }
 
             Some(YouthRecruitmentEffect {
-                message: format!("{} joined your youth academy.", player_name),
+                message: String::new(),
                 i18n_key: "be.msg.youthRecruitment.effect.sign".to_string(),
                 i18n_params: params(&[("player", &player_name)]),
             })
@@ -637,13 +636,13 @@ pub fn apply_youth_recruitment_response(
             game.messages.push(
                 InboxMessage::new(
                     format!("youth-shortlist-{}", prospect.id),
-                    "Youth prospect shortlisted".to_string(),
-                    "Youth prospect shortlisted for later review".to_string(),
+                    String::new(),
+                    String::new(),
                     sender,
                     date,
                 )
                 .with_category(MessageCategory::ScoutReport)
-                .with_sender_role("Scout")
+                .with_sender_role("")
                 .with_action(MessageAction {
                     id: format!("prospect:{}", prospect.id),
                     label: prospect.full_name.clone(),
@@ -679,7 +678,7 @@ pub fn apply_youth_recruitment_response(
             message.actions.remove(action_index);
 
             Some(YouthRecruitmentEffect {
-                message: format!("{} added to your youth shortlist.", prospect_name),
+                message: String::new(),
                 i18n_key: "be.msg.youthRecruitment.effect.shortlist".to_string(),
                 i18n_params: params(&[("player", &prospect_name)]),
             })

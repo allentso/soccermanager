@@ -2001,6 +2001,10 @@
             "label": "Höflich ablehnen",
             "description": "Lehne das Angebot ab. Keine finanziellen Auswirkungen."
           }
+        },
+        "effects": {
+          "accepted": "Sponsorenvertrag unterschrieben! Sie erhalten 12 Wochen lang €{{amount}} pro Woche.",
+          "declined": "Sponsorenangebot abgelehnt."
         }
       },
       "trainingInjury": {
@@ -2049,6 +2053,11 @@
             "label": "Verletzungen und Pech anführen",
             "description": "Schiebe die Schuld auf äußere Faktoren. Das kann sie überzeugen oder auch nicht."
           }
+        },
+        "effects": {
+          "reassureBoard": "Sie haben den Vorstand beruhigt. Er gibt Ihnen vorerst mehr Zeit.",
+          "acceptPressure": "Sie haben den Druck anerkannt. Der Vorstand schätzt Ihre Ehrlichkeit.",
+          "blameCircumstances": "Der Vorstand ist von den Ausreden nicht ganz überzeugt, will aber abwarten."
         }
       },
       "fanPetition": {
@@ -2071,6 +2080,11 @@
             "label": "Eine öffentliche Stellungnahme abgeben",
             "description": "Sprich die Petition in einer Pressekonferenz an. Transparent und proaktiv."
           }
+        },
+        "effects": {
+          "listenFans": "Sie sind auf die Fans zugegangen. Die Moral im Kader hat sich leicht verbessert.",
+          "ignoreFans": "Sie haben beschlossen, sich auf den Fußball zu konzentrieren. Die Fans sind etwas enttäuscht.",
+          "addressPublicly": "Ihre öffentliche Stellungnahme kam gut an. Das Vertrauen der Fans ist gestiegen."
         }
       },
       "rivalInterest": {
@@ -2090,6 +2104,11 @@
             "label": "Kein Kommentar",
             "description": "Bleib still und lass die Dinge laufen. Neutrale Haltung."
           }
+        },
+        "effects": {
+          "notForSale": "Sie haben klargemacht, dass der Spieler nicht zu verkaufen ist. Er fühlt sich wertgeschätzt.",
+          "openToOffers": "Sie haben signalisiert, dass Sie sich Angebote anhören würden. Der Spieler ist verunsichert.",
+          "noComment": "Kein Kommentar. Die Gerüchteküche brodelt weiter..."
         }
       },
       "moraleCrisis": {

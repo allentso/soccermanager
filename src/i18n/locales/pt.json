@@ -2001,6 +2001,10 @@
             "label": "Recusar educadamente",
             "description": "Recusa a oferta. Sem impacto financeiro."
           }
+        },
+        "effects": {
+          "accepted": "Acordo de patrocínio assinado. Vais receber €{{amount}} por semana durante 12 semanas.",
+          "declined": "Patrocínio recusado."
         }
       },
       "trainingInjury": {
@@ -2049,6 +2053,11 @@
             "label": "Culpar lesões e azar",
             "description": "Desvia a culpa para fatores externos. Pode ou não convencê-los."
           }
+        },
+        "effects": {
+          "reassureBoard": "Acalmaste a direção. Vai dar-te mais tempo, por agora.",
+          "acceptPressure": "Reconheceste a pressão. A direção aprecia a tua honestidade.",
+          "blameCircumstances": "A direção não está totalmente convencida pelas desculpas, mas vai esperar para ver."
         }
       },
       "fanPetition": {
@@ -2071,6 +2080,11 @@
             "label": "Fazer um comunicado público",
             "description": "Aborda a petição numa conferência de imprensa. Transparente e proativo."
           }
+        },
+        "effects": {
+          "listenFans": "Foste ao encontro dos adeptos. O moral do plantel melhorou ligeiramente.",
+          "ignoreFans": "Decidiste focar-te no futebol. Os adeptos estão um pouco desapontados.",
+          "addressPublicly": "A tua declaração pública foi bem recebida. A confiança dos adeptos aumentou."
         }
       },
       "rivalInterest": {
@@ -2090,6 +2104,11 @@
             "label": "Sem comentários",
             "description": "Mantém o silêncio e deixa a situação seguir. Posição neutra."
           }
+        },
+        "effects": {
+          "notForSale": "Deixaste claro que o jogador não está à venda. Ele sente-se valorizado.",
+          "openToOffers": "Indicaste que ouvirias propostas. O jogador ficou inquieto.",
+          "noComment": "Sem comentários. A máquina de rumores continua..."
         }
       },
       "moraleCrisis": {

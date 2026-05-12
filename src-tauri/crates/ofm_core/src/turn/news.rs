@@ -906,8 +906,16 @@ mod tests {
             .find(|article| article.id == "roundup_md4")
             .unwrap();
         assert_eq!(roundup.category, NewsCategory::LeagueRoundup);
-        assert!(roundup.body.contains("Alpha FC 2 - 1 Beta FC"));
-        assert!(!roundup.body.contains("Gamma FC"));
+        assert_eq!(roundup.body, "");
+        assert_eq!(roundup.body_key.as_deref(), Some("be.news.roundup.body"));
+        assert_eq!(
+            roundup.i18n_params.get("results"),
+            Some(&"  Alpha FC 2 - 1 Beta FC".to_string())
+        );
+        assert_eq!(
+            roundup.i18n_params.get("resultsData"),
+            Some(&"[{\"home\":\"Alpha FC\",\"homeGoals\":2,\"away\":\"Beta FC\",\"awayGoals\":1}]".to_string())
+        );
 
         let standings = game
             .news
@@ -915,7 +923,12 @@ mod tests {
             .find(|article| article.id == "standings_md4")
             .unwrap();
         assert_eq!(standings.category, NewsCategory::StandingsUpdate);
-        assert!(standings.body.contains("Alpha FC sit at the top"));
+        assert_eq!(standings.body, "");
+        assert_eq!(standings.body_key.as_deref(), Some("be.news.standings.body"));
+        assert_eq!(
+            standings.i18n_params.get("leader"),
+            Some(&"Alpha FC".to_string())
+        );
     }
 
     #[test]
@@ -1149,8 +1162,9 @@ mod tests {
             .find(|article| article.id.starts_with("preseason_digest_"))
             .unwrap();
         assert_eq!(digest.category, NewsCategory::Editorial);
-        assert!(digest.headline.contains("Preseason Digest"));
-        assert!(digest.body.contains("Training camps"));
+        assert_eq!(digest.headline, "");
+        assert_eq!(digest.body, "");
+        assert_eq!(digest.source, "");
         assert_eq!(
             digest.headline_key.as_deref(),
             Some("be.news.preseasonDigest.headline")
@@ -1214,10 +1228,23 @@ mod tests {
             digest.body_key.as_deref(),
             Some("be.news.preseasonDigest.bodyWithResults")
         );
-        assert!(digest.body.contains("Alpha FC 2 - 1 Beta FC"));
-        assert!(digest.body.contains("Gamma FC 0 - 0 Beta FC"));
-        assert!(digest.body.contains("friendly result(s)"));
-        assert!(!digest.body.contains("lead the table"));
+        assert_eq!(digest.body, "");
+        assert!(
+            digest
+                .i18n_params
+                .get("results")
+                .is_some_and(|results| results.contains("Alpha FC 2 - 1 Beta FC"))
+        );
+        assert!(
+            digest
+                .i18n_params
+                .get("results")
+                .is_some_and(|results| results.contains("Gamma FC 0 - 0 Beta FC"))
+        );
+        assert_eq!(
+            digest.i18n_params.get("resultCount"),
+            Some(&"2".to_string())
+        );
     }
 
     #[test]
@@ -1270,9 +1297,30 @@ mod tests {
             .find(|article| article.id.starts_with("weekly_transfer_roundup_"))
             .expect("expected a weekly transfer roundup article");
         assert_eq!(roundup.category, NewsCategory::TransferRoundup);
-        assert!(roundup.headline.contains("Transfer Roundup"));
-        assert!(roundup.body.contains("Marcos: Beta FC -> Gamma FC (€1.8M)"));
-        assert!(roundup.body.contains("Elliot: Gamma FC -> Beta FC (€950K)"));
+        assert_eq!(roundup.headline, "");
+        assert_eq!(roundup.body, "");
+        assert_eq!(roundup.source, "");
+        assert_eq!(
+            roundup.headline_key.as_deref(),
+            Some("be.news.transferRoundup.headline")
+        );
+        assert_eq!(roundup.body_key.as_deref(), Some("be.news.transferRoundup.body"));
+        assert_eq!(
+            roundup.source_key.as_deref(),
+            Some("be.source.transferIntelligence")
+        );
+        assert!(
+            roundup
+                .i18n_params
+                .get("deals")
+                .is_some_and(|deals| deals.contains("Marcos: Beta FC -> Gamma FC (€1.8M)"))
+        );
+        assert!(
+            roundup
+                .i18n_params
+                .get("deals")
+                .is_some_and(|deals| deals.contains("Elliot: Gamma FC -> Beta FC (€950K)"))
+        );
         assert_eq!(roundup.player_ids.len(), 2);
         assert!(
             roundup
@@ -1419,8 +1467,20 @@ mod tests {
             .find(|article| article.id.starts_with("weekly_transfer_roundup_"))
             .expect("expected a weekly transfer roundup article");
         assert_eq!(roundup.category, NewsCategory::TransferRoundup);
-        assert!(roundup.body.contains("Nico: Beta FC -> Gamma FC (€2.4M)"));
-        assert!(roundup.body.contains("Rui: Gamma FC -> Beta FC (€1.2M)"));
+        assert_eq!(roundup.body, "");
+        assert_eq!(roundup.body_key.as_deref(), Some("be.news.transferRoundup.body"));
+        assert!(
+            roundup
+                .i18n_params
+                .get("deals")
+                .is_some_and(|deals| deals.contains("Nico: Beta FC -> Gamma FC (€2.4M)"))
+        );
+        assert!(
+            roundup
+                .i18n_params
+                .get("deals")
+                .is_some_and(|deals| deals.contains("Rui: Gamma FC -> Beta FC (€1.2M)"))
+        );
     }
 
     #[test]

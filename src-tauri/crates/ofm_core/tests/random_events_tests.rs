@@ -697,7 +697,9 @@ fn apply_sponsor_accept_adds_finance() {
     let result = apply_event_response(&mut game, "sponsor_2025-06-15", "respond", "accept");
 
     assert!(result.is_some());
-    assert!(result.unwrap().contains("deal signed"));
+    let effect = result.unwrap();
+    assert_eq!(effect.i18n_key, "be.msg.sponsor.effects.accepted");
+    assert_eq!(effect.i18n_params.get("amount"), Some(&"100K".to_string()));
     assert_eq!(game.teams[0].finance, initial_finance);
     assert_eq!(game.teams[0].season_income, 0);
     let sponsorship = game.teams[0]
@@ -729,7 +731,10 @@ fn apply_sponsor_decline_no_finance_change() {
     let result = apply_event_response(&mut game, "sponsor_2025-06-15", "respond", "decline");
 
     assert!(result.is_some());
-    assert!(result.unwrap().contains("declined"));
+    assert_eq!(
+        result.unwrap().i18n_key,
+        "be.msg.sponsor.effects.declined"
+    );
     assert_eq!(game.teams[0].finance, initial_finance);
     assert!(game.teams[0].sponsorship.is_none());
     let msg = game
@@ -838,7 +843,10 @@ fn apply_board_reassure_resolves() {
         "reassure_board",
     );
     assert!(result.is_some());
-    assert!(result.unwrap().contains("reassured"));
+    assert_eq!(
+        result.unwrap().i18n_key,
+        "be.msg.boardConfidence.effects.reassureBoard"
+    );
     let msg = game
         .messages
         .iter()
@@ -858,7 +866,10 @@ fn apply_board_accept_pressure_resolves() {
         "accept_pressure",
     );
     assert!(result.is_some());
-    assert!(result.unwrap().contains("honesty"));
+    assert_eq!(
+        result.unwrap().i18n_key,
+        "be.msg.boardConfidence.effects.acceptPressure"
+    );
 }
 
 #[test]
@@ -872,7 +883,10 @@ fn apply_board_blame_resolves() {
         "blame_circumstances",
     );
     assert!(result.is_some());
-    assert!(result.unwrap().contains("wait and see"));
+    assert_eq!(
+        result.unwrap().i18n_key,
+        "be.msg.boardConfidence.effects.blameCircumstances"
+    );
 }
 
 #[test]
@@ -929,7 +943,10 @@ fn apply_fan_listen_boosts_morale() {
         "listen_fans",
     );
     assert!(result.is_some());
-    assert!(result.unwrap().contains("morale improved"));
+    assert_eq!(
+        result.unwrap().i18n_key,
+        "be.msg.fanPetition.effects.listenFans"
+    );
     // At least some players should have morale > 50 now
     let boosted = game.players.iter().any(|p| p.morale > 50);
     assert!(boosted, "Listening to fans should boost morale");
@@ -946,7 +963,10 @@ fn apply_fan_ignore_resolves() {
         "ignore_fans",
     );
     assert!(result.is_some());
-    assert!(result.unwrap().contains("disappointed"));
+    assert_eq!(
+        result.unwrap().i18n_key,
+        "be.msg.fanPetition.effects.ignoreFans"
+    );
 }
 
 #[test]
@@ -960,7 +980,10 @@ fn apply_fan_address_publicly_resolves() {
         "address_publicly",
     );
     assert!(result.is_some());
-    assert!(result.unwrap().contains("well received"));
+    assert_eq!(
+        result.unwrap().i18n_key,
+        "be.msg.fanPetition.effects.addressPublicly"
+    );
 }
 
 #[test]
@@ -1013,7 +1036,10 @@ fn apply_rival_not_for_sale_boosts_morale() {
         "not_for_sale",
     );
     assert!(result.is_some());
-    assert!(result.unwrap().contains("valued"));
+    assert_eq!(
+        result.unwrap().i18n_key,
+        "be.msg.rivalInterest.effects.notForSale"
+    );
     assert!(game.players[0].morale > 50, "Morale should increase");
 }
 
@@ -1029,7 +1055,10 @@ fn apply_rival_open_to_offers_drops_morale() {
         "open_to_offers",
     );
     assert!(result.is_some());
-    assert!(result.unwrap().contains("unsettled"));
+    assert_eq!(
+        result.unwrap().i18n_key,
+        "be.msg.rivalInterest.effects.openToOffers"
+    );
     assert!(game.players[0].morale < 80, "Morale should decrease");
 }
 
@@ -1044,7 +1073,10 @@ fn apply_rival_no_comment_resolves() {
         "no_comment",
     );
     assert!(result.is_some());
-    assert!(result.unwrap().contains("rumour mill"));
+    assert_eq!(
+        result.unwrap().i18n_key,
+        "be.msg.rivalInterest.effects.noComment"
+    );
 }
 
 #[test]

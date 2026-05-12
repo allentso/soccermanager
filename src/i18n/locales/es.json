@@ -2031,6 +2031,10 @@
             "label": "Rechazar cortésmente",
             "description": "Rechaza la oferta. Sin impacto financiero."
           }
+        },
+        "effects": {
+          "accepted": "Acuerdo de patrocinio firmado. Recibirás €{{amount}} por semana durante 12 semanas.",
+          "declined": "Patrocinio rechazado."
         }
       },
       "trainingInjury": {
@@ -2079,6 +2083,11 @@
             "label": "Señalar lesiones y mala suerte",
             "description": "Desvía la culpa hacia factores externos. Puede que les convenza o no."
           }
+        },
+        "effects": {
+          "reassureBoard": "Has tranquilizado a la directiva. Te darán más tiempo, por ahora.",
+          "acceptPressure": "Has reconocido la presión. La directiva valora tu sinceridad.",
+          "blameCircumstances": "La directiva no está del todo convencida por las excusas, pero esperará a ver."
         }
       },
       "fanPetition": {
@@ -2101,6 +2110,11 @@
             "label": "Hacer una declaración pública",
             "description": "Aborda la petición en una rueda de prensa. Transparente y proactivo."
           }
+        },
+        "effects": {
+          "listenFans": "Has atendido a la afición. La moral de la plantilla ha mejorado ligeramente.",
+          "ignoreFans": "Has decidido centrarte en lo deportivo. La afición está algo decepcionada.",
+          "addressPublicly": "Tu declaración pública fue bien recibida. La confianza de la afición ha aumentado."
         }
       },
       "rivalInterest": {
@@ -2120,6 +2134,11 @@
             "label": "Sin comentarios",
             "description": "Mantente en silencio y deja que la situación evolucione. Postura neutral."
           }
+        },
+        "effects": {
+          "notForSale": "Has dejado claro que el jugador no está en venta. Se siente valorado.",
+          "openToOffers": "Has indicado que escucharías ofertas. El jugador está inquieto.",
+          "noComment": "Sin comentarios. La maquinaria de rumores sigue girando..."
         }
       },
       "moraleCrisis": {

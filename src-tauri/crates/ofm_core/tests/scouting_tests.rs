@@ -348,7 +348,9 @@ fn process_scouting_completes_youth_recruitment_report() {
     let msg = game
         .messages
         .iter()
-        .find(|message| message.subject == "Youth prospect found")
+        .find(|message| {
+            message.subject_key.as_deref() == Some("be.msg.youthRecruitmentReport.subject")
+        })
         .expect("expected a youth recruitment report");
     assert_eq!(msg.category, MessageCategory::ScoutReport);
     assert_eq!(
@@ -414,7 +416,9 @@ fn youth_recruitment_response_signs_selected_prospect() {
     let message = game
         .messages
         .iter()
-        .find(|candidate| candidate.subject == "Youth prospect found")
+        .find(|candidate| {
+            candidate.subject_key.as_deref() == Some("be.msg.youthRecruitmentReport.subject")
+        })
         .expect("expected youth recruitment report")
         .clone();
     let action_id = message.actions[0].id.clone();
@@ -423,7 +427,8 @@ fn youth_recruitment_response_signs_selected_prospect() {
     let effect = apply_youth_recruitment_response(&mut game, &message.id, &action_id, "sign")
         .expect("expected sign effect");
 
-    assert!(effect.message.contains("joined your youth academy"));
+    assert_eq!(effect.message, "");
+    assert_eq!(effect.i18n_key, "be.msg.youthRecruitment.effect.sign");
     let signed_player = game
         .players
         .iter()
@@ -466,7 +471,9 @@ fn youth_recruitment_response_shortlists_selected_prospect() {
     let message = game
         .messages
         .iter()
-        .find(|candidate| candidate.subject == "Youth prospect found")
+        .find(|candidate| {
+            candidate.subject_key.as_deref() == Some("be.msg.youthRecruitmentReport.subject")
+        })
         .expect("expected youth recruitment report")
         .clone();
     let action_id = message.actions[1].id.clone();
@@ -474,7 +481,7 @@ fn youth_recruitment_response_shortlists_selected_prospect() {
     let effect = apply_youth_recruitment_response(&mut game, &message.id, &action_id, "shortlist")
         .expect("expected shortlist effect");
 
-    assert!(effect.message.contains("shortlist"));
+    assert_eq!(effect.message, "");
     assert_eq!(
         effect.i18n_key,
         "be.msg.youthRecruitment.effect.shortlist".to_string()
@@ -482,7 +489,10 @@ fn youth_recruitment_response_shortlists_selected_prospect() {
     assert!(
         game.messages
             .iter()
-            .any(|candidate| candidate.subject == "Youth prospect shortlisted")
+            .any(|candidate| {
+                candidate.subject_key.as_deref()
+                    == Some("be.msg.youthRecruitmentShortlist.subject")
+            })
     );
     let updated_message = game
         .messages
@@ -516,7 +526,9 @@ fn youth_recruitment_response_discard_removes_only_selected_prospect() {
     let message = game
         .messages
         .iter()
-        .find(|candidate| candidate.subject == "Youth prospect found")
+        .find(|candidate| {
+            candidate.subject_key.as_deref() == Some("be.msg.youthRecruitmentReport.subject")
+        })
         .expect("expected youth recruitment report")
         .clone();
     let action_id = message.actions[0].id.clone();

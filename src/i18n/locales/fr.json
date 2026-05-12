@@ -2001,6 +2001,10 @@
             "label": "Refuser poliment",
             "description": "Refusez l'offre. Aucun impact financier."
           }
+        },
+        "effects": {
+          "accepted": "Sponsoring signé ! Vous recevrez €{{amount}} par semaine pendant 12 semaines.",
+          "declined": "Sponsoring refusé."
         }
       },
       "trainingInjury": {
@@ -2049,6 +2053,11 @@
             "label": "Évoquer les blessures et la malchance",
             "description": "Reportez la faute sur des facteurs extérieurs. Cela peut les convaincre ou non."
           }
+        },
+        "effects": {
+          "reassureBoard": "Vous avez rassuré le conseil. Il vous accordera encore un peu de temps, pour l'instant.",
+          "acceptPressure": "Vous avez reconnu la pression. Le conseil apprécie votre honnêteté.",
+          "blameCircumstances": "Le conseil n'est pas totalement convaincu par les excuses, mais il va attendre de voir."
         }
       },
       "fanPetition": {
@@ -2071,6 +2080,11 @@
             "label": "Faire une déclaration publique",
             "description": "Abordez la pétition en conférence de presse. Transparent et proactif."
           }
+        },
+        "effects": {
+          "listenFans": "Vous avez échangé avec les supporters. Le moral du groupe s'est légèrement amélioré.",
+          "ignoreFans": "Vous avez décidé de vous concentrer sur le football. Les supporters sont un peu déçus.",
+          "addressPublicly": "Votre prise de parole publique a été bien reçue. La confiance des supporters augmente."
         }
       },
       "rivalInterest": {
@@ -2090,6 +2104,11 @@
             "label": "Pas de commentaire",
             "description": "Restez silencieux et laissez la situation évoluer. Position neutre."
           }
+        },
+        "effects": {
+          "notForSale": "Vous avez clairement indiqué que le joueur n'est pas à vendre. Il se sent valorisé.",
+          "openToOffers": "Vous avez indiqué que vous écouteriez les offres. Le joueur est déstabilisé.",
+          "noComment": "Pas de commentaire. La rumeur continue d'enfler..."
         }
       },
       "moraleCrisis": {

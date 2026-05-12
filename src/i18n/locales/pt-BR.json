@@ -2001,6 +2001,10 @@
             "label": "Recusar educadamente",
             "description": "Recuse a oferta. Sem impacto financeiro."
           }
+        },
+        "effects": {
+          "accepted": "Acordo de patrocínio assinado. Você receberá €{{amount}} por semana durante 12 semanas.",
+          "declined": "Patrocínio recusado."
         }
       },
       "trainingInjury": {
@@ -2049,6 +2053,11 @@
             "label": "Culpar lesões e azar",
             "description": "Desvie a culpa para fatores externos. Pode ou não convencê-los."
           }
+        },
+        "effects": {
+          "reassureBoard": "Você tranquilizou a diretoria. Eles vão lhe dar mais tempo, por enquanto.",
+          "acceptPressure": "Você reconheceu a pressão. A diretoria valoriza sua honestidade.",
+          "blameCircumstances": "A diretoria não está totalmente convencida pelas desculpas, mas vai esperar para ver."
         }
       },
       "fanPetition": {
@@ -2071,6 +2080,11 @@
             "label": "Fazer um pronunciamento público",
             "description": "Aborde a petição em uma coletiva. Transparente e proativo."
           }
+        },
+        "effects": {
+          "listenFans": "Você ouviu a torcida. O moral do elenco melhorou um pouco.",
+          "ignoreFans": "Você decidiu focar no futebol. A torcida ficou um pouco decepcionada.",
+          "addressPublicly": "Seu pronunciamento público foi bem recebido. A confiança da torcida aumentou."
         }
       },
       "rivalInterest": {
@@ -2090,6 +2104,11 @@
             "label": "Sem comentários",
             "description": "Fique em silêncio e deixe a situação seguir. Postura neutra."
           }
+        },
+        "effects": {
+          "notForSale": "Você deixou claro que o jogador não está à venda. Ele se sente valorizado.",
+          "openToOffers": "Você indicou que ouviria propostas. O jogador está inquieto.",
+          "noComment": "Sem comentários. A roda de rumores continua girando..."
         }
       },
       "moraleCrisis": {

@@ -1997,6 +1997,10 @@
             "label": "Decline politely",
             "description": "Turn down the offer. No financial impact."
           }
+        },
+        "effects": {
+          "accepted": "Sponsorship deal signed! You will receive €{{amount}}/week for 12 weeks.",
+          "declined": "Sponsorship declined."
         }
       },
       "trainingInjury": {
@@ -2045,6 +2049,11 @@
             "label": "Point to injuries and bad luck",
             "description": "Deflect blame to external factors. May or may not convince them."
           }
+        },
+        "effects": {
+          "reassureBoard": "You reassured the board. They'll give you more time for now.",
+          "acceptPressure": "You acknowledged the pressure. The board appreciates your honesty.",
+          "blameCircumstances": "The board isn't entirely convinced by excuses, but they'll wait and see."
         }
       },
       "fanPetition": {
@@ -2067,6 +2076,11 @@
             "label": "Make a public statement",
             "description": "Address the petition in a press conference. Transparent and proactive."
           }
+        },
+        "effects": {
+          "listenFans": "You engaged with the fans. Squad morale improved slightly.",
+          "ignoreFans": "You decided to focus on football matters. The fans are a little disappointed.",
+          "addressPublicly": "Your public address was well received. Fan confidence is up."
         }
       },
       "rivalInterest": {
@@ -2086,6 +2100,11 @@
             "label": "No comment",
             "description": "Stay quiet and let things play out. Neutral stance."
           }
+        },
+        "effects": {
+          "notForSale": "You made it clear the player is not for sale. They're feeling valued.",
+          "openToOffers": "You indicated you'd listen to offers. The player is unsettled.",
+          "noComment": "No comment. The rumour mill continues..."
         }
       },
       "moraleCrisis": {
