@@ -1655,6 +1655,7 @@
     "error": {
       "noActiveGameSession": "当前没有活动中的游戏会话",
       "noActiveSaveSession": "当前没有活动中的存档会话",
+      "saveNotFound": "未找到存档“{{saveId}}”。",
       "teamNotFound": "未找到球队",
       "noTeamAssigned": "尚未分配球队",
       "playerNotFound": "未找到球员",
@@ -1680,6 +1681,17 @@
       "worldReadFileFailed": "读取世界数据库文件失败。",
       "worldWriteFileFailed": "导出世界数据库文件失败。",
       "worldWriteDatabaseFailed": "保存导入的世界数据库失败。",
+      "gamePersistence": {
+        "gameMetaMissing": "存档缺少核心游戏元数据。",
+        "invalidStartDate": "存档包含无效的开始日期。",
+        "invalidGameDate": "存档包含无效的当前日期。",
+        "managerNotFound": "未在该存档中找到主教练“{{managerId}}”。"
+      },
+      "saveIndex": {
+        "checksumReadFailed": "读取存档数据以验证校验和失败。",
+        "loadFailed": "加载存档索引失败。",
+        "writeFailed": "更新存档索引失败。"
+      },
       "saveManagerUnavailable": "存档数据暂时不可用。",
       "finance": {
         "boardSupportUnavailable": "只有当现金储备承压时，董事会紧急支持才可用。",

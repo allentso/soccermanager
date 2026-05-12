@@ -1014,9 +1014,17 @@ mod tests {
             )),
             Some(("team1", "team2", 1, 1))
         );
+        assert_eq!(article.headline, "");
+        assert_eq!(article.body, "");
         assert_eq!(
             article.i18n_params.get("scorers"),
-            Some(&"Alice (10', Alpha FC), ghost9 (74', Beta FC)".to_string())
+            Some(&String::new())
+        );
+        assert_eq!(
+            article.i18n_params.get("scorersData"),
+            Some(
+                &"[{\"player\":\"Alice\",\"minute\":10,\"team\":\"Alpha FC\"},{\"player\":\"ghost9\",\"minute\":74,\"team\":\"Beta FC\"}]".to_string()
+            )
         );
     }
 
@@ -1049,8 +1057,8 @@ mod tests {
 
         let article = &game.news[0];
         assert_eq!(article.category, NewsCategory::MatchReport);
-        assert!(article.body.to_lowercase().contains("friendly action"));
-        assert!(article.headline.to_lowercase().contains("friendly report"));
+        assert_eq!(article.headline, "");
+        assert_eq!(article.body, "");
         assert_eq!(
             article.headline_key.as_deref(),
             Some("be.news.matchReport.reportFriendly.title")
@@ -1059,6 +1067,12 @@ mod tests {
             article.body_key.as_deref(),
             Some("be.news.matchReport.reportFriendly.body")
         );
+        assert_eq!(article.i18n_params.get("scorers"), Some(&String::new()));
+        assert_eq!(
+            article.i18n_params.get("scorersSection"),
+            Some(&String::new())
+        );
+        assert_eq!(article.i18n_params.get("scorersData"), Some(&"[]".to_string()));
     }
 
     #[test]

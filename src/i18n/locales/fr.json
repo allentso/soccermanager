@@ -1655,6 +1655,7 @@
     "error": {
       "noActiveGameSession": "Aucune partie active",
       "noActiveSaveSession": "Aucune session de sauvegarde active",
+      "saveNotFound": "Sauvegarde '{{saveId}}' introuvable.",
       "teamNotFound": "Équipe introuvable",
       "noTeamAssigned": "Aucune équipe assignée",
       "playerNotFound": "Joueur introuvable",
@@ -1680,6 +1681,17 @@
       "worldReadFileFailed": "Impossible de lire le fichier de base de données du monde.",
       "worldWriteFileFailed": "Impossible d'exporter le fichier de base de données du monde.",
       "worldWriteDatabaseFailed": "Impossible d'enregistrer la base de données du monde importée.",
+      "gamePersistence": {
+        "gameMetaMissing": "La sauvegarde ne contient pas les métadonnées de jeu essentielles.",
+        "invalidStartDate": "La sauvegarde contient une date de début invalide.",
+        "invalidGameDate": "La sauvegarde contient une date actuelle invalide.",
+        "managerNotFound": "Le manager '{{managerId}}' est introuvable dans cette sauvegarde."
+      },
+      "saveIndex": {
+        "checksumReadFailed": "Impossible de lire les données de sauvegarde pour vérifier la somme de contrôle.",
+        "loadFailed": "Impossible de charger l'index des sauvegardes.",
+        "writeFailed": "Impossible de mettre à jour l'index des sauvegardes."
+      },
       "saveManagerUnavailable": "Les données de sauvegarde sont temporairement indisponibles.",
       "finance": {
         "boardSupportUnavailable": "Le soutien d'urgence du conseil n'est disponible que lorsque la trésorerie est sous pression.",

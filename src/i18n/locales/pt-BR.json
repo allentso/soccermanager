@@ -1655,6 +1655,7 @@
     "error": {
       "noActiveGameSession": "Nenhuma sessão de jogo ativa",
       "noActiveSaveSession": "Nenhuma sessão de salvamento ativa",
+      "saveNotFound": "Save '{{saveId}}' não encontrado.",
       "teamNotFound": "Time não encontrado",
       "noTeamAssigned": "Nenhum time atribuído",
       "playerNotFound": "Jogador não encontrado",
@@ -1680,6 +1681,17 @@
       "worldReadFileFailed": "Falha ao ler o arquivo do banco de dados do mundo.",
       "worldWriteFileFailed": "Falha ao exportar o arquivo do banco de dados do mundo.",
       "worldWriteDatabaseFailed": "Falha ao salvar o banco de dados do mundo importado.",
+      "gamePersistence": {
+        "gameMetaMissing": "O save não contém os metadados principais do jogo.",
+        "invalidStartDate": "O save contém uma data inicial inválida.",
+        "invalidGameDate": "O save contém uma data atual inválida.",
+        "managerNotFound": "O técnico '{{managerId}}' não foi encontrado neste save."
+      },
+      "saveIndex": {
+        "checksumReadFailed": "Não foi possível ler os dados do save para validar a soma de verificação.",
+        "loadFailed": "Não foi possível carregar o índice de saves.",
+        "writeFailed": "Não foi possível atualizar o índice de saves."
+      },
       "saveManagerUnavailable": "Os dados salvos estão temporariamente indisponíveis.",
       "finance": {
         "boardSupportUnavailable": "O apoio emergencial da diretoria só está disponível quando o caixa está sob pressão.",

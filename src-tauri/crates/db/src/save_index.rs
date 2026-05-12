@@ -26,6 +26,18 @@ pub struct SaveIndex {
     pub saves: Vec<SaveEntry>,
 }
 
+fn save_index_checksum_error() -> String {
+    "be.error.saveIndex.checksumReadFailed".to_string()
+}
+
+fn save_index_load_error() -> String {
+    "be.error.saveIndex.loadFailed".to_string()
+}
+
+fn save_index_write_error() -> String {
+    "be.error.saveIndex.writeFailed".to_string()
+}
+
 impl SaveIndex {
     /// Create a new empty save index.
     pub fn new() -> Self {
@@ -74,7 +86,7 @@ impl Default for SaveIndex {
 
 /// Compute SHA-256 checksum of a file. Returns hex string.
 pub fn compute_checksum(path: &Path) -> Result<String, String> {
-    let data = fs::read(path).map_err(|e| format!("Failed to read file for checksum: {}", e))?;
+    let data = fs::read(path).map_err(|_| save_index_checksum_error())?;
     let mut hasher = Sha256::new();
     hasher.update(&data);
     let result = hasher.finalize();
@@ -87,23 +99,19 @@ pub fn load_index(index_path: &Path) -> Result<Option<SaveIndex>, String> {
         debug!("[save_index] index file not found at {:?}", index_path);
         return Ok(None);
     }
-    let data =
-        fs::read_to_string(index_path).map_err(|e| format!("Failed to read save index: {}", e))?;
-    let index: SaveIndex =
-        serde_json::from_str(&data).map_err(|e| format!("Failed to parse save index: {}", e))?;
+    let data = fs::read_to_string(index_path).map_err(|_| save_index_load_error())?;
+    let index: SaveIndex = serde_json::from_str(&data).map_err(|_| save_index_load_error())?;
     debug!("[save_index] loaded index with {} saves", index.saves.len());
     Ok(Some(index))
 }
 
 /// Write save index to a JSON file.
 pub fn write_index(index_path: &Path, index: &SaveIndex) -> Result<(), String> {
-    let data = serde_json::to_string_pretty(index)
-        .map_err(|e| format!("Failed to serialize save index: {}", e))?;
+    let data = serde_json::to_string_pretty(index).map_err(|_| save_index_write_error())?;
     if let Some(parent) = index_path.parent() {
-        fs::create_dir_all(parent)
-            .map_err(|e| format!("Failed to create index directory: {}", e))?;
+        fs::create_dir_all(parent).map_err(|_| save_index_write_error())?;
     }
-    fs::write(index_path, data).map_err(|e| format!("Failed to write save index: {}", e))?;
+    fs::write(index_path, data).map_err(|_| save_index_write_error())?;
     debug!("[save_index] wrote index to {:?}", index_path);
     Ok(())
 }
@@ -177,7 +185,7 @@ fn validate_db_file(path: &Path) -> Result<SaveEntry, String> {
     }
 
     let meta = meta_repo::load_meta(db.conn())?
-        .ok_or_else(|| "No game_meta found in database".to_string())?;
+        .ok_or_else(|| "be.error.gamePersistence.gameMetaMissing".to_string())?;
 
     let checksum = compute_checksum(path)?;
 
@@ -354,6 +362,41 @@ mod tests {
     }
 
     #[test]
+    fn test_compute_checksum_missing_file_uses_backend_key() {
+        let dir = tempfile::tempdir().unwrap();
+        let file_path = dir.path().join("missing.txt");
+
+        let result = compute_checksum(&file_path);
+
+        assert_eq!(result.unwrap_err(), "be.error.saveIndex.checksumReadFailed");
+    }
+
+    #[test]
+    fn test_load_index_invalid_json_uses_backend_key() {
+        let dir = tempfile::tempdir().unwrap();
+        let index_path = dir.path().join("save_index.json");
+        fs::write(&index_path, "not-json").unwrap();
+
+        let result = load_index(&index_path);
+
+        assert_eq!(result.unwrap_err(), "be.error.saveIndex.loadFailed");
+    }
+
+    #[test]
+    fn test_write_index_parent_file_uses_backend_key() {
+        let dir = tempfile::tempdir().unwrap();
+        let blocking_parent = dir.path().join("not-a-directory");
+        fs::write(&blocking_parent, "blocking file").unwrap();
+
+        let index_path = blocking_parent.join("save_index.json");
+        let index = SaveIndex::new();
+
+        let result = write_index(&index_path, &index);
+
+        assert_eq!(result.unwrap_err(), "be.error.saveIndex.writeFailed");
+    }
+
+    #[test]
     fn test_rebuild_index_empty_dir() {
         let dir = tempfile::tempdir().unwrap();
         let saves_dir = dir.path().join("saves");
@@ -423,7 +466,11 @@ mod tests {
         let (index, validations) = rebuild_index(&saves_dir).unwrap();
         assert!(index.saves.is_empty());
         assert_eq!(validations.len(), 1);
-        assert!(matches!(&validations[0], DbValidation::Invalid { .. }));
+        assert!(matches!(
+            &validations[0],
+            DbValidation::Invalid { reason, .. }
+                if reason == "be.error.gamePersistence.gameMetaMissing"
+        ));
     }
 
     #[test]

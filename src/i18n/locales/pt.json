@@ -1655,6 +1655,7 @@
     "error": {
       "noActiveGameSession": "Sem sessão de jogo ativa",
       "noActiveSaveSession": "Sem sessão de gravação ativa",
+      "saveNotFound": "Gravação '{{saveId}}' não encontrada.",
       "teamNotFound": "Equipa não encontrada",
       "noTeamAssigned": "Nenhuma equipa atribuída",
       "playerNotFound": "Jogador não encontrado",
@@ -1680,6 +1681,17 @@
       "worldReadFileFailed": "Falha ao ler o ficheiro da base de dados do mundo.",
       "worldWriteFileFailed": "Falha ao exportar o ficheiro da base de dados do mundo.",
       "worldWriteDatabaseFailed": "Falha ao guardar a base de dados do mundo importada.",
+      "gamePersistence": {
+        "gameMetaMissing": "A gravação não contém os metadados essenciais do jogo.",
+        "invalidStartDate": "A gravação contém uma data de início inválida.",
+        "invalidGameDate": "A gravação contém uma data atual inválida.",
+        "managerNotFound": "O treinador '{{managerId}}' não foi encontrado nesta gravação."
+      },
+      "saveIndex": {
+        "checksumReadFailed": "Não foi possível ler os dados guardados para validar a soma de controlo.",
+        "loadFailed": "Não foi possível carregar o índice de gravações.",
+        "writeFailed": "Não foi possível atualizar o índice de gravações."
+      },
       "saveManagerUnavailable": "Os dados de gravação estão temporariamente indisponíveis.",
       "finance": {
         "boardSupportUnavailable": "O apoio de emergência da direção só está disponível quando a tesouraria está sob pressão.",

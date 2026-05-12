@@ -1655,6 +1655,7 @@
     "error": {
       "noActiveGameSession": "No active game session",
       "noActiveSaveSession": "No active save session",
+      "saveNotFound": "Save '{{saveId}}' not found.",
       "saveManagerUnavailable": "Save data is temporarily unavailable.",
       "teamNotFound": "Team not found",
       "noTeamAssigned": "No team assigned",
@@ -1681,6 +1682,17 @@
       "worldReadFileFailed": "Failed to read the world database file.",
       "worldWriteFileFailed": "Failed to export the world database file.",
       "worldWriteDatabaseFailed": "Failed to save the imported world database.",
+      "gamePersistence": {
+        "gameMetaMissing": "Save data is missing core game metadata.",
+        "invalidStartDate": "Save data has an invalid start date.",
+        "invalidGameDate": "Save data has an invalid current date.",
+        "managerNotFound": "Manager '{{managerId}}' was not found in this save."
+      },
+      "saveIndex": {
+        "checksumReadFailed": "Failed to read save data for checksum validation.",
+        "loadFailed": "Failed to load the save index.",
+        "writeFailed": "Failed to update the save index."
+      },
       "finance": {
         "boardSupportUnavailable": "Emergency board support is only available when cash reserves are under pressure.",
         "boardSupportAlreadyUsed": "The board has already approved emergency support this season.",

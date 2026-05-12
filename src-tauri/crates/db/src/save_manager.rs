@@ -25,6 +25,10 @@ pub struct SaveManager {
     save_index: SaveIndexManager,
 }
 
+fn save_not_found_error(save_id: &str) -> String {
+    format!("be.error.saveNotFound?saveId={save_id}")
+}
+
 impl SaveManager {
     /// Initialize the SaveManager without blocking startup on a missing save index.
     pub fn init(saves_dir: &Path) -> Result<Self, String> {
@@ -97,7 +101,7 @@ impl SaveManager {
         let entry = self
             .save_index
             .find(save_id)
-            .ok_or_else(|| format!("Save '{}' not found", save_id))?;
+            .ok_or_else(|| save_not_found_error(save_id))?;
 
         let db_path = self.saves_dir.join(&entry.db_filename);
         let save_name = entry.name.clone();
@@ -135,7 +139,7 @@ impl SaveManager {
         let entry = self
             .save_index
             .find(save_id)
-            .ok_or_else(|| format!("Save '{}' not found", save_id))?
+            .ok_or_else(|| save_not_found_error(save_id))?
             .clone();
 
         let db_path = self.saves_dir.join(&entry.db_filename);
@@ -164,7 +168,7 @@ impl SaveManager {
         let entry = self
             .save_index
             .find(save_id)
-            .ok_or_else(|| format!("Save '{}' not found", save_id))?
+            .ok_or_else(|| save_not_found_error(save_id))?
             .clone();
 
         let db_path = self.saves_dir.join(&entry.db_filename);
@@ -179,7 +183,7 @@ impl SaveManager {
         let entry = self
             .save_index
             .find(save_id)
-            .ok_or_else(|| format!("Save '{}' not found", save_id))?
+            .ok_or_else(|| save_not_found_error(save_id))?
             .clone();
 
         let db_path = self.saves_dir.join(&entry.db_filename);
@@ -1306,24 +1310,44 @@ mod tests {
     }
 
     #[test]
-    fn test_load_nonexistent_save() {
+    fn test_load_nonexistent_save_uses_backend_key() {
         let dir = tempfile::tempdir().unwrap();
         let saves_dir = dir.path().join("saves");
 
         let mut sm = SaveManager::init(&saves_dir).unwrap();
         let result = sm.load_game("nonexistent");
-        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err(),
+            "be.error.saveNotFound?saveId=nonexistent"
+        );
     }
 
     #[test]
-    fn test_save_to_nonexistent_save() {
+    fn test_save_to_nonexistent_save_uses_backend_key() {
         let dir = tempfile::tempdir().unwrap();
         let saves_dir = dir.path().join("saves");
 
         let mut sm = SaveManager::init(&saves_dir).unwrap();
         let game = sample_game();
         let result = sm.save_game(&game, "nonexistent");
-        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err(),
+            "be.error.saveNotFound?saveId=nonexistent"
+        );
+    }
+
+    #[test]
+    fn test_load_stats_for_nonexistent_save_uses_backend_key() {
+        let dir = tempfile::tempdir().unwrap();
+        let saves_dir = dir.path().join("saves");
+
+        let mut sm = SaveManager::init(&saves_dir).unwrap();
+        let result = sm.load_stats_state("nonexistent");
+
+        assert_eq!(
+            result.unwrap_err(),
+            "be.error.saveNotFound?saveId=nonexistent"
+        );
     }
 
     #[test]

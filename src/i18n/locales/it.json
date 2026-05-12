@@ -1655,6 +1655,7 @@
     "error": {
       "noActiveGameSession": "Nessuna partita attiva",
       "noActiveSaveSession": "Nessuna sessione di salvataggio attiva",
+      "saveNotFound": "Salvataggio '{{saveId}}' non trovato.",
       "teamNotFound": "Squadra non trovata",
       "noTeamAssigned": "Nessuna squadra assegnata",
       "playerNotFound": "Giocatore non trovato",
@@ -1680,6 +1681,17 @@
       "worldReadFileFailed": "Impossibile leggere il file del database del mondo.",
       "worldWriteFileFailed": "Impossibile esportare il file del database del mondo.",
       "worldWriteDatabaseFailed": "Impossibile salvare il database del mondo importato.",
+      "gamePersistence": {
+        "gameMetaMissing": "Nel salvataggio mancano i metadati principali della partita.",
+        "invalidStartDate": "Il salvataggio contiene una data di inizio non valida.",
+        "invalidGameDate": "Il salvataggio contiene una data corrente non valida.",
+        "managerNotFound": "Il manager '{{managerId}}' non è stato trovato in questo salvataggio."
+      },
+      "saveIndex": {
+        "checksumReadFailed": "Impossibile leggere i dati del salvataggio per verificare il checksum.",
+        "loadFailed": "Impossibile caricare l'indice dei salvataggi.",
+        "writeFailed": "Impossibile aggiornare l'indice dei salvataggi."
+      },
       "saveManagerUnavailable": "I dati di salvataggio non sono temporaneamente disponibili.",
       "finance": {
         "boardSupportUnavailable": "Il supporto d'emergenza del consiglio è disponibile solo quando la liquidità è sotto pressione.",

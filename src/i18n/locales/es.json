@@ -1685,6 +1685,7 @@
     "error": {
       "noActiveGameSession": "No hay una sesión de juego activa",
       "noActiveSaveSession": "No hay una sesión de guardado activa",
+      "saveNotFound": "No se encontró la partida guardada '{{saveId}}'.",
       "teamNotFound": "Equipo no encontrado",
       "noTeamAssigned": "No hay ningún equipo asignado",
       "playerNotFound": "Jugador no encontrado",
@@ -1710,6 +1711,17 @@
       "worldReadFileFailed": "No se pudo leer el archivo de la base de datos del mundo.",
       "worldWriteFileFailed": "No se pudo exportar el archivo de la base de datos del mundo.",
       "worldWriteDatabaseFailed": "No se pudo guardar la base de datos del mundo importada.",
+      "gamePersistence": {
+        "gameMetaMissing": "A la partida guardada le faltan los metadatos principales del juego.",
+        "invalidStartDate": "La partida guardada tiene una fecha de inicio no válida.",
+        "invalidGameDate": "La partida guardada tiene una fecha actual no válida.",
+        "managerNotFound": "No se encontró al mánager '{{managerId}}' en esta partida guardada."
+      },
+      "saveIndex": {
+        "checksumReadFailed": "No se pudieron leer los datos guardados para validar la suma de verificación.",
+        "loadFailed": "No se pudo cargar el índice de partidas guardadas.",
+        "writeFailed": "No se pudo actualizar el índice de partidas guardadas."
+      },
       "saveManagerUnavailable": "Los datos guardados no están disponibles temporalmente.",
       "finance": {
         "boardSupportUnavailable": "El apoyo de emergencia de la directiva solo está disponible cuando la tesorería está bajo presión.",

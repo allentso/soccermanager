@@ -120,25 +120,41 @@ impl GamePersistenceWriter {
 
 pub struct GamePersistenceReader;
 
+fn game_meta_missing_error() -> String {
+    "be.error.gamePersistence.gameMetaMissing".to_string()
+}
+
+fn invalid_start_date_error() -> String {
+    "be.error.gamePersistence.invalidStartDate".to_string()
+}
+
+fn invalid_game_date_error() -> String {
+    "be.error.gamePersistence.invalidGameDate".to_string()
+}
+
+fn manager_not_found_error(manager_id: &str) -> String {
+    format!("be.error.gamePersistence.managerNotFound?managerId={manager_id}")
+}
+
 impl GamePersistenceReader {
     pub fn read_game(db: &GameDatabase) -> Result<Game, String> {
         let conn = db.conn();
 
         let meta = meta_repo::load_meta(conn)?
-            .ok_or_else(|| "No game_meta found in database".to_string())?;
+            .ok_or_else(game_meta_missing_error)?;
 
         let start_date = chrono::DateTime::parse_from_rfc3339(&meta.start_date)
-            .map_err(|error| format!("Invalid start_date: {}", error))?
+            .map_err(|_| invalid_start_date_error())?
             .with_timezone(&Utc);
         let game_date = chrono::DateTime::parse_from_rfc3339(&meta.game_date)
-            .map_err(|error| format!("Invalid game_date: {}", error))?
+            .map_err(|_| invalid_game_date_error())?
             .with_timezone(&Utc);
 
         let mut clock = GameClock::new(start_date);
         clock.current_date = game_date;
 
         let manager = manager_repo::load_manager(conn, &meta.manager_id)?
-            .ok_or_else(|| format!("Manager '{}' not found", meta.manager_id))?;
+            .ok_or_else(|| manager_not_found_error(&meta.manager_id))?;
         let mut managers = manager_repo::load_all_managers(conn)?;
         if managers.is_empty() {
             managers.push(manager.clone());
@@ -216,6 +232,82 @@ impl GamePersistenceReader {
 impl GamePersistenceReader {
     pub fn read_stats_state(db: &GameDatabase) -> Result<StatsState, String> {
         stats_repo::load_stats_state(db.conn())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn sample_meta(start_date: &str, game_date: &str, manager_id: &str) -> meta_repo::GameMeta {
+        meta_repo::GameMeta {
+            save_id: "save-1".to_string(),
+            save_name: "Career".to_string(),
+            manager_id: manager_id.to_string(),
+            start_date: start_date.to_string(),
+            game_date: game_date.to_string(),
+            created_at: "2026-07-01T00:00:00+00:00".to_string(),
+            last_played_at: "2026-07-01T00:00:00+00:00".to_string(),
+            vacant_team_days_json: "{}".to_string(),
+        }
+    }
+
+    #[test]
+    fn read_game_returns_backend_key_when_game_meta_is_missing() {
+        let db = GameDatabase::open_in_memory().unwrap();
+
+        let result = GamePersistenceReader::read_game(&db);
+
+        assert_eq!(result.unwrap_err(), "be.error.gamePersistence.gameMetaMissing");
+    }
+
+    #[test]
+    fn read_game_returns_backend_key_when_start_date_is_invalid() {
+        let db = GameDatabase::open_in_memory().unwrap();
+        meta_repo::upsert_meta(
+            db.conn(),
+            &sample_meta("not-a-date", "2026-07-01T00:00:00+00:00", "mgr-1"),
+        )
+        .unwrap();
+
+        let result = GamePersistenceReader::read_game(&db);
+
+        assert_eq!(result.unwrap_err(), "be.error.gamePersistence.invalidStartDate");
+    }
+
+    #[test]
+    fn read_game_returns_backend_key_when_game_date_is_invalid() {
+        let db = GameDatabase::open_in_memory().unwrap();
+        meta_repo::upsert_meta(
+            db.conn(),
+            &sample_meta("2026-07-01T00:00:00+00:00", "not-a-date", "mgr-1"),
+        )
+        .unwrap();
+
+        let result = GamePersistenceReader::read_game(&db);
+
+        assert_eq!(result.unwrap_err(), "be.error.gamePersistence.invalidGameDate");
+    }
+
+    #[test]
+    fn read_game_returns_backend_key_when_manager_is_missing() {
+        let db = GameDatabase::open_in_memory().unwrap();
+        meta_repo::upsert_meta(
+            db.conn(),
+            &sample_meta(
+                "2026-07-01T00:00:00+00:00",
+                "2026-07-01T00:00:00+00:00",
+                "mgr-missing",
+            ),
+        )
+        .unwrap();
+
+        let result = GamePersistenceReader::read_game(&db);
+
+        assert_eq!(
+            result.unwrap_err(),
+            "be.error.gamePersistence.managerNotFound?managerId=mgr-missing"
+        );
     }
 }
 
