@@ -6,6 +6,9 @@ use rand::RngExt;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+const TEAM_NOT_FOUND_ERROR: &str = "be.error.teamNotFound";
+const JOB_OFFER_TEAM_NOT_VACANT_ERROR: &str = "be.error.jobOffer.teamNotVacant";
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JobOpportunity {
     pub team_id: String,
@@ -74,9 +77,9 @@ pub fn hire_manager(game: &mut Game, team_id: &str, date: &str) -> Result<String
         .teams
         .iter()
         .find(|t| t.id == team_id)
-        .ok_or_else(|| format!("Team {} not found", team_id))?;
+        .ok_or_else(|| TEAM_NOT_FOUND_ERROR.to_string())?;
     if team.manager_id.is_some() {
-        return Err(format!("Team {} is not vacant", team_id));
+        return Err(JOB_OFFER_TEAM_NOT_VACANT_ERROR.to_string());
     }
     let team_name = team.name.clone();
     let manager_id = game.manager.id.clone();
@@ -468,18 +471,28 @@ pub fn apply_job_offer_response(
             // Without this, the stale "accept" would leave the previous club's
             // manager_id set and its career entry open.
             if game.manager.team_id.is_some() {
-                return Some(response_effect("be.msg.jobOffer.effects.alreadyEmployed", &team_name));
+                return Some(response_effect(
+                    "be.msg.jobOffer.effects.alreadyEmployed",
+                    &team_name,
+                ));
             }
             let today = game.clock.current_date.format("%Y-%m-%d").to_string();
             match hire_manager(game, &team_id, &today) {
                 Ok(name) => Some(response_effect("be.msg.jobOffer.effects.accepted", &name)),
-                Err(e) if e.contains("is not vacant") => {
-                    Some(response_effect("be.msg.jobOffer.effects.unavailable", &team_name))
-                }
-                Err(_) => Some(response_effect("be.msg.jobOffer.effects.failed", &team_name)),
+                Err(e) if e == JOB_OFFER_TEAM_NOT_VACANT_ERROR => Some(response_effect(
+                    "be.msg.jobOffer.effects.unavailable",
+                    &team_name,
+                )),
+                Err(_) => Some(response_effect(
+                    "be.msg.jobOffer.effects.failed",
+                    &team_name,
+                )),
             }
         }
-        "decline" => Some(response_effect("be.msg.jobOffer.effects.declined", &team_name)),
+        "decline" => Some(response_effect(
+            "be.msg.jobOffer.effects.declined",
+            &team_name,
+        )),
         _ => None,
     }
 }
@@ -692,7 +705,21 @@ mod tests {
     fn hire_manager_invalid_team_returns_error() {
         let mut game = make_game(10, false);
         let result = hire_manager(&mut game, "nonexistent", "2026-11-01");
-        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), TEAM_NOT_FOUND_ERROR);
+    }
+
+    #[test]
+    fn hire_manager_occupied_team_returns_vacancy_key() {
+        let mut game = make_game(10, false);
+        game.teams
+            .iter_mut()
+            .find(|team| team.id == "team2")
+            .unwrap()
+            .manager_id = Some("mgr-ai".to_string());
+
+        let result = hire_manager(&mut game, "team2", "2026-11-01");
+
+        assert_eq!(result.unwrap_err(), JOB_OFFER_TEAM_NOT_VACANT_ERROR);
     }
 
     #[test]

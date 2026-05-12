@@ -1657,12 +1657,16 @@
       "noActiveSaveSession": "Sem sessão de gravação ativa",
       "saveNotFound": "Gravação '{{saveId}}' não encontrada.",
       "teamNotFound": "Equipa não encontrada",
+      "jobOffer": {
+        "teamNotVacant": "Este clube já não procura treinador."
+      },
       "noTeamAssigned": "Nenhuma equipa atribuída",
       "playerNotFound": "Jogador não encontrado",
       "invalidSquadRole": "Função de plantel inválida",
       "staffMemberNotFound": "Membro da equipa técnica não encontrado",
       "staffMemberAlreadyEmployed": "Este membro da equipa técnica já está empregado por uma equipa",
       "playerNotInSquad": "O jogador não faz parte do teu plantel",
+      "playerNotInClub": "O jogador não pertence ao teu clube",
       "invalidDateOfBirth": "Data de nascimento inválida",
       "youthAcademyOverage": "Apenas jogadores com 21 anos ou menos podem integrar a academia jovem",
       "staffMemberNotInTeam": "Este membro da equipa técnica não pertence à tua equipa",
@@ -1671,6 +1675,8 @@
       "managedTeamNotFound": "Equipa gerida não encontrada",
       "unknownFacilityType": "Tipo de instalação desconhecido",
       "liveMatch": {
+        "noLeague": "Não há dados da liga disponíveis para este jogo.",
+        "fixtureNotFound": "Não foi possível encontrar o jogo selecionado.",
         "maxSubstitutionsReached": "Foi atingido o limite máximo de substituições",
         "cannotSubstituteSentOffPlayer": "Não podes substituir um jogador expulso",
         "playerNotOnPitch": "O jogador não está em campo",
@@ -1679,8 +1685,16 @@
         "playerNotInStartingXi": "O jogador não está no onze inicial"
       },
       "worldReadFileFailed": "Falha ao ler o ficheiro da base de dados do mundo.",
+      "worldParseFailed": "Falha ao interpretar o ficheiro da base de dados do mundo.",
       "worldWriteFileFailed": "Falha ao exportar o ficheiro da base de dados do mundo.",
       "worldWriteDatabaseFailed": "Falha ao guardar a base de dados do mundo importada.",
+      "worldSerializeFailed": "Falha ao exportar os dados da base de dados do mundo.",
+      "gameDatabase": {
+        "openFailed": "Falha ao abrir os dados da gravação.",
+        "migrationFailed": "Falha ao preparar os dados da gravação.",
+        "schemaVersionReadFailed": "Falha ao ler a versão do esquema dos dados da gravação.",
+        "currentVersionReadFailed": "Falha ao validar a versão do esquema dos dados da gravação."
+      },
       "gamePersistence": {
         "gameMetaMissing": "A gravação não contém os metadados essenciais do jogo.",
         "invalidStartDate": "A gravação contém uma data de início inválida.",

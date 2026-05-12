@@ -1658,12 +1658,16 @@
       "saveNotFound": "Save '{{saveId}}' not found.",
       "saveManagerUnavailable": "Save data is temporarily unavailable.",
       "teamNotFound": "Team not found",
+      "jobOffer": {
+        "teamNotVacant": "This club is no longer looking for a manager."
+      },
       "noTeamAssigned": "No team assigned",
       "playerNotFound": "Player not found",
       "invalidSquadRole": "Invalid squad role",
       "staffMemberNotFound": "Staff member not found",
       "staffMemberAlreadyEmployed": "Staff member already employed by a team",
       "playerNotInSquad": "Player is not in your squad",
+      "playerNotInClub": "Player does not belong to your club",
       "invalidDateOfBirth": "Invalid date of birth",
       "youthAcademyOverage": "Only players aged 21 or under can join the youth academy",
       "staffMemberNotInTeam": "Staff member does not belong to your team",
@@ -1672,6 +1676,8 @@
       "managedTeamNotFound": "Managed team not found",
       "unknownFacilityType": "Unknown facility type",
       "liveMatch": {
+        "noLeague": "No league data is available for this match.",
+        "fixtureNotFound": "The selected fixture could not be found.",
         "maxSubstitutionsReached": "Maximum substitutions reached",
         "cannotSubstituteSentOffPlayer": "Cannot substitute a sent-off player",
         "playerNotOnPitch": "Player not on pitch",
@@ -1680,8 +1686,16 @@
         "playerNotInStartingXi": "Player not in starting XI"
       },
       "worldReadFileFailed": "Failed to read the world database file.",
+      "worldParseFailed": "Failed to parse the world database file.",
       "worldWriteFileFailed": "Failed to export the world database file.",
       "worldWriteDatabaseFailed": "Failed to save the imported world database.",
+      "worldSerializeFailed": "Failed to export the world database data.",
+      "gameDatabase": {
+        "openFailed": "Failed to open save data.",
+        "migrationFailed": "Failed to prepare save data.",
+        "schemaVersionReadFailed": "Failed to read the save data schema version.",
+        "currentVersionReadFailed": "Failed to validate the save data schema version."
+      },
       "gamePersistence": {
         "gameMetaMissing": "Save data is missing core game metadata.",
         "invalidStartDate": "Save data has an invalid start date.",

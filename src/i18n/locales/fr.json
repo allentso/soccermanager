@@ -1657,12 +1657,16 @@
       "noActiveSaveSession": "Aucune session de sauvegarde active",
       "saveNotFound": "Sauvegarde '{{saveId}}' introuvable.",
       "teamNotFound": "Équipe introuvable",
+      "jobOffer": {
+        "teamNotVacant": "Ce club ne cherche plus de manager."
+      },
       "noTeamAssigned": "Aucune équipe assignée",
       "playerNotFound": "Joueur introuvable",
       "invalidSquadRole": "Rôle d'effectif invalide",
       "staffMemberNotFound": "Membre du staff introuvable",
       "staffMemberAlreadyEmployed": "Ce membre du staff est déjà employé par une équipe",
       "playerNotInSquad": "Le joueur ne fait pas partie de votre effectif",
+      "playerNotInClub": "Le joueur n'appartient pas à votre club",
       "invalidDateOfBirth": "Date de naissance invalide",
       "youthAcademyOverage": "Seuls les joueurs âgés de 21 ans ou moins peuvent rejoindre le centre de formation",
       "staffMemberNotInTeam": "Ce membre du staff n'appartient pas à votre équipe",
@@ -1671,6 +1675,8 @@
       "managedTeamNotFound": "Équipe gérée introuvable",
       "unknownFacilityType": "Type d'installation inconnu",
       "liveMatch": {
+        "noLeague": "Aucune donnée de ligue n'est disponible pour ce match.",
+        "fixtureNotFound": "Le match sélectionné est introuvable.",
         "maxSubstitutionsReached": "Nombre maximal de remplacements atteint",
         "cannotSubstituteSentOffPlayer": "Impossible de remplacer un joueur expulsé",
         "playerNotOnPitch": "Le joueur n'est pas sur le terrain",
@@ -1679,8 +1685,16 @@
         "playerNotInStartingXi": "Le joueur n'est pas dans le onze de départ"
       },
       "worldReadFileFailed": "Impossible de lire le fichier de base de données du monde.",
+      "worldParseFailed": "Impossible d'interpréter le fichier de base de données du monde.",
       "worldWriteFileFailed": "Impossible d'exporter le fichier de base de données du monde.",
       "worldWriteDatabaseFailed": "Impossible d'enregistrer la base de données du monde importée.",
+      "worldSerializeFailed": "Impossible d'exporter les données de la base de données du monde.",
+      "gameDatabase": {
+        "openFailed": "Impossible d'ouvrir les données de sauvegarde.",
+        "migrationFailed": "Impossible de préparer les données de sauvegarde.",
+        "schemaVersionReadFailed": "Impossible de lire la version du schéma des données de sauvegarde.",
+        "currentVersionReadFailed": "Impossible de valider la version du schéma des données de sauvegarde."
+      },
       "gamePersistence": {
         "gameMetaMissing": "La sauvegarde ne contient pas les métadonnées de jeu essentielles.",
         "invalidStartDate": "La sauvegarde contient une date de début invalide.",

@@ -340,7 +340,7 @@ mod tests {
         let temp_dir = TempCommandDir::new();
         let result = write_database_json_to_dir(temp_dir.path(), "not valid json");
 
-        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), "be.error.worldParseFailed");
         let written_files = fs::read_dir(temp_dir.path()).unwrap().count();
         assert_eq!(written_files, 0);
     }

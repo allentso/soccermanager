@@ -1657,12 +1657,16 @@
       "noActiveSaveSession": "Keine aktive Speicherstandsitzung",
       "saveNotFound": "Speicherstand '{{saveId}}' wurde nicht gefunden.",
       "teamNotFound": "Team nicht gefunden",
+      "jobOffer": {
+        "teamNotVacant": "Dieser Verein sucht keinen Manager mehr."
+      },
       "noTeamAssigned": "Kein Team zugewiesen",
       "playerNotFound": "Spieler nicht gefunden",
       "invalidSquadRole": "Ungültige Kaderrolle",
       "staffMemberNotFound": "Mitarbeiter nicht gefunden",
       "staffMemberAlreadyEmployed": "Dieser Mitarbeiter ist bereits bei einem Team angestellt",
       "playerNotInSquad": "Spieler ist nicht in deinem Kader",
+      "playerNotInClub": "Der Spieler gehoert nicht zu deinem Verein",
       "invalidDateOfBirth": "Ungültiges Geburtsdatum",
       "youthAcademyOverage": "Nur Spieler im Alter von 21 Jahren oder jünger können der Jugendakademie beitreten",
       "staffMemberNotInTeam": "Mitarbeiter gehört nicht zu deinem Team",
@@ -1671,6 +1675,8 @@
       "managedTeamNotFound": "Betreutes Team nicht gefunden",
       "unknownFacilityType": "Unbekannter Einrichtungstyp",
       "liveMatch": {
+        "noLeague": "Für dieses Spiel sind keine Ligadaten verfügbar.",
+        "fixtureNotFound": "Das ausgewählte Spiel konnte nicht gefunden werden.",
         "maxSubstitutionsReached": "Maximale Anzahl an Auswechslungen erreicht",
         "cannotSubstituteSentOffPlayer": "Ein des Feldes verwiesener Spieler kann nicht ausgewechselt werden",
         "playerNotOnPitch": "Spieler ist nicht auf dem Platz",
@@ -1679,8 +1685,16 @@
         "playerNotInStartingXi": "Spieler ist nicht in der Startelf"
       },
       "worldReadFileFailed": "Die Weltdatenbankdatei konnte nicht gelesen werden.",
+      "worldParseFailed": "Die Weltdatenbankdatei konnte nicht verarbeitet werden.",
       "worldWriteFileFailed": "Die Weltdatenbankdatei konnte nicht exportiert werden.",
       "worldWriteDatabaseFailed": "Die importierte Weltdatenbank konnte nicht gespeichert werden.",
+      "worldSerializeFailed": "Die Weltdatenbankdaten konnten nicht exportiert werden.",
+      "gameDatabase": {
+        "openFailed": "Die Speicherdaten konnten nicht geoeffnet werden.",
+        "migrationFailed": "Die Speicherdaten konnten nicht vorbereitet werden.",
+        "schemaVersionReadFailed": "Die Schemaversion der Speicherdaten konnte nicht gelesen werden.",
+        "currentVersionReadFailed": "Die Schemaversion der Speicherdaten konnte nicht validiert werden."
+      },
       "gamePersistence": {
         "gameMetaMissing": "Im Spielstand fehlen zentrale Spieldaten.",
         "invalidStartDate": "Der Spielstand enthält ein ungültiges Startdatum.",

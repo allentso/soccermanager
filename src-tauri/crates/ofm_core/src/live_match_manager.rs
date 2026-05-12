@@ -15,6 +15,9 @@ use domain::team::MatchRoles;
 use engine::ai::{self, AiProfile};
 use engine::{LiveMatchState, MatchCommand, MatchConfig, MatchSnapshot, MinuteResult, Side};
 
+const LIVE_MATCH_NO_LEAGUE_ERROR: &str = "be.error.liveMatch.noLeague";
+const LIVE_MATCH_FIXTURE_NOT_FOUND_ERROR: &str = "be.error.liveMatch.fixtureNotFound";
+
 fn resolve_match_role_assignment(
     assigned_id: &Option<String>,
     starter_ids: &HashSet<String>,
@@ -190,11 +193,11 @@ pub fn create_live_match(
         "[live_match] create_live_match: fixture={}, mode={:?}, extra_time={}",
         fixture_index, mode, allows_extra_time
     );
-    let league = game.league.as_ref().ok_or("No league")?;
+    let league = game.league.as_ref().ok_or(LIVE_MATCH_NO_LEAGUE_ERROR)?;
     let fixture = league
         .fixtures
         .get(fixture_index)
-        .ok_or("Fixture not found")?;
+        .ok_or(LIVE_MATCH_FIXTURE_NOT_FOUND_ERROR)?;
 
     let home_team_id = fixture.home_team_id.clone();
     let away_team_id = fixture.away_team_id.clone();

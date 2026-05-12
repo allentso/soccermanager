@@ -1,5 +1,8 @@
 use super::definitions::{WorldData, WorldDatabaseInfo};
 
+const WORLD_PARSE_FAILED_ERROR: &str = "be.error.worldParseFailed";
+const WORLD_SERIALIZE_FAILED_ERROR: &str = "be.error.worldSerializeFailed";
+
 /// Generate a random world and wrap it in a `WorldData`.
 /// If `data_dir` is provided, tries to load definition files from that directory.
 pub fn generate_world_data(data_dir: Option<&std::path::Path>) -> WorldData {
@@ -25,7 +28,7 @@ pub fn generate_world_data(data_dir: Option<&std::path::Path>) -> WorldData {
 /// Parse a JSON string into a `WorldData`.
 pub fn load_world_from_json(json: &str) -> Result<WorldData, String> {
     let mut world: WorldData =
-        serde_json::from_str(json).map_err(|e| format!("Failed to parse world database: {}", e))?;
+        serde_json::from_str(json).map_err(|_| WORLD_PARSE_FAILED_ERROR.to_string())?;
     crate::football_identity::upgrade_world_football_identities(
         &mut world.teams,
         &mut world.players,
@@ -43,7 +46,7 @@ pub fn export_world_to_json(world: &WorldData) -> Result<String, String> {
         &mut normalized.staff,
     );
     serde_json::to_string_pretty(&normalized)
-        .map_err(|e| format!("Failed to serialise world: {}", e))
+        .map_err(|_| WORLD_SERIALIZE_FAILED_ERROR.to_string())
 }
 
 /// Scan a directory for `.json` world database files and return their metadata.
@@ -190,5 +193,12 @@ mod tests {
         let reparsed: WorldData = serde_json::from_str(&json).unwrap();
 
         assert_eq!(reparsed.teams[0].football_nation, "ENG");
+    }
+
+    #[test]
+    fn load_world_from_json_returns_backend_key_when_invalid_json() {
+        let result = load_world_from_json("not valid json");
+
+        assert_eq!(result.unwrap_err(), WORLD_PARSE_FAILED_ERROR);
     }
 }

@@ -914,7 +914,10 @@ mod tests {
         );
         assert_eq!(
             roundup.i18n_params.get("resultsData"),
-            Some(&"[{\"home\":\"Alpha FC\",\"homeGoals\":2,\"away\":\"Beta FC\",\"awayGoals\":1}]".to_string())
+            Some(
+                &"[{\"home\":\"Alpha FC\",\"homeGoals\":2,\"away\":\"Beta FC\",\"awayGoals\":1}]"
+                    .to_string()
+            )
         );
 
         let standings = game
@@ -924,7 +927,10 @@ mod tests {
             .unwrap();
         assert_eq!(standings.category, NewsCategory::StandingsUpdate);
         assert_eq!(standings.body, "");
-        assert_eq!(standings.body_key.as_deref(), Some("be.news.standings.body"));
+        assert_eq!(
+            standings.body_key.as_deref(),
+            Some("be.news.standings.body")
+        );
         assert_eq!(
             standings.i18n_params.get("leader"),
             Some(&"Alpha FC".to_string())
@@ -1016,10 +1022,7 @@ mod tests {
         );
         assert_eq!(article.headline, "");
         assert_eq!(article.body, "");
-        assert_eq!(
-            article.i18n_params.get("scorers"),
-            Some(&String::new())
-        );
+        assert_eq!(article.i18n_params.get("scorers"), Some(&String::new()));
         assert_eq!(
             article.i18n_params.get("scorersData"),
             Some(
@@ -1072,7 +1075,10 @@ mod tests {
             article.i18n_params.get("scorersSection"),
             Some(&String::new())
         );
-        assert_eq!(article.i18n_params.get("scorersData"), Some(&"[]".to_string()));
+        assert_eq!(
+            article.i18n_params.get("scorersData"),
+            Some(&"[]".to_string())
+        );
     }
 
     #[test]
@@ -1318,7 +1324,10 @@ mod tests {
             roundup.headline_key.as_deref(),
             Some("be.news.transferRoundup.headline")
         );
-        assert_eq!(roundup.body_key.as_deref(), Some("be.news.transferRoundup.body"));
+        assert_eq!(
+            roundup.body_key.as_deref(),
+            Some("be.news.transferRoundup.body")
+        );
         assert_eq!(
             roundup.source_key.as_deref(),
             Some("be.source.transferIntelligence")
@@ -1482,7 +1491,10 @@ mod tests {
             .expect("expected a weekly transfer roundup article");
         assert_eq!(roundup.category, NewsCategory::TransferRoundup);
         assert_eq!(roundup.body, "");
-        assert_eq!(roundup.body_key.as_deref(), Some("be.news.transferRoundup.body"));
+        assert_eq!(
+            roundup.body_key.as_deref(),
+            Some("be.news.transferRoundup.body")
+        );
         assert!(
             roundup
                 .i18n_params

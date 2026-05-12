@@ -140,11 +140,10 @@ pub fn rebuild_index(saves_dir: &Path) -> Result<(SaveIndex, Vec<DbValidation>),
         return Ok((index, validations));
     }
 
-    let entries =
-        fs::read_dir(saves_dir).map_err(|e| format!("Failed to read saves directory: {}", e))?;
+    let entries = fs::read_dir(saves_dir).map_err(|_| save_index_load_error())?;
 
     for entry in entries {
-        let entry = entry.map_err(|e| format!("Failed to read directory entry: {}", e))?;
+        let entry = entry.map_err(|_| save_index_load_error())?;
         let path = entry.path();
 
         if !path.is_file() {
@@ -181,7 +180,7 @@ fn validate_db_file(path: &Path) -> Result<SaveEntry, String> {
     let db = GameDatabase::open(path)?;
 
     if !db.validate_schema()? {
-        return Err("Schema version mismatch".to_string());
+        return Err(save_index_load_error());
     }
 
     let meta = meta_repo::load_meta(db.conn())?
@@ -415,6 +414,17 @@ mod tests {
         let (index, validations) = rebuild_index(&saves_dir).unwrap();
         assert!(index.saves.is_empty());
         assert!(validations.is_empty());
+    }
+
+    #[test]
+    fn test_rebuild_index_returns_load_failed_when_path_is_not_directory() {
+        let dir = tempfile::tempdir().unwrap();
+        let saves_path = dir.path().join("not-a-directory");
+        fs::write(&saves_path, "occupied").unwrap();
+
+        let result = rebuild_index(&saves_path);
+
+        assert_eq!(result.unwrap_err(), "be.error.saveIndex.loadFailed");
     }
 
     #[test]

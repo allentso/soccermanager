@@ -140,8 +140,7 @@ impl GamePersistenceReader {
     pub fn read_game(db: &GameDatabase) -> Result<Game, String> {
         let conn = db.conn();
 
-        let meta = meta_repo::load_meta(conn)?
-            .ok_or_else(game_meta_missing_error)?;
+        let meta = meta_repo::load_meta(conn)?.ok_or_else(game_meta_missing_error)?;
 
         let start_date = chrono::DateTime::parse_from_rfc3339(&meta.start_date)
             .map_err(|_| invalid_start_date_error())?
@@ -258,7 +257,10 @@ mod tests {
 
         let result = GamePersistenceReader::read_game(&db);
 
-        assert_eq!(result.unwrap_err(), "be.error.gamePersistence.gameMetaMissing");
+        assert_eq!(
+            result.unwrap_err(),
+            "be.error.gamePersistence.gameMetaMissing"
+        );
     }
 
     #[test]
@@ -272,7 +274,10 @@ mod tests {
 
         let result = GamePersistenceReader::read_game(&db);
 
-        assert_eq!(result.unwrap_err(), "be.error.gamePersistence.invalidStartDate");
+        assert_eq!(
+            result.unwrap_err(),
+            "be.error.gamePersistence.invalidStartDate"
+        );
     }
 
     #[test]
@@ -286,7 +291,10 @@ mod tests {
 
         let result = GamePersistenceReader::read_game(&db);
 
-        assert_eq!(result.unwrap_err(), "be.error.gamePersistence.invalidGameDate");
+        assert_eq!(
+            result.unwrap_err(),
+            "be.error.gamePersistence.invalidGameDate"
+        );
     }
 
     #[test]
