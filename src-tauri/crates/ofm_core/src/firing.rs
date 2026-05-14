@@ -1,7 +1,6 @@
 use crate::game::Game;
 use domain::message::*;
 use domain::news::{NewsArticle, NewsCategory};
-use log::info;
 use std::collections::HashMap;
 
 const WARN_THRESHOLD: u8 = 25;
@@ -138,13 +137,6 @@ fn execute_ai_firing(game: &mut Game, manager_index: usize) {
         .map(|team| team.name.clone())
         .unwrap_or_default();
 
-    info!(
-        "[firing] AI manager {} fired from {} (satisfaction={})",
-        manager.full_name(),
-        team_name,
-        manager.satisfaction
-    );
-
     if let Some(team) = game.teams.iter_mut().find(|team| team.id == team_id) {
         team.manager_id = None;
     }
@@ -193,13 +185,6 @@ fn execute_firing(game: &mut Game) {
         .map(|t| t.name.clone())
         .unwrap_or_default();
 
-    info!(
-        "[firing] Manager {} fired from {} (satisfaction={})",
-        game.manager.full_name(),
-        team_name,
-        game.manager.satisfaction
-    );
-
     // Clear manager from team
     if let Some(team) = game.teams.iter_mut().find(|t| t.id == team_id) {
         team.manager_id = None;
@@ -239,12 +224,6 @@ fn send_warning(game: &mut Game) {
         .map(|t| t.name.clone())
         .unwrap_or_default();
 
-    info!(
-        "[firing] Board warning issued to {} (satisfaction={})",
-        game.manager.full_name(),
-        game.manager.satisfaction
-    );
-
     game.manager.warning_stage = STAGE_WARNING;
 
     let msg = InboxMessage::new(
@@ -276,12 +255,6 @@ fn send_final_warning(game: &mut Game) {
         .find(|t| t.id == team_id)
         .map(|t| t.name.clone())
         .unwrap_or_default();
-
-    info!(
-        "[firing] Final warning issued to {} (satisfaction={})",
-        game.manager.full_name(),
-        game.manager.satisfaction
-    );
 
     game.manager.warning_stage = STAGE_FINAL;
 

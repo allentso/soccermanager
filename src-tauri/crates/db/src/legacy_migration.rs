@@ -89,8 +89,8 @@ pub fn migrate_legacy_saves(
 
 /// Extract all save rows from the legacy database.
 fn extract_legacy_rows(legacy_path: &Path) -> Result<Vec<LegacySaveRow>, String> {
-    let conn = Connection::open(legacy_path)
-        .map_err(|_| LEGACY_MIGRATION_FAILED_ERROR.to_string())?;
+    let conn =
+        Connection::open(legacy_path).map_err(|_| LEGACY_MIGRATION_FAILED_ERROR.to_string())?;
 
     // Check if the saves table exists
     let table_exists: bool = conn

@@ -1,7 +1,6 @@
 use crate::game::Game;
 use domain::manager::ManagerCareerEntry;
 use domain::message::*;
-use log::info;
 use rand::RngExt;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -139,12 +138,6 @@ pub fn hire_manager(game: &mut Game, team_id: &str, date: &str) -> Result<String
         &team_name,
         date,
     ));
-
-    info!(
-        "[job_offers] Manager {} hired at {} (satisfaction reset to 50)",
-        game.manager.full_name(),
-        team_name
-    );
 
     Ok(team_name)
 }
@@ -296,14 +289,6 @@ fn send_job_offer(game: &mut Game, opportunity: &JobOpportunity, _rng: &mut impl
         label_key: Some("be.msg.event.respond".to_string()),
     });
 
-    info!(
-        "[job_offers] Sent offer from {} to {} (rep: {} vs {})",
-        opportunity.team_name,
-        game.manager.full_name(),
-        opportunity.reputation,
-        game.manager.reputation
-    );
-
     game.messages.push(msg);
 }
 
@@ -387,19 +372,8 @@ pub fn apply_for_job(game: &mut Game, team_id: &str) -> JobApplicationResult {
     let today = game.clock.current_date.format("%Y-%m-%d").to_string();
 
     if roll <= success_pct {
-        let team_name = team.name.clone();
         match hire_manager(game, team_id, &today) {
-            Ok(_) => {
-                info!(
-                    "[job_offers] Application accepted: {} at {} (gap={}, roll={}/{})",
-                    game.manager.full_name(),
-                    team_name,
-                    gap,
-                    roll,
-                    success_pct
-                );
-                JobApplicationResult::Hired
-            }
+            Ok(_) => JobApplicationResult::Hired,
             Err(_) => JobApplicationResult::InvalidTeam,
         }
     } else {
@@ -422,15 +396,6 @@ pub fn apply_for_job(game: &mut Game, team_id: &str) -> JobApplicationResult {
         .with_sender_i18n("be.sender.boardOfDirectors", "be.role.chairman");
 
         game.messages.push(msg);
-
-        info!(
-            "[job_offers] Application rejected: {} at {} (gap={}, roll={}/{})",
-            game.manager.full_name(),
-            team_name,
-            gap,
-            roll,
-            success_pct
-        );
         JobApplicationResult::Rejected
     }
 }
