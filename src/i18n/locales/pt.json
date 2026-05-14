@@ -2208,6 +2208,10 @@
         "body": "{{player}} foi dispensado pelo {{team}}. O clube pagou {{severance}} em salários remanescentes como indemnização.",
         "ledgerDescription": "Indemnização por rescisão contratual paga a {{player}}"
       },
+      "freeAgentSigned": {
+        "subject": "{{player}} assina pelo {{team}}",
+        "body": "{{player}} juntou-se ao {{team}} como agente livre com um contrato de {{years}} ano(s)."
+      },
       "delegatedRenewals": {
         "subject": "Relatório do adjunto — Renovações contratuais",
         "body": "Mister, passei pela nossa lista de renovações no {{team}}. {{successes}} concluídas, {{stalled}} ainda pendentes e {{failures}} falhadas.",

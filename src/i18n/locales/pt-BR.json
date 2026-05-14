@@ -2208,6 +2208,10 @@
         "body": "{{player}} foi dispensado pelo {{team}}. O clube pagou {{severance}} em salários restantes como indenização.",
         "ledgerDescription": "Indenização por rescisão contratual paga a {{player}}"
       },
+      "freeAgentSigned": {
+        "subject": "{{player}} assina com {{team}}",
+        "body": "{{player}} se juntou ao {{team}} como agente livre em um contrato de {{years}} ano(s)."
+      },
       "delegatedRenewals": {
         "subject": "Relatório do assistente — Renovações contratuais",
         "body": "Chefe, revisei nossa lista de renovações no {{team}}. {{successes}} concluídas, {{stalled}} ainda pendentes e {{failures}} falhas.",

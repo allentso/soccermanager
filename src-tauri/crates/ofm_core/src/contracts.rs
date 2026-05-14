@@ -898,9 +898,10 @@ fn reference_player_wage(player: &Player) -> u32 {
         return player.wage;
     }
 
-    round_up_to_nearest_thousand(
-        ((player.market_value / MARKET_VALUE_TO_WAGE_RATIO).max(MINIMUM_DEFAULT_WAGE)) as u32,
-    )
+    let derived_wage =
+        (player.market_value / MARKET_VALUE_TO_WAGE_RATIO).max(MINIMUM_DEFAULT_WAGE);
+
+    round_up_to_nearest_thousand(derived_wage.min(u32::MAX as u64) as u32)
 }
 
 fn importance_wage_multiplier(player: &Player) -> f32 {
@@ -1282,17 +1283,25 @@ fn free_agent_signed_message(
     contract_years: u32,
     date: &str,
 ) -> InboxMessage {
+    let mut i18n_params = std::collections::HashMap::new();
+    i18n_params.insert("player".to_string(), player_name.to_string());
+    i18n_params.insert("team".to_string(), team_name.to_string());
+    i18n_params.insert("years".to_string(), contract_years.to_string());
+
     InboxMessage::new(
         format!("free_agent_signed_{}", player_id),
-        format!("{} Signs for {}", player_name, team_name),
-        format!(
-            "{} has joined {} as a free agent on a {}-year contract.",
-            player_name, team_name, contract_years
-        ),
-        "Assistant Manager".to_string(),
+        String::new(),
+        String::new(),
+        String::new(),
         date.to_string(),
     )
     .with_category(MessageCategory::Contract)
     .with_priority(MessagePriority::Urgent)
-    .with_sender_role("Assistant Manager")
+    .with_sender_role("")
+    .with_i18n(
+        "be.msg.freeAgentSigned.subject",
+        "be.msg.freeAgentSigned.body",
+        i18n_params,
+    )
+    .with_sender_i18n("be.sender.assistantManager", "be.role.assistantManager")
 }

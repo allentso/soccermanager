@@ -2208,6 +2208,10 @@
         "body": "{{player}} a été libéré par {{team}}. Le club a payé {{severance}} en salaires restants à titre d'indemnité.",
         "ledgerDescription": "Indemnité de rupture versée à {{player}}"
       },
+      "freeAgentSigned": {
+        "subject": "{{player}} signe pour {{team}}",
+        "body": "{{player}} a rejoint {{team}} comme joueur libre avec un contrat de {{years}} an(s)."
+      },
       "delegatedRenewals": {
         "subject": "Rapport de l'adjoint — Renouvellements",
         "body": "Coach, j'ai passé en revue notre liste de renouvellements à {{team}}. {{successes}} conclus, {{stalled}} encore en attente, {{failures}} échoués.",

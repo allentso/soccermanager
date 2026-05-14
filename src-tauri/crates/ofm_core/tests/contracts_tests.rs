@@ -415,10 +415,37 @@ fn free_agent_offer_accepts_and_assigns_player_to_manager_team() {
     assert_eq!(player.team_id.as_deref(), Some("team-1"));
     assert_eq!(player.wage, 4_000);
     assert_eq!(player.contract_end.as_deref(), Some("2029-08-01"));
-    assert!(game
+    let message = game
         .messages
         .iter()
-        .any(|message| message.id == "free_agent_signed_free-agent-1"));
+        .find(|message| message.id == "free_agent_signed_free-agent-1")
+        .expect("free-agent signing should create an inbox message");
+    assert_eq!(
+        message.subject_key.as_deref(),
+        Some("be.msg.freeAgentSigned.subject")
+    );
+    assert_eq!(
+        message.body_key.as_deref(),
+        Some("be.msg.freeAgentSigned.body")
+    );
+    assert_eq!(
+        message.sender_key.as_deref(),
+        Some("be.sender.assistantManager")
+    );
+    assert_eq!(
+        message.sender_role_key.as_deref(),
+        Some("be.role.assistantManager")
+    );
+    assert!(message.subject.is_empty());
+    assert!(message.body.is_empty());
+    assert!(message.sender.is_empty());
+    assert!(message.sender_role.is_empty());
+    assert_eq!(
+        message.i18n_params.get("player"),
+        Some(&"Free Agent".to_string())
+    );
+    assert_eq!(message.i18n_params.get("team"), Some(&"Alpha FC".to_string()));
+    assert_eq!(message.i18n_params.get("years"), Some(&"3".to_string()));
 }
 
 #[test]

@@ -2238,6 +2238,10 @@
         "body": "{{player}} ha sido rescindido por {{team}}. El club pagó {{severance}} en salarios pendientes como indemnización.",
         "ledgerDescription": "Indemnización por rescisión pagada a {{player}}"
       },
+      "freeAgentSigned": {
+        "subject": "{{player}} ficha por {{team}}",
+        "body": "{{player}} se ha unido a {{team}} como agente libre con un contrato de {{years}} año(s)."
+      },
       "delegatedRenewals": {
         "subject": "Informe del asistente — Renovaciones",
         "body": "Míster, revisé nuestra lista de renovaciones en {{team}}. {{successes}} cerradas, {{stalled}} aún pendientes y {{failures}} fallidas.",

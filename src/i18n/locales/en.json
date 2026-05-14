@@ -2204,6 +2204,10 @@
         "body": "{{player}} has been released by {{team}}. The club paid {{severance}} in remaining wages as severance.",
         "ledgerDescription": "Contract termination severance paid to {{player}}"
       },
+      "freeAgentSigned": {
+        "subject": "{{player}} Signs for {{team}}",
+        "body": "{{player}} has joined {{team}} as a free agent on a {{years}}-year contract."
+      },
       "delegatedRenewals": {
         "subject": "Assistant Report — Contract Renewals",
         "body": "Boss, I went through our renewal list at {{team}}. {{successes}} completed, {{stalled}} still pending, {{failures}} failed.",

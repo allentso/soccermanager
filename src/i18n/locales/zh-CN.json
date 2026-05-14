@@ -2205,6 +2205,10 @@
         "body": "{{player}} 已被 {{team}} 解约。俱乐部支付了 {{severance}} 的剩余工资作为解约补偿。",
         "ledgerDescription": "已向 {{player}} 支付合同解约补偿"
       },
+      "freeAgentSigned": {
+        "subject": "{{player}} 签约 {{team}}",
+        "body": "{{player}} 以自由球员身份加盟 {{team}}，签下了一份 {{years}} 年合同。"
+      },
       "delegatedRenewals": {
         "subject": "助理教练报告——合同续约",
         "body": "老板,我梳理了{{team}}的续约名单。{{successes}}个已完成,{{stalled}}个仍在推进,{{failures}}个未成。",

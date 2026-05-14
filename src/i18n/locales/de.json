@@ -2208,6 +2208,10 @@
         "body": "{{player}} wurde von {{team}} freigestellt. Der Verein zahlte {{severance}} an verbleibenden Gehältern als Abfindung.",
         "ledgerDescription": "Abfindung nach Vertragsauflösung an {{player}} gezahlt"
       },
+      "freeAgentSigned": {
+        "subject": "{{player}} unterschreibt bei {{team}}",
+        "body": "{{player}} hat sich {{team}} als vereinsloser Spieler mit einem Vertrag über {{years}} Jahr(e) angeschlossen."
+      },
       "delegatedRenewals": {
         "subject": "Assistentenbericht — Vertragsverlängerungen",
         "body": "Boss, ich habe unsere Verlängerungsliste bei {{team}} durchgearbeitet. {{successes}} abgeschlossen, {{stalled}} noch offen, {{failures}} gescheitert.",

@@ -2208,6 +2208,10 @@
         "body": "{{player}} è stato svincolato da {{team}}. Il club ha pagato {{severance}} in stipendi residui come buonuscita.",
         "ledgerDescription": "Buonuscita per risoluzione contrattuale pagata a {{player}}"
       },
+      "freeAgentSigned": {
+        "subject": "{{player}} firma per {{team}}",
+        "body": "{{player}} si è unito a {{team}} da svincolato con un contratto di {{years}} anno/i."
+      },
       "delegatedRenewals": {
         "subject": "Rapporto dell'assistente — Rinnovi contrattuali",
         "body": "Mister, ho esaminato la nostra lista rinnovi a {{team}}. {{successes}} conclusi, {{stalled}} ancora in sospeso, {{failures}} falliti.",
