@@ -1294,5 +1294,11 @@ fn free_agent_signed_message(
     )
     .with_category(MessageCategory::Contract)
     .with_priority(MessagePriority::Urgent)
-    .with_sender_role("Assistant Manager")
+    .with_sender_role("")
+    .with_i18n(
+        "be.msg.contractTerminated.subject",
+        "be.msg.contractTerminated.body",
+        i18n_params,
+    )
+    .with_sender_i18n("be.sender.assistantManager", "be.role.assistantManager")
 }
