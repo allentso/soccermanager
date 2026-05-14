@@ -1,5 +1,6 @@
 use chrono::Utc;
 use domain::stats::StatsState;
+use log::info;
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -223,29 +224,6 @@ impl SaveManager {
         }
 
         if ofm_core::football_identity::upgrade_game_football_identities(&mut game) {
-            needs_resave = true;
-        }
-
-        // Backfill OVR/potential for players from older saves that don't have them yet.
-        // We use the game clock year so age is accurate.
-        let current_year = game
-            .clock
-            .current_date
-            .format("%Y")
-            .to_string()
-            .parse::<u32>()
-            .unwrap_or(2026);
-        let backfill_count = game.players.iter().filter(|p| p.ovr == 0).count();
-        if backfill_count > 0 {
-            for player in game.players.iter_mut() {
-                if player.ovr == 0 {
-                    refresh_player_derived(player, current_year);
-                }
-            }
-            needs_resave = true;
-        }
-
-        if generator::repair_opening_youth_academies(&mut game) {
             needs_resave = true;
         }
 
