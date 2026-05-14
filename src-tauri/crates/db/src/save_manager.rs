@@ -1,6 +1,5 @@
 use chrono::Utc;
 use domain::stats::StatsState;
-use log::{debug, info};
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -26,6 +25,7 @@ pub struct SaveManager {
 }
 
 const SAVE_MANAGER_UNAVAILABLE_ERROR: &str = "be.error.saveManagerUnavailable";
+const SAVE_DELETE_ERROR: &str = "be.error.saveDeleteFailed";
 
 fn backend_error_with_param(key: &str, param_name: &str, param_value: &str) -> String {
     let mut message = String::with_capacity(key.len() + param_name.len() + param_value.len() + 2);
@@ -79,8 +79,6 @@ impl SaveManager {
 
         canonicalize_game_starting_xi_ids(&mut persisted_game);
 
-        debug!("[save_manager] creating save {} at {:?}", save_id, db_path);
-
         let db = GameDatabase::open(&db_path)?;
         GamePersistenceWriter::write_game(&db, &persisted_game, &save_id, save_name)?;
         drop(db);
@@ -100,8 +98,6 @@ impl SaveManager {
         };
 
         self.save_index.record_new_save(entry)?;
-
-        info!("[save_manager] created save {}", save_id);
         Ok(save_id)
     }
 
@@ -120,8 +116,6 @@ impl SaveManager {
 
         canonicalize_game_starting_xi_ids(&mut persisted_game);
 
-        debug!("[save_manager] saving game to {}", save_id);
-
         let db = GameDatabase::open(&db_path)?;
         GamePersistenceWriter::write_game(&db, &persisted_game, save_id, &save_name)?;
         drop(db);
@@ -139,8 +133,6 @@ impl SaveManager {
             created_at: entry.created_at.clone(),
             last_played_at: now,
         })?;
-
-        info!("[save_manager] saved game to {}", save_id);
         Ok(())
     }
 
@@ -199,7 +191,6 @@ impl SaveManager {
 
         let db_path = self.saves_dir.join(&entry.db_filename);
         let save_name = entry.name.clone();
-        debug!("[save_manager] loading game from {}", save_id);
 
         let db = GameDatabase::open(&db_path)?;
         let mut game = GamePersistenceReader::read_game(&db)?;
@@ -220,34 +211,18 @@ impl SaveManager {
                 .count()
                 != assigned_manager_count_before
         {
-            info!(
-                "[save_manager] backfilled missing world managers for save {}",
-                save_id
-            );
             needs_resave = true;
         }
 
         if canonicalize_game_starting_xi_ids(&mut game) {
-            info!(
-                "[save_manager] canonicalized saved starting XI order for save {}",
-                save_id
-            );
             needs_resave = true;
         }
 
         if player_identity::upgrade_game_player_identities(&mut game) {
-            info!(
-                "[save_manager] upgraded legacy player identities for save {}",
-                save_id
-            );
             needs_resave = true;
         }
 
         if ofm_core::football_identity::upgrade_game_football_identities(&mut game) {
-            info!(
-                "[save_manager] upgraded football identity fields for save {}",
-                save_id
-            );
             needs_resave = true;
         }
 
@@ -267,18 +242,10 @@ impl SaveManager {
                     refresh_player_derived(player, current_year);
                 }
             }
-            info!(
-                "[save_manager] backfilled OVR/potential for {} players in save {}",
-                backfill_count, save_id
-            );
             needs_resave = true;
         }
 
         if generator::repair_opening_youth_academies(&mut game) {
-            info!(
-                "[save_manager] backfilled opening youth academy players for save {}",
-                save_id
-            );
             needs_resave = true;
         }
 
@@ -286,10 +253,6 @@ impl SaveManager {
             db.conn(),
             game.league.as_ref().map(|league| league.id.as_str()),
         )? {
-            info!(
-                "[save_manager] cleaning stale league rows for save {}",
-                save_id
-            );
             needs_resave = true;
         }
 
@@ -329,12 +292,10 @@ impl SaveManager {
 
         let db_path = self.saves_dir.join(&entry.db_filename);
         if db_path.exists() {
-            fs::remove_file(&db_path).map_err(|e| format!("Failed to delete save file: {}", e))?;
-            debug!("[save_manager] deleted file {:?}", db_path);
+            fs::remove_file(&db_path).map_err(|_| SAVE_DELETE_ERROR.to_string())?;
         }
 
         self.save_index.remove_save(save_id)?;
-        info!("[save_manager] deleted save {}", save_id);
         Ok(true)
     }
 
@@ -378,11 +339,6 @@ impl SaveManager {
 
         // Clear league (will be regenerated)
         game.league = None;
-
-        info!(
-            "[save_manager] created new game template from save {}",
-            source_save_id
-        );
         Ok(game)
     }
 }

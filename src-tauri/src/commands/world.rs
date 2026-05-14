@@ -11,7 +11,12 @@ const RANDOM_WORLD_DESCRIPTION_KEY: &str = "be.msg.world.randomDescription";
 const TEAM_COUNT_PARAM: &str = "teamCount";
 
 fn backend_text_with_param(key: &str, param_name: &str, param_value: impl ToString) -> String {
-    format!("{key}?{param_name}={}", param_value.to_string())
+    let mut text = String::from(key);
+    text.push('?');
+    text.push_str(param_name);
+    text.push('=');
+    text.push_str(&param_value.to_string());
+    text
 }
 
 fn export_world_database_internal(

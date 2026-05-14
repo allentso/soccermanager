@@ -1710,6 +1710,7 @@
         "writeFailed": "Não foi possível atualizar o índice de gravações."
       },
       "saveManagerUnavailable": "Os dados de gravação estão temporariamente indisponíveis.",
+      "saveDeleteFailed": "Falha ao eliminar o ficheiro de gravação.",
       "settings": {
         "loadFailed": "Não foi possível carregar as definições.",
         "parseFailed": "Os dados das definições são inválidos.",

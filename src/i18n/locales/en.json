@@ -1657,6 +1657,7 @@
       "noActiveSaveSession": "No active save session",
       "saveNotFound": "Save '{{saveId}}' not found.",
       "saveManagerUnavailable": "Save data is temporarily unavailable.",
+      "saveDeleteFailed": "Failed to delete the save file.",
       "settings": {
         "loadFailed": "Failed to load settings.",
         "parseFailed": "Settings data is invalid.",

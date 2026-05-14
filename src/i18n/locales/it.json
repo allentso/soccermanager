@@ -1710,6 +1710,7 @@
         "writeFailed": "Impossibile aggiornare l'indice dei salvataggi."
       },
       "saveManagerUnavailable": "I dati di salvataggio non sono temporaneamente disponibili.",
+      "saveDeleteFailed": "Impossibile eliminare il file di salvataggio.",
       "settings": {
         "loadFailed": "Impossibile caricare le impostazioni.",
         "parseFailed": "I dati delle impostazioni non sono validi.",

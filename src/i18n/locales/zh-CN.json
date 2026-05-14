@@ -1710,6 +1710,7 @@
         "writeFailed": "更新存档索引失败。"
       },
       "saveManagerUnavailable": "存档数据暂时不可用。",
+      "saveDeleteFailed": "无法删除存档文件。",
       "settings": {
         "loadFailed": "加载设置失败。",
         "parseFailed": "设置数据无效。",

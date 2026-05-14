@@ -1710,6 +1710,7 @@
         "writeFailed": "Não foi possível atualizar o índice de saves."
       },
       "saveManagerUnavailable": "Os dados salvos estão temporariamente indisponíveis.",
+      "saveDeleteFailed": "Falha ao excluir o arquivo de save.",
       "settings": {
         "loadFailed": "Não foi possível carregar as configurações.",
         "parseFailed": "Os dados das configurações são inválidos.",

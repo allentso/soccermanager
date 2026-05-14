@@ -92,6 +92,7 @@ const REQUIRED_KEYS = [
   "be.news.majorTransfer.body",
   "be.error.noActiveGameSession",
   "be.error.noActiveSaveSession",
+  "be.error.saveDeleteFailed",
   "be.error.teamNotFound",
   "be.error.noTeamAssigned",
   "be.error.playerNotFound",
