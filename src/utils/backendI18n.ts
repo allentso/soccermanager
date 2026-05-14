@@ -540,7 +540,7 @@ export function resolveMessage(msg: MessageData): MessageData {
     body: resolve(msg.body_key, msg.body, p),
     sender: resolve(msg.sender_key, msg.sender, p),
     sender_role: resolve(msg.sender_role_key, msg.sender_role, p),
-    actions: msg.actions.map((action) => resolveAction(action, msg.id, p)),
+    actions: msg.actions.map((action) => resolveActionResolved(action, msg.id, p)),
   };
 
   return resolveLegacyTakeoverContractReviewMessage(
@@ -557,17 +557,26 @@ export function resolveAction(
   messageId?: string,
   params?: Record<string, string>,
 ): MessageAction {
-  const labelKey = action.label_key ?? inferPlayerEventActionLabelKey(messageId ?? '', action.id);
   const resolvedParams = resolveParamValues(params);
+
+  return resolveActionResolved(action, messageId, resolvedParams);
+}
+
+function resolveActionResolved(
+  action: MessageAction,
+  messageId?: string,
+  params?: Record<string, string>,
+): MessageAction {
+  const labelKey = action.label_key ?? inferPlayerEventActionLabelKey(messageId ?? '', action.id);
 
   if (typeof action.action_type === 'object' && 'ChooseOption' in action.action_type) {
     return {
       ...action,
-      label: resolve(labelKey, action.label, resolvedParams),
+      label: resolve(labelKey, action.label, params),
       action_type: {
         ChooseOption: {
           options: action.action_type.ChooseOption.options.map((option) =>
-            resolveActionOption(option, messageId, resolvedParams),
+            resolveActionOption(option, messageId, params),
           ),
         },
       },
@@ -576,7 +585,7 @@ export function resolveAction(
 
   return {
     ...action,
-    label: resolve(labelKey, action.label, resolvedParams),
+    label: resolve(labelKey, action.label, params),
   };
 }
 

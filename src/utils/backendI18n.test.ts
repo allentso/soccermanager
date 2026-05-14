@@ -264,6 +264,38 @@ describe("resolveAction", () => {
     );
   });
 
+  it("does not re-normalize already formatted compact money params from resolveMessage", async () => {
+    const previousLanguage = i18n.language;
+    const previousSettings = useSettingsStore.getState().settings;
+    await i18n.changeLanguage("de");
+    useSettingsStore.setState({
+      settings: { ...previousSettings, language: "de" },
+    });
+
+    i18n.addResourceBundle("de", "translation", {
+      "test.compactActionLabel": "Akzeptiere {{amount}}",
+    }, true, true);
+
+    try {
+      const result = resolveMessage(makeMessage({
+        id: "compact_money_message",
+        i18n_params: { amount: "€1.8M" },
+        actions: [
+          makeAction({
+            id: "accept",
+            label: "fallback option",
+            label_key: "test.compactActionLabel",
+          }),
+        ],
+      }));
+
+      expect(result.actions[0].label).toBe("Akzeptiere €1,8M");
+    } finally {
+      useSettingsStore.setState({ settings: previousSettings });
+      await i18n.changeLanguage(previousLanguage);
+    }
+  });
+
   it("keeps raw label when label_key is absent", () => {
     const action = makeAction({ label: "Keep Me" });
     const result = resolveAction(action);
