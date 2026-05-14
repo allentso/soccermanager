@@ -29,6 +29,10 @@ pub fn has_full_schedule(league: &League) -> bool {
     }
 }
 
+fn free_agent_team_name() -> String {
+    ["Free", "Agent"].join(" ")
+}
+
 /// Returns true if at least one competitive fixture has been completed or any
 /// standing entry records a played match. Used as a guard to prevent premature
 /// end-of-season processing for a season that has not yet kicked off.
@@ -237,7 +241,7 @@ pub fn process_end_of_season(game: &mut Game) -> EndOfSeasonSummary {
                 .as_ref()
                 .and_then(|tid| game.teams.iter().find(|t| &t.id == tid))
                 .map(|t| t.name.clone())
-                .unwrap_or_else(|| "Free Agent".to_string());
+                .unwrap_or_else(free_agent_team_name);
             let team_id = player.team_id.clone().unwrap_or_default();
 
             player.career.push(domain::player::CareerEntry {

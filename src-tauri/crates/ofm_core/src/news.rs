@@ -98,11 +98,7 @@ fn standings_lines(top_teams: &[(String, u32, i16)]) -> Vec<String> {
             let points_text = points.to_string();
             let goal_difference_text = goal_difference_text(*goal_difference);
             let mut line = String::with_capacity(
-                rank.len()
-                    + name.len()
-                    + points_text.len()
-                    + goal_difference_text.len()
-                    + 15,
+                rank.len() + name.len() + points_text.len() + goal_difference_text.len() + 15,
             );
             line.push(' ');
             line.push(' ');
@@ -322,7 +318,11 @@ pub fn managerial_appointment_article(
         "be.news.managerialAppointment.headline",
         "be.news.managerialAppointment.body",
         "be.source.leagueWire",
-        params(&[("team", team_name), ("manager", manager_name), ("managerId", manager_id)]),
+        params(&[
+            ("team", team_name),
+            ("manager", manager_name),
+            ("managerId", manager_id),
+        ]),
     )
 }
 
@@ -1014,7 +1014,10 @@ mod tests {
         assert_eq!(article.headline, "");
         assert_eq!(article.body, "");
         assert_eq!(article.source, "");
-        assert_eq!(article.body_key.as_deref(), Some("be.news.seasonAwards.bodyGoldenBootOnly"));
+        assert_eq!(
+            article.body_key.as_deref(),
+            Some("be.news.seasonAwards.bodyGoldenBootOnly")
+        );
         assert_eq!(
             article.i18n_params.get("goldenBootWinner"),
             Some(&"Star Striker".to_string())
@@ -1040,7 +1043,10 @@ mod tests {
             .expect("expected an awards article when POTY has a winner");
 
         assert_eq!(article.body, "");
-        assert_eq!(article.body_key.as_deref(), Some("be.news.seasonAwards.bodyPotyOnly"));
+        assert_eq!(
+            article.body_key.as_deref(),
+            Some("be.news.seasonAwards.bodyPotyOnly")
+        );
         assert_eq!(
             article.i18n_params.get("potyWinner"),
             Some(&"Magnifique".to_string())
@@ -1062,7 +1068,10 @@ mod tests {
         let article = season_awards_article(&awards, 5, "2026-05-20").unwrap();
 
         assert_eq!(article.body, "");
-        assert_eq!(article.body_key.as_deref(), Some("be.news.seasonAwards.bodyBoth"));
+        assert_eq!(
+            article.body_key.as_deref(),
+            Some("be.news.seasonAwards.bodyBoth")
+        );
         assert_eq!(
             article.i18n_params.get("goldenBootWinner"),
             Some(&"Striker".to_string())

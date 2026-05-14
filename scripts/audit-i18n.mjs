@@ -13,7 +13,10 @@ const LOCALES_DIR = path.join(SRC_DIR, "i18n", "locales");
 const FRONTEND_EXTENSIONS = new Set([".ts", ".tsx"]);
 const FRONTEND_IGNORE_RE =
   /(?:\.test\.|\.spec\.|[\\/]i18n[\\/]locales[\\/]|node_modules|dist|src-tauri[\\/]target)/;
-const RUST_IGNORE_RE = /(?:tests\.rs$|node_modules|dist|src-tauri[\\/]target)/;
+const RUST_IGNORE_RE =
+  /(?:[\\/]tests[\\/]|tests\.rs$|node_modules|dist|src-tauri[\\/]target)/;
+const RUST_DATA_FILE_RE =
+  /(?:src-tauri[\\/]crates[\\/]ofm_core[\\/]src[\\/]generator[\\/](?:data|definitions|generation|mod)\.rs$|src-tauri[\\/]crates[\\/]domain[\\/]src[\\/]identity\.rs$|src-tauri[\\/]crates[\\/]ofm_core[\\/]src[\\/]football_identity\.rs$)/;
 
 const FRONTEND_ATTRIBUTE_ALLOWLIST = new Set([
   "placeholder",
@@ -144,6 +147,24 @@ function looksLikeUserFacingText(text) {
   if (/[!?]/.test(trimmed)) return true;
   if (/^[A-Z][a-z]/.test(trimmed)) return true;
   if (/[^\u0000-\u007F]/.test(trimmed)) return true;
+
+  return false;
+}
+
+function isCommentLine(line) {
+  return /^\s*(?:\/\/|\/\*|\*|\*\/)/.test(line);
+}
+
+function isSqlLiteral(text) {
+  return /^(?:SELECT|INSERT|UPDATE|DELETE|CREATE|DROP|ALTER|PRAGMA|WITH)\b/i.test(
+    text.trim(),
+  );
+}
+
+function isIgnoredRustLiteral(filePath, line, text) {
+  if (RUST_DATA_FILE_RE.test(filePath)) return true;
+  if (isCommentLine(line)) return true;
+  if (isSqlLiteral(text)) return true;
 
   return false;
 }
@@ -335,6 +356,11 @@ function scanRust() {
         return;
       }
 
+      if (isCommentLine(line)) {
+        braceDepth = nextBraceDepth;
+        return;
+      }
+
       if (/\b(?:trace|debug|info|warn|error)!\s*\(/.test(line)) {
         braceDepth = nextBraceDepth;
         return;
@@ -344,6 +370,7 @@ function scanRust() {
         const text = match[1].trim();
         if (!looksLikeUserFacingText(text)) continue;
         if (isTranslationKey(text)) continue;
+        if (isIgnoredRustLiteral(filePath, line, text)) continue;
         if (/^[A-Z][a-zA-Z]+$/.test(text) && !/\s/.test(text)) continue;
         if (/^\[(?:cmd|setup)\]/.test(text)) continue;
 

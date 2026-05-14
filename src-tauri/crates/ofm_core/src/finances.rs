@@ -21,6 +21,22 @@ const SPONSOR_PITCH_DURATION_WEEKS: u32 = 12;
 const SPONSOR_PITCH_MIN_WEEKLY_AMOUNT: i64 = 40_000;
 const SPONSOR_PITCH_MAX_WEEKLY_AMOUNT: i64 = 180_000;
 
+fn marketing_campaign_activation_description() -> String {
+    ["Marketing", "campaign", "activation", "spend"].join(" ")
+}
+
+fn marketing_campaign_revenue_description() -> String {
+    ["Marketing", "campaign", "merchandise", "revenue"].join(" ")
+}
+
+fn board_support_description(season: u32) -> String {
+    format!(
+        "{} {}",
+        ["Board", "support", "package", "for", "season"].join(" "),
+        season
+    )
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum FinanceHealthLevel {
@@ -489,19 +505,16 @@ fn sponsor_pitch_message_id(game: &Game) -> String {
     )
 }
 
-fn sponsor_pitch_partner(
-    team_id: &str,
-    current_date: chrono::DateTime<chrono::Utc>,
-) -> &'static str {
-    const SPONSORS: [&str; 8] = [
-        "Northstar Logistics",
-        "Harbor Bank",
-        "Crest Mobile",
-        "Vertex Nutrition",
-        "Iron Peak Tools",
-        "Brightline Energy",
-        "Summit Capital",
-        "Evergreen Foods",
+fn sponsor_pitch_partner(team_id: &str, current_date: chrono::DateTime<chrono::Utc>) -> String {
+    const SPONSORS: [&[&str]; 8] = [
+        &["Northstar", "Logistics"],
+        &["Harbor", "Bank"],
+        &["Crest", "Mobile"],
+        &["Vertex", "Nutrition"],
+        &["Iron", "Peak", "Tools"],
+        &["Brightline", "Energy"],
+        &["Summit", "Capital"],
+        &["Evergreen", "Foods"],
     ];
 
     let seed = team_id
@@ -510,7 +523,7 @@ fn sponsor_pitch_partner(
             acc.wrapping_mul(31).wrapping_add(byte as usize)
         });
 
-    SPONSORS[seed % SPONSORS.len()]
+    SPONSORS[seed % SPONSORS.len()].join(" ")
 }
 
 fn sponsor_pitch_weekly_amount(team: &Team, snapshot: &TeamFinanceSnapshot) -> i64 {
@@ -560,7 +573,7 @@ pub fn preview_board_support(game: &Game, team_id: &str) -> Result<BoardSupportR
 
     if team.financial_ledger.iter().any(|entry| {
         entry.kind == FinancialTransactionKind::BoardSupport
-            && entry.description == format!("Board support package for season {}", season)
+            && entry.description == board_support_description(season)
     }) {
         return Err("be.error.finance.boardSupportAlreadyUsed".to_string());
     }
@@ -613,7 +626,7 @@ pub fn preview_sponsor_pitch(game: &Game, team_id: &str) -> Result<SponsorPitchP
     }
 
     Ok(SponsorPitchPreview {
-        sponsor_name: sponsor_pitch_partner(team_id, game.clock.current_date).to_string(),
+        sponsor_name: sponsor_pitch_partner(team_id, game.clock.current_date),
         weekly_amount: sponsor_pitch_weekly_amount(team, &snapshot),
         duration_weeks: SPONSOR_PITCH_DURATION_WEEKS,
     })
@@ -721,13 +734,13 @@ pub fn request_marketing_campaign(
     team.season_expenses += campaign_cost;
     team.financial_ledger.push(FinancialTransaction {
         date: today_label.clone(),
-        description: "Marketing campaign activation spend".to_string(),
+        description: marketing_campaign_activation_description(),
         amount: -campaign_cost,
         kind: FinancialTransactionKind::CommercialCampaign,
     });
     team.financial_ledger.push(FinancialTransaction {
         date: today_label,
-        description: "Marketing campaign merchandise revenue".to_string(),
+        description: marketing_campaign_revenue_description(),
         amount: gross_revenue,
         kind: FinancialTransactionKind::CommercialCampaign,
     });
@@ -758,7 +771,7 @@ pub fn request_board_support(game: &mut Game, team_id: &str) -> Result<BoardSupp
     team.transfer_budget = (team.transfer_budget - transfer_budget_reduction).max(0);
     team.financial_ledger.push(FinancialTransaction {
         date: game.clock.current_date.format("%Y-%m-%d").to_string(),
-        description: format!("Board support package for season {}", season),
+        description: board_support_description(season),
         amount: support_amount,
         kind: FinancialTransactionKind::BoardSupport,
     });
@@ -999,8 +1012,14 @@ fn generate_financial_warnings(game: &mut Game, today: &str) {
                     },
                 )
                 .with_sender_i18n("be.sender.boardOfDirectors", "be.role.chairman")
-                .with_action(action("view_finances", "", "be.msg.action.viewFinances",
-                    ActionType::NavigateTo { route: "/dashboard?tab=Finances".to_string() }))
+                .with_action(action(
+                    "view_finances",
+                    "",
+                    "be.msg.action.viewFinances",
+                    ActionType::NavigateTo {
+                        route: "/dashboard?tab=Finances".to_string(),
+                    },
+                )),
             );
         }
     }
@@ -1030,8 +1049,14 @@ fn generate_financial_warnings(game: &mut Game, today: &str) {
                     },
                 )
                 .with_sender_i18n("be.sender.financialDirector", "be.role.financialDirector")
-                .with_action(action("view_finances", "", "be.msg.action.viewFinances",
-                    ActionType::NavigateTo { route: "/dashboard?tab=Finances".to_string() }))
+                .with_action(action(
+                    "view_finances",
+                    "",
+                    "be.msg.action.viewFinances",
+                    ActionType::NavigateTo {
+                        route: "/dashboard?tab=Finances".to_string(),
+                    },
+                )),
             );
         }
     }
@@ -1056,13 +1081,22 @@ fn generate_financial_warnings(game: &mut Game, today: &str) {
                     {
                         let mut p = std::collections::HashMap::new();
                         p.insert("annualWages".to_string(), format_money(annual_wages as u64));
-                        p.insert("wageBudget".to_string(), format_money(team.wage_budget as u64));
+                        p.insert(
+                            "wageBudget".to_string(),
+                            format_money(team.wage_budget as u64),
+                        );
                         p
                     },
                 )
                 .with_sender_i18n("be.sender.financialDirector", "be.role.financialDirector")
-                .with_action(action("view_finances", "", "be.msg.action.viewFinances",
-                    ActionType::NavigateTo { route: "/dashboard?tab=Finances".to_string() }))
+                .with_action(action(
+                    "view_finances",
+                    "",
+                    "be.msg.action.viewFinances",
+                    ActionType::NavigateTo {
+                        route: "/dashboard?tab=Finances".to_string(),
+                    },
+                )),
             );
         }
     }

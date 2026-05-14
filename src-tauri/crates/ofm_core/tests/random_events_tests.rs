@@ -735,10 +735,7 @@ fn apply_sponsor_decline_no_finance_change() {
     let result = apply_event_response(&mut game, "sponsor_2025-06-15", "respond", "decline");
 
     assert!(result.is_some());
-    assert_eq!(
-        result.unwrap().i18n_key,
-        "be.msg.sponsor.effects.declined"
-    );
+    assert_eq!(result.unwrap().i18n_key, "be.msg.sponsor.effects.declined");
     assert_eq!(game.teams[0].finance, initial_finance);
     assert!(game.teams[0].sponsorship.is_none());
     let msg = game

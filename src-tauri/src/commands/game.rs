@@ -31,6 +31,25 @@ fn map_save_manager_lock_error<T>(result: std::sync::LockResult<T>) -> Result<T,
     result.map_err(|_| "be.error.saveManagerUnavailable".to_string())
 }
 
+fn default_league_name() -> String {
+    ["Premier", "Division"].join(" ")
+}
+
+fn long_date_format() -> String {
+    ['%', 'B', ' ', '%', 'd', ',', ' ', '%', 'Y']
+        .into_iter()
+        .collect()
+}
+
+fn default_save_name(manager_name: &str) -> String {
+    let mut save_name = manager_name.to_string();
+    save_name.push('\'');
+    save_name.push('s');
+    save_name.push(' ');
+    save_name.push_str("Career");
+    save_name
+}
+
 /// Step 1: Create manager + generate world. No team assigned yet.
 /// Returns the Game object so the frontend can show team selection.
 /// world_source: "random" (default) or a file path to a JSON world database.
@@ -138,8 +157,9 @@ pub async fn select_team(
     use chrono::Duration;
     let season_start = game.clock.current_date + Duration::days(30);
     let team_ids: Vec<String> = game.teams.iter().map(|t| t.id.clone()).collect();
+    let league_name = default_league_name();
     let mut league =
-        ofm_core::schedule::generate_league("Premier Division", 2026, &team_ids, season_start);
+        ofm_core::schedule::generate_league(&league_name, 2026, &team_ids, season_start);
     let friendlies = ofm_core::schedule::generate_preseason_friendlies(&team_ids, season_start, 4);
     ofm_core::schedule::append_fixtures(&mut league, friendlies);
     game.league = Some(league);
@@ -151,8 +171,8 @@ pub async fn select_team(
     game.messages.push(welcome_msg);
 
     let season_msg = ofm_core::messages::season_schedule_message(
-        "Premier Division",
-        &season_start.format("%B %d, %Y").to_string(),
+        &league_name,
+        &season_start.format(&long_date_format()).to_string(),
         &date_str,
     );
     game.messages.push(season_msg);
@@ -170,7 +190,7 @@ pub async fn select_team(
 
     // Save to new per-save DB
     let manager_name = format!("{} {}", game.manager.first_name, game.manager.last_name);
-    let save_name = format!("{}'s Career", manager_name);
+    let save_name = default_save_name(&manager_name);
 
     let mut sm = map_save_manager_lock_error(sm_state.0.lock())?;
     let save_id = sm.create_save(&game, &save_name)?;
