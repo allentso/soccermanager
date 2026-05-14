@@ -124,6 +124,18 @@ impl GamePersistenceWriter {
 
 pub struct GamePersistenceReader;
 
+fn backend_error_with_param(key: &str, param_name: &str, param_value: &str) -> String {
+    let mut message = String::with_capacity(
+        key.len() + param_name.len() + param_value.len() + 2,
+    );
+    message.push_str(key);
+    message.push('?');
+    message.push_str(param_name);
+    message.push('=');
+    message.push_str(param_value);
+    message
+}
+
 fn game_meta_missing_error() -> String {
     "be.error.gamePersistence.gameMetaMissing".to_string()
 }
@@ -137,7 +149,11 @@ fn invalid_game_date_error() -> String {
 }
 
 fn manager_not_found_error(manager_id: &str) -> String {
-    format!("be.error.gamePersistence.managerNotFound?managerId={manager_id}")
+    backend_error_with_param(
+        "be.error.gamePersistence.managerNotFound",
+        "managerId",
+        manager_id,
+    )
 }
 
 fn game_persistence_load_error() -> String {

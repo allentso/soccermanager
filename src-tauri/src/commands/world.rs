@@ -8,6 +8,11 @@ const EXPORTED_WORLD_NAME_KEY: &str = "be.msg.world.exportedName";
 const EXPORTED_WORLD_DESCRIPTION_KEY: &str = "be.msg.world.exportedDescription";
 const RANDOM_WORLD_NAME_KEY: &str = "be.msg.world.randomName";
 const RANDOM_WORLD_DESCRIPTION_KEY: &str = "be.msg.world.randomDescription";
+const TEAM_COUNT_PARAM: &str = "teamCount";
+
+fn backend_text_with_param(key: &str, param_name: &str, param_value: impl ToString) -> String {
+    format!("{key}?{param_name}={}", param_value.to_string())
+}
 
 fn export_world_database_internal(
     state: &StateManager,
@@ -19,10 +24,10 @@ fn export_world_database_internal(
 
     let world = ofm_core::generator::WorldData {
         name: EXPORTED_WORLD_NAME_KEY.to_string(),
-        description: format!(
-            "{}?teamCount={}",
+        description: backend_text_with_param(
             EXPORTED_WORLD_DESCRIPTION_KEY,
-            game.teams.len()
+            TEAM_COUNT_PARAM,
+            game.teams.len(),
         ),
         teams: game.teams.clone(),
         players: game.players.clone(),
@@ -62,7 +67,11 @@ pub fn list_world_databases(
     let mut databases = vec![WorldDatabaseInfo {
         id: "random".to_string(),
         name: RANDOM_WORLD_NAME_KEY.to_string(),
-        description: format!("{}?teamCount=16", RANDOM_WORLD_DESCRIPTION_KEY),
+        description: backend_text_with_param(
+            RANDOM_WORLD_DESCRIPTION_KEY,
+            TEAM_COUNT_PARAM,
+            16,
+        ),
         team_count: 16,
         player_count: 352,
         source: "builtin".to_string(),

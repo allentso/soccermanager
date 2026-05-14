@@ -969,7 +969,10 @@ fn pre_match_swap_fails_after_kickoff() {
         player_off_id: starter_id,
         player_on_id: bench_id,
     });
-    assert!(result.is_err());
+    assert_eq!(
+        result.unwrap_err(),
+        "be.error.liveMatch.preMatchSwapTooLate"
+    );
 }
 
 #[test]

@@ -1678,6 +1678,7 @@
         "noLeague": "该比赛暂无联赛数据。",
         "fixtureNotFound": "未找到所选比赛。",
         "maxSubstitutionsReached": "已达到最大换人次数",
+        "preMatchSwapTooLate": "赛前对调只能在开球前进行",
         "cannotSubstituteSentOffPlayer": "不能换下被罚下的球员",
         "playerNotOnPitch": "球员不在场上",
         "playerAlreadySubstitutedOff": "该球员已经被换下",

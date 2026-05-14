@@ -1678,6 +1678,7 @@
         "noLeague": "Não há dados da liga disponíveis para este jogo.",
         "fixtureNotFound": "Não foi possível encontrar o jogo selecionado.",
         "maxSubstitutionsReached": "Foi atingido o limite máximo de substituições",
+        "preMatchSwapTooLate": "As trocas pré-jogo só são permitidas antes do pontapé de saída",
         "cannotSubstituteSentOffPlayer": "Não podes substituir um jogador expulso",
         "playerNotOnPitch": "O jogador não está em campo",
         "playerAlreadySubstitutedOff": "Esse jogador já foi substituído",

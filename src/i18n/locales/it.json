@@ -1678,6 +1678,7 @@
         "noLeague": "Non ci sono dati di campionato disponibili per questa partita.",
         "fixtureNotFound": "Impossibile trovare la partita selezionata.",
         "maxSubstitutionsReached": "Raggiunto il numero massimo di sostituzioni",
+        "preMatchSwapTooLate": "Gli scambi pre-partita sono consentiti solo prima del calcio d'inizio",
         "cannotSubstituteSentOffPlayer": "Non puoi sostituire un giocatore espulso",
         "playerNotOnPitch": "Il giocatore non è in campo",
         "playerAlreadySubstitutedOff": "Quel giocatore è già stato sostituito",
