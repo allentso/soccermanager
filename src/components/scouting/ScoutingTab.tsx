@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { GameStateData } from "../../store/gameStore";
-import { getErrorMessage } from "../../utils/errorMessage";
+import { getErrorMessage, resolveTranslatedErrorMessage } from "../../utils/errorMessage";
 import {
   Card,
   CardBody,
@@ -127,7 +127,7 @@ export default function ScoutingTab({
       onGameUpdate(updated);
     } catch (err) {
       console.error("Failed to send scout:", err);
-      setPlayerSearchError(getErrorMessage(err));
+      setPlayerSearchError(resolveTranslatedErrorMessage(getErrorMessage(err), t));
     } finally {
       setSending(null);
     }
@@ -148,7 +148,7 @@ export default function ScoutingTab({
       setSelectedYouthScoutId("");
     } catch (err) {
       console.error("Failed to start youth scouting:", err);
-      setYouthSearchError(String(err));
+      setYouthSearchError(resolveTranslatedErrorMessage(err, t));
     } finally {
       setStartingYouthSearch(false);
     }
@@ -161,7 +161,7 @@ export default function ScoutingTab({
       onGameUpdate(updated);
     } catch (err) {
       console.error("Failed to cancel youth scouting:", err);
-      setYouthSearchError(String(err));
+      setYouthSearchError(resolveTranslatedErrorMessage(err, t));
     }
   };
 
@@ -175,7 +175,7 @@ export default function ScoutingTab({
       onGameUpdate(updated);
     } catch (err) {
       console.error("Failed to reassign youth scouting:", err);
-      setYouthSearchError(String(err));
+      setYouthSearchError(resolveTranslatedErrorMessage(err, t));
     }
   };
 

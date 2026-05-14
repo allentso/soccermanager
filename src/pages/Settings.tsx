@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import { useSettingsStore, AppSettings } from "../store/settingsStore";
 import { useTheme } from "../context/ThemeContext";
 import { ThemeToggle, Select } from "../components/ui";
-import { SUPPORTED_LANGUAGES } from "../i18n";
+import { SUPPORTED_LANGUAGES, changeAppLanguage } from "../i18n";
 import {
   ArrowLeft,
   Monitor,
@@ -69,7 +69,7 @@ export default function Settings() {
   // Sync language with i18n when settings are loaded
   useEffect(() => {
     if (loaded && settings.language && settings.language !== i18n.language) {
-      i18n.changeLanguage(settings.language);
+      void changeAppLanguage(settings.language);
     }
   }, [loaded, settings.language, i18n]);
 
@@ -89,7 +89,7 @@ export default function Settings() {
 
     // Sync language with i18n
     if (partial.language) {
-      i18n.changeLanguage(partial.language);
+      void changeAppLanguage(partial.language);
     }
   };
 
@@ -477,14 +477,12 @@ function Toggle({
   return (
     <button
       onClick={() => onChange(!checked)}
-      className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${
-        checked ? "bg-primary-500" : "bg-gray-300 dark:bg-navy-600"
-      }`}
+      className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${checked ? "bg-primary-500" : "bg-gray-300 dark:bg-navy-600"
+        }`}
     >
       <div
-        className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-200 ${
-          checked ? "translate-x-[22px]" : "translate-x-0.5"
-        }`}
+        className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-200 ${checked ? "translate-x-[22px]" : "translate-x-0.5"
+          }`}
       />
     </button>
   );
@@ -505,11 +503,10 @@ function SegmentedControl({
         <button
           key={opt.value}
           onClick={() => onChange(opt.value)}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-heading font-bold uppercase tracking-wider transition-all ${
-            value === opt.value
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-heading font-bold uppercase tracking-wider transition-all ${value === opt.value
               ? "bg-white dark:bg-navy-500 text-primary-600 dark:text-primary-400 shadow-sm"
               : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-          }`}
+            }`}
         >
           {opt.icon}
           {opt.label || opt.value}

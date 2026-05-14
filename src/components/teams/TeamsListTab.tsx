@@ -1,7 +1,7 @@
 import { GameStateData } from "../../store/gameStore";
 import { Card, CardBody, Badge, TeamLocation } from "../ui";
 import { Users, Trophy } from "lucide-react";
-import { calcOvr as calcPlayerOvr, formatVal } from "../../lib/helpers";
+import { formatVal, getPlayerOvr } from "../../lib/helpers";
 import { useTranslation } from "react-i18next";
 
 interface TeamsListTabProps {
@@ -15,14 +15,14 @@ export default function TeamsListTab({ gameState, onSelectTeam }: TeamsListTabPr
 
   const allStandings = gameState.league?.standings
     ? [...gameState.league.standings].sort((a, b) =>
-        b.points - a.points || (b.goals_for - b.goals_against) - (a.goals_for - a.goals_against) || b.goals_for - a.goals_for
-      )
+      b.points - a.points || (b.goals_for - b.goals_against) - (a.goals_for - a.goals_against) || b.goals_for - a.goals_for
+    )
     : [];
 
   const teamsData = gameState.teams.map(team => {
     const roster = gameState.players.filter(p => p.team_id === team.id);
     const avgOvr = roster.length > 0
-      ? Math.round(roster.reduce((s, p) => s + (p.ovr ?? calcPlayerOvr(p)), 0) / roster.length)
+      ? Math.round(roster.reduce((s, p) => s + getPlayerOvr(p), 0) / roster.length)
       : 0;
     const totalValue = roster.reduce((s, p) => s + p.market_value, 0);
     const leaguePos = allStandings.findIndex(s => s.team_id === team.id) + 1;

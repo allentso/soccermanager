@@ -448,7 +448,9 @@
       "technical": "Technical",
       "mental": "Mental",
       "goalkeeper": "Goalkeeper"
-    }
+    },
+    "retry": "Retry",
+    "score": "Score"
   },
   "teamSelection": {
     "title": "Choose Your Club",
@@ -756,7 +758,8 @@
     "contractRiskStable": "Stable",
     "contractExpiresOn": "Expires {{date}}",
     "atRiskWages": "{{amount}}/wk at risk",
-    "noContractRisks": "No imminent contract risks"
+    "noContractRisks": "No imminent contract risks",
+    "selectRiskPlayer": "Select {{player}}"
   },
   "inbox": {
     "title": "Inbox",
@@ -772,6 +775,7 @@
     "chooseResponse": "Choose your response",
     "chooseResponseOutcomeVaries": "Choose your response — outcome varies",
     "responded": "Response sent",
+    "youthProspectSigned": "Signed to academy",
     "openMessage": "Open message",
     "markAsRead": "Mark as read",
     "markAllRead": "Mark all read",
@@ -1177,7 +1181,9 @@
     "fullscreen": "Fullscreen",
     "fullscreenDesc": "Toggle fullscreen mode for an immersive experience",
     "enterFullscreen": "Enter",
-    "exitFullscreen": "Exit"
+    "exitFullscreen": "Exit",
+    "switchToLightMode": "Switch to light mode",
+    "switchToDarkMode": "Switch to dark mode"
   },
   "preMatch": {
     "formationFit": "Formation Fit",
@@ -1571,7 +1577,41 @@
     "startMatch": "Start Match",
     "notAssigned": "Not assigned",
     "keyStats": "Key Stats",
-    "continueDashboard": "Continue to Dashboard"
+    "continueDashboard": "Continue to Dashboard",
+    "phases": {
+      "PreKickOff": "Pre-Match",
+      "FirstHalf": "1st Half",
+      "HalfTime": "Half Time",
+      "SecondHalf": "2nd Half",
+      "FullTime": "Full Time",
+      "ExtraTimeFirstHalf": "ET 1st Half",
+      "ExtraTimeHalfTime": "ET Half Time",
+      "ExtraTimeSecondHalf": "ET 2nd Half",
+      "ExtraTimeEnd": "ET End",
+      "PenaltyShootout": "Penalties",
+      "Finished": "Final"
+    },
+    "eventTypes": {
+      "Goal": "Goal",
+      "PenaltyGoal": "Penalty Goal",
+      "PenaltyMiss": "Penalty Miss",
+      "YellowCard": "Yellow Card",
+      "RedCard": "Red Card",
+      "SecondYellow": "Second Yellow",
+      "Substitution": "Substitution",
+      "Injury": "Injury",
+      "KickOff": "Kick-Off",
+      "HalfTime": "Half Time",
+      "SecondHalfStart": "2nd Half Start",
+      "FullTime": "Full Time",
+      "ShotSaved": "Shot Saved",
+      "ShotOffTarget": "Shot Off Target",
+      "ShotBlocked": "Shot Blocked",
+      "Corner": "Corner",
+      "FreeKick": "Free Kick",
+      "Foul": "Foul",
+      "PenaltyAwarded": "Penalty Awarded"
+    }
   },
   "endOfSeason": {
     "seasonComplete": "Season Complete",
@@ -1615,13 +1655,25 @@
     "error": {
       "noActiveGameSession": "No active game session",
       "noActiveSaveSession": "No active save session",
+      "saveNotFound": "Save '{{saveId}}' not found.",
+      "saveManagerUnavailable": "Save data is temporarily unavailable.",
+      "saveDeleteFailed": "Failed to delete the save file.",
+      "settings": {
+        "loadFailed": "Failed to load settings.",
+        "parseFailed": "Settings data is invalid.",
+        "saveFailed": "Failed to save settings."
+      },
       "teamNotFound": "Team not found",
+      "jobOffer": {
+        "teamNotVacant": "This club is no longer looking for a manager."
+      },
       "noTeamAssigned": "No team assigned",
       "playerNotFound": "Player not found",
       "invalidSquadRole": "Invalid squad role",
       "staffMemberNotFound": "Staff member not found",
       "staffMemberAlreadyEmployed": "Staff member already employed by a team",
       "playerNotInSquad": "Player is not in your squad",
+      "playerNotInClub": "Player does not belong to your club",
       "invalidDateOfBirth": "Invalid date of birth",
       "youthAcademyOverage": "Only players aged 21 or under can join the youth academy",
       "staffMemberNotInTeam": "Staff member does not belong to your team",
@@ -1629,6 +1681,41 @@
       "seasonNotComplete": "Season is not yet complete",
       "managedTeamNotFound": "Managed team not found",
       "unknownFacilityType": "Unknown facility type",
+      "liveMatch": {
+        "noLeague": "No league data is available for this match.",
+        "fixtureNotFound": "The selected fixture could not be found.",
+        "maxSubstitutionsReached": "Maximum substitutions reached",
+        "preMatchSwapTooLate": "Pre-match swaps are only allowed before kick-off",
+        "cannotSubstituteSentOffPlayer": "Cannot substitute a sent-off player",
+        "playerNotOnPitch": "Player not on pitch",
+        "playerAlreadySubstitutedOff": "Player has already been substituted off",
+        "playerNotOnBench": "Player not on bench",
+        "playerNotInStartingXi": "Player not in starting XI"
+      },
+      "worldReadFileFailed": "Failed to read the world database file.",
+      "worldParseFailed": "Failed to parse the world database file.",
+      "worldWriteFileFailed": "Failed to export the world database file.",
+      "worldWriteDatabaseFailed": "Failed to save the imported world database.",
+      "worldSerializeFailed": "Failed to export the world database data.",
+      "gameDatabase": {
+        "openFailed": "Failed to open save data.",
+        "migrationFailed": "Failed to prepare save data.",
+        "schemaVersionReadFailed": "Failed to read the save data schema version.",
+        "currentVersionReadFailed": "Failed to validate the save data schema version."
+      },
+      "gamePersistence": {
+        "gameMetaMissing": "Save data is missing core game metadata.",
+        "invalidStartDate": "Save data has an invalid start date.",
+        "invalidGameDate": "Save data has an invalid current date.",
+        "managerNotFound": "Manager '{{managerId}}' was not found in this save.",
+        "loadFailed": "Failed to load save data.",
+        "writeFailed": "Failed to save game data."
+      },
+      "saveIndex": {
+        "checksumReadFailed": "Failed to read save data for checksum validation.",
+        "loadFailed": "Failed to load the save index.",
+        "writeFailed": "Failed to update the save index."
+      },
       "finance": {
         "boardSupportUnavailable": "Emergency board support is only available when cash reserves are under pressure.",
         "boardSupportAlreadyUsed": "The board has already approved emergency support this season.",
@@ -1638,6 +1725,7 @@
         "sponsorPitchActiveSponsor": "An active sponsorship deal is already in place.",
         "marketingCampaignUnavailable": "Marketing campaigns are only available when the club is under wage or cash pressure.",
         "marketingCampaignCoolingDown": "The commercial team needs time before running another marketing campaign.",
+        "facilityUpgradeInsufficientFunds": "Insufficient funds for this facility upgrade. Need €{{amount}}.",
         "facilityUpgradeOverBudget": "Facility upgrades are blocked while the club is over its wage budget.",
         "facilityUpgradeCritical": "Facility upgrades are blocked while the club is under serious financial pressure."
       },
@@ -1648,6 +1736,39 @@
         "invalidDobFormat": "Invalid date of birth. Use YYYY-MM-DD format.",
         "minAge": "Manager must be at least 30 years old.",
         "invalidDob": "Invalid date of birth."
+      },
+      "transfers": {
+        "transferWindowClosed": "Transfer window is closed",
+        "cannotBidOnOwnPlayer": "Cannot bid on your own player",
+        "playerHasNoTeam": "Player has no team",
+        "insufficientFunds": "Insufficient funds",
+        "transferBudgetTooLow": "Transfer budget too low",
+        "playerNotOwnedByUser": "Player not found or not yours",
+        "offerNotPending": "Offer not found or not pending",
+        "counterOfferMustExceedCurrentOffer": "Counter offer must exceed current offer",
+        "invalidYouthScoutingRegion": "Unsupported youth scouting region.",
+        "invalidYouthScoutingObjective": "Unsupported youth scouting objective.",
+        "invalidYouthScoutingTargetPosition": "Unsupported youth scouting target position."
+      },
+      "contracts": {
+        "playerNotOwnedByClub": "Player does not belong to your club",
+        "unableToCalculateContractEndDate": "Unable to calculate new contract end date",
+        "playerHasNoActiveContract": "Player does not have an active contract",
+        "terminationWouldLeaveMatchdaySquadShort": "Terminating this contract would leave your squad unable to field a matchday XI",
+        "noAssistantManagerAssigned": "No assistant manager assigned to your team",
+        "playerHasNoTeam": "Player has no team",
+        "boardWagePolicy": "Renewal blocked by board wage policy. Keep annual wages near {{budget}} to recover."
+      },
+      "scouting": {
+        "scoutNotFound": "Scout not found",
+        "staffMemberNotScout": "Staff member is not a scout",
+        "scoutNotInTeam": "Scout does not belong to your team",
+        "cannotScoutOwnPlayer": "Cannot scout your own players",
+        "scoutAssignmentFull": "Scout is already assigned to another scouting task ({{currentCount}}/{{maxSlots}} assignments).",
+        "playerAlreadyScouted": "This player is already being scouted",
+        "youthSearchAlreadyActive": "A matching youth recruitment search is already active",
+        "youthAssignmentNotFound": "Youth recruitment assignment not found",
+        "scoutAlreadyAssignedToSearch": "Scout is already assigned to this search"
       }
     },
     "sender": {
@@ -1663,7 +1784,8 @@
       "intlLiaison": "International Liaison",
       "player": "Player",
       "pressOfficer": "Press Officer",
-      "scout": "Scout"
+      "scout": "Scout",
+      "transferCommittee": "Transfer Committee"
     },
     "role": {
       "chairman": "Chairman",
@@ -1685,9 +1807,16 @@
       "matchDayPress": "Match Day Press",
       "leagueChronicle": "League Chronicle",
       "leagueWire": "League Wire",
-      "transferIntelligence": "Transfer Intelligence"
+      "transferIntelligence": "Transfer Intelligence",
+      "sportsDaily": "Sports Daily"
     },
     "msg": {
+      "world": {
+        "randomName": "Random World",
+        "randomDescription": "Randomly generated league with {{teamCount}} teams across Europe",
+        "exportedName": "Exported World",
+        "exportedDescription": "World with {{teamCount}} teams exported from saved game"
+      },
       "welcome": {
         "subject0": "Welcome to {{team}}",
         "subject1": "New Era at {{team}}",
@@ -1709,7 +1838,11 @@
         "body0": "Your {{venue}} match against {{opponent}} is coming up on {{matchDate}}.\n\nMatchday {{matchday}} of the Premier Division. Make sure your starting XI is in good shape and your tactics are set.\n\nMake the most of playing at {{venue}}.",
         "body1": "Reminder: you face {{opponent}} {{venue}} on {{matchDate}}.\n\nThis is Matchday {{matchday}} — review your squad fitness and consider any tactical adjustments.",
         "actionTactics": "Set Tactics",
-        "actionScout": "Scout Opponent"
+        "actionScout": "Scout Opponent",
+        "body0Home": "Your home match against {{opponent}} is coming up on {{matchDate}}.\n\nMatchday {{matchday}} of the Premier Division. Make sure your starting XI is in good shape and your tactics are set.\n\nHome advantage could be key in this one.",
+        "body0Away": "Your away match against {{opponent}} is coming up on {{matchDate}}.\n\nMatchday {{matchday}} of the Premier Division. Make sure your starting XI is in good shape and your tactics are set.\n\nMatching their intensity away from home could be key in this one.",
+        "body1Home": "Reminder: you face {{opponent}} at home in 3 days ({{matchDate}}).\n\nThis is Matchday {{matchday}} — review your squad fitness and consider any tactical adjustments. The fans will be behind you at home.",
+        "body1Away": "Reminder: you face {{opponent}} away in 3 days ({{matchDate}}).\n\nThis is Matchday {{matchday}} — review your squad fitness and consider any tactical adjustments. Away form will be tested — pack your strongest lineup."
       },
       "matchResult": {
         "subject": {
@@ -1763,7 +1896,8 @@
       },
       "seasonPayout": {
         "subject": "Season {{season}} Prize Money Awarded",
-        "body": "The board has confirmed a prize payout of €{{amount}} for your {{position}}-place league finish. The amount has been added to the club balance."
+        "body": "The board has confirmed a prize payout of €{{amount}} for your {{position}}-place league finish. The amount has been added to the club balance.",
+        "ledgerDescription": "Season {{season}} prize money for {{position}}{{suffix}} place"
       },
       "seasonReview": {
         "subject": "Season {{season}} Review",
@@ -1921,6 +2055,10 @@
             "label": "Decline politely",
             "description": "Turn down the offer. No financial impact."
           }
+        },
+        "effects": {
+          "accepted": "Sponsorship deal signed! You will receive €{{amount}}/week for 12 weeks.",
+          "declined": "Sponsorship declined."
         }
       },
       "trainingInjury": {
@@ -1969,6 +2107,11 @@
             "label": "Point to injuries and bad luck",
             "description": "Deflect blame to external factors. May or may not convince them."
           }
+        },
+        "effects": {
+          "reassureBoard": "You reassured the board. They'll give you more time for now.",
+          "acceptPressure": "You acknowledged the pressure. The board appreciates your honesty.",
+          "blameCircumstances": "The board isn't entirely convinced by excuses, but they'll wait and see."
         }
       },
       "fanPetition": {
@@ -1991,6 +2134,11 @@
             "label": "Make a public statement",
             "description": "Address the petition in a press conference. Transparent and proactive."
           }
+        },
+        "effects": {
+          "listenFans": "You engaged with the fans. Squad morale improved slightly.",
+          "ignoreFans": "You decided to focus on football matters. The fans are a little disappointed.",
+          "addressPublicly": "Your public address was well received. Fan confidence is up."
         }
       },
       "rivalInterest": {
@@ -2010,6 +2158,11 @@
             "label": "No comment",
             "description": "Stay quiet and let things play out. Neutral stance."
           }
+        },
+        "effects": {
+          "notForSale": "You made it clear the player is not for sale. They're feeling valued.",
+          "openToOffers": "You indicated you'd listen to offers. The player is unsettled.",
+          "noComment": "No comment. The rumour mill continues..."
         }
       },
       "moraleCrisis": {
@@ -2039,6 +2192,15 @@
         "bodyFinalMonth": "Your assistant has reviewed the squad contracts after your arrival. {{totalExpiring}} player(s) are due to come up for renewal this season, {{urgentContracts}} need attention inside the next six months, and {{finalMonthContracts}} are already in the final month.\n\nStabilize the urgent cases first, then work through the wider renewal list in stages.",
         "actionReview": "Review Squad Contracts"
       },
+      "contractExpired": {
+        "subject": "{{player}} Leaves on a Free",
+        "body": "{{player}} has left {{team}} after their contract expired. The player is now a free agent."
+      },
+      "contractTerminated": {
+        "subject": "{{player}} Released",
+        "body": "{{player}} has been released by {{team}}. The club paid {{severance}} in remaining wages as severance.",
+        "ledgerDescription": "Contract termination severance paid to {{player}}"
+      },
       "delegatedRenewals": {
         "subject": "Assistant Report — Contract Renewals",
         "body": "Boss, I went through our renewal list at {{team}}. {{successes}} completed, {{stalled}} still pending, {{failures}} failed.",
@@ -2055,6 +2217,36 @@
           "prefersManager": "They would listen, but they still want about {{wage}}/wk for {{years}} years and prefer to hear from you directly.",
           "relationshipBlocked": "They are not willing to commit through me under the current relationship and contract situation."
         }
+      },
+      "youthRecruitmentReport": {
+        "subject": "Scout Report — Youth Recruitment",
+        "bodyAny": "{{scout}} has completed the latest youth recruitment search for {{team}}. I found {{count}} prospects in the {{regionLabel}} market with a {{objectiveLabel}} profile.\n\nReview the attached cards and decide who should join the academy.",
+        "bodyTargeted": "{{scout}} has completed the latest youth recruitment search for {{team}}. I found {{count}} prospects in the {{regionLabel}} market with a {{objectiveLabel}} profile, focused on {{targetLabel}}.\n\nReview the attached cards and decide who should join the academy."
+      },
+      "youthRecruitment": {
+        "option": {
+          "sign": {
+            "label": "Sign to academy",
+            "description": "Offer this prospect a youth contract and add them to the academy."
+          },
+          "shortlist": {
+            "label": "Shortlist",
+            "description": "Keep this prospect under consideration and move them into a separate shortlist message."
+          },
+          "discard": {
+            "label": "Discard",
+            "description": "Pass on this prospect and remove them from the report."
+          }
+        },
+        "effect": {
+          "sign": "{{player}} signed a youth contract and joined your academy.",
+          "shortlist": "{{player}} was added to your youth shortlist.",
+          "discard": "{{player}} was removed from the youth recruitment report."
+        }
+      },
+      "youthRecruitmentShortlist": {
+        "subject": "Youth prospect shortlisted",
+        "body": "{{player}} has been moved to your youth shortlist. You can review them again later before making a final decision."
       },
       "scoutReport": {
         "subject": "Scout Report: {{player}}",
@@ -2083,7 +2275,9 @@
           "alreadyEmployed": "You are already employed and cannot accept the offer from {{team}}",
           "unavailable": "The offer from {{team}} is no longer available because the position has been filled",
           "failed": "Could not accept the offer from {{team}}"
-        }
+        },
+        "acceptDescription": "Join {{team}} as their new manager",
+        "declineDescription": "Continue looking for other opportunities"
       },
       "jobOfferExpired": {
         "subject": "Position Filled — {{team}}",
@@ -2096,6 +2290,15 @@
       "jobRejection": {
         "subject": "Application Update — {{team}}",
         "body": "Thank you for your interest in the managerial position at {{team}}. After careful consideration, we have decided to pursue other candidates. We wish you the best in your future career."
+      },
+      "transferComplete": {
+        "subject": "Transfer Complete: {{player}}",
+        "body": "The transfer of {{player}} has been completed for a fee of {{fee}}.\n\nThe player has joined the squad and is available for selection."
+      },
+      "transferOffer": {
+        "subject": "Incoming Offer for {{player}}",
+        "body": "{{team}} have submitted an offer of {{fee}} for {{player}}. Review the bid in the Transfers tab to accept or reject it.",
+        "actionReview": "Review Offer"
       }
     },
     "news": {
@@ -2220,6 +2423,14 @@
         "body0Weeks": "{{team}} have confirmed that {{player}} has picked up an injury and is expected to be sidelined for around {{weeksOut}} week(s). The club will assess the situation before providing a further update.",
         "body1Days": "{{player}} suffered a setback in training, with the {{team}} player ruled out for {{daysOut}} day(s). The absence will be a significant blow as the season reaches a critical stage.",
         "body1Weeks": "{{player}} suffered a setback in training, with the {{team}} player ruled out for around {{weeksOut}} week(s). The absence will be a significant blow as the season reaches a critical stage."
+      },
+      "pressConference": {
+        "headlineManagerQuote": "{{team}} Manager: {{quote}}",
+        "headlinePressConf": "Press Conference: \"{{quote}}\" — {{team}} boss",
+        "headlinePostMatch": "Post-Match: {{team}} on {{result}}",
+        "bodyMultiple": "Speaking after the {{result}} result, the {{team}} manager addressed the press.\n\n{{quotes}}\n\nThe conference covered the result, tactical approach, and what lies ahead for the team.",
+        "bodySingle": "The {{team}} manager spoke briefly after the {{result}} result.\n\n\"{{quote}}\"",
+        "bodyNone": "The {{team}} manager declined to speak at length after the {{result}} result."
       }
     }
   },

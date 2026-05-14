@@ -212,14 +212,20 @@ fn create_live_match_no_league_errors() {
     let mut game = make_game_with_fixture();
     game.league = None;
     let result = live_match_manager::create_live_match(&game, 0, MatchMode::Live, false);
-    assert!(result.is_err());
+    match result {
+        Err(error) => assert_eq!(error, "be.error.liveMatch.noLeague"),
+        Ok(_) => panic!("expected missing league to fail"),
+    }
 }
 
 #[test]
 fn create_live_match_bad_fixture_index_errors() {
     let game = make_game_with_fixture();
     let result = live_match_manager::create_live_match(&game, 99, MatchMode::Live, false);
-    assert!(result.is_err());
+    match result {
+        Err(error) => assert_eq!(error, "be.error.liveMatch.fixtureNotFound"),
+        Ok(_) => panic!("expected missing fixture to fail"),
+    }
 }
 
 // ---------------------------------------------------------------------------

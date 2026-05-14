@@ -43,6 +43,7 @@ const FOOTBALL_IDENTITIES: Record<string, FootballIdentityDefinition> = {
       it: "Inghilterra",
     },
     aliases: ["english", "england"],
+    flagCode: "GB-ENG",
     selectable: true,
   },
   SCO: {
@@ -56,6 +57,7 @@ const FOOTBALL_IDENTITIES: Record<string, FootballIdentityDefinition> = {
       it: "Scozia",
     },
     aliases: ["scottish", "scotland"],
+    flagCode: "GB-SCT",
     selectable: true,
   },
   WAL: {
@@ -69,6 +71,7 @@ const FOOTBALL_IDENTITIES: Record<string, FootballIdentityDefinition> = {
       it: "Galles",
     },
     aliases: ["welsh", "wales"],
+    flagCode: "GB-WLS",
     selectable: true,
   },
   NIR: {
@@ -82,6 +85,7 @@ const FOOTBALL_IDENTITIES: Record<string, FootballIdentityDefinition> = {
       it: "Irlanda del Nord",
     },
     aliases: ["northern irish", "northern ireland"],
+    flagCode: "GB-NIR",
     selectable: true,
   },
   IE: {
@@ -161,7 +165,7 @@ export function countryName(alpha2: string, locale = "en"): string {
 export function allCountries(locale = "en"): { code: string; name: string }[] {
   const baseLocale = getBaseLocale(locale);
   const obj = countries.getNames(baseLocale, { select: "official" });
-  
+
   // If we couldn't find the names for the requested locale, fallback to English
   if (!obj || Object.keys(obj).length === 0) {
     const fallbackObj = countries.getNames("en", { select: "official" });
