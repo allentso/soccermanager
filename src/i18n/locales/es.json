@@ -1729,7 +1729,9 @@
         "gameMetaMissing": "A la partida guardada le faltan los metadatos principales del juego.",
         "invalidStartDate": "La partida guardada tiene una fecha de inicio no válida.",
         "invalidGameDate": "La partida guardada tiene una fecha actual no válida.",
-        "managerNotFound": "No se encontró al mánager '{{managerId}}' en esta partida guardada."
+        "managerNotFound": "No se encontró al mánager '{{managerId}}' en esta partida guardada.",
+        "loadFailed": "No se pudieron cargar los datos guardados.",
+        "writeFailed": "No se pudieron guardar los datos de la partida."
       },
       "saveIndex": {
         "checksumReadFailed": "No se pudieron leer los datos guardados para validar la suma de verificación.",
@@ -1737,6 +1739,11 @@
         "writeFailed": "No se pudo actualizar el índice de partidas guardadas."
       },
       "saveManagerUnavailable": "Los datos guardados no están disponibles temporalmente.",
+      "settings": {
+        "loadFailed": "No se pudo cargar la configuración.",
+        "parseFailed": "Los datos de configuración no son válidos.",
+        "saveFailed": "No se pudo guardar la configuración."
+      },
       "finance": {
         "boardSupportUnavailable": "El apoyo de emergencia de la directiva solo está disponible cuando la tesorería está bajo presión.",
         "boardSupportAlreadyUsed": "La directiva ya aprobó apoyo de emergencia esta temporada.",
@@ -1765,7 +1772,10 @@
         "transferBudgetTooLow": "El presupuesto de fichajes es demasiado bajo",
         "playerNotOwnedByUser": "Jugador no encontrado o no te pertenece",
         "offerNotPending": "Oferta no encontrada o ya no está pendiente",
-        "counterOfferMustExceedCurrentOffer": "La contraoferta debe superar la oferta actual"
+        "counterOfferMustExceedCurrentOffer": "La contraoferta debe superar la oferta actual",
+        "invalidYouthScoutingRegion": "Región de ojeo juvenil no admitida.",
+        "invalidYouthScoutingObjective": "Objetivo de ojeo juvenil no admitido.",
+        "invalidYouthScoutingTargetPosition": "Posición objetivo de ojeo juvenil no admitida."
       },
       "contracts": {
         "playerNotOwnedByClub": "El jugador no pertenece a tu club",

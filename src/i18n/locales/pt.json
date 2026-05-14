@@ -1699,7 +1699,9 @@
         "gameMetaMissing": "A gravação não contém os metadados essenciais do jogo.",
         "invalidStartDate": "A gravação contém uma data de início inválida.",
         "invalidGameDate": "A gravação contém uma data atual inválida.",
-        "managerNotFound": "O treinador '{{managerId}}' não foi encontrado nesta gravação."
+        "managerNotFound": "O treinador '{{managerId}}' não foi encontrado nesta gravação.",
+        "loadFailed": "Não foi possível carregar os dados de gravação.",
+        "writeFailed": "Não foi possível gravar os dados do jogo."
       },
       "saveIndex": {
         "checksumReadFailed": "Não foi possível ler os dados guardados para validar a soma de controlo.",
@@ -1707,6 +1709,11 @@
         "writeFailed": "Não foi possível atualizar o índice de gravações."
       },
       "saveManagerUnavailable": "Os dados de gravação estão temporariamente indisponíveis.",
+      "settings": {
+        "loadFailed": "Não foi possível carregar as definições.",
+        "parseFailed": "Os dados das definições são inválidos.",
+        "saveFailed": "Não foi possível guardar as definições."
+      },
       "finance": {
         "boardSupportUnavailable": "O apoio de emergência da direção só está disponível quando a tesouraria está sob pressão.",
         "boardSupportAlreadyUsed": "A direção já aprovou apoio de emergência nesta temporada.",
@@ -1735,7 +1742,10 @@
         "transferBudgetTooLow": "O orçamento de transferências é demasiado baixo",
         "playerNotOwnedByUser": "Jogador não encontrado ou não te pertence",
         "offerNotPending": "Oferta não encontrada ou já não está pendente",
-        "counterOfferMustExceedCurrentOffer": "A contraproposta tem de superar a oferta atual"
+        "counterOfferMustExceedCurrentOffer": "A contraproposta tem de superar a oferta atual",
+        "invalidYouthScoutingRegion": "Região de prospeção jovem não suportada.",
+        "invalidYouthScoutingObjective": "Objetivo de prospeção jovem não suportado.",
+        "invalidYouthScoutingTargetPosition": "Posição-alvo de prospeção jovem não suportada."
       },
       "contracts": {
         "playerNotOwnedByClub": "O jogador não pertence ao teu clube",

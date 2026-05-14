@@ -1699,7 +1699,9 @@
         "gameMetaMissing": "Nel salvataggio mancano i metadati principali della partita.",
         "invalidStartDate": "Il salvataggio contiene una data di inizio non valida.",
         "invalidGameDate": "Il salvataggio contiene una data corrente non valida.",
-        "managerNotFound": "Il manager '{{managerId}}' non è stato trovato in questo salvataggio."
+        "managerNotFound": "Il manager '{{managerId}}' non è stato trovato in questo salvataggio.",
+        "loadFailed": "Impossibile caricare i dati di salvataggio.",
+        "writeFailed": "Impossibile salvare i dati della partita."
       },
       "saveIndex": {
         "checksumReadFailed": "Impossibile leggere i dati del salvataggio per verificare il checksum.",
@@ -1707,6 +1709,11 @@
         "writeFailed": "Impossibile aggiornare l'indice dei salvataggi."
       },
       "saveManagerUnavailable": "I dati di salvataggio non sono temporaneamente disponibili.",
+      "settings": {
+        "loadFailed": "Impossibile caricare le impostazioni.",
+        "parseFailed": "I dati delle impostazioni non sono validi.",
+        "saveFailed": "Impossibile salvare le impostazioni."
+      },
       "finance": {
         "boardSupportUnavailable": "Il supporto d'emergenza del consiglio è disponibile solo quando la liquidità è sotto pressione.",
         "boardSupportAlreadyUsed": "Il consiglio ha già approvato un supporto d'emergenza in questa stagione.",
@@ -1735,7 +1742,10 @@
         "transferBudgetTooLow": "Il budget trasferimenti è troppo basso",
         "playerNotOwnedByUser": "Giocatore non trovato o non appartiene al tuo club",
         "offerNotPending": "Offerta non trovata o non più in sospeso",
-        "counterOfferMustExceedCurrentOffer": "La controfferta deve superare l'offerta attuale"
+        "counterOfferMustExceedCurrentOffer": "La controfferta deve superare l'offerta attuale",
+        "invalidYouthScoutingRegion": "Regione di osservazione giovanile non supportata.",
+        "invalidYouthScoutingObjective": "Obiettivo di osservazione giovanile non supportato.",
+        "invalidYouthScoutingTargetPosition": "Posizione obiettivo di osservazione giovanile non supportata."
       },
       "contracts": {
         "playerNotOwnedByClub": "Il giocatore non appartiene al tuo club",

@@ -1699,7 +1699,9 @@
         "gameMetaMissing": "存档缺少核心游戏元数据。",
         "invalidStartDate": "存档包含无效的开始日期。",
         "invalidGameDate": "存档包含无效的当前日期。",
-        "managerNotFound": "未在该存档中找到主教练“{{managerId}}”。"
+        "managerNotFound": "未在该存档中找到主教练“{{managerId}}”。",
+        "loadFailed": "加载存档数据失败。",
+        "writeFailed": "保存比赛数据失败。"
       },
       "saveIndex": {
         "checksumReadFailed": "读取存档数据以验证校验和失败。",
@@ -1707,6 +1709,11 @@
         "writeFailed": "更新存档索引失败。"
       },
       "saveManagerUnavailable": "存档数据暂时不可用。",
+      "settings": {
+        "loadFailed": "加载设置失败。",
+        "parseFailed": "设置数据无效。",
+        "saveFailed": "保存设置失败。"
+      },
       "finance": {
         "boardSupportUnavailable": "只有当现金储备承压时，董事会紧急支持才可用。",
         "boardSupportAlreadyUsed": "董事会本赛季已经批准过一次紧急支持。",
@@ -1735,7 +1742,10 @@
         "transferBudgetTooLow": "转会预算过低",
         "playerNotOwnedByUser": "未找到该球员，或该球员不属于你",
         "offerNotPending": "未找到报价，或该报价已不再处于待处理状态",
-        "counterOfferMustExceedCurrentOffer": "还价必须高于当前报价"
+        "counterOfferMustExceedCurrentOffer": "还价必须高于当前报价",
+        "invalidYouthScoutingRegion": "不支持的青年球探区域。",
+        "invalidYouthScoutingObjective": "不支持的青年球探目标。",
+        "invalidYouthScoutingTargetPosition": "不支持的青年球探目标位置。"
       },
       "contracts": {
         "playerNotOwnedByClub": "该球员不属于你的俱乐部",

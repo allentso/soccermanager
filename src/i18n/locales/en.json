@@ -1657,6 +1657,11 @@
       "noActiveSaveSession": "No active save session",
       "saveNotFound": "Save '{{saveId}}' not found.",
       "saveManagerUnavailable": "Save data is temporarily unavailable.",
+      "settings": {
+        "loadFailed": "Failed to load settings.",
+        "parseFailed": "Settings data is invalid.",
+        "saveFailed": "Failed to save settings."
+      },
       "teamNotFound": "Team not found",
       "jobOffer": {
         "teamNotVacant": "This club is no longer looking for a manager."
@@ -1700,7 +1705,9 @@
         "gameMetaMissing": "Save data is missing core game metadata.",
         "invalidStartDate": "Save data has an invalid start date.",
         "invalidGameDate": "Save data has an invalid current date.",
-        "managerNotFound": "Manager '{{managerId}}' was not found in this save."
+        "managerNotFound": "Manager '{{managerId}}' was not found in this save.",
+        "loadFailed": "Failed to load save data.",
+        "writeFailed": "Failed to save game data."
       },
       "saveIndex": {
         "checksumReadFailed": "Failed to read save data for checksum validation.",
@@ -1735,7 +1742,10 @@
         "transferBudgetTooLow": "Transfer budget too low",
         "playerNotOwnedByUser": "Player not found or not yours",
         "offerNotPending": "Offer not found or not pending",
-        "counterOfferMustExceedCurrentOffer": "Counter offer must exceed current offer"
+        "counterOfferMustExceedCurrentOffer": "Counter offer must exceed current offer",
+        "invalidYouthScoutingRegion": "Unsupported youth scouting region.",
+        "invalidYouthScoutingObjective": "Unsupported youth scouting objective.",
+        "invalidYouthScoutingTargetPosition": "Unsupported youth scouting target position."
       },
       "contracts": {
         "playerNotOwnedByClub": "Player does not belong to your club",

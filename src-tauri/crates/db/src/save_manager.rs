@@ -25,6 +25,8 @@ pub struct SaveManager {
     save_index: SaveIndexManager,
 }
 
+const SAVE_MANAGER_UNAVAILABLE_ERROR: &str = "be.error.saveManagerUnavailable";
+
 fn save_not_found_error(save_id: &str) -> String {
     format!("be.error.saveNotFound?saveId={save_id}")
 }
@@ -32,8 +34,7 @@ fn save_not_found_error(save_id: &str) -> String {
 impl SaveManager {
     /// Initialize the SaveManager without blocking startup on a missing save index.
     pub fn init(saves_dir: &Path) -> Result<Self, String> {
-        fs::create_dir_all(saves_dir)
-            .map_err(|e| format!("Failed to create saves directory: {}", e))?;
+        fs::create_dir_all(saves_dir).map_err(|_| SAVE_MANAGER_UNAVAILABLE_ERROR.to_string())?;
         let save_index = SaveIndexManager::init(saves_dir)?;
 
         Ok(Self {
@@ -857,6 +858,20 @@ mod tests {
         let sm = SaveManager::init(&saves_dir).unwrap();
         assert!(saves_dir.exists());
         assert!(sm.list_saves().is_empty());
+    }
+
+    #[test]
+    fn test_init_returns_backend_key_when_saves_path_is_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let saves_path = dir.path().join("saves");
+        fs::write(&saves_path, "not a directory").unwrap();
+
+        let result = SaveManager::init(&saves_path);
+
+        match result {
+            Err(error) => assert_eq!(error, SAVE_MANAGER_UNAVAILABLE_ERROR),
+            Ok(_) => panic!("expected save manager init to fail for a file path"),
+        }
     }
 
     #[test]

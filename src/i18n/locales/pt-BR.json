@@ -1699,7 +1699,9 @@
         "gameMetaMissing": "O save não contém os metadados principais do jogo.",
         "invalidStartDate": "O save contém uma data inicial inválida.",
         "invalidGameDate": "O save contém uma data atual inválida.",
-        "managerNotFound": "O técnico '{{managerId}}' não foi encontrado neste save."
+        "managerNotFound": "O técnico '{{managerId}}' não foi encontrado neste save.",
+        "loadFailed": "Não foi possível carregar os dados do save.",
+        "writeFailed": "Não foi possível salvar os dados do jogo."
       },
       "saveIndex": {
         "checksumReadFailed": "Não foi possível ler os dados do save para validar a soma de verificação.",
@@ -1707,6 +1709,11 @@
         "writeFailed": "Não foi possível atualizar o índice de saves."
       },
       "saveManagerUnavailable": "Os dados salvos estão temporariamente indisponíveis.",
+      "settings": {
+        "loadFailed": "Não foi possível carregar as configurações.",
+        "parseFailed": "Os dados das configurações são inválidos.",
+        "saveFailed": "Não foi possível salvar as configurações."
+      },
       "finance": {
         "boardSupportUnavailable": "O apoio emergencial da diretoria só está disponível quando o caixa está sob pressão.",
         "boardSupportAlreadyUsed": "A diretoria já aprovou apoio emergencial nesta temporada.",
@@ -1735,7 +1742,10 @@
         "transferBudgetTooLow": "O orçamento de transferências é baixo demais",
         "playerNotOwnedByUser": "Jogador não encontrado ou não pertence a você",
         "offerNotPending": "Oferta não encontrada ou não está mais pendente",
-        "counterOfferMustExceedCurrentOffer": "A contraproposta deve superar a oferta atual"
+        "counterOfferMustExceedCurrentOffer": "A contraproposta deve superar a oferta atual",
+        "invalidYouthScoutingRegion": "Região de prospecção de base não suportada.",
+        "invalidYouthScoutingObjective": "Objetivo de prospecção de base não suportado.",
+        "invalidYouthScoutingTargetPosition": "Posição-alvo da prospecção de base não suportada."
       },
       "contracts": {
         "playerNotOwnedByClub": "O jogador não pertence ao seu clube",

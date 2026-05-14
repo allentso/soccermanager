@@ -16,6 +16,10 @@ use crate::repositories::{
 
 pub struct GamePersistenceWriter;
 
+fn game_persistence_write_error() -> String {
+    "be.error.gamePersistence.writeFailed".to_string()
+}
+
 impl GamePersistenceWriter {
     pub fn write_game(
         db: &GameDatabase,
@@ -26,7 +30,7 @@ impl GamePersistenceWriter {
         let conn = db.conn();
         let now = Utc::now().to_rfc3339();
         let vacant_team_days_json = serde_json::to_string(&game.vacant_team_days)
-            .map_err(|error| format!("Failed to serialize vacant team days: {}", error))?;
+            .map_err(|_| game_persistence_write_error())?;
         let manager_id = if game.manager_id.is_empty() {
             game.manager.id.clone()
         } else {
@@ -134,6 +138,10 @@ fn invalid_game_date_error() -> String {
 
 fn manager_not_found_error(manager_id: &str) -> String {
     format!("be.error.gamePersistence.managerNotFound?managerId={manager_id}")
+}
+
+fn game_persistence_load_error() -> String {
+    "be.error.gamePersistence.loadFailed".to_string()
 }
 
 impl GamePersistenceReader {
@@ -317,6 +325,27 @@ mod tests {
             "be.error.gamePersistence.managerNotFound?managerId=mgr-missing"
         );
     }
+
+    #[test]
+    fn parse_objective_type_returns_backend_key_when_value_is_unknown() {
+        let result = parse_objective_type("UnknownObjective");
+
+        assert_eq!(result.unwrap_err(), "be.error.gamePersistence.loadFailed");
+    }
+
+    #[test]
+    fn parse_youth_region_returns_backend_key_when_value_is_unknown() {
+        let result = parse_youth_region("MoonBase");
+
+        assert_eq!(result.unwrap_err(), "be.error.gamePersistence.loadFailed");
+    }
+
+    #[test]
+    fn parse_youth_objective_returns_backend_key_when_value_is_unknown() {
+        let result = parse_youth_objective("SuperProspect");
+
+        assert_eq!(result.unwrap_err(), "be.error.gamePersistence.loadFailed");
+    }
 }
 
 fn parse_objective_type(value: &str) -> Result<ObjectiveType, String> {
@@ -325,7 +354,7 @@ fn parse_objective_type(value: &str) -> Result<ObjectiveType, String> {
         "Wins" => Ok(ObjectiveType::Wins),
         "GoalsScored" => Ok(ObjectiveType::GoalsScored),
         "FinancialStability" => Ok(ObjectiveType::FinancialStability),
-        _ => Err(format!("unknown objective type: {}", value)),
+        _ => Err(game_persistence_load_error()),
     }
 }
 
@@ -356,7 +385,7 @@ fn parse_youth_region(value: &str) -> Result<YouthScoutingRegion, String> {
     match value {
         "Domestic" => Ok(YouthScoutingRegion::Domestic),
         "International" => Ok(YouthScoutingRegion::International),
-        _ => Err(format!("unknown youth scouting region: {}", value)),
+        _ => Err(game_persistence_load_error()),
     }
 }
 
@@ -365,6 +394,6 @@ fn parse_youth_objective(value: &str) -> Result<YouthScoutingObjective, String> 
         "Balanced" => Ok(YouthScoutingObjective::Balanced),
         "HighPotential" => Ok(YouthScoutingObjective::HighPotential),
         "ReadySoon" => Ok(YouthScoutingObjective::ReadySoon),
-        _ => Err(format!("unknown youth scouting objective: {}", value)),
+        _ => Err(game_persistence_load_error()),
     }
 }
