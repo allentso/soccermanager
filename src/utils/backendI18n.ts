@@ -540,7 +540,7 @@ export function resolveMessage(msg: MessageData): MessageData {
     body: resolve(msg.body_key, msg.body, p),
     sender: resolve(msg.sender_key, msg.sender, p),
     sender_role: resolve(msg.sender_role_key, msg.sender_role, p),
-    actions: msg.actions.map((action) => resolveActionResolved(action, msg.id, p)),
+    actions: msg.actions.map((action) => resolveActionWithResolvedParams(action, msg.id, p)),
   };
 
   return resolveLegacyTakeoverContractReviewMessage(
@@ -559,10 +559,10 @@ export function resolveAction(
 ): MessageAction {
   const resolvedParams = resolveParamValues(params);
 
-  return resolveActionResolved(action, messageId, resolvedParams);
+  return resolveActionWithResolvedParams(action, messageId, resolvedParams);
 }
 
-function resolveActionResolved(
+function resolveActionWithResolvedParams(
   action: MessageAction,
   messageId?: string,
   params?: Record<string, string>,
