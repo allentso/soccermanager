@@ -6,6 +6,8 @@ use db::save_manager::SaveManager;
 use ofm_core::state::StateManager;
 use std::sync::Mutex;
 
+const SAVE_MANAGER_UNAVAILABLE_ERROR: &str = "be.error.saveManagerUnavailable";
+
 /// Tauri-managed wrapper around SaveManager.
 pub struct SaveManagerState(pub Mutex<SaveManager>);
 
@@ -19,7 +21,7 @@ pub fn run() {
         }
     }
 
-    tauri::Builder::default()
+    let result = tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(
             tauri_plugin_log::Builder::new()
@@ -38,12 +40,12 @@ pub fn run() {
             let app_data_dir = app
                 .path()
                 .app_data_dir()
-                .expect("Failed to get app data dir");
-            std::fs::create_dir_all(&app_data_dir).expect("Failed to create app data dir");
+                .map_err(|_| std::io::Error::other(SAVE_MANAGER_UNAVAILABLE_ERROR))?;
+            std::fs::create_dir_all(&app_data_dir)
+                .map_err(|_| std::io::Error::other(SAVE_MANAGER_UNAVAILABLE_ERROR))?;
 
             let saves_dir = app_data_dir.join("saves");
-            let mut save_manager =
-                SaveManager::init(&saves_dir).expect("Failed to initialize SaveManager");
+            let mut save_manager = SaveManager::init(&saves_dir).map_err(std::io::Error::other)?;
 
             // Run legacy migration if old saves.db exists
             if db::legacy_migration::has_legacy_db(&app_data_dir) {
@@ -159,6 +161,9 @@ pub fn run() {
             get_available_jobs,
             apply_for_job
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .run(tauri::generate_context!());
+
+    if let Err(error) = result {
+        std::panic::panic_any(error);
+    }
 }

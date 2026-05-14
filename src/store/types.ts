@@ -135,6 +135,7 @@ export interface PlayerData {
   full_name: string;
   date_of_birth: string;
   nationality: string;
+  football_nation?: string;
   position: string;
   natural_position: string;
   alternate_positions: string[];
@@ -201,6 +202,7 @@ export interface StaffData {
   last_name: string;
   date_of_birth: string;
   nationality: string;
+  football_nation?: string;
   role: "AssistantManager" | "Coach" | "Scout" | "Physio";
   attributes: {
     coaching: number;
@@ -475,6 +477,7 @@ export interface GameStateData {
     last_name: string;
     date_of_birth: string;
     nationality: string;
+    football_nation?: string;
     reputation: number;
     satisfaction: number;
     fan_approval: number;

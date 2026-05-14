@@ -155,6 +155,7 @@ function createPlayer(overrides: Partial<PlayerData> = {}): PlayerData {
     loan_listed: false,
     transfer_offers: [],
     traits: [],
+    ovr: 1,
     ...overrides,
   };
 }

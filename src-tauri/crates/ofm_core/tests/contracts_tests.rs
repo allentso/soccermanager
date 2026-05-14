@@ -245,17 +245,57 @@ fn terminate_contract_now_releases_player_and_charges_severance() {
     assert_eq!(player.team_id, None);
     assert_eq!(player.contract_end, None);
     assert_eq!(player.wage, 0);
-    assert!(!game.teams[0].starting_xi_ids.contains(&"player-1".to_string()));
+    assert!(
+        !game.teams[0]
+            .starting_xi_ids
+            .contains(&"player-1".to_string())
+    );
     assert_eq!(game.teams[0].finance, original_finance - 132_000);
     assert_eq!(game.teams[0].season_expenses, 132_000);
+    assert_eq!(
+        game.teams[0].financial_ledger.last().unwrap().description,
+        "be.msg.contractTerminated.ledgerDescription?player=player-1"
+    );
     assert_eq!(
         game.teams[0].financial_ledger.last().unwrap().kind,
         FinancialTransactionKind::ContractTermination
     );
-    assert!(
-        game.messages
-            .iter()
-            .any(|message| message.id == "contract_terminated_player-1")
+    let message = game
+        .messages
+        .iter()
+        .find(|message| message.id == "contract_terminated_player-1")
+        .expect("termination should create an inbox message");
+    assert_eq!(
+        message.subject_key.as_deref(),
+        Some("be.msg.contractTerminated.subject")
+    );
+    assert_eq!(
+        message.body_key.as_deref(),
+        Some("be.msg.contractTerminated.body")
+    );
+    assert_eq!(
+        message.sender_key.as_deref(),
+        Some("be.sender.assistantManager")
+    );
+    assert_eq!(
+        message.sender_role_key.as_deref(),
+        Some("be.role.assistantManager")
+    );
+    assert!(message.subject.is_empty());
+    assert!(message.body.is_empty());
+    assert!(message.sender.is_empty());
+    assert!(message.sender_role.is_empty());
+    assert_eq!(
+        message.i18n_params.get("player"),
+        Some(&"player-1".to_string())
+    );
+    assert_eq!(
+        message.i18n_params.get("team"),
+        Some(&"Alpha FC".to_string())
+    );
+    assert_eq!(
+        message.i18n_params.get("severance"),
+        Some(&"132000".to_string())
     );
 }
 
@@ -266,7 +306,10 @@ fn terminate_contract_now_blocks_when_goalkeeper_would_be_lost() {
 
     let error = terminate_contract_now(&mut game, "gk-1").expect_err("termination should fail");
 
-    assert!(error.contains("unable to field"));
+    assert_eq!(
+        error,
+        "be.error.contracts.terminationWouldLeaveMatchdaySquadShort"
+    );
     let player = game.players.iter().find(|p| p.id == "gk-1").unwrap();
     assert_eq!(player.team_id.as_deref(), Some("team-1"));
     assert_eq!(game.teams[0].finance, original_finance);
@@ -630,6 +673,10 @@ fn assistant_can_complete_routine_delegate_renewal_even_when_manager_trust_is_lo
         report_message.sender_key.as_deref(),
         Some("be.sender.assistantManager")
     );
+    assert!(report_message.subject.is_empty());
+    assert!(report_message.body.is_empty());
+    assert!(report_message.sender.is_empty());
+    assert!(report_message.sender_role.is_empty());
     let structured_report = report_message
         .context
         .delegated_renewal_report
@@ -638,6 +685,10 @@ fn assistant_can_complete_routine_delegate_renewal_even_when_manager_trust_is_lo
     assert_eq!(structured_report.success_count, 1);
     assert_eq!(structured_report.cases.len(), 1);
     assert_eq!(structured_report.cases[0].status, "successful");
+    assert_eq!(
+        structured_report.cases[0].note_key.as_deref(),
+        Some("be.msg.delegatedRenewals.notes.completed")
+    );
 }
 
 #[test]
@@ -655,7 +706,7 @@ fn renewal_is_blocked_when_offer_pushes_healthy_club_far_over_soft_cap() {
     )
     .expect_err("renewal should be blocked by wage policy");
 
-    assert!(err.contains("board wage policy"));
+    assert_eq!(err, "be.error.contracts.boardWagePolicy?budget=200000");
 }
 
 #[test]
@@ -699,5 +750,5 @@ fn renewal_blocks_large_worsening_for_legacy_over_budget_saves() {
     )
     .expect_err("large worsening should still be blocked");
 
-    assert!(err.contains("board wage policy"));
+    assert_eq!(err, "be.error.contracts.boardWagePolicy?budget=50000");
 }

@@ -1,25 +1,26 @@
-import { useState, useRef, useEffect } from "react";
+import { Suspense, lazy, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useGameStore, GameStateData } from "../store/gameStore";
-import { Button, ThemeToggle, DatePicker, CountryFlag } from "../components/ui";
-import SavesList from "../components/menu/SavesList";
-import WorldSelect, { WorldDatabaseInfo } from "../components/menu/WorldSelect";
+import { ThemeToggle } from "../components/ui/ThemeToggle";
+import type { CreateManagerFormData } from "../components/menu/CreateManagerForm";
+import type { WorldDatabaseInfo } from "../components/menu/WorldSelect";
 import { resolveBackendError } from "../utils/backendI18n";
 import {
   FolderOpen,
   Settings,
-  X,
   PlusCircle,
   ChevronRight,
-  AlertCircle,
-  ChevronDown,
-  Check,
   Power,
 } from "lucide-react";
-import { countryName, allNationalities } from "../lib/countries";
+
+const CreateManagerForm = lazy(
+  () => import("../components/menu/CreateManagerForm"),
+);
+const SavesList = lazy(() => import("../components/menu/SavesList"));
+const WorldSelect = lazy(() => import("../components/menu/WorldSelect"));
 
 interface SaveEntry {
   id: string;
@@ -29,13 +30,6 @@ interface SaveEntry {
   checksum: string;
   created_at: string;
   last_played_at: string;
-}
-
-function normaliseSearchText(value: string): string {
-  return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
 }
 
 /**
@@ -82,14 +76,16 @@ const CREATE_MANAGER_FIELD_ORDER = [
   "lastName",
   "dob",
   "nationality",
-] as const;
+] as const satisfies ReadonlyArray<keyof CreateManagerFormData>;
 
 function prefersReducedMotion(): boolean {
   if (typeof window === "undefined") return false;
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
-function focusFirstCreateManagerError(errors: Record<string, string>): void {
+function focusFirstCreateManagerError(
+  errors: Partial<Record<keyof CreateManagerFormData, string>>,
+): void {
   const first = CREATE_MANAGER_FIELD_ORDER.find((k) => errors[k]);
   if (!first) return;
   const root = document.getElementById(`create-manager-field-${first}`);
@@ -103,21 +99,19 @@ function focusFirstCreateManagerError(errors: Record<string, string>): void {
   focusable?.focus({ preventScroll: true });
 }
 
-function logNationalityDebug(
-  message: string,
-  details?: Record<string, unknown>,
-): void {
-  console.debug("[MainMenu nationality]", {
-    message,
-    ...(details ?? {}),
-  });
+function MenuPanelFallback() {
+  return (
+    <div className="flex min-h-64 items-center justify-center">
+      <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary-500 border-t-transparent" />
+    </div>
+  );
 }
 
 export default function MainMenu() {
   const navigate = useNavigate();
   const setGameActive = useGameStore((state) => state.setGameActive);
   const setGameState = useGameStore((state) => state.setGameState);
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
 
   const [menuState, setMenuState] = useState<
     "main" | "create" | "world" | "load"
@@ -128,24 +122,20 @@ export default function MainMenu() {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [isStarting, setIsStarting] = useState(false);
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<CreateManagerFormData>({
     firstName: "",
     lastName: "",
     dob: "",
     nationality: "",
   });
-  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
-  const [nationalityOpen, setNationalityOpen] = useState(false);
-  const [nationalitySearch, setNationalitySearch] = useState("");
-  const nationalityRef = useRef<HTMLDivElement>(null);
+  const [formErrors, setFormErrors] = useState<
+    Partial<Record<keyof CreateManagerFormData, string>>
+  >({});
 
   // World database state
   const [worldDatabases, setWorldDatabases] = useState<WorldDatabaseInfo[]>([]);
   const [selectedWorldId, setSelectedWorldId] = useState<string>("random");
   const [isLoadingWorlds, setIsLoadingWorlds] = useState(false);
-
-  const countriesList = allNationalities(i18n.language);
-  const normalisedNationalitySearch = normaliseSearchText(nationalitySearch);
 
   /** Same messages as `validateForm` for DOB, so the age rule surfaces as the user edits. */
   const dobLiveRuleMessage = (() => {
@@ -159,30 +149,25 @@ export default function MainMenu() {
   })();
   const dobDisplayedError = formErrors.dob || dobLiveRuleMessage;
 
-  const filteredNationalities = countriesList.filter((nationality) => {
-    const normalisedName = normaliseSearchText(nationality.name);
-    const normalisedCode = normaliseSearchText(nationality.code);
+  const updateFormField = (field: keyof CreateManagerFormData, value: string) => {
+    setFormData((previous) => ({
+      ...previous,
+      [field]: value,
+    }));
+  };
 
-    return (
-      normalisedName.includes(normalisedNationalitySearch) ||
-      normalisedCode.includes(normalisedNationalitySearch)
-    );
-  });
-
-  const toggleNationalityDropdown = () => {
-    setNationalityOpen((open) => {
-      const nextOpen = !open;
-      logNationalityDebug("toggle button", { nextOpen });
-      return nextOpen;
-    });
-    setNationalitySearch("");
+  const clearFormError = (field: keyof CreateManagerFormData) => {
+    setFormErrors((previous) => ({
+      ...previous,
+      [field]: "",
+    }));
   };
 
   const validateForm = (): {
     ok: boolean;
-    errors: Record<string, string>;
+    errors: Partial<Record<keyof CreateManagerFormData, string>>;
   } => {
-    const errors: Record<string, string> = {};
+    const errors: Partial<Record<keyof CreateManagerFormData, string>> = {};
     if (!formData.firstName.trim()) {
       errors.firstName = t("validation.required", {
         field: t("createManager.firstName"),
@@ -240,37 +225,6 @@ export default function MainMenu() {
     setMenuState("world");
     loadWorldDatabases();
   };
-
-  // Close nationality dropdown on outside click
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (!nationalityOpen || !nationalityRef.current) {
-        return;
-      }
-
-      const targetNode = e.target instanceof Node ? e.target : null;
-      const eventPath =
-        typeof e.composedPath === "function" ? e.composedPath() : [];
-      const clickedInside =
-        eventPath.includes(nationalityRef.current) ||
-        (targetNode ? nationalityRef.current.contains(targetNode) : false);
-      const targetElement = e.target instanceof HTMLElement ? e.target : null;
-
-      logNationalityDebug("document mousedown", {
-        clickedInside,
-        targetTag: targetElement?.tagName.toLowerCase(),
-        targetClass: targetElement?.className ?? "",
-        targetText: targetElement?.textContent?.trim().slice(0, 60) ?? "",
-      });
-
-      if (!clickedInside) {
-        logNationalityDebug("closing from outside click");
-        setNationalityOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [nationalityOpen]);
 
   const loadWorldDatabases = async () => {
     setIsLoadingWorlds(true);
@@ -447,7 +401,7 @@ export default function MainMenu() {
           {/* Logo */}
           <img
             src="/openfootlogo.svg"
-            alt="OpenFootball"
+            alt={t("app.name")}
             className="text-center w-full h-full object-cover"
           />
 
@@ -513,292 +467,53 @@ export default function MainMenu() {
 
           {/* Step 1: Create Manager Form */}
           {menuState === "create" && (
-            <form
-              onSubmit={handleGoToWorldSelect}
-              className="flex flex-col gap-4"
-            >
-              <div className="flex justify-between items-center mb-2">
-                <h2 className="text-xl font-heading font-bold uppercase tracking-wide text-gray-900 dark:text-white transition-colors">
-                  {t("createManager.title")}
-                </h2>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMenuState("main");
-                    setFormErrors({});
-                  }}
-                  className="text-gray-400 hover:text-gray-700 dark:hover:text-white transition-colors p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-navy-600"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              {/* Step indicator */}
-              <div className="flex items-center gap-2 mb-1">
-                <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary-500 text-white text-xs font-bold">
-                  1
-                </div>
-                <div className="h-0.5 flex-1 bg-gray-200 dark:bg-navy-600" />
-                <div className="flex items-center justify-center w-6 h-6 rounded-full bg-gray-200 dark:bg-navy-600 text-gray-400 dark:text-gray-500 text-xs font-bold">
-                  2
-                </div>
-              </div>
-
-              {/* Name fields with labels */}
-              <div className="flex gap-3">
-                <div className="flex-1" id="create-manager-field-firstName">
-                  <label className="block text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">
-                    {t("createManager.firstName")}
-                  </label>
-                  <input
-                    maxLength={30}
-                    className={`w-full bg-gray-50 dark:bg-navy-900 border text-gray-900 dark:text-white rounded-lg p-3 outline-none focus:ring-2 transition-all placeholder:text-gray-400 dark:placeholder:text-gray-500 ${formErrors.firstName
-                        ? "border-red-400 dark:border-red-500 focus:border-red-500 focus:ring-red-500/20"
-                        : "border-gray-300 dark:border-navy-600 focus:border-primary-500 focus:ring-primary-500/20"
-                      }`}
-                    placeholder={t("createManager.placeholderFirst")}
-                    value={formData.firstName}
-                    onChange={(e) => {
-                      setFormData((prev) => ({
-                        ...prev,
-                        firstName: e.target.value,
-                      }));
-                      setFormErrors((prev) => ({ ...prev, firstName: "" }));
-                    }}
-                  />
-                  {formErrors.firstName && (
-                    <p className="flex items-center gap-1 text-xs text-red-500 mt-1">
-                      <AlertCircle className="w-3 h-3" />
-                      {formErrors.firstName}
-                    </p>
-                  )}
-                </div>
-                <div className="flex-1" id="create-manager-field-lastName">
-                  <label className="block text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">
-                    {t("createManager.lastName")}
-                  </label>
-                  <input
-                    maxLength={30}
-                    className={`w-full bg-gray-50 dark:bg-navy-900 border text-gray-900 dark:text-white rounded-lg p-3 outline-none focus:ring-2 transition-all placeholder:text-gray-400 dark:placeholder:text-gray-500 ${formErrors.lastName
-                        ? "border-red-400 dark:border-red-500 focus:border-red-500 focus:ring-red-500/20"
-                        : "border-gray-300 dark:border-navy-600 focus:border-primary-500 focus:ring-primary-500/20"
-                      }`}
-                    placeholder={t("createManager.placeholderLast")}
-                    value={formData.lastName}
-                    onChange={(e) => {
-                      setFormData((prev) => ({
-                        ...prev,
-                        lastName: e.target.value,
-                      }));
-                      setFormErrors((prev) => ({ ...prev, lastName: "" }));
-                    }}
-                  />
-                  {formErrors.lastName && (
-                    <p className="flex items-center gap-1 text-xs text-red-500 mt-1">
-                      <AlertCircle className="w-3 h-3" />
-                      {formErrors.lastName}
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              {/* Date of Birth with label */}
-              <div id="create-manager-field-dob">
-                <label className="block text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">
-                  {t("createManager.dob")}
-                </label>
-                <DatePicker
-                  value={formData.dob}
-                  onChange={(date) => {
-                    setFormData((prev) => ({
-                      ...prev,
-                      dob: date,
-                    }));
-                    setFormErrors((prev) => ({ ...prev, dob: "" }));
-                  }}
-                  error={!!dobDisplayedError}
-                />
-                {dobDisplayedError && (
-                  <p className="flex items-center gap-1 text-xs text-red-500 mt-1">
-                    <AlertCircle className="w-3 h-3 shrink-0" />
-                    {dobDisplayedError}
-                  </p>
-                )}
-              </div>
-
-              {/* Country/Region combobox — elevate stacking when open so the menu paints above the submit button */}
-              <div
-                id="create-manager-field-nationality"
-                ref={nationalityRef}
-                className={nationalityOpen ? "relative z-50" : undefined}
-              >
-                <label className="block text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">
-                  {t("createManager.countryOfOrigin")}
-                </label>
-                <div className="relative">
-                  <button
-                    type="button"
-                    onMouseDown={(event) => {
-                      event.preventDefault();
-                      event.stopPropagation();
-                      toggleNationalityDropdown();
-                    }}
-                    onClick={(event) => {
-                      if (event.detail === 0) {
-                        toggleNationalityDropdown();
-                      }
-                    }}
-                    className={`w-full flex items-center justify-between bg-gray-50 dark:bg-navy-900 border text-left rounded-lg p-3 outline-none transition-all ${formErrors.nationality
-                        ? "border-red-400 dark:border-red-500"
-                        : nationalityOpen
-                          ? "border-primary-500 ring-2 ring-primary-500/20"
-                          : "border-gray-300 dark:border-navy-600"
-                      }`}
-                  >
-                    <span
-                      className={
-                        formData.nationality
-                          ? "text-gray-900 dark:text-white"
-                          : "text-gray-400 dark:text-gray-500"
-                      }
-                    >
-                      {formData.nationality ? (
-                        <span className="flex items-center gap-2">
-                          <CountryFlag
-                            code={formData.nationality}
-                            locale={i18n.language}
-                            className="text-lg leading-none"
-                          />
-                          <span>
-                            {countryName(formData.nationality, i18n.language) ||
-                              formData.nationality}
-                          </span>
-                        </span>
-                      ) : (
-                        t("createManager.selectCountry")
-                      )}
-                    </span>
-                    <ChevronDown
-                      className={`w-4 h-4 text-gray-400 transition-transform ${nationalityOpen ? "rotate-180" : ""}`}
-                    />
-                  </button>
-
-                  {nationalityOpen && (
-                    <div
-                      className="absolute z-50 bottom-full mb-1 left-0 right-0 bg-white dark:bg-navy-700 rounded-lg shadow-xl border border-gray-200 dark:border-navy-600 overflow-hidden"
-                      onMouseDown={(event) => {
-                        event.stopPropagation();
-                        logNationalityDebug("dropdown panel mousedown");
-                      }}
-                    >
-                      <div className="p-2 border-b border-gray-100 dark:border-navy-600">
-                        <input
-                          type="text"
-                          autoFocus
-                          placeholder={t("createManager.searchNationalities")}
-                          value={nationalitySearch}
-                          onChange={(e) => setNationalitySearch(e.target.value)}
-                          className="w-full bg-gray-50 dark:bg-navy-800 border border-gray-200 dark:border-navy-600 text-gray-900 dark:text-white rounded-md px-3 py-2 text-sm outline-none focus:border-primary-500 transition-colors placeholder:text-gray-400 dark:placeholder:text-gray-500"
-                        />
-                      </div>
-                      <div className="max-h-[min(20rem,calc(100vh-9rem))] overflow-y-auto overscroll-contain">
-                        {filteredNationalities.length === 0 ? (
-                          <p className="px-3 py-2 text-xs text-gray-400 dark:text-gray-500">
-                            {t("menu.noResults")}
-                          </p>
-                        ) : (
-                          filteredNationalities.map((nat) => (
-                            <button
-                              key={nat.code}
-                              type="button"
-                              onMouseDown={(event) => {
-                                event.preventDefault();
-                                event.stopPropagation();
-                                logNationalityDebug("option selected", {
-                                  code: nat.code,
-                                  name: nat.name,
-                                });
-                                setFormData((prev) => ({
-                                  ...prev,
-                                  nationality: nat.code,
-                                }));
-                                setNationalityOpen(false);
-                                setNationalitySearch("");
-                                setFormErrors((prev) => ({
-                                  ...prev,
-                                  nationality: "",
-                                }));
-                              }}
-                              className={`w-full text-left px-3 py-2 text-sm flex items-center justify-between transition-colors ${formData.nationality === nat.code
-                                  ? "bg-primary-50 dark:bg-primary-500/10 text-primary-600 dark:text-primary-400"
-                                  : "text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-navy-600"
-                                }`}
-                            >
-                              <div className="flex items-center gap-2">
-                                <CountryFlag
-                                  code={nat.code}
-                                  locale={i18n.language}
-                                  className="text-lg leading-none"
-                                />
-                                <span>{nat.name}</span>
-                              </div>
-                              {formData.nationality === nat.code && (
-                                <Check className="w-4 h-4 text-primary-500" />
-                              )}
-                            </button>
-                          ))
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-                {formErrors.nationality && (
-                  <p className="flex items-center gap-1 text-xs text-red-500 mt-1">
-                    <AlertCircle className="w-3 h-3" />
-                    {formErrors.nationality}
-                  </p>
-                )}
-              </div>
-
-              <Button
-                type="submit"
-                variant="primary"
-                size="lg"
-                className="mt-2 w-full"
-                iconRight={<ChevronRight />}
-              >
-                {t("createManager.chooseWorld")}
-              </Button>
-            </form>
+            <Suspense fallback={<MenuPanelFallback />}>
+              <CreateManagerForm
+                formData={formData}
+                formErrors={formErrors}
+                dobError={dobDisplayedError}
+                onChange={updateFormField}
+                onClearError={clearFormError}
+                onClose={() => {
+                  setMenuState("main");
+                  setFormErrors({});
+                }}
+                onSubmit={handleGoToWorldSelect}
+              />
+            </Suspense>
           )}
 
           {/* Step 2: World Database Selection */}
           {menuState === "world" && (
-            <WorldSelect
-              worldDatabases={worldDatabases}
-              selectedWorldId={selectedWorldId}
-              isLoadingWorlds={isLoadingWorlds}
-              isStarting={isStarting}
-              onSelectWorld={setSelectedWorldId}
-              onImportFile={handleImportFile}
-              onStart={handleStartGame}
-              onBack={() => setMenuState("create")}
-              onClose={() => setMenuState("main")}
-            />
+            <Suspense fallback={<MenuPanelFallback />}>
+              <WorldSelect
+                worldDatabases={worldDatabases}
+                selectedWorldId={selectedWorldId}
+                isLoadingWorlds={isLoadingWorlds}
+                isStarting={isStarting}
+                onSelectWorld={setSelectedWorldId}
+                onImportFile={handleImportFile}
+                onStart={handleStartGame}
+                onBack={() => setMenuState("create")}
+                onClose={() => setMenuState("main")}
+              />
+            </Suspense>
           )}
 
           {/* Load Game List */}
           {menuState === "load" && (
-            <SavesList
-              loadingSaveId={loadingSaveId}
-              saves={saves}
-              isLoading={isLoadingSaves}
-              confirmDeleteId={confirmDeleteId}
-              onLoad={handleLoadGame}
-              onDelete={handleDeleteSave}
-              onConfirmDelete={setConfirmDeleteId}
-              onClose={() => setMenuState("main")}
-            />
+            <Suspense fallback={<MenuPanelFallback />}>
+              <SavesList
+                loadingSaveId={loadingSaveId}
+                saves={saves}
+                isLoading={isLoadingSaves}
+                confirmDeleteId={confirmDeleteId}
+                onLoad={handleLoadGame}
+                onDelete={handleDeleteSave}
+                onConfirmDelete={setConfirmDeleteId}
+                onClose={() => setMenuState("main")}
+              />
+            </Suspense>
           )}
         </div>
       </div>

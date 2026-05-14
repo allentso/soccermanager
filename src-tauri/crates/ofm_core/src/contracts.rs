@@ -19,6 +19,12 @@ use std::collections::HashMap;
 const RENEWAL_SESSION_STALE_DAYS: i64 = 14;
 const MARKET_VALUE_TO_WAGE_RATIO: u64 = 200;
 const MINIMUM_DEFAULT_WAGE: u64 = 500;
+const ERR_PLAYER_NOT_OWNED_BY_CLUB: &str = "be.error.contracts.playerNotOwnedByClub";
+const ERR_UNABLE_TO_CALCULATE_CONTRACT_END_DATE: &str =
+    "be.error.contracts.unableToCalculateContractEndDate";
+const ERR_PLAYER_HAS_NO_ACTIVE_CONTRACT: &str = "be.error.contracts.playerHasNoActiveContract";
+const ERR_TERMINATION_WOULD_LEAVE_MATCHDAY_SQUAD_SHORT: &str =
+    "be.error.contracts.terminationWouldLeaveMatchdaySquadShort";
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ContractWarningStage {
     TwelveMonths,
@@ -286,23 +292,23 @@ pub fn propose_renewal(
         .manager
         .team_id
         .clone()
-        .ok_or("No team assigned".to_string())?;
+        .ok_or("be.error.noTeamAssigned".to_string())?;
 
     let team = game
         .teams
         .iter()
         .find(|candidate| candidate.id == manager_team_id)
-        .ok_or("Manager team not found".to_string())?
+        .ok_or("be.error.managedTeamNotFound".to_string())?
         .clone();
 
     let player_index = game
         .players
         .iter()
         .position(|candidate| candidate.id == player_id)
-        .ok_or("Player not found".to_string())?;
+        .ok_or("be.error.playerNotFound".to_string())?;
 
     if game.players[player_index].team_id.as_deref() != Some(team.id.as_str()) {
-        return Err("Player does not belong to your club".to_string());
+        return Err(ERR_PLAYER_NOT_OWNED_BY_CLUB.to_string());
     }
 
     let current_date = game.clock.current_date.date_naive();
@@ -398,7 +404,7 @@ pub fn propose_renewal(
 
         let new_contract_end = current_date
             .checked_add_months(Months::new(offer.contract_years * 12))
-            .ok_or("Unable to calculate new contract end date".to_string())?;
+            .ok_or(ERR_UNABLE_TO_CALCULATE_CONTRACT_END_DATE.to_string())?;
 
         let player = &mut game.players[player_index];
         player.wage = offer.weekly_wage;
@@ -626,7 +632,7 @@ pub fn set_contract_exit_intent(
     let player = &mut game.players[player_index];
 
     if player.contract_end.is_none() {
-        return Err("Player does not have an active contract".to_string());
+        return Err(ERR_PLAYER_HAS_NO_ACTIVE_CONTRACT.to_string());
     }
 
     let state = player
@@ -676,7 +682,7 @@ pub fn preview_contract_termination(
     let player = owned_player(game, player_id)?;
 
     if player.contract_end.is_none() {
-        return Err("Player does not have an active contract".to_string());
+        return Err(ERR_PLAYER_HAS_NO_ACTIVE_CONTRACT.to_string());
     }
 
     let current_date = game.clock.current_date.date_naive();
@@ -695,17 +701,14 @@ pub fn terminate_contract_now(
     let preview = preview_contract_termination(game, player_id)?;
 
     if !preview.squad_safety.can_field_matchday_squad {
-        return Err(
-            "Terminating this contract would leave your squad unable to field a matchday XI"
-                .to_string(),
-        );
+        return Err(ERR_TERMINATION_WOULD_LEAVE_MATCHDAY_SQUAD_SHORT.to_string());
     }
 
     let player_index = owned_player_index(game, player_id)?;
     let team_id = game.players[player_index]
         .team_id
         .clone()
-        .ok_or("Player does not belong to your club".to_string())?;
+        .ok_or(ERR_PLAYER_NOT_OWNED_BY_CLUB.to_string())?;
     let today = game.clock.current_date.format("%Y-%m-%d").to_string();
 
     if let Some(team) = game
@@ -717,9 +720,10 @@ pub fn terminate_contract_now(
         team.season_expenses += preview.severance_cost;
         team.financial_ledger.push(FinancialTransaction {
             date: today,
-            description: format!(
-                "Contract termination severance paid to {}",
-                preview.player_name
+            description: backend_text_with_param(
+                "be.msg.contractTerminated.ledgerDescription",
+                "player",
+                &preview.player_name,
             ),
             amount: -preview.severance_cost,
             kind: FinancialTransactionKind::ContractTermination,
@@ -806,15 +810,15 @@ fn owned_player<'a>(game: &'a Game, player_id: &str) -> Result<&'a Player, Strin
         .manager
         .team_id
         .as_deref()
-        .ok_or("No team assigned".to_string())?;
+        .ok_or("be.error.noTeamAssigned".to_string())?;
     let player = game
         .players
         .iter()
         .find(|candidate| candidate.id == player_id)
-        .ok_or("Player not found".to_string())?;
+        .ok_or("be.error.playerNotFound".to_string())?;
 
     if player.team_id.as_deref() != Some(manager_team_id) {
-        return Err("Player does not belong to your club".to_string());
+        return Err(ERR_PLAYER_NOT_OWNED_BY_CLUB.to_string());
     }
 
     Ok(player)
@@ -825,15 +829,15 @@ fn owned_player_index(game: &Game, player_id: &str) -> Result<usize, String> {
         .manager
         .team_id
         .as_deref()
-        .ok_or("No team assigned".to_string())?;
+        .ok_or("be.error.noTeamAssigned".to_string())?;
     let player_index = game
         .players
         .iter()
         .position(|candidate| candidate.id == player_id)
-        .ok_or("Player not found".to_string())?;
+        .ok_or("be.error.playerNotFound".to_string())?;
 
     if game.players[player_index].team_id.as_deref() != Some(manager_team_id) {
-        return Err("Player does not belong to your club".to_string());
+        return Err(ERR_PLAYER_NOT_OWNED_BY_CLUB.to_string());
     }
 
     Ok(player_index)
@@ -846,6 +850,16 @@ fn termination_severance_cost(player: &Player, current_date: NaiveDate) -> i64 {
     let remaining_weeks = (remaining_days + 6) / 7;
 
     remaining_weeks * i64::from(player.wage)
+}
+
+fn backend_text_with_param(key: &str, param_name: &str, param_value: &str) -> String {
+    let mut message = String::with_capacity(key.len() + param_name.len() + param_value.len() + 2);
+    message.push_str(key);
+    message.push('?');
+    message.push_str(param_name);
+    message.push('=');
+    message.push_str(param_value);
+    message
 }
 
 pub(crate) fn expected_wage(player: &Player, team: &Team, current_date: NaiveDate) -> u32 {
@@ -1209,19 +1223,26 @@ fn contract_expired_message(
     team_name: &str,
     date: &str,
 ) -> InboxMessage {
+    let mut i18n_params = std::collections::HashMap::new();
+    i18n_params.insert("player".to_string(), player_name.to_string());
+    i18n_params.insert("team".to_string(), team_name.to_string());
+
     InboxMessage::new(
         format!("contract_expired_{}", player_id),
-        format!("{} Leaves on a Free", player_name),
-        format!(
-            "{} has left {} after their contract expired. The player is now a free agent.",
-            player_name, team_name
-        ),
-        "Assistant Manager".to_string(),
+        String::new(),
+        String::new(),
+        String::new(),
         date.to_string(),
     )
     .with_category(MessageCategory::Contract)
     .with_priority(MessagePriority::Urgent)
-    .with_sender_role("Assistant Manager")
+    .with_sender_role("")
+    .with_i18n(
+        "be.msg.contractExpired.subject",
+        "be.msg.contractExpired.body",
+        i18n_params,
+    )
+    .with_sender_i18n("be.sender.assistantManager", "be.role.assistantManager")
 }
 
 fn contract_terminated_message(
@@ -1231,19 +1252,27 @@ fn contract_terminated_message(
     severance_cost: i64,
     date: &str,
 ) -> InboxMessage {
+    let mut i18n_params = std::collections::HashMap::new();
+    i18n_params.insert("player".to_string(), player_name.to_string());
+    i18n_params.insert("team".to_string(), team_name.to_string());
+    i18n_params.insert("severance".to_string(), severance_cost.to_string());
+
     InboxMessage::new(
         format!("contract_terminated_{}", player_id),
-        format!("{} Released", player_name),
-        format!(
-            "{} has been released by {}. The club paid {} in remaining wages as severance.",
-            player_name, team_name, severance_cost
-        ),
-        "Assistant Manager".to_string(),
+        String::new(),
+        String::new(),
+        String::new(),
         date.to_string(),
     )
     .with_category(MessageCategory::Contract)
     .with_priority(MessagePriority::Urgent)
-    .with_sender_role("Assistant Manager")
+    .with_sender_role("")
+    .with_i18n(
+        "be.msg.contractTerminated.subject",
+        "be.msg.contractTerminated.body",
+        i18n_params,
+    )
+    .with_sender_i18n("be.sender.assistantManager", "be.role.assistantManager")
 }
 
 fn free_agent_signed_message(

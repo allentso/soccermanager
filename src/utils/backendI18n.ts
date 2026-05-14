@@ -48,18 +48,59 @@ function extractErrorMessage(error: unknown): string {
   return "";
 }
 
+function parseBackendMessage(message: string): {
+  key?: string;
+  fallback: string;
+  params?: Record<string, string>;
+} {
+  const trimmed = message.trim();
+  const separatorIndex = trimmed.indexOf("?");
+
+  if (separatorIndex === -1) {
+    return {
+      key: isTranslationKey(trimmed) ? trimmed : undefined,
+      fallback: trimmed,
+    };
+  }
+
+  const key = trimmed.slice(0, separatorIndex);
+  const rawParams = trimmed.slice(separatorIndex + 1);
+
+  if (!isTranslationKey(key)) {
+    return { fallback: trimmed };
+  }
+
+  return {
+    key,
+    fallback: trimmed,
+    params: Object.fromEntries(new URLSearchParams(rawParams).entries()),
+  };
+}
+
 export function resolveBackendText(
   key: string | undefined,
   fallback: string,
   params?: Record<string, string>,
 ): string {
-  return resolve(key, fallback, params);
+  if (!key) return fallback;
+  const parsed = parseBackendMessage(key);
+  const mergedParams = {
+    ...(parsed.params ?? {}),
+    ...(params ?? {}),
+  };
+
+  return resolve(
+    parsed.key,
+    fallback,
+    Object.keys(mergedParams).length > 0 ? mergedParams : undefined,
+  );
 }
 
 export function resolveBackendError(error: unknown): string {
   const message = extractErrorMessage(error).trim();
   if (!message) return "";
-  return resolve(isTranslationKey(message) ? message : undefined, message || "");
+  const parsed = parseBackendMessage(message);
+  return resolve(parsed.key, parsed.fallback, parsed.params);
 }
 
 function boardObjectiveFallback(objective: BoardObjective): string {
@@ -106,6 +147,12 @@ type MatchReportScorerParam = {
   player: string;
   minute: string | number;
   team: string;
+};
+
+type PressConferenceQuoteParam = {
+  key?: string;
+  fallback?: string;
+  params?: Record<string, string>;
 };
 
 type StandingsEntryParam = {
@@ -297,6 +344,7 @@ function normalizeMatchReportParams(
   params?: Record<string, string>,
 ): Record<string, string> | undefined {
   if (
+    !article.body_key?.startsWith('be.news.matchReport.body') &&
     article.body_key !== 'be.news.matchReport.reportFriendly.body' &&
     article.body_key !== 'be.news.matchReport.reportPreseason.body'
   ) {
@@ -313,6 +361,7 @@ function normalizeMatchReportParams(
     if (scorers.length === 0) {
       return {
         ...params,
+        scorers: '',
         scorersSection: '',
       };
     }
@@ -329,11 +378,49 @@ function normalizeMatchReportParams(
 
     return {
       ...params,
+      scorers: scorersText,
       scorersSection: resolve(
         'be.news.matchReport.scorersSection',
         `\n\nGoals: ${scorersText}`,
         { scorers: scorersText },
       ),
+    };
+  } catch {
+    return params;
+  }
+}
+
+function normalizePressConferenceParams(
+  article: NewsArticle,
+  params?: Record<string, string>,
+): Record<string, string> | undefined {
+  const isPressConferenceArticle = article.headline_key?.startsWith('be.news.pressConference.')
+    || article.body_key?.startsWith('be.news.pressConference.');
+
+  if (!isPressConferenceArticle || !params?.quotesData) {
+    return params;
+  }
+
+  try {
+    const quotes = JSON.parse(params.quotesData) as PressConferenceQuoteParam[];
+    const resolvedQuotes = quotes
+      .map((quote) =>
+        resolve(
+          quote.key,
+          quote.fallback ?? '',
+          resolveParamValues(quote.params),
+        ),
+      )
+      .filter((quote) => quote.length > 0);
+
+    if (resolvedQuotes.length === 0) {
+      return params;
+    }
+
+    return {
+      ...params,
+      quote: resolvedQuotes[0],
+      quotes: resolvedQuotes.map((quote) => `• "${quote}"`).join('\n'),
     };
   } catch {
     return params;
@@ -441,13 +528,16 @@ function resolveActionOption(
 export function resolveNewsArticle(article: NewsArticle): NewsArticle {
   const p = normalizeTransferRoundupParams(
     article,
-    normalizeMatchReportParams(
+    normalizePressConferenceParams(
       article,
-      normalizeStandingsParams(
+      normalizeMatchReportParams(
         article,
-        normalizeRoundupParams(
+        normalizeStandingsParams(
           article,
-          normalizePreseasonDigestParams(article, normalizeNewsParams(article)),
+          normalizeRoundupParams(
+            article,
+            normalizePreseasonDigestParams(article, normalizeNewsParams(article)),
+          ),
         ),
       ),
     ),

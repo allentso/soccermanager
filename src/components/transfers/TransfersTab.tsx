@@ -21,10 +21,10 @@ import {
 } from "lucide-react";
 import {
   getTeamName,
-  calcOvr,
   calcAge,
   formatVal,
   formatWeeklyAmount,
+  getPlayerOvr,
   positionBadgeVariant,
 } from "../../lib/helpers";
 import {
@@ -39,6 +39,7 @@ import { resolveSeasonContext } from "../../lib/seasonContext";
 import { type NegotiationFeedbackPanelData } from "../NegotiationFeedbackPanel";
 import TransferBidModal from "./TransferBidModal";
 import TransferCounterOfferModal from "./TransferCounterOfferModal";
+import { getErrorMessage, resolveTranslatedErrorMessage } from "../../utils/errorMessage";
 import {
   counterOffer,
   respondToOffer,
@@ -47,7 +48,6 @@ import {
   type TransferNegotiationResponseData,
 } from "../../services/transfersService";
 import { sendScout } from "../../services/scoutingService";
-import { getErrorMessage } from "../../utils/errorMessage";
 import {
   buildResumedCounterFeedback,
   getTransferOfferBadgeVariant,
@@ -342,7 +342,7 @@ export default function TransfersTab({
       onGameUpdate?.(updated);
     } catch (error) {
       console.error("Failed to send scout:", error);
-      setScoutError(getErrorMessage(error));
+      setScoutError(resolveTranslatedErrorMessage(getErrorMessage(error), t));
     } finally {
       setScoutingPlayerId(null);
     }
@@ -539,10 +539,7 @@ export default function TransfersTab({
                 </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-navy-600">
                   {filteredList.map((player) => {
-                    const ovr = player.ovr ?? calcOvr(
-                      player,
-                      player.natural_position || player.position,
-                    );
+                    const ovr = getPlayerOvr(player);
                     const age = calcAge(player.date_of_birth);
                     const offersForThisPlayer = player.transfer_offers;
                     const scoutState = alreadyScoutingIds.has(player.id)

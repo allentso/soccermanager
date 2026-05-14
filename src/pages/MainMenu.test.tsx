@@ -4,6 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import type { ComponentPropsWithoutRef } from "react";
 
 import { countryName } from "../lib/countries";
+import { resetCountryResourcesCache } from "../components/menu/CreateManagerNationalityField";
 import MainMenu from "./MainMenu";
 
 const navigateMock = vi.fn();
@@ -25,7 +26,7 @@ vi.mock("react-router-dom", () => ({
 vi.mock("react-i18next", () => ({
   initReactI18next: {
     type: "3rdParty",
-    init: () => {},
+    init: () => { },
   },
   useTranslation: () => ({
     t: (key: string, fallback?: string | Record<string, unknown>) =>
@@ -81,6 +82,10 @@ vi.mock("../components/ui", () => ({
   ),
 }));
 
+vi.mock("../components/ui/ThemeToggle", () => ({
+  ThemeToggle: () => <div data-testid="theme-toggle" />,
+}));
+
 vi.mock("../components/menu/SavesList", () => ({
   default: () => <div data-testid="saves-list" />,
 }));
@@ -97,8 +102,9 @@ vi.mock("../components/menu/WorldSelect", () => ({
 
 const mockedInvoke = vi.mocked(invoke);
 
-function openCreateManagerForm(): void {
+async function openCreateManagerForm(): Promise<void> {
   fireEvent.click(screen.getByText("menu.newGame"));
+  await screen.findByPlaceholderText("createManager.placeholderFirst");
 }
 
 function fillManagerDetails(): void {
@@ -119,41 +125,57 @@ function fillManagerDetails(): void {
   });
 }
 
-function getNationalityTrigger(): HTMLButtonElement {
-  const fieldContainer = document.getElementById(
-    "create-manager-field-nationality",
-  );
-  const trigger = fieldContainer?.querySelector("div.relative > button");
+async function getNationalityTrigger(): Promise<HTMLButtonElement> {
+  let trigger: HTMLButtonElement | null = null;
 
-  if (!(trigger instanceof HTMLButtonElement)) {
+  await waitFor(() => {
+    const fieldContainer = document.getElementById(
+      "create-manager-field-nationality",
+    );
+    const candidate = fieldContainer?.querySelector(
+      "div.relative > button:not([disabled])",
+    );
+
+    trigger = candidate instanceof HTMLButtonElement ? candidate : null;
+
+    expect(trigger).toBeInstanceOf(HTMLButtonElement);
+  });
+
+  if (!trigger) {
     throw new Error("Nationality trigger button not found");
   }
 
   return trigger;
 }
 
-function selectNationality(language: string, nationalityCode: string): void {
+async function selectNationality(
+  language: string,
+  nationalityCode: string,
+): Promise<void> {
   const countryLabel = countryName(nationalityCode, language);
 
-  fireEvent.mouseDown(getNationalityTrigger());
-  fireEvent.mouseDown(screen.getByText(countryLabel));
+  fireEvent.mouseDown(await getNationalityTrigger());
+  fireEvent.mouseDown(await screen.findByText(countryLabel));
 }
 
-function searchAndSelectNationality(
+async function searchAndSelectNationality(
   language: string,
   nationalityCode: string,
   searchText: string,
-): void {
+): Promise<void> {
   const countryLabel = countryName(nationalityCode, language);
 
-  fireEvent.mouseDown(getNationalityTrigger());
+  fireEvent.mouseDown(await getNationalityTrigger());
+  const searchInput = await screen.findByPlaceholderText(
+    "createManager.searchNationalities",
+  );
   fireEvent.change(
-    screen.getByPlaceholderText("createManager.searchNationalities"),
+    searchInput,
     {
       target: { value: searchText },
     },
   );
-  fireEvent.mouseDown(screen.getByText(countryLabel));
+  fireEvent.mouseDown(await screen.findByText(countryLabel));
 }
 
 describe("MainMenu", () => {
@@ -185,6 +207,7 @@ describe("MainMenu", () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    resetCountryResourcesCache();
   });
 
   it.each(["es", "de", "fr", "it", "pt", "pt-BR"])(
@@ -194,9 +217,9 @@ describe("MainMenu", () => {
 
       render(<MainMenu />);
 
-      openCreateManagerForm();
+      await openCreateManagerForm();
       fillManagerDetails();
-      selectNationality(language, "ES");
+      await selectNationality(language, "ES");
 
       const localizedCountryName = countryName("ES", language);
       expect(
@@ -230,20 +253,20 @@ describe("MainMenu", () => {
     },
   );
 
-  it("allows changing nationality after the other manager fields are filled", () => {
+  it("allows changing nationality after the other manager fields are filled", async () => {
     render(<MainMenu />);
 
-    openCreateManagerForm();
+    await openCreateManagerForm();
     fillManagerDetails();
 
-    selectNationality("en", "ES");
+    await selectNationality("en", "ES");
     expect(
       screen.getByRole("button", {
         name: /spain/i,
       }),
     ).toBeInTheDocument();
 
-    selectNationality("en", "DE");
+    await selectNationality("en", "DE");
 
     expect(
       screen.getByRole("button", {
@@ -252,12 +275,12 @@ describe("MainMenu", () => {
     ).toBeInTheDocument();
   });
 
-  it("allows selecting England instead of legacy GB", () => {
+  it("allows selecting England instead of legacy GB", async () => {
     render(<MainMenu />);
 
-    openCreateManagerForm();
+    await openCreateManagerForm();
     fillManagerDetails();
-    selectNationality("en", "ENG");
+    await selectNationality("en", "ENG");
 
     expect(
       screen.getByRole("button", {
@@ -266,15 +289,15 @@ describe("MainMenu", () => {
     ).toBeInTheDocument();
   });
 
-  it("preserves nationality when a stale date picker callback fires after selection", () => {
+  it("preserves nationality when a stale date picker callback fires after selection", async () => {
     render(<MainMenu />);
 
-    openCreateManagerForm();
+    await openCreateManagerForm();
     fillManagerDetails();
 
     const staleDatePickerOnChange = latestDatePickerOnChange;
 
-    selectNationality("en", "DE");
+    await selectNationality("en", "DE");
 
     expect(
       screen.getByRole("button", {
@@ -298,9 +321,9 @@ describe("MainMenu", () => {
 
     render(<MainMenu />);
 
-    openCreateManagerForm();
+    await openCreateManagerForm();
     fillManagerDetails();
-    searchAndSelectNationality("pt", "AT", "austria");
+    await searchAndSelectNationality("pt", "AT", "austria");
 
     expect(
       screen.getByRole("button", {
@@ -329,7 +352,7 @@ describe("MainMenu", () => {
   it("focuses the first invalid field when submitting an empty Create Manager form", async () => {
     render(<MainMenu />);
 
-    openCreateManagerForm();
+    await openCreateManagerForm();
     fireEvent.click(screen.getByText("createManager.chooseWorld"));
 
     await waitFor(() => {
@@ -343,7 +366,7 @@ describe("MainMenu", () => {
   it("focuses the next invalid field in order when earlier fields are valid", async () => {
     render(<MainMenu />);
 
-    openCreateManagerForm();
+    await openCreateManagerForm();
     fireEvent.change(
       screen.getByPlaceholderText("createManager.placeholderFirst"),
       { target: { value: "Ada" } },
@@ -360,7 +383,7 @@ describe("MainMenu", () => {
   it("shows min-age feedback for an underage DOB, blocks progression, and focuses the DOB field on submit", async () => {
     render(<MainMenu />);
 
-    openCreateManagerForm();
+    await openCreateManagerForm();
     fireEvent.change(
       screen.getByPlaceholderText("createManager.placeholderFirst"),
       { target: { value: "Ada" } },
@@ -375,7 +398,7 @@ describe("MainMenu", () => {
 
     expect(screen.getByText("validation.minAge")).toBeInTheDocument();
 
-    selectNationality("en", "ES");
+    await selectNationality("en", "ES");
     fireEvent.click(screen.getByText("createManager.chooseWorld"));
 
     await waitFor(() => {

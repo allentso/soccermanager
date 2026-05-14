@@ -204,6 +204,72 @@ describe("SquadTab helpers", () => {
     expect(ids.slice(1, 5)).toEqual(["d1", "d2", "d3", "d4"]);
   });
 
+  it("prefers an exact slot match over a higher-ovr same-group player", () => {
+    const available = [
+      makePlayer("gk", "Goalkeeper"),
+      makePlayer("lb", "Left Back", {
+        natural_position: "Left Back",
+        attributes: {
+          pace: 55,
+          stamina: 55,
+          strength: 55,
+          agility: 55,
+          passing: 55,
+          shooting: 40,
+          tackling: 68,
+          dribbling: 50,
+          defending: 68,
+          positioning: 62,
+          vision: 52,
+          decisions: 58,
+          composure: 56,
+          aggression: 58,
+          teamwork: 60,
+          leadership: 50,
+          handling: 10,
+          reflexes: 10,
+          aerial: 10,
+        },
+      }),
+      makePlayer("cb1", "Center Back", {
+        natural_position: "Center Back",
+        attributes: {
+          pace: 70,
+          stamina: 70,
+          strength: 74,
+          agility: 62,
+          passing: 62,
+          shooting: 42,
+          tackling: 78,
+          dribbling: 52,
+          defending: 80,
+          positioning: 74,
+          vision: 58,
+          decisions: 70,
+          composure: 68,
+          aggression: 71,
+          teamwork: 68,
+          leadership: 60,
+          handling: 10,
+          reflexes: 10,
+          aerial: 10,
+        },
+      }),
+      makePlayer("cb2", "Center Back"),
+      makePlayer("rb", "Right Back", { natural_position: "Right Back" }),
+      makePlayer("m1", "Midfielder"),
+      makePlayer("m2", "Midfielder"),
+      makePlayer("m3", "Midfielder"),
+      makePlayer("m4", "Midfielder"),
+      makePlayer("f1", "Forward"),
+      makePlayer("f2", "Forward"),
+    ];
+
+    const ids = buildStartingXIIds(available, [], "4-4-2");
+
+    expect(ids[1]).toBe("lb");
+  });
+
   it("builds pitch slot rows and active position map from xi ids", () => {
     const players = [
       makePlayer("gk", "Goalkeeper"),
