@@ -508,13 +508,18 @@ function normalizeTransferRoundupParams(
     return {
       ...params,
       deals: deals
-        .map((deal) =>
-          resolve(
+        .map((deal) => {
+          const resolvedDeal = {
+            ...deal,
+            fee: resolveMoneyParamValue("fee", deal.fee),
+          };
+
+          return resolve(
             'be.news.transferRoundup.dealLine',
-            `  ${deal.player}: ${deal.fromTeam} -> ${deal.toTeam} (${deal.fee})`,
-            deal,
-          ),
-        )
+            `  ${resolvedDeal.player}: ${resolvedDeal.fromTeam} -> ${resolvedDeal.toTeam} (${resolvedDeal.fee})`,
+            resolvedDeal,
+          );
+        })
         .join('\n'),
     };
   } catch {
@@ -539,8 +544,8 @@ export function resolveMessage(msg: MessageData): MessageData {
   };
 
   return resolveLegacyTakeoverContractReviewMessage(
-    resolveLegacyDelegatedRenewalsMessage(resolved, resolve, p),
-    resolve,
+    resolveLegacyDelegatedRenewalsMessage(resolved, resolveBackendText, p),
+    resolveBackendText,
   );
 }
 

@@ -937,7 +937,7 @@ describe("resolveBackendError", () => {
     }, true, true);
 
     expect(resolveBackendError("be.error.contracts.boardWagePolicy?budget=200000")).toBe(
-      "Renewal blocked by board wage policy. Keep annual wages near 200000 to recover.",
+      "Renewal blocked by board wage policy. Keep annual wages near €200,000 to recover.",
     );
   });
 });
