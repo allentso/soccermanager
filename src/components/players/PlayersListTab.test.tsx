@@ -436,6 +436,12 @@ describe("PlayersListTab", () => {
       );
     });
 
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "Submit Bid" }),
+      ).not.toBeDisabled();
+    });
+
     fireEvent.click(screen.getByRole("button", { name: "Submit Bid" }));
 
     await waitFor(() => {
