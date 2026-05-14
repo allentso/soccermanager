@@ -78,6 +78,102 @@ describe("useGameStore", () => {
       expect(useGameStore.getState().gameState).toBe(gs);
     });
 
+    it("prefers football_nation over raw nationality when hydrating entities", () => {
+      const gs = makeGameState({
+        manager: {
+          ...makeGameState().manager,
+          nationality: "GB",
+          football_nation: "ENG",
+        },
+        players: [
+          {
+            id: "p1",
+            match_name: "A. Allen",
+            full_name: "Adam Allen",
+            date_of_birth: "2008-01-01",
+            nationality: "GB",
+            football_nation: "ENG",
+            position: "Goalkeeper",
+            natural_position: "Goalkeeper",
+            alternate_positions: [],
+            training_focus: null,
+            attributes: {
+              pace: 50,
+              stamina: 50,
+              strength: 50,
+              agility: 50,
+              passing: 50,
+              shooting: 50,
+              tackling: 50,
+              dribbling: 50,
+              defending: 50,
+              positioning: 50,
+              vision: 50,
+              decisions: 50,
+              composure: 50,
+              aggression: 50,
+              teamwork: 50,
+              leadership: 50,
+              handling: 50,
+              reflexes: 50,
+              aerial: 50,
+            },
+            condition: 100,
+            morale: 100,
+            injury: null,
+            team_id: "team1",
+            contract_end: null,
+            wage: 0,
+            market_value: 0,
+            stats: {
+              appearances: 0,
+              goals: 0,
+              assists: 0,
+              clean_sheets: 0,
+              yellow_cards: 0,
+              red_cards: 0,
+              avg_rating: 0,
+              minutes_played: 0,
+            },
+            career: [],
+            transfer_listed: false,
+            loan_listed: false,
+            transfer_offers: [],
+            traits: [],
+          },
+        ],
+        staff: [
+          {
+            id: "s1",
+            first_name: "Sam",
+            last_name: "Coach",
+            date_of_birth: "1980-01-01",
+            nationality: "British",
+            football_nation: "ENG",
+            role: "Coach",
+            attributes: {
+              coaching: 70,
+              judging_ability: 70,
+              judging_potential: 70,
+              physiotherapy: 30,
+            },
+            team_id: "team1",
+            specialization: null,
+            wage: 0,
+            contract_end: null,
+          },
+        ],
+      });
+
+      useGameStore.getState().setGameState(gs);
+
+      const hydrated = useGameStore.getState().gameState;
+      expect(hydrated).not.toBe(gs);
+      expect(hydrated?.manager.nationality).toBe("ENG");
+      expect(hydrated?.players[0].nationality).toBe("ENG");
+      expect(hydrated?.staff[0].nationality).toBe("ENG");
+    });
+
     it("marks state as dirty", () => {
       useGameStore.getState().setGameState(makeGameState());
       expect(useGameStore.getState().isDirty).toBe(true);

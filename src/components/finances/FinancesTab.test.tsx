@@ -84,6 +84,8 @@ vi.mock("react-i18next", () => ({
         return `${params?.amount}/wk at risk`;
       if (key === "finances.noContractRisks")
         return "No imminent contract risks";
+      if (key === "finances.selectRiskPlayer")
+        return `Select ${params?.player}`;
       if (key === "common.renewContract") return "Renew Contract";
       if (key === "finances.facilityTraining") return "Training Facility";
       if (key === "finances.facilityMedical") return "Medical Facility";
@@ -128,7 +130,7 @@ vi.mock("react-i18next", () => ({
 const mockedInvoke = vi.mocked(invoke);
 
 function pendingPromise<T>(): Promise<T> {
-  return new Promise(() => {});
+  return new Promise(() => { });
 }
 
 function createTeam(overrides: Partial<TeamData> = {}): TeamData {

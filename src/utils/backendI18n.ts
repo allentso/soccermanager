@@ -23,7 +23,7 @@ import {
  */
 function resolve(key: string | undefined, fallback: string, params?: Record<string, string>): string {
   if (!key) return fallback;
-  const resolved = i18n.t(key, resolveParamValues(params) ?? {});
+  const resolved = i18n.t(key, params ?? {});
   // i18next returns the key itself if not found — fall back to raw string
   if (resolved === key) return fallback;
   return resolved;
@@ -49,18 +49,59 @@ function extractErrorMessage(error: unknown): string {
   return "";
 }
 
+function parseBackendMessage(message: string): {
+  key?: string;
+  fallback: string;
+  params?: Record<string, string>;
+} {
+  const trimmed = message.trim();
+  const separatorIndex = trimmed.indexOf("?");
+
+  if (separatorIndex === -1) {
+    return {
+      key: isTranslationKey(trimmed) ? trimmed : undefined,
+      fallback: trimmed,
+    };
+  }
+
+  const key = trimmed.slice(0, separatorIndex);
+  const rawParams = trimmed.slice(separatorIndex + 1);
+
+  if (!isTranslationKey(key)) {
+    return { fallback: trimmed };
+  }
+
+  return {
+    key,
+    fallback: trimmed,
+    params: Object.fromEntries(new URLSearchParams(rawParams).entries()),
+  };
+}
+
 export function resolveBackendText(
   key: string | undefined,
   fallback: string,
   params?: Record<string, string>,
 ): string {
-  return resolve(key, fallback, params);
+  if (!key) return fallback;
+  const parsed = parseBackendMessage(key);
+  const mergedParams = {
+    ...(parsed.params ?? {}),
+    ...(params ?? {}),
+  };
+
+  const resolvedParams = resolveParamValues(
+    Object.keys(mergedParams).length > 0 ? mergedParams : undefined,
+  );
+
+  return resolve(parsed.key, fallback, resolvedParams);
 }
 
 export function resolveBackendError(error: unknown): string {
   const message = extractErrorMessage(error).trim();
   if (!message) return "";
-  return resolve(isTranslationKey(message) ? message : undefined, message || "");
+  const parsed = parseBackendMessage(message);
+  return resolve(parsed.key, parsed.fallback, resolveParamValues(parsed.params));
 }
 
 function boardObjectiveFallback(objective: BoardObjective): string {
@@ -174,6 +215,12 @@ type MatchReportScorerParam = {
   player: string;
   minute: string | number;
   team: string;
+};
+
+type PressConferenceQuoteParam = {
+  key?: string;
+  fallback?: string;
+  params?: Record<string, string>;
 };
 
 type StandingsEntryParam = {
@@ -365,6 +412,7 @@ function normalizeMatchReportParams(
   params?: Record<string, string>,
 ): Record<string, string> | undefined {
   if (
+    !article.body_key?.startsWith('be.news.matchReport.body') &&
     article.body_key !== 'be.news.matchReport.reportFriendly.body' &&
     article.body_key !== 'be.news.matchReport.reportPreseason.body'
   ) {
@@ -381,6 +429,7 @@ function normalizeMatchReportParams(
     if (scorers.length === 0) {
       return {
         ...params,
+        scorers: '',
         scorersSection: '',
       };
     }
@@ -397,11 +446,49 @@ function normalizeMatchReportParams(
 
     return {
       ...params,
+      scorers: scorersText,
       scorersSection: resolve(
         'be.news.matchReport.scorersSection',
         `\n\nGoals: ${scorersText}`,
         { scorers: scorersText },
       ),
+    };
+  } catch {
+    return params;
+  }
+}
+
+function normalizePressConferenceParams(
+  article: NewsArticle,
+  params?: Record<string, string>,
+): Record<string, string> | undefined {
+  const isPressConferenceArticle = article.headline_key?.startsWith('be.news.pressConference.')
+    || article.body_key?.startsWith('be.news.pressConference.');
+
+  if (!isPressConferenceArticle || !params?.quotesData) {
+    return params;
+  }
+
+  try {
+    const quotes = JSON.parse(params.quotesData) as PressConferenceQuoteParam[];
+    const resolvedQuotes = quotes
+      .map((quote) =>
+        resolve(
+          quote.key,
+          quote.fallback ?? '',
+          resolveParamValues(quote.params),
+        ),
+      )
+      .filter((quote) => quote.length > 0);
+
+    if (resolvedQuotes.length === 0) {
+      return params;
+    }
+
+    return {
+      ...params,
+      quote: resolvedQuotes[0],
+      quotes: resolvedQuotes.map((quote) => `• "${quote}"`).join('\n'),
     };
   } catch {
     return params;
@@ -466,15 +553,16 @@ export function resolveAction(
   params?: Record<string, string>,
 ): MessageAction {
   const labelKey = action.label_key ?? inferPlayerEventActionLabelKey(messageId ?? '', action.id);
+  const resolvedParams = resolveParamValues(params);
 
   if (typeof action.action_type === 'object' && 'ChooseOption' in action.action_type) {
     return {
       ...action,
-      label: resolve(labelKey, action.label, params),
+      label: resolve(labelKey, action.label, resolvedParams),
       action_type: {
         ChooseOption: {
           options: action.action_type.ChooseOption.options.map((option) =>
-            resolveActionOption(option, messageId, params),
+            resolveActionOption(option, messageId, resolvedParams),
           ),
         },
       },
@@ -483,7 +571,7 @@ export function resolveAction(
 
   return {
     ...action,
-    label: resolve(labelKey, action.label, params),
+    label: resolve(labelKey, action.label, resolvedParams),
   };
 }
 
@@ -507,15 +595,20 @@ function resolveActionOption(
  * Resolve all translatable fields on a news article, returning a copy with resolved strings.
  */
 export function resolveNewsArticle(article: NewsArticle): NewsArticle {
-  const p = normalizeTransferRoundupParams(
-    article,
-    normalizeMatchReportParams(
+  const p = resolveParamValues(
+    normalizeTransferRoundupParams(
       article,
-      normalizeStandingsParams(
+      normalizePressConferenceParams(
         article,
-        normalizeRoundupParams(
+        normalizeMatchReportParams(
           article,
-          normalizePreseasonDigestParams(article, normalizeNewsParams(article)),
+          normalizeStandingsParams(
+            article,
+            normalizeRoundupParams(
+              article,
+              normalizePreseasonDigestParams(article, normalizeNewsParams(article)),
+            ),
+          ),
         ),
       ),
     ),

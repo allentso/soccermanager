@@ -11,6 +11,15 @@ use uuid::Uuid;
 
 const TRANSFER_NEGOTIATION_STALE_DAYS: i64 = 14;
 const MAX_COMPLETED_AI_TRANSFERS_PER_DAY: usize = 2;
+const ERR_TRANSFER_WINDOW_CLOSED: &str = "be.error.transfers.transferWindowClosed";
+const ERR_CANNOT_BID_ON_OWN_PLAYER: &str = "be.error.transfers.cannotBidOnOwnPlayer";
+const ERR_PLAYER_HAS_NO_TEAM: &str = "be.error.transfers.playerHasNoTeam";
+const ERR_INSUFFICIENT_FUNDS: &str = "be.error.transfers.insufficientFunds";
+const ERR_TRANSFER_BUDGET_TOO_LOW: &str = "be.error.transfers.transferBudgetTooLow";
+const ERR_PLAYER_NOT_OWNED_BY_USER: &str = "be.error.transfers.playerNotOwnedByUser";
+const ERR_OFFER_NOT_PENDING: &str = "be.error.transfers.offerNotPending";
+const ERR_COUNTER_OFFER_MUST_EXCEED_CURRENT: &str =
+    "be.error.transfers.counterOfferMustExceedCurrentOffer";
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -520,23 +529,23 @@ pub fn project_transfer_bid_financial_impact(
         .manager
         .team_id
         .clone()
-        .ok_or_else(|| "No user team".to_string())?;
+        .ok_or_else(|| "be.error.noTeamAssigned".to_string())?;
 
     let player = game
         .players
         .iter()
         .find(|player| player.id == player_id)
-        .ok_or_else(|| "Player not found".to_string())?;
+        .ok_or_else(|| "be.error.playerNotFound".to_string())?;
 
     if player.team_id.as_deref() == Some(user_team_id.as_str()) {
-        return Err("Cannot bid on your own player".to_string());
+        return Err(ERR_CANNOT_BID_ON_OWN_PLAYER.to_string());
     }
 
     let team = game
         .teams
         .iter()
         .find(|team| team.id == user_team_id)
-        .ok_or_else(|| "User team not found".to_string())?;
+        .ok_or_else(|| "be.error.managedTeamNotFound".to_string())?;
 
     let annual_wage_bill_before = calc_annual_wages(game, &team.id);
     let annual_wage_bill_after = annual_wage_bill_before + player.wage as i64;
@@ -573,42 +582,46 @@ pub fn make_transfer_bid(
     expire_stale_transfer_offers(game);
 
     if !transfer_window_is_open(game) {
-        return Err("Transfer window is closed".into());
+        return Err(ERR_TRANSFER_WINDOW_CLOSED.into());
     }
 
-    let user_team_id = game.manager.team_id.clone().ok_or("No user team")?;
+    let user_team_id = game
+        .manager
+        .team_id
+        .clone()
+        .ok_or("be.error.noTeamAssigned")?;
 
     let player = game
         .players
         .iter()
         .find(|p| p.id == player_id)
-        .ok_or("Player not found")?;
+        .ok_or("be.error.playerNotFound")?;
 
     if player.team_id.as_deref() == Some(&user_team_id) {
-        return Err("Cannot bid on your own player".into());
+        return Err(ERR_CANNOT_BID_ON_OWN_PLAYER.into());
     }
 
-    let owner_team_id = player.team_id.clone().ok_or("Player has no team")?;
+    let owner_team_id = player.team_id.clone().ok_or(ERR_PLAYER_HAS_NO_TEAM)?;
 
     let my_team = game
         .teams
         .iter()
         .find(|t| t.id == user_team_id)
-        .ok_or("User team not found")?;
+        .ok_or("be.error.managedTeamNotFound")?;
 
     if (my_team.finance as u64) < fee {
-        return Err("Insufficient funds".into());
+        return Err(ERR_INSUFFICIENT_FUNDS.into());
     }
 
     if my_team.transfer_budget < fee as i64 {
-        return Err("Transfer budget too low".into());
+        return Err(ERR_TRANSFER_BUDGET_TOO_LOW.into());
     }
 
     let owner_team = game
         .teams
         .iter()
         .find(|t| t.id == owner_team_id)
-        .ok_or("Owner team not found")?;
+        .ok_or("be.error.teamNotFound")?;
 
     let buyer_team = my_team;
 
@@ -771,22 +784,26 @@ pub fn respond_to_offer(
     expire_stale_transfer_offers(game);
 
     if accept && !transfer_window_is_open(game) {
-        return Err("Transfer window is closed".into());
+        return Err(ERR_TRANSFER_WINDOW_CLOSED.into());
     }
 
-    let user_team_id = game.manager.team_id.clone().ok_or("No user team")?;
+    let user_team_id = game
+        .manager
+        .team_id
+        .clone()
+        .ok_or("be.error.noTeamAssigned")?;
 
     let player = game
         .players
         .iter()
         .find(|p| p.id == player_id && p.team_id.as_deref() == Some(&user_team_id))
-        .ok_or("Player not found or not yours")?;
+        .ok_or(ERR_PLAYER_NOT_OWNED_BY_USER)?;
 
     let offer = player
         .transfer_offers
         .iter()
         .find(|o| o.id == offer_id && o.status == TransferOfferStatus::Pending)
-        .ok_or("Offer not found or not pending")?;
+        .ok_or(ERR_OFFER_NOT_PENDING)?;
 
     let from_team_id = offer.from_team_id.clone();
     let fee = offer.fee;
@@ -795,12 +812,12 @@ pub fn respond_to_offer(
         .teams
         .iter()
         .find(|team| team.id == user_team_id)
-        .ok_or("User team not found")?;
+        .ok_or("be.error.managedTeamNotFound")?;
     let buyer_team = game
         .teams
         .iter()
         .find(|team| team.id == from_team_id)
-        .ok_or("Buying team not found")?;
+        .ok_or("be.error.teamNotFound")?;
     let openness_score = player_move_openness_score(current_date, player, owner_team, buyer_team);
 
     // Update offer status
@@ -836,32 +853,36 @@ pub fn counter_offer(
     expire_stale_transfer_offers(game);
 
     if !transfer_window_is_open(game) {
-        return Err("Transfer window is closed".into());
+        return Err(ERR_TRANSFER_WINDOW_CLOSED.into());
     }
 
-    let user_team_id = game.manager.team_id.clone().ok_or("No user team")?;
+    let user_team_id = game
+        .manager
+        .team_id
+        .clone()
+        .ok_or("be.error.noTeamAssigned")?;
 
     let player = game
         .players
         .iter()
         .find(|p| p.id == player_id && p.team_id.as_deref() == Some(&user_team_id))
-        .ok_or("Player not found or not yours")?;
+        .ok_or(ERR_PLAYER_NOT_OWNED_BY_USER)?;
 
     let offer = player
         .transfer_offers
         .iter()
         .find(|offer| offer.id == offer_id && offer.status == TransferOfferStatus::Pending)
-        .ok_or("Offer not found or not pending")?;
+        .ok_or(ERR_OFFER_NOT_PENDING)?;
 
     if requested_fee <= offer.fee {
-        return Err("Counter offer must exceed current offer".into());
+        return Err(ERR_COUNTER_OFFER_MUST_EXCEED_CURRENT.into());
     }
 
     let buyer_team = game
         .teams
         .iter()
         .find(|team| team.id == offer.from_team_id)
-        .ok_or("Buying team not found")?;
+        .ok_or("be.error.teamNotFound")?;
 
     let buyer_team_id = buyer_team.id.clone();
     let current_date = game.clock.current_date.date_naive();
@@ -1027,7 +1048,7 @@ fn execute_transfer(
         .iter()
         .find(|player| player.id == player_id)
         .cloned()
-        .ok_or("Player not found")?;
+        .ok_or("be.error.playerNotFound")?;
     let from_team_name = game
         .teams
         .iter()

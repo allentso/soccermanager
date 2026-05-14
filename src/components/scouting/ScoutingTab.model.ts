@@ -3,7 +3,7 @@ import type {
   ScoutingAssignment,
   TeamData,
 } from "../../store/gameStore";
-import { calcOvr, getTeamName } from "../../lib/helpers";
+import { getPlayerOvr, getTeamName } from "../../lib/helpers";
 import { normalisePosition } from "../squad/SquadTab.helpers";
 
 interface FilterScoutablePlayersParams {
@@ -44,8 +44,7 @@ export function filterScoutablePlayers({
     })
     .sort(
       (left, right) =>
-        (right.ovr ?? calcOvr(right, right.natural_position || right.position)) -
-        (left.ovr ?? calcOvr(left, left.natural_position || left.position)),
+        getPlayerOvr(right) - getPlayerOvr(left),
     );
 }
 

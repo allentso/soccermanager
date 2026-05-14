@@ -1,5 +1,5 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import i18n from "../i18n";
+import i18n, { i18nReady } from "../i18n";
 import { useSettingsStore } from "../store/settingsStore";
 import {
   resolveBackendText,
@@ -45,8 +45,7 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 
 beforeAll(async () => {
-  // Ensure i18n is initialized (it auto-inits on import) then add test keys
-  await i18n.init; // no-op if already initialised
+  await i18nReady;
   i18n.addResourceBundle("en", "translation", {
     "test.subject": "Resolved Subject",
     "test.body": "Hello {{name}}, welcome!",
@@ -615,6 +614,94 @@ describe("resolveNewsArticle", () => {
     }
   });
 
+  it("localizes league match report scorers from structured scorer data", async () => {
+    const previousLanguage = i18n.language;
+    await i18n.changeLanguage("pt-BR");
+
+    try {
+      const article = makeNewsArticle({
+        headline: "Alpha FC 2 - 1 Beta FC: Hosts Triumph",
+        headline_key: "be.news.matchReport.headline.homeWin.0",
+        body: "In Matchday 5 action, the match ended Alpha FC 2 - 1 Beta FC. The result could have implications on the league standings as the season progresses.\n\nGoals: Alice (10', Alpha FC), Bob (75', Beta FC)",
+        body_key: "be.news.matchReport.body0",
+        source: "Sports Gazette",
+        source_key: "be.source.sportsGazette",
+        i18n_params: {
+          home: "Alpha FC",
+          away: "Beta FC",
+          homeGoals: "2",
+          awayGoals: "1",
+          matchday: "5",
+          scorers: "",
+          scorersData: JSON.stringify([
+            {
+              player: "Alice",
+              minute: 10,
+              team: "Alpha FC",
+            },
+            {
+              player: "Bob",
+              minute: 75,
+              team: "Beta FC",
+            },
+          ]),
+        },
+      });
+
+      const result = resolveNewsArticle(article);
+
+      expect(result.body).toContain("Na ação da Rodada 5");
+      expect(result.body).toContain("Gols: Alice (10', Alpha FC), Bob (75', Beta FC)");
+      expect(result.source).toBe("Gazeta Esportiva");
+    } finally {
+      await i18n.changeLanguage(previousLanguage);
+    }
+  });
+
+  it("localizes press conference articles from stored quote metadata", async () => {
+    const previousLanguage = i18n.language;
+    await i18n.changeLanguage("pt-BR");
+
+    try {
+      const article = makeNewsArticle({
+        headline: '',
+        headline_key: 'be.news.pressConference.headlinePressConf',
+        body: '',
+        body_key: 'be.news.pressConference.bodyMultiple',
+        source: '',
+        source_key: 'be.source.sportsDaily',
+        i18n_params: {
+          team: 'Madrid Real',
+          result: 'Madrid Real 7 - 1 Rome Gladiators',
+          quotesData: JSON.stringify([
+            {
+              key: 'match.press.result.responses.win.humble.text',
+              fallback: 'The players worked hard. We prepared well and executed the game plan.',
+              params: {},
+            },
+            {
+              key: 'match.press.ahead.responses.focused.text',
+              fallback: 'First recovery, then preparation. We go one game at a time.',
+              params: {},
+            },
+          ]),
+        },
+      });
+
+      const result = resolveNewsArticle(article);
+
+      expect(result.headline).toBe(
+        'Coletiva de Imprensa: "Os jogadores trabalharam duro. Nos preparamos bem e executamos o plano de jogo." — técnico do Madrid Real',
+      );
+      expect(result.body).toContain('Após o resultado Madrid Real 7 - 1 Rome Gladiators, o técnico do Madrid Real falou com a imprensa.');
+      expect(result.body).toContain('• "Os jogadores trabalharam duro. Nos preparamos bem e executamos o plano de jogo."');
+      expect(result.body).toContain('• "Primeiro recuperação, depois preparação. Vamos jogo a jogo."');
+      expect(result.source).toBe('Diário Esportivo');
+    } finally {
+      await i18n.changeLanguage(previousLanguage);
+    }
+  });
+
   it("localizes standings entries through backend keys", async () => {
     const previousLanguage = i18n.language;
     await i18n.changeLanguage("pt-BR");
@@ -812,6 +899,19 @@ describe("resolveBackendText", () => {
 
     expect(result).toBe("Morale +3");
   });
+
+  it("resolves backend text keys with encoded params", () => {
+    i18n.addResourceBundle("en", "translation", {
+      "be.msg.world.exportedDescription": "World with {{teamCount}} teams exported from saved game",
+    }, true, true);
+
+    const result = resolveBackendText(
+      "be.msg.world.exportedDescription?teamCount=18",
+      "fallback",
+    );
+
+    expect(result).toBe("World with 18 teams exported from saved game");
+  });
 });
 
 describe("resolveBackendError", () => {
@@ -828,6 +928,16 @@ describe("resolveBackendError", () => {
   it("keeps raw backend errors when no translation key exists", () => {
     expect(resolveBackendError(new Error("Something raw happened"))).toBe(
       "Something raw happened",
+    );
+  });
+
+  it("resolves encoded backend error params", () => {
+    i18n.addResourceBundle("en", "translation", {
+      "be.error.contracts.boardWagePolicy": "Renewal blocked by board wage policy. Keep annual wages near {{budget}} to recover.",
+    }, true, true);
+
+    expect(resolveBackendError("be.error.contracts.boardWagePolicy?budget=200000")).toBe(
+      "Renewal blocked by board wage policy. Keep annual wages near 200000 to recover.",
     );
   });
 });

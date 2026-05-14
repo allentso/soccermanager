@@ -18,10 +18,14 @@ describe("resolveCountryFlagCode", () => {
     expect(resolveCountryFlagCode("GB")).toBe("GB");
     expect(resolveCountryFlagCode("br")).toBe("BR");
     expect(resolveCountryFlagCode("IE")).toBe("IE");
+    expect(resolveCountryFlagCode("ENG")).toBe("GB-ENG");
+    expect(resolveCountryFlagCode("SCO")).toBe("GB-SCT");
+    expect(resolveCountryFlagCode("WAL")).toBe("GB-WLS");
+    expect(resolveCountryFlagCode("NIR")).toBe("GB-NIR");
   });
 
   it("normalises demonym values before resolving", () => {
-    expect(resolveCountryFlagCode("English")).toBeNull();
+    expect(resolveCountryFlagCode("English")).toBe("GB-ENG");
     expect(resolveCountryFlagCode("Brazilian")).toBe("BR");
     expect(resolveCountryFlagCode("Irish")).toBe("IE");
   });

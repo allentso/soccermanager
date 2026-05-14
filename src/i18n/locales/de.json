@@ -448,7 +448,9 @@
       "technical": "Technisch",
       "mental": "Mental",
       "goalkeeper": "Torwart"
-    }
+    },
+    "retry": "Erneut versuchen",
+    "score": "Ergebnis"
   },
   "teamSelection": {
     "title": "Wähle Deinen Verein",
@@ -756,7 +758,8 @@
     "contractRiskStable": "Stabil",
     "contractExpiresOn": "Läuft aus: {{date}}",
     "atRiskWages": "{{amount}}/Woche gefährdet",
-    "noContractRisks": "Keine kurzfristigen Vertragsrisiken"
+    "noContractRisks": "Keine kurzfristigen Vertragsrisiken",
+    "selectRiskPlayer": "{{player}} auswählen"
   },
   "inbox": {
     "title": "Posteingang",
@@ -772,6 +775,7 @@
     "chooseResponse": "Wähle deine Antwort",
     "chooseResponseOutcomeVaries": "Wähle deine Antwort — das Ergebnis kann variieren",
     "responded": "Antwort gesendet",
+    "youthProspectSigned": "Für die Akademie verpflichtet",
     "openMessage": "Nachricht öffnen",
     "markAsRead": "Als gelesen markieren",
     "markAllRead": "Alle als gelesen markieren",
@@ -1177,7 +1181,9 @@
     "fullscreen": "Vollbild",
     "fullscreenDesc": "Vollbildmodus umschalten",
     "enterFullscreen": "Aktivieren",
-    "exitFullscreen": "Beenden"
+    "exitFullscreen": "Beenden",
+    "switchToLightMode": "Zum hellen Modus wechseln",
+    "switchToDarkMode": "Zum dunklen Modus wechseln"
   },
   "preMatch": {
     "formationFit": "Formationsanpassung",
@@ -1571,7 +1577,41 @@
     "startMatch": "Spiel starten",
     "notAssigned": "Nicht zugewiesen",
     "keyStats": "Wichtige Stats",
-    "continueDashboard": "Weiter zum Dashboard"
+    "continueDashboard": "Weiter zum Dashboard",
+    "phases": {
+      "PreKickOff": "Vor dem Spiel",
+      "FirstHalf": "1. Halbzeit",
+      "HalfTime": "Halbzeit",
+      "SecondHalf": "2. Halbzeit",
+      "FullTime": "Vollzeit",
+      "ExtraTimeFirstHalf": "1. Verlängerung",
+      "ExtraTimeHalfTime": "Pause der Verlängerung",
+      "ExtraTimeSecondHalf": "2. Verlängerung",
+      "ExtraTimeEnd": "Ende der Verlängerung",
+      "PenaltyShootout": "Elfmeterschießen",
+      "Finished": "Endstand"
+    },
+    "eventTypes": {
+      "Goal": "Tor",
+      "PenaltyGoal": "Elfmetertor",
+      "PenaltyMiss": "Elfmeter verschossen",
+      "YellowCard": "Gelbe Karte",
+      "RedCard": "Rote Karte",
+      "SecondYellow": "Gelb-Rot",
+      "Substitution": "Wechsel",
+      "Injury": "Verletzung",
+      "KickOff": "Anstoß",
+      "HalfTime": "Halbzeit",
+      "SecondHalfStart": "Beginn der 2. Halbzeit",
+      "FullTime": "Vollzeit",
+      "ShotSaved": "Parade",
+      "ShotOffTarget": "Schuss daneben",
+      "ShotBlocked": "Geblockter Schuss",
+      "Corner": "Ecke",
+      "FreeKick": "Freistoß",
+      "Foul": "Foul",
+      "PenaltyAwarded": "Elfmeter gegeben"
+    }
   },
   "endOfSeason": {
     "seasonComplete": "Saison beendet",
@@ -1615,13 +1655,18 @@
     "error": {
       "noActiveGameSession": "Keine aktive Spielsitzung",
       "noActiveSaveSession": "Keine aktive Speicherstandsitzung",
+      "saveNotFound": "Speicherstand '{{saveId}}' wurde nicht gefunden.",
       "teamNotFound": "Team nicht gefunden",
+      "jobOffer": {
+        "teamNotVacant": "Dieser Verein sucht keinen Manager mehr."
+      },
       "noTeamAssigned": "Kein Team zugewiesen",
       "playerNotFound": "Spieler nicht gefunden",
       "invalidSquadRole": "Ungültige Kaderrolle",
       "staffMemberNotFound": "Mitarbeiter nicht gefunden",
       "staffMemberAlreadyEmployed": "Dieser Mitarbeiter ist bereits bei einem Team angestellt",
       "playerNotInSquad": "Spieler ist nicht in deinem Kader",
+      "playerNotInClub": "Der Spieler gehoert nicht zu deinem Verein",
       "invalidDateOfBirth": "Ungültiges Geburtsdatum",
       "youthAcademyOverage": "Nur Spieler im Alter von 21 Jahren oder jünger können der Jugendakademie beitreten",
       "staffMemberNotInTeam": "Mitarbeiter gehört nicht zu deinem Team",
@@ -1629,6 +1674,49 @@
       "seasonNotComplete": "Die Saison ist noch nicht abgeschlossen",
       "managedTeamNotFound": "Betreutes Team nicht gefunden",
       "unknownFacilityType": "Unbekannter Einrichtungstyp",
+      "liveMatch": {
+        "noLeague": "Für dieses Spiel sind keine Ligadaten verfügbar.",
+        "fixtureNotFound": "Das ausgewählte Spiel konnte nicht gefunden werden.",
+        "maxSubstitutionsReached": "Maximale Anzahl an Auswechslungen erreicht",
+        "preMatchSwapTooLate": "Vorab-Wechsel sind nur vor dem Anstoß erlaubt",
+        "cannotSubstituteSentOffPlayer": "Ein des Feldes verwiesener Spieler kann nicht ausgewechselt werden",
+        "playerNotOnPitch": "Spieler ist nicht auf dem Platz",
+        "playerAlreadySubstitutedOff": "Dieser Spieler wurde bereits ausgewechselt",
+        "playerNotOnBench": "Spieler ist nicht auf der Bank",
+        "playerNotInStartingXi": "Spieler ist nicht in der Startelf"
+      },
+      "worldReadFileFailed": "Die Weltdatenbankdatei konnte nicht gelesen werden.",
+      "worldParseFailed": "Die Weltdatenbankdatei konnte nicht verarbeitet werden.",
+      "worldWriteFileFailed": "Die Weltdatenbankdatei konnte nicht exportiert werden.",
+      "worldWriteDatabaseFailed": "Die importierte Weltdatenbank konnte nicht gespeichert werden.",
+      "worldSerializeFailed": "Die Weltdatenbankdaten konnten nicht exportiert werden.",
+      "gameDatabase": {
+        "openFailed": "Die Speicherdaten konnten nicht geoeffnet werden.",
+        "migrationFailed": "Die Speicherdaten konnten nicht vorbereitet werden.",
+        "schemaVersionReadFailed": "Die Schemaversion der Speicherdaten konnte nicht gelesen werden.",
+        "currentVersionReadFailed": "Die Schemaversion der Speicherdaten konnte nicht validiert werden."
+      },
+      "gamePersistence": {
+        "gameMetaMissing": "Im Spielstand fehlen zentrale Spieldaten.",
+        "invalidStartDate": "Der Spielstand enthält ein ungültiges Startdatum.",
+        "invalidGameDate": "Der Spielstand enthält ein ungültiges aktuelles Datum.",
+        "managerNotFound": "Manager '{{managerId}}' wurde in diesem Spielstand nicht gefunden.",
+        "loadFailed": "Die Speicherdaten konnten nicht geladen werden.",
+        "writeFailed": "Die Spieldaten konnten nicht gespeichert werden."
+      },
+      "saveIndex": {
+        "checksumReadFailed": "Speicherdaten konnten für die Prüfsummenprüfung nicht gelesen werden.",
+        "loadFailed": "Der Speicherstandsindex konnte nicht geladen werden.",
+        "writeFailed": "Der Speicherstandsindex konnte nicht aktualisiert werden."
+      },
+      "saveManagerUnavailable": "Die Speicherdaten sind vorübergehend nicht verfügbar.",
+      "saveDeleteFailed": "Die Speicherstandsdatei konnte nicht gelöscht werden.",
+      "settings": {
+        "loadFailed": "Die Einstellungen konnten nicht geladen werden.",
+        "parseFailed": "Die Einstellungsdaten sind ungültig.",
+        "saveFailed": "Die Einstellungen konnten nicht gespeichert werden.",
+        "invalidCurrency": "Die ausgewählte Währung wird nicht unterstützt."
+      },
       "finance": {
         "boardSupportUnavailable": "Notfallhilfe des Vorstands ist nur verfügbar, wenn die Geldreserven unter Druck stehen.",
         "boardSupportAlreadyUsed": "Der Vorstand hat in dieser Saison bereits Notfallhilfe genehmigt.",
@@ -1638,6 +1726,7 @@
         "sponsorPitchActiveSponsor": "Es gibt bereits einen aktiven Sponsorenvertrag.",
         "marketingCampaignUnavailable": "Marketingkampagnen sind nur verfügbar, wenn der Club unter Gehalts- oder Liquiditätsdruck steht.",
         "marketingCampaignCoolingDown": "Das Kommerz-Team braucht Zeit, bevor es eine weitere Marketingkampagne startet.",
+        "facilityUpgradeInsufficientFunds": "Nicht genug Geld für diesen Ausbau. Benötigt werden €{{amount}}.",
         "facilityUpgradeOverBudget": "Ausbauten sind blockiert, solange der Club sein Gehaltsbudget überschreitet.",
         "facilityUpgradeCritical": "Ausbauten sind blockiert, solange der Club unter erheblichem finanziellem Druck steht."
       },
@@ -1648,6 +1737,39 @@
         "invalidDobFormat": "Ungültiges Geburtsdatum. Verwende das Format JJJJ-MM-TT.",
         "minAge": "Der Manager muss mindestens 30 Jahre alt sein.",
         "invalidDob": "Ungültiges Geburtsdatum."
+      },
+      "transfers": {
+        "transferWindowClosed": "Das Transferfenster ist geschlossen",
+        "cannotBidOnOwnPlayer": "Du kannst nicht auf deinen eigenen Spieler bieten",
+        "playerHasNoTeam": "Der Spieler hat kein Team",
+        "insufficientFunds": "Nicht genug Geld vorhanden",
+        "transferBudgetTooLow": "Das Transferbudget ist zu niedrig",
+        "playerNotOwnedByUser": "Spieler nicht gefunden oder nicht in deinem Besitz",
+        "offerNotPending": "Angebot nicht gefunden oder nicht mehr ausstehend",
+        "counterOfferMustExceedCurrentOffer": "Das Gegenangebot muss über dem aktuellen Angebot liegen",
+        "invalidYouthScoutingRegion": "Nicht unterstützte Region für Jugendscouting.",
+        "invalidYouthScoutingObjective": "Nicht unterstütztes Ziel für Jugendscouting.",
+        "invalidYouthScoutingTargetPosition": "Nicht unterstützte Zielposition für Jugendscouting."
+      },
+      "contracts": {
+        "playerNotOwnedByClub": "Der Spieler gehört nicht zu deinem Verein",
+        "unableToCalculateContractEndDate": "Das neue Vertragsende konnte nicht berechnet werden",
+        "playerHasNoActiveContract": "Der Spieler hat keinen aktiven Vertrag",
+        "terminationWouldLeaveMatchdaySquadShort": "Eine Vertragsauflösung würde deinen Kader daran hindern, am Spieltag eine Startelf zu stellen",
+        "noAssistantManagerAssigned": "Kein Co-Trainer ist deinem Team zugewiesen",
+        "playerHasNoTeam": "Der Spieler hat kein Team",
+        "boardWagePolicy": "Die Verlängerung wird durch die Gehaltspolitik des Vorstands blockiert. Halte die Jahresgehälter nahe bei {{budget}}, um dich zu erholen."
+      },
+      "scouting": {
+        "scoutNotFound": "Scout nicht gefunden",
+        "staffMemberNotScout": "Der Mitarbeiter ist kein Scout",
+        "scoutNotInTeam": "Der Scout gehört nicht zu deinem Team",
+        "cannotScoutOwnPlayer": "Du kannst deine eigenen Spieler nicht scouten",
+        "scoutAssignmentFull": "Der Scout ist bereits mit einer anderen Beobachtungsaufgabe belegt ({{currentCount}}/{{maxSlots}} Einsätze).",
+        "playerAlreadyScouted": "Dieser Spieler wird bereits beobachtet",
+        "youthSearchAlreadyActive": "Eine passende Jugendsuche ist bereits aktiv",
+        "youthAssignmentNotFound": "Jugendscouting-Auftrag nicht gefunden",
+        "scoutAlreadyAssignedToSearch": "Der Scout ist bereits dieser Suche zugewiesen"
       }
     },
     "sender": {
@@ -1663,7 +1785,8 @@
       "intlLiaison": "Internationaler Verbindungsbeauftragter",
       "player": "Spieler",
       "pressOfficer": "Pressesprecher",
-      "scout": "Scout"
+      "scout": "Scout",
+      "transferCommittee": "Transferausschuss"
     },
     "role": {
       "chairman": "Vorsitzender",
@@ -1686,9 +1809,16 @@
       "matchDayPress": "Spieltagspresse",
       "leagueChronicle": "Liga-Chronik",
       "leagueWire": "Liga-Ticker",
-      "transferIntelligence": "Transferinformationen"
+      "transferIntelligence": "Transferinformationen",
+      "sportsDaily": "Sport-Tagesblatt"
     },
     "msg": {
+      "world": {
+        "randomName": "Zufallswelt",
+        "randomDescription": "Zufällig generierte Liga mit {{teamCount}} Teams in ganz Europa",
+        "exportedName": "Exportierte Welt",
+        "exportedDescription": "Welt mit {{teamCount}} Teams, aus einem gespeicherten Spiel exportiert"
+      },
       "welcome": {
         "noYouthPlayers": "Derzeit sind keine Spieler der Jugendakademie zugewiesen.",
         "subject0": "Willkommen bei {{team}}",
@@ -1713,7 +1843,11 @@
         "body0": "Ihr {{venue}}-Spiel gegen {{opponent}} steht am {{matchDate}} an.\n\nSpieltag {{matchday}} der Ersten Division. Stellen Sie sicher, dass Ihre Startelf in guter Verfassung ist und Ihre Taktik steht.\n\nNutzen Sie den {{venue}}-Vorteil.",
         "body1": "Erinnerung: Sie treffen {{venue}} auf {{opponent}} am {{matchDate}}.\n\nDies ist Spieltag {{matchday}} — überprüfen Sie die Fitness Ihres Kaders und ziehen Sie taktische Anpassungen in Betracht.",
         "actionTactics": "Taktik festlegen",
-        "actionScout": "Gegner analysieren"
+        "actionScout": "Gegner analysieren",
+        "body0Home": "Ihr Heimspiel gegen {{opponent}} steht am {{matchDate}} an.\n\nSpieltag {{matchday}} der Ersten Division. Stellen Sie sicher, dass Ihre Startelf in guter Verfassung ist und Ihre Taktik steht.\n\nDer Heimvorteil könnte in dieser Partie entscheidend sein.",
+        "body0Away": "Ihr Auswärtsspiel gegen {{opponent}} steht am {{matchDate}} an.\n\nSpieltag {{matchday}} der Ersten Division. Stellen Sie sicher, dass Ihre Startelf in guter Verfassung ist und Ihre Taktik steht.\n\nDie Intensität des Gegners auswärts mitzugehen, könnte in dieser Partie entscheidend sein.",
+        "body1Home": "Erinnerung: In 3 Tagen empfangen Sie {{opponent}} ({{matchDate}}).\n\nDies ist Spieltag {{matchday}} — überprüfen Sie die Fitness Ihres Kaders und ziehen Sie taktische Anpassungen in Betracht. Die Fans werden Sie zu Hause unterstützen.",
+        "body1Away": "Erinnerung: In 3 Tagen treten Sie auswärts gegen {{opponent}} an ({{matchDate}}).\n\nDies ist Spieltag {{matchday}} — überprüfen Sie die Fitness Ihres Kaders und ziehen Sie taktische Anpassungen in Betracht. Ihre Auswärtsform wird getestet — bringen Sie Ihre stärkste Elf."
       },
       "matchResult": {
         "subject": {
@@ -1767,7 +1901,8 @@
       },
       "seasonPayout": {
         "subject": "Saison {{season}} — Preisgeld ausgezahlt",
-        "body": "Der Vorstand hat eine Preisgeldzahlung in Höhe von {{amount}} für deinen {{position}}. Tabellenplatz bestätigt. Der Betrag wurde dem Vereinskonto gutgeschrieben."
+        "body": "Der Vorstand hat eine Preisgeldzahlung in Höhe von {{amount}} für deinen {{position}}. Tabellenplatz bestätigt. Der Betrag wurde dem Vereinskonto gutgeschrieben.",
+        "ledgerDescription": "Preisgeld der Saison {{season}} für Platz {{position}}{{suffix}}"
       },
       "seasonReview": {
         "subject": "Saisonrückblick {{season}}",
@@ -1925,6 +2060,10 @@
             "label": "Höflich ablehnen",
             "description": "Lehne das Angebot ab. Keine finanziellen Auswirkungen."
           }
+        },
+        "effects": {
+          "accepted": "Sponsorenvertrag unterschrieben! Sie erhalten 12 Wochen lang €{{amount}} pro Woche.",
+          "declined": "Sponsorenangebot abgelehnt."
         }
       },
       "trainingInjury": {
@@ -1973,6 +2112,11 @@
             "label": "Verletzungen und Pech anführen",
             "description": "Schiebe die Schuld auf äußere Faktoren. Das kann sie überzeugen oder auch nicht."
           }
+        },
+        "effects": {
+          "reassureBoard": "Sie haben den Vorstand beruhigt. Er gibt Ihnen vorerst mehr Zeit.",
+          "acceptPressure": "Sie haben den Druck anerkannt. Der Vorstand schätzt Ihre Ehrlichkeit.",
+          "blameCircumstances": "Der Vorstand ist von den Ausreden nicht ganz überzeugt, will aber abwarten."
         }
       },
       "fanPetition": {
@@ -1995,6 +2139,11 @@
             "label": "Eine öffentliche Stellungnahme abgeben",
             "description": "Sprich die Petition in einer Pressekonferenz an. Transparent und proaktiv."
           }
+        },
+        "effects": {
+          "listenFans": "Sie sind auf die Fans zugegangen. Die Moral im Kader hat sich leicht verbessert.",
+          "ignoreFans": "Sie haben beschlossen, sich auf den Fußball zu konzentrieren. Die Fans sind etwas enttäuscht.",
+          "addressPublicly": "Ihre öffentliche Stellungnahme kam gut an. Das Vertrauen der Fans ist gestiegen."
         }
       },
       "rivalInterest": {
@@ -2014,6 +2163,11 @@
             "label": "Kein Kommentar",
             "description": "Bleib still und lass die Dinge laufen. Neutrale Haltung."
           }
+        },
+        "effects": {
+          "notForSale": "Sie haben klargemacht, dass der Spieler nicht zu verkaufen ist. Er fühlt sich wertgeschätzt.",
+          "openToOffers": "Sie haben signalisiert, dass Sie sich Angebote anhören würden. Der Spieler ist verunsichert.",
+          "noComment": "Kein Kommentar. Die Gerüchteküche brodelt weiter..."
         }
       },
       "moraleCrisis": {
@@ -2043,6 +2197,15 @@
         "bodyFinalMonth": "Dein Assistenztrainer hat nach deiner Ankunft die Verträge des Kaders geprüft. {{totalExpiring}} Spieler laufen in dieser Saison aus, {{urgentContracts}} erfordern in den nächsten sechs Monaten Aufmerksamkeit und {{finalMonthContracts}} sind bereits im letzten Vertragsmonat.\n\nStabilisiere zuerst die dringenden Fälle und arbeite dann die restliche Liste schrittweise ab.",
         "actionReview": "Kaderverträge prüfen"
       },
+      "contractExpired": {
+        "subject": "{{player}} geht ablösefrei",
+        "body": "{{player}} hat {{team}} nach Vertragsende verlassen. Der Spieler ist jetzt vereinslos."
+      },
+      "contractTerminated": {
+        "subject": "{{player}} freigestellt",
+        "body": "{{player}} wurde von {{team}} freigestellt. Der Verein zahlte {{severance}} an verbleibenden Gehältern als Abfindung.",
+        "ledgerDescription": "Abfindung nach Vertragsauflösung an {{player}} gezahlt"
+      },
       "delegatedRenewals": {
         "subject": "Assistentenbericht — Vertragsverlängerungen",
         "body": "Boss, ich habe unsere Verlängerungsliste bei {{team}} durchgearbeitet. {{successes}} abgeschlossen, {{stalled}} noch offen, {{failures}} gescheitert.",
@@ -2059,6 +2222,36 @@
           "prefersManager": "Sie würden zuhören, wollen aber noch etwa {{wage}}/Woche für {{years}} Jahre und bevorzugen ein Gespräch direkt mit dir.",
           "relationshipBlocked": "Unter der aktuellen Beziehung und Vertragssituation wollen sie sich über mich nicht festlegen."
         }
+      },
+      "youthRecruitmentReport": {
+        "subject": "Scout-Bericht — Jugendrekrutierung",
+        "bodyAny": "{{scout}} hat die letzte Suche nach Jugendspielern für {{team}} abgeschlossen. Ich habe {{count}} Talente im Markt {{regionLabel}} mit einem {{objectiveLabel}}-Profil gefunden.\n\nPrüfe die beigefügten Karten und entscheide, wer in die Akademie aufgenommen werden soll.",
+        "bodyTargeted": "{{scout}} hat die letzte Suche nach Jugendspielern für {{team}} abgeschlossen. Ich habe {{count}} Talente im Markt {{regionLabel}} mit einem {{objectiveLabel}}-Profil gefunden, mit Fokus auf {{targetLabel}}.\n\nPrüfe die beigefügten Karten und entscheide, wer in die Akademie aufgenommen werden soll."
+      },
+      "youthRecruitment": {
+        "option": {
+          "sign": {
+            "label": "Für Akademie verpflichten",
+            "description": "Biete diesem Talent einen Jugendvertrag an und füge es der Akademie hinzu."
+          },
+          "shortlist": {
+            "label": "Auf Shortlist setzen",
+            "description": "Behalte dieses Talent im Blick und verschiebe es in eine separate Shortlist-Nachricht."
+          },
+          "discard": {
+            "label": "Verwerfen",
+            "description": "Lehne dieses Talent ab und entferne es aus dem Bericht."
+          }
+        },
+        "effect": {
+          "sign": "{{player}} hat einen Jugendvertrag unterschrieben und ist deiner Akademie beigetreten.",
+          "shortlist": "{{player}} wurde zu deiner Jugend-Shortlist hinzugefügt.",
+          "discard": "{{player}} wurde aus dem Bericht zur Jugendrekrutierung entfernt."
+        }
+      },
+      "youthRecruitmentShortlist": {
+        "subject": "Jugendtalent auf der Shortlist",
+        "body": "{{player}} wurde auf deine Jugend-Shortlist verschoben. Du kannst ihn später erneut prüfen, bevor du eine endgültige Entscheidung triffst."
       },
       "scoutReport": {
         "subject": "Scout-Bericht: {{player}}",
@@ -2087,7 +2280,9 @@
           "alreadyEmployed": "Sie sind bereits angestellt und können das Angebot von {{team}} nicht annehmen",
           "unavailable": "Das Angebot von {{team}} ist nicht mehr verfügbar, da die Stelle inzwischen besetzt wurde",
           "failed": "Das Angebot von {{team}} konnte nicht angenommen werden"
-        }
+        },
+        "acceptDescription": "Werde neuer Trainer von {{team}}",
+        "declineDescription": "Suche weiter nach anderen Moeglichkeiten"
       },
       "jobOfferExpired": {
         "subject": "Stelle besetzt — {{team}}",
@@ -2100,6 +2295,15 @@
       "jobRejection": {
         "subject": "Bewerbungsupdate — {{team}}",
         "body": "Vielen Dank für Ihr Interesse an der Trainerposition bei {{team}}. Nach sorgfältiger Überlegung haben wir uns für andere Kandidaten entschieden. Wir wünschen Ihnen alles Gute für Ihre weitere Karriere."
+      },
+      "transferComplete": {
+        "subject": "Transfer abgeschlossen: {{player}}",
+        "body": "Der Transfer von {{player}} wurde für eine Ablösesumme von {{fee}} abgeschlossen.\n\nDer Spieler hat sich dem Kader angeschlossen und steht zur Auswahl bereit."
+      },
+      "transferOffer": {
+        "subject": "Eingehendes Angebot für {{player}}",
+        "body": "{{team}} hat ein Angebot über {{fee}} für {{player}} abgegeben. Prüfen Sie das Angebot im Transfers-Tab, um es anzunehmen oder abzulehnen.",
+        "actionReview": "Angebot prüfen"
       }
     },
     "news": {
@@ -2224,6 +2428,14 @@
         "body0Weeks": "{{team}} hat bestätigt, dass {{player}} verletzt ist und voraussichtlich rund {{weeksOut}} Woche(n) ausfallen wird. Der Verein wird die Situation weiter beobachten und zu gegebener Zeit eine weitere Einschätzung abgeben.",
         "body1Days": "{{player}} erlitt beim Training einen Rückschlag. Der {{team}}-Spieler fällt für {{daysOut}} Tag(e) aus. Die Abwesenheit dürfte ein empfindlicher Verlust sein, da die Saison eine entscheidende Phase erreicht.",
         "body1Weeks": "{{player}} erlitt beim Training einen Rückschlag. Der {{team}}-Spieler fällt für rund {{weeksOut}} Woche(n) aus. Die Abwesenheit dürfte ein empfindlicher Verlust sein, da die Saison eine entscheidende Phase erreicht."
+      },
+      "pressConference": {
+        "headlineManagerQuote": "{{team}} Trainer: {{quote}}",
+        "headlinePressConf": "Pressekonferenz: \"{{quote}}\" — Trainer von {{team}}",
+        "headlinePostMatch": "Nach dem Spiel: {{team}} über {{result}}",
+        "bodyMultiple": "Nach dem Ergebnis {{result}} sprach der Trainer von {{team}} mit der Presse.\n\n{{quotes}}\n\nDie Pressekonferenz behandelte das Ergebnis, den taktischen Ansatz und das, was als Nächstes für das Team ansteht.",
+        "bodySingle": "Der Trainer von {{team}} sprach kurz nach dem Ergebnis {{result}}.\n\n\"{{quote}}\"",
+        "bodyNone": "Der Trainer von {{team}} lehnte ein ausführliches Statement nach dem Ergebnis {{result}} ab."
       }
     }
   },
