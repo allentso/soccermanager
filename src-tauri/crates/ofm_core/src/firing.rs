@@ -171,7 +171,11 @@ fn ai_managerial_change_article(
         "be.news.managerialChange.headline",
         "be.news.managerialChange.body",
         "be.source.leagueWire",
-        params(&[("team", team_name), ("manager", manager_name), ("managerId", manager_id)]),
+        params(&[
+            ("team", team_name),
+            ("manager", manager_name),
+            ("managerId", manager_id),
+        ]),
     )
 }
 

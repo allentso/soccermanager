@@ -583,8 +583,12 @@ fn check_random_events_community_event_structure() {
 #[test]
 fn injury_news_article_created_for_notable_player() {
     let mut game = make_game();
-    // Make at least one user-team player notable via market value
+    // Make one user-team player notable and the only eligible training target.
     game.players[0].market_value = 1_000_000;
+    game.players[0].fitness = 1;
+    for player in game.players.iter_mut().skip(1) {
+        player.team_id = Some("other-team".to_string());
+    }
     game.league = None;
     // Run many days to trigger training injuries
     for _ in 0..2000 {

@@ -18,7 +18,25 @@ fn params(pairs: &[(&str, &str)]) -> HashMap<String, String> {
 fn result_lines(results: &[(String, u8, String, u8)]) -> Vec<String> {
     results
         .iter()
-        .map(|(home, hg, away, ag)| format!("  {} {} - {} {}", home, hg, ag, away))
+        .map(|(home, hg, away, ag)| {
+            let home_goals = hg.to_string();
+            let away_goals = ag.to_string();
+            let mut line = String::with_capacity(
+                home.len() + away.len() + home_goals.len() + away_goals.len() + 7,
+            );
+            line.push(' ');
+            line.push(' ');
+            line.push_str(home);
+            line.push(' ');
+            line.push_str(&home_goals);
+            line.push(' ');
+            line.push('-');
+            line.push(' ');
+            line.push_str(&away_goals);
+            line.push(' ');
+            line.push_str(away);
+            line
+        })
         .collect()
 }
 
@@ -61,7 +79,11 @@ fn biggest_winner_name(results: &[(String, u8, String, u8)]) -> String {
 
 fn goal_difference_text(goal_difference: i16) -> String {
     if goal_difference >= 0 {
-        format!("+{}", goal_difference)
+        let goal_difference_text = goal_difference.to_string();
+        let mut text = String::with_capacity(goal_difference_text.len() + 1);
+        text.push('+');
+        text.push_str(&goal_difference_text);
+        text
     } else {
         goal_difference.to_string()
     }
@@ -72,13 +94,39 @@ fn standings_lines(top_teams: &[(String, u32, i16)]) -> Vec<String> {
         .iter()
         .enumerate()
         .map(|(idx, (name, points, goal_difference))| {
-            format!(
-                "  {}. {} — {} pts (GD: {})",
-                idx + 1,
-                name,
-                points,
-                goal_difference_text(*goal_difference)
-            )
+            let rank = (idx + 1).to_string();
+            let points_text = points.to_string();
+            let goal_difference_text = goal_difference_text(*goal_difference);
+            let mut line = String::with_capacity(
+                rank.len()
+                    + name.len()
+                    + points_text.len()
+                    + goal_difference_text.len()
+                    + 15,
+            );
+            line.push(' ');
+            line.push(' ');
+            line.push_str(&rank);
+            line.push('.');
+            line.push(' ');
+            line.push_str(name);
+            line.push(' ');
+            line.push('—');
+            line.push(' ');
+            line.push_str(&points_text);
+            line.push(' ');
+            line.push('p');
+            line.push('t');
+            line.push('s');
+            line.push(' ');
+            line.push('(');
+            line.push('G');
+            line.push('D');
+            line.push(':');
+            line.push(' ');
+            line.push_str(&goal_difference_text);
+            line.push(')');
+            line
         })
         .collect()
 }
@@ -279,13 +327,18 @@ pub fn managerial_appointment_article(
 }
 
 fn format_transfer_fee(fee: u64) -> String {
-    if fee >= 1_000_000 {
-        format!("€{:.1}M", fee as f64 / 1_000_000.0)
+    let compact = if fee >= 1_000_000 {
+        format!("{:.1}M", fee as f64 / 1_000_000.0)
     } else if fee >= 1_000 {
-        format!("€{}K", fee / 1_000)
+        format!("{}K", fee / 1_000)
     } else {
-        format!("€{}", fee)
-    }
+        fee.to_string()
+    };
+
+    let mut display = String::with_capacity(compact.len() + 1);
+    display.push('€');
+    display.push_str(&compact);
+    display
 }
 
 pub fn transfer_roundup_article(
@@ -391,7 +444,7 @@ pub fn season_awards_article(
         (Some(_), Some(_)) => "be.news.seasonAwards.bodyBoth",
         (Some(_), None) => "be.news.seasonAwards.bodyGoldenBootOnly",
         (None, Some(_)) => "be.news.seasonAwards.bodyPotyOnly",
-        (None, None) => unreachable!("guarded above"),
+        (None, None) => unreachable!(),
     };
 
     let mut player_ids = Vec::new();
@@ -436,13 +489,7 @@ pub fn major_transfer_article(
     fee: u64,
     date: &str,
 ) -> NewsArticle {
-    let fee_display = if fee >= 1_000_000 {
-        format!("€{:.1}M", fee as f64 / 1_000_000.0)
-    } else if fee >= 1_000 {
-        format!("€{}K", fee / 1_000)
-    } else {
-        format!("€{}", fee)
-    };
+    let fee_display = format_transfer_fee(fee);
 
     NewsArticle::new(
         id.to_string(),
@@ -610,7 +657,7 @@ pub fn unbeaten_streak_storyline_article(
 ///
 /// Unlike `major_transfer_article` (which reports a completed move), this function
 /// produces gossip-style speculation. The article is attributed to a tabloid-leaning
-/// source and uses hedged language ("according to sources", "understood to be", etc.).
+/// source and uses intentionally hedged language.
 pub fn transfer_rumour_gossip_article(
     id: &str,
     player_id: &str,
