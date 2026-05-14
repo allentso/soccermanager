@@ -12,11 +12,11 @@ import {
   formatDate,
   formatDateFull,
   formatDateShort,
-  calcOvr,
   calcAge,
   formatExactMoney,
   formatVal,
   formatWeeklyAmount,
+  getPlayerOvr,
   positionBadgeVariant,
 } from "./helpers";
 import type { TeamData, FixtureData, PlayerData } from "../store/gameStore";
@@ -302,27 +302,13 @@ describe("getLocale", () => {
   });
 });
 
-describe("calcOvr", () => {
-  it("calculates positional overall from the player's natural role", () => {
-    const player = makePlayer({
-      position: "CentralMidfielder",
-      natural_position: "CentralMidfielder",
-    });
-
-    expect(calcOvr(player)).toBe(68);
+describe("getPlayerOvr", () => {
+  it("returns the backend ovr when present", () => {
+    expect(getPlayerOvr(makePlayer({ ovr: 68 }))).toBe(68);
   });
 
-  it("rounds positional overall to the nearest integer", () => {
-    const player = makePlayer({
-      position: "CentralMidfielder",
-      natural_position: "CentralMidfielder",
-      attributes: {
-        ...makePlayer().attributes,
-        passing: 73,
-      },
-    });
-
-    expect(calcOvr(player)).toBe(69);
+  it("falls back to 0 when backend ovr is missing", () => {
+    expect(getPlayerOvr(makePlayer({ ovr: undefined }))).toBe(0);
   });
 });
 

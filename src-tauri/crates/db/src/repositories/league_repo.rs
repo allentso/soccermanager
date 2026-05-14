@@ -3,22 +3,25 @@ use domain::league::{
 };
 use rusqlite::{Connection, params};
 
+const GAME_PERSISTENCE_LOAD_ERROR: &str = "be.error.gamePersistence.loadFailed";
+const GAME_PERSISTENCE_WRITE_ERROR: &str = "be.error.gamePersistence.writeFailed";
+
 /// Insert or replace the league row and its fixtures + standings.
 pub fn upsert_league(conn: &Connection, league: &League) -> Result<(), String> {
     conn.execute("DELETE FROM fixtures", [])
-        .map_err(|e| format!("Failed to clear fixtures: {}", e))?;
+        .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
     conn.execute("DELETE FROM standings", [])
-        .map_err(|e| format!("Failed to clear standings: {}", e))?;
+        .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
     conn.execute("DELETE FROM transfer_log", [])
-        .map_err(|e| format!("Failed to clear transfer log: {}", e))?;
+        .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
     conn.execute("DELETE FROM league", [])
-        .map_err(|e| format!("Failed to clear league rows: {}", e))?;
+        .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
 
     conn.execute(
         "INSERT OR REPLACE INTO league (id, name, season) VALUES (?1, ?2, ?3)",
         params![league.id, league.name, league.season],
     )
-    .map_err(|e| format!("Failed to upsert league: {}", e))?;
+    .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
 
     for f in &league.fixtures {
         let competition_str = format!("{:?}", f.competition);
@@ -42,7 +45,7 @@ pub fn upsert_league(conn: &Connection, league: &League) -> Result<(), String> {
                 result_json,
             ],
         )
-        .map_err(|e| format!("Failed to insert fixture: {}", e))?;
+        .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
     }
 
     for s in &league.standings {
@@ -61,7 +64,7 @@ pub fn upsert_league(conn: &Connection, league: &League) -> Result<(), String> {
                 s.points,
             ],
         )
-        .map_err(|e| format!("Failed to insert standing: {}", e))?;
+        .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
     }
 
     for transfer in &league.transfer_log {
@@ -77,7 +80,7 @@ pub fn upsert_league(conn: &Connection, league: &League) -> Result<(), String> {
                 transfer.fee,
             ],
         )
-        .map_err(|e| format!("Failed to insert transfer log row: {}", e))?;
+        .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
     }
 
     Ok(())
@@ -103,7 +106,7 @@ fn parse_fixture_competition(s: &str) -> FixtureCompetition {
 pub fn load_league(conn: &Connection) -> Result<Option<League>, String> {
     let mut stmt = conn
         .prepare("SELECT id, name, season FROM league ORDER BY season DESC, rowid DESC LIMIT 1")
-        .map_err(|e| format!("Failed to prepare league query: {}", e))?;
+        .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
 
     let mut rows = stmt
         .query_map([], |row| {
@@ -113,11 +116,11 @@ pub fn load_league(conn: &Connection) -> Result<Option<League>, String> {
                 row.get::<_, u32>(2)?,
             ))
         })
-        .map_err(|e| format!("Failed to query league: {}", e))?;
+        .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
 
     let (league_id, name, season) = match rows.next() {
         Some(Ok(tuple)) => tuple,
-        Some(Err(e)) => return Err(format!("Failed to read league row: {}", e)),
+        Some(Err(_)) => return Err(GAME_PERSISTENCE_LOAD_ERROR.to_string()),
         None => return Ok(None),
     };
 
@@ -127,7 +130,7 @@ pub fn load_league(conn: &Connection) -> Result<Option<League>, String> {
             "SELECT id, matchday, date, home_team_id, away_team_id, competition, status, result
              FROM fixtures WHERE league_id = ?1 ORDER BY matchday, id",
         )
-        .map_err(|e| format!("Failed to prepare fixtures query: {}", e))?;
+        .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
 
     let fixture_rows = fix_stmt
         .query_map(params![league_id], |row| {
@@ -145,11 +148,11 @@ pub fn load_league(conn: &Connection) -> Result<Option<League>, String> {
                 result: result_json.and_then(|j| serde_json::from_str(&j).ok()),
             })
         })
-        .map_err(|e| format!("Failed to query fixtures: {}", e))?;
+        .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
 
     let mut fixtures = Vec::new();
     for row in fixture_rows {
-        fixtures.push(row.map_err(|e| format!("Failed to read fixture: {}", e))?);
+        fixtures.push(row.map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?);
     }
 
     // Load standings
@@ -158,7 +161,7 @@ pub fn load_league(conn: &Connection) -> Result<Option<League>, String> {
             "SELECT team_id, played, won, drawn, lost, goals_for, goals_against, points
              FROM standings WHERE league_id = ?1",
         )
-        .map_err(|e| format!("Failed to prepare standings query: {}", e))?;
+        .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
 
     let standing_rows = stand_stmt
         .query_map(params![league_id], |row| {
@@ -173,11 +176,11 @@ pub fn load_league(conn: &Connection) -> Result<Option<League>, String> {
                 points: row.get(7)?,
             })
         })
-        .map_err(|e| format!("Failed to query standings: {}", e))?;
+        .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
 
     let mut standings = Vec::new();
     for row in standing_rows {
-        standings.push(row.map_err(|e| format!("Failed to read standing: {}", e))?);
+        standings.push(row.map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?);
     }
 
     let mut transfer_stmt = conn
@@ -185,7 +188,7 @@ pub fn load_league(conn: &Connection) -> Result<Option<League>, String> {
             "SELECT date, from_team_id, to_team_id, player_id, fee
              FROM transfer_log WHERE league_id = ?1 ORDER BY date, id",
         )
-        .map_err(|e| format!("Failed to prepare transfer log query: {}", e))?;
+        .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
 
     let transfer_rows = transfer_stmt
         .query_map(params![league_id], |row| {
@@ -197,11 +200,11 @@ pub fn load_league(conn: &Connection) -> Result<Option<League>, String> {
                 fee: row.get(4)?,
             })
         })
-        .map_err(|e| format!("Failed to query transfer log: {}", e))?;
+        .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
 
     let mut transfer_log = Vec::new();
     for row in transfer_rows {
-        transfer_log.push(row.map_err(|e| format!("Failed to read transfer log row: {}", e))?);
+        transfer_log.push(row.map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?);
     }
 
     Ok(Some(League {
@@ -217,7 +220,7 @@ pub fn load_league(conn: &Connection) -> Result<Option<League>, String> {
 pub fn needs_cleanup(conn: &Connection, active_league_id: Option<&str>) -> Result<bool, String> {
     let league_count: i64 = conn
         .query_row("SELECT COUNT(*) FROM league", [], |row| row.get(0))
-        .map_err(|e| format!("Failed to count league rows: {}", e))?;
+        .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
 
     let Some(active_league_id) = active_league_id else {
         return Ok(league_count > 0);
@@ -233,7 +236,7 @@ pub fn needs_cleanup(conn: &Connection, active_league_id: Option<&str>) -> Resul
             params![active_league_id],
             |row| row.get(0),
         )
-        .map_err(|e| format!("Failed to count stale fixtures: {}", e))?;
+        .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
     if stale_fixture_count > 0 {
         return Ok(true);
     }
@@ -244,7 +247,7 @@ pub fn needs_cleanup(conn: &Connection, active_league_id: Option<&str>) -> Resul
             params![active_league_id],
             |row| row.get(0),
         )
-        .map_err(|e| format!("Failed to count stale standings: {}", e))?;
+        .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
     if stale_standings_count > 0 {
         return Ok(true);
     }
@@ -255,7 +258,7 @@ pub fn needs_cleanup(conn: &Connection, active_league_id: Option<&str>) -> Resul
             params![active_league_id],
             |row| row.get(0),
         )
-        .map_err(|e| format!("Failed to count stale transfer log rows: {}", e))?;
+        .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
 
     if stale_transfer_log_count > 0 {
         return Ok(true);
@@ -269,6 +272,7 @@ mod tests {
     use super::*;
     use crate::game_database::GameDatabase;
     use domain::league::{GoalEvent, MatchResult};
+    use rusqlite::Connection;
 
     fn test_db() -> GameDatabase {
         GameDatabase::open_in_memory().unwrap()
@@ -533,5 +537,33 @@ mod tests {
             .unwrap();
 
         assert!(needs_cleanup(db.conn(), Some("league-new")).unwrap());
+    }
+
+    #[test]
+    fn test_upsert_league_returns_backend_key_when_schema_is_missing() {
+        let conn = Connection::open_in_memory().unwrap();
+        let league = sample_league();
+
+        let result = upsert_league(&conn, &league);
+
+        assert_eq!(result.unwrap_err(), GAME_PERSISTENCE_WRITE_ERROR);
+    }
+
+    #[test]
+    fn test_load_league_returns_backend_key_when_schema_is_missing() {
+        let conn = Connection::open_in_memory().unwrap();
+
+        let result = load_league(&conn);
+
+        assert_eq!(result.unwrap_err(), GAME_PERSISTENCE_LOAD_ERROR);
+    }
+
+    #[test]
+    fn test_needs_cleanup_returns_backend_key_when_schema_is_missing() {
+        let conn = Connection::open_in_memory().unwrap();
+
+        let result = needs_cleanup(&conn, Some("league-1"));
+
+        assert_eq!(result.unwrap_err(), GAME_PERSISTENCE_LOAD_ERROR);
     }
 }

@@ -92,12 +92,12 @@ function getSelectedMonthLabel(monthValue: string, months: MonthOption[], fallba
 
 export function DatePicker({ value, onChange, error }: DatePickerProps) {
   const { t, i18n } = useTranslation();
-  
+
   // Parse initial value or use current date components
   const [day, setDay] = useState<string>("");
   const [month, setMonth] = useState<string>("");
   const [year, setYear] = useState<string>("");
-  
+
   const [monthOpen, setMonthOpen] = useState(false);
   const monthRef = useRef<HTMLDivElement>(null);
 
@@ -163,7 +163,7 @@ export function DatePicker({ value, onChange, error }: DatePickerProps) {
     }
   };
 
-  const selectedMonthLabel = getSelectedMonthLabel(month, months, t('date.month', 'Month'));
+  const selectedMonthLabel = getSelectedMonthLabel(month, months, t('date.month'));
 
   return (
     <div className="flex gap-2 w-full">
@@ -176,11 +176,10 @@ export function DatePicker({ value, onChange, error }: DatePickerProps) {
           value={day}
           onChange={handleDayChange}
           onBlur={() => setDay(normaliseDayOnBlur(day))}
-          className={`w-full bg-gray-50 dark:bg-navy-900 border text-gray-900 dark:text-white rounded-lg p-3 outline-none focus:ring-2 transition-all placeholder:text-gray-400 dark:placeholder:text-gray-500 text-center ${
-            error
+          className={`w-full bg-gray-50 dark:bg-navy-900 border text-gray-900 dark:text-white rounded-lg p-3 outline-none focus:ring-2 transition-all placeholder:text-gray-400 dark:placeholder:text-gray-500 text-center ${error
               ? "border-red-400 dark:border-red-500 focus:border-red-500 focus:ring-red-500/20"
               : "border-gray-300 dark:border-navy-600 focus:border-primary-500 focus:ring-primary-500/20"
-          }`}
+            }`}
         />
       </div>
 
@@ -189,13 +188,12 @@ export function DatePicker({ value, onChange, error }: DatePickerProps) {
         <button
           type="button"
           onClick={() => setMonthOpen(!monthOpen)}
-          className={`w-full flex items-center justify-between bg-gray-50 dark:bg-navy-900 border text-left rounded-lg p-3 outline-none transition-all ${
-            error
+          className={`w-full flex items-center justify-between bg-gray-50 dark:bg-navy-900 border text-left rounded-lg p-3 outline-none transition-all ${error
               ? "border-red-400 dark:border-red-500"
               : monthOpen
                 ? "border-primary-500 ring-2 ring-primary-500/20"
                 : "border-gray-300 dark:border-navy-600"
-          }`}
+            }`}
         >
           <span className={month ? "text-gray-900 dark:text-white" : "text-gray-400 dark:text-gray-500"}>
             {selectedMonthLabel}
@@ -222,11 +220,10 @@ export function DatePicker({ value, onChange, error }: DatePickerProps) {
                       }
                     }
                   }}
-                  className={`w-full text-left px-3 py-2 text-sm flex items-center justify-between transition-colors ${
-                    (month === m.value || month === m.value.padStart(2, '0'))
+                  className={`w-full text-left px-3 py-2 text-sm flex items-center justify-between transition-colors ${(month === m.value || month === m.value.padStart(2, '0'))
                       ? "bg-primary-50 dark:bg-primary-500/10 text-primary-600 dark:text-primary-400"
                       : "text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-navy-600"
-                  }`}
+                    }`}
                 >
                   <span>{m.label}</span>
                   {(month === m.value || month === m.value.padStart(2, '0')) && <Check className="w-4 h-4 text-primary-500" />}
@@ -253,11 +250,10 @@ export function DatePicker({ value, onChange, error }: DatePickerProps) {
               }
             }
           }}
-          className={`w-full bg-gray-50 dark:bg-navy-900 border text-gray-900 dark:text-white rounded-lg p-3 outline-none focus:ring-2 transition-all placeholder:text-gray-400 dark:placeholder:text-gray-500 text-center ${
-            error
+          className={`w-full bg-gray-50 dark:bg-navy-900 border text-gray-900 dark:text-white rounded-lg p-3 outline-none focus:ring-2 transition-all placeholder:text-gray-400 dark:placeholder:text-gray-500 text-center ${error
               ? "border-red-400 dark:border-red-500 focus:border-red-500 focus:ring-red-500/20"
               : "border-gray-300 dark:border-navy-600 focus:border-primary-500 focus:ring-primary-500/20"
-          }`}
+            }`}
         />
       </div>
     </div>
