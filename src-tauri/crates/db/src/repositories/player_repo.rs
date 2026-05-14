@@ -2,25 +2,31 @@ use domain::player::{Footedness, Player, PlayerAttributes, Position, SquadRole};
 use domain::team::TrainingFocus;
 use rusqlite::{Connection, params};
 
+const GAME_PERSISTENCE_LOAD_ERROR: &str = "be.error.gamePersistence.loadFailed";
+const GAME_PERSISTENCE_WRITE_ERROR: &str = "be.error.gamePersistence.writeFailed";
+
 /// Insert or replace a player row.
 pub fn upsert_player(conn: &Connection, p: &Player) -> Result<(), String> {
-    let attrs_json =
-        serde_json::to_string(&p.attributes).map_err(|e| format!("JSON error: {}", e))?;
+    let attrs_json = serde_json::to_string(&p.attributes)
+        .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
     let injury_json = p
         .injury
         .as_ref()
         .map(|i| serde_json::to_string(i).unwrap_or_default());
-    let traits_json = serde_json::to_string(&p.traits).map_err(|e| format!("JSON error: {}", e))?;
-    let stats_json = serde_json::to_string(&p.stats).map_err(|e| format!("JSON error: {}", e))?;
-    let career_json = serde_json::to_string(&p.career).map_err(|e| format!("JSON error: {}", e))?;
-    let offers_json =
-        serde_json::to_string(&p.transfer_offers).map_err(|e| format!("JSON error: {}", e))?;
-    let morale_core_json =
-        serde_json::to_string(&p.morale_core).map_err(|e| format!("JSON error: {}", e))?;
+    let traits_json =
+        serde_json::to_string(&p.traits).map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+    let stats_json =
+        serde_json::to_string(&p.stats).map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+    let career_json =
+        serde_json::to_string(&p.career).map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+    let offers_json = serde_json::to_string(&p.transfer_offers)
+        .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+    let morale_core_json = serde_json::to_string(&p.morale_core)
+        .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
     let position_str = format!("{:?}", p.position);
     let natural_position_str = format!("{:?}", p.natural_position);
-    let alt_positions_json =
-        serde_json::to_string(&p.alternate_positions).map_err(|e| format!("JSON error: {}", e))?;
+    let alt_positions_json = serde_json::to_string(&p.alternate_positions)
+        .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
     let footedness_str = format!("{:?}", p.footedness);
     let training_focus_str: Option<String> = p.training_focus.as_ref().map(|f| format!("{:?}", f));
 
@@ -68,7 +74,7 @@ pub fn upsert_player(conn: &Connection, p: &Player) -> Result<(), String> {
             p.potential as i64,
         ],
     )
-    .map_err(|e| format!("Failed to upsert player: {}", e))?;
+    .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
     Ok(())
 }
 
@@ -142,15 +148,15 @@ pub fn load_all_players(conn: &Connection) -> Result<Vec<Player>, String> {
                     ovr, potential
              FROM players",
         )
-        .map_err(|e| format!("Failed to prepare players query: {}", e))?;
+        .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
 
     let rows = stmt
         .query_map([], row_to_player)
-        .map_err(|e| format!("Failed to query players: {}", e))?;
+        .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
 
     let mut players = Vec::new();
     for row in rows {
-        players.push(row.map_err(|e| format!("Failed to read player row: {}", e))?);
+        players.push(row.map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?);
     }
     Ok(players)
 }
@@ -167,15 +173,15 @@ pub fn load_players_by_team(conn: &Connection, team_id: &str) -> Result<Vec<Play
                     ovr, potential
              FROM players WHERE team_id = ?1",
         )
-        .map_err(|e| format!("Failed to prepare players query: {}", e))?;
+        .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
 
     let rows = stmt
         .query_map(params![team_id], row_to_player)
-        .map_err(|e| format!("Failed to query players: {}", e))?;
+        .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
 
     let mut players = Vec::new();
     for row in rows {
-        players.push(row.map_err(|e| format!("Failed to read player row: {}", e))?);
+        players.push(row.map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?);
     }
     Ok(players)
 }
@@ -270,6 +276,7 @@ mod tests {
     use super::*;
     use crate::game_database::GameDatabase;
     use domain::player::{Injury, PlayerIssue, PlayerIssueCategory, PlayerMoraleCore};
+    use rusqlite::Connection;
 
     fn test_db() -> GameDatabase {
         GameDatabase::open_in_memory().unwrap()
@@ -632,5 +639,24 @@ mod tests {
         upsert_player(db.conn(), &player).unwrap();
         let loaded = load_all_players(db.conn()).unwrap();
         assert_eq!(loaded[0].fitness, 75);
+    }
+
+    #[test]
+    fn test_upsert_player_returns_backend_key_when_schema_is_missing() {
+        let conn = Connection::open_in_memory().unwrap();
+        let player = sample_player("p-001", None);
+
+        let result = upsert_player(&conn, &player);
+
+        assert_eq!(result.unwrap_err(), GAME_PERSISTENCE_WRITE_ERROR);
+    }
+
+    #[test]
+    fn test_load_players_returns_backend_key_when_schema_is_missing() {
+        let conn = Connection::open_in_memory().unwrap();
+
+        let result = load_all_players(&conn);
+
+        assert_eq!(result.unwrap_err(), GAME_PERSISTENCE_LOAD_ERROR);
     }
 }

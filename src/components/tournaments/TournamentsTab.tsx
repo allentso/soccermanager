@@ -703,7 +703,7 @@ export default function TournamentsTab({
                 onClick={() => setAwardsRetryCount((count) => count + 1)}
                 className="px-4 py-2 rounded-lg font-heading font-bold text-sm uppercase tracking-wider bg-primary-500 text-white hover:bg-primary-600 transition-colors"
               >
-                Retry
+                {t("common.retry")}
               </button>
             </div>
           ) : (

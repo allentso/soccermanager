@@ -4,19 +4,35 @@ use tauri::State;
 
 use ofm_core::state::StateManager;
 
+const EXPORTED_WORLD_NAME_KEY: &str = "be.msg.world.exportedName";
+const EXPORTED_WORLD_DESCRIPTION_KEY: &str = "be.msg.world.exportedDescription";
+const RANDOM_WORLD_NAME_KEY: &str = "be.msg.world.randomName";
+const RANDOM_WORLD_DESCRIPTION_KEY: &str = "be.msg.world.randomDescription";
+const TEAM_COUNT_PARAM: &str = "teamCount";
+
+fn backend_text_with_param(key: &str, param_name: &str, param_value: impl ToString) -> String {
+    let mut text = String::from(key);
+    text.push('?');
+    text.push_str(param_name);
+    text.push('=');
+    text.push_str(&param_value.to_string());
+    text
+}
+
 fn export_world_database_internal(
     state: &StateManager,
     export_path: &std::path::Path,
 ) -> Result<String, String> {
     let game = state
         .get_game(|g| g.clone())
-        .ok_or("No active game session".to_string())?;
+        .ok_or("be.error.noActiveGameSession".to_string())?;
 
     let world = ofm_core::generator::WorldData {
-        name: "Exported World".to_string(),
-        description: format!(
-            "World with {} teams exported from saved game",
-            game.teams.len()
+        name: EXPORTED_WORLD_NAME_KEY.to_string(),
+        description: backend_text_with_param(
+            EXPORTED_WORLD_DESCRIPTION_KEY,
+            TEAM_COUNT_PARAM,
+            game.teams.len(),
         ),
         teams: game.teams.clone(),
         players: game.players.clone(),
@@ -24,12 +40,12 @@ fn export_world_database_internal(
     };
 
     let json = ofm_core::generator::export_world_to_json(&world)?;
-    std::fs::write(export_path, json).map_err(|e| format!("Failed to write file: {}", e))?;
+    std::fs::write(export_path, json).map_err(|_| "be.error.worldWriteFileFailed".to_string())?;
     Ok(export_path.to_string_lossy().to_string())
 }
 
 fn write_database_json_to_dir(db_dir: &std::path::Path, json: &str) -> Result<String, String> {
-    std::fs::create_dir_all(db_dir).map_err(|e| e.to_string())?;
+    std::fs::create_dir_all(db_dir).map_err(|_| "be.error.worldWriteDatabaseFailed".to_string())?;
 
     let world = ofm_core::generator::load_world_from_json(json)?;
     let normalized_json = ofm_core::generator::export_world_to_json(&world)?;
@@ -40,7 +56,7 @@ fn write_database_json_to_dir(db_dir: &std::path::Path, json: &str) -> Result<St
     );
     let path = db_dir.join(filename);
     std::fs::write(&path, normalized_json)
-        .map_err(|e| format!("Failed to write database: {}", e))?;
+        .map_err(|_| "be.error.worldWriteDatabaseFailed".to_string())?;
     Ok(path.to_string_lossy().to_string())
 }
 
@@ -55,8 +71,8 @@ pub fn list_world_databases(
     // Always include the built-in random option
     let mut databases = vec![WorldDatabaseInfo {
         id: "random".to_string(),
-        name: "Random World".to_string(),
-        description: "Randomly generated league with 16 teams across Europe".to_string(),
+        name: RANDOM_WORLD_NAME_KEY.to_string(),
+        description: backend_text_with_param(RANDOM_WORLD_DESCRIPTION_KEY, TEAM_COUNT_PARAM, 16),
         team_count: 16,
         player_count: 352,
         source: "builtin".to_string(),
@@ -108,7 +124,9 @@ pub fn write_temp_database(app_handle: tauri::AppHandle, json: String) -> Result
 
 #[cfg(test)]
 mod tests {
-    use super::{export_world_database_internal, write_database_json_to_dir};
+    use super::{
+        export_world_database_internal, write_database_json_to_dir, EXPORTED_WORLD_NAME_KEY,
+    };
     use chrono::{TimeZone, Utc};
     use domain::manager::Manager;
     use domain::player::{Player, PlayerAttributes, Position};
@@ -224,8 +242,35 @@ mod tests {
         let json = fs::read_to_string(&written_path).unwrap();
         let world: WorldData = serde_json::from_str(&json).unwrap();
 
+        assert_eq!(world.name, EXPORTED_WORLD_NAME_KEY);
+        assert_eq!(
+            world.description,
+            "be.msg.world.exportedDescription?teamCount=1"
+        );
         assert_eq!(world.teams[0].football_nation, "ENG");
         assert_eq!(world.players[0].football_nation, "ENG");
+    }
+
+    #[test]
+    fn export_world_database_internal_requires_active_game() {
+        let temp_dir = TempCommandDir::new();
+        let export_path = temp_dir.path().join("world-export.json");
+        let state = StateManager::new();
+
+        let result = export_world_database_internal(&state, &export_path);
+
+        assert_eq!(result.unwrap_err(), "be.error.noActiveGameSession");
+    }
+
+    #[test]
+    fn export_world_database_internal_returns_write_file_key_on_write_failure() {
+        let temp_dir = TempCommandDir::new();
+        let state = StateManager::new();
+        state.set_game(make_game());
+
+        let result = export_world_database_internal(&state, temp_dir.path());
+
+        assert_eq!(result.unwrap_err(), "be.error.worldWriteFileFailed");
     }
 
     #[test]
@@ -318,8 +363,19 @@ mod tests {
         let temp_dir = TempCommandDir::new();
         let result = write_database_json_to_dir(temp_dir.path(), "not valid json");
 
-        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), "be.error.worldParseFailed");
         let written_files = fs::read_dir(temp_dir.path()).unwrap().count();
         assert_eq!(written_files, 0);
+    }
+
+    #[test]
+    fn write_database_json_to_dir_returns_write_database_key_when_dir_cannot_be_created() {
+        let temp_dir = TempCommandDir::new();
+        let blocked_path = temp_dir.path().join("blocked-path");
+        fs::write(&blocked_path, "occupied").expect("blocked path file should be created");
+
+        let result = write_database_json_to_dir(&blocked_path, "{}");
+
+        assert_eq!(result.unwrap_err(), "be.error.worldWriteDatabaseFailed");
     }
 }

@@ -1,6 +1,9 @@
 use rusqlite::{Connection, params};
 use serde::{Deserialize, Serialize};
 
+const GAME_PERSISTENCE_LOAD_ERROR: &str = "be.error.gamePersistence.loadFailed";
+const GAME_PERSISTENCE_WRITE_ERROR: &str = "be.error.gamePersistence.writeFailed";
+
 /// Game metadata stored as a singleton row in `game_meta`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GameMeta {
@@ -35,7 +38,7 @@ pub fn upsert_meta(conn: &Connection, meta: &GameMeta) -> Result<(), String> {
             meta.vacant_team_days_json,
         ],
     )
-    .map_err(|e| format!("Failed to upsert game_meta: {}", e))?;
+    .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
     Ok(())
 }
 
@@ -46,7 +49,7 @@ pub fn load_meta(conn: &Connection) -> Result<Option<GameMeta>, String> {
             "SELECT save_id, save_name, manager_id, start_date, game_date, created_at, last_played_at, vacant_team_days_json
              FROM game_meta WHERE id = 'singleton'",
         )
-        .map_err(|e| format!("Failed to prepare meta query: {}", e))?;
+        .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
 
     let mut rows = stmt
         .query_map([], |row| {
@@ -61,11 +64,11 @@ pub fn load_meta(conn: &Connection) -> Result<Option<GameMeta>, String> {
                 vacant_team_days_json: row.get(7)?,
             })
         })
-        .map_err(|e| format!("Failed to query meta: {}", e))?;
+        .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
 
     match rows.next() {
         Some(Ok(meta)) => Ok(Some(meta)),
-        Some(Err(e)) => Err(format!("Failed to read meta row: {}", e)),
+        Some(Err(_)) => Err(GAME_PERSISTENCE_LOAD_ERROR.to_string()),
         None => Ok(None),
     }
 }
@@ -139,5 +142,33 @@ mod tests {
         let loaded = load_meta(db.conn()).unwrap().unwrap();
         assert_eq!(loaded.save_name, "Career v2");
         assert_eq!(loaded.game_date, "2026-08-01T00:00:00Z");
+    }
+
+    #[test]
+    fn test_upsert_meta_returns_backend_key_when_schema_is_missing() {
+        let conn = Connection::open_in_memory().unwrap();
+        let meta = GameMeta {
+            save_id: "save-001".to_string(),
+            save_name: "Test Career".to_string(),
+            manager_id: "mgr_user".to_string(),
+            start_date: "2026-07-01T00:00:00Z".to_string(),
+            game_date: "2026-07-15T00:00:00Z".to_string(),
+            created_at: "2026-03-05T18:00:00Z".to_string(),
+            last_played_at: "2026-03-05T19:00:00Z".to_string(),
+            vacant_team_days_json: "{}".to_string(),
+        };
+
+        let result = upsert_meta(&conn, &meta);
+
+        assert_eq!(result.unwrap_err(), GAME_PERSISTENCE_WRITE_ERROR);
+    }
+
+    #[test]
+    fn test_load_meta_returns_backend_key_when_schema_is_missing() {
+        let conn = Connection::open_in_memory().unwrap();
+
+        let result = load_meta(&conn);
+
+        assert_eq!(result.unwrap_err(), GAME_PERSISTENCE_LOAD_ERROR);
     }
 }
