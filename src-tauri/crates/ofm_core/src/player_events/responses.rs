@@ -657,7 +657,6 @@ pub fn apply_player_response(
         }
     }
 
-    // "No renewal" tanks morale of nearby players too (dressing room effect)
     if message_id.starts_with("contract_concern_") && option_id == "no_renewal" {
         let user_team_id = game.manager.team_id.clone().unwrap_or_default();
         // Teammates lose 2-5 morale

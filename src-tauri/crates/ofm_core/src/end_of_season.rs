@@ -59,6 +59,8 @@ const PRIZE_MONEY_BY_POSITION: [i64; 10] = [
     5_000_000, 3_000_000, 1_500_000, 750_000, 400_000, 300_000, 250_000, 200_000, 175_000, 150_000,
 ];
 
+const SEASON_PAYOUT_LEDGER_DESCRIPTION_KEY: &str = "be.msg.seasonPayout.ledgerDescription";
+
 fn position_suffix(position: u32) -> &'static str {
     match position {
         1 => "st",
@@ -66,6 +68,30 @@ fn position_suffix(position: u32) -> &'static str {
         3 => "rd",
         _ => "th",
     }
+}
+
+fn backend_text_with_params(key: &str, params: [(&str, String); 3]) -> String {
+    let mut text = String::from(key);
+
+    for (index, (param_name, param_value)) in params.into_iter().enumerate() {
+        text.push(if index == 0 { '?' } else { '&' });
+        text.push_str(param_name);
+        text.push('=');
+        text.push_str(&param_value);
+    }
+
+    text
+}
+
+fn prize_money_ledger_description(season: u32, position: u32, suffix: &str) -> String {
+    backend_text_with_params(
+        SEASON_PAYOUT_LEDGER_DESCRIPTION_KEY,
+        [
+            ("season", season.to_string()),
+            ("position", position.to_string()),
+            ("suffix", suffix.to_string()),
+        ],
+    )
 }
 
 fn prize_money_for_position(position: u32) -> i64 {
@@ -189,11 +215,10 @@ pub fn process_end_of_season(game: &mut Game) -> EndOfSeasonSummary {
                 team.season_income += prize_money;
                 team.financial_ledger.push(FinancialTransaction {
                     date: last_fixture_date.clone(),
-                    description: format!(
-                        "Season {} prize money for {}{} place",
+                    description: prize_money_ledger_description(
                         season,
                         position,
-                        position_suffix(position)
+                        position_suffix(position),
                     ),
                     amount: prize_money,
                     kind: FinancialTransactionKind::PrizeMoney,

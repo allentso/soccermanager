@@ -1,7 +1,6 @@
-use log::{info, warn};
 use std::path::{Path, PathBuf};
 
-use crate::save_index::{self, SaveEntry, SaveIndex, load_index, rebuild_index, write_index};
+use crate::save_index::{SaveEntry, SaveIndex, load_index, rebuild_index, write_index};
 
 const SAVE_INDEX_WRITE_ERROR: &str = "be.error.saveIndex.writeFailed";
 
@@ -17,16 +16,8 @@ impl SaveIndexManager {
         let index_path = saves_dir.join("save_index.json");
         let (index, index_needs_rebuild) = match load_index(&index_path)? {
             Some(index) => (index, false),
-            None => {
-                info!("[save_manager] save index missing, deferring rebuild until needed");
-                (SaveIndex::new(), true)
-            }
+            None => (SaveIndex::new(), true),
         };
-
-        info!(
-            "[save_manager] initialized with {} saves",
-            index.saves.len()
-        );
 
         Ok(Self {
             saves_dir: saves_dir.to_path_buf(),
@@ -41,24 +32,11 @@ impl SaveIndexManager {
             return Ok(());
         }
 
-        let (index, validations) = rebuild_index(&self.saves_dir)?;
-
-        for validation in &validations {
-            if let save_index::DbValidation::Invalid { filename, reason } = validation {
-                warn!(
-                    "[save_manager] invalid database during deferred rebuild: {} — {}",
-                    filename, reason
-                );
-            }
-        }
+        let (index, _) = rebuild_index(&self.saves_dir)?;
 
         write_index(&self.index_path, &index)?;
         self.index = index;
         self.index_needs_rebuild = false;
-        info!(
-            "[save_manager] deferred save index rebuild loaded {} saves",
-            self.index.saves.len()
-        );
         Ok(())
     }
 

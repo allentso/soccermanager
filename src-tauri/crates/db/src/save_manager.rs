@@ -27,8 +27,18 @@ pub struct SaveManager {
 
 const SAVE_MANAGER_UNAVAILABLE_ERROR: &str = "be.error.saveManagerUnavailable";
 
+fn backend_error_with_param(key: &str, param_name: &str, param_value: &str) -> String {
+    let mut message = String::with_capacity(key.len() + param_name.len() + param_value.len() + 2);
+    message.push_str(key);
+    message.push('?');
+    message.push_str(param_name);
+    message.push('=');
+    message.push_str(param_value);
+    message
+}
+
 fn save_not_found_error(save_id: &str) -> String {
-    format!("be.error.saveNotFound?saveId={save_id}")
+    backend_error_with_param("be.error.saveNotFound", "saveId", save_id)
 }
 
 impl SaveManager {

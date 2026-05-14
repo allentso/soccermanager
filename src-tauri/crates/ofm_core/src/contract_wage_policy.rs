@@ -8,6 +8,17 @@ const LEGACY_OVER_BUDGET_GRACE_PCT: i64 = 3;
 const LEGACY_OVER_BUDGET_GRACE_MIN: i64 = 25_000;
 const ERR_PLAYER_HAS_NO_TEAM: &str = "be.error.contracts.playerHasNoTeam";
 
+fn backend_error_with_param(key: &str, param_name: &str, param_value: i64) -> String {
+    let param_value = param_value.to_string();
+    let mut message = String::with_capacity(key.len() + param_name.len() + param_value.len() + 2);
+    message.push_str(key);
+    message.push('?');
+    message.push_str(param_name);
+    message.push('=');
+    message.push_str(&param_value);
+    message
+}
+
 fn annual_team_wage_bill(game: &Game, team_id: &str) -> i64 {
     let player_wages: i64 = game
         .players
@@ -63,9 +74,10 @@ pub fn renewal_wage_policy_allows(
 }
 
 pub fn renewal_wage_policy_error_message(team: &Team) -> String {
-    format!(
-        "be.error.contracts.boardWagePolicy?budget={}",
-        team.wage_budget
+    backend_error_with_param(
+        "be.error.contracts.boardWagePolicy",
+        "budget",
+        team.wage_budget,
     )
 }
 

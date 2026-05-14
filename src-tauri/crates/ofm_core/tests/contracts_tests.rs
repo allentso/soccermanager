@@ -233,6 +233,10 @@ fn terminate_contract_now_releases_player_and_charges_severance() {
     assert_eq!(game.teams[0].finance, original_finance - 132_000);
     assert_eq!(game.teams[0].season_expenses, 132_000);
     assert_eq!(
+        game.teams[0].financial_ledger.last().unwrap().description,
+        "be.msg.contractTerminated.ledgerDescription?player=player-1"
+    );
+    assert_eq!(
         game.teams[0].financial_ledger.last().unwrap().kind,
         FinancialTransactionKind::ContractTermination
     );
@@ -245,16 +249,34 @@ fn terminate_contract_now_releases_player_and_charges_severance() {
         message.subject_key.as_deref(),
         Some("be.msg.contractTerminated.subject")
     );
-    assert_eq!(message.body_key.as_deref(), Some("be.msg.contractTerminated.body"));
-    assert_eq!(message.sender_key.as_deref(), Some("be.sender.assistantManager"));
-    assert_eq!(message.sender_role_key.as_deref(), Some("be.role.assistantManager"));
+    assert_eq!(
+        message.body_key.as_deref(),
+        Some("be.msg.contractTerminated.body")
+    );
+    assert_eq!(
+        message.sender_key.as_deref(),
+        Some("be.sender.assistantManager")
+    );
+    assert_eq!(
+        message.sender_role_key.as_deref(),
+        Some("be.role.assistantManager")
+    );
     assert!(message.subject.is_empty());
     assert!(message.body.is_empty());
     assert!(message.sender.is_empty());
     assert!(message.sender_role.is_empty());
-    assert_eq!(message.i18n_params.get("player"), Some(&"player-1".to_string()));
-    assert_eq!(message.i18n_params.get("team"), Some(&"Alpha FC".to_string()));
-    assert_eq!(message.i18n_params.get("severance"), Some(&"132000".to_string()));
+    assert_eq!(
+        message.i18n_params.get("player"),
+        Some(&"player-1".to_string())
+    );
+    assert_eq!(
+        message.i18n_params.get("team"),
+        Some(&"Alpha FC".to_string())
+    );
+    assert_eq!(
+        message.i18n_params.get("severance"),
+        Some(&"132000".to_string())
+    );
 }
 
 #[test]

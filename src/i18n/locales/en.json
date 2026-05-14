@@ -1724,6 +1724,7 @@
         "sponsorPitchActiveSponsor": "An active sponsorship deal is already in place.",
         "marketingCampaignUnavailable": "Marketing campaigns are only available when the club is under wage or cash pressure.",
         "marketingCampaignCoolingDown": "The commercial team needs time before running another marketing campaign.",
+        "facilityUpgradeInsufficientFunds": "Insufficient funds for this facility upgrade. Need €{{amount}}.",
         "facilityUpgradeOverBudget": "Facility upgrades are blocked while the club is over its wage budget.",
         "facilityUpgradeCritical": "Facility upgrades are blocked while the club is under serious financial pressure."
       },
@@ -1894,7 +1895,8 @@
       },
       "seasonPayout": {
         "subject": "Season {{season}} Prize Money Awarded",
-        "body": "The board has confirmed a prize payout of €{{amount}} for your {{position}}-place league finish. The amount has been added to the club balance."
+        "body": "The board has confirmed a prize payout of €{{amount}} for your {{position}}-place league finish. The amount has been added to the club balance.",
+        "ledgerDescription": "Season {{season}} prize money for {{position}}{{suffix}} place"
       },
       "seasonReview": {
         "subject": "Season {{season}} Review",
@@ -2195,7 +2197,8 @@
       },
       "contractTerminated": {
         "subject": "{{player}} Released",
-        "body": "{{player}} has been released by {{team}}. The club paid {{severance}} in remaining wages as severance."
+        "body": "{{player}} has been released by {{team}}. The club paid {{severance}} in remaining wages as severance.",
+        "ledgerDescription": "Contract termination severance paid to {{player}}"
       },
       "delegatedRenewals": {
         "subject": "Assistant Report — Contract Renewals",

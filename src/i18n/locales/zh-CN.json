@@ -1724,6 +1724,7 @@
         "sponsorPitchActiveSponsor": "当前已经有生效中的赞助协议。",
         "marketingCampaignUnavailable": "只有当俱乐部面临工资或现金压力时，才能发起营销活动。",
         "marketingCampaignCoolingDown": "商务团队在再次发起营销活动前还需要一些时间。",
+        "facilityUpgradeInsufficientFunds": "资金不足，无法升级该设施。需要 €{{amount}}。",
         "facilityUpgradeOverBudget": "当俱乐部超出工资预算时，设施升级会被禁止。",
         "facilityUpgradeCritical": "当俱乐部面临严重财务压力时，设施升级会被禁止。"
       },
@@ -1895,7 +1896,8 @@
       },
       "seasonPayout": {
         "subject": "{{season}}赛季奖金发放",
-        "body": "董事会已确认因您获得联赛第{{position}}名发放奖金€{{amount}}。该款项已计入俱乐部账户。"
+        "body": "董事会已确认因您获得联赛第{{position}}名发放奖金€{{amount}}。该款项已计入俱乐部账户。",
+        "ledgerDescription": "{{season}}赛季第{{position}}{{suffix}}名奖金"
       },
       "seasonReview": {
         "subject": "{{season}}赛季回顾",
@@ -2196,7 +2198,8 @@
       },
       "contractTerminated": {
         "subject": "{{player}} 被解约",
-        "body": "{{player}} 已被 {{team}} 解约。俱乐部支付了 {{severance}} 的剩余工资作为解约补偿。"
+        "body": "{{player}} 已被 {{team}} 解约。俱乐部支付了 {{severance}} 的剩余工资作为解约补偿。",
+        "ledgerDescription": "已向 {{player}} 支付合同解约补偿"
       },
       "delegatedRenewals": {
         "subject": "助理教练报告——合同续约",

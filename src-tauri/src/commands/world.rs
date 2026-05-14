@@ -67,11 +67,7 @@ pub fn list_world_databases(
     let mut databases = vec![WorldDatabaseInfo {
         id: "random".to_string(),
         name: RANDOM_WORLD_NAME_KEY.to_string(),
-        description: backend_text_with_param(
-            RANDOM_WORLD_DESCRIPTION_KEY,
-            TEAM_COUNT_PARAM,
-            16,
-        ),
+        description: backend_text_with_param(RANDOM_WORLD_DESCRIPTION_KEY, TEAM_COUNT_PARAM, 16),
         team_count: 16,
         player_count: 352,
         source: "builtin".to_string(),

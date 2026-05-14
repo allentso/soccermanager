@@ -5,6 +5,19 @@ const WORLD_SERIALIZE_FAILED_ERROR: &str = "be.error.worldSerializeFailed";
 const RANDOM_WORLD_NAME_KEY: &str = "be.msg.world.randomName";
 const RANDOM_WORLD_DESCRIPTION_KEY: &str = "be.msg.world.randomDescription";
 
+fn backend_text_with_param(key: &str, param_name: &str, param_value: usize) -> String {
+    let param_value = param_value.to_string();
+    let mut message = String::with_capacity(
+        key.len() + param_name.len() + param_value.len() + 2,
+    );
+    message.push_str(key);
+    message.push('?');
+    message.push_str(param_name);
+    message.push('=');
+    message.push_str(&param_value);
+    message
+}
+
 /// Generate a random world and wrap it in a `WorldData`.
 /// If `data_dir` is provided, tries to load definition files from that directory.
 pub fn generate_world_data(data_dir: Option<&std::path::Path>) -> WorldData {
@@ -17,7 +30,11 @@ pub fn generate_world_data(data_dir: Option<&std::path::Path>) -> WorldData {
 
     WorldData {
         name: RANDOM_WORLD_NAME_KEY.to_string(),
-        description: format!("{}?teamCount={}", RANDOM_WORLD_DESCRIPTION_KEY, teams.len()),
+        description: backend_text_with_param(
+            RANDOM_WORLD_DESCRIPTION_KEY,
+            "teamCount",
+            teams.len(),
+        ),
         teams,
         players,
         staff,

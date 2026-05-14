@@ -117,7 +117,7 @@ pub fn match_report_article(
                 "be.news.matchReport.reportPreseason.title",
                 "be.news.matchReport.reportPreseason.body",
             ),
-            FixtureCompetition::League => unreachable!("league fixtures use the localized branch"),
+            FixtureCompetition::League => unreachable!(),
         };
 
         return NewsArticle::new(

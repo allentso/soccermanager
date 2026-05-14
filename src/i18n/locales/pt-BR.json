@@ -1724,6 +1724,7 @@
         "sponsorPitchActiveSponsor": "Já existe um acordo de patrocínio ativo.",
         "marketingCampaignUnavailable": "Campanhas de marketing só estão disponíveis quando o clube está sob pressão salarial ou de caixa.",
         "marketingCampaignCoolingDown": "O time comercial precisa de tempo antes de lançar outra campanha de marketing.",
+        "facilityUpgradeInsufficientFunds": "Fundos insuficientes para esta melhoria de instalações. São necessários €{{amount}}.",
         "facilityUpgradeOverBudget": "As melhorias de instalações ficam bloqueadas enquanto o clube estiver acima do orçamento salarial.",
         "facilityUpgradeCritical": "As melhorias de instalações ficam bloqueadas enquanto o clube estiver sob forte pressão financeira."
       },
@@ -1898,7 +1899,8 @@
       },
       "seasonPayout": {
         "subject": "Temporada {{season}} — Premiação concedida",
-        "body": "A diretoria confirmou um prêmio de €{{amount}} pelo seu {{position}}º lugar na liga. O valor já foi adicionado ao saldo do clube."
+        "body": "A diretoria confirmou um prêmio de €{{amount}} pelo seu {{position}}º lugar na liga. O valor já foi adicionado ao saldo do clube.",
+        "ledgerDescription": "Prêmio da temporada {{season}} pelo {{position}}{{suffix}} lugar"
       },
       "seasonReview": {
         "subject": "Revisão da Temporada {{season}}",
@@ -2199,7 +2201,8 @@
       },
       "contractTerminated": {
         "subject": "{{player}} dispensado",
-        "body": "{{player}} foi dispensado pelo {{team}}. O clube pagou {{severance}} em salários restantes como indenização."
+        "body": "{{player}} foi dispensado pelo {{team}}. O clube pagou {{severance}} em salários restantes como indenização.",
+        "ledgerDescription": "Indenização por rescisão contratual paga a {{player}}"
       },
       "delegatedRenewals": {
         "subject": "Relatório do assistente — Renovações contratuais",

@@ -1,4 +1,3 @@
-use log::{debug, info, warn};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::fs;
@@ -96,12 +95,10 @@ pub fn compute_checksum(path: &Path) -> Result<String, String> {
 /// Load save index from a JSON file. Returns None if the file doesn't exist.
 pub fn load_index(index_path: &Path) -> Result<Option<SaveIndex>, String> {
     if !index_path.exists() {
-        debug!("[save_index] index file not found at {:?}", index_path);
         return Ok(None);
     }
     let data = fs::read_to_string(index_path).map_err(|_| save_index_load_error())?;
     let index: SaveIndex = serde_json::from_str(&data).map_err(|_| save_index_load_error())?;
-    debug!("[save_index] loaded index with {} saves", index.saves.len());
     Ok(Some(index))
 }
 
@@ -112,7 +109,6 @@ pub fn write_index(index_path: &Path, index: &SaveIndex) -> Result<(), String> {
         fs::create_dir_all(parent).map_err(|_| save_index_write_error())?;
     }
     fs::write(index_path, data).map_err(|_| save_index_write_error())?;
-    debug!("[save_index] wrote index to {:?}", index_path);
     Ok(())
 }
 
@@ -128,15 +124,10 @@ pub enum DbValidation {
 /// Rebuild the save index by scanning a directory for `.db` files,
 /// validating each one, and constructing a new index.
 pub fn rebuild_index(saves_dir: &Path) -> Result<(SaveIndex, Vec<DbValidation>), String> {
-    info!(
-        "[save_index] rebuilding index from directory {:?}",
-        saves_dir
-    );
     let mut index = SaveIndex::new();
     let mut validations = Vec::new();
 
     if !saves_dir.exists() {
-        debug!("[save_index] saves directory does not exist, returning empty index");
         return Ok((index, validations));
     }
 
@@ -154,16 +145,12 @@ pub fn rebuild_index(saves_dir: &Path) -> Result<(SaveIndex, Vec<DbValidation>),
             _ => continue,
         };
 
-        debug!("[save_index] validating database: {}", filename);
-
         match validate_db_file(&path) {
             Ok(save_entry) => {
-                info!("[save_index] valid database: {}", filename);
                 index.add(save_entry.clone());
                 validations.push(DbValidation::Valid(save_entry));
             }
             Err(reason) => {
-                warn!("[save_index] invalid database {}: {}", filename, reason);
                 validations.push(DbValidation::Invalid {
                     filename: filename.clone(),
                     reason,
@@ -215,7 +202,6 @@ pub fn load_or_rebuild_index(
         return Ok((index, Vec::new()));
     }
 
-    info!("[save_index] index file missing, rebuilding...");
     let (index, validations) = rebuild_index(saves_dir)?;
     write_index(index_path, &index)?;
     Ok((index, validations))

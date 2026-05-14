@@ -1724,6 +1724,7 @@
         "sponsorPitchActiveSponsor": "Un contrat de sponsoring est déjà en cours.",
         "marketingCampaignUnavailable": "Les campagnes marketing ne sont disponibles que lorsque le club subit une pression salariale ou de trésorerie.",
         "marketingCampaignCoolingDown": "L'équipe commerciale a besoin de temps avant de relancer une autre campagne marketing.",
+        "facilityUpgradeInsufficientFunds": "Fonds insuffisants pour cette amélioration d'installation. Il faut €{{amount}}.",
         "facilityUpgradeOverBudget": "Les améliorations d'installations sont bloquées tant que le club dépasse son budget salarial.",
         "facilityUpgradeCritical": "Les améliorations d'installations sont bloquées tant que le club subit une forte pression financière."
       },
@@ -1898,7 +1899,8 @@
       },
       "seasonPayout": {
         "subject": "Saison {{season}} — Prime attribuée",
-        "body": "Le conseil a confirmé une prime de €{{amount}} pour votre {{position}}e place en championnat. Le montant a été ajouté au solde du club."
+        "body": "Le conseil a confirmé une prime de €{{amount}} pour votre {{position}}e place en championnat. Le montant a été ajouté au solde du club.",
+        "ledgerDescription": "Prime de saison {{season}} pour la {{position}}{{suffix}} place"
       },
       "seasonReview": {
         "subject": "Bilan de la Saison {{season}}",
@@ -2199,7 +2201,8 @@
       },
       "contractTerminated": {
         "subject": "{{player}} libéré",
-        "body": "{{player}} a été libéré par {{team}}. Le club a payé {{severance}} en salaires restants à titre d'indemnité."
+        "body": "{{player}} a été libéré par {{team}}. Le club a payé {{severance}} en salaires restants à titre d'indemnité.",
+        "ledgerDescription": "Indemnité de rupture versée à {{player}}"
       },
       "delegatedRenewals": {
         "subject": "Rapport de l'adjoint — Renouvellements",

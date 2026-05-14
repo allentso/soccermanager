@@ -1724,6 +1724,7 @@
         "sponsorPitchActiveSponsor": "Es gibt bereits einen aktiven Sponsorenvertrag.",
         "marketingCampaignUnavailable": "Marketingkampagnen sind nur verfügbar, wenn der Club unter Gehalts- oder Liquiditätsdruck steht.",
         "marketingCampaignCoolingDown": "Das Kommerz-Team braucht Zeit, bevor es eine weitere Marketingkampagne startet.",
+        "facilityUpgradeInsufficientFunds": "Nicht genug Geld für diesen Ausbau. Benötigt werden €{{amount}}.",
         "facilityUpgradeOverBudget": "Ausbauten sind blockiert, solange der Club sein Gehaltsbudget überschreitet.",
         "facilityUpgradeCritical": "Ausbauten sind blockiert, solange der Club unter erheblichem finanziellem Druck steht."
       },
@@ -1898,7 +1899,8 @@
       },
       "seasonPayout": {
         "subject": "Saison {{season}} — Preisgeld ausgezahlt",
-        "body": "Der Vorstand hat eine Preisgeldzahlung in Höhe von €{{amount}} für deinen {{position}}. Tabellenplatz bestätigt. Der Betrag wurde dem Vereinskonto gutgeschrieben."
+        "body": "Der Vorstand hat eine Preisgeldzahlung in Höhe von €{{amount}} für deinen {{position}}. Tabellenplatz bestätigt. Der Betrag wurde dem Vereinskonto gutgeschrieben.",
+        "ledgerDescription": "Preisgeld der Saison {{season}} für Platz {{position}}{{suffix}}"
       },
       "seasonReview": {
         "subject": "Saisonrückblick {{season}}",
@@ -2199,7 +2201,8 @@
       },
       "contractTerminated": {
         "subject": "{{player}} freigestellt",
-        "body": "{{player}} wurde von {{team}} freigestellt. Der Verein zahlte {{severance}} an verbleibenden Gehältern als Abfindung."
+        "body": "{{player}} wurde von {{team}} freigestellt. Der Verein zahlte {{severance}} an verbleibenden Gehältern als Abfindung.",
+        "ledgerDescription": "Abfindung nach Vertragsauflösung an {{player}} gezahlt"
       },
       "delegatedRenewals": {
         "subject": "Assistentenbericht — Vertragsverlängerungen",

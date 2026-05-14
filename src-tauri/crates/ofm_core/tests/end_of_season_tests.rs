@@ -646,6 +646,10 @@ fn champion_receives_prize_money_and_ledger_entry() {
         FinancialTransactionKind::PrizeMoney
     );
     assert_eq!(team1.financial_ledger[0].amount, 5_000_000);
+    assert_eq!(
+        team1.financial_ledger[0].description,
+        "be.msg.seasonPayout.ledgerDescription?season=1&position=1&suffix=st"
+    );
 }
 
 #[test]

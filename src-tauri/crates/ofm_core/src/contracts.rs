@@ -543,9 +543,10 @@ pub fn terminate_contract_now(
         team.season_expenses += preview.severance_cost;
         team.financial_ledger.push(FinancialTransaction {
             date: today,
-            description: format!(
-                "Contract termination severance paid to {}",
-                preview.player_name
+            description: backend_text_with_param(
+                "be.msg.contractTerminated.ledgerDescription",
+                "player",
+                &preview.player_name,
             ),
             amount: -preview.severance_cost,
             kind: FinancialTransactionKind::ContractTermination,
@@ -672,6 +673,16 @@ fn termination_severance_cost(player: &Player, current_date: NaiveDate) -> i64 {
     let remaining_weeks = (remaining_days + 6) / 7;
 
     remaining_weeks * i64::from(player.wage)
+}
+
+fn backend_text_with_param(key: &str, param_name: &str, param_value: &str) -> String {
+    let mut message = String::with_capacity(key.len() + param_name.len() + param_value.len() + 2);
+    message.push_str(key);
+    message.push('?');
+    message.push_str(param_name);
+    message.push('=');
+    message.push_str(param_value);
+    message
 }
 
 pub(crate) fn expected_wage(player: &Player, team: &Team, current_date: NaiveDate) -> u32 {
