@@ -780,6 +780,19 @@ describe("resolveBackendText", () => {
 
     expect(result).toBe("Morale +3");
   });
+
+  it("resolves backend text keys with encoded params", () => {
+    i18n.addResourceBundle("en", "translation", {
+      "be.msg.world.exportedDescription": "World with {{teamCount}} teams exported from saved game",
+    }, true, true);
+
+    const result = resolveBackendText(
+      "be.msg.world.exportedDescription?teamCount=18",
+      "fallback",
+    );
+
+    expect(result).toBe("World with 18 teams exported from saved game");
+  });
 });
 
 describe("resolveBackendError", () => {

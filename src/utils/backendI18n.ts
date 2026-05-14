@@ -48,7 +48,7 @@ function extractErrorMessage(error: unknown): string {
   return "";
 }
 
-function parseBackendErrorMessage(message: string): {
+function parseBackendMessage(message: string): {
   key?: string;
   fallback: string;
   params?: Record<string, string>;
@@ -82,13 +82,24 @@ export function resolveBackendText(
   fallback: string,
   params?: Record<string, string>,
 ): string {
-  return resolve(key, fallback, params);
+  if (!key) return fallback;
+  const parsed = parseBackendMessage(key);
+  const mergedParams = {
+    ...(parsed.params ?? {}),
+    ...(params ?? {}),
+  };
+
+  return resolve(
+    parsed.key,
+    fallback,
+    Object.keys(mergedParams).length > 0 ? mergedParams : undefined,
+  );
 }
 
 export function resolveBackendError(error: unknown): string {
   const message = extractErrorMessage(error).trim();
   if (!message) return "";
-  const parsed = parseBackendErrorMessage(message);
+  const parsed = parseBackendMessage(message);
   return resolve(parsed.key, parsed.fallback, parsed.params);
 }
 

@@ -1809,6 +1809,12 @@
       "sportsDaily": "Quotidien Sportif"
     },
     "msg": {
+      "world": {
+        "randomName": "Monde aléatoire",
+        "randomDescription": "Championnat généré aléatoirement avec {{teamCount}} équipes à travers l'Europe",
+        "exportedName": "Monde exporté",
+        "exportedDescription": "Monde avec {{teamCount}} équipes exporté depuis une sauvegarde"
+      },
       "welcome": {
         "noYouthPlayers": "Aucun joueur n'est actuellement affecté au centre de formation.",
         "subject0": "Bienvenue à {{team}}",

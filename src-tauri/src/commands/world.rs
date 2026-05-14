@@ -4,6 +4,11 @@ use tauri::State;
 
 use ofm_core::state::StateManager;
 
+const EXPORTED_WORLD_NAME_KEY: &str = "be.msg.world.exportedName";
+const EXPORTED_WORLD_DESCRIPTION_KEY: &str = "be.msg.world.exportedDescription";
+const RANDOM_WORLD_NAME_KEY: &str = "be.msg.world.randomName";
+const RANDOM_WORLD_DESCRIPTION_KEY: &str = "be.msg.world.randomDescription";
+
 fn export_world_database_internal(
     state: &StateManager,
     export_path: &std::path::Path,
@@ -13,9 +18,10 @@ fn export_world_database_internal(
         .ok_or("be.error.noActiveGameSession".to_string())?;
 
     let world = ofm_core::generator::WorldData {
-        name: "Exported World".to_string(),
+        name: EXPORTED_WORLD_NAME_KEY.to_string(),
         description: format!(
-            "World with {} teams exported from saved game",
+            "{}?teamCount={}",
+            EXPORTED_WORLD_DESCRIPTION_KEY,
             game.teams.len()
         ),
         teams: game.teams.clone(),
@@ -55,8 +61,8 @@ pub fn list_world_databases(
     // Always include the built-in random option
     let mut databases = vec![WorldDatabaseInfo {
         id: "random".to_string(),
-        name: "Random World".to_string(),
-        description: "Randomly generated league with 16 teams across Europe".to_string(),
+        name: RANDOM_WORLD_NAME_KEY.to_string(),
+        description: format!("{}?teamCount=16", RANDOM_WORLD_DESCRIPTION_KEY),
         team_count: 16,
         player_count: 352,
         source: "builtin".to_string(),
@@ -108,7 +114,9 @@ pub fn write_temp_database(app_handle: tauri::AppHandle, json: String) -> Result
 
 #[cfg(test)]
 mod tests {
-    use super::{export_world_database_internal, write_database_json_to_dir};
+    use super::{
+        export_world_database_internal, write_database_json_to_dir, EXPORTED_WORLD_NAME_KEY,
+    };
     use chrono::{TimeZone, Utc};
     use domain::manager::Manager;
     use domain::player::{Player, PlayerAttributes, Position};
@@ -224,6 +232,11 @@ mod tests {
         let json = fs::read_to_string(&written_path).unwrap();
         let world: WorldData = serde_json::from_str(&json).unwrap();
 
+        assert_eq!(world.name, EXPORTED_WORLD_NAME_KEY);
+        assert_eq!(
+            world.description,
+            "be.msg.world.exportedDescription?teamCount=1"
+        );
         assert_eq!(world.teams[0].football_nation, "ENG");
         assert_eq!(world.players[0].football_nation, "ENG");
     }

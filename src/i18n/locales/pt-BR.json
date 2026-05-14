@@ -1809,6 +1809,12 @@
       "sportsDaily": "Diário Esportivo"
     },
     "msg": {
+      "world": {
+        "randomName": "Mundo Aleatório",
+        "randomDescription": "Liga gerada aleatoriamente com {{teamCount}} times por toda a Europa",
+        "exportedName": "Mundo Exportado",
+        "exportedDescription": "Mundo com {{teamCount}} times exportado de um jogo salvo"
+      },
       "welcome": {
         "noYouthPlayers": "Nenhum jogador está atualmente alocado à academia de base.",
         "subject0": "Bem-vindo ao {{team}}",

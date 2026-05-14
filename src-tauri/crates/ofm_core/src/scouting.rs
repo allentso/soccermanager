@@ -885,18 +885,12 @@ fn build_scout_report(
         confidence_key: confidence_key.to_string(),
     };
 
-    // Fallback body text (used when i18n key is not found)
-    let body = format!(
-        "Scout report on {} completed by {}.",
-        player_name, scout_name
-    );
-
     let msg_id = format!("scout_report_{}", assignment_id);
 
     InboxMessage::new(
         msg_id,
-        format!("Scout Report — {}", player_name),
-        body,
+        String::new(),
+        String::new(),
         scout_name.to_string(),
         date.to_string(),
     )
@@ -923,4 +917,89 @@ fn build_scout_report(
         p
     })
     .with_sender_i18n("be.sender.scout", "be.role.scout")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::build_scout_report;
+    use domain::message::{ActionType, MessageCategory, MessagePriority};
+    use domain::player::PlayerAttributes;
+
+    fn sample_attrs() -> PlayerAttributes {
+        PlayerAttributes {
+            pace: 70,
+            stamina: 68,
+            strength: 66,
+            agility: 69,
+            passing: 72,
+            shooting: 64,
+            tackling: 58,
+            dribbling: 71,
+            defending: 57,
+            positioning: 65,
+            vision: 70,
+            decisions: 67,
+            composure: 68,
+            aggression: 52,
+            teamwork: 73,
+            leadership: 48,
+            handling: 18,
+            reflexes: 20,
+            aerial: 55,
+        }
+    }
+
+    #[test]
+    fn build_scout_report_uses_i18n_keys_without_raw_fallbacks() {
+        let message = build_scout_report(
+            "assignment-1",
+            "Alex Scout",
+            "player-1",
+            "Jamie Prospect",
+            "ENG",
+            "2004-03-12",
+            "Midfielder",
+            &sample_attrs(),
+            74,
+            89,
+            67,
+            79,
+            85,
+            83,
+            Some("London FC"),
+            "2026-08-01",
+        );
+
+        assert_eq!(message.subject, "");
+        assert_eq!(message.body, "");
+        assert_eq!(message.sender, "Alex Scout");
+        assert_eq!(message.sender_role, "Scout");
+        assert_eq!(message.category, MessageCategory::ScoutReport);
+        assert_eq!(message.priority, MessagePriority::Normal);
+        assert_eq!(
+            message.subject_key.as_deref(),
+            Some("be.msg.scoutReport.subject")
+        );
+        assert_eq!(message.body_key.as_deref(), Some("be.msg.scoutReport.body"));
+        assert_eq!(message.sender_key.as_deref(), Some("be.sender.scout"));
+        assert_eq!(message.sender_role_key.as_deref(), Some("be.role.scout"));
+        assert_eq!(
+            message.i18n_params.get("player"),
+            Some(&"Jamie Prospect".to_string())
+        );
+        assert_eq!(
+            message.i18n_params.get("scout"),
+            Some(&"Alex Scout".to_string())
+        );
+        assert!(
+            matches!(message.actions.as_slice(), [action] if matches!(action.action_type, ActionType::Acknowledge))
+        );
+        let report = message
+            .context
+            .scout_report
+            .expect("scout report context should be attached");
+        assert_eq!(report.player_id, "player-1");
+        assert_eq!(report.player_name, "Jamie Prospect");
+        assert_eq!(report.team_name.as_deref(), Some("London FC"));
+    }
 }

@@ -1809,6 +1809,12 @@
       "sportsDaily": "Sport-Tagesblatt"
     },
     "msg": {
+      "world": {
+        "randomName": "Zufallswelt",
+        "randomDescription": "Zufällig generierte Liga mit {{teamCount}} Teams in ganz Europa",
+        "exportedName": "Exportierte Welt",
+        "exportedDescription": "Welt mit {{teamCount}} Teams, aus einem gespeicherten Spiel exportiert"
+      },
       "welcome": {
         "noYouthPlayers": "Derzeit sind keine Spieler der Jugendakademie zugewiesen.",
         "subject0": "Willkommen bei {{team}}",

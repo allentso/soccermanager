@@ -1808,6 +1808,12 @@
       "sportsDaily": "Sports Daily"
     },
     "msg": {
+      "world": {
+        "randomName": "Random World",
+        "randomDescription": "Randomly generated league with {{teamCount}} teams across Europe",
+        "exportedName": "Exported World",
+        "exportedDescription": "World with {{teamCount}} teams exported from saved game"
+      },
       "welcome": {
         "subject0": "Welcome to {{team}}",
         "subject1": "New Era at {{team}}",

@@ -2,6 +2,8 @@ use super::definitions::{WorldData, WorldDatabaseInfo};
 
 const WORLD_PARSE_FAILED_ERROR: &str = "be.error.worldParseFailed";
 const WORLD_SERIALIZE_FAILED_ERROR: &str = "be.error.worldSerializeFailed";
+const RANDOM_WORLD_NAME_KEY: &str = "be.msg.world.randomName";
+const RANDOM_WORLD_DESCRIPTION_KEY: &str = "be.msg.world.randomDescription";
 
 /// Generate a random world and wrap it in a `WorldData`.
 /// If `data_dir` is provided, tries to load definition files from that directory.
@@ -14,11 +16,8 @@ pub fn generate_world_data(data_dir: Option<&std::path::Path>) -> WorldData {
     );
 
     WorldData {
-        name: "Random World".to_string(),
-        description: format!(
-            "Randomly generated league with {} teams across Europe",
-            teams.len()
-        ),
+        name: RANDOM_WORLD_NAME_KEY.to_string(),
+        description: format!("{}?teamCount={}", RANDOM_WORLD_DESCRIPTION_KEY, teams.len()),
         teams,
         players,
         staff,
@@ -45,8 +44,7 @@ pub fn export_world_to_json(world: &WorldData) -> Result<String, String> {
         &mut normalized.players,
         &mut normalized.staff,
     );
-    serde_json::to_string_pretty(&normalized)
-        .map_err(|_| WORLD_SERIALIZE_FAILED_ERROR.to_string())
+    serde_json::to_string_pretty(&normalized).map_err(|_| WORLD_SERIALIZE_FAILED_ERROR.to_string())
 }
 
 /// Scan a directory for `.json` world database files and return their metadata.
@@ -192,6 +190,12 @@ mod tests {
         let json = export_world_to_json(&world).unwrap();
         let reparsed: WorldData = serde_json::from_str(&json).unwrap();
 
+        assert_eq!(reparsed.name, RANDOM_WORLD_NAME_KEY);
+        assert!(
+            reparsed
+                .description
+                .starts_with("be.msg.world.randomDescription?teamCount=")
+        );
         assert_eq!(reparsed.teams[0].football_nation, "ENG");
     }
 

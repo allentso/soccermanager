@@ -1809,6 +1809,12 @@
       "sportsDaily": "体育日报"
     },
     "msg": {
+      "world": {
+        "randomName": "随机世界",
+        "randomDescription": "一个在欧洲各地随机生成、包含 {{teamCount}} 支球队的联赛",
+        "exportedName": "导出的世界",
+        "exportedDescription": "从存档导出的世界，包含 {{teamCount}} 支球队"
+      },
       "welcome": {
         "subject0": "欢迎来到{{team}}",
         "subject1": "{{team}}的新时代",

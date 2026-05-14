@@ -1809,6 +1809,12 @@
       "sportsDaily": "Quotidiano Sportivo"
     },
     "msg": {
+      "world": {
+        "randomName": "Mondo casuale",
+        "randomDescription": "Campionato generato casualmente con {{teamCount}} squadre in tutta Europa",
+        "exportedName": "Mondo esportato",
+        "exportedDescription": "Mondo con {{teamCount}} squadre esportato da una partita salvata"
+      },
       "welcome": {
         "noYouthPlayers": "Nessun giocatore è attualmente assegnato al settore giovanile.",
         "subject0": "Benvenuto al {{team}}",
