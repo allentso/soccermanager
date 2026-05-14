@@ -30,14 +30,6 @@ fn parse_amount_param(value: &str) -> Option<u64> {
     }
 }
 
-fn parse_amount_param(value: &str) -> Option<u64> {
-    let digits: String = value.chars().filter(|ch| ch.is_ascii_digit()).collect();
-    if digits.is_empty() {
-        None
-    } else {
-        digits.parse::<u64>().ok()
-    }
-}
 
 /// Apply the effect of a sponsor offer choice.
 pub fn apply_event_response(
