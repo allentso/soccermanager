@@ -56,7 +56,25 @@
     "teams": "{{count}} teams",
     "players": "{{count}} players",
     "randomWorld": "Random World",
-    "randomDescription": "Randomly generated league with 8 teams, players, and staff"
+    "randomDescription": "Randomly generated league with 8 teams, players, and staff",
+    "historyMode": {
+      "generated": "Generated History",
+      "reference": "Reference History",
+      "hybrid": "Hybrid History"
+    },
+    "summary": {
+      "startYear": "Career Start",
+      "seasonStart": {
+        "generated": "Kick off in {{year}} with a fresh world and six generated seasons of backstory.",
+        "reference": "Kick off in {{year}} using the selected historical snapshot as your world baseline.",
+        "hybrid": "Kick off in {{year}} using this database roster while the missing history is generated around it."
+      },
+      "midSeason": {
+        "generated": "Take over halfway through {{year}} with inherited standings, fixtures, news, and match history from a generated season.",
+        "reference": "Take over halfway through {{year}} with the selected historical snapshot and current-season context already in place.",
+        "hybrid": "Take over halfway through {{year}} with this database roster plus generated historical context and inherited season progress."
+      }
+    }
   },
   "dashboard": {
     "home": "Home",

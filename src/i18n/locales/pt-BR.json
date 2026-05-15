@@ -56,7 +56,25 @@
     "teams": "{{count}} times",
     "players": "{{count}} jogadores",
     "randomWorld": "Mundo Aleatório",
-    "randomDescription": "Liga gerada aleatoriamente com 8 times, jogadores e staff"
+    "randomDescription": "Liga gerada aleatoriamente com 8 times, jogadores e staff",
+    "historyMode": {
+      "generated": "Histórico gerado",
+      "reference": "Histórico de referência",
+      "hybrid": "Histórico híbrido"
+    },
+    "summary": {
+      "startYear": "Início da carreira",
+      "seasonStart": {
+        "generated": "Comece em {{year}} com um mundo novo e seis temporadas de histórico gerado.",
+        "reference": "Comece em {{year}} usando o snapshot histórico selecionado como base do mundo.",
+        "hybrid": "Comece em {{year}} usando o elenco deste banco de dados enquanto o histórico ausente é gerado ao redor."
+      },
+      "midSeason": {
+        "generated": "Assuma o time na metade de {{year}} com tabela, calendário, notícias e histórico de partidas herdados de uma temporada gerada.",
+        "reference": "Assuma o time na metade de {{year}} com o snapshot histórico selecionado e o contexto da temporada já presente.",
+        "hybrid": "Assuma o time na metade de {{year}} com o elenco deste banco de dados mais contexto histórico gerado e progresso de temporada herdado."
+      }
+    }
   },
   "dashboard": {
     "home": "Início",

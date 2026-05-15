@@ -56,7 +56,25 @@
     "teams": "{{count}} 支球队",
     "players": "{{count}} 名球员",
     "randomWorld": "随机世界",
-    "randomDescription": "随机生成的联赛，包含 8 支球队、球员和员工"
+    "randomDescription": "随机生成的联赛，包含 8 支球队、球员和员工",
+    "historyMode": {
+      "generated": "生成历史",
+      "reference": "参考历史",
+      "hybrid": "混合历史"
+    },
+    "summary": {
+      "startYear": "生涯起点",
+      "seasonStart": {
+        "generated": "在 {{year}} 年以全新世界开局，并获得六个赛季的生成背景历史。",
+        "reference": "在 {{year}} 年以所选历史快照作为世界基础开始生涯。",
+        "hybrid": "在 {{year}} 年以该数据库阵容开局，同时自动补全缺失的历史内容。"
+      },
+      "midSeason": {
+        "generated": "在 {{year}} 年赛季中途接手，继承生成赛季中的积分榜、赛程、新闻和比赛历史。",
+        "reference": "在 {{year}} 年赛季中途接手，并直接继承所选历史快照与当前赛季上下文。",
+        "hybrid": "在 {{year}} 年赛季中途接手，使用该数据库阵容，并继承生成的历史背景与赛季进度。"
+      }
+    }
   },
   "dashboard": {
     "home": "首页",

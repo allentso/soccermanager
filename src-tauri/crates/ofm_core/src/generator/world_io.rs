@@ -96,12 +96,19 @@ pub fn scan_world_databases(dir: &std::path::Path) -> Vec<WorldDatabaseInfo> {
                 .unwrap_or_default()
                 .to_string_lossy()
                 .to_string();
+            let history_mode = match world.metadata.kind {
+                crate::generator::WorldDataKind::HistoricalSnapshot => "reference",
+                crate::generator::WorldDataKind::RosterBaseline => "hybrid",
+            };
             results.push(WorldDatabaseInfo {
                 id: format!("file:{}", path.display()),
                 name: world.name,
                 description: world.description,
                 team_count: world.teams.len(),
                 player_count: world.players.len(),
+                history_mode: history_mode.to_string(),
+                base_year: world.metadata.base_year,
+                snapshot_date: world.metadata.snapshot_date,
                 source: "user".to_string(),
                 path: path.to_string_lossy().to_string(),
             });
@@ -115,6 +122,35 @@ pub fn scan_world_databases(dir: &std::path::Path) -> Vec<WorldDatabaseInfo> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
+    use std::path::PathBuf;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    struct TempWorldDir {
+        path: PathBuf,
+    }
+
+    impl TempWorldDir {
+        fn new() -> Self {
+            let unique = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("system clock should be after unix epoch")
+                .as_nanos();
+            let path = std::env::temp_dir().join(format!("ofm-world-io-tests-{}", unique));
+            fs::create_dir_all(&path).expect("temporary world dir should be created");
+            Self { path }
+        }
+
+        fn path(&self) -> &std::path::Path {
+            &self.path
+        }
+    }
+
+    impl Drop for TempWorldDir {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.path);
+        }
+    }
 
     #[test]
     fn load_world_from_json_normalizes_legacy_english_world_data() {
@@ -410,5 +446,42 @@ mod tests {
         let result = load_world_from_json("not valid json");
 
         assert_eq!(result.unwrap_err(), WORLD_PARSE_FAILED_ERROR);
+    }
+
+    #[test]
+    fn scan_world_databases_exposes_history_mode_metadata() {
+        let temp_dir = TempWorldDir::new();
+        let path = temp_dir.path().join("snapshot.json");
+        fs::write(
+            &path,
+            r#"
+            {
+                "name": "Historical Snapshot",
+                "description": "Season already underway",
+                "teams": [],
+                "players": [],
+                "staff": [],
+                "metadata": {
+                    "kind": "historicalSnapshot",
+                    "base_year": 2031,
+                    "snapshot_date": "2031-11-20T00:00:00+00:00"
+                }
+            }
+            "#,
+        )
+        .expect("world json should be written");
+
+        let databases = scan_world_databases(temp_dir.path());
+        let database = databases
+            .iter()
+            .find(|database| database.id == format!("file:{}", path.display()))
+            .expect("snapshot database should be scanned");
+
+        assert_eq!(database.history_mode, "reference");
+        assert_eq!(database.base_year, Some(2031));
+        assert_eq!(
+            database.snapshot_date.as_deref(),
+            Some("2031-11-20T00:00:00+00:00")
+        );
     }
 }

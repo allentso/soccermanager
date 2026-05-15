@@ -1,5 +1,5 @@
-pub mod ai_hiring;
 pub mod aging;
+pub mod ai_hiring;
 pub mod board_objectives;
 pub mod clock;
 pub mod club;
@@ -13,6 +13,7 @@ pub mod firing;
 pub mod football_identity;
 pub mod game;
 pub mod generator;
+pub mod history_generation;
 pub mod job_offers;
 pub mod live_match_manager;
 pub mod messages;

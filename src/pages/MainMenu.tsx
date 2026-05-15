@@ -48,6 +48,19 @@ type StartupOptionsPayload = {
   startPhase: CareerStartPhase;
 };
 
+function historyModeFromMetadata(
+  metadata: unknown,
+): WorldDatabaseInfo["history_mode"] {
+  const kind =
+    metadata && typeof metadata === "object" && "kind" in metadata
+      ? (metadata as { kind?: unknown }).kind
+      : undefined;
+
+  if (kind === "historicalSnapshot") return "reference";
+  if (kind === "rosterBaseline") return "hybrid";
+  return undefined;
+}
+
 function defaultCareerStartYear(): string {
   return String(new Date().getFullYear());
 }
@@ -309,6 +322,9 @@ export default function MainMenu() {
           description: t("worldSelect.randomDescription"),
           team_count: 8,
           player_count: 160,
+          history_mode: "generated",
+          base_year: null,
+          snapshot_date: null,
           source: "builtin",
           path: "",
         },
@@ -332,6 +348,15 @@ export default function MainMenu() {
           description: parsed.description || t("menu.importedDescription"),
           team_count: parsed.teams?.length ?? 0,
           player_count: parsed.players?.length ?? 0,
+          history_mode: historyModeFromMetadata(parsed.metadata) ?? "hybrid",
+          base_year:
+            typeof parsed.metadata?.base_year === "number"
+              ? parsed.metadata.base_year
+              : null,
+          snapshot_date:
+            typeof parsed.metadata?.snapshot_date === "string"
+              ? parsed.metadata.snapshot_date
+              : null,
           source: "imported",
           path: "", // will use the parsed data directly
         };
@@ -570,6 +595,8 @@ export default function MainMenu() {
                 selectedWorldId={selectedWorldId}
                 isLoadingWorlds={isLoadingWorlds}
                 isStarting={isStarting}
+                startYear={parseCareerStartYear(formData.startYear) ?? MIN_CAREER_START_YEAR}
+                startPhase={formData.startPhase}
                 onSelectWorld={setSelectedWorldId}
                 onImportFile={handleImportFile}
                 onStart={handleStartGame}

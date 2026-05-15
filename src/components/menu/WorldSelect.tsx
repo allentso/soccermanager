@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "../ui";
 import { X, ChevronRight, Globe, Shuffle, Upload, Database, Users, ArrowLeft, Loader2 } from "lucide-react";
 import { resolveBackendText } from "../../utils/backendI18n";
+import type { CareerStartPhase } from "./CreateManagerForm";
 
 export interface WorldDatabaseInfo {
   id: string;
@@ -10,6 +11,9 @@ export interface WorldDatabaseInfo {
   description: string;
   team_count: number;
   player_count: number;
+  history_mode?: "generated" | "reference" | "hybrid";
+  base_year?: number | null;
+  snapshot_date?: string | null;
   source: string;
   path: string;
 }
@@ -19,6 +23,8 @@ interface WorldSelectProps {
   selectedWorldId: string;
   isLoadingWorlds: boolean;
   isStarting: boolean;
+  startYear: number;
+  startPhase: CareerStartPhase;
   onSelectWorld: (id: string) => void;
   onImportFile: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onStart: () => void;
@@ -26,12 +32,21 @@ interface WorldSelectProps {
   onClose: () => void;
 }
 
+function worldHistoryMode(db: WorldDatabaseInfo | undefined): "generated" | "reference" | "hybrid" {
+  if (!db) return "generated";
+  if (db.history_mode) return db.history_mode;
+  if (db.id === "random") return "generated";
+  return "hybrid";
+}
+
 export default function WorldSelect({
-  worldDatabases, selectedWorldId, isLoadingWorlds, isStarting,
+  worldDatabases, selectedWorldId, isLoadingWorlds, isStarting, startYear, startPhase,
   onSelectWorld, onImportFile, onStart, onBack, onClose,
 }: WorldSelectProps) {
   const { t } = useTranslation();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const selectedWorld = worldDatabases.find((db) => db.id === selectedWorldId);
+  const historyMode = worldHistoryMode(selectedWorld);
 
   return (
     <div className="flex flex-col gap-4">
@@ -88,8 +103,13 @@ export default function WorldSelect({
                     <Database className="w-5 h-5" />}
               </div>
               <div className="flex-1 min-w-0">
-                <p className={`font-heading font-bold text-sm uppercase tracking-wide ${selectedWorldId === db.id ? "text-primary-600 dark:text-primary-400" : "text-gray-800 dark:text-gray-200"
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className={`font-heading font-bold text-sm uppercase tracking-wide ${selectedWorldId === db.id ? "text-primary-600 dark:text-primary-400" : "text-gray-800 dark:text-gray-200"
                   }`}>{db.id === "random" ? t('worldSelect.randomWorld') : resolveBackendText(db.name, db.name)}</p>
+                  <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-heading font-bold uppercase tracking-[0.18em] text-gray-500 dark:bg-navy-600 dark:text-gray-300">
+                    {t(`worldSelect.historyMode.${worldHistoryMode(db)}`)}
+                  </span>
+                </div>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-2">{db.id === "random" ? t('worldSelect.randomDescription') : resolveBackendText(db.description, db.description)}</p>
                 <div className="flex items-center gap-3 mt-1.5">
                   <span className="text-[10px] font-heading uppercase tracking-wider text-gray-400 dark:text-gray-500 flex items-center gap-1">
@@ -108,6 +128,23 @@ export default function WorldSelect({
             </button>
           ))
         )}
+      </div>
+
+      <div className="rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm text-gray-600 dark:border-navy-600 dark:bg-navy-700/60 dark:text-gray-200">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="font-heading font-bold uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
+            {t("worldSelect.summary.startYear")}
+          </span>
+          <span className="font-heading font-bold uppercase tracking-wide text-gray-900 dark:text-white">
+            {startYear}
+          </span>
+          <span className="rounded-full bg-primary-500/10 px-2 py-0.5 text-[10px] font-heading font-bold uppercase tracking-[0.18em] text-primary-600 dark:text-primary-300">
+            {t(`worldSelect.historyMode.${historyMode}`)}
+          </span>
+        </div>
+        <p className="mt-2 text-xs uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
+          {t(`worldSelect.summary.${startPhase}.${historyMode}`)}
+        </p>
       </div>
 
       {/* Import button */}

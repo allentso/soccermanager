@@ -198,6 +198,9 @@ pub struct WorldDatabaseInfo {
     pub description: String,
     pub team_count: usize,
     pub player_count: usize,
+    pub history_mode: String,
+    pub base_year: Option<i32>,
+    pub snapshot_date: Option<String>,
     /// "builtin" | "user"
     pub source: String,
     /// Filesystem path (empty for built-in random)

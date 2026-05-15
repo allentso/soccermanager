@@ -93,6 +93,9 @@ pub fn list_world_databases(
         description: backend_text_with_param(RANDOM_WORLD_DESCRIPTION_KEY, TEAM_COUNT_PARAM, 16),
         team_count: 16,
         player_count: 352,
+        history_mode: "generated".to_string(),
+        base_year: None,
+        snapshot_date: None,
         source: "builtin".to_string(),
         path: String::new(),
     }];

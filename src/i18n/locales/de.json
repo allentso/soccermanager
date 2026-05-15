@@ -56,7 +56,25 @@
     "teams": "{{count}} Teams",
     "players": "{{count}} Spieler",
     "randomWorld": "Zufällige Welt",
-    "randomDescription": "Zufällig generierte Liga mit Teams, Spielern und Staff"
+    "randomDescription": "Zufällig generierte Liga mit Teams, Spielern und Staff",
+    "historyMode": {
+      "generated": "Generierte Historie",
+      "reference": "Referenzhistorie",
+      "hybrid": "Hybride Historie"
+    },
+    "summary": {
+      "startYear": "Karrierestart",
+      "seasonStart": {
+        "generated": "Starte {{year}} mit einer frischen Welt und sechs generierten Saisons Vorgeschichte.",
+        "reference": "Starte {{year}} mit dem ausgewählten historischen Schnappschuss als Weltbasis.",
+        "hybrid": "Starte {{year}} mit diesem Datenbank-Kader, während die fehlende Historie darum herum generiert wird."
+      },
+      "midSeason": {
+        "generated": "Übernimm zur Saisonhälfte {{year}} mit geerbter Tabelle, Spielplan, Nachrichten und Spielhistorie aus einer generierten Saison.",
+        "reference": "Übernimm zur Saisonhälfte {{year}} mit dem ausgewählten historischen Schnappschuss und bereits vorhandenem Saisonkontext.",
+        "hybrid": "Übernimm zur Saisonhälfte {{year}} mit diesem Datenbank-Kader plus generiertem historischen Kontext und vorhandenem Saisonfortschritt."
+      }
+    }
   },
   "dashboard": {
     "home": "Startseite",

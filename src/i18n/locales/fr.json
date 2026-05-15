@@ -56,7 +56,25 @@
     "teams": "{{count}} équipes",
     "players": "{{count}} joueurs",
     "randomWorld": "Monde Aléatoire",
-    "randomDescription": "Ligue générée aléatoirement avec des équipes, joueurs et staff"
+    "randomDescription": "Ligue générée aléatoirement avec des équipes, joueurs et staff",
+    "historyMode": {
+      "generated": "Historique généré",
+      "reference": "Historique de référence",
+      "hybrid": "Historique hybride"
+    },
+    "summary": {
+      "startYear": "Début de carrière",
+      "seasonStart": {
+        "generated": "Commencez en {{year}} avec un nouveau monde et six saisons d'historique généré.",
+        "reference": "Commencez en {{year}} en utilisant l'instantané historique sélectionné comme base du monde.",
+        "hybrid": "Commencez en {{year}} avec l'effectif de cette base de données pendant que l'historique manquant est généré autour."
+      },
+      "midSeason": {
+        "generated": "Prenez l'équipe à mi-saison {{year}} avec classement, calendrier, actualités et historique des matchs hérités d'une saison générée.",
+        "reference": "Prenez l'équipe à mi-saison {{year}} avec l'instantané historique sélectionné et le contexte de saison déjà en place.",
+        "hybrid": "Prenez l'équipe à mi-saison {{year}} avec l'effectif de cette base de données, un contexte historique généré et une progression de saison déjà héritée."
+      }
+    }
   },
   "dashboard": {
     "home": "Accueil",
