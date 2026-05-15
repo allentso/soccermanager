@@ -337,6 +337,23 @@ export interface ManagerCareerEntry {
   best_league_position: number | null;
 }
 
+export interface ManagerData {
+  id: string;
+  first_name: string;
+  last_name: string;
+  date_of_birth: string;
+  nationality: string;
+  football_nation?: string;
+  birth_country?: string | null;
+  reputation: number;
+  satisfaction: number;
+  fan_approval: number;
+  team_id: string | null;
+  warning_stage?: number;
+  career_stats: ManagerCareerStats;
+  career_history: ManagerCareerEntry[];
+}
+
 export interface FixtureData {
   id: string;
   matchday: number;
@@ -390,12 +407,21 @@ export interface StandingData {
   points: number;
 }
 
+export interface CompletedTransferData {
+  date: string;
+  from_team_id: string;
+  to_team_id: string;
+  player_id: string;
+  fee: number;
+}
+
 export interface LeagueData {
   id: string;
   name: string;
   season: number;
   fixtures: FixtureData[];
   standings: StandingData[];
+  transfer_log?: CompletedTransferData[];
 }
 
 export type SeasonPhase = "Preseason" | "InSeason" | "PostSeason";
@@ -471,20 +497,8 @@ export interface GameStateData {
     current_date: string;
     start_date: string;
   };
-  manager: {
-    id: string;
-    first_name: string;
-    last_name: string;
-    date_of_birth: string;
-    nationality: string;
-    football_nation?: string;
-    reputation: number;
-    satisfaction: number;
-    fan_approval: number;
-    team_id: string | null;
-    career_stats: ManagerCareerStats;
-    career_history: ManagerCareerEntry[];
-  };
+  manager: ManagerData;
+  managers?: ManagerData[];
   teams: TeamData[];
   players: PlayerData[];
   staff: StaffData[];

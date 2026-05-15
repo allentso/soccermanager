@@ -31,16 +31,25 @@ function normalizeNationalityList<T extends FootballIdentityCarrier>(entities: T
 
 function normalizeGameStateNationalities(state: GameStateData): GameStateData {
   const manager = normalizeNationality(state.manager);
+  const managers = state.managers
+    ? normalizeNationalityList(state.managers)
+    : state.managers;
   const players = normalizeNationalityList(state.players);
   const staff = normalizeNationalityList(state.staff);
 
-  if (manager === state.manager && players === state.players && staff === state.staff) {
+  if (
+    manager === state.manager
+    && managers === state.managers
+    && players === state.players
+    && staff === state.staff
+  ) {
     return state;
   }
 
   return {
     ...state,
     manager,
+    managers,
     players,
     staff,
   };
@@ -70,6 +79,8 @@ export type {
   MessageData,
   ManagerCareerStats,
   ManagerCareerEntry,
+  ManagerData,
+  CompletedTransferData,
   FixtureData,
   StandingData,
   LeagueData,
