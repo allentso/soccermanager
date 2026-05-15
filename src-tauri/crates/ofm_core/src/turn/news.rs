@@ -8,6 +8,7 @@ use std::collections::{HashMap, HashSet};
 
 const MAX_WEEKLY_TRANSFER_RUMOURS: usize = 2;
 const TRANSFER_RUMOUR_RETENTION_DAYS: i64 = 28;
+const MAX_DAILY_WORLD_NEWS_ARTICLES: usize = 5;
 
 fn completed_fixtures_for_day<'a>(league: &'a League, today: &str) -> Vec<&'a Fixture> {
     league
@@ -386,6 +387,84 @@ fn completed_preseason_fixtures_for_window<'a>(
         .collect()
 }
 
+fn world_news_category_priority(category: &domain::news::NewsCategory) -> i64 {
+    match category {
+        domain::news::NewsCategory::Editorial => 500_000,
+        domain::news::NewsCategory::TransferRoundup => 400_000,
+        domain::news::NewsCategory::ManagerialChange => 350_000,
+        domain::news::NewsCategory::InjuryNews => 300_000,
+        domain::news::NewsCategory::TransferRumour => 200_000,
+        domain::news::NewsCategory::LeagueRoundup => 150_000,
+        domain::news::NewsCategory::StandingsUpdate => 125_000,
+        domain::news::NewsCategory::SeasonPreview => 100_000,
+        domain::news::NewsCategory::MatchReport => 0,
+    }
+}
+
+fn world_news_priority(game: &Game, article: &domain::news::NewsArticle) -> i64 {
+    let team_reputation = article
+        .team_ids
+        .iter()
+        .filter_map(|team_id| game.teams.iter().find(|team| team.id == *team_id))
+        .map(|team| i64::from(team.reputation))
+        .max()
+        .unwrap_or(0);
+    let player_heat = article
+        .player_ids
+        .iter()
+        .filter_map(|player_id| game.players.iter().find(|player| player.id == *player_id))
+        .map(|player| (player.market_value / 10_000) as i64)
+        .max()
+        .unwrap_or(0);
+    let user_team_id = game.manager.team_id.as_deref();
+    let rivalry_multiplier = if user_team_id.is_some_and(|team_id| {
+        article.team_ids.iter().any(|article_team_id| article_team_id == team_id)
+    }) {
+        2
+    } else {
+        1
+    };
+
+    (world_news_category_priority(&article.category) + (team_reputation * 100) + player_heat)
+        * rivalry_multiplier
+}
+
+fn apply_daily_world_news_cap(
+    game: &Game,
+    date: &str,
+    candidates: Vec<domain::news::NewsArticle>,
+) -> Vec<domain::news::NewsArticle> {
+    let existing_non_match_count = game
+        .news
+        .iter()
+        .filter(|article| article.date == date && article.category != domain::news::NewsCategory::MatchReport)
+        .count();
+    let available_slots = MAX_DAILY_WORLD_NEWS_ARTICLES.saturating_sub(existing_non_match_count);
+
+    if candidates.len() <= available_slots {
+        return candidates;
+    }
+
+    let mut ranked: Vec<(usize, i64)> = candidates
+        .iter()
+        .enumerate()
+        .map(|(index, article)| (index, world_news_priority(game, article)))
+        .collect();
+    ranked.sort_by(|left, right| right.1.cmp(&left.1).then(left.0.cmp(&right.0)));
+
+    let kept_indexes: HashSet<usize> = ranked
+        .into_iter()
+        .take(available_slots)
+        .map(|(index, _)| index)
+        .collect();
+
+    candidates
+        .into_iter()
+        .enumerate()
+        .filter_map(|(index, article)| kept_indexes.contains(&index).then_some(article))
+        .collect()
+}
+
 fn completed_transfers_for_window(
     game: &Game,
     current_date: NaiveDate,
@@ -532,18 +611,19 @@ fn generate_preseason_digest_news(game: &mut Game, today: &str) {
         )
     };
 
-    game.news.push(news::preseason_digest_article(
+    let mut candidates = vec![news::preseason_digest_article(
         &digest_id,
         today,
         &results,
         &unbeaten_teams,
         &date,
-    ));
+    )];
     if let Some(roundup) = weekly_transfer_roundup_article(game, &suffix, today, &date) {
-        game.news.push(roundup);
+        candidates.push(roundup);
     }
     let rumours = weekly_rumour_articles(game, &suffix, &date);
-    game.news.extend(rumours);
+    candidates.extend(rumours);
+    game.news.extend(apply_daily_world_news_cap(game, &date, candidates));
 }
 
 pub(super) fn generate_weekly_digest_news(game: &mut Game, today: &str) {
@@ -578,7 +658,7 @@ pub(super) fn generate_weekly_digest_news(game: &mut Game, today: &str) {
     let (top_scorer, top_scorer_goals) =
         top_scorer_summary(game).unwrap_or_else(|| (String::new(), 0));
 
-    game.news.push(news::weekly_digest_article(
+    let mut candidates = vec![news::weekly_digest_article(
         &digest_id,
         today,
         &leader,
@@ -586,12 +666,13 @@ pub(super) fn generate_weekly_digest_news(game: &mut Game, today: &str) {
         top_scorer_goals,
         storylines.len(),
         &date,
-    ));
+    )];
     if let Some(roundup) = weekly_transfer_roundup_article(game, &suffix, today, &date) {
-        game.news.push(roundup);
+        candidates.push(roundup);
     }
-    game.news.extend(storylines);
-    game.news.extend(rumours);
+    candidates.extend(storylines);
+    candidates.extend(rumours);
+    game.news.extend(apply_daily_world_news_cap(game, &date, candidates));
 }
 
 /// Generate a match report news article for the completed fixture.
@@ -1550,6 +1631,74 @@ mod tests {
     }
 
     #[test]
+    fn weekly_digest_caps_world_news_and_keeps_higher_priority_rumours() {
+        let mut game = make_game("2025-08-11", FixtureStatus::Completed);
+        set_current_date(&mut game, 2025, 8, 11);
+
+        let alpha = standing_mut(&mut game, "team1");
+        alpha.played = 10;
+        alpha.points = 25;
+        alpha.goals_for = 18;
+        alpha.goals_against = 8;
+
+        let beta = standing_mut(&mut game, "team2");
+        beta.played = 10;
+        beta.points = 24;
+        beta.goals_for = 16;
+        beta.goals_against = 9;
+
+        let gamma = standing_mut(&mut game, "team3");
+        gamma.played = 10;
+        gamma.points = 7;
+        gamma.goals_for = 6;
+        gamma.goals_against = 15;
+
+        team_mut(&mut game, "team1").form = vec![
+            "D".to_string(),
+            "W".to_string(),
+            "W".to_string(),
+            "W".to_string(),
+            "W".to_string(),
+        ];
+        team_mut(&mut game, "team2").reputation = 780;
+        team_mut(&mut game, "team3").reputation = 320;
+
+        add_completed_transfer(
+            &mut game,
+            "2025-08-10",
+            "player-transfer-6",
+            "Rafa",
+            "team2",
+            "team3",
+            1_400_000,
+        );
+
+        let mut marquee_player = make_player("ai-marquee", "Marquee", "team2");
+        marquee_player.market_value = 1_500_000;
+        game.players.push(marquee_player);
+
+        let mut fringe_player = make_player("ai-fringe", "Fringe", "team3");
+        fringe_player.market_value = 900_000;
+        game.players.push(fringe_player);
+
+        generate_weekly_digest_news(&mut game, "2025-08-11");
+
+        assert_eq!(game.news.len(), 5, "weekly world news should respect the hard cap");
+        assert!(
+            game.news
+                .iter()
+                .any(|article| article.id.starts_with("rumour_ai-marquee_")),
+            "The higher-priority rumour should survive the cap"
+        );
+        assert!(
+            game.news
+                .iter()
+                .all(|article| !article.id.starts_with("rumour_ai-fringe_")),
+            "The lower-priority rumour should be dropped when the cap is reached"
+        );
+    }
+
+    #[test]
     fn generate_weekly_digest_news_does_not_duplicate_same_week() {
         let mut game = make_game("2025-08-11", FixtureStatus::Completed);
         set_current_date(&mut game, 2025, 8, 11);
@@ -1644,7 +1793,11 @@ mod tests {
             .as_ref()
             .expect("league should exist")
             .transfer_rumours;
-        assert!(rumours.iter().all(|rumour| rumour.player_id != "stale-player"));
+        assert!(
+            rumours
+                .iter()
+                .all(|rumour| rumour.player_id != "stale-player")
+        );
         assert!(rumours.iter().any(|rumour| rumour.player_id == "ai-fresh"));
     }
 

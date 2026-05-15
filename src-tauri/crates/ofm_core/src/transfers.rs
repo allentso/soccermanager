@@ -11,6 +11,7 @@ use uuid::Uuid;
 
 const TRANSFER_NEGOTIATION_STALE_DAYS: i64 = 14;
 const MAX_COMPLETED_AI_TRANSFERS_PER_DAY: usize = 2;
+const AWARD_LEADERBOARD_INTEREST_BONUS: i32 = 25;
 const ERR_TRANSFER_WINDOW_CLOSED: &str = "be.error.transfers.transferWindowClosed";
 const ERR_CANNOT_BID_ON_OWN_PLAYER: &str = "be.error.transfers.cannotBidOnOwnPlayer";
 const ERR_PLAYER_HAS_NO_TEAM: &str = "be.error.transfers.playerHasNoTeam";
@@ -217,6 +218,21 @@ fn incoming_interest_score(current_date: NaiveDate, player: &domain::player::Pla
     score
 }
 
+fn award_leaderboard_player_ids(game: &Game) -> HashSet<String> {
+    let awards = crate::season_awards::compute_season_awards(game);
+
+    awards
+        .golden_boot
+        .iter()
+        .chain(awards.assist_king.iter())
+        .chain(awards.player_of_year.iter())
+        .chain(awards.clean_sheet_king.iter())
+        .chain(awards.most_appearances.iter())
+        .chain(awards.young_player.iter())
+        .map(|entry| entry.player_id.clone())
+        .collect()
+}
+
 fn suggested_incoming_fee(current_date: NaiveDate, player: &domain::player::Player) -> u64 {
     let mut multiplier: f64 = if player.transfer_listed { 0.9 } else { 1.0 };
 
@@ -358,6 +374,7 @@ pub fn evaluate_transfer_market(game: &mut Game) {
 
     let current_date = game.clock.current_date.date_naive();
     let today = game.clock.current_date.format("%Y-%m-%d").to_string();
+    let award_leaderboards = award_leaderboard_player_ids(game);
 
     let buyer_ids: Vec<String> = game
         .teams
@@ -393,7 +410,10 @@ pub fn evaluate_transfer_market(game: &mut Game) {
                 continue;
             }
 
-            let score = incoming_interest_score(current_date, player);
+            let mut score = incoming_interest_score(current_date, player);
+            if award_leaderboards.contains(&player.id) {
+                score += AWARD_LEADERBOARD_INTEREST_BONUS;
+            }
             if score < 35 {
                 continue;
             }
@@ -1143,4 +1163,126 @@ fn execute_transfer(
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::evaluate_transfer_market;
+    use crate::clock::GameClock;
+    use crate::game::Game;
+    use chrono::{TimeZone, Utc};
+    use domain::manager::Manager;
+    use domain::player::{Player, PlayerAttributes, Position, TransferOfferStatus};
+    use domain::season::TransferWindowStatus;
+    use domain::team::Team;
+
+    fn make_team(id: &str, name: &str, reputation: u32) -> Team {
+        let mut team = Team::new(
+            id.to_string(),
+            name.to_string(),
+            name[..3].to_string(),
+            "England".to_string(),
+            "Testville".to_string(),
+            format!("{} Ground", name),
+            25_000,
+        );
+        team.reputation = reputation;
+        team.finance = 5_000_000;
+        team.transfer_budget = 5_000_000;
+        team.wage_budget = 2_000_000;
+        team
+    }
+
+    fn sample_attributes() -> PlayerAttributes {
+        PlayerAttributes {
+            pace: 68,
+            stamina: 66,
+            strength: 64,
+            agility: 67,
+            passing: 65,
+            shooting: 72,
+            tackling: 38,
+            dribbling: 69,
+            defending: 35,
+            positioning: 66,
+            vision: 63,
+            decisions: 61,
+            composure: 62,
+            aggression: 48,
+            teamwork: 58,
+            leadership: 44,
+            handling: 12,
+            reflexes: 14,
+            aerial: 40,
+        }
+    }
+
+    fn make_game() -> Game {
+        let clock = GameClock::new(Utc.with_ymd_and_hms(2026, 1, 12, 12, 0, 0).unwrap());
+        let mut manager = Manager::new(
+            "mgr-user".to_string(),
+            "Alex".to_string(),
+            "Boss".to_string(),
+            "1980-01-01".to_string(),
+            "England".to_string(),
+        );
+        manager.hire("team1".to_string());
+
+        let mut player = Player::new(
+            "player-award".to_string(),
+            "Golden".to_string(),
+            "Golden Boot".to_string(),
+            "1998-04-01".to_string(),
+            "England".to_string(),
+            Position::Forward,
+            sample_attributes(),
+        );
+        player.team_id = Some("team1".to_string());
+        player.market_value = 600_000;
+        player.wage = 18_000;
+        player.morale = 58;
+        player.contract_end = Some("2027-06-30".to_string());
+        player.stats.appearances = 6;
+        player.stats.goals = 19;
+
+        let mut game = Game::new(
+            clock,
+            manager,
+            vec![
+                make_team("team1", "Alpha FC", 620),
+                make_team("team2", "Beta FC", 690),
+            ],
+            vec![player],
+            vec![],
+            vec![],
+        );
+        game.season_context.transfer_window.status = TransferWindowStatus::Open;
+        game
+    }
+
+    #[test]
+    fn evaluate_transfer_market_targets_award_leaderboard_user_player() {
+        let mut game = make_game();
+
+        evaluate_transfer_market(&mut game);
+
+        let player = game
+            .players
+            .iter()
+            .find(|player| player.id == "player-award")
+            .expect("award leaderboard player should exist");
+
+        assert!(
+            player.transfer_offers.iter().any(|offer| {
+                offer.from_team_id == "team2" && offer.status == TransferOfferStatus::Pending
+            }),
+            "Award-leaderboard players should attract AI bids even when their base transfer-interest score is otherwise too low"
+        );
+        assert!(
+            game.messages.iter().any(|message| {
+                message.context.player_id.as_deref() == Some("player-award")
+            }),
+            "The incoming bid should surface through the usual inbox flow"
+        );
+    }
 }
