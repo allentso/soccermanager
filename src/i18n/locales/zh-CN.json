@@ -64,6 +64,7 @@
     "finances": "财务",
     "transfers": "转会",
     "players": "球员",
+    "managers": "主教练",
     "teams": "球队",
     "tournaments": "赛事",
     "schedule": "赛程",
@@ -840,6 +841,20 @@
     "fanMixed": "球迷情绪喜忧参半。",
     "fanRestless": "球迷日渐不满。",
     "fanUnrest": "球迷骚动——可能出现抗议。"
+  },
+  "managersWorld": {
+    "title": "主教练",
+    "subtitle": "联赛主教练与空缺职位",
+    "vacancy": "空缺",
+    "employed": "在任",
+    "unemployed": "待业",
+    "reputation": "声望",
+    "winRate": "胜率",
+    "matches": "比赛",
+    "currentClub": "当前俱乐部",
+    "openRole": "{{team}} 帅位空缺",
+    "vacancyBadge": "董事会招募中",
+    "noManagers": "暂无主教练信息。"
   },
   "boardObjectives": {
     "objective": {

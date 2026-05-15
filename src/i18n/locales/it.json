@@ -64,6 +64,7 @@
     "finances": "Finanze",
     "transfers": "Trasferimenti",
     "players": "Giocatori",
+    "managers": "Allenatori",
     "teams": "Squadre",
     "tournaments": "Tornei",
     "schedule": "Calendario",
@@ -859,6 +860,20 @@
     "fanMixed": "Il sentimento dei tifosi è contrastante.",
     "fanRestless": "I tifosi stanno diventando irrequieti.",
     "fanUnrest": "Agitazione tra i tifosi — probabili proteste."
+  },
+  "managersWorld": {
+    "title": "Allenatori",
+    "subtitle": "Allenatori del campionato e incarichi vacanti",
+    "vacancy": "Vacante",
+    "employed": "In carica",
+    "unemployed": "Senza squadra",
+    "reputation": "Reputazione",
+    "winRate": "Percentuale vittorie",
+    "matches": "Partite",
+    "currentClub": "Club attuale",
+    "openRole": "Incarico aperto al {{team}}",
+    "vacancyBadge": "Dirigenza in cerca",
+    "noManagers": "Nessun allenatore disponibile."
   },
   "boardObjectives": {
     "objective": {

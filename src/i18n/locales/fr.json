@@ -64,6 +64,7 @@
     "finances": "Finances",
     "transfers": "Transferts",
     "players": "Joueurs",
+    "managers": "Entraîneurs",
     "teams": "Équipes",
     "tournaments": "Tournois",
     "schedule": "Calendrier",
@@ -840,6 +841,20 @@
     "fanMixed": "Le sentiment des supporters est mitigé.",
     "fanRestless": "Les supporters s'impatientent.",
     "fanUnrest": "Agitation parmi les supporters — des protestations sont probables."
+  },
+  "managersWorld": {
+    "title": "Entraîneurs",
+    "subtitle": "Entraîneurs du championnat et postes vacants",
+    "vacancy": "Vacance",
+    "employed": "En poste",
+    "unemployed": "Sans club",
+    "reputation": "Réputation",
+    "winRate": "Taux de victoire",
+    "matches": "Matchs",
+    "currentClub": "Club actuel",
+    "openRole": "Poste ouvert à {{team}}",
+    "vacancyBadge": "Direction en recherche",
+    "noManagers": "Aucun entraîneur disponible."
   },
   "boardObjectives": {
     "objective": {

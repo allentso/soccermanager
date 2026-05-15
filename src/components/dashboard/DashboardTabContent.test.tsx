@@ -16,6 +16,10 @@ vi.mock("../squad/SquadTab", () => ({
     default: () => <div>Squad Tab Mock</div>,
 }));
 
+vi.mock("../manager/ManagersWorldTab", () => ({
+    default: () => <div>Managers World Mock</div>,
+}));
+
 function createGameState(): GameStateData {
     return {
         clock: {
@@ -92,6 +96,12 @@ describe("DashboardTabContent", () => {
         renderTabContent("Squad");
 
         expect(await screen.findByText("Squad Tab Mock")).toBeInTheDocument();
+    });
+
+    it("loads the managers world tab when selected", async () => {
+        renderTabContent("Managers");
+
+        expect(await screen.findByText("Managers World Mock")).toBeInTheDocument();
     });
 
     it("falls back to the home content when the active tab is unknown", () => {

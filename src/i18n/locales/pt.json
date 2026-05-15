@@ -64,6 +64,7 @@
     "finances": "Finanças",
     "transfers": "Transferências",
     "players": "Jogadores",
+    "managers": "Treinadores",
     "teams": "Equipas",
     "tournaments": "Torneios",
     "schedule": "Calendário",
@@ -840,6 +841,20 @@
     "fanMixed": "O sentimento dos adeptos está dividido.",
     "fanRestless": "Os adeptos estão a ficar impacientes.",
     "fanUnrest": "Agitação entre os adeptos — protestos prováveis."
+  },
+  "managersWorld": {
+    "title": "Treinadores",
+    "subtitle": "Treinadores da liga e vagas em aberto",
+    "vacancy": "Vaga",
+    "employed": "Em funções",
+    "unemployed": "Desempregado",
+    "reputation": "Reputação",
+    "winRate": "Taxa de vitórias",
+    "matches": "Jogos",
+    "currentClub": "Clube atual",
+    "openRole": "Vaga aberta no {{team}}",
+    "vacancyBadge": "Direção à procura",
+    "noManagers": "Sem treinadores disponíveis."
   },
   "boardObjectives": {
     "objective": {

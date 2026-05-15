@@ -64,6 +64,7 @@
     "finances": "Finanzen",
     "transfers": "Transfers",
     "players": "Spieler",
+    "managers": "Trainer",
     "teams": "Teams",
     "tournaments": "Turniere",
     "schedule": "Spielplan",
@@ -840,6 +841,20 @@
     "fanMixed": "Die Stimmung der Fans ist gemischt.",
     "fanRestless": "Die Fans werden unruhig.",
     "fanUnrest": "Unruhe unter den Fans — Proteste sind wahrscheinlich."
+  },
+  "managersWorld": {
+    "title": "Trainer",
+    "subtitle": "Trainer der Liga und offene Stellen",
+    "vacancy": "Vakanz",
+    "employed": "Im Amt",
+    "unemployed": "Vereinslos",
+    "reputation": "Reputation",
+    "winRate": "Siegquote",
+    "matches": "Spiele",
+    "currentClub": "Aktueller Klub",
+    "openRole": "Offene Stelle bei {{team}}",
+    "vacancyBadge": "Vorstand sucht",
+    "noManagers": "Keine Trainer verfügbar."
   },
   "boardObjectives": {
     "objective": {
