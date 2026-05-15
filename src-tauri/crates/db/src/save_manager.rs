@@ -590,6 +590,7 @@ mod tests {
                 StandingEntry::new("team-002".to_string()),
             ],
             transfer_log: vec![],
+            transfer_rumours: vec![],
         };
 
         let mut game = Game::new(

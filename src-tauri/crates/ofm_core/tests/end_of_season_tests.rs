@@ -162,6 +162,7 @@ fn make_completed_season_game() -> Game {
         fixtures,
         standings,
         transfer_log: vec![],
+        transfer_rumours: vec![],
     };
 
     let mut game = Game::new(

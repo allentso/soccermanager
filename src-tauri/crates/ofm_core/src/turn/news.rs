@@ -2,9 +2,12 @@ use crate::game::Game;
 use crate::messages;
 use crate::news;
 use chrono::{Datelike, Duration, NaiveDate};
-use domain::league::{Fixture, FixtureStatus, League, StandingEntry};
+use domain::league::{Fixture, FixtureStatus, League, StandingEntry, TransferRumour};
 use rand::seq::SliceRandom;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+
+const MAX_WEEKLY_TRANSFER_RUMOURS: usize = 2;
+const TRANSFER_RUMOUR_RETENTION_DAYS: i64 = 28;
 
 fn completed_fixtures_for_day<'a>(league: &'a League, today: &str) -> Vec<&'a Fixture> {
     league
@@ -288,38 +291,73 @@ fn rumour_candidates(game: &Game) -> Vec<(String, String, String, String)> {
         .collect()
 }
 
-fn weekly_rumour_articles(game: &Game, suffix: &str, date: &str) -> Vec<domain::news::NewsArticle> {
+fn prune_stale_transfer_rumours(league: &mut League, current_date: NaiveDate) {
+    let earliest_kept_date = current_date - Duration::days(TRANSFER_RUMOUR_RETENTION_DAYS - 1);
+
+    league.transfer_rumours.retain(|rumour| {
+        chrono::DateTime::parse_from_rfc3339(&rumour.date)
+            .map(|created_at| created_at.date_naive() >= earliest_kept_date)
+            .unwrap_or(true)
+    });
+}
+
+fn weekly_rumour_articles(
+    game: &mut Game,
+    suffix: &str,
+    date: &str,
+) -> Vec<domain::news::NewsArticle> {
     let mut rng = rand::rng();
     let candidates = rumour_candidates(game);
     if candidates.is_empty() {
         return vec![];
     }
 
+    let current_date = game.clock.current_date.date_naive();
+    let existing_article_ids: HashSet<String> =
+        game.news.iter().map(|article| article.id.clone()).collect();
+    let Some(league) = &mut game.league else {
+        return vec![];
+    };
+    prune_stale_transfer_rumours(league, current_date);
+
     // Pick at most 2 distinct players
-    let count = (candidates.len()).min(2);
+    let count = candidates.len().min(MAX_WEEKLY_TRANSFER_RUMOURS);
     let mut chosen_indices: Vec<usize> = (0..candidates.len()).collect();
     chosen_indices.shuffle(&mut rng);
     chosen_indices.truncate(count);
 
-    chosen_indices
-        .into_iter()
-        .filter_map(|idx| {
-            let (player_id, player_name, team_id, team_name) = &candidates[idx];
-            let article_id = format!("rumour_{}_{}", player_id, suffix);
-            // Don't re-generate if we already have a rumour for this player this week
-            if game.news.iter().any(|a| a.id == article_id) {
-                return None;
-            }
-            Some(news::transfer_rumour_gossip_article(
-                &article_id,
-                player_id,
-                player_name,
-                team_id,
-                team_name,
-                date,
-            ))
-        })
-        .collect()
+    let mut articles = Vec::new();
+    for idx in chosen_indices {
+        let (player_id, player_name, team_id, team_name) = &candidates[idx];
+        let article_id = format!("rumour_{}_{}", player_id, suffix);
+        if existing_article_ids.contains(&article_id)
+            || league
+                .transfer_rumours
+                .iter()
+                .any(|rumour| rumour.id == article_id)
+        {
+            continue;
+        }
+
+        league.transfer_rumours.push(TransferRumour {
+            id: article_id.clone(),
+            date: date.to_string(),
+            player_id: player_id.clone(),
+            player_name: player_name.clone(),
+            team_id: team_id.clone(),
+            team_name: team_name.clone(),
+        });
+        articles.push(news::transfer_rumour_gossip_article(
+            &article_id,
+            player_id,
+            player_name,
+            team_id,
+            team_name,
+            date,
+        ));
+    }
+
+    articles
 }
 
 fn completed_preseason_fixtures_for_window<'a>(
@@ -504,8 +542,8 @@ fn generate_preseason_digest_news(game: &mut Game, today: &str) {
     if let Some(roundup) = weekly_transfer_roundup_article(game, &suffix, today, &date) {
         game.news.push(roundup);
     }
-    game.news
-        .extend(weekly_rumour_articles(game, &suffix, &date));
+    let rumours = weekly_rumour_articles(game, &suffix, &date);
+    game.news.extend(rumours);
 }
 
 pub(super) fn generate_weekly_digest_news(game: &mut Game, today: &str) {
@@ -675,6 +713,7 @@ mod tests {
     use chrono::{TimeZone, Utc};
     use domain::league::{
         Fixture, FixtureCompetition, FixtureStatus, League, MatchResult, StandingEntry,
+        TransferRumour,
     };
     use domain::manager::Manager;
     use domain::message::{MessageCategory, MessagePriority};
@@ -830,6 +869,7 @@ mod tests {
             ],
             standings: vec![alpha, beta, gamma],
             transfer_log: vec![],
+            transfer_rumours: vec![],
         });
 
         game
@@ -1514,6 +1554,19 @@ mod tests {
         let mut game = make_game("2025-08-11", FixtureStatus::Completed);
         set_current_date(&mut game, 2025, 8, 11);
 
+        let mut notable_player = Player::new(
+            "ai-repeatable".to_string(),
+            "Repeatable".to_string(),
+            "Repeatable Player".to_string(),
+            "1997-06-01".to_string(),
+            "England".to_string(),
+            Position::Forward,
+            default_attrs(),
+        );
+        notable_player.team_id = Some("team2".to_string());
+        notable_player.market_value = 1_300_000;
+        game.players.push(notable_player);
+
         add_completed_transfer(
             &mut game,
             "2025-08-10",
@@ -1541,6 +1594,58 @@ mod tests {
                 .count(),
             1
         );
+        assert_eq!(
+            game.league
+                .as_ref()
+                .expect("league should exist")
+                .transfer_rumours
+                .iter()
+                .filter(|rumour| rumour.player_id == "ai-repeatable")
+                .count(),
+            1
+        );
+    }
+
+    #[test]
+    fn weekly_digest_prunes_stale_transfer_rumours_when_creating_new_ones() {
+        let mut game = make_game("2025-09-08", FixtureStatus::Completed);
+        set_current_date(&mut game, 2025, 9, 8);
+
+        let mut notable_player = Player::new(
+            "ai-fresh".to_string(),
+            "Fresh".to_string(),
+            "Fresh Prospect".to_string(),
+            "1999-04-10".to_string(),
+            "England".to_string(),
+            Position::Forward,
+            default_attrs(),
+        );
+        notable_player.team_id = Some("team2".to_string());
+        notable_player.market_value = 1_450_000;
+        game.players.push(notable_player);
+
+        game.league
+            .as_mut()
+            .expect("league should exist")
+            .transfer_rumours
+            .push(TransferRumour {
+                id: "rumour_old_2025-W31".to_string(),
+                date: "2025-07-31T12:00:00+00:00".to_string(),
+                player_id: "stale-player".to_string(),
+                player_name: "Stale Player".to_string(),
+                team_id: "team3".to_string(),
+                team_name: "Gamma FC".to_string(),
+            });
+
+        generate_weekly_digest_news(&mut game, "2025-09-08");
+
+        let rumours = &game
+            .league
+            .as_ref()
+            .expect("league should exist")
+            .transfer_rumours;
+        assert!(rumours.iter().all(|rumour| rumour.player_id != "stale-player"));
+        assert!(rumours.iter().any(|rumour| rumour.player_id == "ai-fresh"));
     }
 
     #[test]
@@ -1641,6 +1746,15 @@ mod tests {
         let rumour = rumours[0];
         assert!(rumour.id.starts_with("rumour_ai-notable_"));
         assert_eq!(rumour.player_ids, vec!["ai-notable".to_string()]);
+
+        let stored_rumours = &game
+            .league
+            .as_ref()
+            .expect("league should exist")
+            .transfer_rumours;
+        assert_eq!(stored_rumours.len(), 1);
+        assert_eq!(stored_rumours[0].player_id, "ai-notable");
+        assert_eq!(stored_rumours[0].team_id, "team2");
     }
 
     #[test]
