@@ -1,3 +1,4 @@
+use chrono::Datelike;
 use log::info;
 use tauri::Manager as TauriManager;
 use tauri::State;
@@ -26,6 +27,13 @@ fn export_world_database_internal(
     let game = state
         .get_game(|g| g.clone())
         .ok_or("be.error.noActiveGameSession".to_string())?;
+    let stats = state.get_stats_state(|stats| stats.clone()).unwrap_or_default();
+    let mut managers = game.managers.clone();
+    if let Some(existing) = managers.iter_mut().find(|manager| manager.id == game.manager_id) {
+        *existing = game.manager.clone();
+    } else {
+        managers.push(game.manager.clone());
+    }
 
     let world = ofm_core::generator::WorldData {
         name: EXPORTED_WORLD_NAME_KEY.to_string(),
@@ -37,6 +45,16 @@ fn export_world_database_internal(
         teams: game.teams.clone(),
         players: game.players.clone(),
         staff: game.staff.clone(),
+        managers,
+        league: game.league.clone(),
+        news: game.news.clone(),
+        stats,
+        world_history: game.world_history.clone(),
+        metadata: ofm_core::generator::WorldDataMetadata {
+            kind: ofm_core::generator::WorldDataKind::HistoricalSnapshot,
+            base_year: Some(game.clock.start_date.year()),
+            snapshot_date: Some(game.clock.current_date.to_rfc3339()),
+        },
     };
 
     let json = ofm_core::generator::export_world_to_json(&world)?;
@@ -128,12 +146,15 @@ mod tests {
         export_world_database_internal, write_database_json_to_dir, EXPORTED_WORLD_NAME_KEY,
     };
     use chrono::{TimeZone, Utc};
+    use domain::league::League;
     use domain::manager::Manager;
+    use domain::news::{NewsArticle, NewsCategory};
     use domain::player::{Player, PlayerAttributes, Position};
+    use domain::stats::StatsState;
     use domain::team::Team;
     use ofm_core::clock::GameClock;
     use ofm_core::game::Game;
-    use ofm_core::generator::WorldData;
+    use ofm_core::generator::{WorldData, WorldDataKind};
     use ofm_core::state::StateManager;
     use std::fs;
     use std::path::{Path, PathBuf};
@@ -236,11 +257,29 @@ mod tests {
         game.teams[0].football_nation.clear();
         game.players[0].football_nation.clear();
         game.players[0].birth_country = None;
+        game.league = Some(League::new(
+            "league-1".to_string(),
+            "Open League".to_string(),
+            2026,
+            &[game.teams[0].id.clone()],
+        ));
+        game.news.push(NewsArticle::new(
+            "news-1".to_string(),
+            "Season underway".to_string(),
+            "The campaign has begun.".to_string(),
+            "World Feed".to_string(),
+            "2026-07-01".to_string(),
+            NewsCategory::SeasonPreview,
+        ));
+        game.world_history
+            .upsert_rivalry("team-1", "team-2", 70, Some(2025));
         state.set_game(game);
+        state.set_stats_state(StatsState::default());
 
         let written_path = export_world_database_internal(&state, &export_path).unwrap();
         let json = fs::read_to_string(&written_path).unwrap();
         let world: WorldData = serde_json::from_str(&json).unwrap();
+        let raw_json: serde_json::Value = serde_json::from_str(&json).unwrap();
 
         assert_eq!(world.name, EXPORTED_WORLD_NAME_KEY);
         assert_eq!(
@@ -249,6 +288,14 @@ mod tests {
         );
         assert_eq!(world.teams[0].football_nation, "ENG");
         assert_eq!(world.players[0].football_nation, "ENG");
+        assert_eq!(world.managers.len(), 1);
+        assert_eq!(world.managers[0].football_nation, "ENG");
+        assert_eq!(world.league.as_ref().map(|league| league.season), Some(2026));
+        assert_eq!(world.news.len(), 1);
+        assert_eq!(world.world_history.rivalries.len(), 1);
+        assert_eq!(world.metadata.kind, WorldDataKind::HistoricalSnapshot);
+        assert!(raw_json.get("stats").is_some());
+        assert!(raw_json.get("world_history").is_some());
     }
 
     #[test]

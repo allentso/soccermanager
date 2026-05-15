@@ -1,7 +1,7 @@
 use log::info;
 use tauri::State;
 
-use chrono::Datelike;
+use chrono::{Datelike, Duration, TimeZone, Utc};
 
 use db::save_index::SaveEntry;
 use domain::manager::Manager;
@@ -94,6 +94,18 @@ fn default_start_year() -> i32 {
     chrono::Utc::now().year().max(2020)
 }
 
+fn start_date_for_year(start_year: i32) -> chrono::DateTime<Utc> {
+    Utc.with_ymd_and_hms(start_year, 7, 1, 0, 0, 0).unwrap()
+}
+
+fn preseason_season_start(clock: &GameClock) -> chrono::DateTime<Utc> {
+    clock.start_date + Duration::days(30)
+}
+
+fn preseason_league_year(clock: &GameClock) -> u32 {
+    u32::try_from(clock.start_date.year()).unwrap_or(2020)
+}
+
 fn normalize_startup_options(raw: Option<RawStartupOptions>) -> Result<StartupOptions, String> {
     let raw = raw.unwrap_or_default();
     let start_year = raw.start_year.unwrap_or_else(default_start_year);
@@ -171,9 +183,7 @@ pub async fn start_new_game(
         world_source
     );
 
-    use chrono::TimeZone;
-    let start_date = chrono::Utc.with_ymd_and_hms(2026, 7, 1, 0, 0, 0).unwrap();
-    let clock = GameClock::new(start_date);
+    let clock = GameClock::new(start_date_for_year(startup_options.start_year));
 
     // Load world based on source
     let world_source = world_source.unwrap_or_else(|| "random".to_string());
@@ -225,12 +235,15 @@ pub async fn select_team(
     ofm_core::ai_hiring::seed_ai_managers(&mut game);
 
     // Generate league schedule — season starts 1 month after game start
-    use chrono::Duration;
-    let season_start = game.clock.current_date + Duration::days(30);
+    let season_start = preseason_season_start(&game.clock);
     let team_ids: Vec<String> = game.teams.iter().map(|t| t.id.clone()).collect();
     let league_name = default_league_name();
-    let mut league =
-        ofm_core::schedule::generate_league(&league_name, 2026, &team_ids, season_start);
+    let mut league = ofm_core::schedule::generate_league(
+        &league_name,
+        preseason_league_year(&game.clock),
+        &team_ids,
+        season_start,
+    );
     let friendlies = ofm_core::schedule::generate_preseason_friendlies(&team_ids, season_start, 4);
     ofm_core::schedule::append_fixtures(&mut league, friendlies);
     game.league = Some(league);
@@ -372,8 +385,10 @@ pub async fn exit_to_menu(
 mod tests {
     use super::{
         load_world_entities_from_path, map_save_manager_lock_error, normalize_startup_options,
-        RawStartupOptions, StartPhase,
+        preseason_league_year, preseason_season_start, start_date_for_year, RawStartupOptions,
+        StartPhase,
     };
+    use ofm_core::{clock::GameClock, game::Game, season_context::refresh_game_context};
     use std::sync::Mutex;
 
     #[test]
@@ -426,5 +441,70 @@ mod tests {
             result.unwrap_err(),
             "be.error.createManager.invalidStartPhase"
         );
+    }
+
+    #[test]
+    fn start_date_for_year_uses_selected_july_first() {
+        let start_date = start_date_for_year(2032);
+
+        assert_eq!(start_date.to_rfc3339(), "2032-07-01T00:00:00+00:00");
+    }
+
+    #[test]
+    fn preseason_league_setup_uses_selected_start_year_for_context() {
+        let clock = GameClock::new(start_date_for_year(2032));
+        let manager = domain::manager::Manager::new(
+            "mgr1".to_string(),
+            "Alex".to_string(),
+            "Manager".to_string(),
+            "1980-01-01".to_string(),
+            "England".to_string(),
+        );
+        let teams = vec![
+            domain::team::Team::new(
+                "team1".to_string(),
+                "Alpha FC".to_string(),
+                "AFC".to_string(),
+                "England".to_string(),
+                "London".to_string(),
+                "Alpha Park".to_string(),
+                20_000,
+            ),
+            domain::team::Team::new(
+                "team2".to_string(),
+                "Beta FC".to_string(),
+                "BFC".to_string(),
+                "England".to_string(),
+                "Manchester".to_string(),
+                "Beta Park".to_string(),
+                22_000,
+            ),
+        ];
+        let mut game = Game::new(clock, manager, teams, vec![], vec![], vec![]);
+
+        let season_start = preseason_season_start(&game.clock);
+        let team_ids = game
+            .teams
+            .iter()
+            .map(|team| team.id.clone())
+            .collect::<Vec<_>>();
+        game.league = Some(ofm_core::schedule::generate_league(
+            "Premier Division",
+            preseason_league_year(&game.clock),
+            &team_ids,
+            season_start,
+        ));
+        refresh_game_context(&mut game);
+
+        assert_eq!(
+            game.clock.start_date.to_rfc3339(),
+            "2032-07-01T00:00:00+00:00"
+        );
+        assert_eq!(game.league.as_ref().map(|league| league.season), Some(2032));
+        assert_eq!(
+            game.season_context.season_start.as_deref(),
+            Some("2032-07-31")
+        );
+        assert_eq!(game.season_context.days_until_season_start, Some(30));
     }
 }
