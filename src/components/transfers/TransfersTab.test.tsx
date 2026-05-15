@@ -410,7 +410,7 @@ describe("TransfersTab", function (): void {
     ).toBeInTheDocument();
   });
 
-  it("resumes an existing outgoing transfer negotiation when reopening the bid modal", function (): void {
+  it("resumes an existing outgoing transfer negotiation when reopening the bid modal", async function (): Promise<void> {
     const state = createGameState([
       createPlayer({
         id: "player-market-1",
@@ -444,6 +444,16 @@ describe("TransfersTab", function (): void {
     fireEvent.click(screen.getByRole("button", { name: /transfer market/i }));
     fireEvent.click(screen.getByRole("button", { name: /^bid$/i }));
 
+    await waitFor(() => {
+      expect(mockedInvoke).toHaveBeenCalledWith(
+        "preview_transfer_bid_financial_impact",
+        {
+          fee: 1150000,
+          playerId: "player-market-1",
+        },
+      );
+    });
+
     expect(screen.getByText("Talks are still live with this club.")).toBeInTheDocument();
     expect(screen.getByText("The other club are waiting for your next move.")).toBeInTheDocument();
     expect(screen.getByText("Their last signal pointed toward 1150000.")).toBeInTheDocument();
@@ -455,6 +465,9 @@ describe("TransfersTab", function (): void {
   });
 
   it("shows scout assignment errors inline on the transfer market", async function (): Promise<void> {
+    const consoleErrorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => { });
     const state = createGameState([
       createPlayer({
         id: "player-market-1",
@@ -490,6 +503,8 @@ describe("TransfersTab", function (): void {
         "Scout is already assigned to another scouting task.",
       );
     });
+
+    consoleErrorSpy.mockRestore();
   });
 
   it("resumes an incoming transfer negotiation when reopening the counter-offer modal", function (): void {

@@ -1019,12 +1019,27 @@ mod tests {
                     && (fixture.home_team_id == "team1" || fixture.away_team_id == "team1")
             })
             .count();
+        let team_standing = league
+            .standings
+            .iter()
+            .find(|entry| entry.team_id == "team1")
+            .unwrap();
 
         assert_eq!(completed, scheduled / 2);
         assert!(!stats_state.team_matches.is_empty());
+        assert!(!stats_state.player_matches.is_empty());
+        assert_eq!(team_standing.played as usize, completed);
         assert!(game
             .news
             .iter()
-            .any(|article| { article.category == domain::news::NewsCategory::ManagerialChange }));
+            .any(|article| article.category == domain::news::NewsCategory::ManagerialChange));
+        assert!(game.news.iter().any(|article| {
+            matches!(
+                article.category,
+                domain::news::NewsCategory::MatchReport
+                    | domain::news::NewsCategory::LeagueRoundup
+                    | domain::news::NewsCategory::StandingsUpdate
+            )
+        }));
     }
 }

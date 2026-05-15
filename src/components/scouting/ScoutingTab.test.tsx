@@ -315,6 +315,9 @@ describe("ScoutingTab", () => {
   });
 
   it("shows scout assignment errors inline in the player search card", async () => {
+    const consoleErrorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => { });
     invokeMock.mockRejectedValueOnce(
       new Error("Scout is already assigned to another scouting task."),
     );
@@ -333,6 +336,8 @@ describe("ScoutingTab", () => {
         "Scout is already assigned to another scouting task.",
       );
     });
+
+    consoleErrorSpy.mockRestore();
   });
 
   it("starts a youth scouting search and forwards the updated state", async () => {

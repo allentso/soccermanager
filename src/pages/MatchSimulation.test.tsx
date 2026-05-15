@@ -281,6 +281,9 @@ describe("MatchSimulation", function (): void {
   });
 
   it("restores the live match session when no snapshot exists but fixture index is provided", async function (): Promise<void> {
+    const consoleWarnSpy = vi
+      .spyOn(console, "warn")
+      .mockImplementation(() => { });
     locationState = {
       fixtureIndex: 4,
       mode: "live",
@@ -321,6 +324,7 @@ describe("MatchSimulation", function (): void {
     });
 
     expect(screen.getByTestId("prematch")).toHaveTextContent("Restored FC");
+    consoleWarnSpy.mockRestore();
   });
 
   it("moves spectators straight into the live match stage", async function (): Promise<void> {

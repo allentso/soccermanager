@@ -9,6 +9,12 @@ import {
 import { createDashboardTabContentModel } from "./dashboardTabContentModel";
 import DashboardWorkspaceContent from "./DashboardWorkspaceContent";
 
+vi.mock("react-i18next", () => ({
+  useTranslation: () => ({
+    t: (key: string) => key,
+  }),
+}));
+
 vi.mock("../playerProfile/PlayerProfile", () => ({
   default: ({
     onClose,

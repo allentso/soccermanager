@@ -365,6 +365,9 @@ describe("PlayersListTab", () => {
   });
 
   it("shows scout assignment errors inline", async () => {
+    const consoleErrorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => { });
     const onGameUpdate = vi.fn();
     const gameState = createGameState();
     gameState.staff = [createScout()];
@@ -395,6 +398,7 @@ describe("PlayersListTab", () => {
     });
 
     expect(onGameUpdate).not.toHaveBeenCalled();
+    consoleErrorSpy.mockRestore();
   });
 
   it("opens and submits a transfer bid from the player context menu", async () => {
