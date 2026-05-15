@@ -24,6 +24,10 @@ vi.mock("../transfers/TransferCentreWorldTab", () => ({
     default: () => <div>Transfer Centre World Mock</div>,
 }));
 
+vi.mock("../hallOfFame/HallOfFameWorldTab", () => ({
+    default: () => <div>Hall Of Fame World Mock</div>,
+}));
+
 function createGameState(): GameStateData {
     return {
         clock: {
@@ -112,6 +116,12 @@ describe("DashboardTabContent", () => {
         renderTabContent("TransferCentre");
 
         expect(await screen.findByText("Transfer Centre World Mock")).toBeInTheDocument();
+    });
+
+    it("loads the hall of fame world tab when selected", async () => {
+        renderTabContent("HallOfFame");
+
+        expect(await screen.findByText("Hall Of Fame World Mock")).toBeInTheDocument();
     });
 
     it("falls back to the home content when the active tab is unknown", () => {

@@ -65,6 +65,7 @@
     "transfers": "Transfers",
     "players": "Players",
     "managers": "Managers",
+    "hallOfFame": "Hall of Fame",
     "teams": "Teams",
     "tournaments": "Tournaments",
     "schedule": "Schedule",
@@ -855,6 +856,26 @@
     "openRole": "Open role at {{team}}",
     "vacancyBadge": "Board searching",
     "noManagers": "No managers available."
+  },
+  "hallOfFameWorld": {
+    "title": "Hall of Fame",
+    "subtitle": "Retired legends and past champions",
+    "legends": "Retired Legends",
+    "pastChampions": "Past Champions",
+    "noLegends": "No retired legends recorded yet.",
+    "noChampions": "No past champions recorded yet.",
+    "appearances": "Appearances",
+    "goals": "Goals",
+    "assists": "Assists",
+    "titles": "Titles",
+    "lastClub": "Last club",
+    "finalSeason": "Final season",
+    "played": "Played",
+    "record": "Record",
+    "goalDifference": "Goal difference",
+    "legendsCount": "Legends recorded",
+    "championsCount": "Title-winning seasons",
+    "seasonLabel": "Season {{season}}"
   },
   "boardObjectives": {
     "objective": {

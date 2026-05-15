@@ -65,6 +65,7 @@
     "transfers": "Transferts",
     "players": "Joueurs",
     "managers": "Entraîneurs",
+    "hallOfFame": "Temple de la renommée",
     "teams": "Équipes",
     "tournaments": "Tournois",
     "schedule": "Calendrier",
@@ -855,6 +856,26 @@
     "openRole": "Poste ouvert à {{team}}",
     "vacancyBadge": "Direction en recherche",
     "noManagers": "Aucun entraîneur disponible."
+  },
+  "hallOfFameWorld": {
+    "title": "Temple de la renommée",
+    "subtitle": "Légendes retraitées et anciens champions",
+    "legends": "Légendes retraitées",
+    "pastChampions": "Anciens champions",
+    "noLegends": "Aucune légende retraitée enregistrée pour le moment.",
+    "noChampions": "Aucun champion historique enregistré pour le moment.",
+    "appearances": "Matchs",
+    "goals": "Buts",
+    "assists": "Passes décisives",
+    "titles": "Titres",
+    "lastClub": "Dernier club",
+    "finalSeason": "Dernière saison",
+    "played": "Joués",
+    "record": "Bilan",
+    "goalDifference": "Différence de buts",
+    "legendsCount": "Légendes enregistrées",
+    "championsCount": "Saisons titrées",
+    "seasonLabel": "Saison {{season}}"
   },
   "boardObjectives": {
     "objective": {
