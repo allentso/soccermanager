@@ -8,6 +8,8 @@ import { Badge } from "../ui";
 import { formatVal, getTeamName, positionBadgeVariant } from "../../lib/helpers";
 import { translatePositionAbbreviation } from "../squad/SquadTab.helpers";
 
+const MAX_CONTRACT_YEARS = 5;
+
 interface FreeAgentContractModalProps {
   player: PlayerData;
   teams: TeamData[];
@@ -64,7 +66,10 @@ export default function FreeAgentContractModal({
               {player.full_name}
             </p>
             <p className="text-xs text-gray-400">
-              {getTeamName(teams, player.team_id)} •{" "}
+              {player.team_id
+                ? getTeamName(teams, player.team_id)
+                : t("common.freeAgent")}{" "}
+              •{" "}
               {t("transfers.playerValue", {
                 value: formatVal(player.market_value),
               })}
@@ -98,6 +103,7 @@ export default function FreeAgentContractModal({
           id="free-agent-years"
           type="number"
           min="1"
+          max={String(MAX_CONTRACT_YEARS)}
           step="1"
           value={contractLength}
           onChange={(event) => onContractLengthChange(event.target.value)}

@@ -7,6 +7,7 @@ import {
   offerFreeAgentContract,
   previewFreeAgentContractImpact,
 } from "../../services/freeAgentService";
+import { resolveBackendError } from "../../utils/backendI18n";
 import { useFreeAgentContractFlow } from "./useFreeAgentContractFlow";
 
 vi.mock("../../services/freeAgentService", () => ({
@@ -14,10 +15,17 @@ vi.mock("../../services/freeAgentService", () => ({
   previewFreeAgentContractImpact: vi.fn(),
 }));
 
+vi.mock("../../utils/backendI18n", () => ({
+  resolveBackendError: vi.fn((error: unknown) =>
+    error instanceof Error ? error.message : String(error),
+  ),
+}));
+
 const mockedOfferFreeAgentContract = vi.mocked(offerFreeAgentContract);
 const mockedPreviewFreeAgentContractImpact = vi.mocked(
   previewFreeAgentContractImpact,
 );
+const mockedResolveBackendError = vi.mocked(resolveBackendError);
 
 function createTeam(overrides: Partial<TeamData> = {}): TeamData {
   return {
@@ -198,6 +206,7 @@ describe("useFreeAgentContractFlow", () => {
   beforeEach(() => {
     mockedOfferFreeAgentContract.mockReset();
     mockedPreviewFreeAgentContractImpact.mockReset();
+    mockedResolveBackendError.mockClear();
     mockedPreviewFreeAgentContractImpact.mockResolvedValue({
       projection: {
         current_annual_wage_bill: 0,
@@ -268,6 +277,45 @@ describe("useFreeAgentContractFlow", () => {
         target.id,
         4000,
         3,
+      );
+    });
+  });
+
+  it("does not submit offers longer than five years", async () => {
+    const target = createPlayer();
+    const gameState = createGameState([target]);
+
+    render(<HookHarness gameState={gameState} target={target} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Open" }));
+    fireEvent.change(screen.getByLabelText("Years"), {
+      target: { value: "6" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Submit" }));
+
+    await waitFor(() => {
+      expect(mockedOfferFreeAgentContract).not.toHaveBeenCalled();
+    });
+  });
+
+  it("resolves backend errors before storing them", async () => {
+    const target = createPlayer();
+    const gameState = createGameState([target]);
+    mockedOfferFreeAgentContract.mockRejectedValue(
+      new Error("be.error.contracts.boardWagePolicy?budget=50000"),
+    );
+    mockedResolveBackendError.mockReturnValue("Board wage policy");
+
+    render(<HookHarness gameState={gameState} target={target} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Open" }));
+    fireEvent.click(screen.getByRole("button", { name: "Submit" }));
+
+    await waitFor(() => {
+      expect(mockedResolveBackendError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: "be.error.contracts.boardWagePolicy?budget=50000",
+        }),
       );
     });
   });

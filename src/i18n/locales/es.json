@@ -1785,6 +1785,7 @@
       },
       "contracts": {
         "playerNotOwnedByClub": "El jugador no pertenece a tu club",
+        "playerNotFreeAgent": "Player is not a free agent",
         "unableToCalculateContractEndDate": "No se pudo calcular la nueva fecha de finalización del contrato",
         "playerHasNoActiveContract": "El jugador no tiene un contrato activo",
         "terminationWouldLeaveMatchdaySquadShort": "Rescindir este contrato dejaría a tu plantilla sin poder presentar un once para el día del partido",

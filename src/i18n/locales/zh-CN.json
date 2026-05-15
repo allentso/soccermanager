@@ -1755,6 +1755,7 @@
       },
       "contracts": {
         "playerNotOwnedByClub": "该球员不属于你的俱乐部",
+        "playerNotFreeAgent": "Player is not a free agent",
         "unableToCalculateContractEndDate": "无法计算新的合同结束日期",
         "playerHasNoActiveContract": "该球员没有有效合同",
         "terminationWouldLeaveMatchdaySquadShort": "终止这份合同会让你的阵容无法在比赛日排出首发十一人",

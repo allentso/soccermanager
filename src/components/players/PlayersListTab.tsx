@@ -487,7 +487,7 @@ export default function PlayersListTab({
                             </button>
                           ) : (
                             <span className="text-sm text-gray-600 dark:text-gray-400">
-                              {getTeamName(gameState.teams, player.team_id)}
+                              {t("common.freeAgent")}
                             </span>
                           )}
                         </td>

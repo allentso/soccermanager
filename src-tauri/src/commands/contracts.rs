@@ -18,7 +18,7 @@ pub struct RenewalCommandResponse {
     pub game: Game,
     pub suggested_wage: Option<u32>,
     pub suggested_years: Option<u32>,
-    pub session_status: RenewalSessionStatus,
+    pub session_status: String,
     pub is_terminal: bool,
     pub cooled_off: bool,
     pub feedback: Option<NegotiationFeedback>,
@@ -41,7 +41,7 @@ pub struct FreeAgentContractCommandResponse {
     pub game: Game,
     pub suggested_wage: Option<u32>,
     pub suggested_years: Option<u32>,
-    pub session_status: RenewalSessionStatus,
+    pub session_status: String,
     pub is_terminal: bool,
     pub cooled_off: bool,
     pub feedback: Option<NegotiationFeedback>,
@@ -67,6 +67,17 @@ pub struct ContractTerminationCommandResponse {
     pub game: Game,
     pub severance_cost: i64,
     pub squad_safety: SquadSafetyReport,
+}
+
+fn serialize_session_status(status: RenewalSessionStatus) -> String {
+    match status {
+        RenewalSessionStatus::Idle => "idle",
+        RenewalSessionStatus::Open => "open",
+        RenewalSessionStatus::Agreed => "agreed",
+        RenewalSessionStatus::Blocked => "blocked",
+        RenewalSessionStatus::Stalled => "stalled",
+    }
+    .to_string()
 }
 
 #[tauri::command]
@@ -186,7 +197,7 @@ fn propose_renewal_internal(
         game,
         suggested_wage: outcome.suggested_wage,
         suggested_years: outcome.suggested_years,
-        session_status: outcome.session_status,
+        session_status: serialize_session_status(outcome.session_status),
         is_terminal: outcome.is_terminal,
         cooled_off: outcome.cooled_off,
         feedback: outcome.feedback,
@@ -273,7 +284,7 @@ fn offer_free_agent_contract_internal(
         game,
         suggested_wage: outcome.suggested_wage,
         suggested_years: outcome.suggested_years,
-        session_status: outcome.session_status,
+        session_status: serialize_session_status(outcome.session_status),
         is_terminal: outcome.is_terminal,
         cooled_off: outcome.cooled_off,
         feedback: outcome.feedback,
@@ -385,7 +396,7 @@ mod tests {
     use chrono::{TimeZone, Utc};
     use db::save_manager::SaveManager;
     use domain::manager::Manager;
-    use domain::player::{Player, PlayerAttributes, Position};
+    use domain::player::{Player, PlayerAttributes, Position, RenewalSessionStatus};
     use domain::season::TransferWindowStatus;
     use domain::staff::{Staff, StaffAttributes, StaffRole};
     use domain::team::Team;
@@ -753,6 +764,7 @@ mod tests {
             offer_free_agent_contract_internal(&state, "player-1", 4_000, 3).expect("response");
 
         assert!(matches!(response.outcome, RenewalDecision::Accepted));
+        assert_eq!(response.session_status, "agreed");
         assert_eq!(response.game.players[0].team_id.as_deref(), Some("team-1"));
         assert_eq!(response.game.players[0].contract_end.as_deref(), Some("2029-08-01"));
 
@@ -772,6 +784,14 @@ mod tests {
         assert_eq!(response.projection.current_annual_wage_bill, 0);
         assert_eq!(response.projection.projected_annual_wage_bill, 4_000);
         assert!(response.projection.policy_allows);
+    }
+
+    #[test]
+    fn serialize_session_status_uses_frontend_casing() {
+        assert_eq!(
+            super::serialize_session_status(RenewalSessionStatus::Blocked),
+            "blocked"
+        );
     }
 
     #[test]

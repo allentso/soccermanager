@@ -7,6 +7,7 @@ import {
     ScanSearch,
     ShoppingCart,
     User,
+    UserPlus,
 } from "lucide-react";
 
 import type { ContextMenuItem } from "../ContextMenu";
@@ -116,7 +117,7 @@ export function buildOfferFreeAgentContractMenuItem(
 ): ContextMenuItem {
     return {
         label: t("transfers.offerContract"),
-        icon: <Gavel className="w-4 h-4" />,
+        icon: <UserPlus className="w-4 h-4" />,
         onClick,
     };
 }

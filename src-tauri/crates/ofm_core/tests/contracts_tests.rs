@@ -488,6 +488,25 @@ fn free_agent_offer_rejects_lowball_terms() {
 }
 
 #[test]
+fn free_agent_offer_rejects_contracts_longer_than_five_years() {
+    let mut game = make_free_agent_game();
+
+    let outcome = offer_free_agent_contract(
+        &mut game,
+        "free-agent-1",
+        RenewalOffer {
+            weekly_wage: 4_000,
+            contract_years: 6,
+        },
+    )
+    .expect("free-agent offer should resolve");
+
+    assert!(matches!(outcome.decision, RenewalDecision::Rejected));
+    assert_eq!(game.players[0].team_id, None);
+    assert_eq!(game.players[0].contract_end, None);
+}
+
+#[test]
 fn free_agent_projection_uses_manager_team_wage_context() {
     let game = make_free_agent_game();
 

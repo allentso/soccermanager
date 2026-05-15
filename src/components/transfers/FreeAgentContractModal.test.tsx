@@ -9,6 +9,7 @@ vi.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string, params?: Record<string, string | number>) => {
       if (key === "transfers.offerContract") return "Offer Contract";
+      if (key === "common.freeAgent") return "Free Agent";
       if (key === "transfers.playerValue") return `Value ${params?.value}`;
       if (key === "playerProfile.renewalWage") return "Offered Wage";
       if (key === "playerProfile.renewalLength") return "Contract Length";
@@ -182,6 +183,7 @@ describe("FreeAgentContractModal", () => {
     expect(screen.getByText("Free Agent")).toBeInTheDocument();
     expect(screen.getByText("Projected financial impact")).toBeInTheDocument();
     expect(screen.getByText("Offer accepted")).toBeInTheDocument();
+    expect(screen.getByLabelText("Contract Length")).toHaveAttribute("max", "5");
   });
 
   it("wires input, submit, and close interactions", () => {

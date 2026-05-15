@@ -17,9 +17,15 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 const RENEWAL_SESSION_STALE_DAYS: i64 = 14;
+const MAX_CONTRACT_YEARS: u32 = 5;
 const MARKET_VALUE_TO_WAGE_RATIO: u64 = 200;
 const MINIMUM_DEFAULT_WAGE: u64 = 500;
+const ERR_NO_TEAM_ASSIGNED: &str = "be.error.noTeamAssigned";
+const ERR_MANAGED_TEAM_NOT_FOUND: &str = "be.error.managedTeamNotFound";
+const ERR_PLAYER_NOT_FOUND: &str = "be.error.playerNotFound";
+const ERR_TRANSFER_WINDOW_CLOSED: &str = "be.error.transfers.transferWindowClosed";
 const ERR_PLAYER_NOT_OWNED_BY_CLUB: &str = "be.error.contracts.playerNotOwnedByClub";
+const ERR_PLAYER_NOT_FREE_AGENT: &str = "be.error.contracts.playerNotFreeAgent";
 const ERR_UNABLE_TO_CALCULATE_CONTRACT_END_DATE: &str =
     "be.error.contracts.unableToCalculateContractEndDate";
 const ERR_PLAYER_HAS_NO_ACTIVE_CONTRACT: &str = "be.error.contracts.playerHasNoActiveContract";
@@ -185,20 +191,20 @@ pub fn project_free_agent_contract_impact(
         .manager
         .team_id
         .clone()
-        .ok_or("No team assigned".to_string())?;
+        .ok_or(ERR_NO_TEAM_ASSIGNED.to_string())?;
     let team = game
         .teams
         .iter()
         .find(|candidate| candidate.id == manager_team_id)
-        .ok_or("Manager team not found".to_string())?;
+        .ok_or(ERR_MANAGED_TEAM_NOT_FOUND.to_string())?;
     let player = game
         .players
         .iter()
         .find(|candidate| candidate.id == player_id)
-        .ok_or("Player not found".to_string())?;
+        .ok_or(ERR_PLAYER_NOT_FOUND.to_string())?;
 
     if player.team_id.is_some() {
-        return Err("Player is not a free agent".to_string());
+        return Err(ERR_PLAYER_NOT_FREE_AGENT.to_string());
     }
 
     Ok(project_contract_offer_financial_impact(
@@ -479,30 +485,30 @@ pub fn offer_free_agent_contract(
     offer: RenewalOffer,
 ) -> Result<RenewalOutcome, String> {
     if !transfer_window_is_open(game) {
-        return Err("Transfer window is closed".to_string());
+        return Err(ERR_TRANSFER_WINDOW_CLOSED.to_string());
     }
 
     let manager_team_id = game
         .manager
         .team_id
         .clone()
-        .ok_or("No team assigned".to_string())?;
+        .ok_or(ERR_NO_TEAM_ASSIGNED.to_string())?;
 
     let team = game
         .teams
         .iter()
         .find(|candidate| candidate.id == manager_team_id)
-        .ok_or("Manager team not found".to_string())?
+        .ok_or(ERR_MANAGED_TEAM_NOT_FOUND.to_string())?
         .clone();
 
     let player_index = game
         .players
         .iter()
         .position(|candidate| candidate.id == player_id)
-        .ok_or("Player not found".to_string())?;
+        .ok_or(ERR_PLAYER_NOT_FOUND.to_string())?;
 
     if game.players[player_index].team_id.is_some() {
-        return Err("Player is not a free agent".to_string());
+        return Err(ERR_PLAYER_NOT_FREE_AGENT.to_string());
     }
 
     let current_date = game.clock.current_date.date_naive();
@@ -513,7 +519,10 @@ pub fn offer_free_agent_contract(
     let expected_years = expected_contract_years(&game.players[player_index], current_date);
     let minimum_wage = minimum_acceptable_wage(reference_player_wage(&game.players[player_index]));
 
-    if offer.weekly_wage < minimum_wage || offer.contract_years == 0 {
+    if offer.weekly_wage < minimum_wage
+        || offer.contract_years == 0
+        || offer.contract_years > MAX_CONTRACT_YEARS
+    {
         return Ok(renewal_outcome(
             RenewalDecision::Rejected,
             None,
