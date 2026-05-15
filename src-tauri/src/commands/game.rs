@@ -98,6 +98,16 @@ fn current_date_for_phase(start_year: i32, start_phase: StartPhase) -> chrono::D
     }
 }
 
+fn age_on_date(birth_date: chrono::NaiveDate, reference_date: chrono::NaiveDate) -> i64 {
+    let mut age = i64::from(reference_date.year() - birth_date.year());
+    let has_had_birthday = (reference_date.month(), reference_date.day())
+        >= (birth_date.month(), birth_date.day());
+    if !has_had_birthday {
+        age -= 1;
+    }
+    age
+}
+
 fn start_phase_for_game(game: &Game) -> StartPhase {
     if game.clock.current_date > game.clock.start_date {
         StartPhase::MidSeason
@@ -462,11 +472,14 @@ pub async fn start_new_game(
         return Err("be.error.createManager.nationalityRequired".to_string());
     }
 
-    // Validate DOB: must be a valid date and manager must be at least 30 years old
+    // Validate DOB against the selected career start date.
     let birth_date = chrono::NaiveDate::parse_from_str(&dob, "%Y-%m-%d")
         .map_err(|_| "be.error.createManager.invalidDobFormat".to_string())?;
-    let today = chrono::Utc::now().date_naive();
-    let age = today.signed_duration_since(birth_date).num_days() / 365;
+
+    let startup_options = normalize_startup_options(startup_options)?;
+    let reference_date =
+        current_date_for_phase(startup_options.start_year, startup_options.start_phase).date_naive();
+    let age = age_on_date(birth_date, reference_date);
     if age < 30 {
         return Err("be.error.createManager.minAge".to_string());
     }
@@ -481,8 +494,6 @@ pub async fn start_new_game(
         dob,
         nationality,
     );
-
-    let startup_options = normalize_startup_options(startup_options)?;
     info!(
         "[cmd] start_new_game: {} {} (nationality={}, start_year={}, start_phase={}, world_source={:?})",
         manager.first_name,
@@ -640,10 +651,11 @@ pub async fn exit_to_menu(
 #[cfg(test)]
 mod tests {
     use super::{
-        apply_generated_past_history, bootstrap_team_selection, build_game_from_world_data,
-        create_new_save, current_date_for_phase, game_clock_for_world, load_world_data_from_path,
-        map_save_manager_lock_error, normalize_startup_options, preseason_league_year,
-        preseason_season_start, start_date_for_year, RawStartupOptions, StartPhase, StartupOptions,
+        age_on_date, apply_generated_past_history, bootstrap_team_selection,
+        build_game_from_world_data, create_new_save, current_date_for_phase,
+        game_clock_for_world, load_world_data_from_path, map_save_manager_lock_error,
+        normalize_startup_options, preseason_league_year, preseason_season_start,
+        start_date_for_year, RawStartupOptions, StartPhase, StartupOptions,
     };
     use db::save_manager::SaveManager;
     use domain::{
@@ -983,6 +995,24 @@ mod tests {
         let current_date = current_date_for_phase(2032, StartPhase::MidSeason);
 
         assert_eq!(current_date.to_rfc3339(), "2032-10-29T00:00:00+00:00");
+    }
+
+    #[test]
+    fn age_on_date_uses_selected_start_year() {
+        let birth_date = chrono::NaiveDate::from_ymd_opt(2008, 1, 1).unwrap();
+        let reference_date = current_date_for_phase(2038, StartPhase::SeasonStart).date_naive();
+
+        assert_eq!(age_on_date(birth_date, reference_date), 30);
+    }
+
+    #[test]
+    fn age_on_date_changes_between_season_start_and_midseason() {
+        let birth_date = chrono::NaiveDate::from_ymd_opt(2008, 8, 1).unwrap();
+        let season_start = current_date_for_phase(2038, StartPhase::SeasonStart).date_naive();
+        let midseason = current_date_for_phase(2038, StartPhase::MidSeason).date_naive();
+
+        assert_eq!(age_on_date(birth_date, season_start), 29);
+        assert_eq!(age_on_date(birth_date, midseason), 30);
     }
 
     #[test]

@@ -460,6 +460,62 @@ describe("MainMenu", () => {
     expect(screen.queryByTestId("world-select")).not.toBeInTheDocument();
   });
 
+  it("allows a manager who is 30 by the selected start year to continue", async () => {
+    render(<MainMenu />);
+
+    await openCreateManagerForm();
+    fireEvent.change(
+      screen.getByPlaceholderText("createManager.placeholderFirst"),
+      { target: { value: "Ada" } },
+    );
+    fireEvent.change(
+      screen.getByPlaceholderText("createManager.placeholderLast"),
+      { target: { value: "Lovelace" } },
+    );
+    fireEvent.change(screen.getByLabelText("manager-date-of-birth"), {
+      target: { value: "2008-01-01" },
+    });
+    fillCareerStartDetails("2038", "seasonStart");
+    await selectNationality("en", "ES");
+
+    expect(screen.queryByText("validation.minAge")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("createManager.chooseWorld"));
+
+    await waitFor(() => {
+      expect(mockedInvoke).toHaveBeenCalledWith("list_world_databases");
+    });
+    expect(screen.getByTestId("world-select")).toBeInTheDocument();
+  });
+
+  it("uses the selected start phase when evaluating manager age", async () => {
+    render(<MainMenu />);
+
+    await openCreateManagerForm();
+    fireEvent.change(
+      screen.getByPlaceholderText("createManager.placeholderFirst"),
+      { target: { value: "Ada" } },
+    );
+    fireEvent.change(
+      screen.getByPlaceholderText("createManager.placeholderLast"),
+      { target: { value: "Lovelace" } },
+    );
+    fireEvent.change(screen.getByLabelText("manager-date-of-birth"), {
+      target: { value: "2008-08-01" },
+    });
+    fillCareerStartDetails("2038", "seasonStart");
+
+    expect(screen.getByText("validation.minAge")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("createManager.startPhase"), {
+      target: { value: "midSeason" },
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByText("validation.minAge")).not.toBeInTheDocument();
+    });
+  });
+
   it("blocks progression when the start year is before 2020 and focuses the year field", async () => {
     render(<MainMenu />);
 
