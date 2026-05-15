@@ -17,6 +17,11 @@ vi.mock("@tauri-apps/api/core", () => ({
   invoke: (...args: unknown[]) => invokeMock(...args),
 }));
 
+vi.mock("../../utils/backendI18n", () => ({
+  resolveBackendError: (error: unknown) =>
+    error instanceof Error ? error.message : String(error),
+}));
+
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string, params?: Record<string, string | number>) => {
