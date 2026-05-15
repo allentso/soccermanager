@@ -418,7 +418,10 @@ fn world_news_priority(game: &Game, article: &domain::news::NewsArticle) -> i64 
         .unwrap_or(0);
     let user_team_id = game.manager.team_id.as_deref();
     let rivalry_multiplier = if user_team_id.is_some_and(|team_id| {
-        article.team_ids.iter().any(|article_team_id| article_team_id == team_id)
+        article
+            .team_ids
+            .iter()
+            .any(|article_team_id| article_team_id == team_id)
     }) {
         2
     } else {
@@ -437,7 +440,9 @@ fn apply_daily_world_news_cap(
     let existing_non_match_count = game
         .news
         .iter()
-        .filter(|article| article.date == date && article.category != domain::news::NewsCategory::MatchReport)
+        .filter(|article| {
+            article.date == date && article.category != domain::news::NewsCategory::MatchReport
+        })
         .count();
     let available_slots = MAX_DAILY_WORLD_NEWS_ARTICLES.saturating_sub(existing_non_match_count);
 
@@ -623,7 +628,8 @@ fn generate_preseason_digest_news(game: &mut Game, today: &str) {
     }
     let rumours = weekly_rumour_articles(game, &suffix, &date);
     candidates.extend(rumours);
-    game.news.extend(apply_daily_world_news_cap(game, &date, candidates));
+    game.news
+        .extend(apply_daily_world_news_cap(game, &date, candidates));
 }
 
 pub(super) fn generate_weekly_digest_news(game: &mut Game, today: &str) {
@@ -672,7 +678,8 @@ pub(super) fn generate_weekly_digest_news(game: &mut Game, today: &str) {
     }
     candidates.extend(storylines);
     candidates.extend(rumours);
-    game.news.extend(apply_daily_world_news_cap(game, &date, candidates));
+    game.news
+        .extend(apply_daily_world_news_cap(game, &date, candidates));
 }
 
 /// Generate a match report news article for the completed fixture.
@@ -1683,7 +1690,11 @@ mod tests {
 
         generate_weekly_digest_news(&mut game, "2025-08-11");
 
-        assert_eq!(game.news.len(), 5, "weekly world news should respect the hard cap");
+        assert_eq!(
+            game.news.len(),
+            5,
+            "weekly world news should respect the hard cap"
+        );
         assert!(
             game.news
                 .iter()
