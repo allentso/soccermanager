@@ -884,6 +884,7 @@
     "transferWindow": "{{team}} — Mercado de Fichajes",
     "myTransferList": "Mi Lista de Fichajes",
     "transferMarket": "Mercado de Fichajes",
+    "freeAgents": "Agentes Libres",
     "loanMarket": "Mercado de Cesiones",
     "offers": "Ofertas",
     "searchByName": "Buscar por nombre...",
@@ -891,12 +892,14 @@
     "goToProfile": "Ve al perfil del jugador para ponerlo en venta o cesión.",
     "noOffers": "No hay ofertas de fichaje activas por ahora.",
     "noTransferMarket": "No hay jugadores disponibles para fichar en este momento.",
+    "noFreeAgents": "No hay agentes libres disponibles actualmente.",
     "noLoanMarket": "No hay jugadores disponibles para cesión en este momento.",
     "transfer": "Traspaso",
     "loan": "Cesión",
     "none": "Ninguno",
     "listed": "Listado",
     "makeBid": "Hacer oferta",
+    "offerContract": "Ofrecer contrato",
     "bid": "Oferta",
     "playerValue": "Valor: {{value}}",
     "bidAmount": "Importe de la oferta (€M)",
@@ -1782,6 +1785,7 @@
       },
       "contracts": {
         "playerNotOwnedByClub": "El jugador no pertenece a tu club",
+        "playerNotFreeAgent": "El jugador no es agente libre",
         "unableToCalculateContractEndDate": "No se pudo calcular la nueva fecha de finalización del contrato",
         "playerHasNoActiveContract": "El jugador no tiene un contrato activo",
         "terminationWouldLeaveMatchdaySquadShort": "Rescindir este contrato dejaría a tu plantilla sin poder presentar un once para el día del partido",
@@ -2234,6 +2238,10 @@
         "subject": "{{player}} rescindido",
         "body": "{{player}} ha sido rescindido por {{team}}. El club pagó {{severance}} en salarios pendientes como indemnización.",
         "ledgerDescription": "Indemnización por rescisión pagada a {{player}}"
+      },
+      "freeAgentSigned": {
+        "subject": "{{player}} ficha por {{team}}",
+        "body": "{{player}} se ha unido a {{team}} como agente libre con un contrato de {{years}} año(s)."
       },
       "delegatedRenewals": {
         "subject": "Informe del asistente — Renovaciones",

@@ -854,6 +854,7 @@
     "transferWindow": "{{team}} — Transfer Window",
     "myTransferList": "My Transfer List",
     "transferMarket": "Transfer Market",
+    "freeAgents": "Free Agents",
     "loanMarket": "Loan Market",
     "offers": "Offers",
     "searchByName": "Search by name...",
@@ -861,12 +862,14 @@
     "goToProfile": "Go to a player's profile to list them for transfer or loan.",
     "noOffers": "No active transfer offers at this time.",
     "noTransferMarket": "No players currently available for transfer.",
+    "noFreeAgents": "No free agents currently available.",
     "noLoanMarket": "No players currently available for loan.",
     "transfer": "Transfer",
     "loan": "Loan",
     "none": "None",
     "listed": "Listed",
     "makeBid": "Make Transfer Bid",
+    "offerContract": "Offer Contract",
     "bid": "Bid",
     "playerValue": "Value: {{value}}",
     "bidAmount": "Bid Amount (€M)",
@@ -1752,6 +1755,7 @@
       },
       "contracts": {
         "playerNotOwnedByClub": "Player does not belong to your club",
+        "playerNotFreeAgent": "Player is not a free agent",
         "unableToCalculateContractEndDate": "Unable to calculate new contract end date",
         "playerHasNoActiveContract": "Player does not have an active contract",
         "terminationWouldLeaveMatchdaySquadShort": "Terminating this contract would leave your squad unable to field a matchday XI",
@@ -2200,6 +2204,10 @@
         "subject": "{{player}} Released",
         "body": "{{player}} has been released by {{team}}. The club paid {{severance}} in remaining wages as severance.",
         "ledgerDescription": "Contract termination severance paid to {{player}}"
+      },
+      "freeAgentSigned": {
+        "subject": "{{player}} Signs for {{team}}",
+        "body": "{{player}} has joined {{team}} as a free agent on a {{years}}-year contract."
       },
       "delegatedRenewals": {
         "subject": "Assistant Report — Contract Renewals",

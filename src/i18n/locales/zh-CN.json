@@ -854,6 +854,7 @@
     "transferWindow": "{{team}} — 转会窗口",
     "myTransferList": "我的转会名单",
     "transferMarket": "转会市场",
+    "freeAgents": "自由球员",
     "loanMarket": "租借市场",
     "offers": "报价",
     "searchByName": "按姓名搜索...",
@@ -861,12 +862,14 @@
     "goToProfile": "前往球员资料页将其挂牌转会或租借。",
     "noOffers": "当前没有活跃的转会报价。",
     "noTransferMarket": "当前没有可供转会的球员。",
+    "noFreeAgents": "当前没有可签约的自由球员。",
     "noLoanMarket": "当前没有可供租借的球员。",
     "transfer": "转会",
     "loan": "租借",
     "none": "无",
     "listed": "已挂牌",
     "makeBid": "发起转会出价",
+    "offerContract": "提供合同",
     "bid": "出价",
     "playerValue": "估值:{{value}}",
     "bidAmount": "出价金额(€百万)",
@@ -1752,6 +1755,7 @@
       },
       "contracts": {
         "playerNotOwnedByClub": "该球员不属于你的俱乐部",
+        "playerNotFreeAgent": "该球员不是自由球员",
         "unableToCalculateContractEndDate": "无法计算新的合同结束日期",
         "playerHasNoActiveContract": "该球员没有有效合同",
         "terminationWouldLeaveMatchdaySquadShort": "终止这份合同会让你的阵容无法在比赛日排出首发十一人",
@@ -2201,6 +2205,10 @@
         "subject": "{{player}} 被解约",
         "body": "{{player}} 已被 {{team}} 解约。俱乐部支付了 {{severance}} 的剩余工资作为解约补偿。",
         "ledgerDescription": "已向 {{player}} 支付合同解约补偿"
+      },
+      "freeAgentSigned": {
+        "subject": "{{player}} 签约 {{team}}",
+        "body": "{{player}} 以自由球员身份加盟 {{team}}，签下了一份 {{years}} 年合同。"
       },
       "delegatedRenewals": {
         "subject": "助理教练报告——合同续约",

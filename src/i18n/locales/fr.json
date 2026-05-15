@@ -854,6 +854,7 @@
     "transferWindow": "{{team}} — Mercato",
     "myTransferList": "Ma liste de transferts",
     "transferMarket": "Marché des transferts",
+    "freeAgents": "Joueurs Libres",
     "loanMarket": "Marché des prêts",
     "offers": "Offres",
     "searchByName": "Rechercher par nom...",
@@ -861,12 +862,14 @@
     "goToProfile": "Accédez au profil du joueur pour l'inscrire au transfert ou au prêt.",
     "noOffers": "Aucune offre de transfert active pour le moment.",
     "noTransferMarket": "Aucun joueur disponible au transfert pour le moment.",
+    "noFreeAgents": "Aucun joueur libre disponible pour le moment.",
     "noLoanMarket": "Aucun joueur disponible en prêt pour le moment.",
     "transfer": "Transfert",
     "loan": "Prêt",
     "none": "Aucun",
     "listed": "Listé",
     "makeBid": "Faire une offre",
+    "offerContract": "Proposer un contrat",
     "bid": "Offre",
     "playerValue": "Valeur : {{value}}",
     "bidAmount": "Montant de l'offre (€M)",
@@ -1752,6 +1755,7 @@
       },
       "contracts": {
         "playerNotOwnedByClub": "Le joueur n'appartient pas à votre club",
+        "playerNotFreeAgent": "Le joueur n'est pas libre",
         "unableToCalculateContractEndDate": "Impossible de calculer la nouvelle date de fin de contrat",
         "playerHasNoActiveContract": "Le joueur n'a pas de contrat actif",
         "terminationWouldLeaveMatchdaySquadShort": "Résilier ce contrat laisserait votre effectif incapable d'aligner un onze le jour du match",
@@ -2204,6 +2208,10 @@
         "subject": "{{player}} libéré",
         "body": "{{player}} a été libéré par {{team}}. Le club a payé {{severance}} en salaires restants à titre d'indemnité.",
         "ledgerDescription": "Indemnité de rupture versée à {{player}}"
+      },
+      "freeAgentSigned": {
+        "subject": "{{player}} signe pour {{team}}",
+        "body": "{{player}} a rejoint {{team}} comme joueur libre avec un contrat de {{years}} an(s)."
       },
       "delegatedRenewals": {
         "subject": "Rapport de l'adjoint — Renouvellements",

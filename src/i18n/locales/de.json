@@ -854,6 +854,7 @@
     "transferWindow": "{{team}} — Transferfenster",
     "myTransferList": "Meine Transferliste",
     "transferMarket": "Transfermarkt",
+    "freeAgents": "Ablösefreie",
     "loanMarket": "Leihmarkt",
     "offers": "Angebote",
     "searchByName": "Nach Name suchen...",
@@ -861,12 +862,14 @@
     "goToProfile": "Gehe zum Spielerprofil, um ihn auf die Transfer- oder Leihliste zu setzen.",
     "noOffers": "Keine aktiven Transferangebote.",
     "noTransferMarket": "Keine Spieler zum Transfer verfügbar.",
+    "noFreeAgents": "Derzeit keine ablösefreien Spieler verfügbar.",
     "noLoanMarket": "Keine Spieler zur Leihe verfügbar.",
     "transfer": "Transfer",
     "loan": "Leihe",
     "none": "Keine",
     "listed": "Gelistet",
     "makeBid": "Transferangebot abgeben",
+    "offerContract": "Vertrag anbieten",
     "bid": "Bieten",
     "playerValue": "Wert: {{value}}",
     "bidAmount": "Angebotssumme (€M)",
@@ -1752,6 +1755,7 @@
       },
       "contracts": {
         "playerNotOwnedByClub": "Der Spieler gehört nicht zu deinem Verein",
+        "playerNotFreeAgent": "Der Spieler ist kein vereinsloser Spieler",
         "unableToCalculateContractEndDate": "Das neue Vertragsende konnte nicht berechnet werden",
         "playerHasNoActiveContract": "Der Spieler hat keinen aktiven Vertrag",
         "terminationWouldLeaveMatchdaySquadShort": "Eine Vertragsauflösung würde deinen Kader daran hindern, am Spieltag eine Startelf zu stellen",
@@ -2204,6 +2208,10 @@
         "subject": "{{player}} freigestellt",
         "body": "{{player}} wurde von {{team}} freigestellt. Der Verein zahlte {{severance}} an verbleibenden Gehältern als Abfindung.",
         "ledgerDescription": "Abfindung nach Vertragsauflösung an {{player}} gezahlt"
+      },
+      "freeAgentSigned": {
+        "subject": "{{player}} unterschreibt bei {{team}}",
+        "body": "{{player}} hat sich {{team}} als vereinsloser Spieler mit einem Vertrag über {{years}} Jahr(e) angeschlossen."
       },
       "delegatedRenewals": {
         "subject": "Assistentenbericht — Vertragsverlängerungen",

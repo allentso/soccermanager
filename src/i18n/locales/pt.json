@@ -854,6 +854,7 @@
     "transferWindow": "{{team}} — Janela de Transferências",
     "myTransferList": "A Minha Lista",
     "transferMarket": "Mercado de Transferências",
+    "freeAgents": "Jogadores Livres",
     "loanMarket": "Mercado de Empréstimos",
     "offers": "Propostas",
     "searchByName": "Procurar por nome...",
@@ -861,12 +862,14 @@
     "goToProfile": "Vai ao perfil do jogador para o listar para transferência ou empréstimo.",
     "noOffers": "Sem propostas de transferência ativas.",
     "noTransferMarket": "Sem jogadores disponíveis para transferência.",
+    "noFreeAgents": "Sem jogadores livres disponíveis de momento.",
     "noLoanMarket": "Sem jogadores disponíveis para empréstimo.",
     "transfer": "Transferência",
     "loan": "Empréstimo",
     "none": "Nenhuma",
     "listed": "Listados",
     "makeBid": "Fazer Proposta de Transferência",
+    "offerContract": "Oferecer contrato",
     "bid": "Propor",
     "playerValue": "Valor: {{value}}",
     "bidAmount": "Valor da Proposta (€M)",
@@ -1752,6 +1755,7 @@
       },
       "contracts": {
         "playerNotOwnedByClub": "O jogador não pertence ao teu clube",
+        "playerNotFreeAgent": "O jogador não é um agente livre",
         "unableToCalculateContractEndDate": "Não foi possível calcular a nova data de fim do contrato",
         "playerHasNoActiveContract": "O jogador não tem um contrato ativo",
         "terminationWouldLeaveMatchdaySquadShort": "Rescindir este contrato deixaria o teu plantel sem condições para apresentar um onze em dia de jogo",
@@ -2204,6 +2208,10 @@
         "subject": "{{player}} dispensado",
         "body": "{{player}} foi dispensado pelo {{team}}. O clube pagou {{severance}} em salários remanescentes como indemnização.",
         "ledgerDescription": "Indemnização por rescisão contratual paga a {{player}}"
+      },
+      "freeAgentSigned": {
+        "subject": "{{player}} assina pelo {{team}}",
+        "body": "{{player}} juntou-se ao {{team}} como agente livre com um contrato de {{years}} ano(s)."
       },
       "delegatedRenewals": {
         "subject": "Relatório do adjunto — Renovações contratuais",

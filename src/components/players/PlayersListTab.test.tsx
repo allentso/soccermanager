@@ -14,6 +14,11 @@ vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(),
 }));
 
+vi.mock("../../utils/backendI18n", () => ({
+  resolveBackendError: (error: unknown) =>
+    error instanceof Error ? error.message : String(error),
+}));
+
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string, params?: Record<string, string | number>) => {
@@ -29,6 +34,7 @@ vi.mock("react-i18next", () => ({
       if (key === "common.nationality") return "Nationality";
       if (key === "common.team") return "Team";
       if (key === "common.viewTeam") return "View team";
+      if (key === "common.freeAgent") return "Free Agent";
       if (key === "common.value") return "Value";
       if (key === "common.ovr") return "OVR";
       if (key === "common.status") return "Status";
@@ -293,6 +299,29 @@ describe("PlayersListTab", () => {
 
     expect(onSelectTeam).toHaveBeenCalledWith("team-2");
     expect(onSelectPlayer).not.toHaveBeenCalled();
+  });
+
+  it("renders localized free-agent labels for unattached players", () => {
+    render(
+      <PlayersListTab
+        gameState={{
+          ...createGameState(),
+          players: [
+            createPlayer({
+              id: "player-free-agent",
+              full_name: "Free Agent Player",
+              match_name: "F. Agent",
+              team_id: null,
+              contract_end: null,
+            }),
+          ],
+        }}
+        onSelectPlayer={vi.fn()}
+        onSelectTeam={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("Free Agent")).toBeInTheDocument();
   });
 
   it("offers context-menu actions for team navigation and scouting", async () => {

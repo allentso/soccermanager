@@ -172,6 +172,11 @@ describe("TransfersTab.model", () => {
       team_id: "team-2",
       transfer_listed: true,
     });
+    const freeAgent = createPlayer({
+      id: "free-agent",
+      team_id: null,
+      contract_end: null,
+    });
     const loanPlayer = createPlayer({
       id: "loan-player",
       team_id: "team-2",
@@ -197,6 +202,7 @@ describe("TransfersTab.model", () => {
       userListed,
       userLoanListed,
       marketPlayer,
+      freeAgent,
       loanPlayer,
       offeredPlayer,
     ]);
@@ -212,6 +218,9 @@ describe("TransfersTab.model", () => {
     expect(collections.marketPlayers.map((player) => player.id)).toEqual([
       "market-player",
     ]);
+    expect(collections.freeAgentPlayers.map((player) => player.id)).toEqual([
+      "free-agent",
+    ]);
     expect(collections.loanPlayers.map((player) => player.id)).toEqual([
       "loan-player",
     ]);
@@ -225,6 +234,7 @@ describe("TransfersTab.model", () => {
       myTransferList: [createPlayer({ id: "transfer" })],
       myLoanList: [createPlayer({ id: "loan" })],
       marketPlayers: [createPlayer({ id: "market" })],
+      freeAgentPlayers: [createPlayer({ id: "free-agent", team_id: null })],
       loanPlayers: [createPlayer({ id: "loan-market" })],
       playersWithOffers: [createPlayer({ id: "offers" })],
     };
@@ -234,6 +244,7 @@ describe("TransfersTab.model", () => {
 
     expect(getIds("my_list")).toEqual(["transfer", "loan"]);
     expect(getIds("market")).toEqual(["market"]);
+    expect(getIds("free_agents")).toEqual(["free-agent"]);
     expect(getIds("loans")).toEqual(["loan-market"]);
     expect(getIds("offers")).toEqual(["offers"]);
   });

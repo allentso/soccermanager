@@ -873,6 +873,7 @@
     "transferWindow": "{{team}} — Finestra di mercato",
     "myTransferList": "La mia lista trasferimenti",
     "transferMarket": "Mercato trasferimenti",
+    "freeAgents": "Svincolati",
     "loanMarket": "Mercato prestiti",
     "offers": "Offerte",
     "searchByName": "Cerca per nome...",
@@ -880,12 +881,14 @@
     "goToProfile": "Vai al profilo del giocatore per inserirlo tra i cedibili o prestabili.",
     "noOffers": "Nessuna offerta di trasferimento attiva al momento.",
     "noTransferMarket": "Nessun giocatore disponibile per il trasferimento al momento.",
+    "noFreeAgents": "Nessun giocatore svincolato disponibile al momento.",
     "noLoanMarket": "Nessun giocatore disponibile per il prestito al momento.",
     "transfer": "Trasferimento",
     "loan": "Prestito",
     "none": "Nessuno",
     "listed": "In lista",
     "makeBid": "Fai un'offerta",
+    "offerContract": "Offri contratto",
     "bid": "Offerta",
     "playerValue": "Valore: {{value}}",
     "bidAmount": "Importo offerta (€M)",
@@ -1752,6 +1755,7 @@
       },
       "contracts": {
         "playerNotOwnedByClub": "Il giocatore non appartiene al tuo club",
+        "playerNotFreeAgent": "Il giocatore non è svincolato",
         "unableToCalculateContractEndDate": "Impossibile calcolare la nuova data di fine contratto",
         "playerHasNoActiveContract": "Il giocatore non ha un contratto attivo",
         "terminationWouldLeaveMatchdaySquadShort": "Rescindere questo contratto lascerebbe la tua rosa senza la possibilità di schierare un undici nel giorno della partita",
@@ -2204,6 +2208,10 @@
         "subject": "{{player}} svincolato",
         "body": "{{player}} è stato svincolato da {{team}}. Il club ha pagato {{severance}} in stipendi residui come buonuscita.",
         "ledgerDescription": "Buonuscita per risoluzione contrattuale pagata a {{player}}"
+      },
+      "freeAgentSigned": {
+        "subject": "{{player}} firma per {{team}}",
+        "body": "{{player}} si è unito a {{team}} da svincolato con un contratto di {{years}} anno/i."
       },
       "delegatedRenewals": {
         "subject": "Rapporto dell'assistente — Rinnovi contrattuali",
