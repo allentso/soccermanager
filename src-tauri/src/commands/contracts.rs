@@ -571,6 +571,12 @@ mod tests {
         game
     }
 
+    fn make_retired_free_agent_game() -> Game {
+        let mut game = make_free_agent_game();
+        game.players[0].retired = true;
+        game
+    }
+
     #[test]
     fn propose_renewal_internal_returns_response_and_updates_state() {
         let state = StateManager::new();
@@ -787,10 +793,42 @@ mod tests {
     }
 
     #[test]
+    fn preview_free_agent_contract_impact_internal_rejects_retired_players() {
+        let state = StateManager::new();
+        state.set_game(make_retired_free_agent_game());
+
+        let error = preview_free_agent_contract_impact_internal(&state, "player-1", 4_000)
+            .expect_err("retired players should be rejected");
+
+        assert_eq!(error, "be.error.contracts.playerNotFreeAgent");
+    }
+
+    #[test]
+    fn offer_free_agent_contract_internal_rejects_retired_players() {
+        let state = StateManager::new();
+        state.set_game(make_retired_free_agent_game());
+
+        let error = offer_free_agent_contract_internal(&state, "player-1", 4_000, 3)
+            .expect_err("retired players should be rejected");
+
+        assert_eq!(error, "be.error.contracts.playerNotFreeAgent");
+    }
+
+    #[test]
     fn serialize_session_status_uses_frontend_casing() {
+        assert_eq!(super::serialize_session_status(RenewalSessionStatus::Idle), "idle");
+        assert_eq!(super::serialize_session_status(RenewalSessionStatus::Open), "open");
+        assert_eq!(
+            super::serialize_session_status(RenewalSessionStatus::Agreed),
+            "agreed"
+        );
         assert_eq!(
             super::serialize_session_status(RenewalSessionStatus::Blocked),
             "blocked"
+        );
+        assert_eq!(
+            super::serialize_session_status(RenewalSessionStatus::Stalled),
+            "stalled"
         );
     }
 

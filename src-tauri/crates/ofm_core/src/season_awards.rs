@@ -127,7 +127,12 @@ fn build_manager_award_contexts(game: &Game) -> Vec<ManagerAwardContext<'_>> {
         for (index, standing) in league.sorted_standings().into_iter().enumerate() {
             standings_by_team.insert(
                 standing.team_id.clone(),
-                ((index + 1) as u32, standing.points),
+                (
+                    (index + 1) as u32,
+                    standing.points,
+                    standing.played,
+                    standing.won,
+                ),
             );
         }
     }
@@ -137,14 +142,26 @@ fn build_manager_award_contexts(game: &Game) -> Vec<ManagerAwardContext<'_>> {
         .filter_map(|manager| {
             let team_id = manager.team_id.clone()?;
             let team = game.teams.iter().find(|team| team.id == team_id)?;
-            let (league_position, points) =
-                if let Some((league_position, points)) = standings_by_team.get(&team_id) {
-                    (*league_position, *points)
+            let (league_position, points, matches_played, wins) =
+                if let Some((league_position, points, matches_played, wins)) =
+                    standings_by_team.get(&team_id)
+                {
+                    (*league_position, *points, *matches_played, *wins)
                 } else {
                     let latest_record = team.history.iter().max_by_key(|record| record.season)?;
                     let points = latest_record.won * 3 + latest_record.drawn;
-                    (latest_record.league_position, points)
+                    (
+                        latest_record.league_position,
+                        points,
+                        latest_record.played,
+                        latest_record.won,
+                    )
                 };
+            let win_rate = if matches_played == 0 {
+                0.0
+            } else {
+                (wins as f64 / matches_played as f64) * 100.0
+            };
 
             Some(ManagerAwardContext {
                 manager,
@@ -152,7 +169,7 @@ fn build_manager_award_contexts(game: &Game) -> Vec<ManagerAwardContext<'_>> {
                 team_name: team.name.clone(),
                 league_position,
                 points,
-                win_rate: manager.win_rate() as f64,
+                win_rate,
             })
         })
         .collect()
@@ -660,6 +677,39 @@ mod tests {
 
         assert_eq!(awards.manager_of_season[0].manager_name, "Alex Winner");
         assert_eq!(awards.manager_of_season[0].team_name, "Alpha FC");
+    }
+
+    #[test]
+    fn manager_of_season_uses_current_season_win_rate() {
+        let mut alpha = make_team("team1", "Alpha FC");
+        alpha.history.push(domain::team::TeamSeasonRecord {
+            season: 2025,
+            league_position: 1,
+            played: 20,
+            won: 10,
+            drawn: 5,
+            lost: 5,
+            goals_for: 30,
+            goals_against: 18,
+        });
+        alpha.manager_id = Some("mgr1".to_string());
+
+        let mut game = make_game(vec![], vec![alpha]);
+        let mut manager = make_manager("mgr1", "Alex", "Winner", Some("team1"));
+        manager.career_stats = ManagerCareerStats {
+            matches_managed: 120,
+            wins: 90,
+            draws: 15,
+            losses: 15,
+            trophies: 3,
+            best_finish: Some(1),
+        };
+        game.managers = vec![manager.clone()];
+        game.manager = manager;
+
+        let awards = compute_season_awards(&game);
+
+        assert_eq!(awards.manager_of_season[0].win_rate, 50.0);
     }
 
     #[test]

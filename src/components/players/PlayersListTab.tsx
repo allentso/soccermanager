@@ -417,25 +417,30 @@ export default function PlayersListTab({
                         }),
                       );
                     } else {
-                      contextItems.push(buildDividerMenuItem());
-                      if (player.team_id) {
-                        contextItems.push(
+                      const playerActions = player.team_id
+                        ? [
                           buildMakeTransferBidMenuItem(t, () => {
                             openBidNegotiation(player);
                           }),
-                        );
-                      } else {
-                        contextItems.push(
-                          buildOfferFreeAgentContractMenuItem(t, () => {
-                            openFreeAgentContract(player);
+                          buildScoutPlayerMenuItem(t, scoutState, () => {
+                            void handleScoutPlayer(player.id);
                           }),
-                        );
+                        ]
+                        : player.retired
+                          ? []
+                          : [
+                            buildOfferFreeAgentContractMenuItem(t, () => {
+                              openFreeAgentContract(player);
+                            }),
+                            buildScoutPlayerMenuItem(t, scoutState, () => {
+                              void handleScoutPlayer(player.id);
+                            }),
+                          ];
+
+                      if (playerActions.length > 0) {
+                        contextItems.push(buildDividerMenuItem());
+                        contextItems.push(...playerActions);
                       }
-                      contextItems.push(
-                        buildScoutPlayerMenuItem(t, scoutState, () => {
-                          void handleScoutPlayer(player.id);
-                        }),
-                      );
                     }
 
                     const row = (

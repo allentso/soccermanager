@@ -139,6 +139,11 @@ pub fn apply_seasonal_aging(game: &mut Game, current_date: NaiveDate, season: u3
         apply_attribute_curve(player, age, season);
 
         if should_retire(player, age, current_date, season) {
+            if let Some(team_id) = player.team_id.clone()
+                && let Some(team) = game.teams.iter_mut().find(|team| team.id == team_id)
+            {
+                team.remove_player_references(&player.id);
+            }
             retire_player(player);
         }
     }
@@ -245,6 +250,7 @@ mod tests {
         let mut veteran = make_player("older-pro", "1988-01-01");
         veteran.contract_end = Some("2026-05-01".to_string());
         veteran.attributes.pace = 20;
+        veteran.transfer_listed = true;
         veteran.stats = PlayerSeasonStats {
             appearances: 6,
             avg_rating: 6.1,
@@ -252,6 +258,14 @@ mod tests {
         };
 
         let mut game = make_game(vec![veteran]);
+        game.teams[0].starting_xi_ids = vec!["older-pro".to_string()];
+        game.teams[0].training_groups = vec![domain::team::TrainingGroup {
+            id: "group-1".to_string(),
+            name: "Core".to_string(),
+            focus: domain::team::TrainingFocus::Tactical,
+            player_ids: vec!["older-pro".to_string()],
+        }];
+        game.teams[0].match_roles.captain = Some("older-pro".to_string());
         let current_date = game.clock.current_date.date_naive();
 
         apply_seasonal_aging(&mut game, current_date, 1);
@@ -259,6 +273,10 @@ mod tests {
         let veteran = &game.players[0];
         assert!(veteran.retired);
         assert_eq!(veteran.team_id, None);
+        assert!(!veteran.transfer_listed);
         assert!(veteran.attributes.pace < 20);
+        assert!(game.teams[0].starting_xi_ids.is_empty());
+        assert!(game.teams[0].training_groups[0].player_ids.is_empty());
+        assert_eq!(game.teams[0].match_roles.captain, None);
     }
 }

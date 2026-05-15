@@ -13,6 +13,7 @@ import {
   type FreeAgentContractProjection,
   type FreeAgentContractResponseData,
 } from "../../services/freeAgentService";
+import { calcAgeOnDate } from "../../lib/valueFormatting";
 import { resolveBackendError } from "../../utils/backendI18n";
 
 interface UseFreeAgentContractFlowArgs {
@@ -50,17 +51,7 @@ type TranslateFn = (
 ) => string;
 
 function defaultContractYears(dateOfBirth: string, asOfDate: string): string {
-  const birthDate = new Date(dateOfBirth);
-  const today = new Date(asOfDate);
-  let age = today.getUTCFullYear() - birthDate.getUTCFullYear();
-  const birthMonth = birthDate.getUTCMonth();
-  const birthDay = birthDate.getUTCDate();
-  if (
-    today.getUTCMonth() < birthMonth ||
-    (today.getUTCMonth() === birthMonth && today.getUTCDate() < birthDay)
-  ) {
-    age -= 1;
-  }
+  const age = calcAgeOnDate(dateOfBirth, asOfDate);
 
   if (age <= 28) return "3";
   if (age <= 32) return "2";

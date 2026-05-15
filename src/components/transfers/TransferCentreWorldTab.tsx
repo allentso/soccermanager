@@ -173,7 +173,7 @@ function TransferRumoursSection({
                   />
                   <StatTile
                     icon={<UserRound className="h-4 w-4" />}
-                    label={t("transferCentreWorld.fee")}
+                    label={t("finances.marketValue")}
                     value={player ? formatVal(player.market_value) : "-"}
                   />
                 </div>

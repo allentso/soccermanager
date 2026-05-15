@@ -44,6 +44,7 @@ export default function FreeAgentContractModal({
   onClose,
 }: FreeAgentContractModalProps) {
   const { t } = useTranslation();
+  const titleId = `free-agent-contract-title-${player.id}`;
 
   return (
     <div
@@ -52,9 +53,15 @@ export default function FreeAgentContractModal({
     >
       <div
         className="bg-white dark:bg-navy-800 rounded-xl shadow-2xl border border-gray-200 dark:border-navy-600 p-6 w-full max-w-sm"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
         onClick={(event) => event.stopPropagation()}
       >
-        <h3 className="text-sm font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3">
+        <h3
+          id={titleId}
+          className="text-sm font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3"
+        >
           {t("transfers.offerContract")}
         </h3>
         <div className="flex items-center gap-3 mb-4">

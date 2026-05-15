@@ -180,6 +180,8 @@ vi.mock("react-i18next", () => ({
         "dashboard.home": "Home",
         "dashboard.inbox": "Inbox",
         "dashboard.loading": "Loading",
+        "dashboard.managers": "Managers",
+        "dashboard.hallOfFame": "Hall of Fame",
         "continueMenu.goToField": "Go To Field",
         "continueMenu.goToFieldDesc": "desc",
         "continueMenu.watchSpectator": "Watch",
@@ -238,6 +240,7 @@ vi.mock("../components/dashboard/DashboardSidebar", () => ({
     <div>
       <span>Sidebar {activeTab}</span>
       <button onClick={() => onNavClick("Inbox")}>nav-inbox</button>
+      <button onClick={() => onNavClick("Managers")}>nav-managers</button>
     </div>
   ),
 }));
@@ -339,5 +342,8 @@ describe("Dashboard", () => {
 
     fireEvent.click(screen.getByText("nav-inbox"));
     expect(screen.getByText("Tab Content Inbox")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("nav-managers"));
+    expect(screen.getByText("Header Managers")).toBeInTheDocument();
   });
 });

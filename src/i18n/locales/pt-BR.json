@@ -26,6 +26,10 @@
     "firstName": "Nome",
     "lastName": "Sobrenome",
     "dob": "Data de Nascimento",
+    "startYear": "Ano de início",
+    "startPhase": "Fase de início",
+    "phaseSeasonStart": "Início da temporada",
+    "phaseMidSeason": "Meio da temporada",
     "nationality": "Nacionalidade",
     "countryOfOrigin": "País/Região de Origem",
     "selectNationality": "Selecionar nacionalidade...",
@@ -38,6 +42,7 @@
   "validation": {
     "required": "{{field}} é obrigatório",
     "maxLength": "{{field}} não deve exceder {{max}} caracteres",
+    "minStartYear": "O ano de início deve ser {{min}} ou posterior",
     "minAge": "O treinador deve ter pelo menos {{min}} anos — altere a data de nascimento para continuar.",
     "invalidDate": "Data inválida",
     "invalidDob": "Data de nascimento inválida"
@@ -1042,8 +1047,8 @@
         "apps": "jogos",
         "winRate": "aproveitamento"
       },
-      "managerOfSeasonTitle": "Tecnico da Temporada",
-      "managerOfSeasonSubtitle": "A melhor campanha a beira do campo"
+      "managerOfSeasonTitle": "Técnico da Temporada",
+      "managerOfSeasonSubtitle": "A melhor campanha à beira do campo"
     },
     "noGoals": "Nenhum gol marcado ainda."
   },
@@ -1785,7 +1790,7 @@
         "sponsorPitchActiveSponsor": "Já existe um acordo de patrocínio ativo.",
         "marketingCampaignUnavailable": "Campanhas de marketing só estão disponíveis quando o clube está sob pressão salarial ou de caixa.",
         "marketingCampaignCoolingDown": "O time comercial precisa de tempo antes de lançar outra campanha de marketing.",
-        "facilityUpgradeInsufficientFunds": "Fundos insuficientes para esta melhoria de instalações. São necessários €{{amount}}.",
+        "facilityUpgradeInsufficientFunds": "Fundos insuficientes para esta melhoria de instalações. São necessários {{amount}}.",
         "facilityUpgradeOverBudget": "As melhorias de instalações ficam bloqueadas enquanto o clube estiver acima do orçamento salarial.",
         "facilityUpgradeCritical": "As melhorias de instalações ficam bloqueadas enquanto o clube estiver sob forte pressão financeira."
       },
@@ -1795,7 +1800,9 @@
         "nationalityRequired": "A nacionalidade é obrigatória.",
         "invalidDobFormat": "Data de nascimento inválida. Use o formato AAAA-MM-DD.",
         "minAge": "O treinador deve ter pelo menos 30 anos.",
-        "invalidDob": "Data de nascimento inválida."
+        "invalidDob": "Data de nascimento inválida.",
+        "startYearMin": "O ano de início deve ser 2020 ou posterior.",
+        "invalidStartPhase": "A fase de início selecionada não é válida."
       },
       "transfers": {
         "transferWindowClosed": "A janela de transferências está fechada",
@@ -2626,7 +2633,7 @@
   "awardsCeremony": {
     "title": "Cerimonia de Premiacao",
     "subtitle": "Temporada {{season}} em {{league}}",
-    "managerOfSeason": "Tecnico da Temporada",
+    "managerOfSeason": "Técnico da Temporada",
     "goldenBoot": "Chuteira de Ouro",
     "playerOfYear": "Jogador da Temporada",
     "continue": "Continuar para o painel",

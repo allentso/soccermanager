@@ -5,7 +5,10 @@ import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useGameStore, GameStateData } from "../store/gameStore";
 import { ThemeToggle } from "../components/ui/ThemeToggle";
-import type { CreateManagerFormData } from "../components/menu/CreateManagerForm";
+import type {
+  CareerStartPhase,
+  CreateManagerFormData,
+} from "../components/menu/CreateManagerForm";
 import type { WorldDatabaseInfo } from "../components/menu/WorldSelect";
 import { resolveBackendError } from "../utils/backendI18n";
 import {
@@ -38,6 +41,46 @@ interface SaveEntry {
  * leaving as-is until product agrees.
  */
 const MANAGER_MINIMUM_AGE = 30;
+const MIN_CAREER_START_YEAR = 2020;
+
+type StartupOptionsPayload = {
+  startYear: number;
+  startPhase: CareerStartPhase;
+};
+
+function defaultCareerStartYear(): string {
+  return String(new Date().getFullYear());
+}
+
+function parseCareerStartYear(rawValue: string): number | null {
+  const trimmed = rawValue.trim();
+  if (!/^\d+$/.test(trimmed)) return null;
+
+  const parsed = Number(trimmed);
+  if (!Number.isInteger(parsed)) return null;
+  return parsed;
+}
+
+function isCareerStartPhase(value: string): value is CareerStartPhase {
+  return value === "seasonStart" || value === "midSeason";
+}
+
+function buildStartupOptions(
+  formData: CreateManagerFormData,
+): StartupOptionsPayload | null {
+  const startYear = parseCareerStartYear(formData.startYear);
+  if (startYear === null || startYear < MIN_CAREER_START_YEAR) {
+    return null;
+  }
+  if (!isCareerStartPhase(formData.startPhase)) {
+    return null;
+  }
+
+  return {
+    startYear,
+    startPhase: formData.startPhase,
+  };
+}
 
 function flooredAgeFromIsoDate(isoDob: string): number | null {
   if (!isoDob) return null;
@@ -75,12 +118,20 @@ const CREATE_MANAGER_FIELD_ORDER = [
   "firstName",
   "lastName",
   "dob",
+  "startYear",
+  "startPhase",
   "nationality",
 ] as const satisfies ReadonlyArray<keyof CreateManagerFormData>;
 
 function prefersReducedMotion(): boolean {
   if (typeof window === "undefined") return false;
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+function deferFocusToNextPaint(callback: () => void): void {
+  requestAnimationFrame(() => {
+    requestAnimationFrame(callback);
+  });
 }
 
 function focusFirstCreateManagerError(
@@ -126,6 +177,8 @@ export default function MainMenu() {
     firstName: "",
     lastName: "",
     dob: "",
+    startYear: defaultCareerStartYear(),
+    startPhase: "seasonStart",
     nationality: "",
   });
   const [formErrors, setFormErrors] = useState<
@@ -202,6 +255,23 @@ export default function MainMenu() {
         errors.dob = t("validation.invalidDob");
       }
     }
+    if (!formData.startYear.trim()) {
+      errors.startYear = t("validation.required", {
+        field: t("createManager.startYear"),
+      });
+    } else {
+      const startYear = parseCareerStartYear(formData.startYear);
+      if (startYear === null || startYear < MIN_CAREER_START_YEAR) {
+        errors.startYear = t("validation.minStartYear", {
+          min: MIN_CAREER_START_YEAR,
+        });
+      }
+    }
+    if (!isCareerStartPhase(formData.startPhase)) {
+      errors.startPhase = t("validation.required", {
+        field: t("createManager.startPhase"),
+      });
+    }
     if (!formData.nationality)
       errors.nationality = t("validation.required", {
         field: t("createManager.countryOfOrigin"),
@@ -217,9 +287,7 @@ export default function MainMenu() {
     e.preventDefault();
     const validation = validateForm();
     if (!validation.ok) {
-      requestAnimationFrame(() =>
-        focusFirstCreateManagerError(validation.errors),
-      );
+      deferFocusToNextPaint(() => focusFirstCreateManagerError(validation.errors));
       return;
     }
     setMenuState("world");
@@ -284,6 +352,16 @@ export default function MainMenu() {
   };
 
   const handleStartGame = async () => {
+    const startupOptions = buildStartupOptions(formData);
+    if (!startupOptions) {
+      const validation = validateForm();
+      setMenuState("create");
+      deferFocusToNextPaint(() =>
+        focusFirstCreateManagerError(validation.errors),
+      );
+      return;
+    }
+
     setIsStarting(true);
     try {
       // Determine world source
@@ -318,6 +396,7 @@ export default function MainMenu() {
         lastName: formData.lastName,
         dob: formData.dob,
         nationality: formData.nationality,
+        startupOptions,
         worldSource,
       });
       sessionStorage.removeItem("imported_world_json");

@@ -49,6 +49,21 @@ function vacancyEntries(gameState: GameStateData): VacancyEntry[] {
     .map((team) => ({ kind: "vacancy", team }));
 }
 
+function latestRecordedMatches(team: TeamData): string {
+  const latestSeason = team.history.reduce<TeamData["history"][number] | null>(
+    (latest, record) => {
+      if (!latest || record.season > latest.season) {
+        return record;
+      }
+
+      return latest;
+    },
+    null,
+  );
+
+  return latestSeason ? latestSeason.played.toString() : "-";
+}
+
 function sortDirectory(entries: DirectoryEntry[]): DirectoryEntry[] {
   return [...entries].sort((left, right) => {
     if (left.kind !== right.kind) {
@@ -143,7 +158,7 @@ export default function ManagersWorldTab({
                       <StatTile
                         icon={<UsersRound className="h-4 w-4" />}
                         label={t("managersWorld.matches")}
-                        value={entry.team.history.length.toString()}
+                        value={latestRecordedMatches(entry.team)}
                       />
                     </div>
                   </CardBody>

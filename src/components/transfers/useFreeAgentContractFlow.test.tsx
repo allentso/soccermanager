@@ -299,6 +299,22 @@ describe("useFreeAgentContractFlow", () => {
     });
   });
 
+  it("derives default contract years from the current in-game date", async () => {
+    const target = createPlayer({
+      id: "veteran-free-agent",
+      date_of_birth: "1994-12-15",
+    });
+    const gameState = createGameState([target]);
+
+    render(<HookHarness gameState={gameState} target={target} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Open" }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Years")).toHaveValue("2");
+    });
+  });
+
   it("resolves backend errors before storing them", async () => {
     const target = createPlayer();
     const gameState = createGameState([target]);

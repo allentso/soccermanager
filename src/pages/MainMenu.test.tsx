@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
-import type { ComponentPropsWithoutRef } from "react";
+import type { ComponentPropsWithoutRef, ReactNode } from "react";
 
 import { countryName } from "../lib/countries";
 import { resetCountryResourcesCache } from "../components/menu/CreateManagerNationalityField";
@@ -80,6 +80,25 @@ vi.mock("../components/ui", () => ({
   CountryFlag: ({ code }: { code: string }) => (
     <span data-testid={`country-flag-${code.toLowerCase()}`} />
   ),
+  Select: ({
+    value,
+    onChange,
+    children,
+    "aria-label": ariaLabel,
+  }: {
+    value?: string | number | readonly string[];
+    onChange?: (event: { target: { value: string } }) => void;
+    children?: ReactNode;
+    "aria-label"?: string;
+  }) => (
+    <select
+      aria-label={ariaLabel}
+      value={value}
+      onChange={(event) => onChange?.({ target: { value: event.target.value } })}
+    >
+      {children}
+    </select>
+  ),
 }));
 
 vi.mock("../components/ui/ThemeToggle", () => ({
@@ -122,6 +141,18 @@ function fillManagerDetails(): void {
   );
   fireEvent.change(screen.getByLabelText("manager-date-of-birth"), {
     target: { value: "1980-01-01" },
+  });
+}
+
+function fillCareerStartDetails(
+  startYear = "2026",
+  startPhase = "seasonStart",
+): void {
+  fireEvent.change(screen.getByLabelText("createManager.startYear"), {
+    target: { value: startYear },
+  });
+  fireEvent.change(screen.getByLabelText("createManager.startPhase"), {
+    target: { value: startPhase },
   });
 }
 
@@ -219,6 +250,7 @@ describe("MainMenu", () => {
 
       await openCreateManagerForm();
       fillManagerDetails();
+      fillCareerStartDetails("2028", "midSeason");
       await selectNationality(language, "ES");
 
       const localizedCountryName = countryName("ES", language);
@@ -245,6 +277,10 @@ describe("MainMenu", () => {
             lastName: "Lovelace",
             dob: "1980-01-01",
             nationality: "ES",
+            startupOptions: {
+              startYear: 2028,
+              startPhase: "midSeason",
+            },
           }),
         );
       });
@@ -406,5 +442,22 @@ describe("MainMenu", () => {
     });
     expect(mockedInvoke).not.toHaveBeenCalledWith("list_world_databases");
     expect(screen.queryByTestId("world-select")).not.toBeInTheDocument();
+  });
+
+  it("blocks progression when the start year is before 2020 and focuses the year field", async () => {
+    render(<MainMenu />);
+
+    await openCreateManagerForm();
+    fillManagerDetails();
+    fillCareerStartDetails("2019", "seasonStart");
+    await selectNationality("en", "ES");
+
+    fireEvent.click(screen.getByText("createManager.chooseWorld"));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("createManager.startYear")).toHaveFocus();
+    });
+    expect(screen.getByText("validation.minStartYear")).toBeInTheDocument();
+    expect(mockedInvoke).not.toHaveBeenCalledWith("list_world_databases");
   });
 });

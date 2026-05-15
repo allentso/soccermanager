@@ -1,6 +1,8 @@
 use log::info;
 use tauri::State;
 
+use chrono::Datelike;
+
 use db::save_index::SaveEntry;
 use domain::manager::Manager;
 use domain::stats::StatsState;
@@ -50,6 +52,67 @@ fn default_save_name(manager_name: &str) -> String {
     save_name
 }
 
+#[derive(Debug, Clone, Default, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RawStartupOptions {
+    #[serde(default)]
+    start_year: Option<i32>,
+    #[serde(default)]
+    start_phase: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum StartPhase {
+    SeasonStart,
+    MidSeason,
+}
+
+impl StartPhase {
+    fn parse(value: &str) -> Option<Self> {
+        match value {
+            "seasonStart" => Some(Self::SeasonStart),
+            "midSeason" => Some(Self::MidSeason),
+            _ => None,
+        }
+    }
+
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::SeasonStart => "seasonStart",
+            Self::MidSeason => "midSeason",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct StartupOptions {
+    start_year: i32,
+    start_phase: StartPhase,
+}
+
+fn default_start_year() -> i32 {
+    chrono::Utc::now().year().max(2020)
+}
+
+fn normalize_startup_options(raw: Option<RawStartupOptions>) -> Result<StartupOptions, String> {
+    let raw = raw.unwrap_or_default();
+    let start_year = raw.start_year.unwrap_or_else(default_start_year);
+    if start_year < 2020 {
+        return Err("be.error.createManager.startYearMin".to_string());
+    }
+
+    let start_phase = match raw.start_phase.as_deref() {
+        None | Some("") => StartPhase::SeasonStart,
+        Some(value) => StartPhase::parse(value)
+            .ok_or_else(|| "be.error.createManager.invalidStartPhase".to_string())?,
+    };
+
+    Ok(StartupOptions {
+        start_year,
+        start_phase,
+    })
+}
+
 /// Step 1: Create manager + generate world. No team assigned yet.
 /// Returns the Game object so the frontend can show team selection.
 /// world_source: "random" (default) or a file path to a JSON world database.
@@ -60,12 +123,9 @@ pub async fn start_new_game(
     last_name: String,
     dob: String,
     nationality: String,
+    startup_options: Option<RawStartupOptions>,
     world_source: Option<String>,
 ) -> Result<Game, String> {
-    info!(
-        "[cmd] start_new_game: {} {} (nationality={}, world_source={:?})",
-        first_name, last_name, nationality, world_source
-    );
     // Validate inputs
     let first_name = first_name.trim().to_string();
     let last_name = last_name.trim().to_string();
@@ -98,6 +158,17 @@ pub async fn start_new_game(
         last_name,
         dob,
         nationality,
+    );
+
+    let startup_options = normalize_startup_options(startup_options)?;
+    info!(
+        "[cmd] start_new_game: {} {} (nationality={}, start_year={}, start_phase={}, world_source={:?})",
+        manager.first_name,
+        manager.last_name,
+        manager.nationality,
+        startup_options.start_year,
+        startup_options.start_phase.as_str(),
+        world_source
     );
 
     use chrono::TimeZone;
@@ -299,7 +370,10 @@ pub async fn exit_to_menu(
 
 #[cfg(test)]
 mod tests {
-    use super::{load_world_entities_from_path, map_save_manager_lock_error};
+    use super::{
+        load_world_entities_from_path, map_save_manager_lock_error, normalize_startup_options,
+        RawStartupOptions, StartPhase,
+    };
     use std::sync::Mutex;
 
     #[test]
@@ -321,5 +395,36 @@ mod tests {
         let result = map_save_manager_lock_error(mutex.lock());
 
         assert_eq!(result.unwrap_err(), "be.error.saveManagerUnavailable");
+    }
+
+    #[test]
+    fn normalize_startup_options_defaults_to_current_year_and_season_start() {
+        let options = normalize_startup_options(None).unwrap();
+
+        assert!(options.start_year >= 2020);
+        assert_eq!(options.start_phase, StartPhase::SeasonStart);
+    }
+
+    #[test]
+    fn normalize_startup_options_rejects_years_before_2020() {
+        let result = normalize_startup_options(Some(RawStartupOptions {
+            start_year: Some(2019),
+            start_phase: Some("seasonStart".to_string()),
+        }));
+
+        assert_eq!(result.unwrap_err(), "be.error.createManager.startYearMin");
+    }
+
+    #[test]
+    fn normalize_startup_options_rejects_unknown_start_phase() {
+        let result = normalize_startup_options(Some(RawStartupOptions {
+            start_year: Some(2026),
+            start_phase: Some("playoffs".to_string()),
+        }));
+
+        assert_eq!(
+            result.unwrap_err(),
+            "be.error.createManager.invalidStartPhase"
+        );
     }
 }

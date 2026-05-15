@@ -328,7 +328,7 @@ pub fn managerial_appointment_article(
 
 fn format_transfer_fee(fee: u64) -> String {
     crate::currency::format_compact_money(fee, crate::currency::DEFAULT_CURRENCY_CODE)
-        .unwrap_or_else(|| format!("€{}", fee))
+    .unwrap_or_else(|| format!("{}{}", crate::currency::default_currency_symbol(), fee))
 }
 
 pub fn transfer_roundup_article(

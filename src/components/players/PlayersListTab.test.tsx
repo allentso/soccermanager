@@ -47,6 +47,7 @@ vi.mock("react-i18next", () => ({
       if (key === "scouting.scoutingInProgress") return "Scouting in progress";
       if (key === "scouting.noScoutsFree") return "No scouts free";
       if (key === "transfers.makeBid") return "Make Transfer Bid";
+      if (key === "transfers.offerContract") return "Offer Contract";
       if (key === "transfers.bidAmount") return "Bid Amount";
       if (key === "transfers.submitBid") return "Submit Bid";
       if (key === "transfers.close") return "Close";
@@ -475,5 +476,36 @@ describe("PlayersListTab", () => {
       });
       expect(onGameUpdate).toHaveBeenCalledWith(updatedState);
     });
+  });
+
+  it("does not offer scouting or contract actions for retired free agents", () => {
+    render(
+      <PlayersListTab
+        gameState={{
+          ...createGameState(),
+          players: [
+            createPlayer({
+              id: "retired-free-agent",
+              full_name: "Retired Free Agent",
+              match_name: "R. Agent",
+              team_id: null,
+              retired: true,
+              contract_end: null,
+            }),
+          ],
+        }}
+        onGameUpdate={vi.fn()}
+        onSelectPlayer={vi.fn()}
+        onSelectTeam={vi.fn()}
+      />,
+    );
+
+    const playerRow = screen.getByText("Retired Free Agent").closest("tr");
+    expect(playerRow).not.toBeNull();
+
+    fireEvent.contextMenu(playerRow as HTMLTableRowElement);
+
+    expect(screen.queryByRole("button", { name: "Offer Contract" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Scout" })).not.toBeInTheDocument();
   });
 });

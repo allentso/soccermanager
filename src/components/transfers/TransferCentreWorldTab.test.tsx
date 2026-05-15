@@ -20,6 +20,7 @@ vi.mock("react-i18next", () => {
         if (key === "transferCentreWorld.reportedOn") return "Reported";
         if (key === "transferCentreWorld.agreedOn") return "Agreed";
         if (key === "transferCentreWorld.fee") return "Fee";
+        if (key === "finances.marketValue") return "Market Value";
         if (key === "transferCentreWorld.noRumours") return "No active rumours.";
         if (key === "transferCentreWorld.noCompletedDeals") {
           return "No completed deals recorded.";
@@ -272,6 +273,7 @@ describe("TransferCentreWorldTab", () => {
     expect(screen.getByText("Gamma FC")).toBeInTheDocument();
     expect(screen.getByText("Rumours")).toBeInTheDocument();
     expect(screen.getByText("Completed deals")).toBeInTheDocument();
+    expect(screen.getByText("Market Value")).toBeInTheDocument();
   });
 
   it("routes player and team selection from rumours and completed deals", () => {

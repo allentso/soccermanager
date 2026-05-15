@@ -240,4 +240,19 @@ describe("AwardsCeremonyScreen", () => {
     expect(onSelectTeam).toHaveBeenCalledWith("team-1");
     expect(onContinue).toHaveBeenCalled();
   });
+
+  it("renders non-interactive winner names when selection handlers are missing", () => {
+    render(
+      <AwardsCeremonyScreen
+        season={6}
+        leagueName="Premier League"
+        gameState={createGameState()}
+        awards={createAwards()}
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: "Victor Vale" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Alpha FC" })).not.toBeInTheDocument();
+    expect(screen.getAllByText("Victor Vale").length).toBeGreaterThan(0);
+  });
 });

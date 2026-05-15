@@ -26,6 +26,10 @@
     "firstName": "名",
     "lastName": "姓",
     "dob": "出生日期",
+    "startYear": "开始年份",
+    "startPhase": "开始阶段",
+    "phaseSeasonStart": "赛季开始",
+    "phaseMidSeason": "赛季中期",
     "nationality": "国籍",
     "countryOfOrigin": "原籍国家/地区",
     "selectNationality": "选择国籍...",
@@ -38,6 +42,7 @@
   "validation": {
     "required": "{{field}} 为必填项",
     "maxLength": "{{field}} 不能超过 {{max}} 个字符",
+    "minStartYear": "开始年份必须为 {{min}} 或之后",
     "minAge": "经理年龄必须至少为 {{min}} 岁 — 请修改出生日期以继续。",
     "invalidDate": "无效日期",
     "invalidDob": "无效的出生日期"
@@ -1785,7 +1790,7 @@
         "sponsorPitchActiveSponsor": "当前已经有生效中的赞助协议。",
         "marketingCampaignUnavailable": "只有当俱乐部面临工资或现金压力时，才能发起营销活动。",
         "marketingCampaignCoolingDown": "商务团队在再次发起营销活动前还需要一些时间。",
-        "facilityUpgradeInsufficientFunds": "资金不足，无法升级该设施。需要 €{{amount}}。",
+        "facilityUpgradeInsufficientFunds": "资金不足，无法升级该设施。需要 {{amount}}。",
         "facilityUpgradeOverBudget": "当俱乐部超出工资预算时，设施升级会被禁止。",
         "facilityUpgradeCritical": "当俱乐部面临严重财务压力时，设施升级会被禁止。"
       },
@@ -1795,7 +1800,9 @@
         "nationalityRequired": "国籍为必填项。",
         "invalidDobFormat": "出生日期无效。请使用 YYYY-MM-DD 格式。",
         "minAge": "经理年龄必须至少为 30 岁。",
-        "invalidDob": "出生日期无效。"
+        "invalidDob": "出生日期无效。",
+        "startYearMin": "开始年份必须为 2020 或之后。",
+        "invalidStartPhase": "所选开始阶段无效。"
       },
       "transfers": {
         "transferWindowClosed": "转会窗口已关闭",

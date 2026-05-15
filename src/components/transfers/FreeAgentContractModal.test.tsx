@@ -180,7 +180,7 @@ describe("FreeAgentContractModal", () => {
       />,
     );
 
-    expect(screen.getByText("Offer Contract")).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Offer Contract" })).toBeInTheDocument();
     expect(screen.getByText("Free Agent")).toBeInTheDocument();
     expect(screen.getByText("Projected financial impact")).toBeInTheDocument();
     expect(screen.getByText("Offer accepted")).toBeInTheDocument();

@@ -1,6 +1,6 @@
 import { Suspense, lazy } from "react";
 import { useTranslation } from "react-i18next";
-import { Button, DatePicker } from "../ui";
+import { Button, DatePicker, Select } from "../ui";
 import { AlertCircle, ChevronRight, X } from "lucide-react";
 
 const CreateManagerNationalityField = lazy(
@@ -11,8 +11,12 @@ export interface CreateManagerFormData {
     firstName: string;
     lastName: string;
     dob: string;
+    startYear: string;
+    startPhase: CareerStartPhase;
     nationality: string;
 }
+
+export type CareerStartPhase = "seasonStart" | "midSeason";
 
 type CreateManagerField = keyof CreateManagerFormData;
 
@@ -171,6 +175,68 @@ export default function CreateManagerForm({
                         {dobError}
                     </p>
                 ) : null}
+            </div>
+
+            <div className="flex gap-3">
+                <div className="flex-1" id="create-manager-field-startYear">
+                    <label
+                        htmlFor="create-manager-start-year"
+                        className="mb-1.5 block text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400"
+                    >
+                        {t("createManager.startYear")}
+                    </label>
+                    <input
+                        id="create-manager-start-year"
+                        aria-label={t("createManager.startYear")}
+                        type="text"
+                        pattern="[0-9]*"
+                        inputMode="numeric"
+                        className={`w-full rounded-lg border bg-gray-50 p-3 text-gray-900 outline-none transition-all placeholder:text-gray-400 focus:ring-2 dark:bg-navy-900 dark:text-white dark:placeholder:text-gray-500 ${formErrors.startYear
+                            ? "border-red-400 focus:border-red-500 focus:ring-red-500/20 dark:border-red-500"
+                            : "border-gray-300 focus:border-primary-500 focus:ring-primary-500/20 dark:border-navy-600"
+                            }`}
+                        value={formData.startYear}
+                        onChange={(event) => {
+                            onChange("startYear", event.target.value);
+                            onClearError("startYear");
+                        }}
+                    />
+                    {formErrors.startYear ? (
+                        <p className="mt-1 flex items-center gap-1 text-xs text-red-500">
+                            <AlertCircle className="h-3 w-3" />
+                            {formErrors.startYear}
+                        </p>
+                    ) : null}
+                </div>
+
+                <div className="flex-1" id="create-manager-field-startPhase">
+                    <label className="mb-1.5 block text-xs font-heading font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                        {t("createManager.startPhase")}
+                    </label>
+                    <Select
+                        id="create-manager-start-phase"
+                        aria-label={t("createManager.startPhase")}
+                        fullWidth
+                        value={formData.startPhase}
+                        className={formErrors.startPhase
+                            ? "border-red-400 focus:border-red-500 focus:ring-red-500/20 dark:border-red-500"
+                            : ""
+                        }
+                        onChange={(event) => {
+                            onChange("startPhase", event.target.value as CareerStartPhase);
+                            onClearError("startPhase");
+                        }}
+                    >
+                        <option value="seasonStart">{t("createManager.phaseSeasonStart")}</option>
+                        <option value="midSeason">{t("createManager.phaseMidSeason")}</option>
+                    </Select>
+                    {formErrors.startPhase ? (
+                        <p className="mt-1 flex items-center gap-1 text-xs text-red-500">
+                            <AlertCircle className="h-3 w-3" />
+                            {formErrors.startPhase}
+                        </p>
+                    ) : null}
+                </div>
             </div>
 
             <Suspense

@@ -41,7 +41,7 @@ fn parse_amount_param(value: &str) -> Option<u64> {
             .chars()
             .filter(|ch| ch.is_ascii_digit() || *ch == '.' || *ch == ',')
             .collect();
-        let normalized = numeric_portion.replace(',', ".");
+        let normalized = numeric_portion.replace(',', "");
         if let Ok(parsed) = normalized.parse::<f64>() {
             return Some((parsed * multiplier).round() as u64);
         }
@@ -52,6 +52,22 @@ fn parse_amount_param(value: &str) -> Option<u64> {
         None
     } else {
         digits.parse::<u64>().ok()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_amount_param;
+
+    #[test]
+    fn parse_amount_param_keeps_compact_suffix_support() {
+        assert_eq!(parse_amount_param("75K"), Some(75_000));
+        assert_eq!(parse_amount_param("1.5M"), Some(1_500_000));
+    }
+
+    #[test]
+    fn parse_amount_param_treats_commas_as_separators_for_compact_values() {
+        assert_eq!(parse_amount_param("1,200K"), Some(1_200_000));
     }
 }
 

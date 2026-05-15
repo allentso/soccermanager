@@ -99,7 +99,9 @@ export default function AwardsCeremonyScreen({
           teamName={managerOfSeason.teamName}
           valueLabel={t("awardsCeremony.winRate")}
           value={managerOfSeason.winRate}
-          onSelectTeam={managerOfSeason.teamId ? () => onSelectTeam?.(managerOfSeason.teamId!) : undefined}
+          onSelectTeam={managerOfSeason.teamId && onSelectTeam
+            ? () => onSelectTeam(managerOfSeason.teamId!)
+            : undefined}
         />
         <WinnerCard
           icon={<Trophy className="h-6 w-6" />}
@@ -109,8 +111,12 @@ export default function AwardsCeremonyScreen({
           teamName={goldenBoot.teamName}
           valueLabel={t("awardsCeremony.goals")}
           value={goldenBoot.value}
-          onSelectName={goldenBoot.playerId ? () => onSelectPlayer?.(goldenBoot.playerId!) : undefined}
-          onSelectTeam={goldenBoot.teamId ? () => onSelectTeam?.(goldenBoot.teamId!) : undefined}
+          onSelectName={goldenBoot.playerId && onSelectPlayer
+            ? () => onSelectPlayer(goldenBoot.playerId!)
+            : undefined}
+          onSelectTeam={goldenBoot.teamId && onSelectTeam
+            ? () => onSelectTeam(goldenBoot.teamId!)
+            : undefined}
         />
         <WinnerCard
           icon={<Star className="h-6 w-6" />}
@@ -120,8 +126,12 @@ export default function AwardsCeremonyScreen({
           teamName={playerOfYear.teamName}
           valueLabel={t("awardsCeremony.rating")}
           value={playerOfYear.value}
-          onSelectName={playerOfYear.playerId ? () => onSelectPlayer?.(playerOfYear.playerId!) : undefined}
-          onSelectTeam={playerOfYear.teamId ? () => onSelectTeam?.(playerOfYear.teamId!) : undefined}
+          onSelectName={playerOfYear.playerId && onSelectPlayer
+            ? () => onSelectPlayer(playerOfYear.playerId!)
+            : undefined}
+          onSelectTeam={playerOfYear.teamId && onSelectTeam
+            ? () => onSelectTeam(playerOfYear.teamId!)
+            : undefined}
         />
       </div>
 

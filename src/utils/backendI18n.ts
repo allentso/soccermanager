@@ -1,5 +1,6 @@
 import i18n from '../i18n';
 import { formatExactMoney, formatVal } from "../lib/helpers";
+import { useSettingsStore } from "../store/settingsStore";
 import type {
   MessageActionOption,
   MessageData,
@@ -149,7 +150,13 @@ function parseMoneyValue(value: string): { amount: number; compact: boolean } | 
   }
 
   const symbol = match.groups.symbol;
-  if (symbol && symbol !== "€") {
+  const sourceExchangeRate = symbol
+    ? Object.values(useSettingsStore.getState().supportedCurrencies).find(
+      (currency) => currency.symbol === symbol,
+    )?.exchange_rate
+    : 1;
+
+  if (!sourceExchangeRate) {
     return null;
   }
 
@@ -165,9 +172,10 @@ function parseMoneyValue(value: string): { amount: number; compact: boolean } | 
         ? numeric * 1_000
         : numeric;
   const signed = match.groups.sign === "-" ? -scaled : scaled;
+  const normalizedAmount = Math.round(signed / sourceExchangeRate);
 
   return {
-    amount: signed,
+    amount: normalizedAmount,
     compact: Boolean(match.groups.suffix),
   };
 }

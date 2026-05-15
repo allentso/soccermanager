@@ -112,6 +112,28 @@ function createGameState(): GameStateData {
         name: "Beta United",
         short_name: "BET",
         manager_id: null,
+        history: [
+          {
+            season: 2024,
+            league_position: 7,
+            played: 32,
+            won: 11,
+            drawn: 8,
+            lost: 13,
+            goals_for: 40,
+            goals_against: 44,
+          },
+          {
+            season: 2025,
+            league_position: 5,
+            played: 46,
+            won: 18,
+            drawn: 12,
+            lost: 16,
+            goals_for: 58,
+            goals_against: 52,
+          },
+        ],
       }),
     ],
     players: [],
@@ -151,5 +173,11 @@ describe("ManagersWorldTab", () => {
 
     expect(onSelectTeam).toHaveBeenNthCalledWith(1, "team-1");
     expect(onSelectTeam).toHaveBeenNthCalledWith(2, "team-2");
+  });
+
+  it("shows vacancy match totals from the latest recorded season", () => {
+    render(<ManagersWorldTab gameState={createGameState()} />);
+
+    expect(screen.getByText("46")).toBeInTheDocument();
   });
 });

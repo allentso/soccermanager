@@ -83,11 +83,18 @@ pub fn format_compact_money(amount: u64, code: &str) -> Option<String> {
     ))
 }
 
+pub fn default_currency_symbol() -> &'static str {
+    currency_definition(DEFAULT_CURRENCY_CODE)
+        .map(|currency| currency.symbol)
+        .unwrap_or("€")
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
-        DEFAULT_CURRENCY_CODE, convert_amount, currency_definition, format_compact_money,
-        format_compact_number, normalize_currency_code, supported_currencies,
+        DEFAULT_CURRENCY_CODE, convert_amount, currency_definition, default_currency_symbol,
+        format_compact_money, format_compact_number, normalize_currency_code,
+        supported_currencies,
     };
 
     #[test]
@@ -134,5 +141,10 @@ mod tests {
             format_compact_money(1_250_000, "USD"),
             Some("$1.4M".to_string())
         );
+    }
+
+    #[test]
+    fn exposes_the_default_currency_symbol() {
+        assert_eq!(default_currency_symbol(), "€");
     }
 }

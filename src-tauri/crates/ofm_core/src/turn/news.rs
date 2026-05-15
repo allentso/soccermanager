@@ -308,18 +308,20 @@ fn weekly_rumour_articles(
     date: &str,
 ) -> Vec<domain::news::NewsArticle> {
     let mut rng = rand::rng();
+    let current_date = game.clock.current_date.date_naive();
+    let existing_article_ids: HashSet<String> =
+        game.news.iter().map(|article| article.id.clone()).collect();
+    let Some(league) = game.league.as_mut() else {
+        return vec![];
+    };
+    prune_stale_transfer_rumours(league, current_date);
     let candidates = rumour_candidates(game);
     if candidates.is_empty() {
         return vec![];
     }
-
-    let current_date = game.clock.current_date.date_naive();
-    let existing_article_ids: HashSet<String> =
-        game.news.iter().map(|article| article.id.clone()).collect();
-    let Some(league) = &mut game.league else {
+    let Some(league) = game.league.as_mut() else {
         return vec![];
     };
-    prune_stale_transfer_rumours(league, current_date);
 
     // Pick at most 2 distinct players
     let count = candidates.len().min(MAX_WEEKLY_TRANSFER_RUMOURS);
@@ -1810,6 +1812,37 @@ mod tests {
                 .all(|rumour| rumour.player_id != "stale-player")
         );
         assert!(rumours.iter().any(|rumour| rumour.player_id == "ai-fresh"));
+    }
+
+    #[test]
+    fn weekly_digest_prunes_stale_transfer_rumours_even_without_new_candidates() {
+        let mut game = make_game("2025-09-08", FixtureStatus::Completed);
+        set_current_date(&mut game, 2025, 9, 8);
+        game.players
+            .retain(|player| player.team_id.as_deref() == Some("team1"));
+
+        game.league
+            .as_mut()
+            .expect("league should exist")
+            .transfer_rumours
+            .push(TransferRumour {
+                id: "rumour_old_2025-W31".to_string(),
+                date: "2025-07-31T12:00:00+00:00".to_string(),
+                player_id: "stale-player".to_string(),
+                player_name: "Stale Player".to_string(),
+                team_id: "team3".to_string(),
+                team_name: "Gamma FC".to_string(),
+            });
+
+        generate_weekly_digest_news(&mut game, "2025-09-08");
+
+        assert!(
+            game.league
+                .as_ref()
+                .expect("league should exist")
+                .transfer_rumours
+                .is_empty()
+        );
     }
 
     #[test]

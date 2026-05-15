@@ -972,4 +972,18 @@ describe("resolveBackendError", () => {
       "Renewal blocked by board wage policy. Keep annual wages near €200,000 to recover.",
     );
   });
+
+  it("normalizes non-euro money params into the active currency", () => {
+    i18n.addResourceBundle("en", "translation", {
+      "be.error.finance.facilityUpgradeInsufficientFunds": "Insufficient funds for this facility upgrade. Need {{amount}}.",
+    }, true, true);
+    useSettingsStore.setState({
+      settings: { ...originalSettings, currency: "USD", language: "en" },
+      currency: { code: "USD", symbol: "$", exchange_rate: 1.08 },
+    });
+
+    expect(
+      resolveBackendError("be.error.finance.facilityUpgradeInsufficientFunds?amount=%C2%A3215000"),
+    ).toBe("Insufficient funds for this facility upgrade. Need $270,000.");
+  });
 });

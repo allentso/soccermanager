@@ -203,7 +203,7 @@ pub fn project_free_agent_contract_impact(
         .find(|candidate| candidate.id == player_id)
         .ok_or(ERR_PLAYER_NOT_FOUND.to_string())?;
 
-    if player.team_id.is_some() {
+    if player.retired || player.team_id.is_some() {
         return Err(ERR_PLAYER_NOT_FREE_AGENT.to_string());
     }
 
@@ -507,7 +507,7 @@ pub fn offer_free_agent_contract(
         .position(|candidate| candidate.id == player_id)
         .ok_or(ERR_PLAYER_NOT_FOUND.to_string())?;
 
-    if game.players[player_index].team_id.is_some() {
+    if game.players[player_index].retired || game.players[player_index].team_id.is_some() {
         return Err(ERR_PLAYER_NOT_FREE_AGENT.to_string());
     }
 
@@ -549,7 +549,7 @@ pub fn offer_free_agent_contract(
 
         let new_contract_end = current_date
             .checked_add_months(Months::new(offer.contract_years * 12))
-            .ok_or("Unable to calculate new contract end date".to_string())?;
+            .ok_or(ERR_UNABLE_TO_CALCULATE_CONTRACT_END_DATE.to_string())?;
 
         let player = &mut game.players[player_index];
         player.team_id = Some(team.id.clone());
@@ -1161,17 +1161,7 @@ fn transfer_window_is_open(game: &Game) -> bool {
 }
 
 fn remove_player_from_team_references(team: &mut Team, player_id: &str) {
-    team.starting_xi_ids.retain(|id| id != player_id);
-
-    for group in &mut team.training_groups {
-        group.player_ids.retain(|id| id != player_id);
-    }
-
-    clear_match_role_if_matches(&mut team.match_roles.captain, player_id);
-    clear_match_role_if_matches(&mut team.match_roles.vice_captain, player_id);
-    clear_match_role_if_matches(&mut team.match_roles.penalty_taker, player_id);
-    clear_match_role_if_matches(&mut team.match_roles.free_kick_taker, player_id);
-    clear_match_role_if_matches(&mut team.match_roles.corner_taker, player_id);
+    team.remove_player_references(player_id);
 }
 
 fn release_player_contract(game: &mut Game, player_index: usize, reason: ContractReleaseReason) {
@@ -1219,12 +1209,6 @@ fn release_player_contract(game: &mut Game, player_index: usize, reason: Contrac
     };
 
     game.messages.push(message);
-}
-
-fn clear_match_role_if_matches(role: &mut Option<String>, player_id: &str) {
-    if role.as_deref() == Some(player_id) {
-        *role = None;
-    }
 }
 
 fn contract_expired_message(

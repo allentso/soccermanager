@@ -26,6 +26,10 @@
     "firstName": "First Name",
     "lastName": "Last Name",
     "dob": "Date of Birth",
+    "startYear": "Start Year",
+    "startPhase": "Start Phase",
+    "phaseSeasonStart": "Season Start",
+    "phaseMidSeason": "Mid-Season",
     "nationality": "Nationality",
     "countryOfOrigin": "Country/Region of Origin",
     "selectNationality": "Select nationality...",
@@ -38,6 +42,7 @@
   "validation": {
     "required": "{{field}} is required",
     "maxLength": "{{field}} must not exceed {{max}} characters",
+    "minStartYear": "Start year must be {{min}} or later",
     "minAge": "Manager must be at least {{min}} years old — change the date of birth to continue.",
     "invalidDate": "Invalid date",
     "invalidDob": "Invalid date of birth"
@@ -1785,7 +1790,7 @@
         "sponsorPitchActiveSponsor": "An active sponsorship deal is already in place.",
         "marketingCampaignUnavailable": "Marketing campaigns are only available when the club is under wage or cash pressure.",
         "marketingCampaignCoolingDown": "The commercial team needs time before running another marketing campaign.",
-        "facilityUpgradeInsufficientFunds": "Insufficient funds for this facility upgrade. Need €{{amount}}.",
+        "facilityUpgradeInsufficientFunds": "Insufficient funds for this facility upgrade. Need {{amount}}.",
         "facilityUpgradeOverBudget": "Facility upgrades are blocked while the club is over its wage budget.",
         "facilityUpgradeCritical": "Facility upgrades are blocked while the club is under serious financial pressure."
       },
@@ -1795,7 +1800,9 @@
         "nationalityRequired": "Nationality is required.",
         "invalidDobFormat": "Invalid date of birth. Use YYYY-MM-DD format.",
         "minAge": "Manager must be at least 30 years old.",
-        "invalidDob": "Invalid date of birth."
+        "invalidDob": "Invalid date of birth.",
+        "startYearMin": "Start year must be 2020 or later.",
+        "invalidStartPhase": "Invalid start phase selected."
       },
       "transfers": {
         "transferWindowClosed": "Transfer window is closed",

@@ -44,6 +44,28 @@ export function calcAge(dob: string): number {
     return 2026 - new Date(dob).getFullYear();
 }
 
+export function calcAgeOnDate(dob: string, asOfDate: string): number {
+    const birthDate = new Date(dob);
+    const currentDate = new Date(asOfDate);
+
+    if (Number.isNaN(birthDate.getTime()) || Number.isNaN(currentDate.getTime())) {
+        return calcAge(dob);
+    }
+
+    let age = currentDate.getUTCFullYear() - birthDate.getUTCFullYear();
+    const birthMonth = birthDate.getUTCMonth();
+    const birthDay = birthDate.getUTCDate();
+
+    if (
+        currentDate.getUTCMonth() < birthMonth
+        || (currentDate.getUTCMonth() === birthMonth && currentDate.getUTCDate() < birthDay)
+    ) {
+        age -= 1;
+    }
+
+    return age;
+}
+
 export function formatExactMoney(value: number): string {
     const { currency, language } = getFormattingSettings();
     const absoluteValue = convertCurrencyValue(

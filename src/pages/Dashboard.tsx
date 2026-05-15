@@ -60,6 +60,8 @@ const TAB_TRANSLATION_KEYS: Record<string, string> = {
   Transfers: "dashboard.transfers",
   TransferCentre: "transfers.centre",
   Players: "dashboard.players",
+  Managers: "dashboard.managers",
+  HallOfFame: "dashboard.hallOfFame",
   Teams: "dashboard.teams",
   Tournaments: "dashboard.tournaments",
   Schedule: "dashboard.schedule",

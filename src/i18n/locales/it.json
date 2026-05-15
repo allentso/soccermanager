@@ -26,6 +26,10 @@
     "firstName": "Nome",
     "lastName": "Cognome",
     "dob": "Data di nascita",
+    "startYear": "Anno di inizio",
+    "startPhase": "Fase di inizio",
+    "phaseSeasonStart": "Inizio stagione",
+    "phaseMidSeason": "Metà stagione",
     "nationality": "Nazionalità",
     "countryOfOrigin": "Paese/Regione di origine",
     "selectNationality": "Seleziona nazionalità...",
@@ -38,6 +42,7 @@
   "validation": {
     "required": "{{field}} è obbligatorio",
     "maxLength": "{{field}} non deve superare {{max}} caratteri",
+    "minStartYear": "L'anno di inizio deve essere {{min}} o successivo",
     "minAge": "L'allenatore deve avere almeno {{min}} anni — modifica la data di nascita per continuare.",
     "invalidDate": "Data non valida",
     "invalidDob": "Data di nascita non valida"
@@ -1785,7 +1790,7 @@
         "sponsorPitchActiveSponsor": "Esiste già un accordo di sponsorizzazione attivo.",
         "marketingCampaignUnavailable": "Le campagne marketing sono disponibili solo quando il club è sotto pressione salariale o di cassa.",
         "marketingCampaignCoolingDown": "Il team commerciale ha bisogno di tempo prima di avviare un'altra campagna marketing.",
-        "facilityUpgradeInsufficientFunds": "Fondi insufficienti per questo potenziamento della struttura. Servono €{{amount}}.",
+        "facilityUpgradeInsufficientFunds": "Fondi insufficienti per questo potenziamento della struttura. Servono {{amount}}.",
         "facilityUpgradeOverBudget": "I potenziamenti delle strutture sono bloccati finché il club supera il budget salariale.",
         "facilityUpgradeCritical": "I potenziamenti delle strutture sono bloccati finché il club è sotto forte pressione finanziaria."
       },
@@ -1795,7 +1800,9 @@
         "nationalityRequired": "La nazionalità è obbligatoria.",
         "invalidDobFormat": "Data di nascita non valida. Usa il formato AAAA-MM-GG.",
         "minAge": "L'allenatore deve avere almeno 30 anni.",
-        "invalidDob": "Data di nascita non valida."
+        "invalidDob": "Data di nascita non valida.",
+        "startYearMin": "L'anno di inizio deve essere 2020 o successivo.",
+        "invalidStartPhase": "La fase di inizio selezionata non è valida."
       },
       "transfers": {
         "transferWindowClosed": "La finestra di mercato è chiusa",
