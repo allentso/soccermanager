@@ -2092,7 +2092,7 @@
           }
         },
         "effects": {
-          "accepted": "Acuerdo de patrocinio firmado. Recibirás €{{amount}} por semana durante 12 semanas.",
+          "accepted": "Acuerdo de patrocinio firmado. Recibirás {{amount}} por semana durante 12 semanas.",
           "declined": "Patrocinio rechazado."
         }
       },

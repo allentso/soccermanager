@@ -2062,7 +2062,7 @@
           }
         },
         "effects": {
-          "accepted": "Sponsorenvertrag unterschrieben! Sie erhalten 12 Wochen lang €{{amount}} pro Woche.",
+          "accepted": "Sponsorenvertrag unterschrieben! Sie erhalten 12 Wochen lang {{amount}} pro Woche.",
           "declined": "Sponsorenangebot abgelehnt."
         }
       },

@@ -2062,7 +2062,7 @@
           }
         },
         "effects": {
-          "accepted": "Sponsoring signé ! Vous recevrez €{{amount}} par semaine pendant 12 semaines.",
+          "accepted": "Sponsoring signé ! Vous recevrez {{amount}} par semaine pendant 12 semaines.",
           "declined": "Sponsoring refusé."
         }
       },

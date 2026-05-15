@@ -2079,7 +2079,7 @@
           }
         },
         "effects": {
-          "accepted": "Accordo di sponsorizzazione firmato. Riceverai €{{amount}} a settimana per 12 settimane.",
+          "accepted": "Accordo di sponsorizzazione firmato. Riceverai {{amount}} a settimana per 12 settimane.",
           "declined": "Sponsorizzazione rifiutata."
         }
       },

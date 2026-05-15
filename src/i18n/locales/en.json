@@ -2058,7 +2058,7 @@
           }
         },
         "effects": {
-          "accepted": "Sponsorship deal signed! You will receive €{{amount}}/week for 12 weeks.",
+          "accepted": "Sponsorship deal signed! You will receive {{amount}}/week for 12 weeks.",
           "declined": "Sponsorship declined."
         }
       },

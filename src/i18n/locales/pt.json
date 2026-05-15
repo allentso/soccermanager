@@ -2062,7 +2062,7 @@
           }
         },
         "effects": {
-          "accepted": "Acordo de patrocínio assinado. Vais receber €{{amount}} por semana durante 12 semanas.",
+          "accepted": "Acordo de patrocínio assinado. Vais receber {{amount}} por semana durante 12 semanas.",
           "declined": "Patrocínio recusado."
         }
       },

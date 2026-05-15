@@ -470,8 +470,3 @@ fn choose_rival_interest_target<'a, R: rand::Rng + ?Sized>(
 
     eligible.last().copied()
 }
-
-fn format_money(amount: u64) -> String {
-    crate::currency::format_compact_number(amount, crate::currency::DEFAULT_CURRENCY_CODE)
-        .unwrap_or_else(|| amount.to_string())
-}
