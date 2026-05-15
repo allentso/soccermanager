@@ -9,6 +9,7 @@ const TrainingTab = lazy(() => import("../training/TrainingTab"));
 const ScheduleTab = lazy(() => import("../schedule/ScheduleTab"));
 const FinancesTab = lazy(() => import("../finances/FinancesTab"));
 const TransfersTab = lazy(() => import("../transfers/TransfersTab"));
+const TransferCentreWorldTab = lazy(() => import("../transfers/TransferCentreWorldTab"));
 const PlayersListTab = lazy(() => import("../players/PlayersListTab"));
 const ManagersWorldTab = lazy(() => import("../manager/ManagersWorldTab"));
 const TeamsListTab = lazy(() => import("../teams/TeamsListTab"));
@@ -109,6 +110,14 @@ export default function DashboardTabContent({
         onSelectPlayer={onSelectPlayer}
         onSelectTeam={onSelectTeam}
         onGameUpdate={onGameUpdate}
+      />
+    );
+  } else if (activeTab === "TransferCentre") {
+    content = (
+      <TransferCentreWorldTab
+        gameState={gameState}
+        onSelectPlayer={onSelectPlayer}
+        onSelectTeam={onSelectTeam}
       />
     );
   } else if (activeTab === "Players") {

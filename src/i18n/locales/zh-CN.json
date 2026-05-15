@@ -934,6 +934,23 @@
     "transferFeedbackRejectedHeadline": "他们这一轮直接关闭了谈判。",
     "transferFeedbackRejectedDetail": "该报价未能打动他们。你需要更有力的报价,接近 {{fee}},才能重启正式谈判。"
   },
+  "transferCentreWorld": {
+    "title": "转会中心",
+    "subtitle": "追踪联赛各队的转会传闻与已完成交易",
+    "rumours": "传闻",
+    "completedDeals": "已完成交易",
+    "currentClub": "当前俱乐部",
+    "sourceClub": "来自",
+    "destinationClub": "去向",
+    "reportedOn": "报道时间",
+    "agreedOn": "成交时间",
+    "fee": "转会费",
+    "noRumours": "暂无活跃传闻。",
+    "noCompletedDeals": "暂无已记录的完成交易。",
+    "rumourTag": "传闻",
+    "completedTag": "已完成",
+    "playerButton": "查看 {{player}}"
+  },
   "schedule": {
     "noSchedule": "暂无联赛赛程。",
     "noLeague": "暂无联赛赛程。",

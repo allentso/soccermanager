@@ -58,6 +58,7 @@ const TAB_TRANSLATION_KEYS: Record<string, string> = {
   Staff: "dashboard.staff",
   Finances: "dashboard.finances",
   Transfers: "dashboard.transfers",
+  TransferCentre: "transfers.centre",
   Players: "dashboard.players",
   Teams: "dashboard.teams",
   Tournaments: "dashboard.tournaments",

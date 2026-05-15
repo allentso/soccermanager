@@ -934,6 +934,23 @@
     "transferFeedbackRejectedHeadline": "Fecharam esta ronda.",
     "transferFeedbackRejectedDetail": "A proposta não os mexeu o suficiente. Precisarias de um valor mais forte, mais perto de {{fee}}, para reabrir conversas sérias."
   },
+  "transferCentreWorld": {
+    "title": "Centro de transferências",
+    "subtitle": "Acompanha rumores de mercado e negócios concluídos por toda a liga",
+    "rumours": "Rumores",
+    "completedDeals": "Negócios concluídos",
+    "currentClub": "Clube atual",
+    "sourceClub": "De",
+    "destinationClub": "Para",
+    "reportedOn": "Reportado",
+    "agreedOn": "Fechado",
+    "fee": "Valor",
+    "noRumours": "Sem rumores ativos.",
+    "noCompletedDeals": "Sem negócios concluídos registados.",
+    "rumourTag": "Rumor",
+    "completedTag": "Concluído",
+    "playerButton": "Ver {{player}}"
+  },
   "schedule": {
     "noSchedule": "Nenhum calendário de liga disponível.",
     "noLeague": "Nenhum calendário de liga disponível.",

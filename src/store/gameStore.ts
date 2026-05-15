@@ -81,6 +81,7 @@ export type {
   ManagerCareerEntry,
   ManagerData,
   CompletedTransferData,
+  TransferRumourData,
   FixtureData,
   StandingData,
   LeagueData,

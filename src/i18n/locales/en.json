@@ -934,6 +934,23 @@
     "transferFeedbackRejectedHeadline": "They shut this round down.",
     "transferFeedbackRejectedDetail": "The proposal did not move them enough. You would need a stronger fee, closer to {{fee}}, to reopen serious talks."
   },
+  "transferCentreWorld": {
+    "title": "Transfer Centre",
+    "subtitle": "Track market rumours and completed deals around the league",
+    "rumours": "Rumours",
+    "completedDeals": "Completed deals",
+    "currentClub": "Current club",
+    "sourceClub": "From",
+    "destinationClub": "To",
+    "reportedOn": "Reported",
+    "agreedOn": "Agreed",
+    "fee": "Fee",
+    "noRumours": "No active rumours.",
+    "noCompletedDeals": "No completed deals recorded.",
+    "rumourTag": "Rumour",
+    "completedTag": "Completed",
+    "playerButton": "View {{player}}"
+  },
   "schedule": {
     "noSchedule": "No league schedule available.",
     "noLeague": "No league schedule available.",

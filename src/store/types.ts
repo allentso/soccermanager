@@ -415,6 +415,15 @@ export interface CompletedTransferData {
   fee: number;
 }
 
+export interface TransferRumourData {
+  id: string;
+  date: string;
+  player_id: string;
+  player_name: string;
+  team_id: string;
+  team_name: string;
+}
+
 export interface LeagueData {
   id: string;
   name: string;
@@ -422,6 +431,7 @@ export interface LeagueData {
   fixtures: FixtureData[];
   standings: StandingData[];
   transfer_log?: CompletedTransferData[];
+  transfer_rumours?: TransferRumourData[];
 }
 
 export type SeasonPhase = "Preseason" | "InSeason" | "PostSeason";

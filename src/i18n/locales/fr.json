@@ -934,6 +934,23 @@
     "transferFeedbackRejectedHeadline": "Ils ont fermé cette manche.",
     "transferFeedbackRejectedDetail": "La proposition ne les a pas assez fait bouger. Il faudrait une somme plus forte, plus proche de {{fee}}, pour rouvrir des discussions sérieuses."
   },
+  "transferCentreWorld": {
+    "title": "Centre des transferts",
+    "subtitle": "Suivez les rumeurs du marché et les transactions conclues dans toute la ligue",
+    "rumours": "Rumeurs",
+    "completedDeals": "Transactions conclues",
+    "currentClub": "Club actuel",
+    "sourceClub": "De",
+    "destinationClub": "Vers",
+    "reportedOn": "Signalé",
+    "agreedOn": "Conclu le",
+    "fee": "Montant",
+    "noRumours": "Aucune rumeur active.",
+    "noCompletedDeals": "Aucune transaction conclue enregistrée.",
+    "rumourTag": "Rumeur",
+    "completedTag": "Conclu",
+    "playerButton": "Voir {{player}}"
+  },
   "schedule": {
     "noSchedule": "Aucun calendrier de ligue disponible.",
     "noLeague": "Aucun calendrier de ligue disponible.",
