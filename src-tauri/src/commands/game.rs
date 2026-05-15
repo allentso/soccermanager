@@ -3,7 +3,7 @@ use tauri::State;
 
 use chrono::{Datelike, Duration, TimeZone, Utc};
 
-use db::save_index::SaveEntry;
+use db::{save_index::SaveEntry, save_manager::SaveManager};
 use domain::manager::Manager;
 use domain::stats::StatsState;
 use ofm_core::clock::GameClock;
@@ -12,21 +12,11 @@ use ofm_core::state::StateManager;
 
 use crate::SaveManagerState;
 
-fn load_world_entities_from_path(
-    world_source: &str,
-) -> Result<
-    (
-        Vec<domain::team::Team>,
-        Vec<domain::player::Player>,
-        Vec<domain::staff::Staff>,
-    ),
-    String,
-> {
+fn load_world_data_from_path(world_source: &str) -> Result<ofm_core::generator::WorldData, String> {
     let path = world_source.strip_prefix("file:").unwrap_or(world_source);
     let json =
         std::fs::read_to_string(path).map_err(|_| "be.error.worldReadFileFailed".to_string())?;
-    let world = ofm_core::generator::load_world_from_json(&json)?;
-    Ok((world.teams, world.players, world.staff))
+    ofm_core::generator::load_world_from_json(&json)
 }
 
 fn map_save_manager_lock_error<T>(result: std::sync::LockResult<T>) -> Result<T, String> {
@@ -149,6 +139,147 @@ fn apply_generated_past_history(game: &mut Game, startup_options: &StartupOption
         startup_options.start_year,
         GENERATED_HISTORY_DEPTH_YEARS,
     );
+}
+
+fn load_world_data(world_source: Option<&str>) -> Result<ofm_core::generator::WorldData, String> {
+    match world_source {
+        None | Some("random") => Ok(ofm_core::generator::generate_world_data(None)),
+        Some(source) => load_world_data_from_path(source),
+    }
+}
+
+fn world_start_year(
+    startup_options: &StartupOptions,
+    metadata: &ofm_core::generator::WorldDataMetadata,
+) -> i32 {
+    match metadata.kind {
+        ofm_core::generator::WorldDataKind::HistoricalSnapshot => {
+            metadata.base_year.unwrap_or(startup_options.start_year)
+        }
+        ofm_core::generator::WorldDataKind::RosterBaseline => startup_options.start_year,
+    }
+}
+
+fn game_clock_for_world(
+    startup_options: &StartupOptions,
+    metadata: &ofm_core::generator::WorldDataMetadata,
+) -> GameClock {
+    let start_year = world_start_year(startup_options, metadata);
+    let mut clock = GameClock::new(start_date_for_year(start_year));
+    clock.current_date = match metadata.kind {
+        ofm_core::generator::WorldDataKind::HistoricalSnapshot => metadata
+            .snapshot_date
+            .as_deref()
+            .and_then(|value| chrono::DateTime::parse_from_rfc3339(value).ok())
+            .map(|value| value.with_timezone(&Utc))
+            .unwrap_or_else(|| current_date_for_phase(start_year, startup_options.start_phase)),
+        ofm_core::generator::WorldDataKind::RosterBaseline => {
+            current_date_for_phase(startup_options.start_year, startup_options.start_phase)
+        }
+    };
+    clock
+}
+
+fn build_game_from_world_data(
+    clock: GameClock,
+    manager: Manager,
+    startup_options: &StartupOptions,
+    world: ofm_core::generator::WorldData,
+) -> (Game, StatsState) {
+    let ofm_core::generator::WorldData {
+        teams,
+        players,
+        staff,
+        managers,
+        league,
+        news,
+        stats,
+        world_history,
+        metadata,
+        ..
+    } = world;
+
+    let mut game = Game::new(clock, manager, teams, players, staff, vec![]);
+
+    match metadata.kind {
+        ofm_core::generator::WorldDataKind::HistoricalSnapshot => {
+            game.managers.extend(
+                managers
+                    .into_iter()
+                    .filter(|existing_manager| existing_manager.id != game.manager.id),
+            );
+            game.league = league;
+            game.news = news;
+            game.world_history = world_history;
+            ofm_core::season_context::refresh_game_context(&mut game);
+            (game, stats)
+        }
+        ofm_core::generator::WorldDataKind::RosterBaseline => {
+            apply_generated_past_history(&mut game, startup_options);
+            (game, StatsState::default())
+        }
+    }
+}
+
+fn has_existing_world_context(game: &Game, stats_state: &StatsState) -> bool {
+    game.league.is_some()
+        || !game.news.is_empty()
+        || !stats_state.player_matches.is_empty()
+        || !stats_state.team_matches.is_empty()
+}
+
+fn bootstrap_existing_world_takeover(
+    game: &mut Game,
+    team_id: &str,
+    stats_state: StatsState,
+) -> Result<StatsState, String> {
+    let team = game
+        .teams
+        .iter()
+        .find(|t| t.id == team_id)
+        .ok_or("be.error.teamNotFound".to_string())?;
+    let team_name = team.name.clone();
+
+    ofm_core::ai_hiring::seed_ai_managers(game);
+
+    let takeover_date = game.clock.current_date.format("%Y-%m-%d").to_string();
+    let incumbent_manager_id = game
+        .teams
+        .iter()
+        .find(|candidate| candidate.id == team_id)
+        .and_then(|candidate| candidate.manager_id.clone());
+
+    if incumbent_manager_id.as_deref() != Some(game.manager.id.as_str()) {
+        let fired = ofm_core::firing::fire_ai_manager_for_team(game, team_id, &takeover_date);
+        if !fired {
+            if let Some(team) = game
+                .teams
+                .iter_mut()
+                .find(|candidate| candidate.id == team_id)
+            {
+                team.manager_id = None;
+            }
+        }
+        ofm_core::job_offers::hire_manager(game, team_id, &takeover_date)?;
+    }
+
+    let staff_msg = ofm_core::messages::staff_advice_message(&team_name, team_id, &takeover_date);
+    game.messages.push(staff_msg);
+    ofm_core::player_events::generate_takeover_contract_review_message(game);
+    ofm_core::season_context::refresh_game_context(game);
+
+    Ok(stats_state)
+}
+
+fn create_new_save(
+    save_manager: &mut SaveManager,
+    game: &Game,
+    stats_state: &StatsState,
+    save_name: &str,
+) -> Result<String, String> {
+    let save_id = save_manager.create_save(game, save_name)?;
+    save_manager.save_stats_state(stats_state, &save_id)?;
+    Ok(save_id)
 }
 
 fn bootstrap_season_start(game: &mut Game, team_id: &str) -> Result<StatsState, String> {
@@ -292,7 +423,12 @@ fn bootstrap_team_selection(
     game: &mut Game,
     team_id: &str,
     start_phase: StartPhase,
+    stats_state: StatsState,
 ) -> Result<StatsState, String> {
+    if has_existing_world_context(game, &stats_state) {
+        return bootstrap_existing_world_takeover(game, team_id, stats_state);
+    }
+
     match start_phase {
         StartPhase::SeasonStart => bootstrap_season_start(game, team_id),
         StartPhase::MidSeason => bootstrap_midseason_takeover(game, team_id),
@@ -357,20 +493,10 @@ pub async fn start_new_game(
         world_source
     );
 
-    let mut clock = GameClock::new(start_date_for_year(startup_options.start_year));
-    clock.current_date =
-        current_date_for_phase(startup_options.start_year, startup_options.start_phase);
-
-    // Load world based on source
-    let world_source = world_source.unwrap_or_else(|| "random".to_string());
-    let (teams, players, staff) = if world_source == "random" {
-        ofm_core::generator::generate_world(None)
-    } else {
-        load_world_entities_from_path(&world_source)?
-    };
-
-    let mut new_game = Game::new(clock, manager, teams, players, staff, vec![]);
-    apply_generated_past_history(&mut new_game, &startup_options);
+    let world = load_world_data(world_source.as_deref())?;
+    let clock = game_clock_for_world(&startup_options, &world.metadata);
+    let (new_game, stats_state) =
+        build_game_from_world_data(clock, manager, &startup_options, world);
 
     info!(
         "[cmd] start_new_game: world generated with {} teams, {} players, {} staff",
@@ -379,7 +505,7 @@ pub async fn start_new_game(
         new_game.staff.len()
     );
     state.set_game(new_game.clone());
-    state.set_stats_state(StatsState::default());
+    state.set_stats_state(stats_state);
     Ok(new_game)
 }
 
@@ -394,16 +520,20 @@ pub async fn select_team(
     let mut game = state
         .get_game(|g: &Game| g.clone())
         .ok_or("be.error.noActiveGameSession".to_string())?;
+    let current_stats_state = state
+        .get_stats_state(|stats| stats.clone())
+        .unwrap_or_default();
 
     let start_phase = start_phase_for_game(&game);
-    let stats_state = bootstrap_team_selection(&mut game, &team_id, start_phase)?;
+    let stats_state =
+        bootstrap_team_selection(&mut game, &team_id, start_phase, current_stats_state)?;
 
     // Save to new per-save DB
     let manager_name = format!("{} {}", game.manager.first_name, game.manager.last_name);
     let save_name = default_save_name(&manager_name);
 
     let mut sm = map_save_manager_lock_error(sm_state.0.lock())?;
-    let save_id = sm.create_save(&game, &save_name)?;
+    let save_id = create_new_save(&mut sm, &game, &stats_state, &save_name)?;
     state.set_save_id(save_id);
 
     state.set_game(game.clone());
@@ -510,12 +640,24 @@ pub async fn exit_to_menu(
 #[cfg(test)]
 mod tests {
     use super::{
-        apply_generated_past_history, bootstrap_team_selection, current_date_for_phase,
-        load_world_entities_from_path, map_save_manager_lock_error, normalize_startup_options,
-        preseason_league_year, preseason_season_start, start_date_for_year, RawStartupOptions,
-        StartPhase, StartupOptions,
+        apply_generated_past_history, bootstrap_team_selection, build_game_from_world_data,
+        create_new_save, current_date_for_phase, game_clock_for_world, load_world_data_from_path,
+        map_save_manager_lock_error, normalize_startup_options, preseason_league_year,
+        preseason_season_start, start_date_for_year, RawStartupOptions, StartPhase, StartupOptions,
     };
-    use ofm_core::{clock::GameClock, game::Game, season_context::refresh_game_context};
+    use db::save_manager::SaveManager;
+    use domain::{
+        league::{FixtureCompetition, League},
+        news::{NewsArticle, NewsCategory},
+        stats::{PlayerMatchStatsRecord, TeamMatchStatsRecord},
+        world_history::{HistoricalSeasonAwardsRecord, WorldHistoryArchive},
+    };
+    use ofm_core::{
+        clock::GameClock,
+        game::Game,
+        generator::{WorldData, WorldDataKind, WorldDataMetadata},
+        season_context::refresh_game_context,
+    };
     use std::sync::Mutex;
 
     fn default_player_attributes() -> domain::player::PlayerAttributes {
@@ -642,11 +784,147 @@ mod tests {
     }
 
     #[test]
-    fn load_world_entities_from_path_returns_read_file_key_when_missing() {
+    fn load_world_data_from_path_returns_read_file_key_when_missing() {
         let result =
-            load_world_entities_from_path("file:Z:/definitely-missing/openfootmanager-world.json");
+            load_world_data_from_path("file:Z:/definitely-missing/openfootmanager-world.json");
 
         assert_eq!(result.unwrap_err(), "be.error.worldReadFileFailed");
+    }
+
+    fn sample_stats_state() -> domain::stats::StatsState {
+        domain::stats::StatsState {
+            player_matches: vec![PlayerMatchStatsRecord {
+                fixture_id: "fixture-1".to_string(),
+                season: 2031,
+                matchday: 12,
+                date: "2031-11-20".to_string(),
+                competition: FixtureCompetition::League,
+                player_id: "team1-player-0".to_string(),
+                team_id: "team1".to_string(),
+                opponent_team_id: "team2".to_string(),
+                home_team_id: "team1".to_string(),
+                away_team_id: "team2".to_string(),
+                home_goals: 2,
+                away_goals: 1,
+                minutes_played: 90,
+                goals: 1,
+                assists: 0,
+                shots: 4,
+                shots_on_target: 2,
+                passes_completed: 30,
+                passes_attempted: 35,
+                tackles_won: 1,
+                interceptions: 1,
+                fouls_committed: 0,
+                yellow_cards: 0,
+                red_cards: 0,
+                rating: 7.5,
+            }],
+            team_matches: vec![TeamMatchStatsRecord {
+                fixture_id: "fixture-1".to_string(),
+                season: 2031,
+                matchday: 12,
+                date: "2031-11-20".to_string(),
+                competition: FixtureCompetition::League,
+                team_id: "team1".to_string(),
+                opponent_team_id: "team2".to_string(),
+                home_team_id: "team1".to_string(),
+                away_team_id: "team2".to_string(),
+                goals_for: 2,
+                goals_against: 1,
+                possession_pct: 53,
+                shots: 11,
+                shots_on_target: 6,
+                passes_completed: 310,
+                passes_attempted: 360,
+                tackles_won: 15,
+                interceptions: 9,
+                fouls_committed: 7,
+                yellow_cards: 1,
+                red_cards: 0,
+            }],
+        }
+    }
+
+    fn make_historical_snapshot_world() -> WorldData {
+        let base_game = make_bootstrap_test_game();
+        let mut league = League::new(
+            "league-1".to_string(),
+            "Premier Division".to_string(),
+            2031,
+            &["team1".to_string(), "team2".to_string()],
+        );
+        league.standings = vec![
+            domain::league::StandingEntry {
+                team_id: "team1".to_string(),
+                played: 12,
+                won: 7,
+                drawn: 3,
+                lost: 2,
+                goals_for: 18,
+                goals_against: 10,
+                points: 24,
+            },
+            domain::league::StandingEntry {
+                team_id: "team2".to_string(),
+                played: 12,
+                won: 5,
+                drawn: 2,
+                lost: 5,
+                goals_for: 14,
+                goals_against: 15,
+                points: 17,
+            },
+        ];
+
+        let mut incumbent = domain::manager::Manager::new(
+            "mgr-incumbent".to_string(),
+            "Jordan".to_string(),
+            "Incumbent".to_string(),
+            "1974-01-01".to_string(),
+            "England".to_string(),
+        );
+        incumbent.hire("team1".to_string());
+
+        let mut teams = base_game.teams.clone();
+        teams[0].manager_id = Some(incumbent.id.clone());
+
+        let mut archive = WorldHistoryArchive::default();
+        archive.record_season_awards(HistoricalSeasonAwardsRecord {
+            season: 2030,
+            golden_boot: None,
+            assist_king: None,
+            player_of_year: None,
+            clean_sheet_king: None,
+            most_appearances: None,
+            young_player: None,
+            manager_of_season: None,
+        });
+
+        WorldData {
+            name: "Historical Snapshot".to_string(),
+            description: "Season already underway".to_string(),
+            teams,
+            players: base_game.players,
+            staff: base_game.staff,
+            managers: vec![incumbent],
+            league: Some(league),
+            news: vec![NewsArticle::new(
+                "news-1".to_string(),
+                "Season underway".to_string(),
+                "The campaign has begun.".to_string(),
+                "World Feed".to_string(),
+                "2031-11-20".to_string(),
+                NewsCategory::StandingsUpdate,
+            )],
+            stats: sample_stats_state(),
+            world_history: archive,
+            metadata: WorldDataMetadata {
+                kind: WorldDataKind::HistoricalSnapshot,
+                base_year: Some(2031),
+                snapshot_date: Some("2031-11-20T00:00:00Z".to_string()),
+            },
+        }
     }
 
     #[test]
@@ -995,11 +1273,115 @@ mod tests {
     }
 
     #[test]
+    fn historical_snapshot_startup_preserves_league_news_history_and_stats() {
+        let manager = domain::manager::Manager::new(
+            "mgr-user".to_string(),
+            "Alex".to_string(),
+            "Manager".to_string(),
+            "1980-01-01".to_string(),
+            "England".to_string(),
+        );
+        let startup_options = StartupOptions {
+            start_year: 2032,
+            start_phase: StartPhase::MidSeason,
+        };
+        let world = make_historical_snapshot_world();
+        let clock = game_clock_for_world(&startup_options, &world.metadata);
+
+        let (game, stats_state) =
+            build_game_from_world_data(clock, manager, &startup_options, world);
+
+        assert_eq!(
+            game.clock.start_date.to_rfc3339(),
+            "2031-07-01T00:00:00+00:00"
+        );
+        assert_eq!(
+            game.clock.current_date.to_rfc3339(),
+            "2031-11-20T00:00:00+00:00"
+        );
+        assert_eq!(game.league.as_ref().map(|league| league.season), Some(2031));
+        assert_eq!(game.news.len(), 1);
+        assert_eq!(game.world_history.season_awards.len(), 1);
+        assert_eq!(stats_state.team_matches.len(), 1);
+        assert_eq!(stats_state.player_matches.len(), 1);
+        assert!(game
+            .managers
+            .iter()
+            .any(|manager| manager.id == "mgr-incumbent"));
+    }
+
+    #[test]
+    fn bootstrap_team_selection_preserves_existing_snapshot_state() {
+        let manager = domain::manager::Manager::new(
+            "mgr-user".to_string(),
+            "Alex".to_string(),
+            "Manager".to_string(),
+            "1980-01-01".to_string(),
+            "England".to_string(),
+        );
+        let startup_options = StartupOptions {
+            start_year: 2032,
+            start_phase: StartPhase::MidSeason,
+        };
+        let world = make_historical_snapshot_world();
+        let clock = game_clock_for_world(&startup_options, &world.metadata);
+        let (mut game, stats_state) =
+            build_game_from_world_data(clock, manager, &startup_options, world);
+
+        let updated_stats =
+            bootstrap_team_selection(&mut game, "team1", StartPhase::MidSeason, stats_state)
+                .unwrap();
+
+        assert_eq!(game.league.as_ref().map(|league| league.season), Some(2031));
+        assert_eq!(updated_stats.team_matches.len(), 1);
+        assert_eq!(updated_stats.player_matches.len(), 1);
+        assert_eq!(
+            game.teams
+                .iter()
+                .find(|team| team.id == "team1")
+                .and_then(|team| team.manager_id.as_deref()),
+            Some("mgr-user")
+        );
+        assert!(game
+            .news
+            .iter()
+            .any(|article| article.category == NewsCategory::ManagerialChange));
+    }
+
+    #[test]
+    fn create_new_save_persists_stats_state_on_first_save() {
+        let unique = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let saves_dir = std::env::temp_dir().join(format!("ofm-game-command-tests-{}", unique));
+        std::fs::create_dir_all(&saves_dir).unwrap();
+        let mut save_manager = SaveManager::init(&saves_dir).unwrap();
+        let game = make_bootstrap_test_game();
+        let stats_state = sample_stats_state();
+
+        let save_id =
+            create_new_save(&mut save_manager, &game, &stats_state, "Stats Career").unwrap();
+        let loaded_stats = save_manager.load_stats_state(&save_id).unwrap();
+
+        assert_eq!(loaded_stats.team_matches.len(), 1);
+        assert_eq!(loaded_stats.player_matches.len(), 1);
+        assert_eq!(loaded_stats.team_matches[0].team_id, "team1");
+
+        std::fs::remove_dir_all(&saves_dir).unwrap();
+    }
+
+    #[test]
     fn bootstrap_team_selection_midseason_populates_half_season_state() {
         let mut game = make_bootstrap_test_game();
 
-        let stats_state =
-            bootstrap_team_selection(&mut game, "team1", StartPhase::MidSeason).unwrap();
+        let stats_state = bootstrap_team_selection(
+            &mut game,
+            "team1",
+            StartPhase::MidSeason,
+            domain::stats::StatsState::default(),
+        )
+        .unwrap();
 
         let league = game.league.as_ref().unwrap();
         let completed = league

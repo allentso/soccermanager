@@ -105,7 +105,7 @@ export default function WorldSelect({
               <div className="flex-1 min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <p className={`font-heading font-bold text-sm uppercase tracking-wide ${selectedWorldId === db.id ? "text-primary-600 dark:text-primary-400" : "text-gray-800 dark:text-gray-200"
-                  }`}>{db.id === "random" ? t('worldSelect.randomWorld') : resolveBackendText(db.name, db.name)}</p>
+                    }`}>{db.id === "random" ? t('worldSelect.randomWorld') : resolveBackendText(db.name, db.name)}</p>
                   <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-heading font-bold uppercase tracking-[0.18em] text-gray-500 dark:bg-navy-600 dark:text-gray-300">
                     {t(`worldSelect.historyMode.${worldHistoryMode(db)}`)}
                   </span>
@@ -143,7 +143,9 @@ export default function WorldSelect({
           </span>
         </div>
         <p className="mt-2 text-xs uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
-          {t(`worldSelect.summary.${startPhase}.${historyMode}`)}
+          {t(`worldSelect.summary.${startPhase}.${historyMode}`, {
+            year: startYear,
+          })}
         </p>
       </div>
 

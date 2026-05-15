@@ -6,7 +6,13 @@ import WorldSelect from "./WorldSelect";
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
-    t: (key: string) => key,
+    t: (key: string, options?: { year?: number }) => {
+      if (key === "worldSelect.summary.midSeason.generated") {
+        return `worldSelect.summary.midSeason.generated:${options?.year ?? "missing"}`;
+      }
+
+      return key;
+    },
   }),
 }));
 
@@ -52,7 +58,9 @@ describe("WorldSelect", () => {
     expect(
       screen.getAllByText("worldSelect.historyMode.generated"),
     ).toHaveLength(2);
-    expect(screen.getByText("worldSelect.summary.midSeason.generated")).toBeInTheDocument();
+    expect(
+      screen.getByText("worldSelect.summary.midSeason.generated:2032"),
+    ).toBeInTheDocument();
     expect(screen.getByText("worldSelect.summary.startYear")).toBeInTheDocument();
   });
 });

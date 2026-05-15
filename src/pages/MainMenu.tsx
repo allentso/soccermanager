@@ -399,21 +399,10 @@ export default function MainMenu() {
       ) {
         // For imported files, write to a temp location first
         const json = sessionStorage.getItem("imported_world_json")!;
-        // Write it via a temp file approach — just pass "random" and override
-        // Actually, better to write the file to user databases dir first
         const path = await invoke<string>("write_temp_database", {
           json,
-        }).catch(() => null);
-        if (path) {
-          worldSource = `file:${path}`;
-        } else {
-          // Fallback: pass the imported data inline — won't work with current backend
-          // So fall back to random
-          worldSource = undefined;
-          console.warn(
-            "Could not write imported database, falling back to random",
-          );
-        }
+        });
+        worldSource = `file:${path}`;
       }
 
       const game = await invoke<GameStateData>("start_new_game", {
