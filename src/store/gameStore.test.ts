@@ -122,6 +122,7 @@ describe("useGameStore", () => {
             morale: 100,
             injury: null,
             team_id: "team1",
+            retired: false,
             contract_end: null,
             wage: 0,
             market_value: 0,

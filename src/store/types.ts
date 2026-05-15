@@ -167,6 +167,7 @@ export interface PlayerData {
   morale: number;
   injury: null | { name: string; days_remaining: number };
   team_id: string | null;
+  retired: boolean;
   squad_role?: PlayerSquadRole;
   contract_end: string | null;
   wage: number;

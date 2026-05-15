@@ -33,12 +33,12 @@ pub fn upsert_player(conn: &Connection, p: &Player) -> Result<(), String> {
     conn.execute(
         "INSERT OR REPLACE INTO players
          (id, match_name, full_name, date_of_birth, nationality, football_nation, birth_country, position,
-          attributes, condition, morale, injury, team_id, traits,
+          attributes, condition, morale, injury, team_id, retired, traits,
           contract_end, wage, market_value, stats, career,
           transfer_listed, loan_listed, transfer_offers, alternate_positions,
           natural_position, training_focus, morale_core, footedness, weak_foot, fitness, squad_role,
           ovr, potential)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29, ?30, ?31, ?32)",
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29, ?30, ?31, ?32, ?33)",
         params![
             p.id,
             p.match_name,
@@ -53,6 +53,7 @@ pub fn upsert_player(conn: &Connection, p: &Player) -> Result<(), String> {
             p.morale,
             injury_json,
             p.team_id,
+            p.retired as i32,
             traits_json,
             p.contract_end,
             p.wage,
@@ -141,7 +142,7 @@ pub fn load_all_players(conn: &Connection) -> Result<Vec<Player>, String> {
     let mut stmt = conn
         .prepare(
             "SELECT id, match_name, full_name, date_of_birth, nationality, football_nation, birth_country, position,
-                    attributes, condition, morale, injury, team_id, traits,
+                    attributes, condition, morale, injury, team_id, retired, traits,
                     contract_end, wage, market_value, stats, career,
                     transfer_listed, loan_listed, transfer_offers, alternate_positions,
                     natural_position, training_focus, morale_core, footedness, weak_foot, fitness, squad_role,
@@ -166,7 +167,7 @@ pub fn load_players_by_team(conn: &Connection, team_id: &str) -> Result<Vec<Play
     let mut stmt = conn
         .prepare(
             "SELECT id, match_name, full_name, date_of_birth, nationality, football_nation, birth_country, position,
-                    attributes, condition, morale, injury, team_id, traits,
+                    attributes, condition, morale, injury, team_id, retired, traits,
                     contract_end, wage, market_value, stats, career,
                     transfer_listed, loan_listed, transfer_offers, alternate_positions,
                     natural_position, training_focus, morale_core, footedness, weak_foot, fitness, squad_role,
@@ -190,23 +191,24 @@ fn row_to_player(row: &rusqlite::Row) -> rusqlite::Result<Player> {
     let position_str: String = row.get(7)?;
     let attrs_json: String = row.get(8)?;
     let injury_json: Option<String> = row.get(11)?;
-    let traits_json: String = row.get(13)?;
-    let stats_json: String = row.get(17)?;
-    let career_json: String = row.get(18)?;
-    let offers_json: String = row.get(21)?;
-    let alt_positions_json: String = row.get(22)?;
-    let natural_position_str: String = row.get(23)?;
-    let training_focus_str: Option<String> = row.get(24)?;
-    let morale_core_json: String = row.get(25)?;
-    let footedness_str: String = row.get(26)?;
-    let weak_foot: u8 = row.get(27)?;
-    let fitness: u8 = row.get(28).unwrap_or(75); // default 75 for saves before V13
-    let squad_role_str: String = row.get(29).unwrap_or_else(|_| "Senior".to_string());
-    let ovr: u8 = row.get::<_, i64>(30).unwrap_or(0) as u8; // default 0 for saves before V20
-    let potential: u8 = row.get::<_, i64>(31).unwrap_or(0) as u8; // default 0 for saves before V20
-    let transfer_listed_int: i32 = row.get(19)?;
-    let loan_listed_int: i32 = row.get(20)?;
-    let market_value_i64: i64 = row.get(16)?;
+    let retired: i32 = row.get(13).unwrap_or(0);
+    let traits_json: String = row.get(14)?;
+    let stats_json: String = row.get(18)?;
+    let career_json: String = row.get(19)?;
+    let offers_json: String = row.get(22)?;
+    let alt_positions_json: String = row.get(23)?;
+    let natural_position_str: String = row.get(24)?;
+    let training_focus_str: Option<String> = row.get(25)?;
+    let morale_core_json: String = row.get(26)?;
+    let footedness_str: String = row.get(27)?;
+    let weak_foot: u8 = row.get(28)?;
+    let fitness: u8 = row.get(29).unwrap_or(75); // default 75 for saves before V13
+    let squad_role_str: String = row.get(30).unwrap_or_else(|_| "Senior".to_string());
+    let ovr: u8 = row.get::<_, i64>(31).unwrap_or(0) as u8; // default 0 for saves before V20
+    let potential: u8 = row.get::<_, i64>(32).unwrap_or(0) as u8; // default 0 for saves before V20
+    let transfer_listed_int: i32 = row.get(20)?;
+    let loan_listed_int: i32 = row.get(21)?;
+    let market_value_i64: i64 = row.get(17)?;
 
     let position = parse_position(&position_str);
     let natural_position = if natural_position_str.is_empty() {
@@ -254,12 +256,13 @@ fn row_to_player(row: &rusqlite::Row) -> rusqlite::Result<Player> {
         fitness,
         injury: injury_json.and_then(|j| serde_json::from_str(&j).ok()),
         team_id: row.get(12)?,
+        retired: retired != 0,
         squad_role: parse_squad_role(&squad_role_str),
         traits: serde_json::from_str(&traits_json).unwrap_or_default(),
         ovr,
         potential,
-        contract_end: row.get(14)?,
-        wage: row.get(15)?,
+        contract_end: row.get(15)?,
+        wage: row.get(16)?,
         market_value: market_value_i64 as u64,
         stats: serde_json::from_str(&stats_json).unwrap_or_default(),
         career: serde_json::from_str(&career_json).unwrap_or_default(),
@@ -639,6 +642,22 @@ mod tests {
         upsert_player(db.conn(), &player).unwrap();
         let loaded = load_all_players(db.conn()).unwrap();
         assert_eq!(loaded[0].fitness, 75);
+    }
+
+    #[test]
+    fn test_player_retired_roundtrip() {
+        let db = test_db();
+        let mut player = sample_player("p-retired", None);
+        player.retired = true;
+
+        upsert_player(db.conn(), &player).unwrap();
+        let loaded = load_all_players(db.conn()).unwrap();
+        let stored = loaded
+            .iter()
+            .find(|candidate| candidate.id == "p-retired")
+            .expect("stored player should exist");
+
+        assert!(stored.retired);
     }
 
     #[test]

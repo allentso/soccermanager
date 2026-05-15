@@ -164,6 +164,7 @@ function createGameState(): GameStateData {
         morale: 75,
         injury: null,
         team_id: "team-1",
+        retired: false,
         contract_end: "2026-10-15",
         wage: 12000,
         market_value: 350000,

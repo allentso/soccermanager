@@ -286,6 +286,7 @@ function createProspect(overrides: Partial<GameStateData["players"][number]> = {
     morale: 74,
     injury: null,
     team_id: null,
+    retired: false,
     squad_role: "Youth" as const,
     contract_end: "2028-06-30",
     wage: 950,

@@ -908,6 +908,23 @@ mod tests {
     }
 
     #[test]
+    fn test_create_and_load_game_preserves_retired_player_state() {
+        let dir = tempfile::tempdir().unwrap();
+        let saves_dir = dir.path().join("saves");
+
+        let mut sm = SaveManager::init(&saves_dir).unwrap();
+        let mut game = sample_game();
+        game.players[0].retired = true;
+        game.players[0].team_id = None;
+
+        let save_id = sm.create_save(&game, "Retired Career").unwrap();
+        let loaded = sm.load_game(&save_id).unwrap();
+
+        assert!(loaded.players[0].retired);
+        assert_eq!(loaded.players[0].team_id, None);
+    }
+
+    #[test]
     fn test_load_game_upgrades_football_identity_fields() {
         let dir = tempfile::tempdir().unwrap();
         let saves_dir = dir.path().join("saves");
