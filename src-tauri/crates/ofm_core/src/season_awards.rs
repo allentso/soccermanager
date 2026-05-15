@@ -125,7 +125,10 @@ fn build_manager_award_contexts(game: &Game) -> Vec<ManagerAwardContext<'_>> {
 
     if let Some(league) = &game.league {
         for (index, standing) in league.sorted_standings().into_iter().enumerate() {
-            standings_by_team.insert(standing.team_id.clone(), ((index + 1) as u32, standing.points));
+            standings_by_team.insert(
+                standing.team_id.clone(),
+                ((index + 1) as u32, standing.points),
+            );
         }
     }
 
@@ -134,13 +137,14 @@ fn build_manager_award_contexts(game: &Game) -> Vec<ManagerAwardContext<'_>> {
         .filter_map(|manager| {
             let team_id = manager.team_id.clone()?;
             let team = game.teams.iter().find(|team| team.id == team_id)?;
-            let (league_position, points) = if let Some((league_position, points)) = standings_by_team.get(&team_id) {
-                (*league_position, *points)
-            } else {
-                let latest_record = team.history.iter().max_by_key(|record| record.season)?;
-                let points = latest_record.won * 3 + latest_record.drawn;
-                (latest_record.league_position, points)
-            };
+            let (league_position, points) =
+                if let Some((league_position, points)) = standings_by_team.get(&team_id) {
+                    (*league_position, *points)
+                } else {
+                    let latest_record = team.history.iter().max_by_key(|record| record.season)?;
+                    let points = latest_record.won * 3 + latest_record.drawn;
+                    (latest_record.league_position, points)
+                };
 
             Some(ManagerAwardContext {
                 manager,
@@ -171,8 +175,18 @@ fn top_manager_awards(contexts: &[ManagerAwardContext<'_>]) -> Vec<ManagerAwardE
 
         left_position
             .cmp(&right_position)
-            .then_with(|| right.value.partial_cmp(&left.value).unwrap_or(std::cmp::Ordering::Equal))
-            .then_with(|| right.win_rate.partial_cmp(&left.win_rate).unwrap_or(std::cmp::Ordering::Equal))
+            .then_with(|| {
+                right
+                    .value
+                    .partial_cmp(&left.value)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
+            .then_with(|| {
+                right
+                    .win_rate
+                    .partial_cmp(&left.win_rate)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
             .then_with(|| left.manager_name.cmp(&right.manager_name))
     });
     awards.truncate(5);
@@ -594,7 +608,8 @@ mod tests {
             },
         );
 
-        let awards = compute_season_awards(&make_game(vec![retired_star, active_player], vec![team]));
+        let awards =
+            compute_season_awards(&make_game(vec![retired_star, active_player], vec![team]));
 
         assert_eq!(awards.golden_boot[0].player_id, "active-star");
         assert_eq!(awards.player_of_year[0].player_id, "active-star");
