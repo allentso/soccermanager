@@ -193,6 +193,7 @@ pub fn process_end_of_season(game: &mut Game) -> EndOfSeasonSummary {
             .map(|e| e.value)
             .unwrap_or(0.0),
         total_teams: final_standings.len() as u32,
+        season_awards: awards.clone(),
     };
 
     // 4. Record team season history
@@ -477,4 +478,5 @@ pub struct EndOfSeasonSummary {
     pub poty_player: String,
     pub poty_rating: f64,
     pub total_teams: u32,
+    pub season_awards: crate::season_awards::SeasonAwards,
 }

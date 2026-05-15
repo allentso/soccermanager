@@ -1039,8 +1039,11 @@
         "assists": "assist.",
         "rating": "rating",
         "cleanSheets": "jogos sem sofrer",
-        "apps": "jogos"
-      }
+        "apps": "jogos",
+        "winRate": "taxa de vitorias"
+      },
+      "managerOfSeasonTitle": "Treinador da Epoca",
+      "managerOfSeasonSubtitle": "A melhor campanha no banco"
     },
     "noGoals": "Nenhum golo marcado ainda."
   },
@@ -2619,5 +2622,17 @@
     "noJobs": "Nenhuma posição disponível no momento.",
     "leaguePosition": "Última temporada: {{position}}",
     "refresh": "Verificar novas vagas"
+  },
+  "awardsCeremony": {
+    "title": "Cerimonia de Premios",
+    "subtitle": "Epoca {{season}} em {{league}}",
+    "managerOfSeason": "Treinador da Epoca",
+    "goldenBoot": "Bota de Ouro",
+    "playerOfYear": "Jogador do Ano",
+    "continue": "Continuar para o painel",
+    "back": "Voltar as noticias",
+    "goals": "Golos",
+    "rating": "Classificacao",
+    "winRate": "Taxa de vitorias"
   }
 }

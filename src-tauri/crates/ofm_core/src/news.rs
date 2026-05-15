@@ -413,6 +413,7 @@ pub fn season_awards_article(
 ) -> Option<NewsArticle> {
     let golden_boot = awards.golden_boot.first();
     let poty = awards.player_of_year.first();
+    let manager = awards.manager_of_season.first();
     if golden_boot.is_none() && poty.is_none() {
         return None;
     }
@@ -428,6 +429,11 @@ pub fn season_awards_article(
         i18n_params.insert("potyWinner".to_string(), p.player_name.clone());
         i18n_params.insert("potyTeam".to_string(), p.team_name.clone());
         i18n_params.insert("potyRating".to_string(), format!("{:.1}", p.value));
+    }
+    if let Some(manager) = manager {
+        i18n_params.insert("managerWinner".to_string(), manager.manager_name.clone());
+        i18n_params.insert("managerTeam".to_string(), manager.team_name.clone());
+        i18n_params.insert("managerWinRate".to_string(), format!("{:.0}", manager.win_rate));
     }
 
     let body_key = match (golden_boot, poty) {
@@ -445,6 +451,11 @@ pub fn season_awards_article(
         }
         if !entry.team_id.is_empty() && !team_ids.contains(&entry.team_id) {
             team_ids.push(entry.team_id.clone());
+        }
+    }
+    if let Some(manager) = manager {
+        if !manager.team_id.is_empty() && !team_ids.contains(&manager.team_id) {
+            team_ids.push(manager.team_id.clone());
         }
     }
 
@@ -756,6 +767,7 @@ mod tests {
             clean_sheet_king: vec![],
             most_appearances: vec![],
             young_player: vec![],
+            manager_of_season: vec![],
         }
     }
 

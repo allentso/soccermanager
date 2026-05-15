@@ -1058,8 +1058,11 @@
         "assists": "assist",
         "rating": "voto",
         "cleanSheets": "clean sheet",
-        "apps": "pres."
-      }
+        "apps": "pres.",
+        "winRate": "% vittorie"
+      },
+      "managerOfSeasonTitle": "Allenatore della Stagione",
+      "managerOfSeasonSubtitle": "La miglior annata in panchina"
     },
     "noGoals": "Ancora nessun gol segnato."
   },
@@ -2619,5 +2622,17 @@
     "noJobs": "Nessuna posizione disponibile al momento.",
     "leaguePosition": "Ultima stagione: {{position}}",
     "refresh": "Cerca nuove posizioni"
+  },
+  "awardsCeremony": {
+    "title": "Cerimonia dei Premi",
+    "subtitle": "Stagione {{season}} in {{league}}",
+    "managerOfSeason": "Allenatore della Stagione",
+    "goldenBoot": "Scarpa d'Oro",
+    "playerOfYear": "Giocatore dell'Anno",
+    "continue": "Continua alla dashboard",
+    "back": "Torna alle notizie",
+    "goals": "Gol",
+    "rating": "Valutazione",
+    "winRate": "Percentuale vittorie"
   }
 }

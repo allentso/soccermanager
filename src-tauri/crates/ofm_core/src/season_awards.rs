@@ -1,10 +1,11 @@
 use crate::game::Game;
 use chrono::{Datelike, NaiveDate};
+use domain::manager::Manager;
 use domain::player::{Player, Position};
 use serde::{Deserialize, Serialize};
 
 /// A single award entry (player + stat value).
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct AwardEntry {
     pub player_id: String,
     pub player_name: String,
@@ -13,8 +14,18 @@ pub struct AwardEntry {
     pub value: f64,
 }
 
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ManagerAwardEntry {
+    pub manager_id: String,
+    pub manager_name: String,
+    pub team_id: String,
+    pub team_name: String,
+    pub value: f64,
+    pub win_rate: f64,
+}
+
 /// Season award standings — top 5 in each category.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct SeasonAwards {
     pub golden_boot: Vec<AwardEntry>,      // Top scorers
     pub assist_king: Vec<AwardEntry>,      // Top assists
@@ -22,6 +33,7 @@ pub struct SeasonAwards {
     pub clean_sheet_king: Vec<AwardEntry>, // Most clean sheets (GKs only)
     pub most_appearances: Vec<AwardEntry>,
     pub young_player: Vec<AwardEntry>, // Best avg rating, age <= 21
+    pub manager_of_season: Vec<ManagerAwardEntry>,
 }
 
 struct PlayerAwardContext<'a> {
@@ -29,6 +41,15 @@ struct PlayerAwardContext<'a> {
     team_id: String,
     team_name: String,
     age: i32,
+}
+
+struct ManagerAwardContext<'a> {
+    manager: &'a Manager,
+    team_id: String,
+    team_name: String,
+    league_position: u32,
+    points: u32,
+    win_rate: f64,
 }
 
 fn free_agent_team_name() -> String {
@@ -88,6 +109,76 @@ fn award_entry<'a>(context: &PlayerAwardContext<'a>, value: f64) -> AwardEntry {
     }
 }
 
+fn manager_award_entry<'a>(context: &ManagerAwardContext<'a>) -> ManagerAwardEntry {
+    ManagerAwardEntry {
+        manager_id: context.manager.id.clone(),
+        manager_name: context.manager.full_name(),
+        team_id: context.team_id.clone(),
+        team_name: context.team_name.clone(),
+        value: context.points as f64,
+        win_rate: context.win_rate,
+    }
+}
+
+fn build_manager_award_contexts(game: &Game) -> Vec<ManagerAwardContext<'_>> {
+    let mut standings_by_team = std::collections::HashMap::new();
+
+    if let Some(league) = &game.league {
+        for (index, standing) in league.sorted_standings().into_iter().enumerate() {
+            standings_by_team.insert(standing.team_id.clone(), ((index + 1) as u32, standing.points));
+        }
+    }
+
+    game.managers
+        .iter()
+        .filter_map(|manager| {
+            let team_id = manager.team_id.clone()?;
+            let team = game.teams.iter().find(|team| team.id == team_id)?;
+            let (league_position, points) = if let Some((league_position, points)) = standings_by_team.get(&team_id) {
+                (*league_position, *points)
+            } else {
+                let latest_record = team.history.iter().max_by_key(|record| record.season)?;
+                let points = latest_record.won * 3 + latest_record.drawn;
+                (latest_record.league_position, points)
+            };
+
+            Some(ManagerAwardContext {
+                manager,
+                team_id,
+                team_name: team.name.clone(),
+                league_position,
+                points,
+                win_rate: manager.win_rate() as f64,
+            })
+        })
+        .collect()
+}
+
+fn top_manager_awards(contexts: &[ManagerAwardContext<'_>]) -> Vec<ManagerAwardEntry> {
+    let mut awards: Vec<_> = contexts.iter().map(manager_award_entry).collect();
+
+    awards.sort_by(|left, right| {
+        let left_position = contexts
+            .iter()
+            .find(|context| context.manager.id == left.manager_id)
+            .map(|context| context.league_position)
+            .unwrap_or(u32::MAX);
+        let right_position = contexts
+            .iter()
+            .find(|context| context.manager.id == right.manager_id)
+            .map(|context| context.league_position)
+            .unwrap_or(u32::MAX);
+
+        left_position
+            .cmp(&right_position)
+            .then_with(|| right.value.partial_cmp(&left.value).unwrap_or(std::cmp::Ordering::Equal))
+            .then_with(|| right.win_rate.partial_cmp(&left.win_rate).unwrap_or(std::cmp::Ordering::Equal))
+            .then_with(|| left.manager_name.cmp(&right.manager_name))
+    });
+    awards.truncate(5);
+    awards
+}
+
 fn top_awards<'a, F, G>(
     contexts: &[PlayerAwardContext<'a>],
     include: F,
@@ -114,6 +205,7 @@ where
 /// Compute current season award standings from player stats.
 pub fn compute_season_awards(game: &Game) -> SeasonAwards {
     let contexts = build_player_award_contexts(game);
+    let manager_contexts = build_manager_award_contexts(game);
 
     // Golden Boot — top scorers
     let golden_boot = top_awards(
@@ -162,6 +254,7 @@ pub fn compute_season_awards(game: &Game) -> SeasonAwards {
         },
         |context| context.player.stats.avg_rating as f64,
     );
+    let manager_of_season = top_manager_awards(&manager_contexts);
 
     SeasonAwards {
         golden_boot,
@@ -170,6 +263,7 @@ pub fn compute_season_awards(game: &Game) -> SeasonAwards {
         clean_sheet_king,
         most_appearances,
         young_player,
+        manager_of_season,
     }
 }
 
@@ -177,7 +271,7 @@ pub fn compute_season_awards(game: &Game) -> SeasonAwards {
 mod tests {
     use super::compute_season_awards;
     use chrono::{TimeZone, Utc};
-    use domain::manager::Manager;
+    use domain::manager::{Manager, ManagerCareerStats};
     use domain::player::{Player, PlayerAttributes, PlayerSeasonStats, Position};
     use domain::team::Team;
 
@@ -253,6 +347,26 @@ mod tests {
         );
 
         Game::new(clock, manager, teams, players, vec![], vec![])
+    }
+
+    fn make_manager(id: &str, first_name: &str, last_name: &str, team_id: Option<&str>) -> Manager {
+        let mut manager = Manager::new(
+            id.to_string(),
+            first_name.to_string(),
+            last_name.to_string(),
+            "1980-01-01".to_string(),
+            "England".to_string(),
+        );
+        manager.team_id = team_id.map(str::to_string);
+        manager.career_stats = ManagerCareerStats {
+            matches_managed: 38,
+            wins: 25,
+            draws: 8,
+            losses: 5,
+            trophies: 1,
+            best_finish: Some(1),
+        };
+        manager
     }
 
     #[test]
@@ -490,6 +604,47 @@ mod tests {
                 .iter()
                 .all(|entry| entry.player_id != "retired-star")
         );
+    }
+
+    #[test]
+    fn manager_of_season_prefers_title_winning_manager() {
+        let mut alpha = make_team("team1", "Alpha FC");
+        alpha.history.push(domain::team::TeamSeasonRecord {
+            season: 2025,
+            league_position: 1,
+            played: 38,
+            won: 25,
+            drawn: 8,
+            lost: 5,
+            goals_for: 72,
+            goals_against: 30,
+        });
+        alpha.manager_id = Some("mgr1".to_string());
+
+        let mut beta = make_team("team2", "Beta FC");
+        beta.history.push(domain::team::TeamSeasonRecord {
+            season: 2025,
+            league_position: 2,
+            played: 38,
+            won: 22,
+            drawn: 9,
+            lost: 7,
+            goals_for: 65,
+            goals_against: 35,
+        });
+        beta.manager_id = Some("mgr2".to_string());
+
+        let mut game = make_game(vec![], vec![alpha, beta]);
+        game.managers = vec![
+            make_manager("mgr1", "Alex", "Winner", Some("team1")),
+            make_manager("mgr2", "Ben", "Runner", Some("team2")),
+        ];
+        game.manager = game.managers[0].clone();
+
+        let awards = compute_season_awards(&game);
+
+        assert_eq!(awards.manager_of_season[0].manager_name, "Alex Winner");
+        assert_eq!(awards.manager_of_season[0].team_name, "Alpha FC");
     }
 
     #[test]

@@ -1069,8 +1069,11 @@
         "assists": "asist.",
         "rating": "nota",
         "cleanSheets": "porterías a cero",
-        "apps": "part."
-      }
+        "apps": "part.",
+        "winRate": "% victorias"
+      },
+      "managerOfSeasonTitle": "Entrenador de la Temporada",
+      "managerOfSeasonSubtitle": "La mejor campana desde el banquillo"
     },
     "noGoals": "Ningún gol marcado todavía."
   },
@@ -2649,5 +2652,17 @@
     "noJobs": "No hay puestos disponibles actualmente.",
     "leaguePosition": "Última temporada: {{position}}",
     "refresh": "Buscar nuevas ofertas"
+  },
+  "awardsCeremony": {
+    "title": "Ceremonia de Premios",
+    "subtitle": "Temporada {{season}} en {{league}}",
+    "managerOfSeason": "Entrenador de la Temporada",
+    "goldenBoot": "Bota de Oro",
+    "playerOfYear": "Jugador del Ano",
+    "continue": "Continuar al panel",
+    "back": "Volver a noticias",
+    "goals": "Goles",
+    "rating": "Valoracion",
+    "winRate": "Porcentaje de victorias"
   }
 }

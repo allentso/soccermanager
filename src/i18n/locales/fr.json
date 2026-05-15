@@ -1039,8 +1039,11 @@
         "assists": "passes",
         "rating": "note",
         "cleanSheets": "cages inviolées",
-        "apps": "matchs"
-      }
+        "apps": "matchs",
+        "winRate": "taux de victoire"
+      },
+      "managerOfSeasonTitle": "Entraineur de la Saison",
+      "managerOfSeasonSubtitle": "La meilleure campagne sur le banc"
     },
     "noGoals": "Aucun but marqué."
   },
@@ -2619,5 +2622,17 @@
     "noJobs": "Aucun poste disponible actuellement.",
     "leaguePosition": "Dernière saison : {{position}}",
     "refresh": "Vérifier les nouvelles offres"
+  },
+  "awardsCeremony": {
+    "title": "Ceremonie des Recompenses",
+    "subtitle": "Saison {{season}} en {{league}}",
+    "managerOfSeason": "Entraineur de la Saison",
+    "goldenBoot": "Soulier d'Or",
+    "playerOfYear": "Joueur de l'Annee",
+    "continue": "Continuer vers le tableau de bord",
+    "back": "Retour aux actualites",
+    "goals": "Buts",
+    "rating": "Note",
+    "winRate": "Taux de victoire"
   }
 }

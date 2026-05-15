@@ -1039,8 +1039,11 @@
         "assists": "助攻",
         "rating": "评分",
         "cleanSheets": "零封",
-        "apps": "场"
-      }
+        "apps": "场",
+        "winRate": "胜率"
+      },
+      "managerOfSeasonTitle": "赛季最佳主教练",
+      "managerOfSeasonSubtitle": "场边表现最出色的赛季"
     },
     "noGoals": "暂无进球。"
   },
@@ -2616,5 +2619,17 @@
     "noJobs": "目前没有空缺职位。",
     "leaguePosition": "上赛季排名：{{position}}",
     "refresh": "查看新职位"
+  },
+  "awardsCeremony": {
+    "title": "颁奖典礼",
+    "subtitle": "{{league}} 第 {{season}} 赛季",
+    "managerOfSeason": "赛季最佳主教练",
+    "goldenBoot": "金靴奖",
+    "playerOfYear": "年度最佳球员",
+    "continue": "继续返回仪表盘",
+    "back": "返回新闻",
+    "goals": "进球",
+    "rating": "评分",
+    "winRate": "胜率"
   }
 }

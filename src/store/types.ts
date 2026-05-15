@@ -479,6 +479,33 @@ export interface NewsArticle {
   i18n_params?: Record<string, string>;
 }
 
+export interface SeasonAwardEntryData {
+  player_id: string;
+  player_name: string;
+  team_id: string;
+  team_name: string;
+  value: number;
+}
+
+export interface SeasonManagerAwardEntryData {
+  manager_id: string;
+  manager_name: string;
+  team_id: string;
+  team_name: string;
+  value: number;
+  win_rate: number;
+}
+
+export interface SeasonAwardsData {
+  golden_boot: SeasonAwardEntryData[];
+  assist_king: SeasonAwardEntryData[];
+  player_of_year: SeasonAwardEntryData[];
+  clean_sheet_king: SeasonAwardEntryData[];
+  most_appearances: SeasonAwardEntryData[];
+  young_player: SeasonAwardEntryData[];
+  manager_of_season: SeasonManagerAwardEntryData[];
+}
+
 export interface BoardObjective {
   id: string;
   description: string;

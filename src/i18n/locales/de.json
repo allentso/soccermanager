@@ -1039,8 +1039,11 @@
         "assists": "Vorlagen",
         "rating": "Note",
         "cleanSheets": "Weiße Westen",
-        "apps": "Spiele"
-      }
+        "apps": "Spiele",
+        "winRate": "Siegquote"
+      },
+      "managerOfSeasonTitle": "Trainer der Saison",
+      "managerOfSeasonSubtitle": "Beste Saison an der Seitenlinie"
     },
     "noGoals": "Noch keine Tore erzielt."
   },
@@ -2619,5 +2622,17 @@
     "noJobs": "Derzeit keine Stellen verfügbar.",
     "leaguePosition": "Letzte Saison: {{position}}",
     "refresh": "Nach neuen Stellen suchen"
+  },
+  "awardsCeremony": {
+    "title": "Preisverleihung",
+    "subtitle": "Saison {{season}} in {{league}}",
+    "managerOfSeason": "Trainer der Saison",
+    "goldenBoot": "Torjagerkanone",
+    "playerOfYear": "Spieler des Jahres",
+    "continue": "Weiter zum Dashboard",
+    "back": "Zuruck zu den Nachrichten",
+    "goals": "Tore",
+    "rating": "Bewertung",
+    "winRate": "Siegquote"
   }
 }
