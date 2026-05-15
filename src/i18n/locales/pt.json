@@ -1023,7 +1023,7 @@
     "renewalBudgetWarning": "A oferta excede o limite de pressão salarial definido pela direção",
     "renewalAccepted": "Proposta aceite",
     "renewalRejected": "Proposta rejeitada",
-    "renewalCounter": "Quer mais: €{{wage}}/semana por {{years}} anos",
+    "renewalCounter": "Quer mais: {{wage}}/semana por {{years}} anos",
     "renewalBlocked": "As conversas estão bloqueadas após a tua decisão anterior",
     "renewalCooledOff": "As conversas anteriores arrefeceram, por isso isto recomeça como uma nova negociação.",
     "letContractExpire": "Deixar expirar",
@@ -1717,7 +1717,8 @@
       "settings": {
         "loadFailed": "Não foi possível carregar as definições.",
         "parseFailed": "Os dados das definições são inválidos.",
-        "saveFailed": "Não foi possível guardar as definições."
+        "saveFailed": "Não foi possível guardar as definições.",
+        "invalidCurrency": "A moeda selecionada não é suportada."
       },
       "finance": {
         "boardSupportUnavailable": "O apoio de emergência da direção só está disponível quando a tesouraria está sob pressão.",
@@ -1883,15 +1884,15 @@
       },
       "financeCritical": {
         "subject": "URGENTE: Clube endividado",
-        "body": "O clube tem atualmente uma dívida de €{{amount}}. Esta é uma situação insustentável.\n\nA direção exige ação imediata para resolver a crise financeira. Considera vender jogadores, reduzir staff ou encontrar fontes alternativas de receita.\n\nSe isto não for resolvido, poderá haver consequências sérias para a tua posição."
+        "body": "O clube tem atualmente uma dívida de {{amount}}. Esta é uma situação insustentável.\n\nA direção exige ação imediata para resolver a crise financeira. Considera vender jogadores, reduzir staff ou encontrar fontes alternativas de receita.\n\nSe isto não for resolvido, poderá haver consequências sérias para a tua posição."
       },
       "financeWarning": {
         "subject": "Aviso financeiro — Reservas baixas",
-        "body": "As nossas reservas financeiras estão a diminuir. Ao ritmo atual de despesa (€{{weeklyWages}}/semana em salários), temos aproximadamente {{weeksLeft}} semanas de margem.\n\nRecomendaria rever a folha salarial e procurar formas de aumentar a receita."
+        "body": "As nossas reservas financeiras estão a diminuir. Ao ritmo atual de despesa ({{weeklyWages}}/semana em salários), temos aproximadamente {{weeksLeft}} semanas de margem.\n\nRecomendaria rever a folha salarial e procurar formas de aumentar a receita."
       },
       "wageOverBudget": {
         "subject": "Folha salarial acima do orçamento",
-        "body": "A nossa folha salarial anual (€{{annualWages}}) excede atualmente o orçamento salarial atribuído (€{{wageBudget}}).\n\nEmbora seja sustentável a curto prazo, a direção preferia ver a folha salarial novamente sob controlo."
+        "body": "A nossa folha salarial anual ({{annualWages}}) excede atualmente o orçamento salarial atribuído ({{wageBudget}}).\n\nEmbora seja sustentável a curto prazo, a direção preferia ver a folha salarial novamente sob controlo."
       },
       "financeBoardPressure": {
         "subject": "Direção — Pressão financeira",
@@ -1900,11 +1901,11 @@
       },
       "marketingCampaign": {
         "subject": "Relatório da campanha de marketing",
-        "body": "A ação comercial terminou com vendas brutas de €{{grossRevenue}}. Depois de €{{campaignCost}} em custos de campanha, o clube encaixa €{{netIncome}} de nova receita.\n\nA equipa comercial precisará de {{days}} dias antes de lançar outra campanha."
+        "body": "A ação comercial terminou com vendas brutas de {{grossRevenue}}. Depois de {{campaignCost}} em custos de campanha, o clube encaixa {{netIncome}} de nova receita.\n\nA equipa comercial precisará de {{days}} dias antes de lançar outra campanha."
       },
       "seasonPayout": {
         "subject": "Época {{season}} — Prémio atribuído",
-        "body": "A direção confirmou um prémio de €{{amount}} pelo teu {{position}}.º lugar na liga. O valor foi adicionado ao saldo do clube.",
+        "body": "A direção confirmou um prémio de {{amount}} pelo teu {{position}}.º lugar na liga. O valor foi adicionado ao saldo do clube.",
         "ledgerDescription": "Prémio da temporada {{season}} pelo {{position}}{{suffix}} lugar"
       },
       "seasonReview": {
@@ -2053,11 +2054,11 @@
       },
       "sponsor": {
         "subject": "Sponsorship Offer — {{sponsor}}",
-        "body": "Boas notícias, mister! {{sponsor}} manifestou interesse em tornar-se patrocinador do {{team}}.\n\nEstão a oferecer um pagamento semanal de €{{amount}} durante as próximas 12 semanas em troca de espaço publicitário no centro de treinos.\n\nParece um acordo razoável, mas a decisão é sua.",
+        "body": "Boas notícias, mister! {{sponsor}} manifestou interesse em tornar-se patrocinador do {{team}}.\n\nEstão a oferecer um pagamento semanal de {{amount}} durante as próximas 12 semanas em troca de espaço publicitário no centro de treinos.\n\nParece um acordo razoável, mas a decisão é sua.",
         "options": {
           "accept": {
             "label": "Aceitar o acordo",
-            "description": "Recebe €{{amount}} em receitas de patrocínio."
+            "description": "Recebe {{amount}} em receitas de patrocínio."
           },
           "decline": {
             "label": "Recusar educadamente",
@@ -2065,7 +2066,7 @@
           }
         },
         "effects": {
-          "accepted": "Acordo de patrocínio assinado. Vais receber €{{amount}} por semana durante 12 semanas.",
+          "accepted": "Acordo de patrocínio assinado. Vais receber {{amount}} por semana durante 12 semanas.",
           "declined": "Patrocínio recusado."
         }
       },

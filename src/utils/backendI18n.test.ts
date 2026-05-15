@@ -1,5 +1,6 @@
-import { describe, it, expect, beforeAll } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import i18n, { i18nReady } from "../i18n";
+import { useSettingsStore } from "../store/settingsStore";
 import {
   resolveBackendText,
   resolveBackendError,
@@ -14,6 +15,30 @@ import type {
   NewsArticle,
   BoardObjective,
 } from "../store/gameStore";
+
+const originalSettings = useSettingsStore.getState().settings;
+const originalCurrency = useSettingsStore.getState().currency;
+const originalSupportedCurrencies = useSettingsStore.getState().supportedCurrencies;
+
+beforeEach(() => {
+  useSettingsStore.setState({
+    settings: { ...originalSettings, currency: "EUR", language: "en" },
+    currency: { code: "EUR", symbol: "€", exchange_rate: 1 },
+    supportedCurrencies: {
+      EUR: { code: "EUR", symbol: "€", exchange_rate: 1 },
+      GBP: { code: "GBP", symbol: "£", exchange_rate: 0.86 },
+      USD: { code: "USD", symbol: "$", exchange_rate: 1.08 },
+    },
+  });
+});
+
+afterEach(() => {
+  useSettingsStore.setState({
+    settings: originalSettings,
+    currency: originalCurrency,
+    supportedCurrencies: originalSupportedCurrencies,
+  });
+});
 
 // ---------------------------------------------------------------------------
 // Bootstrap i18n with a test key so we can verify resolution works
@@ -139,7 +164,7 @@ describe("resolveAction", () => {
             options: {
               accept: {
                 label: "Accept the deal",
-                description: "Receive €{{amount}} in sponsorship income.",
+                description: "Receive {{amount}} in sponsorship income.",
               },
             },
           },
@@ -179,8 +204,96 @@ describe("resolveAction", () => {
 
     expect(actionType.ChooseOption.options[0].label).toBe("Accept the deal");
     expect(actionType.ChooseOption.options[0].description).toBe(
-      "Receive €250000 in sponsorship income.",
+      "Receive €250,000 in sponsorship income.",
     );
+  });
+
+  it("converts backend money params inside action descriptions to the selected currency", () => {
+    useSettingsStore.setState({
+      settings: { ...useSettingsStore.getState().settings, currency: "GBP" },
+      currency: { code: "GBP", symbol: "£", exchange_rate: 0.86 },
+    });
+
+    i18n.addResourceBundle("en", "translation", {
+      be: {
+        msg: {
+          sponsor: {
+            options: {
+              accept: {
+                label: "Accept the deal",
+                description: "Receive {{amount}} in sponsorship income.",
+              },
+            },
+          },
+        },
+      },
+    }, true, true);
+
+    const result = resolveMessage(makeMessage({
+      id: "sponsor_2026-08-01",
+      i18n_params: { amount: "250000" },
+      actions: [
+        makeAction({
+          id: "respond",
+          label: "Respond",
+          action_type: {
+            ChooseOption: {
+              options: [
+                {
+                  id: "accept",
+                  label: "fallback option",
+                  description: "fallback description",
+                  label_key: "be.msg.sponsor.options.accept.label",
+                  description_key: "be.msg.sponsor.options.accept.description",
+                },
+              ],
+            },
+          },
+        }),
+      ],
+    }));
+
+    const actionType = result.actions[0].action_type;
+
+    if (typeof actionType !== "object" || !("ChooseOption" in actionType)) {
+      throw new Error("Expected ChooseOption action type");
+    }
+
+    expect(actionType.ChooseOption.options[0].description).toBe(
+      "Receive £215,000 in sponsorship income.",
+    );
+  });
+
+  it("does not re-normalize already formatted compact money params from resolveMessage", async () => {
+    const previousLanguage = i18n.language;
+    const previousSettings = useSettingsStore.getState().settings;
+    await i18n.changeLanguage("de");
+    useSettingsStore.setState({
+      settings: { ...previousSettings, language: "de" },
+    });
+
+    i18n.addResourceBundle("de", "translation", {
+      "test.compactActionLabel": "Akzeptiere {{amount}}",
+    }, true, true);
+
+    try {
+      const result = resolveMessage(makeMessage({
+        id: "compact_money_message",
+        i18n_params: { amount: "€1.8M" },
+        actions: [
+          makeAction({
+            id: "accept",
+            label: "fallback option",
+            label_key: "test.compactActionLabel",
+          }),
+        ],
+      }));
+
+      expect(result.actions[0].label).toBe("Akzeptiere €1,8M");
+    } finally {
+      useSettingsStore.setState({ settings: previousSettings });
+      await i18n.changeLanguage(previousLanguage);
+    }
   });
 
   it("keeps raw label when label_key is absent", () => {
@@ -303,10 +416,10 @@ describe("resolveMessage", () => {
         "Chefe, revisei nossa lista de renovações no Lisbon Sporting. 4 concluídas, 2 ainda pendentes e 1 falhas.",
       );
       expect(result.body).toContain(
-        "Concluída: Claes aceitou 1 ano(s) por €5000/semana.",
+        "Concluída: Claes aceitou 1 ano(s) por €5,000/semana.",
       );
       expect(result.body).toContain(
-        "Continua difícil: Vieira — O estafe deles quer cerca de €25000/semana por 3 anos, acima dos limites da delegação.",
+        "Continua difícil: Vieira — O estafe deles quer cerca de €25,000/semana por 3 anos, acima dos limites da delegação.",
       );
       expect(result.body).toContain(
         "Falhou: Fernandes — Você me disse para ainda não reabrir as conversas contratuais.",
@@ -451,6 +564,44 @@ describe("resolveNewsArticle", () => {
       expect(result.body).toContain("2 transferência(s) concluída(s)");
       expect(result.body).toContain("Adam Smith: de Alpha FC para Beta FC (€1.8M)");
       expect(result.source).toBe("Inteligência de Transferências");
+    } finally {
+      await i18n.changeLanguage(previousLanguage);
+    }
+  });
+
+  it("converts transfer roundup fees to the selected currency", async () => {
+    const previousLanguage = i18n.language;
+    await i18n.changeLanguage("en");
+    useSettingsStore.setState({
+      settings: { ...useSettingsStore.getState().settings, currency: "GBP" },
+      currency: { code: "GBP", symbol: "£", exchange_rate: 0.86 },
+    });
+
+    try {
+      const article = makeNewsArticle({
+        headline: "Transfer Roundup — Week of 2026-07-27",
+        headline_key: "be.news.transferRoundup.headline",
+        body: "The transfer market stayed busy this week.",
+        body_key: "be.news.transferRoundup.body",
+        source: "Transfer Intelligence",
+        source_key: "be.source.transferIntelligence",
+        i18n_params: {
+          weekStart: "2026-07-27",
+          transferCount: "1",
+          dealsData: JSON.stringify([
+            {
+              player: "Adam Smith",
+              fromTeam: "Alpha FC",
+              toTeam: "Beta FC",
+              fee: "€1.8M",
+            },
+          ]),
+        },
+      });
+
+      const result = resolveNewsArticle(article);
+
+      expect(result.body).toContain("Adam Smith: Alpha FC -> Beta FC (£1.5M)");
     } finally {
       await i18n.changeLanguage(previousLanguage);
     }
@@ -818,7 +969,7 @@ describe("resolveBackendError", () => {
     }, true, true);
 
     expect(resolveBackendError("be.error.contracts.boardWagePolicy?budget=200000")).toBe(
-      "Renewal blocked by board wage policy. Keep annual wages near 200000 to recover.",
+      "Renewal blocked by board wage policy. Keep annual wages near €200,000 to recover.",
     );
   });
 });

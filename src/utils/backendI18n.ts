@@ -1,4 +1,5 @@
 import i18n from '../i18n';
+import { formatExactMoney, formatVal } from "../lib/helpers";
 import type {
   MessageActionOption,
   MessageData,
@@ -89,18 +90,18 @@ export function resolveBackendText(
     ...(params ?? {}),
   };
 
-  return resolve(
-    parsed.key,
-    fallback,
+  const resolvedParams = resolveParamValues(
     Object.keys(mergedParams).length > 0 ? mergedParams : undefined,
   );
+
+  return resolve(parsed.key, fallback, resolvedParams);
 }
 
 export function resolveBackendError(error: unknown): string {
   const message = extractErrorMessage(error).trim();
   if (!message) return "";
   const parsed = parseBackendMessage(message);
-  return resolve(parsed.key, parsed.fallback, parsed.params);
+  return resolve(parsed.key, parsed.fallback, resolveParamValues(parsed.params));
 }
 
 function boardObjectiveFallback(objective: BoardObjective): string {
@@ -122,6 +123,70 @@ function boardObjectiveFallback(objective: BoardObjective): string {
  * Pre-resolve any param values that are themselves i18n keys (e.g. "common.moods.excellent").
  * A value is treated as a key if it contains a dot and i18next resolves it to something different.
  */
+const MONEY_PARAM_KEYS = new Set([
+  "amount",
+  "annualWages",
+  "budget",
+  "campaignCost",
+  "cost",
+  "fee",
+  "grossRevenue",
+  "netIncome",
+  "transferBudgetReduction",
+  "wage",
+  "wageBudget",
+  "weeklyWages",
+]);
+
+function parseMoneyValue(value: string): { amount: number; compact: boolean } | null {
+  const trimmed = value.trim();
+  const match = trimmed.match(
+    /^(?<sign>-)?(?<symbol>[€£$])?(?<amount>\d[\d,]*(?:\.\d+)?)(?<suffix>[KM])?$/i,
+  );
+
+  if (!match?.groups) {
+    return null;
+  }
+
+  const symbol = match.groups.symbol;
+  if (symbol && symbol !== "€") {
+    return null;
+  }
+
+  const numeric = Number(match.groups.amount.replace(/,/g, ""));
+  if (!Number.isFinite(numeric)) {
+    return null;
+  }
+
+  const scaled =
+    match.groups.suffix?.toUpperCase() === "M"
+      ? numeric * 1_000_000
+      : match.groups.suffix?.toUpperCase() === "K"
+        ? numeric * 1_000
+        : numeric;
+  const signed = match.groups.sign === "-" ? -scaled : scaled;
+
+  return {
+    amount: signed,
+    compact: Boolean(match.groups.suffix),
+  };
+}
+
+function resolveMoneyParamValue(key: string, value: string): string {
+  if (!MONEY_PARAM_KEYS.has(key)) {
+    return value;
+  }
+
+  const parsed = parseMoneyValue(value);
+  if (!parsed) {
+    return value;
+  }
+
+  return parsed.compact
+    ? formatVal(parsed.amount)
+    : formatExactMoney(parsed.amount);
+}
+
 function resolveParamValues(params?: Record<string, string>): Record<string, string> | undefined {
   if (!params) return params;
   const resolved = { ...params };
@@ -130,8 +195,11 @@ function resolveParamValues(params?: Record<string, string>): Record<string, str
       const attempted = i18n.t(value);
       if (attempted !== value) {
         resolved[key] = attempted;
+        continue;
       }
     }
+
+    resolved[key] = resolveMoneyParamValue(key, resolved[key]);
   }
   return resolved;
 }
@@ -440,13 +508,18 @@ function normalizeTransferRoundupParams(
     return {
       ...params,
       deals: deals
-        .map((deal) =>
-          resolve(
+        .map((deal) => {
+          const resolvedDeal = {
+            ...deal,
+            fee: resolveMoneyParamValue("fee", deal.fee),
+          };
+
+          return resolve(
             'be.news.transferRoundup.dealLine',
-            `  ${deal.player}: ${deal.fromTeam} -> ${deal.toTeam} (${deal.fee})`,
-            deal,
-          ),
-        )
+            `  ${resolvedDeal.player}: ${resolvedDeal.fromTeam} -> ${resolvedDeal.toTeam} (${resolvedDeal.fee})`,
+            resolvedDeal,
+          );
+        })
         .join('\n'),
     };
   } catch {
@@ -467,12 +540,12 @@ export function resolveMessage(msg: MessageData): MessageData {
     body: resolve(msg.body_key, msg.body, p),
     sender: resolve(msg.sender_key, msg.sender, p),
     sender_role: resolve(msg.sender_role_key, msg.sender_role, p),
-    actions: msg.actions.map((action) => resolveAction(action, msg.id, p)),
+    actions: msg.actions.map((action) => resolveActionWithResolvedParams(action, msg.id, p)),
   };
 
   return resolveLegacyTakeoverContractReviewMessage(
-    resolveLegacyDelegatedRenewalsMessage(resolved, resolve, p),
-    resolve,
+    resolveLegacyDelegatedRenewalsMessage(resolved, resolveBackendText, p),
+    resolveBackendText,
   );
 }
 
@@ -480,6 +553,16 @@ export function resolveMessage(msg: MessageData): MessageData {
  * Resolve the label on a message action.
  */
 export function resolveAction(
+  action: MessageAction,
+  messageId?: string,
+  params?: Record<string, string>,
+): MessageAction {
+  const resolvedParams = resolveParamValues(params);
+
+  return resolveActionWithResolvedParams(action, messageId, resolvedParams);
+}
+
+function resolveActionWithResolvedParams(
   action: MessageAction,
   messageId?: string,
   params?: Record<string, string>,
@@ -526,17 +609,19 @@ function resolveActionOption(
  * Resolve all translatable fields on a news article, returning a copy with resolved strings.
  */
 export function resolveNewsArticle(article: NewsArticle): NewsArticle {
-  const p = normalizeTransferRoundupParams(
-    article,
-    normalizePressConferenceParams(
+  const p = resolveParamValues(
+    normalizeTransferRoundupParams(
       article,
-      normalizeMatchReportParams(
+      normalizePressConferenceParams(
         article,
-        normalizeStandingsParams(
+        normalizeMatchReportParams(
           article,
-          normalizeRoundupParams(
+          normalizeStandingsParams(
             article,
-            normalizePreseasonDigestParams(article, normalizeNewsParams(article)),
+            normalizeRoundupParams(
+              article,
+              normalizePreseasonDigestParams(article, normalizeNewsParams(article)),
+            ),
           ),
         ),
       ),

@@ -470,13 +470,3 @@ fn choose_rival_interest_target<'a, R: rand::Rng + ?Sized>(
 
     eligible.last().copied()
 }
-
-fn format_money(amount: u64) -> String {
-    if amount >= 1_000_000 {
-        format!("{:.1}M", amount as f64 / 1_000_000.0)
-    } else if amount >= 1_000 {
-        format!("{}K", amount / 1_000)
-    } else {
-        amount.to_string()
-    }
-}

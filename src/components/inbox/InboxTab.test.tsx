@@ -154,6 +154,20 @@ beforeAll(function defineMatchMedia(): void {
     true,
     true,
   );
+  i18n.addResourceBundle(
+    "de",
+    "translation",
+    {
+      "be.msg.delegatedRenewals.case.successful":
+        "Completed: {{player}} agreed to {{years}} year(s) on {{wage}}/wk.",
+      "be.msg.delegatedRenewals.case.stalled":
+        "Still difficult: {{player}} — {{detail}}",
+      "be.msg.delegatedRenewals.notes.beyondLimits":
+        "Their camp want around {{wage}}/wk for {{years}} years, which is beyond the delegation limits.",
+    },
+    true,
+    true,
+  );
 });
 
 beforeEach(function resetMocks(): void {
@@ -163,6 +177,12 @@ beforeEach(function resetMocks(): void {
       ...useSettingsStore.getState().settings,
       currency: "EUR",
       language: "en",
+    },
+    currency: { code: "EUR", symbol: "€", exchange_rate: 1 },
+    supportedCurrencies: {
+      EUR: { code: "EUR", symbol: "€", exchange_rate: 1 },
+      GBP: { code: "GBP", symbol: "£", exchange_rate: 0.86 },
+      USD: { code: "USD", symbol: "$", exchange_rate: 1.08 },
     },
   });
 });
@@ -671,6 +691,7 @@ describe("InboxTab", function (): void {
         currency: "GBP",
         language: "en",
       },
+      currency: { code: "GBP", symbol: "£", exchange_rate: 0.86 },
     });
 
     renderInboxTab({
@@ -730,12 +751,12 @@ describe("InboxTab", function (): void {
     expect(screen.getByTestId("delegated-renewal-report")).toBeInTheDocument();
     expect(
       screen.getByText(
-        "Completed: Alex Done agreed to 3 year(s) on £24,000/wk.",
+        "Completed: Alex Done agreed to 3 year(s) on £20,640/wk.",
       ),
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        "Still difficult: Ben Pending — Their camp want around £26,000/wk for 4 years, which is beyond the delegation limits.",
+        "Still difficult: Ben Pending — Their camp want around £22,360/wk for 4 years, which is beyond the delegation limits.",
       ),
     ).toBeInTheDocument();
     expect(
@@ -743,6 +764,80 @@ describe("InboxTab", function (): void {
         "Failed: Chris Failed — They are not willing to commit through me under the current relationship and contract situation.",
       ),
     ).toBeInTheDocument();
+  });
+
+  it("keeps delegated renewal wages intact in locales that use dot thousands separators", async function (): Promise<void> {
+    const previousLanguage = i18n.language;
+    await i18n.changeLanguage("de");
+    useSettingsStore.setState({
+      settings: {
+        ...useSettingsStore.getState().settings,
+        currency: "EUR",
+        language: "de",
+      },
+      currency: { code: "EUR", symbol: "€", exchange_rate: 1 },
+    });
+
+    try {
+      renderInboxTab({
+        gameState: createGameState([
+          createMessage({
+            id: "delegated_renewals_2025-01-01_1",
+            read: true,
+            category: "Contract",
+            context: {
+              team_id: "t1",
+              player_id: null,
+              fixture_id: null,
+              match_result: null,
+              delegated_renewal_report: {
+                success_count: 1,
+                failure_count: 0,
+                stalled_count: 1,
+                cases: [
+                  {
+                    player_id: "p1",
+                    player_name: "Alex Done",
+                    status: "successful",
+                    agreed_wage: 24000,
+                    agreed_years: 3,
+                  },
+                  {
+                    player_id: "p2",
+                    player_name: "Ben Pending",
+                    status: "stalled",
+                    note_key: "be.msg.delegatedRenewals.notes.beyondLimits",
+                    note_params: { wage: "24000", years: "4" },
+                  },
+                ],
+              },
+            },
+          }),
+        ]),
+        initialMessageId: "delegated_renewals_2025-01-01_1",
+      });
+
+      expect(
+        screen.getByText(
+          "Completed: Alex Done agreed to 3 year(s) on €24.000/wk.",
+        ),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          "Still difficult: Ben Pending — Their camp want around €24.000/wk for 4 years, which is beyond the delegation limits.",
+        ),
+      ).toBeInTheDocument();
+    } finally {
+      await i18n.changeLanguage(previousLanguage);
+      useSettingsStore.setState({
+        settings: {
+          ...useSettingsStore.getState().settings,
+          currency: "EUR",
+          language: "en",
+        },
+        currency: { code: "EUR", symbol: "€", exchange_rate: 1 },
+      });
+    }
   });
 
   it("tells the user that player-event response outcomes vary", function (): void {

@@ -1117,11 +1117,6 @@ fn generate_financial_warnings(game: &mut Game, today: &str) {
 }
 
 fn format_money(amount: u64) -> String {
-    if amount >= 1_000_000 {
-        format!("{:.1}M", amount as f64 / 1_000_000.0)
-    } else if amount >= 1_000 {
-        format!("{}K", amount / 1_000)
-    } else {
-        amount.to_string()
-    }
+    crate::currency::format_compact_number(amount, crate::currency::DEFAULT_CURRENCY_CODE)
+        .unwrap_or_else(|| amount.to_string())
 }

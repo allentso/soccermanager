@@ -156,26 +156,10 @@ pub fn board_expectations_message(team_name: &str, team_id: &str, date: &str) ->
     .with_sender_i18n("be.sender.boardOfDirectors", "be.role.chairman")
 }
 
-fn format_money(amount: u64) -> String {
-    if amount >= 1_000_000 {
-        format!("{:.1}M", amount as f64 / 1_000_000.0)
-    } else if amount >= 1_000 {
-        format!("{}K", amount / 1_000)
-    } else {
-        amount.to_string()
-    }
-}
-
-fn format_fee_display(fee: u64) -> String {
-    let compact = format_money(fee);
-    let mut display = String::with_capacity(compact.len() + 1);
-    display.push('€');
-    display.push_str(&compact);
-    display
-}
-
 pub fn transfer_complete_message(player_name: &str, fee: u64, date: &str) -> InboxMessage {
-    let fee_display = format_fee_display(fee);
+    let fee_display =
+        crate::currency::format_compact_money(fee, crate::currency::DEFAULT_CURRENCY_CODE)
+            .unwrap_or_else(|| format!("€{}", fee));
 
     let id = format!("transfer_{}", uuid::Uuid::new_v4());
     InboxMessage::new(
@@ -207,7 +191,9 @@ pub fn incoming_transfer_offer_message(
     fee: u64,
     date: &str,
 ) -> InboxMessage {
-    let fee_display = format_fee_display(fee);
+    let fee_display =
+        crate::currency::format_compact_money(fee, crate::currency::DEFAULT_CURRENCY_CODE)
+            .unwrap_or_else(|| format!("€{}", fee));
 
     InboxMessage::new(
         format!("transfer_offer_{}", offer_id),

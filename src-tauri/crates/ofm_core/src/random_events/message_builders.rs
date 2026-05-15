@@ -1,4 +1,4 @@
-use super::{action, format_money, params};
+use super::{action, params};
 use domain::message::*;
 use rand::RngExt;
 
@@ -47,7 +47,7 @@ pub(crate) fn sponsor_offer_message(
     .with_i18n(
         "be.msg.sponsor.subject",
         "be.msg.sponsor.body",
-        params(&[("sponsor", sponsor), ("team", team_name), ("amount", &format_money(amount))]),
+        params(&[("sponsor", sponsor), ("team", team_name), ("amount", &amount.to_string())]),
     )
     .with_sender_i18n("be.sender.commercialDirector", "be.role.commercialDirector")
 }

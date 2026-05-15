@@ -613,7 +613,9 @@ describe("FinancesTab facilities", () => {
     expect(onGameUpdate).toHaveBeenCalledWith(updatedState);
     expect(
       screen.getByText(
-        "Campaign netted €112,500 after €37,500 in spend (€150,000 gross). Cooldown: 28 days",
+        (_, node) =>
+          node?.textContent ===
+          "Campaign netted €112,500 after €37,500 in spend (€150,000 gross). Cooldown: 28 days",
       ),
     ).toBeInTheDocument();
   });
@@ -683,7 +685,9 @@ describe("FinancesTab facilities", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        "Campaign netted €112,500 after €37,500 in spend (€150,000 gross). Cooldown: 28 days",
+        (_, node) =>
+          node?.textContent ===
+          "Campaign netted €112,500 after €37,500 in spend (€150,000 gross). Cooldown: 28 days",
       ),
     ).toBeInTheDocument();
   });
