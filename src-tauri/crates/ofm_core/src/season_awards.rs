@@ -64,7 +64,7 @@ fn build_player_award_contexts(game: &Game) -> Vec<PlayerAwardContext<'_>> {
 
     game.players
         .iter()
-        .filter(|player| player.stats.appearances > 0)
+        .filter(|player| !player.retired && player.stats.appearances > 0)
         .map(|player| {
             let (team_id, team_name) = resolve_team_info(game, player);
 
@@ -446,6 +446,50 @@ mod tests {
             .map(|entry| entry.player_id.as_str())
             .collect();
         assert_eq!(young_player_ids, vec!["young-four-apps", "young-eligible"]);
+    }
+
+    #[test]
+    fn retired_players_are_excluded_from_award_tables() {
+        let team = make_team("team1", "Test FC");
+        let mut retired_star = make_player(
+            "retired-star",
+            "Retired Star",
+            Some("team1"),
+            Position::Forward,
+            "1990-01-01",
+            PlayerSeasonStats {
+                appearances: 30,
+                goals: 25,
+                avg_rating: 8.5,
+                ..PlayerSeasonStats::default()
+            },
+        );
+        retired_star.retired = true;
+
+        let active_player = make_player(
+            "active-star",
+            "Active Star",
+            Some("team1"),
+            Position::Forward,
+            "2000-01-01",
+            PlayerSeasonStats {
+                appearances: 28,
+                goals: 18,
+                avg_rating: 7.8,
+                ..PlayerSeasonStats::default()
+            },
+        );
+
+        let awards = compute_season_awards(&make_game(vec![retired_star, active_player], vec![team]));
+
+        assert_eq!(awards.golden_boot[0].player_id, "active-star");
+        assert_eq!(awards.player_of_year[0].player_id, "active-star");
+        assert!(
+            awards
+                .golden_boot
+                .iter()
+                .all(|entry| entry.player_id != "retired-star")
+        );
     }
 
     #[test]

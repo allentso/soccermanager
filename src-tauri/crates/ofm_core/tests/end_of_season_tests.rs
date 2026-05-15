@@ -382,6 +382,30 @@ fn player_stats_reset() {
 }
 
 #[test]
+fn season_end_ages_players_and_retires_out_of_contract_veterans() {
+    let mut game = make_completed_season_game();
+    let veteran = game.players.iter_mut().find(|player| player.id == "p1").unwrap();
+    veteran.date_of_birth = "1988-01-01".to_string();
+    veteran.contract_end = Some("2026-05-01".to_string());
+    veteran.attributes.pace = 16;
+    veteran.attributes.passing = 70;
+
+    process_end_of_season(&mut game);
+
+    let veteran = game.players.iter().find(|player| player.id == "p1").unwrap();
+    assert!(veteran.retired, "older out-of-contract veterans should retire");
+    assert_eq!(veteran.team_id, None, "retired players should leave their club");
+    assert!(
+        veteran.attributes.pace < 16,
+        "seasonal aging should reduce veteran pace"
+    );
+    assert!(
+        veteran.attributes.passing >= 70,
+        "technical attributes should not decline before the post-32 flat phase"
+    );
+}
+
+#[test]
 fn player_with_zero_appearances_no_career_entry() {
     let mut game = make_completed_season_game();
     // Add a player with 0 appearances

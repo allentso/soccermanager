@@ -253,6 +253,11 @@ pub fn process_end_of_season(game: &mut Game) -> EndOfSeasonSummary {
                 assists: player.stats.assists,
             });
         }
+    }
+
+    crate::aging::apply_seasonal_aging(game, game.clock.current_date.date_naive(), season);
+
+    for player in game.players.iter_mut() {
         // Reset stats for next season
         player.stats = PlayerSeasonStats::default();
     }

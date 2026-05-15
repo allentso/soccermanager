@@ -31,7 +31,9 @@ export function deriveTransferCollections(
     marketPlayers: gameState.players.filter(
       (player) => player.transfer_listed && player.team_id !== userTeamId,
     ),
-    freeAgentPlayers: gameState.players.filter((player) => player.team_id === null),
+    freeAgentPlayers: gameState.players.filter(
+      (player) => player.team_id === null && !player.retired,
+    ),
     loanPlayers: gameState.players.filter(
       (player) => player.loan_listed && player.team_id !== userTeamId,
     ),

@@ -178,6 +178,12 @@ describe("TransfersTab.model", () => {
       team_id: null,
       contract_end: null,
     });
+    const retiredFreeAgent = createPlayer({
+      id: "retired-free-agent",
+      team_id: null,
+      contract_end: null,
+      retired: true,
+    });
     const loanPlayer = createPlayer({
       id: "loan-player",
       team_id: "team-2",
@@ -204,6 +210,7 @@ describe("TransfersTab.model", () => {
       userLoanListed,
       marketPlayer,
       freeAgent,
+      retiredFreeAgent,
       loanPlayer,
       offeredPlayer,
     ]);
