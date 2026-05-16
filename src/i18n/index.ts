@@ -65,10 +65,22 @@ export function resolveSupportedLanguage(locale: string): string {
   return SUPPORTED_CODES.get(base) ?? "en";
 }
 
-/** Detect the best initial language from the browser / OS locale */
+/**
+ * Detect the best initial language from the runtime locale.
+ *
+ * Browser environments: uses `navigator.language` (for example: "pt-BR", "es-419", "en-US").
+ * Non-browser environments (SSR/tests/Node): falls back to `"en"` when `navigator`
+ * is unavailable or does not expose a valid language string.
+ *
+ * Any provided locale is normalized and mapped by `resolveSupportedLanguage`,
+ * which handles region/script variants and unsupported values.
+ */
 function detectInitialLanguage(): string {
-  const nav = navigator.language; // e.g. "pt-BR", "es-419", "en-US"
-  return resolveSupportedLanguage(nav);
+  const navLanguage =
+    typeof navigator !== "undefined" && typeof navigator.language === "string"
+      ? navigator.language
+      : "en";
+  return resolveSupportedLanguage(navLanguage);
 }
 
 export async function changeAppLanguage(locale: string): Promise<string> {

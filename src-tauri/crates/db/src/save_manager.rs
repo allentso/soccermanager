@@ -1,5 +1,6 @@
 use chrono::Utc;
 use domain::stats::StatsState;
+use log::info;
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -242,10 +243,18 @@ impl SaveManager {
                     refresh_player_derived(player, current_year);
                 }
             }
+            info!(
+                "[save_manager] backfilled OVR/potential for {} players in save {}",
+                backfill_count, save_id
+            );
             needs_resave = true;
         }
 
         if generator::repair_opening_youth_academies(&mut game) {
+            info!(
+                "[save_manager] backfilled opening youth academy players for save {}",
+                save_id
+            );
             needs_resave = true;
         }
 
