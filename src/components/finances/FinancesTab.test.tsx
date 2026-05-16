@@ -214,6 +214,7 @@ function createPlayer(overrides: Partial<PlayerData> = {}): PlayerData {
     morale: 80,
     injury: null,
     team_id: "team-1",
+    retired: false,
     contract_end: null,
     wage: 1000,
     market_value: 200000,
@@ -613,7 +614,9 @@ describe("FinancesTab facilities", () => {
     expect(onGameUpdate).toHaveBeenCalledWith(updatedState);
     expect(
       screen.getByText(
-        "Campaign netted €112,500 after €37,500 in spend (€150,000 gross). Cooldown: 28 days",
+        (_, node) =>
+          node?.textContent ===
+          "Campaign netted €112,500 after €37,500 in spend (€150,000 gross). Cooldown: 28 days",
       ),
     ).toBeInTheDocument();
   });
@@ -683,7 +686,9 @@ describe("FinancesTab facilities", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        "Campaign netted €112,500 after €37,500 in spend (€150,000 gross). Cooldown: 28 days",
+        (_, node) =>
+          node?.textContent ===
+          "Campaign netted €112,500 after €37,500 in spend (€150,000 gross). Cooldown: 28 days",
       ),
     ).toBeInTheDocument();
   });

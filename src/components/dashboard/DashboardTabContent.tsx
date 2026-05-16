@@ -9,7 +9,10 @@ const TrainingTab = lazy(() => import("../training/TrainingTab"));
 const ScheduleTab = lazy(() => import("../schedule/ScheduleTab"));
 const FinancesTab = lazy(() => import("../finances/FinancesTab"));
 const TransfersTab = lazy(() => import("../transfers/TransfersTab"));
+const TransferCentreWorldTab = lazy(() => import("../transfers/TransferCentreWorldTab"));
+const HallOfFameWorldTab = lazy(() => import("../hallOfFame/HallOfFameWorldTab"));
 const PlayersListTab = lazy(() => import("../players/PlayersListTab"));
+const ManagersWorldTab = lazy(() => import("../manager/ManagersWorldTab"));
 const TeamsListTab = lazy(() => import("../teams/TeamsListTab"));
 const TournamentsTab = lazy(() => import("../tournaments/TournamentsTab"));
 const ScoutingTab = lazy(() => import("../scouting/ScoutingTab"));
@@ -110,12 +113,35 @@ export default function DashboardTabContent({
         onGameUpdate={onGameUpdate}
       />
     );
+  } else if (activeTab === "TransferCentre") {
+    content = (
+      <TransferCentreWorldTab
+        gameState={gameState}
+        onSelectPlayer={onSelectPlayer}
+        onSelectTeam={onSelectTeam}
+      />
+    );
+  } else if (activeTab === "HallOfFame") {
+    content = (
+      <HallOfFameWorldTab
+        gameState={gameState}
+        onSelectPlayer={onSelectPlayer}
+        onSelectTeam={onSelectTeam}
+      />
+    );
   } else if (activeTab === "Players") {
     content = (
       <PlayersListTab
         gameState={gameState}
         onGameUpdate={onGameUpdate}
         onSelectPlayer={onSelectPlayer}
+        onSelectTeam={onSelectTeam}
+      />
+    );
+  } else if (activeTab === "Managers") {
+    content = (
+      <ManagersWorldTab
+        gameState={gameState}
         onSelectTeam={onSelectTeam}
       />
     );

@@ -42,6 +42,8 @@ pub struct Player {
     pub injury: Option<Injury>,
     pub team_id: Option<String>,
     #[serde(default)]
+    pub retired: bool,
+    #[serde(default)]
     pub squad_role: SquadRole,
 
     // Traits / flairs derived from attributes
@@ -545,6 +547,7 @@ impl Player {
             fitness: 75,
             injury: None,
             team_id: None,
+            retired: false,
             squad_role: SquadRole::Senior,
             traits,
             ovr: 0,
@@ -651,5 +654,6 @@ mod tests {
         assert_eq!(player.footedness, Footedness::Right);
         assert_eq!(player.weak_foot, 2);
         assert_eq!(player.natural_position, Position::Midfielder);
+        assert!(!player.retired);
     }
 }

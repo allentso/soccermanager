@@ -1,5 +1,6 @@
 use domain::league::{
     CompletedTransfer, Fixture, FixtureCompetition, FixtureStatus, League, StandingEntry,
+    TransferRumour,
 };
 use rusqlite::{Connection, params};
 
@@ -8,20 +9,32 @@ const GAME_PERSISTENCE_WRITE_ERROR: &str = "be.error.gamePersistence.writeFailed
 
 /// Insert or replace the league row and its fixtures + standings.
 pub fn upsert_league(conn: &Connection, league: &League) -> Result<(), String> {
-    conn.execute("DELETE FROM fixtures", [])
-        .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
-    conn.execute("DELETE FROM standings", [])
-        .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
-    conn.execute("DELETE FROM transfer_log", [])
-        .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
-    conn.execute("DELETE FROM league", [])
+    let transaction = conn
+        .unchecked_transaction()
         .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
 
-    conn.execute(
-        "INSERT OR REPLACE INTO league (id, name, season) VALUES (?1, ?2, ?3)",
-        params![league.id, league.name, league.season],
-    )
-    .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+    transaction
+        .execute("DELETE FROM fixtures", [])
+        .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+    transaction
+        .execute("DELETE FROM standings", [])
+        .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+    transaction
+        .execute("DELETE FROM transfer_log", [])
+        .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+    transaction
+        .execute("DELETE FROM transfer_rumours", [])
+        .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+    transaction
+        .execute("DELETE FROM league", [])
+        .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+
+    transaction
+        .execute(
+            "INSERT OR REPLACE INTO league (id, name, season) VALUES (?1, ?2, ?3)",
+            params![league.id, league.name, league.season],
+        )
+        .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
 
     for f in &league.fixtures {
         let competition_str = format!("{:?}", f.competition);
@@ -30,7 +43,7 @@ pub fn upsert_league(conn: &Connection, league: &League) -> Result<(), String> {
             .result
             .as_ref()
             .map(|r| serde_json::to_string(r).unwrap_or_default());
-        conn.execute(
+        transaction.execute(
             "INSERT INTO fixtures (id, league_id, matchday, date, home_team_id, away_team_id, competition, status, result)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
             params![
@@ -49,7 +62,7 @@ pub fn upsert_league(conn: &Connection, league: &League) -> Result<(), String> {
     }
 
     for s in &league.standings {
-        conn.execute(
+        transaction.execute(
             "INSERT INTO standings (league_id, team_id, played, won, drawn, lost, goals_for, goals_against, points)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
             params![
@@ -68,7 +81,7 @@ pub fn upsert_league(conn: &Connection, league: &League) -> Result<(), String> {
     }
 
     for transfer in &league.transfer_log {
-        conn.execute(
+        transaction.execute(
             "INSERT INTO transfer_log (league_id, date, from_team_id, to_team_id, player_id, fee)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
             params![
@@ -82,6 +95,27 @@ pub fn upsert_league(conn: &Connection, league: &League) -> Result<(), String> {
         )
         .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
     }
+
+    for rumour in &league.transfer_rumours {
+        transaction.execute(
+            "INSERT INTO transfer_rumours (league_id, rumour_id, date, player_id, player_name, team_id, team_name)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            params![
+                league.id,
+                rumour.id,
+                rumour.date,
+                rumour.player_id,
+                rumour.player_name,
+                rumour.team_id,
+                rumour.team_name,
+            ],
+        )
+        .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+    }
+
+    transaction
+        .commit()
+        .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
 
     Ok(())
 }
@@ -207,6 +241,31 @@ pub fn load_league(conn: &Connection) -> Result<Option<League>, String> {
         transfer_log.push(row.map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?);
     }
 
+    let mut rumour_stmt = conn
+        .prepare(
+            "SELECT rumour_id, date, player_id, player_name, team_id, team_name
+             FROM transfer_rumours WHERE league_id = ?1 ORDER BY date DESC, id DESC",
+        )
+        .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
+
+    let rumour_rows = rumour_stmt
+        .query_map(params![league_id.clone()], |row| {
+            Ok(TransferRumour {
+                id: row.get(0)?,
+                date: row.get(1)?,
+                player_id: row.get(2)?,
+                player_name: row.get(3)?,
+                team_id: row.get(4)?,
+                team_name: row.get(5)?,
+            })
+        })
+        .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
+
+    let mut transfer_rumours = Vec::new();
+    for row in rumour_rows {
+        transfer_rumours.push(row.map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?);
+    }
+
     Ok(Some(League {
         id: league_id,
         name,
@@ -214,6 +273,7 @@ pub fn load_league(conn: &Connection) -> Result<Option<League>, String> {
         fixtures,
         standings,
         transfer_log,
+        transfer_rumours,
     }))
 }
 
@@ -261,6 +321,17 @@ pub fn needs_cleanup(conn: &Connection, active_league_id: Option<&str>) -> Resul
         .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
 
     if stale_transfer_log_count > 0 {
+        return Ok(true);
+    }
+
+    let stale_transfer_rumour_count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM transfer_rumours WHERE league_id != ?1",
+            params![active_league_id],
+            |row| row.get(0),
+        )
+        .map_err(|_| GAME_PERSISTENCE_LOAD_ERROR.to_string())?;
+    if stale_transfer_rumour_count > 0 {
         return Ok(true);
     }
 
@@ -324,6 +395,14 @@ mod tests {
             player_id: "player-001".to_string(),
             fee: 1_250_000,
         }];
+        league.transfer_rumours = vec![TransferRumour {
+            id: "rumour_player-001_2026-W34".to_string(),
+            date: "2026-08-18T12:00:00+00:00".to_string(),
+            player_id: "player-001".to_string(),
+            player_name: "Player One".to_string(),
+            team_id: "team-001".to_string(),
+            team_name: "Team One".to_string(),
+        }];
         league
     }
 
@@ -386,6 +465,21 @@ mod tests {
     }
 
     #[test]
+    fn test_league_transfer_rumours_roundtrip() {
+        let db = test_db();
+        let league = sample_league();
+
+        upsert_league(db.conn(), &league).unwrap();
+        let loaded = load_league(db.conn()).unwrap().unwrap();
+
+        assert_eq!(loaded.transfer_rumours.len(), 1);
+        assert_eq!(loaded.transfer_rumours[0].player_id, "player-001");
+        assert_eq!(loaded.transfer_rumours[0].player_name, "Player One");
+        assert_eq!(loaded.transfer_rumours[0].team_id, "team-001");
+        assert_eq!(loaded.transfer_rumours[0].team_name, "Team One");
+    }
+
+    #[test]
     fn test_load_league_empty() {
         let db = test_db();
         let loaded = load_league(db.conn()).unwrap();
@@ -441,6 +535,7 @@ mod tests {
                 StandingEntry::new("team-002".to_string()),
             ],
             transfer_log: vec![],
+            transfer_rumours: vec![],
         };
 
         upsert_league(db.conn(), &replacement).unwrap();
@@ -460,6 +555,48 @@ mod tests {
         assert_eq!(loaded.id, "league-2");
         assert_eq!(loaded.season, 2027);
         assert_eq!(loaded.fixtures[0].id, "fix-101");
+    }
+
+    #[test]
+    fn test_upsert_league_rolls_back_when_a_write_fails_midway() {
+        let db = test_db();
+        let league = sample_league();
+        upsert_league(db.conn(), &league).unwrap();
+
+        db.conn()
+            .execute(
+                "CREATE TRIGGER fail_bad_fixture BEFORE INSERT ON fixtures
+                 WHEN NEW.id = 'fix-bad'
+                 BEGIN
+                   SELECT RAISE(FAIL, 'boom');
+                 END;",
+                [],
+            )
+            .unwrap();
+
+        let mut replacement = sample_league();
+        replacement.id = "league-rollback".to_string();
+        replacement.season = 2027;
+        replacement.fixtures = vec![Fixture {
+            id: "fix-bad".to_string(),
+            matchday: 1,
+            date: "2027-08-15".to_string(),
+            home_team_id: "team-001".to_string(),
+            away_team_id: "team-002".to_string(),
+            competition: FixtureCompetition::League,
+            status: FixtureStatus::Scheduled,
+            result: None,
+        }];
+
+        assert_eq!(
+            upsert_league(db.conn(), &replacement),
+            Err(GAME_PERSISTENCE_WRITE_ERROR.to_string())
+        );
+
+        let loaded = load_league(db.conn()).unwrap().unwrap();
+        assert_eq!(loaded.id, "league-1");
+        assert_eq!(loaded.season, 2026);
+        assert_eq!(loaded.fixtures.len(), 2);
     }
 
     #[test]

@@ -45,9 +45,13 @@ describe("advanceTimeService", () => {
   });
 
   it("falls back to an empty blocker list when the blocker command fails", async () => {
+    const consoleWarnSpy = vi
+      .spyOn(console, "warn")
+      .mockImplementation(() => { });
     mockedInvoke.mockRejectedValueOnce(new Error("boom"));
 
     await expect(checkBlockingActions("test")).resolves.toEqual([]);
+    consoleWarnSpy.mockRestore();
   });
 
   it("calls the skip-to-match-day backend command", async () => {

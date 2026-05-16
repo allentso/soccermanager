@@ -20,6 +20,7 @@ const MARKETING_CAMPAIGN_MIN_COST: i64 = 15_000;
 const SPONSOR_PITCH_DURATION_WEEKS: u32 = 12;
 const SPONSOR_PITCH_MIN_WEEKLY_AMOUNT: i64 = 40_000;
 const SPONSOR_PITCH_MAX_WEEKLY_AMOUNT: i64 = 180_000;
+const SPONSOR_PITCH_REPUTATION_MULTIPLIER: i64 = 120;
 
 fn marketing_campaign_activation_description() -> String {
     ["Marketing", "campaign", "activation", "spend"].join(" ")
@@ -526,8 +527,18 @@ fn sponsor_pitch_partner(team_id: &str, current_date: chrono::DateTime<chrono::U
     SPONSORS[seed % SPONSORS.len()].join(" ")
 }
 
-fn sponsor_pitch_weekly_amount(team: &Team, snapshot: &TeamFinanceSnapshot) -> i64 {
-    let reputation_component = team.reputation as i64 * 1_500;
+fn sponsor_pitch_weekly_amount(
+    team: &Team,
+    snapshot: &TeamFinanceSnapshot,
+    current_position: Option<u32>,
+) -> i64 {
+    let reputation_component = team.reputation as i64 * SPONSOR_PITCH_REPUTATION_MULTIPLIER;
+    let league_position_component = match current_position {
+        Some(1) => 18_000,
+        Some(2..=4) => 12_000,
+        Some(5..=8) => 6_000,
+        _ => 0,
+    };
     let pressure_component = match snapshot.overall_status {
         FinanceHealthLevel::Stable => 0,
         FinanceHealthLevel::Watch => 5_000,
@@ -547,6 +558,7 @@ fn sponsor_pitch_weekly_amount(team: &Team, snapshot: &TeamFinanceSnapshot) -> i
 
     (SPONSOR_PITCH_MIN_WEEKLY_AMOUNT
         + reputation_component
+        + league_position_component
         + pressure_component
         + wage_pressure_bonus
         + debt_bonus)
@@ -625,9 +637,11 @@ pub fn preview_sponsor_pitch(game: &Game, team_id: &str) -> Result<SponsorPitchP
         return Err("be.error.finance.sponsorPitchActiveSponsor".to_string());
     }
 
+    let current_position = current_league_position(game, team_id);
+
     Ok(SponsorPitchPreview {
         sponsor_name: sponsor_pitch_partner(team_id, game.clock.current_date),
-        weekly_amount: sponsor_pitch_weekly_amount(team, &snapshot),
+        weekly_amount: sponsor_pitch_weekly_amount(team, &snapshot, current_position),
         duration_weeks: SPONSOR_PITCH_DURATION_WEEKS,
     })
 }
@@ -1117,11 +1131,89 @@ fn generate_financial_warnings(game: &mut Game, today: &str) {
 }
 
 fn format_money(amount: u64) -> String {
-    if amount >= 1_000_000 {
-        format!("{:.1}M", amount as f64 / 1_000_000.0)
-    } else if amount >= 1_000 {
-        format!("{}K", amount / 1_000)
-    } else {
-        amount.to_string()
+    crate::currency::format_compact_number(amount, crate::currency::DEFAULT_CURRENCY_CODE)
+        .unwrap_or_else(|| amount.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::preview_sponsor_pitch;
+    use crate::clock::GameClock;
+    use crate::game::Game;
+    use chrono::{TimeZone, Utc};
+    use domain::league::League;
+    use domain::manager::Manager;
+    use domain::team::Team;
+
+    fn make_team(id: &str, name: &str) -> Team {
+        let mut team = Team::new(
+            id.to_string(),
+            name.to_string(),
+            name[..3].to_string(),
+            "England".to_string(),
+            "Testville".to_string(),
+            format!("{} Ground", name),
+            22_000,
+        );
+        team.reputation = 650;
+        team.finance = -25_000;
+        team.wage_budget = 400_000;
+        team.transfer_budget = 500_000;
+        team
+    }
+
+    fn make_game() -> Game {
+        let clock = GameClock::new(Utc.with_ymd_and_hms(2026, 2, 16, 12, 0, 0).unwrap());
+        let mut manager = Manager::new(
+            "mgr-user".to_string(),
+            "Alex".to_string(),
+            "Boss".to_string(),
+            "1980-01-01".to_string(),
+            "England".to_string(),
+        );
+        manager.hire("team1".to_string());
+
+        let mut game = Game::new(
+            clock,
+            manager,
+            vec![make_team("team1", "Alpha FC"), make_team("team2", "Beta FC")],
+            vec![],
+            vec![],
+            vec![],
+        );
+
+        let mut league = League::new(
+            "league-1".to_string(),
+            "Premier Division".to_string(),
+            2026,
+            &["team1".to_string(), "team2".to_string()],
+        );
+        league
+            .standings
+            .iter_mut()
+            .find(|entry| entry.team_id == "team1")
+            .unwrap()
+            .points = 32;
+        league
+            .standings
+            .iter_mut()
+            .find(|entry| entry.team_id == "team2")
+            .unwrap()
+            .points = 18;
+        game.league = Some(league);
+        game
+    }
+
+    #[test]
+    fn preview_sponsor_pitch_rewards_stronger_league_position() {
+        let game = make_game();
+
+        let leader_pitch = preview_sponsor_pitch(&game, "team1").expect("leader pitch");
+        let trailing_pitch = preview_sponsor_pitch(&game, "team2").expect("trailing pitch");
+
+        assert!(
+            leader_pitch.weekly_amount > trailing_pitch.weekly_amount,
+            "A stronger league position should improve sponsor pitch value when other club factors are equal"
+        );
     }
 }

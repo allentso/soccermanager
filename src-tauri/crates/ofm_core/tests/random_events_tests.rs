@@ -107,6 +107,7 @@ fn make_game_with_league() -> Game {
         }],
         standings: vec![StandingEntry::new("team1".to_string())],
         transfer_log: vec![],
+        transfer_rumours: vec![],
     });
     game
 }
@@ -327,6 +328,7 @@ fn check_random_events_board_confidence_triggers_on_losses() {
         ],
         standings: vec![],
         transfer_log: vec![],
+        transfer_rumours: vec![],
     });
 
     check_random_events(&mut game);
@@ -410,6 +412,7 @@ fn check_random_events_board_confidence_no_trigger_without_losses() {
         ],
         standings: vec![],
         transfer_log: vec![],
+        transfer_rumours: vec![],
     });
 
     check_random_events(&mut game);
@@ -447,6 +450,7 @@ fn check_random_events_international_callup_with_upcoming_match() {
         }],
         standings: vec![],
         transfer_log: vec![],
+        transfer_rumours: vec![],
     });
 
     // Run many times to trigger the 5% chance
@@ -703,7 +707,7 @@ fn apply_sponsor_accept_adds_finance() {
     assert!(result.is_some());
     let effect = result.unwrap();
     assert_eq!(effect.i18n_key, "be.msg.sponsor.effects.accepted");
-    assert_eq!(effect.i18n_params.get("amount"), Some(&"100K".to_string()));
+    assert_eq!(effect.i18n_params.get("amount"), Some(&"100000".to_string()));
     assert_eq!(game.teams[0].finance, initial_finance);
     assert_eq!(game.teams[0].season_income, 0);
     let sponsorship = game.teams[0]
@@ -780,6 +784,25 @@ fn apply_sponsor_accept_parses_formatted_amount_param() {
         .as_ref()
         .expect("accepted sponsor should create active sponsorship state");
     assert_eq!(sponsorship.base_value, 100_000);
+}
+
+#[test]
+fn apply_sponsor_accept_parses_compact_amount_param_from_existing_messages() {
+    let mut game = make_game();
+    let mut message = sponsor_message(100_000);
+    message
+        .i18n_params
+        .insert("amount".to_string(), "1.2M".to_string());
+    game.messages.push(message);
+
+    let result = apply_event_response(&mut game, "sponsor_2025-06-15", "respond", "accept");
+
+    assert!(result.is_some());
+    let sponsorship = game.teams[0]
+        .sponsorship
+        .as_ref()
+        .expect("accepted sponsor should create active sponsorship state");
+    assert_eq!(sponsorship.base_value, 1_200_000);
 }
 
 fn board_message() -> InboxMessage {

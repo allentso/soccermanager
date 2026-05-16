@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
-import type { ComponentPropsWithoutRef } from "react";
+import type { ComponentPropsWithoutRef, ReactNode } from "react";
 
 import { countryName } from "../lib/countries";
 import { resetCountryResourcesCache } from "../components/menu/CreateManagerNationalityField";
@@ -10,6 +10,7 @@ import MainMenu from "./MainMenu";
 const navigateMock = vi.fn();
 const setGameActiveMock = vi.fn();
 const setGameStateMock = vi.fn();
+const alertMock = vi.fn();
 let latestDatePickerOnChange: ((date: string) => void) | null = null;
 const translationState = {
   language: "en",
@@ -80,6 +81,25 @@ vi.mock("../components/ui", () => ({
   CountryFlag: ({ code }: { code: string }) => (
     <span data-testid={`country-flag-${code.toLowerCase()}`} />
   ),
+  Select: ({
+    value,
+    onChange,
+    children,
+    "aria-label": ariaLabel,
+  }: {
+    value?: string | number | readonly string[];
+    onChange?: (event: { target: { value: string } }) => void;
+    children?: ReactNode;
+    "aria-label"?: string;
+  }) => (
+    <select
+      aria-label={ariaLabel}
+      value={value}
+      onChange={(event) => onChange?.({ target: { value: event.target.value } })}
+    >
+      {children}
+    </select>
+  ),
 }));
 
 vi.mock("../components/ui/ThemeToggle", () => ({
@@ -91,8 +111,21 @@ vi.mock("../components/menu/SavesList", () => ({
 }));
 
 vi.mock("../components/menu/WorldSelect", () => ({
-  default: ({ onStart }: { onStart: () => void }) => (
+  default: ({
+    onStart,
+    onSelectWorld,
+    worldDatabases,
+  }: {
+    onStart: () => void;
+    onSelectWorld: (id: string) => void;
+    worldDatabases: Array<{ id: string }>;
+  }) => (
     <div data-testid="world-select">
+      {worldDatabases.map((db) => (
+        <button key={db.id} type="button" onClick={() => onSelectWorld(db.id)}>
+          {`select-${db.id}`}
+        </button>
+      ))}
       <button type="button" onClick={onStart}>
         start-world
       </button>
@@ -122,6 +155,18 @@ function fillManagerDetails(): void {
   );
   fireEvent.change(screen.getByLabelText("manager-date-of-birth"), {
     target: { value: "1980-01-01" },
+  });
+}
+
+function fillCareerStartDetails(
+  startYear = "2026",
+  startPhase = "seasonStart",
+): void {
+  fireEvent.change(screen.getByLabelText("createManager.startYear"), {
+    target: { value: startYear },
+  });
+  fireEvent.change(screen.getByLabelText("createManager.startPhase"), {
+    target: { value: startPhase },
   });
 }
 
@@ -183,6 +228,7 @@ describe("MainMenu", () => {
     navigateMock.mockReset();
     setGameActiveMock.mockReset();
     setGameStateMock.mockReset();
+    alertMock.mockReset();
     latestDatePickerOnChange = null;
     translationState.language = "en";
     mockedInvoke.mockReset();
@@ -203,6 +249,7 @@ describe("MainMenu", () => {
       queueMicrotask(() => cb(0));
       return 0;
     });
+    vi.stubGlobal("alert", alertMock);
   });
 
   afterEach(() => {
@@ -219,6 +266,7 @@ describe("MainMenu", () => {
 
       await openCreateManagerForm();
       fillManagerDetails();
+      fillCareerStartDetails("2028", "midSeason");
       await selectNationality(language, "ES");
 
       const localizedCountryName = countryName("ES", language);
@@ -245,6 +293,10 @@ describe("MainMenu", () => {
             lastName: "Lovelace",
             dob: "1980-01-01",
             nationality: "ES",
+            startupOptions: {
+              startYear: 2028,
+              startPhase: "midSeason",
+            },
           }),
         );
       });
@@ -406,5 +458,83 @@ describe("MainMenu", () => {
     });
     expect(mockedInvoke).not.toHaveBeenCalledWith("list_world_databases");
     expect(screen.queryByTestId("world-select")).not.toBeInTheDocument();
+  });
+
+  it("blocks progression when the start year is before 2020 and focuses the year field", async () => {
+    render(<MainMenu />);
+
+    await openCreateManagerForm();
+    fillManagerDetails();
+    fillCareerStartDetails("2019", "seasonStart");
+    await selectNationality("en", "ES");
+
+    fireEvent.click(screen.getByText("createManager.chooseWorld"));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("createManager.startYear")).toHaveFocus();
+    });
+    expect(screen.getByText("validation.minStartYear")).toBeInTheDocument();
+    expect(mockedInvoke).not.toHaveBeenCalledWith("list_world_databases");
+  });
+
+  it("does not fall back to a random world when imported database writing fails", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => { });
+
+    mockedInvoke.mockImplementation(async (command: string) => {
+      if (command === "list_world_databases") {
+        return [
+          {
+            id: "file:imported-world.json",
+            name: "Imported World",
+            description: "Imported",
+            team_count: 8,
+            player_count: 160,
+            source: "imported",
+            path: "",
+            history_mode: "reference",
+          },
+        ];
+      }
+
+      if (command === "write_temp_database") {
+        throw new Error("write failed");
+      }
+
+      if (command === "start_new_game") {
+        return { id: "game-1" };
+      }
+
+      return null;
+    });
+
+    sessionStorage.setItem("imported_world_json", "{\"name\":\"Imported World\"}");
+
+    render(<MainMenu />);
+
+    await openCreateManagerForm();
+    fillManagerDetails();
+    await selectNationality("en", "ES");
+
+    fireEvent.click(screen.getByText("createManager.chooseWorld"));
+
+    await waitFor(() => {
+      expect(mockedInvoke).toHaveBeenCalledWith("list_world_databases");
+    });
+
+    fireEvent.click(screen.getByText("select-file:imported-world.json"));
+    fireEvent.click(screen.getByText("start-world"));
+
+    await waitFor(() => {
+      expect(mockedInvoke).toHaveBeenCalledWith("write_temp_database", {
+        json: "{\"name\":\"Imported World\"}",
+      });
+    });
+
+    expect(mockedInvoke).not.toHaveBeenCalledWith(
+      "start_new_game",
+      expect.anything(),
+    );
+    expect(alertMock).toHaveBeenCalledWith("menu.failedStartGame");
+    expect(navigateMock).not.toHaveBeenCalledWith("/select-team");
   });
 });

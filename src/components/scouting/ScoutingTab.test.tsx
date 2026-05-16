@@ -17,6 +17,11 @@ vi.mock("@tauri-apps/api/core", () => ({
   invoke: (...args: unknown[]) => invokeMock(...args),
 }));
 
+vi.mock("../../utils/backendI18n", () => ({
+  resolveBackendError: (error: unknown) =>
+    error instanceof Error ? error.message : String(error),
+}));
+
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string, params?: Record<string, string | number>) => {
@@ -169,6 +174,7 @@ function createPlayer(overrides: Partial<PlayerData> = {}): PlayerData {
     morale: 75,
     injury: null,
     team_id: "team-2",
+    retired: false,
     contract_end: "2027-06-30",
     wage: 12000,
     market_value: 350000,
@@ -309,6 +315,9 @@ describe("ScoutingTab", () => {
   });
 
   it("shows scout assignment errors inline in the player search card", async () => {
+    const consoleErrorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => { });
     invokeMock.mockRejectedValueOnce(
       new Error("Scout is already assigned to another scouting task."),
     );
@@ -327,6 +336,8 @@ describe("ScoutingTab", () => {
         "Scout is already assigned to another scouting task.",
       );
     });
+
+    consoleErrorSpy.mockRestore();
   });
 
   it("starts a youth scouting search and forwards the updated state", async () => {

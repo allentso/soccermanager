@@ -122,6 +122,7 @@ describe("useGameStore", () => {
             morale: 100,
             injury: null,
             team_id: "team1",
+            retired: false,
             contract_end: null,
             wage: 0,
             market_value: 0,
@@ -172,6 +173,69 @@ describe("useGameStore", () => {
       expect(hydrated?.manager.nationality).toBe("ENG");
       expect(hydrated?.players[0].nationality).toBe("ENG");
       expect(hydrated?.staff[0].nationality).toBe("ENG");
+    });
+
+    it("hydrates manager directories consistently and preserves transfer logs", () => {
+      type ExtendedGameState = GameStateData & {
+        managers: Array<{
+          id: string;
+          first_name: string;
+          last_name: string;
+          date_of_birth: string;
+          nationality: string;
+          football_nation?: string;
+          reputation: number;
+          satisfaction: number;
+          fan_approval: number;
+          team_id: string | null;
+          career_stats: GameStateData["manager"]["career_stats"];
+          career_history: GameStateData["manager"]["career_history"];
+        }>;
+        league: NonNullable<GameStateData["league"]> & {
+          transfer_log: Array<{
+            date: string;
+            from_team_id: string;
+            to_team_id: string;
+            player_id: string;
+            fee: number;
+          }>;
+        };
+      };
+
+      const gs = {
+        ...makeGameState(),
+        managers: [
+          {
+            ...makeGameState().manager,
+            id: "mgr-ai-1",
+            nationality: "GB",
+            football_nation: "ENG",
+            team_id: "team2",
+          },
+        ],
+        league: {
+          id: "league-1",
+          name: "Premier Division",
+          season: 2026,
+          fixtures: [],
+          standings: [],
+          transfer_log: [
+            {
+              date: "2026-08-02",
+              from_team_id: "team2",
+              to_team_id: "team3",
+              player_id: "p9",
+              fee: 1200000,
+            },
+          ],
+        },
+      } as ExtendedGameState;
+
+      useGameStore.getState().setGameState(gs);
+
+      const hydrated = useGameStore.getState().gameState as ExtendedGameState | null;
+      expect(hydrated?.managers[0].nationality).toBe("ENG");
+      expect(hydrated?.league.transfer_log).toEqual(gs.league.transfer_log);
     });
 
     it("marks state as dirty", () => {

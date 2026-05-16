@@ -26,6 +26,10 @@
     "firstName": "Nome",
     "lastName": "Cognome",
     "dob": "Data di nascita",
+    "startYear": "Anno di inizio",
+    "startPhase": "Fase di inizio",
+    "phaseSeasonStart": "Inizio stagione",
+    "phaseMidSeason": "Metà stagione",
     "nationality": "Nazionalità",
     "countryOfOrigin": "Paese/Regione di origine",
     "selectNationality": "Seleziona nazionalità...",
@@ -38,6 +42,7 @@
   "validation": {
     "required": "{{field}} è obbligatorio",
     "maxLength": "{{field}} non deve superare {{max}} caratteri",
+    "minStartYear": "L'anno di inizio deve essere {{min}} o successivo",
     "minAge": "L'allenatore deve avere almeno {{min}} anni — modifica la data di nascita per continuare.",
     "invalidDate": "Data non valida",
     "invalidDob": "Data di nascita non valida"
@@ -51,7 +56,25 @@
     "teams": "{{count}} squadre",
     "players": "{{count}} giocatori",
     "randomWorld": "Mondo casuale",
-    "randomDescription": "Campionato generato casualmente con 8 squadre, giocatori e staff"
+    "randomDescription": "Campionato generato casualmente con 8 squadre, giocatori e staff",
+    "historyMode": {
+      "generated": "Storia generata",
+      "reference": "Storia di riferimento",
+      "hybrid": "Storia ibrida"
+    },
+    "summary": {
+      "startYear": "Inizio carriera",
+      "seasonStart": {
+        "generated": "Inizia nel {{year}} con un mondo nuovo e sei stagioni di storia generate.",
+        "reference": "Inizia nel {{year}} usando l'istantanea storica selezionata come base del mondo.",
+        "hybrid": "Inizia nel {{year}} usando la rosa di questo database mentre la storia mancante viene generata intorno."
+      },
+      "midSeason": {
+        "generated": "Subentra a metà del {{year}} con classifica, calendario, notizie e storico partite ereditati da una stagione generata.",
+        "reference": "Subentra a metà del {{year}} con l'istantanea storica selezionata e il contesto stagionale già presente.",
+        "hybrid": "Subentra a metà del {{year}} con la rosa di questo database più contesto storico generato e avanzamento stagionale ereditato."
+      }
+    }
   },
   "dashboard": {
     "home": "Casa",
@@ -64,6 +87,8 @@
     "finances": "Finanze",
     "transfers": "Trasferimenti",
     "players": "Giocatori",
+    "managers": "Allenatori",
+    "hallOfFame": "Sala della Fama",
     "teams": "Squadre",
     "tournaments": "Tornei",
     "schedule": "Calendario",
@@ -860,6 +885,40 @@
     "fanRestless": "I tifosi stanno diventando irrequieti.",
     "fanUnrest": "Agitazione tra i tifosi — probabili proteste."
   },
+  "managersWorld": {
+    "title": "Allenatori",
+    "subtitle": "Allenatori del campionato e incarichi vacanti",
+    "vacancy": "Vacante",
+    "employed": "In carica",
+    "unemployed": "Senza squadra",
+    "reputation": "Reputazione",
+    "winRate": "Percentuale vittorie",
+    "matches": "Partite",
+    "currentClub": "Club attuale",
+    "openRole": "Incarico aperto al {{team}}",
+    "vacancyBadge": "Dirigenza in cerca",
+    "noManagers": "Nessun allenatore disponibile."
+  },
+  "hallOfFameWorld": {
+    "title": "Sala della Fama",
+    "subtitle": "Leggende ritirate e campioni del passato",
+    "legends": "Leggende ritirate",
+    "pastChampions": "Campioni del passato",
+    "noLegends": "Nessuna leggenda ritirata registrata.",
+    "noChampions": "Nessun campione del passato registrato.",
+    "appearances": "Presenze",
+    "goals": "Gol",
+    "assists": "Assist",
+    "titles": "Titoli",
+    "lastClub": "Ultimo club",
+    "finalSeason": "Ultima stagione",
+    "played": "Giocate",
+    "record": "Bilancio",
+    "goalDifference": "Differenza reti",
+    "legendsCount": "Leggende registrate",
+    "championsCount": "Stagioni da campione",
+    "seasonLabel": "Stagione {{season}}"
+  },
   "boardObjectives": {
     "objective": {
       "LeaguePosition": "Chiudi tra le prime {{target}}",
@@ -873,6 +932,7 @@
     "transferWindow": "{{team}} — Finestra di mercato",
     "myTransferList": "La mia lista trasferimenti",
     "transferMarket": "Mercato trasferimenti",
+    "freeAgents": "Svincolati",
     "loanMarket": "Mercato prestiti",
     "offers": "Offerte",
     "searchByName": "Cerca per nome...",
@@ -880,12 +940,14 @@
     "goToProfile": "Vai al profilo del giocatore per inserirlo tra i cedibili o prestabili.",
     "noOffers": "Nessuna offerta di trasferimento attiva al momento.",
     "noTransferMarket": "Nessun giocatore disponibile per il trasferimento al momento.",
+    "noFreeAgents": "Nessun giocatore svincolato disponibile al momento.",
     "noLoanMarket": "Nessun giocatore disponibile per il prestito al momento.",
     "transfer": "Trasferimento",
     "loan": "Prestito",
     "none": "Nessuno",
     "listed": "In lista",
     "makeBid": "Fai un'offerta",
+    "offerContract": "Offri contratto",
     "bid": "Offerta",
     "playerValue": "Valore: {{value}}",
     "bidAmount": "Importo offerta (€M)",
@@ -934,6 +996,23 @@
     "transferFeedbackCounterDetail": "L'offerta era abbastanza vicina per continuare a parlare, ma la controparte segnala un prezzo più vicino a {{fee}}.",
     "transferFeedbackRejectedHeadline": "Hanno chiuso questo round.",
     "transferFeedbackRejectedDetail": "La proposta non li ha smossi abbastanza. Servirebbe una cifra più forte, più vicina a {{fee}}, per riaprire una trattativa seria."
+  },
+  "transferCentreWorld": {
+    "title": "Centro trasferimenti",
+    "subtitle": "Segui le voci di mercato e gli affari conclusi in tutto il campionato",
+    "rumours": "Voci",
+    "completedDeals": "Affari conclusi",
+    "currentClub": "Club attuale",
+    "sourceClub": "Da",
+    "destinationClub": "A",
+    "reportedOn": "Segnalato",
+    "agreedOn": "Concluso",
+    "fee": "Costo",
+    "noRumours": "Nessuna voce attiva.",
+    "noCompletedDeals": "Nessun affare concluso registrato.",
+    "rumourTag": "Voce",
+    "completedTag": "Concluso",
+    "playerButton": "Vedi {{player}}"
   },
   "schedule": {
     "noSchedule": "Nessun calendario di campionato disponibile.",
@@ -1002,8 +1081,11 @@
         "assists": "assist",
         "rating": "voto",
         "cleanSheets": "clean sheet",
-        "apps": "pres."
-      }
+        "apps": "pres.",
+        "winRate": "% vittorie"
+      },
+      "managerOfSeasonTitle": "Allenatore della Stagione",
+      "managerOfSeasonSubtitle": "La miglior annata in panchina"
     },
     "noGoals": "Ancora nessun gol segnato."
   },
@@ -1039,7 +1121,7 @@
     "renewalBudgetWarning": "L'offerta supera il limite di pressione salariale fissato dalla dirigenza",
     "renewalAccepted": "Offerta accettata",
     "renewalRejected": "Offerta rifiutata",
-    "renewalCounter": "Vuole di più: €{{wage}}/settimana per {{years}} anni",
+    "renewalCounter": "Vuole di più: {{wage}}/settimana per {{years}} anni",
     "renewalBlocked": "I colloqui sono bloccati dopo la tua decisione precedente",
     "renewalCooledOff": "I colloqui precedenti si sono raffreddati, quindi questa riparte come una nuova trattativa.",
     "letContractExpire": "Lasciare scadere",
@@ -1714,7 +1796,8 @@
       "settings": {
         "loadFailed": "Impossibile caricare le impostazioni.",
         "parseFailed": "I dati delle impostazioni non sono validi.",
-        "saveFailed": "Impossibile salvare le impostazioni."
+        "saveFailed": "Impossibile salvare le impostazioni.",
+        "invalidCurrency": "La valuta selezionata non è supportata."
       },
       "finance": {
         "boardSupportUnavailable": "Il supporto d'emergenza del consiglio è disponibile solo quando la liquidità è sotto pressione.",
@@ -1725,7 +1808,7 @@
         "sponsorPitchActiveSponsor": "Esiste già un accordo di sponsorizzazione attivo.",
         "marketingCampaignUnavailable": "Le campagne marketing sono disponibili solo quando il club è sotto pressione salariale o di cassa.",
         "marketingCampaignCoolingDown": "Il team commerciale ha bisogno di tempo prima di avviare un'altra campagna marketing.",
-        "facilityUpgradeInsufficientFunds": "Fondi insufficienti per questo potenziamento della struttura. Servono €{{amount}}.",
+        "facilityUpgradeInsufficientFunds": "Fondi insufficienti per questo potenziamento della struttura. Servono {{amount}}.",
         "facilityUpgradeOverBudget": "I potenziamenti delle strutture sono bloccati finché il club supera il budget salariale.",
         "facilityUpgradeCritical": "I potenziamenti delle strutture sono bloccati finché il club è sotto forte pressione finanziaria."
       },
@@ -1735,7 +1818,9 @@
         "nationalityRequired": "La nazionalità è obbligatoria.",
         "invalidDobFormat": "Data di nascita non valida. Usa il formato AAAA-MM-GG.",
         "minAge": "L'allenatore deve avere almeno 30 anni.",
-        "invalidDob": "Data di nascita non valida."
+        "invalidDob": "Data di nascita non valida.",
+        "startYearMin": "L'anno di inizio deve essere 2020 o successivo.",
+        "invalidStartPhase": "La fase di inizio selezionata non è valida."
       },
       "transfers": {
         "transferWindowClosed": "La finestra di mercato è chiusa",
@@ -1752,6 +1837,7 @@
       },
       "contracts": {
         "playerNotOwnedByClub": "Il giocatore non appartiene al tuo club",
+        "playerNotFreeAgent": "Il giocatore non è svincolato",
         "unableToCalculateContractEndDate": "Impossibile calcolare la nuova data di fine contratto",
         "playerHasNoActiveContract": "Il giocatore non ha un contratto attivo",
         "terminationWouldLeaveMatchdaySquadShort": "Rescindere questo contratto lascerebbe la tua rosa senza la possibilità di schierare un undici nel giorno della partita",
@@ -1896,15 +1982,15 @@
       },
       "financeCritical": {
         "subject": "URGENTE: Club in debito",
-        "body": "Il club ha attualmente un debito di €{{amount}}. Questa è una situazione insostenibile.\n\nIl consiglio pretende un intervento immediato per affrontare la crisi finanziaria. Valuta la cessione di giocatori, la riduzione dello staff o fonti di entrata alternative.\n\nSe non risolverai la situazione, potrebbero esserci gravi conseguenze per il tuo incarico."
+        "body": "Il club ha attualmente un debito di {{amount}}. Questa è una situazione insostenibile.\n\nIl consiglio pretende un intervento immediato per affrontare la crisi finanziaria. Valuta la cessione di giocatori, la riduzione dello staff o fonti di entrata alternative.\n\nSe non risolverai la situazione, potrebbero esserci gravi conseguenze per il tuo incarico."
       },
       "financeWarning": {
         "subject": "Avviso finanziario — Riserve basse",
-        "body": "Le nostre riserve finanziarie si stanno assottigliando. Al ritmo attuale di spesa (€{{weeklyWages}}/settimana di stipendi), abbiamo circa {{weeksLeft}} settimane di copertura rimanenti.\n\nTi consiglierei di rivedere il monte ingaggi e cercare modi per aumentare le entrate."
+        "body": "Le nostre riserve finanziarie si stanno assottigliando. Al ritmo attuale di spesa ({{weeklyWages}}/settimana di stipendi), abbiamo circa {{weeksLeft}} settimane di copertura rimanenti.\n\nTi consiglierei di rivedere il monte ingaggi e cercare modi per aumentare le entrate."
       },
       "wageOverBudget": {
         "subject": "Monte ingaggi oltre il budget",
-        "body": "Il nostro monte ingaggi annuale (€{{annualWages}}) supera attualmente il budget stipendi assegnato (€{{wageBudget}}).\n\nAnche se possiamo sostenerlo nel breve periodo, il consiglio preferirebbe vedere il monte ingaggi tornare sotto controllo."
+        "body": "Il nostro monte ingaggi annuale ({{annualWages}}) supera attualmente il budget stipendi assegnato ({{wageBudget}}).\n\nAnche se possiamo sostenerlo nel breve periodo, il consiglio preferirebbe vedere il monte ingaggi tornare sotto controllo."
       },
       "financeBoardPressure": {
         "subject": "Consiglio — Pressione finanziaria",
@@ -1913,11 +1999,11 @@
       },
       "marketingCampaign": {
         "subject": "Rapporto campagna marketing",
-        "body": "L'iniziativa commerciale si è conclusa con vendite lorde per €{{grossRevenue}}. Dopo €{{campaignCost}} di costi di campagna, il club incassa €{{netIncome}} di nuova liquidità.\n\nIl team commerciale dovrà attendere {{days}} giorni prima di lanciare un'altra campagna."
+        "body": "L'iniziativa commerciale si è conclusa con vendite lorde per {{grossRevenue}}. Dopo {{campaignCost}} di costi di campagna, il club incassa {{netIncome}} di nuova liquidità.\n\nIl team commerciale dovrà attendere {{days}} giorni prima di lanciare un'altra campagna."
       },
       "seasonPayout": {
         "subject": "Stagione {{season}} — Premio assegnato",
-        "body": "Il consiglio ha confermato un premio di €{{amount}} per il tuo {{position}}º posto in campionato. L'importo è stato aggiunto al saldo del club.",
+        "body": "Il consiglio ha confermato un premio di {{amount}} per il tuo {{position}}º posto in campionato. L'importo è stato aggiunto al saldo del club.",
         "ledgerDescription": "Premio stagione {{season}} per il {{position}}{{suffix}} posto"
       },
       "seasonReview": {
@@ -2066,11 +2152,11 @@
       },
       "sponsor": {
         "subject": "Offerta di sponsorizzazione — {{sponsor}}",
-        "body": "Buone notizie, mister! {{sponsor}} ha espresso interesse a diventare sponsor del {{team}}.\n\nOffre un pagamento settimanale di €{{amount}} per le prossime 12 settimane in cambio di spazio pubblicitario al centro sportivo.\n\nSembra un buon accordo, ma la decisione spetta a te.",
+        "body": "Buone notizie, mister! {{sponsor}} ha espresso interesse a diventare sponsor del {{team}}.\n\nOffre un pagamento settimanale di {{amount}} per le prossime 12 settimane in cambio di spazio pubblicitario al centro sportivo.\n\nSembra un buon accordo, ma la decisione spetta a te.",
         "options": {
           "accept": {
             "label": "Accetta l'accordo",
-            "description": "Ricevi €{{amount}} di introiti da sponsorizzazione."
+            "description": "Ricevi {{amount}} di introiti da sponsorizzazione."
           },
           "decline": {
             "label": "Rifiuta educatamente",
@@ -2078,7 +2164,7 @@
           }
         },
         "effects": {
-          "accepted": "Accordo di sponsorizzazione firmato. Riceverai €{{amount}} a settimana per 12 settimane.",
+          "accepted": "Accordo di sponsorizzazione firmato. Riceverai {{amount}} a settimana per 12 settimane.",
           "declined": "Sponsorizzazione rifiutata."
         }
       },
@@ -2204,6 +2290,10 @@
         "subject": "{{player}} svincolato",
         "body": "{{player}} è stato svincolato da {{team}}. Il club ha pagato {{severance}} in stipendi residui come buonuscita.",
         "ledgerDescription": "Buonuscita per risoluzione contrattuale pagata a {{player}}"
+      },
+      "freeAgentSigned": {
+        "subject": "{{player}} firma per {{team}}",
+        "body": "{{player}} si è unito a {{team}} da svincolato con un contratto di {{years}} anno/i."
       },
       "delegatedRenewals": {
         "subject": "Rapporto dell'assistente — Rinnovi contrattuali",
@@ -2557,5 +2647,17 @@
     "noJobs": "Nessuna posizione disponibile al momento.",
     "leaguePosition": "Ultima stagione: {{position}}",
     "refresh": "Cerca nuove posizioni"
+  },
+  "awardsCeremony": {
+    "title": "Cerimonia dei Premi",
+    "subtitle": "Stagione {{season}} in {{league}}",
+    "managerOfSeason": "Allenatore della Stagione",
+    "goldenBoot": "Scarpa d'Oro",
+    "playerOfYear": "Giocatore dell'Anno",
+    "continue": "Continua alla dashboard",
+    "back": "Torna alle notizie",
+    "goals": "Gol",
+    "rating": "Valutazione",
+    "winRate": "Percentuale vittorie"
   }
 }

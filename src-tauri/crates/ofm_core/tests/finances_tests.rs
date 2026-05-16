@@ -805,6 +805,7 @@ fn home_match_generates_income() {
         }],
         standings: vec![StandingEntry::new("team1".to_string())],
         transfer_log: vec![],
+        transfer_rumours: vec![],
     };
     game.league = Some(league);
 
@@ -852,6 +853,7 @@ fn away_match_no_income() {
         }],
         standings: vec![StandingEntry::new("team1".to_string())],
         transfer_log: vec![],
+        transfer_rumours: vec![],
     };
     game.league = Some(league);
 
