@@ -485,9 +485,9 @@ pub async fn start_new_game(
         .map_err(|_| "be.error.createManager.invalidDobFormat".to_string())?;
 
     let startup_options = normalize_startup_options(startup_options)?;
-    let reference_date =
-        current_date_for_phase(startup_options.start_year, startup_options.start_phase)?
-            .date_naive();
+    let world = load_world_data(world_source.as_deref())?;
+    let clock = game_clock_for_world(&startup_options, &world.metadata)?;
+    let reference_date = clock.current_date.date_naive();
     let age = age_on_date(birth_date, reference_date);
     if age < 30 {
         return Err("be.error.createManager.minAge".to_string());
@@ -513,8 +513,6 @@ pub async fn start_new_game(
         world_source
     );
 
-    let world = load_world_data(world_source.as_deref())?;
-    let clock = game_clock_for_world(&startup_options, &world.metadata)?;
     let (new_game, stats_state) =
         build_game_from_world_data(clock, manager, &startup_options, world);
 
@@ -1038,6 +1036,23 @@ mod tests {
 
         assert_eq!(age_on_date(birth_date, season_start), 29);
         assert_eq!(age_on_date(birth_date, midseason), 30);
+    }
+
+    #[test]
+    fn age_on_date_uses_world_snapshot_date_over_startup_phase() {
+        let startup_options = StartupOptions {
+            start_year: 2032,
+            start_phase: StartPhase::MidSeason,
+        };
+        let world = make_historical_snapshot_world();
+        let reference_date = game_clock_for_world(&startup_options, &world.metadata)
+            .unwrap()
+            .current_date
+            .date_naive();
+        let birth_date = chrono::NaiveDate::from_ymd_opt(2001, 12, 15).unwrap();
+
+        assert_eq!(reference_date.to_string(), "2031-11-20");
+        assert_eq!(age_on_date(birth_date, reference_date), 29);
     }
 
     #[test]
