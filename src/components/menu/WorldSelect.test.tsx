@@ -39,7 +39,7 @@ describe("WorldSelect", () => {
             player_count: 352,
             source: "builtin",
             path: "",
-            history_mode: "generated",
+            history_mode: "reference",
           },
         ]}
         selectedWorldId="random"

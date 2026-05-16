@@ -164,6 +164,7 @@ beforeEach(function resetMocks(): void {
       currency: "EUR",
       language: "en",
     },
+    currency: { code: "EUR", symbol: "€", exchange_rate: 1 },
   });
 });
 
@@ -672,6 +673,7 @@ describe("InboxTab", function (): void {
         currency: "GBP",
         language: "en",
       },
+      currency: { code: "GBP", symbol: "£", exchange_rate: 1 },
     });
 
     renderInboxTab({

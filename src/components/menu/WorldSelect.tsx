@@ -34,8 +34,8 @@ interface WorldSelectProps {
 
 function worldHistoryMode(db: WorldDatabaseInfo | undefined): "generated" | "reference" | "hybrid" {
   if (!db) return "generated";
-  if (db.history_mode) return db.history_mode;
   if (db.id === "random") return "generated";
+  if (db.history_mode) return db.history_mode;
   return "hybrid";
 }
 

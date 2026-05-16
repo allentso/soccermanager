@@ -468,43 +468,45 @@ describe("TransfersTab", function (): void {
     const consoleErrorSpy = vi
       .spyOn(console, "error")
       .mockImplementation(() => { });
-    const state = createGameState([
-      createPlayer({
-        id: "player-market-1",
-        team_id: "team-2",
-        transfer_listed: true,
-        transfer_offers: [],
-      }),
-    ]);
-    state.staff = [createScout()];
+    try {
+      const state = createGameState([
+        createPlayer({
+          id: "player-market-1",
+          team_id: "team-2",
+          transfer_listed: true,
+          transfer_offers: [],
+        }),
+      ]);
+      state.staff = [createScout()];
 
-    mockedInvoke.mockRejectedValueOnce(
-      new Error("Scout is already assigned to another scouting task."),
-    );
-
-    render(
-      <TransfersTab
-        gameState={state}
-        onSelectPlayer={vi.fn()}
-        onSelectTeam={vi.fn()}
-        onGameUpdate={vi.fn()}
-      />,
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: /transfer market/i }));
-    const playerRow = screen.getByText("John Smith").closest("tr");
-    expect(playerRow).not.toBeNull();
-
-    fireEvent.contextMenu(playerRow as HTMLTableRowElement);
-    fireEvent.click(screen.getByRole("button", { name: "Scout" }));
-
-    await waitFor(() => {
-      expect(screen.getByRole("alert")).toHaveTextContent(
-        "Scout is already assigned to another scouting task.",
+      mockedInvoke.mockRejectedValueOnce(
+        new Error("Scout is already assigned to another scouting task."),
       );
-    });
 
-    consoleErrorSpy.mockRestore();
+      render(
+        <TransfersTab
+          gameState={state}
+          onSelectPlayer={vi.fn()}
+          onSelectTeam={vi.fn()}
+          onGameUpdate={vi.fn()}
+        />,
+      );
+
+      fireEvent.click(screen.getByRole("button", { name: /transfer market/i }));
+      const playerRow = screen.getByText("John Smith").closest("tr");
+      expect(playerRow).not.toBeNull();
+
+      fireEvent.contextMenu(playerRow as HTMLTableRowElement);
+      fireEvent.click(screen.getByRole("button", { name: "Scout" }));
+
+      await waitFor(() => {
+        expect(screen.getByRole("alert")).toHaveTextContent(
+          "Scout is already assigned to another scouting task.",
+        );
+      });
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
   });
 
   it("resumes an incoming transfer negotiation when reopening the counter-offer modal", function (): void {

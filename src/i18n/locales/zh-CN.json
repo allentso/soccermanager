@@ -1820,6 +1820,7 @@
         "minAge": "经理年龄必须至少为 30 岁。",
         "invalidDob": "出生日期无效。",
         "startYearMin": "开始年份必须为 2020 或之后。",
+        "invalidStartYear": "所选开始年份无效。",
         "invalidStartPhase": "所选开始阶段无效。"
       },
       "transfers": {

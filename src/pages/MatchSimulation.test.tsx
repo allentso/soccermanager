@@ -284,47 +284,50 @@ describe("MatchSimulation", function (): void {
     const consoleWarnSpy = vi
       .spyOn(console, "warn")
       .mockImplementation(() => { });
-    locationState = {
-      fixtureIndex: 4,
-      mode: "live",
-      snapshot: makeSnapshot({
-        home_team: {
-          id: "home1",
-          name: "Boot Snapshot FC",
-          formation: "4-4-2",
-          play_style: "Balanced",
-          players: [makeEnginePlayer({ id: "boot-p1", name: "Boot Keeper" })],
-        },
-      }),
-    };
-
-    mockedInvoke.mockRejectedValueOnce(new Error("No active live match"));
-    mockedInvoke.mockResolvedValueOnce(
-      makeSnapshot({
-        home_team: {
-          id: "home1",
-          name: "Restored FC",
-          formation: "4-4-2",
-          play_style: "Balanced",
-          players: [
-            makeEnginePlayer({ id: "restore-p1", name: "Restore Keeper" }),
-          ],
-        },
-      }),
-    );
-
-    render(<MatchSimulation />);
-
-    await waitFor(function (): void {
-      expect(mockedInvoke).toHaveBeenCalledWith("start_live_match", {
-        allowsExtraTime: false,
+    try {
+      locationState = {
         fixtureIndex: 4,
         mode: "live",
-      });
-    });
+        snapshot: makeSnapshot({
+          home_team: {
+            id: "home1",
+            name: "Boot Snapshot FC",
+            formation: "4-4-2",
+            play_style: "Balanced",
+            players: [makeEnginePlayer({ id: "boot-p1", name: "Boot Keeper" })],
+          },
+        }),
+      };
 
-    expect(screen.getByTestId("prematch")).toHaveTextContent("Restored FC");
-    consoleWarnSpy.mockRestore();
+      mockedInvoke.mockRejectedValueOnce(new Error("No active live match"));
+      mockedInvoke.mockResolvedValueOnce(
+        makeSnapshot({
+          home_team: {
+            id: "home1",
+            name: "Restored FC",
+            formation: "4-4-2",
+            play_style: "Balanced",
+            players: [
+              makeEnginePlayer({ id: "restore-p1", name: "Restore Keeper" }),
+            ],
+          },
+        }),
+      );
+
+      render(<MatchSimulation />);
+
+      await waitFor(function (): void {
+        expect(mockedInvoke).toHaveBeenCalledWith("start_live_match", {
+          allowsExtraTime: false,
+          fixtureIndex: 4,
+          mode: "live",
+        });
+      });
+
+      expect(screen.getByTestId("prematch")).toHaveTextContent("Restored FC");
+    } finally {
+      consoleWarnSpy.mockRestore();
+    }
   });
 
   it("moves spectators straight into the live match stage", async function (): Promise<void> {

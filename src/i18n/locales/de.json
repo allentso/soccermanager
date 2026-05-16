@@ -1820,6 +1820,7 @@
         "minAge": "Der Manager muss mindestens 30 Jahre alt sein.",
         "invalidDob": "Ungültiges Geburtsdatum.",
         "startYearMin": "Das Startjahr muss 2020 oder später sein.",
+        "invalidStartYear": "Ungültiges Startjahr ausgewählt.",
         "invalidStartPhase": "Ungültige Startphase ausgewählt."
       },
       "transfers": {

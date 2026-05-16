@@ -86,22 +86,27 @@ fn default_start_year() -> i32 {
     chrono::Utc::now().year().max(2020)
 }
 
-fn start_date_for_year(start_year: i32) -> chrono::DateTime<Utc> {
-    Utc.with_ymd_and_hms(start_year, 7, 1, 0, 0, 0).unwrap()
+fn start_date_for_year(start_year: i32) -> Result<chrono::DateTime<Utc>, String> {
+    Utc.with_ymd_and_hms(start_year, 7, 1, 0, 0, 0)
+        .single()
+        .ok_or_else(|| "be.error.createManager.invalidStartYear".to_string())
 }
 
-fn current_date_for_phase(start_year: i32, start_phase: StartPhase) -> chrono::DateTime<Utc> {
-    let start_date = start_date_for_year(start_year);
-    match start_phase {
+fn current_date_for_phase(
+    start_year: i32,
+    start_phase: StartPhase,
+) -> Result<chrono::DateTime<Utc>, String> {
+    let start_date = start_date_for_year(start_year)?;
+    Ok(match start_phase {
         StartPhase::SeasonStart => start_date,
         StartPhase::MidSeason => start_date + Duration::days(120),
-    }
+    })
 }
 
 fn age_on_date(birth_date: chrono::NaiveDate, reference_date: chrono::NaiveDate) -> i64 {
     let mut age = i64::from(reference_date.year() - birth_date.year());
-    let has_had_birthday = (reference_date.month(), reference_date.day())
-        >= (birth_date.month(), birth_date.day());
+    let has_had_birthday =
+        (reference_date.month(), reference_date.day()) >= (birth_date.month(), birth_date.day());
     if !has_had_birthday {
         age -= 1;
     }
@@ -173,21 +178,24 @@ fn world_start_year(
 fn game_clock_for_world(
     startup_options: &StartupOptions,
     metadata: &ofm_core::generator::WorldDataMetadata,
-) -> GameClock {
+) -> Result<GameClock, String> {
     let start_year = world_start_year(startup_options, metadata);
-    let mut clock = GameClock::new(start_date_for_year(start_year));
+    let mut clock = GameClock::new(start_date_for_year(start_year)?);
     clock.current_date = match metadata.kind {
         ofm_core::generator::WorldDataKind::HistoricalSnapshot => metadata
             .snapshot_date
             .as_deref()
             .and_then(|value| chrono::DateTime::parse_from_rfc3339(value).ok())
             .map(|value| value.with_timezone(&Utc))
-            .unwrap_or_else(|| current_date_for_phase(start_year, startup_options.start_phase)),
+            .unwrap_or(current_date_for_phase(
+                start_year,
+                startup_options.start_phase,
+            )?),
         ofm_core::generator::WorldDataKind::RosterBaseline => {
-            current_date_for_phase(startup_options.start_year, startup_options.start_phase)
+            current_date_for_phase(startup_options.start_year, startup_options.start_phase)?
         }
     };
-    clock
+    Ok(clock)
 }
 
 fn build_game_from_world_data(
@@ -478,7 +486,8 @@ pub async fn start_new_game(
 
     let startup_options = normalize_startup_options(startup_options)?;
     let reference_date =
-        current_date_for_phase(startup_options.start_year, startup_options.start_phase).date_naive();
+        current_date_for_phase(startup_options.start_year, startup_options.start_phase)?
+            .date_naive();
     let age = age_on_date(birth_date, reference_date);
     if age < 30 {
         return Err("be.error.createManager.minAge".to_string());
@@ -505,7 +514,7 @@ pub async fn start_new_game(
     );
 
     let world = load_world_data(world_source.as_deref())?;
-    let clock = game_clock_for_world(&startup_options, &world.metadata);
+    let clock = game_clock_for_world(&startup_options, &world.metadata)?;
     let (new_game, stats_state) =
         build_game_from_world_data(clock, manager, &startup_options, world);
 
@@ -652,10 +661,10 @@ pub async fn exit_to_menu(
 mod tests {
     use super::{
         age_on_date, apply_generated_past_history, bootstrap_team_selection,
-        build_game_from_world_data, create_new_save, current_date_for_phase,
-        game_clock_for_world, load_world_data_from_path, map_save_manager_lock_error,
-        normalize_startup_options, preseason_league_year, preseason_season_start,
-        start_date_for_year, RawStartupOptions, StartPhase, StartupOptions,
+        build_game_from_world_data, create_new_save, current_date_for_phase, game_clock_for_world,
+        load_world_data_from_path, map_save_manager_lock_error, normalize_startup_options,
+        preseason_league_year, preseason_season_start, start_date_for_year, RawStartupOptions,
+        StartPhase, StartupOptions,
     };
     use db::save_manager::SaveManager;
     use domain::{
@@ -697,7 +706,7 @@ mod tests {
     }
 
     fn make_bootstrap_test_game() -> Game {
-        let clock = GameClock::new(start_date_for_year(2032));
+        let clock = GameClock::new(start_date_for_year(2032).unwrap());
         let manager = domain::manager::Manager::new(
             "mgr-user".to_string(),
             "Alex".to_string(),
@@ -985,14 +994,24 @@ mod tests {
 
     #[test]
     fn start_date_for_year_uses_selected_july_first() {
-        let start_date = start_date_for_year(2032);
+        let start_date = start_date_for_year(2032).unwrap();
 
         assert_eq!(start_date.to_rfc3339(), "2032-07-01T00:00:00+00:00");
     }
 
     #[test]
+    fn start_date_for_year_rejects_out_of_range_years() {
+        let result = start_date_for_year(i32::MAX);
+
+        assert_eq!(
+            result.unwrap_err(),
+            "be.error.createManager.invalidStartYear"
+        );
+    }
+
+    #[test]
     fn current_date_for_midseason_phase_is_after_start_date() {
-        let current_date = current_date_for_phase(2032, StartPhase::MidSeason);
+        let current_date = current_date_for_phase(2032, StartPhase::MidSeason).unwrap();
 
         assert_eq!(current_date.to_rfc3339(), "2032-10-29T00:00:00+00:00");
     }
@@ -1000,7 +1019,9 @@ mod tests {
     #[test]
     fn age_on_date_uses_selected_start_year() {
         let birth_date = chrono::NaiveDate::from_ymd_opt(2008, 1, 1).unwrap();
-        let reference_date = current_date_for_phase(2038, StartPhase::SeasonStart).date_naive();
+        let reference_date = current_date_for_phase(2038, StartPhase::SeasonStart)
+            .unwrap()
+            .date_naive();
 
         assert_eq!(age_on_date(birth_date, reference_date), 30);
     }
@@ -1008,8 +1029,12 @@ mod tests {
     #[test]
     fn age_on_date_changes_between_season_start_and_midseason() {
         let birth_date = chrono::NaiveDate::from_ymd_opt(2008, 8, 1).unwrap();
-        let season_start = current_date_for_phase(2038, StartPhase::SeasonStart).date_naive();
-        let midseason = current_date_for_phase(2038, StartPhase::MidSeason).date_naive();
+        let season_start = current_date_for_phase(2038, StartPhase::SeasonStart)
+            .unwrap()
+            .date_naive();
+        let midseason = current_date_for_phase(2038, StartPhase::MidSeason)
+            .unwrap()
+            .date_naive();
 
         assert_eq!(age_on_date(birth_date, season_start), 29);
         assert_eq!(age_on_date(birth_date, midseason), 30);
@@ -1017,7 +1042,7 @@ mod tests {
 
     #[test]
     fn preseason_league_setup_uses_selected_start_year_for_context() {
-        let clock = GameClock::new(start_date_for_year(2032));
+        let clock = GameClock::new(start_date_for_year(2032).unwrap());
         let manager = domain::manager::Manager::new(
             "mgr1".to_string(),
             "Alex".to_string(),
@@ -1075,7 +1100,7 @@ mod tests {
 
     #[test]
     fn apply_generated_past_history_populates_default_six_prior_seasons() {
-        let clock = GameClock::new(start_date_for_year(2032));
+        let clock = GameClock::new(start_date_for_year(2032).unwrap());
         let manager = domain::manager::Manager::new(
             "mgr-user".to_string(),
             "Alex".to_string(),
@@ -1316,7 +1341,7 @@ mod tests {
             start_phase: StartPhase::MidSeason,
         };
         let world = make_historical_snapshot_world();
-        let clock = game_clock_for_world(&startup_options, &world.metadata);
+        let clock = game_clock_for_world(&startup_options, &world.metadata).unwrap();
 
         let (game, stats_state) =
             build_game_from_world_data(clock, manager, &startup_options, world);
@@ -1354,7 +1379,7 @@ mod tests {
             start_phase: StartPhase::MidSeason,
         };
         let world = make_historical_snapshot_world();
-        let clock = game_clock_for_world(&startup_options, &world.metadata);
+        let clock = game_clock_for_world(&startup_options, &world.metadata).unwrap();
         let (mut game, stats_state) =
             build_game_from_world_data(clock, manager, &startup_options, world);
 
@@ -1376,6 +1401,23 @@ mod tests {
             .news
             .iter()
             .any(|article| article.category == NewsCategory::ManagerialChange));
+    }
+
+    #[test]
+    fn game_clock_for_world_rejects_out_of_range_snapshot_base_year() {
+        let startup_options = StartupOptions {
+            start_year: 2032,
+            start_phase: StartPhase::MidSeason,
+        };
+        let mut world = make_historical_snapshot_world();
+        world.metadata.base_year = Some(i32::MAX);
+
+        let result = game_clock_for_world(&startup_options, &world.metadata);
+
+        assert_eq!(
+            result.unwrap_err(),
+            "be.error.createManager.invalidStartYear"
+        );
     }
 
     #[test]

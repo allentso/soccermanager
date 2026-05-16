@@ -468,18 +468,28 @@ pub fn apply_job_offer_response(
             // Without this, the stale "accept" would leave the previous club's
             // manager_id set and its career entry open.
             if game.manager.team_id.is_some() {
-                return Some(response_effect("be.msg.jobOffer.effects.alreadyEmployed", &team_name));
+                return Some(response_effect(
+                    "be.msg.jobOffer.effects.alreadyEmployed",
+                    &team_name,
+                ));
             }
             let today = game.clock.current_date.format("%Y-%m-%d").to_string();
             match hire_manager(game, &team_id, &today) {
                 Ok(name) => Some(response_effect("be.msg.jobOffer.effects.accepted", &name)),
-                Err(e) if e.contains("is not vacant") => {
-                    Some(response_effect("be.msg.jobOffer.effects.unavailable", &team_name))
-                }
-                Err(_) => Some(response_effect("be.msg.jobOffer.effects.failed", &team_name)),
+                Err(e) if e.contains("is not vacant") => Some(response_effect(
+                    "be.msg.jobOffer.effects.unavailable",
+                    &team_name,
+                )),
+                Err(_) => Some(response_effect(
+                    "be.msg.jobOffer.effects.failed",
+                    &team_name,
+                )),
             }
         }
-        "decline" => Some(response_effect("be.msg.jobOffer.effects.declined", &team_name)),
+        "decline" => Some(response_effect(
+            "be.msg.jobOffer.effects.declined",
+            &team_name,
+        )),
         _ => None,
     }
 }

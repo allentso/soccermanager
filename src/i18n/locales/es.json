@@ -1850,6 +1850,7 @@
         "minAge": "El mánager debe tener al menos 30 años.",
         "invalidDob": "Fecha de nacimiento no válida.",
         "startYearMin": "El año de inicio debe ser 2020 o posterior.",
+        "invalidStartYear": "El año de inicio seleccionado no es válido.",
         "invalidStartPhase": "La fase de inicio seleccionada no es válida."
       },
       "transfers": {

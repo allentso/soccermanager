@@ -1820,6 +1820,7 @@
         "minAge": "L'entraîneur doit avoir au moins 30 ans.",
         "invalidDob": "Date de naissance invalide.",
         "startYearMin": "L'année de départ doit être 2020 ou ultérieure.",
+        "invalidStartYear": "L'année de départ sélectionnée n'est pas valide.",
         "invalidStartPhase": "La phase de départ sélectionnée n'est pas valide."
       },
       "transfers": {

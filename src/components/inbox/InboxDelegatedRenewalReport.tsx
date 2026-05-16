@@ -13,6 +13,7 @@ export default function InboxDelegatedRenewalReport({
   message,
 }: InboxDelegatedRenewalReportProps): JSX.Element | null {
   const report = message.context?.delegated_renewal_report;
+  const moneyParamKeys = new Set(["budget", "wage"]);
 
   const formatMoneyParam = (value?: string | number | null): string => {
     const amount = Number(value ?? 0);
@@ -31,9 +32,12 @@ export default function InboxDelegatedRenewalReport({
       return undefined;
     }
 
-    return {
-      ...params,
-    };
+    return Object.fromEntries(
+      Object.entries(params).map(([key, value]) => [
+        key,
+        moneyParamKeys.has(key) ? formatMoneyParam(value) : value,
+      ]),
+    );
   };
 
   if (!report || report.cases.length === 0) {
@@ -58,14 +62,14 @@ export default function InboxDelegatedRenewalReport({
           const line =
             renewalCase.status === "successful"
               ? resolveBackendText(
-                  "be.msg.delegatedRenewals.case.successful",
-                  `Completed: ${renewalCase.player_name} agreed to ${String(renewalCase.agreed_years ?? 0)} year(s) on ${formattedWage}/wk.`,
-                  {
-                    player: renewalCase.player_name,
-                    years: String(renewalCase.agreed_years ?? 0),
-                    wage: String(renewalCase.agreed_wage ?? 0),
-                  },
-                )
+                "be.msg.delegatedRenewals.case.successful",
+                `Completed: ${renewalCase.player_name} agreed to ${String(renewalCase.agreed_years ?? 0)} year(s) on ${formattedWage}/wk.`,
+                {
+                  player: renewalCase.player_name,
+                  years: String(renewalCase.agreed_years ?? 0),
+                  wage: formattedWage,
+                },
+              )
               : renewalCase.status === "stalled"
                 ? resolveBackendText(
                   "be.msg.delegatedRenewals.case.stalled",
