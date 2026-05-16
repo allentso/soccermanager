@@ -1,4 +1,3 @@
-use super::format_money;
 use crate::game::Game;
 use domain::team::{Sponsorship, SponsorshipBonusCriterion};
 use rand::RngExt;
@@ -22,11 +21,53 @@ fn response_effect(
 }
 
 fn parse_amount_param(value: &str) -> Option<u64> {
-    let digits: String = value.chars().filter(|ch| ch.is_ascii_digit()).collect();
+    let trimmed = value.trim();
+
+    if let Ok(raw_amount) = trimmed.parse::<u64>() {
+        return Some(raw_amount);
+    }
+
+    let upper = trimmed.to_ascii_uppercase();
+    let compact_multiplier = if upper.ends_with('M') {
+        Some(1_000_000_f64)
+    } else if upper.ends_with('K') {
+        Some(1_000_f64)
+    } else {
+        None
+    };
+
+    if let Some(multiplier) = compact_multiplier {
+        let numeric_portion: String = upper
+            .chars()
+            .filter(|ch| ch.is_ascii_digit() || *ch == '.' || *ch == ',')
+            .collect();
+        let normalized = numeric_portion.replace(',', "");
+        if let Ok(parsed) = normalized.parse::<f64>() {
+            return Some((parsed * multiplier).round() as u64);
+        }
+    }
+
+    let digits: String = trimmed.chars().filter(|ch| ch.is_ascii_digit()).collect();
     if digits.is_empty() {
         None
     } else {
         digits.parse::<u64>().ok()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_amount_param;
+
+    #[test]
+    fn parse_amount_param_keeps_compact_suffix_support() {
+        assert_eq!(parse_amount_param("75K"), Some(75_000));
+        assert_eq!(parse_amount_param("1.5M"), Some(1_500_000));
+    }
+
+    #[test]
+    fn parse_amount_param_treats_commas_as_separators_for_compact_values() {
+        assert_eq!(parse_amount_param("1,200K"), Some(1_200_000));
     }
 }
 
@@ -74,7 +115,7 @@ pub fn apply_event_response(
                 }
                 Some(response_effect(
                     "be.msg.sponsor.effects.accepted",
-                    HashMap::from([("amount".to_string(), format_money(amount))]),
+                    HashMap::from([("amount".to_string(), amount.to_string())]),
                 ))
             }
             "decline" => {

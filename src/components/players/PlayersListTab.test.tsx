@@ -14,6 +14,11 @@ vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(),
 }));
 
+vi.mock("../../utils/backendI18n", () => ({
+  resolveBackendError: (error: unknown) =>
+    error instanceof Error ? error.message : String(error),
+}));
+
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string, params?: Record<string, string | number>) => {
@@ -29,6 +34,7 @@ vi.mock("react-i18next", () => ({
       if (key === "common.nationality") return "Nationality";
       if (key === "common.team") return "Team";
       if (key === "common.viewTeam") return "View team";
+      if (key === "common.freeAgent") return "Free Agent";
       if (key === "common.value") return "Value";
       if (key === "common.ovr") return "OVR";
       if (key === "common.status") return "Status";
@@ -41,6 +47,7 @@ vi.mock("react-i18next", () => ({
       if (key === "scouting.scoutingInProgress") return "Scouting in progress";
       if (key === "scouting.noScoutsFree") return "No scouts free";
       if (key === "transfers.makeBid") return "Make Transfer Bid";
+      if (key === "transfers.offerContract") return "Offer Contract";
       if (key === "transfers.bidAmount") return "Bid Amount";
       if (key === "transfers.submitBid") return "Submit Bid";
       if (key === "transfers.close") return "Close";
@@ -143,6 +150,7 @@ function createPlayer(overrides: Partial<PlayerData> = {}): PlayerData {
     morale: 75,
     injury: null,
     team_id: "team-1",
+    retired: false,
     contract_end: "2027-06-30",
     wage: 12000,
     market_value: 350000,
@@ -295,6 +303,29 @@ describe("PlayersListTab", () => {
     expect(onSelectPlayer).not.toHaveBeenCalled();
   });
 
+  it("renders localized free-agent labels for unattached players", () => {
+    render(
+      <PlayersListTab
+        gameState={{
+          ...createGameState(),
+          players: [
+            createPlayer({
+              id: "player-free-agent",
+              full_name: "Free Agent Player",
+              match_name: "F. Agent",
+              team_id: null,
+              contract_end: null,
+            }),
+          ],
+        }}
+        onSelectPlayer={vi.fn()}
+        onSelectTeam={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("Free Agent")).toBeInTheDocument();
+  });
+
   it("offers context-menu actions for team navigation and scouting", async () => {
     const onGameUpdate = vi.fn();
     const onSelectPlayer = vi.fn();
@@ -334,6 +365,9 @@ describe("PlayersListTab", () => {
   });
 
   it("shows scout assignment errors inline", async () => {
+    const consoleErrorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => { });
     const onGameUpdate = vi.fn();
     const gameState = createGameState();
     gameState.staff = [createScout()];
@@ -364,6 +398,7 @@ describe("PlayersListTab", () => {
     });
 
     expect(onGameUpdate).not.toHaveBeenCalled();
+    consoleErrorSpy.mockRestore();
   });
 
   it("opens and submits a transfer bid from the player context menu", async () => {
@@ -445,5 +480,36 @@ describe("PlayersListTab", () => {
       });
       expect(onGameUpdate).toHaveBeenCalledWith(updatedState);
     });
+  });
+
+  it("does not offer scouting or contract actions for retired free agents", () => {
+    render(
+      <PlayersListTab
+        gameState={{
+          ...createGameState(),
+          players: [
+            createPlayer({
+              id: "retired-free-agent",
+              full_name: "Retired Free Agent",
+              match_name: "R. Agent",
+              team_id: null,
+              retired: true,
+              contract_end: null,
+            }),
+          ],
+        }}
+        onGameUpdate={vi.fn()}
+        onSelectPlayer={vi.fn()}
+        onSelectTeam={vi.fn()}
+      />,
+    );
+
+    const playerRow = screen.getByText("Retired Free Agent").closest("tr");
+    expect(playerRow).not.toBeNull();
+
+    fireEvent.contextMenu(playerRow as HTMLTableRowElement);
+
+    expect(screen.queryByRole("button", { name: "Offer Contract" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Scout" })).not.toBeInTheDocument();
   });
 });

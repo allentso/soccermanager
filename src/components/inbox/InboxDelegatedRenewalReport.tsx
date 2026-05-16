@@ -33,8 +33,6 @@ export default function InboxDelegatedRenewalReport({
 
     return {
       ...params,
-      ...(params.wage ? { wage: formatMoneyParam(params.wage) } : {}),
-      ...(params.budget ? { budget: formatMoneyParam(params.budget) } : {}),
     };
   };
 
@@ -60,14 +58,14 @@ export default function InboxDelegatedRenewalReport({
           const line =
             renewalCase.status === "successful"
               ? resolveBackendText(
-                "be.msg.delegatedRenewals.case.successful",
-                `Completed: ${renewalCase.player_name} agreed to ${String(renewalCase.agreed_years ?? 0)} year(s) on ${formattedWage}/wk.`,
-                {
-                  player: renewalCase.player_name,
-                  years: String(renewalCase.agreed_years ?? 0),
-                  wage: formattedWage,
-                },
-              )
+                  "be.msg.delegatedRenewals.case.successful",
+                  `Completed: ${renewalCase.player_name} agreed to ${String(renewalCase.agreed_years ?? 0)} year(s) on ${formattedWage}/wk.`,
+                  {
+                    player: renewalCase.player_name,
+                    years: String(renewalCase.agreed_years ?? 0),
+                    wage: String(renewalCase.agreed_wage ?? 0),
+                  },
+                )
               : renewalCase.status === "stalled"
                 ? resolveBackendText(
                   "be.msg.delegatedRenewals.case.stalled",

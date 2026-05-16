@@ -33,6 +33,7 @@ import {
 } from "../../services/transfersService";
 import {
   buildDividerMenuItem,
+  buildOfferFreeAgentContractMenuItem,
   buildMakeTransferBidMenuItem,
   buildScoutPlayerMenuItem,
   buildToggleLoanListMenuItem,
@@ -40,7 +41,9 @@ import {
   buildViewProfileMenuItem,
   buildViewTeamMenuItem,
 } from "../playerActions/playerContextMenuItems";
+import FreeAgentContractModal from "../transfers/FreeAgentContractModal";
 import TransferBidModal from "../transfers/TransferBidModal";
+import { useFreeAgentContractFlow } from "../transfers/useFreeAgentContractFlow";
 import { useTransferBidFlow } from "../transfers/useTransferBidFlow";
 
 interface PlayersListTabProps {
@@ -89,6 +92,25 @@ export default function PlayersListTab({
     closeBidNegotiation,
     handleMakeBid,
   } = useTransferBidFlow({
+    gameState,
+    onGameUpdate,
+  });
+  const {
+    freeAgentTarget,
+    contractWage,
+    setContractWage,
+    contractLength,
+    setContractLength,
+    contractFeedback,
+    contractProjection,
+    contractSubmitting,
+    contractSubmitDisabled,
+    contractStatusMessage,
+    contractStatusClassName,
+    openFreeAgentContract,
+    closeFreeAgentContract,
+    submitFreeAgentContract,
+  } = useFreeAgentContractFlow({
     gameState,
     onGameUpdate,
   });
@@ -395,19 +417,30 @@ export default function PlayersListTab({
                         }),
                       );
                     } else {
-                      contextItems.push(buildDividerMenuItem());
-                      if (player.team_id) {
-                        contextItems.push(
+                      const playerActions = player.team_id
+                        ? [
                           buildMakeTransferBidMenuItem(t, () => {
                             openBidNegotiation(player);
                           }),
-                        );
+                          buildScoutPlayerMenuItem(t, scoutState, () => {
+                            void handleScoutPlayer(player.id);
+                          }),
+                        ]
+                        : player.retired
+                          ? []
+                          : [
+                            buildOfferFreeAgentContractMenuItem(t, () => {
+                              openFreeAgentContract(player);
+                            }),
+                            buildScoutPlayerMenuItem(t, scoutState, () => {
+                              void handleScoutPlayer(player.id);
+                            }),
+                          ];
+
+                      if (playerActions.length > 0) {
+                        contextItems.push(buildDividerMenuItem());
+                        contextItems.push(...playerActions);
                       }
-                      contextItems.push(
-                        buildScoutPlayerMenuItem(t, scoutState, () => {
-                          void handleScoutPlayer(player.id);
-                        }),
-                      );
                     }
 
                     const row = (
@@ -447,15 +480,21 @@ export default function PlayersListTab({
                           />
                         </td>
                         <td className="py-2.5 px-4">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onSelectTeam(player.team_id!);
-                            }}
-                            className="text-sm text-gray-600 dark:text-gray-400 hover:text-primary-500 hover:underline transition-colors"
-                          >
-                            {getTeamName(gameState.teams, player.team_id)}
-                          </button>
+                          {player.team_id ? (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onSelectTeam(player.team_id!);
+                              }}
+                              className="text-sm text-gray-600 dark:text-gray-400 hover:text-primary-500 hover:underline transition-colors"
+                            >
+                              {getTeamName(gameState.teams, player.team_id)}
+                            </button>
+                          ) : (
+                            <span className="text-sm text-gray-600 dark:text-gray-400">
+                              {t("common.freeAgent")}
+                            </span>
+                          )}
                         </td>
                         <td className="py-2.5 px-4 text-sm text-gray-600 dark:text-gray-400 font-medium">
                           {formatVal(player.market_value)}
@@ -576,6 +615,24 @@ export default function PlayersListTab({
           bidSubmitDisabled={bidSubmitDisabled}
           onSubmit={handleMakeBid}
           onClose={closeBidNegotiation}
+        />
+      )}
+      {freeAgentTarget && (
+        <FreeAgentContractModal
+          player={freeAgentTarget}
+          teams={gameState.teams}
+          wage={contractWage}
+          onWageChange={setContractWage}
+          contractLength={contractLength}
+          onContractLengthChange={setContractLength}
+          projection={contractProjection}
+          feedback={contractFeedback}
+          statusMessage={contractStatusMessage(t)}
+          statusClassName={contractStatusClassName}
+          submitting={contractSubmitting}
+          submitDisabled={contractSubmitDisabled}
+          onSubmit={submitFreeAgentContract}
+          onClose={closeFreeAgentContract}
         />
       )}
     </div>

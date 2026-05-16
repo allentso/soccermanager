@@ -11,10 +11,22 @@ pub fn upgrade_game_football_identities(game: &mut Game) -> bool {
 
     changed |=
         upgrade_world_football_identities(&mut game.teams, &mut game.players, &mut game.staff);
+    changed |= upgrade_world_manager_identities(&game.teams, &mut game.managers);
 
     let team_nations = build_team_nation_map(&game.teams);
 
     changed |= upgrade_manager_identity(&mut game.manager, &team_nations);
+
+    changed
+}
+
+pub fn upgrade_world_manager_identities(teams: &[Team], managers: &mut [Manager]) -> bool {
+    let mut changed = false;
+    let team_nations = build_team_nation_map(teams);
+
+    for manager in managers.iter_mut() {
+        changed |= upgrade_manager_identity(manager, &team_nations);
+    }
 
     changed
 }

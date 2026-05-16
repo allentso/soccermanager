@@ -1,6 +1,7 @@
 use chrono::Utc;
 use domain::player::Position;
 use domain::stats::StatsState;
+use domain::world_history::WorldHistoryArchive;
 
 use ofm_core::clock::GameClock;
 use ofm_core::game::{
@@ -31,6 +32,8 @@ impl GamePersistenceWriter {
         let now = Utc::now().to_rfc3339();
         let vacant_team_days_json = serde_json::to_string(&game.vacant_team_days)
             .map_err(|_| game_persistence_write_error())?;
+        let world_history_json = serde_json::to_string(&game.world_history)
+            .map_err(|_| game_persistence_write_error())?;
         let manager_id = if game.manager_id.is_empty() {
             game.manager.id.clone()
         } else {
@@ -54,6 +57,7 @@ impl GamePersistenceWriter {
                 created_at: now.clone(),
                 last_played_at: now,
                 vacant_team_days_json,
+                world_history_json,
             },
         )?;
 
@@ -125,9 +129,7 @@ impl GamePersistenceWriter {
 pub struct GamePersistenceReader;
 
 fn backend_error_with_param(key: &str, param_name: &str, param_value: &str) -> String {
-    let mut message = String::with_capacity(
-        key.len() + param_name.len() + param_value.len() + 2,
-    );
+    let mut message = String::with_capacity(key.len() + param_name.len() + param_value.len() + 2);
     message.push_str(key);
     message.push('?');
     message.push_str(param_name);
@@ -245,6 +247,8 @@ impl GamePersistenceReader {
             season_context: domain::season::SeasonContext::default(),
             days_since_last_job_offer: None,
             vacant_team_days: serde_json::from_str(&meta.vacant_team_days_json).unwrap_or_default(),
+            world_history: serde_json::from_str(&meta.world_history_json)
+                .unwrap_or_else(|_| WorldHistoryArchive::default()),
         };
         ofm_core::season_context::refresh_game_context(&mut game);
 
@@ -261,6 +265,12 @@ impl GamePersistenceReader {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::{TimeZone, Utc};
+    use domain::world_history::{
+        HistoricalManagerAwardWinner, HistoricalPlayerAwardWinner, HistoricalSeasonAwardsRecord,
+        WorldHistoryArchive,
+    };
+    use domain::{manager::Manager, team::Team};
 
     fn sample_meta(start_date: &str, game_date: &str, manager_id: &str) -> meta_repo::GameMeta {
         meta_repo::GameMeta {
@@ -272,7 +282,68 @@ mod tests {
             created_at: "2026-07-01T00:00:00+00:00".to_string(),
             last_played_at: "2026-07-01T00:00:00+00:00".to_string(),
             vacant_team_days_json: "{}".to_string(),
+            world_history_json: "{}".to_string(),
         }
+    }
+
+    fn sample_world_history() -> WorldHistoryArchive {
+        let mut archive = WorldHistoryArchive::default();
+        archive.upsert_rivalry("team-1", "team-2", 84, Some(2027));
+        archive.record_season_awards(HistoricalSeasonAwardsRecord {
+            season: 2031,
+            golden_boot: Some(HistoricalPlayerAwardWinner {
+                player_id: "player-9".to_string(),
+                player_name: "Goals McGee".to_string(),
+                team_id: "team-1".to_string(),
+                team_name: "Alpha FC".to_string(),
+                value: 27.0,
+            }),
+            assist_king: None,
+            player_of_year: None,
+            clean_sheet_king: None,
+            most_appearances: None,
+            young_player: None,
+            manager_of_season: Some(HistoricalManagerAwardWinner {
+                manager_id: "mgr-1".to_string(),
+                manager_name: "Alex Manager".to_string(),
+                team_id: "team-1".to_string(),
+                team_name: "Alpha FC".to_string(),
+                value: 91.0,
+                win_rate: 72.2,
+            }),
+        });
+        archive
+    }
+
+    fn sample_game_with_clock(start_year: i32, current_day: u32) -> Game {
+        let manager = Manager::new(
+            "mgr-1".to_string(),
+            "Alex".to_string(),
+            "Manager".to_string(),
+            "1980-01-01".to_string(),
+            "England".to_string(),
+        );
+        let team = Team::new(
+            "team-1".to_string(),
+            "Alpha FC".to_string(),
+            "AFC".to_string(),
+            "England".to_string(),
+            "London".to_string(),
+            "Alpha Park".to_string(),
+            20_000,
+        );
+        let mut game = Game::new(
+            GameClock::new(Utc.with_ymd_and_hms(start_year, 7, 1, 0, 0, 0).unwrap()),
+            manager,
+            vec![team],
+            vec![],
+            vec![],
+            vec![],
+        );
+        game.clock.current_date = Utc
+            .with_ymd_and_hms(start_year, 7, current_day, 0, 0, 0)
+            .unwrap();
+        game
     }
 
     #[test]
@@ -340,6 +411,30 @@ mod tests {
             result.unwrap_err(),
             "be.error.gamePersistence.managerNotFound?managerId=mgr-missing"
         );
+    }
+
+    #[test]
+    fn write_game_persists_arbitrary_year_clock_metadata() {
+        let db = GameDatabase::open_in_memory().unwrap();
+        let game = sample_game_with_clock(2032, 18);
+
+        GamePersistenceWriter::write_game(&db, &game, "save-1", "Career").unwrap();
+
+        let meta = meta_repo::load_meta(db.conn()).unwrap().unwrap();
+        assert_eq!(meta.start_date, "2032-07-01T00:00:00+00:00");
+        assert_eq!(meta.game_date, "2032-07-18T00:00:00+00:00");
+    }
+
+    #[test]
+    fn write_and_read_game_preserves_world_history_archive() {
+        let db = GameDatabase::open_in_memory().unwrap();
+        let mut game = sample_game_with_clock(2032, 18);
+        game.world_history = sample_world_history();
+
+        GamePersistenceWriter::write_game(&db, &game, "save-1", "Career").unwrap();
+
+        let loaded = GamePersistenceReader::read_game(&db).unwrap();
+        assert_eq!(loaded.world_history, game.world_history);
     }
 
     #[test]

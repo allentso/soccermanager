@@ -128,6 +128,10 @@ fn check_ai_manager_firings(game: &mut Game) {
 
 fn execute_ai_firing(game: &mut Game, manager_index: usize) {
     let today = game.clock.current_date.format("%Y-%m-%d").to_string();
+    execute_ai_firing_on_date(game, manager_index, &today);
+}
+
+fn execute_ai_firing_on_date(game: &mut Game, manager_index: usize, today: &str) {
     let manager = game.managers[manager_index].clone();
     let team_id = manager.team_id.clone().unwrap_or_default();
     let team_name = game
@@ -149,6 +153,23 @@ fn execute_ai_firing(game: &mut Game, manager_index: usize) {
         &team_name,
         &today,
     ));
+}
+
+pub fn fire_ai_manager_for_team(game: &mut Game, team_id: &str, date: &str) -> bool {
+    let user_manager_id = if game.manager_id.is_empty() {
+        game.manager.id.clone()
+    } else {
+        game.manager_id.clone()
+    };
+
+    let Some(index) = game.managers.iter().position(|manager| {
+        manager.id != user_manager_id && manager.team_id.as_deref() == Some(team_id)
+    }) else {
+        return false;
+    };
+
+    execute_ai_firing_on_date(game, index, date);
+    true
 }
 
 fn ai_managerial_change_article(

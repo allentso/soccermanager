@@ -6,8 +6,10 @@ import {
   Mail,
   Settings,
   Briefcase,
+  Medal,
   Trophy,
   TrendingUp,
+  ArrowLeftRight,
   Crosshair,
   Dumbbell,
   DollarSign,
@@ -127,7 +129,10 @@ export default function DashboardSidebar({
     { icon: <TrendingUp />, label: t("dashboard.transfers"), tab: "Transfers" },
   ];
   const worldItems: Array<{ icon: JSX.Element; label: string; tab: string }> = [
+    { icon: <ArrowLeftRight />, label: t("transfers.centre"), tab: "TransferCentre" },
+    { icon: <Medal />, label: t("dashboard.hallOfFame"), tab: "HallOfFame" },
     { icon: <UsersRound />, label: t("dashboard.players"), tab: "Players" },
+    { icon: <UsersRound />, label: t("dashboard.managers"), tab: "Managers" },
     { icon: <Building2 />, label: t("dashboard.teams"), tab: "Teams" },
     {
       icon: <Trophy />,

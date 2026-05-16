@@ -436,7 +436,10 @@ mod tests {
             response["effect_i18n_key"].as_str(),
             Some("be.msg.sponsor.effects.accepted")
         );
-        assert_eq!(response["effect_i18n_params"]["amount"].as_str(), Some("150K"));
+        assert_eq!(
+            response["effect_i18n_params"]["amount"].as_str(),
+            Some("150000")
+        );
         assert_eq!(response["effect"].as_str(), Some(""));
     }
 

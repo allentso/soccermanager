@@ -22,7 +22,7 @@ export function filterScoutablePlayers({
   searchQuery,
 }: FilterScoutablePlayersParams): PlayerData[] {
   return players
-    .filter((player) => player.team_id !== myTeamId)
+    .filter((player) => !player.retired && player.team_id !== myTeamId)
     .filter(
       (player) =>
         posFilter === "All" ||
