@@ -65,15 +65,24 @@
     "summary": {
       "startYear": "Début de carrière",
       "seasonStart": {
-        "generated": "Commencez en {{year}} avec un nouveau monde et six saisons d'historique généré.",
+        "generated": "Commencez en {{year}} avec un nouveau monde et {{count}} saisons d'historique généré.",
         "reference": "Commencez en {{year}} en utilisant l'instantané historique sélectionné comme base du monde.",
-        "hybrid": "Commencez en {{year}} avec l'effectif de cette base de données pendant que l'historique manquant est généré autour."
+        "hybrid": "Commencez en {{year}} avec l'effectif de cette base de données pendant que {{count}} saisons d'historique manquant sont générées autour."
       },
       "midSeason": {
-        "generated": "Prenez l'équipe à mi-saison {{year}} avec classement, calendrier, actualités et historique des matchs hérités d'une saison générée.",
+        "generated": "Prenez l'équipe à mi-saison {{year}} avec classement, calendrier, actualités, historique des matchs et {{count}} saisons d'historique généré.",
         "reference": "Prenez l'équipe à mi-saison {{year}} avec l'instantané historique sélectionné et le contexte de saison déjà en place.",
-        "hybrid": "Prenez l'équipe à mi-saison {{year}} avec l'effectif de cette base de données, un contexte historique généré et une progression de saison déjà héritée."
+        "hybrid": "Prenez l'équipe à mi-saison {{year}} avec l'effectif de cette base de données, {{count}} saisons de contexte historique généré et une progression de saison déjà héritée."
       }
+    },
+    "historyDepth": {
+      "label": "Historique généré",
+      "hint": "Choisissez la quantité de passé à générer. Un archive plus profond ajoute du contexte mais prend plus de temps à créer.",
+      "reference": "Ce monde inclut déjà sa propre archive historique.",
+      "applied": "{{count}} saisons générées",
+      "none": "Sans passé généré",
+      "option": "{{count}} saisons",
+      "recommended": "Recommandé"
     }
   },
   "dashboard": {
@@ -1821,7 +1830,8 @@
         "invalidDob": "Date de naissance invalide.",
         "startYearMin": "L'année de départ doit être 2020 ou ultérieure.",
         "invalidStartYear": "L'année de départ sélectionnée n'est pas valide.",
-        "invalidStartPhase": "La phase de départ sélectionnée n'est pas valide."
+        "invalidStartPhase": "La phase de départ sélectionnée n'est pas valide.",
+        "historyDepthMax": "La profondeur de l'historique généré doit être de 24 saisons ou moins."
       },
       "transfers": {
         "transferWindowClosed": "Le mercato est fermé",

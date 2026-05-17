@@ -65,15 +65,24 @@
     "summary": {
       "startYear": "Career Start",
       "seasonStart": {
-        "generated": "Kick off in {{year}} with a fresh world and six generated seasons of backstory.",
+        "generated": "Kick off in {{year}} with a fresh world and {{count}} generated seasons of backstory.",
         "reference": "Kick off in {{year}} using the selected historical snapshot as your world baseline.",
-        "hybrid": "Kick off in {{year}} using this database roster while the missing history is generated around it."
+        "hybrid": "Kick off in {{year}} using this database roster while {{count}} seasons of missing history are generated around it."
       },
       "midSeason": {
-        "generated": "Take over halfway through {{year}} with inherited standings, fixtures, news, and match history from a generated season.",
+        "generated": "Take over halfway through {{year}} with inherited standings, fixtures, news, match history, and {{count}} generated seasons of backstory.",
         "reference": "Take over halfway through {{year}} with the selected historical snapshot and current-season context already in place.",
-        "hybrid": "Take over halfway through {{year}} with this database roster plus generated historical context and inherited season progress."
+        "hybrid": "Take over halfway through {{year}} with this database roster plus {{count}} generated seasons of historical context and inherited season progress."
       }
+    },
+    "historyDepth": {
+      "label": "Generated History",
+      "hint": "Choose how much backstory to generate. Deeper archives add more context but take longer to create.",
+      "reference": "This world already includes its own historical archive.",
+      "applied": "{{count}} generated seasons",
+      "none": "No backstory",
+      "option": "{{count}} seasons",
+      "recommended": "Recommended"
     }
   },
   "dashboard": {
@@ -1821,7 +1830,8 @@
         "invalidDob": "Invalid date of birth.",
         "startYearMin": "Start year must be 2020 or later.",
         "invalidStartYear": "Invalid start year selected.",
-        "invalidStartPhase": "Invalid start phase selected."
+        "invalidStartPhase": "Invalid start phase selected.",
+        "historyDepthMax": "Generated history depth must be 24 seasons or fewer."
       },
       "transfers": {
         "transferWindowClosed": "Transfer window is closed",

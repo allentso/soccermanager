@@ -27,7 +27,8 @@ fn default_league_name() -> String {
     ["Premier", "Division"].join(" ")
 }
 
-const GENERATED_HISTORY_DEPTH_YEARS: u32 = 6;
+const DEFAULT_GENERATED_HISTORY_DEPTH_YEARS: u32 = 12;
+const MAX_GENERATED_HISTORY_DEPTH_YEARS: u32 = 24;
 
 fn long_date_format() -> String {
     ['%', 'B', ' ', '%', 'd', ',', ' ', '%', 'Y']
@@ -51,6 +52,8 @@ pub struct RawStartupOptions {
     start_year: Option<i32>,
     #[serde(default)]
     start_phase: Option<String>,
+    #[serde(default)]
+    history_depth_years: Option<u32>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -80,10 +83,15 @@ impl StartPhase {
 struct StartupOptions {
     start_year: i32,
     start_phase: StartPhase,
+    history_depth_years: u32,
 }
 
 fn default_start_year() -> i32 {
     chrono::Utc::now().year().max(2020)
+}
+
+fn default_history_depth_years() -> u32 {
+    DEFAULT_GENERATED_HISTORY_DEPTH_YEARS
 }
 
 fn start_date_for_year(start_year: i32) -> Result<chrono::DateTime<Utc>, String> {
@@ -141,10 +149,17 @@ fn normalize_startup_options(raw: Option<RawStartupOptions>) -> Result<StartupOp
         Some(value) => StartPhase::parse(value)
             .ok_or_else(|| "be.error.createManager.invalidStartPhase".to_string())?,
     };
+    let history_depth_years = raw
+        .history_depth_years
+        .unwrap_or_else(default_history_depth_years);
+    if history_depth_years > MAX_GENERATED_HISTORY_DEPTH_YEARS {
+        return Err("be.error.createManager.historyDepthMax".to_string());
+    }
 
     Ok(StartupOptions {
         start_year,
         start_phase,
+        history_depth_years,
     })
 }
 
@@ -152,7 +167,7 @@ fn apply_generated_past_history(game: &mut Game, startup_options: &StartupOption
     ofm_core::history_generation::generate_past_world_history(
         game,
         startup_options.start_year,
-        GENERATED_HISTORY_DEPTH_YEARS,
+        startup_options.history_depth_years,
     );
 }
 
@@ -504,12 +519,13 @@ pub async fn start_new_game(
         nationality,
     );
     info!(
-        "[cmd] start_new_game: {} {} (nationality={}, start_year={}, start_phase={}, world_source={:?})",
+        "[cmd] start_new_game: {} {} (nationality={}, start_year={}, start_phase={}, history_depth_years={}, world_source={:?})",
         manager.first_name,
         manager.last_name,
         manager.nationality,
         startup_options.start_year,
         startup_options.start_phase.as_str(),
+        startup_options.history_depth_years,
         world_source
     );
 
@@ -662,7 +678,8 @@ mod tests {
         build_game_from_world_data, create_new_save, current_date_for_phase, game_clock_for_world,
         load_world_data_from_path, map_save_manager_lock_error, normalize_startup_options,
         preseason_league_year, preseason_season_start, start_date_for_year, RawStartupOptions,
-        StartPhase, StartupOptions,
+        StartPhase, StartupOptions, DEFAULT_GENERATED_HISTORY_DEPTH_YEARS,
+        MAX_GENERATED_HISTORY_DEPTH_YEARS,
     };
     use db::save_manager::SaveManager;
     use domain::{
@@ -965,6 +982,10 @@ mod tests {
 
         assert!(options.start_year >= 2020);
         assert_eq!(options.start_phase, StartPhase::SeasonStart);
+        assert_eq!(
+            options.history_depth_years,
+            DEFAULT_GENERATED_HISTORY_DEPTH_YEARS
+        );
     }
 
     #[test]
@@ -972,6 +993,7 @@ mod tests {
         let result = normalize_startup_options(Some(RawStartupOptions {
             start_year: Some(2019),
             start_phase: Some("seasonStart".to_string()),
+            history_depth_years: None,
         }));
 
         assert_eq!(result.unwrap_err(), "be.error.createManager.startYearMin");
@@ -982,12 +1004,39 @@ mod tests {
         let result = normalize_startup_options(Some(RawStartupOptions {
             start_year: Some(2026),
             start_phase: Some("playoffs".to_string()),
+            history_depth_years: None,
         }));
 
         assert_eq!(
             result.unwrap_err(),
             "be.error.createManager.invalidStartPhase"
         );
+    }
+
+    #[test]
+    fn normalize_startup_options_rejects_history_depths_above_maximum() {
+        let result = normalize_startup_options(Some(RawStartupOptions {
+            start_year: Some(2026),
+            start_phase: Some("seasonStart".to_string()),
+            history_depth_years: Some(MAX_GENERATED_HISTORY_DEPTH_YEARS + 1),
+        }));
+
+        assert_eq!(
+            result.unwrap_err(),
+            "be.error.createManager.historyDepthMax"
+        );
+    }
+
+    #[test]
+    fn normalize_startup_options_accepts_custom_history_depth() {
+        let options = normalize_startup_options(Some(RawStartupOptions {
+            start_year: Some(2026),
+            start_phase: Some("seasonStart".to_string()),
+            history_depth_years: Some(24),
+        }))
+        .unwrap();
+
+        assert_eq!(options.history_depth_years, 24);
     }
 
     #[test]
@@ -1043,6 +1092,7 @@ mod tests {
         let startup_options = StartupOptions {
             start_year: 2032,
             start_phase: StartPhase::MidSeason,
+            history_depth_years: DEFAULT_GENERATED_HISTORY_DEPTH_YEARS,
         };
         let world = make_historical_snapshot_world();
         let reference_date = game_clock_for_world(&startup_options, &world.metadata)
@@ -1114,7 +1164,7 @@ mod tests {
     }
 
     #[test]
-    fn apply_generated_past_history_populates_default_six_prior_seasons() {
+    fn apply_generated_past_history_populates_default_twelve_prior_seasons() {
         let clock = GameClock::new(start_date_for_year(2032).unwrap());
         let manager = domain::manager::Manager::new(
             "mgr-user".to_string(),
@@ -1330,12 +1380,13 @@ mod tests {
             &StartupOptions {
                 start_year: 2032,
                 start_phase: StartPhase::SeasonStart,
+                history_depth_years: DEFAULT_GENERATED_HISTORY_DEPTH_YEARS,
             },
         );
 
-        assert!(game.teams.iter().all(|team| team.history.len() == 6));
-        assert_eq!(game.world_history.season_awards.len(), 6);
-        assert!(game.players.iter().any(|player| player.career.len() == 6));
+        assert!(game.teams.iter().all(|team| team.history.len() == 12));
+        assert_eq!(game.world_history.season_awards.len(), 12);
+        assert!(game.players.iter().any(|player| player.career.len() == 12));
         assert!(game
             .managers
             .iter()
@@ -1354,6 +1405,7 @@ mod tests {
         let startup_options = StartupOptions {
             start_year: 2032,
             start_phase: StartPhase::MidSeason,
+            history_depth_years: DEFAULT_GENERATED_HISTORY_DEPTH_YEARS,
         };
         let world = make_historical_snapshot_world();
         let clock = game_clock_for_world(&startup_options, &world.metadata).unwrap();
@@ -1392,6 +1444,7 @@ mod tests {
         let startup_options = StartupOptions {
             start_year: 2032,
             start_phase: StartPhase::MidSeason,
+            history_depth_years: DEFAULT_GENERATED_HISTORY_DEPTH_YEARS,
         };
         let world = make_historical_snapshot_world();
         let clock = game_clock_for_world(&startup_options, &world.metadata).unwrap();
@@ -1423,6 +1476,7 @@ mod tests {
         let startup_options = StartupOptions {
             start_year: 2032,
             start_phase: StartPhase::MidSeason,
+            history_depth_years: DEFAULT_GENERATED_HISTORY_DEPTH_YEARS,
         };
         let mut world = make_historical_snapshot_world();
         world.metadata.base_year = Some(i32::MAX);

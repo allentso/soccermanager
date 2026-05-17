@@ -1,4 +1,4 @@
-import { Suspense, lazy, useState } from "react";
+import { Suspense, lazy, useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useNavigate } from "react-router-dom";
@@ -40,10 +40,14 @@ interface SaveEntry {
  */
 const MANAGER_MINIMUM_AGE = 30;
 const MIN_CAREER_START_YEAR = 2020;
+const DEFAULT_GENERATED_HISTORY_DEPTH_YEARS = 12;
+const MAX_GENERATED_HISTORY_DEPTH_YEARS = 24;
+const GENERATED_HISTORY_DEPTH_STORAGE_KEY = "ofm-generated-history-depth-years";
 
 type StartupOptionsPayload = {
   startYear: number;
   startPhase: CareerStartPhase;
+  historyDepthYears: number;
 };
 
 function historyModeFromMetadata(
@@ -76,8 +80,34 @@ function isCareerStartPhase(value: string): value is CareerStartPhase {
   return value === "seasonStart" || value === "midSeason";
 }
 
+function normalizeHistoryDepthYears(value: number): number | null {
+  if (!Number.isInteger(value)) return null;
+  if (value < 0 || value > MAX_GENERATED_HISTORY_DEPTH_YEARS) return null;
+  return value;
+}
+
+function initialHistoryDepthYears(): number {
+  if (typeof window === "undefined") {
+    return DEFAULT_GENERATED_HISTORY_DEPTH_YEARS;
+  }
+
+  const storedValue = window.localStorage.getItem(
+    GENERATED_HISTORY_DEPTH_STORAGE_KEY,
+  );
+  if (storedValue === null) {
+    return DEFAULT_GENERATED_HISTORY_DEPTH_YEARS;
+  }
+
+  const parsedValue = Number(storedValue);
+  return (
+    normalizeHistoryDepthYears(parsedValue) ??
+    DEFAULT_GENERATED_HISTORY_DEPTH_YEARS
+  );
+}
+
 function buildStartupOptions(
   formData: CreateManagerFormData,
+  historyDepthYears: number,
 ): StartupOptionsPayload | null {
   const startYear = parseCareerStartYear(formData.startYear);
   if (startYear === null || startYear < MIN_CAREER_START_YEAR) {
@@ -86,10 +116,17 @@ function buildStartupOptions(
   if (!isCareerStartPhase(formData.startPhase)) {
     return null;
   }
+  const normalizedHistoryDepthYears = normalizeHistoryDepthYears(
+    historyDepthYears,
+  );
+  if (normalizedHistoryDepthYears === null) {
+    return null;
+  }
 
   return {
     startYear,
     startPhase: formData.startPhase,
+    historyDepthYears: normalizedHistoryDepthYears,
   };
 }
 
@@ -154,6 +191,7 @@ function flooredAgeFromIsoDate(
 
 function dobValidationMessage(
   formData: CreateManagerFormData,
+  historyDepthYears: number,
   t: (key: string, options?: Record<string, unknown>) => string,
 ): string | null {
   if (!formData.dob) return null;
@@ -162,7 +200,7 @@ function dobValidationMessage(
     return t("validation.invalidDate");
   }
 
-  const startupOptions = buildStartupOptions(formData);
+  const startupOptions = buildStartupOptions(formData, historyDepthYears);
   if (!startupOptions) return null;
 
   const age = flooredAgeFromIsoDate(
@@ -252,9 +290,19 @@ export default function MainMenu() {
   const [worldDatabases, setWorldDatabases] = useState<WorldDatabaseInfo[]>([]);
   const [selectedWorldId, setSelectedWorldId] = useState<string>("random");
   const [isLoadingWorlds, setIsLoadingWorlds] = useState(false);
+  const [historyDepthYears, setHistoryDepthYears] = useState(
+    initialHistoryDepthYears,
+  );
+
+  useEffect(() => {
+    window.localStorage.setItem(
+      GENERATED_HISTORY_DEPTH_STORAGE_KEY,
+      String(historyDepthYears),
+    );
+  }, [historyDepthYears]);
 
   /** Same messages as `validateForm` for DOB, so the age rule surfaces as the user edits. */
-  const dobLiveRuleMessage = dobValidationMessage(formData, t);
+  const dobLiveRuleMessage = dobValidationMessage(formData, historyDepthYears, t);
   const dobDisplayedError = formErrors.dob || dobLiveRuleMessage;
 
   const updateFormField = (field: keyof CreateManagerFormData, value: string) => {
@@ -301,7 +349,7 @@ export default function MainMenu() {
     if (!formData.dob) {
       errors.dob = t("validation.required", { field: t("createManager.dob") });
     } else {
-      const dobError = dobValidationMessage(formData, t);
+      const dobError = dobValidationMessage(formData, historyDepthYears, t);
       if (dobError) {
         errors.dob = dobError;
       }
@@ -415,7 +463,7 @@ export default function MainMenu() {
   };
 
   const handleStartGame = async () => {
-    const startupOptions = buildStartupOptions(formData);
+    const startupOptions = buildStartupOptions(formData, historyDepthYears);
     if (!startupOptions) {
       const validation = validateForm();
       setMenuState("create");
@@ -624,7 +672,9 @@ export default function MainMenu() {
                 isStarting={isStarting}
                 startYear={parseCareerStartYear(formData.startYear) ?? MIN_CAREER_START_YEAR}
                 startPhase={formData.startPhase}
+                historyDepthYears={historyDepthYears}
                 onSelectWorld={setSelectedWorldId}
+                onChangeHistoryDepthYears={setHistoryDepthYears}
                 onImportFile={handleImportFile}
                 onStart={handleStartGame}
                 onBack={() => setMenuState("create")}

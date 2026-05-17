@@ -65,15 +65,24 @@
     "summary": {
       "startYear": "Karrierestart",
       "seasonStart": {
-        "generated": "Starte {{year}} mit einer frischen Welt und sechs generierten Saisons Vorgeschichte.",
+        "generated": "Starte {{year}} mit einer frischen Welt und {{count}} generierten Saisons Vorgeschichte.",
         "reference": "Starte {{year}} mit dem ausgewählten historischen Schnappschuss als Weltbasis.",
-        "hybrid": "Starte {{year}} mit diesem Datenbank-Kader, während die fehlende Historie darum herum generiert wird."
+        "hybrid": "Starte {{year}} mit diesem Datenbank-Kader, während {{count}} Saisons fehlender Historie darum herum generiert werden."
       },
       "midSeason": {
-        "generated": "Übernimm zur Saisonhälfte {{year}} mit geerbter Tabelle, Spielplan, Nachrichten und Spielhistorie aus einer generierten Saison.",
+        "generated": "Übernimm zur Saisonhälfte {{year}} mit geerbter Tabelle, Spielplan, Nachrichten, Spielhistorie und {{count}} generierten Saisons Vorgeschichte.",
         "reference": "Übernimm zur Saisonhälfte {{year}} mit dem ausgewählten historischen Schnappschuss und bereits vorhandenem Saisonkontext.",
-        "hybrid": "Übernimm zur Saisonhälfte {{year}} mit diesem Datenbank-Kader plus generiertem historischen Kontext und vorhandenem Saisonfortschritt."
+        "hybrid": "Übernimm zur Saisonhälfte {{year}} mit diesem Datenbank-Kader plus {{count}} generierten Saisons historischem Kontext und vorhandenem Saisonfortschritt."
       }
+    },
+    "historyDepth": {
+      "label": "Generierte Historie",
+      "hint": "Wähle, wie viel Vorgeschichte generiert werden soll. Tiefere Archive liefern mehr Kontext, brauchen aber länger.",
+      "reference": "Diese Welt bringt bereits ein eigenes historisches Archiv mit.",
+      "applied": "{{count}} generierte Saisons",
+      "none": "Keine Vorgeschichte",
+      "option": "{{count}} Saisons",
+      "recommended": "Empfohlen"
     }
   },
   "dashboard": {
@@ -1821,7 +1830,8 @@
         "invalidDob": "Ungültiges Geburtsdatum.",
         "startYearMin": "Das Startjahr muss 2020 oder später sein.",
         "invalidStartYear": "Ungültiges Startjahr ausgewählt.",
-        "invalidStartPhase": "Ungültige Startphase ausgewählt."
+        "invalidStartPhase": "Ungültige Startphase ausgewählt.",
+        "historyDepthMax": "Die Tiefe der generierten Historie muss 24 Saisons oder weniger betragen."
       },
       "transfers": {
         "transferWindowClosed": "Das Transferfenster ist geschlossen",
