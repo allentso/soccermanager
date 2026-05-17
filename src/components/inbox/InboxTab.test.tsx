@@ -154,6 +154,20 @@ beforeAll(function defineMatchMedia(): void {
     true,
     true,
   );
+
+  i18n.addResourceBundle(
+    "de",
+    "translation",
+    {
+      "be.msg.delegatedRenewals.case.successful":
+        "Completed: {{player}} agreed to {{years}} year(s) on {{wage}}/wk.",
+      "be.msg.delegatedRenewals.case.failed": "Failed: {{player}} — {{detail}}",
+      "be.msg.delegatedRenewals.notes.boardWagePolicy":
+        "Board wage policy blocks this renewal. Keep annual wages near {{budget}} while we recover.",
+    },
+    true,
+    true,
+  );
 });
 
 beforeEach(function resetMocks(): void {
@@ -746,6 +760,73 @@ describe("InboxTab", function (): void {
         "Failed: Chris Failed — They are not willing to commit through me under the current relationship and contract situation.",
       ),
     ).toBeInTheDocument();
+  });
+
+  it("formats delegated renewal money values only once in dot-separated locales", async function (): Promise<void> {
+    const previousLanguage = i18n.language;
+    const previousSettings = useSettingsStore.getState().settings;
+
+    await i18n.changeLanguage("de");
+    useSettingsStore.setState({
+      settings: { ...previousSettings, language: "de", currency: "EUR" },
+      currency: { code: "EUR", symbol: "€", exchange_rate: 1 },
+    });
+
+    try {
+      renderInboxTab({
+        gameState: createGameState([
+          createMessage({
+            id: "delegated_renewals_locale_2025-01-01_0",
+            read: true,
+            category: "Contract",
+            context: {
+              team_id: "t1",
+              player_id: null,
+              fixture_id: null,
+              match_result: null,
+              delegated_renewal_report: {
+                success_count: 1,
+                failure_count: 1,
+                stalled_count: 0,
+                cases: [
+                  {
+                    player_id: "p1",
+                    player_name: "Alex Done",
+                    status: "successful",
+                    agreed_wage: 24000,
+                    agreed_years: 3,
+                  },
+                  {
+                    player_id: "p2",
+                    player_name: "Chris Failed",
+                    status: "failed",
+                    note_key: "be.msg.delegatedRenewals.notes.boardWagePolicy",
+                    note_params: { budget: "24000" },
+                  },
+                ],
+              },
+            },
+          }),
+        ]),
+        initialMessageId: "delegated_renewals_locale_2025-01-01_0",
+      });
+
+      expect(
+        screen.getByText(
+          "Completed: Alex Done agreed to 3 year(s) on €24.000/wk.",
+        ),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          "Failed: Chris Failed — Board wage policy blocks this renewal. Keep annual wages near €24.000 while we recover.",
+        ),
+      ).toBeInTheDocument();
+    } finally {
+      await i18n.changeLanguage(previousLanguage);
+      useSettingsStore.setState({
+        settings: previousSettings,
+      });
+    }
   });
 
   it("tells the user that player-event response outcomes vary", function (): void {
