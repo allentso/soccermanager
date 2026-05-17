@@ -45,6 +45,8 @@ fn response_effect(i18n_key: &str, team_name: &str) -> JobOfferResponseEffect {
     }
 }
 
+const VACANCY_SUBSTRING: &str = "is not vacant";
+
 pub(crate) fn expire_outstanding_job_offers_for_team(game: &mut Game, team_id: &str) {
     let team_name = game
         .teams
@@ -76,7 +78,7 @@ pub fn hire_manager(game: &mut Game, team_id: &str, date: &str) -> Result<String
         .find(|t| t.id == team_id)
         .ok_or_else(|| format!("Team {} not found", team_id))?;
     if team.manager_id.is_some() {
-        return Err(format!("Team {} is not vacant", team_id));
+        return Err(format!("Team {} {}", team_id, VACANCY_SUBSTRING));
     }
     let team_name = team.name.clone();
     let manager_id = game.manager.id.clone();
@@ -476,7 +478,7 @@ pub fn apply_job_offer_response(
             let today = game.clock.current_date.format("%Y-%m-%d").to_string();
             match hire_manager(game, &team_id, &today) {
                 Ok(name) => Some(response_effect("be.msg.jobOffer.effects.accepted", &name)),
-                Err(e) if e.contains("is not vacant") => Some(response_effect(
+                Err(e) if e.contains(VACANCY_SUBSTRING) => Some(response_effect(
                     "be.msg.jobOffer.effects.unavailable",
                     &team_name,
                 )),
