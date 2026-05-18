@@ -99,7 +99,11 @@ impl SaveManager {
             last_played_at: now,
         };
 
-        self.save_index.record_new_save(entry)?;
+        if let Err(error) = self.save_index.record_new_save(entry) {
+            let _ = fs::remove_file(&db_path);
+            return Err(error);
+        }
+
         Ok(save_id)
     }
 
@@ -153,7 +157,10 @@ impl SaveManager {
             created_at: now.clone(),
             last_played_at: now,
         };
-        self.save_index.record_new_save(entry)?;
+        if let Err(error) = self.save_index.record_new_save(entry) {
+            let _ = fs::remove_file(&db_path);
+            return Err(error);
+        }
         let index_ms = index_timer.elapsed().as_millis();
 
         info!(
@@ -601,6 +608,14 @@ mod tests {
     };
     use rusqlite::params;
 
+    fn db_file_count(dir: &std::path::Path) -> usize {
+        fs::read_dir(dir)
+            .unwrap()
+            .filter_map(Result::ok)
+            .filter(|entry| entry.path().extension().and_then(|ext| ext.to_str()) == Some("db"))
+            .count()
+    }
+
     fn sample_game() -> Game {
         let start = Utc.with_ymd_and_hms(2026, 7, 1, 0, 0, 0).unwrap();
         let mut clock = GameClock::new(start);
@@ -1022,6 +1037,43 @@ mod tests {
         assert_eq!(saves[0].name, "John's Career");
         assert_eq!(saves[0].manager_name, "John Smith");
         assert!(!saves[0].checksum.is_empty());
+    }
+
+    #[test]
+    fn test_create_save_removes_db_when_index_write_fails() {
+        let dir = tempfile::tempdir().unwrap();
+        let saves_dir = dir.path().join("saves");
+        let index_path = saves_dir.join("save_index.json");
+        let mut sm = SaveManager::init(&saves_dir).unwrap();
+        let game = sample_game();
+
+        assert!(sm.load_saves().unwrap().is_empty());
+        fs::remove_file(&index_path).unwrap();
+        fs::create_dir(&index_path).unwrap();
+
+        let result = sm.create_save(&game, "Broken Index Career");
+
+        assert_eq!(result.unwrap_err(), "be.error.saveIndex.writeFailed");
+        assert_eq!(db_file_count(&saves_dir), 0);
+    }
+
+    #[test]
+    fn test_create_save_with_stats_removes_db_when_index_write_fails() {
+        let dir = tempfile::tempdir().unwrap();
+        let saves_dir = dir.path().join("saves");
+        let index_path = saves_dir.join("save_index.json");
+        let mut sm = SaveManager::init(&saves_dir).unwrap();
+        let game = sample_game();
+        let stats = sample_stats_state();
+
+        assert!(sm.load_saves().unwrap().is_empty());
+        fs::remove_file(&index_path).unwrap();
+        fs::create_dir(&index_path).unwrap();
+
+        let result = sm.create_save_with_stats(&game, &stats, "Broken Stats Career");
+
+        assert_eq!(result.unwrap_err(), "be.error.saveIndex.writeFailed");
+        assert_eq!(db_file_count(&saves_dir), 0);
     }
 
     #[test]

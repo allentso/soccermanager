@@ -113,11 +113,20 @@ pub fn upsert_league(conn: &Connection, league: &League) -> Result<(), String> {
     match result {
         Ok(()) => conn
             .execute_batch("RELEASE SAVEPOINT league_upsert")
-            .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string()),
+            .map_err(|error| {
+                format!(
+                    "{GAME_PERSISTENCE_WRITE_ERROR}; cleanup=release_savepoint: {error}"
+                )
+            }),
         Err(error) => {
-            let _ = conn.execute_batch(
+            conn.execute_batch(
                 "ROLLBACK TO SAVEPOINT league_upsert; RELEASE SAVEPOINT league_upsert",
-            );
+            )
+            .map_err(|cleanup_error| {
+                format!(
+                    "{error}; cleanup=rollback_release_savepoint: {cleanup_error}"
+                )
+            })?;
             Err(error)
         }
     }
@@ -409,6 +418,32 @@ mod tests {
         league
     }
 
+    fn persisted_row_counts(conn: &Connection) -> (i64, i64, i64, i64, i64) {
+        let league_count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM league", [], |row| row.get(0))
+            .unwrap();
+        let fixture_count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM fixtures", [], |row| row.get(0))
+            .unwrap();
+        let standings_count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM standings", [], |row| row.get(0))
+            .unwrap();
+        let transfer_log_count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM transfer_log", [], |row| row.get(0))
+            .unwrap();
+        let transfer_rumour_count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM transfer_rumours", [], |row| row.get(0))
+            .unwrap();
+
+        (
+            league_count,
+            fixture_count,
+            standings_count,
+            transfer_log_count,
+            transfer_rumour_count,
+        )
+    }
+
     #[test]
     fn test_upsert_and_load_league() {
         let db = test_db();
@@ -600,6 +635,29 @@ mod tests {
         assert_eq!(loaded.id, "league-1");
         assert_eq!(loaded.season, 2026);
         assert_eq!(loaded.fixtures.len(), 2);
+    }
+
+    #[test]
+    fn test_upsert_league_respects_parent_transaction_boundaries() {
+        let rollback_db = test_db();
+        rollback_db.conn().execute_batch("BEGIN").unwrap();
+
+        upsert_league(rollback_db.conn(), &sample_league()).unwrap();
+        assert_eq!(persisted_row_counts(rollback_db.conn()), (1, 2, 2, 1, 1));
+
+        rollback_db.conn().execute_batch("ROLLBACK").unwrap();
+
+        assert_eq!(persisted_row_counts(rollback_db.conn()), (0, 0, 0, 0, 0));
+        assert!(load_league(rollback_db.conn()).unwrap().is_none());
+
+        let commit_db = test_db();
+        commit_db.conn().execute_batch("BEGIN").unwrap();
+
+        upsert_league(commit_db.conn(), &sample_league()).unwrap();
+        commit_db.conn().execute_batch("COMMIT").unwrap();
+
+        assert_eq!(persisted_row_counts(commit_db.conn()), (1, 2, 2, 1, 1));
+        assert_eq!(load_league(commit_db.conn()).unwrap().unwrap().id, "league-1");
     }
 
     #[test]
