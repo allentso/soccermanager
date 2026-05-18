@@ -473,7 +473,7 @@ export default function PreMatchLineup({
                   {oppTeam.name}
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {oppTeam.formation} · {t(`tactics.playStyles.${oppTeam.play_style}`, oppTeam.play_style)}
+                  {oppTeam.formation} · {t(`common.playStyles.${oppTeam.play_style}`, oppTeam.play_style)}
                 </p>
               </div>
             </div>

@@ -532,7 +532,7 @@ export default function PostMatchScreen({
                     <>
                       <div>
                         <p className="text-[10px] font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 mb-2">
-                          {t("home.leagueTable")}
+                          {t("tournaments.leagueTable")}
                         </p>
                         <div className="flex flex-col gap-1 text-xs">
                           {roundSummary.standings_delta
@@ -555,7 +555,7 @@ export default function PostMatchScreen({
 
                       <div>
                         <p className="text-[10px] font-heading font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400 mb-2">
-                          {t("home.topScorers")}
+                          {t("tournaments.topScorers")}
                         </p>
                         <div className="flex flex-col gap-1 text-xs">
                           {roundSummary.top_scorer_delta.length > 0 ? (

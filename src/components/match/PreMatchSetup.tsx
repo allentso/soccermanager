@@ -242,7 +242,7 @@ export default function PreMatchSetup({
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400">
                   {t("match.home")} · {snapshot.home_team.formation} ·{" "}
-                  {t(`tactics.playStyles.${snapshot.home_team.play_style}`, snapshot.home_team.play_style)}
+                  {t(`common.playStyles.${snapshot.home_team.play_style}`, snapshot.home_team.play_style)}
                 </p>
               </div>
             </div>
@@ -263,7 +263,7 @@ export default function PreMatchSetup({
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400">
                   {t("match.away")} · {snapshot.away_team.formation} ·{" "}
-                  {t(`tactics.playStyles.${snapshot.away_team.play_style}`, snapshot.away_team.play_style)}
+                  {t(`common.playStyles.${snapshot.away_team.play_style}`, snapshot.away_team.play_style)}
                 </p>
               </div>
               <div
