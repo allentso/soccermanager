@@ -77,7 +77,7 @@
     },
     "historyDepth": {
       "label": "Historique généré",
-      "hint": "Choisissez la quantité de passé à générer. Un archive plus profond ajoute du contexte mais prend plus de temps à créer.",
+      "hint": "Choisissez la quantité de passé à générer. Une archive plus profonde ajoute du contexte mais prend plus de temps à créer.",
       "reference": "Ce monde inclut déjà sa propre archive historique.",
       "applied": "{{count}} saisons générées",
       "none": "Sans passé généré",

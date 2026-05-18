@@ -120,6 +120,7 @@ const REQUIRED_KEYS = [
   "be.error.createManager.invalidDobFormat",
   "be.error.createManager.minAge",
   "be.error.createManager.invalidDob",
+  "be.error.createManager.invalidStartYear",
   "be.error.createManager.startYearMin",
   "be.error.createManager.invalidStartPhase",
   "be.error.createManager.historyDepthMax",

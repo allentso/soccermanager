@@ -67,7 +67,7 @@
       "seasonStart": {
         "generated": "Comienza en {{year}} con un mundo nuevo y {{count}} temporadas generadas de trasfondo.",
         "reference": "Comienza en {{year}} usando la instantánea histórica seleccionada como base del mundo.",
-        "hybrid": "Comienza en {{year}} usando la plantilla de esta base de datos mientras se generan alrededor {{count}} temporadas del historial faltante."
+        "hybrid": "Comienza en {{year}} usando la plantilla de esta base de datos mientras se generan alrededor de {{count}} temporadas del historial faltante."
       },
       "midSeason": {
         "generated": "Toma el mando a mitad de {{year}} con clasificación, calendario, noticias, historial de partidos y {{count}} temporadas generadas de trasfondo.",

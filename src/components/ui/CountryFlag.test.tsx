@@ -22,4 +22,11 @@ describe("CountryFlag", () => {
     expect(screen.getByRole("img", { name: "England" })).toBeInTheDocument();
     expect(container.querySelector("svg")).not.toBeNull();
   });
+
+  it("renders an SVG flag when given a recognised country name", () => {
+    const { container } = render(<CountryFlag code="Spain" locale="en" />);
+
+    expect(screen.getByRole("img", { name: "Spain" })).toBeInTheDocument();
+    expect(container.querySelector("svg")).not.toBeNull();
+  });
 });

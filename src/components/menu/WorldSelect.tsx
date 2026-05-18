@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useId, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../ui";
 import { X, ChevronRight, Globe, Shuffle, Upload, Database, Users, ArrowLeft, Loader2 } from "lucide-react";
@@ -59,6 +59,7 @@ export default function WorldSelect({
   historyDepthYears, onSelectWorld, onChangeHistoryDepthYears, onImportFile, onStart, onBack, onClose,
 }: WorldSelectProps) {
   const { t } = useTranslation();
+  const historyDepthLabelId = useId();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const selectedWorld = worldDatabases.find((db) => db.id === selectedWorldId);
   const historyMode = worldHistoryMode(selectedWorld);
@@ -169,7 +170,10 @@ export default function WorldSelect({
       <div className="rounded-xl border border-gray-200 bg-white p-3 text-sm dark:border-navy-600 dark:bg-navy-700/60">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="font-heading font-bold uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
+            <p
+              id={historyDepthLabelId}
+              className="font-heading font-bold uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400"
+            >
               {t("worldSelect.historyDepth.label")}
             </p>
             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
@@ -187,7 +191,11 @@ export default function WorldSelect({
           ) : null}
         </div>
 
-        <div className="mt-3 grid grid-cols-2 gap-2">
+        <div
+          role="radiogroup"
+          aria-labelledby={historyDepthLabelId}
+          className="mt-3 grid grid-cols-2 gap-2"
+        >
           {HISTORY_DEPTH_OPTIONS.map((value) => {
             const selected = historyDepthYears === value;
 
@@ -196,7 +204,9 @@ export default function WorldSelect({
                 key={value}
                 type="button"
                 disabled={!canConfigureGeneratedHistory}
-                aria-pressed={selected}
+                role="radio"
+                aria-checked={selected}
+                aria-disabled={!canConfigureGeneratedHistory}
                 onClick={() => onChangeHistoryDepthYears(value)}
                 className={`rounded-xl border px-3 py-3 text-left transition-all ${selected
                   ? "border-primary-500 bg-primary-50 text-primary-700 ring-1 ring-primary-400/30 dark:border-primary-500 dark:bg-primary-500/10 dark:text-primary-300"

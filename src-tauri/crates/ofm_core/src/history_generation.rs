@@ -138,6 +138,9 @@ fn prepare_seeded_managers(game: &mut Game, first_season: u32) {
             if entry.matches == 0 && entry.wins == 0 && entry.draws == 0 && entry.losses == 0 {
                 entry.start_date = start_date.clone();
             }
+            manager
+                .career_history
+                .sort_by(|left, right| left.start_date.cmp(&right.start_date));
             continue;
         }
 
@@ -158,6 +161,9 @@ fn prepare_seeded_managers(game: &mut Game, first_season: u32) {
             losses: 0,
             best_league_position: None,
         });
+        manager
+            .career_history
+            .sort_by(|left, right| left.start_date.cmp(&right.start_date));
     }
 }
 
@@ -474,10 +480,10 @@ mod tests {
     use crate::{clock::GameClock, game::Game};
     use chrono::{TimeZone, Utc};
     use domain::{
-        manager::Manager,
-        player::{Player, PlayerAttributes, Position},
+        manager::{Manager, ManagerCareerEntry},
+        player::{CareerEntry, Player, PlayerAttributes, Position},
         staff::{Staff, StaffAttributes, StaffRole},
-        team::Team,
+        team::{Team, TeamSeasonRecord},
     };
 
     fn sample_player_attributes(position: &Position) -> PlayerAttributes {
@@ -625,6 +631,51 @@ mod tests {
         Game::new(clock, manager, teams, players, staff, vec![])
     }
 
+    fn seed_later_history_entries(game: &mut Game) {
+        let team_id = game.teams[0].id.clone();
+        let team_name = game.teams[0].name.clone();
+
+        game.manager.team_id = Some(team_id.clone());
+        game.teams[0].manager_id = Some(game.manager.id.clone());
+        game.teams[0].history.push(TeamSeasonRecord {
+            season: 2031,
+            league_position: 2,
+            played: 38,
+            won: 22,
+            drawn: 8,
+            lost: 8,
+            goals_for: 64,
+            goals_against: 36,
+        });
+
+        let player = game
+            .players
+            .iter_mut()
+            .find(|player| player.team_id.as_deref() == Some(team_id.as_str()))
+            .expect("seed player for first team");
+        player.career.push(CareerEntry {
+            season: 2031,
+            team_id: team_id.clone(),
+            team_name: team_name.clone(),
+            appearances: 33,
+            goals: 7,
+            assists: 4,
+        });
+
+        game.manager.career_history.push(ManagerCareerEntry {
+            team_id,
+            team_name,
+            start_date: "2031-07-01".to_string(),
+            end_date: Some("2032-06-30".to_string()),
+            matches: 38,
+            wins: 21,
+            draws: 9,
+            losses: 8,
+            best_league_position: Some(2),
+        });
+        game.sync_user_manager_record();
+    }
+
     fn serialized_history_snapshot(game: &Game) -> serde_json::Value {
         serde_json::json!({
             "teamHistory": game
@@ -670,6 +721,54 @@ mod tests {
 
         generate_past_world_history(&mut left, 2032, 4);
         generate_past_world_history(&mut right, 2032, 4);
+
+        assert_eq!(
+            serialized_history_snapshot(&left),
+            serialized_history_snapshot(&right)
+        );
+    }
+
+    #[test]
+    fn generate_past_world_history_backfills_seeded_entries_in_chronological_order() {
+        let mut left = make_game();
+        let mut right = make_game();
+
+        seed_later_history_entries(&mut left);
+        seed_later_history_entries(&mut right);
+
+        generate_past_world_history(&mut left, 2032, 4);
+        generate_past_world_history(&mut right, 2032, 4);
+
+        let team = &left.teams[0];
+        assert!(
+            team.history
+                .windows(2)
+                .all(|window| window[0].season <= window[1].season)
+        );
+
+        let player = left
+            .players
+            .iter()
+            .find(|player| player.team_id.as_deref() == Some(team.id.as_str()))
+            .expect("player history for seeded team");
+        assert!(
+            player
+                .career
+                .windows(2)
+                .all(|window| window[0].season <= window[1].season)
+        );
+
+        let manager = left
+            .managers
+            .iter()
+            .find(|manager| manager.id == left.manager.id)
+            .expect("user manager in manager list");
+        assert!(
+            manager
+                .career_history
+                .windows(2)
+                .all(|window| window[0].start_date <= window[1].start_date)
+        );
 
         assert_eq!(
             serialized_history_snapshot(&left),

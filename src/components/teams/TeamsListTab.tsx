@@ -36,6 +36,7 @@ export default function TeamsListTab({ gameState, onSelectTeam }: TeamsListTabPr
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {teamsData.map(({ team, roster, avgOvr, totalValue, leaguePos, standing }) => {
           const isUser = team.id === userTeamId;
+          const playStyleLabel = t(`common.playStyles.${team.play_style}`, team.play_style);
           return (
             <Card
               key={team.id}
@@ -92,7 +93,7 @@ export default function TeamsListTab({ gameState, onSelectTeam }: TeamsListTabPr
                   <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
                     <span className="flex items-center gap-1">
                       <Users className="w-3.5 h-3.5" />
-                      {team.formation} — {team.play_style}
+                      {team.formation} — {playStyleLabel}
                     </span>
                     <span className="flex items-center gap-1">
                       <Trophy className="w-3.5 h-3.5" />
