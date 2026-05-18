@@ -481,6 +481,32 @@ describe("resolveMessage", () => {
     expect(result.read).toBe(true);
     expect(result.category).toBe("transfer");
   });
+
+  it("localizes football nationality params inside translated inbox messages", async () => {
+    const previousLanguage = i18n.language;
+    await i18n.changeLanguage("pt-BR");
+
+    try {
+      const msg = makeMessage({
+        subject: "raw",
+        subject_key: "be.msg.intlCallup.subject",
+        body: "raw",
+        body_key: "be.msg.intlCallup.body",
+        i18n_params: {
+          player: "King",
+          nationality: "ENG",
+        },
+      });
+
+      const result = resolveMessage(msg);
+
+      expect(result.subject).toBe("Convocação Internacional — King");
+      expect(result.body).toContain("seleção Inglaterra");
+      expect(result.body).not.toContain("ENG");
+    } finally {
+      await i18n.changeLanguage(previousLanguage);
+    }
+  });
 });
 
 // ---------------------------------------------------------------------------

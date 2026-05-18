@@ -1981,7 +1981,7 @@
       },
       "intlCallup": {
         "subject": "Convocazione in nazionale — {{player}}",
-        "body": "{{player}} è stato convocato dalla nazionale {{nationality}} per la prossima finestra internazionale.\n\nÈ un grande onore per il giocatore e riflette positivamente anche sul club. Tornerà di buon umore, anche se conviene tenere d'occhio il suo livello di fatica."
+        "body": "{{player}} è stato convocato dalla nazionale di {{nationality}} per la prossima finestra internazionale.\n\nÈ un grande onore per il giocatore e riflette positivamente anche sul club. Tornerà di buon umore, ma conviene tenere d'occhio il suo livello di fatica."
       },
       "delegateToYouthAcademy": "Assegna al settore giovanile",
       "promoteToSeniorSquad": "Promuovi in prima squadra",
