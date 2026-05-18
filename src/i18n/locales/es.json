@@ -1242,6 +1242,11 @@
     "display": "Pantalla",
     "theme": "Tema",
     "themeDesc": "Elige la apariencia de la aplicación",
+    "themeOptions": {
+      "light": "Claro",
+      "dark": "Oscuro",
+      "system": "Sistema"
+    },
     "language": "Idioma",
     "languageDesc": "Elige el idioma de visualización",
     "currency": "Moneda",
@@ -1297,6 +1302,12 @@
     },
     "uiScale": "Escala de UI",
     "uiScaleDesc": "Ajustar tamaño de fuente y espaciado para legibilidad",
+    "uiScaleOptions": {
+      "small": "Pequeña",
+      "normal": "Normal",
+      "large": "Grande",
+      "xlarge": "Muy grande"
+    },
     "highContrast": "Alto Contraste",
     "highContrastDesc": "Mejorar contraste de texto en modo oscuro",
     "fullscreen": "Pantalla Completa",

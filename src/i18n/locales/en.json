@@ -1212,6 +1212,11 @@
     "display": "Display",
     "theme": "Theme",
     "themeDesc": "Choose how the app looks",
+    "themeOptions": {
+      "light": "Light",
+      "dark": "Dark",
+      "system": "System"
+    },
     "language": "Language",
     "languageDesc": "Choose the display language",
     "currency": "Currency",
@@ -1267,6 +1272,12 @@
     },
     "uiScale": "UI Scale",
     "uiScaleDesc": "Adjust font size and spacing for readability",
+    "uiScaleOptions": {
+      "small": "Small",
+      "normal": "Normal",
+      "large": "Large",
+      "xlarge": "Extra Large"
+    },
     "highContrast": "High Contrast",
     "highContrastDesc": "Boost text contrast in dark mode for improved readability",
     "fullscreen": "Fullscreen",

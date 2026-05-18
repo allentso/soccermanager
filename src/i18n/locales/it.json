@@ -1231,6 +1231,11 @@
     "display": "Visualizzazione",
     "theme": "Tema",
     "themeDesc": "Scegli l'aspetto dell'app",
+    "themeOptions": {
+      "light": "Chiaro",
+      "dark": "Scuro",
+      "system": "Sistema"
+    },
     "language": "Lingua",
     "languageDesc": "Scegli la lingua dell'interfaccia",
     "currency": "Valuta",
@@ -1286,6 +1291,12 @@
     },
     "uiScale": "Scala interfaccia",
     "uiScaleDesc": "Regola dimensione del testo e spaziatura per migliorare la leggibilità",
+    "uiScaleOptions": {
+      "small": "Piccola",
+      "normal": "Normale",
+      "large": "Grande",
+      "xlarge": "Molto grande"
+    },
     "highContrast": "Alto contrasto",
     "highContrastDesc": "Aumenta il contrasto del testo in modalità scura per migliorare la leggibilità",
     "fullscreen": "Schermo intero",
