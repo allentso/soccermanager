@@ -2187,8 +2187,8 @@
         "body": "Some unflattering coverage of {{player}} appeared in the tabloids today.\n\nJournalists are questioning their form and commitment to {{team}}. This could affect the player's morale — you might want to have a word."
       },
       "intlCallup": {
-        "subject": "Convocation Internationale — {{player}}",
-        "body": "{{player}} a été convoqué en sélection nationale de {{nationality}} pour la prochaine trêve internationale.\n\nC'est un grand honneur pour le joueur et cela rejaillit positivement sur le club. Il reviendra de bonne humeur, mais gardez un oeil sur son niveau de fatigue."
+        "subject": "International Call-Up — {{player}}",
+        "body": "{{player}} has been called up to the {{nationality}} national team for an upcoming international window.\n\nThis is a great honor for the player and reflects well on the club. They'll be in good spirits when they return, though keep an eye on their fatigue levels."
       },
       "community": {
         "subject0": "Community Open Day",

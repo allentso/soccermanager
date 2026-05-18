@@ -180,6 +180,25 @@ describe("findNextFixture", () => {
     const fixtures = [makeFixture({ home_team_id: "other", away_team_id: "other2" })];
     expect(findNextFixture(fixtures, "team_1")).toBeUndefined();
   });
+
+  it("returns the earliest scheduled fixture by date instead of array order", () => {
+    const fixtures = [
+      makeFixture({
+        id: "f2",
+        date: "2026-07-24",
+        home_team_id: "team_2",
+        away_team_id: "team_1",
+      }),
+      makeFixture({
+        id: "f1",
+        date: "2026-07-17",
+        home_team_id: "team_3",
+        away_team_id: "team_1",
+      }),
+    ];
+
+    expect(findNextFixture(fixtures, "team_1")?.id).toBe("f1");
+  });
 });
 
 describe("season helpers", () => {
