@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+
 const LANG_LOCALE: Record<string, string> = {
     en: "en-US",
     es: "es-ES",
@@ -5,6 +7,7 @@ const LANG_LOCALE: Record<string, string> = {
     fr: "fr-FR",
     de: "de-DE",
     it: "it-IT",
+    zh: "zh-CN",
 };
 
 export function getLocale(lang?: string): string {
@@ -26,7 +29,9 @@ function parseDateInput(dateStr: string): Date | null {
     return value;
 }
 
-export function formatMatchDate(dateStr: string, locale?: string): string {
+export function formatMatchDate(dateStr: string): string {
+    const { i18n: { language: locale } } = useTranslation();
+
     const date = parseDateInput(dateStr);
     if (!date) {
         return dateStr;
