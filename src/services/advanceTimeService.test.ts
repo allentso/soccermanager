@@ -50,8 +50,11 @@ describe("advanceTimeService", () => {
       .mockImplementation(() => { });
     mockedInvoke.mockRejectedValueOnce(new Error("boom"));
 
-    await expect(checkBlockingActions("test")).resolves.toEqual([]);
-    consoleWarnSpy.mockRestore();
+    try {
+      await expect(checkBlockingActions("test")).resolves.toEqual([]);
+    } finally {
+      consoleWarnSpy.mockRestore();
+    }
   });
 
   it("calls the skip-to-match-day backend command", async () => {

@@ -58,8 +58,14 @@ describe("countryName", () => {
     const nameIt = countryName("DE", "it");
     expect(nameIt).toBe("Germania");
 
+    const nameZh = countryName("DE", "zh-CN");
+    expect(nameZh).toBe("德国");
+
     const englandEs = countryName("ENG", "es");
     expect(englandEs).toBe("Inglaterra");
+
+    const englandZh = countryName("ENG", "zh-CN");
+    expect(englandZh).toBe("英格兰");
   });
 
   it("falls back to English for unknown locale", () => {
@@ -163,6 +169,13 @@ describe("normaliseNationality", () => {
     expect(normaliseNationality("Brazilian")).toBe("BR");
     expect(normaliseNationality("German")).toBe("DE");
     expect(normaliseNationality("French")).toBe("FR");
+  });
+
+  it("converts recognised country names to alpha-2 codes", () => {
+    expect(normaliseNationality("Spain")).toBe("ES");
+    expect(normaliseNationality("Germany")).toBe("DE");
+    expect(normaliseNationality("Italy")).toBe("IT");
+    expect(normaliseNationality("Netherlands")).toBe("NL");
   });
 
   it("returns the original value for unknown demonyms", () => {

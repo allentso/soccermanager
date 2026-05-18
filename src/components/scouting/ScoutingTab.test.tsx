@@ -321,23 +321,24 @@ describe("ScoutingTab", () => {
     invokeMock.mockRejectedValueOnce(
       new Error("Scout is already assigned to another scouting task."),
     );
-
-    render(
-      <ScoutingTab
-        gameState={createGameState({ scouts: [createScout()] })}
-        onGameUpdate={vi.fn()}
-      />,
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: /Scout/i }));
-
-    await waitFor(() => {
-      expect(screen.getByRole("alert")).toHaveTextContent(
-        "Scout is already assigned to another scouting task.",
+    try {
+      render(
+        <ScoutingTab
+          gameState={createGameState({ scouts: [createScout()] })}
+          onGameUpdate={vi.fn()}
+        />,
       );
-    });
 
-    consoleErrorSpy.mockRestore();
+      fireEvent.click(screen.getByRole("button", { name: /Scout/i }));
+
+      await waitFor(() => {
+        expect(screen.getByRole("alert")).toHaveTextContent(
+          "Scout is already assigned to another scouting task.",
+        );
+      });
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
   });
 
   it("starts a youth scouting search and forwards the updated state", async () => {

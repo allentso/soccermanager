@@ -52,7 +52,8 @@ fn build_historical_standings(game: &Game, season: u32) -> Vec<StandingEntry> {
         .enumerate()
         .map(|(index, (team_id, _))| {
             let strength = (game.teams.len().saturating_sub(index)) as u32;
-            let max_draws = matches_played.min(4 + deterministic_u32((&team_id, season, "draws"), 5));
+            let max_draws =
+                matches_played.min(4 + deterministic_u32((&team_id, season, "draws"), 5));
             let target_wins = ((matches_played * strength) / (game.teams.len() as u32 + 1))
                 .saturating_add(2)
                 .min(matches_played.saturating_sub(max_draws));
@@ -83,20 +84,39 @@ fn build_historical_standings(game: &Game, season: u32) -> Vec<StandingEntry> {
 }
 
 fn upsert_team_history(game: &mut Game, season: u32, standings: &[StandingEntry]) {
-    for (index, standing) in standings.iter().enumerate() {
-        if let Some(team) = game.teams.iter_mut().find(|team| team.id == standing.team_id) {
-            team.history.retain(|record| record.season != season);
-            team.history.push(TeamSeasonRecord {
-                season,
-                league_position: (index + 1) as u32,
-                played: standing.played,
-                won: standing.won,
-                drawn: standing.drawn,
-                lost: standing.lost,
-                goals_for: standing.goals_for,
-                goals_against: standing.goals_against,
-            });
-            team.history.sort_by(|left, right| left.season.cmp(&right.season));
+    let standings_by_team: HashMap<&str, (u32, &StandingEntry)> = standings
+        .iter()
+        .enumerate()
+        .map(|(index, standing)| (standing.team_id.as_str(), ((index + 1) as u32, standing)))
+        .collect();
+
+    for team in game.teams.iter_mut() {
+        let Some((league_position, standing)) = standings_by_team.get(team.id.as_str()) else {
+            continue;
+        };
+
+        team.history.retain(|record| record.season != season);
+        let record = TeamSeasonRecord {
+            season,
+            league_position: *league_position,
+            played: standing.played,
+            won: standing.won,
+            drawn: standing.drawn,
+            lost: standing.lost,
+            goals_for: standing.goals_for,
+            goals_against: standing.goals_against,
+        };
+
+        if team
+            .history
+            .last()
+            .is_none_or(|existing| existing.season < season)
+        {
+            team.history.push(record);
+        } else {
+            team.history.push(record);
+            team.history
+                .sort_by(|left, right| left.season.cmp(&right.season));
         }
     }
 }
@@ -118,6 +138,9 @@ fn prepare_seeded_managers(game: &mut Game, first_season: u32) {
             if entry.matches == 0 && entry.wins == 0 && entry.draws == 0 && entry.losses == 0 {
                 entry.start_date = start_date.clone();
             }
+            manager
+                .career_history
+                .sort_by(|left, right| left.start_date.cmp(&right.start_date));
             continue;
         }
 
@@ -138,40 +161,41 @@ fn prepare_seeded_managers(game: &mut Game, first_season: u32) {
             losses: 0,
             best_league_position: None,
         });
+        manager
+            .career_history
+            .sort_by(|left, right| left.start_date.cmp(&right.start_date));
     }
 }
 
 fn upsert_manager_history(game: &mut Game, standings: &[StandingEntry]) {
-    let positions_by_team: HashMap<String, u32> = standings
+    let standings_by_team: HashMap<&str, (u32, &StandingEntry)> = standings
         .iter()
         .enumerate()
-        .map(|(index, standing)| (standing.team_id.clone(), (index + 1) as u32))
+        .map(|(index, standing)| (standing.team_id.as_str(), ((index + 1) as u32, standing)))
         .collect();
 
     for manager in game.managers.iter_mut() {
         let Some(team_id) = manager.team_id.clone() else {
             continue;
         };
-        let Some(standing) = standings.iter().find(|standing| standing.team_id == team_id) else {
+        let Some((position, standing)) = standings_by_team.get(team_id.as_str()) else {
             continue;
         };
-        let position = positions_by_team.get(&team_id).copied();
         let total_matches = standing.won + standing.drawn + standing.lost;
 
         manager.career_stats.matches_managed += total_matches;
         manager.career_stats.wins += standing.won;
         manager.career_stats.draws += standing.drawn;
         manager.career_stats.losses += standing.lost;
-        if position == Some(1) {
+        if *position == 1 {
             manager.career_stats.trophies += 1;
         }
-        if let Some(position) = position
-            && manager
-                .career_stats
-                .best_finish
-                .is_none_or(|best_finish| position < best_finish)
+        if manager
+            .career_stats
+            .best_finish
+            .is_none_or(|best_finish| *position < best_finish)
         {
-            manager.career_stats.best_finish = Some(position);
+            manager.career_stats.best_finish = Some(*position);
         }
 
         if let Some(entry) = manager
@@ -183,12 +207,11 @@ fn upsert_manager_history(game: &mut Game, standings: &[StandingEntry]) {
             entry.wins += standing.won;
             entry.draws += standing.drawn;
             entry.losses += standing.lost;
-            if let Some(position) = position
-                && entry
-                    .best_league_position
-                    .is_none_or(|best_finish| position < best_finish)
+            if entry
+                .best_league_position
+                .is_none_or(|best_finish| *position < best_finish)
             {
-                entry.best_league_position = Some(position);
+                entry.best_league_position = Some(*position);
             }
         }
     }
@@ -200,7 +223,11 @@ fn base_rating(player: &Player, position_bonus: f32, season: u32) -> f32 {
     (6.1 + position_bonus + ovr_bonus + variation).clamp(6.0, 9.6)
 }
 
-fn synthesize_player_season(player: &Player, matches_played: u32, season: u32) -> PlayerSeasonStats {
+fn synthesize_player_season(
+    player: &Player,
+    matches_played: u32,
+    season: u32,
+) -> PlayerSeasonStats {
     let missed_matches = deterministic_u32((&player.id, season, "missed"), 8);
     let appearances = matches_played.saturating_sub(missed_matches).max(8);
     let minutes_played = appearances.saturating_mul(90);
@@ -209,8 +236,8 @@ fn synthesize_player_season(player: &Player, matches_played: u32, season: u32) -
     let (goals, assists, clean_sheets, shots, passes_completed, tackles_won, interceptions, rating) =
         match group_position {
             Position::Goalkeeper => {
-                let clean_sheets = appearances / 3
-                    + deterministic_u32((&player.id, season, "clean_sheets"), 4);
+                let clean_sheets =
+                    appearances / 3 + deterministic_u32((&player.id, season, "clean_sheets"), 4);
                 (
                     0,
                     0,
@@ -223,8 +250,8 @@ fn synthesize_player_season(player: &Player, matches_played: u32, season: u32) -
                 )
             }
             Position::Defender => {
-                let clean_sheets = appearances / 4
-                    + deterministic_u32((&player.id, season, "clean_sheets"), 3);
+                let clean_sheets =
+                    appearances / 4 + deterministic_u32((&player.id, season, "clean_sheets"), 3);
                 (
                     appearances / 12 + deterministic_u32((&player.id, season, "goals"), 3),
                     appearances / 10 + deterministic_u32((&player.id, season, "assists"), 3),
@@ -303,15 +330,31 @@ fn upsert_player_career(game: &mut Game, season: u32, standings: &[StandingEntry
 
         player.stats = synthesize_player_season(player, matches_played, season);
         player.career.retain(|entry| entry.season != season);
-        player.career.push(CareerEntry {
+        let entry = CareerEntry {
             season,
             team_id: team_id.to_string(),
-            team_name: team_names.get(team_id).copied().unwrap_or_default().to_string(),
+            team_name: team_names
+                .get(team_id)
+                .copied()
+                .unwrap_or_default()
+                .to_string(),
             appearances: player.stats.appearances,
             goals: player.stats.goals,
             assists: player.stats.assists,
-        });
-        player.career.sort_by(|left, right| left.season.cmp(&right.season));
+        };
+
+        if player
+            .career
+            .last()
+            .is_none_or(|existing| existing.season < season)
+        {
+            player.career.push(entry);
+        } else {
+            player.career.push(entry);
+            player
+                .career
+                .sort_by(|left, right| left.season.cmp(&right.season));
+        }
     }
 }
 
@@ -341,16 +384,17 @@ fn map_manager_award_entry(
 }
 
 fn record_historical_awards(game: &mut Game, season: u32, awards: &SeasonAwards) {
-    game.world_history.record_season_awards(HistoricalSeasonAwardsRecord {
-        season,
-        golden_boot: map_player_award_entry(awards.golden_boot.first()),
-        assist_king: map_player_award_entry(awards.assist_king.first()),
-        player_of_year: map_player_award_entry(awards.player_of_year.first()),
-        clean_sheet_king: map_player_award_entry(awards.clean_sheet_king.first()),
-        most_appearances: map_player_award_entry(awards.most_appearances.first()),
-        young_player: map_player_award_entry(awards.young_player.first()),
-        manager_of_season: map_manager_award_entry(awards.manager_of_season.first()),
-    });
+    game.world_history
+        .record_season_awards(HistoricalSeasonAwardsRecord {
+            season,
+            golden_boot: map_player_award_entry(awards.golden_boot.first()),
+            assist_king: map_player_award_entry(awards.assist_king.first()),
+            player_of_year: map_player_award_entry(awards.player_of_year.first()),
+            clean_sheet_king: map_player_award_entry(awards.clean_sheet_king.first()),
+            most_appearances: map_player_award_entry(awards.most_appearances.first()),
+            young_player: map_player_award_entry(awards.young_player.first()),
+            manager_of_season: map_manager_award_entry(awards.manager_of_season.first()),
+        });
 }
 
 fn update_historical_rivalries(game: &mut Game, season: u32, standings: &[StandingEntry]) {
@@ -370,8 +414,12 @@ fn update_historical_rivalries(game: &mut Game, season: u32, standings: &[Standi
             .map(|rivalry| rivalry.intensity)
             .unwrap_or(55)
             .max(55 + deterministic_u32((team_a, team_b, season, "rivalry"), 36) as u8);
-        game.world_history
-            .upsert_rivalry(team_a.clone(), team_b.clone(), intensity, started_season);
+        game.world_history.upsert_rivalry(
+            team_a.clone(),
+            team_b.clone(),
+            intensity,
+            started_season,
+        );
     }
 }
 
@@ -432,10 +480,10 @@ mod tests {
     use crate::{clock::GameClock, game::Game};
     use chrono::{TimeZone, Utc};
     use domain::{
-        manager::Manager,
-        player::{Player, PlayerAttributes, Position},
+        manager::{Manager, ManagerCareerEntry},
+        player::{CareerEntry, Player, PlayerAttributes, Position},
         staff::{Staff, StaffAttributes, StaffRole},
-        team::Team,
+        team::{Team, TeamSeasonRecord},
     };
 
     fn sample_player_attributes(position: &Position) -> PlayerAttributes {
@@ -560,17 +608,72 @@ mod tests {
             .collect::<Vec<_>>();
         let mut players = Vec::new();
         for (index, team) in teams.iter().enumerate() {
-            players.push(make_player(&team.id, index * 3, Position::Goalkeeper, 64 + index as u8));
+            players.push(make_player(
+                &team.id,
+                index * 3,
+                Position::Goalkeeper,
+                64 + index as u8,
+            ));
             players.push(make_player(
                 &team.id,
                 index * 3 + 1,
                 Position::CentralMidfielder,
                 68 + index as u8,
             ));
-            players.push(make_player(&team.id, index * 3 + 2, Position::Striker, 72 + index as u8));
+            players.push(make_player(
+                &team.id,
+                index * 3 + 2,
+                Position::Striker,
+                72 + index as u8,
+            ));
         }
 
         Game::new(clock, manager, teams, players, staff, vec![])
+    }
+
+    fn seed_later_history_entries(game: &mut Game) {
+        let team_id = game.teams[0].id.clone();
+        let team_name = game.teams[0].name.clone();
+
+        game.manager.team_id = Some(team_id.clone());
+        game.teams[0].manager_id = Some(game.manager.id.clone());
+        game.teams[0].history.push(TeamSeasonRecord {
+            season: 2031,
+            league_position: 2,
+            played: 38,
+            won: 22,
+            drawn: 8,
+            lost: 8,
+            goals_for: 64,
+            goals_against: 36,
+        });
+
+        let player = game
+            .players
+            .iter_mut()
+            .find(|player| player.team_id.as_deref() == Some(team_id.as_str()))
+            .expect("seed player for first team");
+        player.career.push(CareerEntry {
+            season: 2031,
+            team_id: team_id.clone(),
+            team_name: team_name.clone(),
+            appearances: 33,
+            goals: 7,
+            assists: 4,
+        });
+
+        game.manager.career_history.push(ManagerCareerEntry {
+            team_id,
+            team_name,
+            start_date: "2031-07-01".to_string(),
+            end_date: Some("2032-06-30".to_string()),
+            matches: 38,
+            wins: 21,
+            draws: 9,
+            losses: 8,
+            best_league_position: Some(2),
+        });
+        game.sync_user_manager_record();
     }
 
     fn serialized_history_snapshot(game: &Game) -> serde_json::Value {
@@ -602,7 +705,11 @@ mod tests {
 
         assert!(game.teams.iter().all(|team| team.history.len() == 3));
         assert!(game.players.iter().any(|player| !player.career.is_empty()));
-        assert!(game.managers.iter().any(|manager| !manager.career_history.is_empty()));
+        assert!(
+            game.managers
+                .iter()
+                .any(|manager| !manager.career_history.is_empty())
+        );
         assert_eq!(game.world_history.season_awards.len(), 3);
         assert!(!game.world_history.rivalries.is_empty());
     }
@@ -615,6 +722,57 @@ mod tests {
         generate_past_world_history(&mut left, 2032, 4);
         generate_past_world_history(&mut right, 2032, 4);
 
-        assert_eq!(serialized_history_snapshot(&left), serialized_history_snapshot(&right));
+        assert_eq!(
+            serialized_history_snapshot(&left),
+            serialized_history_snapshot(&right)
+        );
+    }
+
+    #[test]
+    fn generate_past_world_history_backfills_seeded_entries_in_chronological_order() {
+        let mut left = make_game();
+        let mut right = make_game();
+
+        seed_later_history_entries(&mut left);
+        seed_later_history_entries(&mut right);
+
+        generate_past_world_history(&mut left, 2032, 4);
+        generate_past_world_history(&mut right, 2032, 4);
+
+        let team = &left.teams[0];
+        assert!(
+            team.history
+                .windows(2)
+                .all(|window| window[0].season <= window[1].season)
+        );
+
+        let player = left
+            .players
+            .iter()
+            .find(|player| player.team_id.as_deref() == Some(team.id.as_str()))
+            .expect("player history for seeded team");
+        assert!(
+            player
+                .career
+                .windows(2)
+                .all(|window| window[0].season <= window[1].season)
+        );
+
+        let manager = left
+            .managers
+            .iter()
+            .find(|manager| manager.id == left.manager.id)
+            .expect("user manager in manager list");
+        assert!(
+            manager
+                .career_history
+                .windows(2)
+                .all(|window| window[0].start_date <= window[1].start_date)
+        );
+
+        assert_eq!(
+            serialized_history_snapshot(&left),
+            serialized_history_snapshot(&right)
+        );
     }
 }

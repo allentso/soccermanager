@@ -1,5 +1,6 @@
 import i18n from '../i18n';
 import { formatExactMoney, formatVal } from "../lib/helpers";
+import { countryName } from "../lib/countries";
 import { useSettingsStore } from "../store/settingsStore";
 import type {
   MessageActionOption,
@@ -139,6 +140,11 @@ const MONEY_PARAM_KEYS = new Set([
   "weeklyWages",
 ]);
 
+const COUNTRY_PARAM_KEYS = new Set([
+  "country",
+  "nationality",
+]);
+
 function parseMoneyValue(value: string): { amount: number; compact: boolean } | null {
   const trimmed = value.trim();
   const match = trimmed.match(
@@ -195,6 +201,17 @@ function resolveMoneyParamValue(key: string, value: string): string {
     : formatExactMoney(parsed.amount);
 }
 
+function resolveCountryParamValue(key: string, value: string): string {
+  if (!COUNTRY_PARAM_KEYS.has(key)) {
+    return value;
+  }
+
+  const locale = i18n.resolvedLanguage || i18n.language || "en";
+  const localizedCountry = countryName(value, locale);
+
+  return localizedCountry || value;
+}
+
 function resolveParamValues(params?: Record<string, string>): Record<string, string> | undefined {
   if (!params) return params;
   const resolved = { ...params };
@@ -207,7 +224,10 @@ function resolveParamValues(params?: Record<string, string>): Record<string, str
       }
     }
 
-    resolved[key] = resolveMoneyParamValue(key, resolved[key]);
+    resolved[key] = resolveCountryParamValue(
+      key,
+      resolveMoneyParamValue(key, resolved[key]),
+    );
   }
   return resolved;
 }

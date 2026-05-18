@@ -391,7 +391,7 @@ describe("TransfersTab", function (): void {
     fireEvent.click(screen.getByRole("button", { name: /offers/i }));
     fireEvent.click(screen.getByRole("button", { name: /counter offer/i }));
     fireEvent.change(screen.getByLabelText(/counter amount/i), {
-      target: { value: "1.2" },
+      target: { value: "1200000" },
     });
     fireEvent.click(screen.getByRole("button", { name: /submit counter/i }));
 
@@ -407,6 +407,11 @@ describe("TransfersTab", function (): void {
     expect(screen.getByText("Negotiation pulse")).toBeInTheDocument();
     expect(
       screen.getByText("They want more before shaking hands."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "The bid was close enough to keep talking, but their side are signalling a price nearer €1,150,000.",
+      ),
     ).toBeInTheDocument();
   });
 
@@ -456,7 +461,7 @@ describe("TransfersTab", function (): void {
 
     expect(screen.getByText("Talks are still live with this club.")).toBeInTheDocument();
     expect(screen.getByText("The other club are waiting for your next move.")).toBeInTheDocument();
-    expect(screen.getByText("Their last signal pointed toward 1150000.")).toBeInTheDocument();
+    expect(screen.getByText("Their last signal pointed toward €1,150,000.")).toBeInTheDocument();
     expect(screen.getByText("Recent exchange")).toBeInTheDocument();
     expect(screen.getByText("Your last bid")).toBeInTheDocument();
     expect(screen.getByText("Their last signal")).toBeInTheDocument();
@@ -468,43 +473,45 @@ describe("TransfersTab", function (): void {
     const consoleErrorSpy = vi
       .spyOn(console, "error")
       .mockImplementation(() => { });
-    const state = createGameState([
-      createPlayer({
-        id: "player-market-1",
-        team_id: "team-2",
-        transfer_listed: true,
-        transfer_offers: [],
-      }),
-    ]);
-    state.staff = [createScout()];
+    try {
+      const state = createGameState([
+        createPlayer({
+          id: "player-market-1",
+          team_id: "team-2",
+          transfer_listed: true,
+          transfer_offers: [],
+        }),
+      ]);
+      state.staff = [createScout()];
 
-    mockedInvoke.mockRejectedValueOnce(
-      new Error("Scout is already assigned to another scouting task."),
-    );
-
-    render(
-      <TransfersTab
-        gameState={state}
-        onSelectPlayer={vi.fn()}
-        onSelectTeam={vi.fn()}
-        onGameUpdate={vi.fn()}
-      />,
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: /transfer market/i }));
-    const playerRow = screen.getByText("John Smith").closest("tr");
-    expect(playerRow).not.toBeNull();
-
-    fireEvent.contextMenu(playerRow as HTMLTableRowElement);
-    fireEvent.click(screen.getByRole("button", { name: "Scout" }));
-
-    await waitFor(() => {
-      expect(screen.getByRole("alert")).toHaveTextContent(
-        "Scout is already assigned to another scouting task.",
+      mockedInvoke.mockRejectedValueOnce(
+        new Error("Scout is already assigned to another scouting task."),
       );
-    });
 
-    consoleErrorSpy.mockRestore();
+      render(
+        <TransfersTab
+          gameState={state}
+          onSelectPlayer={vi.fn()}
+          onSelectTeam={vi.fn()}
+          onGameUpdate={vi.fn()}
+        />,
+      );
+
+      fireEvent.click(screen.getByRole("button", { name: /transfer market/i }));
+      const playerRow = screen.getByText("John Smith").closest("tr");
+      expect(playerRow).not.toBeNull();
+
+      fireEvent.contextMenu(playerRow as HTMLTableRowElement);
+      fireEvent.click(screen.getByRole("button", { name: "Scout" }));
+
+      await waitFor(() => {
+        expect(screen.getByRole("alert")).toHaveTextContent(
+          "Scout is already assigned to another scouting task.",
+        );
+      });
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
   });
 
   it("resumes an incoming transfer negotiation when reopening the counter-offer modal", function (): void {
@@ -540,12 +547,12 @@ describe("TransfersTab", function (): void {
 
     expect(screen.getByText("Talks are still live with this club.")).toBeInTheDocument();
     expect(screen.getByText("The other club are waiting for your next move.")).toBeInTheDocument();
-    expect(screen.getByText("Their last signal pointed toward 1150000.")).toBeInTheDocument();
+    expect(screen.getByText("Their last signal pointed toward €1,150,000.")).toBeInTheDocument();
     expect(screen.getByText("Recent exchange")).toBeInTheDocument();
     expect(screen.getByText("Your last counter")).toBeInTheDocument();
     expect(screen.getByText("Their current offer")).toBeInTheDocument();
     expect(screen.getByText("Round 2")).toBeInTheDocument();
-    expect(screen.getByDisplayValue("1.15")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("1150000")).toBeInTheDocument();
   });
 
   it("shows a localized message when a counter-offer expires before submission", async function (): Promise<void> {

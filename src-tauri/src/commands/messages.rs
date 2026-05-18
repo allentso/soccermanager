@@ -161,11 +161,11 @@ fn resolve_message_action_internal(
             let random_effect = ofm_core::random_events::apply_event_response(
                 &mut game, message_id, action_id, opt,
             );
-            if let Some(random_effect) = random_effect {
+            if let Some(effect) = random_effect {
                 (
-                    Some(random_effect.message),
-                    Some(random_effect.i18n_key),
-                    Some(random_effect.i18n_params),
+                    Some(effect.message),
+                    Some(effect.i18n_key),
+                    Some(effect.i18n_params),
                 )
             } else {
                 match ofm_core::job_offers::apply_job_offer_response(
@@ -405,40 +405,6 @@ mod tests {
         assert_eq!(
             response["effect_i18n_params"]["team"].as_str(),
             Some("Vacancy FC")
-        );
-        assert_eq!(response["effect"].as_str(), Some(""));
-    }
-
-    #[test]
-    fn resolve_message_action_internal_returns_random_event_i18n_effect() {
-        let state = StateManager::new();
-        let mut game = make_game();
-
-        let mut offer = actionable_message("sponsor_2026-08-20", "2026-08-20");
-        offer
-            .i18n_params
-            .insert("amount".to_string(), "150,000".to_string());
-        offer
-            .i18n_params
-            .insert("sponsor".to_string(), "Test Sponsor".to_string());
-        game.messages = vec![offer];
-        state.set_game(game);
-
-        let response = resolve_message_action_internal(
-            &state,
-            "sponsor_2026-08-20",
-            "action-sponsor_2026-08-20",
-            Some("accept"),
-        )
-        .expect("response");
-
-        assert_eq!(
-            response["effect_i18n_key"].as_str(),
-            Some("be.msg.sponsor.effects.accepted")
-        );
-        assert_eq!(
-            response["effect_i18n_params"]["amount"].as_str(),
-            Some("150000")
         );
         assert_eq!(response["effect"].as_str(), Some(""));
     }

@@ -1,4 +1,4 @@
-import { Suspense, lazy, useState } from "react";
+import { Suspense, lazy, useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useNavigate } from "react-router-dom";
@@ -36,16 +36,18 @@ interface SaveEntry {
 }
 
 /**
- * Minimum manager age (years) on create — historical rule, unchanged here on purpose.
- * Opinion (retraca, git 1631b76): this floor should probably be removed or lowered (~18);
- * leaving as-is until product agrees.
+ * Minimum manager age (years) on create.
  */
 const MANAGER_MINIMUM_AGE = 30;
 const MIN_CAREER_START_YEAR = 2020;
+const DEFAULT_GENERATED_HISTORY_DEPTH_YEARS = 12;
+const MAX_GENERATED_HISTORY_DEPTH_YEARS = 24;
+const GENERATED_HISTORY_DEPTH_STORAGE_KEY = "ofm-generated-history-depth-years";
 
 type StartupOptionsPayload = {
   startYear: number;
   startPhase: CareerStartPhase;
+  historyDepthYears: number;
 };
 
 function historyModeFromMetadata(
@@ -78,8 +80,34 @@ function isCareerStartPhase(value: string): value is CareerStartPhase {
   return value === "seasonStart" || value === "midSeason";
 }
 
+function normalizeHistoryDepthYears(value: number): number | null {
+  if (!Number.isInteger(value)) return null;
+  if (value < 0 || value > MAX_GENERATED_HISTORY_DEPTH_YEARS) return null;
+  return value;
+}
+
+function initialHistoryDepthYears(): number {
+  if (typeof window === "undefined") {
+    return DEFAULT_GENERATED_HISTORY_DEPTH_YEARS;
+  }
+
+  const storedValue = window.localStorage.getItem(
+    GENERATED_HISTORY_DEPTH_STORAGE_KEY,
+  );
+  if (storedValue === null) {
+    return DEFAULT_GENERATED_HISTORY_DEPTH_YEARS;
+  }
+
+  const parsedValue = Number(storedValue);
+  return (
+    normalizeHistoryDepthYears(parsedValue) ??
+    DEFAULT_GENERATED_HISTORY_DEPTH_YEARS
+  );
+}
+
 function buildStartupOptions(
   formData: CreateManagerFormData,
+  historyDepthYears: number,
 ): StartupOptionsPayload | null {
   const startYear = parseCareerStartYear(formData.startYear);
   if (startYear === null || startYear < MIN_CAREER_START_YEAR) {
@@ -88,14 +116,27 @@ function buildStartupOptions(
   if (!isCareerStartPhase(formData.startPhase)) {
     return null;
   }
+  const normalizedHistoryDepthYears = normalizeHistoryDepthYears(
+    historyDepthYears,
+  );
+  if (normalizedHistoryDepthYears === null) {
+    return null;
+  }
 
   return {
     startYear,
     startPhase: formData.startPhase,
+    historyDepthYears: normalizedHistoryDepthYears,
   };
 }
 
-function flooredAgeFromIsoDate(isoDob: string): number | null {
+type IsoDateParts = {
+  year: number;
+  month: number;
+  day: number;
+};
+
+function parseIsoDateParts(isoDob: string): IsoDateParts | null {
   if (!isoDob) return null;
 
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(isoDob);
@@ -104,27 +145,74 @@ function flooredAgeFromIsoDate(isoDob: string): number | null {
   const year = Number(match[1]);
   const month = Number(match[2]);
   const day = Number(match[3]);
-  const birthDate = new Date(year, month - 1, day);
+  const birthDate = new Date(Date.UTC(year, month - 1, day));
 
   if (
     Number.isNaN(birthDate.getTime()) ||
-    birthDate.getFullYear() !== year ||
-    birthDate.getMonth() !== month - 1 ||
-    birthDate.getDate() !== day
+    birthDate.getUTCFullYear() !== year ||
+    birthDate.getUTCMonth() !== month - 1 ||
+    birthDate.getUTCDate() !== day
   ) {
     return null;
   }
 
-  const today = new Date();
-  let age = today.getFullYear() - year;
+  return { year, month, day };
+}
+
+function careerStartReferenceDate(
+  startYear: number,
+  startPhase: CareerStartPhase,
+): Date {
+  const referenceDate = new Date(Date.UTC(startYear, 6, 1));
+  if (startPhase === "midSeason") {
+    referenceDate.setUTCDate(referenceDate.getUTCDate() + 120);
+  }
+  return referenceDate;
+}
+
+function flooredAgeFromIsoDate(
+  isoDob: string,
+  referenceDate: Date,
+): number | null {
+  const parts = parseIsoDateParts(isoDob);
+  if (!parts) return null;
+
+  let age = referenceDate.getUTCFullYear() - parts.year;
   const hasHadBirthdayThisYear =
-    today.getMonth() > month - 1 ||
-    (today.getMonth() === month - 1 && today.getDate() >= day);
+    referenceDate.getUTCMonth() > parts.month - 1 ||
+    (referenceDate.getUTCMonth() === parts.month - 1 &&
+      referenceDate.getUTCDate() >= parts.day);
 
   if (!hasHadBirthdayThisYear) {
     age -= 1;
   }
   return Number.isNaN(age) ? null : age;
+}
+
+function dobValidationMessage(
+  formData: CreateManagerFormData,
+  historyDepthYears: number,
+  t: (key: string, options?: Record<string, unknown>) => string,
+): string | null {
+  if (!formData.dob) return null;
+
+  if (parseIsoDateParts(formData.dob) === null) {
+    return t("validation.invalidDate");
+  }
+
+  const startupOptions = buildStartupOptions(formData, historyDepthYears);
+  if (!startupOptions) return null;
+
+  const age = flooredAgeFromIsoDate(
+    formData.dob,
+    careerStartReferenceDate(startupOptions.startYear, startupOptions.startPhase),
+  );
+  if (age === null) return t("validation.invalidDate");
+  if (age < MANAGER_MINIMUM_AGE) {
+    return t("validation.minAge", { min: MANAGER_MINIMUM_AGE });
+  }
+  if (age > 99) return t("validation.invalidDob");
+  return null;
 }
 
 const CREATE_MANAGER_FIELD_ORDER = [
@@ -202,17 +290,19 @@ export default function MainMenu() {
   const [worldDatabases, setWorldDatabases] = useState<WorldDatabaseInfo[]>([]);
   const [selectedWorldId, setSelectedWorldId] = useState<string>("random");
   const [isLoadingWorlds, setIsLoadingWorlds] = useState(false);
+  const [historyDepthYears, setHistoryDepthYears] = useState(
+    initialHistoryDepthYears,
+  );
+
+  useEffect(() => {
+    window.localStorage.setItem(
+      GENERATED_HISTORY_DEPTH_STORAGE_KEY,
+      String(historyDepthYears),
+    );
+  }, [historyDepthYears]);
 
   /** Same messages as `validateForm` for DOB, so the age rule surfaces as the user edits. */
-  const dobLiveRuleMessage = (() => {
-    if (!formData.dob) return null;
-    const age = flooredAgeFromIsoDate(formData.dob);
-    if (age === null) return t("validation.invalidDate");
-    if (age < MANAGER_MINIMUM_AGE)
-      return t("validation.minAge", { min: MANAGER_MINIMUM_AGE });
-    if (age > 99) return t("validation.invalidDob");
-    return null;
-  })();
+  const dobLiveRuleMessage = dobValidationMessage(formData, historyDepthYears, t);
   const dobDisplayedError = formErrors.dob || dobLiveRuleMessage;
 
   const updateFormField = (field: keyof CreateManagerFormData, value: string) => {
@@ -259,13 +349,9 @@ export default function MainMenu() {
     if (!formData.dob) {
       errors.dob = t("validation.required", { field: t("createManager.dob") });
     } else {
-      const age = flooredAgeFromIsoDate(formData.dob);
-      if (age === null) {
-        errors.dob = t("validation.invalidDate");
-      } else if (age < MANAGER_MINIMUM_AGE) {
-        errors.dob = t("validation.minAge", { min: MANAGER_MINIMUM_AGE });
-      } else if (age > 99) {
-        errors.dob = t("validation.invalidDob");
+      const dobError = dobValidationMessage(formData, historyDepthYears, t);
+      if (dobError) {
+        errors.dob = dobError;
       }
     }
     if (!formData.startYear.trim()) {
@@ -377,7 +463,7 @@ export default function MainMenu() {
   };
 
   const handleStartGame = async () => {
-    const startupOptions = buildStartupOptions(formData);
+    const startupOptions = buildStartupOptions(formData, historyDepthYears);
     if (!startupOptions) {
       const validation = validateForm();
       setMenuState("create");
@@ -586,7 +672,9 @@ export default function MainMenu() {
                 isStarting={isStarting}
                 startYear={parseCareerStartYear(formData.startYear) ?? MIN_CAREER_START_YEAR}
                 startPhase={formData.startPhase}
+                historyDepthYears={historyDepthYears}
                 onSelectWorld={setSelectedWorldId}
+                onChangeHistoryDepthYears={setHistoryDepthYears}
                 onImportFile={handleImportFile}
                 onStart={handleStartGame}
                 onBack={() => setMenuState("create")}

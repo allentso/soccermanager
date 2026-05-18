@@ -12,16 +12,25 @@ import ptLocale from "i18n-iso-countries/langs/pt.json";
 import frLocale from "i18n-iso-countries/langs/fr.json";
 import deLocale from "i18n-iso-countries/langs/de.json";
 import itLocale from "i18n-iso-countries/langs/it.json";
+import zhLocale from "i18n-iso-countries/langs/zh.json";
 
-// Register locales we support
-countries.registerLocale(enLocale);
-countries.registerLocale(esLocale);
-countries.registerLocale(ptLocale);
-countries.registerLocale(frLocale);
-countries.registerLocale(deLocale);
-countries.registerLocale(itLocale);
+const SUPPORTED_LOCALES = ["en", "es", "pt", "fr", "de", "it", "zh"] as const;
 
-type SupportedLocale = "en" | "es" | "pt" | "fr" | "de" | "it";
+type SupportedLocale = typeof SUPPORTED_LOCALES[number];
+
+const REGISTERED_LOCALES = [
+  enLocale,
+  esLocale,
+  ptLocale,
+  frLocale,
+  deLocale,
+  itLocale,
+  zhLocale,
+];
+
+for (const locale of REGISTERED_LOCALES) {
+  countries.registerLocale(locale);
+}
 
 interface FootballIdentityDefinition {
   code: string;
@@ -41,6 +50,7 @@ const FOOTBALL_IDENTITIES: Record<string, FootballIdentityDefinition> = {
       fr: "Angleterre",
       de: "England",
       it: "Inghilterra",
+      zh: "英格兰",
     },
     aliases: ["english", "england"],
     flagCode: "GB-ENG",
@@ -55,6 +65,7 @@ const FOOTBALL_IDENTITIES: Record<string, FootballIdentityDefinition> = {
       fr: "Écosse",
       de: "Schottland",
       it: "Scozia",
+      zh: "苏格兰",
     },
     aliases: ["scottish", "scotland"],
     flagCode: "GB-SCT",
@@ -69,6 +80,7 @@ const FOOTBALL_IDENTITIES: Record<string, FootballIdentityDefinition> = {
       fr: "Pays de Galles",
       de: "Wales",
       it: "Galles",
+      zh: "威尔士",
     },
     aliases: ["welsh", "wales"],
     flagCode: "GB-WLS",
@@ -83,6 +95,7 @@ const FOOTBALL_IDENTITIES: Record<string, FootballIdentityDefinition> = {
       fr: "Irlande du Nord",
       de: "Nordirland",
       it: "Irlanda del Nord",
+      zh: "北爱尔兰",
     },
     aliases: ["northern irish", "northern ireland"],
     flagCode: "GB-NIR",
@@ -97,6 +110,7 @@ const FOOTBALL_IDENTITIES: Record<string, FootballIdentityDefinition> = {
       fr: "République d'Irlande",
       de: "Republik Irland",
       it: "Repubblica d'Irlanda",
+      zh: "爱尔兰共和国",
     },
     aliases: ["irish", "republic of ireland", "ireland"],
     flagCode: "IE",
@@ -274,14 +288,29 @@ const DEMONYM_TO_CODE: Record<string, string> = {
  */
 export function normaliseNationality(value: string): string {
   if (!value) return "";
-  const upper = value.toUpperCase();
+  const trimmed = value.trim();
+  const upper = trimmed.toUpperCase();
   if (getFootballIdentity(upper)) return upper;
   // Already a valid 2-letter code?
   if (upper.length === 2 && countries.isValid(upper)) return upper;
-  const alias = ALIAS_TO_CODE[value.trim().toLowerCase()];
+  const alias = ALIAS_TO_CODE[trimmed.toLowerCase()];
   if (alias) return alias;
   // Try demonym map
-  return DEMONYM_TO_CODE[value] ?? value;
+  const demonymCode = DEMONYM_TO_CODE[trimmed];
+  if (demonymCode) return demonymCode;
+
+  if (/^[A-Za-z]{3}$/.test(trimmed)) {
+    return trimmed;
+  }
+
+  for (const locale of SUPPORTED_LOCALES) {
+    const alpha2 = countries.getAlpha2Code(trimmed, locale);
+    if (alpha2) {
+      return alpha2;
+    }
+  }
+
+  return trimmed;
 }
 
 export { countries };

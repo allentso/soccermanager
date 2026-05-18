@@ -368,37 +368,40 @@ describe("PlayersListTab", () => {
     const consoleErrorSpy = vi
       .spyOn(console, "error")
       .mockImplementation(() => { });
-    const onGameUpdate = vi.fn();
-    const gameState = createGameState();
-    gameState.staff = [createScout()];
+    try {
+      const onGameUpdate = vi.fn();
+      const gameState = createGameState();
+      gameState.staff = [createScout()];
 
-    mockedInvoke.mockRejectedValueOnce(
-      new Error("Scout is already assigned to another scouting task."),
-    );
-
-    render(
-      <PlayersListTab
-        gameState={gameState}
-        onGameUpdate={onGameUpdate}
-        onSelectPlayer={vi.fn()}
-        onSelectTeam={vi.fn()}
-      />,
-    );
-
-    const playerRow = screen.getByText("Alex Keeper").closest("tr");
-    expect(playerRow).not.toBeNull();
-
-    fireEvent.contextMenu(playerRow as HTMLTableRowElement);
-    fireEvent.click(screen.getByRole("button", { name: "Scout" }));
-
-    await waitFor(() => {
-      expect(screen.getByRole("alert")).toHaveTextContent(
-        "Scout is already assigned to another scouting task.",
+      mockedInvoke.mockRejectedValueOnce(
+        new Error("Scout is already assigned to another scouting task."),
       );
-    });
 
-    expect(onGameUpdate).not.toHaveBeenCalled();
-    consoleErrorSpy.mockRestore();
+      render(
+        <PlayersListTab
+          gameState={gameState}
+          onGameUpdate={onGameUpdate}
+          onSelectPlayer={vi.fn()}
+          onSelectTeam={vi.fn()}
+        />,
+      );
+
+      const playerRow = screen.getByText("Alex Keeper").closest("tr");
+      expect(playerRow).not.toBeNull();
+
+      fireEvent.contextMenu(playerRow as HTMLTableRowElement);
+      fireEvent.click(screen.getByRole("button", { name: "Scout" }));
+
+      await waitFor(() => {
+        expect(screen.getByRole("alert")).toHaveTextContent(
+          "Scout is already assigned to another scouting task.",
+        );
+      });
+
+      expect(onGameUpdate).not.toHaveBeenCalled();
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
   });
 
   it("opens and submits a transfer bid from the player context menu", async () => {

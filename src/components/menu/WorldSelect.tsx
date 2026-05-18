@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useId, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../ui";
 import { X, ChevronRight, Globe, Shuffle, Upload, Database, Users, ArrowLeft, Loader2 } from "lucide-react";
@@ -25,28 +25,45 @@ interface WorldSelectProps {
   isStarting: boolean;
   startYear: number;
   startPhase: CareerStartPhase;
+  historyDepthYears: number;
   onSelectWorld: (id: string) => void;
+  onChangeHistoryDepthYears: (value: number) => void;
   onImportFile: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onStart: () => void;
   onBack: () => void;
   onClose: () => void;
 }
 
+const HISTORY_DEPTH_OPTIONS = [0, 6, 12, 24] as const;
+
+function historyDepthOptionLabel(
+  t: (key: string, options?: Record<string, unknown>) => string,
+  value: (typeof HISTORY_DEPTH_OPTIONS)[number],
+): string {
+  if (value === 0) {
+    return t("worldSelect.historyDepth.none");
+  }
+
+  return t("worldSelect.historyDepth.option", { count: value });
+}
+
 function worldHistoryMode(db: WorldDatabaseInfo | undefined): "generated" | "reference" | "hybrid" {
   if (!db) return "generated";
-  if (db.history_mode) return db.history_mode;
   if (db.id === "random") return "generated";
+  if (db.history_mode) return db.history_mode;
   return "hybrid";
 }
 
 export default function WorldSelect({
   worldDatabases, selectedWorldId, isLoadingWorlds, isStarting, startYear, startPhase,
-  onSelectWorld, onImportFile, onStart, onBack, onClose,
+  historyDepthYears, onSelectWorld, onChangeHistoryDepthYears, onImportFile, onStart, onBack, onClose,
 }: WorldSelectProps) {
   const { t } = useTranslation();
+  const historyDepthLabelId = useId();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const selectedWorld = worldDatabases.find((db) => db.id === selectedWorldId);
   const historyMode = worldHistoryMode(selectedWorld);
+  const canConfigureGeneratedHistory = historyMode !== "reference";
 
   return (
     <div className="flex flex-col gap-4">
@@ -145,8 +162,74 @@ export default function WorldSelect({
         <p className="mt-2 text-xs uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
           {t(`worldSelect.summary.${startPhase}.${historyMode}`, {
             year: startYear,
+            count: historyDepthYears,
           })}
         </p>
+      </div>
+
+      <div className="rounded-xl border border-gray-200 bg-white p-3 text-sm dark:border-navy-600 dark:bg-navy-700/60">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p
+              id={historyDepthLabelId}
+              className="font-heading font-bold uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400"
+            >
+              {t("worldSelect.historyDepth.label")}
+            </p>
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              {canConfigureGeneratedHistory
+                ? t("worldSelect.historyDepth.hint")
+                : t("worldSelect.historyDepth.reference")}
+            </p>
+          </div>
+          {canConfigureGeneratedHistory ? (
+            <span className="rounded-full bg-accent-500/10 px-2 py-0.5 text-[10px] font-heading font-bold uppercase tracking-[0.18em] text-accent-600 dark:text-accent-300">
+              {t("worldSelect.historyDepth.applied", {
+                count: historyDepthYears,
+              })}
+            </span>
+          ) : null}
+        </div>
+
+        <div
+          role="radiogroup"
+          aria-labelledby={historyDepthLabelId}
+          className="mt-3 grid grid-cols-2 gap-2"
+        >
+          {HISTORY_DEPTH_OPTIONS.map((value) => {
+            const selected = historyDepthYears === value;
+
+            return (
+              <button
+                key={value}
+                type="button"
+                disabled={!canConfigureGeneratedHistory}
+                role="radio"
+                aria-checked={selected}
+                aria-disabled={!canConfigureGeneratedHistory}
+                onClick={() => onChangeHistoryDepthYears(value)}
+                className={`rounded-xl border px-3 py-3 text-left transition-all ${selected
+                  ? "border-primary-500 bg-primary-50 text-primary-700 ring-1 ring-primary-400/30 dark:border-primary-500 dark:bg-primary-500/10 dark:text-primary-300"
+                  : "border-gray-200 bg-gray-50 text-gray-700 hover:border-gray-300 dark:border-navy-600 dark:bg-navy-800 dark:text-gray-200 dark:hover:border-navy-500"
+                  } ${!canConfigureGeneratedHistory
+                    ? "cursor-not-allowed opacity-60"
+                    : ""
+                  }`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-heading font-bold uppercase tracking-wide">
+                    {historyDepthOptionLabel(t, value)}
+                  </span>
+                  {value === 12 ? (
+                    <span className="rounded-full bg-primary-500/10 px-2 py-0.5 text-[10px] font-heading font-bold uppercase tracking-[0.18em] text-primary-600 dark:text-primary-300">
+                      {t("worldSelect.historyDepth.recommended")}
+                    </span>
+                  ) : null}
+                </div>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Import button */}

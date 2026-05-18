@@ -114,10 +114,14 @@ vi.mock("../components/menu/WorldSelect", () => ({
   default: ({
     onStart,
     onSelectWorld,
+    onChangeHistoryDepthYears,
+    historyDepthYears,
     worldDatabases,
   }: {
     onStart: () => void;
     onSelectWorld: (id: string) => void;
+    onChangeHistoryDepthYears: (value: number) => void;
+    historyDepthYears: number;
     worldDatabases: Array<{ id: string }>;
   }) => (
     <div data-testid="world-select">
@@ -126,6 +130,9 @@ vi.mock("../components/menu/WorldSelect", () => ({
           {`select-${db.id}`}
         </button>
       ))}
+      <button type="button" onClick={() => onChangeHistoryDepthYears(24)}>
+        {`set-history-depth-24:${historyDepthYears}`}
+      </button>
       <button type="button" onClick={onStart}>
         start-world
       </button>
@@ -229,6 +236,7 @@ describe("MainMenu", () => {
     setGameActiveMock.mockReset();
     setGameStateMock.mockReset();
     alertMock.mockReset();
+    localStorage.clear();
     latestDatePickerOnChange = null;
     translationState.language = "en";
     mockedInvoke.mockReset();
@@ -293,10 +301,11 @@ describe("MainMenu", () => {
             lastName: "Lovelace",
             dob: "1980-01-01",
             nationality: "ES",
-            startupOptions: {
+            startupOptions: expect.objectContaining({
               startYear: 2028,
               startPhase: "midSeason",
-            },
+              historyDepthYears: 12,
+            }),
           }),
         );
       });
@@ -396,6 +405,9 @@ describe("MainMenu", () => {
         "start_new_game",
         expect.objectContaining({
           nationality: "AT",
+          startupOptions: expect.objectContaining({
+            historyDepthYears: 12,
+          }),
         }),
       );
     });
@@ -458,6 +470,62 @@ describe("MainMenu", () => {
     });
     expect(mockedInvoke).not.toHaveBeenCalledWith("list_world_databases");
     expect(screen.queryByTestId("world-select")).not.toBeInTheDocument();
+  });
+
+  it("allows a manager who is 30 by the selected start year to continue", async () => {
+    render(<MainMenu />);
+
+    await openCreateManagerForm();
+    fireEvent.change(
+      screen.getByPlaceholderText("createManager.placeholderFirst"),
+      { target: { value: "Ada" } },
+    );
+    fireEvent.change(
+      screen.getByPlaceholderText("createManager.placeholderLast"),
+      { target: { value: "Lovelace" } },
+    );
+    fireEvent.change(screen.getByLabelText("manager-date-of-birth"), {
+      target: { value: "2008-01-01" },
+    });
+    fillCareerStartDetails("2038", "seasonStart");
+    await selectNationality("en", "ES");
+
+    expect(screen.queryByText("validation.minAge")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("createManager.chooseWorld"));
+
+    await waitFor(() => {
+      expect(mockedInvoke).toHaveBeenCalledWith("list_world_databases");
+    });
+    expect(screen.getByTestId("world-select")).toBeInTheDocument();
+  });
+
+  it("uses the selected start phase when evaluating manager age", async () => {
+    render(<MainMenu />);
+
+    await openCreateManagerForm();
+    fireEvent.change(
+      screen.getByPlaceholderText("createManager.placeholderFirst"),
+      { target: { value: "Ada" } },
+    );
+    fireEvent.change(
+      screen.getByPlaceholderText("createManager.placeholderLast"),
+      { target: { value: "Lovelace" } },
+    );
+    fireEvent.change(screen.getByLabelText("manager-date-of-birth"), {
+      target: { value: "2008-08-01" },
+    });
+    fillCareerStartDetails("2038", "seasonStart");
+
+    expect(screen.getByText("validation.minAge")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("createManager.startPhase"), {
+      target: { value: "midSeason" },
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByText("validation.minAge")).not.toBeInTheDocument();
+    });
   });
 
   it("blocks progression when the start year is before 2020 and focuses the year field", async () => {
@@ -536,5 +604,86 @@ describe("MainMenu", () => {
     );
     expect(alertMock).toHaveBeenCalledWith("menu.failedStartGame");
     expect(navigateMock).not.toHaveBeenCalledWith("/select-team");
+  });
+
+  it("passes the selected generated history depth when starting a new career", async () => {
+    render(<MainMenu />);
+
+    await openCreateManagerForm();
+    fillManagerDetails();
+    await selectNationality("en", "ES");
+
+    fireEvent.click(screen.getByText("createManager.chooseWorld"));
+
+    await waitFor(() => {
+      expect(mockedInvoke).toHaveBeenCalledWith("list_world_databases");
+    });
+
+    fireEvent.click(screen.getByText("set-history-depth-24:12"));
+    fireEvent.click(screen.getByText("start-world"));
+
+    await waitFor(() => {
+      expect(mockedInvoke).toHaveBeenCalledWith(
+        "start_new_game",
+        expect.objectContaining({
+          startupOptions: expect.objectContaining({
+            historyDepthYears: 24,
+          }),
+        }),
+      );
+    });
+  });
+
+  it("persists generated history depth changes to localStorage", async () => {
+    render(<MainMenu />);
+
+    await openCreateManagerForm();
+    fillManagerDetails();
+    await selectNationality("en", "ES");
+
+    fireEvent.click(screen.getByText("createManager.chooseWorld"));
+
+    await waitFor(() => {
+      expect(mockedInvoke).toHaveBeenCalledWith("list_world_databases");
+    });
+
+    expect(localStorage.getItem("ofm-generated-history-depth-years")).toBe("12");
+
+    fireEvent.click(screen.getByText("set-history-depth-24:12"));
+
+    expect(localStorage.getItem("ofm-generated-history-depth-years")).toBe("24");
+  });
+
+  it("restores the stored generated history depth preference", async () => {
+    localStorage.setItem("ofm-generated-history-depth-years", "24");
+
+    render(<MainMenu />);
+
+    await openCreateManagerForm();
+    fillManagerDetails();
+    await selectNationality("en", "ES");
+
+    fireEvent.click(screen.getByText("createManager.chooseWorld"));
+
+    await waitFor(() => {
+      expect(screen.getByText("set-history-depth-24:24")).toBeInTheDocument();
+    });
+  });
+
+  it("falls back to the default generated history depth when storage is invalid", async () => {
+    localStorage.setItem("ofm-generated-history-depth-years", "99");
+
+    render(<MainMenu />);
+
+    await openCreateManagerForm();
+    fillManagerDetails();
+    await selectNationality("en", "ES");
+
+    fireEvent.click(screen.getByText("createManager.chooseWorld"));
+
+    await waitFor(() => {
+      expect(screen.getByText("set-history-depth-24:12")).toBeInTheDocument();
+    });
+    expect(localStorage.getItem("ofm-generated-history-depth-years")).toBe("12");
   });
 });

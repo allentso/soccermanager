@@ -65,15 +65,24 @@
     "summary": {
       "startYear": "Início da carreira",
       "seasonStart": {
-        "generated": "Comece em {{year}} com um mundo novo e seis temporadas de histórico gerado.",
+        "generated": "Comece em {{year}} com um mundo novo e {{count}} temporadas de histórico gerado.",
         "reference": "Comece em {{year}} usando o snapshot histórico selecionado como base do mundo.",
-        "hybrid": "Comece em {{year}} usando o elenco deste banco de dados enquanto o histórico ausente é gerado ao redor."
+        "hybrid": "Comece em {{year}} usando o elenco deste banco de dados enquanto {{count}} temporadas do histórico ausente são geradas ao redor."
       },
       "midSeason": {
-        "generated": "Assuma o time na metade de {{year}} com tabela, calendário, notícias e histórico de partidas herdados de uma temporada gerada.",
+        "generated": "Assuma o time na metade de {{year}} com tabela, calendário, notícias, histórico de partidas e {{count}} temporadas de histórico gerado.",
         "reference": "Assuma o time na metade de {{year}} com o snapshot histórico selecionado e o contexto da temporada já presente.",
-        "hybrid": "Assuma o time na metade de {{year}} com o elenco deste banco de dados mais contexto histórico gerado e progresso de temporada herdado."
+        "hybrid": "Assuma o time na metade de {{year}} com o elenco deste banco de dados mais {{count}} temporadas de contexto histórico gerado e progresso de temporada herdado."
       }
+    },
+    "historyDepth": {
+      "label": "Histórico gerado",
+      "hint": "Escolha quanto passado gerar. Arquivos mais profundos adicionam contexto, mas levam mais tempo para criar.",
+      "reference": "Este mundo já inclui seu próprio arquivo histórico.",
+      "applied": "{{count}} temporadas geradas",
+      "none": "Sem histórico prévio",
+      "option": "{{count}} temporadas",
+      "recommended": "Recomendado"
     }
   },
   "dashboard": {
@@ -1203,6 +1212,11 @@
     "display": "Exibição",
     "theme": "Tema",
     "themeDesc": "Escolha a aparência do aplicativo",
+    "themeOptions": {
+      "light": "Claro",
+      "dark": "Escuro",
+      "system": "Sistema"
+    },
     "language": "Idioma",
     "languageDesc": "Escolha o idioma de exibição",
     "currency": "Moeda",
@@ -1258,6 +1272,12 @@
     },
     "uiScale": "Escala da Interface",
     "uiScaleDesc": "Ajuste o tamanho da fonte e espaçamento para melhor leitura",
+    "uiScaleOptions": {
+      "small": "Pequena",
+      "normal": "Normal",
+      "large": "Grande",
+      "xlarge": "Muito grande"
+    },
     "highContrast": "Alto Contraste",
     "highContrastDesc": "Aumentar contraste do texto no modo escuro para melhor leitura",
     "fullscreen": "Tela Cheia",
@@ -1820,7 +1840,9 @@
         "minAge": "O treinador deve ter pelo menos 30 anos.",
         "invalidDob": "Data de nascimento inválida.",
         "startYearMin": "O ano de início deve ser 2020 ou posterior.",
-        "invalidStartPhase": "A fase de início selecionada não é válida."
+        "invalidStartYear": "O ano de início selecionado não é válido.",
+        "invalidStartPhase": "A fase de início selecionada não é válida.",
+        "historyDepthMax": "A profundidade do histórico gerado deve ser de 24 temporadas ou menos."
       },
       "transfers": {
         "transferWindowClosed": "A janela de transferências está fechada",

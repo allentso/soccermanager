@@ -24,18 +24,6 @@ export default function InboxDelegatedRenewalReport({
     return formatExactMoney(amount);
   };
 
-  const buildNoteParams = (
-    params?: Record<string, string>,
-  ): Record<string, string> | undefined => {
-    if (!params) {
-      return undefined;
-    }
-
-    return {
-      ...params,
-    };
-  };
-
   if (!report || report.cases.length === 0) {
     return null;
   }
@@ -47,25 +35,24 @@ export default function InboxDelegatedRenewalReport({
     >
       <div className="space-y-2">
         {report.cases.map((renewalCase, index) => {
-          const noteParams = buildNoteParams(renewalCase.note_params);
           const detail = resolveBackendText(
             renewalCase.note_key,
             "",
-            noteParams,
+            renewalCase.note_params,
           );
           const formattedWage = formatMoneyParam(renewalCase.agreed_wage);
 
           const line =
             renewalCase.status === "successful"
               ? resolveBackendText(
-                  "be.msg.delegatedRenewals.case.successful",
-                  `Completed: ${renewalCase.player_name} agreed to ${String(renewalCase.agreed_years ?? 0)} year(s) on ${formattedWage}/wk.`,
-                  {
-                    player: renewalCase.player_name,
-                    years: String(renewalCase.agreed_years ?? 0),
-                    wage: String(renewalCase.agreed_wage ?? 0),
-                  },
-                )
+                "be.msg.delegatedRenewals.case.successful",
+                `Completed: ${renewalCase.player_name} agreed to ${String(renewalCase.agreed_years ?? 0)} year(s) on ${formattedWage}/wk.`,
+                {
+                  player: renewalCase.player_name,
+                  years: String(renewalCase.agreed_years ?? 0),
+                  wage: String(renewalCase.agreed_wage ?? 0),
+                },
+              )
               : renewalCase.status === "stalled"
                 ? resolveBackendText(
                   "be.msg.delegatedRenewals.case.stalled",

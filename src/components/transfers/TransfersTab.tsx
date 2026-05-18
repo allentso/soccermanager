@@ -50,9 +50,12 @@ import {
 import { sendScout } from "../../services/scoutingService";
 import {
   buildResumedCounterFeedback,
+  formatTransferFeeInput,
   getTransferOfferBadgeVariant,
   getTransferOfferStatusLabel,
   mapTransferNegotiationError,
+  normalizeTransferNegotiationFeedback,
+  parseTransferFeeInput,
 } from "./TransfersTab.helpers";
 import {
   deriveTransferCollections,
@@ -126,9 +129,7 @@ export default function TransfersTab({
       fee: offer.fee,
     });
     setCounterAmount(
-      ((offer.suggested_counter_fee ?? offer.fee) / 1_000_000).toFixed(
-        offer.negotiation_round > 1 ? 2 : 1,
-      ),
+      formatTransferFeeInput(offer.suggested_counter_fee ?? offer.fee),
     );
     setCounterError(null);
     setCounterResult(null);
@@ -150,7 +151,9 @@ export default function TransfersTab({
   };
 
   const handleCounterOffer = async () => {
-    if (!counterTarget || !counterAmount) return;
+    const requestedFee = parseTransferFeeInput(counterAmount);
+
+    if (!counterTarget || requestedFee === null || requestedFee <= 0) return;
 
     setCounterLoading(true);
     setCounterError(null);
@@ -158,7 +161,6 @@ export default function TransfersTab({
     setCounterFeedback(null);
 
     try {
-      const requestedFee = Math.round(parseFloat(counterAmount) * 1_000_000);
       const response = await counterOffer(
         counterTarget.player.id,
         counterTarget.offerId,
@@ -167,9 +169,9 @@ export default function TransfersTab({
 
       if (onGameUpdate) onGameUpdate(response.game);
       setCounterResult(response.decision);
-      setCounterFeedback(response.feedback);
+      setCounterFeedback(normalizeTransferNegotiationFeedback(response.feedback));
       if (response.suggested_fee !== null) {
-        setCounterAmount((response.suggested_fee / 1_000_000).toFixed(2));
+        setCounterAmount(formatTransferFeeInput(response.suggested_fee));
       }
       if (response.decision === "accepted") {
         setTimeout(() => {

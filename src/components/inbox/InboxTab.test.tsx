@@ -154,16 +154,16 @@ beforeAll(function defineMatchMedia(): void {
     true,
     true,
   );
+
   i18n.addResourceBundle(
     "de",
     "translation",
     {
       "be.msg.delegatedRenewals.case.successful":
         "Completed: {{player}} agreed to {{years}} year(s) on {{wage}}/wk.",
-      "be.msg.delegatedRenewals.case.stalled":
-        "Still difficult: {{player}} — {{detail}}",
-      "be.msg.delegatedRenewals.notes.beyondLimits":
-        "Their camp want around {{wage}}/wk for {{years}} years, which is beyond the delegation limits.",
+      "be.msg.delegatedRenewals.case.failed": "Failed: {{player}} — {{detail}}",
+      "be.msg.delegatedRenewals.notes.boardWagePolicy":
+        "Board wage policy blocks this renewal. Keep annual wages near {{budget}} while we recover.",
     },
     true,
     true,
@@ -179,11 +179,6 @@ beforeEach(function resetMocks(): void {
       language: "en",
     },
     currency: { code: "EUR", symbol: "€", exchange_rate: 1 },
-    supportedCurrencies: {
-      EUR: { code: "EUR", symbol: "€", exchange_rate: 1 },
-      GBP: { code: "GBP", symbol: "£", exchange_rate: 0.86 },
-      USD: { code: "USD", symbol: "$", exchange_rate: 1.08 },
-    },
   });
 });
 
@@ -286,7 +281,6 @@ function createProspect(overrides: Partial<GameStateData["players"][number]> = {
     morale: 74,
     injury: null,
     team_id: null,
-    retired: false,
     squad_role: "Youth" as const,
     contract_end: "2028-06-30",
     wage: 950,
@@ -302,6 +296,7 @@ function createProspect(overrides: Partial<GameStateData["players"][number]> = {
       minutes_played: 0,
     },
     career: [],
+    retired: false,
     transfer_listed: false,
     loan_listed: false,
     transfer_offers: [],
@@ -692,7 +687,7 @@ describe("InboxTab", function (): void {
         currency: "GBP",
         language: "en",
       },
-      currency: { code: "GBP", symbol: "£", exchange_rate: 0.86 },
+      currency: { code: "GBP", symbol: "£", exchange_rate: 1 },
     });
 
     renderInboxTab({
@@ -752,12 +747,12 @@ describe("InboxTab", function (): void {
     expect(screen.getByTestId("delegated-renewal-report")).toBeInTheDocument();
     expect(
       screen.getByText(
-        "Completed: Alex Done agreed to 3 year(s) on £20,640/wk.",
+        "Completed: Alex Done agreed to 3 year(s) on £24,000/wk.",
       ),
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        "Still difficult: Ben Pending — Their camp want around £22,360/wk for 4 years, which is beyond the delegation limits.",
+        "Still difficult: Ben Pending — Their camp want around £26,000/wk for 4 years, which is beyond the delegation limits.",
       ),
     ).toBeInTheDocument();
     expect(
@@ -767,15 +762,13 @@ describe("InboxTab", function (): void {
     ).toBeInTheDocument();
   });
 
-  it("keeps delegated renewal wages intact in locales that use dot thousands separators", async function (): Promise<void> {
+  it("formats delegated renewal money values only once in dot-separated locales", async function (): Promise<void> {
     const previousLanguage = i18n.language;
+    const previousSettings = useSettingsStore.getState().settings;
+
     await i18n.changeLanguage("de");
     useSettingsStore.setState({
-      settings: {
-        ...useSettingsStore.getState().settings,
-        currency: "EUR",
-        language: "de",
-      },
+      settings: { ...previousSettings, language: "de", currency: "EUR" },
       currency: { code: "EUR", symbol: "€", exchange_rate: 1 },
     });
 
@@ -783,7 +776,7 @@ describe("InboxTab", function (): void {
       renderInboxTab({
         gameState: createGameState([
           createMessage({
-            id: "delegated_renewals_2025-01-01_1",
+            id: "delegated_renewals_locale_2025-01-01_0",
             read: true,
             category: "Contract",
             context: {
@@ -793,8 +786,8 @@ describe("InboxTab", function (): void {
               match_result: null,
               delegated_renewal_report: {
                 success_count: 1,
-                failure_count: 0,
-                stalled_count: 1,
+                failure_count: 1,
+                stalled_count: 0,
                 cases: [
                   {
                     player_id: "p1",
@@ -805,17 +798,17 @@ describe("InboxTab", function (): void {
                   },
                   {
                     player_id: "p2",
-                    player_name: "Ben Pending",
-                    status: "stalled",
-                    note_key: "be.msg.delegatedRenewals.notes.beyondLimits",
-                    note_params: { wage: "24000", years: "4" },
+                    player_name: "Chris Failed",
+                    status: "failed",
+                    note_key: "be.msg.delegatedRenewals.notes.boardWagePolicy",
+                    note_params: { budget: "24000" },
                   },
                 ],
               },
             },
           }),
         ]),
-        initialMessageId: "delegated_renewals_2025-01-01_1",
+        initialMessageId: "delegated_renewals_locale_2025-01-01_0",
       });
 
       expect(
@@ -825,18 +818,13 @@ describe("InboxTab", function (): void {
       ).toBeInTheDocument();
       expect(
         screen.getByText(
-          "Still difficult: Ben Pending — Their camp want around €24.000/wk for 4 years, which is beyond the delegation limits.",
+          "Failed: Chris Failed — Board wage policy blocks this renewal. Keep annual wages near €24.000 while we recover.",
         ),
       ).toBeInTheDocument();
     } finally {
       await i18n.changeLanguage(previousLanguage);
       useSettingsStore.setState({
-        settings: {
-          ...useSettingsStore.getState().settings,
-          currency: "EUR",
-          language: "en",
-        },
-        currency: { code: "EUR", symbol: "€", exchange_rate: 1 },
+        settings: previousSettings,
       });
     }
   });

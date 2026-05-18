@@ -65,15 +65,24 @@
     "summary": {
       "startYear": "Inicio de carrera",
       "seasonStart": {
-        "generated": "Comienza en {{year}} con un mundo nuevo y seis temporadas generadas de trasfondo.",
+        "generated": "Comienza en {{year}} con un mundo nuevo y {{count}} temporadas generadas de trasfondo.",
         "reference": "Comienza en {{year}} usando la instantánea histórica seleccionada como base del mundo.",
-        "hybrid": "Comienza en {{year}} usando la plantilla de esta base de datos mientras el historial faltante se genera alrededor."
+        "hybrid": "Comienza en {{year}} usando la plantilla de esta base de datos mientras se generan alrededor de {{count}} temporadas del historial faltante."
       },
       "midSeason": {
-        "generated": "Toma el mando a mitad de {{year}} con clasificación, calendario, noticias e historial de partidos heredados de una temporada generada.",
+        "generated": "Toma el mando a mitad de {{year}} con clasificación, calendario, noticias, historial de partidos y {{count}} temporadas generadas de trasfondo.",
         "reference": "Toma el mando a mitad de {{year}} con la instantánea histórica seleccionada y el contexto de la temporada ya presente.",
-        "hybrid": "Toma el mando a mitad de {{year}} con la plantilla de esta base de datos más contexto histórico generado y progreso de temporada heredado."
+        "hybrid": "Toma el mando a mitad de {{year}} con la plantilla de esta base de datos más {{count}} temporadas de contexto histórico generado y progreso de temporada heredado."
       }
+    },
+    "historyDepth": {
+      "label": "Historia generada",
+      "hint": "Elige cuánto trasfondo generar. Un archivo más profundo añade contexto, pero tarda más en crearse.",
+      "reference": "Este mundo ya incluye su propio archivo histórico.",
+      "applied": "{{count}} temporadas generadas",
+      "none": "Sin trasfondo",
+      "option": "{{count}} temporadas",
+      "recommended": "Recomendado"
     }
   },
   "dashboard": {
@@ -1233,6 +1242,11 @@
     "display": "Pantalla",
     "theme": "Tema",
     "themeDesc": "Elige la apariencia de la aplicación",
+    "themeOptions": {
+      "light": "Claro",
+      "dark": "Oscuro",
+      "system": "Sistema"
+    },
     "language": "Idioma",
     "languageDesc": "Elige el idioma de visualización",
     "currency": "Moneda",
@@ -1288,6 +1302,12 @@
     },
     "uiScale": "Escala de UI",
     "uiScaleDesc": "Ajustar tamaño de fuente y espaciado para legibilidad",
+    "uiScaleOptions": {
+      "small": "Pequeña",
+      "normal": "Normal",
+      "large": "Grande",
+      "xlarge": "Muy grande"
+    },
     "highContrast": "Alto Contraste",
     "highContrastDesc": "Mejorar contraste de texto en modo oscuro",
     "fullscreen": "Pantalla Completa",
@@ -1850,7 +1870,9 @@
         "minAge": "El mánager debe tener al menos 30 años.",
         "invalidDob": "Fecha de nacimiento no válida.",
         "startYearMin": "El año de inicio debe ser 2020 o posterior.",
-        "invalidStartPhase": "La fase de inicio seleccionada no es válida."
+        "invalidStartYear": "El año de inicio seleccionado no es válido.",
+        "invalidStartPhase": "La fase de inicio seleccionada no es válida.",
+        "historyDepthMax": "La profundidad de la historia generada debe ser de 24 temporadas o menos."
       },
       "transfers": {
         "transferWindowClosed": "El mercado de fichajes está cerrado",
