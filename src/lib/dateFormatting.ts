@@ -1,4 +1,4 @@
-import { useTranslation } from "react-i18next";
+import { useSettingsStore } from "../store/settingsStore";
 
 const LANG_LOCALE: Record<string, string> = {
     en: "en-US",
@@ -29,14 +29,13 @@ function parseDateInput(dateStr: string): Date | null {
     return value;
 }
 
-export function formatMatchDate(dateStr: string): string {
-    const { i18n: { language: locale } } = useTranslation();
-
+export function formatMatchDate(dateStr: string, locale?: string): string {
     const date = parseDateInput(dateStr);
     if (!date) {
         return dateStr;
     }
-    return date.toLocaleDateString(getLocale(locale), {
+    const resolvedLocale = locale ?? useSettingsStore.getState().settings.language;
+    return date.toLocaleDateString(getLocale(resolvedLocale), {
         weekday: "short",
         month: "short",
         day: "numeric",
