@@ -9,107 +9,118 @@ const GAME_PERSISTENCE_WRITE_ERROR: &str = "be.error.gamePersistence.writeFailed
 
 /// Insert or replace the league row and its fixtures + standings.
 pub fn upsert_league(conn: &Connection, league: &League) -> Result<(), String> {
-    conn
-        .execute("DELETE FROM fixtures", [])
-        .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
-    conn
-        .execute("DELETE FROM standings", [])
-        .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
-    conn
-        .execute("DELETE FROM transfer_log", [])
-        .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
-    conn
-        .execute("DELETE FROM transfer_rumours", [])
-        .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
-    conn
-        .execute("DELETE FROM league", [])
+    conn.execute_batch("SAVEPOINT league_upsert")
         .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
 
-    conn
-        .execute(
+    let result = (|| {
+        conn.execute("DELETE FROM fixtures", [])
+            .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+        conn.execute("DELETE FROM standings", [])
+            .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+        conn.execute("DELETE FROM transfer_log", [])
+            .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+        conn.execute("DELETE FROM transfer_rumours", [])
+            .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+        conn.execute("DELETE FROM league", [])
+            .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+
+        conn.execute(
             "INSERT OR REPLACE INTO league (id, name, season) VALUES (?1, ?2, ?3)",
             params![league.id, league.name, league.season],
         )
         .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
 
-    for f in &league.fixtures {
-        let competition_str = format!("{:?}", f.competition);
-        let status_str = format!("{:?}", f.status);
-        let result_json = f
-            .result
-            .as_ref()
-            .map(|r| serde_json::to_string(r).unwrap_or_default());
-        conn.execute(
-            "INSERT INTO fixtures (id, league_id, matchday, date, home_team_id, away_team_id, competition, status, result)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
-            params![
-                f.id,
-                league.id,
-                f.matchday,
-                f.date,
-                f.home_team_id,
-                f.away_team_id,
-                competition_str,
-                status_str,
-                result_json,
-            ],
-        )
-        .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
-    }
+        for f in &league.fixtures {
+            let competition_str = format!("{:?}", f.competition);
+            let status_str = format!("{:?}", f.status);
+            let result_json = f
+                .result
+                .as_ref()
+                .map(|r| serde_json::to_string(r).unwrap_or_default());
+            conn.execute(
+                "INSERT INTO fixtures (id, league_id, matchday, date, home_team_id, away_team_id, competition, status, result)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+                params![
+                    f.id,
+                    league.id,
+                    f.matchday,
+                    f.date,
+                    f.home_team_id,
+                    f.away_team_id,
+                    competition_str,
+                    status_str,
+                    result_json,
+                ],
+            )
+            .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+        }
 
-    for s in &league.standings {
-        conn.execute(
-            "INSERT INTO standings (league_id, team_id, played, won, drawn, lost, goals_for, goals_against, points)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
-            params![
-                league.id,
-                s.team_id,
-                s.played,
-                s.won,
-                s.drawn,
-                s.lost,
-                s.goals_for,
-                s.goals_against,
-                s.points,
-            ],
-        )
-        .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
-    }
+        for s in &league.standings {
+            conn.execute(
+                "INSERT INTO standings (league_id, team_id, played, won, drawn, lost, goals_for, goals_against, points)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+                params![
+                    league.id,
+                    s.team_id,
+                    s.played,
+                    s.won,
+                    s.drawn,
+                    s.lost,
+                    s.goals_for,
+                    s.goals_against,
+                    s.points,
+                ],
+            )
+            .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+        }
 
-    for transfer in &league.transfer_log {
-        conn.execute(
-            "INSERT INTO transfer_log (league_id, date, from_team_id, to_team_id, player_id, fee)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-            params![
-                league.id,
-                transfer.date,
-                transfer.from_team_id,
-                transfer.to_team_id,
-                transfer.player_id,
-                transfer.fee,
-            ],
-        )
-        .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
-    }
+        for transfer in &league.transfer_log {
+            conn.execute(
+                "INSERT INTO transfer_log (league_id, date, from_team_id, to_team_id, player_id, fee)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                params![
+                    league.id,
+                    transfer.date,
+                    transfer.from_team_id,
+                    transfer.to_team_id,
+                    transfer.player_id,
+                    transfer.fee,
+                ],
+            )
+            .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+        }
 
-    for rumour in &league.transfer_rumours {
-        conn.execute(
-            "INSERT INTO transfer_rumours (league_id, rumour_id, date, player_id, player_name, team_id, team_name)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-            params![
-                league.id,
-                rumour.id,
-                rumour.date,
-                rumour.player_id,
-                rumour.player_name,
-                rumour.team_id,
-                rumour.team_name,
-            ],
-        )
-        .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
-    }
+        for rumour in &league.transfer_rumours {
+            conn.execute(
+                "INSERT INTO transfer_rumours (league_id, rumour_id, date, player_id, player_name, team_id, team_name)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                params![
+                    league.id,
+                    rumour.id,
+                    rumour.date,
+                    rumour.player_id,
+                    rumour.player_name,
+                    rumour.team_id,
+                    rumour.team_name,
+                ],
+            )
+            .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string())?;
+        }
 
-    Ok(())
+        Ok(())
+    })();
+
+    match result {
+        Ok(()) => conn
+            .execute_batch("RELEASE SAVEPOINT league_upsert")
+            .map_err(|_| GAME_PERSISTENCE_WRITE_ERROR.to_string()),
+        Err(error) => {
+            let _ = conn.execute_batch(
+                "ROLLBACK TO SAVEPOINT league_upsert; RELEASE SAVEPOINT league_upsert",
+            );
+            Err(error)
+        }
+    }
 }
 
 fn parse_fixture_status(s: &str) -> FixtureStatus {
