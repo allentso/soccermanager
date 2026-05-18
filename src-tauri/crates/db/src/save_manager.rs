@@ -4,6 +4,7 @@ use log::info;
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::time::Instant;
 
 use domain::player::{Player, Position};
 use ofm_core::game::Game;
@@ -98,7 +99,81 @@ impl SaveManager {
             last_played_at: now,
         };
 
-        self.save_index.record_new_save(entry)?;
+        if let Err(error) = self.save_index.record_new_save(entry) {
+            let _ = fs::remove_file(&db_path);
+            return Err(error);
+        }
+
+        Ok(save_id)
+    }
+
+    pub fn create_save_with_stats(
+        &mut self,
+        game: &Game,
+        stats: &StatsState,
+        save_name: &str,
+    ) -> Result<String, String> {
+        self.ensure_save_index_ready()?;
+
+        let save_id = uuid::Uuid::new_v4().to_string();
+        let db_filename = format!("{}.db", save_id);
+        let db_path = self.saves_dir.join(&db_filename);
+        let total_timer = Instant::now();
+
+        let clone_timer = Instant::now();
+        let mut persisted_game = game.clone();
+        canonicalize_game_starting_xi_ids(&mut persisted_game);
+        let clone_ms = clone_timer.elapsed().as_millis();
+
+        let db_open_timer = Instant::now();
+        let db = GameDatabase::open(&db_path)?;
+        let db_open_ms = db_open_timer.elapsed().as_millis();
+
+        let write_timer = Instant::now();
+        GamePersistenceWriter::write_game_and_stats(
+            &db,
+            &persisted_game,
+            stats,
+            &save_id,
+            save_name,
+        )?;
+        let write_ms = write_timer.elapsed().as_millis();
+        drop(db);
+
+        let checksum_timer = Instant::now();
+        let checksum = compute_checksum(&db_path)?;
+        let checksum_ms = checksum_timer.elapsed().as_millis();
+
+        let now = Utc::now().to_rfc3339();
+        let manager_name = format!("{} {}", game.manager.first_name, game.manager.last_name);
+
+        let index_timer = Instant::now();
+        let entry = SaveEntry {
+            id: save_id.clone(),
+            name: save_name.to_string(),
+            manager_name,
+            db_filename,
+            checksum,
+            created_at: now.clone(),
+            last_played_at: now,
+        };
+        if let Err(error) = self.save_index.record_new_save(entry) {
+            let _ = fs::remove_file(&db_path);
+            return Err(error);
+        }
+        let index_ms = index_timer.elapsed().as_millis();
+
+        info!(
+            "[save_manager] create_save_with_stats save_id={} clone_ms={} db_open_ms={} write_ms={} checksum_ms={} index_ms={} total_ms={}",
+            save_id,
+            clone_ms,
+            db_open_ms,
+            write_ms,
+            checksum_ms,
+            index_ms,
+            total_timer.elapsed().as_millis()
+        );
+
         Ok(save_id)
     }
 
@@ -162,6 +237,76 @@ impl SaveManager {
             created_at: entry.created_at,
             last_played_at: now,
         })?;
+
+        Ok(())
+    }
+
+    pub fn save_game_with_stats(
+        &mut self,
+        game: &Game,
+        stats: &StatsState,
+        save_id: &str,
+    ) -> Result<(), String> {
+        self.ensure_save_index_ready()?;
+
+        let entry = self
+            .save_index
+            .find(save_id)
+            .ok_or_else(|| save_not_found_error(save_id))?
+            .clone();
+
+        let db_path = self.saves_dir.join(&entry.db_filename);
+        let total_timer = Instant::now();
+
+        let clone_timer = Instant::now();
+        let mut persisted_game = game.clone();
+        canonicalize_game_starting_xi_ids(&mut persisted_game);
+        let clone_ms = clone_timer.elapsed().as_millis();
+
+        let db_open_timer = Instant::now();
+        let db = GameDatabase::open(&db_path)?;
+        let db_open_ms = db_open_timer.elapsed().as_millis();
+
+        let write_timer = Instant::now();
+        GamePersistenceWriter::write_game_and_stats(
+            &db,
+            &persisted_game,
+            stats,
+            save_id,
+            &entry.name,
+        )?;
+        let write_ms = write_timer.elapsed().as_millis();
+        drop(db);
+
+        let checksum_timer = Instant::now();
+        let checksum = compute_checksum(&db_path)?;
+        let checksum_ms = checksum_timer.elapsed().as_millis();
+
+        let now = Utc::now().to_rfc3339();
+        let manager_name = format!("{} {}", game.manager.first_name, game.manager.last_name);
+
+        let index_timer = Instant::now();
+        self.save_index.update_save(SaveEntry {
+            id: save_id.to_string(),
+            name: entry.name,
+            manager_name,
+            db_filename: entry.db_filename,
+            checksum,
+            created_at: entry.created_at,
+            last_played_at: now,
+        })?;
+        let index_ms = index_timer.elapsed().as_millis();
+
+        info!(
+            "[save_manager] save_game_with_stats save_id={} clone_ms={} db_open_ms={} write_ms={} checksum_ms={} index_ms={} total_ms={}",
+            save_id,
+            clone_ms,
+            db_open_ms,
+            write_ms,
+            checksum_ms,
+            index_ms,
+            total_timer.elapsed().as_millis()
+        );
 
         Ok(())
     }
@@ -470,6 +615,14 @@ mod tests {
         BoardObjective, ObjectiveType, ScoutingAssignment, YouthScoutingAssignment,
     };
     use rusqlite::params;
+
+    fn db_file_count(dir: &std::path::Path) -> usize {
+        fs::read_dir(dir)
+            .unwrap()
+            .filter_map(Result::ok)
+            .filter(|entry| entry.path().extension().and_then(|ext| ext.to_str()) == Some("db"))
+            .count()
+    }
 
     fn sample_game() -> Game {
         let start = Utc.with_ymd_and_hms(2026, 7, 1, 0, 0, 0).unwrap();
@@ -895,6 +1048,43 @@ mod tests {
     }
 
     #[test]
+    fn test_create_save_removes_db_when_index_write_fails() {
+        let dir = tempfile::tempdir().unwrap();
+        let saves_dir = dir.path().join("saves");
+        let index_path = saves_dir.join("save_index.json");
+        let mut sm = SaveManager::init(&saves_dir).unwrap();
+        let game = sample_game();
+
+        assert!(sm.load_saves().unwrap().is_empty());
+        fs::remove_file(&index_path).unwrap();
+        fs::create_dir(&index_path).unwrap();
+
+        let result = sm.create_save(&game, "Broken Index Career");
+
+        assert_eq!(result.unwrap_err(), "be.error.saveIndex.writeFailed");
+        assert_eq!(db_file_count(&saves_dir), 0);
+    }
+
+    #[test]
+    fn test_create_save_with_stats_removes_db_when_index_write_fails() {
+        let dir = tempfile::tempdir().unwrap();
+        let saves_dir = dir.path().join("saves");
+        let index_path = saves_dir.join("save_index.json");
+        let mut sm = SaveManager::init(&saves_dir).unwrap();
+        let game = sample_game();
+        let stats = sample_stats_state();
+
+        assert!(sm.load_saves().unwrap().is_empty());
+        fs::remove_file(&index_path).unwrap();
+        fs::create_dir(&index_path).unwrap();
+
+        let result = sm.create_save_with_stats(&game, &stats, "Broken Stats Career");
+
+        assert_eq!(result.unwrap_err(), "be.error.saveIndex.writeFailed");
+        assert_eq!(db_file_count(&saves_dir), 0);
+    }
+
+    #[test]
     fn test_create_and_load_game() {
         let dir = tempfile::tempdir().unwrap();
         let saves_dir = dir.path().join("saves");
@@ -1110,8 +1300,9 @@ mod tests {
         let game = sample_game_with_league();
         let stats = sample_stats_state();
 
-        let save_id = sm.create_save(&game, "Stats Career").unwrap();
-        sm.save_stats_state(&stats, &save_id).unwrap();
+        let save_id = sm
+            .create_save_with_stats(&game, &stats, "Stats Career")
+            .unwrap();
 
         let loaded_stats = sm.load_stats_state(&save_id).unwrap();
 
@@ -1121,6 +1312,36 @@ mod tests {
         assert_eq!(loaded_stats.player_matches[0].shots, 4);
         assert_eq!(loaded_stats.team_matches[0].team_id, "team-001");
         assert_eq!(loaded_stats.team_matches[0].shots_on_target, 6);
+    }
+
+    #[test]
+    fn test_save_game_with_stats_updates_existing_and_roundtrips_stats() {
+        let dir = tempfile::tempdir().unwrap();
+        let saves_dir = dir.path().join("saves");
+
+        let mut sm = SaveManager::init(&saves_dir).unwrap();
+        let mut game = sample_game_with_league();
+        let save_id = sm.create_save(&game, "Combined Save Career").unwrap();
+        let old_checksum = sm.list_saves()[0].checksum.clone();
+
+        game.clock.advance_days(3);
+        game.manager.reputation = 777;
+
+        let stats = sample_stats_state();
+        sm.save_game_with_stats(&game, &stats, &save_id).unwrap();
+
+        let saves = sm.list_saves();
+        assert_eq!(saves.len(), 1);
+        assert_ne!(saves[0].checksum, old_checksum);
+
+        let loaded = sm.load_game(&save_id).unwrap();
+        assert_eq!(loaded.manager.reputation, 777);
+
+        let loaded_stats = sm.load_stats_state(&save_id).unwrap();
+        assert_eq!(loaded_stats.player_matches.len(), 1);
+        assert_eq!(loaded_stats.team_matches.len(), 1);
+        assert_eq!(loaded_stats.player_matches[0].player_id, "p-001");
+        assert_eq!(loaded_stats.team_matches[0].team_id, "team-001");
     }
 
     #[test]

@@ -2,6 +2,7 @@ use chrono::Utc;
 use domain::player::Position;
 use domain::stats::StatsState;
 use domain::world_history::WorldHistoryArchive;
+use rusqlite::Connection;
 
 use ofm_core::clock::GameClock;
 use ofm_core::game::{
@@ -28,102 +29,143 @@ impl GamePersistenceWriter {
         save_id: &str,
         save_name: &str,
     ) -> Result<(), String> {
-        let conn = db.conn();
-        let now = Utc::now().to_rfc3339();
-        let vacant_team_days_json = serde_json::to_string(&game.vacant_team_days)
+        let transaction = db
+            .conn()
+            .unchecked_transaction()
             .map_err(|_| game_persistence_write_error())?;
-        let world_history_json = serde_json::to_string(&game.world_history)
+        write_game_to_connection(&transaction, game, save_id, save_name)?;
+        transaction
+            .commit()
             .map_err(|_| game_persistence_write_error())?;
-        let manager_id = if game.manager_id.is_empty() {
-            game.manager.id.clone()
-        } else {
-            game.manager_id.clone()
-        };
-        let mut managers = game.managers.clone();
-        if let Some(existing) = managers.iter_mut().find(|manager| manager.id == manager_id) {
-            *existing = game.manager.clone();
-        } else {
-            managers.push(game.manager.clone());
-        }
+        Ok(())
+    }
 
-        meta_repo::upsert_meta(
-            conn,
-            &meta_repo::GameMeta {
-                save_id: save_id.to_string(),
-                save_name: save_name.to_string(),
-                manager_id: manager_id.clone(),
-                start_date: game.clock.start_date.to_rfc3339(),
-                game_date: game.clock.current_date.to_rfc3339(),
-                created_at: now.clone(),
-                last_played_at: now,
-                vacant_team_days_json,
-                world_history_json,
-            },
-        )?;
+    pub fn write_game_and_stats(
+        db: &GameDatabase,
+        game: &Game,
+        stats: &StatsState,
+        save_id: &str,
+        save_name: &str,
+    ) -> Result<(), String> {
+        let transaction = db
+            .conn()
+            .unchecked_transaction()
+            .map_err(|_| game_persistence_write_error())?;
+        write_game_to_connection(&transaction, game, save_id, save_name)?;
+        stats_repo::replace_stats_state(&transaction, stats)?;
+        transaction
+            .commit()
+            .map_err(|_| game_persistence_write_error())?;
+        Ok(())
+    }
 
-        for manager in &managers {
-            manager_repo::upsert_manager(conn, manager)?;
-        }
-        team_repo::upsert_teams(conn, &game.teams)?;
-        player_repo::upsert_players(conn, &game.players)?;
-        staff_repo::upsert_staff_list(conn, &game.staff)?;
-        message_repo::upsert_messages(conn, &game.messages)?;
-        news_repo::upsert_news_list(conn, &game.news)?;
-
-        if let Some(ref league) = game.league {
-            league_repo::upsert_league(conn, league)?;
-        }
-
-        let objective_rows: Vec<objective_repo::BoardObjectiveRow> = game
-            .board_objectives
-            .iter()
-            .map(|objective| objective_repo::BoardObjectiveRow {
-                id: objective.id.clone(),
-                description: objective.description.clone(),
-                target: objective.target,
-                objective_type: format!("{:?}", objective.objective_type),
-                met: objective.met,
-            })
-            .collect();
-        objective_repo::upsert_objectives(conn, &objective_rows)?;
-
-        let scouting_rows: Vec<scouting_repo::ScoutingAssignmentRow> = game
-            .scouting_assignments
-            .iter()
-            .map(|assignment| scouting_repo::ScoutingAssignmentRow {
-                id: assignment.id.clone(),
-                scout_id: assignment.scout_id.clone(),
-                player_id: assignment.player_id.clone(),
-                days_remaining: assignment.days_remaining,
-            })
-            .collect();
-        scouting_repo::upsert_scouting_list(conn, &scouting_rows)?;
-
-        let youth_scouting_rows: Vec<scouting_repo::YouthScoutingAssignmentRow> = game
-            .youth_scouting_assignments
-            .iter()
-            .map(|assignment| scouting_repo::YouthScoutingAssignmentRow {
-                id: assignment.id.clone(),
-                scout_id: assignment.scout_id.clone(),
-                region: format!("{:?}", assignment.region),
-                objective: format!("{:?}", assignment.objective),
-                target_position: assignment
-                    .target_position
-                    .as_ref()
-                    .map(|position| format!("{:?}", position)),
-                days_remaining: assignment.days_remaining,
-            })
-            .collect();
-        scouting_repo::upsert_youth_scouting_list(conn, &youth_scouting_rows)?;
-
+    pub fn write_stats_state(db: &GameDatabase, stats: &StatsState) -> Result<(), String> {
+        let transaction = db
+            .conn()
+            .unchecked_transaction()
+            .map_err(|_| game_persistence_write_error())?;
+        stats_repo::replace_stats_state(&transaction, stats)?;
+        transaction
+            .commit()
+            .map_err(|_| game_persistence_write_error())?;
         Ok(())
     }
 }
 
-impl GamePersistenceWriter {
-    pub fn write_stats_state(db: &GameDatabase, stats: &StatsState) -> Result<(), String> {
-        stats_repo::replace_stats_state(db.conn(), stats)
+fn write_game_to_connection(
+    conn: &Connection,
+    game: &Game,
+    save_id: &str,
+    save_name: &str,
+) -> Result<(), String> {
+    let now = Utc::now().to_rfc3339();
+    let vacant_team_days_json = serde_json::to_string(&game.vacant_team_days)
+        .map_err(|_| game_persistence_write_error())?;
+    let world_history_json = serde_json::to_string(&game.world_history)
+        .map_err(|_| game_persistence_write_error())?;
+    let manager_id = if game.manager_id.is_empty() {
+        game.manager.id.clone()
+    } else {
+        game.manager_id.clone()
+    };
+    let mut managers = game.managers.clone();
+    if let Some(existing) = managers.iter_mut().find(|manager| manager.id == manager_id) {
+        *existing = game.manager.clone();
+    } else {
+        managers.push(game.manager.clone());
     }
+
+    meta_repo::upsert_meta(
+        conn,
+        &meta_repo::GameMeta {
+            save_id: save_id.to_string(),
+            save_name: save_name.to_string(),
+            manager_id: manager_id.clone(),
+            start_date: game.clock.start_date.to_rfc3339(),
+            game_date: game.clock.current_date.to_rfc3339(),
+            created_at: now.clone(),
+            last_played_at: now,
+            vacant_team_days_json,
+            world_history_json,
+        },
+    )?;
+
+    for manager in &managers {
+        manager_repo::upsert_manager(conn, manager)?;
+    }
+    team_repo::upsert_teams(conn, &game.teams)?;
+    player_repo::upsert_players(conn, &game.players)?;
+    staff_repo::upsert_staff_list(conn, &game.staff)?;
+    message_repo::upsert_messages(conn, &game.messages)?;
+    news_repo::upsert_news_list(conn, &game.news)?;
+
+    if let Some(ref league) = game.league {
+        league_repo::upsert_league(conn, league)?;
+    }
+
+    let objective_rows: Vec<objective_repo::BoardObjectiveRow> = game
+        .board_objectives
+        .iter()
+        .map(|objective| objective_repo::BoardObjectiveRow {
+            id: objective.id.clone(),
+            description: objective.description.clone(),
+            target: objective.target,
+            objective_type: format!("{:?}", objective.objective_type),
+            met: objective.met,
+        })
+        .collect();
+    objective_repo::upsert_objectives(conn, &objective_rows)?;
+
+    let scouting_rows: Vec<scouting_repo::ScoutingAssignmentRow> = game
+        .scouting_assignments
+        .iter()
+        .map(|assignment| scouting_repo::ScoutingAssignmentRow {
+            id: assignment.id.clone(),
+            scout_id: assignment.scout_id.clone(),
+            player_id: assignment.player_id.clone(),
+            days_remaining: assignment.days_remaining,
+        })
+        .collect();
+    scouting_repo::upsert_scouting_list(conn, &scouting_rows)?;
+
+    let youth_scouting_rows: Vec<scouting_repo::YouthScoutingAssignmentRow> = game
+        .youth_scouting_assignments
+        .iter()
+        .map(|assignment| scouting_repo::YouthScoutingAssignmentRow {
+            id: assignment.id.clone(),
+            scout_id: assignment.scout_id.clone(),
+            region: format!("{:?}", assignment.region),
+            objective: format!("{:?}", assignment.objective),
+            target_position: assignment
+                .target_position
+                .as_ref()
+                .map(|position| format!("{:?}", position)),
+            days_remaining: assignment.days_remaining,
+        })
+        .collect();
+    scouting_repo::upsert_youth_scouting_list(conn, &youth_scouting_rows)?;
+
+    Ok(())
 }
 
 pub struct GamePersistenceReader;

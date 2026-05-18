@@ -23,6 +23,12 @@ fn map_save_manager_lock_error<T>(result: std::sync::LockResult<T>) -> Result<T,
     result.map_err(|_| "be.error.saveManagerUnavailable".to_string())
 }
 
+fn require_active_stats_state(state: &StateManager) -> Result<StatsState, String> {
+    state
+        .get_stats_state(|stats| stats.clone())
+        .ok_or("be.error.noActiveStatsSession".to_string())
+}
+
 fn default_league_name() -> String {
     ["Premier", "Division"].join(" ")
 }
@@ -310,9 +316,7 @@ fn create_new_save(
     stats_state: &StatsState,
     save_name: &str,
 ) -> Result<String, String> {
-    let save_id = save_manager.create_save(game, save_name)?;
-    save_manager.save_stats_state(stats_state, &save_id)?;
-    Ok(save_id)
+    save_manager.create_save_with_stats(game, stats_state, save_name)
 }
 
 fn bootstrap_season_start(game: &mut Game, team_id: &str) -> Result<StatsState, String> {
@@ -636,11 +640,8 @@ pub async fn save_game(
         .ok_or("be.error.noActiveSaveSession".to_string())?;
 
     let mut sm = map_save_manager_lock_error(sm_state.0.lock())?;
-    sm.save_game(&game, &save_id)?;
-    let stats_state = state
-        .get_stats_state(|stats| stats.clone())
-        .unwrap_or_default();
-    sm.save_stats_state(&stats_state, &save_id)
+    let stats_state = require_active_stats_state(&state)?;
+    sm.save_game_with_stats(&game, &stats_state, &save_id)
 }
 
 /// Save the current game and clear the active session so the player returns to the main menu.
@@ -657,11 +658,8 @@ pub async fn exit_to_menu(
     // Auto-save
     if let Some(save_id) = state.get_save_id() {
         let mut sm = map_save_manager_lock_error(sm_state.0.lock())?;
-        sm.save_game(&game, &save_id)?;
-        let stats_state = state
-            .get_stats_state(|stats| stats.clone())
-            .unwrap_or_default();
-        sm.save_stats_state(&stats_state, &save_id)?;
+        let stats_state = require_active_stats_state(&state)?;
+        sm.save_game_with_stats(&game, &stats_state, &save_id)?;
     }
 
     // Clear the in-memory game state
@@ -677,8 +675,9 @@ mod tests {
         age_on_date, apply_generated_past_history, bootstrap_team_selection,
         build_game_from_world_data, create_new_save, current_date_for_phase, game_clock_for_world,
         load_world_data_from_path, map_save_manager_lock_error, normalize_startup_options,
-        preseason_league_year, preseason_season_start, start_date_for_year, RawStartupOptions,
-        StartPhase, StartupOptions, DEFAULT_GENERATED_HISTORY_DEPTH_YEARS,
+        preseason_league_year, preseason_season_start, require_active_stats_state,
+        start_date_for_year, RawStartupOptions, StartPhase, StartupOptions,
+        DEFAULT_GENERATED_HISTORY_DEPTH_YEARS,
         MAX_GENERATED_HISTORY_DEPTH_YEARS,
     };
     use db::save_manager::SaveManager;
@@ -693,6 +692,7 @@ mod tests {
         game::Game,
         generator::{WorldData, WorldDataKind, WorldDataMetadata},
         season_context::refresh_game_context,
+        state::StateManager,
     };
     use std::sync::Mutex;
 
@@ -1510,6 +1510,27 @@ mod tests {
         assert_eq!(loaded_stats.team_matches[0].team_id, "team1");
 
         std::fs::remove_dir_all(&saves_dir).unwrap();
+    }
+
+    #[test]
+    fn require_active_stats_state_returns_backend_key_when_missing() {
+        let state = StateManager::new();
+
+        let result = require_active_stats_state(&state);
+
+        assert_eq!(result.unwrap_err(), "be.error.noActiveStatsSession");
+    }
+
+    #[test]
+    fn require_active_stats_state_clones_active_stats() {
+        let state = StateManager::new();
+        let stats = sample_stats_state();
+        state.set_stats_state(stats.clone());
+
+        let result = require_active_stats_state(&state).unwrap();
+
+        assert_eq!(result.team_matches.len(), stats.team_matches.len());
+        assert_eq!(result.player_matches.len(), stats.player_matches.len());
     }
 
     #[test]
