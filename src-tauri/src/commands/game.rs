@@ -310,9 +310,7 @@ fn create_new_save(
     stats_state: &StatsState,
     save_name: &str,
 ) -> Result<String, String> {
-    let save_id = save_manager.create_save(game, save_name)?;
-    save_manager.save_stats_state(stats_state, &save_id)?;
-    Ok(save_id)
+    save_manager.create_save_with_stats(game, stats_state, save_name)
 }
 
 fn bootstrap_season_start(game: &mut Game, team_id: &str) -> Result<StatsState, String> {
@@ -636,11 +634,10 @@ pub async fn save_game(
         .ok_or("be.error.noActiveSaveSession".to_string())?;
 
     let mut sm = map_save_manager_lock_error(sm_state.0.lock())?;
-    sm.save_game(&game, &save_id)?;
     let stats_state = state
         .get_stats_state(|stats| stats.clone())
         .unwrap_or_default();
-    sm.save_stats_state(&stats_state, &save_id)
+    sm.save_game_with_stats(&game, &stats_state, &save_id)
 }
 
 /// Save the current game and clear the active session so the player returns to the main menu.
@@ -657,11 +654,10 @@ pub async fn exit_to_menu(
     // Auto-save
     if let Some(save_id) = state.get_save_id() {
         let mut sm = map_save_manager_lock_error(sm_state.0.lock())?;
-        sm.save_game(&game, &save_id)?;
         let stats_state = state
             .get_stats_state(|stats| stats.clone())
             .unwrap_or_default();
-        sm.save_stats_state(&stats_state, &save_id)?;
+        sm.save_game_with_stats(&game, &stats_state, &save_id)?;
     }
 
     // Clear the in-memory game state
