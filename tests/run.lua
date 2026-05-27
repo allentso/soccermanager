@@ -8,6 +8,8 @@ local tests = {
     "tests/match_engine_test",
     "tests/finance_manager_test",
     "tests/contract_manager_test",
+    "tests/transfer_manager_test",
+    "tests/press_conference_manager_test",
 }
 
 local failed = 0

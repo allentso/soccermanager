@@ -307,7 +307,8 @@ end
 ---------------------------------------------------------------------------
 function TransferHub._buildRumours(gameState)
     -- 收集所有活跃报价
-    local bids = gameState._bids or {}
+    TransferManager._ensureData(gameState)
+    local bids = gameState.transfers.bids or {}
     local activeBids = {}
     for _, bid in ipairs(bids) do
         if bid.status == "pending" or bid.status == "negotiating" then
@@ -333,8 +334,8 @@ function TransferHub._buildRumours(gameState)
     local rows = {}
     for _, bid in ipairs(activeBids) do
         local player = gameState.players[bid.playerId]
-        local fromTeam = gameState.teams[bid.fromTeamId]
-        local toTeam = gameState.teams[bid.toTeamId]
+        local fromTeam = gameState.teams[bid.sellerTeamId or bid.fromTeamId]
+        local toTeam = gameState.teams[bid.buyerTeamId or bid.toTeamId]
         local playerName = player and player.displayName or "未知球员"
         local fromName = fromTeam and fromTeam.name or "?"
         local toName = toTeam and toTeam.name or "?"

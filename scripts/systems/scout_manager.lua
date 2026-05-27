@@ -4,6 +4,7 @@
 local Constants = require("scripts/app/constants")
 local StaffManager = require("scripts/systems/staff_manager")
 local MessageManager = require("scripts/systems/message_manager")
+local FinanceManager = require("scripts/systems/finance_manager")
 
 local ScoutManager = {}
 
@@ -177,9 +178,11 @@ function ScoutManager._generateReport(gameState, task)
     -- 球探加成
     local teamId = gameState.playerTeamId
     local scoutBonus = StaffManager.getScoutingBonus(gameState, teamId)
+    local team = gameState.teams[teamId]
+    local facilityBonus = team and FinanceManager.getFacilityBonuses(team).scoutingAccuracy or 1.0
 
     -- 准确度 = 球探能力 + 团队加成（60%~95%）
-    local accuracy = math.min(0.95, 0.50 + scoutAbility * 0.02 + scoutBonus)
+    local accuracy = math.min(0.97, (0.50 + scoutAbility * 0.02 + scoutBonus) * facilityBonus)
 
     -- 生成带误差的属性评估
     local reportedAttrs = {}

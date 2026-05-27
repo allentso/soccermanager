@@ -95,7 +95,14 @@ function MatchResult.create(params)
                         borderRadius = 6,
                         fontSize = 13,
                         color = Theme.COLORS.TEXT_PRIMARY,
-                        onClick = function() Router.navigate("dashboard") end,
+                        onClick = function()
+                            if not report._pressConferenceDone and
+                               (report.homeTeamId == gameState.playerTeamId or report.awayTeamId == gameState.playerTeamId) then
+                                Router.navigate("press_conference", { report = report, fixture = fixture })
+                            else
+                                Router.navigate("dashboard")
+                            end
+                        end,
                     },
                 }
             },

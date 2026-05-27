@@ -1,3 +1,260 @@
+# OpenFoot Manager - 开发进度文档
+
+> 最后更新: 2026-05-27
+> 当前口径: UrhoX + Lua 重构版 `new`
+
+---
+
+## 项目概要
+
+| 指标 | 当前状态 |
+|------|----------|
+| 项目名称 | OpenFoot Manager |
+| 技术栈 | UrhoX + Lua 5.4 + urhox-libs/UI |
+| 游戏模式 | 单机经营模拟 |
+| 屏幕方向 | 横屏 |
+| 当前阶段 | 核心经营闭环已完成，进入体验打磨与测试补强阶段 |
+| 自动化测试 | 已建立最小 Lua assert 测试框架 |
+
+---
+
+## 模块分布
+
+| 目录 | 说明 |
+|------|------|
+| `scripts/app/` | 路由、事件总线、全局常量 |
+| `scripts/core/` | `GameState` 与日推进 `TurnProcessor` |
+| `scripts/domain/` | 球员、球队、联赛、锦标赛、职员、经理等领域模型 |
+| `scripts/systems/` | 经营系统：转会、财务、合同、训练、董事会、士气、AI、奖项、历史等 |
+| `scripts/systems/transfers/` | 转会系统子模块，当前拆出转会完成/付款/条款 helper |
+| `scripts/match/` | 比赛引擎、战术解析、比赛报告、旧占位引擎 |
+| `scripts/ui/screens/` | 主 UI 页面 |
+| `scripts/ui/screens/market/` | 转会市场子页面模块 |
+| `scripts/ui/screens/player_detail/` | 球员详情子页面模块 |
+| `scripts/ui/components/` | 可复用 UI 组件 |
+| `scripts/persistence/` | 存档与设置 |
+| `scripts/data/` | 真实数据加载 |
+| `tests/` | Lua 断言测试框架与核心测试 |
+
+---
+
+## 后端系统完成状态
+
+### 已完成
+
+| 模块 | 主要文件 | 当前状态 |
+|------|----------|----------|
+| 游戏状态 | `core/game_state.lua` | 全局状态容器、实体注册、序列化入口 |
+| 回合推进 | `core/turn_processor.lua` | 日推进、比赛日/非比赛日分流、训练、转会、球探、青训、新闻、月度/周度钩子 |
+| 世界生成 | `systems/world_generator.lua`, `data/real_data_loader.lua` | 五大联赛真实数据导入与随机补充 |
+| 联赛 | `domain/league.lua` | 双循环赛程、积分榜、赛季完成检测 |
+| 锦标赛 | `domain/tournament.lua` | 小组赛与淘汰赛通用框架 |
+| 欧冠 | `systems/champions_league.lua` | 资格赛、小组赛、淘汰赛流程 |
+| 世界杯 | `systems/world_cup.lua` | 分组抽签、小组赛、淘汰赛流程 |
+| 比赛引擎 v2 | `match/match_engine.lua` | 逐分钟模拟、控球/射门/进球/犯规/牌/伤病、加时与点球 |
+| 战术解析 | `match/tactics_resolver.lua` | 阵型、打法、球员属性、体能、士气、职责、特性转为比赛修正 |
+| 比赛报告 | `match/match_report.lua` | 兼容 UI 的 report，含事件、统计、评分、MOTM |
+| 旧占位引擎 | `match/placeholder_engine.lua` | 保留作为历史实现和部分兼容 helper |
+| 转会系统 | `systems/transfer_manager.lua`, `systems/transfers/transfer_completion.lua` | 多轮谈判、AI 买卖、挂牌、租借、自由球员 FSM、预签约、解约金、分期/附加条款、竞争报价、球员意愿 |
+| 财务系统 | `systems/finance_manager.lua` | 工资、转会收支、比赛日收入、奖金、财务健康、董事注资、赞助、商业活动、设施升级 |
+| 设施系统 | `systems/finance_manager.lua` | 训练/医疗/球探设施等级，影响训练收益、伤病恢复、球探准确度 |
+| 合同系统 | `systems/contract_manager.lua` | 合同到期提醒、续约、赛季末释放、终止合同 |
+| 训练系统 | `systems/training_manager.lua` | 强度、专项、周计划、训练分组、个人训练、职员与设施加成 |
+| 消息系统 | `systems/message_manager.lua` | 分类、优先级、动作、去重、清理 |
+| 赛季管理 | `systems/season_manager.lua` | 赛季结算、升降级、奖金、成长、退役、新赛季初始化 |
+| 董事会 | `systems/board_manager.lua` | 目标、满意度、警告、解雇 |
+| 士气系统 | `systems/morale_manager.lua` | 个人士气、出场时间、合同、成绩、角色影响 |
+| 职员管理 | `systems/staff_manager.lua` | 雇佣/解约、工资、训练/球探/恢复加成 |
+| 球探系统 | `systems/scout_manager.lua` | 球探任务、报告、准确度、过期清理、设施加成 |
+| 青训系统 | `systems/youth_manager.lua` | 月度候选、招募、提拔、青训训练 |
+| 求职系统 | `systems/job_manager.lua` | 失业、申请职位、AI 空缺补位 |
+| 随机事件 | `systems/random_event_manager.lua` | 事件池、概率触发、消息选项影响 |
+| 声望系统 | `systems/reputation_manager.lua` | 比赛、排名、奖项、自然回归 |
+| 奖项系统 | `systems/awards_manager.lua` | 金靴、最佳球员、最佳年轻球员、最佳经理 |
+| 历史记录 | `systems/history_manager.lua` | 冠军、奖项、转会、经理变动 |
+| AI 管理 | `systems/ai_manager.lua` | AI 阵容、训练、转会、薪资管理 |
+| 新闻生成 | `systems/news_generator.lua` | 联赛综述、转会新闻、伤病新闻、赛季前瞻 |
+| 赛后发布会 | `systems/press_conference_manager.lua` | 赛后回应影响士气、声望、董事会满意度，并生成消息/新闻 |
+| 存档系统 | `persistence/save_manager.lua` | 多槽存档与 autosave |
+| 设置管理 | `persistence/settings_manager.lua` | 音量、字号、货币、自动保存 |
+
+### 当前未做或后置
+
+| 模块 | 状态 | 说明 |
+|------|------|------|
+| 经纪人系统 | 不计划实现 | 已明确排除，不纳入转会深度扩展 |
+| 真正实时比赛重算 | 后置 | 当前仍是赛前一次性模拟，`match_live` 回放事件；赛中换人/战术主要是体验层 |
+| 更完整的转会条款结算 | 部分完成 | 分期已接入；出场奖金/二转分成已记录，后续可继续做触发结算 |
+| 更多联赛 | 后置 | 当前五大联赛足够验证核心循环 |
+| 新手教程 | 后置 | 等核心 UI 稳定后再做 |
+
+---
+
+## UI 页面完成状态
+
+### 已完成
+
+| 页面 | 文件 | 功能 |
+|------|------|------|
+| 主菜单 | `main_menu.lua` | 新游戏、继续、加载 |
+| 创建经理 | `create_manager.lua` | 输入姓名、选择国籍 |
+| 选择球队 | `select_team.lua` | 联赛筛选、球队列表 |
+| 加载存档 | `load_game.lua` | 多槽展示、读取、保存、删除 |
+| 仪表盘 | `dashboard.lua` | 下场比赛、排名、未读消息、合同预警、财务、董事会 |
+| 阵容 | `squad.lua` | 球员列表、筛选、排序、操作菜单 |
+| 球员详情 | `player_detail.lua` + `player_detail/stats_tab.lua` | 概览、属性、合同、统计、生涯、训练 |
+| 战术 | `tactics.lua` | 阵型、首发/替补、打法 |
+| 训练 | `training.lua` | 强度、专项、分组、个人训练、周计划 |
+| 财务 | `finance.lua` | 余额、预算、趋势、流水、设施升级 |
+| 联赛 | `league_view.lua` | 积分榜、赛程、射手榜 |
+| 赛前 | `pre_match.lua` | 阵容确认、战术调整、启动比赛 |
+| 比赛实况 | `match_live.lua` | 事件回放、统计、换人/战术干预体验 |
+| 赛后结果 | `match_result.lua` | 技术统计、评分、事件回放、进入发布会 |
+| 赛后发布会 | `press_conference.lua` | 三类回应，影响士气/声望/董事会 |
+| 收件箱 | `inbox.lua` | 分类筛选、优先级、动作按钮、上下文跳转 |
+| 新闻 | `news.lua` | 新闻列表、分类、关联跳转 |
+| 转会市场 | `market.lua` + `market/loans_tab.lua` | 浏览、出价、条款报价、解约金、租借、自由签、挂牌 |
+| 全球转会中心 | `transfer_hub.lua` | 最新转会、重磅交易、自由球员、活跃传闻 |
+| 职员 | `staff.lua` | 当前职员、可雇佣、雇佣/解约、加成 |
+| 球探 | `scouting.lua` | 任务、搜索、报告 |
+| 青训 | `youth.lua` | 青训名单、候选、提拔 |
+| 球队详情 | `team_detail.lua` | 任意球队概览、阵容、历史、统计 |
+| 经理 | `manager_view.lua` | 经理资料、履历、声望 |
+| 赛季结算 | `season_end.lua` | 排名、奖项、奖金、评价、升降级 |
+| 名人堂 | `hall_of_fame.lua` | 历史冠军、奖项、传奇球员 |
+| 设置 | `settings.lua` | 音量、字号、货币、自动保存 |
+
+### 可复用组件
+
+| 组件 | 文件 | 说明 |
+|------|------|------|
+| 底部抽屉 | `ui/components/bottom_sheet.lua` | 通用底部滑出面板 |
+| 确认对话框 | `ui/components/confirm_dialog.lua` | 是/否确认弹窗 |
+| 覆盖层管理 | `ui/components/overlay_manager.lua` | 全局覆盖层队列 |
+| 球员卡片 | `ui/components/player_card.lua` | 球员信息复用卡 |
+
+---
+
+## 测试状态
+
+已建立无第三方依赖的 Lua assert 测试框架：
+
+| 文件 | 覆盖内容 |
+|------|----------|
+| `tests/bootstrap.lua` | `package.path`、确定性 `Random/RandomInt`、基础全局 stub |
+| `tests/run.lua` | 顺序执行测试文件 |
+| `tests/fixtures/minimal_game_state.lua` | 两队、球员、联赛、fixture 的最小状态 |
+| `tests/tactics_resolver_test.lua` | 战术修正、控球、压迫、强弱队上下文 |
+| `tests/match_report_test.lua` | report 字段、事件排序、统计与评分 |
+| `tests/match_engine_test.lua` | 比赛模拟、结算、积分榜、体能、淘汰赛边界 |
+| `tests/finance_manager_test.lua` | 工资、比赛日收入、财务健康、设施升级 |
+| `tests/contract_manager_test.lua` | 合同提醒、续约、到期释放 |
+| `tests/transfer_manager_test.lua` | 解约金、条款报价、分期、竞争报价、租借 |
+| `tests/press_conference_manager_test.lua` | 发布会选择对士气/声望/消息的影响 |
+
+运行方式：
+
+```powershell
+lua tests/run.lua
+```
+
+说明：本地 Windows 环境如果没有 `lua` 命令，需要在云端或安装 Lua 5.4 后运行。
+
+---
+
+## 对照计划完成度
+
+### FEATURE_GAP_PLAN 进度
+
+| Phase | 内容 | 状态 |
+|-------|------|------|
+| A | 比赛交互增强（赛前确认/换人/战术/半场调整） | 已完成 |
+| B | 谈判系统（多轮转会/自由球员 FSM/合同终止） | 已完成 |
+| C | 赛季结构（升降级/赛季阶段/转会窗） | 已完成 |
+| D | 经济系统增强（财务恢复/阻断器/快进/阵容安全/财务健康） | 已完成 |
+| E | 球员深度（消息决策/个人士气/阵容角色/训练分组/职业历史） | 已完成 |
+| F | 辅助系统（青训球探/设施升级/新闻发布会/货币） | 已完成 |
+
+### REFINED_REBUILD_PLAN 进度
+
+| Phase | 内容 | 状态 |
+|-------|------|------|
+| B1 | 经营闭环基础 | 已完成 |
+| B2 | 世界动态性 | 已完成 |
+| B3 | 赛季完整性 | 已完成 |
+| B4 | 比赛引擎 v2（逐分钟/战术/报告） | 已完成第一版 |
+| U1 | 核心交互循环 UI | 已完成 |
+| U2 | 信息反馈层 UI | 已完成 |
+| U3 | 完整经营界面 UI | 已完成 |
+| U4 | 比赛 UI | 已完成 |
+
+---
+
+## 总体完成度评估
+
+| 维度 | 完成度 | 说明 |
+|------|--------|------|
+| 后端经营系统 | 约 95% | 主经营闭环完整，经纪人系统明确不做 |
+| UI 页面覆盖 | 约 92% | 核心页面齐全，部分页面仍可继续拆分和打磨 |
+| 比赛引擎 | 约 70% | 已有逐分钟模拟、战术解析、报告；真正实时赛中影响仍后置 |
+| 转会深度 | 约 85% | 已有条款、解约金、竞争报价、球员意愿；出场奖金/二转分成触发结算可继续补 |
+| 自动化测试 | 约 45% | 已覆盖核心新模块，仍需补赛季、AI、更多转会边界 |
+| 整体可玩性 | 约 90% | 可完整进行多赛季经营，核心反馈链已闭合 |
+
+---
+
+## 已验证的核心玩法循环
+
+```text
+新游戏 -> 创建经理 -> 选择球队 -> 进入仪表盘
+  -> 查看阵容 / 球员详情 / 战术 / 训练 / 财务 / 职员 / 球探 / 青训
+  -> 管理转会：报价 / 条款 / 租借 / 自由签 / 挂牌 / 续约
+  -> 推进日期
+     -> 比赛日：赛前确认 -> 实况回放 -> 赛后报告 -> 新闻发布会
+     -> 非比赛日：训练、恢复、合同、球探、青训、转会、随机事件
+  -> 赛季结束：排名、奖项、奖金、升降级、历史记录
+  -> 新赛季 / 存档 / 读档
+```
+
+---
+
+## 下一步建议
+
+### 高优先级
+
+1. **补更多测试**：`season_manager`、AI 转会、自由球员 FSM、转会窗口、预签约、设施边界。
+2. **比赛平衡跑批**：统计多场模拟后的平均进球、射门、红黄牌、伤病率、强弱队胜率。
+3. **完善条款触发结算**：出场奖金、二次转会分成的实际付款触发。
+
+### 中优先级
+
+1. **继续拆大文件**：`transfer_manager.lua` 仍可拆出谈判、租借、自由球员、预签约等子模块。
+2. **UI 体验打磨**：动画、过渡、空状态、错误提示、操作确认。
+3. **新闻模板扩展**：增强比赛、转会、发布会、董事会相关叙事。
+
+### 低优先级
+
+1. 更多联赛。
+2. 更多国际/洲际赛事。
+3. 新手教程。
+
+---
+
+## 技术债务
+
+| 问题 | 严重度 | 当前状态 |
+|------|--------|----------|
+| `transfer_manager.lua` 仍偏大 | 中 | 已拆出 `systems/transfers/transfer_completion.lua`，还可继续拆谈判/租借/自由球员 |
+| `player_detail.lua` 偏大 | 中 | 已拆出 `player_detail/stats_tab.lua`，可继续拆 overview/contract/training |
+| `market.lua` 偏大 | 中 | 已拆出 `market/loans_tab.lua`，可继续拆 browse/free/listed/my_bids |
+| `placeholder_engine.lua` 仍保留 | 低 | 当前作为历史实现和兼容 helper，后续可逐步清理 |
+| 测试覆盖仍不完整 | 中 | 已有最小测试框架，但还需要覆盖更多赛季和 AI 边界 |
+
+---
+
+*文档版本: v2.0*
+*创建日期: 2026-05-27*
+*更新日期: 2026-05-27*
 # OpenFoot Manager — 开发进度文档
 
 > 最后更新: 2026-05-27

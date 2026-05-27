@@ -4,6 +4,7 @@
 local EventBus = require("scripts/app/event_bus")
 
 local TransferManager = {}
+require("scripts/systems/transfers/transfer_completion")(TransferManager)
 
 ------------------------------------------------------
 -- 报价管理
@@ -207,7 +208,7 @@ function TransferManager._processAIResponse(gameState, bid)
         return
     end
 
-    local ratio = bid.amount / math.max(player.value, 1)
+    local ratio = TransferManager._getBidEffectiveValue(bid, player) / math.max(player.value, 1)
     local round = bid.currentRound or 0
     local mood = bid.mood or 50
     local maxRounds = bid.maxRounds or 4
@@ -282,6 +283,12 @@ function TransferManager._acceptBid(gameState, bid)
     local player = gameState.players[bid.playerId]
     if not player then return end
 
+    local consent, reason = TransferManager._requirePlayerConsentForTransfer(gameState, bid)
+    if not consent then
+        TransferManager._rejectBid(gameState, bid, reason)
+        return
+    end
+
     -- 完成转会
     TransferManager._completeTransfer(gameState, bid)
 end
@@ -309,16 +316,7 @@ function TransferManager._completeTransfer(gameState, bid)
     if not buyerTeam then return end
 
     -- 从卖方阵容移除
-    if sellerTeam then
-        for i, pid in ipairs(sellerTeam.playerIds) do
-            if pid == player.id then
-                table.remove(sellerTeam.playerIds, i)
-                break
-            end
-        end
-        -- 卖方获得转会费
-        sellerTeam.balance = sellerTeam.balance + bid.amount
-    end
+    TransferManager._removePlayerFromTeam(sellerTeam, player.id)
 
     -- 加入买方阵容
     table.insert(buyerTeam.playerIds, player.id)
@@ -326,29 +324,8 @@ function TransferManager._completeTransfer(gameState, bid)
     player.listedForSale = false
     player.listedForLoan = false
 
-    -- 扣除转会费
-    buyerTeam.balance = buyerTeam.balance - bid.amount
-
-    -- 记录交易
-    local transaction = {
-        type = "transfer_out" ,
-        amount = -bid.amount,
-        description = "引进 " .. player.displayName,
-        date = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day},
-    }
-    if not buyerTeam.transactions then buyerTeam.transactions = {} end
-    table.insert(buyerTeam.transactions, 1, transaction)
-
-    if sellerTeam then
-        local sellTransaction = {
-            type = "transfer_in",
-            amount = bid.amount,
-            description = "出售 " .. player.displayName,
-            date = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day},
-        }
-        if not sellerTeam.transactions then sellerTeam.transactions = {} end
-        table.insert(sellerTeam.transactions, 1, sellTransaction)
-    end
+    TransferManager._settleTransferFee(gameState, buyerTeam, sellerTeam, bid, player)
+    TransferManager._attachFutureClauses(player, bid)
 
     -- 记录历史
     table.insert(gameState.transfers.history, {
@@ -739,6 +716,17 @@ function TransferManager.acceptIncomingBid(gameState, bidId)
     TransferManager._ensureData(gameState)
     for _, bid in ipairs(gameState.transfers.bids) do
         if bid.id == bidId and bid.status == "pending" and bid.isIncomingBid then
+            local consent, reason = TransferManager._requirePlayerConsentForTransfer(gameState, bid)
+            if not consent then
+                bid.status = "rejected"
+                gameState:sendMessage({
+                    category = "transfer",
+                    title = "球员拒绝转会",
+                    body = reason,
+                    priority = "normal",
+                })
+                return false
+            end
             bid.status = "completed"
             bid.responseDate = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day}
             TransferManager._completeIncomingSale(gameState, bid)
@@ -781,27 +769,13 @@ function TransferManager._completeIncomingSale(gameState, bid)
     if not player or not sellerTeam or not buyerTeam then return end
 
     -- 移出卖方球队
-    for i, pid in ipairs(sellerTeam.playerIds) do
-        if pid == player.id then
-            table.remove(sellerTeam.playerIds, i)
-            break
-        end
-    end
-    -- 移出首发
-    if sellerTeam.startingXI then
-        for i, pid in ipairs(sellerTeam.startingXI) do
-            if pid == player.id then
-                table.remove(sellerTeam.startingXI, i)
-                break
-            end
-        end
-    end
+    TransferManager._removePlayerFromTeam(sellerTeam, player.id)
 
-    sellerTeam.balance = sellerTeam.balance + bid.amount
     table.insert(buyerTeam.playerIds, player.id)
     player.teamId = buyerTeam.id
     player.listedForSale = false
-    buyerTeam.balance = buyerTeam.balance - bid.amount
+    TransferManager._settleTransferFee(gameState, buyerTeam, sellerTeam, bid, player)
+    TransferManager._attachFutureClauses(player, bid)
 
     -- 记录转会历史
     table.insert(gameState.transfers.history, {
@@ -1658,59 +1632,34 @@ end
 
 --- 完成推销交易（内部）
 function TransferManager._acceptPushSale(gameState, bid)
-    bid.status = "completed"
     local player = gameState.players[bid.playerId]
     local sellerTeam = gameState.teams[bid.sellerTeamId]
     local buyerTeam = gameState.teams[bid.buyerTeamId]
     if not player or not sellerTeam or not buyerTeam then return end
 
-    -- 从卖方移除
-    for i, pid in ipairs(sellerTeam.playerIds) do
-        if pid == player.id then
-            table.remove(sellerTeam.playerIds, i)
-            break
-        end
-    end
-    if sellerTeam.startingXI then
-        for i, pid in ipairs(sellerTeam.startingXI) do
-            if pid == player.id then
-                table.remove(sellerTeam.startingXI, i)
-                break
-            end
-        end
+    local consent, reason = TransferManager._requirePlayerConsentForTransfer(gameState, bid)
+    if not consent then
+        bid.status = "rejected"
+        gameState:sendMessage({
+            category = "transfer",
+            title = "推销失败",
+            body = reason,
+            priority = "normal",
+        })
+        return
     end
 
-    -- 处理付款（支持分期）
-    local installments = bid.installments
-    if installments and #installments > 0 then
-        -- 分期付款：首付立即到账，余下记录为应收款
-        local firstPay = installments[1].amount
-        sellerTeam.balance = sellerTeam.balance + firstPay
-        buyerTeam.balance = buyerTeam.balance - firstPay
-        -- 后续分期记入应收/应付
-        if not sellerTeam._pendingReceivables then sellerTeam._pendingReceivables = {} end
-        if not buyerTeam._pendingPayables then buyerTeam._pendingPayables = {} end
-        for i = 2, #installments do
-            local inst = installments[i]
-            table.insert(sellerTeam._pendingReceivables, {
-                amount = inst.amount, dueDate = inst.dueDate,
-                fromTeamId = buyerTeam.id, playerId = player.id,
-            })
-            table.insert(buyerTeam._pendingPayables, {
-                amount = inst.amount, dueDate = inst.dueDate,
-                toTeamId = sellerTeam.id, playerId = player.id,
-            })
-        end
-    else
-        -- 一次性付款
-        sellerTeam.balance = sellerTeam.balance + bid.amount
-        buyerTeam.balance = buyerTeam.balance - bid.amount
-    end
+    bid.status = "completed"
+
+    -- 从卖方移除
+    TransferManager._removePlayerFromTeam(sellerTeam, player.id)
+    TransferManager._settleTransferFee(gameState, buyerTeam, sellerTeam, bid, player)
 
     -- 加入买方
     table.insert(buyerTeam.playerIds, player.id)
     player.teamId = buyerTeam.id
     player.listedForSale = false
+    TransferManager._attachFutureClauses(player, bid)
 
     -- 记录
     table.insert(gameState.transfers.history, {
@@ -1889,7 +1838,13 @@ function TransferManager.triggerReleaseClause(gameState, playerId)
     gameState.transfers.nextBidId = gameState.transfers.nextBidId + 1
     table.insert(gameState.transfers.bids, bid)
 
-    -- 但仍需球员同意个人条款（简化：直接完成）
+    local consent, reason = TransferManager._requirePlayerConsentForTransfer(gameState, bid)
+    if not consent then
+        bid.status = "rejected"
+        return nil, reason
+    end
+
+    -- 解约金强制俱乐部接受，但球员仍需同意加盟
     TransferManager._completeTransfer(gameState, bid)
 
     gameState:sendMessage({
@@ -1938,11 +1893,12 @@ function TransferManager.makeBidWithClauses(gameState, playerId, amount, wageOff
         local perInstall = math.floor(amount / numInstall)
         local installList = {}
         for i = 1, numInstall do
+            local totalMonth = gameState.date.month + (i - 1) * 6
             table.insert(installList, {
                 amount = (i == numInstall) and (amount - perInstall * (numInstall - 1)) or perInstall,
                 dueDate = {
-                    year = gameState.date.year + math.floor((i - 1) * 6 / 12),
-                    month = ((gameState.date.month + (i - 1) * 6 - 1) % 12) + 1,
+                    year = gameState.date.year + math.floor((totalMonth - 1) / 12),
+                    month = ((totalMonth - 1) % 12) + 1,
                     day = 1,
                 },
             })
@@ -1986,10 +1942,31 @@ function TransferManager.processInstallments(gameState)
                 if gameState.date.year > due.year or
                    (gameState.date.year == due.year and gameState.date.month >= due.month) then
                     team.balance = team.balance - p.amount
+                    TransferManager._addTransferTransaction(team, -p.amount, "转会分期付款", {
+                        year = gameState.date.year,
+                        month = gameState.date.month,
+                        day = gameState.date.day,
+                    })
                     -- 对方收款
                     local receiver = gameState.teams[p.toTeamId]
                     if receiver then
                         receiver.balance = receiver.balance + p.amount
+                        TransferManager._addTransferTransaction(receiver, p.amount, "转会分期收款", {
+                            year = gameState.date.year,
+                            month = gameState.date.month,
+                            day = gameState.date.day,
+                        })
+                        if receiver._pendingReceivables then
+                            for r = #receiver._pendingReceivables, 1, -1 do
+                                local receivable = receiver._pendingReceivables[r]
+                                if receivable.playerId == p.playerId and
+                                   receivable.fromTeamId == team.id and
+                                   receivable.amount == p.amount then
+                                    table.remove(receiver._pendingReceivables, r)
+                                    break
+                                end
+                            end
+                        end
                     end
                     table.insert(paid, i)
                 end
@@ -2048,8 +2025,8 @@ function TransferManager.processCompetitiveBids(gameState)
                 end)
                 -- 通知竞价失败者
                 for i = 2, #bids do
+                    bids[i].status = "rejected"
                     if bids[i].buyerTeamId == gameState.playerTeamId then
-                        bids[i].status = "rejected"
                         gameState:sendMessage({
                             category = "transfer",
                             title = "竞价失败",
@@ -2058,6 +2035,9 @@ function TransferManager.processCompetitiveBids(gameState)
                             priority = "normal",
                         })
                     end
+                end
+                if bids[1].status == "pending" or bids[1].status == "negotiating" then
+                    TransferManager._acceptBid(gameState, bids[1])
                 end
             end
             ::nextPlayer::
@@ -2445,6 +2425,8 @@ function TransferManager.processDailyBids(gameState)
                     local player = gameState.players[bid.playerId]
                     if player and TransferManager._checkReleaseClause(player, bid.amount) then
                         TransferManager._acceptBid(gameState, bid)
+                    elseif bid.type == "loan" then
+                        TransferManager._processLoanBidResponse(gameState, bid)
                     else
                         TransferManager._processAIResponse(gameState, bid)
                     end
@@ -2468,6 +2450,34 @@ function TransferManager.processDailyBids(gameState)
 
     -- 竞争性报价处理
     TransferManager.processCompetitiveBids(gameState)
+end
+
+function TransferManager._processLoanBidResponse(gameState, bid)
+    local player = gameState.players[bid.playerId]
+    local sellerTeam = gameState.teams[bid.sellerTeamId]
+    if not player or not sellerTeam then
+        bid.status = "rejected"
+        return
+    end
+
+    local consent, reason = TransferManager._requirePlayerConsentForTransfer(gameState, bid)
+    if not consent then
+        TransferManager._rejectBid(gameState, bid, reason)
+        return
+    end
+
+    local acceptChance = 0.35
+    if player.listedForLoan then acceptChance = acceptChance + 0.35 end
+    if player.squadRole == "youth" or player.squadRole == "squad" then acceptChance = acceptChance + 0.15 end
+    if bid.amount >= (player.wage or 0) * (bid.loanDuration or 26) * 0.45 then acceptChance = acceptChance + 0.1 end
+    if player.squadRole == "key" then acceptChance = acceptChance - 0.25 end
+
+    if Random() < math.max(0.1, math.min(0.9, acceptChance)) then
+        TransferManager._completeLoan(gameState, bid)
+    else
+        TransferManager._rejectBid(gameState, bid, string.format("%s 拒绝了租借 %s 的请求。",
+            sellerTeam.name, player.displayName))
+    end
 end
 
 return TransferManager

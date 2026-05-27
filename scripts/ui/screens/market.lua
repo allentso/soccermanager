@@ -7,6 +7,7 @@ local Router = require("scripts/app/router")
 local Constants = require("scripts/app/constants")
 local TransferManager = require("scripts/systems/transfer_manager")
 local FinanceManager = require("scripts/systems/finance_manager")
+local LoansTab = require("scripts/ui/screens/market/loans_tab")
 
 local Market = {}
 
@@ -203,9 +204,12 @@ function Market._buildBrowseContent(gameState, posFilter)
         local p = availablePlayers[i]
         local team = gameState.teams[p.teamId]
         local hasBid = TransferManager.hasPendingBid(gameState, p.id)
+        local releaseClause = TransferManager.getReleaseClause(gameState, p.id)
+        local attitude = TransferManager.getPlayerTransferAttitude(gameState, p.id, gameState.playerTeamId)
+        local competingBids = TransferManager.getCompetingBids(gameState, p.id)
 
         table.insert(children, UI.Panel {
-            width = "100%", height = 56,
+            width = "100%", height = 68,
             flexDirection = "row", alignItems = "center",
             paddingLeft = 12, paddingRight = 12,
             borderBottomWidth = 1, borderColor = Theme.COLORS.BORDER,
@@ -225,6 +229,15 @@ function Market._buildBrowseContent(gameState, posFilter)
                             text = (team and team.shortName or "自由") .. " | " .. p:getAge(gameState.date.year) .. "岁",
                             fontSize = 11, color = Theme.COLORS.TEXT_MUTED, marginTop = 2,
                         },
+                        UI.Label {
+                            text = string.format("%s%s%s",
+                                attitude == "eager" and "想转会" or (attitude == "open" and "愿考虑" or (attitude == "reluctant" and "不情愿" or "拒绝")),
+                                releaseClause and (" | 解约金 " .. Market._formatValue(releaseClause)) or "",
+                                #competingBids > 0 and (" | " .. #competingBids .. "队竞价") or ""),
+                            fontSize = 10,
+                            color = attitude == "refusing" and Theme.COLORS.DANGER or Theme.COLORS.TEXT_MUTED,
+                            marginTop = 2,
+                        },
                     }
                 },
                 UI.Label {
@@ -236,7 +249,7 @@ function Market._buildBrowseContent(gameState, posFilter)
                     fontSize = 11, color = Theme.COLORS.ACCENT, width = 50,
                 },
                 UI.Button {
-                    text = hasBid and "已报" or "出价",
+                    text = hasBid and "已报" or (releaseClause and "解约" or "条款"),
                     width = 46, height = 26,
                     backgroundColor = hasBid and Theme.COLORS.TEXT_MUTED or Theme.COLORS.PRIMARY,
                     borderRadius = 4,
@@ -244,9 +257,16 @@ function Market._buildBrowseContent(gameState, posFilter)
                     color = Theme.COLORS.TEXT_PRIMARY,
                     onClick = function()
                         if not hasBid then
-                            -- 报价（默认按身价 * 1.1 出价）
-                            local offerAmount = math.floor(p.value * 1.1)
-                            TransferManager.makeBid(gameState, p.id, offerAmount)
+                            if releaseClause then
+                                TransferManager.triggerReleaseClause(gameState, p.id)
+                            else
+                                local offerAmount = math.floor(p.value * 1.05)
+                                TransferManager.makeBidWithClauses(gameState, p.id, offerAmount, p.wage, {
+                                    installments = 2,
+                                    appearanceBonus = { count = 20, amount = math.floor(p.value * 0.08) },
+                                    sellOnPercent = 10,
+                                })
+                            end
                             Router.replaceWith("market", { tab = "browse", posFilter = posFilter })
                         end
                     end,
@@ -964,99 +984,7 @@ end
 
 -- 租借市场（当前租借 + 发起租借）
 function Market._buildLoansContent(gameState)
-    local children = {}
-
-    -- 我的活跃租借
-    local loans = TransferManager.getActiveLoans(gameState)
-    local myLoansIn = {}   -- 租入
-    local myLoansOut = {}  -- 租出
-    local teamId = gameState.playerTeamId
-
-    for _, loan in ipairs(loans) do
-        if loan.toTeamId == teamId then
-            table.insert(myLoansIn, loan)
-        elseif loan.fromTeamId == teamId then
-            table.insert(myLoansOut, loan)
-        end
-    end
-
-    -- 租入球员
-    table.insert(children, UI.Panel {
-        width = "100%", paddingLeft = 12, paddingRight = 12, paddingTop = 10,
-        children = { UI.Label { text = "租入球员 (" .. tostring(#myLoansIn) .. ")", fontSize = 14, fontWeight = "bold", color = Theme.COLORS.TEXT_PRIMARY } }
-    })
-    if #myLoansIn == 0 then
-        table.insert(children, UI.Panel {
-            width = "100%", height = 50, alignItems = "center", justifyContent = "center",
-            children = { UI.Label { text = "暂无租入球员", fontSize = 12, color = Theme.COLORS.TEXT_MUTED } }
-        })
-    else
-        for _, loan in ipairs(myLoansIn) do
-            local player = gameState.players[loan.playerId]
-            local fromTeam = gameState.teams[loan.fromTeamId]
-            table.insert(children, UI.Panel {
-                width = "100%", height = 52, flexDirection = "row", alignItems = "center",
-                paddingLeft = 12, paddingRight = 12,
-                borderBottomWidth = 1, borderColor = Theme.COLORS.BORDER,
-                children = {
-                    UI.Label { text = player and (Constants.POSITION_NAMES[player.position] or player.position) or "?", fontSize = 11, color = Theme.COLORS.TEXT_MUTED, width = 36 },
-                    UI.Panel { flexGrow = 1,
-                        children = {
-                            UI.Label { text = player and player.displayName or "?", fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY },
-                            UI.Label { text = "来自 " .. (fromTeam and fromTeam.shortName or "?") .. " | 剩余 " .. tostring(loan.remainingWeeks or "?") .. " 周", fontSize = 10, color = Theme.COLORS.TEXT_MUTED, marginTop = 2 },
-                        }
-                    },
-                    UI.Label { text = tostring(player and player.overall or "?"), fontSize = 13, color = Theme.COLORS.SECONDARY, width = 28, fontWeight = "bold" },
-                }
-            })
-        end
-    end
-
-    -- 租出球员
-    table.insert(children, UI.Panel {
-        width = "100%", paddingLeft = 12, paddingRight = 12, paddingTop = 14,
-        children = { UI.Label { text = "租出球员 (" .. tostring(#myLoansOut) .. ")", fontSize = 14, fontWeight = "bold", color = Theme.COLORS.TEXT_PRIMARY } }
-    })
-    if #myLoansOut == 0 then
-        table.insert(children, UI.Panel {
-            width = "100%", height = 50, alignItems = "center", justifyContent = "center",
-            children = { UI.Label { text = "暂无租出球员", fontSize = 12, color = Theme.COLORS.TEXT_MUTED } }
-        })
-    else
-        for _, loan in ipairs(myLoansOut) do
-            local player = gameState.players[loan.playerId]
-            local toTeam = gameState.teams[loan.toTeamId]
-            table.insert(children, UI.Panel {
-                width = "100%", height = 52, flexDirection = "row", alignItems = "center",
-                paddingLeft = 12, paddingRight = 12,
-                borderBottomWidth = 1, borderColor = Theme.COLORS.BORDER,
-                children = {
-                    UI.Label { text = player and (Constants.POSITION_NAMES[player.position] or player.position) or "?", fontSize = 11, color = Theme.COLORS.TEXT_MUTED, width = 36 },
-                    UI.Panel { flexGrow = 1,
-                        children = {
-                            UI.Label { text = player and player.displayName or "?", fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY },
-                            UI.Label { text = "租借到 " .. (toTeam and toTeam.shortName or "?") .. " | 剩余 " .. tostring(loan.remainingWeeks or "?") .. " 周", fontSize = 10, color = Theme.COLORS.TEXT_MUTED, marginTop = 2 },
-                        }
-                    },
-                    UI.Label { text = tostring(player and player.overall or "?"), fontSize = 13, color = Theme.COLORS.ACCENT, width = 28, fontWeight = "bold" },
-                }
-            })
-        end
-    end
-
-    -- 分隔
-    table.insert(children, UI.Panel { width = "100%", height = 16 })
-
-    -- 可租借球员（浏览其他队的球员发起租借）
-    table.insert(children, UI.Panel {
-        width = "100%", paddingLeft = 12, paddingRight = 12, paddingBottom = 6,
-        children = {
-            UI.Label { text = "发起租借", fontSize = 14, fontWeight = "bold", color = Theme.COLORS.TEXT_PRIMARY },
-            UI.Label { text = "在浏览页面找到心仪球员，长按可选择租借", fontSize = 11, color = Theme.COLORS.TEXT_MUTED, marginTop = 4 },
-        }
-    })
-
-    return children
+    return LoansTab.build(gameState)
 end
 
 -- 格式化金额

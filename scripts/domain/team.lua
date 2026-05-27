@@ -36,6 +36,7 @@ function Team.new(data)
     self.seasonIncome = data.seasonIncome or 0
     self.seasonExpense = data.seasonExpense or 0
     self.transactions = data.transactions or {}
+    self.facilities = data.facilities or { training = 1, medical = 1, scouting = 1 }
 
     -- 人员
     self.managerId = data.managerId or nil
@@ -141,6 +142,7 @@ function Team:serialize()
         seasonIncome = self.seasonIncome,
         seasonExpense = self.seasonExpense,
         transactions = self.transactions,
+        facilities = self.facilities,
         managerId = self.managerId,
         playerIds = self.playerIds,
         staffIds = self.staffIds,

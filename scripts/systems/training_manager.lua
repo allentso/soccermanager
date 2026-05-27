@@ -3,6 +3,7 @@
 
 local Constants = require("scripts/app/constants")
 local EventBus = require("scripts/app/event_bus")
+local FinanceManager = require("scripts/systems/finance_manager")
 
 local TrainingManager = {}
 
@@ -88,11 +89,12 @@ function TrainingManager.processDaily(gameState)
 
     -- 计算职员加成
     local staffBonus = TrainingManager._calcStaffBonus(gameState, team)
+    local facilityBonus = FinanceManager.getFacilityBonuses(team).trainingGain
 
     for _, pid in ipairs(team.playerIds) do
         local p = gameState.players[pid]
         if p and not p.injured then
-            TrainingManager._trainPlayer(gameState, team, p, intensityConfig, staffBonus)
+            TrainingManager._trainPlayer(gameState, team, p, intensityConfig, staffBonus * facilityBonus)
         end
     end
 end

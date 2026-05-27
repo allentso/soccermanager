@@ -62,6 +62,7 @@ function Player.new(data)
     self.contractEnd = data.contractEnd or nil  -- {year, month}
     self.wage = data.wage or 1000
     self.value = data.value or 100000
+    self.releaseClause = data.releaseClause or nil
 
     -- 球队归属
     self.teamId = data.teamId or nil
@@ -320,6 +321,7 @@ function Player:serialize()
         contractEnd = self.contractEnd,
         wage = self.wage,
         value = self.value,
+        releaseClause = self.releaseClause,
         teamId = self.teamId,
         squadRole = self.squadRole,
         careerHistory = self.careerHistory,

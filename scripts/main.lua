@@ -37,6 +37,7 @@ local HallOfFame = require("scripts/ui/screens/hall_of_fame")
 local TransferHub = require("scripts/ui/screens/transfer_hub")
 local PreMatch = require("scripts/ui/screens/pre_match")
 local MatchLive = require("scripts/ui/screens/match_live")
+local PressConference = require("scripts/ui/screens/press_conference")
 
 -- 全局覆盖层管理（注入 UI.ShowOverlay / UI.CloseOverlay）
 require("scripts/ui/components/overlay_manager")
@@ -114,6 +115,7 @@ function RegisterScreens()
     Router.register("transfer_hub", function(params) return TransferHub.create(params) end)
     Router.register("pre_match", function(params) return PreMatch.create(params) end)
     Router.register("match_live", function(params) return MatchLive.create(params) end)
+    Router.register("press_conference", function(params) return PressConference.create(params) end)
 end
 
 ------------------------------------------------------

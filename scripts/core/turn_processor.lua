@@ -362,6 +362,8 @@ function TurnProcessor.processNonMatchDay(gameState)
 
     -- B3: 租借到期检查（每天）
     TransferManager.processLoanExpiry(gameState)
+    -- B3/P3: 预签约到期后自动生效
+    TransferManager.processPreContracts(gameState)
 
     -- B2: 球探任务每日推进
     ScoutManager.processDaily(gameState)
@@ -401,6 +403,8 @@ function TurnProcessor.processNonMatchDay(gameState)
         TurnProcessor.generateMonthlyNews(gameState)
         -- 月度赞助收入
         FinanceManager.processMonthlySponsorship(gameState)
+        -- P3: 转会分期付款/收款
+        TransferManager.processInstallments(gameState)
         -- B2: 董事会月度评估（15号改为1号简化）
         BoardManager.monthlyEvaluation(gameState)
         -- B2: 声望自然回归
@@ -467,7 +471,13 @@ end
 function TurnProcessor.processInjuryRecovery(gameState)
     for _, p in pairs(gameState.players) do
         if p.injured and p.injuryDays > 0 then
-            p.injuryDays = p.injuryDays - 1
+            local team = p.teamId and gameState.teams[p.teamId]
+            local recovery = 1
+            if team and p.teamId == gameState.playerTeamId then
+                local bonuses = FinanceManager.getFacilityBonuses(team)
+                recovery = bonuses.injuryRecovery >= 1.25 and 2 or 1
+            end
+            p.injuryDays = p.injuryDays - recovery
             if p.injuryDays <= 0 then
                 p.injured = false
                 p.injuryDays = 0
@@ -521,6 +531,7 @@ function TurnProcessor.processWeekly(gameState)
             if team.trainingIntensity == "low" then injuryChance = 0.005
             elseif team.trainingIntensity == "high" then injuryChance = 0.03
             end
+                injuryChance = injuryChance / FinanceManager.getFacilityBonuses(team).injuryRecovery
 
             for _, pid in ipairs(team.playerIds) do
                 local p = gameState.players[pid]

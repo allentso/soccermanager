@@ -26,4 +26,11 @@ home.balance = wageTotal
 status = FinanceManager.getFinanceHealth(gameState, home.id)
 assert(status == "critical", "short runway should be critical")
 
+home.balance = 1000000
+local oldLevel = FinanceManager.ensureFacilities(home).training
+local ok = FinanceManager.upgradeFacility(gameState, "training")
+assert(ok == true, "facility upgrade should succeed with enough balance")
+assert(FinanceManager.ensureFacilities(home).training == oldLevel + 1, "training facility should level up")
+assert(FinanceManager.getFacilityBonuses(home).trainingGain > 1.0, "facility should improve training gain")
+
 return true

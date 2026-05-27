@@ -351,6 +351,85 @@ function FinanceManager.getHealthLabel(status)
 end
 
 ------------------------------------------------------
+-- 设施升级系统
+------------------------------------------------------
+
+FinanceManager.FACILITY_TYPES = {
+    training = { name = "训练设施", baseCost = 250000, maxLevel = 5 },
+    medical = { name = "医疗设施", baseCost = 220000, maxLevel = 5 },
+    scouting = { name = "球探设施", baseCost = 180000, maxLevel = 5 },
+}
+
+function FinanceManager.ensureFacilities(team)
+    if not team.facilities then
+        team.facilities = {
+            training = 1,
+            medical = 1,
+            scouting = 1,
+        }
+    end
+    return team.facilities
+end
+
+function FinanceManager.getFacilityUpgradeCost(team, facilityType)
+    local config = FinanceManager.FACILITY_TYPES[facilityType]
+    if not config then return nil end
+    local facilities = FinanceManager.ensureFacilities(team)
+    local level = facilities[facilityType] or 1
+    if level >= config.maxLevel then return nil end
+    return math.floor(config.baseCost * (1.65 ^ (level - 1)) / 1000) * 1000
+end
+
+function FinanceManager.getFacilityBonuses(team)
+    local facilities = FinanceManager.ensureFacilities(team)
+    return {
+        trainingGain = 1.0 + ((facilities.training or 1) - 1) * 0.08,
+        injuryRecovery = 1.0 + ((facilities.medical or 1) - 1) * 0.1,
+        scoutingAccuracy = 1.0 + ((facilities.scouting or 1) - 1) * 0.08,
+    }
+end
+
+function FinanceManager.upgradeFacility(gameState, facilityType)
+    local team = gameState:getPlayerTeam()
+    if not team then return false, "无法获取球队" end
+    local config = FinanceManager.FACILITY_TYPES[facilityType]
+    if not config then return false, "未知设施类型" end
+
+    local facilities = FinanceManager.ensureFacilities(team)
+    local currentLevel = facilities[facilityType] or 1
+    if currentLevel >= config.maxLevel then
+        return false, config.name .. "已达到最高等级"
+    end
+
+    local cost = FinanceManager.getFacilityUpgradeCost(team, facilityType)
+    if not cost or team.balance < cost then
+        return false, "资金不足，升级需要 " .. FinanceManager.formatMoney(cost or 0)
+    end
+
+    team.balance = team.balance - cost
+    team.seasonExpense = (team.seasonExpense or 0) + cost
+    facilities[facilityType] = currentLevel + 1
+
+    FinanceManager.addTransaction(team, {
+        amount = -cost,
+        description = config.name .. "升级至 Lv." .. facilities[facilityType],
+        category = "facility",
+        season = gameState.season,
+        week = FinanceManager._getWeekNumber(gameState),
+    })
+
+    gameState:sendMessage({
+        category = "finance",
+        title = "设施升级完成",
+        body = string.format("%s 已升级至 Lv.%d，长期经营加成已生效。",
+            config.name, facilities[facilityType]),
+        priority = "normal",
+    })
+
+    return true, string.format("%s 已升级至 Lv.%d", config.name, facilities[facilityType])
+end
+
+------------------------------------------------------
 -- 财务恢复手段
 ------------------------------------------------------
 

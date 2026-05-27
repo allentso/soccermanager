@@ -10,7 +10,7 @@ local FinanceManager = require("scripts/systems/finance_manager")
 local Finance = {}
 
 -- 状态持久化
-local _activeTab = "overview"  -- overview | transactions
+local _activeTab = "overview"  -- overview | facilities | transactions
 local _txFilter = "ALL"        -- ALL | income | expense | transfer | wage
 
 ------------------------------------------------------
@@ -41,6 +41,8 @@ function Finance.create(params)
     local content
     if _activeTab == "transactions" then
         content = Finance._buildTransactions(team, gameState)
+    elseif _activeTab == "facilities" then
+        content = Finance._buildFacilities(team, gameState)
     else
         content = Finance._buildOverview(team, gameState)
     end
@@ -94,6 +96,7 @@ end
 function Finance._buildTabBar()
     local tabs = {
         { key = "overview", label = "财务概览" },
+        { key = "facilities", label = "设施" },
         { key = "transactions", label = "收支流水" },
     }
     local tabBtns = {}
@@ -398,6 +401,67 @@ function Finance._buildOverview(team, gameState)
                 }
             },
         }
+    }
+end
+
+------------------------------------------------------
+-- 设施标签
+------------------------------------------------------
+function Finance._buildFacilities(team, gameState)
+    local facilities = FinanceManager.ensureFacilities(team)
+    local bonuses = FinanceManager.getFacilityBonuses(team)
+    local rows = {}
+
+    local defs = {
+        { key = "training", label = "训练设施", desc = "提升每日训练属性成长", bonus = string.format("训练收益 x%.2f", bonuses.trainingGain) },
+        { key = "medical", label = "医疗设施", desc = "提升伤病恢复和长期健康管理", bonus = string.format("恢复效率 x%.2f", bonuses.injuryRecovery) },
+        { key = "scouting", label = "球探设施", desc = "提升球探报告准确度和发现质量", bonus = string.format("球探准确 x%.2f", bonuses.scoutingAccuracy) },
+    }
+
+    for _, def in ipairs(defs) do
+        local level = facilities[def.key] or 1
+        local cost = FinanceManager.getFacilityUpgradeCost(team, def.key)
+        table.insert(rows, Theme.Card {
+            children = {
+                UI.Panel {
+                    flexDirection = "row",
+                    alignItems = "center",
+                    children = {
+                        UI.Panel {
+                            flexGrow = 1,
+                            children = {
+                                UI.Label { text = def.label .. " Lv." .. level, fontSize = 15, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold" },
+                                UI.Label { text = def.desc, fontSize = 11, color = Theme.COLORS.TEXT_MUTED, marginTop = 3 },
+                                UI.Label { text = def.bonus, fontSize = 11, color = Theme.COLORS.SECONDARY, marginTop = 5 },
+                            }
+                        },
+                        UI.Button {
+                            text = cost and ("升级 " .. Finance._formatMoney(cost)) or "已满级",
+                            width = 110,
+                            height = 34,
+                            backgroundColor = cost and Theme.COLORS.PRIMARY or Theme.COLORS.TEXT_MUTED,
+                            borderRadius = 8,
+                            fontSize = 11,
+                            color = Theme.COLORS.TEXT_PRIMARY,
+                            onClick = function()
+                                if cost then
+                                    FinanceManager.upgradeFacility(gameState, def.key)
+                                    Router.replaceWith("finance", { tab = "facilities" })
+                                end
+                            end,
+                        },
+                    }
+                }
+            }
+        })
+    end
+
+    return UI.ScrollView {
+        flexGrow = 1,
+        flexBasis = 0,
+        scrollY = true,
+        padding = 14,
+        children = rows,
     }
 end
 
