@@ -1,0 +1,679 @@
+-- ui/screens/match_result.lua
+-- 赛后报告页面（增强版）- MOTM/进球回顾/统计对比/球员评分
+
+local UI = require("urhox-libs/UI")
+local Theme = require("scripts/ui/theme")
+local Router = require("scripts/app/router")
+local Constants = require("scripts/app/constants")
+
+local MatchResult = {}
+
+function MatchResult.create(params)
+    local gameState = _G.gameState
+    local report = params and params.report
+    local fixture = params and params.fixture
+    if not gameState or not report then
+        return UI.Panel {
+            width = "100%", height = "100%",
+            backgroundColor = Theme.COLORS.BG_DARK,
+            justifyContent = "center", alignItems = "center",
+            children = {
+                UI.Label { text = "无比赛数据", color = Theme.COLORS.TEXT_SECONDARY },
+                UI.Button {
+                    text = "返回", marginTop = 16, width = 100, height = 36,
+                    backgroundColor = Theme.COLORS.PRIMARY, borderRadius = 8,
+                    color = Theme.COLORS.TEXT_PRIMARY, fontSize = 14,
+                    onClick = function() Router.navigate("dashboard") end
+                }
+            }
+        }
+    end
+
+    local homeTeam = gameState.teams[report.homeTeamId]
+    local awayTeam = gameState.teams[report.awayTeamId]
+    local homeName = homeTeam and homeTeam.name or "主队"
+    local awayName = awayTeam and awayTeam.name or "客队"
+    local isPlayerHome = report.homeTeamId == gameState.playerTeamId
+    local playerWon = (isPlayerHome and report.homeGoals > report.awayGoals) or
+                      (not isPlayerHome and report.awayGoals > report.homeGoals)
+    local isDraw = report.homeGoals == report.awayGoals
+
+    -- 结果
+    local resultColor = isDraw and Theme.COLORS.WARNING or (playerWon and Theme.COLORS.SECONDARY or Theme.COLORS.DANGER)
+    local resultText = isDraw and "平局" or (playerWon and "胜利!" or "失败")
+
+    -- MOTM（全场最佳）
+    local motmSection = MatchResult._buildMOTM(report, gameState)
+
+    -- 进球回顾
+    local goalsSection = MatchResult._buildGoalsReview(report, gameState, homeName, awayName)
+
+    -- 比赛事件时间线
+    local eventsSection = MatchResult._buildEventsTimeline(report, gameState)
+
+    -- 统计对比
+    local statsSection = MatchResult._buildStatsComparison(report, homeName, awayName)
+
+    -- 球员评分
+    local ratingsSection = MatchResult._buildPlayerRatings(report, gameState)
+
+    return UI.Panel {
+        width = "100%",
+        height = "100%",
+        backgroundColor = Theme.COLORS.BG_DARK,
+        children = {
+            -- 顶部栏
+            UI.Panel {
+                width = "100%",
+                height = 44,
+                flexDirection = "row",
+                alignItems = "center",
+                paddingLeft = 14,
+                paddingRight = 14,
+                backgroundColor = Theme.COLORS.BG_HEADER,
+                children = {
+                    UI.Button {
+                        text = "返回",
+                        width = 50, height = 30,
+                        backgroundColor = Theme.COLORS.TRANSPARENT,
+                        fontSize = 13,
+                        color = Theme.COLORS.TEXT_SECONDARY,
+                        onClick = function() Router.back() end,
+                    },
+                    UI.Label {
+                        text = "赛后报告",
+                        fontSize = 16,
+                        fontWeight = "bold",
+                        color = Theme.COLORS.TEXT_PRIMARY,
+                        flexGrow = 1,
+                        textAlign = "center",
+                    },
+                    UI.Button {
+                        text = "继续",
+                        width = 50, height = 30,
+                        backgroundColor = Theme.COLORS.SECONDARY,
+                        borderRadius = 6,
+                        fontSize = 13,
+                        color = Theme.COLORS.TEXT_PRIMARY,
+                        onClick = function() Router.navigate("dashboard") end,
+                    },
+                }
+            },
+
+            -- 比分卡
+            UI.Panel {
+                width = "100%",
+                paddingTop = 14,
+                paddingBottom = 14,
+                backgroundColor = Theme.COLORS.BG_CARD,
+                alignItems = "center",
+                children = {
+                    UI.Label {
+                        text = resultText,
+                        fontSize = 13,
+                        fontWeight = "bold",
+                        color = resultColor,
+                        marginBottom = 6,
+                    },
+                    UI.Panel {
+                        flexDirection = "row",
+                        alignItems = "center",
+                        children = {
+                            UI.Label {
+                                text = homeName,
+                                fontSize = 14,
+                                color = isPlayerHome and Theme.COLORS.ACCENT or Theme.COLORS.TEXT_PRIMARY,
+                                width = 100,
+                                textAlign = "right",
+                                fontWeight = isPlayerHome and "bold" or "normal",
+                            },
+                            UI.Label {
+                                text = string.format("  %d - %d  ", report.homeGoals, report.awayGoals),
+                                fontSize = 28,
+                                fontWeight = "bold",
+                                color = Theme.COLORS.TEXT_PRIMARY,
+                            },
+                            UI.Label {
+                                text = awayName,
+                                fontSize = 14,
+                                color = (not isPlayerHome) and Theme.COLORS.ACCENT or Theme.COLORS.TEXT_PRIMARY,
+                                width = 100,
+                                fontWeight = (not isPlayerHome) and "bold" or "normal",
+                            },
+                        }
+                    },
+                }
+            },
+
+            -- 可滚动内容区
+            UI.ScrollView {
+                flexGrow = 1,
+                flexBasis = 0,
+                scrollY = true,
+                padding = 14,
+                children = {
+                    motmSection,
+                    goalsSection,
+                    statsSection,
+                    eventsSection,
+                    ratingsSection,
+                }
+            },
+        }
+    }
+end
+
+---------------------------------------------------------------------------
+-- MOTM（全场最佳）
+---------------------------------------------------------------------------
+function MatchResult._buildMOTM(report, gameState)
+    if not report.playerRatings then return nil end
+
+    -- 找评分最高的球员
+    local bestId = nil
+    local bestRating = 0
+    for pid, rating in pairs(report.playerRatings) do
+        if rating > bestRating then
+            bestRating = rating
+            bestId = pid
+        end
+    end
+
+    if not bestId then return nil end
+    local player = gameState.players[bestId]
+    if not player then return nil end
+
+    -- 统计该球员本场数据
+    local goals, assists = 0, 0
+    for _, evt in ipairs(report.events) do
+        if evt.type == "goal" then
+            if evt.playerId == bestId then goals = goals + 1 end
+            if evt.assistPlayerId == bestId then assists = assists + 1 end
+        end
+    end
+
+    local team = gameState.teams[player.teamId]
+    local teamName = team and team.name or ""
+
+    local perfText = ""
+    if goals > 0 and assists > 0 then
+        perfText = string.format("%d 球 %d 助攻", goals, assists)
+    elseif goals > 0 then
+        perfText = string.format("%d 球", goals)
+    elseif assists > 0 then
+        perfText = string.format("%d 助攻", assists)
+    else
+        perfText = "出色表现"
+    end
+
+    return Theme.Card {
+        children = {
+            UI.Panel {
+                width = "100%",
+                flexDirection = "row",
+                alignItems = "center",
+                children = {
+                    -- 星标
+                    UI.Panel {
+                        width = 44,
+                        height = 44,
+                        borderRadius = 22,
+                        backgroundColor = {255, 215, 0, 40},
+                        justifyContent = "center",
+                        alignItems = "center",
+                        marginRight = 12,
+                        children = {
+                            UI.Label {
+                                text = "★",
+                                fontSize = 22,
+                                color = {255, 215, 0, 255},
+                            },
+                        }
+                    },
+                    -- 信息
+                    UI.Panel {
+                        flexGrow = 1,
+                        children = {
+                            UI.Label {
+                                text = "全场最佳",
+                                fontSize = 11,
+                                color = {255, 215, 0, 255},
+                                fontWeight = "bold",
+                            },
+                            UI.Label {
+                                text = player.displayName,
+                                fontSize = 15,
+                                color = Theme.COLORS.TEXT_PRIMARY,
+                                fontWeight = "bold",
+                            },
+                            UI.Label {
+                                text = teamName .. " · " .. (Constants.POSITION_NAMES[player.position] or player.position) .. " · " .. perfText,
+                                fontSize = 11,
+                                color = Theme.COLORS.TEXT_SECONDARY,
+                            },
+                        }
+                    },
+                    -- 评分
+                    UI.Panel {
+                        width = 40,
+                        height = 40,
+                        borderRadius = 8,
+                        backgroundColor = Theme.COLORS.SECONDARY,
+                        justifyContent = "center",
+                        alignItems = "center",
+                        children = {
+                            UI.Label {
+                                text = string.format("%.1f", bestRating),
+                                fontSize = 14,
+                                color = Theme.COLORS.TEXT_PRIMARY,
+                                fontWeight = "bold",
+                            },
+                        }
+                    },
+                }
+            },
+        }
+    }
+end
+
+---------------------------------------------------------------------------
+-- 进球回顾
+---------------------------------------------------------------------------
+function MatchResult._buildGoalsReview(report, gameState, homeName, awayName)
+    local goalEvents = {}
+    for _, evt in ipairs(report.events) do
+        if evt.type == "goal" then
+            table.insert(goalEvents, evt)
+        end
+    end
+
+    if #goalEvents == 0 then
+        return Theme.Card {
+            children = {
+                Theme.Subtitle { text = "进球回顾" },
+                UI.Label {
+                    text = "本场比赛没有进球 (0-0)",
+                    fontSize = 12,
+                    color = Theme.COLORS.TEXT_MUTED,
+                },
+            }
+        }
+    end
+
+    -- 按时间排序
+    table.sort(goalEvents, function(a, b) return a.minute < b.minute end)
+
+    local rows = {}
+    for _, evt in ipairs(goalEvents) do
+        local scorer = gameState.players[evt.playerId]
+        local scorerName = scorer and scorer.displayName or "?"
+        local isHome = evt.teamId == report.homeTeamId
+        local teamLabel = isHome and homeName or awayName
+
+        local assistText = ""
+        if evt.assistPlayerId then
+            local assister = gameState.players[evt.assistPlayerId]
+            assistText = assister and ("助攻: " .. assister.displayName) or ""
+        end
+
+        table.insert(rows, UI.Panel {
+            width = "100%",
+            flexDirection = "row",
+            alignItems = "center",
+            paddingTop = 6,
+            paddingBottom = 6,
+            borderBottomWidth = 1,
+            borderColor = Theme.COLORS.BORDER,
+            children = {
+                UI.Label {
+                    text = string.format("%d'", evt.minute),
+                    fontSize = 12,
+                    color = Theme.COLORS.TEXT_MUTED,
+                    width = 32,
+                },
+                UI.Label {
+                    text = "⚽",
+                    fontSize = 14,
+                    width = 22,
+                },
+                UI.Panel {
+                    flexGrow = 1,
+                    children = {
+                        UI.Label {
+                            text = scorerName,
+                            fontSize = 13,
+                            color = Theme.COLORS.TEXT_PRIMARY,
+                            fontWeight = "bold",
+                        },
+                        UI.Label {
+                            text = (assistText ~= "" and assistText or teamLabel),
+                            fontSize = 11,
+                            color = Theme.COLORS.TEXT_MUTED,
+                        },
+                    }
+                },
+                UI.Label {
+                    text = isHome and "主" or "客",
+                    fontSize = 10,
+                    color = isHome and Theme.COLORS.PRIMARY or Theme.COLORS.ACCENT,
+                    backgroundColor = isHome and {33, 150, 243, 30} or {255, 153, 0, 30},
+                    borderRadius = 4,
+                    paddingLeft = 6,
+                    paddingRight = 6,
+                    paddingTop = 2,
+                    paddingBottom = 2,
+                },
+            }
+        })
+    end
+
+    return Theme.Card {
+        children = {
+            Theme.Subtitle { text = "进球回顾 (" .. #goalEvents .. ")" },
+            UI.Panel { width = "100%", marginTop = 4, children = rows },
+        }
+    }
+end
+
+---------------------------------------------------------------------------
+-- 统计对比（带可视化条）
+---------------------------------------------------------------------------
+function MatchResult._buildStatsComparison(report, homeName, awayName)
+    local stats = report.stats or {}
+    local items = {
+        { "控球率", stats.homePossession or 50, stats.awayPossession or 50, "%" },
+        { "射门",   stats.homeShots or 0,       stats.awayShots or 0,       "" },
+        { "射正",   stats.homeShotsOnTarget or 0, stats.awayShotsOnTarget or 0, "" },
+        { "犯规",   stats.homeFouls or 0,       stats.awayFouls or 0,       "" },
+        { "角球",   stats.homeCorners or 0,     stats.awayCorners or 0,     "" },
+    }
+
+    local rows = {}
+    for _, item in ipairs(items) do
+        local label, hVal, aVal, suffix = item[1], item[2], item[3], item[4]
+        local total = hVal + aVal
+        local hPct = total > 0 and math.floor(hVal / total * 100) or 50
+
+        table.insert(rows, UI.Panel {
+            width = "100%",
+            marginBottom = 10,
+            children = {
+                -- 数值行
+                UI.Panel {
+                    width = "100%",
+                    flexDirection = "row",
+                    marginBottom = 3,
+                    children = {
+                        UI.Label {
+                            text = tostring(hVal) .. suffix,
+                            fontSize = 13,
+                            color = Theme.COLORS.TEXT_PRIMARY,
+                            fontWeight = "bold",
+                            width = 44,
+                        },
+                        UI.Label {
+                            text = label,
+                            fontSize = 11,
+                            color = Theme.COLORS.TEXT_MUTED,
+                            flexGrow = 1,
+                            textAlign = "center",
+                        },
+                        UI.Label {
+                            text = tostring(aVal) .. suffix,
+                            fontSize = 13,
+                            color = Theme.COLORS.TEXT_PRIMARY,
+                            fontWeight = "bold",
+                            width = 44,
+                            textAlign = "right",
+                        },
+                    }
+                },
+                -- 对比条
+                UI.Panel {
+                    width = "100%",
+                    height = 6,
+                    flexDirection = "row",
+                    borderRadius = 3,
+                    children = {
+                        UI.Panel {
+                            width = tostring(hPct) .. "%",
+                            height = 6,
+                            backgroundColor = Theme.COLORS.PRIMARY,
+                            borderTopLeftRadius = 3,
+                            borderBottomLeftRadius = 3,
+                        },
+                        UI.Panel {
+                            width = tostring(100 - hPct) .. "%",
+                            height = 6,
+                            backgroundColor = Theme.COLORS.ACCENT,
+                            borderTopRightRadius = 3,
+                            borderBottomRightRadius = 3,
+                        },
+                    }
+                },
+            }
+        })
+    end
+
+    return Theme.Card {
+        children = {
+            -- 标题行
+            UI.Panel {
+                width = "100%",
+                flexDirection = "row",
+                marginBottom = 8,
+                children = {
+                    UI.Label { text = homeName, fontSize = 11, color = Theme.COLORS.PRIMARY, width = 60 },
+                    UI.Label { text = "比赛统计", fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY, flexGrow = 1, textAlign = "center", fontWeight = "bold" },
+                    UI.Label { text = awayName, fontSize = 11, color = Theme.COLORS.ACCENT, width = 60, textAlign = "right" },
+                },
+            },
+            UI.Panel { width = "100%", children = rows },
+        }
+    }
+end
+
+---------------------------------------------------------------------------
+-- 事件时间线
+---------------------------------------------------------------------------
+function MatchResult._buildEventsTimeline(report, gameState)
+    local events = report.events or {}
+    if #events == 0 then
+        return Theme.Card {
+            children = {
+                Theme.Subtitle { text = "比赛事件" },
+                UI.Label { text = "本场比赛风平浪静", fontSize = 12, color = Theme.COLORS.TEXT_MUTED },
+            }
+        }
+    end
+
+    local rows = {}
+    for _, evt in ipairs(events) do
+        local player = gameState.players[evt.playerId]
+        local pName = player and player.displayName or "未知"
+        local icon, text, evtColor = "", "", Theme.COLORS.TEXT_PRIMARY
+        local isHome = evt.teamId == report.homeTeamId
+
+        if evt.type == "goal" then
+            icon = "⚽"
+            local assistText = ""
+            if evt.assistPlayerId then
+                local assister = gameState.players[evt.assistPlayerId]
+                assistText = assister and (" (" .. assister.displayName .. ")") or ""
+            end
+            text = pName .. assistText
+            evtColor = Theme.COLORS.SECONDARY
+        elseif evt.type == "yellow_card" then
+            icon = "🟨"
+            text = pName
+            evtColor = Theme.COLORS.WARNING
+        elseif evt.type == "red_card" then
+            icon = "🟥"
+            text = pName
+            evtColor = Theme.COLORS.DANGER
+        elseif evt.type == "injury" then
+            icon = "🏥"
+            text = pName .. string.format(" (伤%d天)", evt.injuryDays or 0)
+            evtColor = Theme.COLORS.DANGER
+        end
+
+        if icon ~= "" then
+            table.insert(rows, UI.Panel {
+                width = "100%",
+                flexDirection = "row",
+                alignItems = "center",
+                paddingTop = 4,
+                paddingBottom = 4,
+                borderBottomWidth = 1,
+                borderColor = Theme.COLORS.BORDER,
+                children = {
+                    UI.Label {
+                        text = string.format("%d'", evt.minute),
+                        fontSize = 11,
+                        color = Theme.COLORS.TEXT_MUTED,
+                        width = 30,
+                    },
+                    UI.Label {
+                        text = icon,
+                        fontSize = 13,
+                        width = 20,
+                    },
+                    UI.Label {
+                        text = text,
+                        fontSize = 12,
+                        color = evtColor,
+                        flexGrow = 1,
+                        flexShrink = 1,
+                    },
+                    UI.Label {
+                        text = isHome and "主" or "客",
+                        fontSize = 10,
+                        color = Theme.COLORS.TEXT_MUTED,
+                        width = 20,
+                    },
+                }
+            })
+        end
+    end
+
+    return Theme.Card {
+        children = {
+            Theme.Subtitle { text = "比赛事件 (" .. #rows .. ")" },
+            UI.Panel { width = "100%", marginTop = 4, children = rows },
+        }
+    }
+end
+
+---------------------------------------------------------------------------
+-- 球员评分
+---------------------------------------------------------------------------
+function MatchResult._buildPlayerRatings(report, gameState)
+    if not report.playerRatings then return nil end
+
+    local playerTeam = gameState:getPlayerTeam()
+    if not playerTeam then return nil end
+
+    local ratedPlayers = {}
+    -- 收集玩家球队出场球员的评分
+    for pid, rating in pairs(report.playerRatings) do
+        local p = gameState.players[pid]
+        if p and p.teamId == gameState.playerTeamId then
+            table.insert(ratedPlayers, { player = p, rating = rating })
+        end
+    end
+
+    if #ratedPlayers == 0 then return nil end
+
+    -- 按评分排序
+    table.sort(ratedPlayers, function(a, b) return a.rating > b.rating end)
+
+    local rows = {}
+    for _, entry in ipairs(ratedPlayers) do
+        local p = entry.player
+        local rating = entry.rating
+
+        local ratingColor = Theme.COLORS.TEXT_SECONDARY
+        if rating >= 8.0 then ratingColor = Theme.COLORS.SECONDARY
+        elseif rating >= 7.0 then ratingColor = Theme.COLORS.ACCENT
+        elseif rating < 5.5 then ratingColor = Theme.COLORS.DANGER
+        elseif rating < 6.5 then ratingColor = Theme.COLORS.WARNING
+        end
+
+        -- 获取该球员本场数据
+        local goals, assists, cards = 0, 0, ""
+        for _, evt in ipairs(report.events) do
+            if evt.type == "goal" then
+                if evt.playerId == p.id then goals = goals + 1 end
+                if evt.assistPlayerId == p.id then assists = assists + 1 end
+            elseif evt.type == "yellow_card" and evt.playerId == p.id then
+                cards = "🟨"
+            elseif evt.type == "red_card" and evt.playerId == p.id then
+                cards = "🟥"
+            end
+        end
+
+        local perfText = ""
+        if goals > 0 then perfText = perfText .. "⚽×" .. goals .. " " end
+        if assists > 0 then perfText = perfText .. "🅰×" .. assists .. " " end
+        perfText = perfText .. cards
+
+        table.insert(rows, UI.Panel {
+            width = "100%",
+            height = 40,
+            flexDirection = "row",
+            alignItems = "center",
+            paddingLeft = 6,
+            paddingRight = 6,
+            borderBottomWidth = 1,
+            borderColor = Theme.COLORS.BORDER,
+            children = {
+                -- 位置
+                UI.Label {
+                    text = Constants.POSITION_NAMES[p.position] or p.position,
+                    fontSize = 10,
+                    color = Theme.COLORS.TEXT_MUTED,
+                    width = 36,
+                },
+                -- 姓名
+                UI.Label {
+                    text = p.displayName,
+                    fontSize = 12,
+                    color = Theme.COLORS.TEXT_PRIMARY,
+                    flexGrow = 1,
+                },
+                -- 表现标签
+                UI.Label {
+                    text = perfText,
+                    fontSize = 11,
+                    width = 60,
+                },
+                -- 评分
+                UI.Panel {
+                    width = 32,
+                    height = 22,
+                    borderRadius = 4,
+                    backgroundColor = ratingColor,
+                    justifyContent = "center",
+                    alignItems = "center",
+                    children = {
+                        UI.Label {
+                            text = string.format("%.1f", rating),
+                            fontSize = 11,
+                            color = Theme.COLORS.TEXT_PRIMARY,
+                            fontWeight = "bold",
+                        },
+                    }
+                },
+            }
+        })
+    end
+
+    return Theme.Card {
+        children = {
+            Theme.Subtitle { text = "我方球员评分" },
+            UI.Panel { width = "100%", marginTop = 4, children = rows },
+        }
+    }
+end
+
+return MatchResult

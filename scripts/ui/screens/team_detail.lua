@@ -1,0 +1,514 @@
+--- 球队详情页 - 可查看任意球队（概览/阵容/历史/统计）
+local UI = require("urhox-libs/UI")
+local Router = require("scripts/app/router")
+local Theme = require("scripts/ui/theme")
+local Constants = require("scripts/app/constants")
+
+local COLORS = Theme.COLORS
+
+local TeamDetail = {}
+
+-- 模块级状态：当前标签页
+local _activeTab = "overview"
+
+------------------------------------------------------------
+-- 辅助函数
+------------------------------------------------------------
+
+local function posColor(pos)
+    if pos == "GK" then return {255, 204, 0, 255}
+    elseif pos == "CB" or pos == "LB" or pos == "RB" then return {77, 179, 255, 255}
+    elseif pos == "ST" or pos == "CF" or pos == "LW" or pos == "RW" then return {255, 102, 102, 255}
+    else return {102, 255, 128, 255} end
+end
+
+local function posGroup(pos)
+    for grp, positions in pairs(Constants.POSITION_GROUPS) do
+        for _, p in ipairs(positions) do
+            if p == pos then return grp end
+        end
+    end
+    return "MID"
+end
+
+local function formBadge(result)
+    local color
+    if result == "W" then color = COLORS.SECONDARY
+    elseif result == "D" then color = COLORS.WARNING
+    else color = COLORS.DANGER end
+    return UI.Panel {
+        width = 22, height = 22, borderRadius = 11,
+        backgroundColor = color,
+        justifyContent = "center", alignItems = "center",
+        marginRight = 4,
+        children = { UI.Label { text = result, fontSize = 11, fontWeight = "bold", color = COLORS.TEXT_PRIMARY } }
+    }
+end
+
+------------------------------------------------------------
+-- 概览标签
+------------------------------------------------------------
+
+local function buildOverviewTab(team, gameState, teamId)
+    local children = {}
+
+    -- 身份卡
+    local identityRows = {
+        { "城市", team.city or "未知" },
+        { "国家", team.country or "未知" },
+        { "成立", team.foundedYear and tostring(team.foundedYear) or "未知" },
+        { "球场", (team.stadiumName or "未知") .. " (" .. tostring(team.stadiumCapacity or 0) .. "人)" },
+        { "声望", tostring(team.reputation or 0) },
+        { "阵型", team.formation or "4-4-2" },
+        { "风格", team:getPlayStyleName() },
+    }
+    local identityChildren = {}
+    for _, row in ipairs(identityRows) do
+        table.insert(identityChildren, UI.Panel {
+            width = "100%", flexDirection = "row", justifyContent = "space-between",
+            paddingVertical = 4,
+            children = {
+                UI.Label { text = row[1], fontSize = 12, color = COLORS.TEXT_SECONDARY },
+                UI.Label { text = row[2], fontSize = 12, color = COLORS.TEXT_PRIMARY, fontWeight = "bold" },
+            }
+        })
+    end
+    table.insert(children, Theme.Card { children = {
+        Theme.Subtitle { text = "俱乐部信息" },
+        table.unpack(identityChildren)
+    }})
+
+    -- 联赛排名
+    local league, leagueKey = gameState:getTeamLeague(teamId)
+    if league then
+        local pos = league:getTeamPosition(teamId)
+        local standing = league.standings[teamId]
+        if standing then
+            table.insert(children, Theme.Card { children = {
+                Theme.Subtitle { text = "联赛排名 — " .. (league.name or leagueKey) },
+                UI.Panel { width = "100%", flexDirection = "row", justifyContent = "space-around", marginTop = 8, children = {
+                    Theme.StatPill { label = "排名", value = "#" .. tostring(pos) },
+                    Theme.StatPill { label = "场次", value = tostring(standing.played) },
+                    Theme.StatPill { label = "积分", value = tostring(standing.points), valueColor = COLORS.PRIMARY },
+                }},
+                UI.Panel { width = "100%", flexDirection = "row", justifyContent = "space-around", marginTop = 6, children = {
+                    Theme.StatPill { label = "胜", value = tostring(standing.wins), valueColor = COLORS.SECONDARY },
+                    Theme.StatPill { label = "平", value = tostring(standing.draws), valueColor = COLORS.WARNING },
+                    Theme.StatPill { label = "负", value = tostring(standing.losses), valueColor = COLORS.DANGER },
+                    Theme.StatPill { label = "净胜球", value = tostring(standing.goalDifference) },
+                }},
+            }})
+        end
+    end
+
+    -- 近期状态
+    local form = team.recentForm
+    if form and #form > 0 then
+        local badges = {}
+        local start = math.max(1, #form - 7)
+        for i = start, #form do
+            table.insert(badges, formBadge(form[i]))
+        end
+        table.insert(children, Theme.Card { children = {
+            Theme.Subtitle { text = "近期状态" },
+            UI.Panel { width = "100%", flexDirection = "row", marginTop = 6, children = badges },
+        }})
+    end
+
+    -- 财务概览
+    table.insert(children, Theme.Card { children = {
+        Theme.Subtitle { text = "财务概况" },
+        UI.Panel { width = "100%", flexDirection = "row", justifyContent = "space-around", marginTop = 8, children = {
+            Theme.StatPill { label = "余额", value = string.format("%.1fM", (team.balance or 0) / 1000000) },
+            Theme.StatPill { label = "工资预算", value = string.format("%.0fK/周", (team.wageBudget or 0) / 1000) },
+            Theme.StatPill { label = "转会预算", value = string.format("%.1fM", (team.transferBudget or 0) / 1000000) },
+        }},
+    }})
+
+    return children
+end
+
+------------------------------------------------------------
+-- 阵容标签
+------------------------------------------------------------
+
+local function buildSquadTab(team, gameState, teamId)
+    local players = gameState:getTeamPlayers(teamId)
+    if #players == 0 then
+        return { Theme.Card { children = { UI.Label { text = "暂无球员数据", fontSize = 13, color = COLORS.TEXT_MUTED } } } }
+    end
+
+    -- 按位置分组排序
+    local groupOrder = { GK = 1, DEF = 2, MID = 3, FWD = 4 }
+    table.sort(players, function(a, b)
+        local ga = groupOrder[posGroup(a.position)] or 5
+        local gb = groupOrder[posGroup(b.position)] or 5
+        if ga ~= gb then return ga < gb end
+        return (a.overall or 0) > (b.overall or 0)
+    end)
+
+    local rows = {}
+
+    -- 表头
+    table.insert(rows, UI.Panel {
+        width = "100%", height = 32, flexDirection = "row", alignItems = "center",
+        paddingHorizontal = 10, backgroundColor = COLORS.BG_HEADER,
+        children = {
+            UI.Label { text = "位置", width = 36, fontSize = 10, color = COLORS.TEXT_MUTED },
+            UI.Label { text = "姓名", flex = 1, fontSize = 10, color = COLORS.TEXT_MUTED },
+            UI.Label { text = "年龄", width = 34, fontSize = 10, color = COLORS.TEXT_MUTED, textAlign = "center" },
+            UI.Label { text = "能力", width = 34, fontSize = 10, color = COLORS.TEXT_MUTED, textAlign = "center" },
+        }
+    })
+
+    for _, p in ipairs(players) do
+        local isPlayerTeam = (teamId == gameState.playerTeamId)
+        table.insert(rows, UI.Panel {
+            width = "100%", height = 44, flexDirection = "row", alignItems = "center",
+            paddingHorizontal = 10,
+            borderBottomWidth = 1, borderColor = COLORS.BORDER,
+            onClick = isPlayerTeam and function()
+                Router.navigate("player_detail", { playerId = p.id })
+            end or nil,
+            children = {
+                UI.Panel {
+                    width = 30, height = 20, borderRadius = 3,
+                    backgroundColor = posColor(p.position),
+                    justifyContent = "center", alignItems = "center",
+                    children = { UI.Label { text = p.position or "?", fontSize = 9, fontWeight = "bold", color = {30,30,30,255} } }
+                },
+                UI.Label { text = p.name or "未知", flex = 1, fontSize = 12, color = COLORS.TEXT_PRIMARY, marginLeft = 8 },
+                UI.Label { text = tostring(p.age or "?"), width = 34, fontSize = 12, color = COLORS.TEXT_SECONDARY, textAlign = "center" },
+                UI.Label { text = tostring(p.overall or "?"), width = 34, fontSize = 12, fontWeight = "bold", color = COLORS.TEXT_PRIMARY, textAlign = "center" },
+            }
+        })
+    end
+
+    -- 统计栏
+    local gkCount, defCount, midCount, fwdCount = 0, 0, 0, 0
+    for _, p in ipairs(players) do
+        local g = posGroup(p.position)
+        if g == "GK" then gkCount = gkCount + 1
+        elseif g == "DEF" then defCount = defCount + 1
+        elseif g == "MID" then midCount = midCount + 1
+        else fwdCount = fwdCount + 1 end
+    end
+
+    local summary = UI.Panel {
+        width = "100%", flexDirection = "row", justifyContent = "space-around",
+        paddingVertical = 8, marginBottom = 4,
+        children = {
+            Theme.StatPill { label = "总人数", value = tostring(#players) },
+            Theme.StatPill { label = "门将", value = tostring(gkCount) },
+            Theme.StatPill { label = "后卫", value = tostring(defCount) },
+            Theme.StatPill { label = "中场", value = tostring(midCount) },
+            Theme.StatPill { label = "前锋", value = tostring(fwdCount) },
+        }
+    }
+
+    return { summary, Theme.Card { children = rows } }
+end
+
+------------------------------------------------------------
+-- 历史标签
+------------------------------------------------------------
+
+local function buildHistoryTab(team, gameState, teamId)
+    local children = {}
+
+    -- 赛季历史记录
+    local history = team.history
+    if history and #history > 0 then
+        local histRows = {}
+        for i = #history, math.max(1, #history - 9), -1 do
+            local h = history[i]
+            if h then
+                table.insert(histRows, UI.Panel {
+                    width = "100%", flexDirection = "row", justifyContent = "space-between",
+                    paddingVertical = 6, borderBottomWidth = 1, borderColor = COLORS.BORDER,
+                    children = {
+                        UI.Label { text = h.season or ("第" .. tostring(i) .. "赛季"), fontSize = 12, color = COLORS.TEXT_PRIMARY },
+                        UI.Label { text = h.result or h.position or "", fontSize = 12, color = COLORS.TEXT_SECONDARY },
+                    }
+                })
+            end
+        end
+        if #histRows > 0 then
+            table.insert(children, Theme.Card { children = {
+                Theme.Subtitle { text = "赛季历史（近10季）" },
+                table.unpack(histRows)
+            }})
+        end
+    else
+        table.insert(children, Theme.Card { children = {
+            UI.Label { text = "暂无历史记录", fontSize = 13, color = COLORS.TEXT_MUTED }
+        }})
+    end
+
+    -- 本赛季已完成比赛
+    local league, _ = gameState:getTeamLeague(teamId)
+    if league and league.fixtures then
+        local finishedMatches = {}
+        for _, fixture in ipairs(league.fixtures) do
+            if fixture.status == "finished" and (fixture.homeTeamId == teamId or fixture.awayTeamId == teamId) then
+                table.insert(finishedMatches, fixture)
+            end
+        end
+        -- 取最近10场
+        local startIdx = math.max(1, #finishedMatches - 9)
+        local matchRows = {}
+        for i = #finishedMatches, startIdx, -1 do
+            local f = finishedMatches[i]
+            local isHome = (f.homeTeamId == teamId)
+            local oppId = isHome and f.awayTeamId or f.homeTeamId
+            local oppTeam = gameState.teams[oppId]
+            local oppName = oppTeam and oppTeam.shortName or "???"
+            local score = tostring(f.homeGoals or 0) .. " - " .. tostring(f.awayGoals or 0)
+            local venue = isHome and "主" or "客"
+
+            -- 结果颜色
+            local resultColor = COLORS.WARNING
+            local myGoals = isHome and f.homeGoals or f.awayGoals
+            local theirGoals = isHome and f.awayGoals or f.homeGoals
+            if myGoals > theirGoals then resultColor = COLORS.SECONDARY
+            elseif myGoals < theirGoals then resultColor = COLORS.DANGER end
+
+            table.insert(matchRows, UI.Panel {
+                width = "100%", height = 36, flexDirection = "row", alignItems = "center",
+                paddingHorizontal = 8, borderBottomWidth = 1, borderColor = COLORS.BORDER,
+                children = {
+                    UI.Label { text = "R" .. tostring(f.round or "?"), width = 30, fontSize = 10, color = COLORS.TEXT_MUTED },
+                    UI.Label { text = venue, width = 20, fontSize = 10, color = COLORS.TEXT_MUTED, textAlign = "center" },
+                    UI.Label { text = oppName, flex = 1, fontSize = 12, color = COLORS.TEXT_PRIMARY, marginLeft = 6 },
+                    UI.Label { text = score, width = 50, fontSize = 12, fontWeight = "bold", color = resultColor, textAlign = "center" },
+                }
+            })
+        end
+        if #matchRows > 0 then
+            table.insert(children, Theme.Card { children = {
+                Theme.Subtitle { text = "本赛季比赛（近10场）" },
+                table.unpack(matchRows)
+            }})
+        end
+    end
+
+    return children
+end
+
+------------------------------------------------------------
+-- 统计标签
+------------------------------------------------------------
+
+local function buildStatsTab(team, gameState, teamId)
+    local players = gameState:getTeamPlayers(teamId)
+    local children = {}
+
+    -- 球队平均能力
+    local totalOvr, totalAge = 0, 0
+    for _, p in ipairs(players) do
+        totalOvr = totalOvr + (p.overall or 0)
+        totalAge = totalAge + (p.age or 0)
+    end
+    local n = math.max(1, #players)
+    table.insert(children, Theme.Card { children = {
+        Theme.Subtitle { text = "球队概况" },
+        UI.Panel { width = "100%", flexDirection = "row", justifyContent = "space-around", marginTop = 8, children = {
+            Theme.StatPill { label = "平均能力", value = string.format("%.1f", totalOvr / n), valueColor = COLORS.PRIMARY },
+            Theme.StatPill { label = "平均年龄", value = string.format("%.1f", totalAge / n) },
+            Theme.StatPill { label = "阵容人数", value = tostring(#players) },
+        }},
+    }})
+
+    -- Top 5 球员
+    local sorted = {}
+    for _, p in ipairs(players) do table.insert(sorted, p) end
+    table.sort(sorted, function(a, b) return (a.overall or 0) > (b.overall or 0) end)
+    local topRows = {}
+    for i = 1, math.min(5, #sorted) do
+        local p = sorted[i]
+        table.insert(topRows, UI.Panel {
+            width = "100%", height = 36, flexDirection = "row", alignItems = "center",
+            paddingHorizontal = 8, borderBottomWidth = 1, borderColor = COLORS.BORDER,
+            children = {
+                UI.Label { text = tostring(i), width = 20, fontSize = 11, color = COLORS.TEXT_MUTED },
+                UI.Panel {
+                    width = 28, height = 18, borderRadius = 3,
+                    backgroundColor = posColor(p.position),
+                    justifyContent = "center", alignItems = "center",
+                    children = { UI.Label { text = p.position or "?", fontSize = 8, fontWeight = "bold", color = {30,30,30,255} } }
+                },
+                UI.Label { text = p.name or "?", flex = 1, fontSize = 12, color = COLORS.TEXT_PRIMARY, marginLeft = 6 },
+                UI.Label { text = tostring(p.overall or "?"), width = 34, fontSize = 12, fontWeight = "bold", color = COLORS.PRIMARY, textAlign = "center" },
+            }
+        })
+    end
+    if #topRows > 0 then
+        table.insert(children, Theme.Card { children = {
+            Theme.Subtitle { text = "最强阵容 Top5" },
+            table.unpack(topRows)
+        }})
+    end
+
+    -- 位置分布图（简单条形）
+    local groupCounts = { GK = 0, DEF = 0, MID = 0, FWD = 0 }
+    for _, p in ipairs(players) do
+        local g = posGroup(p.position)
+        groupCounts[g] = (groupCounts[g] or 0) + 1
+    end
+    local maxCount = math.max(groupCounts.GK, groupCounts.DEF, groupCounts.MID, groupCounts.FWD, 1)
+    local distRows = {}
+    local groupNames = { { "GK", "门将", {255,204,0,255} }, { "DEF", "后卫", {77,179,255,255} }, { "MID", "中场", {102,255,128,255} }, { "FWD", "前锋", {255,102,102,255} } }
+    for _, gd in ipairs(groupNames) do
+        local count = groupCounts[gd[1]] or 0
+        local pct = math.floor(count / maxCount * 100)
+        table.insert(distRows, UI.Panel {
+            width = "100%", flexDirection = "row", alignItems = "center", marginTop = 4,
+            children = {
+                UI.Label { text = gd[2], width = 36, fontSize = 11, color = COLORS.TEXT_SECONDARY },
+                UI.Panel { flex = 1, height = 14, borderRadius = 3, backgroundColor = COLORS.BG_HEADER, children = {
+                    UI.Panel { width = tostring(pct) .. "%", height = 14, borderRadius = 3, backgroundColor = gd[3] }
+                }},
+                UI.Label { text = tostring(count), width = 24, fontSize = 11, color = COLORS.TEXT_PRIMARY, textAlign = "right", marginLeft = 6 },
+            }
+        })
+    end
+    table.insert(children, Theme.Card { children = {
+        Theme.Subtitle { text = "位置分布" },
+        table.unpack(distRows)
+    }})
+
+    -- 年龄分布
+    local ageBuckets = { young = 0, prime = 0, senior = 0 }
+    for _, p in ipairs(players) do
+        local age = p.age or 25
+        if age <= 22 then ageBuckets.young = ageBuckets.young + 1
+        elseif age <= 29 then ageBuckets.prime = ageBuckets.prime + 1
+        else ageBuckets.senior = ageBuckets.senior + 1 end
+    end
+    table.insert(children, Theme.Card { children = {
+        Theme.Subtitle { text = "年龄结构" },
+        UI.Panel { width = "100%", flexDirection = "row", justifyContent = "space-around", marginTop = 8, children = {
+            Theme.StatPill { label = "青年(≤22)", value = tostring(ageBuckets.young), valueColor = COLORS.SECONDARY },
+            Theme.StatPill { label = "当打(23-29)", value = tostring(ageBuckets.prime), valueColor = COLORS.PRIMARY },
+            Theme.StatPill { label = "老将(30+)", value = tostring(ageBuckets.senior), valueColor = COLORS.DANGER },
+        }},
+    }})
+
+    return children
+end
+
+------------------------------------------------------------
+-- 主入口
+------------------------------------------------------------
+
+function TeamDetail.create(params)
+    local gameState = _G.gameState
+    if not gameState then
+        return UI.Panel { width = "100%", height = "100%", children = {} }
+    end
+
+    local teamId = params and params.teamId
+    if not teamId then
+        return UI.Panel { width = "100%", height = "100%", children = {
+            UI.Label { text = "缺少球队ID", fontSize = 14, color = COLORS.DANGER }
+        }}
+    end
+
+    local team = gameState.teams[teamId]
+    if not team then
+        return UI.Panel { width = "100%", height = "100%", children = {
+            UI.Label { text = "球队不存在", fontSize = 14, color = COLORS.DANGER }
+        }}
+    end
+
+    -- 标签页定义
+    local tabs = {
+        { key = "overview", label = "概览" },
+        { key = "squad",    label = "阵容" },
+        { key = "history",  label = "历史" },
+        { key = "stats",    label = "统计" },
+    }
+
+    -- 构建标签页内容
+    local tabContent
+    if _activeTab == "overview" then
+        tabContent = buildOverviewTab(team, gameState, teamId)
+    elseif _activeTab == "squad" then
+        tabContent = buildSquadTab(team, gameState, teamId)
+    elseif _activeTab == "history" then
+        tabContent = buildHistoryTab(team, gameState, teamId)
+    elseif _activeTab == "stats" then
+        tabContent = buildStatsTab(team, gameState, teamId)
+    else
+        tabContent = buildOverviewTab(team, gameState, teamId)
+    end
+
+    -- 标签栏
+    local tabItems = {}
+    for _, t in ipairs(tabs) do
+        table.insert(tabItems, { key = t.key, label = t.label })
+    end
+
+    -- 使用 Theme.SubNav 风格的自定义标签栏
+    local tabButtons = {}
+    for _, t in ipairs(tabs) do
+        local isActive = (_activeTab == t.key)
+        table.insert(tabButtons, UI.Panel {
+            flex = 1, height = 38, justifyContent = "center", alignItems = "center",
+            borderBottomWidth = isActive and 2 or 0,
+            borderColor = isActive and COLORS.PRIMARY or COLORS.TRANSPARENT,
+            onClick = function()
+                _activeTab = t.key
+                Router.replaceWith("team_detail", params)
+            end,
+            children = {
+                UI.Label {
+                    text = t.label, fontSize = 13,
+                    fontWeight = isActive and "bold" or "normal",
+                    color = isActive and COLORS.PRIMARY or COLORS.TEXT_SECONDARY,
+                }
+            }
+        })
+    end
+
+    local tabBar = UI.Panel {
+        width = "100%", height = 38, flexDirection = "row",
+        backgroundColor = COLORS.BG_HEADER,
+        borderBottomWidth = 1, borderColor = COLORS.BORDER,
+        children = tabButtons,
+    }
+
+    -- 判断是否是玩家自己的球队
+    local isOwnTeam = (teamId == gameState.playerTeamId)
+    local teamLabel = team.name or "球队"
+    if isOwnTeam then teamLabel = teamLabel .. " (我的球队)" end
+
+    return UI.Panel {
+        width = "100%", height = "100%", backgroundColor = COLORS.BG_DARK,
+        children = {
+            -- 顶部栏
+            Theme.TopBar { children = {
+                UI.Panel {
+                    width = 60, height = 32, justifyContent = "center",
+                    onClick = function() Router.back() end,
+                    children = { UI.Label { text = "← 返回", fontSize = 12, color = COLORS.TEXT_SECONDARY } }
+                },
+                UI.Label { text = teamLabel, fontSize = 15, fontWeight = "bold", color = COLORS.TEXT_PRIMARY, flex = 1, textAlign = "center" },
+                UI.Panel { width = 60 },  -- spacer for centering
+            }},
+            -- 标签栏
+            tabBar,
+            -- 内容区
+            UI.ScrollView {
+                width = "100%", flex = 1,
+                children = {
+                    UI.Panel {
+                        width = "100%", padding = 12, children = tabContent,
+                    }
+                }
+            },
+        }
+    }
+end
+
+return TeamDetail

@@ -1,0 +1,259 @@
+-- systems/contract_manager.lua
+-- 合同系统：到期检测、续约谈判、工资预算校验、提醒、自由球员释放
+
+local EventBus = require("scripts/app/event_bus")
+local Constants = require("scripts/app/constants")
+
+local ContractManager = {}
+
+------------------------------------------------------
+-- 每日处理：检查合同到期警告
+------------------------------------------------------
+function ContractManager.processDaily(gameState)
+    local team = gameState:getPlayerTeam()
+    if not team then return end
+
+    -- 每月1号检查一次合同到期情况
+    if gameState.date.day ~= 1 then return end
+
+    for _, pid in ipairs(team.playerIds) do
+        local p = gameState.players[pid]
+        if p and p.contractEnd then
+            local monthsLeft = ContractManager._monthsUntilExpiry(gameState, p)
+
+            -- 6个月内到期：提醒
+            if monthsLeft <= 6 and monthsLeft > 3 then
+                if not p._contractWarned6 then
+                    p._contractWarned6 = true
+                    gameState:sendMessage({
+                        category = "contract",
+                        title = "合同即将到期",
+                        body = string.format("%s 的合同将在 %d 个月后到期。请考虑续约。",
+                            p.displayName, monthsLeft),
+                        priority = "normal",
+                    })
+                end
+            -- 3个月内到期：紧急提醒
+            elseif monthsLeft <= 3 and monthsLeft > 0 then
+                if not p._contractWarned3 then
+                    p._contractWarned3 = true
+                    gameState:sendMessage({
+                        category = "contract",
+                        title = "合同紧急警告",
+                        body = string.format(
+                            "%s 的合同仅剩 %d 个月！如不续约，球员将成为自由球员离队。",
+                            p.displayName, monthsLeft),
+                        priority = "high",
+                    })
+                end
+            end
+        end
+    end
+end
+
+------------------------------------------------------
+-- 赛季结束：处理所有到期合同
+------------------------------------------------------
+function ContractManager.processSeasonEnd(gameState)
+    -- 释放所有合同到期球员
+    for teamId, team in pairs(gameState.teams) do
+        local toRemove = {}
+        for _, pid in ipairs(team.playerIds) do
+            local p = gameState.players[pid]
+            if p and p.contractEnd then
+                if ContractManager._isExpired(gameState, p) then
+                    table.insert(toRemove, pid)
+                end
+            end
+        end
+
+        -- 释放球员
+        for _, pid in ipairs(toRemove) do
+            local p = gameState.players[pid]
+            ContractManager._releasePlayer(gameState, team, p)
+        end
+    end
+end
+
+------------------------------------------------------
+-- 续约接口（UI 调用）
+------------------------------------------------------
+function ContractManager.renewContract(gameState, playerId, newWage, newYears)
+    local player = gameState.players[playerId]
+    if not player then return false, "球员不存在" end
+
+    local team = gameState.teams[player.teamId]
+    if not team then return false, "球员无所属球队" end
+
+    -- 校验工资预算
+    local FinanceManager = require("scripts/systems/finance_manager")
+    local wageIncrease = newWage - (player.wage or 0)
+    if wageIncrease > 0 and not FinanceManager.withinWageBudget(gameState, team.id, wageIncrease) then
+        return false, "超出工资预算"
+    end
+
+    -- 球员接受意愿（基于能力/年龄/当前工资/球队声望）
+    local acceptChance = ContractManager._calcAcceptChance(player, team, newWage, newYears)
+    if Random() > acceptChance then
+        -- 拒绝续约
+        gameState:sendMessage({
+            category = "contract",
+            title = "续约被拒",
+            body = string.format("%s 拒绝了续约提议（周薪 %s，%d年）。球员希望获得更高薪水或寻求新挑战。",
+                player.displayName,
+                FinanceManager.formatMoney(newWage),
+                newYears),
+            priority = "normal",
+        })
+        return false, "球员拒绝续约"
+    end
+
+    -- 续约成功
+    local currentYear = gameState.date.year
+    local currentMonth = gameState.date.month
+    player.contractEnd = {
+        year = currentYear + newYears,
+        month = currentMonth,
+    }
+    player.wage = newWage
+
+    -- 清除警告标记
+    player._contractWarned6 = nil
+    player._contractWarned3 = nil
+
+    gameState:sendMessage({
+        category = "contract",
+        title = "续约成功",
+        body = string.format("%s 同意续约！新合同: 周薪 %s，%d 年（至 %d年%d月）。",
+            player.displayName,
+            FinanceManager.formatMoney(newWage),
+            newYears,
+            player.contractEnd.year,
+            player.contractEnd.month),
+        priority = "normal",
+    })
+
+    return true
+end
+
+------------------------------------------------------
+-- 获取续约建议参数
+------------------------------------------------------
+function ContractManager.getSuggestedTerms(player, team)
+    -- 建议工资：基于当前工资和球员能力
+    local baseWage = player.wage or 5000
+    local abilityFactor = (player.overall or 50) / 70
+    local suggestedWage = math.floor(baseWage * abilityFactor * 1.1)  -- 涨薪10%
+    suggestedWage = math.max(suggestedWage, 1000)
+
+    -- 建议年限：基于年龄
+    local age = (player.birthYear and (2024 - player.birthYear)) or 25
+    local suggestedYears = 3
+    if age >= 33 then suggestedYears = 1
+    elseif age >= 30 then suggestedYears = 2
+    elseif age <= 22 then suggestedYears = 4
+    end
+
+    return {
+        wage = suggestedWage,
+        years = suggestedYears,
+        minWage = math.floor(baseWage * 0.9),
+        maxWage = math.floor(baseWage * 2.0),
+    }
+end
+
+------------------------------------------------------
+-- 内部函数
+------------------------------------------------------
+
+-- 计算合同剩余月数
+function ContractManager._monthsUntilExpiry(gameState, player)
+    if not player.contractEnd then return 99 end
+    local endYear = player.contractEnd.year or 2025
+    local endMonth = player.contractEnd.month or 6
+
+    local currentYear = gameState.date.year
+    local currentMonth = gameState.date.month
+
+    return (endYear - currentYear) * 12 + (endMonth - currentMonth)
+end
+
+-- 是否已过期
+function ContractManager._isExpired(gameState, player)
+    return ContractManager._monthsUntilExpiry(gameState, player) <= 0
+end
+
+-- 释放球员
+function ContractManager._releasePlayer(gameState, team, player)
+    -- 从球队中移除
+    local newPlayerIds = {}
+    for _, pid in ipairs(team.playerIds) do
+        if pid ~= player.id then
+            table.insert(newPlayerIds, pid)
+        end
+    end
+    team.playerIds = newPlayerIds
+
+    -- 从首发中移除
+    if team.startingXI then
+        local newXI = {}
+        for _, pid in ipairs(team.startingXI) do
+            if pid ~= player.id then
+                table.insert(newXI, pid)
+            end
+        end
+        team.startingXI = newXI
+    end
+
+    -- 标记球员无队
+    player.teamId = nil
+
+    -- 消息通知（仅玩家球队）
+    if team.id == gameState.playerTeamId then
+        gameState:sendMessage({
+            category = "contract",
+            title = "球员离队",
+            body = string.format("%s 合同到期，已成为自由球员离开球队。",
+                player.displayName),
+            priority = "high",
+        })
+    end
+end
+
+-- 计算球员接受续约的概率
+function ContractManager._calcAcceptChance(player, team, offeredWage, offeredYears)
+    local chance = 0.5
+
+    -- 薪资涨幅影响
+    local currentWage = player.wage or 5000
+    local wageRatio = offeredWage / currentWage
+    if wageRatio >= 1.5 then chance = chance + 0.3
+    elseif wageRatio >= 1.2 then chance = chance + 0.2
+    elseif wageRatio >= 1.0 then chance = chance + 0.1
+    elseif wageRatio >= 0.8 then chance = chance - 0.1
+    else chance = chance - 0.3
+    end
+
+    -- 球队声望影响
+    local rep = team.reputation or 50
+    if rep >= 80 then chance = chance + 0.15
+    elseif rep >= 60 then chance = chance + 0.05
+    elseif rep < 40 then chance = chance - 0.1
+    end
+
+    -- 球员年龄影响（老球员更愿意续约）
+    local age = (player.birthYear and (2024 - player.birthYear)) or 25
+    if age >= 32 then chance = chance + 0.15
+    elseif age >= 28 then chance = chance + 0.05
+    elseif age <= 22 then chance = chance - 0.05  -- 年轻人想去大俱乐部
+    end
+
+    -- 合同年限合理性
+    if offeredYears >= 3 and age < 30 then chance = chance + 0.05
+    elseif offeredYears <= 1 and age < 28 then chance = chance - 0.1
+    end
+
+    return math.max(0.1, math.min(0.95, chance))
+end
+
+return ContractManager

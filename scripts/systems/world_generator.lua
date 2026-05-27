@@ -1,0 +1,464 @@
+-- systems/world_generator.lua
+-- 世界生成系统：加载五大联赛真实数据，保留随机生成用于青训/自由球员
+
+local Constants = require("scripts/app/constants")
+local JsonLoader = require("scripts/data/json_loader")
+local RealDataLoader = require("scripts/data/real_data_loader")
+local League = require("scripts/domain/league")
+local ChampionsLeague = require("scripts/systems/champions_league")
+
+local WorldGenerator = {}
+
+-- 姓名池缓存
+local namePools = nil
+
+local function loadNamePools()
+    if namePools then return namePools end
+    namePools = JsonLoader.loadNames()
+    if not namePools then
+        -- 兜底数据
+        namePools = {
+            ENG = {
+                first_names = {"James","Harry","Jack","Oliver","George","Charlie","Thomas","William","Daniel","Ben"},
+                last_names = {"Smith","Johnson","Brown","Jones","Taylor","Wilson","Walker","Robinson","Clark","Wright"}
+            }
+        }
+    end
+    return namePools
+end
+
+-- 随机选取
+local function pick(list)
+    if not list or #list == 0 then return "Unknown" end
+    return list[RandomInt(1, #list)]
+end
+
+-- 随机整数
+local function randInt(min, max)
+    return RandomInt(min, max)
+end
+
+-- 随机浮点
+local function randFloat(min, max)
+    return Random(min, max)
+end
+
+-- 根据国家获取姓名
+local function getRandomName(country)
+    local pools = loadNamePools()
+    local pool = pools[country] or pools["ENG"] or pools["GB"]
+    if not pool then
+        pool = {first_names = {"Player"}, last_names = {"Unknown"}}
+    end
+    local first = pick(pool.first_names)
+    local last = pick(pool.last_names)
+    return first, last
+end
+
+-- 生成球员属性
+local function generateAttributes(position, overall, age)
+    local base = overall / 20.0  -- 映射到1-5范围后再乘以4
+    local spread = 4
+
+    local function attr(weight)
+        local v = base * weight + randFloat(-spread, spread)
+        return math.max(Constants.ATTR_MIN, math.min(Constants.ATTR_MAX, math.floor(v)))
+    end
+
+    local attrs = {}
+    if position == "GK" then
+        attrs.handling = attr(4.0)
+        attrs.reflexes = attr(4.0)
+        attrs.positioning = attr(3.0)
+        attrs.aerial = attr(2.5)
+        attrs.composure = attr(2.5)
+        attrs.decisions = attr(2.0)
+        attrs.speed = attr(1.0)
+        attrs.stamina = attr(1.5)
+        attrs.strength = attr(2.0)
+        attrs.agility = attr(2.0)
+        attrs.passing = attr(1.5)
+        attrs.shooting = attr(0.5)
+        attrs.tackling = attr(0.5)
+        attrs.dribbling = attr(0.5)
+        attrs.defending = attr(1.0)
+        attrs.vision = attr(1.5)
+        attrs.aggression = attr(1.0)
+        attrs.teamwork = attr(2.0)
+        attrs.leadership = attr(2.0)
+    elseif position == "CB" then
+        attrs.defending = attr(4.0)
+        attrs.tackling = attr(3.5)
+        attrs.aerial = attr(3.0)
+        attrs.strength = attr(3.0)
+        attrs.positioning = attr(3.0)
+        attrs.composure = attr(2.5)
+        attrs.decisions = attr(2.0)
+        attrs.speed = attr(1.5)
+        attrs.stamina = attr(2.0)
+        attrs.agility = attr(1.0)
+        attrs.passing = attr(2.0)
+        attrs.shooting = attr(0.8)
+        attrs.dribbling = attr(0.8)
+        attrs.vision = attr(1.5)
+        attrs.aggression = attr(2.5)
+        attrs.teamwork = attr(2.5)
+        attrs.leadership = attr(2.5)
+        attrs.handling = attr(0.3)
+        attrs.reflexes = attr(0.3)
+    elseif position == "LB" or position == "RB" then
+        attrs.speed = attr(3.5)
+        attrs.stamina = attr(3.5)
+        attrs.defending = attr(3.0)
+        attrs.tackling = attr(2.5)
+        attrs.passing = attr(2.5)
+        attrs.dribbling = attr(2.0)
+        attrs.positioning = attr(2.0)
+        attrs.agility = attr(2.0)
+        attrs.strength = attr(1.5)
+        attrs.aerial = attr(1.5)
+        attrs.composure = attr(1.5)
+        attrs.decisions = attr(1.5)
+        attrs.vision = attr(1.5)
+        attrs.shooting = attr(1.0)
+        attrs.aggression = attr(1.5)
+        attrs.teamwork = attr(2.5)
+        attrs.leadership = attr(1.5)
+        attrs.handling = attr(0.3)
+        attrs.reflexes = attr(0.3)
+    elseif position == "CM" or position == "CDM" or position == "CAM" then
+        attrs.passing = attr(3.5)
+        attrs.vision = attr(3.0)
+        attrs.decisions = attr(3.0)
+        attrs.stamina = attr(3.0)
+        attrs.tackling = attr(position == "CDM" and 3.0 or 2.0)
+        attrs.dribbling = attr(position == "CAM" and 3.0 or 2.0)
+        attrs.shooting = attr(position == "CAM" and 2.5 or 1.5)
+        attrs.positioning = attr(2.5)
+        attrs.composure = attr(2.5)
+        attrs.speed = attr(2.0)
+        attrs.agility = attr(2.0)
+        attrs.strength = attr(2.0)
+        attrs.defending = attr(position == "CDM" and 2.5 or 1.5)
+        attrs.aerial = attr(1.5)
+        attrs.aggression = attr(2.0)
+        attrs.teamwork = attr(3.0)
+        attrs.leadership = attr(2.5)
+        attrs.handling = attr(0.3)
+        attrs.reflexes = attr(0.3)
+    elseif position == "LW" or position == "RW" or position == "LM" or position == "RM" then
+        attrs.speed = attr(3.5)
+        attrs.dribbling = attr(3.5)
+        attrs.agility = attr(3.0)
+        attrs.passing = attr(2.5)
+        attrs.shooting = attr(2.5)
+        attrs.stamina = attr(2.5)
+        attrs.vision = attr(2.0)
+        attrs.composure = attr(2.0)
+        attrs.decisions = attr(2.0)
+        attrs.positioning = attr(2.0)
+        attrs.strength = attr(1.5)
+        attrs.tackling = attr(1.0)
+        attrs.defending = attr(1.0)
+        attrs.aerial = attr(1.0)
+        attrs.aggression = attr(1.5)
+        attrs.teamwork = attr(2.0)
+        attrs.leadership = attr(1.5)
+        attrs.handling = attr(0.3)
+        attrs.reflexes = attr(0.3)
+    else  -- ST, CF
+        attrs.shooting = attr(4.0)
+        attrs.composure = attr(3.5)
+        attrs.positioning = attr(3.0)
+        attrs.speed = attr(2.5)
+        attrs.dribbling = attr(2.5)
+        attrs.strength = attr(2.5)
+        attrs.aerial = attr(2.5)
+        attrs.agility = attr(2.0)
+        attrs.decisions = attr(2.0)
+        attrs.vision = attr(1.5)
+        attrs.passing = attr(1.5)
+        attrs.stamina = attr(2.0)
+        attrs.tackling = attr(0.5)
+        attrs.defending = attr(0.5)
+        attrs.aggression = attr(2.0)
+        attrs.teamwork = attr(2.0)
+        attrs.leadership = attr(2.0)
+        attrs.handling = attr(0.3)
+        attrs.reflexes = attr(0.3)
+    end
+
+    return attrs
+end
+
+-- 生成一名球员
+local function generatePlayer(gameState, teamId, position, country, reputationBase)
+    local first, last = getRandomName(country)
+    local age = randInt(Constants.AGE_MIN, Constants.AGE_MAX)
+    local birthYear = gameState.date.year - age
+
+    -- 基于声望和年龄确定能力
+    local overallBase = math.floor(reputationBase / 10) -- 500-900 => 50-90
+    overallBase = overallBase + randInt(-8, 8)
+    -- 年龄修正
+    if age < 21 then overallBase = overallBase - randInt(5, 12)
+    elseif age > 32 then overallBase = overallBase - randInt(3, 8)
+    end
+    overallBase = math.max(Constants.ABILITY_MIN + 10, math.min(Constants.ABILITY_MAX - 5, overallBase))
+
+    -- 潜力
+    local potential = overallBase + randInt(0, 15)
+    if age <= 22 then potential = potential + randInt(3, 10) end
+    potential = math.max(overallBase, math.min(Constants.POTENTIAL_MAX, potential))
+
+    local attrs = generateAttributes(position, overallBase, age)
+
+    -- 工资基于能力
+    local wage = math.floor((overallBase * overallBase * 2) + randInt(500, 2000))
+
+    -- 合同
+    local contractYears = randInt(1, 4)
+    local contractEnd = {year = gameState.date.year + contractYears, month = 6}
+
+    local player = gameState:addPlayer({
+        firstName = first,
+        lastName = last,
+        displayName = first .. " " .. last,
+        birthYear = birthYear,
+        nationality = country,
+        position = position,
+        naturalPositions = {position},
+        preferredFoot = Random() > 0.3 and "right" or "left",
+        weakFoot = randInt(1, 4),
+        attributes = attrs,
+        fitness = randInt(70, 95),
+        morale = randInt(50, 80),
+        condition = randInt(75, 100),
+        overall = overallBase,
+        potential = potential,
+        contractEnd = contractEnd,
+        wage = wage,
+        teamId = teamId,
+        squadRole = "first_team",
+    })
+
+    return player
+end
+
+-- 生成球队的所有球员
+local function generateSquad(gameState, teamId, country, reputation)
+    local positions = {}
+    -- 2 GK
+    for i = 1, Constants.GK_COUNT do table.insert(positions, "GK") end
+    -- 7 DEF
+    local defPos = {"CB", "CB", "CB", "LB", "LB", "RB", "RB"}
+    for _, p in ipairs(defPos) do table.insert(positions, p) end
+    -- 7 MID
+    local midPos = {"CM", "CM", "CM", "CDM", "CAM", "LM", "RM"}
+    for _, p in ipairs(midPos) do table.insert(positions, p) end
+    -- 6 FWD
+    local fwdPos = {"ST", "ST", "CF", "LW", "RW", "ST"}
+    for _, p in ipairs(fwdPos) do table.insert(positions, p) end
+
+    local team = gameState.teams[teamId]
+    for _, pos in ipairs(positions) do
+        local player = generatePlayer(gameState, teamId, pos, country, reputation)
+        team:addPlayer(player.id)
+    end
+
+    -- 自动选择首发11人
+    WorldGenerator.autoSelectStartingXI(gameState, teamId)
+end
+
+-- 自动选择首发
+function WorldGenerator.autoSelectStartingXI(gameState, teamId)
+    local team = gameState.teams[teamId]
+    if not team then return end
+
+    local players = gameState:getTeamPlayers(teamId)
+    -- 按位置分组
+    local byPos = {GK={}, DEF={}, MID={}, FWD={}}
+    for _, p in ipairs(players) do
+        if p.position == "GK" then table.insert(byPos.GK, p)
+        elseif p.position == "CB" or p.position == "LB" or p.position == "RB" then table.insert(byPos.DEF, p)
+        elseif p.position == "LW" or p.position == "RW" or p.position == "ST" or p.position == "CF" then table.insert(byPos.FWD, p)
+        else table.insert(byPos.MID, p)
+        end
+    end
+
+    -- 按能力排序
+    local function sortByOverall(list)
+        table.sort(list, function(a, b) return a.overall > b.overall end)
+    end
+    sortByOverall(byPos.GK)
+    sortByOverall(byPos.DEF)
+    sortByOverall(byPos.MID)
+    sortByOverall(byPos.FWD)
+
+    -- 4-4-2: 1 GK + 4 DEF + 4 MID + 2 FWD
+    team.startingXI = {}
+    if byPos.GK[1] then table.insert(team.startingXI, byPos.GK[1].id) end
+    for i = 1, math.min(4, #byPos.DEF) do table.insert(team.startingXI, byPos.DEF[i].id) end
+    for i = 1, math.min(4, #byPos.MID) do table.insert(team.startingXI, byPos.MID[i].id) end
+    for i = 1, math.min(2, #byPos.FWD) do table.insert(team.startingXI, byPos.FWD[i].id) end
+
+    -- 设置队长为能力最高的球员
+    if #team.startingXI > 0 then
+        local best = nil
+        for _, pid in ipairs(team.startingXI) do
+            local p = gameState.players[pid]
+            if p and (not best or p.overall > best.overall) then best = p end
+        end
+        if best then team.captain = best.id end
+    end
+
+    -- 分配阵容角色 (key/rotation/squad/youth)
+    local starterSet = {}
+    for _, pid in ipairs(team.startingXI) do starterSet[pid] = true end
+
+    local allPlayers = gameState:getTeamPlayers(teamId)
+    table.sort(allPlayers, function(a, b) return a.overall > b.overall end)
+
+    local keyCount = 0
+    for _, p in ipairs(allPlayers) do
+        if p.squadRole == "loaned" then
+            -- 保持租借状态不变
+        elseif starterSet[p.id] then
+            -- 首发中前5能力最强为key，其余为rotation
+            if keyCount < 5 then
+                p.squadRole = "key"
+                keyCount = keyCount + 1
+            else
+                p.squadRole = "rotation"
+            end
+        else
+            -- 替补：年轻低能力为youth，其余为squad
+            local age = p.birthYear and (gameState.date.year - p.birthYear) or 25
+            if age <= 20 and p.overall < 55 then
+                p.squadRole = "youth"
+            else
+                p.squadRole = "squad"
+            end
+        end
+    end
+end
+
+-- 生成职员
+local function generateStaff(gameState, teamId, country)
+    local roles = {
+        Constants.STAFF_ROLES.ASSISTANT,
+        Constants.STAFF_ROLES.COACH,
+        Constants.STAFF_ROLES.SCOUT,
+        Constants.STAFF_ROLES.PHYSIO
+    }
+    local specialties = {"fitness", "technical", "tactical", "defense", "attack", "goalkeeper", "youth"}
+    local team = gameState.teams[teamId]
+
+    for _, role in ipairs(roles) do
+        local first, last = getRandomName(country)
+        local s = gameState:addStaff({
+            firstName = first,
+            lastName = last,
+            displayName = first .. " " .. last,
+            nationality = country,
+            birthYear = randInt(1965, 1990),
+            role = role,
+            teamId = teamId,
+            wage = randInt(3000, 8000),
+            attributes = {
+                training = randInt(8, 16),
+                tactical = randInt(8, 16),
+                scouting = randInt(8, 16),
+                physiotherapy = randInt(8, 16),
+                youthDev = randInt(8, 16),
+                motivation = randInt(8, 16),
+            },
+            specialty = pick(specialties),
+        })
+        team.staffIds[#team.staffIds + 1] = s.id
+    end
+end
+
+-- 生成AI经理
+local function generateAIManager(gameState, teamId, country)
+    local first, last = getRandomName(country)
+    local m = gameState:addManager({
+        firstName = first,
+        lastName = last,
+        displayName = first .. " " .. last,
+        birthYear = randInt(1960, 1985),
+        nationality = country,
+        teamId = teamId,
+        isPlayer = false,
+        reputation = randInt(200, 600),
+    })
+    local team = gameState.teams[teamId]
+    team.managerId = m.id
+    return m
+end
+
+-- 生成完整世界（使用真实五大联赛数据）
+function WorldGenerator.generate(gameState)
+    log:Write(LOG_INFO, "WorldGenerator: 开始加载五大联赛真实数据...")
+
+    -- 加载五大联赛
+    local success = RealDataLoader.loadAllLeagues(gameState)
+    if not success then
+        log:Write(LOG_ERROR, "WorldGenerator: 无法加载联赛数据")
+        return false
+    end
+
+    -- 为每支球队生成AI经理和职员
+    for _, lg in pairs(gameState.leagues) do
+        for _, teamId in ipairs(lg.teamIds) do
+            local team = gameState.teams[teamId]
+            if team then
+                -- 生成职员
+                generateStaff(gameState, teamId, team.country)
+                -- 生成AI经理
+                generateAIManager(gameState, teamId, team.country)
+            end
+        end
+    end
+
+    -- 生成自由职员
+    for i = 1, Constants.FREE_STAFF_COUNT do
+        local countries = {"ENG", "ES", "DE", "FR", "IT", "PT", "NL", "BE"}
+        local country = pick(countries)
+        local first, last = getRandomName(country)
+        local roles = {Constants.STAFF_ROLES.COACH, Constants.STAFF_ROLES.SCOUT, Constants.STAFF_ROLES.PHYSIO}
+        gameState:addStaff({
+            firstName = first,
+            lastName = last,
+            displayName = first .. " " .. last,
+            nationality = country,
+            birthYear = randInt(1965, 1990),
+            role = pick(roles),
+            teamId = nil,
+            wage = randInt(2000, 6000),
+            attributes = {
+                training = randInt(6, 14),
+                tactical = randInt(6, 14),
+                scouting = randInt(6, 14),
+                physiotherapy = randInt(6, 14),
+                youthDev = randInt(6, 14),
+                motivation = randInt(6, 14),
+            },
+        })
+    end
+
+    -- 初始化首赛季欧冠
+    ChampionsLeague.initialize(gameState)
+
+    log:Write(LOG_INFO, "WorldGenerator: 世界生成完成! 球员:" .. WorldGenerator._countPlayers(gameState))
+
+    return true
+end
+
+function WorldGenerator._countPlayers(gameState)
+    local count = 0
+    for _ in pairs(gameState.players) do count = count + 1 end
+    return count
+end
+
+return WorldGenerator

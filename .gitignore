@@ -1,0 +1,15 @@
+.build/
+dist/
+.tmp/
+.agent/
+.cli/
+.emmylua/
+engine-docs/
+examples/
+templates/
+urhox-libs/
+lua-tools/
+schemas/
+soccermanager/
+logs/
+docs/fm2024_*.json
