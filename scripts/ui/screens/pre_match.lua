@@ -246,15 +246,20 @@ function PreMatch.create(params)
                         fontSize = 16, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold",
                         onClick = function()
                             -- 开始比赛
-                            local PlaceholderEngine = require("scripts/match/placeholder_engine")
+                            local MatchEngine = require("scripts/match/match_engine")
                             local MoraleManager = require("scripts/systems/morale_manager")
                             local ReputationManager = require("scripts/systems/reputation_manager")
                             local FinanceManager = require("scripts/systems/finance_manager")
 
-                            local report = PlaceholderEngine.simulate(gameState, fixture)
+                            local report = MatchEngine.simulate(gameState, fixture)
                             if report then
                                 -- 应用比赛结果（更新积分榜、球员数据等）
-                                PlaceholderEngine.applyResult(gameState, fixture, report)
+                                if fixture._isUCL then
+                                    local TurnProcessor = require("scripts/core/turn_processor")
+                                    TurnProcessor._applyUCLResult(gameState, fixture, report)
+                                else
+                                    MatchEngine.applyResult(gameState, fixture, report)
+                                end
 
                                 -- 赛后士气 & 声望更新
                                 local homeGoals = report.homeGoals or 0

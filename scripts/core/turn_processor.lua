@@ -1,7 +1,7 @@
 -- core/turn_processor.lua
 -- 回合推进处理器
 
-local PlaceholderEngine = require("scripts/match/placeholder_engine")
+local MatchEngine = require("scripts/match/match_engine")
 local EventBus = require("scripts/app/event_bus")
 local League = require("scripts/domain/league")
 local TransferManager = require("scripts/systems/transfer_manager")
@@ -130,7 +130,7 @@ function TurnProcessor.processMatchDay(gameState, fixtures)
             -- 世界杯使用专用模拟引擎（国家代码而非球队ID）
             report = TurnProcessor._simulateWCMatch(gameState, fixture)
         else
-            report = PlaceholderEngine.simulate(gameState, fixture)
+            report = MatchEngine.simulate(gameState, fixture)
         end
 
         if report then
@@ -139,7 +139,7 @@ function TurnProcessor.processMatchDay(gameState, fixtures)
             elseif fixture._isUCL then
                 TurnProcessor._applyUCLResult(gameState, fixture, report)
             else
-                PlaceholderEngine.applyResult(gameState, fixture, report)
+                MatchEngine.applyResult(gameState, fixture, report)
             end
 
             -- 生成比赛消息
