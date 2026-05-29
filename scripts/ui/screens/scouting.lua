@@ -59,7 +59,7 @@ function ScoutingPage.create(params)
                         width = 50, height = 36,
                         backgroundColor = Theme.COLORS.TRANSPARENT,
                         fontSize = 14, color = Theme.COLORS.TEXT_SECONDARY,
-                        onClick = function() Router.navigate("dashboard") end,
+                        onClick = function() Router.back() end,
                     },
                     UI.Label {
                         text = "球探",
@@ -505,7 +505,7 @@ function ScoutingPage._getScoutCandidates(gameState)
                 local teamName = "自由球员"
                 if player.teamId then
                     local t = gameState.teams[player.teamId]
-                    if t then teamName = t.shortName or t.name end
+                    if t then teamName = t.name end
                 end
 
                 table.insert(candidates, {

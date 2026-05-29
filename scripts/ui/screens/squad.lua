@@ -11,6 +11,7 @@ local BottomSheet = require("scripts/ui/components/bottom_sheet")
 local ContractManager = require("scripts/systems/contract_manager")
 local FinanceManager = require("scripts/systems/finance_manager")
 local TransferManager = require("scripts/systems/transfer_manager")
+local AIManager = require("scripts/systems/ai_manager")
 
 local Squad = {}
 
@@ -151,7 +152,7 @@ function Squad.create(params)
         end
     end
 
-    -- 构建球员行
+    -- 构建球员行（卡片风格，与转会市场统一）
     local playerRows = {}
     for _, p in ipairs(players) do
         local isStarter = startingSet[p.id] or false
@@ -166,26 +167,26 @@ function Squad.create(params)
         elseif group == "FWD" then posColor = {255, 102, 102, 255}
         end
 
-        -- 状态图标
+        -- 状态标签
         local statusText = ""
         local statusColor = Theme.COLORS.TEXT_MUTED
         if p.injured then
-            statusText = "伤"
+            statusText = "伤病"
             statusColor = Theme.COLORS.DANGER
         elseif pendingBidSet[p.id] then
-            statusText = "报价"
+            statusText = "报价中"
             statusColor = Theme.COLORS.ACCENT
         elseif p.listedForSale then
-            statusText = "售"
+            statusText = "挂牌中"
             statusColor = Theme.COLORS.WARNING
         elseif p.fitness and p.fitness < 60 then
-            statusText = "疲"
+            statusText = "疲劳"
             statusColor = Theme.COLORS.DANGER
         elseif p.fitness and p.fitness < 75 then
-            statusText = "疲"
+            statusText = "疲劳"
             statusColor = Theme.COLORS.WARNING
         elseif p.morale and p.morale < 40 then
-            statusText = "低"
+            statusText = "低迷"
             statusColor = Theme.COLORS.WARNING
         end
 
@@ -195,107 +196,112 @@ function Squad.create(params)
             local monthsLeft = (p.contractEnd.year - gameState.date.year) * 12
                 + (p.contractEnd.month - gameState.date.month)
             if monthsLeft <= 6 then
-                contractWarn = "!"
+                contractWarn = " ⚠"
             end
+        end
+
+        -- 体能颜色
+        local fitnessVal = p.fitness or 80
+        local fitnessColor = fitnessVal >= 75 and Theme.COLORS.SECONDARY
+            or (fitnessVal >= 60 and Theme.COLORS.WARNING or Theme.COLORS.DANGER)
+
+        -- 工资格式化
+        local wageText = p.wage >= 1000 and string.format("%.0fK/周", p.wage / 1000) or (tostring(p.wage) .. "/周")
+
+        -- 位置全称
+        local posFullName = Constants.POSITION_NAMES[p.position] or p.position
+
+        -- Row 2: metadata items
+        local metaItems = {}
+        table.insert(metaItems, UI.Label { text = tostring(age) .. "岁", fontSize = 11, color = Theme.COLORS.TEXT_MUTED })
+        table.insert(metaItems, UI.Label { text = " · ", fontSize = 11, color = Theme.COLORS.TEXT_MUTED })
+        table.insert(metaItems, UI.Label { text = wageText, fontSize = 11, color = Theme.COLORS.TEXT_MUTED })
+        table.insert(metaItems, UI.Label { text = " · ", fontSize = 11, color = Theme.COLORS.TEXT_MUTED })
+        table.insert(metaItems, UI.Label { text = "体能 ", fontSize = 11, color = Theme.COLORS.TEXT_MUTED })
+        table.insert(metaItems, UI.Label { text = tostring(fitnessVal), fontSize = 11, color = fitnessColor, fontWeight = "bold" })
+        if contractWarn ~= "" then
+            table.insert(metaItems, UI.Label { text = " · ", fontSize = 11, color = Theme.COLORS.TEXT_MUTED })
+            table.insert(metaItems, UI.Label { text = "合同到期", fontSize = 11, color = Theme.COLORS.WARNING })
+        end
+
+        -- 状态标签（放在 Row 1 右侧）
+        local statusBadge = nil
+        if statusText ~= "" then
+            statusBadge = UI.Panel {
+                backgroundColor = {statusColor[1], statusColor[2], statusColor[3], 40},
+                borderRadius = 3,
+                paddingLeft = 5, paddingRight = 5, paddingTop = 2, paddingBottom = 2,
+                marginLeft = 8,
+                children = {
+                    UI.Label { text = statusText, fontSize = 10, color = statusColor, fontWeight = "bold" },
+                },
+            }
         end
 
         table.insert(playerRows, UI.Panel {
             width = "100%",
-            height = 54,
-            flexDirection = "row",
-            alignItems = "center",
-            paddingLeft = 10,
-            paddingRight = 10,
+            paddingLeft = 12, paddingRight = 12, paddingTop = 9, paddingBottom = 9,
             backgroundColor = isStarter and {31, 46, 71, 255} or {0, 0, 0, 0},
             borderBottomWidth = 1,
             borderColor = Theme.COLORS.BORDER,
-            children = {
-                -- 首发标记
-                UI.Label {
-                    text = isStarter and "★" or "  ",
-                    fontSize = 11,
-                    color = Theme.COLORS.ACCENT,
-                    width = 18,
-                },
-                -- 位置
-                UI.Label {
-                    text = p.position,
-                    fontSize = 12,
-                    color = posColor,
-                    width = 36,
-                    fontWeight = "bold",
-                },
-                -- 姓名 + 角色 + 合同到期提示
-                UI.Panel {
-                    flexGrow = 1,
-                    flexShrink = 1,
-                    children = {
-                        UI.Panel {
-                            flexDirection = "row", alignItems = "center",
-                            children = {
-                                UI.Label {
-                                    text = p.displayName .. (contractWarn ~= "" and " ⚠" or ""),
-                                    fontSize = 13,
-                                    color = Theme.COLORS.TEXT_PRIMARY,
-                                },
-                                (p.squadRole == "key") and UI.Label {
-                                    text = " ★",
-                                    fontSize = 11,
-                                    color = {255, 200, 50, 255},
-                                } or UI.Panel { width = 0 },
-                            },
-                        },
-                        -- 次要信息行
-                        UI.Label {
-                            text = string.format("%d岁 | %s%s/周",
-                                age,
-                                p.wage >= 1000 and string.format("%.0fK", p.wage/1000) or tostring(p.wage),
-                                ""
-                            ),
-                            fontSize = 10,
-                            color = Theme.COLORS.TEXT_MUTED,
-                            marginTop = 1,
-                        },
-                    }
-                },
-                -- 体能柱
-                UI.Panel {
-                    width = 30, height = 30,
-                    justifyContent = "center", alignItems = "center",
-                    children = {
-                        UI.Label {
-                            text = tostring(p.fitness or 0),
-                            fontSize = 10,
-                            color = (p.fitness or 80) >= 75 and Theme.COLORS.SECONDARY
-                                or ((p.fitness or 80) >= 60 and Theme.COLORS.WARNING or Theme.COLORS.DANGER),
-                        },
-                    }
-                },
-                -- 能力
-                UI.Label {
-                    text = tostring(p.overall),
-                    fontSize = 14,
-                    color = p.overall >= 75 and Theme.COLORS.SECONDARY
-                        or (p.overall >= 65 and Theme.COLORS.TEXT_PRIMARY or Theme.COLORS.TEXT_SECONDARY),
-                    width = 28,
-                    fontWeight = "bold",
-                    textAlign = "center",
-                },
-                -- 状态
-                UI.Label {
-                    text = statusText,
-                    fontSize = 11,
-                    color = statusColor,
-                    width = 30,
-                    textAlign = "center",
-                },
-            },
             onClick = function()
                 Router.navigate("player_detail", { playerId = p.id })
             end,
             onLongPress = function()
                 Squad._showActionMenu(p, isStarter, team, gameState)
             end,
+            children = {
+                -- Row 1: Position badge + Name + Status + Rating
+                UI.Panel {
+                    width = "100%", flexDirection = "row", alignItems = "center",
+                    children = {
+                        -- 首发标记
+                        isStarter and UI.Label {
+                            text = "★",
+                            fontSize = 11,
+                            color = Theme.COLORS.ACCENT,
+                            marginRight = 5,
+                        } or UI.Panel { width = 0 },
+                        -- 位置徽章
+                        UI.Panel {
+                            backgroundColor = {posColor[1], posColor[2], posColor[3], 30},
+                            borderRadius = 3,
+                            paddingLeft = 5, paddingRight = 5, paddingTop = 1, paddingBottom = 1,
+                            marginRight = 8,
+                            children = {
+                                UI.Label { text = posFullName, fontSize = 10, color = posColor, fontWeight = "bold" },
+                            },
+                        },
+                        -- 球员姓名
+                        UI.Panel {
+                            flexGrow = 1, flexShrink = 1,
+                            flexDirection = "row", alignItems = "center",
+                            children = {
+                                UI.Label {
+                                    text = p.displayName .. contractWarn,
+                                    fontSize = 14, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold",
+                                },
+                                (p.squadRole == "key") and UI.Label {
+                                    text = " ★", fontSize = 11, color = {255, 200, 50, 255},
+                                } or UI.Panel { width = 0 },
+                            },
+                        },
+                        -- 状态徽章
+                        statusBadge or UI.Panel { width = 0 },
+                        -- 能力值
+                        UI.Label {
+                            text = tostring(p.overall),
+                            fontSize = 16, color = Theme.COLORS.SECONDARY,
+                            fontWeight = "bold", marginLeft = 8,
+                        },
+                    },
+                },
+                -- Row 2: metadata line
+                UI.Panel {
+                    width = "100%", flexDirection = "row", alignItems = "center", marginTop = 4,
+                    children = metaItems,
+                },
+            },
         })
     end
 
@@ -312,7 +318,7 @@ function Squad.create(params)
                         width = 50, height = 36,
                         backgroundColor = Theme.COLORS.TRANSPARENT,
                         fontSize = 14, color = Theme.COLORS.TEXT_SECONDARY,
-                        onClick = function() Router.navigate("dashboard") end,
+                        onClick = function() Router.back() end,
                     },
                     UI.Label {
                         text = "阵容",
@@ -408,35 +414,81 @@ function Squad._showActionMenu(player, isStarter, team, gameState)
             label = "取消首发",
             color = Theme.COLORS.WARNING,
             action = function()
+                -- 找到该球员在首发中的槽位索引
+                local slotIdx = nil
                 for i, pid in ipairs(team.startingXI) do
                     if pid == player.id then
-                        table.remove(team.startingXI, i)
+                        slotIdx = i
                         break
+                    end
+                end
+                if slotIdx then
+                    -- 找同槽位最佳替补自动填充
+                    local formation = team.formation or "4-4-2"
+                    local slots = AIManager._getFormationSlots(formation)
+                    local slotPos = slots[slotIdx] or player.position
+
+                    local starterSet = {}
+                    for _, pid in ipairs(team.startingXI) do starterSet[pid] = true end
+
+                    local bestSub = nil
+                    local bestScore = -1
+                    for _, pid in ipairs(team.playerIds or {}) do
+                        local p = gameState.players[pid]
+                        if p and not starterSet[p.id] and not p.retired and not p.injured then
+                            local score = AIManager._playerPositionScore(p, slotPos)
+                            if score > bestScore then
+                                bestScore = score
+                                bestSub = p
+                            end
+                        end
+                    end
+
+                    if bestSub then
+                        -- 原位替换
+                        team.startingXI[slotIdx] = bestSub.id
+                    else
+                        -- 无可用替补，移除该槽位并重排
+                        table.remove(team.startingXI, slotIdx)
                     end
                 end
                 Router.replaceWith("squad")
             end,
         })
     else
-        if #team.startingXI < 11 then
-            table.insert(actions, {
-                label = "设为首发",
-                color = Theme.COLORS.SECONDARY,
-                action = function()
-                    table.insert(team.startingXI, player.id)
+        -- 非首发球员 → 替换首发（按位置推荐最适合替换的人）
+        table.insert(actions, {
+            label = #team.startingXI < 11 and "设为首发" or "替换首发",
+            color = Theme.COLORS.SECONDARY,
+            action = function()
+                if #team.startingXI < 11 then
+                    -- 首发未满：找最匹配的空缺槽位插入
+                    local formation = team.formation or "4-4-2"
+                    local slots = AIManager._getFormationSlots(formation)
+                    -- 找出已占用的槽位
+                    local occupiedSlots = #team.startingXI
+                    -- 在剩余空槽中找最匹配当前球员位置的
+                    local bestSlotIdx = occupiedSlots + 1 -- 默认追加
+                    local bestScore = -1
+                    for i = 1, #slots do
+                        -- 检查该槽位是否已有人
+                        if i > occupiedSlots then
+                            local score = AIManager._playerPositionScore(player, slots[i])
+                            if score > bestScore then
+                                bestScore = score
+                                bestSlotIdx = i
+                            end
+                        end
+                    end
+                    -- 插入到最佳槽位
+                    table.insert(team.startingXI, bestSlotIdx, player.id)
                     Router.replaceWith("squad")
-                end,
-            })
-        else
-            -- 首发已满11人，提供替换功能
-            table.insert(actions, {
-                label = "替换首发",
-                color = Theme.COLORS.SECONDARY,
-                action = function()
+                else
+                    -- 首发已满：显示替换选择界面
                     Squad._showSwapStarter(player, team, gameState)
-                end,
-            })
-        end
+                end
+            end,
+        })
     end
 
     -- 挂牌出售（含阵容安全检查）
@@ -447,13 +499,7 @@ function Squad._showActionMenu(player, isStarter, team, gameState)
                 label = "挂牌出售",
                 color = Theme.COLORS.ACCENT,
                 action = function()
-                    player.listedForSale = true
-                    gameState:sendMessage({
-                        category = "transfer",
-                        title = player.displayName .. " 已挂牌",
-                        body = player.displayName .. " 已被挂牌出售，等待买家报价。",
-                        priority = "normal",
-                    })
+                    TransferManager.listForSale(gameState, player)
                     Router.replaceWith("squad")
                 end,
             })
@@ -477,7 +523,7 @@ function Squad._showActionMenu(player, isStarter, team, gameState)
             label = "取消挂牌",
             color = Theme.COLORS.TEXT_MUTED,
             action = function()
-                player.listedForSale = false
+                TransferManager.delistPlayer(player)
                 Router.replaceWith("squad")
             end,
         })
@@ -518,7 +564,7 @@ function Squad._showActionMenu(player, isStarter, team, gameState)
     end
 
     -- 续约（合同剩余≤12个月时显示）
-    local monthsLeft = ContractManager._monthsUntilExpiry(gameState, player)
+    local monthsLeft = ContractManager.getMonthsRemaining(gameState, player)
     if monthsLeft <= 12 then
         table.insert(actions, {
             label = "续约 (" .. monthsLeft .. "个月到期)",
@@ -592,38 +638,49 @@ function Squad._showActionMenu(player, isStarter, team, gameState)
     })
 end
 
--- 替换首发：选择要被替换的首发球员
+-- 替换首发：选择要被替换的首发球员（按位置适配度排序，推荐最适合被替换的）
 function Squad._showSwapStarter(player, team, gameState)
-    local allPlayers = gameState:getTeamPlayers(team.id)
+    local formation = team.formation or "4-4-2"
+    local slots = AIManager._getFormationSlots(formation)
     local starterItems = {}
 
-    for _, pid in ipairs(team.startingXI) do
-        local sp = nil
-        for _, p in ipairs(allPlayers) do
-            if p.id == pid then sp = p; break end
-        end
+    -- 按新球员对各槽位的适配度排序（适配度高的排前面=更推荐替换该位置）
+    local candidates = {}
+    for i, pid in ipairs(team.startingXI) do
+        local sp = gameState.players[pid]
         if sp then
-            table.insert(starterItems, {
-                label = sp.displayName .. " (" .. sp.position .. " " .. tostring(sp.overall) .. ")",
-                color = Theme.COLORS.TEXT_PRIMARY,
-                action = function()
-                    -- 移除旧首发，加入新首发
-                    for i, id in ipairs(team.startingXI) do
-                        if id == pid then
-                            table.remove(team.startingXI, i)
-                            break
-                        end
-                    end
-                    table.insert(team.startingXI, player.id)
-                    Router.replaceWith("squad")
-                end,
+            local slotPos = slots[i] or sp.position
+            local newScore = AIManager._playerPositionScore(player, slotPos)
+            local oldScore = AIManager._playerPositionScore(sp, slotPos)
+            table.insert(candidates, {
+                index = i,
+                player = sp,
+                slotPos = slotPos,
+                advantage = newScore - oldScore, -- 正值=新球员比老球员更适合该位置
             })
         end
+    end
+    -- 按优势排序：新球员更适合的位置排前面
+    table.sort(candidates, function(a, b) return a.advantage > b.advantage end)
+
+    for _, c in ipairs(candidates) do
+        local sp = c.player
+        local posLabel = Constants.POSITION_NAMES[c.slotPos] or c.slotPos
+        local hint = c.advantage > 0 and " ✓推荐" or ""
+        table.insert(starterItems, {
+            label = string.format("%s %s (%s %d)%s", posLabel, sp.displayName, sp.position, sp.overall, hint),
+            color = c.advantage > 0 and Theme.COLORS.SECONDARY or Theme.COLORS.TEXT_PRIMARY,
+            action = function()
+                -- 原位替换：直接赋值到该槽位索引
+                team.startingXI[c.index] = player.id
+                Router.replaceWith("squad")
+            end,
+        })
     end
 
     BottomSheet.show({
         title = "选择要替换的首发球员",
-        subtitle = player.displayName .. " 将替换被选中的球员",
+        subtitle = player.displayName .. " (" .. player.position .. ") 将接替被选中球员的位置",
         items = starterItems,
     })
 end
@@ -633,7 +690,7 @@ function Squad._showRenewDialog(player, gameState)
     local team = gameState:getPlayerTeam()
     local terms = ContractManager.getSuggestedTerms(player, team)
     local age = player:getAge(gameState.date.year)
-    local monthsLeft = ContractManager._monthsUntilExpiry(gameState, player)
+    local monthsLeft = ContractManager.getMonthsRemaining(gameState, player)
 
     -- 新合同结束日期
     local newEndYear = gameState.date.year + terms.years

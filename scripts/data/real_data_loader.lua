@@ -161,9 +161,11 @@ function RealDataLoader.importLeague(gameState, leagueData, leagueConfig)
             reputation = tData.reputation or 500,
             playStyle = tData.play_style or "Balanced",
             formation = tData.formation or "4-4-2",
-            balance = tData.finance or 5000000,
+            -- 用wage_budget推算合理财务（FM原始finance/transfer_budget数值偏低）
+            -- 现实参照: 顶级俱乐部(周薪5M+)转会预算~150M, 余额~500M
+            balance = (tData.wage_budget or 200000) * 80,
             wageBudget = tData.wage_budget or 200000,
-            transferBudget = tData.transfer_budget or 1000000,
+            transferBudget = (tData.wage_budget or 200000) * 25,
             trainingFocus = tData.training_focus or "balanced",
             trainingIntensity = (tData.training_intensity or "Medium"):lower(),
         })
@@ -205,6 +207,9 @@ function RealDataLoader.importLeague(gameState, leagueData, leagueConfig)
             squadRole = mapSquadRole(pData.squad_role),
             traits = pData.traits or {},
         })
+
+        -- 基于实际属性重新计算OVR（而非直接使用FM原始ovr）
+        player:calculateOverall()
 
         playerIdMap[pData.id] = player.id
 

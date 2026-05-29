@@ -256,4 +256,60 @@ function ContractManager._calcAcceptChance(player, team, offeredWage, offeredYea
     return math.max(0.1, math.min(0.95, chance))
 end
 
+------------------------------------------------------
+-- 公共 API
+------------------------------------------------------
+
+--- 获取球员合同剩余月数
+---@param gameState table
+---@param player table
+---@return number
+function ContractManager.getMonthsRemaining(gameState, player)
+    return ContractManager._monthsUntilExpiry(gameState, player)
+end
+
+--- 终止合同并支付赔偿金（玩家主动解约）
+---@param gameState table
+---@param playerId number
+---@return boolean success
+---@return number compensation 赔偿金额
+function ContractManager.terminateContract(gameState, playerId)
+    local player = gameState.players[playerId]
+    if not player then return false, 0 end
+
+    local team = gameState.teams[player.teamId]
+    if not team then return false, 0 end
+
+    -- 计算赔偿金（剩余合同薪资的50%）
+    local monthsLeft = ContractManager._monthsUntilExpiry(gameState, player)
+    local compensation = math.floor((player.wage or 0) * 4 * math.max(0, monthsLeft) * 0.5)
+
+    -- 释放球员
+    ContractManager._releasePlayer(gameState, team, player)
+    player.listedForSale = false
+
+    -- 扣除赔偿金
+    team.balance = team.balance - compensation
+    team.seasonExpense = (team.seasonExpense or 0) + compensation
+
+    -- 交易记录
+    local FinanceManager = require("scripts/systems/finance_manager")
+    FinanceManager.addTransaction(team, {
+        amount = -compensation,
+        description = "终止合同: " .. player.displayName,
+        category = "transfer",
+        season = gameState.season,
+    })
+
+    gameState:sendMessage({
+        category = "transfer",
+        title = "合同已终止",
+        body = string.format("%s 的合同已终止，支付赔偿金 %s。",
+            player.displayName, FinanceManager.formatMoney(compensation)),
+        priority = "normal",
+    })
+
+    return true, compensation
+end
+
 return ContractManager

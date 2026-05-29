@@ -38,6 +38,7 @@ local TransferHub = require("scripts/ui/screens/transfer_hub")
 local PreMatch = require("scripts/ui/screens/pre_match")
 local MatchLive = require("scripts/ui/screens/match_live")
 local PressConference = require("scripts/ui/screens/press_conference")
+local TeamTalk = require("scripts/ui/screens/team_talk")
 
 -- 全局覆盖层管理（注入 UI.ShowOverlay / UI.CloseOverlay）
 require("scripts/ui/components/overlay_manager")
@@ -116,6 +117,7 @@ function RegisterScreens()
     Router.register("pre_match", function(params) return PreMatch.create(params) end)
     Router.register("match_live", function(params) return MatchLive.create(params) end)
     Router.register("press_conference", function(params) return PressConference.create(params) end)
+    Router.register("team_talk", function(params) return TeamTalk.create(params) end)
 end
 
 ------------------------------------------------------

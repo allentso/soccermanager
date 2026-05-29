@@ -12,7 +12,7 @@ local YouthManager = {}
 ------------------------------------------------------
 -- 常量
 ------------------------------------------------------
-local YOUTH_REFRESH_INTERVAL = 30  -- 每30天刷新一批
+local YOUTH_REFRESH_INTERVAL = 3   -- 每3个月刷新一批（processMonthly每月调用一次）
 local YOUTH_POOL_SIZE = 5          -- 每次刷新5名候选
 local MAX_YOUTH_SQUAD = 8          -- 最多8名青训球员
 local YOUTH_MIN_AGE = 15

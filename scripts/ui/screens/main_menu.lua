@@ -45,7 +45,7 @@ function MainMenu.create()
                 fontWeight = "bold",
                 marginBottom = 16,
                 onClick = function()
-                    NavigateTo("create_manager")
+                    Router.navigate("create_manager")
                 end,
             },
 
@@ -60,7 +60,7 @@ function MainMenu.create()
                 color = Theme.COLORS.TEXT_PRIMARY,
                 marginBottom = 16,
                 onClick = function()
-                    NavigateTo("load_game")
+                    Router.navigate("load_game")
                 end,
             },
 

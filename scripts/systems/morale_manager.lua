@@ -172,6 +172,17 @@ function MoraleManager.postMatchUpdate(gameState, teamId, result, playerRatings)
                 end
             end
 
+            -- 信任度修正：高信任减缓负面影响，放大正面
+            local mc = player.morale_core
+            if mc then
+                local trustFactor = (mc.manager_trust - 50) / 100  -- -0.5 to +0.5
+                if delta > 0 then
+                    delta = math.floor(delta * (1.0 + trustFactor * 0.3) + 0.5)
+                elseif delta < 0 then
+                    delta = math.floor(delta * (1.0 - trustFactor * 0.3) + 0.5)
+                end
+            end
+
             player.morale = math.max(MORALE_MIN, math.min(MORALE_MAX, (player.morale or MORALE_DEFAULT) + delta))
         end
     end
@@ -295,7 +306,18 @@ function MoraleManager._calculateWeeklyDelta(gameState, player, team)
         delta = delta + 1
     end
 
-    -- 5. 随机波动
+    -- 5. 信任度修正
+    local mc = player.morale_core
+    if mc then
+        local trustFactor = (mc.manager_trust - 50) / 100
+        if delta > 0 then
+            delta = delta * (1.0 + trustFactor * 0.2)
+        elseif delta < 0 then
+            delta = delta * (1.0 - trustFactor * 0.2)
+        end
+    end
+
+    -- 6. 随机波动
     delta = delta + (math.random() - 0.5) * 4
 
     return math.floor(delta)

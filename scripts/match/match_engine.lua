@@ -1,9 +1,11 @@
 -- match/match_engine.lua
--- Minute-based match simulation with the same public contract as placeholder_engine.
+-- Minute-based match simulation with session-based stepwise API.
+-- Supports both one-shot simulate() (for AI matches) and stepwise session API (for player matches).
 
 local TacticsResolver = require("scripts/match/tactics_resolver")
 local MatchReport = require("scripts/match/match_report")
 local PlaceholderEngine = require("scripts/match/placeholder_engine")
+local MatchSession = require("scripts/match/match_session")
 
 local MatchEngine = {}
 
@@ -47,13 +49,13 @@ end
 local function pickShooter(context)
     return TacticsResolver.chooseWeighted(context.players, function(player)
         local group = positionGroup(player.position)
-        local weight = attr(player, "shooting") * 0.8 + attr(player, "positioning") * 0.55 + attr(player, "composure") * 0.45
-        if group == "FWD" then weight = weight * 2.4
-        elseif player.position == "CAM" then weight = weight * 1.7
-        elseif group == "MID" then weight = weight * 1.05
-        elseif group == "DEF" then weight = weight * 0.3 + attr(player, "aerial") * 0.2
+        local weight = attr(player, "shooting") * 1.0 + attr(player, "positioning") * 0.6 + attr(player, "composure") * 0.4
+        if group == "FWD" then weight = weight * 3.0
+        elseif player.position == "CAM" then weight = weight * 2.0
+        elseif group == "MID" then weight = weight * 0.9
+        elseif group == "DEF" then weight = weight * 0.2 + attr(player, "aerial") * 0.25
         else weight = 0.05 end
-        if hasTrait(player, "clinical") or hasTrait(player, "poacher") then weight = weight * 1.2 end
+        if hasTrait(player, "clinical") or hasTrait(player, "poacher") then weight = weight * 1.35 end
         return weight
     end)
 end
@@ -94,6 +96,10 @@ function MatchEngine._simulateMinutes(fixture, homeContext, awayContext, startMi
     options = options or {}
     local events = state.events
 
+    -- 动量系统：连续进攻增加机会（模拟真实足球进球扎堆）
+    local homeMomentum = state._homeMomentum or 0
+    local awayMomentum = state._awayMomentum or 0
+
     for minute = startMinute, endMinute do
         local homeMod = TacticsResolver.matchupModifiers(homeContext, awayContext, true)
         local awayMod = TacticsResolver.matchupModifiers(awayContext, homeContext, false)
@@ -105,22 +111,68 @@ function MatchEngine._simulateMinutes(fixture, homeContext, awayContext, startMi
         local attackMod = attackingHome and homeMod or awayMod
         local attackingTeamId = attackingHome and fixture.homeTeamId or fixture.awayTeamId
 
-        local phaseChance = options.phaseChance or 0.24
+        -- 动量衰减 + 累积
+        if attackingHome then
+            homeMomentum = math.min(0.12, homeMomentum + 0.015)
+            awayMomentum = math.max(0, awayMomentum - 0.02)
+        else
+            awayMomentum = math.min(0.12, awayMomentum + 0.015)
+            homeMomentum = math.max(0, homeMomentum - 0.02)
+        end
+        local momentum = attackingHome and homeMomentum or awayMomentum
+
+        -- 定位球/防守失误进球（每分钟每队都有小概率得分，不依赖战术链）
+        -- 模拟角球、任意球、乌龙球、门将失误等，约每场0.3-0.5个"意外进球"
+        local setPieceChance = 0.004  -- 每分钟0.4%，90分钟≈0.36个
+        for _, side in ipairs({{true, homeContext, fixture.homeTeamId}, {false, awayContext, fixture.awayTeamId}}) do
+            local spIsHome, spContext, spTeamId = side[1], side[2], side[3]
+            if Random() < setPieceChance then
+                local scorer = pickShooter(spContext)
+                if spIsHome then
+                    state.homeShots = state.homeShots + 1
+                    state.homeShotsOnTarget = state.homeShotsOnTarget + 1
+                    state.homeGoals = state.homeGoals + 1
+                else
+                    state.awayShots = state.awayShots + 1
+                    state.awayShotsOnTarget = state.awayShotsOnTarget + 1
+                    state.awayGoals = state.awayGoals + 1
+                end
+                local assister = pickAssister(spContext, scorer)
+                table.insert(events, {
+                    type = "goal",
+                    minute = minute,
+                    playerId = scorer and scorer.id,
+                    assistPlayerId = assister and assister.id,
+                    teamId = spTeamId,
+                    isExtraTime = minute > 90 or nil,
+                })
+                if spIsHome then homeMomentum = 0 else awayMomentum = 0 end
+            end
+        end
+
+        -- Phase 概率：基础值 + 进攻力加成 + 动量
+        local basePhaseChance = options.phaseChance or 0.42
+        local attackBoost = clamp((attackMod.chanceCreation - 1.0) * 0.10, -0.05, 0.08)
+        local phaseChance = clamp(basePhaseChance + attackBoost + momentum, 0.33, 0.52)
+
         if Random() < phaseChance * avgTempo then
-            local shotChance = clamp(0.2 * attackMod.chanceCreation, 0.08, 0.56)
+            local shotChance = clamp(0.28 + attackMod.chanceCreation * 0.16, 0.22, 0.52)
             if Random() < shotChance then
                 local isHome = attackingHome
                 if isHome then state.homeShots = state.homeShots + 1 else state.awayShots = state.awayShots + 1 end
 
                 local shooter = pickShooter(attackContext)
-                local finishing = (attr(shooter, "shooting") * 0.9 + attr(shooter, "composure") * 0.75 + attr(shooter, "positioning") * 0.35) / 20
-                local defensePressure = clamp(defendContext.defense / math.max(1, attackContext.attack), 0.55, 1.65)
-                local onTargetChance = clamp(0.34 + finishing * 0.12 - defensePressure * 0.07, 0.22, 0.62)
+                local finishing = (attr(shooter, "shooting") * 1.0 + attr(shooter, "composure") * 0.8 + attr(shooter, "positioning") * 0.4) / 20
+                -- 防守压力影响有限（clamp范围压缩）
+                local defensePressure = clamp(defendContext.defense / math.max(1, attackContext.attack), 0.60, 1.40)
+                local onTargetChance = clamp(0.38 + finishing * 0.12 - defensePressure * 0.05, 0.28, 0.56)
                 if Random() < onTargetChance then
                     if isHome then state.homeShotsOnTarget = state.homeShotsOnTarget + 1 else state.awayShotsOnTarget = state.awayShotsOnTarget + 1 end
 
-                    local goalChance = clamp(0.08 + finishing * 0.055 * attackMod.shotQuality - defensePressure * 0.025, 0.035, 0.24)
-                    if hasTrait(shooter, "clinical") then goalChance = goalChance + 0.018 end
+                    -- 进球概率：高底线保证弱队射正有合理进球率
+                    local goalChance = clamp(0.20 + finishing * 0.08 * attackMod.shotQuality - defensePressure * 0.03, 0.13, 0.33)
+                    if hasTrait(shooter, "clinical") then goalChance = goalChance + 0.025 end
+                    if hasTrait(shooter, "poacher") then goalChance = goalChance + 0.02 end
                     if Random() < goalChance then
                         local assister = pickAssister(attackContext, shooter)
                         table.insert(events, {
@@ -132,6 +184,8 @@ function MatchEngine._simulateMinutes(fixture, homeContext, awayContext, startMi
                             isExtraTime = minute > 90 or nil,
                         })
                         if isHome then state.homeGoals = state.homeGoals + 1 else state.awayGoals = state.awayGoals + 1 end
+                        -- 进球后重置动量（对手可能反扑）
+                        if isHome then homeMomentum = 0 else awayMomentum = 0 end
                     end
                 end
             end
@@ -176,6 +230,10 @@ function MatchEngine._simulateMinutes(fixture, homeContext, awayContext, startMi
         state.homePossessionTicks = state.homePossessionTicks + (attackingHome and 1 or 0)
         state.totalPossessionTicks = state.totalPossessionTicks + 1
     end
+
+    -- 保存动量状态（步进式比赛跨 step 保持）
+    state._homeMomentum = homeMomentum
+    state._awayMomentum = awayMomentum
 end
 
 local function selectPenaltyKickers(context)
@@ -295,7 +353,7 @@ function MatchEngine.simulate(gameState, fixture)
         local beforeHome = state.homeGoals
         local beforeAway = state.awayGoals
         MatchEngine._simulateMinutes(fixture, homeContext, awayContext, 91, 120, state, {
-            phaseChance = 0.19,
+            phaseChance = 0.35,
             injuryChance = 0.0018,
         })
         extraTime = {
@@ -314,6 +372,58 @@ function MatchEngine.simulate(gameState, fixture)
     state.homePossession = state.totalPossessionTicks > 0 and (state.homePossessionTicks / state.totalPossessionTicks) or 0.5
 
     return MatchReport.build(fixture, homeContext, awayContext, state.events, state)
+end
+
+--- 创建步进式比赛会话（玩家比赛使用）
+---@param gameState table
+---@param fixture table
+---@return MatchSession|nil
+function MatchEngine.startMatch(gameState, fixture)
+    return MatchSession.new(gameState, fixture)
+end
+
+--- 完成比赛会话，生成最终报告并应用结果
+---@param session MatchSession
+---@param gameState table
+---@param fixture table
+---@return table report
+function MatchEngine.finishMatch(session, gameState, fixture)
+    local report = session:buildReport()
+    if not report then return nil end
+
+    -- 应用比赛结果（积分榜、球员数据等）
+    if fixture._isUCL then
+        local TurnProcessor = require("scripts/core/turn_processor")
+        TurnProcessor._applyUCLResult(gameState, fixture, report)
+    else
+        PlaceholderEngine.applyResult(gameState, fixture, report)
+    end
+
+    -- 赛后士气 & 声望更新
+    local MoraleManager = require("scripts/systems/morale_manager")
+    local ReputationManager = require("scripts/systems/reputation_manager")
+    local FinanceManager = require("scripts/systems/finance_manager")
+
+    local homeGoals = report.homeGoals or 0
+    local awayGoals = report.awayGoals or 0
+    local homeResult, awayResult
+    if homeGoals > awayGoals then
+        homeResult, awayResult = "W", "L"
+    elseif homeGoals < awayGoals then
+        homeResult, awayResult = "L", "W"
+    else
+        homeResult, awayResult = "D", "D"
+    end
+    local goalDiff = homeGoals - awayGoals
+    MoraleManager.postMatchUpdate(gameState, fixture.homeTeamId, homeResult, nil)
+    MoraleManager.postMatchUpdate(gameState, fixture.awayTeamId, awayResult, nil)
+    ReputationManager.postMatchUpdate(gameState, fixture.homeTeamId, fixture.awayTeamId, homeResult, goalDiff)
+    ReputationManager.postMatchUpdate(gameState, fixture.awayTeamId, fixture.homeTeamId, awayResult, -goalDiff)
+
+    -- 主场票房
+    FinanceManager.processMatchDayRevenue(gameState, fixture.homeTeamId, true)
+
+    return report
 end
 
 function MatchEngine.applyResult(gameState, fixture, report)

@@ -44,12 +44,12 @@ local CATEGORY_COLORS = {
     transfer = {255, 153, 0, 255},
 }
 
--- 分类图标文字
-local CATEGORY_ICONS = {
-    match = "[赛]",
-    injury = "[伤]",
-    board = "[告]",
-    transfer = "[转]",
+-- 分类标签文字（用于徽章显示）
+local CATEGORY_LABELS = {
+    match = "比赛",
+    injury = "伤病",
+    board = "公告",
+    transfer = "转会",
 }
 
 -- 优先级颜色
@@ -107,14 +107,30 @@ local ACTION_HANDLERS = {
         local player = gameState.players[data.playerId]
         if not player then return end
         local raisePercent = data.raisePercent or 20
-        player.wage = math.floor(player.wage * (1 + raisePercent / 100))
+        local newWage = math.floor(player.wage * (1 + raisePercent / 100))
+        local wageIncrease = newWage - player.wage
+
+        -- 预算验证
+        local FinanceManager = require("scripts/systems/finance_manager")
+        if not FinanceManager.withinWageBudget(gameState, player.teamId, wageIncrease) then
+            gameState:sendMessage({
+                category = "contract",
+                title = "加薪失败",
+                body = string.format("无法批准 %s 的加薪请求：超出工资预算。", player.displayName),
+                priority = "normal",
+            })
+            Router.replaceWith("inbox")
+            return
+        end
+
+        player.wage = newWage
         player.morale = math.min(100, (player.morale or 60) + 12)
         gameState:sendMessage({
             category = "contract",
             title = "加薪批准",
             body = string.format("已批准 %s 加薪 %d%%，新周薪 %s。",
                 player.displayName, raisePercent,
-                player.wage >= 1000 and string.format("%.0fK", player.wage/1000) or tostring(player.wage)),
+                newWage >= 1000 and string.format("%.0fK", newWage/1000) or tostring(newWage)),
             priority = "normal",
         })
         Router.replaceWith("inbox")
@@ -208,19 +224,19 @@ function Inbox._showDetail(msg, currentTab)
         alignItems = "center",
         marginBottom = 12,
         children = {
-            -- 分类标签
+            -- 分类标签（圆角徽章样式）
             UI.Panel {
-                width = 36, height = 36,
-                borderRadius = 18,
-                backgroundColor = {catColor[1], catColor[2], catColor[3], 50},
-                alignItems = "center",
-                justifyContent = "center",
+                backgroundColor = {catColor[1], catColor[2], catColor[3], 30},
+                borderRadius = 4,
+                paddingLeft = 8, paddingRight = 8,
+                paddingTop = 4, paddingBottom = 4,
                 marginRight = 10,
                 children = {
                     UI.Label {
-                        text = CATEGORY_ICONS[msgCat] or "[信]",
-                        fontSize = 12,
+                        text = CATEGORY_LABELS[msgCat] or "消息",
+                        fontSize = 11,
                         color = catColor,
+                        fontWeight = "bold",
                     }
                 }
             },
@@ -491,6 +507,16 @@ function Inbox.create(params)
         end
     end
 
+    -- 排序：未读优先，再按日期新→旧
+    table.sort(filteredMsgs, function(a, b)
+        if (not a.read) ~= (not b.read) then return not a.read end
+        local function dateKey(msg)
+            if not msg.date then return 0 end
+            return (msg.date.year or 0) * 10000 + (msg.date.month or 0) * 100 + (msg.date.day or 0)
+        end
+        return dateKey(a) > dateKey(b)
+    end)
+
     -- 统计各分类未读数
     local unreadCounts = { all = 0, match = 0, injury = 0, board = 0, transfer = 0 }
     for _, msg in ipairs(gameState.inbox) do
@@ -537,90 +563,72 @@ function Inbox.create(params)
         local isUnread = not msg.read
         local msgCat = CATEGORY_MAP[msg.category] or "board"
         local catColor = CATEGORY_COLORS[msgCat] or Theme.COLORS.TEXT_MUTED
-        local catIcon = CATEGORY_ICONS[msgCat] or "[信]"
+        local catLabel = CATEGORY_LABELS[msgCat] or "消息"
         local hasActions = (msg.actions and #msg.actions > 0)
 
         table.insert(msgRows, UI.Panel {
             width = "100%",
-            minHeight = 64,
-            flexDirection = "row",
-            alignItems = "center",
             paddingLeft = 12,
             paddingRight = 12,
-            paddingTop = 8,
-            paddingBottom = 8,
+            paddingTop = 10,
+            paddingBottom = 10,
             backgroundColor = isUnread and {26, 38, 64, 255} or {0, 0, 0, 0},
             borderBottomWidth = 1,
             borderColor = Theme.COLORS.BORDER,
             children = {
-                -- 分类图标
+                -- Row 1: Category badge + Title + Date + Unread dot
                 UI.Panel {
-                    width = 32, height = 32,
-                    borderRadius = 16,
-                    backgroundColor = {catColor[1], catColor[2], catColor[3], 40},
-                    alignItems = "center",
-                    justifyContent = "center",
-                    marginRight = 10,
+                    width = "100%", flexDirection = "row", alignItems = "center",
                     children = {
-                        UI.Label {
-                            text = catIcon,
-                            fontSize = 11,
-                            color = catColor,
-                        }
-                    }
-                },
-                -- 内容区
-                UI.Panel {
-                    flexGrow = 1,
-                    flexShrink = 1,
-                    children = {
-                        UI.Label {
-                            text = msg.title or "消息",
-                            fontSize = 14,
-                            color = isUnread and Theme.COLORS.TEXT_PRIMARY or Theme.COLORS.TEXT_SECONDARY,
-                            fontWeight = isUnread and "bold" or "normal",
+                        -- 分类标签（与新闻页一致的圆角徽章样式）
+                        UI.Panel {
+                            backgroundColor = {catColor[1], catColor[2], catColor[3], 30},
+                            borderRadius = 3,
+                            paddingLeft = 5, paddingRight = 5, paddingTop = 2, paddingBottom = 2,
+                            marginRight = 8,
+                            children = {
+                                UI.Label {
+                                    text = catLabel,
+                                    fontSize = 10,
+                                    color = catColor,
+                                    fontWeight = "bold",
+                                }
+                            }
                         },
-                        UI.Label {
-                            text = msg.body and (#msg.body > 40 and msg.body:sub(1, 40) .. "..." or msg.body) or "",
-                            fontSize = 12,
-                            color = Theme.COLORS.TEXT_MUTED,
-                            marginTop = 3,
+                        -- 标题
+                        UI.Panel {
+                            flexGrow = 1, flexShrink = 1,
+                            children = {
+                                UI.Label {
+                                    text = msg.title or "消息",
+                                    fontSize = 14,
+                                    color = isUnread and Theme.COLORS.TEXT_PRIMARY or Theme.COLORS.TEXT_SECONDARY,
+                                    fontWeight = isUnread and "bold" or "normal",
+                                },
+                            }
                         },
-                    }
-                },
-                -- 右侧信息
-                UI.Panel {
-                    alignItems = "flex-end",
-                    marginLeft = 8,
-                    children = {
                         -- 日期
                         UI.Label {
                             text = msg.date and string.format("%d/%d", msg.date.month, msg.date.day) or "",
                             fontSize = 11,
                             color = Theme.COLORS.TEXT_MUTED,
+                            marginLeft = 8,
                         },
-                        -- 未读指示 / 动作指示
+                        -- 未读圆点
                         (isUnread or hasActions) and UI.Panel {
-                            flexDirection = "row",
-                            alignItems = "center",
-                            marginTop = 4,
-                            children = {
-                                -- 未读圆点
-                                isUnread and UI.Panel {
-                                    width = 8, height = 8,
-                                    borderRadius = 4,
-                                    backgroundColor = PRIORITY_COLORS[msg.priority] or Theme.COLORS.PRIMARY,
-                                    marginRight = hasActions and 4 or 0,
-                                } or UI.Panel { width = 0 },
-                                -- 有动作标识
-                                hasActions and UI.Label {
-                                    text = "→",
-                                    fontSize = 11,
-                                    color = Theme.COLORS.ACCENT,
-                                } or UI.Panel { width = 0 },
-                            }
-                        } or UI.Panel { height = 0 },
-                    }
+                            width = 8, height = 8,
+                            borderRadius = 4,
+                            backgroundColor = PRIORITY_COLORS[msg.priority] or Theme.COLORS.PRIMARY,
+                            marginLeft = 6,
+                        } or UI.Panel { width = 0 },
+                    },
+                },
+                -- Row 2: Body preview
+                UI.Label {
+                    text = msg.body and (#msg.body > 50 and msg.body:sub(1, 50) .. "..." or msg.body) or "",
+                    fontSize = 12,
+                    color = Theme.COLORS.TEXT_MUTED,
+                    marginTop = 4,
                 },
             },
             onClick = function()
@@ -651,7 +659,7 @@ function Inbox.create(params)
                         text = "返回", width = 50, height = 36,
                         backgroundColor = Theme.COLORS.TRANSPARENT,
                         fontSize = 14, color = Theme.COLORS.TEXT_SECONDARY,
-                        onClick = function() Router.navigate("dashboard") end,
+                        onClick = function() Router.back() end,
                     },
                     UI.Label {
                         text = "收件箱",

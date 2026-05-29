@@ -270,37 +270,45 @@ local function generateSquad(gameState, teamId, country, reputation)
     WorldGenerator.autoSelectStartingXI(gameState, teamId)
 end
 
--- 自动选择首发
+-- 自动选择首发（按球队实际阵型的槽位需求选人）
 function WorldGenerator.autoSelectStartingXI(gameState, teamId)
+    local AIManager = require("scripts/systems/ai_manager")
     local team = gameState.teams[teamId]
     if not team then return end
 
     local players = gameState:getTeamPlayers(teamId)
-    -- 按位置分组
-    local byPos = {GK={}, DEF={}, MID={}, FWD={}}
-    for _, p in ipairs(players) do
-        if p.position == "GK" then table.insert(byPos.GK, p)
-        elseif p.position == "CB" or p.position == "LB" or p.position == "RB" then table.insert(byPos.DEF, p)
-        elseif p.position == "LW" or p.position == "RW" or p.position == "ST" or p.position == "CF" then table.insert(byPos.FWD, p)
-        else table.insert(byPos.MID, p)
+    if #players < 11 then return end
+
+    local formation = team.formation or "4-4-2"
+    local slots = AIManager._getFormationSlots(formation)
+
+    -- 贪心分配：对每个槽位选最佳匹配球员
+    local selected = {}
+    local usedIds = {}
+
+    for _, slot in ipairs(slots) do
+        local bestPlayer = nil
+        local bestScore = -1
+
+        for _, p in ipairs(players) do
+            if not usedIds[p.id] and not p.retired and not p.injured then
+                local score = AIManager._playerPositionScore(p, slot)
+                -- 首次选人加权体能
+                score = score * ((p.fitness or 100) / 100)
+                if score > bestScore then
+                    bestScore = score
+                    bestPlayer = p
+                end
+            end
+        end
+
+        if bestPlayer then
+            table.insert(selected, bestPlayer.id)
+            usedIds[bestPlayer.id] = true
         end
     end
 
-    -- 按能力排序
-    local function sortByOverall(list)
-        table.sort(list, function(a, b) return a.overall > b.overall end)
-    end
-    sortByOverall(byPos.GK)
-    sortByOverall(byPos.DEF)
-    sortByOverall(byPos.MID)
-    sortByOverall(byPos.FWD)
-
-    -- 4-4-2: 1 GK + 4 DEF + 4 MID + 2 FWD
-    team.startingXI = {}
-    if byPos.GK[1] then table.insert(team.startingXI, byPos.GK[1].id) end
-    for i = 1, math.min(4, #byPos.DEF) do table.insert(team.startingXI, byPos.DEF[i].id) end
-    for i = 1, math.min(4, #byPos.MID) do table.insert(team.startingXI, byPos.MID[i].id) end
-    for i = 1, math.min(2, #byPos.FWD) do table.insert(team.startingXI, byPos.FWD[i].id) end
+    team.startingXI = selected
 
     -- 设置队长为能力最高的球员
     if #team.startingXI > 0 then

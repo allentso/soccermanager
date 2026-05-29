@@ -5,6 +5,7 @@ local UI = require("urhox-libs/UI")
 local Theme = require("scripts/ui/theme")
 local Router = require("scripts/app/router")
 local Constants = require("scripts/app/constants")
+local TrainingManager = require("scripts/systems/training_manager")
 
 local Training = {}
 
@@ -166,7 +167,7 @@ function Training._buildTeamTab(team, currentFocus, currentIntensity, currentPla
             fontWeight = isActive and "bold" or "normal",
             marginBottom = 6,
             onClick = function()
-                team.trainingFocus = opt.key
+                TrainingManager.setTeamFocus(gameState, opt.key)
                 Router.replaceWith("training", { tab = "team" })
             end,
         })
@@ -190,7 +191,7 @@ function Training._buildTeamTab(team, currentFocus, currentIntensity, currentPla
                     color = isActive and Theme.COLORS.TEXT_PRIMARY or Theme.COLORS.TEXT_SECONDARY,
                     fontWeight = isActive and "bold" or "normal",
                     onClick = function()
-                        team.trainingIntensity = opt.key
+                        TrainingManager.setIntensity(gameState, opt.key)
                         Router.replaceWith("training", { tab = "team" })
                     end,
                 },
@@ -219,7 +220,7 @@ function Training._buildTeamTab(team, currentFocus, currentIntensity, currentPla
             fontWeight = isActive and "bold" or "normal",
             marginBottom = 6,
             onClick = function()
-                team.weeklyPlan = opt.key
+                TrainingManager.setWeeklyPlan(gameState, opt.key)
                 Router.replaceWith("training", { tab = "team" })
             end,
         })
@@ -409,7 +410,7 @@ function Training._showIndividualMenu(player, options)
             color = isActive and Theme.COLORS.TEXT_PRIMARY or Theme.COLORS.TEXT_SECONDARY,
             marginBottom = 4,
             onClick = function()
-                player.trainingFocus = opt.key
+                TrainingManager.setPlayerFocus(gameState, player.id, opt.key)
                 UI.CloseOverlay()
                 Router.replaceWith("training", { tab = "individual" })
             end,

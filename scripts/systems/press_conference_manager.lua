@@ -76,4 +76,7 @@ function PressConferenceManager.applyResponse(gameState, report, responseKey)
     return true
 end
 
+-- 固定顺序（从温和到严厉）
+PressConferenceManager.RESPONSE_ORDER = { "praise", "balanced", "demanding" }
+
 return PressConferenceManager

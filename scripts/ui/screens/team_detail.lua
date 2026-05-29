@@ -282,7 +282,7 @@ local function buildHistoryTab(team, gameState, teamId)
             local isHome = (f.homeTeamId == teamId)
             local oppId = isHome and f.awayTeamId or f.homeTeamId
             local oppTeam = gameState.teams[oppId]
-            local oppName = oppTeam and oppTeam.shortName or "???"
+            local oppName = oppTeam and oppTeam.name or "???"
             local score = tostring(f.homeGoals or 0) .. " - " .. tostring(f.awayGoals or 0)
             local venue = isHome and "主" or "客"
 

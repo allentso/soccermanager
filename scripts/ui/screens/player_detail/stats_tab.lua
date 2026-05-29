@@ -68,10 +68,10 @@ function StatsTab.build(player, gameState)
                     UI.Panel {
                         marginTop = 6,
                         children = {
-                            infoRow("当前体能", tostring(player.fitness) .. "%",
-                                player.fitness >= 75 and Theme.COLORS.SECONDARY or Theme.COLORS.WARNING),
-                            infoRow("当前士气", tostring(player.morale),
-                                player.morale >= 60 and Theme.COLORS.SECONDARY or Theme.COLORS.WARNING),
+                            infoRow("当前体能", tostring(player.fitness or 0) .. "%",
+                                (player.fitness or 0) >= 75 and Theme.COLORS.SECONDARY or Theme.COLORS.WARNING),
+                            infoRow("当前士气", tostring(player.morale or 0),
+                                (player.morale or 0) >= 60 and Theme.COLORS.SECONDARY or Theme.COLORS.WARNING),
                             infoRow("受伤状态", player.injured and ("受伤 - " .. (player.injuryDays or 0) .. "天") or "健康",
                                 player.injured and Theme.COLORS.DANGER or Theme.COLORS.SECONDARY),
                             infoRow("训练重点", player.trainingFocus or "跟随全队", Theme.COLORS.TEXT_MUTED),

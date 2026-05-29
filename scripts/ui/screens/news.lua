@@ -321,7 +321,7 @@ function News.create(params)
                         text = "返回", width = 50, height = 36,
                         backgroundColor = Theme.COLORS.TRANSPARENT,
                         fontSize = 14, color = Theme.COLORS.TEXT_SECONDARY,
-                        onClick = function() Router.navigate("dashboard") end,
+                        onClick = function() Router.back() end,
                     },
                     UI.Label {
                         text = "新闻中心 " .. headerHint,

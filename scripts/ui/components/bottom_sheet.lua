@@ -166,17 +166,27 @@ end
 --- @param opts table
 ---   title?: string - 标题
 ---   children: table[] - 自定义 UI 子元素
+---   footer?: Widget - 固定在底部的 widget（如提交按钮），不参与滚动
 ---   showCancel?: boolean - 是否显示取消按钮（默认 true）
 ---   height?: number - 自定义高度（默认 400）
 ---   onClose?: function - 关闭回调
 function BottomSheet.showCustom(opts)
     local children = opts.children or {}
     local showCancel = opts.showCancel ~= false
+    local footer = opts.footer
     local onClose = opts.onClose
+    local drawerHeight = opts.height or 400
+
+    -- 计算 ScrollView 可用高度（Drawer contentPadding=20 上下各占20）
+    local usableHeight = drawerHeight - 40  -- 减去 Drawer 内边距
+    local titleHeight = opts.title and 30 or 0  -- 标题行高 + marginBottom
+    local cancelHeight = showCancel and 54 or 0  -- 44高度 + 10marginTop
+    local footerHeight = footer and 56 or 0  -- footer按钮约56px（44height + 12marginTop）
+    local scrollHeight = usableHeight - titleHeight - cancelHeight - footerHeight
 
     local contentItems = {}
 
-    -- 标题
+    -- 标题（固定在顶部，不参与滚动）
     if opts.title then
         table.insert(contentItems, UI.Label {
             text = opts.title,
@@ -188,12 +198,26 @@ function BottomSheet.showCustom(opts)
         })
     end
 
-    -- 自定义内容
+    -- 自定义内容区域（可滚动，使用固定高度约束）
+    local scrollChildren = {}
     for _, child in ipairs(children) do
-        table.insert(contentItems, child)
+        table.insert(scrollChildren, child)
     end
 
-    -- 取消按钮
+    table.insert(contentItems, UI.ScrollView {
+        width = "100%",
+        height = scrollHeight,
+        scrollY = true,
+        showScrollbar = true,
+        children = scrollChildren,
+    })
+
+    -- footer（固定在底部，不参与滚动）
+    if footer then
+        table.insert(contentItems, footer)
+    end
+
+    -- 取消按钮（固定在最底部，不参与滚动）
     if showCancel then
         table.insert(contentItems, UI.Button {
             text = "关闭",
@@ -218,7 +242,7 @@ function BottomSheet.showCustom(opts)
         children = contentItems,
     }
 
-    _openDrawer(content, opts.height or 400, onClose)
+    _openDrawer(content, drawerHeight, onClose)
 end
 
 ------------------------------------------------------

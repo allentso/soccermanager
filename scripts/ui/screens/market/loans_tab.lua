@@ -18,9 +18,9 @@ function LoansTab.build(gameState)
     local teamId = gameState.playerTeamId
 
     for _, loan in ipairs(loans) do
-        if loan.loanTeamId == teamId or loan.toTeamId == teamId then
+        if loan.loanTeamId == teamId then
             table.insert(myLoansIn, loan)
-        elseif loan.originTeamId == teamId or loan.fromTeamId == teamId then
+        elseif loan.originTeamId == teamId then
             table.insert(myLoansOut, loan)
         end
     end
@@ -35,8 +35,8 @@ function LoansTab.build(gameState)
     else
         for _, loan in ipairs(myLoansIn) do
             local player = gameState.players[loan.playerId]
-            local fromTeam = gameState.teams[loan.originTeamId or loan.fromTeamId]
-            table.insert(children, LoansTab._loanRow(player, "来自 " .. (fromTeam and fromTeam.shortName or "?") .. " | 剩余 " .. tostring(loan.remainingWeeks or "?") .. " 周", Theme.COLORS.SECONDARY))
+            local fromTeam = gameState.teams[loan.originTeamId]
+            table.insert(children, LoansTab._loanRow(player, "来自 " .. (fromTeam and fromTeam.name or "?") .. " | 剩余 " .. tostring(loan.remainingWeeks or "?") .. " 周", Theme.COLORS.SECONDARY))
         end
     end
 
@@ -50,8 +50,8 @@ function LoansTab.build(gameState)
     else
         for _, loan in ipairs(myLoansOut) do
             local player = gameState.players[loan.playerId]
-            local toTeam = gameState.teams[loan.loanTeamId or loan.toTeamId]
-            table.insert(children, LoansTab._loanRow(player, "租借到 " .. (toTeam and toTeam.shortName or "?") .. " | 剩余 " .. tostring(loan.remainingWeeks or "?") .. " 周", Theme.COLORS.ACCENT))
+            local toTeam = gameState.teams[loan.loanTeamId]
+            table.insert(children, LoansTab._loanRow(player, "租借到 " .. (toTeam and toTeam.name or "?") .. " | 剩余 " .. tostring(loan.remainingWeeks or "?") .. " 周", Theme.COLORS.ACCENT))
         end
     end
 
@@ -116,7 +116,7 @@ function LoansTab._candidateRow(gameState, player, sourceTeam)
             UI.Panel { flexGrow = 1,
                 children = {
                     UI.Label { text = player.displayName, fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY },
-                    UI.Label { text = (sourceTeam and sourceTeam.shortName or "?") .. " | 半赛季租借", fontSize = 10, color = Theme.COLORS.TEXT_MUTED, marginTop = 2 },
+                    UI.Label { text = (sourceTeam and sourceTeam.name or "?") .. " | 半赛季租借", fontSize = 10, color = Theme.COLORS.TEXT_MUTED, marginTop = 2 },
                 }
             },
             UI.Label { text = tostring(player.overall or "?"), fontSize = 13, color = Theme.COLORS.SECONDARY, width = 28, fontWeight = "bold" },

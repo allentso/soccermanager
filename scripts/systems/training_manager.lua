@@ -11,6 +11,7 @@ local TrainingManager = {}
 -- 训练重点定义
 ------------------------------------------------------
 TrainingManager.FOCUS_ATTRS = {
+    -- Team-level focus categories
     attack = {"shooting", "dribbling", "passing", "vision", "composure"},
     defense = {"tackling", "defending", "positioning", "aerial", "strength"},
     fitness = {"speed", "stamina", "strength", "agility"},
@@ -18,6 +19,11 @@ TrainingManager.FOCUS_ATTRS = {
     tactical = {"decisions", "positioning", "teamwork", "vision", "composure"},
     balanced = {"speed", "stamina", "strength", "passing", "shooting",
         "tackling", "dribbling", "defending", "positioning", "vision", "decisions"},
+    -- Individual-specific focus (for player.trainingFocus)
+    shooting = {"shooting", "composure", "positioning", "vision"},
+    passing = {"passing", "vision", "decisions", "composure"},
+    defending = {"tackling", "defending", "positioning", "strength", "aerial"},
+    dribbling = {"dribbling", "agility", "composure", "speed"},
 }
 
 ------------------------------------------------------

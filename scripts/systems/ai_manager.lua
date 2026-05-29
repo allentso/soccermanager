@@ -385,4 +385,61 @@ function AIManager.makeTransferDecisions(gameState)
     end
 end
 
+------------------------------------------------------
+-- 公开 API：切换阵型后重新安排首发
+------------------------------------------------------
+
+--- 根据新阵型重新排列 startingXI（供玩家手动切换阵型时调用）
+--- 对每个槽位从全队中选择最佳匹配球员（首发优先加分，但允许替补替换不适配的首发）
+function AIManager.rearrangeForFormation(gameState, team)
+    local formation = team.formation or "4-4-2"
+    local slots = AIManager._getFormationSlots(formation)
+    local oldXI = team.startingXI or {}
+
+    -- 构建老首发 id 集合（用于加分）
+    local oldStarterSet = {}
+    for _, pid in ipairs(oldXI) do
+        oldStarterSet[pid] = true
+    end
+
+    -- 获取全队可用球员
+    local allAvailable = {}
+    for _, pid in ipairs(team.playerIds or {}) do
+        local p = gameState.players[pid]
+        if p and not p.retired and not p.injured then
+            table.insert(allAvailable, p)
+        end
+    end
+
+    -- 贪心分配：对每个槽位从全队中找最佳匹配
+    local newXI = {}
+    local usedIds = {}
+
+    for _, slot in ipairs(slots) do
+        local bestPlayer = nil
+        local bestScore = -1
+
+        for _, p in ipairs(allAvailable) do
+            if not usedIds[p.id] then
+                local score = AIManager._playerPositionScore(p, slot)
+                -- 老首发球员获得少量加分（同等条件下优先留用，但不阻止更适配的替补上位）
+                if oldStarterSet[p.id] then
+                    score = score * 1.05
+                end
+                if score > bestScore then
+                    bestScore = score
+                    bestPlayer = p
+                end
+            end
+        end
+
+        if bestPlayer then
+            table.insert(newXI, bestPlayer.id)
+            usedIds[bestPlayer.id] = true
+        end
+    end
+
+    team.startingXI = newXI
+end
+
 return AIManager

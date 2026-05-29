@@ -8,6 +8,7 @@ local Constants = require("scripts/app/constants")
 local TransferManager = require("scripts/systems/transfer_manager")
 local FinanceManager = require("scripts/systems/finance_manager")
 local LoansTab = require("scripts/ui/screens/market/loans_tab")
+local BottomSheet = require("scripts/ui/components/bottom_sheet")
 
 local Market = {}
 
@@ -16,6 +17,7 @@ local TABS = {
     { key = "browse",   label = "浏览" },
     { key = "free",     label = "自由球员" },
     { key = "loans",    label = "租借" },
+    { key = "scout",    label = "球探" },
     { key = "my_bids",  label = "报价" },
     { key = "listed",   label = "出售" },
 }
@@ -56,6 +58,8 @@ function Market.create(params)
         contentChildren = Market._buildLoansContent(gameState)
     elseif currentTab == "my_bids" then
         contentChildren = Market._buildMyBidsContent(gameState)
+    elseif currentTab == "scout" then
+        contentChildren = Market._buildScoutContent(gameState)
     elseif currentTab == "listed" then
         contentChildren = Market._buildListedContent(gameState)
     end
@@ -75,11 +79,7 @@ function Market.create(params)
             color = isActive and Theme.COLORS.TEXT_PRIMARY or Theme.COLORS.TEXT_SECONDARY,
             marginRight = 6,
             onClick = function()
-                if tab.navigate then
-                    Router.navigate(tab.navigate)
-                else
-                    Router.replaceWith("market", { tab = tab.key, posFilter = posFilter })
-                end
+                Router.replaceWith("market", { tab = tab.key, posFilter = posFilter })
             end,
         })
     end
@@ -96,7 +96,7 @@ function Market.create(params)
                         text = "返回", width = 50, height = 36,
                         backgroundColor = Theme.COLORS.TRANSPARENT,
                         fontSize = 14, color = Theme.COLORS.TEXT_SECONDARY,
-                        onClick = function() Router.navigate("dashboard") end,
+                        onClick = function() Router.back() end,
                     },
                     UI.Label {
                         text = "转会市场",
@@ -183,21 +183,6 @@ function Market._buildBrowseContent(gameState, posFilter)
     -- 按能力排序取前40
     table.sort(availablePlayers, function(a, b) return a.overall > b.overall end)
 
-    -- 列头
-    table.insert(children, UI.Panel {
-        width = "100%", height = 28,
-        flexDirection = "row", alignItems = "center",
-        paddingLeft = 12, paddingRight = 12,
-        backgroundColor = {23, 28, 46, 200},
-        children = {
-            UI.Label { text = "位置", width = 36, fontSize = 10, color = Theme.COLORS.TEXT_MUTED },
-            UI.Label { text = "球员", flexGrow = 1, fontSize = 10, color = Theme.COLORS.TEXT_MUTED },
-            UI.Label { text = "能力", width = 28, fontSize = 10, color = Theme.COLORS.TEXT_MUTED },
-            UI.Label { text = "身价", width = 50, fontSize = 10, color = Theme.COLORS.TEXT_MUTED },
-            UI.Label { text = "操作", width = 50, fontSize = 10, color = Theme.COLORS.TEXT_MUTED },
-        }
-    })
-
     -- 球员列表
     local maxShow = math.min(40, #availablePlayers)
     for i = 1, maxShow do
@@ -208,68 +193,90 @@ function Market._buildBrowseContent(gameState, posFilter)
         local attitude = TransferManager.getPlayerTransferAttitude(gameState, p.id, gameState.playerTeamId)
         local competingBids = TransferManager.getCompetingBids(gameState, p.id)
 
+        -- 态度颜色和文本
+        local attitudeText = attitude == "eager" and "想转会" or (attitude == "open" and "愿考虑" or (attitude == "reluctant" and "不情愿" or "拒绝"))
+        local attitudeColor = attitude == "eager" and Theme.COLORS.SECONDARY
+            or (attitude == "open" and Theme.COLORS.ACCENT
+            or (attitude == "reluctant" and Theme.COLORS.WARNING or Theme.COLORS.DANGER))
+
+        -- 附加信息标签
+        local extraTags = {}
+        if releaseClause then
+            table.insert(extraTags, UI.Panel {
+                backgroundColor = {80, 60, 20, 255}, borderRadius = 3,
+                paddingLeft = 5, paddingRight = 5, paddingTop = 2, paddingBottom = 2, marginRight = 4,
+                children = { UI.Label { text = "解约 " .. Market._formatValue(releaseClause), fontSize = 9, color = {255, 200, 80, 255} } },
+            })
+        end
+        if #competingBids > 0 then
+            table.insert(extraTags, UI.Panel {
+                backgroundColor = {80, 30, 30, 255}, borderRadius = 3,
+                paddingLeft = 5, paddingRight = 5, paddingTop = 2, paddingBottom = 2, marginRight = 4,
+                children = { UI.Label { text = #competingBids .. "队竞价", fontSize = 9, color = {255, 120, 120, 255} } },
+            })
+        end
+
         table.insert(children, UI.Panel {
-            width = "100%", height = 68,
-            flexDirection = "row", alignItems = "center",
-            paddingLeft = 12, paddingRight = 12,
+            width = "100%",
+            paddingLeft = 12, paddingRight = 12, paddingTop = 8, paddingBottom = 8,
             borderBottomWidth = 1, borderColor = Theme.COLORS.BORDER,
             children = {
-                UI.Label {
-                    text = Constants.POSITION_NAMES[p.position] or p.position,
-                    fontSize = 11, color = Theme.COLORS.TEXT_MUTED, width = 36,
-                },
+                -- 第一行：名字 + 能力值 + 身价 + 报价按钮
                 UI.Panel {
-                    flexGrow = 1, flexShrink = 1,
-                    onClick = function()
-                        Router.navigate("player_detail", { playerId = p.id })
-                    end,
+                    width = "100%", flexDirection = "row", alignItems = "center",
                     children = {
-                        UI.Label { text = p.displayName, fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY },
-                        UI.Label {
-                            text = (team and team.shortName or "自由") .. " | " .. p:getAge(gameState.date.year) .. "岁",
-                            fontSize = 11, color = Theme.COLORS.TEXT_MUTED, marginTop = 2,
+                        UI.Panel {
+                            backgroundColor = {attitudeColor[1], attitudeColor[2], attitudeColor[3], 30},
+                            borderRadius = 3, paddingLeft = 4, paddingRight = 4, paddingTop = 1, paddingBottom = 1, marginRight = 8,
+                            children = { UI.Label { text = Constants.POSITION_NAMES[p.position] or p.position, fontSize = 10, color = attitudeColor } },
+                        },
+                        UI.Panel {
+                            flexGrow = 1, flexShrink = 1,
+                            onClick = function() Router.navigate("player_detail", { playerId = p.id }) end,
+                            children = {
+                                UI.Label { text = p.displayName, fontSize = 14, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold" },
+                            },
                         },
                         UI.Label {
-                            text = string.format("%s%s%s",
-                                attitude == "eager" and "想转会" or (attitude == "open" and "愿考虑" or (attitude == "reluctant" and "不情愿" or "拒绝")),
-                                releaseClause and (" | 解约金 " .. Market._formatValue(releaseClause)) or "",
-                                #competingBids > 0 and (" | " .. #competingBids .. "队竞价") or ""),
-                            fontSize = 10,
-                            color = attitude == "refusing" and Theme.COLORS.DANGER or Theme.COLORS.TEXT_MUTED,
-                            marginTop = 2,
+                            text = tostring(p.overall),
+                            fontSize = 16, color = Theme.COLORS.SECONDARY, fontWeight = "bold", marginRight = 10,
                         },
-                    }
+                        UI.Button {
+                            text = hasBid and "已报" or (releaseClause and "解约" or "报价"),
+                            width = 50, height = 28,
+                            backgroundColor = hasBid and Theme.COLORS.TEXT_MUTED or Theme.COLORS.PRIMARY,
+                            borderRadius = 6, fontSize = 12,
+                            color = Theme.COLORS.TEXT_PRIMARY,
+                            onClick = function()
+                                if not hasBid then
+                                    if releaseClause then
+                                        TransferManager.triggerReleaseClause(gameState, p.id)
+                                        Router.replaceWith("market", { tab = "browse", posFilter = posFilter })
+                                    else
+                                        Market._showBidSheet(gameState, p, posFilter)
+                                    end
+                                end
+                            end,
+                        },
+                    },
                 },
-                UI.Label {
-                    text = tostring(p.overall),
-                    fontSize = 13, color = Theme.COLORS.SECONDARY, width = 28, fontWeight = "bold",
-                },
-                UI.Label {
-                    text = Market._formatValue(p.value),
-                    fontSize = 11, color = Theme.COLORS.ACCENT, width = 50,
-                },
-                UI.Button {
-                    text = hasBid and "已报" or (releaseClause and "解约" or "条款"),
-                    width = 46, height = 26,
-                    backgroundColor = hasBid and Theme.COLORS.TEXT_MUTED or Theme.COLORS.PRIMARY,
-                    borderRadius = 4,
-                    fontSize = 11,
-                    color = Theme.COLORS.TEXT_PRIMARY,
-                    onClick = function()
-                        if not hasBid then
-                            if releaseClause then
-                                TransferManager.triggerReleaseClause(gameState, p.id)
-                            else
-                                local offerAmount = math.floor(p.value * 1.05)
-                                TransferManager.makeBidWithClauses(gameState, p.id, offerAmount, p.wage, {
-                                    installments = 2,
-                                    appearanceBonus = { count = 20, amount = math.floor(p.value * 0.08) },
-                                    sellOnPercent = 10,
-                                })
-                            end
-                            Router.replaceWith("market", { tab = "browse", posFilter = posFilter })
-                        end
-                    end,
+                -- 第二行：球队 | 年龄 | 身价 | 态度 | 标签
+                UI.Panel {
+                    width = "100%", flexDirection = "row", alignItems = "center", marginTop = 4,
+                    children = {
+                        UI.Label {
+                            text = (team and team.name or "自由"),
+                            fontSize = 11, color = Theme.COLORS.TEXT_MUTED, flexShrink = 1,
+                        },
+                        UI.Label { text = " · ", fontSize = 11, color = Theme.COLORS.BORDER },
+                        UI.Label { text = p:getAge(gameState.date.year) .. "岁", fontSize = 11, color = Theme.COLORS.TEXT_MUTED },
+                        UI.Label { text = " · ", fontSize = 11, color = Theme.COLORS.BORDER },
+                        UI.Label { text = Market._formatValue(p.value), fontSize = 11, color = Theme.COLORS.ACCENT },
+                        UI.Label { text = " · ", fontSize = 11, color = Theme.COLORS.BORDER },
+                        UI.Label { text = attitudeText, fontSize = 11, color = attitudeColor },
+                        UI.Panel { flexGrow = 1 },
+                        table.unpack(extraTags),
+                    },
                 },
             },
         })
@@ -286,6 +293,346 @@ function Market._buildBrowseContent(gameState, posFilter)
     end
 
     return children
+end
+
+-- 报价谈判弹窗
+function Market._showBidSheet(gameState, player, posFilter)
+    local team = gameState:getPlayerTeam()
+    local budget = team and team.transferBudget or 0
+    local baseValue = player.value
+    local sellerTeam = gameState.teams[player.teamId]
+
+    -- 预设报价选项
+    local bidOptions = {
+        { label = "低报 (身价×0.9)", multiplier = 0.9 },
+        { label = "平价 (身价×1.0)", multiplier = 1.0 },
+        { label = "溢价 (身价×1.1)", multiplier = 1.1 },
+        { label = "高价 (身价×1.2)", multiplier = 1.2 },
+        { label = "诚意满满 (身价×1.35)", multiplier = 1.35 },
+    }
+
+    -- 条款选项
+    local clauseOptions = {
+        { key = "simple", label = "一次付清·无附加条款", installments = 1, bonus = 0, sellOn = 0 },
+        { key = "standard", label = "2期·出场奖金8%·转售10%", installments = 2, bonus = 0.08, sellOn = 10 },
+        { key = "heavy", label = "3期·出场奖金12%·转售15%", installments = 3, bonus = 0.12, sellOn = 15 },
+    }
+
+    -- 当前选择状态
+    local selectedBidIdx = 3 -- 默认溢价
+    local selectedClauseIdx = 2 -- 默认标准条款
+
+    local function buildContent()
+        local offerAmount = math.floor(baseValue * bidOptions[selectedBidIdx].multiplier)
+        local clause = clauseOptions[selectedClauseIdx]
+        local appearanceBonus = math.floor(baseValue * clause.bonus)
+
+        local children = {}
+
+        -- 球员信息
+        table.insert(children, UI.Panel {
+            width = "100%", flexDirection = "row", alignItems = "center", marginBottom = 12,
+            children = {
+                UI.Panel {
+                    flexGrow = 1,
+                    children = {
+                        UI.Label { text = player.displayName, fontSize = 16, fontWeight = "bold", color = Theme.COLORS.TEXT_PRIMARY },
+                        UI.Label {
+                            text = string.format("%s | %s | 能力 %d | %d岁",
+                                sellerTeam and sellerTeam.name or "?",
+                                Constants.POSITION_NAMES[player.position] or player.position,
+                                player.overall,
+                                player:getAge(gameState.date.year)),
+                            fontSize = 12, color = Theme.COLORS.TEXT_MUTED, marginTop = 3,
+                        },
+                    }
+                },
+                UI.Panel {
+                    backgroundColor = {Theme.COLORS.ACCENT[1], Theme.COLORS.ACCENT[2], Theme.COLORS.ACCENT[3], 40},
+                    borderRadius = 6, paddingLeft = 8, paddingRight = 8, paddingTop = 4, paddingBottom = 4,
+                    children = {
+                        UI.Label { text = "身价 " .. Market._formatValue(baseValue), fontSize = 12, color = Theme.COLORS.ACCENT },
+                    },
+                },
+            }
+        })
+
+        -- 报价金额选择
+        table.insert(children, UI.Label { text = "报价金额", fontSize = 13, fontWeight = "bold", color = Theme.COLORS.TEXT_PRIMARY, marginBottom = 6 })
+
+        for i, opt in ipairs(bidOptions) do
+            local amount = math.floor(baseValue * opt.multiplier)
+            local isSelected = i == selectedBidIdx
+            local canAfford = amount <= budget
+            table.insert(children, UI.Button {
+                text = string.format("%s%s — %s", isSelected and "● " or "  ", opt.label, Market._formatValue(amount)),
+                width = "100%", height = 34, marginBottom = 3,
+                backgroundColor = isSelected and Theme.COLORS.PRIMARY or {38, 46, 71, 255},
+                borderRadius = 6, fontSize = 12, textAlign = "left", paddingLeft = 10,
+                color = not canAfford and Theme.COLORS.DANGER or (isSelected and Theme.COLORS.TEXT_PRIMARY or Theme.COLORS.TEXT_SECONDARY),
+                onClick = function()
+                    if canAfford then
+                        selectedBidIdx = i
+                        BottomSheet.close()
+                        Market._showBidSheet_render(gameState, player, posFilter, selectedBidIdx, selectedClauseIdx)
+                    end
+                end,
+            })
+        end
+
+        -- 条款选择
+        table.insert(children, UI.Label { text = "合同条款", fontSize = 13, fontWeight = "bold", color = Theme.COLORS.TEXT_PRIMARY, marginTop = 10, marginBottom = 6 })
+
+        for i, c in ipairs(clauseOptions) do
+            local isSelected = i == selectedClauseIdx
+            table.insert(children, UI.Button {
+                text = (isSelected and "● " or "  ") .. c.label,
+                width = "100%", height = 34, marginBottom = 3,
+                backgroundColor = isSelected and Theme.COLORS.ACCENT or {38, 46, 71, 255},
+                borderRadius = 6, fontSize = 12, textAlign = "left", paddingLeft = 10,
+                color = isSelected and Theme.COLORS.TEXT_PRIMARY or Theme.COLORS.TEXT_SECONDARY,
+                onClick = function()
+                    selectedClauseIdx = i
+                    BottomSheet.close()
+                    Market._showBidSheet_render(gameState, player, posFilter, selectedBidIdx, selectedClauseIdx)
+                end,
+            })
+        end
+
+        -- 财务摘要
+        table.insert(children, UI.Panel {
+            width = "100%", marginTop = 10, padding = 10,
+            backgroundColor = {20, 30, 50, 255}, borderRadius = 8,
+            children = {
+                UI.Panel { width = "100%", flexDirection = "row", children = {
+                    UI.Label { text = "转会预算:", fontSize = 12, color = Theme.COLORS.TEXT_MUTED, flexGrow = 1 },
+                    UI.Label { text = Market._formatValue(budget), fontSize = 12, color = Theme.COLORS.SECONDARY },
+                }},
+                UI.Panel { width = "100%", flexDirection = "row", marginTop = 4, children = {
+                    UI.Label { text = "报价金额:", fontSize = 12, color = Theme.COLORS.TEXT_MUTED, flexGrow = 1 },
+                    UI.Label { text = Market._formatValue(offerAmount), fontSize = 12, color = Theme.COLORS.ACCENT, fontWeight = "bold" },
+                }},
+                UI.Panel { width = "100%", flexDirection = "row", marginTop = 4, children = {
+                    UI.Label { text = "预算剩余:", fontSize = 12, color = Theme.COLORS.TEXT_MUTED, flexGrow = 1 },
+                    UI.Label {
+                        text = Market._formatValue(budget - offerAmount),
+                        fontSize = 12,
+                        color = (budget - offerAmount) >= 0 and Theme.COLORS.SECONDARY or Theme.COLORS.DANGER,
+                    },
+                }},
+                clause.bonus > 0 and UI.Panel { width = "100%", flexDirection = "row", marginTop = 4, children = {
+                    UI.Label { text = "出场奖金(20场):", fontSize = 11, color = Theme.COLORS.TEXT_MUTED, flexGrow = 1 },
+                    UI.Label { text = Market._formatValue(appearanceBonus), fontSize = 11, color = Theme.COLORS.TEXT_MUTED },
+                }} or nil,
+                clause.sellOn > 0 and UI.Panel { width = "100%", flexDirection = "row", marginTop = 2, children = {
+                    UI.Label { text = "转售分成:", fontSize = 11, color = Theme.COLORS.TEXT_MUTED, flexGrow = 1 },
+                    UI.Label { text = clause.sellOn .. "%", fontSize = 11, color = Theme.COLORS.TEXT_MUTED },
+                }} or nil,
+            },
+        })
+
+        -- 提交按钮（将作为 footer 固定在底部）
+        local canSubmit = offerAmount <= budget
+        local submitBtn = UI.Button {
+            text = canSubmit and ("提交报价 " .. Market._formatValue(offerAmount)) or "预算不足",
+            width = "100%", height = 44, marginTop = 12,
+            backgroundColor = canSubmit and Theme.COLORS.PRIMARY or Theme.COLORS.TEXT_MUTED,
+            borderRadius = 8, fontSize = 15, fontWeight = "bold",
+            color = Theme.COLORS.TEXT_PRIMARY,
+            onClick = function()
+                if canSubmit then
+                    local clauses = {}
+                    if clause.installments > 1 then
+                        clauses.installments = clause.installments
+                    end
+                    if clause.bonus > 0 then
+                        clauses.appearanceBonus = { count = 20, amount = appearanceBonus }
+                    end
+                    if clause.sellOn > 0 then
+                        clauses.sellOnPercent = clause.sellOn
+                    end
+                    TransferManager.makeBidWithClauses(gameState, player.id, offerAmount, player.wage, clauses)
+                    BottomSheet.close()
+                    Router.replaceWith("market", { tab = "my_bids" })
+                end
+            end,
+        }
+
+        return children, submitBtn
+    end
+
+    -- 实际渲染
+    local content, footerBtn = buildContent()
+    BottomSheet.showCustom({
+        title = "转会报价 — " .. player.displayName,
+        height = 660,
+        showCancel = true,
+        children = content,
+        footer = footerBtn,
+    })
+end
+
+-- 辅助：重新渲染报价弹窗（选项切换后）
+function Market._showBidSheet_render(gameState, player, posFilter, bidIdx, clauseIdx)
+    -- 复用 _showBidSheet 的逻辑，但带预设选中状态
+    local team = gameState:getPlayerTeam()
+    local budget = team and team.transferBudget or 0
+    local baseValue = player.value
+    local sellerTeam = gameState.teams[player.teamId]
+
+    local bidOptions = {
+        { label = "低报 (身价×0.9)", multiplier = 0.9 },
+        { label = "平价 (身价×1.0)", multiplier = 1.0 },
+        { label = "溢价 (身价×1.1)", multiplier = 1.1 },
+        { label = "高价 (身价×1.2)", multiplier = 1.2 },
+        { label = "诚意满满 (身价×1.35)", multiplier = 1.35 },
+    }
+    local clauseOptions = {
+        { key = "simple", label = "一次付清·无附加条款", installments = 1, bonus = 0, sellOn = 0 },
+        { key = "standard", label = "2期·出场奖金8%·转售10%", installments = 2, bonus = 0.08, sellOn = 10 },
+        { key = "heavy", label = "3期·出场奖金12%·转售15%", installments = 3, bonus = 0.12, sellOn = 15 },
+    }
+
+    local selectedBidIdx = bidIdx
+    local selectedClauseIdx = clauseIdx
+    local offerAmount = math.floor(baseValue * bidOptions[selectedBidIdx].multiplier)
+    local clause = clauseOptions[selectedClauseIdx]
+    local appearanceBonus = math.floor(baseValue * clause.bonus)
+
+    local children = {}
+
+    -- 球员信息
+    table.insert(children, UI.Panel {
+        width = "100%", flexDirection = "row", alignItems = "center", marginBottom = 12,
+        children = {
+            UI.Panel {
+                flexGrow = 1,
+                children = {
+                    UI.Label { text = player.displayName, fontSize = 16, fontWeight = "bold", color = Theme.COLORS.TEXT_PRIMARY },
+                    UI.Label {
+                        text = string.format("%s | %s | 能力 %d | %d岁",
+                            sellerTeam and sellerTeam.name or "?",
+                            Constants.POSITION_NAMES[player.position] or player.position,
+                            player.overall,
+                            player:getAge(gameState.date.year)),
+                        fontSize = 12, color = Theme.COLORS.TEXT_MUTED, marginTop = 3,
+                    },
+                }
+            },
+            UI.Panel {
+                backgroundColor = {Theme.COLORS.ACCENT[1], Theme.COLORS.ACCENT[2], Theme.COLORS.ACCENT[3], 40},
+                borderRadius = 6, paddingLeft = 8, paddingRight = 8, paddingTop = 4, paddingBottom = 4,
+                children = {
+                    UI.Label { text = "身价 " .. Market._formatValue(baseValue), fontSize = 12, color = Theme.COLORS.ACCENT },
+                },
+            },
+        }
+    })
+
+    -- 报价金额选择
+    table.insert(children, UI.Label { text = "报价金额", fontSize = 13, fontWeight = "bold", color = Theme.COLORS.TEXT_PRIMARY, marginBottom = 6 })
+    for i, opt in ipairs(bidOptions) do
+        local amount = math.floor(baseValue * opt.multiplier)
+        local isSelected = i == selectedBidIdx
+        local canAfford = amount <= budget
+        table.insert(children, UI.Button {
+            text = string.format("%s%s — %s", isSelected and "● " or "  ", opt.label, Market._formatValue(amount)),
+            width = "100%", height = 34, marginBottom = 3,
+            backgroundColor = isSelected and Theme.COLORS.PRIMARY or {38, 46, 71, 255},
+            borderRadius = 6, fontSize = 12, textAlign = "left", paddingLeft = 10,
+            color = not canAfford and Theme.COLORS.DANGER or (isSelected and Theme.COLORS.TEXT_PRIMARY or Theme.COLORS.TEXT_SECONDARY),
+            onClick = function()
+                if canAfford then
+                    BottomSheet.close()
+                    Market._showBidSheet_render(gameState, player, posFilter, i, selectedClauseIdx)
+                end
+            end,
+        })
+    end
+
+    -- 条款选择
+    table.insert(children, UI.Label { text = "合同条款", fontSize = 13, fontWeight = "bold", color = Theme.COLORS.TEXT_PRIMARY, marginTop = 10, marginBottom = 6 })
+    for i, c in ipairs(clauseOptions) do
+        local isSelected = i == selectedClauseIdx
+        table.insert(children, UI.Button {
+            text = (isSelected and "● " or "  ") .. c.label,
+            width = "100%", height = 34, marginBottom = 3,
+            backgroundColor = isSelected and Theme.COLORS.ACCENT or {38, 46, 71, 255},
+            borderRadius = 6, fontSize = 12, textAlign = "left", paddingLeft = 10,
+            color = isSelected and Theme.COLORS.TEXT_PRIMARY or Theme.COLORS.TEXT_SECONDARY,
+            onClick = function()
+                BottomSheet.close()
+                Market._showBidSheet_render(gameState, player, posFilter, selectedBidIdx, i)
+            end,
+        })
+    end
+
+    -- 财务摘要
+    table.insert(children, UI.Panel {
+        width = "100%", marginTop = 10, padding = 10,
+        backgroundColor = {20, 30, 50, 255}, borderRadius = 8,
+        children = {
+            UI.Panel { width = "100%", flexDirection = "row", children = {
+                UI.Label { text = "转会预算:", fontSize = 12, color = Theme.COLORS.TEXT_MUTED, flexGrow = 1 },
+                UI.Label { text = Market._formatValue(budget), fontSize = 12, color = Theme.COLORS.SECONDARY },
+            }},
+            UI.Panel { width = "100%", flexDirection = "row", marginTop = 4, children = {
+                UI.Label { text = "报价金额:", fontSize = 12, color = Theme.COLORS.TEXT_MUTED, flexGrow = 1 },
+                UI.Label { text = Market._formatValue(offerAmount), fontSize = 12, color = Theme.COLORS.ACCENT, fontWeight = "bold" },
+            }},
+            UI.Panel { width = "100%", flexDirection = "row", marginTop = 4, children = {
+                UI.Label { text = "预算剩余:", fontSize = 12, color = Theme.COLORS.TEXT_MUTED, flexGrow = 1 },
+                UI.Label {
+                    text = Market._formatValue(budget - offerAmount),
+                    fontSize = 12,
+                    color = (budget - offerAmount) >= 0 and Theme.COLORS.SECONDARY or Theme.COLORS.DANGER,
+                },
+            }},
+            clause.bonus > 0 and UI.Panel { width = "100%", flexDirection = "row", marginTop = 4, children = {
+                UI.Label { text = "出场奖金(20场):", fontSize = 11, color = Theme.COLORS.TEXT_MUTED, flexGrow = 1 },
+                UI.Label { text = Market._formatValue(appearanceBonus), fontSize = 11, color = Theme.COLORS.TEXT_MUTED },
+            }} or nil,
+            clause.sellOn > 0 and UI.Panel { width = "100%", flexDirection = "row", marginTop = 2, children = {
+                UI.Label { text = "转售分成:", fontSize = 11, color = Theme.COLORS.TEXT_MUTED, flexGrow = 1 },
+                UI.Label { text = clause.sellOn .. "%", fontSize = 11, color = Theme.COLORS.TEXT_MUTED },
+            }} or nil,
+        },
+    })
+
+    -- 提交按钮（固定在底部，不参与滚动）
+    local canSubmit = offerAmount <= budget
+    local submitBtn = UI.Button {
+        text = canSubmit and ("提交报价 " .. Market._formatValue(offerAmount)) or "预算不足",
+        width = "100%", height = 44, marginTop = 12,
+        backgroundColor = canSubmit and Theme.COLORS.PRIMARY or Theme.COLORS.TEXT_MUTED,
+        borderRadius = 8, fontSize = 15, fontWeight = "bold",
+        color = Theme.COLORS.TEXT_PRIMARY,
+        onClick = function()
+            if canSubmit then
+                local clauses = {}
+                if clause.installments > 1 then
+                    clauses.installments = clause.installments
+                end
+                if clause.bonus > 0 then
+                    clauses.appearanceBonus = { count = 20, amount = appearanceBonus }
+                end
+                if clause.sellOn > 0 then
+                    clauses.sellOnPercent = clause.sellOn
+                end
+                TransferManager.makeBidWithClauses(gameState, player.id, offerAmount, player.wage, clauses)
+                BottomSheet.close()
+                Router.replaceWith("market", { tab = "my_bids" })
+            end
+        end,
+    }
+
+    BottomSheet.showCustom({
+        title = "转会报价 — " .. player.displayName,
+        height = 660,
+        showCancel = true,
+        children = children,
+        footer = submitBtn,
+    })
 end
 
 -- 我的报价
@@ -715,7 +1062,7 @@ function Market._buildScoutContent(gameState)
                             children = {
                                 UI.Label { text = player.displayName, fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY },
                                 UI.Label {
-                                    text = (team2 and team2.shortName or "自由") .. " | " ..
+                                    text = (team2 and team2.name or "自由") .. " | " ..
                                         player:getAge(gameState.date.year) .. "岁 | 潜力" .. report.scoutedPotential,
                                     fontSize = 11, color = Theme.COLORS.TEXT_MUTED, marginTop = 2,
                                 },

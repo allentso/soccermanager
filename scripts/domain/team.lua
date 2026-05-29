@@ -32,9 +32,9 @@ function Team.new(data)
     self.cornerTaker = data.cornerTaker or nil
 
     -- 财务
-    self.balance = data.balance or 5000000
-    self.wageBudget = data.wageBudget or 200000
-    self.transferBudget = data.transferBudget or 2000000
+    self.balance = data.balance or 50000000          -- 默认5000万
+    self.wageBudget = data.wageBudget or 1000000      -- 默认100万/周
+    self.transferBudget = data.transferBudget or 25000000  -- 默认2500万
     self.seasonIncome = data.seasonIncome or 0
     self.seasonExpense = data.seasonExpense or 0
     self.transactions = data.transactions or {}

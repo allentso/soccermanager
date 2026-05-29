@@ -6,6 +6,19 @@ local EventBus = require("scripts/app/event_bus")
 local TransferManager = {}
 require("scripts/systems/transfers/transfer_completion")(TransferManager)
 
+-- 金额格式化（M/K自适应）
+local function fmtMoney(amount)
+    if not amount then return "0" end
+    local abs = math.abs(amount)
+    if abs >= 1000000 then
+        return string.format("%.1fM", amount / 1000000)
+    elseif abs >= 1000 then
+        return string.format("%.0fK", amount / 1000)
+    else
+        return tostring(math.floor(amount))
+    end
+end
+
 ------------------------------------------------------
 -- 报价管理
 ------------------------------------------------------
@@ -59,8 +72,8 @@ function TransferManager.makeBid(gameState, playerId, amount, wageOffer)
     gameState:sendMessage({
         category = "transfer",
         title = "报价已提交",
-        body = string.format("你对 %s 的报价 (%.0fK) 已经提交，等待对方回复。",
-            player.displayName, amount / 1000),
+        body = string.format("你对 %s 的报价 (%s) 已经提交，等待对方回复。",
+            player.displayName, fmtMoney(amount)),
         priority = "normal",
     })
 
@@ -97,8 +110,8 @@ function TransferManager.raiseBid(gameState, bidId, newAmount, newWage)
             gameState:sendMessage({
                 category = "transfer",
                 title = "加价报价已提交",
-                body = string.format("你对 %s 的加价报价 (%.0fK) 已提交，等待回复。(第%d轮)",
-                    player.displayName, newAmount / 1000, bid.currentRound),
+                body = string.format("你对 %s 的加价报价 (%s) 已提交，等待回复。(第%d轮)",
+                    player.displayName, fmtMoney(newAmount), bid.currentRound),
                 priority = "normal",
             })
             return true
@@ -262,9 +275,9 @@ function TransferManager._processAIResponse(gameState, bid)
             category = "transfer",
             title = "转会还价",
             body = string.format(
-                "%s 拒绝了你的 %.0fK 报价。\n%s 要求至少 %.0fK 才愿意放人。\n(第%d/%d轮谈判)",
-                sellerName, bid.amount / 1000,
-                sellerName, counter / 1000,
+                "%s 拒绝了你的 %s 报价。\n%s 要求至少 %s 才愿意放人。\n(第%d/%d轮谈判)",
+                sellerName, fmtMoney(bid.amount),
+                sellerName, fmtMoney(counter),
                 (round + 1), maxRounds),
             priority = "high",
         })
@@ -272,8 +285,8 @@ function TransferManager._processAIResponse(gameState, bid)
         -- 报价太低，直接拒绝
         bid.mood = math.max(0, (bid.mood or 50) - 15)
         TransferManager._rejectBid(gameState, bid,
-            string.format("你的报价远低于 %s 的实际价值 (%.0fK)，对方直接拒绝了。",
-                player.displayName, player.value / 1000))
+            string.format("你的报价远低于 %s 的实际价值 (%s)，对方直接拒绝了。",
+                player.displayName, fmtMoney(player.value)))
     end
 end
 
@@ -343,8 +356,8 @@ function TransferManager._completeTransfer(gameState, bid)
     gameState:sendMessage({
         category = "transfer",
         title = "转会完成!",
-        body = string.format("%s 已正式加盟球队！转会费: %.0fK",
-            player.displayName, bid.amount / 1000),
+        body = string.format("%s 已正式加盟球队！转会费: %s",
+            player.displayName, fmtMoney(bid.amount)),
         priority = "high",
     })
 
@@ -352,10 +365,11 @@ function TransferManager._completeTransfer(gameState, bid)
     gameState:addNews({
         category = "transfer_news",
         title = "官宣: " .. player.displayName .. " 转会",
-        body = string.format("%s 以 %.0fK 的转会费从 %s 转会至 %s。",
-            player.displayName, bid.amount / 1000,
+        body = string.format("%s 以 %s 的转会费从 %s 转会至 %s。",
+            player.displayName, fmtMoney(bid.amount),
             sellerTeam and sellerTeam.name or "自由球员市场",
             buyerTeam.name),
+        playerId = player.id,
         relatedTeams = {bid.sellerTeamId, bid.buyerTeamId},
     })
 
@@ -451,81 +465,155 @@ function TransferManager.processAITransfers(gameState)
     local inWindow = (month >= 6 and month <= 8) or month == 1
     if not inWindow then return end
 
-    -- 每周每支AI球队有5%概率发起转会
+    -- AI主动挂牌出售多余/老化球员（每周处理）
+    TransferManager._aiListPlayersForSale(gameState)
+
+    -- 每周每支AI球队有40%概率尝试引援（可多队同时活跃）
+    local transfersThisWeek = 0
+    local maxTransfersPerWeek = 6  -- 每周全联赛上限6笔完成交易，保持合理
     for _, team in pairs(gameState.teams) do
         if team.id == gameState.playerTeamId then goto continue end
-        if Random() > 0.05 then goto continue end
+        if transfersThisWeek >= maxTransfersPerWeek then break end
+        if Random() > 0.40 then goto continue end
 
-        -- 检查球队是否需要球员（阵容不足20人或某位置短缺）
-        local need = TransferManager._assessTeamNeed(gameState, team)
+        -- 评估需求：包括"补缺"和"升级"两种动机
+        local need, upgradeMode = TransferManager._assessTeamNeed(gameState, team)
         if not need then goto continue end
 
         -- 寻找合适目标
-        local target = TransferManager._findTransferTarget(gameState, team, need)
+        local target = TransferManager._findTransferTarget(gameState, team, need, upgradeMode)
         if not target then goto continue end
 
         -- AI 发起转会
-        TransferManager._executeAITransfer(gameState, team, target)
+        local success = TransferManager._executeAITransfer(gameState, team, target)
+        if success then
+            transfersThisWeek = transfersThisWeek + 1
+        end
 
         ::continue::
     end
 
-    -- 额外机制：主动关注玩家挂牌球员（每个挂牌球员每天15%概率吸引买家）
-    local playerTeam = gameState.teams[gameState.playerTeamId]
-    if playerTeam then
-        for _, pid in ipairs(playerTeam.playerIds) do
-            local player = gameState.players[pid]
-            if player and player.listedForSale and not TransferManager.hasPendingIncomingBid(gameState, pid) then
-                if Random() < 0.15 then
-                    -- 寻找有能力且有需求的买家
-                    local buyer = TransferManager._findBuyerForPlayer(gameState, player)
-                    if buyer then
-                        TransferManager._executeAITransfer(gameState, buyer, player)
-                    end
-                end
+    -- 额外：处理挂牌球员（AI和玩家的），每个挂牌球员每周30%概率吸引买家
+    for _, player in pairs(gameState.players) do
+        if not player.listedForSale then goto skipPlayer end
+        if player.retired then goto skipPlayer end
+        if TransferManager.hasPendingIncomingBid(gameState, player.id) then goto skipPlayer end
+        if transfersThisWeek >= maxTransfersPerWeek + 2 then break end
+        if Random() > 0.30 then goto skipPlayer end
+
+        local buyer = TransferManager._findBuyerForPlayer(gameState, player)
+        if buyer then
+            local success = TransferManager._executeAITransfer(gameState, buyer, player)
+            if success then
+                transfersThisWeek = transfersThisWeek + 1
             end
         end
+        ::skipPlayer::
     end
 end
 
---- 评估球队需求（返回需要的位置或 nil）
+--- AI主动挂牌多余球员（增加市场供给）
+function TransferManager._aiListPlayersForSale(gameState)
+    local Constants = require("scripts/app/constants")
+    for _, team in pairs(gameState.teams) do
+        if team.id == gameState.playerTeamId then goto skipTeam end
+        -- 阵容过大(>25人)时，主动挂牌多余球员
+        if #team.playerIds > 25 then
+            local surplus = #team.playerIds - 23
+            local listed = 0
+            -- 按OVR排序，挂牌最弱的
+            local sorted = {}
+            for _, pid in ipairs(team.playerIds) do
+                local p = gameState.players[pid]
+                if p and not p.retired and not p.listedForSale then
+                    table.insert(sorted, p)
+                end
+            end
+            table.sort(sorted, function(a, b) return a.overall < b.overall end)
+            for i = 1, math.min(surplus, #sorted) do
+                sorted[i].listedForSale = true
+                listed = listed + 1
+            end
+        end
+        -- 30岁以上且OVR下滑的球员，20%概率挂牌
+        for _, pid in ipairs(team.playerIds) do
+            local p = gameState.players[pid]
+            if p and not p.retired and not p.listedForSale then
+                local age = p:getAge(gameState.date.year)
+                if age >= 31 and p.overall < 72 and Random() < 0.20 then
+                    p.listedForSale = true
+                end
+            end
+        end
+        ::skipTeam::
+    end
+end
+
+--- 评估球队需求（返回需要的位置和是否为升级模式）
+--- @return string|nil position group needed
+--- @return boolean upgradeMode (true = want to upgrade, not just fill)
 function TransferManager._assessTeamNeed(gameState, team)
     local posCount = {GK = 0, DEF = 0, MID = 0, FWD = 0}
+    local posAvgOvr = {GK = 0, DEF = 0, MID = 0, FWD = 0}
     local Constants = require("scripts/app/constants")
 
     for _, pid in ipairs(team.playerIds) do
         local player = gameState.players[pid]
-        if player and not player.retired and not player.injured then
+        if player and not player.retired then
             for group, positions in pairs(Constants.POSITION_GROUPS) do
                 for _, pos in ipairs(positions) do
                     if player.position == pos then
                         posCount[group] = posCount[group] + 1
+                        posAvgOvr[group] = posAvgOvr[group] + player.overall
                     end
                 end
             end
         end
     end
 
-    -- 判断短缺
-    if posCount.GK < 2 then return "GK" end
-    if posCount.DEF < 4 then return "DEF" end
-    if posCount.MID < 4 then return "MID" end
-    if posCount.FWD < 3 then return "FWD" end
-
-    -- 阵容太小
-    if #team.playerIds < 18 then
-        local groups = {"DEF", "MID", "FWD"}
-        return groups[RandomInt(1, 3)]
+    -- 计算各位置平均OVR
+    for g, count in pairs(posCount) do
+        if count > 0 then posAvgOvr[g] = posAvgOvr[g] / count end
     end
 
-    return nil
+    -- 优先级1: 严重短缺（必须补人）
+    if posCount.GK < 2 then return "GK", false end
+    if posCount.DEF < 4 then return "DEF", false end
+    if posCount.MID < 4 then return "MID", false end
+    if posCount.FWD < 2 then return "FWD", false end
+
+    -- 优先级2: 阵容太小
+    if #team.playerIds < 20 then
+        local groups = {"DEF", "MID", "FWD"}
+        return groups[RandomInt(1, 3)], false
+    end
+
+    -- 优先级3: 升级动机（50%概率触发——想买比现有更好的球员）
+    if Random() < 0.50 then
+        -- 找最弱的位置组进行升级
+        local weakest, weakestOvr = nil, 999
+        local groups = {"DEF", "MID", "FWD"}
+        for _, g in ipairs(groups) do
+            if posAvgOvr[g] > 0 and posAvgOvr[g] < weakestOvr then
+                weakestOvr = posAvgOvr[g]
+                weakest = g
+            end
+        end
+        if weakest then
+            return weakest, true  -- upgrade mode
+        end
+    end
+
+    return nil, false
 end
 
 --- 寻找转会目标
-function TransferManager._findTransferTarget(gameState, buyerTeam, needGroup)
+function TransferManager._findTransferTarget(gameState, buyerTeam, needGroup, upgradeMode)
     local Constants = require("scripts/app/constants")
     local targetPositions = Constants.POSITION_GROUPS[needGroup] or {}
     local candidates = {}
+    local budget = buyerTeam.transferBudget or (buyerTeam.balance * 0.5)
+    local teamAvg = TransferManager._getTeamAverageOverall(gameState, buyerTeam)
 
     for _, player in pairs(gameState.players) do
         if player.retired then goto continue end
@@ -540,50 +628,77 @@ function TransferManager._findTransferTarget(gameState, buyerTeam, needGroup)
         end
         if not posMatch then goto continue end
 
-        -- 财力检查（出价不超过球队余额的30%）
-        if player.value > buyerTeam.balance * 0.3 then goto continue end
+        -- 财力检查（不超过转会预算的60%，且不超过余额的50%）
+        local maxSpend = math.min(budget * 0.6, buyerTeam.balance * 0.5)
+        if player.value > maxSpend then goto continue end
 
-        -- 能力匹配（不买太弱或太强的）
-        local teamAvg = TransferManager._getTeamAverageOverall(gameState, buyerTeam)
-        if player.overall < teamAvg - 10 or player.overall > teamAvg + 15 then goto continue end
+        -- 能力匹配
+        if upgradeMode then
+            -- 升级模式：只买比队内平均更好的
+            if player.overall < teamAvg then goto continue end
+            if player.overall > teamAvg + 15 then goto continue end
+        else
+            -- 补缺模式：范围宽松一些
+            if player.overall < teamAvg - 12 then goto continue end
+            if player.overall > teamAvg + 15 then goto continue end
+        end
 
-        table.insert(candidates, player)
+        -- 优先考虑挂牌出售的球员（更容易成交）
+        local weight = 1
+        if player.listedForSale then weight = 3 end
+        for w = 1, weight do
+            table.insert(candidates, player)
+        end
         ::continue::
     end
 
     if #candidates == 0 then return nil end
 
-    -- 从候选中随机选一个
+    -- 从候选中随机选一个（挂牌球员权重更高）
     return candidates[RandomInt(1, #candidates)]
 end
 
---- 执行 AI 转会
+--- 执行 AI 转会（返回 true 表示成交）
 function TransferManager._executeAITransfer(gameState, buyerTeam, player)
     local sellerTeam = gameState.teams[player.teamId]
 
-    -- AI 报价 = 身价 × (1.0~1.3)
-    local offerAmount = math.floor(player.value * (1.0 + Random() * 0.3))
+    -- AI 报价 = 身价 × (0.9~1.3)，挂牌球员报价稍低
+    local multiplier = player.listedForSale and (0.85 + Random() * 0.25) or (1.0 + Random() * 0.3)
+    local offerAmount = math.floor(player.value * multiplier)
 
     -- 如果目标是玩家球队球员（挂牌出售的），生成收购报价让玩家决定
     if player.teamId == gameState.playerTeamId then
         TransferManager._createIncomingBid(gameState, buyerTeam, player, offerAmount)
-        return
+        return true  -- 报价已创建，算作活动
     end
 
     -- 卖方判断是否接受
     local ratio = offerAmount / player.value
     local acceptChance = 0
-    if ratio >= 1.3 then acceptChance = 0.9
-    elseif ratio >= 1.1 then acceptChance = 0.6
-    elseif ratio >= 0.9 then acceptChance = 0.3
-    else acceptChance = 0.1 end
+    if ratio >= 1.3 then acceptChance = 0.95
+    elseif ratio >= 1.1 then acceptChance = 0.80
+    elseif ratio >= 1.0 then acceptChance = 0.60
+    elseif ratio >= 0.85 then acceptChance = 0.35
+    else acceptChance = 0.15 end
 
-    -- 核心球员不轻易卖
-    if player.overall >= 75 then
-        acceptChance = acceptChance * 0.5
+    -- 挂牌出售的球员：大幅提升接受率
+    if player.listedForSale then
+        acceptChance = math.min(0.95, acceptChance + 0.35)
     end
 
-    if Random() > acceptChance then return end  -- 卖方拒绝
+    -- 核心球员（非挂牌）不轻易卖，但不要砍太狠
+    if player.overall >= 80 and not player.listedForSale then
+        acceptChance = acceptChance * 0.6
+    elseif player.overall >= 75 and not player.listedForSale then
+        acceptChance = acceptChance * 0.75
+    end
+
+    -- 阵容臃肿的卖方更愿意卖
+    if sellerTeam and #sellerTeam.playerIds > 25 then
+        acceptChance = math.min(0.95, acceptChance + 0.20)
+    end
+
+    if Random() > acceptChance then return false end  -- 卖方拒绝
 
     -- 完成转会
     if sellerTeam then
@@ -617,10 +732,11 @@ function TransferManager._executeAITransfer(gameState, buyerTeam, player)
     gameState:addNews({
         category = "transfer_news",
         title = "官宣: " .. player.displayName .. " 转会",
-        body = string.format("%s 以 %.0fK 的转会费从 %s 转会至 %s。",
-            player.displayName, offerAmount / 1000,
+        body = string.format("%s 以 %s 的转会费从 %s 转会至 %s。",
+            player.displayName, fmtMoney(offerAmount),
             sellerTeam and sellerTeam.name or "自由球员市场",
             buyerTeam.name),
+        playerId = player.id,
         relatedTeams = {sellerTeam and sellerTeam.id, buyerTeam.id},
     })
 
@@ -636,6 +752,8 @@ function TransferManager._executeAITransfer(gameState, buyerTeam, player)
             type = "permanent",
         })
     end
+
+    return true  -- 交易成功
 end
 
 ------------------------------------------------------
@@ -660,11 +778,13 @@ function TransferManager._findBuyerForPlayer(gameState, player)
 
     for _, team in pairs(gameState.teams) do
         if team.id == gameState.playerTeamId then goto skip end
-        -- 财力检查
-        if player.value > team.balance * 0.4 then goto skip end
-        -- 能力匹配
+        if team.id == player.teamId then goto skip end
+        -- 财力检查（用转会预算的70%作为上限，挂牌球员更有吸引力）
+        local budget = team.transferBudget or (team.balance * 0.5)
+        if player.value > budget * 0.7 then goto skip end
+        -- 能力匹配（挂牌球员范围宽松）
         local teamAvg = TransferManager._getTeamAverageOverall(gameState, team)
-        if player.overall < teamAvg - 8 or player.overall > teamAvg + 12 then goto skip end
+        if player.overall < teamAvg - 12 or player.overall > teamAvg + 15 then goto skip end
         table.insert(candidates, team)
         ::skip::
     end
@@ -702,8 +822,8 @@ function TransferManager._createIncomingBid(gameState, buyerTeam, player, offerA
     gameState:sendMessage({
         category = "transfer",
         title = "收到报价: " .. player.displayName,
-        body = string.format("%s 对 %s 出价 %.0fK（球员身价 %.0fK）。\n前往阵容页长按该球员处理报价。",
-            buyerTeam.name, player.displayName, offerAmount / 1000, player.value / 1000),
+        body = string.format("%s 对 %s 出价 %s（球员身价 %s）。\n前往阵容页长按该球员处理报价。",
+            buyerTeam.name, player.displayName, fmtMoney(offerAmount), fmtMoney(player.value)),
         priority = "high",
         data = { bidId = bid.id, playerId = player.id },
     })
@@ -749,10 +869,10 @@ function TransferManager.rejectIncomingBid(gameState, bidId)
             gameState:sendMessage({
                 category = "transfer",
                 title = "报价已拒绝",
-                body = string.format("你拒绝了 %s 对 %s 的报价（%.0fK）。",
+                body = string.format("你拒绝了 %s 对 %s 的报价（%s）。",
                     buyerTeam and buyerTeam.name or "未知球队",
                     player and player.displayName or "未知球员",
-                    bid.amount / 1000),
+                    fmtMoney(bid.amount)),
                 priority = "normal",
             })
             return true
@@ -792,8 +912,8 @@ function TransferManager._completeIncomingSale(gameState, bid)
     gameState:sendMessage({
         category = "transfer",
         title = "转会完成: " .. player.displayName,
-        body = string.format("%s 以 %.0fK 转会至 %s，资金已到账。",
-            player.displayName, bid.amount / 1000, buyerTeam.name),
+        body = string.format("%s 以 %s 转会至 %s，资金已到账。",
+            player.displayName, fmtMoney(bid.amount), buyerTeam.name),
         priority = "high",
     })
 
@@ -801,8 +921,9 @@ function TransferManager._completeIncomingSale(gameState, bid)
     gameState:addNews({
         category = "transfer_news",
         title = "官宣: " .. player.displayName .. " 转会",
-        body = string.format("%s 以 %.0fK 的转会费从 %s 转会至 %s。",
-            player.displayName, bid.amount / 1000, sellerTeam.name, buyerTeam.name),
+        body = string.format("%s 以 %s 的转会费从 %s 转会至 %s。",
+            player.displayName, fmtMoney(bid.amount), sellerTeam.name, buyerTeam.name),
+        playerId = player.id,
         relatedTeams = {sellerTeam.id, buyerTeam.id},
     })
 
@@ -855,8 +976,8 @@ function TransferManager.makeLoanBid(gameState, playerId, duration)
     gameState:sendMessage({
         category = "transfer",
         title = "租借请求已提交",
-        body = string.format("你对 %s 的租借请求已提交（%d周，租借费 %.0fK）。",
-            player.displayName, duration, loanFee / 1000),
+        body = string.format("你对 %s 的租借请求已提交（%d周，租借费 %s）。",
+            player.displayName, duration, fmtMoney(loanFee)),
         priority = "normal",
     })
 
@@ -1046,7 +1167,7 @@ function TransferManager.offerFreeAgent(gameState, playerId, wageOffer, yearsOff
         category = "transfer",
         title = "合同谈判已发起",
         body = string.format("你向自由球员 %s 提出了合同邀约（周薪 %.1fK，%d年）。等待回复...",
-            player.displayName, wageOffer / 1000, yearsOffer),
+            player.displayName, fmtMoney(wageOffer), yearsOffer),
         priority = "normal",
     })
 
@@ -1087,7 +1208,7 @@ function TransferManager.reviseOffer(gameState, negoId, newWage, newYears)
                 category = "transfer",
                 title = "修改合同条件",
                 body = string.format("你向 %s 提出了修改后的合同（周薪 %.1fK，%d年）。第%d轮谈判。",
-                    player.displayName, newWage / 1000, newYears, nego.currentRound),
+                    player.displayName, fmtMoney(newWage), newYears, nego.currentRound),
                 priority = "normal",
             })
             return true
@@ -1268,8 +1389,8 @@ function TransferManager._processFreeAgentResponse(gameState, nego)
             body = string.format(
                 "%s 拒绝了你的合同条件（周薪 %.1fK/%d年）。\n他要求至少 周薪 %.1fK / %d年 才愿意签约。\n(第%d/%d轮谈判)",
                 player.displayName,
-                nego.wageOffer / 1000, nego.yearsOffer,
-                counterWage / 1000, counterYears,
+                fmtMoney(nego.wageOffer), nego.yearsOffer,
+                fmtMoney(counterWage), counterYears,
                 (round + 1), maxRounds),
             priority = "high",
         })
@@ -1281,7 +1402,7 @@ function TransferManager._processFreeAgentResponse(gameState, nego)
             category = "transfer",
             title = "邀约被拒",
             body = string.format("%s 认为你的工资报价太低，直接拒绝了加盟邀请。(期望至少 %.1fK/周)",
-                player.displayName, nego.expectedWage / 1000),
+                player.displayName, fmtMoney(nego.expectedWage)),
             priority = "normal",
         })
     end
@@ -1315,7 +1436,7 @@ function TransferManager._completeFreeAgentSigning(gameState, nego)
         category = "transfer",
         title = "自由签约完成!",
         body = string.format("%s 已作为自由球员加盟球队（周薪 %.1fK，合同 %d年）。",
-            player.displayName, nego.wageOffer / 1000, nego.yearsOffer),
+            player.displayName, fmtMoney(nego.wageOffer), nego.yearsOffer),
         priority = "high",
     })
 
@@ -1325,6 +1446,7 @@ function TransferManager._completeFreeAgentSigning(gameState, nego)
         title = "自由签约: " .. player.displayName,
         body = string.format("%s 以自由身加盟 %s，签约 %d 年。",
             player.displayName, team.name, nego.yearsOffer),
+        playerId = player.id,
         relatedTeams = {team.id},
     })
 
@@ -1376,7 +1498,7 @@ function TransferManager.signFreeAgent(gameState, playerId, wage, years)
         category = "transfer",
         title = "自由签约完成!",
         body = string.format("%s 已作为自由球员加盟球队（周薪 %.1fK，合同 %d年）。",
-            player.displayName, wage / 1000, years),
+            player.displayName, fmtMoney(wage), years),
         priority = "high",
     })
 
@@ -1385,6 +1507,7 @@ function TransferManager.signFreeAgent(gameState, playerId, wage, years)
         title = "自由签约: " .. player.displayName,
         body = string.format("%s 以自由身加盟 %s，签约 %d 年。",
             player.displayName, team.name, years),
+        playerId = player.id,
         relatedTeams = {team.id},
     })
 
@@ -1514,8 +1637,8 @@ function TransferManager.offerToClub(gameState, playerId, targetTeamId, askingPr
     gameState:sendMessage({
         category = "transfer",
         title = "推销报价已发出",
-        body = string.format("你向 %s 推销了 %s（要价 %.0fK）。等待对方回复...",
-            targetTeam.name, player.displayName, askingPrice / 1000),
+        body = string.format("你向 %s 推销了 %s（要价 %s）。等待对方回复...",
+            targetTeam.name, player.displayName, fmtMoney(askingPrice)),
         priority = "normal",
     })
 
@@ -1582,8 +1705,8 @@ function TransferManager._processPushSaleResponse(gameState, bid)
             gameState:sendMessage({
                 category = "transfer",
                 title = "推销还价",
-                body = string.format("%s 对 %s 有兴趣，但只愿意出 %.0fK（你要价 %.0fK）。",
-                    buyerTeam.name, player.displayName, counter / 1000, bid.amount / 1000),
+                body = string.format("%s 对 %s 有兴趣，但只愿意出 %s（你要价 %s）。",
+                    buyerTeam.name, player.displayName, fmtMoney(counter), fmtMoney(bid.amount)),
                 priority = "high",
             })
         end
@@ -1675,16 +1798,17 @@ function TransferManager._acceptPushSale(gameState, bid)
     gameState:sendMessage({
         category = "transfer",
         title = "推销成功!",
-        body = string.format("%s 已以 %.0fK 转会至 %s。",
-            player.displayName, bid.amount / 1000, buyerTeam.name),
+        body = string.format("%s 已以 %s 转会至 %s。",
+            player.displayName, fmtMoney(bid.amount), buyerTeam.name),
         priority = "high",
     })
 
     gameState:addNews({
         category = "transfer_news",
         title = "官宣: " .. player.displayName .. " 转会",
-        body = string.format("%s 以 %.0fK 的转会费从 %s 转会至 %s。",
-            player.displayName, bid.amount / 1000, sellerTeam.name, buyerTeam.name),
+        body = string.format("%s 以 %s 的转会费从 %s 转会至 %s。",
+            player.displayName, fmtMoney(bid.amount), sellerTeam.name, buyerTeam.name),
+        playerId = player.id,
         relatedTeams = {sellerTeam.id, buyerTeam.id},
     })
 
@@ -1815,7 +1939,7 @@ function TransferManager.triggerReleaseClause(gameState, playerId)
     local amount = player.releaseClause
     local budget = TransferManager._getTransferBudget(gameState, team)
     if amount > budget then
-        return nil, string.format("解约金 %.0fK 超出转会预算 %.0fK", amount / 1000, budget / 1000)
+        return nil, string.format("解约金 %s 超出转会预算 %s", fmtMoney(amount), fmtMoney(budget))
     end
 
     -- 解约金条款 → 卖方必须接受（合同规定）
@@ -1850,8 +1974,8 @@ function TransferManager.triggerReleaseClause(gameState, playerId)
     gameState:sendMessage({
         category = "transfer",
         title = "解约金触发!",
-        body = string.format("你触发了 %s 的解约金条款（%.0fK），转会自动完成。",
-            player.displayName, amount / 1000),
+        body = string.format("你触发了 %s 的解约金条款（%s），转会自动完成。",
+            player.displayName, fmtMoney(amount)),
         priority = "high",
     })
 
@@ -2115,7 +2239,7 @@ function TransferManager.offerPreContract(gameState, playerId, wageOffer, yearsO
         category = "transfer",
         title = "预签约谈判发起",
         body = string.format("你向 %s 发起了预签约邀请（周薪 %.1fK，%d年）。合同到期后生效。",
-            player.displayName, wageOffer / 1000, yearsOffer),
+            player.displayName, fmtMoney(wageOffer), yearsOffer),
         priority = "normal",
     })
 
@@ -2163,7 +2287,7 @@ function TransferManager.processPreContracts(gameState)
                         category = "transfer",
                         title = "预签约生效!",
                         body = string.format("%s 合同到期，正式加入球队！（周薪 %.1fK，%d年）",
-                            player.displayName, nego.wageOffer / 1000, nego.yearsOffer),
+                            player.displayName, fmtMoney(nego.wageOffer), nego.yearsOffer),
                         priority = "high",
                     })
 
@@ -2172,6 +2296,7 @@ function TransferManager.processPreContracts(gameState)
                         title = "预签约生效: " .. player.displayName,
                         body = string.format("%s 合同到期，以自由身正式加盟 %s。",
                             player.displayName, newTeam.name),
+                        playerId = player.id,
                         relatedTeams = {nego.teamId},
                     })
                 end
@@ -2214,8 +2339,8 @@ function TransferManager.checkWageBudget(gameState, teamId, additionalWage)
     local newTotal = currentWages + additionalWage
 
     if newTotal > wageBudget then
-        return false, string.format("工资总额 %.0fK 将超出工资预算 %.0fK",
-            newTotal / 1000, wageBudget / 1000)
+        return false, string.format("工资总额 %s 将超出工资预算 %s",
+            fmtMoney(newTotal), fmtMoney(wageBudget))
     end
     return true
 end
@@ -2478,6 +2603,39 @@ function TransferManager._processLoanBidResponse(gameState, bid)
         TransferManager._rejectBid(gameState, bid, string.format("%s 拒绝了租借 %s 的请求。",
             sellerTeam.name, player.displayName))
     end
+end
+
+--- 获取所有活跃报价（状态为 pending 或 negotiating）
+---@param gameState table
+---@return table[]
+function TransferManager.getActiveBids(gameState)
+    TransferManager._ensureData(gameState)
+    local activeBids = {}
+    for _, bid in ipairs(gameState.transfers.bids or {}) do
+        if bid.status == "pending" or bid.status == "negotiating" then
+            table.insert(activeBids, bid)
+        end
+    end
+    return activeBids
+end
+
+--- 挂牌出售球员
+---@param gameState table
+---@param player table
+function TransferManager.listForSale(gameState, player)
+    player.listedForSale = true
+    gameState:sendMessage({
+        category = "transfer",
+        title = player.displayName .. " 已挂牌",
+        body = player.displayName .. " 已被挂牌出售，等待买家报价。",
+        priority = "normal",
+    })
+end
+
+--- 取消挂牌
+---@param player table
+function TransferManager.delistPlayer(player)
+    player.listedForSale = false
 end
 
 return TransferManager

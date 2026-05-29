@@ -7,6 +7,7 @@ local Router = require("scripts/app/router")
 local Constants = require("scripts/app/constants")
 local TrainingManager = require("scripts/systems/training_manager")
 local FinanceManager = require("scripts/systems/finance_manager")
+local ContractManager = require("scripts/systems/contract_manager")
 local ConfirmDialog = require("scripts/ui/components/confirm_dialog")
 local StatsTab = require("scripts/ui/screens/player_detail/stats_tab")
 
@@ -124,7 +125,7 @@ function PlayerDetail.create(params)
                         valueColor = player.fitness >= 75 and Theme.COLORS.SECONDARY or Theme.COLORS.WARNING },
                     Theme.StatPill { label = "士气", value = player.morale,
                         valueColor = player.morale >= 60 and Theme.COLORS.SECONDARY or Theme.COLORS.WARNING },
-                    Theme.StatPill { label = "球队", value = team and team.shortName or "自由" },
+                    Theme.StatPill { label = "球队", value = team and team.name or "自由" },
                 }
             },
 
@@ -551,54 +552,7 @@ function PlayerDetail._buildContractActions(player, team, gameState)
             fontSize = 14,
             color = {255, 255, 255, 255},
             onClick = function()
-                -- 终止合同 - 支付赔偿金（剩余合同薪资的50%）
-                local monthsLeft = 0
-                if player.contractEnd then
-                    monthsLeft = (player.contractEnd.year - gameState.date.year) * 12
-                        + (player.contractEnd.month - gameState.date.month)
-                end
-                local compensation = math.floor(player.wage * 4 * math.max(0, monthsLeft) * 0.5)
-
-                -- 从阵容移除
-                for i, pid in ipairs(team.playerIds) do
-                    if pid == player.id then
-                        table.remove(team.playerIds, i)
-                        break
-                    end
-                end
-                -- 从首发移除
-                for i, pid in ipairs(team.startingXI or {}) do
-                    if pid == player.id then
-                        table.remove(team.startingXI, i)
-                        break
-                    end
-                end
-
-                -- 扣除赔偿金
-                team.balance = team.balance - compensation
-                team.seasonExpense = (team.seasonExpense or 0) + compensation
-
-                -- 球员变为自由球员
-                player.teamId = nil
-                player.listedForSale = false
-
-                -- 交易记录
-                FinanceManager.addTransaction(team, {
-                    amount = -compensation,
-                    description = "终止合同: " .. player.displayName,
-                    category = "transfer",
-                    season = gameState.season,
-                    week = FinanceManager._getWeekNumber(gameState),
-                })
-
-                gameState:sendMessage({
-                    category = "transfer",
-                    title = "合同已终止",
-                    body = string.format("%s 的合同已终止，支付赔偿金 %s。",
-                        player.displayName, PlayerDetail._formatMoney(compensation)),
-                    priority = "normal",
-                })
-
+                ContractManager.terminateContract(gameState, player.id)
                 Router.navigate("squad")
             end,
         }

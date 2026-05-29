@@ -445,7 +445,15 @@ function Finance._buildFacilities(team, gameState)
                             color = Theme.COLORS.TEXT_PRIMARY,
                             onClick = function()
                                 if cost then
-                                    FinanceManager.upgradeFacility(gameState, def.key)
+                                    local ok, err = FinanceManager.upgradeFacility(gameState, def.key)
+                                    if not ok and err then
+                                        gameState:sendMessage({
+                                            category = "finance",
+                                            title = "升级失败",
+                                            body = err,
+                                            priority = "low",
+                                        })
+                                    end
                                     Router.replaceWith("finance", { tab = "facilities" })
                                 end
                             end,

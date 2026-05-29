@@ -135,14 +135,14 @@ function LeagueView.create(params)
                     backgroundColor = isPlayer and {26, 51, 89, 255} or {0, 0, 0, 0},
                     borderBottomWidth = 1, borderColor = Theme.COLORS.BORDER,
                     children = {
-                        UI.Label { text = home.shortName, fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY, width = 40 },
+                        UI.Label { text = home.name, fontSize = 12, color = Theme.COLORS.TEXT_PRIMARY, flexGrow = 1, flexShrink = 1 },
                         UI.Label {
                             text = f.homeGoals .. " - " .. f.awayGoals,
                             fontSize = 14, color = Theme.COLORS.TEXT_PRIMARY,
-                            fontWeight = "bold", width = 50, textAlign = "center",
+                            fontWeight = "bold", width = 44, textAlign = "center",
                         },
-                        UI.Label { text = away.shortName, fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY, width = 40 },
-                        UI.Label { text = string.format("%d/%d", f.date.month, f.date.day), fontSize = 11, color = Theme.COLORS.TEXT_MUTED, flexGrow = 1, textAlign = "right" },
+                        UI.Label { text = away.name, fontSize = 12, color = Theme.COLORS.TEXT_PRIMARY, flexGrow = 1, flexShrink = 1, textAlign = "right" },
+                        UI.Label { text = string.format("%d/%d", f.date.month, f.date.day), fontSize = 11, color = Theme.COLORS.TEXT_MUTED, width = 36, textAlign = "right" },
                     },
                 })
                 resultCount = resultCount + 1
@@ -163,7 +163,7 @@ function LeagueView.create(params)
                         text = "返回", width = 50, height = 36,
                         backgroundColor = Theme.COLORS.TRANSPARENT,
                         fontSize = 14, color = Theme.COLORS.TEXT_SECONDARY,
-                        onClick = function() Router.navigate("dashboard") end,
+                        onClick = function() Router.back() end,
                     },
                     UI.Label {
                         text = league.name .. " " .. league.season,
@@ -196,7 +196,6 @@ function LeagueView.create(params)
                 backgroundColor = Theme.COLORS.BG_HEADER,
                 children = {
                     UI.Label { text = "#", fontSize = 10, color = Theme.COLORS.TEXT_MUTED, width = 24 },
-                    UI.Label { text = "", width = 44, fontSize = 10 },
                     UI.Label { text = "球队", flexGrow = 1, fontSize = 10, color = Theme.COLORS.TEXT_MUTED },
                     UI.Label { text = "场", fontSize = 10, color = Theme.COLORS.TEXT_MUTED, width = 24 },
                     UI.Label { text = "胜", fontSize = 10, color = Theme.COLORS.TEXT_MUTED, width = 20 },
@@ -310,7 +309,7 @@ function LeagueView._createUCLView(gameState, leagueTabs)
                                      or (isQualified and {20, 60, 20, 255} or {0, 0, 0, 0}),
                     borderBottomWidth = 1, borderColor = Theme.COLORS.BORDER,
                     children = {
-                        UI.Label { text = team and team.shortName or "???", fontSize = 12, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold", flexGrow = 1 },
+                        UI.Label { text = team and team.name or "???", fontSize = 12, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold", flexGrow = 1 },
                         UI.Label { text = tostring(s.played), fontSize = 11, color = Theme.COLORS.TEXT_MUTED, width = 24 },
                         UI.Label { text = tostring(s.wins), fontSize = 11, color = Theme.COLORS.TEXT_MUTED, width = 20 },
                         UI.Label { text = tostring(s.draws), fontSize = 11, color = Theme.COLORS.TEXT_MUTED, width = 20 },
@@ -359,9 +358,9 @@ function LeagueView._createUCLView(gameState, leagueTabs)
                         backgroundColor = isPlayer and {26, 51, 89, 255} or {0, 0, 0, 0},
                         borderBottomWidth = 1, borderColor = Theme.COLORS.BORDER,
                         children = {
-                            UI.Label { text = home and home.shortName or "?", fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold", width = 50 },
-                            UI.Label { text = scoreText, fontSize = 14, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold", flexGrow = 1, textAlign = "center" },
-                            UI.Label { text = away and away.shortName or "?", fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold", width = 50, textAlign = "right" },
+                            UI.Label { text = home and home.name or "?", fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold", flexGrow = 1, flexShrink = 1 },
+                            UI.Label { text = scoreText, fontSize = 14, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold", width = 50, textAlign = "center" },
+                            UI.Label { text = away and away.name or "?", fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold", flexGrow = 1, flexShrink = 1, textAlign = "right" },
                         },
                     })
                 end
@@ -410,11 +409,11 @@ function LeagueView._createUCLView(gameState, leagueTabs)
                             backgroundColor = isPlayer and {26, 51, 89, 255} or {0, 0, 0, 0},
                             borderBottomWidth = 1, borderColor = Theme.COLORS.BORDER,
                             children = {
-                                UI.Label { text = team1 and team1.shortName or "?", fontSize = 12, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold", width = 44 },
+                                UI.Label { text = team1 and team1.name or "?", fontSize = 12, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold", flexGrow = 1, flexShrink = 1 },
                                 UI.Label { text = leg1Score, fontSize = 11, color = Theme.COLORS.TEXT_MUTED, width = 30, textAlign = "center" },
                                 UI.Label { text = leg2Score, fontSize = 11, color = Theme.COLORS.TEXT_MUTED, width = 30, textAlign = "center" },
                                 UI.Label { text = aggText, fontSize = 11, color = Theme.COLORS.SECONDARY, width = 40, textAlign = "center" },
-                                UI.Label { text = team2 and team2.shortName or "?", fontSize = 12, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold", flexGrow = 1, textAlign = "right" },
+                                UI.Label { text = team2 and team2.name or "?", fontSize = 12, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold", flexGrow = 1, flexShrink = 1, textAlign = "right" },
                             },
                         })
                     end
@@ -448,7 +447,7 @@ function LeagueView._createUCLView(gameState, leagueTabs)
                         text = "返回", width = 50, height = 36,
                         backgroundColor = Theme.COLORS.TRANSPARENT,
                         fontSize = 14, color = Theme.COLORS.TEXT_SECONDARY,
-                        onClick = function() Router.navigate("dashboard") end,
+                        onClick = function() Router.back() end,
                     },
                     UI.Label {
                         text = "欧冠 " .. ucl.season .. "-" .. (ucl.season + 1) .. " (" .. phaseText .. ")",
@@ -600,9 +599,9 @@ function LeagueView._createWCView(gameState, leagueTabs)
                         paddingLeft = 10, paddingRight = 10,
                         borderBottomWidth = 1, borderColor = Theme.COLORS.BORDER,
                         children = {
-                            UI.Label { text = homeName, fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold", width = 70 },
-                            UI.Label { text = scoreText, fontSize = 14, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold", flexGrow = 1, textAlign = "center" },
-                            UI.Label { text = awayName, fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold", width = 70, textAlign = "right" },
+                            UI.Label { text = homeName, fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold", flexGrow = 1, flexShrink = 1 },
+                            UI.Label { text = scoreText, fontSize = 14, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold", width = 50, textAlign = "center" },
+                            UI.Label { text = awayName, fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold", flexGrow = 1, flexShrink = 1, textAlign = "right" },
                         },
                     })
                 end
@@ -635,7 +634,7 @@ function LeagueView._createWCView(gameState, leagueTabs)
                         text = "返回", width = 50, height = 36,
                         backgroundColor = Theme.COLORS.TRANSPARENT,
                         fontSize = 14, color = Theme.COLORS.TEXT_SECONDARY,
-                        onClick = function() Router.navigate("dashboard") end,
+                        onClick = function() Router.back() end,
                     },
                     UI.Label {
                         text = "世界杯 " .. wc.season .. " (" .. phaseText .. ")",

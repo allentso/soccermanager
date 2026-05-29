@@ -307,14 +307,7 @@ end
 ---------------------------------------------------------------------------
 function TransferHub._buildRumours(gameState)
     -- 收集所有活跃报价
-    TransferManager._ensureData(gameState)
-    local bids = gameState.transfers.bids or {}
-    local activeBids = {}
-    for _, bid in ipairs(bids) do
-        if bid.status == "pending" or bid.status == "negotiating" then
-            table.insert(activeBids, bid)
-        end
-    end
+    local activeBids = TransferManager.getActiveBids(gameState)
 
     if #activeBids == 0 then
         return {

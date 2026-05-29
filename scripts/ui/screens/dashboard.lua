@@ -9,47 +9,16 @@ local Constants = require("scripts/app/constants")
 local TurnProcessor = require("scripts/core/turn_processor")
 local SaveManager = require("scripts/persistence/save_manager")
 local FinanceManager = require("scripts/systems/finance_manager")
+local TimeBlockerManager = require("scripts/systems/time_blocker_manager")
+local BlockerDialog = require("scripts/ui/components/blocker_dialog")
 
 local Dashboard = {}
 
 ------------------------------------------------------
--- 时间推进阻断器：检查是否有未处理事项
+-- 时间推进阻断器：委托给 TimeBlockerManager
 ------------------------------------------------------
 function Dashboard._checkBlockingActions(gameState)
-    local blockers = {}
-
-    -- 1. 未处理的转会报价（作为卖方，需要回复）
-    local TransferManager = require("scripts/systems/transfer_manager")
-    local pendingSellBids = TransferManager.getPendingSellBids and TransferManager.getPendingSellBids(gameState) or {}
-    if #pendingSellBids > 0 then
-        table.insert(blockers, string.format("有 %d 个转会报价待回复", #pendingSellBids))
-    end
-
-    -- 2. 阵容不足11人首发
-    local team = gameState:getPlayerTeam()
-    if team then
-        local startCount = team.startingXI and #team.startingXI or 0
-        if startCount < 11 then
-            -- 检查是否明天有比赛
-            local League = require("scripts/domain/league")
-            local tomorrow = League._addDays(gameState.date, 1)
-            local fixtures = TurnProcessor.getFixturesForDate(gameState, tomorrow)
-            for _, f in ipairs(fixtures) do
-                if f.homeTeamId == gameState.playerTeamId or f.awayTeamId == gameState.playerTeamId then
-                    table.insert(blockers, string.format("明天有比赛但首发仅%d人（需11人）", startCount))
-                    break
-                end
-            end
-        end
-    end
-
-    -- 3. 财务危机且有可用恢复手段未使用
-    local health = FinanceManager.getFinanceHealth(gameState, gameState.playerTeamId)
-    if health == "critical" then
-        table.insert(blockers, "财务处于危机状态，请采取紧急措施")
-    end
-
-    return blockers
+    return TimeBlockerManager.check(gameState)
 end
 
 ------------------------------------------------------
@@ -115,7 +84,8 @@ function Dashboard.create(params)
 
     -- 阻断器检查
     local blockers = Dashboard._checkBlockingActions(gameState)
-    local isBlocked = #blockers > 0
+    local isBlocked = TimeBlockerManager.hasBlockingItems(blockers)
+    local hasAnyBlockers = #blockers > 0
 
     -- 跳到比赛日
     local daysToMatch = Dashboard._getDaysToNextMatch(gameState)
@@ -185,18 +155,46 @@ function Dashboard.create(params)
                         text = "比赛日 >>" .. daysToMatch .. "天",
                         width = 100,
                         height = 32,
-                        backgroundColor = isBlocked and {60, 60, 60, 255} or Theme.COLORS.ACCENT,
+                        backgroundColor = hasAnyBlockers and {60, 60, 60, 255} or Theme.COLORS.ACCENT,
                         borderRadius = 6,
                         fontSize = 11,
                         color = Theme.COLORS.TEXT_PRIMARY,
                         marginRight = 6,
                         onClick = function()
-                            if isBlocked then return end
-                            -- 快进到比赛前一天
+                            if isBlocked then
+                                BlockerDialog.show(blockers)
+                                return
+                            end
+                            if hasAnyBlockers then
+                                -- 仅 info 级别：允许强制跳过
+                                BlockerDialog.show(blockers, {
+                                    onForceAdvance = function()
+                                        local skipDays = daysToMatch - 1
+                                        for i = 1, skipDays do
+                                            local fixtures = TurnProcessor.advanceDay(gameState)
+                                            if fixtures and #fixtures > 0 then
+                                                for _, f in ipairs(fixtures) do
+                                                    if f.homeTeamId == gameState.playerTeamId or
+                                                       f.awayTeamId == gameState.playerTeamId then
+                                                        if f._pendingPlayerMatch then
+                                                            SaveManager.save(gameState, "auto")
+                                                            Router.navigate("pre_match", { fixture = f })
+                                                            return
+                                                        end
+                                                    end
+                                                end
+                                            end
+                                        end
+                                        SaveManager.save(gameState, "auto")
+                                        doAdvanceDay()
+                                    end,
+                                })
+                                return
+                            end
+                            -- 无阻断，直接快进
                             local skipDays = daysToMatch - 1
                             for i = 1, skipDays do
                                 local fixtures = TurnProcessor.advanceDay(gameState)
-                                -- 如果中途遇到比赛（其他赛事），停下来
                                 if fixtures and #fixtures > 0 then
                                     for _, f in ipairs(fixtures) do
                                         if f.homeTeamId == gameState.playerTeamId or
@@ -211,29 +209,30 @@ function Dashboard.create(params)
                                 end
                             end
                             SaveManager.save(gameState, "auto")
-                            -- 推进最后一天（比赛日当天）
                             doAdvanceDay()
                         end,
                     } or UI.Panel { width = 0 },
                     UI.Button {
-                        text = isBlocked and "! 阻断" or "继续 >",
+                        text = isBlocked and "! 阻断" or (hasAnyBlockers and "! 继续" or "继续 >"),
                         width = 70,
                         height = 32,
-                        backgroundColor = isBlocked and Theme.COLORS.DANGER or Theme.COLORS.SECONDARY,
+                        backgroundColor = isBlocked and Theme.COLORS.DANGER
+                            or (hasAnyBlockers and Theme.COLORS.WARNING or Theme.COLORS.SECONDARY),
                         borderRadius = 6,
                         fontSize = 13,
                         color = Theme.COLORS.TEXT_PRIMARY,
                         fontWeight = "bold",
                         onClick = function()
                             if isBlocked then
-                                -- 显示阻断原因（通过消息）
-                                gameState:sendMessage({
-                                    category = "system",
-                                    title = "无法推进时间",
-                                    body = "以下事项需要先处理：\n" .. table.concat(blockers, "\n"),
-                                    priority = "high",
+                                BlockerDialog.show(blockers)
+                                return
+                            end
+                            if hasAnyBlockers then
+                                BlockerDialog.show(blockers, {
+                                    onForceAdvance = function()
+                                        doAdvanceDay()
+                                    end,
                                 })
-                                Router.replaceWith("dashboard")
                                 return
                             end
                             doAdvanceDay()
@@ -380,7 +379,7 @@ function Dashboard._buildUCLCard(gameState)
             playerStatus = "冠军!"
         else
             local champTeam = gameState.teams[ucl.champion]
-            playerStatus = "冠军: " .. (champTeam and champTeam.shortName or "?")
+            playerStatus = "冠军: " .. (champTeam and champTeam.name or "?")
         end
     end
 
@@ -805,7 +804,7 @@ function Dashboard._buildNextMatchCard(gameState, team, nextFixture, nextMatchTe
         local total, count = 0, 0
         for _, pid in ipairs(t.playerIds or {}) do
             local p = gameState.players[pid]
-            if p then total = total + (p.ability or 50); count = count + 1 end
+            if p then total = total + (p.overall or 50); count = count + 1 end
         end
         return count > 0 and math.floor(total / count) or 50
     end
@@ -833,10 +832,10 @@ function Dashboard._buildNextMatchCard(gameState, team, nextFixture, nextMatchTe
                     UI.Panel {
                         flexDirection = "row", marginBottom = 4,
                         children = {
-                            UI.Label { text = team.shortName or team.name, fontSize = 11, color = Theme.COLORS.ACCENT, flexGrow = 1 },
+                            UI.Label { text = team.name, fontSize = 11, color = Theme.COLORS.ACCENT, flexGrow = 1 },
                             UI.Label { text = "实力对比", fontSize = 10, color = Theme.COLORS.TEXT_MUTED },
                             UI.Panel { flexGrow = 1 },
-                            UI.Label { text = opponent.shortName or opponent.name, fontSize = 11, color = Theme.COLORS.TEXT_SECONDARY },
+                            UI.Label { text = opponent.name, fontSize = 11, color = Theme.COLORS.TEXT_SECONDARY },
                         }
                     },
                     -- 对比条

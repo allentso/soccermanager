@@ -217,13 +217,25 @@ function TacticsResolver.matchupModifiers(myContext, opponentContext, isHome)
     local attackVsDefense = myContext.attack / math.max(1, opponentContext.defense)
     local possessionShare = myContext.possession / math.max(1, myContext.possession + opponentContext.possession)
     local homeBonus = isHome and 1.06 or 1.0
-    local redPenalty = 1.0 - ((myContext.redCards or 0) * 0.12)
-    local opponentRedBonus = 1.0 + ((opponentContext.redCards or 0) * 0.08)
+    local redPenalty = 1.0 - ((myContext.redCards or 0) * 0.14)
+    local opponentRedBonus = 1.0 + ((opponentContext.redCards or 0) * 0.10)
+
+    -- 士气差异加成
+    local moraleBonus = clamp((myContext.avgMorale - 50) / 250, -0.05, 0.05)
+
+    -- 比赛日状态波动（±18%随机，模拟"今天状态好/差"）
+    local formFactor = 0.82 + Random() * 0.36  -- [0.82, 1.18]
+
+    -- 线性阻尼压缩实力差距：将所有比值往1.0方向拉（50%压缩）
+    -- 原始2.0 → 1.50, 原始0.5 → 0.75（弱队比原来好，强队比原来弱）
+    local dampedRatio = 1.0 + (attackVsDefense - 1.0) * 0.50
+
+    local chanceCreation = dampedRatio * homeBonus * redPenalty * opponentRedBonus * formFactor + moraleBonus
 
     return {
-        chanceCreation = clamp(attackVsDefense * homeBonus * redPenalty * opponentRedBonus, 0.35, 2.35),
-        possessionShare = clamp(possessionShare + (isHome and 0.025 or -0.025), 0.28, 0.72),
-        shotQuality = clamp(myContext.shotQuality / 12, 0.65, 1.45),
+        chanceCreation = clamp(chanceCreation, 0.55, 1.70),
+        possessionShare = clamp(possessionShare + (isHome and 0.03 or -0.03), 0.32, 0.68),
+        shotQuality = clamp(myContext.shotQuality / 10, 0.65, 1.40),
         foulRate = myContext.foulRate,
         injuryRisk = myContext.injuryRisk,
         tempo = myContext.tempo,

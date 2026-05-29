@@ -355,9 +355,9 @@ end
 ------------------------------------------------------
 
 FinanceManager.FACILITY_TYPES = {
-    training = { name = "训练设施", baseCost = 250000, maxLevel = 5 },
-    medical = { name = "医疗设施", baseCost = 220000, maxLevel = 5 },
-    scouting = { name = "球探设施", baseCost = 180000, maxLevel = 5 },
+    training = { name = "训练设施", baseCost = 10000000, maxLevel = 5 },  -- 10M base
+    medical = { name = "医疗设施", baseCost = 8000000, maxLevel = 5 },   -- 8M base
+    scouting = { name = "球探设施", baseCost = 6000000, maxLevel = 5 },  -- 6M base
 }
 
 function FinanceManager.ensureFacilities(team)
@@ -440,9 +440,10 @@ function FinanceManager.requestBoardInjection(gameState)
     local team = gameState:getPlayerTeam()
     if not team then return false, "无法获取球队信息" end
 
-    -- 注资额度 = 球队声望 * 系数（0.5M ~ 5M）
+    -- 注资额度 = 转会预算的30%~50%（与球队财力匹配）
     local rep = team.reputation or 50
-    local amount = math.floor(rep * 30000 + 500000)  -- 50 rep = 2M, 80 rep = 2.9M
+    local baseAmount = (team.transferBudget or 25000000) * 0.35
+    local amount = math.floor(baseAmount / 1000000) * 1000000  -- 取整到百万
 
     -- 冷却检查：每赛季最多2次
     if not team.finance then team.finance = {} end
@@ -505,7 +506,7 @@ function FinanceManager.seekSponsorship(gameState)
         return false, "赞助商对当前球队表现不感兴趣，推介失败"
     end
 
-    local amount = math.floor(rep * 8000 + 200000 + Random() * 300000)
+    local amount = math.floor(rep * 50000 + 2000000 + Random() * 3000000)  -- 5M~10M级
 
     team.balance = team.balance + amount
     team.seasonIncome = (team.seasonIncome or 0) + amount
@@ -551,7 +552,7 @@ function FinanceManager.hostCommercialEvent(gameState)
     -- 收入 = 声望 + 球场容量影响
     local rep = team.reputation or 50
     local capacity = team.stadiumCapacity or 30000
-    local amount = math.floor(capacity * 3 + rep * 5000 + Random() * 200000)
+    local amount = math.floor(capacity * 30 + rep * 30000 + Random() * 2000000)  -- 2M~5M级
 
     team.balance = team.balance + amount
     team.seasonIncome = (team.seasonIncome or 0) + amount

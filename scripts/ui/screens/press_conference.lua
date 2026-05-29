@@ -27,7 +27,8 @@ function PressConference.create(params)
         report.awayGoals or 0, awayTeam and awayTeam.name or "客队")
 
     local buttons = {}
-    for key, response in pairs(PressConferenceManager.RESPONSES) do
+    for _, key in ipairs(PressConferenceManager.RESPONSE_ORDER) do
+        local response = PressConferenceManager.RESPONSES[key]
         table.insert(buttons, Theme.Card {
             children = {
                 UI.Label { text = response.label, fontSize = 16, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold" },

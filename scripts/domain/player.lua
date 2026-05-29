@@ -54,6 +54,15 @@ function Player.new(data)
     self.injuryDays = data.injuryDays or 0
     self.retired = data.retired or false
 
+    -- 士气核心（Team Talk 系统扩展）
+    self.morale_core = data.morale_core or {
+        manager_trust = 50,         -- 对教练信任度 0-100
+        unresolved_issue = nil,     -- 当前未解决的不满（string|nil）
+        recent_treatment = nil,     -- 最近待遇变化: "positive"|"negative"|nil
+        last_talk_day = 0,          -- 上次被训话的游戏日（防spam）
+        talk_fatigue = 0,           -- 训话疲劳度 0-5（递减回报）
+    }
+
     -- 评分
     self.overall = data.overall or 50
     self.potential = data.potential or 60
@@ -101,88 +110,173 @@ function Player:getAge(currentYear)
     return currentYear - self.birthYear
 end
 
--- 计算综合能力（按位置加权）
+-- 计算综合能力（全属性基础 + 位置核心属性加成）
+-- 设计思路：
+-- 1. baseScore: 所有17项属性的均值（体现球员综合素质）
+-- 2. posScore: 位置核心属性的加权均值（体现位置适配度）
+-- 3. 混合: baseScore * 25% + posScore * 75%（位置适配更重要，综合素质兜底）
+-- 4. 分段线性映射到OVR（低段平缓、中段陡峭、高段衰减）
 function Player:calculateOverall()
     local pos = self.position
     local a = self.attributes
-    local score = 0
 
+    -- 1. 全属性基础分
+    local allAttrs
     if pos == "GK" then
-        score = a.handling * 3 + a.reflexes * 3 + a.positioning * 2
-            + a.aerial * 1.5 + a.composure * 1 + a.decisions * 0.5
-        score = score / 11
-    elseif pos == "CB" then
-        score = a.defending * 3 + a.tackling * 2.5 + a.aerial * 2
-            + a.strength * 1.5 + a.positioning * 1.5 + a.composure * 0.5
-        score = score / 11
-    elseif pos == "LB" or pos == "RB" then
-        score = a.defending * 2 + a.tackling * 2 + a.speed * 2
-            + a.stamina * 1.5 + a.passing * 1.5 + a.positioning * 1
-            + a.dribbling * 1
-        score = score / 11
-    elseif pos == "CDM" then
-        score = a.tackling * 2.5 + a.defending * 2 + a.passing * 2
-            + a.positioning * 1.5 + a.stamina * 1.5 + a.strength * 1
-            + a.decisions * 0.5
-        score = score / 11
-    elseif pos == "CM" then
-        score = a.passing * 2.5 + a.vision * 2 + a.stamina * 1.5
-            + a.decisions * 1.5 + a.tackling * 1 + a.dribbling * 1
-            + a.shooting * 1 + a.teamwork * 0.5
-        score = score / 11
-    elseif pos == "CAM" then
-        score = a.passing * 2 + a.vision * 2.5 + a.dribbling * 2
-            + a.shooting * 1.5 + a.decisions * 1.5 + a.composure * 1
-            + a.agility * 0.5
-        score = score / 11
-    elseif pos == "LM" or pos == "RM" then
-        score = a.speed * 2 + a.dribbling * 2 + a.passing * 2
-            + a.stamina * 1.5 + a.agility * 1.5 + a.shooting * 1
-            + a.vision * 1
-        score = score / 11
-    elseif pos == "LW" or pos == "RW" then
-        score = a.speed * 2.5 + a.dribbling * 2.5 + a.agility * 2
-            + a.shooting * 1.5 + a.passing * 1 + a.composure * 1
-            + a.vision * 0.5
-        score = score / 11
-    elseif pos == "ST" or pos == "CF" then
-        score = a.shooting * 3 + a.composure * 2 + a.positioning * 2
-            + a.speed * 1.5 + a.dribbling * 1 + a.aerial * 1
-            + a.strength * 0.5
-        score = score / 11
+        allAttrs = {
+            "handling", "reflexes", "positioning", "aerial",
+            "composure", "decisions", "agility", "strength", "speed",
+        }
     else
-        -- 通用
-        score = (a.passing + a.shooting + a.dribbling + a.defending
-            + a.speed + a.stamina + a.decisions) / 7
+        allAttrs = {
+            "speed", "stamina", "strength", "agility",
+            "passing", "shooting", "tackling", "dribbling", "defending",
+            "positioning", "vision", "decisions", "composure",
+            "aggression", "teamwork", "leadership", "aerial",
+        }
     end
 
-    -- 映射到 20-99 范围
-    local overall = math.floor(score * 4 + 19)
+    local baseSum = 0
+    local baseCount = 0
+    for _, attr in ipairs(allAttrs) do
+        baseSum = baseSum + (a[attr] or 10)
+        baseCount = baseCount + 1
+    end
+    local baseScore = baseSum / baseCount
+
+    -- 2. 位置核心属性加权分（每个位置6-8个核心属性）
+    local posWeights
+
+    if pos == "GK" then
+        posWeights = {
+            handling = 3.0, reflexes = 3.0, positioning = 2.0,
+            aerial = 1.5, composure = 1.0, decisions = 0.5,
+        }
+    elseif pos == "CB" then
+        posWeights = {
+            defending = 2.5, tackling = 2.0, aerial = 2.0,
+            strength = 1.5, composure = 1.5, leadership = 1.5, decisions = 1.0,
+        }
+    elseif pos == "LB" or pos == "RB" then
+        posWeights = {
+            speed = 2.0, passing = 2.0, defending = 1.5,
+            tackling = 1.5, stamina = 1.5, dribbling = 1.0, vision = 1.0, positioning = 0.5,
+        }
+    elseif pos == "CDM" then
+        posWeights = {
+            tackling = 2.5, defending = 2.0, passing = 2.0,
+            positioning = 1.5, stamina = 1.5, strength = 1.0, decisions = 0.5,
+        }
+    elseif pos == "CM" then
+        posWeights = {
+            passing = 2.5, vision = 2.0, dribbling = 2.0,
+            stamina = 2.0, shooting = 1.5, decisions = 1.5, composure = 1.0,
+        }
+    elseif pos == "CAM" then
+        posWeights = {
+            vision = 2.5, dribbling = 2.5, passing = 2.0,
+            shooting = 2.0, composure = 1.5, decisions = 1.0, agility = 0.5,
+        }
+    elseif pos == "LM" or pos == "RM" then
+        posWeights = {
+            speed = 2.0, dribbling = 2.0, passing = 2.0,
+            stamina = 2.0, agility = 1.5, shooting = 1.0, vision = 1.0,
+        }
+    elseif pos == "LW" or pos == "RW" then
+        posWeights = {
+            dribbling = 3.0, agility = 2.0, shooting = 2.0,
+            speed = 1.5, passing = 1.5, composure = 1.0, vision = 1.0,
+        }
+    elseif pos == "ST" then
+        posWeights = {
+            shooting = 3.0, composure = 2.5, speed = 2.0,
+            positioning = 1.5, dribbling = 1.0, strength = 1.0, aerial = 0.5,
+        }
+    elseif pos == "CF" then
+        posWeights = {
+            shooting = 2.5, composure = 2.0, dribbling = 2.0,
+            vision = 1.5, passing = 1.5, speed = 1.0, positioning = 1.0,
+        }
+    else
+        posWeights = {
+            passing = 1.5, shooting = 1.5, dribbling = 1.5, defending = 1.0,
+            speed = 1.0, stamina = 1.0, decisions = 1.0,
+        }
+    end
+
+    local posSum = 0
+    local posTotalW = 0
+    for attr, w in pairs(posWeights) do
+        posSum = posSum + (a[attr] or 10) * w
+        posTotalW = posTotalW + w
+    end
+    local posScore = posSum / posTotalW
+
+    -- 3. 混合: 基础40% + 位置60%（全属性均衡占比高，弱项惩罚显著）
+    local finalScore = baseScore * 0.40 + posScore * 0.60
+
+    -- 4. 分段线性映射到OVR
+    -- 校准点: ~12.5→73(普通), ~14.5→83(优秀), ~15.5→89(顶级), ~16.5→93(世界级)
+    local ovrRaw
+    if finalScore <= 13 then
+        ovrRaw = finalScore * 5.0 + 8
+    elseif finalScore <= 15.5 then
+        -- 13→73, 15.5→89.25: 斜率6.5（核心区间拉开差距）
+        ovrRaw = 73 + (finalScore - 13) * 6.5
+    else
+        -- 15.5→89.25起, 斜率4.5（防止超高分溢出）
+        ovrRaw = 89.25 + (finalScore - 15.5) * 4.5
+    end
+
+    local overall = math.floor(ovrRaw)
     overall = math.max(Constants.ABILITY_MIN, math.min(Constants.ABILITY_MAX, overall))
     self.overall = overall
     return overall
 end
 
--- 计算市场价值
+-- 计算市场价值（指数模型，对齐现实：OVR90≈200M, OVR80≈25M, OVR70≈3M）
 function Player:calculateValue(currentYear)
     local age = self:getAge(currentYear)
-    local base = self.overall * self.overall * 100
-    -- 年龄修正
-    if age <= 22 then
-        base = base * 1.3
-    elseif age <= 28 then
-        base = base * 1.0
-    elseif age <= 32 then
-        base = base * 0.7
+    local ovr = self.overall
+
+    -- 指数公式: value = C * D^ovr
+    -- 校准: OVR90→200M, OVR70→3M
+    local D = 1.2337  -- (200M/3M)^(1/20)
+    local C = 1.24    -- 3M / D^70
+    local base = C * (D ^ ovr)
+
+    -- 年龄修正（黄金期23-27加成，老将大幅贬值）
+    local ageMult
+    if age <= 20 then
+        ageMult = 0.5
+    elseif age <= 22 then
+        ageMult = 0.7 + (age - 20) * 0.15  -- 20→0.7, 22→1.0
+    elseif age <= 25 then
+        ageMult = 1.0 + (age - 22) * 0.067  -- 22→1.0, 25→1.2
+    elseif age <= 27 then
+        ageMult = 1.2 - (age - 25) * 0.1    -- 25→1.2, 27→1.0
+    elseif age <= 29 then
+        ageMult = 1.0 - (age - 27) * 0.125  -- 27→1.0, 29→0.75
+    elseif age <= 31 then
+        ageMult = 0.75 - (age - 29) * 0.125 -- 29→0.75, 31→0.5
+    elseif age <= 33 then
+        ageMult = 0.5 - (age - 31) * 0.1    -- 31→0.5, 33→0.3
     else
-        base = base * 0.4
+        ageMult = math.max(0.1, 0.3 - (age - 33) * 0.075) -- 33→0.3, 35+→0.15
     end
-    -- 潜力修正
-    local potentialBonus = (self.potential - self.overall) * 5000
-    if potentialBonus > 0 then
-        base = base + potentialBonus
+    base = base * ageMult
+
+    -- 潜力修正（年轻高潜力球员溢价）
+    if self.potential > ovr then
+        local potGap = self.potential - ovr
+        local potMult = 1.0 + potGap * 0.03  -- 每1点潜力差+3%
+        base = base * potMult
     end
-    self.value = math.floor(base / 1000) * 1000
+
+    -- 取整到万级（10000）
+    self.value = math.floor(base / 10000) * 10000
+    -- 最低值50万
+    if self.value < 500000 then self.value = 500000 end
     return self.value
 end
 

@@ -125,16 +125,16 @@ function SeasonEnd.create(params)
                     table.insert(awardRows, SeasonEnd._awardRow("金靴奖", la.goldenBoot.playerName, tostring(la.goldenBoot.goals or 0) .. " 球", la.goldenBoot.playerId))
                 end
                 if la.bestPlayer then
-                    table.insert(awardRows, SeasonEnd._awardRow("最佳球员", la.bestPlayer.playerName, "评分 " .. string.format("%.1f", la.bestPlayer.rating or 0), la.bestPlayer.playerId))
+                    table.insert(awardRows, SeasonEnd._awardRow("最佳球员", la.bestPlayer.playerName, "OVR " .. tostring(la.bestPlayer.overall or 0), la.bestPlayer.playerId))
                 end
                 if la.bestYoungPlayer then
                     table.insert(awardRows, SeasonEnd._awardRow("最佳新秀", la.bestYoungPlayer.playerName, tostring(la.bestYoungPlayer.age or 0) .. " 岁", la.bestYoungPlayer.playerId))
                 end
-                if la.bestAssist then
-                    table.insert(awardRows, SeasonEnd._awardRow("助攻王", la.bestAssist.playerName, tostring(la.bestAssist.assists or 0) .. " 助攻", la.bestAssist.playerId))
+                if la.topAssists then
+                    table.insert(awardRows, SeasonEnd._awardRow("助攻王", la.topAssists.playerName, tostring(la.topAssists.assists or 0) .. " 助攻", la.topAssists.playerId))
                 end
-                if la.bestGK then
-                    table.insert(awardRows, SeasonEnd._awardRow("金手套", la.bestGK.playerName, tostring(la.bestGK.cleanSheets or 0) .. " 零封", la.bestGK.playerId))
+                if la.bestGoalkeeper then
+                    table.insert(awardRows, SeasonEnd._awardRow("金手套", la.bestGoalkeeper.playerName, tostring(la.bestGoalkeeper.cleanSheets or 0) .. " 零封", la.bestGoalkeeper.playerId))
                 end
             end
             if awards.bestManager then

@@ -5,6 +5,8 @@ local UI = require("urhox-libs/UI")
 local Theme = require("scripts/ui/theme")
 local Router = require("scripts/app/router")
 local Constants = require("scripts/app/constants")
+local AIManager = require("scripts/systems/ai_manager")
+local BottomSheet = require("scripts/ui/components/bottom_sheet")
 
 local Tactics = {}
 
@@ -204,7 +206,10 @@ function Tactics._buildFormationContent(gameState, team)
             fontWeight = isActive and "bold" or "normal",
             marginBottom = 8,
             onClick = function()
-                team.formation = fmt
+                if fmt ~= team.formation then
+                    team.formation = fmt
+                    AIManager.rearrangeForFormation(gameState, team)
+                end
                 Router.replaceWith("tactics", { tab = "formation" })
             end,
         })
@@ -274,10 +279,11 @@ function Tactics._buildFormationContent(gameState, team)
     }
 end
 
--- 球场视图: 用 UI 面板模拟球场+球员点位
+-- 球场视图: 用 UI 面板模拟球场+球员点位（点击可换人）
 function Tactics._buildPitchView(gameState, team, formation)
     local positions = FORMATION_POSITIONS[formation] or FORMATION_POSITIONS["4-4-2"]
     local startingXI = team.startingXI or {}
+    local slots = AIManager._getFormationSlots(formation)
     local pitchW = 300
     local pitchH = 420
 
@@ -293,6 +299,7 @@ function Tactics._buildPitchView(gameState, team, formation)
         local player = startingXI[i] and gameState.players[startingXI[i]]
         local label = player and (string.sub(player.displayName, 1, 6)) or tostring(i)
         local dotColor = i == 1 and {255, 204, 0, 255} or Theme.COLORS.PRIMARY
+        local slotIdx = i
 
         table.insert(dots, UI.Panel {
             position = "absolute",
@@ -304,6 +311,9 @@ function Tactics._buildPitchView(gameState, team, formation)
             backgroundColor = dotColor,
             justifyContent = "center",
             alignItems = "center",
+            onClick = function()
+                Tactics._showSlotSwapSheet(gameState, team, slotIdx, slots)
+            end,
             children = {
                 UI.Label {
                     text = label,
@@ -370,6 +380,10 @@ function Tactics._buildPitchView(gameState, team, formation)
     return Theme.Card {
         children = {
             Theme.Subtitle { text = "球场视图 · " .. formation },
+            UI.Label {
+                text = "点击位置可更换球员",
+                fontSize = 11, color = Theme.COLORS.TEXT_MUTED, marginTop = 2,
+            },
             UI.Panel {
                 width = pitchW,
                 height = pitchH,
@@ -385,47 +399,82 @@ function Tactics._buildPitchView(gameState, team, formation)
     }
 end
 
--- 首发列表卡片
+-- 首发列表卡片（点击可换人，卡片风格）
 function Tactics._buildStartingXICard(gameState, team)
     local startingXI = team.startingXI or {}
+    local formation = team.formation or "4-4-2"
+    local slots = AIManager._getFormationSlots(formation)
+
+    -- 位置分类映射
+    local POS_GROUP_MAP = {
+        GK = "GK", CB = "DEF", LB = "DEF", RB = "DEF",
+        CDM = "MID", CM = "MID", LM = "MID", RM = "MID", CAM = "MID",
+        LW = "FWD", RW = "FWD", ST = "FWD", CF = "FWD",
+    }
+
     local startingChildren = {}
     for i, pid in ipairs(startingXI) do
         local p = gameState.players[pid]
         if p then
+            local slotPos = slots[i] or p.position
+            local slotIdx = i
+
+            -- 位置颜色
+            local posColor = Theme.COLORS.TEXT_SECONDARY
+            local group = POS_GROUP_MAP[slotPos]
+            if group == "GK" then posColor = {255, 204, 0, 255}
+            elseif group == "DEF" then posColor = {77, 179, 255, 255}
+            elseif group == "MID" then posColor = {102, 255, 128, 255}
+            elseif group == "FWD" then posColor = {255, 102, 102, 255}
+            end
+
+            local posFullName = Constants.POSITION_NAMES[slotPos] or slotPos
+
             table.insert(startingChildren, UI.Panel {
                 width = "100%",
-                height = 36,
                 flexDirection = "row",
                 alignItems = "center",
-                paddingLeft = 8,
-                paddingRight = 8,
+                paddingLeft = 8, paddingRight = 8,
+                paddingTop = 7, paddingBottom = 7,
                 borderBottomWidth = (i < #startingXI) and 1 or 0,
                 borderColor = Theme.COLORS.BORDER,
+                onClick = function()
+                    Tactics._showSlotSwapSheet(gameState, team, slotIdx, slots)
+                end,
                 children = {
+                    -- 序号
                     UI.Label {
                         text = tostring(i),
                         fontSize = 11,
                         color = Theme.COLORS.TEXT_MUTED,
                         width = 20,
                     },
-                    UI.Label {
-                        text = Constants.POSITION_NAMES[p.position] or p.position,
-                        fontSize = 11,
-                        color = Theme.COLORS.ACCENT,
-                        width = 44,
+                    -- 位置徽章
+                    UI.Panel {
+                        backgroundColor = {posColor[1], posColor[2], posColor[3], 30},
+                        borderRadius = 3,
+                        paddingLeft = 5, paddingRight = 5, paddingTop = 1, paddingBottom = 1,
+                        marginRight = 8,
+                        children = {
+                            UI.Label { text = posFullName, fontSize = 10, color = posColor, fontWeight = "bold" },
+                        },
                     },
+                    -- 球员姓名
                     UI.Label {
                         text = p.displayName,
                         fontSize = 13,
                         color = Theme.COLORS.TEXT_PRIMARY,
                         flexGrow = 1,
+                        flexShrink = 1,
                     },
+                    -- 能力值
                     UI.Label {
                         text = tostring(p.overall),
-                        fontSize = 13,
+                        fontSize = 14,
                         color = p.overall >= 70 and Theme.COLORS.SECONDARY or Theme.COLORS.TEXT_SECONDARY,
                         width = 28,
                         fontWeight = "bold",
+                        textAlign = "right",
                     },
                 }
             })
@@ -435,6 +484,10 @@ function Tactics._buildStartingXICard(gameState, team)
     return Theme.Card {
         children = {
             Theme.Subtitle { text = "首发11人 (" .. #startingXI .. "/11)" },
+            UI.Label {
+                text = "点击球员或球场位置可更换首发",
+                fontSize = 11, color = Theme.COLORS.TEXT_MUTED, marginTop = 2, marginBottom = 4,
+            },
             UI.Panel {
                 width = "100%",
                 marginTop = 6,
@@ -442,6 +495,140 @@ function Tactics._buildStartingXICard(gameState, team)
             },
         }
     }
+end
+
+---------------------------------------------------------------------------
+-- 球场点击换人：点击某个位置弹出候选列表
+---------------------------------------------------------------------------
+function Tactics._showSlotSwapSheet(gameState, team, slotIdx, slots)
+    local startingXI = team.startingXI or {}
+    local currentPid = startingXI[slotIdx]
+    local currentPlayer = currentPid and gameState.players[currentPid]
+    local slotPos = slots[slotIdx] or "MID"
+
+    -- 收集候选球员：所有队内非首发球员 + 其他首发（用于位置互换）
+    local benchCandidates = {}
+    local swapCandidates = {}
+
+    -- 将首发 ID 存入 set 方便查找
+    local startingSet = {}
+    for _, pid in ipairs(startingXI) do
+        startingSet[pid] = true
+    end
+
+    -- 板凳球员（不在首发中）
+    for _, pid in ipairs(team.playerIds) do
+        local p = gameState.players[pid]
+        if p and not startingSet[pid] and not p.injured and not p.suspended then
+            local score = AIManager._playerPositionScore(p, slotPos)
+            table.insert(benchCandidates, { player = p, score = score, source = "bench" })
+        end
+    end
+
+    -- 其他首发（位置互换）
+    for i, pid in ipairs(startingXI) do
+        if i ~= slotIdx then
+            local p = gameState.players[pid]
+            if p then
+                local score = AIManager._playerPositionScore(p, slotPos)
+                table.insert(swapCandidates, { player = p, score = score, index = i, source = "swap" })
+            end
+        end
+    end
+
+    -- 按适配分排序
+    table.sort(benchCandidates, function(a, b) return a.score > b.score end)
+    table.sort(swapCandidates, function(a, b) return a.score > b.score end)
+
+    -- 构建弹窗内容
+    local children = {}
+
+    -- 当前位置信息
+    local posLabel = Constants.POSITION_NAMES[slotPos] or slotPos
+    table.insert(children, UI.Panel {
+        width = "100%", flexDirection = "row", alignItems = "center", marginBottom = 10,
+        children = {
+            UI.Label {
+                text = string.format("位置 #%d: %s", slotIdx, posLabel),
+                fontSize = 14, fontWeight = "bold", color = Theme.COLORS.ACCENT, flexGrow = 1,
+            },
+            currentPlayer and UI.Label {
+                text = "当前: " .. currentPlayer.displayName .. " (" .. currentPlayer.overall .. ")",
+                fontSize = 12, color = Theme.COLORS.TEXT_MUTED,
+            } or nil,
+        }
+    })
+
+    -- 板凳球员列表
+    if #benchCandidates > 0 then
+        table.insert(children, UI.Label {
+            text = "替补球员", fontSize = 12, fontWeight = "bold",
+            color = Theme.COLORS.TEXT_SECONDARY, marginTop = 6, marginBottom = 4,
+        })
+        local maxBench = math.min(8, #benchCandidates)
+        for i = 1, maxBench do
+            local c = benchCandidates[i]
+            local p = c.player
+            local scoreColor = c.score >= 80 and Theme.COLORS.SECONDARY or (c.score >= 60 and Theme.COLORS.ACCENT or Theme.COLORS.TEXT_MUTED)
+            table.insert(children, UI.Button {
+                text = string.format("%s  %s  能力%d  适配%d",
+                    Constants.POSITION_NAMES[p.position] or p.position,
+                    p.displayName, p.overall, math.floor(c.score)),
+                width = "100%", height = 36, marginBottom = 2,
+                backgroundColor = {38, 46, 71, 255}, borderRadius = 6,
+                fontSize = 12, textAlign = "left", paddingLeft = 10,
+                color = scoreColor,
+                onClick = function()
+                    -- 将该板凳球员放入 slotIdx 位置，移除原球员
+                    team.startingXI[slotIdx] = p.id
+                    BottomSheet.close()
+                    Router.replaceWith("tactics", { tab = "formation" })
+                end,
+            })
+        end
+    end
+
+    -- 位置互换
+    if #swapCandidates > 0 then
+        table.insert(children, UI.Label {
+            text = "位置互换（与其他首发交换）", fontSize = 12, fontWeight = "bold",
+            color = Theme.COLORS.TEXT_SECONDARY, marginTop = 10, marginBottom = 4,
+        })
+        local maxSwap = math.min(5, #swapCandidates)
+        for i = 1, maxSwap do
+            local c = swapCandidates[i]
+            local p = c.player
+            local otherSlotPos = slots[c.index] or "?"
+            table.insert(children, UI.Button {
+                text = string.format("↔ %s (%s #%d, 能力%d)",
+                    p.displayName,
+                    Constants.POSITION_NAMES[otherSlotPos] or otherSlotPos,
+                    c.index, p.overall),
+                width = "100%", height = 36, marginBottom = 2,
+                backgroundColor = {50, 40, 60, 255}, borderRadius = 6,
+                fontSize = 12, textAlign = "left", paddingLeft = 10,
+                color = {180, 160, 220, 255},
+                onClick = function()
+                    -- 交换两个位置的球员
+                    local tmp = team.startingXI[slotIdx]
+                    team.startingXI[slotIdx] = team.startingXI[c.index]
+                    team.startingXI[c.index] = tmp
+                    BottomSheet.close()
+                    Router.replaceWith("tactics", { tab = "formation" })
+                end,
+            })
+        end
+    end
+
+    local sheetHeight = 120 + math.min(8, #benchCandidates) * 38 + math.min(5, #swapCandidates) * 38 + 60
+    sheetHeight = math.min(sheetHeight, 600)
+
+    BottomSheet.showCustom({
+        title = "更换球员 — " .. posLabel,
+        height = sheetHeight,
+        showCancel = true,
+        children = children,
+    })
 end
 
 ---------------------------------------------------------------------------

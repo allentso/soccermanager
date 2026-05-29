@@ -337,6 +337,8 @@ function Settings._saveSettings()
         for k, v in pairs(_settings) do
             _G.gameState.settings[k] = v
         end
+        -- 持久化到磁盘
+        SaveManager.save(_G.gameState, "auto")
     end
 end
 

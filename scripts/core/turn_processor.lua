@@ -360,6 +360,13 @@ function TurnProcessor.processNonMatchDay(gameState)
     TransferManager.processDailyBids(gameState)
     TransferManager.processDailyFreeAgentNegos(gameState)
 
+    -- 转会窗口期间，周四额外执行一次AI转会（增加流动性）
+    local month = gameState.date.month
+    local inTransferWindow = (month >= 6 and month <= 8) or month == 1
+    if inTransferWindow and gameState.dayOfWeek == 4 then
+        TransferManager.processAITransfers(gameState)
+    end
+
     -- B3: 租借到期检查（每天）
     TransferManager.processLoanExpiry(gameState)
     -- B3/P3: 预签约到期后自动生效
@@ -779,6 +786,7 @@ function TurnProcessor.generateTransferRumor(gameState)
         category = "transfer_news",
         title = "转会传闻: " .. player.displayName,
         body = body,
+        playerId = player.id,
         relatedTeams = {fromTeamId, toTeamId},
     })
 end

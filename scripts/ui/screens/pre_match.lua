@@ -247,73 +247,54 @@ function PreMatch.create(params)
                 width = "100%", paddingLeft = 16, paddingRight = 16,
                 paddingTop = 10, paddingBottom = 14,
                 backgroundColor = Theme.COLORS.BG_HEADER,
-                flexDirection = "row", justifyContent = "space-between",
                 children = {
+                    -- 赛前训话按钮
                     UI.Button {
-                        text = "调整战术",
-                        width = "30%", height = 44,
-                        backgroundColor = Theme.COLORS.BG_CARD,
-                        borderRadius = 8, borderWidth = 1, borderColor = Theme.COLORS.BORDER,
-                        fontSize = 14, color = Theme.COLORS.TEXT_SECONDARY,
+                        text = "赛前训话",
+                        width = "100%", height = 40,
+                        backgroundColor = {100, 60, 30, 255},
+                        borderRadius = 8, marginBottom = 8,
+                        fontSize = 14, color = Theme.COLORS.TEXT_PRIMARY,
                         onClick = function()
-                            Router.navigate("tactics", { returnTo = "pre_match", fixture = fixture })
+                            Router.navigate("team_talk", {
+                                context = "pre_match",
+                                returnTo = "pre_match",
+                                returnParams = { fixture = fixture },
+                            })
                         end,
                     },
-                    UI.Button {
-                        text = "确认出战 ▶",
-                        width = "65%", height = 44,
-                        backgroundColor = Theme.COLORS.SECONDARY,
-                        borderRadius = 8,
-                        fontSize = 16, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold",
-                        onClick = function()
-                            -- 开始比赛
-                            local MatchEngine = require("scripts/match/match_engine")
-                            local MoraleManager = require("scripts/systems/morale_manager")
-                            local ReputationManager = require("scripts/systems/reputation_manager")
-                            local FinanceManager = require("scripts/systems/finance_manager")
-
-                            local report = MatchEngine.simulate(gameState, fixture)
-                            if report then
-                                -- 应用比赛结果（更新积分榜、球员数据等）
-                                if fixture._isUCL then
-                                    local TurnProcessor = require("scripts/core/turn_processor")
-                                    TurnProcessor._applyUCLResult(gameState, fixture, report)
-                                else
-                                    MatchEngine.applyResult(gameState, fixture, report)
-                                end
-
-                                -- 赛后士气 & 声望更新
-                                local homeGoals = report.homeGoals or 0
-                                local awayGoals = report.awayGoals or 0
-                                local homeResult, awayResult
-                                if homeGoals > awayGoals then
-                                    homeResult, awayResult = "W", "L"
-                                elseif homeGoals < awayGoals then
-                                    homeResult, awayResult = "L", "W"
-                                else
-                                    homeResult, awayResult = "D", "D"
-                                end
-                                local goalDiff = homeGoals - awayGoals
-                                MoraleManager.postMatchUpdate(gameState, fixture.homeTeamId, homeResult, nil)
-                                MoraleManager.postMatchUpdate(gameState, fixture.awayTeamId, awayResult, nil)
-                                ReputationManager.postMatchUpdate(gameState, fixture.homeTeamId, fixture.awayTeamId, homeResult, goalDiff)
-                                ReputationManager.postMatchUpdate(gameState, fixture.awayTeamId, fixture.homeTeamId, awayResult, -goalDiff)
-
-                                -- 主场票房
-                                FinanceManager.processMatchDayRevenue(gameState, fixture.homeTeamId, true)
-
-                                -- 存储替补名单供比赛中换人使用
-                                report._bench = {}
-                                for i = 1, benchMax do
-                                    table.insert(report._bench, bench[i])
-                                end
-                                report._subsRemaining = 3
-                                report._tacticalChange = nil
-                                Router.replaceWith("match_live", { report = report, fixture = fixture, minute = 0 })
-                            else
-                                Router.navigate("dashboard")
-                            end
-                        end,
+                    -- 原有按钮行
+                    UI.Panel {
+                        width = "100%", flexDirection = "row", justifyContent = "space-between",
+                        children = {
+                            UI.Button {
+                                text = "调整战术",
+                                width = "30%", height = 44,
+                                backgroundColor = Theme.COLORS.BG_CARD,
+                                borderRadius = 8, borderWidth = 1, borderColor = Theme.COLORS.BORDER,
+                                fontSize = 14, color = Theme.COLORS.TEXT_SECONDARY,
+                                onClick = function()
+                                    Router.navigate("tactics", { returnTo = "pre_match", fixture = fixture })
+                                end,
+                            },
+                            UI.Button {
+                                text = "确认出战 ▶",
+                                width = "65%", height = 44,
+                                backgroundColor = Theme.COLORS.SECONDARY,
+                                borderRadius = 8,
+                                fontSize = 16, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold",
+                                onClick = function()
+                                    -- 创建步进式比赛会话
+                                    local MatchEngine = require("scripts/match/match_engine")
+                                    local session = MatchEngine.startMatch(gameState, fixture)
+                                    if session then
+                                        Router.replaceWith("match_live", { session = session, fixture = fixture })
+                                    else
+                                        Router.navigate("dashboard")
+                                    end
+                                end,
+                            },
+                        }
                     },
                 }
             },
