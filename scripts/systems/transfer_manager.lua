@@ -57,6 +57,7 @@ function TransferManager.makeBid(gameState, playerId, amount, wageOffer)
         date = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day},
         responseDate = nil,
         wageOffer = wageOffer or player.wage,
+        contractYears = 3, -- 默认3年合同
         -- 多轮谈判新增字段
         counterAmount = nil,      -- AI的还价金额
         currentRound = 0,         -- 当前回合
@@ -172,45 +173,12 @@ end
 function TransferManager.cancelBid(gameState, bidId)
     TransferManager._ensureData(gameState)
     for _, bid in ipairs(gameState.transfers.bids) do
-        if bid.id == bidId and bid.status == "pending" then
+        if bid.id == bidId and (bid.status == "pending" or bid.status == "negotiating") then
             bid.status = "cancelled"
             return true
         end
     end
     return false
-end
-
-------------------------------------------------------
--- AI 报价处理（每天调用）
-------------------------------------------------------
-
-function TransferManager.processDailyBids(gameState)
-    TransferManager._ensureData(gameState)
-
-    for _, bid in ipairs(gameState.transfers.bids) do
-        if bid.status == "pending" then
-            -- 1-2天后回复（加价轮次更快）
-            local refDate = bid.responseDate or bid.date
-            local daysSince = TransferManager._daysBetween(refDate, gameState.date)
-            local waitDays = (bid.currentRound or 0) > 0 and 1 or RandomInt(1, 3)
-            if daysSince >= waitDays then
-                TransferManager._processAIResponse(gameState, bid)
-            end
-        elseif bid.status == "negotiating" then
-            -- 谈判中如果超过耐心天数且玩家未加价 → 最终裁决
-            local daysSinceResponse = TransferManager._daysBetween(bid.responseDate or bid.date, gameState.date)
-            local maxRounds = bid.maxRounds or 4
-            if daysSinceResponse >= 5 then
-                -- 等太久没加价，AI失去耐心
-                bid.mood = math.max(0, (bid.mood or 50) - 20)
-                if (bid.currentRound or 0) >= maxRounds then
-                    TransferManager._rejectBid(gameState, bid, "谈判破裂，对方已失去耐心。")
-                else
-                    TransferManager._rejectBid(gameState, bid, "你的回复太慢，对方决定不再等待。")
-                end
-            end
-        end
-    end
 end
 
 -- AI回应出价（生成具体counter-offer）
@@ -292,7 +260,6 @@ end
 
 -- 接受报价
 function TransferManager._acceptBid(gameState, bid)
-    bid.status = "accepted"
     local player = gameState.players[bid.playerId]
     if not player then return end
 
@@ -301,6 +268,8 @@ function TransferManager._acceptBid(gameState, bid)
         TransferManager._rejectBid(gameState, bid, reason)
         return
     end
+
+    bid.status = "accepted"
 
     -- 完成转会
     TransferManager._completeTransfer(gameState, bid)
@@ -320,7 +289,8 @@ function TransferManager._rejectBid(gameState, bid, reason)
 end
 
 -- 完成转会
-function TransferManager._completeTransfer(gameState, bid)
+-- @param opts table|nil 可选参数 { suppressMessage = bool }
+function TransferManager._completeTransfer(gameState, bid, opts)
     local player = gameState.players[bid.playerId]
     if not player then return end
 
@@ -340,6 +310,18 @@ function TransferManager._completeTransfer(gameState, bid)
     TransferManager._settleTransferFee(gameState, buyerTeam, sellerTeam, bid, player)
     TransferManager._attachFutureClauses(player, bid)
 
+    -- 更新球员合同（个人条款）
+    if bid.wageOffer and bid.wageOffer > 0 then
+        player.wage = bid.wageOffer
+    end
+    if bid.contractYears and bid.contractYears > 0 then
+        player.contractEnd = { year = gameState.date.year + bid.contractYears, month = 6 }
+    end
+
+    -- 转会后更新名气和身价（新球队声望影响）
+    player:calculateReputation(buyerTeam.reputation or 300)
+    player:calculateValue(gameState.date.year)
+
     -- 记录历史
     table.insert(gameState.transfers.history, {
         playerId = player.id,
@@ -352,14 +334,16 @@ function TransferManager._completeTransfer(gameState, bid)
 
     bid.status = "completed"
 
-    -- 通知玩家
-    gameState:sendMessage({
-        category = "transfer",
-        title = "转会完成!",
-        body = string.format("%s 已正式加盟球队！转会费: %s",
-            player.displayName, fmtMoney(bid.amount)),
-        priority = "high",
-    })
+    -- 通知玩家（可被调用方抑制以发送自定义消息）
+    if not (opts and opts.suppressMessage) then
+        gameState:sendMessage({
+            category = "transfer",
+            title = "转会完成!",
+            body = string.format("%s 已正式加盟球队！转会费: %s",
+                player.displayName, fmtMoney(bid.amount)),
+            priority = "high",
+        })
+    end
 
     -- 新闻
     gameState:addNews({
@@ -717,6 +701,10 @@ function TransferManager._executeAITransfer(gameState, buyerTeam, player)
     player.listedForLoan = false
     buyerTeam.balance = buyerTeam.balance - offerAmount
 
+    -- 更新名气和身价
+    player:calculateReputation(buyerTeam.reputation or 300)
+    player:calculateValue(gameState.date.year)
+
     -- 记录
     table.insert(gameState.transfers.history, {
         playerId = player.id,
@@ -896,6 +884,10 @@ function TransferManager._completeIncomingSale(gameState, bid)
     player.listedForSale = false
     TransferManager._settleTransferFee(gameState, buyerTeam, sellerTeam, bid, player)
     TransferManager._attachFutureClauses(player, bid)
+
+    -- 更新名气和身价
+    player:calculateReputation(buyerTeam.reputation or 300)
+    player:calculateValue(gameState.date.year)
 
     -- 记录转会历史
     table.insert(gameState.transfers.history, {
@@ -1087,6 +1079,12 @@ function TransferManager._returnLoanPlayer(gameState, loan)
     player.squadRole = "first_team"
     player._loanOriginTeamId = nil
 
+    -- 更新名气和身价
+    if originTeam then
+        player:calculateReputation(originTeam.reputation or 300)
+    end
+    player:calculateValue(gameState.date.year)
+
     -- 通知（如果涉及玩家球队）
     if loan.loanTeamId == gameState.playerTeamId then
         gameState:sendMessage({
@@ -1166,7 +1164,7 @@ function TransferManager.offerFreeAgent(gameState, playerId, wageOffer, yearsOff
     gameState:sendMessage({
         category = "transfer",
         title = "合同谈判已发起",
-        body = string.format("你向自由球员 %s 提出了合同邀约（周薪 %.1fK，%d年）。等待回复...",
+        body = string.format("你向自由球员 %s 提出了合同邀约（周薪 %s，%d年）。等待回复...",
             player.displayName, fmtMoney(wageOffer), yearsOffer),
         priority = "normal",
     })
@@ -1207,7 +1205,7 @@ function TransferManager.reviseOffer(gameState, negoId, newWage, newYears)
             gameState:sendMessage({
                 category = "transfer",
                 title = "修改合同条件",
-                body = string.format("你向 %s 提出了修改后的合同（周薪 %.1fK，%d年）。第%d轮谈判。",
+                body = string.format("你向 %s 提出了修改后的合同（周薪 %s，%d年）。第%d轮谈判。",
                     player.displayName, fmtMoney(newWage), newYears, nego.currentRound),
                 priority = "normal",
             })
@@ -1387,7 +1385,7 @@ function TransferManager._processFreeAgentResponse(gameState, nego)
             category = "transfer",
             title = "合同还价",
             body = string.format(
-                "%s 拒绝了你的合同条件（周薪 %.1fK/%d年）。\n他要求至少 周薪 %.1fK / %d年 才愿意签约。\n(第%d/%d轮谈判)",
+                "%s 拒绝了你的合同条件（周薪 %s/%d年）。\n他要求至少 周薪 %s / %d年 才愿意签约。\n(第%d/%d轮谈判)",
                 player.displayName,
                 fmtMoney(nego.wageOffer), nego.yearsOffer,
                 fmtMoney(counterWage), counterYears,
@@ -1401,7 +1399,7 @@ function TransferManager._processFreeAgentResponse(gameState, nego)
         gameState:sendMessage({
             category = "transfer",
             title = "邀约被拒",
-            body = string.format("%s 认为你的工资报价太低，直接拒绝了加盟邀请。(期望至少 %.1fK/周)",
+            body = string.format("%s 认为你的工资报价太低，直接拒绝了加盟邀请。(期望至少 %s/周)",
                 player.displayName, fmtMoney(nego.expectedWage)),
             priority = "normal",
         })
@@ -1432,10 +1430,14 @@ function TransferManager._completeFreeAgentSigning(gameState, nego)
     player.squadRole = "first_team"
     player.listedForSale = false
 
+    -- 更新名气和身价
+    player:calculateReputation(team.reputation or 300)
+    player:calculateValue(gameState.date.year)
+
     gameState:sendMessage({
         category = "transfer",
         title = "自由签约完成!",
-        body = string.format("%s 已作为自由球员加盟球队（周薪 %.1fK，合同 %d年）。",
+        body = string.format("%s 已作为自由球员加盟球队（周薪 %s，合同 %d年）。",
             player.displayName, fmtMoney(nego.wageOffer), nego.yearsOffer),
         priority = "high",
     })
@@ -1497,7 +1499,7 @@ function TransferManager.signFreeAgent(gameState, playerId, wage, years)
     gameState:sendMessage({
         category = "transfer",
         title = "自由签约完成!",
-        body = string.format("%s 已作为自由球员加盟球队（周薪 %.1fK，合同 %d年）。",
+        body = string.format("%s 已作为自由球员加盟球队（周薪 %s，合同 %d年）。",
             player.displayName, fmtMoney(wage), years),
         priority = "high",
     })
@@ -1969,7 +1971,7 @@ function TransferManager.triggerReleaseClause(gameState, playerId)
     end
 
     -- 解约金强制俱乐部接受，但球员仍需同意加盟
-    TransferManager._completeTransfer(gameState, bid)
+    TransferManager._completeTransfer(gameState, bid, { suppressMessage = true })
 
     gameState:sendMessage({
         category = "transfer",
@@ -2238,7 +2240,7 @@ function TransferManager.offerPreContract(gameState, playerId, wageOffer, yearsO
     gameState:sendMessage({
         category = "transfer",
         title = "预签约谈判发起",
-        body = string.format("你向 %s 发起了预签约邀请（周薪 %.1fK，%d年）。合同到期后生效。",
+        body = string.format("你向 %s 发起了预签约邀请（周薪 %s，%d年）。合同到期后生效。",
             player.displayName, fmtMoney(wageOffer), yearsOffer),
         priority = "normal",
     })
@@ -2286,7 +2288,7 @@ function TransferManager.processPreContracts(gameState)
                     gameState:sendMessage({
                         category = "transfer",
                         title = "预签约生效!",
-                        body = string.format("%s 合同到期，正式加入球队！（周薪 %.1fK，%d年）",
+                        body = string.format("%s 合同到期，正式加入球队！（周薪 %s，%d年）",
                             player.displayName, fmtMoney(nego.wageOffer), nego.yearsOffer),
                         priority = "high",
                     })
@@ -2526,8 +2528,9 @@ end
 -- 修改 processDailyBids 以支持推销报价
 ------------------------------------------------------
 
--- 增强原有的 processDailyBids，处理推销报价
-local _originalProcessDailyBids = TransferManager.processDailyBids
+------------------------------------------------------
+-- AI 报价处理（每天调用）
+------------------------------------------------------
 function TransferManager.processDailyBids(gameState)
     TransferManager._ensureData(gameState)
 

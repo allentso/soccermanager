@@ -1,5 +1,5 @@
 -- ui/screens/match_live.lua
--- 实时比赛页 - 步进式模拟，换人/战术指令实时影响结果
+-- 实时比赛页 - 自动推进模拟，遇关键事件暂停，换人/战术指令实时影响结果
 
 local UI = require("urhox-libs/UI")
 local Theme = require("scripts/ui/theme")
@@ -8,6 +8,25 @@ local Constants = require("scripts/app/constants")
 local MatchSession = require("scripts/match/match_session")
 
 local MatchLive = {}
+
+-- 自动推进状态（模块级，跨页面刷新保持）
+local autoPlay = {
+    running = false,       -- 是否在自动推进
+    speed = 1,             -- 速度倍率：1=1秒/分钟, 2=0.5秒/分钟, 3=0.33秒/分钟
+    accumulator = 0,       -- 时间累积器
+    pauseReason = nil,     -- 暂停原因文字（事件暂停时显示）
+}
+
+-- 自动推进间隔（秒/分钟），根据速度倍率
+local SPEED_INTERVALS = { [1] = 1.0, [2] = 0.5, [3] = 0.25 }
+local SPEED_LABELS = { [1] = "▶", [2] = "▶▶", [3] = "▶▶▶" }
+
+-- 需要暂停的事件类型
+local PAUSE_EVENTS = {
+    goal = true,
+    red_card = true,
+    injury = true,
+}
 
 -- 比赛解说文本模板
 local COMMENTARY = {
@@ -42,7 +61,30 @@ local COMMENTARY = {
     tactical_change = {
         "教练做出战术调整：%s。",
     },
+    save = {
+        "门将做出精彩扑救！化解 %s 的射门威胁。",
+        "%s 的射门被门将稳稳没收。",
+        "好球！门将飞身扑出 %s 的射门！",
+        "%s 大力抽射，门将神勇将球挡出！",
+    },
+    hit_post = {
+        "%s 的射门击中门柱弹出！差一点！",
+        "门框救险！%s 的射门打在立柱上！",
+        "%s 一脚怒射击中横梁！太可惜了！",
+    },
+    shot_off_target = {
+        "%s 射门偏出球门。",
+        "%s 的远射高出横梁。",
+        "%s 起脚射门，皮球稍稍偏出立柱。",
+        "%s 射门滑门而出，错失良机！",
+    },
 }
+
+--- 根据事件的 templateIdx 确定性地选择模板
+local function pickTemplate(templates, templateIdx)
+    local idx = ((templateIdx or 1) - 1) % #templates + 1
+    return templates[idx]
+end
 
 -- 战术指示选项
 local TACTICAL_INSTRUCTIONS = {
@@ -70,7 +112,7 @@ function MatchLive.create(params)
                     text = "返回", marginTop = 16, width = 100, height = 36,
                     backgroundColor = Theme.COLORS.PRIMARY, borderRadius = 8,
                     color = Theme.COLORS.TEXT_PRIMARY, fontSize = 14,
-                    onClick = function() Router.navigate("dashboard") end
+                    onClick = function() MatchLive.cleanup(); Router.navigate("dashboard") end
                 }
             }
         }
@@ -81,6 +123,20 @@ function MatchLive.create(params)
     local homeName = homeTeam and homeTeam.name or "主队"
     local awayName = awayTeam and awayTeam.name or "客队"
     local playerTeamId = gameState.playerTeamId
+
+    -- 自动推进：注册/更新 Update 事件处理（每次页面刷新绑定最新 session 引用）
+    MatchLive._currentSession = session
+    MatchLive._currentFixture = fixture
+    MatchLive._currentParams = params
+    if not MatchLive._updateSubscribed then
+        MatchLive._updateSubscribed = true
+        SubscribeToEvent("Update", "HandleMatchAutoAdvance")
+    end
+
+    -- 比赛结束或进入特殊模式时停止自动推进
+    if session:isFinished() or session:isHalfTime() or session:needsPenalties() then
+        autoPlay.running = false
+    end
 
     -- 获取 session 状态
     local status = session:getStatus()
@@ -100,17 +156,21 @@ function MatchLive.create(params)
         displayMode = "penalties"
     end
 
-    -- 解说事件列表（全部事件，最新在前）
+    -- 解说事件列表（全部事件，最新在前，最多显示20条）
     local commentaryChildren = {}
     if matchEnded then
         table.insert(commentaryChildren, MatchLive._commentaryRow(currentMinute, "全场比赛结束！", Theme.COLORS.PRIMARY))
     end
 
+    local commentaryCount = 0
+    local maxCommentary = 20
     for i = #session.events, 1, -1 do
+        if commentaryCount >= maxCommentary then break end
         local evt = session.events[i]
         local text, color = MatchLive._getCommentaryText(evt, gameState)
         if text then
             table.insert(commentaryChildren, MatchLive._commentaryRow(evt.minute, text, color))
+            commentaryCount = commentaryCount + 1
         end
     end
 
@@ -121,20 +181,25 @@ function MatchLive.create(params)
         table.insert(commentaryChildren, MatchLive._commentaryRow(0, "比赛开始！裁判吹响了开场哨。", Theme.COLORS.SECONDARY))
     end
 
-    -- 最终报告（比赛结束后用于统计显示）
-    local statsSection = nil
-    if matchEnded then
-        local homePoss = session.totalPossessionTicks > 0
-            and math.floor(session.homePossessionTicks / session.totalPossessionTicks * 100) or 50
-        statsSection = Theme.Card {
-            children = {
-                Theme.Subtitle { text = "比赛统计" },
-                MatchLive._statBar("控球", homePoss, 100 - homePoss, "%"),
-                MatchLive._statBar("射门", session.homeShots, session.awayShots, ""),
-                MatchLive._statBar("射正", session.homeShotsOnTarget, session.awayShotsOnTarget, ""),
-                MatchLive._statBar("犯规", session.homeFouls, session.awayFouls, ""),
-            }
+    -- 实时统计（比赛进行中和结束后都显示）
+    local homePoss = session.totalPossessionTicks > 0
+        and math.floor(session.homePossessionTicks / session.totalPossessionTicks * 100) or 50
+    local statsSection = Theme.Card {
+        children = {
+            Theme.Subtitle { text = "比赛统计" },
+            MatchLive._statBar("控球", homePoss, 100 - homePoss, "%"),
+            MatchLive._statBar("射门", session.homeShots, session.awayShots, ""),
+            MatchLive._statBar("射正", session.homeShotsOnTarget, session.awayShotsOnTarget, ""),
+            MatchLive._statBar("犯规", session.homeFouls, session.awayFouls, ""),
         }
+    }
+
+    -- 进球者列表（显示在比分板下方）
+    local goalEvents = {}
+    for _, evt in ipairs(session.events) do
+        if evt.type == "goal" then
+            table.insert(goalEvents, evt)
+        end
     end
 
     -- 进度条
@@ -161,18 +226,83 @@ function MatchLive.create(params)
     elseif displayMode == "penalties" then
         mainContent = MatchLive._buildPenaltiesPanel(session, fixture)
     else
-        -- 正常比赛流
+        -- 正常比赛流 - 统计 + 动态
+        local normalChildren = {}
+
+        -- 实时统计（比赛进行中始终显示）
+        if currentMinute > 0 then
+            table.insert(normalChildren, statsSection)
+        end
+
+        -- 关键事件卡片（只显示进球、红牌等重要事件）
+        local keyEvents = {}
+        for _, evt in ipairs(session.events) do
+            if evt.type == "goal" or evt.type == "red_card" then
+                table.insert(keyEvents, evt)
+            end
+        end
+        if #keyEvents > 0 then
+            local keyRows = {}
+            for i = #keyEvents, 1, -1 do
+                local evt = keyEvents[i]
+                local player = evt.playerId and gameState.players[evt.playerId]
+                local pName = player and player.displayName or "球员"
+                local teamName = evt.teamId == session.fixture.homeTeamId and homeName or awayName
+                local icon = evt.type == "goal" and "⚽" or "🟥"
+                local text = evt.type == "goal"
+                    and string.format("%s (%s)", pName, teamName)
+                    or string.format("%s 红牌 (%s)", pName, teamName)
+                table.insert(keyRows, UI.Panel {
+                    width = "100%", flexDirection = "row", alignItems = "center",
+                    marginBottom = 6, paddingLeft = 4,
+                    children = {
+                        UI.Label { text = icon, fontSize = 14, width = 22 },
+                        UI.Label {
+                            text = tostring(evt.minute) .. "'",
+                            fontSize = 11, color = Theme.COLORS.TEXT_MUTED, width = 30,
+                        },
+                        UI.Label {
+                            text = text, fontSize = 12,
+                            color = evt.type == "goal" and Theme.COLORS.SECONDARY or Theme.COLORS.DANGER,
+                            flexGrow = 1, flexShrink = 1,
+                        },
+                    }
+                })
+            end
+            table.insert(normalChildren, Theme.Card {
+                children = {
+                    Theme.Subtitle { text = "关键事件" },
+                    UI.Panel { width = "100%", marginTop = 4, children = keyRows },
+                }
+            })
+        end
+
+        -- 比赛动态解说
+        if #commentaryChildren > 0 then
+            table.insert(normalChildren, Theme.Card {
+                children = {
+                    Theme.Subtitle { text = "比赛动态" },
+                    UI.Panel { width = "100%", marginTop = 6, children = commentaryChildren },
+                }
+            })
+        elseif currentMinute == 0 then
+            table.insert(normalChildren, Theme.Card {
+                children = {
+                    UI.Panel {
+                        width = "100%", alignItems = "center", paddingTop = 20, paddingBottom = 20,
+                        children = {
+                            UI.Label { text = "⚽", fontSize = 32 },
+                            UI.Label { text = "比赛即将开始", fontSize = 14, color = Theme.COLORS.TEXT_SECONDARY, marginTop = 8 },
+                            UI.Label { text = "点击「开始」按钮开球", fontSize = 12, color = Theme.COLORS.TEXT_MUTED, marginTop = 4 },
+                        }
+                    },
+                }
+            })
+        end
+
         mainContent = UI.ScrollView {
             flexGrow = 1, flexBasis = 0, scrollY = true, padding = 14,
-            children = {
-                Theme.Card {
-                    children = {
-                        Theme.Subtitle { text = "比赛动态" },
-                        UI.Panel { width = "100%", marginTop = 6, children = commentaryChildren },
-                    }
-                },
-                statsSection,
-            }
+            children = normalChildren,
         }
     end
 
@@ -180,25 +310,28 @@ function MatchLive.create(params)
     local actionButton
     if matchEnded then
         actionButton = UI.Panel {
-            width = "100%", flexDirection = "row", justifyContent = "space-between", marginTop = 10,
+            width = "100%", flexDirection = "row", justifyContent = "space-between", marginTop = 8,
             children = {
                 UI.Button {
-                    text = "查看报告", width = "48%", height = 44,
-                    backgroundColor = Theme.COLORS.PRIMARY, borderRadius = 8,
+                    text = "📊 查看报告", width = "48%", height = 46,
+                    backgroundColor = Theme.COLORS.PRIMARY, borderRadius = 10,
                     fontSize = 14, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold",
                     onClick = function()
                         -- 完成比赛：生成报告 + 应用结果
+                        MatchLive.cleanup()
                         local MatchEngine = require("scripts/match/match_engine")
                         local report = MatchEngine.finishMatch(session, gameState, fixture)
                         Router.navigate("match_result", { report = report, fixture = fixture })
                     end,
                 },
                 UI.Button {
-                    text = "返回主页", width = "48%", height = 44,
-                    backgroundColor = {51, 59, 84, 255}, borderRadius = 8,
+                    text = "返回主页", width = "48%", height = 46,
+                    backgroundColor = {40, 48, 70, 255}, borderRadius = 10,
+                    borderWidth = 1, borderColor = Theme.COLORS.BORDER,
                     fontSize = 14, color = Theme.COLORS.TEXT_SECONDARY,
                     onClick = function()
                         -- 完成比赛：生成报告 + 应用结果
+                        MatchLive.cleanup()
                         local MatchEngine = require("scripts/match/match_engine")
                         MatchEngine.finishMatch(session, gameState, fixture)
                         Router.navigate("dashboard")
@@ -208,56 +341,61 @@ function MatchLive.create(params)
         }
     elseif displayMode == "normal" then
         local subsRemaining = session.subsRemaining
+        local isPlaying = autoPlay.running
+        local speedIdx = autoPlay.speed
+
         actionButton = UI.Panel {
             width = "100%", children = {
-                -- 时间推进按钮行
+                -- 播放控制行
                 UI.Panel {
-                    width = "100%", flexDirection = "row", justifyContent = "space-between", marginTop = 6,
+                    width = "100%", flexDirection = "row", alignItems = "center", justifyContent = "space-between", marginTop = 4,
                     children = {
+                        -- 播放/暂停按钮
                         UI.Button {
-                            text = "+5'", width = "18%", height = 38,
-                            backgroundColor = Theme.COLORS.BG_CARD, borderRadius = 8,
-                            borderWidth = 1, borderColor = Theme.COLORS.BORDER,
-                            fontSize = 12, color = Theme.COLORS.TEXT_PRIMARY,
+                            text = isPlaying and "⏸ 暂停" or "▶ 开始",
+                            width = "30%", height = 42,
+                            backgroundColor = isPlaying and {140, 60, 40, 255} or {46, 125, 50, 255},
+                            borderRadius = 10,
+                            fontSize = 14, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold",
                             onClick = function()
-                                session:stepMinutes(5)
-                                Router.replaceWith("match_live", { session = session, fixture = fixture, mode = "normal" })
-                            end,
-                        },
-                        UI.Button {
-                            text = "+15'", width = "18%", height = 38,
-                            backgroundColor = Theme.COLORS.BG_CARD, borderRadius = 8,
-                            borderWidth = 1, borderColor = Theme.COLORS.BORDER,
-                            fontSize = 12, color = Theme.COLORS.TEXT_PRIMARY,
-                            onClick = function()
-                                session:stepMinutes(15)
-                                Router.replaceWith("match_live", { session = session, fixture = fixture, mode = "normal" })
-                            end,
-                        },
-                        UI.Button {
-                            text = currentMinute < 45 and "至中场" or "至终场",
-                            width = "22%", height = 38,
-                            backgroundColor = {180, 120, 30, 255}, borderRadius = 8,
-                            fontSize = 12, color = Theme.COLORS.TEXT_PRIMARY,
-                            onClick = function()
-                                -- 步进到当前半场结束
-                                local target = currentMinute < 45 and (45 - currentMinute) or (90 - currentMinute)
-                                if target > 0 then
-                                    session:stepMinutes(target)
+                                if isPlaying then
+                                    autoPlay.running = false
+                                    autoPlay.pauseReason = nil
+                                else
+                                    autoPlay.running = true
+                                    autoPlay.pauseReason = nil
+                                    autoPlay.accumulator = 0
                                 end
                                 Router.replaceWith("match_live", { session = session, fixture = fixture, mode = "normal" })
                             end,
                         },
+                        -- 速度切换按钮
                         UI.Button {
-                            text = "模拟全场", width = "24%", height = 38,
-                            backgroundColor = Theme.COLORS.SECONDARY, borderRadius = 8,
-                            fontSize = 12, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold",
+                            text = SPEED_LABELS[speedIdx] or "▶",
+                            width = "20%", height = 42,
+                            backgroundColor = {35, 45, 70, 255}, borderRadius = 10,
+                            borderWidth = 1, borderColor = {60, 75, 110, 255},
+                            fontSize = 14, color = Theme.COLORS.ACCENT, fontWeight = "bold",
                             onClick = function()
-                                -- 步进直到比赛结束（中场/点球时暂停让用户干预）
+                                autoPlay.speed = (autoPlay.speed % 3) + 1
+                                Router.replaceWith("match_live", { session = session, fixture = fixture, mode = "normal" })
+                            end,
+                        },
+                        -- 模拟全场按钮
+                        UI.Button {
+                            text = "跳过全场", width = "28%", height = 42,
+                            backgroundColor = {80, 60, 20, 255}, borderRadius = 10,
+                            borderWidth = 1, borderColor = {120, 95, 40, 255},
+                            fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold",
+                            onClick = function()
+                                autoPlay.running = false
                                 local safety = 0
-                                while not session:isFinished() and not session:isHalfTime()
-                                      and not session:needsPenalties() and safety < 20 do
-                                    session:stepMinutes(15)
+                                while not session:isFinished() and not session:needsPenalties() and safety < 30 do
+                                    if session:isHalfTime() then
+                                        session:stepMinutes(1)
+                                    else
+                                        session:stepMinutes(15)
+                                    end
                                     safety = safety + 1
                                 end
                                 Router.replaceWith("match_live", { session = session, fixture = fixture, mode = "normal" })
@@ -265,29 +403,41 @@ function MatchLive.create(params)
                         },
                     }
                 },
+                -- 暂停原因提示（事件暂停时显示）
+                autoPlay.pauseReason and UI.Panel {
+                    width = "100%", marginTop = 6, alignItems = "center",
+                    children = {
+                        UI.Label {
+                            text = "⚡ " .. autoPlay.pauseReason,
+                            fontSize = 12, color = Theme.COLORS.WARNING,
+                        },
+                    }
+                } or nil,
                 -- 战术干预按钮行
                 UI.Panel {
                     width = "100%", flexDirection = "row", justifyContent = "space-between", marginTop = 8,
                     children = {
                         UI.Button {
-                            text = "换人 (" .. tostring(subsRemaining) .. ")",
-                            width = "48%", height = 38,
-                            backgroundColor = subsRemaining > 0 and {60, 40, 120, 255} or Theme.COLORS.BG_CARD,
-                            borderRadius = 8, fontSize = 13,
+                            text = "🔄 换人 (" .. tostring(subsRemaining) .. ")",
+                            width = "48%", height = 40,
+                            backgroundColor = subsRemaining > 0 and {55, 35, 110, 255} or {35, 40, 55, 255},
+                            borderRadius = 10, fontSize = 13, fontWeight = "bold",
                             color = subsRemaining > 0 and Theme.COLORS.TEXT_PRIMARY or Theme.COLORS.TEXT_MUTED,
                             onClick = function()
+                                autoPlay.running = false
                                 if subsRemaining > 0 then
                                     Router.replaceWith("match_live", { session = session, fixture = fixture, mode = "subs" })
                                 end
                             end,
                         },
                         UI.Button {
-                            text = "战术指示",
-                            width = "48%", height = 38,
-                            backgroundColor = {40, 80, 120, 255},
-                            borderRadius = 8, fontSize = 13,
+                            text = "📋 战术指示",
+                            width = "48%", height = 40,
+                            backgroundColor = {30, 70, 110, 255},
+                            borderRadius = 10, fontSize = 13, fontWeight = "bold",
                             color = Theme.COLORS.TEXT_PRIMARY,
                             onClick = function()
+                                autoPlay.running = false
                                 Router.replaceWith("match_live", { session = session, fixture = fixture, mode = "tactics" })
                             end,
                         },
@@ -300,35 +450,113 @@ function MatchLive.create(params)
     -- 构建页面
     local pageChildren = {}
 
+    -- 进球者文字（按队伍分列）
+    local homeGoalScorers = {}
+    local awayGoalScorers = {}
+    for _, evt in ipairs(goalEvents) do
+        local player = evt.playerId and gameState.players[evt.playerId]
+        local pName = player and player.lastName or player and player.displayName or ""
+        local entry = pName .. " " .. tostring(evt.minute) .. "'"
+        if evt.teamId == session.fixture.homeTeamId then
+            table.insert(homeGoalScorers, entry)
+        else
+            table.insert(awayGoalScorers, entry)
+        end
+    end
+
     -- 顶部比分板
     local scoreboardItems = {
+        -- 状态指示（上半场/下半场/已结束）
         UI.Panel {
-            width = "100%", flexDirection = "row", justifyContent = "center", marginBottom = 6,
+            width = "100%", flexDirection = "row", justifyContent = "center", alignItems = "center", marginBottom = 4,
             children = {
+                (not matchEnded) and UI.Panel {
+                    width = 8, height = 8, borderRadius = 4,
+                    backgroundColor = Theme.COLORS.SECONDARY, marginRight = 6,
+                } or nil,
                 UI.Label {
-                    text = statusText, fontSize = 11,
+                    text = statusText, fontSize = 12,
                     color = matchEnded and Theme.COLORS.TEXT_MUTED or Theme.COLORS.SECONDARY,
                     fontWeight = "bold",
                 },
-                UI.Label { text = "  " .. tostring(currentMinute) .. "'", fontSize = 11, color = Theme.COLORS.TEXT_SECONDARY },
+                UI.Label {
+                    text = "  " .. tostring(currentMinute) .. "'", fontSize = 12,
+                    color = Theme.COLORS.TEXT_SECONDARY,
+                },
             }
         },
+        -- 比分主区
         UI.Panel {
             width = "100%", flexDirection = "row", alignItems = "center", justifyContent = "center",
+            paddingTop = 4, paddingBottom = 4,
             children = {
-                UI.Label { text = homeName, fontSize = 15, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold", width = 110, textAlign = "right" },
+                -- 主队
                 UI.Panel {
-                    width = 80, alignItems = "center",
+                    flexGrow = 1, flexBasis = 0, alignItems = "flex-end", paddingRight = 12,
                     children = {
-                        UI.Label {
-                            text = string.format("%d - %d", session.homeGoals, session.awayGoals),
-                            fontSize = 28, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold",
+                        UI.Label { text = homeName, fontSize = 16, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold", textAlign = "right" },
+                    }
+                },
+                -- 比分
+                UI.Panel {
+                    minWidth = 110, alignItems = "center", justifyContent = "center",
+                    backgroundColor = {15, 19, 32, 255}, borderRadius = 8,
+                    paddingTop = 6, paddingBottom = 6, paddingLeft = 10, paddingRight = 10,
+                    children = {
+                        UI.Panel {
+                            flexDirection = "row", alignItems = "center", justifyContent = "center",
+                            children = {
+                                UI.Label {
+                                    text = tostring(session.homeGoals),
+                                    fontSize = 30, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold",
+                                },
+                                UI.Label {
+                                    text = " - ",
+                                    fontSize = 22, color = Theme.COLORS.TEXT_SECONDARY, fontWeight = "bold",
+                                },
+                                UI.Label {
+                                    text = tostring(session.awayGoals),
+                                    fontSize = 30, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold",
+                                },
+                            }
                         },
                     }
                 },
-                UI.Label { text = awayName, fontSize = 15, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold", width = 110 },
+                -- 客队
+                UI.Panel {
+                    flexGrow = 1, flexBasis = 0, alignItems = "flex-start", paddingLeft = 12,
+                    children = {
+                        UI.Label { text = awayName, fontSize = 16, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold" },
+                    }
+                },
             }
         },
+        -- 进球者
+        (#homeGoalScorers > 0 or #awayGoalScorers > 0) and UI.Panel {
+            width = "100%", flexDirection = "row", justifyContent = "center", marginTop = 4,
+            children = {
+                UI.Panel {
+                    flexGrow = 1, flexBasis = 0, alignItems = "flex-end", paddingRight = 14,
+                    children = {
+                        UI.Label {
+                            text = table.concat(homeGoalScorers, ", "),
+                            fontSize = 10, color = Theme.COLORS.TEXT_SECONDARY, textAlign = "right",
+                        },
+                    }
+                },
+                UI.Panel { width = 110 },
+                UI.Panel {
+                    flexGrow = 1, flexBasis = 0, alignItems = "flex-start", paddingLeft = 14,
+                    children = {
+                        UI.Label {
+                            text = table.concat(awayGoalScorers, ", "),
+                            fontSize = 10, color = Theme.COLORS.TEXT_SECONDARY,
+                        },
+                    }
+                },
+            }
+        } or nil,
+        -- 进度条
         UI.Panel {
             width = "100%", height = 4, backgroundColor = Theme.COLORS.BORDER,
             borderRadius = 2, marginTop = 8,
@@ -342,15 +570,23 @@ function MatchLive.create(params)
         },
     }
     if session.tacticalInstruction ~= "balanced" then
-        table.insert(scoreboardItems, UI.Label {
-            text = "战术：" .. MatchLive._getInstructionLabel(session.tacticalInstruction),
-            fontSize = 10, color = Theme.COLORS.ACCENT, textAlign = "center", marginTop = 4,
+        table.insert(scoreboardItems, UI.Panel {
+            width = "100%", flexDirection = "row", justifyContent = "center", marginTop = 4,
+            children = {
+                UI.Label {
+                    text = "📋 ", fontSize = 10, width = 16,
+                },
+                UI.Label {
+                    text = "战术：" .. MatchLive._getInstructionLabel(session.tacticalInstruction),
+                    fontSize = 11, color = Theme.COLORS.ACCENT,
+                },
+            }
         })
     end
 
     table.insert(pageChildren, UI.Panel {
         width = "100%", backgroundColor = Theme.COLORS.BG_HEADER,
-        paddingTop = 12, paddingBottom = 12, paddingLeft = 16, paddingRight = 16,
+        paddingTop = 14, paddingBottom = 12, paddingLeft = 16, paddingRight = 16,
         children = scoreboardItems,
     })
 
@@ -762,26 +998,28 @@ end
 function MatchLive._getCommentaryText(evt, gameState)
     local player = evt.playerId and gameState.players[evt.playerId]
     local pName = player and player.displayName or "球员"
+    local tIdx = evt.templateIdx
 
     if evt.type == "goal" then
         if evt.assistPlayerId then
             local assister = gameState.players[evt.assistPlayerId]
             local aName = assister and assister.displayName or "队友"
-            local templates = COMMENTARY.goal_assist
-            return string.format(templates[math.random(1, #templates)], aName, pName), Theme.COLORS.SECONDARY
+            return string.format(pickTemplate(COMMENTARY.goal_assist, tIdx), aName, pName), Theme.COLORS.SECONDARY
         else
-            local templates = COMMENTARY.goal
-            return string.format(templates[math.random(1, #templates)], pName), Theme.COLORS.SECONDARY
+            return string.format(pickTemplate(COMMENTARY.goal, tIdx), pName), Theme.COLORS.SECONDARY
         end
     elseif evt.type == "yellow_card" then
-        local templates = COMMENTARY.yellow_card
-        return string.format(templates[math.random(1, #templates)], pName), Theme.COLORS.WARNING
+        return string.format(pickTemplate(COMMENTARY.yellow_card, tIdx), pName), Theme.COLORS.WARNING
     elseif evt.type == "red_card" then
-        local templates = COMMENTARY.red_card
-        return string.format(templates[math.random(1, #templates)], pName), Theme.COLORS.DANGER
+        return string.format(pickTemplate(COMMENTARY.red_card, tIdx), pName), Theme.COLORS.DANGER
     elseif evt.type == "injury" then
-        local templates = COMMENTARY.injury
-        return string.format(templates[math.random(1, #templates)], pName), Theme.COLORS.DANGER
+        return string.format(pickTemplate(COMMENTARY.injury, tIdx), pName), Theme.COLORS.DANGER
+    elseif evt.type == "save" then
+        return string.format(pickTemplate(COMMENTARY.save, tIdx), pName), {100, 200, 180, 255}
+    elseif evt.type == "hit_post" then
+        return string.format(pickTemplate(COMMENTARY.hit_post, tIdx), pName), {255, 180, 80, 255}
+    elseif evt.type == "shot_off_target" then
+        return string.format(pickTemplate(COMMENTARY.shot_off_target, tIdx), pName), Theme.COLORS.TEXT_SECONDARY
     elseif evt.type == "substitution" then
         local offPlayer = evt.offPlayerId and gameState.players[evt.offPlayerId]
         local onPlayer = evt.onPlayerId and gameState.players[evt.onPlayerId]
@@ -797,10 +1035,13 @@ end
 
 function MatchLive._commentaryRow(minute, text, color)
     local icon = "•"
-    if string.find(text, "进球") or string.find(text, "破门") or string.find(text, "得分") or string.find(text, "攻入") then icon = "⚽"
+    if string.find(text, "进球") or string.find(text, "破门") or string.find(text, "得分") or string.find(text, "攻入") or string.find(text, "送入球门") then icon = "⚽"
     elseif string.find(text, "黄牌") then icon = "🟨"
     elseif string.find(text, "红牌") then icon = "🟥"
     elseif string.find(text, "受伤") or string.find(text, "离场") then icon = "🏥"
+    elseif string.find(text, "扑救") or string.find(text, "没收") or string.find(text, "挡出") then icon = "🧤"
+    elseif string.find(text, "门柱") or string.find(text, "立柱") or string.find(text, "横梁") then icon = "🥅"
+    elseif string.find(text, "偏出") or string.find(text, "高出") or string.find(text, "滑门而出") then icon = "💨"
     elseif string.find(text, "结束") then icon = "🏁"
     elseif string.find(text, "开始") then icon = "▶"
     elseif string.find(text, "中场") then icon = "⏸"
@@ -821,25 +1062,111 @@ end
 function MatchLive._statBar(label, homeVal, awayVal, suffix)
     local total = homeVal + awayVal
     local homePct = total > 0 and math.floor(homeVal / total * 100) or 50
+    local awayPct = 100 - homePct
     return UI.Panel {
-        width = "100%", marginBottom = 8,
+        width = "100%", marginBottom = 10,
         children = {
             UI.Panel {
-                width = "100%", flexDirection = "row", marginBottom = 3,
+                width = "100%", flexDirection = "row", alignItems = "center", marginBottom = 4,
                 children = {
-                    UI.Label { text = tostring(homeVal) .. suffix, fontSize = 12, color = Theme.COLORS.TEXT_PRIMARY, width = 40 },
-                    UI.Label { text = label, fontSize = 11, color = Theme.COLORS.TEXT_MUTED, flexGrow = 1, textAlign = "center" },
-                    UI.Label { text = tostring(awayVal) .. suffix, fontSize = 12, color = Theme.COLORS.TEXT_PRIMARY, width = 40, textAlign = "right" },
+                    UI.Label {
+                        text = tostring(homeVal) .. suffix, fontSize = 13,
+                        color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold", width = 40,
+                    },
+                    UI.Label {
+                        text = label, fontSize = 11, color = Theme.COLORS.TEXT_MUTED,
+                        flexGrow = 1, textAlign = "center",
+                    },
+                    UI.Label {
+                        text = tostring(awayVal) .. suffix, fontSize = 13,
+                        color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold", width = 40, textAlign = "right",
+                    },
                 }
             },
             UI.Panel {
-                width = "100%", height = 6, flexDirection = "row", borderRadius = 3, backgroundColor = Theme.COLORS.BORDER,
+                width = "100%", height = 6, flexDirection = "row", borderRadius = 3,
+                backgroundColor = {20, 25, 40, 255},
                 children = {
-                    UI.Panel { width = tostring(homePct) .. "%", height = 6, backgroundColor = Theme.COLORS.PRIMARY, borderRadius = 3 },
+                    UI.Panel {
+                        width = tostring(homePct) .. "%", height = 6,
+                        backgroundColor = Theme.COLORS.PRIMARY, borderRadius = 3,
+                    },
+                    UI.Panel { flexGrow = 1 },
+                    UI.Panel {
+                        width = tostring(awayPct) .. "%", height = 6,
+                        backgroundColor = {200, 80, 60, 255}, borderRadius = 3,
+                    },
                 }
             },
         }
     }
+end
+
+---------------------------------------------------------------------------
+-- 自动推进 Update 回调（全局函数，由引擎事件调用）
+---------------------------------------------------------------------------
+function HandleMatchAutoAdvance(eventType, eventData)
+    if not autoPlay.running then return end
+
+    local session = MatchLive._currentSession
+    local fixture = MatchLive._currentFixture
+    local params = MatchLive._currentParams
+    if not session or session:isFinished() or session:isHalfTime() or session:needsPenalties() then
+        autoPlay.running = false
+        return
+    end
+
+    local dt = eventData["TimeStep"]:GetFloat()
+    local interval = SPEED_INTERVALS[autoPlay.speed] or 1.0
+    autoPlay.accumulator = autoPlay.accumulator + dt
+
+    if autoPlay.accumulator >= interval then
+        autoPlay.accumulator = autoPlay.accumulator - interval
+
+        -- 步进 1 分钟
+        local newEvents = session:stepMinutes(1)
+
+        -- 检查是否有关键事件需要暂停
+        local pauseEvent = nil
+        for _, evt in ipairs(newEvents) do
+            if PAUSE_EVENTS[evt.type] then
+                pauseEvent = evt
+                break
+            end
+        end
+
+        -- 检查半场/结束/点球
+        if session:isFinished() or session:isHalfTime() or session:needsPenalties() then
+            autoPlay.running = false
+        elseif pauseEvent then
+            autoPlay.running = false
+            if pauseEvent.type == "goal" then
+                autoPlay.pauseReason = "进球！比赛暂停，可进行战术调整"
+            elseif pauseEvent.type == "red_card" then
+                autoPlay.pauseReason = "红牌！比赛暂停，可进行换人调整"
+            elseif pauseEvent.type == "injury" then
+                autoPlay.pauseReason = "球员受伤！可进行换人"
+            end
+        end
+
+        -- 刷新页面
+        Router.replaceWith("match_live", { session = session, fixture = fixture, mode = params and params.mode or "normal" })
+    end
+end
+
+--- 清理自动推进状态（离开比赛页面时调用）
+function MatchLive.cleanup()
+    autoPlay.running = false
+    autoPlay.accumulator = 0
+    autoPlay.pauseReason = nil
+    autoPlay.speed = 1
+    MatchLive._currentSession = nil
+    MatchLive._currentFixture = nil
+    MatchLive._currentParams = nil
+    if MatchLive._updateSubscribed then
+        UnsubscribeFromEvent("Update")
+        MatchLive._updateSubscribed = false
+    end
 end
 
 return MatchLive

@@ -263,6 +263,9 @@ local function generateSquad(gameState, teamId, country, reputation)
     local team = gameState.teams[teamId]
     for _, pos in ipairs(positions) do
         local player = generatePlayer(gameState, teamId, pos, country, reputation)
+        -- 计算名气并重新计算身价
+        player:calculateReputation(reputation)
+        player:calculateValue(gameState.date.year)
         team:addPlayer(player.id)
     end
 

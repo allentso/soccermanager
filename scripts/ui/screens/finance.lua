@@ -85,7 +85,7 @@ function Finance.create(params)
             content,
 
             -- 底部导航
-            Theme.MainNav("more"),
+            Theme.MainNav("home"),
         }
     }
 end
@@ -710,7 +710,11 @@ function Finance._buildTransactions(team, gameState)
             if tx.week and tx.season then
                 dateStr = "S" .. tx.season .. " W" .. tx.week
             elseif tx.date then
-                dateStr = tx.date
+                if type(tx.date) == "table" then
+                    dateStr = (tx.date.year or "") .. "/" .. (tx.date.month or "") .. "/" .. (tx.date.day or "")
+                else
+                    dateStr = tostring(tx.date)
+                end
             end
 
             table.insert(txRows, UI.Panel {
@@ -736,7 +740,7 @@ function Finance._buildTransactions(team, gameState)
                         flexShrink = 1,
                         children = {
                             UI.Label {
-                                text = (catLabel ~= "" and catLabel .. " " or "") .. (tx.description or "未知"),
+                                text = (catLabel ~= "" and catLabel .. " " or "") .. (type(tx.description) == "string" and tx.description or "未知"),
                                 fontSize = 13,
                                 color = Theme.COLORS.TEXT_PRIMARY,
                             },

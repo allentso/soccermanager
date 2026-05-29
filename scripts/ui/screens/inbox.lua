@@ -705,7 +705,7 @@ function Inbox.create(params)
             },
 
             -- 底部导航
-            Theme.MainNav("more"),
+            Theme.MainNav("home"),
         }
     }
 end

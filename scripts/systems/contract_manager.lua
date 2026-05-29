@@ -93,7 +93,7 @@ function ContractManager.renewContract(gameState, playerId, newWage, newYears)
     end
 
     -- 球员接受意愿（基于能力/年龄/当前工资/球队声望）
-    local acceptChance = ContractManager._calcAcceptChance(player, team, newWage, newYears)
+    local acceptChance = ContractManager._calcAcceptChance(player, team, newWage, newYears, gameState)
     if Random() > acceptChance then
         -- 拒绝续约
         gameState:sendMessage({
@@ -139,7 +139,7 @@ end
 ------------------------------------------------------
 -- 获取续约建议参数
 ------------------------------------------------------
-function ContractManager.getSuggestedTerms(player, team)
+function ContractManager.getSuggestedTerms(player, team, gameState)
     -- 建议工资：基于当前工资和球员能力
     local baseWage = player.wage or 5000
     local abilityFactor = (player.overall or 50) / 70
@@ -147,7 +147,8 @@ function ContractManager.getSuggestedTerms(player, team)
     suggestedWage = math.max(suggestedWage, 1000)
 
     -- 建议年限：基于年龄
-    local age = (player.birthYear and (2024 - player.birthYear)) or 25
+    local currentYear = (gameState and gameState.date and gameState.date.year) or 2024
+    local age = (player.birthYear and (currentYear - player.birthYear)) or 25
     local suggestedYears = 3
     if age >= 33 then suggestedYears = 1
     elseif age >= 30 then suggestedYears = 2
@@ -221,7 +222,7 @@ function ContractManager._releasePlayer(gameState, team, player)
 end
 
 -- 计算球员接受续约的概率
-function ContractManager._calcAcceptChance(player, team, offeredWage, offeredYears)
+function ContractManager._calcAcceptChance(player, team, offeredWage, offeredYears, gameState)
     local chance = 0.5
 
     -- 薪资涨幅影响
@@ -242,7 +243,8 @@ function ContractManager._calcAcceptChance(player, team, offeredWage, offeredYea
     end
 
     -- 球员年龄影响（老球员更愿意续约）
-    local age = (player.birthYear and (2024 - player.birthYear)) or 25
+    local currentYear = (gameState and gameState.date and gameState.date.year) or 2024
+    local age = (player.birthYear and (currentYear - player.birthYear)) or 25
     if age >= 32 then chance = chance + 0.15
     elseif age >= 28 then chance = chance + 0.05
     elseif age <= 22 then chance = chance - 0.05  -- 年轻人想去大俱乐部

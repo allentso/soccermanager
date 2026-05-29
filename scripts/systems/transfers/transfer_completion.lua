@@ -28,6 +28,22 @@ return function(TransferManager)
             return false, string.format("%s 拒绝加盟 %s（%s）。", player.displayName, targetTeam.name, reason or "个人意愿不足")
         end
 
+        -- 薪资满意度检查：如果报价薪资低于当前薪资的80%，球员可能拒绝
+        if bid.wageOffer and player.wage then
+            local wageRatio = bid.wageOffer / player.wage
+            if wageRatio < 0.8 then
+                -- 薪资降幅过大，大概率拒绝
+                if Random() < 0.85 then
+                    return false, string.format("%s 拒绝降薪加盟（当前周薪远高于报价）。", player.displayName)
+                end
+            elseif wageRatio < 0.95 then
+                -- 略微降薪，有小概率拒绝
+                if Random() < 0.3 then
+                    return false, string.format("%s 对薪资条件不满意。", player.displayName)
+                end
+            end
+        end
+
         return true
     end
 

@@ -688,7 +688,7 @@ end
 -- 续约对话框
 function Squad._showRenewDialog(player, gameState)
     local team = gameState:getPlayerTeam()
-    local terms = ContractManager.getSuggestedTerms(player, team)
+    local terms = ContractManager.getSuggestedTerms(player, team, gameState)
     local age = player:getAge(gameState.date.year)
     local monthsLeft = ContractManager.getMonthsRemaining(gameState, player)
 

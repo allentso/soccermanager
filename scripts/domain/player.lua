@@ -99,6 +99,9 @@ function Player.new(data)
     self.listedForSale = data.listedForSale or false
     self.listedForLoan = data.listedForLoan or false
 
+    -- 名气/声望 (1-100，影响身价)
+    self.reputation = data.reputation or 30
+
     -- 球员特性标签
     self.traits = data.traits or {}
 
@@ -234,35 +237,37 @@ function Player:calculateOverall()
     return overall
 end
 
--- 计算市场价值（指数模型，对齐现实：OVR90≈200M, OVR80≈25M, OVR70≈3M）
+-- 计算市场价值（平缓指数模型 + 名气修正）
+-- 校准: OVR70≈6M, OVR75≈12M, OVR80≈24M, OVR85≈49M, OVR90≈98M（黄金年龄基础值）
 function Player:calculateValue(currentYear)
     local age = self:getAge(currentYear)
     local ovr = self.overall
 
-    -- 指数公式: value = C * D^ovr
-    -- 校准: OVR90→200M, OVR70→3M
-    local D = 1.2337  -- (200M/3M)^(1/20)
-    local C = 1.24    -- 3M / D^70
+    -- 平缓指数公式: value = C * D^ovr
+    -- D = 1.15 → 每5点OVR翻一倍（1.15^5≈2.01）
+    -- 校准: OVR70 = 6M → C = 6M / 1.15^70
+    local D = 1.15
+    local C = 336.7  -- 6,000,000 / 1.15^70
     local base = C * (D ^ ovr)
 
-    -- 年龄修正（黄金期23-27加成，老将大幅贬值）
+    -- 年龄修正（黄金期23-27加成，老将贬值但幅度温和）
     local ageMult
     if age <= 20 then
-        ageMult = 0.5
+        ageMult = 0.55
     elseif age <= 22 then
         ageMult = 0.7 + (age - 20) * 0.15  -- 20→0.7, 22→1.0
     elseif age <= 25 then
-        ageMult = 1.0 + (age - 22) * 0.067  -- 22→1.0, 25→1.2
+        ageMult = 1.0 + (age - 22) * 0.05  -- 22→1.0, 25→1.15
     elseif age <= 27 then
-        ageMult = 1.2 - (age - 25) * 0.1    -- 25→1.2, 27→1.0
+        ageMult = 1.15 - (age - 25) * 0.075 -- 25→1.15, 27→1.0
     elseif age <= 29 then
-        ageMult = 1.0 - (age - 27) * 0.125  -- 27→1.0, 29→0.75
+        ageMult = 1.0 - (age - 27) * 0.1   -- 27→1.0, 29→0.8
     elseif age <= 31 then
-        ageMult = 0.75 - (age - 29) * 0.125 -- 29→0.75, 31→0.5
+        ageMult = 0.8 - (age - 29) * 0.1   -- 29→0.8, 31→0.6
     elseif age <= 33 then
-        ageMult = 0.5 - (age - 31) * 0.1    -- 31→0.5, 33→0.3
+        ageMult = 0.6 - (age - 31) * 0.1   -- 31→0.6, 33→0.4
     else
-        ageMult = math.max(0.1, 0.3 - (age - 33) * 0.075) -- 33→0.3, 35+→0.15
+        ageMult = math.max(0.15, 0.4 - (age - 33) * 0.1) -- 33→0.4, 35+→0.2
     end
     base = base * ageMult
 
@@ -273,11 +278,51 @@ function Player:calculateValue(currentYear)
         base = base * potMult
     end
 
-    -- 取整到万级（10000）
-    self.value = math.floor(base / 10000) * 10000
+    -- 名气修正（reputation 1-100 → 乘数 0.75~1.4）
+    -- 高名气球员（知名球星）身价溢价，低名气球员（无名小卒）折价
+    local rep = self.reputation or 30
+    local repMult
+    if rep >= 80 then
+        repMult = 1.15 + (rep - 80) * 0.0125  -- 80→1.15, 100→1.40
+    elseif rep >= 60 then
+        repMult = 1.0 + (rep - 60) * 0.0075   -- 60→1.0, 80→1.15
+    elseif rep >= 40 then
+        repMult = 0.9 + (rep - 40) * 0.005    -- 40→0.9, 60→1.0
+    else
+        repMult = 0.75 + rep * 0.00375         -- 0→0.75, 40→0.9
+    end
+    base = base * repMult
+
+    -- 取整到十万级（100000）
+    self.value = math.floor(base / 100000) * 100000
     -- 最低值50万
     if self.value < 500000 then self.value = 500000 end
     return self.value
+end
+
+-- 计算球员名气（基于球队声望、能力评级、阵容角色）
+-- teamReputation: 球队声望 (1-1000 范围，如 Arsenal≈636, Man City≈599)
+function Player:calculateReputation(teamReputation)
+    -- 球队声望贡献 (team rep 100-1000 → 10-50分)
+    local teamContrib = math.floor((teamReputation or 300) / 20)
+    teamContrib = math.max(5, math.min(50, teamContrib))
+
+    -- OVR贡献 (ovr 60-95 → 5-45分)
+    local ovrContrib = math.max(0, (self.overall - 55)) * 1.15
+    ovrContrib = math.max(5, math.min(45, ovrContrib))
+
+    -- 角色加成
+    local roleBonus = 0
+    if self.squadRole == "key" then
+        roleBonus = 8
+    elseif self.squadRole == "first_team" or self.squadRole == "rotation" then
+        roleBonus = 3
+    end
+
+    local rep = math.floor(teamContrib * 0.4 + ovrContrib * 0.6 + roleBonus)
+    rep = math.max(1, math.min(100, rep))
+    self.reputation = rep
+    return rep
 end
 
 -- 获取位置中文名

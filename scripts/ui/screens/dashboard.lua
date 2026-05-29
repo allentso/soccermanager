@@ -700,7 +700,7 @@ function Dashboard._buildBoardCard(gameState, team)
 end
 
 ------------------------------------------------------
--- 收件箱快捷卡（增强版：显示最近消息摘要）
+-- 信息中心卡（消息/新闻/财务快捷入口 + 最近消息摘要）
 ------------------------------------------------------
 function Dashboard._buildInboxCard(gameState)
     local unreadCount = gameState:getUnreadCount()
@@ -715,8 +715,9 @@ function Dashboard._buildInboxCard(gameState)
     end
 
     local children = {
+        -- 标题行
         UI.Panel {
-            flexDirection = "row", alignItems = "center",
+            flexDirection = "row", alignItems = "center", marginBottom = 8,
             children = {
                 Theme.Subtitle { text = "收件箱" },
                 unreadCount > 0 and UI.Panel {
@@ -770,6 +771,32 @@ function Dashboard._buildInboxCard(gameState)
             fontSize = 12, color = Theme.COLORS.TEXT_MUTED, marginTop = 4,
         })
     end
+
+    -- 快捷入口按钮行（新闻 / 财务）
+    table.insert(children, UI.Panel {
+        width = "100%",
+        flexDirection = "row",
+        marginTop = 10,
+        children = {
+            UI.Button {
+                text = "新闻动态",
+                flexGrow = 1, height = 32,
+                backgroundColor = {38, 46, 71, 255},
+                borderRadius = 6, fontSize = 12,
+                color = Theme.COLORS.ACCENT,
+                marginRight = 8,
+                onClick = function() Router.navigate("news") end,
+            },
+            UI.Button {
+                text = "财务详情",
+                flexGrow = 1, height = 32,
+                backgroundColor = {38, 46, 71, 255},
+                borderRadius = 6, fontSize = 12,
+                color = Theme.COLORS.ACCENT,
+                onClick = function() Router.navigate("finance") end,
+            },
+        }
+    })
 
     return Theme.Card { children = children }
 end

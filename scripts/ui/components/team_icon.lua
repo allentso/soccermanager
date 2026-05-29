@@ -25,55 +25,27 @@ function TeamIcon.create(props)
     local iconPath = TeamIconRegistry.getPathForTeam(team)
     local radius = math.floor(size / 2)
 
-    if iconPath and UI.Image then
+    if iconPath then
         return UI.Panel {
             width = size,
             height = size,
             marginRight = props.marginRight,
             marginLeft = props.marginLeft,
-            justifyContent = "center",
-            alignItems = "center",
             overflow = "hidden",
             borderRadius = radius,
-            backgroundColor = {255, 255, 255, 255},
+            backgroundImage = iconPath,
+            backgroundFit = "contain",
             id = props.id,
-            children = {
-                UI.Image {
-                    source = iconPath,
-                    width = size,
-                    height = size,
-                    objectFit = "contain",
-                },
-            },
         }
     end
 
     return TeamIcon._fallbackBadge(team, size, props)
 end
 
---- VirtualList 列表项图标模板（含 image + fallback 两层，bind 时切换）
+--- VirtualList 列表项图标模板（bind 时切换 backgroundImage 或 fallback 文字）
 function TeamIcon.listItem(props)
     local size = props.size or 36
     local radius = math.floor(size / 2)
-    local children = {}
-
-    if UI.Image then
-        table.insert(children, UI.Image {
-            id = "iconImage",
-            source = "",
-            width = size,
-            height = size,
-            objectFit = "contain",
-            visible = false,
-        })
-    end
-
-    table.insert(children, UI.Label {
-        id = "iconText",
-        fontSize = size >= 32 and 11 or 9,
-        color = Theme.COLORS.TEXT_PRIMARY,
-        fontWeight = "bold",
-    })
 
     return UI.Panel {
         id = props.id or "icon",
@@ -86,7 +58,15 @@ function TeamIcon.listItem(props)
         justifyContent = "center",
         alignItems = "center",
         overflow = "hidden",
-        children = children,
+        backgroundFit = "contain",
+        children = {
+            UI.Label {
+                id = "iconText",
+                fontSize = size >= 32 and 11 or 9,
+                color = Theme.COLORS.TEXT_PRIMARY,
+                fontWeight = "bold",
+            },
+        },
     }
 end
 
@@ -100,25 +80,21 @@ function TeamIcon.bindListItem(widget, team)
     local bgColor = TeamIconRegistry.getFallbackColor(team)
     local text = TeamIconRegistry.getFallbackText(team)
 
-    widget:SetStyle({
-        backgroundColor = iconPath and {255, 255, 255, 255} or bgColor,
-    })
-
-    local img = widget:FindById("iconImage")
-    if img then
-        if iconPath and img.SetSource then
-            img:SetSource(iconPath)
-            img:SetVisible(true)
-        elseif iconPath and img.SetStyle then
-            img:SetStyle({ source = iconPath, visible = true })
-        else
-            img:SetVisible(false)
-        end
+    if iconPath then
+        widget:SetStyle({
+            backgroundColor = {0, 0, 0, 0},
+            backgroundImage = iconPath,
+        })
+    else
+        widget:SetStyle({
+            backgroundColor = bgColor,
+            backgroundImage = "",
+        })
     end
 
     local lbl = widget:FindById("iconText")
     if lbl then
-        if iconPath and img then
+        if iconPath then
             lbl:SetVisible(false)
         else
             lbl:SetText(text)

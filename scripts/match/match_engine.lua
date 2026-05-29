@@ -145,6 +145,7 @@ function MatchEngine._simulateMinutes(fixture, homeContext, awayContext, startMi
                     assistPlayerId = assister and assister.id,
                     teamId = spTeamId,
                     isExtraTime = minute > 90 or nil,
+                    templateIdx = RandomInt(1, 100),
                 })
                 if spIsHome then homeMomentum = 0 else awayMomentum = 0 end
             end
@@ -182,10 +183,32 @@ function MatchEngine._simulateMinutes(fixture, homeContext, awayContext, startMi
                             assistPlayerId = assister and assister.id,
                             teamId = attackingTeamId,
                             isExtraTime = minute > 90 or nil,
+                            templateIdx = RandomInt(1, 100),
                         })
                         if isHome then state.homeGoals = state.homeGoals + 1 else state.awayGoals = state.awayGoals + 1 end
                         -- 进球后重置动量（对手可能反扑）
                         if isHome then homeMomentum = 0 else awayMomentum = 0 end
+                    else
+                        -- 射正但未进球 → 精彩扑救或击中门框
+                        local saveType = Random() < 0.65 and "save" or "hit_post"
+                        table.insert(events, {
+                            type = saveType,
+                            minute = minute,
+                            playerId = shooter and shooter.id,
+                            teamId = attackingTeamId,
+                            templateIdx = RandomInt(1, 100),
+                        })
+                    end
+                else
+                    -- 射门未射正 → 射偏/高出横梁（约40%产生解说事件）
+                    if Random() < 0.40 then
+                        table.insert(events, {
+                            type = "shot_off_target",
+                            minute = minute,
+                            playerId = shooter and shooter.id,
+                            teamId = attackingTeamId,
+                            templateIdx = RandomInt(1, 100),
+                        })
                     end
                 end
             end
@@ -206,6 +229,7 @@ function MatchEngine._simulateMinutes(fixture, homeContext, awayContext, startMi
                     minute = minute,
                     playerId = player and player.id,
                     teamId = foulSideHome and fixture.homeTeamId or fixture.awayTeamId,
+                    templateIdx = RandomInt(1, 100),
                 })
                 if eventType == "red_card" then
                     foulContext.redCards = (foulContext.redCards or 0) + 1
@@ -224,6 +248,7 @@ function MatchEngine._simulateMinutes(fixture, homeContext, awayContext, startMi
                 playerId = player and player.id,
                 teamId = injuredHome and fixture.homeTeamId or fixture.awayTeamId,
                 injuryDays = RandomInt(3, 21),
+                templateIdx = RandomInt(1, 100),
             })
         end
 

@@ -85,7 +85,7 @@ function Theme.SubNav(items, activeKey)
             marginRight = 4,
             onClick = function()
                 if not isActive then
-                    Router.navigate(item.screen, item.params)
+                    Router.replaceWith(item.screen, item.params)
                 end
             end,
         })
@@ -134,16 +134,16 @@ function Theme.MarketSubNav(activeKey)
 end
 
 -- 全局统一底部导航栏
--- activeTab: "home" | "squad" | "league" | "market" | "more"
+-- activeTab: "home" | "squad" | "league" | "market"
 function Theme.MainNav(activeTab)
     local Router = require("scripts/app/router")
     return Theme.BottomNav {
         children = {
             Theme.NavButton {
-                label = "主页",
-                active = (activeTab == "home"),
+                label = "赛事",
+                active = (activeTab == "league"),
                 onClick = function()
-                    if activeTab ~= "home" then Router.navigate("dashboard") end
+                    if activeTab ~= "league" then Router.navigate("league") end
                 end,
             },
             Theme.NavButton {
@@ -154,10 +154,10 @@ function Theme.MainNav(activeTab)
                 end,
             },
             Theme.NavButton {
-                label = "赛事",
-                active = (activeTab == "league"),
+                label = "主页",
+                active = (activeTab == "home"),
                 onClick = function()
-                    if activeTab ~= "league" then Router.navigate("league") end
+                    if activeTab ~= "home" then Router.navigate("dashboard") end
                 end,
             },
             Theme.NavButton {
@@ -165,13 +165,6 @@ function Theme.MainNav(activeTab)
                 active = (activeTab == "market"),
                 onClick = function()
                     if activeTab ~= "market" then Router.navigate("market") end
-                end,
-            },
-            Theme.NavButton {
-                label = "更多",
-                active = (activeTab == "more"),
-                onClick = function()
-                    if activeTab ~= "more" then Router.navigate("inbox") end
                 end,
             },
         }

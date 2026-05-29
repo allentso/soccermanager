@@ -222,7 +222,17 @@ function RealDataLoader.importLeague(gameState, leagueData, leagueConfig)
         end
     end
 
-    -- 3. 为所有球队自动选首发
+    -- 3. 计算球员名气并重新计算身价（需要球队声望信息）
+    for _, player in pairs(gameState.players) do
+        if player.teamId then
+            local team = gameState.teams[player.teamId]
+            local teamRep = team and team.reputation or 300
+            player:calculateReputation(teamRep)
+            player:calculateValue(gameState.date.year)
+        end
+    end
+
+    -- 4. 为所有球队自动选首发
     local WorldGenerator = require("scripts/systems/world_generator")
     for _, teamId in ipairs(teamIds) do
         WorldGenerator.autoSelectStartingXI(gameState, teamId)

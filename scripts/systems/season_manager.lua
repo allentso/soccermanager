@@ -191,8 +191,13 @@ function SeasonManager._processPlayerDevelopment(gameState)
             end
         end
 
-        -- 重新计算overall和value
+        -- 重新计算overall、名气和value
         player:calculateOverall()
+        if player.teamId then
+            local team = gameState.teams[player.teamId]
+            local teamRep = team and team.reputation or 300
+            player:calculateReputation(teamRep)
+        end
         player:calculateValue(gameState.date.year)
 
         ::continue::

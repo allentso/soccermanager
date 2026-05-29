@@ -12,6 +12,11 @@ local SelectTeam = {}
 
 -- 当前选中的联赛筛选
 local selectedLeagueKey = nil
+-- 当前选中的球队（等待确认）
+local pendingTeam = nil
+-- UI 控件引用（避免整页重建）
+local listRef = nil
+local confirmBarRef = nil
 
 function SelectTeam.create(params)
     local managerFirstName = params and params.firstName or "Alex"
@@ -69,6 +74,7 @@ function SelectTeam.create(params)
                 marginRight = 4,
                 onClick = function()
                     selectedLeagueKey = key
+                    pendingTeam = nil  -- 切换联赛时清除选中
                     Router.replaceWith("select_team", params)
                 end,
             })
@@ -148,12 +154,16 @@ function SelectTeam.create(params)
 
             -- 球队列表
             UI.VirtualList {
+                id = "team_list",
                 data = teamList,
                 itemHeight = 72,
+                viewportHeight = 1200,
                 flexGrow = 1,
                 flexBasis = 0,
+                flexShrink = 1,
                 createItem = function()
                     return UI.Panel {
+                        id = "row",
                         width = "100%",
                         height = 72,
                         flexDirection = "row",
@@ -190,20 +200,110 @@ function SelectTeam.create(params)
                     widget:FindById("rep"):SetText("声望 " .. (data.reputation or 0))
                     local budgetStr = string.format("%.1fM", (data.transferBudget or 0) / 1000000)
                     widget:FindById("budget"):SetText("转会预算 " .. budgetStr)
+                    -- 选中态高亮
+                    local isSelected = pendingTeam and pendingTeam.id == data.id
+                    local row = widget:FindById("row")
+                    if row then
+                        row:SetBackgroundColor(isSelected and {30, 60, 100, 255} or Theme.COLORS.TRANSPARENT)
+                    end
                 end,
                 onItemClick = function(data, index, widget)
-                    -- 选择球队，发出事件
-                    EventBus.emit("team_selected", {
-                        teamId = data.id,
-                        firstName = managerFirstName,
-                        lastName = managerLastName,
-                    })
+                    -- 选中球队（等待确认），不重建页面，仅刷新列表和确认栏
+                    pendingTeam = data
+                    if listRef then
+                        listRef:Refresh()
+                    end
+                    SelectTeam._updateConfirmBar(params)
                 end,
+            },
+
+            -- 底部确认栏容器（始终存在，内容动态更新）
+            UI.Panel {
+                id = "confirm_bar",
+                width = "100%",
             },
         }
     }
 
+    -- 保存引用用于后续刷新
+    listRef = page:FindById("team_list")
+    confirmBarRef = page:FindById("confirm_bar")
+
+    -- 首次渲染确认栏（如果已有 pendingTeam）
+    SelectTeam._updateConfirmBar(params)
+
     return page
+end
+
+--- 更新底部确认栏内容（不重建页面）
+function SelectTeam._updateConfirmBar(params)
+    if not confirmBarRef then return end
+    local managerFirstName = params and params.firstName or "Alex"
+    local managerLastName = params and params.lastName or "Manager"
+
+    -- 清空旧内容
+    confirmBarRef:RemoveAllChildren()
+
+    if not pendingTeam then
+        -- 没有选中球队，确认栏为空
+        confirmBarRef:SetStyle({
+            backgroundColor = Theme.COLORS.TRANSPARENT,
+            borderTopWidth = 0,
+            paddingTop = 0, paddingBottom = 0,
+            paddingLeft = 0, paddingRight = 0,
+        })
+        return
+    end
+
+    -- 有选中球队，渲染确认栏
+    confirmBarRef:SetStyle({
+        backgroundColor = {20, 30, 50, 255},
+        borderTopWidth = 1,
+        borderColor = Theme.COLORS.PRIMARY,
+        paddingLeft = 16, paddingRight = 16,
+        paddingTop = 12, paddingBottom = 12,
+        flexDirection = "row",
+        alignItems = "center",
+    })
+
+    local children = {
+        TeamIcon.create { team = pendingTeam, size = 36, marginRight = 10 },
+        UI.Panel {
+            flexGrow = 1,
+            children = {
+                UI.Label {
+                    text = pendingTeam.name,
+                    fontSize = 14, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold",
+                },
+                UI.Label {
+                    text = string.format("声望 %d | 预算 %.1fM", pendingTeam.reputation or 0, (pendingTeam.transferBudget or 0) / 1000000),
+                    fontSize = 11, color = Theme.COLORS.TEXT_MUTED, marginTop = 2,
+                },
+            }
+        },
+        UI.Button {
+            text = "确认执教",
+            width = 90, height = 38,
+            backgroundColor = Theme.COLORS.SECONDARY,
+            borderRadius = 8,
+            fontSize = 14, fontWeight = "bold",
+            color = Theme.COLORS.TEXT_PRIMARY,
+            onClick = function()
+                local team = pendingTeam
+                pendingTeam = nil
+                listRef = nil
+                confirmBarRef = nil
+                EventBus.emit("team_selected", {
+                    teamId = team.id,
+                    firstName = managerFirstName,
+                    lastName = managerLastName,
+                })
+            end,
+        },
+    }
+    for _, child in ipairs(children) do
+        confirmBarRef:AddChild(child)
+    end
 end
 
 return SelectTeam
