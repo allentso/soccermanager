@@ -5,6 +5,7 @@ local UI = require("urhox-libs/UI")
 local Theme = require("scripts/ui/theme")
 local Router = require("scripts/app/router")
 local Constants = require("scripts/app/constants")
+local TeamIcon = require("scripts/ui/components/team_icon")
 
 local PreMatch = {}
 
@@ -160,20 +161,40 @@ function PreMatch.create(params)
                         width = "100%", flexDirection = "row",
                         justifyContent = "center", alignItems = "center",
                         children = {
-                            UI.Label {
-                                text = isHome and team.name or oppName,
-                                fontSize = 14, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold",
-                                width = 110, textAlign = "right",
+                            UI.Panel {
+                                width = 110, flexDirection = "row",
+                                justifyContent = "flex-end", alignItems = "center",
+                                children = {
+                                    UI.Label {
+                                        text = isHome and team.name or oppName,
+                                        fontSize = 14, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold",
+                                        textAlign = "right", flexShrink = 1,
+                                    },
+                                    TeamIcon {
+                                        team = isHome and team or opponent,
+                                        size = 28, marginLeft = 6,
+                                    },
+                                },
                             },
                             UI.Label {
                                 text = " vs ",
                                 fontSize = 14, color = Theme.COLORS.TEXT_MUTED,
                                 width = 40, textAlign = "center",
                             },
-                            UI.Label {
-                                text = isHome and oppName or team.name,
-                                fontSize = 14, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold",
-                                width = 110,
+                            UI.Panel {
+                                width = 110, flexDirection = "row",
+                                alignItems = "center",
+                                children = {
+                                    TeamIcon {
+                                        team = isHome and opponent or team,
+                                        size = 28, marginRight = 6,
+                                    },
+                                    UI.Label {
+                                        text = isHome and oppName or team.name,
+                                        fontSize = 14, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold",
+                                        flexShrink = 1,
+                                    },
+                                },
                             },
                         }
                     },

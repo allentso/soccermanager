@@ -6,6 +6,7 @@ local Theme = require("scripts/ui/theme")
 local Router = require("scripts/app/router")
 local EventBus = require("scripts/app/event_bus")
 local Constants = require("scripts/app/constants")
+local TeamIcon = require("scripts/ui/components/team_icon")
 
 local SelectTeam = {}
 
@@ -162,6 +163,7 @@ function SelectTeam.create(params)
                         borderBottomWidth = 1,
                         borderColor = Theme.COLORS.BORDER,
                         children = {
+                            TeamIcon.listItem { size = 44, marginRight = 12 },
                             -- 左侧：队名+城市
                             UI.Panel {
                                 flexGrow = 1,
@@ -182,6 +184,7 @@ function SelectTeam.create(params)
                     }
                 end,
                 bindItem = function(widget, data, index)
+                    TeamIcon.bindListItem(widget:FindById("icon"), data)
                     widget:FindById("name"):SetText(data.name)
                     widget:FindById("info"):SetText((data.city or "") .. " | " .. (Constants.PLAY_STYLE_NAMES[data.playStyle] or data.playStyle or ""))
                     widget:FindById("rep"):SetText("声望 " .. (data.reputation or 0))

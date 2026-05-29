@@ -3,6 +3,7 @@ local UI = require("urhox-libs/UI")
 local Router = require("scripts/app/router")
 local Theme = require("scripts/ui/theme")
 local Constants = require("scripts/app/constants")
+local TeamIcon = require("scripts/ui/components/team_icon")
 
 local COLORS = Theme.COLORS
 
@@ -74,6 +75,25 @@ local function buildOverviewTab(team, gameState, teamId)
         })
     end
     table.insert(children, Theme.Card { children = {
+        UI.Panel {
+            width = "100%", flexDirection = "row", alignItems = "center", marginBottom = 10,
+            children = {
+                TeamIcon { team = team, size = 52, marginRight = 14 },
+                UI.Panel {
+                    flexGrow = 1,
+                    children = {
+                        UI.Label {
+                            text = team.name or "未知球队",
+                            fontSize = 17, color = COLORS.TEXT_PRIMARY, fontWeight = "bold",
+                        },
+                        UI.Label {
+                            text = (team.city or "") .. " · " .. (team.country or ""),
+                            fontSize = 12, color = COLORS.TEXT_MUTED, marginTop = 3,
+                        },
+                    },
+                },
+            },
+        },
         Theme.Subtitle { text = "俱乐部信息" },
         table.unpack(identityChildren)
     }})

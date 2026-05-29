@@ -3,6 +3,7 @@
 
 local Constants = require("scripts/app/constants")
 local JsonLoader = require("scripts/data/json_loader")
+local TeamIconRegistry = require("scripts/data/team_icon_registry")
 local League = require("scripts/domain/league")
 
 local RealDataLoader = {}
@@ -149,6 +150,8 @@ function RealDataLoader.importLeague(gameState, leagueData, leagueConfig)
         local team = gameState:addTeam({
             name = tData.name,
             shortName = tData.short_name or "",
+            jsonTeamId = tData.id,
+            iconPath = TeamIconRegistry.getPathByJsonId(tData.id),
             city = tData.city or "",
             country = tData.country or leagueConfig.country,
             colors = tData.colors or {primary = "#333333", secondary = "#ffffff"},

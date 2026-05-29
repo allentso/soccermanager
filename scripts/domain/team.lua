@@ -15,6 +15,8 @@ function Team.new(data)
     self.city = data.city or ""
     self.country = data.country or "ENG"
     self.colors = data.colors or {primary = "#ffffff", secondary = "#000000"}
+    self.jsonTeamId = data.jsonTeamId or nil
+    self.iconPath = data.iconPath or nil
     self.stadiumName = data.stadiumName or "Stadium"
     self.stadiumCapacity = data.stadiumCapacity or 30000
     self.foundedYear = data.foundedYear or 1900
@@ -125,6 +127,8 @@ function Team:serialize()
         city = self.city,
         country = self.country,
         colors = self.colors,
+        jsonTeamId = self.jsonTeamId,
+        iconPath = self.iconPath,
         stadiumName = self.stadiumName,
         stadiumCapacity = self.stadiumCapacity,
         foundedYear = self.foundedYear,

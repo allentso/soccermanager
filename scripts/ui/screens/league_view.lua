@@ -5,6 +5,7 @@ local UI = require("urhox-libs/UI")
 local Theme = require("scripts/ui/theme")
 local Router = require("scripts/app/router")
 local Constants = require("scripts/app/constants")
+local TeamIcon = require("scripts/ui/components/team_icon")
 
 local LeagueView = {}
 
@@ -105,7 +106,7 @@ function LeagueView.create(params)
             borderColor = Theme.COLORS.BORDER,
             children = {
                 UI.Label { text = tostring(i), fontSize = 13, color = Theme.COLORS.TEXT_MUTED, width = 24 },
-                UI.Label { text = team and team.shortName or "???", fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold", width = 44 },
+                TeamIcon { team = team, size = 24, marginRight = 6 },
                 UI.Label { text = team and team.name or "", fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY, flexGrow = 1 },
                 UI.Label { text = tostring(s.played), fontSize = 12, color = Theme.COLORS.TEXT_MUTED, width = 24 },
                 UI.Label { text = tostring(s.wins), fontSize = 12, color = Theme.COLORS.TEXT_MUTED, width = 20 },
