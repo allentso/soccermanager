@@ -1,0 +1,285 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-sans)}
+.wrap{padding:1rem 0}
+.filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:1.25rem}
+.btn{padding:6px 14px;font-size:13px;border:0.5px solid var(--color-border-secondary);border-radius:20px;background:transparent;color:var(--color-text-secondary);cursor:pointer;transition:all .15s}
+.btn:hover{background:var(--color-background-secondary)}
+.btn.active{background:var(--color-text-primary);color:var(--color-background-primary);border-color:var(--color-text-primary)}
+.search-wrap{margin-bottom:1rem;position:relative}
+.search-wrap i{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--color-text-tertiary);font-size:16px;pointer-events:none}
+.search-wrap input{width:100%;padding:8px 12px 8px 34px;font-size:14px;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);background:var(--color-background-primary);color:var(--color-text-primary)}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:1.25rem}
+.stat{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:12px 14px}
+.stat-label{font-size:12px;color:var(--color-text-secondary);margin-bottom:4px}
+.stat-value{font-size:20px;font-weight:500;color:var(--color-text-primary)}
+table{width:100%;border-collapse:collapse;font-size:13px;table-layout:fixed}
+thead th{padding:8px 10px;text-align:left;font-weight:500;font-size:12px;color:var(--color-text-secondary);border-bottom:0.5px solid var(--color-border-tertiary);position:sticky;top:0;background:var(--color-background-primary)}
+thead th:nth-child(1){width:28px}
+thead th:nth-child(2){width:160px}
+thead th:nth-child(3){width:70px}
+thead th:nth-child(4){width:200px}
+thead th:nth-child(5){width:90px}
+thead th:nth-child(6){width:110px}
+tbody tr{border-bottom:0.5px solid var(--color-border-tertiary);transition:background .1s}
+tbody tr:hover{background:var(--color-background-secondary)}
+tbody td{padding:9px 10px;color:var(--color-text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cap-bar-wrap{display:flex;align-items:center;gap:6px}
+.cap-bar{height:6px;border-radius:3px;min-width:2px;transition:width .3s}
+.cap-text{font-size:12px;color:var(--color-text-secondary);white-space:nowrap}
+.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:500}
+.league-tag{font-size:11px;color:var(--color-text-secondary)}
+.rank{font-size:12px;color:var(--color-text-tertiary);text-align:center}
+.empty{text-align:center;padding:2rem;color:var(--color-text-secondary);font-size:14px}
+.tbl-wrap{overflow-x:auto;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg)}
+.sort-icon{opacity:.4;font-size:12px;vertical-align:-1px}
+th.sortable{cursor:pointer;user-select:none}
+th.sortable:hover .sort-icon{opacity:1}
+th.sorted .sort-icon{opacity:1;color:var(--color-text-primary)}
+</style>
+
+<div class="wrap">
+<h2 class="sr-only">五大联赛球场数据</h2>
+
+<div class="filters" id="filters">
+<button class="btn active" data-league="all">全部</button>
+<button class="btn" data-league="Premier League">🏴󠁧󠁢󠁥󠁮󠁧󠁿 英超</button>
+<button class="btn" data-league="La Liga">🇪🇸 西甲</button>
+<button class="btn" data-league="Bundesliga">🇩🇪 德甲</button>
+<button class="btn" data-league="Serie A">🇮🇹 意甲</button>
+<button class="btn" data-league="Ligue 1">🇫🇷 法甲</button>
+</div>
+
+<div class="search-wrap">
+<i class="ti ti-search" aria-hidden="true"></i>
+<input type="text" id="search" placeholder="搜索球队或球场…">
+</div>
+
+<div class="stats" id="stats"></div>
+
+<div class="tbl-wrap">
+<table id="tbl">
+<thead>
+<tr>
+<th class="rank">#</th>
+<th>球队</th>
+<th>联赛</th>
+<th class="sortable" data-col="stadium" id="th-stadium">球场名称 <i class="ti ti-arrows-sort sort-icon"></i></th>
+<th class="sortable sorted" data-col="cap" id="th-cap">容量 <i class="ti ti-sort-descending sort-icon"></i></th>
+<th>城市</th>
+</tr>
+</thead>
+<tbody id="tbody"></tbody>
+</table>
+</div>
+</div>
+
+<script>
+const DATA = [
+  {club:"FC Bayern München",league:"Bundesliga",flag:"🇩🇪",stadium:"Allianz Arena",cap:75024,city:"Munich"},
+  {club:"Borussia Dortmund",league:"Bundesliga",flag:"🇩🇪",stadium:"Signal Iduna Park",cap:81365,city:"Dortmund"},
+  {club:"RB Leipzig",league:"Bundesliga",flag:"🇩🇪",stadium:"Red Bull Arena",cap:47069,city:"Leipzig"},
+  {club:"Bayer 04 Leverkusen",league:"Bundesliga",flag:"🇩🇪",stadium:"BayArena",cap:30210,city:"Leverkusen"},
+  {club:"Eintracht Frankfurt",league:"Bundesliga",flag:"🇩🇪",stadium:"Deutsche Bank Park",cap:58000,city:"Frankfurt"},
+  {club:"VfL Wolfsburg",league:"Bundesliga",flag:"🇩🇪",stadium:"Volkswagen Arena",cap:30000,city:"Wolfsburg"},
+  {club:"SC Freiburg",league:"Bundesliga",flag:"🇩🇪",stadium:"Europa-Park Stadion",cap:34700,city:"Freiburg"},
+  {club:"TSG 1899 Hoffenheim",league:"Bundesliga",flag:"🇩🇪",stadium:"PreZero Arena",cap:30150,city:"Hoffenheim"},
+  {club:"VfB Stuttgart",league:"Bundesliga",flag:"🇩🇪",stadium:"MHPArena",cap:60449,city:"Stuttgart"},
+  {club:"1. FC Union Berlin",league:"Bundesliga",flag:"🇩🇪",stadium:"Stadion An der Alten Försterei",cap:22012,city:"Berlin"},
+  {club:"SV Werder Bremen",league:"Bundesliga",flag:"🇩🇪",stadium:"Weserstadion",cap:42100,city:"Bremen"},
+  {club:"FC Augsburg",league:"Bundesliga",flag:"🇩🇪",stadium:"WWK Arena",cap:30660,city:"Augsburg"},
+  {club:"1.FSV Mainz 05",league:"Bundesliga",flag:"🇩🇪",stadium:"MEWA Arena",cap:33305,city:"Mainz"},
+  {club:"VfL Bochum",league:"Bundesliga",flag:"🇩🇪",stadium:"Vonovia Ruhrstadion",cap:27599,city:"Bochum"},
+  {club:"1. FC Heidenheim",league:"Bundesliga",flag:"🇩🇪",stadium:"Voith-Arena",cap:15000,city:"Heidenheim"},
+  {club:"Borussia Mönchengladbach",league:"Bundesliga",flag:"🇩🇪",stadium:"Borussia-Park",cap:54042,city:"Mönchengladbach"},
+  {club:"FC St Pauli",league:"Bundesliga",flag:"🇩🇪",stadium:"Millerntor-Stadion",cap:29546,city:"Hamburg"},
+  {club:"Holstein Kiel",league:"Bundesliga",flag:"🇩🇪",stadium:"Holstein-Stadion",cap:15034,city:"Kiel"},
+
+  {club:"Real Madrid",league:"La Liga",flag:"🇪🇸",stadium:"Estadio Santiago Bernabéu",cap:81044,city:"Madrid"},
+  {club:"FC Barcelona",league:"La Liga",flag:"🇪🇸",stadium:"Estadi Olímpic Lluís Companys",cap:55926,city:"Barcelona"},
+  {club:"Atlético de Madrid",league:"La Liga",flag:"🇪🇸",stadium:"Civitas Metropolitano",cap:68456,city:"Madrid"},
+  {club:"Athletic Club Bilbao",league:"La Liga",flag:"🇪🇸",stadium:"San Mamés",cap:53289,city:"Bilbao"},
+  {club:"Real Sociedad",league:"La Liga",flag:"🇪🇸",stadium:"Reale Arena",cap:39500,city:"San Sebastián"},
+  {club:"Real Betis",league:"La Liga",flag:"🇪🇸",stadium:"Estadio Benito Villamarín",cap:60720,city:"Seville"},
+  {club:"Villarreal CF",league:"La Liga",flag:"🇪🇸",stadium:"Estadio de la Cerámica",cap:23500,city:"Villarreal"},
+  {club:"Valencia CF",league:"La Liga",flag:"🇪🇸",stadium:"Estadio de Mestalla",cap:49430,city:"Valencia"},
+  {club:"Sevilla FC",league:"La Liga",flag:"🇪🇸",stadium:"Estadio Ramón Sánchez-Pizjuán",cap:43883,city:"Seville"},
+  {club:"Girona FC",league:"La Liga",flag:"🇪🇸",stadium:"Estadi Montilivi",cap:13286,city:"Girona"},
+  {club:"CA Osasuna",league:"La Liga",flag:"🇪🇸",stadium:"El Sadar",cap:23576,city:"Pamplona"},
+  {club:"RC Celta de Vigo",league:"La Liga",flag:"🇪🇸",stadium:"Abanca-Balaídos",cap:31112,city:"Vigo"},
+  {club:"RCD Mallorca",league:"La Liga",flag:"🇪🇸",stadium:"Estadi de Son Moix",cap:23142,city:"Palma"},
+  {club:"Getafe CF",league:"La Liga",flag:"🇪🇸",stadium:"Coliseum Alfonso Pérez",cap:17393,city:"Getafe"},
+  {club:"UD Almería",league:"La Liga",flag:"🇪🇸",stadium:"Estadio de los Juegos Mediterráneos",cap:22000,city:"Almería"},
+  {club:"Espanyol",league:"La Liga",flag:"🇪🇸",stadium:"RCDE Stadium",cap:40500,city:"Barcelona"},
+  {club:"Cádiz CF",league:"La Liga",flag:"🇪🇸",stadium:"Estadio Nuevo Mirandilla",cap:22860,city:"Cádiz"},
+  {club:"Granada CF",league:"La Liga",flag:"🇪🇸",stadium:"Estadio Nuevo Los Cármenes",cap:22500,city:"Granada"},
+  {club:"UD Las Palmas",league:"La Liga",flag:"🇪🇸",stadium:"Estadio Gran Canaria",cap:32392,city:"Las Palmas"},
+  {club:"Deportivo Alavés",league:"La Liga",flag:"🇪🇸",stadium:"Estadio de Mendizorrotza",cap:19840,city:"Vitoria-Gasteiz"},
+
+  {club:"Paris Saint-Germain",league:"Ligue 1",flag:"🇫🇷",stadium:"Parc des Princes",cap:47929,city:"Paris"},
+  {club:"AS Monaco",league:"Ligue 1",flag:"🇫🇷",stadium:"Stade Louis II",cap:18523,city:"Monaco"},
+  {club:"Olympique de Marseille",league:"Ligue 1",flag:"🇫🇷",stadium:"Orange Vélodrome",cap:67394,city:"Marseille"},
+  {club:"Olympique Lyonnais",league:"Ligue 1",flag:"🇫🇷",stadium:"Groupama Stadium",cap:59186,city:"Lyon"},
+  {club:"LOSC Lille",league:"Ligue 1",flag:"🇫🇷",stadium:"Stade Pierre-Mauroy",cap:50186,city:"Lille"},
+  {club:"OGC Nice",league:"Ligue 1",flag:"🇫🇷",stadium:"Allianz Riviera",cap:35624,city:"Nice"},
+  {club:"RC Lens",league:"Ligue 1",flag:"🇫🇷",stadium:"Stade Bollaert-Delelis",cap:38223,city:"Lens"},
+  {club:"Stade Rennais",league:"Ligue 1",flag:"🇫🇷",stadium:"Roazhon Park",cap:29778,city:"Rennes"},
+  {club:"Stade de Reims",league:"Ligue 1",flag:"🇫🇷",stadium:"Stade Auguste-Delaune",cap:21684,city:"Reims"},
+  {club:"RC Strasbourg",league:"Ligue 1",flag:"🇫🇷",stadium:"Stade de la Meinau",cap:26165,city:"Strasbourg"},
+  {club:"Toulouse FC",league:"Ligue 1",flag:"🇫🇷",stadium:"Stadium de Toulouse",cap:33150,city:"Toulouse"},
+  {club:"FC Lorient",league:"Ligue 1",flag:"🇫🇷",stadium:"Stade du Moustoir",cap:18500,city:"Lorient"},
+  {club:"FC Nantes",league:"Ligue 1",flag:"🇫🇷",stadium:"Stade de la Beaujoire",cap:37473,city:"Nantes"},
+  {club:"Montpellier HSC",league:"Ligue 1",flag:"🇫🇷",stadium:"Stade de la Mosson",cap:32900,city:"Montpellier"},
+  {club:"Stade Brestois 29",league:"Ligue 1",flag:"🇫🇷",stadium:"Stade Francis-Le Blé",cap:15097,city:"Brest"},
+  {club:"Le Havre AC",league:"Ligue 1",flag:"🇫🇷",stadium:"Stade Océane",cap:25178,city:"Le Havre"},
+  {club:"AS Saint-Étienne",league:"Ligue 1",flag:"🇫🇷",stadium:"Stade Geoffroy-Guichard",cap:42000,city:"Saint-Étienne"},
+  {club:"Angers SCO",league:"Ligue 1",flag:"🇫🇷",stadium:"Stade Raymond-Kopa",cap:18020,city:"Angers"},
+
+  {club:"Manchester City",league:"Premier League",flag:"🏴󠁧󠁢󠁥󠁮󠁧󠁿",stadium:"Etihad Stadium",cap:53400,city:"Manchester"},
+  {club:"Arsenal",league:"Premier League",flag:"🏴󠁧󠁢󠁥󠁮󠁧󠁿",stadium:"Emirates Stadium",cap:60704,city:"London"},
+  {club:"Liverpool",league:"Premier League",flag:"🏴󠁧󠁢󠁥󠁮󠁧󠁿",stadium:"Anfield",cap:61276,city:"Liverpool"},
+  {club:"Aston Villa",league:"Premier League",flag:"🏴󠁧󠁢󠁥󠁮󠁧󠁿",stadium:"Villa Park",cap:42785,city:"Birmingham"},
+  {club:"Tottenham Hotspur",league:"Premier League",flag:"🏴󠁧󠁢󠁥󠁮󠁧󠁿",stadium:"Tottenham Hotspur Stadium",cap:62850,city:"London"},
+  {club:"Chelsea",league:"Premier League",flag:"🏴󠁧󠁢󠁥󠁮󠁧󠁿",stadium:"Stamford Bridge",cap:40343,city:"London"},
+  {club:"Newcastle United",league:"Premier League",flag:"🏴󠁧󠁢󠁥󠁮󠁧󠁿",stadium:"St. James' Park",cap:52305,city:"Newcastle"},
+  {club:"Manchester United",league:"Premier League",flag:"🏴󠁧󠁢󠁥󠁮󠁧󠁿",stadium:"Old Trafford",cap:74310,city:"Manchester"},
+  {club:"West Ham United",league:"Premier League",flag:"🏴󠁧󠁢󠁥󠁮󠁧󠁿",stadium:"London Stadium",cap:62500,city:"London"},
+  {club:"Brighton & Hove Albion",league:"Premier League",flag:"🏴󠁧󠁢󠁥󠁮󠁧󠁿",stadium:"Amex Stadium",cap:31800,city:"Brighton"},
+  {club:"AFC Bournemouth",league:"Premier League",flag:"🏴󠁧󠁢󠁥󠁮󠁧󠁿",stadium:"Vitality Stadium",cap:11364,city:"Bournemouth"},
+  {club:"Fulham",league:"Premier League",flag:"🏴󠁧󠁢󠁥󠁮󠁧󠁿",stadium:"Craven Cottage",cap:25700,city:"London"},
+  {club:"Crystal Palace",league:"Premier League",flag:"🏴󠁧󠁢󠁥󠁮󠁧󠁿",stadium:"Selhurst Park",cap:25486,city:"London"},
+  {club:"Wolverhampton Wanderers",league:"Premier League",flag:"🏴󠁧󠁢󠁥󠁮󠁧󠁿",stadium:"Molineux",cap:32050,city:"Wolverhampton"},
+  {club:"Everton",league:"Premier League",flag:"🏴󠁧󠁢󠁥󠁮󠁧󠁿",stadium:"Goodison Park",cap:39572,city:"Liverpool"},
+  {club:"Brentford",league:"Premier League",flag:"🏴󠁧󠁢󠁥󠁮󠁧󠁿",stadium:"Gtech Community Stadium",cap:17250,city:"London"},
+  {club:"Nottingham Forest",league:"Premier League",flag:"🏴󠁧󠁢󠁥󠁮󠁧󠁿",stadium:"City Ground",cap:30445,city:"Nottingham"},
+  {club:"Luton Town",league:"Premier League",flag:"🏴󠁧󠁢󠁥󠁮󠁧󠁿",stadium:"Kenilworth Road",cap:10356,city:"Luton"},
+  {club:"Burnley",league:"Premier League",flag:"🏴󠁧󠁢󠁥󠁮󠁧󠁿",stadium:"Turf Moor",cap:21944,city:"Burnley"},
+  {club:"Sheffield United",league:"Premier League",flag:"🏴󠁧󠁢󠁥󠁮󠁧󠁿",stadium:"Bramall Lane",cap:32125,city:"Sheffield"},
+
+  {club:"FC Internazionale",league:"Serie A",flag:"🇮🇹",stadium:"San Siro (Giuseppe Meazza)",cap:75923,city:"Milan"},
+  {club:"AC Milan",league:"Serie A",flag:"🇮🇹",stadium:"San Siro (Giuseppe Meazza)",cap:75923,city:"Milan"},
+  {club:"Juventus FC",league:"Serie A",flag:"🇮🇹",stadium:"Allianz Stadium",cap:41507,city:"Turin"},
+  {club:"SSC Napoli",league:"Serie A",flag:"🇮🇹",stadium:"Stadio Diego Armando Maradona",cap:54726,city:"Naples"},
+  {club:"Atalanta BC",league:"Serie A",flag:"🇮🇹",stadium:"Gewiss Stadium",cap:21747,city:"Bergamo"},
+  {club:"AS Roma",league:"Serie A",flag:"🇮🇹",stadium:"Stadio Olimpico",cap:70634,city:"Rome"},
+  {club:"SS Lazio",league:"Serie A",flag:"🇮🇹",stadium:"Stadio Olimpico",cap:70634,city:"Rome"},
+  {club:"ACF Fiorentina",league:"Serie A",flag:"🇮🇹",stadium:"Stadio Artemio Franchi",cap:43147,city:"Florence"},
+  {club:"Bologna FC",league:"Serie A",flag:"🇮🇹",stadium:"Stadio Renato Dall'Ara",cap:36491,city:"Bologna"},
+  {club:"Torino FC",league:"Serie A",flag:"🇮🇹",stadium:"Stadio Olimpico Grande Torino",cap:28177,city:"Turin"},
+  {club:"AC Monza",league:"Serie A",flag:"🇮🇹",stadium:"U-Power Stadium",cap:18568,city:"Monza"},
+  {club:"Genoa CFC",league:"Serie A",flag:"🇮🇹",stadium:"Stadio Luigi Ferraris",cap:36536,city:"Genoa"},
+  {club:"US Lecce",league:"Serie A",flag:"🇮🇹",stadium:"Stadio Via del Mare",cap:33876,city:"Lecce"},
+  {club:"Udinese Calcio",league:"Serie A",flag:"🇮🇹",stadium:"Bluenergy Stadium",cap:25144,city:"Udine"},
+  {club:"Cagliari Calcio",league:"Serie A",flag:"🇮🇹",stadium:"Unipol Domus",cap:16416,city:"Cagliari"},
+  {club:"Hellas Verona",league:"Serie A",flag:"🇮🇹",stadium:"Stadio Marcello Bentegodi",cap:39211,city:"Verona"},
+  {club:"Empoli FC",league:"Serie A",flag:"🇮🇹",stadium:"Stadio Carlo Castellani",cap:16284,city:"Empoli"},
+  {club:"Frosinone Calcio",league:"Serie A",flag:"🇮🇹",stadium:"Stadio Benito Stirpe",cap:16227,city:"Frosinone"},
+  {club:"US Sassuolo",league:"Serie A",flag:"🇮🇹",stadium:"Mapei Stadium",cap:21584,city:"Sassuolo"},
+  {club:"Salernitana",league:"Serie A",flag:"🇮🇹",stadium:"Stadio Arechi",cap:37181,city:"Salerno"},
+];
+
+const leagueColors = {
+  "Premier League": {bg:"#E6F1FB",text:"#185FA5"},
+  "La Liga": {bg:"#FAECE7",text:"#993C1D"},
+  "Bundesliga": {bg:"#FAEEDA",text:"#854F0B"},
+  "Serie A": {bg:"#EAF3DE",text:"#3B6D11"},
+  "Ligue 1": {bg:"#FBEAF0",text:"#993556"},
+};
+
+const maxCap = Math.max(...DATA.map(d=>d.cap));
+let currentLeague = "all";
+let currentSearch = "";
+let sortCol = "cap";
+let sortAsc = false;
+
+function getFiltered(){
+  return DATA.filter(d=>{
+    if(currentLeague!=="all" && d.league!==currentLeague) return false;
+    if(currentSearch){
+      const q=currentSearch.toLowerCase();
+      return d.club.toLowerCase().includes(q)||d.stadium.toLowerCase().includes(q)||d.city.toLowerCase().includes(q);
+    }
+    return true;
+  }).sort((a,b)=>{
+    let va=a[sortCol], vb=b[sortCol];
+    if(typeof va==="string") va=va.toLowerCase(), vb=vb.toLowerCase();
+    return sortAsc?(va>vb?1:-1):(va<vb?1:-1);
+  });
+}
+
+function barColor(league){
+  const map={"Premier League":"#378ADD","La Liga":"#D85A30","Bundesliga":"#BA7517","Serie A":"#639922","Ligue 1":"#D4537E"};
+  return map[league]||"#888";
+}
+
+function renderStats(rows){
+  if(!rows.length){document.getElementById("stats").innerHTML="";return;}
+  const total=rows.length;
+  const biggest=rows.reduce((a,b)=>a.cap>b.cap?a:b);
+  const smallest=rows.reduce((a,b)=>a.cap<b.cap?a:b);
+  const avg=Math.round(rows.reduce((s,d)=>s+d.cap,0)/rows.length);
+  document.getElementById("stats").innerHTML=`
+    <div class="stat"><div class="stat-label">球队总数</div><div class="stat-value">${total}</div></div>
+    <div class="stat"><div class="stat-label">最大球场</div><div class="stat-value" style="font-size:14px;padding-top:2px">${biggest.stadium}</div></div>
+    <div class="stat"><div class="stat-label">最大容量</div><div class="stat-value">${biggest.cap.toLocaleString()}</div></div>
+    <div class="stat"><div class="stat-label">平均容量</div><div class="stat-value">${avg.toLocaleString()}</div></div>
+    <div class="stat"><div class="stat-label">最小容量</div><div class="stat-value">${smallest.cap.toLocaleString()}</div></div>
+  `;
+}
+
+function render(){
+  const rows=getFiltered();
+  renderStats(rows);
+  const tbody=document.getElementById("tbody");
+  if(!rows.length){tbody.innerHTML=`<tr><td colspan="6" class="empty">没有找到匹配的球队</td></tr>`;return;}
+  tbody.innerHTML=rows.map((d,i)=>{
+    const lc=leagueColors[d.league]||{bg:"#eee",text:"#333"};
+    const barW=Math.round((d.cap/maxCap)*90);
+    return `<tr>
+      <td class="rank">${i+1}</td>
+      <td style="font-weight:500;overflow:hidden;text-overflow:ellipsis">${d.club}</td>
+      <td><span class="badge" style="background:${lc.bg};color:${lc.text}">${d.flag}</span></td>
+      <td style="overflow:hidden;text-overflow:ellipsis" title="${d.stadium}">${d.stadium}</td>
+      <td>
+        <div class="cap-bar-wrap">
+          <div class="cap-bar" style="width:${barW}px;background:${barColor(d.league)}"></div>
+          <span class="cap-text">${d.cap.toLocaleString()}</span>
+        </div>
+      </td>
+      <td style="color:var(--color-text-secondary);overflow:hidden;text-overflow:ellipsis">${d.city}</td>
+    </tr>`;
+  }).join("");
+}
+
+document.getElementById("filters").addEventListener("click",e=>{
+  const btn=e.target.closest("button[data-league]");
+  if(!btn) return;
+  currentLeague=btn.dataset.league;
+  document.querySelectorAll("#filters .btn").forEach(b=>b.classList.remove("active"));
+  btn.classList.add("active");
+  render();
+});
+
+document.getElementById("search").addEventListener("input",e=>{
+  currentSearch=e.target.value.trim();
+  render();
+});
+
+document.querySelectorAll("th.sortable").forEach(th=>{
+  th.addEventListener("click",()=>{
+    const col=th.dataset.col;
+    if(sortCol===col) sortAsc=!sortAsc;
+    else{sortCol=col;sortAsc=col==="stadium";}
+    document.querySelectorAll("th.sortable").forEach(t=>{
+      t.classList.remove("sorted");
+      t.querySelector(".sort-icon").className="ti ti-arrows-sort sort-icon";
+    });
+    th.classList.add("sorted");
+    th.querySelector(".sort-icon").className=`ti ${sortAsc?"ti-sort-ascending":"ti-sort-descending"} sort-icon`;
+    render();
+  });
+});
+
+render();
+</script>
