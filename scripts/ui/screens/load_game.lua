@@ -7,6 +7,7 @@ local Router = require("scripts/app/router")
 local SaveManager = require("scripts/persistence/save_manager")
 local EventBus = require("scripts/app/event_bus")
 local Constants = require("scripts/app/constants")
+local FinanceManager = require("scripts/systems/finance_manager")
 
 local LoadGame = {}
 
@@ -453,15 +454,7 @@ end
 -- 工具函数
 ------------------------------------------------------
 function LoadGame._formatMoney(amount)
-    if not amount then return "0" end
-    local abs = math.abs(amount)
-    if abs >= 1000000 then
-        return string.format("%.1fM", amount / 1000000)
-    elseif abs >= 1000 then
-        return string.format("%.0fK", amount / 1000)
-    else
-        return tostring(math.floor(amount))
-    end
+    return FinanceManager.formatMoney(amount)
 end
 
 return LoadGame

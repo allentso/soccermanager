@@ -9,6 +9,8 @@ local WorldCup = require("scripts/systems/world_cup")
 local AwardsManager = require("scripts/systems/awards_manager")
 local HistoryManager = require("scripts/systems/history_manager")
 local NewsGenerator = require("scripts/systems/news_generator")
+local ObjectivesManager = require("scripts/systems/objectives_manager")
+local RecordsManager = require("scripts/systems/records_manager")
 
 local SeasonManager = {}
 
@@ -18,6 +20,9 @@ local SeasonManager = {}
 
 function SeasonManager.endSeason(gameState)
     if not gameState.league then return end
+
+    -- 0. 赛季目标评估（必须在奖金/升降级之前，基于最终排名）
+    ObjectivesManager.onSeasonEnd(gameState)
 
     -- 1. 为所有联赛发放赛季奖金
     SeasonManager._distributeSeasonPrizes(gameState)
@@ -42,6 +47,9 @@ function SeasonManager.endSeason(gameState)
 
     -- 6.5. 记录球员职业历史（必须在重置统计之前）
     SeasonManager._recordPlayerCareerHistory(gameState)
+
+    -- 6.6. 记录系统：赛季记录检查（必须在重置统计之前）
+    RecordsManager.onSeasonEnd(gameState)
 
     -- 7. 重置赛季统计（全局）
     SeasonManager._resetSeasonStats(gameState)
@@ -532,6 +540,9 @@ function SeasonManager._processPromotionRelegation(gameState)
         ::continue_league::
     end
 
+    -- 保存升降级数据供赛季结算页面使用
+    gameState.lastPromotionRelegation = promotionNews
+
     -- 生成升降级综合新闻
     if #promotionNews > 0 then
         SeasonManager._generatePromotionRelegationNews(gameState, promotionNews)
@@ -857,6 +868,13 @@ function SeasonManager._startNewSeason(gameState)
 
     -- 检查并初始化世界杯（赛季结束后的夏天举办）
     WorldCup.initialize(gameState)
+
+    -- 初始化赛季目标系统
+    ObjectivesManager.initSeason(gameState)
+
+    -- 生成新赛季赞助合同选项（玩家需在赛季初选择）
+    local FinanceManager = require("scripts/systems/finance_manager")
+    FinanceManager.generateSponsorOffers(gameState)
 
     -- B3: 赛季前瞻新闻
     NewsGenerator.generateSeasonPreview(gameState)

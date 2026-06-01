@@ -4,6 +4,7 @@ local Router = require("scripts/app/router")
 local Theme = require("scripts/ui/theme")
 local Constants = require("scripts/app/constants")
 local TeamIcon = require("scripts/ui/components/team_icon")
+local FinanceManager = require("scripts/systems/finance_manager")
 
 local COLORS = Theme.COLORS
 
@@ -59,7 +60,7 @@ local function buildOverviewTab(team, gameState, teamId)
         { "国家", team.country or "未知" },
         { "成立", team.foundedYear and tostring(team.foundedYear) or "未知" },
         { "球场", (team.stadiumName or "未知") .. " (" .. tostring(team.stadiumCapacity or 0) .. "人)" },
-        { "声望", tostring(team.reputation or 0) },
+        { "声望", tostring(team.reputation or 0) .. " / 1000" },
         { "阵型", team.formation or "4-4-2" },
         { "风格", team:getPlayStyleName() },
     }
@@ -139,9 +140,9 @@ local function buildOverviewTab(team, gameState, teamId)
     table.insert(children, Theme.Card { children = {
         Theme.Subtitle { text = "财务概况" },
         UI.Panel { width = "100%", flexDirection = "row", justifyContent = "space-around", marginTop = 8, children = {
-            Theme.StatPill { label = "余额", value = string.format("%.1fM", (team.balance or 0) / 1000000) },
-            Theme.StatPill { label = "工资预算", value = string.format("%.0fK/周", (team.wageBudget or 0) / 1000) },
-            Theme.StatPill { label = "转会预算", value = string.format("%.1fM", (team.transferBudget or 0) / 1000000) },
+            Theme.StatPill { label = "余额", value = FinanceManager.formatMoney(team.balance or 0) },
+            Theme.StatPill { label = "工资预算", value = FinanceManager.formatMoney(team.wageBudget or 0) .. "/周" },
+            Theme.StatPill { label = "转会预算", value = FinanceManager.formatMoney(team.transferBudget or 0) },
         }},
     }})
 

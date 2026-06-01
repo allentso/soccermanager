@@ -6,6 +6,7 @@ local Theme = require("scripts/ui/theme")
 local Router = require("scripts/app/router")
 local Constants = require("scripts/app/constants")
 local TeamIcon = require("scripts/ui/components/team_icon")
+local ChampionsLeague = require("scripts/systems/champions_league")
 
 local LeagueView = {}
 
@@ -94,6 +95,7 @@ function LeagueView.create(params)
     for i, s in ipairs(sorted) do
         local team = gameState.teams[s.teamId]
         local isPlayer = s.teamId == gameState.playerTeamId
+        local teamId = s.teamId
         table.insert(standingRows, UI.Panel {
             width = "100%",
             height = 40,
@@ -104,10 +106,13 @@ function LeagueView.create(params)
             backgroundColor = isPlayer and {26, 51, 89, 255} or {0, 0, 0, 0},
             borderBottomWidth = 1,
             borderColor = Theme.COLORS.BORDER,
+            onClick = function()
+                Router.navigate("team_detail", { teamId = teamId })
+            end,
             children = {
                 UI.Label { text = tostring(i), fontSize = 13, color = Theme.COLORS.TEXT_MUTED, width = 24 },
                 TeamIcon { team = team, size = 24, marginRight = 6 },
-                UI.Label { text = team and team.name or "", fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY, flexGrow = 1 },
+                UI.Label { text = team and team.name or "", fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY, flexGrow = 1, flexShrink = 1 },
                 UI.Label { text = tostring(s.played), fontSize = 12, color = Theme.COLORS.TEXT_MUTED, width = 24 },
                 UI.Label { text = tostring(s.wins), fontSize = 12, color = Theme.COLORS.TEXT_MUTED, width = 20 },
                 UI.Label { text = tostring(s.draws), fontSize = 12, color = Theme.COLORS.TEXT_MUTED, width = 20 },
@@ -239,6 +244,9 @@ end
 ------------------------------------------------------
 
 function LeagueView._createUCLView(gameState, leagueTabs)
+    -- 存档迁移：旧小组赛格式 → 新瑞士制（打开页面时立即检测）
+    ChampionsLeague.migrateIfNeeded(gameState)
+
     local ucl = gameState.championsLeague
     if not ucl then
         return UI.Panel { width = "100%", height = "100%", backgroundColor = Theme.COLORS.BG_DARK }
@@ -247,6 +255,8 @@ function LeagueView._createUCLView(gameState, leagueTabs)
     -- 阶段显示文字
     local phaseNames = {
         not_started = "未开始",
+        league = "联赛阶段",
+        playoff = "附加赛",
         group = "小组赛",
         r16 = "1/8 决赛",
         qf = "1/4 决赛",
@@ -259,7 +269,88 @@ function LeagueView._createUCLView(gameState, leagueTabs)
     -- 构建内容
     local contentChildren = {}
 
-    -- 小组赛积分榜
+    -- 联赛阶段积分榜（瑞士制 36队单一积分榜）
+    if ucl.leaguePhase and ucl.leaguePhase.standings then
+        table.insert(contentChildren, UI.Panel {
+            width = "100%", paddingLeft = 10, paddingTop = 10, paddingBottom = 4,
+            children = {
+                UI.Label { text = "联赛阶段积分榜", fontSize = 14, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold" },
+                UI.Label { text = "36队瑞士制 · 每队8场", fontSize = 10, color = Theme.COLORS.TEXT_MUTED, marginTop = 2 },
+            }
+        })
+
+        -- 表头
+        table.insert(contentChildren, UI.Panel {
+            width = "100%", height = 24,
+            flexDirection = "row", alignItems = "center",
+            paddingLeft = 10, paddingRight = 10,
+            backgroundColor = Theme.COLORS.BG_HEADER,
+            children = {
+                UI.Label { text = "#", fontSize = 10, color = Theme.COLORS.TEXT_MUTED, width = 20 },
+                UI.Label { text = "球队", flexGrow = 1, fontSize = 10, color = Theme.COLORS.TEXT_MUTED },
+                UI.Label { text = "场", fontSize = 10, color = Theme.COLORS.TEXT_MUTED, width = 22 },
+                UI.Label { text = "胜", fontSize = 10, color = Theme.COLORS.TEXT_MUTED, width = 20 },
+                UI.Label { text = "平", fontSize = 10, color = Theme.COLORS.TEXT_MUTED, width = 20 },
+                UI.Label { text = "负", fontSize = 10, color = Theme.COLORS.TEXT_MUTED, width = 20 },
+                UI.Label { text = "净胜", fontSize = 10, color = Theme.COLORS.TEXT_MUTED, width = 28 },
+                UI.Label { text = "积分", fontSize = 10, color = Theme.COLORS.TEXT_MUTED, width = 28 },
+            }
+        })
+
+        -- 积分榜（显示全部36队，标注出线区/附加赛区/淘汰区）
+        local sorted = ucl:getLeaguePhaseSortedStandings()
+        for i, s in ipairs(sorted) do
+            local team = gameState.teams[s.teamId]
+            local isPlayer = s.teamId == gameState.playerTeamId
+            local teamId = s.teamId
+            -- 1-8: 直接晋级16强（绿色）; 9-24: 附加赛（蓝色）; 25-36: 淘汰（默认）
+            local bgColor = {0, 0, 0, 0}
+            if isPlayer then
+                bgColor = {26, 51, 89, 255}
+            elseif i <= 8 then
+                bgColor = {20, 60, 20, 255}
+            elseif i <= 24 then
+                bgColor = {20, 40, 60, 255}
+            end
+
+            table.insert(contentChildren, UI.Panel {
+                width = "100%", height = 36,
+                flexDirection = "row", alignItems = "center",
+                paddingLeft = 10, paddingRight = 10,
+                backgroundColor = bgColor,
+                borderBottomWidth = 1, borderColor = Theme.COLORS.BORDER,
+                onClick = function()
+                    Router.navigate("team_detail", { teamId = teamId })
+                end,
+                children = {
+                    UI.Label { text = tostring(i), fontSize = 11, color = Theme.COLORS.TEXT_MUTED, width = 20 },
+                    TeamIcon { team = team, size = 20, marginRight = 5 },
+                    UI.Label { text = team and team.name or "???", fontSize = 12, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = isPlayer and "bold" or "normal", flexGrow = 1, flexShrink = 1 },
+                    UI.Label { text = tostring(s.played), fontSize = 11, color = Theme.COLORS.TEXT_MUTED, width = 22 },
+                    UI.Label { text = tostring(s.wins), fontSize = 11, color = Theme.COLORS.TEXT_MUTED, width = 20 },
+                    UI.Label { text = tostring(s.draws), fontSize = 11, color = Theme.COLORS.TEXT_MUTED, width = 20 },
+                    UI.Label { text = tostring(s.losses), fontSize = 11, color = Theme.COLORS.TEXT_MUTED, width = 20 },
+                    UI.Label { text = tostring(s.goalDifference), fontSize = 11, color = s.goalDifference >= 0 and Theme.COLORS.SECONDARY or Theme.COLORS.DANGER, width = 28 },
+                    UI.Label { text = tostring(s.points), fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold", width = 28 },
+                },
+            })
+        end
+
+        -- 图例
+        table.insert(contentChildren, UI.Panel {
+            width = "100%", paddingLeft = 10, paddingTop = 8, paddingBottom = 8,
+            flexDirection = "row", alignItems = "center",
+            children = {
+                UI.Panel { width = 10, height = 10, backgroundColor = {20, 60, 20, 255}, borderRadius = 2, marginRight = 4 },
+                UI.Label { text = "直接晋级16强(1-8)", fontSize = 9, color = Theme.COLORS.TEXT_MUTED, marginRight = 10 },
+                UI.Panel { width = 10, height = 10, backgroundColor = {20, 40, 60, 255}, borderRadius = 2, marginRight = 4 },
+                UI.Label { text = "附加赛(9-24)", fontSize = 9, color = Theme.COLORS.TEXT_MUTED, marginRight = 10 },
+                UI.Label { text = "淘汰(25-36)", fontSize = 9, color = Theme.COLORS.TEXT_MUTED },
+            }
+        })
+    end
+
+    -- 小组赛积分榜（传统模式，世界杯用）
     if ucl.groups and next(ucl.groups) then
         local groupNames = {}
         for name, _ in pairs(ucl.groups) do
@@ -300,16 +391,21 @@ function LeagueView._createUCLView(gameState, leagueTabs)
                 local team = gameState.teams[s.teamId]
                 local isPlayer = s.teamId == gameState.playerTeamId
                 local isQualified = i <= 2  -- 前2名出线
+                local teamId = s.teamId
 
                 table.insert(contentChildren, UI.Panel {
-                    width = "100%", height = 34,
+                    width = "100%", height = 36,
                     flexDirection = "row", alignItems = "center",
                     paddingLeft = 10, paddingRight = 10,
                     backgroundColor = isPlayer and {26, 51, 89, 255}
                                      or (isQualified and {20, 60, 20, 255} or {0, 0, 0, 0}),
                     borderBottomWidth = 1, borderColor = Theme.COLORS.BORDER,
+                    onClick = function()
+                        Router.navigate("team_detail", { teamId = teamId })
+                    end,
                     children = {
-                        UI.Label { text = team and team.name or "???", fontSize = 12, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold", flexGrow = 1 },
+                        TeamIcon { team = team, size = 20, marginRight = 5 },
+                        UI.Label { text = team and team.name or "???", fontSize = 12, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold", flexGrow = 1, flexShrink = 1 },
                         UI.Label { text = tostring(s.played), fontSize = 11, color = Theme.COLORS.TEXT_MUTED, width = 24 },
                         UI.Label { text = tostring(s.wins), fontSize = 11, color = Theme.COLORS.TEXT_MUTED, width = 20 },
                         UI.Label { text = tostring(s.draws), fontSize = 11, color = Theme.COLORS.TEXT_MUTED, width = 20 },
@@ -324,6 +420,7 @@ function LeagueView._createUCLView(gameState, leagueTabs)
 
     -- 淘汰赛结果
     local knockoutPhases = {
+        {key = "playoff", name = "附加赛"},
         {key = "r16", name = "1/8 决赛"},
         {key = "qf", name = "1/4 决赛"},
         {key = "sf", name = "半决赛"},

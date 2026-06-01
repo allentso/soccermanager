@@ -182,8 +182,8 @@ function TeamTalkManager.deliverTeamTalk(gameState, tone, context)
 
             local delta, band = TeamTalkManager.calculateEffect(player, tone, context, gameDay)
 
-            -- 应用士气变化
-            player.morale = math.max(0, math.min(100, (player.morale or 50) + delta))
+            -- 应用士气变化（clamp 到合法范围）
+            player.morale = Constants.clampMorale((player.morale or 50) + delta)
 
             -- 更新信任度（正面反应 +1 信任，负面 -1）
             if band == "strong_pos" or band == "mild_pos" then
@@ -248,6 +248,7 @@ end
 function TeamTalkManager.getContextName(context)
     local names = {
         pre_match = "赛前",
+        halftime = "半场",
         winning = "领先",
         drawing = "平局",
         losing = "落后",

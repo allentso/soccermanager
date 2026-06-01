@@ -283,7 +283,7 @@ function WorldGenerator.autoSelectStartingXI(gameState, teamId)
     if #players < 11 then return end
 
     local formation = team.formation or "4-4-2"
-    local slots = AIManager._getFormationSlots(formation)
+    local slots = AIManager._getFormationSlots(formation, team.formationVariant)
 
     -- 贪心分配：对每个槽位选最佳匹配球员
     local selected = {}

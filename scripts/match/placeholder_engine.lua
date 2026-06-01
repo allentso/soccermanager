@@ -2,6 +2,9 @@
 -- 增强比赛引擎：基于球员能力、战术、阵型模拟比赛
 -- v2: 士气影响、球员个人指令、动态事件响应、化学值、加时/点球、进攻模式细分、对手分析
 
+local TacticsResolver = require("scripts/match/tactics_resolver")
+local RecordsManager = require("scripts/systems/records_manager")
+
 local PlaceholderEngine = {}
 
 ------------------------------------------------------
@@ -33,49 +36,29 @@ function PlaceholderEngine.simulate(gameState, fixture)
     local awayTeam = gameState.teams[fixture.awayTeamId]
     if not homeTeam or not awayTeam then return nil end
 
-    -- 获取首发阵容
-    local homePlayers = PlaceholderEngine._getMatchPlayers(gameState, homeTeam)
-    local awayPlayers = PlaceholderEngine._getMatchPlayers(gameState, awayTeam)
-    if #homePlayers == 0 or #awayPlayers == 0 then return nil end
+    -- 使用统一的 buildTeamContext 获取攻/防/控球数值（含角色修正、化学反应、阵型加成）
+    local homeCtx = TacticsResolver.buildTeamContext(gameState, homeTeam)
+    local awayCtx = TacticsResolver.buildTeamContext(gameState, awayTeam)
+    if #homeCtx.players == 0 or #awayCtx.players == 0 then return nil end
 
-    -- 计算化学值加成
-    local homeChemistry = PlaceholderEngine._calcChemistry(homePlayers, homeTeam, gameState)
-    local awayChemistry = PlaceholderEngine._calcChemistry(awayPlayers, awayTeam, gameState)
+    local homePlayers = homeCtx.players
+    local awayPlayers = awayCtx.players
+    local homeChemistry = homeCtx.chemistry
+    local awayChemistry = awayCtx.chemistry
 
-    -- 计算球队综合实力（含士气+化学）
-    local homeRating = PlaceholderEngine._calcTeamRating(homePlayers, homeTeam) * homeChemistry
-    local awayRating = PlaceholderEngine._calcTeamRating(awayPlayers, awayTeam) * awayChemistry
-
-    -- 战术加成
+    -- 战术相克加成
     local homeTacticalBonus = PlaceholderEngine._getTacticalBonus(homeTeam, awayTeam)
     local awayTacticalBonus = PlaceholderEngine._getTacticalBonus(awayTeam, homeTeam)
 
-    -- 主场优势 (+8%)
-    homeRating = homeRating * 1.08
-
-    -- 应用战术加成
-    homeRating = homeRating * (1 + homeTacticalBonus)
-    awayRating = awayRating * (1 + awayTacticalBonus)
-
-    -- 计算期望进球数（基于攻防对比，含士气+个人指令+进攻模式）
-    local homeAttack = PlaceholderEngine._calcAttackPower(homePlayers, homeTeam)
-    local awayDefense = PlaceholderEngine._calcDefensePower(awayPlayers, awayTeam)
-    local awayAttack = PlaceholderEngine._calcAttackPower(awayPlayers, awayTeam)
-    local homeDefense = PlaceholderEngine._calcDefensePower(homePlayers, homeTeam)
-
-    -- 进攻模式修正
-    local homeAttackMode = PlaceholderEngine._getAttackModeModifiers(homeTeam)
-    local awayAttackMode = PlaceholderEngine._getAttackModeModifiers(awayTeam)
-    homeAttack = homeAttack * homeAttackMode.attackMul
-    awayAttack = awayAttack * awayAttackMode.attackMul
+    -- 从统一 context 取攻防值，应用主场优势 + 战术相克
+    local homeAttack = homeCtx.attack * 1.08 * (1 + homeTacticalBonus)
+    local awayDefense = awayCtx.defense * (1 + awayTacticalBonus)
+    local awayAttack = awayCtx.attack * (1 + awayTacticalBonus)
+    local homeDefense = homeCtx.defense * 1.08 * (1 + homeTacticalBonus)
 
     -- 期望进球 = 攻击力 / 防守力 * 基础系数
     local homeExpGoals = (homeAttack / math.max(1, awayDefense)) * 1.4 + Random() * 0.3
     local awayExpGoals = (awayAttack / math.max(1, homeDefense)) * 1.2 + Random() * 0.3
-
-    -- 战术风格修正
-    homeExpGoals = homeExpGoals * PlaceholderEngine._getAttackModifier(homeTeam.playStyle)
-    awayExpGoals = awayExpGoals * PlaceholderEngine._getAttackModifier(awayTeam.playStyle)
 
     -- 生成比赛事件（先生成卡牌/伤病，用于动态响应）
     local events = {}
@@ -120,7 +103,7 @@ function PlaceholderEngine.simulate(gameState, fixture)
     if fixture.isKnockout and homeGoals == awayGoals then
         extraTimeReport = PlaceholderEngine._simulateExtraTime(
             gameState, fixture, homePlayers, awayPlayers, homeTeam, awayTeam,
-            homeAttack, awayAttack, homeDefense, awayDefense, events
+            homeCtx.attack, awayCtx.attack, homeCtx.defense, awayCtx.defense, events
         )
         homeGoals = homeGoals + extraTimeReport.homeExtraGoals
         awayGoals = awayGoals + extraTimeReport.awayExtraGoals
@@ -218,33 +201,7 @@ function PlaceholderEngine._getMatchPlayers(gameState, team)
     return players
 end
 
-------------------------------------------------------
--- 计算球队综合评分
-------------------------------------------------------
 
-function PlaceholderEngine._calcTeamRating(players, team)
-    if #players == 0 then return 50 end
-    local totalRating = 0
-    local totalFitness = 0
-    local totalMorale = 0
-    for _, p in ipairs(players) do
-        totalRating = totalRating + p.overall
-        totalFitness = totalFitness + (p.fitness or 80)
-        totalMorale = totalMorale + (p.morale or 60)
-    end
-    local avgRating = totalRating / #players
-    local avgFitness = totalFitness / #players
-    local avgMorale = totalMorale / #players
-
-    -- 体能影响：低体能降低表现 (0.7~1.0)
-    local fitnessMultiplier = 0.7 + (avgFitness / 100) * 0.3
-
-    -- 士气影响：低士气降低表现 (0.85~1.05)
-    -- morale 0 → 0.85, morale 60 → 0.97, morale 100 → 1.05
-    local moraleMultiplier = 0.85 + (avgMorale / 100) * 0.2
-
-    return avgRating * fitnessMultiplier * moraleMultiplier
-end
 
 ------------------------------------------------------
 -- 战术相克加成
@@ -272,95 +229,7 @@ function PlaceholderEngine._getTacticalBonus(myTeam, opponentTeam)
     return bonus
 end
 
-------------------------------------------------------
--- 攻击力计算
-------------------------------------------------------
 
-function PlaceholderEngine._calcAttackPower(players, team)
-    local power = 0
-    local duties = team.playerDuties or {}
-    for _, p in ipairs(players) do
-        local contribution = 0
-        if p.position == "ST" or p.position == "CF" then
-            contribution = (p.attributes.shooting or 10) * 2.5 + (p.attributes.dribbling or 10) * 1.0
-        elseif p.position == "LW" or p.position == "RW" then
-            contribution = (p.attributes.shooting or 10) * 1.5 + (p.attributes.dribbling or 10) * 1.5 + (p.attributes.speed or 10) * 0.8
-        elseif p.position == "CAM" then
-            contribution = (p.attributes.vision or 10) * 1.8 + (p.attributes.passing or 10) * 1.5
-        elseif p.position == "CM" or p.position == "LM" or p.position == "RM" then
-            contribution = (p.attributes.passing or 10) * 1.2 + (p.attributes.shooting or 10) * 0.8 + (p.attributes.vision or 10) * 0.8
-        else
-            contribution = (p.attributes.passing or 10) * 0.5
-        end
-        -- 体能修正
-        contribution = contribution * ((p.fitness or 80) / 100)
-        -- 士气修正：低士气球员贡献降低 (0.8~1.1)
-        local moraleBonus = 0.8 + ((p.morale or 60) / 100) * 0.3
-        contribution = contribution * moraleBonus
-        -- 个人指令修正：进攻/支援/防守职责影响进攻贡献
-        local duty = duties[p.id]
-        if duty and PlaceholderEngine.PLAYER_DUTIES[duty] then
-            contribution = contribution * PlaceholderEngine.PLAYER_DUTIES[duty].attackWeight
-        end
-        power = power + contribution
-    end
-    return power / 10  -- 标准化
-end
-
-------------------------------------------------------
--- 防守力计算
-------------------------------------------------------
-
-function PlaceholderEngine._calcDefensePower(players, team)
-    local power = 0
-    local duties = team.playerDuties or {}
-    for _, p in ipairs(players) do
-        local contribution = 0
-        if p.position == "GK" then
-            contribution = (p.attributes.reflexes or 10) * 2.5 + (p.attributes.handling or 10) * 2.0 + (p.attributes.positioning or 10) * 1.0
-        elseif p.position == "CB" then
-            contribution = (p.attributes.defending or 10) * 2.5 + (p.attributes.tackling or 10) * 1.5 + (p.attributes.aerial or 10) * 1.0
-        elseif p.position == "LB" or p.position == "RB" then
-            contribution = (p.attributes.defending or 10) * 1.8 + (p.attributes.tackling or 10) * 1.2 + (p.attributes.speed or 10) * 0.8
-        elseif p.position == "CDM" then
-            contribution = (p.attributes.defending or 10) * 2.0 + (p.attributes.tackling or 10) * 1.5 + (p.attributes.positioning or 10) * 1.0
-        elseif p.position == "CM" then
-            contribution = (p.attributes.tackling or 10) * 0.8 + (p.attributes.positioning or 10) * 0.6
-        else
-            contribution = (p.attributes.teamwork or 10) * 0.3
-        end
-        -- 体能修正
-        contribution = contribution * ((p.fitness or 80) / 100)
-        -- 士气修正 (0.8~1.1)
-        local moraleBonus = 0.8 + ((p.morale or 60) / 100) * 0.3
-        contribution = contribution * moraleBonus
-        -- 个人指令修正：防守职责影响防守贡献
-        local duty = duties[p.id]
-        if duty and PlaceholderEngine.PLAYER_DUTIES[duty] then
-            contribution = contribution * PlaceholderEngine.PLAYER_DUTIES[duty].defenseWeight
-        end
-        power = power + contribution
-    end
-
-    -- 阵型修正：防守阵型加成
-    local formation = team.formation or "4-4-2"
-    local defCount = tonumber(formation:sub(1, 1)) or 4
-    if defCount >= 5 then power = power * 1.08 end  -- 五后卫加成
-
-    return power / 10  -- 标准化
-end
-
-------------------------------------------------------
--- 战术攻击倍率
-------------------------------------------------------
-
-function PlaceholderEngine._getAttackModifier(playStyle)
-    if playStyle == "Attacking" then return 1.15
-    elseif playStyle == "Counter" then return 1.0
-    elseif playStyle == "Defensive" then return 0.85
-    else return 1.0  -- Balanced
-    end
-end
 
 ------------------------------------------------------
 -- 控球率计算
@@ -640,74 +509,7 @@ function PlaceholderEngine._calcPlayerRatings(homePlayers, awayPlayers, homeGoal
     return ratings
 end
 
-------------------------------------------------------
--- 化学值计算（队友默契）
-------------------------------------------------------
 
-function PlaceholderEngine._calcChemistry(players, team, gameState)
-    -- 化学值基于球员在同一球队的时长（赛季数）和共同出场次数
-    -- 返回 0.95~1.08 的乘数
-    if #players < 2 then return 1.0 end
-
-    local totalBonds = 0
-    local bondCount = 0
-
-    for i = 1, #players do
-        for j = i + 1, #players do
-            local p1 = players[i]
-            local p2 = players[j]
-            -- 共同在队时长（简化：都在同一teamId就有基础化学值）
-            local bond = 0.5  -- 基础值
-
-            -- 相邻位置的球员化学加成更高
-            if PlaceholderEngine._arePositionsLinked(p1.position, p2.position) then
-                bond = bond + 0.3
-            end
-
-            -- 相同国籍加成
-            if p1.nationality and p2.nationality and p1.nationality == p2.nationality then
-                bond = bond + 0.2
-            end
-
-            -- 出场次数越多越默契（基于赛季出场数）
-            local apps1 = (p1.seasonStats and p1.seasonStats.appearances) or 0
-            local apps2 = (p2.seasonStats and p2.seasonStats.appearances) or 0
-            local coApps = math.min(apps1, apps2)
-            bond = bond + math.min(0.5, coApps * 0.025)  -- 每共同出场1次+0.025，上限0.5
-
-            totalBonds = totalBonds + math.min(1.5, bond)
-            bondCount = bondCount + 1
-        end
-    end
-
-    if bondCount == 0 then return 1.0 end
-    local avgBond = totalBonds / bondCount  -- 范围约 0.5~1.5
-
-    -- 映射到 0.95~1.08
-    local chemistry = 0.95 + (avgBond / 1.5) * 0.13
-    return math.max(0.95, math.min(1.08, chemistry))
-end
-
--- 判断两个位置是否有战术关联（前后相邻、左右搭配）
-function PlaceholderEngine._arePositionsLinked(pos1, pos2)
-    local links = {
-        ST = {CAM = true, CF = true, LW = true, RW = true},
-        CF = {ST = true, CAM = true, LW = true, RW = true},
-        LW = {ST = true, CF = true, LM = true, LB = true},
-        RW = {ST = true, CF = true, RM = true, RB = true},
-        CAM = {ST = true, CF = true, CM = true},
-        CM = {CAM = true, CDM = true, LM = true, RM = true},
-        LM = {CM = true, LW = true, LB = true},
-        RM = {CM = true, RW = true, RB = true},
-        CDM = {CM = true, CB = true},
-        CB = {CDM = true, LB = true, RB = true, GK = true},
-        LB = {CB = true, LM = true, LW = true},
-        RB = {CB = true, RM = true, RW = true},
-        GK = {CB = true},
-    }
-    local linked = links[pos1]
-    return linked and linked[pos2] or false
-end
 
 ------------------------------------------------------
 -- 红牌统计（用于动态事件响应）
@@ -1179,9 +981,31 @@ function PlaceholderEngine.applyResult(gameState, fixture, report)
         end
     end
 
-    -- 体能消耗
+    -- 体能消耗（按位置×风格×个人耐力差异化）
+    local drainData = TacticsResolver.POSITION_STAMINA_DRAIN
+    -- 预计算每队的 styleDrain（避免重复调用 buildTeamContext）
+    local teamStyleDrain = {}
+    for _, tid in ipairs({ fixture.homeTeamId, fixture.awayTeamId }) do
+        local t = gameState.teams[tid]
+        if t then
+            local styleMods = TacticsResolver.getStyleModifiers(t.playStyle or "Balanced")
+            teamStyleDrain[tid] = styleMods.staminaDrain or 1.0
+        end
+    end
     for _, p in ipairs(matchPlayers) do
-        p.fitness = math.max(40, p.fitness - RandomInt(15, 25))
+        local styleDrain = teamStyleDrain[p.teamId] or 1.0
+        local group = "MID"
+        if p.position == "GK" then group = "GK"
+        elseif p.position == "CB" or p.position == "LB" or p.position == "RB" then group = "DEF"
+        elseif p.position == "ST" or p.position == "CF" or p.position == "LW" or p.position == "RW" then group = "FWD"
+        end
+        local range = drainData[group] or { 15, 22 }
+        local baseDrain = RandomInt(range[1], range[2])
+        -- 个人耐力折扣: stamina=20→×1.0, stamina=10→×0.85, stamina=5→×0.775
+        local staminaAttr = (p.attributes and p.attributes.stamina) or 10
+        local staminaDiscount = 0.7 + (staminaAttr / 20) * 0.3
+        local finalDrain = math.floor(baseDrain * styleDrain / staminaDiscount + 0.5)
+        p.fitness = math.max(40, (p.fitness or 80) - finalDrain)
     end
 
     -- 更新球队近期状态
@@ -1195,6 +1019,9 @@ function PlaceholderEngine.applyResult(gameState, fixture, report)
         table.insert(awayTeam.recentForm, 1, form)
         if #awayTeam.recentForm > 5 then table.remove(awayTeam.recentForm) end
     end
+
+    -- 更新记录系统（经理比赛统计）
+    RecordsManager.onMatchEnd(gameState, fixture)
 
     return report
 end

@@ -1,8 +1,10 @@
---- 名人堂页 - 历届冠军、金靴、最佳球员
+--- 名人堂页 - 历届冠军、金靴、最佳球员、联赛/球员记录
 local UI = require("urhox-libs/UI")
 local Router = require("scripts/app/router")
 local Theme = require("scripts/ui/theme")
 local HistoryManager = require("scripts/systems/history_manager")
+local FinanceManager = require("scripts/systems/finance_manager")
+local RecordsManager = require("scripts/systems/records_manager")
 
 local COLORS = Theme.COLORS
 
@@ -113,10 +115,7 @@ local function buildTransfersTab(gameState)
     local rows = {}
     for i = 1, math.min(20, #sorted) do
         local t = sorted[i]
-        local amountText
-        if (t.amount or 0) >= 1000000 then amountText = string.format("%.1fM", t.amount / 1000000)
-        elseif (t.amount or 0) >= 1000 then amountText = string.format("%.0fK", t.amount / 1000)
-        else amountText = tostring(t.amount or 0) end
+        local amountText = FinanceManager.formatMoney(t.amount or 0)
 
         local typeLabel = ""
         if t.type == "loan" then typeLabel = "[租]"
@@ -145,6 +144,107 @@ local function buildTransfersTab(gameState)
 end
 
 ------------------------------------------------------------
+-- 记录榜（联赛记录 + 球员记录）
+------------------------------------------------------------
+
+local function buildRecordsTab(gameState)
+    RecordsManager._ensureData(gameState)
+    local lr = RecordsManager.getLeagueRecords(gameState)
+    local pr = RecordsManager.getPlayerRecords(gameState)
+    local cards = {}
+
+    -- 联赛记录
+    local leagueRows = {}
+    if lr.highestPoints then
+        table.insert(leagueRows, HallOfFame._recordRow("最高积分", lr.highestPoints.teamName, tostring(lr.highestPoints.points) .. "分", "第" .. tostring(lr.highestPoints.season) .. "赛季"))
+    end
+    if lr.mostWins then
+        table.insert(leagueRows, HallOfFame._recordRow("最多胜场", lr.mostWins.teamName, tostring(lr.mostWins.wins) .. "胜", "第" .. tostring(lr.mostWins.season) .. "赛季"))
+    end
+    if lr.fewestGoalsConceded then
+        table.insert(leagueRows, HallOfFame._recordRow("最少失球", lr.fewestGoalsConceded.teamName, tostring(lr.fewestGoalsConceded.goalsAgainst) .. "球", "第" .. tostring(lr.fewestGoalsConceded.season) .. "赛季"))
+    end
+    if lr.consecutiveChampionships then
+        table.insert(leagueRows, HallOfFame._recordRow("连续夺冠", lr.consecutiveChampionships.teamName, tostring(lr.consecutiveChampionships.count) .. "连冠", "第" .. tostring(lr.consecutiveChampionships.startSeason) .. "-" .. tostring(lr.consecutiveChampionships.endSeason) .. "赛季"))
+    end
+
+    if #leagueRows > 0 then
+        table.insert(cards, Theme.Card { children = {
+            Theme.Subtitle { text = "联赛记录" },
+            table.unpack(leagueRows)
+        }})
+    else
+        table.insert(cards, Theme.Card { children = {
+            Theme.Subtitle { text = "联赛记录" },
+            UI.Label { text = "暂无记录（完成赛季后解锁）", fontSize = 12, color = COLORS.TEXT_MUTED },
+        }})
+    end
+
+    -- 球员单赛季记录
+    local playerRows = {}
+    if pr.singleSeasonGoals then
+        table.insert(playerRows, HallOfFame._recordRow("单赛季进球", pr.singleSeasonGoals.playerName, tostring(pr.singleSeasonGoals.goals) .. "球", pr.singleSeasonGoals.teamName))
+    end
+    if pr.singleSeasonAssists then
+        table.insert(playerRows, HallOfFame._recordRow("单赛季助攻", pr.singleSeasonAssists.playerName, tostring(pr.singleSeasonAssists.assists) .. "次", pr.singleSeasonAssists.teamName))
+    end
+    if pr.singleSeasonRating then
+        table.insert(playerRows, HallOfFame._recordRow("单赛季评分", pr.singleSeasonRating.playerName, string.format("%.1f", pr.singleSeasonRating.rating), pr.singleSeasonRating.teamName))
+    end
+
+    if #playerRows > 0 then
+        table.insert(cards, Theme.Card { children = {
+            Theme.Subtitle { text = "球员单赛季记录" },
+            table.unpack(playerRows)
+        }})
+    end
+
+    -- 历史总进球 Top5
+    if pr.allTimeGoals and #pr.allTimeGoals > 0 then
+        local goalRows = {}
+        for i = 1, math.min(5, #pr.allTimeGoals) do
+            local entry = pr.allTimeGoals[i]
+            table.insert(goalRows, UI.Panel {
+                width = "100%", height = 32, flexDirection = "row", alignItems = "center",
+                paddingHorizontal = 8, borderBottomWidth = 1, borderColor = COLORS.BORDER,
+                children = {
+                    UI.Label { text = tostring(i), width = 20, fontSize = 10, color = COLORS.TEXT_MUTED },
+                    UI.Label { text = entry.playerName or "?", flex = 1, fontSize = 12, color = COLORS.TEXT_PRIMARY },
+                    UI.Label { text = tostring(entry.value) .. "球", width = 50, fontSize = 11, fontWeight = "bold", color = COLORS.ACCENT, textAlign = "right" },
+                }
+            })
+        end
+        table.insert(cards, Theme.Card { children = {
+            Theme.Subtitle { text = "历史总进球 Top5" },
+            table.unpack(goalRows)
+        }})
+    end
+
+    -- 历史总助攻 Top5
+    if pr.allTimeAssists and #pr.allTimeAssists > 0 then
+        local assistRows = {}
+        for i = 1, math.min(5, #pr.allTimeAssists) do
+            local entry = pr.allTimeAssists[i]
+            table.insert(assistRows, UI.Panel {
+                width = "100%", height = 32, flexDirection = "row", alignItems = "center",
+                paddingHorizontal = 8, borderBottomWidth = 1, borderColor = COLORS.BORDER,
+                children = {
+                    UI.Label { text = tostring(i), width = 20, fontSize = 10, color = COLORS.TEXT_MUTED },
+                    UI.Label { text = entry.playerName or "?", flex = 1, fontSize = 12, color = COLORS.TEXT_PRIMARY },
+                    UI.Label { text = tostring(entry.value) .. "次", width = 50, fontSize = 11, fontWeight = "bold", color = COLORS.ACCENT, textAlign = "right" },
+                }
+            })
+        end
+        table.insert(cards, Theme.Card { children = {
+            Theme.Subtitle { text = "历史总助攻 Top5" },
+            table.unpack(assistRows)
+        }})
+    end
+
+    return cards
+end
+
+------------------------------------------------------------
 -- 主入口
 ------------------------------------------------------------
 
@@ -160,6 +260,7 @@ function HallOfFame.create(params)
         { key = "champions", label = "冠军榜" },
         { key = "awards",    label = "奖项榜" },
         { key = "transfers", label = "转会记录" },
+        { key = "records",   label = "记录" },
     }
 
     -- 标签栏
@@ -192,6 +293,8 @@ function HallOfFame.create(params)
         tabContent = buildAwardsTab(gameState)
     elseif _activeTab == "transfers" then
         tabContent = buildTransfersTab(gameState)
+    elseif _activeTab == "records" then
+        tabContent = buildRecordsTab(gameState)
     else
         tabContent = buildChampionsTab(gameState)
     end
@@ -231,6 +334,21 @@ function HallOfFame._awardRow(label, name, detail)
             UI.Label { text = label, width = 56, fontSize = 10, color = COLORS.WARNING, fontWeight = "bold" },
             UI.Label { text = name or "?", flex = 1, fontSize = 12, color = COLORS.TEXT_PRIMARY },
             UI.Label { text = detail, fontSize = 10, color = COLORS.TEXT_SECONDARY },
+        }
+    }
+end
+
+function HallOfFame._recordRow(label, holder, value, context)
+    return UI.Panel {
+        width = "100%", height = 38, flexDirection = "row", alignItems = "center",
+        paddingHorizontal = 8, borderBottomWidth = 1, borderColor = COLORS.BORDER,
+        children = {
+            UI.Label { text = label, width = 72, fontSize = 10, color = COLORS.ACCENT, fontWeight = "bold" },
+            UI.Panel { flex = 1, children = {
+                UI.Label { text = holder or "?", fontSize = 12, color = COLORS.TEXT_PRIMARY },
+                UI.Label { text = context or "", fontSize = 9, color = COLORS.TEXT_MUTED, marginTop = 1 },
+            }},
+            UI.Label { text = value or "", width = 50, fontSize = 11, fontWeight = "bold", color = COLORS.WARNING, textAlign = "right" },
         }
     }
 end

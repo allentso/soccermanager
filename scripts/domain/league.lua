@@ -47,7 +47,9 @@ function League:generateFixtures(startDate)
     end
 
     local fixtureId = 1
-    local matchDate = {year = startDate.year, month = startDate.month, day = startDate.day}
+    -- 对齐到最近的周六（联赛比赛日）
+    local matchDate = League._alignToWeekday(
+        {year = startDate.year, month = startDate.month, day = startDate.day}, 6)  -- 6=周六
 
     -- 前半赛季（主场）
     for round = 1, n - 1 do
@@ -240,6 +242,34 @@ function League._addDays(date, days)
         end
     end
     return {year = y, month = m, day = d}
+end
+
+--- 计算日期是星期几（Zeller算法简化版）
+--- 返回: 1=周一, 2=周二, ..., 6=周六, 7=周日
+function League._dayOfWeek(date)
+    local y, m, d = date.year, date.month, date.day
+    -- 调整1月和2月为上一年的13、14月
+    if m <= 2 then
+        m = m + 12
+        y = y - 1
+    end
+    local k = y % 100
+    local j = math.floor(y / 100)
+    local h = (d + math.floor(13 * (m + 1) / 5) + k + math.floor(k / 4) + math.floor(j / 4) - 2 * j) % 7
+    -- h: 0=周六, 1=周日, 2=周一, 3=周二, 4=周三, 5=周四, 6=周五
+    local dow = ((h + 5) % 7) + 1  -- 转为 1=周一 ... 7=周日
+    return dow
+end
+
+--- 找到 date 当天或之后最近的指定星期几
+--- targetDow: 1=周一 ... 6=周六, 7=周日
+function League._alignToWeekday(date, targetDow)
+    local currentDow = League._dayOfWeek(date)
+    local diff = (targetDow - currentDow) % 7
+    if diff == 0 then
+        return date  -- 当天就是目标
+    end
+    return League._addDays(date, diff)
 end
 
 function League:serialize()

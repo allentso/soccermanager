@@ -29,6 +29,17 @@ Constants.POTENTIAL_MAX = 99
 Constants.ABILITY_MIN = 20
 Constants.ABILITY_MAX = 99
 
+-- 士气范围
+Constants.MORALE_MIN = 20
+Constants.MORALE_MAX = 100
+
+--- 将士气值 clamp 到合法范围 [20, 100]
+---@param value number
+---@return number
+function Constants.clampMorale(value)
+    return math.max(Constants.MORALE_MIN, math.min(Constants.MORALE_MAX, value))
+end
+
 -- 年龄范围
 Constants.AGE_MIN = 17
 Constants.AGE_MAX = 38
@@ -40,9 +51,7 @@ Constants.RETIREMENT_MIN_AGE = 33
 Constants.WEEKLY_WAGE_MULTIPLIER = 1
 Constants.SEASON_END_PRIZE = {150000000, 120000000, 100000000, 80000000, 60000000, 50000000, 40000000, 35000000, 30000000, 25000000, 22000000, 20000000, 18000000, 16000000, 14000000, 12000000, 10000000, 8000000, 6000000, 5000000}
 
--- 士气范围
-Constants.MORALE_MIN = 0
-Constants.MORALE_MAX = 100
+-- 士气默认值
 Constants.MORALE_DEFAULT = 60
 
 -- 状态范围
@@ -78,6 +87,155 @@ Constants.FORMATIONS = {
     "4-4-2", "4-3-3", "3-5-2", "4-2-3-1", "5-3-2", "4-5-1"
 }
 
+-- 阵型变体 (每个基础阵型对应多种位置配置)
+-- 每个变体：key=唯一标识, name=简称, desc=中文描述, slots=11人位置列表
+Constants.FORMATION_VARIANTS = {
+    ["4-4-2"] = {
+        {
+            key = "flat",
+            name = "平行中场",
+            desc = "两CM平行站位，攻守均衡",
+            slots = {"GK", "RB", "CB", "CB", "LB", "RM", "CM", "CM", "LM", "ST", "ST"},
+        },
+        {
+            key = "diamond",
+            name = "菱形中场",
+            desc = "一CDM一CAM，中路纵深",
+            slots = {"GK", "RB", "CB", "CB", "LB", "RM", "CDM", "CAM", "LM", "ST", "ST"},
+        },
+        {
+            key = "hold",
+            name = "双后腰",
+            desc = "两CDM加固中场防守",
+            slots = {"GK", "RB", "CB", "CB", "LB", "RM", "CDM", "CDM", "LM", "ST", "ST"},
+        },
+    },
+
+    ["4-3-3"] = {
+        {
+            key = "hold",
+            name = "正三角",
+            desc = "单CDM双CM，防守稳固",
+            slots = {"GK", "RB", "CB", "CB", "LB", "CM", "CDM", "CM", "RW", "ST", "LW"},
+        },
+        {
+            key = "attack",
+            name = "倒三角",
+            desc = "双CM单CAM，进攻厚度",
+            slots = {"GK", "RB", "CB", "CB", "LB", "CM", "CM", "CAM", "RW", "ST", "LW"},
+        },
+        {
+            key = "flat",
+            name = "平行三中场",
+            desc = "三CM平行，覆盖面广",
+            slots = {"GK", "RB", "CB", "CB", "LB", "CM", "CM", "CM", "RW", "ST", "LW"},
+        },
+    },
+
+    ["3-5-2"] = {
+        {
+            key = "default",
+            name = "经典",
+            desc = "单CDM双CM，翼卫拉边",
+            slots = {"GK", "CB", "CB", "CB", "RM", "CM", "CDM", "CM", "LM", "ST", "ST"},
+        },
+        {
+            key = "attack",
+            name = "进攻",
+            desc = "单CDM加CAM，中路进攻",
+            slots = {"GK", "CB", "CB", "CB", "RM", "CAM", "CDM", "CM", "LM", "ST", "ST"},
+        },
+        {
+            key = "dhold",
+            name = "双后腰",
+            desc = "双CDM加固中场，更稳固",
+            slots = {"GK", "CB", "CB", "CB", "RM", "CM", "CDM", "CDM", "LM", "ST", "ST"},
+        },
+    },
+
+    ["4-2-3-1"] = {
+        {
+            key = "wide",
+            name = "宽边锋",
+            desc = "RW/LW拉边冲击，经典4231",
+            slots = {"GK", "RB", "CB", "CB", "LB", "CDM", "CDM", "CAM", "RW", "LW", "ST"},
+        },
+        {
+            key = "narrow",
+            name = "窄前腰",
+            desc = "三CAM收窄，中路渗透",
+            slots = {"GK", "RB", "CB", "CB", "LB", "CDM", "CDM", "CAM", "CAM", "CAM", "ST"},
+        },
+        {
+            key = "asym",
+            name = "不对称",
+            desc = "一侧边锋一侧前腰，左右不同",
+            slots = {"GK", "RB", "CB", "CB", "LB", "CDM", "CDM", "CAM", "RW", "CAM", "ST"},
+        },
+    },
+
+    ["5-3-2"] = {
+        {
+            key = "flat",
+            name = "平行中场",
+            desc = "三CM平行，攻守均衡",
+            slots = {"GK", "RB", "CB", "CB", "CB", "LB", "CM", "CM", "CM", "ST", "ST"},
+        },
+        {
+            key = "hold",
+            name = "一后腰",
+            desc = "单CDM双CM，稳中求进",
+            slots = {"GK", "RB", "CB", "CB", "CB", "LB", "CM", "CDM", "CM", "ST", "ST"},
+        },
+        {
+            key = "attack",
+            name = "一前腰",
+            desc = "单CAM双CM，支援前场",
+            slots = {"GK", "RB", "CB", "CB", "CB", "LB", "CM", "CM", "CAM", "ST", "ST"},
+        },
+    },
+
+    ["4-5-1"] = {
+        {
+            key = "default",
+            name = "经典",
+            desc = "单CDM双CM翼卫，均衡覆盖",
+            slots = {"GK", "RB", "CB", "CB", "LB", "RM", "CM", "CDM", "CM", "LM", "ST"},
+        },
+        {
+            key = "diamond",
+            name = "菱形中场",
+            desc = "CDM+双CM+CAM，中路纵深",
+            slots = {"GK", "RB", "CB", "CB", "LB", "RM", "CDM", "CAM", "CM", "LM", "ST"},
+        },
+        {
+            key = "flat",
+            name = "五平中场",
+            desc = "无后腰全CM，纯平压制",
+            slots = {"GK", "RB", "CB", "CB", "LB", "RM", "CM", "CM", "CM", "LM", "ST"},
+        },
+    },
+}
+
+--- 获取指定阵型的默认变体key
+function Constants.getDefaultVariant(formation)
+    local variants = Constants.FORMATION_VARIANTS[formation]
+    if variants and variants[1] then
+        return variants[1].key
+    end
+    return "default"
+end
+
+--- 根据阵型和变体key查找变体数据
+function Constants.getVariant(formation, variantKey)
+    local variants = Constants.FORMATION_VARIANTS[formation]
+    if not variants then return nil end
+    for _, v in ipairs(variants) do
+        if v.key == variantKey then return v end
+    end
+    return variants[1] -- fallback到第一个
+end
+
 -- 位置
 Constants.POSITIONS = {
     GK = "GK",
@@ -101,6 +259,146 @@ Constants.POSITION_GROUPS = {
     MID = {"CM", "LM", "RM", "CDM", "CAM"},
     FWD = {"LW", "RW", "ST", "CF"}
 }
+
+-- 球员角色（每个位置的细分职责）
+-- 每个角色: key=标识, name=中文名, desc=描述, modifiers=属性加权修正
+-- posOffset = {dx, dy}: 球场视图站位偏移(百分比), dx=左右(正=右), dy=前后(正=前)
+Constants.POSITION_ROLES = {
+    GK = {
+        { key = "default",    name = "标准门将",   desc = "均衡扑救与出击" },
+        { key = "sweeper",    name = "出击门将",   desc = "积极出击，擅长脚下球",
+          modifiers = { speed = 1.2, passing = 1.3, positioning = 0.9 },
+          posOffset = {0, 4} },
+    },
+    CB = {
+        { key = "default",    name = "标准中卫",   desc = "均衡防守" },
+        { key = "ballPlaying", name = "出球中卫",  desc = "擅长长传转移，参与组织",
+          modifiers = { passing = 1.3, vision = 1.2, defending = 0.9 },
+          posOffset = {0, 3} },
+        { key = "stopper",    name = "盯人中卫",   desc = "激进抢断，硬度拉满",
+          modifiers = { tackling = 1.3, strength = 1.2, passing = 0.8 },
+          posOffset = {0, 4} },
+        { key = "sweeper",    name = "清道夫",     desc = "拖后补位，阅读比赛",
+          modifiers = { positioning = 1.3, decisions = 1.2, speed = 1.1, tackling = 0.9 },
+          posOffset = {0, -4} },
+    },
+    RB = {
+        { key = "default",    name = "标准边后卫", desc = "攻守均衡" },
+        { key = "wingBack",   name = "进攻翼卫",   desc = "频繁前插助攻",
+          modifiers = { speed = 1.2, dribbling = 1.2, stamina = 1.1, defending = 0.85 },
+          posOffset = {0, 10} },
+        { key = "defensive",  name = "防守型边后卫", desc = "专注防守，较少前插",
+          modifiers = { tackling = 1.2, positioning = 1.2, dribbling = 0.8 },
+          posOffset = {0, -3} },
+    },
+    LB = {
+        { key = "default",    name = "标准边后卫", desc = "攻守均衡" },
+        { key = "wingBack",   name = "进攻翼卫",   desc = "频繁前插助攻",
+          modifiers = { speed = 1.2, dribbling = 1.2, stamina = 1.1, defending = 0.85 },
+          posOffset = {0, 10} },
+        { key = "defensive",  name = "防守型边后卫", desc = "专注防守，较少前插",
+          modifiers = { tackling = 1.2, positioning = 1.2, dribbling = 0.8 },
+          posOffset = {0, -3} },
+    },
+    CDM = {
+        { key = "default",    name = "标准后腰",   desc = "屏障型防守中场" },
+        { key = "anchor",     name = "扫荡型后腰", desc = "站位稳固，拦截覆盖",
+          modifiers = { positioning = 1.3, tackling = 1.2, passing = 0.9 },
+          posOffset = {0, -4} },
+        { key = "deepLying",  name = "组织型后腰", desc = "拖后出球，节奏控制",
+          modifiers = { passing = 1.3, vision = 1.3, tackling = 0.85 },
+          posOffset = {0, 3} },
+    },
+    CM = {
+        { key = "default",    name = "标准中场",   desc = "攻守均衡" },
+        { key = "boxToBox",   name = "B2B中场",    desc = "大范围跑动，攻守兼备",
+          modifiers = { stamina = 1.3, speed = 1.1, tackling = 1.1, shooting = 1.1 },
+          posOffset = {0, 0} },
+        { key = "deepLying",  name = "深层组织者", desc = "拖后出球，控制节奏",
+          modifiers = { passing = 1.3, vision = 1.2, decisions = 1.1, speed = 0.9 },
+          posOffset = {0, -6} },
+        { key = "advanced",   name = "前插中场",   desc = "频繁插上，支援前场",
+          modifiers = { shooting = 1.2, composure = 1.2, speed = 1.1, defending = 0.8 },
+          posOffset = {0, 8} },
+    },
+    CAM = {
+        { key = "default",    name = "标准前腰",   desc = "创造力核心" },
+        { key = "shadow",     name = "影子前锋",   desc = "隐蔽跑位，致命一击",
+          modifiers = { shooting = 1.3, composure = 1.2, passing = 0.85 },
+          posOffset = {0, 7} },
+        { key = "playmaker",  name = "古典前腰",   desc = "持球组织，最后一传",
+          modifiers = { passing = 1.3, vision = 1.3, dribbling = 1.1, speed = 0.85 },
+          posOffset = {0, -4} },
+    },
+    RM = {
+        { key = "default",    name = "标准右中场", desc = "攻守兼备" },
+        { key = "winger",     name = "边路突击手", desc = "贴边快速突破",
+          modifiers = { speed = 1.3, dribbling = 1.2, defending = 0.8 },
+          posOffset = {4, 7} },
+        { key = "wide",       name = "宽幅中场",   desc = "拉边接应，传中为主",
+          modifiers = { passing = 1.2, stamina = 1.2, shooting = 0.85 },
+          posOffset = {5, 0} },
+    },
+    LM = {
+        { key = "default",    name = "标准左中场", desc = "攻守兼备" },
+        { key = "winger",     name = "边路突击手", desc = "贴边快速突破",
+          modifiers = { speed = 1.3, dribbling = 1.2, defending = 0.8 },
+          posOffset = {-4, 7} },
+        { key = "wide",       name = "宽幅中场",   desc = "拉边接应，传中为主",
+          modifiers = { passing = 1.2, stamina = 1.2, shooting = 0.85 },
+          posOffset = {-5, 0} },
+    },
+    RW = {
+        { key = "default",    name = "标准右边锋", desc = "突破与射门兼具" },
+        { key = "inverted",   name = "内切射手",   desc = "内切到中路射门",
+          modifiers = { shooting = 1.3, composure = 1.2, dribbling = 1.1, passing = 0.85 },
+          posOffset = {-8, -2} },
+        { key = "touchline",  name = "贴边边锋",   desc = "走外线传中",
+          modifiers = { speed = 1.3, passing = 1.2, shooting = 0.8 },
+          posOffset = {4, 0} },
+    },
+    LW = {
+        { key = "default",    name = "标准左边锋", desc = "突破与射门兼具" },
+        { key = "inverted",   name = "内切射手",   desc = "内切到中路射门",
+          modifiers = { shooting = 1.3, composure = 1.2, dribbling = 1.1, passing = 0.85 },
+          posOffset = {8, -2} },
+        { key = "touchline",  name = "贴边边锋",   desc = "走外线传中",
+          modifiers = { speed = 1.3, passing = 1.2, shooting = 0.8 },
+          posOffset = {-4, 0} },
+    },
+    ST = {
+        { key = "default",    name = "标准前锋",   desc = "全能射手" },
+        { key = "poacher",    name = "禁区猎手",   desc = "专注射门得分",
+          modifiers = { composure = 1.3, shooting = 1.2, passing = 0.7, defending = 0.5 },
+          posOffset = {0, 5} },
+        { key = "targetMan",  name = "支点前锋",   desc = "背身做球，策应队友",
+          modifiers = { strength = 1.3, heading = 1.2, passing = 1.1, speed = 0.85 },
+          posOffset = {0, -4} },
+        { key = "falseNine",  name = "伪九号",     desc = "回撤组织，拉扯空间",
+          modifiers = { passing = 1.3, vision = 1.2, dribbling = 1.1, shooting = 0.85 },
+          posOffset = {0, -10} },
+    },
+    CF = {
+        { key = "default",    name = "标准中锋",   desc = "禁区终结者" },
+        { key = "poacher",    name = "禁区猎手",   desc = "专注射门得分",
+          modifiers = { composure = 1.3, shooting = 1.2, passing = 0.7, defending = 0.5 },
+          posOffset = {0, 5} },
+        { key = "targetMan",  name = "支点前锋",   desc = "背身做球，策应队友",
+          modifiers = { strength = 1.3, heading = 1.2, passing = 1.1, speed = 0.85 },
+          posOffset = {0, -4} },
+    },
+}
+
+--- 根据位置和角色key查找角色数据
+function Constants.getPositionRole(position, roleKey)
+    local roles = Constants.POSITION_ROLES[position]
+    if not roles then return nil end
+    if not roleKey or roleKey == "default" then return roles[1] end
+    for _, r in ipairs(roles) do
+        if r.key == roleKey then return r end
+    end
+    return roles[1]
+end
 
 -- 职员角色
 Constants.STAFF_ROLES = {
@@ -129,20 +427,37 @@ Constants.MESSAGE_CATEGORIES = {
 Constants.MAX_SAVE_SLOTS = 3
 
 -- UI颜色主题 (RGBA 0-255数组格式)
+-- 设计语言：深蓝黑底 + 语义色高亮 + 层级区分
 Constants.COLORS = {
-    PRIMARY = {33, 150, 243, 255},
-    PRIMARY_DARK = {23, 120, 209, 255},
-    SECONDARY = {76, 175, 80, 255},
-    ACCENT = {255, 153, 0, 255},
-    DANGER = {229, 57, 53, 255},
-    WARNING = {255, 194, 8, 255},
-    BG_DARK = {18, 23, 38, 255},
-    BG_CARD = {28, 36, 56, 255},
-    BG_HEADER = {23, 28, 46, 255},
+    -- 品牌/主色
+    PRIMARY = {62, 166, 255, 255},       -- #3EA6FF 信息蓝
+    PRIMARY_DARK = {34, 128, 220, 255},
+    SECONDARY = {76, 175, 80, 255},      -- #4CAF50 财务绿/成功
+    ACCENT = {255, 176, 32, 255},        -- #FFB020 比赛橙/焦点
+
+    -- 语义色
+    MATCH_ORANGE = {255, 176, 32, 255},  -- #FFB020 比赛/赛事
+    FINANCE_GREEN = {76, 175, 80, 255},  -- #4CAF50 财务/收入/成功
+    DANGER = {255, 82, 82, 255},         -- #FF5252 危险/伤病/亏损
+    WARNING = {255, 194, 8, 255},        -- #FFC208 警告/注意
+    INFO_BLUE = {62, 166, 255, 255},     -- #3EA6FF 信息/普通
+
+    -- 背景层级（由深到浅）
+    BG_DARK = {11, 18, 32, 255},         -- #0B1220 最深底色
+    BG_CARD = {18, 26, 43, 255},         -- #121A2B 普通卡片
+    BG_CARD_ELEVATED = {24, 34, 56, 255},-- #182238 高亮卡片/Hero区
+    BG_HEADER = {14, 22, 38, 255},       -- #0E1626 导航栏
+    BG_SURFACE = {30, 40, 62, 255},      -- #1E283E 按钮/pill底色
+
+    -- 文字
     TEXT_PRIMARY = {255, 255, 255, 255},
     TEXT_SECONDARY = {179, 191, 217, 255},
     TEXT_MUTED = {115, 128, 153, 255},
-    BORDER = {51, 61, 89, 255},
+
+    -- 边框/分割
+    BORDER = {38, 50, 74, 255},          -- 更细微的分隔
+    BORDER_LIGHT = {51, 65, 95, 255},
+
     TRANSPARENT = {0, 0, 0, 0},
 }
 

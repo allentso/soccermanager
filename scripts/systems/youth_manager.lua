@@ -259,7 +259,8 @@ function YouthManager._generateYouthPlayer(gameState, youthDevBonus)
     local potential = math.min(99, basePotential + math.floor(youthDevBonus * 30))
 
     -- 当前能力（年轻球员偏低）
-    local overall = math.random(25, math.floor(potential * 0.5))
+    local overallCap = math.max(25, math.floor(potential * 0.5))
+    local overall = math.random(25, overallCap)
 
     -- 生成属性（基于 overall 和位置）
     local attributes = YouthManager._generateAttributes(position, overall)

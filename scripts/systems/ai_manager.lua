@@ -63,7 +63,7 @@ function AIManager._adjustSquad(gameState, team)
 
     -- 按位置分组，每个位置选最优
     local formation = team.formation or "4-4-2"
-    local slots = AIManager._getFormationSlots(formation)
+    local slots = AIManager._getFormationSlots(formation, team.formationVariant)
 
     local selected = {}
     local usedIds = {}
@@ -98,17 +98,17 @@ function AIManager._adjustSquad(gameState, team)
     team.startingXI = selected
 end
 
---- 获取阵型对应的位置槽位
-function AIManager._getFormationSlots(formation)
-    local formations = {
-        ["4-4-2"] = {"GK", "RB", "CB", "CB", "LB", "RM", "CM", "CM", "LM", "ST", "ST"},
-        ["4-3-3"] = {"GK", "RB", "CB", "CB", "LB", "CDM", "CM", "CM", "RW", "ST", "LW"},
-        ["3-5-2"] = {"GK", "CB", "CB", "CB", "RM", "CM", "CDM", "CM", "LM", "ST", "ST"},
-        ["4-2-3-1"] = {"GK", "RB", "CB", "CB", "LB", "CDM", "CDM", "CAM", "RW", "LW", "ST"},
-        ["4-5-1"] = {"GK", "RB", "CB", "CB", "LB", "RM", "CM", "CDM", "CM", "LM", "ST"},
-        ["5-3-2"] = {"GK", "RB", "CB", "CB", "CB", "LB", "CM", "CM", "CM", "ST", "ST"},
-    }
-    return formations[formation] or formations["4-4-2"]
+--- 获取阵型对应的位置槽位（支持变体）
+--- @param formation string 阵型名，如 "4-3-3"
+--- @param variantKey? string 变体key，如 "hold"/"attack"/"flat"，为nil时使用默认变体
+function AIManager._getFormationSlots(formation, variantKey)
+    local variant = Constants.getVariant(formation, variantKey)
+    if variant then
+        return variant.slots
+    end
+    -- 最终 fallback
+    local fallback = Constants.FORMATION_VARIANTS["4-4-2"]
+    return fallback and fallback[1].slots or {"GK", "RB", "CB", "CB", "LB", "RM", "CM", "CM", "LM", "ST", "ST"}
 end
 
 --- 计算球员在某位置上的适配得分
@@ -393,7 +393,7 @@ end
 --- 对每个槽位从全队中选择最佳匹配球员（首发优先加分，但允许替补替换不适配的首发）
 function AIManager.rearrangeForFormation(gameState, team)
     local formation = team.formation or "4-4-2"
-    local slots = AIManager._getFormationSlots(formation)
+    local slots = AIManager._getFormationSlots(formation, team.formationVariant)
     local oldXI = team.startingXI or {}
 
     -- 构建老首发 id 集合（用于加分）

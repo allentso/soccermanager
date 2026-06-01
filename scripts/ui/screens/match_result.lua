@@ -5,6 +5,7 @@ local UI = require("urhox-libs/UI")
 local Theme = require("scripts/ui/theme")
 local Router = require("scripts/app/router")
 local Constants = require("scripts/app/constants")
+local FinanceManager = require("scripts/systems/finance_manager")
 
 local MatchResult = {}
 
@@ -29,11 +30,20 @@ function MatchResult.create(params)
         }
     end
 
-    local homeTeam = gameState.teams[report.homeTeamId]
-    local awayTeam = gameState.teams[report.awayTeamId]
-    local homeName = homeTeam and homeTeam.name or "主队"
-    local awayName = awayTeam and awayTeam.name or "客队"
-    local isPlayerHome = report.homeTeamId == gameState.playerTeamId
+    local homeName, awayName, isPlayerHome
+    if fixture and fixture._isWC then
+        local WorldCup = require("scripts/systems/world_cup")
+        homeName = WorldCup._getNationName(report.homeTeamId)
+        awayName = WorldCup._getNationName(report.awayTeamId)
+        local playerNation = WorldCup._getPlayerNation(gameState)
+        isPlayerHome = report.homeTeamId == playerNation
+    else
+        local homeTeam = gameState.teams[report.homeTeamId]
+        local awayTeam = gameState.teams[report.awayTeamId]
+        homeName = homeTeam and homeTeam.name or "主队"
+        awayName = awayTeam and awayTeam.name or "客队"
+        isPlayerHome = report.homeTeamId == gameState.playerTeamId
+    end
     local playerWon = (isPlayerHome and report.homeGoals > report.awayGoals) or
                       (not isPlayerHome and report.awayGoals > report.homeGoals)
     local isDraw = report.homeGoals == report.awayGoals
@@ -43,7 +53,7 @@ function MatchResult.create(params)
     local resultText = isDraw and "平局" or (playerWon and "胜利!" or "失败")
 
     -- MOTM（全场最佳）
-    local motmSection = MatchResult._buildMOTM(report, gameState)
+    local motmSection = MatchResult._buildMOTM(report, gameState, fixture)
 
     -- 进球回顾
     local goalsSection = MatchResult._buildGoalsReview(report, gameState, homeName, awayName)
@@ -55,7 +65,7 @@ function MatchResult.create(params)
     local statsSection = MatchResult._buildStatsComparison(report, homeName, awayName)
 
     -- 球员评分
-    local ratingsSection = MatchResult._buildPlayerRatings(report, gameState)
+    local ratingsSection = MatchResult._buildPlayerRatings(report, gameState, fixture)
 
     return UI.Panel {
         width = "100%",
@@ -96,8 +106,15 @@ function MatchResult.create(params)
                         fontSize = 13,
                         color = Theme.COLORS.TEXT_PRIMARY,
                         onClick = function()
-                            if not report._pressConferenceDone and
-                               (report.homeTeamId == gameState.playerTeamId or report.awayTeamId == gameState.playerTeamId) then
+                            local isPlayerMatch = false
+                            if fixture and fixture._isWC then
+                                local WorldCup = require("scripts/systems/world_cup")
+                                local pn = WorldCup._getPlayerNation(gameState)
+                                isPlayerMatch = (report.homeTeamId == pn or report.awayTeamId == pn)
+                            else
+                                isPlayerMatch = (report.homeTeamId == gameState.playerTeamId or report.awayTeamId == gameState.playerTeamId)
+                            end
+                            if not report._pressConferenceDone and isPlayerMatch then
                                 Router.navigate("press_conference", { report = report, fixture = fixture })
                             else
                                 Router.navigate("dashboard")
@@ -159,6 +176,8 @@ function MatchResult.create(params)
                 scrollY = true,
                 padding = 14,
                 children = {
+                    -- 比赛日收入卡片（主场时显示）
+                    MatchResult._buildRevenueCard(report),
                     motmSection,
                     goalsSection,
                     statsSection,
@@ -173,7 +192,7 @@ end
 ---------------------------------------------------------------------------
 -- MOTM（全场最佳）
 ---------------------------------------------------------------------------
-function MatchResult._buildMOTM(report, gameState)
+function MatchResult._buildMOTM(report, gameState, fixture)
     if not report.playerRatings then return nil end
 
     -- 找评分最高的球员
@@ -199,8 +218,24 @@ function MatchResult._buildMOTM(report, gameState)
         end
     end
 
-    local team = gameState.teams[player.teamId]
-    local teamName = team and team.name or ""
+    local teamName = ""
+    if fixture and fixture._isWC then
+        local WorldCup = require("scripts/systems/world_cup")
+        -- MOTM 球员属于哪一方国家队
+        if player.teamId then
+            teamName = WorldCup._getNationName(report.homeTeamId)
+            -- 检查球员是否属于客队国家
+            local awayTeam = WorldCup.buildNationalTeam(gameState, report.awayTeamId)
+            if awayTeam then
+                for _, pid in ipairs(awayTeam.playerIds or {}) do
+                    if pid == bestId then teamName = WorldCup._getNationName(report.awayTeamId); break end
+                end
+            end
+        end
+    else
+        local team = gameState.teams[player.teamId]
+        teamName = team and team.name or ""
+    end
 
     local perfText = ""
     if goals > 0 and assists > 0 then
@@ -574,17 +609,34 @@ end
 ---------------------------------------------------------------------------
 -- 球员评分
 ---------------------------------------------------------------------------
-function MatchResult._buildPlayerRatings(report, gameState)
+function MatchResult._buildPlayerRatings(report, gameState, fixture)
     if not report.playerRatings then return nil end
 
-    local playerTeam = gameState:getPlayerTeam()
-    if not playerTeam then return nil end
+    -- 确定玩家方的球员ID集合
+    local playerPidSet = nil
+    if fixture and fixture._isWC then
+        local WorldCup = require("scripts/systems/world_cup")
+        local playerNation = WorldCup._getPlayerNation(gameState)
+        local natTeam = WorldCup.buildNationalTeam(gameState, playerNation)
+        if not natTeam then return nil end
+        playerPidSet = {}
+        for _, pid in ipairs(natTeam.playerIds or {}) do playerPidSet[pid] = true end
+    else
+        local playerTeam = gameState:getPlayerTeam()
+        if not playerTeam then return nil end
+    end
 
     local ratedPlayers = {}
     -- 收集玩家球队出场球员的评分
     for pid, rating in pairs(report.playerRatings) do
         local p = gameState.players[pid]
-        if p and p.teamId == gameState.playerTeamId then
+        local belongs = false
+        if playerPidSet then
+            belongs = playerPidSet[pid] ~= nil
+        else
+            belongs = p and p.teamId == gameState.playerTeamId
+        end
+        if p and belongs then
             table.insert(ratedPlayers, { player = p, rating = rating })
         end
     end
@@ -679,6 +731,158 @@ function MatchResult._buildPlayerRatings(report, gameState)
         children = {
             Theme.Subtitle { text = "我方球员评分" },
             UI.Panel { width = "100%", marginTop = 4, children = rows },
+        }
+    }
+end
+
+---------------------------------------------------------------------------
+-- 比赛日收入卡片（主场时显示票房明细）
+---------------------------------------------------------------------------
+function MatchResult._buildRevenueCard(report)
+    local rev = report.matchDayRevenue
+    if not rev then return nil end
+
+    -- 格式化金额
+    local function fmtMoney(amount)
+        return FinanceManager.formatMoney(amount)
+    end
+
+    -- 上座率颜色
+    local attPct = math.floor(rev.attendanceRate * 100)
+    local attColor = attPct >= 85 and Theme.COLORS.SECONDARY
+        or (attPct >= 70 and Theme.COLORS.WARNING or Theme.COLORS.DANGER)
+
+    -- 对比上场
+    local compareSection = nil
+    if rev.lastRevenue and rev.lastRevenue > 0 then
+        local diff = rev.revenue - rev.lastRevenue
+        local diffPct = math.floor(diff / rev.lastRevenue * 100)
+        local isUp = diff >= 0
+        compareSection = UI.Panel {
+            flexDirection = "row",
+            alignItems = "center",
+            marginTop = 6,
+            paddingLeft = 8, paddingRight = 8,
+            paddingTop = 4, paddingBottom = 4,
+            backgroundColor = isUp and {60, 180, 100, 20} or {220, 80, 60, 20},
+            borderRadius = 6,
+            children = {
+                UI.Label {
+                    text = isUp and "+" .. diffPct .. "%" or diffPct .. "%",
+                    fontSize = 12,
+                    fontWeight = "bold",
+                    color = isUp and Theme.COLORS.SECONDARY or Theme.COLORS.DANGER,
+                },
+                UI.Label {
+                    text = "  vs 上一主场",
+                    fontSize = 11,
+                    color = Theme.COLORS.TEXT_MUTED,
+                },
+            }
+        }
+    end
+
+    return Theme.Card {
+        children = {
+            -- 标题行
+            UI.Panel {
+                flexDirection = "row",
+                alignItems = "center",
+                children = {
+                    UI.Label {
+                        text = "比赛日收入",
+                        fontSize = 15,
+                        fontWeight = "bold",
+                        color = Theme.COLORS.TEXT_PRIMARY,
+                        flexGrow = 1,
+                    },
+                    UI.Panel {
+                        paddingLeft = 8, paddingRight = 8,
+                        paddingTop = 3, paddingBottom = 3,
+                        backgroundColor = {72, 160, 220, 30},
+                        borderRadius = 10,
+                        children = {
+                            UI.Label {
+                                text = rev.strategy,
+                                fontSize = 10,
+                                color = {72, 160, 220, 255},
+                            },
+                        }
+                    },
+                }
+            },
+            -- 大字金额
+            UI.Label {
+                text = fmtMoney(rev.revenue),
+                fontSize = 26,
+                fontWeight = "bold",
+                color = Theme.COLORS.SECONDARY,
+                marginTop = 4,
+            },
+            -- 对比上一场
+            compareSection,
+            -- 分隔
+            UI.Panel { width = "100%", height = 1, backgroundColor = Theme.COLORS.BORDER, marginTop = 10, marginBottom = 10 },
+            -- 详情行
+            UI.Panel {
+                width = "100%",
+                children = {
+                    -- 上座率
+                    UI.Panel {
+                        width = "100%", flexDirection = "row", alignItems = "center", marginBottom = 8,
+                        children = {
+                            UI.Label { text = "上座率", fontSize = 12, color = Theme.COLORS.TEXT_MUTED, width = 60 },
+                            UI.Panel {
+                                flexGrow = 1, height = 14, backgroundColor = {38, 46, 71, 255},
+                                borderRadius = 7, overflow = "hidden", marginLeft = 8, marginRight = 8,
+                                children = {
+                                    UI.Panel {
+                                        width = attPct .. "%", height = "100%",
+                                        backgroundColor = attColor, borderRadius = 7,
+                                    },
+                                }
+                            },
+                            UI.Label {
+                                text = attPct .. "%",
+                                fontSize = 12, fontWeight = "bold", color = attColor, width = 36,
+                            },
+                        }
+                    },
+                    -- 入场人数
+                    UI.Panel {
+                        width = "100%", flexDirection = "row", marginBottom = 4,
+                        children = {
+                            UI.Label { text = "入场人数", fontSize = 12, color = Theme.COLORS.TEXT_MUTED, flexGrow = 1 },
+                            UI.Label {
+                                text = string.format("%d / %d", rev.attendance, rev.capacity),
+                                fontSize = 12, color = Theme.COLORS.TEXT_PRIMARY,
+                            },
+                        }
+                    },
+                    -- 票价
+                    UI.Panel {
+                        width = "100%", flexDirection = "row", marginBottom = 4,
+                        children = {
+                            UI.Label { text = "票价", fontSize = 12, color = Theme.COLORS.TEXT_MUTED, flexGrow = 1 },
+                            UI.Label {
+                                text = string.format("%d/张", rev.ticketPrice),
+                                fontSize = 12, color = Theme.COLORS.TEXT_PRIMARY,
+                            },
+                        }
+                    },
+                    -- 对手热度
+                    UI.Panel {
+                        width = "100%", flexDirection = "row",
+                        children = {
+                            UI.Label { text = "对手热度", fontSize = 12, color = Theme.COLORS.TEXT_MUTED, flexGrow = 1 },
+                            UI.Label {
+                                text = rev.opponentName .. " (声望" .. rev.opponentRep .. ")",
+                                fontSize = 12, color = Theme.COLORS.TEXT_SECONDARY,
+                            },
+                        }
+                    },
+                }
+            },
         }
     }
 end

@@ -80,6 +80,65 @@ function MatchSession.new(gameState, fixture)
     return self
 end
 
+--- 创建世界杯比赛会话（国家队虚拟对象）
+---@param gameState table
+---@param fixture table
+---@return MatchSession|nil
+function MatchSession.newWC(gameState, fixture)
+    local WorldCup = require("scripts/systems/world_cup")
+
+    -- 用 WorldCup 构建虚拟国家队对象
+    local homeTeam = WorldCup.buildNationalTeam(gameState, fixture.homeTeamId)
+    local awayTeam = WorldCup.buildNationalTeam(gameState, fixture.awayTeamId)
+    if not homeTeam or not awayTeam then return nil end
+
+    local homeContext = TacticsResolver.buildTeamContext(gameState, homeTeam)
+    local awayContext = TacticsResolver.buildTeamContext(gameState, awayTeam)
+    if #homeContext.players == 0 or #awayContext.players == 0 then return nil end
+
+    local self = setmetatable({}, MatchSession)
+
+    self.gameState = gameState
+    self.fixture = fixture
+    self.homeContext = homeContext
+    self.awayContext = awayContext
+    self._isWC = true
+    self._wcHomeTeam = homeTeam
+    self._wcAwayTeam = awayTeam
+
+    -- 比赛状态
+    self.phase = MatchSession.PHASE.PRE_KICK_OFF
+    self.currentMinute = 0
+    self.events = {}
+
+    -- 比分 & 统计
+    self.homeGoals = 0
+    self.awayGoals = 0
+    self.homeShots = 0
+    self.awayShots = 0
+    self.homeShotsOnTarget = 0
+    self.awayShotsOnTarget = 0
+    self.homeFouls = 0
+    self.awayFouls = 0
+    self.homePossessionTicks = 0
+    self.totalPossessionTicks = 0
+
+    -- 换人和战术记录（玩家国家队）
+    self.substitutions = {}
+    self.subsRemaining = 3
+    self.tacticalInstruction = "balanced"
+
+    -- 替补名单（玩家国家队的替补）
+    local playerNation = WorldCup._getPlayerNation(gameState)
+    local playerTeam = (fixture.homeTeamId == playerNation) and homeTeam or awayTeam
+    self.bench = self:_buildWCBench(gameState, playerTeam)
+
+    -- 跟踪被换下的球员
+    self.removedPlayerIds = { home = {}, away = {} }
+
+    return self
+end
+
 --- 构建替补名单（玩家球队）
 function MatchSession:_buildBench(gameState, homeTeam, awayTeam)
     local playerTeamId = gameState.playerTeamId
@@ -105,6 +164,32 @@ function MatchSession:_buildBench(gameState, homeTeam, awayTeam)
     -- 最多7名替补
     local result = {}
     for i = 1, math.min(7, #bench) do
+        table.insert(result, bench[i])
+    end
+    return result
+end
+
+--- 构建世界杯替补名单（国家队）
+function MatchSession:_buildWCBench(gameState, nationalTeam)
+    local bench = {}
+    local startingSet = {}
+    if nationalTeam.startingXI then
+        for _, pid in ipairs(nationalTeam.startingXI) do
+            startingSet[pid] = true
+        end
+    end
+
+    for _, pid in ipairs(nationalTeam.playerIds or {}) do
+        local p = gameState.players[pid]
+        if p and not p.injured and not p.retired and not startingSet[p.id] then
+            table.insert(bench, p)
+        end
+    end
+    table.sort(bench, function(a, b) return (a.overall or 0) > (b.overall or 0) end)
+
+    -- 最多12名替补
+    local result = {}
+    for i = 1, math.min(12, #bench) do
         table.insert(result, bench[i])
     end
     return result
@@ -308,6 +393,21 @@ function MatchSession:_applySubstitution(command)
     end
     table.insert(context.players, onPlayer)
 
+    -- 同步更新 team.startingXI（确保 recalculate 时角色映射正确）
+    local team = context.team
+    if team and team.startingXI then
+        for i, pid in ipairs(team.startingXI) do
+            if pid == offPlayerId then
+                team.startingXI[i] = onPlayerId
+                -- 换人后重置该槽位角色为默认（替补球员角色需要重新设定）
+                if team.slotRoles then
+                    team.slotRoles[i] = nil
+                end
+                break
+            end
+        end
+    end
+
     -- 重新计算 context 的聚合值
     self:_recalculateContext(context, side)
 
@@ -380,7 +480,12 @@ function MatchSession:_applyFormationChange(command)
     end
 
     local team = context.team
-    if team then team.formation = newFormation end
+    if team then
+        team.formation = newFormation
+        -- 切阵型时重置变体为新阵型默认变体
+        local Constants = require("scripts/app/constants")
+        team.formationVariant = Constants.getDefaultVariant(newFormation)
+    end
 
     local side = teamId == self.fixture.homeTeamId and "home" or "away"
     self:_recalculateContext(context, side)
@@ -435,6 +540,7 @@ function MatchSession:_applyInstructionChange(command)
 end
 
 --- 重新计算 context 聚合属性（换人/战术变更后）
+--- 采用渐变混合：30% 新值 + 70% 旧值，避免战术变更导致数值突变
 function MatchSession:_recalculateContext(context, side)
     local team = context.team
     if not team then return end
@@ -444,18 +550,28 @@ function MatchSession:_recalculateContext(context, side)
     -- 但保持当前场上球员（可能已被换人修改）
     newCtx.players = context.players
 
-    -- 复制聚合值
-    context.attack = newCtx.attack
-    context.defense = newCtx.defense
-    context.possession = newCtx.possession
-    context.tempo = newCtx.tempo
-    context.press = newCtx.press
-    context.foulRate = newCtx.foulRate
-    context.injuryRisk = newCtx.injuryRisk
-    context.shotQuality = newCtx.shotQuality
-    context.aerial = newCtx.aerial
-    context.counter = newCtx.counter
-    context.chemistry = newCtx.chemistry
+    -- 渐变混合比例：30% 新值，70% 旧值（模拟球员需要时间适应新指令）
+    local BLEND_NEW = 0.30
+    local BLEND_OLD = 1.0 - BLEND_NEW
+
+    local function blend(oldVal, newVal)
+        if not oldVal then return newVal end
+        if not newVal then return oldVal end
+        return oldVal * BLEND_OLD + newVal * BLEND_NEW
+    end
+
+    context.attack = blend(context.attack, newCtx.attack)
+    context.defense = blend(context.defense, newCtx.defense)
+    context.possession = blend(context.possession, newCtx.possession)
+    context.tempo = blend(context.tempo, newCtx.tempo)
+    context.press = blend(context.press, newCtx.press)
+    context.foulRate = blend(context.foulRate, newCtx.foulRate)
+    context.injuryRisk = blend(context.injuryRisk, newCtx.injuryRisk)
+    context.shotQuality = blend(context.shotQuality, newCtx.shotQuality)
+    context.aerial = blend(context.aerial, newCtx.aerial)
+    context.counter = blend(context.counter, newCtx.counter)
+    context.chemistry = blend(context.chemistry, newCtx.chemistry)
+    context.averageOverall = blend(context.averageOverall, newCtx.averageOverall)
 
     -- 应用战术指示修正
     if context._instructionMod then

@@ -1,6 +1,8 @@
 -- match/tactics_resolver.lua
 -- Pure tactical calculations shared by the match engine and tests.
 
+local Constants = require("scripts/app/constants")
+
 local TacticsResolver = {}
 
 TacticsResolver.ATTACK_MODES = {
@@ -12,12 +14,44 @@ TacticsResolver.ATTACK_MODES = {
 }
 
 local STYLE_MODIFIERS = {
-    Balanced = { attack = 1.0, defense = 1.0, possession = 1.0, tempo = 1.0, press = 1.0, foul = 1.0 },
-    Attacking = { attack = 1.14, defense = 0.93, possession = 1.03, tempo = 1.08, press = 1.04, foul = 1.03 },
-    Defensive = { attack = 0.88, defense = 1.14, possession = 0.94, tempo = 0.92, press = 0.95, foul = 1.08 },
-    Possession = { attack = 0.98, defense = 1.04, possession = 1.16, tempo = 0.9, press = 0.97, foul = 0.92 },
-    Counter = { attack = 1.04, defense = 1.02, possession = 0.9, tempo = 1.12, press = 0.96, foul = 1.0, counter = 1.12 },
-    HighPress = { attack = 1.08, defense = 0.97, possession = 1.06, tempo = 1.14, press = 1.18, foul = 1.12, injury = 1.08 },
+    Balanced   = { attack = 1.0,  defense = 1.0,  possession = 1.0,  tempo = 1.0,  press = 1.0,  foul = 1.0,  staminaDrain = 1.0,  injury = 1.0 },
+    Attacking  = { attack = 1.14, defense = 0.93, possession = 1.03, tempo = 1.08, press = 1.04, foul = 1.03, staminaDrain = 1.08, injury = 1.0 },
+    Defensive  = { attack = 0.88, defense = 1.14, possession = 0.94, tempo = 0.92, press = 0.95, foul = 1.08, staminaDrain = 0.82, injury = 0.92 },
+    Possession = { attack = 0.98, defense = 1.04, possession = 1.16, tempo = 0.9,  press = 0.97, foul = 0.92, staminaDrain = 0.88, injury = 0.95 },
+    Counter    = { attack = 1.04, defense = 1.02, possession = 0.9,  tempo = 1.12, press = 0.96, foul = 1.0,  staminaDrain = 1.05, injury = 1.0,  counter = 1.12 },
+    HighPress  = { attack = 1.08, defense = 0.97, possession = 1.06, tempo = 1.14, press = 1.18, foul = 1.12, staminaDrain = 1.22, injury = 1.08 },
+}
+
+--- 获取指定风格的修正系数表（公开方法，供外部快速读取 staminaDrain 等字段）
+function TacticsResolver.getStyleModifiers(styleName)
+    return STYLE_MODIFIERS[styleName] or STYLE_MODIFIERS.Balanced
+end
+
+-- 赛后体力消耗基准（位置组 → {min, max}）
+TacticsResolver.POSITION_STAMINA_DRAIN = {
+    GK  = { 8, 12 },
+    DEF = { 14, 20 },
+    MID = { 18, 26 },
+    FWD = { 15, 22 },
+}
+
+-- 风格×位置协同加成 (对特定位置组产生额外乘数)
+local STYLE_POSITION_SYNERGY = {
+    Attacking  = { FWD = { attack = 1.08 } },
+    Defensive  = { DEF = { defense = 1.06 } },
+    Possession = { MID = { possession = 1.10 } },
+    Counter    = { FWD = { attack = 1.06 } },  -- 快速前锋在 buildTeamContext 中额外判断 speed
+    HighPress  = { MID = { press = 1.08 } },   -- 高耐力中场在 buildTeamContext 中额外判断
+}
+
+-- 阵型-风格兼容度 (formation defCount → style → multiplier)
+local FORMATION_STYLE_SYNERGY = {
+    -- { defCount条件, style, 维度, 乘数 }
+    { cond = function(d) return d >= 5 end, style = "Counter",    dim = "counter",    mul = 1.05 },
+    { cond = function(d) return d >= 5 end, style = "HighPress",  dim = "press",      mul = 0.95 },
+    { cond = function(d) return d >= 5 end, style = "Possession", dim = "possession", mul = 1.03 },
+    { cond = function(d) return d <= 3 end, style = "Defensive",  dim = "defense",    mul = 0.96 },
+    { cond = function(d) return d <= 3 end, style = "Attacking",  dim = "attack",     mul = 1.04 },
 }
 
 local DUTIES = {
@@ -35,6 +69,15 @@ end
 local function attr(player, key, fallback)
     local attributes = player.attributes or {}
     return attributes[key] or fallback or 10
+end
+
+--- 获取带角色修正的属性值
+local function roleAttr(player, key, modifiers, fallback)
+    local base = attr(player, key, fallback)
+    if modifiers and modifiers[key] then
+        return base * modifiers[key]
+    end
+    return base
 end
 
 local function hasTrait(player, traitId)
@@ -130,9 +173,27 @@ function TacticsResolver.buildTeamContext(gameState, team)
     local aerial = 0
     local counts = { GK = 0, DEF = 0, MID = 0, FWD = 0 }
 
+    -- 角色修正：根据 slotRoles 获取每个槽位的 modifiers
+    local slotRoles = team.slotRoles or {}
+    local startingXI = team.startingXI or {}
+
+    -- 建立 playerId -> slotIndex 映射
+    local playerSlotIndex = {}
+    for i, pid in ipairs(startingXI) do
+        playerSlotIndex[pid] = i
+    end
+
     for _, player in ipairs(players) do
         local group = positionGroup(player.position)
         counts[group] = counts[group] + 1
+
+        -- 查找该球员的角色修正系数
+        local mods = nil
+        local slotIdx = playerSlotIndex[player.id]
+        if slotIdx and slotRoles[slotIdx] then
+            local role = Constants.getPositionRole(player.position, slotRoles[slotIdx])
+            if role then mods = role.modifiers end
+        end
 
         local fitnessMul = clamp((player.fitness or 80) / 100, 0.45, 1.05)
         local moraleMul = clamp(0.82 + ((player.morale or 60) / 100) * 0.28, 0.82, 1.1)
@@ -141,20 +202,20 @@ function TacticsResolver.buildTeamContext(gameState, team)
         local playerAttack = 0
         local playerDefense = 0
         if group == "GK" then
-            playerDefense = attr(player, "reflexes", 5) * 2.4 + attr(player, "handling", 5) * 1.8 + attr(player, "positioning") * 1.0
-            possession = possession + attr(player, "passing") * 0.35 + attr(player, "decisions") * 0.3
+            playerDefense = roleAttr(player, "reflexes", mods, 5) * 2.4 + roleAttr(player, "handling", mods, 5) * 1.8 + roleAttr(player, "positioning", mods) * 1.0
+            possession = possession + roleAttr(player, "passing", mods) * 0.35 + roleAttr(player, "decisions", mods) * 0.3
         elseif group == "DEF" then
-            playerAttack = attr(player, "passing") * 0.55 + attr(player, "aerial") * 0.25
-            playerDefense = attr(player, "defending") * 2.0 + attr(player, "tackling") * 1.4 + attr(player, "positioning") * 1.1
-            possession = possession + attr(player, "passing") * 0.75 + attr(player, "decisions") * 0.55
+            playerAttack = roleAttr(player, "passing", mods) * 0.55 + roleAttr(player, "aerial", mods) * 0.25
+            playerDefense = roleAttr(player, "defending", mods) * 2.0 + roleAttr(player, "tackling", mods) * 1.4 + roleAttr(player, "positioning", mods) * 1.1
+            possession = possession + roleAttr(player, "passing", mods) * 0.75 + roleAttr(player, "decisions", mods) * 0.55
         elseif group == "MID" then
-            playerAttack = attr(player, "passing") * 1.15 + attr(player, "vision") * 1.0 + attr(player, "shooting") * 0.55
-            playerDefense = attr(player, "tackling") * 0.9 + attr(player, "positioning") * 0.75 + attr(player, "teamwork") * 0.45
-            possession = possession + attr(player, "passing") * 1.2 + attr(player, "vision") * 0.95 + attr(player, "decisions") * 0.85
+            playerAttack = roleAttr(player, "passing", mods) * 1.15 + roleAttr(player, "vision", mods) * 1.0 + roleAttr(player, "shooting", mods) * 0.55
+            playerDefense = roleAttr(player, "tackling", mods) * 0.9 + roleAttr(player, "positioning", mods) * 0.75 + roleAttr(player, "teamwork", mods) * 0.45
+            possession = possession + roleAttr(player, "passing", mods) * 1.2 + roleAttr(player, "vision", mods) * 0.95 + roleAttr(player, "decisions", mods) * 0.85
         else
-            playerAttack = attr(player, "shooting") * 1.65 + attr(player, "dribbling") * 0.9 + attr(player, "positioning") * 1.0
-            playerDefense = attr(player, "teamwork") * 0.35 + attr(player, "aggression") * 0.25
-            possession = possession + attr(player, "dribbling") * 0.8 + attr(player, "passing") * 0.65
+            playerAttack = roleAttr(player, "shooting", mods) * 1.65 + roleAttr(player, "dribbling", mods) * 0.9 + roleAttr(player, "positioning", mods) * 1.0
+            playerDefense = roleAttr(player, "teamwork", mods) * 0.35 + roleAttr(player, "aggression", mods) * 0.25
+            possession = possession + roleAttr(player, "dribbling", mods) * 0.8 + roleAttr(player, "passing", mods) * 0.65
         end
 
         if hasTrait(player, "clinical") or hasTrait(player, "poacher") then shotQuality = shotQuality + 1.5 end
@@ -163,13 +224,34 @@ function TacticsResolver.buildTeamContext(gameState, team)
         if hasTrait(player, "aerial_threat") then aerial = aerial + 1.5 end
         if hasTrait(player, "engine") then stamina = stamina + 2.0 end
 
-        attack = attack + playerAttack * fitnessMul * moraleMul * duty.attack
-        defense = defense + playerDefense * fitnessMul * moraleMul * duty.defense
-        discipline = discipline + (21 - attr(player, "aggression")) + attr(player, "decisions") * 0.45
-        stamina = stamina + attr(player, "stamina") * fitnessMul
+        -- 风格×位置协同加成
+        local synergy = STYLE_POSITION_SYNERGY[style]
+        local groupSynergy = synergy and synergy[group]
+        local synergyAttack = 1.0
+        local synergyDefense = 1.0
+        if groupSynergy then
+            synergyAttack = groupSynergy.attack or 1.0
+            synergyDefense = groupSynergy.defense or 1.0
+            if groupSynergy.possession then
+                possession = possession + playerAttack * 0.08  -- 间接提升控球贡献
+            end
+        end
+        -- Counter 特殊：快速前锋额外加成
+        if style == "Counter" and group == "FWD" and attr(player, "speed") >= 14 then
+            synergyAttack = synergyAttack + 0.04
+        end
+        -- HighPress 特殊：高耐力中场额外加成
+        if style == "HighPress" and group == "MID" and attr(player, "stamina") >= 14 then
+            synergyAttack = synergyAttack + 0.03
+        end
+
+        attack = attack + playerAttack * fitnessMul * moraleMul * duty.attack * synergyAttack
+        defense = defense + playerDefense * fitnessMul * moraleMul * duty.defense * synergyDefense
+        discipline = discipline + (21 - roleAttr(player, "aggression", mods)) + roleAttr(player, "decisions", mods) * 0.45
+        stamina = stamina + roleAttr(player, "stamina", mods) * fitnessMul
         morale = morale + (player.morale or 60)
-        shotQuality = shotQuality + attr(player, "composure") * 0.35 + attr(player, "shooting") * 0.25
-        aerial = aerial + attr(player, "aerial") * 0.25
+        shotQuality = shotQuality + roleAttr(player, "composure", mods) * 0.35 + roleAttr(player, "shooting", mods) * 0.25
+        aerial = aerial + roleAttr(player, "aerial", mods) * 0.25
     end
 
     local playerCount = math.max(1, #players)
@@ -191,6 +273,31 @@ function TacticsResolver.buildTeamContext(gameState, team)
     for _, player in ipairs(players) do avgFitness = avgFitness + (player.fitness or 80) end
     avgFitness = avgFitness / playerCount
 
+    local finalAttack = math.max(1, attack / 10 * styleMod.attack * (modeMod.attack or 1.0) * formationAttack * chemistry)
+    local finalDefense = math.max(1, defense / 10 * styleMod.defense * formationDefense * chemistry)
+    local finalPossession = math.max(1, possession / 10 * styleMod.possession * (modeMod.possession or 1.0) * chemistry)
+    local finalPress = clamp(styleMod.press or 1.0, 0.75, 1.35)
+
+    -- 阵型-风格兼容度修正
+    for _, rule in ipairs(FORMATION_STYLE_SYNERGY) do
+        if rule.style == style and rule.cond(defenderCount) then
+            if rule.dim == "attack" then finalAttack = finalAttack * rule.mul
+            elseif rule.dim == "defense" then finalDefense = finalDefense * rule.mul
+            elseif rule.dim == "possession" then finalPossession = finalPossession * rule.mul
+            elseif rule.dim == "counter" then -- applied below
+            elseif rule.dim == "press" then finalPress = finalPress * rule.mul
+            end
+        end
+    end
+
+    -- 阵型-风格 counter 修正
+    local finalCounter = styleMod.counter or 1.0
+    for _, rule in ipairs(FORMATION_STYLE_SYNERGY) do
+        if rule.style == style and rule.dim == "counter" and rule.cond(defenderCount) then
+            finalCounter = finalCounter * rule.mul
+        end
+    end
+
     return {
         team = team,
         players = players,
@@ -200,16 +307,20 @@ function TacticsResolver.buildTeamContext(gameState, team)
         chemistry = chemistry,
         avgFitness = avgFitness,
         avgMorale = morale / playerCount,
-        attack = math.max(1, attack / 10 * styleMod.attack * (modeMod.attack or 1.0) * formationAttack * chemistry),
-        defense = math.max(1, defense / 10 * styleMod.defense * formationDefense * chemistry),
-        possession = math.max(1, possession / 10 * styleMod.possession * (modeMod.possession or 1.0) * chemistry),
+        avgStamina = stamina / playerCount,
+        attack = finalAttack,
+        defense = finalDefense,
+        possession = finalPossession,
+        -- averageOverall: 综合战力评分，供 match_engine 使用（取代硬编码 70）
+        averageOverall = (finalAttack + finalDefense + finalPossession) / 3,
         tempo = clamp(styleMod.tempo * (modeMod.tempo or 1.0), 0.75, 1.35),
-        press = clamp(styleMod.press or 1.0, 0.75, 1.35),
+        press = finalPress,
         foulRate = clamp((styleMod.foul or 1.0) * (100 / math.max(30, discipline / playerCount * 8)), 0.65, 1.55),
         injuryRisk = clamp((styleMod.injury or 1.0) * (avgFitness < 65 and 1.25 or 1.0), 0.8, 1.55),
+        staminaDrain = styleMod.staminaDrain or 1.0,
         shotQuality = math.max(1, shotQuality / playerCount * (modeMod.shotQuality or 1.0)),
         aerial = math.max(1, aerial / playerCount * (modeMod.aerial or 1.0)),
-        counter = styleMod.counter or 1.0,
+        counter = finalCounter,
     }
 end
 

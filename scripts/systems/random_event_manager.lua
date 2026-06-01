@@ -3,6 +3,7 @@
 
 local MessageManager = require("scripts/systems/message_manager")
 local EventBus = require("scripts/app/event_bus")
+local Constants = require("scripts/app/constants")
 
 local RandomEventManager = {}
 
@@ -95,7 +96,7 @@ local EVENT_POOL = {
             for _, pid in ipairs(team.playerIds) do
                 local p = gs.players[pid]
                 if p then
-                    p.morale = math.min(100, (p.morale or 60) + math.random(3, 8))
+                    p.morale = Constants.clampMorale((p.morale or 60) + math.random(3, 8))
                 end
             end
             return {
@@ -125,8 +126,8 @@ local EVENT_POOL = {
             while p2.id == p1.id do
                 p2 = eligible[math.random(1, #eligible)]
             end
-            p1.morale = math.max(0, (p1.morale or 60) - math.random(5, 12))
-            p2.morale = math.max(0, (p2.morale or 60) - math.random(5, 12))
+            p1.morale = Constants.clampMorale((p1.morale or 60) - math.random(5, 12))
+            p2.morale = Constants.clampMorale((p2.morale or 60) - math.random(5, 12))
             return {
                 title = "更衣室矛盾",
                 body = string.format("%s 和 %s 在更衣室发生了冲突，双方士气下降。",

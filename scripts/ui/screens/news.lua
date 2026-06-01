@@ -1,5 +1,6 @@
 -- ui/screens/news.lua
 -- 新闻页面 - 联赛动态、比赛报道、转会传闻、伤病、人事变动
+-- 设计：语义色分类 / 未读突出 / 相关性高亮
 
 local UI = require("urhox-libs/UI")
 local Theme = require("scripts/ui/theme")
@@ -7,7 +8,7 @@ local Router = require("scripts/app/router")
 
 local News = {}
 
--- 新闻分类标签（扩展：增加伤病、人事、里程碑）
+-- 新闻分类标签
 local NEWS_CATEGORIES = {
     { key = "all",       label = "全部" },
     { key = "match",     label = "比赛" },
@@ -17,16 +18,28 @@ local NEWS_CATEGORIES = {
     { key = "personnel", label = "人事" },
 }
 
--- 分类颜色
+-- 分类颜色（使用语义色系统）
 local CAT_COLORS = {
-    match_report  = {33, 150, 243, 255},
-    transfer_news = {255, 153, 0, 255},
-    league_news   = {76, 175, 80, 255},
+    match_report  = Theme.COLORS.INFO_BLUE,
+    transfer_news = Theme.COLORS.MATCH_ORANGE,
+    league_news   = Theme.COLORS.FINANCE_GREEN,
     weekly_report = {156, 39, 176, 255},
     season_news   = {0, 188, 212, 255},
-    injury_news   = {244, 67, 54, 255},
+    injury_news   = Theme.COLORS.DANGER,
     manager_news  = {121, 85, 72, 255},
-    milestone     = {255, 215, 0, 255},
+    milestone     = Theme.COLORS.WARNING,
+}
+
+-- 分类图标前缀（用 emoji 替代，增加视觉辨识）
+local CAT_ICONS = {
+    match_report  = "⚽",
+    transfer_news = "🔄",
+    league_news   = "🏆",
+    weekly_report = "📊",
+    season_news   = "📅",
+    injury_news   = "🏥",
+    manager_news  = "👔",
+    milestone     = "⭐",
 }
 
 -- 分类到tab映射
@@ -73,13 +86,11 @@ end
 ------------------------------------------------------
 -- 新闻排序：未读优先 → 日期新优先
 ------------------------------------------------------
-local function sortNews(list, gameState)
+local function sortNews(list)
     table.sort(list, function(a, b)
-        -- 未读优先
         if (not a.read) ~= (not b.read) then
             return not a.read
         end
-        -- 日期新的在前（比较日期 table）
         if a.date and b.date then
             if a.date.year ~= b.date.year then return a.date.year > b.date.year end
             if a.date.month ~= b.date.month then return a.date.month > b.date.month end
@@ -149,7 +160,7 @@ function News.create(params)
     end
 
     -- 排序：未读在前，日期新的在前
-    sortNews(filteredNews, gameState)
+    sortNews(filteredNews)
 
     -- 构建标签按钮（带未读计数徽章）
     local tabButtons = {}
@@ -157,21 +168,21 @@ function News.create(params)
         local isActive = cat.key == currentTab
         local unreadN = unreadCounts[cat.key] or 0
 
-        -- 标签文本（有未读数时显示）
         local labelText = cat.label
         if unreadN > 0 and cat.key ~= "all" then
-            labelText = cat.label .. "(" .. unreadN .. ")"
+            labelText = cat.label .. " " .. unreadN
         end
 
         table.insert(tabButtons, UI.Button {
             text = labelText,
-            height = 34,
-            paddingLeft = 10,
-            paddingRight = 10,
-            backgroundColor = isActive and Theme.COLORS.PRIMARY or {38, 46, 71, 255},
-            borderRadius = 17,
+            height = 32,
+            paddingLeft = 12,
+            paddingRight = 12,
+            backgroundColor = isActive and Theme.COLORS.PRIMARY or Theme.COLORS.BG_SURFACE,
+            borderRadius = 16,
             fontSize = 12,
             color = isActive and Theme.COLORS.TEXT_PRIMARY or Theme.COLORS.TEXT_SECONDARY,
+            fontWeight = isActive and "bold" or "normal",
             marginRight = 6,
             onClick = function()
                 Router.replaceWith("news", { tab = cat.key })
@@ -186,12 +197,13 @@ function News.create(params)
     for i = 1, maxShow do
         local article = filteredNews[i]
         local catColor = CAT_COLORS[article.category] or Theme.COLORS.TEXT_MUTED
+        local catIcon = CAT_ICONS[article.category] or "📰"
         local isUnread = not article.read
 
         -- 格式化日期
         local dateStr = ""
         if article.date then
-            dateStr = string.format("%d年%d月%d日", article.date.year, article.date.month, article.date.day)
+            dateStr = string.format("%d/%d/%d", article.date.year, article.date.month, article.date.day)
         end
 
         -- 判断是否涉及玩家球队
@@ -205,25 +217,35 @@ function News.create(params)
             end
         end
 
+        -- 行背景色：相关的更亮，未读次之，已读最暗
+        local rowBg = Theme.COLORS.BG_CARD
+        if isRelevant then
+            rowBg = Theme.COLORS.BG_CARD_ELEVATED
+        elseif isUnread then
+            rowBg = {20, 30, 50, 255}
+        end
+
         table.insert(newsCards, UI.Panel {
             width = "100%",
-            backgroundColor = isRelevant and {30, 40, 70, 255} or Theme.COLORS.BG_CARD,
+            backgroundColor = rowBg,
             borderRadius = 10,
             padding = 12,
             marginBottom = 8,
             borderLeftWidth = 3,
             borderColor = catColor,
             children = {
-                -- 头部：分类+日期+标记
+                -- 头部：图标+分类+日期+标记
                 UI.Panel {
                     width = "100%",
                     flexDirection = "row",
                     alignItems = "center",
                     marginBottom = 6,
                     children = {
-                        -- 分类标签
+                        -- 分类标签（带图标）
                         UI.Panel {
-                            backgroundColor = {catColor[1], catColor[2], catColor[3], 40},
+                            flexDirection = "row",
+                            alignItems = "center",
+                            backgroundColor = {catColor[1], catColor[2], catColor[3], 30},
                             borderRadius = 4,
                             paddingLeft = 6,
                             paddingRight = 6,
@@ -232,21 +254,22 @@ function News.create(params)
                             marginRight = 8,
                             children = {
                                 UI.Label {
-                                    text = CAT_DISPLAY_NAMES[article.category] or "新闻",
+                                    text = catIcon .. " " .. (CAT_DISPLAY_NAMES[article.category] or "新闻"),
                                     fontSize = 10,
                                     color = catColor,
+                                    fontWeight = "bold",
                                 }
                             }
                         },
                         -- 涉及我的球队标记
                         isRelevant and UI.Panel {
-                            backgroundColor = {255, 215, 0, 40},
+                            backgroundColor = {Theme.COLORS.MATCH_ORANGE[1], Theme.COLORS.MATCH_ORANGE[2], Theme.COLORS.MATCH_ORANGE[3], 40},
                             borderRadius = 4,
                             paddingLeft = 4, paddingRight = 4,
                             paddingTop = 1, paddingBottom = 1,
                             marginRight = 6,
                             children = {
-                                UI.Label { text = "我的球队", fontSize = 9, color = {255, 215, 0, 255} }
+                                UI.Label { text = "我的球队", fontSize = 9, color = Theme.COLORS.MATCH_ORANGE }
                             }
                         } or UI.Panel { width = 0, height = 0 },
                         -- 日期
@@ -267,27 +290,24 @@ function News.create(params)
                 -- 标题
                 UI.Label {
                     text = article.title or "新闻",
-                    fontSize = 15,
+                    fontSize = 14,
                     color = isUnread and Theme.COLORS.TEXT_PRIMARY or Theme.COLORS.TEXT_SECONDARY,
                     fontWeight = isUnread and "bold" or "normal",
                     marginBottom = 4,
                 },
-                -- 正文（最多显示前 100 字符）
+                -- 正文摘要
                 UI.Label {
-                    text = News._truncateBody(article.body or "", 100),
-                    fontSize = 13,
+                    text = News._truncateBody(article.body or "", 80),
+                    fontSize = 12,
                     color = Theme.COLORS.TEXT_MUTED,
                 },
             },
             onClick = function()
-                -- 标记已读
                 article.read = true
-                -- 导航到关联页面
                 local target, targetParams = getNavigationTarget(article)
                 if target then
                     Router.navigate(target, targetParams)
                 else
-                    -- 无具体目标则刷新当前列表（已标记已读）
                     Router.replaceWith("news", { tab = currentTab })
                 end
             end,
@@ -307,64 +327,72 @@ function News.create(params)
 
     -- 总未读提示
     local totalUnread = unreadCounts.all or 0
-    local headerHint = totalUnread > 0 and string.format("(%d条未读)", totalUnread) or ""
 
     return UI.Panel {
         width = "100%",
         height = "100%",
         backgroundColor = Theme.COLORS.BG_DARK,
         children = {
-            -- 标题栏
-            Theme.TopBar {
+            -- 标题栏 + 导航区域（带新闻发布会氛围背景）
+            UI.Panel {
+                width = "100%",
+                backgroundImage = "image/bg_news_header_20260529082544.png",
+                backgroundFit = "cover",
+                imageTint = {50, 50, 65, 255},  -- 重度压暗
                 children = {
-                    UI.Button {
-                        text = "返回", width = 50, height = 36,
+                    Theme.TopBar {
                         backgroundColor = Theme.COLORS.TRANSPARENT,
-                        fontSize = 14, color = Theme.COLORS.TEXT_SECONDARY,
-                        onClick = function() Router.back() end,
+                        children = {
+                            UI.Button {
+                                text = "←", width = 36, height = 36,
+                                backgroundColor = Theme.COLORS.TRANSPARENT,
+                                fontSize = 18, color = Theme.COLORS.TEXT_SECONDARY,
+                                onClick = function() Router.back() end,
+                            },
+                            UI.Label {
+                                text = "新闻中心",
+                                fontSize = 17, color = Theme.COLORS.TEXT_PRIMARY,
+                                fontWeight = "bold", flexGrow = 1, textAlign = "center",
+                            },
+                            -- 未读 badge + 全部已读
+                            totalUnread > 0 and UI.Button {
+                                text = "全读 " .. totalUnread,
+                                width = 64, height = 28,
+                                backgroundColor = Theme.COLORS.BG_SURFACE,
+                                borderRadius = 14, fontSize = 11,
+                                color = Theme.COLORS.PRIMARY,
+                                onClick = function()
+                                    for _, article in ipairs(gameState.news or {}) do
+                                        local artTab = CAT_TAB_MAP[article.category] or "league"
+                                        if currentTab == "all" or artTab == currentTab then
+                                            article.read = true
+                                        end
+                                    end
+                                    Router.replaceWith("news", { tab = currentTab })
+                                end,
+                            } or UI.Panel { width = 50 },
+                        }
                     },
-                    UI.Label {
-                        text = "新闻中心 " .. headerHint,
-                        fontSize = 17, color = Theme.COLORS.TEXT_PRIMARY,
-                        fontWeight = "bold", flexGrow = 1, textAlign = "center",
-                    },
-                    -- 全部已读按钮放在标题栏右侧
-                    UI.Button {
-                        text = "全部已读",
-                        width = 64, height = 30,
-                        backgroundColor = totalUnread > 0 and {60, 70, 100, 255} or {38, 46, 71, 255},
-                        borderRadius = 15, fontSize = 11,
-                        color = totalUnread > 0 and Theme.COLORS.TEXT_PRIMARY or Theme.COLORS.TEXT_MUTED,
-                        onClick = function()
-                            for _, article in ipairs(gameState.news or {}) do
-                                local artTab = CAT_TAB_MAP[article.category] or "league"
-                                if currentTab == "all" or artTab == currentTab then
-                                    article.read = true
-                                end
-                            end
-                            Router.replaceWith("news", { tab = currentTab })
-                        end,
+
+                    -- 二级导航
+                    Theme.MoreSubNav("news"),
+
+                    -- 分类标签栏（横向滚动）
+                    UI.ScrollView {
+                        width = "100%",
+                        height = 48,
+                        scrollX = true,
+                        scrollY = false,
+                        flexDirection = "row",
+                        alignItems = "center",
+                        paddingLeft = 12,
+                        paddingRight = 12,
+                        backgroundColor = Theme.COLORS.TRANSPARENT,
+                        borderBottomWidth = 1,
+                        borderColor = Theme.COLORS.BORDER,
+                        children = tabButtons,
                     },
                 }
-            },
-
-            -- 二级导航
-            Theme.MoreSubNav("news"),
-
-            -- 分类标签栏（横向滚动）
-            UI.ScrollView {
-                width = "100%",
-                height = 50,
-                scrollX = true,
-                scrollY = false,
-                flexDirection = "row",
-                alignItems = "center",
-                paddingLeft = 12,
-                paddingRight = 12,
-                backgroundColor = Theme.COLORS.BG_HEADER,
-                borderBottomWidth = 1,
-                borderColor = Theme.COLORS.BORDER,
-                children = tabButtons,
             },
 
             -- 新闻列表
@@ -372,7 +400,7 @@ function News.create(params)
                 flexGrow = 1,
                 flexBasis = 0,
                 scrollY = true,
-                padding = 12,
+                padding = 10,
                 children = newsCards,
             },
 
@@ -389,12 +417,9 @@ end
 --- 截断正文（保留完整中文字符）
 function News._truncateBody(text, maxLen)
     if not text or text == "" then return "" end
-    -- 移除换行，合并成一行预览
     local oneLine = text:gsub("\n", " "):gsub("%s+", " ")
     if #oneLine <= maxLen then return oneLine end
-    -- UTF-8 安全截断（简单方式）
     local result = oneLine:sub(1, maxLen)
-    -- 避免截断在 UTF-8 多字节中间
     while #result > 0 and result:byte(#result) >= 128 and result:byte(#result) < 192 do
         result = result:sub(1, -2)
     end

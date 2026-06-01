@@ -39,6 +39,10 @@ local PreMatch = require("scripts/ui/screens/pre_match")
 local MatchLive = require("scripts/ui/screens/match_live")
 local PressConference = require("scripts/ui/screens/press_conference")
 local TeamTalk = require("scripts/ui/screens/team_talk")
+local SponsorSelect = require("scripts/ui/screens/sponsor_select")
+local NationalSquadSelect = require("scripts/ui/screens/national_squad_select")
+local TrophyCabinet = require("scripts/ui/screens/trophy_cabinet")
+local ChampionshipPopup = require("scripts/ui/components/championship_popup")
 
 -- 全局覆盖层管理（注入 UI.ShowOverlay / UI.CloseOverlay）
 require("scripts/ui/components/overlay_manager")
@@ -118,6 +122,9 @@ function RegisterScreens()
     Router.register("match_live", function(params) return MatchLive.create(params) end)
     Router.register("press_conference", function(params) return PressConference.create(params) end)
     Router.register("team_talk", function(params) return TeamTalk.create(params) end)
+    Router.register("sponsor_select", function(params) return SponsorSelect.create(params) end)
+    Router.register("national_squad_select", function(params) return NationalSquadSelect.create(params) end)
+    Router.register("trophy_cabinet", function(params) return TrophyCabinet.create(params) end)
 end
 
 ------------------------------------------------------
@@ -211,10 +218,15 @@ function BindEvents()
     EventBus.on("season_end", function()
         if _G.gameState then
             log:Write(LOG_INFO, "赛季结束，执行赛季结算...")
+            local prevSeason = _G.gameState.season
             SeasonManager.endSeason(_G.gameState)
             -- 自动保存
             SaveManager.save(_G.gameState, "auto")
             log:Write(LOG_INFO, "赛季结算完成，新赛季: " .. tostring(_G.gameState.season))
+            -- 作弊快进时不跳转页面
+            if _G.gameState._cheatAutoPlay then return end
+            -- 导航到赛季总结页面
+            Router.navigate("season_end", { season = prevSeason })
         end
     end)
 
@@ -230,6 +242,11 @@ function BindEvents()
             log:Write(LOG_ERROR, "存档加载失败: slot=" .. tostring(slot))
             Router.navigate("main_menu")
         end
+    end)
+
+    -- 夺冠庆祝弹窗
+    EventBus.on("championship_won", function(data)
+        ChampionshipPopup.show(data)
     end)
 end
 

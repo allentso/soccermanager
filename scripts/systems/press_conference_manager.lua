@@ -1,6 +1,8 @@
 -- systems/press_conference_manager.lua
 -- Lightweight post-match press conference effects.
 
+local Constants = require("scripts/app/constants")
+
 local PressConferenceManager = {}
 
 PressConferenceManager.RESPONSES = {
@@ -27,12 +29,6 @@ PressConferenceManager.RESPONSES = {
     },
 }
 
-local function clamp(value, minValue, maxValue)
-    if value < minValue then return minValue end
-    if value > maxValue then return maxValue end
-    return value
-end
-
 function PressConferenceManager.applyResponse(gameState, report, responseKey)
     local response = PressConferenceManager.RESPONSES[responseKey] or PressConferenceManager.RESPONSES.balanced
     local team = gameState:getPlayerTeam()
@@ -50,12 +46,12 @@ function PressConferenceManager.applyResponse(gameState, report, responseKey)
     for _, pid in ipairs(team.playerIds or {}) do
         local player = gameState.players[pid]
         if player then
-            player.morale = clamp((player.morale or 60) + moraleDelta, 0, 100)
+            player.morale = Constants.clampMorale((player.morale or 60) + moraleDelta)
         end
     end
 
     team.reputation = (team.reputation or 500) + response.reputation
-    team.boardSatisfaction = clamp((team.boardSatisfaction or 50) + response.board, 0, 100)
+    team.boardSatisfaction = math.max(0, math.min(100, (team.boardSatisfaction or 50) + response.board))
 
     gameState:sendMessage({
         category = "media",

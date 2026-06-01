@@ -1,47 +1,53 @@
 -- systems/champions_league.lua
--- 欧冠联赛管理（资格赛、抽签、推进阶段）
+-- 欧冠联赛管理（2024/25新赛制：36队瑞士制联赛阶段 + 附加赛 + 淘汰赛）
 
 local Tournament = require("scripts/domain/tournament")
 local League = require("scripts/domain/league")
 local EventBus = require("scripts/app/event_bus")
+local RecordsManager = require("scripts/systems/records_manager")
 
 local ChampionsLeague = {}
 
--- 各联赛欧冠名额
+-- 各联赛欧冠名额（新赛制共36队）
 local UCL_SPOTS = {
     EPL = 4,
     LaLiga = 4,
     SerieA = 4,
     Bundesliga = 4,
     Ligue1 = 3,
+    -- 其余17个名额从其他联赛/声望补充
 }
 
--- 欧冠日程（基于赛季月份）
+local TOTAL_TEAMS = 36
+
+-- 欧冠日程（2024/25 新赛制）
 local UCL_SCHEDULE = {
-    group_start = {month = 9, day = 17},    -- 9月中旬开始小组赛
-    r16_start   = {month = 2, day = 18},    -- 2月中旬开始1/8决赛
-    qf_start    = {month = 4, day = 8},     -- 4月初1/4决赛
-    sf_start    = {month = 4, day = 29},    -- 4月底半决赛
-    final_date  = {month = 5, day = 28},    -- 5月底决赛
+    league_start    = { month = 9, day = 17 },  -- 9月中旬联赛阶段开始
+    playoff_start   = { month = 2, day = 11 },  -- 2月附加赛
+    r16_start       = { month = 3, day = 4 },   -- 3月1/8决赛
+    qf_start        = { month = 4, day = 8 },   -- 4月1/4决赛
+    sf_start        = { month = 4, day = 29 },  -- 4月底半决赛
+    final_date      = { month = 5, day = 31 },  -- 5月底/6月初决赛
 }
 
 ------------------------------------------------------
--- 初始化本赛季欧冠
+-- 初始化本赛季欧冠（36队瑞士制）
 ------------------------------------------------------
 
 function ChampionsLeague.initialize(gameState)
     local season = gameState.season
     local qualifiedTeams = ChampionsLeague._getQualifiedTeams(gameState)
 
-    if #qualifiedTeams < 16 then
-        -- 名额不足16队，补充高声望球队
-        qualifiedTeams = ChampionsLeague._fillSlots(gameState, qualifiedTeams, 16)
+    -- 确保恰好36队
+    if #qualifiedTeams < TOTAL_TEAMS then
+        qualifiedTeams = ChampionsLeague._fillSlots(gameState, qualifiedTeams, TOTAL_TEAMS)
     end
-
-    -- 限制为16队（4组，每组4队）
-    while #qualifiedTeams > 16 do
+    while #qualifiedTeams > TOTAL_TEAMS do
         table.remove(qualifiedTeams)
     end
+
+    -- 按声望排名分4档（每档9队）
+    local pots = ChampionsLeague._seedIntoPots(gameState, qualifiedTeams)
 
     -- 创建锦标赛实例
     local ucl = Tournament.new({
@@ -52,38 +58,123 @@ function ChampionsLeague.initialize(gameState)
         qualifiedTeams = qualifiedTeams,
     })
 
-    -- 抽签分组（4组，每组4队）
-    ucl:drawGroups(qualifiedTeams, 4)
+    -- 初始化联赛阶段（36队单一积分榜）
+    ucl:initLeaguePhase(qualifiedTeams, pots)
 
-    -- 生成小组赛赛程
-    local groupStart = {
+    -- 抽签生成联赛阶段赛程（每队8场：每档2个对手，4主4客）
+    local leagueStart = {
         year = season,
-        month = UCL_SCHEDULE.group_start.month,
-        day = UCL_SCHEDULE.group_start.day,
+        month = UCL_SCHEDULE.league_start.month,
+        day = UCL_SCHEDULE.league_start.day,
     }
-    ucl:generateGroupFixtures(groupStart)
+    ucl:drawLeaguePhaseFixtures(leagueStart)
 
     -- 存储到 gameState
     gameState.championsLeague = ucl
 
-    -- 通知
+    -- 新闻
     gameState:addNews({
         category = "ucl_news",
-        title = "欧冠小组赛抽签揭晓",
-        body = ChampionsLeague._formatDrawResult(gameState, ucl),
+        title = "欧冠联赛阶段抽签揭晓",
+        body = ChampionsLeague._formatLeagueDrawResult(gameState, ucl),
     })
 
     return ucl
 end
 
 ------------------------------------------------------
--- 获取合格球队（上赛季排名）
+-- 存档迁移：旧格式（小组赛）→ 新格式（瑞士制）
+------------------------------------------------------
+
+function ChampionsLeague.migrateIfNeeded(gameState)
+    local ucl = gameState.championsLeague
+    if not ucl then return false end
+
+    -- 检测旧格式：有 groups 且没有 leaguePhase
+    if ucl.groups and next(ucl.groups) and not ucl.leaguePhase then
+        log:Write(LOG_INFO, "[UCL] 检测到旧格式存档，正在迁移为2024/25瑞士制...")
+
+        -- 收集旧小组赛中的所有球队
+        local oldTeams = {}
+        for _, group in pairs(ucl.groups) do
+            if group.teamIds then
+                for _, tid in ipairs(group.teamIds) do
+                    table.insert(oldTeams, tid)
+                end
+            elseif group.standings then
+                for teamId, _ in pairs(group.standings) do
+                    table.insert(oldTeams, teamId)
+                end
+            end
+        end
+
+        -- 补充到36队
+        if #oldTeams < TOTAL_TEAMS then
+            oldTeams = ChampionsLeague._fillSlots(gameState, oldTeams, TOTAL_TEAMS)
+        end
+        while #oldTeams > TOTAL_TEAMS do
+            table.remove(oldTeams)
+        end
+
+        -- 分档
+        local pots = ChampionsLeague._seedIntoPots(gameState, oldTeams)
+
+        -- 重新初始化联赛阶段
+        ucl.qualifiedTeams = oldTeams
+        ucl.groups = {}  -- 清除旧小组数据
+        ucl:initLeaguePhase(oldTeams, pots)
+
+        -- 重新抽签
+        local leagueStart = {
+            year = ucl.season or gameState.season,
+            month = UCL_SCHEDULE.league_start.month,
+            day = UCL_SCHEDULE.league_start.day,
+        }
+        ucl:drawLeaguePhaseFixtures(leagueStart)
+
+        -- 新闻通知
+        gameState:addNews({
+            category = "ucl_news",
+            title = "欧冠赛制改革：瑞士制联赛阶段启用",
+            body = "欧冠本赛季起采用全新瑞士制联赛阶段，36支球队同组竞技，每队出战8场。前8名直接晋级16强，9-24名进入附加赛。",
+        })
+
+        log:Write(LOG_INFO, "[UCL] 迁移完成，36队瑞士制联赛阶段已初始化")
+        return true
+    end
+
+    return false
+end
+
+------------------------------------------------------
+-- 分档（4档×9队，按声望排序）
+------------------------------------------------------
+
+function ChampionsLeague._seedIntoPots(gameState, teamIds)
+    -- 按声望排序
+    local sorted = {}
+    for _, tid in ipairs(teamIds) do
+        local team = gameState.teams[tid]
+        table.insert(sorted, { id = tid, rep = team and team.reputation or 0 })
+    end
+    table.sort(sorted, function(a, b) return a.rep > b.rep end)
+
+    local pots = { {}, {}, {}, {} }
+    for i, entry in ipairs(sorted) do
+        local potIdx = math.min(4, math.ceil(i / 9))
+        table.insert(pots[potIdx], entry.id)
+    end
+    return pots
+end
+
+------------------------------------------------------
+-- 获取合格球队
 ------------------------------------------------------
 
 function ChampionsLeague._getQualifiedTeams(gameState)
     local qualified = {}
 
-    -- 查看上赛季历史记录
+    -- 上赛季历史记录
     local lastSeason = nil
     for _, record in ipairs(gameState.worldHistory or {}) do
         if record.season == gameState.season - 1 then
@@ -93,7 +184,6 @@ function ChampionsLeague._getQualifiedTeams(gameState)
     end
 
     if lastSeason and lastSeason.leagues then
-        -- 基于上赛季排名分配名额
         for leagueKey, spots in pairs(UCL_SPOTS) do
             local leagueRecord = lastSeason.leagues[leagueKey]
             if leagueRecord and leagueRecord.standings then
@@ -107,7 +197,7 @@ function ChampionsLeague._getQualifiedTeams(gameState)
         end
     end
 
-    -- 如果是第一个赛季（没有历史记录），按声望选取
+    -- 首赛季（无历史）→ 按声望
     if #qualified == 0 then
         qualified = ChampionsLeague._getInitialQualifiers(gameState)
     end
@@ -115,14 +205,12 @@ function ChampionsLeague._getQualifiedTeams(gameState)
     return qualified
 end
 
--- 首赛季：按声望从各联赛选取顶级球队
+-- 首赛季：按声望从各联赛选取
 function ChampionsLeague._getInitialQualifiers(gameState)
     local qualified = {}
-
     for leagueKey, spots in pairs(UCL_SPOTS) do
         local lg = gameState.leagues[leagueKey]
         if lg then
-            -- 按声望排序该联赛球队
             local leagueTeams = {}
             for _, tid in ipairs(lg.teamIds) do
                 local team = gameState.teams[tid]
@@ -133,22 +221,19 @@ function ChampionsLeague._getInitialQualifiers(gameState)
             table.sort(leagueTeams, function(a, b)
                 return (a.reputation or 0) > (b.reputation or 0)
             end)
-
             for i = 1, math.min(spots, #leagueTeams) do
                 table.insert(qualified, leagueTeams[i].id)
             end
         end
     end
-
     return qualified
 end
 
--- 补充名额（按声望选取尚未入选的球队）
+-- 补充名额到 target 队
 function ChampionsLeague._fillSlots(gameState, existing, target)
     local existingSet = {}
     for _, tid in ipairs(existing) do existingSet[tid] = true end
 
-    -- 收集所有尚未入选的球队，按声望排序
     local candidates = {}
     for _, lg in pairs(gameState.leagues) do
         for _, tid in ipairs(lg.teamIds) do
@@ -170,95 +255,108 @@ function ChampionsLeague._fillSlots(gameState, existing, target)
         if #result >= target then break end
         table.insert(result, team.id)
     end
-
     return result
 end
 
 ------------------------------------------------------
--- 推进欧冠阶段（在赛季中检测）
+-- 推进欧冠阶段
 ------------------------------------------------------
 
 function ChampionsLeague.checkPhaseAdvance(gameState)
     local ucl = gameState.championsLeague
     if not ucl or ucl.phase == Tournament.PHASE_COMPLETED then return end
 
-    -- 小组赛结束 → 生成1/8决赛
-    if ucl.phase == Tournament.PHASE_GROUP and ucl:isGroupStageComplete() then
+    -- 联赛阶段结束 → 生成附加赛
+    if ucl.phase == Tournament.PHASE_LEAGUE and ucl:isLeaguePhaseComplete() then
+        ChampionsLeague._advanceToPlayoff(gameState, ucl)
+    end
+
+    -- 附加赛结束 → 生成1/8决赛
+    if ucl.phase == Tournament.PHASE_PLAYOFF and ucl:isKnockoutRoundComplete("playoff") then
         ChampionsLeague._advanceToR16(gameState, ucl)
     end
 
-    -- 1/8决赛结束 → 生成1/4决赛
+    -- 1/8决赛结束 → 1/4决赛
     if ucl.phase == Tournament.PHASE_R16 and ucl:isKnockoutRoundComplete("r16") then
         ChampionsLeague._advanceToQF(gameState, ucl)
     end
 
-    -- 1/4决赛结束 → 生成半决赛
+    -- 1/4决赛结束 → 半决赛
     if ucl.phase == Tournament.PHASE_QF and ucl:isKnockoutRoundComplete("qf") then
         ChampionsLeague._advanceToSF(gameState, ucl)
     end
 
-    -- 半决赛结束 → 生成决赛
+    -- 半决赛结束 → 决赛
     if ucl.phase == Tournament.PHASE_SF and ucl:isKnockoutRoundComplete("sf") then
         ChampionsLeague._advanceToFinal(gameState, ucl)
     end
 
-    -- 决赛结束 → 产生冠军
+    -- 决赛结束 → 冠军
     if ucl.phase == Tournament.PHASE_FINAL and ucl:isKnockoutRoundComplete("final") then
         ChampionsLeague._completeTournament(gameState, ucl)
     end
 end
 
 ------------------------------------------------------
--- 阶段推进内部函数
+-- 联赛阶段 → 附加赛（9-24名争8个16强席位）
+------------------------------------------------------
+
+function ChampionsLeague._advanceToPlayoff(gameState, ucl)
+    local directR16, playoffTeams = ucl:getLeaguePhaseAdvancers()
+
+    -- 存储直接晋级16强的球队
+    ucl._directR16 = directR16
+
+    -- 附加赛配对：9 vs 24, 10 vs 23, 11 vs 22, ... 16 vs 17
+    -- 排名高的球队拥有次回合主场优势
+    local matchups = {}
+    for i = 1, 8 do
+        local highSeed = playoffTeams[i]          -- 9-16名
+        local lowSeed = playoffTeams[17 - i]      -- 17-24名
+        if highSeed and lowSeed then
+            table.insert(matchups, { lowSeed, highSeed })  -- 低排名先主场
+        end
+    end
+
+    local startDate = {
+        year = gameState.season + 1,
+        month = UCL_SCHEDULE.playoff_start.month,
+        day = UCL_SCHEDULE.playoff_start.day,
+    }
+    ucl:generateKnockoutRound("playoff", matchups, startDate)
+
+    -- 新闻
+    gameState:addNews({
+        category = "ucl_news",
+        title = "欧冠联赛阶段结束！附加赛对阵出炉",
+        body = ChampionsLeague._formatPlayoffNews(gameState, ucl, directR16, matchups),
+    })
+end
+
+------------------------------------------------------
+-- 附加赛 → 1/8决赛
 ------------------------------------------------------
 
 function ChampionsLeague._advanceToR16(gameState, ucl)
-    local advancers = ucl:getGroupAdvancers(2)  -- 每组前2名
+    local playoffWinners = ucl:getKnockoutWinners("playoff")
+    local directR16 = ucl._directR16 or {}
 
-    -- 抽签配对：小组第一 vs 另一组第二（不同组）
-    local firsts = {}
-    local seconds = {}
-    for _, a in ipairs(advancers) do
-        if a.position == 1 then
-            table.insert(firsts, a)
-        else
-            table.insert(seconds, a)
-        end
-    end
+    -- 16强对阵：联赛阶段前8（种子队）vs 附加赛8个胜者
+    -- 种子队次回合主场
+    local seeds = {}
+    for _, tid in ipairs(directR16) do table.insert(seeds, tid) end
 
-    -- 洗牌第二名
-    for i = #seconds, 2, -1 do
+    -- 洗牌附加赛胜者
+    local unseeded = {}
+    for _, tid in ipairs(playoffWinners) do table.insert(unseeded, tid) end
+    for i = #unseeded, 2, -1 do
         local j = RandomInt(1, i)
-        seconds[i], seconds[j] = seconds[j], seconds[i]
+        unseeded[i], unseeded[j] = unseeded[j], unseeded[i]
     end
 
-    -- 配对（确保不同组）
     local matchups = {}
-    local usedSeconds = {}
-    for _, first in ipairs(firsts) do
-        for j, second in ipairs(seconds) do
-            if not usedSeconds[j] and second.groupName ~= first.groupName then
-                table.insert(matchups, {first.teamId, second.teamId})
-                usedSeconds[j] = true
-                break
-            end
-        end
-    end
-    -- 如果有剩余未配对的（同组冲突），强制配对
-    for j, second in ipairs(seconds) do
-        if not usedSeconds[j] then
-            for _, first in ipairs(firsts) do
-                local found = false
-                for _, m in ipairs(matchups) do
-                    if m[1] == first.teamId then found = true; break end
-                end
-                if not found then
-                    table.insert(matchups, {first.teamId, second.teamId})
-                    usedSeconds[j] = true
-                    break
-                end
-            end
-        end
+    for i = 1, math.min(#seeds, #unseeded) do
+        table.insert(matchups, { unseeded[i], seeds[i] })  -- 非种子先主场
     end
 
     local startDate = {
@@ -268,19 +366,21 @@ function ChampionsLeague._advanceToR16(gameState, ucl)
     }
     ucl:generateKnockoutRound("r16", matchups, startDate)
 
-    -- 新闻
     gameState:addNews({
         category = "ucl_news",
-        title = "欧冠小组赛结束！16强对阵出炉",
+        title = "欧冠16强对阵出炉",
         body = ChampionsLeague._formatKnockoutDraw(gameState, matchups),
     })
 end
+
+------------------------------------------------------
+-- 后续淘汰赛阶段
+------------------------------------------------------
 
 function ChampionsLeague._advanceToQF(gameState, ucl)
     local winners = ucl:getKnockoutWinners("r16")
     if #winners < 2 then return end
 
-    -- 随机配对
     for i = #winners, 2, -1 do
         local j = RandomInt(1, i)
         winners[i], winners[j] = winners[j], winners[i]
@@ -289,7 +389,7 @@ function ChampionsLeague._advanceToQF(gameState, ucl)
     local matchups = {}
     for i = 1, #winners, 2 do
         if winners[i + 1] then
-            table.insert(matchups, {winners[i], winners[i + 1]})
+            table.insert(matchups, { winners[i], winners[i + 1] })
         end
     end
 
@@ -319,7 +419,7 @@ function ChampionsLeague._advanceToSF(gameState, ucl)
     local matchups = {}
     for i = 1, #winners, 2 do
         if winners[i + 1] then
-            table.insert(matchups, {winners[i], winners[i + 1]})
+            table.insert(matchups, { winners[i], winners[i + 1] })
         end
     end
 
@@ -346,7 +446,7 @@ function ChampionsLeague._advanceToFinal(gameState, ucl)
         month = UCL_SCHEDULE.final_date.month,
         day = UCL_SCHEDULE.final_date.day,
     }
-    ucl:generateFinal({winners[1], winners[2]}, finalDate)
+    ucl:generateFinal({ winners[1], winners[2] }, finalDate)
 
     local team1 = gameState.teams[winners[1]]
     local team2 = gameState.teams[winners[2]]
@@ -369,58 +469,79 @@ function ChampionsLeague._completeTournament(gameState, ucl)
         local champion = gameState.teams[ucl.champion]
         gameState:addNews({
             category = "ucl_news",
-            title = string.format("🏆 %s 赢得欧冠冠军!", champion and champion.name or "?"),
+            title = string.format("%s 赢得欧冠冠军!", champion and champion.name or "?"),
             body = string.format("%s 在 %d-%d 赛季欧洲冠军联赛中夺冠！",
                 champion and champion.name or "?", ucl.season, ucl.season + 1),
         })
 
         -- 冠军奖金
         if champion then
-            local prize = 2000000
+            local prize = 5000000  -- 新赛制奖金更高
             champion.balance = champion.balance + prize
             if not champion.transactions then champion.transactions = {} end
             table.insert(champion.transactions, 1, {
                 type = "prize",
                 amount = prize,
                 description = "欧冠冠军奖金",
-                date = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day},
+                date = { year = gameState.date.year, month = gameState.date.month, day = gameState.date.day },
             })
         end
 
-        -- 如果是玩家球队
+        -- 玩家球队
         if ucl.champion == gameState.playerTeamId then
             gameState:sendMessage({
                 category = "league",
                 title = "恭喜！欧冠冠军！",
-                body = "你的球队赢得了欧洲冠军联赛！这是足坛最高荣誉！\n冠军奖金 2.0M 已到账。",
+                body = "你的球队赢得了欧洲冠军联赛！这是足坛最高荣誉！\n冠军奖金 5.0M 已到账。",
                 priority = "high",
             })
         end
+
+        -- 记录系统：UCL 夺冠
+        RecordsManager.onUCLChampionship(gameState, ucl.champion)
 
         EventBus.emit("ucl_completed", ucl.champion)
     end
 end
 
 ------------------------------------------------------
--- 辅助函数
+-- 新闻格式化
 ------------------------------------------------------
 
-function ChampionsLeague._formatDrawResult(gameState, ucl)
-    local lines = {"欧冠小组赛分组:\n"}
-    local groupNames = {}
-    for name, _ in pairs(ucl.groups) do
-        table.insert(groupNames, name)
-    end
-    table.sort(groupNames)
+function ChampionsLeague._formatLeagueDrawResult(gameState, ucl)
+    local lp = ucl.leaguePhase
+    if not lp then return "抽签完成" end
 
-    for _, name in ipairs(groupNames) do
-        local group = ucl.groups[name]
-        table.insert(lines, "【" .. name .. "组】")
-        for _, tid in ipairs(group.teamIds) do
+    local lines = { "欧冠联赛阶段（36队瑞士制）:\n" }
+    local potNames = { "第一档", "第二档", "第三档", "第四档" }
+
+    for i, pot in ipairs(lp.pots) do
+        table.insert(lines, "【" .. potNames[i] .. "】")
+        local names = {}
+        for _, tid in ipairs(pot) do
             local team = gameState.teams[tid]
-            table.insert(lines, "  " .. (team and team.name or "?"))
+            table.insert(names, team and team.name or "?")
         end
+        table.insert(lines, "  " .. table.concat(names, "、"))
         table.insert(lines, "")
+    end
+
+    table.insert(lines, "每队将进行8场比赛（4主4客），争夺36队单一积分榜排名。")
+    table.insert(lines, "前8名直接晋级16强，9-24名进入附加赛，25-36名淘汰。")
+    return table.concat(lines, "\n")
+end
+
+function ChampionsLeague._formatPlayoffNews(gameState, ucl, directR16, matchups)
+    local lines = { "直接晋级16强:" }
+    for i, tid in ipairs(directR16) do
+        local team = gameState.teams[tid]
+        table.insert(lines, string.format("  %d. %s", i, team and team.name or "?"))
+    end
+    table.insert(lines, "\n附加赛对阵:")
+    for i, m in ipairs(matchups) do
+        local t1 = gameState.teams[m[1]]
+        local t2 = gameState.teams[m[2]]
+        table.insert(lines, string.format("  %d. %s vs %s", i, t1 and t1.name or "?", t2 and t2.name or "?"))
     end
     return table.concat(lines, "\n")
 end

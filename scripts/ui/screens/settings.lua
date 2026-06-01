@@ -7,8 +7,15 @@ local Router = require("scripts/app/router")
 local Constants = require("scripts/app/constants")
 local SaveManager = require("scripts/persistence/save_manager")
 local EventBus = require("scripts/app/event_bus")
+local League = require("scripts/domain/league")
 
 local Settings = {}
+
+-- 作弊：连点版本号计数
+local _cheatTapCount = 0
+local _cheatLastTap = 0
+local CHEAT_TAP_THRESHOLD = 7
+local CHEAT_TAP_TIMEOUT = 3.0  -- 3秒内连续点击
 
 -- 默认设置
 local _defaults = {
@@ -17,8 +24,8 @@ local _defaults = {
     sfxVolume = 80,
     autoSave = true,
     autoSaveInterval = 5,   -- 每5个回合自动保存
-    currencyUnit = "short", -- short(K/M) | full(完整数字)
-    gameSpeed = "normal",   -- slow | normal | fast
+    currencyUnit = "wan",   -- "km"(K/M) | "wan"(万)
+
     confirmActions = true,  -- 重要操作前确认
     showTutorials = true,
 }
@@ -110,18 +117,9 @@ function Settings.create(params)
                     Theme.Card {
                         children = {
                             Settings._sectionTitle("游戏设置"),
-                            Settings._selectRow("游戏速度", {
-                                { key = "slow", label = "慢速" },
-                                { key = "normal", label = "正常" },
-                                { key = "fast", label = "快速" },
-                            }, _settings.gameSpeed, function(v)
-                                _settings.gameSpeed = v
-                                Settings._saveSettings()
-                                Router.replaceWith("settings")
-                            end),
                             Settings._selectRow("货币显示", {
-                                { key = "short", label = "简写(K/M)" },
-                                { key = "full", label = "完整数字" },
+                                { key = "wan", label = "万 (w)" },
+                                { key = "km", label = "K/M" },
                             }, _settings.currencyUnit, function(v)
                                 _settings.currencyUnit = v
                                 Settings._saveSettings()
@@ -160,7 +158,7 @@ function Settings.create(params)
                     Theme.Card {
                         children = {
                             Settings._sectionTitle("关于"),
-                            Settings._infoRow("版本", "v" .. Constants.VERSION),
+                            Settings._versionRow(),
                             Settings._infoRow("存档版本", "v" .. Constants.SAVE_VERSION),
                             Theme.Divider(),
                             UI.Button {
@@ -326,6 +324,274 @@ function Settings._infoRow(label, value)
             },
         }
     }
+end
+
+------------------------------------------------------
+-- 版本号行（连点7次触发作弊）
+------------------------------------------------------
+function Settings._versionRow()
+    return UI.Panel {
+        width = "100%",
+        flexDirection = "row",
+        alignItems = "center",
+        height = 36,
+        onClick = function()
+            Settings._handleCheatTap()
+        end,
+        children = {
+            UI.Label {
+                text = "版本",
+                fontSize = 13,
+                color = Theme.COLORS.TEXT_SECONDARY,
+                flexGrow = 1,
+            },
+            UI.Label {
+                text = "v" .. Constants.VERSION,
+                fontSize = 13,
+                color = Theme.COLORS.TEXT_MUTED,
+            },
+        }
+    }
+end
+
+function Settings._handleCheatTap()
+    local now = os.clock()
+    if now - _cheatLastTap > CHEAT_TAP_TIMEOUT then
+        _cheatTapCount = 0
+    end
+    _cheatLastTap = now
+    _cheatTapCount = _cheatTapCount + 1
+
+    if _cheatTapCount >= CHEAT_TAP_THRESHOLD then
+        _cheatTapCount = 0
+        Settings._showCheatMenu()
+    end
+end
+
+function Settings._showCheatMenu()
+    local BottomSheet = require("scripts/ui/components/bottom_sheet")
+    BottomSheet.showCustom({
+        title = "开发者工具",
+        height = 300,
+        children = {
+            UI.Button {
+                text = "👑 三冠王（联赛+欧冠+世界杯）",
+                width = "100%",
+                height = 44,
+                backgroundColor = Theme.COLORS.MATCH_ORANGE,
+                color = "#FFFFFF",
+                fontSize = 14,
+                borderRadius = 8,
+                marginBottom = 12,
+                onClick = function()
+                    BottomSheet.close()
+                    Settings._cheatTripleCrown()
+                end,
+            },
+            UI.Button {
+                text = "⏩ 跳到世界杯",
+                width = "100%",
+                height = 44,
+                backgroundColor = Theme.COLORS.BG_CARD_ELEVATED,
+                color = Theme.COLORS.TEXT_PRIMARY,
+                fontSize = 14,
+                borderRadius = 8,
+                marginBottom = 12,
+                onClick = function()
+                    BottomSheet.close()
+                    Settings._cheatSkipToWorldCup()
+                end,
+            },
+            UI.Button {
+                text = "🏆 查看荣誉室",
+                width = "100%",
+                height = 44,
+                backgroundColor = Theme.COLORS.BG_CARD_ELEVATED,
+                color = Theme.COLORS.TEXT_PRIMARY,
+                fontSize = 14,
+                borderRadius = 8,
+                onClick = function()
+                    BottomSheet.close()
+                    Router.navigate("trophy_cabinet")
+                end,
+            },
+        },
+    })
+end
+
+------------------------------------------------------
+-- 作弊：三冠王（联赛+欧冠+世界杯）
+------------------------------------------------------
+function Settings._cheatTripleCrown()
+    local gameState = _G.gameState
+    if not gameState then return end
+
+    local SeasonManager = require("scripts/systems/season_manager")
+    local RecordsManager = require("scripts/systems/records_manager")
+    local playerTeamId = gameState.playerTeamId
+    if not playerTeamId then return end
+
+    local playerLeague = gameState.league
+    if not playerLeague then return end
+
+    gameState._cheatAutoPlay = true
+
+    -- 1. 完成玩家联赛，确保玩家夺冠（全胜）
+    if playerLeague.fixtures then
+        for _, f in ipairs(playerLeague.fixtures) do
+            if f.status ~= "finished" then
+                f.status = "finished"
+                if f.homeTeamId == playerTeamId then
+                    f.homeGoals = math.random(2, 4)
+                    f.awayGoals = 0
+                elseif f.awayTeamId == playerTeamId then
+                    f.homeGoals = 0
+                    f.awayGoals = math.random(2, 4)
+                else
+                    f.homeGoals = math.random(0, 2)
+                    f.awayGoals = math.random(0, 2)
+                end
+                pcall(function() playerLeague:updateStanding(f) end)
+            end
+        end
+    end
+
+    -- 2. 完成其他联赛
+    Settings._completeOtherLeagues(gameState, playerLeague)
+
+    -- 3. 完成欧冠并让玩家夺冠
+    if gameState.championsLeague then
+        local ucl = gameState.championsLeague
+        if ucl.leaguePhase and ucl.leaguePhase.fixtures then
+            for _, f in ipairs(ucl.leaguePhase.fixtures) do
+                if f.status ~= "finished" then
+                    f.status = "finished"
+                    f.homeGoals = math.random(0, 3)
+                    f.awayGoals = math.random(0, 3)
+                    pcall(function() ucl:updateLeagueStanding(f) end)
+                end
+            end
+        end
+        ucl.phase = "completed"
+        ucl.winner = playerTeamId
+    end
+    -- 触发欧冠夺冠记录
+    RecordsManager.onUCLChampionship(gameState, playerTeamId)
+
+    -- 4. 触发世界杯夺冠记录（模拟玩家国家队夺冠）
+    RecordsManager.onWorldCupChampionship(gameState, playerTeamId)
+
+    -- 5. 执行赛季结算（会触发联赛夺冠记录 RecordsManager.onSeasonEnd）
+    pcall(SeasonManager.endSeason, gameState)
+
+    gameState._cheatAutoPlay = nil
+
+    -- 保存并跳转赛季总结
+    SaveManager.save(gameState, "auto")
+    Router.replaceWith("season_end", { season = gameState.season - 1 })
+end
+
+-- 完成除玩家联赛外的其他联赛
+function Settings._completeOtherLeagues(gameState, excludeLeague)
+    if not gameState.leagues then return end
+    for _, lg in pairs(gameState.leagues) do
+        if lg ~= excludeLeague and lg.fixtures then
+            for _, f in ipairs(lg.fixtures) do
+                if f.status ~= "finished" then
+                    f.status = "finished"
+                    f.homeGoals = math.random(0, 3)
+                    f.awayGoals = math.random(0, 3)
+                    pcall(function() lg:updateStanding(f) end)
+                end
+            end
+        end
+    end
+end
+
+
+
+function Settings._cheatSkipToWorldCup()
+    local gameState = _G.gameState
+    if not gameState then return end
+
+    local SeasonManager = require("scripts/systems/season_manager")
+
+    -- 计算下一个世界杯年份（首届2026，每4年一届）
+    local FIRST_WC = 2026
+    local CYCLE = 4
+    local currentYear = gameState.date.year
+    local wcYear = FIRST_WC
+    while wcYear < currentYear do
+        wcYear = wcYear + CYCLE
+    end
+    -- 如果当前年份已经是世界杯年且已过6月13日，取下一届
+    if wcYear == currentYear then
+        local pastTarget = (gameState.date.month > 6) or
+            (gameState.date.month == 6 and gameState.date.day >= 13)
+        if pastTarget then
+            wcYear = wcYear + CYCLE
+        end
+    end
+
+    -- 快速跳转：直接做赛季结算，不逐天模拟
+    gameState._cheatAutoPlay = true
+
+    -- 需要跨越的赛季数（赛季从8月开始，6月属于上个赛季周期末尾）
+    -- 目标：到达 wcYear 年 6月13日
+    -- 赛季 N 覆盖 N年8月 → N+1年5月，然后6-7月是休赛期/世界杯
+    -- 当前赛季 = gameState.season (对应 season/season+1)
+    local targetSeason = wcYear - 1  -- 世界杯在 targetSeason 赛季的赛季末举办
+
+    while gameState.season < targetSeason do
+        -- 完成当前联赛（给所有比赛设置假结果）
+        Settings._completeAllLeagues(gameState)
+        -- 执行赛季结算（包含新赛季初始化、欧冠、世界杯等）
+        pcall(SeasonManager.endSeason, gameState)
+    end
+
+    -- 设置日期到世界杯前一天
+    gameState.date = { year = wcYear, month = 6, day = 13 }
+    gameState.dayOfWeek = League._dayOfWeek(gameState.date)
+
+    gameState._cheatAutoPlay = nil
+
+    -- 保存并刷新
+    SaveManager.save(gameState, "auto")
+    Router.replaceWith("dashboard")
+end
+
+-- 快速完成所有联赛（给未完赛的比赛随机赋分）
+function Settings._completeAllLeagues(gameState)
+    if not gameState.leagues then return end
+    for _, lg in pairs(gameState.leagues) do
+        if lg.fixtures then
+            for _, f in ipairs(lg.fixtures) do
+                if f.status ~= "finished" then
+                    f.status = "finished"
+                    f.homeGoals = math.random(0, 3)
+                    f.awayGoals = math.random(0, 3)
+                    -- 更新积分榜
+                    pcall(function() lg:updateStanding(f) end)
+                end
+            end
+        end
+    end
+    -- 也完成欧冠
+    if gameState.championsLeague then
+        local ucl = gameState.championsLeague
+        if ucl.leaguePhase and ucl.leaguePhase.fixtures then
+            for _, f in ipairs(ucl.leaguePhase.fixtures) do
+                if f.status ~= "finished" then
+                    f.status = "finished"
+                    f.homeGoals = math.random(0, 3)
+                    f.awayGoals = math.random(0, 3)
+                    pcall(function() ucl:updateLeagueStanding(f) end)
+                end
+            end
+        end
+        -- 标记完成
+        ucl.phase = "completed"
+    end
 end
 
 ------------------------------------------------------

@@ -4,6 +4,7 @@ local Router = require("scripts/app/router")
 local Theme = require("scripts/ui/theme")
 local Constants = require("scripts/app/constants")
 local HistoryManager = require("scripts/systems/history_manager")
+local FinanceManager = require("scripts/systems/finance_manager")
 
 local COLORS = Theme.COLORS
 
@@ -21,10 +22,7 @@ local function medal(position)
 end
 
 local function formatMoney(amount)
-    if not amount then return "0" end
-    if amount >= 1000000 then return string.format("%.1fM", amount / 1000000)
-    elseif amount >= 1000 then return string.format("%.0fK", amount / 1000)
-    else return tostring(amount) end
+    return FinanceManager.formatMoney(amount)
 end
 
 local function clamp(v, lo, hi) return math.max(lo, math.min(hi, v)) end
@@ -114,6 +112,34 @@ function SeasonEnd.create(params)
                     UI.Label { text = posText, fontSize = 13, color = playerPosition <= 3 and COLORS.WARNING or COLORS.TEXT_PRIMARY },
                 }})
             end
+        end
+
+        -- ====== 1.5 升降级信息卡 ======
+        local proRelData = gameState.lastPromotionRelegation
+        if proRelData and #proRelData > 0 then
+            local proRelRows = {}
+            for _, info in ipairs(proRelData) do
+                local isPlayer = (info.teamId == teamId)
+                local icon = info.type == "promoted" and "⬆️" or "⬇️"
+                local label = info.type == "promoted" and "升级" or "降级"
+                local labelColor = info.type == "promoted" and COLORS.SECONDARY or COLORS.DANGER
+                table.insert(proRelRows, UI.Panel {
+                    width = "100%", height = 34, flexDirection = "row", alignItems = "center",
+                    paddingHorizontal = 8, borderBottomWidth = 1, borderColor = COLORS.BORDER,
+                    backgroundColor = isPlayer and {33, 150, 243, 40} or COLORS.TRANSPARENT,
+                    children = {
+                        UI.Label { text = icon, width = 24, fontSize = 12 },
+                        UI.Label { text = info.teamName or "?", flex = 1, fontSize = 12,
+                            color = isPlayer and COLORS.PRIMARY or COLORS.TEXT_PRIMARY,
+                            fontWeight = isPlayer and "bold" or "normal" },
+                        UI.Label { text = label, width = 40, fontSize = 11, fontWeight = "bold", color = labelColor, textAlign = "right" },
+                    }
+                })
+            end
+            table.insert(content, Theme.Card { children = {
+                Theme.Subtitle { text = "升降级变动" },
+                table.unpack(proRelRows)
+            }})
         end
 
         -- ====== 2. 赛季奖项卡 ======

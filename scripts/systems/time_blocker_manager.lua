@@ -43,6 +43,12 @@ function TimeBlockerManager.check(gameState)
     -- 7. 紧急未读消息：高优先级消息未处理
     TimeBlockerManager._checkUrgentMessages(gameState, team, blockers)
 
+    -- 8. 赛季目标未设定
+    TimeBlockerManager._checkObjectivesNotSet(gameState, team, blockers)
+
+    -- 9. 赞助合同未选择（赛季初必须处理）
+    TimeBlockerManager._checkSponsorContract(gameState, team, blockers)
+
     return blockers
 end
 
@@ -262,6 +268,33 @@ function TimeBlockerManager._hasMatchTomorrow(gameState)
         end
     end
     return false
+end
+
+--- 8. 赛季目标未设定
+function TimeBlockerManager._checkObjectivesNotSet(gameState, team, blockers)
+    -- 仅在赛季已开始时才阻断（避免世界生成阶段误触）
+    if not gameState.league or not gameState.league.standings then return end
+    if gameState.objectives then return end  -- 已设定则跳过
+
+    table.insert(blockers, {
+        id = "objectives_not_set",
+        severity = "warn",
+        message = "赛季目标未设定，请先与董事会确认本赛季目标",
+        target = "dashboard",
+    })
+end
+
+--- 9. 赞助合同未选择
+function TimeBlockerManager._checkSponsorContract(gameState, team, blockers)
+    local FinanceManager = require("scripts/systems/finance_manager")
+    if FinanceManager.hasPendingSponsorChoice(team) then
+        table.insert(blockers, {
+            id = "sponsor_contract",
+            severity = "warn",
+            message = "新赛季赞助合同待签署，请选择赞助商方案",
+            target = "sponsor_select",
+        })
+    end
 end
 
 return TimeBlockerManager

@@ -585,9 +585,65 @@ function PlayerDetail._buildContractActions(player, team, gameState)
     end
     local compensation = math.floor(player.wage * 4 * math.max(0, monthsLeft) * 0.5)
 
+    -- 续约按钮
+    local renewBtn
+    local suggestedTerms = ContractManager.getSuggestedTerms(player, team, gameState)
+    if suggestedTerms then
+        renewBtn = UI.Button {
+            text = string.format("续约 (建议: %s/周 × %d年)",
+                PlayerDetail._formatMoney(suggestedTerms.wage), suggestedTerms.years),
+            width = "100%", height = 44,
+            backgroundColor = Theme.COLORS.SECONDARY,
+            borderRadius = 8,
+            fontSize = 14,
+            color = {255, 255, 255, 255},
+            marginBottom = 10,
+            onClick = function()
+                ConfirmDialog.show({
+                    title = "续约谈判",
+                    message = string.format(
+                        "向 %s 提出续约：\n周薪: %s（范围 %s ~ %s）\n年限: %d 年",
+                        player.displayName,
+                        PlayerDetail._formatMoney(suggestedTerms.wage),
+                        PlayerDetail._formatMoney(suggestedTerms.minWage),
+                        PlayerDetail._formatMoney(suggestedTerms.maxWage),
+                        suggestedTerms.years
+                    ),
+                    confirmText = "提出续约",
+                    danger = false,
+                    onConfirm = function()
+                        local success, err = ContractManager.renewContract(
+                            gameState, player.id, suggestedTerms.wage, suggestedTerms.years)
+                        if success then
+                            gameState:sendMessage({
+                                category = "transfer",
+                                title = "续约成功",
+                                body = player.displayName .. " 已同意续约，新合同为期 "
+                                    .. suggestedTerms.years .. " 年。",
+                                priority = "high",
+                            })
+                        else
+                            gameState:sendMessage({
+                                category = "transfer",
+                                title = "续约失败",
+                                body = player.displayName .. " 拒绝续约：" .. (err or "条件不满足"),
+                                priority = "normal",
+                            })
+                        end
+                        Router.replaceWith("player_detail", { playerId = player.id, tab = "contract" })
+                    end,
+                })
+            end,
+        }
+    else
+        renewBtn = UI.Panel { height = 0 }
+    end
+
     return Theme.Card {
         children = {
             Theme.Subtitle { text = "合同操作" },
+            -- 续约按钮
+            renewBtn,
             -- 赔偿金提示
             compensation > 0 and UI.Label {
                 text = string.format("终止合同需支付赔偿金: %s", PlayerDetail._formatMoney(compensation)),
@@ -631,7 +687,7 @@ function PlayerDetail._buildListForSaleBtn(player, isSafe, safetyReason, gameSta
                 width = "100%", marginBottom = 10,
                 children = {
                     UI.Label {
-                        text = string.format("收到报价：%s 出价 %.0fK", buyerName, bid.amount / 1000),
+                        text = "收到报价：" .. buyerName .. " 出价 " .. FinanceManager.formatMoney(bid.amount),
                         fontSize = 13, color = Theme.COLORS.ACCENT,
                         fontWeight = "bold", marginBottom = 8,
                     },
@@ -654,7 +710,7 @@ function PlayerDetail._buildListForSaleBtn(player, isSafe, safetyReason, gameSta
                                         danger = false,
                                         onConfirm = function()
                                             TransferManager.acceptIncomingBid(gameState, bid.id)
-                                            Router.navigate("squad")
+                                            Router.replaceWith("market", { tab = "listed" })
                                         end,
                                     })
                                 end,
@@ -755,14 +811,7 @@ end
 
 -- 辅助：格式化金额
 function PlayerDetail._formatMoney(amount)
-    if not amount then return "0" end
-    local abs = math.abs(amount)
-    if abs >= 1000000 then
-        return string.format("%.1fM", amount / 1000000)
-    elseif abs >= 1000 then
-        return string.format("%.0fK", amount / 1000)
-    end
-    return tostring(math.floor(amount))
+    return FinanceManager.formatMoney(amount)
 end
 
 -- 辅助：按位置获取关键属性

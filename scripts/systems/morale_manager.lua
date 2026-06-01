@@ -2,14 +2,15 @@
 -- 球员士气系统：核心因素、每周更新、表现加成
 
 local MessageManager = require("scripts/systems/message_manager")
+local Constants = require("scripts/app/constants")
 
 local MoraleManager = {}
 
 ------------------------------------------------------
 -- 士气常量
 ------------------------------------------------------
-local MORALE_MIN = 0
-local MORALE_MAX = 100
+local MORALE_MIN = Constants.MORALE_MIN    -- 20
+local MORALE_MAX = Constants.MORALE_MAX    -- 100
 local MORALE_DEFAULT = 60
 
 -- 士气等级

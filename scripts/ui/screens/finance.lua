@@ -1,16 +1,18 @@
 -- ui/screens/finance.lua
--- 财务管理页面 - 增强版：趋势可视化 / 分类过滤 / 详细流水
+-- 财务管理页面 - 增强版：健康评级 / 风险可视化 / 趋势 / 流水
+-- 设计：字母评级A-F / 工资条风险阈值 / 语义色驱动
 
 local UI = require("urhox-libs/UI")
 local Theme = require("scripts/ui/theme")
 local Router = require("scripts/app/router")
 local Constants = require("scripts/app/constants")
 local FinanceManager = require("scripts/systems/finance_manager")
+local BoardManager = require("scripts/systems/board_manager")
 
 local Finance = {}
 
 -- 状态持久化
-local _activeTab = "overview"  -- overview | facilities | transactions
+local _activeTab = "overview"  -- overview | operations | wages | facilities | transactions
 local _txFilter = "ALL"        -- ALL | income | expense | transfer | wage
 
 ------------------------------------------------------
@@ -43,6 +45,10 @@ function Finance.create(params)
         content = Finance._buildTransactions(team, gameState)
     elseif _activeTab == "facilities" then
         content = Finance._buildFacilities(team, gameState)
+    elseif _activeTab == "operations" then
+        content = Finance._buildOperations(team, gameState)
+    elseif _activeTab == "wages" then
+        content = Finance._buildWages(team, gameState)
     else
         content = Finance._buildOverview(team, gameState)
     end
@@ -56,27 +62,24 @@ function Finance.create(params)
             Theme.TopBar {
                 children = {
                     UI.Button {
-                        text = "返回",
-                        width = 60, height = 36,
+                        text = "←",
+                        width = 36, height = 36,
                         backgroundColor = Theme.COLORS.TRANSPARENT,
-                        fontSize = 14,
+                        fontSize = 18,
                         color = Theme.COLORS.TEXT_SECONDARY,
                         onClick = function() Router.back() end,
                     },
                     UI.Label {
                         text = "财务管理",
-                        fontSize = 18,
+                        fontSize = 17,
                         color = Theme.COLORS.TEXT_PRIMARY,
                         fontWeight = "bold",
                         flexGrow = 1,
                         textAlign = "center",
                     },
-                    UI.Panel { width = 60 },
+                    UI.Panel { width = 36 },
                 }
             },
-
-            -- 二级导航
-            Theme.MoreSubNav("finance"),
 
             -- 标签切换：概览 / 流水
             Finance._buildTabBar(),
@@ -95,9 +98,11 @@ end
 ------------------------------------------------------
 function Finance._buildTabBar()
     local tabs = {
-        { key = "overview", label = "财务概览" },
+        { key = "overview", label = "总览" },
+        { key = "operations", label = "经营" },
+        { key = "wages", label = "薪资" },
         { key = "facilities", label = "设施" },
-        { key = "transactions", label = "收支流水" },
+        { key = "transactions", label = "流水" },
     }
     local tabBtns = {}
     for _, t in ipairs(tabs) do
@@ -135,97 +140,19 @@ function Finance._buildTabBar()
 end
 
 ------------------------------------------------------
--- 概览标签
+-- 总览标签（精简：资金 + 健康 + 赛季收支 + 工资概要）
 ------------------------------------------------------
 function Finance._buildOverview(team, gameState)
-    -- 工资计算
-    local totalPlayerWage = 0
-    local totalStaffWage = 0
-    local highestWagePlayer = nil
-    local highestWage = 0
-    local top5Wages = {}
-
-    local playerWages = {}
-    for _, pid in ipairs(team.playerIds) do
-        local p = gameState.players[pid]
-        if p then
-            totalPlayerWage = totalPlayerWage + (p.wage or 0)
-            table.insert(playerWages, { name = p.displayName, wage = p.wage or 0 })
-            if p.wage and p.wage > highestWage then
-                highestWage = p.wage
-                highestWagePlayer = p
-            end
-        end
-    end
-    for _, sid in ipairs(team.staffIds or {}) do
-        local s = gameState.staff[sid]
-        if s then totalStaffWage = totalStaffWage + (s.wage or 0) end
-    end
-
-    -- Top 5 薪资
-    table.sort(playerWages, function(a, b) return a.wage > b.wage end)
-    for i = 1, math.min(5, #playerWages) do
-        table.insert(top5Wages, playerWages[i])
-    end
-
-    local totalWeeklyWage = totalPlayerWage + totalStaffWage
-    local monthlyWage = totalWeeklyWage * 4
-    local seasonWage = totalWeeklyWage * 46
-
-    -- 预算状况
-    local wageBudgetUsage = team.wageBudget > 0 and math.floor(totalWeeklyWage / team.wageBudget * 100) or 0
+    -- 工资计算（概要）
+    local totalWeeklyWage = Finance._calcTotalWeeklyWage(team, gameState)
+    local wageBudget = team.wageBudget or 0
+    local wageBudgetUsage = wageBudget > 0 and math.floor(totalWeeklyWage / wageBudget * 100) or 0
     local wageStatusColor = wageBudgetUsage > 90 and Theme.COLORS.DANGER
         or (wageBudgetUsage > 70 and Theme.COLORS.WARNING or Theme.COLORS.SECONDARY)
 
     -- 净资产计算
     local netIncome = (team.seasonIncome or 0) - (team.seasonExpense or 0)
     local netColor = netIncome >= 0 and Theme.COLORS.SECONDARY or Theme.COLORS.DANGER
-
-    -- Top5 薪资行
-    local top5Rows = {}
-    for i, pw in ipairs(top5Wages) do
-        local barWidth = highestWage > 0 and math.floor(pw.wage / highestWage * 100) or 0
-        table.insert(top5Rows, UI.Panel {
-            width = "100%",
-            marginTop = 6,
-            children = {
-                UI.Panel {
-                    flexDirection = "row",
-                    alignItems = "center",
-                    children = {
-                        UI.Label {
-                            text = i .. ". " .. pw.name,
-                            fontSize = 12,
-                            color = Theme.COLORS.TEXT_PRIMARY,
-                            flexGrow = 1,
-                        },
-                        UI.Label {
-                            text = Finance._formatMoney(pw.wage) .. "/周",
-                            fontSize = 11,
-                            color = Theme.COLORS.ACCENT,
-                        },
-                    }
-                },
-                -- 薪资条
-                UI.Panel {
-                    width = "100%",
-                    height = 6,
-                    backgroundColor = {38, 46, 71, 255},
-                    borderRadius = 3,
-                    marginTop = 3,
-                    overflow = "hidden",
-                    children = {
-                        UI.Panel {
-                            width = barWidth .. "%",
-                            height = "100%",
-                            backgroundColor = Theme.COLORS.ACCENT,
-                            borderRadius = 3,
-                        },
-                    }
-                },
-            }
-        })
-    end
 
     return UI.ScrollView {
         flexGrow = 1,
@@ -235,33 +162,76 @@ function Finance._buildOverview(team, gameState)
         children = {
             -- 资金总览卡片
             Theme.Card {
-                children = {
-                    Theme.Subtitle { text = "资金状况" },
-                    -- 大字显示余额
-                    UI.Label {
-                        text = Finance._formatMoney(team.balance),
-                        fontSize = 28,
-                        color = Theme.COLORS.TEXT_PRIMARY,
-                        fontWeight = "bold",
-                        marginTop = 4,
-                    },
-                    UI.Label {
-                        text = "可用资金",
-                        fontSize = 11,
-                        color = Theme.COLORS.TEXT_MUTED,
-                        marginTop = 2,
-                    },
-                    Theme.Divider(),
-                    UI.Panel {
-                        flexDirection = "row",
-                        marginTop = 4,
-                        flexWrap = "wrap",
-                        children = {
-                            Theme.StatPill { label = "转会预算", value = Finance._formatMoney(team.transferBudget) },
-                            Theme.StatPill { label = "工资预算", value = Finance._formatMoney(team.wageBudget) .. "/周" },
-                        }
-                    },
-                }
+                children = (function()
+                    local boardStatus = BoardManager.getStatus(gameState)
+                    local sat = boardStatus and boardStatus.satisfaction or 50
+                    local satColor
+                    if sat >= 70 then satColor = Theme.COLORS.FINANCE_GREEN
+                    elseif sat >= 40 then satColor = Theme.COLORS.WARNING
+                    else satColor = Theme.COLORS.DANGER end
+
+                    return {
+                        -- 标题行：俱乐部财务 + 董事会满意度
+                        UI.Panel {
+                            flexDirection = "row",
+                            alignItems = "center",
+                            justifyContent = "space-between",
+                            children = {
+                                UI.Label {
+                                    text = "俱乐部财务",
+                                    fontSize = 16,
+                                    color = Theme.COLORS.TEXT_PRIMARY,
+                                    fontWeight = "bold",
+                                },
+                                UI.Panel {
+                                    flexDirection = "row",
+                                    alignItems = "center",
+                                    paddingLeft = 10, paddingRight = 10,
+                                    paddingTop = 4, paddingBottom = 4,
+                                    backgroundColor = {satColor[1], satColor[2], satColor[3], 25},
+                                    borderRadius = 12,
+                                    children = {
+                                        UI.Label {
+                                            text = "董事会满意 ",
+                                            fontSize = 11,
+                                            color = Theme.COLORS.TEXT_MUTED,
+                                        },
+                                        UI.Label {
+                                            text = sat .. "%",
+                                            fontSize = 13,
+                                            color = satColor,
+                                            fontWeight = "bold",
+                                        },
+                                    }
+                                },
+                            }
+                        },
+                        -- 大字显示余额
+                        UI.Label {
+                            text = Finance._formatMoney(team.balance),
+                            fontSize = 28,
+                            color = Theme.COLORS.TEXT_PRIMARY,
+                            fontWeight = "bold",
+                            marginTop = 6,
+                        },
+                        UI.Label {
+                            text = "可用资金",
+                            fontSize = 11,
+                            color = Theme.COLORS.TEXT_MUTED,
+                            marginTop = 2,
+                        },
+                        Theme.Divider(),
+                        UI.Panel {
+                            flexDirection = "row",
+                            marginTop = 4,
+                            flexWrap = "wrap",
+                            children = {
+                                Theme.StatPill { label = "转会预算", value = Finance._formatMoney(team.transferBudget) },
+                                Theme.StatPill { label = "工资预算", value = Finance._formatMoney(wageBudget) .. "/周" },
+                            }
+                        },
+                    }
+                end)(),
             },
 
             -- 财务健康状况
@@ -335,7 +305,225 @@ function Finance._buildOverview(team, gameState)
                 }
             },
 
-            -- 工资预算使用率
+            -- 工资预算概要（精简版）
+            Theme.Card {
+                children = {
+                    UI.Panel {
+                        flexDirection = "row", alignItems = "center", marginBottom = 6,
+                        children = {
+                            Theme.Subtitle { text = "工资预算" },
+                            UI.Panel { flexGrow = 1 },
+                            UI.Button {
+                                text = "详情 >",
+                                height = 26,
+                                paddingLeft = 10, paddingRight = 10,
+                                backgroundColor = Theme.COLORS.TRANSPARENT,
+                                fontSize = 11,
+                                color = Theme.COLORS.ACCENT,
+                                onClick = function()
+                                    _activeTab = "wages"
+                                    Router.replaceWith("finance", { tab = "wages" })
+                                end,
+                            },
+                        }
+                    },
+                    UI.Panel {
+                        width = "100%",
+                        height = 16,
+                        backgroundColor = {38, 46, 71, 255},
+                        borderRadius = 8,
+                        overflow = "hidden",
+                        children = {
+                            UI.Panel {
+                                width = math.min(100, wageBudgetUsage) .. "%",
+                                height = "100%",
+                                backgroundColor = wageStatusColor,
+                                borderRadius = 8,
+                            },
+                        }
+                    },
+                    UI.Panel {
+                        flexDirection = "row",
+                        marginTop = 6,
+                        children = {
+                            UI.Label {
+                                text = wageBudgetUsage .. "%",
+                                fontSize = 14,
+                                color = wageStatusColor,
+                                fontWeight = "bold",
+                            },
+                            UI.Label {
+                                text = "  " .. Finance._formatMoney(totalWeeklyWage) .. " / " .. Finance._formatMoney(wageBudget) .. " 周预算",
+                                fontSize = 11,
+                                color = Theme.COLORS.TEXT_MUTED,
+                            },
+                        }
+                    },
+                }
+            },
+
+            -- 快捷入口卡片
+            Theme.Card {
+                children = {
+                    Theme.Subtitle { text = "管理" },
+                    UI.Panel {
+                        flexDirection = "row",
+                        flexWrap = "wrap",
+                        marginTop = 6,
+                        children = {
+                            Finance._quickEntryBtn("预算分配", "operations"),
+                            Finance._quickEntryBtn("票价策略", "operations"),
+                            Finance._quickEntryBtn("收入分析", "operations"),
+                            Finance._quickEntryBtn("赛季预测", "operations"),
+                        }
+                    },
+                }
+            },
+        }
+    }
+end
+
+------------------------------------------------------
+-- 快捷入口按钮
+------------------------------------------------------
+function Finance._quickEntryBtn(label, targetTab)
+    return UI.Button {
+        text = label,
+        height = 34,
+        paddingLeft = 14, paddingRight = 14,
+        backgroundColor = {38, 50, 80, 255},
+        borderRadius = 8,
+        fontSize = 12,
+        color = Theme.COLORS.ACCENT,
+        marginRight = 8,
+        marginBottom = 6,
+        onClick = function()
+            _activeTab = targetTab
+            Router.replaceWith("finance", { tab = targetTab })
+        end,
+    }
+end
+
+------------------------------------------------------
+-- 经营标签（预算分配 + 票价策略 + 收入来源 + 预测）
+------------------------------------------------------
+function Finance._buildOperations(team, gameState)
+    return UI.ScrollView {
+        flexGrow = 1,
+        flexBasis = 0,
+        scrollY = true,
+        padding = 14,
+        children = {
+            -- 经营仪表盘（收入动态 + 票价策略 合并）
+            Finance._buildOperationsDashboard(team, gameState),
+
+            -- 预算分配
+            Finance._buildBudgetAllocationCard(team, gameState),
+
+            -- 收入来源占比
+            Finance._buildIncomeBreakdownCard(team),
+
+            -- 财务预测
+            Finance._buildForecastCard(team, gameState),
+        }
+    }
+end
+
+------------------------------------------------------
+-- 薪资标签（工资详情 + TOP5 + 趋势）
+------------------------------------------------------
+function Finance._buildWages(team, gameState)
+    -- 工资计算
+    local totalPlayerWage = 0
+    local totalStaffWage = 0
+    local highestWage = 0
+    local top5Wages = {}
+
+    local playerWages = {}
+    for _, pid in ipairs(team.playerIds) do
+        local p = gameState.players[pid]
+        if p then
+            totalPlayerWage = totalPlayerWage + (p.wage or 0)
+            table.insert(playerWages, { name = p.displayName, wage = p.wage or 0 })
+            if (p.wage or 0) > highestWage then
+                highestWage = p.wage
+            end
+        end
+    end
+    for _, sid in ipairs(team.staffIds or {}) do
+        local s = gameState.staff[sid]
+        if s then totalStaffWage = totalStaffWage + (s.wage or 0) end
+    end
+
+    -- Top 5 薪资
+    table.sort(playerWages, function(a, b) return a.wage > b.wage end)
+    for i = 1, math.min(5, #playerWages) do
+        table.insert(top5Wages, playerWages[i])
+    end
+
+    local totalWeeklyWage = totalPlayerWage + totalStaffWage
+    local monthlyWage = totalWeeklyWage * 4
+    local seasonWage = totalWeeklyWage * 46
+
+    -- 预算状况
+    local wageBudget = team.wageBudget or 0
+    local wageBudgetUsage = wageBudget > 0 and math.floor(totalWeeklyWage / wageBudget * 100) or 0
+    local wageStatusColor = wageBudgetUsage > 90 and Theme.COLORS.DANGER
+        or (wageBudgetUsage > 70 and Theme.COLORS.WARNING or Theme.COLORS.SECONDARY)
+
+    -- Top5 薪资行
+    local top5Rows = {}
+    for i, pw in ipairs(top5Wages) do
+        local barWidth = highestWage > 0 and math.floor(pw.wage / highestWage * 100) or 0
+        table.insert(top5Rows, UI.Panel {
+            width = "100%",
+            marginTop = 6,
+            children = {
+                UI.Panel {
+                    flexDirection = "row",
+                    alignItems = "center",
+                    children = {
+                        UI.Label {
+                            text = i .. ". " .. pw.name,
+                            fontSize = 12,
+                            color = Theme.COLORS.TEXT_PRIMARY,
+                            flexGrow = 1,
+                        },
+                        UI.Label {
+                            text = Finance._formatMoney(pw.wage) .. "/周",
+                            fontSize = 11,
+                            color = Theme.COLORS.ACCENT,
+                        },
+                    }
+                },
+                -- 薪资条
+                UI.Panel {
+                    width = "100%",
+                    height = 6,
+                    backgroundColor = {38, 46, 71, 255},
+                    borderRadius = 3,
+                    marginTop = 3,
+                    overflow = "hidden",
+                    children = {
+                        UI.Panel {
+                            width = barWidth .. "%",
+                            height = "100%",
+                            backgroundColor = Theme.COLORS.ACCENT,
+                            borderRadius = 3,
+                        },
+                    }
+                },
+            }
+        })
+    end
+
+    return UI.ScrollView {
+        flexGrow = 1,
+        flexBasis = 0,
+        scrollY = true,
+        padding = 14,
+        children = {
+            -- 工资预算使用率（完整版）
             Theme.Card {
                 children = {
                     Theme.Subtitle { text = "工资预算使用率" },
@@ -366,7 +554,7 @@ function Finance._buildOverview(team, gameState)
                                 fontWeight = "bold",
                             },
                             UI.Label {
-                                text = "  " .. Finance._formatMoney(totalWeeklyWage) .. " / " .. Finance._formatMoney(team.wageBudget) .. " 周预算",
+                                text = "  " .. Finance._formatMoney(totalWeeklyWage) .. " / " .. Finance._formatMoney(wageBudget) .. " 周预算",
                                 fontSize = 11,
                                 color = Theme.COLORS.TEXT_MUTED,
                             },
@@ -387,9 +575,6 @@ function Finance._buildOverview(team, gameState)
                 }
             },
 
-            -- 近期收支趋势
-            Finance._buildTrendCard(team),
-
             -- Top5 薪资
             Theme.Card {
                 children = {
@@ -399,6 +584,311 @@ function Finance._buildOverview(team, gameState)
                         children = top5Rows,
                     },
                 }
+            },
+
+            -- 近期收支趋势
+            Finance._buildTrendCard(team),
+        }
+    }
+end
+
+------------------------------------------------------
+-- 工具：计算周薪总额
+------------------------------------------------------
+function Finance._calcTotalWeeklyWage(team, gameState)
+    local totalPlayerWage = 0
+    local totalStaffWage = 0
+    for _, pid in ipairs(team.playerIds) do
+        local p = gameState.players[pid]
+        if p then totalPlayerWage = totalPlayerWage + (p.wage or 0) end
+    end
+    for _, sid in ipairs(team.staffIds or {}) do
+        local s = gameState.staff[sid]
+        if s then totalStaffWage = totalStaffWage + (s.wage or 0) end
+    end
+    return totalPlayerWage + totalStaffWage
+end
+
+------------------------------------------------------
+-- 经营仪表盘（收入动态 + 票价策略 合并）
+------------------------------------------------------
+function Finance._buildOperationsDashboard(team, gameState)
+    local currentStrategy = FinanceManager.getTicketStrategy(team)
+    local strategies = FinanceManager.TICKET_STRATEGIES
+
+    -- === 计算核心指标 ===
+    -- 上座率
+    local attendancePct, attSource
+    local lastRevenue = team._lastMatchRevenue
+    if lastRevenue and lastRevenue.attendanceRate then
+        attendancePct = math.floor(lastRevenue.attendanceRate * 100)
+        attSource = "实际"
+    else
+        local rep = team.reputation or 50
+        local baseRate = 0.65 + rep / 500
+        local sBonus = currentStrategy.attendanceBonus or 0
+        attendancePct = math.floor(math.min(0.95, math.max(0.50, baseRate + sBonus)) * 100)
+        attSource = "预期"
+    end
+    local attColor = attendancePct >= 85 and Theme.COLORS.FINANCE_GREEN
+        or (attendancePct >= 65 and Theme.COLORS.MATCH_ORANGE or Theme.COLORS.DANGER)
+
+    -- 预估月收入
+    local rep = team.reputation or 50
+    local capacity = team.stadiumCapacity or 30000
+    local position = team.leaguePosition or 10
+    local estSponsor = math.floor(rep * 15000 + (capacity / 30000) * 500000)
+    local estBroadcast = math.floor((rep * 25000 + 1000000) * (1.0 + (20 - position) * 0.05))
+    local estMerch = math.floor((rep * 8000 + 300000) * 1.0)
+    local estTotal = estSponsor + estBroadcast + estMerch
+
+    -- 下次结算
+    local currentDay = gameState.date.day or 1
+    local currentMonth = gameState.date.month or 8
+    local daysToNext = currentDay <= 1 and 0 or (30 - currentDay + 1)
+    local nextSettleText
+    if daysToNext <= 0 then
+        nextSettleText = "今日"
+    elseif daysToNext <= 7 then
+        nextSettleText = daysToNext .. "天"
+    else
+        nextSettleText = daysToNext .. "天"
+    end
+
+    -- 最近收支流水
+    local incomeCategories = {
+        ticket = { label = "票房", color = {72, 160, 220, 255} },
+        broadcast = { label = "转播", color = {100, 200, 150, 255} },
+        sponsor = { label = "赞助", color = {220, 180, 60, 255} },
+        merchandise = { label = "商品", color = {180, 120, 220, 255} },
+        prize = { label = "奖金", color = {240, 130, 80, 255} },
+        wage = { label = "工资", color = {220, 80, 80, 255} },
+        maintenance = { label = "维护", color = {150, 150, 170, 255} },
+    }
+    local recentItems = {}
+    local txs = team.transactions or {}
+    local startIdx = math.max(1, #txs - 5)
+    for i = #txs, startIdx, -1 do
+        local tx = txs[i]
+        if tx then
+            local catInfo = incomeCategories[tx.category]
+            table.insert(recentItems, {
+                desc = tx.description or "收支",
+                amount = tx.amount or 0,
+                label = catInfo and catInfo.label or "其他",
+                color = catInfo and catInfo.color or Theme.COLORS.TEXT_MUTED,
+            })
+        end
+    end
+
+    -- === 票价策略选项 ===
+    local strategyOptions = {}
+    for _, s in ipairs(strategies) do
+        local isCurrent = s.key == currentStrategy.key
+        local multLabel = string.format("x%.1f", s.multiplier)
+        local attLabel = s.attendanceBonus > 0
+            and string.format("+%d%%", math.floor(s.attendanceBonus * 100))
+            or (s.attendanceBonus < 0
+                and string.format("%d%%", math.floor(s.attendanceBonus * 100))
+                or "--")
+
+        table.insert(strategyOptions, UI.Button {
+            width = "100%",
+            height = 52,
+            flexDirection = "row",
+            alignItems = "center",
+            paddingLeft = 12, paddingRight = 12,
+            backgroundColor = isCurrent and {45, 80, 120, 255} or Theme.COLORS.BG_SURFACE,
+            borderRadius = 8,
+            borderWidth = isCurrent and 1 or 0,
+            borderColor = isCurrent and Theme.COLORS.PRIMARY or Theme.COLORS.TRANSPARENT,
+            marginBottom = 6,
+            onClick = function()
+                if not isCurrent then
+                    FinanceManager.setTicketStrategy(team, s.key)
+                    UI.Toast.Show({ message = "已切换为: " .. s.label, variant = "success" })
+                    Router.replaceWith("finance", { tab = "operations" })
+                end
+            end,
+            children = {
+                UI.Panel {
+                    flexGrow = 1, flexShrink = 1,
+                    children = {
+                        UI.Panel {
+                            flexDirection = "row", alignItems = "center",
+                            children = {
+                                UI.Label {
+                                    text = s.label,
+                                    fontSize = 14,
+                                    color = isCurrent and Theme.COLORS.TEXT_PRIMARY or Theme.COLORS.TEXT_SECONDARY,
+                                    fontWeight = isCurrent and "bold" or "normal",
+                                },
+                                isCurrent and UI.Panel {
+                                    marginLeft = 6, paddingLeft = 5, paddingRight = 5,
+                                    paddingTop = 1, paddingBottom = 1,
+                                    backgroundColor = Theme.COLORS.PRIMARY,
+                                    borderRadius = 4,
+                                    children = { UI.Label { text = "当前", fontSize = 9, color = {255,255,255,255} } },
+                                } or nil,
+                            }
+                        },
+                        UI.Label { text = s.desc, fontSize = 11, color = Theme.COLORS.TEXT_MUTED, marginTop = 2 },
+                    }
+                },
+                UI.Panel {
+                    alignItems = "flex-end",
+                    children = {
+                        UI.Label { text = multLabel, fontSize = 16, fontWeight = "bold",
+                            color = s.multiplier > 1.0 and Theme.COLORS.SECONDARY or Theme.COLORS.ACCENT },
+                        UI.Label { text = attLabel, fontSize = 10, marginTop = 1,
+                            color = s.attendanceBonus >= 0 and Theme.COLORS.SECONDARY or Theme.COLORS.WARNING },
+                    }
+                },
+            }
+        })
+    end
+
+    -- === 流水列表 ===
+    local activityRows = {}
+    if #recentItems == 0 then
+        table.insert(activityRows, UI.Label {
+            text = "暂无收支记录，比赛/月结后自动产生",
+            fontSize = 11, color = Theme.COLORS.TEXT_MUTED, marginTop = 4,
+        })
+    else
+        for _, item in ipairs(recentItems) do
+            local isIncome = item.amount >= 0
+            table.insert(activityRows, UI.Panel {
+                width = "100%", flexDirection = "row", alignItems = "center",
+                paddingTop = 5, paddingBottom = 5,
+                borderBottomWidth = 1, borderColor = {255,255,255,12},
+                children = {
+                    UI.Panel { width = 3, height = 24, borderRadius = 2, backgroundColor = item.color, marginRight = 8 },
+                    UI.Panel {
+                        flexGrow = 1, flexShrink = 1,
+                        children = {
+                            UI.Label { text = item.desc, fontSize = 11, color = Theme.COLORS.TEXT_PRIMARY, maxLines = 1 },
+                            UI.Label { text = item.label, fontSize = 9, color = Theme.COLORS.TEXT_MUTED, marginTop = 1 },
+                        }
+                    },
+                    UI.Label {
+                        text = (isIncome and "+" or "") .. FinanceManager.formatMoney(item.amount),
+                        fontSize = 12, fontWeight = "bold",
+                        color = isIncome and Theme.COLORS.SECONDARY or Theme.COLORS.DANGER,
+                    },
+                }
+            })
+        end
+    end
+
+    -- === 组装仪表盘 ===
+    return Theme.Card {
+        children = {
+            -- 顶部标题
+            UI.Panel {
+                flexDirection = "row", alignItems = "center", marginBottom = 12,
+                children = {
+                    UI.Label { text = "经营总览", fontSize = 17, fontWeight = "bold", color = Theme.COLORS.TEXT_PRIMARY, flexGrow = 1 },
+                    UI.Panel {
+                        flexDirection = "row", alignItems = "center",
+                        paddingLeft = 8, paddingRight = 8, paddingTop = 3, paddingBottom = 3,
+                        backgroundColor = {60, 180, 120, 30}, borderRadius = 8,
+                        children = {
+                            UI.Label { text = "结算 ", fontSize = 10, color = Theme.COLORS.TEXT_MUTED },
+                            UI.Label { text = nextSettleText, fontSize = 10, color = Theme.COLORS.SECONDARY, fontWeight = "bold" },
+                        }
+                    },
+                }
+            },
+
+            -- 三环仪表（上座率 / 月收入 / 球场容量）
+            UI.Panel {
+                width = "100%", flexDirection = "row",
+                justifyContent = "space-around", alignItems = "center",
+                paddingTop = 4, paddingBottom = 12,
+                children = {
+                    Theme.RingGauge {
+                        value = attendancePct, size = 60, thickness = 4,
+                        color = attColor,
+                        label = attendancePct .. "%",
+                        labelSize = 14,
+                        sublabel = attSource .. "上座",
+                    },
+                    UI.Panel {
+                        alignItems = "center",
+                        children = {
+                            UI.Label { text = "预估月入", fontSize = 10, color = Theme.COLORS.TEXT_MUTED },
+                            UI.Label {
+                                text = FinanceManager.formatMoney(estTotal),
+                                fontSize = 18, fontWeight = "bold",
+                                color = Theme.COLORS.SECONDARY, marginTop = 3,
+                            },
+                            UI.Label { text = "赞助+转播+商品", fontSize = 9, color = Theme.COLORS.TEXT_MUTED, marginTop = 2 },
+                        }
+                    },
+                    Theme.RingGauge {
+                        value = math.min(100, math.floor(capacity / 60000 * 100)),
+                        size = 60, thickness = 4,
+                        color = Theme.COLORS.ACCENT,
+                        label = string.format("%.0fw", capacity / 10000),
+                        labelSize = 14,
+                        sublabel = "球场",
+                    },
+                }
+            },
+
+            -- 预估明细行
+            UI.Panel {
+                width = "100%", flexDirection = "row",
+                paddingTop = 8, paddingBottom = 10,
+                borderTopWidth = 1, borderBottomWidth = 1, borderColor = Theme.COLORS.BORDER,
+                children = {
+                    Finance._dashEstItem("赞助", estSponsor, {220, 180, 60, 255}),
+                    Finance._dashEstItem("转播", estBroadcast, {100, 200, 150, 255}),
+                    Finance._dashEstItem("商品", estMerch, {180, 120, 220, 255}),
+                    Finance._dashEstItem("票房", lastRevenue and lastRevenue.revenue or 0, {72, 160, 220, 255}),
+                }
+            },
+
+            -- 票价策略区域
+            UI.Panel {
+                width = "100%", marginTop = 14,
+                children = {
+                    UI.Panel {
+                        flexDirection = "row", alignItems = "center", marginBottom = 8,
+                        children = {
+                            UI.Label { text = "票价策略", fontSize = 14, fontWeight = "bold", color = Theme.COLORS.TEXT_PRIMARY, flexGrow = 1 },
+                            UI.Label { text = "倍率 x" .. string.format("%.1f", currentStrategy.multiplier),
+                                fontSize = 11, color = Theme.COLORS.ACCENT },
+                        }
+                    },
+                    UI.Panel { width = "100%", children = strategyOptions },
+                }
+            },
+
+            -- 最近流水区域
+            UI.Panel {
+                width = "100%", marginTop = 14,
+                children = {
+                    UI.Label { text = "最近收支", fontSize = 14, fontWeight = "bold", color = Theme.COLORS.TEXT_PRIMARY, marginBottom = 6 },
+                    UI.Panel { width = "100%", children = activityRows },
+                }
+            },
+        }
+    }
+end
+
+-- 仪表盘预估收入子项
+function Finance._dashEstItem(label, amount, color)
+    return UI.Panel {
+        flexGrow = 1, alignItems = "center",
+        children = {
+            UI.Panel { width = 6, height = 6, borderRadius = 3, backgroundColor = color, marginBottom = 3 },
+            UI.Label { text = label, fontSize = 10, color = Theme.COLORS.TEXT_MUTED },
+            UI.Label {
+                text = FinanceManager.formatMoney(amount),
+                fontSize = 12, fontWeight = "bold",
+                color = Theme.COLORS.TEXT_PRIMARY, marginTop = 2,
             },
         }
     }
@@ -464,12 +954,453 @@ function Finance._buildFacilities(team, gameState)
         })
     end
 
+    -- 球场扩建卡片
+    local stadiumCard = Finance._buildStadiumExpansionCard(team, gameState)
+    table.insert(rows, 1, stadiumCard)  -- 放在设施列表最前面
+
     return UI.ScrollView {
         flexGrow = 1,
         flexBasis = 0,
         scrollY = true,
         padding = 14,
         children = rows,
+    }
+end
+
+------------------------------------------------------
+-- 球场扩建卡片
+------------------------------------------------------
+function Finance._buildStadiumExpansionCard(team, gameState)
+    local capacity = team.stadiumCapacity or 30000
+    local maxCapacity = FinanceManager.STADIUM_EXPANSION.maxCapacity
+    local isExpanding = team.stadiumExpanding
+    local weeksLeft = team.stadiumExpandWeeksLeft or 0
+    local expandTarget = team.stadiumExpandTarget or capacity
+
+    -- 计算费用
+    local cost, err, addedSeats, newCapacity = FinanceManager.getStadiumExpansionCost(team)
+    local isMaxed = not cost and not isExpanding
+
+    -- 容量进度条百分比
+    local capacityPct = math.floor(capacity / maxCapacity * 100)
+
+    -- 状态文案
+    local statusText, statusColor
+    if isExpanding then
+        statusText = string.format("扩建中… %d 周后完工 → %d 座", weeksLeft, expandTarget)
+        statusColor = Theme.COLORS.WARNING
+    elseif isMaxed then
+        statusText = "已达最大容量"
+        statusColor = Theme.COLORS.TEXT_MUTED
+    else
+        statusText = string.format("可扩建 +%d 座 → %d 座", addedSeats, newCapacity)
+        statusColor = Theme.COLORS.SECONDARY
+    end
+
+    -- 按钮
+    local btnText, btnEnabled
+    if isExpanding then
+        btnText = string.format("建设中 (%d周)", weeksLeft)
+        btnEnabled = false
+    elseif isMaxed then
+        btnText = "已满级"
+        btnEnabled = false
+    else
+        btnText = "扩建 " .. Finance._formatMoney(cost)
+        btnEnabled = (team.balance or 0) >= cost
+    end
+
+    return Theme.Card {
+        children = {
+            UI.Panel {
+                flexDirection = "row", alignItems = "center", marginBottom = 6,
+                children = {
+                    UI.Label {
+                        text = "球场",
+                        fontSize = 16,
+                        color = Theme.COLORS.TEXT_PRIMARY,
+                        fontWeight = "bold",
+                        flexGrow = 1,
+                    },
+                    UI.Panel {
+                        paddingLeft = 8, paddingRight = 8,
+                        paddingTop = 3, paddingBottom = 3,
+                        backgroundColor = {60, 130, 200, 40},
+                        borderRadius = 8,
+                        children = {
+                            UI.Label {
+                                text = string.format("%d / %d 座", capacity, maxCapacity),
+                                fontSize = 10,
+                                color = Theme.COLORS.ACCENT,
+                            },
+                        }
+                    },
+                }
+            },
+            -- 容量条
+            UI.Panel {
+                width = "100%", height = 10, borderRadius = 5,
+                backgroundColor = {38, 46, 71, 255},
+                overflow = "hidden",
+                marginBottom = 6,
+                children = {
+                    UI.Panel {
+                        width = capacityPct .. "%", height = "100%",
+                        borderRadius = 5,
+                        backgroundColor = isExpanding and Theme.COLORS.WARNING or Theme.COLORS.PRIMARY,
+                    },
+                }
+            },
+            -- 状态
+            UI.Label {
+                text = statusText,
+                fontSize = 12,
+                color = statusColor,
+                marginBottom = 10,
+            },
+            -- 扩建按钮
+            UI.Button {
+                text = btnText,
+                width = "100%",
+                height = 40,
+                backgroundColor = btnEnabled and Theme.COLORS.PRIMARY or Theme.COLORS.BG_SURFACE,
+                borderRadius = 10,
+                fontSize = 13,
+                fontWeight = "bold",
+                color = btnEnabled and Theme.COLORS.TEXT_PRIMARY or Theme.COLORS.TEXT_MUTED,
+                onClick = function()
+                    if not btnEnabled then return end
+                    local ok, msg = FinanceManager.expandStadium(gameState)
+                    if ok then
+                        UI.Toast.Show({ message = msg, variant = "success" })
+                    else
+                        UI.Toast.Show({ message = msg or "扩建失败", variant = "error" })
+                    end
+                    Router.replaceWith("finance", { tab = "facilities" })
+                end,
+            },
+            -- 提示
+            not isMaxed and not isExpanding and UI.Label {
+                text = string.format("每次扩建 +%d 座，耗时 %d 周",
+                    FinanceManager.STADIUM_EXPANSION.expansionStep,
+                    FinanceManager.STADIUM_EXPANSION.buildWeeks),
+                fontSize = 10,
+                color = Theme.COLORS.TEXT_MUTED,
+                marginTop = 6,
+            } or nil,
+        }
+    }
+end
+
+------------------------------------------------------
+-- 预算分配滑块卡片
+------------------------------------------------------
+function Finance._buildBudgetAllocationCard(team, gameState)
+    local transferBudget = team.transferBudget or 0
+    local wageBudget = team.wageBudget or 0
+    local totalBudget = transferBudget + wageBudget
+
+    -- 如果总预算为0，无数据可显示
+    if totalBudget <= 0 then
+        return Theme.Card {
+            children = {
+                Theme.Subtitle { text = "预算分配" },
+                UI.Label { text = "暂无预算数据", fontSize = 12, color = Theme.COLORS.TEXT_MUTED, marginTop = 4 },
+            }
+        }
+    end
+
+    -- 当前分配比例
+    local transferPct = math.floor(transferBudget / totalBudget * 100)
+    local wagePct = 100 - transferPct
+
+    -- 用于就地更新的引用
+    local transferBar = UI.Panel {
+        width = transferPct .. "%", height = "100%",
+        backgroundColor = {72, 160, 220, 255},
+        justifyContent = "center", alignItems = "center",
+        children = transferPct >= 15 and {
+            UI.Label { id = "transferBarLabel", text = "转会 " .. transferPct .. "%", fontSize = 9, color = {255, 255, 255, 255} },
+        } or {},
+    }
+    local wageBar = UI.Panel {
+        width = wagePct .. "%", height = "100%",
+        backgroundColor = {220, 180, 60, 255},
+        justifyContent = "center", alignItems = "center",
+        children = wagePct >= 15 and {
+            UI.Label { id = "wageBarLabel", text = "薪资 " .. wagePct .. "%", fontSize = 9, color = {30, 30, 30, 255} },
+        } or {},
+    }
+    local transferValueLabel = UI.Label {
+        text = Finance._formatMoney(transferBudget),
+        fontSize = 14, color = {72, 160, 220, 255}, fontWeight = "bold",
+    }
+    local wageValueLabel = UI.Label {
+        text = Finance._formatMoney(wageBudget),
+        fontSize = 14, color = {220, 180, 60, 255}, fontWeight = "bold",
+    }
+
+    -- 滑块变更回调：就地更新所有相关控件
+    local function onSliderChange(self, newPct)
+        local pct = math.floor(newPct)
+        local newTransfer = math.floor(totalBudget * pct / 100)
+        local newWage = totalBudget - newTransfer
+        -- 更新数据
+        team.transferBudget = newTransfer
+        team.wageBudget = newWage
+        -- 就地更新UI
+        transferBar:SetStyle({ width = pct .. "%" })
+        wageBar:SetStyle({ width = (100 - pct) .. "%" })
+        local tLabel = transferBar:FindById("transferBarLabel")
+        if tLabel then tLabel:SetText("转会 " .. pct .. "%") end
+        local wLabel = wageBar:FindById("wageBarLabel")
+        if wLabel then wLabel:SetText("薪资 " .. (100 - pct) .. "%") end
+        transferValueLabel:SetText(Finance._formatMoney(newTransfer))
+        wageValueLabel:SetText(Finance._formatMoney(newWage))
+    end
+
+    return Theme.Card {
+        children = {
+            Theme.Subtitle { text = "预算分配" },
+            -- 当前比例显示条
+            UI.Panel {
+                width = "100%", height = 24, borderRadius = 12,
+                flexDirection = "row", overflow = "hidden",
+                marginTop = 8, marginBottom = 6,
+                backgroundColor = {38, 46, 71, 255},
+                children = { transferBar, wageBar },
+            },
+            -- 滑块
+            UI.Panel {
+                width = "100%", marginBottom = 10,
+                children = {
+                    UI.Slider {
+                        value = transferPct,
+                        min = 10,
+                        max = 90,
+                        step = 5,
+                        width = "100%",
+                        trackColor = {38, 46, 71, 255},
+                        fillColor = {72, 160, 220, 255},
+                        thumbColor = {255, 255, 255, 255},
+                        onChange = onSliderChange,
+                    },
+                    UI.Panel {
+                        flexDirection = "row", justifyContent = "space-between", marginTop = 4,
+                        children = {
+                            UI.Label { text = "转会多", fontSize = 10, color = Theme.COLORS.TEXT_MUTED },
+                            UI.Label { text = "薪资多", fontSize = 10, color = Theme.COLORS.TEXT_MUTED },
+                        }
+                    },
+                }
+            },
+            -- 数值详情
+            UI.Panel {
+                flexDirection = "row",
+                children = {
+                    UI.Panel {
+                        flexGrow = 1,
+                        children = {
+                            UI.Label { text = "转会预算", fontSize = 10, color = Theme.COLORS.TEXT_MUTED },
+                            transferValueLabel,
+                        }
+                    },
+                    UI.Panel {
+                        flexGrow = 1, alignItems = "flex-end",
+                        children = {
+                            UI.Label { text = "工资预算/周", fontSize = 10, color = Theme.COLORS.TEXT_MUTED },
+                            wageValueLabel,
+                        }
+                    },
+                }
+            },
+        }
+    }
+end
+
+------------------------------------------------------
+-- 收入来源占比卡片
+------------------------------------------------------
+function Finance._buildIncomeBreakdownCard(team)
+    local breakdown = team.incomeBreakdown or {}
+    local totalIncome = team.seasonIncome or 0
+
+    if totalIncome <= 0 then
+        return Theme.Card {
+            children = {
+                Theme.Subtitle { text = "收入来源" },
+                UI.Label { text = "本赛季暂无收入数据", fontSize = 12, color = Theme.COLORS.TEXT_MUTED, marginTop = 4 },
+            }
+        }
+    end
+
+    -- 收入源定义（顺序即展示顺序）
+    local sources = {
+        { key = "ticket",      label = "票房", color = {72, 160, 220, 255} },
+        { key = "broadcast",   label = "转播", color = {100, 200, 150, 255} },
+        { key = "sponsor",     label = "赞助", color = {220, 180, 60, 255} },
+        { key = "merchandise", label = "商品", color = {180, 120, 220, 255} },
+        { key = "transfer",    label = "转会", color = {60, 180, 200, 255} },
+        { key = "prize",       label = "奖金", color = {240, 130, 80, 255} },
+    }
+
+    -- 计算各源占比
+    local bars = {}
+    local legends = {}
+    for _, src in ipairs(sources) do
+        local amount = breakdown[src.key] or 0
+        if amount > 0 then
+            local pct = math.floor(amount / totalIncome * 100)
+            if pct >= 1 then
+                table.insert(bars, UI.Panel {
+                    width = pct .. "%",
+                    height = "100%",
+                    backgroundColor = src.color,
+                })
+                table.insert(legends, UI.Panel {
+                    flexDirection = "row",
+                    alignItems = "center",
+                    marginRight = 10,
+                    marginBottom = 4,
+                    children = {
+                        UI.Panel { width = 8, height = 8, borderRadius = 2, backgroundColor = src.color, marginRight = 4 },
+                        UI.Label {
+                            text = string.format("%s %d%% %s", src.label, pct, Finance._formatMoney(amount)),
+                            fontSize = 10, color = Theme.COLORS.TEXT_SECONDARY,
+                        },
+                    }
+                })
+            end
+        end
+    end
+
+    return Theme.Card {
+        children = {
+            Theme.Subtitle { text = "收入来源构成" },
+            -- 堆叠占比条
+            UI.Panel {
+                width = "100%",
+                height = 20,
+                borderRadius = 10,
+                overflow = "hidden",
+                flexDirection = "row",
+                marginTop = 8,
+                marginBottom = 8,
+                backgroundColor = {38, 46, 71, 255},
+                children = bars,
+            },
+            -- 图例
+            UI.Panel {
+                flexDirection = "row",
+                flexWrap = "wrap",
+                children = legends,
+            },
+        }
+    }
+end
+
+------------------------------------------------------
+-- 财务预测卡片
+------------------------------------------------------
+function Finance._buildForecastCard(team, gameState)
+    local seasonIncome = team.seasonIncome or 0
+    local seasonExpense = team.seasonExpense or 0
+    local balance = team.balance or 0
+
+    -- 估算已过周数（用简化方法）
+    local startMonth = Constants.SEASON_START_MONTH or 8
+    local monthsElapsed = gameState.date.month - startMonth
+    if monthsElapsed < 0 then monthsElapsed = monthsElapsed + 12 end
+    local weeksElapsed = math.max(1, math.floor(monthsElapsed * 4.3) + math.ceil(gameState.date.day / 7))
+    local totalSeasonWeeks = 46
+    local weeksRemaining = math.max(0, totalSeasonWeeks - weeksElapsed)
+
+    -- 周均收支
+    local weeklyAvgIncome = seasonIncome / weeksElapsed
+    local weeklyAvgExpense = seasonExpense / weeksElapsed
+
+    -- 预测
+    local projectedIncome = weeklyAvgIncome * weeksRemaining
+    local projectedExpense = weeklyAvgExpense * weeksRemaining
+    local projectedBalance = balance + projectedIncome - projectedExpense
+
+    -- 判断状态
+    local statusIcon, statusText, statusColor
+    if projectedBalance > balance * 0.8 then
+        statusIcon = "OK"
+        statusText = "预计安全，可适当投资"
+        statusColor = Theme.COLORS.SECONDARY
+    elseif projectedBalance > 0 then
+        statusIcon = "!!"
+        statusText = "预计略紧，建议控制支出"
+        statusColor = Theme.COLORS.WARNING
+    else
+        statusIcon = "XX"
+        statusText = "预计赤字！需立即增收或削减"
+        statusColor = Theme.COLORS.DANGER
+    end
+
+    return Theme.Card {
+        children = {
+            Theme.Subtitle { text = "赛季末预测" },
+            -- 进度条（赛季进度）
+            UI.Panel {
+                flexDirection = "row", alignItems = "center", marginTop = 6,
+                children = {
+                    UI.Label { text = "赛季进度", fontSize = 10, color = Theme.COLORS.TEXT_MUTED, marginRight = 8 },
+                    UI.Panel {
+                        flexGrow = 1, height = 6, borderRadius = 3,
+                        backgroundColor = {38, 46, 71, 255},
+                        overflow = "hidden",
+                        children = {
+                            UI.Panel {
+                                width = math.floor(weeksElapsed / totalSeasonWeeks * 100) .. "%",
+                                height = "100%", borderRadius = 3,
+                                backgroundColor = Theme.COLORS.PRIMARY,
+                            },
+                        }
+                    },
+                    UI.Label {
+                        text = string.format(" %d/%d周", weeksElapsed, totalSeasonWeeks),
+                        fontSize = 10, color = Theme.COLORS.TEXT_MUTED,
+                    },
+                }
+            },
+            Theme.Divider(),
+            -- 预测数据
+            UI.Panel {
+                width = "100%", marginTop = 4,
+                children = {
+                    Finance._forecastRow("当前余额", Finance._formatMoney(balance), Theme.COLORS.TEXT_PRIMARY),
+                    Finance._forecastRow("预计剩余收入", "+" .. Finance._formatMoney(projectedIncome), Theme.COLORS.SECONDARY),
+                    Finance._forecastRow("预计剩余支出", "-" .. Finance._formatMoney(projectedExpense), Theme.COLORS.DANGER),
+                    UI.Panel { width = "100%", height = 1, backgroundColor = Theme.COLORS.BORDER, marginTop = 6, marginBottom = 6 },
+                    Finance._forecastRow("预计赛季末余额", Finance._formatMoney(projectedBalance), statusColor),
+                }
+            },
+            -- 建议
+            UI.Panel {
+                flexDirection = "row", alignItems = "center",
+                marginTop = 8, paddingLeft = 8, paddingRight = 8,
+                paddingTop = 6, paddingBottom = 6,
+                backgroundColor = {statusColor[1], statusColor[2], statusColor[3], 20},
+                borderRadius = 8,
+                children = {
+                    UI.Label { text = statusIcon, fontSize = 12, color = statusColor, fontWeight = "bold", marginRight = 8 },
+                    UI.Label { text = statusText, fontSize = 12, color = statusColor },
+                }
+            },
+        }
+    }
+end
+
+function Finance._forecastRow(label, value, valueColor)
+    return UI.Panel {
+        width = "100%", flexDirection = "row", alignItems = "center", marginBottom = 4,
+        children = {
+            UI.Label { text = label, fontSize = 12, color = Theme.COLORS.TEXT_MUTED, flexGrow = 1 },
+            UI.Label { text = value, fontSize = 13, color = valueColor or Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold" },
+        }
     }
 end
 
@@ -536,42 +1467,71 @@ function Finance._buildTrendCard(team)
 
         table.insert(barRows, UI.Panel {
             width = "100%",
-            marginBottom = 6,
+            marginBottom = 8,
             children = {
-                -- 周标签
-                UI.Label {
-                    text = "W" .. tonumber(weekLabel),
-                    fontSize = 10, color = Theme.COLORS.TEXT_MUTED,
-                    marginBottom = 2,
-                },
-                -- 收入条
+                -- 周标签 + 净值
                 UI.Panel {
-                    width = "100%", height = 8,
-                    backgroundColor = {38, 46, 71, 255},
-                    borderRadius = 4,
-                    overflow = "hidden",
-                    marginBottom = 2,
+                    flexDirection = "row", alignItems = "center", marginBottom = 2,
                     children = {
-                        UI.Panel {
-                            width = math.max(2, incPct) .. "%",
-                            height = "100%",
-                            backgroundColor = Theme.COLORS.SECONDARY,
-                            borderRadius = 4,
+                        UI.Label {
+                            text = "W" .. tonumber(weekLabel),
+                            fontSize = 10, color = Theme.COLORS.TEXT_MUTED,
+                            marginRight = 8,
+                        },
+                        UI.Label {
+                            text = "净 " .. Finance._formatMoney(d.income - d.expense),
+                            fontSize = 9,
+                            color = (d.income >= d.expense) and Theme.COLORS.SECONDARY or Theme.COLORS.DANGER,
                         },
                     }
                 },
-                -- 支出条
+                -- 收入条 + 标注
                 UI.Panel {
-                    width = "100%", height = 8,
-                    backgroundColor = {38, 46, 71, 255},
-                    borderRadius = 4,
-                    overflow = "hidden",
+                    width = "100%", flexDirection = "row", alignItems = "center", marginBottom = 2,
                     children = {
                         UI.Panel {
-                            width = math.max(2, expPct) .. "%",
-                            height = "100%",
-                            backgroundColor = Theme.COLORS.DANGER,
-                            borderRadius = 4,
+                            flexGrow = 1, height = 10,
+                            backgroundColor = {38, 46, 71, 255},
+                            borderRadius = 5,
+                            overflow = "hidden",
+                            children = {
+                                UI.Panel {
+                                    width = math.max(2, incPct) .. "%",
+                                    height = "100%",
+                                    backgroundColor = Theme.COLORS.SECONDARY,
+                                    borderRadius = 5,
+                                },
+                            }
+                        },
+                        UI.Label {
+                            text = Finance._formatMoney(d.income),
+                            fontSize = 9, color = Theme.COLORS.SECONDARY,
+                            marginLeft = 6, width = 40,
+                        },
+                    }
+                },
+                -- 支出条 + 标注
+                UI.Panel {
+                    width = "100%", flexDirection = "row", alignItems = "center",
+                    children = {
+                        UI.Panel {
+                            flexGrow = 1, height = 10,
+                            backgroundColor = {38, 46, 71, 255},
+                            borderRadius = 5,
+                            overflow = "hidden",
+                            children = {
+                                UI.Panel {
+                                    width = math.max(2, expPct) .. "%",
+                                    height = "100%",
+                                    backgroundColor = Theme.COLORS.DANGER,
+                                    borderRadius = 5,
+                                },
+                            }
+                        },
+                        UI.Label {
+                            text = Finance._formatMoney(d.expense),
+                            fontSize = 9, color = Theme.COLORS.DANGER,
+                            marginLeft = 6, width = 40,
                         },
                     }
                 },
@@ -697,14 +1657,20 @@ function Finance._buildTransactions(team, gameState)
             local amtColor = isIncome and Theme.COLORS.SECONDARY or Theme.COLORS.DANGER
 
             -- 分类标签
-            local catLabel = ""
-            if tx.category == "transfer" then catLabel = "[转会]"
-            elseif tx.category == "wage" then catLabel = "[薪资]"
-            elseif tx.category == "prize" then catLabel = "[奖金]"
-            elseif tx.category == "ticket" then catLabel = "[票房]"
-            elseif tx.category == "sponsor" then catLabel = "[赞助]"
-            else catLabel = ""
-            end
+            local catLabels = {
+                transfer = "[转会]",
+                wage = "[薪资]",
+                prize = "[奖金]",
+                ticket = "[票房]",
+                sponsor = "[赞助]",
+                broadcast = "[转播]",
+                merchandise = "[商品]",
+                maintenance = "[维护]",
+                facility = "[设施]",
+                injection = "[注资]",
+                commercial = "[商业]",
+            }
+            local catLabel = catLabels[tx.category] or ""
 
             local dateStr = ""
             if tx.week and tx.season then
@@ -823,30 +1789,34 @@ function Finance._buildTransactions(team, gameState)
 end
 
 ------------------------------------------------------
--- 财务健康卡片 + 恢复手段
+-- 财务健康卡片 + 字母评级 + 恢复手段
 ------------------------------------------------------
 function Finance._buildHealthCard(team, gameState)
     local teamId = gameState.playerTeamId
     local status, details = FinanceManager.getFinanceHealth(gameState, teamId)
     local label = FinanceManager.getHealthLabel(status)
 
+    -- 字母评级映射 (A+~F 共6级)
+    local gradeMap = {
+        excellent = { grade = "A+", desc = "财务卓越，可大胆投资扩张" },
+        stable    = { grade = "A",  desc = "财务稳健，运营良好" },
+        fair      = { grade = "B",  desc = "财务尚可，建议优化开支" },
+        watch     = { grade = "C",  desc = "需要关注，控制支出趋势" },
+        warning   = { grade = "D",  desc = "财务紧张，需削减或增收" },
+        critical  = { grade = "F",  desc = "财务危机！立即行动避免破产" },
+    }
+    local gradeInfo = gradeMap[status] or { grade = "C", desc = "" }
+
     -- 颜色映射
     local healthColors = {
-        stable   = Theme.COLORS.SECONDARY,
-        watch    = Theme.COLORS.ACCENT,
-        warning  = Theme.COLORS.WARNING,
-        critical = Theme.COLORS.DANGER,
+        excellent = {60, 200, 140, 255},
+        stable    = Theme.COLORS.FINANCE_GREEN,
+        fair      = Theme.COLORS.MATCH_ORANGE,
+        watch     = Theme.COLORS.WARNING,
+        warning   = {220, 100, 50, 255},
+        critical  = Theme.COLORS.DANGER,
     }
     local healthColor = healthColors[status] or Theme.COLORS.TEXT_MUTED
-
-    -- 描述文本
-    local descTexts = {
-        stable   = "俱乐部财务状况良好，继续保持！",
-        watch    = "财务出现压力信号，建议关注开支。",
-        warning  = "财务紧张，需要控制支出或寻求收入来源。",
-        critical = "财务危机！必须立即采取行动避免破产。",
-    }
-    local desc = descTexts[status] or ""
 
     -- 恢复手段按钮
     local fin = team.finance or {}
@@ -856,137 +1826,179 @@ function Finance._buildHealthCard(team, gameState)
 
     local recoveryBtns = {}
 
-    -- 董事注资按钮
     local injectAvail = injectCount < 2
     table.insert(recoveryBtns, UI.Button {
         text = injectAvail
             and string.format("董事注资 (%d/2)", injectCount)
             or "注资已用尽",
-        height = 36,
+        height = 34,
         paddingLeft = 12, paddingRight = 12,
-        backgroundColor = injectAvail and Theme.COLORS.PRIMARY or {50, 55, 75, 255},
+        backgroundColor = injectAvail and Theme.COLORS.PRIMARY or Theme.COLORS.BG_SURFACE,
         borderRadius = 8,
-        fontSize = 12,
+        fontSize = 11,
         color = injectAvail and Theme.COLORS.TEXT_PRIMARY or Theme.COLORS.TEXT_MUTED,
         marginRight = 8,
         marginBottom = 6,
-        disabled = not injectAvail,
-        onClick = function()
+        onClick = function(self)
             if not injectAvail then return end
             local ok, msg = FinanceManager.requestBoardInjection(gameState)
             if ok then
                 gameState:sendMessage({ category = "finance", title = "注资成功", body = msg, priority = "normal" })
+                UI.Toast.Show({ message = "注资成功: " .. msg, variant = "success" })
+                Router.replaceWith("finance", { tab = "overview" })
             else
-                gameState:sendMessage({ category = "finance", title = "注资失败", body = msg, priority = "low" })
+                UI.Toast.Show({ message = msg or "注资失败", variant = "error" })
             end
-            Router.replaceWith("finance")
         end,
     })
 
-    -- 赞助推介按钮
     local sponsorAvail = sponsorCount < 3
     table.insert(recoveryBtns, UI.Button {
         text = sponsorAvail
             and string.format("赞助推介 (%d/3)", sponsorCount)
             or "推介已用尽",
-        height = 36,
+        height = 34,
         paddingLeft = 12, paddingRight = 12,
-        backgroundColor = sponsorAvail and {45, 90, 70, 255} or {50, 55, 75, 255},
+        backgroundColor = sponsorAvail and {35, 80, 60, 255} or Theme.COLORS.BG_SURFACE,
         borderRadius = 8,
-        fontSize = 12,
+        fontSize = 11,
         color = sponsorAvail and Theme.COLORS.TEXT_PRIMARY or Theme.COLORS.TEXT_MUTED,
         marginRight = 8,
         marginBottom = 6,
-        disabled = not sponsorAvail,
-        onClick = function()
+        onClick = function(self)
             if not sponsorAvail then return end
             local ok, msg = FinanceManager.seekSponsorship(gameState)
             if ok then
                 gameState:sendMessage({ category = "finance", title = "推介成功", body = msg, priority = "normal" })
+                UI.Toast.Show({ message = "推介成功: " .. msg, variant = "success" })
+                Router.replaceWith("finance", { tab = "overview" })
             else
-                gameState:sendMessage({ category = "finance", title = "推介失败", body = msg, priority = "low" })
+                UI.Toast.Show({ message = msg or "推介失败", variant = "error" })
             end
-            Router.replaceWith("finance")
         end,
     })
 
-    -- 商业活动按钮
     local commercialAvail = commercialCD == 0
     table.insert(recoveryBtns, UI.Button {
         text = commercialAvail
-            and "举办商业活动"
-            or string.format("商业活动 (冷却%d天)", commercialCD),
-        height = 36,
+            and "商业活动"
+            or string.format("商业活动 (%d天)", commercialCD),
+        height = 34,
         paddingLeft = 12, paddingRight = 12,
-        backgroundColor = commercialAvail and {60, 75, 120, 255} or {50, 55, 75, 255},
+        backgroundColor = commercialAvail and {50, 60, 100, 255} or Theme.COLORS.BG_SURFACE,
         borderRadius = 8,
-        fontSize = 12,
+        fontSize = 11,
         color = commercialAvail and Theme.COLORS.TEXT_PRIMARY or Theme.COLORS.TEXT_MUTED,
         marginBottom = 6,
-        disabled = not commercialAvail,
-        onClick = function()
+        onClick = function(self)
             if not commercialAvail then return end
             local ok, msg = FinanceManager.hostCommercialEvent(gameState)
             if ok then
                 gameState:sendMessage({ category = "finance", title = "商业活动成功", body = msg, priority = "normal" })
+                UI.Toast.Show({ message = "商业活动: " .. msg, variant = "success" })
+                Router.replaceWith("finance", { tab = "overview" })
             else
-                gameState:sendMessage({ category = "finance", title = "活动失败", body = msg, priority = "low" })
+                UI.Toast.Show({ message = msg or "活动失败", variant = "error" })
             end
-            Router.replaceWith("finance")
         end,
     })
 
-    return Theme.Card {
+    return UI.Panel {
+        width = "100%",
+        backgroundImage = "image/bg_finance_boardroom_20260529082656.png",
+        backgroundFit = "cover",
+        imageTint = {55, 55, 70, 255},  -- 压暗保证内容可读
+        borderRadius = 14,
+        padding = 16,
+        marginBottom = 12,
+        overflow = "hidden",
+        borderLeftWidth = 3,
+        borderColor = healthColor,
         children = {
-            -- 标题行
+            -- 评级区：左侧大字母 + 右侧状态信息
             UI.Panel {
+                width = "100%",
                 flexDirection = "row",
                 alignItems = "center",
+                marginBottom = 10,
                 children = {
-                    Theme.Subtitle { text = "财务健康" },
-                    UI.Panel { flexGrow = 1 },
-                    -- 状态徽章
+                    -- 大字母评级
                     UI.Panel {
-                        paddingLeft = 10, paddingRight = 10,
-                        paddingTop = 3, paddingBottom = 3,
-                        backgroundColor = healthColor,
-                        borderRadius = 10,
+                        width = 56, height = 56,
+                        borderRadius = 28,
+                        backgroundColor = {healthColor[1], healthColor[2], healthColor[3], 30},
+                        alignItems = "center",
+                        justifyContent = "center",
+                        marginRight = 14,
                         children = {
                             UI.Label {
-                                text = label,
-                                fontSize = 12,
-                                color = {255, 255, 255, 255},
+                                text = gradeInfo.grade,
+                                fontSize = 28,
+                                color = healthColor,
                                 fontWeight = "bold",
+                            }
+                        }
+                    },
+                    -- 右侧信息
+                    UI.Panel {
+                        flexGrow = 1, flexShrink = 1,
+                        children = {
+                            UI.Panel {
+                                flexDirection = "row",
+                                alignItems = "center",
+                                children = {
+                                    UI.Label {
+                                        text = "财务健康",
+                                        fontSize = 14,
+                                        color = Theme.COLORS.TEXT_PRIMARY,
+                                        fontWeight = "bold",
+                                        marginRight = 8,
+                                    },
+                                    UI.Panel {
+                                        paddingLeft = 8, paddingRight = 8,
+                                        paddingTop = 2, paddingBottom = 2,
+                                        backgroundColor = healthColor,
+                                        borderRadius = 8,
+                                        children = {
+                                            UI.Label {
+                                                text = label,
+                                                fontSize = 10,
+                                                color = {255, 255, 255, 255},
+                                                fontWeight = "bold",
+                                            },
+                                        }
+                                    },
+                                }
+                            },
+                            UI.Label {
+                                text = gradeInfo.desc,
+                                fontSize = 12,
+                                color = Theme.COLORS.TEXT_SECONDARY,
+                                marginTop = 4,
                             },
                         }
                     },
                 }
             },
-            -- 描述
-            UI.Label {
-                text = desc,
-                fontSize = 12,
-                color = Theme.COLORS.TEXT_SECONDARY,
-                marginTop = 6,
-            },
-            -- 细节指标
+            -- 细节指标（横向排列）
             UI.Panel {
                 flexDirection = "row",
                 flexWrap = "wrap",
-                marginTop = 8,
+                marginBottom = 10,
                 children = {
-                    Theme.StatPill { label = "工资占比", value = string.format("%.0f%%", details.wagePct or 0) },
-                    Theme.StatPill { label = "资金可撑", value = tostring(math.min(99, details.runwayWeeks or 0)) .. "周" },
+                    Theme.StatPill { label = "工资占比", value = string.format("%.0f%%", details.wagePct or 0),
+                        valueColor = (details.wagePct or 0) > 80 and Theme.COLORS.DANGER or Theme.COLORS.TEXT_PRIMARY },
+                    Theme.StatPill { label = "可撑周数", value = tostring(math.min(99, details.runwayWeeks or 0)) .. "周",
+                        valueColor = (details.runwayWeeks or 99) < 12 and Theme.COLORS.WARNING or Theme.COLORS.TEXT_PRIMARY },
                 }
             },
-            -- 分隔线
+            -- 分隔
             Theme.Divider(),
             -- 恢复手段
             UI.Label {
-                text = "财务恢复手段",
-                fontSize = 13,
-                color = Theme.COLORS.TEXT_PRIMARY,
-                fontWeight = "bold",
+                text = "恢复手段",
+                fontSize = 12,
+                color = Theme.COLORS.TEXT_MUTED,
                 marginTop = 4,
                 marginBottom = 6,
             },
@@ -1003,15 +2015,7 @@ end
 -- 工具函数
 ------------------------------------------------------
 function Finance._formatMoney(amount)
-    if not amount then return "0" end
-    local abs = math.abs(amount)
-    if abs >= 1000000 then
-        return string.format("%.1fM", amount / 1000000)
-    elseif abs >= 1000 then
-        return string.format("%.0fK", amount / 1000)
-    else
-        return tostring(math.floor(amount))
-    end
+    return FinanceManager.formatMoney(amount)
 end
 
 return Finance

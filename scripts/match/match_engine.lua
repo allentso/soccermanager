@@ -84,11 +84,25 @@ local function pickCardPlayer(context)
     end)
 end
 
+-- 风格对各位置组的受伤风险权重
+local STYLE_INJURY_POSITION_WEIGHT = {
+    HighPress  = { MID = 1.30, DEF = 1.10, FWD = 1.05 },
+    Counter    = { DEF = 1.15, FWD = 1.08 },
+    Attacking  = { DEF = 1.10, FWD = 1.05 },
+    Defensive  = { MID = 0.90, FWD = 0.90 },
+    Possession = { MID = 0.92, DEF = 0.92 },
+}
+
 local function pickInjuryPlayer(context)
+    local styleWeights = STYLE_INJURY_POSITION_WEIGHT[context.style] or {}
     return TacticsResolver.chooseWeighted(context.players, function(player)
         if player.position == "GK" then return 0.15 end
+        local group = positionGroup(player.position)
         local lowFitness = 105 - (player.fitness or 80)
-        return math.max(1, lowFitness) + (21 - attr(player, "stamina")) * 1.3
+        local base = math.max(1, lowFitness) + (21 - attr(player, "stamina")) * 1.3
+        -- 风格×位置额外权重
+        local posWeight = styleWeights[group] or 1.0
+        return base * posWeight
     end)
 end
 
@@ -100,9 +114,35 @@ function MatchEngine._simulateMinutes(fixture, homeContext, awayContext, startMi
     local homeMomentum = state._homeMomentum or 0
     local awayMomentum = state._awayMomentum or 0
 
+    -- 体力衰减系统：基于比赛进行时间 + 风格消耗 + 球员平均耐力
+    -- fatigueFactor 会降低攻防输出 (1.0 → ~0.88 在90分钟末尾)
+    local homeStaminaDrain = homeContext.staminaDrain or 1.0
+    local awayStaminaDrain = awayContext.staminaDrain or 1.0
+    local homeAvgStamina = homeContext.avgStamina or 12
+    local awayAvgStamina = awayContext.avgStamina or 12
+
     for minute = startMinute, endMinute do
+        -- 体力衰减：前45分钟几乎无影响，后45分钟线性加剧
+        -- staminaDrain越高衰减越快，avgStamina越高衰减越慢
+        -- 公式: baseFatigue起始于第30分钟后生效, 90分钟时≈0.12
+        local elapsed = minute
+        local baseFatigue = clamp((elapsed - 30) / 500, 0, 0.12)
+        -- staminaDrain放大: HighPress(1.22)→fatigue×1.22; Possession(0.88)→fatigue×0.88
+        -- avgStamina抵消: 高耐力阵容衰减更慢 (stamina=15→×0.82, stamina=10→×1.0, stamina=6→×1.16)
+        local staminaResist = 1.0 - (homeAvgStamina - 10) * 0.045
+        local homeFatigue = clamp(1.0 - baseFatigue * homeStaminaDrain * staminaResist, 0.85, 1.0)
+        staminaResist = 1.0 - (awayAvgStamina - 10) * 0.045
+        local awayFatigue = clamp(1.0 - baseFatigue * awayStaminaDrain * staminaResist, 0.85, 1.0)
+
         local homeMod = TacticsResolver.matchupModifiers(homeContext, awayContext, true)
         local awayMod = TacticsResolver.matchupModifiers(awayContext, homeContext, false)
+
+        -- 将疲劳应用到进攻创造力和射门质量（不影响防守太多，防守靠站位）
+        homeMod.chanceCreation = homeMod.chanceCreation * homeFatigue
+        homeMod.shotQuality = homeMod.shotQuality * homeFatigue
+        awayMod.chanceCreation = awayMod.chanceCreation * awayFatigue
+        awayMod.shotQuality = awayMod.shotQuality * awayFatigue
+
         local avgTempo = (homeMod.tempo + awayMod.tempo) / 2
         local homePossessionChance = homeMod.possessionShare
         local attackingHome = Random() < homePossessionChance
@@ -404,6 +444,9 @@ end
 ---@param fixture table
 ---@return MatchSession|nil
 function MatchEngine.startMatch(gameState, fixture)
+    if fixture._isWC then
+        return MatchSession.newWC(gameState, fixture)
+    end
     return MatchSession.new(gameState, fixture)
 end
 
@@ -417,14 +460,19 @@ function MatchEngine.finishMatch(session, gameState, fixture)
     if not report then return nil end
 
     -- 应用比赛结果（积分榜、球员数据等）
-    if fixture._isUCL then
+    if fixture._isWC then
+        local TurnProcessor = require("scripts/core/turn_processor")
+        TurnProcessor._applyWCResult(gameState, fixture, report)
+        -- 世界杯比赛不更新俱乐部士气/声望/财务
+        return report
+    elseif fixture._isUCL then
         local TurnProcessor = require("scripts/core/turn_processor")
         TurnProcessor._applyUCLResult(gameState, fixture, report)
     else
         PlaceholderEngine.applyResult(gameState, fixture, report)
     end
 
-    -- 赛后士气 & 声望更新
+    -- 赛后士气 & 声望更新（仅俱乐部比赛）
     local MoraleManager = require("scripts/systems/morale_manager")
     local ReputationManager = require("scripts/systems/reputation_manager")
     local FinanceManager = require("scripts/systems/finance_manager")
@@ -445,8 +493,11 @@ function MatchEngine.finishMatch(session, gameState, fixture)
     ReputationManager.postMatchUpdate(gameState, fixture.homeTeamId, fixture.awayTeamId, homeResult, goalDiff)
     ReputationManager.postMatchUpdate(gameState, fixture.awayTeamId, fixture.homeTeamId, awayResult, -goalDiff)
 
-    -- 主场票房
-    FinanceManager.processMatchDayRevenue(gameState, fixture.homeTeamId, true)
+    -- 主场票房（返回明细供赛后展示）
+    local revenueDetails = FinanceManager.processMatchDayRevenue(gameState, fixture.homeTeamId, true, fixture.awayTeamId)
+    if revenueDetails and fixture.homeTeamId == gameState.playerTeamId then
+        report.matchDayRevenue = revenueDetails
+    end
 
     return report
 end

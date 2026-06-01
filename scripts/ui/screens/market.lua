@@ -103,7 +103,20 @@ function Market.create(params)
                         fontSize = 17, color = Theme.COLORS.TEXT_PRIMARY,
                         fontWeight = "bold", flexGrow = 1, textAlign = "center",
                     },
-                    UI.Panel { width = 50 },
+                    UI.Button {
+                        text = "球探", width = 44, height = 30,
+                        backgroundColor = Theme.COLORS.TRANSPARENT,
+                        borderRadius = 4,
+                        fontSize = 12, color = Theme.COLORS.ACCENT,
+                        onClick = function() Router.navigate("scouting") end,
+                    },
+                    UI.Button {
+                        text = "动态", width = 44, height = 30,
+                        backgroundColor = Theme.COLORS.TRANSPARENT,
+                        borderRadius = 4,
+                        fontSize = 12, color = Theme.COLORS.ACCENT,
+                        onClick = function() Router.navigate("transfer_hub") end,
+                    },
                 }
             },
 
@@ -251,6 +264,7 @@ function Market._buildBrowseContent(gameState, posFilter)
                                 if not hasBid then
                                     if releaseClause then
                                         TransferManager.triggerReleaseClause(gameState, p.id)
+                                        UI.Toast.Show({ message = "已触发解约金买断", variant = "success" })
                                         Router.replaceWith("market", { tab = "browse", posFilter = posFilter })
                                     else
                                         Market._showBidSheet(gameState, p, posFilter)
@@ -297,49 +311,127 @@ end
 
 -- 报价谈判弹窗
 function Market._showBidSheet(gameState, player, posFilter)
-    -- 默认选中溢价(idx 3) + 标准条款(idx 2) + 薪资×1.0(idx 2) + 3年合同(idx 2)
-    Market._showBidSheet_render(gameState, player, posFilter, 3, 2, 2, 2)
-end
-
--- 报价弹窗统一渲染（含选项切换后重绘）
-function Market._showBidSheet_render(gameState, player, posFilter, bidIdx, clauseIdx, wageIdx, yearsIdx)
     local team = gameState:getPlayerTeam()
     local budget = team and team.transferBudget or 0
     local baseValue = player.value
     local sellerTeam = gameState.teams[player.teamId]
     local currentWage = player.wage or 5000
 
-    local bidOptions = {
-        { label = "低报 (身价×0.9)", multiplier = 0.9 },
-        { label = "平价 (身价×1.0)", multiplier = 1.0 },
-        { label = "溢价 (身价×1.1)", multiplier = 1.1 },
-        { label = "高价 (身价×1.2)", multiplier = 1.2 },
-        { label = "诚意满满 (身价×1.35)", multiplier = 1.35 },
-    }
     local clauseOptions = {
         { key = "simple", label = "一次付清·无附加条款", installments = 1, bonus = 0, sellOn = 0 },
         { key = "standard", label = "2期·出场奖金8%·转售10%", installments = 2, bonus = 0.08, sellOn = 10 },
         { key = "heavy", label = "3期·出场奖金12%·转售15%", installments = 3, bonus = 0.12, sellOn = 15 },
     }
-    -- 个人条款选项：薪资
-    local wageOptions = {
-        { label = "低薪 (当前×0.9)", multiplier = 0.9 },
-        { label = "平薪 (当前×1.0)", multiplier = 1.0 },
-        { label = "加薪 (当前×1.2)", multiplier = 1.2 },
-        { label = "高薪 (当前×1.5)", multiplier = 1.5 },
-    }
-    -- 个人条款选项：合同年限
     local yearsOptions = { 2, 3, 4, 5 }
 
-    local selectedBidIdx = bidIdx
-    local selectedClauseIdx = clauseIdx
-    local selectedWageIdx = wageIdx or 2
-    local selectedYearsIdx = yearsIdx or 2
-    local offerAmount = math.floor(baseValue * bidOptions[selectedBidIdx].multiplier)
-    local clause = clauseOptions[selectedClauseIdx]
-    local appearanceBonus = math.floor(baseValue * clause.bonus)
-    local offeredWage = math.floor(currentWage * wageOptions[selectedWageIdx].multiplier)
-    local offeredYears = yearsOptions[selectedYearsIdx]
+    -- 状态
+    local selectedClauseIdx = 2
+    local selectedYearsIdx = 2
+
+    -- 创建带引用的控件
+    local bidField = UI.TextField {
+        flexGrow = 1, height = 38,
+        placeholder = "输入报价（万）",
+        value = tostring(math.floor(baseValue * 1.1 / 10000)),
+        fontSize = 14, borderRadius = 6,
+    }
+
+    local wageField = UI.TextField {
+        flexGrow = 1, height = 38,
+        placeholder = "输入周薪（万）",
+        value = tostring(math.floor(currentWage / 10000)),
+        fontSize = 14, borderRadius = 6,
+    }
+
+    -- 快捷报价按钮
+    local bidPresets = {
+        { label = "×0.9", multiplier = 0.9 },
+        { label = "×1.0", multiplier = 1.0 },
+        { label = "×1.1", multiplier = 1.1 },
+        { label = "×1.2", multiplier = 1.2 },
+        { label = "×1.35", multiplier = 1.35 },
+    }
+    local bidPresetBtns = {}
+    for _, p in ipairs(bidPresets) do
+        local amount = math.floor(baseValue * p.multiplier / 10000)
+        table.insert(bidPresetBtns, UI.Button {
+            text = p.label,
+            height = 28, paddingLeft = 6, paddingRight = 6, marginRight = 4,
+            backgroundColor = {38, 46, 71, 255},
+            borderRadius = 5, fontSize = 11,
+            color = Theme.COLORS.TEXT_SECONDARY,
+            onClick = function()
+                bidField:SetValue(tostring(amount))
+            end,
+        })
+    end
+
+    -- 快捷周薪按钮
+    local wagePresets = { 0.9, 1.0, 1.2, 1.5 }
+    local wagePresetBtns = {}
+    for _, mul in ipairs(wagePresets) do
+        local wage = math.floor(currentWage * mul / 10000)
+        table.insert(wagePresetBtns, UI.Button {
+            text = Market._formatValue(wage * 10000),
+            height = 28, paddingLeft = 6, paddingRight = 6, marginRight = 4,
+            backgroundColor = {38, 46, 71, 255},
+            borderRadius = 5, fontSize = 11,
+            color = Theme.COLORS.TEXT_SECONDARY,
+            onClick = function()
+                wageField:SetValue(tostring(wage))
+            end,
+        })
+    end
+
+    -- 条款按钮（用闭包切换选中状态）
+    local clauseBtns = {}
+    for i, c in ipairs(clauseOptions) do
+        local btn = UI.Button {
+            text = (i == selectedClauseIdx and "● " or "  ") .. c.label,
+            width = "100%", height = 34, marginBottom = 3,
+            backgroundColor = (i == selectedClauseIdx) and Theme.COLORS.ACCENT or {38, 46, 71, 255},
+            borderRadius = 6, fontSize = 12, textAlign = "left", paddingLeft = 10,
+            color = (i == selectedClauseIdx) and Theme.COLORS.TEXT_PRIMARY or Theme.COLORS.TEXT_SECONDARY,
+            onClick = function(self)
+                selectedClauseIdx = i
+                for j, b in ipairs(clauseBtns) do
+                    local isSel = (j == i)
+                    b:SetText((isSel and "● " or "  ") .. clauseOptions[j].label)
+                    b:SetStyle({
+                        width = "100%",
+                        backgroundColor = isSel and Theme.COLORS.ACCENT or {38, 46, 71, 255},
+                        color = isSel and Theme.COLORS.TEXT_PRIMARY or Theme.COLORS.TEXT_SECONDARY,
+                    })
+                end
+            end,
+        }
+        table.insert(clauseBtns, btn)
+    end
+
+    -- 年限按钮
+    local yearsBtns = {}
+    for i, y in ipairs(yearsOptions) do
+        local btn = UI.Button {
+            text = (i == selectedYearsIdx and "● " or "") .. y .. "年",
+            height = 30, marginRight = 6,
+            paddingLeft = 10, paddingRight = 10,
+            backgroundColor = (i == selectedYearsIdx) and Theme.COLORS.SECONDARY or {38, 46, 71, 255},
+            borderRadius = 6, fontSize = 12,
+            color = (i == selectedYearsIdx) and {20, 20, 20, 255} or Theme.COLORS.TEXT_SECONDARY,
+            onClick = function(self)
+                selectedYearsIdx = i
+                for j, b in ipairs(yearsBtns) do
+                    local isSel = (j == i)
+                    b:SetText((isSel and "● " or "") .. yearsOptions[j] .. "年")
+                    b:SetStyle({
+                        backgroundColor = isSel and Theme.COLORS.SECONDARY or {38, 46, 71, 255},
+                        color = isSel and {20, 20, 20, 255} or Theme.COLORS.TEXT_SECONDARY,
+                    })
+                end
+            end,
+        }
+        table.insert(yearsBtns, btn)
+    end
 
     local children = {}
 
@@ -371,168 +463,90 @@ function Market._showBidSheet_render(gameState, player, posFilter, bidIdx, claus
         }
     })
 
-    -- 报价金额选择
-    table.insert(children, UI.Label { text = "报价金额", fontSize = 13, fontWeight = "bold", color = Theme.COLORS.TEXT_PRIMARY, marginBottom = 6 })
-    for i, opt in ipairs(bidOptions) do
-        local amount = math.floor(baseValue * opt.multiplier)
-        local isSelected = i == selectedBidIdx
-        local canAfford = amount <= budget
-        table.insert(children, UI.Button {
-            text = string.format("%s%s — %s", isSelected and "● " or "  ", opt.label, Market._formatValue(amount)),
-            width = "100%", height = 34, marginBottom = 3,
-            backgroundColor = isSelected and Theme.COLORS.PRIMARY or {38, 46, 71, 255},
-            borderRadius = 6, fontSize = 12, textAlign = "left", paddingLeft = 10,
-            color = not canAfford and Theme.COLORS.DANGER or (isSelected and Theme.COLORS.TEXT_PRIMARY or Theme.COLORS.TEXT_SECONDARY),
-            onClick = function()
-                if canAfford then
-                    BottomSheet.close()
-                    Market._showBidSheet_render(gameState, player, posFilter, i, selectedClauseIdx, selectedWageIdx, selectedYearsIdx)
-                end
-            end,
-        })
-    end
-
-    -- 条款选择
-    table.insert(children, UI.Label { text = "合同条款", fontSize = 13, fontWeight = "bold", color = Theme.COLORS.TEXT_PRIMARY, marginTop = 10, marginBottom = 6 })
-    for i, c in ipairs(clauseOptions) do
-        local isSelected = i == selectedClauseIdx
-        table.insert(children, UI.Button {
-            text = (isSelected and "● " or "  ") .. c.label,
-            width = "100%", height = 34, marginBottom = 3,
-            backgroundColor = isSelected and Theme.COLORS.ACCENT or {38, 46, 71, 255},
-            borderRadius = 6, fontSize = 12, textAlign = "left", paddingLeft = 10,
-            color = isSelected and Theme.COLORS.TEXT_PRIMARY or Theme.COLORS.TEXT_SECONDARY,
-            onClick = function()
-                BottomSheet.close()
-                Market._showBidSheet_render(gameState, player, posFilter, selectedBidIdx, i, selectedWageIdx, selectedYearsIdx)
-            end,
-        })
-    end
-
-    -- 个人条款：周薪
-    table.insert(children, UI.Label { text = "球员周薪", fontSize = 13, fontWeight = "bold", color = Theme.COLORS.TEXT_PRIMARY, marginTop = 10, marginBottom = 6 })
+    -- 报价金额
+    table.insert(children, UI.Label { text = "报价金额（万）", fontSize = 13, fontWeight = "bold", color = Theme.COLORS.TEXT_PRIMARY, marginBottom = 4 })
     table.insert(children, UI.Panel {
-        width = "100%", flexDirection = "row", flexWrap = "wrap",
-        children = (function()
-            local btns = {}
-            for i, w in ipairs(wageOptions) do
-                local isSelected = i == selectedWageIdx
-                local wage = math.floor(currentWage * w.multiplier)
-                table.insert(btns, UI.Button {
-                    text = (isSelected and "● " or "") .. Market._formatValue(wage) .. "/周",
-                    height = 30, marginRight = 4, marginBottom = 3,
-                    paddingLeft = 8, paddingRight = 8,
-                    backgroundColor = isSelected and Theme.COLORS.SECONDARY or {38, 46, 71, 255},
-                    borderRadius = 6, fontSize = 11,
-                    color = isSelected and {20, 20, 20, 255} or Theme.COLORS.TEXT_SECONDARY,
-                    onClick = function()
-                        BottomSheet.close()
-                        Market._showBidSheet_render(gameState, player, posFilter, selectedBidIdx, selectedClauseIdx, i, selectedYearsIdx)
-                    end,
-                })
-            end
-            return btns
-        end)(),
+        width = "100%", flexDirection = "row", alignItems = "center", marginBottom = 4,
+        children = { bidField },
+    })
+    table.insert(children, UI.Panel {
+        width = "100%", flexDirection = "row", flexWrap = "wrap", marginBottom = 10,
+        children = bidPresetBtns,
     })
 
-    -- 个人条款：合同年限
-    table.insert(children, UI.Label { text = "合同年限", fontSize = 13, fontWeight = "bold", color = Theme.COLORS.TEXT_PRIMARY, marginTop = 8, marginBottom = 6 })
+    -- 合同条款
+    table.insert(children, UI.Label { text = "合同条款", fontSize = 13, fontWeight = "bold", color = Theme.COLORS.TEXT_PRIMARY, marginBottom = 6 })
+    for _, btn in ipairs(clauseBtns) do
+        table.insert(children, btn)
+    end
+
+    -- 球员周薪
+    table.insert(children, UI.Label { text = "球员周薪（万/周）", fontSize = 13, fontWeight = "bold", color = Theme.COLORS.TEXT_PRIMARY, marginTop = 10, marginBottom = 4 })
+    table.insert(children, UI.Panel {
+        width = "100%", flexDirection = "row", alignItems = "center", marginBottom = 4,
+        children = { wageField },
+    })
+    table.insert(children, UI.Panel {
+        width = "100%", flexDirection = "row", flexWrap = "wrap", marginBottom = 10,
+        children = wagePresetBtns,
+    })
+
+    -- 合同年限
+    table.insert(children, UI.Label { text = "合同年限", fontSize = 13, fontWeight = "bold", color = Theme.COLORS.TEXT_PRIMARY, marginBottom = 6 })
     table.insert(children, UI.Panel {
         width = "100%", flexDirection = "row",
-        children = (function()
-            local btns = {}
-            for i, y in ipairs(yearsOptions) do
-                local isSelected = i == selectedYearsIdx
-                table.insert(btns, UI.Button {
-                    text = (isSelected and "● " or "") .. y .. "年",
-                    height = 30, marginRight = 6,
-                    paddingLeft = 10, paddingRight = 10,
-                    backgroundColor = isSelected and Theme.COLORS.SECONDARY or {38, 46, 71, 255},
-                    borderRadius = 6, fontSize = 12,
-                    color = isSelected and {20, 20, 20, 255} or Theme.COLORS.TEXT_SECONDARY,
-                    onClick = function()
-                        BottomSheet.close()
-                        Market._showBidSheet_render(gameState, player, posFilter, selectedBidIdx, selectedClauseIdx, selectedWageIdx, i)
-                    end,
-                })
-            end
-            return btns
-        end)(),
+        children = yearsBtns,
     })
 
-    -- 财务摘要
-    table.insert(children, UI.Panel {
-        width = "100%", marginTop = 10, padding = 10,
-        backgroundColor = {20, 30, 50, 255}, borderRadius = 8,
-        children = {
-            UI.Panel { width = "100%", flexDirection = "row", children = {
-                UI.Label { text = "转会预算:", fontSize = 12, color = Theme.COLORS.TEXT_MUTED, flexGrow = 1 },
-                UI.Label { text = Market._formatValue(budget), fontSize = 12, color = Theme.COLORS.SECONDARY },
-            }},
-            UI.Panel { width = "100%", flexDirection = "row", marginTop = 4, children = {
-                UI.Label { text = "报价金额:", fontSize = 12, color = Theme.COLORS.TEXT_MUTED, flexGrow = 1 },
-                UI.Label { text = Market._formatValue(offerAmount), fontSize = 12, color = Theme.COLORS.ACCENT, fontWeight = "bold" },
-            }},
-            UI.Panel { width = "100%", flexDirection = "row", marginTop = 4, children = {
-                UI.Label { text = "预算剩余:", fontSize = 12, color = Theme.COLORS.TEXT_MUTED, flexGrow = 1 },
-                UI.Label {
-                    text = Market._formatValue(budget - offerAmount),
-                    fontSize = 12,
-                    color = (budget - offerAmount) >= 0 and Theme.COLORS.SECONDARY or Theme.COLORS.DANGER,
-                },
-            }},
-            UI.Panel { width = "100%", flexDirection = "row", marginTop = 4, children = {
-                UI.Label { text = "球员周薪:", fontSize = 12, color = Theme.COLORS.TEXT_MUTED, flexGrow = 1 },
-                UI.Label { text = Market._formatValue(offeredWage) .. "/周", fontSize = 12, color = Theme.COLORS.SECONDARY },
-            }},
-            UI.Panel { width = "100%", flexDirection = "row", marginTop = 4, children = {
-                UI.Label { text = "合同年限:", fontSize = 12, color = Theme.COLORS.TEXT_MUTED, flexGrow = 1 },
-                UI.Label { text = offeredYears .. "年", fontSize = 12, color = Theme.COLORS.SECONDARY },
-            }},
-            clause.bonus > 0 and UI.Panel { width = "100%", flexDirection = "row", marginTop = 4, children = {
-                UI.Label { text = "出场奖金(20场):", fontSize = 11, color = Theme.COLORS.TEXT_MUTED, flexGrow = 1 },
-                UI.Label { text = Market._formatValue(appearanceBonus), fontSize = 11, color = Theme.COLORS.TEXT_MUTED },
-            }} or nil,
-            clause.sellOn > 0 and UI.Panel { width = "100%", flexDirection = "row", marginTop = 2, children = {
-                UI.Label { text = "转售分成:", fontSize = 11, color = Theme.COLORS.TEXT_MUTED, flexGrow = 1 },
-                UI.Label { text = clause.sellOn .. "%", fontSize = 11, color = Theme.COLORS.TEXT_MUTED },
-            }} or nil,
-        },
-    })
-
-    -- 提交按钮（固定在底部，不参与滚动）
-    local canSubmit = offerAmount <= budget
+    -- 提交按钮
     local submitBtn = UI.Button {
-        text = canSubmit and ("提交报价 " .. Market._formatValue(offerAmount)) or "预算不足",
+        text = "提交报价",
         width = "100%", height = 44, marginTop = 12,
-        backgroundColor = canSubmit and Theme.COLORS.PRIMARY or Theme.COLORS.TEXT_MUTED,
+        backgroundColor = Theme.COLORS.PRIMARY,
         borderRadius = 8, fontSize = 15, fontWeight = "bold",
         color = Theme.COLORS.TEXT_PRIMARY,
         onClick = function()
-            if canSubmit then
-                local clauses = {}
-                if clause.installments > 1 then
-                    clauses.installments = clause.installments
-                end
-                if clause.bonus > 0 then
-                    clauses.appearanceBonus = { count = 20, amount = appearanceBonus }
-                end
-                if clause.sellOn > 0 then
-                    clauses.sellOnPercent = clause.sellOn
-                end
-                local bid = TransferManager.makeBidWithClauses(gameState, player.id, offerAmount, offeredWage, clauses)
-                if bid then
-                    bid.contractYears = offeredYears
-                end
-                BottomSheet.close()
-                Router.replaceWith("market", { tab = "my_bids" })
+            local bidText = bidField:GetValue() or ""
+            local bidAmount = tonumber(bidText)
+            if not bidAmount or bidAmount <= 0 then return end
+            local offerAmount = math.floor(bidAmount * 10000)
+
+            local wageText = wageField:GetValue() or ""
+            local wageAmount = tonumber(wageText)
+            if not wageAmount or wageAmount <= 0 then return end
+            local offeredWage = math.floor(wageAmount * 10000)
+
+            if offerAmount > budget then return end
+
+            local clause = clauseOptions[selectedClauseIdx]
+            local offeredYears = yearsOptions[selectedYearsIdx]
+            local appearanceBonus = math.floor(baseValue * clause.bonus)
+
+            local clauses = {}
+            if clause.installments > 1 then
+                clauses.installments = clause.installments
             end
+            if clause.bonus > 0 then
+                clauses.appearanceBonus = { count = 20, amount = appearanceBonus }
+            end
+            if clause.sellOn > 0 then
+                clauses.sellOnPercent = clause.sellOn
+            end
+            local bid = TransferManager.makeBidWithClauses(gameState, player.id, offerAmount, offeredWage, clauses)
+            if bid then
+                bid.contractYears = offeredYears
+                UI.Toast.Show({ message = "报价已提交", variant = "success" })
+            else
+                UI.Toast.Show({ message = "报价失败", variant = "error" })
+            end
+            BottomSheet.close()
+            Router.replaceWith("market", { tab = "my_bids" })
         end,
     }
 
     BottomSheet.showCustom({
         title = "转会报价 — " .. player.displayName,
-        height = 780,
+        height = 680,
         showCancel = true,
         children = children,
         footer = submitBtn,
@@ -571,6 +585,9 @@ function Market._buildMyBidsContent(gameState)
         elseif bid.status == "negotiating" then
             statusText = string.format("谈判中 %d/%d", (bid.currentRound or 0) + 1, bid.maxRounds or 4)
             statusColor = {156, 39, 176, 255}
+        elseif bid.status == "fee_agreed" then
+            statusText = "待协商个人条款"
+            statusColor = Theme.COLORS.WARNING
         elseif bid.status == "cancelled" then
             statusText = "已撤回"
             statusColor = Theme.COLORS.TEXT_MUTED
@@ -629,6 +646,7 @@ function Market._buildMyBidsContent(gameState)
                         color = Theme.COLORS.TEXT_PRIMARY,
                         onClick = function()
                             TransferManager.cancelBid(gameState, bid.id)
+                            UI.Toast.Show({ message = "报价已撤回", variant = "info" })
                             Router.replaceWith("market", { tab = "my_bids" })
                         end,
                     } or nil,
@@ -674,6 +692,7 @@ function Market._buildMyBidsContent(gameState)
                         fontSize = 11, color = Theme.COLORS.TEXT_PRIMARY,
                         onClick = function()
                             TransferManager.raiseBid(gameState, bid.id, raise25)
+                            UI.Toast.Show({ message = "加价已提交", variant = "success" })
                             Router.replaceWith("market", { tab = "my_bids" })
                         end,
                     },
@@ -684,6 +703,7 @@ function Market._buildMyBidsContent(gameState)
                         fontSize = 11, color = Theme.COLORS.TEXT_PRIMARY,
                         onClick = function()
                             TransferManager.raiseBid(gameState, bid.id, raise50)
+                            UI.Toast.Show({ message = "加价已提交", variant = "success" })
                             Router.replaceWith("market", { tab = "my_bids" })
                         end,
                     },
@@ -694,6 +714,7 @@ function Market._buildMyBidsContent(gameState)
                         fontSize = 11, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold",
                         onClick = function()
                             TransferManager.raiseBid(gameState, bid.id, raiseFull)
+                            UI.Toast.Show({ message = "已满足对方要价", variant = "success" })
                             Router.replaceWith("market", { tab = "my_bids" })
                         end,
                     },
@@ -721,6 +742,111 @@ function Market._buildMyBidsContent(gameState)
                     children = historyChildren,
                 })
             end
+        end
+
+        -- fee_agreed：个人条款协商入口
+        if bid.status == "fee_agreed" then
+            local attempts = bid.personalTermsAttempts or 0
+            local remaining = 3 - attempts
+            local currentWage = bid.wageOffer or 0
+
+            table.insert(cardChildren, UI.Panel {
+                width = "100%", marginTop = 8, padding = 10,
+                backgroundColor = {Theme.COLORS.WARNING[1], Theme.COLORS.WARNING[2], Theme.COLORS.WARNING[3], 20},
+                borderRadius = 6,
+                borderWidth = 1, borderColor = {Theme.COLORS.WARNING[1], Theme.COLORS.WARNING[2], Theme.COLORS.WARNING[3], 80},
+                children = {
+                    UI.Label {
+                        text = "转会费已达成协议，球员拒绝了当前个人条款",
+                        fontSize = 12, color = Theme.COLORS.WARNING, fontWeight = "bold",
+                    },
+                    UI.Label {
+                        text = string.format("当前报价周薪: %s · 剩余协商机会: %d次",
+                            Market._formatValue(currentWage), remaining),
+                        fontSize = 11, color = Theme.COLORS.TEXT_MUTED, marginTop = 4,
+                    },
+                }
+            })
+
+            -- 薪资调整输入 + 快捷按钮
+            local wageField = UI.TextField {
+                flexGrow = 1, height = 38,
+                placeholder = "输入新周薪（万）",
+                value = tostring(math.floor(currentWage * 1.2 / 10000)),
+                fontSize = 14, borderRadius = 6,
+            }
+
+            -- 快捷加薪按钮
+            local wagePresets = {
+                { label = "+20%", multiplier = 1.2 },
+                { label = "+50%", multiplier = 1.5 },
+                { label = "×2", multiplier = 2.0 },
+            }
+            local wagePresetBtns = {}
+            for _, wp in ipairs(wagePresets) do
+                local newWage = math.floor(currentWage * wp.multiplier / 10000)
+                table.insert(wagePresetBtns, UI.Button {
+                    text = wp.label .. " (" .. Market._formatValue(newWage * 10000) .. ")",
+                    height = 28, paddingLeft = 8, paddingRight = 8, marginRight = 4,
+                    backgroundColor = {38, 46, 71, 255},
+                    borderRadius = 5, fontSize = 11,
+                    color = Theme.COLORS.TEXT_SECONDARY,
+                    onClick = function()
+                        wageField:SetValue(tostring(newWage))
+                    end,
+                })
+            end
+
+            table.insert(cardChildren, UI.Panel {
+                width = "100%", marginTop = 8,
+                children = {
+                    UI.Label { text = "调整周薪报价（万/周）", fontSize = 12, color = Theme.COLORS.TEXT_PRIMARY, marginBottom = 4 },
+                    UI.Panel {
+                        width = "100%", flexDirection = "row", alignItems = "center", marginBottom = 4,
+                        children = { wageField },
+                    },
+                    UI.Panel {
+                        width = "100%", flexDirection = "row", flexWrap = "wrap", marginBottom = 8,
+                        children = wagePresetBtns,
+                    },
+                },
+            })
+
+            -- 重新协商按钮 + 放弃按钮
+            local bidId = bid.id
+            table.insert(cardChildren, UI.Panel {
+                width = "100%", flexDirection = "row", marginTop = 8,
+                children = {
+                    UI.Button {
+                        text = "重新协商个人条款",
+                        flexGrow = 1, height = 40, marginRight = 8,
+                        backgroundColor = Theme.COLORS.WARNING,
+                        borderRadius = 6, fontSize = 14, fontWeight = "bold",
+                        color = {20, 20, 20, 255},
+                        onClick = function()
+                            local wageText = wageField:GetValue() or ""
+                            local wageAmount = tonumber(wageText)
+                            if not wageAmount or wageAmount <= 0 then return end
+                            local newWage = math.floor(wageAmount * 10000)
+                            TransferManager.negotiatePersonalTerms(gameState, bidId, newWage)
+                            UI.Toast.Show({ message = "新合同报价已发送", variant = "success" })
+                            Router.replaceWith("market", { tab = "my_bids" })
+                        end,
+                    },
+                    UI.Button {
+                        text = "放弃",
+                        width = 60, height = 40,
+                        backgroundColor = {60, 40, 40, 255},
+                        borderRadius = 6, fontSize = 13,
+                        color = Theme.COLORS.DANGER,
+                        onClick = function()
+                            TransferManager.cancelBid(gameState, bidId)
+                            UI.Toast.Show({ message = "已放弃签约", variant = "info" })
+                            Router.replaceWith("market", { tab = "my_bids" })
+                        end,
+                    },
+                },
+            })
         end
 
         table.insert(children, Theme.Card { children = cardChildren })
@@ -770,50 +896,82 @@ function Market._buildListedContent(gameState)
         })
     else
         for _, p in ipairs(listedPlayers) do
-            -- 检查是否有收到报价
             local hasBid = TransferManager.hasPendingIncomingBid(gameState, p.id)
+            local posColor = hasBid and Theme.COLORS.ACCENT or Theme.COLORS.TEXT_MUTED
+
+            -- 获取报价信息
+            local bidInfo = ""
+            if hasBid then
+                local bids = TransferManager.getPendingSellBids(gameState)
+                for _, b in ipairs(bids) do
+                    if b.playerId == p.id and b.isIncomingBid then
+                        local buyer = gameState.teams[b.buyerTeamId]
+                        bidInfo = (buyer and buyer.name or "未知") .. " 出价 " .. Market._formatValue(b.amount)
+                        break
+                    end
+                end
+            end
+
             table.insert(children, UI.Panel {
-                width = "100%", height = 52,
-                flexDirection = "row", alignItems = "center",
-                paddingLeft = 12, paddingRight = 12,
+                width = "100%",
+                paddingLeft = 12, paddingRight = 12, paddingTop = 8, paddingBottom = 8,
                 borderBottomWidth = 1, borderColor = Theme.COLORS.BORDER,
                 backgroundColor = hasBid and {40, 50, 30, 255} or {0, 0, 0, 0},
                 children = {
-                    UI.Label {
-                        text = Constants.POSITION_NAMES[p.position] or p.position,
-                        fontSize = 11, color = Theme.COLORS.TEXT_MUTED, width = 36,
+                    -- 第一行：位置徽章 + 名字 + 能力值 + 按钮
+                    UI.Panel {
+                        width = "100%", flexDirection = "row", alignItems = "center",
+                        children = {
+                            UI.Panel {
+                                backgroundColor = {posColor[1], posColor[2], posColor[3], 30},
+                                borderRadius = 3, paddingLeft = 4, paddingRight = 4, paddingTop = 1, paddingBottom = 1, marginRight = 8,
+                                children = { UI.Label { text = Constants.POSITION_NAMES[p.position] or p.position, fontSize = 10, color = posColor } },
+                            },
+                            UI.Panel {
+                                flexGrow = 1, flexShrink = 1,
+                                onClick = function() Router.navigate("player_detail", { playerId = p.id }) end,
+                                children = {
+                                    UI.Label { text = p.displayName, fontSize = 14, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold" },
+                                },
+                            },
+                            UI.Label {
+                                text = tostring(p.overall),
+                                fontSize = 16, color = Theme.COLORS.SECONDARY, fontWeight = "bold", marginRight = 10,
+                            },
+                            hasBid and UI.Button {
+                                text = "处理",
+                                width = 50, height = 28,
+                                backgroundColor = Theme.COLORS.ACCENT,
+                                borderRadius = 6, fontSize = 12,
+                                color = {255, 255, 255, 255},
+                                onClick = function()
+                                    Market._showOfferSheet(gameState, p)
+                                end,
+                            } or UI.Button {
+                                text = "取消",
+                                width = 50, height = 28,
+                                backgroundColor = {80, 80, 100, 255},
+                                borderRadius = 6, fontSize = 12,
+                                color = Theme.COLORS.TEXT_SECONDARY,
+                                onClick = function()
+                                    p.listedForSale = false
+                                    Router.replaceWith("market", { tab = "listed" })
+                                end,
+                            },
+                        },
                     },
-                    UI.Label {
-                        text = p.displayName .. (hasBid and " (有报价!)" or ""),
-                        fontSize = 13, color = hasBid and Theme.COLORS.ACCENT or Theme.COLORS.TEXT_PRIMARY, flexGrow = 1, flexShrink = 1,
-                    },
-                    UI.Label {
-                        text = tostring(p.overall),
-                        fontSize = 13, color = Theme.COLORS.SECONDARY, width = 28, fontWeight = "bold",
-                    },
-                    UI.Label {
-                        text = Market._formatValue(p.value),
-                        fontSize = 11, color = Theme.COLORS.ACCENT, width = 50,
-                    },
-                    hasBid and UI.Button {
-                        text = "处理",
-                        width = 46, height = 26,
-                        backgroundColor = Theme.COLORS.ACCENT,
-                        borderRadius = 4, fontSize = 11,
-                        color = {255, 255, 255, 255},
-                        onClick = function()
-                            Router.navigate("player_detail", { playerId = p.id, tab = "contract" })
-                        end,
-                    } or UI.Button {
-                        text = "取消",
-                        width = 46, height = 26,
-                        backgroundColor = {80, 80, 100, 255},
-                        borderRadius = 4, fontSize = 11,
-                        color = Theme.COLORS.TEXT_SECONDARY,
-                        onClick = function()
-                            p.listedForSale = false
-                            Router.replaceWith("market", { tab = "listed" })
-                        end,
+                    -- 第二行：身价 | 报价状态
+                    UI.Panel {
+                        width = "100%", flexDirection = "row", alignItems = "center", marginTop = 4,
+                        children = {
+                            UI.Label { text = Market._formatValue(p.value), fontSize = 11, color = Theme.COLORS.ACCENT },
+                            UI.Label { text = " · ", fontSize = 11, color = Theme.COLORS.BORDER },
+                            UI.Label {
+                                text = hasBid and bidInfo or "等待报价",
+                                fontSize = 11,
+                                color = hasBid and Theme.COLORS.FINANCE_GREEN or Theme.COLORS.TEXT_MUTED,
+                            },
+                        },
                     },
                 },
             })
@@ -842,52 +1000,212 @@ function Market._buildListedContent(gameState)
     for _, p in ipairs(availablePlayers) do
         local isSafe, _ = FinanceManager.checkSquadSafety(gameState, p.id)
         table.insert(children, UI.Panel {
-            width = "100%", height = 48,
-            flexDirection = "row", alignItems = "center",
-            paddingLeft = 12, paddingRight = 12,
+            width = "100%",
+            paddingLeft = 12, paddingRight = 12, paddingTop = 8, paddingBottom = 8,
             borderBottomWidth = 1, borderColor = Theme.COLORS.BORDER,
             children = {
-                UI.Label {
-                    text = Constants.POSITION_NAMES[p.position] or p.position,
-                    fontSize = 11, color = Theme.COLORS.TEXT_MUTED, width = 36,
+                -- 第一行：位置徽章 + 名字 + 能力值 + 挂牌按钮
+                UI.Panel {
+                    width = "100%", flexDirection = "row", alignItems = "center",
+                    children = {
+                        UI.Panel {
+                            backgroundColor = {Theme.COLORS.TEXT_MUTED[1], Theme.COLORS.TEXT_MUTED[2], Theme.COLORS.TEXT_MUTED[3], 30},
+                            borderRadius = 3, paddingLeft = 4, paddingRight = 4, paddingTop = 1, paddingBottom = 1, marginRight = 8,
+                            children = { UI.Label { text = Constants.POSITION_NAMES[p.position] or p.position, fontSize = 10, color = Theme.COLORS.TEXT_MUTED } },
+                        },
+                        UI.Panel {
+                            flexGrow = 1, flexShrink = 1,
+                            onClick = function() Router.navigate("player_detail", { playerId = p.id }) end,
+                            children = {
+                                UI.Label { text = p.displayName, fontSize = 14, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold" },
+                            },
+                        },
+                        UI.Label {
+                            text = tostring(p.overall),
+                            fontSize = 16, color = Theme.COLORS.SECONDARY, fontWeight = "bold", marginRight = 10,
+                        },
+                        isSafe and UI.Button {
+                            text = "挂牌",
+                            width = 50, height = 28,
+                            backgroundColor = Theme.COLORS.ACCENT,
+                            borderRadius = 6, fontSize = 12,
+                            color = {255, 255, 255, 255},
+                            onClick = function()
+                                p.listedForSale = true
+                                gameState:sendMessage({
+                                    category = "transfer",
+                                    title = p.displayName .. " 已挂牌",
+                                    body = p.displayName .. " 已被挂牌出售，等待买家报价。",
+                                    priority = "normal",
+                                })
+                                Router.replaceWith("market", { tab = "listed" })
+                            end,
+                        } or UI.Label {
+                            text = "不可",
+                            fontSize = 10, color = Theme.COLORS.TEXT_MUTED, width = 50, textAlign = "center",
+                        },
+                    },
                 },
-                UI.Label {
-                    text = p.displayName,
-                    fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY, flexGrow = 1, flexShrink = 1,
-                },
-                UI.Label {
-                    text = tostring(p.overall),
-                    fontSize = 12, color = Theme.COLORS.TEXT_SECONDARY, width = 28,
-                },
-                UI.Label {
-                    text = Market._formatValue(p.value),
-                    fontSize = 11, color = Theme.COLORS.TEXT_MUTED, width = 50,
-                },
-                isSafe and UI.Button {
-                    text = "挂牌",
-                    width = 46, height = 26,
-                    backgroundColor = Theme.COLORS.ACCENT,
-                    borderRadius = 4, fontSize = 11,
-                    color = {255, 255, 255, 255},
-                    onClick = function()
-                        p.listedForSale = true
-                        gameState:sendMessage({
-                            category = "transfer",
-                            title = p.displayName .. " 已挂牌",
-                            body = p.displayName .. " 已被挂牌出售，等待买家报价。",
-                            priority = "normal",
-                        })
-                        Router.replaceWith("market", { tab = "listed" })
-                    end,
-                } or UI.Label {
-                    text = "不可",
-                    fontSize = 10, color = Theme.COLORS.TEXT_MUTED, width = 46, textAlign = "center",
+                -- 第二行：身价 + 周薪
+                UI.Panel {
+                    width = "100%", flexDirection = "row", alignItems = "center", marginTop = 4,
+                    children = {
+                        UI.Label { text = Market._formatValue(p.value), fontSize = 11, color = Theme.COLORS.ACCENT },
+                        UI.Label { text = " · ", fontSize = 11, color = Theme.COLORS.BORDER },
+                        UI.Label { text = Market._formatValue(p.wage or 0) .. "/周", fontSize = 11, color = Theme.COLORS.TEXT_MUTED },
+                    },
                 },
             },
         })
     end
 
     return children
+end
+
+------------------------------------------------------
+-- 报价处理弹窗
+------------------------------------------------------
+function Market._showOfferSheet(gameState, player)
+    local incomingBids = TransferManager.getPendingSellBids(gameState)
+    local bid = nil
+    for _, b in ipairs(incomingBids) do
+        if b.playerId == player.id and b.isIncomingBid then
+            bid = b
+            break
+        end
+    end
+    if not bid then return end
+
+    local buyerTeam = gameState.teams[bid.buyerTeamId]
+    local buyerName = buyerTeam and buyerTeam.name or "未知球队"
+    local bidAmount = bid.amount
+    local playerValue = player.value or 0
+
+    -- 计算还价建议（身价的110%）
+    local suggestedCounter = math.floor(playerValue * 1.1 / 1000) * 1000
+
+    local ConfirmDialog = require("scripts/ui/components/confirm_dialog")
+
+    BottomSheet.showCustom({
+        title = "报价处理 - " .. player.displayName,
+        height = 430,
+        showCancel = false,
+        children = {
+            -- 报价信息
+            UI.Panel {
+                width = "100%", backgroundColor = {30, 38, 55, 255},
+                borderRadius = 8, padding = 12, marginBottom = 12,
+                children = {
+                    UI.Panel {
+                        width = "100%", flexDirection = "row", justifyContent = "space-between", marginBottom = 6,
+                        children = {
+                            UI.Label { text = "买方球队", fontSize = 12, color = Theme.COLORS.TEXT_MUTED },
+                            UI.Label { text = buyerName, fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold" },
+                        }
+                    },
+                    UI.Panel {
+                        width = "100%", flexDirection = "row", justifyContent = "space-between", marginBottom = 6,
+                        children = {
+                            UI.Label { text = "报价金额", fontSize = 12, color = Theme.COLORS.TEXT_MUTED },
+                            UI.Label { text = Market._formatValue(bidAmount), fontSize = 14, color = Theme.COLORS.ACCENT, fontWeight = "bold" },
+                        }
+                    },
+                    UI.Panel {
+                        width = "100%", flexDirection = "row", justifyContent = "space-between",
+                        children = {
+                            UI.Label { text = "球员身价", fontSize = 12, color = Theme.COLORS.TEXT_MUTED },
+                            UI.Label { text = Market._formatValue(playerValue), fontSize = 13, color = Theme.COLORS.TEXT_SECONDARY },
+                        }
+                    },
+                }
+            },
+            -- 操作按钮
+            UI.Button {
+                text = "接受报价 (" .. Market._formatValue(bidAmount) .. ")",
+                width = "100%", height = 42,
+                backgroundColor = Theme.COLORS.SECONDARY,
+                borderRadius = 8, fontSize = 14,
+                color = {255, 255, 255, 255},
+                marginBottom = 8,
+                onClick = function()
+                    BottomSheet.close()
+                    ConfirmDialog.show({
+                        title = "确认出售",
+                        message = string.format("确认以 %s 将 %s 出售给 %s？",
+                            Market._formatValue(bidAmount), player.displayName, buyerName),
+                        confirmText = "确认出售",
+                        danger = false,
+                        onConfirm = function()
+                            TransferManager.acceptIncomingBid(gameState, bid.id)
+                            UI.Toast.Show({ message = "交易完成！球员已出售", variant = "success" })
+                            Router.replaceWith("market", { tab = "listed" })
+                        end,
+                    })
+                end,
+            },
+            -- 还价区域：输入框 + 按钮
+            UI.Panel {
+                width = "100%", marginBottom = 8,
+                children = {
+                    UI.Label { text = "还价金额（万）", fontSize = 12, color = Theme.COLORS.TEXT_MUTED, marginBottom = 4 },
+                    UI.Panel {
+                        width = "100%", flexDirection = "row", alignItems = "center",
+                        children = (function()
+                            local counterField = UI.TextField {
+                                flexGrow = 1, height = 40,
+                                placeholder = "输入金额，如 " .. tostring(math.floor(suggestedCounter / 10000)),
+                                value = tostring(math.floor(suggestedCounter / 10000)),
+                                fontSize = 15,
+                                borderRadius = 6,
+                                marginRight = 8,
+                            }
+                            local counterBtn = UI.Button {
+                                text = "发起还价",
+                                width = 90, height = 40,
+                                backgroundColor = {50, 65, 90, 255},
+                                borderRadius = 6, fontSize = 13,
+                                color = Theme.COLORS.ACCENT,
+                                onClick = function()
+                                    local inputText = counterField:GetValue() or ""
+                                    local amount = tonumber(inputText)
+                                    if not amount or amount <= 0 then return end
+                                    local askAmount = math.floor(amount * 10000) -- 万 → 实际金额
+
+                                    BottomSheet.close()
+                                    ConfirmDialog.show({
+                                        title = "还价谈判",
+                                        message = string.format("要求 %s 支付 %s。\n对方可能接受或拒绝。",
+                                            buyerName, Market._formatValue(askAmount)),
+                                        confirmText = "确认还价",
+                                        danger = false,
+                                        onConfirm = function()
+                                            local ok, result = TransferManager.counterIncomingBid(gameState, bid.id, askAmount)
+                                            UI.Toast.Show({ message = "还价已发出", variant = "success" })
+                                            Router.replaceWith("market", { tab = "listed" })
+                                        end,
+                                    })
+                                end,
+                            }
+                            return { counterField, counterBtn }
+                        end)(),
+                    },
+                },
+            },
+            UI.Button {
+                text = "拒绝报价",
+                width = "100%", height = 42,
+                backgroundColor = {60, 40, 40, 255},
+                borderRadius = 8, fontSize = 14,
+                color = Theme.COLORS.DANGER,
+                onClick = function()
+                    BottomSheet.close()
+                    TransferManager.rejectIncomingBid(gameState, bid.id)
+                    UI.Toast.Show({ message = "已拒绝报价", variant = "info" })
+                    Router.replaceWith("market", { tab = "listed" })
+                end,
+            },
+        }
+    })
 end
 
 -- 球探报告
@@ -985,6 +1303,7 @@ function Market._buildScoutContent(gameState)
                             onClick = function()
                                 local offerAmount = math.floor(player.value * 1.1)
                                 TransferManager.makeBid(gameState, player.id, offerAmount)
+                                UI.Toast.Show({ message = "报价已提交", variant = "success" })
                                 Router.replaceWith("market", { tab = "scout" })
                             end,
                         },
@@ -1068,6 +1387,7 @@ function Market._buildFreeAgentsContent(gameState, posFilter)
                                 color = Theme.COLORS.TEXT_PRIMARY, marginRight = 4, marginBottom = 4,
                                 onClick = function()
                                     TransferManager.reviseOffer(gameState, negoId, raise25, counterYears)
+                                    UI.Toast.Show({ message = "加薪报价已发送", variant = "success" })
                                     Router.replaceWith("market", { tab = "free", posFilter = posFilter })
                                 end,
                             },
@@ -1078,6 +1398,7 @@ function Market._buildFreeAgentsContent(gameState, posFilter)
                                 color = Theme.COLORS.TEXT_PRIMARY, marginRight = 4, marginBottom = 4,
                                 onClick = function()
                                     TransferManager.reviseOffer(gameState, negoId, raiseFull, counterYears)
+                                    UI.Toast.Show({ message = "已满足球员要求", variant = "success" })
                                     Router.replaceWith("market", { tab = "free", posFilter = posFilter })
                                 end,
                             },
@@ -1087,6 +1408,7 @@ function Market._buildFreeAgentsContent(gameState, posFilter)
                                 color = Theme.COLORS.TEXT_PRIMARY, marginBottom = 4,
                                 onClick = function()
                                     TransferManager.cancelFreeAgentNego(gameState, negoId)
+                                    UI.Toast.Show({ message = "已放弃谈判", variant = "info" })
                                     Router.replaceWith("market", { tab = "free", posFilter = posFilter })
                                 end,
                             },
@@ -1104,6 +1426,7 @@ function Market._buildFreeAgentsContent(gameState, posFilter)
                                 color = Theme.COLORS.TEXT_PRIMARY,
                                 onClick = function()
                                     TransferManager.cancelFreeAgentNego(gameState, negoId)
+                                    UI.Toast.Show({ message = "已取消谈判", variant = "info" })
                                     Router.replaceWith("market", { tab = "free", posFilter = posFilter })
                                 end,
                             },
@@ -1116,8 +1439,8 @@ function Market._buildFreeAgentsContent(gameState, posFilter)
                     local histItems = {}
                     for _, r in ipairs(nego.rounds) do
                         table.insert(histItems, UI.Label {
-                            text = string.format("第%d轮: 你出 %.1fK → 对方要 %.1fK",
-                                r.round, (r.offerWage or 0) / 1000, (r.counterWage or 0) / 1000),
+                            text = string.format("第%d轮: 你出 %s → 对方要 %s",
+                                r.round, FinanceManager.formatMoney(r.offerWage or 0), FinanceManager.formatMoney(r.counterWage or 0)),
                             fontSize = 9, color = Theme.COLORS.TEXT_MUTED, marginTop = 1,
                         })
                     end
@@ -1205,6 +1528,7 @@ function Market._buildFreeAgentsContent(gameState, posFilter)
                 color = Theme.COLORS.TEXT_PRIMARY,
                 onClick = function()
                     TransferManager.offerFreeAgent(gameState, playerId, wage, 2)
+                    UI.Toast.Show({ message = "邀约已发送", variant = "success" })
                     Router.replaceWith("market", { tab = "free", posFilter = posFilter })
                 end,
             }
@@ -1240,13 +1564,7 @@ end
 
 -- 格式化金额
 function Market._formatValue(amount)
-    if amount >= 1000000 then
-        return string.format("%.1fM", amount / 1000000)
-    elseif amount >= 1000 then
-        return string.format("%.0fK", amount / 1000)
-    else
-        return tostring(amount)
-    end
+    return FinanceManager.formatMoney(amount)
 end
 
 return Market

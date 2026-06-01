@@ -4,6 +4,7 @@
 local Tournament = require("scripts/domain/tournament")
 local League = require("scripts/domain/league")
 local EventBus = require("scripts/app/event_bus")
+local RecordsManager = require("scripts/systems/records_manager")
 
 local WorldCup = {}
 
@@ -100,27 +101,76 @@ function WorldCup.initialize(gameState)
         body = WorldCup._formatDrawResult(gameState, wc),
     })
 
-    -- 通知玩家
-    local playerNation = WorldCup._getPlayerNation(gameState)
-    if playerNation then
-        local qualified = false
-        for _, code in ipairs(qualifiedNations) do
-            if code == playerNation then
-                qualified = true
-                break
-            end
-        end
-        if qualified then
-            gameState:sendMessage({
-                category = "world_cup",
-                title = "世界杯参赛通知",
-                body = string.format("你所在的国家队入围了 %d 世界杯！比赛将在6月开始。", wcYear),
-                priority = "high",
-            })
-        end
-    end
+    -- 国家队主教练邀请逻辑
+    WorldCup._checkNationalTeamInvitation(gameState, qualifiedNations, wcYear)
 
     return wc
+end
+
+------------------------------------------------------
+-- 国家队邀请：基于教练声望和国籍
+------------------------------------------------------
+local NT_REP_THRESHOLD = 40  -- 最低声望要求（"普通教练"以上）
+
+function WorldCup._checkNationalTeamInvitation(gameState, qualifiedNations, wcYear)
+    -- 清除上一届的状态
+    gameState.nationalTeamCoach = nil
+
+    local manager = gameState:getPlayerManager()
+    if not manager then return end
+
+    -- 教练的国籍
+    local managerNation = manager.nationality
+    if not managerNation then return end
+
+    -- 检查该国家是否入围世界杯
+    local nationQualified = false
+    for _, code in ipairs(qualifiedNations) do
+        if code == managerNation then
+            nationQualified = true
+            break
+        end
+    end
+    if not nationQualified then
+        -- 国家没入围，发通知但不邀请
+        gameState:sendMessage({
+            category = "world_cup",
+            title = "世界杯抽签揭晓",
+            body = string.format("%d 世界杯分组抽签已完成。遗憾的是，%s未能入围本届赛事。",
+                wcYear, WorldCup._getNationName(managerNation)),
+            priority = "normal",
+        })
+        return
+    end
+
+    -- 检查声望是否够格
+    local rep = manager.reputation or 30
+    if rep < NT_REP_THRESHOLD then
+        gameState:sendMessage({
+            category = "world_cup",
+            title = "世界杯即将开幕",
+            body = string.format("%s入围了 %d 世界杯！但目前你的执教声望不够(%d/%d)，未能获得国家队邀请。继续努力吧！",
+                WorldCup._getNationName(managerNation), wcYear, math.floor(rep), NT_REP_THRESHOLD),
+            priority = "normal",
+        })
+        return
+    end
+
+    -- 声望足够 → 发送邀请（带操作按钮）
+    local nationName = WorldCup._getNationName(managerNation)
+    gameState:sendMessage({
+        category = "world_cup",
+        title = "国家队主教练邀请",
+        body = string.format(
+            "%s足协正式邀请你出任 %d 世界杯国家队主教练！\n\n" ..
+            "你的执教声望(%d)已经获得认可。接受邀请后，你将负责选拔国家队大名单并带队征战世界杯。",
+            nationName, wcYear, math.floor(rep)),
+        priority = "high",
+        actions = {
+            { label = "接受邀请", actionId = "accept_nt_coach", data = { nation = managerNation } },
+            { label = "婉拒", actionId = "decline_nt_coach", data = { nation = managerNation } },
+        },
+    })
 end
 
 ------------------------------------------------------
@@ -412,6 +462,9 @@ function WorldCup._completeTournament(gameState, wc)
         })
     end
 
+    -- 记录系统：世界杯夺冠
+    RecordsManager.onWorldCupChampionship(gameState, winner)
+
     EventBus.emit("world_cup_completed", winner)
 end
 
@@ -452,25 +505,16 @@ end
 ------------------------------------------------------
 
 function WorldCup._getPlayerNation(gameState)
-    if not gameState.playerTeamId then return nil end
-    local team = gameState.teams[gameState.playerTeamId]
-    if not team or not team.playerIds or #team.playerIds == 0 then return nil end
-    -- 取球队国籍最多的作为代表
-    local natCount = {}
-    for _, pid in ipairs(team.playerIds) do
-        local p = gameState.players[pid]
-        if p and p.nationality then
-            natCount[p.nationality] = (natCount[p.nationality] or 0) + 1
-        end
+    -- 优先使用已确认的国家队执教身份
+    if gameState.nationalTeamCoach and gameState.nationalTeamCoach.nation then
+        return gameState.nationalTeamCoach.nation
     end
-    local topNat, topCount = nil, 0
-    for nat, count in pairs(natCount) do
-        if count > topCount then
-            topNat = nat
-            topCount = count
-        end
+    -- 退化方案：教练自身国籍
+    local manager = gameState:getPlayerManager()
+    if manager and manager.nationality then
+        return manager.nationality
     end
-    return topNat
+    return nil
 end
 
 function WorldCup._getNationName(code)
@@ -508,6 +552,226 @@ function WorldCup._formatKnockoutDraw(gameState, wc, matchups)
         table.insert(lines, string.format("%d. %s vs %s", i, n1, n2))
     end
     return table.concat(lines, "\n")
+end
+
+------------------------------------------------------
+-- 构建临时国家队对象（用于玩家手动操控比赛）
+------------------------------------------------------
+
+function WorldCup.buildNationalTeam(gameState, nationCode)
+    -- 如果是玩家国家队且已选择大名单，优先使用玩家的选择
+    local ntCoach = gameState.nationalTeamCoach
+    if ntCoach and ntCoach.nation == nationCode and ntCoach.squad and #ntCoach.squad > 0 then
+        return WorldCup._buildFromPlayerSquad(gameState, nationCode, ntCoach)
+    end
+
+    -- 收集该国籍所有可用球员
+    local nationPlayers = {}
+    for _, player in pairs(gameState.players) do
+        if not player.retired and not player.injured and player.nationality == nationCode then
+            table.insert(nationPlayers, player)
+        end
+    end
+
+    -- 按 overall 排序
+    table.sort(nationPlayers, function(a, b) return (a.overall or 0) > (b.overall or 0) end)
+
+    -- 选出23人大名单
+    local squadSize = math.min(23, #nationPlayers)
+    local squadIds = {}
+    local startingIds = {}
+    for i = 1, squadSize do
+        table.insert(squadIds, nationPlayers[i].id)
+    end
+
+    -- 选出最佳11人首发（按位置分配）
+    local positionSlots = { GK = 1, CB = 2, LB = 1, RB = 1, MID = 3, FWD = 3 }
+    local posGroups = { GK = {}, DEF = {}, MID = {}, FWD = {} }
+    for _, p in ipairs(nationPlayers) do
+        local pos = p.position or "MID"
+        if pos == "GK" then
+            table.insert(posGroups.GK, p)
+        elseif pos == "CB" or pos == "LB" or pos == "RB" then
+            table.insert(posGroups.DEF, p)
+        elseif pos == "ST" or pos == "CF" or pos == "LW" or pos == "RW" then
+            table.insert(posGroups.FWD, p)
+        else
+            table.insert(posGroups.MID, p)
+        end
+    end
+
+    -- GK x1, DEF x4, MID x3, FWD x3
+    local targets = { { group = "GK", count = 1 }, { group = "DEF", count = 4 }, { group = "MID", count = 3 }, { group = "FWD", count = 3 } }
+    local used = {}
+    for _, target in ipairs(targets) do
+        local pool = posGroups[target.group]
+        local added = 0
+        for _, p in ipairs(pool) do
+            if added >= target.count then break end
+            if not used[p.id] then
+                table.insert(startingIds, p.id)
+                used[p.id] = true
+                added = added + 1
+            end
+        end
+    end
+
+    -- 如果不足11人，从剩余球员补充
+    if #startingIds < 11 then
+        for _, pid in ipairs(squadIds) do
+            if #startingIds >= 11 then break end
+            if not used[pid] then
+                table.insert(startingIds, pid)
+                used[pid] = true
+            end
+        end
+    end
+
+    -- 如果存在玩家之前保存的国家队设置，使用它
+    local saved = gameState._nationalTeamSettings and gameState._nationalTeamSettings[nationCode]
+    local formation = (saved and saved.formation) or "4-3-3"
+    local playStyle = (saved and saved.playStyle) or "Balanced"
+
+    -- 构建虚拟 team 对象
+    local nationName = WorldCup._getNationName(nationCode)
+    local nationalTeam = {
+        id = nationCode,  -- 用国家代码作为ID
+        name = nationName,
+        shortName = nationCode,
+        formation = formation,
+        playStyle = playStyle,
+        attackMode = "balanced",
+        startingXI = startingIds,
+        playerIds = squadIds,
+        playerDuties = {},
+        slotRoles = {},
+        recentForm = {},
+        _isNationalTeam = true,
+    }
+
+    return nationalTeam
+end
+
+------------------------------------------------------
+-- 保存玩家对国家队的战术设置
+------------------------------------------------------
+
+function WorldCup.saveNationalTeamSettings(gameState, nationCode, team)
+    if not gameState._nationalTeamSettings then
+        gameState._nationalTeamSettings = {}
+    end
+    gameState._nationalTeamSettings[nationCode] = {
+        formation = team.formation,
+        playStyle = team.playStyle,
+        startingXI = team.startingXI,
+    }
+end
+
+------------------------------------------------------
+-- 判断某个 fixture 是否是玩家国家队的比赛
+------------------------------------------------------
+
+function WorldCup.isPlayerNationMatch(gameState, fixture)
+    local playerNation = WorldCup._getPlayerNation(gameState)
+    if not playerNation then return false end
+    return fixture.homeTeamId == playerNation or fixture.awayTeamId == playerNation
+end
+
+------------------------------------------------------
+-- 从玩家选择的大名单构建国家队对象
+------------------------------------------------------
+
+function WorldCup._buildFromPlayerSquad(gameState, nationCode, ntCoach)
+    local squadIds = ntCoach.squad
+    -- 验证球员可用性（排除受伤/退役）
+    local validIds = {}
+    for _, pid in ipairs(squadIds) do
+        local p = gameState.players[pid]
+        if p and not p.retired and not p.injured then
+            table.insert(validIds, pid)
+        end
+    end
+
+    -- 首发11人（使用保存的设置或自动选择）
+    local saved = gameState._nationalTeamSettings and gameState._nationalTeamSettings[nationCode]
+    local startingIds = (saved and saved.startingXI) or {}
+
+    -- 如果没有保存的首发或者首发不足11人，自动补齐
+    if #startingIds < 11 then
+        local posGroups = { GK = {}, DEF = {}, MID = {}, FWD = {} }
+        for _, pid in ipairs(validIds) do
+            local p = gameState.players[pid]
+            if p then
+                local pos = p.position or "MID"
+                if pos == "GK" then
+                    table.insert(posGroups.GK, p)
+                elseif pos == "CB" or pos == "LB" or pos == "RB" then
+                    table.insert(posGroups.DEF, p)
+                elseif pos == "ST" or pos == "CF" or pos == "LW" or pos == "RW" then
+                    table.insert(posGroups.FWD, p)
+                else
+                    table.insert(posGroups.MID, p)
+                end
+            end
+        end
+        startingIds = {}
+        local used = {}
+        local targets = { { group = "GK", count = 1 }, { group = "DEF", count = 4 }, { group = "MID", count = 3 }, { group = "FWD", count = 3 } }
+        for _, target in ipairs(targets) do
+            local pool = posGroups[target.group]
+            local added = 0
+            for _, p in ipairs(pool) do
+                if added >= target.count then break end
+                if not used[p.id] then
+                    table.insert(startingIds, p.id)
+                    used[p.id] = true
+                    added = added + 1
+                end
+            end
+        end
+        -- 不足11人补充
+        for _, pid in ipairs(validIds) do
+            if #startingIds >= 11 then break end
+            if not used[pid] then
+                table.insert(startingIds, pid)
+                used[pid] = true
+            end
+        end
+    end
+
+    local formation = (saved and saved.formation) or "4-3-3"
+    local playStyle = (saved and saved.playStyle) or "Balanced"
+    local nationName = WorldCup._getNationName(nationCode)
+
+    return {
+        id = nationCode,
+        name = nationName,
+        shortName = nationCode,
+        formation = formation,
+        playStyle = playStyle,
+        attackMode = "balanced",
+        startingXI = startingIds,
+        playerIds = validIds,
+        playerDuties = {},
+        slotRoles = {},
+        recentForm = {},
+        _isNationalTeam = true,
+    }
+end
+
+------------------------------------------------------
+-- 获取某国籍所有可选球员（供大名单选择界面使用）
+------------------------------------------------------
+
+function WorldCup.getAvailablePlayers(gameState, nationCode)
+    local players = {}
+    for _, player in pairs(gameState.players) do
+        if not player.retired and player.nationality == nationCode then
+            table.insert(players, player)
+        end
+    end
+    table.sort(players, function(a, b) return (a.overall or 0) > (b.overall or 0) end)
+    return players
 end
 
 return WorldCup

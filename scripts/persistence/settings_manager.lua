@@ -21,8 +21,7 @@ local DEFAULTS = {
     -- 游戏
     autoSave = true,
     autoSaveInterval = 5,   -- 每N个回合自动保存
-    currencyUnit = "short", -- "short" (K/M) | "full"
-    gameSpeed = "normal",   -- "slow" | "normal" | "fast"
+    currencyUnit = "wan",   -- "wan" (万) | "km" (K/M)
     confirmActions = true,  -- 重要操作前确认弹窗
 
     -- 显示

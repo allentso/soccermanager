@@ -83,7 +83,12 @@ return function(TransferManager)
         if installments and #installments > 0 then
             local firstPay = installments[1].amount or 0
             buyerTeam.balance = buyerTeam.balance - firstPay
-            if sellerTeam then sellerTeam.balance = sellerTeam.balance + firstPay end
+            buyerTeam.seasonExpense = (buyerTeam.seasonExpense or 0) + firstPay
+            if sellerTeam then
+                sellerTeam.balance = sellerTeam.balance + firstPay
+                sellerTeam.transferBudget = (sellerTeam.transferBudget or 0) + firstPay
+                sellerTeam.seasonIncome = (sellerTeam.seasonIncome or 0) + firstPay
+            end
             TransferManager._addTransferTransaction(buyerTeam, -firstPay, "引进 " .. player.displayName .. "（首期）", date)
             TransferManager._addTransferTransaction(sellerTeam, firstPay, "出售 " .. player.displayName .. "（首期）", date)
 
@@ -108,7 +113,12 @@ return function(TransferManager)
             end
         else
             buyerTeam.balance = buyerTeam.balance - bid.amount
-            if sellerTeam then sellerTeam.balance = sellerTeam.balance + bid.amount end
+            buyerTeam.seasonExpense = (buyerTeam.seasonExpense or 0) + bid.amount
+            if sellerTeam then
+                sellerTeam.balance = sellerTeam.balance + bid.amount
+                sellerTeam.transferBudget = (sellerTeam.transferBudget or 0) + bid.amount
+                sellerTeam.seasonIncome = (sellerTeam.seasonIncome or 0) + bid.amount
+            end
             TransferManager._addTransferTransaction(buyerTeam, -bid.amount, "引进 " .. player.displayName, date)
             TransferManager._addTransferTransaction(sellerTeam, bid.amount, "出售 " .. player.displayName, date)
         end

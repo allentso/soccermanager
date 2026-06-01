@@ -118,11 +118,19 @@ function MatchLive.create(params)
         }
     end
 
-    local homeTeam = gameState.teams[session.fixture.homeTeamId]
-    local awayTeam = gameState.teams[session.fixture.awayTeamId]
-    local homeName = homeTeam and homeTeam.name or "主队"
-    local awayName = awayTeam and awayTeam.name or "客队"
-    local playerTeamId = gameState.playerTeamId
+    local homeName, awayName, playerTeamId
+    if session._isWC then
+        local WorldCup = require("scripts/systems/world_cup")
+        homeName = session._wcHomeTeam and session._wcHomeTeam.name or WorldCup._getNationName(session.fixture.homeTeamId)
+        awayName = session._wcAwayTeam and session._wcAwayTeam.name or WorldCup._getNationName(session.fixture.awayTeamId)
+        playerTeamId = WorldCup._getPlayerNation(gameState)
+    else
+        local homeTeam = gameState.teams[session.fixture.homeTeamId]
+        local awayTeam = gameState.teams[session.fixture.awayTeamId]
+        homeName = homeTeam and homeTeam.name or "主队"
+        awayName = awayTeam and awayTeam.name or "客队"
+        playerTeamId = gameState.playerTeamId
+    end
 
     -- 自动推进：注册/更新 Update 事件处理（每次页面刷新绑定最新 session 引用）
     MatchLive._currentSession = session
@@ -418,10 +426,10 @@ function MatchLive.create(params)
                     width = "100%", flexDirection = "row", justifyContent = "space-between", marginTop = 8,
                     children = {
                         UI.Button {
-                            text = "🔄 换人 (" .. tostring(subsRemaining) .. ")",
-                            width = "48%", height = 40,
+                            text = "换人(" .. tostring(subsRemaining) .. ")",
+                            width = "31%", height = 40,
                             backgroundColor = subsRemaining > 0 and {55, 35, 110, 255} or {35, 40, 55, 255},
-                            borderRadius = 10, fontSize = 13, fontWeight = "bold",
+                            borderRadius = 10, fontSize = 12, fontWeight = "bold",
                             color = subsRemaining > 0 and Theme.COLORS.TEXT_PRIMARY or Theme.COLORS.TEXT_MUTED,
                             onClick = function()
                                 autoPlay.running = false
@@ -431,16 +439,50 @@ function MatchLive.create(params)
                             end,
                         },
                         UI.Button {
-                            text = "📋 战术指示",
-                            width = "48%", height = 40,
+                            text = "战术指示",
+                            width = "31%", height = 40,
                             backgroundColor = {30, 70, 110, 255},
-                            borderRadius = 10, fontSize = 13, fontWeight = "bold",
+                            borderRadius = 10, fontSize = 12, fontWeight = "bold",
                             color = Theme.COLORS.TEXT_PRIMARY,
                             onClick = function()
                                 autoPlay.running = false
                                 Router.replaceWith("match_live", { session = session, fixture = fixture, mode = "tactics" })
                             end,
                         },
+                        (function()
+                            local lastTalk = session.lastTalkMinute or -15
+                            local canTalk = (currentMinute - lastTalk) >= 15
+                            return UI.Button {
+                                text = canTalk and "喊话" or ("喊话(" .. tostring(15 - (currentMinute - lastTalk)) .. ")"),
+                                width = "31%", height = 40,
+                                backgroundColor = canTalk and {100, 60, 30, 255} or {35, 40, 55, 255},
+                                borderRadius = 10, fontSize = 12, fontWeight = "bold",
+                                color = canTalk and Theme.COLORS.TEXT_PRIMARY or Theme.COLORS.TEXT_MUTED,
+                                onClick = function()
+                                    if not canTalk then return end
+                                    autoPlay.running = false
+                                    session.lastTalkMinute = currentMinute
+                                    -- 根据比分决定 context
+                                    local pId
+                                    if session._isWC then
+                                        local WC = require("scripts/systems/world_cup")
+                                        pId = WC._getPlayerNation(_G.gameState)
+                                    else
+                                        pId = _G.gameState and _G.gameState.playerTeamId
+                                    end
+                                    local isHome = pId == session.fixture.homeTeamId
+                                    local myGoals = isHome and session.homeGoals or session.awayGoals
+                                    local oppGoals = isHome and session.awayGoals or session.homeGoals
+                                    local talkCtx = myGoals > oppGoals and "winning"
+                                        or (myGoals < oppGoals and "losing" or "drawing")
+                                    Router.navigate("team_talk", {
+                                        context = talkCtx,
+                                        returnTo = "match_live",
+                                        returnParams = { session = session, fixture = fixture, mode = "normal" },
+                                    })
+                                end,
+                            }
+                        end)(),
                     }
                 },
             }
@@ -585,7 +627,10 @@ function MatchLive.create(params)
     end
 
     table.insert(pageChildren, UI.Panel {
-        width = "100%", backgroundColor = Theme.COLORS.BG_HEADER,
+        width = "100%",
+        backgroundImage = "image/bg_match_scoreboard_20260529082558.png",
+        backgroundFit = "cover",
+        imageTint = {60, 60, 80, 255},  -- 重度压暗，保证比分清晰
         paddingTop = 14, paddingBottom = 12, paddingLeft = 16, paddingRight = 16,
         children = scoreboardItems,
     })
@@ -602,7 +647,10 @@ function MatchLive.create(params)
     table.insert(pageChildren, mainContent)
 
     return UI.Panel {
-        width = "100%", height = "100%", backgroundColor = Theme.COLORS.BG_DARK,
+        width = "100%", height = "100%",
+        backgroundImage = "image/bg_grass_texture_20260529082522.png",
+        backgroundFit = "cover",
+        imageTint = {30, 30, 38, 255},  -- 极度压暗，仅隐约可见纹理
         children = pageChildren,
     }
 end
@@ -612,24 +660,64 @@ end
 ---------------------------------------------------------------------------
 function MatchLive._buildSubstitutionPanel(gameState, session, fixture)
     -- 获取玩家球队的场上球员
-    local playerTeamId = gameState.playerTeamId
+    local playerTeamId
+    if session._isWC then
+        local WorldCup = require("scripts/systems/world_cup")
+        playerTeamId = WorldCup._getPlayerNation(gameState)
+    else
+        playerTeamId = gameState.playerTeamId
+    end
     local isHome = playerTeamId == session.fixture.homeTeamId
     local context = isHome and session.homeContext or session.awayContext
 
     local onPitchRows = {}
     for _, p in ipairs(context.players) do
         if p.position ~= "GK" or #context.players > 1 then -- 不能换下唯一门将
+            local fitness = p.fitness or 80
+            local fitnessColor = fitness >= 80 and Theme.COLORS.SECONDARY
+                or (fitness >= 60 and Theme.COLORS.WARNING or Theme.COLORS.DANGER)
+            -- 体力条宽度百分比
+            local barWidthPct = math.max(5, math.min(100, math.floor(fitness)))
             table.insert(onPitchRows, UI.Panel {
-                width = "100%", height = 40, flexDirection = "row", alignItems = "center",
+                width = "100%", height = 44, flexDirection = "row", alignItems = "center",
                 paddingLeft = 8, paddingRight = 8,
                 borderBottomWidth = 1, borderColor = Theme.COLORS.BORDER,
                 children = {
                     UI.Label { text = Constants.POSITION_NAMES[p.position] or p.position, fontSize = 11, color = Theme.COLORS.ACCENT, width = 40 },
-                    UI.Label { text = p.displayName, fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY, flexGrow = 1 },
-                    UI.Label { text = tostring(p.fitness or 80) .. "%", fontSize = 11, color = (p.fitness or 80) < 70 and Theme.COLORS.WARNING or Theme.COLORS.TEXT_SECONDARY, width = 36 },
+                    UI.Panel {
+                        flexGrow = 1, flexShrink = 1,
+                        children = {
+                            UI.Label { text = p.displayName, fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY },
+                            -- 体力条
+                            UI.Panel {
+                                width = "100%", height = 4, backgroundColor = {40, 45, 60, 255},
+                                borderRadius = 2, marginTop = 3,
+                                children = {
+                                    UI.Panel {
+                                        width = tostring(barWidthPct) .. "%", height = 4,
+                                        backgroundColor = fitnessColor, borderRadius = 2,
+                                    },
+                                }
+                            },
+                        }
+                    },
+                    -- 体力数值标签
+                    UI.Panel {
+                        width = 52, alignItems = "flex-end",
+                        children = {
+                            UI.Label {
+                                text = string.format("%.0f%%", fitness),
+                                fontSize = 11, color = fitnessColor, fontWeight = "bold",
+                            },
+                            UI.Label {
+                                text = "体力", fontSize = 9, color = Theme.COLORS.TEXT_MUTED,
+                            },
+                        }
+                    },
                     UI.Button {
                         text = "换下", width = 48, height = 28, borderRadius = 6,
                         backgroundColor = Theme.COLORS.DANGER, fontSize = 11, color = Theme.COLORS.TEXT_PRIMARY,
+                        marginLeft = 6,
                         onClick = function()
                             session._pendingSubOff = p.id
                             Router.replaceWith("match_live", { session = session, fixture = fixture, mode = "sub_pick" })
@@ -714,11 +802,18 @@ function MatchLive._buildSubPickPanel(gameState, session, fixture)
                     backgroundColor = Theme.COLORS.SECONDARY, fontSize = 12, color = Theme.COLORS.TEXT_PRIMARY,
                     onClick = function()
                         -- 执行真实换人（影响后续模拟）
+                        local subTeamId
+                        if session._isWC then
+                            local WC = require("scripts/systems/world_cup")
+                            subTeamId = WC._getPlayerNation(gameState)
+                        else
+                            subTeamId = gameState.playerTeamId
+                        end
                         session:applyCommand({
                             type = MatchSession.COMMAND.SUBSTITUTE,
                             offPlayerId = offId,
                             onPlayerId = p.id,
-                            teamId = gameState.playerTeamId,
+                            teamId = subTeamId,
                         })
                         session._pendingSubOff = nil
                         Router.replaceWith("match_live", { session = session, fixture = fixture, mode = "normal" })
@@ -775,10 +870,17 @@ function MatchLive._buildTacticsPanel(session, fixture)
             flexDirection = "row", alignItems = "center",
             onClick = function()
                 -- 应用真实战术指令（影响后续模拟）
+                local tactTeamId
+                if session._isWC then
+                    local WC = require("scripts/systems/world_cup")
+                    tactTeamId = WC._getPlayerNation(_G.gameState)
+                else
+                    tactTeamId = _G.gameState and _G.gameState.playerTeamId
+                end
                 session:applyCommand({
                     type = MatchSession.COMMAND.CHANGE_INSTRUCTION,
                     instruction = inst.key,
-                    teamId = _G.gameState and _G.gameState.playerTeamId,
+                    teamId = tactTeamId,
                 })
                 Router.replaceWith("match_live", { session = session, fixture = fixture, mode = "normal" })
             end,

@@ -228,6 +228,8 @@ function BlockerDialog._getTargetLabel(target)
         finance = "财务",
         inbox = "消息",
         market = "市场",
+        dashboard = "设定目标",
+        sponsor_select = "签约",
     }
     return labels[target] or "查看"
 end

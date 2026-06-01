@@ -1,5 +1,5 @@
 -- domain/tournament.lua
--- 锦标赛数据模型（小组赛 + 淘汰赛，用于欧冠/世界杯）
+-- 锦标赛数据模型（联赛阶段/小组赛 + 淘汰赛，用于欧冠/世界杯）
 
 local League = require("scripts/domain/league")
 
@@ -8,7 +8,9 @@ Tournament.__index = Tournament
 
 -- 赛事阶段
 Tournament.PHASE_NOT_STARTED = "not_started"
-Tournament.PHASE_GROUP = "group"
+Tournament.PHASE_GROUP = "group"             -- 传统小组赛（世界杯用）
+Tournament.PHASE_LEAGUE = "league"           -- 联赛阶段（瑞士制，欧冠2024+用）
+Tournament.PHASE_PLAYOFF = "playoff"         -- 附加赛（欧冠9-24名争8个16强名额）
 Tournament.PHASE_R16 = "r16"
 Tournament.PHASE_QF = "qf"
 Tournament.PHASE_SF = "sf"
@@ -29,11 +31,15 @@ function Tournament.new(data)
     -- 参赛球队ID
     self.qualifiedTeams = data.qualifiedTeams or {}
 
-    -- 小组赛（key为组名 A/B/C/D...）
+    -- 小组赛（传统模式，key为组名 A/B/C/D...）
     self.groups = data.groups or {}
+
+    -- 联赛阶段（瑞士制，欧冠新赛制）
+    self.leaguePhase = data.leaguePhase or nil
 
     -- 淘汰赛
     self.knockout = data.knockout or {
+        playoff = {},
         r16 = {},
         qf = {},
         sf = {},
@@ -43,11 +49,288 @@ function Tournament.new(data)
     -- 冠军
     self.champion = data.champion or nil
 
+    -- 联赛阶段直接晋级16强的球队（附加赛阶段使用）
+    self._directR16 = data._directR16 or nil
+
     return self
 end
 
 ------------------------------------------------------
--- 小组赛
+-- 联赛阶段（瑞士制 - 2024/25 欧冠新赛制）
+------------------------------------------------------
+
+--- 初始化联赛阶段（36队，4档抽签，每队8场比赛）
+---@param teamIds string[] 36个参赛球队ID
+---@param pots table 4个档次，每档9队 {{...},{...},{...},{...}}
+function Tournament:initLeaguePhase(teamIds, pots)
+    self.leaguePhase = {
+        teamIds = teamIds,
+        pots = pots,
+        standings = {},   -- teamId → 积分数据
+        fixtures = {},    -- 所有联赛阶段比赛
+        matchdays = 8,    -- 8个比赛日
+    }
+
+    -- 初始化积分榜
+    for _, tid in ipairs(teamIds) do
+        self.leaguePhase.standings[tid] = {
+            teamId = tid,
+            played = 0,
+            wins = 0,
+            draws = 0,
+            losses = 0,
+            goalsFor = 0,
+            goalsAgainst = 0,
+            goalDifference = 0,
+            points = 0,
+        }
+    end
+
+    self.phase = Tournament.PHASE_LEAGUE
+end
+
+--- 瑞士制抽签：每队从每档抽2个对手（1主1客），共8场
+---@param startDate table {year, month, day}
+function Tournament:drawLeaguePhaseFixtures(startDate)
+    local lp = self.leaguePhase
+    if not lp then return end
+
+    local pots = lp.pots
+    local teamIds = lp.teamIds
+
+    -- 为每队分配对手（每档2队，1主1客）
+    local teamOpponents = {}  -- teamId → { {opId, isHome}, ... }
+    for _, tid in ipairs(teamIds) do
+        teamOpponents[tid] = {}
+    end
+
+    -- 确定每队属于哪个档次
+    local teamPot = {}
+    for potIdx, pot in ipairs(pots) do
+        for _, tid in ipairs(pot) do
+            teamPot[tid] = potIdx
+        end
+    end
+
+    -- 为每队从每个档次抽2个对手
+    -- 简化实现：随机配对，确保不重复
+    local fixtures = {}
+    local fixtureId = 1
+    local pairedSet = {}  -- "tid1_tid2" → true (防止重复对阵)
+
+    local function isPaired(t1, t2)
+        return pairedSet[t1 .. "_" .. t2] or pairedSet[t2 .. "_" .. t1]
+    end
+    local function markPaired(t1, t2)
+        pairedSet[t1 .. "_" .. t2] = true
+        pairedSet[t2 .. "_" .. t1] = true
+    end
+
+    -- 对每个档次的每支球队分配对手
+    for _, tid in ipairs(teamIds) do
+        local myPot = teamPot[tid]
+        local homeCount = 0
+        local awayCount = 0
+
+        for potIdx, pot in ipairs(pots) do
+            -- 从这个档次找2个对手（如果是自己所在档次，从同档队友中选）
+            local candidates = {}
+            for _, cid in ipairs(pot) do
+                if cid ~= tid and not isPaired(tid, cid) then
+                    table.insert(candidates, cid)
+                end
+            end
+
+            -- 洗牌候选
+            for i = #candidates, 2, -1 do
+                local j = RandomInt(1, i)
+                candidates[i], candidates[j] = candidates[j], candidates[i]
+            end
+
+            local assigned = 0
+            for _, cid in ipairs(candidates) do
+                if assigned >= 2 then break end
+
+                -- 检查对方是否还能接受更多对手（每队最多8个对手）
+                if #teamOpponents[cid] < 8 and #teamOpponents[tid] < 8 then
+                    markPaired(tid, cid)
+
+                    -- 决定主客：尽量平衡（每队4主4客）
+                    local isHome
+                    if homeCount < 4 and awayCount < 4 then
+                        isHome = (assigned == 0)  -- 第一个主场，第二个客场
+                    elseif homeCount >= 4 then
+                        isHome = false
+                    else
+                        isHome = true
+                    end
+
+                    table.insert(teamOpponents[tid], { opId = cid, isHome = isHome })
+                    table.insert(teamOpponents[cid], { opId = tid, isHome = not isHome })
+
+                    if isHome then
+                        homeCount = homeCount + 1
+                    else
+                        awayCount = awayCount + 1
+                    end
+
+                    assigned = assigned + 1
+                end
+            end
+        end
+    end
+
+    -- 生成赛程fixture列表（去重：每对只生成一场）
+    local generatedPairs = {}
+    for _, tid in ipairs(teamIds) do
+        for _, opp in ipairs(teamOpponents[tid]) do
+            local pairKey = opp.isHome and (tid .. "_" .. opp.opId) or (opp.opId .. "_" .. tid)
+            if not generatedPairs[pairKey] then
+                generatedPairs[pairKey] = true
+                local homeId = opp.isHome and tid or opp.opId
+                local awayId = opp.isHome and opp.opId or tid
+                table.insert(fixtures, {
+                    id = fixtureId,
+                    homeTeamId = homeId,
+                    awayTeamId = awayId,
+                    date = nil,  -- 稍后分配
+                    status = "scheduled",
+                    homeGoals = 0,
+                    awayGoals = 0,
+                    matchday = 0,
+                })
+                fixtureId = fixtureId + 1
+            end
+        end
+    end
+
+    -- 分配比赛日（8个比赛日，每隔14天，对齐到周三）
+    local matchDays = {}
+    local date = League._alignToWeekday(
+        { year = startDate.year, month = startDate.month, day = startDate.day }, 3)  -- 3=周三
+    for i = 1, 8 do
+        table.insert(matchDays, { year = date.year, month = date.month, day = date.day })
+        date = League._addDays(date, 14)
+    end
+
+    -- 将比赛分配到8个比赛日（每个比赛日18场，36队各踢1场）
+    -- 简化：按顺序分配，每个比赛日最多 #teamIds/2 场
+    local maxPerDay = math.floor(#teamIds / 2)
+    local dayIdx = 1
+    local dayCount = 0
+
+    -- 洗牌赛程以打散
+    for i = #fixtures, 2, -1 do
+        local j = RandomInt(1, i)
+        fixtures[i], fixtures[j] = fixtures[j], fixtures[i]
+    end
+
+    for _, f in ipairs(fixtures) do
+        f.date = matchDays[dayIdx]
+        f.matchday = dayIdx
+        dayCount = dayCount + 1
+        if dayCount >= maxPerDay then
+            dayCount = 0
+            dayIdx = dayIdx + 1
+            if dayIdx > 8 then dayIdx = 8 end
+        end
+    end
+
+    lp.fixtures = fixtures
+end
+
+--- 更新联赛阶段积分
+function Tournament:updateLeagueStanding(fixture)
+    local lp = self.leaguePhase
+    if not lp then return end
+
+    local home = lp.standings[fixture.homeTeamId]
+    local away = lp.standings[fixture.awayTeamId]
+    if not home or not away then return end
+
+    home.played = home.played + 1
+    away.played = away.played + 1
+    home.goalsFor = home.goalsFor + fixture.homeGoals
+    home.goalsAgainst = home.goalsAgainst + fixture.awayGoals
+    away.goalsFor = away.goalsFor + fixture.awayGoals
+    away.goalsAgainst = away.goalsAgainst + fixture.homeGoals
+
+    if fixture.homeGoals > fixture.awayGoals then
+        home.wins = home.wins + 1
+        home.points = home.points + 3
+        away.losses = away.losses + 1
+    elseif fixture.homeGoals < fixture.awayGoals then
+        away.wins = away.wins + 1
+        away.points = away.points + 3
+        home.losses = home.losses + 1
+    else
+        home.draws = home.draws + 1
+        home.points = home.points + 1
+        away.draws = away.draws + 1
+        away.points = away.points + 1
+    end
+
+    home.goalDifference = home.goalsFor - home.goalsAgainst
+    away.goalDifference = away.goalsFor - away.goalsAgainst
+end
+
+--- 获取联赛阶段排名（单一积分榜）
+function Tournament:getLeaguePhaseSortedStandings()
+    local lp = self.leaguePhase
+    if not lp then return {} end
+
+    local sorted = {}
+    for _, s in pairs(lp.standings) do
+        table.insert(sorted, s)
+    end
+    table.sort(sorted, function(a, b)
+        if a.points ~= b.points then return a.points > b.points end
+        if a.goalDifference ~= b.goalDifference then return a.goalDifference > b.goalDifference end
+        if a.goalsFor ~= b.goalsFor then return a.goalsFor > b.goalsFor end
+        return (a.wins or 0) > (b.wins or 0)
+    end)
+    return sorted
+end
+
+--- 获取球队在联赛阶段的排名位置
+function Tournament:getLeaguePhasePosition(teamId)
+    local sorted = self:getLeaguePhaseSortedStandings()
+    for i, s in ipairs(sorted) do
+        if s.teamId == teamId then return i end
+    end
+    return 0
+end
+
+--- 联赛阶段是否完成
+function Tournament:isLeaguePhaseComplete()
+    local lp = self.leaguePhase
+    if not lp then return false end
+    for _, f in ipairs(lp.fixtures) do
+        if f.status ~= "finished" then return false end
+    end
+    return true
+end
+
+--- 从联赛阶段获取晋级者
+--- 前8直接晋级R16，9-24进附加赛，25-36淘汰
+function Tournament:getLeaguePhaseAdvancers()
+    local sorted = self:getLeaguePhaseSortedStandings()
+    local directR16 = {}   -- 1-8名
+    local playoffTeams = {} -- 9-24名
+
+    for i, s in ipairs(sorted) do
+        if i <= 8 then
+            table.insert(directR16, s.teamId)
+        elseif i <= 24 then
+            table.insert(playoffTeams, s.teamId)
+        end
+    end
+
+    return directR16, playoffTeams
+end
+
+------------------------------------------------------
+-- 小组赛（传统模式 - 世界杯用）
 ------------------------------------------------------
 
 -- 抽签分组（numGroups 组，每组 groupSize 队）
@@ -149,14 +432,12 @@ function Tournament:generateGroupFixtures(startDate)
         end
     end
 
-    -- 分配比赛日期（小组赛共6轮比赛日，每两周一次）
+    -- 分配比赛日期
     self:_assignGroupMatchDates(startDate)
 end
 
 -- 分配小组赛日期（6轮比赛日）
 function Tournament:_assignGroupMatchDates(startDate)
-    -- 收集所有小组赛fixture，按轮次分配日期
-    -- 每组6场比赛（4队双循环），分6个比赛日
     local matchDays = {}
     local date = {year = startDate.year, month = startDate.month, day = startDate.day}
 
@@ -272,7 +553,9 @@ end
 -- 生成淘汰赛对阵（两回合制）
 function Tournament:generateKnockoutRound(phase, matchups, startDate)
     local fixtures = {}
-    local date = {year = startDate.year, month = startDate.month, day = startDate.day}
+    -- 淘汰赛对齐到周三（欧冠比赛日）
+    local date = League._alignToWeekday(
+        {year = startDate.year, month = startDate.month, day = startDate.day}, 3)  -- 3=周三
 
     for i, matchup in ipairs(matchups) do
         -- 第一回合
@@ -307,8 +590,10 @@ function Tournament:generateKnockoutRound(phase, matchups, startDate)
     return fixtures
 end
 
--- 生成决赛对阵（单场定胜负）
+-- 生成决赛对阵（单场定胜负，对齐到周六）
 function Tournament:generateFinal(matchup, finalDate)
+    local date = League._alignToWeekday(
+        {year = finalDate.year, month = finalDate.month, day = finalDate.day}, 6)  -- 6=周六（决赛传统在周六晚）
     self.knockout.final = {
         {
             id = "final_1",
@@ -316,7 +601,7 @@ function Tournament:generateFinal(matchup, finalDate)
             matchIndex = 1,
             homeTeamId = matchup[1],
             awayTeamId = matchup[2],
-            date = {year = finalDate.year, month = finalDate.month, day = finalDate.day},
+            date = date,
             status = "scheduled",
             homeGoals = 0,
             awayGoals = 0,
@@ -367,30 +652,31 @@ function Tournament:getKnockoutWinners(phase)
 
         for _, pair in pairs(pairings) do
             if #pair == 2 and pair[1].status == "finished" and pair[2].status == "finished" then
-                -- 第一回合的主队 = pair中leg==1的homeTeamId
                 local leg1, leg2
                 for _, f in ipairs(pair) do
                     if f.leg == 1 then leg1 = f else leg2 = f end
                 end
                 if leg1 and leg2 then
-                    local team1 = leg1.homeTeamId  -- 第一回合主队
-                    local team2 = leg1.awayTeamId  -- 第一回合客队
-                    local agg1 = leg1.homeGoals + leg2.awayGoals  -- team1 总进球
-                    local agg2 = leg1.awayGoals + leg2.homeGoals  -- team2 总进球
+                    local team1 = leg1.homeTeamId
+                    local team2 = leg1.awayTeamId
+                    local agg1 = leg1.homeGoals + leg2.awayGoals
+                    local agg2 = leg1.awayGoals + leg2.homeGoals
 
                     if agg1 > agg2 then
                         table.insert(winners, team1)
                     elseif agg2 > agg1 then
                         table.insert(winners, team2)
                     else
-                        -- 客场进球规则（简化）: team2 在第一回合客场进了更多球
-                        local team2Away = leg1.awayGoals
-                        local team1Away = leg2.awayGoals
-                        if team2Away > team1Away then
+                        -- 总比分相同：客场进球多的晋级
+                        local away1 = leg1.awayGoals  -- team2 在第一回合客场进球
+                        local away2 = leg2.awayGoals  -- team1 在第二回合客场进球
+                        if away2 > away1 then
+                            table.insert(winners, team1)
+                        elseif away1 > away2 then
                             table.insert(winners, team2)
                         else
-                            -- 随机决定（点球大战简化）
-                            if Random() < 0.5 then
+                            -- 完全相同 → 随机（模拟点球）
+                            if RandomInt(1, 2) == 1 then
                                 table.insert(winners, team1)
                             else
                                 table.insert(winners, team2)
@@ -406,11 +692,23 @@ function Tournament:getKnockoutWinners(phase)
 end
 
 ------------------------------------------------------
--- 获取当天的所有锦标赛比赛
+-- 通用 - 获取指定日期的比赛
 ------------------------------------------------------
 
 function Tournament:getFixturesForDate(date)
     local result = {}
+
+    -- 联赛阶段
+    if self.phase == Tournament.PHASE_LEAGUE and self.leaguePhase then
+        for _, f in ipairs(self.leaguePhase.fixtures) do
+            if f.status == "scheduled" and
+               f.date and f.date.year == date.year and
+               f.date.month == date.month and
+               f.date.day == date.day then
+                table.insert(result, f)
+            end
+        end
+    end
 
     -- 小组赛
     if self.phase == Tournament.PHASE_GROUP then
@@ -426,8 +724,8 @@ function Tournament:getFixturesForDate(date)
         end
     end
 
-    -- 淘汰赛
-    local knockoutPhases = {"r16", "qf", "sf", "final"}
+    -- 淘汰赛（含附加赛）
+    local knockoutPhases = {"playoff", "r16", "qf", "sf", "final"}
     for _, phase in ipairs(knockoutPhases) do
         local fixtures = self.knockout[phase]
         if fixtures then
@@ -446,18 +744,6 @@ function Tournament:getFixturesForDate(date)
     return result
 end
 
--- 查找fixture所在的小组名
-function Tournament:findGroupForFixture(fixture)
-    for groupName, group in pairs(self.groups) do
-        for _, f in ipairs(group.fixtures) do
-            if f.id == fixture.id then
-                return groupName
-            end
-        end
-    end
-    return nil
-end
-
 ------------------------------------------------------
 -- 序列化
 ------------------------------------------------------
@@ -472,9 +758,17 @@ function Tournament:serialize()
         phase = self.phase,
         qualifiedTeams = self.qualifiedTeams,
         groups = self.groups,
+        leaguePhase = self.leaguePhase,
         knockout = self.knockout,
         champion = self.champion,
+        _directR16 = self._directR16,
     }
+end
+
+function Tournament.deserialize(data)
+    if not data then return nil end
+    local t = Tournament.new(data)
+    return t
 end
 
 return Tournament

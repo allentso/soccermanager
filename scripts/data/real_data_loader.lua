@@ -272,27 +272,31 @@ function RealDataLoader._convertFixtures(jsonFixtures, teamIdMap)
     local fixtureId = 1
 
     for _, jf in ipairs(jsonFixtures) do
-        local homeId = teamIdMap[jf.home_team_id]
-        local awayId = teamIdMap[jf.away_team_id]
-        if homeId and awayId then
-            -- 解析日期字符串 "2024-08-17"
-            local year, month, day = jf.date:match("^(%d%d%d%d)-(%d%d)-(%d%d)")
-            table.insert(fixtures, {
-                id = fixtureId,
-                round = (jf.matchday or 0) + 1,
-                homeTeamId = homeId,
-                awayTeamId = awayId,
-                date = {
-                    year = tonumber(year) or 2024,
-                    month = tonumber(month) or 8,
-                    day = tonumber(day) or 1,
-                },
-                status = "scheduled",
-                homeGoals = 0,
-                awayGoals = 0,
-                events = {},
-            })
-            fixtureId = fixtureId + 1
+        -- 过滤掉 matchday 0 的无效/重复赛程
+        local matchday = jf.matchday or 0
+        if matchday >= 1 then
+            local homeId = teamIdMap[jf.home_team_id]
+            local awayId = teamIdMap[jf.away_team_id]
+            if homeId and awayId then
+                -- 解析日期字符串 "2024-08-17"
+                local year, month, day = jf.date:match("^(%d%d%d%d)-(%d%d)-(%d%d)")
+                table.insert(fixtures, {
+                    id = fixtureId,
+                    round = matchday,
+                    homeTeamId = homeId,
+                    awayTeamId = awayId,
+                    date = {
+                        year = tonumber(year) or 2024,
+                        month = tonumber(month) or 8,
+                        day = tonumber(day) or 1,
+                    },
+                    status = "scheduled",
+                    homeGoals = 0,
+                    awayGoals = 0,
+                    events = {},
+                })
+                fixtureId = fixtureId + 1
+            end
         end
     end
 

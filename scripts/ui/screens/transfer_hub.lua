@@ -7,6 +7,7 @@ local Router = require("scripts/app/router")
 local Constants = require("scripts/app/constants")
 local HistoryManager = require("scripts/systems/history_manager")
 local TransferManager = require("scripts/systems/transfer_manager")
+local FinanceManager = require("scripts/systems/finance_manager")
 
 local TransferHub = {}
 
@@ -527,13 +528,7 @@ function TransferHub._topDealRow(t, rank, gameState)
 end
 
 function TransferHub._formatAmount(amount)
-    if amount >= 1000000 then
-        return string.format("%.1fM", amount / 1000000)
-    elseif amount >= 1000 then
-        return string.format("%dK", math.floor(amount / 1000))
-    else
-        return tostring(amount)
-    end
+    return FinanceManager.formatMoney(amount)
 end
 
 return TransferHub

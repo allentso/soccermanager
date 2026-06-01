@@ -425,7 +425,7 @@ function Squad._showActionMenu(player, isStarter, team, gameState)
                 if slotIdx then
                     -- 找同槽位最佳替补自动填充
                     local formation = team.formation or "4-4-2"
-                    local slots = AIManager._getFormationSlots(formation)
+                    local slots = AIManager._getFormationSlots(formation, team.formationVariant)
                     local slotPos = slots[slotIdx] or player.position
 
                     local starterSet = {}
@@ -464,7 +464,7 @@ function Squad._showActionMenu(player, isStarter, team, gameState)
                 if #team.startingXI < 11 then
                     -- 首发未满：找最匹配的空缺槽位插入
                     local formation = team.formation or "4-4-2"
-                    local slots = AIManager._getFormationSlots(formation)
+                    local slots = AIManager._getFormationSlots(formation, team.formationVariant)
                     -- 找出已占用的槽位
                     local occupiedSlots = #team.startingXI
                     -- 在剩余空槽中找最匹配当前球员位置的
@@ -641,7 +641,7 @@ end
 -- 替换首发：选择要被替换的首发球员（按位置适配度排序，推荐最适合被替换的）
 function Squad._showSwapStarter(player, team, gameState)
     local formation = team.formation or "4-4-2"
-    local slots = AIManager._getFormationSlots(formation)
+    local slots = AIManager._getFormationSlots(formation, team.formationVariant)
     local starterItems = {}
 
     -- 按新球员对各槽位的适配度排序（适配度高的排前面=更推荐替换该位置）

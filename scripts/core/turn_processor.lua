@@ -22,11 +22,15 @@ local RandomEventManager = require("scripts/systems/random_event_manager")
 local ReputationManager = require("scripts/systems/reputation_manager")
 local NewsGenerator = require("scripts/systems/news_generator")
 local AIManager = require("scripts/systems/ai_manager")
+local ObjectivesManager = require("scripts/systems/objectives_manager")
 
 local TurnProcessor = {}
 
 -- 推进一天
 function TurnProcessor.advanceDay(gameState)
+    -- 存档迁移：旧格式欧冠 → 新瑞士制（仅首次触发）
+    ChampionsLeague.migrateIfNeeded(gameState)
+
     -- 推进日期
     local newDate = League._addDays(gameState.date, 1)
     gameState.date = newDate
@@ -120,7 +124,11 @@ function TurnProcessor.processMatchDay(gameState, fixtures)
     for _, fixture in ipairs(fixtures) do
         -- 玩家比赛跳过自动模拟，交由 pre_match 屏幕手动触发
         local isPlayerMatch = (fixture.homeTeamId == playerTeamId or fixture.awayTeamId == playerTeamId)
-        if isPlayerMatch and not fixture._isWC then
+        -- 世界杯：检查是否是玩家国家队的比赛
+        local isPlayerWCMatch = fixture._isWC and WorldCup.isPlayerNationMatch(gameState, fixture)
+        if isPlayerWCMatch then isPlayerMatch = true end
+
+        if isPlayerMatch and not gameState._cheatAutoPlay then
             fixture._pendingPlayerMatch = true
             goto continue_fixture
         end
@@ -174,7 +182,7 @@ function TurnProcessor.processMatchDay(gameState, fixtures)
     -- 比赛日票房收入（主场球队）- 跳过待处理的玩家比赛（由 pre_match 负责）
     for _, fixture in ipairs(fixtures) do
         if not fixture._isWC and not fixture._pendingPlayerMatch then
-            FinanceManager.processMatchDayRevenue(gameState, fixture.homeTeamId, true)
+            FinanceManager.processMatchDayRevenue(gameState, fixture.homeTeamId, true, fixture.awayTeamId)
         end
     end
 
@@ -305,7 +313,12 @@ function TurnProcessor._applyUCLResult(gameState, fixture, report)
     fixture.awayGoals = report.awayGoals
     fixture.status = "finished"
 
-    -- 如果是小组赛，更新小组积分
+    -- 如果是联赛阶段（瑞士制），更新联赛积分
+    if ucl.phase == "league" then
+        ucl:updateLeagueStanding(fixture)
+    end
+
+    -- 如果是小组赛（传统模式），更新小组积分
     if ucl.phase == "group" and fixture.groupName then
         ucl:updateGroupStanding(fixture.groupName, fixture)
     end
@@ -397,6 +410,11 @@ function TurnProcessor.processNonMatchDay(gameState)
         MoraleManager.processAITeams(gameState)
         -- B2: AI球队声望微调
         ReputationManager.processWeeklyAI(gameState)
+        -- 球场扩建进度（每周推进）
+        local playerTeam = gameState.teams[gameState.playerTeamId]
+        if playerTeam then
+            FinanceManager.processStadiumExpansion(playerTeam, gameState)
+        end
         -- B3: AI球队管理（阵容/训练/转会名单）
         AIManager.processWeekly(gameState)
         -- B3: AI主动转会（转会窗口内）
@@ -408,10 +426,16 @@ function TurnProcessor.processNonMatchDay(gameState)
     -- 每月处理（1号）
     if gameState.date.day == 1 then
         TurnProcessor.generateMonthlyNews(gameState)
-        -- 月度赞助收入
+        -- 月度收入：赞助 + 转播分成 + 商品销售
         FinanceManager.processMonthlySponsorship(gameState)
+        FinanceManager.processMonthlyBroadcast(gameState)
+        FinanceManager.processMonthlyMerchandise(gameState)
+        -- 月度支出：设施+球场维护
+        FinanceManager.processMonthlyMaintenance(gameState)
         -- P3: 转会分期付款/收款
         TransferManager.processInstallments(gameState)
+        -- 月度财务报告（发送收入构成+环比消息）
+        FinanceManager.generateMonthlyReport(gameState)
         -- B2: 董事会月度评估（15号改为1号简化）
         BoardManager.monthlyEvaluation(gameState)
         -- B2: 声望自然回归
@@ -422,6 +446,8 @@ function TurnProcessor.processNonMatchDay(gameState)
         StaffManager.refreshFreePool(gameState)
         -- B3: AI球队月度管理（阵型/薪资评估）
         AIManager.processMonthly(gameState)
+        -- 目标系统：月度目标评估与刷新
+        ObjectivesManager.onMonthEnd(gameState)
     end
 
     -- 随机转会传闻新闻（每天5%概率）

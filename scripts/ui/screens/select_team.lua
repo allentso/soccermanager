@@ -7,6 +7,7 @@ local Router = require("scripts/app/router")
 local EventBus = require("scripts/app/event_bus")
 local Constants = require("scripts/app/constants")
 local TeamIcon = require("scripts/ui/components/team_icon")
+local FinanceManager = require("scripts/systems/finance_manager")
 
 local SelectTeam = {}
 
@@ -198,7 +199,7 @@ function SelectTeam.create(params)
                     widget:FindById("name"):SetText(data.name)
                     widget:FindById("info"):SetText((data.city or "") .. " | " .. (Constants.PLAY_STYLE_NAMES[data.playStyle] or data.playStyle or ""))
                     widget:FindById("rep"):SetText("声望 " .. (data.reputation or 0))
-                    local budgetStr = string.format("%.1fM", (data.transferBudget or 0) / 1000000)
+                    local budgetStr = FinanceManager.formatMoney(data.transferBudget or 0)
                     widget:FindById("budget"):SetText("转会预算 " .. budgetStr)
                     -- 选中态高亮
                     local isSelected = pendingTeam and pendingTeam.id == data.id
@@ -276,7 +277,7 @@ function SelectTeam._updateConfirmBar(params)
                     fontSize = 14, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold",
                 },
                 UI.Label {
-                    text = string.format("声望 %d | 预算 %.1fM", pendingTeam.reputation or 0, (pendingTeam.transferBudget or 0) / 1000000),
+                    text = "声望 " .. (pendingTeam.reputation or 0) .. " | 预算 " .. FinanceManager.formatMoney(pendingTeam.transferBudget or 0),
                     fontSize = 11, color = Theme.COLORS.TEXT_MUTED, marginTop = 2,
                 },
             }

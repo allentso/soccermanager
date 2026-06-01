@@ -56,6 +56,8 @@ function TeamTalk.create(params)
         local isRecommended = false
         if context == "pre_match" and (tone == "motivational" or tone == "calm") then
             isRecommended = true
+        elseif context == "halftime" and (tone == "motivational" or tone == "assertive") then
+            isRecommended = true
         elseif context == "winning" and (tone == "calm" or tone == "praise") then
             isRecommended = true
         elseif context == "drawing" and (tone == "motivational" or tone == "assertive") then
@@ -162,7 +164,9 @@ function TeamTalk.create(params)
                         end,
                     },
                     UI.Label {
-                        text = "赛前训话",
+                        text = (context == "pre_match" or context == "halftime")
+                            and (context == "halftime" and "半场训话" or "赛前训话")
+                            or "比赛喊话",
                         fontSize = 15,
                         color = Theme.COLORS.TEXT_PRIMARY,
                         fontWeight = "bold",
