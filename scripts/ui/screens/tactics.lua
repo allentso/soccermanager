@@ -999,10 +999,21 @@ function Tactics._showSlotSwapSheet(gameState, team, slotIdx, slots)
         end
     end
 
-    -- 角色区域约 80, 标题 40, 关闭按钮 60, padding 32
-    local sheetHeight = 210 + math.min(8, #benchCandidates) * 38 + math.min(5, #swapCandidates) * 38
-    -- 取屏幕 80% 高度为上限
-    local maxH = math.floor(graphics:GetHeight() / graphics:GetDPR() * 0.8)
+    -- 估算弹窗高度：固定部分（标题/位置信息/关闭按钮/padding）+ 各列表区域
+    -- 标题 39 + 位置信息行 44 + 关闭按钮 54 + 上下 padding 32 ≈ 169
+    local fixed = 169
+    -- 球员角色区域（仅当该位置有多个角色可选时显示）
+    local posRoles = Constants.POSITION_ROLES[slotPos]
+    if posRoles and #posRoles > 1 then
+        fixed = fixed + 96  -- 标签 + 角色按钮（可能换行）+ 描述
+    end
+    -- 替补球员列表（含标签）
+    local benchH = #benchCandidates > 0 and (26 + math.min(8, #benchCandidates) * 38) or 0
+    -- 位置互换列表（含标签）
+    local swapH = #swapCandidates > 0 and (26 + math.min(5, #swapCandidates) * 38) or 0
+    local sheetHeight = fixed + benchH + swapH
+    -- 取屏幕 85% 高度为上限
+    local maxH = math.floor(graphics:GetHeight() / graphics:GetDPR() * 0.85)
     sheetHeight = math.min(sheetHeight, maxH)
 
     BottomSheet.showCustom({

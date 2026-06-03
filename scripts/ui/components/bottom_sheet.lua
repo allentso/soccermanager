@@ -181,19 +181,6 @@ function BottomSheet.showCustom(opts)
     local padV = 16   -- 上下内边距
     local padH = 16   -- 左右内边距
 
-    -- 计算固定区域占用的高度，以便给 ScrollView 一个明确的最大高度
-    local fixedHeight = padV * 2  -- 上下 padding
-    if opts.title then
-        fixedHeight = fixedHeight + 27 + 12  -- title fontSize15 lineHeight~27 + marginBottom12
-    end
-    if footer then
-        fixedHeight = fixedHeight + 54  -- 估算 footer 高度
-    end
-    if showCancel then
-        fixedHeight = fixedHeight + 44 + 10  -- 关闭按钮 height44 + marginTop10
-    end
-    local scrollHeight = drawerHeight - fixedHeight
-
     local contentItems = {}
 
     -- 标题（固定在顶部，不参与滚动）
@@ -208,7 +195,9 @@ function BottomSheet.showCustom(opts)
         })
     end
 
-    -- 自定义内容区域（可滚动，使用显式高度确保可滚动）
+    -- 自定义内容区域（可滚动）
+    -- 使用 flexGrow=1 / flexBasis=0 让 ScrollView 自动占满标题与底部按钮之间的剩余空间，
+    -- 避免手动估算高度不准导致内容滚不到底。
     local scrollChildren = {}
     for _, child in ipairs(children) do
         table.insert(scrollChildren, child)
@@ -216,18 +205,14 @@ function BottomSheet.showCustom(opts)
 
     table.insert(contentItems, UI.ScrollView {
         width = "100%",
-        height = scrollHeight,
+        flexGrow = 1,
+        flexBasis = 0,
         flexShrink = 1,
         scrollY = true,
         showScrollbar = true,
         bounceEnabled = false,
         padding = 0,
-        children = {
-            UI.Panel {
-                width = "100%",
-                children = scrollChildren,
-            }
-        },
+        children = scrollChildren,
     })
 
     -- footer（固定在底部，不参与滚动）
