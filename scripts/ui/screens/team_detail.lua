@@ -18,10 +18,7 @@ local _activeTab = "overview"
 ------------------------------------------------------------
 
 local function posColor(pos)
-    if pos == "GK" then return {255, 204, 0, 255}
-    elseif pos == "CB" or pos == "LB" or pos == "RB" then return {77, 179, 255, 255}
-    elseif pos == "ST" or pos == "CF" or pos == "LW" or pos == "RW" then return {255, 102, 102, 255}
-    else return {102, 255, 128, 255} end
+    return Theme.posColor(pos)
 end
 
 local function posGroup(pos)
@@ -105,18 +102,30 @@ local function buildOverviewTab(team, gameState, teamId)
         local pos = league:getTeamPosition(teamId)
         local standing = league.standings[teamId]
         if standing then
+            -- 排名突出显示 + 关键数据紧凑排列
+            local function statItem(label, value, valueColor)
+                return UI.Panel {
+                    alignItems = "center", flex = 1,
+                    children = {
+                        UI.Label { text = value, fontSize = 15, fontWeight = "bold", color = valueColor or COLORS.TEXT_PRIMARY },
+                        UI.Label { text = label, fontSize = 10, color = COLORS.TEXT_MUTED, marginTop = 2 },
+                    }
+                }
+            end
             table.insert(children, Theme.Card { children = {
                 Theme.Subtitle { text = "联赛排名 — " .. (league.name or leagueKey) },
-                UI.Panel { width = "100%", flexDirection = "row", justifyContent = "space-around", marginTop = 8, children = {
-                    Theme.StatPill { label = "排名", value = "#" .. tostring(pos) },
-                    Theme.StatPill { label = "场次", value = tostring(standing.played) },
-                    Theme.StatPill { label = "积分", value = tostring(standing.points), valueColor = COLORS.PRIMARY },
+                -- 主指标行：排名 / 积分 / 场次
+                UI.Panel { width = "100%", flexDirection = "row", marginTop = 8, paddingVertical = 6, children = {
+                    statItem("排名", "#" .. tostring(pos), COLORS.PRIMARY),
+                    statItem("积分", tostring(standing.points), COLORS.PRIMARY),
+                    statItem("场次", tostring(standing.played)),
+                    statItem("净胜球", tostring(standing.goalDifference)),
                 }},
-                UI.Panel { width = "100%", flexDirection = "row", justifyContent = "space-around", marginTop = 6, children = {
-                    Theme.StatPill { label = "胜", value = tostring(standing.wins), valueColor = COLORS.SECONDARY },
-                    Theme.StatPill { label = "平", value = tostring(standing.draws), valueColor = COLORS.WARNING },
-                    Theme.StatPill { label = "负", value = tostring(standing.losses), valueColor = COLORS.DANGER },
-                    Theme.StatPill { label = "净胜球", value = tostring(standing.goalDifference) },
+                -- 胜/平/负 紧凑行
+                UI.Panel { width = "100%", flexDirection = "row", marginTop = 6, paddingVertical = 4, children = {
+                    statItem("胜", tostring(standing.wins), COLORS.SECONDARY),
+                    statItem("平", tostring(standing.draws), COLORS.WARNING),
+                    statItem("负", tostring(standing.losses), COLORS.DANGER),
                 }},
             }})
         end
@@ -183,23 +192,24 @@ local function buildSquadTab(team, gameState, teamId)
     })
 
     for _, p in ipairs(players) do
-        local isPlayerTeam = (teamId == gameState.playerTeamId)
+        local pColor = posColor(p.position)
         table.insert(rows, UI.Panel {
             width = "100%", height = 44, flexDirection = "row", alignItems = "center",
             paddingHorizontal = 10,
             borderBottomWidth = 1, borderColor = COLORS.BORDER,
-            onClick = isPlayerTeam and function()
+            onClick = function()
                 Router.navigate("player_detail", { playerId = p.id })
-            end or nil,
+            end,
             children = {
                 UI.Panel {
-                    width = 30, height = 20, borderRadius = 3,
-                    backgroundColor = posColor(p.position),
+                    height = 20, borderRadius = 3,
+                    paddingLeft = 5, paddingRight = 5, paddingTop = 1, paddingBottom = 1,
+                    backgroundColor = {pColor[1], pColor[2], pColor[3], 50},
                     justifyContent = "center", alignItems = "center",
-                    children = { UI.Label { text = p.position or "?", fontSize = 9, fontWeight = "bold", color = {30,30,30,255} } }
+                    children = { UI.Label { text = Constants.POSITION_NAMES[p.position] or p.position or "?", fontSize = 10, fontWeight = "bold", color = pColor } }
                 },
-                UI.Label { text = p.name or "未知", flex = 1, fontSize = 12, color = COLORS.TEXT_PRIMARY, marginLeft = 8 },
-                UI.Label { text = tostring(p.age or "?"), width = 34, fontSize = 12, color = COLORS.TEXT_SECONDARY, textAlign = "center" },
+                UI.Label { text = p.displayName or "未知", flex = 1, fontSize = 12, color = COLORS.TEXT_PRIMARY, marginLeft = 8 },
+                UI.Label { text = tostring(p:getAge(gameState.date.year) or "?"), width = 34, fontSize = 12, color = COLORS.TEXT_SECONDARY, textAlign = "center" },
                 UI.Label { text = tostring(p.overall or "?"), width = 34, fontSize = 12, fontWeight = "bold", color = COLORS.TEXT_PRIMARY, textAlign = "center" },
             }
         })
@@ -328,7 +338,7 @@ local function buildStatsTab(team, gameState, teamId)
     local totalOvr, totalAge = 0, 0
     for _, p in ipairs(players) do
         totalOvr = totalOvr + (p.overall or 0)
-        totalAge = totalAge + (p.age or 0)
+        totalAge = totalAge + p:getAge(gameState.date.year)
     end
     local n = math.max(1, #players)
     table.insert(children, Theme.Card { children = {
@@ -347,18 +357,20 @@ local function buildStatsTab(team, gameState, teamId)
     local topRows = {}
     for i = 1, math.min(5, #sorted) do
         local p = sorted[i]
+        local pColor = posColor(p.position)
         table.insert(topRows, UI.Panel {
             width = "100%", height = 36, flexDirection = "row", alignItems = "center",
             paddingHorizontal = 8, borderBottomWidth = 1, borderColor = COLORS.BORDER,
             children = {
                 UI.Label { text = tostring(i), width = 20, fontSize = 11, color = COLORS.TEXT_MUTED },
                 UI.Panel {
-                    width = 28, height = 18, borderRadius = 3,
-                    backgroundColor = posColor(p.position),
+                    height = 18, borderRadius = 3,
+                    paddingLeft = 5, paddingRight = 5, paddingTop = 1, paddingBottom = 1,
+                    backgroundColor = {pColor[1], pColor[2], pColor[3], 50},
                     justifyContent = "center", alignItems = "center",
-                    children = { UI.Label { text = p.position or "?", fontSize = 8, fontWeight = "bold", color = {30,30,30,255} } }
+                    children = { UI.Label { text = Constants.POSITION_NAMES[p.position] or p.position or "?", fontSize = 9, fontWeight = "bold", color = pColor } }
                 },
-                UI.Label { text = p.name or "?", flex = 1, fontSize = 12, color = COLORS.TEXT_PRIMARY, marginLeft = 6 },
+                UI.Label { text = p.displayName or "?", flex = 1, fontSize = 12, color = COLORS.TEXT_PRIMARY, marginLeft = 6 },
                 UI.Label { text = tostring(p.overall or "?"), width = 34, fontSize = 12, fontWeight = "bold", color = COLORS.PRIMARY, textAlign = "center" },
             }
         })
@@ -401,7 +413,7 @@ local function buildStatsTab(team, gameState, teamId)
     -- 年龄分布
     local ageBuckets = { young = 0, prime = 0, senior = 0 }
     for _, p in ipairs(players) do
-        local age = p.age or 25
+        local age = p:getAge(gameState.date.year)
         if age <= 22 then ageBuckets.young = ageBuckets.young + 1
         elseif age <= 29 then ageBuckets.prime = ageBuckets.prime + 1
         else ageBuckets.senior = ageBuckets.senior + 1 end
