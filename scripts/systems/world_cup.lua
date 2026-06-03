@@ -5,6 +5,7 @@ local Tournament = require("scripts/domain/tournament")
 local League = require("scripts/domain/league")
 local EventBus = require("scripts/app/event_bus")
 local RecordsManager = require("scripts/systems/records_manager")
+local NationIconRegistry = require("scripts/data/nation_icon_registry")
 
 local WorldCup = {}
 
@@ -224,6 +225,10 @@ end
 function WorldCup._getNationName(code)
     local map = getNationNameMap()
     return map[code] or code
+end
+
+function WorldCup.getNationIconPath(code)
+    return NationIconRegistry.getPathByFifaCode(code)
 end
 
 ------------------------------------------------------
@@ -984,6 +989,7 @@ function WorldCup.buildNationalTeam(gameState, nationCode)
         id = nationCode,
         name = WorldCup._getNationName(nationCode),
         shortName = nationCode,
+        iconPath = WorldCup.getNationIconPath(nationCode),
         formation = formation,
         playStyle = playStyle,
         attackMode = "balanced",
@@ -1076,6 +1082,7 @@ function WorldCup._buildFromPlayerSquad(gameState, nationCode, ntCoach)
         id = nationCode,
         name = WorldCup._getNationName(nationCode),
         shortName = nationCode,
+        iconPath = WorldCup.getNationIconPath(nationCode),
         formation = formation,
         playStyle = playStyle,
         attackMode = "balanced",
