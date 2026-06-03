@@ -240,9 +240,11 @@ function BottomSheet.showCustom(opts)
         })
     end
 
+    -- 使用显式像素高度（而非 "100%"），确保 flex 子项（ScrollView）有确定的高度基准，
+    -- 否则 ScrollView 会按内容撑开、不触发滚动，导致内容被抽屉裁掉滑不到底。
     local content = UI.Panel {
         width = "100%",
-        height = "100%",
+        height = drawerHeight,
         paddingTop = padV,
         paddingBottom = padV,
         paddingLeft = padH,
