@@ -9,8 +9,46 @@ local TransferManager = require("scripts/systems/transfer_manager")
 local FinanceManager = require("scripts/systems/finance_manager")
 local LoansTab = require("scripts/ui/screens/market/loans_tab")
 local BottomSheet = require("scripts/ui/components/bottom_sheet")
+local PotentialSystem = require("scripts/systems/potential_system")
+local StaffManager = require("scripts/systems/staff_manager")
 
 local Market = {}
+
+------------------------------------------------------
+-- 潜力星级（与 youth/player_detail 一致）
+------------------------------------------------------
+local function _getScoutAccuracy(gameState)
+    local teamId = gameState.playerTeamId
+    local scoutBonus = StaffManager.getScoutingBonus(gameState, teamId)
+    local facilityBonus = 1.0
+    local team = gameState.teams[teamId]
+    if team and team.finance and team.finance.facilities then
+        local scoutFacility = team.finance.facilities.scouting or 0
+        facilityBonus = 1.0 + scoutFacility * 0.05
+    end
+    return math.min(0.95, (0.50 + scoutBonus) * facilityBonus)
+end
+
+local function _getPotentialStars(potential, scoutAccuracy)
+    -- 若已解锁潜力透视，直接显示精确值
+    local gs = _G.gameState
+    if gs and gs.potentialRevealed then
+        local rating = PotentialSystem.rawToRating(potential)
+        return 5, string.format("%.1f", rating)
+    end
+
+    local paRating = PotentialSystem.rawToRating(potential)
+    local exactStars = (paRating - 1.0) / 9.0 * 4.0 + 1.0
+    local accuracy = scoutAccuracy or 0.6
+    local maxError = (1.0 - accuracy) * 1.5
+    local seed = potential * 7 + 13
+    local pseudoRandom = (math.sin(seed) * 10000) % 1.0
+    local errorOffset = (pseudoRandom - 0.5) * 2 * maxError
+    local displayStars = math.floor(exactStars + errorOffset + 0.5)
+    displayStars = math.max(1, math.min(5, displayStars))
+    local starText = string.rep("★", displayStars) .. string.rep("☆", 5 - displayStars)
+    return displayStars, starText
+end
 
 -- 页面Tab
 local TABS = {
@@ -47,11 +85,13 @@ function Market.create(params)
 
     local currentTab = (params and params.tab) or "browse"
     local posFilter = (params and params.posFilter) or "all"
+    local searchQuery = (params and params.searchQuery) or ""
+    local ovrRange = (params and params.ovrRange) or "all"
 
     -- 根据Tab选择内容
     local contentChildren = {}
     if currentTab == "browse" then
-        contentChildren = Market._buildBrowseContent(gameState, posFilter)
+        contentChildren = Market._buildBrowseContent(gameState, posFilter, searchQuery, ovrRange)
     elseif currentTab == "free" then
         contentChildren = Market._buildFreeAgentsContent(gameState, posFilter)
     elseif currentTab == "loans" then
@@ -73,10 +113,11 @@ function Market.create(params)
             height = 34,
             paddingLeft = 10,
             paddingRight = 10,
-            backgroundColor = isActive and Theme.COLORS.PRIMARY or {38, 46, 71, 255},
+            backgroundColor = isActive and Theme.COLORS.GOLD or {38, 46, 71, 255},
             borderRadius = 17,
             fontSize = 12,
-            color = isActive and Theme.COLORS.TEXT_PRIMARY or Theme.COLORS.TEXT_SECONDARY,
+            color = isActive and "#1A1A1A" or Theme.COLORS.TEXT_SECONDARY,
+            fontWeight = isActive and "bold" or "normal",
             marginRight = 6,
             onClick = function()
                 Router.replaceWith("market", { tab = tab.key, posFilter = posFilter })
@@ -148,8 +189,19 @@ function Market.create(params)
     }
 end
 
+-- OVR 范围筛选选项
+local OVR_RANGES = {
+    { key = "all",  label = "全部", min = 0,  max = 99 },
+    { key = "80+",  label = "80+",  min = 80, max = 99 },
+    { key = "70-79", label = "70-79", min = 70, max = 79 },
+    { key = "60-69", label = "60-69", min = 60, max = 69 },
+    { key = "<60",  label = "<60",  min = 0,  max = 59 },
+}
+
 -- 浏览球员
-function Market._buildBrowseContent(gameState, posFilter)
+function Market._buildBrowseContent(gameState, posFilter, searchQuery, ovrRange)
+    searchQuery = searchQuery or ""
+    ovrRange = ovrRange or "all"
     local children = {}
 
     -- 位置筛选条
@@ -161,13 +213,14 @@ function Market._buildBrowseContent(gameState, posFilter)
             height = 28,
             paddingLeft = 8,
             paddingRight = 8,
-            backgroundColor = isActive and Theme.COLORS.SECONDARY or {38, 46, 71, 255},
+            backgroundColor = isActive and Theme.COLORS.GOLD or {38, 46, 71, 255},
             borderRadius = 14,
             fontSize = 11,
-            color = isActive and Theme.COLORS.TEXT_PRIMARY or Theme.COLORS.TEXT_MUTED,
+            color = isActive and "#1A1A1A" or Theme.COLORS.TEXT_MUTED,
+            fontWeight = isActive and "bold" or "normal",
             marginRight = 4,
             onClick = function()
-                Router.replaceWith("market", { tab = "browse", posFilter = f.key })
+                Router.replaceWith("market", { tab = "browse", posFilter = f.key, searchQuery = searchQuery, ovrRange = ovrRange })
             end,
         })
     end
@@ -182,13 +235,76 @@ function Market._buildBrowseContent(gameState, posFilter)
         children = filterBtns,
     })
 
+    -- 搜索框
+    table.insert(children, UI.Panel {
+        width = "100%", paddingLeft = 12, paddingRight = 12, paddingBottom = 6,
+        children = {
+            UI.TextField {
+                width = "100%", height = 34,
+                placeholder = "搜索球员/球队名称...",
+                value = searchQuery,
+                fontSize = 12,
+                borderRadius = 8,
+                onSubmit = function(self, text)
+                    Router.replaceWith("market", { tab = "browse", posFilter = posFilter, searchQuery = text, ovrRange = ovrRange })
+                end,
+            },
+        },
+    })
+
+    -- OVR 范围筛选
+    local ovrBtns = {}
+    for _, r in ipairs(OVR_RANGES) do
+        local isActive = r.key == ovrRange
+        table.insert(ovrBtns, UI.Button {
+            text = r.label,
+            height = 26,
+            paddingLeft = 7,
+            paddingRight = 7,
+            backgroundColor = isActive and Theme.COLORS.GOLD_DIM or {38, 46, 71, 255},
+            borderRadius = 13,
+            fontSize = 10,
+            color = isActive and Theme.COLORS.TEXT_PRIMARY or Theme.COLORS.TEXT_MUTED,
+            marginRight = 4,
+            onClick = function()
+                Router.replaceWith("market", { tab = "browse", posFilter = posFilter, searchQuery = searchQuery, ovrRange = r.key })
+            end,
+        })
+    end
+    -- 右侧追加列标注（与球员行的 星星/OVR/报价按钮 对齐）
+    table.insert(ovrBtns, UI.Panel { flexGrow = 1 })
+    table.insert(ovrBtns, UI.Label { text = "潜力★", fontSize = 9, color = Theme.COLORS.TEXT_MUTED, marginRight = 6 })
+    table.insert(ovrBtns, UI.Label { text = "能力", fontSize = 9, color = Theme.COLORS.TEXT_MUTED, width = 26, textAlign = "right", marginRight = 10 })
+    table.insert(ovrBtns, UI.Panel { width = 50 })  -- 对齐报价按钮列
+
+    table.insert(children, UI.Panel {
+        width = "100%", height = 36, flexDirection = "row", alignItems = "center",
+        paddingLeft = 12, paddingRight = 12,
+        children = ovrBtns,
+    })
+
+    -- 查找 OVR 范围
+    local ovrMin, ovrMax = 0, 99
+    for _, r in ipairs(OVR_RANGES) do
+        if r.key == ovrRange then ovrMin, ovrMax = r.min, r.max break end
+    end
+
     -- 收集可转会球员
+    local lowerQuery = searchQuery:lower()
     local availablePlayers = {}
     for _, p in pairs(gameState.players) do
         if p.teamId ~= gameState.playerTeamId and not p.retired then
             -- 位置过滤
             if posFilter == "all" or getPositionGroup(p.position) == posFilter then
-                table.insert(availablePlayers, p)
+                -- OVR 范围过滤
+                if p.overall >= ovrMin and p.overall <= ovrMax then
+                    -- 搜索过滤
+                    if lowerQuery == "" or
+                       p.displayName:lower():find(lowerQuery, 1, true) or
+                       (gameState.teams[p.teamId] and gameState.teams[p.teamId].name:lower():find(lowerQuery, 1, true)) then
+                        table.insert(availablePlayers, p)
+                    end
+                end
             end
         end
     end
@@ -197,6 +313,7 @@ function Market._buildBrowseContent(gameState, posFilter)
     table.sort(availablePlayers, function(a, b) return a.overall > b.overall end)
 
     -- 球员列表
+    local scoutAcc = _getScoutAccuracy(gameState)
     local maxShow = math.min(40, #availablePlayers)
     for i = 1, maxShow do
         local p = availablePlayers[i]
@@ -250,6 +367,16 @@ function Market._buildBrowseContent(gameState, posFilter)
                                 UI.Label { text = p.displayName, fontSize = 14, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold" },
                             },
                         },
+                        (function()
+                            if p.potential then
+                                local _, starText = _getPotentialStars(p.potential, scoutAcc)
+                                return UI.Label {
+                                    text = starText,
+                                    fontSize = 10, color = Theme.COLORS.ACCENT, marginRight = 6,
+                                }
+                            end
+                            return nil
+                        end)(),
                         UI.Label {
                             text = tostring(p.overall),
                             fontSize = 16, color = Theme.COLORS.SECONDARY, fontWeight = "bold", marginRight = 10,
@@ -257,17 +384,17 @@ function Market._buildBrowseContent(gameState, posFilter)
                         UI.Button {
                             text = hasBid and "已报" or (releaseClause and "解约" or "报价"),
                             width = 50, height = 28,
-                            backgroundColor = hasBid and Theme.COLORS.TEXT_MUTED or Theme.COLORS.PRIMARY,
+                            backgroundColor = hasBid and Theme.COLORS.TEXT_MUTED or Theme.COLORS.GOLD,
                             borderRadius = 6, fontSize = 12,
-                            color = Theme.COLORS.TEXT_PRIMARY,
+                            color = hasBid and Theme.COLORS.TEXT_PRIMARY or "#1A1A1A",
                             onClick = function()
                                 if not hasBid then
                                     if releaseClause then
                                         TransferManager.triggerReleaseClause(gameState, p.id)
                                         UI.Toast.Show({ message = "已触发解约金买断", variant = "success" })
-                                        Router.replaceWith("market", { tab = "browse", posFilter = posFilter })
+                                        Router.replaceWith("market", { tab = "browse", posFilter = posFilter, searchQuery = searchQuery, ovrRange = ovrRange })
                                     else
-                                        Market._showBidSheet(gameState, p, posFilter)
+                                        Market._showBidSheet(gameState, p, posFilter, searchQuery, ovrRange)
                                     end
                                 end
                             end,
@@ -310,7 +437,7 @@ function Market._buildBrowseContent(gameState, posFilter)
 end
 
 -- 报价谈判弹窗
-function Market._showBidSheet(gameState, player, posFilter)
+function Market._showBidSheet(gameState, player, posFilter, searchQuery, ovrRange)
     local team = gameState:getPlayerTeam()
     local budget = team and team.transferBudget or 0
     local baseValue = player.value
@@ -502,9 +629,9 @@ function Market._showBidSheet(gameState, player, posFilter)
     local submitBtn = UI.Button {
         text = "提交报价",
         width = "100%", height = 44, marginTop = 12,
-        backgroundColor = Theme.COLORS.PRIMARY,
+        backgroundColor = Theme.COLORS.GOLD,
         borderRadius = 8, fontSize = 15, fontWeight = "bold",
-        color = Theme.COLORS.TEXT_PRIMARY,
+        color = "#1A1A1A",
         onClick = function()
             local bidText = bidField:GetValue() or ""
             local bidAmount = tonumber(bidText)
@@ -710,8 +837,8 @@ function Market._buildMyBidsContent(gameState)
                     UI.Button {
                         text = "满足要价\n" .. Market._formatValue(raiseFull),
                         width = "36%", height = 44,
-                        backgroundColor = Theme.COLORS.PRIMARY, borderRadius = 6,
-                        fontSize = 11, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold",
+                        backgroundColor = Theme.COLORS.GOLD, borderRadius = 6,
+                        fontSize = 11, color = "#1A1A1A", fontWeight = "bold",
                         onClick = function()
                             TransferManager.raiseBid(gameState, bid.id, raiseFull)
                             UI.Toast.Show({ message = "已满足对方要价", variant = "success" })
@@ -897,7 +1024,7 @@ function Market._buildListedContent(gameState)
     else
         for _, p in ipairs(listedPlayers) do
             local hasBid = TransferManager.hasPendingIncomingBid(gameState, p.id)
-            local posColor = hasBid and Theme.COLORS.ACCENT or Theme.COLORS.TEXT_MUTED
+            local posColor = Theme.posColor(p.position)
 
             -- 获取报价信息
             local bidInfo = ""
@@ -923,7 +1050,7 @@ function Market._buildListedContent(gameState)
                         width = "100%", flexDirection = "row", alignItems = "center",
                         children = {
                             UI.Panel {
-                                backgroundColor = {posColor[1], posColor[2], posColor[3], 30},
+                                backgroundColor = {posColor[1], posColor[2], posColor[3], 50},
                                 borderRadius = 3, paddingLeft = 4, paddingRight = 4, paddingTop = 1, paddingBottom = 1, marginRight = 8,
                                 children = { UI.Label { text = Constants.POSITION_NAMES[p.position] or p.position, fontSize = 10, color = posColor } },
                             },
@@ -1285,7 +1412,7 @@ function Market._buildScoutContent(gameState)
                                 UI.Label { text = player.displayName, fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY },
                                 UI.Label {
                                     text = (team2 and team2.name or "自由") .. " | " ..
-                                        player:getAge(gameState.date.year) .. "岁 | 潜力" .. report.scoutedPotential,
+                                        player:getAge(gameState.date.year) .. "岁 | 潜力" .. select(2, _getPotentialStars(report.scoutedPotential, _getScoutAccuracy(gameState))),
                                     fontSize = 11, color = Theme.COLORS.TEXT_MUTED, marginTop = 2,
                                 },
                             }
@@ -1297,9 +1424,9 @@ function Market._buildScoutContent(gameState)
                         UI.Button {
                             text = "出价",
                             width = 46, height = 26,
-                            backgroundColor = Theme.COLORS.PRIMARY,
+                            backgroundColor = Theme.COLORS.GOLD,
                             borderRadius = 4, fontSize = 11,
-                            color = Theme.COLORS.TEXT_PRIMARY,
+                            color = "#1A1A1A",
                             onClick = function()
                                 local offerAmount = math.floor(player.value * 1.1)
                                 TransferManager.makeBid(gameState, player.id, offerAmount)
@@ -1465,9 +1592,10 @@ function Market._buildFreeAgentsContent(gameState, posFilter)
         local isActive = f.key == posFilter
         table.insert(filterBtns, UI.Button {
             text = f.label, height = 28, paddingLeft = 8, paddingRight = 8,
-            backgroundColor = isActive and Theme.COLORS.SECONDARY or {38, 46, 71, 255},
+            backgroundColor = isActive and Theme.COLORS.GOLD or {38, 46, 71, 255},
             borderRadius = 14, fontSize = 11,
-            color = isActive and Theme.COLORS.TEXT_PRIMARY or Theme.COLORS.TEXT_MUTED,
+            color = isActive and "#1A1A1A" or Theme.COLORS.TEXT_MUTED,
+            fontWeight = isActive and "bold" or "normal",
             marginRight = 4,
             onClick = function()
                 Router.replaceWith("market", { tab = "free", posFilter = f.key })

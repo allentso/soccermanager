@@ -20,15 +20,9 @@ local POS_GROUP_MAP = {
     LW = "FWD", RW = "FWD", ST = "FWD", CF = "FWD",
 }
 
--- 位置颜色
+-- 位置颜色（统一使用 Theme.posColor）
 local function getPosColor(position)
-    local group = POS_GROUP_MAP[position]
-    if group == "GK" then return {255, 204, 0, 255}
-    elseif group == "DEF" then return {77, 179, 255, 255}
-    elseif group == "MID" then return {102, 255, 128, 255}
-    elseif group == "FWD" then return {255, 102, 102, 255}
-    end
-    return Theme.COLORS.TEXT_SECONDARY
+    return Theme.posColor(position)
 end
 
 -- 能力颜色

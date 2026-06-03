@@ -9,8 +9,46 @@ local ScoutManager = require("scripts/systems/scout_manager")
 local FinanceManager = require("scripts/systems/finance_manager")
 local ConfirmDialog = require("scripts/ui/components/confirm_dialog")
 local BottomSheet = require("scripts/ui/components/bottom_sheet")
+local PotentialSystem = require("scripts/systems/potential_system")
+local StaffManager = require("scripts/systems/staff_manager")
 
 local ScoutingPage = {}
+
+------------------------------------------------------
+-- 潜力星级
+------------------------------------------------------
+local function _getScoutAccuracy(gameState)
+    local teamId = gameState.playerTeamId
+    local scoutBonus = StaffManager.getScoutingBonus(gameState, teamId)
+    local facilityBonus = 1.0
+    local team = gameState.teams[teamId]
+    if team and team.finance and team.finance.facilities then
+        local scoutFacility = team.finance.facilities.scouting or 0
+        facilityBonus = 1.0 + scoutFacility * 0.05
+    end
+    return math.min(0.95, (0.50 + scoutBonus) * facilityBonus)
+end
+
+local function _getPotentialStars(potential, scoutAccuracy)
+    -- 若已解锁潜力透视，直接显示精确值
+    local gs = _G.gameState
+    if gs and gs.potentialRevealed then
+        local rating = PotentialSystem.rawToRating(potential)
+        return 5, string.format("%.1f", rating)
+    end
+
+    local paRating = PotentialSystem.rawToRating(potential)
+    local exactStars = (paRating - 1.0) / 9.0 * 4.0 + 1.0
+    local accuracy = scoutAccuracy or 0.6
+    local maxError = (1.0 - accuracy) * 1.5
+    local seed = potential * 7 + 13
+    local pseudoRandom = (math.sin(seed) * 10000) % 1.0
+    local errorOffset = (pseudoRandom - 0.5) * 2 * maxError
+    local displayStars = math.floor(exactStars + errorOffset + 0.5)
+    displayStars = math.max(1, math.min(5, displayStars))
+    local starText = string.rep("★", displayStars) .. string.rep("☆", 5 - displayStars)
+    return displayStars, starText
+end
 
 -- 推荐颜色
 local REC_COLORS = {
@@ -360,7 +398,7 @@ function ScoutingPage._showReportDetail(report, gameState)
                     alignItems = "center",
                     children = {
                         UI.Label { text = "潜力", fontSize = 10, color = Theme.COLORS.TEXT_MUTED },
-                        UI.Label { text = tostring(report.potential), fontSize = 28, color = Theme.COLORS.SECONDARY, fontWeight = "bold" },
+                        UI.Label { text = select(2, _getPotentialStars(report.potential or 0, _getScoutAccuracy(gameState))), fontSize = 14, color = Theme.COLORS.SECONDARY, fontWeight = "bold" },
                     }
                 },
             }

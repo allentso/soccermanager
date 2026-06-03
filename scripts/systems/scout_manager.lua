@@ -189,20 +189,20 @@ function ScoutManager._generateReport(gameState, task)
     local attrs = player.attributes or {}
     for key, val in pairs(attrs) do
         local errorRange = math.floor((1 - accuracy) * 6)  -- 误差范围
-        local noise = math.random(-errorRange, errorRange)
+        local noise = RandomInt(-errorRange, errorRange)
         reportedAttrs[key] = math.max(1, math.min(20, val + noise))
     end
 
     -- 估算总评（带误差）
     local reportedOverall = player.overall or 50
-    local overallNoise = math.random(-math.floor((1 - accuracy) * 10), math.floor((1 - accuracy) * 10))
+    local overallNoise = RandomInt(-math.floor((1 - accuracy) * 10), math.floor((1 - accuracy) * 10))
     reportedOverall = math.max(20, math.min(99, reportedOverall + overallNoise))
 
-    -- 潜力评估（年轻球员更准，老球员不太相关）
-    local reportedPotential = player.potential or 50
+    -- 潜力评估（使用局内实际潜力，带球探误差）
+    local reportedPotential = player.actualPotential or player.potential or 50
     local age = (player.birthYear and (gameState.date.year - player.birthYear)) or 25
     if age <= 23 then
-        local potNoise = math.random(-math.floor((1 - accuracy) * 8), math.floor((1 - accuracy) * 8))
+        local potNoise = RandomInt(-math.floor((1 - accuracy) * 8), math.floor((1 - accuracy) * 8))
         reportedPotential = math.max(20, math.min(99, reportedPotential + potNoise))
     end
 

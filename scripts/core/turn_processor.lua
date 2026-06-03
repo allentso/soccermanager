@@ -464,39 +464,39 @@ function TurnProcessor.processNonMatchDay(gameState)
     end
 end
 
--- 训练处理
+-- 训练处理（所有球队统一执行）
 function TurnProcessor.processTraining(gameState)
-    local playerTeamId = gameState.playerTeamId
-    if not playerTeamId then return end
-    local team = gameState.teams[playerTeamId]
-    if not team then return end
+    for _, team in pairs(gameState.teams) do
+        if not team.playerIds then goto nextTeam end
 
-    for _, pid in ipairs(team.playerIds) do
-        local p = gameState.players[pid]
-        if p and not p.injured then
-            -- 根据训练重点确定可提升属性
-            local focusAttrs = TurnProcessor._getTrainingAttrs(team.trainingFocus)
-            -- 训练强度影响概率
-            local trainChance = 0.05
-            local fitnessLoss = 2
-            if team.trainingIntensity == "low" then
-                trainChance = 0.025
-                fitnessLoss = 1
-            elseif team.trainingIntensity == "high" then
-                trainChance = 0.075
-                fitnessLoss = 3
-            end
-
-            if Random() < trainChance then
-                local attr = focusAttrs[RandomInt(1, #focusAttrs)]
-                if p.attributes[attr] and p.attributes[attr] < 20 then
-                    p.attributes[attr] = p.attributes[attr] + 1
-                    p:calculateOverall()
-                end
-            end
-            -- 体能消耗
-            p.fitness = math.max(50, p.fitness - RandomInt(0, fitnessLoss))
+        -- AI 球队使用默认训练参数
+        local focusAttrs = TurnProcessor._getTrainingAttrs(team.trainingFocus)
+        local trainChance = 0.05
+        local fitnessLoss = 2
+        if team.trainingIntensity == "low" then
+            trainChance = 0.025
+            fitnessLoss = 1
+        elseif team.trainingIntensity == "high" then
+            trainChance = 0.075
+            fitnessLoss = 3
         end
+
+        for _, pid in ipairs(team.playerIds) do
+            local p = gameState.players[pid]
+            if p and not p.injured then
+                if Random() < trainChance then
+                    local attr = focusAttrs[RandomInt(1, #focusAttrs)]
+                    if p.attributes[attr] and p.attributes[attr] < 20 then
+                        p.attributes[attr] = p.attributes[attr] + 1
+                        p:calculateOverall()
+                    end
+                end
+                -- 体能消耗
+                p.fitness = math.max(50, p.fitness - RandomInt(0, fitnessLoss))
+            end
+        end
+
+        ::nextTeam::
     end
 end
 

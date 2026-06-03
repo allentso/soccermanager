@@ -59,10 +59,11 @@ function LeagueView.create(params)
                 text = tabName,
                 height = 30,
                 paddingLeft = 10, paddingRight = 10,
-                backgroundColor = isActive and Theme.COLORS.PRIMARY or Theme.COLORS.BG_HEADER,
+                backgroundColor = isActive and Theme.COLORS.GOLD or Theme.COLORS.BG_HEADER,
                 fontSize = 12,
-                color = isActive and {255, 255, 255, 255} or Theme.COLORS.TEXT_MUTED,
-                borderRadius = 4,
+                color = isActive and "#1A1A1A" or Theme.COLORS.TEXT_MUTED,
+                fontWeight = isActive and "bold" or "normal",
+                borderRadius = 15,
                 marginRight = 4,
                 onClick = function()
                     currentLeagueKey = key
@@ -434,7 +435,7 @@ function LeagueView._createUCLView(gameState, leagueTabs)
             table.insert(contentChildren, UI.Panel {
                 width = "100%", paddingLeft = 10, paddingTop = 14, paddingBottom = 4,
                 children = {
-                    UI.Label { text = kp.name, fontSize = 14, color = Theme.COLORS.PRIMARY, fontWeight = "bold" },
+                    UI.Label { text = kp.name, fontSize = 14, color = Theme.COLORS.GOLD, fontWeight = "bold" },
                 }
             })
 

@@ -415,20 +415,22 @@ end
 function PreMatch._buildPitchView(startingXI, formation, gameState, team, fixture)
     local positions = FORMATION_POSITIONS[formation] or FORMATION_POSITIONS["4-4-2"]
     local slots = AIManager._getFormationSlots(formation, team and team.formationVariant or nil)
-    local pitchW = 260
-    local pitchH = 340
+    local pitchW = 320
+    local pitchH = 400
+
+    -- 位置颜色映射（统一使用 Theme.posColor）
 
     local dots = {}
     for i, pos in ipairs(positions) do
         local px = pos[1]
         local py = pos[2]
-        local left = math.floor(px / 100 * pitchW) - 14
-        local top = math.floor((100 - py) / 100 * pitchH) - 14
+        local left = math.floor(px / 100 * pitchW) - 16
+        local top = math.floor((100 - py) / 100 * pitchH) - 16
 
         local player = startingXI[i]
         local label = player and string.sub(player.displayName, 1, 4) or "?"
-        local ovr = player and tostring(player.overall) or ""
-        local dotColor = i == 1 and {255, 204, 0, 255} or Theme.COLORS.PRIMARY
+        local slotPos = slots[i] or "CM"
+        local dotColor = Theme.posColor(slotPos)
         -- 低体能警告
         if player and player.fitness < 70 then
             dotColor = Theme.COLORS.WARNING
@@ -437,14 +439,16 @@ function PreMatch._buildPitchView(startingXI, formation, gameState, team, fixtur
         local slotIdx = i
         table.insert(dots, UI.Panel {
             position = "absolute", left = left, top = top,
-            width = 28, height = 28, borderRadius = 14,
-            backgroundColor = dotColor,
-            justifyContent = "center", alignItems = "center",
+            width = 40, alignItems = "center",
             onClick = function()
                 PreMatch._showSlotSwapSheet(gameState, team, slotIdx, slots, fixture)
             end,
             children = {
-                UI.Label { text = label, fontSize = 7, color = {255, 255, 255, 255}, textAlign = "center" },
+                UI.Panel {
+                    width = 20, height = 20, borderRadius = 10,
+                    backgroundColor = dotColor,
+                },
+                UI.Label { text = label, fontSize = 9, color = {255, 255, 255, 230}, textAlign = "center", marginTop = 2 },
             },
         })
     end
@@ -616,11 +620,13 @@ end
 -- 球员行（支持拖入/移出首发）
 ---------------------------------------------------------------------------
 function PreMatch._playerRow(idx, player, isStarter, team, gameState, fixture)
-    local fitnessColor = Theme.COLORS.SECONDARY
-    if player.fitness < 70 then fitnessColor = Theme.COLORS.WARNING end
-    if player.fitness < 50 then fitnessColor = Theme.COLORS.DANGER end
+    local fitness = player.fitness or 100
+    local fitnessColor = {80, 200, 120, 255}  -- 绿色：体力充沛
+    if fitness < 70 then fitnessColor = {255, 180, 50, 255} end  -- 橙色：体力一般
+    if fitness < 50 then fitnessColor = {220, 60, 60, 255} end   -- 红色：体力不足
 
     local posLabel = Constants.POSITION_NAMES[player.position] or player.position or "?"
+    local posClr = Theme.posColor(player.position)
 
     return UI.Panel {
         width = "100%", height = 40, flexDirection = "row",
@@ -629,43 +635,43 @@ function PreMatch._playerRow(idx, player, isStarter, team, gameState, fixture)
         children = {
             -- 序号
             UI.Label { text = tostring(idx), fontSize = 11, color = Theme.COLORS.TEXT_MUTED, width = 20 },
-            -- 位置
-            UI.Label { text = posLabel, fontSize = 11, color = Theme.COLORS.ACCENT, width = 40 },
-            -- 名字
-            UI.Label { text = player.displayName, fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY, flexGrow = 1 },
-            -- 体能
-            UI.Label { text = tostring(player.fitness) .. "%", fontSize = 11, color = fitnessColor, width = 36 },
-            -- OVR
-            UI.Label {
-                text = tostring(player.overall), fontSize = 13, fontWeight = "bold",
-                color = player.overall >= 70 and Theme.COLORS.SECONDARY or Theme.COLORS.TEXT_SECONDARY,
-                width = 28,
+            -- 位置徽章
+            UI.Panel {
+                backgroundColor = {posClr[1], posClr[2], posClr[3], 50},
+                borderRadius = 3,
+                paddingLeft = 4, paddingRight = 4, paddingTop = 1, paddingBottom = 1,
+                marginRight = 6, minWidth = 42,
+                children = {
+                    UI.Label { text = posLabel, fontSize = 10, color = posClr, fontWeight = "bold" },
+                },
             },
-            -- 操作：调换到替补/调入首发
-            UI.Button {
-                text = isStarter and "↓" or "↑",
-                width = 28, height = 28, borderRadius = 14,
-                backgroundColor = isStarter and {80, 40, 40, 255} or {40, 80, 40, 255},
-                fontSize = 14, color = Theme.COLORS.TEXT_PRIMARY,
-                onClick = function()
-                    if isStarter then
-                        -- 从首发移除
-                        local xi = team.startingXI or {}
-                        for i, pid in ipairs(xi) do
-                            if pid == player.id then
-                                table.remove(xi, i)
-                                break
-                            end
-                        end
-                    else
-                        -- 加入首发（限制11人）
-                        local xi = team.startingXI or {}
-                        if #xi < 11 then
-                            table.insert(xi, player.id)
-                        end
-                    end
-                    Router.replaceWith("pre_match", { fixture = fixture })
-                end,
+            -- 名字
+            UI.Label { text = player.displayName, fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY, flexGrow = 1, flexShrink = 1 },
+            -- 体能条（可视化）
+            UI.Panel {
+                width = 50, height = 14, borderRadius = 7,
+                backgroundColor = {40, 40, 50, 255},
+                marginRight = 8, overflow = "hidden",
+                children = {
+                    UI.Panel {
+                        width = tostring(fitness) .. "%", height = "100%",
+                        backgroundColor = fitnessColor,
+                        borderRadius = 7,
+                    },
+                },
+            },
+            -- OVR 评分
+            UI.Panel {
+                width = 30, height = 22, borderRadius = 4,
+                backgroundColor = player.overall >= 80 and {40, 120, 60, 255}
+                    or (player.overall >= 70 and {50, 90, 130, 255} or {80, 80, 80, 255}),
+                justifyContent = "center", alignItems = "center",
+                children = {
+                    UI.Label {
+                        text = tostring(player.overall), fontSize = 11, fontWeight = "bold",
+                        color = {255, 255, 255, 255},
+                    },
+                },
             },
         }
     }

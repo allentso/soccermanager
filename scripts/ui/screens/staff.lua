@@ -8,7 +8,7 @@ local Constants = require("scripts/app/constants")
 local StaffManager = require("scripts/systems/staff_manager")
 local FinanceManager = require("scripts/systems/finance_manager")
 local ConfirmDialog = require("scripts/ui/components/confirm_dialog")
-local BottomSheet = require("scripts/ui/components/bottom_sheet")
+
 
 local StaffPage = {}
 
@@ -62,12 +62,12 @@ function StaffPage.create(params)
             width = "100%", height = 48,
             backgroundColor = {38, 46, 71, 200},
             borderRadius = 10,
-            borderWidth = 1, borderColor = {77, 140, 255, 100},
+            borderWidth = 1, borderColor = {160, 130, 40, 100},
             fontSize = 14,
-            color = Theme.COLORS.PRIMARY,
+            color = Theme.COLORS.GOLD,
             marginBottom = 8,
             onClick = function()
-                StaffPage._showHireMenu(gameState, team)
+                Router.navigate("staff_hire")
             end,
         })
     end
@@ -108,8 +108,10 @@ function StaffPage.create(params)
             -- 职员列表
             UI.ScrollView {
                 flexGrow = 1,
+                flexShrink = 1,
                 flexBasis = 0,
                 scrollY = true,
+                bounceEnabled = false,
                 padding = 10,
                 children = staffCards,
             },
@@ -322,172 +324,6 @@ function StaffPage._confirmFire(staff, gameState)
     })
 end
 
-------------------------------------------------------
--- 招聘菜单
-------------------------------------------------------
-function StaffPage._showHireMenu(gameState, team)
-    -- 按角色筛选的招聘列表
-    local items = {
-        { label = "全部可用职员", action = function() StaffPage._showHireList(gameState, team, nil) end },
-        { label = "助理教练", color = ROLE_COLORS.assistant, action = function() StaffPage._showHireList(gameState, team, "assistant") end },
-        { label = "教练", color = ROLE_COLORS.coach, action = function() StaffPage._showHireList(gameState, team, "coach") end },
-        { label = "球探", color = ROLE_COLORS.scout, action = function() StaffPage._showHireList(gameState, team, "scout") end },
-        { label = "理疗师", color = ROLE_COLORS.physio, action = function() StaffPage._showHireList(gameState, team, "physio") end },
-    }
 
-    BottomSheet.show({
-        title = "招聘职员",
-        subtitle = "选择类型查看可用人选",
-        items = items,
-    })
-end
-
-------------------------------------------------------
--- 招聘列表（自由职员市场）
-------------------------------------------------------
-function StaffPage._showHireList(gameState, team, roleFilter)
-    local freeStaff = StaffManager.getFreeStaff(gameState, roleFilter)
-
-    -- 按综合属性排序
-    table.sort(freeStaff, function(a, b)
-        local avgA = StaffPage._avgAttr(a)
-        local avgB = StaffPage._avgAttr(b)
-        return avgA > avgB
-    end)
-
-    if #freeStaff == 0 then
-        ConfirmDialog.show({
-            title = "暂无可用职员",
-            message = roleFilter and ("当前没有可签约的" .. (Constants.STAFF_ROLE_NAMES[roleFilter] or "")) or "当前没有可签约的职员",
-            confirmText = "知道了",
-            onConfirm = function() end,
-        })
-        return
-    end
-
-    -- 构建列表内容
-    local listItems = {}
-    for _, s in ipairs(freeStaff) do
-        local roleName = Constants.STAFF_ROLE_NAMES[s.role] or s.role
-        local roleColor = ROLE_COLORS[s.role] or Theme.COLORS.TEXT_SECONDARY
-        local avgAttr = StaffPage._avgAttr(s)
-        local fee = s.wage * 4
-
-        local attrItems = StaffPage._getRelevantAttrs(s)
-        local attrText = {}
-        for _, a in ipairs(attrItems) do
-            table.insert(attrText, a.label .. a.value)
-        end
-
-        table.insert(listItems, UI.Panel {
-            width = "100%",
-            flexDirection = "row",
-            alignItems = "center",
-            paddingTop = 10, paddingBottom = 10,
-            borderBottomWidth = 1,
-            borderColor = Theme.COLORS.BORDER,
-            children = {
-                -- 左侧信息
-                UI.Panel {
-                    flexGrow = 1, flexShrink = 1,
-                    children = {
-                        UI.Panel {
-                            flexDirection = "row", alignItems = "center", marginBottom = 2,
-                            children = {
-                                UI.Panel {
-                                    backgroundColor = roleColor, borderRadius = 3,
-                                    paddingLeft = 4, paddingRight = 4, height = 16,
-                                    justifyContent = "center", alignItems = "center",
-                                    marginRight = 6,
-                                    children = {
-                                        UI.Label { text = roleName, fontSize = 9, color = {20, 20, 30, 255}, fontWeight = "bold" },
-                                    }
-                                },
-                                UI.Label {
-                                    text = s.displayName,
-                                    fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold",
-                                },
-                            }
-                        },
-                        UI.Label {
-                            text = table.concat(attrText, " | "),
-                            fontSize = 10, color = Theme.COLORS.TEXT_SECONDARY,
-                            marginTop = 2,
-                        },
-                        UI.Label {
-                            text = string.format("周薪 %s · 签约费 %s",
-                                FinanceManager.formatMoney(s.wage), FinanceManager.formatMoney(fee)),
-                            fontSize = 10, color = Theme.COLORS.TEXT_MUTED,
-                            marginTop = 1,
-                        },
-                    }
-                },
-                -- 右侧雇佣按钮
-                UI.Button {
-                    text = "签约",
-                    height = 30, paddingLeft = 12, paddingRight = 12,
-                    backgroundColor = Theme.COLORS.PRIMARY,
-                    borderRadius = 6,
-                    fontSize = 12, color = Theme.COLORS.TEXT_PRIMARY,
-                    fontWeight = "bold",
-                    onClick = function()
-                        UI.CloseOverlay()
-                        StaffPage._confirmHire(s, gameState, team)
-                    end,
-                },
-            }
-        })
-    end
-
-    BottomSheet.showCustom({
-        title = roleFilter and ("可签约 - " .. (Constants.STAFF_ROLE_NAMES[roleFilter] or ""))
-            or "自由职员市场",
-        children = listItems,
-        showCancel = true,
-    })
-end
-
-------------------------------------------------------
--- 签约确认
-------------------------------------------------------
-function StaffPage._confirmHire(staff, gameState, team)
-    local fee = staff.wage * 4
-
-    ConfirmDialog.showWithDetails({
-        title = "签约 - " .. staff.displayName,
-        details = {
-            { label = "职位", value = Constants.STAFF_ROLE_NAMES[staff.role] or staff.role },
-            { label = "周薪", value = FinanceManager.formatMoney(staff.wage) },
-            { label = "签约费", value = FinanceManager.formatMoney(fee), valueColor = Theme.COLORS.WARNING },
-            { label = "当前余额", value = FinanceManager.formatMoney(team.balance or 0) },
-        },
-        confirmText = "确认签约",
-        confirmColor = Theme.COLORS.SECONDARY,
-        onConfirm = function()
-            local ok, err = StaffManager.hire(gameState, team.id, staff.id)
-            if ok then
-                Router.replaceWith("staff")
-            else
-                ConfirmDialog.show({
-                    title = "签约失败",
-                    message = err or "操作失败",
-                    confirmText = "知道了",
-                    onConfirm = function() end,
-                })
-            end
-        end,
-    })
-end
-
-------------------------------------------------------
--- 辅助
-------------------------------------------------------
-function StaffPage._avgAttr(staff)
-    local attrs = staff.attributes or {}
-    local sum = (attrs.training or 0) + (attrs.scouting or 0)
-        + (attrs.physiotherapy or 0) + (attrs.motivation or 0)
-        + (attrs.youthDev or 0) + (attrs.tactical or 0)
-    return sum / 6
-end
 
 return StaffPage

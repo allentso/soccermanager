@@ -159,8 +159,8 @@ function RealDataLoader.importLeague(gameState, leagueData, leagueConfig)
             stadiumCapacity = tData.stadium_capacity or 30000,
             foundedYear = tData.founded_year or 1900,
             reputation = tData.reputation or 500,
-            playStyle = tData.play_style or "Balanced",
-            formation = tData.formation or "4-4-2",
+            playStyle = RealDataLoader._assignPlayStyle(tData),
+            formation = RealDataLoader._assignFormation(tData),
             -- 用wage_budget推算合理财务（FM原始finance/transfer_budget数值偏低）
             -- 现实参照: 顶级俱乐部(周薪5M+)转会预算~150M, 余额~500M
             balance = (tData.wage_budget or 200000) * 80,
@@ -249,8 +249,9 @@ function RealDataLoader.importLeague(gameState, leagueData, leagueConfig)
 
     -- 使用JSON中的赛程（如果有），否则自动生成
     if leagueData.league and leagueData.league.fixtures and #leagueData.league.fixtures > 0 then
-        -- 转换JSON赛程格式到游戏格式
-        league.fixtures = RealDataLoader._convertFixtures(leagueData.league.fixtures, teamIdMap)
+        -- 转换JSON赛程格式到游戏格式（年份偏移：JSON数据基于2024赛季）
+        local yearOffset = (gameState.season or 2025) - 2024
+        league.fixtures = RealDataLoader._convertFixtures(leagueData.league.fixtures, teamIdMap, yearOffset)
         league.totalRounds = RealDataLoader._calcTotalRounds(#teamIds)
         league.currentRound = 1
     else
@@ -267,7 +268,8 @@ function RealDataLoader.importLeague(gameState, leagueData, leagueConfig)
 end
 
 -- 转换JSON赛程为游戏格式
-function RealDataLoader._convertFixtures(jsonFixtures, teamIdMap)
+function RealDataLoader._convertFixtures(jsonFixtures, teamIdMap, yearOffset)
+    yearOffset = yearOffset or 0
     local fixtures = {}
     local fixtureId = 1
 
@@ -278,7 +280,7 @@ function RealDataLoader._convertFixtures(jsonFixtures, teamIdMap)
             local homeId = teamIdMap[jf.home_team_id]
             local awayId = teamIdMap[jf.away_team_id]
             if homeId and awayId then
-                -- 解析日期字符串 "2024-08-17"
+                -- 解析日期字符串 "2024-08-17"，并应用年份偏移
                 local year, month, day = jf.date:match("^(%d%d%d%d)-(%d%d)-(%d%d)")
                 table.insert(fixtures, {
                     id = fixtureId,
@@ -286,7 +288,7 @@ function RealDataLoader._convertFixtures(jsonFixtures, teamIdMap)
                     homeTeamId = homeId,
                     awayTeamId = awayId,
                     date = {
-                        year = tonumber(year) or 2024,
+                        year = (tonumber(year) or 2024) + yearOffset,
                         month = tonumber(month) or 8,
                         day = tonumber(day) or 1,
                     },
@@ -363,6 +365,82 @@ function RealDataLoader.getTeamLeague(gameState, teamId)
         end
     end
     return nil, nil
+end
+
+--- 根据球队声望和特征分配合理风格（避免全部 Balanced）
+--- 高声望队更偏进攻/控球，低声望队更偏防守/反击
+function RealDataLoader._assignPlayStyle(tData)
+    -- 如果数据中已指定非 Balanced 风格，尊重原始数据
+    if tData.play_style and tData.play_style ~= "Balanced" then
+        return tData.play_style
+    end
+
+    local rep = tData.reputation or 500
+    local roll = Random()
+
+    -- 高声望（前6名级别）: 进攻/控球/高压为主
+    if rep >= 700 then
+        if roll < 0.25 then return "Attacking"
+        elseif roll < 0.50 then return "Possession"
+        elseif roll < 0.70 then return "HighPress"
+        elseif roll < 0.85 then return "Balanced"
+        else return "Counter"
+        end
+    -- 中上声望
+    elseif rep >= 600 then
+        if roll < 0.20 then return "Attacking"
+        elseif roll < 0.40 then return "Possession"
+        elseif roll < 0.55 then return "Counter"
+        elseif roll < 0.70 then return "HighPress"
+        elseif roll < 0.85 then return "Balanced"
+        else return "Defensive"
+        end
+    -- 中下声望
+    elseif rep >= 500 then
+        if roll < 0.25 then return "Counter"
+        elseif roll < 0.45 then return "Balanced"
+        elseif roll < 0.60 then return "Defensive"
+        elseif roll < 0.75 then return "HighPress"
+        elseif roll < 0.90 then return "Possession"
+        else return "Attacking"
+        end
+    -- 低声望: 防守/反击为主
+    else
+        if roll < 0.30 then return "Defensive"
+        elseif roll < 0.55 then return "Counter"
+        elseif roll < 0.75 then return "Balanced"
+        elseif roll < 0.90 then return "HighPress"
+        else return "Attacking"
+        end
+    end
+end
+
+--- 根据球队风格分配合理阵型
+function RealDataLoader._assignFormation(tData)
+    -- 如果数据中已指定非默认阵型，尊重原始数据
+    if tData.formation and tData.formation ~= "4-4-2" then
+        return tData.formation
+    end
+
+    -- 根据随机权重分配阵型
+    local formations = {
+        {"4-3-3",   0.25},
+        {"4-2-3-1", 0.25},
+        {"4-4-2",   0.20},
+        {"3-5-2",   0.12},
+        {"5-3-2",   0.10},
+        {"4-5-1",   0.08},
+    }
+
+    local roll = Random()
+    local cumulative = 0
+    for _, entry in ipairs(formations) do
+        cumulative = cumulative + entry[2]
+        if roll < cumulative then
+            return entry[1]
+        end
+    end
+    return "4-4-2"
 end
 
 return RealDataLoader

@@ -154,7 +154,29 @@ function Settings.create(params)
                         }
                     },
 
-                    -- 帮助
+                    -- 帮助与指引
+                    Theme.Card {
+                        children = {
+                            Settings._sectionTitle("帮助"),
+                            UI.Button {
+                                text = "📖 重看新手指引",
+                                width = "100%",
+                                height = 42,
+                                backgroundColor = {38, 46, 71, 255},
+                                borderRadius = 8,
+                                fontSize = 13,
+                                color = Theme.COLORS.GOLD,
+                                marginBottom = 8,
+                                onClick = function()
+                                    local TutorialGuide = require("scripts/ui/components/tutorial_guide")
+                                    Router.replaceWith("dashboard")
+                                    TutorialGuide.start()
+                                end,
+                            },
+                        }
+                    },
+
+                    -- 关于
                     Theme.Card {
                         children = {
                             Settings._sectionTitle("关于"),

@@ -43,7 +43,7 @@ local function _openDrawer(contentWidget, height, onClose)
         showOverlay = true,
         overlayOpacity = 0.6,
         backgroundColor = {Theme.COLORS.BG_CARD[1], Theme.COLORS.BG_CARD[2], Theme.COLORS.BG_CARD[3], 255},
-        contentPadding = 20,
+        contentPadding = 0,
         animationDuration = 0.2,
         content = contentWidget,
         onClose = function()
@@ -148,12 +148,13 @@ function BottomSheet.show(opts)
     })
 
     -- 计算高度：标题 + 项目数 × 50 + 取消 + padding
-    local estimatedHeight = 40 + (#items * 50) + 60 + 40
+    local estimatedHeight = 40 + (#items * 50) + 60 + 32
     if subtitle then estimatedHeight = estimatedHeight + 20 end
     estimatedHeight = math.min(estimatedHeight, 500)
 
     local content = UI.Panel {
         width = "100%",
+        padding = 16,
         children = menuItems,
     }
 
@@ -177,12 +178,21 @@ function BottomSheet.showCustom(opts)
     local onClose = opts.onClose
     local drawerHeight = opts.height or 400
 
-    -- 计算 ScrollView 可用高度（Drawer contentPadding=20 上下各占20）
-    local usableHeight = drawerHeight - 40  -- 减去 Drawer 内边距
-    local titleHeight = opts.title and 30 or 0  -- 标题行高 + marginBottom
-    local cancelHeight = showCancel and 54 or 0  -- 44高度 + 10marginTop
-    local footerHeight = footer and 56 or 0  -- footer按钮约56px（44height + 12marginTop）
-    local scrollHeight = usableHeight - titleHeight - cancelHeight - footerHeight
+    local padV = 16   -- 上下内边距
+    local padH = 16   -- 左右内边距
+
+    -- 计算固定区域占用的高度，以便给 ScrollView 一个明确的最大高度
+    local fixedHeight = padV * 2  -- 上下 padding
+    if opts.title then
+        fixedHeight = fixedHeight + 27 + 12  -- title fontSize15 lineHeight~27 + marginBottom12
+    end
+    if footer then
+        fixedHeight = fixedHeight + 54  -- 估算 footer 高度
+    end
+    if showCancel then
+        fixedHeight = fixedHeight + 44 + 10  -- 关闭按钮 height44 + marginTop10
+    end
+    local scrollHeight = drawerHeight - fixedHeight
 
     local contentItems = {}
 
@@ -198,7 +208,7 @@ function BottomSheet.showCustom(opts)
         })
     end
 
-    -- 自定义内容区域（可滚动，使用固定高度约束）
+    -- 自定义内容区域（可滚动，使用显式高度确保可滚动）
     local scrollChildren = {}
     for _, child in ipairs(children) do
         table.insert(scrollChildren, child)
@@ -207,9 +217,17 @@ function BottomSheet.showCustom(opts)
     table.insert(contentItems, UI.ScrollView {
         width = "100%",
         height = scrollHeight,
+        flexShrink = 1,
         scrollY = true,
         showScrollbar = true,
-        children = scrollChildren,
+        bounceEnabled = false,
+        padding = 0,
+        children = {
+            UI.Panel {
+                width = "100%",
+                children = scrollChildren,
+            }
+        },
     })
 
     -- footer（固定在底部，不参与滚动）
@@ -239,6 +257,11 @@ function BottomSheet.showCustom(opts)
 
     local content = UI.Panel {
         width = "100%",
+        height = "100%",
+        paddingTop = padV,
+        paddingBottom = padV,
+        paddingLeft = padH,
+        paddingRight = padH,
         children = contentItems,
     }
 
@@ -277,10 +300,10 @@ function BottomSheet.showSelect(opts)
             text = labelText,
             width = "100%",
             height = 40,
-            backgroundColor = isActive and Theme.COLORS.PRIMARY or {38, 46, 71, 255},
+            backgroundColor = isActive and Theme.COLORS.GOLD or {38, 46, 71, 255},
             borderRadius = 8,
             fontSize = 14,
-            color = isActive and Theme.COLORS.TEXT_PRIMARY or Theme.COLORS.TEXT_SECONDARY,
+            color = isActive and "#1A1A1A" or Theme.COLORS.TEXT_SECONDARY,
             marginBottom = 4,
             onClick = function()
                 _closeActive()
@@ -308,6 +331,7 @@ function BottomSheet.showSelect(opts)
 
     local content = UI.Panel {
         width = "100%",
+        padding = 16,
         children = menuItems,
     }
 

@@ -11,6 +11,7 @@ local HistoryManager = require("scripts/systems/history_manager")
 local NewsGenerator = require("scripts/systems/news_generator")
 local ObjectivesManager = require("scripts/systems/objectives_manager")
 local RecordsManager = require("scripts/systems/records_manager")
+local PotentialSystem = require("scripts/systems/potential_system")
 
 local SeasonManager = {}
 
@@ -174,14 +175,15 @@ function SeasonManager._processPlayerDevelopment(gameState)
         -- 应用成长
         local attrNames = {"speed", "stamina", "strength", "agility", "passing",
             "shooting", "tackling", "dribbling", "defending", "positioning",
-            "vision", "decisions", "composure"}
+            "vision", "decisions", "composure", "aggression", "teamwork",
+            "leadership", "aerial", "handling", "reflexes"}
 
         local grew = false
         for _, attr in ipairs(attrNames) do
             if growthChance > 0 and Random() < growthChance then
                 if player.attributes[attr] and player.attributes[attr] < 20 then
-                    -- 不能超过潜力限制
-                    local potCap = math.floor(player.potential / 5)
+                    -- 不能超过潜力限制（使用局内实际潜力）
+                    local potCap = math.floor((player.actualPotential or player.potential) / 5)
                     if player.attributes[attr] < potCap then
                         player.attributes[attr] = player.attributes[attr] + 1
                         grew = true
@@ -703,7 +705,7 @@ function SeasonManager._generateSquadForTeam(gameState, team, leagueKey)
             position = pos,
             preferredFoot = Random() < 0.8 and "right" or "left",
             attributes = {},
-            contractEnd = {year = gameState.season + RandomInt(1, 4), month = 6},
+            contractEnd = {year = gameState.date.year + RandomInt(1, 4), month = 6},
             wage = RandomInt(300, 2000),
             teamId = team.id,
         }
@@ -723,6 +725,8 @@ function SeasonManager._generateSquadForTeam(gameState, team, leagueKey)
         playerData.potential = math.min(99, baseAbility * 5 + RandomInt(5, 25))
 
         local player = gameState:addPlayer(playerData)
+        player.paRating = PotentialSystem.rawToRating(player.potential)
+        player.actualPotential = PotentialSystem.generateActualPotential(player.paRating, (gameState.potentialSeed or os.time()) + player.id * 7919)
         player.teamId = team.id
         table.insert(team.playerIds, player.id)
     end
@@ -887,16 +891,13 @@ end
 function SeasonManager._fillAISquads(gameState)
     local Player = require("scripts/domain/player")
 
-    -- 中国姓氏和名字
-    local lastNames = {"张", "王", "李", "赵", "陈", "刘", "杨", "黄", "周", "吴",
-        "徐", "孙", "马", "朱", "胡", "林", "郭", "何", "高", "罗"}
-    local firstNames = {"伟", "磊", "明", "杰", "浩", "强", "涛", "鹏", "飞", "军",
-        "超", "宇", "洋", "帅", "峰", "辉", "凯", "威", "龙", "阳"}
-
     local positions = {"GK", "CB", "CB", "LB", "RB", "CM", "CM", "CDM", "CAM", "LW", "RW", "ST"}
 
     for _, team in pairs(gameState.teams) do
         -- 如果阵容不足18人，补充
+        local lastNames = SeasonManager._getLastNamePool(team.country)
+        local firstNames = SeasonManager._getFirstNamePool(team.country)
+
         while #team.playerIds < 18 do
             local pos = positions[RandomInt(1, #positions)]
             local age = RandomInt(18, 30)
@@ -906,13 +907,13 @@ function SeasonManager._fillAISquads(gameState)
             local playerData = {
                 firstName = firstName,
                 lastName = lastName,
-                displayName = lastName .. firstName,
+                displayName = lastName .. " " .. firstName,
                 birthYear = gameState.date.year - age,
-                nationality = "CHN",
+                nationality = team.country or "ENG",
                 position = pos,
                 preferredFoot = Random() < 0.8 and "right" or "left",
                 attributes = {},
-                contractEnd = {year = gameState.season + RandomInt(1, 3), month = 6},
+                contractEnd = {year = gameState.date.year + RandomInt(1, 3), month = 6},
                 wage = RandomInt(500, 3000),
                 teamId = team.id,
             }
@@ -934,6 +935,8 @@ function SeasonManager._fillAISquads(gameState)
             playerData.potential = math.min(99, playerData.attributes.speed * 5 + RandomInt(0, 20))
 
             local player = gameState:addPlayer(playerData)
+            player.paRating = PotentialSystem.rawToRating(player.potential)
+            player.actualPotential = PotentialSystem.generateActualPotential(player.paRating, (gameState.potentialSeed or os.time()) + player.id * 7919)
             player.teamId = team.id
             table.insert(team.playerIds, player.id)
         end

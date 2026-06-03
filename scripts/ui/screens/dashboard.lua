@@ -14,6 +14,10 @@ local TimeBlockerManager = require("scripts/systems/time_blocker_manager")
 local BlockerDialog = require("scripts/ui/components/blocker_dialog")
 local ObjectivesManager = require("scripts/systems/objectives_manager")
 local BottomSheet = require("scripts/ui/components/bottom_sheet")
+local TeamIcon = require("scripts/ui/components/team_icon")
+
+---@diagnostic disable-next-line: undefined-global
+local sdk = sdk
 
 local Dashboard = {}
 
@@ -127,7 +131,7 @@ function Dashboard.create(params)
     end
 
     -- 构建页面
-    return UI.Panel {
+    local page = UI.Panel {
         width = "100%",
         height = "100%",
         backgroundColor = Theme.COLORS.BG_DARK,
@@ -163,6 +167,118 @@ function Dashboard.create(params)
             Theme.MainNav("home"),
         }
     }
+
+    return page
+end
+
+------------------------------------------------------
+-- 潜力修改器弹窗（看5次广告解锁精确潜力值）
+------------------------------------------------------
+function Dashboard._showPotentialModifierDialog(gameState)
+    local progress = gameState.potentialRevealProgress or 0
+    local total = 5
+    local revealed = gameState.potentialRevealed or false
+
+    -- 已解锁：显示状态
+    if revealed then
+        UI.ShowOverlay(UI.Panel {
+            width = "100%", height = "100%",
+            justifyContent = "center", alignItems = "center",
+            backgroundColor = {0, 0, 0, 160},
+            onClick = function() UI.CloseOverlay() end,
+            children = {
+                UI.Panel {
+                    width = 280,
+                    backgroundColor = Theme.COLORS.BG_CARD,
+                    borderRadius = 12,
+                    padding = 20,
+                    alignItems = "center",
+                    onClick = function() end,
+                    children = {
+                        UI.Label { text = "🔓 潜力透视已激活", fontSize = 16, color = Theme.COLORS.ACCENT, fontWeight = "bold", marginBottom = 10 },
+                        UI.Label { text = "球员潜力值已精确显示", fontSize = 13, color = Theme.COLORS.TEXT_SECONDARY, marginBottom = 16 },
+                        UI.Button {
+                            text = "确定",
+                            width = "100%", height = 36,
+                            backgroundColor = Theme.COLORS.ACCENT, borderRadius = 8,
+                            fontSize = 14, color = {255, 255, 255, 255},
+                            onClick = function() UI.CloseOverlay() end,
+                        },
+                    },
+                },
+            },
+        })
+        return
+    end
+
+    -- 构建进度点
+    local dots = {}
+    for i = 1, total do
+        table.insert(dots, UI.Panel {
+            width = 20, height = 20,
+            borderRadius = 10,
+            backgroundColor = i <= progress and Theme.COLORS.ACCENT or {60, 70, 100, 255},
+            marginRight = i < total and 6 or 0,
+            justifyContent = "center", alignItems = "center",
+            children = {
+                UI.Label {
+                    text = i <= progress and "✓" or tostring(i),
+                    fontSize = 10,
+                    color = i <= progress and {255, 255, 255, 255} or Theme.COLORS.TEXT_MUTED,
+                },
+            },
+        })
+    end
+
+    local remaining = total - progress
+
+    UI.ShowOverlay(UI.Panel {
+        width = "100%", height = "100%",
+        justifyContent = "center", alignItems = "center",
+        backgroundColor = {0, 0, 0, 160},
+        onClick = function() UI.CloseOverlay() end,
+        children = {
+            UI.Panel {
+                width = 280,
+                backgroundColor = Theme.COLORS.BG_CARD,
+                borderRadius = 12,
+                padding = 20,
+                alignItems = "center",
+                onClick = function() end,
+                children = {
+                    UI.Label { text = "🔮 潜力透视", fontSize = 16, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold", marginBottom = 6 },
+                    UI.Label { text = "观看广告解锁精确潜力值显示，\n替代模糊的星级评估", fontSize = 12, color = Theme.COLORS.TEXT_MUTED, textAlign = "center", marginBottom = 14 },
+                    UI.Panel { flexDirection = "row", alignItems = "center", marginBottom = 10, children = dots },
+                    UI.Label { text = string.format("已观看 %d/%d 次", progress, total), fontSize = 13, color = Theme.COLORS.ACCENT, fontWeight = "bold", marginBottom = 16 },
+                    UI.Button {
+                        text = remaining <= 1 and "观看最后一次并解锁" or string.format("观看广告（还需%d次）", remaining),
+                        width = "100%", height = 40,
+                        backgroundColor = Theme.COLORS.ACCENT, borderRadius = 8,
+                        fontSize = 14, color = {255, 255, 255, 255}, fontWeight = "bold",
+                        onClick = function()
+                            UI.CloseOverlay()
+                            sdk:ShowRewardVideoAd(function(result)
+                                if result.success then
+                                    local newProgress = (gameState.potentialRevealProgress or 0) + 1
+                                    gameState.potentialRevealProgress = newProgress
+                                    if newProgress >= total then
+                                        gameState.potentialRevealed = true
+                                        UI.Toast.Show({ message = "潜力透视已解锁！现在可查看精确潜力值", variant = "success" })
+                                    else
+                                        UI.Toast.Show({ message = string.format("观看进度 %d/%d", newProgress, total), variant = "info" })
+                                    end
+                                    Router.replaceWith("dashboard")
+                                else
+                                    UI.Toast.Show({ message = "需完整观看广告才能获得奖励", variant = "warning" })
+                                end
+                            end)
+                        end,
+                    },
+                    UI.Button { text = "取消", width = "100%", height = 34, backgroundColor = {0, 0, 0, 0}, borderRadius = 8, fontSize = 13, color = Theme.COLORS.TEXT_MUTED, marginTop = 6, onClick = function() UI.CloseOverlay() end },
+                },
+            },
+        },
+    })
 end
 
 ------------------------------------------------------
@@ -176,11 +292,17 @@ function Dashboard._buildTopBar(gameState, teamName, isBlocked, hasAnyBlockers, 
         or (hasAnyBlockers and "! 继续" or "继续 >")
 
     local children = {
-        -- 日期
-        UI.Label {
+        -- 日期（点击弹出赛事日历）
+        UI.Button {
             text = gameState:getDateString(),
+            height = 30,
+            backgroundColor = Theme.COLORS.TRANSPARENT,
             fontSize = 13,
             color = Theme.COLORS.TEXT_SECONDARY,
+            paddingLeft = 0, paddingRight = 4,
+            onClick = function()
+                Dashboard._showFixtureCalendar(gameState)
+            end,
         },
         -- 球队名（点击查看经理档案）
         UI.Button {
@@ -194,6 +316,20 @@ function Dashboard._buildTopBar(gameState, teamName, isBlocked, hasAnyBlockers, 
             end,
         },
         UI.Panel { flexGrow = 1 },
+        -- 潜力透视按钮
+        UI.Button {
+            text = gameState.potentialRevealed and "🔓" or "🔮",
+            width = 30,
+            height = 30,
+            backgroundColor = gameState.potentialRevealed and {30, 60, 50, 255} or Theme.COLORS.TRANSPARENT,
+            borderRadius = 15,
+            fontSize = 16,
+            color = gameState.potentialRevealed and Theme.COLORS.ACCENT or Theme.COLORS.TEXT_MUTED,
+            marginRight = 4,
+            onClick = function()
+                Dashboard._showPotentialModifierDialog(gameState)
+            end,
+        },
         -- 荣誉室按钮
         UI.Button {
             text = "🏆",
@@ -287,11 +423,164 @@ function Dashboard._buildTopBar(gameState, teamName, isBlocked, hasAnyBlockers, 
 end
 
 ------------------------------------------------------
+-- [赛事日历弹窗] 横向时间线
+------------------------------------------------------
+function Dashboard._showFixtureCalendar(gameState)
+    local League = require("scripts/domain/league")
+    local playerTeamId = gameState.playerTeamId
+
+    -- 收集未来60天内玩家球队的所有比赛
+    local upcomingFixtures = {}
+    for daysAhead = 0, 60 do
+        local futureDate = League._addDays(gameState.date, daysAhead)
+
+        -- 联赛比赛
+        for _, lg in pairs(gameState.leagues or {}) do
+            for _, f in ipairs(lg.fixtures) do
+                if f.status == "scheduled" and
+                   f.date.year == futureDate.year and
+                   f.date.month == futureDate.month and
+                   f.date.day == futureDate.day then
+                    if f.homeTeamId == playerTeamId or f.awayTeamId == playerTeamId then
+                        table.insert(upcomingFixtures, {
+                            fixture = f,
+                            date = futureDate,
+                            daysAhead = daysAhead,
+                            competition = lg.name or "联赛",
+                            competitionShort = Dashboard._getLeagueShort(lg.name),
+                        })
+                    end
+                end
+            end
+        end
+
+        -- 欧冠比赛
+        if gameState.championsLeague then
+            local uclFixtures = gameState.championsLeague:getFixturesForDate(futureDate)
+            for _, f in ipairs(uclFixtures) do
+                if f.homeTeamId == playerTeamId or f.awayTeamId == playerTeamId then
+                    table.insert(upcomingFixtures, {
+                        fixture = f,
+                        date = futureDate,
+                        daysAhead = daysAhead,
+                        competition = "欧冠",
+                        competitionShort = "UCL",
+                    })
+                end
+            end
+        end
+
+        -- 世界杯比赛（国家队层面，可能不适用但保留）
+        if gameState.worldCup and gameState.worldCup.phase ~= "not_started" and gameState.worldCup.phase ~= "completed" then
+            local wcFixtures = gameState.worldCup:getFixturesForDate(futureDate)
+            for _, f in ipairs(wcFixtures) do
+                local WorldCup = require("scripts/systems/world_cup")
+                if WorldCup.isPlayerNationMatch(gameState, f) then
+                    table.insert(upcomingFixtures, {
+                        fixture = f,
+                        date = futureDate,
+                        daysAhead = daysAhead,
+                        competition = "世界杯",
+                        competitionShort = "WC",
+                    })
+                end
+            end
+        end
+    end
+
+    -- 构建横向日历卡片
+    local fixtureCards = {}
+    for i, entry in ipairs(upcomingFixtures) do
+        local f = entry.fixture
+        local opponentId = (f.homeTeamId == playerTeamId) and f.awayTeamId or f.homeTeamId
+        local opponent = gameState.teams[opponentId]
+        local isHome = f.homeTeamId == playerTeamId
+        local dateStr = string.format("%d/%d", entry.date.month, entry.date.day)
+
+        -- 赛事标签颜色
+        local compColor = Theme.COLORS.ACCENT
+        if entry.competitionShort == "UCL" then
+            compColor = {30, 120, 220, 255}
+        elseif entry.competitionShort == "WC" then
+            compColor = {200, 160, 30, 255}
+        end
+
+        table.insert(fixtureCards, UI.Panel {
+            width = 100, minWidth = 100,
+            marginRight = 10,
+            padding = 10,
+            backgroundColor = (i == 1) and {40, 55, 80, 255} or Theme.COLORS.BG_CARD,
+            borderRadius = 10,
+            borderWidth = (i == 1) and 1 or 0,
+            borderColor = Theme.COLORS.PRIMARY,
+            alignItems = "center",
+            children = {
+                -- 赛事名称标签
+                UI.Panel {
+                    backgroundColor = {compColor[1], compColor[2], compColor[3], 40},
+                    borderRadius = 4, paddingLeft = 6, paddingRight = 6, paddingTop = 2, paddingBottom = 2,
+                    marginBottom = 8,
+                    children = {
+                        UI.Label { text = entry.competition, fontSize = 10, color = compColor },
+                    },
+                },
+                -- 对手图标
+                TeamIcon.create { team = opponent, size = 40 },
+                -- 主客场 + 日期
+                UI.Label {
+                    text = (isHome and "主场" or "客场") .. " · " .. dateStr,
+                    fontSize = 10, color = Theme.COLORS.TEXT_MUTED, marginTop = 4,
+                },
+                -- 天数
+                UI.Label {
+                    text = entry.daysAhead == 0 and "今天" or (entry.daysAhead .. "天后"),
+                    fontSize = 10, color = (entry.daysAhead <= 3) and Theme.COLORS.MATCH_ORANGE or Theme.COLORS.TEXT_MUTED,
+                    marginTop = 2,
+                },
+            },
+        })
+    end
+
+    if #fixtureCards == 0 then
+        table.insert(fixtureCards, UI.Panel {
+            width = "100%", height = 80,
+            alignItems = "center", justifyContent = "center",
+            children = { UI.Label { text = "暂无已排赛程", fontSize = 14, color = Theme.COLORS.TEXT_MUTED } },
+        })
+    end
+
+    BottomSheet.showCustom({
+        title = "赛程日历",
+        height = 280,
+        showCancel = true,
+        children = {
+            UI.ScrollView {
+                width = "100%", height = 200,
+                scrollX = true, scrollY = false,
+                flexDirection = "row",
+                alignItems = "center",
+                paddingLeft = 8, paddingRight = 8,
+                children = fixtureCards,
+            },
+        },
+    })
+end
+
+-- 联赛名缩写
+function Dashboard._getLeagueShort(name)
+    if not name then return "LG" end
+    if name:find("Premier") or name:find("英超") then return "PL" end
+    if name:find("Liga") and not name:find("Ligue") then return "LL" end
+    if name:find("Bundesliga") or name:find("德甲") then return "BL" end
+    if name:find("Serie") or name:find("意甲") then return "SA" end
+    if name:find("Ligue") or name:find("法甲") then return "L1" end
+    return "LG"
+end
+
+------------------------------------------------------
 -- [Hero区] 下一场比赛大卡
 ------------------------------------------------------
 function Dashboard._buildMatchHero(gameState, team)
-    local TeamIcon = require("scripts/ui/components/team_icon")
-
     if not team then return UI.Panel { height = 0 } end
 
     local league = gameState.league
@@ -1659,10 +1948,13 @@ function Dashboard._showObjectiveSelection(gameState, initSelected)
         end,
     })
 
+    -- 底部留白，避免被关闭按钮遮挡
+    table.insert(children, UI.Panel { width = "100%", height = 60 })
+
     BottomSheet.showCustom({
         title = "设定赛季目标",
         showCancel = true,
-        height = 560,
+        height = 620,
         children = children,
     })
 end

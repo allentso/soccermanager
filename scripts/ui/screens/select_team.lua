@@ -64,20 +64,29 @@ function SelectTeam.create(params)
         local lg = gameState.leagues[key]
         if lg then
             local isActive = key == selectedLeagueKey
-            table.insert(leagueTabs, UI.Button {
-                text = lg.name,
+            table.insert(leagueTabs, UI.Panel {
                 height = 30,
-                paddingLeft = 10, paddingRight = 10,
-                backgroundColor = isActive and Theme.COLORS.PRIMARY or Theme.COLORS.BG_HEADER,
-                fontSize = 12,
-                color = isActive and {255, 255, 255, 255} or Theme.COLORS.TEXT_MUTED,
-                borderRadius = 4,
-                marginRight = 4,
+                paddingLeft = 12, paddingRight = 12,
+                backgroundColor = isActive and "rgba(212,175,55,0.15)" or Theme.COLORS.TRANSPARENT,
+                borderRadius = 15,
+                borderWidth = isActive and 1 or 0,
+                borderColor = "rgba(212,175,55,0.4)",
+                justifyContent = "center",
+                alignItems = "center",
+                marginRight = 6,
                 onClick = function()
                     selectedLeagueKey = key
-                    pendingTeam = nil  -- 切换联赛时清除选中
+                    pendingTeam = nil
                     Router.replaceWith("select_team", params)
                 end,
+                children = {
+                    UI.Label {
+                        text = lg.name,
+                        fontSize = 12,
+                        color = isActive and Theme.COLORS.GOLD or Theme.COLORS.TEXT_MUTED,
+                        fontWeight = isActive and "bold" or "normal",
+                    },
+                },
             })
         end
     end
@@ -104,8 +113,8 @@ function SelectTeam.create(params)
             Theme.TopBar {
                 children = {
                     UI.Button {
-                        text = "返回",
-                        width = 60,
+                        text = "← 返回",
+                        width = 80,
                         height = 36,
                         backgroundColor = Theme.COLORS.TRANSPARENT,
                         fontSize = 14,
@@ -116,13 +125,13 @@ function SelectTeam.create(params)
                     },
                     UI.Label {
                         text = "选择球队",
-                        fontSize = 18,
+                        fontSize = 17,
                         color = Theme.COLORS.TEXT_PRIMARY,
                         fontWeight = "bold",
                         flexGrow = 1,
                         textAlign = "center",
                     },
-                    UI.Panel { width = 60 },
+                    UI.Panel { width = 80 },
                 }
             },
 
@@ -285,10 +294,10 @@ function SelectTeam._updateConfirmBar(params)
         UI.Button {
             text = "确认执教",
             width = 90, height = 38,
-            backgroundColor = Theme.COLORS.SECONDARY,
+            backgroundColor = Theme.COLORS.GOLD,
             borderRadius = 8,
             fontSize = 14, fontWeight = "bold",
-            color = Theme.COLORS.TEXT_PRIMARY,
+            color = "#1A1A1A",
             onClick = function()
                 local team = pendingTeam
                 pendingTeam = nil

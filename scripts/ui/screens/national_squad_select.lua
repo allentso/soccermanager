@@ -4,6 +4,7 @@
 local UI = require("urhox-libs/UI")
 local Theme = require("scripts/ui/theme")
 local Router = require("scripts/app/router")
+local Constants = require("scripts/app/constants")
 local WorldCup = require("scripts/systems/world_cup")
 local SaveManager = require("scripts/persistence/save_manager")
 
@@ -27,12 +28,7 @@ local function getPosGroup(pos)
 end
 
 local function getPosColor(pos)
-    local g = getPosGroup(pos)
-    if g == "GK" then return "#F59E0B"
-    elseif g == "DEF" then return "#3B82F6"
-    elseif g == "FWD" then return "#EF4444"
-    else return "#10B981"
-    end
+    return Theme.posColor(pos)
 end
 
 function NationalSquadSelect.create(params)
@@ -124,12 +120,21 @@ function NationalSquadSelect.create(params)
                     color = checkColor,
                 },
                 -- 位置
-                UI.Label {
-                    text = p.position or "?",
-                    fontSize = 11,
-                    fontWeight = "bold",
-                    color = getPosColor(p.position),
-                    width = 32,
+                UI.Panel {
+                    backgroundColor = (function()
+                        local c = getPosColor(p.position)
+                        return {c[1], c[2], c[3], 50}
+                    end)(),
+                    borderRadius = 3,
+                    paddingLeft = 4, paddingRight = 4, paddingTop = 1, paddingBottom = 1,
+                    marginRight = 4, minWidth = 36,
+                    children = {
+                        UI.Label {
+                            text = Constants.POSITION_NAMES[p.position] or p.position or "?",
+                            fontSize = 10, fontWeight = "bold",
+                            color = getPosColor(p.position),
+                        },
+                    },
                 },
                 -- 名字
                 UI.Label {

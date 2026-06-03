@@ -51,17 +51,21 @@ function LoadGame.create(params)
             -- 顶部栏
             Theme.TopBar {
                 children = {
-                    UI.Button {
-                        text = "返回",
+                    UI.Panel {
                         width = 60, height = 36,
-                        backgroundColor = Theme.COLORS.TRANSPARENT,
-                        fontSize = 14,
-                        color = Theme.COLORS.TEXT_SECONDARY,
+                        justifyContent = "center",
                         onClick = function() Router.back() end,
+                        children = {
+                            UI.Label {
+                                text = "← 返回",
+                                fontSize = 14,
+                                color = Theme.COLORS.TEXT_SECONDARY,
+                            },
+                        },
                     },
                     UI.Label {
                         text = "存档管理",
-                        fontSize = 18,
+                        fontSize = 17,
                         color = Theme.COLORS.TEXT_PRIMARY,
                         fontWeight = "bold",
                         flexGrow = 1,

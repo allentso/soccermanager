@@ -6,6 +6,7 @@ local Player = require("scripts/domain/player")
 local StaffManager = require("scripts/systems/staff_manager")
 local MessageManager = require("scripts/systems/message_manager")
 local EventBus = require("scripts/app/event_bus")
+local PotentialSystem = require("scripts/systems/potential_system")
 
 local YouthManager = {}
 
@@ -91,6 +92,13 @@ function YouthManager.signCandidate(gameState, candidateIndex)
     }
     local player = gameState:addPlayer(playerData)
 
+    -- 设置球队归属
+    player.teamId = team.id
+
+    -- 初始化潜力评级
+    player.paRating = PotentialSystem.rawToRating(player.potential)
+    player.actualPotential = PotentialSystem.generateActualPotential(player.paRating, (gameState.potentialSeed or 0) + player.id * 7919)
+
     -- 加入青训队
     table.insert(team._youthPlayerIds, player.id)
 
@@ -129,6 +137,7 @@ function YouthManager.promote(gameState, playerId)
     local player = gameState.players[playerId]
     if player then
         player.isYouth = false
+        player.teamId = team.id
         -- 提拔后给予正式合同
         player.contractEnd = {year = gameState.date.year + 3, month = 6, day = 30}
         player.wage = math.max(YOUTH_WAGE * 2, math.floor(player.overall * 80))
@@ -201,15 +210,15 @@ function YouthManager.processDailyTraining(gameState)
         if player and player.attributes then
             -- 每天有小概率提升某项属性
             local growthChance = 0.03 + youthBonus  -- 3% + 加成（最高 ~18%）
-            if math.random() < growthChance then
+            if Random() < growthChance then
                 -- 随机选一项属性
                 local attrKeys = {}
                 for k, _ in pairs(player.attributes) do
                     table.insert(attrKeys, k)
                 end
                 if #attrKeys > 0 then
-                    local key = attrKeys[math.random(1, #attrKeys)]
-                    local maxVal = math.min(20, math.floor((player.potential or 60) / 5))
+                    local key = attrKeys[RandomInt(1, #attrKeys)]
+                    local maxVal = math.min(20, math.floor((player.actualPotential or player.potential or 60) / 5))
                     if player.attributes[key] < maxVal then
                         player.attributes[key] = player.attributes[key] + 1
                         player:calculateOverall()
@@ -249,31 +258,31 @@ end
 
 function YouthManager._generateYouthPlayer(gameState, youthDevBonus)
     local positions = {"GK", "CB", "LB", "RB", "CM", "CDM", "CAM", "LW", "RW", "ST"}
-    local position = positions[math.random(1, #positions)]
+    local position = positions[RandomInt(1, #positions)]
 
-    local age = math.random(YOUTH_MIN_AGE, YOUTH_MAX_AGE)
+    local age = RandomInt(YOUTH_MIN_AGE, YOUTH_MAX_AGE)
     local birthYear = gameState.date.year - age
 
     -- 潜力受青训加成影响
-    local basePotential = math.random(45, 85)
+    local basePotential = RandomInt(45, 85)
     local potential = math.min(99, basePotential + math.floor(youthDevBonus * 30))
 
     -- 当前能力（年轻球员偏低）
     local overallCap = math.max(25, math.floor(potential * 0.5))
-    local overall = math.random(25, overallCap)
+    local overall = RandomInt(25, overallCap)
 
     -- 生成属性（基于 overall 和位置）
     local attributes = YouthManager._generateAttributes(position, overall)
 
-    local firstName = YOUTH_FIRST_NAMES[math.random(1, #YOUTH_FIRST_NAMES)]
-    local lastName = YOUTH_LAST_NAMES[math.random(1, #YOUTH_LAST_NAMES)]
+    local firstName = YOUTH_FIRST_NAMES[RandomInt(1, #YOUTH_FIRST_NAMES)]
+    local lastName = YOUTH_LAST_NAMES[RandomInt(1, #YOUTH_LAST_NAMES)]
     local nationalities = {"ENG", "ESP", "GER", "ITA", "FRA", "BRA", "ARG", "POR"}
 
     return {
         firstName = firstName,
         lastName = lastName,
         displayName = firstName .. " " .. lastName,
-        nationality = nationalities[math.random(1, #nationalities)],
+        nationality = nationalities[RandomInt(1, #nationalities)],
         birthYear = birthYear,
         position = position,
         potential = potential,
@@ -285,31 +294,61 @@ end
 
 function YouthManager._generateAttributes(position, overall)
     local baseVal = math.max(1, math.floor(overall / 7))
+
+    -- 使用与 Player 模型一致的属性键名
     local attrs = {
-        pace = baseVal + math.random(-2, 3),
-        shooting = baseVal + math.random(-2, 3),
-        passing = baseVal + math.random(-2, 3),
-        dribbling = baseVal + math.random(-2, 3),
-        defending = baseVal + math.random(-2, 3),
-        physical = baseVal + math.random(-2, 3),
-        goalkeeping = 1,
+        speed = baseVal + RandomInt(-2, 3),
+        stamina = baseVal + RandomInt(-2, 3),
+        strength = baseVal + RandomInt(-2, 3),
+        agility = baseVal + RandomInt(-2, 3),
+        passing = baseVal + RandomInt(-2, 3),
+        shooting = baseVal + RandomInt(-2, 3),
+        tackling = baseVal + RandomInt(-2, 3),
+        dribbling = baseVal + RandomInt(-2, 3),
+        defending = baseVal + RandomInt(-2, 3),
+        positioning = baseVal + RandomInt(-2, 3),
+        vision = baseVal + RandomInt(-2, 3),
+        decisions = baseVal + RandomInt(-2, 3),
+        composure = baseVal + RandomInt(-2, 3),
+        aggression = baseVal + RandomInt(-2, 3),
+        teamwork = baseVal + RandomInt(-2, 3),
+        leadership = baseVal + RandomInt(-2, 3),
+        aerial = baseVal + RandomInt(-2, 3),
+        handling = 1,
+        reflexes = 1,
     }
 
     -- 位置专精
     if position == "GK" then
-        attrs.goalkeeping = baseVal + math.random(2, 5)
-    elseif position == "CB" or position == "LB" or position == "RB" then
-        attrs.defending = attrs.defending + math.random(2, 4)
-        attrs.physical = attrs.physical + math.random(1, 3)
-    elseif position == "CM" or position == "CDM" or position == "CAM" then
-        attrs.passing = attrs.passing + math.random(2, 4)
-        attrs.dribbling = attrs.dribbling + math.random(1, 3)
+        attrs.handling = baseVal + RandomInt(2, 5)
+        attrs.reflexes = baseVal + RandomInt(2, 5)
+        attrs.positioning = attrs.positioning + RandomInt(1, 3)
+        attrs.composure = attrs.composure + RandomInt(1, 2)
+    elseif position == "CB" then
+        attrs.defending = attrs.defending + RandomInt(2, 4)
+        attrs.tackling = attrs.tackling + RandomInt(2, 4)
+        attrs.strength = attrs.strength + RandomInt(1, 3)
+        attrs.aerial = attrs.aerial + RandomInt(1, 3)
+    elseif position == "LB" or position == "RB" then
+        attrs.defending = attrs.defending + RandomInt(1, 3)
+        attrs.speed = attrs.speed + RandomInt(2, 4)
+        attrs.stamina = attrs.stamina + RandomInt(1, 3)
+    elseif position == "CDM" then
+        attrs.tackling = attrs.tackling + RandomInt(2, 4)
+        attrs.defending = attrs.defending + RandomInt(1, 3)
+        attrs.passing = attrs.passing + RandomInt(1, 3)
+    elseif position == "CM" or position == "CAM" then
+        attrs.passing = attrs.passing + RandomInt(2, 4)
+        attrs.vision = attrs.vision + RandomInt(1, 3)
+        attrs.dribbling = attrs.dribbling + RandomInt(1, 3)
     elseif position == "LW" or position == "RW" then
-        attrs.pace = attrs.pace + math.random(2, 4)
-        attrs.dribbling = attrs.dribbling + math.random(2, 3)
+        attrs.speed = attrs.speed + RandomInt(2, 4)
+        attrs.dribbling = attrs.dribbling + RandomInt(2, 3)
+        attrs.agility = attrs.agility + RandomInt(1, 3)
     elseif position == "ST" or position == "CF" then
-        attrs.shooting = attrs.shooting + math.random(2, 4)
-        attrs.pace = attrs.pace + math.random(1, 3)
+        attrs.shooting = attrs.shooting + RandomInt(2, 4)
+        attrs.composure = attrs.composure + RandomInt(1, 3)
+        attrs.speed = attrs.speed + RandomInt(1, 3)
     end
 
     -- 限制范围

@@ -66,6 +66,8 @@ function Player.new(data)
     -- 评分
     self.overall = data.overall or 50
     self.potential = data.potential or 60
+    self.paRating = data.paRating or nil         -- PA抽象评级 (1.0-10.0)
+    self.actualPotential = data.actualPotential or nil  -- 局内实际潜力
 
     -- 合同
     self.contractEnd = data.contractEnd or nil  -- {year, month}
@@ -271,9 +273,10 @@ function Player:calculateValue(currentYear)
     end
     base = base * ageMult
 
-    -- 潜力修正（年轻高潜力球员溢价）
-    if self.potential > ovr then
-        local potGap = self.potential - ovr
+    -- 潜力修正（年轻高潜力球员溢价，使用局内实际潜力）
+    local effectivePotential = self.actualPotential or self.potential
+    if effectivePotential > ovr then
+        local potGap = effectivePotential - ovr
         local potMult = 1.0 + potGap * 0.03  -- 每1点潜力差+3%
         base = base * potMult
     end
@@ -382,12 +385,12 @@ Player.TRAIT_DEFINITIONS = {
         check = function(a) return a.reflexes >= 17 and a.handling >= 15 end},
     {id = "sweeper_keeper", name = "出击型门将", desc = "善于出击的门将",
         check = function(a) return a.reflexes >= 14 and a.speed >= 12 and a.positioning >= 15 end},
-    -- 年轻天才
+    -- 年轻天才（实际判断在 calculateTraits 中使用 currentYear，此处 check 仅作结构占位）
     {id = "wonderkid", name = "未来之星", desc = "潜力极高的年轻球员",
-        check = function(a, player) return player and player.potential >= 85 and player:getAge(2024) <= 21 end},
+        check = function(a, player, currentYear) return player and player.potential >= 85 and player:getAge(currentYear or 2024) <= 21 end},
     -- 老将
     {id = "veteran", name = "经验老将", desc = "丰富的比赛经验",
-        check = function(a, player) return player and player:getAge(2024) >= 32 and a.decisions >= 15 and a.composure >= 14 end},
+        check = function(a, player, currentYear) return player and player:getAge(currentYear or 2024) >= 32 and a.decisions >= 15 and a.composure >= 14 end},
 }
 
 --- 根据当前属性自动计算球员特性
@@ -457,6 +460,8 @@ function Player:serialize()
         retired = self.retired,
         overall = self.overall,
         potential = self.potential,
+        paRating = self.paRating,
+        actualPotential = self.actualPotential,
         contractEnd = self.contractEnd,
         wage = self.wage,
         value = self.value,
@@ -469,6 +474,8 @@ function Player:serialize()
         listedForSale = self.listedForSale,
         listedForLoan = self.listedForLoan,
         traits = self.traits,
+        reputation = self.reputation,
+        morale_core = self.morale_core,
     }
 end
 

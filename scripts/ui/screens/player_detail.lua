@@ -9,9 +9,49 @@ local TrainingManager = require("scripts/systems/training_manager")
 local FinanceManager = require("scripts/systems/finance_manager")
 local ContractManager = require("scripts/systems/contract_manager")
 local ConfirmDialog = require("scripts/ui/components/confirm_dialog")
+local TransferManager = require("scripts/systems/transfer_manager")
+local BottomSheet = require("scripts/ui/components/bottom_sheet")
 local StatsTab = require("scripts/ui/screens/player_detail/stats_tab")
+local PotentialSystem = require("scripts/systems/potential_system")
+local StaffManager = require("scripts/systems/staff_manager")
 
 local PlayerDetail = {}
+
+------------------------------------------------------
+-- 潜力星级显示（复用逻辑，与 youth.lua 一致）
+------------------------------------------------------
+local function _getScoutAccuracy(gameState)
+    local teamId = gameState.playerTeamId
+    local scoutBonus = StaffManager.getScoutingBonus(gameState, teamId)
+    local facilityBonus = 1.0
+    local team = gameState.teams[teamId]
+    if team and team.finance and team.finance.facilities then
+        local scoutFacility = team.finance.facilities.scouting or 0
+        facilityBonus = 1.0 + scoutFacility * 0.05
+    end
+    return math.min(0.95, (0.50 + scoutBonus) * facilityBonus)
+end
+
+local function _getPotentialStars(potential, scoutAccuracy)
+    -- 若已解锁潜力透视，直接显示精确值
+    local gs = _G.gameState
+    if gs and gs.potentialRevealed then
+        local rating = PotentialSystem.rawToRating(potential)
+        return 5, string.format("%.1f", rating)
+    end
+
+    local paRating = PotentialSystem.rawToRating(potential)
+    local exactStars = (paRating - 1.0) / 9.0 * 4.0 + 1.0
+    local accuracy = scoutAccuracy or 0.6
+    local maxError = (1.0 - accuracy) * 1.5
+    local seed = potential * 7 + 13
+    local pseudoRandom = (math.sin(seed) * 10000) % 1.0
+    local errorOffset = (pseudoRandom - 0.5) * 2 * maxError
+    local displayStars = math.floor(exactStars + errorOffset + 0.5)
+    displayStars = math.max(1, math.min(5, displayStars))
+    local starText = string.rep("★", displayStars) .. string.rep("☆", 5 - displayStars)
+    return displayStars, starText
+end
 
 -- 当前选中的标签
 local _activeTab = "overview"  -- overview / attributes / contract / stats
@@ -152,12 +192,8 @@ end
 
 -- 概览标签
 function PlayerDetail._buildOverview(player, team, age, gameState)
-    -- 位置颜色映射
-    local posGroup = "MID"
-    if player.position == "GK" then posGroup = "GK"
-    elseif player.position == "CB" or player.position == "LB" or player.position == "RB" then posGroup = "DEF"
-    elseif player.position == "ST" or player.position == "CF" or player.position == "LW" or player.position == "RW" then posGroup = "FWD"
-    end
+    -- 位置颜色（统一使用 Theme.posColor）
+    -- local posColor = Theme.posColor(player.position)  -- 备用，如需位置颜色可取消注释
 
     -- 关键属性（按位置选择6个最重要的）
     local keyAttrs = PlayerDetail._getKeyAttributes(player)
@@ -217,7 +253,7 @@ function PlayerDetail._buildOverview(player, team, age, gameState)
                         flexDirection = "row", flexWrap = "wrap", marginTop = 6,
                         children = {
                             Theme.StatPill { label = "国籍", value = player.nationality },
-                            Theme.StatPill { label = "潜力", value = player.potential, valueColor = Theme.COLORS.ACCENT },
+                            Theme.StatPill { label = "潜力", value = select(2, _getPotentialStars(player.actualPotential or player.potential or 0, _getScoutAccuracy(gameState))), valueColor = Theme.COLORS.ACCENT },
                             Theme.StatPill { label = "惯用脚", value = player.preferredFoot == "right" and "右" or "左" },
                             Theme.StatPill { label = "弱足", value = player.weakFoot .. "星" },
                             Theme.StatPill { label = "身价", value = PlayerDetail._formatMoney(player.value) },
@@ -263,8 +299,90 @@ function PlayerDetail._buildOverview(player, team, age, gameState)
                     } or UI.Panel { height = 0 },
                 }
             } or UI.Panel { height = 0 },
+
+            -- 转会操作（非己方球员）
+            PlayerDetail._buildTransferAction(player, gameState),
         }
     }
+end
+
+-- 转会操作区域（概览底部）
+function PlayerDetail._buildTransferAction(player, gameState)
+    -- 只对非己方球员显示
+    if player.teamId == gameState.playerTeamId then
+        return UI.Panel { height = 0 }
+    end
+
+    local hasBid = TransferManager.hasPendingBid(gameState, player.id)
+    local releaseClause = TransferManager.getReleaseClause(gameState, player.id)
+    local attitude = TransferManager.getPlayerTransferAttitude(gameState, player.id, gameState.playerTeamId)
+
+    local attitudeText = attitude == "eager" and "想转会" or (attitude == "open" and "愿考虑" or (attitude == "reluctant" and "不情愿" or "拒绝"))
+    local attitudeColor = attitude == "eager" and Theme.COLORS.SECONDARY
+        or (attitude == "open" and Theme.COLORS.ACCENT
+        or (attitude == "reluctant" and Theme.COLORS.WARNING or Theme.COLORS.DANGER))
+
+    local actionChildren = {
+        Theme.Subtitle { text = "转会" },
+        -- 态度和信息行
+        UI.Panel {
+            width = "100%", flexDirection = "row", alignItems = "center", marginTop = 6, marginBottom = 10,
+            children = {
+                UI.Label { text = "转会态度: ", fontSize = 12, color = Theme.COLORS.TEXT_MUTED },
+                UI.Panel {
+                    backgroundColor = {attitudeColor[1], attitudeColor[2], attitudeColor[3], 30},
+                    borderRadius = 4, paddingLeft = 6, paddingRight = 6, paddingTop = 2, paddingBottom = 2, marginRight = 10,
+                    children = { UI.Label { text = attitudeText, fontSize = 12, color = attitudeColor, fontWeight = "bold" } },
+                },
+                releaseClause and UI.Label {
+                    text = "解约金: " .. PlayerDetail._formatMoney(releaseClause),
+                    fontSize = 12, color = {255, 200, 80, 255},
+                } or UI.Panel { height = 0 },
+            },
+        },
+    }
+
+    if hasBid then
+        table.insert(actionChildren, UI.Button {
+            text = "已提交报价",
+            width = "100%", height = 40,
+            backgroundColor = Theme.COLORS.TEXT_MUTED,
+            borderRadius = 8, fontSize = 14,
+            color = Theme.COLORS.TEXT_PRIMARY,
+        })
+    elseif releaseClause then
+        table.insert(actionChildren, UI.Button {
+            text = "触发解约金 · " .. PlayerDetail._formatMoney(releaseClause),
+            width = "100%", height = 40,
+            backgroundColor = {120, 90, 20, 255},
+            borderRadius = 8, fontSize = 14, fontWeight = "bold",
+            color = {255, 220, 80, 255},
+            onClick = function()
+                TransferManager.triggerReleaseClause(gameState, player.id)
+                UI.Toast.Show({ message = "已触发解约金买断", variant = "success" })
+                Router.replaceWith("player_detail", { playerId = player.id, tab = "overview" })
+            end,
+        })
+    else
+        table.insert(actionChildren, UI.Button {
+            text = "提交转会报价",
+            width = "100%", height = 40,
+            backgroundColor = Theme.COLORS.PRIMARY,
+            borderRadius = 8, fontSize = 14, fontWeight = "bold",
+            color = Theme.COLORS.TEXT_PRIMARY,
+            onClick = function()
+                PlayerDetail._showBidSheet(gameState, player)
+            end,
+        })
+    end
+
+    return Theme.Card { children = actionChildren }
+end
+
+-- 球员详情页的报价弹窗
+function PlayerDetail._showBidSheet(gameState, player)
+    local Market = require("scripts/ui/screens/market")
+    Market._showBidSheet(gameState, player, "all", "", "all")
 end
 
 -- 属性标签
@@ -675,8 +793,6 @@ end
 
 -- 挂牌出售 / 取消挂牌 / 收到报价处理
 function PlayerDetail._buildListForSaleBtn(player, isSafe, safetyReason, gameState)
-    local TransferManager = require("scripts/systems/transfer_manager")
-
     -- 如果有收到的报价，优先显示报价操作
     local incomingBids = TransferManager.getPendingSellBids(gameState)
     for _, bid in ipairs(incomingBids) do
@@ -881,8 +997,11 @@ function PlayerDetail._buildCareer(player, team, age, gameState)
         end
     end
 
-    -- 能力成长状态
-    local potentialGap = (player.potential or 0) - (player.overall or 0)
+    -- 能力成长状态（使用星级替代具体数值）
+    local effectivePotential = player.actualPotential or player.potential or 0
+    local scoutAcc = _getScoutAccuracy(gameState)
+    local potStars, potStarText = _getPotentialStars(effectivePotential, scoutAcc)
+    local potentialGap = effectivePotential - (player.overall or 0)
     local growthStatus = "已达巅峰"
     local growthColor = Theme.COLORS.TEXT_MUTED
     if potentialGap > 15 then
@@ -962,23 +1081,15 @@ function PlayerDetail._buildCareer(player, team, age, gameState)
                                 width = "100%", flexDirection = "row", alignItems = "center",
                                 marginBottom = 8,
                                 children = {
-                                    UI.Label { text = "潜力上限", fontSize = 12, color = Theme.COLORS.TEXT_MUTED, width = 80 },
-                                    UI.Panel {
-                                        flexGrow = 1, height = 12, backgroundColor = {38, 46, 71, 255}, borderRadius = 6,
-                                        children = {
-                                            UI.Panel {
-                                                width = math.floor((player.potential or 0) / 99 * 100) .. "%",
-                                                height = "100%", backgroundColor = Theme.COLORS.ACCENT, borderRadius = 6,
-                                            },
-                                        }
-                                    },
-                                    UI.Label { text = tostring(player.potential or 0), fontSize = 13, color = Theme.COLORS.ACCENT,
-                                        fontWeight = "bold", width = 30, textAlign = "right" },
+                                    UI.Label { text = "潜力评级", fontSize = 12, color = Theme.COLORS.TEXT_MUTED, width = 80 },
+                                    UI.Label { text = potStarText, fontSize = 14, color = Theme.COLORS.ACCENT,
+                                        fontWeight = "bold", flexGrow = 1 },
                                 },
                             },
+
                             UI.Label {
-                                text = string.format("距潜力差距: %d (可发展空间: %s)", potentialGap, growthStatus),
-                                fontSize = 11, color = Theme.COLORS.TEXT_MUTED, marginTop = 4,
+                                text = string.format("可发展空间: %s", growthStatus),
+                                fontSize = 11, color = Theme.COLORS.TEXT_MUTED, marginTop = 2,
                             },
                         }
                     },

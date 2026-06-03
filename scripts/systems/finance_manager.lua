@@ -434,7 +434,7 @@ function FinanceManager.processMonthlyBroadcast(gameState)
 
         -- 转播池按排名分配（第1名拿最大份额，第20名最小）
         local shareRatio = 1.0 + (20 - position) * 0.05  -- 第1=1.95x, 第10=1.50x, 第20=1.00x
-        local baseAmount = rep * 25000 + 1000000
+        local baseAmount = rep * 30000 + 800000
         local amount = math.floor(baseAmount * shareRatio)
 
         team.balance = team.balance + amount
@@ -996,8 +996,8 @@ function FinanceManager.requestBoardInjection(gameState)
     local rep = team.reputation or 50
     -- 用声望推算球队级别，保底 10M，高声望球队更多
     local budgetBase = math.max(team.transferBudget or 0, rep * 300000 + 10000000)
-    local baseAmount = budgetBase * 0.35
-    local amount = math.max(5000000, math.floor(baseAmount / 1000000) * 1000000)  -- 至少5M，取整到百万
+    local baseAmount = budgetBase * 0.18
+    local amount = math.min(20000000, math.max(3000000, math.floor(baseAmount / 1000000) * 1000000))  -- 3M~20M，取整到百万
 
     -- 冷却检查：每赛季最多2次
     if not team.finance then team.finance = {} end
@@ -1013,7 +1013,7 @@ function FinanceManager.requestBoardInjection(gameState)
     team.finance.boardInjectionsThisSeason = injectCount + 1
 
     -- 降低董事会满意度
-    local satLoss = 15 + injectCount * 10  -- 第一次-15, 第二次-25
+    local satLoss = 20 + injectCount * 15  -- 第一次-20, 第二次-35
     team.boardSatisfaction = math.max(0, (team.boardSatisfaction or 50) - satLoss)
 
     FinanceManager.addTransaction(team, {

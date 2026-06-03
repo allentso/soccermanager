@@ -170,8 +170,8 @@ function TrainingManager._trainPlayer(gameState, team, player, intensityConfig, 
     end
     baseChance = baseChance * ageFactor
 
-    -- 潜力修正（距离潜力越远成长越容易）
-    local potential = player.potential or 70
+    -- 潜力修正（距离潜力越远成长越容易，使用局内实际潜力）
+    local potential = player.actualPotential or player.potential or 70
     local overall = player.overall or 50
     local gapFactor = math.max(0.2, (potential - overall) / 30)
     baseChance = baseChance * gapFactor

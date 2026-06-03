@@ -8,8 +8,62 @@ local Constants = require("scripts/app/constants")
 local YouthManager = require("scripts/systems/youth_manager")
 local FinanceManager = require("scripts/systems/finance_manager")
 local ConfirmDialog = require("scripts/ui/components/confirm_dialog")
+local PotentialSystem = require("scripts/systems/potential_system")
+local StaffManager = require("scripts/systems/staff_manager")
 
 local Youth = {}
+
+------------------------------------------------------
+-- 潜力星级显示（1-5星，球探能力影响准确度）
+------------------------------------------------------
+--- 将潜力转换为星级显示（基于球探能力的准确度）
+--- @param potential number 球员潜力值
+--- @param scoutAccuracy number 球探准确度 (0.0-1.0)
+--- @return number stars 星数 (1-5)
+--- @return string display 星级显示字符串
+local function getPotentialStars(potential, scoutAccuracy)
+    -- 若已解锁潜力透视，直接显示精确值
+    local gs = _G.gameState
+    if gs and gs.potentialRevealed then
+        local paRating = PotentialSystem.rawToRating(potential)
+        local text = string.format("%.1f", paRating)
+        return 5, text
+    end
+
+    -- 基于 paRating (1.0-10.0) 映射到 1-5 星
+    local paRating = PotentialSystem.rawToRating(potential)
+    -- paRating 1.0-10.0 → 星数 1-5
+    local exactStars = (paRating - 1.0) / 9.0 * 4.0 + 1.0  -- 1.0→1星, 10.0→5星
+
+    -- 球探能力引入误差：准确度越低，随机偏移越大
+    local accuracy = scoutAccuracy or 0.6
+    local maxError = (1.0 - accuracy) * 1.5  -- 准确度0.6 → 最大偏差0.6星，准确度1.0 → 0偏差
+    -- 使用确定性偏移（基于潜力值本身作为种子，保证同一球员显示稳定）
+    local seed = potential * 7 + 13
+    local pseudoRandom = (math.sin(seed) * 10000) % 1.0  -- 0~1 伪随机
+    local errorOffset = (pseudoRandom - 0.5) * 2 * maxError  -- -maxError ~ +maxError
+
+    local displayStars = math.floor(exactStars + errorOffset + 0.5)
+    displayStars = math.max(1, math.min(5, displayStars))
+
+    -- 生成星号文本
+    local starText = string.rep("★", displayStars) .. string.rep("☆", 5 - displayStars)
+    return displayStars, starText
+end
+
+--- 获取当前球队的球探准确度
+local function getTeamScoutAccuracy(gameState)
+    local teamId = gameState.playerTeamId
+    local scoutBonus = StaffManager.getScoutingBonus(gameState, teamId)
+    -- 基础准确度 0.5 + 球探加成(0~0.2) + 设施加成
+    local facilityBonus = 1.0
+    local team = gameState.teams[teamId]
+    if team and team.finance and team.finance.facilities then
+        local scoutFacility = team.finance.facilities.scouting or 0
+        facilityBonus = 1.0 + scoutFacility * 0.05  -- 每级+5%
+    end
+    return math.min(0.95, (0.50 + scoutBonus) * facilityBonus)
+end
 
 ------------------------------------------------------
 -- 主页面
@@ -22,6 +76,27 @@ function Youth.create(params)
     local candidates = YouthManager.getCandidates(gameState)
 
     local children = {
+        -- 标题栏
+        Theme.TopBar {
+            children = {
+                UI.Button {
+                    text = "返回",
+                    width = 50, height = 36,
+                    backgroundColor = Theme.COLORS.TRANSPARENT,
+                    fontSize = 14, color = Theme.COLORS.TEXT_SECONDARY,
+                    onClick = function() Router.back() end,
+                },
+                UI.Label {
+                    text = "青训学院",
+                    fontSize = 17, color = Theme.COLORS.TEXT_PRIMARY,
+                    fontWeight = "bold", flexGrow = 1, textAlign = "center",
+                },
+                UI.Label {
+                    text = string.format("%d/8人", #youthSquad),
+                    fontSize = 12, color = Theme.COLORS.TEXT_MUTED, width = 50, textAlign = "right",
+                },
+            }
+        },
         Theme.SquadSubNav("youth"),
         UI.Panel {
             width = "100%", flexGrow = 1,
@@ -87,7 +162,7 @@ function Youth._buildSummaryCard(youthSquad)
                 children = {
                     Theme.StatPill { label = "人数", value = tostring(count) },
                     Theme.StatPill { label = "平均能力", value = count > 0 and tostring(avgOvr) or "-" },
-                    Theme.StatPill { label = "平均潜力", value = count > 0 and tostring(avgPot) or "-",
+                    Theme.StatPill { label = "平均潜力", value = count > 0 and "★" .. string.format("%.1f", avgPot > 0 and ((PotentialSystem.rawToRating(avgPot) - 1.0) / 9.0 * 4.0 + 1.0) or 0) or "-",
                         valueColor = Theme.COLORS.ACCENT },
                 },
             },
@@ -138,17 +213,14 @@ function Youth._buildCandidatesSection(candidates, gameState)
 end
 
 function Youth._buildCandidateCard(candidate, index, gameState)
-    local posColor = Theme.COLORS.TEXT_SECONDARY
-    if candidate.position == "GK" then posColor = {255, 204, 0, 255}
-    elseif candidate.position == "CB" or candidate.position == "LB" or candidate.position == "RB" then posColor = {77, 179, 255, 255}
-    elseif candidate.position == "ST" or candidate.position == "CF" or candidate.position == "LW" or candidate.position == "RW" then posColor = {255, 102, 102, 255}
-    else posColor = {102, 255, 128, 255}
-    end
+    local posColor = Theme.posColor(candidate.position)
 
-    -- 潜力评级颜色
+    -- 潜力星级
+    local scoutAccuracy = getTeamScoutAccuracy(gameState)
+    local potStars, potStarText = getPotentialStars(candidate.potential, scoutAccuracy)
     local potColor = Theme.COLORS.TEXT_MUTED
-    if candidate.potential >= 75 then potColor = Theme.COLORS.ACCENT
-    elseif candidate.potential >= 60 then potColor = Theme.COLORS.SECONDARY
+    if potStars >= 4 then potColor = Theme.COLORS.ACCENT
+    elseif potStars >= 3 then potColor = Theme.COLORS.SECONDARY
     end
 
     return UI.Panel {
@@ -186,14 +258,14 @@ function Youth._buildCandidateCard(candidate, index, gameState)
                     },
                 },
             },
-            -- 潜力
+            -- 潜力星级
             UI.Panel {
                 alignItems = "center",
                 marginRight = 10,
                 children = {
                     UI.Label {
-                        text = tostring(candidate.potential),
-                        fontSize = 14,
+                        text = potStarText,
+                        fontSize = 12,
                         color = potColor,
                         fontWeight = "bold",
                     },
@@ -226,6 +298,8 @@ end
 -- 签入确认
 ------------------------------------------------------
 function Youth._confirmSign(candidate, index, gameState)
+    local scoutAccuracy = getTeamScoutAccuracy(gameState)
+    local _, potStarText = getPotentialStars(candidate.potential, scoutAccuracy)
     ConfirmDialog.showWithDetails({
         title = "签入青训球员",
         details = {
@@ -233,7 +307,7 @@ function Youth._confirmSign(candidate, index, gameState)
             { label = "位置", value = Constants.POSITION_NAMES[candidate.position] or candidate.position },
             { label = "年龄", value = tostring(candidate.age) .. "岁" },
             { label = "能力", value = tostring(candidate.overall) },
-            { label = "潜力", value = tostring(candidate.potential), valueColor = Theme.COLORS.ACCENT },
+            { label = "潜力", value = potStarText, valueColor = Theme.COLORS.ACCENT },
             { label = "周薪", value = FinanceManager.formatMoney(500) },
             { label = "合同", value = "3年" },
         },
@@ -285,16 +359,14 @@ function Youth._buildSquadSection(youthSquad, gameState)
 end
 
 function Youth._buildYouthPlayerRow(player, gameState)
-    local posColor = Theme.COLORS.TEXT_SECONDARY
-    if player.position == "GK" then posColor = {255, 204, 0, 255}
-    elseif player.position == "CB" or player.position == "LB" or player.position == "RB" then posColor = {77, 179, 255, 255}
-    elseif player.position == "ST" or player.position == "CF" or player.position == "LW" or player.position == "RW" then posColor = {255, 102, 102, 255}
-    else posColor = {102, 255, 128, 255}
-    end
+    local posColor = Theme.posColor(player.position)
 
+    local effectivePot = player.actualPotential or player.potential or 0
+    local scoutAccuracy = getTeamScoutAccuracy(gameState)
+    local potStars, potStarText = getPotentialStars(effectivePot, scoutAccuracy)
     local potColor = Theme.COLORS.TEXT_MUTED
-    if (player.potential or 0) >= 75 then potColor = Theme.COLORS.ACCENT
-    elseif (player.potential or 0) >= 60 then potColor = Theme.COLORS.SECONDARY
+    if potStars >= 4 then potColor = Theme.COLORS.ACCENT
+    elseif potStars >= 3 then potColor = Theme.COLORS.SECONDARY
     end
 
     local age = player.birthYear and (gameState.date.year - player.birthYear) or "?"
@@ -330,14 +402,14 @@ function Youth._buildYouthPlayerRow(player, gameState)
                         fontWeight = "bold",
                     },
                     UI.Label {
-                        text = string.format("%s岁 | 能力%d | 潜力%d",
-                            tostring(age), player.overall or 0, player.potential or 0),
+                        text = string.format("%s岁 | 能力%d | 潜力%s",
+                            tostring(age), player.overall or 0, potStarText),
                         fontSize = 11,
                         color = Theme.COLORS.TEXT_MUTED,
                     },
                 },
             },
-            -- 能力/潜力
+            -- 能力/潜力星级
             UI.Panel {
                 flexDirection = "row",
                 alignItems = "center",
@@ -356,8 +428,8 @@ function Youth._buildYouthPlayerRow(player, gameState)
                         marginRight = 6,
                     },
                     UI.Label {
-                        text = tostring(player.potential or 0),
-                        fontSize = 14,
+                        text = potStarText,
+                        fontSize = 12,
                         color = potColor,
                         fontWeight = "bold",
                     },
@@ -455,6 +527,8 @@ end
 function Youth._confirmPromote(player, gameState)
     local age = player.birthYear and (gameState.date.year - player.birthYear) or 0
     local newWage = math.max(1000, math.floor((player.overall or 0) * 80))
+    local scoutAccuracy = getTeamScoutAccuracy(gameState)
+    local _, potStarText = getPotentialStars(player.actualPotential or player.potential or 0, scoutAccuracy)
 
     ConfirmDialog.showWithDetails({
         title = "提拔至一线队",
@@ -463,7 +537,7 @@ function Youth._confirmPromote(player, gameState)
             { label = "位置", value = Constants.POSITION_NAMES[player.position] or player.position },
             { label = "年龄", value = tostring(age) .. "岁" },
             { label = "能力", value = tostring(player.overall or 0) },
-            { label = "潜力", value = tostring(player.potential or 0), valueColor = Theme.COLORS.ACCENT },
+            { label = "潜力", value = potStarText, valueColor = Theme.COLORS.ACCENT },
             { label = "新周薪", value = FinanceManager.formatMoney(newWage), valueColor = Theme.COLORS.WARNING },
             { label = "合同", value = "3年" },
         },

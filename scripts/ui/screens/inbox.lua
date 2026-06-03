@@ -74,7 +74,7 @@ local CATEGORY_MAP = {
 
 -- 分类颜色（语义色）
 local CATEGORY_COLORS = {
-    match = Theme.COLORS.INFO_BLUE,
+    match = Theme.COLORS.GOLD,
     injury = Theme.COLORS.DANGER,
     board = Theme.COLORS.FINANCE_GREEN,
     transfer = Theme.COLORS.MATCH_ORANGE,
@@ -99,7 +99,7 @@ local CATEGORY_LABELS = {
 -- 优先级颜色（三级：紧急/重要/普通）
 local PRIORITY_COLORS = {
     high = Theme.COLORS.DANGER,         -- 红色紧急
-    normal = Theme.COLORS.INFO_BLUE,    -- 蓝色普通
+    normal = Theme.COLORS.GOLD,          -- 金色普通
     low = Theme.COLORS.TEXT_MUTED,      -- 灰色低优先
 }
 
@@ -287,7 +287,7 @@ function Inbox._showDetail(msg, currentTab)
     local catColor = CATEGORY_COLORS[msgCat] or Theme.COLORS.TEXT_MUTED
     local catIcon = CATEGORY_ICONS[msgCat] or "📋"
     local priorityLabel = PRIORITY_LABELS[msg.priority] or "普通"
-    local priorityColor = PRIORITY_COLORS[msg.priority] or Theme.COLORS.PRIMARY
+    local priorityColor = PRIORITY_COLORS[msg.priority] or Theme.COLORS.GOLD
     local priorityIcon = PRIORITY_ICONS[msg.priority] or "🔵"
 
     -- 标记已读
@@ -387,7 +387,7 @@ function Inbox._showDetail(msg, currentTab)
 
         for idx, act in ipairs(msg.actions) do
             -- 第一个动作用主色，后续用次级
-            local btnColor = idx == 1 and Theme.COLORS.PRIMARY or Theme.COLORS.BG_SURFACE
+            local btnColor = idx == 1 and Theme.COLORS.GOLD or Theme.COLORS.BG_SURFACE
             local txtColor = idx == 1 and Theme.COLORS.TEXT_PRIMARY or Theme.COLORS.TEXT_SECONDARY
             table.insert(contentChildren, UI.Button {
                 text = act.label or "操作",
@@ -478,7 +478,7 @@ function Inbox._getContextActions(msg)
         if msg.extra and msg.extra.playerId then
             table.insert(actions, {
                 label = "查看球员",
-                color = Theme.COLORS.PRIMARY,
+                color = Theme.COLORS.GOLD,
                 action = function()
                     Router.navigate("player_detail", { playerId = msg.extra.playerId })
                 end,
@@ -498,7 +498,7 @@ function Inbox._getContextActions(msg)
         if msg.extra and msg.extra.playerId then
             table.insert(actions, {
                 label = "查看球员",
-                color = Theme.COLORS.PRIMARY,
+                color = Theme.COLORS.GOLD,
                 action = function()
                     Router.navigate("player_detail", { playerId = msg.extra.playerId })
                 end,
@@ -514,7 +514,7 @@ function Inbox._getContextActions(msg)
         if msg.extra and msg.extra.playerId then
             table.insert(actions, {
                 label = "查看球员",
-                color = Theme.COLORS.PRIMARY,
+                color = Theme.COLORS.GOLD,
                 action = function()
                     Router.navigate("player_detail", { playerId = msg.extra.playerId })
                 end,
@@ -528,7 +528,7 @@ function Inbox._getContextActions(msg)
     elseif cat == "match_result" or cat == "match_preview" or cat == "pre_match" then
         table.insert(actions, {
             label = "查看赛事",
-            color = Theme.COLORS.PRIMARY,
+            color = Theme.COLORS.GOLD,
             action = function() Router.navigate("league") end,
         })
     elseif cat == "finance" then
@@ -616,10 +616,10 @@ function Inbox.create(params)
             height = 32,
             paddingLeft = 12,
             paddingRight = 12,
-            backgroundColor = isActive and Theme.COLORS.PRIMARY or Theme.COLORS.BG_SURFACE,
+            backgroundColor = isActive and Theme.COLORS.GOLD or Theme.COLORS.BG_SURFACE,
             borderRadius = 16,
             fontSize = 12,
-            color = isActive and Theme.COLORS.TEXT_PRIMARY or Theme.COLORS.TEXT_SECONDARY,
+            color = isActive and "#1A1A1A" or Theme.COLORS.TEXT_SECONDARY,
             fontWeight = isActive and "bold" or "normal",
             marginRight = 6,
             onClick = function()
@@ -640,7 +640,7 @@ function Inbox.create(params)
         local catIcon = CATEGORY_ICONS[msgCat] or "📋"
         local hasActions = (msg.actions and #msg.actions > 0)
         local isHighPriority = msg.priority == "high"
-        local priorityColor = PRIORITY_COLORS[msg.priority] or Theme.COLORS.INFO_BLUE
+        local priorityColor = PRIORITY_COLORS[msg.priority] or Theme.COLORS.GOLD
 
         -- 行背景：紧急未读最亮，普通未读次之，已读最暗
         local rowBg = Theme.COLORS.TRANSPARENT
@@ -777,7 +777,7 @@ function Inbox.create(params)
                         width = 50, height = 28,
                         backgroundColor = Theme.COLORS.BG_SURFACE,
                         borderRadius = 14,
-                        fontSize = 11, color = Theme.COLORS.PRIMARY,
+                        fontSize = 11, color = Theme.COLORS.GOLD,
                         onClick = function()
                             for _, msg in ipairs(gameState.inbox) do msg.read = true end
                             Router.replaceWith("inbox", { tab = currentTab })

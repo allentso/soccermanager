@@ -9,21 +9,17 @@ local EventBus = require("scripts/app/event_bus")
 local CreateManager = {}
 
 function CreateManager.create()
-    local firstNameField = nil
-    local lastNameField = nil
-
     local page = UI.Panel {
         width = "100%",
         height = "100%",
         backgroundColor = Theme.COLORS.BG_DARK,
-        padding = 20,
         children = {
-            -- 标题
+            -- 标题栏
             Theme.TopBar {
                 children = {
                     UI.Button {
-                        text = "返回",
-                        width = 60,
+                        text = "← 返回",
+                        width = 80,
                         height = 36,
                         backgroundColor = Theme.COLORS.TRANSPARENT,
                         fontSize = 14,
@@ -34,13 +30,13 @@ function CreateManager.create()
                     },
                     UI.Label {
                         text = "创建经理",
-                        fontSize = 18,
+                        fontSize = 17,
                         color = Theme.COLORS.TEXT_PRIMARY,
                         fontWeight = "bold",
                         flexGrow = 1,
                         textAlign = "center",
                     },
-                    UI.Panel { width = 60 },
+                    UI.Panel { width = 80 },
                 }
             },
 
@@ -50,68 +46,89 @@ function CreateManager.create()
                 flexGrow = 1,
                 alignItems = "center",
                 justifyContent = "center",
-                paddingLeft = 20,
-                paddingRight = 20,
+                paddingLeft = 32,
+                paddingRight = 32,
                 children = {
+                    -- 装饰图标
                     UI.Label {
-                        text = "输入你的姓名",
-                        fontSize = 15,
-                        color = Theme.COLORS.TEXT_SECONDARY,
-                        marginBottom = 24,
+                        text = "⚽",
+                        fontSize = 40,
+                        marginBottom = 16,
                     },
-
-                    -- 姓氏
                     UI.Label {
-                        text = "姓氏",
+                        text = "你的执教生涯从这里开始",
+                        fontSize = 16,
+                        color = Theme.COLORS.TEXT_PRIMARY,
+                        fontWeight = "bold",
+                        marginBottom = 6,
+                    },
+                    UI.Label {
+                        text = "输入你作为主教练的姓名",
                         fontSize = 13,
                         color = Theme.COLORS.TEXT_MUTED,
+                        marginBottom = 36,
+                    },
+
+                    -- 姓氏输入框
+                    UI.Label {
+                        text = "姓氏",
+                        fontSize = 12,
+                        color = Theme.COLORS.GOLD,
                         width = "100%",
                         marginBottom = 6,
+                        fontWeight = "bold",
+                        letterSpacing = 1,
                     },
                     UI.TextField {
                         id = "lastName",
                         width = "100%",
-                        height = 44,
+                        height = 48,
                         placeholder = "请输入姓氏",
                         fontSize = 15,
                         backgroundColor = Theme.COLORS.BG_CARD,
-                        borderRadius = 8,
+                        borderRadius = 12,
+                        borderWidth = 1,
+                        borderColor = Theme.COLORS.BORDER,
                         color = Theme.COLORS.TEXT_PRIMARY,
-                        marginBottom = 16,
+                        marginBottom = 18,
+                        paddingLeft = 14,
                     },
 
-                    -- 名字
+                    -- 名字输入框
                     UI.Label {
                         text = "名字",
-                        fontSize = 13,
-                        color = Theme.COLORS.TEXT_MUTED,
+                        fontSize = 12,
+                        color = Theme.COLORS.GOLD,
                         width = "100%",
                         marginBottom = 6,
+                        fontWeight = "bold",
+                        letterSpacing = 1,
                     },
                     UI.TextField {
                         id = "firstName",
                         width = "100%",
-                        height = 44,
+                        height = 48,
                         placeholder = "请输入名字",
                         fontSize = 15,
                         backgroundColor = Theme.COLORS.BG_CARD,
-                        borderRadius = 8,
+                        borderRadius = 12,
+                        borderWidth = 1,
+                        borderColor = Theme.COLORS.BORDER,
                         color = Theme.COLORS.TEXT_PRIMARY,
-                        marginBottom = 30,
+                        marginBottom = 36,
+                        paddingLeft = 14,
                     },
 
                     -- 确认按钮
                     Theme.PrimaryButton {
-                        text = "开始选择球队",
+                        text = "选择你的球队 →",
                         onClick = function()
                             local fnField = UI.FindById("firstName")
                             local lnField = UI.FindById("lastName")
                             local firstName = fnField and fnField:GetText() or ""
                             local lastName = lnField and lnField:GetText() or ""
-                            -- 默认值
                             if firstName == "" then firstName = "Alex" end
                             if lastName == "" then lastName = "Manager" end
-                            -- 传递数据到选择球队页面
                             NavigateTo("select_team", {
                                 firstName = firstName,
                                 lastName = lastName,

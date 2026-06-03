@@ -10,6 +10,25 @@ local Theme = {}
 Theme.COLORS = Constants.COLORS
 
 ------------------------------------------------------
+-- 统一位置颜色（门将黄、后卫蓝、中场绿、前锋红）
+------------------------------------------------------
+
+--- 根据位置代码返回统一颜色
+---@param pos string 位置代码如 "GK", "CB", "LB", "RB", "CM", "ST" 等
+---@return table RGBA颜色
+function Theme.posColor(pos)
+    if pos == "GK" then
+        return {255, 204, 0, 255}       -- 门将：黄色
+    elseif pos == "CB" or pos == "LB" or pos == "RB" then
+        return {77, 179, 255, 255}      -- 后卫：蓝色
+    elseif pos == "ST" or pos == "CF" or pos == "LW" or pos == "RW" then
+        return {255, 102, 102, 255}     -- 前锋：红色
+    else
+        return {102, 255, 128, 255}     -- 中场：绿色（CM, CDM, CAM, LM, RM）
+    end
+end
+
+------------------------------------------------------
 -- 卡片系统 - 三级视觉层级
 ------------------------------------------------------
 
@@ -18,9 +37,11 @@ function Theme.Card(props)
     return UI.Panel {
         width = "100%",
         backgroundColor = props.backgroundColor or Theme.COLORS.BG_CARD,
-        borderRadius = 12,
+        borderRadius = 14,
         padding = 14,
         marginBottom = props.marginBottom or 10,
+        borderWidth = 1,
+        borderColor = Theme.COLORS.BORDER,
         onClick = props.onClick,
         children = props.children or {},
     }
@@ -28,7 +49,7 @@ end
 
 -- 高亮卡片（重要信息，如下一场比赛、紧急通知）
 function Theme.HeroCard(props)
-    local accentColor = props.accentColor or Theme.COLORS.MATCH_ORANGE
+    local accentColor = props.accentColor or Theme.COLORS.GOLD
     return UI.Panel {
         width = "100%",
         backgroundColor = Theme.COLORS.BG_CARD_ELEVATED,
@@ -70,6 +91,8 @@ function Theme.TopBar(props)
         alignItems = "center",
         paddingLeft = 14,
         paddingRight = 14,
+        borderBottomWidth = 1,
+        borderColor = Theme.COLORS.BORDER,
         children = props.children or {},
     }
 end
@@ -78,7 +101,7 @@ end
 function Theme.BottomNav(props)
     return UI.Panel {
         width = "100%",
-        height = 60,
+        height = 58,
         backgroundColor = Theme.COLORS.BG_HEADER,
         flexDirection = "row",
         alignItems = "center",
@@ -92,15 +115,22 @@ end
 -- 导航按钮
 function Theme.NavButton(props)
     local isActive = props.active or false
-    return UI.Button {
-        text = props.label or "",
-        width = 60,
-        height = 44,
-        backgroundColor = isActive and Theme.COLORS.PRIMARY or Theme.COLORS.TRANSPARENT,
-        borderRadius = 8,
-        fontSize = 12,
-        color = isActive and Theme.COLORS.TEXT_PRIMARY or Theme.COLORS.TEXT_SECONDARY,
+    return UI.Panel {
+        width = 64,
+        height = 42,
+        justifyContent = "center",
+        alignItems = "center",
+        borderRadius = 10,
+        backgroundColor = isActive and "rgba(212,175,55,0.15)" or Theme.COLORS.TRANSPARENT,
         onClick = props.onClick,
+        children = {
+            UI.Label {
+                text = props.label or "",
+                fontSize = 12,
+                fontWeight = isActive and "bold" or "normal",
+                color = isActive and Theme.COLORS.GOLD or Theme.COLORS.TEXT_MUTED,
+            },
+        },
     }
 end
 
@@ -110,22 +140,30 @@ function Theme.SubNav(items, activeKey)
     local tabs = {}
     for _, item in ipairs(items) do
         local isActive = item.key == activeKey
-        table.insert(tabs, UI.Button {
-            text = item.label,
+        table.insert(tabs, UI.Panel {
             height = 32,
             paddingLeft = 14,
             paddingRight = 14,
-            backgroundColor = isActive and Theme.COLORS.PRIMARY or Theme.COLORS.TRANSPARENT,
+            backgroundColor = isActive and "rgba(212,175,55,0.15)" or Theme.COLORS.TRANSPARENT,
             borderRadius = 16,
-            fontSize = 13,
-            color = isActive and Theme.COLORS.TEXT_PRIMARY or Theme.COLORS.TEXT_SECONDARY,
-            fontWeight = isActive and "bold" or "normal",
-            marginRight = 4,
+            borderWidth = isActive and 1 or 0,
+            borderColor = "rgba(212,175,55,0.4)",
+            justifyContent = "center",
+            alignItems = "center",
+            marginRight = 6,
             onClick = function()
                 if not isActive then
                     Router.replaceWith(item.screen, item.params)
                 end
             end,
+            children = {
+                UI.Label {
+                    text = item.label,
+                    fontSize = 13,
+                    color = isActive and Theme.COLORS.GOLD or Theme.COLORS.TEXT_SECONDARY,
+                    fontWeight = isActive and "bold" or "normal",
+                },
+            },
         })
     end
     return UI.Panel {
@@ -232,7 +270,7 @@ end
 
 -- 带语义色的节标题（用于 Dashboard 各区块）
 function Theme.SectionHeader(props)
-    local color = props.color or Theme.COLORS.TEXT_PRIMARY
+    local color = props.color or Theme.COLORS.GOLD
     return UI.Panel {
         width = "100%",
         flexDirection = "row",
@@ -249,7 +287,7 @@ function Theme.SectionHeader(props)
             UI.Label {
                 text = props.text or "",
                 fontSize = 15,
-                color = color,
+                color = Theme.COLORS.TEXT_PRIMARY,
                 fontWeight = "bold",
                 flexGrow = 1,
             },
@@ -511,12 +549,7 @@ function Theme.PlayerRow(props)
     local player = props.player
     if not player then return UI.Panel{height=0} end
 
-    local posColor = Theme.COLORS.TEXT_SECONDARY
-    if player.position == "GK" then posColor = {255, 204, 0, 255}
-    elseif player.position == "CB" or player.position == "LB" or player.position == "RB" then posColor = {77, 179, 255, 255}
-    elseif player.position == "ST" or player.position == "CF" or player.position == "LW" or player.position == "RW" then posColor = {255, 102, 102, 255}
-    else posColor = {102, 255, 128, 255}
-    end
+    local posColor = Theme.posColor(player.position)
 
     return UI.Panel {
         width = "100%",
@@ -574,29 +607,48 @@ function Theme.Divider()
 end
 
 function Theme.PrimaryButton(props)
-    return UI.Button {
-        text = props.text or "确认",
+    return UI.Panel {
         width = props.width or "100%",
-        height = props.height or 44,
-        backgroundColor = props.color or Theme.COLORS.PRIMARY,
-        borderRadius = 8,
-        fontSize = 15,
-        color = Theme.COLORS.TEXT_PRIMARY,
-        fontWeight = "bold",
+        height = props.height or 48,
+        borderRadius = 24,
+        backgroundColor = props.color or Theme.COLORS.GOLD,
+        justifyContent = "center",
+        alignItems = "center",
+        shadowColor = "rgba(212,175,55,0.3)",
+        shadowOffset = { x = 0, y = 3 },
+        shadowRadius = 10,
         onClick = props.onClick,
+        children = {
+            UI.Label {
+                text = props.text or "确认",
+                fontSize = 15,
+                fontWeight = "bold",
+                color = "#1A1A1A",
+                letterSpacing = 1,
+            },
+        },
     }
 end
 
 function Theme.SecondaryButton(props)
-    return UI.Button {
-        text = props.text or "取消",
+    return UI.Panel {
         width = props.width or "100%",
-        height = props.height or 44,
-        backgroundColor = Theme.COLORS.BG_SURFACE,
-        borderRadius = 8,
-        fontSize = 15,
-        color = Theme.COLORS.TEXT_SECONDARY,
+        height = props.height or 48,
+        borderRadius = 24,
+        backgroundColor = "rgba(255,255,255,0.06)",
+        borderWidth = 1,
+        borderColor = "rgba(255,255,255,0.2)",
+        justifyContent = "center",
+        alignItems = "center",
         onClick = props.onClick,
+        children = {
+            UI.Label {
+                text = props.text or "取消",
+                fontSize = 15,
+                color = Theme.COLORS.TEXT_SECONDARY,
+                letterSpacing = 1,
+            },
+        },
     }
 end
 

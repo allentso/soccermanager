@@ -15,8 +15,8 @@ function GameState.new()
     local self = setmetatable({}, GameState)
 
     -- 日期与赛季
-    self.date = {year = 2024, month = 8, day = 10}
-    self.season = 2024
+    self.date = {year = 2025, month = 8, day = 10}
+    self.season = 2025
     self.dayOfWeek = 1  -- 1=周一
 
     -- 玩家经理
@@ -229,6 +229,8 @@ function GameState:serialize()
         scoutReports = self.scoutReports,
         nextId = self.nextId,
         turnState = self.turnState,
+        potentialRevealed = self.potentialRevealed or false,
+        potentialRevealProgress = self.potentialRevealProgress or 0,
     }
 end
 
@@ -247,6 +249,8 @@ function GameState:deserialize(data)
     self.worldHistory = data.worldHistory or {}
     self.transfers = data.transfers or { bids = {}, history = {}, nextBidId = 1 }
     self.scoutReports = data.scoutReports or {}
+    self.potentialRevealed = data.potentialRevealed or false
+    self.potentialRevealProgress = data.potentialRevealProgress or 0
 
     -- 恢复球员
     self.players = {}

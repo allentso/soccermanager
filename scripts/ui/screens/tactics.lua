@@ -229,14 +229,20 @@ function Tactics.create(params)
             -- 内部 tab 切换
             Tactics._buildTabBar(),
 
-            -- 内容
-            UI.ScrollView {
-                flexGrow = 1,
-                flexBasis = 0,
-                scrollY = true,
-                padding = 14,
-                children = content,
-            },
+            -- 内容（保存引用用于局部刷新）
+            (function()
+                local sv = UI.ScrollView {
+                    flexGrow = 1,
+                    flexBasis = 0,
+                    scrollY = true,
+                    padding = 14,
+                    children = content,
+                }
+                if _activeTab == "formation" then
+                    _formationScrollView = sv
+                end
+                return sv
+            end)(),
 
             -- 底部导航
             Theme.MainNav("squad"),
@@ -258,7 +264,7 @@ function Tactics._buildTabBar()
             height = 34,
             paddingLeft = 16,
             paddingRight = 16,
-            backgroundColor = isActive and Theme.COLORS.PRIMARY or Theme.COLORS.TRANSPARENT,
+            backgroundColor = isActive and Theme.COLORS.ACCENT or Theme.COLORS.TRANSPARENT,
             borderRadius = 17,
             fontSize = 13,
             color = isActive and Theme.COLORS.TEXT_PRIMARY or Theme.COLORS.TEXT_SECONDARY,
@@ -286,14 +292,32 @@ end
 ---------------------------------------------------------------------------
 -- 阵型与球场视图
 ---------------------------------------------------------------------------
-function Tactics._buildFormationContent(gameState, team)
+
+-- 局部 ScrollView 引用，用于局部刷新避免整页重建
+---@type any
+local _formationScrollView = nil
+
+-- 构建阵型内容子元素
+local function _buildFormationChildren(gameState, team)
     local currentFormation = team.formation or "4-4-2"
     local currentPlayStyle = team.playStyle or "Balanced"
-    -- 确保变体字段存在
     if not team.formationVariant then
         team.formationVariant = Constants.getDefaultVariant(currentFormation)
     end
     local currentVariant = team.formationVariant
+
+    -- 前置声明刷新函数：清空 ScrollView 并重建内容
+    local function refresh()
+        if _formationScrollView then
+            _formationScrollView:ClearChildren()
+            local newChildren = _buildFormationChildren(gameState, team)
+            -- 用单一 Panel 包裹所有子元素，确保 ScrollView 高度计算正确
+            _formationScrollView:AddChild(UI.Panel {
+                width = "100%",
+                children = newChildren,
+            })
+        end
+    end
 
     -- 阵型按钮
     local formationChildren = {}
@@ -303,7 +327,7 @@ function Tactics._buildFormationContent(gameState, team)
             text = fmt,
             width = "30%",
             height = 42,
-            backgroundColor = isActive and Theme.COLORS.PRIMARY or Theme.COLORS.BG_CARD,
+            backgroundColor = isActive and Theme.COLORS.ACCENT or Theme.COLORS.BG_CARD,
             borderRadius = 8,
             borderWidth = isActive and 0 or 1,
             borderColor = Theme.COLORS.BORDER,
@@ -314,11 +338,10 @@ function Tactics._buildFormationContent(gameState, team)
             onClick = function()
                 if fmt ~= team.formation then
                     team.formation = fmt
-                    -- 切换阵型时重置变体为该阵型的默认变体
                     team.formationVariant = Constants.getDefaultVariant(fmt)
                     AIManager.rearrangeForFormation(gameState, team)
                 end
-                Router.replaceWith("tactics", { tab = "formation" })
+                refresh()
             end,
         })
     end
@@ -333,12 +356,12 @@ function Tactics._buildFormationContent(gameState, team)
             height = 36,
             paddingLeft = 14,
             paddingRight = 14,
-            backgroundColor = isActive and {62, 166, 255, 40} or Theme.COLORS.BG_SURFACE,
+            backgroundColor = isActive and {212, 175, 55, 40} or Theme.COLORS.BG_SURFACE,
             borderRadius = 18,
             borderWidth = isActive and 2 or 1,
-            borderColor = isActive and Theme.COLORS.PRIMARY or Theme.COLORS.BORDER,
+            borderColor = isActive and Theme.COLORS.ACCENT or Theme.COLORS.BORDER,
             fontSize = 12,
-            color = isActive and Theme.COLORS.PRIMARY or Theme.COLORS.TEXT_SECONDARY,
+            color = isActive and Theme.COLORS.ACCENT or Theme.COLORS.TEXT_SECONDARY,
             fontWeight = isActive and "bold" or "normal",
             marginRight = 8,
             marginBottom = 6,
@@ -347,7 +370,7 @@ function Tactics._buildFormationContent(gameState, team)
                     team.formationVariant = v.key
                     AIManager.rearrangeForFormation(gameState, team)
                 end
-                Router.replaceWith("tactics", { tab = "formation" })
+                refresh()
             end,
         })
     end
@@ -375,7 +398,7 @@ function Tactics._buildFormationContent(gameState, team)
             marginBottom = 8,
             onClick = function()
                 team.playStyle = style
-                Router.replaceWith("tactics", { tab = "formation" })
+                refresh()
             end,
         })
     end
@@ -439,6 +462,13 @@ function Tactics._buildFormationContent(gameState, team)
     }
 end
 
+function Tactics._buildFormationContent(gameState, team)
+    local items = _buildFormationChildren(gameState, team)
+    -- 返回单一 Panel 包裹，ScrollView 只有一个直接子节点
+    -- 避免 UpdateContentSize 递归进入绝对定位子元素导致高度计算异常
+    return { UI.Panel { width = "100%", children = items } }
+end
+
 -- 球场视图: 用 UI 面板模拟球场+球员点位（点击可换人）
 -- 风格 → 各位置组的箭头方向 (dx, dy) 和颜色
 local STYLE_ARROWS = {
@@ -467,13 +497,15 @@ local STYLE_ARROWS = {
     },
 }
 
+-- 位置颜色统一使用 Theme.posColor()
+
 function Tactics._buildPitchView(gameState, team, formation)
     local variantKey = team.formationVariant
     local positions = getFormationPositions(formation, variantKey)
     local startingXI = team.startingXI or {}
     local slots = AIManager._getFormationSlots(formation, variantKey)
-    local pitchW = 300
-    local pitchH = 420
+    local pitchW = 340
+    local pitchH = 460
     local playStyle = team.playStyle or "Balanced"
     local arrowDef = STYLE_ARROWS[playStyle] or STYLE_ARROWS.Balanced
 
@@ -504,14 +536,14 @@ function Tactics._buildPitchView(gameState, team, formation)
 
         local player = startingXI[i] and gameState.players[startingXI[i]]
         local label = player and (string.sub(player.displayName, 1, 6)) or tostring(i)
-        local dotColor = i == 1 and {255, 204, 0, 255} or Theme.COLORS.PRIMARY
+        local slotPos = slots[i] or "CM"
+        local dotColor = Theme.posColor(slotPos)
         local slotIdx = i
 
         -- 检查是否有角色设定
         local hasRole = roleKey and roleKey ~= "default"
 
         -- 确定位置组用于箭头
-        local slotPos = slots[i] or "CM"
         local group = "MID"
         if slotPos == "GK" then group = "GK"
         elseif slotPos == "CB" or slotPos == "LB" or slotPos == "RB" then group = "DEF"
@@ -528,31 +560,34 @@ function Tactics._buildPitchView(gameState, team, formation)
             else arrowLabel = "●" end               -- 原地(控球)
         end
 
-        local dotChildren = {
-            UI.Label {
-                text = label,
-                fontSize = 8,
-                color = {255, 255, 255, 255},
-                textAlign = "center",
-            },
-        }
-
         table.insert(dots, UI.Panel {
             position = "absolute",
             left = left,
             top = top,
-            width = 32,
-            height = 32,
-            borderRadius = 16,
-            backgroundColor = dotColor,
-            borderWidth = hasRole and 2 or 0,
-            borderColor = {255, 255, 255, 200},
-            justifyContent = "center",
+            width = 40,
             alignItems = "center",
             onClick = function()
                 Tactics._showSlotSwapSheet(gameState, team, slotIdx, slots)
             end,
-            children = dotChildren,
+            children = {
+                -- 圆点
+                UI.Panel {
+                    width = 20,
+                    height = 20,
+                    borderRadius = 10,
+                    backgroundColor = dotColor,
+                    borderWidth = hasRole and 2 or 0,
+                    borderColor = {255, 255, 255, 200},
+                },
+                -- 名字在圆点下方
+                UI.Label {
+                    text = label,
+                    fontSize = 9,
+                    color = {255, 255, 255, 230},
+                    textAlign = "center",
+                    marginTop = 2,
+                },
+            },
         })
 
         -- 箭头元素（在球员点上方或下方）
@@ -672,6 +707,7 @@ function Tactics._buildPitchView(gameState, team, formation)
                 borderColor = {255, 255, 255, 60},
                 alignSelf = "center",
                 marginTop = 8,
+                overflow = "hidden",
                 children = pitchChildren,
             },
             styleDescLabel,
@@ -685,13 +721,6 @@ function Tactics._buildStartingXICard(gameState, team)
     local formation = team.formation or "4-4-2"
     local slots = AIManager._getFormationSlots(formation, team.formationVariant)
 
-    -- 位置分类映射
-    local POS_GROUP_MAP = {
-        GK = "GK", CB = "DEF", LB = "DEF", RB = "DEF",
-        CDM = "MID", CM = "MID", LM = "MID", RM = "MID", CAM = "MID",
-        LW = "FWD", RW = "FWD", ST = "FWD", CF = "FWD",
-    }
-
     local startingChildren = {}
     for i, pid in ipairs(startingXI) do
         local p = gameState.players[pid]
@@ -699,14 +728,8 @@ function Tactics._buildStartingXICard(gameState, team)
             local slotPos = slots[i] or p.position
             local slotIdx = i
 
-            -- 位置颜色
-            local posColor = Theme.COLORS.TEXT_SECONDARY
-            local group = POS_GROUP_MAP[slotPos]
-            if group == "GK" then posColor = {255, 204, 0, 255}
-            elseif group == "DEF" then posColor = {77, 179, 255, 255}
-            elseif group == "MID" then posColor = {102, 255, 128, 255}
-            elseif group == "FWD" then posColor = {255, 102, 102, 255}
-            end
+            -- 位置颜色（统一）
+            local posColor = Theme.posColor(slotPos)
 
             local posFullName = Constants.POSITION_NAMES[slotPos] or slotPos
 
@@ -738,7 +761,7 @@ function Tactics._buildStartingXICard(gameState, team)
                     },
                     -- 位置徽章
                     UI.Panel {
-                        backgroundColor = {posColor[1], posColor[2], posColor[3], 30},
+                        backgroundColor = {posColor[1], posColor[2], posColor[3], 50},
                         borderRadius = 3,
                         paddingLeft = 5, paddingRight = 5, paddingTop = 1, paddingBottom = 1,
                         marginRight = 6,
@@ -748,14 +771,14 @@ function Tactics._buildStartingXICard(gameState, team)
                     },
                     -- 角色标签
                     roleLabel and UI.Panel {
-                        backgroundColor = (roleKey ~= "default") and {62, 166, 255, 25} or {255, 255, 255, 10},
+                        backgroundColor = (roleKey ~= "default") and {212, 175, 55, 25} or {255, 255, 255, 10},
                         borderRadius = 3,
                         paddingLeft = 4, paddingRight = 4, paddingTop = 1, paddingBottom = 1,
                         marginRight = 6,
                         children = {
                             UI.Label {
                                 text = roleLabel, fontSize = 9,
-                                color = (roleKey ~= "default") and Theme.COLORS.PRIMARY or Theme.COLORS.TEXT_MUTED,
+                                color = (roleKey ~= "default") and Theme.COLORS.ACCENT or Theme.COLORS.TEXT_MUTED,
                             },
                         },
                     } or nil,
@@ -873,12 +896,12 @@ function Tactics._showSlotSwapSheet(gameState, team, slotIdx, slots)
                 text = role.name,
                 height = 30,
                 paddingLeft = 10, paddingRight = 10,
-                backgroundColor = isActive and {62, 166, 255, 50} or {38, 46, 71, 255},
+                backgroundColor = isActive and {212, 175, 55, 50} or {38, 46, 71, 255},
                 borderRadius = 15,
                 borderWidth = isActive and 2 or 1,
-                borderColor = isActive and Theme.COLORS.PRIMARY or Theme.COLORS.BORDER,
+                borderColor = isActive and Theme.COLORS.ACCENT or Theme.COLORS.BORDER,
                 fontSize = 11,
-                color = isActive and Theme.COLORS.PRIMARY or Theme.COLORS.TEXT_SECONDARY,
+                color = isActive and Theme.COLORS.ACCENT or Theme.COLORS.TEXT_SECONDARY,
                 fontWeight = isActive and "bold" or "normal",
                 marginRight = 6, marginBottom = 4,
                 onClick = function()
@@ -976,8 +999,11 @@ function Tactics._showSlotSwapSheet(gameState, team, slotIdx, slots)
         end
     end
 
-    local sheetHeight = 120 + math.min(8, #benchCandidates) * 38 + math.min(5, #swapCandidates) * 38 + 60
-    sheetHeight = math.min(sheetHeight, 600)
+    -- 角色区域约 80, 标题 40, 关闭按钮 60, padding 32
+    local sheetHeight = 210 + math.min(8, #benchCandidates) * 38 + math.min(5, #swapCandidates) * 38
+    -- 取屏幕 80% 高度为上限
+    local maxH = math.floor(graphics:GetHeight() / graphics:GetDPR() * 0.8)
+    sheetHeight = math.min(sheetHeight, maxH)
 
     BottomSheet.showCustom({
         title = "更换球员 — " .. posLabel,

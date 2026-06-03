@@ -55,10 +55,27 @@ function Squad.create(params)
     -- 获取球员列表
     local allPlayers = gameState:getTeamPlayers(gameState.playerTeamId)
 
+    -- 构建"球员ID → 战术位置"映射（首发球员按阵型中的战术位置分类）
+    local playerTacticalPos = {}
+    local formation = team.formation or "4-4-2"
+    local slots = AIManager._getFormationSlots(formation, team.formationVariant)
+    local startingXI = team.startingXI or {}
+    for i, pid in ipairs(startingXI) do
+        if slots[i] then
+            playerTacticalPos[pid] = slots[i]
+        end
+    end
+
+    -- 获取球员的有效位置（首发用战术位置，替补用自然位置）
+    local function getEffectivePos(p)
+        return playerTacticalPos[p.id] or p.position
+    end
+
     -- 筛选
     local players = {}
     for _, p in ipairs(allPlayers) do
-        if _filterPos == "ALL" or POS_GROUP_MAP[p.position] == _filterPos then
+        local effPos = getEffectivePos(p)
+        if _filterPos == "ALL" or POS_GROUP_MAP[effPos] == _filterPos then
             table.insert(players, p)
         end
     end
@@ -67,8 +84,8 @@ function Squad.create(params)
     local posOrder = {GK=1, CB=2, LB=3, RB=4, CDM=5, CM=6, LM=7, RM=8, CAM=9, LW=10, RW=11, CF=12, ST=13}
     table.sort(players, function(a, b)
         if _sortBy == "position" then
-            local oa = posOrder[a.position] or 99
-            local ob = posOrder[b.position] or 99
+            local oa = posOrder[getEffectivePos(a)] or 99
+            local ob = posOrder[getEffectivePos(b)] or 99
             if oa ~= ob then return oa < ob end
             return a.overall > b.overall
         elseif _sortBy == "overall" then
@@ -106,10 +123,10 @@ function Squad.create(params)
             text = opt.label,
             height = 28,
             paddingLeft = 10, paddingRight = 10,
-            backgroundColor = isActive and Theme.COLORS.PRIMARY or Theme.COLORS.TRANSPARENT,
+            backgroundColor = isActive and Theme.COLORS.GOLD or Theme.COLORS.TRANSPARENT,
             borderRadius = 14,
             fontSize = 12,
-            color = isActive and Theme.COLORS.TEXT_PRIMARY or Theme.COLORS.TEXT_MUTED,
+            color = isActive and "#1A1A1A" or Theme.COLORS.TEXT_MUTED,
             fontWeight = isActive and "bold" or "normal",
             marginRight = 4,
             onClick = function()
@@ -158,14 +175,9 @@ function Squad.create(params)
         local isStarter = startingSet[p.id] or false
         local age = p:getAge(gameState.date.year)
 
-        -- 位置颜色
-        local posColor = Theme.COLORS.TEXT_SECONDARY
-        local group = POS_GROUP_MAP[p.position]
-        if group == "GK" then posColor = {255, 204, 0, 255}
-        elseif group == "DEF" then posColor = {77, 179, 255, 255}
-        elseif group == "MID" then posColor = {102, 255, 128, 255}
-        elseif group == "FWD" then posColor = {255, 102, 102, 255}
-        end
+        -- 位置颜色（首发球员用战术位置）
+        local displayPos = getEffectivePos(p)
+        local posColor = Theme.posColor(displayPos)
 
         -- 状态标签
         local statusText = ""
@@ -208,8 +220,8 @@ function Squad.create(params)
         -- 工资格式化
         local wageText = p.wage >= 1000 and string.format("%.0fK/周", p.wage / 1000) or (tostring(p.wage) .. "/周")
 
-        -- 位置全称
-        local posFullName = Constants.POSITION_NAMES[p.position] or p.position
+        -- 位置全称（首发球员显示战术位置）
+        local posFullName = Constants.POSITION_NAMES[displayPos] or displayPos
 
         -- Row 2: metadata items
         local metaItems = {}
@@ -264,7 +276,7 @@ function Squad.create(params)
                         } or UI.Panel { width = 0 },
                         -- 位置徽章
                         UI.Panel {
-                            backgroundColor = {posColor[1], posColor[2], posColor[3], 30},
+                            backgroundColor = {posColor[1], posColor[2], posColor[3], 50},
                             borderRadius = 3,
                             paddingLeft = 5, paddingRight = 5, paddingTop = 1, paddingBottom = 1,
                             marginRight = 8,
@@ -578,7 +590,7 @@ function Squad._showActionMenu(player, isStarter, team, gameState)
     -- 查看详情
     table.insert(actions, {
         label = "查看详情",
-        color = Theme.COLORS.PRIMARY,
+        color = Theme.COLORS.GOLD,
         action = function()
             Router.navigate("player_detail", { playerId = player.id })
         end,

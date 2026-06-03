@@ -88,21 +88,17 @@ function TeamTalk.create(params)
                 Router.replaceWith("team_talk", navParams)
             end,
             children = {
-                UI.Panel {
-                    width = 36, height = 36,
-                    borderRadius = 18,
-                    backgroundColor = Theme.COLORS.PRIMARY,
-                    justifyContent = "center",
-                    alignItems = "center",
+                UI.Label {
+                    text = ({
+                        calm = "😌",
+                        motivational = "🔥",
+                        assertive = "💪",
+                        aggressive = "😡",
+                        praise = "👏",
+                        disappointed = "😞",
+                    })[tone] or "💬",
+                    fontSize = 24,
                     marginRight = 12,
-                    children = {
-                        UI.Label {
-                            text = string.sub(toneName, 1, 3),
-                            fontSize = 13,
-                            color = Theme.COLORS.TEXT_PRIMARY,
-                            fontWeight = "bold",
-                        },
-                    }
                 },
                 UI.Panel {
                     flexGrow = 1, flexShrink = 1,

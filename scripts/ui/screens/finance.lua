@@ -2,6 +2,9 @@
 -- 财务管理页面 - 增强版：健康评级 / 风险可视化 / 趋势 / 流水
 -- 设计：字母评级A-F / 工资条风险阈值 / 语义色驱动
 
+---@diagnostic disable-next-line: undefined-global
+local sdk = sdk
+
 local UI = require("urhox-libs/UI")
 local Theme = require("scripts/ui/theme")
 local Router = require("scripts/app/router")
@@ -112,10 +115,10 @@ function Finance._buildTabBar()
             height = 32,
             paddingLeft = 16,
             paddingRight = 16,
-            backgroundColor = isActive and Theme.COLORS.PRIMARY or Theme.COLORS.TRANSPARENT,
+            backgroundColor = isActive and Theme.COLORS.GOLD or Theme.COLORS.TRANSPARENT,
             borderRadius = 16,
             fontSize = 13,
-            color = isActive and Theme.COLORS.TEXT_PRIMARY or Theme.COLORS.TEXT_SECONDARY,
+            color = isActive and "#1A1A1A" or Theme.COLORS.TEXT_SECONDARY,
             fontWeight = isActive and "bold" or "normal",
             marginRight = 6,
             onClick = function()
@@ -701,7 +704,7 @@ function Finance._buildOperationsDashboard(team, gameState)
             backgroundColor = isCurrent and {45, 80, 120, 255} or Theme.COLORS.BG_SURFACE,
             borderRadius = 8,
             borderWidth = isCurrent and 1 or 0,
-            borderColor = isCurrent and Theme.COLORS.PRIMARY or Theme.COLORS.TRANSPARENT,
+            borderColor = isCurrent and Theme.COLORS.GOLD or Theme.COLORS.TRANSPARENT,
             marginBottom = 6,
             onClick = function()
                 if not isCurrent then
@@ -726,9 +729,9 @@ function Finance._buildOperationsDashboard(team, gameState)
                                 isCurrent and UI.Panel {
                                     marginLeft = 6, paddingLeft = 5, paddingRight = 5,
                                     paddingTop = 1, paddingBottom = 1,
-                                    backgroundColor = Theme.COLORS.PRIMARY,
+                                    backgroundColor = Theme.COLORS.GOLD,
                                     borderRadius = 4,
-                                    children = { UI.Label { text = "当前", fontSize = 9, color = {255,255,255,255} } },
+                                    children = { UI.Label { text = "当前", fontSize = 9, color = "#1A1A1A" } },
                                 } or nil,
                             }
                         },
@@ -929,7 +932,7 @@ function Finance._buildFacilities(team, gameState)
                             text = cost and ("升级 " .. Finance._formatMoney(cost)) or "已满级",
                             width = 110,
                             height = 34,
-                            backgroundColor = cost and Theme.COLORS.PRIMARY or Theme.COLORS.TEXT_MUTED,
+                            backgroundColor = cost and Theme.COLORS.GOLD or Theme.COLORS.TEXT_MUTED,
                             borderRadius = 8,
                             fontSize = 11,
                             color = Theme.COLORS.TEXT_PRIMARY,
@@ -1047,7 +1050,7 @@ function Finance._buildStadiumExpansionCard(team, gameState)
                     UI.Panel {
                         width = capacityPct .. "%", height = "100%",
                         borderRadius = 5,
-                        backgroundColor = isExpanding and Theme.COLORS.WARNING or Theme.COLORS.PRIMARY,
+                        backgroundColor = isExpanding and Theme.COLORS.WARNING or Theme.COLORS.GOLD,
                     },
                 }
             },
@@ -1063,7 +1066,7 @@ function Finance._buildStadiumExpansionCard(team, gameState)
                 text = btnText,
                 width = "100%",
                 height = 40,
-                backgroundColor = btnEnabled and Theme.COLORS.PRIMARY or Theme.COLORS.BG_SURFACE,
+                backgroundColor = btnEnabled and Theme.COLORS.GOLD or Theme.COLORS.BG_SURFACE,
                 borderRadius = 10,
                 fontSize = 13,
                 fontWeight = "bold",
@@ -1356,7 +1359,7 @@ function Finance._buildForecastCard(team, gameState)
                             UI.Panel {
                                 width = math.floor(weeksElapsed / totalSeasonWeeks * 100) .. "%",
                                 height = "100%", borderRadius = 3,
-                                backgroundColor = Theme.COLORS.PRIMARY,
+                                backgroundColor = Theme.COLORS.GOLD,
                             },
                         }
                     },
@@ -1615,10 +1618,10 @@ function Finance._buildTransactions(team, gameState)
             height = 28,
             paddingLeft = 10,
             paddingRight = 10,
-            backgroundColor = isActive and Theme.COLORS.PRIMARY or {38, 46, 71, 255},
+            backgroundColor = isActive and Theme.COLORS.GOLD or {38, 46, 71, 255},
             borderRadius = 14,
             fontSize = 11,
-            color = isActive and Theme.COLORS.TEXT_PRIMARY or Theme.COLORS.TEXT_SECONDARY,
+            color = isActive and "#1A1A1A" or Theme.COLORS.TEXT_SECONDARY,
             marginRight = 6,
             onClick = function()
                 _txFilter = f.key
@@ -1818,22 +1821,129 @@ function Finance._buildHealthCard(team, gameState)
     }
     local healthColor = healthColors[status] or Theme.COLORS.TEXT_MUTED
 
-    -- 恢复手段按钮
+    -- 恢复手段按钮（通过观看广告触发）
     local fin = team.finance or {}
     local injectCount = fin.boardInjectionsThisSeason or 0
     local sponsorCount = fin.sponsorSeeksThisSeason or 0
     local commercialCD = FinanceManager.getCommercialCooldown(gameState)
 
+    -- 广告观看进度（存储在 finance 表中）
+    local injectAdProgress = fin.injectAdProgress or 0   -- 需看满3次
+    local sponsorAdProgress = fin.sponsorAdProgress or 0 -- 需看满2次
+
     local recoveryBtns = {}
 
+    -- 广告过渡弹窗
+    local function showAdDialog(opts)
+        -- opts: { title, desc, totalAds, currentProgress, accentColor, onComplete }
+        local progress = opts.currentProgress or 0
+        local total = opts.totalAds or 1
+        local remaining = total - progress
+
+        -- 构建进度点
+        local dots = {}
+        for i = 1, total do
+            table.insert(dots, UI.Panel {
+                width = 20, height = 20,
+                borderRadius = 10,
+                backgroundColor = i <= progress and opts.accentColor or {60, 70, 100, 255},
+                marginRight = i < total and 6 or 0,
+                justifyContent = "center", alignItems = "center",
+                children = {
+                    UI.Label {
+                        text = i <= progress and "✓" or tostring(i),
+                        fontSize = 10,
+                        color = i <= progress and {255, 255, 255, 255} or Theme.COLORS.TEXT_MUTED,
+                    },
+                },
+            })
+        end
+
+        UI.ShowOverlay(UI.Panel {
+            width = "100%", height = "100%",
+            justifyContent = "center", alignItems = "center",
+            backgroundColor = {0, 0, 0, 160},
+            onClick = function() UI.CloseOverlay() end,
+            children = {
+                UI.Panel {
+                    width = 280,
+                    backgroundColor = Theme.COLORS.BG_CARD,
+                    borderRadius = 12,
+                    padding = 20,
+                    alignItems = "center",
+                    onClick = function() end,  -- 阻止穿透关闭
+                    children = {
+                        -- 标题
+                        UI.Label {
+                            text = opts.title,
+                            fontSize = 16, color = Theme.COLORS.TEXT_PRIMARY,
+                            fontWeight = "bold", marginBottom = 8,
+                        },
+                        -- 描述
+                        UI.Label {
+                            text = opts.desc,
+                            fontSize = 12, color = Theme.COLORS.TEXT_MUTED,
+                            textAlign = "center", marginBottom = 14,
+                        },
+                        -- 进度指示
+                        UI.Panel {
+                            flexDirection = "row", alignItems = "center",
+                            marginBottom = 14,
+                            children = dots,
+                        },
+                        -- 进度文字
+                        UI.Label {
+                            text = string.format("已观看 %d/%d 次", progress, total),
+                            fontSize = 13, color = opts.accentColor,
+                            fontWeight = "bold", marginBottom = 16,
+                        },
+                        -- 观看按钮
+                        UI.Button {
+                            text = remaining <= 1 and "观看广告并领取" or string.format("观看广告（还需%d次）", remaining),
+                            width = "100%", height = 40,
+                            backgroundColor = opts.accentColor,
+                            borderRadius = 8,
+                            fontSize = 14, color = {255, 255, 255, 255}, fontWeight = "bold",
+                            onClick = function()
+                                UI.CloseOverlay()
+                                sdk:ShowRewardVideoAd(function(result)
+                                    if result.success then
+                                        opts.onComplete()
+                                    else
+                                        UI.Toast.Show({ message = "需完整观看广告才能获得奖励", variant = "warning" })
+                                    end
+                                end)
+                            end,
+                        },
+                        -- 取消
+                        UI.Button {
+                            text = "取消",
+                            width = "100%", height = 34,
+                            backgroundColor = {0, 0, 0, 0},
+                            borderRadius = 8,
+                            fontSize = 13, color = Theme.COLORS.TEXT_MUTED,
+                            marginTop = 6,
+                            onClick = function() UI.CloseOverlay() end,
+                        },
+                    },
+                },
+            },
+        })
+    end
+
+    -- 董事注资：看满3次广告触发一次注资
     local injectAvail = injectCount < 2
+    local injectLabel = injectAvail
+        and string.format("董事注资 (%d/2)", injectCount)
+        or "注资已用尽"
+    if injectAvail and injectAdProgress > 0 then
+        injectLabel = string.format("董事注资 (%d/3)", injectAdProgress)
+    end
     table.insert(recoveryBtns, UI.Button {
-        text = injectAvail
-            and string.format("董事注资 (%d/2)", injectCount)
-            or "注资已用尽",
+        text = injectLabel,
         height = 34,
         paddingLeft = 12, paddingRight = 12,
-        backgroundColor = injectAvail and Theme.COLORS.PRIMARY or Theme.COLORS.BG_SURFACE,
+        backgroundColor = injectAvail and Theme.COLORS.GOLD or Theme.COLORS.BG_SURFACE,
         borderRadius = 8,
         fontSize = 11,
         color = injectAvail and Theme.COLORS.TEXT_PRIMARY or Theme.COLORS.TEXT_MUTED,
@@ -1841,22 +1951,45 @@ function Finance._buildHealthCard(team, gameState)
         marginBottom = 6,
         onClick = function(self)
             if not injectAvail then return end
-            local ok, msg = FinanceManager.requestBoardInjection(gameState)
-            if ok then
-                gameState:sendMessage({ category = "finance", title = "注资成功", body = msg, priority = "normal" })
-                UI.Toast.Show({ message = "注资成功: " .. msg, variant = "success" })
-                Router.replaceWith("finance", { tab = "overview" })
-            else
-                UI.Toast.Show({ message = msg or "注资失败", variant = "error" })
-            end
+            team.finance = team.finance or {}
+            showAdDialog({
+                title = "董事注资",
+                desc = "观看广告获得董事会注资，\n缓解资金压力",
+                totalAds = 3,
+                currentProgress = team.finance.injectAdProgress or 0,
+                accentColor = Theme.COLORS.GOLD,
+                onComplete = function()
+                    team.finance = team.finance or {}
+                    local progress = (team.finance.injectAdProgress or 0) + 1
+                    if progress >= 3 then
+                        team.finance.injectAdProgress = 0
+                        local ok, msg = FinanceManager.requestBoardInjection(gameState)
+                        if ok then
+                            gameState:sendMessage({ category = "finance", title = "注资成功", body = msg, priority = "normal" })
+                            UI.Toast.Show({ message = "注资成功: " .. msg, variant = "success" })
+                        else
+                            UI.Toast.Show({ message = msg or "注资失败", variant = "error" })
+                        end
+                    else
+                        team.finance.injectAdProgress = progress
+                        UI.Toast.Show({ message = string.format("观看进度 %d/3，再看%d次即可注资", progress, 3 - progress), variant = "info" })
+                    end
+                    Router.replaceWith("finance", { tab = "overview" })
+                end,
+            })
         end,
     })
 
+    -- 赞助推介：看满2次广告触发一次赞助
     local sponsorAvail = sponsorCount < 3
+    local sponsorLabel = sponsorAvail
+        and string.format("赞助推介 (%d/3)", sponsorCount)
+        or "推介已用尽"
+    if sponsorAvail and sponsorAdProgress > 0 then
+        sponsorLabel = string.format("赞助推介 (%d/2)", sponsorAdProgress)
+    end
     table.insert(recoveryBtns, UI.Button {
-        text = sponsorAvail
-            and string.format("赞助推介 (%d/3)", sponsorCount)
-            or "推介已用尽",
+        text = sponsorLabel,
         height = 34,
         paddingLeft = 12, paddingRight = 12,
         backgroundColor = sponsorAvail and {35, 80, 60, 255} or Theme.COLORS.BG_SURFACE,
@@ -1867,17 +2000,36 @@ function Finance._buildHealthCard(team, gameState)
         marginBottom = 6,
         onClick = function(self)
             if not sponsorAvail then return end
-            local ok, msg = FinanceManager.seekSponsorship(gameState)
-            if ok then
-                gameState:sendMessage({ category = "finance", title = "推介成功", body = msg, priority = "normal" })
-                UI.Toast.Show({ message = "推介成功: " .. msg, variant = "success" })
-                Router.replaceWith("finance", { tab = "overview" })
-            else
-                UI.Toast.Show({ message = msg or "推介失败", variant = "error" })
-            end
+            team.finance = team.finance or {}
+            showAdDialog({
+                title = "赞助推介",
+                desc = "观看广告获得新赞助商，\n增加俱乐部收入",
+                totalAds = 2,
+                currentProgress = team.finance.sponsorAdProgress or 0,
+                accentColor = {0, 200, 120, 255},
+                onComplete = function()
+                    team.finance = team.finance or {}
+                    local progress = (team.finance.sponsorAdProgress or 0) + 1
+                    if progress >= 2 then
+                        team.finance.sponsorAdProgress = 0
+                        local ok, msg = FinanceManager.seekSponsorship(gameState)
+                        if ok then
+                            gameState:sendMessage({ category = "finance", title = "推介成功", body = msg, priority = "normal" })
+                            UI.Toast.Show({ message = "推介成功: " .. msg, variant = "success" })
+                        else
+                            UI.Toast.Show({ message = msg or "推介失败", variant = "error" })
+                        end
+                    else
+                        team.finance.sponsorAdProgress = progress
+                        UI.Toast.Show({ message = string.format("观看进度 %d/2，再看%d次即可推介", progress, 2 - progress), variant = "info" })
+                    end
+                    Router.replaceWith("finance", { tab = "overview" })
+                end,
+            })
         end,
     })
 
+    -- 商业活动：看1次广告即可触发
     local commercialAvail = commercialCD == 0
     table.insert(recoveryBtns, UI.Button {
         text = commercialAvail
@@ -1892,14 +2044,23 @@ function Finance._buildHealthCard(team, gameState)
         marginBottom = 6,
         onClick = function(self)
             if not commercialAvail then return end
-            local ok, msg = FinanceManager.hostCommercialEvent(gameState)
-            if ok then
-                gameState:sendMessage({ category = "finance", title = "商业活动成功", body = msg, priority = "normal" })
-                UI.Toast.Show({ message = "商业活动: " .. msg, variant = "success" })
-                Router.replaceWith("finance", { tab = "overview" })
-            else
-                UI.Toast.Show({ message = msg or "活动失败", variant = "error" })
-            end
+            showAdDialog({
+                title = "商业活动",
+                desc = "观看广告举办商业活动，\n获得一次性收入",
+                totalAds = 1,
+                currentProgress = 0,
+                accentColor = {100, 120, 200, 255},
+                onComplete = function()
+                    local ok, msg = FinanceManager.hostCommercialEvent(gameState)
+                    if ok then
+                        gameState:sendMessage({ category = "finance", title = "商业活动成功", body = msg, priority = "normal" })
+                        UI.Toast.Show({ message = "商业活动: " .. msg, variant = "success" })
+                    else
+                        UI.Toast.Show({ message = msg or "活动失败", variant = "error" })
+                    end
+                    Router.replaceWith("finance", { tab = "overview" })
+                end,
+            })
         end,
     })
 

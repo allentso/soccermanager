@@ -209,7 +209,7 @@ function AwardsManager._findBestYoungPlayer(players, gameState)
             + (stats.assists or 0) * 2
             + (stats.avgRating or 6.0) * 4
             + appearances * 0.3
-            + (player.potential or 50) * 0.1
+            + (player.actualPotential or player.potential or 50) * 0.1
 
         if score > bestScore then
             bestScore = score

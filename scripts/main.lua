@@ -9,6 +9,8 @@ local WorldGenerator = require("scripts/systems/world_generator")
 local SaveManager = require("scripts/persistence/save_manager")
 local Constants = require("scripts/app/constants")
 local SeasonManager = require("scripts/systems/season_manager")
+local YouthManager = require("scripts/systems/youth_manager")
+local TutorialGuide = require("scripts/ui/components/tutorial_guide")
 
 -- 页面模块
 local MainMenu = require("scripts/ui/screens/main_menu")
@@ -28,6 +30,7 @@ local NewsPage = require("scripts/ui/screens/news")
 local MatchResult = require("scripts/ui/screens/match_result")
 local SettingsPage = require("scripts/ui/screens/settings")
 local StaffPage = require("scripts/ui/screens/staff")
+local StaffHire = require("scripts/ui/screens/staff_hire")
 local ScoutingPage = require("scripts/ui/screens/scouting")
 local YouthPage = require("scripts/ui/screens/youth")
 local TeamDetail = require("scripts/ui/screens/team_detail")
@@ -111,6 +114,7 @@ function RegisterScreens()
     Router.register("match_result", function(params) return MatchResult.create(params) end)
     Router.register("settings", function(params) return SettingsPage.create(params) end)
     Router.register("staff", function(params) return StaffPage.create(params) end)
+    Router.register("staff_hire", function(params) return StaffHire.create(params) end)
     Router.register("scouting", function(params) return ScoutingPage.create(params) end)
     Router.register("youth", function(params) return YouthPage.create(params) end)
     Router.register("team_detail", function(params) return TeamDetail.create(params) end)
@@ -138,6 +142,10 @@ function BindEvents()
             local page = factory(params)
             if page then
                 UI.SetRoot(page, true)
+            end
+            -- 首次进入 dashboard 时自动触发新手指引
+            if screenId == "dashboard" and not TutorialGuide.isCompleted() then
+                TutorialGuide.start()
             end
         else
             log:Write(LOG_WARNING, "未注册的页面: " .. tostring(screenId))
@@ -203,6 +211,9 @@ function BindEvents()
                 leagueTeamCount .. " 支球队参赛。准备好了吗？",
             priority = "normal",
         })
+
+        -- 初始化青训候选池（世界生成时团队未选定，此时才能正确生成）
+        YouthManager._refreshCandidates(gs)
 
         -- 自动保存
         SaveManager.save(gs, "auto")

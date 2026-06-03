@@ -562,9 +562,9 @@ function TransferManager.processScoutReport(gameState)
         end
 
         if not already then
-            -- 球探评估潜力（有一定误差）
+            -- 球探评估潜力（有一定误差，基于局内实际潜力）
             local error_range = math.max(1, 15 - scoutAbility)
-            local scoutedPotential = player.potential + RandomInt(-error_range, error_range)
+            local scoutedPotential = (player.actualPotential or player.potential) + RandomInt(-error_range, error_range)
             scoutedPotential = math.max(30, math.min(99, scoutedPotential))
 
             table.insert(gameState.scoutReports, 1, {

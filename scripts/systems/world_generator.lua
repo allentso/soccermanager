@@ -6,6 +6,9 @@ local JsonLoader = require("scripts/data/json_loader")
 local RealDataLoader = require("scripts/data/real_data_loader")
 local League = require("scripts/domain/league")
 local ChampionsLeague = require("scripts/systems/champions_league")
+local PotentialSystem = require("scripts/systems/potential_system")
+local StaffManager = require("scripts/systems/staff_manager")
+local YouthManager = require("scripts/systems/youth_manager")
 
 local WorldGenerator = {}
 
@@ -457,6 +460,15 @@ function WorldGenerator.generate(gameState)
             },
         })
     end
+
+    -- 初始化潜力系统（为所有球员生成 PA Rating 和局内实际潜力）
+    PotentialSystem.initializeAllPlayers(gameState)
+
+    -- 初始化自由职员池（供玩家招聘）
+    StaffManager.generateFreeStaff(gameState)
+
+    -- 初始化首批青训候选球员
+    YouthManager._refreshCandidates(gameState)
 
     -- 初始化首赛季欧冠
     ChampionsLeague.initialize(gameState)
