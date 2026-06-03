@@ -281,6 +281,7 @@ function TimeBlockerManager._checkObjectivesNotSet(gameState, team, blockers)
         severity = "warn",
         message = "赛季目标未设定，请先与董事会确认本赛季目标",
         target = "dashboard",
+        targetParams = { action = "set_objectives" },
     })
 end
 

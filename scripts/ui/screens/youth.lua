@@ -10,6 +10,7 @@ local FinanceManager = require("scripts/systems/finance_manager")
 local ConfirmDialog = require("scripts/ui/components/confirm_dialog")
 local PotentialSystem = require("scripts/systems/potential_system")
 local StaffManager = require("scripts/systems/staff_manager")
+local ScoutManager = require("scripts/systems/scout_manager")
 
 local Youth = {}
 
@@ -53,16 +54,7 @@ end
 
 --- 获取当前球队的球探准确度
 local function getTeamScoutAccuracy(gameState)
-    local teamId = gameState.playerTeamId
-    local scoutBonus = StaffManager.getScoutingBonus(gameState, teamId)
-    -- 基础准确度 0.5 + 球探加成(0~0.2) + 设施加成
-    local facilityBonus = 1.0
-    local team = gameState.teams[teamId]
-    if team and team.finance and team.finance.facilities then
-        local scoutFacility = team.finance.facilities.scouting or 0
-        facilityBonus = 1.0 + scoutFacility * 0.05  -- 每级+5%
-    end
-    return math.min(0.95, (0.50 + scoutBonus) * facilityBonus)
+    return ScoutManager.getAccuracy(gameState)
 end
 
 ------------------------------------------------------
@@ -232,13 +224,18 @@ function Youth._buildCandidateCard(candidate, index, gameState)
         borderBottomWidth = 1,
         borderColor = Theme.COLORS.BORDER,
         children = {
-            -- 位置
-            UI.Label {
-                text = Constants.POSITION_NAMES[candidate.position] or candidate.position,
-                fontSize = 12,
-                color = posColor,
-                width = 40,
-                fontWeight = "bold",
+            -- 位置徽章（与阵容页统一样式）
+            UI.Panel {
+                backgroundColor = {posColor[1], posColor[2], posColor[3], 50},
+                borderRadius = 3,
+                paddingLeft = 5, paddingRight = 5, paddingTop = 1, paddingBottom = 1,
+                marginRight = 8,
+                children = {
+                    UI.Label {
+                        text = Constants.POSITION_NAMES[candidate.position] or candidate.position,
+                        fontSize = 10, color = posColor, fontWeight = "bold",
+                    },
+                },
             },
             -- 信息
             UI.Panel {
@@ -252,7 +249,9 @@ function Youth._buildCandidateCard(candidate, index, gameState)
                     },
                     UI.Label {
                         text = string.format("%d岁 | %s | 能力%d",
-                            candidate.age, candidate.nationality or "?", candidate.overall),
+                            candidate.age,
+                            ScoutManager.getNationName(candidate.nationality) or "?",
+                            candidate.overall),
                         fontSize = 11,
                         color = Theme.COLORS.TEXT_MUTED,
                     },
@@ -383,13 +382,18 @@ function Youth._buildYouthPlayerRow(player, gameState)
             Youth._showYouthActions(player, gameState)
         end,
         children = {
-            -- 位置
-            UI.Label {
-                text = Constants.POSITION_NAMES[player.position] or player.position,
-                fontSize = 12,
-                color = posColor,
-                width = 40,
-                fontWeight = "bold",
+            -- 位置徽章（与阵容页统一样式）
+            UI.Panel {
+                backgroundColor = {posColor[1], posColor[2], posColor[3], 50},
+                borderRadius = 3,
+                paddingLeft = 5, paddingRight = 5, paddingTop = 1, paddingBottom = 1,
+                marginRight = 8,
+                children = {
+                    UI.Label {
+                        text = Constants.POSITION_NAMES[player.position] or player.position,
+                        fontSize = 10, color = posColor, fontWeight = "bold",
+                    },
+                },
             },
             -- 信息
             UI.Panel {

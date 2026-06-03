@@ -6,6 +6,7 @@ local Theme = require("scripts/ui/theme")
 local Router = require("scripts/app/router")
 local Constants = require("scripts/app/constants")
 local SaveManager = require("scripts/persistence/save_manager")
+local SettingsManager = require("scripts/persistence/settings_manager")
 local EventBus = require("scripts/app/event_bus")
 local League = require("scripts/domain/league")
 
@@ -80,7 +81,7 @@ function Settings.create(params)
                         color = Theme.COLORS.DANGER,
                         onClick = function()
                             for k, v in pairs(_defaults) do _settings[k] = v end
-                            Settings._saveSettings()
+                            SettingsManager.resetToDefaults()
                             Router.replaceWith("settings")
                         end,
                     },
@@ -100,15 +101,15 @@ function Settings.create(params)
                             Settings._sectionTitle("音频设置"),
                             Settings._sliderRow("主音量", _settings.masterVolume, function(v)
                                 _settings.masterVolume = v
-                                Settings._saveSettings()
+                                SettingsManager.set("masterVolume", v)
                             end),
                             Settings._sliderRow("音乐音量", _settings.musicVolume, function(v)
                                 _settings.musicVolume = v
-                                Settings._saveSettings()
+                                SettingsManager.set("musicVolume", v)
                             end),
                             Settings._sliderRow("音效音量", _settings.sfxVolume, function(v)
                                 _settings.sfxVolume = v
-                                Settings._saveSettings()
+                                SettingsManager.set("sfxVolume", v)
                             end),
                         }
                     },
@@ -151,6 +152,32 @@ function Settings.create(params)
                                 Settings._saveSettings()
                                 Router.replaceWith("settings")
                             end),
+                        }
+                    },
+
+                    -- 开始新游戏
+                    Theme.Card {
+                        children = {
+                            Settings._sectionTitle("新游戏"),
+                            UI.Label {
+                                text = "放弃当前存档，重新选择球队开始新赛季",
+                                fontSize = 12,
+                                color = Theme.COLORS.TEXT_MUTED,
+                                marginBottom = 10,
+                            },
+                            UI.Button {
+                                text = "开始新游戏",
+                                width = "100%",
+                                height = 44,
+                                backgroundColor = Theme.COLORS.DANGER,
+                                borderRadius = 8,
+                                fontSize = 14,
+                                fontWeight = "bold",
+                                color = "#FFFFFF",
+                                onClick = function()
+                                    Settings._confirmNewGame()
+                                end,
+                            },
                         }
                     },
 
@@ -225,6 +252,13 @@ function Settings._sectionTitle(text)
 end
 
 function Settings._sliderRow(label, value, onChange)
+    local valLabel = UI.Label {
+        text = tostring(math.floor(value)) .. "%",
+        fontSize = 12,
+        color = Theme.COLORS.TEXT_MUTED,
+        width = 40,
+        textAlign = "right",
+    }
     return UI.Panel {
         width = "100%",
         flexDirection = "row",
@@ -245,16 +279,12 @@ function Settings._sliderRow(label, value, onChange)
                 max = 100,
                 height = 30,
                 onChange = function(self, v)
-                    if onChange then onChange(math.floor(v)) end
+                    local intVal = math.floor(v)
+                    valLabel:SetText(tostring(intVal) .. "%")
+                    if onChange then onChange(intVal) end
                 end,
             },
-            UI.Label {
-                text = tostring(math.floor(value)) .. "%",
-                fontSize = 12,
-                color = Theme.COLORS.TEXT_MUTED,
-                width = 40,
-                textAlign = "right",
-            },
+            valLabel,
         }
     }
 end
@@ -394,44 +424,69 @@ function Settings._showCheatMenu()
     local BottomSheet = require("scripts/ui/components/bottom_sheet")
     BottomSheet.showCustom({
         title = "开发者工具",
-        height = 300,
+        height = 420,
         children = {
             UI.Button {
                 text = "👑 三冠王（联赛+欧冠+世界杯）",
-                width = "100%",
-                height = 44,
+                width = "100%", height = 44,
                 backgroundColor = Theme.COLORS.MATCH_ORANGE,
                 color = "#FFFFFF",
-                fontSize = 14,
-                borderRadius = 8,
-                marginBottom = 12,
+                fontSize = 14, borderRadius = 8, marginBottom = 10,
                 onClick = function()
                     BottomSheet.close()
                     Settings._cheatTripleCrown()
                 end,
             },
             UI.Button {
-                text = "⏩ 跳到世界杯",
-                width = "100%",
-                height = 44,
+                text = "💰 资金注入 +5000万",
+                width = "100%", height = 44,
                 backgroundColor = Theme.COLORS.BG_CARD_ELEVATED,
                 color = Theme.COLORS.TEXT_PRIMARY,
-                fontSize = 14,
-                borderRadius = 8,
-                marginBottom = 12,
+                fontSize = 14, borderRadius = 8, marginBottom = 10,
+                onClick = function()
+                    BottomSheet.close()
+                    Settings._cheatAddFunds()
+                end,
+            },
+            UI.Button {
+                text = "⏭️ 跳到赛季末",
+                width = "100%", height = 44,
+                backgroundColor = Theme.COLORS.BG_CARD_ELEVATED,
+                color = Theme.COLORS.TEXT_PRIMARY,
+                fontSize = 14, borderRadius = 8, marginBottom = 10,
+                onClick = function()
+                    BottomSheet.close()
+                    Settings._cheatSkipToSeasonEnd()
+                end,
+            },
+            UI.Button {
+                text = "⏩ 跳到世界杯",
+                width = "100%", height = 44,
+                backgroundColor = Theme.COLORS.BG_CARD_ELEVATED,
+                color = Theme.COLORS.TEXT_PRIMARY,
+                fontSize = 14, borderRadius = 8, marginBottom = 10,
                 onClick = function()
                     BottomSheet.close()
                     Settings._cheatSkipToWorldCup()
                 end,
             },
             UI.Button {
-                text = "🏆 查看荣誉室",
-                width = "100%",
-                height = 44,
+                text = "🌟 青训神童",
+                width = "100%", height = 44,
                 backgroundColor = Theme.COLORS.BG_CARD_ELEVATED,
                 color = Theme.COLORS.TEXT_PRIMARY,
-                fontSize = 14,
-                borderRadius = 8,
+                fontSize = 14, borderRadius = 8, marginBottom = 10,
+                onClick = function()
+                    BottomSheet.close()
+                    Settings._cheatYouthProdigy()
+                end,
+            },
+            UI.Button {
+                text = "🏆 查看荣誉室",
+                width = "100%", height = 44,
+                backgroundColor = Theme.COLORS.BG_CARD_ELEVATED,
+                color = Theme.COLORS.TEXT_PRIMARY,
+                fontSize = 14, borderRadius = 8,
                 onClick = function()
                     BottomSheet.close()
                     Router.navigate("trophy_cabinet")
@@ -439,6 +494,109 @@ function Settings._showCheatMenu()
             },
         },
     })
+end
+
+------------------------------------------------------
+-- 作弊：资金注入 +5000万
+------------------------------------------------------
+function Settings._cheatAddFunds()
+    local gameState = _G.gameState
+    if not gameState then return end
+
+    local FinanceManager = require("scripts/systems/finance_manager")
+    local team = gameState.teams[gameState.playerTeamId]
+    if not team then return end
+
+    local amount = 50000000  -- 5000万
+    team.balance = (team.balance or 0) + amount
+    team.transferBudget = (team.transferBudget or 0) + amount
+    team.seasonIncome = (team.seasonIncome or 0) + amount
+    FinanceManager.addTransaction(team, {
+        amount = amount,
+        description = "开发者资金注入",
+        category = "injection",
+        season = gameState.season,
+    })
+
+    SaveManager.save(gameState, "auto")
+    gameState:sendMessage({
+        category = "finance",
+        title = "资金到账",
+        body = "开发者工具：已注入 5000万 资金到转会预算。",
+        priority = "normal",
+    })
+    Router.replaceWith("dashboard")
+end
+
+------------------------------------------------------
+-- 作弊：跳到赛季末（快速完成剩余比赛）
+------------------------------------------------------
+function Settings._cheatSkipToSeasonEnd()
+    local gameState = _G.gameState
+    if not gameState then return end
+
+    local SeasonManager = require("scripts/systems/season_manager")
+    gameState._cheatAutoPlay = true
+
+    -- 完成所有联赛和欧冠
+    Settings._completeAllLeagues(gameState)
+
+    -- 执行赛季结算
+    pcall(SeasonManager.endSeason, gameState)
+
+    gameState._cheatAutoPlay = nil
+
+    SaveManager.save(gameState, "auto")
+    Router.replaceWith("season_end", { season = gameState.season - 1 })
+end
+
+------------------------------------------------------
+-- 作弊：青训神童（生成一个高潜力年轻球员）
+------------------------------------------------------
+function Settings._cheatYouthProdigy()
+    local gameState = _G.gameState
+    if not gameState then return end
+
+    local team = gameState.teams[gameState.playerTeamId]
+    if not team then return end
+
+    -- 生成一个高潜力青训球员
+    local positions = {"GK", "CB", "LB", "RB", "CDM", "CM", "CAM", "LW", "RW", "ST"}
+    local pos = positions[math.random(1, #positions)]
+    local age = math.random(16, 17)
+
+    local playerData = {
+        name = "Youth Prodigy",
+        firstName = "天才",
+        lastName = "小将",
+        age = age,
+        birthYear = gameState.date.year - age,
+        position = pos,
+        nationality = "中国",
+        potential = math.random(85, 95),
+        overall = math.random(55, 65),
+        teamId = gameState.playerTeamId,
+        wage = 1000,
+        contractYears = 4,
+        isYouth = true,
+    }
+
+    local player = gameState:addPlayer(playerData)
+    player.potential = playerData.potential
+
+    -- 加入球队
+    if not team.playerIds then team.playerIds = {} end
+    table.insert(team.playerIds, player.id)
+
+    SaveManager.save(gameState, "auto")
+    gameState:sendMessage({
+        category = "youth",
+        title = "青训惊喜！",
+        body = string.format("开发者工具：%s（%s，%d岁，潜力%d）已加入一线队。",
+            player.name or "天才小将", pos, age, playerData.potential),
+        priority = "high",
+    })
+    Router.replaceWith("dashboard")
 end
 
 ------------------------------------------------------
@@ -558,20 +716,18 @@ function Settings._cheatSkipToWorldCup()
     -- 快速跳转：直接做赛季结算，不逐天模拟
     gameState._cheatAutoPlay = true
 
-    -- 需要跨越的赛季数（赛季从8月开始，6月属于上个赛季周期末尾）
-    -- 目标：到达 wcYear 年 6月13日
-    -- 赛季 N 覆盖 N年8月 → N+1年5月，然后6-7月是休赛期/世界杯
-    -- 当前赛季 = gameState.season (对应 season/season+1)
-    local targetSeason = wcYear - 1  -- 世界杯在 targetSeason 赛季的赛季末举办
-
-    while gameState.season < targetSeason do
+    -- 世界杯在 wcYear 年6-7月举行（赛季 wcYear-1 结束后的夏天）
+    -- endSeason 会调用 _startNewSeason → season+1 → WorldCup.initialize
+    -- 所以需要让 endSeason 将 season 推进到 wcYear（WC 在此时初始化）
+    -- 循环：完成所有赛季直到 season 达到 wcYear
+    while gameState.season < wcYear do
         -- 完成当前联赛（给所有比赛设置假结果）
         Settings._completeAllLeagues(gameState)
         -- 执行赛季结算（包含新赛季初始化、欧冠、世界杯等）
         pcall(SeasonManager.endSeason, gameState)
     end
 
-    -- 设置日期到世界杯前一天
+    -- 设置日期到世界杯前一天（赛季已经是 wcYear，WC 已初始化）
     gameState.date = { year = wcYear, month = 6, day = 13 }
     gameState.dayOfWeek = League._dayOfWeek(gameState.date)
 
@@ -614,6 +770,75 @@ function Settings._completeAllLeagues(gameState)
         -- 标记完成
         ucl.phase = "completed"
     end
+end
+
+------------------------------------------------------
+-- 开始新游戏确认
+------------------------------------------------------
+function Settings._confirmNewGame()
+    local BottomSheet = require("scripts/ui/components/bottom_sheet")
+    local GameState = require("scripts/core/game_state")
+    local WorldGenerator = require("scripts/systems/world_generator")
+
+    BottomSheet.showCustom({
+        title = "确认开始新游戏",
+        height = 220,
+        children = {
+            UI.Label {
+                text = "当前存档进度将丢失，确定要开始新游戏吗？",
+                fontSize = 14,
+                color = Theme.COLORS.TEXT_SECONDARY,
+                marginBottom = 20,
+                textAlign = "center",
+                width = "100%",
+            },
+            UI.Button {
+                text = "确认，重新开始",
+                width = "100%",
+                height = 44,
+                backgroundColor = Theme.COLORS.DANGER,
+                borderRadius = 8,
+                fontSize = 14,
+                fontWeight = "bold",
+                color = "#FFFFFF",
+                marginBottom = 10,
+                onClick = function()
+                    BottomSheet.close()
+                    -- 重置游戏状态并生成新世界
+                    local gs = GameState.new()
+                    local ok, err = pcall(function()
+                        local success = WorldGenerator.generate(gs)
+                        if not success then
+                            error("WorldGenerator.generate 返回 false")
+                        end
+                    end)
+                    if ok then
+                        _G.gameState = gs
+                        -- 直接跳到选择球队（跳过输入名字）
+                        Router.clearHistory()
+                        Router.navigate("select_team", {
+                            firstName = "Alex",
+                            lastName = "Manager",
+                        })
+                    else
+                        log:Write(LOG_ERROR, "新游戏世界生成失败: " .. tostring(err))
+                    end
+                end,
+            },
+            UI.Button {
+                text = "取消",
+                width = "100%",
+                height = 40,
+                backgroundColor = Theme.COLORS.BG_CARD_ELEVATED,
+                borderRadius = 8,
+                fontSize = 13,
+                color = Theme.COLORS.TEXT_SECONDARY,
+                onClick = function()
+                    BottomSheet.close()
+                end,
+            },
+        },
+    })
 end
 
 ------------------------------------------------------

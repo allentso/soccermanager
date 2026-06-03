@@ -11,6 +11,9 @@ local LoansTab = require("scripts/ui/screens/market/loans_tab")
 local BottomSheet = require("scripts/ui/components/bottom_sheet")
 local PotentialSystem = require("scripts/systems/potential_system")
 local StaffManager = require("scripts/systems/staff_manager")
+local ScoutManager = require("scripts/systems/scout_manager")
+local ConfirmDialog = require("scripts/ui/components/confirm_dialog")
+local AudioManager = require("scripts/systems/audio_manager")
 
 local Market = {}
 
@@ -18,15 +21,7 @@ local Market = {}
 -- 潜力星级（与 youth/player_detail 一致）
 ------------------------------------------------------
 local function _getScoutAccuracy(gameState)
-    local teamId = gameState.playerTeamId
-    local scoutBonus = StaffManager.getScoutingBonus(gameState, teamId)
-    local facilityBonus = 1.0
-    local team = gameState.teams[teamId]
-    if team and team.finance and team.finance.facilities then
-        local scoutFacility = team.finance.facilities.scouting or 0
-        facilityBonus = 1.0 + scoutFacility * 0.05
-    end
-    return math.min(0.95, (0.50 + scoutBonus) * facilityBonus)
+    return ScoutManager.getAccuracy(gameState)
 end
 
 local function _getPotentialStars(potential, scoutAccuracy)
@@ -67,6 +62,7 @@ local POSITION_FILTERS = {
     { key = "DEF", label = "后卫" },
     { key = "MID", label = "中场" },
     { key = "FWD", label = "前锋" },
+    { key = "SHORTLIST", label = "候选" },
 }
 
 -- 判断球员属于哪个位置组
@@ -99,7 +95,17 @@ function Market.create(params)
     elseif currentTab == "my_bids" then
         contentChildren = Market._buildMyBidsContent(gameState)
     elseif currentTab == "scout" then
-        contentChildren = Market._buildScoutContent(gameState)
+        local rawLeague = params and params.scoutLeague or nil
+        local rawPos = params and params.scoutPos or nil
+        local rawNat = params and params.scoutNat or nil
+        local scoutFilters = {
+            league = (rawLeague ~= "__nil") and rawLeague or nil,
+            position = (rawPos ~= "__nil") and rawPos or nil,
+            nationality = (rawNat ~= "__nil") and rawNat or nil,
+            ageKey = params and params.scoutAge or nil,
+        }
+        local scoutSubTab = (params and params.scoutSubTab) or "explore"
+        contentChildren = Market._buildScoutContent(gameState, scoutFilters, scoutSubTab)
     elseif currentTab == "listed" then
         contentChildren = Market._buildListedContent(gameState)
     end
@@ -143,13 +149,6 @@ function Market.create(params)
                         text = "转会市场",
                         fontSize = 17, color = Theme.COLORS.TEXT_PRIMARY,
                         fontWeight = "bold", flexGrow = 1, textAlign = "center",
-                    },
-                    UI.Button {
-                        text = "球探", width = 44, height = 30,
-                        backgroundColor = Theme.COLORS.TRANSPARENT,
-                        borderRadius = 4,
-                        fontSize = 12, color = Theme.COLORS.ACCENT,
-                        onClick = function() Router.navigate("scouting") end,
                     },
                     UI.Button {
                         text = "动态", width = 44, height = 30,
@@ -294,8 +293,16 @@ function Market._buildBrowseContent(gameState, posFilter, searchQuery, ovrRange)
     local availablePlayers = {}
     for _, p in pairs(gameState.players) do
         if p.teamId ~= gameState.playerTeamId and not p.retired then
-            -- 位置过滤
-            if posFilter == "all" or getPositionGroup(p.position) == posFilter then
+            -- 位置过滤（候选名单模式只显示在候选名单中的球员）
+            local posMatch = false
+            if posFilter == "SHORTLIST" then
+                posMatch = gameState.shortlist and gameState.shortlist[p.id] == true
+            elseif posFilter == "all" then
+                posMatch = true
+            else
+                posMatch = getPositionGroup(p.position) == posFilter
+            end
+            if posMatch then
                 -- OVR 范围过滤
                 if p.overall >= ovrMin and p.overall <= ovrMax then
                     -- 搜索过滤
@@ -424,11 +431,12 @@ function Market._buildBrowseContent(gameState, posFilter, searchQuery, ovrRange)
     end
 
     if maxShow == 0 then
+        local emptyText = posFilter == "SHORTLIST" and "候选名单为空，在球员详情页可添加" or "未找到球员"
         table.insert(children, UI.Panel {
             width = "100%", height = 100,
             alignItems = "center", justifyContent = "center",
             children = {
-                UI.Label { text = "未找到球员", fontSize = 14, color = Theme.COLORS.TEXT_MUTED },
+                UI.Label { text = emptyText, fontSize = 14, color = Theme.COLORS.TEXT_MUTED },
             }
         })
     end
@@ -643,7 +651,11 @@ function Market._showBidSheet(gameState, player, posFilter, searchQuery, ovrRang
             if not wageAmount or wageAmount <= 0 then return end
             local offeredWage = math.floor(wageAmount * 10000)
 
-            if offerAmount > budget then return end
+            if offerAmount > budget then
+                AudioManager.deny()
+                UI.Toast.Show({ message = "转会预算不足！剩余预算: " .. FinanceManager.formatMoney(budget), variant = "error" })
+                return
+            end
 
             local clause = clauseOptions[selectedClauseIdx]
             local offeredYears = yearsOptions[selectedYearsIdx]
@@ -664,6 +676,7 @@ function Market._showBidSheet(gameState, player, posFilter, searchQuery, ovrRang
                 bid.contractYears = offeredYears
                 UI.Toast.Show({ message = "报价已提交", variant = "success" })
             else
+                AudioManager.deny()
                 UI.Toast.Show({ message = "报价失败", variant = "error" })
             end
             BottomSheet.close()
@@ -1211,8 +1224,6 @@ function Market._showOfferSheet(gameState, player)
     -- 计算还价建议（身价的110%）
     local suggestedCounter = math.floor(playerValue * 1.1 / 1000) * 1000
 
-    local ConfirmDialog = require("scripts/ui/components/confirm_dialog")
-
     BottomSheet.showCustom({
         title = "报价处理 - " .. player.displayName,
         height = 430,
@@ -1335,15 +1346,17 @@ function Market._showOfferSheet(gameState, player)
     })
 end
 
--- 球探报告
-function Market._buildScoutContent(gameState)
+-- 球探（探索任务 + 报告）
+function Market._buildScoutContent(gameState, scoutFilters, subTab)
+    scoutFilters = scoutFilters or {}
+    subTab = subTab or "explore"
     local children = {}
     local team = gameState:getPlayerTeam()
     if not team then return children end
 
     -- 获取球探
     local scouts = {}
-    for _, sid in ipairs(team.staffIds) do
+    for _, sid in ipairs(team.staffIds or {}) do
         local s = gameState.staff[sid]
         if s and s.role == "scout" then
             table.insert(scouts, s)
@@ -1358,7 +1371,7 @@ function Market._buildScoutContent(gameState)
             children = {
                 UI.Label { text = "没有球探", fontSize = 16, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold" },
                 UI.Label {
-                    text = "球队没有球探，无法发现新球员。\n请在职员页面雇佣球探。",
+                    text = "球队没有球探，无法探索球员。\n请在职员页面雇佣球探。",
                     fontSize = 13, color = Theme.COLORS.TEXT_MUTED, marginTop = 8,
                     textAlign = "center",
                 },
@@ -1367,80 +1380,524 @@ function Market._buildScoutContent(gameState)
         return children
     end
 
-    -- 显示球探信息
-    table.insert(children, Theme.Card {
+    -- ====== 子标签栏 ======
+    local reports = ScoutManager.getReports(gameState)
+    local subTabs = {
+        { key = "explore", label = "探索" },
+        { key = "reports", label = string.format("报告 (%d)", #reports) },
+    }
+    local subTabButtons = {}
+    for _, st in ipairs(subTabs) do
+        local isActive = st.key == subTab
+        table.insert(subTabButtons, UI.Button {
+            text = st.label,
+            height = 30,
+            paddingLeft = 14, paddingRight = 14,
+            backgroundColor = isActive and Theme.COLORS.PRIMARY or {38, 46, 71, 255},
+            borderRadius = 15,
+            fontSize = 12,
+            color = isActive and Theme.COLORS.TEXT_PRIMARY or Theme.COLORS.TEXT_SECONDARY,
+            fontWeight = isActive and "bold" or "normal",
+            marginRight = 8,
+            onClick = function()
+                Router.replaceWith("market", { tab = "scout", scoutSubTab = st.key,
+                    scoutLeague = scoutFilters.league, scoutPos = scoutFilters.position,
+                    scoutNat = scoutFilters.nationality, scoutAge = scoutFilters.ageKey })
+            end,
+        })
+    end
+    table.insert(children, UI.Panel {
+        width = "100%", flexDirection = "row", alignItems = "center",
+        paddingLeft = 12, paddingRight = 12, paddingTop = 8, paddingBottom = 8,
+        children = subTabButtons,
+    })
+
+    -- ====== 根据子标签显示内容 ======
+    if subTab == "explore" then
+        Market._buildScoutExploreContent(children, gameState, scoutFilters, scouts)
+    else
+        Market._buildScoutReportsContent(children, gameState)
+    end
+
+    return children
+end
+
+-- 球探子页面：探索条件 + 球探团队 + 进行中的任务
+-- 模块级状态：球探筛选（避免 Router.replaceWith 重建页面）
+Market._exploreFilterState = { league = nil, position = nil, nationality = nil, ageKey = "any" }
+Market._exploreContainerRef = nil
+Market._exploreGameState = nil
+Market._exploreScouts = nil
+
+local SCOUT_POSITIONS = {"GK", "CB", "LB", "RB", "CDM", "CM", "CAM", "LM", "RM", "LW", "RW", "ST", "CF"}
+local AGE_RANGES = {
+    { key = "any",   label = "不限",       min = nil, max = nil },
+    { key = "u21",   label = "U21",        min = 16,  max = 21 },
+    { key = "young", label = "22-27",      min = 22,  max = 27 },
+    { key = "peak",  label = "28-32",      min = 28,  max = 32 },
+    { key = "vet",   label = "33+",        min = 33,  max = 40 },
+}
+
+-- 就地刷新探索区域（不重建页面）
+function Market._refreshExploreContainer()
+    if Market._exploreContainerRef then
+        Market._exploreContainerRef:ClearChildren()
+        local innerChildren = Market._buildExploreInner()
+        for _, child in ipairs(innerChildren) do
+            Market._exploreContainerRef:AddChild(child)
+        end
+    end
+end
+
+-- 生成探索区域的 children 数组
+function Market._buildExploreInner()
+    local gameState = Market._exploreGameState
+    local scouts = Market._exploreScouts or {}
+    local fs = Market._exploreFilterState
+    local activeTasks = ScoutManager.getActiveTasks(gameState)
+
+    local selLeague = fs.league
+    local selPos = fs.position
+    local selNat = fs.nationality
+    local selAgeKey = fs.ageKey or "any"
+
+    -- 帮助函数：更新筛选并刷新
+    local function applyFilter(overrides)
+        for k, v in pairs(overrides) do
+            if v == "__nil" then
+                fs[k] = nil
+            else
+                fs[k] = v
+            end
+        end
+        Market._refreshExploreContainer()
+    end
+
+    local items = {}
+
+    -- 球探团队信息
+    table.insert(items, UI.Panel {
+        width = "100%", flexDirection = "row", alignItems = "center",
+        backgroundColor = Theme.COLORS.BG_CARD,
+        borderRadius = 8, padding = 12, marginBottom = 10,
         children = {
-            Theme.Subtitle { text = "球探团队" },
-            UI.Label {
-                text = string.format("当前有 %d 名球探", #scouts),
-                fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY, marginTop = 4,
+            UI.Panel {
+                flexGrow = 1,
+                children = {
+                    UI.Label { text = "球探团队", fontSize = 14, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold" },
+                    UI.Label {
+                        text = string.format("%d 名球探 · 准确度 %d%% · 任务 %d/3", #scouts, math.floor(ScoutManager.getAccuracy(gameState) * 100), #activeTasks),
+                        fontSize = 11, color = Theme.COLORS.TEXT_MUTED, marginTop = 2,
+                    },
+                }
             },
         }
     })
 
-    -- 球探报告（已发现的球员）
-    local scoutReports = gameState.scoutReports or {}
-    if #scoutReports == 0 then
-        table.insert(children, UI.Panel {
-            width = "100%", height = 80,
-            alignItems = "center", justifyContent = "center",
-            children = {
-                UI.Label { text = "暂无球探报告", fontSize = 13, color = Theme.COLORS.TEXT_MUTED },
-                UI.Label { text = "球探会在每周自动发现新球员", fontSize = 11, color = Theme.COLORS.TEXT_MUTED, marginTop = 4 },
-            }
+    -- ====== 内嵌筛选区域 ======
+    local leagues = ScoutManager.getAvailableLeagues(gameState)
+
+    -- 联赛筛选
+    local leagueItems = {}
+    local allLeagueActive = (selLeague == nil)
+    table.insert(leagueItems, UI.Button {
+        text = "全部", height = 28, paddingLeft = 8, paddingRight = 8,
+        backgroundColor = allLeagueActive and Theme.COLORS.PRIMARY or Theme.COLORS.BG_HEADER,
+        borderRadius = 14, marginRight = 6, marginBottom = 4,
+        fontSize = 10, color = allLeagueActive and Theme.COLORS.TEXT_PRIMARY or Theme.COLORS.TEXT_SECONDARY,
+        onClick = function() applyFilter({ league = "__nil" }) end,
+    })
+    for _, lg in ipairs(leagues) do
+        local active = (selLeague == lg.id)
+        table.insert(leagueItems, UI.Button {
+            text = lg.name, height = 28, paddingLeft = 8, paddingRight = 8,
+            backgroundColor = active and Theme.COLORS.PRIMARY or Theme.COLORS.BG_HEADER,
+            borderRadius = 14, marginRight = 6, marginBottom = 4,
+            fontSize = 10, color = active and Theme.COLORS.TEXT_PRIMARY or Theme.COLORS.TEXT_SECONDARY,
+            onClick = function() applyFilter({ league = lg.id }) end,
         })
-    else
-        -- 显示最近10条球探报告
-        for i = 1, math.min(10, #scoutReports) do
-            local report = scoutReports[i]
-            local player = gameState.players[report.playerId]
-            if player then
-                local team2 = gameState.teams[player.teamId]
-                table.insert(children, UI.Panel {
-                    width = "100%", height = 56,
-                    flexDirection = "row", alignItems = "center",
-                    paddingLeft = 12, paddingRight = 12,
-                    borderBottomWidth = 1, borderColor = Theme.COLORS.BORDER,
-                    children = {
-                        UI.Label {
-                            text = Constants.POSITION_NAMES[player.position] or player.position,
-                            fontSize = 11, color = Theme.COLORS.TEXT_MUTED, width = 36,
-                        },
-                        UI.Panel {
-                            flexGrow = 1,
-                            children = {
-                                UI.Label { text = player.displayName, fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY },
-                                UI.Label {
-                                    text = (team2 and team2.name or "自由") .. " | " ..
-                                        player:getAge(gameState.date.year) .. "岁 | 潜力" .. select(2, _getPotentialStars(report.scoutedPotential, _getScoutAccuracy(gameState))),
-                                    fontSize = 11, color = Theme.COLORS.TEXT_MUTED, marginTop = 2,
-                                },
-                            }
-                        },
-                        UI.Label {
-                            text = tostring(player.overall),
-                            fontSize = 13, color = Theme.COLORS.SECONDARY, width = 28, fontWeight = "bold",
-                        },
-                        UI.Button {
-                            text = "出价",
-                            width = 46, height = 26,
-                            backgroundColor = Theme.COLORS.GOLD,
-                            borderRadius = 4, fontSize = 11,
-                            color = "#1A1A1A",
-                            onClick = function()
-                                local offerAmount = math.floor(player.value * 1.1)
-                                TransferManager.makeBid(gameState, player.id, offerAmount)
-                                UI.Toast.Show({ message = "报价已提交", variant = "success" })
-                                Router.replaceWith("market", { tab = "scout" })
-                            end,
-                        },
+    end
+
+    -- 位置筛选
+    local posItems = {}
+    local allPosActive = (selPos == nil)
+    table.insert(posItems, UI.Button {
+        text = "全部", height = 26, paddingLeft = 6, paddingRight = 6,
+        backgroundColor = allPosActive and Theme.COLORS.ACCENT or Theme.COLORS.BG_HEADER,
+        borderRadius = 12, marginRight = 4, marginBottom = 4,
+        fontSize = 10, color = allPosActive and Theme.COLORS.TEXT_PRIMARY or Theme.COLORS.TEXT_SECONDARY,
+        onClick = function() applyFilter({ position = "__nil" }) end,
+    })
+    for _, pos in ipairs(SCOUT_POSITIONS) do
+        local posName = Constants.POSITION_NAMES[pos] or pos
+        local active = (selPos == pos)
+        table.insert(posItems, UI.Button {
+            text = posName, height = 26, paddingLeft = 6, paddingRight = 6,
+            backgroundColor = active and Theme.COLORS.ACCENT or Theme.COLORS.BG_HEADER,
+            borderRadius = 12, marginRight = 4, marginBottom = 4,
+            fontSize = 10, color = active and Theme.COLORS.TEXT_PRIMARY or Theme.COLORS.TEXT_SECONDARY,
+            onClick = function() applyFilter({ position = pos }) end,
+        })
+    end
+
+    -- 国籍筛选
+    local nationalities = ScoutManager.getAvailableNationalities(gameState)
+    local natItems = {}
+    local allNatActive = (selNat == nil)
+    table.insert(natItems, UI.Button {
+        text = "全部", height = 26, paddingLeft = 6, paddingRight = 6,
+        backgroundColor = allNatActive and {180, 100, 220, 255} or Theme.COLORS.BG_HEADER,
+        borderRadius = 12, marginRight = 4, marginBottom = 4,
+        fontSize = 10, color = allNatActive and Theme.COLORS.TEXT_PRIMARY or Theme.COLORS.TEXT_SECONDARY,
+        onClick = function() applyFilter({ nationality = "__nil" }) end,
+    })
+    for _, nat in ipairs(nationalities) do
+        local active = (selNat == nat.code)
+        table.insert(natItems, UI.Button {
+            text = nat.name, height = 26, paddingLeft = 6, paddingRight = 6,
+            backgroundColor = active and {180, 100, 220, 255} or Theme.COLORS.BG_HEADER,
+            borderRadius = 12, marginRight = 4, marginBottom = 4,
+            fontSize = 10, color = active and Theme.COLORS.TEXT_PRIMARY or Theme.COLORS.TEXT_SECONDARY,
+            onClick = function() applyFilter({ nationality = nat.code }) end,
+        })
+    end
+
+    -- 年龄筛选
+    local ageItems = {}
+    for _, range in ipairs(AGE_RANGES) do
+        local active = (selAgeKey == range.key)
+        table.insert(ageItems, UI.Button {
+            text = range.label, height = 26, paddingLeft = 8, paddingRight = 8,
+            backgroundColor = active and Theme.COLORS.SECONDARY or Theme.COLORS.BG_HEADER,
+            borderRadius = 12, marginRight = 6, marginBottom = 4,
+            fontSize = 10, color = active and Theme.COLORS.TEXT_PRIMARY or Theme.COLORS.TEXT_SECONDARY,
+            onClick = function() applyFilter({ ageKey = range.key }) end,
+        })
+    end
+
+    -- 筛选面板
+    table.insert(items, UI.Panel {
+        width = "100%", backgroundColor = Theme.COLORS.BG_CARD,
+        borderRadius = 8, padding = 10, marginBottom = 10,
+        children = {
+            UI.Label { text = "探索条件", fontSize = 12, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold", marginBottom = 6 },
+            -- 联赛
+            UI.Label { text = "联赛", fontSize = 10, color = Theme.COLORS.TEXT_MUTED, marginBottom = 4 },
+            UI.Panel { width = "100%", flexDirection = "row", flexWrap = "wrap", marginBottom = 8, children = leagueItems },
+            -- 位置
+            UI.Label { text = "位置", fontSize = 10, color = Theme.COLORS.TEXT_MUTED, marginBottom = 4 },
+            UI.Panel { width = "100%", flexDirection = "row", flexWrap = "wrap", marginBottom = 8, children = posItems },
+            -- 国籍
+            UI.Label { text = "国籍", fontSize = 10, color = Theme.COLORS.TEXT_MUTED, marginBottom = 4 },
+            UI.Panel { width = "100%", flexDirection = "row", flexWrap = "wrap", marginBottom = 8, children = natItems },
+            -- 年龄
+            UI.Label { text = "年龄", fontSize = 10, color = Theme.COLORS.TEXT_MUTED, marginBottom = 4 },
+            UI.Panel { width = "100%", flexDirection = "row", flexWrap = "wrap", marginBottom = 10, children = ageItems },
+            -- 派出按钮
+            UI.Button {
+                text = #activeTasks >= 3 and "任务已满 (3/3)" or "派出球探探索",
+                width = "100%", height = 36,
+                backgroundColor = #activeTasks >= 3 and Theme.COLORS.BG_HEADER or Theme.COLORS.PRIMARY,
+                borderRadius = 8,
+                fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold",
+                onClick = function()
+                    if #activeTasks >= 3 then
+                        UI.Toast.Show({ message = "已达最大任务数 (3/3)", variant = "warning" })
+                        return
+                    end
+                    -- 构造 filters
+                    local filters = {}
+                    if selLeague then filters.leagueId = selLeague end
+                    if selPos then filters.position = selPos end
+                    if selNat then filters.nationality = selNat end
+                    for _, r in ipairs(AGE_RANGES) do
+                        if r.key == selAgeKey and r.min then
+                            filters.minAge = r.min
+                            filters.maxAge = r.max
+                            break
+                        end
+                    end
+                    local ok, err = ScoutManager.createSearchTask(gameState, filters)
+                    if ok then
+                        UI.Toast.Show({ message = "探索任务已创建", variant = "success" })
+                        Market._refreshExploreContainer()
+                    else
+                        UI.Toast.Show({ message = err or "操作失败", variant = "error" })
+                    end
+                end,
+            },
+        }
+    })
+
+    -- ====== 进行中的任务 ======
+    if #activeTasks > 0 then
+        table.insert(items, UI.Label {
+            text = string.format("进行中 (%d/3)", #activeTasks),
+            fontSize = 12, color = Theme.COLORS.TEXT_SECONDARY,
+            fontWeight = "bold", marginBottom = 6, marginTop = 4,
+        })
+        for _, task in ipairs(activeTasks) do
+            local progressPct = task.progress or 0
+            table.insert(items, UI.Panel {
+                width = "100%",
+                backgroundColor = Theme.COLORS.BG_CARD,
+                borderRadius = 8, padding = 10, marginBottom = 6,
+                children = {
+                    UI.Panel {
+                        width = "100%", flexDirection = "row", alignItems = "center", marginBottom = 4,
+                        children = {
+                            UI.Label {
+                                text = task.description,
+                                fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold", flexGrow = 1, flexShrink = 1,
+                            },
+                            UI.Label {
+                                text = string.format("剩余 %d 天", task.daysRemaining),
+                                fontSize = 10, color = Theme.COLORS.TEXT_MUTED, marginLeft = 6,
+                            },
+                            UI.Button {
+                                text = "×", width = 24, height = 24,
+                                backgroundColor = {60, 30, 30, 150}, borderRadius = 12,
+                                fontSize = 13, color = Theme.COLORS.DANGER, marginLeft = 6,
+                                onClick = function()
+                                    ConfirmDialog.show({
+                                        title = "取消探索任务",
+                                        message = "确定取消「" .. task.description .. "」？",
+                                        confirmText = "取消任务", danger = true,
+                                        onConfirm = function()
+                                            ScoutManager.cancelTask(gameState, task.id)
+                                            Market._refreshExploreContainer()
+                                        end,
+                                    })
+                                end,
+                            },
+                        }
                     },
-                })
-            end
+                    -- 进度条
+                    UI.Panel {
+                        width = "100%", height = 5,
+                        backgroundColor = {38, 46, 71, 255}, borderRadius = 3,
+                        children = {
+                            UI.Panel {
+                                width = tostring(progressPct) .. "%", height = 5,
+                                backgroundColor = progressPct >= 80 and Theme.COLORS.SECONDARY or Theme.COLORS.PRIMARY,
+                                borderRadius = 3,
+                            }
+                        }
+                    },
+                }
+            })
         end
     end
 
-    return children
+    return items
+end
+
+function Market._buildScoutExploreContent(children, gameState, scoutFilters, scouts)
+    -- 初始化模块级状态
+    Market._exploreGameState = gameState
+    Market._exploreScouts = scouts
+    Market._exploreFilterState.league = scoutFilters.league
+    Market._exploreFilterState.position = scoutFilters.position
+    Market._exploreFilterState.nationality = scoutFilters.nationality
+    Market._exploreFilterState.ageKey = scoutFilters.ageKey or "any"
+
+    -- 创建容器并保存引用，筛选变更时通过 SetChildren 就地更新
+    local container = UI.Panel {
+        width = "100%",
+        children = Market._buildExploreInner(),
+    }
+    Market._exploreContainerRef = container
+    table.insert(children, container)
+end
+
+-- 球探子页面：球探报告列表
+function Market._buildScoutReportsContent(children, gameState)
+    local reports = ScoutManager.getReports(gameState)
+
+    if #reports == 0 then
+        table.insert(children, UI.Panel {
+            width = "100%", height = 100,
+            backgroundColor = Theme.COLORS.BG_CARD, borderRadius = 8,
+            alignItems = "center", justifyContent = "center",
+            children = {
+                UI.Label { text = "暂无球探报告", fontSize = 14, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold" },
+                UI.Label { text = "派出球探探索后，报告将在此显示", fontSize = 12, color = Theme.COLORS.TEXT_MUTED, marginTop = 6 },
+            }
+        })
+    else
+        local REC_COLORS = {
+            ["强烈推荐签入"] = {0, 230, 118, 255},
+            ["实力强劲，可即战"] = {102, 255, 128, 255},
+            ["潜力新星，值得培养"] = {102, 178, 255, 255},
+            ["水平尚可，可作补充"] = {255, 204, 0, 255},
+            ["不建议签入"] = {255, 100, 100, 255},
+        }
+        table.insert(children, UI.Label {
+            text = string.format("共 %d 份报告", #reports),
+            fontSize = 12, color = Theme.COLORS.TEXT_MUTED,
+            marginBottom = 8,
+        })
+        for _, report in ipairs(reports) do
+            local recColor = REC_COLORS[report.recommendation] or Theme.COLORS.TEXT_SECONDARY
+            table.insert(children, UI.Panel {
+                width = "100%",
+                backgroundColor = Theme.COLORS.BG_CARD,
+                borderRadius = 8, padding = 10, marginBottom = 6,
+                onClick = function()
+                    Router.navigate("player_detail", { playerId = report.playerId })
+                end,
+                children = {
+                    UI.Panel {
+                        width = "100%", flexDirection = "row", alignItems = "center", marginBottom = 3,
+                        children = {
+                            UI.Label {
+                                text = report.playerPosition or "?",
+                                fontSize = 10, color = Theme.COLORS.ACCENT, fontWeight = "bold", width = 30,
+                            },
+                            UI.Label {
+                                text = report.playerName,
+                                fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold", flexGrow = 1,
+                            },
+                            UI.Label {
+                                text = tostring(report.overall),
+                                fontSize = 14, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold",
+                            },
+                        }
+                    },
+                    UI.Panel {
+                        width = "100%", flexDirection = "row", alignItems = "center",
+                        children = {
+                            UI.Label {
+                                text = report.recommendation,
+                                fontSize = 10, color = recColor, fontWeight = "bold", flexGrow = 1,
+                            },
+                            UI.Label {
+                                text = string.format("%s · %d岁", report.teamName or "?", report.playerAge or 0),
+                                fontSize = 10, color = Theme.COLORS.TEXT_MUTED,
+                            },
+                        }
+                    },
+                }
+            })
+        end
+    end
+end
+
+------------------------------------------------------
+-- 球探：报告详情
+------------------------------------------------------
+function Market._showReportDetail(report, gameState)
+    local REC_COLORS = {
+        ["强烈推荐签入"] = {0, 230, 118, 255},
+        ["实力强劲，可即战"] = {102, 255, 128, 255},
+        ["潜力新星，值得培养"] = {102, 178, 255, 255},
+        ["水平尚可，可作补充"] = {255, 204, 0, 255},
+        ["不建议签入"] = {255, 100, 100, 255},
+    }
+    local recColor = REC_COLORS[report.recommendation] or Theme.COLORS.TEXT_SECONDARY
+
+    -- 属性列表
+    local attrChildren = {}
+    local attrLabels = {
+        pace = "速度", shooting = "射门", passing = "传球",
+        dribbling = "盘带", defending = "防守", physical = "身体",
+    }
+    local attrs = report.attributes or {}
+    for key, label in pairs(attrLabels) do
+        if attrs[key] then
+            table.insert(attrChildren, UI.Panel {
+                width = "48%", height = 28,
+                flexDirection = "row", alignItems = "center",
+                justifyContent = "space-between",
+                children = {
+                    UI.Label { text = label, fontSize = 11, color = Theme.COLORS.TEXT_MUTED },
+                    UI.Label {
+                        text = tostring(attrs[key]),
+                        fontSize = 12, fontWeight = "bold",
+                        color = attrs[key] >= 15 and Theme.COLORS.SECONDARY
+                            or (attrs[key] >= 10 and Theme.COLORS.TEXT_PRIMARY or Theme.COLORS.TEXT_SECONDARY),
+                    },
+                }
+            })
+        end
+    end
+
+    -- 合同信息
+    local contractText = "未知"
+    if report.contractEnd then
+        contractText = string.format("%d年%d月到期", report.contractEnd.year or 0, report.contractEnd.month or 0)
+    end
+
+    local detailContent = {
+        -- 头部：总评 + 潜力
+        UI.Panel {
+            width = "100%", flexDirection = "row", alignItems = "center",
+            justifyContent = "center", marginBottom = 12,
+            children = {
+                UI.Panel {
+                    alignItems = "center", marginRight = 24,
+                    children = {
+                        UI.Label { text = "总评", fontSize = 10, color = Theme.COLORS.TEXT_MUTED },
+                        UI.Label { text = tostring(report.overall), fontSize = 28, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold" },
+                    }
+                },
+                UI.Panel {
+                    alignItems = "center",
+                    children = {
+                        UI.Label { text = "潜力", fontSize = 10, color = Theme.COLORS.TEXT_MUTED },
+                        UI.Label {
+                            text = tostring(report.potential or "?"),
+                            fontSize = 20, color = Theme.COLORS.SECONDARY, fontWeight = "bold",
+                        },
+                    }
+                },
+            }
+        },
+        -- 推荐评级
+        UI.Panel {
+            width = "100%", height = 32,
+            backgroundColor = {recColor[1], recColor[2], recColor[3], 30},
+            borderRadius = 6,
+            justifyContent = "center", alignItems = "center", marginBottom = 12,
+            children = {
+                UI.Label { text = report.recommendation, fontSize = 13, color = recColor, fontWeight = "bold" },
+            }
+        },
+        -- 基本信息
+        UI.Panel {
+            width = "100%", flexDirection = "row", alignItems = "center",
+            justifyContent = "space-between", marginBottom = 8,
+            children = {
+                UI.Label { text = "位置: " .. (report.playerPosition or "?"), fontSize = 11, color = Theme.COLORS.TEXT_SECONDARY },
+                UI.Label { text = "年龄: " .. tostring(report.playerAge or 0), fontSize = 11, color = Theme.COLORS.TEXT_SECONDARY },
+                UI.Label { text = "准确度: " .. tostring(report.accuracy or 0) .. "%", fontSize = 11, color = Theme.COLORS.TEXT_MUTED },
+            }
+        },
+        -- 合同/工资
+        UI.Panel {
+            width = "100%", flexDirection = "row", alignItems = "center",
+            justifyContent = "space-between", marginBottom = 12,
+            children = {
+                UI.Label {
+                    text = "工资: " .. FinanceManager.formatMoney(report.wage or 0) .. "/周",
+                    fontSize = 11, color = Theme.COLORS.TEXT_SECONDARY,
+                },
+                UI.Label { text = contractText, fontSize = 11, color = Theme.COLORS.TEXT_SECONDARY },
+            }
+        },
+        -- 属性
+        UI.Panel {
+            width = "100%", flexDirection = "row", flexWrap = "wrap",
+            justifyContent = "space-between",
+            children = attrChildren,
+        },
+    }
+
+    BottomSheet.showCustom({
+        title = report.playerName .. " - 球探报告",
+        children = detailContent,
+        showCancel = true,
+    })
 end
 
 -- 自由球员

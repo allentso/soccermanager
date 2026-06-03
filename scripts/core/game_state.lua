@@ -52,12 +52,17 @@ function GameState.new()
         nextBidId = 1,
     }
     self.scoutReports = {}
+    self.scoutDiscoveries = {}
+    self.shortlist = {}  -- 候选名单：{playerId = true, ...}
 
     -- 下一个可用ID
     self.nextId = 1
 
     -- 回合状态
     self.turnState = "idle"  -- idle, processing, match_day
+
+    -- 当前身份视角："club" 或 "national_team"
+    self.currentRole = "club"
 
     return self
 end
@@ -227,6 +232,8 @@ function GameState:serialize()
         worldHistory = self.worldHistory,
         transfers = self.transfers,
         scoutReports = self.scoutReports,
+        scoutDiscoveries = self.scoutDiscoveries,
+        shortlist = self.shortlist,
         nextId = self.nextId,
         turnState = self.turnState,
         potentialRevealed = self.potentialRevealed or false,
@@ -249,6 +256,24 @@ function GameState:deserialize(data)
     self.worldHistory = data.worldHistory or {}
     self.transfers = data.transfers or { bids = {}, history = {}, nextBidId = 1 }
     self.scoutReports = data.scoutReports or {}
+    self.scoutDiscoveries = data.scoutDiscoveries or {}
+    self.shortlist = data.shortlist or {}
+
+    -- 旧存档兼容：将 scoutReports 中混入的自动发现记录迁移到 scoutDiscoveries
+    if #self.scoutReports > 0 then
+        local manualReports = {}
+        for _, r in ipairs(self.scoutReports) do
+            if r.recommendation then
+                -- 手动报告有 recommendation 字段
+                table.insert(manualReports, r)
+            else
+                -- 自动发现记录（无 recommendation）迁移到 scoutDiscoveries
+                table.insert(self.scoutDiscoveries, r)
+            end
+        end
+        self.scoutReports = manualReports
+    end
+
     self.potentialRevealed = data.potentialRevealed or false
     self.potentialRevealProgress = data.potentialRevealProgress or 0
 

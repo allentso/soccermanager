@@ -35,6 +35,9 @@ function TransferManager._ensureData(gameState)
     if not gameState.scoutReports then
         gameState.scoutReports = {}
     end
+    if not gameState.scoutDiscoveries then
+        gameState.scoutDiscoveries = {}
+    end
 end
 
 -- 转会窗口检查（6-8月夏窗，1月冬窗）
@@ -543,18 +546,32 @@ function TransferManager.processScoutReport(gameState)
     local allPlayers = {}
     for _, p in pairs(gameState.players) do
         if p.teamId ~= gameState.playerTeamId and not p.retired then
-            table.insert(allPlayers, p)
+            -- 激活球探网络地区过滤
+            if TransferManager._isPlayerInScoutNetwork(gameState, p) then
+                table.insert(allPlayers, p)
+            end
         end
     end
     if #allPlayers == 0 then return end
 
+    -- 使用独立的 scoutDiscoveries 表，避免覆盖手动球探报告
+    gameState.scoutDiscoveries = gameState.scoutDiscoveries or {}
+
+    local actualDiscovered = 0
     for _ = 1, discoverCount do
         local idx = RandomInt(1, #allPlayers)
         local player = allPlayers[idx]
 
-        -- 检查是否已有该球员的报告
+        -- 检查是否已有该球员的发现记录
         local already = false
-        for _, r in ipairs(gameState.scoutReports) do
+        for _, r in ipairs(gameState.scoutDiscoveries) do
+            if r.playerId == player.id then
+                already = true
+                break
+            end
+        end
+        -- 也检查手动报告中是否已有
+        for _, r in ipairs(gameState.scoutReports or {}) do
             if r.playerId == player.id then
                 already = true
                 break
@@ -563,29 +580,31 @@ function TransferManager.processScoutReport(gameState)
 
         if not already then
             -- 球探评估潜力（有一定误差，基于局内实际潜力）
-            local error_range = math.max(1, 15 - scoutAbility)
+            local avgAbility = math.floor(scoutAbility / scoutCount)
+            local error_range = math.max(1, 15 - avgAbility)
             local scoutedPotential = (player.actualPotential or player.potential) + RandomInt(-error_range, error_range)
             scoutedPotential = math.max(30, math.min(99, scoutedPotential))
 
-            table.insert(gameState.scoutReports, 1, {
+            table.insert(gameState.scoutDiscoveries, 1, {
                 playerId = player.id,
                 scoutedPotential = scoutedPotential,
                 discoveredDate = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day},
             })
+            actualDiscovered = actualDiscovered + 1
 
-            -- 保留最近20条
-            while #gameState.scoutReports > 20 do
-                table.remove(gameState.scoutReports)
+            -- 保留最近20条自动发现
+            while #gameState.scoutDiscoveries > 20 do
+                table.remove(gameState.scoutDiscoveries)
             end
         end
     end
 
     -- 通知
-    if discoverCount > 0 then
+    if actualDiscovered > 0 then
         gameState:sendMessage({
             category = "scout",
             title = "球探报告",
-            body = string.format("球探发现了 %d 名潜在引援目标，请在转会市场-球探页面查看。", discoverCount),
+            body = string.format("球探发现了 %d 名潜在引援目标，请在转会市场-球探页面查看。", actualDiscovered),
             priority = "low",
         })
     end

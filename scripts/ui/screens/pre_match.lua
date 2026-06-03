@@ -8,6 +8,7 @@ local Constants = require("scripts/app/constants")
 local TeamIcon = require("scripts/ui/components/team_icon")
 local AIManager = require("scripts/systems/ai_manager")
 local BottomSheet = require("scripts/ui/components/bottom_sheet")
+local SaveManager = require("scripts/persistence/save_manager")
 
 local PreMatch = {}
 
@@ -372,10 +373,16 @@ function PreMatch._confirmLeave(gameState, team, fixture)
                             gameState.pendingPlayerFixture = nil
                             -- 自动模拟比赛
                             local MatchEngine = require("scripts/match/match_engine")
-                            local report = MatchEngine.simulate(gameState, fixture)
+                            local TurnProcessor = require("scripts/core/turn_processor")
+                            local report
+                            if fixture._isWC then
+                                -- 世界杯使用专用简化引擎（国家代码非球队ID）
+                                report = TurnProcessor._simulateWCMatch(gameState, fixture)
+                            else
+                                report = MatchEngine.simulate(gameState, fixture)
+                            end
                             if report then
                                 if fixture._isWC then
-                                    local TurnProcessor = require("scripts/core/turn_processor")
                                     TurnProcessor._applyWCResult(gameState, fixture, report)
                                 else
                                     MatchEngine.applyResult(gameState, fixture, report)
@@ -383,9 +390,9 @@ function PreMatch._confirmLeave(gameState, team, fixture)
                                 -- 发送比赛结果消息
                                 local homeName, awayName
                                 if fixture._isWC then
-                                    local WorldCup = require("scripts/systems/world_cup")
-                                    homeName = WorldCup._getNationName(fixture.homeTeamId)
-                                    awayName = WorldCup._getNationName(fixture.awayTeamId)
+                                    local WorldCupMod = require("scripts/systems/world_cup")
+                                    homeName = WorldCupMod._getNationName(fixture.homeTeamId)
+                                    awayName = WorldCupMod._getNationName(fixture.awayTeamId)
                                 else
                                     local homeTeam = gameState.teams[fixture.homeTeamId]
                                     local awayTeam = gameState.teams[fixture.awayTeamId]
@@ -399,7 +406,16 @@ function PreMatch._confirmLeave(gameState, team, fixture)
                                         homeName, report.homeGoals, report.awayGoals, awayName),
                                     priority = "high",
                                 })
+                                -- 跳过后显示结果画面
+                                SaveManager.save(gameState, "auto")
+                                Router.replaceWith("match_result", {
+                                    fixture = fixture,
+                                    report = report,
+                                    skipped = true,
+                                })
+                                return
                             end
+                            SaveManager.save(gameState, "auto")
                             Router.replaceWith("dashboard")
                         end,
                     },

@@ -162,12 +162,27 @@ function MatchEngine._simulateMinutes(fixture, homeContext, awayContext, startMi
         local momentum = attackingHome and homeMomentum or awayMomentum
 
         -- 定位球/防守失误进球（每分钟每队都有小概率得分，不依赖战术链）
-        -- 模拟角球、任意球、乌龙球、门将失误等，约每场0.3-0.5个"意外进球"
+        -- 模拟角球、任意球、点球、乌龙球、门将失误等，约每场0.3-0.5个"意外进球"
         local setPieceChance = 0.004  -- 每分钟0.4%，90分钟≈0.36个
         for _, side in ipairs({{true, homeContext, fixture.homeTeamId}, {false, awayContext, fixture.awayTeamId}}) do
             local spIsHome, spContext, spTeamId = side[1], side[2], side[3]
             if Random() < setPieceChance then
-                local scorer = pickShooter(spContext)
+                -- 决定进球类型: 普通定位球60%, 点球25%, 乌龙球15%
+                local spTypeRoll = Random()
+                local spIsOwnGoal = spTypeRoll < 0.15
+                local spIsPenalty = spTypeRoll >= 0.15 and spTypeRoll < 0.40
+
+                local scorer, assister
+                if spIsOwnGoal then
+                    -- 乌龙球：进球者来自防守方（对方球队）
+                    local defContext = spIsHome and awayContext or homeContext
+                    scorer = pickShooter(defContext)
+                    assister = nil
+                else
+                    scorer = pickShooter(spContext)
+                    assister = (not spIsPenalty) and pickAssister(spContext, scorer) or nil
+                end
+
                 if spIsHome then
                     state.homeShots = state.homeShots + 1
                     state.homeShotsOnTarget = state.homeShotsOnTarget + 1
@@ -177,13 +192,14 @@ function MatchEngine._simulateMinutes(fixture, homeContext, awayContext, startMi
                     state.awayShotsOnTarget = state.awayShotsOnTarget + 1
                     state.awayGoals = state.awayGoals + 1
                 end
-                local assister = pickAssister(spContext, scorer)
                 table.insert(events, {
                     type = "goal",
                     minute = minute,
                     playerId = scorer and scorer.id,
                     assistPlayerId = assister and assister.id,
                     teamId = spTeamId,
+                    isPenalty = spIsPenalty or nil,
+                    isOwnGoal = spIsOwnGoal or nil,
                     isExtraTime = minute > 90 or nil,
                     templateIdx = RandomInt(1, 100),
                 })

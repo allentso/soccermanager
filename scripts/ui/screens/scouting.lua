@@ -18,15 +18,7 @@ local ScoutingPage = {}
 -- 潜力星级
 ------------------------------------------------------
 local function _getScoutAccuracy(gameState)
-    local teamId = gameState.playerTeamId
-    local scoutBonus = StaffManager.getScoutingBonus(gameState, teamId)
-    local facilityBonus = 1.0
-    local team = gameState.teams[teamId]
-    if team and team.finance and team.finance.facilities then
-        local scoutFacility = team.finance.facilities.scouting or 0
-        facilityBonus = 1.0 + scoutFacility * 0.05
-    end
-    return math.min(0.95, (0.50 + scoutBonus) * facilityBonus)
+    return ScoutManager.getAccuracy(gameState)
 end
 
 local function _getPotentialStars(potential, scoutAccuracy)
@@ -293,7 +285,7 @@ function ScoutingPage._buildReportCard(report, gameState)
         padding = 12,
         marginBottom = 6,
         onClick = function()
-            ScoutingPage._showReportDetail(report, gameState)
+            Router.navigate("player_detail", { playerId = report.playerId })
         end,
         children = {
             -- 第一行：球员 + 位置 + 年龄 + 球队

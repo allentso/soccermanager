@@ -1,5 +1,5 @@
 -- ui/screens/national_squad_select.lua
--- 世界杯国家队大名单选择页面
+-- 世界杯国家队大名单选择页面（金色主题）
 
 local UI = require("urhox-libs/UI")
 local Theme = require("scripts/ui/theme")
@@ -12,11 +12,27 @@ local NationalSquadSelect = {}
 
 local SQUAD_SIZE = 23
 local POS_GROUPS = {
-    { key = "ALL", label = "全部" },
     { key = "GK",  label = "门将" },
     { key = "DEF", label = "后卫" },
     { key = "MID", label = "中场" },
     { key = "FWD", label = "前锋" },
+}
+
+-- 金色世界杯主题色
+local WC = {
+    GOLD         = {255, 215, 0, 255},
+    GOLD_DIM     = {255, 215, 0, 200},
+    GOLD_BG      = {255, 215, 0, 30},
+    GOLD_BG_HI   = {255, 215, 0, 50},
+    DARK_BG      = {10, 20, 40, 255},
+    CARD_BG      = {15, 30, 55, 255},
+    SURFACE_BG   = {20, 35, 60, 255},
+    BTN_BG       = {40, 60, 90, 255},
+    TEXT_PRIMARY  = {240, 245, 255, 255},
+    TEXT_SECONDARY = {130, 200, 255, 255},
+    TEXT_MUTED    = {100, 140, 180, 255},
+    SELECTED_ROW  = {40, 70, 50, 255},
+    CHECK_GREEN   = {80, 220, 120, 255},
 }
 
 local function getPosGroup(pos)
@@ -28,7 +44,12 @@ local function getPosGroup(pos)
 end
 
 local function getPosColor(pos)
-    return Theme.posColor(pos)
+    local group = getPosGroup(pos)
+    if group == "GK" then return {255, 180, 0, 255}
+    elseif group == "DEF" then return {80, 160, 255, 255}
+    elseif group == "FWD" then return {255, 90, 90, 255}
+    else return {80, 220, 160, 255}
+    end
 end
 
 function NationalSquadSelect.create(params)
@@ -42,19 +63,48 @@ function NationalSquadSelect.create(params)
     local nationName = WorldCup._getNationName(nation)
     local allPlayers = WorldCup.getAvailablePlayers(gameState, nation)
 
+    local MIN_GK = 3  -- 大名单必须包含3个门将
+
     -- 已选中的球员ID集合
     local selectedIds = {}
-    -- 如果已有保存的大名单，预选
     local ntCoach = gameState.nationalTeamCoach
     if ntCoach and ntCoach.squad then
         for _, pid in ipairs(ntCoach.squad) do
             selectedIds[pid] = true
         end
     else
-        -- 默认选中前23名（按overall排序）
-        for i = 1, math.min(SQUAD_SIZE, #allPlayers) do
-            selectedIds[allPlayers[i].id] = true
+        -- 默认选中：先确保至少3个门将，再按overall填满23人
+        -- 1) 分出门将和其他球员
+        local gkPlayers = {}
+        local outfieldPlayers = {}
+        for _, p in ipairs(allPlayers) do
+            if p.position == "GK" then
+                table.insert(gkPlayers, p)
+            else
+                table.insert(outfieldPlayers, p)
+            end
         end
+
+        -- 2) 选入至少3个门将
+        for i = 1, math.min(MIN_GK, #gkPlayers) do
+            selectedIds[gkPlayers[i].id] = true
+        end
+
+        -- 3) 剩余名额从全体球员中按overall排名填充（已选的跳过）
+        local remaining = SQUAD_SIZE - MIN_GK
+        for _, p in ipairs(allPlayers) do
+            if remaining <= 0 then break end
+            if not selectedIds[p.id] then
+                selectedIds[p.id] = true
+                remaining = remaining - 1
+            end
+        end
+
+        local defaultSquad = {}
+        for pid in pairs(selectedIds) do
+            table.insert(defaultSquad, pid)
+        end
+        gameState.nationalTeamCoach.squad = defaultSquad
     end
 
     -- 统计已选数量
@@ -64,8 +114,21 @@ function NationalSquadSelect.create(params)
         return n
     end
 
-    -- 当前筛选
-    local filterPos = "ALL"
+    -- 统计已选门将数量
+    local function countSelectedGK()
+        local n = 0
+        for pid in pairs(selectedIds) do
+            local p = gameState.players[pid]
+            if p and p.position == "GK" then n = n + 1 end
+        end
+        return n
+    end
+
+    -- 是否已确认锁定大名单
+    local isLocked = ntCoach and ntCoach.squadConfirmed == true
+
+    -- 当前筛选位置（从params获取，实现按钮状态同步）
+    local filterPos = (params and params.filterPos) or "GK"
 
     -- 引用容器
     ---@type UIElement
@@ -77,19 +140,29 @@ function NationalSquadSelect.create(params)
 
     local function updateHeader()
         if headerLabel then
-            headerLabel:SetText(string.format("%s 大名单 (%d/%d)", nationName, countSelected(), SQUAD_SIZE))
+            local gkCount = countSelectedGK()
+            local gkHint = gkCount < MIN_GK and string.format(" (门将%d/%d)", gkCount, MIN_GK) or ""
+            headerLabel:SetText(string.format("%s 大名单 (%d/%d)%s", nationName, countSelected(), SQUAD_SIZE, gkHint))
         end
         if confirmBtn then
             local count = countSelected()
-            confirmBtn:SetDisabled(count < 11)
-            confirmBtn:SetText(count >= 11 and "确认大名单" or "至少选11人")
+            local gkCount = countSelectedGK()
+            local canConfirm = count >= 11 and gkCount >= MIN_GK
+            confirmBtn:SetDisabled(not canConfirm)
+            if gkCount < MIN_GK then
+                confirmBtn:SetText(string.format("需要%d门将(已选%d)", MIN_GK, gkCount))
+            elseif count < 11 then
+                confirmBtn:SetText("至少选11人")
+            else
+                confirmBtn:SetText("确认大名单")
+            end
         end
     end
 
     local function buildPlayerRow(p, isSelected)
-        local bgColor = isSelected and "#1a3a2a" or Theme.COLORS.BG_CARD
-        local checkText = isSelected and "✓" or ""
-        local checkColor = isSelected and Theme.COLORS.SECONDARY or Theme.COLORS.TEXT_MUTED
+        local bgColor = isSelected and WC.SELECTED_ROW or WC.CARD_BG
+        local checkText = isSelected and "✓" or "○"
+        local checkColor = isSelected and WC.CHECK_GREEN or WC.TEXT_MUTED
 
         return UI.Button {
             width = "100%",
@@ -101,12 +174,24 @@ function NationalSquadSelect.create(params)
             flexDirection = "row",
             alignItems = "center",
             onClick = function()
+                if isLocked then return end  -- 已确认，不允许修改
                 if isSelected then
+                    -- 取消选中门将时检查：如果当前门将已经<=3，不允许取消
+                    if p.position == "GK" and countSelectedGK() <= MIN_GK then
+                        -- 不允许取消，需要保持至少3个门将
+                        return
+                    end
                     selectedIds[p.id] = nil
                 else
                     if countSelected() >= SQUAD_SIZE then return end
                     selectedIds[p.id] = true
                 end
+                -- 实时同步选中状态到 gameState（切换筛选时不丢失）
+                local squad = {}
+                for pid in pairs(selectedIds) do
+                    table.insert(squad, pid)
+                end
+                gameState.nationalTeamCoach.squad = squad
                 updateHeader()
                 NationalSquadSelect._rebuildList(listContainer, allPlayers, selectedIds, filterPos)
             end,
@@ -123,11 +208,12 @@ function NationalSquadSelect.create(params)
                 UI.Panel {
                     backgroundColor = (function()
                         local c = getPosColor(p.position)
-                        return {c[1], c[2], c[3], 50}
+                        return {c[1], c[2], c[3], 40}
                     end)(),
-                    borderRadius = 3,
-                    paddingLeft = 4, paddingRight = 4, paddingTop = 1, paddingBottom = 1,
-                    marginRight = 4, minWidth = 36,
+                    borderRadius = 4,
+                    paddingLeft = 5, paddingRight = 5, paddingTop = 2, paddingBottom = 2,
+                    marginRight = 6, minWidth = 36,
+                    justifyContent = "center", alignItems = "center",
                     children = {
                         UI.Label {
                             text = Constants.POSITION_NAMES[p.position] or p.position or "?",
@@ -140,7 +226,7 @@ function NationalSquadSelect.create(params)
                 UI.Label {
                     text = p.displayName or p.lastName or "?",
                     fontSize = 13,
-                    color = Theme.COLORS.TEXT_PRIMARY,
+                    color = isSelected and WC.GOLD or WC.TEXT_PRIMARY,
                     flexGrow = 1,
                     flexShrink = 1,
                 },
@@ -151,7 +237,7 @@ function NationalSquadSelect.create(params)
                         return team and team.shortName or ""
                     end)(),
                     fontSize = 11,
-                    color = Theme.COLORS.TEXT_MUTED,
+                    color = WC.TEXT_MUTED,
                     width = 40,
                     textAlign = "center",
                 },
@@ -160,7 +246,7 @@ function NationalSquadSelect.create(params)
                     text = tostring(p.overall or 0),
                     fontSize = 14,
                     fontWeight = "bold",
-                    color = (p.overall or 0) >= 75 and Theme.COLORS.SECONDARY or Theme.COLORS.TEXT_PRIMARY,
+                    color = (p.overall or 0) >= 80 and WC.GOLD or ((p.overall or 0) >= 70 and WC.TEXT_SECONDARY or WC.TEXT_PRIMARY),
                     width = 30,
                     textAlign = "right",
                 },
@@ -168,7 +254,7 @@ function NationalSquadSelect.create(params)
                 UI.Label {
                     text = tostring(p.age or 0),
                     fontSize = 11,
-                    color = Theme.COLORS.TEXT_SECONDARY,
+                    color = WC.TEXT_MUTED,
                     width = 26,
                     textAlign = "right",
                 },
@@ -183,88 +269,119 @@ function NationalSquadSelect.create(params)
         }
     end
 
-    -- 筛选按钮
+    -- 筛选按钮（根据 filterPos 决定高亮）
     local filterBtns = {}
     for _, opt in ipairs(POS_GROUPS) do
+        local isActive = (filterPos == opt.key)
         table.insert(filterBtns, UI.Button {
-            id = "filter_" .. opt.key,
             text = opt.label,
-            height = 28,
-            paddingLeft = 10, paddingRight = 10,
-            borderRadius = 14,
+            height = 30,
+            paddingLeft = 14, paddingRight = 14,
+            borderRadius = 15,
             fontSize = 12,
-            backgroundColor = filterPos == opt.key and Theme.COLORS.PRIMARY or Theme.COLORS.BG_SURFACE,
-            color = filterPos == opt.key and "#FFFFFF" or Theme.COLORS.TEXT_SECONDARY,
+            fontWeight = isActive and "bold" or "normal",
+            backgroundColor = isActive and WC.GOLD or WC.BTN_BG,
+            color = isActive and {20, 20, 40, 255} or WC.TEXT_SECONDARY,
             onClick = function()
-                filterPos = opt.key
-                NationalSquadSelect._rebuildList(listContainer, allPlayers, selectedIds, filterPos)
-                -- 更新筛选按钮样式（简化：重建整页）
+                -- 通过 replaceWith 重建整页，实现按钮高亮同步
+                Router.replaceWith("national_squad_select", { nation = nation, filterPos = opt.key })
             end,
         })
     end
 
     headerLabel = UI.Label {
-        id = "header_label",
         text = string.format("%s 大名单 (%d/%d)", nationName, countSelected(), SQUAD_SIZE),
-        fontSize = 16,
+        fontSize = 15,
         fontWeight = "bold",
-        color = Theme.COLORS.TEXT_PRIMARY,
+        color = WC.GOLD,
         flexGrow = 1,
         textAlign = "center",
     }
 
-    confirmBtn = UI.Button {
-        id = "confirm_btn",
-        text = "确认大名单",
-        width = 80, height = 32,
-        backgroundColor = Theme.COLORS.SECONDARY,
-        borderRadius = 8,
-        fontSize = 13,
-        fontWeight = "bold",
-        color = "#FFFFFF",
-        disabled = countSelected() < 11,
-        onClick = function()
-            -- 保存大名单
-            local squad = {}
-            for pid in pairs(selectedIds) do
-                table.insert(squad, pid)
-            end
-            gameState.nationalTeamCoach.squad = squad
-            SaveManager.save(gameState, "auto")
-            gameState:sendMessage({
-                category = "world_cup",
-                title = "大名单确认",
-                body = string.format("%s世界杯大名单已确认！共%d人入选。准备迎接世界杯吧！",
-                    nationName, #squad),
-                priority = "high",
-            })
-            Router.navigate("dashboard")
-        end,
-    }
+    if isLocked then
+        confirmBtn = UI.Panel {
+            height = 30,
+            paddingLeft = 10, paddingRight = 10,
+            backgroundColor = {40, 80, 60, 255},
+            borderRadius = 6,
+            justifyContent = "center", alignItems = "center",
+            children = {
+                UI.Label { text = "已确认 ✓", fontSize = 12, fontWeight = "bold", color = WC.CHECK_GREEN },
+            },
+        }
+    else
+        local initCount = countSelected()
+        local initGK = countSelectedGK()
+        local initCanConfirm = initCount >= 11 and initGK >= MIN_GK
+        local initBtnText
+        if initGK < MIN_GK then
+            initBtnText = string.format("需要%d门将(已选%d)", MIN_GK, initGK)
+        elseif initCount < 11 then
+            initBtnText = "至少选11人"
+        else
+            initBtnText = "确认大名单"
+        end
 
-    -- 构建列表内容
+        confirmBtn = UI.Button {
+            text = initBtnText,
+            height = 30,
+            paddingLeft = 10, paddingRight = 10,
+            backgroundColor = initCanConfirm and WC.GOLD or WC.BTN_BG,
+            borderRadius = 6,
+            fontSize = 12,
+            fontWeight = "bold",
+            color = initCanConfirm and {20, 20, 40, 255} or WC.TEXT_MUTED,
+            disabled = not initCanConfirm,
+            onClick = function()
+                -- 再次检查门将数量
+                local gkCount = countSelectedGK()
+                if gkCount < MIN_GK then
+                    -- 理论上按钮disabled不会触发，但做防御
+                    return
+                end
+                -- 保存大名单并锁定
+                local squad = {}
+                for pid in pairs(selectedIds) do
+                    table.insert(squad, pid)
+                end
+                gameState.nationalTeamCoach.squad = squad
+                gameState.nationalTeamCoach.squadConfirmed = true
+                SaveManager.save(gameState, "auto")
+                gameState:sendMessage({
+                    category = "world_cup",
+                    title = "大名单确认",
+                    body = string.format("%s世界杯大名单已确认！共%d人入选（含%d名门将）。准备迎接世界杯吧！",
+                        nationName, #squad, gkCount),
+                    priority = "high",
+                })
+                Router.navigate("dashboard")
+            end,
+        }
+    end
+
+    -- 构建列表容器
     listContainer = UI.Panel {
-        id = "player_list",
         width = "100%",
         flexGrow = 1,
         flexShrink = 1,
         overflow = "scroll",
+        paddingLeft = 6, paddingRight = 6, paddingTop = 4,
     }
 
-    -- 初始填充列表
-    local rows = {}
+    -- 初始填充列表 —— 按 filterPos 过滤！
     for _, p in ipairs(allPlayers) do
-        table.insert(rows, buildPlayerRow(p, selectedIds[p.id] == true))
+        if getPosGroup(p.position) == filterPos then
+            listContainer:AddChild(buildPlayerRow(p, selectedIds[p.id] == true))
+        end
     end
-    listContainer:SetChildren(rows)
 
-    -- 保存 buildPlayerRow 引用到模块内给 rebuild 用
+    -- 保存 buildPlayerRow 引用给 rebuild 用
     NationalSquadSelect._buildPlayerRow = buildPlayerRow
 
     return UI.Panel {
         width = "100%",
         height = "100%",
-        backgroundColor = Theme.COLORS.BG_DARK,
+        backgroundColor = WC.DARK_BG,
         children = {
             -- 顶部栏
             UI.Panel {
@@ -273,16 +390,15 @@ function NationalSquadSelect.create(params)
                 flexDirection = "row",
                 alignItems = "center",
                 paddingLeft = 12, paddingRight = 12,
-                backgroundColor = Theme.COLORS.BG_CARD,
+                backgroundColor = WC.CARD_BG,
                 children = {
                     UI.Button {
                         text = "←",
                         width = 36, height = 32,
-                        backgroundColor = "transparent",
+                        backgroundColor = {0, 0, 0, 0},
                         fontSize = 18,
-                        color = Theme.COLORS.TEXT_SECONDARY,
+                        color = WC.GOLD_DIM,
                         onClick = function()
-                            -- 如果还没确认，提醒（简化处理：直接返回）
                             Router.navigate("dashboard")
                         end,
                     },
@@ -294,11 +410,13 @@ function NationalSquadSelect.create(params)
             -- 筛选栏
             UI.Panel {
                 width = "100%",
-                height = 40,
+                height = 44,
                 flexDirection = "row",
                 alignItems = "center",
+                justifyContent = "center",
                 paddingLeft = 8, paddingRight = 8,
-                gap = 6,
+                gap = 8,
+                backgroundColor = WC.SURFACE_BG,
                 children = filterBtns,
             },
 
@@ -308,15 +426,15 @@ function NationalSquadSelect.create(params)
                 height = 28,
                 flexDirection = "row",
                 alignItems = "center",
-                paddingLeft = 12, paddingRight = 12,
-                backgroundColor = Theme.COLORS.BG_SURFACE,
+                paddingLeft = 18, paddingRight = 18,
+                backgroundColor = WC.CARD_BG,
                 children = {
                     UI.Label { text = "", width = 24, fontSize = 10 },
-                    UI.Label { text = "位置", width = 32, fontSize = 10, color = Theme.COLORS.TEXT_MUTED },
-                    UI.Label { text = "球员", flexGrow = 1, fontSize = 10, color = Theme.COLORS.TEXT_MUTED },
-                    UI.Label { text = "俱乐部", width = 40, fontSize = 10, color = Theme.COLORS.TEXT_MUTED, textAlign = "center" },
-                    UI.Label { text = "能力", width = 30, fontSize = 10, color = Theme.COLORS.TEXT_MUTED, textAlign = "right" },
-                    UI.Label { text = "年龄", width = 26, fontSize = 10, color = Theme.COLORS.TEXT_MUTED, textAlign = "right" },
+                    UI.Label { text = "位置", width = 36, fontSize = 10, color = WC.TEXT_MUTED },
+                    UI.Label { text = "球员", flexGrow = 1, fontSize = 10, color = WC.TEXT_MUTED },
+                    UI.Label { text = "俱乐部", width = 40, fontSize = 10, color = WC.TEXT_MUTED, textAlign = "center" },
+                    UI.Label { text = "能力", width = 30, fontSize = 10, color = WC.TEXT_MUTED, textAlign = "right" },
+                    UI.Label { text = "年龄", width = 26, fontSize = 10, color = WC.TEXT_MUTED, textAlign = "right" },
                     UI.Label { text = "", width = 20 },
                 },
             },
@@ -327,18 +445,16 @@ function NationalSquadSelect.create(params)
     }
 end
 
---- 重建列表（筛选后）
+--- 重建列表（选中/取消后刷新）
 function NationalSquadSelect._rebuildList(container, allPlayers, selectedIds, filterPos)
     if not container then return end
     local buildRow = NationalSquadSelect._buildPlayerRow
-    local rows = {}
+    container:RemoveAllChildren()
     for _, p in ipairs(allPlayers) do
-        local show = (filterPos == "ALL") or (getPosGroup(p.position) == filterPos)
-        if show then
-            table.insert(rows, buildRow(p, selectedIds[p.id] == true))
+        if getPosGroup(p.position) == filterPos then
+            container:AddChild(buildRow(p, selectedIds[p.id] == true))
         end
     end
-    container:SetChildren(rows)
 end
 
 return NationalSquadSelect

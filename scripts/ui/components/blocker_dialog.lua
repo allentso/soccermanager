@@ -4,6 +4,7 @@
 local UI = require("urhox-libs/UI")
 local Theme = require("scripts/ui/theme")
 local Router = require("scripts/app/router")
+local AudioManager = require("scripts/systems/audio_manager")
 
 local BlockerDialog = {}
 
@@ -32,6 +33,7 @@ end
 function BlockerDialog.show(blockers, opts)
     opts = opts or {}
     BlockerDialog.close()
+    AudioManager.deny()
 
     local hasWarn = false
     for _, b in ipairs(blockers) do
@@ -92,7 +94,7 @@ function BlockerDialog.show(blockers, opts)
                     color = Theme.COLORS.TEXT_PRIMARY,
                     onClick = function()
                         BlockerDialog.close()
-                        Router.navigate(b.target)
+                        Router.navigate(b.target, b.targetParams)
                     end,
                 },
             }

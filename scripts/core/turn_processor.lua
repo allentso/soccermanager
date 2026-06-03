@@ -232,16 +232,20 @@ function TurnProcessor._simulateWCMatch(gameState, fixture)
     local homeCode = fixture.homeTeamId
     local awayCode = fixture.awayTeamId
 
+    -- 将FIFA代码转为球员数据中的nationality代码
+    local homeNat = WorldCup._toPlayerNat(homeCode)
+    local awayNat = WorldCup._toPlayerNat(awayCode)
+
     -- 收集该国籍的所有球员，计算攻防实力
     local homeOverall, awayOverall = 50, 50
     local homeCount, awayCount = 0, 0
 
     for _, player in pairs(gameState.players) do
         if player.retired then goto continue end
-        if player.nationality == homeCode then
+        if player.nationality == homeNat then
             homeOverall = homeOverall + (player.overall or 50)
             homeCount = homeCount + 1
-        elseif player.nationality == awayCode then
+        elseif player.nationality == awayNat then
             awayOverall = awayOverall + (player.overall or 50)
             awayCount = awayCount + 1
         end
@@ -263,14 +267,171 @@ function TurnProcessor._simulateWCMatch(gameState, fixture)
     homeGoals = math.min(homeGoals, 5)
     awayGoals = math.min(awayGoals, 5)
 
+    -- 收集双方球员池（用于生成进球事件）
+    local homePlayers = {}
+    local awayPlayers = {}
+    for _, player in pairs(gameState.players) do
+        if player.retired or player.injured then goto skipPlayer end
+        if player.nationality == homeNat then
+            table.insert(homePlayers, player)
+        elseif player.nationality == awayNat then
+            table.insert(awayPlayers, player)
+        end
+        ::skipPlayer::
+    end
+    table.sort(homePlayers, function(a, b) return (a.overall or 0) > (b.overall or 0) end)
+    table.sort(awayPlayers, function(a, b) return (a.overall or 0) > (b.overall or 0) end)
+
+    -- 生成进球事件
+    local events = {}
+    local playerRatings = {}
+
+    -- 为指定球队生成一个进球事件
+    local function generateGoalEvent(teamCode, teamPlayers, oppPlayers, usedMinutes)
+        -- 分配进球分钟（避免重复）
+        local minute
+        for _attempt = 1, 20 do
+            minute = RandomInt(1, 90)
+            if not usedMinutes[minute] then break end
+        end
+        usedMinutes[minute] = true
+
+        -- 进球类型概率: 普通进球 80%, 点球 12%, 乌龙球 8%
+        local typeRoll = Random()
+        local isOwnGoal = typeRoll < 0.08
+        local isPenalty = typeRoll >= 0.08 and typeRoll < 0.20
+
+        local scorer, assister
+
+        if isOwnGoal then
+            -- 乌龙球：进球者来自对方球队（后卫更容易乌龙）
+            local defPlayers = {}
+            for _, p in ipairs(oppPlayers) do
+                if p.position == "CB" or p.position == "LB" or p.position == "RB" then
+                    table.insert(defPlayers, p)
+                end
+            end
+            if #defPlayers > 0 then
+                scorer = defPlayers[RandomInt(1, #defPlayers)]
+            elseif #oppPlayers > 0 then
+                scorer = oppPlayers[RandomInt(1, math.min(11, #oppPlayers))]
+            end
+        else
+            -- 正常进球或点球：射手来自本方球队（前锋/中场权重更高）
+            local scorerPool = {}
+            for i = 1, math.min(18, #teamPlayers) do
+                local p = teamPlayers[i]
+                local weight = 1
+                if p.position == "ST" or p.position == "CF" then weight = 5
+                elseif p.position == "LW" or p.position == "RW" then weight = 4
+                elseif p.position == "CAM" or p.position == "CM" then weight = 2
+                elseif p.position == "GK" then weight = 0
+                end
+                for _ = 1, weight do
+                    table.insert(scorerPool, p)
+                end
+            end
+            if #scorerPool > 0 then
+                scorer = scorerPool[RandomInt(1, #scorerPool)]
+            elseif #teamPlayers > 0 then
+                scorer = teamPlayers[RandomInt(1, math.min(11, #teamPlayers))]
+            end
+
+            -- 助攻（点球无助攻，普通进球70%有助攻）
+            if not isPenalty and Random() < 0.70 and #teamPlayers > 1 then
+                local assistPool = {}
+                for i = 1, math.min(14, #teamPlayers) do
+                    local p = teamPlayers[i]
+                    if not scorer or p.id ~= scorer.id then
+                        local weight = 1
+                        if p.position == "CAM" or p.position == "CM" then weight = 4
+                        elseif p.position == "LW" or p.position == "RW" then weight = 3
+                        elseif p.position == "LB" or p.position == "RB" then weight = 2
+                        end
+                        for _ = 1, weight do
+                            table.insert(assistPool, p)
+                        end
+                    end
+                end
+                if #assistPool > 0 then
+                    assister = assistPool[RandomInt(1, #assistPool)]
+                end
+            end
+        end
+
+        local evt = {
+            type = "goal",
+            minute = minute,
+            playerId = scorer and scorer.id or nil,
+            assistPlayerId = assister and assister.id or nil,
+            teamId = teamCode,
+            isPenalty = isPenalty or nil,
+            isOwnGoal = isOwnGoal or nil,
+        }
+        table.insert(events, evt)
+
+        -- 给进球球员设评分加成
+        if scorer then
+            playerRatings[scorer.id] = (playerRatings[scorer.id] or 6.5) + (isOwnGoal and -0.5 or 0.8)
+        end
+        if assister then
+            playerRatings[assister.id] = (playerRatings[assister.id] or 6.5) + 0.5
+        end
+    end
+
+    local usedMinutes = {}
+    for _ = 1, homeGoals do
+        generateGoalEvent(homeCode, homePlayers, awayPlayers, usedMinutes)
+    end
+    for _ = 1, awayGoals do
+        generateGoalEvent(awayCode, awayPlayers, homePlayers, usedMinutes)
+    end
+
+    -- 按时间排序
+    table.sort(events, function(a, b) return a.minute < b.minute end)
+
+    -- 给出场球员基础评分（取前11人）
+    for i = 1, math.min(11, #homePlayers) do
+        local p = homePlayers[i]
+        if not playerRatings[p.id] then
+            playerRatings[p.id] = 5.8 + Random() * 2.0  -- 5.8~7.8
+        end
+    end
+    for i = 1, math.min(11, #awayPlayers) do
+        local p = awayPlayers[i]
+        if not playerRatings[p.id] then
+            playerRatings[p.id] = 5.8 + Random() * 2.0
+        end
+    end
+
+    -- 生成基础统计数据让结果画面更丰富
+    local homePoss = math.floor(45 + (homeOverall - awayOverall) * 0.3 + (Random() * 10 - 5))
+    homePoss = math.max(30, math.min(70, homePoss))
+    local awayPoss = 100 - homePoss
+    local homeShots = math.max(homeGoals + 1, math.floor(homeLambda * 4 + Random() * 3))
+    local awayShots = math.max(awayGoals + 1, math.floor(awayLambda * 4 + Random() * 3))
+    local homeSoT = math.max(homeGoals, math.floor(homeShots * 0.4 + Random() * 2))
+    local awaySoT = math.max(awayGoals, math.floor(awayShots * 0.4 + Random() * 2))
+
     return {
         homeGoals = homeGoals,
         awayGoals = awayGoals,
         homeTeamId = homeCode,
         awayTeamId = awayCode,
-        events = {},
-        playerRatings = {},
-        stats = {},
+        events = events,
+        playerRatings = playerRatings,
+        stats = {
+            homePossession = homePoss,
+            awayPossession = awayPoss,
+            homeShots = homeShots,
+            awayShots = awayShots,
+            homeShotsOnTarget = homeSoT,
+            awayShotsOnTarget = awaySoT,
+            homeFouls = math.floor(8 + Random() * 8),
+            awayFouls = math.floor(8 + Random() * 8),
+            homeCorners = math.floor(2 + Random() * 6),
+            awayCorners = math.floor(2 + Random() * 6),
+        },
     }
 end
 

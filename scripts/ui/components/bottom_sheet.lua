@@ -181,6 +181,25 @@ function BottomSheet.showCustom(opts)
     local padV = 16   -- 上下内边距
     local padH = 16   -- 左右内边距
 
+    -- 精确计算各固定区域占用的高度，给 ScrollView 分配明确的像素高度
+    local titleH = 0
+    if opts.title then
+        titleH = 15 + 12  -- fontSize 15 + marginBottom 12
+    end
+    local cancelH = 0
+    if showCancel then
+        cancelH = 44 + 10  -- height 44 + marginTop 10
+    end
+    local footerH = 0
+    if footer then
+        footerH = 54  -- 估算 footer 高度
+    end
+
+    -- ScrollView 可用高度 = 总高 - 上下padding - 标题 - 取消按钮 - footer
+    local scrollH = drawerHeight - (padV * 2) - titleH - cancelH - footerH
+    -- 保底：至少 100px 可滚动
+    scrollH = math.max(100, scrollH)
+
     local contentItems = {}
 
     -- 标题（固定在顶部，不参与滚动）
@@ -196,23 +215,21 @@ function BottomSheet.showCustom(opts)
     end
 
     -- 自定义内容区域（可滚动）
-    -- 使用 flexGrow=1 / flexBasis=0 让 ScrollView 自动占满标题与底部按钮之间的剩余空间，
-    -- 避免手动估算高度不准导致内容滚不到底。
-    local scrollChildren = {}
-    for _, child in ipairs(children) do
-        table.insert(scrollChildren, child)
-    end
-
+    -- 使用明确像素高度，避免 flex 在 Drawer 内解析不准导致滚不到底
     table.insert(contentItems, UI.ScrollView {
         width = "100%",
-        flexGrow = 1,
-        flexBasis = 0,
-        flexShrink = 1,
+        height = scrollH,
         scrollY = true,
         showScrollbar = true,
         bounceEnabled = false,
         padding = 0,
-        children = scrollChildren,
+        children = {
+            -- 用单一 Panel 包裹所有子元素，确保 ScrollView 内容高度计算准确
+            UI.Panel {
+                width = "100%",
+                children = children,
+            }
+        },
     })
 
     -- footer（固定在底部，不参与滚动）
@@ -240,8 +257,6 @@ function BottomSheet.showCustom(opts)
         })
     end
 
-    -- 使用显式像素高度（而非 "100%"），确保 flex 子项（ScrollView）有确定的高度基准，
-    -- 否则 ScrollView 会按内容撑开、不触发滚动，导致内容被抽屉裁掉滑不到底。
     local content = UI.Panel {
         width = "100%",
         height = drawerHeight,

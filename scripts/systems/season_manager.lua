@@ -861,8 +861,9 @@ function SeasonManager._startNewSeason(gameState)
         gameState.transfers.bids = {}
     end
 
-    -- 清理旧的球探报告
+    -- 清理旧的球探报告和自动发现
     gameState.scoutReports = {}
+    gameState.scoutDiscoveries = {}
 
     -- 补充AI球队阵容（如果人数不足）
     SeasonManager._fillAISquads(gameState)

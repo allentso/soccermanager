@@ -4,6 +4,7 @@
 
 local Constants = require("scripts/app/constants")
 local UI = require("urhox-libs/UI")
+local AudioManager = require("scripts/systems/audio_manager")
 
 local Theme = {}
 
@@ -211,20 +212,40 @@ end
 -- 全局统一底部导航栏
 function Theme.MainNav(activeTab)
     local Router = require("scripts/app/router")
+    -- 国家队模式下"赛事"默认跳世界杯视图
+    local isNTMode = _G.gameState and _G.gameState.currentRole == "national_team"
+        and _G.gameState.nationalTeamCoach ~= nil and _G.gameState.worldCup ~= nil
     return Theme.BottomNav {
         children = {
             Theme.NavButton {
                 label = "赛事",
                 active = (activeTab == "league"),
                 onClick = function()
-                    if activeTab ~= "league" then Router.navigate("league") end
+                    if activeTab ~= "league" then
+                        if isNTMode then
+                            Router.navigate("league", { tab = "WC" })
+                        else
+                            Router.navigate("league")
+                        end
+                    end
                 end,
             },
             Theme.NavButton {
                 label = "球队",
                 active = (activeTab == "squad"),
                 onClick = function()
-                    if activeTab ~= "squad" then Router.navigate("squad") end
+                    if activeTab ~= "squad" then
+                        if isNTMode then
+                            local ntCoach = _G.gameState.nationalTeamCoach
+                            if ntCoach.squadConfirmed then
+                                Router.navigate("tactics")
+                            else
+                                Router.navigate("national_squad_select", { nation = ntCoach.nation })
+                            end
+                        else
+                            Router.navigate("squad")
+                        end
+                    end
                 end,
             },
             Theme.NavButton {
@@ -607,6 +628,7 @@ function Theme.Divider()
 end
 
 function Theme.PrimaryButton(props)
+    local originalOnClick = props.onClick
     return UI.Panel {
         width = props.width or "100%",
         height = props.height or 48,
@@ -617,7 +639,10 @@ function Theme.PrimaryButton(props)
         shadowColor = "rgba(212,175,55,0.3)",
         shadowOffset = { x = 0, y = 3 },
         shadowRadius = 10,
-        onClick = props.onClick,
+        onClick = originalOnClick and function(self)
+            AudioManager.tap()
+            originalOnClick(self)
+        end or nil,
         children = {
             UI.Label {
                 text = props.text or "确认",
@@ -631,6 +656,7 @@ function Theme.PrimaryButton(props)
 end
 
 function Theme.SecondaryButton(props)
+    local originalOnClick = props.onClick
     return UI.Panel {
         width = props.width or "100%",
         height = props.height or 48,
@@ -640,7 +666,10 @@ function Theme.SecondaryButton(props)
         borderColor = "rgba(255,255,255,0.2)",
         justifyContent = "center",
         alignItems = "center",
-        onClick = props.onClick,
+        onClick = originalOnClick and function(self)
+            AudioManager.tap()
+            originalOnClick(self)
+        end or nil,
         children = {
             UI.Label {
                 text = props.text or "取消",

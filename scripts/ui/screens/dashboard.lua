@@ -15,6 +15,7 @@ local BlockerDialog = require("scripts/ui/components/blocker_dialog")
 local ObjectivesManager = require("scripts/systems/objectives_manager")
 local BottomSheet = require("scripts/ui/components/bottom_sheet")
 local TeamIcon = require("scripts/ui/components/team_icon")
+local WorldCup = require("scripts/systems/world_cup")
 
 ---@diagnostic disable-next-line: undefined-global
 local sdk = sdk
@@ -58,7 +59,6 @@ function Dashboard.create(params)
     end
 
     local team = gameState:getPlayerTeam()
-    local teamName = team and team.name or "未知"
     local league = gameState.league
 
     -- 阻断器检查
@@ -130,6 +130,33 @@ function Dashboard.create(params)
         doAdvanceDay()
     end
 
+    -- 判断当前身份
+    local isNTMode = gameState.currentRole == "national_team" and gameState.nationalTeamCoach ~= nil
+    -- 如果国家队已不存在（世界杯结束），自动切回俱乐部
+    if isNTMode and not gameState.worldCup then
+        gameState.currentRole = "club"
+        isNTMode = false
+    end
+
+    -- 滚动内容（根据身份切换）
+    local scrollChildren
+    if isNTMode then
+        scrollChildren = {
+            Dashboard._buildNTMatchHero(gameState),
+            Dashboard._buildNTSnapshot(gameState),
+            Dashboard._buildNTActivityFeed(gameState),
+            UI.Panel { height = 12 },
+        }
+    else
+        scrollChildren = {
+            Dashboard._buildMatchHero(gameState, team),
+            Dashboard._buildUrgentSection(gameState, team),
+            Dashboard._buildClubSnapshot(gameState, team),
+            Dashboard._buildActivityFeed(gameState),
+            UI.Panel { height = 12 },
+        }
+    end
+
     -- 构建页面
     local page = UI.Panel {
         width = "100%",
@@ -137,7 +164,7 @@ function Dashboard.create(params)
         backgroundColor = Theme.COLORS.BG_DARK,
         children = {
             -- 顶部状态栏：日期 + 推进按钮
-            Dashboard._buildTopBar(gameState, teamName, isBlocked, hasAnyBlockers, blockers, daysToMatch, doAdvanceDay, doSkipToMatchDay),
+            Dashboard._buildTopBar(gameState, team, isBlocked, hasAnyBlockers, blockers, daysToMatch, doAdvanceDay, doSkipToMatchDay),
 
             -- 滚动内容区
             UI.ScrollView {
@@ -145,28 +172,21 @@ function Dashboard.create(params)
                 flexBasis = 0,
                 scrollY = true,
                 padding = 12,
-                children = {
-                    -- [Hero区] 下一场比赛大卡
-                    Dashboard._buildMatchHero(gameState, team),
-
-                    -- [紧急事项] 仅在有紧急消息/合同到期时显示
-                    Dashboard._buildUrgentSection(gameState, team),
-
-                    -- [俱乐部快照] 合并后的完整状态面板
-                    Dashboard._buildClubSnapshot(gameState, team),
-
-                    -- [动态流] 近期新闻/收件箱入口
-                    Dashboard._buildActivityFeed(gameState),
-
-                    -- 底部留白
-                    UI.Panel { height = 12 },
-                }
+                children = scrollChildren,
             },
 
             -- 底部导航
             Theme.MainNav("home"),
         }
     }
+
+    -- 如果从阻断器跳转过来，自动触发对应操作
+    if params and params.action == "set_objectives" then
+        SubscribeToEvent("PostUpdate", function()
+            UnsubscribeFromEvent("PostUpdate")
+            Dashboard._showObjectivesDetail(gameState)
+        end)
+    end
 
     return page
 end
@@ -284,7 +304,7 @@ end
 ------------------------------------------------------
 -- 顶部操作栏
 ------------------------------------------------------
-function Dashboard._buildTopBar(gameState, teamName, isBlocked, hasAnyBlockers, blockers, daysToMatch, doAdvanceDay, doSkipToMatchDay)
+function Dashboard._buildTopBar(gameState, team, isBlocked, hasAnyBlockers, blockers, daysToMatch, doAdvanceDay, doSkipToMatchDay)
     -- 继续按钮颜色和文本
     local continueColor = isBlocked and Theme.COLORS.DANGER
         or (hasAnyBlockers and Theme.COLORS.WARNING or Theme.COLORS.FINANCE_GREEN)
@@ -304,17 +324,19 @@ function Dashboard._buildTopBar(gameState, teamName, isBlocked, hasAnyBlockers, 
                 Dashboard._showFixtureCalendar(gameState)
             end,
         },
-        -- 球队名（点击查看经理档案）
-        UI.Button {
-            text = " | " .. teamName,
-            height = 30,
-            backgroundColor = Theme.COLORS.TRANSPARENT,
-            fontSize = 13,
-            color = Theme.COLORS.MATCH_ORANGE,
+        -- 球队/国家队图标（点击查看经理档案）
+        UI.Panel {
+            width = 26, height = 26,
+            marginLeft = 6, marginRight = 2,
             onClick = function()
                 Router.navigate("manager_view")
             end,
+            children = {
+                TeamIcon.create { team = team, size = 26 },
+            },
         },
+        -- 身份切换按钮（仅在有国家队身份时显示）
+        Dashboard._buildRoleSwitcher(gameState),
         UI.Panel { flexGrow = 1 },
         -- 潜力透视按钮
         UI.Button {
@@ -474,7 +496,6 @@ function Dashboard._showFixtureCalendar(gameState)
         if gameState.worldCup and gameState.worldCup.phase ~= "not_started" and gameState.worldCup.phase ~= "completed" then
             local wcFixtures = gameState.worldCup:getFixturesForDate(futureDate)
             for _, f in ipairs(wcFixtures) do
-                local WorldCup = require("scripts/systems/world_cup")
                 if WorldCup.isPlayerNationMatch(gameState, f) then
                     table.insert(upcomingFixtures, {
                         fixture = f,
@@ -1957,6 +1978,531 @@ function Dashboard._showObjectiveSelection(gameState, initSelected)
         height = 620,
         children = children,
     })
+end
+
+------------------------------------------------------
+-- [国家队模式] 身份切换按钮
+------------------------------------------------------
+function Dashboard._buildRoleSwitcher(gameState)
+    -- 只有在拥有国家队身份且世界杯存在时才显示
+    if not gameState.nationalTeamCoach or not gameState.worldCup then
+        return UI.Panel { width = 0, height = 0 }
+    end
+
+    local isNT = gameState.currentRole == "national_team"
+    local nationCode = gameState.nationalTeamCoach.nation
+    local nationName = WorldCup._getNationName(nationCode)
+
+    local label = isNT and ("🏴 " .. nationName) or "🏠 俱乐部"
+    local bgColor = isNT and {25, 60, 90, 255} or {50, 50, 55, 255}
+
+    return UI.Button {
+        text = label,
+        height = 26,
+        backgroundColor = bgColor,
+        borderRadius = 13,
+        fontSize = 10,
+        color = isNT and {130, 200, 255, 255} or Theme.COLORS.TEXT_SECONDARY,
+        paddingLeft = 8, paddingRight = 8,
+        marginLeft = 6,
+        onClick = function()
+            if gameState.currentRole == "national_team" then
+                gameState.currentRole = "club"
+            else
+                gameState.currentRole = "national_team"
+            end
+            Router.replaceWith("dashboard")
+        end,
+    }
+end
+
+------------------------------------------------------
+-- [国家队模式] 下一场世界杯比赛 Hero
+------------------------------------------------------
+function Dashboard._buildNTMatchHero(gameState)
+    local wc = gameState.worldCup
+    local ntCoach = gameState.nationalTeamCoach
+    if not wc or not ntCoach then
+        return UI.Panel { height = 0 }
+    end
+
+    local playerNation = ntCoach.nation
+    local nationName = WorldCup._getNationName(playerNation)
+
+    -- 查找下一场国家队比赛
+    local nextFixture = nil
+    local League = require("scripts/domain/league")
+    for daysAhead = 0, 60 do
+        local futureDate = League._addDays(gameState.date, daysAhead)
+        local wcFixtures = TurnProcessor.getWCFixturesForDate(gameState, futureDate)
+        for _, f in ipairs(wcFixtures) do
+            if f.homeTeamId == playerNation or f.awayTeamId == playerNation then
+                if f.status == "scheduled" then
+                    nextFixture = f
+                    break
+                end
+            end
+        end
+        if nextFixture then break end
+    end
+
+    -- 世界杯阶段名
+    local phaseNames = {
+        group = "小组赛",
+        r16 = "十六强",
+        qf = "四分之一决赛",
+        sf = "半决赛",
+        final = "决赛",
+        completed = "已结束",
+    }
+    local phaseName = phaseNames[wc.phase] or "世界杯"
+
+    if not nextFixture then
+        -- 可能已被淘汰或赛事结束
+        local statusText = wc.phase == "completed" and "世界杯已结束" or "暂无比赛安排"
+        if wc.champion then
+            local champName = WorldCup._getNationName(wc.champion)
+            statusText = "🏆 冠军: " .. champName
+        end
+        return UI.Panel {
+            width = "100%",
+            backgroundColor = {20, 35, 60, 255},
+            borderRadius = 14,
+            paddingTop = 16, paddingBottom = 16, paddingLeft = 16, paddingRight = 16,
+            marginBottom = 12,
+            children = {
+                Theme.SectionHeader { text = "🏆 世界杯 · " .. phaseName, color = {255, 215, 0, 255} },
+                UI.Label {
+                    text = statusText,
+                    fontSize = 14, color = Theme.COLORS.TEXT_MUTED, marginTop = 8,
+                },
+            }
+        }
+    end
+
+    -- 对手信息
+    local opponentCode = nextFixture.homeTeamId == playerNation
+        and nextFixture.awayTeamId or nextFixture.homeTeamId
+    local opponentName = WorldCup._getNationName(opponentCode)
+    local isHome = nextFixture.homeTeamId == playerNation
+
+    -- 日期和倒计时
+    local matchDateStr = string.format("%d月%d日", nextFixture.date.month, nextFixture.date.day)
+    local daysTo = 0
+    for d = 1, 60 do
+        local fd = League._addDays(gameState.date, d)
+        if fd.year == nextFixture.date.year and fd.month == nextFixture.date.month and fd.day == nextFixture.date.day then
+            daysTo = d
+            break
+        end
+    end
+    local countdownText = daysTo <= 0 and "今天" or (daysTo == 1 and "明天" or (daysTo .. "天后"))
+
+    -- 大名单状态
+    local squadCount = ntCoach.squad and #ntCoach.squad or 0
+    local squadStatus = squadCount > 0 and (squadCount .. "人") or "未选"
+    local squadColor = squadCount >= 20 and Theme.COLORS.FINANCE_GREEN
+        or (squadCount > 0 and Theme.COLORS.WARNING or Theme.COLORS.DANGER)
+
+    return UI.Panel {
+        width = "100%",
+        backgroundColor = {15, 30, 55, 255},
+        borderRadius = 14,
+        paddingTop = 14, paddingBottom = 14, paddingLeft = 16, paddingRight = 16,
+        marginBottom = 12,
+        overflow = "hidden",
+        children = {
+            -- 顶部：世界杯 + 阶段 + 倒计时
+            UI.Panel {
+                width = "100%", flexDirection = "row", alignItems = "center", justifyContent = "center",
+                marginBottom = 6,
+                children = {
+                    UI.Label { text = "🏆 世界杯 · " .. phaseName, fontSize = 13, color = {255, 215, 0, 255} },
+                    UI.Panel {
+                        backgroundColor = {255, 215, 0, 40},
+                        borderRadius = 10,
+                        paddingLeft = 8, paddingRight = 8, paddingTop = 2, paddingBottom = 2,
+                        marginLeft = 8,
+                        children = {
+                            UI.Label { text = countdownText, fontSize = 10, color = {255, 215, 0, 255}, fontWeight = "bold" },
+                        }
+                    },
+                }
+            },
+
+            -- 日期
+            UI.Panel {
+                width = "100%", alignItems = "center", marginBottom = 16,
+                children = {
+                    UI.Label { text = matchDateStr, fontSize = 12, color = Theme.COLORS.TEXT_MUTED },
+                }
+            },
+
+            -- 对阵区：国旗emoji + 国名 + VS
+            UI.Panel {
+                width = "100%",
+                flexDirection = "row",
+                alignItems = "center",
+                justifyContent = "center",
+                marginBottom = 16,
+                children = {
+                    -- 我方国家
+                    UI.Panel {
+                        flexGrow = 1, alignItems = "center",
+                        children = {
+                            UI.Panel {
+                                width = 52, height = 52, borderRadius = 26,
+                                backgroundColor = {40, 70, 120, 255},
+                                justifyContent = "center", alignItems = "center",
+                                children = {
+                                    UI.Label { text = "🏴", fontSize = 28 },
+                                }
+                            },
+                            UI.Label {
+                                text = nationName,
+                                fontSize = 14, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold",
+                                textAlign = "center", marginTop = 8,
+                            },
+                        }
+                    },
+                    -- VS
+                    UI.Panel {
+                        width = 50, alignItems = "center",
+                        children = {
+                            UI.Label {
+                                text = "VS",
+                                fontSize = 18, color = {255, 215, 0, 255}, fontWeight = "bold",
+                            },
+                        }
+                    },
+                    -- 对手国家
+                    UI.Panel {
+                        flexGrow = 1, alignItems = "center",
+                        children = {
+                            UI.Panel {
+                                width = 52, height = 52, borderRadius = 26,
+                                backgroundColor = {60, 50, 50, 255},
+                                justifyContent = "center", alignItems = "center",
+                                children = {
+                                    UI.Label { text = "🏴", fontSize = 28 },
+                                }
+                            },
+                            UI.Label {
+                                text = opponentName,
+                                fontSize = 14, color = Theme.COLORS.TEXT_SECONDARY, fontWeight = "bold",
+                                textAlign = "center", marginTop = 8,
+                            },
+                        }
+                    },
+                }
+            },
+
+            -- 赛事信息行
+            UI.Panel {
+                width = "100%", flexDirection = "row", justifyContent = "center", alignItems = "center",
+                marginBottom = 14,
+                children = {
+                    UI.Label { text = isHome and "主场" or "客场", fontSize = 11, color = {255, 215, 0, 200}, fontWeight = "bold" },
+                }
+            },
+
+            -- 分隔线
+            UI.Panel { width = "100%", height = 1, backgroundColor = {255, 255, 255, 15}, marginBottom = 12 },
+
+            -- 底部状态：确认前显示大名单，确认后显示战术
+            (ntCoach.squadConfirmed and UI.Panel {
+                width = "100%", flexDirection = "row", justifyContent = "space-between", alignItems = "center",
+                children = {
+                    UI.Panel {
+                        flexDirection = "row", alignItems = "center",
+                        children = {
+                            UI.Label { text = "阵型: ", fontSize = 11, color = Theme.COLORS.TEXT_MUTED },
+                            UI.Label {
+                                text = (gameState:getPlayerTeam() and gameState:getPlayerTeam().formation) or "4-4-2",
+                                fontSize = 13, color = {255, 215, 0, 255}, fontWeight = "bold",
+                            },
+                        }
+                    },
+                    UI.Button {
+                        text = "战术 →",
+                        height = 26,
+                        backgroundColor = {255, 215, 0, 30},
+                        borderRadius = 6,
+                        fontSize = 11, fontWeight = "bold",
+                        color = {255, 215, 0, 255},
+                        paddingLeft = 10, paddingRight = 10,
+                        onClick = function()
+                            Router.navigate("tactics")
+                        end,
+                    },
+                }
+            } or UI.Panel {
+                width = "100%", flexDirection = "row", justifyContent = "space-between", alignItems = "center",
+                children = {
+                    UI.Panel {
+                        flexDirection = "row", alignItems = "center",
+                        children = {
+                            UI.Label { text = "大名单: ", fontSize = 11, color = Theme.COLORS.TEXT_MUTED },
+                            UI.Label { text = squadStatus, fontSize = 12, color = squadColor, fontWeight = "bold" },
+                        }
+                    },
+                    UI.Button {
+                        text = "选人 →",
+                        height = 26,
+                        backgroundColor = {255, 215, 0, 30},
+                        borderRadius = 6,
+                        fontSize = 11, fontWeight = "bold",
+                        color = {255, 215, 0, 255},
+                        paddingLeft = 10, paddingRight = 10,
+                        onClick = function()
+                            Router.navigate("national_squad_select", { nation = ntCoach.nation })
+                        end,
+                    },
+                }
+            }),
+        }
+    }
+end
+
+------------------------------------------------------
+-- [国家队模式] 状态概览（小组积分 + 球队信息）
+------------------------------------------------------
+function Dashboard._buildNTSnapshot(gameState)
+    local wc = gameState.worldCup
+    local ntCoach = gameState.nationalTeamCoach
+    if not wc or not ntCoach then
+        return UI.Panel { height = 0 }
+    end
+
+    local playerNation = ntCoach.nation
+    local nationName = WorldCup._getNationName(playerNation)
+
+    -- 找到所在小组
+    local myGroup = nil
+    local myGroupName = ""
+    for gName, group in pairs(wc.groups or {}) do
+        for _, tid in ipairs(group.teamIds) do
+            if tid == playerNation then
+                myGroup = group
+                myGroupName = gName
+                break
+            end
+        end
+        if myGroup then break end
+    end
+
+    -- 小组积分表
+    local standingsRows = {}
+    if myGroup and wc.phase == "group" then
+        -- 排序积分榜
+        local sorted = {}
+        for tid, s in pairs(myGroup.standings) do
+            table.insert(sorted, s)
+        end
+        table.sort(sorted, function(a, b)
+            if a.points ~= b.points then return a.points > b.points end
+            if a.goalDifference ~= b.goalDifference then return a.goalDifference > b.goalDifference end
+            return a.goalsFor > b.goalsFor
+        end)
+
+        for rank, s in ipairs(sorted) do
+            local name = WorldCup._getNationName(s.teamId)
+            local isPlayer = s.teamId == playerNation
+            local rowBg = isPlayer and {255, 215, 0, 20} or {0, 0, 0, 0}
+            local nameColor = isPlayer and {255, 215, 0, 255} or Theme.COLORS.TEXT_PRIMARY
+
+            table.insert(standingsRows, UI.Panel {
+                width = "100%", height = 30,
+                flexDirection = "row", alignItems = "center",
+                paddingLeft = 8, paddingRight = 8,
+                backgroundColor = rowBg,
+                borderRadius = 4,
+                children = {
+                    UI.Label { text = tostring(rank), fontSize = 11, color = Theme.COLORS.TEXT_MUTED, width = 18 },
+                    UI.Label { text = name, fontSize = 12, color = nameColor, fontWeight = isPlayer and "bold" or "normal", flexGrow = 1 },
+                    UI.Label { text = tostring(s.played), fontSize = 11, color = Theme.COLORS.TEXT_MUTED, width = 22, textAlign = "center" },
+                    UI.Label { text = tostring(s.goalDifference), fontSize = 11, color = Theme.COLORS.TEXT_MUTED, width = 26, textAlign = "center" },
+                    UI.Label { text = tostring(s.points), fontSize = 12, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold", width = 22, textAlign = "center" },
+                }
+            })
+        end
+    end
+
+    -- 淘汰赛阶段信息
+    local knockoutInfo = nil
+    if wc.phase ~= "group" and wc.phase ~= "not_started" and wc.phase ~= "completed" then
+        knockoutInfo = "进入淘汰赛阶段"
+    end
+
+    local children = {}
+
+    -- 小组表头
+    if #standingsRows > 0 then
+        table.insert(children, UI.Panel {
+            width = "100%", flexDirection = "row", alignItems = "center", marginBottom = 6,
+            children = {
+                UI.Label { text = "🏆", fontSize = 14, marginRight = 6 },
+                UI.Label { text = myGroupName .. " 组积分榜", fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold" },
+            }
+        })
+        -- 表头行
+        table.insert(children, UI.Panel {
+            width = "100%", height = 24,
+            flexDirection = "row", alignItems = "center",
+            paddingLeft = 8, paddingRight = 8,
+            children = {
+                UI.Label { text = "#", fontSize = 10, color = Theme.COLORS.TEXT_MUTED, width = 18 },
+                UI.Label { text = "球队", fontSize = 10, color = Theme.COLORS.TEXT_MUTED, flexGrow = 1 },
+                UI.Label { text = "赛", fontSize = 10, color = Theme.COLORS.TEXT_MUTED, width = 22, textAlign = "center" },
+                UI.Label { text = "净", fontSize = 10, color = Theme.COLORS.TEXT_MUTED, width = 26, textAlign = "center" },
+                UI.Label { text = "分", fontSize = 10, color = Theme.COLORS.TEXT_MUTED, width = 22, textAlign = "center" },
+            }
+        })
+        for _, row in ipairs(standingsRows) do
+            table.insert(children, row)
+        end
+    elseif knockoutInfo then
+        table.insert(children, UI.Panel {
+            width = "100%", flexDirection = "row", alignItems = "center", marginBottom = 6,
+            children = {
+                UI.Label { text = "⚔️", fontSize = 14, marginRight = 6 },
+                UI.Label { text = knockoutInfo, fontSize = 13, color = {255, 215, 0, 255}, fontWeight = "bold" },
+            }
+        })
+    end
+
+    -- 快捷操作
+    table.insert(children, UI.Panel {
+        width = "100%", height = 1, backgroundColor = Theme.COLORS.DIVIDER, marginTop = 10, marginBottom = 10,
+    })
+    table.insert(children, UI.Panel {
+        width = "100%", flexDirection = "row", justifyContent = "space-around",
+        children = {
+            UI.Button {
+                text = ntCoach.squadConfirmed and "⚙️ 战术" or "📋 大名单",
+                height = 32,
+                backgroundColor = ntCoach.squadConfirmed and {40, 50, 80, 255} or {40, 60, 90, 255},
+                borderRadius = 6,
+                fontSize = 11,
+                color = ntCoach.squadConfirmed and {255, 215, 0, 255} or {130, 200, 255, 255},
+                paddingLeft = 12, paddingRight = 12,
+                onClick = function()
+                    if ntCoach.squadConfirmed then
+                        Router.navigate("tactics")
+                    else
+                        Router.navigate("national_squad_select", { nation = playerNation })
+                    end
+                end,
+            },
+            UI.Button {
+                text = "📊 赛程",
+                height = 32,
+                backgroundColor = {40, 60, 90, 255},
+                borderRadius = 6,
+                fontSize = 11, color = {130, 200, 255, 255},
+                paddingLeft = 12, paddingRight = 12,
+                onClick = function()
+                    Router.navigate("league", { tab = "WC" })
+                end,
+            },
+        }
+    })
+
+    return Theme.Card {
+        backgroundColor = {20, 30, 50, 255},
+        borderColor = {40, 70, 120, 100},
+        children = children,
+    }
+end
+
+------------------------------------------------------
+-- [国家队模式] 世界杯相关新闻/活动流
+------------------------------------------------------
+function Dashboard._buildNTActivityFeed(gameState)
+    -- 筛选世界杯相关消息（inbox 存放 world_cup/national_team，news 存放 world_cup_news）
+    local wcMsgs = {}
+    for _, msg in ipairs(gameState.inbox) do
+        if msg.category == "world_cup" or msg.category == "national_team" then
+            table.insert(wcMsgs, msg)
+            if #wcMsgs >= 4 then break end
+        end
+    end
+    if #wcMsgs < 4 then
+        for _, article in ipairs(gameState.news or {}) do
+            if article.category == "world_cup_news" then
+                table.insert(wcMsgs, article)
+                if #wcMsgs >= 4 then break end
+            end
+        end
+    end
+
+    local msgRows = {}
+    if #wcMsgs > 0 then
+        for _, msg in ipairs(wcMsgs) do
+            local dotColor = {255, 215, 0, 255}  -- 金色标识世界杯
+            if msg.priority == "high" then dotColor = Theme.COLORS.DANGER end
+
+            table.insert(msgRows, UI.Panel {
+                width = "100%", height = 38,
+                flexDirection = "row", alignItems = "center",
+                paddingLeft = 8, paddingRight = 8,
+                borderBottomWidth = 1, borderColor = {255, 255, 255, 10},
+                children = {
+                    UI.Panel { width = 5, height = 5, borderRadius = 3, backgroundColor = dotColor, marginRight = 8 },
+                    UI.Label {
+                        text = msg.title or "世界杯动态",
+                        fontSize = 12, color = Theme.COLORS.TEXT_PRIMARY,
+                        flexGrow = 1, flexShrink = 1,
+                    },
+                    msg.date and UI.Label {
+                        text = string.format("%d/%d", msg.date.month, msg.date.day),
+                        fontSize = 10, color = Theme.COLORS.TEXT_MUTED,
+                    } or UI.Panel { width = 0 },
+                },
+                onClick = function()
+                    Router.navigate("inbox")
+                end,
+            })
+        end
+    else
+        table.insert(msgRows, UI.Label {
+            text = "暂无世界杯动态",
+            fontSize = 12, color = Theme.COLORS.TEXT_MUTED,
+            marginTop = 4, marginBottom = 4,
+        })
+    end
+
+    return Theme.Card {
+        backgroundColor = {20, 30, 50, 255},
+        borderColor = {40, 70, 120, 100},
+        children = {
+            -- 标题
+            UI.Panel {
+                width = "100%", flexDirection = "row", alignItems = "center", justifyContent = "space-between",
+                marginBottom = 8,
+                children = {
+                    UI.Panel {
+                        flexDirection = "row", alignItems = "center",
+                        children = {
+                            UI.Label { text = "📰", fontSize = 14, marginRight = 6 },
+                            UI.Label { text = "世界杯动态", fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold" },
+                        }
+                    },
+                    UI.Button {
+                        text = "全部 →",
+                        height = 24,
+                        backgroundColor = {0, 0, 0, 0},
+                        fontSize = 11, color = Theme.COLORS.TEXT_MUTED,
+                        onClick = function()
+                            Router.navigate("inbox")
+                        end,
+                    },
+                }
+            },
+            -- 消息列表
+            table.unpack(msgRows),
+        }
+    }
 end
 
 return Dashboard

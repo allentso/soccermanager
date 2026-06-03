@@ -420,57 +420,77 @@ function TransferHub._transferRow(t, gameState)
     end
 
     local amountText = (t.amount and t.amount > 0) and TransferHub._formatAmount(t.amount) or "免费"
+    local seasonText = t.date and string.format("S%d", t.season or 1) or ""
 
     return UI.Panel {
         width = "100%",
-        paddingTop = 6,
-        paddingBottom = 6,
-        paddingLeft = 6,
-        paddingRight = 6,
+        paddingTop = 8,
+        paddingBottom = 8,
+        paddingLeft = 8,
+        paddingRight = 8,
         borderBottomWidth = 1,
         borderColor = Theme.COLORS.BORDER,
+        flexDirection = "row",
+        alignItems = "center",
         children = {
+            -- 左侧：类型标签 + 球员/俱乐部信息（可收缩）
             UI.Panel {
-                width = "100%",
-                flexDirection = "row",
-                alignItems = "center",
+                flexGrow = 1,
+                flexShrink = 1,
                 children = {
-                    UI.Label {
-                        text = typeLabel,
-                        fontSize = 10,
-                        color = typeColor,
-                        width = 36,
-                        fontWeight = "bold",
+                    -- 第一行：类型 + 球员名
+                    UI.Panel {
+                        width = "100%",
+                        flexDirection = "row",
+                        alignItems = "center",
+                        children = {
+                            UI.Label {
+                                text = typeLabel,
+                                fontSize = 10,
+                                color = typeColor,
+                                width = 36,
+                                fontWeight = "bold",
+                            },
+                            UI.Label {
+                                text = t.playerName or "?",
+                                fontSize = 13,
+                                color = Theme.COLORS.TEXT_PRIMARY,
+                                fontWeight = "bold",
+                                flexGrow = 1,
+                                flexShrink = 1,
+                            },
+                        }
                     },
-                    UI.Label {
-                        text = t.playerName or "?",
-                        fontSize = 13,
-                        color = Theme.COLORS.TEXT_PRIMARY,
-                        flexGrow = 1,
-                    },
-                    UI.Label {
-                        text = amountText,
-                        fontSize = 12,
-                        color = (t.amount and t.amount > 0) and Theme.COLORS.SECONDARY or Theme.COLORS.TEXT_MUTED,
-                        fontWeight = "bold",
-                    },
-                }
-            },
-            UI.Panel {
-                width = "100%",
-                flexDirection = "row",
-                marginTop = 2,
-                children = {
+                    -- 第二行：俱乐部流转
                     UI.Label {
                         text = (t.fromTeamName or "?") .. " → " .. (t.toTeamName or "?"),
                         fontSize = 11,
                         color = Theme.COLORS.TEXT_MUTED,
-                        flexGrow = 1,
+                        marginTop = 2,
+                        marginLeft = 36,
+                    },
+                }
+            },
+            -- 右侧：金额 + 赛季（固定最小宽度，不被挤压）
+            UI.Panel {
+                minWidth = 70,
+                flexShrink = 0,
+                alignItems = "flex-end",
+                marginLeft = 10,
+                children = {
+                    UI.Label {
+                        text = amountText,
+                        fontSize = 13,
+                        color = (t.amount and t.amount > 0) and Theme.COLORS.SECONDARY or Theme.COLORS.TEXT_MUTED,
+                        fontWeight = "bold",
+                        textAlign = "right",
                     },
                     UI.Label {
-                        text = t.date and string.format("S%d", t.season or 1) or "",
+                        text = seasonText,
                         fontSize = 10,
                         color = Theme.COLORS.TEXT_MUTED,
+                        marginTop = 2,
+                        textAlign = "right",
                     },
                 }
             },

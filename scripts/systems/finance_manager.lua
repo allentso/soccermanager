@@ -910,6 +910,7 @@ FinanceManager.FACILITY_TYPES = {
     training = { name = "训练设施", baseCost = 10000000, maxLevel = 5 },  -- 10M base
     medical = { name = "医疗设施", baseCost = 8000000, maxLevel = 5 },   -- 8M base
     scouting = { name = "球探设施", baseCost = 6000000, maxLevel = 5 },  -- 6M base
+    youth = { name = "青训设施", baseCost = 7000000, maxLevel = 5 },     -- 7M base
 }
 
 function FinanceManager.ensureFacilities(team)
@@ -918,7 +919,12 @@ function FinanceManager.ensureFacilities(team)
             training = 1,
             medical = 1,
             scouting = 1,
+            youth = 1,
         }
+    end
+    -- 向后兼容：旧存档补充新字段
+    if not team.facilities.youth then
+        team.facilities.youth = 1
     end
     return team.facilities
 end
@@ -938,6 +944,7 @@ function FinanceManager.getFacilityBonuses(team)
         trainingGain = 1.0 + ((facilities.training or 1) - 1) * 0.08,
         injuryRecovery = 1.0 + ((facilities.medical or 1) - 1) * 0.1,
         scoutingAccuracy = 1.0 + ((facilities.scouting or 1) - 1) * 0.08,
+        youthQuality = 1.0 + ((facilities.youth or 1) - 1) * 0.10,
     }
 end
 

@@ -333,12 +333,9 @@ function News.create(params)
         height = "100%",
         backgroundColor = Theme.COLORS.BG_DARK,
         children = {
-            -- 标题栏 + 导航区域（带新闻发布会氛围背景）
+            -- 标题栏 + 导航区域
             UI.Panel {
                 width = "100%",
-                backgroundImage = "image/bg_news_header_20260529082544.png",
-                backgroundFit = "cover",
-                imageTint = {50, 50, 65, 255},  -- 重度压暗
                 children = {
                     Theme.TopBar {
                         backgroundColor = Theme.COLORS.TRANSPARENT,
@@ -393,6 +390,13 @@ function News.create(params)
                         children = tabButtons,
                     },
                 }
+            },
+
+            -- 欧冠广告横幅（原图比例 1024x683）
+            UI.Panel {
+                width = "100%", aspectRatio = 1024/683, overflow = "hidden",
+                backgroundImage = "image/banner_ucl_sponsors.png",
+                backgroundSize = "cover",
             },
 
             -- 新闻列表

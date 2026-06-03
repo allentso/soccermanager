@@ -238,10 +238,16 @@ function YouthManager._refreshCandidates(gameState)
     if not team then return end
 
     local youthDevBonus = StaffManager.getYouthDevBonus(gameState, team.id)
+
+    -- 青训设施加成：提升潜力和质量
+    local FinanceManager = require("scripts/systems/finance_manager")
+    local facilityBonuses = FinanceManager.getFacilityBonuses(team)
+    local facilityYouthBonus = facilityBonuses.youthQuality or 1.0
+
     local candidates = {}
 
     for _ = 1, YOUTH_POOL_SIZE do
-        local candidate = YouthManager._generateYouthPlayer(gameState, youthDevBonus)
+        local candidate = YouthManager._generateYouthPlayer(gameState, youthDevBonus, facilityYouthBonus)
         table.insert(candidates, candidate)
     end
 
@@ -256,20 +262,24 @@ function YouthManager._refreshCandidates(gameState)
     })
 end
 
-function YouthManager._generateYouthPlayer(gameState, youthDevBonus)
+function YouthManager._generateYouthPlayer(gameState, youthDevBonus, facilityYouthBonus)
+    facilityYouthBonus = facilityYouthBonus or 1.0
     local positions = {"GK", "CB", "LB", "RB", "CM", "CDM", "CAM", "LW", "RW", "ST"}
     local position = positions[RandomInt(1, #positions)]
 
     local age = RandomInt(YOUTH_MIN_AGE, YOUTH_MAX_AGE)
     local birthYear = gameState.date.year - age
 
-    -- 潜力受青训加成影响
-    local basePotential = RandomInt(45, 85)
+    -- 潜力受青训教练加成 + 青训设施加成影响
+    -- 设施加成：提高潜力下限（Lv5 时下限从45提升到 ~57）
+    local potentialFloor = math.floor(45 * facilityYouthBonus)
+    local basePotential = RandomInt(potentialFloor, 85)
     local potential = math.min(99, basePotential + math.floor(youthDevBonus * 30))
 
-    -- 当前能力（年轻球员偏低）
+    -- 当前能力（设施加成提升起始能力）
     local overallCap = math.max(25, math.floor(potential * 0.5))
-    local overall = RandomInt(25, overallCap)
+    local overallFloor = math.floor(25 * facilityYouthBonus)
+    local overall = RandomInt(overallFloor, overallCap)
 
     -- 生成属性（基于 overall 和位置）
     local attributes = YouthManager._generateAttributes(position, overall)

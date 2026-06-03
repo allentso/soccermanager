@@ -157,6 +157,100 @@ function LeagueView.create(params)
         end
     end
 
+    -- 射手榜和助攻榜 —— 收集当前联赛所有球员数据
+    local topScorers = {}
+    local topAssisters = {}
+    for _, tid in ipairs(league.teamIds or {}) do
+        local teamPlayers = gameState:getTeamPlayers(tid)
+        for _, p in ipairs(teamPlayers) do
+            local stats = p.seasonStats
+            if stats then
+                if (stats.goals or 0) > 0 then
+                    table.insert(topScorers, { player = p, goals = stats.goals, assists = stats.assists or 0, teamId = tid })
+                end
+                if (stats.assists or 0) > 0 then
+                    table.insert(topAssisters, { player = p, assists = stats.assists, goals = stats.goals or 0, teamId = tid })
+                end
+            end
+        end
+    end
+    table.sort(topScorers, function(a, b)
+        if a.goals ~= b.goals then return a.goals > b.goals end
+        return a.assists > b.assists
+    end)
+    table.sort(topAssisters, function(a, b)
+        if a.assists ~= b.assists then return a.assists > b.assists end
+        return a.goals > b.goals
+    end)
+
+    -- 构建射手榜内容（含表头）
+    local scorerContent = {}
+    if #topScorers > 0 then
+        table.insert(scorerContent, UI.Panel {
+            width = "100%", height = 26, flexDirection = "row", alignItems = "center",
+            paddingLeft = 10, paddingRight = 10, backgroundColor = Theme.COLORS.BG_HEADER,
+            children = {
+                UI.Label { text = "#", fontSize = 10, color = Theme.COLORS.TEXT_MUTED, width = 20 },
+                UI.Label { text = "球员", fontSize = 10, color = Theme.COLORS.TEXT_MUTED, flexGrow = 1 },
+                UI.Label { text = "球队", fontSize = 10, color = Theme.COLORS.TEXT_MUTED, width = 40 },
+                UI.Label { text = "进球", fontSize = 10, color = Theme.COLORS.TEXT_MUTED, width = 28, textAlign = "center" },
+            },
+        })
+        for i = 1, math.min(10, #topScorers) do
+            local s = topScorers[i]
+            local team = gameState.teams[s.teamId]
+            local isPlayer = s.teamId == gameState.playerTeamId
+            table.insert(scorerContent, UI.Panel {
+                width = "100%", height = 34, flexDirection = "row", alignItems = "center",
+                paddingLeft = 10, paddingRight = 10,
+                backgroundColor = isPlayer and {26, 51, 89, 255} or {0, 0, 0, 0},
+                borderBottomWidth = 1, borderColor = Theme.COLORS.BORDER,
+                children = {
+                    UI.Label { text = tostring(i), fontSize = 11, color = Theme.COLORS.TEXT_MUTED, width = 20 },
+                    UI.Label { text = s.player.displayName, fontSize = 12, color = Theme.COLORS.TEXT_PRIMARY, flexGrow = 1, flexShrink = 1 },
+                    UI.Label { text = team and team.shortName or "", fontSize = 10, color = Theme.COLORS.TEXT_MUTED, width = 40 },
+                    UI.Label { text = tostring(s.goals), fontSize = 13, color = Theme.COLORS.SECONDARY, fontWeight = "bold", width = 28, textAlign = "center" },
+                },
+            })
+        end
+    else
+        table.insert(scorerContent, UI.Label { text = "暂无进球数据", fontSize = 12, color = Theme.COLORS.TEXT_MUTED, paddingLeft = 14, paddingTop = 4 })
+    end
+
+    -- 构建助攻榜内容（含表头）
+    local assisterContent = {}
+    if #topAssisters > 0 then
+        table.insert(assisterContent, UI.Panel {
+            width = "100%", height = 26, flexDirection = "row", alignItems = "center",
+            paddingLeft = 10, paddingRight = 10, backgroundColor = Theme.COLORS.BG_HEADER,
+            children = {
+                UI.Label { text = "#", fontSize = 10, color = Theme.COLORS.TEXT_MUTED, width = 20 },
+                UI.Label { text = "球员", fontSize = 10, color = Theme.COLORS.TEXT_MUTED, flexGrow = 1 },
+                UI.Label { text = "球队", fontSize = 10, color = Theme.COLORS.TEXT_MUTED, width = 40 },
+                UI.Label { text = "助攻", fontSize = 10, color = Theme.COLORS.TEXT_MUTED, width = 28, textAlign = "center" },
+            },
+        })
+        for i = 1, math.min(10, #topAssisters) do
+            local a = topAssisters[i]
+            local team = gameState.teams[a.teamId]
+            local isPlayer = a.teamId == gameState.playerTeamId
+            table.insert(assisterContent, UI.Panel {
+                width = "100%", height = 34, flexDirection = "row", alignItems = "center",
+                paddingLeft = 10, paddingRight = 10,
+                backgroundColor = isPlayer and {26, 51, 89, 255} or {0, 0, 0, 0},
+                borderBottomWidth = 1, borderColor = Theme.COLORS.BORDER,
+                children = {
+                    UI.Label { text = tostring(i), fontSize = 11, color = Theme.COLORS.TEXT_MUTED, width = 20 },
+                    UI.Label { text = a.player.displayName, fontSize = 12, color = Theme.COLORS.TEXT_PRIMARY, flexGrow = 1, flexShrink = 1 },
+                    UI.Label { text = team and team.shortName or "", fontSize = 10, color = Theme.COLORS.TEXT_MUTED, width = 40 },
+                    UI.Label { text = tostring(a.assists), fontSize = 13, color = Theme.COLORS.ACCENT, fontWeight = "bold", width = 28, textAlign = "center" },
+                },
+            })
+        end
+    else
+        table.insert(assisterContent, UI.Label { text = "暂无助攻数据", fontSize = 12, color = Theme.COLORS.TEXT_MUTED, paddingLeft = 14, paddingTop = 4 })
+    end
+
     return UI.Panel {
         width = "100%",
         height = "100%",
@@ -220,6 +314,24 @@ function LeagueView.create(params)
                 children = {
                     -- 积分榜
                     UI.Panel { width = "100%", children = standingRows },
+
+                    -- 射手榜
+                    UI.Panel {
+                        width = "100%", paddingLeft = 14, paddingTop = 14, paddingBottom = 6,
+                        children = {
+                            Theme.Title { text = "射手榜", fontSize = 15 },
+                        }
+                    },
+                    UI.Panel { width = "100%", children = scorerContent },
+
+                    -- 助攻榜
+                    UI.Panel {
+                        width = "100%", paddingLeft = 14, paddingTop = 14, paddingBottom = 6,
+                        children = {
+                            Theme.Title { text = "助攻榜", fontSize = 15 },
+                        }
+                    },
+                    UI.Panel { width = "100%", children = assisterContent },
 
                     -- 分隔
                     UI.Panel {

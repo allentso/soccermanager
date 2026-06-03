@@ -14,6 +14,7 @@ local BottomSheet = require("scripts/ui/components/bottom_sheet")
 local StatsTab = require("scripts/ui/screens/player_detail/stats_tab")
 local PotentialSystem = require("scripts/systems/potential_system")
 local StaffManager = require("scripts/systems/staff_manager")
+local ScoutManager = require("scripts/systems/scout_manager")
 
 local PlayerDetail = {}
 
@@ -21,15 +22,26 @@ local PlayerDetail = {}
 -- 潜力星级显示（复用逻辑，与 youth.lua 一致）
 ------------------------------------------------------
 local function _getScoutAccuracy(gameState)
-    local teamId = gameState.playerTeamId
-    local scoutBonus = StaffManager.getScoutingBonus(gameState, teamId)
-    local facilityBonus = 1.0
-    local team = gameState.teams[teamId]
-    if team and team.finance and team.finance.facilities then
-        local scoutFacility = team.finance.facilities.scouting or 0
-        facilityBonus = 1.0 + scoutFacility * 0.05
+    return ScoutManager.getAccuracy(gameState)
+end
+
+------------------------------------------------------
+-- 球探能力不足时，部分属性显示为 "?"
+-- 基于球探准确度和属性伪随机种子决定是否可见
+------------------------------------------------------
+local function _isAttrRevealed(playerId, attrKey, scoutAccuracy)
+    -- 本队球员总是全部可见
+    local gs = _G.gameState
+    if gs and gs.players[playerId] and gs.players[playerId].teamId == gs.playerTeamId then
+        return true
     end
-    return math.min(0.95, (0.50 + scoutBonus) * facilityBonus)
+    -- 准确度 >= 0.95 时全部可见
+    if scoutAccuracy >= 0.95 then return true end
+    -- 用 playerId + attrKey 生成伪随机种子，确保同一球员同一属性结果一致
+    local seed = playerId * 31 + string.byte(attrKey, 1) * 7 + (string.byte(attrKey, 2) or 0) * 3
+    local pseudoRand = (math.sin(seed) * 10000) % 1.0
+    -- 准确度越高，越多属性可见（例如 accuracy=0.7 → 70% 概率可见）
+    return pseudoRand < scoutAccuracy
 end
 
 local function _getPotentialStars(potential, scoutAccuracy)
@@ -197,13 +209,22 @@ function PlayerDetail._buildOverview(player, team, age, gameState)
 
     -- 关键属性（按位置选择6个最重要的）
     local keyAttrs = PlayerDetail._getKeyAttributes(player)
+    local scoutAcc = _getScoutAccuracy(gameState)
 
     local keyAttrItems = {}
     for _, ka in ipairs(keyAttrs) do
-        local color = ka.value >= 15 and Theme.COLORS.SECONDARY
-            or (ka.value >= 12 and {128, 230, 128, 255}
-            or (ka.value <= 6 and Theme.COLORS.DANGER
-            or (ka.value <= 9 and Theme.COLORS.WARNING or Theme.COLORS.TEXT_PRIMARY)))
+        local revealed = _isAttrRevealed(player.id, ka.key, scoutAcc)
+        local displayValue = revealed and tostring(ka.value) or "?"
+        local barWidth = revealed and (math.floor(ka.value / 20 * 100) .. "%") or "50%"
+        local color
+        if not revealed then
+            color = Theme.COLORS.TEXT_MUTED
+        else
+            color = ka.value >= 15 and Theme.COLORS.SECONDARY
+                or (ka.value >= 12 and {128, 230, 128, 255}
+                or (ka.value <= 6 and Theme.COLORS.DANGER
+                or (ka.value <= 9 and Theme.COLORS.WARNING or Theme.COLORS.TEXT_PRIMARY)))
+        end
         table.insert(keyAttrItems, UI.Panel {
             width = "48%", height = 32,
             flexDirection = "row", alignItems = "center",
@@ -216,14 +237,14 @@ function PlayerDetail._buildOverview(player, team, age, gameState)
                     marginRight = 6,
                     children = {
                         UI.Panel {
-                            width = math.floor(ka.value / 20 * 100) .. "%",
+                            width = barWidth,
                             height = "100%",
-                            backgroundColor = color,
+                            backgroundColor = revealed and color or {60, 70, 100, 255},
                             borderRadius = 3,
                         },
                     }
                 },
-                UI.Label { text = tostring(ka.value), fontSize = 12, color = color, fontWeight = "bold", width = 20 },
+                UI.Label { text = displayValue, fontSize = 12, color = color, fontWeight = "bold", width = 20 },
             }
         })
     end
@@ -252,7 +273,7 @@ function PlayerDetail._buildOverview(player, team, age, gameState)
                     UI.Panel {
                         flexDirection = "row", flexWrap = "wrap", marginTop = 6,
                         children = {
-                            Theme.StatPill { label = "国籍", value = player.nationality },
+                            Theme.StatPill { label = "国籍", value = ScoutManager.getNationName(player.nationality) },
                             Theme.StatPill { label = "潜力", value = select(2, _getPotentialStars(player.actualPotential or player.potential or 0, _getScoutAccuracy(gameState))), valueColor = Theme.COLORS.ACCENT },
                             Theme.StatPill { label = "惯用脚", value = player.preferredFoot == "right" and "右" or "左" },
                             Theme.StatPill { label = "弱足", value = player.weakFoot .. "星" },
@@ -342,37 +363,81 @@ function PlayerDetail._buildTransferAction(player, gameState)
         },
     }
 
+    -- 候选名单按钮
+    local isInShortlist = gameState.shortlist and gameState.shortlist[player.id]
+    local shortlistBtn = UI.Button {
+        text = isInShortlist and "已加入候选" or "加入候选名单",
+        flexGrow = 1, height = 40,
+        backgroundColor = isInShortlist and {60, 70, 90, 255} or {45, 55, 80, 255},
+        borderRadius = 8, fontSize = 13, fontWeight = "bold",
+        color = isInShortlist and Theme.COLORS.TEXT_MUTED or Theme.COLORS.ACCENT,
+        borderWidth = 1,
+        borderColor = isInShortlist and Theme.COLORS.BORDER or Theme.COLORS.ACCENT,
+        onClick = function()
+            if not gameState.shortlist then gameState.shortlist = {} end
+            if isInShortlist then
+                gameState.shortlist[player.id] = nil
+                UI.Toast.Show({ message = player.displayName .. " 已移出候选名单", variant = "info" })
+            else
+                gameState.shortlist[player.id] = true
+                UI.Toast.Show({ message = player.displayName .. " 已加入候选名单", variant = "success" })
+            end
+            Router.replaceWith("player_detail", { playerId = player.id, tab = "overview" })
+        end,
+    }
+
     if hasBid then
-        table.insert(actionChildren, UI.Button {
-            text = "已提交报价",
-            width = "100%", height = 40,
-            backgroundColor = Theme.COLORS.TEXT_MUTED,
-            borderRadius = 8, fontSize = 14,
-            color = Theme.COLORS.TEXT_PRIMARY,
+        table.insert(actionChildren, UI.Panel {
+            width = "100%", flexDirection = "row",
+            children = {
+                UI.Button {
+                    text = "已提交报价",
+                    flexGrow = 1, height = 40,
+                    backgroundColor = Theme.COLORS.TEXT_MUTED,
+                    borderRadius = 8, fontSize = 14,
+                    color = Theme.COLORS.TEXT_PRIMARY,
+                    marginRight = 8,
+                },
+                shortlistBtn,
+            },
         })
     elseif releaseClause then
-        table.insert(actionChildren, UI.Button {
-            text = "触发解约金 · " .. PlayerDetail._formatMoney(releaseClause),
-            width = "100%", height = 40,
-            backgroundColor = {120, 90, 20, 255},
-            borderRadius = 8, fontSize = 14, fontWeight = "bold",
-            color = {255, 220, 80, 255},
-            onClick = function()
-                TransferManager.triggerReleaseClause(gameState, player.id)
-                UI.Toast.Show({ message = "已触发解约金买断", variant = "success" })
-                Router.replaceWith("player_detail", { playerId = player.id, tab = "overview" })
-            end,
+        table.insert(actionChildren, UI.Panel {
+            width = "100%", flexDirection = "row",
+            children = {
+                UI.Button {
+                    text = "触发解约金 · " .. PlayerDetail._formatMoney(releaseClause),
+                    flexGrow = 1, height = 40,
+                    backgroundColor = {120, 90, 20, 255},
+                    borderRadius = 8, fontSize = 14, fontWeight = "bold",
+                    color = {255, 220, 80, 255},
+                    marginRight = 8,
+                    onClick = function()
+                        TransferManager.triggerReleaseClause(gameState, player.id)
+                        UI.Toast.Show({ message = "已触发解约金买断", variant = "success" })
+                        Router.replaceWith("player_detail", { playerId = player.id, tab = "overview" })
+                    end,
+                },
+                shortlistBtn,
+            },
         })
     else
-        table.insert(actionChildren, UI.Button {
-            text = "提交转会报价",
-            width = "100%", height = 40,
-            backgroundColor = Theme.COLORS.PRIMARY,
-            borderRadius = 8, fontSize = 14, fontWeight = "bold",
-            color = Theme.COLORS.TEXT_PRIMARY,
-            onClick = function()
-                PlayerDetail._showBidSheet(gameState, player)
-            end,
+        table.insert(actionChildren, UI.Panel {
+            width = "100%", flexDirection = "row",
+            children = {
+                UI.Button {
+                    text = "提交转会报价",
+                    flexGrow = 1, height = 40,
+                    backgroundColor = Theme.COLORS.PRIMARY,
+                    borderRadius = 8, fontSize = 14, fontWeight = "bold",
+                    color = Theme.COLORS.TEXT_PRIMARY,
+                    marginRight = 8,
+                    onClick = function()
+                        PlayerDetail._showBidSheet(gameState, player)
+                    end,
+                },
+                shortlistBtn,
+            },
         })
     end
 
@@ -388,14 +453,21 @@ end
 -- 属性标签
 function PlayerDetail._buildAttributes(player)
     local a = player.attributes
+    local gameState = _G.gameState
+    local scoutAcc = _getScoutAccuracy(gameState)
 
-    local function AttrRow(label, value)
+    local function AttrRow(label, attrKey, value)
+        local revealed = _isAttrRevealed(player.id, attrKey, scoutAcc)
         local color = Theme.COLORS.TEXT_PRIMARY
-        if value >= 15 then color = Theme.COLORS.SECONDARY
+        if not revealed then
+            color = Theme.COLORS.TEXT_MUTED
+        elseif value >= 15 then color = Theme.COLORS.SECONDARY
         elseif value >= 12 then color = {128, 230, 128, 255}
         elseif value <= 6 then color = Theme.COLORS.DANGER
         elseif value <= 9 then color = Theme.COLORS.WARNING
         end
+        local displayValue = revealed and tostring(value) or "?"
+        local barWidth = revealed and (math.floor(value / 20 * 100) .. "%") or "50%"
         return UI.Panel {
             width = "48%", height = 30,
             flexDirection = "row", alignItems = "center",
@@ -406,12 +478,12 @@ function PlayerDetail._buildAttributes(player)
                     marginRight = 6,
                     children = {
                         UI.Panel {
-                            width = math.floor(value / 20 * 100) .. "%",
-                            height = "100%", backgroundColor = color, borderRadius = 2,
+                            width = barWidth,
+                            height = "100%", backgroundColor = revealed and color or {60, 70, 100, 255}, borderRadius = 2,
                         },
                     }
                 },
-                UI.Label { text = tostring(value), fontSize = 12, color = color, fontWeight = "bold", width = 22 },
+                UI.Label { text = displayValue, fontSize = 12, color = color, fontWeight = "bold", width = 22 },
             }
         }
     end
@@ -424,11 +496,11 @@ function PlayerDetail._buildAttributes(player)
                 UI.Panel {
                     flexDirection = "row", flexWrap = "wrap", marginTop = 6,
                     children = {
-                        AttrRow("速度", a.speed),
-                        AttrRow("体能", a.stamina),
-                        AttrRow("力量", a.strength),
-                        AttrRow("敏捷", a.agility),
-                        AttrRow("制空", a.aerial),
+                        AttrRow("速度", "speed", a.speed),
+                        AttrRow("体能", "stamina", a.stamina),
+                        AttrRow("力量", "strength", a.strength),
+                        AttrRow("敏捷", "agility", a.agility),
+                        AttrRow("制空", "aerial", a.aerial),
                     }
                 },
             }
@@ -441,11 +513,11 @@ function PlayerDetail._buildAttributes(player)
                 UI.Panel {
                     flexDirection = "row", flexWrap = "wrap", marginTop = 6,
                     children = {
-                        AttrRow("传球", a.passing),
-                        AttrRow("射门", a.shooting),
-                        AttrRow("盘带", a.dribbling),
-                        AttrRow("抢断", a.tackling),
-                        AttrRow("视野", a.vision),
+                        AttrRow("传球", "passing", a.passing),
+                        AttrRow("射门", "shooting", a.shooting),
+                        AttrRow("盘带", "dribbling", a.dribbling),
+                        AttrRow("抢断", "tackling", a.tackling),
+                        AttrRow("视野", "vision", a.vision),
                     }
                 },
             }
@@ -458,13 +530,13 @@ function PlayerDetail._buildAttributes(player)
                 UI.Panel {
                     flexDirection = "row", flexWrap = "wrap", marginTop = 6,
                     children = {
-                        AttrRow("防守", a.defending),
-                        AttrRow("站位", a.positioning),
-                        AttrRow("决策", a.decisions),
-                        AttrRow("镇定", a.composure),
-                        AttrRow("侵略", a.aggression),
-                        AttrRow("合作", a.teamwork),
-                        AttrRow("领导", a.leadership),
+                        AttrRow("防守", "defending", a.defending),
+                        AttrRow("站位", "positioning", a.positioning),
+                        AttrRow("决策", "decisions", a.decisions),
+                        AttrRow("镇定", "composure", a.composure),
+                        AttrRow("侵略", "aggression", a.aggression),
+                        AttrRow("合作", "teamwork", a.teamwork),
+                        AttrRow("领导", "leadership", a.leadership),
                     }
                 },
             }
@@ -479,8 +551,8 @@ function PlayerDetail._buildAttributes(player)
                 UI.Panel {
                     flexDirection = "row", flexWrap = "wrap", marginTop = 6,
                     children = {
-                        AttrRow("手型", a.handling),
-                        AttrRow("反应", a.reflexes),
+                        AttrRow("手型", "handling", a.handling),
+                        AttrRow("反应", "reflexes", a.reflexes),
                     }
                 },
             }
@@ -930,51 +1002,51 @@ function PlayerDetail._formatMoney(amount)
     return FinanceManager.formatMoney(amount)
 end
 
--- 辅助：按位置获取关键属性
+-- 辅助：按位置获取关键属性（key 用于球探模糊计算）
 function PlayerDetail._getKeyAttributes(player)
     local a = player.attributes
     local pos = player.position
     if pos == "GK" then
         return {
-            {label="手型", value=a.handling}, {label="反应", value=a.reflexes},
-            {label="站位", value=a.positioning}, {label="制空", value=a.aerial},
-            {label="镇定", value=a.composure}, {label="决策", value=a.decisions},
+            {label="手型", key="handling", value=a.handling}, {label="反应", key="reflexes", value=a.reflexes},
+            {label="站位", key="positioning", value=a.positioning}, {label="制空", key="aerial", value=a.aerial},
+            {label="镇定", key="composure", value=a.composure}, {label="决策", key="decisions", value=a.decisions},
         }
     elseif pos == "CB" then
         return {
-            {label="防守", value=a.defending}, {label="抢断", value=a.tackling},
-            {label="制空", value=a.aerial}, {label="力量", value=a.strength},
-            {label="站位", value=a.positioning}, {label="镇定", value=a.composure},
+            {label="防守", key="defending", value=a.defending}, {label="抢断", key="tackling", value=a.tackling},
+            {label="制空", key="aerial", value=a.aerial}, {label="力量", key="strength", value=a.strength},
+            {label="站位", key="positioning", value=a.positioning}, {label="镇定", key="composure", value=a.composure},
         }
     elseif pos == "LB" or pos == "RB" then
         return {
-            {label="防守", value=a.defending}, {label="抢断", value=a.tackling},
-            {label="速度", value=a.speed}, {label="体能", value=a.stamina},
-            {label="传球", value=a.passing}, {label="盘带", value=a.dribbling},
+            {label="防守", key="defending", value=a.defending}, {label="抢断", key="tackling", value=a.tackling},
+            {label="速度", key="speed", value=a.speed}, {label="体能", key="stamina", value=a.stamina},
+            {label="传球", key="passing", value=a.passing}, {label="盘带", key="dribbling", value=a.dribbling},
         }
     elseif pos == "CDM" then
         return {
-            {label="抢断", value=a.tackling}, {label="防守", value=a.defending},
-            {label="传球", value=a.passing}, {label="站位", value=a.positioning},
-            {label="体能", value=a.stamina}, {label="力量", value=a.strength},
+            {label="抢断", key="tackling", value=a.tackling}, {label="防守", key="defending", value=a.defending},
+            {label="传球", key="passing", value=a.passing}, {label="站位", key="positioning", value=a.positioning},
+            {label="体能", key="stamina", value=a.stamina}, {label="力量", key="strength", value=a.strength},
         }
     elseif pos == "ST" or pos == "CF" then
         return {
-            {label="射门", value=a.shooting}, {label="镇定", value=a.composure},
-            {label="站位", value=a.positioning}, {label="速度", value=a.speed},
-            {label="盘带", value=a.dribbling}, {label="制空", value=a.aerial},
+            {label="射门", key="shooting", value=a.shooting}, {label="镇定", key="composure", value=a.composure},
+            {label="站位", key="positioning", value=a.positioning}, {label="速度", key="speed", value=a.speed},
+            {label="盘带", key="dribbling", value=a.dribbling}, {label="制空", key="aerial", value=a.aerial},
         }
     elseif pos == "LW" or pos == "RW" then
         return {
-            {label="速度", value=a.speed}, {label="盘带", value=a.dribbling},
-            {label="敏捷", value=a.agility}, {label="射门", value=a.shooting},
-            {label="传球", value=a.passing}, {label="视野", value=a.vision},
+            {label="速度", key="speed", value=a.speed}, {label="盘带", key="dribbling", value=a.dribbling},
+            {label="敏捷", key="agility", value=a.agility}, {label="射门", key="shooting", value=a.shooting},
+            {label="传球", key="passing", value=a.passing}, {label="视野", key="vision", value=a.vision},
         }
     else -- CM/CAM/LM/RM
         return {
-            {label="传球", value=a.passing}, {label="视野", value=a.vision},
-            {label="体能", value=a.stamina}, {label="决策", value=a.decisions},
-            {label="盘带", value=a.dribbling}, {label="射门", value=a.shooting},
+            {label="传球", key="passing", value=a.passing}, {label="视野", key="vision", value=a.vision},
+            {label="体能", key="stamina", value=a.stamina}, {label="决策", key="decisions", value=a.decisions},
+            {label="盘带", key="dribbling", value=a.dribbling}, {label="射门", key="shooting", value=a.shooting},
         }
     end
 end

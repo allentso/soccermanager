@@ -7,11 +7,16 @@ local Router = require("scripts/app/router")
 local Constants = require("scripts/app/constants")
 local AIManager = require("scripts/systems/ai_manager")
 local BottomSheet = require("scripts/ui/components/bottom_sheet")
+local WorldCup = require("scripts/systems/world_cup")
 
 local Tactics = {}
 
 ---@type string
 local _activeTab = "formation" -- formation | setpiece
+
+-- 局部 ScrollView 引用，用于局部刷新避免整页重建
+---@type any
+local _formationScrollView = nil
 
 -- 阵型变体位置坐标映射 (x%, y% 从球场左下角计算, x=横向0-100, y=纵向0-100从底到顶)
 -- 键: "阵型:变体key"
@@ -174,7 +179,19 @@ function Tactics.create(params)
         }
     end
 
-    local team = gameState:getPlayerTeam()
+    -- 判断当前身份：国家队模式 vs 俱乐部模式
+    local isNTMode = gameState.currentRole == "national_team"
+        and gameState.nationalTeamCoach ~= nil
+        and gameState.worldCup ~= nil
+
+    local team
+    if isNTMode then
+        local nationCode = gameState.nationalTeamCoach.nation
+        team = WorldCup.buildNationalTeam(gameState, nationCode)
+    else
+        team = gameState:getPlayerTeam()
+    end
+
     if not team then
         return UI.Panel {
             width = "100%", height = "100%",
@@ -192,7 +209,7 @@ function Tactics.create(params)
     if _activeTab == "setpiece" then
         content = Tactics._buildSetPieceContent(gameState, team)
     else
-        content = Tactics._buildFormationContent(gameState, team)
+        content = Tactics._buildFormationContent(gameState, team, isNTMode)
     end
 
     return UI.Panel {
@@ -293,12 +310,8 @@ end
 -- 阵型与球场视图
 ---------------------------------------------------------------------------
 
--- 局部 ScrollView 引用，用于局部刷新避免整页重建
----@type any
-local _formationScrollView = nil
-
 -- 构建阵型内容子元素
-local function _buildFormationChildren(gameState, team)
+local function _buildFormationChildren(gameState, team, isNTMode)
     local currentFormation = team.formation or "4-4-2"
     local currentPlayStyle = team.playStyle or "Balanced"
     if not team.formationVariant then
@@ -306,11 +319,19 @@ local function _buildFormationChildren(gameState, team)
     end
     local currentVariant = team.formationVariant
 
+    -- 国家队模式下保存战术设置的辅助函数
+    local function saveNTSettings()
+        if isNTMode and gameState.nationalTeamCoach then
+            WorldCup.saveNationalTeamSettings(gameState, gameState.nationalTeamCoach.nation, team)
+        end
+    end
+
     -- 前置声明刷新函数：清空 ScrollView 并重建内容
     local function refresh()
+        saveNTSettings()
         if _formationScrollView then
             _formationScrollView:ClearChildren()
-            local newChildren = _buildFormationChildren(gameState, team)
+            local newChildren = _buildFormationChildren(gameState, team, isNTMode)
             -- 用单一 Panel 包裹所有子元素，确保 ScrollView 高度计算正确
             _formationScrollView:AddChild(UI.Panel {
                 width = "100%",
@@ -462,8 +483,8 @@ local function _buildFormationChildren(gameState, team)
     }
 end
 
-function Tactics._buildFormationContent(gameState, team)
-    local items = _buildFormationChildren(gameState, team)
+function Tactics._buildFormationContent(gameState, team, isNTMode)
+    local items = _buildFormationChildren(gameState, team, isNTMode)
     -- 返回单一 Panel 包裹，ScrollView 只有一个直接子节点
     -- 避免 UpdateContentSize 递归进入绝对定位子元素导致高度计算异常
     return { UI.Panel { width = "100%", children = items } }
@@ -532,7 +553,7 @@ function Tactics._buildPitchView(gameState, team, formation)
 
         -- 换算成绝对像素偏移 (基于pitchW/pitchH)
         local left = math.floor((100 - px) / 100 * pitchW) - 16  -- 镜像x轴：px小=右侧(RM), px大=左侧(LM)
-        local top = math.floor((100 - py) / 100 * pitchH) - 16 -- 翻转y，顶部=进攻端
+        local top = math.floor((100 - py) / 100 * pitchH) - 16 - 12 -- 翻转y，顶部=进攻端；-12补偿内嵌箭头高度
 
         local player = startingXI[i] and gameState.players[startingXI[i]]
         local label = player and (string.sub(player.displayName, 1, 6)) or tostring(i)
@@ -560,6 +581,18 @@ function Tactics._buildPitchView(gameState, team, formation)
             else arrowLabel = "●" end               -- 原地(控球)
         end
 
+        -- 箭头放入球员 Panel 内部，避免独立 absolute 遮挡名字和拦截点击
+        local arrowElement = nil
+        if arrowLabel then
+            arrowElement = UI.Label {
+                text = arrowLabel,
+                fontSize = 9,
+                color = arrowDef.color,
+                textAlign = "center",
+                height = 12,
+            }
+        end
+
         table.insert(dots, UI.Panel {
             position = "absolute",
             left = left,
@@ -570,6 +603,8 @@ function Tactics._buildPitchView(gameState, team, formation)
                 Tactics._showSlotSwapSheet(gameState, team, slotIdx, slots)
             end,
             children = {
+                -- 风格箭头（在圆点上方）
+                arrowElement or UI.Panel { height = 12 },
                 -- 圆点
                 UI.Panel {
                     width = 20,
@@ -589,28 +624,6 @@ function Tactics._buildPitchView(gameState, team, formation)
                 },
             },
         })
-
-        -- 箭头元素（在球员点上方或下方）
-        if arrowLabel then
-            local arrowTop = arrowDir[2] == -1 and (top - 12) or (top + 30)
-            table.insert(dots, UI.Panel {
-                position = "absolute",
-                left = left + 8,
-                top = arrowTop,
-                width = 16,
-                height = 14,
-                justifyContent = "center",
-                alignItems = "center",
-                children = {
-                    UI.Label {
-                        text = arrowLabel,
-                        fontSize = 10,
-                        color = arrowDef.color,
-                        textAlign = "center",
-                    },
-                },
-            })
-        end
     end
 
     -- 球场线条 (中线、中圈用面板模拟)
@@ -829,6 +842,17 @@ function Tactics._showSlotSwapSheet(gameState, team, slotIdx, slots)
     local currentPlayer = currentPid and gameState.players[currentPid]
     local slotPos = slots[slotIdx] or "MID"
 
+    -- 国家队模式判断
+    local isNTMode = gameState.currentRole == "national_team"
+        and gameState.nationalTeamCoach ~= nil
+        and gameState.worldCup ~= nil
+
+    local function saveAfterChange()
+        if isNTMode and gameState.nationalTeamCoach then
+            WorldCup.saveNationalTeamSettings(gameState, gameState.nationalTeamCoach.nation, team)
+        end
+    end
+
     -- 收集候选球员：所有队内非首发球员 + 其他首发（用于位置互换）
     local benchCandidates = {}
     local swapCandidates = {}
@@ -910,6 +934,7 @@ function Tactics._showSlotSwapSheet(gameState, team, slotIdx, slots)
                     else
                         team.slotRoles[slotIdx] = role.key
                     end
+                    saveAfterChange()
                     BottomSheet.close()
                     Router.replaceWith("tactics", { tab = "formation" })
                 end,
@@ -960,6 +985,7 @@ function Tactics._showSlotSwapSheet(gameState, team, slotIdx, slots)
                 onClick = function()
                     -- 将该板凳球员放入 slotIdx 位置，移除原球员
                     team.startingXI[slotIdx] = p.id
+                    saveAfterChange()
                     BottomSheet.close()
                     Router.replaceWith("tactics", { tab = "formation" })
                 end,
@@ -992,6 +1018,7 @@ function Tactics._showSlotSwapSheet(gameState, team, slotIdx, slots)
                     local tmp = team.startingXI[slotIdx]
                     team.startingXI[slotIdx] = team.startingXI[c.index]
                     team.startingXI[c.index] = tmp
+                    saveAfterChange()
                     BottomSheet.close()
                     Router.replaceWith("tactics", { tab = "formation" })
                 end,
@@ -1003,7 +1030,6 @@ function Tactics._showSlotSwapSheet(gameState, team, slotIdx, slots)
     -- 标题 39 + 位置信息行 44 + 关闭按钮 54 + 上下 padding 32 ≈ 169
     local fixed = 169
     -- 球员角色区域（仅当该位置有多个角色可选时显示）
-    local posRoles = Constants.POSITION_ROLES[slotPos]
     if posRoles and #posRoles > 1 then
         fixed = fixed + 96  -- 标签 + 角色按钮（可能换行）+ 描述
     end

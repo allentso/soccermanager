@@ -96,6 +96,28 @@ local CATEGORY_LABELS = {
     transfer = "转会",
 }
 
+-- 旧存档兼容：templateId 作为 title 时的中文映射
+local TITLE_FALLBACK = {
+    scout_report_ready = "球探报告完成",
+    scout_report = "球探报告",
+    youth_signed = "青训签约",
+    youth_promoted = "青训提拔",
+    finance_warning = "财务警告",
+    finance_crisis = "财务危机",
+    contract_expiring_6m = "合同到期提醒",
+    contract_expiring_3m = "合同即将到期",
+    contract_expired = "球员离队",
+    transfer_bid_received = "收到报价",
+    transfer_completed = "转会完成",
+    training_growth = "训练提升",
+    training_injury = "训练伤病",
+    injury_recovered = "伤愈复出",
+    board_objective = "董事会目标",
+    board_warning = "董事会警告",
+    match_result = "比赛结果",
+    match_preview = "赛前预告",
+}
+
 -- 优先级颜色（三级：紧急/重要/普通）
 local PRIORITY_COLORS = {
     high = Theme.COLORS.DANGER,         -- 红色紧急
@@ -353,7 +375,7 @@ function Inbox._showDetail(msg, currentTab)
             },
             -- 标题
             UI.Label {
-                text = msg.title or "消息",
+                text = TITLE_FALLBACK[msg.title] or msg.title or "消息",
                 fontSize = 17,
                 color = Theme.COLORS.TEXT_PRIMARY,
                 fontWeight = "bold",
@@ -687,7 +709,7 @@ function Inbox.create(params)
                             flexGrow = 1, flexShrink = 1,
                             children = {
                                 UI.Label {
-                                    text = msg.title or "消息",
+                                    text = TITLE_FALLBACK[msg.title] or msg.title or "消息",
                                     fontSize = 14,
                                     color = isUnread and Theme.COLORS.TEXT_PRIMARY or Theme.COLORS.TEXT_SECONDARY,
                                     fontWeight = isUnread and "bold" or "normal",
@@ -803,6 +825,13 @@ function Inbox.create(params)
                 borderBottomWidth = 1,
                 borderColor = Theme.COLORS.BORDER,
                 children = tabButtons,
+            },
+
+            -- 欧冠广告横幅（原图比例 1024x683 ≈ 1.5:1）
+            UI.Panel {
+                width = "100%", aspectRatio = 1024/683, overflow = "hidden",
+                backgroundImage = "image/banner_ucl_sponsors.png",
+                backgroundSize = "cover",
             },
 
             -- 消息列表

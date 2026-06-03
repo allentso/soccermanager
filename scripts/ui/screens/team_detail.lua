@@ -185,14 +185,25 @@ local function buildSquadTab(team, gameState, teamId)
         paddingHorizontal = 10, backgroundColor = COLORS.BG_HEADER,
         children = {
             UI.Label { text = "位置", width = 36, fontSize = 10, color = COLORS.TEXT_MUTED },
-            UI.Label { text = "姓名", flex = 1, fontSize = 10, color = COLORS.TEXT_MUTED },
-            UI.Label { text = "年龄", width = 34, fontSize = 10, color = COLORS.TEXT_MUTED, textAlign = "center" },
-            UI.Label { text = "能力", width = 34, fontSize = 10, color = COLORS.TEXT_MUTED, textAlign = "center" },
+            UI.Label { text = "姓名", flexGrow = 1, flexShrink = 1, fontSize = 10, color = COLORS.TEXT_MUTED },
+            UI.Label { text = "出场", width = 32, fontSize = 10, color = COLORS.TEXT_MUTED, textAlign = "center", marginLeft = 4 },
+            UI.Label { text = "进球", width = 32, fontSize = 10, color = COLORS.TEXT_MUTED, textAlign = "center", marginLeft = 2 },
+            UI.Label { text = "助攻", width = 32, fontSize = 10, color = COLORS.TEXT_MUTED, textAlign = "center", marginLeft = 2 },
+            UI.Label { text = "评分", width = 34, fontSize = 10, color = COLORS.TEXT_MUTED, textAlign = "center", marginLeft = 2 },
+            UI.Label { text = "能力", width = 32, fontSize = 10, color = COLORS.TEXT_MUTED, textAlign = "center", marginLeft = 2 },
         }
     })
 
     for _, p in ipairs(players) do
         local pColor = posColor(p.position)
+        local stats = p.seasonStats or {}
+        local apps = stats.appearances or 0
+        local goals = stats.goals or 0
+        local assists = stats.assists or 0
+        local avgRating = stats.avgRating or 0
+        local ratingStr = avgRating > 0 and string.format("%.1f", avgRating) or "-"
+        local cards = (stats.yellowCards or 0) + (stats.redCards or 0)
+
         table.insert(rows, UI.Panel {
             width = "100%", height = 44, flexDirection = "row", alignItems = "center",
             paddingHorizontal = 10,
@@ -208,9 +219,12 @@ local function buildSquadTab(team, gameState, teamId)
                     justifyContent = "center", alignItems = "center",
                     children = { UI.Label { text = Constants.POSITION_NAMES[p.position] or p.position or "?", fontSize = 10, fontWeight = "bold", color = pColor } }
                 },
-                UI.Label { text = p.displayName or "未知", flex = 1, fontSize = 12, color = COLORS.TEXT_PRIMARY, marginLeft = 8 },
-                UI.Label { text = tostring(p:getAge(gameState.date.year) or "?"), width = 34, fontSize = 12, color = COLORS.TEXT_SECONDARY, textAlign = "center" },
-                UI.Label { text = tostring(p.overall or "?"), width = 34, fontSize = 12, fontWeight = "bold", color = COLORS.TEXT_PRIMARY, textAlign = "center" },
+                UI.Label { text = p.displayName or "未知", flexGrow = 1, flexShrink = 1, fontSize = 12, color = COLORS.TEXT_PRIMARY, marginLeft = 8 },
+                UI.Label { text = apps > 0 and tostring(apps) or "-", width = 32, fontSize = 11, color = COLORS.TEXT_SECONDARY, textAlign = "center", marginLeft = 4 },
+                UI.Label { text = goals > 0 and tostring(goals) or "-", width = 32, fontSize = 11, color = goals > 0 and COLORS.SECONDARY or COLORS.TEXT_MUTED, fontWeight = goals >= 5 and "bold" or "normal", textAlign = "center", marginLeft = 2 },
+                UI.Label { text = assists > 0 and tostring(assists) or "-", width = 32, fontSize = 11, color = assists > 0 and COLORS.ACCENT or COLORS.TEXT_MUTED, textAlign = "center", marginLeft = 2 },
+                UI.Label { text = ratingStr, width = 34, fontSize = 11, color = avgRating >= 7.5 and COLORS.SECONDARY or (avgRating >= 6.5 and COLORS.TEXT_PRIMARY or COLORS.DANGER), textAlign = "center", marginLeft = 2 },
+                UI.Label { text = tostring(p.overall or "?"), width = 32, fontSize = 12, fontWeight = "bold", color = COLORS.TEXT_PRIMARY, textAlign = "center", marginLeft = 2 },
             }
         })
     end

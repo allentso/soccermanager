@@ -623,7 +623,7 @@ function Finance._buildOperationsDashboard(team, gameState)
     -- 上座率
     local attendancePct, attSource
     local lastRevenue = team._lastMatchRevenue
-    if lastRevenue and lastRevenue.attendanceRate then
+    if type(lastRevenue) == "table" and lastRevenue.attendanceRate then
         attendancePct = math.floor(lastRevenue.attendanceRate * 100)
         attSource = "实际"
     else
@@ -849,7 +849,7 @@ function Finance._buildOperationsDashboard(team, gameState)
                     Finance._dashEstItem("赞助", estSponsor, {220, 180, 60, 255}),
                     Finance._dashEstItem("转播", estBroadcast, {100, 200, 150, 255}),
                     Finance._dashEstItem("商品", estMerch, {180, 120, 220, 255}),
-                    Finance._dashEstItem("票房", lastRevenue and lastRevenue.revenue or 0, {72, 160, 220, 255}),
+                    Finance._dashEstItem("票房", (type(lastRevenue) == "table" and lastRevenue.revenue) or 0, {72, 160, 220, 255}),
                 }
             },
 
@@ -909,6 +909,7 @@ function Finance._buildFacilities(team, gameState)
         { key = "training", label = "训练设施", desc = "提升每日训练属性成长", bonus = string.format("训练收益 x%.2f", bonuses.trainingGain) },
         { key = "medical", label = "医疗设施", desc = "提升伤病恢复和长期健康管理", bonus = string.format("恢复效率 x%.2f", bonuses.injuryRecovery) },
         { key = "scouting", label = "球探设施", desc = "提升球探报告准确度和发现质量", bonus = string.format("球探准确 x%.2f", bonuses.scoutingAccuracy) },
+        { key = "youth", label = "青训设施", desc = "提升高潜力青训出现几率和平均质量", bonus = string.format("青训质量 x%.2f", bonuses.youthQuality) },
     }
 
     for _, def in ipairs(defs) do
@@ -960,6 +961,13 @@ function Finance._buildFacilities(team, gameState)
     -- 球场扩建卡片
     local stadiumCard = Finance._buildStadiumExpansionCard(team, gameState)
     table.insert(rows, 1, stadiumCard)  -- 放在设施列表最前面
+
+    -- 球场横幅图片（最顶部，原图比例 1032x576 ≈ 1.79:1）
+    table.insert(rows, 1, UI.Panel {
+        width = "100%", aspectRatio = 1032/576, borderRadius = 10, overflow = "hidden", marginBottom = 10,
+        backgroundImage = "image/banner_stadium_night.png",
+        backgroundSize = "cover",
+    })
 
     return UI.ScrollView {
         flexGrow = 1,

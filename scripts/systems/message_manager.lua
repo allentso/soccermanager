@@ -118,6 +118,26 @@ local TEMPLATES = {
         priority = "normal",
         format = "球探发现了 %s (%s, %d岁)，综合能力 %d，建议关注。",
     },
+    scout_report_ready = {
+        category = "scout",
+        title = "球探报告完成",
+        priority = "normal",
+        format = "%s · %s",
+    },
+
+    -- 青训类
+    youth_signed = {
+        category = "youth",
+        title = "青训签约",
+        priority = "normal",
+        format = "青训球员 %s (%s) 已签约加入青训队。",
+    },
+    youth_promoted = {
+        category = "youth",
+        title = "青训提拔",
+        priority = "normal",
+        format = "%s 已从青训队提拔至一线队。",
+    },
 
     -- 董事会类
     board_objective = {

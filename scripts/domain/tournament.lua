@@ -725,7 +725,7 @@ function Tournament:getFixturesForDate(date)
     end
 
     -- 淘汰赛（含附加赛）
-    local knockoutPhases = {"playoff", "r16", "qf", "sf", "final"}
+    local knockoutPhases = {"playoff", "r32", "r16", "qf", "sf", "third", "final"}
     for _, phase in ipairs(knockoutPhases) do
         local fixtures = self.knockout[phase]
         if fixtures then

@@ -169,21 +169,23 @@ function MatchResult.create(params)
                 }
             },
 
-            -- 可滚动内容区
+            -- 可滚动内容区（过滤nil避免ipairs中断）
             UI.ScrollView {
                 flexGrow = 1,
                 flexBasis = 0,
                 scrollY = true,
                 padding = 14,
-                children = {
-                    -- 比赛日收入卡片（主场时显示）
-                    MatchResult._buildRevenueCard(report),
-                    motmSection,
-                    goalsSection,
-                    statsSection,
-                    eventsSection,
-                    ratingsSection,
-                }
+                children = (function()
+                    local sections = {}
+                    local revenueCard = MatchResult._buildRevenueCard(report)
+                    if revenueCard then table.insert(sections, revenueCard) end
+                    if motmSection then table.insert(sections, motmSection) end
+                    if goalsSection then table.insert(sections, goalsSection) end
+                    if statsSection then table.insert(sections, statsSection) end
+                    if eventsSection then table.insert(sections, eventsSection) end
+                    if ratingsSection then table.insert(sections, ratingsSection) end
+                    return sections
+                end)(),
             },
         }
     }
@@ -322,6 +324,7 @@ end
 -- 进球回顾
 ---------------------------------------------------------------------------
 function MatchResult._buildGoalsReview(report, gameState, homeName, awayName)
+    if not report.events or #report.events == 0 then return nil end
     local goalEvents = {}
     for _, evt in ipairs(report.events) do
         if evt.type == "goal" then
@@ -352,10 +355,26 @@ function MatchResult._buildGoalsReview(report, gameState, homeName, awayName)
         local isHome = evt.teamId == report.homeTeamId
         local teamLabel = isHome and homeName or awayName
 
+        -- 进球类型标记
+        local goalIcon = "⚽"
+        local goalTag = ""
+        if evt.isOwnGoal then
+            goalTag = " (乌龙球)"
+            goalIcon = "⚽"
+        elseif evt.isPenalty then
+            goalTag = " (点球)"
+        end
+
         local assistText = ""
-        if evt.assistPlayerId then
+        if evt.isOwnGoal then
+            assistText = "乌龙球 · " .. teamLabel
+        elseif evt.assistPlayerId then
             local assister = gameState.players[evt.assistPlayerId]
             assistText = assister and ("助攻: " .. assister.displayName) or ""
+        elseif evt.isPenalty then
+            assistText = "点球 · " .. teamLabel
+        else
+            assistText = teamLabel
         end
 
         table.insert(rows, UI.Panel {
@@ -374,7 +393,7 @@ function MatchResult._buildGoalsReview(report, gameState, homeName, awayName)
                     width = 32,
                 },
                 UI.Label {
-                    text = "⚽",
+                    text = goalIcon,
                     fontSize = 14,
                     width = 22,
                 },
@@ -382,13 +401,13 @@ function MatchResult._buildGoalsReview(report, gameState, homeName, awayName)
                     flexGrow = 1,
                     children = {
                         UI.Label {
-                            text = scorerName,
+                            text = scorerName .. goalTag,
                             fontSize = 13,
-                            color = Theme.COLORS.TEXT_PRIMARY,
+                            color = evt.isOwnGoal and Theme.COLORS.DANGER or Theme.COLORS.TEXT_PRIMARY,
                             fontWeight = "bold",
                         },
                         UI.Label {
-                            text = (assistText ~= "" and assistText or teamLabel),
+                            text = assistText,
                             fontSize = 11,
                             color = Theme.COLORS.TEXT_MUTED,
                         },
@@ -676,9 +695,12 @@ function MatchResult._buildPlayerRatings(report, gameState, fixture)
         if assists > 0 then perfText = perfText .. "🅰×" .. assists .. " " end
         perfText = perfText .. cards
 
+        local posColor = Theme.posColor(p.position)
+        local posName = Constants.POSITION_NAMES[p.position] or p.position
+
         table.insert(rows, UI.Panel {
             width = "100%",
-            height = 40,
+            height = 42,
             flexDirection = "row",
             alignItems = "center",
             paddingLeft = 6,
@@ -686,12 +708,17 @@ function MatchResult._buildPlayerRatings(report, gameState, fixture)
             borderBottomWidth = 1,
             borderColor = Theme.COLORS.BORDER,
             children = {
-                -- 位置
-                UI.Label {
-                    text = Constants.POSITION_NAMES[p.position] or p.position,
-                    fontSize = 10,
-                    color = Theme.COLORS.TEXT_MUTED,
-                    width = 36,
+                -- 位置徽章（与战术页面统一样式）
+                UI.Panel {
+                    backgroundColor = {posColor[1], posColor[2], posColor[3], 50},
+                    borderRadius = 3,
+                    paddingLeft = 4, paddingRight = 4, paddingTop = 2, paddingBottom = 2,
+                    marginRight = 6,
+                    minWidth = 36,
+                    alignItems = "center",
+                    children = {
+                        UI.Label { text = posName, fontSize = 10, color = posColor, fontWeight = "bold", maxLines = 1 },
+                    },
                 },
                 -- 姓名
                 UI.Label {
@@ -699,18 +726,21 @@ function MatchResult._buildPlayerRatings(report, gameState, fixture)
                     fontSize = 12,
                     color = Theme.COLORS.TEXT_PRIMARY,
                     flexGrow = 1,
+                    flexShrink = 1,
                 },
-                -- 表现标签
+                -- 表现标签（增加宽度防止截断）
                 UI.Label {
                     text = perfText,
                     fontSize = 11,
-                    width = 60,
+                    width = 80,
+                    textAlign = "right",
                 },
                 -- 评分
                 UI.Panel {
-                    width = 32,
-                    height = 22,
+                    width = 34,
+                    height = 24,
                     borderRadius = 4,
+                    marginLeft = 4,
                     backgroundColor = ratingColor,
                     justifyContent = "center",
                     alignItems = "center",

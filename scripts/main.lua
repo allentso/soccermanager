@@ -11,6 +11,7 @@ local Constants = require("scripts/app/constants")
 local SeasonManager = require("scripts/systems/season_manager")
 local YouthManager = require("scripts/systems/youth_manager")
 local TutorialGuide = require("scripts/ui/components/tutorial_guide")
+local SettingsManager = require("scripts/persistence/settings_manager")
 
 -- 页面模块
 local MainMenu = require("scripts/ui/screens/main_menu")
@@ -74,6 +75,10 @@ function Start()
 
     -- 绑定事件
     BindEvents()
+
+    -- 初始化设置（应用音频增益等）
+    SettingsManager.init()
+
 
     -- 显示主菜单
     NavigateTo("main_menu")
