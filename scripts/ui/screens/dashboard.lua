@@ -368,16 +368,16 @@ function Dashboard._buildTopBar(gameState, team, isBlocked, hasAnyBlockers, bloc
         or (hasAnyBlockers and Theme.COLORS.WARNING or Theme.COLORS.FINANCE_GREEN)
     local continueText = isBlocked and "! 阻断"
         or (hasTodayMatch and "! 继续")
-        or (hasAnyBlockers and "! 继续" or "继续 >")
+        or (hasAnyBlockers and "! 继续" or "下一天")
 
     local children = {
         -- 日期（点击弹出赛事日历）
         UI.Button {
             text = gameState:getDateString(),
-            height = 30,
+            height = 34,
             backgroundColor = Theme.COLORS.TRANSPARENT,
-            fontSize = 13,
-            color = Theme.COLORS.TEXT_SECONDARY,
+            fontSize = 14,
+            color = Theme.COLORS.TEXT_PRIMARY,
             paddingLeft = 0, paddingRight = 4,
             onClick = function()
                 Dashboard._showFixtureCalendar(gameState)
@@ -386,14 +386,40 @@ function Dashboard._buildTopBar(gameState, team, isBlocked, hasAnyBlockers, bloc
         -- 球队/国家队图标（有国家队身份时点击切换模式，否则查看经理档案）
         Dashboard._buildTeamIconSwitcher(gameState, team),
         UI.Panel { flexGrow = 1 },
-        -- 设置按钮
+        -- 搜索/消息/设置快捷入口
+        UI.Button {
+            text = "⌕",
+            width = 30,
+            height = 30,
+            backgroundColor = Theme.COLORS.TRANSPARENT,
+            borderRadius = 15,
+            fontSize = 18,
+            color = Theme.COLORS.TEXT_MUTED,
+            marginRight = 6,
+            onClick = function()
+                Router.navigate("market")
+            end,
+        },
+        UI.Button {
+            text = "✉",
+            width = 30,
+            height = 30,
+            backgroundColor = (gameState:getUnreadCount() > 0) and {Theme.COLORS.DANGER[1], Theme.COLORS.DANGER[2], Theme.COLORS.DANGER[3], 28} or Theme.COLORS.TRANSPARENT,
+            borderRadius = 15,
+            fontSize = 15,
+            color = (gameState:getUnreadCount() > 0) and Theme.COLORS.TEXT_PRIMARY or Theme.COLORS.TEXT_MUTED,
+            marginRight = 6,
+            onClick = function()
+                Router.navigate("inbox")
+            end,
+        },
         UI.Button {
             text = "⚙",
             width = 30,
             height = 30,
             backgroundColor = Theme.COLORS.TRANSPARENT,
             borderRadius = 15,
-            fontSize = 16,
+            fontSize = 15,
             color = Theme.COLORS.TEXT_MUTED,
             marginRight = 6,
             onClick = function()
@@ -408,8 +434,8 @@ function Dashboard._buildTopBar(gameState, team, isBlocked, hasAnyBlockers, bloc
             text = ">>" .. daysToMatch .. "天",
             width = 64,
             height = 30,
-            backgroundColor = hasAnyBlockers and Theme.COLORS.BG_SURFACE or Theme.COLORS.BG_CARD_ELEVATED,
-            borderRadius = 6,
+            backgroundColor = hasAnyBlockers and Theme.COLORS.BG_SURFACE or {255, 255, 255, 18},
+            borderRadius = 8,
             fontSize = 11,
             color = hasAnyBlockers and Theme.COLORS.TEXT_MUTED or Theme.COLORS.MATCH_ORANGE,
             marginRight = 6,
@@ -430,10 +456,10 @@ function Dashboard._buildTopBar(gameState, team, isBlocked, hasAnyBlockers, bloc
     -- 继续按钮（核心 CTA）
     table.insert(children, UI.Button {
         text = continueText,
-        width = 80,
+        width = 74,
         height = 34,
         backgroundColor = continueColor,
-        borderRadius = 8,
+        borderRadius = 9,
         fontSize = 14,
         color = Theme.COLORS.TEXT_PRIMARY,
         fontWeight = "bold",
@@ -452,11 +478,11 @@ function Dashboard._buildTopBar(gameState, team, isBlocked, hasAnyBlockers, bloc
 
     return UI.Panel {
         width = "100%",
-        height = 50,
+        height = 56,
         flexDirection = "row",
         alignItems = "center",
-        paddingLeft = 14,
-        paddingRight = 14,
+        paddingLeft = 16,
+        paddingRight = 12,
         backgroundColor = Theme.COLORS.BG_HEADER,
         borderBottomWidth = 1,
         borderColor = Theme.COLORS.BORDER,
@@ -714,153 +740,159 @@ function Dashboard._buildMatchHero(gameState, team)
         width = "100%",
         backgroundImage = "image/bg_dashboard_hero_v2_20260529085135.png",
         backgroundFit = "cover",
-        imageTint = {70, 70, 90, 255},
-        borderRadius = 14,
-        paddingTop = 14, paddingBottom = 14, paddingLeft = 16, paddingRight = 16,
+        imageTint = {42, 55, 82, 245},
+        borderRadius = 16,
+        borderWidth = 1,
+        borderColor = {Theme.COLORS.INFO_BLUE[1], Theme.COLORS.INFO_BLUE[2], Theme.COLORS.INFO_BLUE[3], 70},
+        paddingTop = 14, paddingBottom = 0, paddingLeft = 0, paddingRight = 0,
         marginBottom = 12,
         overflow = "hidden",
         children = {
-            -- 顶部标题：下一场比赛 + 倒计时标签
-            UI.Panel {
-                width = "100%", flexDirection = "row", alignItems = "center", justifyContent = "center",
-                marginBottom = 6,
-                children = {
-                    UI.Label { text = "下一场比赛", fontSize = 13, color = Theme.COLORS.TEXT_SECONDARY },
-                    UI.Panel {
-                        backgroundColor = {Theme.COLORS.FINANCE_GREEN[1], Theme.COLORS.FINANCE_GREEN[2], Theme.COLORS.FINANCE_GREEN[3], 200},
-                        borderRadius = 10,
-                        paddingLeft = 8, paddingRight = 8, paddingTop = 2, paddingBottom = 2,
-                        marginLeft = 8,
-                        children = {
-                            UI.Label { text = countdownText, fontSize = 10, color = {255, 255, 255, 255}, fontWeight = "bold" },
-                        }
-                    },
-                }
-            },
-
-            -- 日期行
-            UI.Panel {
-                width = "100%", alignItems = "center", marginBottom = 16,
-                children = {
-                    UI.Label { text = matchDateStr, fontSize = 12, color = Theme.COLORS.TEXT_MUTED },
-                }
-            },
-
-            -- 中心对阵区：队徽 + 名字 + VS
             UI.Panel {
                 width = "100%",
-                flexDirection = "row",
-                alignItems = "center",
-                justifyContent = "center",
-                marginBottom = 16,
+                paddingLeft = 16, paddingRight = 16,
                 children = {
-                    -- 我方：队徽 + 名字
+                    -- 顶部标题：下一场比赛 + 倒计时标签 + 主客场
                     UI.Panel {
-                        flexGrow = 1, alignItems = "center",
+                        width = "100%", flexDirection = "row", alignItems = "center",
+                        marginBottom = 8,
                         children = {
-                            TeamIcon { team = team, size = 52 },
-                            UI.Label {
-                                text = team.name,
-                                fontSize = 14, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold",
-                                textAlign = "center", marginTop = 8,
+                            UI.Panel { flexGrow = 1 },
+                            UI.Label { text = "下一场比赛", fontSize = 15, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold" },
+                            UI.Panel {
+                                backgroundColor = {Theme.COLORS.FINANCE_GREEN[1], Theme.COLORS.FINANCE_GREEN[2], Theme.COLORS.FINANCE_GREEN[3], 210},
+                                borderRadius = 10,
+                                paddingLeft = 8, paddingRight = 8, paddingTop = 2, paddingBottom = 2,
+                                marginLeft = 8,
+                                children = {
+                                    UI.Label { text = countdownText, fontSize = 10, color = {255, 255, 255, 255}, fontWeight = "bold" },
+                                }
+                            },
+                            UI.Panel { flexGrow = 1 },
+                            UI.Panel {
+                                flexDirection = "row", alignItems = "center",
+                                paddingLeft = 8, paddingRight = 8, paddingTop = 3, paddingBottom = 3,
+                                backgroundColor = {255, 255, 255, 18},
+                                borderRadius = 10,
+                                children = {
+                                    UI.Label { text = "▣", fontSize = 10, color = Theme.COLORS.TEXT_MUTED, marginRight = 4 },
+                                    UI.Label { text = venue, fontSize = 10, color = Theme.COLORS.TEXT_SECONDARY },
+                                }
                             },
                         }
                     },
-                    -- VS
+
+                    -- 日期行
                     UI.Panel {
-                        width = 50, alignItems = "center",
+                        width = "100%", alignItems = "center", marginBottom = 12,
                         children = {
-                            UI.Label {
-                                text = "VS",
-                                fontSize = 18, color = Theme.COLORS.MATCH_ORANGE, fontWeight = "bold",
-                            },
+                            UI.Label { text = matchDateStr .. " 20:00", fontSize = 17, color = Theme.COLORS.TEXT_PRIMARY },
+                            UI.Label { text = competitionInfo, fontSize = 11, color = Theme.COLORS.TEXT_MUTED, marginTop = 3 },
                         }
                     },
-                    -- 对手：队徽 + 名字
+
+                    -- 中心对阵区：队徽 + 名字 + VS
                     UI.Panel {
-                        flexGrow = 1, alignItems = "center",
+                        width = "100%",
+                        flexDirection = "row",
+                        alignItems = "center",
+                        justifyContent = "center",
+                        marginBottom = 14,
                         children = {
-                            TeamIcon { team = opponent, size = 52 },
-                            UI.Label {
-                                text = opponentName,
-                                fontSize = 14, color = Theme.COLORS.TEXT_SECONDARY, fontWeight = "bold",
-                                textAlign = "center", marginTop = 8,
+                            UI.Panel {
+                                flexGrow = 1, alignItems = "center",
+                                children = {
+                                    TeamIcon { team = team, size = 58 },
+                                    UI.Label {
+                                        text = team.name,
+                                        fontSize = 15, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold",
+                                        textAlign = "center", marginTop = 8,
+                                    },
+                                    UI.Label {
+                                        text = string.upper(team.shortName ~= "" and team.shortName or "HOME"),
+                                        fontSize = 10, color = Theme.COLORS.TEXT_MUTED, marginTop = 1,
+                                    },
+                                }
+                            },
+                            UI.Panel {
+                                width = 58, alignItems = "center",
+                                children = {
+                                    UI.Label {
+                                        text = "VS",
+                                        fontSize = 22, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold",
+                                    },
+                                }
+                            },
+                            UI.Panel {
+                                flexGrow = 1, alignItems = "center",
+                                children = {
+                                    TeamIcon { team = opponent, size = 58 },
+                                    UI.Label {
+                                        text = opponentName,
+                                        fontSize = 15, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold",
+                                        textAlign = "center", marginTop = 8,
+                                    },
+                                    UI.Label {
+                                        text = opponent and string.upper(opponent.shortName ~= "" and opponent.shortName or "AWAY") or "AWAY",
+                                        fontSize = 10, color = Theme.COLORS.TEXT_MUTED, marginTop = 1,
+                                    },
+                                }
                             },
                         }
                     },
                 }
-            },
-
-            -- 赛事信息行
-            UI.Panel {
-                width = "100%", flexDirection = "row", justifyContent = "center", alignItems = "center",
-                marginBottom = 14,
-                children = {
-                    UI.Label { text = competitionInfo, fontSize = 11, color = Theme.COLORS.TEXT_MUTED },
-                    UI.Label { text = "  ·  ", fontSize = 11, color = Theme.COLORS.TEXT_MUTED },
-                    UI.Label { text = venue, fontSize = 11, color = Theme.COLORS.MATCH_ORANGE, fontWeight = "bold" },
-                }
-            },
-
-            -- 分隔线
-            UI.Panel {
-                width = "100%", height = 1,
-                backgroundColor = {255, 255, 255, 20},
-                marginBottom = 12,
             },
 
             -- 底部状态条：球队状态 / 伤病 / 阵型
             UI.Panel {
-                width = "100%", flexDirection = "row", justifyContent = "space-around", alignItems = "center",
+                width = "100%",
+                flexDirection = "row",
+                backgroundColor = {6, 12, 24, 145},
+                borderTopWidth = 1,
+                borderColor = {255, 255, 255, 24},
+                paddingTop = 10,
+                paddingBottom = 10,
+                paddingLeft = 10,
+                paddingRight = 10,
                 children = {
-                    -- 球队状态（表情图标）
-                    UI.Panel {
-                        alignItems = "center",
-                        children = {
-                            UI.Label {
-                                text = avgFitness >= 85 and "😊" or (avgFitness >= 70 and "😐" or "😟"),
-                                fontSize = 20, marginBottom = 2,
-                            },
-                            UI.Label { text = "球队状态", fontSize = 10, color = Theme.COLORS.TEXT_MUTED, marginBottom = 2 },
-                            UI.Label { text = fitnessDesc, fontSize = 12, color = fitnessColor, fontWeight = "bold" },
-                        }
-                    },
-                    -- 伤病（医疗图标）
-                    UI.Panel {
-                        alignItems = "center",
-                        children = {
-                            UI.Panel {
-                                width = 26, height = 26, borderRadius = 13,
-                                backgroundColor = injuredCount > 0 and {80, 30, 30, 255} or {30, 70, 40, 255},
-                                justifyContent = "center", alignItems = "center", marginBottom = 2,
-                                children = {
-                                    UI.Label {
-                                        text = injuredCount > 0 and "+" or "+",
-                                        fontSize = 16, fontWeight = "bold",
-                                        color = injuredCount > 0 and Theme.COLORS.DANGER or Theme.COLORS.FINANCE_GREEN,
-                                    },
-                                }
-                            },
-                            UI.Label { text = "伤病情况", fontSize = 10, color = Theme.COLORS.TEXT_MUTED, marginBottom = 2 },
-                            UI.Label {
-                                text = injuredCount > 0 and (injuredCount .. "名球员") or "无伤病",
-                                fontSize = 12,
-                                color = injuredCount > 0 and Theme.COLORS.DANGER or Theme.COLORS.FINANCE_GREEN,
-                                fontWeight = "bold",
-                            },
-                        }
-                    },
-                    -- 阵型
-                    UI.Panel {
-                        alignItems = "center",
-                        children = {
-                            UI.Label { text = "⚽", fontSize = 20, marginBottom = 2 },
-                            UI.Label { text = "预计阵容", fontSize = 10, color = Theme.COLORS.TEXT_MUTED, marginBottom = 2 },
-                            UI.Label { text = formation, fontSize = 12, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold" },
-                        }
-                    },
+                    Dashboard._buildHeroInfoItem("●", "球队状态", fitnessDesc, fitnessColor),
+                    Dashboard._buildHeroDivider(),
+                    Dashboard._buildHeroInfoItem("+", "伤病情况", injuredCount > 0 and (injuredCount .. "名伤病") or "无伤病", injuredCount > 0 and Theme.COLORS.DANGER or Theme.COLORS.FINANCE_GREEN),
+                    Dashboard._buildHeroDivider(),
+                    Dashboard._buildHeroInfoItem("◇", "预计阵容", formation, Theme.COLORS.TEXT_PRIMARY),
                 }
             },
+        }
+    }
+end
+
+function Dashboard._buildHeroDivider()
+    return UI.Panel {
+        width = 1,
+        height = 42,
+        backgroundColor = {255, 255, 255, 28},
+        marginLeft = 6,
+        marginRight = 6,
+        alignSelf = "center",
+    }
+end
+
+function Dashboard._buildHeroInfoItem(icon, label, value, valueColor)
+    return UI.Panel {
+        flexGrow = 1,
+        alignItems = "center",
+        children = {
+            UI.Panel {
+                width = 28, height = 28, borderRadius = 14,
+                backgroundColor = {valueColor[1] or 255, valueColor[2] or 255, valueColor[3] or 255, 28},
+                alignItems = "center", justifyContent = "center",
+                marginBottom = 4,
+                children = {
+                    UI.Label { text = icon, fontSize = 14, color = valueColor, fontWeight = "bold" },
+                },
+            },
+            UI.Label { text = label, fontSize = 10, color = Theme.COLORS.TEXT_MUTED, marginBottom = 2 },
+            UI.Label { text = value, fontSize = 12, color = valueColor, fontWeight = "bold" },
         }
     }
 end
@@ -920,40 +952,67 @@ function Dashboard._buildUrgentSection(gameState, team)
 
     if #items == 0 then return UI.Panel { height = 0 } end
 
-    local rows = {}
-    for _, item in ipairs(items) do
-        table.insert(rows, UI.Panel {
-            width = "100%",
-            height = 36,
-            flexDirection = "row",
-            alignItems = "center",
-            paddingLeft = 10,
-            paddingRight = 10,
-            backgroundColor = {item.color[1], item.color[2], item.color[3], 20},
-            borderRadius = 8,
-            marginBottom = 6,
-            children = {
-                UI.Panel {
-                    width = 6, height = 6, borderRadius = 3,
-                    backgroundColor = item.color, marginRight = 8,
-                },
-                UI.Label {
-                    text = item.text,
-                    fontSize = 12, color = item.color,
-                    flexGrow = 1, flexShrink = 1,
-                },
-                UI.Label {
-                    text = ">", fontSize = 12, color = Theme.COLORS.TEXT_MUTED,
-                },
-            },
-            onClick = item.action,
-        })
-    end
+    local first = items[1]
+    local subtitle = #items > 1 and ("另有 " .. (#items - 1) .. " 项待处理") or "点击查看并处理"
 
     return UI.Panel {
         width = "100%",
-        marginBottom = 12,
-        children = rows,
+        minHeight = 62,
+        flexDirection = "row",
+        alignItems = "center",
+        paddingLeft = 14,
+        paddingRight = 14,
+        paddingTop = 12,
+        paddingBottom = 12,
+        marginBottom = 14,
+        backgroundColor = {Theme.COLORS.DANGER[1], Theme.COLORS.DANGER[2], Theme.COLORS.DANGER[3], 34},
+        borderColor = {Theme.COLORS.DANGER[1], Theme.COLORS.DANGER[2], Theme.COLORS.DANGER[3], 145},
+        borderWidth = 1,
+        borderRadius = 12,
+        onClick = first.action,
+        children = {
+            UI.Panel {
+                width = 36,
+                height = 36,
+                borderRadius = 18,
+                backgroundColor = {Theme.COLORS.DANGER[1], Theme.COLORS.DANGER[2], Theme.COLORS.DANGER[3], 220},
+                alignItems = "center",
+                justifyContent = "center",
+                marginRight = 12,
+                children = {
+                    UI.Label { text = "!", fontSize = 22, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold" },
+                },
+            },
+            UI.Panel {
+                flexGrow = 1,
+                flexShrink = 1,
+                children = {
+                    UI.Label {
+                        text = #items .. " 项重要事务待处理",
+                        fontSize = 14,
+                        color = Theme.COLORS.TEXT_PRIMARY,
+                        fontWeight = "bold",
+                    },
+                    UI.Label {
+                        text = first.text .. " · " .. subtitle,
+                        fontSize = 11,
+                        color = Theme.COLORS.TEXT_SECONDARY,
+                        marginTop = 3,
+                    },
+                },
+            },
+            UI.Panel {
+                paddingLeft = 10,
+                paddingRight = 10,
+                paddingTop = 7,
+                paddingBottom = 7,
+                borderRadius = 8,
+                backgroundColor = {Theme.COLORS.DANGER[1], Theme.COLORS.DANGER[2], Theme.COLORS.DANGER[3], 160},
+                children = {
+                    UI.Label { text = "立即处理 〉", fontSize = 12, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold" },
+                },
+            },
+        },
     }
 end
 
@@ -1073,7 +1132,7 @@ function Dashboard._buildClubSnapshot(gameState, team)
                         children = {
                             UI.Label { text = "联赛", fontSize = 12, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold" },
                             standing and UI.Label {
-                                text = (standing.points or 0) .. " 分",
+                                text = (standing.points or 0) .. "分 · " .. (standing.played or 0) .. "/" .. (league and league.totalRounds or 0) .. "轮",
                                 fontSize = 10, color = Theme.COLORS.TEXT_MUTED, marginTop = 2,
                             } or UI.Label { text = "—", fontSize = 10, color = Theme.COLORS.TEXT_MUTED, marginTop = 2 },
                         }
@@ -1208,7 +1267,7 @@ function Dashboard._buildClubSnapshot(gameState, team)
                         width = 4, height = 12, borderRadius = 2,
                         backgroundColor = Theme.COLORS.FINANCE_GREEN, marginRight = 6,
                     },
-                    UI.Label { text = "财务", fontSize = 11, color = Theme.COLORS.TEXT_MUTED },
+                    UI.Label { text = "财务状况", fontSize = 11, color = Theme.COLORS.TEXT_MUTED },
                 }
             },
             -- 中心：大环形图（转会费使用率）
@@ -1270,7 +1329,7 @@ function Dashboard._buildClubSnapshot(gameState, team)
                         width = 4, height = 12, borderRadius = 2,
                         backgroundColor = Theme.COLORS.INFO_BLUE, marginRight = 6,
                     },
-                    UI.Label { text = "阵容", fontSize = 11, color = Theme.COLORS.TEXT_MUTED },
+                    UI.Label { text = "阵容状态", fontSize = 11, color = Theme.COLORS.TEXT_MUTED },
                     UI.Panel { flexGrow = 1 },
                     -- 伤病状态小标签
                     UI.Panel {
@@ -1453,12 +1512,18 @@ function Dashboard._buildClubSnapshot(gameState, team)
         marginBottom = 12,
         children = {
             Theme.SectionHeader {
-                text = "俱乐部状态",
+                text = "俱乐部概览",
                 color = Theme.COLORS.INFO_BLUE,
                 rightChild = UI.Panel {
                     flexDirection = "row",
                     alignItems = "center",
                     children = {
+                        UI.Label {
+                            text = "数据更新：刚刚",
+                            fontSize = 10,
+                            color = Theme.COLORS.TEXT_MUTED,
+                            marginRight = 8,
+                        },
                         -- 潜力透视按钮（广告）
                         UI.Button {
                             text = gameState.potentialRevealed and "🔓" or "🔮",
@@ -1540,16 +1605,38 @@ function Dashboard._buildActivityFeed(gameState)
             if msg.priority == "high" then dotColor = Theme.COLORS.DANGER end
 
             table.insert(msgRows, UI.Panel {
-                width = "100%", height = 38,
+                width = "100%", height = 46,
                 flexDirection = "row", alignItems = "center",
                 paddingLeft = 8, paddingRight = 8,
                 borderBottomWidth = 1, borderColor = Theme.COLORS.BORDER,
                 children = {
-                    UI.Panel { width = 5, height = 5, borderRadius = 3, backgroundColor = dotColor, marginRight = 8 },
-                    UI.Label {
-                        text = msg.title or "消息",
-                        fontSize = 12, color = Theme.COLORS.TEXT_PRIMARY,
+                    UI.Panel {
+                        width = 28,
+                        height = 28,
+                        borderRadius = 8,
+                        backgroundColor = {dotColor[1], dotColor[2], dotColor[3], 24},
+                        alignItems = "center",
+                        justifyContent = "center",
+                        marginRight = 10,
+                        children = {
+                            UI.Panel { width = 8, height = 8, borderRadius = 4, backgroundColor = dotColor },
+                        },
+                    },
+                    UI.Panel {
                         flexGrow = 1, flexShrink = 1,
+                        children = {
+                            UI.Label {
+                                text = msg.title or "消息",
+                                fontSize = 12, color = Theme.COLORS.TEXT_PRIMARY,
+                                fontWeight = msg.priority == "high" and "bold" or "normal",
+                            },
+                            UI.Label {
+                                text = msg.body or "查看详情",
+                                fontSize = 10, color = Theme.COLORS.TEXT_MUTED,
+                                marginTop = 2,
+                                maxLines = 1,
+                            },
+                        },
                     },
                     msg.date and UI.Label {
                         text = string.format("%d/%d", msg.date.month, msg.date.day),
@@ -1570,6 +1657,7 @@ function Dashboard._buildActivityFeed(gameState)
     end
 
     return Theme.Card {
+        backgroundColor = Theme.COLORS.BG_CARD_ELEVATED,
         children = {
             -- 标题行
             UI.Panel {
@@ -1590,8 +1678,8 @@ function Dashboard._buildActivityFeed(gameState)
                                     }
                                 } or UI.Panel { width = 0 },
                                 UI.Button {
-                                    text = "全部 >",
-                                    width = 52, height = 26,
+                                    text = "全部 〉",
+                                    width = 58, height = 26,
                                     backgroundColor = Theme.COLORS.TRANSPARENT,
                                     fontSize = 11, color = Theme.COLORS.INFO_BLUE,
                                     onClick = function() Router.navigate("inbox") end,
@@ -1612,8 +1700,8 @@ function Dashboard._buildActivityFeed(gameState)
                     UI.Button {
                         text = "查看全部新闻",
                         flexGrow = 1, height = 32,
-                        backgroundColor = Theme.COLORS.BG_SURFACE,
-                        borderRadius = 6, fontSize = 12, color = Theme.COLORS.TEXT_SECONDARY,
+                        backgroundColor = {255, 255, 255, 18},
+                        borderRadius = 8, fontSize = 12, color = Theme.COLORS.TEXT_SECONDARY,
                         onClick = function() Router.navigate("news") end,
                     },
                 }

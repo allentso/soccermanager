@@ -102,7 +102,7 @@ end
 function Theme.BottomNav(props)
     return UI.Panel {
         width = "100%",
-        height = 58,
+        height = 66,
         backgroundColor = Theme.COLORS.BG_HEADER,
         flexDirection = "row",
         alignItems = "center",
@@ -116,20 +116,41 @@ end
 -- 导航按钮
 function Theme.NavButton(props)
     local isActive = props.active or false
+    local isCenter = props.center or false
+    local iconBg = isCenter and (isActive and {255, 82, 96, 255} or {80, 48, 58, 255})
+        or (isActive and {Theme.COLORS.GOLD[1], Theme.COLORS.GOLD[2], Theme.COLORS.GOLD[3], 34} or Theme.COLORS.TRANSPARENT)
+    local labelColor = isActive and (isCenter and Theme.COLORS.TEXT_PRIMARY or Theme.COLORS.GOLD) or Theme.COLORS.TEXT_MUTED
     return UI.Panel {
-        width = 64,
-        height = 42,
+        width = 58,
+        height = 56,
         justifyContent = "center",
         alignItems = "center",
-        borderRadius = 10,
-        backgroundColor = isActive and "rgba(212,175,55,0.15)" or Theme.COLORS.TRANSPARENT,
+        borderRadius = isCenter and 22 or 12,
+        backgroundColor = Theme.COLORS.TRANSPARENT,
         onClick = props.onClick,
         children = {
+            UI.Panel {
+                width = isCenter and 44 or 28,
+                height = isCenter and 44 or 24,
+                borderRadius = isCenter and 22 or 12,
+                backgroundColor = iconBg,
+                justifyContent = "center",
+                alignItems = "center",
+                marginBottom = isCenter and -2 or 2,
+                children = {
+                    UI.Label {
+                        text = props.icon or "",
+                        fontSize = isCenter and 18 or 16,
+                        fontWeight = "bold",
+                        color = labelColor,
+                    },
+                },
+            },
             UI.Label {
                 text = props.label or "",
-                fontSize = 12,
+                fontSize = 11,
                 fontWeight = isActive and "bold" or "normal",
-                color = isActive and Theme.COLORS.GOLD or Theme.COLORS.TEXT_MUTED,
+                color = labelColor,
             },
         },
     }
@@ -218,6 +239,7 @@ function Theme.MainNav(activeTab)
     return Theme.BottomNav {
         children = {
             Theme.NavButton {
+                icon = "♜",
                 label = "赛事",
                 active = (activeTab == "league"),
                 onClick = function()
@@ -231,6 +253,7 @@ function Theme.MainNav(activeTab)
                 end,
             },
             Theme.NavButton {
+                icon = "◌",
                 label = "球队",
                 active = (activeTab == "squad"),
                 onClick = function()
@@ -249,17 +272,28 @@ function Theme.MainNav(activeTab)
                 end,
             },
             Theme.NavButton {
+                icon = "⌂",
                 label = "主页",
+                center = true,
                 active = (activeTab == "home"),
                 onClick = function()
                     if activeTab ~= "home" then Router.navigate("dashboard") end
                 end,
             },
             Theme.NavButton {
+                icon = "⇄",
                 label = "市场",
                 active = (activeTab == "market"),
                 onClick = function()
                     if activeTab ~= "market" then Router.navigate("market") end
+                end,
+            },
+            Theme.NavButton {
+                icon = "☷",
+                label = "更多",
+                active = (activeTab == "more"),
+                onClick = function()
+                    if activeTab ~= "more" then Router.navigate("inbox") end
                 end,
             },
         }
