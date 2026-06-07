@@ -11,6 +11,10 @@ local ConfirmDialog = require("scripts/ui/components/confirm_dialog")
 local PotentialSystem = require("scripts/systems/potential_system")
 local StaffManager = require("scripts/systems/staff_manager")
 local ScoutManager = require("scripts/systems/scout_manager")
+local LegendImageRegistry = require("scripts/data/legend_image_registry")
+
+---@diagnostic disable-next-line: undefined-global
+local sdk = sdk
 
 local Youth = {}
 
@@ -84,7 +88,7 @@ function Youth.create(params)
                     fontWeight = "bold", flexGrow = 1, textAlign = "center",
                 },
                 UI.Label {
-                    text = string.format("%d/8人", #youthSquad),
+                    text = string.format("%d/%d人", #youthSquad, YouthManager.MAX_YOUTH_SQUAD),
                     fontSize = 12, color = Theme.COLORS.TEXT_MUTED, width = 50, textAlign = "right",
                 },
             }
@@ -97,6 +101,8 @@ function Youth.create(params)
             children = {
                 -- 青训概览卡片
                 Youth._buildSummaryCard(youthSquad),
+                -- 传奇球星池入口
+                Youth._buildLegendGachaSection(gameState),
                 -- 候选招募区
                 Youth._buildCandidatesSection(candidates, gameState),
                 -- 青训球员列表
@@ -141,9 +147,9 @@ function Youth._buildSummaryCard(youthSquad)
                 children = {
                     Theme.Title { text = "青训学院", marginBottom = 0 },
                     UI.Label {
-                        text = string.format("%d / 8 名额", count),
+                        text = string.format("%d / %d 名额", count, YouthManager.MAX_YOUTH_SQUAD),
                         fontSize = 12,
-                        color = count >= 8 and Theme.COLORS.WARNING or Theme.COLORS.TEXT_MUTED,
+                        color = count >= YouthManager.MAX_YOUTH_SQUAD and Theme.COLORS.WARNING or Theme.COLORS.TEXT_MUTED,
                     },
                 },
             },
@@ -511,16 +517,39 @@ function Youth._showYouthActions(player, gameState)
 
     UI.ShowOverlay(UI.Panel {
         width = "100%",
-        padding = 16,
+        height = "100%",
+        justifyContent = "flex-end",
+        backgroundColor = {0, 0, 0, 150},
         children = {
-            UI.Label {
-                text = player.displayName or "",
-                fontSize = 16,
-                color = Theme.COLORS.TEXT_PRIMARY,
-                fontWeight = "bold",
-                marginBottom = 12,
+            UI.Panel {
+                width = "100%",
+                backgroundColor = Theme.COLORS.BG_SECONDARY or {24, 28, 44, 255},
+                borderRadius = 16,
+                paddingTop = 20,
+                paddingBottom = 24,
+                paddingLeft = 16,
+                paddingRight = 16,
+                children = {
+                    -- 顶部把手
+                    UI.Panel {
+                        width = 36,
+                        height = 4,
+                        backgroundColor = {100, 100, 120, 255},
+                        borderRadius = 2,
+                        alignSelf = "center",
+                        marginBottom = 14,
+                    },
+                    UI.Label {
+                        text = player.displayName or "",
+                        fontSize = 16,
+                        color = Theme.COLORS.TEXT_PRIMARY,
+                        fontWeight = "bold",
+                        textAlign = "center",
+                        marginBottom = 16,
+                    },
+                    table.unpack(items),
+                },
             },
-            table.unpack(items),
         },
     })
 end
@@ -588,6 +617,381 @@ function Youth._confirmRelease(player, gameState)
                 })
             end
         end,
+    })
+end
+
+------------------------------------------------------
+-- 传奇球星池抽卡入口
+------------------------------------------------------
+function Youth._buildLegendGachaSection(gameState)
+    local gachaState = YouthManager.getLegendGachaState(gameState)
+
+    -- 未解锁状态：显示进度条和观看广告按钮
+    if not gachaState.unlocked then
+        local progress = gachaState.adsWatched
+        local total = YouthManager.getUnlockAdsRequired()
+        local progressPct = math.floor(progress / total * 100)
+
+        return Theme.Card {
+            children = {
+                UI.Panel {
+                    width = "100%",
+                    flexDirection = "row",
+                    justifyContent = "space-between",
+                    alignItems = "center",
+                    marginBottom = 8,
+                    children = {
+                        UI.Panel {
+                            flexDirection = "row", alignItems = "center",
+                            children = {
+                                UI.Label {
+                                    text = "⭐",
+                                    fontSize = 16, marginRight = 4,
+                                },
+                                Theme.Subtitle { text = "传奇球星池", marginBottom = 0 },
+                            },
+                        },
+                        UI.Label {
+                            text = string.format("%d/%d 解锁", progress, total),
+                            fontSize = 11,
+                            color = Theme.COLORS.ACCENT,
+                        },
+                    },
+                },
+                -- 进度条
+                UI.Panel {
+                    width = "100%", height = 6,
+                    backgroundColor = Theme.COLORS.BG_DARK,
+                    borderRadius = 3,
+                    marginBottom = 10,
+                    children = {
+                        UI.Panel {
+                            width = tostring(progressPct) .. "%",
+                            height = "100%",
+                            backgroundColor = Theme.COLORS.ACCENT,
+                            borderRadius = 3,
+                        },
+                    },
+                },
+                UI.Label {
+                    text = "观看广告解锁传奇球星池，集齐历史巨星！",
+                    fontSize = 11, color = Theme.COLORS.TEXT_MUTED, marginBottom = 8,
+                },
+                UI.Button {
+                    text = "观看广告 (" .. progress .. "/" .. total .. ")",
+                    width = "100%", height = 36,
+                    backgroundColor = Theme.COLORS.PRIMARY,
+                    borderRadius = 8,
+                    fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY,
+                    fontWeight = "bold",
+                    onClick = function()
+                        Youth._watchAdForUnlock(gameState)
+                    end,
+                },
+            },
+        }
+    end
+
+    -- 已解锁状态：显示抽取次数和十连抽按钮
+    local pulls = gachaState.pulls
+    local tenPullCount = gachaState.tenPullCount
+    local pityCounter = gachaState.pityCounter
+    local pityTotal = 10
+
+    return Theme.Card {
+        children = {
+            UI.Panel {
+                width = "100%",
+                flexDirection = "row",
+                justifyContent = "space-between",
+                alignItems = "center",
+                marginBottom = 8,
+                children = {
+                    UI.Panel {
+                        flexDirection = "row", alignItems = "center",
+                        children = {
+                            UI.Label {
+                                text = "⭐",
+                                fontSize = 16, marginRight = 4,
+                            },
+                            Theme.Subtitle { text = "传奇球星池", marginBottom = 0 },
+                        },
+                    },
+                    UI.Label {
+                        text = "已解锁",
+                        fontSize = 11,
+                        color = Theme.COLORS.SECONDARY,
+                        fontWeight = "bold",
+                    },
+                },
+            },
+            -- 状态信息
+            UI.Panel {
+                width = "100%",
+                flexDirection = "row",
+                flexWrap = "wrap",
+                marginBottom = 8,
+                children = {
+                    Theme.StatPill { label = "可用次数", value = tostring(pulls), valueColor = Theme.COLORS.ACCENT },
+                    Theme.StatPill { label = "已十连", value = tostring(tenPullCount) .. "次" },
+                    Theme.StatPill { label = "保底计数", value = pityCounter .. "/" .. pityTotal },
+                },
+            },
+            -- 概率说明
+            UI.Label {
+                text = "十连抽刷新候选池 | 传奇概率8%起 | " .. pityTotal .. "次保底",
+                fontSize = 10, color = Theme.COLORS.TEXT_MUTED, marginBottom = 8,
+            },
+            -- 按钮区域
+            UI.Panel {
+                width = "100%",
+                flexDirection = "row",
+                children = {
+                    -- 观看广告获取次数
+                    UI.Button {
+                        text = "看广告 +2次",
+                        height = 36, flexGrow = 1,
+                        backgroundColor = Theme.COLORS.BG_ELEVATED,
+                        borderRadius = 8,
+                        borderWidth = 1, borderColor = Theme.COLORS.BORDER,
+                        fontSize = 12, color = Theme.COLORS.TEXT_SECONDARY,
+                        marginRight = 8,
+                        onClick = function()
+                            Youth._watchAdForPulls(gameState)
+                        end,
+                    },
+                    -- 十连抽按钮
+                    UI.Button {
+                        text = pulls >= 10 and "十连抽!" or ("十连抽 (" .. pulls .. "/10)"),
+                        height = 36, flexGrow = 1,
+                        backgroundColor = pulls >= 10 and Theme.COLORS.ACCENT or Theme.COLORS.BG_ELEVATED,
+                        borderRadius = 8,
+                        fontSize = 13,
+                        color = pulls >= 10 and {255, 255, 255, 255} or Theme.COLORS.TEXT_MUTED,
+                        fontWeight = "bold",
+                        disabled = pulls < 10,
+                        onClick = function()
+                            if pulls >= 10 then
+                                Youth._doTenPull(gameState)
+                            end
+                        end,
+                    },
+                },
+            },
+        },
+    }
+end
+
+--- 观看广告解锁
+function Youth._watchAdForUnlock(gameState)
+    sdk:ShowRewardVideoAd(function(result)
+        if result.success then
+            local unlocked, _progress = YouthManager.watchAdForUnlock(gameState)
+            if unlocked then
+                ConfirmDialog.show({
+                    title = "传奇球星池已解锁!",
+                    message = "恭喜！传奇球星池已解锁，赠送首次十连抽机会！\n首次十连保底获得一名传奇球星！",
+                    confirmText = "太好了！",
+                    confirmColor = Theme.COLORS.ACCENT,
+                    onConfirm = function()
+                        Router.replaceWith("youth")
+                    end,
+                })
+            else
+                Router.replaceWith("youth")
+            end
+        else
+            UI.Toast.Show({ message = "需完整观看广告才能获得奖励", variant = "warning" })
+        end
+    end)
+end
+
+--- 观看广告获取抽取次数
+function Youth._watchAdForPulls(gameState)
+    sdk:ShowRewardVideoAd(function(result)
+        if result.success then
+            local newPulls = YouthManager.watchAdForPulls(gameState)
+            if newPulls > 0 then
+                UI.Toast.Show({ message = string.format("+%d 次抽取机会", newPulls), variant = "success" })
+            end
+            Router.replaceWith("youth")
+        else
+            UI.Toast.Show({ message = "需完整观看广告才能获得奖励", variant = "warning" })
+        end
+    end)
+end
+
+--- 执行十连抽
+function Youth._doTenPull(gameState)
+    local results = YouthManager.doTenPull(gameState)
+    if not results then return end
+
+    local legendCount = results.legendCount
+    if legendCount > 0 then
+        -- 收集传奇球员信息
+        local legendPlayer = nil
+        for _, c in ipairs(results.candidates) do
+            if c.isLegend then
+                legendPlayer = c
+                break
+            end
+        end
+        Youth._showLegendReveal(legendPlayer, results.isFirstTenPull)
+    else
+        ConfirmDialog.show({
+            title = "十连抽结果",
+            message = "候选池已刷新为10名新球员。\n继续积攒次数，传奇球星在等你！",
+            confirmText = "查看候选",
+            confirmColor = Theme.COLORS.PRIMARY,
+            onConfirm = function()
+                Router.replaceWith("youth")
+            end,
+        })
+    end
+end
+
+------------------------------------------------------
+-- 传奇球星专属揭示弹窗
+------------------------------------------------------
+function Youth._showLegendReveal(legendPlayer, isFirstPull)
+    local name = legendPlayer.legendName or legendPlayer.displayName or "传奇球星"
+    local pos = Constants.POSITION_NAMES[legendPlayer.position] or legendPlayer.position
+    local nation = ScoutManager.getNationName(legendPlayer.nationality) or "?"
+    local potential = legendPlayer.potential or 95
+
+    -- 传奇标语
+    local subtitle = isFirstPull and "首次十连保底！" or "欧皇附体！"
+
+    UI.ShowOverlay(UI.Panel {
+        width = "100%",
+        height = "100%",
+        justifyContent = "center",
+        alignItems = "center",
+        backgroundColor = {0, 0, 0, 220},
+        children = {
+            UI.Panel {
+                width = "92%",
+                backgroundColor = {12, 10, 28, 250},
+                borderRadius = 24,
+                borderWidth = 2,
+                borderColor = {255, 215, 0, 180},
+                alignItems = "center",
+                paddingTop = 20,
+                paddingBottom = 20,
+                paddingLeft = 16,
+                paddingRight = 16,
+                children = {
+                    -- 顶部标题行
+                    UI.Label {
+                        text = "★  传奇降临  ★",
+                        fontSize = 16,
+                        color = {255, 215, 0, 255},
+                        fontWeight = "bold",
+                        textAlign = "center",
+                        marginBottom = 4,
+                    },
+                    UI.Label {
+                        text = subtitle,
+                        fontSize = 11,
+                        color = {255, 215, 0, 120},
+                        textAlign = "center",
+                        marginBottom = 12,
+                    },
+                    -- 传奇球星卡牌立绘
+                    UI.Panel {
+                        width = "80%",
+                        aspectRatio = 3 / 4,
+                        borderRadius = 16,
+                        overflow = "hidden",
+                        marginBottom = 14,
+                        backgroundImage = LegendImageRegistry.getPath(legendPlayer.legendData and legendPlayer.legendData.id) or "",
+                        backgroundSize = "cover",
+                    },
+                    -- 球星名字
+                    UI.Label {
+                        text = name,
+                        fontSize = 22,
+                        color = {255, 255, 255, 255},
+                        fontWeight = "bold",
+                        textAlign = "center",
+                        marginBottom = 10,
+                    },
+                    -- 信息行：位置 | 国籍 | 潜力 | 星级
+                    UI.Panel {
+                        flexDirection = "row",
+                        justifyContent = "center",
+                        alignItems = "center",
+                        marginBottom = 16,
+                        children = {
+                            -- 位置标签
+                            UI.Panel {
+                                backgroundColor = {255, 215, 0, 50},
+                                borderRadius = 6,
+                                paddingLeft = 10, paddingRight = 10,
+                                paddingTop = 4, paddingBottom = 4,
+                                marginRight = 10,
+                                children = {
+                                    UI.Label {
+                                        text = pos,
+                                        fontSize = 12,
+                                        color = {255, 215, 0, 255},
+                                        fontWeight = "bold",
+                                    },
+                                },
+                            },
+                            UI.Label {
+                                text = nation,
+                                fontSize = 13,
+                                color = {220, 220, 220, 255},
+                                marginRight = 10,
+                            },
+                            UI.Label {
+                                text = "潜力 " .. tostring(potential),
+                                fontSize = 13,
+                                color = {0, 255, 136, 255},
+                                fontWeight = "bold",
+                                marginRight = 10,
+                            },
+                            UI.Label {
+                                text = "★★★★★",
+                                fontSize = 13,
+                                color = {255, 215, 0, 255},
+                            },
+                        },
+                    },
+                    -- 分割线
+                    UI.Panel {
+                        width = "70%",
+                        height = 1,
+                        backgroundColor = {255, 215, 0, 30},
+                        marginBottom = 12,
+                    },
+                    -- 提示
+                    UI.Label {
+                        text = "候选池已刷新，快去签入吧！",
+                        fontSize = 12,
+                        color = {160, 160, 160, 255},
+                        textAlign = "center",
+                        marginBottom = 14,
+                    },
+                    -- 按钮
+                    UI.Button {
+                        text = "查看候选",
+                        width = "75%",
+                        height = 42,
+                        backgroundColor = {255, 215, 0, 255},
+                        borderRadius = 12,
+                        fontSize = 15,
+                        color = {20, 16, 36, 255},
+                        fontWeight = "bold",
+                        onClick = function()
+                            UI.CloseOverlay()
+                            Router.replaceWith("youth")
+                        end,
+                    },
+                },
+            },
+        },
     })
 end
 

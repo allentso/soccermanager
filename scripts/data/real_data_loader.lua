@@ -522,4 +522,90 @@ function RealDataLoader.loadLegends(gameState)
     return count
 end
 
+--- 加载青训妖人名单，随机分配到各俱乐部青训队
+---@param gameState table
+---@return number 加载的球员数
+function RealDataLoader.loadWonderkids(gameState)
+    local data = RealDataLoader.loadLeagueFile("wonderkids_outside_top5_2025.json")
+    if not data or not data.players then
+        log:Write(LOG_WARNING, "RealDataLoader: 无法加载青训妖人数据")
+        return 0
+    end
+
+    -- 收集所有球队 ID
+    local teamIds = {}
+    for teamId, _ in pairs(gameState.teams) do
+        table.insert(teamIds, teamId)
+    end
+    if #teamIds == 0 then
+        log:Write(LOG_WARNING, "RealDataLoader: 没有可用球队，跳过青训分配")
+        return 0
+    end
+
+    -- 打乱 wonderkids 顺序
+    local shuffled = {}
+    for _, p in ipairs(data.players) do table.insert(shuffled, p) end
+    for i = #shuffled, 2, -1 do
+        local j = RandomInt(1, i)
+        shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
+    end
+
+    local count = 0
+    for _, pData in ipairs(shuffled) do
+        -- 随机选择一支球队
+        local teamId = teamIds[RandomInt(1, #teamIds)]
+        local team = gameState.teams[teamId]
+
+        local position, naturalPositions = mapPositions(pData.position, pData.alternate_positions)
+        local attrs = convertAttributes(pData.attributes or {})
+        local birthYear = extractBirthYear(pData.date_of_birth)
+
+        local fullNameCn = pData.full_name_cn or ""
+        local matchName = pData.match_name or ""
+        local fullName = pData.full_name or ""
+        local shortName = fullNameCn:match("·(.+)$") or fullNameCn
+        if shortName == "" then shortName = matchName ~= "" and matchName or fullName end
+
+        local player = gameState:addPlayer({
+            firstName = fullNameCn ~= "" and fullNameCn or (fullName ~= "" and fullName or "Unknown"),
+            lastName = shortName,
+            displayName = fullNameCn ~= "" and fullNameCn or (matchName ~= "" and matchName or fullName),
+            match_name = matchName,
+            shortName = shortName,
+            birthYear = birthYear,
+            nationality = pData.football_nation or pData.nationality or "ENG",
+            position = position,
+            naturalPositions = naturalPositions,
+            preferredFoot = mapFootedness(pData.footedness),
+            weakFoot = pData.weak_foot or 2,
+            attributes = attrs,
+            fitness = pData.fitness or 80,
+            morale = pData.morale or 70,
+            condition = pData.condition or 100,
+            overall = pData.ovr or 50,
+            potential = pData.potential or 70,
+            contractEnd = {year = gameState.date.year + 3, month = 6, day = 30},
+            wage = 500,  -- 青训球员固定周薪
+            value = pData.market_value or 500000,
+            teamId = teamId,
+            squadRole = "youth",
+            isYouth = true,
+            traits = pData.traits or {},
+        })
+
+        -- 计算OVR和价值
+        player:calculateOverall()
+        player:calculateValue(gameState.date.year)
+
+        -- 加入球队青训队列表
+        team._youthPlayerIds = team._youthPlayerIds or {}
+        table.insert(team._youthPlayerIds, player.id)
+
+        count = count + 1
+    end
+
+    log:Write(LOG_INFO, "RealDataLoader: 加载了 " .. count .. " 名青训妖人，分配到 " .. #teamIds .. " 支球队")
+    return count
+end
+
 return RealDataLoader

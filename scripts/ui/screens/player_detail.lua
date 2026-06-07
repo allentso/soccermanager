@@ -15,6 +15,7 @@ local StatsTab = require("scripts/ui/screens/player_detail/stats_tab")
 local PotentialSystem = require("scripts/systems/potential_system")
 local StaffManager = require("scripts/systems/staff_manager")
 local ScoutManager = require("scripts/systems/scout_manager")
+local LegendImageRegistry = require("scripts/data/legend_image_registry")
 
 local PlayerDetail = {}
 
@@ -214,16 +215,17 @@ function PlayerDetail._buildOverview(player, team, age, gameState)
     local keyAttrItems = {}
     for _, ka in ipairs(keyAttrs) do
         local revealed = _isAttrRevealed(player.id, ka.key, scoutAcc)
-        local displayValue = revealed and tostring(ka.value) or "?"
-        local barWidth = revealed and (math.floor(ka.value / 20 * 100) .. "%") or "50%"
+        local intValue = math.floor(ka.value + 0.5)
+        local displayValue = revealed and tostring(intValue) or "?"
+        local barWidth = revealed and (math.floor(intValue / 20 * 100) .. "%") or "50%"
         local color
         if not revealed then
             color = Theme.COLORS.TEXT_MUTED
         else
-            color = ka.value >= 15 and Theme.COLORS.SECONDARY
-                or (ka.value >= 12 and {128, 230, 128, 255}
-                or (ka.value <= 6 and Theme.COLORS.DANGER
-                or (ka.value <= 9 and Theme.COLORS.WARNING or Theme.COLORS.TEXT_PRIMARY)))
+            color = intValue >= 15 and Theme.COLORS.SECONDARY
+                or (intValue >= 12 and {128, 230, 128, 255}
+                or (intValue <= 6 and Theme.COLORS.DANGER
+                or (intValue <= 9 and Theme.COLORS.WARNING or Theme.COLORS.TEXT_PRIMARY)))
         end
         table.insert(keyAttrItems, UI.Panel {
             width = "48%", height = 32,
@@ -263,9 +265,53 @@ function PlayerDetail._buildOverview(player, team, age, gameState)
     end
     local highlightText = #highlights > 0 and table.concat(highlights, " / ") or "本赛季暂无数据"
 
+    -- 传奇球员立绘卡片
+    local legendCard = UI.Panel { height = 0 }
+    local legendImgPath = nil
+    -- 优先通过 legendData.id 查找
+    if player.legendData and player.legendData.id then
+        legendImgPath = LegendImageRegistry.getPath(player.legendData.id)
+    end
+    -- 兜底：通过中文名反查（兼容旧存档中已签入但未保存 legendData 的球员）
+    if not legendImgPath then
+        legendImgPath = LegendImageRegistry.getPathByName(player.legendName)
+            or LegendImageRegistry.getPathByName(player.displayName)
+    end
+    if legendImgPath then
+        legendCard = Theme.Card {
+            children = {
+                UI.Panel {
+                    width = "100%",
+                    alignItems = "center",
+                    children = {
+                        UI.Panel {
+                            width = "75%",
+                            aspectRatio = 3 / 4,
+                            borderRadius = 12,
+                            overflow = "hidden",
+                            backgroundImage = legendImgPath,
+                            backgroundSize = "cover",
+                        },
+                        UI.Label {
+                            text = player.legendName or player.displayName or "传奇球星",
+                            fontSize = 14,
+                            color = {255, 215, 0, 255},
+                            fontWeight = "bold",
+                            textAlign = "center",
+                            marginTop = 10,
+                        },
+                    },
+                },
+            },
+        }
+    end
+
     return UI.Panel {
         width = "100%",
         children = {
+            -- 传奇立绘
+            legendCard,
+
             -- 身份信息
             Theme.Card {
                 children = {
@@ -458,16 +504,17 @@ function PlayerDetail._buildAttributes(player)
 
     local function AttrRow(label, attrKey, value)
         local revealed = _isAttrRevealed(player.id, attrKey, scoutAcc)
+        local intVal = math.floor(value + 0.5)
         local color = Theme.COLORS.TEXT_PRIMARY
         if not revealed then
             color = Theme.COLORS.TEXT_MUTED
-        elseif value >= 15 then color = Theme.COLORS.SECONDARY
-        elseif value >= 12 then color = {128, 230, 128, 255}
-        elseif value <= 6 then color = Theme.COLORS.DANGER
-        elseif value <= 9 then color = Theme.COLORS.WARNING
+        elseif intVal >= 15 then color = Theme.COLORS.SECONDARY
+        elseif intVal >= 12 then color = {128, 230, 128, 255}
+        elseif intVal <= 6 then color = Theme.COLORS.DANGER
+        elseif intVal <= 9 then color = Theme.COLORS.WARNING
         end
-        local displayValue = revealed and tostring(value) or "?"
-        local barWidth = revealed and (math.floor(value / 20 * 100) .. "%") or "50%"
+        local displayValue = revealed and tostring(intVal) or "?"
+        local barWidth = revealed and (math.floor(intVal / 20 * 100) .. "%") or "50%"
         return UI.Panel {
             width = "48%", height = 30,
             flexDirection = "row", alignItems = "center",

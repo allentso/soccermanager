@@ -107,6 +107,11 @@ function Player.new(data)
     -- 球员特性标签
     self.traits = data.traits or {}
 
+    -- 传奇球员标记
+    self.isLegend = data.isLegend or false
+    self.legendName = data.legendName or nil
+    self.legendData = data.legendData or nil
+
     return self
 end
 
