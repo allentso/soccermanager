@@ -274,6 +274,8 @@ local ACTION_HANDLERS = {
         local WorldCup = require("scripts/systems/world_cup")
         -- 设置国家队执教身份
         gameState.nationalTeamCoach = { nation = data.nation, squad = nil }
+        -- 标记需要显示国家队切换指引（首次上任）
+        gameState.ntCoachGuidancePending = true
         gameState:sendMessage({
             category = "world_cup",
             title = "正式上任",
@@ -287,15 +289,71 @@ local ACTION_HANDLERS = {
     decline_nt_coach = function(data)
         local gameState = _G.gameState
         if not gameState or not data then return end
-        local WorldCup = require("scripts/systems/world_cup")
         gameState.nationalTeamCoach = nil
         gameState:sendMessage({
             category = "world_cup",
             title = "婉拒邀请",
-            body = string.format("你婉拒了%s国家队的邀请。世界杯比赛将自动模拟。",
-                WorldCup._getNationName(data.nation or "")),
+            body = "你婉拒了所有国家队的邀请。世界杯比赛将自动模拟。",
             priority = "normal",
         })
+        Router.replaceWith("inbox")
+    end,
+    -- 主教练邀约：接受
+    accept_job_offer = function(data)
+        local gameState = _G.gameState
+        if not gameState or not data or not data.teamId then return end
+        local JobManager = require("scripts/systems/job_manager")
+        local success = JobManager.acceptOffer(gameState, data.teamId)
+        if success then
+            Router.replaceWith("dashboard")
+        else
+            gameState:sendMessage({
+                category = "job",
+                title = "邀约已失效",
+                body = "该职位已被其他教练填补，邀约已失效。",
+                priority = "normal",
+            })
+            Router.replaceWith("inbox")
+        end
+    end,
+    -- 主教练邀约：婉拒
+    decline_job_offer = function(data)
+        local gameState = _G.gameState
+        if not gameState or not data or not data.teamId then return end
+        local JobManager = require("scripts/systems/job_manager")
+        JobManager.declineOffer(gameState, data.teamId)
+        Router.replaceWith("inbox")
+    end,
+    -- 转会确认：签入球员
+    confirm_transfer = function(data)
+        local gameState = _G.gameState
+        if not gameState or not data or not data.bidId then return end
+        local TransferManager = require("scripts/systems/transfer_manager")
+        TransferManager.confirmTransfer(gameState, data.bidId)
+        Router.replaceWith("inbox")
+    end,
+    -- 转会确认：放弃签约
+    cancel_transfer = function(data)
+        local gameState = _G.gameState
+        if not gameState or not data or not data.bidId then return end
+        local TransferManager = require("scripts/systems/transfer_manager")
+        TransferManager.cancelTransferConfirmation(gameState, data.bidId)
+        Router.replaceWith("inbox")
+    end,
+    -- 自由球员确认：签入
+    confirm_free_agent = function(data)
+        local gameState = _G.gameState
+        if not gameState or not data or not data.negoId then return end
+        local TransferManager = require("scripts/systems/transfer_manager")
+        TransferManager.confirmFreeAgent(gameState, data.negoId)
+        Router.replaceWith("inbox")
+    end,
+    -- 自由球员确认：放弃
+    cancel_free_agent = function(data)
+        local gameState = _G.gameState
+        if not gameState or not data or not data.negoId then return end
+        local TransferManager = require("scripts/systems/transfer_manager")
+        TransferManager.cancelFreeAgentConfirmation(gameState, data.negoId)
         Router.replaceWith("inbox")
     end,
 }
@@ -311,6 +369,31 @@ function Inbox._showDetail(msg, currentTab)
     local priorityLabel = PRIORITY_LABELS[msg.priority] or "普通"
     local priorityColor = PRIORITY_COLORS[msg.priority] or Theme.COLORS.GOLD
     local priorityIcon = PRIORITY_ICONS[msg.priority] or "🔵"
+
+    -- 旧存档兼容：WC邀请消息如果没有actions，从正文中解析国家并动态生成
+    if msg.title == "🏆 国家队主教练邀请" and (not msg.actions or #msg.actions == 0) then
+        local WorldCup = require("scripts/systems/world_cup")
+        local parsedActions = {}
+        -- 从正文解析国家名，格式如 "  1. 英格兰（L组）"
+        for line in (msg.body or ""):gmatch("[^\n]+") do
+            local name = line:match("^%s*%d+%.%s*(.-)（")
+            if name then
+                -- 反查FIFA代码
+                local code = WorldCup._getNationCodeByName(name)
+                if code then
+                    table.insert(parsedActions, {
+                        label = "执教" .. name,
+                        actionId = "accept_nt_coach",
+                        data = { nation = code },
+                    })
+                end
+            end
+        end
+        if #parsedActions > 0 then
+            table.insert(parsedActions, { label = "全部婉拒", actionId = "decline_nt_coach", data = {} })
+            msg.actions = parsedActions
+        end
+    end
 
     -- 标记已读
     msg.read = true
@@ -483,9 +566,23 @@ function Inbox._showDetail(msg, currentTab)
         end,
     })
 
+    -- 动态计算面板高度：正文 + 动作按钮
+    local sheetHeight = 400
+    if msg.actions and #msg.actions > 0 then
+        sheetHeight = 400 + #msg.actions * 48
+    end
+    -- 正文较长时额外增高
+    local bodyLen = msg.body and #msg.body or 0
+    if bodyLen > 200 then
+        sheetHeight = sheetHeight + 60
+    end
+    -- 限制最大高度为屏幕 85%（BottomSheet 内部 ScrollView 保证可滚动）
+    sheetHeight = math.min(720, sheetHeight)
+
     BottomSheet.showCustom({
         children = contentChildren,
         showCancel = true,
+        height = sheetHeight,
     })
 end
 
@@ -680,7 +777,6 @@ function Inbox.create(params)
             paddingBottom = 11,
             backgroundColor = rowBg,
             borderBottomWidth = 1,
-            borderColor = Theme.COLORS.BORDER,
             -- 紧急消息加左边框
             borderLeftWidth = isHighPriority and 3 or 0,
             borderColor = isHighPriority and Theme.COLORS.DANGER or Theme.COLORS.BORDER,
@@ -708,6 +804,7 @@ function Inbox.create(params)
                         UI.Panel {
                             flexGrow = 1, flexShrink = 1,
                             children = {
+                                ---@diagnostic disable-next-line: param-type-mismatch
                                 UI.Label {
                                     text = TITLE_FALLBACK[msg.title] or msg.title or "消息",
                                     fontSize = 14,

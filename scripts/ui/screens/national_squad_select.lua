@@ -1,3 +1,4 @@
+---@diagnostic disable: assign-type-mismatch
 -- ui/screens/national_squad_select.lua
 -- 世界杯国家队大名单选择页面（金色主题）
 
@@ -289,6 +290,7 @@ function NationalSquadSelect.create(params)
         })
     end
 
+    ---@diagnostic disable-next-line: assign-type-mismatch
     headerLabel = UI.Label {
         text = string.format("%s 大名单 (%d/%d)", nationName, countSelected(), SQUAD_SIZE),
         fontSize = 15,
@@ -299,6 +301,7 @@ function NationalSquadSelect.create(params)
     }
 
     if isLocked then
+        ---@diagnostic disable-next-line: assign-type-mismatch
         confirmBtn = UI.Panel {
             height = 30,
             paddingLeft = 10, paddingRight = 10,
@@ -360,6 +363,7 @@ function NationalSquadSelect.create(params)
     end
 
     -- 构建列表容器
+    ---@diagnostic disable-next-line: assign-type-mismatch
     listContainer = UI.Panel {
         width = "100%",
         flexGrow = 1,

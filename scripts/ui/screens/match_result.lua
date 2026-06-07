@@ -48,6 +48,27 @@ function MatchResult.create(params)
                       (not isPlayerHome and report.awayGoals > report.homeGoals)
     local isDraw = report.homeGoals == report.awayGoals
 
+    -- 淘汰赛点球胜负判定（点球不计入总比分，但决定晋级）
+    local extraTime = report.extraTime
+    local penaltyWinner = nil
+    if extraTime and extraTime.penalties then
+        penaltyWinner = extraTime.penalties.winner
+    end
+
+    -- 判断胜负（含点球结果）
+    if penaltyWinner then
+        local playerNationOrTeam = nil
+        if fixture and fixture._isWC then
+            local WorldCup = require("scripts/systems/world_cup")
+            playerNationOrTeam = WorldCup._getPlayerNation(gameState)
+        else
+            playerNationOrTeam = gameState.playerTeamId
+        end
+        local playerSide = isPlayerHome and report.homeTeamId or report.awayTeamId
+        playerWon = (penaltyWinner == playerSide)
+        isDraw = false
+    end
+
     -- 结果
     local resultColor = isDraw and Theme.COLORS.WARNING or (playerWon and Theme.COLORS.SECONDARY or Theme.COLORS.DANGER)
     local resultText = isDraw and "平局" or (playerWon and "胜利!" or "失败")
@@ -131,42 +152,83 @@ function MatchResult.create(params)
                 paddingBottom = 14,
                 backgroundColor = Theme.COLORS.BG_CARD,
                 alignItems = "center",
-                children = {
-                    UI.Label {
-                        text = resultText,
-                        fontSize = 13,
-                        fontWeight = "bold",
-                        color = resultColor,
-                        marginBottom = 6,
-                    },
-                    UI.Panel {
-                        flexDirection = "row",
-                        alignItems = "center",
-                        children = {
-                            UI.Label {
-                                text = homeName,
-                                fontSize = 14,
-                                color = isPlayerHome and Theme.COLORS.ACCENT or Theme.COLORS.TEXT_PRIMARY,
-                                width = 100,
-                                textAlign = "right",
-                                fontWeight = isPlayerHome and "bold" or "normal",
-                            },
-                            UI.Label {
-                                text = string.format("  %d - %d  ", report.homeGoals, report.awayGoals),
-                                fontSize = 28,
-                                fontWeight = "bold",
-                                color = Theme.COLORS.TEXT_PRIMARY,
-                            },
-                            UI.Label {
-                                text = awayName,
-                                fontSize = 14,
-                                color = (not isPlayerHome) and Theme.COLORS.ACCENT or Theme.COLORS.TEXT_PRIMARY,
-                                width = 100,
-                                fontWeight = (not isPlayerHome) and "bold" or "normal",
-                            },
-                        }
-                    },
-                }
+                children = (function()
+                    local scoreChildren = {
+                        UI.Label {
+                            text = resultText,
+                            fontSize = 13,
+                            fontWeight = "bold",
+                            color = resultColor,
+                            marginBottom = 6,
+                        },
+                        UI.Panel {
+                            flexDirection = "row",
+                            alignItems = "center",
+                            children = {
+                                UI.Label {
+                                    text = homeName,
+                                    fontSize = 14,
+                                    color = isPlayerHome and Theme.COLORS.ACCENT or Theme.COLORS.TEXT_PRIMARY,
+                                    width = 100,
+                                    textAlign = "right",
+                                    fontWeight = isPlayerHome and "bold" or "normal",
+                                },
+                                UI.Label {
+                                    text = string.format("  %d - %d  ", report.homeGoals, report.awayGoals),
+                                    fontSize = 28,
+                                    fontWeight = "bold",
+                                    color = Theme.COLORS.TEXT_PRIMARY,
+                                },
+                                UI.Label {
+                                    text = awayName,
+                                    fontSize = 14,
+                                    color = (not isPlayerHome) and Theme.COLORS.ACCENT or Theme.COLORS.TEXT_PRIMARY,
+                                    width = 100,
+                                    fontWeight = (not isPlayerHome) and "bold" or "normal",
+                                },
+                            }
+                        },
+                    }
+
+                    -- 加时赛/点球标注
+                    if extraTime then
+                        local etGoals = (extraTime.homeExtraGoals or 0) + (extraTime.awayExtraGoals or 0)
+                        local etText = "加时赛"
+                        if etGoals > 0 then
+                            etText = string.format("加时赛 (含加时进球 %d)", etGoals)
+                        end
+
+                        if extraTime.penalties then
+                            local pen = extraTime.penalties
+                            etText = string.format("加时 %d-%d 点球 %d-%d",
+                                report.homeGoals, report.awayGoals,
+                                pen.homeScored or 0, pen.awayScored or 0)
+                            -- 如果加时也是平局，比分就是常规90分钟的比分
+                            local regularHome = report.homeGoals - (extraTime.homeExtraGoals or 0)
+                            local regularAway = report.awayGoals - (extraTime.awayExtraGoals or 0)
+                            if extraTime.homeExtraGoals and extraTime.homeExtraGoals > 0 or
+                               extraTime.awayExtraGoals and extraTime.awayExtraGoals > 0 then
+                                etText = string.format("常规 %d-%d · 加时 %d-%d · 点球 %d-%d",
+                                    regularHome, regularAway,
+                                    report.homeGoals, report.awayGoals,
+                                    pen.homeScored or 0, pen.awayScored or 0)
+                            else
+                                etText = string.format("常规/加时 %d-%d · 点球 %d-%d",
+                                    report.homeGoals, report.awayGoals,
+                                    pen.homeScored or 0, pen.awayScored or 0)
+                            end
+                        end
+
+                        table.insert(scoreChildren, UI.Label {
+                            text = etText,
+                            fontSize = 11,
+                            color = Theme.COLORS.TEXT_MUTED,
+                            marginTop = 6,
+                        })
+                    end
+
+                    return scoreChildren
+                end)(),
             },
 
             -- 可滚动内容区（过滤nil避免ipairs中断）

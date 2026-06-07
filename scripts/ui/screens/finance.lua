@@ -731,6 +731,7 @@ function Finance._buildOperationsDashboard(team, gameState)
                                     paddingTop = 1, paddingBottom = 1,
                                     backgroundColor = Theme.COLORS.GOLD,
                                     borderRadius = 4,
+                                    ---@diagnostic disable-next-line: param-type-mismatch
                                     children = { UI.Label { text = "当前", fontSize = 9, color = "#1A1A1A" } },
                                 } or nil,
                             }

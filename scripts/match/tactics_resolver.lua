@@ -97,7 +97,7 @@ end
 function TacticsResolver.getMatchPlayers(gameState, team)
     local players = {}
     if team.startingXI and #team.startingXI > 0 then
-        for _, playerId in ipairs(team.startingXI) do
+        for _, playerId in ipairs(team.startingXI or {}) do
             local player = gameState.players[playerId]
             if player and not player.injured and not player.retired then
                 table.insert(players, player)

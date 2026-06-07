@@ -238,16 +238,16 @@ function StaffManager.generateFreeStaff(gameState, count)
     }
 
     for _ = 1, count do
-        local role = roles[math.random(1, #roles)]
-        local quality = math.random(5, 16)  -- 基础属性水平
+        local role = roles[RandomInt(1, #roles)]
+        local quality = RandomInt(5, 16)  -- 基础属性水平
 
         local attrs = {
-            training = math.max(1, quality + math.random(-3, 3)),
-            tactical = math.max(1, quality + math.random(-3, 3)),
-            scouting = math.max(1, quality + math.random(-3, 3)),
-            physiotherapy = math.max(1, quality + math.random(-3, 3)),
-            youthDev = math.max(1, quality + math.random(-3, 3)),
-            motivation = math.max(1, quality + math.random(-3, 3)),
+            training = math.max(1, quality + RandomInt(-3, 3)),
+            tactical = math.max(1, quality + RandomInt(-3, 3)),
+            scouting = math.max(1, quality + RandomInt(-3, 3)),
+            physiotherapy = math.max(1, quality + RandomInt(-3, 3)),
+            youthDev = math.max(1, quality + RandomInt(-3, 3)),
+            motivation = math.max(1, quality + RandomInt(-3, 3)),
         }
 
         -- 角色专精
@@ -264,19 +264,19 @@ function StaffManager.generateFreeStaff(gameState, count)
 
         -- 工资与属性相关
         local avgAttr = (attrs.training + attrs.scouting + attrs.physiotherapy + attrs.motivation) / 4
-        local wage = math.floor(avgAttr * 400 + math.random(0, 1000))
+        local wage = math.floor(avgAttr * 400 + RandomInt(0, 1000))
 
         local specialties = {"fitness", "technical", "tactical", "defense", "attack", "goalkeeper", "youth"}
 
         local staffData = {
-            firstName = FIRST_NAMES[math.random(1, #FIRST_NAMES)],
-            lastName = LAST_NAMES[math.random(1, #LAST_NAMES)],
-            nationality = NATIONALITIES[math.random(1, #NATIONALITIES)],
-            birthYear = math.random(1960, 1990),
+            firstName = FIRST_NAMES[RandomInt(1, #FIRST_NAMES)],
+            lastName = LAST_NAMES[RandomInt(1, #LAST_NAMES)],
+            nationality = NATIONALITIES[RandomInt(1, #NATIONALITIES)],
+            birthYear = RandomInt(1960, 1990),
             role = role,
             wage = wage,
             attributes = attrs,
-            specialty = specialties[math.random(1, #specialties)],
+            specialty = specialties[RandomInt(1, #specialties)],
         }
         staffData.displayName = staffData.firstName .. " " .. staffData.lastName
 

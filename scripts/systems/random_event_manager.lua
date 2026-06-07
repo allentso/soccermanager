@@ -29,8 +29,8 @@ local EVENT_POOL = {
                 end
             end
             if #eligible == 0 then return nil end
-            local p = eligible[math.random(1, #eligible)]
-            local days = math.random(3, 21)
+            local p = eligible[RandomInt(1, #eligible)]
+            local days = RandomInt(3, 21)
             p.injured = true
             p.injuryDays = days
             p.injuryType = RandomEventManager._randomInjury()
@@ -53,7 +53,7 @@ local EVENT_POOL = {
         execute = function(gs)
             local team = gs:getPlayerTeam()
             if not team then return nil end
-            local amount = math.random(5, 20) * 10000
+            local amount = RandomInt(5, 20) * 10000
             team.balance = team.balance + amount
             team.seasonIncome = (team.seasonIncome or 0) + amount
             return {
@@ -72,7 +72,7 @@ local EVENT_POOL = {
         execute = function(gs)
             local team = gs:getPlayerTeam()
             if not team then return nil end
-            local cost = math.random(2, 8) * 10000
+            local cost = RandomInt(2, 8) * 10000
             team.balance = team.balance - cost
             team.seasonExpense = (team.seasonExpense or 0) + cost
             return {
@@ -96,7 +96,7 @@ local EVENT_POOL = {
             for _, pid in ipairs(team.playerIds) do
                 local p = gs.players[pid]
                 if p then
-                    p.morale = Constants.clampMorale((p.morale or 60) + math.random(3, 8))
+                    p.morale = Constants.clampMorale((p.morale or 60) + RandomInt(3, 8))
                 end
             end
             return {
@@ -121,13 +121,13 @@ local EVENT_POOL = {
                 if p and not p.retired then table.insert(eligible, p) end
             end
             if #eligible < 2 then return nil end
-            local p1 = eligible[math.random(1, #eligible)]
-            local p2 = eligible[math.random(1, #eligible)]
+            local p1 = eligible[RandomInt(1, #eligible)]
+            local p2 = eligible[RandomInt(1, #eligible)]
             while p2.id == p1.id do
-                p2 = eligible[math.random(1, #eligible)]
+                p2 = eligible[RandomInt(1, #eligible)]
             end
-            p1.morale = Constants.clampMorale((p1.morale or 60) - math.random(5, 12))
-            p2.morale = Constants.clampMorale((p2.morale or 60) - math.random(5, 12))
+            p1.morale = Constants.clampMorale((p1.morale or 60) - RandomInt(5, 12))
+            p2.morale = Constants.clampMorale((p2.morale or 60) - RandomInt(5, 12))
             return {
                 title = "更衣室矛盾",
                 body = string.format("%s 和 %s 在更衣室发生了冲突，双方士气下降。",
@@ -158,13 +158,13 @@ local EVENT_POOL = {
                 end
             end
             if #eligible == 0 then return nil end
-            local p = eligible[math.random(1, #eligible)]
+            local p = eligible[RandomInt(1, #eligible)]
             -- 随机属性大幅提升
             local attrs = {}
             for k, _ in pairs(p.attributes) do table.insert(attrs, k) end
             if #attrs == 0 then return nil end
-            local key = attrs[math.random(1, #attrs)]
-            local boost = math.random(2, 3)
+            local key = attrs[RandomInt(1, #attrs)]
+            local boost = RandomInt(2, 3)
             p.attributes[key] = math.min(20, p.attributes[key] + boost)
             if p.calculateOverall then p:calculateOverall() end
             return {
@@ -194,7 +194,7 @@ local EVENT_POOL = {
                 end
             end
             if #eligible == 0 then return nil end
-            local p = eligible[math.random(1, #eligible)]
+            local p = eligible[RandomInt(1, #eligible)]
             return {
                 title = "转会传闻",
                 body = string.format("有球队对 %s 表示了兴趣，可能会收到正式报价。",
@@ -263,7 +263,7 @@ local EVENT_POOL = {
 ---@param gameState table
 function RandomEventManager.processDaily(gameState)
     -- 每天有约 8% 概率触发一个事件
-    if math.random() > 0.08 then return end
+    if Random() > 0.08 then return end
 
     -- 筛选满足条件的事件
     local eligible = {}
@@ -277,7 +277,7 @@ function RandomEventManager.processDaily(gameState)
     if #eligible == 0 then return end
 
     -- 加权随机选择
-    local roll = math.random() * totalWeight
+    local roll = Random() * totalWeight
     local accumulated = 0
     local selectedEvent = eligible[1]
     for _, event in ipairs(eligible) do
@@ -324,7 +324,7 @@ function RandomEventManager._randomInjury()
         "肌肉拉伤", "膝盖扭伤", "脚踝受伤", "腿筋拉伤",
         "背部不适", "肩部脱臼", "脚趾骨裂", "小腿拉伤",
     }
-    return injuries[math.random(1, #injuries)]
+    return injuries[RandomInt(1, #injuries)]
 end
 
 return RandomEventManager

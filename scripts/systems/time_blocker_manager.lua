@@ -73,7 +73,7 @@ function TimeBlockerManager._checkInjuredXI(gameState, team, blockers)
     if not team.startingXI or #team.startingXI == 0 then return end
 
     local injuredNames = {}
-    for _, pid in ipairs(team.startingXI) do
+    for _, pid in ipairs(team.startingXI or {}) do
         local p = gameState.players[pid]
         if p and p.injured then
             table.insert(injuredNames, p.displayName)
@@ -176,7 +176,7 @@ function TimeBlockerManager._checkKeyContractRisk(gameState, team, blockers)
 
     -- 按 OVR 排序首发
     local starters = {}
-    for _, pid in ipairs(team.startingXI) do
+    for _, pid in ipairs(team.startingXI or {}) do
         local p = gameState.players[pid]
         if p then table.insert(starters, p) end
     end

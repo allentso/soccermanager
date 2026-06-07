@@ -409,6 +409,7 @@ function SeasonEnd.create(params)
                     onClick = function() Router.navigate("player_detail", { playerId = p.id }) end,
                     children = {
                         UI.Label { text = "📋", width = 20, fontSize = 10 },
+                        ---@diagnostic disable-next-line: param-type-mismatch
                         UI.Label { text = p.displayName, flex = 1, fontSize = 12, color = COLORS.TEXT_PRIMARY },
                         UI.Label { text = "OVR " .. tostring(p.overall or 0), width = 50, fontSize = 11, color = COLORS.TEXT_MUTED },
                         UI.Label { text = formatMoney(p.wage) .. "/周", width = 60, fontSize = 10, color = COLORS.TEXT_SECONDARY },

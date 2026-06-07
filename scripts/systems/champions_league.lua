@@ -5,6 +5,7 @@ local Tournament = require("scripts/domain/tournament")
 local League = require("scripts/domain/league")
 local EventBus = require("scripts/app/event_bus")
 local RecordsManager = require("scripts/systems/records_manager")
+local ReputationManager = require("scripts/systems/reputation_manager")
 
 local ChampionsLeague = {}
 
@@ -141,6 +142,147 @@ function ChampionsLeague.migrateIfNeeded(gameState)
 
         log:Write(LOG_INFO, "[UCL] 迁移完成，36队瑞士制联赛阶段已初始化")
         return true
+    end
+
+    -- 检测赛程冲突：同一比赛日同一队有多场比赛（旧算法bug）
+    -- 仅修复一次：修复后标记 _scheduleFixed 防止每次 advanceDay 都重复洗牌
+    if ucl.leaguePhase and ucl.leaguePhase.fixtures and not ucl.leaguePhase._scheduleFixed then
+        local lp = ucl.leaguePhase
+        local hasConflict = false
+
+        -- 检查是否有冲突：teamId → { [matchday] = count }
+        local teamDayCounts = {}
+        for _, f in ipairs(lp.fixtures) do
+            if f.status == "scheduled" and f.matchday then
+                for _, tid in ipairs({ f.homeTeamId, f.awayTeamId }) do
+                    if not teamDayCounts[tid] then teamDayCounts[tid] = {} end
+                    teamDayCounts[tid][f.matchday] = (teamDayCounts[tid][f.matchday] or 0) + 1
+                    if teamDayCounts[tid][f.matchday] > 1 then
+                        hasConflict = true
+                    end
+                end
+            end
+        end
+
+        if hasConflict then
+            log:Write(LOG_INFO, "[UCL] 检测到赛程冲突（同一比赛日同队多场），重新分配比赛日...")
+
+            -- 只重新分配未完成比赛的日期，保留已完成比赛不变
+            local scheduledFixtures = {}
+            for _, f in ipairs(lp.fixtures) do
+                if f.status == "scheduled" then
+                    table.insert(scheduledFixtures, f)
+                end
+            end
+
+            -- 重建比赛日日期
+            local leagueStart = {
+                year = ucl.season or gameState.season,
+                month = UCL_SCHEDULE.league_start.month,
+                day = UCL_SCHEDULE.league_start.day,
+            }
+            local matchDays = {}
+            local date = League._alignToWeekday(
+                { year = leagueStart.year, month = leagueStart.month, day = leagueStart.day }, 3)
+            for i = 1, 8 do
+                table.insert(matchDays, { year = date.year, month = date.month, day = date.day })
+                date = League._addDays(date, 14)
+            end
+
+            local teamIds = lp.teamIds or {}
+            local maxPerDay = math.max(1, math.floor(#teamIds / 2))
+
+            -- 洗牌待重新分配的赛程
+            for i = #scheduledFixtures, 2, -1 do
+                local j = RandomInt(1, i)
+                scheduledFixtures[i], scheduledFixtures[j] = scheduledFixtures[j], scheduledFixtures[i]
+            end
+
+            -- 收集已完成比赛占用的slot
+            local teamDayUsed = {}
+            for _, tid in ipairs(teamIds) do
+                teamDayUsed[tid] = {}
+            end
+            local daySlots = {}
+            for i = 1, 8 do
+                daySlots[i] = 0
+            end
+            for _, f in ipairs(lp.fixtures) do
+                if f.status ~= "scheduled" and f.matchday then
+                    daySlots[f.matchday] = daySlots[f.matchday] + 1
+                    if teamDayUsed[f.homeTeamId] then
+                        teamDayUsed[f.homeTeamId][f.matchday] = true
+                    end
+                    if teamDayUsed[f.awayTeamId] then
+                        teamDayUsed[f.awayTeamId][f.matchday] = true
+                    end
+                end
+            end
+
+            -- 贪心重新分配
+            for _, f in ipairs(scheduledFixtures) do
+                local assigned = false
+                for d = 1, 8 do
+                    if daySlots[d] < maxPerDay and
+                       not teamDayUsed[f.homeTeamId][d] and
+                       not teamDayUsed[f.awayTeamId][d] then
+                        f.date = matchDays[d]
+                        f.matchday = d
+                        daySlots[d] = daySlots[d] + 1
+                        if teamDayUsed[f.homeTeamId] then
+                            teamDayUsed[f.homeTeamId][d] = true
+                        end
+                        if teamDayUsed[f.awayTeamId] then
+                            teamDayUsed[f.awayTeamId][d] = true
+                        end
+                        assigned = true
+                        break
+                    end
+                end
+                if not assigned then
+                    -- fallback: 找负载最轻且至少一方无冲突的比赛日
+                    local bestDay = nil
+                    local bestCount = 999
+                    for d = 1, 8 do
+                        local homeUsed = teamDayUsed[f.homeTeamId] and teamDayUsed[f.homeTeamId][d]
+                        local awayUsed = teamDayUsed[f.awayTeamId] and teamDayUsed[f.awayTeamId][d]
+                        -- 优先找双方都没用过的；其次找至少一方没用过的
+                        if not homeUsed and not awayUsed and daySlots[d] < bestCount then
+                            bestDay = d
+                            bestCount = daySlots[d]
+                        end
+                    end
+                    -- 如果还没找到，退而求其次：找负载最轻的
+                    if not bestDay then
+                        bestDay = 1
+                        bestCount = daySlots[1]
+                        for d = 2, 8 do
+                            if daySlots[d] < bestCount then
+                                bestDay = d
+                                bestCount = daySlots[d]
+                            end
+                        end
+                    end
+                    f.date = matchDays[bestDay]
+                    f.matchday = bestDay
+                    daySlots[bestDay] = daySlots[bestDay] + 1
+                    if teamDayUsed[f.homeTeamId] then
+                        teamDayUsed[f.homeTeamId][bestDay] = true
+                    end
+                    if teamDayUsed[f.awayTeamId] then
+                        teamDayUsed[f.awayTeamId][bestDay] = true
+                    end
+                end
+            end
+
+            -- 标记已修复，防止后续每次 advanceDay 都重复检测和洗牌
+            lp._scheduleFixed = true
+            log:Write(LOG_INFO, "[UCL] 赛程重新分配完成，共处理 " .. #scheduledFixtures .. " 场比赛")
+            return true
+        end
+
+        -- 无冲突，标记为已检查
+        lp._scheduleFixed = true
     end
 
     return false
@@ -495,6 +637,43 @@ function ChampionsLeague._completeTournament(gameState, ucl)
                 body = "你的球队赢得了欧洲冠军联赛！这是足坛最高荣誉！\n冠军奖金 5.0M 已到账。",
                 priority = "high",
             })
+        end
+
+        -- 声望更新：冠军
+        ReputationManager.cupResultUpdate(gameState, ucl.champion, true)
+
+        -- 亚军处理
+        local finalFixture = ucl.knockout.final and ucl.knockout.final[1]
+        if finalFixture then
+            local finalistId = (finalFixture.homeTeamId == ucl.champion) and finalFixture.awayTeamId or finalFixture.homeTeamId
+            ucl.finalist = finalistId
+
+            -- 亚军奖金
+            local finalist = gameState.teams[finalistId]
+            if finalist then
+                local runnerUpPrize = 3000000
+                finalist.balance = finalist.balance + runnerUpPrize
+                if not finalist.transactions then finalist.transactions = {} end
+                table.insert(finalist.transactions, 1, {
+                    type = "prize",
+                    amount = runnerUpPrize,
+                    description = "欧冠亚军奖金",
+                    date = { year = gameState.date.year, month = gameState.date.month, day = gameState.date.day },
+                })
+            end
+
+            -- 声望更新：亚军
+            ReputationManager.cupResultUpdate(gameState, finalistId, false)
+
+            -- 玩家球队是亚军
+            if finalistId == gameState.playerTeamId then
+                gameState:sendMessage({
+                    category = "league",
+                    title = "欧冠决赛惜败",
+                    body = "你的球队在欧冠决赛中惜败，获得亚军。\n虽然遗憾，但这已经是伟大的征程！\n亚军奖金 3.0M 已到账。",
+                    priority = "high",
+                })
+            end
         end
 
         -- 记录系统：UCL 夺冠

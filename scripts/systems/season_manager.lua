@@ -7,6 +7,7 @@ local EventBus = require("scripts/app/event_bus")
 local ChampionsLeague = require("scripts/systems/champions_league")
 local WorldCup = require("scripts/systems/world_cup")
 local AwardsManager = require("scripts/systems/awards_manager")
+local FinanceManager = require("scripts/systems/finance_manager")
 local HistoryManager = require("scripts/systems/history_manager")
 local NewsGenerator = require("scripts/systems/news_generator")
 local ObjectivesManager = require("scripts/systems/objectives_manager")
@@ -24,6 +25,10 @@ function SeasonManager.endSeason(gameState)
 
     -- 0. 赛季目标评估（必须在奖金/升降级之前，基于最终排名）
     ObjectivesManager.onSeasonEnd(gameState)
+
+    -- 0.5 董事会赛季末评估（所有球队，可能触发解雇）
+    local BoardManager = require("scripts/systems/board_manager")
+    BoardManager.seasonEndEvaluation(gameState)
 
     -- 1. 为所有联赛发放赛季奖金
     SeasonManager._distributeSeasonPrizes(gameState)
@@ -88,15 +93,8 @@ function SeasonManager._distributeSeasonPrizes(gameState)
         for i, entry in ipairs(sorted) do
             local team = gameState.teams[entry.teamId]
             if team then
-                local prize = prizes[i] or 100000
-                team.balance = team.balance + prize
-                if not team.transactions then team.transactions = {} end
-                table.insert(team.transactions, 1, {
-                    type = "prize",
-                    amount = prize,
-                    description = string.format("赛季结算: %s第%d名奖金", lg.name, i),
-                    date = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day},
-                })
+                -- 使用 FinanceManager 统一处理：更新 balance、transferBudget、seasonIncome、incomeBreakdown、流水
+                FinanceManager.awardSeasonPrize(gameState, entry.teamId, i)
             end
         end
 
@@ -123,13 +121,56 @@ function SeasonManager._distributeSeasonPrizes(gameState)
         local playerPrize = prizes[playerPosition] or 100000
         local team = gameState:getPlayerTeam()
         if team then
-            gameState:sendMessage({
-                category = "finance",
-                title = "赛季奖金到账",
-                body = string.format("恭喜！球队获得%s第%d名，获得 %.0fK 奖金。\n当前余额: %.1fM",
-                    gameState.league.name, playerPosition, playerPrize / 1000, team.balance / 1000000),
-                priority = "normal",
-            })
+            if playerPosition == 1 then
+                -- 联赛冠军特殊庆祝
+                local championBonus = 20000000  -- 额外夺冠奖金 20M
+                team.balance = team.balance + championBonus
+                if not team.transactions then team.transactions = {} end
+                table.insert(team.transactions, 1, {
+                    type = "prize",
+                    amount = championBonus,
+                    description = gameState.league.name .. "冠军奖金",
+                    date = { year = gameState.date.year, month = gameState.date.month, day = gameState.date.day },
+                })
+
+                gameState:sendMessage({
+                    category = "achievement",
+                    title = "联赛冠军！",
+                    body = string.format(
+                        "恭喜！你的球队赢得了 %d赛季 %s 冠军！\n\n" ..
+                        "这是对整个赛季努力的最佳回报！\n" ..
+                        "赛季奖金: %.1fM\n冠军奖金: %.1fM\n当前余额: %.1fM",
+                        gameState.season, gameState.league.name,
+                        playerPrize / 1000000, championBonus / 1000000, team.balance / 1000000),
+                    priority = "high",
+                })
+            elseif playerPosition == 2 then
+                -- 亚军
+                gameState:sendMessage({
+                    category = "finance",
+                    title = "联赛亚军",
+                    body = string.format("赛季结束！球队获得%s亚军，距冠军仅一步之遥。\n赛季奖金 %.1fM 已到账。\n当前余额: %.1fM",
+                        gameState.league.name, playerPrize / 1000000, team.balance / 1000000),
+                    priority = "normal",
+                })
+            elseif playerPosition == 3 then
+                -- 季军
+                gameState:sendMessage({
+                    category = "finance",
+                    title = "联赛季军",
+                    body = string.format("赛季结束！球队获得%s第3名，表现出色。\n赛季奖金 %.1fM 已到账。\n当前余额: %.1fM",
+                        gameState.league.name, playerPrize / 1000000, team.balance / 1000000),
+                    priority = "normal",
+                })
+            else
+                gameState:sendMessage({
+                    category = "finance",
+                    title = "赛季奖金到账",
+                    body = string.format("赛季结束！球队获得%s第%d名。\n赛季奖金 %.1fM 已到账。\n当前余额: %.1fM",
+                        gameState.league.name, playerPosition, playerPrize / 1000000, team.balance / 1000000),
+                    priority = "normal",
+                })
+            end
         end
     end
 end
@@ -545,6 +586,20 @@ function SeasonManager._processPromotionRelegation(gameState)
     -- 保存升降级数据供赛季结算页面使用
     gameState.lastPromotionRelegation = promotionNews
 
+    -- 如果玩家球队发生了升降级，需要更新 gameState.league 引用
+    if gameState.playerTeamId then
+        for leagueKey, lg in pairs(gameState.leagues) do
+            for _, tid in ipairs(lg.teamIds) do
+                if tid == gameState.playerTeamId then
+                    gameState.league = lg
+                    gameState.playerLeagueId = leagueKey
+                    goto league_updated
+                end
+            end
+        end
+        ::league_updated::
+    end
+
     -- 生成升降级综合新闻
     if #promotionNews > 0 then
         SeasonManager._generatePromotionRelegationNews(gameState, promotionNews)
@@ -837,23 +892,41 @@ end
 ------------------------------------------------------
 
 function SeasonManager._startNewSeason(gameState)
+    -- 清除旧赛季遗留的比赛待处理标记（防止第二赛季卡住）
+    gameState.pendingPlayerFixture = nil
+
     -- 更新赛季年份
     gameState.season = gameState.season + 1
 
-    -- 设定新赛季开始日期
-    gameState.date = {
+    -- 世界杯年从6月1日开始（世界杯在6-7月举办），否则从8月10日开始
+    local isWCYear = WorldCup.isWorldCupYear(gameState.season)
+    if isWCYear then
+        -- 世界杯年：日历从6月1日起，让6月12日开始的小组赛在未来
+        gameState.date = {
+            year = gameState.season,
+            month = 6,
+            day = 1,
+        }
+    else
+        gameState.date = {
+            year = gameState.season,
+            month = Constants.SEASON_START_MONTH,
+            day = Constants.SEASON_START_DAY,
+        }
+    end
+    gameState.dayOfWeek = 1
+
+    -- 联赛始终从8月开始（与世界杯日期无关）
+    local leagueStartDate = {
         year = gameState.season,
         month = Constants.SEASON_START_MONTH,
         day = Constants.SEASON_START_DAY,
     }
-    gameState.dayOfWeek = 1
-
-    -- 为所有联赛重新生成赛程
     for _, lg in pairs(gameState.leagues) do
         lg:initStandings()
         lg.season = gameState.season
         lg.currentRound = 1
-        lg:generateFixtures(gameState.date)
+        lg:generateFixtures(leagueStartDate)
     end
 
     -- 清理旧的转会报价
@@ -871,11 +944,15 @@ function SeasonManager._startNewSeason(gameState)
     -- 初始化本赛季欧冠
     ChampionsLeague.initialize(gameState)
 
-    -- 检查并初始化世界杯（赛季结束后的夏天举办）
+    -- 检查并初始化世界杯（世界杯年6月举办，此时日历在6月1日，比赛日期在未来）
     WorldCup.initialize(gameState)
 
     -- 初始化赛季目标系统
     ObjectivesManager.initSeason(gameState)
+
+    -- 为所有球队生成新赛季董事会目标
+    local BoardManager = require("scripts/systems/board_manager")
+    BoardManager.generateSeasonObjectives(gameState)
 
     -- 生成新赛季赞助合同选项（玩家需在赛季初选择）
     local FinanceManager = require("scripts/systems/finance_manager")

@@ -5,14 +5,14 @@
     "id": "977458462"
   },
   "entry": "main.lua",
-  "version": "1.0.1",
+  "version": "1.0.10",
   "taptap_publish": {
     "title": "足球经理：冠军之路",
-    "description": "<game description>",
+    "description": "",
     "category": "simulation",
     "screen_orientation": "portrait",
     "collection_type": "sce",
-    "trial_note": "<developer's note>",
+    "trial_note": "感谢来到《足球经理：冠军之路》！无论你是热爱排兵布阵的经理派，还是钟情冠军征途的足球迷，我都希望这款作品能带给你热血又耐玩的经营体验。因为游戏进程相对较长，可能有很多我测试不到的bug，还望各位教练多多理解，恳请大家多多反馈游戏体验，提出游戏意见，我会尽我所能为教练们提供更好的游戏体验！",
     "app_platforms": "1,2",
     "developer_id": 395178,
     "app_id": 866286,
@@ -20,14 +20,14 @@
     "gameplay_demo_video_source": "https://tapcode-sce.spark.xd.com/videos/p_r91d/1780470794981-rec_a7cff833-5423-4e06-8c14-9f5248790859.mp4"
   },
   "assets": {
-    "icon": "./game_material/ICON_2026-06-03T05-27-06_01.png",
+    "icon": "./game_material/icon.png",
     "screenshots": [
       "./game_material/SCREENSHOT_2026-06-03T05-27-06_01.png",
       "./game_material/SCREENSHOT_2026-06-03T05-27-06_02.png",
       "./game_material/SCREENSHOT_2026-06-03T05-27-06_03.png"
     ],
     "promotional_image": "./game_material/PROMO_2026-06-03T05-27-06_01.jpg",
-    "icon_url": "https://tapcode-sce.spark.xd.com/assets/game_material/足球经理/ICON_2026-06-03T05-27-06_01.png",
+    "icon_url": "https://tapcode-sce.spark.xd.com/assets/game_material/p_r91d/icon.png",
     "screenshot_urls": [
       "https://tapcode-sce.spark.xd.com/assets/game_material/足球经理/SCREENSHOT_2026-06-03T05-27-06_01.png",
       "https://tapcode-sce.spark.xd.com/assets/game_material/足球经理/SCREENSHOT_2026-06-03T05-27-06_02.png",
@@ -37,13 +37,16 @@
     "cover_horizontal": "./game_material/COVER_HORIZONTAL_2026-06-03T05-28-44_01.png",
     "cover_horizontal_url": "https://tapcode-sce.spark.xd.com/assets/game_material/足球经理/COVER_HORIZONTAL_2026-06-03T05-28-44_01.png",
     "cover_vertical": "./game_material/COVER_VERTICAL_2026-06-03T05-36-07_01.png",
-    "cover_vertical_url": "https://tapcode-sce.spark.xd.com/assets/game_material/足球经理/COVER_VERTICAL_2026-06-03T05-36-07_01.png"
+    "cover_vertical_url": "https://tapcode-sce.spark.xd.com/assets/game_material/足球经理/COVER_VERTICAL_2026-06-03T05-36-07_01.png",
+    "square_promotional_image": "./game_material/square_promotional.png",
+    "square_promotional_image_url": "https://tapcode-sce.spark.xd.com/assets/game_material/p_r91d/square_promotional.png"
   },
   "test_qrcode": {
-    "url": "https://tapcode-sce.spark.xd.com/qrcode/p_r91d_1780463885221.png",
-    "generated_at": "2026-06-03T05:18:05.348Z"
+    "url": "https://tapcode-sce.spark.xd.com/qrcode/p_r91d_1780802437229.png",
+    "generated_at": "2026-06-07T03:20:37.404Z"
   },
   "metadata": {
-    "updated_at": "2026-06-03T05:36:09.328Z"
+    "updated_at": "2026-06-07T03:20:37.404Z",
+    "promo_dependent_hash": "9dd6be03e028549c079060f959b32d6d"
   }
 }

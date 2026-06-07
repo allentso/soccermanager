@@ -90,12 +90,34 @@ end
 -- 生成局内实际潜力
 ------------------------------------------------------
 
+--- 简单的确定性伪随机生成器 (xorshift32)
+--- 避免污染全局 math.random 状态
+--- @param state number[] 单元素数组, state[1] 为当前状态
+--- @return number 0~1 之间的浮点数
+local function seededRandom(state)
+    local s = state[1]
+    s = s ~ (s << 13)
+    s = s & 0xFFFFFFFF
+    s = s ~ (s >> 17)
+    s = s & 0xFFFFFFFF
+    s = s ~ (s << 5)
+    s = s & 0xFFFFFFFF
+    state[1] = s
+    return (s % 1000000) / 1000000.0
+end
+
 --- 简单的 Box-Muller 近似高斯随机
+--- @param state number[]|nil 如提供则用确定性 PRNG, 否则用引擎 Random()
 --- @return number 标准正态分布随机值（约-3到+3）
-local function gaussianRandom()
-    -- 使用 Box-Muller 变换
-    local u1 = math.random()
-    local u2 = math.random()
+local function gaussianRandom(state)
+    local u1, u2
+    if state then
+        u1 = seededRandom(state)
+        u2 = seededRandom(state)
+    else
+        u1 = Random()
+        u2 = Random()
+    end
     -- 避免 log(0)
     if u1 < 0.0001 then u1 = 0.0001 end
     local z = math.sqrt(-2.0 * math.log(u1)) * math.cos(2.0 * math.pi * u2)
@@ -127,7 +149,7 @@ end
 
 --- 生成一个球员的局内实际潜力值
 --- @param paRating number PA评级 (1.0-10.0)
---- @param seed number|nil 可选随机种子(用于存档一致性)
+--- @param seed number|nil 可选随机种子(用于存档一致性, 使用独立 PRNG 不污染全局状态)
 --- @return number actualPotential 局内实际潜力 (整数)
 function PotentialSystem.generateActualPotential(paRating, seed)
     local params = PotentialSystem.getRatingParams(paRating)
@@ -135,17 +157,20 @@ function PotentialSystem.generateActualPotential(paRating, seed)
         return 60  -- fallback
     end
 
-    -- 如果提供了种子，临时设置
+    -- 使用独立的 xorshift PRNG, 不污染全局 math.random 状态
+    ---@type number[]|nil
+    local state = nil
     if seed then
-        math.randomseed(seed)
+        state = { math.max(1, seed) }  -- xorshift 状态不能为 0
     end
 
     -- 1. 在中心区间内均匀选一个基准点
     local centerRange = params.centerMax - params.centerMin
-    local baseValue = params.centerMin + math.random() * centerRange
+    local rVal = state and seededRandom(state) or Random()
+    local baseValue = params.centerMin + rVal * centerRange
 
     -- 2. 施加高斯波动
-    local noise = gaussianRandom() * (params.variance * 0.6)
+    local noise = gaussianRandom(state) * (params.variance * 0.6)
     -- variance 是最大幅度, 乘以0.6使1σ约为variance的60%，2σ才接近满幅
     -- 这样大部分值落在 ±variance*0.6 内，偶尔有 ±variance*1.2 的极端值
 
@@ -173,7 +198,7 @@ function PotentialSystem.initializeAllPlayers(gameState)
     if not gameState or not gameState.players then return end
 
     -- 使用游戏种子（若有）确保同一存档结果一致
-    local baseSeed = gameState.potentialSeed or os.time()
+    local baseSeed = gameState.potentialSeed or Time:GetSystemTime()
     gameState.potentialSeed = baseSeed
 
     local count = 0
@@ -262,7 +287,7 @@ function PotentialSystem.rerollActualPotential(player, newSeed)
         player.paRating = paRating
     end
 
-    local seed = newSeed or (os.time() + (player.id or 0) * 13)
+    local seed = newSeed or (Time:GetSystemTime() + (player.id or 0) * 13)
     local newActual = PotentialSystem.generateActualPotential(paRating, seed)
     player.actualPotential = newActual
     return newActual

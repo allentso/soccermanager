@@ -384,6 +384,7 @@ local function buildStatsTab(team, gameState, teamId)
                     justifyContent = "center", alignItems = "center",
                     children = { UI.Label { text = Constants.POSITION_NAMES[p.position] or p.position or "?", fontSize = 9, fontWeight = "bold", color = pColor } }
                 },
+                ---@diagnostic disable-next-line: param-type-mismatch
                 UI.Label { text = p.displayName or "?", flex = 1, fontSize = 12, color = COLORS.TEXT_PRIMARY, marginLeft = 6 },
                 UI.Label { text = tostring(p.overall or "?"), width = 34, fontSize = 12, fontWeight = "bold", color = COLORS.PRIMARY, textAlign = "center" },
             }

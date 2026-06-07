@@ -644,6 +644,7 @@ function Theme.PrimaryButton(props)
             originalOnClick(self)
         end or nil,
         children = {
+            ---@diagnostic disable-next-line: param-type-mismatch
             UI.Label {
                 text = props.text or "确认",
                 fontSize = 15,

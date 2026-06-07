@@ -121,7 +121,7 @@ function MoraleManager.processAITeams(gameState)
                     targetMorale = targetMorale + wins * 3
 
                     local delta = (targetMorale - current) * 0.15
-                    delta = delta + (math.random() - 0.5) * 4
+                    delta = delta + (Random() - 0.5) * 4
                     player.morale = math.max(MORALE_MIN, math.min(MORALE_MAX, current + delta))
                 end
             end
@@ -319,7 +319,7 @@ function MoraleManager._calculateWeeklyDelta(gameState, player, team)
     end
 
     -- 6. 随机波动
-    delta = delta + (math.random() - 0.5) * 4
+    delta = delta + (Random() - 0.5) * 4
 
     return math.floor(delta)
 end

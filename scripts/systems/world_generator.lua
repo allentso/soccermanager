@@ -319,7 +319,7 @@ function WorldGenerator.autoSelectStartingXI(gameState, teamId)
     -- 设置队长为能力最高的球员
     if #team.startingXI > 0 then
         local best = nil
-        for _, pid in ipairs(team.startingXI) do
+        for _, pid in ipairs(team.startingXI or {}) do
             local p = gameState.players[pid]
             if p and (not best or p.overall > best.overall) then best = p end
         end
@@ -328,7 +328,7 @@ function WorldGenerator.autoSelectStartingXI(gameState, teamId)
 
     -- 分配阵容角色 (key/rotation/squad/youth)
     local starterSet = {}
-    for _, pid in ipairs(team.startingXI) do starterSet[pid] = true end
+    for _, pid in ipairs(team.startingXI or {}) do starterSet[pid] = true end
 
     local allPlayers = gameState:getTeamPlayers(teamId)
     table.sort(allPlayers, function(a, b) return a.overall > b.overall end)
@@ -460,6 +460,9 @@ function WorldGenerator.generate(gameState)
             },
         })
     end
+
+    -- 加载传奇自由球员（非五大联赛的知名球员）
+    RealDataLoader.loadLegends(gameState)
 
     -- 初始化潜力系统（为所有球员生成 PA Rating 和局内实际潜力）
     PotentialSystem.initializeAllPlayers(gameState)

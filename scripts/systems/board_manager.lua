@@ -1,5 +1,5 @@
 -- systems/board_manager.lua
--- 董事会系统：赛季目标、满意度评价、警告、解雇
+-- 董事会系统：赛季目标、满意度评价、警告、解雇（玩家 + AI教练）
 
 local EventBus = require("scripts/app/event_bus")
 local MessageManager = require("scripts/systems/message_manager")
@@ -32,132 +32,190 @@ local TARGET_THRESHOLDS = {
     ["避免降级"] = 17,
 }
 
+-- AI教练解雇阈值
+local AI_SACK_SATISFACTION = 20       -- 满意度低于此值触发解雇
+local AI_WARNING_THRESHOLD = 25       -- 满意度低于此值触发警告
+local PLAYER_SACK_WARNINGS = 3       -- 玩家累计警告次数触发解雇
+
 ------------------------------------------------------
 -- 核心API
 ------------------------------------------------------
 
---- 生成赛季目标（赛季开始时调用）
+--- 生成赛季目标（赛季开始时为所有球队调用）
+---@param gameState table
+function BoardManager.generateSeasonObjectives(gameState)
+    for _, team in pairs(gameState.teams) do
+        local rep = team.reputation or 50
+        local tier = BoardManager._getReputationTier(rep)
+        local targets = OBJECTIVES[tier].targets
+        local target = targets[RandomInt(1, #targets)]
+
+        team.boardObjective = target
+        team.boardSatisfaction = team.boardSatisfaction or 50  -- 保留上赛季残余满意度，新球队初始50
+        team.boardWarnings = team.boardWarnings or 0
+    end
+
+    -- 给玩家发消息
+    local playerTeam = gameState:getPlayerTeam()
+    if playerTeam and playerTeam.boardObjective then
+        MessageManager.send(gameState, "board_objective", { playerTeam.boardObjective })
+    end
+end
+
+--- 旧接口兼容：只给玩家球队生成目标
 ---@param gameState table
 function BoardManager.generateSeasonObjective(gameState)
-    local team = gameState:getPlayerTeam()
-    if not team then return end
-
-    local rep = team.reputation or 50
-    local tier = BoardManager._getReputationTier(rep)
-    local targets = OBJECTIVES[tier].targets
-
-    -- 从该档位的目标中随机选一个
-    local target = targets[math.random(1, #targets)]
-    team.boardObjective = target
-    team.boardSatisfaction = 50  -- 初始满意度50%
-    team.boardWarnings = 0
-
-    MessageManager.send(gameState, "board_objective", { target })
+    BoardManager.generateSeasonObjectives(gameState)
 end
 
---- 每月评估满意度（月中 15 号调用）
+--- 每月评估满意度（所有球队）
 ---@param gameState table
 function BoardManager.monthlyEvaluation(gameState)
-    local team = gameState:getPlayerTeam()
-    if not team then return end
-    if not team.boardObjective then return end
+    for teamId, team in pairs(gameState.teams) do
+        if not team.boardObjective then goto continue_team end
 
-    local league = gameState.league
-    if not league then return end
-
-    local position = league:getTeamPosition(team.id)
-    if not position then return end
-
-    local threshold = TARGET_THRESHOLDS[team.boardObjective] or 10
-    local totalTeams = #league.standings
-
-    -- 计算目标达成度 (-1.0 ~ +1.0)
-    local progressRatio = 0
-    if position <= threshold then
-        -- 达到或超过目标
-        progressRatio = (threshold - position) / math.max(threshold, 1)
-        progressRatio = math.min(progressRatio, 1.0)
-    else
-        -- 未达目标
-        progressRatio = -(position - threshold) / math.max(totalTeams - threshold, 1)
-        progressRatio = math.max(progressRatio, -1.0)
-    end
-
-    -- 满意度变化
-    local delta = math.floor(progressRatio * 15)
-
-    -- 近期状态加成
-    local form = team.recentForm or {}
-    local formBonus = 0
-    for _, r in ipairs(form) do
-        if r == "W" then formBonus = formBonus + 2
-        elseif r == "L" then formBonus = formBonus - 2
+        -- 找到该球队所在联赛
+        local league = nil
+        for _, lg in pairs(gameState.leagues or {}) do
+            for _, tid in ipairs(lg.teamIds) do
+                if tid == teamId then
+                    league = lg
+                    break
+                end
+            end
+            if league then break end
         end
-    end
-    delta = delta + formBonus
+        if not league then goto continue_team end
 
-    team.boardSatisfaction = math.max(0, math.min(100, (team.boardSatisfaction or 50) + delta))
+        local position = league:getTeamPosition(teamId)
+        if not position then goto continue_team end
 
-    -- 触发消息
-    if team.boardSatisfaction < 25 then
-        team.boardWarnings = (team.boardWarnings or 0) + 1
-        local reason = string.format(
-            "球队当前排名第%d，距离目标(%s)差距较大。满意度：%d%%",
-            position, team.boardObjective, team.boardSatisfaction
-        )
-        MessageManager.send(gameState, "board_warning", { reason }, {
-            dedupeKey = "board_warning_" .. gameState.date.month,
-        })
+        local threshold = TARGET_THRESHOLDS[team.boardObjective] or 10
+        local totalTeams = #league.teamIds
 
-        -- 连续3次警告→解雇
-        if team.boardWarnings >= 3 then
-            BoardManager._triggerSack(gameState)
+        -- 计算目标达成度 (-1.0 ~ +1.0)
+        local progressRatio = 0
+        if position <= threshold then
+            progressRatio = (threshold - position) / math.max(threshold, 1)
+            progressRatio = math.min(progressRatio, 1.0)
+        else
+            progressRatio = -(position - threshold) / math.max(totalTeams - threshold, 1)
+            progressRatio = math.max(progressRatio, -1.0)
         end
-    elseif team.boardSatisfaction >= 75 then
-        -- 高满意度重置警告
-        team.boardWarnings = 0
+
+        -- 满意度变化
+        local delta = math.floor(progressRatio * 15)
+
+        -- 近期状态加成
+        local form = team.recentForm or {}
+        local formBonus = 0
+        for _, r in ipairs(form) do
+            if r == "W" then formBonus = formBonus + 2
+            elseif r == "L" then formBonus = formBonus - 2
+            end
+        end
+        delta = delta + formBonus
+
+        team.boardSatisfaction = math.max(0, math.min(100, (team.boardSatisfaction or 50) + delta))
+
+        -- 判断是否为玩家球队
+        local isPlayerTeam = (teamId == gameState.playerTeamId)
+
+        if team.boardSatisfaction < AI_WARNING_THRESHOLD then
+            team.boardWarnings = (team.boardWarnings or 0) + 1
+
+            if isPlayerTeam then
+                -- 玩家：发警告消息
+                local reason = string.format(
+                    "球队当前排名第%d，距离目标(%s)差距较大。满意度：%d%%",
+                    position, team.boardObjective, team.boardSatisfaction
+                )
+                MessageManager.send(gameState, "board_warning", { reason }, {
+                    dedupeKey = "board_warning_" .. gameState.date.month,
+                })
+
+                -- 连续3次警告→解雇玩家
+                if team.boardWarnings >= PLAYER_SACK_WARNINGS then
+                    BoardManager._triggerPlayerSack(gameState)
+                end
+            else
+                -- AI教练：满意度极低直接解雇
+                if team.boardSatisfaction < AI_SACK_SATISFACTION then
+                    BoardManager._triggerAISack(gameState, teamId)
+                end
+            end
+        elseif team.boardSatisfaction >= 75 then
+            -- 高满意度重置警告
+            team.boardWarnings = 0
+        end
+
+        ::continue_team::
     end
 end
 
---- 赛季结束评估
+--- 赛季结束评估（所有球队）
 ---@param gameState table
 function BoardManager.seasonEndEvaluation(gameState)
-    local team = gameState:getPlayerTeam()
-    if not team then return end
-    if not team.boardObjective then return end
+    for teamId, team in pairs(gameState.teams) do
+        if not team.boardObjective then goto continue_team end
 
-    local league = gameState.league
-    if not league then return end
-
-    local position = league:getTeamPosition(team.id)
-    local threshold = TARGET_THRESHOLDS[team.boardObjective] or 10
-
-    if position and position <= threshold then
-        -- 目标达成
-        team.boardSatisfaction = math.min(100, (team.boardSatisfaction or 50) + 20)
-        team.boardWarnings = 0
-        gameState:sendMessage({
-            category = "board",
-            title = "赛季总结 - 目标达成",
-            body = string.format("恭喜！球队以第%d名完赛，完成了董事会设定的\"%s\"目标。董事会对您的工作非常满意！",
-                position, team.boardObjective),
-            priority = "normal",
-        })
-    else
-        -- 目标未达成
-        team.boardSatisfaction = math.max(0, (team.boardSatisfaction or 50) - 25)
-        gameState:sendMessage({
-            category = "board",
-            title = "赛季总结 - 目标未达",
-            body = string.format("球队以第%d名完赛，未能完成\"%s\"的目标。董事会对此感到失望。",
-                position or 0, team.boardObjective),
-            priority = "high",
-        })
-
-        -- 严重失败直接解雇
-        if position and position > threshold + 5 then
-            BoardManager._triggerSack(gameState)
+        -- 找到该球队所在联赛
+        local league = nil
+        for _, lg in pairs(gameState.leagues or {}) do
+            for _, tid in ipairs(lg.teamIds) do
+                if tid == teamId then
+                    league = lg
+                    break
+                end
+            end
+            if league then break end
         end
+        if not league then goto continue_team end
+
+        local position = league:getTeamPosition(teamId)
+        local threshold = TARGET_THRESHOLDS[team.boardObjective] or 10
+        local isPlayerTeam = (teamId == gameState.playerTeamId)
+
+        if position and position <= threshold then
+            -- 目标达成
+            team.boardSatisfaction = math.min(100, (team.boardSatisfaction or 50) + 20)
+            team.boardWarnings = 0
+
+            if isPlayerTeam then
+                gameState:sendMessage({
+                    category = "board",
+                    title = "赛季总结 - 目标达成",
+                    body = string.format("恭喜！球队以第%d名完赛，完成了董事会设定的\"%s\"目标。董事会对您的工作非常满意！",
+                        position, team.boardObjective),
+                    priority = "normal",
+                })
+            end
+        else
+            -- 目标未达成
+            team.boardSatisfaction = math.max(0, (team.boardSatisfaction or 50) - 25)
+
+            if isPlayerTeam then
+                gameState:sendMessage({
+                    category = "board",
+                    title = "赛季总结 - 目标未达",
+                    body = string.format("球队以第%d名完赛，未能完成\"%s\"的目标。董事会对此感到失望。",
+                        position or 0, team.boardObjective),
+                    priority = "high",
+                })
+
+                -- 严重失败直接解雇玩家
+                if position and position > threshold + 5 then
+                    BoardManager._triggerPlayerSack(gameState)
+                end
+            else
+                -- AI教练：严重偏离目标 → 解雇
+                if position and position > threshold + 4 then
+                    BoardManager._triggerAISack(gameState, teamId)
+                end
+            end
+        end
+
+        ::continue_team::
     end
 end
 
@@ -174,20 +232,102 @@ function BoardManager._getReputationTier(rep)
     return "lowest"
 end
 
-function BoardManager._triggerSack(gameState)
+--- 解雇玩家教练
+function BoardManager._triggerPlayerSack(gameState)
     local team = gameState:getPlayerTeam()
     if not team then return end
 
     gameState:sendMessage({
         category = "board",
         title = "解雇通知",
-        body = string.format("由于球队成绩持续不佳，董事会决定解除您的主教练职务。感谢您的付出。"),
+        body = string.format(
+            "由于球队成绩持续不佳（董事会满意度: %d%%），董事会决定解除您在 %s 的主教练职务。\n\n感谢您的付出，祝您前程似锦。",
+            team.boardSatisfaction or 0, team.name or "球队"),
         priority = "high",
     })
 
     EventBus.emit("manager_sacked", {
         teamId = team.id,
         managerId = gameState.playerManagerId,
+        isPlayer = true,
+    })
+
+    -- 直接调用 JobManager 处理玩家解雇后的状态（清除球队关联、进入失业状态）
+    local JobManager = require("scripts/systems/job_manager")
+    JobManager.handleSacked(gameState)
+end
+
+--- 解雇AI教练
+function BoardManager._triggerAISack(gameState, teamId)
+    local team = gameState.teams[teamId]
+    if not team then return end
+    if team.managerVacant then return end  -- 已经空缺了
+
+    -- 找到该队的AI经理
+    local managerId = nil
+    for id, mgr in pairs(gameState.managers or {}) do
+        if mgr.teamId == teamId and not mgr.isPlayer then
+            managerId = id
+            break
+        end
+    end
+
+    -- 标记球队空缺
+    team.managerVacant = true
+    team.vacantSince = {
+        year = gameState.date.year,
+        month = gameState.date.month,
+        day = gameState.date.day,
+    }
+    team._vacantDays = 0
+    team.boardWarnings = 0  -- 新教练来了重新算
+
+    -- 更新经理状态
+    if managerId and gameState.managers[managerId] then
+        local mgr = gameState.managers[managerId]
+        -- 记录履历
+        if mgr.addCareerEntry then
+            mgr:addCareerEntry(teamId, team.name or "未知", mgr._hiredSeason or gameState.season, gameState.season, {
+                reason = "sacked",
+            })
+        end
+        mgr.teamId = nil
+        mgr.isUnemployed = true
+        mgr._unemployedSince = {
+            year = gameState.date.year,
+            month = gameState.date.month,
+            day = gameState.date.day,
+        }
+    end
+
+    -- 生成新闻
+    local managerName = ""
+    if managerId and gameState.managers[managerId] then
+        managerName = gameState.managers[managerId].displayName or "主教练"
+    else
+        managerName = "主教练"
+    end
+
+    gameState:addNews({
+        category = "transfers",
+        title = "教练解雇",
+        body = string.format("%s 因战绩不佳（满意度仅 %d%%）被 %s 解雇。",
+            managerName, team.boardSatisfaction or 0, team.name or "球队"),
+    })
+
+    -- 如果玩家失业，提醒新空缺
+    if gameState._isUnemployed then
+        gameState:sendMessage({
+            category = "job",
+            title = "新职位空缺",
+            body = string.format("%s 解雇了主教练，该职位现已空缺。你可以考虑申请。", team.name or "球队"),
+            priority = "normal",
+        })
+    end
+
+    EventBus.emit("ai_manager_sacked", {
+        teamId = teamId,
+        managerId = managerId,
     })
 end
 

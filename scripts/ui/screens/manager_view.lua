@@ -1,7 +1,8 @@
---- 经理页 - 资料/履历/声望
+--- 经理页 - 资料/履历/声望/求职
 local UI = require("urhox-libs/UI")
 local Router = require("scripts/app/router")
 local Theme = require("scripts/ui/theme")
+local JobManager = require("scripts/systems/job_manager")
 
 local COLORS = Theme.COLORS
 
@@ -12,7 +13,7 @@ local ManagerView = {}
 ------------------------------------------------------------
 
 local function repBar(reputation, maxRep)
-    maxRep = maxRep or 1000
+    maxRep = maxRep or 99
     local pct = math.min(100, math.floor(reputation / maxRep * 100))
     local color
     if pct >= 75 then color = COLORS.SECONDARY
@@ -110,7 +111,7 @@ function ManagerView.create(params)
         UI.Panel {
             width = "100%", flexDirection = "row", justifyContent = "space-between", alignItems = "center", marginTop = 4,
             children = {
-                UI.Label { text = tostring(manager.reputation) .. " / 1000", fontSize = 13, color = COLORS.TEXT_PRIMARY },
+                UI.Label { text = tostring(manager.reputation) .. " / 99", fontSize = 13, color = COLORS.TEXT_PRIMARY },
                 UI.Label { text = ManagerView._repLevel(manager.reputation), fontSize = 11, color = COLORS.ACCENT, fontWeight = "bold" },
             }
         },
@@ -171,6 +172,11 @@ function ManagerView.create(params)
         }})
     end
 
+    -- 5. 求职中心（仅玩家自己的资料页显示）
+    if managerId == gameState.playerManagerId then
+        table.insert(content, ManagerView._buildJobCenter(gameState, manager))
+    end
+
     -- 页面布局
     local isOwnManager = (managerId == gameState.playerManagerId)
     local title = isOwnManager and "我的资料" or manager.displayName
@@ -194,14 +200,243 @@ function ManagerView.create(params)
     }
 end
 
--- 声望等级文本
+-- 声望等级文本（1-99量纲）
 function ManagerView._repLevel(rep)
-    if rep >= 900 then return "传奇"
-    elseif rep >= 700 then return "世界级"
-    elseif rep >= 500 then return "洲际级"
-    elseif rep >= 300 then return "国内级"
-    elseif rep >= 150 then return "地区级"
+    if rep >= 85 then return "传奇"
+    elseif rep >= 70 then return "世界级"
+    elseif rep >= 55 then return "洲际级"
+    elseif rep >= 40 then return "国内级"
+    elseif rep >= 25 then return "地区级"
     else return "新人" end
+end
+
+------------------------------------------------------------
+-- 求职中心
+------------------------------------------------------------
+
+--- 获取所有球队的职位信息，按状态分类
+---@param gameState table
+---@return table vacancies, table dangerJobs, table safeJobs
+local function _classifyJobs(gameState)
+    local vacancies = {}   -- 空缺（无主教练）
+    local dangerJobs = {}  -- 危险（主教练即将被解雇）
+    local safeJobs = {}    -- 安全（正常）
+
+    for teamId, team in pairs(gameState.teams) do
+        if teamId == gameState.playerTeamId then goto continue end
+
+        local leagueName = nil
+        for _, lg in pairs(gameState.leagues or {}) do
+            for _, tid in ipairs(lg.teamIds) do
+                if tid == teamId then
+                    leagueName = lg.name or lg.key
+                    break
+                end
+            end
+            if leagueName then break end
+        end
+        if not leagueName then goto continue end
+
+        local entry = {
+            teamId = teamId,
+            teamName = team.name or team.shortName or "未知",
+            leagueName = leagueName,
+            reputation = team.reputation or 50,
+            boardSatisfaction = team.boardSatisfaction,
+            boardWarnings = team.boardWarnings or 0,
+        }
+
+        if team.managerVacant then
+            entry.status = "vacant"
+            entry.statusText = "空缺"
+            entry.statusColor = COLORS.DANGER
+            table.insert(vacancies, entry)
+        elseif (team.boardSatisfaction or 50) < 30 or (team.boardWarnings or 0) >= 2 then
+            entry.status = "danger"
+            entry.statusText = "危险"
+            entry.statusColor = COLORS.WARNING
+            table.insert(dangerJobs, entry)
+        else
+            entry.status = "safe"
+            entry.statusText = "稳定"
+            entry.statusColor = COLORS.SECONDARY
+            table.insert(safeJobs, entry)
+        end
+
+        ::continue::
+    end
+
+    -- 排序：空缺和危险按声望降序，安全只取前几个
+    table.sort(vacancies, function(a, b) return a.reputation > b.reputation end)
+    table.sort(dangerJobs, function(a, b) return a.reputation > b.reputation end)
+    table.sort(safeJobs, function(a, b) return a.reputation > b.reputation end)
+
+    return vacancies, dangerJobs, safeJobs
+end
+
+--- 构建单个职位行
+local function _jobRow(entry, gameState, manager, isUnemployed)
+    local canApply = isUnemployed and entry.status == "vacant"
+    local repDiff = (entry.reputation or 50) - (manager.reputation or 30)
+    local diffLabel = ""
+    local diffColor = COLORS.TEXT_MUTED
+    if repDiff > 20 then
+        diffLabel = " (很难)"
+        diffColor = COLORS.DANGER
+    elseif repDiff > 10 then
+        diffLabel = " (较难)"
+        diffColor = COLORS.WARNING
+    elseif repDiff > 0 then
+        diffLabel = " (一般)"
+        diffColor = COLORS.TEXT_SECONDARY
+    else
+        diffLabel = " (容易)"
+        diffColor = COLORS.SECONDARY
+    end
+
+    local rightChildren = {
+        UI.Panel { flexDirection = "row", alignItems = "center", children = {
+            UI.Panel {
+                width = 8, height = 8, borderRadius = 4,
+                backgroundColor = entry.statusColor, marginRight = 4,
+            },
+            UI.Label { text = entry.statusText, fontSize = 10, color = entry.statusColor },
+        }},
+    }
+
+    if canApply then
+        table.insert(rightChildren, UI.Button {
+            text = "申请", variant = "primary", size = "sm",
+            marginTop = 4,
+            onClick = function()
+                local success, err = JobManager.applyForJob(gameState, entry.teamId)
+                if success then
+                    Router.navigate("manager_view")  -- 刷新页面
+                end
+            end,
+        })
+    end
+
+    return UI.Panel {
+        width = "100%", flexDirection = "row", justifyContent = "space-between",
+        alignItems = "center", paddingVertical = 8,
+        borderBottomWidth = 1, borderColor = COLORS.BORDER,
+        children = {
+            UI.Panel { flex = 1, children = {
+                UI.Panel { flexDirection = "row", alignItems = "center", children = {
+                    UI.Label { text = entry.teamName, fontSize = 13, fontWeight = "bold", color = COLORS.TEXT_PRIMARY },
+                    UI.Label { text = diffLabel, fontSize = 10, color = diffColor },
+                }},
+                UI.Label { text = entry.leagueName, fontSize = 10, color = COLORS.TEXT_MUTED, marginTop = 2 },
+            }},
+            UI.Panel { alignItems = "flex-end", children = rightChildren },
+        }
+    }
+end
+
+--- 构建求职中心卡片
+function ManagerView._buildJobCenter(gameState, manager)
+    local isUnemployed = gameState._isUnemployed == true
+    local vacancies, dangerJobs, safeJobs = _classifyJobs(gameState)
+
+    local children = {}
+    table.insert(children, Theme.Subtitle { text = "求职中心" })
+
+    -- 状态提示
+    if isUnemployed then
+        local days = JobManager.getUnemployedDays(gameState)
+        table.insert(children, UI.Panel {
+            width = "100%", padding = 8, borderRadius = 6,
+            backgroundColor = {180, 60, 60, 40}, marginBottom = 8,
+            children = {
+                UI.Label {
+                    text = string.format("当前状态: 自由身（已失业 %d 天）", days),
+                    fontSize = 11, color = COLORS.WARNING,
+                },
+            }
+        })
+
+        -- 待处理邀约提示
+        local offers = JobManager.getPendingOffers(gameState)
+        if #offers > 0 then
+            table.insert(children, UI.Panel {
+                width = "100%", padding = 8, borderRadius = 6,
+                backgroundColor = {60, 120, 180, 40}, marginBottom = 8,
+                children = {
+                    UI.Label {
+                        text = string.format("你有 %d 份邀约等待处理，请查看收件箱", #offers),
+                        fontSize = 11, color = COLORS.PRIMARY,
+                    },
+                }
+            })
+        end
+    else
+        table.insert(children, UI.Panel {
+            width = "100%", padding = 8, borderRadius = 6,
+            backgroundColor = {60, 120, 60, 40}, marginBottom = 8,
+            children = {
+                UI.Label {
+                    text = "当前状态: 在职（仅空缺职位在失业后可申请）",
+                    fontSize = 11, color = COLORS.TEXT_SECONDARY,
+                },
+            }
+        })
+    end
+
+    -- 空缺职位
+    if #vacancies > 0 then
+        table.insert(children, UI.Label {
+            text = string.format("空缺职位 (%d)", #vacancies),
+            fontSize = 12, fontWeight = "bold", color = COLORS.DANGER, marginTop = 8, marginBottom = 4,
+        })
+        for i = 1, math.min(5, #vacancies) do
+            table.insert(children, _jobRow(vacancies[i], gameState, manager, isUnemployed))
+        end
+        if #vacancies > 5 then
+            table.insert(children, UI.Label {
+                text = string.format("... 还有 %d 个空缺", #vacancies - 5),
+                fontSize = 10, color = COLORS.TEXT_MUTED, marginTop = 4,
+            })
+        end
+    end
+
+    -- 危险职位
+    if #dangerJobs > 0 then
+        table.insert(children, UI.Label {
+            text = string.format("主教练危险 (%d)", #dangerJobs),
+            fontSize = 12, fontWeight = "bold", color = COLORS.WARNING, marginTop = 12, marginBottom = 4,
+        })
+        for i = 1, math.min(5, #dangerJobs) do
+            table.insert(children, _jobRow(dangerJobs[i], gameState, manager, isUnemployed))
+        end
+        if #dangerJobs > 5 then
+            table.insert(children, UI.Label {
+                text = string.format("... 还有 %d 个", #dangerJobs - 5),
+                fontSize = 10, color = COLORS.TEXT_MUTED, marginTop = 4,
+            })
+        end
+    end
+
+    -- 安全职位（只显示前3个高声望的作为参考）
+    if #safeJobs > 0 then
+        table.insert(children, UI.Label {
+            text = "稳定球队（参考）",
+            fontSize = 12, fontWeight = "bold", color = COLORS.SECONDARY, marginTop = 12, marginBottom = 4,
+        })
+        for i = 1, math.min(3, #safeJobs) do
+            table.insert(children, _jobRow(safeJobs[i], gameState, manager, isUnemployed))
+        end
+    end
+
+    -- 没有任何职位
+    if #vacancies == 0 and #dangerJobs == 0 then
+        table.insert(children, UI.Label {
+            text = "目前没有空缺职位，请等待机会...",
+            fontSize = 12, color = COLORS.TEXT_MUTED, marginTop = 8,
+        })
+    end
+
+    return Theme.Card { children = children }
 end
 
 return ManagerView

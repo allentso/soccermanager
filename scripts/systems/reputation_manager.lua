@@ -11,24 +11,24 @@ local ReputationManager = {}
 local REP_MIN = 1
 local REP_MAX = 99
 
--- 声望变化幅度
-local MATCH_WIN_REP = 0.3
+-- 声望变化幅度（经理直接获得，不再打折）
+local MATCH_WIN_REP = 0.5
 local MATCH_DRAW_REP = 0.0
-local MATCH_LOSS_REP = -0.3
-local BIG_WIN_BONUS = 0.5        -- 大胜（3球以上）额外
+local MATCH_LOSS_REP = -0.2
+local BIG_WIN_BONUS = 0.3        -- 大胜（3球以上）额外
 local UPSET_BONUS = 1.0          -- 以弱胜强（声望差>15）
 
--- 赛季结束奖励
+-- 赛季结束奖励（经理直接获得）
 local SEASON_END_BONUS = {
-    [1] = 5,   -- 冠军
-    [2] = 3,   -- 亚军
-    [3] = 2,   -- 季军
+    [1] = 10,  -- 冠军（本国联赛声望优惠）
+    [2] = 5,   -- 亚军
+    [3] = 3,   -- 季军
     [4] = 1,   -- 第4
 }
 
--- 杯赛奖励
-local CUP_WINNER_REP = 4
-local CUP_FINALIST_REP = 2
+-- 杯赛/欧冠奖励
+local CUP_WINNER_REP = 8         -- 欧冠/顶级杯赛冠军
+local CUP_FINALIST_REP = 4       -- 亚军
 
 ------------------------------------------------------
 -- 核心API
@@ -76,8 +76,8 @@ function ReputationManager.postMatchUpdate(gameState, teamId, opponentId, result
 
     team.reputation = math.max(REP_MIN, math.min(REP_MAX, (team.reputation or 50) + delta))
 
-    -- 经理声望也同步变化（幅度更小）
-    ReputationManager._updateManagerRep(gameState, teamId, delta * 0.5)
+    -- 经理声望同步变化（全额）
+    ReputationManager._updateManagerRep(gameState, teamId, delta)
 end
 
 --- 赛季结束排名奖励
@@ -95,13 +95,14 @@ function ReputationManager.seasonEndUpdate(gameState)
                 if position > #standings - 3 then
                     bonus = -2  -- 降级区附近
                 elseif position > #standings / 2 then
+                    ---@diagnostic disable-next-line: assign-type-mismatch
                     bonus = -0.5  -- 下半区
                 end
                 team.reputation = math.max(REP_MIN, math.min(REP_MAX, (team.reputation or 50) + bonus))
 
-                -- 经理声望
+                -- 经理声望（全额）
                 if teamId == gameState.playerTeamId then
-                    ReputationManager._updateManagerRep(gameState, teamId, bonus * 0.8)
+                    ReputationManager._updateManagerRep(gameState, teamId, bonus)
                 end
             end
         end
@@ -119,8 +120,9 @@ function ReputationManager.cupResultUpdate(gameState, teamId, isWinner)
     local bonus = isWinner and CUP_WINNER_REP or CUP_FINALIST_REP
     team.reputation = math.max(REP_MIN, math.min(REP_MAX, (team.reputation or 50) + bonus))
 
+    -- 经理声望（全额）
     if teamId == gameState.playerTeamId then
-        ReputationManager._updateManagerRep(gameState, teamId, bonus * 0.8)
+        ReputationManager._updateManagerRep(gameState, teamId, bonus)
     end
 end
 

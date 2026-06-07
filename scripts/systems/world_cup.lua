@@ -5,6 +5,7 @@ local Tournament = require("scripts/domain/tournament")
 local League = require("scripts/domain/league")
 local EventBus = require("scripts/app/event_bus")
 local RecordsManager = require("scripts/systems/records_manager")
+local HistoryManager = require("scripts/systems/history_manager")
 local NationIconRegistry = require("scripts/data/nation_icon_registry")
 
 local WorldCup = {}
@@ -14,19 +15,92 @@ local FIRST_WORLD_CUP = 2026
 local CYCLE = 4
 
 ------------------------------------------------------
+-- 2030+：动态参赛国家池
+-- 种子队（传统强队，每届必定入围）
+-- 候补池（其余国家，每届随机抽取填满48支）
+------------------------------------------------------
+
+local SEED_NATIONS = {
+    -- 欧洲传统强队（14支）
+    {code = "FRA", name = "法国"},
+    {code = "GER", name = "德国"},
+    {code = "ESP", name = "西班牙"},
+    {code = "ENG", name = "英格兰"},
+    {code = "POR", name = "葡萄牙"},
+    {code = "NED", name = "荷兰"},
+    {code = "BEL", name = "比利时"},
+    {code = "CRO", name = "克罗地亚"},
+    -- 南美传统强队（4支）
+    {code = "BRA", name = "巴西"},
+    {code = "ARG", name = "阿根廷"},
+    {code = "URU", name = "乌拉圭"},
+    {code = "COL", name = "哥伦比亚"},
+    -- 其他大洲顶尖（4支）
+    {code = "USA", name = "美国"},
+    {code = "MEX", name = "墨西哥"},
+    {code = "JPN", name = "日本"},
+    {code = "KOR", name = "韩国"},
+}
+
+local NON_SEED_NATIONS = {
+    -- 欧洲
+    {code = "SUI", name = "瑞士"},
+    {code = "AUT", name = "奥地利"},
+    {code = "TUR", name = "土耳其"},
+    {code = "SWE", name = "瑞典"},
+    {code = "NOR", name = "挪威"},
+    {code = "SCO", name = "苏格兰"},
+    {code = "CZE", name = "捷克"},
+    {code = "POL", name = "波兰"},
+    {code = "BIH", name = "波黑"},
+    -- 南美
+    {code = "ECU", name = "厄瓜多尔"},
+    {code = "PAR", name = "巴拉圭"},
+    {code = "PER", name = "秘鲁"},
+    -- 非洲
+    {code = "MAR", name = "摩洛哥"},
+    {code = "SEN", name = "塞内加尔"},
+    {code = "GHA", name = "加纳"},
+    {code = "CIV", name = "科特迪瓦"},
+    {code = "EGY", name = "埃及"},
+    {code = "ALG", name = "阿尔及利亚"},
+    {code = "TUN", name = "突尼斯"},
+    {code = "RSA", name = "南非"},
+    {code = "COD", name = "刚果金"},
+    {code = "CPV", name = "佛得角"},
+    -- 亚洲
+    {code = "KSA", name = "沙特"},
+    {code = "IRN", name = "伊朗"},
+    {code = "AUS", name = "澳大利亚"},
+    {code = "QAT", name = "卡塔尔"},
+    {code = "IRQ", name = "伊拉克"},
+    {code = "UZB", name = "乌兹别克"},
+    {code = "JOR", name = "约旦"},
+    -- 中北美
+    {code = "CAN", name = "加拿大"},
+    {code = "PAN", name = "巴拿马"},
+    {code = "HON", name = "洪都拉斯"},
+    {code = "CUW", name = "库拉索"},
+    {code = "HAI", name = "海地"},
+    -- 大洋洲
+    {code = "NZL", name = "新西兰"},
+}
+
+------------------------------------------------------
 -- FIFA国家代码 → 球员数据nationality代码 的映射
 -- 世界杯用FIFA代码(如CRO)，球员数据用ISO或自定义代码(如HR)
 ------------------------------------------------------
 local FIFA_TO_PLAYER_NAT = {
-    ALG = "DZ", ARG = "AR", AUS = "AU", BEL = "BE", BIH = "BA",
+    ALG = "DZ", ARG = "AR", AUS = "AU", AUT = "AT", BEL = "BE", BIH = "BA",
     BRA = "BR", CAN = "CA", CIV = "CI", COD = "CD", COL = "CO",
     CPV = "CAP", CRO = "HR", CUW = "CUW", CZE = "CZ", ECU = "EC",
     EGY = "EG", ENG = "ENG", ESP = "ES", FRA = "FR", GER = "DE",
-    GHA = "GH", HON = "HN", IRN = "IR", IRQ = "IRQ", JPN = "JP",
-    KOR = "KR", KSA = "KSA", MAR = "MA", MEX = "MX", NED = "NL",
-    NOR = "NO", NZL = "NZ", PAN = "PA", PAR = "PY", PER = "PE",
-    POL = "PL", POR = "PT", QAT = "QAT", RSA = "ZA", SEN = "SN",
-    SUI = "CH", TUN = "TN", URU = "UY", USA = "US", UZB = "UZB",
+    GHA = "GH", HAI = "HT", HON = "HN", IRN = "IR", IRQ = "IRQ",
+    JOR = "JOR", JPN = "JP", KOR = "KR", KSA = "KSA", MAR = "MA",
+    MEX = "MX", NED = "NL", NOR = "NO", NZL = "NZ", PAN = "PA",
+    PAR = "PY", PER = "PE", POL = "PL", POR = "PT", QAT = "QAT",
+    RSA = "ZA", SCO = "SCO", SEN = "SN", SUI = "CH", SWE = "SE",
+    TUN = "TN", TUR = "TR", URU = "UY", USA = "US", UZB = "UZB",
 }
 
 --- 将 FIFA 国家代码转为球员数据中的 nationality 代码
@@ -49,44 +123,44 @@ local GROUPS = {
     B = {
         {code = "CAN", name = "加拿大"},
         {code = "BIH", name = "波黑"},
-        {code = "SUI", name = "瑞士"},
         {code = "QAT", name = "卡塔尔"},
+        {code = "SUI", name = "瑞士"},
     },
     C = {
         {code = "BRA", name = "巴西"},
         {code = "MAR", name = "摩洛哥"},
-        {code = "PAR", name = "巴拉圭"},
-        {code = "PER", name = "秘鲁"},
+        {code = "HAI", name = "海地"},
+        {code = "SCO", name = "苏格兰"},
     },
     D = {
         {code = "USA", name = "美国"},
+        {code = "PAR", name = "巴拉圭"},
         {code = "AUS", name = "澳大利亚"},
-        {code = "PO1", name = "附加赛1"},
-        {code = "PO2", name = "附加赛2"},
+        {code = "TUR", name = "土耳其"},
     },
     E = {
         {code = "GER", name = "德国"},
-        {code = "CIV", name = "科特迪瓦"},
         {code = "CUW", name = "库拉索"},
+        {code = "CIV", name = "科特迪瓦"},
         {code = "ECU", name = "厄瓜多尔"},
     },
     F = {
         {code = "NED", name = "荷兰"},
         {code = "JPN", name = "日本"},
+        {code = "SWE", name = "瑞典"},
         {code = "TUN", name = "突尼斯"},
-        {code = "POF", name = "附加赛F"},
     },
     G = {
         {code = "BEL", name = "比利时"},
-        {code = "IRN", name = "伊朗"},
         {code = "EGY", name = "埃及"},
+        {code = "IRN", name = "伊朗"},
         {code = "NZL", name = "新西兰"},
     },
     H = {
         {code = "ESP", name = "西班牙"},
-        {code = "URU", name = "乌拉圭"},
-        {code = "KSA", name = "沙特"},
         {code = "CPV", name = "佛得角"},
+        {code = "KSA", name = "沙特"},
+        {code = "URU", name = "乌拉圭"},
     },
     I = {
         {code = "FRA", name = "法国"},
@@ -97,14 +171,14 @@ local GROUPS = {
     J = {
         {code = "ARG", name = "阿根廷"},
         {code = "ALG", name = "阿尔及利亚"},
-        {code = "POL", name = "波兰"},
-        {code = "HON", name = "洪都拉斯"},
+        {code = "AUT", name = "奥地利"},
+        {code = "JOR", name = "约旦"},
     },
     K = {
         {code = "POR", name = "葡萄牙"},
         {code = "COD", name = "刚果金"},
-        {code = "COL", name = "哥伦比亚"},
         {code = "UZB", name = "乌兹别克"},
+        {code = "COL", name = "哥伦比亚"},
     },
     L = {
         {code = "ENG", name = "英格兰"},
@@ -121,65 +195,66 @@ local GROUPS = {
 
 -- 小组赛赛程：{组名, 轮次, 主队索引(1-4), 客队索引(1-4), 月, 日}
 local GROUP_FIXTURES = {
-    -- A组
+    -- A组: 1=MEX, 2=RSA, 3=KOR, 4=CZE
     {"A", 1, 1, 2, 6, 12}, {"A", 1, 3, 4, 6, 12},
     {"A", 2, 4, 2, 6, 19}, {"A", 2, 1, 3, 6, 19},
     {"A", 3, 2, 3, 6, 25}, {"A", 3, 4, 1, 6, 25},
-    -- B组
-    {"B", 1, 1, 2, 6, 13}, {"B", 1, 3, 4, 6, 13},
-    {"B", 2, 3, 2, 6, 19}, {"B", 2, 1, 4, 6, 19},
-    {"B", 3, 2, 4, 6, 25}, {"B", 3, 1, 3, 6, 25},
-    -- C组
+    -- B组: 1=CAN, 2=BIH, 3=QAT, 4=SUI
+    {"B", 1, 1, 2, 6, 13}, {"B", 1, 3, 4, 6, 14},
+    {"B", 2, 4, 2, 6, 19}, {"B", 2, 1, 3, 6, 19},
+    {"B", 3, 4, 1, 6, 25}, {"B", 3, 2, 3, 6, 25},
+    -- C组: 1=BRA, 2=MAR, 3=HAI, 4=SCO
     {"C", 1, 1, 2, 6, 14}, {"C", 1, 3, 4, 6, 14},
-    {"C", 2, 2, 4, 6, 20}, {"C", 2, 1, 3, 6, 20},
-    {"C", 3, 3, 2, 6, 26}, {"C", 3, 4, 1, 6, 26},
-    -- D组
-    {"D", 1, 1, 3, 6, 14}, {"D", 1, 2, 4, 6, 14},
-    {"D", 2, 1, 2, 6, 20}, {"D", 2, 3, 4, 6, 20},
-    {"D", 3, 4, 1, 6, 26}, {"D", 3, 3, 2, 6, 26},
-    -- E组
-    {"E", 1, 1, 4, 6, 15}, {"E", 1, 2, 3, 6, 15},
-    {"E", 2, 1, 2, 6, 21}, {"E", 2, 4, 3, 6, 21},
-    {"E", 3, 3, 1, 6, 27}, {"E", 3, 4, 2, 6, 27},
-    -- F组
+    {"C", 2, 4, 2, 6, 20}, {"C", 2, 1, 3, 6, 20},
+    {"C", 3, 2, 3, 6, 25}, {"C", 3, 4, 1, 6, 25},
+    -- D组: 1=USA, 2=PAR, 3=AUS, 4=TUR
+    {"D", 1, 1, 2, 6, 13}, {"D", 1, 3, 4, 6, 14},
+    {"D", 2, 1, 3, 6, 20}, {"D", 2, 4, 2, 6, 20},
+    {"D", 3, 4, 1, 6, 26}, {"D", 3, 2, 3, 6, 26},
+    -- E组: 1=GER, 2=CUW, 3=CIV, 4=ECU
+    {"E", 1, 1, 2, 6, 15}, {"E", 1, 3, 4, 6, 15},
+    {"E", 2, 1, 3, 6, 21}, {"E", 2, 4, 2, 6, 21},
+    {"E", 3, 2, 3, 6, 26}, {"E", 3, 4, 1, 6, 26},
+    -- F组: 1=NED, 2=JPN, 3=SWE, 4=TUN
     {"F", 1, 1, 2, 6, 15}, {"F", 1, 3, 4, 6, 15},
-    {"F", 2, 1, 3, 6, 21}, {"F", 2, 2, 4, 6, 21},
-    {"F", 3, 4, 1, 6, 27}, {"F", 3, 3, 2, 6, 27},
-    -- G组
-    {"G", 1, 1, 4, 6, 16}, {"G", 1, 2, 3, 6, 16},
-    {"G", 2, 1, 2, 6, 22}, {"G", 2, 4, 3, 6, 22},
-    {"G", 3, 3, 1, 6, 28}, {"G", 3, 4, 2, 6, 28},
-    -- H组
-    {"H", 1, 1, 4, 6, 16}, {"H", 1, 2, 3, 6, 16},
-    {"H", 2, 1, 3, 6, 22}, {"H", 2, 2, 4, 6, 22},
-    {"H", 3, 4, 3, 6, 28}, {"H", 3, 2, 1, 6, 28},
-    -- I组
+    {"F", 2, 1, 3, 6, 21}, {"F", 2, 4, 2, 6, 21},
+    {"F", 3, 2, 3, 6, 26}, {"F", 3, 4, 1, 6, 26},
+    -- G组: 1=BEL, 2=EGY, 3=IRN, 4=NZL
+    {"G", 1, 1, 2, 6, 16}, {"G", 1, 3, 4, 6, 16},
+    {"G", 2, 1, 3, 6, 22}, {"G", 2, 4, 2, 6, 22},
+    {"G", 3, 4, 1, 6, 27}, {"G", 3, 2, 3, 6, 27},
+    -- H组: 1=ESP, 2=CPV, 3=KSA, 4=URU
+    {"H", 1, 1, 2, 6, 16}, {"H", 1, 3, 4, 6, 16},
+    {"H", 2, 1, 3, 6, 22}, {"H", 2, 4, 2, 6, 22},
+    {"H", 3, 4, 1, 6, 27}, {"H", 3, 2, 3, 6, 27},
+    -- I组: 1=FRA, 2=SEN, 3=IRQ, 4=NOR
     {"I", 1, 1, 2, 6, 17}, {"I", 1, 3, 4, 6, 17},
-    {"I", 2, 1, 3, 6, 23}, {"I", 2, 2, 4, 6, 23},
-    {"I", 3, 4, 1, 6, 28}, {"I", 3, 2, 3, 6, 28},
-    -- J组
+    {"I", 2, 1, 3, 6, 23}, {"I", 2, 4, 2, 6, 23},
+    {"I", 3, 4, 1, 6, 27}, {"I", 3, 2, 3, 6, 27},
+    -- J组: 1=ARG, 2=ALG, 3=AUT, 4=JOR
     {"J", 1, 1, 2, 6, 17}, {"J", 1, 3, 4, 6, 17},
-    {"J", 2, 1, 3, 6, 23}, {"J", 2, 2, 4, 6, 23},
-    {"J", 3, 4, 1, 6, 29}, {"J", 3, 2, 3, 6, 29},
-    -- K组
-    {"K", 1, 1, 2, 6, 18}, {"K", 1, 4, 3, 6, 18},
-    {"K", 2, 1, 4, 6, 24}, {"K", 2, 2, 3, 6, 24},
-    {"K", 3, 3, 1, 6, 29}, {"K", 3, 2, 4, 6, 29},
-    -- L组
-    {"L", 1, 1, 2, 6, 17}, {"L", 1, 3, 4, 6, 17},
-    {"L", 2, 1, 3, 6, 23}, {"L", 2, 4, 2, 6, 23},
-    {"L", 3, 4, 1, 6, 29}, {"L", 3, 2, 3, 6, 29},
+    {"J", 2, 1, 3, 6, 23}, {"J", 2, 4, 2, 6, 23},
+    {"J", 3, 4, 1, 6, 28}, {"J", 3, 2, 3, 6, 28},
+    -- K组: 1=POR, 2=COD, 3=UZB, 4=COL
+    {"K", 1, 1, 2, 6, 18}, {"K", 1, 3, 4, 6, 18},
+    {"K", 2, 1, 3, 6, 24}, {"K", 2, 4, 2, 6, 24},
+    {"K", 3, 4, 1, 6, 28}, {"K", 3, 2, 3, 6, 28},
+    -- L组: 1=ENG, 2=CRO, 3=GHA, 4=PAN
+    {"L", 1, 1, 2, 6, 18}, {"L", 1, 3, 4, 6, 18},
+    {"L", 2, 1, 3, 6, 24}, {"L", 2, 4, 2, 6, 24},
+    {"L", 3, 4, 1, 6, 28}, {"L", 3, 2, 3, 6, 28},
 }
 
 -- 淘汰赛日期
 local KNOCKOUT_DATES = {
-    -- 1/16决赛（32强）6.30 - 7.4
+    -- 32强（1/16决赛）6.30 - 7.4（16场）
     r32 = {
-        {6, 30}, {6, 30}, {7, 1}, {7, 1},
-        {7, 2}, {7, 2}, {7, 3}, {7, 3},
+        {6, 30}, {6, 30}, {6, 30}, {6, 30},
+        {7, 1}, {7, 1}, {7, 1}, {7, 1},
+        {7, 2}, {7, 2}, {7, 2}, {7, 2},
         {7, 3}, {7, 3}, {7, 4}, {7, 4},
     },
-    -- 1/8决赛 7.5 - 7.8
+    -- 16强（1/8决赛）7.5 - 7.8
     r16 = {
         {7, 5}, {7, 5}, {7, 6}, {7, 6},
         {7, 7}, {7, 7}, {7, 8}, {7, 8},
@@ -205,10 +280,18 @@ local _nationNameMap = nil
 local function getNationNameMap()
     if _nationNameMap then return _nationNameMap end
     _nationNameMap = {}
+    -- 从2026真实分组
     for _, teams in pairs(GROUPS) do
         for _, t in ipairs(teams) do
             _nationNameMap[t.code] = t.name
         end
+    end
+    -- 从种子队和候补池补充（覆盖2030+新增国家）
+    for _, t in ipairs(SEED_NATIONS) do
+        _nationNameMap[t.code] = _nationNameMap[t.code] or t.name
+    end
+    for _, t in ipairs(NON_SEED_NATIONS) do
+        _nationNameMap[t.code] = _nationNameMap[t.code] or t.name
     end
     return _nationNameMap
 end
@@ -225,6 +308,15 @@ end
 function WorldCup._getNationName(code)
     local map = getNationNameMap()
     return map[code] or code
+end
+
+--- 根据国家中文名反查 FIFA 代码（旧存档兼容用）
+function WorldCup._getNationCodeByName(name)
+    local map = getNationNameMap()
+    for code, n in pairs(map) do
+        if n == name then return code end
+    end
+    return nil
 end
 
 function WorldCup.getNationIconPath(code)
@@ -246,12 +338,61 @@ function WorldCup.initialize(gameState)
         return gameState.worldCup
     end
 
-    -- 创建锦标赛对象
-    local allNationCodes = {}
-    for _, teams in pairs(GROUPS) do
-        for _, t in ipairs(teams) do
-            table.insert(allNationCodes, t.code)
+    -- 确定本届参赛的48支国家
+    local allNations = {}  -- { {code=..., name=...}, ... }
+
+    if wcYear == FIRST_WORLD_CUP then
+        -- 2026：使用固定的真实48支
+        for _, teams in pairs(GROUPS) do
+            for _, t in ipairs(teams) do
+                table.insert(allNations, t)
+            end
         end
+    else
+        -- 2030+：种子队必进 + 从候补池随机抽取剩余名额
+        -- 如果玩家有国家队，确保该国必定参赛
+        local playerNation = WorldCup._getPlayerNation(gameState)
+
+        -- 先加入所有种子队
+        local selectedCodes = {}
+        for _, t in ipairs(SEED_NATIONS) do
+            table.insert(allNations, t)
+            selectedCodes[t.code] = true
+        end
+
+        -- 如果玩家国家队不在种子中，优先加入
+        if playerNation and not selectedCodes[playerNation] then
+            for _, t in ipairs(NON_SEED_NATIONS) do
+                if t.code == playerNation then
+                    table.insert(allNations, t)
+                    selectedCodes[t.code] = true
+                    break
+                end
+            end
+        end
+
+        -- 从候补池随机抽取填满48支
+        local candidates = {}
+        for _, t in ipairs(NON_SEED_NATIONS) do
+            if not selectedCodes[t.code] then
+                table.insert(candidates, t)
+            end
+        end
+        -- Fisher-Yates 洗牌候补
+        for i = #candidates, 2, -1 do
+            local j = math.floor(Random() * i) + 1
+            candidates[i], candidates[j] = candidates[j], candidates[i]
+        end
+        -- 取前N个填满48支
+        local remaining = 48 - #allNations
+        for i = 1, math.min(remaining, #candidates) do
+            table.insert(allNations, candidates[i])
+        end
+    end
+
+    local allNationCodes = {}
+    for _, t in ipairs(allNations) do
+        table.insert(allNationCodes, t.code)
     end
 
     local wc = Tournament.new({
@@ -262,20 +403,50 @@ function WorldCup.initialize(gameState)
         qualifiedTeams = allNationCodes,
     })
 
-    -- 直接使用真实分组（不随机抽签）
+    -- 分组逻辑：2026使用真实分组，后续届次随机抽签
+    local groupNames = {"A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"}
     wc.groups = {}
-    for groupName, teams in pairs(GROUPS) do
-        local teamIds = {}
-        for _, t in ipairs(teams) do
-            table.insert(teamIds, t.code)
+
+    if wcYear == FIRST_WORLD_CUP then
+        -- 2026：使用真实分组
+        for groupName, teams in pairs(GROUPS) do
+            local teamIds = {}
+            for _, t in ipairs(teams) do
+                table.insert(teamIds, t.code)
+            end
+            wc.groups[groupName] = {
+                teamIds = teamIds,
+                standings = {},
+                fixtures = {},
+            }
         end
-        wc.groups[groupName] = {
-            teamIds = teamIds,
-            standings = {},
-            fixtures = {},
-        }
-        for _, tid in ipairs(teamIds) do
-            wc.groups[groupName].standings[tid] = {
+    else
+        -- 2030+：将48支参赛队伍随机分入12组
+        local shuffled = {}
+        for i, t in ipairs(allNations) do shuffled[i] = t end
+        for i = #shuffled, 2, -1 do
+            local j = math.floor(Random() * i) + 1
+            shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
+        end
+        for g = 1, 12 do
+            local gName = groupNames[g]
+            local teamIds = {}
+            for k = 1, 4 do
+                local idx = (g - 1) * 4 + k
+                table.insert(teamIds, shuffled[idx].code)
+            end
+            wc.groups[gName] = {
+                teamIds = teamIds,
+                standings = {},
+                fixtures = {},
+            }
+        end
+    end
+
+    -- 初始化各组积分榜
+    for _, group in pairs(wc.groups) do
+        for _, tid in ipairs(group.teamIds) do
+            group.standings[tid] = {
                 teamId = tid,
                 played = 0,
                 wins = 0,
@@ -289,7 +460,7 @@ function WorldCup.initialize(gameState)
         end
     end
 
-    -- 生成小组赛赛程（使用真实日期）
+    -- 生成小组赛赛程（使用固定日期模板）
     WorldCup._generateGroupFixtures(wc, wcYear)
 
     wc.phase = Tournament.PHASE_GROUP
@@ -298,9 +469,12 @@ function WorldCup.initialize(gameState)
     gameState.worldCup = wc
 
     -- 新闻
+    local titleStr = wcYear == FIRST_WORLD_CUP
+        and string.format("%d 美加墨世界杯分组揭晓！", wcYear)
+        or string.format("%d 世界杯分组抽签结果揭晓！", wcYear)
     gameState:addNews({
         category = "world_cup_news",
-        title = string.format("%d 美加墨世界杯分组揭晓！", wcYear),
+        title = titleStr,
         body = WorldCup._formatDrawResult(gameState, wc),
     })
 
@@ -397,127 +571,140 @@ function WorldCup._isRoundComplete(wc, phase)
 end
 
 ------------------------------------------------------
--- 32强（1/16决赛）：12组头名 + 8个最佳第二 + 4个最佳第三
--- 简化：每组前2名出线（24队），再取8个最佳第三 → 共32队
--- 实际2026规则：每组前2出线(24队) + 8个最佳第三(共32队)
+-- 32强（1/16决赛）：48队赛制，共16场
+-- 出线规则：每组前2名（24队）+ 8个最佳第三名 = 32队
+-- 对阵：组第一 vs 最佳第三名（交叉配对，避免同组）
+--        组第二 vs 另一组的组第一或第二（交叉配对）
 ------------------------------------------------------
 
 function WorldCup._advanceToR32(gameState, wc)
     -- 收集所有组的排名
-    local firsts = {}   -- 12个小组第一
-    local seconds = {}  -- 12个小组第二
-    local thirds = {}   -- 12个小组第三（取最佳8个）
-
     local groupNames = {}
     for name in pairs(wc.groups) do
         table.insert(groupNames, name)
     end
     table.sort(groupNames)
 
+    local allFirsts = {}   -- 12个组第一
+    local allSeconds = {}  -- 12个组第二
+    local allThirds = {}   -- 12个组第三（选最佳8个）
+
     for _, gName in ipairs(groupNames) do
         local sorted = wc:getGroupSortedStandings(gName)
-        if #sorted >= 1 then table.insert(firsts, {teamId = sorted[1].teamId, group = gName, data = sorted[1]}) end
-        if #sorted >= 2 then table.insert(seconds, {teamId = sorted[2].teamId, group = gName, data = sorted[2]}) end
-        if #sorted >= 3 then table.insert(thirds, {teamId = sorted[3].teamId, group = gName, data = sorted[3]}) end
+        if sorted[1] then
+            table.insert(allFirsts, {teamId = sorted[1].teamId, group = gName, data = sorted[1]})
+        end
+        if sorted[2] then
+            table.insert(allSeconds, {teamId = sorted[2].teamId, group = gName, data = sorted[2]})
+        end
+        if sorted[3] then
+            table.insert(allThirds, {teamId = sorted[3].teamId, group = gName, data = sorted[3]})
+        end
     end
 
-    -- 最佳第三排序（积分 > 净胜球 > 进球）
-    table.sort(thirds, function(a, b)
+    -- 按成绩选8个最佳第三名（积分 > 净胜球 > 进球）
+    table.sort(allThirds, function(a, b)
         if a.data.points ~= b.data.points then return a.data.points > b.data.points end
         if a.data.goalDifference ~= b.data.goalDifference then return a.data.goalDifference > b.data.goalDifference end
         return a.data.goalsFor > b.data.goalsFor
     end)
 
-    -- 取前8个最佳第三
-    local bestThirds = {}
-    for i = 1, math.min(8, #thirds) do
-        table.insert(bestThirds, thirds[i])
+    local qualifiedThirds = {}
+    for i = 1, math.min(8, #allThirds) do
+        table.insert(qualifiedThirds, allThirds[i])
     end
 
-    -- 组建32强对阵（小组第一 vs 最佳第三，小组第二 vs 其他组第二交叉）
-    -- 简化配对规则：
-    -- 场次1-12: 各组第一 vs 最佳第三 / 其他组第二
+    -- 32支出线队伍：12个第一 + 12个第二 + 8个最佳第三 = 32
+    -- 对阵规则：组第一 vs 最佳第三（交叉配对，避免同组）
+    --           组第二 vs 组第二（交叉配对，避免同组）
     local matchups = {}
-    local usedThirds = {}
-    local usedSeconds = {}
 
-    -- 第一轮配对：A1-L1 vs 最佳第三（优先不同组）
-    for i, first in ipairs(firsts) do
-        if i <= #bestThirds then
-            -- 组头名 vs 最佳第三（不同组优先）
-            local paired = false
-            for j, third in ipairs(bestThirds) do
-                if not usedThirds[j] and third.group ~= first.group then
+    -- 上半区（8场）：12个组第一 vs 8个最佳第三 + 4个组第二
+    -- 组第一按组名排序固定位置，第三名按成绩排序交叉配对
+    local usedThirds = {}
+    local firstsWithoutOpponent = {}
+
+    for _, first in ipairs(allFirsts) do
+        local paired = false
+        for j, third in ipairs(qualifiedThirds) do
+            if not usedThirds[j] and third.group ~= first.group then
+                table.insert(matchups, {first.teamId, third.teamId})
+                usedThirds[j] = true
+                paired = true
+                break
+            end
+        end
+        if not paired then
+            -- 尝试配对任意未用的第三
+            for j, third in ipairs(qualifiedThirds) do
+                if not usedThirds[j] then
                     table.insert(matchups, {first.teamId, third.teamId})
                     usedThirds[j] = true
                     paired = true
                     break
                 end
             end
-            if not paired then
-                -- 找任意未用的第三
-                for j, third in ipairs(bestThirds) do
-                    if not usedThirds[j] then
-                        table.insert(matchups, {first.teamId, third.teamId})
-                        usedThirds[j] = true
-                        break
-                    end
-                end
-            end
+        end
+        if not paired then
+            table.insert(firstsWithoutOpponent, first)
         end
     end
 
-    -- 剩余的组头名与第二名交叉配对
-    local remainingFirsts = {}
-    for i, first in ipairs(firsts) do
-        local alreadyPaired = false
-        for _, m in ipairs(matchups) do
-            if m[1] == first.teamId then alreadyPaired = true; break end
-        end
-        if not alreadyPaired then
-            table.insert(remainingFirsts, first)
-        end
-    end
+    -- 剩余没配到第三名的组第一，从第二名中挑选对手（交叉配对）
+    -- 按成绩排序第二名
+    table.sort(allSeconds, function(a, b)
+        if a.data.points ~= b.data.points then return a.data.points > b.data.points end
+        if a.data.goalDifference ~= b.data.goalDifference then return a.data.goalDifference > b.data.goalDifference end
+        return a.data.goalsFor > b.data.goalsFor
+    end)
 
-    -- 第二名互相交叉配对
-    -- 洗牌 seconds
-    for i = #seconds, 2, -1 do
-        local j = RandomInt(1, i)
-        seconds[i], seconds[j] = seconds[j], seconds[i]
-    end
-
-    -- 配对剩余的第一名 vs 第二名（不同组）
-    for _, first in ipairs(remainingFirsts) do
-        for j, second in ipairs(seconds) do
-            if not usedSeconds[j] and second.group ~= first.group then
-                table.insert(matchups, {first.teamId, second.teamId})
+    local usedSeconds = {}
+    for _, first in ipairs(firstsWithoutOpponent) do
+        -- 找一个非同组的第二名（从排名靠后的开始，因为靠前的留给下半区互配）
+        for j = #allSeconds, 1, -1 do
+            if not usedSeconds[j] and allSeconds[j].group ~= first.group then
+                table.insert(matchups, {first.teamId, allSeconds[j].teamId})
                 usedSeconds[j] = true
                 break
             end
         end
     end
 
-    -- 剩余第二名互相配对
-    local remainingSecs = {}
-    for j, sec in ipairs(seconds) do
+    -- 下半区：剩余的第二名互相配对（交叉配对，避免同组）
+    local remainingSeconds = {}
+    for j, sec in ipairs(allSeconds) do
         if not usedSeconds[j] then
-            table.insert(remainingSecs, sec)
-        end
-    end
-    for i = 1, #remainingSecs - 1, 2 do
-        if remainingSecs[i] and remainingSecs[i + 1] then
-            table.insert(matchups, {remainingSecs[i].teamId, remainingSecs[i + 1].teamId})
+            table.insert(remainingSeconds, sec)
         end
     end
 
-    -- 确保正好16场（32队）
-    -- 如果不足，补齐
-    while #matchups < 16 do
-        -- 不应该出现这种情况，但作为安全网
-        break
+    -- 配对剩余第二名（相邻配对，但避免同组）
+    local usedRemaining = {}
+    for i, sec1 in ipairs(remainingSeconds) do
+        if not usedRemaining[i] then
+            for j = i + 1, #remainingSeconds do
+                if not usedRemaining[j] and remainingSeconds[j].group ~= sec1.group then
+                    table.insert(matchups, {sec1.teamId, remainingSeconds[j].teamId})
+                    usedRemaining[i] = true
+                    usedRemaining[j] = true
+                    break
+                end
+            end
+        end
     end
 
-    -- 生成fixture
+    -- 如有落单的第二名（极端情况同组冲突），强制配对
+    local unpaired = {}
+    for i, sec in ipairs(remainingSeconds) do
+        if not usedRemaining[i] then
+            table.insert(unpaired, sec)
+        end
+    end
+    for i = 1, #unpaired - 1, 2 do
+        table.insert(matchups, {unpaired[i].teamId, unpaired[i + 1].teamId})
+    end
+
+    -- 生成fixture（共16场）
     local fixtures = {}
     local dates = KNOCKOUT_DATES.r32
     for i, m in ipairs(matchups) do
@@ -533,6 +720,7 @@ function WorldCup._advanceToR32(gameState, wc)
             status = "scheduled",
             homeGoals = 0,
             awayGoals = 0,
+            isKnockout = true,
         })
     end
 
@@ -542,7 +730,7 @@ function WorldCup._advanceToR32(gameState, wc)
     gameState:addNews({
         category = "world_cup_news",
         title = "世界杯32强对阵出炉！",
-        body = WorldCup._formatKnockoutDraw(gameState, wc, matchups),
+        body = WorldCup._formatR32Draw(gameState, wc, matchups, {}),
     })
 end
 
@@ -550,7 +738,7 @@ function WorldCup._advanceToR16(gameState, wc)
     local winners = WorldCup._getSingleLegWinners(wc, "r32")
     if #winners < 2 then return end
 
-    -- 配对（相邻胜者对阵）
+    -- 16个R32胜者配对打8场R16
     local matchups = {}
     for i = 1, #winners - 1, 2 do
         table.insert(matchups, {winners[i], winners[i + 1]})
@@ -574,6 +762,7 @@ function WorldCup._advanceToR16(gameState, wc)
         })
     end
 
+    for _, f in ipairs(fixtures) do f.isKnockout = true end
     wc.knockout.r16 = fixtures
     wc.phase = Tournament.PHASE_R16
 
@@ -611,6 +800,7 @@ function WorldCup._advanceToQF(gameState, wc)
         })
     end
 
+    for _, f in ipairs(fixtures) do f.isKnockout = true end
     wc.knockout.qf = fixtures
     wc.phase = Tournament.PHASE_QF
 
@@ -647,6 +837,7 @@ function WorldCup._advanceToSF(gameState, wc)
         })
     end
 
+    for _, f in ipairs(fixtures) do f.isKnockout = true end
     wc.knockout.sf = fixtures
     wc.phase = Tournament.PHASE_SF
 
@@ -699,6 +890,7 @@ function WorldCup._advanceToFinal(gameState, wc)
         awayGoals = 0,
     })
 
+    for _, f in ipairs(fixtures) do f.isKnockout = true end
     wc.knockout.final = fixtures
     wc.phase = Tournament.PHASE_FINAL
 
@@ -731,8 +923,12 @@ function WorldCup._completeTournament(gameState, wc)
     elseif finalFixture.awayGoals > finalFixture.homeGoals then
         winner = finalFixture.awayTeamId
     else
-        -- 点球大战（随机）
-        winner = Random() < 0.5 and finalFixture.homeTeamId or finalFixture.awayTeamId
+        -- 平局 → 读取点球大战结果
+        if finalFixture._penaltyWinner then
+            winner = finalFixture._penaltyWinner
+        else
+            winner = Random() < 0.5 and finalFixture.homeTeamId or finalFixture.awayTeamId
+        end
     end
 
     wc.champion = winner
@@ -757,7 +953,41 @@ function WorldCup._completeTournament(gameState, wc)
     end
 
     RecordsManager.onWorldCupChampionship(gameState, winner)
+
+    -- 记录世界杯冠军到历史
+    local runnerUp = (winner == finalFixture.homeTeamId) and finalFixture.awayTeamId or finalFixture.homeTeamId
+    HistoryManager.recordWorldCupChampion(gameState, {
+        season = wc.season,
+        championId = winner,
+        championName = championName,
+        runnerUpId = runnerUp,
+        runnerUpName = WorldCup._getNationName(runnerUp),
+    })
+
     EventBus.emit("world_cup_completed", winner)
+
+    -- 世界杯结束后，自动解除国家队主教练身份
+    if gameState.nationalTeamCoach then
+        local coachNation = gameState.nationalTeamCoach.nation
+        local coachNationName = WorldCup._getNationName(coachNation)
+        local isChampion = (coachNation == winner)
+
+        gameState:sendMessage({
+            category = "national_team",
+            title = "国家队任期结束",
+            body = isChampion
+                and string.format("恭喜！你带领%s夺得世界杯冠军！国家队任期已圆满结束，你将回归俱乐部工作。", coachNationName)
+                or string.format("世界杯已结束，你的%s国家队主教练任期已到期。感谢你的付出，现在将回归俱乐部工作。", coachNationName),
+            priority = "high",
+        })
+
+        -- 清除国家队教练状态
+        gameState.nationalTeamCoach = nil
+        -- 切回俱乐部模式
+        if gameState.currentRole == "national_team" then
+            gameState.currentRole = "club"
+        end
+    end
 end
 
 ------------------------------------------------------
@@ -776,11 +1006,12 @@ function WorldCup._getSingleLegWinners(wc, phase)
             elseif f.awayGoals > f.homeGoals then
                 table.insert(winners, f.awayTeamId)
             else
-                -- 点球大战
-                if Random() < 0.5 then
-                    table.insert(winners, f.homeTeamId)
+                -- 平局 → 读取点球大战结果（由 _applyWCResult 写入）
+                if f._penaltyWinner then
+                    table.insert(winners, f._penaltyWinner)
                 else
-                    table.insert(winners, f.awayTeamId)
+                    -- 兜底：不应出现（淘汰赛已强制加时+点球）
+                    table.insert(winners, Random() < 0.5 and f.homeTeamId or f.awayTeamId)
                 end
             end
         end
@@ -800,11 +1031,12 @@ function WorldCup._getSingleLegLosers(wc, phase)
             elseif f.awayGoals > f.homeGoals then
                 table.insert(losers, f.homeTeamId)
             else
-                -- 点球败者
-                if Random() < 0.5 then
-                    table.insert(losers, f.awayTeamId)
+                -- 平局 → 读取点球败者
+                if f._penaltyWinner then
+                    local loser = (f._penaltyWinner == f.homeTeamId) and f.awayTeamId or f.homeTeamId
+                    table.insert(losers, loser)
                 else
-                    table.insert(losers, f.homeTeamId)
+                    table.insert(losers, Random() < 0.5 and f.awayTeamId or f.homeTeamId)
                 end
             end
         end
@@ -818,73 +1050,161 @@ end
 
 local NT_REP_THRESHOLD = 40
 
+-- 国家队声望分档（S=顶级强队, A=强队, B=中上, C=中等）
+-- 声望越高的教练越有可能收到更高档位国家的邀约
+local NATION_TIERS = {
+    S = {"BRA", "FRA", "ARG", "ENG", "ESP", "GER"},
+    A = {"POR", "NED", "BEL", "URU", "CRO", "COL"},
+    B = {"MEX", "USA", "JPN", "KOR", "SUI", "SEN", "MAR", "AUS", "CAN", "SWE", "TUR", "SCO", "AUT"},
+    C = {"CZE", "NOR", "ECU", "IRN", "TUN", "EGY", "GHA", "ALG", "QAT",
+         "RSA", "KSA", "NZL", "UZB", "IRQ", "PAN", "PAR", "CIV", "BIH",
+         "CPV", "CUW", "COD", "JOR", "HAI"},
+}
+
+-- 声望 → 可收到邀约的档位（1-99量纲，累加，高声望可以收到所有低档的）
+local REP_TIER_THRESHOLDS = {
+    {minRep = 70, tiers = {"S", "A", "B", "C"}},   -- 世界级教练：所有档位
+    {minRep = 55, tiers = {"A", "B", "C"}},         -- 洲际级教练：A档及以下
+    {minRep = 40, tiers = {"B", "C"}},              -- 国内级教练：B档及以下
+    {minRep = 25, tiers = {"C"}},                   -- 地区级教练：C档
+}
+
 function WorldCup._checkNationalTeamInvitation(gameState, qualifiedNations, wcYear)
     gameState.nationalTeamCoach = nil
 
     local manager = gameState:getPlayerManager()
     if not manager then return end
 
-    local managerNat = manager.nationality
-    if not managerNat then return end
-
-    -- 查找该球员nationality对应的FIFA国家代码
-    local managerNation = nil
-    for fifaCode, playerNat in pairs(FIFA_TO_PLAYER_NAT) do
-        if playerNat == managerNat then
-            managerNation = fifaCode
-            break
-        end
-    end
-    -- 如果没有映射，可能代码本身就是FIFA代码
-    if not managerNation then managerNation = managerNat end
-
-    -- 检查该国家是否在48支参赛队中
-    local nationQualified = false
-    for _, code in ipairs(qualifiedNations) do
-        if code == managerNation then
-            nationQualified = true
-            break
-        end
-    end
-    if not nationQualified then
-        gameState:sendMessage({
-            category = "world_cup",
-            title = "世界杯抽签揭晓",
-            body = string.format("%d 美加墨世界杯分组抽签已完成。遗憾的是，%s未能入围本届赛事。",
-                wcYear, WorldCup._getNationName(managerNation)),
-            priority = "normal",
-        })
-        return
-    end
-
     local rep = manager.reputation or 30
     if rep < NT_REP_THRESHOLD then
         gameState:sendMessage({
             category = "world_cup",
             title = "世界杯即将开幕",
-            body = string.format("%s入围了 %d 世界杯！但目前你的执教声望不够(%d/%d)，未能获得国家队邀请。继续努力吧！",
-                WorldCup._getNationName(managerNation), wcYear, math.floor(rep), NT_REP_THRESHOLD),
+            body = string.format("%d 美加墨世界杯分组抽签已完成！但目前你的执教声望不够(%d/%d)，未能获得任何国家队邀请。继续努力吧！",
+                wcYear, math.floor(rep), NT_REP_THRESHOLD),
             priority = "normal",
         })
         return
     end
 
-    local nationName = WorldCup._getNationName(managerNation)
+    -- 构建入围国家的快速查找表
+    local qualifiedSet = {}
+    for _, code in ipairs(qualifiedNations) do
+        qualifiedSet[code] = true
+    end
+
+    -- 获取经理的联赛国籍（保底邀约）
+    local leagueNation = WorldCup._getManagerLeagueNation(gameState)
+    local offers = {}
+    local offerSet = {}  -- 防重复
+
+    -- 1) 联赛国籍保底：如果该国入围世界杯，保证发来邀请
+    if leagueNation and qualifiedSet[leagueNation] then
+        table.insert(offers, leagueNation)
+        offerSet[leagueNation] = true
+    end
+
+    -- 2) 声望分档：根据声望确定可收到邀约的档位
+    local availableTiers = {}
+    for _, threshold in ipairs(REP_TIER_THRESHOLDS) do
+        if rep >= threshold.minRep then
+            availableTiers = threshold.tiers
+            break
+        end
+    end
+
+    -- 收集所有可能邀约的国家（已入围 + 在对应档位 + 不重复）
+    local tierCandidates = {}
+    for _, tier in ipairs(availableTiers) do
+        local nations = NATION_TIERS[tier]
+        if nations then
+            for _, code in ipairs(nations) do
+                if qualifiedSet[code] and not offerSet[code] then
+                    table.insert(tierCandidates, {code = code, tier = tier})
+                end
+            end
+        end
+    end
+
+    -- 随机打乱候选列表
+    for i = #tierCandidates, 2, -1 do
+        local j = RandomInt(1, i)
+        tierCandidates[i], tierCandidates[j] = tierCandidates[j], tierCandidates[i]
+    end
+
+    -- 声望越高，邀约概率越大
+    -- S档: 基础50%概率, A档: 40%, B档: 30%, C档: 25%
+    local TIER_PROBABILITY = {S = 0.50, A = 0.40, B = 0.30, C = 0.25}
+    -- 声望加成：每超过档位要求10点 → +5%概率
+    local MAX_OFFERS = 4
+
+    for _, candidate in ipairs(tierCandidates) do
+        if #offers >= MAX_OFFERS then break end
+        local baseProb = TIER_PROBABILITY[candidate.tier] or 0.25
+        -- 声望越高概率越大（每多50点声望 +10%）
+        local repBonus = math.min(0.30, (rep - NT_REP_THRESHOLD) / 500)
+        local prob = math.min(0.85, baseProb + repBonus)
+        if Random() < prob then
+            table.insert(offers, candidate.code)
+            offerSet[candidate.code] = true
+        end
+    end
+
+    -- 如果连保底都没有，提示无邀约
+    if #offers == 0 then
+        gameState:sendMessage({
+            category = "world_cup",
+            title = "世界杯抽签揭晓",
+            body = string.format("%d 美加墨世界杯分组抽签已完成。遗憾的是，没有国家队向你发出执教邀请。", wcYear),
+            priority = "normal",
+        })
+        return
+    end
+
+    -- 构建邀约消息
+    local bodyLines = {
+        string.format("%d 美加墨世界杯分组抽签已完成！\n", wcYear),
+        string.format("凭借你的执教声望(%d)，以下国家队向你发出了主教练邀请：\n", math.floor(rep)),
+    }
+    local actions = {}
+    for i, code in ipairs(offers) do
+        local name = WorldCup._getNationName(code)
+        local group = WorldCup._getGroupForNation(code) or "?"
+        table.insert(bodyLines, string.format("  %d. %s（%s组）", i, name, group))
+        table.insert(actions, {
+            label = "执教" .. name,
+            actionId = "accept_nt_coach",
+            data = { nation = code },
+        })
+    end
+    table.insert(bodyLines, "\n选择一支国家队接受邀请，你将负责选拔26人大名单并带队征战世界杯。")
+    table.insert(actions, { label = "全部婉拒", actionId = "decline_nt_coach", data = {} })
+
     gameState:sendMessage({
         category = "world_cup",
         title = "🏆 国家队主教练邀请",
-        body = string.format(
-            "%s足协正式邀请你出任 %d 世界杯国家队主教练！\n\n" ..
-            "你的执教声望(%d)已获得认可。接受邀请后，你将负责选拔23人大名单并带队征战世界杯。\n\n" ..
-            "%s所在%s组。",
-            nationName, wcYear, math.floor(rep),
-            nationName, WorldCup._getGroupForNation(managerNation) or "?"),
+        body = table.concat(bodyLines, "\n"),
         priority = "high",
-        actions = {
-            { label = "接受邀请", actionId = "accept_nt_coach", data = { nation = managerNation } },
-            { label = "婉拒", actionId = "decline_nt_coach", data = { nation = managerNation } },
-        },
+        actions = actions,
     })
+end
+
+--- 获取经理所在联赛对应的国家FIFA代码（作为保底邀约）
+function WorldCup._getManagerLeagueNation(gameState)
+    local teamId = gameState.playerTeamId
+    if not teamId then return nil end
+    local _, leagueKey = gameState:getTeamLeague(teamId)
+    if not leagueKey then return nil end
+
+    -- 联赛shortName → FIFA代码映射
+    local LEAGUE_TO_NATION = {
+        premier_league = "ENG",
+        la_liga = "ESP",
+        bundesliga = "GER",
+        serie_a = "ITA",  -- 意大利未参加本届世界杯，不会作为保底
+        ligue_1 = "FRA",
+    }
+    return LEAGUE_TO_NATION[leagueKey]
 end
 
 -- 获取某国家所在的组
@@ -914,12 +1234,9 @@ end
 ------------------------------------------------------
 
 function WorldCup._getPlayerNation(gameState)
+    -- 只有玩家确实接受了国家队教练邀请时，才返回其执教的国家
     if gameState.nationalTeamCoach and gameState.nationalTeamCoach.nation then
         return gameState.nationalTeamCoach.nation
-    end
-    local manager = gameState:getPlayerManager()
-    if manager and manager.nationality then
-        return manager.nationality
     end
     return nil
 end
@@ -939,6 +1256,16 @@ function WorldCup._formatDrawResult(gameState, wc)
             table.insert(lines, "  " .. WorldCup._getNationName(code))
         end
         table.insert(lines, "")
+    end
+    return table.concat(lines, "\n")
+end
+
+function WorldCup._formatR32Draw(gameState, wc, matchups, byeTeams)
+    local lines = {string.format("【32强赛（%d场）】\n", #matchups)}
+    for i, m in ipairs(matchups) do
+        local n1 = WorldCup._getNationName(m[1])
+        local n2 = WorldCup._getNationName(m[2])
+        table.insert(lines, string.format("%d. %s vs %s", i, n1, n2))
     end
     return table.concat(lines, "\n")
 end
@@ -972,7 +1299,18 @@ function WorldCup.buildNationalTeam(gameState, nationCode)
     end
     table.sort(nationPlayers, function(a, b) return (a.overall or 0) > (b.overall or 0) end)
 
-    local squadSize = math.min(23, #nationPlayers)
+    -- 球员不足23人时生成虚拟球员补位
+    local TARGET_SQUAD = 23
+    if #nationPlayers < TARGET_SQUAD then
+        local generated = WorldCup._generateVirtualPlayers(
+            gameState, nationCode, playerNat, nationPlayers, TARGET_SQUAD - #nationPlayers
+        )
+        for _, vp in ipairs(generated) do
+            table.insert(nationPlayers, vp)
+        end
+    end
+
+    local squadSize = math.min(TARGET_SQUAD, #nationPlayers)
     local squadIds = {}
     for i = 1, squadSize do
         table.insert(squadIds, nationPlayers[i].id)
@@ -1045,6 +1383,378 @@ function WorldCup._pickStartingXI(players)
     end
 
     return startingIds
+end
+
+------------------------------------------------------
+-- 虚拟球员生成（为球员不足的国家队补位）
+------------------------------------------------------
+
+--- 根据国家档位确定虚拟球员能力值范围
+local TIER_OVR_RANGE = {
+    S = {min = 68, max = 82},   -- 巴西、法国等强队（不应缺人，保底用）
+    A = {min = 62, max = 76},   -- 葡萄牙、荷兰等
+    B = {min = 55, max = 70},   -- 墨西哥、美国等
+    C = {min = 48, max = 64},   -- 卡塔尔、库拉索等
+}
+
+--- 获取国家所属档位
+local function _getNationTier(nationCode)
+    for tier, nations in pairs(NATION_TIERS) do
+        for _, code in ipairs(nations) do
+            if code == nationCode then return tier end
+        end
+    end
+    return "C"  -- 未知国家默认C档
+end
+
+--- 根据阵容缺口确定需要哪些位置的虚拟球员
+local function _getNeededPositions(existingPlayers, count)
+    -- 统计现有位置分布
+    local posCount = {GK = 0, DEF = 0, MID = 0, FWD = 0}
+    for _, p in ipairs(existingPlayers) do
+        local pos = p.position or "CM"
+        if pos == "GK" then posCount.GK = posCount.GK + 1
+        elseif pos == "CB" or pos == "LB" or pos == "RB" then posCount.DEF = posCount.DEF + 1
+        elseif pos == "ST" or pos == "CF" or pos == "LW" or pos == "RW" then posCount.FWD = posCount.FWD + 1
+        else posCount.MID = posCount.MID + 1
+        end
+    end
+
+    -- 目标分布: 3GK, 8DEF, 7MID, 5FWD = 23
+    local targets = {
+        {group = "GK", target = 3, positions = {"GK"}},
+        {group = "DEF", target = 8, positions = {"CB", "CB", "CB", "CB", "LB", "LB", "RB", "RB"}},
+        {group = "MID", target = 7, positions = {"CM", "CM", "CM", "CDM", "CDM", "CAM", "CAM"}},
+        {group = "FWD", target = 5, positions = {"ST", "ST", "LW", "RW", "CF"}},
+    }
+
+    local needed = {}
+    for _, t in ipairs(targets) do
+        local deficit = math.max(0, t.target - posCount[t.group])
+        for i = 1, deficit do
+            if #needed >= count then break end
+            table.insert(needed, t.positions[((i - 1) % #t.positions) + 1])
+        end
+        if #needed >= count then break end
+    end
+
+    -- 如果还不够（极端情况），用CM补
+    while #needed < count do
+        table.insert(needed, "CM")
+    end
+
+    return needed
+end
+
+--- 生成单个位置的属性模板
+local function _generateAttributes(position, ovr)
+    local base = math.max(30, ovr - 15)
+    local high = math.min(99, ovr + 10)
+
+    local attrs = {
+        pace = base + RandomInt(0, 15),
+        stamina = base + RandomInt(5, 20),
+        strength = base + RandomInt(0, 15),
+        agility = base + RandomInt(0, 15),
+        passing = base + RandomInt(0, 15),
+        shooting = base + RandomInt(0, 10),
+        tackling = base + RandomInt(0, 10),
+        dribbling = base + RandomInt(0, 15),
+        defending = base + RandomInt(0, 10),
+        positioning = base + RandomInt(5, 15),
+        vision = base + RandomInt(0, 12),
+        decisions = base + RandomInt(5, 15),
+        composure = base + RandomInt(5, 15),
+        aggression = base + RandomInt(0, 15),
+        teamwork = base + RandomInt(5, 15),
+        leadership = base + RandomInt(0, 10),
+        handling = 10,
+        reflexes = 10,
+        aerial = base + RandomInt(0, 15),
+    }
+
+    -- 按位置特化属性
+    if position == "GK" then
+        attrs.handling = high - RandomInt(0, 8)
+        attrs.reflexes = high - RandomInt(0, 8)
+        attrs.positioning = high - RandomInt(0, 10)
+        attrs.shooting = RandomInt(10, 25)
+        attrs.dribbling = RandomInt(20, 40)
+        attrs.tackling = RandomInt(10, 25)
+    elseif position == "CB" then
+        attrs.defending = high - RandomInt(0, 5)
+        attrs.tackling = high - RandomInt(0, 8)
+        attrs.aerial = high - RandomInt(0, 8)
+        attrs.strength = high - RandomInt(0, 5)
+    elseif position == "LB" or position == "RB" then
+        attrs.defending = high - RandomInt(0, 8)
+        attrs.tackling = high - RandomInt(0, 10)
+        attrs.pace = high - RandomInt(0, 5)
+        attrs.stamina = high - RandomInt(0, 5)
+    elseif position == "CDM" then
+        attrs.tackling = high - RandomInt(0, 5)
+        attrs.defending = high - RandomInt(0, 8)
+        attrs.positioning = high - RandomInt(0, 5)
+        attrs.passing = high - RandomInt(0, 10)
+    elseif position == "CM" then
+        attrs.passing = high - RandomInt(0, 5)
+        attrs.vision = high - RandomInt(0, 8)
+        attrs.stamina = high - RandomInt(0, 5)
+    elseif position == "CAM" then
+        attrs.passing = high - RandomInt(0, 5)
+        attrs.vision = high - RandomInt(0, 5)
+        attrs.dribbling = high - RandomInt(0, 8)
+        attrs.shooting = high - RandomInt(0, 10)
+    elseif position == "LW" or position == "RW" then
+        attrs.pace = high - RandomInt(0, 5)
+        attrs.dribbling = high - RandomInt(0, 5)
+        attrs.shooting = high - RandomInt(0, 10)
+    elseif position == "ST" or position == "CF" then
+        attrs.shooting = high - RandomInt(0, 5)
+        attrs.positioning = high - RandomInt(0, 5)
+        attrs.composure = high - RandomInt(0, 8)
+    end
+
+    -- 限制在合理范围内
+    for k, v in pairs(attrs) do
+        attrs[k] = math.max(10, math.min(99, v))
+    end
+
+    return attrs
+end
+
+--- 根据 overall 估算身价（简化版 Player:calculateValue）
+local function _estimateValue(ovr, age)
+    local D = 1.15
+    local C = 336.7  -- 6,000,000 / 1.15^70
+    local base = C * (D ^ ovr)
+
+    -- 年龄修正
+    local ageMult
+    if age <= 20 then ageMult = 0.55
+    elseif age <= 22 then ageMult = 0.7 + (age - 20) * 0.15
+    elseif age <= 25 then ageMult = 1.0 + (age - 22) * 0.05
+    elseif age <= 27 then ageMult = 1.15 - (age - 25) * 0.075
+    elseif age <= 29 then ageMult = 1.0 - (age - 27) * 0.1
+    elseif age <= 31 then ageMult = 0.8 - (age - 29) * 0.1
+    elseif age <= 33 then ageMult = 0.6 - (age - 31) * 0.1
+    else ageMult = math.max(0.15, 0.4 - (age - 33) * 0.1)
+    end
+
+    return math.floor(base * ageMult)
+end
+
+--- 根据身价估算周薪
+local function _estimateWage(value)
+    -- 简化：周薪约为身价的 0.1%~0.15%（年薪约5%~8%）
+    return math.max(500, math.floor(value * 0.0012))
+end
+
+--- 为虚拟球员生成随机姓名（按国家风格）
+local _VP_LAST_NAMES = {
+    BRA = {"Silva", "Santos", "Oliveira", "Souza", "Lima", "Costa", "Pereira", "Almeida", "Ferreira", "Rodrigues", "Barbosa", "Ribeiro", "Martins"},
+    ARG = {"González", "Fernández", "Rodríguez", "López", "Martínez", "García", "Romero", "Álvarez", "Moreno", "Díaz", "Torres", "Ruiz"},
+    ENG = {"Smith", "Johnson", "Williams", "Brown", "Jones", "Taylor", "Davies", "Wilson", "Evans", "Wright", "Hall", "Walker"},
+    FRA = {"Martin", "Bernard", "Dubois", "Thomas", "Robert", "Richard", "Petit", "Durand", "Leroy", "Moreau", "Simon", "Laurent"},
+    GER = {"Müller", "Schmidt", "Schneider", "Fischer", "Weber", "Meyer", "Wagner", "Becker", "Schulz", "Hoffmann", "Koch"},
+    ESP = {"García", "Martínez", "López", "Rodríguez", "Fernández", "González", "Sánchez", "Pérez", "Ruiz", "Díaz"},
+    ITA = {"Rossi", "Russo", "Ferrari", "Esposito", "Bianchi", "Romano", "Colombo", "Ricci", "Marino", "Greco"},
+    POR = {"Silva", "Santos", "Ferreira", "Pereira", "Oliveira", "Costa", "Rodrigues", "Martins", "Sousa", "Fernandes"},
+    NED = {"De Jong", "Van Dijk", "Bakker", "Visser", "Smit", "Meijer", "De Boer", "Peters", "Mulder", "Bos"},
+    JPN = {"Tanaka", "Suzuki", "Yamamoto", "Watanabe", "Nakamura", "Kobayashi", "Sato", "Ito", "Takahashi", "Kimura"},
+    KOR = {"Kim", "Park", "Lee", "Choi", "Jung", "Kang", "Cho", "Yoon", "Jang", "Lim", "Han", "Shin"},
+    MAR = {"El Amrani", "Bennani", "Tazi", "Idrissi", "Ouali", "Berrada", "Zouak", "Lahlou", "Fassi", "Naciri"},
+    MEX = {"Hernández", "García", "Martínez", "López", "González", "Rodríguez", "Pérez", "Sánchez", "Ramírez", "Torres"},
+    USA = {"Williams", "Johnson", "Brown", "Davis", "Miller", "Wilson", "Moore", "Taylor", "Anderson", "Thomas"},
+    URU = {"González", "Rodríguez", "Silva", "Martínez", "García", "López", "Fernández", "Pérez", "Suárez", "Álvarez"},
+    COL = {"García", "Rodríguez", "Martínez", "López", "González", "Hernández", "Sánchez", "Ramírez", "Torres", "Díaz"},
+    SEN = {"Diop", "Diallo", "Ndiaye", "Sow", "Ba", "Fall", "Gueye", "Sarr", "Cissé", "Sy", "Diouf", "Mbaye"},
+    AUS = {"Smith", "Jones", "Williams", "Brown", "Wilson", "Taylor", "Johnson", "White", "Martin", "Thompson"},
+    CAN = {"Smith", "Brown", "Wilson", "Johnson", "Williams", "Jones", "Miller", "Davis", "Martin", "Thompson"},
+}
+local _VP_FIRST_NAMES = {
+    BRA = {"Lucas", "Gabriel", "Matheus", "Felipe", "Rafael", "Bruno", "Vitor", "Pedro", "Thiago", "Diego"},
+    ARG = {"Matías", "Nicolás", "Lucas", "Facundo", "Santiago", "Leandro", "Gonzalo", "Federico", "Alejandro", "Emiliano"},
+    ENG = {"James", "Oliver", "Harry", "George", "Jack", "Charlie", "Leo", "Thomas", "William", "Oscar"},
+    FRA = {"Lucas", "Louis", "Gabriel", "Hugo", "Jules", "Adam", "Léo", "Nathan", "Ethan", "Paul"},
+    GER = {"Lukas", "Leon", "Finn", "Elias", "Jonas", "Ben", "Noah", "Paul", "Felix", "Tim"},
+    ESP = {"Pablo", "Daniel", "Hugo", "Mateo", "Alejandro", "Álvaro", "Adrián", "David", "Mario", "Diego"},
+    ITA = {"Leonardo", "Francesco", "Alessandro", "Lorenzo", "Mattia", "Andrea", "Gabriele", "Riccardo", "Tommaso", "Marco"},
+    POR = {"João", "Diogo", "Rafael", "Tiago", "Pedro", "Gonçalo", "André", "Rui", "Nuno", "Bruno"},
+    NED = {"Daan", "Sem", "Jesse", "Luuk", "Lars", "Tim", "Thijs", "Thomas", "Bram", "Stijn"},
+    JPN = {"Yuto", "Takumi", "Daiki", "Riku", "Kaito", "Haruto", "Kenji", "Shota", "Yuki", "Ren"},
+    KOR = {"Min-Jae", "Ji-Sung", "Seung-Ho", "Jun-Ho", "Hyun-Woo", "Tae-Young", "Dong-Hyun", "Sung-Jin", "Woo-Jin", "Jae-Hyun"},
+    MAR = {"Youssef", "Adam", "Mohamed", "Amine", "Ayoub", "Hamza", "Oussama", "Bilal", "Karim", "Soufiane"},
+    MEX = {"Diego", "Santiago", "Sebastián", "Mateo", "Leonardo", "Emiliano", "Miguel", "Alejandro", "Daniel", "Carlos"},
+    USA = {"James", "Michael", "Tyler", "Brandon", "Joshua", "Ryan", "Ethan", "Dylan", "Kyle", "Christian"},
+    URU = {"Matías", "Santiago", "Nicolás", "Facundo", "Agustín", "Rodrigo", "Federico", "Gonzalo", "Martín", "Diego"},
+    COL = {"Santiago", "Mateo", "Sebastián", "Alejandro", "Samuel", "Daniel", "Nicolás", "David", "Juan", "Andrés"},
+    SEN = {"Moussa", "Ibrahima", "Ousmane", "Mamadou", "Aliou", "Cheikh", "Abdoulaye", "Pape", "Ismaïla", "Sadio"},
+    AUS = {"Liam", "Oliver", "Jack", "Thomas", "James", "Daniel", "Ethan", "Noah", "Lucas", "Harry"},
+    CAN = {"Liam", "Noah", "Oliver", "Lucas", "Ethan", "James", "Benjamin", "Mason", "Logan", "Alexander"},
+}
+
+local function _generateVPName(nationCode)
+    local lastPool = _VP_LAST_NAMES[nationCode] or _VP_LAST_NAMES.ENG
+    local firstPool = _VP_FIRST_NAMES[nationCode] or _VP_FIRST_NAMES.ENG
+    local first = firstPool[RandomInt(1, #firstPool)] or "Alex"
+    local last = lastPool[RandomInt(1, #lastPool)] or "Smith"
+    -- 返回 displayName 格式：首字母. 姓 （如 "L. Silva"）
+    local initial = first:sub(1, 1)
+    -- 处理 UTF-8 多字节首字母
+    local b = first:byte(1)
+    if b >= 192 and b < 224 then initial = first:sub(1, 2)
+    elseif b >= 224 and b < 240 then initial = first:sub(1, 3)
+    elseif b >= 240 then initial = first:sub(1, 4) end
+    return initial .. ". " .. last, first, last
+end
+
+--- 创建完整数据结构的虚拟球员（与真实球员同粒度）
+---@param vpId string
+---@param displayName string
+---@param nationCode string
+---@param playerNat string
+---@param pos string
+---@param ovr number
+---@param gameYear number 当前游戏年份
+---@return table
+local function _createVirtualPlayer(vpId, displayName, nationCode, playerNat, pos, ovr, gameYear)
+    local age = RandomInt(23, 32)  -- 国脚典型年龄段
+    local birthYear = gameYear - age
+    local potential = ovr + RandomInt(0, 5)
+    local value = _estimateValue(ovr, age)
+    local wage = _estimateWage(value)
+    local reputation = math.max(15, math.min(70, ovr - 10 + RandomInt(-5, 5)))
+
+    return {
+        id = vpId,
+        -- 名称相关
+        match_name = displayName,
+        full_name = displayName,
+        displayName = displayName,
+        firstName = "",
+        lastName = displayName,
+        -- 国籍
+        nationality = playerNat,
+        football_nation = playerNat,
+        -- 位置
+        position = pos,
+        natural_position = pos,
+        naturalPositions = {pos},
+        alternate_positions = {},
+        -- 能力
+        overall = ovr,
+        ovr = ovr,
+        potential = potential,
+        actualPotential = potential,
+        paRating = nil,
+        attributes = _generateAttributes(pos, ovr),
+        -- 身体/状态
+        fitness = RandomInt(75, 95),
+        morale = RandomInt(60, 80),
+        condition = 100,
+        retired = false,
+        injured = false,
+        injuryDays = 0,
+        injury = nil,
+        -- 年龄
+        birthYear = birthYear,
+        age = age,
+        -- 合同/经济（无俱乐部 = 自由球员）
+        teamId = nil,
+        value = value,
+        wage = wage,
+        contractEnd = nil,
+        releaseClause = nil,
+        -- 身份/角色
+        squadRole = "rotation",
+        reputation = reputation,
+        listedForSale = false,
+        listedForLoan = false,
+        preContractLockedBy = nil,
+        -- 技术特征
+        preferredFoot = Random() > 0.75 and "left" or "right",
+        weakFoot = RandomInt(1, 4),
+        traits = {},
+        -- 统计
+        seasonStats = {
+            appearances = 0,
+            goals = 0,
+            assists = 0,
+            yellowCards = 0,
+            redCards = 0,
+            avgRating = 0,
+            cleanSheets = 0,
+        },
+        careerHistory = {},
+        -- 士气系统
+        morale_core = {
+            manager_trust = 50,
+            unresolved_issue = nil,
+            recent_treatment = nil,
+            last_talk_day = 0,
+            talk_fatigue = 0,
+        },
+        -- 训练
+        trainingFocus = nil,
+        -- 标记
+        _isVirtual = true,
+    }
+end
+
+--- 为指定国家队生成虚拟球员，注入 gameState.players
+---@param gameState table
+---@param nationCode string FIFA国家代码
+---@param playerNat string 球员数据国籍代码
+---@param existingPlayers table 已有的真实球员列表
+---@param needed number 需要生成的数量
+---@return table 生成的虚拟球员列表
+function WorldCup._generateVirtualPlayers(gameState, nationCode, playerNat, existingPlayers, needed)
+    local tier = _getNationTier(nationCode)
+    local ovrRange = TIER_OVR_RANGE[tier] or TIER_OVR_RANGE.C
+    local positions = _getNeededPositions(existingPlayers, needed)
+    local generated = {}
+
+    -- 确保缓存表存在（避免每次WC重复生成）
+    if not gameState._wcVirtualPlayers then
+        gameState._wcVirtualPlayers = {}
+    end
+
+    -- 如果之前已经为该国生成过，直接复用
+    if gameState._wcVirtualPlayers[nationCode] then
+        local cached = gameState._wcVirtualPlayers[nationCode]
+        for _, vp in ipairs(cached) do
+            -- 确保仍在 gameState.players 中
+            if not gameState.players[vp.id] then
+                gameState.players[vp.id] = vp
+            end
+            table.insert(generated, vp)
+        end
+        return generated
+    end
+
+    local nationName = WorldCup._getNationName(nationCode) or nationCode
+    local gameYear = gameState.date and gameState.date.year or 2025
+
+    for i = 1, needed do
+        local pos = positions[i]
+        local ovr = RandomInt(ovrRange.min, ovrRange.max)
+        local vpId = string.format("wc-vp-%s-%03d", nationCode, i)
+        local name, vpFirst, vpLast = _generateVPName(nationCode)
+
+        local vp = _createVirtualPlayer(vpId, name, nationCode, playerNat, pos, ovr, gameYear)
+        vp.firstName = vpFirst
+        vp.lastName = vpLast
+
+        -- 注入 gameState.players 使 getMatchPlayers 能找到
+        gameState.players[vpId] = vp
+        table.insert(generated, vp)
+    end
+
+    -- 缓存本次生成结果
+    gameState._wcVirtualPlayers[nationCode] = generated
+
+    return generated
 end
 
 ------------------------------------------------------
@@ -1123,6 +1833,77 @@ function WorldCup.getAvailablePlayers(gameState, nationCode)
         end
     end
     table.sort(players, function(a, b) return (a.overall or 0) > (b.overall or 0) end)
+
+    -- 确保每个位置组至少 MIN_PER_GROUP 个候选人
+    local MIN_PER_GROUP = 5
+    local posCount = {GK = 0, DEF = 0, MID = 0, FWD = 0}
+    for _, p in ipairs(players) do
+        local pos = p.position or "CM"
+        if pos == "GK" then posCount.GK = posCount.GK + 1
+        elseif pos == "CB" or pos == "LB" or pos == "RB" then posCount.DEF = posCount.DEF + 1
+        elseif pos == "ST" or pos == "CF" or pos == "LW" or pos == "RW" then posCount.FWD = posCount.FWD + 1
+        else posCount.MID = posCount.MID + 1
+        end
+    end
+
+    -- 计算各组缺口
+    local fillPositions = {}
+    local groupFill = {
+        {group = "GK",  current = posCount.GK,  positions = {"GK"}},
+        {group = "DEF", current = posCount.DEF, positions = {"CB", "LB", "RB", "CB", "LB"}},
+        {group = "MID", current = posCount.MID, positions = {"CM", "CDM", "CAM", "CM", "CDM"}},
+        {group = "FWD", current = posCount.FWD, positions = {"ST", "LW", "RW", "ST", "CF"}},
+    }
+    for _, g in ipairs(groupFill) do
+        local deficit = math.max(0, MIN_PER_GROUP - g.current)
+        for i = 1, deficit do
+            table.insert(fillPositions, g.positions[((i - 1) % #g.positions) + 1])
+        end
+    end
+
+    -- 如果有缺口，生成虚拟球员补位
+    if #fillPositions > 0 then
+        local tier = _getNationTier(nationCode)
+        local ovrRange = TIER_OVR_RANGE[tier] or TIER_OVR_RANGE.C
+        local nationName = WorldCup._getNationName(nationCode) or nationCode
+
+        -- 使用独立缓存键避免与 buildNationalTeam 的缓存冲突
+        local cacheKey = nationCode .. "_pool"
+        if not gameState._wcVirtualPlayers then
+            gameState._wcVirtualPlayers = {}
+        end
+
+        if gameState._wcVirtualPlayers[cacheKey] then
+            -- 复用已缓存的候选池虚拟球员
+            for _, vp in ipairs(gameState._wcVirtualPlayers[cacheKey]) do
+                if not gameState.players[vp.id] then
+                    gameState.players[vp.id] = vp
+                end
+                table.insert(players, vp)
+            end
+        else
+            local generated = {}
+            local baseIdx = 100  -- 偏移避免与 buildNationalTeam 的 ID 冲突
+            local gameYear = gameState.date and gameState.date.year or 2025
+            for i, pos in ipairs(fillPositions) do
+                local ovr = RandomInt(ovrRange.min, ovrRange.max)
+                local vpId = string.format("wc-vp-%s-%03d", nationCode, baseIdx + i)
+                local name, vpFirst, vpLast = _generateVPName(nationCode)
+
+                local vp = _createVirtualPlayer(vpId, name, nationCode, playerNat, pos, ovr, gameYear)
+                vp.firstName = vpFirst
+                vp.lastName = vpLast
+                gameState.players[vpId] = vp
+                table.insert(generated, vp)
+                table.insert(players, vp)
+            end
+            gameState._wcVirtualPlayers[cacheKey] = generated
+        end
+
+        -- 重新排序
+        table.sort(players, function(a, b) return (a.overall or 0) > (b.overall or 0) end)
+    end
+
     return players
 end
 

@@ -23,6 +23,8 @@ local POSITION_MAP = {
     RightMidfielder = "RM",
     LeftWinger = "LW",
     RightWinger = "RW",
+    LeftWing = "LW",       -- JSON变体写法
+    RightWing = "RW",      -- JSON变体写法
     Striker = "ST",
 }
 
@@ -148,7 +150,7 @@ function RealDataLoader.importLeague(gameState, leagueData, leagueConfig)
     -- 1. 导入球队
     for _, tData in ipairs(leagueData.teams) do
         local team = gameState:addTeam({
-            name = tData.name,
+            name = tData.name_cn or tData.name,
             shortName = tData.short_name or "",
             jsonTeamId = tData.id,
             iconPath = TeamIconRegistry.getPathByJsonId(tData.id),
@@ -184,10 +186,21 @@ function RealDataLoader.importLeague(gameState, leagueData, leagueConfig)
         -- 解析teamId
         local gameTeamId = teamIdMap[pData.team_id]
 
+        -- 名字处理：优先使用中文简称（姓氏部分），以便阵型预览清晰辨识
+        local fullNameCn = pData.full_name_cn or ""
+        local matchName = pData.match_name or ""
+        local fullName = pData.full_name or ""
+        -- shortName: 从中文全名取最后一段（·分隔），如"加布里埃尔·热苏斯" → "热苏斯"
+        local shortName = fullNameCn:match("·(.+)$") or fullNameCn
+        -- 如果 shortName 和 fullNameCn 相同（无·分隔），则本身就是单名
+        if shortName == "" then shortName = matchName ~= "" and matchName or fullName end
+
         local player = gameState:addPlayer({
-            firstName = pData.full_name or pData.match_name or "Unknown",
-            lastName = "",
-            displayName = pData.match_name or pData.full_name or "Unknown",
+            firstName = fullNameCn ~= "" and fullNameCn or (fullName ~= "" and fullName or "Unknown"),
+            lastName = shortName,
+            displayName = fullNameCn ~= "" and fullNameCn or (matchName ~= "" and matchName or fullName),
+            match_name = matchName,
+            shortName = shortName,
             birthYear = birthYear,
             nationality = pData.football_nation or pData.nationality or "ENG",
             position = position,
@@ -441,6 +454,72 @@ function RealDataLoader._assignFormation(tData)
         end
     end
     return "4-4-2"
+end
+
+--- 加载传奇球员（非五大联赛）作为自由球员
+--- @param gameState table GameState实例
+--- @return number count 成功加载的球员数量
+function RealDataLoader.loadLegends(gameState)
+    local data = RealDataLoader.loadLeagueFile("fm2024_legends_outside_top5.json")
+    if not data or not data.players then
+        log:Write(LOG_WARNING, "RealDataLoader: 无法加载传奇球员数据")
+        return 0
+    end
+
+    local count = 0
+    for _, pData in ipairs(data.players) do
+        local position, naturalPositions = mapPositions(pData.position, pData.alternate_positions)
+        local attrs = convertAttributes(pData.attributes or {})
+        local birthYear = extractBirthYear(pData.date_of_birth)
+
+        -- 名字处理（同主加载逻辑）
+        local fullNameCn = pData.full_name_cn or ""
+        local matchName = pData.match_name or ""
+        local fullName = pData.full_name or ""
+        local shortName = fullNameCn:match("·(.+)$") or fullNameCn
+        if shortName == "" then shortName = matchName ~= "" and matchName or fullName end
+
+        -- 传奇球员作为自由球员加入（teamId = nil）
+        local player = gameState:addPlayer({
+            firstName = fullNameCn ~= "" and fullNameCn or (fullName ~= "" and fullName or "Unknown"),
+            lastName = shortName,
+            displayName = fullNameCn ~= "" and fullNameCn or (matchName ~= "" and matchName or fullName),
+            match_name = matchName,
+            shortName = shortName,
+            birthYear = birthYear,
+            nationality = pData.football_nation or pData.nationality or "ENG",
+            position = position,
+            naturalPositions = naturalPositions,
+            preferredFoot = mapFootedness(pData.footedness),
+            weakFoot = pData.weak_foot or 2,
+            attributes = attrs,
+            fitness = pData.fitness or 80,
+            morale = pData.morale or 60,
+            condition = pData.condition or 100,
+            overall = pData.ovr or 70,
+            potential = pData.potential or 70,
+            contractEnd = nil,  -- 自由球员无合同
+            wage = pData.wage or 50000,  -- 期望周薪（谈判参考）
+            value = pData.market_value or 1000000,
+            teamId = nil,       -- 自由球员
+            squadRole = "first_team",
+            traits = pData.traits or {},
+        })
+
+        -- 基于实际属性重新计算OVR
+        player:calculateOverall()
+        -- 自由球员名气基于其历史声望（用原始ovr推算）
+        local estimatedRep = math.min(900, (pData.ovr or 70) * 10)
+        player:calculateReputation(estimatedRep)
+        player:calculateValue(gameState.date.year)
+
+        count = count + 1
+        log:Write(LOG_DEBUG, "  传奇自由球员: " .. (pData.match_name or "?") ..
+            " (" .. position .. ", OVR=" .. player.overall .. ")")
+    end
+
+    log:Write(LOG_INFO, "RealDataLoader: 加载了 " .. count .. " 名传奇自由球员")
+    return count
 end
 
 return RealDataLoader

@@ -544,13 +544,13 @@ function MatchLive.create(params)
             children = {
                 -- 主队
                 UI.Panel {
-                    flexGrow = 1, flexBasis = 0, alignItems = "flex-end", paddingRight = 14,
+                    flexGrow = 1, flexBasis = 0, height = 70, alignItems = "flex-end", justifyContent = "center", paddingRight = 14,
                     children = {
                         homeTeam and UI.Panel {
-                            width = 44, height = 44, marginBottom = 6,
+                            width = 44, height = 44, marginBottom = 4,
                             children = { TeamIcon.create { team = homeTeam, size = 44 } },
                         } or nil,
-                        UI.Label { text = homeName, fontSize = 15, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold", textAlign = "right" },
+                        UI.Label { text = homeName, fontSize = 15, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold", textAlign = "right", width = "100%", whiteSpace = "normal" },
                     }
                 },
                 -- 比分
@@ -580,13 +580,13 @@ function MatchLive.create(params)
                 },
                 -- 客队
                 UI.Panel {
-                    flexGrow = 1, flexBasis = 0, alignItems = "flex-start", paddingLeft = 14,
+                    flexGrow = 1, flexBasis = 0, height = 70, alignItems = "flex-start", justifyContent = "center", paddingLeft = 14,
                     children = {
                         awayTeam and UI.Panel {
-                            width = 44, height = 44, marginBottom = 6,
+                            width = 44, height = 44, marginBottom = 4,
                             children = { TeamIcon.create { team = awayTeam, size = 44 } },
                         } or nil,
-                        UI.Label { text = awayName, fontSize = 15, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold" },
+                        UI.Label { text = awayName, fontSize = 15, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold", width = "100%", whiteSpace = "normal" },
                     }
                 },
             }

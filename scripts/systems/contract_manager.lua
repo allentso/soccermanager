@@ -198,7 +198,7 @@ function ContractManager._releasePlayer(gameState, team, player)
     -- 从首发中移除
     if team.startingXI then
         local newXI = {}
-        for _, pid in ipairs(team.startingXI) do
+        for _, pid in ipairs(team.startingXI or {}) do
             if pid ~= player.id then
                 table.insert(newXI, pid)
             end

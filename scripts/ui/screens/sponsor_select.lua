@@ -59,10 +59,10 @@ function SponsorSelect.create(params)
     local function refreshHighlight(sType)
         for i, card in ipairs(cardRefs[sType]) do
             if i == selections[sType] then
-                card:SetBackgroundColor(Theme.COLORS.PRIMARY[1], Theme.COLORS.PRIMARY[2], Theme.COLORS.PRIMARY[3], 40)
+                card:SetBackgroundColor({Theme.COLORS.PRIMARY[1], Theme.COLORS.PRIMARY[2], Theme.COLORS.PRIMARY[3], 40})
                 card:SetBorderColor(Theme.COLORS.PRIMARY)
             else
-                card:SetBackgroundColor(Theme.COLORS.BG_CARD[1], Theme.COLORS.BG_CARD[2], Theme.COLORS.BG_CARD[3], 255)
+                card:SetBackgroundColor(Theme.COLORS.BG_CARD)
                 card:SetBorderColor(Theme.COLORS.BORDER)
             end
         end
@@ -224,6 +224,7 @@ function SponsorSelect.create(params)
         onClick = function()
             local ok = FinanceManager.acceptSponsorContract(gameState, selections)
             if ok then
+                ---@diagnostic disable-next-line: param-type-mismatch
                 UI.Toast.Show("赞助合同已签署！", "success")
                 Router.navigate("dashboard")
             end

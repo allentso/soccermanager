@@ -424,7 +424,7 @@ function Settings._showCheatMenu()
     local BottomSheet = require("scripts/ui/components/bottom_sheet")
     BottomSheet.showCustom({
         title = "开发者工具",
-        height = 420,
+        height = 530,
         children = {
             UI.Button {
                 text = "👑 三冠王（联赛+欧冠+世界杯）",
@@ -482,6 +482,28 @@ function Settings._showCheatMenu()
                 end,
             },
             UI.Button {
+                text = "⭐ 声望 MAX（99）",
+                width = "100%", height = 44,
+                backgroundColor = Theme.COLORS.BG_CARD_ELEVATED,
+                color = Theme.COLORS.TEXT_PRIMARY,
+                fontSize = 14, borderRadius = 8, marginBottom = 10,
+                onClick = function()
+                    BottomSheet.close()
+                    Settings._cheatMaxReputation()
+                end,
+            },
+            UI.Button {
+                text = "📉 声望重置（30）",
+                width = "100%", height = 44,
+                backgroundColor = Theme.COLORS.BG_CARD_ELEVATED,
+                color = Theme.COLORS.TEXT_PRIMARY,
+                fontSize = 14, borderRadius = 8, marginBottom = 10,
+                onClick = function()
+                    BottomSheet.close()
+                    Settings._cheatResetReputation()
+                end,
+            },
+            UI.Button {
                 text = "🏆 查看荣誉室",
                 width = "100%", height = 44,
                 backgroundColor = Theme.COLORS.BG_CARD_ELEVATED,
@@ -494,6 +516,50 @@ function Settings._showCheatMenu()
             },
         },
     })
+end
+
+------------------------------------------------------
+-- 作弊：声望 MAX
+------------------------------------------------------
+function Settings._cheatMaxReputation()
+    local gameState = _G.gameState
+    if not gameState then return end
+
+    local manager = gameState:getPlayerManager()
+    if not manager then return end
+
+    manager.reputation = 99
+
+    SaveManager.save(gameState, "auto")
+    gameState:sendMessage({
+        category = "career",
+        title = "声望已满",
+        body = "开发者工具：声望已设为 99（传奇）。",
+        priority = "normal",
+    })
+    Router.replaceWith("dashboard")
+end
+
+------------------------------------------------------
+-- 作弊：声望重置
+------------------------------------------------------
+function Settings._cheatResetReputation()
+    local gameState = _G.gameState
+    if not gameState then return end
+
+    local manager = gameState:getPlayerManager()
+    if not manager then return end
+
+    manager.reputation = 30
+
+    SaveManager.save(gameState, "auto")
+    gameState:sendMessage({
+        category = "career",
+        title = "声望已重置",
+        body = "开发者工具：声望已重置为 30（新人）。",
+        priority = "normal",
+    })
+    Router.replaceWith("dashboard")
 end
 
 ------------------------------------------------------
@@ -562,8 +628,8 @@ function Settings._cheatYouthProdigy()
 
     -- 生成一个高潜力青训球员
     local positions = {"GK", "CB", "LB", "RB", "CDM", "CM", "CAM", "LW", "RW", "ST"}
-    local pos = positions[math.random(1, #positions)]
-    local age = math.random(16, 17)
+    local pos = positions[RandomInt(1, #positions)]
+    local age = RandomInt(16, 17)
 
     local playerData = {
         name = "Youth Prodigy",
@@ -573,8 +639,8 @@ function Settings._cheatYouthProdigy()
         birthYear = gameState.date.year - age,
         position = pos,
         nationality = "中国",
-        potential = math.random(85, 95),
-        overall = math.random(55, 65),
+        potential = RandomInt(85, 95),
+        overall = RandomInt(55, 65),
         teamId = gameState.playerTeamId,
         wage = 1000,
         contractYears = 4,
@@ -622,14 +688,14 @@ function Settings._cheatTripleCrown()
             if f.status ~= "finished" then
                 f.status = "finished"
                 if f.homeTeamId == playerTeamId then
-                    f.homeGoals = math.random(2, 4)
+                    f.homeGoals = RandomInt(2, 4)
                     f.awayGoals = 0
                 elseif f.awayTeamId == playerTeamId then
                     f.homeGoals = 0
-                    f.awayGoals = math.random(2, 4)
+                    f.awayGoals = RandomInt(2, 4)
                 else
-                    f.homeGoals = math.random(0, 2)
-                    f.awayGoals = math.random(0, 2)
+                    f.homeGoals = RandomInt(0, 2)
+                    f.awayGoals = RandomInt(0, 2)
                 end
                 pcall(function() playerLeague:updateStanding(f) end)
             end
@@ -646,8 +712,8 @@ function Settings._cheatTripleCrown()
             for _, f in ipairs(ucl.leaguePhase.fixtures) do
                 if f.status ~= "finished" then
                     f.status = "finished"
-                    f.homeGoals = math.random(0, 3)
-                    f.awayGoals = math.random(0, 3)
+                    f.homeGoals = RandomInt(0, 3)
+                    f.awayGoals = RandomInt(0, 3)
                     pcall(function() ucl:updateLeagueStanding(f) end)
                 end
             end
@@ -679,8 +745,8 @@ function Settings._completeOtherLeagues(gameState, excludeLeague)
             for _, f in ipairs(lg.fixtures) do
                 if f.status ~= "finished" then
                     f.status = "finished"
-                    f.homeGoals = math.random(0, 3)
-                    f.awayGoals = math.random(0, 3)
+                    f.homeGoals = RandomInt(0, 3)
+                    f.awayGoals = RandomInt(0, 3)
                     pcall(function() lg:updateStanding(f) end)
                 end
             end
@@ -746,8 +812,8 @@ function Settings._completeAllLeagues(gameState)
             for _, f in ipairs(lg.fixtures) do
                 if f.status ~= "finished" then
                     f.status = "finished"
-                    f.homeGoals = math.random(0, 3)
-                    f.awayGoals = math.random(0, 3)
+                    f.homeGoals = RandomInt(0, 3)
+                    f.awayGoals = RandomInt(0, 3)
                     -- 更新积分榜
                     pcall(function() lg:updateStanding(f) end)
                 end
@@ -761,8 +827,8 @@ function Settings._completeAllLeagues(gameState)
             for _, f in ipairs(ucl.leaguePhase.fixtures) do
                 if f.status ~= "finished" then
                     f.status = "finished"
-                    f.homeGoals = math.random(0, 3)
-                    f.awayGoals = math.random(0, 3)
+                    f.homeGoals = RandomInt(0, 3)
+                    f.awayGoals = RandomInt(0, 3)
                     pcall(function() ucl:updateLeagueStanding(f) end)
                 end
             end

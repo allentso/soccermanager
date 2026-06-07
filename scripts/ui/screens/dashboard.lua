@@ -29,19 +29,51 @@ function Dashboard._checkBlockingActions(gameState)
     return TimeBlockerManager.check(gameState)
 end
 
-function Dashboard._getDaysToNextMatch(gameState)
-    if not gameState.league then return 0 end
+--- 统一查找下一场玩家比赛（联赛+欧冠+世界杯），返回天数和fixture
+--- @return number daysAhead 距离下一场的天数（0=无比赛）
+--- @return table|nil fixture 下一场比赛的fixture对象
+--- @return boolean isUCL 是否欧冠
+--- @return boolean isWC 是否世界杯
+function Dashboard._findNextMatch(gameState)
     local League = require("scripts/domain/league")
-    for daysAhead = 1, 30 do
-        local futureDate = League._addDays(gameState.date, daysAhead)
+    local playerTeamId = gameState.playerTeamId
+    local ntCoach = gameState.nationalTeamCoach
+    local playerNation = ntCoach and ntCoach.nation or nil
+
+    -- 从今天（daysAhead=0）开始搜索，不漏掉当天未打的比赛
+    for daysAhead = 0, 90 do
+        local futureDate = (daysAhead == 0) and gameState.date or League._addDays(gameState.date, daysAhead)
+        -- 检查联赛比赛
         local fixtures = TurnProcessor.getFixturesForDate(gameState, futureDate)
         for _, f in ipairs(fixtures) do
-            if f.homeTeamId == gameState.playerTeamId or f.awayTeamId == gameState.playerTeamId then
-                return daysAhead
+            if f.homeTeamId == playerTeamId or f.awayTeamId == playerTeamId then
+                return daysAhead, f, false, false
+            end
+        end
+        -- 检查欧冠比赛
+        local uclFixtures = TurnProcessor.getUCLFixturesForDate(gameState, futureDate)
+        for _, f in ipairs(uclFixtures) do
+            if f.homeTeamId == playerTeamId or f.awayTeamId == playerTeamId then
+                return daysAhead, f, true, false
+            end
+        end
+        -- 检查世界杯比赛
+        if playerNation then
+            local wcFixtures = TurnProcessor.getWCFixturesForDate(gameState, futureDate)
+            for _, f in ipairs(wcFixtures) do
+                if f.homeTeamId == playerNation or f.awayTeamId == playerNation then
+                    return daysAhead, f, false, true
+                end
             end
         end
     end
-    return 0
+    return 0, nil, false, false
+end
+
+-- 兼容旧调用
+function Dashboard._getDaysToNextMatch(gameState)
+    local days = Dashboard._findNextMatch(gameState)
+    return days
 end
 
 ------------------------------------------------------
@@ -66,8 +98,8 @@ function Dashboard.create(params)
     local isBlocked = TimeBlockerManager.hasBlockingItems(blockers)
     local hasAnyBlockers = #blockers > 0
 
-    -- 跳到比赛日
-    local daysToMatch = Dashboard._getDaysToNextMatch(gameState)
+    -- 跳到比赛日（使用统一搜索）
+    local daysToMatch, todayFixtureRef = Dashboard._findNextMatch(gameState)
 
     -- 通用推进回调
     local function doAdvanceDay()
@@ -75,6 +107,13 @@ function Dashboard.create(params)
         if gameState.pendingPlayerFixture then
             local pf = gameState.pendingPlayerFixture
             Router.navigate("pre_match", { fixture = pf })
+            return
+        end
+
+        -- 今天就有未打的比赛（daysToMatch==0），直接进入比赛，不推进日期
+        if daysToMatch == 0 and todayFixtureRef then
+            todayFixtureRef._pendingPlayerMatch = true
+            Router.navigate("pre_match", { fixture = todayFixtureRef })
             return
         end
 
@@ -113,21 +152,29 @@ function Dashboard.create(params)
     end
 
     local function doSkipToMatchDay()
-        local skipDays = daysToMatch - 1
-        for i = 1, skipDays do
+        -- 最多跳过 daysToMatch 天（安全上限，防止死循环）
+        local maxSkip = math.max(daysToMatch, 1)
+        for i = 1, maxSkip do
             local fixtures = TurnProcessor.advanceDay(gameState)
             if fixtures and #fixtures > 0 then
+                -- 检查是否有玩家比赛（联赛/欧冠/世界杯）
+                local playerFixture = nil
                 for _, f in ipairs(fixtures) do
                     if f._pendingPlayerMatch then
-                        SaveManager.save(gameState, "auto")
-                        Router.navigate("pre_match", { fixture = f })
-                        return
+                        playerFixture = f
+                        break
                     end
+                end
+                if playerFixture then
+                    SaveManager.save(gameState, "auto")
+                    Router.navigate("pre_match", { fixture = playerFixture })
+                    return
                 end
             end
         end
+        -- 到达目标日但没有玩家比赛（理论上不会发生），刷新页面
         SaveManager.save(gameState, "auto")
-        doAdvanceDay()
+        Router.replaceWith("dashboard")
     end
 
     -- 判断当前身份
@@ -185,6 +232,15 @@ function Dashboard.create(params)
         SubscribeToEvent("PostUpdate", function()
             UnsubscribeFromEvent("PostUpdate")
             Dashboard._showObjectivesDetail(gameState)
+        end)
+    end
+
+    -- 首次担任国家队主教练后的切换指引
+    if gameState.ntCoachGuidancePending then
+        gameState.ntCoachGuidancePending = nil
+        SubscribeToEvent("PostUpdate", function()
+            UnsubscribeFromEvent("PostUpdate")
+            Dashboard._showNTCoachGuidance(gameState)
         end)
     end
 
@@ -306,9 +362,12 @@ end
 ------------------------------------------------------
 function Dashboard._buildTopBar(gameState, team, isBlocked, hasAnyBlockers, blockers, daysToMatch, doAdvanceDay, doSkipToMatchDay)
     -- 继续按钮颜色和文本
+    local hasTodayMatch = (daysToMatch == 0)
     local continueColor = isBlocked and Theme.COLORS.DANGER
+        or (hasTodayMatch and Theme.COLORS.MATCH_ORANGE)
         or (hasAnyBlockers and Theme.COLORS.WARNING or Theme.COLORS.FINANCE_GREEN)
     local continueText = isBlocked and "! 阻断"
+        or (hasTodayMatch and "! 继续")
         or (hasAnyBlockers and "! 继续" or "继续 >")
 
     local children = {
@@ -324,48 +383,9 @@ function Dashboard._buildTopBar(gameState, team, isBlocked, hasAnyBlockers, bloc
                 Dashboard._showFixtureCalendar(gameState)
             end,
         },
-        -- 球队/国家队图标（点击查看经理档案）
-        UI.Panel {
-            width = 26, height = 26,
-            marginLeft = 6, marginRight = 2,
-            onClick = function()
-                Router.navigate("manager_view")
-            end,
-            children = {
-                TeamIcon.create { team = team, size = 26 },
-            },
-        },
-        -- 身份切换按钮（仅在有国家队身份时显示）
-        Dashboard._buildRoleSwitcher(gameState),
+        -- 球队/国家队图标（有国家队身份时点击切换模式，否则查看经理档案）
+        Dashboard._buildTeamIconSwitcher(gameState, team),
         UI.Panel { flexGrow = 1 },
-        -- 潜力透视按钮
-        UI.Button {
-            text = gameState.potentialRevealed and "🔓" or "🔮",
-            width = 30,
-            height = 30,
-            backgroundColor = gameState.potentialRevealed and {30, 60, 50, 255} or Theme.COLORS.TRANSPARENT,
-            borderRadius = 15,
-            fontSize = 16,
-            color = gameState.potentialRevealed and Theme.COLORS.ACCENT or Theme.COLORS.TEXT_MUTED,
-            marginRight = 4,
-            onClick = function()
-                Dashboard._showPotentialModifierDialog(gameState)
-            end,
-        },
-        -- 荣誉室按钮
-        UI.Button {
-            text = "🏆",
-            width = 30,
-            height = 30,
-            backgroundColor = Theme.COLORS.TRANSPARENT,
-            borderRadius = 15,
-            fontSize = 16,
-            color = Theme.COLORS.TEXT_MUTED,
-            marginRight = 4,
-            onClick = function()
-                Router.navigate("trophy_cabinet")
-            end,
-        },
         -- 设置按钮
         UI.Button {
             text = "⚙",
@@ -605,7 +625,9 @@ function Dashboard._buildMatchHero(gameState, team)
     if not team then return UI.Panel { height = 0 } end
 
     local league = gameState.league
-    local nextFixture = league and league:getNextFixture(gameState.playerTeamId) or nil
+
+    -- 使用统一搜索：确保显示和跳过按钮找到的是同一场比赛
+    local daysToMatch, nextFixture, isUCLMatch, isWCMatch = Dashboard._findNextMatch(gameState)
 
     if not nextFixture then
         return Theme.HeroCard {
@@ -620,21 +642,45 @@ function Dashboard._buildMatchHero(gameState, team)
         }
     end
 
-    local opponentId = nextFixture.homeTeamId == gameState.playerTeamId
-        and nextFixture.awayTeamId or nextFixture.homeTeamId
+    local playerTeamId = gameState.playerTeamId
+    local opponentId
+    if isWCMatch then
+        local playerNation = gameState.nationalTeamCoach and gameState.nationalTeamCoach.nation
+        opponentId = nextFixture.homeTeamId == playerNation
+            and nextFixture.awayTeamId or nextFixture.homeTeamId
+    else
+        opponentId = nextFixture.homeTeamId == playerTeamId
+            and nextFixture.awayTeamId or nextFixture.homeTeamId
+    end
     local opponent = gameState.teams[opponentId]
-    local isHome = nextFixture.homeTeamId == gameState.playerTeamId
+    local isHome = isWCMatch
+        and (nextFixture.homeTeamId == (gameState.nationalTeamCoach and gameState.nationalTeamCoach.nation))
+        or (nextFixture.homeTeamId == playerTeamId)
     local venue = isHome and "主场" or "客场"
-    local opponentName = opponent and opponent.name or "未知"
+    local opponentName
+    if isWCMatch then
+        local WorldCup = require("scripts/systems/world_cup")
+        opponentName = WorldCup._getNationName(opponentId) or opponentId
+    else
+        opponentName = opponent and opponent.name or "未知"
+    end
 
     -- 日期和倒计时
     local matchDateStr = string.format("%d月%d日", nextFixture.date.month, nextFixture.date.day)
-    local daysToMatch = Dashboard._getDaysToNextMatch(gameState)
-    local countdownText = daysToMatch <= 1 and "明天" or (daysToMatch .. "天后")
+    local countdownText = daysToMatch == 0 and "今天" or (daysToMatch == 1 and "明天" or (daysToMatch .. "天后"))
 
-    -- 联赛信息
-    local leagueName = league and league.name or ""
-    local roundNum = league and league.currentRound or 1
+    -- 赛事信息
+    local competitionInfo
+    if isWCMatch then
+        competitionInfo = "世界杯"
+    elseif isUCLMatch then
+        local matchdayStr = nextFixture.matchday and ("第" .. nextFixture.matchday .. "比赛日") or ""
+        competitionInfo = "欧冠 " .. matchdayStr
+    else
+        local leagueName = league and league.name or ""
+        local roundNum = nextFixture.round or (league and league.currentRound or 1)
+        competitionInfo = leagueName .. " 第" .. roundNum .. "轮"
+    end
 
     -- 球队状态数据（真实数据）
     local injuredCount = 0
@@ -750,7 +796,7 @@ function Dashboard._buildMatchHero(gameState, team)
                 width = "100%", flexDirection = "row", justifyContent = "center", alignItems = "center",
                 marginBottom = 14,
                 children = {
-                    UI.Label { text = leagueName .. " 第" .. roundNum .. "轮", fontSize = 11, color = Theme.COLORS.TEXT_MUTED },
+                    UI.Label { text = competitionInfo, fontSize = 11, color = Theme.COLORS.TEXT_MUTED },
                     UI.Label { text = "  ·  ", fontSize = 11, color = Theme.COLORS.TEXT_MUTED },
                     UI.Label { text = venue, fontSize = 11, color = Theme.COLORS.MATCH_ORANGE, fontWeight = "bold" },
                 }
@@ -1406,7 +1452,43 @@ function Dashboard._buildClubSnapshot(gameState, team)
         width = "100%",
         marginBottom = 12,
         children = {
-            Theme.SectionHeader { text = "俱乐部状态", color = Theme.COLORS.INFO_BLUE },
+            Theme.SectionHeader {
+                text = "俱乐部状态",
+                color = Theme.COLORS.INFO_BLUE,
+                rightChild = UI.Panel {
+                    flexDirection = "row",
+                    alignItems = "center",
+                    children = {
+                        -- 潜力透视按钮（广告）
+                        UI.Button {
+                            text = gameState.potentialRevealed and "🔓" or "🔮",
+                            width = 28,
+                            height = 28,
+                            backgroundColor = gameState.potentialRevealed and {30, 60, 50, 255} or Theme.COLORS.TRANSPARENT,
+                            borderRadius = 14,
+                            fontSize = 14,
+                            color = gameState.potentialRevealed and Theme.COLORS.ACCENT or Theme.COLORS.TEXT_MUTED,
+                            marginRight = 6,
+                            onClick = function()
+                                Dashboard._showPotentialModifierDialog(gameState)
+                            end,
+                        },
+                        -- 荣誉室按钮
+                        UI.Button {
+                            text = "🏆",
+                            width = 28,
+                            height = 28,
+                            backgroundColor = Theme.COLORS.TRANSPARENT,
+                            borderRadius = 14,
+                            fontSize = 14,
+                            color = Theme.COLORS.TEXT_MUTED,
+                            onClick = function()
+                                Router.navigate("trophy_cabinet")
+                            end,
+                        },
+                    },
+                },
+            },
 
             -- [1] 联赛 - 全宽横向记分牌
             leagueStrip,
@@ -1981,39 +2063,247 @@ function Dashboard._showObjectiveSelection(gameState, initSelected)
 end
 
 ------------------------------------------------------
--- [国家队模式] 身份切换按钮
+-- [顶栏] 队徽图标 + 身份切换（整合版）
 ------------------------------------------------------
-function Dashboard._buildRoleSwitcher(gameState)
-    -- 只有在拥有国家队身份且世界杯存在时才显示
-    if not gameState.nationalTeamCoach or not gameState.worldCup then
-        return UI.Panel { width = 0, height = 0 }
+function Dashboard._buildTeamIconSwitcher(gameState, team)
+    local hasNT = gameState.nationalTeamCoach and gameState.worldCup
+    local isNT = gameState.currentRole == "national_team"
+
+    -- 根据当前模式决定显示内容
+    local iconChild
+    if isNT and hasNT then
+        -- 国家队模式：显示国家队图标
+        local nationCode = gameState.nationalTeamCoach.nation
+        local iconPath = WorldCup.getNationIconPath(nationCode)
+        if iconPath then
+            iconChild = UI.Panel {
+                width = 26, height = 26,
+                borderRadius = 13,
+                backgroundImage = iconPath,
+                backgroundSize = "contain",
+            }
+        else
+            local nationName = WorldCup._getNationName(nationCode) or nationCode
+            iconChild = UI.Panel {
+                width = 26, height = 26,
+                borderRadius = 13,
+                backgroundColor = {25, 60, 90, 255},
+                justifyContent = "center", alignItems = "center",
+                children = {
+                    UI.Label { text = string.sub(nationName, 1, 3), fontSize = 9, color = {130, 200, 255, 255} },
+                },
+            }
+        end
+    else
+        -- 俱乐部模式：显示俱乐部图标
+        iconChild = TeamIcon.create { team = team, size = 26 }
     end
 
-    local isNT = gameState.currentRole == "national_team"
-    local nationCode = gameState.nationalTeamCoach.nation
-    local nationName = WorldCup._getNationName(nationCode)
+    -- 标签文字
+    local label = ""
+    if hasNT then
+        if isNT then
+            local nationName = WorldCup._getNationName(gameState.nationalTeamCoach.nation) or ""
+            label = nationName
+        else
+            label = "俱乐部"
+        end
+    else
+        label = "俱乐部"
+    end
 
-    local label = isNT and ("🏴 " .. nationName) or "🏠 俱乐部"
-    local bgColor = isNT and {25, 60, 90, 255} or {50, 50, 55, 255}
-
-    return UI.Button {
-        text = label,
-        height = 26,
-        backgroundColor = bgColor,
-        borderRadius = 13,
-        fontSize = 10,
-        color = isNT and {130, 200, 255, 255} or Theme.COLORS.TEXT_SECONDARY,
-        paddingLeft = 8, paddingRight = 8,
+    return UI.Panel {
+        flexDirection = "row",
+        alignItems = "center",
         marginLeft = 6,
+        height = 34,
+        paddingLeft = 4, paddingRight = 8,
+        backgroundColor = hasNT and (isNT and {25, 60, 90, 200} or {50, 50, 55, 200}) or Theme.COLORS.TRANSPARENT,
+        borderRadius = 17,
         onClick = function()
-            if gameState.currentRole == "national_team" then
-                gameState.currentRole = "club"
+            if hasNT then
+                -- 有国家队身份：切换模式
+                if gameState.currentRole == "national_team" then
+                    gameState.currentRole = "club"
+                else
+                    gameState.currentRole = "national_team"
+                end
+                Router.replaceWith("dashboard")
             else
-                gameState.currentRole = "national_team"
+                -- 无国家队身份：查看经理档案
+                Router.navigate("manager_view")
             end
-            Router.replaceWith("dashboard")
         end,
+        children = {
+            iconChild,
+            UI.Label {
+                text = label,
+                fontSize = 11,
+                color = isNT and {130, 200, 255, 255} or Theme.COLORS.TEXT_SECONDARY,
+                marginLeft = 5,
+                fontWeight = "bold",
+            },
+        },
     }
+end
+
+------------------------------------------------------
+-- [国家队模式] 首次上任指引弹窗
+------------------------------------------------------
+function Dashboard._showNTCoachGuidance(gameState)
+    local nationName = ""
+    if gameState.nationalTeamCoach then
+        local WorldCupMod = require("scripts/systems/world_cup")
+        nationName = WorldCupMod._getNationName(gameState.nationalTeamCoach.nation) or ""
+    end
+
+    -- 获取国旗图标
+    local WorldCup = require("scripts/systems/world_cup")
+    local nationCode = gameState.nationalTeamCoach and gameState.nationalTeamCoach.nation or ""
+    local nationIconPath = WorldCup.getNationIconPath(nationCode)
+
+    -- 国旗图标或 fallback emoji
+    local flagIcon
+    if nationIconPath then
+        flagIcon = UI.Panel {
+            width = 52, height = 52, marginBottom = 12,
+            borderRadius = 26,
+            backgroundColor = {255, 255, 255, 20},
+            justifyContent = "center", alignItems = "center",
+            children = {
+                UI.Panel {
+                    width = 40, height = 40, borderRadius = 20,
+                    backgroundImage = nationIconPath,
+                    backgroundSize = "contain",
+                },
+            },
+        }
+    else
+        flagIcon = UI.Label {
+            text = "🏳️", fontSize = 42, marginBottom = 12,
+        }
+    end
+
+    local overlay = UI.Panel {
+        width = "100%",
+        height = "100%",
+        backgroundColor = {0, 0, 0, 180},
+        justifyContent = "center",
+        alignItems = "center",
+        children = {
+            -- 主卡片
+            UI.Panel {
+                width = 320,
+                maxWidth = "88%",
+                backgroundColor = {20, 22, 30, 252},
+                borderRadius = 20,
+                paddingTop = 32, paddingBottom = 28, paddingLeft = 24, paddingRight = 24,
+                alignItems = "center",
+                borderWidth = 1.5,
+                borderColor = {200, 170, 80, 120},
+                children = {
+                    -- 旗帜图标
+                    flagIcon,
+                    -- 标题（金色）
+                    UI.Label {
+                        text = "国家队身份已激活",
+                        fontSize = 20,
+                        color = {240, 200, 80, 255},
+                        fontWeight = "bold",
+                        textAlign = "center",
+                        marginBottom = 8,
+                    },
+                    -- 副标题
+                    UI.Label {
+                        text = string.format("恭喜！你已成为%s主教练。", nationName),
+                        fontSize = 14,
+                        color = {200, 200, 210, 255},
+                        textAlign = "center",
+                        marginBottom = 20,
+                    },
+                    -- 操作指引卡片
+                    UI.Panel {
+                        width = "100%",
+                        backgroundColor = {255, 248, 220, 12},
+                        borderRadius = 14,
+                        borderWidth = 1,
+                        borderColor = {200, 170, 80, 60},
+                        paddingTop = 14, paddingBottom = 14, paddingLeft = 16, paddingRight = 16,
+                        alignItems = "center",
+                        marginBottom = 16,
+                        children = {
+                            UI.Label {
+                                text = "👆 点击顶部栏的队徽图标切换",
+                                fontSize = 13,
+                                color = {240, 210, 100, 255},
+                                fontWeight = "bold",
+                                textAlign = "center",
+                                marginBottom = 10,
+                            },
+                            -- 切换按钮示意
+                            UI.Panel {
+                                flexDirection = "row",
+                                alignItems = "center",
+                                justifyContent = "center",
+                                backgroundColor = {30, 32, 40, 200},
+                                borderRadius = 16,
+                                paddingTop = 6, paddingBottom = 6, paddingLeft = 12, paddingRight = 12,
+                                children = {
+                                    UI.Panel {
+                                        flexDirection = "row", alignItems = "center", marginRight = 8,
+                                        backgroundColor = {50, 52, 60, 255},
+                                        borderRadius = 10,
+                                        paddingLeft = 8, paddingRight = 8, paddingTop = 4, paddingBottom = 4,
+                                        children = {
+                                            UI.Label { text = "🏠 俱乐部", fontSize = 11, color = {180, 180, 190, 255} },
+                                        },
+                                    },
+                                    UI.Label { text = "⇄", fontSize = 16, color = {200, 170, 80, 220}, marginRight = 8 },
+                                    UI.Panel {
+                                        flexDirection = "row", alignItems = "center",
+                                        backgroundColor = {60, 50, 20, 255},
+                                        borderRadius = 10,
+                                        borderWidth = 1, borderColor = {200, 170, 80, 100},
+                                        paddingLeft = 8, paddingRight = 8, paddingTop = 4, paddingBottom = 4,
+                                        children = {
+                                            UI.Label { text = "🏴 " .. nationName, fontSize = 11, color = {240, 210, 100, 255} },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    -- 说明文字
+                    UI.Label {
+                        text = "你可以随时点击顶部栏的队徽\n切换「俱乐部」与「国家队」身份，\n分别管理两支球队的事务。",
+                        fontSize = 13,
+                        color = {150, 150, 160, 255},
+                        textAlign = "center",
+                        lineHeight = 1.6,
+                        width = "100%",
+                        whiteSpace = "normal",
+                        marginBottom = 22,
+                    },
+                    -- 按钮（金色调）
+                    UI.Button {
+                        text = "知道了",
+                        width = 140,
+                        height = 40,
+                        fontSize = 15,
+                        color = {30, 25, 10, 255},
+                        backgroundColor = {220, 185, 70, 255},
+                        borderRadius = 20,
+                        fontWeight = "bold",
+                        onClick = function()
+                            UI.CloseOverlay()
+                        end,
+                    },
+                },
+            },
+        },
+    }
+
+    UI.ShowOverlay(overlay)
 end
 
 ------------------------------------------------------
@@ -2138,7 +2428,7 @@ function Dashboard._buildNTMatchHero(gameState)
                 }
             },
 
-            -- 对阵区：国旗emoji + 国名 + VS
+            -- 对阵区：国家队徽 + 国名 + VS
             UI.Panel {
                 width = "100%",
                 flexDirection = "row",
@@ -2154,9 +2444,12 @@ function Dashboard._buildNTMatchHero(gameState)
                                 width = 52, height = 52, borderRadius = 26,
                                 backgroundColor = {40, 70, 120, 255},
                                 justifyContent = "center", alignItems = "center",
-                                children = {
-                                    UI.Label { text = "🏴", fontSize = 28 },
-                                }
+                                overflow = "hidden",
+                                backgroundImage = WorldCup.getNationIconPath(playerNation) or "",
+                                backgroundFit = "contain",
+                                children = (not WorldCup.getNationIconPath(playerNation)) and {
+                                    UI.Label { text = playerNation or "?", fontSize = 14, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold" },
+                                } or {},
                             },
                             UI.Label {
                                 text = nationName,
@@ -2183,9 +2476,12 @@ function Dashboard._buildNTMatchHero(gameState)
                                 width = 52, height = 52, borderRadius = 26,
                                 backgroundColor = {60, 50, 50, 255},
                                 justifyContent = "center", alignItems = "center",
-                                children = {
-                                    UI.Label { text = "🏴", fontSize = 28 },
-                                }
+                                overflow = "hidden",
+                                backgroundImage = WorldCup.getNationIconPath(opponentCode) or "",
+                                backgroundFit = "contain",
+                                children = (not WorldCup.getNationIconPath(opponentCode)) and {
+                                    UI.Label { text = opponentCode or "?", fontSize = 14, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold" },
+                                } or {},
                             },
                             UI.Label {
                                 text = opponentName,
@@ -2362,11 +2658,136 @@ function Dashboard._buildNTSnapshot(gameState)
             table.insert(children, row)
         end
     elseif knockoutInfo then
+        -- 淘汰赛对阵图（compact bracket tree）
         table.insert(children, UI.Panel {
-            width = "100%", flexDirection = "row", alignItems = "center", marginBottom = 6,
+            width = "100%", flexDirection = "row", alignItems = "center", marginBottom = 8,
             children = {
                 UI.Label { text = "⚔️", fontSize = 14, marginRight = 6 },
-                UI.Label { text = knockoutInfo, fontSize = 13, color = {255, 215, 0, 255}, fontWeight = "bold" },
+                UI.Label { text = "淘汰赛对阵", fontSize = 13, color = {255, 215, 0, 255}, fontWeight = "bold" },
+            }
+        })
+
+        -- 构建紧凑型bracket
+        local bracketPhases = {
+            {key = "r32", name = "32强"},
+            {key = "r16", name = "16强"},
+            {key = "qf", name = "8强"},
+            {key = "sf", name = "4强"},
+            {key = "final", name = "决赛"},
+        }
+
+        local function buildMiniCard(f)
+            if not f then
+                return UI.Panel {
+                    width = 100, height = 32,
+                    backgroundColor = {30, 35, 50, 255},
+                    borderRadius = 4, borderWidth = 1, borderColor = {50, 55, 70, 255},
+                    justifyContent = "center", alignItems = "center",
+                    marginTop = 1, marginBottom = 1,
+                    children = {
+                        UI.Label { text = "—", fontSize = 9, color = Theme.COLORS.TEXT_MUTED },
+                    }
+                }
+            end
+
+            local hName = WorldCup._getNationName(f.homeTeamId)
+            local aName = WorldCup._getNationName(f.awayTeamId)
+            if #hName > 4 then hName = string.sub(hName, 1, 6) end
+            if #aName > 4 then aName = string.sub(aName, 1, 6) end
+
+            local done = f.status == "finished"
+            local hWin = done and (f.homeGoals > f.awayGoals or (f._penaltyWinner and f._penaltyWinner == f.homeTeamId))
+            local aWin = done and (f.awayGoals > f.homeGoals or (f._penaltyWinner and f._penaltyWinner == f.awayTeamId))
+            local hCol = hWin and {255, 215, 0, 255} or Theme.COLORS.TEXT_PRIMARY
+            local aCol = aWin and {255, 215, 0, 255} or Theme.COLORS.TEXT_PRIMARY
+            local bg = done and {20, 35, 55, 255} or {30, 35, 50, 255}
+            local bd = done and {40, 80, 130, 255} or {50, 55, 70, 255}
+
+            return UI.Panel {
+                width = 100, height = 32,
+                backgroundColor = bg,
+                borderRadius = 4, borderWidth = 1, borderColor = bd,
+                justifyContent = "center",
+                paddingLeft = 4, paddingRight = 4,
+                marginTop = 1, marginBottom = 1,
+                children = {
+                    UI.Panel {
+                        width = "100%", flexDirection = "row", justifyContent = "space-between",
+                        children = {
+                            UI.Label { text = hName, fontSize = 9, color = hCol, fontWeight = hWin and "bold" or "normal", flexShrink = 1 },
+                            UI.Label { text = done and tostring(f.homeGoals) or "", fontSize = 9, color = {180, 200, 255, 255}, width = 10, textAlign = "right" },
+                        }
+                    },
+                    UI.Panel {
+                        width = "100%", flexDirection = "row", justifyContent = "space-between",
+                        children = {
+                            UI.Label { text = aName, fontSize = 9, color = aCol, fontWeight = aWin and "bold" or "normal", flexShrink = 1 },
+                            UI.Label { text = done and tostring(f.awayGoals) or "", fontSize = 9, color = {180, 200, 255, 255}, width = 10, textAlign = "right" },
+                        }
+                    },
+                }
+            }
+        end
+
+        local bracketCols = {}
+        for _, bp in ipairs(bracketPhases) do
+            local fixtures = wc.knockout[bp.key] or {}
+            local realFixtures = {}
+            for _, f in ipairs(fixtures) do
+                if not f._isThirdPlace then table.insert(realFixtures, f) end
+            end
+
+            local colChildren = {}
+            table.insert(colChildren, UI.Panel {
+                width = "100%", alignItems = "center", marginBottom = 4,
+                children = {
+                    UI.Label { text = bp.name, fontSize = 9, color = {150, 180, 220, 255}, fontWeight = "bold" },
+                }
+            })
+
+            if #realFixtures > 0 then
+                for _, f in ipairs(realFixtures) do
+                    table.insert(colChildren, buildMiniCard(f))
+                end
+            else
+                local expectedCount = ({r32 = 16, r16 = 8, qf = 4, sf = 2, final = 1})[bp.key] or 0
+                for _ = 1, expectedCount do
+                    table.insert(colChildren, buildMiniCard(nil))
+                end
+            end
+
+            table.insert(bracketCols, UI.Panel {
+                alignItems = "center",
+                justifyContent = "space-around",
+                flexGrow = 1,
+                children = colChildren,
+            })
+        end
+
+        -- 冠军列（如果有）
+        if wc.champion then
+            local champName = WorldCup._getNationName(wc.champion)
+            table.insert(bracketCols, UI.Panel {
+                alignItems = "center", justifyContent = "center", flexGrow = 1,
+                children = {
+                    UI.Label { text = "🏆", fontSize = 18 },
+                    UI.Label { text = champName, fontSize = 10, color = {255, 215, 0, 255}, fontWeight = "bold", marginTop = 4 },
+                }
+            })
+        end
+
+        table.insert(children, UI.ScrollView {
+            width = "100%",
+            height = 360,
+            scrollX = true,
+            scrollY = false,
+            children = {
+                UI.Panel {
+                    flexDirection = "row",
+                    alignItems = "stretch",
+                    height = "100%",
+                    children = bracketCols,
+                }
             }
         })
     end

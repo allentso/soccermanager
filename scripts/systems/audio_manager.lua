@@ -36,20 +36,24 @@ function AudioManager.init()
     _ambientNode = Node()
     _ambientSource = _ambientNode:CreateComponent("SoundSource")
     _ambientSource.soundType = SOUND_EFFECT
-    _ambientSource.gain = 0.4
+    _ambientSource.gain = 0.7
 end
 
 ------------------------------------------------------
 -- 音效播放
 ------------------------------------------------------
-function AudioManager.playSFX(path, gain)
+--- 播放音效（内部通用方法）
+--- @param path string 音效路径
+--- @param gain number|nil 基础增益
+--- @param volumeKey string 音量设置键名（"sfxVolume" 或 "musicVolume"）
+function AudioManager._playSoundInternal(path, gain, volumeKey)
     if not _initialized then AudioManager.init() end
     if not path then return end
 
-    -- 检查音效音量是否为0（避免无意义播放）
-    local sfxVol = (SettingsManager.get("sfxVolume") or 80) / 100
+    -- 应用用户音量设置
+    local vol = (SettingsManager.get(volumeKey) or 100) / 100
     local masterVol = (SettingsManager.get("masterVolume") or 80) / 100
-    if sfxVol <= 0 or masterVol <= 0 then return end
+    if vol <= 0 or masterVol <= 0 then return end
 
     local sound = cache:GetResource("Sound", path)
     if not sound then
@@ -57,12 +61,21 @@ function AudioManager.playSFX(path, gain)
         return
     end
 
-    -- 为每个音效创建独立的 SoundSource（允许同时播放多个音效）
     local source = _sfxNode:CreateComponent("SoundSource")
     source.soundType = SOUND_EFFECT
-    source.gain = gain or 1.0
+    source.gain = (gain or 1.0) * vol * masterVol
     source.autoRemoveMode = REMOVE_COMPONENT
     source:Play(sound)
+end
+
+--- 播放UI音效（受"音效音量"控制）
+function AudioManager.playSFX(path, gain)
+    AudioManager._playSoundInternal(path, gain, "sfxVolume")
+end
+
+--- 播放比赛音效（受"音乐音量"控制）
+function AudioManager.playMatchSFX(path, gain)
+    AudioManager._playSoundInternal(path, gain, "musicVolume")
 end
 
 ------------------------------------------------------
@@ -73,7 +86,12 @@ function AudioManager.startCrowdAmbient()
     local sound = cache:GetResource("Sound", AudioManager.SFX.CROWD_AMBIENT)
     if not sound then return end
     sound.looped = true
-    _ambientSource.gain = 0.4
+
+    -- 球场氛围受"音乐音量"控制
+    local musicVol = (SettingsManager.get("musicVolume") or 30) / 100
+    local masterVol = (SettingsManager.get("masterVolume") or 80) / 100
+    ---@diagnostic disable-next-line: assign-type-mismatch
+    _ambientSource.gain = 0.7 * musicVol * masterVol
     _ambientSource:Play(sound)
 end
 
@@ -88,25 +106,25 @@ function AudioManager.isCrowdAmbientPlaying()
 end
 
 ------------------------------------------------------
--- 比赛音效便捷方法
+-- 比赛音效便捷方法（受"音乐音量"控制）
 ------------------------------------------------------
 function AudioManager.whistle()
-    AudioManager.playSFX(AudioManager.SFX.WHISTLE, 0.5)
+    AudioManager.playMatchSFX(AudioManager.SFX.WHISTLE, 1.0)
 end
 
 function AudioManager.cheer()
-    AudioManager.playSFX(AudioManager.SFX.CROWD_CHEER, 0.9)
+    AudioManager.playMatchSFX(AudioManager.SFX.CROWD_CHEER, 1.0)
 end
 
 ------------------------------------------------------
 -- UI 反馈音效
 ------------------------------------------------------
 function AudioManager.tap()
-    AudioManager.playSFX(AudioManager.SFX.UI_TAP, 0.4)
+    AudioManager.playSFX(AudioManager.SFX.UI_TAP, 1.5)
 end
 
 function AudioManager.deny()
-    AudioManager.playSFX(AudioManager.SFX.UI_DENY, 0.45)
+    AudioManager.playSFX(AudioManager.SFX.UI_DENY, 1.5)
 end
 
 return AudioManager

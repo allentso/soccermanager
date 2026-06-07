@@ -11,6 +11,7 @@ local ChampionsLeague = require("scripts/systems/champions_league")
 local LeagueView = {}
 
 -- 当前查看的联赛key（模块级状态），"UCL" 表示欧冠，"WC" 表示世界杯
+---@type string?
 local currentLeagueKey = nil
 
 function LeagueView.create(params)
@@ -41,6 +42,7 @@ function LeagueView.create(params)
     local leagueOrder = {"EPL", "LaLiga", "SerieA", "Bundesliga", "Ligue1", "UCL", "WC"}
     for _, key in ipairs(leagueOrder) do
         local hasData = false
+        ---@type string
         local tabName = key
         if key == "UCL" then
             hasData = gameState.championsLeague ~= nil
@@ -776,60 +778,222 @@ function LeagueView._createWCView(gameState, leagueTabs)
         end
     end
 
-    -- 淘汰赛对阵
+    -- 淘汰赛对阵图（Bracket Tree）
+    local hasKnockout = false
     local knockoutPhases = {
+        {key = "r32", name = "1/16 决赛"},
         {key = "r16", name = "1/8 决赛"},
         {key = "qf", name = "1/4 决赛"},
         {key = "sf", name = "半决赛"},
         {key = "final", name = "决赛"},
     }
-
     for _, kp in ipairs(knockoutPhases) do
-        local fixtures = wc.knockout[kp.key]
-        if fixtures and #fixtures > 0 then
-            table.insert(contentChildren, UI.Panel {
-                width = "100%", paddingLeft = 10, paddingTop = 14, paddingBottom = 4,
-                children = {
-                    UI.Label { text = kp.name, fontSize = 14, color = {255, 200, 50, 255}, fontWeight = "bold" },
-                }
-            })
-
-            -- 世界杯淘汰赛为单场制，只显示 leg==1 的比赛
-            for _, f in ipairs(fixtures) do
-                if f.leg == 1 then
-                    local homeName = WorldCupSystem._getNationName(f.homeTeamId)
-                    local awayName = WorldCupSystem._getNationName(f.awayTeamId)
-                    local scoreText = f.status == "finished"
-                        and (f.homeGoals .. " - " .. f.awayGoals)
-                        or "vs"
-
-                    table.insert(contentChildren, UI.Panel {
-                        width = "100%", height = 38,
-                        flexDirection = "row", alignItems = "center",
-                        paddingLeft = 10, paddingRight = 10,
-                        borderBottomWidth = 1, borderColor = Theme.COLORS.BORDER,
-                        children = {
-                            UI.Label { text = homeName, fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold", flexGrow = 1, flexShrink = 1 },
-                            UI.Label { text = scoreText, fontSize = 14, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold", width = 50, textAlign = "center" },
-                            UI.Label { text = awayName, fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold", flexGrow = 1, flexShrink = 1, textAlign = "right" },
-                        },
-                    })
-                end
-            end
+        if wc.knockout[kp.key] and #wc.knockout[kp.key] > 0 then
+            hasKnockout = true
+            break
         end
     end
 
-    -- 冠军显示
-    if wc.champion then
-        local championName = WorldCupSystem._getNationName(wc.champion)
+    if hasKnockout then
         table.insert(contentChildren, UI.Panel {
-            width = "100%", paddingTop = 16, paddingBottom = 16,
-            alignItems = "center",
+            width = "100%", paddingLeft = 10, paddingTop = 16, paddingBottom = 8,
             children = {
-                UI.Label { text = "世界杯冠军", fontSize = 12, color = Theme.COLORS.TEXT_MUTED },
-                UI.Label { text = championName, fontSize = 20, color = {255, 215, 0, 255}, fontWeight = "bold" },
+                UI.Label { text = "⚔️ 淘汰赛对阵图", fontSize = 15, color = {255, 215, 0, 255}, fontWeight = "bold" },
             }
         })
+
+        -- 构建bracket: 每轮为一列，从R16→QF→SF→Final
+        -- 辅助函数：生成单场对阵卡片
+        local function buildMatchCard(f, compact)
+            if not f then
+                return UI.Panel {
+                    width = compact and 110 or 130, height = compact and 40 or 48,
+                    backgroundColor = {30, 35, 50, 255},
+                    borderRadius = 6, borderWidth = 1, borderColor = {60, 70, 90, 255},
+                    justifyContent = "center", alignItems = "center",
+                    marginTop = 2, marginBottom = 2,
+                    children = {
+                        UI.Label { text = "待定", fontSize = 10, color = Theme.COLORS.TEXT_MUTED },
+                    }
+                }
+            end
+
+            local homeName = WorldCupSystem._getNationName(f.homeTeamId)
+            local awayName = WorldCupSystem._getNationName(f.awayTeamId)
+            -- 缩短名字
+            if #homeName > 5 then homeName = string.sub(homeName, 1, 9) end
+            if #awayName > 5 then awayName = string.sub(awayName, 1, 9) end
+
+            local isFinished = f.status == "finished"
+            local homeWin = isFinished and (f.homeGoals > f.awayGoals or (f._penaltyWinner and f._penaltyWinner == f.homeTeamId))
+            local awayWin = isFinished and (f.awayGoals > f.homeGoals or (f._penaltyWinner and f._penaltyWinner == f.awayTeamId))
+
+            local homeColor = homeWin and {255, 215, 0, 255} or Theme.COLORS.TEXT_PRIMARY
+            local awayColor = awayWin and {255, 215, 0, 255} or Theme.COLORS.TEXT_PRIMARY
+            local scoreColor = isFinished and {200, 220, 255, 255} or Theme.COLORS.TEXT_MUTED
+            local bgColor = isFinished and {25, 40, 65, 255} or {30, 35, 50, 255}
+            local borderCol = isFinished and {50, 90, 140, 255} or {50, 55, 70, 255}
+
+            local scoreText = isFinished and (f.homeGoals .. "-" .. f.awayGoals) or "vs"
+            local fs = compact and 9 or 11
+            local hasPen = f.penalties and f.penalties.homeScore
+            local cardH = compact and 40 or 48
+            if hasPen then cardH = cardH + 10 end
+
+            local cardChildren = {
+                -- 上方球队
+                UI.Panel {
+                    width = "100%", flexDirection = "row", justifyContent = "space-between", alignItems = "center",
+                    children = {
+                        UI.Label { text = homeName, fontSize = fs, color = homeColor, fontWeight = homeWin and "bold" or "normal", flexGrow = 1, flexShrink = 1 },
+                        UI.Label { text = isFinished and tostring(f.homeGoals) or "", fontSize = fs, color = scoreColor, width = 14, textAlign = "right" },
+                    }
+                },
+                -- 下方球队
+                UI.Panel {
+                    width = "100%", flexDirection = "row", justifyContent = "space-between", alignItems = "center",
+                    children = {
+                        UI.Label { text = awayName, fontSize = fs, color = awayColor, fontWeight = awayWin and "bold" or "normal", flexGrow = 1, flexShrink = 1 },
+                        UI.Label { text = isFinished and tostring(f.awayGoals) or "", fontSize = fs, color = scoreColor, width = 14, textAlign = "right" },
+                    }
+                },
+            }
+            -- 点球标记
+            if hasPen then
+                table.insert(cardChildren, UI.Label {
+                    text = string.format("(P %d-%d)", f.penalties.homeScore, f.penalties.awayScore),
+                    fontSize = 8, color = {255, 180, 100, 200}, textAlign = "center", width = "100%",
+                })
+            end
+
+            return UI.Panel {
+                width = compact and 110 or 130, height = cardH,
+                backgroundColor = bgColor,
+                borderRadius = 6, borderWidth = 1, borderColor = borderCol,
+                justifyContent = "center",
+                paddingLeft = 6, paddingRight = 6,
+                marginTop = 2, marginBottom = 2,
+                children = cardChildren,
+            }
+        end
+
+        -- 构建每轮的fixture列（竖向排列）
+        local bracketColumns = {}
+        for _, kp in ipairs(knockoutPhases) do
+            local fixtures = wc.knockout[kp.key] or {}
+            -- 过滤掉季军赛
+            local realFixtures = {}
+            for _, f in ipairs(fixtures) do
+                if not f._isThirdPlace then
+                    table.insert(realFixtures, f)
+                end
+            end
+
+            local compact = #realFixtures > 4
+            local colChildren = {}
+
+            -- 轮次标题
+            table.insert(colChildren, UI.Panel {
+                width = "100%", alignItems = "center", marginBottom = 6,
+                children = {
+                    UI.Label { text = kp.name, fontSize = 10, color = {180, 200, 255, 255}, fontWeight = "bold" },
+                }
+            })
+
+            -- 每场对阵
+            for _, f in ipairs(realFixtures) do
+                table.insert(colChildren, buildMatchCard(f, compact))
+            end
+
+            -- 如果该轮没有比赛，显示占位
+            if #realFixtures == 0 then
+                -- 根据前一轮推算该有几场
+                local expectedCount = ({r32 = 16, r16 = 8, qf = 4, sf = 2, final = 1})[kp.key] or 0
+                for _ = 1, expectedCount do
+                    table.insert(colChildren, buildMatchCard(nil, expectedCount > 4))
+                end
+            end
+
+            table.insert(bracketColumns, UI.Panel {
+                alignItems = "center",
+                justifyContent = "space-around",
+                flexGrow = 1,
+                children = colChildren,
+            })
+        end
+
+        -- 冠军列
+        if wc.champion then
+            local championName = WorldCupSystem._getNationName(wc.champion)
+            table.insert(bracketColumns, UI.Panel {
+                alignItems = "center",
+                justifyContent = "center",
+                flexGrow = 1,
+                children = {
+                    UI.Label { text = "冠军", fontSize = 10, color = {180, 200, 255, 255}, fontWeight = "bold", marginBottom = 6 },
+                    UI.Panel {
+                        width = 80, height = 80, borderRadius = 40,
+                        backgroundColor = {40, 60, 20, 255},
+                        borderWidth = 2, borderColor = {255, 215, 0, 255},
+                        justifyContent = "center", alignItems = "center",
+                        overflow = "hidden",
+                        backgroundImage = WorldCupSystem.getNationIconPath(wc.champion) or "",
+                        backgroundFit = "contain",
+                        children = (not WorldCupSystem.getNationIconPath(wc.champion)) and {
+                            UI.Label { text = "🏆", fontSize = 24 },
+                        } or {},
+                    },
+                    UI.Label { text = championName, fontSize = 12, color = {255, 215, 0, 255}, fontWeight = "bold", marginTop = 6 },
+                }
+            })
+        end
+
+        -- 水平 bracket 容器（可水平滚动）
+        table.insert(contentChildren, UI.ScrollView {
+            width = "100%",
+            height = 480,
+            scrollX = true,
+            scrollY = false,
+            children = {
+                UI.Panel {
+                    flexDirection = "row",
+                    alignItems = "stretch",
+                    height = "100%",
+                    paddingLeft = 6, paddingRight = 6,
+                    children = bracketColumns,
+                }
+            }
+        })
+
+        -- 季军赛（如果有）
+        local finalFixtures = wc.knockout["final"] or {}
+        for _, f in ipairs(finalFixtures) do
+            if f._isThirdPlace then
+                local homeName = WorldCupSystem._getNationName(f.homeTeamId)
+                local awayName = WorldCupSystem._getNationName(f.awayTeamId)
+                local scoreText = f.status == "finished"
+                    and (f.homeGoals .. " - " .. f.awayGoals) or "vs"
+
+                table.insert(contentChildren, UI.Panel {
+                    width = "100%", paddingLeft = 10, paddingTop = 10, paddingBottom = 4,
+                    children = {
+                        UI.Label { text = "🥉 季军赛", fontSize = 13, color = {205, 127, 50, 255}, fontWeight = "bold" },
+                    }
+                })
+                table.insert(contentChildren, UI.Panel {
+                    width = "100%", height = 38,
+                    flexDirection = "row", alignItems = "center",
+                    paddingLeft = 10, paddingRight = 10,
+                    borderBottomWidth = 1, borderColor = Theme.COLORS.BORDER,
+                    children = {
+                        UI.Label { text = homeName, fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold", flexGrow = 1, flexShrink = 1 },
+                        UI.Label { text = scoreText, fontSize = 14, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold", width = 50, textAlign = "center" },
+                        UI.Label { text = awayName, fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold", flexGrow = 1, flexShrink = 1, textAlign = "right" },
+                    },
+                })
+                break
+            end
+        end
     end
 
     return UI.Panel {

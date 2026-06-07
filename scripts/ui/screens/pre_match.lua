@@ -82,25 +82,45 @@ function PreMatch.create(params)
     -- 构建首发+替补列表
     local startingXI = {}
     local bench = {}
+    local startingPidSet = {}  -- 用于替补过滤
     if team.startingXI and #team.startingXI > 0 then
-        for _, pid in ipairs(team.startingXI) do
+        for i, pid in ipairs(team.startingXI) do
             local p = gameState.players[pid]
             if p and not p.injured then
-                table.insert(startingXI, p)
+                startingXI[i] = p
+                startingPidSet[pid] = true
+            else
+                startingXI[i] = nil  -- 保留位置占位（受伤/不存在）
             end
         end
     end
+    -- 自动填补空位：用替补中能力最高的健康球员填入
+    local availableSubs = {}
+    for _, pid in ipairs(team.playerIds or {}) do
+        local p = gameState.players[pid]
+        if p and not p.injured and not startingPidSet[pid] then
+            table.insert(availableSubs, p)
+        end
+    end
+    table.sort(availableSubs, function(a, b) return a.overall > b.overall end)
+
+    -- 填充空位
+    local subIdx = 1
+    for i = 1, #(team.startingXI or {}) do
+        if not startingXI[i] and subIdx <= #availableSubs then
+            startingXI[i] = availableSubs[subIdx]
+            startingPidSet[availableSubs[subIdx].id] = true
+            -- 同步更新 team.startingXI
+            team.startingXI[i] = availableSubs[subIdx].id
+            subIdx = subIdx + 1
+        end
+    end
+
     -- 替补：球队中非首发的健康球员
     for _, pid in ipairs(team.playerIds or {}) do
         local p = gameState.players[pid]
-        if p and not p.injured then
-            local inStarting = false
-            for _, sp in ipairs(startingXI) do
-                if sp.id == p.id then inStarting = true; break end
-            end
-            if not inStarting then
-                table.insert(bench, p)
-            end
+        if p and not p.injured and not startingPidSet[pid] then
+            table.insert(bench, p)
         end
     end
     -- 按 overall 排序替补
@@ -384,6 +404,8 @@ function PreMatch._confirmLeave(gameState, team, fixture)
                             if report then
                                 if fixture._isWC then
                                     TurnProcessor._applyWCResult(gameState, fixture, report)
+                                elseif fixture._isUCL then
+                                    TurnProcessor._applyUCLResult(gameState, fixture, report)
                                 else
                                     MatchEngine.applyResult(gameState, fixture, report)
                                 end
@@ -444,7 +466,33 @@ function PreMatch._buildPitchView(startingXI, formation, gameState, team, fixtur
         local top = math.floor((100 - py) / 100 * pitchH) - 16
 
         local player = startingXI[i]
-        local label = player and string.sub(player.displayName, 1, 4) or "?"
+        local label = "?"
+        if player then
+            -- 优先使用 shortName（中文姓氏，如"热苏斯"），次选 lastName
+            local displayLabel = player.shortName or player.lastName or ""
+            if displayLabel == "" or displayLabel == player.displayName then
+                -- fallback: 从 displayName 取中文姓氏部分（·分隔）
+                local dn = player.displayName or ""
+                displayLabel = dn:match("·(.+)$") or dn
+                -- 如果还是全名，从match_name取姓
+                if displayLabel == dn and player.match_name and player.match_name ~= "" then
+                    displayLabel = player.match_name:match("%s(.+)$") or player.match_name
+                end
+            end
+            -- UTF-8 安全截取：最多取5个UTF-8字符
+            local lastName = displayLabel
+            local chars = 0
+            local byteIdx = 1
+            while byteIdx <= #lastName and chars < 5 do
+                local b = lastName:byte(byteIdx)
+                if b < 128 then byteIdx = byteIdx + 1
+                elseif b < 224 then byteIdx = byteIdx + 2
+                elseif b < 240 then byteIdx = byteIdx + 3
+                else byteIdx = byteIdx + 4 end
+                chars = chars + 1
+            end
+            label = lastName:sub(1, byteIdx - 1)
+        end
         local slotPos = slots[i] or "CM"
         local dotColor = Theme.posColor(slotPos)
         -- 低体能警告

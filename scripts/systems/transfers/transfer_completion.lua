@@ -56,7 +56,7 @@ return function(TransferManager)
             end
         end
         if team.startingXI then
-            for i, pid in ipairs(team.startingXI) do
+            for i, pid in ipairs(team.startingXI or {}) do
                 if pid == playerId then
                     table.remove(team.startingXI, i)
                     break

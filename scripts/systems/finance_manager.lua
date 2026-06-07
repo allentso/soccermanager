@@ -167,8 +167,8 @@ function FinanceManager.generateSponsorOffers(gameState)
     local team = gameState:getPlayerTeam()
     if not team then return end
 
-    -- 基础赞助金额跟球队声望挂钩
-    local reputation = team.reputation or 50
+    -- 基础赞助金额跟球队声望挂钩（reputation 值域 500-900，归一化到 0-100）
+    local reputation = (team.reputation or 500) / 10
     local baseFactor = 0.5 + (reputation / 100) * 1.5  -- 0.5x ~ 2.0x
 
     local offers = {}
@@ -290,11 +290,11 @@ function FinanceManager.processMatchDayRevenue(gameState, teamId, isHome, oppone
     if not isHome then return nil end  -- 只有主场有票房
 
     local capacity = team.stadiumCapacity or 30000
-    local rep = team.reputation or 50
+    local rep = (team.reputation or 500) / 10  -- 归一化到 0-100
     local opponentRep = 50
     local opponentName = "对手"
     if opponentTeamId and gameState.teams[opponentTeamId] then
-        opponentRep = gameState.teams[opponentTeamId].reputation or 50
+        opponentRep = (gameState.teams[opponentTeamId].reputation or 500) / 10  -- 归一化到 0-100
         opponentName = gameState.teams[opponentTeamId].name or "对手"
     end
 
@@ -398,14 +398,16 @@ function FinanceManager.processMonthlySponsorship(gameState)
             -- 合同固定月付 + 小幅随机浮动 ±5%
             sponsorRevenue = math.floor(team.sponsorMonthlyTotal * (0.95 + Random() * 0.10))
         else
-            -- AI球队 / 尚未签约：自动计算
-            local rep = team.reputation or 50
+            -- AI球队 / 尚未签约：自动计算（reputation 值域 500-900，归一化到 0-100）
+            local rep = (team.reputation or 500) / 10
             local capacity = team.stadiumCapacity or 30000
             local position = team.leaguePosition or 10
 
             local baseSponsor = rep * 15000 + (capacity / 30000) * 500000
             local posBonus = math.max(0, (11 - position) * rep * 1000)
-            sponsorRevenue = math.floor((baseSponsor + posBonus) * (0.85 + Random() * 0.30))
+            -- 顶级俱乐部品牌溢价：rep>=80 时有额外商业收入（模拟全球品牌效应）
+            local prestigeBonus = math.max(0, (rep - 80) * 500000)
+            sponsorRevenue = math.floor((baseSponsor + posBonus + prestigeBonus) * (0.85 + Random() * 0.30))
         end
 
         team.balance = team.balance + sponsorRevenue
@@ -429,12 +431,12 @@ end
 ------------------------------------------------------
 function FinanceManager.processMonthlyBroadcast(gameState)
     for teamId, team in pairs(gameState.teams) do
-        local rep = team.reputation or 50
+        local rep = (team.reputation or 500) / 10  -- 归一化到 0-100
         local position = team.leaguePosition or 10
 
         -- 转播池按排名分配（第1名拿最大份额，第20名最小）
         local shareRatio = 1.0 + (20 - position) * 0.05  -- 第1=1.95x, 第10=1.50x, 第20=1.00x
-        local baseAmount = rep * 30000 + 800000
+        local baseAmount = rep * 26000 + 200000
         local amount = math.floor(baseAmount * shareRatio)
 
         team.balance = team.balance + amount
@@ -457,7 +459,7 @@ end
 ------------------------------------------------------
 function FinanceManager.processMonthlyMerchandise(gameState)
     for teamId, team in pairs(gameState.teams) do
-        local rep = team.reputation or 50
+        local rep = (team.reputation or 500) / 10  -- 归一化到 0-100
 
         -- 球星效应：OVR > 80 的球员每人+15%加成（上限60%）
         local starCount = 0
@@ -467,8 +469,10 @@ function FinanceManager.processMonthlyMerchandise(gameState)
         end
         local starBonus = 1.0 + math.min(0.6, starCount * 0.15)
 
-        local baseAmount = rep * 8000 + 300000
-        local amount = math.floor(baseAmount * starBonus * (0.90 + Random() * 0.20))
+        local baseAmount = rep * 8000 + 100000
+        -- 顶级俱乐部全球商品溢价
+        local prestigeMerch = math.max(0, (rep - 80) * 200000)
+        local amount = math.floor((baseAmount + prestigeMerch) * starBonus * (0.90 + Random() * 0.20))
 
         team.balance = team.balance + amount
         team.seasonIncome = (team.seasonIncome or 0) + amount
@@ -509,9 +513,9 @@ function FinanceManager.processMonthlyMaintenance(gameState)
             totalMaintenance = totalMaintenance + (FinanceManager.FACILITY_MAINTENANCE[level] or 0)
         end
 
-        -- 球场维护费 = 容量 × 3（30K容量 = 90K/月）
+        -- 球场维护费 = 容量 × 10（30K容量 = 300K/月）
         local capacity = team.stadiumCapacity or 30000
-        local stadiumCost = math.floor(capacity * 3)
+        local stadiumCost = math.floor(capacity * 10)
         totalMaintenance = totalMaintenance + stadiumCost
 
         if totalMaintenance > 0 then
@@ -1000,7 +1004,7 @@ function FinanceManager.requestBoardInjection(gameState)
     if not team then return false, "无法获取球队信息" end
 
     -- 注资额度：基于声望和初始转会预算级别（不受当前余额影响）
-    local rep = team.reputation or 50
+    local rep = (team.reputation or 500) / 10  -- 归一化到 0-100
     -- 用声望推算球队级别，保底 10M，高声望球队更多
     local budgetBase = math.max(team.transferBudget or 0, rep * 300000 + 10000000)
     local baseAmount = budgetBase * 0.18
@@ -1060,7 +1064,7 @@ function FinanceManager.seekSponsorship(gameState)
     end
 
     -- 赞助金额 = 声望 * 随机系数（有可能失败）
-    local rep = team.reputation or 50
+    local rep = (team.reputation or 500) / 10  -- 归一化到 0-100
     local successChance = 0.5 + rep / 200  -- 50 rep=75%, 80 rep=90%
 
     if Random() > successChance then
@@ -1112,7 +1116,7 @@ function FinanceManager.hostCommercialEvent(gameState)
     end
 
     -- 收入 = 声望 + 球场容量影响
-    local rep = team.reputation or 50
+    local rep = (team.reputation or 500) / 10  -- 归一化到 0-100
     local capacity = team.stadiumCapacity or 30000
     local amount = math.floor(capacity * 30 + rep * 30000 + Random() * 2000000)  -- 2M~5M级
 

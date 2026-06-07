@@ -13,6 +13,8 @@ local FinanceManager = require("scripts/systems/finance_manager")
 local TransferManager = require("scripts/systems/transfer_manager")
 local AIManager = require("scripts/systems/ai_manager")
 
+local WorldCup = require("scripts/systems/world_cup")
+
 local Squad = {}
 
 -- 筛选和排序状态（在路由切换间保留）
@@ -49,11 +51,31 @@ function Squad.create(params)
     local gameState = _G.gameState
     if not gameState then return UI.Panel { width = "100%", height = "100%" } end
 
-    local team = gameState:getPlayerTeam()
+    -- 判断当前身份：国家队模式 vs 俱乐部模式
+    local isNTMode = gameState.currentRole == "national_team"
+        and gameState.nationalTeamCoach ~= nil
+        and gameState.worldCup ~= nil
+
+    local team
+    if isNTMode then
+        local nationCode = gameState.nationalTeamCoach.nation
+        team = WorldCup.buildNationalTeam(gameState, nationCode)
+    else
+        team = gameState:getPlayerTeam()
+    end
     if not team then return UI.Panel { width = "100%", height = "100%" } end
 
     -- 获取球员列表
-    local allPlayers = gameState:getTeamPlayers(gameState.playerTeamId)
+    local allPlayers
+    if isNTMode then
+        allPlayers = {}
+        for _, pid in ipairs(team.playerIds or {}) do
+            local p = gameState.players[pid]
+            if p then table.insert(allPlayers, p) end
+        end
+    else
+        allPlayers = gameState:getTeamPlayers(gameState.playerTeamId)
+    end
 
     -- 构建"球员ID → 战术位置"映射（首发球员按阵型中的战术位置分类）
     local playerTacticalPos = {}
@@ -102,7 +124,7 @@ function Squad.create(params)
 
     -- 标记首发
     local startingSet = {}
-    for _, pid in ipairs(team.startingXI) do
+    for _, pid in ipairs(team.startingXI or {}) do
         startingSet[pid] = true
     end
 
@@ -428,7 +450,7 @@ function Squad._showActionMenu(player, isStarter, team, gameState)
             action = function()
                 -- 找到该球员在首发中的槽位索引
                 local slotIdx = nil
-                for i, pid in ipairs(team.startingXI) do
+                for i, pid in ipairs(team.startingXI or {}) do
                     if pid == player.id then
                         slotIdx = i
                         break
@@ -441,7 +463,7 @@ function Squad._showActionMenu(player, isStarter, team, gameState)
                     local slotPos = slots[slotIdx] or player.position
 
                     local starterSet = {}
-                    for _, pid in ipairs(team.startingXI) do starterSet[pid] = true end
+                    for _, pid in ipairs(team.startingXI or {}) do starterSet[pid] = true end
 
                     local bestSub = nil
                     local bestScore = -1
@@ -658,7 +680,7 @@ function Squad._showSwapStarter(player, team, gameState)
 
     -- 按新球员对各槽位的适配度排序（适配度高的排前面=更推荐替换该位置）
     local candidates = {}
-    for i, pid in ipairs(team.startingXI) do
+    for i, pid in ipairs(team.startingXI or {}) do
         local sp = gameState.players[pid]
         if sp then
             local slotPos = slots[i] or sp.position

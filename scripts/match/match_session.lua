@@ -148,7 +148,7 @@ function MatchSession:_buildBench(gameState, homeTeam, awayTeam)
     local bench = {}
     local startingSet = {}
     if team.startingXI then
-        for _, pid in ipairs(team.startingXI) do
+        for _, pid in ipairs(team.startingXI or {}) do
             startingSet[pid] = true
         end
     end
@@ -396,7 +396,7 @@ function MatchSession:_applySubstitution(command)
     -- 同步更新 team.startingXI（确保 recalculate 时角色映射正确）
     local team = context.team
     if team and team.startingXI then
-        for i, pid in ipairs(team.startingXI) do
+        for i, pid in ipairs(team.startingXI or {}) do
             if pid == offPlayerId then
                 team.startingXI[i] = onPlayerId
                 -- 换人后重置该槽位角色为默认（替补球员角色需要重新设定）

@@ -169,16 +169,29 @@ function BindEvents()
         local team = gs.teams[teamId]
         if not team then return end
 
+        -- 根据球队所在联赛推断经理国籍
+        local managerNat = "ENG"  -- 默认
+        local _, leagueKey = gs:getTeamLeague(teamId)
+        local RealDataLoader = require("scripts/data/real_data_loader")
+        if leagueKey and RealDataLoader.LEAGUE_FILES then
+            for _, cfg in ipairs(RealDataLoader.LEAGUE_FILES) do
+                if cfg.shortName == leagueKey then
+                    managerNat = cfg.country
+                    break
+                end
+            end
+        end
+
         -- 创建玩家经理
         local manager = gs:addManager({
             firstName = firstName,
             lastName = lastName,
             displayName = firstName .. " " .. lastName,
             birthYear = 1985,
-            nationality = "ENG",
+            nationality = managerNat,
             teamId = teamId,
             isPlayer = true,
-            reputation = 300,
+            reputation = 30,
         })
 
         -- 解除原AI经理

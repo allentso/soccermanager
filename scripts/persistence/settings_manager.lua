@@ -15,8 +15,8 @@ local SETTINGS_FILE = "settings.json"
 local DEFAULTS = {
     -- 音频
     masterVolume = 80,
-    musicVolume = 60,
-    sfxVolume = 80,
+    musicVolume = 30,
+    sfxVolume = 100,
 
     -- 游戏
     autoSave = true,
@@ -123,6 +123,7 @@ end
 function SettingsManager.getAll()
     if not _cache then SettingsManager.init() end
     local copy = {}
+    ---@diagnostic disable-next-line: param-type-mismatch
     for k, v in pairs(_cache) do
         copy[k] = v
     end

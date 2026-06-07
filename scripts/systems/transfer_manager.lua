@@ -2,6 +2,7 @@
 -- 转会管理系统 - 处理出价、谈判、完成转会
 
 local EventBus = require("scripts/app/event_bus")
+local FinanceManager = require("scripts/systems/finance_manager")
 
 local TransferManager = {}
 require("scripts/systems/transfers/transfer_completion")(TransferManager)
@@ -139,6 +140,7 @@ function TransferManager.makeBid(gameState, playerId, amount, wageOffer)
 
     local player = gameState.players[playerId]
     if not player then return nil, "球员不存在" end
+    if not player.teamId then return nil, "自由球员请使用自由签约" end
 
     -- 生成AI耐心上限（3-5轮）
     local maxRounds = RandomInt(3, 5)
@@ -370,17 +372,26 @@ function TransferManager._acceptBid(gameState, bid)
     local player = gameState.players[bid.playerId]
     if not player then return end
 
-    -- 转会费已达成，进入个人条款协商阶段
-    bid.status = "fee_agreed"
+    -- 转会费已达成，进入球员考虑阶段
+    bid.status = "player_considering"
     bid.feeAgreedDate = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day}
+    bid.playerConsiderDate = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day}
+    bid.playerConsiderDays = RandomInt(1, 3)  -- 球员考虑1-3天
     bid.personalTermsAttempts = 0  -- 个人条款协商次数
 
-    -- 首次自动尝试个人条款协商
-    TransferManager._attemptPersonalTerms(gameState, bid)
+    local sellerTeam = gameState.teams[bid.sellerTeamId]
+    gameState:sendMessage({
+        category = "transfer",
+        title = "转会费已达成",
+        body = string.format("%s 已同意放人！球员 %s 正在考虑是否加盟，预计需要 %d 天回复。",
+            sellerTeam and sellerTeam.name or "对方俱乐部",
+            player.displayName, bid.playerConsiderDays),
+        priority = "high",
+    })
 end
 
 --- 尝试个人条款协商（内部方法）
---- 成功则完成转会，失败则通知玩家可修改工资后重试
+--- 成功则进入等待玩家确认状态，失败则通知玩家可修改工资后重试
 function TransferManager._attemptPersonalTerms(gameState, bid)
     local player = gameState.players[bid.playerId]
     if not player then return end
@@ -389,9 +400,20 @@ function TransferManager._attemptPersonalTerms(gameState, bid)
 
     local consent, reason = TransferManager._requirePlayerConsentForTransfer(gameState, bid)
     if consent then
-        -- 个人条款通过，完成转会
-        bid.status = "accepted"
-        TransferManager._completeTransfer(gameState, bid)
+        -- 球员同意个人条款，等待玩家最终确认
+        bid.status = "awaiting_confirmation"
+        gameState:sendMessage({
+            category = "transfer",
+            title = "球员同意加盟!",
+            body = string.format(
+                "%s 已同意个人条款（周薪 %s）。是否确认签入该球员？",
+                player.displayName, fmtMoney(bid.wageOffer or player.wage)),
+            priority = "high",
+            actions = {
+                { label = "确认签入", actionId = "confirm_transfer", data = { bidId = bid.id } },
+                { label = "放弃签约", actionId = "cancel_transfer", data = { bidId = bid.id } },
+            },
+        })
     else
         -- 个人条款被拒，但转会费协议仍有效
         -- 最多允许3次重新协商
@@ -430,6 +452,40 @@ function TransferManager.negotiatePersonalTerms(gameState, bidId, newWageOffer)
         end
     end
     return nil, "未找到待协商个人条款的报价"
+end
+
+--- 玩家确认签入球员（公开API，从 inbox action 调用）
+function TransferManager.confirmTransfer(gameState, bidId)
+    TransferManager._ensureData(gameState)
+    for _, bid in ipairs(gameState.transfers.bids) do
+        if bid.id == bidId and bid.status == "awaiting_confirmation" then
+            bid.status = "accepted"
+            TransferManager._completeTransfer(gameState, bid)
+            return bid, nil
+        end
+    end
+    return nil, "未找到待确认的转会"
+end
+
+--- 玩家放弃签约（公开API，从 inbox action 调用）
+function TransferManager.cancelTransferConfirmation(gameState, bidId)
+    TransferManager._ensureData(gameState)
+    for _, bid in ipairs(gameState.transfers.bids) do
+        if bid.id == bidId and bid.status == "awaiting_confirmation" then
+            local player = gameState.players[bid.playerId]
+            bid.status = "cancelled"
+            bid.rejectedDate = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day}
+            gameState:sendMessage({
+                category = "transfer",
+                title = "签约已放弃",
+                body = string.format("你放弃了签入 %s 的交易。",
+                    player and player.displayName or "该球员"),
+                priority = "normal",
+            })
+            return bid, nil
+        end
+    end
+    return nil, "未找到待确认的转会"
 end
 
 -- 拒绝报价
@@ -775,6 +831,7 @@ function TransferManager._findTransferTarget(gameState, buyerTeam, needGroup, up
 
     for _, player in pairs(gameState.players) do
         if player.retired then goto continue end
+        if not player.teamId then goto continue end  -- 无俱乐部（自由球员/国家队虚拟球员）不参与俱乐部间转会
         if player.teamId == buyerTeam.id then goto continue end
         -- 玩家球队的球员：只有挂牌出售的才会被AI考虑
         if player.teamId == gameState.playerTeamId and not player.listedForSale then goto continue end
@@ -861,8 +918,13 @@ function TransferManager._executeAITransfer(gameState, buyerTeam, player)
 
     if Random() > acceptChance then return false end  -- 卖方拒绝
 
-    -- AI 工资预算检查：新球员薪水不能超出买方工资预算
-    local newWage = math.floor(player.wage * (1.1 + Random() * 0.2))  -- AI 涨薪 10-30%
+    -- AI 工资谈判：基于市场合理薪资，避免无限通胀
+    -- 合理周薪 ≈ 身价 / 260（约5年合同等效），买方可在此基础上浮动 ±10%
+    local marketWage = math.max(player.wage, math.floor(player.value / 260))
+    local newWage = math.floor(marketWage * (0.95 + Random() * 0.15))  -- 市场价 -5% ~ +10%
+    -- 保底不低于原工资（球员不接受降薪）
+    newWage = math.max(player.wage, newWage)
+
     local canAfford, _ = TransferManager.checkWageBudget(gameState, buyerTeam.id, newWage)
     if not canAfford then return false end  -- 工资超预算，放弃
 
@@ -874,24 +936,19 @@ function TransferManager._executeAITransfer(gameState, buyerTeam, player)
                 break
             end
         end
-        sellerTeam.balance = sellerTeam.balance + offerAmount
-        sellerTeam.transferBudget = (sellerTeam.transferBudget or 0) + offerAmount
-        sellerTeam.seasonIncome = (sellerTeam.seasonIncome or 0) + offerAmount
+        -- 通过 FinanceManager 处理卖方入账（更新 balance、transferBudget、seasonIncome、流水）
+        FinanceManager.processTransferIn(gameState, sellerTeam.id, offerAmount, player.displayName or player.firstName)
     end
 
     table.insert(buyerTeam.playerIds, player.id)
     player.teamId = buyerTeam.id
     player.listedForSale = false
     player.listedForLoan = false
-    player.wage = newWage  -- 更新球员工资（AI涨薪后）
+    player.wage = newWage  -- 更新球员工资
     player.contractEnd = {year = gameState.date.year + TransferManager._calcExpectedYears(player), month = 6}
-    buyerTeam.balance = buyerTeam.balance - offerAmount
-    buyerTeam.seasonExpense = (buyerTeam.seasonExpense or 0) + offerAmount
 
-    -- 扣除转会预算
-    if buyerTeam.transferBudget then
-        buyerTeam.transferBudget = math.max(0, buyerTeam.transferBudget - offerAmount)
-    end
+    -- 通过 FinanceManager 处理买方出账（更新 balance、seasonExpense、transferBudget、流水）
+    FinanceManager.processTransferOut(gameState, buyerTeam.id, offerAmount, player.displayName or player.firstName)
 
     -- 更新名气和身价
     player:calculateReputation(buyerTeam.reputation or 300)
@@ -1082,7 +1139,7 @@ function TransferManager.counterIncomingBid(gameState, bidId, askAmount)
             elseif ratio <= 1.3 then acceptChance = 0.3
             else acceptChance = 0.1 end
 
-            if math.random() < acceptChance then
+            if Random() < acceptChance then
                 -- AI 接受还价
                 bid.amount = askAmount
                 bid.status = "completed"
@@ -1505,6 +1562,107 @@ function TransferManager.cancelFreeAgentNego(gameState, negoId)
     return false
 end
 
+--- 玩家确认签入自由球员（公开API，从 inbox action 调用）
+function TransferManager.confirmFreeAgent(gameState, negoId)
+    TransferManager._ensureData(gameState)
+    if not gameState.transfers.freeAgentNegos then return nil, "无谈判数据" end
+    for _, nego in ipairs(gameState.transfers.freeAgentNegos) do
+        if nego.id == negoId and nego.status == "awaiting_confirmation" then
+            local player = gameState.players[nego.playerId]
+            local team = gameState.teams[nego.teamId]
+            if not player or not team then
+                nego.status = "rejected"
+                return nil, "球员或球队数据异常"
+            end
+            -- 防止重复签约
+            if player.teamId then
+                nego.status = "cancelled"
+                gameState:sendMessage({
+                    category = "transfer",
+                    title = "签约失败",
+                    body = string.format("%s 已被其他球队签下。", player.displayName),
+                    priority = "normal",
+                })
+                return nil, "球员已被签走"
+            end
+            -- 检查工资预算
+            local canAfford, reason = TransferManager.checkWageBudget(gameState, nego.teamId, nego.wageOffer)
+            if not canAfford then
+                nego.status = "rejected"
+                gameState:sendMessage({
+                    category = "transfer",
+                    title = "签约失败",
+                    body = string.format("无法签下 %s：%s", player.displayName, reason),
+                    priority = "normal",
+                })
+                return nil, reason
+            end
+            -- 执行签约
+            nego.status = "accepted"
+            table.insert(team.playerIds, player.id)
+            player.teamId = team.id
+            player.wage = nego.wageOffer
+            player.contractEnd = {year = gameState.date.year + nego.yearsOffer, month = 6}
+            player.squadRole = "first_team"
+            player.listedForSale = false
+            player:calculateReputation(team.reputation or 300)
+            player:calculateValue(gameState.date.year)
+            gameState:sendMessage({
+                category = "transfer",
+                title = "自由签约完成!",
+                body = string.format("%s 已作为自由球员加盟球队（周薪 %s，合同 %d年）。",
+                    player.displayName, fmtMoney(nego.wageOffer), nego.yearsOffer),
+                priority = "high",
+            })
+            gameState:addNews({
+                category = "transfer_news",
+                title = "自由签约: " .. player.displayName,
+                body = string.format("%s 以自由身加盟 %s，签约 %d 年。",
+                    player.displayName, team.name, nego.yearsOffer),
+                playerId = player.id,
+                relatedTeams = {team.id},
+            })
+            local ok, HistoryManager = pcall(require, "scripts/systems/history_manager")
+            if ok and HistoryManager then
+                HistoryManager.recordTransfer(gameState, {
+                    playerId = player.id,
+                    playerName = player.displayName,
+                    fromTeamId = nil,
+                    toTeamId = team.id,
+                    amount = 0,
+                    type = "free",
+                    date = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day},
+                })
+            end
+            EventBus.emit("transfer_completed", {playerId = player.id, teamId = team.id, type = "free"})
+            return nego, nil
+        end
+    end
+    return nil, "未找到待确认的自由球员签约"
+end
+
+--- 玩家放弃自由球员签约（公开API，从 inbox action 调用）
+function TransferManager.cancelFreeAgentConfirmation(gameState, negoId)
+    TransferManager._ensureData(gameState)
+    if not gameState.transfers.freeAgentNegos then return false end
+    for _, nego in ipairs(gameState.transfers.freeAgentNegos) do
+        if nego.id == negoId and nego.status == "awaiting_confirmation" then
+            local player = gameState.players[nego.playerId]
+            nego.status = "cancelled"
+            nego.rejectedDate = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day}
+            gameState:sendMessage({
+                category = "transfer",
+                title = "签约已放弃",
+                body = string.format("你放弃了签入自由球员 %s。",
+                    player and player.displayName or "该球员"),
+                priority = "normal",
+            })
+            return true
+        end
+    end
+    return false
+end
+
 --- 获取玩家的自由球员谈判列表
 function TransferManager.getFreeAgentNegos(gameState)
     TransferManager._ensureData(gameState)
@@ -1584,6 +1742,22 @@ function TransferManager.processDailyFreeAgentNegos(gameState)
                         priority = "normal",
                     })
                 end
+            end
+        elseif nego.status == "awaiting_confirmation" then
+            -- 玩家未及时确认，球员失去耐心（5天超时）
+            local confirmDate = nego.confirmDate or nego.responseDate or nego.date
+            local daysSince = TransferManager._daysBetween(confirmDate, gameState.date)
+            if daysSince >= 5 then
+                nego.status = "rejected"
+                nego.rejectedDate = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day}
+                local player = gameState.players[nego.playerId]
+                gameState:sendMessage({
+                    category = "transfer",
+                    title = "签约机会错过",
+                    body = string.format("%s 等不到你的回复，已转投其他球队。",
+                        player and player.displayName or "该球员"),
+                    priority = "normal",
+                })
             end
         end
     end
@@ -1696,6 +1870,13 @@ function TransferManager._completeFreeAgentSigning(gameState, nego)
         return
     end
 
+    -- 防止重复签约：球员已有球队时直接取消
+    if player.teamId then
+        nego.status = "cancelled"
+        nego.rejectedDate = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day}
+        return
+    end
+
     local team = gameState.teams[nego.teamId]
     if not team then
         nego.status = "rejected"
@@ -1718,10 +1899,9 @@ function TransferManager._completeFreeAgentSigning(gameState, nego)
         return
     end
 
-    nego.status = "accepted"
-
     -- 预签约：不立即转移球员，等合同到期后由 processPreContracts 执行
     if nego.isPreContract then
+        nego.status = "accepted"
         player.preContractLockedBy = nego.teamId  -- 锁定标记
         gameState:sendMessage({
             category = "transfer",
@@ -1741,7 +1921,28 @@ function TransferManager._completeFreeAgentSigning(gameState, nego)
         return
     end
 
-    -- 自由球员：立即执行签约
+    -- 自由球员同意加盟，等待玩家最终确认
+    -- 只有玩家自己发起的谈判需要确认（非AI内部调用）
+    if nego.teamId == gameState.playerTeamId then
+        nego.status = "awaiting_confirmation"
+        nego.confirmDate = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day}
+        gameState:sendMessage({
+            category = "transfer",
+            title = "球员同意签约!",
+            body = string.format(
+                "%s 愿意以自由身加盟（周薪 %s，%d年）。是否确认签入？",
+                player.displayName, fmtMoney(nego.wageOffer), nego.yearsOffer),
+            priority = "high",
+            actions = {
+                { label = "确认签入", actionId = "confirm_free_agent", data = { negoId = nego.id } },
+                { label = "放弃签约", actionId = "cancel_free_agent", data = { negoId = nego.id } },
+            },
+        })
+        return
+    end
+
+    -- AI球队签约自由球员：立即执行
+    nego.status = "accepted"
     table.insert(team.playerIds, player.id)
     player.teamId = team.id
     player.wage = nego.wageOffer
@@ -2986,6 +3187,18 @@ function TransferManager.processDailyBids(gameState)
         end
     end
 
+    -- player_considering 状态：球员考虑期结束后自动尝试个人条款协商
+    for _, bid in ipairs(gameState.transfers.bids) do
+        if bid.status == "player_considering" and bid.playerConsiderDate then
+            local daysSince = TransferManager._daysBetween(bid.playerConsiderDate, gameState.date)
+            if daysSince >= (bid.playerConsiderDays or 2) then
+                -- 考虑期结束，进入个人条款协商
+                bid.status = "fee_agreed"
+                TransferManager._attemptPersonalTerms(gameState, bid)
+            end
+        end
+    end
+
     -- fee_agreed 状态超时处理（7天未操作则取消）
     for _, bid in ipairs(gameState.transfers.bids) do
         if bid.status == "fee_agreed" and bid.feeAgreedDate then
@@ -2994,6 +3207,19 @@ function TransferManager.processDailyBids(gameState)
                 local player = gameState.players[bid.playerId]
                 TransferManager._rejectBid(gameState, bid,
                     string.format("与 %s 的个人条款协商超时（7天未回应），转会费协议作废。",
+                        player and player.displayName or "该球员"))
+            end
+        end
+    end
+
+    -- awaiting_confirmation 状态超时处理（5天未确认则取消）
+    for _, bid in ipairs(gameState.transfers.bids) do
+        if bid.status == "awaiting_confirmation" and bid.feeAgreedDate then
+            local daysSinceFeeAgreed = TransferManager._daysBetween(bid.feeAgreedDate, gameState.date)
+            if daysSinceFeeAgreed >= 12 then
+                local player = gameState.players[bid.playerId]
+                TransferManager._rejectBid(gameState, bid,
+                    string.format("%s 等待你的答复太久，决定不再等待。",
                         player and player.displayName or "该球员"))
             end
         end

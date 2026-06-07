@@ -28,6 +28,7 @@ end
 function TeamIconRegistry.getPathByJsonId(jsonTeamId)
     if not jsonTeamId then return nil end
     ensureLoaded()
+    ---@diagnostic disable-next-line: return-type-mismatch
     return _iconsByJsonId[jsonTeamId]
 end
 

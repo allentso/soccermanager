@@ -182,10 +182,12 @@ end
 
 -- 序列化整个状态
 function GameState:serialize()
-    -- 球员
+    -- 球员（跳过虚拟球员，它们是WC临时生成的）
     local players = {}
     for id, p in pairs(self.players) do
-        players[tostring(id)] = p:serialize()
+        if not p._isVirtual then
+            players[tostring(id)] = p:serialize()
+        end
     end
     -- 球队
     local teams = {}
@@ -236,6 +238,8 @@ function GameState:serialize()
         shortlist = self.shortlist,
         nextId = self.nextId,
         turnState = self.turnState,
+        currentRole = self.currentRole,
+        nationalTeamCoach = self.nationalTeamCoach,
         potentialRevealed = self.potentialRevealed or false,
         potentialRevealProgress = self.potentialRevealProgress or 0,
     }
@@ -251,6 +255,8 @@ function GameState:deserialize(data)
     self.playerLeagueId = data.playerLeagueId
     self.nextId = data.nextId or 1
     self.turnState = data.turnState or "idle"
+    self.currentRole = data.currentRole or "club"
+    self.nationalTeamCoach = data.nationalTeamCoach
     self.inbox = data.inbox or {}
     self.news = data.news or {}
     self.worldHistory = data.worldHistory or {}

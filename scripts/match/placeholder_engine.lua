@@ -172,7 +172,7 @@ function PlaceholderEngine._getMatchPlayers(gameState, team)
     local players = {}
     -- 优先使用首发阵容
     if team.startingXI and #team.startingXI > 0 then
-        for _, pid in ipairs(team.startingXI) do
+        for _, pid in ipairs(team.startingXI or {}) do
             local p = gameState.players[pid]
             if p and not p.injured then
                 table.insert(players, p)
@@ -1020,10 +1020,47 @@ function PlaceholderEngine.applyResult(gameState, fixture, report)
         if #awayTeam.recentForm > 5 then table.remove(awayTeam.recentForm) end
     end
 
+    -- 更新联赛当前轮次（当该轮所有比赛完成后推进到下一轮）
+    if targetLeague and fixture.round then
+        PlaceholderEngine._updateLeagueRound(targetLeague, fixture.round)
+    elseif gameState.league and fixture.round then
+        PlaceholderEngine._updateLeagueRound(gameState.league, fixture.round)
+    end
+
     -- 更新记录系统（经理比赛统计）
     RecordsManager.onMatchEnd(gameState, fixture)
 
     return report
+end
+
+-- 检查某轮比赛是否全部完成，如果是则推进 currentRound
+function PlaceholderEngine._updateLeagueRound(league, completedRound)
+    -- 只在完成当前轮时推进
+    if completedRound ~= league.currentRound then return end
+
+    -- 检查该轮所有比赛是否完成
+    local allDone = true
+    for _, f in ipairs(league.fixtures) do
+        if f.round == completedRound and f.status ~= "finished" then
+            allDone = false
+            break
+        end
+    end
+
+    if allDone then
+        -- 找到下一个有比赛的轮次
+        local nextRound = completedRound + 1
+        local hasNext = false
+        for _, f in ipairs(league.fixtures) do
+            if f.round == nextRound then
+                hasNext = true
+                break
+            end
+        end
+        if hasNext then
+            league.currentRound = nextRound
+        end
+    end
 end
 
 return PlaceholderEngine

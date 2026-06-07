@@ -14,7 +14,7 @@ function Manager.new(data)
     self.nationality = data.nationality or "ENG"
     self.teamId = data.teamId or nil
     self.isPlayer = data.isPlayer or false  -- 是否为玩家控制
-    self.reputation = data.reputation or 300
+    self.reputation = data.reputation or 30
 
     -- 执教统计
     self.stats = data.stats or {

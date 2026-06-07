@@ -189,6 +189,34 @@ function HistoryManager._getSeasonManagerChanges(gameState, season)
 end
 
 ------------------------------------------------------
+-- 世界杯冠军记录
+------------------------------------------------------
+
+function HistoryManager.recordWorldCupChampion(gameState, data)
+    HistoryManager._ensureData(gameState)
+
+    if not gameState._worldCupHistory then
+        gameState._worldCupHistory = {}
+    end
+
+    local record = {
+        season = data.season,          -- 世界杯举办年份（如2026）
+        championId = data.championId,  -- 冠军国家代码
+        championName = data.championName,
+        runnerUpId = data.runnerUpId,
+        runnerUpName = data.runnerUpName,
+    }
+
+    table.insert(gameState._worldCupHistory, record)
+end
+
+--- 获取世界杯冠军历史列表
+function HistoryManager.getWorldCupHistory(gameState)
+    HistoryManager._ensureData(gameState)
+    return gameState._worldCupHistory or {}
+end
+
+------------------------------------------------------
 -- UI 查询接口
 ------------------------------------------------------
 

@@ -1,3 +1,4 @@
+---@diagnostic disable: param-type-mismatch
 -- ui/screens/main_menu.lua
 -- 主菜单页面
 

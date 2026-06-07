@@ -218,6 +218,9 @@ end
 
 -- 判断赛季是否结束
 function League:isSeasonComplete()
+    if not self.fixtures or #self.fixtures == 0 then
+        return false  -- 无赛程时不能视为赛季完成
+    end
     for _, f in ipairs(self.fixtures) do
         if f.status ~= "finished" then
             return false

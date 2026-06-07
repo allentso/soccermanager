@@ -47,8 +47,8 @@ end
 
 -- 页面Tab
 local TABS = {
-    { key = "browse",   label = "浏览" },
-    { key = "free",     label = "自由球员" },
+    { key = "browse",   label = "搜索" },
+    { key = "free",     label = "自由" },
     { key = "loans",    label = "租借" },
     { key = "scout",    label = "球探" },
     { key = "my_bids",  label = "报价" },
@@ -288,11 +288,11 @@ function Market._buildBrowseContent(gameState, posFilter, searchQuery, ovrRange)
         if r.key == ovrRange then ovrMin, ovrMax = r.min, r.max break end
     end
 
-    -- 收集可转会球员
+    -- 收集可转会球员（排除自由球员，自由球员走专门的"自由球员"标签）
     local lowerQuery = searchQuery:lower()
     local availablePlayers = {}
     for _, p in pairs(gameState.players) do
-        if p.teamId ~= gameState.playerTeamId and not p.retired then
+        if p.teamId and p.teamId ~= gameState.playerTeamId and not p.retired then
             -- 位置过滤（候选名单模式只显示在候选名单中的球员）
             local posMatch = false
             if posFilter == "SHORTLIST" then
@@ -371,6 +371,7 @@ function Market._buildBrowseContent(gameState, posFilter, searchQuery, ovrRange)
                             flexGrow = 1, flexShrink = 1,
                             onClick = function() Router.navigate("player_detail", { playerId = p.id }) end,
                             children = {
+                                ---@diagnostic disable-next-line: param-type-mismatch
                                 UI.Label { text = p.displayName, fontSize = 14, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold" },
                             },
                         },
@@ -2106,15 +2107,12 @@ function Market._buildFreeAgentsContent(gameState, posFilter)
             }
         else
             local playerId = p.id
-            local wage = p.wage or 1000
             actionBtn = UI.Button {
                 text = "邀约", width = 50, height = 26,
                 backgroundColor = Theme.COLORS.SECONDARY, borderRadius = 4, fontSize = 11,
                 color = Theme.COLORS.TEXT_PRIMARY,
                 onClick = function()
-                    TransferManager.offerFreeAgent(gameState, playerId, wage, 2)
-                    UI.Toast.Show({ message = "邀约已发送", variant = "success" })
-                    Router.replaceWith("market", { tab = "free", posFilter = posFilter })
+                    Market._showFreeAgentOfferSheet(gameState, p, posFilter)
                 end,
             }
         end
@@ -2140,6 +2138,142 @@ function Market._buildFreeAgentsContent(gameState, posFilter)
     end
 
     return children
+end
+
+-- 自由球员合同谈判面板
+function Market._showFreeAgentOfferSheet(gameState, player, posFilter)
+    local expectedWage = player.wage or 5000
+    local yearsOptions = { 1, 2, 3, 4 }
+    local selectedYearsIdx = 2
+
+    -- 周薪输入
+    local wageField = UI.TextField {
+        flexGrow = 1, height = 38,
+        placeholder = "输入周薪（万）",
+        value = tostring(math.floor(expectedWage / 10000)),
+        fontSize = 14, borderRadius = 6,
+    }
+
+    -- 快捷周薪按钮
+    local wagePresets = { 0.7, 0.85, 1.0, 1.2 }
+    local wagePresetBtns = {}
+    for _, mul in ipairs(wagePresets) do
+        local wage = math.max(1, math.floor(expectedWage * mul / 10000))
+        table.insert(wagePresetBtns, UI.Button {
+            text = Market._formatValue(wage * 10000),
+            height = 28, paddingLeft = 6, paddingRight = 6, marginRight = 4,
+            backgroundColor = {38, 46, 71, 255},
+            borderRadius = 5, fontSize = 11,
+            color = Theme.COLORS.TEXT_SECONDARY,
+            onClick = function()
+                wageField:SetValue(tostring(wage))
+            end,
+        })
+    end
+
+    -- 年限按钮
+    local yearsBtns = {}
+    for i, y in ipairs(yearsOptions) do
+        local btn = UI.Button {
+            text = (i == selectedYearsIdx and "● " or "") .. y .. "年",
+            height = 30, marginRight = 6,
+            paddingLeft = 10, paddingRight = 10,
+            backgroundColor = (i == selectedYearsIdx) and Theme.COLORS.SECONDARY or {38, 46, 71, 255},
+            borderRadius = 6, fontSize = 12,
+            color = (i == selectedYearsIdx) and {20, 20, 20, 255} or Theme.COLORS.TEXT_SECONDARY,
+            onClick = function(self)
+                selectedYearsIdx = i
+                for j, b in ipairs(yearsBtns) do
+                    local isSel = (j == i)
+                    b:SetText((isSel and "● " or "") .. yearsOptions[j] .. "年")
+                    b:SetStyle({
+                        backgroundColor = isSel and Theme.COLORS.SECONDARY or {38, 46, 71, 255},
+                        color = isSel and {20, 20, 20, 255} or Theme.COLORS.TEXT_SECONDARY,
+                    })
+                end
+            end,
+        }
+        table.insert(yearsBtns, btn)
+    end
+
+    local children = {}
+
+    -- 球员信息
+    table.insert(children, UI.Panel {
+        width = "100%", flexDirection = "row", alignItems = "center", marginBottom = 12,
+        children = {
+            UI.Panel {
+                flexGrow = 1,
+                children = {
+                    UI.Label { text = player.displayName, fontSize = 16, fontWeight = "bold", color = Theme.COLORS.TEXT_PRIMARY },
+                    UI.Label {
+                        text = string.format("%s | 能力 %d | %d岁 | 期望周薪 %s",
+                            Constants.POSITION_NAMES[player.position] or player.position,
+                            player.overall,
+                            player.getAge and player:getAge(gameState.date.year) or "?",
+                            Market._formatValue(expectedWage)),
+                        fontSize = 12, color = Theme.COLORS.TEXT_MUTED, marginTop = 3,
+                    },
+                }
+            },
+        }
+    })
+
+    -- 周薪输入
+    table.insert(children, UI.Label { text = "提供周薪（万/周）", fontSize = 13, fontWeight = "bold", color = Theme.COLORS.TEXT_PRIMARY, marginBottom = 4 })
+    table.insert(children, UI.Panel {
+        width = "100%", flexDirection = "row", alignItems = "center", marginBottom = 4,
+        children = { wageField },
+    })
+    table.insert(children, UI.Panel {
+        width = "100%", flexDirection = "row", flexWrap = "wrap", marginBottom = 10,
+        children = wagePresetBtns,
+    })
+
+    -- 合同年限
+    table.insert(children, UI.Label { text = "合同年限", fontSize = 13, fontWeight = "bold", color = Theme.COLORS.TEXT_PRIMARY, marginBottom = 6 })
+    table.insert(children, UI.Panel {
+        width = "100%", flexDirection = "row",
+        children = yearsBtns,
+    })
+
+    -- 提交按钮
+    local submitBtn = UI.Button {
+        text = "发起谈判",
+        width = "100%", height = 44, marginTop = 12,
+        backgroundColor = Theme.COLORS.GOLD,
+        borderRadius = 8, fontSize = 15, fontWeight = "bold",
+        color = "#1A1A1A",
+        onClick = function()
+            local wageText = wageField:GetValue() or ""
+            local wageAmount = tonumber(wageText)
+            if not wageAmount or wageAmount <= 0 then
+                AudioManager.deny()
+                UI.Toast.Show({ message = "请输入有效的周薪", variant = "error" })
+                return
+            end
+            local offeredWage = math.floor(wageAmount * 10000)
+            local offeredYears = yearsOptions[selectedYearsIdx]
+
+            local nego, err = TransferManager.offerFreeAgent(gameState, player.id, offeredWage, offeredYears)
+            if nego then
+                UI.Toast.Show({ message = "合同邀约已发送", variant = "success" })
+            else
+                AudioManager.deny()
+                UI.Toast.Show({ message = err or "邀约失败", variant = "error" })
+            end
+            BottomSheet.close()
+            Router.replaceWith("market", { tab = "free", posFilter = posFilter })
+        end,
+    }
+
+    BottomSheet.showCustom({
+        title = "自由球员邀约 — " .. player.displayName,
+        height = 420,
+        showCancel = true,
+        children = children,
+        footer = submitBtn,
+    })
 end
 
 -- 租借市场（当前租借 + 发起租借）

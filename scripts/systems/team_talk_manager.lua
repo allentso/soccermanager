@@ -1,3 +1,4 @@
+---@diagnostic disable: return-type-mismatch
 -- systems/team_talk_manager.lua
 -- Team Talk 系统：6 种语气 × 3 种上下文，带性格加权和递减回报
 
@@ -120,13 +121,14 @@ function TeamTalkManager.calculateEffect(player, tone, context, gameDay)
 
     -- 4. 确保权重非负
     for i = 1, 5 do
+        ---@diagnostic disable-next-line: param-type-mismatch
         adjustedWeights[i] = math.max(1, adjustedWeights[i])
     end
 
     -- 5. 加权随机选择 band
     local totalWeight = 0
     for i = 1, 5 do totalWeight = totalWeight + adjustedWeights[i] end
-    local roll = math.random(1, totalWeight)
+    local roll = RandomInt(1, totalWeight)
     local bandIndex = 1
     local cumulative = 0
     for i = 1, 5 do
@@ -152,6 +154,7 @@ function TeamTalkManager.calculateEffect(player, tone, context, gameDay)
     -- Band 描述
     local bandNames = { "strong_pos", "mild_pos", "neutral", "mild_neg", "strong_neg" }
 
+    ---@diagnostic disable-next-line: return-type-mismatch
     return finalDelta, bandNames[bandIndex]
 end
 

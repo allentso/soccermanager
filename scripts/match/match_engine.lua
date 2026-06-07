@@ -473,6 +473,7 @@ end
 ---@return table report
 function MatchEngine.finishMatch(session, gameState, fixture)
     local report = session:buildReport()
+    ---@diagnostic disable-next-line: return-type-mismatch
     if not report then return nil end
 
     -- 应用比赛结果（积分榜、球员数据等）

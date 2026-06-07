@@ -34,12 +34,39 @@ function Tournament.new(data)
     -- 小组赛（传统模式，key为组名 A/B/C/D...）
     self.groups = data.groups or {}
 
+    -- 修复：小组赛standings的key类型问题（同上）
+    if self.groups then
+        for _, group in pairs(self.groups) do
+            if group.standings then
+                local normalized = {}
+                for k, v in pairs(group.standings) do
+                    local numKey = tonumber(k)
+                    normalized[numKey or k] = v
+                end
+                group.standings = normalized
+            end
+        end
+    end
+
     -- 联赛阶段（瑞士制，欧冠新赛制）
     self.leaguePhase = data.leaguePhase or nil
+
+    -- 修复：JSON反序列化后standings的key从数字变为字符串的问题
+    -- cjson将对象key统一转为字符串，但fixture.homeTeamId/awayTeamId作为值仍是数字
+    -- 导致 standings[numericId] 查找失败
+    if self.leaguePhase and self.leaguePhase.standings then
+        local normalized = {}
+        for k, v in pairs(self.leaguePhase.standings) do
+            local numKey = tonumber(k)
+            normalized[numKey or k] = v
+        end
+        self.leaguePhase.standings = normalized
+    end
 
     -- 淘汰赛
     self.knockout = data.knockout or {
         playoff = {},
+        r32 = {},
         r16 = {},
         qf = {},
         sf = {},
@@ -180,6 +207,43 @@ function Tournament:drawLeaguePhaseFixtures(startDate)
         end
     end
 
+    -- 补充轮：确保每队至少 8 个对手
+    -- 如果初始配对因约束冲突导致部分队不足 8 场，进行宽松补配
+    for _, tid in ipairs(teamIds) do
+        if #teamOpponents[tid] < 8 then
+            local homeCount = 0
+            local awayCount = 0
+            for _, opp in ipairs(teamOpponents[tid]) do
+                if opp.isHome then homeCount = homeCount + 1 else awayCount = awayCount + 1 end
+            end
+
+            -- 从所有其他队中找未配对的候选
+            local candidates = {}
+            for _, cid in ipairs(teamIds) do
+                if cid ~= tid and not isPaired(tid, cid) then
+                    table.insert(candidates, cid)
+                end
+            end
+            -- 洗牌
+            for i = #candidates, 2, -1 do
+                local j = RandomInt(1, i)
+                candidates[i], candidates[j] = candidates[j], candidates[i]
+            end
+
+            for _, cid in ipairs(candidates) do
+                if #teamOpponents[tid] >= 8 then break end
+                -- 宽松条件：只要对方不超过 10 场（允许轻微超额以保证对方也有足够对手）
+                if #teamOpponents[cid] < 10 then
+                    markPaired(tid, cid)
+                    local isHome = (homeCount < 4)
+                    table.insert(teamOpponents[tid], { opId = cid, isHome = isHome })
+                    table.insert(teamOpponents[cid], { opId = tid, isHome = not isHome })
+                    if isHome then homeCount = homeCount + 1 else awayCount = awayCount + 1 end
+                end
+            end
+        end
+    end
+
     -- 生成赛程fixture列表（去重：每对只生成一场）
     local generatedPairs = {}
     for _, tid in ipairs(teamIds) do
@@ -214,10 +278,8 @@ function Tournament:drawLeaguePhaseFixtures(startDate)
     end
 
     -- 将比赛分配到8个比赛日（每个比赛日18场，36队各踢1场）
-    -- 简化：按顺序分配，每个比赛日最多 #teamIds/2 场
-    local maxPerDay = math.floor(#teamIds / 2)
-    local dayIdx = 1
-    local dayCount = 0
+    -- 约束：每支球队每个比赛日最多踢1场
+    local maxPerDay = math.floor(#teamIds / 2)  -- 18
 
     -- 洗牌赛程以打散
     for i = #fixtures, 2, -1 do
@@ -225,14 +287,59 @@ function Tournament:drawLeaguePhaseFixtures(startDate)
         fixtures[i], fixtures[j] = fixtures[j], fixtures[i]
     end
 
+    -- 贪心分配：遍历每场比赛，找到最早的可用比赛日（该日两队都没踢过）
+    local teamDayUsed = {}  -- teamId → { [dayIdx] = true }
+    for _, tid in ipairs(teamIds) do
+        teamDayUsed[tid] = {}
+    end
+    local daySlots = {}  -- dayIdx → count（该日已分配的比赛数）
+    for i = 1, 8 do
+        daySlots[i] = 0
+    end
+
     for _, f in ipairs(fixtures) do
-        f.date = matchDays[dayIdx]
-        f.matchday = dayIdx
-        dayCount = dayCount + 1
-        if dayCount >= maxPerDay then
-            dayCount = 0
-            dayIdx = dayIdx + 1
-            if dayIdx > 8 then dayIdx = 8 end
+        local assigned = false
+        for d = 1, 8 do
+            if daySlots[d] < maxPerDay and
+               not teamDayUsed[f.homeTeamId][d] and
+               not teamDayUsed[f.awayTeamId][d] then
+                f.date = matchDays[d]
+                f.matchday = d
+                daySlots[d] = daySlots[d] + 1
+                teamDayUsed[f.homeTeamId][d] = true
+                teamDayUsed[f.awayTeamId][d] = true
+                assigned = true
+                break
+            end
+        end
+        -- 退路：如果约束冲突无法完美分配，优先找双方都没冲突的比赛日
+        if not assigned then
+            local bestDay = nil
+            local bestCount = 999
+            for d = 1, 8 do
+                if not teamDayUsed[f.homeTeamId][d] and
+                   not teamDayUsed[f.awayTeamId][d] and
+                   daySlots[d] < bestCount then
+                    bestDay = d
+                    bestCount = daySlots[d]
+                end
+            end
+            -- 如果还没找到（极端情况），找负载最轻的
+            if not bestDay then
+                bestDay = 1
+                bestCount = daySlots[1]
+                for d = 2, 8 do
+                    if daySlots[d] < bestCount then
+                        bestDay = d
+                        bestCount = daySlots[d]
+                    end
+                end
+            end
+            f.date = matchDays[bestDay]
+            f.matchday = bestDay
+            daySlots[bestDay] = daySlots[bestDay] + 1
+            teamDayUsed[f.homeTeamId][bestDay] = true
+            teamDayUsed[f.awayTeamId][bestDay] = true
         end
     end
 
@@ -636,8 +743,12 @@ function Tournament:getKnockoutWinners(phase)
             elseif f.awayGoals > f.homeGoals then
                 table.insert(winners, f.awayTeamId)
             else
-                -- 平局随机（简化：主场方获胜）
-                table.insert(winners, f.homeTeamId)
+                -- 平局 → 读取点球结果
+                if f._penaltyWinner then
+                    table.insert(winners, f._penaltyWinner)
+                else
+                    table.insert(winners, f.homeTeamId)
+                end
             end
         end
     else
@@ -667,15 +778,11 @@ function Tournament:getKnockoutWinners(phase)
                     elseif agg2 > agg1 then
                         table.insert(winners, team2)
                     else
-                        -- 总比分相同：客场进球多的晋级
-                        local away1 = leg1.awayGoals  -- team2 在第一回合客场进球
-                        local away2 = leg2.awayGoals  -- team1 在第二回合客场进球
-                        if away2 > away1 then
-                            table.insert(winners, team1)
-                        elseif away1 > away2 then
-                            table.insert(winners, team2)
+                        -- 总比分相同 → 读取第二回合点球结果
+                        if leg2._penaltyWinner then
+                            table.insert(winners, leg2._penaltyWinner)
                         else
-                            -- 完全相同 → 随机（模拟点球）
+                            -- 兜底（不应出现）
                             if RandomInt(1, 2) == 1 then
                                 table.insert(winners, team1)
                             else

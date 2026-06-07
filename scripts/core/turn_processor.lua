@@ -39,9 +39,21 @@ function TurnProcessor.advanceDay(gameState)
     -- 检查所有联赛当天是否有比赛
     local todayFixtures = TurnProcessor.getFixturesForDate(gameState, newDate)
 
+    -- 补救：模拟已过期但未完成的欧冠比赛（防止因赛程分配bug导致比赛被跳过）
+    local overduePlayerUCL = TurnProcessor._catchUpOverdueUCLFixtures(gameState, newDate)
+    for _, f in ipairs(overduePlayerUCL) do
+        table.insert(todayFixtures, f)
+    end
+
     -- 检查欧冠当天是否有比赛
     local uclFixtures = TurnProcessor.getUCLFixturesForDate(gameState, newDate)
     for _, f in ipairs(uclFixtures) do
+        table.insert(todayFixtures, f)
+    end
+
+    -- 补救：模拟已过期但未完成的世界杯比赛（防止因前次错误导致比赛被跳过）
+    local overduePlayerWC = TurnProcessor._catchUpOverdueWCFixtures(gameState, newDate)
+    for _, f in ipairs(overduePlayerWC) do
         table.insert(todayFixtures, f)
     end
 
@@ -225,6 +237,119 @@ function TurnProcessor.processMatchDay(gameState, fixtures)
     return playerMatchReport
 end
 
+--- 补救过期UCL比赛：模拟非玩家的过期比赛，返回需要玩家处理的过期fixture列表
+--- @return table playerOverdueFixtures
+function TurnProcessor._catchUpOverdueUCLFixtures(gameState, currentDate)
+    local ucl = gameState.championsLeague
+    if not ucl or not ucl.leaguePhase then return {} end
+
+    local lp = ucl.leaguePhase
+    local playerTeamId = gameState.playerTeamId
+    local overdueFixtures = {}
+
+    for _, f in ipairs(lp.fixtures) do
+        if f.status == "scheduled" and f.date then
+            if TurnProcessor._isDateBefore(f.date, currentDate) then
+                table.insert(overdueFixtures, f)
+            end
+        end
+    end
+
+    if #overdueFixtures == 0 then return {} end
+
+    local playerOverdue = {}
+    for _, fixture in ipairs(overdueFixtures) do
+        fixture._isUCL = true
+        local isPlayerMatch = (fixture.homeTeamId == playerTeamId or fixture.awayTeamId == playerTeamId)
+
+        if isPlayerMatch then
+            -- 玩家的过期比赛：标记为待处理，让玩家可以打
+            fixture._pendingPlayerMatch = true
+            table.insert(playerOverdue, fixture)
+            goto continue_ucl_overdue
+        end
+
+        -- 非玩家比赛：自动模拟
+        local report = MatchEngine.simulate(gameState, fixture)
+        if report then
+            fixture.status = "finished"
+            fixture.homeGoals = report.homeGoals or 0
+            fixture.awayGoals = report.awayGoals or 0
+            fixture.events = report.events
+            -- 更新欧冠联赛阶段积分
+            ucl:updateLeagueStanding(fixture)
+        end
+        ::continue_ucl_overdue::
+    end
+    return playerOverdue
+end
+
+-- 补救机制：模拟已过期但未完成的世界杯比赛
+-- 当之前的 advanceDay 因错误中断时，日期推进了但比赛未处理
+-- 此函数在每次 advanceDay 时检查并补模拟这些遗漏的比赛
+function TurnProcessor._catchUpOverdueWCFixtures(gameState, currentDate)
+    local wc = gameState.worldCup
+    if not wc or wc.phase == "not_started" or wc.phase == "completed" then return {} end
+
+    local overdueFixtures = {}
+
+    -- 检查小组赛
+    if wc.phase == "group" then
+        for _, group in pairs(wc.groups) do
+            for _, f in ipairs(group.fixtures) do
+                if f.status == "scheduled" and f.date then
+                    if TurnProcessor._isDateBefore(f.date, currentDate) then
+                        table.insert(overdueFixtures, f)
+                    end
+                end
+            end
+        end
+    end
+
+    -- 检查淘汰赛
+    local knockoutPhases = {"r32", "r16", "qf", "sf", "third", "final"}
+    for _, phase in ipairs(knockoutPhases) do
+        local fixtures = wc.knockout and wc.knockout[phase]
+        if fixtures then
+            for _, f in ipairs(fixtures) do
+                if f.status == "scheduled" and f.date then
+                    if TurnProcessor._isDateBefore(f.date, currentDate) then
+                        table.insert(overdueFixtures, f)
+                    end
+                end
+            end
+        end
+    end
+
+    if #overdueFixtures == 0 then return {} end
+
+    -- 模拟所有过期比赛
+    local playerOverdue = {}
+    for _, fixture in ipairs(overdueFixtures) do
+        fixture._isWC = true
+        -- 跳过玩家国家队的比赛（不应自动模拟）
+        if WorldCup.isPlayerNationMatch(gameState, fixture) then
+            fixture._pendingPlayerMatch = true
+            table.insert(playerOverdue, fixture)
+            goto continue_overdue
+        end
+
+        local report = TurnProcessor._simulateWCMatch(gameState, fixture)
+        if report then
+            TurnProcessor._applyWCResult(gameState, fixture, report)
+        end
+        ::continue_overdue::
+    end
+    return playerOverdue
+end
+
+-- 日期比较辅助：a 是否严格早于 b
+function TurnProcessor._isDateBefore(a, b)
+    if a.year ~= b.year then return a.year < b.year end
+    if a.month ~= b.month then return a.month < b.month end
+    return a.day < b.day
+end
+
 -- 模拟世界杯比赛（国家代码而非球队ID，使用简化引擎）
 function TurnProcessor._simulateWCMatch(gameState, fixture)
     -- 世界杯使用国家代码作为 teamId，不在 gameState.teams 中
@@ -390,6 +515,92 @@ function TurnProcessor._simulateWCMatch(gameState, fixture)
     -- 按时间排序
     table.sort(events, function(a, b) return a.minute < b.minute end)
 
+    -- 淘汰赛平局处理：加时赛 + 点球大战
+    local extraTime = nil
+    local penalties = nil
+    if fixture.isKnockout and homeGoals == awayGoals then
+        -- 加时赛（91-120分钟，进球概率降低）
+        local etHomeLambda = homeLambda * 0.35  -- 加时30分钟，进球率降低
+        local etAwayLambda = awayLambda * 0.35
+        local etHomeGoals = TurnProcessor._poissonRandom(etHomeLambda)
+        local etAwayGoals = TurnProcessor._poissonRandom(etAwayLambda)
+        etHomeGoals = math.min(etHomeGoals, 2)
+        etAwayGoals = math.min(etAwayGoals, 2)
+
+        -- 生成加时赛进球事件
+        local etUsedMinutes = {}
+        for _ = 1, etHomeGoals do
+            local minute
+            for _attempt = 1, 20 do
+                minute = RandomInt(91, 120)
+                if not etUsedMinutes[minute] then break end
+            end
+            etUsedMinutes[minute] = true
+            table.insert(events, {
+                type = "goal", minute = minute,
+                teamId = homeCode, isExtraTime = true,
+            })
+        end
+        for _ = 1, etAwayGoals do
+            local minute
+            for _attempt = 1, 20 do
+                minute = RandomInt(91, 120)
+                if not etUsedMinutes[minute] then break end
+            end
+            etUsedMinutes[minute] = true
+            table.insert(events, {
+                type = "goal", minute = minute,
+                teamId = awayCode, isExtraTime = true,
+            })
+        end
+
+        homeGoals = homeGoals + etHomeGoals
+        awayGoals = awayGoals + etAwayGoals
+
+        extraTime = {
+            played = true,
+            homeExtraGoals = etHomeGoals,
+            awayExtraGoals = etAwayGoals,
+        }
+
+        -- 加时赛后仍平局 → 点球大战
+        if homeGoals == awayGoals then
+            local homePenScored = 0
+            local awayPenScored = 0
+            local homeStrength = math.min(0.85, 0.65 + (homeOverall - 50) * 0.003)
+            local awayStrength = math.min(0.85, 0.65 + (awayOverall - 50) * 0.003)
+
+            -- 5轮点球
+            for round = 1, 5 do
+                if Random() < homeStrength then homePenScored = homePenScored + 1 end
+                if Random() < awayStrength then awayPenScored = awayPenScored + 1 end
+                -- 提前结束判定
+                local remainingRounds = 5 - round
+                if math.abs(homePenScored - awayPenScored) > remainingRounds then
+                    break
+                end
+            end
+
+            -- 突然死亡
+            while homePenScored == awayPenScored do
+                local hScore = Random() < homeStrength and 1 or 0
+                local aScore = Random() < awayStrength and 1 or 0
+                homePenScored = homePenScored + hScore
+                awayPenScored = awayPenScored + aScore
+            end
+
+            penalties = {
+                homeScore = homePenScored,
+                awayScore = awayPenScored,
+                winner = homePenScored > awayPenScored and homeCode or awayCode,
+            }
+            extraTime.penalties = penalties
+        end
+
+        -- 重新排序事件
+        table.sort(events, function(a, b) return a.minute < b.minute end)
+    end
+
     -- 给出场球员基础评分（取前11人）
     for i = 1, math.min(11, #homePlayers) do
         local p = homePlayers[i]
@@ -420,6 +631,8 @@ function TurnProcessor._simulateWCMatch(gameState, fixture)
         awayTeamId = awayCode,
         events = events,
         playerRatings = playerRatings,
+        extraTime = extraTime,
+        penalties = penalties,
         stats = {
             homePossession = homePoss,
             awayPossession = awayPoss,
@@ -458,6 +671,17 @@ function TurnProcessor._applyWCResult(gameState, fixture, report)
     fixture.awayGoals = report.awayGoals
     fixture.status = "finished"
 
+    -- 存储加时赛/点球数据到fixture
+    if report.extraTime then
+        fixture.extraTime = report.extraTime
+        -- 点球数据嵌套在 extraTime.penalties 中
+        if report.extraTime.penalties then
+            local pen = report.extraTime.penalties
+            fixture.penalties = { homeScore = pen.homeScored, awayScore = pen.awayScored, winner = pen.winner, rounds = pen.rounds }
+            fixture._penaltyWinner = pen.winner
+        end
+    end
+
     -- 如果是小组赛，更新小组积分
     if wc.phase == "group" and fixture.groupName then
         wc:updateGroupStanding(fixture.groupName, fixture)
@@ -473,6 +697,71 @@ function TurnProcessor._applyUCLResult(gameState, fixture, report)
     fixture.homeGoals = report.homeGoals
     fixture.awayGoals = report.awayGoals
     fixture.status = "finished"
+
+    -- 存储加时赛/点球数据（来自 MatchEngine 单场淘汰逻辑，如决赛）
+    if report.extraTime then
+        fixture.extraTime = report.extraTime
+        -- 点球数据嵌套在 extraTime.penalties 中
+        if report.extraTime.penalties then
+            local pen = report.extraTime.penalties
+            fixture.penalties = { homeScore = pen.homeScored, awayScore = pen.awayScored, winner = pen.winner, rounds = pen.rounds }
+            fixture._penaltyWinner = pen.winner
+        end
+    end
+
+    -- 两回合制第二回合：检查总比分是否平局，若平则模拟加时+点球
+    if fixture.leg == 2 and not fixture._penaltyWinner then
+        local knockoutPhases = {playoff = true, r16 = true, qf = true, sf = true}
+        local currentPhase = ucl.phase
+        if knockoutPhases[currentPhase] then
+            -- 找到第一回合
+            local fixtures = ucl.knockout[currentPhase]
+            local leg1 = nil
+            if fixtures then
+                for _, f in ipairs(fixtures) do
+                    if f.matchIndex == fixture.matchIndex and f.leg == 1 and f.status == "finished" then
+                        leg1 = f
+                        break
+                    end
+                end
+            end
+            if leg1 then
+                local team1 = leg1.homeTeamId  -- leg1主队 = team1
+                local team2 = leg1.awayTeamId  -- leg1客队 = team2
+                local agg1 = leg1.homeGoals + fixture.awayGoals  -- team1总进球
+                local agg2 = leg1.awayGoals + fixture.homeGoals  -- team2总进球
+                if agg1 == agg2 then
+                    -- 总比分平局 → 模拟加时+点球
+                    local homePenScored, awayPenScored = 0, 0
+                    local homeStrength = 0.72
+                    local awayStrength = 0.72
+                    -- 5轮点球
+                    for round = 1, 5 do
+                        if Random() < homeStrength then homePenScored = homePenScored + 1 end
+                        if Random() < awayStrength then awayPenScored = awayPenScored + 1 end
+                        local remaining = 5 - round
+                        if math.abs(homePenScored - awayPenScored) > remaining then break end
+                    end
+                    -- 突然死亡
+                    while homePenScored == awayPenScored do
+                        local h = Random() < homeStrength and 1 or 0
+                        local a = Random() < awayStrength and 1 or 0
+                        homePenScored = homePenScored + h
+                        awayPenScored = awayPenScored + a
+                    end
+                    -- 注意：第二回合的主队是 team2（两回合主客互换）
+                    local penWinner = homePenScored > awayPenScored and fixture.homeTeamId or fixture.awayTeamId
+                    fixture.penalties = {
+                        homeScore = homePenScored,
+                        awayScore = awayPenScored,
+                        winner = penWinner,
+                    }
+                    fixture._penaltyWinner = penWinner
+                    fixture.extraTime = fixture.extraTime or {played = true, homeExtraGoals = 0, awayExtraGoals = 0}
+                end
+            end
+        end
+    end
 
     -- 如果是联赛阶段（瑞士制），更新联赛积分
     if ucl.phase == "league" then
@@ -535,10 +824,14 @@ function TurnProcessor.processNonMatchDay(gameState)
     TransferManager.processDailyFreeAgentNegos(gameState)
 
     -- 转会窗口期间，周四额外执行一次AI转会（增加流动性）
+    -- pcall 保护：防止转会系统异常导致整天处理中断（如跳过当天WC比赛）
     local month = gameState.date.month
     local inTransferWindow = (month >= 6 and month <= 8) or month == 1
     if inTransferWindow and gameState.dayOfWeek == 4 then
-        TransferManager.processAITransfers(gameState)
+        local ok, err = pcall(TransferManager.processAITransfers, gameState)
+        if not ok then
+            print("[TurnProcessor] WARNING: processAITransfers error: " .. tostring(err))
+        end
     end
 
     -- B3: 租借到期检查（每天）
