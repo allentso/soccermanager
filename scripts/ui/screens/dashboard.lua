@@ -40,6 +40,17 @@ function Dashboard._findNextMatch(gameState)
     local ntCoach = gameState.nationalTeamCoach
     local playerNation = ntCoach and ntCoach.nation or nil
 
+    -- 旧存档/异常中断可能留下已过期的玩家联赛比赛，优先提示玩家处理
+    for _, lg in pairs(gameState.leagues or {}) do
+        for _, f in ipairs(lg.fixtures or {}) do
+            if f.status == "scheduled" and f.date and
+               TurnProcessor._isDateBefore(f.date, gameState.date) and
+               (f.homeTeamId == playerTeamId or f.awayTeamId == playerTeamId) then
+                return 0, f, false, false
+            end
+        end
+    end
+
     -- 从今天（daysAhead=0）开始搜索，不漏掉当天未打的比赛
     for daysAhead = 0, 90 do
         local futureDate = (daysAhead == 0) and gameState.date or League._addDays(gameState.date, daysAhead)

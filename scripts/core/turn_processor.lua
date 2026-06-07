@@ -39,6 +39,12 @@ function TurnProcessor.advanceDay(gameState)
     -- 检查所有联赛当天是否有比赛
     local todayFixtures = TurnProcessor.getFixturesForDate(gameState, newDate)
 
+    -- 补救：模拟已过期但未完成的联赛比赛（防止赛季被漏赛永久卡住）
+    local overduePlayerLeague = TurnProcessor._catchUpOverdueLeagueFixtures(gameState, newDate)
+    for _, f in ipairs(overduePlayerLeague) do
+        table.insert(todayFixtures, f)
+    end
+
     -- 补救：模拟已过期但未完成的欧冠比赛（防止因赛程分配bug导致比赛被跳过）
     local overduePlayerUCL = TurnProcessor._catchUpOverdueUCLFixtures(gameState, newDate)
     for _, f in ipairs(overduePlayerUCL) do
@@ -126,6 +132,36 @@ function TurnProcessor.getWCFixturesForDate(gameState, date)
         f._isWC = true
     end
     return fixtures
+end
+
+-- 补救过期联赛比赛：非玩家比赛自动模拟，玩家比赛交给赛前页面处理
+function TurnProcessor._catchUpOverdueLeagueFixtures(gameState, currentDate)
+    local playerTeamId = gameState.playerTeamId
+    local playerOverdue = {}
+
+    for _, lg in pairs(gameState.leagues or {}) do
+        for _, fixture in ipairs(lg.fixtures or {}) do
+            if fixture.status == "scheduled" and fixture.date and TurnProcessor._isDateBefore(fixture.date, currentDate) then
+                local isPlayerMatch = playerTeamId and
+                    (fixture.homeTeamId == playerTeamId or fixture.awayTeamId == playerTeamId)
+
+                if isPlayerMatch and not gameState._cheatAutoPlay then
+                    fixture._pendingPlayerMatch = true
+                    table.insert(playerOverdue, fixture)
+                    goto continue_fixture
+                end
+
+                local report = MatchEngine.simulate(gameState, fixture)
+                if report then
+                    MatchEngine.applyResult(gameState, fixture, report)
+                end
+            end
+
+            ::continue_fixture::
+        end
+    end
+
+    return playerOverdue
 end
 
 -- 处理比赛日
