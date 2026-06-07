@@ -424,7 +424,7 @@ function Settings._showCheatMenu()
     local BottomSheet = require("scripts/ui/components/bottom_sheet")
     BottomSheet.showCustom({
         title = "开发者工具",
-        height = 530,
+        height = 750,
         children = {
             UI.Button {
                 text = "👑 三冠王（联赛+欧冠+世界杯）",
@@ -508,10 +508,55 @@ function Settings._showCheatMenu()
                 width = "100%", height = 44,
                 backgroundColor = Theme.COLORS.BG_CARD_ELEVATED,
                 color = Theme.COLORS.TEXT_PRIMARY,
-                fontSize = 14, borderRadius = 8,
+                fontSize = 14, borderRadius = 8, marginBottom = 10,
                 onClick = function()
                     BottomSheet.close()
                     Router.navigate("trophy_cabinet")
+                end,
+            },
+            -- 传奇抽卡相关
+            UI.Button {
+                text = "🎰 解锁传奇池",
+                width = "100%", height = 44,
+                backgroundColor = "#6C3483",
+                color = "#FFFFFF",
+                fontSize = 14, borderRadius = 8, marginBottom = 10,
+                onClick = function()
+                    BottomSheet.close()
+                    Settings._cheatUnlockLegendPool()
+                end,
+            },
+            UI.Button {
+                text = "🎫 +100 抽取次数",
+                width = "100%", height = 44,
+                backgroundColor = Theme.COLORS.BG_CARD_ELEVATED,
+                color = Theme.COLORS.TEXT_PRIMARY,
+                fontSize = 14, borderRadius = 8, marginBottom = 10,
+                onClick = function()
+                    BottomSheet.close()
+                    Settings._cheatAddPulls()
+                end,
+            },
+            UI.Button {
+                text = "⭐ 下次十连必出传奇",
+                width = "100%", height = 44,
+                backgroundColor = Theme.COLORS.BG_CARD_ELEVATED,
+                color = Theme.COLORS.TEXT_PRIMARY,
+                fontSize = 14, borderRadius = 8, marginBottom = 10,
+                onClick = function()
+                    BottomSheet.close()
+                    Settings._cheatForceLegend()
+                end,
+            },
+            UI.Button {
+                text = "🔄 重置传奇池（可重复抽）",
+                width = "100%", height = 44,
+                backgroundColor = Theme.COLORS.BG_CARD_ELEVATED,
+                color = Theme.COLORS.TEXT_PRIMARY,
+                fontSize = 14, borderRadius = 8,
+                onClick = function()
+                    BottomSheet.close()
+                    Settings._cheatResetLegendPool()
                 end,
             },
         },
@@ -919,6 +964,118 @@ function Settings._saveSettings()
         -- 持久化到磁盘
         SaveManager.save(_G.gameState, "auto")
     end
+end
+
+------------------------------------------------------
+-- 作弊：解锁传奇池
+------------------------------------------------------
+function Settings._cheatUnlockLegendPool()
+    local gameState = _G.gameState
+    if not gameState then return end
+
+    local YouthManager = require("scripts/systems/youth_manager")
+    local state = YouthManager.getLegendGachaState(gameState)
+
+    state.unlocked = true
+    state.adsWatched = YouthManager.getUnlockAdsRequired()
+    -- 赠送10次抽取
+    state.pulls = math.max(state.pulls, 10)
+
+    SaveManager.save(gameState, "auto")
+    gameState:sendMessage({
+        category = "youth",
+        title = "传奇池已解锁",
+        body = "开发者工具：传奇池已直接解锁，当前可用抽取次数：" .. state.pulls,
+        priority = "normal",
+    })
+    Router.replaceWith("dashboard")
+end
+
+------------------------------------------------------
+-- 作弊：+100 抽取次数
+------------------------------------------------------
+function Settings._cheatAddPulls()
+    local gameState = _G.gameState
+    if not gameState then return end
+
+    local YouthManager = require("scripts/systems/youth_manager")
+    local state = YouthManager.getLegendGachaState(gameState)
+
+    -- 如果未解锁，先自动解锁
+    if not state.unlocked then
+        state.unlocked = true
+        state.adsWatched = YouthManager.getUnlockAdsRequired()
+    end
+
+    state.pulls = (state.pulls or 0) + 100
+
+    SaveManager.save(gameState, "auto")
+    gameState:sendMessage({
+        category = "youth",
+        title = "抽取次数增加",
+        body = "开发者工具：+100 抽取次数，当前可用：" .. state.pulls,
+        priority = "normal",
+    })
+    Router.replaceWith("dashboard")
+end
+
+------------------------------------------------------
+-- 作弊：下次十连必出传奇（设置保底计数到极限）
+------------------------------------------------------
+function Settings._cheatForceLegend()
+    local gameState = _G.gameState
+    if not gameState then return end
+
+    local YouthManager = require("scripts/systems/youth_manager")
+    local state = YouthManager.getLegendGachaState(gameState)
+
+    -- 如果未解锁，先自动解锁
+    if not state.unlocked then
+        state.unlocked = true
+        state.adsWatched = YouthManager.getUnlockAdsRequired()
+        state.pulls = math.max(state.pulls or 0, 10)
+    end
+
+    -- 设置保底计数为9，下次十连必触发保底
+    state.pityCounter = 9
+    -- 确保有足够抽取次数
+    if (state.pulls or 0) < 10 then
+        state.pulls = 10
+    end
+
+    SaveManager.save(gameState, "auto")
+    gameState:sendMessage({
+        category = "youth",
+        title = "保底已就绪",
+        body = "开发者工具：下次十连抽必定出传奇球员！当前可用抽取次数：" .. state.pulls,
+        priority = "high",
+    })
+    Router.replaceWith("dashboard")
+end
+
+------------------------------------------------------
+-- 作弊：重置传奇池（清空已抽取记录，可重复抽）
+------------------------------------------------------
+function Settings._cheatResetLegendPool()
+    local gameState = _G.gameState
+    if not gameState then return end
+
+    local YouthManager = require("scripts/systems/youth_manager")
+    local state = YouthManager.getLegendGachaState(gameState)
+
+    local previousCount = state.pulledLegends and #state.pulledLegends or 0
+    state.pulledLegends = {}
+    state.pityCounter = 0
+    state.firstTenPull = true
+
+    SaveManager.save(gameState, "auto")
+    gameState:sendMessage({
+        category = "youth",
+        title = "传奇池已重置",
+        body = string.format("开发者工具：已清空 %d 条抽取记录，所有传奇球员可重新抽取。", previousCount),
+        priority = "normal",
+    })
+    Router.replaceWith("dashboard")
 end
 
 return Settings

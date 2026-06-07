@@ -464,6 +464,12 @@ function WorldGenerator.generate(gameState)
     -- 加载传奇自由球员（非五大联赛的知名球员）
     RealDataLoader.loadLegends(gameState)
 
+    -- 加载青训妖人名单，随机分配到各俱乐部青训队
+    RealDataLoader.loadWonderkids(gameState)
+
+    -- 为所有球队填充青训至10人（已有 wonderkids 的球队只补齐差额）
+    YouthManager.fillAllTeamsYouth(gameState)
+
     -- 初始化潜力系统（为所有球员生成 PA Rating 和局内实际潜力）
     PotentialSystem.initializeAllPlayers(gameState)
 
