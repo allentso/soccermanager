@@ -345,8 +345,12 @@ function FinanceManager.processMatchDayRevenue(gameState, teamId, isHome, oppone
         strategy = strategy.label,
         opponentName = opponentName,
         opponentRep = opponentRep,
-        -- 对比上一场
-        lastRevenue = team._lastMatchRevenue,
+        -- 对比上一场：只存数字！
+        -- [BUG FIX] 此前存整个上一场的 revenueDetails 表，而那个表里又嵌着
+        -- 上上场的表……每个主场加深一层，约 30 个主场后超过 cjson 的
+        -- 64 层嵌套上限，导致"2027年10月起自动/手动保存全部静默失败"。
+        lastRevenue = type(team._lastMatchRevenue) == "table"
+            and team._lastMatchRevenue.revenue or team._lastMatchRevenue,
     }
     team._lastMatchRevenue = revenueDetails
     return revenueDetails

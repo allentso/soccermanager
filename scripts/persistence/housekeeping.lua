@@ -275,6 +275,28 @@ function Housekeeping.trimNews(gameState)
     return removed
 end
 
+------------------------------------------------------
+-- 收入对比链压平（关键修复）
+--
+-- 历史 bug：FinanceManager.processMatchRevenue 把上一场的完整
+-- revenueDetails 表存进 lastRevenue 字段，形成每个主场加深一层的
+-- 嵌套链，约 30 个主场后超过 cjson 编码的 64 层深度上限
+-- → "encode: nesting depth exceeded 64" → 保存全部静默失败。
+-- 源头已改为只存数字；这里把老存档/老运行态中已形成的链压平。
+------------------------------------------------------
+function Housekeeping.flattenRevenueChains(gameState)
+    local flattened = 0
+    for _, team in pairs(gameState.teams or {}) do
+        local lr = team._lastMatchRevenue
+        if type(lr) == "table" and type(lr.lastRevenue) == "table" then
+            -- 只保留上一场的收入数字，深层链整体丢弃（交给 GC）
+            lr.lastRevenue = lr.lastRevenue.revenue
+            flattened = flattened + 1
+        end
+    end
+    return flattened
+end
+
 -- AI 球队财务流水裁剪
 -- 流水只在玩家球队的财务页展示；AI 球队每队囤 100 条纯属存档负担
 -- （实测 99 支 AI 队 × 100 条 ≈ 1MB+）。AI 队只留最近几条。
@@ -369,6 +391,7 @@ function Housekeeping.run(gameState)
     if not gameState or not gameState.players then return end
 
     local stats = {
+        revenueChains = Housekeeping.flattenRevenueChains(gameState),
         retired = Housekeeping.purgeRetiredPlayers(gameState),
         freeAgents = Housekeeping.purgeExcessFreeAgents(gameState),
         virtual = Housekeeping.purgeVirtualPlayers(gameState),
@@ -385,8 +408,8 @@ function Housekeeping.run(gameState)
         for _, v in pairs(stats) do total = total + v end
         if total > 0 then
             log:Write(LOG_INFO, string.format(
-                "Housekeeping: 清理完成 退役=%d 自由球员=%d 虚拟=%d 生涯折叠=%d 赛果明细=%d 新闻=%d 转会=%d AI流水=%d 历史去重=%d",
-                stats.retired, stats.freeAgents, stats.virtual, stats.career,
+                "Housekeeping: 清理完成 收入链=%d 退役=%d 自由球员=%d 虚拟=%d 生涯折叠=%d 赛果明细=%d 新闻=%d 转会=%d AI流水=%d 历史去重=%d",
+                stats.revenueChains, stats.retired, stats.freeAgents, stats.virtual, stats.career,
                 stats.fixtures, stats.news, stats.transfers, stats.aiTx, stats.worldHistory))
         end
     end
