@@ -137,6 +137,15 @@ function Squad.create(params)
         if p.fitness and p.fitness < 70 then lowFitnessCount = lowFitnessCount + 1 end
     end
 
+    -- 统计合同即将到期球员数量（≤12个月）
+    local expiringCount = 0
+    for _, p in ipairs(allPlayers) do
+        local ml = ContractManager.getMonthsRemaining(gameState, p)
+        if ml <= 12 then
+            expiringCount = expiringCount + 1
+        end
+    end
+
     -- 构建筛选标签
     local filterTabs = {}
     for _, opt in ipairs(FILTER_OPTIONS) do
@@ -300,8 +309,8 @@ function Squad.create(params)
                         UI.Panel {
                             backgroundColor = {posColor[1], posColor[2], posColor[3], 50},
                             borderRadius = 3,
-                            paddingLeft = 5, paddingRight = 5, paddingTop = 1, paddingBottom = 1,
-                            marginRight = 8,
+                            paddingLeft = 4, paddingRight = 4, paddingTop = 1, paddingBottom = 1,
+                            marginRight = 6, minWidth = 42,
                             children = {
                                 UI.Label { text = posFullName, fontSize = 10, color = posColor, fontWeight = "bold" },
                             },
@@ -394,7 +403,29 @@ function Squad.create(params)
                 width = "100%", height = 38,
                 flexDirection = "row", alignItems = "center",
                 paddingLeft = 10, paddingRight = 10,
-                children = filterTabs,
+                children = {
+                    UI.Panel {
+                        flexGrow = 1, flexDirection = "row", alignItems = "center",
+                        children = filterTabs,
+                    },
+                    UI.Button {
+                        text = expiringCount > 0 and ("一键续约(" .. expiringCount .. ")") or "一键续约",
+                        height = 28,
+                        paddingLeft = 10, paddingRight = 10,
+                        backgroundColor = expiringCount > 0 and {46, 125, 50, 255} or {60, 60, 60, 255},
+                        borderRadius = 14,
+                        fontSize = 11,
+                        color = expiringCount > 0 and "#FFFFFF" or Theme.COLORS.TEXT_MUTED,
+                        fontWeight = "bold",
+                        onClick = function()
+                            if expiringCount == 0 then
+                                UI.Toast.Show({ message = "没有需要续约的球员", variant = "info" })
+                                return
+                            end
+                            Squad._showBatchRenewConfirm(allPlayers, gameState)
+                        end,
+                    },
+                },
             },
 
             -- 排序栏
@@ -573,17 +604,9 @@ function Squad._showActionMenu(player, isStarter, team, gameState)
                 label = string.format("接受报价 %s (%.0fK)", buyerName, bid.amount / 1000),
                 color = Theme.COLORS.SECONDARY,
                 action = function()
-                    ConfirmDialog.show({
-                        title = "确认出售",
-                        message = string.format("确认以 %.0fK 将 %s 出售给 %s？",
-                            bid.amount / 1000, player.displayName, buyerName),
-                        confirmText = "确认出售",
-                        danger = false,
-                        onConfirm = function()
-                            TransferManager.acceptIncomingBid(gameState, bid.id)
-                            Router.replaceWith("squad")
-                        end,
-                    })
+                    TransferManager.acceptIncomingBid(gameState, bid.id)
+                    UI.Toast.Show({ message = "已同意报价，请前往转会市场确认出售", variant = "success" })
+                    Router.replaceWith("market", { tab = "listed" })
                 end,
             })
             table.insert(actions, {
@@ -622,7 +645,7 @@ function Squad._showActionMenu(player, isStarter, team, gameState)
     local menuItems = {}
     -- 球员名
     table.insert(menuItems, UI.Label {
-        text = player.displayName .. " (" .. player.position .. " " .. tostring(player.overall) .. ")",
+        text = player.displayName .. " (" .. player.position .. " " .. tostring(math.min(Constants.ABILITY_MAX, player.overall or 0)) .. ")",
         fontSize = 15, color = Theme.COLORS.TEXT_PRIMARY,
         fontWeight = "bold", marginBottom = 12,
         textAlign = "center",
@@ -733,7 +756,7 @@ function Squad._showRenewDialog(player, gameState)
     ConfirmDialog.showWithDetails({
         title = "续约 - " .. player.displayName,
         details = {
-            { label = "位置/能力", value = player.position .. " " .. tostring(player.overall) },
+            { label = "位置/能力", value = player.position .. " " .. tostring(math.min(Constants.ABILITY_MAX, player.overall or 0)) },
             { label = "年龄", value = tostring(age) .. "岁" },
             { label = "当前周薪", value = FinanceManager.formatMoney(player.wage or 0) },
             { label = "新周薪", value = FinanceManager.formatMoney(terms.wage), valueColor = Theme.COLORS.ACCENT },
@@ -746,13 +769,21 @@ function Squad._showRenewDialog(player, gameState)
         onConfirm = function()
             local ok, errMsg = ContractManager.renewContract(gameState, player.id, terms.wage, terms.years)
             if ok then
-                -- 续约成功 - 刷新页面
-                Router.replaceWith("squad")
-            else
-                -- 续约失败 - 显示原因
+                -- 提议已提交，球员考虑中
                 ConfirmDialog.show({
-                    title = "续约失败",
-                    message = errMsg or "球员拒绝了续约提议",
+                    title = "续约提议已发出",
+                    message = string.format("已向 %s 提出续约，球员需要时间考虑。结果将通过消息通知。", player.displayName),
+                    confirmText = "好的",
+                    confirmColor = Theme.COLORS.SECONDARY,
+                    onConfirm = function()
+                        Router.replaceWith("squad")
+                    end,
+                })
+            else
+                -- 提议失败（预算超支或已在谈判中）
+                ConfirmDialog.show({
+                    title = "无法发起续约",
+                    message = errMsg or "条件不满足",
                     confirmText = "知道了",
                     confirmColor = Theme.COLORS.TEXT_MUTED,
                     onConfirm = function()
@@ -760,6 +791,108 @@ function Squad._showRenewDialog(player, gameState)
                     end,
                 })
             end
+        end,
+    })
+end
+
+-- 一键续约确认弹窗
+function Squad._showBatchRenewConfirm(allPlayers, gameState)
+    local team = gameState:getPlayerTeam()
+    if not team then return end
+
+    -- 收集所有合同≤12个月的球员及建议条款
+    local renewList = {}
+    local totalWageIncrease = 0
+    for _, p in ipairs(allPlayers) do
+        local ml = ContractManager.getMonthsRemaining(gameState, p)
+        if ml <= 12 then
+            local terms = ContractManager.getSuggestedTerms(p, team, gameState)
+            local wageIncrease = terms.wage - (p.wage or 0)
+            table.insert(renewList, {
+                player = p,
+                terms = terms,
+                monthsLeft = ml,
+                wageIncrease = wageIncrease,
+            })
+            if wageIncrease > 0 then
+                totalWageIncrease = totalWageIncrease + wageIncrease
+            end
+        end
+    end
+
+    if #renewList == 0 then
+        UI.Toast.Show({ message = "没有需要续约的球员", variant = "info" })
+        return
+    end
+
+    -- 按紧急程度排序（剩余月数少的在前）
+    table.sort(renewList, function(a, b) return a.monthsLeft < b.monthsLeft end)
+
+    -- 构建详情列表
+    local detailItems = {}
+    for _, item in ipairs(renewList) do
+        local p = item.player
+        local urgency = item.monthsLeft <= 3 and " 🔴" or (item.monthsLeft <= 6 and " 🟡" or "")
+        table.insert(detailItems, {
+            label = p.displayName .. " (" .. p.position .. " " .. tostring(p.overall) .. ")" .. urgency,
+            value = string.format("%s → %s, %d年",
+                FinanceManager.formatMoney(p.wage or 0),
+                FinanceManager.formatMoney(item.terms.wage),
+                item.terms.years),
+        })
+    end
+
+    table.insert(detailItems, { label = "———————————", value = "" })
+    table.insert(detailItems, {
+        label = "总周薪增加",
+        value = totalWageIncrease > 0 and ("+" .. FinanceManager.formatMoney(totalWageIncrease)) or "无增加",
+        valueColor = totalWageIncrease > 0 and Theme.COLORS.WARNING or Theme.COLORS.SECONDARY,
+    })
+
+    ConfirmDialog.showWithDetails({
+        title = "一键续约 - " .. tostring(#renewList) .. "名球员",
+        details = detailItems,
+        confirmText = "全部续约",
+        confirmColor = {46, 125, 50, 255},
+        onConfirm = function()
+            Squad._executeBatchRenew(renewList, gameState)
+        end,
+    })
+end
+
+-- 执行批量续约
+function Squad._executeBatchRenew(renewList, gameState)
+    local successCount = 0
+    local failCount = 0
+    local failReasons = {}
+
+    for _, item in ipairs(renewList) do
+        local ok, errMsg = ContractManager.renewContract(gameState, item.player.id, item.terms.wage, item.terms.years)
+        if ok then
+            successCount = successCount + 1
+        else
+            failCount = failCount + 1
+            table.insert(failReasons, item.player.displayName .. ": " .. (errMsg or "未知原因"))
+        end
+    end
+
+    local msg
+    if failCount == 0 then
+        msg = string.format("已向 %d 名球员发出续约提议，等待球员回复。", successCount)
+    else
+        msg = string.format("成功发出 %d 份续约提议，%d 份失败。", successCount, failCount)
+        if #failReasons > 0 then
+            msg = msg .. "\n失败原因: " .. table.concat(failReasons, "; ")
+        end
+    end
+
+    ConfirmDialog.show({
+        title = "续约提议已发出",
+        message = msg,
+        confirmText = "好的",
+        confirmColor = Theme.COLORS.SECONDARY,
+        onConfirm = function()
+            Router.replaceWith("squad")
         end,
     })
 end

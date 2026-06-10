@@ -472,6 +472,11 @@ end
 ---@param fixture table
 ---@return table report
 function MatchEngine.finishMatch(session, gameState, fixture)
+    -- 幂等性保护：防止重复调用导致积分榜重复计算
+    if fixture.status == "finished" then
+        return session:buildReport()
+    end
+
     local report = session:buildReport()
     ---@diagnostic disable-next-line: return-type-mismatch
     if not report then return nil end

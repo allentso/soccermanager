@@ -2,6 +2,7 @@
 -- 存档管理器
 
 local Constants = require("scripts/app/constants")
+local Migrations = require("scripts/persistence/migrations")
 
 local SaveManager = {}
 
@@ -72,6 +73,13 @@ function SaveManager.load(gameState, slot)
     end
 
     if saveData.game_state then
+        -- 版本迁移：旧存档升级到最新版本（不影响玩家进度，只修正数据偏差）
+        local oldVersion = saveData.version or 1
+        if oldVersion < Constants.SAVE_VERSION then
+            local newVersion = Migrations.run(saveData)
+            log:Write(LOG_INFO, "SaveManager: 存档从 v" .. oldVersion .. " 迁移到 v" .. newVersion)
+        end
+
         gameState:deserialize(saveData.game_state)
         log:Write(LOG_INFO, "SaveManager: 已从 " .. path .. " 加载存档")
         return true

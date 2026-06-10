@@ -221,7 +221,7 @@ local EVENT_POOL = {
         execute = function(gs)
             local team = gs:getPlayerTeam()
             if not team then return nil end
-            team.reputation = math.min(99, (team.reputation or 50) + 1)
+            team.reputation = math.min(950, (team.reputation or 600) + 5)
             return {
                 title = "媒体赞誉",
                 body = "球队近期出色的表现引起了媒体关注，获得了积极的报道。声望小幅提升！",
@@ -245,7 +245,7 @@ local EVENT_POOL = {
         execute = function(gs)
             local team = gs:getPlayerTeam()
             if not team then return nil end
-            team.reputation = math.max(1, (team.reputation or 50) - 1)
+            team.reputation = math.max(500, (team.reputation or 600) - 5)
             return {
                 title = "媒体批评",
                 body = "球队近期糟糕的表现受到了媒体的猛烈批评。球队形象受损。",

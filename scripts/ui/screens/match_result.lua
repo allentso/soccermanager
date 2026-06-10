@@ -846,9 +846,10 @@ function MatchResult._buildRevenueCard(report)
 
     -- 对比上场
     local compareSection = nil
-    if rev.lastRevenue and rev.lastRevenue > 0 then
-        local diff = rev.revenue - rev.lastRevenue
-        local diffPct = math.floor(diff / rev.lastRevenue * 100)
+    local prevRevenue = type(rev.lastRevenue) == "table" and rev.lastRevenue.revenue or rev.lastRevenue
+    if prevRevenue and prevRevenue > 0 then
+        local diff = rev.revenue - prevRevenue
+        local diffPct = math.floor(diff / prevRevenue * 100)
         local isUp = diff >= 0
         compareSection = UI.Panel {
             flexDirection = "row",

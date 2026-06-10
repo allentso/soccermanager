@@ -394,7 +394,7 @@ local function generateStaff(gameState, teamId, country)
 end
 
 -- 生成AI经理
-local function generateAIManager(gameState, teamId, country)
+function WorldGenerator.generateAIManager(gameState, teamId, country)
     local first, last = getRandomName(country)
     local m = gameState:addManager({
         firstName = first,
@@ -430,7 +430,7 @@ function WorldGenerator.generate(gameState)
                 -- 生成职员
                 generateStaff(gameState, teamId, team.country)
                 -- 生成AI经理
-                generateAIManager(gameState, teamId, team.country)
+                WorldGenerator.generateAIManager(gameState, teamId, team.country)
             end
         end
     end

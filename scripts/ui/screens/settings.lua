@@ -9,6 +9,7 @@ local SaveManager = require("scripts/persistence/save_manager")
 local SettingsManager = require("scripts/persistence/settings_manager")
 local EventBus = require("scripts/app/event_bus")
 local League = require("scripts/domain/league")
+local DifficultySettings = require("scripts/systems/difficulty_settings")
 
 local Settings = {}
 
@@ -126,34 +127,52 @@ function Settings.create(params)
                                 Settings._saveSettings()
                                 Router.replaceWith("settings")
                             end),
+                            -- 赛程修复工具（面向玩家）
+                            UI.Panel {
+                                width = "100%",
+                                marginTop = 14,
+                                paddingTop = 14,
+                                borderTopWidth = 1,
+                                borderTopColor = Theme.COLORS.DIVIDER,
+                                children = {
+                                    UI.Panel {
+                                        width = "100%",
+                                        flexDirection = "row",
+                                        justifyContent = "spaceBetween",
+                                        alignItems = "center",
+                                        children = {
+                                            UI.Label {
+                                                text = "赛程修复",
+                                                fontSize = 14,
+                                                color = Theme.COLORS.TEXT_PRIMARY,
+                                            },
+                                            UI.Button {
+                                                text = "一键修复",
+                                                height = 32,
+                                                paddingLeft = 16, paddingRight = 16,
+                                                backgroundColor = Theme.COLORS.SECONDARY,
+                                                borderRadius = 6,
+                                                fontSize = 13,
+                                                color = "#FFFFFF",
+                                                onClick = function()
+                                                    Settings._repairOverdueFixtures()
+                                                end,
+                                            },
+                                        }
+                                    },
+                                    UI.Label {
+                                        text = "如遇比赛积压卡顿，点击可自动补齐逾期比赛",
+                                        fontSize = 11,
+                                        color = Theme.COLORS.TEXT_MUTED,
+                                        marginTop = 6,
+                                    },
+                                }
+                            },
                         }
                     },
 
-                    -- 自动保存设置
-                    Theme.Card {
-                        children = {
-                            Settings._sectionTitle("存档设置"),
-                            Settings._toggleRow("自动保存", _settings.autoSave, function(v)
-                                _settings.autoSave = v
-                                Settings._saveSettings()
-                                Router.replaceWith("settings")
-                            end),
-                            _settings.autoSave and Settings._selectRow("保存频率", {
-                                { key = 3, label = "每3回合" },
-                                { key = 5, label = "每5回合" },
-                                { key = 10, label = "每10回合" },
-                            }, _settings.autoSaveInterval, function(v)
-                                _settings.autoSaveInterval = v
-                                Settings._saveSettings()
-                                Router.replaceWith("settings")
-                            end) or UI.Panel { height = 0 },
-                            Settings._toggleRow("操作确认提示", _settings.confirmActions, function(v)
-                                _settings.confirmActions = v
-                                Settings._saveSettings()
-                                Router.replaceWith("settings")
-                            end),
-                        }
-                    },
+                    -- 难度调节 + 存档设置（合并双栏）
+                    Settings._buildDifficultyAndSaveCard(),
 
                     -- 开始新游戏
                     Theme.Card {
@@ -460,6 +479,17 @@ function Settings._showCheatMenu()
                 end,
             },
             UI.Button {
+                text = "📊 预算分配测试（结算+报告）",
+                width = "100%", height = 44,
+                backgroundColor = "#1A5276",
+                color = "#FFFFFF",
+                fontSize = 14, borderRadius = 8, marginBottom = 10,
+                onClick = function()
+                    BottomSheet.close()
+                    Settings._cheatBudgetAllocationTest()
+                end,
+            },
+            UI.Button {
                 text = "⏩ 跳到世界杯",
                 width = "100%", height = 44,
                 backgroundColor = Theme.COLORS.BG_CARD_ELEVATED,
@@ -492,17 +522,7 @@ function Settings._showCheatMenu()
                     Settings._cheatMaxReputation()
                 end,
             },
-            UI.Button {
-                text = "📉 声望重置（30）",
-                width = "100%", height = 44,
-                backgroundColor = Theme.COLORS.BG_CARD_ELEVATED,
-                color = Theme.COLORS.TEXT_PRIMARY,
-                fontSize = 14, borderRadius = 8, marginBottom = 10,
-                onClick = function()
-                    BottomSheet.close()
-                    Settings._cheatResetReputation()
-                end,
-            },
+
             UI.Button {
                 text = "🏆 查看荣誉室",
                 width = "100%", height = 44,
@@ -548,15 +568,41 @@ function Settings._showCheatMenu()
                     Settings._cheatForceLegend()
                 end,
             },
+
+            -- 修复工具
             UI.Button {
-                text = "🔄 重置传奇池（可重复抽）",
+                text = "🔧 修复赛程（自动模拟逾期比赛）",
                 width = "100%", height = 44,
-                backgroundColor = Theme.COLORS.BG_CARD_ELEVATED,
-                color = Theme.COLORS.TEXT_PRIMARY,
+                backgroundColor = "#1E8449",
+                color = "#FFFFFF",
+                fontSize = 14, borderRadius = 8, marginBottom = 10,
+                onClick = function()
+                    BottomSheet.close()
+                    Settings._repairOverdueFixtures()
+                end,
+            },
+            -- 模拟解雇
+            UI.Button {
+                text = "🚪 模拟被解雇",
+                width = "100%", height = 44,
+                backgroundColor = "#922B21",
+                color = "#FFFFFF",
+                fontSize = 14, borderRadius = 8, marginBottom = 10,
+                onClick = function()
+                    BottomSheet.close()
+                    Settings._cheatSimulateSacked()
+                end,
+            },
+            -- UCL迁移测试
+            UI.Button {
+                text = "🐛 模拟UCL覆盖存档（测试迁移）",
+                width = "100%", height = 44,
+                backgroundColor = "#922B21",
+                color = "#FFFFFF",
                 fontSize = 14, borderRadius = 8,
                 onClick = function()
                     BottomSheet.close()
-                    Settings._cheatResetLegendPool()
+                    Settings._cheatSimulateUCLOverwrite()
                 end,
             },
         },
@@ -657,8 +703,49 @@ function Settings._cheatSkipToSeasonEnd()
 
     gameState._cheatAutoPlay = nil
 
+    -- 安全检查：确保玩家球队仍在联赛中且 standings 正确
+    Settings._ensurePlayerLeagueIntegrity(gameState)
+
     SaveManager.save(gameState, "auto")
     Router.replaceWith("season_end", { season = gameState.season - 1 })
+end
+
+------------------------------------------------------
+-- 作弊：模拟被解雇
+------------------------------------------------------
+function Settings._cheatSimulateSacked()
+    local gameState = _G.gameState
+    if not gameState then return end
+
+    local playerTeamId = gameState.playerTeamId
+    if not playerTeamId then
+        gameState:sendMessage({
+            category = "career",
+            title = "无法解雇",
+            body = "你当前没有执教任何球队（已经失业了）。",
+            priority = "normal",
+        })
+        Router.replaceWith("dashboard")
+        return
+    end
+
+    local team = gameState.teams[playerTeamId]
+    local teamName = team and team.name or "未知球队"
+
+    -- 调用正式解雇流程
+    local JobManager = require("scripts/systems/job_manager")
+    JobManager.handleSacked(gameState)
+
+    -- 发送解雇消息
+    gameState:sendMessage({
+        category = "career",
+        title = "你被解雇了！",
+        body = string.format("开发者工具：模拟被 %s 解雇。你现在处于失业状态，可以查看空缺职位或等待邀约。", teamName),
+        priority = "critical",
+    })
+
+    SaveManager.save(gameState, "auto")
+    Router.replaceWith("dashboard")
 end
 
 ------------------------------------------------------
@@ -743,6 +830,8 @@ function Settings._cheatTripleCrown()
                     f.awayGoals = RandomInt(0, 2)
                 end
                 pcall(function() playerLeague:updateStanding(f) end)
+                -- 写入个人履历和声望
+                Settings._recordPlayerFixture(gameState, f)
             end
         end
     end
@@ -793,6 +882,8 @@ function Settings._completeOtherLeagues(gameState, excludeLeague)
                     f.homeGoals = RandomInt(0, 3)
                     f.awayGoals = RandomInt(0, 3)
                     pcall(function() lg:updateStanding(f) end)
+                    -- 写入个人履历和声望（以防玩家球队出现在其他联赛）
+                    Settings._recordPlayerFixture(gameState, f)
                 end
             end
         end
@@ -850,17 +941,165 @@ function Settings._cheatSkipToWorldCup()
 end
 
 -- 快速完成所有联赛（给未完赛的比赛随机赋分）
+------------------------------------------------------
+-- 辅助：将比赛结果写入个人履历和声望（作弊模式用）
+------------------------------------------------------
+function Settings._recordPlayerFixture(gameState, fixture)
+    local playerTeamId = gameState.playerTeamId
+    if not playerTeamId then return end
+
+    local isHome = fixture.homeTeamId == playerTeamId
+    local isAway = fixture.awayTeamId == playerTeamId
+    if not isHome and not isAway then return end
+
+    -- 写入个人履历（wins/draws/losses/streaks）
+    local RecordsManager = require("scripts/systems/records_manager")
+    pcall(RecordsManager.onMatchEnd, gameState, fixture)
+
+    -- 更新声望
+    local ReputationManager = require("scripts/systems/reputation_manager")
+    local homeGoals = fixture.homeGoals or 0
+    local awayGoals = fixture.awayGoals or 0
+    local opponentId, result, goalDiff
+
+    if isHome then
+        opponentId = fixture.awayTeamId
+        goalDiff = homeGoals - awayGoals
+    else
+        opponentId = fixture.homeTeamId
+        goalDiff = awayGoals - homeGoals
+    end
+
+    if goalDiff > 0 then
+        result = "W"
+    elseif goalDiff == 0 then
+        result = "D"
+    else
+        result = "L"
+    end
+
+    pcall(ReputationManager.postMatchUpdate, gameState, playerTeamId, opponentId, result, goalDiff)
+end
+
+------------------------------------------------------
+-- 安全网：确保赛季结算后玩家球队仍在联赛中且数据完整
+------------------------------------------------------
+function Settings._ensurePlayerLeagueIntegrity(gameState)
+    local playerTeamId = gameState.playerTeamId
+    if not playerTeamId then return end
+
+    -- 1. 确认 gameState.league 正确指向包含玩家球队的联赛
+    local foundLeague = nil
+    local foundLeagueKey = nil
+    for leagueKey, lg in pairs(gameState.leagues or {}) do
+        for _, tid in ipairs(lg.teamIds or {}) do
+            if tid == playerTeamId then
+                foundLeague = lg
+                foundLeagueKey = leagueKey
+                break
+            end
+        end
+        if foundLeague then break end
+    end
+
+    if not foundLeague then
+        -- 玩家球队不在任何顶级联赛中（可能被降级了）
+        -- 强制恢复：将玩家球队重新加回原联赛
+        local targetLeague = gameState.league
+        if not targetLeague then
+            -- 用 playerLeagueId 找联赛
+            targetLeague = gameState.leagues[gameState.playerLeagueId]
+        end
+        if not targetLeague then
+            -- 取第一个联赛
+            for _, lg in pairs(gameState.leagues) do
+                targetLeague = lg
+                break
+            end
+        end
+        if targetLeague then
+            table.insert(targetLeague.teamIds, playerTeamId)
+            foundLeague = targetLeague
+            -- 从二级联赛储备池中移除（如果在的话）
+            if gameState.secondDivision then
+                for _, sd in pairs(gameState.secondDivision) do
+                    for i, tid in ipairs(sd.teamIds or {}) do
+                        if tid == playerTeamId then
+                            table.remove(sd.teamIds, i)
+                            break
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    if foundLeague then
+        gameState.league = foundLeague
+        if foundLeagueKey then
+            gameState.playerLeagueId = foundLeagueKey
+        end
+
+        -- 2. 确保 standings 中有玩家球队
+        if not foundLeague.standings[playerTeamId] then
+            foundLeague.standings[playerTeamId] = {
+                teamId = playerTeamId,
+                played = 0, won = 0, drawn = 0, lost = 0,
+                goalsFor = 0, goalsAgainst = 0, goalDifference = 0, points = 0,
+            }
+        end
+
+        -- 3. 确保 fixtures 中有玩家球队的比赛
+        local hasFixture = false
+        for _, f in ipairs(foundLeague.fixtures or {}) do
+            if (f.homeTeamId == playerTeamId or f.awayTeamId == playerTeamId)
+                and f.status == "scheduled" then
+                hasFixture = true
+                break
+            end
+        end
+        if not hasFixture then
+            -- 重新生成赛程
+            local Constants = require("scripts/app/constants")
+            local leagueStartDate = {
+                year = gameState.season,
+                month = Constants.SEASON_START_MONTH,
+                day = Constants.SEASON_START_DAY,
+            }
+            pcall(function()
+                foundLeague:initStandings()
+                foundLeague:generateFixtures(leagueStartDate)
+            end)
+        end
+    end
+end
+
 function Settings._completeAllLeagues(gameState)
     if not gameState.leagues then return end
+    local playerTeamId = gameState.playerTeamId
+
     for _, lg in pairs(gameState.leagues) do
         if lg.fixtures then
             for _, f in ipairs(lg.fixtures) do
                 if f.status ~= "finished" then
                     f.status = "finished"
-                    f.homeGoals = RandomInt(0, 3)
-                    f.awayGoals = RandomInt(0, 3)
+                    -- 玩家球队比赛结果偏向赢球，防止随机降级
+                    local isPlayerHome = (f.homeTeamId == playerTeamId)
+                    local isPlayerAway = (f.awayTeamId == playerTeamId)
+                    if isPlayerHome then
+                        f.homeGoals = RandomInt(1, 3)
+                        f.awayGoals = RandomInt(0, 1)
+                    elseif isPlayerAway then
+                        f.homeGoals = RandomInt(0, 1)
+                        f.awayGoals = RandomInt(1, 3)
+                    else
+                        f.homeGoals = RandomInt(0, 3)
+                        f.awayGoals = RandomInt(0, 3)
+                    end
                     -- 更新积分榜
                     pcall(function() lg:updateStanding(f) end)
+                    -- 写入个人履历和声望
+                    Settings._recordPlayerFixture(gameState, f)
                 end
             end
         end
@@ -872,9 +1111,21 @@ function Settings._completeAllLeagues(gameState)
             for _, f in ipairs(ucl.leaguePhase.fixtures) do
                 if f.status ~= "finished" then
                     f.status = "finished"
-                    f.homeGoals = RandomInt(0, 3)
-                    f.awayGoals = RandomInt(0, 3)
+                    local isPlayerHome = (f.homeTeamId == playerTeamId)
+                    local isPlayerAway = (f.awayTeamId == playerTeamId)
+                    if isPlayerHome then
+                        f.homeGoals = RandomInt(1, 3)
+                        f.awayGoals = RandomInt(0, 1)
+                    elseif isPlayerAway then
+                        f.homeGoals = RandomInt(0, 1)
+                        f.awayGoals = RandomInt(1, 3)
+                    else
+                        f.homeGoals = RandomInt(0, 3)
+                        f.awayGoals = RandomInt(0, 3)
+                    end
                     pcall(function() ucl:updateLeagueStanding(f) end)
+                    -- 写入个人履历和声望
+                    Settings._recordPlayerFixture(gameState, f)
                 end
             end
         end
@@ -957,7 +1208,8 @@ end
 ------------------------------------------------------
 function Settings._saveSettings()
     if _G.gameState then
-        _G.gameState.settings = {}
+        -- 保留 difficulty 等非 UI 设置字段，只合并 _settings 中的内容
+        _G.gameState.settings = _G.gameState.settings or {}
         for k, v in pairs(_settings) do
             _G.gameState.settings[k] = v
         end
@@ -1076,6 +1328,504 @@ function Settings._cheatResetLegendPool()
         priority = "normal",
     })
     Router.replaceWith("dashboard")
+end
+
+------------------------------------------------------
+-- 作弊：预算分配测试（完成赛季 + 结算 + 展示财务报告）
+------------------------------------------------------
+function Settings._cheatBudgetAllocationTest()
+    local gameState = _G.gameState
+    if not gameState then return end
+
+    local SeasonManager = require("scripts/systems/season_manager")
+    local FinanceManager = require("scripts/systems/finance_manager")
+    local BottomSheet = require("scripts/ui/components/bottom_sheet")
+
+    local team = gameState.teams[gameState.playerTeamId]
+    if not team then return end
+
+    -- 快照：结算前数据
+    local preSeason = gameState.season
+    local preBalance = team.balance or 0
+    local preSeasonIncome = team.seasonIncome or 0
+    local preSeasonExpense = team.seasonExpense or 0
+    local preBreakdown = {}
+    if team.incomeBreakdown then
+        for k, v in pairs(team.incomeBreakdown) do preBreakdown[k] = v end
+    end
+
+    -- 1. 快速完成所有联赛/欧冠比赛（会产生票房收入）
+    gameState._cheatAutoPlay = true
+    Settings._completeAllLeagues(gameState)
+
+    -- 快照更新（完成比赛后票房等收入已入账）
+    local postMatchIncome = team.seasonIncome or 0
+    local postMatchBreakdown = {}
+    if team.incomeBreakdown then
+        for k, v in pairs(team.incomeBreakdown) do postMatchBreakdown[k] = v end
+    end
+
+    -- 2. 执行赛季结算（奖金发放、赞助条款、预算分配）
+    pcall(SeasonManager.endSeason, gameState)
+    gameState._cheatAutoPlay = nil
+
+    -- 3. 结算后数据
+    local postBalance = team.balance or 0
+    local postTransferBudget = team.transferBudget or 0
+    local postWageBudget = team.wageBudget or 0
+
+    -- 计算实际周薪
+    local actualWeeklyWage = 0
+    for _, pid in ipairs(team.playerIds) do
+        local p = gameState.players[pid]
+        if p then actualWeeklyWage = actualWeeklyWage + (p.wage or 0) end
+    end
+
+    -- 联赛排名
+    local position = "N/A"
+    if gameState.leagues then
+        for _, lg in pairs(gameState.leagues) do
+            for _, tid in ipairs(lg.teamIds) do
+                if tid == gameState.playerTeamId then
+                    local pos = lg:getTeamPosition(gameState.playerTeamId)
+                    if pos then position = tostring(pos) end
+                    break
+                end
+            end
+        end
+    end
+
+    -- 4. 格式化展示
+    local fmtM = function(v) return string.format("%.1fM", (v or 0) / 1000000) end
+    local fmtK = function(v) return string.format("%.0fK", (v or 0) / 1000) end
+
+    local lines = {}
+    table.insert(lines, string.format("赛季 %d → %d 结算完成", preSeason, gameState.season))
+    table.insert(lines, string.format("联赛排名: 第 %s 名", position))
+    table.insert(lines, "")
+    table.insert(lines, "── 赛季收支 ──")
+    table.insert(lines, string.format("总收入: %s  总支出: %s", fmtM(postMatchIncome), fmtM(preSeasonExpense)))
+    table.insert(lines, string.format("净利润: %s", fmtM(postMatchIncome - preSeasonExpense)))
+    table.insert(lines, "")
+    table.insert(lines, "── 收入明细 ──")
+    local bd = postMatchBreakdown
+    if (bd.ticket or 0) > 0 then table.insert(lines, "  票房: " .. fmtM(bd.ticket)) end
+    if (bd.sponsor or 0) > 0 then table.insert(lines, "  赞助: " .. fmtM(bd.sponsor)) end
+    if (bd.broadcast or 0) > 0 then table.insert(lines, "  转播: " .. fmtM(bd.broadcast)) end
+    if (bd.merchandise or 0) > 0 then table.insert(lines, "  商品: " .. fmtM(bd.merchandise)) end
+    if (bd.prize or 0) > 0 then table.insert(lines, "  奖金: " .. fmtM(bd.prize)) end
+    if (bd.transfer or 0) > 0 then table.insert(lines, "  转会: " .. fmtM(bd.transfer)) end
+    table.insert(lines, "")
+    table.insert(lines, "── 预算分配结果 ──")
+    table.insert(lines, string.format("余额: %s → %s", fmtM(preBalance), fmtM(postBalance)))
+    table.insert(lines, string.format("转会预算: %s", fmtM(postTransferBudget)))
+    table.insert(lines, string.format("工资预算: %s/周", fmtK(postWageBudget)))
+    table.insert(lines, string.format("实际周薪: %s/周", fmtK(actualWeeklyWage)))
+    table.insert(lines, "")
+    table.insert(lines, "── 公式参数 ──")
+    table.insert(lines, string.format("声望: %d  repFactor: %.2f", team.reputation or 0, 0.5 + ((team.reputation or 50) / 99)))
+    table.insert(lines, string.format("余额×25%%×repFactor = %s", fmtM(math.floor((postBalance) * 0.25 * (0.5 + ((team.reputation or 50) / 99))))))
+    table.insert(lines, string.format("球场容量: %d 人", team.stadiumCapacity or 0))
+
+    -- 展示报告面板
+    local reportChildren = {}
+    for _, line in ipairs(lines) do
+        table.insert(reportChildren, UI.Label {
+            text = line,
+            fontSize = 13,
+            color = (line:find("──") or line == "") and Theme.COLORS.TEXT_HINT or Theme.COLORS.TEXT_PRIMARY,
+            width = "100%",
+            marginBottom = line == "" and 6 or 2,
+        })
+    end
+
+    BottomSheet.showCustom({
+        title = "📊 预算分配测试报告",
+        height = 680,
+        children = {
+            UI.ScrollView {
+                width = "100%", height = 580,
+                children = reportChildren,
+            },
+        },
+    })
+
+    SaveManager.save(gameState, "auto")
+end
+
+------------------------------------------------------
+-- 难度调节 + 存档设置（双栏合并）
+------------------------------------------------------
+function Settings._buildDifficultyAndSaveCard()
+    local diff = DifficultySettings.get()
+    local params = DifficultySettings.PARAMS
+
+    -- 左栏：难度调节
+    ---@type table[]
+    local diffChildren = {
+        Settings._sectionTitle("难度调节"),
+    }
+    for _, param in ipairs(params) do
+        local currentTier = diff[param.key] or 2
+        diffChildren[#diffChildren + 1] = Settings._difficultyTierRow(param, currentTier)
+    end
+
+    -- 右栏：存档设置
+    ---@type table[]
+    local saveChildren = {
+        Settings._sectionTitle("存档设置"),
+        Settings._toggleRow("自动保存", _settings.autoSave, function(v)
+            _settings.autoSave = v
+            Settings._saveSettings()
+            Router.replaceWith("settings")
+        end),
+        _settings.autoSave and Settings._selectRow("保存频率", {
+            { key = 3, label = "3回合" },
+            { key = 5, label = "5回合" },
+            { key = 10, label = "10回合" },
+        }, _settings.autoSaveInterval, function(v)
+            _settings.autoSaveInterval = v
+            Settings._saveSettings()
+            Router.replaceWith("settings")
+        end) or UI.Panel { height = 0 },
+        Settings._toggleRow("操作确认提示", _settings.confirmActions, function(v)
+            _settings.confirmActions = v
+            Settings._saveSettings()
+            Router.replaceWith("settings")
+        end),
+    }
+
+    return Theme.Card {
+        children = {
+            UI.Panel {
+                flexDirection = "row",
+                width = "100%",
+                alignItems = "stretch",
+                children = {
+                    -- 左栏：难度
+                    UI.Panel {
+                        flexGrow = 1,
+                        flexBasis = 0,
+                        flexShrink = 1,
+                        paddingRight = 8,
+                        children = diffChildren,
+                    },
+                    -- 分隔线
+                    UI.Panel {
+                        width = 1,
+                        alignSelf = "stretch",
+                        backgroundColor = Theme.COLORS.BORDER,
+                    },
+                    -- 右栏：存档
+                    UI.Panel {
+                        flexGrow = 1,
+                        flexBasis = 0,
+                        flexShrink = 1,
+                        paddingLeft = 12,
+                        children = saveChildren,
+                    },
+                },
+            },
+        }
+    }
+end
+
+--- 难度档位行：标题 + 3个按钮 + 当前档位描述
+function Settings._difficultyTierRow(param, currentTier)
+    local hintLabel = UI.Label {
+        text = param.tierHints[currentTier] or "",
+        fontSize = 10,
+        color = Theme.COLORS.TEXT_MUTED,
+        marginTop = 2,
+    }
+
+    local tierButtons = {}
+    for i, tierName in ipairs(DifficultySettings.TIER_LABELS) do
+        local isActive = (i == currentTier)
+        tierButtons[#tierButtons + 1] = UI.Button {
+            text = tierName,
+            fontSize = 11,
+            width = 50,
+            height = 26,
+            marginRight = (i < 3) and 4 or 0,
+            variant = isActive and "primary" or "ghost",
+            onClick = function(self)
+                DifficultySettings.set(param.key, i)
+                Settings._saveSettings()
+                Router.replaceWith("settings")
+            end,
+        }
+    end
+
+    return UI.Panel {
+        width = "100%",
+        marginBottom = 10,
+        children = {
+            UI.Label {
+                text = param.name,
+                fontSize = 12,
+                color = Theme.COLORS.TEXT_PRIMARY,
+                fontWeight = "bold",
+                marginBottom = 3,
+            },
+            UI.Panel {
+                flexDirection = "row",
+                alignItems = "center",
+                children = tierButtons,
+            },
+            hintLabel,
+        }
+    }
+end
+
+------------------------------------------------------
+-- 作弊：模拟UCL覆盖bug存档（用于测试迁移方案）
+-- 模拟旧版本中联赛结束后 _startNewSeason 直接覆盖进行中UCL的状态
+------------------------------------------------------
+function Settings._cheatSimulateUCLOverwrite()
+    local gameState = _G.gameState
+    if not gameState then return end
+
+    local ChampionsLeague = require("scripts/systems/champions_league")
+    local SeasonManager = require("scripts/systems/season_manager")
+
+    local prevSeason = gameState.season
+    print("[CHEAT] 模拟UCL覆盖bug：当前赛季=" .. prevSeason)
+
+    -- 1. 快速完成联赛（但不触发赛季结算，模拟联赛结束的状态）
+    for _, lg in pairs(gameState.leagues) do
+        if lg.fixtures then
+            for _, f in ipairs(lg.fixtures) do
+                if f.status ~= "finished" then
+                    f.status = "finished"
+                    f.homeGoals = RandomInt(0, 3)
+                    f.awayGoals = RandomInt(0, 3)
+                    -- 更新积分榜
+                    lg:updateStanding(f)
+                end
+            end
+        end
+        lg._seasonComplete = true
+    end
+
+    -- 2. 记录赛季历史（模拟 _recordSeasonHistory 正常执行）
+    local seasonRecord = {
+        season = prevSeason,
+        leagues = {},
+    }
+    for key, lg in pairs(gameState.leagues) do
+        local sorted = lg:getSortedStandings()
+        local championEntry = sorted[1]
+        local championTeam = championEntry and gameState.teams[championEntry.teamId]
+        seasonRecord.leagues[key] = {
+            name = lg.name,
+            champion = championEntry and {
+                teamId = championEntry.teamId,
+                teamName = championTeam and championTeam.name or "?",
+                points = championEntry.points or 0,
+            } or nil,
+        }
+    end
+    table.insert(gameState.worldHistory, seasonRecord)
+
+    -- 3. 模拟 _startNewSeason 的核心操作：递增赛季 + 重建联赛 + 覆盖UCL
+    gameState.season = prevSeason + 1
+    gameState.date = {
+        year = gameState.season,
+        month = 8,
+        day = 10,
+    }
+    gameState.dayOfWeek = 1
+
+    -- 重置联赛
+    local Constants = require("scripts/app/constants")
+    local leagueStartDate = {
+        year = gameState.season,
+        month = Constants.SEASON_START_MONTH,
+        day = Constants.SEASON_START_DAY,
+    }
+    for _, lg in pairs(gameState.leagues) do
+        lg:initStandings()
+        lg.season = gameState.season
+        lg.currentRound = 1
+        lg:generateFixtures(leagueStartDate)
+    end
+
+    -- 4. 关键：用 ChampionsLeague.initialize 覆盖UCL（模拟bug行为）
+    ChampionsLeague.initialize(gameState)
+
+    -- 5. 清除迁移标记（模拟老存档没有这些字段）
+    gameState._uclCompletedSeasons = nil
+    gameState._uclOverwritePatched = nil
+    gameState._seasonEndProcessing = nil
+    gameState.pendingPlayerFixture = nil
+
+    -- 6. 通知用户
+    gameState:sendMessage({
+        category = "system",
+        title = "🐛 测试存档已生成",
+        body = string.format(
+            "已模拟UCL覆盖bug状态：\n" ..
+            "- 从第%d赛季跳到第%d赛季\n" ..
+            "- 上赛季UCL数据已被覆盖（无完成记录）\n" ..
+            "- 联赛已重置为新赛季\n\n" ..
+            "请前往欧冠页面触发迁移检测。",
+            prevSeason, gameState.season
+        ),
+        priority = "high",
+    })
+
+    print("[CHEAT] 模拟完成：season=" .. gameState.season ..
+        ", UCL phase=" .. (gameState.championsLeague and gameState.championsLeague.phase or "nil") ..
+        ", _uclCompletedSeasons=nil, _uclOverwritePatched=nil")
+    print("[CHEAT] 请前往欧冠页面（联赛视图→欧冠tab）触发 migrateIfNeeded 检测")
+
+    -- 刷新当前页面
+    Router.navigate("settings")
+end
+
+------------------------------------------------------
+-- 修复工具：自动模拟所有逾期的玩家比赛
+------------------------------------------------------
+function Settings._repairOverdueFixtures()
+    local gameState = _G.gameState
+    if not gameState then return end
+
+    local MatchEngine = require("scripts/match/match_engine")
+    local TurnProcessor = require("scripts/core/turn_processor")
+    local ChampionsLeague = require("scripts/systems/champions_league")
+    local SaveManager = require("scripts/persistence/save_manager")
+    local currentDate = gameState.date
+    local playerTeamId = gameState.playerTeamId
+    if not playerTeamId then
+        UI.Toast.Show({ message = "无玩家球队", variant = "error" })
+        return
+    end
+
+    local repaired = 0
+    local results = {}
+
+    -- 1. 修复逾期联赛比赛（包含当天未打的比赛，避免卡住）
+    for _, lg in pairs(gameState.leagues or {}) do
+        for _, fixture in ipairs(lg.fixtures or {}) do
+            if fixture.status == "scheduled" and fixture.date
+                and TurnProcessor._isDateBeforeOrEqual(fixture.date, currentDate) then
+                local isPlayerMatch = (fixture.homeTeamId == playerTeamId or fixture.awayTeamId == playerTeamId)
+                if isPlayerMatch then
+                    -- 自动模拟
+                    local report = MatchEngine.simulate(gameState, fixture)
+                    if report then
+                        MatchEngine.applyResult(gameState, fixture, report)
+                        repaired = repaired + 1
+                        local homeTeam = gameState.teams[fixture.homeTeamId]
+                        local awayTeam = gameState.teams[fixture.awayTeamId]
+                        table.insert(results, string.format(
+                            "[联赛] %s %d-%d %s",
+                            homeTeam and homeTeam.shortName or "?",
+                            report.homeGoals, report.awayGoals,
+                            awayTeam and awayTeam.shortName or "?"
+                        ))
+                    end
+                    -- 清除 pending 标记
+                    fixture._pendingPlayerMatch = nil
+                end
+            end
+        end
+    end
+
+    -- 2. 修复逾期欧冠比赛（包含当天未打的比赛）
+    local ucl = gameState.championsLeague
+    if ucl and ucl.phase ~= "completed" then
+        -- 联赛阶段
+        if ucl.leaguePhase and ucl.leaguePhase.fixtures then
+            for _, f in ipairs(ucl.leaguePhase.fixtures) do
+                if f.status == "scheduled" and f.date
+                    and TurnProcessor._isDateBeforeOrEqual(f.date, currentDate) then
+                    local isPlayerMatch = (f.homeTeamId == playerTeamId or f.awayTeamId == playerTeamId)
+                    if isPlayerMatch then
+                        local report = MatchEngine.simulate(gameState, f)
+                        if report then
+                            f.status = "finished"
+                            f.homeGoals = report.homeGoals or 0
+                            f.awayGoals = report.awayGoals or 0
+                            f.events = report.events
+                            ucl:updateLeagueStanding(f)
+                            repaired = repaired + 1
+                            local homeTeam = gameState.teams[f.homeTeamId]
+                            local awayTeam = gameState.teams[f.awayTeamId]
+                            table.insert(results, string.format(
+                                "[欧冠] %s %d-%d %s",
+                                homeTeam and homeTeam.shortName or "?",
+                                report.homeGoals, report.awayGoals,
+                                awayTeam and awayTeam.shortName or "?"
+                            ))
+                        end
+                        f._pendingPlayerMatch = nil
+                    end
+                end
+            end
+        end
+        -- 淘汰赛阶段
+        if ucl.knockout then
+            local phases = {"playoff", "r16", "qf", "sf", "final"}
+            for _, phase in ipairs(phases) do
+                local fixtures = ucl.knockout[phase]
+                if fixtures then
+                    for _, f in ipairs(fixtures) do
+                        if f.status == "scheduled" and f.date
+                            and TurnProcessor._isDateBeforeOrEqual(f.date, currentDate) then
+                            local isPlayerMatch = (f.homeTeamId == playerTeamId or f.awayTeamId == playerTeamId)
+                            if isPlayerMatch then
+                                f._isUCL = true
+                                f.tournamentPhase = phase
+                                local report = MatchEngine.simulate(gameState, f)
+                                if report then
+                                    TurnProcessor._applyUCLResult(gameState, f, report)
+                                    repaired = repaired + 1
+                                    local homeTeam = gameState.teams[f.homeTeamId]
+                                    local awayTeam = gameState.teams[f.awayTeamId]
+                                    table.insert(results, string.format(
+                                        "[欧冠%s] %s %d-%d %s",
+                                        phase,
+                                        homeTeam and homeTeam.shortName or "?",
+                                        report.homeGoals, report.awayGoals,
+                                        awayTeam and awayTeam.shortName or "?"
+                                    ))
+                                end
+                                f._pendingPlayerMatch = nil
+                            end
+                        end
+                    end
+                end
+            end
+        end
+        -- 修复后检查阶段推进
+        ChampionsLeague.checkPhaseAdvance(gameState)
+    end
+
+    -- 3. 清除 pendingPlayerFixture（如果有）
+    gameState.pendingPlayerFixture = nil
+
+    -- 4. 保存
+    SaveManager.save(gameState, "auto")
+
+    -- 5. 反馈
+    if repaired == 0 then
+        UI.Toast.Show({ message = "没有逾期比赛，赛程正常", variant = "info" })
+    else
+        local summary = string.format("已自动模拟 %d 场逾期比赛:\n%s", repaired, table.concat(results, "\n"))
+        gameState:sendMessage({
+            category = "system",
+            title = "🔧 赛程修复完成",
+            body = summary,
+            priority = "high",
+        })
+        UI.Toast.Show({ message = string.format("已修复 %d 场逾期比赛", repaired), variant = "success" })
+        print("[REPAIR] " .. summary)
+    end
+
+    -- 刷新页面
+    Router.navigate("settings")
 end
 
 return Settings

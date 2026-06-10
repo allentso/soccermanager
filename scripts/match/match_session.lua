@@ -145,7 +145,6 @@ function MatchSession:_buildBench(gameState, homeTeam, awayTeam)
     local team = gameState.teams[playerTeamId]
     if not team then return {} end
 
-    local bench = {}
     local startingSet = {}
     if team.startingXI then
         for _, pid in ipairs(team.startingXI or {}) do
@@ -153,6 +152,36 @@ function MatchSession:_buildBench(gameState, homeTeam, awayTeam)
         end
     end
 
+    -- 如果有手动选择的替补席，优先使用
+    if team.benchIds and #team.benchIds > 0 then
+        local result = {}
+        for _, pid in ipairs(team.benchIds) do
+            local p = gameState.players[pid]
+            if p and not p.injured and not startingSet[p.id] then
+                table.insert(result, p)
+            end
+        end
+        -- 手动列表中伤病球员自动补位（从剩余球员中选最强的）
+        if #result < 7 then
+            local usedSet = {}
+            for _, r in ipairs(result) do usedSet[r.id] = true end
+            local extras = {}
+            for _, pid in ipairs(team.playerIds or {}) do
+                local p = gameState.players[pid]
+                if p and not p.injured and not startingSet[p.id] and not usedSet[p.id] then
+                    table.insert(extras, p)
+                end
+            end
+            table.sort(extras, function(a, b) return a.overall > b.overall end)
+            for i = 1, math.min(7 - #result, #extras) do
+                table.insert(result, extras[i])
+            end
+        end
+        return result
+    end
+
+    -- 自动模式：按 overall 排序取前7
+    local bench = {}
     for _, pid in ipairs(team.playerIds or {}) do
         local p = gameState.players[pid]
         if p and not p.injured and not startingSet[p.id] then
@@ -161,7 +190,6 @@ function MatchSession:_buildBench(gameState, homeTeam, awayTeam)
     end
     table.sort(bench, function(a, b) return a.overall > b.overall end)
 
-    -- 最多7名替补
     local result = {}
     for i = 1, math.min(7, #bench) do
         table.insert(result, bench[i])

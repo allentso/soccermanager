@@ -160,7 +160,8 @@ function RealDataLoader.importLeague(gameState, leagueData, leagueConfig)
             stadiumName = tData.stadium_name or "",
             stadiumCapacity = tData.stadium_capacity or 30000,
             foundedYear = tData.founded_year or 1900,
-            reputation = tData.reputation or 500,
+            reputation = RealDataLoader._calcReputation(tData.wage_budget),
+            _baseReputation = RealDataLoader._calcReputation(tData.wage_budget),
             playStyle = RealDataLoader._assignPlayStyle(tData),
             formation = RealDataLoader._assignFormation(tData),
             -- 用wage_budget推算合理财务（FM原始finance/transfer_budget数值偏低）
@@ -378,6 +379,22 @@ function RealDataLoader.getTeamLeague(gameState, teamId)
         end
     end
     return nil, nil
+end
+
+--- 根据 wage_budget 推导球队声望
+--- wage_budget 范围约 200K~6.1M，映射到 500~950 reputation
+--- 这比 JSON 中的 reputation 字段更准确（原字段实际是 finance/10000，与声望无关）
+function RealDataLoader._calcReputation(wageBudget)
+    local wb = wageBudget or 200000
+    -- 对数映射：让中等球队也有合理区分度
+    -- ln(200000)≈12.2, ln(6100000)≈15.6，差值约3.4
+    local logWb = math.log(wb)
+    local logMin = math.log(200000)   -- 最低周薪预算
+    local logMax = math.log(6500000)  -- 最高周薪预算（留余量）
+    local ratio = (logWb - logMin) / (logMax - logMin)
+    ratio = math.max(0, math.min(1, ratio))
+    -- 映射到 500~950
+    return math.floor(500 + ratio * 450)
 end
 
 --- 根据球队声望和特征分配合理风格（避免全部 Balanced）

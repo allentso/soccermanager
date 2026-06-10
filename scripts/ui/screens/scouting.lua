@@ -542,7 +542,7 @@ function ScoutingPage._getScoutCandidates(gameState)
                     id = player.id,
                     displayName = player.displayName,
                     position = player.position,
-                    overall = player.overall or 50,
+                    overall = math.min(Constants.ABILITY_MAX, player.overall or 50),
                     age = player:getAge(gameState.date.year),
                     teamName = teamName,
                 })

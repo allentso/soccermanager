@@ -4,6 +4,8 @@
 local EventBus = require("scripts/app/event_bus")
 local FinanceManager = require("scripts/systems/finance_manager")
 
+local DifficultySettings = require("scripts/systems/difficulty_settings")
+
 local TransferManager = {}
 require("scripts/systems/transfers/transfer_completion")(TransferManager)
 
@@ -45,6 +47,32 @@ end
 function TransferManager.isInTransferWindow(gameState)
     local month = gameState.date.month
     return (month >= 6 and month <= 8) or month == 1
+end
+
+--- 获取转会窗口关闭日期
+--- @return table|nil {year, month, day} 当前窗口关闭日期，不在窗口期返回nil
+function TransferManager.getWindowCloseDate(gameState)
+    local month = gameState.date.month
+    local year = gameState.date.year
+    if month >= 6 and month <= 8 then
+        return { year = year, month = 8, day = 31 }  -- 夏窗8月31日关闭
+    elseif month == 1 then
+        return { year = year, month = 1, day = 31 }  -- 冬窗1月31日关闭
+    end
+    return nil
+end
+
+--- 计算距离转会窗口关闭的天数
+--- @return number 剩余天数（不在窗口返回999）
+function TransferManager.daysUntilWindowClose(gameState)
+    local closeDate = TransferManager.getWindowCloseDate(gameState)
+    if not closeDate then return 999 end
+    return TransferManager._daysBetween(gameState.date, closeDate)
+end
+
+--- 是否处于 Deadline Day（关窗前<=2天）
+function TransferManager.isDeadlineDay(gameState)
+    return TransferManager.daysUntilWindowClose(gameState) <= 2
 end
 
 --- 统一转会窗口校验（用于俱乐部间交易入口）
@@ -161,7 +189,7 @@ function TransferManager.makeBid(gameState, playerId, amount, wageOffer)
         counterAmount = nil,      -- AI的还价金额
         currentRound = 0,         -- 当前回合
         maxRounds = maxRounds,    -- 耐心上限
-        mood = 50,                -- AI心情(0-100): 0=怒 50=中立 100=热情
+        mood = math.max(0, math.min(100, 50 - DifficultySettings.getTransferModifiers().moodPenalty)),  -- AI心情(0-100), 难度影响初始值
         rounds = {},              -- 历史记录: {round, offer, counter, result}
     }
 
@@ -261,7 +289,9 @@ function TransferManager.getPendingSellBids(gameState)
     TransferManager._ensureData(gameState)
     local result = {}
     for _, bid in ipairs(gameState.transfers.bids) do
-        if bid.sellerTeamId == gameState.playerTeamId and bid.status == "pending" then
+        if bid.sellerTeamId == gameState.playerTeamId
+            and (bid.status == "pending" or bid.status == "counter_pending"
+                 or bid.status == "awaiting_sale_confirmation" or bid.status == "player_considering_sale") then
             table.insert(result, bid)
         end
     end
@@ -300,10 +330,15 @@ function TransferManager._processAIResponse(gameState, bid)
         return
     end
 
+    -- 难度修正
+    local diffMods = DifficultySettings.getTransferModifiers()
+
     -- 接受阈值：基础1.3，mood越高阈值越低
     local acceptThreshold = 1.3 - (mood / 200)  -- mood=100时阈值1.0, mood=0时阈值1.3
     -- 随着轮次增加，阈值降低（对方越来越务实）
     acceptThreshold = acceptThreshold - round * 0.05
+    -- 难度偏移：高难度时阈值更高（更难被接受）
+    acceptThreshold = acceptThreshold + diffMods.thresholdOffset
 
     -- 年龄因子：年轻球员溢价更高，老将更容易谈
     -- 以26岁为中性基准，每偏离1岁影响0.02
@@ -311,6 +346,11 @@ function TransferManager._processAIResponse(gameState, bid)
     local ageFactor = (26 - age) * 0.02  -- <26: 正值(加价), >26: 负值(降价)
     ageFactor = math.max(-0.15, math.min(0.15, ageFactor))  -- 限制在[-0.15, +0.15]
     acceptThreshold = acceptThreshold + ageFactor
+
+    -- 非卖品溢价：未挂牌球员需要更高报价才会考虑出售
+    if not player.listedForSale then
+        acceptThreshold = acceptThreshold + 0.3  -- 未挂牌球员额外+0.3倍溢价
+    end
 
     if ratio >= math.max(acceptThreshold, 0.9) then
         -- 达到接受阈值 → 直接接受
@@ -326,6 +366,12 @@ function TransferManager._processAIResponse(gameState, bid)
         baseMultiplier = baseMultiplier - (mood - 50) / 200
         -- 年龄影响还价：年轻球员开价更高，老将更务实
         baseMultiplier = baseMultiplier + ageFactor
+        -- 非卖品溢价：未挂牌球员AI要价更高
+        if not player.listedForSale then
+            baseMultiplier = baseMultiplier + 0.3
+        end
+        -- 难度偏移：高难度时AI要价更高
+        baseMultiplier = baseMultiplier + diffMods.counterMultiplierOffset
         -- 加一点随机波动
         baseMultiplier = baseMultiplier + (Random() - 0.5) * 0.1
         baseMultiplier = math.max(1.0, baseMultiplier)
@@ -376,16 +422,28 @@ function TransferManager._acceptBid(gameState, bid)
     bid.status = "player_considering"
     bid.feeAgreedDate = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day}
     bid.playerConsiderDate = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day}
-    bid.playerConsiderDays = RandomInt(1, 3)  -- 球员考虑1-3天
+
+    -- Deadline Day 效应：关窗前<=2天，考虑时间压缩为1天，且个人条款只有1次机会
+    local isDeadline = TransferManager.isDeadlineDay(gameState)
+    if isDeadline then
+        bid.playerConsiderDays = 1
+        bid.maxPersonalTermsAttempts = 1  -- 关窗前只给1次个人条款机会
+        bid.isDeadlineDeal = true         -- 标记为关窗交易
+    else
+        bid.playerConsiderDays = RandomInt(1, 3)
+        bid.maxPersonalTermsAttempts = 3  -- 正常情况3次机会
+    end
     bid.personalTermsAttempts = 0  -- 个人条款协商次数
 
     local sellerTeam = gameState.teams[bid.sellerTeamId]
+    local deadlineNote = isDeadline and "（关窗日加急处理）" or ""
     gameState:sendMessage({
         category = "transfer",
-        title = "转会费已达成",
-        body = string.format("%s 已同意放人！球员 %s 正在考虑是否加盟，预计需要 %d 天回复。",
+        title = "转会费已达成" .. deadlineNote,
+        body = string.format("%s 已同意放人！球员 %s 正在考虑是否加盟，预计需要 %d 天回复。%s",
             sellerTeam and sellerTeam.name or "对方俱乐部",
-            player.displayName, bid.playerConsiderDays),
+            player.displayName, bid.playerConsiderDays,
+            isDeadline and "\n⚠️ 转会窗口即将关闭，协商时间紧迫！" or ""),
         priority = "high",
     })
 end
@@ -399,6 +457,8 @@ function TransferManager._attemptPersonalTerms(gameState, bid)
     bid.personalTermsAttempts = (bid.personalTermsAttempts or 0) + 1
 
     local consent, reason = TransferManager._requirePlayerConsentForTransfer(gameState, bid)
+    local maxAttempts = bid.maxPersonalTermsAttempts or 3
+
     if consent then
         -- 球员同意个人条款，等待玩家最终确认
         bid.status = "awaiting_confirmation"
@@ -416,19 +476,22 @@ function TransferManager._attemptPersonalTerms(gameState, bid)
         })
     else
         -- 个人条款被拒，但转会费协议仍有效
-        -- 最多允许3次重新协商
-        if bid.personalTermsAttempts >= 3 then
+        if bid.personalTermsAttempts >= maxAttempts then
+            local deadlineNote = bid.isDeadlineDeal and "（关窗日无更多协商时间）" or ""
             TransferManager._rejectBid(gameState, bid,
-                string.format("与 %s 的个人条款协商已失败3次，交易取消。", player.displayName))
+                string.format("与 %s 的个人条款协商已失败%d次，交易取消。%s",
+                    player.displayName, maxAttempts, deadlineNote))
         else
             bid.status = "fee_agreed"  -- 保持在fee_agreed状态
+            local remaining = maxAttempts - bid.personalTermsAttempts
             gameState:sendMessage({
                 category = "transfer",
                 title = "个人条款被拒",
                 body = string.format(
-                    "%s 拒绝了当前的个人条款（%s）。转会费协议仍有效，你可以修改薪资报价后重新协商（剩余 %d 次机会）。",
+                    "%s 拒绝了当前的个人条款（%s）。转会费协议仍有效，你可以修改薪资报价后重新协商（剩余 %d 次机会）。%s",
                     player.displayName, reason or "条件不满意",
-                    3 - bid.personalTermsAttempts),
+                    remaining,
+                    bid.isDeadlineDeal and "\n⚠️ 窗口即将关闭，请抓紧时间！" or ""),
                 priority = "high",
                 data = { bidId = bid.id, type = "personal_terms_rejected" },
             })
@@ -436,7 +499,7 @@ function TransferManager._attemptPersonalTerms(gameState, bid)
     end
 end
 
---- 玩家修改工资后重新协商个人条款（公开API）
+--- 玩家修改工资后重新协商个人条款（公开API）— 异步：球员考虑1-2天
 function TransferManager.negotiatePersonalTerms(gameState, bidId, newWageOffer)
     TransferManager._ensureData(gameState)
     for _, bid in ipairs(gameState.transfers.bids) do
@@ -446,8 +509,19 @@ function TransferManager.negotiatePersonalTerms(gameState, bidId, newWageOffer)
             end
             -- 更新工资报价
             bid.wageOffer = newWageOffer
-            -- 重新尝试个人条款
-            TransferManager._attemptPersonalTerms(gameState, bid)
+            -- 设为球员考虑中状态，等待每日处理出结果
+            bid.status = "player_considering"
+            bid.playerConsiderDate = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day}
+            bid.playerConsiderDays = 1 + math.floor(Random() * 2)  -- 1~2天
+            local player = gameState.players[bid.playerId]
+            gameState:sendMessage({
+                category = "transfer",
+                title = "个人条款已提出",
+                body = string.format("已向 %s 提出新的薪资方案（周薪 %s），球员正在考虑中...",
+                    player and player.displayName or "该球员",
+                    fmtMoney(newWageOffer)),
+                priority = "normal",
+            })
             return bid, nil
         end
     end
@@ -683,11 +757,8 @@ function TransferManager.processAITransfers(gameState)
     TransferManager._aiListPlayersForSale(gameState)
 
     -- 每周每支AI球队有40%概率尝试引援（可多队同时活跃）
-    local transfersThisWeek = 0
-    local maxTransfersPerWeek = 6  -- 每周全联赛上限6笔完成交易，保持合理
     for _, team in pairs(gameState.teams) do
         if team.id == gameState.playerTeamId then goto continue end
-        if transfersThisWeek >= maxTransfersPerWeek then break end
         if Random() > 0.40 then goto continue end
 
         -- 评估需求：包括"补缺"和"升级"两种动机
@@ -699,27 +770,31 @@ function TransferManager.processAITransfers(gameState)
         if not target then goto continue end
 
         -- AI 发起转会
-        local success = TransferManager._executeAITransfer(gameState, team, target)
-        if success then
-            transfersThisWeek = transfersThisWeek + 1
-        end
+        TransferManager._executeAITransfer(gameState, team, target)
 
         ::continue::
     end
 
-    -- 额外：处理挂牌球员（AI和玩家的），每个挂牌球员每周30%概率吸引买家
+    -- 额外：处理挂牌球员（AI和玩家的）
+    -- 玩家挂牌球员每周60%概率吸引买家，AI挂牌球员30%
+    -- 允许同一球员接收最多3份来自不同买家的竞争报价
+    local MAX_COMPETING_BIDS = 3
     for _, player in pairs(gameState.players) do
         if not player.listedForSale then goto skipPlayer end
         if player.retired then goto skipPlayer end
-        if TransferManager.hasPendingIncomingBid(gameState, player.id) then goto skipPlayer end
-        if transfersThisWeek >= maxTransfersPerWeek + 2 then break end
-        if Random() > 0.30 then goto skipPlayer end
+        -- 检查已有的竞争报价数量（允许多家出价，上限 MAX_COMPETING_BIDS）
+        local existingBids = TransferManager.getIncomingBidsForPlayer(gameState, player.id)
+        if #existingBids >= MAX_COMPETING_BIDS then goto skipPlayer end
+        -- 玩家球员更高概率吸引买家（模拟经纪人主动推销）
+        local isPlayerTeamPlayer = (player.teamId == gameState.playerTeamId)
+        local attractChance = isPlayerTeamPlayer and 0.80 or 0.30
+        if Random() > attractChance then goto skipPlayer end
 
         local buyer = TransferManager._findBuyerForPlayer(gameState, player)
         if buyer then
-            local success = TransferManager._executeAITransfer(gameState, buyer, player)
-            if success then
-                transfersThisWeek = transfersThisWeek + 1
+            -- 确保该买家没有对此球员的重复出价
+            if not TransferManager.hasPendingIncomingBid(gameState, player.id, buyer.id) then
+                TransferManager._executeAITransfer(gameState, buyer, player)
             end
         end
         ::skipPlayer::
@@ -843,8 +918,8 @@ function TransferManager._findTransferTarget(gameState, buyerTeam, needGroup, up
         end
         if not posMatch then goto continue end
 
-        -- 财力检查（不超过转会预算的60%，且不超过余额的50%）
-        local maxSpend = math.min(budget * 0.6, buyerTeam.balance * 0.5)
+        -- 财力检查（不超过转会预算的85%，且不超过余额的60%）
+        local maxSpend = math.min(budget * 0.85, buyerTeam.balance * 0.6)
         if player.value > maxSpend then goto continue end
 
         -- 能力匹配
@@ -861,6 +936,26 @@ function TransferManager._findTransferTarget(gameState, buyerTeam, needGroup, up
         -- 优先考虑挂牌出售的球员（更容易成交）
         local weight = 1
         if player.listedForSale then weight = 3 end
+
+        -- 高薪低能惩罚：AI不愿接手工资与能力不匹配的球员
+        -- fairWage = 25 * exp(0.117 * ovr)，基于联赛工资分布拟合
+        local pWage = player.wage or 0
+        local pOvr = player.overall or 50
+        if pWage > 0 and pOvr < 78 then
+            local fairWage = 25 * math.exp(0.117 * pOvr)
+            if pWage > fairWage * 1.5 then
+                -- 难度缩放：保守+正常完全跳过，宽松仅降权
+                local transferTier = DifficultySettings.get().transferTier or 2
+                if transferTier <= 2 then
+                    -- 保守+正常：AI不会主动引进高薪低能球员
+                    goto continue
+                else
+                    -- 宽松：轻微降权但不完全排除
+                    weight = math.max(1, weight - 1)
+                end
+            end
+        end
+
         for w = 1, weight do
             table.insert(candidates, player)
         end
@@ -997,31 +1092,73 @@ end
 -- AI 对玩家球队球员的收购报价
 ------------------------------------------------------
 
---- 检查球员是否已有待处理的收购报价
-function TransferManager.hasPendingIncomingBid(gameState, playerId)
+--- 检查某个买家是否已对该球员有待处理的收购报价
+--- @param buyerTeamId number|nil 买家ID，nil则检查是否有任何待处理报价
+function TransferManager.hasPendingIncomingBid(gameState, playerId, buyerTeamId)
     TransferManager._ensureData(gameState)
     for _, bid in ipairs(gameState.transfers.bids) do
-        if bid.playerId == playerId and bid.isIncomingBid and bid.status == "pending" then
-            return true
+        if bid.playerId == playerId and bid.isIncomingBid
+            and (bid.status == "pending" or bid.status == "counter_pending"
+                or bid.status == "awaiting_sale_confirmation" or bid.status == "player_considering_sale") then
+            -- 如果指定了买家ID，只检查该买家是否重复出价
+            if buyerTeamId then
+                if bid.buyerTeamId == buyerTeamId then return true end
+            else
+                return true
+            end
         end
     end
     return false
 end
 
+--- 获取某球员所有待处理的收购报价（多份报价竞争展示用）
+--- @return table[] 该球员的所有活跃incoming bids
+function TransferManager.getIncomingBidsForPlayer(gameState, playerId)
+    TransferManager._ensureData(gameState)
+    local bids = {}
+    for _, bid in ipairs(gameState.transfers.bids) do
+        if bid.playerId == playerId and bid.isIncomingBid
+            and (bid.status == "pending" or bid.status == "counter_pending"
+                or bid.status == "awaiting_sale_confirmation" or bid.status == "player_considering_sale") then
+            table.insert(bids, bid)
+        end
+    end
+    -- 按金额降序排列，最高出价在前
+    table.sort(bids, function(a, b) return (a.amount or 0) > (b.amount or 0) end)
+    return bids
+end
+
 --- 为挂牌球员寻找合适的买家
 function TransferManager._findBuyerForPlayer(gameState, player)
     local Constants = require("scripts/app/constants")
+
+    -- 高薪低能检查：限制 AI 对工资与能力严重不匹配球员的兴趣
+    local pWage = player.wage or 0
+    local pOvr = player.overall or 50
+    if pWage > 0 and pOvr < 78 then
+        local fairWage = 25 * math.exp(0.117 * pOvr)
+        if pWage > fairWage * 1.5 then
+            local transferTier = DifficultySettings.get().transferTier or 2
+            if transferTier <= 2 then
+                -- 保守+正常：AI完全不愿接手高薪低能球员
+                return nil
+            end
+            -- 宽松：继续正常匹配（但后续候选池仍有能力/预算门槛）
+        end
+    end
+
     local candidates = {}
 
     for _, team in pairs(gameState.teams) do
         if team.id == gameState.playerTeamId then goto skip end
         if team.id == player.teamId then goto skip end
-        -- 财力检查（用转会预算的70%作为上限，挂牌球员更有吸引力）
+        -- 财力检查（挂牌球员折价出售，预算门槛放宽）
         local budget = team.transferBudget or (team.balance * 0.5)
-        if player.value > budget * 0.7 then goto skip end
-        -- 能力匹配（挂牌球员范围宽松）
+        -- 允许砍价到身价的35%，所以只要预算能承担35%身价就可能匹配
+        if player.value * 0.35 > budget then goto skip end
+        -- 能力匹配（挂牌球员范围宽松，低于队均15分的也可能作为替补/轮换引入）
         local teamAvg = TransferManager._getTeamAverageOverall(gameState, team)
-        if player.overall < teamAvg - 12 or player.overall > teamAvg + 15 then goto skip end
+        if player.overall < teamAvg - 15 or player.overall > teamAvg + 20 then goto skip end
         table.insert(candidates, team)
         ::skip::
     end
@@ -1068,26 +1205,38 @@ function TransferManager._createIncomingBid(gameState, buyerTeam, player, offerA
     return bid
 end
 
---- 接受收到的报价（玩家操作）
+--- 接受收到的报价（玩家操作）→ 进入"等待确认出售"状态
 function TransferManager.acceptIncomingBid(gameState, bidId)
     TransferManager._ensureData(gameState)
     for _, bid in ipairs(gameState.transfers.bids) do
         if bid.id == bidId and bid.status == "pending" and bid.isIncomingBid then
-            local consent, reason = TransferManager._requirePlayerConsentForTransfer(gameState, bid)
-            if not consent then
-                bid.status = "rejected"
-                bid.rejectedDate = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day}
-                gameState:sendMessage({
-                    category = "transfer",
-                    title = "球员拒绝转会",
-                    body = reason,
-                    priority = "normal",
-                })
-                return false
-            end
-            bid.status = "completed"
+            -- 进入"球员考虑中"状态，球员需要时间决定是否接受转会
+            bid.status = "player_considering_sale"
+            bid.playerConsiderSaleDate = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day}
             bid.responseDate = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day}
-            TransferManager._completeIncomingSale(gameState, bid)
+
+            -- Deadline Day 效应
+            local isDeadline = TransferManager.isDeadlineDay(gameState)
+            if isDeadline then
+                bid.playerConsiderSaleDays = 1
+                bid.isDeadlineDeal = true
+            else
+                bid.playerConsiderSaleDays = RandomInt(1, 2)  -- 卖出方球员考虑1-2天
+            end
+
+            local buyerTeam = gameState.teams[bid.buyerTeamId]
+            local player = gameState.players[bid.playerId]
+            gameState:sendMessage({
+                category = "transfer",
+                title = "球员考虑中: " .. (player and player.displayName or "球员"),
+                body = string.format("你已同意 %s 对 %s 的报价（%s）。\n球员正在考虑是否接受转会，预计 %d 天后给出答复。%s",
+                    buyerTeam and buyerTeam.name or "未知球队",
+                    player and player.displayName or "未知球员",
+                    fmtMoney(bid.amount),
+                    bid.playerConsiderSaleDays,
+                    isDeadline and "\n⚠️ 关窗日加急处理" or ""),
+                priority = "high",
+            })
             return true
         end
     end
@@ -1120,7 +1269,7 @@ function TransferManager.rejectIncomingBid(gameState, bidId)
     return false
 end
 
---- 还价（玩家要求更高价格）
+--- 还价（玩家要求更高价格）→ 进入"还价待回复"状态，AI延迟1-3天回复
 function TransferManager.counterIncomingBid(gameState, bidId, askAmount)
     TransferManager._ensureData(gameState)
     for _, bid in ipairs(gameState.transfers.bids) do
@@ -1129,47 +1278,72 @@ function TransferManager.counterIncomingBid(gameState, bidId, askAmount)
             local player = gameState.players[bid.playerId]
             if not buyerTeam or not player then return false end
 
-            -- AI 决定是否接受还价：基于出价与要价的差距
-            local ratio = askAmount / (player.value or 1)
-            -- 如果要价不超过身价120%，AI有较高概率接受
-            local acceptChance = 0
-            if ratio <= 1.0 then acceptChance = 0.9
-            elseif ratio <= 1.1 then acceptChance = 0.7
-            elseif ratio <= 1.2 then acceptChance = 0.5
-            elseif ratio <= 1.3 then acceptChance = 0.3
-            else acceptChance = 0.1 end
+            -- 设为 counter_pending 状态，等待AI回复（1-3天延迟）
+            bid.status = "counter_pending"
+            bid.counterAskAmount = askAmount
+            bid.counterDate = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day}
+            bid.counterWaitDays = RandomInt(1, 3) -- AI需要1-3天考虑
 
-            if Random() < acceptChance then
-                -- AI 接受还价
-                bid.amount = askAmount
-                bid.status = "completed"
-                bid.responseDate = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day}
-                TransferManager._completeIncomingSale(gameState, bid)
-                gameState:sendMessage({
-                    category = "transfer",
-                    title = "还价被接受",
-                    body = string.format("%s 接受了你的要价 %s，%s 转会完成。",
-                        buyerTeam.name, fmtMoney(askAmount), player.displayName),
-                    priority = "high",
-                })
-                return true, "accepted"
-            else
-                -- AI 拒绝还价，撤回报价
-                bid.status = "rejected"
-                bid.rejectedDate = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day}
-                bid.responseDate = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day}
-                gameState:sendMessage({
-                    category = "transfer",
-                    title = "还价被拒绝",
-                    body = string.format("%s 认为你的要价 %s 过高，已撤回对 %s 的报价。",
-                        buyerTeam.name, fmtMoney(askAmount), player.displayName),
-                    priority = "normal",
-                })
-                return true, "rejected"
-            end
+            gameState:sendMessage({
+                category = "transfer",
+                title = "还价已发出",
+                body = string.format("你向 %s 提出了 %s 的要价（%s），等待对方回复...",
+                    buyerTeam.name, fmtMoney(askAmount), player.displayName),
+                priority = "normal",
+                data = { bidId = bid.id, playerId = player.id },
+            })
+            return true, "counter_sent"
         end
     end
     return false
+end
+
+--- 处理AI对还价的回复（由processDailyBids调用，延迟后执行）
+function TransferManager._processCounterResponse(gameState, bid)
+    local buyerTeam = gameState.teams[bid.buyerTeamId]
+    local player = gameState.players[bid.playerId]
+    if not buyerTeam or not player then
+        bid.status = "rejected"
+        return
+    end
+
+    local askAmount = bid.counterAskAmount or bid.amount
+    -- AI 决定是否接受还价
+    local ratio = askAmount / (player.value or 1)
+    local acceptChance = 0
+    if ratio <= 1.0 then acceptChance = 0.9
+    elseif ratio <= 1.1 then acceptChance = 0.7
+    elseif ratio <= 1.2 then acceptChance = 0.5
+    elseif ratio <= 1.3 then acceptChance = 0.3
+    else acceptChance = 0.1 end
+
+    if Random() < acceptChance then
+        -- AI接受还价 → 进入等待玩家确认出售状态
+        bid.amount = askAmount
+        bid.status = "awaiting_sale_confirmation"
+        bid.saleConfirmDate = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day}
+        bid.responseDate = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day}
+        gameState:sendMessage({
+            category = "transfer",
+            title = "还价被接受: " .. player.displayName,
+            body = string.format("%s 接受了你的要价 %s。\n请确认出售 %s 或取消交易。",
+                buyerTeam.name, fmtMoney(askAmount), player.displayName),
+            priority = "high",
+            data = { bidId = bid.id, playerId = player.id, action = "confirm_sale" },
+        })
+    else
+        -- AI 拒绝还价
+        bid.status = "rejected"
+        bid.rejectedDate = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day}
+        bid.responseDate = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day}
+        gameState:sendMessage({
+            category = "transfer",
+            title = "还价被拒绝",
+            body = string.format("%s 认为你的要价 %s 过高，已撤回对 %s 的报价。",
+                buyerTeam.name, fmtMoney(askAmount), player.displayName),
+            priority = "normal",
+        })
+    end
 end
 
 --- 完成收到的出售转会
@@ -1240,6 +1414,43 @@ function TransferManager._completeIncomingSale(gameState, bid)
             type = "permanent",
         })
     end
+end
+
+--- 确认出售球员（玩家最终确认，公开API）
+function TransferManager.confirmSale(gameState, bidId)
+    TransferManager._ensureData(gameState)
+    for _, bid in ipairs(gameState.transfers.bids) do
+        if bid.id == bidId and bid.status == "awaiting_sale_confirmation" and bid.isIncomingBid then
+            bid.status = "completed"
+            bid.responseDate = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day}
+            TransferManager._completeIncomingSale(gameState, bid)
+            return true, nil
+        end
+    end
+    return false, "未找到待确认的出售交易"
+end
+
+--- 取消出售确认（玩家反悔，公开API）
+function TransferManager.cancelSale(gameState, bidId)
+    TransferManager._ensureData(gameState)
+    for _, bid in ipairs(gameState.transfers.bids) do
+        if bid.id == bidId and bid.status == "awaiting_sale_confirmation" and bid.isIncomingBid then
+            local player = gameState.players[bid.playerId]
+            local buyerTeam = gameState.teams[bid.buyerTeamId]
+            bid.status = "rejected"
+            bid.rejectedDate = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day}
+            gameState:sendMessage({
+                category = "transfer",
+                title = "出售已取消",
+                body = string.format("你取消了将 %s 出售给 %s 的交易。",
+                    player and player.displayName or "该球员",
+                    buyerTeam and buyerTeam.name or "买方球队"),
+                priority = "normal",
+            })
+            return true, nil
+        end
+    end
+    return false, "未找到待确认的出售交易"
 end
 
 ------------------------------------------------------
@@ -2201,6 +2412,25 @@ function TransferManager._processPushSaleResponse(gameState, bid)
     if player.overall > teamAvg then interest = interest + 20 end
     if player.overall > teamAvg + 5 then interest = interest + 15 end
 
+    -- 高薪低能惩罚：AI不愿接手工资与能力严重不匹配的球员
+    local pWage = player.wage or 0
+    local pOvr = player.overall or 50
+    if pWage > 0 and pOvr < 78 then
+        local fairWage = 25 * math.exp(0.117 * pOvr)
+        if pWage > fairWage * 1.5 then
+            local transferTier = DifficultySettings.get().transferTier or 2
+            if transferTier <= 2 then
+                -- 保守+正常：AI直接拒绝高薪低能推销
+                bid.status = "rejected"
+                return
+            end
+            -- 宽松：超薪程度影响兴趣但不完全拒绝
+            local overpaidRatio = math.min((pWage / fairWage), 3.5)
+            local basePenalty = (overpaidRatio - 1.5) * 20  -- 0~40
+            interest = interest - math.floor(basePenalty * 0.35)
+        end
+    end
+
     -- 价格影响
     local ratio = bid.amount / math.max(player.value, 1)
     if ratio <= 0.9 then interest = interest + 20  -- 低于身价，划算
@@ -2377,15 +2607,33 @@ end
 --- @return string|nil reason
 function TransferManager._checkPlayerWillingness(gameState, player, targetTeam)
     -- 1. 球队声望差距过大（球员不愿降级）
+    -- reputation 实际范围约 500-950，英超内部差距可达 200-350
+    -- 阈值要足够高，只在极端降级（如英超豪门→低级别联赛）时才硬拒绝
+    -- 33岁以上老将（生涯末期不太挑剔）和22岁以下年轻人（渴望上场机会）对声望不太看重
     local currentTeam = gameState.teams[player.teamId]
-    if currentTeam and targetTeam.reputation < currentTeam.reputation * 0.6 then
-        return false, "不愿降级到低声望球队"
+    if currentTeam then
+        local repDiff = currentTeam.reputation - targetTeam.reputation
+        local age = player.birthYear and (gameState.date.year - player.birthYear) or 25
+        -- 阈值提高：只有声望差距超过350（如950→600的极端情况）才硬拒绝
+        local repThreshold = 350  -- 默认阈值（真正的极端落差）
+        if age >= 33 then
+            repThreshold = 500  -- 老将：几乎不可能因声望拒绝
+        elseif age <= 22 then
+            repThreshold = 450  -- 年轻人：渴望出场机会，非常宽容
+        end
+        if repDiff > repThreshold then
+            return false, "不愿降级到低声望球队"
+        end
     end
 
     -- 2. 球员士气高且是核心球员 → 不太想走
+    -- 但如果目标球队声望更高，核心球员也会被吸引
     if player.morale >= 80 and player.squadRole == "key" then
-        if Random() < 0.6 then
-            return false, "作为核心球员，不想离开"
+        local targetBetter = currentTeam and (targetTeam.reputation > currentTeam.reputation + 50)
+        if not targetBetter then
+            if Random() < 0.5 then
+                return false, "作为核心球员，不想离开"
+            end
         end
     end
 
@@ -2425,15 +2673,20 @@ function TransferManager.getPlayerTransferAttitude(gameState, playerId, targetTe
     elseif player.squadRole == "squad" or player.squadRole == "youth" then willingness = willingness + 10
     end
 
-    -- 目标球队声望影响
+    -- 目标球队声望影响（reputation 实际范围约 500-950，最大差距~350）
+    -- 33+老将和22-年轻人对声望降级的抵触减半
     if targetTeam then
         local currentTeam = gameState.teams[player.teamId]
         if currentTeam then
             local repDiff = targetTeam.reputation - currentTeam.reputation
-            if repDiff > 200 then willingness = willingness + 25
-            elseif repDiff > 0 then willingness = willingness + 10
-            elseif repDiff < -200 then willingness = willingness - 25
-            elseif repDiff < 0 then willingness = willingness - 10
+            local age = player.birthYear and (gameState.date.year - player.birthYear) or 25
+            local ageFactor = (age >= 33 or age <= 22) and 0.5 or 1.0
+            if repDiff > 200 then willingness = willingness + 45      -- 显著升级（如中游→豪门）
+            elseif repDiff > 100 then willingness = willingness + 35  -- 明显升级
+            elseif repDiff > 30 then willingness = willingness + 15   -- 小幅升级
+            elseif repDiff < -200 then willingness = willingness - math.floor(25 * ageFactor)  -- 大幅降级
+            elseif repDiff < -100 then willingness = willingness - math.floor(15 * ageFactor)  -- 明显降级
+            elseif repDiff < -50 then willingness = willingness - math.floor(8 * ageFactor)    -- 小幅降级
             end
         end
     end
@@ -3145,6 +3398,36 @@ end
 function TransferManager.processDailyBids(gameState)
     TransferManager._ensureData(gameState)
 
+    -- 转会窗口关闭时，自动取消所有未完成的俱乐部间交易
+    if not TransferManager.isInTransferWindow(gameState) then
+        local cancelledCount = 0
+        for _, bid in ipairs(gameState.transfers.bids) do
+            -- 只处理俱乐部间交易（非自由球员）且还在进行中的
+            local activeStatuses = {
+                pending = true, negotiating = true, player_considering = true,
+                fee_agreed = true, awaiting_confirmation = true,
+                counter_pending = true, awaiting_sale_confirmation = true,
+                player_considering_sale = true,
+            }
+            if activeStatuses[bid.status] and not bid.isFreeAgent then
+                bid.status = "cancelled"
+                bid.cancelReason = "transfer_window_closed"
+                cancelledCount = cancelledCount + 1
+            end
+        end
+        if cancelledCount > 0 then
+            gameState:sendMessage({
+                category = "transfer",
+                title = "转会窗口已关闭",
+                body = string.format("转会窗口已关闭，%d 笔未完成的俱乐部间交易已自动取消。自由球员签约不受影响。",
+                    cancelledCount),
+                priority = "high",
+            })
+        end
+        -- 窗口关闭后仍然处理自由球员相关逻辑，但俱乐部间交易不再推进
+        -- 下方的处理循环只作用于仍有效的 bid，已 cancelled 的会跳过
+    end
+
     for _, bid in ipairs(gameState.transfers.bids) do
         if bid.status == "pending" then
             -- 推销报价走不同路径
@@ -3225,6 +3508,84 @@ function TransferManager.processDailyBids(gameState)
         end
     end
 
+    -- player_considering_sale 状态：被出售球员考虑期结束后判断是否同意
+    for _, bid in ipairs(gameState.transfers.bids) do
+        if bid.status == "player_considering_sale" and bid.isIncomingBid and bid.playerConsiderSaleDate then
+            local daysSince = TransferManager._daysBetween(bid.playerConsiderSaleDate, gameState.date)
+            if daysSince >= (bid.playerConsiderSaleDays or 2) then
+                -- 考虑期结束，判断球员是否同意
+                local consent, reason = TransferManager._requirePlayerConsentForTransfer(gameState, bid)
+                local player = gameState.players[bid.playerId]
+                local buyerTeam = gameState.teams[bid.buyerTeamId]
+                local playerName = player and player.displayName or "该球员"
+                local buyerName = buyerTeam and buyerTeam.name or "买方球队"
+
+                if consent then
+                    -- 球员同意，进入等待玩家最终确认出售状态
+                    bid.status = "awaiting_sale_confirmation"
+                    bid.saleConfirmDate = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day}
+                    gameState:sendMessage({
+                        category = "transfer",
+                        title = "球员同意转会！",
+                        body = string.format("%s 同意加盟 %s！\n请确认出售或取消交易。",
+                            playerName, buyerName),
+                        priority = "high",
+                        actions = {
+                            { label = "确认出售", actionId = "confirm_sale", data = { bidId = bid.id } },
+                            { label = "取消交易", actionId = "cancel_sale", data = { bidId = bid.id } },
+                        },
+                        -- 标记为需要弹窗通知
+                        popup = true,
+                    })
+                else
+                    -- 球员拒绝转会
+                    bid.status = "rejected"
+                    bid.rejectedDate = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day}
+                    gameState:sendMessage({
+                        category = "transfer",
+                        title = "球员拒绝转会",
+                        body = string.format("%s 拒绝加盟 %s。\n原因：%s",
+                            playerName, buyerName, reason or "条件不满意"),
+                        priority = "high",
+                        -- 标记为需要弹窗通知
+                        popup = true,
+                    })
+                end
+            end
+        end
+    end
+
+    -- counter_pending 状态：AI考虑还价（出售方向，1-3天延迟）
+    for _, bid in ipairs(gameState.transfers.bids) do
+        if bid.status == "counter_pending" and bid.isIncomingBid and bid.counterDate then
+            local daysSince = TransferManager._daysBetween(bid.counterDate, gameState.date)
+            if daysSince >= (bid.counterWaitDays or 2) then
+                TransferManager._processCounterResponse(gameState, bid)
+            end
+        end
+    end
+
+    -- awaiting_sale_confirmation 状态超时处理（出售方向，5天未确认则买方撤回）
+    for _, bid in ipairs(gameState.transfers.bids) do
+        if bid.status == "awaiting_sale_confirmation" and bid.isIncomingBid and bid.saleConfirmDate then
+            local daysSince = TransferManager._daysBetween(bid.saleConfirmDate, gameState.date)
+            if daysSince >= 5 then
+                local player = gameState.players[bid.playerId]
+                local buyerTeam = gameState.teams[bid.buyerTeamId]
+                bid.status = "rejected"
+                bid.rejectedDate = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day}
+                gameState:sendMessage({
+                    category = "transfer",
+                    title = "报价已过期",
+                    body = string.format("%s 等待你确认出售 %s 太久（5天），已撤回报价。",
+                        buyerTeam and buyerTeam.name or "买方球队",
+                        player and player.displayName or "该球员"),
+                    priority = "normal",
+                })
+            end
+        end
+    end
+
     -- 竞争性报价处理
     TransferManager.processCompetitiveBids(gameState)
 end
@@ -3264,7 +3625,8 @@ function TransferManager.getActiveBids(gameState)
     TransferManager._ensureData(gameState)
     local activeBids = {}
     for _, bid in ipairs(gameState.transfers.bids or {}) do
-        if bid.status == "pending" or bid.status == "negotiating" then
+        if bid.status == "pending" or bid.status == "negotiating"
+            or bid.status == "counter_pending" or bid.status == "awaiting_sale_confirmation" then
             table.insert(activeBids, bid)
         end
     end

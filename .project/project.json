@@ -5,7 +5,7 @@
     "id": "977458462"
   },
   "entry": "main.lua",
-  "version": "1.0.10",
+  "version": "1.0.40",
   "taptap_publish": {
     "title": "足球经理：冠军之路",
     "description": "",
@@ -42,11 +42,11 @@
     "square_promotional_image_url": "https://tapcode-sce.spark.xd.com/assets/game_material/p_r91d/square_promotional.png"
   },
   "test_qrcode": {
-    "url": "https://tapcode-sce.spark.xd.com/qrcode/p_r91d_1780802437229.png",
-    "generated_at": "2026-06-07T03:20:37.404Z"
+    "url": "https://tapcode-sce.spark.xd.com/qrcode/p_r91d_1781017486696.png",
+    "generated_at": "2026-06-09T15:04:46.806Z"
   },
   "metadata": {
-    "updated_at": "2026-06-07T03:20:37.404Z",
+    "updated_at": "2026-06-09T15:04:46.806Z",
     "promo_dependent_hash": "9dd6be03e028549c079060f959b32d6d"
   }
 }

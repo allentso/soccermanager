@@ -89,7 +89,7 @@ function Youth.create(params)
                 },
                 UI.Label {
                     text = string.format("%d/%d人", #youthSquad, YouthManager.MAX_YOUTH_SQUAD),
-                    fontSize = 12, color = Theme.COLORS.TEXT_MUTED, width = 50, textAlign = "right",
+                    fontSize = 12, color = Theme.COLORS.TEXT_MUTED, minWidth = 60, textAlign = "right",
                 },
             }
         },
@@ -192,7 +192,7 @@ function Youth._buildCandidatesSection(candidates, gameState)
         flexDirection = "row",
         justifyContent = "space-between",
         alignItems = "center",
-        marginBottom = 8,
+        marginBottom = 4,
         children = {
             Theme.Subtitle { text = "候选球员", marginBottom = 0 },
             UI.Label {
@@ -201,6 +201,13 @@ function Youth._buildCandidatesSection(candidates, gameState)
                 color = Theme.COLORS.ACCENT,
             },
         },
+    })
+    -- 球探偏差提示
+    table.insert(rows, UI.Label {
+        text = "* 数据为球探预估，签入后实际能力可能略有偏差",
+        fontSize = 10,
+        color = Theme.COLORS.TEXT_MUTED,
+        marginBottom = 8,
     })
 
     for i, candidate in ipairs(candidates) do
@@ -374,7 +381,7 @@ function Youth._buildYouthPlayerRow(player, gameState)
     elseif potStars >= 3 then potColor = Theme.COLORS.SECONDARY
     end
 
-    local age = player.birthYear and (gameState.date.year - player.birthYear) or "?"
+    local age = player.birthYear and math.floor(gameState.date.year - player.birthYear) or 0
 
     return UI.Panel {
         width = "100%",
@@ -412,8 +419,8 @@ function Youth._buildYouthPlayerRow(player, gameState)
                         fontWeight = "bold",
                     },
                     UI.Label {
-                        text = string.format("%s岁 | 能力%d | 潜力%s",
-                            tostring(age), player.overall or 0, potStarText),
+                        text = string.format("%d岁 | 能力%d | 潜力%s",
+                            age, math.min(Constants.ABILITY_MAX, player.overall or 0), potStarText),
                         fontSize = 11,
                         color = Theme.COLORS.TEXT_MUTED,
                     },
@@ -425,7 +432,7 @@ function Youth._buildYouthPlayerRow(player, gameState)
                 alignItems = "center",
                 children = {
                     UI.Label {
-                        text = tostring(player.overall or 0),
+                        text = tostring(math.min(Constants.ABILITY_MAX, player.overall or 0)),
                         fontSize = 14,
                         color = Theme.COLORS.TEXT_PRIMARY,
                         fontWeight = "bold",
@@ -453,7 +460,7 @@ end
 -- 球员操作菜单
 ------------------------------------------------------
 function Youth._showYouthActions(player, gameState)
-    local age = player.birthYear and (gameState.date.year - player.birthYear) or 0
+    local age = player.birthYear and math.floor(gameState.date.year - player.birthYear) or 0
     local actions = {}
 
     -- 提拔
@@ -558,7 +565,7 @@ end
 -- 提拔确认
 ------------------------------------------------------
 function Youth._confirmPromote(player, gameState)
-    local age = player.birthYear and (gameState.date.year - player.birthYear) or 0
+    local age = player.birthYear and math.floor(gameState.date.year - player.birthYear) or 0
     local newWage = math.max(1000, math.floor((player.overall or 0) * 80))
     local scoutAccuracy = getTeamScoutAccuracy(gameState)
     local _, potStarText = getPotentialStars(player.actualPotential or player.potential or 0, scoutAccuracy)
@@ -569,7 +576,7 @@ function Youth._confirmPromote(player, gameState)
             { label = "姓名", value = player.displayName or "" },
             { label = "位置", value = Constants.POSITION_NAMES[player.position] or player.position },
             { label = "年龄", value = tostring(age) .. "岁" },
-            { label = "能力", value = tostring(player.overall or 0) },
+            { label = "能力", value = tostring(math.min(Constants.ABILITY_MAX, player.overall or 0)) },
             { label = "潜力", value = potStarText, valueColor = Theme.COLORS.ACCENT },
             { label = "新周薪", value = FinanceManager.formatMoney(newWage), valueColor = Theme.COLORS.WARNING },
             { label = "合同", value = "3年" },
@@ -697,6 +704,7 @@ function Youth._buildLegendGachaSection(gameState)
     local tenPullCount = gachaState.tenPullCount
     local pityCounter = gachaState.pityCounter
     local pityTotal = 10
+    local adProgress, adTotal = YouthManager.getPullAdProgress(gameState)
 
     return Theme.Card {
         children = {
@@ -737,9 +745,9 @@ function Youth._buildLegendGachaSection(gameState)
                     Theme.StatPill { label = "保底计数", value = pityCounter .. "/" .. pityTotal },
                 },
             },
-            -- 概率说明
+            -- 规则说明
             UI.Label {
-                text = "十连抽刷新候选池 | 传奇概率8%起 | " .. pityTotal .. "次保底",
+                text = "十连抽刷新候选池 | " .. pityTotal .. "次保底",
                 fontSize = 10, color = Theme.COLORS.TEXT_MUTED, marginBottom = 8,
             },
             -- 按钮区域
@@ -747,9 +755,11 @@ function Youth._buildLegendGachaSection(gameState)
                 width = "100%",
                 flexDirection = "row",
                 children = {
-                    -- 观看广告获取次数
+                    -- 观看广告获取次数（打开弹窗，逐次观看）
                     UI.Button {
-                        text = "看广告 +2次",
+                        text = adProgress > 0
+                            and string.format("看广告赚次数 (%d/%d)", adProgress, adTotal)
+                            or "看广告赚次数",
                         height = 36, flexGrow = 1,
                         backgroundColor = Theme.COLORS.BG_ELEVATED,
                         borderRadius = 8,
@@ -757,7 +767,23 @@ function Youth._buildLegendGachaSection(gameState)
                         fontSize = 12, color = Theme.COLORS.TEXT_SECONDARY,
                         marginRight = 8,
                         onClick = function()
-                            Youth._watchAdForPulls(gameState)
+                            Youth._showAdForPullsModal(gameState)
+                        end,
+                    },
+                    -- 单抽按钮
+                    UI.Button {
+                        text = "单抽",
+                        height = 36, flexGrow = 0.6,
+                        backgroundColor = pulls >= 1 and Theme.COLORS.PRIMARY or Theme.COLORS.BG_ELEVATED,
+                        borderRadius = 8,
+                        fontSize = 12,
+                        color = pulls >= 1 and {255, 255, 255, 255} or Theme.COLORS.TEXT_MUTED,
+                        marginRight = 8,
+                        disabled = pulls < 1,
+                        onClick = function()
+                            if pulls >= 1 then
+                                Youth._doSinglePull(gameState)
+                            end
                         end,
                     },
                     -- 十连抽按钮
@@ -806,19 +832,256 @@ function Youth._watchAdForUnlock(gameState)
     end)
 end
 
---- 观看广告获取抽取次数
-function Youth._watchAdForPulls(gameState)
+--- 显示广告观看弹窗（类似潜力透视的对话框样式）
+function Youth._showAdForPullsModal(gameState)
+    local adProgress, adTotal = YouthManager.getPullAdProgress(gameState)
+    local gachaState = YouthManager.getLegendGachaState(gameState)
+    local currentPulls = gachaState.pulls
+
+    -- 构建进度圆圈
+    local circles = {}
+    for i = 1, adTotal do
+        local done = (i <= adProgress)
+        table.insert(circles, UI.Panel {
+            width = 36, height = 36,
+            borderRadius = 18,
+            backgroundColor = done and Theme.COLORS.ACCENT or {60, 65, 90, 255},
+            borderWidth = done and 0 or 1,
+            borderColor = Theme.COLORS.BORDER,
+            justifyContent = "center",
+            alignItems = "center",
+            marginLeft = i > 1 and 12 or 0,
+            children = {
+                UI.Label {
+                    text = done and "✓" or tostring(i),
+                    fontSize = 14,
+                    color = done and {255, 255, 255, 255} or Theme.COLORS.TEXT_MUTED,
+                    fontWeight = "bold",
+                },
+            },
+        })
+    end
+
+    UI.ShowOverlay(UI.Panel {
+        width = "100%",
+        height = "100%",
+        justifyContent = "center",
+        alignItems = "center",
+        backgroundColor = {0, 0, 0, 180},
+        children = {
+            UI.Panel {
+                width = "85%",
+                backgroundColor = Theme.COLORS.BG_CARD or {30, 34, 54, 255},
+                borderRadius = 16,
+                borderWidth = 1,
+                borderColor = Theme.COLORS.BORDER,
+                paddingTop = 20,
+                paddingBottom = 20,
+                paddingLeft = 20,
+                paddingRight = 20,
+                alignItems = "center",
+                children = {
+                    -- 标题
+                    UI.Label {
+                        text = "观看广告赚次数",
+                        fontSize = 16,
+                        color = Theme.COLORS.TEXT_PRIMARY,
+                        fontWeight = "bold",
+                        marginBottom = 6,
+                    },
+                    -- 副标题说明
+                    UI.Label {
+                        text = "每看1次广告获得2次抽取机会",
+                        fontSize = 12,
+                        color = Theme.COLORS.TEXT_MUTED,
+                        marginBottom = 4,
+                    },
+                    UI.Label {
+                        text = "看满3次自动补满至10次（十连）",
+                        fontSize = 12,
+                        color = Theme.COLORS.ACCENT,
+                        marginBottom = 16,
+                    },
+                    -- 进度圆圈行
+                    UI.Panel {
+                        flexDirection = "row",
+                        justifyContent = "center",
+                        alignItems = "center",
+                        marginBottom = 16,
+                        children = circles,
+                    },
+                    -- 当前状态
+                    UI.Panel {
+                        width = "100%",
+                        flexDirection = "row",
+                        justifyContent = "space-between",
+                        alignItems = "center",
+                        marginBottom = 16,
+                        paddingLeft = 8,
+                        paddingRight = 8,
+                        children = {
+                            UI.Label {
+                                text = string.format("已观看 %d/%d 次", adProgress, adTotal),
+                                fontSize = 12,
+                                color = Theme.COLORS.TEXT_SECONDARY,
+                            },
+                            UI.Label {
+                                text = string.format("当前次数: %d", currentPulls),
+                                fontSize = 12,
+                                color = Theme.COLORS.ACCENT,
+                                fontWeight = "bold",
+                            },
+                        },
+                    },
+                    -- 观看广告按钮
+                    UI.Button {
+                        text = "观看广告 (+2次)",
+                        width = "100%",
+                        height = 42,
+                        backgroundColor = Theme.COLORS.PRIMARY,
+                        borderRadius = 10,
+                        fontSize = 14,
+                        color = {255, 255, 255, 255},
+                        fontWeight = "bold",
+                        marginBottom = 10,
+                        onClick = function()
+                            UI.CloseOverlay()
+                            Youth._doWatchAdInModal(gameState)
+                        end,
+                    },
+                    -- 关闭按钮
+                    UI.Button {
+                        text = "关闭",
+                        width = "100%",
+                        height = 36,
+                        backgroundColor = {51, 59, 84, 255},
+                        borderRadius = 10,
+                        fontSize = 13,
+                        color = Theme.COLORS.TEXT_SECONDARY,
+                        onClick = function()
+                            UI.CloseOverlay()
+                        end,
+                    },
+                },
+            },
+        },
+    })
+end
+
+--- 在弹窗流程中观看广告并弹出奖励反馈
+function Youth._doWatchAdInModal(gameState)
     sdk:ShowRewardVideoAd(function(result)
         if result.success then
             local newPulls = YouthManager.watchAdForPulls(gameState)
-            if newPulls > 0 then
-                UI.Toast.Show({ message = string.format("+%d 次抽取机会", newPulls), variant = "success" })
-            end
-            Router.replaceWith("youth")
+            -- 显示奖励反馈弹窗
+            Youth._showAdRewardPopup(gameState, newPulls)
         else
             UI.Toast.Show({ message = "需完整观看广告才能获得奖励", variant = "warning" })
         end
     end)
+end
+
+--- 广告观看后的奖励反馈弹窗
+function Youth._showAdRewardPopup(gameState, newPulls)
+    local gachaState = YouthManager.getLegendGachaState(gameState)
+    local currentPulls = gachaState.pulls
+    local adProgress, adTotal = YouthManager.getPullAdProgress(gameState)
+
+    UI.ShowOverlay(UI.Panel {
+        width = "100%",
+        height = "100%",
+        justifyContent = "center",
+        alignItems = "center",
+        backgroundColor = {0, 0, 0, 180},
+        children = {
+            UI.Panel {
+                width = "75%",
+                backgroundColor = Theme.COLORS.BG_CARD or {30, 34, 54, 255},
+                borderRadius = 16,
+                borderWidth = 1,
+                borderColor = Theme.COLORS.ACCENT,
+                paddingTop = 24,
+                paddingBottom = 20,
+                paddingLeft = 20,
+                paddingRight = 20,
+                alignItems = "center",
+                children = {
+                    -- 奖励图标
+                    UI.Label {
+                        text = "🎉",
+                        fontSize = 32,
+                        marginBottom = 10,
+                    },
+                    -- 奖励标题
+                    UI.Label {
+                        text = "获得奖励！",
+                        fontSize = 16,
+                        color = Theme.COLORS.TEXT_PRIMARY,
+                        fontWeight = "bold",
+                        marginBottom = 8,
+                    },
+                    -- 奖励内容
+                    UI.Label {
+                        text = string.format("+%d 次抽取机会", newPulls),
+                        fontSize = 20,
+                        color = Theme.COLORS.ACCENT,
+                        fontWeight = "bold",
+                        marginBottom = 6,
+                    },
+                    -- 当前总次数
+                    UI.Label {
+                        text = string.format("当前共 %d 次可用", currentPulls),
+                        fontSize = 12,
+                        color = Theme.COLORS.TEXT_MUTED,
+                        marginBottom = 16,
+                    },
+                    -- 继续观看 / 返回按钮
+                    UI.Button {
+                        text = "继续观看",
+                        width = "100%",
+                        height = 40,
+                        backgroundColor = Theme.COLORS.PRIMARY,
+                        borderRadius = 10,
+                        fontSize = 14,
+                        color = {255, 255, 255, 255},
+                        fontWeight = "bold",
+                        marginBottom = 8,
+                        onClick = function()
+                            UI.CloseOverlay()
+                            Youth._showAdForPullsModal(gameState)
+                        end,
+                    },
+                    UI.Button {
+                        text = "返回",
+                        width = "100%",
+                        height = 36,
+                        backgroundColor = {51, 59, 84, 255},
+                        borderRadius = 10,
+                        fontSize = 13,
+                        color = Theme.COLORS.TEXT_SECONDARY,
+                        onClick = function()
+                            UI.CloseOverlay()
+                            Router.replaceWith("youth")
+                        end,
+                    },
+                },
+            },
+        },
+    })
+end
+
+--- 执行单抽
+function Youth._doSinglePull(gameState)
+    local candidate = YouthManager.doSinglePull(gameState)
+    if not candidate then return end
+
+    if candidate.isLegend then
+        -- 单抽出传奇：弹出专属揭示弹窗
+        Youth._showLegendReveal(candidate, false)
+    else
+        UI.Toast.Show({ message = string.format("获得 %s（%s）", candidate.displayName, candidate.position), variant = "success" })
+        Router.replaceWith("youth")
+    end
 end
 
 --- 执行十连抽

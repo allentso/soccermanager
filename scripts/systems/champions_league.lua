@@ -6,6 +6,7 @@ local League = require("scripts/domain/league")
 local EventBus = require("scripts/app/event_bus")
 local RecordsManager = require("scripts/systems/records_manager")
 local ReputationManager = require("scripts/systems/reputation_manager")
+local FinanceManager = require("scripts/systems/finance_manager")
 
 local ChampionsLeague = {}
 
@@ -283,6 +284,125 @@ function ChampionsLeague.migrateIfNeeded(gameState)
 
         -- 无冲突，标记为已检查
         lp._scheduleFixed = true
+    end
+
+    -- 检测并修复"UCL 被新赛季覆盖"bug（v2迁移）
+    -- 场景：旧版本中联赛结束后 _startNewSeason 直接覆盖了进行中的 UCL
+    -- 检测条件：season > 1 且上赛季没有 UCL 正常完成的记录
+    if not gameState._uclOverwritePatched and gameState.season and gameState.season > 1 then
+        gameState._uclCompletedSeasons = gameState._uclCompletedSeasons or {}
+        local prevSeason = tostring(gameState.season - 1)
+
+        -- 如果上赛季有完成记录，说明 UCL 正常结束，无需修复
+        if not gameState._uclCompletedSeasons[prevSeason] then
+            -- 启发式判断：如果当前 UCL 全部赛程都未开始（全 scheduled），
+            -- 且当前日期在联赛阶段首场之前，高度怀疑是 bug 导致的覆盖
+            local allScheduled = true
+            if ucl.leaguePhase and ucl.leaguePhase.fixtures then
+                for _, f in ipairs(ucl.leaguePhase.fixtures) do
+                    if f.status ~= "scheduled" then
+                        allScheduled = false
+                        break
+                    end
+                end
+            end
+
+            if allScheduled then
+                log:Write(LOG_INFO, "[UCL] 检测到上赛季UCL可能被覆盖（无完成记录），执行补偿迁移...")
+
+                -- 从当前赛季合格球队中按声望选出模拟冠军（排除玩家，避免误判）
+                local candidateTeams = {}
+                if ucl.qualifiedTeams then
+                    for _, tid in ipairs(ucl.qualifiedTeams) do
+                        if tid ~= gameState.playerTeamId then
+                            local team = gameState.teams[tid]
+                            if team then
+                                table.insert(candidateTeams, { id = tid, rep = team.reputation or 0 })
+                            end
+                        end
+                    end
+                end
+                table.sort(candidateTeams, function(a, b) return a.rep > b.rep end)
+
+                -- 从前8名中随机选一个作为上赛季冠军
+                local topN = math.min(8, #candidateTeams)
+                local retroChampionId = nil
+                if topN > 0 then
+                    local idx = RandomInt(1, topN)
+                    retroChampionId = candidateTeams[idx].id
+                end
+
+                if retroChampionId then
+                    local retroChampion = gameState.teams[retroChampionId]
+                    local championName = retroChampion and retroChampion.name or "?"
+
+                    -- 回填完成记录
+                    gameState._uclCompletedSeasons[prevSeason] = retroChampionId
+
+                    -- 在 worldHistory 中补充 UCL 记录
+                    for _, record in ipairs(gameState.worldHistory) do
+                        if record.season == gameState.season - 1 then
+                            record.uclChampion = {
+                                teamId = retroChampionId,
+                                teamName = championName,
+                            }
+                            break
+                        end
+                    end
+
+                    -- 如果玩家球队在合格名单中，补发参赛奖金（联赛阶段基础奖金）
+                    local playerInUCL = false
+                    if ucl.qualifiedTeams then
+                        for _, tid in ipairs(ucl.qualifiedTeams) do
+                            if tid == gameState.playerTeamId then
+                                playerInUCL = true
+                                break
+                            end
+                        end
+                    end
+
+                    if playerInUCL then
+                        local playerTeam = gameState:getPlayerTeam()
+                        if playerTeam then
+                            local compensation = 10000000  -- 10M 参赛补偿
+                            playerTeam.balance = playerTeam.balance + compensation
+                            playerTeam.transferBudget = (playerTeam.transferBudget or 0) + compensation
+                            playerTeam.seasonIncome = (playerTeam.seasonIncome or 0) + compensation
+                            playerTeam.incomeBreakdown = playerTeam.incomeBreakdown or {}
+                            playerTeam.incomeBreakdown.prize = (playerTeam.incomeBreakdown.prize or 0) + compensation
+                            FinanceManager.addTransaction(playerTeam, {
+                                amount = compensation,
+                                description = "欧冠参赛补偿（赛程修复）",
+                                category = "prize",
+                                season = gameState.season,
+                                week = FinanceManager._getWeekNumber(gameState),
+                            })
+                        end
+                    end
+
+                    -- 发送通知消息
+                    gameState:sendMessage({
+                        category = "league",
+                        title = "欧冠赛程修复通知",
+                        body = string.format(
+                            "由于赛程系统升级，上赛季欧冠赛事数据已补全。\n" ..
+                            "上赛季欧冠冠军：%s\n" ..
+                            "%s",
+                            championName,
+                            playerInUCL and "您的球队已获得欧冠参赛补偿金 10.0M。" or ""
+                        ),
+                        priority = "normal",
+                    })
+
+                    log:Write(LOG_INFO, string.format(
+                        "[UCL] 补偿迁移完成：回填上赛季冠军=%s, 玩家补偿=%s",
+                        championName, playerInUCL and "10M" or "无"))
+                end
+            end
+        end
+
+        -- 标记已处理，防止重复执行
+        gameState._uclOverwritePatched = true
     end
 
     return false
@@ -618,14 +738,18 @@ function ChampionsLeague._completeTournament(gameState, ucl)
 
         -- 冠军奖金
         if champion then
-            local prize = 5000000  -- 新赛制奖金更高
+            local prize = 40000000  -- 欧冠冠军总奖金 40M
             champion.balance = champion.balance + prize
-            if not champion.transactions then champion.transactions = {} end
-            table.insert(champion.transactions, 1, {
-                type = "prize",
+            champion.transferBudget = (champion.transferBudget or 0) + prize
+            champion.seasonIncome = (champion.seasonIncome or 0) + prize
+            champion.incomeBreakdown = champion.incomeBreakdown or {}
+            champion.incomeBreakdown.prize = (champion.incomeBreakdown.prize or 0) + prize
+            FinanceManager.addTransaction(champion, {
                 amount = prize,
                 description = "欧冠冠军奖金",
-                date = { year = gameState.date.year, month = gameState.date.month, day = gameState.date.day },
+                category = "prize",
+                season = gameState.season,
+                week = FinanceManager._getWeekNumber(gameState),
             })
         end
 
@@ -634,7 +758,7 @@ function ChampionsLeague._completeTournament(gameState, ucl)
             gameState:sendMessage({
                 category = "league",
                 title = "恭喜！欧冠冠军！",
-                body = "你的球队赢得了欧洲冠军联赛！这是足坛最高荣誉！\n冠军奖金 5.0M 已到账。",
+                body = "你的球队赢得了欧洲冠军联赛！这是足坛最高荣誉！\n冠军奖金 40.0M 已到账。",
                 priority = "high",
             })
         end
@@ -651,14 +775,18 @@ function ChampionsLeague._completeTournament(gameState, ucl)
             -- 亚军奖金
             local finalist = gameState.teams[finalistId]
             if finalist then
-                local runnerUpPrize = 3000000
+                local runnerUpPrize = 20000000  -- 欧冠亚军奖金 20M
                 finalist.balance = finalist.balance + runnerUpPrize
-                if not finalist.transactions then finalist.transactions = {} end
-                table.insert(finalist.transactions, 1, {
-                    type = "prize",
+                finalist.transferBudget = (finalist.transferBudget or 0) + runnerUpPrize
+                finalist.seasonIncome = (finalist.seasonIncome or 0) + runnerUpPrize
+                finalist.incomeBreakdown = finalist.incomeBreakdown or {}
+                finalist.incomeBreakdown.prize = (finalist.incomeBreakdown.prize or 0) + runnerUpPrize
+                FinanceManager.addTransaction(finalist, {
                     amount = runnerUpPrize,
                     description = "欧冠亚军奖金",
-                    date = { year = gameState.date.year, month = gameState.date.month, day = gameState.date.day },
+                    category = "prize",
+                    season = gameState.season,
+                    week = FinanceManager._getWeekNumber(gameState),
                 })
             end
 
@@ -678,6 +806,10 @@ function ChampionsLeague._completeTournament(gameState, ucl)
 
         -- 记录系统：UCL 夺冠
         RecordsManager.onUCLChampionship(gameState, ucl.champion)
+
+        -- 标记本赛季 UCL 已正常完成（用于存档迁移检测）
+        gameState._uclCompletedSeasons = gameState._uclCompletedSeasons or {}
+        gameState._uclCompletedSeasons[tostring(ucl.season)] = ucl.champion
 
         EventBus.emit("ucl_completed", ucl.champion)
     end

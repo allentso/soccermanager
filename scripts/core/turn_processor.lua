@@ -2,6 +2,7 @@
 -- 回合推进处理器
 
 local MatchEngine = require("scripts/match/match_engine")
+local PlaceholderEngine = require("scripts/match/placeholder_engine")
 local EventBus = require("scripts/app/event_bus")
 local League = require("scripts/domain/league")
 local TransferManager = require("scripts/systems/transfer_manager")
@@ -20,6 +21,7 @@ local YouthManager = require("scripts/systems/youth_manager")
 local JobManager = require("scripts/systems/job_manager")
 local RandomEventManager = require("scripts/systems/random_event_manager")
 local ReputationManager = require("scripts/systems/reputation_manager")
+local DifficultySettings = require("scripts/systems/difficulty_settings")
 local NewsGenerator = require("scripts/systems/news_generator")
 local AIManager = require("scripts/systems/ai_manager")
 local ObjectivesManager = require("scripts/systems/objectives_manager")
@@ -79,14 +81,21 @@ function TurnProcessor.advanceDay(gameState)
         TurnProcessor.processNonMatchDay(gameState)
     end
 
+    -- 周期性处理（无论比赛日/非比赛日都必须执行，防止月初有比赛时跳过收入）
+    TurnProcessor._processPeriodicEvents(gameState)
+
     -- 检查欧冠阶段推进
     ChampionsLeague.checkPhaseAdvance(gameState)
 
     -- 检查世界杯阶段推进
     WorldCup.checkPhaseAdvance(gameState)
 
-    -- 检查玩家所在联赛是否赛季结束
-    if gameState.league and gameState.league:isSeasonComplete() then
+    -- 检查玩家所在联赛是否赛季结束（加 guard 防止重复触发）
+    -- 必须同时满足：联赛完成 + 欧冠完成（或不存在），否则 _startNewSeason 会覆盖进行中的欧冠
+    local uclDone = (not gameState.championsLeague)
+        or (gameState.championsLeague.phase == "completed")
+    if gameState.league and gameState.league:isSeasonComplete() and uclDone and not gameState._seasonEndProcessing then
+        gameState._seasonEndProcessing = true
         EventBus.emit("season_end")
     end
 
@@ -270,6 +279,11 @@ function TurnProcessor.processMatchDay(gameState, fixtures)
         end
     end
 
+    -- 同步各联赛球队排名到 team.leaguePosition（转播分成等公式依赖此字段）
+    for _, lg in pairs(gameState.leagues or {}) do
+        lg:syncTeamPositions(gameState)
+    end
+
     return playerMatchReport
 end
 
@@ -277,16 +291,37 @@ end
 --- @return table playerOverdueFixtures
 function TurnProcessor._catchUpOverdueUCLFixtures(gameState, currentDate)
     local ucl = gameState.championsLeague
-    if not ucl or not ucl.leaguePhase then return {} end
+    if not ucl then return {} end
+    if ucl.phase == "completed" then return {} end
 
-    local lp = ucl.leaguePhase
     local playerTeamId = gameState.playerTeamId
     local overdueFixtures = {}
 
-    for _, f in ipairs(lp.fixtures) do
-        if f.status == "scheduled" and f.date then
-            if TurnProcessor._isDateBefore(f.date, currentDate) then
-                table.insert(overdueFixtures, f)
+    -- 联赛阶段过期比赛
+    if ucl.leaguePhase and ucl.leaguePhase.fixtures then
+        for _, f in ipairs(ucl.leaguePhase.fixtures) do
+            if f.status == "scheduled" and f.date then
+                if TurnProcessor._isDateBefore(f.date, currentDate) then
+                    table.insert(overdueFixtures, f)
+                end
+            end
+        end
+    end
+
+    -- 淘汰赛阶段过期比赛（附加赛、R16、QF、SF、决赛）
+    if ucl.knockout then
+        local knockoutPhases = {"playoff", "r16", "qf", "sf", "final"}
+        for _, phase in ipairs(knockoutPhases) do
+            local fixtures = ucl.knockout[phase]
+            if fixtures then
+                for _, f in ipairs(fixtures) do
+                    if f.status == "scheduled" and f.date then
+                        if TurnProcessor._isDateBefore(f.date, currentDate) then
+                            f.tournamentPhase = phase
+                            table.insert(overdueFixtures, f)
+                        end
+                    end
+                end
             end
         end
     end
@@ -308,15 +343,26 @@ function TurnProcessor._catchUpOverdueUCLFixtures(gameState, currentDate)
         -- 非玩家比赛：自动模拟
         local report = MatchEngine.simulate(gameState, fixture)
         if report then
-            fixture.status = "finished"
-            fixture.homeGoals = report.homeGoals or 0
-            fixture.awayGoals = report.awayGoals or 0
-            fixture.events = report.events
-            -- 更新欧冠联赛阶段积分
-            ucl:updateLeagueStanding(fixture)
+            if fixture.tournamentPhase then
+                -- 淘汰赛：用 _applyUCLResult 处理（含两回合制逻辑）
+                TurnProcessor._applyUCLResult(gameState, fixture, report)
+            else
+                -- 联赛阶段：直接更新积分
+                fixture.status = "finished"
+                fixture.homeGoals = report.homeGoals or 0
+                fixture.awayGoals = report.awayGoals or 0
+                fixture.events = report.events
+                ucl:updateLeagueStanding(fixture)
+            end
         end
         ::continue_ucl_overdue::
     end
+
+    -- 补救模拟后检查阶段推进（可能有整轮比赛被补齐）
+    if #overdueFixtures > 0 then
+        ChampionsLeague.checkPhaseAdvance(gameState)
+    end
+
     return playerOverdue
 end
 
@@ -379,11 +425,104 @@ function TurnProcessor._catchUpOverdueWCFixtures(gameState, currentDate)
     return playerOverdue
 end
 
+--- 仅检测（不模拟、不推进日期）是否存在逾期的玩家比赛
+--- 返回第一个逾期的玩家 fixture，或 nil
+--- 用于 dashboard 在 advanceDay 之前判断是否应先处理逾期比赛而不消耗日历天数
+function TurnProcessor.peekOverduePlayerFixture(gameState)
+    local currentDate = gameState.date
+    local playerTeamId = gameState.playerTeamId
+    if not playerTeamId then return nil end
+
+    -- 检查联赛逾期比赛
+    for _, lg in pairs(gameState.leagues or {}) do
+        for _, fixture in ipairs(lg.fixtures or {}) do
+            if fixture.status == "scheduled" and fixture.date and TurnProcessor._isDateBefore(fixture.date, currentDate) then
+                if fixture.homeTeamId == playerTeamId or fixture.awayTeamId == playerTeamId then
+                    return fixture
+                end
+            end
+        end
+    end
+
+    -- 检查欧冠逾期比赛
+    local ucl = gameState.championsLeague
+    if ucl and ucl.phase ~= "completed" then
+        if ucl.leaguePhase and ucl.leaguePhase.fixtures then
+            for _, f in ipairs(ucl.leaguePhase.fixtures) do
+                if f.status == "scheduled" and f.date and TurnProcessor._isDateBefore(f.date, currentDate) then
+                    if f.homeTeamId == playerTeamId or f.awayTeamId == playerTeamId then
+                        f._isUCL = true
+                        return f
+                    end
+                end
+            end
+        end
+        if ucl.knockout then
+            local knockoutPhases = {"playoff", "r16", "qf", "sf", "final"}
+            for _, phase in ipairs(knockoutPhases) do
+                local fixtures = ucl.knockout[phase]
+                if fixtures then
+                    for _, f in ipairs(fixtures) do
+                        if f.status == "scheduled" and f.date and TurnProcessor._isDateBefore(f.date, currentDate) then
+                            if f.homeTeamId == playerTeamId or f.awayTeamId == playerTeamId then
+                                f._isUCL = true
+                                return f
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    -- 检查世界杯逾期比赛
+    local wc = gameState.worldCup
+    if wc and wc.phase ~= "not_started" and wc.phase ~= "completed" then
+        local WorldCupMod = require("scripts/systems/world_cup")
+        -- 小组赛
+        if wc.phase == "group" then
+            for _, group in pairs(wc.groups) do
+                for _, f in ipairs(group.fixtures) do
+                    if f.status == "scheduled" and f.date and TurnProcessor._isDateBefore(f.date, currentDate) then
+                        if WorldCupMod.isPlayerNationMatch(gameState, f) then
+                            f._isWC = true
+                            return f
+                        end
+                    end
+                end
+            end
+        end
+        -- 淘汰赛
+        local knockoutPhases = {"r32", "r16", "qf", "sf", "third", "final"}
+        for _, phase in ipairs(knockoutPhases) do
+            local fixtures = wc.knockout and wc.knockout[phase]
+            if fixtures then
+                for _, f in ipairs(fixtures) do
+                    if f.status == "scheduled" and f.date and TurnProcessor._isDateBefore(f.date, currentDate) then
+                        if WorldCupMod.isPlayerNationMatch(gameState, f) then
+                            f._isWC = true
+                            return f
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    return nil
+end
+
 -- 日期比较辅助：a 是否严格早于 b
 function TurnProcessor._isDateBefore(a, b)
     if a.year ~= b.year then return a.year < b.year end
     if a.month ~= b.month then return a.month < b.month end
     return a.day < b.day
+end
+
+function TurnProcessor._isDateBeforeOrEqual(a, b)
+    if a.year ~= b.year then return a.year < b.year end
+    if a.month ~= b.month then return a.month < b.month end
+    return a.day <= b.day
 end
 
 -- 模拟世界杯比赛（国家代码而非球队ID，使用简化引擎）
@@ -834,6 +973,9 @@ function TurnProcessor._applyUCLResult(gameState, fixture, report)
         end
         if #awayTeam.recentForm > 5 then table.remove(awayTeam.recentForm, 1) end
     end
+
+    -- 更新球员出场/进球/助攻/红黄牌/评分（UCL专用，联赛由applyResult处理）
+    PlaceholderEngine.applyPlayerMatchStats(gameState, fixture, report)
 end
 
 -- 处理非比赛日
@@ -887,6 +1029,13 @@ function TurnProcessor.processNonMatchDay(gameState)
     -- B2: 青训球员每日训练成长
     YouthManager.processDailyTraining(gameState)
 
+end
+
+------------------------------------------------------
+-- 周期性事件处理（每周/每月），独立于比赛日/非比赛日
+-- 由 advanceDay 在 match/nonMatch 处理后统一调用
+------------------------------------------------------
+function TurnProcessor._processPeriodicEvents(gameState)
     -- 每周处理（周一）
     if gameState.dayOfWeek == 1 then
         TurnProcessor.processWeekly(gameState)
@@ -1050,17 +1199,17 @@ function TurnProcessor.processWeekly(gameState)
     if gameState.playerTeamId then
         local team = gameState.teams[gameState.playerTeamId]
         if team then
-            local injuryChance = 0.015
-            if team.trainingIntensity == "low" then injuryChance = 0.005
-            elseif team.trainingIntensity == "high" then injuryChance = 0.03
-            end
+            local trainingMods = DifficultySettings.getTrainingModifiers()
+            local weeklyInjury = trainingMods.weeklyInjury
+            local intensity = team.trainingIntensity or "medium"
+            local injuryChance = weeklyInjury[intensity] or weeklyInjury.medium
                 injuryChance = injuryChance / FinanceManager.getFacilityBonuses(team).injuryRecovery
 
             for _, pid in ipairs(team.playerIds) do
                 local p = gameState.players[pid]
                 if p and not p.injured and Random() < injuryChance then
                     p.injured = true
-                    p.injuryDays = RandomInt(3, 17)
+                    p.injuryDays = RandomInt(trainingMods.injuryDaysMin, trainingMods.injuryDaysMax)
                     MessageManager.send(gameState, "training_injury", {
                         p.displayName, p.injuryDays
                     })

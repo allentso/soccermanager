@@ -7,6 +7,8 @@ local StaffManager = require("scripts/systems/staff_manager")
 local MessageManager = require("scripts/systems/message_manager")
 local EventBus = require("scripts/app/event_bus")
 local PotentialSystem = require("scripts/systems/potential_system")
+local TrainingManager = require("scripts/systems/training_manager")
+local DifficultySettings = require("scripts/systems/difficulty_settings")
 
 local YouthManager = {}
 
@@ -15,7 +17,7 @@ local YouthManager = {}
 ------------------------------------------------------
 local YOUTH_REFRESH_INTERVAL = 3   -- 每3个月刷新一批（processMonthly每月调用一次）
 local YOUTH_POOL_SIZE = 10         -- 每次刷新10名候选
-local MAX_YOUTH_SQUAD = 15         -- 最多15名青训球员
+local MAX_YOUTH_SQUAD = 18         -- 最多18名青训球员
 local INITIAL_YOUTH_COUNT = 10     -- 每队初始青训人数
 local YOUTH_MIN_AGE = 15
 local YOUTH_MAX_AGE = 18
@@ -32,19 +34,19 @@ local YOUTH_NAMES_BY_NATION = {
         { "梁铭轩" }, { "宋睿智" }, { "郑翰林" }, { "谢文昊" }, { "韩致远" },
         { "唐鸿飞" }, { "冯修远" }, { "于凯旋" }, { "董子墨" }, { "萧晋鹏" },
     },
-    -- 巴西球员（中文音译）
+    -- 巴西球员（常见姓氏音译）
     BRA = {
-        { "席尔瓦" }, { "桑托斯" }, { "奥利维拉" }, { "费雷拉" }, { "罗德里格斯" },
+        { "席尔瓦" }, { "桑托斯" }, { "奥利维拉" }, { "费雷拉" }, { "索萨" },
         { "阿尔梅达" }, { "纳西门托" }, { "利马" }, { "科斯塔" }, { "佩雷拉" },
-        { "卡瓦略" }, { "巴博萨" }, { "里贝罗" }, { "马丁斯" }, { "苏亚雷斯" },
-        { "维埃拉" }, { "弗雷塔斯" }, { "门德斯" }, { "卡多佐" }, { "贡萨尔维斯" },
+        { "卡瓦略" }, { "巴博萨" }, { "里贝罗" }, { "贡卡尔维斯" }, { "阿劳若" },
+        { "蒙泰罗" }, { "弗雷塔斯" }, { "阿泽维多" }, { "卡多佐" }, { "特谢拉" },
     },
-    -- 阿根廷球员（中文音译）
+    -- 阿根廷球员（常见姓氏音译）
     ARG = {
         { "冈萨雷斯" }, { "罗德里格斯" }, { "费尔南德斯" }, { "洛佩斯" }, { "马丁内斯" },
         { "加西亚" }, { "罗梅罗" }, { "迪亚斯" }, { "佩雷斯" }, { "桑切斯" },
-        { "阿尔瓦雷斯" }, { "阿奎罗" }, { "拉莫斯" }, { "埃切维里亚" }, { "伊瓜因" },
-        { "巴内加" }, { "奥塔门迪" }, { "帕拉西奥" }, { "萨巴莱塔" }, { "马斯切拉诺" },
+        { "卡布雷拉" }, { "阿科斯塔" }, { "卡斯特罗" }, { "埃切维里亚" }, { "莫利纳" },
+        { "布斯托斯" }, { "梅迪纳" }, { "帕拉西奥斯" }, { "索拉诺" }, { "阿吉雷" },
     },
     -- 日本球员（汉字名）
     JP = {
@@ -60,103 +62,103 @@ local YOUTH_NAMES_BY_NATION = {
         { "申东赫" }, { "权赫俊" }, { "黄仁成" }, { "孙兴浩" }, { "裴镇宇" },
         { "南泰旭" }, { "柳在石" }, { "洪正浩" }, { "文尚允" }, { "白承训" },
     },
-    -- 法国球员（中文音译）
+    -- 法国球员（常见姓氏音译）
     FRA = {
         { "杜邦" }, { "莫雷尔" }, { "伯纳德" }, { "佩蒂特" }, { "罗贝尔" },
         { "理查德" }, { "杜瓦尔" }, { "勒鲁瓦" }, { "莫罗" }, { "西蒙" },
-        { "洛朗" }, { "米歇尔" }, { "勒费弗尔" }, { "加西亚" }, { "达维" },
-        { "布朗" }, { "马丁" }, { "蒂埃里" }, { "雷诺" }, { "弗朗索瓦" },
+        { "洛朗" }, { "米歇尔" }, { "勒费弗尔" }, { "德拉克鲁瓦" }, { "达维" },
+        { "吉拉尔" }, { "马丁" }, { "布兰查德" }, { "雷诺" }, { "梅尼耶" },
     },
-    -- 德国球员（中文音译）
+    -- 德国球员（常见姓氏音译）
     GER = {
         { "穆勒" }, { "施密特" }, { "施奈德" }, { "菲舍尔" }, { "韦伯" },
         { "迈尔" }, { "瓦格纳" }, { "贝克尔" }, { "舒尔茨" }, { "霍夫曼" },
-        { "克洛泽" }, { "赫尔曼" }, { "柯尼希" }, { "沃尔夫" }, { "哈恩" },
+        { "赫尔曼" }, { "柯尼希" }, { "沃尔夫" }, { "哈恩" }, { "里希特" },
         { "克劳斯" }, { "弗兰克" }, { "齐默尔曼" }, { "布劳恩" }, { "哈特曼" },
     },
-    -- 西班牙球员（中文音译）
+    -- 西班牙球员（常见姓氏音译）
     ESP = {
         { "加西亚" }, { "马丁内斯" }, { "洛佩斯" }, { "桑切斯" }, { "罗梅罗" },
         { "冈萨雷斯" }, { "费尔南德斯" }, { "佩雷斯" }, { "迪亚斯" }, { "鲁伊斯" },
-        { "莫雷诺" }, { "阿隆索" }, { "希门尼斯" }, { "纳瓦罗" }, { "多明格斯" },
-        { "卡斯蒂略" }, { "奥尔特加" }, { "德尔加多" }, { "拉莫斯" }, { "伊格莱西亚斯" },
+        { "莫雷诺" }, { "希门尼斯" }, { "纳瓦罗" }, { "多明格斯" }, { "卡斯蒂略" },
+        { "奥尔特加" }, { "德尔加多" }, { "伊格莱西亚斯" }, { "帕斯夸尔" }, { "卡尔沃" },
     },
-    -- 英格兰球员（中文音译）
+    -- 英格兰球员（常见姓氏音译）
     ENG = {
         { "史密斯" }, { "琼斯" }, { "威廉姆斯" }, { "布朗" }, { "泰勒" },
         { "戴维斯" }, { "威尔逊" }, { "埃文斯" }, { "托马斯" }, { "罗伯茨" },
-        { "约翰逊" }, { "沃克" }, { "怀特" }, { "杰克逊" }, { "伍德" },
+        { "约翰逊" }, { "怀特" }, { "杰克逊" }, { "伍德" }, { "格林" },
         { "哈里斯" }, { "马丁" }, { "克拉克" }, { "霍尔" }, { "阿伦" },
     },
-    -- 荷兰球员（中文音译）
+    -- 荷兰球员（常见姓氏音译）
     NED = {
-        { "德容" }, { "范戴克" }, { "德弗里" }, { "范德贝克" }, { "德利赫特" },
-        { "斯特格" }, { "布林德" }, { "维纳尔杜姆" }, { "贝尔温" }, { "马伦" },
-        { "范贝尔" }, { "克拉森" }, { "普罗梅斯" }, { "阿克" }, { "邓弗里斯" },
-        { "博古伊斯" }, { "蒂尔" }, { "范安霍尔特" }, { "德佩" }, { "卢克" },
+        { "德扬" }, { "范登贝尔赫" }, { "德弗里斯" }, { "范德林登" }, { "巴克尔" },
+        { "斯密特" }, { "扬森" }, { "彼得斯" }, { "博斯" }, { "范霍夫" },
+        { "库伊佩尔" }, { "克拉森" }, { "布鲁因" }, { "维瑟" }, { "范赫尔" },
+        { "穆尔德" }, { "蒂尔" }, { "范达姆" }, { "赫尔曼斯" }, { "斯洛特" },
     },
-    -- 葡萄牙球员（中文音译）
+    -- 葡萄牙球员（常见姓氏音译）
     POR = {
         { "席尔瓦" }, { "桑托斯" }, { "费雷拉" }, { "科斯塔" }, { "佩雷拉" },
         { "奥利维拉" }, { "罗德里格斯" }, { "马丁斯" }, { "阿尔梅达" }, { "里贝罗" },
-        { "卡瓦略" }, { "贡萨尔维斯" }, { "努内斯" }, { "门德斯" }, { "维埃拉" },
-        { "洛佩斯" }, { "迪亚斯" }, { "平托" }, { "索阿雷斯" }, { "特谢拉" },
+        { "卡瓦略" }, { "贡萨尔维斯" }, { "门德斯" }, { "维埃拉" }, { "洛佩斯" },
+        { "平托" }, { "索阿雷斯" }, { "特谢拉" }, { "库尼亚" }, { "马查多" },
     },
-    -- 意大利球员（中文音译）
+    -- 意大利球员（常见姓氏音译）
     ITA = {
-        { "罗西" }, { "贝尔纳迪" }, { "巴雷拉" }, { "基耶萨" }, { "洛卡特利" },
-        { "因西涅" }, { "维拉蒂" }, { "博努奇" }, { "斯皮纳佐拉" }, { "多纳鲁马" },
-        { "佩莱格里尼" }, { "托纳利" }, { "拉斯帕多里" }, { "巴斯托尼" }, { "迪马尔科" },
-        { "弗拉泰西" }, { "斯卡马卡" }, { "里奇" }, { "卡拉菲奥里" }, { "法焦利" },
+        { "罗西" }, { "鲁索" }, { "费拉罗" }, { "埃斯波西托" }, { "比安奇" },
+        { "科伦坡" }, { "里奇" }, { "马里诺" }, { "格雷科" }, { "布鲁诺" },
+        { "孔蒂" }, { "德卢卡" }, { "科斯塔" }, { "焦尔达诺" }, { "曼奇尼" },
+        { "隆巴迪" }, { "巴尔贝里" }, { "莫雷蒂" }, { "里佐" }, { "加洛" },
     },
-    -- 比利时球员（中文音译）
+    -- 比利时球员（常见姓氏音译）
     BEL = {
-        { "德布劳内" }, { "阿扎尔" }, { "卢卡库" }, { "库尔图瓦" }, { "蒂勒曼斯" },
-        { "维通亨" }, { "卡拉斯科" }, { "奥纳纳" }, { "德凯特拉雷" }, { "多库" },
-        { "奥彭达" }, { "特罗萨德" }, { "法斯" }, { "卡斯塔涅" }, { "德巴斯特" },
-        { "塞尔斯" }, { "博亚塔" }, { "范阿尔肯" }, { "巴克约科" }, { "卢卡斯" },
+        { "扬森斯" }, { "佩特斯" }, { "马斯" }, { "雅各布斯" }, { "威廉斯" },
+        { "克莱斯" }, { "德斯梅特" }, { "亨德里克斯" }, { "范登布鲁克" }, { "沃特斯" },
+        { "德沃尔夫" }, { "勒梅尔" }, { "范霍夫" }, { "迪沃斯" }, { "范达姆" },
+        { "塞尔斯" }, { "博斯曼斯" }, { "范阿尔斯特" }, { "斯希珀斯" }, { "凯尔曼斯" },
     },
-    -- 哥伦比亚球员（中文音译）
+    -- 哥伦比亚球员（常见姓氏音译）
     COL = {
-        { "哈梅斯" }, { "法尔考" }, { "金特罗" }, { "穆里尔" }, { "萨帕塔" },
-        { "夸德拉多" }, { "迪亚斯" }, { "米纳" }, { "阿里亚斯" }, { "莫雷诺" },
-        { "博尔哈" }, { "辛苏埃" }, { "乌里韦" }, { "杜兰" }, { "科尔多巴" },
-        { "卡斯塔诺" }, { "马查多" }, { "门多萨" }, { "卡里略" }, { "帕拉西奥斯" },
+        { "洛佩斯" }, { "加西亚" }, { "马丁内斯" }, { "罗德里格斯" }, { "冈萨雷斯" },
+        { "埃尔南德斯" }, { "迪亚斯" }, { "桑切斯" }, { "拉米雷斯" }, { "莫雷诺" },
+        { "卡斯蒂略" }, { "奥索里奥" }, { "卡尔德隆" }, { "阿里亚斯" }, { "科尔多巴" },
+        { "梅希亚" }, { "贝尔特兰" }, { "门多萨" }, { "卡里略" }, { "帕拉西奥斯" },
     },
-    -- 乌拉圭球员（中文音译）
+    -- 乌拉圭球员（常见姓氏音译）
     URU = {
-        { "苏亚雷斯" }, { "卡瓦尼" }, { "戈丁" }, { "希门尼斯" }, { "巴尔韦德" },
-        { "努涅斯" }, { "本坦库尔" }, { "韦西诺" }, { "阿劳霍" }, { "卡塞雷斯" },
-        { "穆斯莱拉" }, { "托雷拉" }, { "德拉克鲁斯" }, { "佩利斯特里" }, { "奥利维拉" },
-        { "罗德里格斯" }, { "马丁内斯" }, { "坎诺比奥" }, { "维尼亚" }, { "戈麦斯" },
+        { "罗德里格斯" }, { "马丁内斯" }, { "冈萨雷斯" }, { "费尔南德斯" }, { "加西亚" },
+        { "洛佩斯" }, { "佩雷斯" }, { "桑切斯" }, { "拉米雷斯" }, { "迪亚斯" },
+        { "阿科斯塔" }, { "席尔瓦" }, { "卡布雷拉" }, { "里韦拉" }, { "奥利维拉" },
+        { "苏亚索" }, { "莫雷伊拉" }, { "阿尔瓦雷斯" }, { "维尼亚" }, { "戈麦斯" },
     },
-    -- 克罗地亚球员（中文音译）
+    -- 克罗地亚球员（常见姓氏音译）
     CRO = {
-        { "莫德里奇" }, { "科瓦契奇" }, { "佩里西奇" }, { "布罗佐维奇" }, { "格瓦迪奥尔" },
-        { "克拉马里奇" }, { "弗拉希奇" }, { "洛夫伦" }, { "维达" }, { "利瓦科维奇" },
-        { "帕萨利奇" }, { "巴里希奇" }, { "尤拉诺维奇" }, { "苏契奇" }, { "马耶尔" },
-        { "布迪米尔" }, { "佩特科维奇" }, { "伊瓦努舍茨" }, { "索萨" }, { "雅基奇" },
+        { "霍尔瓦特" }, { "科瓦切维奇" }, { "巴比奇" }, { "马里奇" }, { "诺瓦克" },
+        { "尤基奇" }, { "托米奇" }, { "克拉列维奇" }, { "武科维奇" }, { "帕维奇" },
+        { "马蒂奇" }, { "博希尼亚克" }, { "斯坦科维奇" }, { "佩里奇" }, { "波波维奇" },
+        { "拉迪奇" }, { "佩特科维奇" }, { "伊万诺维奇" }, { "克内热维奇" }, { "米利奇" },
     },
-    -- 塞尔维亚球员（中文音译）
+    -- 塞尔维亚球员（常见姓氏音译）
     SRB = {
-        { "弗拉霍维奇" }, { "约维奇" }, { "塔迪奇" }, { "米特洛维奇" }, { "科斯蒂奇" },
-        { "米林科维奇" }, { "帕夫洛维奇" }, { "古德利" }, { "日夫科维奇" }, { "拉多尼奇" },
-        { "卢基奇" }, { "萨马尔季奇" }, { "姆拉德诺维奇" }, { "拉佐维奇" }, { "伊利奇" },
+        { "约万诺维奇" }, { "佩特洛维奇" }, { "尼科利奇" }, { "米洛舍维奇" }, { "斯坦科维奇" },
+        { "帕夫洛维奇" }, { "伊利奇" }, { "日夫科维奇" }, { "拉多萨夫列维奇" }, { "马尔科维奇" },
+        { "卢基奇" }, { "托多罗维奇" }, { "米哈伊洛维奇" }, { "拉佐维奇" }, { "斯特凡诺维奇" },
         { "约基奇" }, { "马克西莫维奇" }, { "加契诺维奇" }, { "拉伊科维奇" }, { "格鲁伊奇" },
     },
-    -- 墨西哥球员（中文音译）
+    -- 墨西哥球员（常见姓氏音译）
     MEX = {
-        { "洛萨诺" }, { "希门尼斯" }, { "奥乔亚" }, { "阿尔瓦雷斯" }, { "瓜尔达多" },
-        { "科罗纳" }, { "埃雷拉" }, { "莫雷诺" }, { "加利亚多" }, { "马丁内斯" },
-        { "安图纳" }, { "罗莫" }, { "桑切斯" }, { "阿里亚加" }, { "奎尼奥内斯" },
-        { "拉莫斯" }, { "洛佩斯" }, { "弗洛雷斯" }, { "皮涅达" }, { "巴斯克斯" },
+        { "埃尔南德斯" }, { "加西亚" }, { "马丁内斯" }, { "洛佩斯" }, { "冈萨雷斯" },
+        { "罗德里格斯" }, { "佩雷斯" }, { "桑切斯" }, { "拉米雷斯" }, { "弗洛雷斯" },
+        { "托雷斯" }, { "里韦拉" }, { "莫拉莱斯" }, { "克鲁斯" }, { "雷耶斯" },
+        { "奥尔蒂斯" }, { "古铁雷斯" }, { "门多萨" }, { "阿吉拉尔" }, { "巴斯克斯" },
     },
-    -- 尼日利亚球员（中文音译）
+    -- 尼日利亚球员（常见姓氏音译）
     NGA = {
-        { "奥西门" }, { "恩迪迪" }, { "伊沃比" }, { "穆萨" }, { "伊海纳乔" },
-        { "奥纳纳" }, { "阿德耶米" }, { "巴西" }, { "奥乔查" }, { "努瓦卡利" },
-        { "查克维泽" }, { "恩多卡" }, { "奥帕布尼米" }, { "阿约" }, { "奥科" },
-        { "埃泽" }, { "伊布拉希姆" }, { "阿迪穆拉" }, { "穆罕默德" }, { "乌玛尔" },
+        { "阿德巴约" }, { "奥卡福" }, { "恩旺科" }, { "伊布拉希姆" }, { "奥卢瓦" },
+        { "阿金耶米" }, { "奥比纳" }, { "乌切" }, { "恩纳马迪" }, { "阿迪贡" },
+        { "奥孔科" }, { "恩多卡" }, { "奥杜亚" }, { "阿约拉" }, { "奥科伊" },
+        { "埃泽奎" }, { "奇迪贝雷" }, { "阿迪库" }, { "穆罕默德" }, { "乌玛尔" },
     },
 }
 
@@ -228,9 +230,10 @@ end
 -- 核心API
 ------------------------------------------------------
 
---- 每月处理：刷新青训候选池
+--- 每月处理：刷新青训候选池（玩家球队）+ AI 球队青训管理
 ---@param gameState table
 function YouthManager.processMonthly(gameState)
+    -- 玩家球队候选刷新
     gameState._youthCandidates = gameState._youthCandidates or {}
     gameState._youthRefreshCounter = (gameState._youthRefreshCounter or 0) + 1
 
@@ -238,6 +241,9 @@ function YouthManager.processMonthly(gameState)
         gameState._youthRefreshCounter = 0
         YouthManager._refreshCandidates(gameState)
     end
+
+    -- AI 球队青训管理（每月执行一次简化逻辑）
+    YouthManager._processAITeamsMonthly(gameState)
 end
 
 --- 获取当前青训候选球员列表
@@ -265,13 +271,19 @@ function YouthManager.signCandidate(gameState, candidateIndex)
         return false, string.format("青训名额已满(%d人)", MAX_YOUTH_SQUAD)
     end
 
-    -- 创建球员实体
+    -- 创建球员实体（birthYear 必须保持为整数，不可被修改）
+    -- 传奇球员自带专属特质（从 JSON 数据继承）
+    local legendTraits = nil
+    if candidate.isLegend and candidate.legendData and candidate.legendData.traits then
+        legendTraits = candidate.legendData.traits
+    end
+
     local playerData = {
         firstName = candidate.firstName,
         lastName = candidate.lastName,
         displayName = candidate.displayName,
         nationality = candidate.nationality,
-        birthYear = candidate.birthYear,
+        birthYear = math.floor(candidate.birthYear),
         position = candidate.position,
         attributes = candidate.attributes,
         potential = candidate.potential,
@@ -279,6 +291,7 @@ function YouthManager.signCandidate(gameState, candidateIndex)
         wage = YOUTH_WAGE,
         isYouth = true,
         contractEnd = {year = gameState.date.year + 3, month = 6, day = 30},
+        traits = legendTraits,
         -- 传奇球员额外字段
         isLegend = candidate.isLegend or false,
         legendName = candidate.legendName,
@@ -344,6 +357,8 @@ function YouthManager.promote(gameState, playerId)
 end
 
 --- 释放青训球员
+--- 潜力 raw >= 70 的球员保留为自由球员（可出现在转会市场）
+--- 低潜力球员直接从数据库移除以防止数据膨胀
 ---@param gameState table
 ---@param playerId number
 ---@return boolean success, string? error
@@ -362,11 +377,24 @@ function YouthManager.release(gameState, playerId)
     end
     if not found then return false, "该球员不在青训队中" end
 
-    -- 标记为已释放（不从 players 表删除，保留历史）
     local player = gameState.players[playerId]
     if player then
-        player.retired = true
         player.isYouth = false
+        player.teamId = nil
+
+        local rawPotential = player.potential or 0
+        if rawPotential >= 70 then
+            -- 有潜力的球员释放为自由球员，可出现在转会市场
+            player.isFreAgent = true
+            player.releasedDate = {
+                year = gameState.date.year,
+                month = gameState.date.month,
+                day = gameState.date.day,
+            }
+        else
+            -- 低潜力球员直接移除，避免数据库膨胀
+            gameState.players[playerId] = nil
+        end
     end
 
     return true
@@ -390,35 +418,144 @@ function YouthManager.getYouthSquad(gameState)
     return result
 end
 
---- 每日训练：青训球员成长（受青训加成影响）
----@param gameState table
-function YouthManager.processDailyTraining(gameState)
-    local team = gameState:getPlayerTeam()
-    if not team then return end
+--- 确定青训球员的训练焦点（复用 TrainingManager 优先级链）
+--- 优先级：player.trainingFocus > team.trainingGroups 分组 > team.trainingFocus > "balanced"
+---@param team table
+---@param player table
+---@return string focusKey
+local function _resolveYouthFocus(team, player)
+    -- 1. 个人训练焦点（UI "个人训练"页面设置）
+    if player.trainingFocus and TrainingManager.FOCUS_ATTRS[player.trainingFocus] then
+        return player.trainingFocus
+    end
+    -- 2. 分组训练焦点（UI "分组训练"页面设置）
+    if team.trainingGroups then
+        for _, group in pairs(team.trainingGroups) do
+            if group.playerIds then
+                for _, pid in ipairs(group.playerIds) do
+                    if pid == player.id then
+                        if group.focus and TrainingManager.FOCUS_ATTRS[group.focus] then
+                            return group.focus
+                        end
+                    end
+                end
+            end
+        end
+    end
+    -- 3. 全队训练焦点（UI "全队训练"页面设置）
+    if team.trainingFocus and TrainingManager.FOCUS_ATTRS[team.trainingFocus] then
+        return team.trainingFocus
+    end
+    -- 4. 默认平衡训练
+    return "balanced"
+end
 
+--- 对单个球队执行青训球员每日训练成长
+--- 对接 TrainingManager.FOCUS_ATTRS：根据训练焦点集中增长对应属性
+--- v2: 加入年龄修正、潜力差修正、设施加成（与一线队训练对齐）
+---@param gameState table
+---@param team table
+---@param youthBonus number 青训教练加成 (0~0.15)
+local function _trainTeamYouth(gameState, team, youthBonus)
     team._youthPlayerIds = team._youthPlayerIds or {}
-    local youthBonus = StaffManager.getYouthDevBonus(gameState, team.id)
+
+    -- 青训设施加成（提高训练效率）
+    local FinanceManager = require("scripts/systems/finance_manager")
+    local facilityBonus = FinanceManager.getFacilityBonuses(team).trainingGain or 1.0
+
+    -- 预计算导师光环：收集青训队中传奇球员的位置集合
+    local legendPositions = {}
+    for _, pid in ipairs(team._youthPlayerIds) do
+        local p = gameState.players[pid]
+        if p and p.isLegend then
+            legendPositions[p.position] = true
+        end
+    end
+    -- 一线队的传奇球员也可以作为导师
+    for _, pid in ipairs(team.playerIds or {}) do
+        local p = gameState.players[pid]
+        if p and p.isLegend then
+            legendPositions[p.position] = true
+        end
+    end
 
     for _, pid in ipairs(team._youthPlayerIds) do
         local player = gameState.players[pid]
         if player and player.attributes then
-            -- 每天有小概率提升某项属性
-            local growthChance = 0.03 + youthBonus  -- 3% + 加成（最高 ~18%）
-            if Random() < growthChance then
-                -- 随机选一项属性
-                local attrKeys = {}
-                for k, _ in pairs(player.attributes) do
-                    table.insert(attrKeys, k)
-                end
-                if #attrKeys > 0 then
-                    local key = attrKeys[RandomInt(1, #attrKeys)]
-                    local maxVal = math.min(20, math.floor((player.actualPotential or player.potential or 60) / 5))
-                    if player.attributes[key] < maxVal then
-                        player.attributes[key] = player.attributes[key] + 1
-                        player:calculateOverall()
+            -- 基础增长概率（从难度配置获取）
+            local trainingMods = DifficultySettings.getTrainingModifiers()
+            local baseChance = trainingMods.baseChance
+
+            -- 青训教练加成（乘性，0.05 → ×1.25, 0.10 → ×1.50, 0.15 → ×1.75）
+            local staffMult = 1.0 + youthBonus * 5.0
+            baseChance = baseChance * staffMult
+
+            -- 设施加成
+            baseChance = baseChance * facilityBonus
+
+            -- 年龄修正（青训球员年轻，成长快）
+            local age = player.birthYear and (gameState.date.year - player.birthYear) or 17
+            local ageFactor = 1.0
+            if age <= 16 then ageFactor = 1.5      -- 16岁及以下：高速成长
+            elseif age <= 18 then ageFactor = 1.4   -- 17-18岁：快速成长
+            elseif age <= 20 then ageFactor = 1.2   -- 19-20岁：正常偏快
+            else ageFactor = 1.0 end
+            baseChance = baseChance * ageFactor
+
+            -- 潜力差修正（距离潜力越远成长越容易）
+            local potential = player.actualPotential or player.potential or 70
+            local overall = player.overall or 50
+            local gapFactor = math.max(trainingMods.youthGapFloor, (potential - overall) / trainingMods.youthGapDivisor)
+            baseChance = baseChance * gapFactor
+
+            -- 传奇球员训练加速 ×1.5
+            if player.isLegend then
+                baseChance = baseChance * 1.5
+            end
+
+            -- 导师光环：同位置有传奇球员时，非传奇球员 +20% 训练效率
+            if not player.isLegend and legendPositions[player.position] then
+                baseChance = baseChance * 1.2
+            end
+
+            -- 尝试属性增长
+            if Random() < baseChance then
+                -- 确定训练焦点属性池（跟随一线队设置）
+                local focusKey = _resolveYouthFocus(team, player)
+                local focusAttrs = TrainingManager.FOCUS_ATTRS[focusKey] or TrainingManager.FOCUS_ATTRS.balanced
+
+                -- 总评已达上限则不再增长
+                local overallCap = player:getOverallCap()
+                if (player.overall or 0) >= overallCap then
+                    -- 到顶了，玩家需要调整策略
+                else
+                    local attrCap = player:getAttrCap()
+                    -- 从焦点属性池中选择（带重试：若选中属性已达上限，换一个）
+                    local maxAttempts = #focusAttrs
+                    for _ = 1, maxAttempts do
+                        local key = focusAttrs[RandomInt(1, #focusAttrs)]
+                        if player.attributes[key] and player.attributes[key] < attrCap then
+                            player.attributes[key] = player.attributes[key] + 1
+                            player:calculateOverall()
+                            break
+                        end
                     end
                 end
             end
+        end
+    end
+end
+
+--- 每日训练：所有球队青训球员成长（受青训加成影响）
+---@param gameState table
+function YouthManager.processDailyTraining(gameState)
+    for teamId, team in pairs(gameState.teams) do
+        team._youthPlayerIds = team._youthPlayerIds or {}
+        if #team._youthPlayerIds > 0 then
+            local youthBonus = 0.05  -- AI 球队默认加成
+            local ok, bonus = pcall(StaffManager.getYouthDevBonus, gameState, teamId)
+            if ok and bonus then youthBonus = bonus end
+            _trainTeamYouth(gameState, team, youthBonus)
         end
     end
 end
@@ -461,22 +598,49 @@ function YouthManager._generateYouthPlayer(gameState, youthDevBonus, facilityYou
     local positions = {"GK", "CB", "LB", "RB", "CM", "CDM", "CAM", "LW", "RW", "ST"}
     local position = positions[RandomInt(1, #positions)]
 
-    local age = RandomInt(YOUTH_MIN_AGE, YOUTH_MAX_AGE)
+    -- 难度修正：青训质量影响年龄和潜力范围
+    local youthMods = DifficultySettings.getYouthModifiers()
+    local age = RandomInt(youthMods.minAge, youthMods.maxAge)
     local birthYear = gameState.date.year - age
 
-    -- 潜力受青训教练加成 + 青训设施加成影响
-    -- 设施加成：提高潜力下限（Lv5 时下限从45提升到 ~57）
-    local potentialFloor = math.floor(45 * facilityYouthBonus)
-    local basePotential = RandomInt(potentialFloor, 85)
+    -- 潜力：使用绝对值范围，设施加成提升下限，教练加成提升总值
+    local potentialFloor = math.floor(youthMods.potentialMin * facilityYouthBonus)
+    potentialFloor = math.max(30, potentialFloor)
+    local potentialCeil = youthMods.potentialMax
+    potentialCeil = math.min(99, math.max(potentialFloor + 10, potentialCeil))
+    local basePotential = RandomInt(potentialFloor, potentialCeil)
     local potential = math.min(99, basePotential + math.floor(youthDevBonus * 30))
 
-    -- 当前能力（设施加成提升起始能力）
-    local overallCap = math.max(25, math.floor(potential * 0.5))
-    local overallFloor = math.floor(25 * facilityYouthBonus)
-    local overall = RandomInt(overallFloor, overallCap)
+    -- 当前能力：基于潜力线性映射到配置的 OVR 范围
+    -- 高潜力球员起点更高（pot=max → OVR可达overallMax），低潜力球员起点低
+    local overallFloor = youthMods.overallMin
+    local overallCap = math.min(youthMods.overallMax,
+        math.max(overallFloor, math.floor(potential * 0.8)))
+    -- 设施加成：小幅提升下限
+    overallFloor = math.floor(overallFloor * facilityYouthBonus)
+    overallFloor = math.max(20, overallFloor)
+    -- 确保 cap >= floor
+    overallCap = math.max(overallFloor, overallCap)
 
-    -- 生成属性（基于 overall 和位置）
-    local attributes = YouthManager._generateAttributes(position, overall)
+    -- 生成属性并确保实际 overall 不低于下限
+    local attributes, actualOverall
+    local maxAttempts = 5
+    for attempt = 1, maxAttempts do
+        local overall = RandomInt(overallFloor, overallCap)
+        -- 重试时逐步提高输入 overall，增加达标概率
+        if attempt > 1 then
+            overall = math.min(overallCap, overall + (attempt - 1) * 2)
+        end
+        attributes = YouthManager._generateAttributes(position, overall)
+        actualOverall = Player.calculateOverallFromAttrs(position, attributes)
+        if actualOverall >= overallFloor then
+            break
+        end
+    end
+    -- 兜底：如果多次重试仍低于下限，强制 clamp
+    if actualOverall < overallFloor then
+        actualOverall = overallFloor
+    end
 
     -- 先随机国籍，再从对应国籍名字池中取名
     local nationality = YOUTH_NATIONALITIES[RandomInt(1, #YOUTH_NATIONALITIES)]
@@ -492,7 +656,7 @@ function YouthManager._generateYouthPlayer(gameState, youthDevBonus, facilityYou
         birthYear = birthYear,
         position = position,
         potential = potential,
-        overall = overall,
+        overall = actualOverall,
         attributes = attributes,
         age = age,
     }
@@ -597,7 +761,7 @@ function YouthManager.fillAllTeamsYouth(gameState)
                     lastName = candidate.lastName,
                     displayName = candidate.displayName,
                     nationality = candidate.nationality,
-                    birthYear = candidate.birthYear,
+                    birthYear = math.floor(candidate.birthYear),
                     position = candidate.position,
                     attributes = candidate.attributes,
                     potential = candidate.potential,
@@ -664,14 +828,35 @@ function YouthManager.watchAdForUnlock(gameState)
 end
 
 --- 观看广告获得抽取次数（解锁后）
+--- 每次看广告+2次，看满3次后补满至10次
 ---@param gameState table
----@return number newPulls 新增次数
+---@return number newPulls 本次新增次数
 function YouthManager.watchAdForPulls(gameState)
     local state = YouthManager.getLegendGachaState(gameState)
     if not state.unlocked then return 0 end
 
-    state.pulls = state.pulls + LEGEND_PULL_PER_AD
-    return LEGEND_PULL_PER_AD
+    state.pullAdProgress = (state.pullAdProgress or 0) + 1
+    local added = LEGEND_PULL_PER_AD
+    state.pulls = state.pulls + added
+
+    -- 看满3次，补满到10
+    if state.pullAdProgress >= LEGEND_TEN_PULL_ADS then
+        if state.pulls < 10 then
+            added = added + (10 - state.pulls)
+            state.pulls = 10
+        end
+        state.pullAdProgress = 0
+    end
+    return added
+end
+
+--- 获取当前广告进度
+---@param gameState table
+---@return number progress 当前进度 (0~2)
+---@return number total 总需广告数 (3)
+function YouthManager.getPullAdProgress(gameState)
+    local state = YouthManager.getLegendGachaState(gameState)
+    return state.pullAdProgress or 0, LEGEND_TEN_PULL_ADS
 end
 
 --- 是否可以进行十连抽
@@ -692,6 +877,120 @@ function YouthManager.getTenPullAdsRequired()
     return LEGEND_TEN_PULL_ADS
 end
 
+--- 执行单抽：消耗1次抽取机会，在候选池中追加1名球员（可出传奇）
+---@param gameState table
+---@return table|nil candidate 生成的球员，nil表示次数不足
+function YouthManager.doSinglePull(gameState)
+    local state = YouthManager.getLegendGachaState(gameState)
+    if not state.unlocked or state.pulls < 1 then
+        return nil
+    end
+
+    state.pulls = state.pulls - 1
+
+    -- 单抽计数器（每10次单抽等效一次十连的保底进度）
+    state.singlePullCounter = (state.singlePullCounter or 0) + 1
+    if state.singlePullCounter >= 10 then
+        state.singlePullCounter = 0
+        state.pityCounter = state.pityCounter + 1
+    end
+
+    local team = gameState:getPlayerTeam()
+    local youthDevBonus = 0.05
+    if team then
+        local ok, bonus = pcall(StaffManager.getYouthDevBonus, gameState, team.id)
+        if ok and bonus then youthDevBonus = bonus end
+    end
+
+    -- 判断是否出传奇
+    local isLegend = false
+    local isPity = (state.pityCounter >= LEGEND_PITY_COUNT)
+
+    -- 加载传奇池
+    local JsonLoader = require("scripts/data/json_loader")
+    local legendData = JsonLoader.loadFromResource("Data/legends_alltime_top50.json")
+    local allLegends = (legendData and legendData.players) or {}
+
+    state.pulledLegends = state.pulledLegends or {}
+    local pulledSet = {}
+    for _, name in ipairs(state.pulledLegends) do
+        pulledSet[name] = true
+    end
+
+    local legendPool = {}
+    for _, p in ipairs(allLegends) do
+        local key = p.full_name_cn or p.match_name or ""
+        if not pulledSet[key] then
+            table.insert(legendPool, p)
+        end
+    end
+
+    if #legendPool > 0 then
+        if isPity then
+            isLegend = true
+        elseif state.firstTenPull and LEGEND_FIRST_GUARANTEED and state.singlePullCounter == 0 then
+            -- 首次保底：第10次单抽（刚归零时）触发
+            isLegend = true
+        else
+            local rate = LEGEND_BASE_RATE + (state.pityCounter) * LEGEND_RATE_INCREMENT
+            rate = math.min(rate, LEGEND_RATE_CAP)
+            if Random() < rate then
+                isLegend = true
+            end
+        end
+    end
+
+    local candidate
+    if isLegend and #legendPool > 0 then
+        local idx = RandomInt(1, #legendPool)
+        local lData = legendPool[idx]
+
+        local legendKey = lData.full_name_cn or lData.match_name or "传奇"
+        table.insert(state.pulledLegends, legendKey)
+
+        local mappedPos = mapPosition(lData.position)
+        local legendYouthMods = DifficultySettings.getYouthModifiers()
+        local legendAge = RandomInt(legendYouthMods.legendMinAge, legendYouthMods.legendMaxAge)
+        local legendOverall = RandomInt(legendYouthMods.legendOverallMin, legendYouthMods.legendOverallMax)
+        local legendAttrs = YouthManager._generateAttributes(mappedPos, legendOverall)
+        local preCalcOverall = Player.calculateOverallFromAttrs(mappedPos, legendAttrs)
+        candidate = {
+            firstName = lData.full_name_cn or lData.match_name or "传奇",
+            lastName = lData.full_name_cn or lData.match_name or "球星",
+            displayName = lData.full_name_cn or lData.match_name or "传奇球星",
+            nationality = lData.football_nation or lData.nationality or "BRA",
+            birthYear = gameState.date.year - legendAge,
+            position = mappedPos,
+            potential = lData.potential or 95,
+            overall = preCalcOverall,
+            attributes = legendAttrs,
+            age = legendAge,
+            isLegend = true,
+            legendName = lData.full_name_cn or lData.match_name,
+            legendData = lData,
+        }
+
+        -- 出传奇重置保底
+        state.pityCounter = 0
+        state.singlePullCounter = 0
+        if state.firstTenPull then
+            state.firstTenPull = false
+        end
+    else
+        candidate = YouthManager._generateYouthPlayer(gameState, youthDevBonus, 1.0)
+    end
+
+    -- 追加到当前候选池
+    gameState._youthCandidates = gameState._youthCandidates or {}
+    table.insert(gameState._youthCandidates, candidate)
+
+    log:Write(LOG_INFO, string.format(
+        "YouthManager: 单抽完成(%s)，剩余%d次，保底计数%d",
+        isLegend and "传奇" or "普通", state.pulls, state.pityCounter))
+
+    return candidate
+end
+
 --- 执行十连抽：刷新候选池为10名球员，按概率出传奇
 ---@param gameState table
 ---@return table|nil results {candidates=候选列表, legendCount=出传奇数, isFirstTenPull=bool}
@@ -704,6 +1003,8 @@ function YouthManager.doTenPull(gameState)
     state.pulls = state.pulls - 10
     state.tenPullCount = state.tenPullCount + 1
     state.pityCounter = state.pityCounter + 1
+    -- 十连抽重置单抽计数器（十连直接推进保底，不累积零散单抽）
+    state.singlePullCounter = 0
 
     local isFirst = state.firstTenPull
     local isPity = (state.pityCounter >= LEGEND_PITY_COUNT)
@@ -776,17 +1077,24 @@ function YouthManager.doTenPull(gameState)
             table.insert(state.pulledLegends, legendKey)
 
             local mappedPos = mapPosition(lData.position)
+            -- 难度修正：传奇球星年龄和能力受青训质量影响
+            local legendYouthMods = DifficultySettings.getYouthModifiers()
+            local legendAge = RandomInt(legendYouthMods.legendMinAge, legendYouthMods.legendMaxAge)
+            local legendOverall = RandomInt(legendYouthMods.legendOverallMin, legendYouthMods.legendOverallMax)
+            local legendAttrs = YouthManager._generateAttributes(mappedPos, legendOverall)
+            -- 预计算签入后的实际 overall，确保候选列表显示与签入后一致
+            local preCalcOverall = Player.calculateOverallFromAttrs(mappedPos, legendAttrs)
             local candidate = {
                 firstName = lData.full_name_cn or lData.match_name or "传奇",
                 lastName = lData.full_name_cn or lData.match_name or "球星",
                 displayName = lData.full_name_cn or lData.match_name or "传奇球星",
                 nationality = lData.football_nation or lData.nationality or "BRA",
-                birthYear = gameState.date.year - RandomInt(17, 19),  -- 传奇以年轻体呈现
+                birthYear = gameState.date.year - legendAge,  -- 传奇以年轻体呈现
                 position = mappedPos,
                 potential = lData.potential or 95,
-                overall = RandomInt(55, 70),  -- 年轻体初始能力中等偏上
-                attributes = YouthManager._generateAttributes(mappedPos, RandomInt(55, 70)),
-                age = RandomInt(17, 19),
+                overall = preCalcOverall,  -- 预计算后的真实能力值
+                attributes = legendAttrs,
+                age = legendAge,
                 isLegend = true,
                 legendName = lData.full_name_cn or lData.match_name,
                 legendData = lData,  -- 保留原始数据供弹窗使用
@@ -821,6 +1129,113 @@ function YouthManager.doTenPull(gameState)
         isFirstTenPull = isFirst,
         isPity = isPity,
     }
+end
+
+------------------------------------------------------
+-- AI 球队青训每月管理
+------------------------------------------------------
+
+--- AI 球队简化的青训管理：自动补员、提拔、释放
+---@param gameState table
+function YouthManager._processAITeamsMonthly(gameState)
+    local playerTeamId = gameState.playerTeamId
+
+    for teamId, team in pairs(gameState.teams) do
+        if teamId ~= playerTeamId then
+            team._youthPlayerIds = team._youthPlayerIds or {}
+
+            -- 1. 自动提拔：年满 18 岁且 overall >= 55 的球员提拔至一线队
+            local toPromote = {}
+            for i, pid in ipairs(team._youthPlayerIds) do
+                local player = gameState.players[pid]
+                if player then
+                    local age = gameState.date.year - (player.birthYear or 2000)
+                    if age >= 18 and (player.overall or 0) >= 55 then
+                        table.insert(toPromote, i)
+                    end
+                end
+            end
+            -- 从后向前移除避免索引错位
+            for i = #toPromote, 1, -1 do
+                local idx = toPromote[i]
+                local pid = team._youthPlayerIds[idx]
+                local player = gameState.players[pid]
+                table.remove(team._youthPlayerIds, idx)
+                if player then
+                    player.isYouth = false
+                    player.teamId = teamId
+                    player.contractEnd = {year = gameState.date.year + 3, month = 6, day = 30}
+                    player.wage = math.max(YOUTH_WAGE * 2, math.floor((player.overall or 50) * 80))
+                    table.insert(team.playerIds, pid)
+                end
+            end
+
+            -- 2. 自动释放：年满 19 岁仍在青训且 overall < 50 的球员
+            local toRelease = {}
+            for i, pid in ipairs(team._youthPlayerIds) do
+                local player = gameState.players[pid]
+                if player then
+                    local age = gameState.date.year - (player.birthYear or 2000)
+                    if age >= 19 and (player.overall or 0) < 50 then
+                        table.insert(toRelease, i)
+                    end
+                end
+            end
+            for i = #toRelease, 1, -1 do
+                local idx = toRelease[i]
+                local pid = team._youthPlayerIds[idx]
+                local player = gameState.players[pid]
+                table.remove(team._youthPlayerIds, idx)
+                if player then
+                    player.isYouth = false
+                    player.teamId = nil
+                    local rawPotential = player.potential or 0
+                    if rawPotential >= 70 then
+                        player.isFreAgent = true
+                    else
+                        gameState.players[pid] = nil
+                    end
+                end
+            end
+
+            -- 3. 自动补员：每3个月生成新球员补齐至 INITIAL_YOUTH_COUNT
+            team._aiYouthRefresh = (team._aiYouthRefresh or 0) + 1
+            if team._aiYouthRefresh >= YOUTH_REFRESH_INTERVAL then
+                team._aiYouthRefresh = 0
+                local needed = INITIAL_YOUTH_COUNT - #team._youthPlayerIds
+                if needed > 0 then
+                    local youthDevBonus = 0.05
+                    local ok, bonus = pcall(StaffManager.getYouthDevBonus, gameState, teamId)
+                    if ok and bonus then youthDevBonus = bonus end
+
+                    for _ = 1, needed do
+                        local candidate = YouthManager._generateYouthPlayer(gameState, youthDevBonus, 1.0)
+                        local playerData = {
+                            firstName = candidate.firstName,
+                            lastName = candidate.lastName,
+                            displayName = candidate.displayName,
+                            nationality = candidate.nationality,
+                            birthYear = math.floor(candidate.birthYear),
+                            position = candidate.position,
+                            attributes = candidate.attributes,
+                            potential = candidate.potential,
+                            overall = candidate.overall,
+                            wage = YOUTH_WAGE,
+                            isYouth = true,
+                            teamId = teamId,
+                            contractEnd = {year = gameState.date.year + 3, month = 6, day = 30},
+                        }
+                        local player = gameState:addPlayer(playerData)
+                        player.teamId = teamId
+                        player.paRating = PotentialSystem.rawToRating(player.potential)
+                        player.actualPotential = PotentialSystem.generateActualPotential(
+                            player.paRating, (gameState.potentialSeed or 0) + player.id * 7919)
+                        table.insert(team._youthPlayerIds, player.id)
+                    end
+                end
+            end
+        end
+    end
 end
 
 return YouthManager

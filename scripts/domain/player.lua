@@ -79,6 +79,7 @@ function Player.new(data)
     self.teamId = data.teamId or nil
     -- 阵容角色: "key"=绝对主力, "rotation"=轮换球员, "squad"=阵容球员, "youth"=青年球员, "loaned"=租借
     self.squadRole = data.squadRole or "rotation"
+    self.isYouth = data.isYouth or false
 
     -- 职业历史 (每赛季记录)
     self.careerHistory = data.careerHistory or {}
@@ -118,6 +119,49 @@ end
 -- 计算当前年龄
 function Player:getAge(currentYear)
     return currentYear - self.birthYear
+end
+
+--- 获取该球员的单项属性上限
+--- 传奇球员: 23; 巨星(PA>=95): 21; 普通球员: ceil(pot/5), 上限20
+---@return number
+function Player:getAttrCap()
+    -- 传奇球员最高突破到23
+    if self.isLegend then
+        return Constants.LEGEND_ATTR_MAX
+    end
+    local pot = self.actualPotential or self.potential or 60
+    if pot >= Constants.SUPERSTAR_POTENTIAL_THRESHOLD then
+        return Constants.SUPERSTAR_ATTR_MAX
+    end
+    return math.min(Constants.ATTR_MAX, math.ceil(pot / 5))
+end
+
+--- 获取该球员的总评上限
+--- 传奇球员: LEGEND_OVERALL_MAX(103); 巨星(PA>=95): SUPERSTAR_OVERALL_MAX(101); 普通: 99
+---@return number
+function Player:getOverallCap()
+    if self.isLegend then
+        return Constants.LEGEND_OVERALL_MAX
+    end
+    local pot = self.actualPotential or self.potential or 60
+    if pot >= Constants.SUPERSTAR_POTENTIAL_THRESHOLD then
+        return Constants.SUPERSTAR_OVERALL_MAX
+    end
+    return Constants.ABILITY_MAX
+end
+
+--- 获取 UI 显示用的总评（上限99，后台可能存到101）
+---@return number
+function Player:displayOverall()
+    return math.min(Constants.ABILITY_MAX, self.overall or 0)
+end
+
+--- 获取 UI 显示用的单项属性值（上限20，后台可能存到21）
+---@param key string 属性键名
+---@return number
+function Player:displayAttr(key)
+    local val = self.attributes[key] or 0
+    return math.min(Constants.ATTR_MAX, val)
 end
 
 -- 计算综合能力（全属性基础 + 位置核心属性加成）
@@ -239,55 +283,156 @@ function Player:calculateOverall()
     end
 
     local overall = math.floor(ovrRaw)
-    overall = math.max(Constants.ABILITY_MIN, math.min(Constants.ABILITY_MAX, overall))
+    local overallCap = self:getOverallCap()
+    overall = math.max(Constants.ABILITY_MIN, math.min(overallCap, overall))
     self.overall = overall
     return overall
 end
 
--- 计算市场价值（平缓指数模型 + 名气修正）
+--- 静态方法：根据位置和属性表预计算 overall（不需要 Player 实例）
+--- 用于候选球员生成时确保 UI 显示值与签入后一致
+---@param pos string
+---@param a table
+---@return number
+function Player.calculateOverallFromAttrs(pos, a)
+    local allAttrs
+    if pos == "GK" then
+        allAttrs = {
+            "handling", "reflexes", "positioning", "aerial",
+            "composure", "decisions", "agility", "strength", "speed",
+        }
+    else
+        allAttrs = {
+            "speed", "stamina", "strength", "agility",
+            "passing", "shooting", "tackling", "dribbling", "defending",
+            "positioning", "vision", "decisions", "composure",
+            "aggression", "teamwork", "leadership", "aerial",
+        }
+    end
+
+    local baseSum = 0
+    local baseCount = 0
+    for _, attr in ipairs(allAttrs) do
+        baseSum = baseSum + (a[attr] or 10)
+        baseCount = baseCount + 1
+    end
+    local baseScore = baseSum / baseCount
+
+    local posWeights
+    if pos == "GK" then
+        posWeights = { handling = 3.0, reflexes = 3.0, positioning = 2.0, aerial = 1.5, composure = 1.0, decisions = 0.5 }
+    elseif pos == "CB" then
+        posWeights = { defending = 2.5, tackling = 2.0, aerial = 2.0, strength = 1.5, composure = 1.5, leadership = 1.5, decisions = 1.0 }
+    elseif pos == "LB" or pos == "RB" then
+        posWeights = { speed = 2.0, passing = 2.0, defending = 1.5, tackling = 1.5, stamina = 1.5, dribbling = 1.0, vision = 1.0, positioning = 0.5 }
+    elseif pos == "CDM" then
+        posWeights = { tackling = 2.5, defending = 2.0, passing = 2.0, positioning = 1.5, stamina = 1.5, strength = 1.0, decisions = 0.5 }
+    elseif pos == "CM" then
+        posWeights = { passing = 2.5, vision = 2.0, dribbling = 2.0, stamina = 2.0, shooting = 1.5, decisions = 1.5, composure = 1.0 }
+    elseif pos == "CAM" then
+        posWeights = { vision = 2.5, dribbling = 2.5, passing = 2.0, shooting = 2.0, composure = 1.5, decisions = 1.0, agility = 0.5 }
+    elseif pos == "LM" or pos == "RM" then
+        posWeights = { speed = 2.0, dribbling = 2.0, passing = 2.0, stamina = 2.0, agility = 1.5, shooting = 1.0, vision = 1.0 }
+    elseif pos == "LW" or pos == "RW" then
+        posWeights = { dribbling = 3.0, agility = 2.0, shooting = 2.0, speed = 1.5, passing = 1.5, composure = 1.0, vision = 1.0 }
+    elseif pos == "ST" then
+        posWeights = { shooting = 3.0, composure = 2.5, speed = 2.0, positioning = 1.5, dribbling = 1.0, strength = 1.0, aerial = 0.5 }
+    elseif pos == "CF" then
+        posWeights = { shooting = 2.5, composure = 2.0, dribbling = 2.0, vision = 1.5, passing = 1.5, speed = 1.0, positioning = 1.0 }
+    else
+        posWeights = { passing = 1.5, shooting = 1.5, dribbling = 1.5, defending = 1.0, speed = 1.0, stamina = 1.0, decisions = 1.0 }
+    end
+
+    local posSum = 0
+    local posTotalW = 0
+    for attr, w in pairs(posWeights) do
+        posSum = posSum + (a[attr] or 10) * w
+        posTotalW = posTotalW + w
+    end
+    local posScore = posSum / posTotalW
+
+    local finalScore = baseScore * 0.40 + posScore * 0.60
+
+    local ovrRaw
+    if finalScore <= 13 then
+        ovrRaw = finalScore * 5.0 + 8
+    elseif finalScore <= 15.5 then
+        ovrRaw = 73 + (finalScore - 13) * 6.5
+    else
+        ovrRaw = 89.25 + (finalScore - 15.5) * 4.5
+    end
+
+    local overall = math.floor(ovrRaw)
+    return math.max(Constants.ABILITY_MIN, math.min(Constants.ABILITY_MAX, overall))
+end
+
+-- 计算市场价值（指数模型 + 年龄曲线 + 潜力溢价/折旧 + 合同年限折价 + 名气修正）
 -- 校准: OVR70≈6M, OVR75≈12M, OVR80≈24M, OVR85≈49M, OVR90≈98M（黄金年龄基础值）
 function Player:calculateValue(currentYear)
     local age = self:getAge(currentYear)
     local ovr = self.overall
 
-    -- 平缓指数公式: value = C * D^ovr
+    -- 1. 基础值：平缓指数 value = C * D^ovr
     -- D = 1.15 → 每5点OVR翻一倍（1.15^5≈2.01）
-    -- 校准: OVR70 = 6M → C = 6M / 1.15^70
     local D = 1.15
     local C = 336.7  -- 6,000,000 / 1.15^70
     local base = C * (D ^ ovr)
 
-    -- 年龄修正（黄金期23-27加成，老将贬值但幅度温和）
+    -- 2. 年龄修正（纯能力维度：黄金期23-27加成，老将贬值）
     local ageMult
-    if age <= 20 then
-        ageMult = 0.55
-    elseif age <= 22 then
-        ageMult = 0.7 + (age - 20) * 0.15  -- 20→0.7, 22→1.0
-    elseif age <= 25 then
-        ageMult = 1.0 + (age - 22) * 0.05  -- 22→1.0, 25→1.15
+    if age <= 19 then
+        ageMult = 0.65
+    elseif age <= 21 then
+        ageMult = 0.65 + (age - 19) * 0.15   -- 19→0.65, 21→0.95
+    elseif age <= 23 then
+        ageMult = 0.95 + (age - 21) * 0.075  -- 21→0.95, 23→1.10
     elseif age <= 27 then
-        ageMult = 1.15 - (age - 25) * 0.075 -- 25→1.15, 27→1.0
+        ageMult = 1.10 + (age - 23) * 0.025  -- 23→1.10, 27→1.20
     elseif age <= 29 then
-        ageMult = 1.0 - (age - 27) * 0.1   -- 27→1.0, 29→0.8
+        ageMult = 1.20 - (age - 27) * 0.10   -- 27→1.20, 29→1.00
     elseif age <= 31 then
-        ageMult = 0.8 - (age - 29) * 0.1   -- 29→0.8, 31→0.6
+        ageMult = 1.00 - (age - 29) * 0.12   -- 29→1.00, 31→0.76
     elseif age <= 33 then
-        ageMult = 0.6 - (age - 31) * 0.1   -- 31→0.6, 33→0.4
+        ageMult = 0.76 - (age - 31) * 0.13   -- 31→0.76, 33→0.50
+    elseif age <= 35 then
+        ageMult = 0.50 - (age - 33) * 0.12   -- 33→0.50, 35→0.26
     else
-        ageMult = math.max(0.15, 0.4 - (age - 33) * 0.1) -- 33→0.4, 35+→0.2
+        ageMult = math.max(0.10, 0.26 - (age - 35) * 0.08)
     end
     base = base * ageMult
 
-    -- 潜力修正（年轻高潜力球员溢价，使用局内实际潜力）
+    -- 3. 潜力修正（核心改动：年轻高潜大幅溢价，年长未兑现逐步折旧）
     local effectivePotential = self.actualPotential or self.potential
-    if effectivePotential > ovr then
-        local potGap = effectivePotential - ovr
-        local potMult = 1.0 + potGap * 0.03  -- 每1点潜力差+3%
+    if effectivePotential and effectivePotential > ovr then
+        local potGap = effectivePotential - ovr  -- 潜差
+
+        -- 潜力可信度权重：年轻时潜力最值钱，随年龄递减
+        -- 18岁=100%权重，25岁=40%权重，28岁=10%权重，30+=0%
+        local potWeight
+        if age <= 18 then
+            potWeight = 1.0
+        elseif age <= 22 then
+            potWeight = 1.0 - (age - 18) * 0.10   -- 18→1.0, 22→0.6
+        elseif age <= 25 then
+            potWeight = 0.6 - (age - 22) * 0.13   -- 22→0.6, 25→0.21
+        elseif age <= 28 then
+            potWeight = 0.21 - (age - 25) * 0.06  -- 25→0.21, 28→0.03
+        else
+            potWeight = 0  -- 29+岁：潜力不再影响身价
+        end
+
+        -- 潜力溢价系数（非线性：潜差越大溢价越猛）
+        -- potGap=10 → +50%~100%, potGap=20 → +150%~300%, potGap=30 → +300%~600%
+        local potMult = 1.0
+        if potWeight > 0 then
+            -- 指数曲线：小潜差温和，大潜差爆炸
+            local rawBonus = (1.04 ^ potGap) - 1  -- potGap=10→0.48, 20→1.19, 30→2.24
+            potMult = 1.0 + rawBonus * potWeight * 2.0
+        end
         base = base * potMult
     end
 
-    -- 名气修正（reputation 1-100 → 乘数 0.75~1.4）
-    -- 高名气球员（知名球星）身价溢价，低名气球员（无名小卒）折价
+    -- 4. 名气修正（reputation 1-100 → 乘数 0.75~1.4）
     local rep = self.reputation or 30
     local repMult
     if rep >= 80 then
@@ -300,6 +445,27 @@ function Player:calculateValue(currentYear)
         repMult = 0.75 + rep * 0.00375         -- 0→0.75, 40→0.9
     end
     base = base * repMult
+
+    -- 5. 合同剩余年限折价（最后1年打6折，2年打8折）
+    if self.contractEnd then
+        local contractMonths = (self.contractEnd.year - currentYear) * 12
+            + (self.contractEnd.month or 6) - 6  -- 粗算到赛季中期
+        contractMonths = math.max(0, contractMonths)
+
+        local contractMult
+        if contractMonths <= 6 then
+            contractMult = 0.50   -- 半年内到期：半价（快可以免签了）
+        elseif contractMonths <= 12 then
+            contractMult = 0.65   -- 1年内
+        elseif contractMonths <= 24 then
+            contractMult = 0.80   -- 2年内
+        elseif contractMonths <= 36 then
+            contractMult = 0.92   -- 3年内
+        else
+            contractMult = 1.0    -- 3年+：无折扣
+        end
+        base = base * contractMult
+    end
 
     -- 取整到十万级（100000）
     self.value = math.floor(base / 100000) * 100000
@@ -481,6 +647,10 @@ function Player:serialize()
         traits = self.traits,
         reputation = self.reputation,
         morale_core = self.morale_core,
+        isYouth = self.isYouth or false,
+        isLegend = self.isLegend or false,
+        legendName = self.legendName,
+        legendData = self.legendData,
     }
 end
 

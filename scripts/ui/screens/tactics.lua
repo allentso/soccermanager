@@ -169,6 +169,25 @@ local SET_PIECE_ROLES = {
     { key = "throwInTaker",  label = "界外球手", icon = "🤾" },
 }
 
+--- 体力条组件（共用）
+local function _fitnessBar(fitness)
+    local fc = {80, 200, 120, 255}
+    if fitness < 70 then fc = {255, 180, 50, 255} end
+    if fitness < 50 then fc = {220, 60, 60, 255} end
+    return UI.Panel {
+        width = 44, height = 12, borderRadius = 6,
+        backgroundColor = {40, 40, 50, 255},
+        marginRight = 6, overflow = "hidden",
+        children = {
+            UI.Panel {
+                width = tostring(math.max(5, fitness)) .. "%", height = "100%",
+                backgroundColor = fc,
+                borderRadius = 6,
+            },
+        },
+    }
+end
+
 function Tactics.create(params)
     local gameState = _G.gameState
     if not gameState then
@@ -208,6 +227,8 @@ function Tactics.create(params)
     local content
     if _activeTab == "setpiece" then
         content = Tactics._buildSetPieceContent(gameState, team)
+    elseif _activeTab == "bench" then
+        content = Tactics._buildBenchContent(gameState, team)
     else
         content = Tactics._buildFormationContent(gameState, team, isNTMode)
     end
@@ -271,6 +292,7 @@ end
 function Tactics._buildTabBar()
     local tabs = {
         { key = "formation", label = "阵型与球场" },
+        { key = "bench",     label = "替补席" },
         { key = "setpiece",  label = "定位球人选" },
     }
     local children = {}
@@ -556,7 +578,31 @@ function Tactics._buildPitchView(gameState, team, formation)
         local top = math.floor((100 - py) / 100 * pitchH) - 16 - 12 -- 翻转y，顶部=进攻端；-12补偿内嵌箭头高度
 
         local player = startingXI[i] and gameState.players[startingXI[i]]
-        local label = player and (string.sub(player.displayName, 1, 6)) or tostring(i)
+        local label
+        if player then
+            local displayLabel = player.shortName or player.lastName or ""
+            if displayLabel == "" or displayLabel == player.displayName then
+                local dn = player.displayName or ""
+                displayLabel = dn:match("·(.+)$") or dn
+                if displayLabel == dn and player.match_name and player.match_name ~= "" then
+                    displayLabel = player.match_name:match("%s(.+)$") or player.match_name
+                end
+            end
+            -- UTF-8 safe truncation: max 5 characters
+            local chars = 0
+            local byteIdx = 1
+            while byteIdx <= #displayLabel and chars < 5 do
+                local b = displayLabel:byte(byteIdx)
+                if b < 128 then byteIdx = byteIdx + 1
+                elseif b < 224 then byteIdx = byteIdx + 2
+                elseif b < 240 then byteIdx = byteIdx + 3
+                else byteIdx = byteIdx + 4 end
+                chars = chars + 1
+            end
+            label = displayLabel:sub(1, byteIdx - 1)
+        else
+            label = tostring(i)
+        end
         local slotPos = slots[i] or "CM"
         local dotColor = Theme.posColor(slotPos)
         local slotIdx = i
@@ -776,8 +822,8 @@ function Tactics._buildStartingXICard(gameState, team)
                     UI.Panel {
                         backgroundColor = {posColor[1], posColor[2], posColor[3], 50},
                         borderRadius = 3,
-                        paddingLeft = 5, paddingRight = 5, paddingTop = 1, paddingBottom = 1,
-                        marginRight = 6,
+                        paddingLeft = 4, paddingRight = 4, paddingTop = 1, paddingBottom = 1,
+                        marginRight = 6, minWidth = 42,
                         children = {
                             UI.Label { text = posFullName, fontSize = 10, color = posColor, fontWeight = "bold" },
                         },
@@ -803,6 +849,8 @@ function Tactics._buildStartingXICard(gameState, team)
                         flexGrow = 1,
                         flexShrink = 1,
                     },
+                    -- 体力条
+                    _fitnessBar(p.fitness or 100),
                     -- 能力值
                     UI.Label {
                         text = tostring(p.overall),
@@ -1048,6 +1096,463 @@ function Tactics._showSlotSwapSheet(gameState, team, slotIdx, slots)
         showCancel = true,
         children = children,
     })
+end
+
+---------------------------------------------------------------------------
+-- 替补席选择
+---------------------------------------------------------------------------
+
+--- 获取球员所属位置组 (GK/DEF/MID/FWD)
+local function _positionGroup(pos)
+    for group, positions in pairs(Constants.POSITION_GROUPS) do
+        for _, p in ipairs(positions) do
+            if p == pos then return group end
+        end
+    end
+    return "MID" -- 默认归为中场
+end
+
+--- 计算替补席综合评分（考虑能力值和体力）
+--- 体力低于60的球员大幅降权，低于50的几乎不选
+local function _benchScore(player)
+    local fitness = player.fitness or 80
+    local overall = player.overall or 50
+    local fitnessFactor
+    if fitness >= 80 then
+        fitnessFactor = 1.0
+    elseif fitness >= 70 then
+        fitnessFactor = 0.85 + (fitness - 70) * 0.015  -- 0.85~1.0
+    elseif fitness >= 60 then
+        fitnessFactor = 0.65 + (fitness - 60) * 0.02   -- 0.65~0.85
+    elseif fitness >= 50 then
+        fitnessFactor = 0.4 + (fitness - 50) * 0.025   -- 0.4~0.65
+    else
+        fitnessFactor = 0.2 + (fitness / 50) * 0.2     -- 0.2~0.4
+    end
+    return overall * fitnessFactor
+end
+
+--- 自动选择最佳7名替补（综合能力值+体力，确保位置覆盖）
+local function _autoBench(gameState, team)
+    local startingSet = {}
+    for _, pid in ipairs(team.startingXI or {}) do
+        startingSet[pid] = true
+    end
+
+    local available = {}
+    for _, pid in ipairs(team.playerIds or {}) do
+        local p = gameState.players[pid]
+        if p and not p.injured and not startingSet[p.id] then
+            table.insert(available, p)
+        end
+    end
+
+    -- 按综合评分排序
+    table.sort(available, function(a, b) return _benchScore(a) > _benchScore(b) end)
+
+    -- 第一步：确保关键位置覆盖（至少1门将替补、1后卫、1中场/前锋）
+    local selected = {}
+    local selectedSet = {}
+
+    local needGK = true
+    local needDEF = true
+    local needATK = true -- 中场或前锋
+
+    for _, p in ipairs(available) do
+        if #selected >= 7 then break end
+        local g = _positionGroup(p.position)
+        local picked = false
+
+        if needGK and g == "GK" and (p.fitness or 80) >= 50 then
+            needGK = false
+            picked = true
+        elseif needDEF and g == "DEF" and (p.fitness or 80) >= 50 then
+            needDEF = false
+            picked = true
+        elseif needATK and (g == "FWD" or g == "MID") and (p.fitness or 80) >= 50 then
+            needATK = false
+            picked = true
+        end
+
+        if picked then
+            table.insert(selected, p)
+            selectedSet[p.id] = true
+        end
+    end
+
+    -- 第二步：用综合评分填满剩余名额
+    for _, p in ipairs(available) do
+        if #selected >= 7 then break end
+        if not selectedSet[p.id] then
+            table.insert(selected, p)
+            selectedSet[p.id] = true
+        end
+    end
+
+    -- 最终按综合评分排序输出
+    table.sort(selected, function(a, b) return _benchScore(a) > _benchScore(b) end)
+
+    local ids = {}
+    for _, p in ipairs(selected) do
+        table.insert(ids, p.id)
+    end
+    return ids
+end
+
+--- 一键配置全队（首发11人 + 替补7人），综合考虑位置适配和体力
+local function _autoFullSquad(gameState, team)
+    local formation = team.formation or "4-4-2"
+    local slots = AIManager._getFormationSlots(formation, team.formationVariant)
+
+    -- 收集全队可用球员（非伤病）
+    local allAvailable = {}
+    for _, pid in ipairs(team.playerIds or {}) do
+        local p = gameState.players[pid]
+        if p and not p.injured then
+            table.insert(allAvailable, p)
+        end
+    end
+
+    -- 贪心分配首发：对每个槽位找最佳匹配（位置适配 × 体力权重）
+    local newXI = {}
+    local usedIds = {}
+
+    for _, slot in ipairs(slots) do
+        local bestPlayer = nil
+        local bestScore = -1
+
+        for _, p in ipairs(allAvailable) do
+            if not usedIds[p.id] then
+                local posScore = AIManager._playerPositionScore(p, slot)
+                -- 体力权重（与 _benchScore 类似的曲线）
+                local fitness = p.fitness or 80
+                local fitnessFactor
+                if fitness >= 80 then
+                    fitnessFactor = 1.0
+                elseif fitness >= 70 then
+                    fitnessFactor = 0.85 + (fitness - 70) * 0.015
+                elseif fitness >= 60 then
+                    fitnessFactor = 0.65 + (fitness - 60) * 0.02
+                elseif fitness >= 50 then
+                    fitnessFactor = 0.4 + (fitness - 50) * 0.025
+                else
+                    fitnessFactor = 0.2 + (fitness / 50) * 0.2
+                end
+                local score = posScore * fitnessFactor
+                if score > bestScore then
+                    bestScore = score
+                    bestPlayer = p
+                end
+            end
+        end
+
+        if bestPlayer then
+            table.insert(newXI, bestPlayer.id)
+            usedIds[bestPlayer.id] = true
+        end
+    end
+
+    -- 更新首发
+    team.startingXI = newXI
+
+    -- 从剩余球员中选替补（复用 _autoBench 逻辑，它会排除首发）
+    team.benchIds = _autoBench(gameState, team)
+end
+
+--- 获取当前替补席球员列表（手动 or 自动）
+local function _getEffectiveBench(gameState, team)
+    local startingSet = {}
+    for _, pid in ipairs(team.startingXI or {}) do
+        startingSet[pid] = true
+    end
+
+    if team.benchIds and #team.benchIds > 0 then
+        local result = {}
+        for _, pid in ipairs(team.benchIds) do
+            local p = gameState.players[pid]
+            if p and not p.injured and not startingSet[p.id] then
+                table.insert(result, p)
+            end
+        end
+        return result, true -- true = 手动模式
+    end
+
+    -- 自动模式：复用 _autoBench 的逻辑（体力+位置覆盖）
+    local autoIds = _autoBench(gameState, team)
+    local result = {}
+    for _, pid in ipairs(autoIds) do
+        local p = gameState.players[pid]
+        if p then table.insert(result, p) end
+    end
+    return result, false -- false = 自动模式
+end
+
+function Tactics._buildBenchContent(gameState, team)
+    local benchPlayers, isManual = _getEffectiveBench(gameState, team)
+    local benchIdSet = {}
+    for _, p in ipairs(benchPlayers) do benchIdSet[p.id] = true end
+
+    -- 候选球员：非首发、非替补的健康球员
+    local startingSet = {}
+    for _, pid in ipairs(team.startingXI or {}) do startingSet[pid] = true end
+
+    local candidates = {}
+    for _, pid in ipairs(team.playerIds or {}) do
+        local p = gameState.players[pid]
+        if p and not p.injured and not startingSet[p.id] and not benchIdSet[p.id] then
+            table.insert(candidates, p)
+        end
+    end
+    table.sort(candidates, function(a, b) return _benchScore(a) > _benchScore(b) end)
+
+    -- 构建替补席行
+    local benchRows = {}
+    for idx, p in ipairs(benchPlayers) do
+        local posColor = Theme.posColor(p.position)
+        local posName = Constants.POSITION_NAMES[p.position] or p.position
+        local fitness = p.fitness or 100
+        table.insert(benchRows, UI.Panel {
+            width = "100%",
+            height = 42,
+            flexDirection = "row",
+            alignItems = "center",
+            paddingLeft = 10, paddingRight = 10,
+            backgroundColor = (idx % 2 == 0) and {255, 255, 255, 5} or Theme.COLORS.TRANSPARENT,
+            children = {
+                -- 序号
+                UI.Label { text = tostring(idx), fontSize = 11, color = Theme.COLORS.TEXT_MUTED, width = 20 },
+                -- 位置铭牌
+                UI.Panel {
+                    backgroundColor = {posColor[1], posColor[2], posColor[3], 50},
+                    borderRadius = 3,
+                    paddingLeft = 4, paddingRight = 4, paddingTop = 1, paddingBottom = 1,
+                    marginRight = 6, minWidth = 42,
+                    children = {
+                        UI.Label { text = posName, fontSize = 10, color = posColor, fontWeight = "bold" },
+                    },
+                },
+                -- 名字
+                UI.Label { text = p.displayName or p.name, fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY, flexGrow = 1, flexShrink = 1 },
+                -- 体力条
+                _fitnessBar(fitness),
+                -- overall
+                UI.Label { text = tostring(p.overall), fontSize = 12, color = Theme.COLORS.ACCENT, fontWeight = "bold", width = 26, textAlign = "right" },
+                -- 移除按钮
+                UI.Button {
+                    text = "✕",
+                    width = 28, height = 28,
+                    borderRadius = 14,
+                    backgroundColor = {255, 80, 80, 30},
+                    fontSize = 12,
+                    color = {255, 100, 100, 255},
+                    marginLeft = 8,
+                    onClick = function()
+                        -- 自动模式下先初始化 benchIds
+                        if not team.benchIds or #team.benchIds == 0 then
+                            team.benchIds = {}
+                            for _, bp in ipairs(benchPlayers) do
+                                table.insert(team.benchIds, bp.id)
+                            end
+                        end
+                        -- 移除该球员
+                        local newIds = {}
+                        for _, bid in ipairs(team.benchIds) do
+                            if bid ~= p.id then table.insert(newIds, bid) end
+                        end
+                        team.benchIds = newIds
+                        Router.replaceWith("tactics", { tab = "bench" })
+                    end,
+                },
+            },
+        })
+    end
+
+    -- 构建候选人行
+    local candidateRows = {}
+    for idx, p in ipairs(candidates) do
+        local posColor = Theme.posColor(p.position)
+        local posName = Constants.POSITION_NAMES[p.position] or p.position
+        local fitness = p.fitness or 100
+        table.insert(candidateRows, UI.Panel {
+            width = "100%",
+            height = 42,
+            flexDirection = "row",
+            alignItems = "center",
+            paddingLeft = 10, paddingRight = 10,
+            backgroundColor = (idx % 2 == 0) and {255, 255, 255, 5} or Theme.COLORS.TRANSPARENT,
+            children = {
+                -- 位置铭牌
+                UI.Panel {
+                    backgroundColor = {posColor[1], posColor[2], posColor[3], 50},
+                    borderRadius = 3,
+                    paddingLeft = 4, paddingRight = 4, paddingTop = 1, paddingBottom = 1,
+                    marginRight = 6, minWidth = 42,
+                    children = {
+                        UI.Label { text = posName, fontSize = 10, color = posColor, fontWeight = "bold" },
+                    },
+                },
+                -- 名字
+                UI.Label { text = p.displayName or p.name, fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY, flexGrow = 1, flexShrink = 1 },
+                -- 体力条
+                _fitnessBar(fitness),
+                -- overall
+                UI.Label { text = tostring(p.overall), fontSize = 12, color = Theme.COLORS.ACCENT, fontWeight = "bold", width = 26, textAlign = "right" },
+                -- 添加按钮（名额已满则禁用）
+                UI.Button {
+                    text = "+",
+                    width = 28, height = 28,
+                    borderRadius = 14,
+                    backgroundColor = (#benchPlayers < 7) and {80, 200, 120, 40} or {128, 128, 128, 20},
+                    fontSize = 14,
+                    color = (#benchPlayers < 7) and {80, 220, 120, 255} or Theme.COLORS.TEXT_MUTED,
+                    disabled = #benchPlayers >= 7,
+                    marginLeft = 8,
+                    onClick = function()
+                        if #(team.benchIds or {}) >= 7 then return end
+                        -- 如果 benchIds 为空，先初始化已有的
+                        if not team.benchIds or #team.benchIds == 0 then
+                            team.benchIds = {}
+                            for _, bp in ipairs(benchPlayers) do
+                                table.insert(team.benchIds, bp.id)
+                            end
+                        end
+                        table.insert(team.benchIds, p.id)
+                        Router.replaceWith("tactics", { tab = "bench" })
+                    end,
+                },
+            },
+        })
+    end
+
+    local modeLabel = isManual and "手动选择" or "自动（按能力值）"
+    local modeColor = isManual and Theme.COLORS.ACCENT or Theme.COLORS.TEXT_SECONDARY
+
+    local items = {
+        -- 自动模式提示
+        (not isManual) and UI.Panel {
+            width = "100%",
+            backgroundColor = {100, 180, 255, 15},
+            borderRadius = 6,
+            paddingLeft = 10, paddingRight = 10, paddingTop = 6, paddingBottom = 6,
+            marginBottom = 10,
+            flexDirection = "row", alignItems = "center",
+            children = {
+                UI.Label { text = "💡", fontSize = 12, marginRight = 6 },
+                UI.Label { text = "点击 ✕ 或 + 将切换为手动模式", fontSize = 11, color = {150, 200, 255, 220} },
+            },
+        } or UI.Panel { width = 0, height = 0 },
+        -- 模式提示 + 操作按钮
+        UI.Panel {
+            width = "100%",
+            flexDirection = "row",
+            alignItems = "center",
+            justifyContent = "space-between",
+            marginBottom = 12,
+            children = {
+                UI.Panel {
+                    flexDirection = "row", alignItems = "center",
+                    children = {
+                        UI.Label { text = "当前模式: ", fontSize = 12, color = Theme.COLORS.TEXT_SECONDARY },
+                        UI.Label { text = modeLabel, fontSize = 12, color = modeColor, fontWeight = "bold" },
+                    },
+                },
+                UI.Panel {
+                    flexDirection = "row", alignItems = "center",
+                    children = {
+                        -- 一键配置按钮（首发+替补全部自动配置）
+                        UI.Button {
+                            text = "一键配置",
+                            height = 30,
+                            paddingLeft = 12, paddingRight = 12,
+                            backgroundColor = {Theme.COLORS.ACCENT[1], Theme.COLORS.ACCENT[2], Theme.COLORS.ACCENT[3], 40},
+                            borderRadius = 15,
+                            fontSize = 12,
+                            color = Theme.COLORS.ACCENT,
+                            marginRight = 8,
+                            onClick = function()
+                                _autoFullSquad(gameState, team)
+                                Router.replaceWith("tactics", { tab = "bench" })
+                            end,
+                        },
+                        -- 清空（恢复自动）
+                        isManual and UI.Button {
+                            text = "恢复自动",
+                            height = 30,
+                            paddingLeft = 12, paddingRight = 12,
+                            backgroundColor = {255, 255, 255, 10},
+                            borderRadius = 15,
+                            fontSize = 12,
+                            color = Theme.COLORS.TEXT_SECONDARY,
+                            onClick = function()
+                                team.benchIds = {}
+                                Router.replaceWith("tactics", { tab = "bench" })
+                            end,
+                        } or UI.Panel { width = 0 },
+                    },
+                },
+            },
+        },
+
+        -- 替补席列表标题
+        UI.Panel {
+            width = "100%",
+            flexDirection = "row",
+            alignItems = "center",
+            justifyContent = "space-between",
+            marginBottom = 6,
+            children = {
+                Theme.Subtitle { text = string.format("替补席 (%d/7)", #benchPlayers) },
+            },
+        },
+
+        -- 替补席球员列表
+        UI.Panel {
+            width = "100%",
+            backgroundColor = Theme.COLORS.BG_CARD,
+            borderRadius = 8,
+            overflow = "hidden",
+            marginBottom = 16,
+            children = #benchRows > 0 and benchRows or {
+                UI.Panel {
+                    width = "100%", height = 60,
+                    justifyContent = "center", alignItems = "center",
+                    children = {
+                        UI.Label { text = "暂无替补球员", fontSize = 13, color = Theme.COLORS.TEXT_MUTED },
+                    },
+                },
+            },
+        },
+
+        -- 候选人标题
+        UI.Panel {
+            width = "100%",
+            flexDirection = "row",
+            alignItems = "center",
+            marginBottom = 6,
+            children = {
+                Theme.Subtitle { text = string.format("可选球员 (%d)", #candidates) },
+            },
+        },
+
+        -- 候选人列表
+        UI.Panel {
+            width = "100%",
+            backgroundColor = Theme.COLORS.BG_CARD,
+            borderRadius = 8,
+            overflow = "hidden",
+            children = #candidateRows > 0 and candidateRows or {
+                UI.Panel {
+                    width = "100%", height = 60,
+                    justifyContent = "center", alignItems = "center",
+                    children = {
+                        UI.Label { text = "无可用球员", fontSize = 13, color = Theme.COLORS.TEXT_MUTED },
+                    },
+                },
+            },
+        },
+    }
+
+    return { UI.Panel { width = "100%", children = items } }
 end
 
 ---------------------------------------------------------------------------

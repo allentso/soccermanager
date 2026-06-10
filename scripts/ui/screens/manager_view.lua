@@ -1,8 +1,9 @@
---- 经理页 - 资料/履历/声望/求职
+--- 经理页 - 资料/履历/声望/求职/合同
 local UI = require("urhox-libs/UI")
 local Router = require("scripts/app/router")
 local Theme = require("scripts/ui/theme")
 local JobManager = require("scripts/systems/job_manager")
+local ConfirmDialog = require("scripts/ui/components/confirm_dialog")
 
 local COLORS = Theme.COLORS
 
@@ -172,7 +173,12 @@ function ManagerView.create(params)
         }})
     end
 
-    -- 5. 求职中心（仅玩家自己的资料页显示）
+    -- 5. 合同信息卡（仅玩家自己在职时显示）
+    if managerId == gameState.playerManagerId and manager.teamId then
+        table.insert(content, ManagerView._buildContractCard(gameState, manager))
+    end
+
+    -- 6. 求职中心（仅玩家自己的资料页显示）
     if managerId == gameState.playerManagerId then
         table.insert(content, ManagerView._buildJobCenter(gameState, manager))
     end
@@ -208,6 +214,115 @@ function ManagerView._repLevel(rep)
     elseif rep >= 40 then return "国内级"
     elseif rep >= 25 then return "地区级"
     else return "新人" end
+end
+
+------------------------------------------------------------
+-- 合同信息卡
+------------------------------------------------------------
+
+function ManagerView._buildContractCard(gameState, manager)
+    local children = {}
+    table.insert(children, Theme.Subtitle { text = "我的合同" })
+
+    local team = gameState.teams[manager.teamId]
+    local teamName = team and team.name or "未知"
+
+    -- 合同状态
+    local monthsLeft = JobManager.getManagerContractMonths(gameState, manager)
+    local contractStatus
+    local statusColor
+    if not manager.contractEnd then
+        contractStatus = "无固定期限"
+        statusColor = COLORS.TEXT_MUTED
+    elseif monthsLeft <= 6 then
+        contractStatus = string.format("剩余 %d 个月（即将到期）", monthsLeft)
+        statusColor = COLORS.DANGER
+    elseif monthsLeft <= 12 then
+        contractStatus = string.format("剩余 %d 个月", monthsLeft)
+        statusColor = COLORS.WARNING
+    else
+        contractStatus = string.format("剩余 %d 个月", monthsLeft)
+        statusColor = COLORS.SECONDARY
+    end
+
+    table.insert(children, statRow("执教球队", teamName))
+    table.insert(children, statRow("周薪", JobManager._formatMoney(manager.wage or 0)))
+    if manager.contractEnd then
+        table.insert(children, statRow("合同到期",
+            string.format("%d年%d月", manager.contractEnd.year, manager.contractEnd.month)))
+    end
+    table.insert(children, UI.Panel {
+        width = "100%", flexDirection = "row", justifyContent = "space-between",
+        paddingVertical = 5,
+        children = {
+            UI.Label { text = "合同状态", fontSize = 12, color = COLORS.TEXT_SECONDARY },
+            UI.Label { text = contractStatus, fontSize = 12, fontWeight = "bold", color = statusColor },
+        }
+    })
+
+    -- 续约提议处理
+    local offer = gameState._managerRenewalOffer
+    if offer then
+        table.insert(children, Theme.Divider())
+        table.insert(children, UI.Panel {
+            width = "100%", padding = 10, borderRadius = 8,
+            backgroundColor = {60, 120, 180, 30}, marginTop = 8,
+            children = {
+                UI.Label { text = "俱乐部续约提议", fontSize = 13, fontWeight = "bold", color = COLORS.PRIMARY, marginBottom = 6 },
+                UI.Label {
+                    text = string.format("新周薪: %s  |  年限: %d年", JobManager._formatMoney(offer.wage), offer.years),
+                    fontSize = 12, color = COLORS.TEXT_PRIMARY, marginBottom = 8,
+                },
+                UI.Panel { flexDirection = "row", children = {
+                    UI.Button {
+                        text = "接受续约", variant = "primary", size = "sm",
+                        flex = 1, marginRight = 6,
+                        onClick = function()
+                            JobManager.acceptManagerRenewal(gameState)
+                            Router.replaceWith("manager_view")
+                        end,
+                    },
+                    UI.Button {
+                        text = "拒绝", variant = "outline", size = "sm",
+                        flex = 1, marginLeft = 6,
+                        onClick = function()
+                            JobManager.declineManagerRenewal(gameState)
+                            Router.replaceWith("manager_view")
+                        end,
+                    },
+                }},
+            }
+        })
+    end
+
+    -- 辞职按钮
+    table.insert(children, Theme.Divider())
+    table.insert(children, UI.Button {
+        text = "辞职",
+        width = "100%", height = 40, marginTop = 8,
+        backgroundColor = COLORS.DANGER,
+        borderRadius = 8, fontSize = 13,
+        color = {255, 255, 255, 255},
+        onClick = function()
+            ConfirmDialog.show({
+                title = "确认辞职",
+                message = string.format(
+                    "你确定要辞去 %s 的主教练职务吗？\n\n辞职后你将成为自由身，需要重新找工作。",
+                    teamName
+                ),
+                confirmText = "确认辞职",
+                danger = true,
+                onConfirm = function()
+                    local success, err = JobManager.handleResign(gameState)
+                    if success then
+                        Router.replaceWith("manager_view")
+                    end
+                end,
+            })
+        end,
+    })
+
+    return Theme.Card { children = children }
 end
 
 ------------------------------------------------------------
@@ -274,9 +389,21 @@ local function _classifyJobs(gameState)
     return vacancies, dangerJobs, safeJobs
 end
 
+--- 检查某球队是否已在审核中
+local function _isApplicationPending(gameState, teamId)
+    local apps = gameState._pendingApplications or {}
+    for _, app in ipairs(apps) do
+        if app.teamId == teamId then
+            return true, app.daysLeft
+        end
+    end
+    return false, 0
+end
+
 --- 构建单个职位行
 local function _jobRow(entry, gameState, manager, isUnemployed)
-    local canApply = isUnemployed and entry.status == "vacant"
+    local isPending, pendingDays = _isApplicationPending(gameState, entry.teamId)
+    local canApply = isUnemployed and entry.status == "vacant" and not isPending
     local repDiff = (entry.reputation or 50) - (manager.reputation or 30)
     local diffLabel = ""
     local diffColor = COLORS.TEXT_MUTED
@@ -304,15 +431,19 @@ local function _jobRow(entry, gameState, manager, isUnemployed)
         }},
     }
 
-    if canApply then
+    if isPending then
+        -- 已申请，审核中
+        table.insert(rightChildren, UI.Label {
+            text = string.format("审核中(%d天)", pendingDays),
+            fontSize = 10, color = COLORS.PRIMARY, marginTop = 4,
+        })
+    elseif canApply then
         table.insert(rightChildren, UI.Button {
             text = "申请", variant = "primary", size = "sm",
             marginTop = 4,
             onClick = function()
-                local success, err = JobManager.applyForJob(gameState, entry.teamId)
-                if success then
-                    Router.navigate("manager_view")  -- 刷新页面
-                end
+                JobManager.applyForJob(gameState, entry.teamId)
+                Router.replaceWith("manager_view")
             end,
         })
     end
@@ -356,16 +487,78 @@ function ManagerView._buildJobCenter(gameState, manager)
             }
         })
 
-        -- 待处理邀约提示
+        -- 待确认 Offer 列表（含主动邀约和申请通过的）
         local offers = JobManager.getPendingOffers(gameState)
         if #offers > 0 then
             table.insert(children, UI.Panel {
+                width = "100%", padding = 10, borderRadius = 8,
+                backgroundColor = {60, 120, 180, 30}, marginBottom = 10,
+                children = (function()
+                    local offerChildren = {
+                        UI.Label {
+                            text = string.format("待确认 Offer (%d)", #offers),
+                            fontSize = 13, fontWeight = "bold", color = COLORS.PRIMARY, marginBottom = 6,
+                        },
+                    }
+                    for _, offer in ipairs(offers) do
+                        local sourceLabel = offer.source == "application" and "申请通过" or "主动邀约"
+                        local sourceColor = offer.source == "application" and COLORS.SECONDARY or COLORS.PRIMARY
+                        table.insert(offerChildren, UI.Panel {
+                            width = "100%", flexDirection = "row", justifyContent = "space-between",
+                            alignItems = "center", paddingVertical = 8,
+                            borderBottomWidth = 1, borderColor = COLORS.BORDER,
+                            children = {
+                                UI.Panel { flex = 1, children = {
+                                    UI.Panel { flexDirection = "row", alignItems = "center", children = {
+                                        UI.Label { text = offer.teamName or "球队", fontSize = 13, fontWeight = "bold", color = COLORS.TEXT_PRIMARY },
+                                        UI.Panel {
+                                            marginLeft = 6, paddingHorizontal = 4, paddingVertical = 1,
+                                            borderRadius = 3, backgroundColor = sourceColor,
+                                            children = {
+                                                UI.Label { text = sourceLabel, fontSize = 9, color = {255,255,255,255} },
+                                            }
+                                        },
+                                    }},
+                                    UI.Label {
+                                        text = string.format("%s | 声望 %d | %d天后过期",
+                                            offer.leagueName or "联赛", offer.teamRep or 50, offer.expireDays or 0),
+                                        fontSize = 10, color = COLORS.TEXT_MUTED, marginTop = 2,
+                                    },
+                                }},
+                                UI.Panel { flexDirection = "row", alignItems = "center", children = {
+                                    UI.Button {
+                                        text = "接受", variant = "primary", size = "sm",
+                                        onClick = function()
+                                            JobManager.acceptOffer(gameState, offer.teamId)
+                                            Router.replaceWith("dashboard")
+                                        end,
+                                    },
+                                    UI.Button {
+                                        text = "拒绝", variant = "ghost", size = "sm", marginLeft = 4,
+                                        onClick = function()
+                                            JobManager.declineOffer(gameState, offer.teamId)
+                                            Router.replaceWith("manager_view")
+                                        end,
+                                    },
+                                }},
+                            }
+                        })
+                    end
+                    return offerChildren
+                end)(),
+            })
+        end
+
+        -- 待审核申请提示
+        local pendingApps = gameState._pendingApplications or {}
+        if #pendingApps > 0 then
+            table.insert(children, UI.Panel {
                 width = "100%", padding = 8, borderRadius = 6,
-                backgroundColor = {60, 120, 180, 40}, marginBottom = 8,
+                backgroundColor = {60, 160, 120, 40}, marginBottom = 8,
                 children = {
                     UI.Label {
-                        text = string.format("你有 %d 份邀约等待处理，请查看收件箱", #offers),
-                        fontSize = 11, color = COLORS.PRIMARY,
+                        text = string.format("已投递 %d 份申请，等待球队审核回复中...", #pendingApps),
+                        fontSize = 11, color = COLORS.SECONDARY,
                     },
                 }
             })
@@ -376,7 +569,7 @@ function ManagerView._buildJobCenter(gameState, manager)
             backgroundColor = {60, 120, 60, 40}, marginBottom = 8,
             children = {
                 UI.Label {
-                    text = "当前状态: 在职（仅空缺职位在失业后可申请）",
+                    text = "当前状态: 在职（辞职后可申请空缺职位）",
                     fontSize = 11, color = COLORS.TEXT_SECONDARY,
                 },
             }

@@ -168,8 +168,9 @@ function FinanceManager.generateSponsorOffers(gameState)
     if not team then return end
 
     -- 基础赞助金额跟球队声望挂钩（reputation 值域 500-900，归一化到 0-100）
+    -- 英超顶级队年赞助 2-3 亿，月约 2000 万；中游约 5000-8000 万/年
     local reputation = (team.reputation or 500) / 10
-    local baseFactor = 0.5 + (reputation / 100) * 1.5  -- 0.5x ~ 2.0x
+    local baseFactor = 0.8 + (reputation / 100) * 2.0  -- 0.8x ~ 2.8x
 
     local offers = {}
     for _, tmpl in ipairs(FinanceManager.SPONSOR_TEMPLATES) do
@@ -177,11 +178,11 @@ function FinanceManager.generateSponsorOffers(gameState)
         -- 根据类型设定基础金额范围（月薪）
         local baseAmount
         if tmpl.type == "primary" then
-            baseAmount = math.floor(200000 * baseFactor)
+            baseAmount = math.floor(2000000 * baseFactor)
         elseif tmpl.type == "kit" then
-            baseAmount = math.floor(120000 * baseFactor)
+            baseAmount = math.floor(1200000 * baseFactor)
         else
-            baseAmount = math.floor(60000 * baseFactor)
+            baseAmount = math.floor(500000 * baseFactor)
         end
 
         -- 生成 3 个方案：保守/均衡/激进
@@ -302,8 +303,9 @@ function FinanceManager.processMatchDayRevenue(gameState, teamId, isHome, oppone
     local strategy = FinanceManager.getTicketStrategy(team)
 
     -- 动态票价 = 基础票价 × 对手热度加成 × 策略系数
-    local basePrice = 20 + math.floor(rep / 10)  -- rep50=25, rep80=28
-    local opponentHype = math.min(2.0, 1.0 + opponentRep / 100)  -- 强队来访加价
+    -- 英超票价通常 40-100 镑，rep68(曼联级)基础应约 48-50
+    local basePrice = 35 + math.floor(rep / 5)  -- rep50=45, rep68=48, rep80=51
+    local opponentHype = math.min(1.8, 1.0 + opponentRep / 120)  -- 强队来访加价（缓和）
     local ticketPrice = math.floor(basePrice * opponentHype * strategy.multiplier)
 
     -- 智能上座率 = 基础率 + 对手吸引力 + 连胜奖励 + 策略调整
@@ -346,7 +348,7 @@ function FinanceManager.processMatchDayRevenue(gameState, teamId, isHome, oppone
         -- 对比上一场
         lastRevenue = team._lastMatchRevenue,
     }
-    team._lastMatchRevenue = revenue
+    team._lastMatchRevenue = revenueDetails
     return revenueDetails
 end
 
@@ -403,11 +405,15 @@ function FinanceManager.processMonthlySponsorship(gameState)
             local capacity = team.stadiumCapacity or 30000
             local position = team.leaguePosition or 10
 
+            -- 经济规模系数：让小型俱乐部收入与其体量匹配
+            local wageScale = FinanceManager._getWageScale(team)
+
             local baseSponsor = rep * 15000 + (capacity / 30000) * 500000
             local posBonus = math.max(0, (11 - position) * rep * 1000)
             -- 顶级俱乐部品牌溢价：rep>=80 时有额外商业收入（模拟全球品牌效应）
+            -- prestigeBonus 不受 wageScale 影响（仅顶级俱乐部有此加成）
             local prestigeBonus = math.max(0, (rep - 80) * 500000)
-            sponsorRevenue = math.floor((baseSponsor + posBonus + prestigeBonus) * (0.85 + Random() * 0.30))
+            sponsorRevenue = math.floor(((baseSponsor + posBonus) * wageScale + prestigeBonus) * (0.85 + Random() * 0.30))
         end
 
         team.balance = team.balance + sponsorRevenue
@@ -434,10 +440,14 @@ function FinanceManager.processMonthlyBroadcast(gameState)
         local rep = (team.reputation or 500) / 10  -- 归一化到 0-100
         local position = team.leaguePosition or 10
 
+        -- 经济规模系数
+        local wageScale = FinanceManager._getWageScale(team)
+
         -- 转播池按排名分配（第1名拿最大份额，第20名最小）
+        -- 英超每队年转播约 1-1.5 亿，月付约 800-1200 万
         local shareRatio = 1.0 + (20 - position) * 0.05  -- 第1=1.95x, 第10=1.50x, 第20=1.00x
-        local baseAmount = rep * 26000 + 200000
-        local amount = math.floor(baseAmount * shareRatio)
+        local baseAmount = rep * 60000 + 500000
+        local amount = math.floor(baseAmount * shareRatio * wageScale)
 
         team.balance = team.balance + amount
         team.seasonIncome = (team.seasonIncome or 0) + amount
@@ -461,18 +471,29 @@ function FinanceManager.processMonthlyMerchandise(gameState)
     for teamId, team in pairs(gameState.teams) do
         local rep = (team.reputation or 500) / 10  -- 归一化到 0-100
 
+        -- 经济规模系数
+        local wageScale = FinanceManager._getWageScale(team)
+
         -- 球星效应：OVR > 80 的球员每人+15%加成（上限60%）
+        -- 传奇球员商业价值更高：每位传奇额外+15%（相当于2倍权重）
         local starCount = 0
+        local legendCount = 0
         for _, pid in ipairs(team.playerIds) do
             local p = gameState.players[pid]
             if p and (p.overall or 0) > 80 then starCount = starCount + 1 end
+            if p and p.isLegend then legendCount = legendCount + 1 end
         end
-        local starBonus = 1.0 + math.min(0.6, starCount * 0.15)
+        -- 青训队的传奇也算入商业价值
+        for _, pid in ipairs(team._youthPlayerIds or {}) do
+            local p = gameState.players[pid]
+            if p and p.isLegend then legendCount = legendCount + 1 end
+        end
+        local starBonus = 1.0 + math.min(0.9, starCount * 0.15 + legendCount * 0.15)
 
-        local baseAmount = rep * 8000 + 100000
-        -- 顶级俱乐部全球商品溢价
-        local prestigeMerch = math.max(0, (rep - 80) * 200000)
-        local amount = math.floor((baseAmount + prestigeMerch) * starBonus * (0.90 + Random() * 0.20))
+        local baseAmount = rep * 18000 + 200000
+        -- 顶级俱乐部全球商品溢价（不受 wageScale 影响）
+        local prestigeMerch = math.max(0, (rep - 80) * 300000)
+        local amount = math.floor((baseAmount * wageScale + prestigeMerch) * starBonus * (0.90 + Random() * 0.20))
 
         team.balance = team.balance + amount
         team.seasonIncome = (team.seasonIncome or 0) + amount
@@ -732,6 +753,19 @@ function FinanceManager.resetSeasonFinance(gameState)
             team.transactions = recent
         end
     end
+end
+
+------------------------------------------------------
+-- 经济规模系数（基于wageBudget，控制不同级别俱乐部收入比例）
+------------------------------------------------------
+
+--- 计算俱乐部经济规模系数
+--- wageBudget 200K → 0.316, 1M → 0.707, 2M → 1.0, 4M → 1.414, 6M → 1.5(cap)
+--- 使用 sqrt 映射避免线性差距过大，同时限制顶级球队收入不无限膨胀
+function FinanceManager._getWageScale(team)
+    local wb = team.wageBudget or 200000
+    local scale = math.sqrt(wb / 2000000)
+    return math.max(0.25, math.min(1.5, scale))
 end
 
 ------------------------------------------------------
@@ -1229,6 +1263,85 @@ function FinanceManager.resetRecoveryCounters(team)
     team.finance.boardInjectionsThisSeason = 0
     team.finance.sponsorSeeksThisSeason = 0
     -- 商业活动CD跨赛季保留
+end
+
+------------------------------------------------------
+-- 赛季末赞助合同绩效条款结算
+-- position: 玩家球队最终排名, totalTeams: 联赛总球队数
+------------------------------------------------------
+function FinanceManager.settleSponsorPerformanceClauses(gameState, position, totalTeams)
+    local team = gameState:getPlayerTeam()
+    if not team or not team.sponsorContracts then return end
+
+    local relegationZone = totalTeams - 2  -- 倒数3名为降级区
+
+    for _, contract in pairs(team.sponsorContracts) do
+        -- 前3名绩效奖金
+        if position <= 3 and (contract.topFinishBonus or 0) > 0 then
+            local bonus = contract.topFinishBonus
+            team.balance = team.balance + bonus
+            team.transferBudget = (team.transferBudget or 0) + bonus
+            team.seasonIncome = (team.seasonIncome or 0) + bonus
+            team.incomeBreakdown = team.incomeBreakdown or {}
+            team.incomeBreakdown.sponsor = (team.incomeBreakdown.sponsor or 0) + bonus
+
+            FinanceManager.addTransaction(team, {
+                amount = bonus,
+                description = string.format("%s 绩效奖金(第%d名)", contract.brand or "赞助商", position),
+                category = "sponsor",
+                season = gameState.season,
+                week = FinanceManager._getWeekNumber(gameState),
+            })
+        end
+
+        -- 降级罚款
+        if position >= relegationZone and (contract.relegationPenalty or 0) > 0 then
+            local penalty = contract.relegationPenalty
+            team.balance = team.balance - penalty
+            team.seasonExpense = (team.seasonExpense or 0) + penalty
+
+            FinanceManager.addTransaction(team, {
+                amount = -penalty,
+                description = string.format("%s 降级违约金", contract.brand or "赞助商"),
+                category = "sponsor",
+                season = gameState.season,
+                week = FinanceManager._getWeekNumber(gameState),
+            })
+        end
+    end
+
+    -- 汇总并通知玩家
+    local totalBonus = 0
+    local totalPenalty = 0
+    if position <= 3 then
+        for _, contract in pairs(team.sponsorContracts) do
+            totalBonus = totalBonus + (contract.topFinishBonus or 0)
+        end
+    end
+    if position >= relegationZone then
+        for _, contract in pairs(team.sponsorContracts) do
+            totalPenalty = totalPenalty + (contract.relegationPenalty or 0)
+        end
+    end
+
+    if totalBonus > 0 then
+        gameState:sendMessage({
+            category = "finance",
+            title = "赞助商绩效奖金",
+            body = string.format("恭喜！球队以第%d名完赛，触发赞助合同绩效条款。\n绩效奖金总计: %s",
+                position, FinanceManager.formatMoney(totalBonus)),
+            priority = "normal",
+        })
+    end
+    if totalPenalty > 0 then
+        gameState:sendMessage({
+            category = "finance",
+            title = "赞助商降级罚款",
+            body = string.format("球队不幸降级，触发赞助合同降级条款。\n违约金总计: %s",
+                FinanceManager.formatMoney(totalPenalty)),
+            priority = "high",
+        })
+    end
 end
 
 return FinanceManager

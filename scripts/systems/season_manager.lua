@@ -21,53 +21,109 @@ local SeasonManager = {}
 ------------------------------------------------------
 
 function SeasonManager.endSeason(gameState)
-    if not gameState.league then return end
+    if not gameState.league then
+        gameState._seasonEndProcessing = nil
+        return
+    end
 
-    -- 0. 赛季目标评估（必须在奖金/升降级之前，基于最终排名）
-    ObjectivesManager.onSeasonEnd(gameState)
+    -- 用 pcall 保护赛季结算步骤，确保 _startNewSeason 一定执行
+    local awards = nil
+    local ok, err = pcall(function()
+        -- 0. 赛季目标评估（必须在奖金/升降级之前，基于最终排名）
+        ObjectivesManager.onSeasonEnd(gameState)
 
-    -- 0.5 董事会赛季末评估（所有球队，可能触发解雇）
-    local BoardManager = require("scripts/systems/board_manager")
-    BoardManager.seasonEndEvaluation(gameState)
+        -- 0.3 赛季排名声望奖励（必须在董事会评估之前，使声望反映真实成绩）
+        local ReputationManager = require("scripts/systems/reputation_manager")
+        ReputationManager.seasonEndUpdate(gameState)
 
-    -- 1. 为所有联赛发放赛季奖金
-    SeasonManager._distributeSeasonPrizes(gameState)
+        -- 0.4 经理冠军统计更新（联赛冠军 +1 trophies）
+        if gameState.playerTeamId then
+            local playerLeague = nil
+            for _, lg in pairs(gameState.leagues or {}) do
+                for _, tid in ipairs(lg.teamIds or {}) do
+                    if tid == gameState.playerTeamId then
+                        playerLeague = lg
+                        break
+                    end
+                end
+                if playerLeague then break end
+            end
+            if playerLeague then
+                local pos = playerLeague:getTeamPosition(gameState.playerTeamId)
+                if pos == 1 then
+                    local mgr = gameState:getPlayerManager()
+                    if mgr and mgr.stats then
+                        mgr.stats.trophies = (mgr.stats.trophies or 0) + 1
+                    end
+                end
+            end
+        end
 
-    -- 1.5 升降级处理（必须在新赛季初始化之前）
-    SeasonManager._processPromotionRelegation(gameState)
+        -- 0.5 董事会赛季末评估（所有球队，可能触发解雇）
+        local BoardManager = require("scripts/systems/board_manager")
+        BoardManager.seasonEndEvaluation(gameState)
 
-    -- 2. B3: 赛季奖项计算（在球员成长之前，基于本赛季数据）
-    local awards = AwardsManager.processSeasonAwards(gameState)
+        -- 1. 为所有联赛发放赛季奖金
+        SeasonManager._distributeSeasonPrizes(gameState)
 
-    -- 3. 球员成长/退化（全局）
-    SeasonManager._processPlayerDevelopment(gameState)
+        -- 1.2 赞助合同绩效条款结算（前3名奖金/降级罚款）
+        if gameState.league and gameState.playerTeamId then
+            local playerPosition = gameState.league:getTeamPosition(gameState.playerTeamId)
+            local totalTeams = #gameState.league.teamIds
+            if playerPosition and totalTeams > 0 then
+                FinanceManager.settleSponsorPerformanceClauses(gameState, playerPosition, totalTeams)
+            end
+        end
 
-    -- 4. B3: 重新计算所有球员特性（成长后）
-    SeasonManager._recalculateTraits(gameState)
+        -- 1.5 升降级处理（必须在新赛季初始化之前）
+        SeasonManager._processPromotionRelegation(gameState)
 
-    -- 5. 合同到期处理（全局）
-    SeasonManager._processContractExpiry(gameState)
+        -- 2. B3: 赛季奖项计算（在球员成长之前，基于本赛季数据）
+        awards = AwardsManager.processSeasonAwards(gameState)
 
-    -- 6. 球员退役（全局）
-    SeasonManager._processRetirements(gameState)
+        -- 3. 球员成长/退化（全局）
+        SeasonManager._processPlayerDevelopment(gameState)
 
-    -- 6.5. 记录球员职业历史（必须在重置统计之前）
-    SeasonManager._recordPlayerCareerHistory(gameState)
+        -- 4. B3: 重新计算所有球员特性（成长后）
+        SeasonManager._recalculateTraits(gameState)
 
-    -- 6.6. 记录系统：赛季记录检查（必须在重置统计之前）
-    RecordsManager.onSeasonEnd(gameState)
+        -- 5. 合同到期处理（全局）
+        SeasonManager._processContractExpiry(gameState)
 
-    -- 7. 重置赛季统计（全局）
-    SeasonManager._resetSeasonStats(gameState)
+        -- 6. 球员退役（全局）
+        SeasonManager._processRetirements(gameState)
 
-    -- 8. B3: 记录赛季完整历史（含奖项和转会数据）
-    HistoryManager.recordSeasonEnd(gameState, awards)
+        -- 6.5. 记录球员职业历史（必须在重置统计之前）
+        SeasonManager._recordPlayerCareerHistory(gameState)
 
-    -- 9. 记录赛季历史（旧格式兼容）
-    SeasonManager._recordSeasonHistory(gameState)
+        -- 6.6. 记录系统：赛季记录检查（必须在重置统计之前）
+        RecordsManager.onSeasonEnd(gameState)
 
-    -- 10. 初始化新赛季（所有联赛）
-    SeasonManager._startNewSeason(gameState)
+        -- 7. 重置赛季统计（全局）
+        SeasonManager._resetSeasonStats(gameState)
+
+        -- 7.5 重置赛季财务统计（seasonIncome/seasonExpense 归零）
+        FinanceManager.resetSeasonFinance(gameState)
+
+        -- 8. B3: 记录赛季完整历史（含奖项和转会数据）
+        HistoryManager.recordSeasonEnd(gameState, awards)
+
+        -- 9. 记录赛季历史（旧格式兼容）
+        SeasonManager._recordSeasonHistory(gameState)
+    end)
+
+    if not ok then
+        print("[SeasonManager] ERROR in endSeason pre-steps: " .. tostring(err))
+    end
+
+    -- 10. 初始化新赛季（所有联赛）—— 无论上面是否出错都必须执行
+    local ok2, err2 = pcall(SeasonManager._startNewSeason, gameState)
+    if not ok2 then
+        print("[SeasonManager] CRITICAL ERROR in _startNewSeason: " .. tostring(err2))
+    end
+
+    -- 清除 guard 标志，允许下个赛季再次触发
+    gameState._seasonEndProcessing = nil
 
     -- 通知
     gameState:sendMessage({
@@ -125,12 +181,16 @@ function SeasonManager._distributeSeasonPrizes(gameState)
                 -- 联赛冠军特殊庆祝
                 local championBonus = 20000000  -- 额外夺冠奖金 20M
                 team.balance = team.balance + championBonus
-                if not team.transactions then team.transactions = {} end
-                table.insert(team.transactions, 1, {
-                    type = "prize",
+                team.transferBudget = (team.transferBudget or 0) + championBonus
+                team.seasonIncome = (team.seasonIncome or 0) + championBonus
+                team.incomeBreakdown = team.incomeBreakdown or {}
+                team.incomeBreakdown.prize = (team.incomeBreakdown.prize or 0) + championBonus
+                FinanceManager.addTransaction(team, {
                     amount = championBonus,
                     description = gameState.league.name .. "冠军奖金",
-                    date = { year = gameState.date.year, month = gameState.date.month, day = gameState.date.day },
+                    category = "prize",
+                    season = gameState.season,
+                    week = FinanceManager._getWeekNumber(gameState),
                 })
 
                 gameState:sendMessage({
@@ -405,10 +465,14 @@ function SeasonManager._resetSeasonStats(gameState)
         }
     end
 
-    -- 重置球队近期状态 + 财务恢复计数器
+    -- 重置球队近期状态 + 赛季统计 + 财务恢复计数器
     local FinanceManager = require("scripts/systems/finance_manager")
     for _, team in pairs(gameState.teams) do
         team.recentForm = {}
+        team.seasonStats = {
+            wins = 0, draws = 0, losses = 0,
+            goalsFor = 0, goalsAgainst = 0,
+        }
         FinanceManager.resetRecoveryCounters(team)
     end
 end
@@ -425,9 +489,15 @@ function SeasonManager._recordSeasonHistory(gameState)
 
     for key, lg in pairs(gameState.leagues) do
         local sorted = lg:getSortedStandings()
+        local championEntry = sorted[1]
+        local championTeam = championEntry and gameState.teams[championEntry.teamId]
         local leagueRecord = {
             name = lg.name,
-            champion = sorted[1] and sorted[1].teamId or nil,
+            champion = championEntry and {
+                teamId = championEntry.teamId,
+                teamName = championTeam and championTeam.name or "?",
+                points = championEntry.points or 0,
+            } or nil,
             standings = {},
         }
         for i, entry in ipairs(sorted) do
@@ -486,11 +556,17 @@ function SeasonManager._processPromotionRelegation(gameState)
 
         local secondDiv = gameState.secondDivision[leagueKey]
 
-        -- 1. 确定降级球队（倒数3名）
+        -- 1. 确定降级球队（倒数3名，作弊模式下保护玩家球队）
         local relegatedTeams = {}
         for i = totalTeams - RELEGATION_SPOTS + 1, totalTeams do
             if sorted[i] then
-                table.insert(relegatedTeams, sorted[i].teamId)
+                local tid = sorted[i].teamId
+                -- 作弊跳赛季时不允许玩家球队降级
+                if tid == gameState.playerTeamId and gameState._cheatAutoPlay then
+                    -- 跳过玩家球队
+                else
+                    table.insert(relegatedTeams, tid)
+                end
             end
         end
 
@@ -891,6 +967,48 @@ end
 -- 新赛季初始化（所有联赛）
 ------------------------------------------------------
 
+------------------------------------------------------
+-- 新赛季预算分配
+-- 根据球队余额、声望、实际周薪支出重新计算合理的转会预算和工资预算
+-- 公式参照 real_data_loader: transferBudget ≈ wageBudget * 25, balance ≈ wageBudget * 80
+------------------------------------------------------
+function SeasonManager._allocateSeasonBudgets(gameState)
+    for _, team in pairs(gameState.teams) do
+        -- 计算当前实际周薪支出
+        local actualWeeklyWage = 0
+        for _, pid in ipairs(team.playerIds) do
+            local p = gameState.players[pid]
+            if p then actualWeeklyWage = actualWeeklyWage + (p.wage or 0) end
+        end
+        for _, sid in ipairs(team.staffIds or {}) do
+            local s = gameState.staff[sid]
+            if s then actualWeeklyWage = actualWeeklyWage + (s.wage or 0) end
+        end
+
+        -- 工资预算：实际周薪 * 1.3（留30%余量用于新签约）
+        -- 最低保底 200K/周（小球队也能签人）
+        local newWageBudget = math.max(200000, math.floor(actualWeeklyWage * 1.3))
+
+        -- 转会预算：基于余额的 25%，并参考声望加成
+        -- reputation 实际范围约 500-700（FM数据），标准化到 0.5-1.5 的系数
+        local rep = team.reputation or 600
+        local repFactor = 0.5 + math.max(0, math.min(1.0, (rep - 400) / 400))  -- 400→0.5, 600→1.0, 800→1.5
+        local balanceBased = math.floor((team.balance or 0) * 0.25 * repFactor)
+
+        -- 保底：至少有 wageBudget * 10（约10周工资当量）的转会资金
+        local floor = math.floor(newWageBudget * 10)
+        -- 上限：不超过余额的 50%（防止过度花费导致破产）
+        local cap = math.floor((team.balance or 0) * 0.5)
+
+        local newTransferBudget = math.max(floor, math.min(cap, balanceBased))
+        -- 绝对下限 5M（保证所有球队都能引援）
+        newTransferBudget = math.max(5000000, newTransferBudget)
+
+        team.wageBudget = newWageBudget
+        team.transferBudget = newTransferBudget
+    end
+end
+
 function SeasonManager._startNewSeason(gameState)
     -- 清除旧赛季遗留的比赛待处理标记（防止第二赛季卡住）
     gameState.pendingPlayerFixture = nil
@@ -934,9 +1052,15 @@ function SeasonManager._startNewSeason(gameState)
         gameState.transfers.bids = {}
     end
 
+    -- 重置经理续约标记（每赛季重新检查）
+    gameState._managerRenewalOffered = nil
+
     -- 清理旧的球探报告和自动发现
     gameState.scoutReports = {}
     gameState.scoutDiscoveries = {}
+
+    -- 重新分配各队赛季预算（转会预算 + 工资预算）
+    SeasonManager._allocateSeasonBudgets(gameState)
 
     -- 补充AI球队阵容（如果人数不足）
     SeasonManager._fillAISquads(gameState)

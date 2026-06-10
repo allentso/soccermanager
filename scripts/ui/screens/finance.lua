@@ -627,8 +627,8 @@ function Finance._buildOperationsDashboard(team, gameState)
         attendancePct = math.floor(lastRevenue.attendanceRate * 100)
         attSource = "实际"
     else
-        local rep = team.reputation or 50
-        local baseRate = 0.65 + rep / 500
+        local normRep = (team.reputation or 500) / 10  -- 归一化到 0-100
+        local baseRate = 0.65 + normRep / 500  -- rep68=0.786
         local sBonus = currentStrategy.attendanceBonus or 0
         attendancePct = math.floor(math.min(0.95, math.max(0.50, baseRate + sBonus)) * 100)
         attSource = "预期"
@@ -636,14 +636,27 @@ function Finance._buildOperationsDashboard(team, gameState)
     local attColor = attendancePct >= 85 and Theme.COLORS.FINANCE_GREEN
         or (attendancePct >= 65 and Theme.COLORS.MATCH_ORANGE or Theme.COLORS.DANGER)
 
-    -- 预估月收入
-    local rep = team.reputation or 50
+    -- 预估月收入（公式与 finance_manager 后端一致）
+    local rep = (team.reputation or 500) / 10  -- 归一化到 0-100
     local capacity = team.stadiumCapacity or 30000
     local position = team.leaguePosition or 10
-    local estSponsor = math.floor(rep * 15000 + (capacity / 30000) * 500000)
-    local estBroadcast = math.floor((rep * 25000 + 1000000) * (1.0 + (20 - position) * 0.05))
-    local estMerch = math.floor((rep * 8000 + 300000) * 1.0)
-    local estTotal = estSponsor + estBroadcast + estMerch
+
+    -- 赞助：玩家球队用合同金额，否则按AI公式
+    local estSponsor
+    if team.sponsorMonthlyTotal and team.sponsorMonthlyTotal > 0 then
+        estSponsor = team.sponsorMonthlyTotal
+    else
+        estSponsor = math.floor(rep * 15000 + (capacity / 30000) * 500000)
+    end
+    -- 转播：baseAmount = rep*60000 + 500000, shareRatio = 1.0 + (20-pos)*0.05
+    local estBroadcast = math.floor((rep * 60000 + 500000) * (1.0 + (20 - position) * 0.05))
+    -- 商品：baseAmount = rep*18000 + 200000
+    local estMerch = math.floor((rep * 18000 + 200000) * 1.0)
+    -- 预估票房：基于球场容量 × 上座率 × 票价 × 每月约2场主场
+    local estTicketPrice = math.floor((35 + math.floor(rep / 5)) * currentStrategy.multiplier)
+    local estAttRate = attendancePct / 100
+    local estTicket = math.floor(capacity * estAttRate * estTicketPrice * 2)
+    local estTotal = estSponsor + estBroadcast + estMerch + estTicket
 
     -- 下次结算
     local currentDay = gameState.date.day or 1
@@ -850,7 +863,7 @@ function Finance._buildOperationsDashboard(team, gameState)
                     Finance._dashEstItem("赞助", estSponsor, {220, 180, 60, 255}),
                     Finance._dashEstItem("转播", estBroadcast, {100, 200, 150, 255}),
                     Finance._dashEstItem("商品", estMerch, {180, 120, 220, 255}),
-                    Finance._dashEstItem("票房", (type(lastRevenue) == "table" and lastRevenue.revenue) or 0, {72, 160, 220, 255}),
+                    Finance._dashEstItem("票房", estTicket, {72, 160, 220, 255}),
                 }
             },
 

@@ -356,6 +356,30 @@ local ACTION_HANDLERS = {
         TransferManager.cancelFreeAgentConfirmation(gameState, data.negoId)
         Router.replaceWith("inbox")
     end,
+    -- 出售确认：确认出售
+    confirm_sale = function(data)
+        local gameState = _G.gameState
+        if not gameState or not data or not data.bidId then return end
+        local TransferManager = require("scripts/systems/transfer_manager")
+        local ok = TransferManager.confirmSale(gameState, data.bidId)
+        if ok then
+            local SaveManager = require("scripts/persistence/save_manager")
+            SaveManager.save(gameState, "auto")
+        end
+        Router.replaceWith("inbox")
+    end,
+    -- 出售确认：取消交易
+    cancel_sale = function(data)
+        local gameState = _G.gameState
+        if not gameState or not data or not data.bidId then return end
+        local TransferManager = require("scripts/systems/transfer_manager")
+        local ok = TransferManager.cancelSale(gameState, data.bidId)
+        if ok then
+            local SaveManager = require("scripts/persistence/save_manager")
+            SaveManager.save(gameState, "auto")
+        end
+        Router.replaceWith("inbox")
+    end,
 }
 
 ------------------------------------------------------

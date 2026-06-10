@@ -167,9 +167,9 @@ function PlayerCard.Row(props)
                     },
                 }
             } or UI.Panel { width = 0 },
-            -- 能力
+            -- 能力（UI显示上限99）
             UI.Label {
-                text = tostring(player.overall),
+                text = tostring(math.min(Constants.ABILITY_MAX, player.overall or 0)),
                 fontSize = 14,
                 color = getOverallColor(player.overall),
                 width = 28,
@@ -228,9 +228,9 @@ function PlayerCard.CompactRow(props)
                 flexGrow = 1,
                 flexShrink = 1,
             },
-            -- 能力
+            -- 能力（UI显示上限99）
             UI.Label {
-                text = tostring(player.overall),
+                text = tostring(math.min(Constants.ABILITY_MAX, player.overall or 0)),
                 fontSize = 13,
                 color = getOverallColor(player.overall),
                 width = 28,
@@ -307,7 +307,7 @@ function PlayerCard.DetailCard(props)
                     } or UI.Panel { height = 0 },
                 }
             },
-            -- 能力值
+            -- 能力值（UI显示上限99）
             UI.Panel {
                 width = 48, height = 48,
                 borderRadius = 24,
@@ -316,7 +316,7 @@ function PlayerCard.DetailCard(props)
                 alignItems = "center",
                 children = {
                     UI.Label {
-                        text = tostring(player.overall),
+                        text = tostring(math.min(Constants.ABILITY_MAX, player.overall or 0)),
                         fontSize = 18,
                         color = getOverallColor(player.overall),
                         fontWeight = "bold",

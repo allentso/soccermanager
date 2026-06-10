@@ -7,14 +7,17 @@ local Constants = require("scripts/app/constants")
 local ContractManager = {}
 
 ------------------------------------------------------
--- 每日处理：检查合同到期警告
+-- 每日处理：检查合同到期警告 + 处理续约谈判结果
 ------------------------------------------------------
 function ContractManager.processDaily(gameState)
+    -- 1) 处理待审核的续约谈判
+    ContractManager._processRenewals(gameState)
+
+    -- 2) 每月1号检查合同到期情况
+    if gameState.date.day ~= 1 then return end
+
     local team = gameState:getPlayerTeam()
     if not team then return end
-
-    -- 每月1号检查一次合同到期情况
-    if gameState.date.day ~= 1 then return end
 
     for _, pid in ipairs(team.playerIds) do
         local p = gameState.players[pid]
@@ -76,7 +79,7 @@ function ContractManager.processSeasonEnd(gameState)
 end
 
 ------------------------------------------------------
--- 续约接口（UI 调用）
+-- 续约接口（UI 调用）— 异步：球员考虑1-3天后回复
 ------------------------------------------------------
 function ContractManager.renewContract(gameState, playerId, newWage, newYears)
     local player = gameState.players[playerId]
@@ -92,48 +95,102 @@ function ContractManager.renewContract(gameState, playerId, newWage, newYears)
         return false, "超出工资预算"
     end
 
-    -- 球员接受意愿（基于能力/年龄/当前工资/球队声望）
-    local acceptChance = ContractManager._calcAcceptChance(player, team, newWage, newYears, gameState)
-    if Random() > acceptChance then
-        -- 拒绝续约
-        gameState:sendMessage({
-            category = "contract",
-            title = "续约被拒",
-            body = string.format("%s 拒绝了续约提议（周薪 %s，%d年）。球员希望获得更高薪水或寻求新挑战。",
-                player.displayName,
-                FinanceManager.formatMoney(newWage),
-                newYears),
-            priority = "normal",
-        })
-        return false, "球员拒绝续约"
+    -- 检查是否已有待处理的续约谈判
+    gameState._pendingRenewals = gameState._pendingRenewals or {}
+    if gameState._pendingRenewals[playerId] then
+        return false, "该球员正在考虑续约提议中"
     end
 
-    -- 续约成功
-    local currentYear = gameState.date.year
-    local currentMonth = gameState.date.month
-    player.contractEnd = {
-        year = currentYear + newYears,
-        month = currentMonth,
+    -- 提交续约提议（球员考虑1-3天）
+    local thinkDays = 1 + math.floor(Random() * 3)  -- 1~3天
+    gameState._pendingRenewals[playerId] = {
+        playerId = playerId,
+        newWage = newWage,
+        newYears = newYears,
+        daysLeft = thinkDays,
     }
-    player.wage = newWage
-
-    -- 清除警告标记
-    player._contractWarned6 = nil
-    player._contractWarned3 = nil
 
     gameState:sendMessage({
         category = "contract",
-        title = "续约成功",
-        body = string.format("%s 同意续约！新合同: 周薪 %s，%d 年（至 %d年%d月）。",
+        title = "续约提议已提出",
+        body = string.format("已向 %s 提出续约提议（周薪 %s，%d年）。球员需要时间考虑，预计 %d 天内答复。",
             player.displayName,
             FinanceManager.formatMoney(newWage),
             newYears,
-            player.contractEnd.year,
-            player.contractEnd.month),
+            thinkDays),
         priority = "normal",
     })
 
     return true
+end
+
+------------------------------------------------------
+-- 内部：处理续约谈判结果
+------------------------------------------------------
+function ContractManager._processRenewals(gameState)
+    if not gameState._pendingRenewals then return end
+
+    local FinanceManager = require("scripts/systems/finance_manager")
+    local completed = {}
+
+    for playerId, renewal in pairs(gameState._pendingRenewals) do
+        renewal.daysLeft = renewal.daysLeft - 1
+        if renewal.daysLeft <= 0 then
+            table.insert(completed, playerId)
+
+            local player = gameState.players[playerId]
+            if not player then goto continue end
+
+            local team = gameState.teams[player.teamId]
+            if not team then goto continue end
+
+            -- 球员接受意愿判定
+            local acceptChance = ContractManager._calcAcceptChance(player, team, renewal.newWage, renewal.newYears, gameState)
+            if Random() > acceptChance then
+                -- 拒绝续约
+                gameState:sendMessage({
+                    category = "contract",
+                    title = "续约被拒",
+                    body = string.format("%s 经过考虑后拒绝了续约提议（周薪 %s，%d年）。球员希望获得更高薪水或寻求新挑战。",
+                        player.displayName,
+                        FinanceManager.formatMoney(renewal.newWage),
+                        renewal.newYears),
+                    priority = "normal",
+                })
+            else
+                -- 续约成功
+                local currentYear = gameState.date.year
+                local currentMonth = gameState.date.month
+                player.contractEnd = {
+                    year = currentYear + renewal.newYears,
+                    month = currentMonth,
+                }
+                player.wage = renewal.newWage
+
+                -- 清除警告标记
+                player._contractWarned6 = nil
+                player._contractWarned3 = nil
+
+                gameState:sendMessage({
+                    category = "contract",
+                    title = "续约成功",
+                    body = string.format("%s 同意续约！新合同: 周薪 %s，%d 年（至 %d年%d月）。",
+                        player.displayName,
+                        FinanceManager.formatMoney(renewal.newWage),
+                        renewal.newYears,
+                        player.contractEnd.year,
+                        player.contractEnd.month),
+                    priority = "high",
+                })
+            end
+
+            ::continue::
+        end
+    end
+
+    for _, playerId in ipairs(completed) do
+        gameState._pendingRenewals[playerId] = nil
+    end
 end
 
 ------------------------------------------------------

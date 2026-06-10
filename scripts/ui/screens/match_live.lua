@@ -266,9 +266,16 @@ function MatchLive.create(params)
                 local pName = player and player.displayName or "球员"
                 local teamName = evt.teamId == session.fixture.homeTeamId and homeName or awayName
                 local icon = evt.type == "goal" and "⚽" or "🟥"
-                local text = evt.type == "goal"
-                    and string.format("%s (%s)", pName, teamName)
-                    or string.format("%s 红牌 (%s)", pName, teamName)
+                local text
+                if evt.type == "goal" then
+                    if evt.isOwnGoal then
+                        text = string.format("%s 乌龙球 (%s)", pName, teamName)
+                    else
+                        text = string.format("%s (%s)", pName, teamName)
+                    end
+                else
+                    text = string.format("%s 红牌 (%s)", pName, teamName)
+                end
                 table.insert(keyRows, UI.Panel {
                     width = "100%", flexDirection = "row", alignItems = "center",
                     marginBottom = 6, paddingLeft = 4,
@@ -508,7 +515,8 @@ function MatchLive.create(params)
     for _, evt in ipairs(goalEvents) do
         local player = evt.playerId and gameState.players[evt.playerId]
         local pName = player and player.lastName or player and player.displayName or ""
-        local entry = pName .. " " .. tostring(evt.minute) .. "'"
+        local ogSuffix = evt.isOwnGoal and " (乌龙球)" or ""
+        local entry = pName .. " " .. tostring(evt.minute) .. "'" .. ogSuffix
         if evt.teamId == session.fixture.homeTeamId then
             table.insert(homeGoalScorers, entry)
         else
@@ -697,12 +705,21 @@ function MatchLive._buildSubstitutionPanel(gameState, session, fixture)
                 or (fitness >= 60 and Theme.COLORS.WARNING or Theme.COLORS.DANGER)
             -- 体力条宽度百分比
             local barWidthPct = math.max(5, math.min(100, math.floor(fitness)))
+            local posClr = Theme.posColor(p.position)
             table.insert(onPitchRows, UI.Panel {
                 width = "100%", height = 44, flexDirection = "row", alignItems = "center",
                 paddingLeft = 8, paddingRight = 8,
                 borderBottomWidth = 1, borderColor = Theme.COLORS.BORDER,
                 children = {
-                    UI.Label { text = Constants.POSITION_NAMES[p.position] or p.position, fontSize = 11, color = Theme.COLORS.ACCENT, width = 40 },
+                    UI.Panel {
+                        backgroundColor = {posClr[1], posClr[2], posClr[3], 50},
+                        borderRadius = 3,
+                        paddingLeft = 4, paddingRight = 4, paddingTop = 1, paddingBottom = 1,
+                        marginRight = 6, minWidth = 42,
+                        children = {
+                            UI.Label { text = Constants.POSITION_NAMES[p.position] or p.position, fontSize = 10, color = posClr, fontWeight = "bold" },
+                        },
+                    },
                     UI.Panel {
                         flexGrow = 1, flexShrink = 1,
                         children = {
@@ -750,12 +767,21 @@ function MatchLive._buildSubstitutionPanel(gameState, session, fixture)
     -- 替补列表（预览）
     local benchRows = {}
     for _, p in ipairs(session.bench) do
+        local bPosClr = Theme.posColor(p.position)
         table.insert(benchRows, UI.Panel {
             width = "100%", height = 36, flexDirection = "row", alignItems = "center",
             paddingLeft = 8, paddingRight = 8,
             borderBottomWidth = 1, borderColor = Theme.COLORS.BORDER,
             children = {
-                UI.Label { text = Constants.POSITION_NAMES[p.position] or p.position, fontSize = 11, color = Theme.COLORS.ACCENT, width = 40 },
+                UI.Panel {
+                    backgroundColor = {bPosClr[1], bPosClr[2], bPosClr[3], 50},
+                    borderRadius = 3,
+                    paddingLeft = 4, paddingRight = 4, paddingTop = 1, paddingBottom = 1,
+                    marginRight = 6, minWidth = 42,
+                    children = {
+                        UI.Label { text = Constants.POSITION_NAMES[p.position] or p.position, fontSize = 10, color = bPosClr, fontWeight = "bold" },
+                    },
+                },
                 UI.Label { text = p.displayName, fontSize = 12, color = Theme.COLORS.TEXT_SECONDARY, flexGrow = 1 },
                 UI.Label { text = tostring(p.overall), fontSize = 12, color = Theme.COLORS.TEXT_SECONDARY, width = 28 },
             }
@@ -808,12 +834,21 @@ function MatchLive._buildSubPickPanel(gameState, session, fixture)
 
     local rows = {}
     for _, p in ipairs(session.bench) do
+        local spPosClr = Theme.posColor(p.position)
         table.insert(rows, UI.Panel {
             width = "100%", height = 44, flexDirection = "row", alignItems = "center",
             paddingLeft = 8, paddingRight = 8,
             borderBottomWidth = 1, borderColor = Theme.COLORS.BORDER,
             children = {
-                UI.Label { text = Constants.POSITION_NAMES[p.position] or p.position, fontSize = 11, color = Theme.COLORS.ACCENT, width = 40 },
+                UI.Panel {
+                    backgroundColor = {spPosClr[1], spPosClr[2], spPosClr[3], 50},
+                    borderRadius = 3,
+                    paddingLeft = 4, paddingRight = 4, paddingTop = 1, paddingBottom = 1,
+                    marginRight = 6, minWidth = 42,
+                    children = {
+                        UI.Label { text = Constants.POSITION_NAMES[p.position] or p.position, fontSize = 10, color = spPosClr, fontWeight = "bold" },
+                    },
+                },
                 UI.Label { text = p.displayName, fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY, flexGrow = 1 },
                 UI.Label { text = tostring(p.overall), fontSize = 13, color = Theme.COLORS.SECONDARY, width = 28 },
                 UI.Button {
@@ -1122,7 +1157,9 @@ function MatchLive._getCommentaryText(evt, gameState)
     local tIdx = evt.templateIdx
 
     if evt.type == "goal" then
-        if evt.assistPlayerId then
+        if evt.isOwnGoal then
+            return string.format("不幸的乌龙球！%s将球送入自家球门！", pName), Theme.COLORS.DANGER
+        elseif evt.assistPlayerId then
             local assister = gameState.players[evt.assistPlayerId]
             local aName = assister and assister.displayName or "队友"
             return string.format(pickTemplate(COMMENTARY.goal_assist, tIdx), aName, pName), Theme.COLORS.SECONDARY

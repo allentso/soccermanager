@@ -101,7 +101,7 @@ function LoansTab._loanRow(player, subtitle, ratingColor)
                     UI.Label { text = subtitle, fontSize = 10, color = Theme.COLORS.TEXT_MUTED, marginTop = 2 },
                 }
             },
-            UI.Label { text = tostring(player and player.overall or "?"), fontSize = 13, color = ratingColor, width = 28, fontWeight = "bold" },
+            UI.Label { text = tostring(player and math.min(Constants.ABILITY_MAX, player.overall or 0) or "?"), fontSize = 13, color = ratingColor, width = 28, fontWeight = "bold" },
         }
     }
 end
@@ -119,7 +119,7 @@ function LoansTab._candidateRow(gameState, player, sourceTeam)
                     UI.Label { text = (sourceTeam and sourceTeam.name or "?") .. " | 半赛季租借", fontSize = 10, color = Theme.COLORS.TEXT_MUTED, marginTop = 2 },
                 }
             },
-            UI.Label { text = tostring(player.overall or "?"), fontSize = 13, color = Theme.COLORS.SECONDARY, width = 28, fontWeight = "bold" },
+            UI.Label { text = tostring(math.min(Constants.ABILITY_MAX, player.overall or 0)), fontSize = 13, color = Theme.COLORS.SECONDARY, width = 28, fontWeight = "bold" },
             UI.Button {
                 text = "租借", width = 50, height = 26,
                 backgroundColor = Theme.COLORS.PRIMARY, borderRadius = 4, fontSize = 11,

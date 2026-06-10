@@ -119,6 +119,18 @@ function RecordsManager.onMatchEnd(gameState, fixture)
     if mr.totalMatches > 0 then
         mr.winRate = math.floor((mr.totalWins / mr.totalMatches) * 1000) / 10  -- 保留一位小数
     end
+
+    -- 同步更新经理域对象的统计（供 manager_view UI 使用）
+    local manager = gameState:getPlayerManager()
+    if manager and manager.stats then
+        if won then
+            manager.stats.wins = (manager.stats.wins or 0) + 1
+        elseif drawn then
+            manager.stats.draws = (manager.stats.draws or 0) + 1
+        else
+            manager.stats.losses = (manager.stats.losses or 0) + 1
+        end
+    end
 end
 
 ------------------------------------------------------

@@ -4,6 +4,7 @@
 local Constants = require("scripts/app/constants")
 local EventBus = require("scripts/app/event_bus")
 local FinanceManager = require("scripts/systems/finance_manager")
+local DifficultySettings = require("scripts/systems/difficulty_settings")
 
 local TrainingManager = {}
 
@@ -27,28 +28,12 @@ TrainingManager.FOCUS_ATTRS = {
 }
 
 ------------------------------------------------------
--- 强度配置
+-- 强度配置（从难度设置动态获取）
 ------------------------------------------------------
-TrainingManager.INTENSITY = {
-    low = {
-        growthMultiplier = 0.5,     -- 属性增长慢
-        fitnessLoss = 1,            -- 体能消耗少
-        injuryChance = 0.003,       -- 受伤概率低
-        fitnessRecoveryBonus = 2,   -- 额外体能恢复
-    },
-    medium = {
-        growthMultiplier = 1.0,
-        fitnessLoss = 2,
-        injuryChance = 0.01,
-        fitnessRecoveryBonus = 0,
-    },
-    high = {
-        growthMultiplier = 1.8,
-        fitnessLoss = 3,
-        injuryChance = 0.025,
-        fitnessRecoveryBonus = -1,  -- 恢复更慢
-    },
-}
+function TrainingManager._getIntensity()
+    local mods = DifficultySettings.getTrainingModifiers()
+    return mods.intensity
+end
 
 ------------------------------------------------------
 -- 周计划配置
@@ -91,16 +76,25 @@ function TrainingManager.processDaily(gameState)
 
     -- 训练日处理
     local intensity = team.trainingIntensity or "medium"
-    local intensityConfig = TrainingManager.INTENSITY[intensity] or TrainingManager.INTENSITY.medium
+    local intensityConfig = TrainingManager._getIntensity()[intensity] or TrainingManager._getIntensity().medium
 
     -- 计算职员加成
     local staffBonus = TrainingManager._calcStaffBonus(gameState, team)
     local facilityBonus = FinanceManager.getFacilityBonuses(team).trainingGain
 
+    -- 预计算导师光环：收集一线队传奇球员的位置
+    local legendPositions = {}
+    for _, pid in ipairs(team.playerIds) do
+        local p = gameState.players[pid]
+        if p and p.isLegend then
+            legendPositions[p.position] = true
+        end
+    end
+
     for _, pid in ipairs(team.playerIds) do
         local p = gameState.players[pid]
         if p and not p.injured then
-            TrainingManager._trainPlayer(gameState, team, p, intensityConfig, staffBonus * facilityBonus)
+            TrainingManager._trainPlayer(gameState, team, p, intensityConfig, staffBonus * facilityBonus, legendPositions)
         end
     end
 end
@@ -135,7 +129,7 @@ end
 ------------------------------------------------------
 -- 内部：训练单个球员
 ------------------------------------------------------
-function TrainingManager._trainPlayer(gameState, team, player, intensityConfig, staffBonus)
+function TrainingManager._trainPlayer(gameState, team, player, intensityConfig, staffBonus, legendPositions)
     -- 确定训练属性（优先级：个人focus > 分组focus > 全队focus）
     local focusKey = player.trainingFocus
     if not focusKey and team.trainingGroups then
@@ -151,8 +145,9 @@ function TrainingManager._trainPlayer(gameState, team, player, intensityConfig, 
     focusKey = focusKey or team.trainingFocus or "balanced"
     local focusAttrs = TrainingManager.FOCUS_ATTRS[focusKey] or TrainingManager.FOCUS_ATTRS.balanced
 
-    -- 基础增长概率
-    local baseChance = 0.06
+    -- 基础增长概率（从难度配置获取）
+    local trainingMods = DifficultySettings.getTrainingModifiers()
+    local baseChance = trainingMods.baseChance
 
     -- 强度修正
     baseChance = baseChance * intensityConfig.growthMultiplier
@@ -173,15 +168,37 @@ function TrainingManager._trainPlayer(gameState, team, player, intensityConfig, 
     -- 潜力修正（距离潜力越远成长越容易，使用局内实际潜力）
     local potential = player.actualPotential or player.potential or 70
     local overall = player.overall or 50
-    local gapFactor = math.max(0.2, (potential - overall) / 30)
+    local gapFactor = math.max(trainingMods.gapFloor, (potential - overall) / trainingMods.gapDivisor)
     baseChance = baseChance * gapFactor
+
+    -- 传奇球员训练加速 ×1.5
+    if player.isLegend then
+        baseChance = baseChance * 1.5
+    end
+
+    -- 导师光环：同位置有传奇球员时，非传奇球员 +20% 训练效率
+    if not player.isLegend and legendPositions and legendPositions[player.position] then
+        baseChance = baseChance * 1.2
+    end
 
     -- 尝试属性增长
     if Random() < baseChance then
-        local attr = focusAttrs[RandomInt(1, #focusAttrs)]
-        if player.attributes[attr] and player.attributes[attr] < 20 then
-            player.attributes[attr] = player.attributes[attr] + 1
-            player:calculateOverall()
+        local attrCap = player:getAttrCap()
+        local overallCap = player:getOverallCap()
+        -- 总评已达上限则不再增长
+        if (player.overall or 0) >= overallCap then
+            -- do nothing, player needs strategy adjustment
+        else
+            -- 从焦点属性池选取（带重试避免浪费）
+            local maxAttempts = #focusAttrs
+            for _ = 1, maxAttempts do
+                local attr = focusAttrs[RandomInt(1, #focusAttrs)]
+                if player.attributes[attr] and player.attributes[attr] < attrCap then
+                    player.attributes[attr] = player.attributes[attr] + 1
+                    player:calculateOverall()
+                    break
+                end
+            end
         end
     end
 
@@ -214,7 +231,7 @@ end
 ------------------------------------------------------
 function TrainingManager._restDay(gameState, team)
     local intensity = team.trainingIntensity or "medium"
-    local intensityConfig = TrainingManager.INTENSITY[intensity] or TrainingManager.INTENSITY.medium
+    local intensityConfig = TrainingManager._getIntensity()[intensity] or TrainingManager._getIntensity().medium
 
     for _, pid in ipairs(team.playerIds) do
         local p = gameState.players[pid]
@@ -266,7 +283,7 @@ end
 function TrainingManager.setIntensity(gameState, intensity)
     local team = gameState:getPlayerTeam()
     if not team then return false end
-    if not TrainingManager.INTENSITY[intensity] then return false end
+    if not TrainingManager._getIntensity()[intensity] then return false end
     team.trainingIntensity = intensity
     return true
 end

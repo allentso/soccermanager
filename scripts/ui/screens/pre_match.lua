@@ -12,33 +12,251 @@ local SaveManager = require("scripts/persistence/save_manager")
 
 local PreMatch = {}
 
--- 阵型位置映射 (x%, y% 从底到顶)
+--- 体力权重因子（与 tactics.lua 一致）
+local function _fitnessFactor(fitness)
+    fitness = fitness or 80
+    if fitness >= 80 then return 1.0
+    elseif fitness >= 70 then return 0.85 + (fitness - 70) * 0.015
+    elseif fitness >= 60 then return 0.65 + (fitness - 60) * 0.02
+    elseif fitness >= 50 then return 0.4 + (fitness - 50) * 0.025
+    else return 0.2 + (fitness / 50) * 0.2
+    end
+end
+
+--- 获取球员所属位置组
+local function _positionGroup(pos)
+    for group, positions in pairs(Constants.POSITION_GROUPS) do
+        for _, p in ipairs(positions) do
+            if p == pos then return group end
+        end
+    end
+    return "MID"
+end
+
+--- 一键配置全阵容（首发+替补），综合位置适配和体力
+local function _autoFullSquad(gameState, team)
+    local formation = team.formation or "4-4-2"
+    local slots = AIManager._getFormationSlots(formation, team.formationVariant)
+
+    -- 收集全队可用球员
+    local allAvailable = {}
+    for _, pid in ipairs(team.playerIds or {}) do
+        local p = gameState.players[pid]
+        if p and not p.injured then
+            table.insert(allAvailable, p)
+        end
+    end
+
+    -- 贪心分配首发：每个槽位选位置适配×体力最优的球员
+    local newXI = {}
+    local usedIds = {}
+
+    for _, slot in ipairs(slots) do
+        local bestPlayer = nil
+        local bestScore = -1
+
+        for _, p in ipairs(allAvailable) do
+            if not usedIds[p.id] then
+                local score = AIManager._playerPositionScore(p, slot) * _fitnessFactor(p.fitness)
+                if score > bestScore then
+                    bestScore = score
+                    bestPlayer = p
+                end
+            end
+        end
+
+        if bestPlayer then
+            table.insert(newXI, bestPlayer.id)
+            usedIds[bestPlayer.id] = true
+        end
+    end
+
+    team.startingXI = newXI
+
+    -- 替补：从剩余球员中选7人（确保位置覆盖）
+    local remaining = {}
+    for _, pid in ipairs(team.playerIds or {}) do
+        local p = gameState.players[pid]
+        if p and not p.injured and not usedIds[p.id] then
+            table.insert(remaining, p)
+        end
+    end
+    table.sort(remaining, function(a, b)
+        return (a.overall * _fitnessFactor(a.fitness)) > (b.overall * _fitnessFactor(b.fitness))
+    end)
+
+    -- 确保位置覆盖
+    local benchIds = {}
+    local benchSet = {}
+    local needGK, needDEF, needATK = true, true, true
+
+    for _, p in ipairs(remaining) do
+        if #benchIds >= 7 then break end
+        local g = _positionGroup(p.position)
+        local picked = false
+        if needGK and g == "GK" and (p.fitness or 80) >= 50 then
+            needGK = false; picked = true
+        elseif needDEF and g == "DEF" and (p.fitness or 80) >= 50 then
+            needDEF = false; picked = true
+        elseif needATK and (g == "FWD" or g == "MID") and (p.fitness or 80) >= 50 then
+            needATK = false; picked = true
+        end
+        if picked then
+            table.insert(benchIds, p.id)
+            benchSet[p.id] = true
+        end
+    end
+    for _, p in ipairs(remaining) do
+        if #benchIds >= 7 then break end
+        if not benchSet[p.id] then
+            table.insert(benchIds, p.id)
+        end
+    end
+
+    team.benchIds = benchIds
+end
+
+-- 阵型变体位置坐标映射 (x%, y% 从球场左下角计算, y=0底部 y=100顶部)
+-- 键: "阵型:变体key"，与 tactics.lua 保持一致
 local FORMATION_POSITIONS = {
-    ["4-4-2"] = {
-        {50, 5}, {15, 25}, {38, 28}, {62, 28}, {85, 25},
-        {15, 52}, {38, 55}, {62, 55}, {85, 52}, {35, 80}, {65, 80},
+    -- 4-4-2
+    ["4-4-2:flat"] = {
+        {50, 5},   -- GK
+        {15, 25}, {38, 28}, {62, 28}, {85, 25}, -- DEF
+        {15, 52}, {38, 55}, {62, 55}, {85, 52}, -- MID
+        {35, 80}, {65, 80},                      -- FWD
     },
-    ["4-3-3"] = {
-        {50, 5}, {15, 25}, {38, 28}, {62, 28}, {85, 25},
-        {30, 52}, {50, 55}, {70, 52}, {20, 80}, {50, 82}, {80, 80},
+    ["4-4-2:diamond"] = {
+        {50, 5},
+        {15, 25}, {38, 28}, {62, 28}, {85, 25},
+        {15, 52}, {50, 45}, {50, 65}, {85, 52},
+        {35, 80}, {65, 80},
     },
-    ["3-5-2"] = {
-        {50, 5}, {25, 25}, {50, 28}, {75, 25},
-        {10, 50}, {33, 55}, {50, 58}, {67, 55}, {90, 50}, {35, 80}, {65, 80},
+    ["4-4-2:hold"] = {
+        {50, 5},
+        {15, 25}, {38, 28}, {62, 28}, {85, 25},
+        {15, 52}, {38, 48}, {62, 48}, {85, 52},
+        {35, 80}, {65, 80},
     },
-    ["4-2-3-1"] = {
-        {50, 5}, {15, 25}, {38, 28}, {62, 28}, {85, 25},
-        {35, 48}, {65, 48}, {20, 68}, {50, 70}, {80, 68}, {50, 85},
+
+    -- 4-3-3
+    ["4-3-3:hold"] = {
+        {50, 5},
+        {15, 25}, {38, 28}, {62, 28}, {85, 25},
+        {35, 50}, {50, 42}, {65, 50},
+        {20, 80}, {50, 82}, {80, 80},
     },
-    ["5-3-2"] = {
-        {50, 5}, {10, 25}, {30, 28}, {50, 30}, {70, 28}, {90, 25},
-        {30, 52}, {50, 55}, {70, 52}, {35, 80}, {65, 80},
+    ["4-3-3:attack"] = {
+        {50, 5},
+        {15, 25}, {38, 28}, {62, 28}, {85, 25},
+        {35, 50}, {65, 50}, {50, 62},
+        {20, 80}, {50, 82}, {80, 80},
     },
-    ["4-5-1"] = {
-        {50, 5}, {15, 25}, {38, 28}, {62, 28}, {85, 25},
-        {15, 50}, {33, 55}, {50, 58}, {67, 55}, {85, 50}, {50, 82},
+    ["4-3-3:flat"] = {
+        {50, 5},
+        {15, 25}, {38, 28}, {62, 28}, {85, 25},
+        {30, 52}, {50, 55}, {70, 52},
+        {20, 80}, {50, 82}, {80, 80},
+    },
+
+    -- 3-5-2
+    ["3-5-2:default"] = {
+        {50, 5},
+        {25, 25}, {50, 28}, {75, 25},
+        {10, 50}, {33, 55}, {50, 48}, {67, 55}, {90, 50},
+        {35, 80}, {65, 80},
+    },
+    ["3-5-2:attack"] = {
+        {50, 5},
+        {25, 25}, {50, 28}, {75, 25},
+        {10, 50}, {50, 62}, {50, 48}, {67, 52}, {90, 50},
+        {35, 80}, {65, 80},
+    },
+    ["3-5-2:dhold"] = {
+        {50, 5},
+        {25, 25}, {50, 28}, {75, 25},
+        {10, 50}, {50, 55}, {38, 46}, {62, 46}, {90, 50},
+        {35, 80}, {65, 80},
+    },
+
+    -- 4-2-3-1
+    ["4-2-3-1:wide"] = {
+        {50, 5},
+        {15, 25}, {38, 28}, {62, 28}, {85, 25},
+        {35, 45}, {65, 45},
+        {50, 65}, {80, 68}, {20, 68},
+        {50, 85},
+    },
+    ["4-2-3-1:narrow"] = {
+        {50, 5},
+        {15, 25}, {38, 28}, {62, 28}, {85, 25},
+        {35, 45}, {65, 45},
+        {50, 65}, {68, 63}, {32, 63},
+        {50, 85},
+    },
+    ["4-2-3-1:asym"] = {
+        {50, 5},
+        {15, 25}, {38, 28}, {62, 28}, {85, 25},
+        {35, 45}, {65, 45},
+        {50, 65}, {80, 68}, {32, 63},
+        {50, 85},
+    },
+
+    -- 5-3-2
+    ["5-3-2:flat"] = {
+        {50, 5},
+        {10, 25}, {30, 28}, {50, 30}, {70, 28}, {90, 25},
+        {30, 52}, {50, 55}, {70, 52},
+        {35, 80}, {65, 80},
+    },
+    ["5-3-2:hold"] = {
+        {50, 5},
+        {10, 25}, {30, 28}, {50, 30}, {70, 28}, {90, 25},
+        {35, 52}, {50, 45}, {65, 52},
+        {35, 80}, {65, 80},
+    },
+    ["5-3-2:attack"] = {
+        {50, 5},
+        {10, 25}, {30, 28}, {50, 30}, {70, 28}, {90, 25},
+        {30, 52}, {70, 52}, {50, 62},
+        {35, 80}, {65, 80},
+    },
+
+    -- 4-5-1
+    ["4-5-1:default"] = {
+        {50, 5},
+        {15, 25}, {38, 28}, {62, 28}, {85, 25},
+        {15, 50}, {33, 55}, {50, 48}, {67, 55}, {85, 50},
+        {50, 82},
+    },
+    ["4-5-1:diamond"] = {
+        {50, 5},
+        {15, 25}, {38, 28}, {62, 28}, {85, 25},
+        {15, 50}, {50, 42}, {50, 62}, {67, 55}, {85, 50},
+        {50, 82},
+    },
+    ["4-5-1:flat"] = {
+        {50, 5},
+        {15, 25}, {38, 28}, {62, 28}, {85, 25},
+        {15, 50}, {33, 53}, {50, 55}, {67, 53}, {85, 50},
+        {50, 82},
     },
 }
+
+--- 获取当前阵型+变体的球场坐标（兼容 fallback）
+local function getFormationPositions(formation, variantKey)
+    local key = formation .. ":" .. (variantKey or "")
+    if FORMATION_POSITIONS[key] then
+        return FORMATION_POSITIONS[key]
+    end
+    -- fallback: 尝试该阵型的第一个变体
+    local defaultVKey = Constants.getDefaultVariant(formation)
+    local defaultKey = formation .. ":" .. defaultVKey
+    if FORMATION_POSITIONS[defaultKey] then
+        return FORMATION_POSITIONS[defaultKey]
+    end
+    return FORMATION_POSITIONS["4-4-2:flat"]
+end
 
 function PreMatch.create(params)
     local gameState = _G.gameState
@@ -260,7 +478,25 @@ function PreMatch.create(params)
                     -- 首发11人
                     Theme.Card {
                         children = {
-                            Theme.Subtitle { text = string.format("首发阵容 (%d/11)", #startingXI) },
+                            UI.Panel {
+                                width = "100%", flexDirection = "row", alignItems = "center", justifyContent = "space-between",
+                                children = {
+                                    Theme.Subtitle { text = string.format("首发阵容 (%d/11)", #startingXI) },
+                                    UI.Button {
+                                        text = "一键配置",
+                                        height = 26,
+                                        paddingLeft = 10, paddingRight = 10,
+                                        backgroundColor = {Theme.COLORS.ACCENT[1], Theme.COLORS.ACCENT[2], Theme.COLORS.ACCENT[3], 40},
+                                        borderRadius = 13,
+                                        fontSize = 11,
+                                        color = Theme.COLORS.ACCENT,
+                                        onClick = function()
+                                            _autoFullSquad(gameState, team)
+                                            Router.replaceWith("pre_match", { fixture = fixture })
+                                        end,
+                                    },
+                                },
+                            },
                             UI.Panel { width = "100%", marginTop = 4, children = startingRows },
                         }
                     },
@@ -451,8 +687,9 @@ end
 -- 球场视图（缩略版）
 ---------------------------------------------------------------------------
 function PreMatch._buildPitchView(startingXI, formation, gameState, team, fixture)
-    local positions = FORMATION_POSITIONS[formation] or FORMATION_POSITIONS["4-4-2"]
-    local slots = AIManager._getFormationSlots(formation, team and team.formationVariant or nil)
+    local variantKey = team and team.formationVariant or nil
+    local positions = getFormationPositions(formation, variantKey)
+    local slots = AIManager._getFormationSlots(formation, variantKey)
     local pitchW = 320
     local pitchH = 400
 
@@ -462,7 +699,8 @@ function PreMatch._buildPitchView(startingXI, formation, gameState, team, fixtur
     for i, pos in ipairs(positions) do
         local px = pos[1]
         local py = pos[2]
-        local left = math.floor(px / 100 * pitchW) - 16
+        -- 与 tactics.lua 一致: X 轴镜像，Y 轴翻转
+        local left = math.floor((100 - px) / 100 * pitchW) - 16
         local top = math.floor((100 - py) / 100 * pitchH) - 16
 
         local player = startingXI[i]
@@ -732,7 +970,7 @@ function PreMatch._playerRow(idx, player, isStarter, team, gameState, fixture)
                 justifyContent = "center", alignItems = "center",
                 children = {
                     UI.Label {
-                        text = tostring(player.overall), fontSize = 11, fontWeight = "bold",
+                        text = tostring(math.min(Constants.ABILITY_MAX, player.overall or 0)), fontSize = 11, fontWeight = "bold",
                         color = {255, 255, 255, 255},
                     },
                 },

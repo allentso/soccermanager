@@ -10,6 +10,9 @@ local tests = {
     "tests/contract_manager_test",
     "tests/transfer_manager_test",
     "tests/press_conference_manager_test",
+    "tests/youth_manager_fixes_test",
+    "tests/negotiation_flow_test",
+    "tests/overdue_fixture_test",
 }
 
 local failed = 0

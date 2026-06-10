@@ -26,7 +26,7 @@ home.balance = wageTotal
 status = FinanceManager.getFinanceHealth(gameState, home.id)
 assert(status == "critical", "short runway should be critical")
 
-home.balance = 1000000
+home.balance = 50000000  -- 5000万，足够支付设施升级费（baseCost=10M）
 local oldLevel = FinanceManager.ensureFacilities(home).training
 local ok = FinanceManager.upgradeFacility(gameState, "training")
 assert(ok == true, "facility upgrade should succeed with enough balance")

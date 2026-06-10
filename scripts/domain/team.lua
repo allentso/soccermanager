@@ -26,6 +26,7 @@ function Team.new(data)
     self.formation = data.formation or "4-4-2"
     self.playStyle = data.playStyle or "Balanced"
     self.startingXI = data.startingXI or {}  -- 球员ID列表
+    self.benchIds = data.benchIds or {}      -- 手动选择的替补席球员ID列表（空则自动计算）
     self.captain = data.captain or nil
     self.penaltyTaker = data.penaltyTaker or nil
     self.freeKickTaker = data.freeKickTaker or nil
@@ -37,19 +38,39 @@ function Team.new(data)
     self.transferBudget = data.transferBudget or 25000000  -- 默认2500万
     self.seasonIncome = data.seasonIncome or 0
     self.seasonExpense = data.seasonExpense or 0
+    self.incomeBreakdown = data.incomeBreakdown or {}
     self.transactions = data.transactions or {}
     self.facilities = data.facilities or { training = 1, medical = 1, scouting = 1 }
+    self.ticketStrategy = data.ticketStrategy or nil
+    self._lastMatchRevenue = data._lastMatchRevenue or nil
+    self.transferList = data.transferList or {}
+
+    -- 赞助合同（存档恢复）
+    self.sponsorContracts = data.sponsorContracts or nil
+    self.sponsorMonthlyTotal = data.sponsorMonthlyTotal or nil
+    self.sponsorContractChosen = data.sponsorContractChosen or nil
+    self.pendingSponsorOffers = data.pendingSponsorOffers or nil
+
+    -- 联赛排名（由 League:syncTeamPositions 维护）
+    self.leaguePosition = data.leaguePosition or nil
 
     -- 人员
     self.managerId = data.managerId or nil
     self.playerIds = data.playerIds or {}
     self.staffIds = data.staffIds or {}
+    self._youthPlayerIds = data._youthPlayerIds or {}
 
     -- 训练
     self.trainingFocus = data.trainingFocus or "balanced"
     self.trainingIntensity = data.trainingIntensity or Constants.TRAINING_INTENSITY.MEDIUM
     -- 训练分组: { [groupName] = { focus = "attack", playerIds = {...} } }
     self.trainingGroups = data.trainingGroups or {}
+
+    -- 赛季统计
+    self.seasonStats = data.seasonStats or {
+        wins = 0, draws = 0, losses = 0,
+        goalsFor = 0, goalsAgainst = 0,
+    }
 
     -- 历史
     self.history = data.history or {}
@@ -136,6 +157,7 @@ function Team:serialize()
         formation = self.formation,
         playStyle = self.playStyle,
         startingXI = self.startingXI,
+        benchIds = self.benchIds,
         captain = self.captain,
         penaltyTaker = self.penaltyTaker,
         freeKickTaker = self.freeKickTaker,
@@ -145,16 +167,27 @@ function Team:serialize()
         transferBudget = self.transferBudget,
         seasonIncome = self.seasonIncome,
         seasonExpense = self.seasonExpense,
+        incomeBreakdown = self.incomeBreakdown,
         transactions = self.transactions,
         facilities = self.facilities,
+        ticketStrategy = self.ticketStrategy,
+        _lastMatchRevenue = self._lastMatchRevenue,
+        transferList = self.transferList,
+        sponsorContracts = self.sponsorContracts,
+        sponsorMonthlyTotal = self.sponsorMonthlyTotal,
+        sponsorContractChosen = self.sponsorContractChosen,
+        pendingSponsorOffers = self.pendingSponsorOffers,
+        leaguePosition = self.leaguePosition,
         managerId = self.managerId,
         playerIds = self.playerIds,
         staffIds = self.staffIds,
         trainingFocus = self.trainingFocus,
         trainingIntensity = self.trainingIntensity,
         trainingGroups = self.trainingGroups,
+        seasonStats = self.seasonStats,
         history = self.history,
         recentForm = self.recentForm,
+        _youthPlayerIds = self._youthPlayerIds,
     }
 end
 

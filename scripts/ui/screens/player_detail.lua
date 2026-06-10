@@ -158,7 +158,7 @@ function PlayerDetail.create(params)
                         flexShrink = 1,
                     },
                     UI.Label {
-                        text = tostring(player.overall),
+                        text = tostring(player:displayOverall()),
                         fontSize = 16, color = Theme.COLORS.SECONDARY,
                         fontWeight = "bold", width = 36, textAlign = "center",
                     },
@@ -215,7 +215,8 @@ function PlayerDetail._buildOverview(player, team, age, gameState)
     local keyAttrItems = {}
     for _, ka in ipairs(keyAttrs) do
         local revealed = _isAttrRevealed(player.id, ka.key, scoutAcc)
-        local intValue = math.floor(ka.value + 0.5)
+        -- UI 显示上限: 最高20
+        local intValue = math.min(Constants.ATTR_MAX, math.floor(ka.value + 0.5))
         local displayValue = revealed and tostring(intValue) or "?"
         local barWidth = revealed and (math.floor(intValue / 20 * 100) .. "%") or "50%"
         local color
@@ -504,7 +505,8 @@ function PlayerDetail._buildAttributes(player)
 
     local function AttrRow(label, attrKey, value)
         local revealed = _isAttrRevealed(player.id, attrKey, scoutAcc)
-        local intVal = math.floor(value + 0.5)
+        -- UI 显示上限: 最高显示20（后台可能存21）
+        local intVal = math.min(Constants.ATTR_MAX, math.floor(value + 0.5))
         local color = Theme.COLORS.TEXT_PRIMARY
         if not revealed then
             color = Theme.COLORS.TEXT_MUTED
@@ -836,39 +838,111 @@ function PlayerDetail._buildContractActions(player, team, gameState)
             color = {255, 255, 255, 255},
             marginBottom = 10,
             onClick = function()
-                ConfirmDialog.show({
-                    title = "续约谈判",
-                    message = string.format(
-                        "向 %s 提出续约：\n周薪: %s（范围 %s ~ %s）\n年限: %d 年",
-                        player.displayName,
-                        PlayerDetail._formatMoney(suggestedTerms.wage),
-                        PlayerDetail._formatMoney(suggestedTerms.minWage),
-                        PlayerDetail._formatMoney(suggestedTerms.maxWage),
-                        suggestedTerms.years
-                    ),
-                    confirmText = "提出续约",
-                    danger = false,
-                    onConfirm = function()
-                        local success, err = ContractManager.renewContract(
-                            gameState, player.id, suggestedTerms.wage, suggestedTerms.years)
-                        if success then
-                            gameState:sendMessage({
-                                category = "transfer",
-                                title = "续约成功",
-                                body = player.displayName .. " 已同意续约，新合同为期 "
-                                    .. suggestedTerms.years .. " 年。",
-                                priority = "high",
-                            })
-                        else
-                            gameState:sendMessage({
-                                category = "transfer",
-                                title = "续约失败",
-                                body = player.displayName .. " 拒绝续约：" .. (err or "条件不满足"),
-                                priority = "normal",
-                            })
-                        end
-                        Router.replaceWith("player_detail", { playerId = player.id, tab = "contract" })
-                    end,
+                -- 可调整薪资和年限的续约面板
+                local offerWage = suggestedTerms.wage
+                local offerYears = suggestedTerms.years
+                local wageLabel = UI.Label {
+                    text = PlayerDetail._formatMoney(offerWage) .. " /周",
+                    fontSize = 15, fontWeight = "bold", color = Theme.COLORS.TEXT_PRIMARY,
+                }
+                local yearsLabel = UI.Label {
+                    text = tostring(offerYears) .. " 年",
+                    fontSize = 15, fontWeight = "bold", color = Theme.COLORS.TEXT_PRIMARY,
+                }
+                local chanceLabel = UI.Label {
+                    text = "",
+                    fontSize = 11, color = Theme.COLORS.TEXT_SECONDARY, marginTop = 4,
+                }
+                -- 计算接受概率提示
+                local function updateChanceHint()
+                    local ratio = offerWage / math.max(1, suggestedTerms.wage)
+                    local hint
+                    if ratio >= 1.5 then hint = "接受概率：极高"
+                    elseif ratio >= 1.2 then hint = "接受概率：高"
+                    elseif ratio >= 1.0 then hint = "接受概率：中等"
+                    elseif ratio >= 0.85 then hint = "接受概率：较低"
+                    else hint = "接受概率：很低" end
+                    chanceLabel:SetText(hint)
+                end
+                updateChanceHint()
+
+                BottomSheet.showCustom({
+                    title = "续约谈判 - " .. player.displayName,
+                    height = 400,
+                    children = {
+                        -- 薪资调整
+                        UI.Label { text = "周薪报价", fontSize = 12, color = Theme.COLORS.TEXT_SECONDARY, marginBottom = 4 },
+                        wageLabel,
+                        UI.Slider {
+                            value = offerWage,
+                            min = suggestedTerms.minWage,
+                            max = suggestedTerms.maxWage,
+                            step = math.max(100, math.floor((suggestedTerms.maxWage - suggestedTerms.minWage) / 20)),
+                            width = "100%",
+                            trackColor = {38, 46, 71, 255},
+                            fillColor = Theme.COLORS.SECONDARY,
+                            thumbColor = {255, 255, 255, 255},
+                            onChange = function(self, v)
+                                offerWage = math.floor(v)
+                                wageLabel:SetText(PlayerDetail._formatMoney(offerWage) .. " /周")
+                                updateChanceHint()
+                            end,
+                        },
+                        UI.Panel {
+                            flexDirection = "row", justifyContent = "space-between", marginTop = 2, marginBottom = 12,
+                            children = {
+                                UI.Label { text = PlayerDetail._formatMoney(suggestedTerms.minWage), fontSize = 10, color = Theme.COLORS.TEXT_MUTED },
+                                UI.Label { text = PlayerDetail._formatMoney(suggestedTerms.maxWage), fontSize = 10, color = Theme.COLORS.TEXT_MUTED },
+                            }
+                        },
+                        -- 年限调整
+                        UI.Label { text = "合同年限", fontSize = 12, color = Theme.COLORS.TEXT_SECONDARY, marginBottom = 4 },
+                        yearsLabel,
+                        UI.Slider {
+                            value = offerYears,
+                            min = 1,
+                            max = 5,
+                            step = 1,
+                            width = "100%",
+                            trackColor = {38, 46, 71, 255},
+                            fillColor = Theme.COLORS.PRIMARY,
+                            thumbColor = {255, 255, 255, 255},
+                            onChange = function(self, v)
+                                offerYears = math.floor(v)
+                                yearsLabel:SetText(tostring(offerYears) .. " 年")
+                            end,
+                        },
+                        UI.Panel {
+                            flexDirection = "row", justifyContent = "space-between", marginTop = 2, marginBottom = 8,
+                            children = {
+                                UI.Label { text = "1年", fontSize = 10, color = Theme.COLORS.TEXT_MUTED },
+                                UI.Label { text = "5年", fontSize = 10, color = Theme.COLORS.TEXT_MUTED },
+                            }
+                        },
+                        -- 接受概率提示
+                        chanceLabel,
+                        -- 确认按钮
+                        UI.Button {
+                            text = "提出续约",
+                            variant = "primary",
+                            width = "100%", height = 44,
+                            marginTop = 12,
+                            onClick = function()
+                                BottomSheet.close()
+                                local success, err = ContractManager.renewContract(
+                                    gameState, player.id, offerWage, offerYears)
+                                if not success then
+                                    gameState:sendMessage({
+                                        category = "transfer",
+                                        title = "续约提议失败",
+                                        body = player.displayName .. "：" .. (err or "条件不满足"),
+                                        priority = "normal",
+                                    })
+                                end
+                                Router.replaceWith("player_detail", { playerId = player.id, tab = "contract" })
+                            end,
+                        },
+                    },
                 })
             end,
         }
@@ -937,17 +1011,9 @@ function PlayerDetail._buildListForSaleBtn(player, isSafe, safetyReason, gameSta
                                 color = {255, 255, 255, 255},
                                 marginRight = 6,
                                 onClick = function()
-                                    ConfirmDialog.show({
-                                        title = "确认出售",
-                                        message = string.format("确认以 %.0fK 将 %s 出售给 %s？",
-                                            bid.amount / 1000, player.displayName, buyerName),
-                                        confirmText = "确认出售",
-                                        danger = false,
-                                        onConfirm = function()
-                                            TransferManager.acceptIncomingBid(gameState, bid.id)
-                                            Router.replaceWith("market", { tab = "listed" })
-                                        end,
-                                    })
+                                    TransferManager.acceptIncomingBid(gameState, bid.id)
+                                    UI.Toast.Show({ message = "已同意报价，请前往转会市场确认出售", variant = "success" })
+                                    Router.replaceWith("market", { tab = "listed" })
                                 end,
                             },
                             UI.Button {
@@ -1187,12 +1253,12 @@ function PlayerDetail._buildCareer(player, team, age, gameState)
                                         flexGrow = 1, height = 12, backgroundColor = {38, 46, 71, 255}, borderRadius = 6,
                                         children = {
                                             UI.Panel {
-                                                width = math.floor((player.overall or 0) / 99 * 100) .. "%",
+                                                width = math.floor(player:displayOverall() / 99 * 100) .. "%",
                                                 height = "100%", backgroundColor = Theme.COLORS.SECONDARY, borderRadius = 6,
                                             },
                                         }
                                     },
-                                    UI.Label { text = tostring(player.overall or 0), fontSize = 13, color = Theme.COLORS.SECONDARY,
+                                    UI.Label { text = tostring(player:displayOverall()), fontSize = 13, color = Theme.COLORS.SECONDARY,
                                         fontWeight = "bold", width = 30, textAlign = "right" },
                                 },
                             },

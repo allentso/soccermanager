@@ -154,7 +154,21 @@ function GameState:sendMessage(msg)
     msg.date = msg.date or {year = self.date.year, month = self.date.month, day = self.date.day}
     msg.read = false
     table.insert(self.inbox, 1, msg)  -- 新消息在前
+
+    -- 需要弹窗的消息加入待弹窗队列（UI层消费后清除）
+    if msg.popup then
+        if not self._popupQueue then self._popupQueue = {} end
+        table.insert(self._popupQueue, msg)
+    end
+
     return msg
+end
+
+--- 获取并清空弹窗消息队列
+function GameState:consumePopupQueue()
+    local queue = self._popupQueue or {}
+    self._popupQueue = {}
+    return queue
 end
 
 -- 添加新闻
@@ -242,6 +256,24 @@ function GameState:serialize()
         nationalTeamCoach = self.nationalTeamCoach,
         potentialRevealed = self.potentialRevealed or false,
         potentialRevealProgress = self.potentialRevealProgress or 0,
+        -- 青训系统状态
+        _youthCandidates = self._youthCandidates,
+        _youthRefreshCounter = self._youthRefreshCounter,
+        -- 传奇抽卡状态
+        _legendGacha = self._legendGacha,
+        -- 二级联赛升降级数据
+        secondDivision = self.secondDivision,
+        -- UCL迁移追踪
+        _uclCompletedSeasons = self._uclCompletedSeasons,
+        _uclOverwritePatched = self._uclOverwritePatched,
+        -- 求职系统状态
+        _isUnemployed = self._isUnemployed,
+        _unemployedSince = self._unemployedSince,
+        _pendingApplications = self._pendingApplications,
+        _pendingOffers = self._pendingOffers,
+        _offerCooldown = self._offerCooldown,
+        _managerRenewalOffer = self._managerRenewalOffer,
+        _managerRenewalOffered = self._managerRenewalOffered,
     }
 end
 
@@ -263,7 +295,17 @@ function GameState:deserialize(data)
     self.transfers = data.transfers or { bids = {}, history = {}, nextBidId = 1 }
     self.scoutReports = data.scoutReports or {}
     self.scoutDiscoveries = data.scoutDiscoveries or {}
-    self.shortlist = data.shortlist or {}
+
+    -- 修复：shortlist 使用数字 playerId 做 key，JSON 反序列化后变字符串
+    if data.shortlist then
+        self.shortlist = {}
+        for k, v in pairs(data.shortlist) do
+            local numKey = tonumber(k)
+            self.shortlist[numKey or k] = v
+        end
+    else
+        self.shortlist = {}
+    end
 
     -- 旧存档兼容：将 scoutReports 中混入的自动发现记录迁移到 scoutDiscoveries
     if #self.scoutReports > 0 then
@@ -282,6 +324,43 @@ function GameState:deserialize(data)
 
     self.potentialRevealed = data.potentialRevealed or false
     self.potentialRevealProgress = data.potentialRevealProgress or 0
+
+    -- 青训系统状态
+    self._youthCandidates = data._youthCandidates or {}
+    self._youthRefreshCounter = data._youthRefreshCounter or 0
+    -- 传奇抽卡状态
+    self._legendGacha = data._legendGacha or nil
+
+    -- UCL迁移追踪
+    self._uclCompletedSeasons = data._uclCompletedSeasons or nil
+    self._uclOverwritePatched = data._uclOverwritePatched or nil
+
+    -- 求职系统状态恢复
+    self._isUnemployed = data._isUnemployed or false
+    self._unemployedSince = data._unemployedSince
+    self._pendingApplications = data._pendingApplications or {}
+    self._pendingOffers = data._pendingOffers or {}
+    self._offerCooldown = data._offerCooldown or 0
+    self._managerRenewalOffer = data._managerRenewalOffer
+    self._managerRenewalOffered = data._managerRenewalOffered
+
+    -- 恢复二级联赛数据（升降级状态）
+    if data.secondDivision then
+        self.secondDivision = {}
+        for leagueKey, divData in pairs(data.secondDivision) do
+            self.secondDivision[leagueKey] = {
+                teamIds = divData.teamIds or {},
+                standings = {},
+            }
+            -- 归一化standings的key类型（字符串→数字）
+            if divData.standings then
+                for k, v in pairs(divData.standings) do
+                    local numKey = tonumber(k)
+                    self.secondDivision[leagueKey].standings[numKey or k] = v
+                end
+            end
+        end
+    end
 
     -- 恢复球员
     self.players = {}
@@ -316,6 +395,18 @@ function GameState:deserialize(data)
         for idStr, mData in pairs(data.managers) do
             local m = Manager.new(mData)
             self.managers[m.id] = m
+        end
+    end
+
+    -- 旧存档兼容：如果 _isUnemployed 未显式保存但经理实际无球队，推断为失业状态
+    if not data._isUnemployed and self.playerManagerId and self.managers[self.playerManagerId] then
+        local mgr = self.managers[self.playerManagerId]
+        if mgr.teamId == nil and self.playerTeamId == nil then
+            self._isUnemployed = true
+            self._unemployedSince = self._unemployedSince or {
+                year = self.date.year, month = self.date.month, day = self.date.day
+            }
+            print("[SaveMigration] Inferred unemployment status for player manager")
         end
     end
 
@@ -358,6 +449,117 @@ function GameState:deserialize(data)
     self.worldCup = nil
     if data.worldCup then
         self.worldCup = Tournament.new(data.worldCup)
+    end
+
+    -- 迁移：验证并修复联赛积分榜一致性
+    -- 旧版本存在 bug：读档后 standings 的 key 变为字符串，导致 updateStanding 静默失败
+    -- 如果玩家在有 bug 的版本中继续游戏并存档，standings 会与 fixtures 不一致
+    -- 此处从已完成的 fixtures 重建积分榜，确保数据正确
+    for _, lg in pairs(self.leagues) do
+        if lg.fixtures and #lg.fixtures > 0 then
+            -- 统计 fixtures 中已完成比赛的实际总场次
+            local finishedCount = 0
+            for _, f in ipairs(lg.fixtures) do
+                if f.status == "finished" then
+                    finishedCount = finishedCount + 1
+                end
+            end
+
+            -- 统计当前 standings 中记录的总场次
+            local standingsPlayed = 0
+            for _, s in pairs(lg.standings) do
+                standingsPlayed = standingsPlayed + s.played
+            end
+            -- 每场比赛贡献 2 次 played（主+客各 +1）
+            local expectedPlayed = finishedCount * 2
+
+            -- 如果不一致，说明有比赛结果没被正确计入积分榜，需要重建
+            if expectedPlayed > 0 and standingsPlayed ~= expectedPlayed then
+                -- 重建：先清零 standings，再从 fixtures 逐场重算
+                for _, tid in ipairs(lg.teamIds) do
+                    lg.standings[tid] = {
+                        teamId = tid,
+                        played = 0,
+                        wins = 0,
+                        draws = 0,
+                        losses = 0,
+                        goalsFor = 0,
+                        goalsAgainst = 0,
+                        goalDifference = 0,
+                        points = 0,
+                    }
+                end
+                for _, f in ipairs(lg.fixtures) do
+                    if f.status == "finished" then
+                        lg:updateStanding(f)
+                    end
+                end
+                print("[SaveMigration] Rebuilt standings for league: " .. (lg.name or "unknown"))
+            end
+        end
+    end
+
+    -- 迁移：验证并修复欧冠/世界杯联赛阶段积分榜一致性
+    local tournaments = {}
+    if self.championsLeague then table.insert(tournaments, self.championsLeague) end
+    if self.worldCup then table.insert(tournaments, self.worldCup) end
+    for _, tourney in ipairs(tournaments) do
+        -- 联赛阶段（瑞士制）
+        local lp = tourney.leaguePhase
+        if lp and lp.fixtures and #lp.fixtures > 0 and lp.standings then
+            local finishedCount = 0
+            for _, f in ipairs(lp.fixtures) do
+                if f.status == "finished" then finishedCount = finishedCount + 1 end
+            end
+            local standingsPlayed = 0
+            for _, s in pairs(lp.standings) do
+                standingsPlayed = standingsPlayed + s.played
+            end
+            if finishedCount * 2 > 0 and standingsPlayed ~= finishedCount * 2 then
+                for tid, s in pairs(lp.standings) do
+                    s.played = 0; s.wins = 0; s.draws = 0; s.losses = 0
+                    s.goalsFor = 0; s.goalsAgainst = 0; s.goalDifference = 0; s.points = 0
+                end
+                for _, f in ipairs(lp.fixtures) do
+                    if f.status == "finished" then
+                        tourney:updateLeagueStanding(f)
+                    end
+                end
+                print("[SaveMigration] Rebuilt leaguePhase standings for: " .. (tourney.name or "unknown"))
+            end
+        end
+        -- 小组赛
+        if tourney.groups then
+            for groupName, group in pairs(tourney.groups) do
+                if group.fixtures and #group.fixtures > 0 and group.standings then
+                    local finishedCount = 0
+                    for _, f in ipairs(group.fixtures) do
+                        if f.status == "finished" then finishedCount = finishedCount + 1 end
+                    end
+                    local standingsPlayed = 0
+                    for _, s in pairs(group.standings) do
+                        standingsPlayed = standingsPlayed + s.played
+                    end
+                    if finishedCount * 2 > 0 and standingsPlayed ~= finishedCount * 2 then
+                        for tid, s in pairs(group.standings) do
+                            s.played = 0; s.wins = 0; s.draws = 0; s.losses = 0
+                            s.goalsFor = 0; s.goalsAgainst = 0; s.goalDifference = 0; s.points = 0
+                        end
+                        for _, f in ipairs(group.fixtures) do
+                            if f.status == "finished" then
+                                tourney:updateGroupStanding(groupName, f)
+                            end
+                        end
+                        print("[SaveMigration] Rebuilt group " .. groupName .. " standings for: " .. (tourney.name or "unknown"))
+                    end
+                end
+            end
+        end
+    end
+
+    -- 从积分榜同步各球队的 leaguePosition（转播/赞助公式依赖此字段）
+    for _, lg in pairs(self.leagues) do
+        lg:syncTeamPositions(self)
     end
 end
 

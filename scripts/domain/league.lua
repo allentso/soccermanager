@@ -18,7 +18,18 @@ function League.new(data)
     self.fixtures = data.fixtures or {}
 
     -- 积分榜
-    self.standings = data.standings or {}
+    -- 修复：JSON反序列化后数字key变为字符串key的问题
+    -- cjson将对象key统一转为字符串，但fixture.homeTeamId/awayTeamId作为值仍是数字
+    -- 导致 standings[numericId] 查找失败（updateStanding静默返回）
+    if data.standings then
+        self.standings = {}
+        for k, v in pairs(data.standings) do
+            local numKey = tonumber(k)
+            self.standings[numKey or k] = v
+        end
+    else
+        self.standings = {}
+    end
 
     return self
 end
@@ -195,6 +206,18 @@ function League:getTeamPosition(teamId)
     return 0
 end
 
+--- 将积分榜排名同步到各球队的 leaguePosition 字段
+--- @param gameState table 全局状态（需要访问 teams 表）
+function League:syncTeamPositions(gameState)
+    local sorted = self:getSortedStandings()
+    for i, s in ipairs(sorted) do
+        local team = gameState.teams[s.teamId]
+        if team then
+            team.leaguePosition = i
+        end
+    end
+end
+
 -- 获取当前轮次的比赛
 function League:getFixturesByRound(round)
     local result = {}
@@ -229,20 +252,35 @@ function League:isSeasonComplete()
     return true
 end
 
+-- 判断是否闰年
+function League._isLeapYear(year)
+    return (year % 4 == 0 and year % 100 ~= 0) or (year % 400 == 0)
+end
+
+-- 获取某月的天数（考虑闰年）
+function League._daysInMonth(month, year)
+    local days = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31}
+    if month == 2 and League._isLeapYear(year) then
+        return 29
+    end
+    return days[month]
+end
+
 -- 日期辅助函数
 function League._addDays(date, days)
-    local daysInMonth = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31}
     local d = date.day + days
     local m = date.month
     local y = date.year
 
-    while d > daysInMonth[m] do
-        d = d - daysInMonth[m]
+    local dim = League._daysInMonth(m, y)
+    while d > dim do
+        d = d - dim
         m = m + 1
         if m > 12 then
             m = 1
             y = y + 1
         end
+        dim = League._daysInMonth(m, y)
     end
     return {year = y, month = m, day = d}
 end

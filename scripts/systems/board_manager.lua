@@ -33,8 +33,9 @@ local TARGET_THRESHOLDS = {
 }
 
 -- AI教练解雇阈值
-local AI_SACK_SATISFACTION = 20       -- 满意度低于此值触发解雇
-local AI_WARNING_THRESHOLD = 25       -- 满意度低于此值触发警告
+local AI_SACK_SATISFACTION = 25       -- 满意度低于此值触发解雇
+local AI_PROB_SACK_THRESHOLD = 35    -- 满意度低于此值有概率解雇
+local AI_WARNING_THRESHOLD = 30       -- 满意度低于此值触发警告
 local PLAYER_SACK_WARNINGS = 3       -- 玩家累计警告次数触发解雇
 
 ------------------------------------------------------
@@ -93,6 +94,20 @@ function BoardManager.monthlyEvaluation(gameState)
         local threshold = TARGET_THRESHOLDS[team.boardObjective] or 10
         local totalTeams = #league.teamIds
 
+        -- 赛季初保护：前3个月董事会更宽容（赛季刚开始排名不稳定）
+        local matchesPlayed = 0
+        local standings = league.standings or {}
+        for _, entry in ipairs(standings) do
+            if entry.teamId == teamId then
+                matchesPlayed = entry.played or 0
+                break
+            end
+        end
+        local earlySeasonFactor = 1.0
+        if matchesPlayed < 10 then
+            earlySeasonFactor = 0.5  -- 前10场比赛评估力度减半
+        end
+
         -- 计算目标达成度 (-1.0 ~ +1.0)
         local progressRatio = 0
         if position <= threshold then
@@ -103,8 +118,8 @@ function BoardManager.monthlyEvaluation(gameState)
             progressRatio = math.max(progressRatio, -1.0)
         end
 
-        -- 满意度变化
-        local delta = math.floor(progressRatio * 15)
+        -- 满意度变化（赛季初力度减弱）
+        local delta = math.floor(progressRatio * 15 * earlySeasonFactor)
 
         -- 近期状态加成
         local form = team.recentForm or {}
@@ -134,14 +149,26 @@ function BoardManager.monthlyEvaluation(gameState)
                     dedupeKey = "board_warning_" .. gameState.date.month,
                 })
 
-                -- 连续3次警告→解雇玩家
+                -- 连续警告→解雇玩家（需要更多次数，给教练更多时间调整）
                 if team.boardWarnings >= PLAYER_SACK_WARNINGS then
-                    BoardManager._triggerPlayerSack(gameState)
+                    -- 额外保护：如果经理声望高于球队声望，给予额外容忍
+                    local manager = gameState:getPlayerManager()
+                    local managerRep = manager and manager.reputation or 30
+                    local teamRep = team.reputation or 50
+                    local extraTolerance = (managerRep > teamRep) and 1 or 0
+                    if team.boardWarnings >= PLAYER_SACK_WARNINGS + extraTolerance then
+                        BoardManager._triggerPlayerSack(gameState)
+                    end
                 end
             else
-                -- AI教练：满意度极低直接解雇
+                -- AI教练：满意度极低直接解雇，中等偏低有概率解雇
                 if team.boardSatisfaction < AI_SACK_SATISFACTION then
                     BoardManager._triggerAISack(gameState, teamId)
+                elseif team.boardSatisfaction < AI_PROB_SACK_THRESHOLD and (team.boardWarnings or 0) >= 2 then
+                    -- 满意度25-35之间且累计2次警告：30%概率解雇
+                    if Random() < 0.30 then
+                        BoardManager._triggerAISack(gameState, teamId)
+                    end
                 end
             end
         elseif team.boardSatisfaction >= 75 then
@@ -156,6 +183,9 @@ end
 --- 赛季结束评估（所有球队）
 ---@param gameState table
 function BoardManager.seasonEndEvaluation(gameState)
+    -- 作弊模式跳过董事会评估（防止测试时被辞退）
+    if gameState._cheatAutoPlay then return end
+
     for teamId, team in pairs(gameState.teams) do
         if not team.boardObjective then goto continue_team end
 
@@ -208,8 +238,8 @@ function BoardManager.seasonEndEvaluation(gameState)
                     BoardManager._triggerPlayerSack(gameState)
                 end
             else
-                -- AI教练：严重偏离目标 → 解雇
-                if position and position > threshold + 4 then
+                -- AI教练：偏离目标 → 解雇
+                if position and position > threshold + 3 then
                     BoardManager._triggerAISack(gameState, teamId)
                 end
             end

@@ -4,6 +4,7 @@
 
 local TacticsResolver = require("scripts/match/tactics_resolver")
 local RecordsManager = require("scripts/systems/records_manager")
+local DifficultySettings = require("scripts/systems/difficulty_settings")
 
 local PlaceholderEngine = {}
 
@@ -56,9 +57,23 @@ function PlaceholderEngine.simulate(gameState, fixture)
     local awayAttack = awayCtx.attack * (1 + awayTacticalBonus)
     local homeDefense = homeCtx.defense * 1.08 * (1 + homeTacticalBonus)
 
-    -- 期望进球 = 攻击力 / 防守力 * 基础系数
-    local homeExpGoals = (homeAttack / math.max(1, awayDefense)) * 1.4 + Random() * 0.3
-    local awayExpGoals = (awayAttack / math.max(1, homeDefense)) * 1.2 + Random() * 0.3
+    -- 难度修正：爆冷概率
+    local matchMods = DifficultySettings.getMatchModifiers()
+
+    -- 期望进球 = 攻击力 / 防守力 * 基础系数 + 随机方差（受难度影响）
+    local homeExpGoals = (homeAttack / math.max(1, awayDefense)) * 1.35 + Random() * 0.2 * matchMods.varianceFactor
+    local awayExpGoals = (awayAttack / math.max(1, homeDefense)) * 1.15 + Random() * 0.2 * matchMods.varianceFactor
+
+    -- 弱队加成：当攻防差距大时，给弱队额外期望进球（提高爆冷几率）
+    local homeStrength = homeAttack + homeDefense
+    local awayStrength = awayAttack + awayDefense
+    if homeStrength > awayStrength * 1.2 then
+        -- 客队是弱队，给客队加成
+        awayExpGoals = awayExpGoals + matchMods.underdogBoost
+    elseif awayStrength > homeStrength * 1.2 then
+        -- 主队是弱队，给主队加成
+        homeExpGoals = homeExpGoals + matchMods.underdogBoost
+    end
 
     -- 生成比赛事件（先生成卡牌/伤病，用于动态响应）
     local events = {}
@@ -201,7 +216,121 @@ function PlaceholderEngine._getMatchPlayers(gameState, team)
     return players
 end
 
+------------------------------------------------------
+-- 更新球员比赛统计（出场/进球/助攻/红黄牌/评分/体能）
+-- 供 UCL/世界杯等不走 applyResult 的比赛路径调用
+------------------------------------------------------
 
+function PlaceholderEngine.applyPlayerMatchStats(gameState, fixture, report)
+    if not report then return end
+
+    -- 1. 处理比赛事件（进球/红黄牌/伤病）
+    for _, evt in ipairs(report.events or {}) do
+        local p = gameState.players[evt.playerId]
+        if not p then goto continue_evt end
+
+        if evt.type == "goal" and not evt.isOwnGoal then
+            p.seasonStats.goals = p.seasonStats.goals + 1
+        elseif evt.type == "yellow_card" then
+            p.seasonStats.yellowCards = p.seasonStats.yellowCards + 1
+        elseif evt.type == "red_card" then
+            p.seasonStats.redCards = p.seasonStats.redCards + 1
+        elseif evt.type == "injury" then
+            p.injured = true
+            p.injuryDays = evt.injuryDays or RandomInt(3, 14)
+            if p.teamId == gameState.playerTeamId then
+                gameState:sendMessage({
+                    category = "injury",
+                    title = "比赛伤病",
+                    body = string.format("%s 在比赛中受伤，预计 %d 天恢复。", p.displayName, p.injuryDays),
+                    priority = "high",
+                })
+            end
+        end
+
+        if evt.type == "goal" and evt.assistPlayerId then
+            local assister = gameState.players[evt.assistPlayerId]
+            if assister then
+                assister.seasonStats.assists = assister.seasonStats.assists + 1
+            end
+        end
+
+        ::continue_evt::
+    end
+
+    -- 2. 更新出场数和评分
+    local homeTeam = gameState.teams[fixture.homeTeamId]
+    local awayTeam = gameState.teams[fixture.awayTeamId]
+    local matchPlayers = {}
+
+    if homeTeam then
+        local players = PlaceholderEngine._getMatchPlayers(gameState, homeTeam)
+        for _, p in ipairs(players) do table.insert(matchPlayers, p) end
+    end
+    if awayTeam then
+        local players = PlaceholderEngine._getMatchPlayers(gameState, awayTeam)
+        for _, p in ipairs(players) do table.insert(matchPlayers, p) end
+    end
+
+    for _, p in ipairs(matchPlayers) do
+        p.seasonStats.appearances = p.seasonStats.appearances + 1
+        if report.playerRatings and report.playerRatings[p.id] then
+            local matchRating = report.playerRatings[p.id]
+            local apps = p.seasonStats.appearances
+            if apps <= 1 then
+                p.seasonStats.avgRating = matchRating
+            else
+                p.seasonStats.avgRating = p.seasonStats.avgRating + (matchRating - p.seasonStats.avgRating) / apps
+                p.seasonStats.avgRating = math.floor(p.seasonStats.avgRating * 10) / 10
+            end
+        end
+
+        if p.position == "GK" then
+            local isHome = p.teamId == fixture.homeTeamId
+            if (isHome and (report.awayGoals or 0) == 0) or (not isHome and (report.homeGoals or 0) == 0) then
+                p.seasonStats.cleanSheets = p.seasonStats.cleanSheets + 1
+            end
+        end
+    end
+
+    -- 3. 体能消耗
+    local drainData = TacticsResolver.POSITION_STAMINA_DRAIN
+    if drainData then
+        for _, p in ipairs(matchPlayers) do
+            local group = "MID"
+            if p.position == "GK" then group = "GK"
+            elseif p.position == "CB" or p.position == "LB" or p.position == "RB" then group = "DEF"
+            elseif p.position == "ST" or p.position == "CF" or p.position == "LW" or p.position == "RW" then group = "FWD"
+            end
+            local range = drainData[group] or { 15, 22 }
+            local baseDrain = RandomInt(range[1], range[2])
+            local staminaAttr = (p.attributes and p.attributes.stamina) or 10
+            local staminaDiscount = 0.7 + (staminaAttr / 20) * 0.3
+            local finalDrain = math.floor(baseDrain / staminaDiscount + 0.5)
+            p.fitness = math.max(40, (p.fitness or 80) - finalDrain)
+        end
+    end
+
+    -- 4. 更新球队赛季统计（UCL/杯赛也计入球队总成绩）
+    local homeGoals = report.homeGoals or 0
+    local awayGoals = report.awayGoals or 0
+    if homeTeam then
+        if not homeTeam.seasonStats then homeTeam.seasonStats = { wins = 0, draws = 0, losses = 0, goalsFor = 0, goalsAgainst = 0 } end
+        homeTeam.seasonStats.goalsFor = (homeTeam.seasonStats.goalsFor or 0) + homeGoals
+        homeTeam.seasonStats.goalsAgainst = (homeTeam.seasonStats.goalsAgainst or 0) + awayGoals
+        if homeGoals > awayGoals then homeTeam.seasonStats.wins = (homeTeam.seasonStats.wins or 0) + 1
+        elseif homeGoals < awayGoals then homeTeam.seasonStats.losses = (homeTeam.seasonStats.losses or 0) + 1
+        else homeTeam.seasonStats.draws = (homeTeam.seasonStats.draws or 0) + 1 end
+    end
+    if awayTeam then
+        if not awayTeam.seasonStats then awayTeam.seasonStats = { wins = 0, draws = 0, losses = 0, goalsFor = 0, goalsAgainst = 0 } end
+        awayTeam.seasonStats.goalsFor = (awayTeam.seasonStats.goalsFor or 0) + awayGoals
+        awayTeam.seasonStats.goalsAgainst = (awayTeam.seasonStats.goalsAgainst or 0) + homeGoals
+        if awayGoals > homeGoals then awayTeam.seasonStats.wins = (awayTeam.seasonStats.wins or 0) + 1
+        elseif awayGoals < homeGoals then awayTeam.seasonStats.losses = (awayTeam.seasonStats.losses or 0) + 1
+        else awayTeam.seasonStats.draws = (awayTeam.seasonStats.draws or 0) + 1 end
+    end
+end
 
 ------------------------------------------------------
 -- 战术相克加成
@@ -468,7 +597,8 @@ function PlaceholderEngine._calcPlayerRatings(homePlayers, awayPlayers, homeGoal
         -- 进球加分
         for _, evt in ipairs(events) do
             if evt.playerId == p.id then
-                if evt.type == "goal" then rating = rating + 1.0
+                if evt.type == "goal" and not evt.isOwnGoal then rating = rating + 1.0
+                elseif evt.type == "goal" and evt.isOwnGoal then rating = rating - 1.0
                 elseif evt.type == "yellow_card" then rating = rating - 0.3
                 elseif evt.type == "red_card" then rating = rating - 1.5
                 elseif evt.type == "injury" then rating = rating - 0.5
@@ -496,8 +626,12 @@ function PlaceholderEngine._calcPlayerRatings(homePlayers, awayPlayers, homeGoal
             end
         end
 
-        -- 随机波动
-        rating = rating + (Random() - 0.5) * 0.6
+        -- 随机波动（传奇球员更稳定：波动更小 + 底分加成）
+        if p.isLegend then
+            rating = rating + (Random() - 0.5) * 0.2 + 0.2
+        else
+            rating = rating + (Random() - 0.5) * 0.6
+        end
 
         -- 限制范围 [4.0, 10.0]
         rating = math.max(4.0, math.min(10.0, rating))
@@ -881,6 +1015,9 @@ end
 ------------------------------------------------------
 
 function PlaceholderEngine.applyResult(gameState, fixture, report)
+    -- 幂等性保护：防止同一场比赛被重复计入积分榜
+    if fixture.status == "finished" then return report end
+
     -- 更新比赛状态
     fixture.status = "finished"
     fixture.homeGoals = report.homeGoals
@@ -912,7 +1049,7 @@ function PlaceholderEngine.applyResult(gameState, fixture, report)
         local p = gameState.players[evt.playerId]
         if not p then goto continue end
 
-        if evt.type == "goal" then
+        if evt.type == "goal" and not evt.isOwnGoal then
             p.seasonStats.goals = p.seasonStats.goals + 1
         elseif evt.type == "yellow_card" then
             p.seasonStats.yellowCards = p.seasonStats.yellowCards + 1
@@ -1008,16 +1145,32 @@ function PlaceholderEngine.applyResult(gameState, fixture, report)
         p.fitness = math.max(40, (p.fitness or 80) - finalDrain)
     end
 
-    -- 更新球队近期状态
+    -- 更新球队近期状态 + 球队赛季统计
+    local homeGoals = report.homeGoals or 0
+    local awayGoals = report.awayGoals or 0
     if homeTeam then
-        local form = report.homeGoals > report.awayGoals and "W" or (report.homeGoals == report.awayGoals and "D" or "L")
+        local form = homeGoals > awayGoals and "W" or (homeGoals == awayGoals and "D" or "L")
         table.insert(homeTeam.recentForm, 1, form)
         if #homeTeam.recentForm > 5 then table.remove(homeTeam.recentForm) end
+        -- 更新球队赛季统计
+        if not homeTeam.seasonStats then homeTeam.seasonStats = { wins = 0, draws = 0, losses = 0, goalsFor = 0, goalsAgainst = 0 } end
+        homeTeam.seasonStats.goalsFor = (homeTeam.seasonStats.goalsFor or 0) + homeGoals
+        homeTeam.seasonStats.goalsAgainst = (homeTeam.seasonStats.goalsAgainst or 0) + awayGoals
+        if homeGoals > awayGoals then homeTeam.seasonStats.wins = (homeTeam.seasonStats.wins or 0) + 1
+        elseif homeGoals < awayGoals then homeTeam.seasonStats.losses = (homeTeam.seasonStats.losses or 0) + 1
+        else homeTeam.seasonStats.draws = (homeTeam.seasonStats.draws or 0) + 1 end
     end
     if awayTeam then
-        local form = report.awayGoals > report.homeGoals and "W" or (report.awayGoals == report.homeGoals and "D" or "L")
+        local form = awayGoals > homeGoals and "W" or (awayGoals == homeGoals and "D" or "L")
         table.insert(awayTeam.recentForm, 1, form)
         if #awayTeam.recentForm > 5 then table.remove(awayTeam.recentForm) end
+        -- 更新球队赛季统计
+        if not awayTeam.seasonStats then awayTeam.seasonStats = { wins = 0, draws = 0, losses = 0, goalsFor = 0, goalsAgainst = 0 } end
+        awayTeam.seasonStats.goalsFor = (awayTeam.seasonStats.goalsFor or 0) + awayGoals
+        awayTeam.seasonStats.goalsAgainst = (awayTeam.seasonStats.goalsAgainst or 0) + homeGoals
+        if awayGoals > homeGoals then awayTeam.seasonStats.wins = (awayTeam.seasonStats.wins or 0) + 1
+        elseif awayGoals < homeGoals then awayTeam.seasonStats.losses = (awayTeam.seasonStats.losses or 0) + 1
+        else awayTeam.seasonStats.draws = (awayTeam.seasonStats.draws or 0) + 1 end
     end
 
     -- 更新联赛当前轮次（当该轮所有比赛完成后推进到下一轮）

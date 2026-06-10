@@ -16,6 +16,11 @@ function Manager.new(data)
     self.isPlayer = data.isPlayer or false  -- 是否为玩家控制
     self.reputation = data.reputation or 30
 
+    -- 合同信息
+    self.wage = data.wage or 5000               -- 周薪
+    self.contractEnd = data.contractEnd or nil   -- {year, month} 合同到期时间
+    self.contractYears = data.contractYears or 2 -- 合同总年限
+
     -- 执教统计
     self.stats = data.stats or {
         wins = 0,
@@ -51,6 +56,9 @@ function Manager:serialize()
         teamId = self.teamId,
         isPlayer = self.isPlayer,
         reputation = self.reputation,
+        wage = self.wage,
+        contractEnd = self.contractEnd,
+        contractYears = self.contractYears,
         stats = self.stats,
         career = self.career,
     }

@@ -4,8 +4,8 @@
 local Constants = {}
 
 -- 游戏版本
-Constants.VERSION = "0.1.0"
-Constants.SAVE_VERSION = 1
+Constants.VERSION = "1.3.2"
+Constants.SAVE_VERSION = 4
 
 -- 赛季设置
 Constants.SEASON_START_MONTH = 8   -- 8月开始
@@ -28,6 +28,15 @@ Constants.POTENTIAL_MIN = 40
 Constants.POTENTIAL_MAX = 99
 Constants.ABILITY_MIN = 20
 Constants.ABILITY_MAX = 99
+
+-- 巨星溢出机制：PA >= 95 (9.5+) 的球员可突破普通上限
+Constants.SUPERSTAR_POTENTIAL_THRESHOLD = 95  -- PA 阈值
+Constants.SUPERSTAR_ATTR_MAX = 21             -- 关键属性上限（普通20）
+Constants.SUPERSTAR_OVERALL_MAX = 101         -- 总评上限（普通99→实际计算可达~100+）
+
+-- 传奇球员溢出机制：比巨星更高的天花板
+Constants.LEGEND_ATTR_MAX = 23                -- 传奇属性上限（巨星21→传奇23）
+Constants.LEGEND_OVERALL_MAX = 103            -- 传奇总评上限
 
 -- 士气范围
 Constants.MORALE_MIN = 20

@@ -192,6 +192,8 @@ function BindEvents()
             teamId = teamId,
             isPlayer = true,
             reputation = 30,
+            contractEnd = {year = gs.date.year + 3, month = 6},
+            contractYears = 3,
         })
 
         -- 解除原AI经理

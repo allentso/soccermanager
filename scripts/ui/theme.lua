@@ -102,7 +102,7 @@ end
 function Theme.BottomNav(props)
     return UI.Panel {
         width = "100%",
-        height = 66,
+        height = 58,
         backgroundColor = Theme.COLORS.BG_HEADER,
         flexDirection = "row",
         alignItems = "center",
@@ -116,41 +116,20 @@ end
 -- 导航按钮
 function Theme.NavButton(props)
     local isActive = props.active or false
-    local isCenter = props.center or false
-    local iconBg = isCenter and (isActive and {255, 82, 96, 255} or {80, 48, 58, 255})
-        or (isActive and {Theme.COLORS.GOLD[1], Theme.COLORS.GOLD[2], Theme.COLORS.GOLD[3], 34} or Theme.COLORS.TRANSPARENT)
-    local labelColor = isActive and (isCenter and Theme.COLORS.TEXT_PRIMARY or Theme.COLORS.GOLD) or Theme.COLORS.TEXT_MUTED
     return UI.Panel {
-        width = 58,
-        height = 56,
+        width = 64,
+        height = 42,
         justifyContent = "center",
         alignItems = "center",
-        borderRadius = isCenter and 22 or 12,
-        backgroundColor = Theme.COLORS.TRANSPARENT,
+        borderRadius = 10,
+        backgroundColor = isActive and "rgba(212,175,55,0.15)" or Theme.COLORS.TRANSPARENT,
         onClick = props.onClick,
         children = {
-            UI.Panel {
-                width = isCenter and 44 or 28,
-                height = isCenter and 44 or 24,
-                borderRadius = isCenter and 22 or 12,
-                backgroundColor = iconBg,
-                justifyContent = "center",
-                alignItems = "center",
-                marginBottom = isCenter and -2 or 2,
-                children = {
-                    UI.Label {
-                        text = props.icon or "",
-                        fontSize = isCenter and 18 or 16,
-                        fontWeight = "bold",
-                        color = labelColor,
-                    },
-                },
-            },
             UI.Label {
                 text = props.label or "",
-                fontSize = 11,
+                fontSize = 12,
                 fontWeight = isActive and "bold" or "normal",
-                color = labelColor,
+                color = isActive and Theme.COLORS.GOLD or Theme.COLORS.TEXT_MUTED,
             },
         },
     }
@@ -239,7 +218,6 @@ function Theme.MainNav(activeTab)
     return Theme.BottomNav {
         children = {
             Theme.NavButton {
-                icon = "♜",
                 label = "赛事",
                 active = (activeTab == "league"),
                 onClick = function()
@@ -253,7 +231,6 @@ function Theme.MainNav(activeTab)
                 end,
             },
             Theme.NavButton {
-                icon = "◌",
                 label = "球队",
                 active = (activeTab == "squad"),
                 onClick = function()
@@ -272,28 +249,17 @@ function Theme.MainNav(activeTab)
                 end,
             },
             Theme.NavButton {
-                icon = "⌂",
                 label = "主页",
-                center = true,
                 active = (activeTab == "home"),
                 onClick = function()
                     if activeTab ~= "home" then Router.navigate("dashboard") end
                 end,
             },
             Theme.NavButton {
-                icon = "⇄",
                 label = "市场",
                 active = (activeTab == "market"),
                 onClick = function()
                     if activeTab ~= "market" then Router.navigate("market") end
-                end,
-            },
-            Theme.NavButton {
-                icon = "☷",
-                label = "更多",
-                active = (activeTab == "more"),
-                onClick = function()
-                    if activeTab ~= "more" then Router.navigate("inbox") end
                 end,
             },
         }
@@ -616,12 +582,19 @@ function Theme.PlayerRow(props)
         borderBottomWidth = 1,
         borderColor = Theme.COLORS.BORDER,
         children = {
-            UI.Label {
-                text = Constants.POSITION_NAMES[player.position] or player.position,
-                fontSize = 12,
-                color = posColor,
-                width = 48,
-                fontWeight = "bold",
+            UI.Panel {
+                backgroundColor = {posColor[1], posColor[2], posColor[3], 50},
+                borderRadius = 3,
+                paddingLeft = 4, paddingRight = 4, paddingTop = 1, paddingBottom = 1,
+                marginRight = 6, minWidth = 42,
+                children = {
+                    UI.Label {
+                        text = Constants.POSITION_NAMES[player.position] or player.position,
+                        fontSize = 10,
+                        color = posColor,
+                        fontWeight = "bold",
+                    },
+                },
             },
             UI.Label {
                 text = player.displayName or (player.firstName .. " " .. player.lastName),
@@ -630,7 +603,7 @@ function Theme.PlayerRow(props)
                 flexGrow = 1,
             },
             UI.Label {
-                text = tostring(player.overall),
+                text = tostring(math.min(Constants.ABILITY_MAX, player.overall or 0)),
                 fontSize = 14,
                 color = player.overall >= 70 and Theme.COLORS.SECONDARY or Theme.COLORS.TEXT_SECONDARY,
                 width = 30,

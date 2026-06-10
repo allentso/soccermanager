@@ -28,7 +28,26 @@ assert(bid.installments and #bid.installments == 3, "installments should be atta
 assert(bid._effectiveValue > bid.amount, "clauses should increase effective value")
 
 TransferManager._acceptBid(gameState, bid)
-assert(bid.status == "completed", "clause bid should complete")
+assert(bid.status == "player_considering", "bid should enter player_considering after _acceptBid")
+
+-- 转会现在是异步流程：player_considering → fee_agreed → attemptPersonalTerms → awaiting_confirmation → confirm
+-- 推进日期让 player_considering 超时
+SetTestRandomSeed(601)
+gameState.date = { year = 2024, month = 8, day = 15 }  -- 推进5天
+TransferManager.processDailyBids(gameState)
+
+-- 可能进入 awaiting_confirmation 或 fee_agreed
+if bid.status == "awaiting_confirmation" then
+    TransferManager.confirmTransfer(gameState, bid.id)
+elseif bid.status == "fee_agreed" then
+    -- 手动触发个人条款
+    TransferManager._attemptPersonalTerms(gameState, bid)
+    if bid.status == "awaiting_confirmation" then
+        TransferManager.confirmTransfer(gameState, bid.id)
+    end
+end
+
+assert(bid.status == "completed", "clause bid should complete after full async flow")
 assert(home.balance > startingBuyerBalance - bid.amount, "buyer should only pay first installment immediately")
 assert(away.balance < startingSellerBalance + bid.amount, "seller should only receive first installment immediately")
 assert(home._pendingPayables and #home._pendingPayables == 2, "remaining installments should be payable")
@@ -72,7 +91,24 @@ table.insert(gameState.transfers.bids, rivalBid)
 
 TransferManager.processCompetitiveBids(gameState)
 assert(playerBid.status == "rejected", "lower competing bid should be rejected")
-assert(rivalBid.status == "completed", "highest competing bid should complete")
+-- processCompetitiveBids 内部调用 _acceptBid，现在是异步流程
+assert(rivalBid.status == "player_considering", "highest competing bid should enter player_considering")
+
+-- 推进异步流程：player_considering → fee_agreed → personal_terms → awaiting_confirmation → confirm
+SetTestRandomSeed(602)
+gameState.date = { year = 2024, month = 8, day = 15 }
+TransferManager.processDailyBids(gameState)
+
+if rivalBid.status == "awaiting_confirmation" then
+    TransferManager.confirmTransfer(gameState, rivalBid.id)
+elseif rivalBid.status == "fee_agreed" then
+    TransferManager._attemptPersonalTerms(gameState, rivalBid)
+    if rivalBid.status == "awaiting_confirmation" then
+        TransferManager.confirmTransfer(gameState, rivalBid.id)
+    end
+end
+
+assert(rivalBid.status == "completed", "highest competing bid should complete after async flow")
 assert(player.teamId == third.id, "player should join highest bidder")
 
 SetTestRandomSeed(603)
