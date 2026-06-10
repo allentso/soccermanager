@@ -1458,6 +1458,7 @@ function Settings._buildDifficultyAndSaveCard()
         Settings._sectionTitle("存档设置"),
         Settings._toggleRow("自动保存", _settings.autoSave, function(v)
             _settings.autoSave = v
+            SettingsManager.set("autoSave", v)
             Settings._saveSettings()
             Router.replaceWith("settings")
         end),
@@ -1467,11 +1468,13 @@ function Settings._buildDifficultyAndSaveCard()
             { key = 10, label = "10回合" },
         }, _settings.autoSaveInterval, function(v)
             _settings.autoSaveInterval = v
+            SettingsManager.set("autoSaveInterval", v)
             Settings._saveSettings()
             Router.replaceWith("settings")
         end) or UI.Panel { height = 0 },
         Settings._toggleRow("操作确认提示", _settings.confirmActions, function(v)
             _settings.confirmActions = v
+            SettingsManager.set("confirmActions", v)
             Settings._saveSettings()
             Router.replaceWith("settings")
         end),
