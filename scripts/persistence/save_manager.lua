@@ -108,6 +108,59 @@ local function reportBadValues(value, path, seen, reports, maxReports)
     end
 end
 
+------------------------------------------------------
+-- 就地治疗：直接修复 live gameState 中"已经损坏"的值
+-- 背景：消毒副本只能救当次存档；脏值若一直留在内存中，
+--       每次存档都会走"编码失败→全量扫描→深拷贝消毒"的慢路径，
+--       造成每天推进明显卡顿。
+-- 原则：只动已损坏的值（NaN/Infinity/稀疏数组空洞），
+--       正常数值/结构/对象引用/元表一律不碰。
+------------------------------------------------------
+local function healInPlace(value, seen)
+    if type(value) ~= "table" then return end
+    if seen[value] then return end
+    seen[value] = true
+
+    local intKeys = nil
+    for k, v in pairs(value) do
+        local vt = type(v)
+        if vt == "number" then
+            if v ~= v then
+                value[k] = 0                            -- NaN
+            elseif v == math.huge then
+                value[k] = MAX_FLOAT
+            elseif v == -math.huge then
+                value[k] = -MAX_FLOAT
+            end
+        elseif vt == "table" then
+            healInPlace(v, seen)
+        end
+        if type(k) == "number" and k >= 1 and math.floor(k) == k then
+            intKeys = intKeys or {}
+            intKeys[#intKeys + 1] = k
+        end
+    end
+
+    -- 压实稀疏数组空洞（仅在确实存在空洞时改动）
+    if intKeys then
+        table.sort(intKeys)
+        local needCompact = false
+        for i, k in ipairs(intKeys) do
+            if k ~= i then needCompact = true; break end
+        end
+        if needCompact then
+            local vals = {}
+            for _, k in ipairs(intKeys) do
+                vals[#vals + 1] = value[k]
+                value[k] = nil
+            end
+            for i, v in ipairs(vals) do
+                value[i] = v
+            end
+        end
+    end
+end
+
 local MAX_SANITIZE_REPORTS = 20  -- 留痕记录上限，避免存档无限膨胀
 
 -- 编码存档数据，失败时先消毒再重试，绝不抛出异常
@@ -140,7 +193,15 @@ local function encodeSaveData(saveData, gameState)
         while #gameState._sanitizeReports > MAX_SANITIZE_REPORTS do
             table.remove(gameState._sanitizeReports, 1)
         end
-        -- 重新序列化以纳入刚写入的留痕，再消毒
+
+        -- 就地治疗 live gameState：否则脏值常驻内存，
+        -- 每次存档都会重复走这条慢路径（双重序列化+深拷贝），导致推进卡顿
+        local okHeal, healErr = pcall(healInPlace, gameState, {})
+        if not okHeal and log then
+            log:Write(LOG_ERROR, "SaveManager: 就地治疗失败: " .. tostring(healErr))
+        end
+
+        -- 重新序列化（已治疗 + 纳入留痕），再消毒兜底
         cleanedGameState = sanitize(gameState:serialize(), {})
     else
         cleanedGameState = sanitize(saveData.game_state, {})
