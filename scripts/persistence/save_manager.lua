@@ -216,6 +216,57 @@ end
 
 local MAX_SANITIZE_REPORTS = 20  -- 留痕记录上限，避免存档无限膨胀
 
+------------------------------------------------------
+-- 保存诊断
+--
+-- 存档失败一直是"静默"的（玩家看不到引擎日志），导致线上反馈
+-- "自动/手动保存都不生效"时完全无法定位。这里记录每次保存的
+-- 阶段化结果，UI（存档管理页）可直接展示失败原因。
+------------------------------------------------------
+SaveManager.lastResult = nil  -- { ok, slot, stage, message, jsonSize, saved_at }
+
+local function setResult(ok, slot, stage, message, jsonSize, saved_at)
+    SaveManager.lastResult = {
+        ok = ok,
+        slot = slot,
+        stage = stage,
+        message = message and tostring(message) or nil,
+        jsonSize = jsonSize,
+        saved_at = saved_at,
+    }
+    if not ok and log then
+        log:Write(LOG_ERROR, string.format(
+            "SaveManager: 保存失败 slot=%s stage=%s size=%s err=%s",
+            tostring(slot), tostring(stage), tostring(jsonSize), tostring(message)))
+    end
+    -- 失败信息同时尝试落盘（极小文件，便于事后从设备取证；写不进就算了）
+    if not ok then
+        pcall(function()
+            local f = File(SAVE_DIR .. "save_diag.txt", FILE_WRITE)
+            if f and f:IsOpen() then
+                f:WriteString(string.format("saved_at=%s slot=%s stage=%s size=%s\nerr=%s",
+                    tostring(saved_at), tostring(slot), tostring(stage),
+                    tostring(jsonSize), tostring(message)))
+                f:Close()
+            end
+        end)
+    end
+    return ok
+end
+
+-- 分块写入：部分平台对单次写入超大字符串有隐性限制
+local WRITE_CHUNK = 256 * 1024
+
+local function writeChunked(file, str)
+    local len = #str
+    local pos = 1
+    while pos <= len do
+        local chunk = string.sub(str, pos, math.min(pos + WRITE_CHUNK - 1, len))
+        file:WriteString(chunk)
+        pos = pos + WRITE_CHUNK
+    end
+end
+
 function SaveManager._doSave(gameState, slot)
     slot = slot or "auto"
     local path = SaveManager.getSavePath(slot)
@@ -224,7 +275,12 @@ function SaveManager._doSave(gameState, slot)
     fileSystem:CreateDir(SAVE_DIR)
 
     local saved_at = string.format("%d-%02d-%02d", gameState.date.year, gameState.date.month, gameState.date.day)
-    local gsData = gameState:serialize()
+
+    -- 阶段1：序列化（任何一个 domain 对象 serialize 抛错都会在这里被定位）
+    local okSer, gsData = pcall(gameState.serialize, gameState)
+    if not okSer then
+        return setResult(false, slot, "serialize", gsData, nil, saved_at)
+    end
 
     -- 主动体检：不依赖 cjson 是否报错（有些 cjson 实现会把 NaN 直接写成
     -- 非法 JSON 而"成功"返回，导致存档无法读回）
@@ -272,8 +328,15 @@ function SaveManager._doSave(gameState, slot)
         end
 
         -- 重新序列化（已治疗 + 纳入留痕），再做副本级消毒兜底
-        gsData = sanitize(gameState:serialize(), {})
-        forEachKnownArray(gsData, function(arr) compactArray(arr) end)
+        local okSer2, gsData2 = pcall(function()
+            local d = sanitize(gameState:serialize(), {})
+            forEachKnownArray(d, function(arr) compactArray(arr) end)
+            return d
+        end)
+        if not okSer2 then
+            return setResult(false, slot, "heal_serialize", gsData2, nil, saved_at)
+        end
+        gsData = gsData2
     end
 
     local saveData = {
@@ -282,31 +345,57 @@ function SaveManager._doSave(gameState, slot)
         game_state = gsData,
     }
 
+    -- 阶段2：JSON 编码
     local ok, jsonStr = pcall(cjson.encode, saveData)
     if not ok or not jsonStr then
         -- 最后兜底：完整消毒后再试一次（处理体检未覆盖的情况，如非法键类型）
+        local encodeErr1 = jsonStr
         if log then
-            log:Write(LOG_WARNING, "SaveManager: JSON编码失败，消毒后重试: " .. tostring(jsonStr))
+            log:Write(LOG_WARNING, "SaveManager: JSON编码失败，消毒后重试: " .. tostring(encodeErr1))
         end
         saveData.game_state = sanitize(gsData, {})
         ok, jsonStr = pcall(cjson.encode, saveData)
         if not ok or not jsonStr then
-            if log then
-                log:Write(LOG_ERROR, "SaveManager: JSON编码失败（消毒后仍失败）: " .. tostring(jsonStr))
-            end
-            return false
+            return setResult(false, slot, "encode",
+                tostring(encodeErr1) .. " | retry: " .. tostring(jsonStr), nil, saved_at)
         end
     end
+    local jsonSize = #jsonStr
 
+    -- 阶段3：打开文件
     local file = File(path, FILE_WRITE)
     if not file or not file:IsOpen() then
-        if log then log:Write(LOG_ERROR, "SaveManager: 无法写入文件 " .. path) end
-        return false
+        return setResult(false, slot, "open_file", "无法打开 " .. path .. "（存储空间不足/权限受限？）", jsonSize, saved_at)
     end
-    file:WriteString(jsonStr)
+
+    -- 阶段4：分块写入（避免单次超大字符串写入在部分平台上失败）
+    local okWrite, writeErr = pcall(writeChunked, file, jsonStr)
     file:Close()
-    if log then log:Write(LOG_INFO, "SaveManager: 已保存到 " .. path) end
-    return true
+    if not okWrite then
+        return setResult(false, slot, "write", writeErr, jsonSize, saved_at)
+    end
+
+    -- 阶段5：写后校验——重新打开文件确认实际落盘大小
+    -- （配额满/磁盘满时 WriteString 可能"成功"但实际截断）
+    local okVerify, verifyErr = pcall(function()
+        local rf = File(path, FILE_READ)
+        if not rf or not rf:IsOpen() then
+            error("写入后无法重新打开文件")
+        end
+        local actualSize = rf.size or (rf.GetSize and rf:GetSize()) or nil
+        rf:Close()
+        if actualSize ~= nil and actualSize < jsonSize then
+            error(string.format("文件被截断: 期望 %d 字节, 实际 %d 字节（疑似存储空间不足）", jsonSize, actualSize))
+        end
+    end)
+    if not okVerify then
+        return setResult(false, slot, "verify", verifyErr, jsonSize, saved_at)
+    end
+
+    if log then
+        log:Write(LOG_INFO, string.format("SaveManager: 已保存到 %s (%.1f KB)", path, jsonSize / 1024))
+    end
+    return setResult(true, slot, "done", nil, jsonSize, saved_at)
 end
 
 -- 保存游戏（全程 pcall 保护：存档失败绝不能中断游戏推进/界面刷新）
@@ -314,9 +403,18 @@ function SaveManager.save(gameState, slot)
     local ok, result = pcall(SaveManager._doSave, gameState, slot)
     if not ok then
         if log then log:Write(LOG_ERROR, "SaveManager: 保存异常已捕获: " .. tostring(result)) end
+        setResult(false, slot or "auto", "unexpected", result, nil, nil)
         return false
     end
     return result
+end
+
+-- 最近一次保存失败的简述（无失败时返回 nil），供 UI 展示
+function SaveManager.getLastErrorText()
+    local r = SaveManager.lastResult
+    if not r or r.ok then return nil end
+    local sizeStr = r.jsonSize and string.format(" %.1fKB", r.jsonSize / 1024) or ""
+    return string.format("[%s]%s %s", tostring(r.stage), sizeStr, tostring(r.message or "未知错误"))
 end
 
 -- 加载游戏

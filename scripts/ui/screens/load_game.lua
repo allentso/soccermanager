@@ -90,6 +90,21 @@ function LoadGame.create(params)
                 }
             } or UI.Panel { height = 0 },
 
+            -- 保存失败警示（定位线上"存档不生效"问题：展示最近一次失败的阶段与原因）
+            SaveManager.getLastErrorText() and UI.Panel {
+                width = "100%",
+                paddingLeft = 14, paddingRight = 14,
+                paddingTop = 8, paddingBottom = 8,
+                backgroundColor = {60, 24, 24, 255},
+                children = {
+                    UI.Label {
+                        text = "⚠ 最近一次保存失败: " .. LoadGame._truncateUtf8(SaveManager.getLastErrorText(), 90),
+                        fontSize = 11,
+                        color = {255, 140, 130, 255},
+                    },
+                }
+            } or UI.Panel { height = 0 },
+
             -- 存档列表
             UI.ScrollView {
                 flexGrow = 1,
@@ -448,7 +463,18 @@ end
 ------------------------------------------------------
 function LoadGame._doSave(slot)
     if _G.gameState then
-        SaveManager.save(_G.gameState, slot)
+        local ok = SaveManager.save(_G.gameState, slot)
+        if UI.Toast and UI.Toast.Show then
+            if ok then
+                UI.Toast.Show({ message = "已保存到 " .. (slot == "auto" and "自动存档" or ("存档 " .. slot)), variant = "success" })
+            else
+                UI.Toast.Show({
+                    message = "保存失败: " .. (SaveManager.getLastErrorText() or "未知原因"),
+                    variant = "error",
+                    duration = 5000,
+                })
+            end
+        end
         -- 刷新页面显示
         Router.replaceWith("load_game")
     end
@@ -459,6 +485,19 @@ end
 ------------------------------------------------------
 function LoadGame._formatMoney(amount)
     return FinanceManager.formatMoney(amount)
+end
+
+-- UTF-8 安全截断（避免把多字节中文从中间截断导致乱码）
+function LoadGame._truncateUtf8(s, maxBytes)
+    if not s or #s <= maxBytes then return s or "" end
+    local cut = maxBytes
+    while cut > 1 do
+        local b = string.byte(s, cut + 1)
+        -- 下一个字节不是 UTF-8 连续字节(10xxxxxx)，说明 cut 处是完整字符结尾
+        if not b or b < 0x80 or b >= 0xC0 then break end
+        cut = cut - 1
+    end
+    return string.sub(s, 1, cut) .. "…"
 end
 
 return LoadGame
