@@ -226,10 +226,13 @@ function Dashboard.create(params)
             if log then log:Write(LOG_ERROR, "doAdvanceDay: advanceDay 异常已捕获: " .. tostring(fixtures)) end
             fixtures = nil
         end
-        SaveManager.save(gameState, "auto")
+        -- 注意：不再每天全量保存（大存档时每次点"继续"都序列化整个世界，
+        -- 造成卡顿和内存峰值）。日常保存由 TurnProcessor 按 autoSaveInterval
+        -- 周期执行；这里只在关键节点（赛季变更/进入玩家比赛）补充保存。
 
         -- 如果赛季发生了变更（season_end handler 已经导航到赛季总结页），不要覆盖导航
         if gameState.season ~= prevSeason then
+            SaveManager.save(gameState, "auto")
             return
         end
 
@@ -248,7 +251,8 @@ function Dashboard.create(params)
             end
         end
         if playerFixture and playerFixture._pendingPlayerMatch then
-            -- 比赛日：先弹窗再进入赛前
+            -- 比赛日：关键节点保存后，先弹窗再进入赛前
+            SaveManager.save(gameState, "auto")
             showPopupMessages(function()
                 Router.navigate("pre_match", { fixture = playerFixture })
             end)

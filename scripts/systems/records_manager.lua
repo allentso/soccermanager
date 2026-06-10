@@ -396,6 +396,13 @@ function RecordsManager._updateAllTimePlayerRecords(gameState)
             totalApps = totalApps + (hist.appearances or 0)
         end
 
+        -- 累加被 Housekeeping 折叠的早期赛季汇总
+        if player.careerTotals then
+            totalGoals = totalGoals + (player.careerTotals.goals or 0)
+            totalAssists = totalAssists + (player.careerTotals.assists or 0)
+            totalApps = totalApps + (player.careerTotals.appearances or 0)
+        end
+
         if totalGoals > 0 then
             table.insert(goalTotals, { playerName = player.displayName, playerId = player.id, value = totalGoals })
         end

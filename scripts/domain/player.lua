@@ -6,6 +6,45 @@ local Constants = require("scripts/app/constants")
 local Player = {}
 Player.__index = Player
 
+------------------------------------------------------
+-- 紧凑序列化（存档瘦身）
+--
+-- attributes/seasonStats 在存档里按固定顺序存为数组，省去每名球员
+-- 重复存储的长键名（实测每人节省约 0.4KB，几千名球员可省数 MB）。
+-- 旧存档（对象格式）和新存档（数组格式）都能读：见 _unpackNumeric。
+-- 注意：顺序一旦发布不可改动，只能在末尾追加新字段！
+------------------------------------------------------
+local ATTR_ORDER = {
+    "speed", "stamina", "strength", "agility", "passing", "shooting",
+    "tackling", "dribbling", "defending", "positioning", "vision",
+    "decisions", "composure", "aggression", "teamwork", "leadership",
+    "handling", "reflexes", "aerial",
+}
+local STATS_ORDER = {
+    "appearances", "goals", "assists", "yellowCards", "redCards",
+    "avgRating", "cleanSheets",
+}
+
+local function packNumeric(t, order)
+    if type(t) ~= "table" then return nil end
+    local out = {}
+    for i, k in ipairs(order) do
+        out[i] = t[k] or 0
+    end
+    return out
+end
+
+-- 兼容两种格式：数组（新存档）按固定顺序还原；对象（旧存档/运行时）原样返回
+local function unpackNumeric(t, order)
+    if type(t) ~= "table" then return t end
+    if t[1] == nil then return t end  -- 对象格式（无数组部分）
+    local out = {}
+    for i, k in ipairs(order) do
+        out[k] = t[i]
+    end
+    return out
+end
+
 function Player.new(data)
     local self = setmetatable({}, Player)
     -- 身份
@@ -24,8 +63,8 @@ function Player.new(data)
     self.preferredFoot = data.preferredFoot or "right"
     self.weakFoot = data.weakFoot or 2  -- 1-5
 
-    -- 核心属性 (1-20)
-    self.attributes = data.attributes or {}
+    -- 核心属性 (1-20)；存档中可能是紧凑数组格式，先还原
+    self.attributes = unpackNumeric(data.attributes, ATTR_ORDER) or {}
     self.attributes.speed = self.attributes.speed or 10
     self.attributes.stamina = self.attributes.stamina or 10
     self.attributes.strength = self.attributes.strength or 10
@@ -53,6 +92,7 @@ function Player.new(data)
     self.injured = data.injured or false
     self.injuryDays = data.injuryDays or 0
     self.retired = data.retired or false
+    self.retiredSeason = data.retiredSeason or nil  -- 退役赛季（Housekeeping 延迟一季后物理删除）
 
     -- 士气核心（Team Talk 系统扩展）
     self.morale_core = data.morale_core or {
@@ -81,11 +121,12 @@ function Player.new(data)
     self.squadRole = data.squadRole or "rotation"
     self.isYouth = data.isYouth or false
 
-    -- 职业历史 (每赛季记录)
+    -- 职业历史 (每赛季记录；超过上限的早期赛季由 Housekeeping 折叠进 careerTotals)
     self.careerHistory = data.careerHistory or {}
+    self.careerTotals = data.careerTotals or nil  -- {seasons, appearances, goals, assists, ...}
 
-    -- 赛季统计
-    self.seasonStats = data.seasonStats or {
+    -- 赛季统计（存档中可能是紧凑数组格式，先还原）
+    self.seasonStats = unpackNumeric(data.seasonStats, STATS_ORDER) or {
         appearances = 0,
         goals = 0,
         assists = 0,
@@ -622,13 +663,14 @@ function Player:serialize()
         naturalPositions = self.naturalPositions,
         preferredFoot = self.preferredFoot,
         weakFoot = self.weakFoot,
-        attributes = self.attributes,
+        attributes = packNumeric(self.attributes, ATTR_ORDER),
         fitness = self.fitness,
         morale = self.morale,
         condition = self.condition,
         injured = self.injured,
         injuryDays = self.injuryDays,
         retired = self.retired,
+        retiredSeason = self.retiredSeason,
         overall = self.overall,
         potential = self.potential,
         paRating = self.paRating,
@@ -640,7 +682,8 @@ function Player:serialize()
         teamId = self.teamId,
         squadRole = self.squadRole,
         careerHistory = self.careerHistory,
-        seasonStats = self.seasonStats,
+        careerTotals = self.careerTotals,
+        seasonStats = packNumeric(self.seasonStats, STATS_ORDER),
         trainingFocus = self.trainingFocus,
         listedForSale = self.listedForSale,
         listedForLoan = self.listedForLoan,

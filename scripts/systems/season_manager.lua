@@ -106,10 +106,11 @@ function SeasonManager.endSeason(gameState)
         FinanceManager.resetSeasonFinance(gameState)
 
         -- 8. B3: 记录赛季完整历史（含奖项和转会数据）
+        -- 注意：曾经这里还会调用 _recordSeasonHistory 再写一条"旧格式"记录，
+        -- 导致 worldHistory 每赛季出现两条重复数据（存档膨胀 + 历史页重复）。
+        -- recordSeasonEnd 的记录是其超集，旧调用已移除；
+        -- 老存档中的重复记录由 Housekeeping.dedupeWorldHistory 在读档时合并。
         HistoryManager.recordSeasonEnd(gameState, awards)
-
-        -- 9. 记录赛季历史（旧格式兼容）
-        SeasonManager._recordSeasonHistory(gameState)
     end)
 
     if not ok then
@@ -380,6 +381,8 @@ function SeasonManager._processRetirements(gameState)
             local retireChance = (age - Constants.RETIREMENT_MIN_AGE + 1) * 0.15
             if Random() < retireChance then
                 player.retired = true
+                -- 记录退役赛季：Housekeeping 会在下一赛季物理删除（保留一季供总结页展示）
+                player.retiredSeason = gameState.season
                 -- 从球队中移除
                 local team = gameState.teams[player.teamId]
                 if team then
@@ -423,9 +426,10 @@ function SeasonManager._recordPlayerCareerHistory(gameState)
         local stats = player.seasonStats
         if not stats then goto continue_player end
 
-        -- 只记录有出场的赛季（或有合同的球员）
+        -- 只记录有出场的赛季；无出场的 AI 球员不记录
+        -- （此前"有合同就记录"导致几千名 AI 青训/替补每季产生全零记录，存档膨胀）
         local apps = stats.appearances or 0
-        if apps == 0 and not player.teamId then goto continue_player end
+        if apps == 0 and player.teamId ~= gameState.playerTeamId then goto continue_player end
 
         local record = {
             season = season,
@@ -481,42 +485,8 @@ end
 -- 记录赛季历史（所有联赛）
 ------------------------------------------------------
 
-function SeasonManager._recordSeasonHistory(gameState)
-    local seasonRecord = {
-        season = gameState.season,
-        leagues = {},
-    }
-
-    for key, lg in pairs(gameState.leagues) do
-        local sorted = lg:getSortedStandings()
-        local championEntry = sorted[1]
-        local championTeam = championEntry and gameState.teams[championEntry.teamId]
-        local leagueRecord = {
-            name = lg.name,
-            champion = championEntry and {
-                teamId = championEntry.teamId,
-                teamName = championTeam and championTeam.name or "?",
-                points = championEntry.points or 0,
-            } or nil,
-            standings = {},
-        }
-        for i, entry in ipairs(sorted) do
-            table.insert(leagueRecord.standings, {
-                position = i,
-                teamId = entry.teamId,
-                points = entry.points,
-                wins = entry.wins,
-                draws = entry.draws,
-                losses = entry.losses,
-                goalsFor = entry.goalsFor,
-                goalsAgainst = entry.goalsAgainst,
-            })
-        end
-        seasonRecord.leagues[key] = leagueRecord
-    end
-
-    table.insert(gameState.worldHistory, seasonRecord)
-end
+-- （已移除）_recordSeasonHistory：与 HistoryManager.recordSeasonEnd 重复写 worldHistory，
+-- 造成存档每赛季膨胀一份完整排名。历史重复数据由 Housekeeping.dedupeWorldHistory 清理。
 
 ------------------------------------------------------
 -- 升降级系统

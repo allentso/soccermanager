@@ -385,7 +385,8 @@ function YouthManager.release(gameState, playerId)
         local rawPotential = player.potential or 0
         if rawPotential >= 70 then
             -- 有潜力的球员释放为自由球员，可出现在转会市场
-            player.isFreAgent = true
+            -- （自由球员池由 Housekeeping.purgeExcessFreeAgents 控制上限，防止泄漏膨胀）
+            player.isFreeAgent = true
             player.releasedDate = {
                 year = gameState.date.year,
                 month = gameState.date.month,
@@ -1191,7 +1192,7 @@ function YouthManager._processAITeamsMonthly(gameState)
                     player.teamId = nil
                     local rawPotential = player.potential or 0
                     if rawPotential >= 70 then
-                        player.isFreAgent = true
+                        player.isFreeAgent = true
                     else
                         gameState.players[pid] = nil
                     end

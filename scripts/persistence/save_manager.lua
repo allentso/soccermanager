@@ -363,6 +363,15 @@ function SaveManager.load(gameState, slot)
             log:Write(LOG_ERROR, "SaveManager: 反序列化失败 " .. path .. " - " .. tostring(err))
             return false
         end
+
+        -- 读档瘦身：老存档中累积的退役球员/超额自由球员/旧赛果明细/重复历史等
+        -- 一次性清理（幂等），防止老存档体积无限膨胀导致保存缓慢甚至失败
+        local Housekeeping = require("scripts/persistence/housekeeping")
+        local okHk, hkErr = pcall(Housekeeping.run, gameState)
+        if not okHk then
+            log:Write(LOG_WARNING, "SaveManager: 读档瘦身失败（不影响加载）: " .. tostring(hkErr))
+        end
+
         log:Write(LOG_INFO, "SaveManager: 已从 " .. path .. " 加载存档")
         return true
     end

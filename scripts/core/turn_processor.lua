@@ -25,6 +25,7 @@ local DifficultySettings = require("scripts/systems/difficulty_settings")
 local NewsGenerator = require("scripts/systems/news_generator")
 local AIManager = require("scripts/systems/ai_manager")
 local ObjectivesManager = require("scripts/systems/objectives_manager")
+local Housekeeping = require("scripts/persistence/housekeeping")
 
 local TurnProcessor = {}
 
@@ -1220,6 +1221,12 @@ function TurnProcessor.processWeekly(gameState)
 
     -- 消息清理（保留最近100条）
     MessageManager.cleanup(gameState, 100)
+
+    -- 存档/内存瘦身：清理退役球员、超额自由球员、旧赛果明细、流水上限等（幂等）
+    local okHk, hkErr = pcall(Housekeeping.run, gameState)
+    if not okHk and log then
+        log:Write(LOG_ERROR, "TurnProcessor: Housekeeping 失败: " .. tostring(hkErr))
+    end
 end
 
 -- 生成比赛新闻
