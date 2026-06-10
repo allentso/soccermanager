@@ -456,17 +456,7 @@ function Settings._showCheatMenu()
                     Settings._cheatTripleCrown()
                 end,
             },
-            UI.Button {
-                text = "💰 资金注入 +5000万",
-                width = "100%", height = 44,
-                backgroundColor = Theme.COLORS.BG_CARD_ELEVATED,
-                color = Theme.COLORS.TEXT_PRIMARY,
-                fontSize = 14, borderRadius = 8, marginBottom = 10,
-                onClick = function()
-                    BottomSheet.close()
-                    Settings._cheatAddFunds()
-                end,
-            },
+
             UI.Button {
                 text = "⏭️ 跳到赛季末",
                 width = "100%", height = 44,
@@ -500,17 +490,7 @@ function Settings._showCheatMenu()
                     Settings._cheatSkipToWorldCup()
                 end,
             },
-            UI.Button {
-                text = "🌟 青训神童",
-                width = "100%", height = 44,
-                backgroundColor = Theme.COLORS.BG_CARD_ELEVATED,
-                color = Theme.COLORS.TEXT_PRIMARY,
-                fontSize = 14, borderRadius = 8, marginBottom = 10,
-                onClick = function()
-                    BottomSheet.close()
-                    Settings._cheatYouthProdigy()
-                end,
-            },
+
             UI.Button {
                 text = "⭐ 声望 MAX（99）",
                 width = "100%", height = 44,
@@ -557,17 +537,7 @@ function Settings._showCheatMenu()
                     Settings._cheatAddPulls()
                 end,
             },
-            UI.Button {
-                text = "⭐ 下次十连必出传奇",
-                width = "100%", height = 44,
-                backgroundColor = Theme.COLORS.BG_CARD_ELEVATED,
-                color = Theme.COLORS.TEXT_PRIMARY,
-                fontSize = 14, borderRadius = 8, marginBottom = 10,
-                onClick = function()
-                    BottomSheet.close()
-                    Settings._cheatForceLegend()
-                end,
-            },
+
 
             -- 修复工具
             UI.Button {
@@ -603,6 +573,18 @@ function Settings._showCheatMenu()
                 onClick = function()
                     BottomSheet.close()
                     Settings._cheatSimulateUCLOverwrite()
+                end,
+            },
+            -- 坏存档模拟（测试 sanitize + healInPlace）
+            UI.Button {
+                text = "💀 模拟坏存档（NaN/Inf/稀疏）",
+                width = "100%", height = 44,
+                backgroundColor = "#6C3483",
+                color = "#FFFFFF",
+                fontSize = 14, borderRadius = 8, marginTop = 10,
+                onClick = function()
+                    BottomSheet.close()
+                    Settings._cheatSimulateCorruptSave()
                 end,
             },
         },
@@ -1826,6 +1808,159 @@ function Settings._repairOverdueFixtures()
 
     -- 刷新页面
     Router.navigate("settings")
+end
+
+------------------------------------------------------
+-- 作弊：模拟坏存档（NaN / Infinity / 稀疏数组）
+-- 用途：验证 save_manager 的 sanitize + healInPlace 机制
+-- 注入后下次保存会触发慢路径（编码失败→诊断→治疗→重试），
+-- 治疗成功后再次保存应恢复快路径（单次编码直通）。
+------------------------------------------------------
+function Settings._cheatSimulateCorruptSave()
+    local gameState = _G.gameState
+    if not gameState then
+        UI.Toast.Show({ message = "gameState 不存在", variant = "error" })
+        return
+    end
+
+    local nanCount = 0
+    local infCount = 0
+    local sparseCount = 0
+
+    -- ======================================================
+    -- 1. 批量注入 NaN：模拟比赛引擎除零累积（~30% 球员）
+    -- ======================================================
+    local NaN = 0 / 0
+    local playerIds = {}
+    for id in pairs(gameState.players) do
+        playerIds[#playerIds + 1] = id
+    end
+
+    -- 污染约 30% 的球员（至少 20 个，最多 80 个）
+    local nanTarget = math.max(20, math.min(80, math.floor(#playerIds * 0.3)))
+    -- 打乱顺序，随机选取
+    for i = #playerIds, 2, -1 do
+        local j = math.random(1, i)
+        playerIds[i], playerIds[j] = playerIds[j], playerIds[i]
+    end
+
+    for i = 1, math.min(nanTarget, #playerIds) do
+        local p = gameState.players[playerIds[i]]
+        if p then
+            if p.stats then
+                -- 每个球员污染 2~4 个 stat 字段
+                local statKeys = {}
+                for k, v in pairs(p.stats) do
+                    if type(v) == "number" then
+                        statKeys[#statKeys + 1] = k
+                    end
+                end
+                local count = math.min(#statKeys, math.random(2, 4))
+                for j = 1, count do
+                    p.stats[statKeys[j]] = NaN
+                    nanCount = nanCount + 1
+                end
+            end
+            -- 球员顶层数值也可能坏（value、morale、form）
+            if type(p.value) == "number" then
+                p.value = NaN; nanCount = nanCount + 1
+            end
+            if type(p.morale) == "number" and math.random() > 0.5 then
+                p.morale = NaN; nanCount = nanCount + 1
+            end
+        end
+    end
+
+    -- ======================================================
+    -- 2. 批量注入 Infinity：模拟财务计算溢出（所有球队）
+    -- ======================================================
+    for _, team in pairs(gameState.teams) do
+        if team.finance then
+            -- 往 finance 子表中随机写几个 Infinity
+            team.finance._wageOverflow = math.huge
+            team.finance._debtUnderflow = -math.huge
+            infCount = infCount + 2
+            if type(team.finance.balance) == "number" and math.random() > 0.6 then
+                team.finance.balance = math.huge
+                infCount = infCount + 1
+            end
+        else
+            team._budgetOverflow = math.huge
+            infCount = infCount + 1
+        end
+    end
+
+    -- 联赛积分表也注入一些 NaN（模拟 GD 除零）
+    for _, lg in pairs(gameState.leagues) do
+        if lg.standings then
+            for _, entry in pairs(lg.standings) do
+                if type(entry) == "table" and type(entry.goalDifference) == "number" then
+                    if math.random() > 0.7 then
+                        entry.goalDifference = NaN
+                        nanCount = nanCount + 1
+                    end
+                end
+            end
+        end
+    end
+
+    -- ======================================================
+    -- 3. 批量制造稀疏数组：inbox、news、各联赛 fixtures
+    -- ======================================================
+    local function pokeHoles(arr, name, holeCount)
+        local len = #arr
+        if len < 5 then return 0 end
+        local poked = 0
+        local maxHoles = math.min(holeCount, math.floor(len * 0.3))
+        for _ = 1, maxHoles do
+            local idx = math.random(2, len - 1)  -- 避免首尾
+            if rawget(arr, idx) ~= nil then
+                rawset(arr, idx, nil)
+                poked = poked + 1
+            end
+        end
+        if poked > 0 then
+            print("[CHEAT-CORRUPT] 稀疏数组: " .. name .. " 挖了 " .. poked .. " 个洞 (原长 " .. len .. ")")
+        end
+        return poked
+    end
+
+    if gameState.inbox then
+        sparseCount = sparseCount + pokeHoles(gameState.inbox, "inbox", 8)
+    end
+    if gameState.news then
+        sparseCount = sparseCount + pokeHoles(gameState.news, "news", 5)
+    end
+
+    -- fixtures 数组也可能有空洞
+    for lgKey, lg in pairs(gameState.leagues) do
+        if lg.fixtures and #lg.fixtures >= 10 then
+            sparseCount = sparseCount + pokeHoles(lg.fixtures, "leagues." .. lgKey .. ".fixtures", 6)
+        end
+    end
+
+    -- transfers.history 也挖几个
+    if gameState.transfers and gameState.transfers.history and #gameState.transfers.history >= 5 then
+        sparseCount = sparseCount + pokeHoles(gameState.transfers.history, "transfers.history", 4)
+    end
+
+    -- ======================================================
+    -- 汇总
+    -- ======================================================
+    local total = nanCount + infCount + sparseCount
+    local msg = string.format(
+        "注入完成: %d 处 NaN, %d 处 Inf, %d 处稀疏空洞 (共 %d)",
+        nanCount, infCount, sparseCount, total
+    )
+    print("[CHEAT-CORRUPT] === " .. msg .. " ===")
+    print("[CHEAT-CORRUPT] 下次保存将触发慢路径 → sanitize + healInPlace")
+    print("[CHEAT-CORRUPT] 治疗成功后再次保存应恢复快路径")
+
+    UI.Toast.Show({
+        message = msg,
+        variant = "warning",
+        duration = 5000,
+    })
 end
 
 return Settings
