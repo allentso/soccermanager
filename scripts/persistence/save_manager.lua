@@ -16,8 +16,154 @@ function SaveManager.getSavePath(slot)
     return SAVE_DIR .. "save_" .. string.format("%03d", slot) .. ".json"
 end
 
--- 保存游戏
-function SaveManager.save(gameState, slot)
+------------------------------------------------------
+-- 数据消毒：清除会让 cjson.encode 抛错的非法值
+-- 触发场景：除零产生的 NaN/Infinity、数组出现空洞（稀疏数组）、
+--           误存入的函数/userdata 等。
+-- 关键：始终构建新表，绝不修改传入的 live gameState 引用。
+-- 输出保持标准 JSON（NaN→0），以保证新老/其它读档逻辑都能解析。
+------------------------------------------------------
+local MAX_FLOAT = 1e308
+
+local function sanitize(value, seen)
+    local vt = type(value)
+    if vt == "number" then
+        if value ~= value then return 0 end          -- NaN (NaN ~= NaN)
+        if value == math.huge then return MAX_FLOAT end
+        if value == -math.huge then return -MAX_FLOAT end
+        return value
+    elseif vt == "string" or vt == "boolean" then
+        return value
+    elseif vt == "table" then
+        if seen[value] then return nil end            -- 打断循环引用
+        seen[value] = true
+
+        local out = {}
+        local intKeys = nil
+
+        for k, v in pairs(value) do
+            if type(k) == "number" and k >= 1 and math.floor(k) == k then
+                -- 整数键延后处理，用于压实可能的稀疏数组
+                intKeys = intKeys or {}
+                intKeys[#intKeys + 1] = k
+            elseif type(k) == "string" or type(k) == "number" or type(k) == "boolean" then
+                local sv = sanitize(v, seen)
+                if sv ~= nil then out[k] = sv end
+            end
+        end
+
+        if intKeys then
+            table.sort(intKeys)
+            local n = 0
+            for _, k in ipairs(intKeys) do
+                local sv = sanitize(value[k], seen)
+                if sv ~= nil then
+                    n = n + 1
+                    out[n] = sv                        -- 连续写入，消除空洞
+                end
+            end
+        end
+
+        seen[value] = nil                              -- 仅在祖先链上视为循环，允许共享子树
+        return out
+    end
+    -- function / userdata / thread：不可序列化，丢弃
+    return nil
+end
+
+-- 诊断：定位非法值（NaN/Infinity/稀疏数组）的字段路径，便于追根因
+-- 仅在编码失败时调用，最多上报 maxReports 处
+local function reportBadValues(value, path, seen, reports, maxReports)
+    if #reports >= maxReports then return end
+    local vt = type(value)
+    if vt == "number" then
+        if value ~= value then
+            reports[#reports + 1] = path .. " = NaN"
+        elseif value == math.huge or value == -math.huge then
+            reports[#reports + 1] = path .. " = Infinity"
+        end
+    elseif vt == "function" or vt == "userdata" or vt == "thread" then
+        reports[#reports + 1] = path .. " = <" .. vt .. ">"
+    elseif vt == "table" then
+        if seen[value] then return end
+        seen[value] = true
+        -- 稀疏数组检测
+        if value[1] ~= nil then
+            local maxn = 0
+            for k in pairs(value) do
+                if type(k) == "number" and k > maxn then maxn = k end
+            end
+            for i = 1, maxn do
+                if value[i] == nil then
+                    reports[#reports + 1] = path .. " = <稀疏数组, 空洞@" .. i .. "/" .. maxn .. ">"
+                    break
+                end
+            end
+        end
+        for k, v in pairs(value) do
+            reportBadValues(v, path .. "." .. tostring(k), seen, reports, maxReports)
+            if #reports >= maxReports then return end
+        end
+        seen[value] = nil
+    end
+end
+
+local MAX_SANITIZE_REPORTS = 20  -- 留痕记录上限，避免存档无限膨胀
+
+-- 编码存档数据，失败时先消毒再重试，绝不抛出异常
+-- gameState 可选：用于把"坏字段路径"写进存档留痕（_sanitizeReports）
+local function encodeSaveData(saveData, gameState)
+    local ok, encoded = pcall(cjson.encode, saveData)
+    if ok and encoded then
+        return encoded
+    end
+
+    -- 定位非法值的具体字段路径（追根因用）
+    local reports = {}
+    reportBadValues(saveData.game_state, "game_state", {}, reports, 10)
+
+    if log then
+        log:Write(LOG_WARNING, "SaveManager: JSON编码失败，尝试数据消毒后重试: " .. tostring(encoded))
+        if #reports > 0 then
+            log:Write(LOG_ERROR, "SaveManager: 检测到非法值字段:\n  " .. table.concat(reports, "\n  "))
+        end
+    end
+
+    -- 写进存档留痕：即使玩家看不到日志，将来拿到存档也能定位根因
+    local cleanedGameState
+    if gameState and #reports > 0 then
+        gameState._sanitizeReports = gameState._sanitizeReports or {}
+        table.insert(gameState._sanitizeReports, {
+            saved_at = saveData.saved_at,
+            fields = reports,
+        })
+        while #gameState._sanitizeReports > MAX_SANITIZE_REPORTS do
+            table.remove(gameState._sanitizeReports, 1)
+        end
+        -- 重新序列化以纳入刚写入的留痕，再消毒
+        cleanedGameState = sanitize(gameState:serialize(), {})
+    else
+        cleanedGameState = sanitize(saveData.game_state, {})
+    end
+
+    local cleaned = {
+        version = saveData.version,
+        saved_at = saveData.saved_at,
+        game_state = cleanedGameState,
+    }
+
+    local ok2, encoded2 = pcall(cjson.encode, cleaned)
+    if ok2 and encoded2 then
+        return encoded2
+    end
+
+    if log then
+        log:Write(LOG_ERROR, "SaveManager: JSON编码失败（消毒后仍失败）: " .. tostring(encoded2))
+    end
+    return nil
+end
+
+function SaveManager._doSave(gameState, slot)
     slot = slot or "auto"
     local path = SaveManager.getSavePath(slot)
 
@@ -30,21 +176,30 @@ function SaveManager.save(gameState, slot)
         game_state = gameState:serialize(),
     }
 
-    local jsonStr = cjson.encode(saveData)
+    local jsonStr = encodeSaveData(saveData, gameState)
     if not jsonStr then
-        log:Write(LOG_ERROR, "SaveManager: JSON编码失败")
         return false
     end
 
     local file = File(path, FILE_WRITE)
     if not file or not file:IsOpen() then
-        log:Write(LOG_ERROR, "SaveManager: 无法写入文件 " .. path)
+        if log then log:Write(LOG_ERROR, "SaveManager: 无法写入文件 " .. path) end
         return false
     end
     file:WriteString(jsonStr)
     file:Close()
-    log:Write(LOG_INFO, "SaveManager: 已保存到 " .. path)
+    if log then log:Write(LOG_INFO, "SaveManager: 已保存到 " .. path) end
     return true
+end
+
+-- 保存游戏（全程 pcall 保护：存档失败绝不能中断游戏推进/界面刷新）
+function SaveManager.save(gameState, slot)
+    local ok, result = pcall(SaveManager._doSave, gameState, slot)
+    if not ok then
+        if log then log:Write(LOG_ERROR, "SaveManager: 保存异常已捕获: " .. tostring(result)) end
+        return false
+    end
+    return result
 end
 
 -- 加载游戏
@@ -74,13 +229,23 @@ function SaveManager.load(gameState, slot)
 
     if saveData.game_state then
         -- 版本迁移：旧存档升级到最新版本（不影响玩家进度，只修正数据偏差）
+        -- pcall 保护：单个迁移步骤出错不应让整个存档无法加载
         local oldVersion = saveData.version or 1
         if oldVersion < Constants.SAVE_VERSION then
-            local newVersion = Migrations.run(saveData)
-            log:Write(LOG_INFO, "SaveManager: 存档从 v" .. oldVersion .. " 迁移到 v" .. newVersion)
+            local okMig, newVersion = pcall(Migrations.run, saveData)
+            if okMig then
+                log:Write(LOG_INFO, "SaveManager: 存档从 v" .. oldVersion .. " 迁移到 v" .. tostring(newVersion))
+            else
+                log:Write(LOG_ERROR, "SaveManager: 存档迁移异常（继续按原数据加载）: " .. tostring(newVersion))
+            end
         end
 
-        gameState:deserialize(saveData.game_state)
+        -- pcall 保护：旧存档结构差异导致的反序列化异常应优雅失败，而非崩溃
+        local okDes, err = pcall(gameState.deserialize, gameState, saveData.game_state)
+        if not okDes then
+            log:Write(LOG_ERROR, "SaveManager: 反序列化失败 " .. path .. " - " .. tostring(err))
+            return false
+        end
         log:Write(LOG_INFO, "SaveManager: 已从 " .. path .. " 加载存档")
         return true
     end

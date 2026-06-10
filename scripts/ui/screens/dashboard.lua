@@ -219,7 +219,13 @@ function Dashboard.create(params)
         end
 
         local prevSeason = gameState.season
-        local fixtures = TurnProcessor.advanceDay(gameState)
+        -- pcall 保护：即使推进过程中抛异常（日期已在 advanceDay 内自增），
+        -- 也必须继续往下走刷新界面，否则会出现"日期已变但主页不动"的假卡死
+        local ok, fixtures = pcall(TurnProcessor.advanceDay, gameState)
+        if not ok then
+            if log then log:Write(LOG_ERROR, "doAdvanceDay: advanceDay 异常已捕获: " .. tostring(fixtures)) end
+            fixtures = nil
+        end
         SaveManager.save(gameState, "auto")
 
         -- 如果赛季发生了变更（season_end handler 已经导航到赛季总结页），不要覆盖导航
@@ -284,7 +290,11 @@ function Dashboard.create(params)
         local maxSkip = math.max(daysToMatch, 1)
         local prevSeason = gameState.season
         for i = 1, maxSkip do
-            local fixtures = TurnProcessor.advanceDay(gameState)
+            local ok, fixtures = pcall(TurnProcessor.advanceDay, gameState)
+            if not ok then
+                if log then log:Write(LOG_ERROR, "doSkipToMatchDay: advanceDay 异常已捕获: " .. tostring(fixtures)) end
+                fixtures = nil
+            end
 
             -- 如果赛季发生了变更，停止跳天并让 season_end 页面显示
             if gameState.season ~= prevSeason then

@@ -274,6 +274,8 @@ function GameState:serialize()
         _offerCooldown = self._offerCooldown,
         _managerRenewalOffer = self._managerRenewalOffer,
         _managerRenewalOffered = self._managerRenewalOffered,
+        -- 存档数据消毒留痕（用于追根因：记录哪些字段曾出现非法值/稀疏数组）
+        _sanitizeReports = self._sanitizeReports,
     }
 end
 
@@ -343,6 +345,8 @@ function GameState:deserialize(data)
     self._offerCooldown = data._offerCooldown or 0
     self._managerRenewalOffer = data._managerRenewalOffer
     self._managerRenewalOffered = data._managerRenewalOffered
+    -- 存档消毒留痕（追根因用）
+    self._sanitizeReports = data._sanitizeReports
 
     -- 恢复二级联赛数据（升降级状态）
     if data.secondDivision then
