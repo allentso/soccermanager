@@ -254,17 +254,34 @@ local function setResult(ok, slot, stage, message, jsonSize, saved_at)
     return ok
 end
 
--- 分块写入：部分平台对单次写入超大字符串有隐性限制
-local WRITE_CHUNK = 256 * 1024
-
-local function writeChunked(file, str)
-    local len = #str
-    local pos = 1
-    while pos <= len do
-        local chunk = string.sub(str, pos, math.min(pos + WRITE_CHUNK - 1, len))
-        file:WriteString(chunk)
-        pos = pos + WRITE_CHUNK
+------------------------------------------------------
+-- 读写细节（重要教训）
+--
+-- 引擎的 WriteString 每次调用都会在内容后写入一个 '\0' 终止符，
+-- ReadString 则读到第一个 '\0' 就停止。
+-- 因此：
+--   * 写入必须一次性 WriteString（曾经的"分块写入"在 JSON 中间
+--     每 256KB 嵌入一个 '\0'，导致存档读回时被截断、decode 失败，
+--     所有槽位显示"空槽位"——数据其实还在盘上！）
+--   * 读取使用 readAllString：跨 '\0' 连续读到 EOF 再拼接，
+--     既兼容正常存档（单个尾部 '\0'），也能完整救回被分块写入
+--     污染过的存档。
+------------------------------------------------------
+local function readAllString(file)
+    local parts = {}
+    local guard = 0
+    while guard < 100000 do
+        guard = guard + 1
+        -- IsEof 可能不存在于某些绑定版本，pcall 保护
+        local okEof, eof = pcall(function() return file:IsEof() end)
+        if okEof and eof then break end
+        local okRead, s = pcall(function() return file:ReadString() end)
+        if not okRead or s == nil then break end
+        parts[#parts + 1] = s
+        -- 无 IsEof 可用且读到空串：避免死循环，直接结束
+        if not okEof and s == "" then break end
     end
+    return table.concat(parts)
 end
 
 function SaveManager._doSave(gameState, slot)
@@ -362,14 +379,34 @@ function SaveManager._doSave(gameState, slot)
     end
     local jsonSize = #jsonStr
 
+    -- 写前备份：自动存档被高频覆盖，是最容易"写坏即丢档"的文件。
+    -- 覆盖前把现有好档复制为 .bak，读档失败时可自动回退（见 load）。
+    -- 只备份自动存档：手动槽位是玩家确认后才覆盖的，且要节省存储配额。
+    if slot == "auto" and fileSystem:FileExists(path) then
+        pcall(function()
+            local src = File(path, FILE_READ)
+            if src and src:IsOpen() then
+                local old = readAllString(src)
+                src:Close()
+                if #old > 0 then
+                    local dst = File(path .. ".bak", FILE_WRITE)
+                    if dst and dst:IsOpen() then
+                        dst:WriteString(old)
+                        dst:Close()
+                    end
+                end
+            end
+        end)
+    end
+
     -- 阶段3：打开文件
     local file = File(path, FILE_WRITE)
     if not file or not file:IsOpen() then
         return setResult(false, slot, "open_file", "无法打开 " .. path .. "（存储空间不足/权限受限？）", jsonSize, saved_at)
     end
 
-    -- 阶段4：分块写入（避免单次超大字符串写入在部分平台上失败）
-    local okWrite, writeErr = pcall(writeChunked, file, jsonStr)
+    -- 阶段4：一次性写入（绝不可分块——WriteString 每次调用都会嵌入 '\0' 终止符）
+    local okWrite, writeErr = pcall(function() file:WriteString(jsonStr) end)
     file:Close()
     if not okWrite then
         return setResult(false, slot, "write", writeErr, jsonSize, saved_at)
@@ -417,63 +454,69 @@ function SaveManager.getLastErrorText()
     return string.format("[%s]%s %s", tostring(r.stage), sizeStr, tostring(r.message or "未知错误"))
 end
 
--- 加载游戏
+-- 从指定路径读取并解析存档数据（nil 表示失败）
+local function readSaveData(path)
+    if not fileSystem:FileExists(path) then return nil end
+    local file = File(path, FILE_READ)
+    if not file or not file:IsOpen() then return nil end
+    local content = readAllString(file)
+    file:Close()
+    local ok, saveData = pcall(cjson.decode, content)
+    if not ok or not saveData or not saveData.game_state then return nil end
+    return saveData
+end
+
+-- 尝试将 saveData 迁移并恢复到 gameState
+local function applySaveData(gameState, saveData, path)
+    -- 版本迁移：旧存档升级到最新版本（不影响玩家进度，只修正数据偏差）
+    -- pcall 保护：单个迁移步骤出错不应让整个存档无法加载
+    local oldVersion = saveData.version or 1
+    if oldVersion < Constants.SAVE_VERSION then
+        local okMig, newVersion = pcall(Migrations.run, saveData)
+        if okMig then
+            log:Write(LOG_INFO, "SaveManager: 存档从 v" .. oldVersion .. " 迁移到 v" .. tostring(newVersion))
+        else
+            log:Write(LOG_ERROR, "SaveManager: 存档迁移异常（继续按原数据加载）: " .. tostring(newVersion))
+        end
+    end
+
+    -- pcall 保护：旧存档结构差异导致的反序列化异常应优雅失败，而非崩溃
+    local okDes, err = pcall(gameState.deserialize, gameState, saveData.game_state)
+    if not okDes then
+        log:Write(LOG_ERROR, "SaveManager: 反序列化失败 " .. path .. " - " .. tostring(err))
+        return false
+    end
+
+    -- 读档瘦身：老存档中累积的退役球员/超额自由球员/旧赛果明细/重复历史等
+    -- 一次性清理（幂等），防止老存档体积无限膨胀导致保存缓慢甚至失败
+    local Housekeeping = require("scripts/persistence/housekeeping")
+    local okHk, hkErr = pcall(Housekeeping.run, gameState)
+    if not okHk then
+        log:Write(LOG_WARNING, "SaveManager: 读档瘦身失败（不影响加载）: " .. tostring(hkErr))
+    end
+
+    log:Write(LOG_INFO, "SaveManager: 已从 " .. path .. " 加载存档")
+    return true
+end
+
+-- 加载游戏：主文件失败时自动回退到 .bak 备份
 function SaveManager.load(gameState, slot)
     slot = slot or "auto"
-    local path = SaveManager.getSavePath(slot)
+    local mainPath = SaveManager.getSavePath(slot)
 
-    if not fileSystem:FileExists(path) then
-        log:Write(LOG_WARNING, "SaveManager: 存档不存在 " .. path)
-        return false
-    end
-
-    local file = File(path, FILE_READ)
-    if not file or not file:IsOpen() then
-        log:Write(LOG_ERROR, "SaveManager: 无法读取文件 " .. path)
-        return false
-    end
-
-    local content = file:ReadString()
-    file:Close()
-
-    local ok, saveData = pcall(cjson.decode, content)
-    if not ok or not saveData then
-        log:Write(LOG_ERROR, "SaveManager: JSON解析失败 " .. path)
-        return false
-    end
-
-    if saveData.game_state then
-        -- 版本迁移：旧存档升级到最新版本（不影响玩家进度，只修正数据偏差）
-        -- pcall 保护：单个迁移步骤出错不应让整个存档无法加载
-        local oldVersion = saveData.version or 1
-        if oldVersion < Constants.SAVE_VERSION then
-            local okMig, newVersion = pcall(Migrations.run, saveData)
-            if okMig then
-                log:Write(LOG_INFO, "SaveManager: 存档从 v" .. oldVersion .. " 迁移到 v" .. tostring(newVersion))
-            else
-                log:Write(LOG_ERROR, "SaveManager: 存档迁移异常（继续按原数据加载）: " .. tostring(newVersion))
+    for _, path in ipairs({ mainPath, mainPath .. ".bak" }) do
+        local saveData = readSaveData(path)
+        if saveData then
+            if path ~= mainPath then
+                log:Write(LOG_WARNING, "SaveManager: 主存档损坏，已回退到备份 " .. path)
+            end
+            if applySaveData(gameState, saveData, path) then
+                return true
             end
         end
-
-        -- pcall 保护：旧存档结构差异导致的反序列化异常应优雅失败，而非崩溃
-        local okDes, err = pcall(gameState.deserialize, gameState, saveData.game_state)
-        if not okDes then
-            log:Write(LOG_ERROR, "SaveManager: 反序列化失败 " .. path .. " - " .. tostring(err))
-            return false
-        end
-
-        -- 读档瘦身：老存档中累积的退役球员/超额自由球员/旧赛果明细/重复历史等
-        -- 一次性清理（幂等），防止老存档体积无限膨胀导致保存缓慢甚至失败
-        local Housekeeping = require("scripts/persistence/housekeeping")
-        local okHk, hkErr = pcall(Housekeeping.run, gameState)
-        if not okHk then
-            log:Write(LOG_WARNING, "SaveManager: 读档瘦身失败（不影响加载）: " .. tostring(hkErr))
-        end
-
-        log:Write(LOG_INFO, "SaveManager: 已从 " .. path .. " 加载存档")
-        return true
     end
 
+    log:Write(LOG_ERROR, "SaveManager: 加载失败（主存档与备份均不可用） " .. mainPath)
     return false
 end
 
@@ -483,20 +526,11 @@ function SaveManager.exists(slot)
     return fileSystem:FileExists(path)
 end
 
--- 获取存档信息（不加载完整数据）
+-- 获取存档信息（不加载完整数据；主文件损坏时回退备份）
 function SaveManager.getSlotInfo(slot)
     local path = SaveManager.getSavePath(slot)
-    if not fileSystem:FileExists(path) then
-        return nil
-    end
-
-    local file = File(path, FILE_READ)
-    if not file or not file:IsOpen() then return nil end
-    local content = file:ReadString()
-    file:Close()
-
-    local ok, data = pcall(cjson.decode, content)
-    if not ok or not data then return nil end
+    local data = readSaveData(path) or readSaveData(path .. ".bak")
+    if not data then return nil end
 
     local info = {
         version = data.version,
@@ -533,9 +567,12 @@ function SaveManager.getAllSlots()
     return slots
 end
 
--- 删除存档
+-- 删除存档（连同备份）
 function SaveManager.delete(slot)
     local path = SaveManager.getSavePath(slot)
+    if fileSystem:FileExists(path .. ".bak") then
+        fileSystem:Delete(path .. ".bak")
+    end
     if fileSystem:FileExists(path) then
         fileSystem:Delete(path)
         return true
