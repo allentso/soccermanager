@@ -9,12 +9,30 @@ local JobManager = {}
 ------------------------------------------------------
 -- 常量
 ------------------------------------------------------
+-- 球队声望范围（与 reputation_manager 一致）
+local TEAM_REP_MIN = 500
+local TEAM_REP_MAX = 950
+-- 经理声望范围
+local MGR_REP_MIN = 1
+local MGR_REP_MAX = 99
+
 local MAX_JOB_LISTINGS = 5            -- 最多显示的空缺职位
 local APPLICATION_COOLDOWN_DAYS = 7   -- 申请冷却期
 local AI_HIRE_DELAY_DAYS = 21         -- AI球队雇新教练延迟
 local OFFER_COOLDOWN_DAYS = 5         -- 主动邀约间隔
 local OFFER_EXPIRE_DAYS = 7           -- 邀约过期天数
 local MAX_CONCURRENT_OFFERS = 3       -- 最多同时持有邀约数
+
+------------------------------------------------------
+-- 工具函数
+------------------------------------------------------
+
+--- 将球队声望（500-950）归一化到经理声望尺度（1-99）
+---@param teamRep number 球队声望（500-950范围）
+---@return number 归一化后的值（1-99范围）
+local function normalizeTeamRepToMgrScale(teamRep)
+    return MGR_REP_MIN + (teamRep - TEAM_REP_MIN) / (TEAM_REP_MAX - TEAM_REP_MIN) * (MGR_REP_MAX - MGR_REP_MIN)
+end
 
 ------------------------------------------------------
 -- 核心API
@@ -162,11 +180,11 @@ function JobManager._processApplications(gameState)
                     priority = "normal",
                 })
             else
-                -- 评估成功率（基于声望对比）
+                -- 评估成功率（基于声望对比，归一化到同一尺度）
                 local manager = gameState:getPlayerManager()
                 local managerRep = manager and manager.reputation or 30
-                local teamRep = team.reputation or 50
-                local repDiff = teamRep - managerRep
+                local teamRepNorm = normalizeTeamRepToMgrScale(team.reputation or TEAM_REP_MIN)
+                local repDiff = teamRepNorm - managerRep
 
                 local baseChance = 0.6
                 if repDiff > 30 then
@@ -302,8 +320,8 @@ function JobManager.processDaily(gameState)
         end
     end
 
-    -- 随机产生新空缺（小概率，模拟AI教练主动辞职/合同到期）
-    if Random() < 0.008 then  -- ~0.8% 每天（约每4天产生一个空缺）
+    -- 随机产生新空缺（模拟AI教练主动辞职/合同到期）
+    if Random() < 0.04 then  -- 4% 每天（约每25天产生一个空缺）
         JobManager._randomVacancy(gameState)
     end
 
@@ -375,11 +393,11 @@ function JobManager._generateProactiveOffers(gameState)
                 if offer.teamId == teamId then alreadyOffered = true; break end
             end
             if not alreadyOffered then
-                local teamRep = team.reputation or 50
-                -- 球队声望不能比经理高太多（超过40差距的不会主动来）
-                if teamRep - managerRep <= 40 then
+                local teamRepNorm = normalizeTeamRepToMgrScale(team.reputation or TEAM_REP_MIN)
+                -- 球队声望不能比经理高太多（归一化后超过40差距的不会主动来）
+                if teamRepNorm - managerRep <= 40 then
                     -- 匹配分数：声望越接近越可能发邀约
-                    local matchScore = 100 - math.abs(teamRep - managerRep)
+                    local matchScore = 100 - math.abs(teamRepNorm - managerRep)
                     -- 空缺时间越长越急迫
                     local urgency = math.min(10, (team._vacantDays or 0) / 2)
                     table.insert(candidates, {
@@ -439,7 +457,7 @@ function JobManager._generateProactiveOffers(gameState)
                 "• 赛季目标: %s\n\n" ..
                 "这份邀约将在 %d 天后过期。",
                 team.name, team.name, offer.leagueName,
-                offer.teamRep, boardObj, OFFER_EXPIRE_DAYS
+                math.floor(offer.teamRep), boardObj, OFFER_EXPIRE_DAYS
             ),
             priority = "high",
             actions = {
@@ -484,7 +502,7 @@ function JobManager._aiHireManager(gameState, teamId)
     local team = gameState.teams[teamId]
     if not team then return end
 
-    local teamRep = team.reputation or 50
+    local teamRepNorm = normalizeTeamRepToMgrScale(team.reputation or TEAM_REP_MIN)
 
     -- 寻找失业AI经理
     local bestCandidate = nil
@@ -492,10 +510,10 @@ function JobManager._aiHireManager(gameState, teamId)
     for _, mgr in pairs(gameState.managers or {}) do
         if mgr.isUnemployed and not mgr.isPlayer then
             local mgrRep = mgr.reputation or 30
-            -- 声望匹配分数
-            local matchScore = 100 - math.abs(teamRep - mgrRep)
+            -- 声望匹配分数（归一化后在同一尺度比较）
+            local matchScore = 100 - math.abs(teamRepNorm - mgrRep)
             -- AI经理是否接受：球队声望越高于自己越愿意
-            local willingness = 0.5 + (teamRep - mgrRep) * 0.01  -- 球队声望高→更愿意
+            local willingness = 0.5 + (teamRepNorm - mgrRep) * 0.01
             willingness = math.max(0.2, math.min(0.95, willingness))
 
             if Random() < willingness and matchScore > bestScore then
@@ -635,7 +653,7 @@ function JobManager._acceptJob(gameState, teamId)
             "祝你好运！",
             team.name or team.shortName,
             JobManager._getTeamLeagueName(gameState, teamId),
-            team.reputation or 50,
+            math.floor(team.reputation or 50),
             team.boardObjective
         ),
         priority = "high",

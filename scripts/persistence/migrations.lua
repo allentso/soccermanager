@@ -200,6 +200,101 @@ function Migrations.v3_to_v4(gameStateData)
     print("[SaveMigration] v3→v4: 重算了 " .. totalFixed .. " 个联赛的积分榜（从比赛记录重建）")
 end
 
+--- v4 → v5: 修正传奇球员因位置映射BUG被错误设为"CM"的问题
+--- 原因：settings.lua 补偿抽卡的 posMap 用缩写 key 匹配全称 value，导致所有传奇 fallback 为 "CM"
+--- 同时 real_data_loader 缺少 CentreBack 映射，导致中后卫传奇也变成 "CM"
+function Migrations.v4_to_v5(gameStateData)
+    local players = gameStateData.players
+    if not players then return end
+
+    -- 加载传奇球员 JSON 数据，构建名字→正确位置查找表
+    local POSITION_MAP = {
+        Goalkeeper = "GK",
+        CentreBack = "CB", CenterBack = "CB",
+        LeftBack = "LB", RightBack = "RB",
+        LeftWingBack = "LB", RightWingBack = "RB",
+        DefensiveMidfielder = "CDM",
+        CentralMidfielder = "CM",
+        AttackingMidfielder = "CAM",
+        LeftMidfielder = "LM", RightMidfielder = "RM",
+        LeftWinger = "LW", RightWinger = "RW",
+        LeftWing = "LW", RightWing = "RW",
+        Striker = "ST",
+    }
+
+    local legendPositions = {}  -- legendName → 正确的缩写位置
+    local data = JsonLoader.loadFromResource("Data/legends_alltime_top50.json")
+    if data and data.players then
+        for _, lData in ipairs(data.players) do
+            local name = lData.full_name_cn or lData.match_name
+            if name and lData.position then
+                legendPositions[name] = POSITION_MAP[lData.position] or "ST"
+            end
+        end
+    end
+
+    local migrated = 0
+    for _, pData in pairs(players) do
+        if pData.isLegend and pData.legendName then
+            local correctPos = legendPositions[pData.legendName]
+            if correctPos and pData.position ~= correctPos then
+                pData.position = correctPos
+                -- 同时修正 naturalPositions 列表中的主位置
+                if type(pData.naturalPositions) == "table" then
+                    pData.naturalPositions[1] = correctPos
+                end
+                migrated = migrated + 1
+            end
+        end
+    end
+
+    print("[SaveMigration] v4→v5: 修正了 " .. migrated .. " 名传奇球员的位置映射")
+end
+
+--- v5 → v6: 修正非传奇球员OVR超过99的问题
+--- 原因：旧版世界生成器random球员潜力过高(可达99)，触发巨星机制(PA>=95 → OVR上限101)
+--- 修正后：只有传奇球员(isLegend=true)可突破99，普通球员一律封顶99
+--- 同时降低随机生成球员的潜力上限至92，避免后续赛季持续产出过强球员
+function Migrations.v5_to_v6(gameStateData)
+    local players = gameStateData.players
+    if not players then return end
+
+    local Constants = require("scripts/app/constants")
+    local GENERATED_POTENTIAL_CAP = 92  -- 与 world_generator 保持一致
+    local OVR_CAP = Constants.ABILITY_MAX  -- 99
+
+    local ovrFixed = 0
+    local potentialFixed = 0
+
+    for _, pData in pairs(players) do
+        -- 跳过传奇球员（他们保留突破99的能力）
+        if pData.isLegend then goto continue end
+
+        -- 修正OVR超过99的非传奇球员
+        if pData.overall and pData.overall > OVR_CAP then
+            pData.overall = OVR_CAP
+            ovrFixed = ovrFixed + 1
+        end
+
+        -- 对于随机生成的球员（无jsonPlayerId），降低过高的潜力
+        -- 真实球员（有jsonPlayerId）保留原始潜力
+        if not pData.jsonPlayerId then
+            if pData.potential and pData.potential > GENERATED_POTENTIAL_CAP then
+                pData.potential = GENERATED_POTENTIAL_CAP
+                potentialFixed = potentialFixed + 1
+            end
+            if pData.actualPotential and pData.actualPotential > GENERATED_POTENTIAL_CAP then
+                pData.actualPotential = GENERATED_POTENTIAL_CAP
+            end
+        end
+
+        ::continue::
+    end
+
+    print("[SaveMigration] v5→v6: 修正了 " .. ovrFixed .. " 名非传奇球员的OVR(封顶99), "
+        .. potentialFixed .. " 名随机球员的潜力(封顶" .. GENERATED_POTENTIAL_CAP .. ")")
+end
+
 --- 迁移路由：根据存档版本逐级升级
 --- @param saveData table 完整的存档顶层数据 {version, game_state, saved_at}
 --- @return number 迁移后的最终版本号
@@ -219,6 +314,16 @@ function Migrations.run(saveData)
     if version < 4 then
         Migrations.v3_to_v4(saveData.game_state)
         version = 4
+    end
+
+    if version < 5 then
+        Migrations.v4_to_v5(saveData.game_state)
+        version = 5
+    end
+
+    if version < 6 then
+        Migrations.v5_to_v6(saveData.game_state)
+        version = 6
     end
 
     saveData.version = version

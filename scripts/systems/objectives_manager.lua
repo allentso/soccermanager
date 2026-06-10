@@ -58,10 +58,11 @@ local MONTHLY_TEMPLATES = {
 function ObjectivesManager._getTier(gameState)
     local team = gameState.teams[gameState.playerTeamId]
     if not team then return "mid" end
-    local rep = team.reputation or 50
-    if rep >= 85 then return "elite"
-    elseif rep >= 70 then return "strong"
-    elseif rep >= 50 then return "mid"
+    local rep = team.reputation or 600
+    -- 球队声望范围 500-950
+    if rep >= 900 then return "elite"
+    elseif rep >= 800 then return "strong"
+    elseif rep >= 700 then return "mid"
     else return "weak" end
 end
 
@@ -425,14 +426,40 @@ function ObjectivesManager.onSeasonEnd(gameState)
     local completed = objectives.completedCount or 0
     local rate = math.floor(completed / total * 100)
 
-    -- 董事会满意度调整
+    -- 检查是否有联赛冠军/前列成就（用于保护性加分）
+    local hasLeagueSuccess = false
+    for _, obj in ipairs(objectives.season) do
+        if obj.category == "league" and obj.status == "completed" then
+            hasLeagueSuccess = true
+            break
+        end
+    end
+
+    -- 董事会满意度调整（联赛成功时给予保护性加分）
     if gameState.boardConfidence then
         if rate >= 80 then
             gameState.boardConfidence = math.min(100, gameState.boardConfidence + 15)
         elseif rate >= 50 then
             gameState.boardConfidence = math.min(100, gameState.boardConfidence + 5)
         elseif rate < 30 then
-            gameState.boardConfidence = math.max(0, gameState.boardConfidence - 15)
+            -- 联赛成功时，即使整体完成率低也不大幅扣分
+            if hasLeagueSuccess then
+                gameState.boardConfidence = math.max(0, gameState.boardConfidence - 5)
+            else
+                gameState.boardConfidence = math.max(0, gameState.boardConfidence - 15)
+            end
+        end
+    end
+
+    -- 联赛成功额外加满意度（联赛是核心指标，应强于其他目标失败的惩罚）
+    if hasLeagueSuccess then
+        local playerTeam = gameState.teams[gameState.playerTeamId]
+        if playerTeam then
+            playerTeam.boardSatisfaction = math.min(100, (playerTeam.boardSatisfaction or 50) + 10)
+            -- 清除因欧冠未达标可能累积的警告
+            if (playerTeam.boardWarnings or 0) > 0 then
+                playerTeam.boardWarnings = math.max(0, playerTeam.boardWarnings - 1)
+            end
         end
     end
 

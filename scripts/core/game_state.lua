@@ -276,6 +276,9 @@ function GameState:serialize()
         _managerRenewalOffered = self._managerRenewalOffered,
         -- 存档数据消毒留痕（用于追根因：记录哪些字段曾出现非法值/稀疏数组）
         _sanitizeReports = self._sanitizeReports,
+        -- 声望基准线迁移标记
+        _repBaselineMigrated = self._repBaselineMigrated,
+        _repBaselineV2 = self._repBaselineV2,
     }
 end
 
@@ -347,6 +350,9 @@ function GameState:deserialize(data)
     self._managerRenewalOffered = data._managerRenewalOffered
     -- 存档消毒留痕（追根因用）
     self._sanitizeReports = data._sanitizeReports
+    -- 声望基准线迁移标记
+    self._repBaselineMigrated = data._repBaselineMigrated
+    self._repBaselineV2 = data._repBaselineV2
 
     -- 恢复二级联赛数据（升降级状态）
     if data.secondDivision then

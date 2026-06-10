@@ -209,10 +209,11 @@ local function generatePlayer(gameState, teamId, position, country, reputationBa
     end
     overallBase = math.max(Constants.ABILITY_MIN + 10, math.min(Constants.ABILITY_MAX - 5, overallBase))
 
-    -- 潜力
-    local potential = overallBase + randInt(0, 15)
-    if age <= 22 then potential = potential + randInt(3, 10) end
-    potential = math.max(overallBase, math.min(Constants.POTENTIAL_MAX, potential))
+    -- 潜力（随机生成球员上限92，避免泛滥突破巨星阈值95）
+    local GENERATED_POTENTIAL_MAX = 92
+    local potential = overallBase + randInt(0, 12)
+    if age <= 22 then potential = potential + randInt(2, 7) end
+    potential = math.max(overallBase, math.min(GENERATED_POTENTIAL_MAX, potential))
 
     local attrs = generateAttributes(position, overallBase, age)
 

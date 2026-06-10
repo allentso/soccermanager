@@ -11,7 +11,8 @@ local RealDataLoader = {}
 -- 位置映射：JSON全名 → 游戏内缩写
 local POSITION_MAP = {
     Goalkeeper = "GK",
-    CenterBack = "CB",
+    CentreBack = "CB",     -- JSON使用英式拼写
+    CenterBack = "CB",     -- 兼容美式拼写
     LeftBack = "LB",
     RightBack = "RB",
     LeftWingBack = "LB",   -- 翼卫映射为边后卫
@@ -521,6 +522,8 @@ function RealDataLoader.loadLegends(gameState)
             teamId = nil,       -- 自由球员
             squadRole = "first_team",
             traits = pData.traits or {},
+            isLegend = true,    -- 标记为传奇球员，可突破99总评上限
+            legendName = matchName ~= "" and matchName or fullName,
         })
 
         -- 基于实际属性重新计算OVR

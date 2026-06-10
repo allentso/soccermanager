@@ -103,6 +103,8 @@ function ReputationManager.seasonEndUpdate(gameState)
                     bonus = -2  -- 下半区
                 end
                 team.reputation = math.max(TEAM_REP_MIN, math.min(TEAM_REP_MAX, (team.reputation or 600) + bonus))
+                -- 赛季末更新基准线为当前声望（声望只靠比赛成绩变化，不再锚定初始薪资）
+                team._baseReputation = team.reputation
 
                 -- 经理声望（缩放到 1-99）
                 if teamId == gameState.playerTeamId then
@@ -130,17 +132,39 @@ function ReputationManager.cupResultUpdate(gameState, teamId, isWinner)
     end
 end
 
---- 全联赛声望自然回归（每月调用一次，防止通胀/通缩）
+--- 全联赛声望自然通胀/通缩控制（每月调用一次）
+--- 不再使用基于薪资的 _baseReputation 做回归，改为向联赛均值微弱收敛，防止极端膨胀/坍缩
 ---@param gameState table
 function ReputationManager.monthlyDecay(gameState)
-    for _, team in pairs(gameState.teams) do
+    -- 建立 teamId → 联赛平均声望 的映射（team 上没有 leagueId 字段，需通过联赛的 teamIds 反查）
+    local teamToAvg = {}  -- teamId → 该联赛的平均声望
+
+    for _, lg in pairs(gameState.leagues) do
+        -- 先算该联赛平均声望
+        local sum, count = 0, 0
+        for _, teamId in ipairs(lg.teamIds or {}) do
+            local t = gameState.teams[teamId]
+            if t then
+                sum = sum + (t.reputation or 600)
+                count = count + 1
+            end
+        end
+        local avg = count > 0 and (sum / count) or 650
+        -- 把均值写入每支球队的映射
+        for _, teamId in ipairs(lg.teamIds or {}) do
+            teamToAvg[teamId] = avg
+        end
+    end
+
+    for teamId, team in pairs(gameState.teams) do
         local rep = team.reputation or 600
-        -- 声望向基准线缓慢回归（基准线即初始声望，500-950 范围）
-        local baseline = team._baseReputation or team.reputation or 600
-        if rep > baseline + 25 then
-            team.reputation = rep - 1.5
-        elseif rep < baseline - 25 then
-            team.reputation = rep + 1.0
+        local avg = teamToAvg[teamId] or 650
+        -- 只有当声望极端偏离联赛均值时才微弱收敛（阈值80分，每月0.5）
+        -- 这是为了防止长期不比赛的球队声望失控，不会影响正常表现的球队
+        if rep > avg + 80 then
+            team.reputation = rep - 0.5
+        elseif rep < avg - 80 then
+            team.reputation = rep + 0.5
         end
     end
 end

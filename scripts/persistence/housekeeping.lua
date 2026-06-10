@@ -385,12 +385,46 @@ function Housekeeping.dedupeWorldHistory(gameState)
 end
 
 ------------------------------------------------------
+-- 8. 声望基准线修复（旧存档兼容）
+--
+-- 旧版本 _baseReputation 锚定初始薪资，声望会被 monthlyDecay 强制拉回。
+-- 新版本已移除薪资回归，但旧存档的 _baseReputation 仍是旧值。
+-- 修复：将 _baseReputation 刷新为当前声望（幂等：已修复的不会再改）。
+------------------------------------------------------
+function Housekeeping.fixReputationBaseline(gameState)
+    -- v2: 从 wageBudget 重新计算初始声望并重置（覆盖 v1 错误迁移）
+    -- 只执行一次，用 _repBaselineV2 标记
+    if gameState._repBaselineV2 then return 0 end
+
+    local fixed = 0
+    for _, team in pairs(gameState.teams or {}) do
+        local wb = team.wageBudget
+        if wb and wb > 0 then
+            -- 与 RealDataLoader._calcReputation 相同的对数映射公式
+            local logWb = math.log(wb)
+            local logMin = math.log(200000)
+            local logMax = math.log(6500000)
+            local ratio = (logWb - logMin) / (logMax - logMin)
+            ratio = math.max(0, math.min(1, ratio))
+            local initRep = math.floor(500 + ratio * 450)
+
+            team.reputation = initRep
+            team._baseReputation = initRep
+            fixed = fixed + 1
+        end
+    end
+    gameState._repBaselineV2 = true
+    return fixed
+end
+
+------------------------------------------------------
 -- 主入口（幂等，可重复执行）
 ------------------------------------------------------
 function Housekeeping.run(gameState)
     if not gameState or not gameState.players then return end
 
     local stats = {
+        repBaseline = Housekeeping.fixReputationBaseline(gameState),
         revenueChains = Housekeeping.flattenRevenueChains(gameState),
         retired = Housekeeping.purgeRetiredPlayers(gameState),
         freeAgents = Housekeeping.purgeExcessFreeAgents(gameState),
@@ -408,8 +442,8 @@ function Housekeeping.run(gameState)
         for _, v in pairs(stats) do total = total + v end
         if total > 0 then
             log:Write(LOG_INFO, string.format(
-                "Housekeeping: 清理完成 收入链=%d 退役=%d 自由球员=%d 虚拟=%d 生涯折叠=%d 赛果明细=%d 新闻=%d 转会=%d AI流水=%d 历史去重=%d",
-                stats.revenueChains, stats.retired, stats.freeAgents, stats.virtual, stats.career,
+                "Housekeeping: 清理完成 声望修复=%d 收入链=%d 退役=%d 自由球员=%d 虚拟=%d 生涯折叠=%d 赛果明细=%d 新闻=%d 转会=%d AI流水=%d 历史去重=%d",
+                stats.repBaseline, stats.revenueChains, stats.retired, stats.freeAgents, stats.virtual, stats.career,
                 stats.fixtures, stats.news, stats.transfers, stats.aiTx, stats.worldHistory))
         end
     end

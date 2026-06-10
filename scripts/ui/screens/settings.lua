@@ -10,6 +10,8 @@ local SettingsManager = require("scripts/persistence/settings_manager")
 local EventBus = require("scripts/app/event_bus")
 local League = require("scripts/domain/league")
 local DifficultySettings = require("scripts/systems/difficulty_settings")
+local Player = require("scripts/domain/player")
+local YouthManager = require("scripts/systems/youth_manager")
 
 local Settings = {}
 
@@ -1117,6 +1119,251 @@ function Settings._completeAllLeagues(gameState)
 end
 
 ------------------------------------------------------
+-- 补偿领取：随机传奇球员进入青训队
+------------------------------------------------------
+function Settings._buildCompensationSection()
+    local gameState = _G.gameState
+    if not gameState then return UI.Panel { height = 0 } end
+
+    -- 检查是否已领取过补偿（存储在 _legendGacha 中以确保持久化）
+    local gachaState = YouthManager.getLegendGachaState(gameState)
+    if gachaState.compensationClaimed then
+        return UI.Panel { height = 0 }
+    end
+
+    return UI.Panel {
+        width = "100%",
+        marginTop = 14,
+        paddingTop = 14,
+        borderTopWidth = 1,
+        borderTopColor = Theme.COLORS.DIVIDER,
+        children = {
+            UI.Panel {
+                width = "100%",
+                padding = 10,
+                backgroundColor = {30, 25, 50, 255},
+                borderRadius = 8,
+                borderWidth = 1,
+                borderColor = Theme.COLORS.GOLD,
+                children = {
+                    UI.Label {
+                        text = "版本补偿",
+                        fontSize = 13,
+                        color = Theme.COLORS.GOLD,
+                        fontWeight = "bold",
+                        marginBottom = 4,
+                    },
+                    UI.Label {
+                        text = "赠送一位随机传奇球员加入青训队",
+                        fontSize = 11,
+                        color = Theme.COLORS.TEXT_MUTED,
+                        marginBottom = 10,
+                    },
+                    UI.Button {
+                        text = "领取补偿",
+                        width = "100%",
+                        height = 36,
+                        backgroundColor = Theme.COLORS.GOLD,
+                        borderRadius = 6,
+                        fontSize = 13,
+                        fontWeight = "bold",
+                        color = "#000000",
+                        onClick = function()
+                            Settings._claimCompensationLegend()
+                        end,
+                    },
+                }
+            },
+        }
+    }
+end
+
+function Settings._claimCompensationLegend()
+    local gameState = _G.gameState
+    if not gameState then return end
+
+    -- 防止重复领取（存储在 _legendGacha 中以确保持久化）
+    local gachaState = YouthManager.getLegendGachaState(gameState)
+    if gachaState.compensationClaimed then
+        UI.Toast.Show({ message = "补偿已领取过", variant = "info" })
+        return
+    end
+
+    local team = gameState:getPlayerTeam()
+    if not team then
+        UI.Toast.Show({ message = "无玩家球队", variant = "error" })
+        return
+    end
+
+    -- 收集已拥有的传奇球员名称（包括阵容+青训+gacha记录）
+    local ownedLegends = {}
+
+    -- 从 gacha 记录获取
+    for _, name in ipairs(gachaState.pulledLegends or {}) do
+        ownedLegends[name] = true
+    end
+
+    -- 从球队阵容获取
+    for _, pid in ipairs(team.playerIds or {}) do
+        local p = gameState.players[pid]
+        if p and p.isLegend and p.legendName then
+            ownedLegends[p.legendName] = true
+        end
+    end
+
+    -- 从青训队获取
+    for _, pid in ipairs(team._youthPlayerIds or {}) do
+        local p = gameState.players[pid]
+        if p and p.isLegend and p.legendName then
+            ownedLegends[p.legendName] = true
+        end
+    end
+
+    -- 加载传奇池
+    local JsonLoader = require("scripts/data/json_loader")
+    local legendData = JsonLoader.loadFromResource("Data/legends_alltime_top50.json")
+    local allLegends = (legendData and legendData.players) or {}
+
+    -- 筛选未拥有的传奇
+    local availablePool = {}
+    for _, lData in ipairs(allLegends) do
+        local key = lData.full_name_cn or lData.match_name or ""
+        if key ~= "" and not ownedLegends[key] then
+            table.insert(availablePool, lData)
+        end
+    end
+
+    if #availablePool == 0 then
+        UI.Toast.Show({ message = "已拥有所有传奇球员", variant = "info" })
+        gachaState.compensationClaimed = true
+        SaveManager.save(gameState, "auto")
+        Router.replaceWith("settings")
+        return
+    end
+
+    -- 随机选取一位传奇
+    local idx = RandomInt(1, #availablePool)
+    local chosen = availablePool[idx]
+    local legendKey = chosen.full_name_cn or chosen.match_name or "传奇"
+
+    -- 映射位置：JSON全称 → 游戏缩写
+    local posMap = {
+        Goalkeeper = "GK",
+        CentreBack = "CB", CenterBack = "CB",
+        LeftBack = "LB", RightBack = "RB",
+        LeftWingBack = "LB", RightWingBack = "RB",
+        DefensiveMidfielder = "CDM",
+        CentralMidfielder = "CM",
+        AttackingMidfielder = "CAM",
+        LeftMidfielder = "LM", RightMidfielder = "RM",
+        LeftWinger = "LW", RightWinger = "RW",
+        LeftWing = "LW", RightWing = "RW",
+        Striker = "ST",
+    }
+    local mappedPos = posMap[chosen.position] or "ST"
+
+    -- 生成球员属性（传奇级别）
+    local legendAge = RandomInt(16, 18)
+    local legendOverall = RandomInt(62, 70)
+    local legendAttrs = YouthManager._generateAttributes(mappedPos, legendOverall)
+    local preCalcOverall = Player.calculateOverallFromAttrs(mappedPos, legendAttrs)
+
+    -- 构造候选数据并签入
+    local candidateData = {
+        firstName = legendKey,
+        lastName = legendKey,
+        displayName = legendKey,
+        nationality = chosen.football_nation or chosen.nationality or "BRA",
+        birthYear = math.floor(gameState.date.year - legendAge),
+        position = mappedPos,
+        attributes = legendAttrs,
+        potential = chosen.potential or 95,
+        overall = preCalcOverall,
+        age = legendAge,
+        isLegend = true,
+        legendName = legendKey,
+        legendData = chosen,
+    }
+
+    -- 直接添加到候选池并签入
+    gameState._youthCandidates = gameState._youthCandidates or {}
+    table.insert(gameState._youthCandidates, candidateData)
+    local candidateIdx = #gameState._youthCandidates
+
+    local success, err = YouthManager.signCandidate(gameState, candidateIdx)
+    if not success then
+        -- 如果青训满了，直接提示
+        UI.Toast.Show({ message = err or "签入失败", variant = "error" })
+        -- 从候选池移除避免残留
+        table.remove(gameState._youthCandidates, candidateIdx)
+        return
+    end
+
+    -- 记录到 gacha 已抽列表（防止后续 gacha 再抽到）
+    gachaState.pulledLegends = gachaState.pulledLegends or {}
+    table.insert(gachaState.pulledLegends, legendKey)
+
+    -- 标记已领取（存储在 _legendGacha 中，确保持久化到存档）
+    gachaState.compensationClaimed = true
+    SaveManager.save(gameState, "auto")
+
+    -- 显示获得提示
+    local BottomSheet = require("scripts/ui/components/bottom_sheet")
+    BottomSheet.showCustom({
+        title = "补偿领取成功",
+        height = 280,
+        children = {
+            UI.Panel {
+                width = "100%",
+                alignItems = "center",
+                paddingTop = 10,
+                children = {
+                    UI.Label {
+                        text = "恭喜获得传奇球员",
+                        fontSize = 14,
+                        color = Theme.COLORS.TEXT_SECONDARY,
+                        marginBottom = 12,
+                    },
+                    UI.Label {
+                        text = legendKey,
+                        fontSize = 22,
+                        color = Theme.COLORS.GOLD,
+                        fontWeight = "bold",
+                        marginBottom = 8,
+                    },
+                    UI.Label {
+                        text = string.format("%s | 潜力 %d | %d岁",
+                            mappedPos, chosen.potential or 95, legendAge),
+                        fontSize = 13,
+                        color = Theme.COLORS.TEXT_MUTED,
+                        marginBottom = 16,
+                    },
+                    UI.Label {
+                        text = "已加入青训队",
+                        fontSize = 13,
+                        color = Theme.COLORS.SUCCESS,
+                        marginBottom = 16,
+                    },
+                    UI.Button {
+                        text = "确定",
+                        width = "80%",
+                        height = 40,
+                        backgroundColor = Theme.COLORS.PRIMARY,
+                        borderRadius = 8,
+                        fontSize = 14,
+                        color = "#FFFFFF",
+                        onClick = function()
+                            BottomSheet.close()
+                            Router.replaceWith("settings")
+                        end,
+                    },
+                }
+            },
+        },
+    })
+end
+
+------------------------------------------------------
 -- 开始新游戏确认
 ------------------------------------------------------
 function Settings._confirmNewGame()
@@ -1478,6 +1725,8 @@ function Settings._buildDifficultyAndSaveCard()
             Settings._saveSettings()
             Router.replaceWith("settings")
         end),
+        -- 补偿领取区域（一次性，领取后消失）
+        Settings._buildCompensationSection(),
     }
 
     return Theme.Card {

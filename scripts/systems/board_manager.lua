@@ -7,15 +7,23 @@ local MessageManager = require("scripts/systems/message_manager")
 local BoardManager = {}
 
 ------------------------------------------------------
+-- 声望范围常量（与 reputation_manager 一致）
+------------------------------------------------------
+local TEAM_REP_MIN = 500
+local TEAM_REP_MAX = 950
+local MGR_REP_MIN = 1
+local MGR_REP_MAX = 99
+
+------------------------------------------------------
 -- 目标类型定义
 ------------------------------------------------------
 local OBJECTIVES = {
-    -- 按声望分档
-    elite   = { min = 80, targets = {"夺冠", "前2名", "前3名"} },
-    strong  = { min = 65, targets = {"前3名", "前4名", "上半区"} },
-    mid     = { min = 45, targets = {"上半区", "前10名", "避免降级"} },
-    weak    = { min = 25, targets = {"保级", "避免垫底", "前15名"} },
-    lowest  = { min = 0,  targets = {"保级", "避免垫底"} },
+    -- 按声望分档（球队声望范围 500-950）
+    elite   = { min = 900, targets = {"夺冠", "前2名", "前3名"} },
+    strong  = { min = 800, targets = {"前3名", "前4名", "上半区"} },
+    mid     = { min = 700, targets = {"上半区", "前10名", "避免降级"} },
+    weak    = { min = 620, targets = {"保级", "避免垫底", "前15名"} },
+    lowest  = { min = 0,   targets = {"保级", "避免垫底"} },
 }
 
 -- 目标对应的排名阈值（用于评估）
@@ -151,11 +159,18 @@ function BoardManager.monthlyEvaluation(gameState)
 
                 -- 连续警告→解雇玩家（需要更多次数，给教练更多时间调整）
                 if team.boardWarnings >= PLAYER_SACK_WARNINGS then
-                    -- 额外保护：如果经理声望高于球队声望，给予额外容忍
+                    -- 额外保护1：如果经理声望高于球队声望（归一化比较），给予额外容忍
                     local manager = gameState:getPlayerManager()
                     local managerRep = manager and manager.reputation or 30
-                    local teamRep = team.reputation or 50
-                    local extraTolerance = (managerRep > teamRep) and 1 or 0
+                    local teamRepNorm = MGR_REP_MIN + (team.reputation - TEAM_REP_MIN) / (TEAM_REP_MAX - TEAM_REP_MIN) * (MGR_REP_MAX - MGR_REP_MIN)
+                    local extraTolerance = 0
+                    if managerRep > teamRepNorm then
+                        extraTolerance = extraTolerance + 1
+                    end
+                    -- 额外保护2：如果当前联赛排名在前3，再给1次容忍
+                    if position and position <= 3 then
+                        extraTolerance = extraTolerance + 1
+                    end
                     if team.boardWarnings >= PLAYER_SACK_WARNINGS + extraTolerance then
                         BoardManager._triggerPlayerSack(gameState)
                     end
@@ -221,25 +236,38 @@ function BoardManager.seasonEndEvaluation(gameState)
                 })
             end
         else
-            -- 目标未达成
-            team.boardSatisfaction = math.max(0, (team.boardSatisfaction or 50) - 25)
+            -- 目标未达成：根据偏离程度分级处罚
+            local gap = position - threshold
+            local penalty = 25
+            if gap <= 2 then
+                penalty = 10  -- 略微未达标，轻微惩罚
+            elseif gap <= 4 then
+                penalty = 18  -- 有差距但不严重
+            end
+            team.boardSatisfaction = math.max(0, (team.boardSatisfaction or 50) - penalty)
 
             if isPlayerTeam then
+                -- 国内成就保护：如果联赛排名在前3，即使未达到更高目标也不会被直接解雇
+                local hasDomesticSuccess = (position ~= nil and position <= 3)
+
                 gameState:sendMessage({
                     category = "board",
                     title = "赛季总结 - 目标未达",
-                    body = string.format("球队以第%d名完赛，未能完成\"%s\"的目标。董事会对此感到失望。",
-                        position or 0, team.boardObjective),
+                    body = string.format("球队以第%d名完赛，未能完成\"%s\"的目标。%s",
+                        position or 0, team.boardObjective,
+                        hasDomesticSuccess
+                            and "不过董事会认可球队的联赛表现，决定给予更多时间。"
+                            or "董事会对此感到失望。"),
                     priority = "high",
                 })
 
-                -- 严重失败直接解雇玩家
-                if position and position > threshold + 5 then
+                -- 严重失败直接解雇玩家（但有国内成就保护）
+                if not hasDomesticSuccess and position and position > threshold + 5 then
                     BoardManager._triggerPlayerSack(gameState)
                 end
             else
-                -- AI教练：偏离目标 → 解雇
-                if position and position > threshold + 3 then
+                -- AI教练：偏离目标 → 解雇（AI不享受保护，但阈值也放宽一点）
+                if position and position > threshold + 4 then
                     BoardManager._triggerAISack(gameState, teamId)
                 end
             end

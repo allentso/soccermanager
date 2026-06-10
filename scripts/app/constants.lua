@@ -4,8 +4,8 @@
 local Constants = {}
 
 -- 游戏版本
-Constants.VERSION = "1.3.2"
-Constants.SAVE_VERSION = 4
+Constants.VERSION = "1.3.3"
+Constants.SAVE_VERSION = 6
 
 -- 赛季设置
 Constants.SEASON_START_MONTH = 8   -- 8月开始

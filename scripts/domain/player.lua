@@ -178,15 +178,13 @@ function Player:getAttrCap()
 end
 
 --- 获取该球员的总评上限
---- 传奇球员: LEGEND_OVERALL_MAX(103); 巨星(PA>=95): SUPERSTAR_OVERALL_MAX(101); 普通: 99
+--- 传奇球员: LEGEND_OVERALL_MAX(103); 非传奇: 99
+--- 注: 巨星(PA>=95)保留属性上限21的优势(getAttrCap)，但OVR不超过99
+--- 只有通过传奇抽卡/传奇数据加载的球员才能突破99总评
 ---@return number
 function Player:getOverallCap()
     if self.isLegend then
         return Constants.LEGEND_OVERALL_MAX
-    end
-    local pot = self.actualPotential or self.potential or 60
-    if pot >= Constants.SUPERSTAR_POTENTIAL_THRESHOLD then
-        return Constants.SUPERSTAR_OVERALL_MAX
     end
     return Constants.ABILITY_MAX
 end

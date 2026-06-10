@@ -2662,18 +2662,19 @@ function TransferManager.getPlayerTransferAttitude(gameState, playerId, targetTe
     -- 基础意愿
     local willingness = 50  -- 中性
 
-    -- 士气影响
+    -- 士气影响（高士气仅轻微降低意愿，不应成为阻止转会的主因）
     if player.morale < 30 then willingness = willingness + 30  -- 很想走
     elseif player.morale < 50 then willingness = willingness + 15
-    elseif player.morale > 80 then willingness = willingness - 20
+    elseif player.morale > 80 then willingness = willingness - 10
     end
 
-    -- 角色影响
-    if player.squadRole == "key" then willingness = willingness - 15
+    -- 角色影响（核心球员有一定留队倾向，但不是绝对拒绝）
+    if player.squadRole == "key" then willingness = willingness - 10
     elseif player.squadRole == "squad" or player.squadRole == "youth" then willingness = willingness + 10
     end
 
     -- 目标球队声望影响（reputation 实际范围约 500-950，最大差距~350）
+    -- 同联赛内100点差距很常见，不应视为极端降级；200+才是真正的大幅降级
     -- 33+老将和22-年轻人对声望降级的抵触减半
     if targetTeam then
         local currentTeam = gameState.teams[player.teamId]
@@ -2684,9 +2685,9 @@ function TransferManager.getPlayerTransferAttitude(gameState, playerId, targetTe
             if repDiff > 200 then willingness = willingness + 45      -- 显著升级（如中游→豪门）
             elseif repDiff > 100 then willingness = willingness + 35  -- 明显升级
             elseif repDiff > 30 then willingness = willingness + 15   -- 小幅升级
-            elseif repDiff < -200 then willingness = willingness - math.floor(25 * ageFactor)  -- 大幅降级
-            elseif repDiff < -100 then willingness = willingness - math.floor(15 * ageFactor)  -- 明显降级
-            elseif repDiff < -50 then willingness = willingness - math.floor(8 * ageFactor)    -- 小幅降级
+            elseif repDiff < -250 then willingness = willingness - math.floor(18 * ageFactor)  -- 极端降级（如豪门→低级联赛）
+            elseif repDiff < -150 then willingness = willingness - math.floor(12 * ageFactor)  -- 明显降级
+            elseif repDiff < -80 then willingness = willingness - math.floor(5 * ageFactor)    -- 小幅降级
             end
         end
     end

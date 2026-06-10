@@ -141,23 +141,23 @@ function DifficultySettings.getYouthModifiers()
         -- tier 1: 起点低，需长期培养
         {
             minAge = 15, maxAge = 16,
-            potentialMin = 55, potentialMax = 90,
+            potentialMin = 55, potentialMax = 85,
             overallMin = 45, overallMax = 65,
             legendMinAge = 16, legendMaxAge = 17,
             legendOverallMin = 70, legendOverallMax = 80,
         },
-        -- tier 2: 正常（普通潜力60-95，OVR 50-75；传奇OVR 75-85）
+        -- tier 2: 正常（普通潜力60-90，OVR 50-75；传奇OVR 75-85）
         {
             minAge = 16, maxAge = 17,
-            potentialMin = 60, potentialMax = 95,
+            potentialMin = 60, potentialMax = 90,
             overallMin = 50, overallMax = 75,
             legendMinAge = 17, legendMaxAge = 18,
             legendOverallMin = 75, legendOverallMax = 85,
         },
-        -- tier 3: 起点高，快速兑现
+        -- tier 3: 起点高，快速兑现（潜力上限92，仅传奇可突破99总评）
         {
             minAge = 16, maxAge = 18,
-            potentialMin = 65, potentialMax = 97,
+            potentialMin = 65, potentialMax = 92,
             overallMin = 55, overallMax = 80,
             legendMinAge = 18, legendMaxAge = 19,
             legendOverallMin = 80, legendOverallMax = 88,
