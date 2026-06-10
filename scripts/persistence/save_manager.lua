@@ -17,53 +17,47 @@ function SaveManager.getSavePath(slot)
 end
 
 ------------------------------------------------------
--- 数据消毒：清除会让 cjson.encode 抛错的非法值
--- 触发场景：除零产生的 NaN/Infinity、数组出现空洞（稀疏数组）、
---           误存入的函数/userdata 等。
--- 关键：始终构建新表，绝不修改传入的 live gameState 引用。
--- 输出保持标准 JSON（NaN→0），以保证新老/其它读档逻辑都能解析。
+-- 数据消毒/治疗体系
+--
+-- 重要教训：gameState 中大量表是"整数 ID 映射表"
+-- （players[523]、teams[27]、standings[teamId]、shortlist[playerId]），
+-- 不能用通用逻辑把它们当稀疏数组压实——那会让所有 ID 错位、毁掉整个世界。
+-- 因此：
+--   * 数值修复（NaN/Infinity）：通用递归，安全
+--   * 空洞压实：只对"白名单中已知的真数组"执行（inbox/news/fixtures 等）
+--   * 副本消毒 sanitize：不改键结构，只修数值/丢弃不可序列化类型
 ------------------------------------------------------
 local MAX_FLOAT = 1e308
 
+local function isBadNumber(v)
+    return v ~= v or v == math.huge or v == -math.huge
+end
+
+local function fixNumber(v)
+    if v ~= v then return 0 end                      -- NaN (NaN ~= NaN)
+    if v == math.huge then return MAX_FLOAT end
+    if v == -math.huge then return -MAX_FLOAT end
+    return v
+end
+
+-- 副本消毒：构建新表，绝不修改传入数据；键结构原样保留（不压实！）
 local function sanitize(value, seen)
     local vt = type(value)
     if vt == "number" then
-        if value ~= value then return 0 end          -- NaN (NaN ~= NaN)
-        if value == math.huge then return MAX_FLOAT end
-        if value == -math.huge then return -MAX_FLOAT end
-        return value
+        return fixNumber(value)
     elseif vt == "string" or vt == "boolean" then
         return value
     elseif vt == "table" then
         if seen[value] then return nil end            -- 打断循环引用
         seen[value] = true
-
         local out = {}
-        local intKeys = nil
-
         for k, v in pairs(value) do
-            if type(k) == "number" and k >= 1 and math.floor(k) == k then
-                -- 整数键延后处理，用于压实可能的稀疏数组
-                intKeys = intKeys or {}
-                intKeys[#intKeys + 1] = k
-            elseif type(k) == "string" or type(k) == "number" or type(k) == "boolean" then
+            -- cjson 只接受 string/number 键，其它键丢弃
+            if type(k) == "string" or type(k) == "number" then
                 local sv = sanitize(v, seen)
                 if sv ~= nil then out[k] = sv end
             end
         end
-
-        if intKeys then
-            table.sort(intKeys)
-            local n = 0
-            for _, k in ipairs(intKeys) do
-                local sv = sanitize(value[k], seen)
-                if sv ~= nil then
-                    n = n + 1
-                    out[n] = sv                        -- 连续写入，消除空洞
-                end
-            end
-        end
-
         seen[value] = nil                              -- 仅在祖先链上视为循环，允许共享子树
         return out
     end
@@ -71,8 +65,133 @@ local function sanitize(value, seen)
     return nil
 end
 
--- 诊断：定位非法值（NaN/Infinity/稀疏数组）的字段路径，便于追根因
--- 仅在编码失败时调用，最多上报 maxReports 处
+-- 深度扫描：是否存在非法数值（主动体检用，不依赖 cjson 是否报错）
+local function hasBadNumbersDeep(value, seen)
+    local vt = type(value)
+    if vt == "number" then
+        return isBadNumber(value)
+    end
+    if vt ~= "table" or seen[value] then return false end
+    seen[value] = true
+    for _, v in pairs(value) do
+        if hasBadNumbersDeep(v, seen) then return true end
+    end
+    return false
+end
+
+-- 就地修复非法数值（只动 NaN/Infinity，键结构/正常值/引用一律不碰）
+local function healNumbersInPlace(value, seen)
+    if type(value) ~= "table" then return end
+    if seen[value] then return end
+    seen[value] = true
+    for k, v in pairs(value) do
+        local vt = type(v)
+        if vt == "number" then
+            if isBadNumber(v) then
+                value[k] = fixNumber(v)
+            end
+        elseif vt == "table" then
+            healNumbersInPlace(v, seen)
+        end
+    end
+end
+
+-- 数组空洞检测：整数键数量 < 最大整数键 ⇒ 有空洞
+local function arrayHasHoles(t)
+    if type(t) ~= "table" then return false end
+    local count, maxk = 0, 0
+    for k in pairs(t) do
+        if type(k) == "number" and k >= 1 and math.floor(k) == k then
+            count = count + 1
+            if k > maxk then maxk = k end
+        end
+    end
+    return maxk > count
+end
+
+-- 就地压实数组空洞（只对已确认是"真数组"的表调用）
+local function compactArray(t)
+    if not arrayHasHoles(t) then return false end
+    local intKeys = {}
+    for k in pairs(t) do
+        if type(k) == "number" and k >= 1 and math.floor(k) == k then
+            intKeys[#intKeys + 1] = k
+        end
+    end
+    table.sort(intKeys)
+    local vals = {}
+    for _, k in ipairs(intKeys) do
+        vals[#vals + 1] = t[k]
+        t[k] = nil
+    end
+    for i, v in ipairs(vals) do
+        t[i] = v
+    end
+    return true
+end
+
+-- 已知"真数组"白名单遍历：live gameState 和 serialize() 副本结构一致，两者通用
+-- fn(arr, name) 对每个存在的数组字段调用
+local function forEachKnownArray(gs, fn)
+    if type(gs) ~= "table" then return end
+    local function visit(t, name)
+        if type(t) == "table" then fn(t, name) end
+    end
+    visit(gs.inbox, "inbox")
+    visit(gs.news, "news")
+    visit(gs.worldHistory, "worldHistory")
+    visit(gs.scoutReports, "scoutReports")
+    visit(gs.scoutDiscoveries, "scoutDiscoveries")
+    if type(gs.transfers) == "table" then
+        visit(gs.transfers.bids, "transfers.bids")
+        visit(gs.transfers.history, "transfers.history")
+    end
+    for key, lg in pairs(gs.leagues or {}) do
+        if type(lg) == "table" then
+            visit(lg.fixtures, "leagues." .. tostring(key) .. ".fixtures")
+            visit(lg.teamIds, "leagues." .. tostring(key) .. ".teamIds")
+        end
+    end
+    for _, t in pairs(gs.teams or {}) do
+        if type(t) == "table" then
+            visit(t.playerIds, "team.playerIds")
+            visit(t.staffIds, "team.staffIds")
+            visit(t.startingXI, "team.startingXI")
+            visit(t.benchIds, "team.benchIds")
+            visit(t.recentForm, "team.recentForm")
+            visit(t.transactions, "team.transactions")
+        end
+    end
+    local ucl = gs.championsLeague
+    if type(ucl) == "table" then
+        if type(ucl.leaguePhase) == "table" then
+            visit(ucl.leaguePhase.fixtures, "ucl.leaguePhase.fixtures")
+        end
+        if type(ucl.knockout) == "table" then
+            for phase, arr in pairs(ucl.knockout) do
+                visit(arr, "ucl.knockout." .. tostring(phase))
+            end
+        end
+    end
+    local wc = gs.worldCup
+    if type(wc) == "table" then
+        if type(wc.groups) == "table" then
+            for gName, group in pairs(wc.groups) do
+                if type(group) == "table" then
+                    visit(group.fixtures, "wc.groups." .. tostring(gName) .. ".fixtures")
+                end
+            end
+        end
+        if type(wc.knockout) == "table" then
+            for phase, arr in pairs(wc.knockout) do
+                visit(arr, "wc.knockout." .. tostring(phase))
+            end
+        end
+    end
+end
+
+-- 诊断：定位非法数值/不可序列化类型的字段路径（追根因用）
+-- 注意：不再做通用稀疏检测（ID 映射表会误报），空洞由白名单单独报告
 local function reportBadValues(value, path, seen, reports, maxReports)
     if #reports >= maxReports then return end
     local vt = type(value)
@@ -87,19 +206,6 @@ local function reportBadValues(value, path, seen, reports, maxReports)
     elseif vt == "table" then
         if seen[value] then return end
         seen[value] = true
-        -- 稀疏数组检测
-        if value[1] ~= nil then
-            local maxn = 0
-            for k in pairs(value) do
-                if type(k) == "number" and k > maxn then maxn = k end
-            end
-            for i = 1, maxn do
-                if value[i] == nil then
-                    reports[#reports + 1] = path .. " = <稀疏数组, 空洞@" .. i .. "/" .. maxn .. ">"
-                    break
-                end
-            end
-        end
         for k, v in pairs(value) do
             reportBadValues(v, path .. "." .. tostring(k), seen, reports, maxReports)
             if #reports >= maxReports then return end
@@ -108,121 +214,7 @@ local function reportBadValues(value, path, seen, reports, maxReports)
     end
 end
 
-------------------------------------------------------
--- 就地治疗：直接修复 live gameState 中"已经损坏"的值
--- 背景：消毒副本只能救当次存档；脏值若一直留在内存中，
---       每次存档都会走"编码失败→全量扫描→深拷贝消毒"的慢路径，
---       造成每天推进明显卡顿。
--- 原则：只动已损坏的值（NaN/Infinity/稀疏数组空洞），
---       正常数值/结构/对象引用/元表一律不碰。
-------------------------------------------------------
-local function healInPlace(value, seen)
-    if type(value) ~= "table" then return end
-    if seen[value] then return end
-    seen[value] = true
-
-    local intKeys = nil
-    for k, v in pairs(value) do
-        local vt = type(v)
-        if vt == "number" then
-            if v ~= v then
-                value[k] = 0                            -- NaN
-            elseif v == math.huge then
-                value[k] = MAX_FLOAT
-            elseif v == -math.huge then
-                value[k] = -MAX_FLOAT
-            end
-        elseif vt == "table" then
-            healInPlace(v, seen)
-        end
-        if type(k) == "number" and k >= 1 and math.floor(k) == k then
-            intKeys = intKeys or {}
-            intKeys[#intKeys + 1] = k
-        end
-    end
-
-    -- 压实稀疏数组空洞（仅在确实存在空洞时改动）
-    if intKeys then
-        table.sort(intKeys)
-        local needCompact = false
-        for i, k in ipairs(intKeys) do
-            if k ~= i then needCompact = true; break end
-        end
-        if needCompact then
-            local vals = {}
-            for _, k in ipairs(intKeys) do
-                vals[#vals + 1] = value[k]
-                value[k] = nil
-            end
-            for i, v in ipairs(vals) do
-                value[i] = v
-            end
-        end
-    end
-end
-
 local MAX_SANITIZE_REPORTS = 20  -- 留痕记录上限，避免存档无限膨胀
-
--- 编码存档数据，失败时先消毒再重试，绝不抛出异常
--- gameState 可选：用于把"坏字段路径"写进存档留痕（_sanitizeReports）
-local function encodeSaveData(saveData, gameState)
-    local ok, encoded = pcall(cjson.encode, saveData)
-    if ok and encoded then
-        return encoded
-    end
-
-    -- 定位非法值的具体字段路径（追根因用）
-    local reports = {}
-    reportBadValues(saveData.game_state, "game_state", {}, reports, 10)
-
-    if log then
-        log:Write(LOG_WARNING, "SaveManager: JSON编码失败，尝试数据消毒后重试: " .. tostring(encoded))
-        if #reports > 0 then
-            log:Write(LOG_ERROR, "SaveManager: 检测到非法值字段:\n  " .. table.concat(reports, "\n  "))
-        end
-    end
-
-    -- 写进存档留痕：即使玩家看不到日志，将来拿到存档也能定位根因
-    local cleanedGameState
-    if gameState and #reports > 0 then
-        gameState._sanitizeReports = gameState._sanitizeReports or {}
-        table.insert(gameState._sanitizeReports, {
-            saved_at = saveData.saved_at,
-            fields = reports,
-        })
-        while #gameState._sanitizeReports > MAX_SANITIZE_REPORTS do
-            table.remove(gameState._sanitizeReports, 1)
-        end
-
-        -- 就地治疗 live gameState：否则脏值常驻内存，
-        -- 每次存档都会重复走这条慢路径（双重序列化+深拷贝），导致推进卡顿
-        local okHeal, healErr = pcall(healInPlace, gameState, {})
-        if not okHeal and log then
-            log:Write(LOG_ERROR, "SaveManager: 就地治疗失败: " .. tostring(healErr))
-        end
-
-        -- 重新序列化（已治疗 + 纳入留痕），再消毒兜底
-        cleanedGameState = sanitize(gameState:serialize(), {})
-    else
-        cleanedGameState = sanitize(saveData.game_state, {})
-    end
-
-    local cleaned = {
-        version = saveData.version,
-        saved_at = saveData.saved_at,
-        game_state = cleanedGameState,
-    }
-
-    local ok2, encoded2 = pcall(cjson.encode, cleaned)
-    if ok2 and encoded2 then
-        return encoded2
-    end
-
-    if log then
-        log:Write(LOG_ERROR, "SaveManager: JSON编码失败（消毒后仍失败）: " .. tostring(encoded2))
-    end
-    return nil
-end
 
 function SaveManager._doSave(gameState, slot)
     slot = slot or "auto"
@@ -231,15 +223,79 @@ function SaveManager._doSave(gameState, slot)
     -- 确保存档目录存在
     fileSystem:CreateDir(SAVE_DIR)
 
+    local saved_at = string.format("%d-%02d-%02d", gameState.date.year, gameState.date.month, gameState.date.day)
+    local gsData = gameState:serialize()
+
+    -- 主动体检：不依赖 cjson 是否报错（有些 cjson 实现会把 NaN 直接写成
+    -- 非法 JSON 而"成功"返回，导致存档无法读回）
+    local dirtyNumbers = hasBadNumbersDeep(gsData, {})
+    local holeReports = {}
+    forEachKnownArray(gsData, function(arr, name)
+        if arrayHasHoles(arr) then
+            holeReports[#holeReports + 1] = "game_state." .. name .. " = <稀疏数组空洞>"
+        end
+    end)
+
+    if dirtyNumbers or #holeReports > 0 then
+        -- 定位非法值字段路径
+        local reports = {}
+        if dirtyNumbers then
+            reportBadValues(gsData, "game_state", {}, reports, 10)
+        end
+        for _, r in ipairs(holeReports) do
+            reports[#reports + 1] = r
+        end
+
+        if log then
+            log:Write(LOG_WARNING, "SaveManager: 检测到非法存档数据，执行治疗:\n  " .. table.concat(reports, "\n  "))
+        end
+
+        -- 写进存档留痕：即使玩家看不到日志，将来拿到存档也能定位根因
+        gameState._sanitizeReports = gameState._sanitizeReports or {}
+        table.insert(gameState._sanitizeReports, {
+            saved_at = saved_at,
+            fields = reports,
+        })
+        while #gameState._sanitizeReports > MAX_SANITIZE_REPORTS do
+            table.remove(gameState._sanitizeReports, 1)
+        end
+
+        -- 就地治疗 live gameState（防止每次存档重复走慢路径导致卡顿）：
+        -- 1) 修复非法数值（只动 NaN/Inf）
+        -- 2) 压实白名单数组的空洞（绝不碰 ID 映射表）
+        local okHeal, healErr = pcall(function()
+            healNumbersInPlace(gameState, {})
+            forEachKnownArray(gameState, function(arr) compactArray(arr) end)
+        end)
+        if not okHeal and log then
+            log:Write(LOG_ERROR, "SaveManager: 就地治疗失败: " .. tostring(healErr))
+        end
+
+        -- 重新序列化（已治疗 + 纳入留痕），再做副本级消毒兜底
+        gsData = sanitize(gameState:serialize(), {})
+        forEachKnownArray(gsData, function(arr) compactArray(arr) end)
+    end
+
     local saveData = {
         version = Constants.SAVE_VERSION,
-        saved_at = string.format("%d-%02d-%02d", gameState.date.year, gameState.date.month, gameState.date.day),
-        game_state = gameState:serialize(),
+        saved_at = saved_at,
+        game_state = gsData,
     }
 
-    local jsonStr = encodeSaveData(saveData, gameState)
-    if not jsonStr then
-        return false
+    local ok, jsonStr = pcall(cjson.encode, saveData)
+    if not ok or not jsonStr then
+        -- 最后兜底：完整消毒后再试一次（处理体检未覆盖的情况，如非法键类型）
+        if log then
+            log:Write(LOG_WARNING, "SaveManager: JSON编码失败，消毒后重试: " .. tostring(jsonStr))
+        end
+        saveData.game_state = sanitize(gsData, {})
+        ok, jsonStr = pcall(cjson.encode, saveData)
+        if not ok or not jsonStr then
+            if log then
+                log:Write(LOG_ERROR, "SaveManager: JSON编码失败（消毒后仍失败）: " .. tostring(jsonStr))
+            end
+            return false
+        end
     end
 
     local file = File(path, FILE_WRITE)
