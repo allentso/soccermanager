@@ -600,6 +600,7 @@ function MatchSession:_recalculateContext(context, side)
     context.counter = blend(context.counter, newCtx.counter)
     context.chemistry = blend(context.chemistry, newCtx.chemistry)
     context.averageOverall = blend(context.averageOverall, newCtx.averageOverall)
+    context.avgPlayerOverall = blend(context.avgPlayerOverall, newCtx.avgPlayerOverall)
 
     -- 应用战术指示修正
     if context._instructionMod then

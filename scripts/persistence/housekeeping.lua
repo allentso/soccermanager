@@ -420,6 +420,33 @@ end
 ------------------------------------------------------
 -- 主入口（幂等，可重复执行）
 ------------------------------------------------------
+------------------------------------------------------
+-- 残留青训引用清理
+--
+-- 历史 bug（BUG-20260611-06）：转会完成时未从卖方 _youthPlayerIds 移除球员，
+-- 残留引用会被 AI 青训月度提拔覆盖球员的 teamId/wage/contractEnd。
+-- 此处清理所有球队（含玩家队）中"球员已删除或已不属于本队"的青训引用，
+-- 让已损坏的旧存档读档后自愈。租借在外（_loanOriginTeamId 指回本队）的保留。
+------------------------------------------------------
+function Housekeeping.purgeStaleYouthRefs(gameState)
+    local removed = 0
+    for teamId, team in pairs(gameState.teams or {}) do
+        local list = team._youthPlayerIds
+        if list then
+            for i = #list, 1, -1 do
+                local p = gameState.players[list[i]]
+                local stillOurs = p and
+                    (p.teamId == teamId or p._loanOriginTeamId == teamId)
+                if not stillOurs then
+                    table.remove(list, i)
+                    removed = removed + 1
+                end
+            end
+        end
+    end
+    return removed
+end
+
 function Housekeeping.run(gameState)
     if not gameState or not gameState.players then return end
 
@@ -435,6 +462,7 @@ function Housekeeping.run(gameState)
         transfers = Housekeeping.trimTransferHistory(gameState),
         aiTx = Housekeeping.trimAITransactions(gameState),
         worldHistory = Housekeeping.dedupeWorldHistory(gameState),
+        youthRefs = Housekeeping.purgeStaleYouthRefs(gameState),
     }
 
     if log then
@@ -442,9 +470,9 @@ function Housekeeping.run(gameState)
         for _, v in pairs(stats) do total = total + v end
         if total > 0 then
             log:Write(LOG_INFO, string.format(
-                "Housekeeping: 清理完成 声望修复=%d 收入链=%d 退役=%d 自由球员=%d 虚拟=%d 生涯折叠=%d 赛果明细=%d 新闻=%d 转会=%d AI流水=%d 历史去重=%d",
+                "Housekeeping: 清理完成 声望修复=%d 收入链=%d 退役=%d 自由球员=%d 虚拟=%d 生涯折叠=%d 赛果明细=%d 新闻=%d 转会=%d AI流水=%d 历史去重=%d 青训残留=%d",
                 stats.repBaseline, stats.revenueChains, stats.retired, stats.freeAgents, stats.virtual, stats.career,
-                stats.fixtures, stats.news, stats.transfers, stats.aiTx, stats.worldHistory))
+                stats.fixtures, stats.news, stats.transfers, stats.aiTx, stats.worldHistory, stats.youthRefs))
         end
     end
 

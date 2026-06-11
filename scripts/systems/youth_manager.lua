@@ -1145,11 +1145,24 @@ function YouthManager._processAITeamsMonthly(gameState)
         if teamId ~= playerTeamId then
             team._youthPlayerIds = team._youthPlayerIds or {}
 
+            -- 0. 清除残留引用：球员已被删除或已转会离队（租借在外的保留）
+            -- 防止提拔逻辑覆盖已转会球员的 teamId/合同（BUG-20260611-06）
+            for i = #team._youthPlayerIds, 1, -1 do
+                local pid = team._youthPlayerIds[i]
+                local player = gameState.players[pid]
+                local stillOurs = player and
+                    (player.teamId == teamId or player._loanOriginTeamId == teamId)
+                if not stillOurs then
+                    table.remove(team._youthPlayerIds, i)
+                end
+            end
+
             -- 1. 自动提拔：年满 18 岁且 overall >= 55 的球员提拔至一线队
+            -- （仅处理 teamId 归属本队的球员，租借在外的不动）
             local toPromote = {}
             for i, pid in ipairs(team._youthPlayerIds) do
                 local player = gameState.players[pid]
-                if player then
+                if player and player.teamId == teamId then
                     local age = gameState.date.year - (player.birthYear or 2000)
                     if age >= 18 and (player.overall or 0) >= 55 then
                         table.insert(toPromote, i)
@@ -1172,10 +1185,11 @@ function YouthManager._processAITeamsMonthly(gameState)
             end
 
             -- 2. 自动释放：年满 19 岁仍在青训且 overall < 50 的球员
+            -- （仅处理 teamId 归属本队的球员，租借在外的不动）
             local toRelease = {}
             for i, pid in ipairs(team._youthPlayerIds) do
                 local player = gameState.players[pid]
-                if player then
+                if player and player.teamId == teamId then
                     local age = gameState.date.year - (player.birthYear or 2000)
                     if age >= 19 and (player.overall or 0) < 50 then
                         table.insert(toRelease, i)

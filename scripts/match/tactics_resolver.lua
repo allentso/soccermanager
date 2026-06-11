@@ -66,6 +66,23 @@ local function clamp(value, minValue, maxValue)
     return value
 end
 
+-- chanceCreation 钳制：保留 50% 实力压缩与 ±18% 状态波动，仅抬高上限避免强队恒撞顶
+-- 旧上限 1.70 时 dampedRatio≈2.08 几乎必达顶；2.40 时强打弱约 8% 撞顶、均值不再锁死
+local CHANCE_CREATION_MIN = 0.55
+-- 测试可经 _G.BALANCE_SIM_CC_MAX 覆盖上限（全面模拟对比用）
+local CHANCE_CREATION_MAX = _G.BALANCE_SIM_CC_MAX or 2.40
+
+-- 攻防量纲校准：buildTeamContext 的防守权重总和约为进攻的1.4倍
+-- （4-4-2 全员同属性实测 defense/attack≈1.41），比值计算前先归一，
+-- 否则同实力对局 attackVsDefense 恒 <1，20分OVR差在比值中几乎消失
+TacticsResolver.DEF_TO_ATK_SCALE = 1.40
+
+-- 实力差直通系数：每1点平均OVR差对机会创造的乘性影响
+-- （属性聚合会稀释实力差，此项保证 OVR 差直接传导进比赛）
+-- 校准目标：OVR差20 → 强队主场胜率~75%、弱队~10%
+local STRENGTH_GAP_SLOPE = 0.008
+local STRENGTH_FACTOR_MIN, STRENGTH_FACTOR_MAX = 0.78, 1.22
+
 local function attr(player, key, fallback)
     local attributes = player.attributes or {}
     return attributes[key] or fallback or 10
@@ -270,7 +287,11 @@ function TacticsResolver.buildTeamContext(gameState, team)
     end
 
     local avgFitness = 0
-    for _, player in ipairs(players) do avgFitness = avgFitness + (player.fitness or 80) end
+    local ovrSum = 0
+    for _, player in ipairs(players) do
+        avgFitness = avgFitness + (player.fitness or 80)
+        ovrSum = ovrSum + (player.overall or 60)
+    end
     avgFitness = avgFitness / playerCount
 
     local finalAttack = math.max(1, attack / 10 * styleMod.attack * (modeMod.attack or 1.0) * formationAttack * chemistry)
@@ -313,6 +334,8 @@ function TacticsResolver.buildTeamContext(gameState, team)
         possession = finalPossession,
         -- averageOverall: 综合战力评分，供 match_engine 使用（取代硬编码 70）
         averageOverall = (finalAttack + finalDefense + finalPossession) / 3,
+        -- avgPlayerOverall: 首发球员 OVR 均值（与属性权重解耦的实力锚点）
+        avgPlayerOverall = ovrSum / playerCount,
         tempo = clamp(styleMod.tempo * (modeMod.tempo or 1.0), 0.75, 1.35),
         press = finalPress,
         foulRate = clamp((styleMod.foul or 1.0) * (100 / math.max(30, discipline / playerCount * 8)), 0.65, 1.55),
@@ -324,8 +347,9 @@ function TacticsResolver.buildTeamContext(gameState, team)
     }
 end
 
-function TacticsResolver.matchupModifiers(myContext, opponentContext, isHome)
-    local attackVsDefense = myContext.attack / math.max(1, opponentContext.defense)
+function TacticsResolver.matchupModifiers(myContext, opponentContext, isHome, formFactor)
+    -- 攻防量纲归一：同实力对局比值≈1.0（见 DEF_TO_ATK_SCALE 注释）
+    local attackVsDefense = (myContext.attack * TacticsResolver.DEF_TO_ATK_SCALE) / math.max(1, opponentContext.defense)
     local possessionShare = myContext.possession / math.max(1, myContext.possession + opponentContext.possession)
     local homeBonus = isHome and 1.06 or 1.0
     local redPenalty = 1.0 - ((myContext.redCards or 0) * 0.14)
@@ -334,17 +358,22 @@ function TacticsResolver.matchupModifiers(myContext, opponentContext, isHome)
     -- 士气差异加成
     local moraleBonus = clamp((myContext.avgMorale - 50) / 250, -0.05, 0.05)
 
-    -- 比赛日状态波动（±18%随机，模拟"今天状态好/差"）
-    local formFactor = 0.82 + Random() * 0.36  -- [0.82, 1.18]
+    -- 比赛日状态波动（±18%，模拟"今天状态好/差"）
+    -- 引擎应传入单场固定采样值；缺省时退化为调用时采样（兼容旧调用方）
+    formFactor = formFactor or (0.82 + Random() * 0.36)  -- [0.82, 1.18]
 
-    -- 线性阻尼压缩实力差距：将所有比值往1.0方向拉（50%压缩）
-    -- 原始2.0 → 1.50, 原始0.5 → 0.75（弱队比原来好，强队比原来弱）
-    local dampedRatio = 1.0 + (attackVsDefense - 1.0) * 0.50
+    -- 线性阻尼压缩实力差距：将所有比值往1.0方向拉（60%压缩）
+    -- 原始2.0 → 1.40, 原始0.5 → 0.80（弱队比原来好，强队比原来弱）
+    local dampedRatio = 1.0 + (attackVsDefense - 1.0) * 0.40
 
-    local chanceCreation = dampedRatio * homeBonus * redPenalty * opponentRedBonus * formFactor + moraleBonus
+    -- 实力差直通：平均 OVR 差直接乘入机会创造，防止实力差被属性聚合稀释
+    local ovrGap = (myContext.avgPlayerOverall or 70) - (opponentContext.avgPlayerOverall or 70)
+    local strengthFactor = clamp(1.0 + ovrGap * STRENGTH_GAP_SLOPE, STRENGTH_FACTOR_MIN, STRENGTH_FACTOR_MAX)
+
+    local chanceCreation = dampedRatio * strengthFactor * homeBonus * redPenalty * opponentRedBonus * formFactor + moraleBonus
 
     return {
-        chanceCreation = clamp(chanceCreation, 0.55, 1.70),
+        chanceCreation = clamp(chanceCreation, CHANCE_CREATION_MIN, CHANCE_CREATION_MAX),
         possessionShare = clamp(possessionShare + (isHome and 0.03 or -0.03), 0.32, 0.68),
         shotQuality = clamp(myContext.shotQuality / 10, 0.65, 1.40),
         foulRate = myContext.foulRate,

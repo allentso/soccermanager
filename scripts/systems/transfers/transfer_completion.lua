@@ -63,6 +63,16 @@ return function(TransferManager)
                 end
             end
         end
+        -- 青训名单同步移除：妖人转会后若残留在原队 _youthPlayerIds，
+        -- 会被 YouthManager 的 AI 月度提拔覆盖 teamId/合同（BUG-20260611-06）
+        if team._youthPlayerIds then
+            for i, pid in ipairs(team._youthPlayerIds) do
+                if pid == playerId then
+                    table.remove(team._youthPlayerIds, i)
+                    break
+                end
+            end
+        end
     end
 
     function TransferManager._addTransferTransaction(team, amount, description, date)

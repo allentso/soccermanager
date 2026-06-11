@@ -110,6 +110,25 @@ function MatchEngine._simulateMinutes(fixture, homeContext, awayContext, startMi
     options = options or {}
     local events = state.events
 
+    -- 单场"今日状态"采样（±18%）：整场固定，存入 state 以兼容分段模拟（session）
+    -- 注意不能逐分钟重掷，否则 90 次平均后波动退化为 ±2%，丢失单场状态语义
+    if not state._homeFormFactor then
+        state._homeFormFactor = 0.82 + Random() * 0.36
+        state._awayFormFactor = 0.82 + Random() * 0.36
+    end
+
+    -- 弱侧大比分护栏：明显弱旅（OVR差>=12）领先2球后，后续进球概率指数递减
+    -- 消灭"70队 5:0 打爆 90队"，不限制强队打弱队的大比分
+    local function weakSideGoalDampen(forHome)
+        local myCtx = forHome and homeContext or awayContext
+        local oppCtx = forHome and awayContext or homeContext
+        local gap = (oppCtx.avgPlayerOverall or 70) - (myCtx.avgPlayerOverall or 70)
+        if gap < 12 then return 1.0 end
+        local lead = forHome and (state.homeGoals - state.awayGoals) or (state.awayGoals - state.homeGoals)
+        if lead < 2 then return 1.0 end
+        return 0.6 ^ (lead - 1)
+    end
+
     -- 动量系统：连续进攻增加机会（模拟真实足球进球扎堆）
     local homeMomentum = state._homeMomentum or 0
     local awayMomentum = state._awayMomentum or 0
@@ -134,8 +153,8 @@ function MatchEngine._simulateMinutes(fixture, homeContext, awayContext, startMi
         staminaResist = 1.0 - (awayAvgStamina - 10) * 0.045
         local awayFatigue = clamp(1.0 - baseFatigue * awayStaminaDrain * staminaResist, 0.85, 1.0)
 
-        local homeMod = TacticsResolver.matchupModifiers(homeContext, awayContext, true)
-        local awayMod = TacticsResolver.matchupModifiers(awayContext, homeContext, false)
+        local homeMod = TacticsResolver.matchupModifiers(homeContext, awayContext, true, state._homeFormFactor)
+        local awayMod = TacticsResolver.matchupModifiers(awayContext, homeContext, false, state._awayFormFactor)
 
         -- 将疲劳应用到进攻创造力和射门质量（不影响防守太多，防守靠站位）
         homeMod.chanceCreation = homeMod.chanceCreation * homeFatigue
@@ -162,11 +181,15 @@ function MatchEngine._simulateMinutes(fixture, homeContext, awayContext, startMi
         local momentum = attackingHome and homeMomentum or awayMomentum
 
         -- 定位球/防守失误进球（每分钟每队都有小概率得分，不依赖战术链）
-        -- 模拟角球、任意球、点球、乌龙球、门将失误等，约每场0.3-0.5个"意外进球"
-        local setPieceChance = 0.004  -- 每分钟0.4%，90分钟≈0.36个
+        -- 模拟角球、任意球、点球、乌龙球、门将失误等；基准每场≈0.36个，
+        -- 按 OVR 差缩放：强队定位球更多（角球/前压），弱队白捡球减少
+        local setPieceChance = 0.004  -- 每分钟0.4%
         for _, side in ipairs({{true, homeContext, fixture.homeTeamId}, {false, awayContext, fixture.awayTeamId}}) do
             local spIsHome, spContext, spTeamId = side[1], side[2], side[3]
-            if Random() < setPieceChance then
+            local spOppCtx = spIsHome and awayContext or homeContext
+            local spGap = (spContext.avgPlayerOverall or 70) - (spOppCtx.avgPlayerOverall or 70)
+            local spScale = clamp(1.0 + spGap * 0.025, 0.60, 1.25)
+            if Random() < setPieceChance * spScale * weakSideGoalDampen(spIsHome) then
                 -- 决定进球类型: 普通定位球60%, 点球25%, 乌龙球15%
                 local spTypeRoll = Random()
                 local spIsOwnGoal = spTypeRoll < 0.15
@@ -209,27 +232,30 @@ function MatchEngine._simulateMinutes(fixture, homeContext, awayContext, startMi
 
         -- Phase 概率：基础值 + 进攻力加成 + 动量
         local basePhaseChance = options.phaseChance or 0.42
-        local attackBoost = clamp((attackMod.chanceCreation - 1.0) * 0.10, -0.05, 0.08)
+        local attackBoost = clamp((attackMod.chanceCreation - 1.0) * 0.10, -0.05, 0.04)
         local phaseChance = clamp(basePhaseChance + attackBoost + momentum, 0.33, 0.52)
 
         if Random() < phaseChance * avgTempo then
-            local shotChance = clamp(0.28 + attackMod.chanceCreation * 0.16, 0.22, 0.52)
+            local shotChance = clamp(0.28 + attackMod.chanceCreation * 0.16, 0.22, 0.50)
             if Random() < shotChance then
                 local isHome = attackingHome
                 if isHome then state.homeShots = state.homeShots + 1 else state.awayShots = state.awayShots + 1 end
 
                 local shooter = pickShooter(attackContext)
                 local finishing = (attr(shooter, "shooting") * 1.0 + attr(shooter, "composure") * 0.8 + attr(shooter, "positioning") * 0.4) / 20
-                -- 防守压力影响有限（clamp范围压缩）
-                local defensePressure = clamp(defendContext.defense / math.max(1, attackContext.attack), 0.60, 1.40)
+                -- 防守压力（量纲归一后同实力≈1.0；归一前同实力恒撞 1.40 上限）
+                local defensePressure = clamp(
+                    defendContext.defense / TacticsResolver.DEF_TO_ATK_SCALE / math.max(1, attackContext.attack),
+                    0.60, 1.40)
                 local onTargetChance = clamp(0.38 + finishing * 0.12 - defensePressure * 0.05, 0.28, 0.56)
                 if Random() < onTargetChance then
                     if isHome then state.homeShotsOnTarget = state.homeShotsOnTarget + 1 else state.awayShotsOnTarget = state.awayShotsOnTarget + 1 end
 
-                    -- 进球概率：高底线保证弱队射正有合理进球率
-                    local goalChance = clamp(0.20 + finishing * 0.08 * attackMod.shotQuality - defensePressure * 0.03, 0.13, 0.33)
+                    -- 进球概率：下限降至0.08，弱队面对强防线转化率更低
+                    local goalChance = clamp(0.20 + finishing * 0.08 * attackMod.shotQuality - defensePressure * 0.05, 0.08, 0.34)
                     if hasTrait(shooter, "clinical") then goalChance = goalChance + 0.025 end
                     if hasTrait(shooter, "poacher") then goalChance = goalChance + 0.02 end
+                    goalChance = goalChance * weakSideGoalDampen(isHome)
                     if Random() < goalChance then
                         local assister = pickAssister(attackContext, shooter)
                         table.insert(events, {
