@@ -1220,9 +1220,8 @@ function Settings._claimCompensationLegend()
     end
 
     -- 加载传奇池
-    local JsonLoader = require("scripts/data/json_loader")
-    local legendData = JsonLoader.loadFromResource("Data/legends_alltime_top50.json")
-    local allLegends = (legendData and legendData.players) or {}
+    local LegendsLoader = require("scripts/data/legends_loader")
+    local allLegends = LegendsLoader.loadAllPlayers()
 
     -- 筛选未拥有的传奇
     local availablePool = {}

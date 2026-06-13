@@ -1031,9 +1031,8 @@ function YouthManager.doSinglePull(gameState)
     local isPity = (state.pityCounter >= LEGEND_PITY_COUNT)
 
     -- 加载传奇池
-    local JsonLoader = require("scripts/data/json_loader")
-    local legendData = JsonLoader.loadFromResource("Data/legends_alltime_top50.json")
-    local allLegends = (legendData and legendData.players) or {}
+    local LegendsLoader = require("scripts/data/legends_loader")
+    local allLegends = LegendsLoader.loadAllPlayers()
 
     state.pulledLegends = state.pulledLegends or {}
     local pulledSet = {}
@@ -1134,9 +1133,8 @@ function YouthManager.doTenPull(gameState)
     local isPity = (state.pityCounter >= LEGEND_PITY_COUNT)
 
     -- 加载传奇球员池（排除已抽到的传奇）
-    local JsonLoader = require("scripts/data/json_loader")
-    local legendData = JsonLoader.loadFromResource("Data/legends_alltime_top50.json")
-    local allLegends = (legendData and legendData.players) or {}
+    local LegendsLoader = require("scripts/data/legends_loader")
+    local allLegends = LegendsLoader.loadAllPlayers()
 
     -- 已抽到的传奇列表（持久化去重）
     state.pulledLegends = state.pulledLegends or {}

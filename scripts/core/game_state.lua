@@ -270,6 +270,8 @@ function GameState:serialize()
         _youthRefreshCounter = self._youthRefreshCounter,
         -- 传奇抽卡状态
         _legendGacha = self._legendGacha,
+        -- 转生记录（防重复）
+        _reincarnationsDone = self._reincarnationsDone,
         -- 二级联赛升降级数据
         secondDivision = self.secondDivision,
         -- UCL迁移追踪
@@ -356,6 +358,8 @@ function GameState:deserialize(data)
     self._youthRefreshCounter = data._youthRefreshCounter or 0
     -- 传奇抽卡状态
     self._legendGacha = data._legendGacha or nil
+    -- 转生记录
+    self._reincarnationsDone = data._reincarnationsDone or {}
 
     -- UCL迁移追踪
     self._uclCompletedSeasons = data._uclCompletedSeasons or nil

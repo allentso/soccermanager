@@ -86,13 +86,11 @@ function Migrations.v2_to_v3(gameStateData)
 
     -- 加载传奇球员 JSON 数据，构建名字→traits 查找表
     local legendLookup = {}
-    local data = JsonLoader.loadFromResource("Data/legends_alltime_top50.json")
-    if data and data.players then
-        for _, lData in ipairs(data.players) do
-            local name = lData.full_name_cn or lData.match_name
-            if name and lData.traits then
-                legendLookup[name] = lData.traits
-            end
+    local LegendsLoader = require("scripts/data/legends_loader")
+    for _, lData in ipairs(LegendsLoader.loadAllPlayers()) do
+        local name = lData.full_name_cn or lData.match_name
+        if name and lData.traits then
+            legendLookup[name] = lData.traits
         end
     end
 
@@ -224,13 +222,11 @@ function Migrations.v4_to_v5(gameStateData)
     }
 
     local legendPositions = {}  -- legendName → 正确的缩写位置
-    local data = JsonLoader.loadFromResource("Data/legends_alltime_top50.json")
-    if data and data.players then
-        for _, lData in ipairs(data.players) do
-            local name = lData.full_name_cn or lData.match_name
-            if name and lData.position then
-                legendPositions[name] = POSITION_MAP[lData.position] or "ST"
-            end
+    local LegendsLoader = require("scripts/data/legends_loader")
+    for _, lData in ipairs(LegendsLoader.loadAllPlayers()) do
+        local name = lData.full_name_cn or lData.match_name
+        if name and lData.position then
+            legendPositions[name] = POSITION_MAP[lData.position] or "ST"
         end
     end
 

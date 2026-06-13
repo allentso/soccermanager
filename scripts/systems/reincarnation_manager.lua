@@ -1,39 +1,32 @@
 -- systems/reincarnation_manager.lua
 -- 转生机制：退役传奇球员以青训新星身份重新出现在随机球队
 
-local Constants = require("scripts/app/constants")
 local PotentialSystem = require("scripts/systems/potential_system")
 local Player = require("scripts/domain/player")
+local YouthManager = require("scripts/systems/youth_manager")
 
 local ReincarnationManager = {}
 
+local MAX_YOUTH_SQUAD = YouthManager.MAX_YOUTH_SQUAD
+
 ------------------------------------------------------
 -- 转生名单：只有名单中的球员退役后才会触发转生
--- 每个条目包含：匹配信息 + 转生后的青训属性模板
 ------------------------------------------------------
 
 ---@class ReincarnationEntry
----@field matchName string 用于匹配退役球员的 displayName（模糊匹配）
+---@field matchName string 用于匹配退役球员的主键名
 ---@field matchAltNames string[] 备选名字（兼容不同数据源的拼写）
----@field rebirthFirstName string 转生后名字
----@field rebirthLastName string 转生后姓氏
----@field rebirthDisplayName string 转生后显示名
----@field nationality string 国籍（继承）
----@field position string 位置（继承）
----@field potential number 转生后潜力值（极高）
+---@field potential number 转生后潜力值
 ---@field attrBonus table<string, number> 位置专精额外加成
 
 ---@type ReincarnationEntry[]
 ReincarnationManager.REINCARNATION_LIST = {
     {
         matchName = "Lionel Messi",
-        matchAltNames = {"L. Messi", "Messi", "梅西"},
-        rebirthFirstName = "里奥",
-        rebirthLastName = "梅西尼",
-        rebirthDisplayName = "里奥·梅西尼",
-        nationality = "Argentina",
-        position = "RW",
-        potential = 96,
+        matchAltNames = {
+            "L. Messi", "Messi", "梅西", "莱昂内尔·梅西",
+        },
+        potential = 99,
         attrBonus = {
             dribbling = 4,
             vision = 3,
@@ -44,12 +37,10 @@ ReincarnationManager.REINCARNATION_LIST = {
     },
     {
         matchName = "Cristiano Ronaldo",
-        matchAltNames = {"C. Ronaldo", "CR7", "Ronaldo", "C罗"},
-        rebirthFirstName = "克里斯",
-        rebirthLastName = "罗纳尔迪尼奥",
-        rebirthDisplayName = "克里斯·罗纳尔迪尼奥",
-        nationality = "Portugal",
-        position = "ST",
+        matchAltNames = {
+            "C. Ronaldo", "CR7", "C罗",
+            "克里斯蒂亚诺·罗纳尔多", "罗纳尔多",
+        },
         potential = 96,
         attrBonus = {
             shooting = 4,
@@ -70,14 +61,20 @@ ReincarnationManager.REINCARNATION_LIST = {
 ---@param entry ReincarnationEntry
 ---@return boolean
 local function nameMatches(player, entry)
-    local pName = player.displayName or ""
-    if pName == entry.matchName then return true end
-    for _, alt in ipairs(entry.matchAltNames) do
-        if pName == alt then return true end
+    local namesToCheck = {
+        player.displayName,
+        player.legendName,
+        player.lastName,
+        (player.firstName or "") .. " " .. (player.lastName or ""),
+    }
+    for _, name in ipairs(namesToCheck) do
+        if name and name ~= "" then
+            if name == entry.matchName then return true end
+            for _, alt in ipairs(entry.matchAltNames) do
+                if name == alt then return true end
+            end
+        end
     end
-    -- 也检查 firstName + lastName 组合
-    local fullName = (player.firstName or "") .. " " .. (player.lastName or "")
-    if fullName == entry.matchName then return true end
     return false
 end
 
@@ -156,13 +153,16 @@ local function generateRebirthAttributes(position, overall, attrBonus)
     return attrs
 end
 
---- 从所有球队中随机选一个作为转生目标
+--- 从有空余青训名额的球队中随机选一个作为转生目标
 ---@param gameState table
 ---@return string|nil teamId
 local function pickRandomTeam(gameState)
     local teamIds = {}
-    for teamId, _ in pairs(gameState.teams) do
-        table.insert(teamIds, teamId)
+    for teamId, team in pairs(gameState.teams) do
+        team._youthPlayerIds = team._youthPlayerIds or {}
+        if #team._youthPlayerIds < MAX_YOUTH_SQUAD then
+            table.insert(teamIds, teamId)
+        end
     end
     if #teamIds == 0 then return nil end
     return teamIds[RandomInt(1, #teamIds)]
@@ -173,38 +173,36 @@ end
 ------------------------------------------------------
 
 --- 处理转生：在赛季结算退役处理之后调用
---- 检查刚退役的传奇球员，若匹配转生名单则生成对应青训新星
 ---@param gameState table
 function ReincarnationManager.processReincarnations(gameState)
-    -- 记录本次已触发的转生（避免重复）
     gameState._reincarnationsDone = gameState._reincarnationsDone or {}
 
     local rebirthCount = 0
 
     for _, entry in ipairs(ReincarnationManager.REINCARNATION_LIST) do
-        -- 如果该条目已经转生过，跳过
         if gameState._reincarnationsDone[entry.matchName] then
             goto continue_entry
         end
 
-        -- 在所有球员中查找：已退役 + 名字匹配 + 本赛季退役
-        local foundRetired = false
+        local retiredPlayer = nil
         for _, player in pairs(gameState.players) do
             if player.retired and player.retiredSeason == gameState.season then
                 if nameMatches(player, entry) then
-                    foundRetired = true
+                    retiredPlayer = player
                     break
                 end
             end
         end
 
-        if not foundRetired then
+        if not retiredPlayer then
             goto continue_entry
         end
 
-        -- 触发转生：在随机球队生成青训新星
         local targetTeamId = pickRandomTeam(gameState)
         if not targetTeamId then
+            print(string.format(
+                "[ReincarnationManager] 转生跳过 %s：所有球队青训名额已满",
+                retiredPlayer.displayName or entry.matchName))
             goto continue_entry
         end
 
@@ -213,21 +211,22 @@ function ReincarnationManager.processReincarnations(gameState)
             goto continue_entry
         end
 
-        -- 生成转生球员数据
         local rebirthAge = 16
         local birthYear = gameState.date.year - rebirthAge
-        local overall = RandomInt(42, 52)  -- 起步较低，但潜力极高
-        local attributes = generateRebirthAttributes(entry.position, overall, entry.attrBonus)
-        local actualOverall = Player.calculateOverallFromAttrs(entry.position, attributes)
-        if actualOverall < 40 then actualOverall = 40 end
+        local overall = RandomInt(70, 78)
+        local position = retiredPlayer.position or "CM"
+        local attributes = generateRebirthAttributes(position, overall, entry.attrBonus)
+        local actualOverall = Player.calculateOverallFromAttrs(position, attributes)
+        if actualOverall < 70 then actualOverall = 70 end
 
         local playerData = {
-            firstName = entry.rebirthFirstName,
-            lastName = entry.rebirthLastName,
-            displayName = entry.rebirthDisplayName,
-            nationality = entry.nationality,
+            firstName = retiredPlayer.firstName,
+            lastName = retiredPlayer.lastName,
+            displayName = retiredPlayer.displayName,
+            nationality = retiredPlayer.nationality,
             birthYear = birthYear,
-            position = entry.position,
+            position = position,
+            naturalPositions = retiredPlayer.naturalPositions,
             attributes = attributes,
             potential = entry.potential,
             overall = actualOverall,
@@ -241,39 +240,23 @@ function ReincarnationManager.processReincarnations(gameState)
         local newPlayer = gameState:addPlayer(playerData)
         newPlayer.teamId = targetTeamId
 
-        -- 初始化潜力评级
         newPlayer.paRating = PotentialSystem.rawToRating(newPlayer.potential)
         newPlayer.actualPotential = PotentialSystem.generateActualPotential(
             newPlayer.paRating, (gameState.potentialSeed or 0) + newPlayer.id * 7919)
 
-        -- 加入青训队
         team._youthPlayerIds = team._youthPlayerIds or {}
         table.insert(team._youthPlayerIds, newPlayer.id)
 
-        -- 标记已转生
         gameState._reincarnationsDone[entry.matchName] = {
             season = gameState.season,
             playerId = newPlayer.id,
             teamId = targetTeamId,
+            sourcePlayerId = retiredPlayer.id,
         }
 
-        -- 发送全局新闻
-        gameState:sendMessage({
-            category = "transfer",
-            title = "天才新星出现",
-            body = string.format(
-                "%s 的青训营中出现了一名天赋异禀的少年 %s（%s，%d岁），球探认为他有着不可思议的潜力！",
-                team.name or "某球队",
-                entry.rebirthDisplayName,
-                entry.position,
-                rebirthAge
-            ),
-            priority = "high",
-        })
-
         rebirthCount = rebirthCount + 1
-        print(string.format("[ReincarnationManager] 转生触发: %s → %s，加入 %s 青训",
-            entry.matchName, entry.rebirthDisplayName, team.name or targetTeamId))
+        print(string.format("[ReincarnationManager] 转生触发: %s → 16岁青训，加入 %s",
+            retiredPlayer.displayName or entry.matchName, team.name or targetTeamId))
 
         ::continue_entry::
     end
@@ -282,5 +265,8 @@ function ReincarnationManager.processReincarnations(gameState)
         print(string.format("[ReincarnationManager] 本赛季共 %d 名传奇球员转生", rebirthCount))
     end
 end
+
+-- 测试用：暴露名字匹配逻辑
+ReincarnationManager._nameMatches = nameMatches
 
 return ReincarnationManager
