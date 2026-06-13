@@ -272,8 +272,8 @@ function FormationShape.getBaseFormationSlots(formation, variantKey)
     if variant and variant.slots then
         return variant.slots
     end
-    local fallback = Constants.FORMATION_VARIANTS["4-4-2"]
-    return fallback and fallback[1].slots or { "GK", "RB", "CB", "CB", "LB", "RM", "CM", "CM", "LM", "ST", "ST" }
+    local fallback = Constants.getVariant("4-4-2", "flat")
+    return fallback and fallback.slots or { "GK", "RB", "CB", "CB", "LB", "RM", "CM", "CM", "LM", "ST", "ST" }
 end
 
 --- 获取实际槽位（变体模板 + customSlots 覆盖）
@@ -290,12 +290,39 @@ function FormationShape.getFormationSlots(teamOrFormation, variantKey)
     return slots
 end
 
-function FormationShape.getBasePositions(formation, variantKey)
-    local key = formation .. ":" .. (variantKey or Constants.getDefaultVariant(formation))
+function FormationShape.getBasePositions(formation, layoutOrStorageKey)
+    local storageKey = Constants.layoutToStorageKey(formation, layoutOrStorageKey or Constants.getDefaultVariant(formation))
+    local key = formation .. ":" .. storageKey
     local positions = FormationShape.FORMATION_POSITIONS[key]
     if positions then return positions end
-    local defaultKey = formation .. ":" .. Constants.getDefaultVariant(formation)
+    local defaultStorage = Constants.layoutToStorageKey(formation, Constants.getDefaultVariant(formation))
+    local defaultKey = formation .. ":" .. defaultStorage
     return FormationShape.FORMATION_POSITIONS[defaultKey] or FormationShape.FORMATION_POSITIONS["4-4-2:flat"]
+end
+
+--- 当前阵型可选的中场布局 preset key 列表
+function FormationShape.getLayoutOptions(formation)
+    return Constants.getLayoutOptions(formation)
+end
+
+--- 读档/运行时规范化 team.formationVariant（layoutKey）
+function FormationShape.normalizeFormationVariant(team)
+    if not team then return end
+    local formation = team.formation or "4-4-2"
+    team.formationVariant = Constants.normalizeLayoutKey(formation, team.formationVariant)
+end
+
+--- 应用中场布局预设（清 customSlots / slotOffsets）
+function FormationShape.applyLayoutPreset(team, layoutKey)
+    if not team then return false end
+    local formation = team.formation or "4-4-2"
+    local normalized = Constants.normalizeLayoutKey(formation, layoutKey)
+    if normalized == team.formationVariant and not FormationShape.hasCustomization(team) then
+        return false
+    end
+    team.formationVariant = normalized
+    FormationShape.clearCustomization(team)
+    return true
 end
 
 function FormationShape.coordsToZone(x, y, slotPos)

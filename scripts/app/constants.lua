@@ -110,159 +110,151 @@ Constants.FORMATIONS = {
     "4-2-4", "4-5-1", "5-4-1"
 }
 
--- 阵型变体 (每个基础阵型对应多种位置配置)
--- 设计原则：变体 = 几何形态预设（站位/中前场结构），命名用几何词。
--- 位置种类（CM/CDM/CAM 等）是底层、可逐槽手动改；变体不做"仅换一两个位置种类"的冗余项。
--- 每个变体：key=唯一标识, name=简称, desc=中文描述, slots=11人位置列表
-Constants.FORMATION_VARIANTS = {
-    ["4-4-2"] = {
-        {
-            key = "flat",
-            name = "平行中场",
-            desc = "两CM平行，攻守均衡",
-            slots = {"GK", "RB", "CB", "CB", "LB", "RM", "CM", "CM", "LM", "ST", "ST"},
-        },
-        {
-            key = "diamond",
-            name = "菱形中场",
-            desc = "后腰+前腰纵向叠放，中路纵深",
-            slots = {"GK", "RB", "CB", "CB", "LB", "RM", "CDM", "CAM", "LM", "ST", "ST"},
-        },
-    },
-
-    ["4-3-3"] = {
-        {
-            key = "hold",
-            name = "倒三角",
-            desc = "单后腰拖底、双中场在前，防守稳固",
-            slots = {"GK", "RB", "CB", "CB", "LB", "CM", "CDM", "CM", "RW", "ST", "LW"},
-        },
-        {
-            key = "attack",
-            name = "正三角",
-            desc = "双中场在后、前腰顶前，进攻厚度",
-            slots = {"GK", "RB", "CB", "CB", "LB", "CM", "CM", "CAM", "RW", "ST", "LW"},
-        },
-    },
-
-    ["4-2-3-1"] = {
-        {
-            key = "wide",
-            name = "宽边锋",
-            desc = "双边锋拉边冲击，经典4231",
-            slots = {"GK", "RB", "CB", "CB", "LB", "CDM", "CDM", "CAM", "RW", "LW", "ST"},
-        },
-        {
-            key = "narrow",
-            name = "窄前腰",
-            desc = "三前腰收窄，中路渗透",
-            slots = {"GK", "RB", "CB", "CB", "LB", "CDM", "CDM", "CAM", "CAM", "CAM", "ST"},
-        },
-    },
-
-    ["3-4-3"] = {
-        {
-            key = "flat",
-            name = "平行中场",
-            desc = "双中场平行，前场三叉戟",
-            slots = {"GK", "CB", "CB", "CB", "RM", "CM", "CM", "LM", "RW", "ST", "LW"},
-        },
-        {
-            key = "stagger",
-            name = "一前一后",
-            desc = "后腰拖底+前腰顶前，攻守层次",
-            slots = {"GK", "CB", "CB", "CB", "RM", "CDM", "CAM", "LM", "RW", "ST", "LW"},
-        },
-    },
-
-    ["3-5-2"] = {
-        {
-            key = "default",
-            name = "经典",
-            desc = "单后腰拖底、双中场在前（倒三角），翼卫拉边",
-            slots = {"GK", "CB", "CB", "CB", "RM", "CM", "CDM", "CM", "LM", "ST", "ST"},
-        },
-        {
-            key = "attack",
-            name = "前压",
-            desc = "双中场+前腰顶前（正三角），形成3-4-1-2",
-            slots = {"GK", "CB", "CB", "CB", "RM", "CM", "CM", "CAM", "LM", "ST", "ST"},
-        },
-    },
-
-    ["5-3-2"] = {
-        {
-            key = "flat",
-            name = "平行中场",
-            desc = "三中场平行，攻守均衡",
-            slots = {"GK", "RB", "CB", "CB", "CB", "LB", "CM", "CM", "CM", "ST", "ST"},
-        },
-        {
-            key = "hold",
-            name = "一后腰",
-            desc = "单后腰居中拖底，稳中求进",
-            slots = {"GK", "RB", "CB", "CB", "CB", "LB", "CM", "CDM", "CM", "ST", "ST"},
-        },
-    },
-
-    ["4-2-4"] = {
-        {
-            key = "flat",
-            name = "双中场",
-            desc = "两CM平行支撑，前场四人拉开",
-            slots = {"GK", "RB", "CB", "CB", "LB", "CM", "CM", "RW", "ST", "ST", "LW"},
-        },
-    },
-
-    ["4-5-1"] = {
-        {
-            key = "default",
-            name = "平行中场",
-            desc = "单后腰双中场加翼卫，均衡覆盖",
-            slots = {"GK", "RB", "CB", "CB", "LB", "RM", "CM", "CDM", "CM", "LM", "ST"},
-        },
-        {
-            key = "diamond",
-            name = "菱形中场",
-            desc = "后腰+前腰纵向叠放，中路纵深",
-            slots = {"GK", "RB", "CB", "CB", "LB", "RM", "CDM", "CAM", "CM", "LM", "ST"},
-        },
-    },
-
-    ["5-4-1"] = {
-        {
-            key = "flat",
-            name = "平行中场",
-            desc = "四中场平行，低位压缩空间",
-            slots = {"GK", "RB", "CB", "CB", "CB", "LB", "RM", "CM", "CM", "LM", "ST"},
-        },
-        {
-            key = "stagger",
-            name = "一前一后",
-            desc = "后腰拖底+前腰顶前，反击留单箭头",
-            slots = {"GK", "RB", "CB", "CB", "CB", "LB", "RM", "CDM", "CAM", "LM", "ST"},
-        },
-    },
+-- 阵型模板数据（内部 storageKey → slots）；玩家侧用 layoutKey（平行/菱形等）
+-- 设计：阵型按钮 = 9 种结构各 1 默认；「中场布局」= 跨阵型通用的几何预设，不挂在「XX 变体」下
+Constants.LAYOUT_PRESET_META = {
+    flat     = { name = "平行中场", desc = "中场同线，均衡覆盖" },
+    diamond  = { name = "菱形中场", desc = "后腰+前腰纵向叠放，中路纵深" },
+    stagger  = { name = "一前一后", desc = "后腰拖底、前腰顶前" },
+    inverted = { name = "倒三角",   desc = "单后腰拖底、中场在前" },
+    normal   = { name = "正三角",   desc = "双中场在后、前腰顶前" },
+    wide     = { name = "宽边锋",   desc = "边锋拉边冲击" },
+    narrow   = { name = "窄前腰",   desc = "三前腰收窄，中路渗透" },
 }
 
---- 获取指定阵型的默认变体key
-function Constants.getDefaultVariant(formation)
-    local variants = Constants.FORMATION_VARIANTS[formation]
-    if variants and variants[1] then
-        return variants[1].key
+-- 每个阵型可选的中场布局（layoutKey 列表）；仅 1 项时不显示布局区
+Constants.FORMATION_LAYOUT_OPTIONS = {
+    ["4-4-2"]   = { "flat", "diamond" },
+    ["4-3-3"]   = { "inverted", "normal" },
+    ["4-2-3-1"] = { "wide", "narrow" },
+    ["3-4-3"]   = { "flat", "stagger" },
+    ["3-5-2"]   = { "inverted", "normal" },
+    ["5-3-2"]   = { "flat", "stagger" },
+    ["4-2-4"]   = {},
+    ["4-5-1"]   = { "flat", "diamond" },
+    ["5-4-1"]   = { "flat", "stagger" },
+}
+
+-- 阵型默认布局（点阵型按钮时加载）
+Constants.FORMATION_DEFAULT_LAYOUT = {
+    ["4-4-2"]   = "flat",
+    ["4-3-3"]   = "inverted",
+    ["4-2-3-1"] = "wide",
+    ["3-4-3"]   = "flat",
+    ["3-5-2"]   = "inverted",
+    ["5-3-2"]   = "flat",
+    ["4-2-4"]   = "flat",
+    ["4-5-1"]   = "flat",
+    ["5-4-1"]   = "flat",
+}
+
+-- layoutKey → 存档/坐标用 storageKey（兼容旧 formationVariant）
+Constants.LAYOUT_TO_STORAGE_KEY = {
+    ["4-4-2"]   = { flat = "flat",     diamond = "diamond" },
+    ["4-3-3"]   = { inverted = "hold", normal = "attack" },
+    ["4-2-3-1"] = { wide = "wide",     narrow = "narrow" },
+    ["3-4-3"]   = { flat = "flat",     stagger = "stagger" },
+    ["3-5-2"]   = { inverted = "default", normal = "attack" },
+    ["5-3-2"]   = { flat = "flat",     stagger = "hold" },
+    ["4-2-4"]   = { flat = "flat" },
+    ["4-5-1"]   = { flat = "default",  diamond = "diamond" },
+    ["5-4-1"]   = { flat = "flat",     stagger = "stagger" },
+}
+
+Constants.FORMATION_PRESET_SLOTS = {
+    ["4-4-2:flat"]     = {"GK", "RB", "CB", "CB", "LB", "RM", "CM", "CM", "LM", "ST", "ST"},
+    ["4-4-2:diamond"]  = {"GK", "RB", "CB", "CB", "LB", "RM", "CDM", "CAM", "LM", "ST", "ST"},
+    ["4-3-3:hold"]     = {"GK", "RB", "CB", "CB", "LB", "CM", "CDM", "CM", "RW", "ST", "LW"},
+    ["4-3-3:attack"]   = {"GK", "RB", "CB", "CB", "LB", "CM", "CM", "CAM", "RW", "ST", "LW"},
+    ["4-2-3-1:wide"]   = {"GK", "RB", "CB", "CB", "LB", "CDM", "CDM", "CAM", "RW", "LW", "ST"},
+    ["4-2-3-1:narrow"] = {"GK", "RB", "CB", "CB", "LB", "CDM", "CDM", "CAM", "CAM", "CAM", "ST"},
+    ["3-4-3:flat"]     = {"GK", "CB", "CB", "CB", "RM", "CM", "CM", "LM", "RW", "ST", "LW"},
+    ["3-4-3:stagger"]  = {"GK", "CB", "CB", "CB", "RM", "CDM", "CAM", "LM", "RW", "ST", "LW"},
+    ["3-5-2:default"]  = {"GK", "CB", "CB", "CB", "RM", "CM", "CDM", "CM", "LM", "ST", "ST"},
+    ["3-5-2:attack"]   = {"GK", "CB", "CB", "CB", "RM", "CM", "CM", "CAM", "LM", "ST", "ST"},
+    ["5-3-2:flat"]     = {"GK", "RB", "CB", "CB", "CB", "LB", "CM", "CM", "CM", "ST", "ST"},
+    ["5-3-2:hold"]     = {"GK", "RB", "CB", "CB", "CB", "LB", "CM", "CDM", "CM", "ST", "ST"},
+    ["4-2-4:flat"]     = {"GK", "RB", "CB", "CB", "LB", "CM", "CM", "RW", "ST", "ST", "LW"},
+    ["4-5-1:default"]  = {"GK", "RB", "CB", "CB", "LB", "RM", "CM", "CDM", "CM", "LM", "ST"},
+    ["4-5-1:diamond"]  = {"GK", "RB", "CB", "CB", "LB", "RM", "CDM", "CAM", "CM", "LM", "ST"},
+    ["5-4-1:flat"]     = {"GK", "RB", "CB", "CB", "CB", "LB", "RM", "CM", "CM", "LM", "ST"},
+    ["5-4-1:stagger"]  = {"GK", "RB", "CB", "CB", "CB", "LB", "RM", "CDM", "CAM", "LM", "ST"},
+}
+
+-- 旧存档/代码中的 storageKey → layoutKey
+Constants.STORAGE_TO_LAYOUT_KEY = {
+    ["4-4-2"]   = { flat = "flat", diamond = "diamond" },
+    ["4-3-3"]   = { hold = "inverted", attack = "normal" },
+    ["4-2-3-1"] = { wide = "wide", narrow = "narrow" },
+    ["3-4-3"]   = { flat = "flat", stagger = "stagger" },
+    ["3-5-2"]   = { default = "inverted", attack = "normal" },
+    ["5-3-2"]   = { flat = "flat", hold = "stagger" },
+    ["4-2-4"]   = { flat = "flat" },
+    ["4-5-1"]   = { default = "flat", diamond = "diamond" },
+    ["5-4-1"]   = { flat = "flat", stagger = "stagger" },
+}
+
+--- 读档/内部：storageKey 或 layoutKey → 规范 layoutKey
+function Constants.normalizeLayoutKey(formation, key)
+    if not key or not formation then
+        return Constants.FORMATION_DEFAULT_LAYOUT[formation] or "flat"
     end
-    return "default"
+    if Constants.LAYOUT_PRESET_META[key] then
+        return key
+    end
+    local rev = Constants.STORAGE_TO_LAYOUT_KEY[formation]
+    if rev and rev[key] then
+        return rev[key]
+    end
+    return Constants.FORMATION_DEFAULT_LAYOUT[formation] or "flat"
 end
 
---- 根据阵型和变体key查找变体数据
-function Constants.getVariant(formation, variantKey)
-    local variants = Constants.FORMATION_VARIANTS[formation]
-    if not variants then return nil end
-    for _, v in ipairs(variants) do
-        if v.key == variantKey then return v end
+--- layoutKey → 坐标/槽位存储用 key
+function Constants.layoutToStorageKey(formation, layoutKey)
+    layoutKey = Constants.normalizeLayoutKey(formation, layoutKey)
+    local map = Constants.LAYOUT_TO_STORAGE_KEY[formation]
+    if map and map[layoutKey] then
+        return map[layoutKey]
     end
-    return variants[1] -- fallback到第一个
+    return layoutKey
 end
+
+--- 获取指定阵型的默认布局 key
+function Constants.getDefaultVariant(formation)
+    return Constants.FORMATION_DEFAULT_LAYOUT[formation] or "flat"
+end
+
+--- 当前阵型可选中场布局
+function Constants.getLayoutOptions(formation)
+    return Constants.FORMATION_LAYOUT_OPTIONS[formation] or {}
+end
+
+--- 布局元信息（名称、描述）
+function Constants.getLayoutMeta(layoutKey)
+    return Constants.LAYOUT_PRESET_META[layoutKey]
+end
+
+--- 根据阵型 + layoutKey 取 11 人槽位模板
+function Constants.getVariant(formation, layoutOrStorageKey)
+    local layoutKey = Constants.normalizeLayoutKey(formation, layoutOrStorageKey)
+    local storageKey = Constants.layoutToStorageKey(formation, layoutKey)
+    local presetKey = formation .. ":" .. storageKey
+    local slots = Constants.FORMATION_PRESET_SLOTS[presetKey]
+    if slots then
+        local meta = Constants.LAYOUT_PRESET_META[layoutKey] or {}
+        return {
+            key = layoutKey,
+            storageKey = storageKey,
+            name = meta.name or layoutKey,
+            desc = meta.desc or "",
+            slots = slots,
+        }
+    end
+    return nil
+end
+
+-- 兼容旧引用（内部不再使用数组变体）
+Constants.FORMATION_VARIANTS = {}
 
 -- 位置
 Constants.POSITIONS = {

@@ -243,15 +243,15 @@ local FORMATION_POSITIONS = {
     },
 }
 
---- 获取当前阵型+变体的球场坐标（兼容 fallback）
+--- 获取当前阵型+布局的球场坐标（兼容 layoutKey / 旧 storageKey）
 local function getFormationPositions(formation, variantKey)
-    local key = formation .. ":" .. (variantKey or "")
+    local storageKey = Constants.layoutToStorageKey(formation, variantKey or Constants.getDefaultVariant(formation))
+    local key = formation .. ":" .. storageKey
     if FORMATION_POSITIONS[key] then
         return FORMATION_POSITIONS[key]
     end
-    -- fallback: 尝试该阵型的第一个变体
-    local defaultVKey = Constants.getDefaultVariant(formation)
-    local defaultKey = formation .. ":" .. defaultVKey
+    local defaultStorage = Constants.layoutToStorageKey(formation, Constants.getDefaultVariant(formation))
+    local defaultKey = formation .. ":" .. defaultStorage
     if FORMATION_POSITIONS[defaultKey] then
         return FORMATION_POSITIONS[defaultKey]
     end

@@ -187,7 +187,8 @@ local function _buildFormationChildren(gameState, team, isNTMode)
     if not team.formationVariant then
         team.formationVariant = Constants.getDefaultVariant(currentFormation)
     end
-    local currentVariant = team.formationVariant
+    FormationShape.normalizeFormationVariant(team)
+    local currentLayout = team.formationVariant
 
     -- 国家队模式下保存战术设置的辅助函数
     local function saveNTSettings()
@@ -256,13 +257,14 @@ local function _buildFormationChildren(gameState, team, isNTMode)
         })
     end
 
-    -- 阵型变体按钮
-    local variantChildren = {}
-    local variants = Constants.FORMATION_VARIANTS[currentFormation] or {}
-    for _, v in ipairs(variants) do
-        local isActive = v.key == currentVariant
-        table.insert(variantChildren, UI.Button {
-            text = v.name,
+    -- 中场布局预设（平行/菱形等；与阵型按钮分离）
+    local layoutChildren = {}
+    local layoutOptions = FormationShape.getLayoutOptions(currentFormation)
+    for _, layoutKey in ipairs(layoutOptions) do
+        local meta = Constants.getLayoutMeta(layoutKey) or {}
+        local isActive = layoutKey == currentLayout
+        table.insert(layoutChildren, UI.Button {
+            text = meta.name or layoutKey,
             height = 36,
             paddingLeft = 14,
             paddingRight = 14,
@@ -276,21 +278,20 @@ local function _buildFormationChildren(gameState, team, isNTMode)
             marginRight = 8,
             marginBottom = 6,
             onClick = function()
-                if v.key == team.formationVariant then return end
+                if layoutKey == team.formationVariant then return end
                 applyWithCustomizationConfirm(function()
-                    team.formationVariant = v.key
+                    FormationShape.applyLayoutPreset(team, layoutKey)
                     AIManager.rearrangeForFormation(gameState, team)
-                end, "切换变体")
+                end, "切换中场布局")
             end,
         })
     end
 
-    -- 当前变体描述（战术说明）；结构识别见球场下方效果面板
-    local activeVariant = Constants.getVariant(currentFormation, currentVariant)
-    local variantDesc = activeVariant and activeVariant.desc or ""
+    local activeLayout = Constants.getVariant(currentFormation, currentLayout)
+    local layoutDesc = activeLayout and activeLayout.desc or ""
     local liveShape = FormationShape.analyze(team)
     if liveShape.alignedWithFormation == false then
-        variantDesc = variantDesc .. " · ⚠ 实战结构：" .. (liveShape.structure and liveShape.structure.label or "未知")
+        layoutDesc = layoutDesc .. " · ⚠ 实战结构：" .. (liveShape.structure and liveShape.structure.label or "未知")
     end
 
     -- 打法按钮
@@ -335,24 +336,24 @@ local function _buildFormationChildren(gameState, team, isNTMode)
             }
         },
 
-        -- 变体选择
-        Theme.Card {
+        -- 中场布局（多选项时显示；单模板阵型如 4-2-4 隐藏）
+        #layoutOptions > 1 and Theme.Card {
             children = {
-                Theme.Subtitle { text = currentFormation .. " 变体" },
+                Theme.Subtitle { text = "中场布局" },
                 UI.Panel {
                     width = "100%",
                     flexDirection = "row",
                     flexWrap = "wrap",
-                    children = variantChildren,
+                    children = layoutChildren,
                 },
-                variantDesc ~= "" and UI.Label {
-                    text = variantDesc,
+                layoutDesc ~= "" and UI.Label {
+                    text = layoutDesc,
                     fontSize = 11,
                     color = Theme.COLORS.TEXT_MUTED,
                     marginTop = 4,
                 } or nil,
             }
-        },
+        } or nil,
 
         -- 球场可视化
         pitchView,
