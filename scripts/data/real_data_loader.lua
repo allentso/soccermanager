@@ -189,8 +189,19 @@ function RealDataLoader.importLeague(gameState, leagueData, leagueConfig)
 
     local teamIds = {}
 
+    -- 中超：固定声望梯度（顶级 550，其余按 wage_budget 排名递减）
+    local cslRepMap = nil
+    if leagueConfig.shortName == "CSL" then
+        cslRepMap = RealDataLoader._buildCSLReputationMap(leagueData.teams)
+    end
+
     -- 1. 导入球队
     for _, tData in ipairs(leagueData.teams) do
+        local rep = cslRepMap and cslRepMap[tData.id]
+            or RealDataLoader._calcReputation(tData.wage_budget)
+        -- 中超：财务与初始声望对应（声望后续仍可通过赛季/比赛变动）
+        local wb = cslRepMap and RealDataLoader._reputationToWageBudget(rep)
+            or (tData.wage_budget or 200000)
         local team = gameState:addTeam({
             name = tData.name_cn or tData.name,
             shortName = tData.short_name or "",
@@ -202,15 +213,18 @@ function RealDataLoader.importLeague(gameState, leagueData, leagueConfig)
             stadiumName = tData.stadium_name or "",
             stadiumCapacity = tData.stadium_capacity or 30000,
             foundedYear = tData.founded_year or 1900,
-            reputation = RealDataLoader._calcReputation(tData.wage_budget),
-            _baseReputation = RealDataLoader._calcReputation(tData.wage_budget),
-            playStyle = RealDataLoader._assignPlayStyle(tData),
+            reputation = rep,
+            _baseReputation = rep,
+            playStyle = RealDataLoader._assignPlayStyle({
+                play_style = tData.play_style,
+                reputation = rep,
+            }),
             formation = RealDataLoader._assignFormation(tData),
             -- 用wage_budget推算合理财务（FM原始finance/transfer_budget数值偏低）
             -- 现实参照: 顶级俱乐部(周薪5M+)转会预算~150M, 余额~500M
-            balance = (tData.wage_budget or 200000) * 80,
-            wageBudget = tData.wage_budget or 200000,
-            transferBudget = (tData.wage_budget or 200000) * 25,
+            balance = wb * 80,
+            wageBudget = wb,
+            transferBudget = wb * 25,
             trainingFocus = tData.training_focus or "balanced",
             trainingIntensity = (tData.training_intensity or "Medium"):lower(),
         })
@@ -276,6 +290,11 @@ function RealDataLoader.importLeague(gameState, leagueData, leagueConfig)
                 team:addPlayer(player.id)
             end
         end
+    end
+
+    -- 中超：按工资预算校正球员周薪（全队约 80% 预算利用率）
+    if leagueConfig.shortName == "CSL" then
+        RealDataLoader._normalizeCSLPlayerWages(gameState, teamIds)
     end
 
     -- 3. 计算球员名气并重新计算身价（需要球队声望信息）
@@ -445,6 +464,60 @@ function RealDataLoader._calcReputation(wageBudget)
     ratio = math.max(0, math.min(1, ratio))
     -- 映射到 500~950
     return math.floor(500 + ratio * 450)
+end
+
+--- 声望 → 周薪预算（与 _calcReputation 互逆，用于中超等固定初始声望的联赛）
+function RealDataLoader._reputationToWageBudget(reputation)
+    local rep = reputation or 500
+    local ratio = (rep - 500) / 450
+    ratio = math.max(0, math.min(1, ratio))
+    local logMin = math.log(200000)
+    local logMax = math.log(6500000)
+    local logWb = logMin + ratio * (logMax - logMin)
+    return math.floor(math.exp(logWb))
+end
+
+--- 中超球队声望：初始顶级 550，其余按 JSON wage_budget 排名每降一名 -3（赛季中可继续变动）
+function RealDataLoader._buildCSLReputationMap(teams)
+    local sorted = {}
+    for _, t in ipairs(teams) do
+        table.insert(sorted, t)
+    end
+    table.sort(sorted, function(a, b)
+        return (a.wage_budget or 0) > (b.wage_budget or 0)
+    end)
+
+    local map = {}
+    for rank, t in ipairs(sorted) do
+        map[t.id] = 550 - (rank - 1) * 3
+    end
+    return map
+end
+
+--- 中超球员周薪：按各队 wageBudget 缩放至约 80% 利用率
+function RealDataLoader._normalizeCSLPlayerWages(gameState, teamIds)
+    local targetUtil = 0.80
+    for _, teamId in ipairs(teamIds) do
+        local team = gameState.teams[teamId]
+        if team then
+            local budget = team.wageBudget or 200000
+            local total = 0
+            local roster = {}
+            for _, pid in ipairs(team.playerIds) do
+                local p = gameState.players[pid]
+                if p then
+                    total = total + (p.wage or 0)
+                    table.insert(roster, p)
+                end
+            end
+            if total > 0 then
+                local factor = (budget * targetUtil) / total
+                for _, p in ipairs(roster) do
+                    p.wage = math.max(64, math.floor((p.wage or 0) * factor))
+                end
+            end
+        end
+    end
 end
 
 --- 根据球队声望和特征分配合理风格（避免全部 Balanced）
