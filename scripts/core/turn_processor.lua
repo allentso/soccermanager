@@ -557,6 +557,10 @@ function TurnProcessor._applyWCResult(gameState, fixture, report)
     if wc.phase == "group" and fixture.groupName then
         wc:updateGroupStanding(fixture.groupName, fixture)
     end
+
+    -- 更新球员出场/进球/助攻/红黄牌/评分/体能
+    local PlaceholderEngine = require("scripts/match/placeholder_engine")
+    PlaceholderEngine.applyPlayerMatchStats(gameState, fixture, report)
 end
 
 -- 应用欧冠比赛结果

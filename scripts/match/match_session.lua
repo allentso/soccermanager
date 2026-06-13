@@ -133,6 +133,7 @@ function MatchSession.new(gameState, fixture)
     -- 跟踪被换下的球员（从 context.players 中移除）
     self.removedPlayerIds = { home = {}, away = {} }
     MatchSession._initLineupTracking(self, homeTeam, awayTeam, homeContext, awayContext)
+    MatchSession._initFitnessTracking(self)
 
     local EventFlavors = require("scripts/match/event_flavors")
     self._seasonDaysRemaining = EventFlavors.estimateSeasonDaysRemaining(gameState)
@@ -196,8 +197,55 @@ function MatchSession.newWC(gameState, fixture)
     -- 跟踪被换下的球员
     self.removedPlayerIds = { home = {}, away = {} }
     MatchSession._initLineupTracking(self, homeTeam, awayTeam, homeContext, awayContext)
+    MatchSession._initFitnessTracking(self)
 
     return self
+end
+
+--- 初始化实时比赛体能追踪（按分钟逐步扣除，供 UI 实时显示）
+function MatchSession._initFitnessTracking(self)
+    self._fitnessDrainPlan = {}
+    self._liveFitnessApplied = false
+end
+
+function MatchSession:_getContextStyleDrain(context)
+    local team = context and context.team
+    if not team then return 1.0 end
+    local styleMods = TacticsResolver.getStyleModifiers(team.playStyle or "Balanced")
+    return styleMods.staminaDrain or 1.0
+end
+
+function MatchSession:_ensureFitnessPlan(player, styleDrain)
+    if self._fitnessDrainPlan[player.id] then
+        return self._fitnessDrainPlan[player.id]
+    end
+    local PlaceholderEngine = require("scripts/match/placeholder_engine")
+    local totalDrain = PlaceholderEngine.computeMatchFitnessDrain(player, styleDrain)
+    local plan = {
+        totalDrain = totalDrain,
+        perMinute = totalDrain / 90,
+    }
+    self._fitnessDrainPlan[player.id] = plan
+    return plan
+end
+
+function MatchSession:_applyLiveFitnessDrain(minutes)
+    if not minutes or minutes <= 0 then return end
+
+    for _, context in ipairs({ self.homeContext, self.awayContext }) do
+        local styleDrain = self:_getContextStyleDrain(context)
+        for _, p in ipairs(context.players or {}) do
+            local plan = self:_ensureFitnessPlan(p, styleDrain)
+            local drain = plan.perMinute * minutes
+            if drain > 0 then
+                local gsPlayer = self.gameState.players[p.id]
+                if gsPlayer then
+                    gsPlayer.fitness = math.max(40, (gsPlayer.fitness or 80) - drain)
+                    self._liveFitnessApplied = true
+                end
+            end
+        end
+    end
 end
 
 --- 构建替补名单（玩家球队）
@@ -356,8 +404,10 @@ function MatchSession:stepMinutes(minutes)
             self.currentMinute + 1, actualTarget, state, options
         )
 
+        local minutesStepped = actualTarget - self.currentMinute
         self:_syncSimState(state)
         self.currentMinute = actualTarget
+        self:_applyLiveFitnessDrain(minutesStepped)
     end
 
     -- 检查阶段转换
@@ -809,6 +859,7 @@ function MatchSession:buildReport()
             home = snapshotContextIds(self.homeContext.players),
             away = snapshotContextIds(self.awayContext.players),
         },
+        liveFitnessApplied = self._liveFitnessApplied,
     })
 end
 

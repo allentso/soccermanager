@@ -8,6 +8,37 @@ local DifficultySettings = require("scripts/systems/difficulty_settings")
 
 local PlaceholderEngine = {}
 
+local function positionStaminaGroup(position)
+    if position == "GK" then return "GK"
+    elseif position == "CB" or position == "LB" or position == "RB" then return "DEF"
+    elseif position == "ST" or position == "CF" or position == "LW" or position == "RW" then return "FWD"
+    end
+    return "MID"
+end
+
+--- 计算单场比赛体能消耗量（位置×风格×个人耐力）
+function PlaceholderEngine.computeMatchFitnessDrain(player, styleDrain)
+    styleDrain = styleDrain or 1.0
+    local drainData = TacticsResolver.POSITION_STAMINA_DRAIN
+    local group = positionStaminaGroup(player.position)
+    local range = drainData[group] or { 15, 22 }
+    local baseDrain = RandomInt(range[1], range[2])
+    local staminaAttr = (player.attributes and player.attributes.stamina) or 10
+    local staminaDiscount = 0.7 + (staminaAttr / 20) * 0.3
+    return math.floor(baseDrain * styleDrain / staminaDiscount + 0.5)
+end
+
+--- 对出场球员批量扣除体能（实时比赛已逐步扣除时可跳过）
+function PlaceholderEngine.applyFitnessDrainToPlayers(players, teamStyleDrain, alreadyApplied)
+    if alreadyApplied or not players then return end
+    teamStyleDrain = teamStyleDrain or {}
+    for _, p in ipairs(players) do
+        local styleDrain = teamStyleDrain[p.teamId] or 1.0
+        local finalDrain = PlaceholderEngine.computeMatchFitnessDrain(p, styleDrain)
+        p.fitness = math.max(40, (p.fitness or 80) - finalDrain)
+    end
+end
+
 ------------------------------------------------------
 -- 进攻模式定义（细分战术指令）
 ------------------------------------------------------
@@ -239,6 +270,59 @@ function PlaceholderEngine._getAppearancePlayers(gameState, fixture, report, tea
     return PlaceholderEngine._getMatchPlayers(gameState, team)
 end
 
+--- 收集本场比赛出场球员（兼容俱乐部 / 世界杯国家队）
+function PlaceholderEngine._collectMatchPlayers(gameState, fixture, report)
+    local matchPlayers = {}
+    local seen = {}
+
+    local function addPlayer(p)
+        if p and not seen[p.id] then
+            seen[p.id] = true
+            table.insert(matchPlayers, p)
+        end
+    end
+
+    if report and report.appearanceIds then
+        for _, side in ipairs({ "home", "away" }) do
+            local idSet = report.appearanceIds[side]
+            if idSet then
+                for pid, _ in pairs(idSet) do
+                    addPlayer(gameState.players[pid])
+                end
+            end
+        end
+    end
+
+    if #matchPlayers == 0 then
+        local homeTeam = gameState.teams[fixture.homeTeamId]
+        local awayTeam = gameState.teams[fixture.awayTeamId]
+        if homeTeam then
+            for _, p in ipairs(PlaceholderEngine._getAppearancePlayers(gameState, fixture, report, fixture.homeTeamId)) do
+                addPlayer(p)
+            end
+        end
+        if awayTeam then
+            for _, p in ipairs(PlaceholderEngine._getAppearancePlayers(gameState, fixture, report, fixture.awayTeamId)) do
+                addPlayer(p)
+            end
+        end
+    end
+
+    if #matchPlayers == 0 and fixture._isWC then
+        local WorldCup = require("scripts/systems/world_cup")
+        for _, nationCode in ipairs({ fixture.homeTeamId, fixture.awayTeamId }) do
+            local nt = WorldCup.buildNationalTeam(gameState, nationCode)
+            if nt and nt.startingXI then
+                for _, pid in ipairs(nt.startingXI) do
+                    addPlayer(gameState.players[pid])
+                end
+            end
+        end
+    end
+
+    return matchPlayers
+end
+
 ------------------------------------------------------
 -- 更新球员比赛统计（出场/进球/助攻/红黄牌/评分/体能）
 -- 供 UCL/世界杯等不走 applyResult 的比赛路径调用
@@ -288,16 +372,7 @@ function PlaceholderEngine.applyPlayerMatchStats(gameState, fixture, report)
     -- 2. 更新出场数和评分
     local homeTeam = gameState.teams[fixture.homeTeamId]
     local awayTeam = gameState.teams[fixture.awayTeamId]
-    local matchPlayers = {}
-
-    if homeTeam then
-        local players = PlaceholderEngine._getAppearancePlayers(gameState, fixture, report, fixture.homeTeamId)
-        for _, p in ipairs(players) do table.insert(matchPlayers, p) end
-    end
-    if awayTeam then
-        local players = PlaceholderEngine._getAppearancePlayers(gameState, fixture, report, fixture.awayTeamId)
-        for _, p in ipairs(players) do table.insert(matchPlayers, p) end
-    end
+    local matchPlayers = PlaceholderEngine._collectMatchPlayers(gameState, fixture, report)
 
     for _, p in ipairs(matchPlayers) do
         p.seasonStats.appearances = p.seasonStats.appearances + 1
@@ -321,19 +396,41 @@ function PlaceholderEngine.applyPlayerMatchStats(gameState, fixture, report)
     end
 
     -- 3. 体能消耗
-    local drainData = TacticsResolver.POSITION_STAMINA_DRAIN
-    if drainData then
-        for _, p in ipairs(matchPlayers) do
-            local group = "MID"
-            if p.position == "GK" then group = "GK"
-            elseif p.position == "CB" or p.position == "LB" or p.position == "RB" then group = "DEF"
-            elseif p.position == "ST" or p.position == "CF" or p.position == "LW" or p.position == "RW" then group = "FWD"
+    local teamStyleDrain = {}
+    for _, tid in ipairs({ fixture.homeTeamId, fixture.awayTeamId }) do
+        local t = gameState.teams[tid]
+        if t then
+            local styleMods = TacticsResolver.getStyleModifiers(t.playStyle or "Balanced")
+            teamStyleDrain[tid] = styleMods.staminaDrain or 1.0
+        end
+    end
+    if fixture._isWC then
+        local WorldCup = require("scripts/systems/world_cup")
+        for _, nationCode in ipairs({ fixture.homeTeamId, fixture.awayTeamId }) do
+            local nt = WorldCup.buildNationalTeam(gameState, nationCode)
+            if nt then
+                local styleMods = TacticsResolver.getStyleModifiers(nt.playStyle or "Balanced")
+                teamStyleDrain[nationCode] = styleMods.staminaDrain or 1.0
             end
-            local range = drainData[group] or { 15, 22 }
-            local baseDrain = RandomInt(range[1], range[2])
-            local staminaAttr = (p.attributes and p.attributes.stamina) or 10
-            local staminaDiscount = 0.7 + (staminaAttr / 20) * 0.3
-            local finalDrain = math.floor(baseDrain / staminaDiscount + 0.5)
+        end
+    end
+    local function resolveStyleDrain(player)
+        if fixture._isWC and report.appearanceIds then
+            for _, sideInfo in ipairs({
+                { side = "home", nation = fixture.homeTeamId },
+                { side = "away", nation = fixture.awayTeamId },
+            }) do
+                local idSet = report.appearanceIds[sideInfo.side]
+                if idSet and idSet[player.id] then
+                    return teamStyleDrain[sideInfo.nation] or 1.0
+                end
+            end
+        end
+        return teamStyleDrain[player.teamId] or 1.0
+    end
+    if not report._liveFitnessApplied then
+        for _, p in ipairs(matchPlayers) do
+            local finalDrain = PlaceholderEngine.computeMatchFitnessDrain(p, resolveStyleDrain(p))
             p.fitness = math.max(40, (p.fitness or 80) - finalDrain)
         end
     end
@@ -1163,8 +1260,6 @@ function PlaceholderEngine.applyResult(gameState, fixture, report)
     end
 
     -- 体能消耗（按位置×风格×个人耐力差异化）
-    local drainData = TacticsResolver.POSITION_STAMINA_DRAIN
-    -- 预计算每队的 styleDrain（避免重复调用 buildTeamContext）
     local teamStyleDrain = {}
     for _, tid in ipairs({ fixture.homeTeamId, fixture.awayTeamId }) do
         local t = gameState.teams[tid]
@@ -1173,21 +1268,7 @@ function PlaceholderEngine.applyResult(gameState, fixture, report)
             teamStyleDrain[tid] = styleMods.staminaDrain or 1.0
         end
     end
-    for _, p in ipairs(matchPlayers) do
-        local styleDrain = teamStyleDrain[p.teamId] or 1.0
-        local group = "MID"
-        if p.position == "GK" then group = "GK"
-        elseif p.position == "CB" or p.position == "LB" or p.position == "RB" then group = "DEF"
-        elseif p.position == "ST" or p.position == "CF" or p.position == "LW" or p.position == "RW" then group = "FWD"
-        end
-        local range = drainData[group] or { 15, 22 }
-        local baseDrain = RandomInt(range[1], range[2])
-        -- 个人耐力折扣: stamina=20→×1.0, stamina=10→×0.85, stamina=5→×0.775
-        local staminaAttr = (p.attributes and p.attributes.stamina) or 10
-        local staminaDiscount = 0.7 + (staminaAttr / 20) * 0.3
-        local finalDrain = math.floor(baseDrain * styleDrain / staminaDiscount + 0.5)
-        p.fitness = math.max(40, (p.fitness or 80) - finalDrain)
-    end
+    PlaceholderEngine.applyFitnessDrainToPlayers(matchPlayers, teamStyleDrain, report._liveFitnessApplied)
 
     -- 更新球队近期状态 + 球队赛季统计
     local homeGoals = report.homeGoals or 0

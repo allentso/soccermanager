@@ -20,22 +20,43 @@ local _activeTab = "formation" -- formation | bench
 ---@type any
 local _formationScrollView = nil
 
---- 体力条组件（共用）
-local function _fitnessBar(fitness)
-    local fc = {80, 200, 120, 255}
-    if fitness < 70 then fc = {255, 180, 50, 255} end
-    if fitness < 50 then fc = {220, 60, 60, 255} end
+--- 体力颜色与展示组件（与比赛换人面板一致：名字下方长条 + 百分比）
+local function _fitnessColor(fitness)
+    if fitness >= 80 then return Theme.COLORS.SECONDARY
+    elseif fitness >= 60 then return Theme.COLORS.WARNING
+    else return Theme.COLORS.DANGER end
+end
+
+local function _buildFitnessNameColumn(displayName, fitness)
+    local fitnessColor = _fitnessColor(fitness)
+    local barWidthPct = math.max(5, math.min(100, math.floor(fitness)))
     return UI.Panel {
-        width = 44, height = 12, borderRadius = 6,
-        backgroundColor = {40, 40, 50, 255},
-        marginRight = 6, overflow = "hidden",
+        flexGrow = 1, flexShrink = 1,
         children = {
+            UI.Label { text = displayName, fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY },
             UI.Panel {
-                width = tostring(math.max(5, fitness)) .. "%", height = "100%",
-                backgroundColor = fc,
-                borderRadius = 6,
+                width = "100%", height = 4, backgroundColor = {40, 45, 60, 255},
+                borderRadius = 2, marginTop = 3,
+                children = {
+                    UI.Panel {
+                        width = tostring(barWidthPct) .. "%", height = 4,
+                        backgroundColor = fitnessColor, borderRadius = 2,
+                    },
+                }
             },
-        },
+        }
+    }
+end
+
+local function _buildFitnessPctLabel(fitness)
+    return UI.Label {
+        text = string.format("%.0f%%", fitness),
+        fontSize = 11,
+        color = _fitnessColor(fitness),
+        fontWeight = "bold",
+        width = 36,
+        textAlign = "right",
+        marginRight = 4,
     }
 end
 
@@ -867,7 +888,7 @@ function Tactics._buildStartingXICard(gameState, team)
                 flexDirection = "row",
                 alignItems = "center",
                 paddingLeft = 8, paddingRight = 8,
-                paddingTop = 7, paddingBottom = 7,
+                paddingTop = 8, paddingBottom = 8,
                 borderBottomWidth = (i < #startingXI) and 1 or 0,
                 borderColor = Theme.COLORS.BORDER,
                 onClick = function()
@@ -904,16 +925,10 @@ function Tactics._buildStartingXICard(gameState, team)
                             },
                         },
                     } or nil,
-                    -- 球员姓名
-                    UI.Label {
-                        text = p.displayName,
-                        fontSize = 13,
-                        color = Theme.COLORS.TEXT_PRIMARY,
-                        flexGrow = 1,
-                        flexShrink = 1,
-                    },
-                    -- 体力条
-                    _fitnessBar(p.fitness or 100),
+                    -- 球员姓名 + 体力条
+                    _buildFitnessNameColumn(p.displayName, p.fitness or 100),
+                    -- 体力百分比
+                    _buildFitnessPctLabel(p.fitness or 100),
                     -- 能力值
                     UI.Label {
                         text = tostring(p.overall),
@@ -1503,7 +1518,7 @@ function Tactics._buildBenchContent(gameState, team)
         local fitness = p.fitness or 100
         table.insert(benchRows, UI.Panel {
             width = "100%",
-            height = 42,
+            height = 44,
             flexDirection = "row",
             alignItems = "center",
             paddingLeft = 10, paddingRight = 10,
@@ -1521,10 +1536,10 @@ function Tactics._buildBenchContent(gameState, team)
                         UI.Label { text = posName, fontSize = 10, color = posColor, fontWeight = "bold" },
                     },
                 },
-                -- 名字
-                UI.Label { text = p.displayName or p.name, fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY, flexGrow = 1, flexShrink = 1 },
-                -- 体力条
-                _fitnessBar(fitness),
+                -- 名字 + 体力条
+                _buildFitnessNameColumn(p.displayName or p.name, fitness),
+                -- 体力百分比
+                _buildFitnessPctLabel(fitness),
                 -- overall
                 UI.Label { text = tostring(p.overall), fontSize = 12, color = Theme.COLORS.ACCENT, fontWeight = "bold", width = 26, textAlign = "right" },
                 -- 移除按钮
@@ -1565,7 +1580,7 @@ function Tactics._buildBenchContent(gameState, team)
         local fitness = p.fitness or 100
         table.insert(candidateRows, UI.Panel {
             width = "100%",
-            height = 42,
+            height = 44,
             flexDirection = "row",
             alignItems = "center",
             paddingLeft = 10, paddingRight = 10,
@@ -1581,10 +1596,10 @@ function Tactics._buildBenchContent(gameState, team)
                         UI.Label { text = posName, fontSize = 10, color = posColor, fontWeight = "bold" },
                     },
                 },
-                -- 名字
-                UI.Label { text = p.displayName or p.name, fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY, flexGrow = 1, flexShrink = 1 },
-                -- 体力条
-                _fitnessBar(fitness),
+                -- 名字 + 体力条
+                _buildFitnessNameColumn(p.displayName or p.name, fitness),
+                -- 体力百分比
+                _buildFitnessPctLabel(fitness),
                 -- overall
                 UI.Label { text = tostring(p.overall), fontSize = 12, color = Theme.COLORS.ACCENT, fontWeight = "bold", width = 26, textAlign = "right" },
                 -- 添加按钮（名额已满则禁用）

@@ -157,6 +157,7 @@ function MatchReport.build(fixture, homeContext, awayContext, events, simState, 
     if meta.appearanceIds then report.appearanceIds = meta.appearanceIds end
     if meta.ratingLineup then report.ratingLineup = meta.ratingLineup end
     if meta.substitutions then report.substitutions = meta.substitutions end
+    if meta.liveFitnessApplied then report._liveFitnessApplied = true end
 
     return report
 end
