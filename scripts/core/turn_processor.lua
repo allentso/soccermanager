@@ -82,6 +82,9 @@ function TurnProcessor.advanceDay(gameState)
         TurnProcessor.processNonMatchDay(gameState)
     end
 
+    -- 每日体能恢复（全球比赛日也会执行，轮空/未出场球员不再被跳过）
+    TurnProcessor.processDailyFitnessRecovery(gameState)
+
     -- 周期性处理（无论比赛日/非比赛日都必须执行，防止月初有比赛时跳过收入）
     TurnProcessor._processPeriodicEvents(gameState)
 
@@ -666,9 +669,6 @@ function TurnProcessor.processNonMatchDay(gameState)
     -- 伤病恢复
     TurnProcessor.processInjuryRecovery(gameState)
 
-    -- 体能恢复
-    TurnProcessor.processFitnessRecovery(gameState)
-
     -- 合同系统每日检测（月初触发到期检查）
     ContractManager.processDaily(gameState)
 
@@ -840,11 +840,98 @@ function TurnProcessor.processInjuryRecovery(gameState)
     end
 end
 
--- 体能恢复
+-- 体能恢复（旧接口，保留供测试/外部调用）
 function TurnProcessor.processFitnessRecovery(gameState)
+    TurnProcessor.processDailyFitnessRecovery(gameState)
+end
+
+local function _datesEqual(a, b)
+    return a and b and a.year == b.year and a.month == b.month and a.day == b.day
+end
+
+local UCL_KNOCKOUT_PHASES = { "playoff", "r16", "qf", "sf", "final" }
+local WC_KNOCKOUT_PHASES = { "r32", "r16", "qf", "sf", "third", "final" }
+
+--- 收集指定日期已完成比赛的出场球员
+function TurnProcessor._getPlayersWhoPlayedOnDate(gameState, date)
+    local played = {}
+    local PlaceholderEngine = require("scripts/match/placeholder_engine")
+
+    local function markFixture(f)
+        if not f or f.status ~= "finished" or not _datesEqual(f.date, date) then return end
+        local report = {
+            appearanceIds = f.appearanceIds,
+            events = f.events,
+            playerRatings = f.playerRatings,
+            homeGoals = f.homeGoals,
+            awayGoals = f.awayGoals,
+        }
+        for _, p in ipairs(PlaceholderEngine._collectMatchPlayers(gameState, f, report)) do
+            played[p.id] = true
+        end
+    end
+
+    for _, lg in pairs(gameState.leagues or {}) do
+        for _, f in ipairs(lg.fixtures or {}) do
+            markFixture(f)
+        end
+    end
+
+    local ucl = gameState.championsLeague
+    if ucl and ucl.leaguePhase and ucl.leaguePhase.fixtures then
+        for _, f in ipairs(ucl.leaguePhase.fixtures) do
+            markFixture(f)
+        end
+    end
+    if ucl and ucl.knockout then
+        for _, phase in ipairs(UCL_KNOCKOUT_PHASES) do
+            local fixtures = ucl.knockout[phase]
+            if fixtures then
+                for _, f in ipairs(fixtures) do
+                    markFixture(f)
+                end
+            end
+        end
+    end
+
+    local wc = gameState.worldCup
+    if wc and wc.groups then
+        for _, group in pairs(wc.groups) do
+            if group.fixtures then
+                for _, f in ipairs(group.fixtures) do
+                    markFixture(f)
+                end
+            end
+        end
+    end
+    if wc and wc.knockout then
+        for _, phase in ipairs(WC_KNOCKOUT_PHASES) do
+            local fixtures = wc.knockout[phase]
+            if fixtures then
+                for _, f in ipairs(fixtures) do
+                    markFixture(f)
+                end
+            end
+        end
+    end
+
+    return played
+end
+
+--- 每日体能恢复：比赛日也执行，按昨日是否出场区分恢复量
+function TurnProcessor.processDailyFitnessRecovery(gameState)
+    local yesterday = League._addDays(gameState.date, -1)
+    local playedYesterday = TurnProcessor._getPlayersWhoPlayedOnDate(gameState, yesterday)
+
     for _, p in pairs(gameState.players) do
         if not p.injured and p.fitness < 100 then
-            p.fitness = math.min(100, p.fitness + RandomInt(1, 3))
+            local minRecover, maxRecover
+            if playedYesterday[p.id] then
+                minRecover, maxRecover = 1, 3
+            else
+                minRecover, maxRecover = 2, 5
+            end
+            p.fitness = math.min(100, p.fitness + RandomInt(minRecover, maxRecover))
         end
     end
 end
