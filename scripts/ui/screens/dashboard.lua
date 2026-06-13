@@ -1584,15 +1584,15 @@ function Dashboard._buildClubSnapshot(gameState, team)
                       or Theme.COLORS.DANGER
 
         if summary.hasObjectives then
-            -- 有目标：横向里程碑进度
+            local seasonTotal = math.max(1, summary.seasonTotalCount or 1)
+            local seasonDone = summary.seasonCompletedCount or 0
             local milestones = {}
-            local totalCount = math.max(1, summary.totalCount)
-            for i = 1, totalCount do
-                local done = i <= summary.completedCount
+            for i = 1, seasonTotal do
+                local done = i <= seasonDone
                 local dotColor = done and objColor or {255, 255, 255, 40}
                 table.insert(milestones, UI.Panel {
                     alignItems = "center",
-                    marginRight = i < totalCount and 0 or 0,
+                    marginRight = i < seasonTotal and 0 or 0,
                     flexGrow = 1,
                     children = {
                         UI.Panel {
@@ -1603,9 +1603,8 @@ function Dashboard._buildClubSnapshot(gameState, team)
                         },
                     }
                 })
-                -- 连接线（除最后一个）
-                if i < totalCount then
-                    local lineColor = i < summary.completedCount and objColor or {255, 255, 255, 20}
+                if i < seasonTotal then
+                    local lineColor = i < seasonDone and objColor or {255, 255, 255, 20}
                     table.insert(milestones, UI.Panel {
                         flexGrow = 2, height = 2, borderRadius = 1,
                         backgroundColor = lineColor,
@@ -1614,46 +1613,70 @@ function Dashboard._buildClubSnapshot(gameState, team)
                 end
             end
 
+            local monthlyProg = summary.activeMonthlyProgress
+            local monthlyPct = monthlyProg and monthlyProg.pct or 0
+            local monthlyLabel = monthlyProg and monthlyProg.label or "—"
+            local monthlyBarColor = monthlyPct >= 100 and Theme.COLORS.FINANCE_GREEN
+                                 or monthlyPct >= 50 and Theme.COLORS.MATCH_ORANGE
+                                 or Theme.COLORS.INFO_BLUE
+
             return UI.Panel {
                 width = "100%",
                 backgroundColor = Theme.COLORS.BG_CARD,
                 borderRadius = 12,
                 paddingLeft = 14, paddingRight = 14, paddingTop = 10, paddingBottom = 10,
                 marginBottom = 8,
-                flexDirection = "row", alignItems = "center",
+                flexDirection = "column",
                 onClick = function() Dashboard._showObjectivesDetail(gameState) end,
                 children = {
-                    -- 左侧标签
                     UI.Panel {
-                        marginRight = 12,
-                        children = {
-                            UI.Label { text = "赛季目标", fontSize = 10, color = Theme.COLORS.TEXT_MUTED },
-                            UI.Label {
-                                text = summary.completedCount .. "/" .. summary.totalCount,
-                                fontSize = 14, color = objColor, fontWeight = "bold", marginTop = 2,
-                            },
-                        }
-                    },
-                    -- 里程碑进度条
-                    UI.Panel {
-                        flexGrow = 1, flexShrink = 1,
+                        width = "100%",
                         flexDirection = "row", alignItems = "center",
-                        children = milestones,
-                    },
-                    -- 右侧文字
-                    UI.Panel {
-                        marginLeft = 12, alignItems = "flex-end",
                         children = {
-                            UI.Label {
-                                text = summary.seasonText or "",
-                                fontSize = 10, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold",
+                            UI.Panel {
+                                marginRight = 12,
+                                children = {
+                                    UI.Label { text = "赛季目标", fontSize = 10, color = Theme.COLORS.TEXT_MUTED },
+                                    UI.Label {
+                                        text = seasonDone .. "/" .. seasonTotal,
+                                        fontSize = 14, color = objColor, fontWeight = "bold", marginTop = 2,
+                                    },
+                                }
                             },
-                            summary.monthlyText and UI.Label {
-                                text = summary.monthlyText,
-                                fontSize = 9, color = Theme.COLORS.TEXT_MUTED, marginTop = 1,
-                            } or UI.Panel { height = 0 },
+                            UI.Panel {
+                                flexGrow = 1, flexShrink = 1,
+                                flexDirection = "row", alignItems = "center",
+                                children = milestones,
+                            },
+                            UI.Panel {
+                                marginLeft = 12, alignItems = "flex-end",
+                                children = {
+                                    UI.Label {
+                                        text = summary.seasonText or "",
+                                        fontSize = 10, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold",
+                                    },
+                                }
+                            },
                         }
                     },
+                    summary.monthlyText and UI.Panel {
+                        width = "100%", marginTop = 8,
+                        children = {
+                            UI.Panel {
+                                width = "100%", flexDirection = "row", justifyContent = "space-between",
+                                marginBottom = 4,
+                                children = {
+                                    UI.Label { text = "本月目标", fontSize = 10, color = Theme.COLORS.TEXT_MUTED },
+                                    UI.Label { text = monthlyLabel, fontSize = 10, color = monthlyBarColor, fontWeight = "bold" },
+                                }
+                            },
+                            UI.Label {
+                                text = summary.monthlyText,
+                                fontSize = 11, color = Theme.COLORS.TEXT_PRIMARY, marginBottom = 4,
+                            },
+                            Theme.ProgressBar { value = monthlyPct, color = monthlyBarColor, height = 5 },
+                        }
+                    } or UI.Panel { height = 0 },
                 }
             }
         else
@@ -2017,8 +2040,9 @@ function Dashboard._showObjectivesDetail(gameState)
                         or monthly.status == "failed" and Theme.COLORS.DANGER
                         or Theme.COLORS.INFO_BLUE
             local mIcon = monthly.status == "completed" and "✓ " or monthly.status == "failed" and "✗ " or "→ "
+            local prog = ObjectivesManager.getMonthlyProgress(gameState, monthly, gameState:getPlayerTeam())
             table.insert(children, UI.Label {
-                text = mIcon .. monthly.text,
+                text = mIcon .. monthly.text .. "  (" .. (prog and prog.label or "—") .. ")",
                 fontSize = 13, color = mColor, paddingLeft = 4, marginBottom = 4,
             })
         end

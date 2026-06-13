@@ -1819,7 +1819,7 @@ function Market._showOfferSheet(gameState, player)
                 onClick = function()
                     BottomSheet.close()
                     TransferManager.acceptIncomingBid(gameState, bid.id)
-                    UI.Toast.Show({ message = "已同意报价，请前往确认出售", variant = "success" })
+                    UI.Toast.Show({ message = "已同意报价，等待球员考虑是否离队", variant = "success" })
                     Router.replaceWith("market", { tab = "listed" })
                 end,
             },

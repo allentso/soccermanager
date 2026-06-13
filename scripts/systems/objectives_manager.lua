@@ -570,17 +570,36 @@ function ObjectivesManager.recordMatchResult(gameState, teamId, goalsFor, goalsA
             end
         end
     end
+
+    if teamId == gameState.playerTeamId then
+        ObjectivesManager.refreshActiveMonthlies(gameState)
+    end
 end
 
-function ObjectivesManager._getMonthlyStatsForEval(team, monthly)
-    local function matches(ms)
+function ObjectivesManager._getMonthlyStatsForEval(team, monthly, gameState)
+    local function monthMatches(ms)
         if not ms then return false end
-        return ms.month == monthly.startMonth
-            and ms.year == (monthly.startYear or ms.year)
+        if monthly.startMonth and tonumber(ms.month) ~= tonumber(monthly.startMonth) then
+            return false
+        end
+        if monthly.startYear and tonumber(ms.year) ~= tonumber(monthly.startYear) then
+            return false
+        end
+        return true
     end
 
-    if matches(team._lastMonthlyStats) then return team._lastMonthlyStats end
-    if matches(team.monthlyStats) then return team.monthlyStats end
+    if monthMatches(team._lastMonthlyStats) then return team._lastMonthlyStats end
+    if monthMatches(team.monthlyStats) then return team.monthlyStats end
+
+    -- 当月 active 目标：优先用当前 live 统计（兼容缺 startMonth 的旧存档）
+    if monthly.status == "active" and team.monthlyStats and gameState and gameState.date then
+        local ms = team.monthlyStats
+        if tonumber(ms.year) == tonumber(gameState.date.year)
+            and tonumber(ms.month) == tonumber(gameState.date.month) then
+            return ms
+        end
+    end
+
     return emptyMonthlyStats(monthly.startYear or 0, monthly.startMonth or 0)
 end
 
@@ -606,6 +625,163 @@ local function maxPlayerGoals(playerGoals)
 end
 
 ------------------------------------------------------
+-- 月度进度（Dashboard 实时展示 + 赛后即时结算）
+------------------------------------------------------
+
+function ObjectivesManager.getMonthlyProgress(gameState, monthly, team)
+    if not monthly then
+        return { current = 0, target = 1, pct = 0, met = false, label = "—" }
+    end
+    if monthly.status == "completed" then
+        return { current = 1, target = 1, pct = 100, met = true, label = "已完成" }
+    end
+    if monthly.status == "failed" then
+        return { current = 0, target = 1, pct = 0, met = false, label = "未达成" }
+    end
+
+    if monthly.id == "monthly_derby_win" or monthly.id == "monthly_derby_points" then
+        local fixture = ObjectivesManager._findFixtureById(gameState, gameState.playerTeamId, monthly.fixtureId)
+        if not fixture or fixture.status ~= "finished" then
+            return { current = 0, target = 1, pct = 0, met = false, label = "0/1 场" }
+        end
+        local met = ObjectivesManager._checkDerbyMonthlyCompletion(gameState, monthly)
+        return {
+            current = met and 1 or 0,
+            target = 1,
+            pct = met and 100 or 0,
+            met = met,
+            label = met and "已达成" or "未达成",
+        }
+    end
+
+    local stats = team and ObjectivesManager._getMonthlyStatsForEval(team, monthly, gameState) or nil
+    if not stats then
+        return { current = 0, target = 1, pct = 0, met = false, label = "0/1" }
+    end
+
+    if monthly.minWins then
+        local current = stats.wins or 0
+        local target = monthly.minWins
+        return {
+            current = current, target = target,
+            pct = math.min(100, math.floor(current / math.max(target, 1) * 100)),
+            met = current >= target,
+            label = string.format("%d/%d 胜", current, target),
+        }
+    end
+    if monthly.streak then
+        local streak = 0
+        for _, r in ipairs(stats.results or {}) do
+            if r == "W" or r == "D" then streak = streak + 1 else streak = 0 end
+        end
+        local target = monthly.streak
+        return {
+            current = streak, target = target,
+            pct = math.min(100, math.floor(streak / math.max(target, 1) * 100)),
+            met = hasConsecutiveUnbeaten(stats.results, target),
+            label = string.format("%d/%d 场不败", streak, target),
+        }
+    end
+    if monthly.minGoals then
+        local current = stats.goalsFor or 0
+        local target = monthly.minGoals
+        return {
+            current = current, target = target,
+            pct = math.min(100, math.floor(current / math.max(target, 1) * 100)),
+            met = current >= target,
+            label = string.format("%d/%d 球", current, target),
+        }
+    end
+    if monthly.minCleanSheets then
+        local current = stats.cleanSheets or 0
+        local target = monthly.minCleanSheets
+        return {
+            current = current, target = target,
+            pct = math.min(100, math.floor(current / math.max(target, 1) * 100)),
+            met = current >= target,
+            label = string.format("%d/%d 零封", current, target),
+        }
+    end
+    if monthly.minScorerGoals then
+        local current = maxPlayerGoals(stats.playerGoals)
+        local target = monthly.minScorerGoals
+        return {
+            current = current, target = target,
+            pct = math.min(100, math.floor(current / math.max(target, 1) * 100)),
+            met = current >= target,
+            label = string.format("%d/%d 球", current, target),
+        }
+    end
+    if monthly.id == "monthly_no_loss" then
+        local played = (stats.wins or 0) + (stats.draws or 0) + (stats.losses or 0)
+        local losses = stats.losses or 0
+        local met = played > 0 and losses == 0
+        return {
+            current = played, target = played > 0 and played or 1,
+            pct = met and 100 or (played > 0 and math.floor((played - losses) / played * 100) or 0),
+            met = met,
+            label = met and "不败" or string.format("%d 负", losses),
+        }
+    end
+
+    local met = ObjectivesManager._checkMonthlyCompletion(monthly, stats)
+    return { current = met and 1 or 0, target = 1, pct = met and 100 or 0, met = met, label = met and "已达成" or "进行中" }
+end
+
+function ObjectivesManager._markMonthlyCompleted(gameState, objectives, team, monthly)
+    if monthly.status == "completed" then return end
+    monthly.status = "completed"
+    objectives.completedCount = (objectives.completedCount or 0) + 1
+    if team then
+        team.boardSatisfaction = math.min(100, (team.boardSatisfaction or 50) + 5)
+    end
+    gameState:sendMessage({
+        category = "board",
+        title = "月度目标达成!",
+        body = monthly.text .. "\n董事会满意度 +5",
+        priority = "normal",
+    })
+end
+
+function ObjectivesManager._markMonthlyFailed(gameState, objectives, team, monthly)
+    if monthly.status == "failed" or monthly.status == "completed" then return end
+    monthly.status = "failed"
+    if team then
+        team.boardSatisfaction = math.max(0, (team.boardSatisfaction or 50) - 3)
+    end
+    gameState:sendMessage({
+        category = "board",
+        title = "月度目标未达成",
+        body = monthly.text .. "\n董事会满意度 -3",
+        priority = "normal",
+    })
+end
+
+--- 比赛后刷新当月 active 月度目标（德比/胜场等达标即结算）
+function ObjectivesManager.refreshActiveMonthlies(gameState)
+    local objectives = gameState.objectives
+    if not objectives then return end
+    local teamId = gameState.playerTeamId
+    if not teamId then return end
+    local team = gameState.teams[teamId]
+    if not team then return end
+
+    for _, monthly in ipairs(ObjectivesManager._getMonthlies(objectives)) do
+        if monthly.status == "active" then
+            if not monthly.startMonth and gameState.date then
+                monthly.startMonth = gameState.date.month
+                monthly.startYear = gameState.date.year
+            end
+            local prog = ObjectivesManager.getMonthlyProgress(gameState, monthly, team)
+            monthly.progress = prog.pct
+            if prog.met then
+                ObjectivesManager._markMonthlyCompleted(gameState, objectives, team, monthly)
+            end
+        end
+    end
+end
+
+------------------------------------------------------
 -- 每月检查（月末自动调用）
 ------------------------------------------------------
 
@@ -613,7 +789,7 @@ function ObjectivesManager._evaluateMonthlyObjective(gameState, team, monthly)
     if monthly.id == "monthly_derby_points" or monthly.id == "monthly_derby_win" then
         return ObjectivesManager._checkDerbyMonthlyCompletion(gameState, monthly)
     end
-    local stats = team and ObjectivesManager._getMonthlyStatsForEval(team, monthly) or nil
+    local stats = team and ObjectivesManager._getMonthlyStatsForEval(team, monthly, gameState) or nil
     return ObjectivesManager._checkMonthlyCompletion(monthly, stats)
 end
 
@@ -627,30 +803,10 @@ function ObjectivesManager.onMonthEnd(gameState)
     for _, monthly in ipairs(monthlies) do
         if monthly.status == "active" then
             local completed = ObjectivesManager._evaluateMonthlyObjective(gameState, team, monthly)
-
             if completed then
-                monthly.status = "completed"
-                objectives.completedCount = (objectives.completedCount or 0) + 1
-                if team then
-                    team.boardSatisfaction = math.min(100, (team.boardSatisfaction or 50) + 5)
-                end
-                gameState:sendMessage({
-                    category = "board",
-                    title = "月度目标达成!",
-                    body = monthly.text .. "\n董事会满意度 +5",
-                    priority = "normal",
-                })
+                ObjectivesManager._markMonthlyCompleted(gameState, objectives, team, monthly)
             else
-                monthly.status = "failed"
-                if team then
-                    team.boardSatisfaction = math.max(0, (team.boardSatisfaction or 50) - 3)
-                end
-                gameState:sendMessage({
-                    category = "board",
-                    title = "月度目标未达成",
-                    body = monthly.text .. "\n董事会满意度 -3",
-                    priority = "normal",
-                })
+                ObjectivesManager._markMonthlyFailed(gameState, objectives, team, monthly)
             end
         end
     end
@@ -666,10 +822,17 @@ function ObjectivesManager.onMonthEnd(gameState)
 end
 
 function ObjectivesManager._findFixtureById(gameState, teamId, fixtureId)
+    if not fixtureId then return nil end
     local lg = gameState:getTeamLeague(teamId)
-    if not lg then return nil end
-    for _, f in ipairs(lg.fixtures or {}) do
-        if f.id == fixtureId then return f end
+    if lg and lg.fixtures then
+        for _, f in ipairs(lg.fixtures) do
+            if f.id == fixtureId then return f end
+        end
+    end
+    for _, league in pairs(gameState.leagues or {}) do
+        for _, f in ipairs(league.fixtures or {}) do
+            if f.id == fixtureId then return f end
+        end
     end
     return nil
 end
@@ -913,6 +1076,27 @@ function ObjectivesManager.getSummary(gameState)
     local total = objectives.totalCount or 1
     local pct = math.floor(completed / total * 100)
 
+    local team = gameState.teams[gameState.playerTeamId]
+    local seasonCompleted, seasonTotal = 0, 0
+    for _, obj in ipairs(objectives.season or {}) do
+        seasonTotal = seasonTotal + 1
+        if obj.status == "completed" then seasonCompleted = seasonCompleted + 1 end
+    end
+
+    local monthlyProgressList = {}
+    local activeMonthly = nil
+    for _, m in ipairs(monthlies) do
+        if m.status == "active" then
+            local prog = ObjectivesManager.getMonthlyProgress(gameState, m, team)
+            table.insert(monthlyProgressList, {
+                text = m.text,
+                status = m.status,
+                progress = prog,
+            })
+            if not activeMonthly then activeMonthly = prog end
+        end
+    end
+
     return {
         hasObjectives = true,
         seasonText = seasonText,
@@ -920,8 +1104,12 @@ function ObjectivesManager.getSummary(gameState)
         monthlyText = monthlyText,
         monthlyStatus = monthlyStatus,
         monthlies = monthlies,
+        monthlyProgressList = monthlyProgressList,
+        activeMonthlyProgress = activeMonthly,
         completedCount = completed,
         totalCount = total,
+        seasonCompletedCount = seasonCompleted,
+        seasonTotalCount = seasonTotal,
         progressPct = pct,
         allSeasonObjectives = objectives.season,
     }

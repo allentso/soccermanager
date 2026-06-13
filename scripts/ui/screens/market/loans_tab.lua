@@ -8,8 +8,21 @@ local Constants = require("scripts/app/constants")
 local TransferManager = require("scripts/systems/transfer_manager")
 local TrainingManager = require("scripts/systems/training_manager")
 local ConfirmDialog = require("scripts/ui/components/confirm_dialog")
+local AudioManager = require("scripts/systems/audio_manager")
 
 local LoansTab = {}
+
+local function _submitLoanBid(gameState, playerId, duration)
+    local bid, err = TransferManager.makeLoanBid(gameState, playerId, duration)
+    if bid then
+        UI.Toast.Show({ message = "租借请求已提交", variant = "success" })
+        Router.replaceWith("market", { tab = "loans" })
+        return true
+    end
+    AudioManager.deny()
+    UI.Toast.Show({ message = err or "租借请求失败", variant = "error" })
+    return false
+end
 
 function LoansTab.build(gameState)
     local children = {}
@@ -76,12 +89,17 @@ function LoansTab.build(gameState)
     end
 
     table.sort(loanCandidates, function(a, b) return (a.overall or 0) > (b.overall or 0) end)
-    for i = 1, math.min(20, #loanCandidates) do
-        local player = loanCandidates[i]
-        local sourceTeam = gameState.teams[player.teamId]
-        table.insert(children, LoansTab._candidateRow(gameState, player, sourceTeam))
+    if #loanCandidates == 0 then
+        table.insert(children, LoansTab._emptyRow("暂无挂牌外租球员"))
+    else
+        for i = 1, math.min(20, #loanCandidates) do
+            local player = loanCandidates[i]
+            local sourceTeam = gameState.teams[player.teamId]
+            table.insert(children, LoansTab._candidateRow(gameState, player, sourceTeam))
+        end
     end
 
+    table.insert(children, UI.Panel { width = "100%", height = 24 })
     return children
 end
 
@@ -157,6 +175,9 @@ function LoansTab._loanRow(gameState, loan, player, prefix, role)
             },
             UI.Panel {
                 flexGrow = 1, flexShrink = 1, marginRight = 6,
+                onClick = player and function()
+                    Router.navigate("player_detail", { playerId = player.id, tab = "contract" })
+                end or nil,
                 children = {
                     UI.Label { text = player and player.displayName or "?", fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY },
                     UI.Label { text = subtitle, fontSize = 10, color = Theme.COLORS.TEXT_MUTED, marginTop = 2 },
@@ -164,25 +185,30 @@ function LoansTab._loanRow(gameState, loan, player, prefix, role)
             },
             UI.Label {
                 text = tostring(player and math.min(Constants.ABILITY_MAX, player.overall or 0) or "?"),
-                fontSize = 13, color = ratingColor, width = 28, fontWeight = "bold",
+                fontSize = 13, color = ratingColor, width = 28, fontWeight = "bold", marginRight = 4,
             },
-            actionBtn,
+            UI.Panel {
+                width = 56, alignItems = "center", justifyContent = "center",
+                children = { actionBtn },
+            },
         },
-        onClick = player and function()
-            Router.navigate("player_detail", { playerId = player.id, tab = "contract" })
-        end or nil,
     }
 end
 
 function LoansTab._candidateRow(gameState, player, sourceTeam)
     local duration = player.loanListDuration or 26
+    local playerId = player.id
     return UI.Panel {
         width = "100%", height = 54, flexDirection = "row", alignItems = "center",
         paddingLeft = 12, paddingRight = 12,
         borderBottomWidth = 1, borderColor = Theme.COLORS.BORDER,
         children = {
             UI.Label { text = Constants.POSITION_NAMES[player.position] or player.position, fontSize = 11, color = Theme.COLORS.TEXT_MUTED, width = 36 },
-            UI.Panel { flexGrow = 1,
+            UI.Panel {
+                flexGrow = 1, flexShrink = 1, marginRight = 6,
+                onClick = function()
+                    Router.navigate("player_detail", { playerId = playerId, tab = "contract" })
+                end,
                 children = {
                     UI.Label { text = player.displayName, fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY },
                     UI.Label {
@@ -191,15 +217,22 @@ function LoansTab._candidateRow(gameState, player, sourceTeam)
                     },
                 }
             },
-            UI.Label { text = tostring(math.min(Constants.ABILITY_MAX, player.overall or 0)), fontSize = 13, color = Theme.COLORS.SECONDARY, width = 28, fontWeight = "bold" },
-            UI.Button {
-                text = "租借", width = 50, height = 26,
-                backgroundColor = Theme.COLORS.PRIMARY, borderRadius = 4, fontSize = 11,
-                color = Theme.COLORS.TEXT_PRIMARY,
-                onClick = function()
-                    TransferManager.makeLoanBid(gameState, player.id, duration)
-                    Router.replaceWith("market", { tab = "loans" })
-                end,
+            UI.Label {
+                text = tostring(math.min(Constants.ABILITY_MAX, player.overall or 0)),
+                fontSize = 13, color = Theme.COLORS.SECONDARY, width = 28, fontWeight = "bold", marginRight = 4,
+            },
+            UI.Panel {
+                width = 56, alignItems = "center", justifyContent = "center",
+                children = {
+                    UI.Button {
+                        text = "租借", width = 50, height = 26,
+                        backgroundColor = Theme.COLORS.SECONDARY, borderRadius = 4, fontSize = 11,
+                        color = Theme.COLORS.TEXT_PRIMARY,
+                        onClick = function()
+                            _submitLoanBid(gameState, playerId, duration)
+                        end,
+                    },
+                },
             },
         }
     }

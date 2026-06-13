@@ -382,8 +382,12 @@ function TransferManager.cancelBid(gameState, bidId)
     return false
 end
 
--- AI回应出价（生成具体counter-offer）
+-- AI回应出价（生成具体counter-offer；仅处理玩家作为买方的 outgoing bid）
 function TransferManager._processAIResponse(gameState, bid)
+    if bid.isIncomingBid or bid.isPushSale or bid.buyerTeamId ~= gameState.playerTeamId then
+        return
+    end
+
     local player = gameState.players[bid.playerId]
     if not player then
         bid.status = "rejected"
@@ -455,10 +459,11 @@ function TransferManager._processAIResponse(gameState, bid)
             return
         end
         bid.counterAmount = counter
+        bid.currentRound = round + 1
 
         -- 记录本轮
         table.insert(bid.rounds, {
-            round = round + 1,
+            round = bid.currentRound,
             offer = bid.amount,
             counter = counter,
             result = "counter",
@@ -645,13 +650,31 @@ function TransferManager._rejectBid(gameState, bid, reason)
     bid.status = "rejected"
     bid.rejectedDate = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day}
     local player = gameState.players[bid.playerId]
-    gameState:sendMessage({
-        category = "transfer",
-        title = "报价被拒绝",
-        body = reason or string.format("你对 %s 的报价已被拒绝。",
-            player and player.displayName or "该球员"),
-        priority = "normal",
-    })
+    local isBuyer = bid.buyerTeamId == gameState.playerTeamId
+    local isSeller = bid.sellerTeamId == gameState.playerTeamId
+
+    if not reason then
+        if isBuyer then
+            reason = string.format("你对 %s 的报价已被拒绝。",
+                player and player.displayName or "该球员")
+        elseif isSeller then
+            local buyerTeam = gameState.teams[bid.buyerTeamId]
+            reason = string.format("%s 对 %s 的报价未能达成。",
+                buyerTeam and buyerTeam.name or "买方球队",
+                player and player.displayName or "该球员")
+        else
+            reason = "转会报价未能达成。"
+        end
+    end
+
+    if isBuyer or isSeller then
+        gameState:sendMessage({
+            category = "transfer",
+            title = isSeller and not isBuyer and "出售报价结束" or "报价被拒绝",
+            body = reason,
+            priority = "normal",
+        })
+    end
 end
 
 -- 完成转会
@@ -3850,13 +3873,15 @@ function TransferManager.processDailyBids(gameState)
                         TransferManager._acceptBid(gameState, bid)
                     elseif bid.type == "loan" then
                         TransferManager._processLoanBidResponse(gameState, bid)
+                    elseif bid.isIncomingBid then
+                        -- 收到的报价由玩家手动接受/还价/拒绝，不走买方 AI 回应
                     else
                         TransferManager._processAIResponse(gameState, bid)
                     end
                 end
             end
         elseif bid.status == "negotiating" then
-            if not bid.isPushSale then
+            if not bid.isPushSale and not bid.isIncomingBid then
                 local daysSinceResponse = TransferManager._daysBetween(bid.responseDate or bid.date, gameState.date)
                 local maxRounds = bid.maxRounds or 4
                 if daysSinceResponse >= 5 then
@@ -3957,6 +3982,29 @@ function TransferManager.processDailyBids(gameState)
                         popup = true,
                     })
                 end
+            end
+        end
+    end
+
+    -- pending incoming bid 超时：玩家长期未回复，买方撤回报价
+    for _, bid in ipairs(gameState.transfers.bids) do
+        if bid.status == "pending" and bid.isIncomingBid then
+            local daysSince = TransferManager._daysBetween(bid.date, gameState.date)
+            if daysSince >= 7 then
+                local player = gameState.players[bid.playerId]
+                local buyerTeam = gameState.teams[bid.buyerTeamId]
+                bid.status = "rejected"
+                bid.rejectedDate = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day}
+                bid.responseDate = bid.rejectedDate
+                gameState:sendMessage({
+                    category = "transfer",
+                    title = "报价已过期",
+                    body = string.format("%s 对 %s 的报价（%s）因长时间未回复已撤回。",
+                        buyerTeam and buyerTeam.name or "买方球队",
+                        player and player.displayName or "该球员",
+                        fmtMoney(bid.amount)),
+                    priority = "normal",
+                })
             end
         end
     end
