@@ -8,6 +8,7 @@ local Constants = require("scripts/app/constants")
 local AIManager = require("scripts/systems/ai_manager")
 local FormationShape = require("scripts/match/formation_shape")
 local BottomSheet = require("scripts/ui/components/bottom_sheet")
+local ConfirmDialog = require("scripts/ui/components/confirm_dialog")
 local WorldCup = require("scripts/systems/world_cup")
 
 local Tactics = {}
@@ -209,6 +210,25 @@ local function _buildFormationChildren(gameState, team, isNTMode)
         end
     end
 
+    local function applyWithCustomizationConfirm(applyFn, title)
+        if FormationShape.hasCustomization(team) then
+            ConfirmDialog.show({
+                title = title or "切换战术模板",
+                message = "将清除自定义位置与站位微调，是否继续？",
+                confirmText = "继续切换",
+                cancelText = "保留当前",
+                onConfirm = function()
+                    FormationShape.clearCustomization(team)
+                    applyFn()
+                    refresh()
+                end,
+            })
+        else
+            applyFn()
+            refresh()
+        end
+    end
+
     -- 阵型按钮
     local formationChildren = {}
     for _, fmt in ipairs(Constants.FORMATIONS) do
@@ -226,13 +246,12 @@ local function _buildFormationChildren(gameState, team, isNTMode)
             fontWeight = isActive and "bold" or "normal",
             marginBottom = 8,
             onClick = function()
-                if fmt ~= team.formation then
+                if fmt == team.formation then return end
+                applyWithCustomizationConfirm(function()
                     team.formation = fmt
                     team.formationVariant = Constants.getDefaultVariant(fmt)
-                    FormationShape.resetSlotOffsets(team)
                     AIManager.rearrangeForFormation(gameState, team)
-                end
-                refresh()
+                end, "切换阵型")
             end,
         })
     end
@@ -257,22 +276,21 @@ local function _buildFormationChildren(gameState, team, isNTMode)
             marginRight = 8,
             marginBottom = 6,
             onClick = function()
-                if v.key ~= team.formationVariant then
+                if v.key == team.formationVariant then return end
+                applyWithCustomizationConfirm(function()
                     team.formationVariant = v.key
-                    FormationShape.resetSlotOffsets(team)
                     AIManager.rearrangeForFormation(gameState, team)
-                end
-                refresh()
+                end, "切换变体")
             end,
         })
     end
 
-    -- 当前变体描述 + 形态效果
+    -- 当前变体描述 + 实时识别形态
     local activeVariant = Constants.getVariant(currentFormation, currentVariant)
     local variantDesc = activeVariant and activeVariant.desc or ""
-    local shapeProfile = FormationShape.getVariantProfile(currentFormation, currentVariant)
-    if shapeProfile.effectDesc and shapeProfile.effectDesc ~= "" then
-        variantDesc = variantDesc .. " · " .. shapeProfile.effectDesc
+    local liveShape = FormationShape.analyze(team)
+    if liveShape.structure and liveShape.structure.label then
+        variantDesc = variantDesc .. " · 识别：" .. liveShape.structure.label
     end
 
     -- 打法按钮
@@ -566,7 +584,7 @@ local STYLE_ARROWS = {
 function Tactics._buildPitchView(gameState, team, formation)
     local variantKey = team.formationVariant
     local startingXI = team.startingXI or {}
-    local slots = FormationShape.getFormationSlots(formation, variantKey)
+    local slots = FormationShape.getFormationSlots(team)
     local pitchW = 340
     local pitchH = 460
     local playStyle = team.playStyle or "Balanced"
@@ -619,6 +637,8 @@ function Tactics._buildPitchView(gameState, team, formation)
         local roleKey = slotRoles[i]
         local hasRole = roleKey and roleKey ~= "default"
         local hasCustomOffset = team.slotOffsets and team.slotOffsets[slotIdx]
+        local defaultPos = FormationShape.getDefaultSlotPosition(team, slotIdx)
+        local hasCustomPos = slotPos ~= defaultPos
 
         local group = "MID"
         if slotPos == "GK" then group = "GK"
@@ -662,8 +682,8 @@ function Tactics._buildPitchView(gameState, team, formation)
                     height = 20,
                     borderRadius = 10,
                     backgroundColor = dotColor,
-                    borderWidth = (hasRole or hasCustomOffset) and 2 or 0,
-                    borderColor = hasCustomOffset and {255, 220, 80, 220} or {255, 255, 255, 200},
+                    borderWidth = (hasRole or hasCustomOffset or hasCustomPos) and 2 or 0,
+                    borderColor = (hasCustomOffset or hasCustomPos) and {255, 220, 80, 220} or {255, 255, 255, 200},
                 },
                 UI.Label {
                     text = label,
@@ -998,6 +1018,65 @@ function Tactics._showSlotSwapSheet(gameState, team, slotIdx, slots)
         }
     })
 
+    -- 形态预览摘要
+    table.insert(children, UI.Label {
+        text = string.format("识别形态：%s · 区域：%s",
+            shapeAnalysis.structure and shapeAnalysis.structure.label or "未知",
+            shapeAnalysis.slotZones[slotIdx] and (FormationShape.ZONE_LABELS[shapeAnalysis.slotZones[slotIdx]] or shapeAnalysis.slotZones[slotIdx]) or "未知"),
+        fontSize = 11,
+        color = Theme.COLORS.TEXT_MUTED,
+        marginBottom = 8,
+    })
+
+    -- 位置选择（兼容位置）
+    if slotPos ~= "GK" then
+        local compatible = FormationShape.getCompatiblePositions(slotPos)
+        local posBtns = {}
+        for _, pos in ipairs(compatible) do
+            local isActive = slotPos == pos
+            local label = Constants.POSITION_NAMES[pos] or pos
+            if currentPlayer then
+                label = string.format("%s ·适配%d", label, math.floor(AIManager._playerPositionScore(currentPlayer, pos)))
+            end
+            table.insert(posBtns, UI.Button {
+                text = label,
+                height = 32,
+                paddingLeft = 10, paddingRight = 10,
+                backgroundColor = isActive and {212, 175, 55, 50} or {38, 46, 71, 255},
+                borderRadius = 15,
+                borderWidth = isActive and 2 or 1,
+                borderColor = isActive and Theme.COLORS.ACCENT or Theme.COLORS.BORDER,
+                fontSize = 11,
+                color = isActive and Theme.COLORS.ACCENT or Theme.COLORS.TEXT_SECONDARY,
+                fontWeight = isActive and "bold" or "normal",
+                marginRight = 6, marginBottom = 4,
+                onClick = function()
+                    FormationShape.setSlotPosition(team, slotIdx, pos)
+                    saveAfterChange()
+                    BottomSheet.close()
+                    Router.replaceWith("tactics", { tab = "formation" })
+                end,
+            })
+        end
+        table.insert(children, UI.Panel {
+            width = "100%", marginBottom = 10,
+            children = {
+                UI.Label {
+                    text = "位置选择", fontSize = 12, fontWeight = "bold",
+                    color = Theme.COLORS.TEXT_SECONDARY, marginBottom = 4,
+                },
+                UI.Label {
+                    text = "切换后识别形态将按新槽位自动更新",
+                    fontSize = 10, color = Theme.COLORS.TEXT_MUTED, marginBottom = 4,
+                },
+                UI.Panel {
+                    width = "100%", flexDirection = "row", flexWrap = "wrap",
+                    children = posBtns,
+                },
+            }
+        })
+    end
+
     -- 角色选择区域
     local posRoles = Constants.POSITION_ROLES[slotPos]
     if posRoles and #posRoles > 1 then
@@ -1098,6 +1177,8 @@ function Tactics._showSlotSwapSheet(gameState, team, slotIdx, slots)
                     fontSize = 11, color = Theme.COLORS.TEXT_MUTED,
                     onClick = function()
                         if team.slotOffsets then team.slotOffsets[slotIdx] = nil end
+                        local defaultPos = FormationShape.getDefaultSlotPosition(team, slotIdx)
+                        FormationShape.setSlotPosition(team, slotIdx, defaultPos)
                         saveAfterChange()
                         BottomSheet.close()
                         Router.replaceWith("tactics", { tab = "formation" })

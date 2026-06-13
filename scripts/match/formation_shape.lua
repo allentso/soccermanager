@@ -1,11 +1,10 @@
 -- match/formation_shape.lua
--- 球场九区划分、阵容形态分析与效果乘数（变体预设 + 区域密度 + 自定义偏移）
+-- 球场九区划分、结构自动归类、阵容形态效果（区域密度 + 槽位特征 + 自定义偏移）
 
 local Constants = require("scripts/app/constants")
 
 local FormationShape = {}
 
--- 球场坐标：x=横向(0左-100右), y=纵向(0己方底线-100对方底线)
 FormationShape.FORMATION_POSITIONS = {
     ["4-4-2:flat"] = {
         {50, 5}, {15, 25}, {38, 28}, {62, 28}, {85, 25},
@@ -114,35 +113,66 @@ FormationShape.ZONE_LABELS = {
     ATT_LEFT = "前场左路", ATT_CENTER = "前场中路", ATT_RIGHT = "前场右路",
 }
 
--- 变体预设形态效果（弥补「经典/进攻/双后腰」无独立乘数的问题）
-FormationShape.VARIANT_PROFILES = {
-    ["4-4-2:flat"]      = { modifiers = { attack = 1.0,  defense = 1.0,  possession = 1.02, press = 1.0  }, effectDesc = "平行中场，宽度与控球均衡" },
-    ["4-4-2:diamond"]   = { modifiers = { attack = 1.03, defense = 1.0,  possession = 1.03, tempo = 1.02 }, effectDesc = "菱形纵深，串联前后场" },
-    ["4-4-2:hold"]      = { modifiers = { attack = 0.97, defense = 1.05, possession = 0.98, tempo = 0.97 }, effectDesc = "双后腰屏障，防守稳固" },
+-- 槽位兼容位置（与 AIManager._playerPositionScore 一致）
+FormationShape.SLOT_COMPATIBILITY = {
+    GK = { GK = 1.0 },
+    CB = { CB = 1.0, RB = 0.6, LB = 0.6, CDM = 0.5 },
+    RB = { RB = 1.0, CB = 0.6, RM = 0.7, LB = 0.8 },
+    LB = { LB = 1.0, CB = 0.6, LM = 0.7, RB = 0.8 },
+    CDM = { CDM = 1.0, CM = 0.8, CB = 0.5 },
+    CM = { CM = 1.0, CDM = 0.8, CAM = 0.7, RM = 0.6, LM = 0.6 },
+    CAM = { CAM = 1.0, CM = 0.7, RW = 0.6, LW = 0.6, ST = 0.5 },
+    RM = { RM = 1.0, RW = 0.9, CM = 0.6, RB = 0.5, LM = 0.7 },
+    LM = { LM = 1.0, LW = 0.9, CM = 0.6, LB = 0.5, RM = 0.7 },
+    RW = { RW = 1.0, RM = 0.9, ST = 0.6, CAM = 0.6, LW = 0.7 },
+    LW = { LW = 1.0, LM = 0.9, ST = 0.6, CAM = 0.6, RW = 0.7 },
+    ST = { ST = 1.0, CAM = 0.6, RW = 0.5, LW = 0.5 },
+    CF = { CF = 1.0, ST = 0.9, CAM = 0.6 },
+}
 
-    ["4-3-3:hold"]      = { modifiers = { attack = 0.98, defense = 1.04, possession = 1.02, press = 0.98 }, effectDesc = "正三角后腰，稳守反击" },
-    ["4-3-3:attack"]    = { modifiers = { attack = 1.05, defense = 0.97, possession = 1.02, tempo = 1.04 }, effectDesc = "倒三角前腰，前场堆叠" },
-    ["4-3-3:flat"]      = { modifiers = { attack = 1.0,  defense = 1.0,  possession = 1.04, press = 1.02 }, effectDesc = "三中场平行，控球覆盖广" },
+FormationShape.POSITION_ORDER = {
+    "GK", "LB", "CB", "RB", "CDM", "CM", "CAM", "LM", "RM", "LW", "RW", "CF", "ST",
+}
 
-    ["3-5-2:default"]   = { modifiers = { attack = 1.02, defense = 1.0,  possession = 1.03, press = 1.0  }, effectDesc = "翼卫拉边，宽度大、控球稳" },
-    ["3-5-2:attack"]    = { modifiers = { attack = 1.05, defense = 0.97, possession = 1.02, tempo = 1.03 }, effectDesc = "前腰驱动，中路渗透加强" },
-    ["3-5-2:dhold"]     = { modifiers = { attack = 0.96, defense = 1.06, possession = 0.98, tempo = 0.97 }, effectDesc = "双后腰屏障，低位防守" },
+-- 按实际槽位 DEF/MID/FWD 数量自动归类
+local STRUCTURE_ARCHETYPES = {
+    { key = "532", def = 5, mid = 3, fwd = 2, label = "5-3-2型",
+      effectDesc = "五后卫低位，防守稳固",
+      modifiers = { attack = 0.96, defense = 1.05, possession = 1.0, press = 0.96 } },
+    { key = "451", def = 4, mid = 5, fwd = 1, label = "4-5-1型",
+      effectDesc = "五中场覆盖，控球消耗",
+      modifiers = { attack = 0.95, defense = 1.04, possession = 1.03, press = 0.97 } },
+    { key = "442", def = 4, mid = 4, fwd = 2, label = "4-4-2型",
+      effectDesc = "经典均衡，攻守平衡",
+      modifiers = { attack = 1.0, defense = 1.0, possession = 1.02 } },
+    { key = "433", def = 4, mid = 3, fwd = 3, label = "4-3-3型",
+      effectDesc = "三前锋宽度，前场压制",
+      modifiers = { attack = 1.03, possession = 1.02, press = 1.02 } },
+    { key = "4231", def = 4, mid = 5, fwd = 1, label = "4-2-3-1型",
+      effectDesc = "双后腰层次，前场组推进",
+      modifiers = { attack = 1.03, possession = 1.01, tempo = 1.02 } },
+    { key = "352", def = 3, mid = 5, fwd = 2, label = "3-5-2型",
+      effectDesc = "翼卫宽度，中场控制",
+      modifiers = { attack = 1.02, possession = 1.03 } },
+}
 
-    ["4-2-3-1:wide"]    = { modifiers = { attack = 1.04, defense = 1.0,  possession = 0.98, press = 1.02 }, effectDesc = "边锋拉边，宽度进攻" },
-    ["4-2-3-1:narrow"]  = { modifiers = { attack = 1.03, defense = 1.0,  possession = 1.04, tempo = 0.98 }, effectDesc = "三前腰收窄，中路渗透" },
-    ["4-2-3-1:asym"]    = { modifiers = { attack = 1.04, defense = 0.99, possession = 1.01, tempo = 1.02 }, effectDesc = "不对称站位，单边过载" },
+local CUSTOM_STRUCTURE = {
+    key = "custom",
+    label = "自定义混合",
+    effectDesc = "非经典结构，依靠区域密度与角色发挥",
+    modifiers = {},
+}
 
-    ["5-3-2:flat"]      = { modifiers = { attack = 0.96, defense = 1.05, possession = 1.0,  press = 0.96 }, effectDesc = "五后卫平行中场，低位防守" },
-    ["5-3-2:hold"]      = { modifiers = { attack = 0.95, defense = 1.06, possession = 0.99, tempo = 0.96 }, effectDesc = "单后腰五后卫，极度稳固" },
-    ["5-3-2:attack"]    = { modifiers = { attack = 1.02, defense = 1.03, possession = 1.0,  tempo = 1.02 }, effectDesc = "前腰突前，五后卫反击" },
-
-    ["4-5-1:default"]   = { modifiers = { attack = 0.95, defense = 1.04, possession = 1.02, press = 0.97 }, effectDesc = "五中场覆盖，控球消耗" },
-    ["4-5-1:diamond"]   = { modifiers = { attack = 0.97, defense = 1.03, possession = 1.04, tempo = 0.98 }, effectDesc = "菱形五中场，中路控制" },
-    ["4-5-1:flat"]      = { modifiers = { attack = 0.94, defense = 1.05, possession = 1.03, press = 0.96 }, effectDesc = "五中场平行，极致防守" },
+local POS_LINE = {
+    GK = "GK",
+    CB = "DEF", LB = "DEF", RB = "DEF",
+    CDM = "MID", CM = "MID", CAM = "MID", RM = "MID", LM = "MID",
+    LW = "FWD", RW = "FWD", ST = "FWD", CF = "FWD",
 }
 
 local NUDGE_STEP = 8
 local MAX_OFFSET = 14
+local STRUCTURE_MATCH_TOLERANCE = 2
 
 local DIMS = { "attack", "defense", "possession", "press", "counter", "tempo" }
 
@@ -157,6 +187,7 @@ local function emptyMods()
 end
 
 local function mergeMods(base, extra)
+    if not extra then return base end
     for _, dim in ipairs(DIMS) do
         base[dim] = (base[dim] or 1.0) * (extra[dim] or 1.0)
     end
@@ -171,13 +202,37 @@ local function countInZones(zoneCounts, keys)
     return n
 end
 
-function FormationShape.getFormationSlots(formation, variantKey)
+local function resolveTeamArgs(teamOrFormation, variantKey)
+    if type(teamOrFormation) == "table" and teamOrFormation.formation then
+        local team = teamOrFormation
+        return team.formation or "4-4-2",
+            team.formationVariant or Constants.getDefaultVariant(team.formation or "4-4-2"),
+            team.customSlots
+    end
+    return teamOrFormation or "4-4-2", variantKey, nil
+end
+
+function FormationShape.getBaseFormationSlots(formation, variantKey)
     local variant = Constants.getVariant(formation, variantKey)
     if variant and variant.slots then
         return variant.slots
     end
     local fallback = Constants.FORMATION_VARIANTS["4-4-2"]
     return fallback and fallback[1].slots or { "GK", "RB", "CB", "CB", "LB", "RM", "CM", "CM", "LM", "ST", "ST" }
+end
+
+--- 获取实际槽位（变体模板 + customSlots 覆盖）
+function FormationShape.getFormationSlots(teamOrFormation, variantKey)
+    local formation, variant, customSlots = resolveTeamArgs(teamOrFormation, variantKey)
+    local base = FormationShape.getBaseFormationSlots(formation, variant)
+    if not customSlots then
+        return base
+    end
+    local slots = {}
+    for i = 1, 11 do
+        slots[i] = customSlots[i] or base[i]
+    end
+    return slots
 end
 
 function FormationShape.getBasePositions(formation, variantKey)
@@ -205,7 +260,7 @@ function FormationShape.getSlotCoords(team, slotIdx)
     local formation = team.formation or "4-4-2"
     local variantKey = team.formationVariant or Constants.getDefaultVariant(formation)
     local positions = FormationShape.getBasePositions(formation, variantKey)
-    local slots = FormationShape.getFormationSlots(formation, variantKey)
+    local slots = FormationShape.getFormationSlots(team)
     local base = positions[slotIdx] or { 50, 50 }
     local x, y = base[1], base[2]
 
@@ -234,16 +289,103 @@ function FormationShape.getSlotCoords(team, slotIdx)
     return x, y, slots[slotIdx]
 end
 
-function FormationShape.getVariantProfile(formation, variantKey)
-    local key = formation .. ":" .. (variantKey or Constants.getDefaultVariant(formation))
-    local variant = Constants.getVariant(formation, variantKey)
-    if variant and variant.modifiers then
-        return {
-            modifiers = variant.modifiers,
-            effectDesc = variant.effectDesc or "",
-        }
+function FormationShape.getCompatiblePositions(slotPos)
+    if slotPos == "GK" then return { "GK" } end
+    local row = FormationShape.SLOT_COMPATIBILITY[slotPos]
+    if not row then return { slotPos } end
+
+    local orderIdx = {}
+    for i, pos in ipairs(FormationShape.POSITION_ORDER) do
+        orderIdx[pos] = i
     end
-    return FormationShape.VARIANT_PROFILES[key] or { modifiers = emptyMods(), effectDesc = "标准站位" }
+
+    local list = {}
+    for pos, compat in pairs(row) do
+        if compat >= 0.5 then
+            table.insert(list, pos)
+        end
+    end
+    table.sort(list, function(a, b)
+        return (orderIdx[a] or 99) < (orderIdx[b] or 99)
+    end)
+    return list
+end
+
+function FormationShape.getDefaultSlotPosition(team, slotIdx)
+    local formation = team.formation or "4-4-2"
+    local variantKey = team.formationVariant or Constants.getDefaultVariant(formation)
+    local base = FormationShape.getBaseFormationSlots(formation, variantKey)
+    return base[slotIdx]
+end
+
+function FormationShape.hasCustomization(team)
+    if team.slotOffsets then
+        for _, v in pairs(team.slotOffsets) do
+            if v then return true end
+        end
+    end
+    if not team.customSlots then return false end
+    for slotIdx, pos in pairs(team.customSlots) do
+        if pos and pos ~= FormationShape.getDefaultSlotPosition(team, slotIdx) then
+            return true
+        end
+    end
+    return false
+end
+
+function FormationShape.clearCustomization(team)
+    team.customSlots = nil
+    team.slotOffsets = nil
+end
+
+function FormationShape.setSlotPosition(team, slotIdx, newPos)
+    if not newPos or (newPos == "GK" and slotIdx ~= 1) then return false end
+    local defaultPos = FormationShape.getDefaultSlotPosition(team, slotIdx)
+    if not team.customSlots then team.customSlots = {} end
+
+    if newPos == defaultPos then
+        team.customSlots[slotIdx] = nil
+    else
+        team.customSlots[slotIdx] = newPos
+    end
+
+    -- 位置变更后清除不兼容角色
+    if team.slotRoles and team.slotRoles[slotIdx] then
+        local role = Constants.getPositionRole(newPos, team.slotRoles[slotIdx])
+        if not role or team.slotRoles[slotIdx] ~= role.key then
+            team.slotRoles[slotIdx] = nil
+        end
+    end
+    return true
+end
+
+local function countLines(slots)
+    local lines = { DEF = 0, MID = 0, FWD = 0, GK = 0 }
+    for _, pos in ipairs(slots) do
+        local line = POS_LINE[pos] or "MID"
+        lines[line] = (lines[line] or 0) + 1
+    end
+    return lines
+end
+
+function FormationShape.classifyStructure(slots)
+    local lines = countLines(slots)
+    local best, bestDist = CUSTOM_STRUCTURE, 999
+
+    for _, archetype in ipairs(STRUCTURE_ARCHETYPES) do
+        local dist = math.abs(lines.DEF - archetype.def)
+            + math.abs(lines.MID - archetype.mid)
+            + math.abs(lines.FWD - archetype.fwd)
+        if dist < bestDist then
+            bestDist = dist
+            best = archetype
+        end
+    end
+
+    if bestDist > STRUCTURE_MATCH_TOLERANCE then
+        return CUSTOM_STRUCTURE, lines, bestDist
+    end
+    return best, lines, bestDist
 end
 
 local function analyzeSlotTypes(slots)
@@ -318,11 +460,13 @@ local DIM_LABELS = {
     press = "压迫", counter = "反击", tempo = "节奏",
 }
 
-function FormationShape.analyze(team)
+local function buildAnalysis(team, slotsOverride)
     local formation = team.formation or "4-4-2"
     local variantKey = team.formationVariant or Constants.getDefaultVariant(formation)
-    local slots = FormationShape.getFormationSlots(formation, variantKey)
-    local profile = FormationShape.getVariantProfile(formation, variantKey)
+    local slots = slotsOverride or FormationShape.getFormationSlots(team)
+    local structure, lineCounts = FormationShape.classifyStructure(slots)
+    local structureMods = emptyMods()
+    mergeMods(structureMods, structure.modifiers)
 
     local zoneCounts = {}
     for _, key in ipairs(FormationShape.ZONE_KEYS) do
@@ -332,6 +476,9 @@ function FormationShape.analyze(team)
 
     for i = 1, 11 do
         local x, y, slotPos = FormationShape.getSlotCoords(team, i)
+        if slotsOverride and slotsOverride[i] then
+            slotPos = slotsOverride[i]
+        end
         local zone = FormationShape.coordsToZone(x, y, slotPos)
         slotZones[i] = zone
         zoneCounts[zone] = (zoneCounts[zone] or 0) + 1
@@ -341,17 +488,18 @@ function FormationShape.analyze(team)
     local zoneMods, zoneTags = zoneDensityModifiers(zoneCounts, slotTypeCounts)
 
     local combined = emptyMods()
-    mergeMods(combined, profile.modifiers)
+    mergeMods(combined, structureMods)
     mergeMods(combined, zoneMods)
 
     local effectLines = {}
-    if profile.effectDesc and profile.effectDesc ~= "" then
-        table.insert(effectLines, "变体：" .. profile.effectDesc)
+    table.insert(effectLines, "识别形态：" .. structure.label .. "（" .. lineCounts.DEF .. "-" .. lineCounts.MID .. "-" .. lineCounts.FWD .. "）")
+    if structure.effectDesc and structure.effectDesc ~= "" then
+        table.insert(effectLines, structure.effectDesc)
     end
     for _, dim in ipairs(DIMS) do
-        local variantDelta = formatDelta(profile.modifiers[dim])
-        if variantDelta then
-            table.insert(effectLines, "变体" .. DIM_LABELS[dim] .. " " .. variantDelta)
+        local delta = formatDelta(structureMods[dim])
+        if delta then
+            table.insert(effectLines, "结构" .. DIM_LABELS[dim] .. " " .. delta)
         end
     end
     for _, tag in ipairs(zoneTags) do
@@ -362,15 +510,32 @@ function FormationShape.analyze(team)
         formation = formation,
         variantKey = variantKey,
         slots = slots,
+        lineCounts = lineCounts,
+        structure = structure,
+        structureMods = structureMods,
         zoneCounts = zoneCounts,
         slotZones = slotZones,
-        variantMods = profile.modifiers,
         zoneMods = zoneMods,
         combinedMods = combined,
         tags = zoneTags,
-        effectDesc = profile.effectDesc,
+        effectDesc = structure.effectDesc,
         effectLines = effectLines,
     }
+end
+
+function FormationShape.analyze(team)
+    return buildAnalysis(team, nil)
+end
+
+--- 预览某槽位改为新位置后的形态（不写回 team）
+function FormationShape.previewSlotPosition(team, slotIdx, newPos)
+    local slots = FormationShape.getFormationSlots(team)
+    local previewSlots = {}
+    for i = 1, 11 do
+        previewSlots[i] = slots[i]
+    end
+    previewSlots[slotIdx] = newPos
+    return buildAnalysis(team, previewSlots)
 end
 
 function FormationShape.getCombinedModifiers(team)
@@ -411,6 +576,10 @@ end
 
 function FormationShape.resetSlotOffsets(team)
     team.slotOffsets = nil
+end
+
+function FormationShape.resetCustomSlots(team)
+    team.customSlots = nil
 end
 
 return FormationShape

@@ -2,6 +2,7 @@
 -- AI 球队管理系统 - 自动调阵容/训练重点/转会决策
 
 local Constants = require("scripts/app/constants")
+local FormationShape = require("scripts/match/formation_shape")
 
 local AIManager = {}
 
@@ -63,7 +64,7 @@ function AIManager._adjustSquad(gameState, team)
 
     -- 按位置分组，每个位置选最优
     local formation = team.formation or "4-4-2"
-    local slots = AIManager._getFormationSlots(formation, team.formationVariant)
+    local slots = AIManager._getFormationSlots(team)
 
     local selected = {}
     local usedIds = {}
@@ -98,17 +99,12 @@ function AIManager._adjustSquad(gameState, team)
     team.startingXI = selected
 end
 
---- 获取阵型对应的位置槽位（支持变体）
---- @param formation string 阵型名，如 "4-3-3"
---- @param variantKey? string 变体key，如 "hold"/"attack"/"flat"，为nil时使用默认变体
-function AIManager._getFormationSlots(formation, variantKey)
-    local variant = Constants.getVariant(formation, variantKey)
-    if variant then
-        return variant.slots
+--- 获取阵型对应的位置槽位（支持变体与 team.customSlots）
+function AIManager._getFormationSlots(formationOrTeam, variantKey)
+    if type(formationOrTeam) == "table" and formationOrTeam.formation then
+        return FormationShape.getFormationSlots(formationOrTeam)
     end
-    -- 最终 fallback
-    local fallback = Constants.FORMATION_VARIANTS["4-4-2"]
-    return fallback and fallback[1].slots or {"GK", "RB", "CB", "CB", "LB", "RM", "CM", "CM", "LM", "ST", "ST"}
+    return FormationShape.getBaseFormationSlots(formationOrTeam, variantKey)
 end
 
 --- 计算球员在某位置上的适配得分
@@ -393,7 +389,7 @@ end
 --- 对每个槽位从全队中选择最佳匹配球员（首发优先加分，但允许替补替换不适配的首发）
 function AIManager.rearrangeForFormation(gameState, team)
     local formation = team.formation or "4-4-2"
-    local slots = AIManager._getFormationSlots(formation, team.formationVariant)
+    local slots = AIManager._getFormationSlots(team)
     local oldXI = team.startingXI or {}
 
     -- 构建老首发 id 集合（用于加分）

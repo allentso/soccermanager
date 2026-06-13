@@ -199,7 +199,7 @@ function TacticsResolver.buildTeamContext(gameState, team)
     local slotRoles = team.slotRoles or {}
     local startingXI = team.startingXI or {}
     local formation = team.formation or "4-4-2"
-    local slots = FormationShape.getFormationSlots(formation, team.formationVariant)
+    local slots = FormationShape.getFormationSlots(team)
 
     -- 建立 playerId -> slotIndex 映射
     local playerSlotIndex = {}

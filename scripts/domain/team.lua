@@ -55,6 +55,7 @@ local function normalizeLineupPreset(preset)
         benchIds = cloneIdList(preset.benchIds),
         slotRoles = normalizeIntegerKeyTable(preset.slotRoles),
         slotOffsets = normalizeSlotOffsets(preset.slotOffsets),
+        customSlots = normalizeIntegerKeyTable(preset.customSlots),
         playerDuties = normalizeIntegerKeyTable(preset.playerDuties),
         captain = preset.captain and (tonumber(preset.captain) or preset.captain) or nil,
         penaltyTaker = preset.penaltyTaker and (tonumber(preset.penaltyTaker) or preset.penaltyTaker) or nil,
@@ -94,6 +95,7 @@ function Team.captureLineupSnapshot(team)
         benchIds = cloneIdList(team.benchIds),
         slotRoles = normalizeIntegerKeyTable(team.slotRoles),
         slotOffsets = normalizeSlotOffsets(team.slotOffsets),
+        customSlots = normalizeIntegerKeyTable(team.customSlots),
         playerDuties = normalizeIntegerKeyTable(team.playerDuties),
         captain = team.captain,
         penaltyTaker = team.penaltyTaker,
@@ -110,6 +112,7 @@ function Team.lineupSnapshotsEqual(a, b)
     if not idListsEqual(a.benchIds, b.benchIds) then return false end
     if not tablesEqual(a.slotRoles or {}, b.slotRoles or {}) then return false end
     if not tablesEqual(a.slotOffsets or {}, b.slotOffsets or {}) then return false end
+    if not tablesEqual(a.customSlots or {}, b.customSlots or {}) then return false end
     if not tablesEqual(a.playerDuties or {}, b.playerDuties or {}) then return false end
     if a.captain ~= b.captain then return false end
     if a.penaltyTaker ~= b.penaltyTaker then return false end
@@ -126,6 +129,7 @@ function Team.applyLineupSnapshot(team, snapshot)
     team.benchIds = cloneIdList(snapshot.benchIds)
     team.slotRoles = normalizeIntegerKeyTable(snapshot.slotRoles)
     team.slotOffsets = normalizeSlotOffsets(snapshot.slotOffsets)
+    team.customSlots = normalizeIntegerKeyTable(snapshot.customSlots)
     team.playerDuties = normalizeIntegerKeyTable(snapshot.playerDuties)
     team.captain = snapshot.captain
     team.penaltyTaker = snapshot.penaltyTaker
@@ -187,6 +191,7 @@ function Team.new(data)
     self.benchIds = normalizeIntegerKeyTable(data.benchIds, true)
     self.slotRoles = normalizeIntegerKeyTable(data.slotRoles)
     self.slotOffsets = normalizeSlotOffsets(data.slotOffsets)
+    self.customSlots = normalizeIntegerKeyTable(data.customSlots)
     self.playerDuties = normalizeIntegerKeyTable(data.playerDuties)
     self.captain = data.captain or nil
     self.penaltyTaker = data.penaltyTaker or nil
@@ -342,6 +347,7 @@ function Team:serialize()
         benchIds = self.benchIds,
         slotRoles = self.slotRoles,
         slotOffsets = self.slotOffsets,
+        customSlots = self.customSlots,
         playerDuties = self.playerDuties,
         captain = self.captain,
         penaltyTaker = self.penaltyTaker,
