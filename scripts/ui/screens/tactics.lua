@@ -285,12 +285,12 @@ local function _buildFormationChildren(gameState, team, isNTMode)
         })
     end
 
-    -- 当前变体描述 + 实时识别形态
+    -- 当前变体描述（战术说明）；结构识别见球场下方效果面板
     local activeVariant = Constants.getVariant(currentFormation, currentVariant)
     local variantDesc = activeVariant and activeVariant.desc or ""
     local liveShape = FormationShape.analyze(team)
-    if liveShape.structure and liveShape.structure.label then
-        variantDesc = variantDesc .. " · 识别：" .. liveShape.structure.label
+    if liveShape.alignedWithFormation == false then
+        variantDesc = variantDesc .. " · ⚠ 实战结构：" .. (liveShape.structure and liveShape.structure.label or "未知")
     end
 
     -- 打法按钮
@@ -817,7 +817,7 @@ function Tactics._buildPitchView(gameState, team, formation)
         children = {
             Theme.Subtitle { text = "球场视图 · " .. formation },
             UI.Label {
-                text = "点击球员可换人/设角色/微调站位（金边=已自定义）",
+                text = "点击球员可换人/改位置/设角色/微调站位（金边=已自定义）",
                 fontSize = 11, color = Theme.COLORS.TEXT_MUTED, marginTop = 2,
             },
             UI.Panel {
@@ -1020,8 +1020,15 @@ function Tactics._showSlotSwapSheet(gameState, team, slotIdx, slots)
 
     -- 形态预览摘要
     table.insert(children, UI.Label {
-        text = string.format("识别形态：%s · 区域：%s",
-            shapeAnalysis.structure and shapeAnalysis.structure.label or "未知",
+        text = string.format("选用阵型 %s · 实战结构 %s",
+            team.formation or "4-4-2",
+            shapeAnalysis.structure and shapeAnalysis.structure.label or "未知"),
+        fontSize = 11,
+        color = shapeAnalysis.alignedWithFormation == false and {255, 180, 80, 220} or Theme.COLORS.TEXT_MUTED,
+        marginBottom = 4,
+    })
+    table.insert(children, UI.Label {
+        text = string.format("本槽区域：%s",
             shapeAnalysis.slotZones[slotIdx] and (FormationShape.ZONE_LABELS[shapeAnalysis.slotZones[slotIdx]] or shapeAnalysis.slotZones[slotIdx]) or "未知"),
         fontSize = 11,
         color = Theme.COLORS.TEXT_MUTED,

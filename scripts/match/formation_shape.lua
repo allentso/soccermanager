@@ -135,10 +135,14 @@ FormationShape.POSITION_ORDER = {
 }
 
 -- 按实际槽位 DEF/MID/FWD 数量自动归类
+-- 4231 按 4-3-3 线型（双后腰+前场三人组）；窄变体五中场归 451
 local STRUCTURE_ARCHETYPES = {
     { key = "532", def = 5, mid = 3, fwd = 2, label = "5-3-2型",
       effectDesc = "五后卫低位，防守稳固",
       modifiers = { attack = 0.96, defense = 1.05, possession = 1.0, press = 0.96 } },
+    { key = "541", def = 5, mid = 4, fwd = 1, label = "5-4-1型",
+      effectDesc = "五后卫四中场，深度防守",
+      modifiers = { attack = 0.94, defense = 1.06, possession = 1.0, press = 0.95 } },
     { key = "451", def = 4, mid = 5, fwd = 1, label = "4-5-1型",
       effectDesc = "五中场覆盖，控球消耗",
       modifiers = { attack = 0.95, defense = 1.04, possession = 1.03, press = 0.97 } },
@@ -148,9 +152,18 @@ local STRUCTURE_ARCHETYPES = {
     { key = "433", def = 4, mid = 3, fwd = 3, label = "4-3-3型",
       effectDesc = "三前锋宽度，前场压制",
       modifiers = { attack = 1.03, possession = 1.02, press = 1.02 } },
-    { key = "4231", def = 4, mid = 5, fwd = 1, label = "4-2-3-1型",
+    { key = "424", def = 4, mid = 2, fwd = 4, label = "4-2-4型",
+      effectDesc = "四后卫双中场四前锋，边路爆破",
+      modifiers = { attack = 1.05, defense = 0.96, possession = 0.97, press = 1.03 } },
+    { key = "4231", def = 4, mid = 3, fwd = 3, label = "4-2-3-1型",
       effectDesc = "双后腰层次，前场组推进",
       modifiers = { attack = 1.03, possession = 1.01, tempo = 1.02 } },
+    { key = "343", def = 3, mid = 4, fwd = 3, label = "3-4-3型",
+      effectDesc = "三中卫四中场，攻守过渡",
+      modifiers = { attack = 1.03, defense = 0.98, possession = 1.01, press = 1.02 } },
+    { key = "334", def = 3, mid = 3, fwd = 4, label = "3-3-4型",
+      effectDesc = "三中卫四前锋，边路进攻拉满",
+      modifiers = { attack = 1.04, defense = 0.97, possession = 0.98, press = 1.03 } },
     { key = "352", def = 3, mid = 5, fwd = 2, label = "3-5-2型",
       effectDesc = "翼卫宽度，中场控制",
       modifiers = { attack = 1.02, possession = 1.03 } },
@@ -163,6 +176,24 @@ local CUSTOM_STRUCTURE = {
     modifiers = {},
 }
 
+-- 选用阵型 → 期望结构（用于锚定与偏离提示）
+FormationShape.FORMATION_TO_ARCHETYPE = {
+    ["4-4-2"] = "442",
+    ["4-3-3"] = "433",
+    ["3-5-2"] = "352",
+    ["4-2-3-1"] = "4231",
+    ["5-3-2"] = "532",
+    ["4-5-1"] = "451",
+}
+
+-- 模板槽位在大类上的归属（中卫/中场槽位用；翼卫/前锋槽位见 structureLineForSlot）
+local TEMPLATE_BUCKET = {
+    GK = "GK",
+    CB = "DEF", LB = "DEF", RB = "DEF",
+    CDM = "MID", CM = "MID", CAM = "MID", RM = "MID", LM = "MID",
+    RW = "FWD", LW = "FWD", ST = "FWD", CF = "FWD",
+}
+
 local POS_LINE = {
     GK = "GK",
     CB = "DEF", LB = "DEF", RB = "DEF",
@@ -173,6 +204,33 @@ local POS_LINE = {
 local NUDGE_STEP = 8
 local MAX_OFFSET = 14
 local STRUCTURE_MATCH_TOLERANCE = 2
+local HEAVY_CUSTOM_THRESHOLD = 3
+local FORMATION_ANCHOR_BIAS = 1.5
+
+local WING_TEMPLATE_SLOTS = { RM = true, LM = true }
+
+local function structureLineForSlot(team, slotIdx, actualPos, useFullCustom)
+    if useFullCustom then
+        return POS_LINE[actualPos] or "MID"
+    end
+
+    local defaultPos = FormationShape.getDefaultSlotPosition(team, slotIdx)
+
+    -- 翼卫槽改为边锋 → 结构上前场 +1（3-5-2 可变为 3-3-4）
+    if WING_TEMPLATE_SLOTS[defaultPos] and (actualPos == "RW" or actualPos == "LW") then
+        return "FWD"
+    end
+    if WING_TEMPLATE_SLOTS[defaultPos] then
+        return "MID"
+    end
+
+    local defaultBucket = TEMPLATE_BUCKET[defaultPos]
+    if defaultBucket == "FWD" then
+        return POS_LINE[actualPos] or "FWD"
+    end
+
+    return TEMPLATE_BUCKET[defaultPos] or POS_LINE[actualPos] or "MID"
+end
 
 local DIMS = { "attack", "defense", "possession", "press", "counter", "tempo" }
 
@@ -368,33 +426,104 @@ local function countLines(slots)
     return lines
 end
 
-function FormationShape.classifyStructure(slots)
-    local lines = countLines(slots)
-    local best, bestDist = CUSTOM_STRUCTURE, 999
+--- 统计与模板不同的槽位数量
+function FormationShape.countSlotDeviations(team)
+    local n = 0
+    for i = 1, 11 do
+        local custom = team.customSlots and team.customSlots[i]
+        if custom and custom ~= FormationShape.getDefaultSlotPosition(team, i) then
+            n = n + 1
+        end
+    end
+    return n
+end
+
+--- 结构线计数：模板几何 + 翼卫改边锋按前锋计 + 深度自定义全按实际位置
+local function countStructureLines(team, slots)
+    local deviations = FormationShape.countSlotDeviations(team)
+    local useFullCustom = deviations >= HEAVY_CUSTOM_THRESHOLD
+    local lines = { DEF = 0, MID = 0, FWD = 0, GK = 0 }
+    local countMode = "template"
+
+    for i, pos in ipairs(slots) do
+        local defaultPos = FormationShape.getDefaultSlotPosition(team, i)
+        local line = structureLineForSlot(team, i, pos, useFullCustom)
+        lines[line] = (lines[line] or 0) + 1
+        if WING_TEMPLATE_SLOTS[defaultPos] and (pos == "RW" or pos == "LW") then
+            countMode = "hybrid"
+        end
+    end
+    if useFullCustom then
+        countMode = "custom"
+    end
+    return lines, countMode
+end
+
+function FormationShape.structureAlignsWithFormation(team, structure)
+    local expected = FormationShape.FORMATION_TO_ARCHETYPE[team.formation or ""]
+    if not expected or not structure then return true end
+    return structure.key == expected
+end
+
+local function structureLineDistance(lines, archetype)
+    return math.abs(lines.DEF - archetype.def)
+        + math.abs(lines.MID - archetype.mid)
+        + math.abs(lines.FWD - archetype.fwd)
+end
+
+function FormationShape.classifyStructure(slots, team)
+    team = team or {}
+    local lines, countMode = countStructureLines(team, slots)
+    local anchorKey = FormationShape.FORMATION_TO_ARCHETYPE[team.formation or ""]
+    local best, bestDist, bestRaw = CUSTOM_STRUCTURE, 999, 999
 
     for _, archetype in ipairs(STRUCTURE_ARCHETYPES) do
-        local dist = math.abs(lines.DEF - archetype.def)
-            + math.abs(lines.MID - archetype.mid)
-            + math.abs(lines.FWD - archetype.fwd)
-        if dist < bestDist then
+        local rawDist = structureLineDistance(lines, archetype)
+        local dist = rawDist
+        local isAnchor = anchorKey and archetype.key == anchorKey
+        if isAnchor then
+            dist = dist - FORMATION_ANCHOR_BIAS
+        end
+
+        local better = dist < bestDist
+        if not better and dist == bestDist then
+            -- 同线型并列时：优先选用阵型锚定，再优先精确线型匹配
+            if isAnchor and best.key ~= anchorKey then
+                better = true
+            elseif isAnchor == (best.key == anchorKey) and rawDist < bestRaw then
+                better = true
+            end
+        end
+
+        if better then
             bestDist = dist
+            bestRaw = rawDist
             best = archetype
         end
     end
 
-    if bestDist > STRUCTURE_MATCH_TOLERANCE then
-        return CUSTOM_STRUCTURE, lines, bestDist
+    if bestRaw > STRUCTURE_MATCH_TOLERANCE then
+        return CUSTOM_STRUCTURE, lines, bestRaw, countMode
     end
-    return best, lines, bestDist
+    return best, lines, bestRaw, countMode
 end
 
-local function analyzeSlotTypes(slots)
+local function analyzeSlotTypes(slots, slotZones)
     local counts = { CDM = 0, CAM = 0, WB = 0, WING = 0 }
-    for _, pos in ipairs(slots) do
+    for i, pos in ipairs(slots) do
         if pos == "CDM" then counts.CDM = counts.CDM + 1 end
         if pos == "CAM" then counts.CAM = counts.CAM + 1 end
-        if pos == "RM" or pos == "LM" or pos == "LB" or pos == "RB" then counts.WB = counts.WB + 1 end
-        if pos == "RW" or pos == "LW" then counts.WING = counts.WING + 1 end
+        if pos == "RM" or pos == "LM" or pos == "LB" or pos == "RB" then
+            counts.WB = counts.WB + 1
+        end
+        if pos == "RW" or pos == "LW" then
+            local zone = slotZones and slotZones[i] or ""
+            if zone:sub(1, 3) == "ATT" then
+                counts.WING = counts.WING + 1
+            else
+                counts.WB = counts.WB + 1
+            end
+        end
     end
     return counts
 end
@@ -464,7 +593,8 @@ local function buildAnalysis(team, slotsOverride)
     local formation = team.formation or "4-4-2"
     local variantKey = team.formationVariant or Constants.getDefaultVariant(formation)
     local slots = slotsOverride or FormationShape.getFormationSlots(team)
-    local structure, lineCounts = FormationShape.classifyStructure(slots)
+    local structure, lineCounts, _, countMode = FormationShape.classifyStructure(slots, team)
+    local alignedWithFormation = FormationShape.structureAlignsWithFormation(team, structure)
     local structureMods = emptyMods()
     mergeMods(structureMods, structure.modifiers)
 
@@ -484,7 +614,7 @@ local function buildAnalysis(team, slotsOverride)
         zoneCounts[zone] = (zoneCounts[zone] or 0) + 1
     end
 
-    local slotTypeCounts = analyzeSlotTypes(slots)
+    local slotTypeCounts = analyzeSlotTypes(slots, slotZones)
     local zoneMods, zoneTags = zoneDensityModifiers(zoneCounts, slotTypeCounts)
 
     local combined = emptyMods()
@@ -492,7 +622,22 @@ local function buildAnalysis(team, slotsOverride)
     mergeMods(combined, zoneMods)
 
     local effectLines = {}
-    table.insert(effectLines, "识别形态：" .. structure.label .. "（" .. lineCounts.DEF .. "-" .. lineCounts.MID .. "-" .. lineCounts.FWD .. "）")
+    table.insert(effectLines, "选用阵型：" .. formation)
+    table.insert(effectLines, "实战结构：" .. structure.label .. "（" .. lineCounts.DEF .. "-" .. lineCounts.MID .. "-" .. lineCounts.FWD .. "）")
+    if not alignedWithFormation then
+        local expectedLabel = FormationShape.FORMATION_TO_ARCHETYPE[formation]
+        for _, arch in ipairs(STRUCTURE_ARCHETYPES) do
+            if arch.key == expectedLabel then
+                table.insert(effectLines, "已偏离选用阵型（期望 " .. arch.label .. "）")
+                break
+            end
+        end
+    end
+    if countMode == "hybrid" then
+        table.insert(effectLines, "翼卫前置为边锋，前场线按边锋重算")
+    elseif countMode == "custom" then
+        table.insert(effectLines, "深度自定义：按实际位置重算结构")
+    end
     if structure.effectDesc and structure.effectDesc ~= "" then
         table.insert(effectLines, structure.effectDesc)
     end
@@ -513,6 +658,9 @@ local function buildAnalysis(team, slotsOverride)
         lineCounts = lineCounts,
         structure = structure,
         structureMods = structureMods,
+        alignedWithFormation = alignedWithFormation,
+        countMode = countMode,
+        slotDeviations = FormationShape.countSlotDeviations(team),
         zoneCounts = zoneCounts,
         slotZones = slotZones,
         zoneMods = zoneMods,
