@@ -840,8 +840,7 @@ end
 -- 首发列表卡片（点击可换人，卡片风格）
 function Tactics._buildStartingXICard(gameState, team)
     local startingXI = team.startingXI or {}
-    local formation = team.formation or "4-4-2"
-    local slots = AIManager._getFormationSlots(formation, team.formationVariant)
+    local slots = FormationShape.getFormationSlots(team)
 
     local startingChildren = {}
     for i, pid in ipairs(startingXI) do
@@ -1158,13 +1157,20 @@ function Tactics._showSlotSwapSheet(gameState, team, slotIdx, slots)
             UI.Button { text = "后移", width = "23%", height = 32, fontSize = 11, marginRight = 4, marginBottom = 4,
                 backgroundColor = {38, 46, 71, 255}, borderRadius = 6, color = Theme.COLORS.TEXT_SECONDARY,
                 onClick = function() nudgeAndRefresh("back") end },
-            UI.Button { text = "拉边", width = "23%", height = 32, fontSize = 11, marginRight = 4, marginBottom = 4,
-                backgroundColor = {38, 46, 71, 255}, borderRadius = 6, color = Theme.COLORS.TEXT_SECONDARY,
-                onClick = function() nudgeAndRefresh("wide") end },
-            UI.Button { text = "内收", width = "23%", height = 32, fontSize = 11, marginBottom = 4,
-                backgroundColor = {38, 46, 71, 255}, borderRadius = 6, color = Theme.COLORS.TEXT_SECONDARY,
-                onClick = function() nudgeAndRefresh("narrow") end },
         }
+        local x = FormationShape.getSlotCoords(team, slotIdx)
+        local isWideSlot = slotPos == "LB" or slotPos == "RB"
+            or slotPos == "LM" or slotPos == "RM"
+            or slotPos == "LW" or slotPos == "RW"
+            or x < 32 or x > 68
+        if isWideSlot then
+            table.insert(nudgeBtns, UI.Button { text = "拉边", width = "23%", height = 32, fontSize = 11, marginRight = 4, marginBottom = 4,
+                backgroundColor = {38, 46, 71, 255}, borderRadius = 6, color = Theme.COLORS.TEXT_SECONDARY,
+                onClick = function() nudgeAndRefresh("wide") end })
+            table.insert(nudgeBtns, UI.Button { text = "内收", width = "23%", height = 32, fontSize = 11, marginBottom = 4,
+                backgroundColor = {38, 46, 71, 255}, borderRadius = 6, color = Theme.COLORS.TEXT_SECONDARY,
+                onClick = function() nudgeAndRefresh("narrow") end })
+        end
         table.insert(children, UI.Panel {
             width = "100%", marginBottom = 10,
             children = {
@@ -1385,8 +1391,7 @@ end
 
 --- 一键配置全队（首发11人 + 替补7人），综合考虑位置适配和体力
 local function _autoFullSquad(gameState, team)
-    local formation = team.formation or "4-4-2"
-    local slots = AIManager._getFormationSlots(formation, team.formationVariant)
+    local slots = AIManager._getFormationSlots(team)
 
     -- 收集全队可用球员（非伤病）
     local allAvailable = {}
