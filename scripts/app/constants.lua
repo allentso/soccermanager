@@ -111,83 +111,37 @@ Constants.FORMATIONS = {
 }
 
 -- 阵型变体 (每个基础阵型对应多种位置配置)
+-- 设计原则：变体 = 几何形态预设（站位/中前场结构），命名用几何词。
+-- 位置种类（CM/CDM/CAM 等）是底层、可逐槽手动改；变体不做"仅换一两个位置种类"的冗余项。
 -- 每个变体：key=唯一标识, name=简称, desc=中文描述, slots=11人位置列表
 Constants.FORMATION_VARIANTS = {
     ["4-4-2"] = {
         {
             key = "flat",
             name = "平行中场",
-            desc = "两CM平行站位，攻守均衡",
+            desc = "两CM平行，攻守均衡",
             slots = {"GK", "RB", "CB", "CB", "LB", "RM", "CM", "CM", "LM", "ST", "ST"},
         },
         {
             key = "diamond",
             name = "菱形中场",
-            desc = "一CDM一CAM，中路纵深",
+            desc = "后腰+前腰纵向叠放，中路纵深",
             slots = {"GK", "RB", "CB", "CB", "LB", "RM", "CDM", "CAM", "LM", "ST", "ST"},
-        },
-        {
-            key = "hold",
-            name = "双后腰",
-            desc = "两CDM加固中场防守",
-            slots = {"GK", "RB", "CB", "CB", "LB", "RM", "CDM", "CDM", "LM", "ST", "ST"},
         },
     },
 
     ["4-3-3"] = {
         {
             key = "hold",
-            name = "正三角",
-            desc = "单CDM双CM，防守稳固",
+            name = "倒三角",
+            desc = "单后腰拖底、双中场在前，防守稳固",
             slots = {"GK", "RB", "CB", "CB", "LB", "CM", "CDM", "CM", "RW", "ST", "LW"},
         },
         {
             key = "attack",
-            name = "倒三角",
-            desc = "双CM单CAM，进攻厚度",
+            name = "正三角",
+            desc = "双中场在后、前腰顶前，进攻厚度",
             slots = {"GK", "RB", "CB", "CB", "LB", "CM", "CM", "CAM", "RW", "ST", "LW"},
-        },
-        {
-            key = "flat",
-            name = "平行三中场",
-            desc = "三CM平行，覆盖面广",
-            slots = {"GK", "RB", "CB", "CB", "LB", "CM", "CM", "CM", "RW", "ST", "LW"},
-        },
-    },
-
-    ["3-5-2"] = {
-        {
-            key = "default",
-            name = "经典",
-            desc = "单CDM双CM，翼卫拉边",
-            slots = {"GK", "CB", "CB", "CB", "RM", "CM", "CDM", "CM", "LM", "ST", "ST"},
-        },
-        {
-            key = "attack",
-            name = "前腰",
-            desc = "双CM加CAM，形成3-4-1-2",
-            slots = {"GK", "CB", "CB", "CB", "RM", "CM", "CM", "CAM", "LM", "ST", "ST"},
-        },
-        {
-            key = "dhold",
-            name = "双后腰",
-            desc = "双CDM加固中场，更稳固",
-            slots = {"GK", "CB", "CB", "CB", "RM", "CM", "CDM", "CDM", "LM", "ST", "ST"},
-        },
-    },
-
-    ["3-4-3"] = {
-        {
-            key = "wide",
-            name = "标准",
-            desc = "三中卫加双翼，前场三叉戟",
-            slots = {"GK", "CB", "CB", "CB", "RM", "CM", "CM", "LM", "RW", "ST", "LW"},
-        },
-        {
-            key = "press",
-            name = "高压",
-            desc = "中场前压，边锋压迫",
-            slots = {"GK", "CB", "CB", "CB", "RM", "CM", "CAM", "LM", "RW", "ST", "LW"},
         },
     },
 
@@ -195,20 +149,44 @@ Constants.FORMATION_VARIANTS = {
         {
             key = "wide",
             name = "宽边锋",
-            desc = "RW/LW拉边冲击，经典4231",
+            desc = "双边锋拉边冲击，经典4231",
             slots = {"GK", "RB", "CB", "CB", "LB", "CDM", "CDM", "CAM", "RW", "LW", "ST"},
         },
         {
             key = "narrow",
             name = "窄前腰",
-            desc = "三CAM收窄，中路渗透",
+            desc = "三前腰收窄，中路渗透",
             slots = {"GK", "RB", "CB", "CB", "LB", "CDM", "CDM", "CAM", "CAM", "CAM", "ST"},
         },
+    },
+
+    ["3-4-3"] = {
         {
-            key = "asym",
-            name = "不对称",
-            desc = "一侧边锋一侧前腰，左右不同",
-            slots = {"GK", "RB", "CB", "CB", "LB", "CDM", "CDM", "CAM", "RW", "CAM", "ST"},
+            key = "flat",
+            name = "平行中场",
+            desc = "双中场平行，前场三叉戟",
+            slots = {"GK", "CB", "CB", "CB", "RM", "CM", "CM", "LM", "RW", "ST", "LW"},
+        },
+        {
+            key = "stagger",
+            name = "一前一后",
+            desc = "后腰拖底+前腰顶前，攻守层次",
+            slots = {"GK", "CB", "CB", "CB", "RM", "CDM", "CAM", "LM", "RW", "ST", "LW"},
+        },
+    },
+
+    ["3-5-2"] = {
+        {
+            key = "default",
+            name = "经典",
+            desc = "单后腰拖底、双中场在前（倒三角），翼卫拉边",
+            slots = {"GK", "CB", "CB", "CB", "RM", "CM", "CDM", "CM", "LM", "ST", "ST"},
+        },
+        {
+            key = "attack",
+            name = "前压",
+            desc = "双中场+前腰顶前（正三角），形成3-4-1-2",
+            slots = {"GK", "CB", "CB", "CB", "RM", "CM", "CM", "CAM", "LM", "ST", "ST"},
         },
     },
 
@@ -216,34 +194,22 @@ Constants.FORMATION_VARIANTS = {
         {
             key = "flat",
             name = "平行中场",
-            desc = "三CM平行，攻守均衡",
+            desc = "三中场平行，攻守均衡",
             slots = {"GK", "RB", "CB", "CB", "CB", "LB", "CM", "CM", "CM", "ST", "ST"},
         },
         {
             key = "hold",
             name = "一后腰",
-            desc = "单CDM双CM，稳中求进",
+            desc = "单后腰居中拖底，稳中求进",
             slots = {"GK", "RB", "CB", "CB", "CB", "LB", "CM", "CDM", "CM", "ST", "ST"},
-        },
-        {
-            key = "attack",
-            name = "一前腰",
-            desc = "单CAM双CM，支援前场",
-            slots = {"GK", "RB", "CB", "CB", "CB", "LB", "CM", "CM", "CAM", "ST", "ST"},
         },
     },
 
     ["4-2-4"] = {
         {
-            key = "wide",
-            name = "双翼",
-            desc = "双中场支撑，四前锋冲击",
-            slots = {"GK", "RB", "CB", "CB", "LB", "CDM", "CM", "RW", "ST", "ST", "LW"},
-        },
-        {
             key = "flat",
             name = "双中场",
-            desc = "两CM平行，前场四人拉开",
+            desc = "两CM平行支撑，前场四人拉开",
             slots = {"GK", "RB", "CB", "CB", "LB", "CM", "CM", "RW", "ST", "ST", "LW"},
         },
     },
@@ -251,21 +217,15 @@ Constants.FORMATION_VARIANTS = {
     ["4-5-1"] = {
         {
             key = "default",
-            name = "经典",
-            desc = "单CDM双CM翼卫，均衡覆盖",
+            name = "平行中场",
+            desc = "单后腰双中场加翼卫，均衡覆盖",
             slots = {"GK", "RB", "CB", "CB", "LB", "RM", "CM", "CDM", "CM", "LM", "ST"},
         },
         {
             key = "diamond",
             name = "菱形中场",
-            desc = "CDM+双CM+CAM，中路纵深",
+            desc = "后腰+前腰纵向叠放，中路纵深",
             slots = {"GK", "RB", "CB", "CB", "LB", "RM", "CDM", "CAM", "CM", "LM", "ST"},
-        },
-        {
-            key = "flat",
-            name = "五平中场",
-            desc = "无后腰全CM，纯平压制",
-            slots = {"GK", "RB", "CB", "CB", "LB", "RM", "CM", "CM", "CM", "LM", "ST"},
         },
     },
 
@@ -273,14 +233,14 @@ Constants.FORMATION_VARIANTS = {
         {
             key = "flat",
             name = "平行中场",
-            desc = "五后卫四中场，低位压缩空间",
+            desc = "四中场平行，低位压缩空间",
             slots = {"GK", "RB", "CB", "CB", "CB", "LB", "RM", "CM", "CM", "LM", "ST"},
         },
         {
-            key = "hold",
-            name = "一后腰",
-            desc = "单CDM保护禁区弧，反击留单箭头",
-            slots = {"GK", "RB", "CB", "CB", "CB", "LB", "RM", "CM", "CDM", "LM", "ST"},
+            key = "stagger",
+            name = "一前一后",
+            desc = "后腰拖底+前腰顶前，反击留单箭头",
+            slots = {"GK", "RB", "CB", "CB", "CB", "LB", "RM", "CDM", "CAM", "LM", "ST"},
         },
     },
 }
