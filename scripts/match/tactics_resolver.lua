@@ -4,6 +4,7 @@
 local Constants = require("scripts/app/constants")
 local FormationShape = require("scripts/match/formation_shape")
 local TraitEffects = require("scripts/match/trait_effects")
+local RoleSynergy = require("scripts/match/role_synergy")
 
 local TacticsResolver = {}
 
@@ -60,6 +61,27 @@ local DUTIES = {
     attack = { attack = 1.18, defense = 0.86 },
     support = { attack = 1.0, defense = 1.0 },
     defend = { attack = 0.86, defense = 1.18 },
+}
+
+-- P1-3: 进攻模式与角色契合度映射表
+local ATTACK_MODE_ROLE_FIT = {
+    wingPlay = {
+        roles = { touchline = true, winger = true, wide = true, wingBack = true },
+        dim = "attack", perPlayer = 0.02, cap = 0.06,
+    },
+    throughBalls = {
+        roles = { shadow = true, poacher = true, advanced = true },
+        dim = "shotQuality", perPlayer = 0.03, cap = 0.09,
+    },
+    shortPassing = {
+        roles = { deepLying = true, ballPlaying = true, playmaker = true },
+        dim = "possession", perPlayer = 0.02, cap = 0.06,
+    },
+    longBall = {
+        roles = { targetMan = true },
+        dim = "aerial", perPlayer = 0.04, cap = 0.04,
+        extraDim = "attack", extraPer = 0.02, extraCap = 0.02,
+    },
 }
 
 local function clamp(value, minValue, maxValue)
@@ -215,10 +237,16 @@ function TacticsResolver.buildTeamContext(gameState, team)
 
         -- 查找该球员的角色修正系数（按槽位类型，非注册位置）
         local mods = nil
+        local roleKey = (slotIdx and slotRoles[slotIdx]) or "default"
         if slotIdx and slotPos and slotRoles[slotIdx] then
             local role = Constants.getPositionRole(slotPos, slotRoles[slotIdx])
             if role then mods = role.modifiers end
         end
+
+        -- P2-1: 附加位置区域和角色信息到球员对象（供 pickShooter/pickAssister 使用）
+        player._slotZone = group   -- "GK"/"DEF"/"MID"/"FWD"
+        player._roleKey = roleKey  -- 角色 key（如 "poacher", "playmaker"）
+        player._slotPos = slotPos  -- 精确槽位（如 "ST", "CAM", "RW"）
 
         local fitnessMul = clamp((player.fitness or 80) / 100, 0.45, 1.05)
         local moraleMul = clamp(0.82 + ((player.morale or 60) / 100) * 0.28, 0.82, 1.1)
@@ -353,6 +381,65 @@ function TacticsResolver.buildTeamContext(gameState, team)
         (styleMod.foul or 1.0) * (100 / math.max(30, discipline / playerCount * 8)) * traitSummary.foulMult,
         0.55, 1.55)
 
+    -- P1-1: 角色协同加成
+    local synergyMods, synergyTags = RoleSynergy.evaluate(players, slots, slotRoles, startingXI)
+    finalAttack = finalAttack * (synergyMods.attack or 1.0)
+    finalDefense = finalDefense * (synergyMods.defense or 1.0)
+    finalPossession = finalPossession * (synergyMods.possession or 1.0)
+    finalTempo = finalTempo * (synergyMods.tempo or 1.0)
+    finalPress = finalPress * (synergyMods.press or 1.0)
+    finalCounter = finalCounter * (synergyMods.counter or 1.0)
+    shotQuality = shotQuality * (synergyMods.shotQuality or 1.0)
+    aerial = aerial * (synergyMods.aerial or 1.0)
+
+    -- P1-2: 职责极端失衡惩罚（仅极端场景，不惩罚正常倾向性）
+    local dutyDist = { attack = 0, support = 0, defend = 0 }
+    for _, pid in ipairs(startingXI) do
+        if playerSlotIndex[pid] ~= 1 then  -- 排除 GK（slotIdx=1）
+            local d = duties[pid] or "support"
+            dutyDist[d] = (dutyDist[d] or 0) + 1
+        end
+    end
+    -- 后卫全设为 support/attack 无人专注防守 → 防守脆弱
+    if dutyDist.defend == 0 and counts.DEF >= 3 then
+        finalDefense = finalDefense * 0.95
+    end
+    -- 全守极端：无人 attack 且 support ≤ 2 → 进攻乏力
+    if dutyDist.attack == 0 and dutyDist.support <= 2 then
+        finalAttack = finalAttack * 0.94
+    end
+
+    -- P1-3: 进攻模式×角色契合度
+    local fitRule = ATTACK_MODE_ROLE_FIT[mode]
+    if fitRule then
+        local fitCount = 0
+        for i, pid in ipairs(startingXI) do
+            local roleKey = slotRoles[i] or "default"
+            if fitRule.roles[roleKey] then
+                fitCount = fitCount + 1
+            end
+        end
+        if fitCount > 0 then
+            local bonus = math.min(fitCount * fitRule.perPlayer, fitRule.cap)
+            if fitRule.dim == "attack" then
+                finalAttack = finalAttack * (1.0 + bonus)
+            elseif fitRule.dim == "possession" then
+                finalPossession = finalPossession * (1.0 + bonus)
+            elseif fitRule.dim == "shotQuality" then
+                shotQuality = shotQuality * (1.0 + bonus)
+            elseif fitRule.dim == "aerial" then
+                aerial = aerial * (1.0 + bonus)
+            end
+            -- extraDim（如 longBall 的额外 attack 加成）
+            if fitRule.extraDim and fitRule.extraPer then
+                local extraBonus = math.min(fitCount * fitRule.extraPer, fitRule.extraCap or fitRule.extraPer)
+                if fitRule.extraDim == "attack" then
+                    finalAttack = finalAttack * (1.0 + extraBonus)
+                end
+            end
+        end
+    end
+
     return {
         team = team,
         players = players,
@@ -380,6 +467,7 @@ function TacticsResolver.buildTeamContext(gameState, team)
         counter = finalCounter,
         traitSummary = traitSummary,
         shapeMods = shapeMods,
+        synergyTags = synergyTags,
     }
 end
 
@@ -394,9 +482,9 @@ function TacticsResolver.matchupModifiers(myContext, opponentContext, isHome, fo
     -- 士气差异加成
     local moraleBonus = clamp((myContext.avgMorale - 50) / 250, -0.05, 0.05)
 
-    -- 比赛日状态波动（±18%，模拟"今天状态好/差"）
+    -- 比赛日状态波动（±12%，模拟"今天状态好/差"）
     -- 引擎应传入单场固定采样值；缺省时退化为调用时采样（兼容旧调用方）
-    formFactor = formFactor or (0.82 + Random() * 0.36)  -- [0.82, 1.18]
+    formFactor = formFactor or (0.88 + Random() * 0.24)  -- [0.88, 1.12]
 
     -- 线性阻尼压缩实力差距：将所有比值往1.0方向拉（60%压缩）
     -- 原始2.0 → 1.40, 原始0.5 → 0.80（弱队比原来好，强队比原来弱）

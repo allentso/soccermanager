@@ -220,8 +220,9 @@ function TraitEffects.finalizeTeamSummary(players, acc)
 end
 
 --- 采样单场状态（大场面更稳、状态起伏更波动）
+--- v2: 基础范围从 ±18% 压缩到 ±12%，让战术决策的信噪比从 ~1:4 提升到 ~1:1.5
 function TraitEffects.sampleFormFactor(traitSummary, baseForm)
-    baseForm = baseForm or (0.82 + Random() * 0.36)
+    baseForm = baseForm or (0.88 + Random() * 0.24)  -- [0.88, 1.12] (±12%)
     local summary = traitSummary or {}
     local volatility = summary.formVolatility or 0
     if volatility > 0 then
@@ -231,8 +232,8 @@ function TraitEffects.sampleFormFactor(traitSummary, baseForm)
     if boost > 0 then
         baseForm = baseForm + boost * 0.35
     end
-    if baseForm < 0.72 then return 0.72 end
-    if baseForm > 1.22 then return 1.22 end
+    if baseForm < 0.76 then return 0.76 end
+    if baseForm > 1.18 then return 1.18 end
     return baseForm
 end
 

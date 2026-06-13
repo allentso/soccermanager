@@ -42,32 +42,60 @@ local function positionGroup(position)
     return "MID"
 end
 
+-- P2-2: 射手角色权重加成表
+local SHOOTER_ROLE_BONUS = {
+    poacher = 1.35,   -- 禁区猎手：最佳终结者
+    shadow = 1.20,    -- 影子前锋：跑位射门
+    advanced = 1.15,  -- 前插中场：插上射门
+    inverted = 1.10,  -- 内切边锋：内切射门
+    falseNine = 0.85, -- 伪九号：更偏组织
+}
+
 local function pickShooter(context, opts)
     opts = opts or {}
     return TacticsResolver.chooseWeighted(context.players, function(player)
-        local group = positionGroup(player.position)
+        local group = player._slotZone or positionGroup(player.position)
         local weight = attr(player, "shooting") * 1.0 + attr(player, "positioning") * 0.6 + attr(player, "composure") * 0.4
         if group == "FWD" then weight = weight * 3.0
-        elseif player.position == "CAM" then weight = weight * 2.0
+        elseif player._slotPos == "CAM" or player.position == "CAM" then weight = weight * 2.0
         elseif group == "MID" then weight = weight * 0.9
         elseif group == "DEF" then weight = weight * 0.2 + attr(player, "aerial") * 0.25
         else weight = 0.05 end
+        -- 角色加成
+        local roleBonus = SHOOTER_ROLE_BONUS[player._roleKey]
+        if roleBonus then weight = weight * roleBonus end
         return TraitEffects.modifyShooterWeight(player, group, weight, opts)
     end)
 end
+
+-- P2-2: 助攻角色权重加成表
+local ASSISTER_ROLE_BONUS = {
+    playmaker = 1.40,  -- 古典前腰：核心组织者
+    deepLying = 1.25,  -- 组织型后腰：中场调度
+    shadow = 1.15,     -- 影子前锋：穿插做球
+    winger = 1.15,     -- 边路突击手：传中助攻
+    touchline = 1.20,  -- 贴边边锋：底线传中
+    wingBack = 1.10,   -- 进攻翼卫：套边助攻
+    wide = 1.10,       -- 宽幅中场：边路传球
+    targetMan = 0.80,  -- 支点前锋：更偏终结/做球
+}
 
 local function pickAssister(context, scorer)
     if Random() > 0.68 then return nil end
     return TacticsResolver.chooseWeighted(context.players, function(player)
         if scorer and player.id == scorer.id then return 0 end
-        local group = positionGroup(player.position)
+        local group = player._slotZone or positionGroup(player.position)
+        local slotPos = player._slotPos or player.position
         local weight = attr(player, "passing") * 0.9 + attr(player, "vision") * 0.8 + attr(player, "decisions") * 0.45
-        if player.position == "CAM" then weight = weight * 1.8
+        if slotPos == "CAM" then weight = weight * 1.8
         elseif group == "MID" then weight = weight * 1.35
-        elseif player.position == "LW" or player.position == "RW" then weight = weight * 1.25
-        elseif player.position == "LB" or player.position == "RB" then weight = weight * 0.9
+        elseif slotPos == "LW" or slotPos == "RW" then weight = weight * 1.25
+        elseif slotPos == "LB" or slotPos == "RB" then weight = weight * 0.9
         elseif group == "FWD" then weight = weight * 0.7
         else weight = weight * 0.35 end
+        -- 角色加成
+        local roleBonus = ASSISTER_ROLE_BONUS[player._roleKey]
+        if roleBonus then weight = weight * roleBonus end
         return TraitEffects.modifyAssisterWeight(player, group, weight)
     end)
 end

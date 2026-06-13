@@ -41,15 +41,15 @@ FormationShape.FORMATION_POSITIONS = {
         {10, 50}, {38, 52}, {62, 52}, {90, 50},
         {20, 80}, {50, 84}, {80, 80},
     },
-    ["3-4-3:stagger"] = {
+    ["3-4-3:diamond"] = {
         {50, 5}, {25, 25}, {50, 28}, {75, 25},
-        {10, 52}, {45, 46}, {55, 62}, {90, 52},
+        {10, 52}, {50, 45}, {50, 62}, {90, 52},
         {20, 80}, {50, 84}, {80, 80},
     },
     ["4-2-3-1:wide"] = {
         {50, 5}, {15, 25}, {38, 28}, {62, 28}, {85, 25},
         {35, 45}, {65, 45},
-        {50, 65}, {80, 68}, {20, 68},
+        {50, 65}, {20, 68}, {80, 68},
         {50, 85},
     },
     ["4-2-3-1:narrow"] = {
@@ -63,7 +63,7 @@ FormationShape.FORMATION_POSITIONS = {
         {30, 52}, {50, 55}, {70, 52},
         {35, 80}, {65, 80},
     },
-    ["5-3-2:hold"] = {
+    ["5-3-2:diamond"] = {
         {50, 5}, {10, 25}, {30, 28}, {50, 30}, {70, 28}, {90, 25},
         {35, 52}, {50, 45}, {65, 52},
         {35, 80}, {65, 80},
@@ -73,24 +73,20 @@ FormationShape.FORMATION_POSITIONS = {
         {38, 52}, {62, 52},
         {18, 78}, {40, 84}, {60, 84}, {82, 78},
     },
-    ["4-5-1:default"] = {
+    ["4-5-1:flat"] = {
         {50, 5}, {15, 25}, {38, 28}, {62, 28}, {85, 25},
         {15, 50}, {33, 55}, {50, 48}, {67, 55}, {85, 50},
         {50, 82},
     },
-    ["4-5-1:diamond"] = {
-        {50, 5}, {15, 25}, {38, 28}, {62, 28}, {85, 25},
-        {15, 50}, {50, 42}, {50, 62}, {67, 55}, {85, 50},
-        {50, 82},
-    },
+
     ["5-4-1:flat"] = {
         {50, 5}, {10, 25}, {30, 28}, {50, 30}, {70, 28}, {90, 25},
         {15, 52}, {38, 55}, {62, 55}, {85, 52},
         {50, 82},
     },
-    ["5-4-1:stagger"] = {
+    ["5-4-1:diamond"] = {
         {50, 5}, {10, 25}, {30, 28}, {50, 30}, {70, 28}, {90, 25},
-        {15, 52}, {42, 47}, {58, 62}, {85, 52},
+        {15, 52}, {50, 45}, {50, 62}, {85, 52},
         {50, 82},
     },
 }
@@ -352,7 +348,7 @@ function FormationShape.getSlotCoords(team, slotIdx)
         local slotPos = slots[slotIdx]
         local role = Constants.getPositionRole(slotPos, roleKey)
         if role and role.posOffset then
-            x = x + role.posOffset[1]
+            x = x - role.posOffset[1]
             y = y + role.posOffset[2]
         end
     end
@@ -371,10 +367,49 @@ function FormationShape.getSlotCoords(team, slotIdx)
     return x, y, slots[slotIdx]
 end
 
-function FormationShape.getCompatiblePositions(slotPos)
+-- 位置的侧边归属：RIGHT=球场右路, LEFT=球场左路, CENTER=中路
+local POS_SIDE = {
+    RB = "RIGHT", RW = "RIGHT", RM = "RIGHT",
+    LB = "LEFT",  LW = "LEFT",  LM = "LEFT",
+}
+
+-- 位置纵深层级（5层：后2 / 后1 / 中1 / 前2 / 前1）
+-- 前 group (tiers 4-5): 前场进攻位置
+-- 中 group (tier 3): 中场组织位置
+-- 后 group (tiers 1-2): 后场防守位置
+local POS_DEPTH_TIER = {
+    GK = 0,
+    CB = 1, RB = 1, LB = 1,
+    CDM = 2,
+    CM = 3, RM = 3, LM = 3,
+    CAM = 4, RW = 4, LW = 4,
+    ST = 5, CF = 5,
+}
+
+-- 根据当前槽位纵深层级，返回允许的 tier 范围 [min, max]
+-- 前 group (4-5): 只看前场 + 中场边界 → tiers 4-5
+-- 中 group (3): 看中场 + 相邻 → tiers 2-4
+-- 后 group (1-2): 只看后场 + 中场 → tiers 1-3
+local function getAllowedDepthRange(slotTier)
+    if slotTier >= 4 then return 4, 5 end  -- 前 group
+    if slotTier == 3 then return 2, 4 end  -- 中 group
+    return 1, 3                             -- 后 group
+end
+
+function FormationShape.getCompatiblePositions(slotPos, slotZone)
     if slotPos == "GK" then return { "GK" } end
     local row = FormationShape.SLOT_COMPATIBILITY[slotPos]
     if not row then return { slotPos } end
+
+    -- 解析槽位区域的侧路信息
+    local zoneLane = nil  -- "LEFT", "CENTER", "RIGHT"
+    if slotZone then
+        zoneLane = slotZone:match("_(%w+)$")
+    end
+
+    -- 纵深过滤范围
+    local slotTier = POS_DEPTH_TIER[slotPos] or 3
+    local minTier, maxTier = getAllowedDepthRange(slotTier)
 
     local orderIdx = {}
     for i, pos in ipairs(FormationShape.POSITION_ORDER) do
@@ -384,7 +419,32 @@ function FormationShape.getCompatiblePositions(slotPos)
     local list = {}
     for pos, compat in pairs(row) do
         if compat >= 0.5 then
-            table.insert(list, pos)
+            local dominated = false
+
+            -- 纵深过滤：只保留允许范围内的层级
+            local posTier = POS_DEPTH_TIER[pos] or 3
+            if posTier < minTier or posTier > maxTier then
+                dominated = true
+            end
+
+            -- 侧路过滤
+            if not dominated and zoneLane then
+                local posSide = POS_SIDE[pos]
+                if zoneLane == "CENTER" then
+                    -- 中路槽位：过滤掉纯边路位置
+                    if posSide then dominated = true end
+                elseif zoneLane == "LEFT" then
+                    -- zone LEFT = 低x = 球场右路：过滤掉左路位置
+                    if posSide == "LEFT" then dominated = true end
+                elseif zoneLane == "RIGHT" then
+                    -- zone RIGHT = 高x = 球场左路：过滤掉右路位置
+                    if posSide == "RIGHT" then dominated = true end
+                end
+            end
+
+            if not dominated then
+                table.insert(list, pos)
+            end
         end
     end
     table.sort(list, function(a, b)
@@ -560,27 +620,78 @@ local function zoneDensityModifiers(zoneCounts, slotTypeCounts)
     local midLine = countInZones(zoneCounts, { "MID_LEFT", "MID_CENTER", "MID_RIGHT" })
     local attLine = countInZones(zoneCounts, { "ATT_LEFT", "ATT_CENTER", "ATT_RIGHT" })
     local widePlayers = countInZones(zoneCounts, { "MID_LEFT", "MID_RIGHT", "ATT_LEFT", "ATT_RIGHT" })
-    local centralPlayers = zoneCounts.MID_CENTER + zoneCounts.ATT_CENTER + zoneCounts.DEF_CENTER
+    local centralPlayers = (zoneCounts.MID_CENTER or 0) + (zoneCounts.ATT_CENTER or 0) + (zoneCounts.DEF_CENTER or 0)
 
+    -- === 现有规则（幅度提升） ===
     if defLine >= 5 then
-        mergeMods(mods, { defense = 1.04, attack = 0.98, tempo = 0.98 })
+        mergeMods(mods, { defense = 1.06, attack = 0.97, tempo = 0.97 })
         table.insert(tags, "低位退守")
     end
     if attLine >= 3 then
-        mergeMods(mods, { attack = 1.04, defense = 0.97, press = 1.03 })
+        mergeMods(mods, { attack = 1.06, defense = 0.96, press = 1.04 })
         table.insert(tags, "前场堆叠")
     end
     if widePlayers >= 4 then
-        mergeMods(mods, { attack = 1.03, possession = 0.98, tempo = 1.02 })
+        mergeMods(mods, { attack = 1.05, possession = 0.97, tempo = 1.03 })
         table.insert(tags, "边路宽度")
     elseif widePlayers <= 2 and centralPlayers >= 4 then
-        mergeMods(mods, { possession = 1.04, attack = 0.99, tempo = 0.98 })
+        mergeMods(mods, { possession = 1.06, attack = 0.98, tempo = 0.97 })
         table.insert(tags, "中路密集")
     end
     if midLine >= 4 then
-        mergeMods(mods, { possession = 1.03, press = 1.02 })
+        mergeMods(mods, { possession = 1.05, press = 1.03 })
         table.insert(tags, "中场绞杀")
     end
+
+    -- === 新增规则（v2 审查修正版） ===
+
+    -- 后防真空：仅对3后卫且中路只有GK+1人时触发
+    -- GK 固定在 DEF_CENTER，所以 DC≤2 意味着中路仅 GK + 1名后卫
+    if (zoneCounts.DEF_CENTER or 0) <= 2 and defLine <= 4 then
+        -- defLine<=4 确保不是5后卫（5后卫不可能中路薄弱）
+        local defenderCount = defLine - 1  -- 减去GK
+        if defenderCount <= 3 then
+            mergeMods(mods, { defense = 0.96, counter = 0.94 })
+            table.insert(tags, "中路防守薄弱")
+        end
+    end
+
+    -- 中场通道真空：MID_CENTER == 0 且中场线有人（两侧有人中间无人）
+    -- 验证：4-2-3-1 的两个 DM(x=35,65) 在 MID_CENTER(32≤x<68)，MC≥2，不会触发 ✓
+    -- 触发场景：极端双边路阵型或深度自定义推人后中路完全空了
+    if (zoneCounts.MID_CENTER or 0) == 0 and midLine >= 2 then
+        mergeMods(mods, { possession = 0.95, tempo = 0.96 })
+        table.insert(tags, "中路断联")
+    end
+
+    -- 前场单侧集中：一侧 ≥ 2 人，另一侧 0 人
+    -- 验证：标准阵型 ATT_L 和 ATT_R 各 0-1 人，不会触发 ✓
+    -- 触发场景：nudge 把边锋推向同侧，或自定义非对称前锋线
+    local attLeft = zoneCounts.ATT_LEFT or 0
+    local attRight = zoneCounts.ATT_RIGHT or 0
+    if (attLeft >= 2 and attRight == 0) or (attRight >= 2 and attLeft == 0) then
+        mergeMods(mods, { attack = 1.03, possession = 0.98 })
+        table.insert(tags, "进攻偏侧集中")
+    end
+
+    -- 全阵型紧凑：三条线人数差 ≤ 2 且后场和中场各 ≥ 3 人
+    -- 验证：3-4-3 → def=4,mid=4,att=3 → spread=1 → 触发 ✓
+    --        4-4-2 → def=5,mid=4,att=2 → spread=3 → 不触发 ✓
+    local lineSpread = math.max(defLine, midLine, attLine) - math.min(defLine, midLine, attLine)
+    if lineSpread <= 2 and defLine >= 3 and midLine >= 3 then
+        mergeMods(mods, { press = 1.04, possession = 1.02 })
+        table.insert(tags, "阵型紧凑")
+    end
+
+    -- 后场边路覆盖宽（DEF_LEFT + DEF_RIGHT ≥ 4）
+    -- 验证：5-3-2 DL=2,DR=2 → 4 → 触发 ✓；4-4-2 DL=1,DR=1 → 2 → 不触发 ✓
+    -- 意图：翼卫体系的宽度拉伸效果
+    if (zoneCounts.DEF_LEFT or 0) + (zoneCounts.DEF_RIGHT or 0) >= 4 then
+        mergeMods(mods, { defense = 1.03, attack = 0.98, press = 0.97 })
+        table.insert(tags, "翼卫覆盖宽")
+    end
+
+    -- === 槽位类型规则（保持不变） ===
     if slotTypeCounts.CDM >= 2 then
         mergeMods(mods, { defense = 1.04, attack = 0.97, tempo = 0.97 })
         table.insert(tags, "双后腰")
