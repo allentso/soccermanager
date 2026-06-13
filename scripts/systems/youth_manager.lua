@@ -227,12 +227,70 @@ local function mapPosition(pos)
 end
 
 ------------------------------------------------------
+-- 青训名单辅助
+------------------------------------------------------
+
+--- 球员是否仍属于本队青训编制（含租借在外）
+local function _belongsToYouthSquad(player, teamId)
+    if not player then return false end
+    return player.teamId == teamId or player._loanOriginTeamId == teamId
+end
+
+local function _isInFirstTeam(team, playerId)
+    for _, pid in ipairs(team.playerIds or {}) do
+        if pid == playerId then return true end
+    end
+    return false
+end
+
+--- 球员是否在该队青训名单（含仅 _youthPlayerIds、未进一线队的情况）
+---@param gameState table
+---@param playerId number
+---@param teamId number|nil
+---@return boolean
+function YouthManager.isOnTeamYouthSquad(gameState, playerId, teamId)
+    if not gameState or not playerId or not teamId then return false end
+    local team = gameState.teams[teamId]
+    if not team then return false end
+    for _, pid in ipairs(team._youthPlayerIds or {}) do
+        if pid == playerId then return true end
+    end
+    return false
+end
+
+--- 已签入青训队、可走转会流程的球员（非 _youthCandidates）
+---@param gameState table
+---@param player table|nil
+---@return boolean
+function YouthManager.isYouthSquadPlayer(gameState, player)
+    if not player or not player.isYouth or not player.teamId then return false end
+    return YouthManager.isOnTeamYouthSquad(gameState, player.id, player.teamId)
+end
+
+--- 清除球队青训名单中的残留引用（与 Housekeeping.purgeStaleYouthRefs 规则对齐）
+local function _purgeStaleYouthRefsForTeam(gameState, team)
+    team._youthPlayerIds = team._youthPlayerIds or {}
+    for i = #team._youthPlayerIds, 1, -1 do
+        local pid = team._youthPlayerIds[i]
+        local p = gameState.players[pid]
+        local stillOurs = _belongsToYouthSquad(p, team.id)
+        -- 已转会离队，或已是一线队球员（转会/提拔完成）→ 清除残留
+        local alreadyFirstTeam = stillOurs and p and not p.isYouth and _isInFirstTeam(team, pid)
+        if not stillOurs or alreadyFirstTeam then
+            table.remove(team._youthPlayerIds, i)
+        end
+    end
+end
+
+------------------------------------------------------
 -- 核心API
 ------------------------------------------------------
 
 --- 每月处理：刷新青训候选池（玩家球队）+ AI 球队青训管理
 ---@param gameState table
 function YouthManager.processMonthly(gameState)
+    YouthManager.purgeOverageYouth(gameState)
+
     -- 玩家球队候选刷新
     gameState._youthCandidates = gameState._youthCandidates or {}
     gameState._youthRefreshCounter = (gameState._youthRefreshCounter or 0) + 1
@@ -326,6 +384,8 @@ function YouthManager.promote(gameState, playerId)
     local team = gameState:getPlayerTeam()
     if not team then return false, "没有球队" end
 
+    _purgeStaleYouthRefsForTeam(gameState, team)
+
     -- 检查是否在青训队
     team._youthPlayerIds = team._youthPlayerIds or {}
     local found = false
@@ -338,17 +398,28 @@ function YouthManager.promote(gameState, playerId)
     end
     if not found then return false, "该球员不在青训队中" end
 
-    -- 加入一线队
-    table.insert(team.playerIds, playerId)
-
     local player = gameState.players[playerId]
-    if player then
-        player.isYouth = false
-        player.teamId = team.id
-        -- 提拔后给予正式合同
+    if not player then return false, "球员不存在" end
+    if player.listedForSale then return false, "请先取消挂牌出售" end
+    if player.listedForLoan then return false, "请先取消外租挂牌" end
+
+    -- 归属校验：防止残留引用误覆盖已转会球员的合同（BUG-20260611-06 玩家手动提拔路径）
+    if player.teamId ~= team.id then
+        return false, "该球员已不属于本队"
+    end
+
+    local alreadyFirstTeam = _isInFirstTeam(team, playerId)
+    if not alreadyFirstTeam then
+        table.insert(team.playerIds, playerId)
+    end
+
+    player.isYouth = false
+    player.teamId = team.id
+
+    -- 已在一线队（如转会后残留引用）：仅清除青训身份，保留现有合同
+    if not alreadyFirstTeam then
         player.contractEnd = {year = gameState.date.year + 3, month = 6, day = 30}
         player.wage = math.max(YOUTH_WAGE * 2, math.floor(player.overall * 80))
-
         MessageManager.send(gameState, "youth_promoted", {player.displayName})
         EventBus.emit("youth_promoted", {teamId = team.id, playerId = playerId})
     end
@@ -366,6 +437,8 @@ function YouthManager.release(gameState, playerId)
     local team = gameState:getPlayerTeam()
     if not team then return false, "没有球队" end
 
+    _purgeStaleYouthRefsForTeam(gameState, team)
+
     team._youthPlayerIds = team._youthPlayerIds or {}
     local found = false
     for i, yid in ipairs(team._youthPlayerIds) do
@@ -378,7 +451,12 @@ function YouthManager.release(gameState, playerId)
     if not found then return false, "该球员不在青训队中" end
 
     local player = gameState.players[playerId]
+    if player and player.teamId ~= team.id then
+        return false, "该球员已不属于本队"
+    end
     if player then
+        player.listedForSale = false
+        player.listedForLoan = false
         player.isYouth = false
         player.teamId = nil
 
@@ -408,11 +486,13 @@ function YouthManager.getYouthSquad(gameState)
     local team = gameState:getPlayerTeam()
     if not team then return {} end
 
+    _purgeStaleYouthRefsForTeam(gameState, team)
+
     team._youthPlayerIds = team._youthPlayerIds or {}
     local result = {}
     for _, pid in ipairs(team._youthPlayerIds) do
         local p = gameState.players[pid]
-        if p then
+        if p and p.isYouth and _belongsToYouthSquad(p, team.id) then
             table.insert(result, p)
         end
     end
@@ -451,109 +531,90 @@ local function _resolveYouthFocus(team, player)
     return "balanced"
 end
 
---- 对单个球队执行青训球员每日训练成长
---- 对接 TrainingManager.FOCUS_ATTRS：根据训练焦点集中增长对应属性
---- v2: 加入年龄修正、潜力差修正、设施加成（与一线队训练对齐）
+--- 22+ 仍在青训名单：自动解约并删库 / 转自由球员（全队含 AI）
 ---@param gameState table
----@param team table
----@param youthBonus number 青训教练加成 (0~0.15)
-local function _trainTeamYouth(gameState, team, youthBonus)
-    team._youthPlayerIds = team._youthPlayerIds or {}
+---@return number purged
+function YouthManager.purgeOverageYouth(gameState)
+    local seasonYear = TrainingManager.getSeasonStartYear(gameState)
+    local purged = 0
 
-    -- 青训设施加成（提高训练效率）
+    for _, team in pairs(gameState.teams or {}) do
+        team._youthPlayerIds = team._youthPlayerIds or {}
+        for i = #team._youthPlayerIds, 1, -1 do
+            local pid = team._youthPlayerIds[i]
+            local player = gameState.players[pid]
+            if player and player:getAge(seasonYear) > Constants.YOUTH_PHASE_MAX_AGE then
+                table.remove(team._youthPlayerIds, i)
+                player.isYouth = false
+                player.teamId = nil
+                player.contractEnd = nil
+                player.wage = 0
+
+                local rawPotential = player.potential or 0
+                if rawPotential >= 70 then
+                    player.isFreeAgent = true
+                    player.releasedDate = {
+                        year = gameState.date.year,
+                        month = gameState.date.month,
+                        day = gameState.date.day,
+                    }
+                else
+                    gameState.players[pid] = nil
+                end
+                purged = purged + 1
+            end
+        end
+    end
+
+    return purged
+end
+
+--- 对单个球队执行青训球员训练（与一线队同 schedule / 同公式 + 微调加成）
+local function _trainTeamYouth(gameState, team, youthBonus)
+    if not TrainingManager.isTrainingDay(team, gameState.dayOfWeek) then
+        return
+    end
+
+    team._youthPlayerIds = team._youthPlayerIds or {}
     local FinanceManager = require("scripts/systems/finance_manager")
     local facilityBonus = FinanceManager.getFacilityBonuses(team).trainingGain or 1.0
+    local staffMult = 1.0 + (youthBonus or 0.05) * 5.0
+    local intensityConfig = TrainingManager._getIntensity().medium
+    local seasonStartYear = TrainingManager.getSeasonStartYear(gameState)
 
-    -- 预计算导师光环：收集青训队中传奇球员的位置集合
     local legendPositions = {}
     for _, pid in ipairs(team._youthPlayerIds) do
         local p = gameState.players[pid]
-        if p and p.isLegend then
-            legendPositions[p.position] = true
-        end
+        if p and p.isLegend then legendPositions[p.position] = true end
     end
-    -- 一线队的传奇球员也可以作为导师
     for _, pid in ipairs(team.playerIds or {}) do
         local p = gameState.players[pid]
-        if p and p.isLegend then
-            legendPositions[p.position] = true
-        end
+        if p and p.isLegend then legendPositions[p.position] = true end
     end
 
     for _, pid in ipairs(team._youthPlayerIds) do
         local player = gameState.players[pid]
-        if player and player.attributes then
-            -- 基础增长概率（从难度配置获取）
-            local trainingMods = DifficultySettings.getTrainingModifiers()
-            local baseChance = trainingMods.baseChance
-
-            -- 青训教练加成（乘性，0.05 → ×1.25, 0.10 → ×1.50, 0.15 → ×1.75）
-            local staffMult = 1.0 + youthBonus * 5.0
-            baseChance = baseChance * staffMult
-
-            -- 设施加成
-            baseChance = baseChance * facilityBonus
-
-            -- 年龄修正（青训球员年轻，成长快）
-            local age = player.birthYear and (gameState.date.year - player.birthYear) or 17
-            local ageFactor = 1.0
-            if age <= 16 then ageFactor = 1.5      -- 16岁及以下：高速成长
-            elseif age <= 18 then ageFactor = 1.4   -- 17-18岁：快速成长
-            elseif age <= 20 then ageFactor = 1.2   -- 19-20岁：正常偏快
-            else ageFactor = 1.0 end
-            baseChance = baseChance * ageFactor
-
-            -- 潜力差修正（距离潜力越远成长越容易）
-            local potential = player.actualPotential or player.potential or 70
-            local overall = player.overall or 50
-            local gapFactor = math.max(trainingMods.youthGapFloor, (potential - overall) / trainingMods.youthGapDivisor)
-            baseChance = baseChance * gapFactor
-
-            -- 传奇球员训练加速 ×1.5
-            if player.isLegend then
-                baseChance = baseChance * 1.5
-            end
-
-            -- 导师光环：同位置有传奇球员时，非传奇球员 +20% 训练效率
-            if not player.isLegend and legendPositions[player.position] then
-                baseChance = baseChance * 1.2
-            end
-
-            -- 尝试属性增长
-            if Random() < baseChance then
-                -- 确定训练焦点属性池（跟随一线队设置）
-                local focusKey = _resolveYouthFocus(team, player)
-                local focusAttrs = TrainingManager.FOCUS_ATTRS[focusKey] or TrainingManager.FOCUS_ATTRS.balanced
-
-                -- 总评已达上限则不再增长
-                local overallCap = player:getOverallCap()
-                if (player.overall or 0) >= overallCap then
-                    -- 到顶了，玩家需要调整策略
-                else
-                    local attrCap = player:getAttrCap()
-                    -- 从焦点属性池中选择（带重试：若选中属性已达上限，换一个）
-                    local maxAttempts = #focusAttrs
-                    for _ = 1, maxAttempts do
-                        local key = focusAttrs[RandomInt(1, #focusAttrs)]
-                        if player.attributes[key] and player.attributes[key] < attrCap then
-                            player.attributes[key] = player.attributes[key] + 1
-                            player:calculateOverall()
-                            break
-                        end
-                    end
-                end
+        if player and player.teamId == team.id and player.attributes then
+            if TrainingManager.getSeasonAge(player, seasonStartYear) <= Constants.YOUTH_PHASE_MAX_AGE then
+                TrainingManager._trainPlayer(
+                    gameState, team, player, intensityConfig,
+                    staffMult * facilityBonus, legendPositions,
+                    {
+                        useYouthGap = true,
+                        trainingBonusMult = Constants.YOUTH_TRAINING_BONUS,
+                        skipInjuryAndFitness = true,
+                    })
             end
         end
     end
 end
 
---- 每日训练：所有球队青训球员成长（受青训加成影响）
----@param gameState table
+--- 每日训练：所有球队青训球员成长
 function YouthManager.processDailyTraining(gameState)
     for teamId, team in pairs(gameState.teams) do
         team._youthPlayerIds = team._youthPlayerIds or {}
         if #team._youthPlayerIds > 0 then
-            local youthBonus = 0.05  -- AI 球队默认加成
+            local youthBonus = 0.05
             local ok, bonus = pcall(StaffManager.getYouthDevBonus, gameState, teamId)
             if ok and bonus then youthBonus = bonus end
             _trainTeamYouth(gameState, team, youthBonus)

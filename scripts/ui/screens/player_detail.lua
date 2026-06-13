@@ -16,6 +16,7 @@ local PotentialSystem = require("scripts/systems/potential_system")
 local StaffManager = require("scripts/systems/staff_manager")
 local ScoutManager = require("scripts/systems/scout_manager")
 local LegendImageRegistry = require("scripts/data/legend_image_registry")
+local YouthManager = require("scripts/systems/youth_manager")
 
 local PlayerDetail = {}
 
@@ -358,7 +359,15 @@ function PlayerDetail._buildOverview(player, team, age, gameState)
                 children = {
                     Theme.Subtitle { text = "状态标记" },
                     player.injured and UI.Label {
-                        text = "受伤中（剩余 " .. (player.injuryDays or 0) .. " 天）",
+                        text = player.injurySeasonEnding
+                            and string.format("赛季报销 · %s（预计 %d 天后恢复）",
+                                player.injuryKindName or "严重伤病", player.injuryDays or 0)
+                            or (player.injuryKindName
+                                and string.format("受伤中 · %s（%s，剩余 %d 天）",
+                                    player.injuryKindName,
+                                    player.injurySeverityName or "恢复中",
+                                    player.injuryDays or 0)
+                                or ("受伤中（剩余 " .. (player.injuryDays or 0) .. " 天）")),
                         fontSize = 13, color = Theme.COLORS.DANGER, marginTop = 4,
                     } or UI.Panel { height = 0 },
                     player.listedForSale and UI.Label {
@@ -383,9 +392,12 @@ function PlayerDetail._buildTransferAction(player, gameState)
 
     local hasBid = TransferManager.hasPendingBid(gameState, player.id)
     local releaseClause = TransferManager.getReleaseClause(gameState, player.id)
-    local attitude = TransferManager.getPlayerTransferAttitude(gameState, player.id, gameState.playerTeamId)
+    local attitude, attitudeDesc = TransferManager.getPlayerTransferAttitude(gameState, player.id, gameState.playerTeamId)
 
     local attitudeText = attitude == "eager" and "想转会" or (attitude == "open" and "愿考虑" or (attitude == "reluctant" and "不情愿" or "拒绝"))
+    if attitude == "refusing" and attitudeDesc and attitudeDesc ~= "" then
+        attitudeText = attitudeDesc
+    end
     local attitudeColor = attitude == "eager" and Theme.COLORS.SECONDARY
         or (attitude == "open" and Theme.COLORS.ACCENT
         or (attitude == "reluctant" and Theme.COLORS.WARNING or Theme.COLORS.DANGER))
@@ -628,6 +640,28 @@ function PlayerDetail._buildContract(player, team, age, gameState)
     elseif monthsLeft <= 12 then contractColor = Theme.COLORS.WARNING
     end
 
+    local isOwnYouth = YouthManager.isOnTeamYouthSquad(gameState, player.id, gameState.playerTeamId)
+        and player.isYouth
+    local isOwnSquad = player.teamId == gameState.playerTeamId and player.squadRole ~= "loaned"
+        and not isOwnYouth
+    local isLoanedOut = player.squadRole == "loaned" and player._loanOriginTeamId == gameState.playerTeamId
+    local isLoanedIn = player.teamId == gameState.playerTeamId and player.squadRole == "loaned"
+    local loanRecord = TransferManager.getLoanForPlayer(gameState, player.id)
+    local loanStatusText = "在队"
+    local loanStatusColor = Theme.COLORS.TEXT_MUTED
+    if isLoanedIn and loanRecord then
+        local fromTeam = gameState.teams[loanRecord.originTeamId]
+        loanStatusText = "租入 · 来自 " .. (fromTeam and fromTeam.name or "?")
+        loanStatusColor = Theme.COLORS.SECONDARY
+    elseif isLoanedOut and loanRecord then
+        local toTeam = gameState.teams[loanRecord.loanTeamId]
+        loanStatusText = "外租 · 至 " .. (toTeam and toTeam.name or "?")
+        loanStatusColor = Theme.COLORS.WARNING
+    elseif player.squadRole == "loaned" then
+        loanStatusText = "租借中"
+        loanStatusColor = Theme.COLORS.WARNING
+    end
+
     return UI.Panel {
         width = "100%",
         children = {
@@ -656,8 +690,12 @@ function PlayerDetail._buildContract(player, team, age, gameState)
                         children = {
                             PlayerDetail._infoRow("挂牌出售", player.listedForSale and "是" or "否",
                                 player.listedForSale and Theme.COLORS.ACCENT or Theme.COLORS.TEXT_MUTED),
-                            PlayerDetail._infoRow("租借状态", player.squadRole == "loaned" and "租借中" or "在队",
-                                player.squadRole == "loaned" and Theme.COLORS.WARNING or Theme.COLORS.TEXT_MUTED),
+                            PlayerDetail._infoRow("挂牌外租", player.listedForLoan and "是" or "否",
+                                player.listedForLoan and Theme.COLORS.SECONDARY or Theme.COLORS.TEXT_MUTED),
+                            PlayerDetail._infoRow("租借状态", loanStatusText, loanStatusColor),
+                            loanRecord and PlayerDetail._infoRow("租期剩余",
+                                tostring(TransferManager.formatLoanRemainingWeeks(loanRecord)) .. " 周",
+                                Theme.COLORS.TEXT_SECONDARY) or UI.Panel { height = 0 },
                         }
                     },
                 }
@@ -692,11 +730,14 @@ function PlayerDetail._buildContract(player, team, age, gameState)
                 }
             } or UI.Panel { height = 0 },
 
-            -- 阵容角色设置（仅本队球员）
-            (team and team.id == gameState.playerTeamId) and PlayerDetail._buildSquadRoleCard(player, gameState) or UI.Panel { height = 0 },
+            -- 阵容角色设置（仅本队非租借球员）
+            isOwnSquad and PlayerDetail._buildSquadRoleCard(player, gameState) or UI.Panel { height = 0 },
 
-            -- 合同操作（仅当是本队球员时显示）
-            (team and team.id == gameState.playerTeamId) and PlayerDetail._buildContractActions(player, team, gameState) or UI.Panel { height = 0 },
+            -- 合同操作
+            isOwnSquad and PlayerDetail._buildContractActions(player, team, gameState) or UI.Panel { height = 0 },
+            isOwnYouth and PlayerDetail._buildYouthTransferCard(player, gameState) or UI.Panel { height = 0 },
+            isLoanedOut and PlayerDetail._buildRecallLoanCard(player, gameState) or UI.Panel { height = 0 },
+            isLoanedIn and PlayerDetail._buildExtendLoanCard(player, gameState) or UI.Panel { height = 0 },
         }
     }
 end
@@ -978,6 +1019,8 @@ function PlayerDetail._buildContractActions(player, team, gameState)
             } or UI.Panel { height = 0 },
             -- 挂牌出售 / 取消挂牌按钮
             PlayerDetail._buildListForSaleBtn(player, isSafe, safetyReason, gameState),
+            -- 挂牌外租 / 取消外租挂牌
+            PlayerDetail._buildListForLoanBtn(player, isSafe, safetyReason, gameState),
             -- 终止按钮
             terminateBtn,
         }
@@ -986,6 +1029,10 @@ end
 
 -- 挂牌出售 / 取消挂牌 / 收到报价处理
 function PlayerDetail._buildListForSaleBtn(player, isSafe, safetyReason, gameState)
+    if player.listedForLoan then
+        return UI.Panel { height = 0 }
+    end
+
     -- 如果有收到的报价，优先显示报价操作
     local incomingBids = TransferManager.getPendingSellBids(gameState)
     for _, bid in ipairs(incomingBids) do
@@ -1044,7 +1091,7 @@ function PlayerDetail._buildListForSaleBtn(player, isSafe, safetyReason, gameSta
             color = Theme.COLORS.WARNING,
             marginBottom = 10,
             onClick = function()
-                player.listedForSale = false
+                TransferManager.delistPlayer(player)
                 Router.replaceWith("player_detail", { playerId = player.id, tab = "contract" })
             end,
         }
@@ -1060,13 +1107,15 @@ function PlayerDetail._buildListForSaleBtn(player, isSafe, safetyReason, gameSta
             color = {255, 255, 255, 255},
             marginBottom = 10,
             onClick = function()
-                player.listedForSale = true
-                gameState:sendMessage({
-                    category = "transfer",
-                    title = player.displayName .. " 已挂牌",
-                    body = player.displayName .. " 已被挂牌出售，等待买家报价。",
-                    priority = "normal",
-                })
+                local ok, err = TransferManager.listForSale(gameState, player)
+                if not ok then
+                    gameState:sendMessage({
+                        category = "transfer",
+                        title = "无法挂牌",
+                        body = err or "条件不满足",
+                        priority = "normal",
+                    })
+                end
                 Router.replaceWith("player_detail", { playerId = player.id, tab = "contract" })
             end,
         }
@@ -1089,6 +1138,141 @@ function PlayerDetail._buildListForSaleBtn(player, isSafe, safetyReason, gameSta
                 priority = "normal",
             })
         end,
+    }
+end
+
+function PlayerDetail._buildYouthTransferCard(player, gameState)
+    return Theme.Card {
+        children = {
+            Theme.Subtitle { text = "青训转会" },
+            UI.Label {
+                text = "挂牌出售后可在转会市场「待售」接收报价；与「释放」不同，出售会走正式转会流程。",
+                fontSize = 11, color = Theme.COLORS.TEXT_MUTED, marginTop = 6, marginBottom = 10,
+            },
+            PlayerDetail._buildListForSaleBtn(player, true, nil, gameState),
+        }
+    }
+end
+
+function PlayerDetail._buildListForLoanBtn(player, isSafe, safetyReason, gameState)
+    if player.squadRole == "loaned" or player.listedForSale then
+        return UI.Panel { height = 0 }
+    end
+
+    if player.listedForLoan then
+        return UI.Button {
+            text = "取消外租挂牌",
+            width = "100%", height = 44,
+            backgroundColor = {80, 80, 100, 255},
+            borderRadius = 8, fontSize = 14,
+            color = Theme.COLORS.WARNING,
+            marginBottom = 10,
+            onClick = function()
+                TransferManager.delistLoan(player)
+                Router.replaceWith("player_detail", { playerId = player.id, tab = "contract" })
+            end,
+        }
+    end
+
+    if isSafe then
+        return UI.Button {
+            text = "挂牌外租",
+            width = "100%", height = 44,
+            backgroundColor = Theme.COLORS.SECONDARY,
+            borderRadius = 8, fontSize = 14,
+            color = {255, 255, 255, 255},
+            marginBottom = 10,
+            onClick = function()
+                TransferManager.listForLoan(gameState, player, 26)
+                Router.replaceWith("player_detail", { playerId = player.id, tab = "contract" })
+            end,
+        }
+    end
+
+    return UI.Button {
+        text = "挂牌外租 (阵容不足)",
+        width = "100%", height = 44,
+        backgroundColor = {50, 55, 75, 255},
+        borderRadius = 8, fontSize = 14,
+        color = Theme.COLORS.TEXT_MUTED,
+        marginBottom = 10,
+        disabled = true,
+        onClick = function()
+            gameState:sendMessage({
+                category = "squad",
+                title = "无法挂牌外租",
+                body = "无法挂牌 " .. player.displayName .. "：" .. (safetyReason or "阵容深度不足"),
+                priority = "normal",
+            })
+        end,
+    }
+end
+
+function PlayerDetail._buildRecallLoanCard(player, gameState)
+    local loan = TransferManager.getLoanForPlayer(gameState, player.id)
+    return Theme.Card {
+        children = {
+            Theme.Subtitle { text = "租借操作" },
+            UI.Label {
+                text = string.format("剩余租期 %s 周，可提前召回球员。",
+                    loan and tostring(TransferManager.formatLoanRemainingWeeks(loan)) or "?"),
+                fontSize = 12, color = Theme.COLORS.TEXT_MUTED, marginTop = 6, marginBottom = 10,
+            },
+            UI.Button {
+                text = "召回球员",
+                width = "100%", height = 44,
+                backgroundColor = Theme.COLORS.WARNING,
+                borderRadius = 8, fontSize = 14,
+                color = {20, 20, 30, 255},
+                onClick = function()
+                    ConfirmDialog.show({
+                        title = "确认召回",
+                        message = player.displayName .. " 将提前结束租借并归队，确定召回？",
+                        confirmText = "召回",
+                        onConfirm = function()
+                            TransferManager.recallLoan(gameState, player.id)
+                            Router.replaceWith("market", { tab = "loans" })
+                        end,
+                    })
+                end,
+            },
+        }
+    }
+end
+
+function PlayerDetail._buildExtendLoanCard(player, gameState)
+    local loan = TransferManager.getLoanForPlayer(gameState, player.id)
+    local extraWeeks = 26
+    local fee = math.floor((player.wage or 0) * extraWeeks * 0.35)
+    return Theme.Card {
+        children = {
+            Theme.Subtitle { text = "租借操作" },
+            UI.Label {
+                text = string.format("剩余 %s 周 · 续租 %d 周约需 %s",
+                    loan and tostring(TransferManager.formatLoanRemainingWeeks(loan)) or "?",
+                    extraWeeks, PlayerDetail._formatMoney(fee)),
+                fontSize = 12, color = Theme.COLORS.TEXT_MUTED, marginTop = 6, marginBottom = 10,
+            },
+            UI.Button {
+                text = string.format("续租 %d 周", extraWeeks),
+                width = "100%", height = 44,
+                backgroundColor = Theme.COLORS.SECONDARY,
+                borderRadius = 8, fontSize = 14,
+                color = {255, 255, 255, 255},
+                onClick = function()
+                    local ok, err = TransferManager.extendLoan(gameState, player.id, extraWeeks)
+                    if not ok then
+                        gameState:sendMessage({
+                            category = "transfer",
+                            title = "续租失败",
+                            body = err or "条件不满足",
+                            priority = "normal",
+                        })
+                    end
+                    Router.replaceWith("player_detail", { playerId = player.id, tab = "contract" })
+                end,
+            },
+        }
     }
 end
 
@@ -1276,6 +1460,17 @@ function PlayerDetail._buildCareer(player, team, age, gameState)
                                 text = string.format("可发展空间: %s", growthStatus),
                                 fontSize = 11, color = Theme.COLORS.TEXT_MUTED, marginTop = 2,
                             },
+                            (function()
+                                local part = TrainingManager.getParticipationSummary(player, gameState)
+                                local partColor = part.applies
+                                    and (part.factor >= 0.99 and Theme.COLORS.SECONDARY
+                                        or (part.factor >= 0.5 and Theme.COLORS.WARNING or Theme.COLORS.DANGER))
+                                    or Theme.COLORS.ACCENT
+                                return UI.Label {
+                                    text = part.detailLabel,
+                                    fontSize = 11, color = partColor, marginTop = 6,
+                                }
+                            end)(),
                         }
                     },
                 }
@@ -1283,13 +1478,36 @@ function PlayerDetail._buildCareer(player, team, age, gameState)
 
             -- 球员特性
             Theme.Card {
-                children = {
-                    Theme.Subtitle { text = "球员特性" },
-                    UI.Panel {
+                children = (function()
+                    local children = {}
+                    local identity = player.getLegendIdentity and player:getLegendIdentity()
+                    if identity then
+                        table.insert(children, Theme.Subtitle { text = "传奇身份" })
+                        table.insert(children, UI.Panel {
+                            backgroundColor = {72, 48, 18, 255},
+                            borderRadius = 12,
+                            paddingLeft = 10, paddingRight = 10,
+                            paddingTop = 6, paddingBottom = 6,
+                            marginTop = 6, marginBottom = 8,
+                            children = {
+                                UI.Label {
+                                    text = identity.name .. " · " .. identity.desc,
+                                    fontSize = 11,
+                                    color = {255, 210, 120, 255},
+                                },
+                            },
+                        })
+                    end
+                    table.insert(children, Theme.Subtitle {
+                        text = player.isLegend and "传奇特质" or "球员特性",
+                        marginTop = identity and 4 or 0,
+                    })
+                    table.insert(children, UI.Panel {
                         flexDirection = "row", flexWrap = "wrap", marginTop = 6,
                         children = PlayerDetail._buildTraits(player),
-                    },
-                }
+                    })
+                    return children
+                end)(),
             },
         }
     }
@@ -1371,9 +1589,38 @@ function PlayerDetail._buildTraining(player, team, gameState)
         })
     end
 
+    local part = TrainingManager.getParticipationSummary(player, gameState)
+    local partColor = part.applies
+        and (part.factor >= 0.99 and Theme.COLORS.SECONDARY
+            or (part.factor >= 0.5 and Theme.COLORS.WARNING or Theme.COLORS.DANGER))
+        or Theme.COLORS.ACCENT
+
     return UI.Panel {
         width = "100%",
         children = {
+            Theme.Card {
+                children = {
+                    Theme.Subtitle { text = "成长效率" },
+                    UI.Panel {
+                        marginTop = 6,
+                        children = {
+                            PlayerDetail._infoRow("出场 / 配额",
+                                part.applies and string.format("%d / %d 场", part.apps, part.quota) or "青年期不限",
+                                partColor),
+                            PlayerDetail._infoRow("训练效率",
+                                part.applies and string.format("%d%%", math.floor(part.factor * 100 + 0.5)) or "100%",
+                                partColor),
+                            UI.Label {
+                                text = part.applies
+                                    and "22 岁起需俱乐部正式赛出场；出场累计至配额后满效训练。"
+                                    or "21 岁及以下不受出场限制；青训同日程略快于一线队。",
+                                fontSize = 11, color = Theme.COLORS.TEXT_MUTED, marginTop = 4,
+                            },
+                        }
+                    },
+                }
+            },
+
             -- 当前状态
             Theme.Card {
                 children = {
@@ -1417,22 +1664,33 @@ end
 
 -- 辅助：构建球员特性标签
 function PlayerDetail._buildTraits(player)
-    local traits = player.traits or {}
-    if #traits == 0 then
+    local details = player.getTraitDetails and player:getTraitDetails() or {}
+    if #details == 0 then
         return {
             UI.Label { text = "暂无特性标签", fontSize = 12, color = Theme.COLORS.TEXT_MUTED },
         }
     end
     local items = {}
-    for _, trait in ipairs(traits) do
+    for _, trait in ipairs(details) do
+        local label = trait.name or trait.id
+        if trait.desc and trait.desc ~= "" then
+            label = label .. " · " .. trait.desc
+        end
+        local bg = {38, 60, 90, 255}
+        local fg = Theme.COLORS.ACCENT
+        if trait.pool == "legend" then
+            bg = trait.legendExclusive and {68, 42, 98, 255} or {48, 58, 88, 255}
+            fg = trait.legendExclusive and {220, 180, 255, 255} or {180, 200, 255, 255}
+        end
+        local prefix = trait.legendExclusive and "★ " or (trait.pool == "legend" and "◆ " or "")
         table.insert(items, UI.Panel {
-            backgroundColor = {38, 60, 90, 255},
+            backgroundColor = bg,
             borderRadius = 12,
             paddingLeft = 10, paddingRight = 10,
             paddingTop = 4, paddingBottom = 4,
             marginRight = 6, marginBottom = 4,
             children = {
-                UI.Label { text = trait, fontSize = 11, color = Theme.COLORS.ACCENT },
+                UI.Label { text = prefix .. label, fontSize = 11, color = fg },
             },
         })
     end

@@ -232,6 +232,8 @@ function BlockerDialog._getTargetLabel(target)
         market = "市场",
         dashboard = "设定目标",
         sponsor_select = "签约",
+        manager_view = "资料",
+        national_squad_select = "大名单",
     }
     return labels[target] or "查看"
 end

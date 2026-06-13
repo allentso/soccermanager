@@ -191,13 +191,7 @@ function TurnProcessor.processMatchDay(gameState, fixtures)
             goto continue_fixture
         end
 
-        local report
-        if fixture._isWC then
-            -- 世界杯使用专用模拟引擎（国家代码而非球队ID）
-            report = TurnProcessor._simulateWCMatch(gameState, fixture)
-        else
-            report = MatchEngine.simulate(gameState, fixture)
-        end
+        local report = MatchEngine.simulate(gameState, fixture)
 
         if report then
             if fixture._isWC then
@@ -417,7 +411,7 @@ function TurnProcessor._catchUpOverdueWCFixtures(gameState, currentDate)
             goto continue_overdue
         end
 
-        local report = TurnProcessor._simulateWCMatch(gameState, fixture)
+        local report = MatchEngine.simulate(gameState, fixture)
         if report then
             TurnProcessor._applyWCResult(gameState, fixture, report)
         end
@@ -526,315 +520,24 @@ function TurnProcessor._isDateBeforeOrEqual(a, b)
     return a.day <= b.day
 end
 
--- 模拟世界杯比赛（国家代码而非球队ID，使用简化引擎）
+-- 世界杯比赛模拟（复用 MatchEngine + 虚拟国家队；保留此入口供旧测试/脚本调用）
 function TurnProcessor._simulateWCMatch(gameState, fixture)
-    -- 世界杯使用国家代码作为 teamId，不在 gameState.teams 中
-    -- 根据国籍球员的平均能力模拟
-    local homeCode = fixture.homeTeamId
-    local awayCode = fixture.awayTeamId
-
-    -- 将FIFA代码转为球员数据中的nationality代码
-    local homeNat = WorldCup._toPlayerNat(homeCode)
-    local awayNat = WorldCup._toPlayerNat(awayCode)
-
-    -- 收集该国籍的所有球员，计算攻防实力
-    local homeOverall, awayOverall = 50, 50
-    local homeCount, awayCount = 0, 0
-
-    for _, player in pairs(gameState.players) do
-        if player.retired then goto continue end
-        if player.nationality == homeNat then
-            homeOverall = homeOverall + (player.overall or 50)
-            homeCount = homeCount + 1
-        elseif player.nationality == awayNat then
-            awayOverall = awayOverall + (player.overall or 50)
-            awayCount = awayCount + 1
-        end
-        ::continue::
-    end
-
-    if homeCount > 0 then homeOverall = homeOverall / (homeCount + 1) end
-    if awayCount > 0 then awayOverall = awayOverall / (awayCount + 1) end
-
-    -- 基于实力差计算期望进球
-    local homeLambda = 1.2 + (homeOverall - awayOverall) * 0.03 + Random() * 0.3
-    local awayLambda = 1.0 + (awayOverall - homeOverall) * 0.03 + Random() * 0.3
-    homeLambda = math.max(0.3, homeLambda)
-    awayLambda = math.max(0.3, awayLambda)
-
-    -- 泊松采样
-    local homeGoals = TurnProcessor._poissonRandom(homeLambda)
-    local awayGoals = TurnProcessor._poissonRandom(awayLambda)
-    homeGoals = math.min(homeGoals, 5)
-    awayGoals = math.min(awayGoals, 5)
-
-    -- 收集双方球员池（用于生成进球事件）
-    local homePlayers = {}
-    local awayPlayers = {}
-    for _, player in pairs(gameState.players) do
-        if player.retired or player.injured then goto skipPlayer end
-        if player.nationality == homeNat then
-            table.insert(homePlayers, player)
-        elseif player.nationality == awayNat then
-            table.insert(awayPlayers, player)
-        end
-        ::skipPlayer::
-    end
-    table.sort(homePlayers, function(a, b) return (a.overall or 0) > (b.overall or 0) end)
-    table.sort(awayPlayers, function(a, b) return (a.overall or 0) > (b.overall or 0) end)
-
-    -- 生成进球事件
-    local events = {}
-    local playerRatings = {}
-
-    -- 为指定球队生成一个进球事件
-    local function generateGoalEvent(teamCode, teamPlayers, oppPlayers, usedMinutes)
-        -- 分配进球分钟（避免重复）
-        local minute
-        for _attempt = 1, 20 do
-            minute = RandomInt(1, 90)
-            if not usedMinutes[minute] then break end
-        end
-        usedMinutes[minute] = true
-
-        -- 进球类型概率: 普通进球 80%, 点球 12%, 乌龙球 8%
-        local typeRoll = Random()
-        local isOwnGoal = typeRoll < 0.08
-        local isPenalty = typeRoll >= 0.08 and typeRoll < 0.20
-
-        local scorer, assister
-
-        if isOwnGoal then
-            -- 乌龙球：进球者来自对方球队（后卫更容易乌龙）
-            local defPlayers = {}
-            for _, p in ipairs(oppPlayers) do
-                if p.position == "CB" or p.position == "LB" or p.position == "RB" then
-                    table.insert(defPlayers, p)
-                end
-            end
-            if #defPlayers > 0 then
-                scorer = defPlayers[RandomInt(1, #defPlayers)]
-            elseif #oppPlayers > 0 then
-                scorer = oppPlayers[RandomInt(1, math.min(11, #oppPlayers))]
-            end
-        else
-            -- 正常进球或点球：射手来自本方球队（前锋/中场权重更高）
-            local scorerPool = {}
-            for i = 1, math.min(18, #teamPlayers) do
-                local p = teamPlayers[i]
-                local weight = 1
-                if p.position == "ST" or p.position == "CF" then weight = 5
-                elseif p.position == "LW" or p.position == "RW" then weight = 4
-                elseif p.position == "CAM" or p.position == "CM" then weight = 2
-                elseif p.position == "GK" then weight = 0
-                end
-                for _ = 1, weight do
-                    table.insert(scorerPool, p)
-                end
-            end
-            if #scorerPool > 0 then
-                scorer = scorerPool[RandomInt(1, #scorerPool)]
-            elseif #teamPlayers > 0 then
-                scorer = teamPlayers[RandomInt(1, math.min(11, #teamPlayers))]
-            end
-
-            -- 助攻（点球无助攻，普通进球70%有助攻）
-            if not isPenalty and Random() < 0.70 and #teamPlayers > 1 then
-                local assistPool = {}
-                for i = 1, math.min(14, #teamPlayers) do
-                    local p = teamPlayers[i]
-                    if not scorer or p.id ~= scorer.id then
-                        local weight = 1
-                        if p.position == "CAM" or p.position == "CM" then weight = 4
-                        elseif p.position == "LW" or p.position == "RW" then weight = 3
-                        elseif p.position == "LB" or p.position == "RB" then weight = 2
-                        end
-                        for _ = 1, weight do
-                            table.insert(assistPool, p)
-                        end
-                    end
-                end
-                if #assistPool > 0 then
-                    assister = assistPool[RandomInt(1, #assistPool)]
-                end
-            end
-        end
-
-        local evt = {
-            type = "goal",
-            minute = minute,
-            playerId = scorer and scorer.id or nil,
-            assistPlayerId = assister and assister.id or nil,
-            teamId = teamCode,
-            isPenalty = isPenalty or nil,
-            isOwnGoal = isOwnGoal or nil,
-        }
-        table.insert(events, evt)
-
-        -- 给进球球员设评分加成
-        if scorer then
-            playerRatings[scorer.id] = (playerRatings[scorer.id] or 6.5) + (isOwnGoal and -0.5 or 0.8)
-        end
-        if assister then
-            playerRatings[assister.id] = (playerRatings[assister.id] or 6.5) + 0.5
-        end
-    end
-
-    local usedMinutes = {}
-    for _ = 1, homeGoals do
-        generateGoalEvent(homeCode, homePlayers, awayPlayers, usedMinutes)
-    end
-    for _ = 1, awayGoals do
-        generateGoalEvent(awayCode, awayPlayers, homePlayers, usedMinutes)
-    end
-
-    -- 按时间排序
-    table.sort(events, function(a, b) return a.minute < b.minute end)
-
-    -- 淘汰赛平局处理：加时赛 + 点球大战
-    local extraTime = nil
-    local penalties = nil
-    if fixture.isKnockout and homeGoals == awayGoals then
-        -- 加时赛（91-120分钟，进球概率降低）
-        local etHomeLambda = homeLambda * 0.35  -- 加时30分钟，进球率降低
-        local etAwayLambda = awayLambda * 0.35
-        local etHomeGoals = TurnProcessor._poissonRandom(etHomeLambda)
-        local etAwayGoals = TurnProcessor._poissonRandom(etAwayLambda)
-        etHomeGoals = math.min(etHomeGoals, 2)
-        etAwayGoals = math.min(etAwayGoals, 2)
-
-        -- 生成加时赛进球事件
-        local etUsedMinutes = {}
-        for _ = 1, etHomeGoals do
-            local minute
-            for _attempt = 1, 20 do
-                minute = RandomInt(91, 120)
-                if not etUsedMinutes[minute] then break end
-            end
-            etUsedMinutes[minute] = true
-            table.insert(events, {
-                type = "goal", minute = minute,
-                teamId = homeCode, isExtraTime = true,
-            })
-        end
-        for _ = 1, etAwayGoals do
-            local minute
-            for _attempt = 1, 20 do
-                minute = RandomInt(91, 120)
-                if not etUsedMinutes[minute] then break end
-            end
-            etUsedMinutes[minute] = true
-            table.insert(events, {
-                type = "goal", minute = minute,
-                teamId = awayCode, isExtraTime = true,
-            })
-        end
-
-        homeGoals = homeGoals + etHomeGoals
-        awayGoals = awayGoals + etAwayGoals
-
-        extraTime = {
-            played = true,
-            homeExtraGoals = etHomeGoals,
-            awayExtraGoals = etAwayGoals,
-        }
-
-        -- 加时赛后仍平局 → 点球大战
-        if homeGoals == awayGoals then
-            local homePenScored = 0
-            local awayPenScored = 0
-            local homeStrength = math.min(0.85, 0.65 + (homeOverall - 50) * 0.003)
-            local awayStrength = math.min(0.85, 0.65 + (awayOverall - 50) * 0.003)
-
-            -- 5轮点球
-            for round = 1, 5 do
-                if Random() < homeStrength then homePenScored = homePenScored + 1 end
-                if Random() < awayStrength then awayPenScored = awayPenScored + 1 end
-                -- 提前结束判定
-                local remainingRounds = 5 - round
-                if math.abs(homePenScored - awayPenScored) > remainingRounds then
-                    break
-                end
-            end
-
-            -- 突然死亡
-            while homePenScored == awayPenScored do
-                local hScore = Random() < homeStrength and 1 or 0
-                local aScore = Random() < awayStrength and 1 or 0
-                homePenScored = homePenScored + hScore
-                awayPenScored = awayPenScored + aScore
-            end
-
-            penalties = {
-                homeScore = homePenScored,
-                awayScore = awayPenScored,
-                winner = homePenScored > awayPenScored and homeCode or awayCode,
-            }
-            extraTime.penalties = penalties
-        end
-
-        -- 重新排序事件
-        table.sort(events, function(a, b) return a.minute < b.minute end)
-    end
-
-    -- 给出场球员基础评分（取前11人）
-    for i = 1, math.min(11, #homePlayers) do
-        local p = homePlayers[i]
-        if not playerRatings[p.id] then
-            playerRatings[p.id] = 5.8 + Random() * 2.0  -- 5.8~7.8
-        end
-    end
-    for i = 1, math.min(11, #awayPlayers) do
-        local p = awayPlayers[i]
-        if not playerRatings[p.id] then
-            playerRatings[p.id] = 5.8 + Random() * 2.0
-        end
-    end
-
-    -- 生成基础统计数据让结果画面更丰富
-    local homePoss = math.floor(45 + (homeOverall - awayOverall) * 0.3 + (Random() * 10 - 5))
-    homePoss = math.max(30, math.min(70, homePoss))
-    local awayPoss = 100 - homePoss
-    local homeShots = math.max(homeGoals + 1, math.floor(homeLambda * 4 + Random() * 3))
-    local awayShots = math.max(awayGoals + 1, math.floor(awayLambda * 4 + Random() * 3))
-    local homeSoT = math.max(homeGoals, math.floor(homeShots * 0.4 + Random() * 2))
-    local awaySoT = math.max(awayGoals, math.floor(awayShots * 0.4 + Random() * 2))
-
-    return {
-        homeGoals = homeGoals,
-        awayGoals = awayGoals,
-        homeTeamId = homeCode,
-        awayTeamId = awayCode,
-        events = events,
-        playerRatings = playerRatings,
-        extraTime = extraTime,
-        penalties = penalties,
-        stats = {
-            homePossession = homePoss,
-            awayPossession = awayPoss,
-            homeShots = homeShots,
-            awayShots = awayShots,
-            homeShotsOnTarget = homeSoT,
-            awayShotsOnTarget = awaySoT,
-            homeFouls = math.floor(8 + Random() * 8),
-            awayFouls = math.floor(8 + Random() * 8),
-            homeCorners = math.floor(2 + Random() * 6),
-            awayCorners = math.floor(2 + Random() * 6),
-        },
-    }
+    fixture._isWC = true
+    return MatchEngine.simulate(gameState, fixture)
 end
 
--- 泊松随机数
-function TurnProcessor._poissonRandom(lambda)
-    if lambda <= 0 then return 0 end
-    local L = math.exp(-lambda)
-    local k = 0
-    local p = 1
-    repeat
-        k = k + 1
-        p = p * Random()
-    until p <= L
-    return k - 1
+local function _storeKnockoutExtras(fixture, extraTime)
+    if not extraTime then return end
+    fixture.extraTime = extraTime
+    local pen = extraTime.penalties
+    if not pen then return end
+    fixture.penalties = {
+        homeScore = pen.homeScore or pen.homeScored,
+        awayScore = pen.awayScore or pen.awayScored,
+        winner = pen.winner,
+        rounds = pen.rounds,
+    }
+    fixture._penaltyWinner = pen.winner
 end
 
 -- 应用世界杯比赛结果
@@ -848,15 +551,7 @@ function TurnProcessor._applyWCResult(gameState, fixture, report)
     fixture.status = "finished"
 
     -- 存储加时赛/点球数据到fixture
-    if report.extraTime then
-        fixture.extraTime = report.extraTime
-        -- 点球数据嵌套在 extraTime.penalties 中
-        if report.extraTime.penalties then
-            local pen = report.extraTime.penalties
-            fixture.penalties = { homeScore = pen.homeScored, awayScore = pen.awayScored, winner = pen.winner, rounds = pen.rounds }
-            fixture._penaltyWinner = pen.winner
-        end
-    end
+    _storeKnockoutExtras(fixture, report.extraTime)
 
     -- 如果是小组赛，更新小组积分
     if wc.phase == "group" and fixture.groupName then
@@ -875,22 +570,13 @@ function TurnProcessor._applyUCLResult(gameState, fixture, report)
     fixture.status = "finished"
 
     -- 存储加时赛/点球数据（来自 MatchEngine 单场淘汰逻辑，如决赛）
-    if report.extraTime then
-        fixture.extraTime = report.extraTime
-        -- 点球数据嵌套在 extraTime.penalties 中
-        if report.extraTime.penalties then
-            local pen = report.extraTime.penalties
-            fixture.penalties = { homeScore = pen.homeScored, awayScore = pen.awayScored, winner = pen.winner, rounds = pen.rounds }
-            fixture._penaltyWinner = pen.winner
-        end
-    end
+    _storeKnockoutExtras(fixture, report.extraTime)
 
-    -- 两回合制第二回合：检查总比分是否平局，若平则模拟加时+点球
+    -- 两回合制第二回合：总比分平局 → 加时 + 点球（复用 MatchEngine）
     if fixture.leg == 2 and not fixture._penaltyWinner then
         local knockoutPhases = {playoff = true, r16 = true, qf = true, sf = true}
         local currentPhase = ucl.phase
         if knockoutPhases[currentPhase] then
-            -- 找到第一回合
             local fixtures = ucl.knockout[currentPhase]
             local leg1 = nil
             if fixtures then
@@ -902,38 +588,21 @@ function TurnProcessor._applyUCLResult(gameState, fixture, report)
                 end
             end
             if leg1 then
-                local team1 = leg1.homeTeamId  -- leg1主队 = team1
-                local team2 = leg1.awayTeamId  -- leg1客队 = team2
-                local agg1 = leg1.homeGoals + fixture.awayGoals  -- team1总进球
-                local agg2 = leg1.awayGoals + fixture.homeGoals  -- team2总进球
+                local agg1 = leg1.homeGoals + fixture.awayGoals
+                local agg2 = leg1.awayGoals + fixture.homeGoals
                 if agg1 == agg2 then
-                    -- 总比分平局 → 模拟加时+点球
-                    local homePenScored, awayPenScored = 0, 0
-                    local homeStrength = 0.72
-                    local awayStrength = 0.72
-                    -- 5轮点球
-                    for round = 1, 5 do
-                        if Random() < homeStrength then homePenScored = homePenScored + 1 end
-                        if Random() < awayStrength then awayPenScored = awayPenScored + 1 end
-                        local remaining = 5 - round
-                        if math.abs(homePenScored - awayPenScored) > remaining then break end
+                    local homeTeam = gameState.teams[fixture.homeTeamId]
+                    local awayTeam = gameState.teams[fixture.awayTeamId]
+                    if homeTeam and awayTeam then
+                        local TacticsResolver = require("scripts/match/tactics_resolver")
+                        local homeContext = TacticsResolver.buildTeamContext(gameState, homeTeam)
+                        local awayContext = TacticsResolver.buildTeamContext(gameState, awayTeam)
+                        if #homeContext.players > 0 and #awayContext.players > 0 then
+                            local extraTime = MatchEngine.simulateExtraTimeAndPenalties(
+                                fixture, homeContext, awayContext)
+                            _storeKnockoutExtras(fixture, extraTime)
+                        end
                     end
-                    -- 突然死亡
-                    while homePenScored == awayPenScored do
-                        local h = Random() < homeStrength and 1 or 0
-                        local a = Random() < awayStrength and 1 or 0
-                        homePenScored = homePenScored + h
-                        awayPenScored = awayPenScored + a
-                    end
-                    -- 注意：第二回合的主队是 team2（两回合主客互换）
-                    local penWinner = homePenScored > awayPenScored and fixture.homeTeamId or fixture.awayTeamId
-                    fixture.penalties = {
-                        homeScore = homePenScored,
-                        awayScore = awayPenScored,
-                        winner = penWinner,
-                    }
-                    fixture._penaltyWinner = penWinner
-                    fixture.extraTime = fixture.extraTime or {played = true, homeExtraGoals = 0, awayExtraGoals = 0}
                 end
             end
         end
@@ -974,6 +643,10 @@ function TurnProcessor._applyUCLResult(gameState, fixture, report)
         end
         if #awayTeam.recentForm > 5 then table.remove(awayTeam.recentForm, 1) end
     end
+
+    local ObjectivesManager = require("scripts/systems/objectives_manager")
+    ObjectivesManager.recordMatchResult(gameState, fixture.homeTeamId, report.homeGoals or 0, report.awayGoals or 0, report.events)
+    ObjectivesManager.recordMatchResult(gameState, fixture.awayTeamId, report.awayGoals or 0, report.homeGoals or 0, report.events)
 
     -- 更新球员出场/进球/助攻/红黄牌/评分（UCL专用，联赛由applyResult处理）
     PlaceholderEngine.applyPlayerMatchStats(gameState, fixture, report)
@@ -1142,6 +815,7 @@ end
 
 -- 伤病恢复
 function TurnProcessor.processInjuryRecovery(gameState)
+    local EventFlavors = require("scripts/match/event_flavors")
     for _, p in pairs(gameState.players) do
         if p.injured and p.injuryDays > 0 then
             local team = p.teamId and gameState.teams[p.teamId]
@@ -1152,8 +826,7 @@ function TurnProcessor.processInjuryRecovery(gameState)
             end
             p.injuryDays = p.injuryDays - recovery
             if p.injuryDays <= 0 then
-                p.injured = false
-                p.injuryDays = 0
+                EventFlavors.clearInjury(p)
                 -- 如果是玩家球队球员，发消息
                 if p.teamId == gameState.playerTeamId then
                     MessageManager.send(gameState, "injury_recovered", { p.displayName })
@@ -1209,11 +882,21 @@ function TurnProcessor.processWeekly(gameState)
             for _, pid in ipairs(team.playerIds) do
                 local p = gameState.players[pid]
                 if p and not p.injured and Random() < injuryChance then
-                    p.injured = true
-                    p.injuryDays = RandomInt(trainingMods.injuryDaysMin, trainingMods.injuryDaysMax)
-                    MessageManager.send(gameState, "training_injury", {
-                        p.displayName, p.injuryDays
+                    local EventFlavors = require("scripts/match/event_flavors")
+                    local injury = EventFlavors.rollTrainingInjury(gameState, p, {
+                        intensity = intensity,
+                        maxDays = trainingMods.injuryDaysMax,
+                        injuryRisk = 1.0,
                     })
+                    injury.days = math.max(trainingMods.injuryDaysMin, injury.days)
+                    EventFlavors.applyToPlayer(p, injury)
+                    if injury.isSeasonEnding or injury.severity == "season_ending" then
+                        EventFlavors.notifyInjuryMessage(gameState, p, injury, "training")
+                    else
+                        MessageManager.send(gameState, "training_injury", {
+                            p.displayName, injury.kindName, injury.severityName, p.injuryDays
+                        })
+                    end
                 end
             end
         end

@@ -72,7 +72,7 @@ local TEMPLATES = {
         category = "injury",
         title = "训练伤病",
         priority = "high",
-        format = "%s 在训练中受伤，预计 %d 天恢复。",
+        format = "%s 在训练中受伤（%s · %s），预计 %d 天恢复。",
     },
 
     -- 伤病类
@@ -81,6 +81,12 @@ local TEMPLATES = {
         title = "伤愈复出",
         priority = "normal",
         format = "%s 已经伤愈，可以参加比赛。",
+    },
+    injury_season_ending = {
+        category = "injury",
+        title = "赛季报销",
+        priority = "high",
+        format = "%s 遭遇严重伤病（%s），本赛季无法复出，预计 %d 天后恢复。",
     },
 
     -- 转会类
@@ -155,10 +161,14 @@ local TEMPLATES = {
 }
 
 ------------------------------------------------------
--- 去重缓存（防止同类消息在短时间内重复发送）
+-- 去重缓存（持久化到 gameState._messageDedupeCache，防止读档后重复发消息）
 ------------------------------------------------------
-local _dedupeCache = {}
 local DEDUPE_WINDOW_DAYS = 7  -- 7天内同模板+key不重复
+
+local function getDedupeCache(gameState)
+    gameState._messageDedupeCache = gameState._messageDedupeCache or {}
+    return gameState._messageDedupeCache
+end
 
 ------------------------------------------------------
 -- 核心API
@@ -168,7 +178,7 @@ local DEDUPE_WINDOW_DAYS = 7  -- 7天内同模板+key不重复
 ---@param gameState table
 ---@param templateId string 模板ID
 ---@param args table 格式化参数数组
----@param opts? table 额外选项 {dedupeKey?, actions?, extra?}
+---@param opts? table 额外选项 {dedupeKey?, permanent?, actions?, extra?}
 ---@return table|nil 发送的消息，若被去重则返回nil
 function MessageManager.send(gameState, templateId, args, opts)
     local tmpl = TEMPLATES[templateId]
@@ -186,7 +196,7 @@ function MessageManager.send(gameState, templateId, args, opts)
 
     -- 去重检查
     local dedupeKey = opts.dedupeKey or (templateId .. "_" .. tostring(args[1] or ""))
-    if MessageManager._isDuplicate(gameState, dedupeKey) then
+    if MessageManager._isDuplicate(gameState, dedupeKey, opts.permanent) then
         return nil
     end
 
@@ -204,7 +214,7 @@ function MessageManager.send(gameState, templateId, args, opts)
     }
 
     -- 记录去重
-    MessageManager._markSent(gameState, dedupeKey)
+    MessageManager._markSent(gameState, dedupeKey, opts.permanent)
 
     return gameState:sendMessage(msg)
 end
@@ -349,30 +359,35 @@ end
 -- 去重内部实现
 ------------------------------------------------------
 
-function MessageManager._isDuplicate(gameState, key)
-    local entry = _dedupeCache[key]
+function MessageManager._isDuplicate(gameState, key, permanent)
+    local cache = getDedupeCache(gameState)
+    local entry = cache[key]
     if not entry then return false end
+    if permanent or entry.permanent then return true end
     -- 检查是否在窗口期内
     local daysDiff = MessageManager._daysBetween(entry.date, gameState.date)
     return daysDiff < DEDUPE_WINDOW_DAYS
 end
 
-function MessageManager._markSent(gameState, key)
-    _dedupeCache[key] = {
+function MessageManager._markSent(gameState, key, permanent)
+    local cache = getDedupeCache(gameState)
+    cache[key] = {
         date = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day},
+        permanent = permanent or false,
     }
 end
 
 --- 清理过期的去重缓存
 function MessageManager.cleanupDedupeCache(gameState)
+    local cache = getDedupeCache(gameState)
     local toRemove = {}
-    for key, entry in pairs(_dedupeCache) do
+    for key, entry in pairs(cache) do
         if MessageManager._daysBetween(entry.date, gameState.date) >= DEDUPE_WINDOW_DAYS then
             table.insert(toRemove, key)
         end
     end
     for _, key in ipairs(toRemove) do
-        _dedupeCache[key] = nil
+        cache[key] = nil
     end
 end
 
@@ -384,10 +399,12 @@ function MessageManager._daysBetween(date1, date2)
 end
 
 ------------------------------------------------------
--- 重置（新赛季或新存档时调用）
+-- 重置（新赛季时清理内存中的旧引用；实际缓存随 gameState 存档）
 ------------------------------------------------------
-function MessageManager.reset()
-    _dedupeCache = {}
+function MessageManager.reset(gameState)
+    if gameState then
+        gameState._messageDedupeCache = {}
+    end
 end
 
 return MessageManager

@@ -2,6 +2,8 @@
 -- 赛季目标系统（长期赛季目标 + 短期月度目标）
 
 local EventBus = require("scripts/app/event_bus")
+local BoardManager = require("scripts/systems/board_manager")
+local TransferManager = require("scripts/systems/transfer_manager")
 
 local ObjectivesManager = {}
 
@@ -41,14 +43,35 @@ local SEASON_OBJECTIVES = {
       tier = "any" },
 }
 
--- 短期月度目标（动态生成）
+-- 短期月度目标（按 effective tier 分档，生成时写入阈值字段）
+local TIER_RANK = { lowest = 0, weak = 1, mid = 2, strong = 3, elite = 4 }
+local RANK_TIER = { [0] = "lowest", [1] = "weak", [2] = "mid", [3] = "strong", [4] = "elite" }
+
 local MONTHLY_TEMPLATES = {
-    { id = "monthly_unbeaten_3", text = "连续3场不败", category = "form" },
-    { id = "monthly_win_3", text = "本月赢得3场比赛", category = "form" },
-    { id = "monthly_clean_sheet", text = "本月至少2场零封", category = "defense" },
-    { id = "monthly_goals_8", text = "本月攻入8+球", category = "attack" },
-    { id = "monthly_no_loss", text = "本月不败", category = "form" },
-    { id = "monthly_top_scorer", text = "队内射手本月进3+球", category = "attack" },
+    -- weak / lowest（lowest 生成时归并到 weak 池）
+    { id = "monthly_wins", text = "本月赢得1场比赛", tier = "weak", minWins = 1, category = "form" },
+    { id = "monthly_unbeaten_streak", text = "连续2场不败", tier = "weak", streak = 2, category = "form" },
+    { id = "monthly_goals", text = "本月攻入3+球", tier = "weak", minGoals = 3, category = "attack" },
+    { id = "monthly_clean_sheets", text = "本月至少1场零封", tier = "weak", minCleanSheets = 1, category = "defense" },
+    { id = "monthly_top_scorer", text = "队内射手本月进1+球", tier = "weak", minScorerGoals = 1, category = "attack" },
+    -- mid
+    { id = "monthly_wins", text = "本月赢得2场比赛", tier = "mid", minWins = 2, category = "form" },
+    { id = "monthly_unbeaten_streak", text = "连续3场不败", tier = "mid", streak = 3, category = "form" },
+    { id = "monthly_goals", text = "本月攻入5+球", tier = "mid", minGoals = 5, category = "attack" },
+    { id = "monthly_clean_sheets", text = "本月至少1场零封", tier = "mid", minCleanSheets = 1, category = "defense" },
+    { id = "monthly_top_scorer", text = "队内射手本月进2+球", tier = "mid", minScorerGoals = 2, category = "attack" },
+    -- strong
+    { id = "monthly_wins", text = "本月赢得3场比赛", tier = "strong", minWins = 3, category = "form" },
+    { id = "monthly_unbeaten_streak", text = "连续3场不败", tier = "strong", streak = 3, category = "form" },
+    { id = "monthly_goals", text = "本月攻入7+球", tier = "strong", minGoals = 7, category = "attack" },
+    { id = "monthly_clean_sheets", text = "本月至少2场零封", tier = "strong", minCleanSheets = 2, category = "defense" },
+    { id = "monthly_top_scorer", text = "队内射手本月进3+球", tier = "strong", minScorerGoals = 3, category = "attack" },
+    -- elite
+    { id = "monthly_wins", text = "本月赢得4场比赛", tier = "elite", minWins = 4, category = "form" },
+    { id = "monthly_no_loss", text = "本月不败", tier = "elite", category = "form" },
+    { id = "monthly_goals", text = "本月攻入10+球", tier = "elite", minGoals = 10, category = "attack" },
+    { id = "monthly_clean_sheets", text = "本月至少2场零封", tier = "elite", minCleanSheets = 2, category = "defense" },
+    { id = "monthly_top_scorer", text = "队内射手本月进4+球", tier = "elite", minScorerGoals = 4, category = "attack" },
 }
 
 ------------------------------------------------------
@@ -56,14 +79,9 @@ local MONTHLY_TEMPLATES = {
 ------------------------------------------------------
 
 function ObjectivesManager._getTier(gameState)
-    local team = gameState.teams[gameState.playerTeamId]
-    if not team then return "mid" end
-    local rep = team.reputation or 600
-    -- 球队声望范围 500-950
-    if rep >= 900 then return "elite"
-    elseif rep >= 800 then return "strong"
-    elseif rep >= 700 then return "mid"
-    else return "weak" end
+    local teamId = gameState.playerTeamId
+    if not teamId then return "mid" end
+    return BoardManager.computeEffectiveTier(gameState, teamId)
 end
 
 function ObjectivesManager._isInUCL(gameState)
@@ -81,29 +99,23 @@ function ObjectivesManager.generateProposals(gameState)
     local inUCL = ObjectivesManager._isInUCL(gameState)
 
     local tierOrder = { "elite", "strong", "mid", "weak" }
-    local tierIdx = 1
-    for i, t in ipairs(tierOrder) do
-        if t == tier then tierIdx = i; break end
+    local tierRank = { lowest = 0, weak = 1, mid = 2, strong = 3, elite = 4 }
+    local effRank = tierRank[tier] or 2
+
+    local function tierAllowed(objTier)
+        local objRank = tierRank[objTier]
+        if not objRank then return false end
+        return objRank >= effRank - 1 and objRank <= effRank + 1
     end
 
-    -- 联赛目标候选：当前tier + 上/下各一档
+    -- 联赛目标候选：有效 tier ±1 档
     local leagueOptions = {}
     for _, obj in ipairs(SEASON_OBJECTIVES) do
-        if obj.category == "league" then
-            local recommended = (obj.tier == tier)
-            -- 相邻tier也加入
-            local adjacent = false
-            for i2, t2 in ipairs(tierOrder) do
-                if t2 == obj.tier and math.abs(i2 - tierIdx) <= 1 then
-                    adjacent = true; break
-                end
-            end
-            if adjacent then
-                table.insert(leagueOptions, {
-                    id = obj.id, text = obj.text, category = "league",
-                    tier = obj.tier, recommended = recommended,
-                })
-            end
+        if obj.category == "league" and tierAllowed(obj.tier) then
+            table.insert(leagueOptions, {
+                id = obj.id, text = obj.text, category = "league",
+                tier = obj.tier, recommended = (obj.tier == tier),
+            })
         end
     end
 
@@ -111,20 +123,11 @@ function ObjectivesManager.generateProposals(gameState)
     local uclOptions = {}
     if inUCL then
         for _, obj in ipairs(SEASON_OBJECTIVES) do
-            if obj.category == "ucl" then
-                local recommended = (obj.tier == tier)
-                local adjacent = false
-                for i2, t2 in ipairs(tierOrder) do
-                    if t2 == obj.tier and math.abs(i2 - tierIdx) <= 1 then
-                        adjacent = true; break
-                    end
-                end
-                if adjacent then
-                    table.insert(uclOptions, {
-                        id = obj.id, text = obj.text, category = "ucl",
-                        tier = obj.tier, recommended = recommended,
-                    })
-                end
+            if obj.category == "ucl" and tierAllowed(obj.tier) then
+                table.insert(uclOptions, {
+                    id = obj.id, text = obj.text, category = "ucl",
+                    tier = obj.tier, recommended = (obj.tier == tier),
+                })
             end
         end
     end
@@ -185,13 +188,13 @@ function ObjectivesManager.confirmObjectives(gameState, selectedIds)
     local team = gameState.teams[gameState.playerTeamId]
     local budgetChange = ObjectivesManager._calcBudgetAdjustment(gameState, team, seasonObjectives)
 
-    local monthlyObjective = ObjectivesManager._generateMonthly(gameState)
+    local monthlies = ObjectivesManager._generateMonthlies(gameState)
 
     gameState.objectives = {
         season = seasonObjectives,
-        monthly = monthlyObjective,
+        monthlies = monthlies,
         completedCount = 0,
-        totalCount = #seasonObjectives + 1,
+        totalCount = #seasonObjectives + #monthlies,
     }
 
     -- 新闻通知
@@ -199,8 +202,11 @@ function ObjectivesManager.confirmObjectives(gameState, selectedIds)
     for i, obj in ipairs(seasonObjectives) do
         table.insert(lines, string.format("  %d. %s", i, obj.text))
     end
-    if monthlyObjective then
-        table.insert(lines, string.format("\n本月目标: %s", monthlyObjective.text))
+    if #monthlies > 0 then
+        table.insert(lines, "\n本月目标:")
+        for i, obj in ipairs(monthlies) do
+            table.insert(lines, string.format("  %d. %s", i, obj.text))
+        end
     end
     if budgetChange and budgetChange.message then
         table.insert(lines, "\n" .. budgetChange.message)
@@ -212,6 +218,8 @@ function ObjectivesManager.confirmObjectives(gameState, selectedIds)
         body = table.concat(lines, "\n"),
         priority = "normal",
     })
+
+    BoardManager.syncFromObjectives(gameState)
 end
 
 ------------------------------------------------------
@@ -318,83 +326,411 @@ function ObjectivesManager.initSeason(gameState)
 end
 
 ------------------------------------------------------
--- 生成月度目标
+-- 月度目标（德比按当月赛程生成，无德比则随机通用目标）
 ------------------------------------------------------
 
-function ObjectivesManager._generateMonthly(gameState)
-    -- 随机选一个月度模板
-    local idx = RandomInt(1, #MONTHLY_TEMPLATES)
-    local template = MONTHLY_TEMPLATES[idx]
-    return {
+--- 旧存档 single monthly → monthlies 数组
+function ObjectivesManager._getMonthlies(objectives)
+    if not objectives then return {} end
+    if objectives.monthlies then return objectives.monthlies end
+    if objectives.monthly then
+        objectives.monthlies = { objectives.monthly }
+        objectives.monthly = nil
+    end
+    return objectives.monthlies or {}
+end
+
+function ObjectivesManager._normalizeMonthlyTier(tier)
+    if tier == "lowest" then return "weak" end
+    return tier or "mid"
+end
+
+function ObjectivesManager._collectTemplatesForRank(rank)
+    local out = {}
+    for _, tmpl in ipairs(MONTHLY_TEMPLATES) do
+        if TIER_RANK[tmpl.tier] == rank then
+            table.insert(out, tmpl)
+        end
+    end
+    return out
+end
+
+--- 按 effective tier 抽取通用月度模板（先精确匹配，再 ±1 档扩展）
+function ObjectivesManager._pickMonthlyTemplate(gameState)
+    local tier = ObjectivesManager._normalizeMonthlyTier(ObjectivesManager._getTier(gameState))
+    local rank = TIER_RANK[tier] or 2
+
+    local pool = ObjectivesManager._collectTemplatesForRank(rank)
+    if #pool == 0 then
+        for delta = 1, 4 do
+            local lower = rank - delta
+            if lower >= 0 then
+                pool = ObjectivesManager._collectTemplatesForRank(lower)
+                if #pool > 0 then break end
+            end
+            local upper = rank + delta
+            if upper <= 4 then
+                pool = ObjectivesManager._collectTemplatesForRank(upper)
+                if #pool > 0 then break end
+            end
+        end
+    end
+    if #pool == 0 then
+        pool = MONTHLY_TEMPLATES
+    end
+
+    return pool[RandomInt(1, #pool)]
+end
+
+function ObjectivesManager._instantiateMonthlyTemplate(gameState, template)
+    local obj = {
         id = template.id,
         text = template.text,
         category = template.category,
+        tier = template.tier,
         status = "active",
         progress = 0,
-        target = 3,  -- 默认目标值
         startMonth = gameState.date.month,
+        startYear = gameState.date.year,
     }
+    if template.minWins then obj.minWins = template.minWins end
+    if template.streak then obj.streak = template.streak end
+    if template.minGoals then obj.minGoals = template.minGoals end
+    if template.minCleanSheets then obj.minCleanSheets = template.minCleanSheets end
+    if template.minScorerGoals then obj.minScorerGoals = template.minScorerGoals end
+    return obj
+end
+
+function ObjectivesManager._generateGenericMonthly(gameState)
+    local template = ObjectivesManager._pickMonthlyTemplate(gameState)
+    return ObjectivesManager._instantiateMonthlyTemplate(gameState, template)
+end
+
+function ObjectivesManager._derbyRequiresWin(gameState)
+    local tier = ObjectivesManager._normalizeMonthlyTier(ObjectivesManager._getTier(gameState))
+    return tier == "strong" or tier == "elite"
+end
+
+function ObjectivesManager._collectDerbyFixturesInMonth(gameState, teamId, year, month)
+    local lg = gameState:getTeamLeague(teamId)
+    if not lg then return {} end
+
+    local derbies = {}
+    for _, f in ipairs(lg.fixtures or {}) do
+        local d = f.date
+        if d and tonumber(d.year) == tonumber(year) and tonumber(d.month) == tonumber(month) then
+            local opponentId
+            if f.homeTeamId == teamId then
+                opponentId = f.awayTeamId
+            elseif f.awayTeamId == teamId then
+                opponentId = f.homeTeamId
+            end
+            if opponentId and TransferManager.isRivalry(gameState, teamId, opponentId) then
+                table.insert(derbies, f)
+            end
+        end
+    end
+
+    table.sort(derbies, function(a, b)
+        local da, db = a.date or {}, b.date or {}
+        if da.day ~= db.day then return (da.day or 0) < (db.day or 0) end
+        return (a.id or 0) < (b.id or 0)
+    end)
+    return derbies
+end
+
+function ObjectivesManager._makeDerbyMonthly(gameState, fixture, teamId, year, month)
+    local opponentId = fixture.homeTeamId == teamId and fixture.awayTeamId or fixture.homeTeamId
+    local opp = opponentId and gameState.teams[opponentId]
+    local oppName = (opp and ((opp.shortName and opp.shortName ~= "") and opp.shortName or opp.name)) or "对手"
+    local needWin = ObjectivesManager._derbyRequiresWin(gameState)
+    if needWin then
+        return {
+            id = "monthly_derby_win",
+            text = string.format("赢下对阵%s的德比", oppName),
+            category = "derby",
+            tier = ObjectivesManager._normalizeMonthlyTier(ObjectivesManager._getTier(gameState)),
+            status = "active",
+            progress = 0,
+            startMonth = month,
+            startYear = year,
+            fixtureId = fixture.id,
+            opponentTeamId = opponentId,
+        }
+    end
+    return {
+        id = "monthly_derby_points",
+        text = string.format("对阵%s至少拿1分", oppName),
+        category = "derby",
+        tier = ObjectivesManager._normalizeMonthlyTier(ObjectivesManager._getTier(gameState)),
+        status = "active",
+        progress = 0,
+        startMonth = month,
+        startYear = year,
+        fixtureId = fixture.id,
+        opponentTeamId = opponentId,
+    }
+end
+
+function ObjectivesManager._generateMonthlies(gameState)
+    local year = gameState.date.year
+    local month = gameState.date.month
+    local teamId = gameState.playerTeamId
+    if not teamId then
+        return { ObjectivesManager._generateGenericMonthly(gameState) }
+    end
+
+    local monthlies = {}
+    for _, f in ipairs(ObjectivesManager._collectDerbyFixturesInMonth(gameState, teamId, year, month)) do
+        table.insert(monthlies, ObjectivesManager._makeDerbyMonthly(gameState, f, teamId, year, month))
+    end
+
+    if #monthlies == 0 then
+        table.insert(monthlies, ObjectivesManager._generateGenericMonthly(gameState))
+    end
+    return monthlies
+end
+
+--- 兼容旧调用
+function ObjectivesManager._generateMonthly(gameState)
+    return ObjectivesManager._generateGenericMonthly(gameState)
+end
+
+------------------------------------------------------
+-- 月度比赛统计（供月末评估）
+------------------------------------------------------
+
+local function emptyMonthlyStats(year, month)
+    return {
+        year = year,
+        month = month,
+        wins = 0,
+        draws = 0,
+        losses = 0,
+        goalsFor = 0,
+        goalsAgainst = 0,
+        cleanSheets = 0,
+        results = {},
+        playerGoals = {},
+    }
+end
+
+function ObjectivesManager._ensureMonthlyStats(team, year, month)
+    if not team.monthlyStats then
+        team.monthlyStats = emptyMonthlyStats(year, month)
+        return team.monthlyStats
+    end
+    if team.monthlyStats.year ~= year or team.monthlyStats.month ~= month then
+        team._lastMonthlyStats = team.monthlyStats
+        team.monthlyStats = emptyMonthlyStats(year, month)
+    end
+    return team.monthlyStats
+end
+
+--- 比赛结束后累计当月统计（联赛/杯赛均计入）
+---@param gameState table
+---@param teamId number
+---@param goalsFor number
+---@param goalsAgainst number
+---@param events? table
+function ObjectivesManager.recordMatchResult(gameState, teamId, goalsFor, goalsAgainst, events)
+    local team = gameState.teams[teamId]
+    if not team then return end
+
+    local d = gameState.date
+    local ms = ObjectivesManager._ensureMonthlyStats(team, d.year, d.month)
+
+    goalsFor = goalsFor or 0
+    goalsAgainst = goalsAgainst or 0
+
+    local result
+    if goalsFor > goalsAgainst then
+        ms.wins = ms.wins + 1
+        result = "W"
+    elseif goalsFor < goalsAgainst then
+        ms.losses = ms.losses + 1
+        result = "L"
+    else
+        ms.draws = ms.draws + 1
+        result = "D"
+    end
+
+    ms.goalsFor = ms.goalsFor + goalsFor
+    ms.goalsAgainst = ms.goalsAgainst + goalsAgainst
+    if goalsAgainst == 0 then
+        ms.cleanSheets = ms.cleanSheets + 1
+    end
+    table.insert(ms.results, result)
+
+    for _, evt in ipairs(events or {}) do
+        if evt.type == "goal" and not evt.isOwnGoal then
+            local p = gameState.players[evt.playerId]
+            if p and p.teamId == teamId then
+                ms.playerGoals[evt.playerId] = (ms.playerGoals[evt.playerId] or 0) + 1
+            end
+        end
+    end
+end
+
+function ObjectivesManager._getMonthlyStatsForEval(team, monthly)
+    local function matches(ms)
+        if not ms then return false end
+        return ms.month == monthly.startMonth
+            and ms.year == (monthly.startYear or ms.year)
+    end
+
+    if matches(team._lastMonthlyStats) then return team._lastMonthlyStats end
+    if matches(team.monthlyStats) then return team.monthlyStats end
+    return emptyMonthlyStats(monthly.startYear or 0, monthly.startMonth or 0)
+end
+
+local function hasConsecutiveUnbeaten(results, needed)
+    local streak = 0
+    for _, r in ipairs(results or {}) do
+        if r == "W" or r == "D" then
+            streak = streak + 1
+            if streak >= needed then return true end
+        else
+            streak = 0
+        end
+    end
+    return false
+end
+
+local function maxPlayerGoals(playerGoals)
+    local best = 0
+    for _, count in pairs(playerGoals or {}) do
+        if count > best then best = count end
+    end
+    return best
 end
 
 ------------------------------------------------------
 -- 每月检查（月末自动调用）
 ------------------------------------------------------
 
+function ObjectivesManager._evaluateMonthlyObjective(gameState, team, monthly)
+    if monthly.id == "monthly_derby_points" or monthly.id == "monthly_derby_win" then
+        return ObjectivesManager._checkDerbyMonthlyCompletion(gameState, monthly)
+    end
+    local stats = team and ObjectivesManager._getMonthlyStatsForEval(team, monthly) or nil
+    return ObjectivesManager._checkMonthlyCompletion(monthly, stats)
+end
+
 function ObjectivesManager.onMonthEnd(gameState)
     local objectives = gameState.objectives
     if not objectives then return end
 
-    -- 评估月度目标
-    local monthly = objectives.monthly
-    if monthly and monthly.status == "active" then
-        local completed = ObjectivesManager._checkMonthlyCompletion(gameState, monthly)
-        if completed then
-            monthly.status = "completed"
-            objectives.completedCount = (objectives.completedCount or 0) + 1
-            gameState:sendMessage({
-                category = "board",
-                title = "月度目标达成!",
-                body = monthly.text,
-                priority = "normal",
-            })
-        else
-            monthly.status = "failed"
+    local team = gameState.teams[gameState.playerTeamId]
+    local monthlies = ObjectivesManager._getMonthlies(objectives)
+
+    for _, monthly in ipairs(monthlies) do
+        if monthly.status == "active" then
+            local completed = ObjectivesManager._evaluateMonthlyObjective(gameState, team, monthly)
+
+            if completed then
+                monthly.status = "completed"
+                objectives.completedCount = (objectives.completedCount or 0) + 1
+                if team then
+                    team.boardSatisfaction = math.min(100, (team.boardSatisfaction or 50) + 5)
+                end
+                gameState:sendMessage({
+                    category = "board",
+                    title = "月度目标达成!",
+                    body = monthly.text .. "\n董事会满意度 +5",
+                    priority = "normal",
+                })
+            else
+                monthly.status = "failed"
+                if team then
+                    team.boardSatisfaction = math.max(0, (team.boardSatisfaction or 50) - 3)
+                end
+                gameState:sendMessage({
+                    category = "board",
+                    title = "月度目标未达成",
+                    body = monthly.text .. "\n董事会满意度 -3",
+                    priority = "normal",
+                })
+            end
         end
     end
 
-    -- 生成新月度目标
-    objectives.monthly = ObjectivesManager._generateMonthly(gameState)
-    objectives.totalCount = (objectives.totalCount or 0) + 1
+    if team then
+        team._lastMonthlyStats = nil
+    end
+
+    local newMonthlies = ObjectivesManager._generateMonthlies(gameState)
+    objectives.monthlies = newMonthlies
+    objectives.monthly = nil
+    objectives.totalCount = (objectives.totalCount or 0) + #newMonthlies
 end
 
-function ObjectivesManager._checkMonthlyCompletion(gameState, monthly)
-    -- 简化检查：基于 recentForm
-    local team = gameState.teams[gameState.playerTeamId]
-    if not team or not team.recentForm then return false end
+function ObjectivesManager._findFixtureById(gameState, teamId, fixtureId)
+    local lg = gameState:getTeamLeague(teamId)
+    if not lg then return nil end
+    for _, f in ipairs(lg.fixtures or {}) do
+        if f.id == fixtureId then return f end
+    end
+    return nil
+end
 
-    local form = team.recentForm
-    if monthly.id == "monthly_unbeaten_3" then
-        -- 最近3场不败
-        local count = 0
-        for i = math.max(1, #form - 2), #form do
-            if form[i] == "W" or form[i] == "D" then count = count + 1 end
-        end
-        return count >= 3
-    elseif monthly.id == "monthly_win_3" then
-        local wins = 0
-        for _, r in ipairs(form) do
-            if r == "W" then wins = wins + 1 end
-        end
-        return wins >= 3
-    elseif monthly.id == "monthly_no_loss" then
-        for _, r in ipairs(form) do
-            if r == "L" then return false end
-        end
-        return #form > 0
+function ObjectivesManager._checkDerbyMonthlyCompletion(gameState, monthly)
+    local teamId = gameState.playerTeamId
+    if not teamId or not monthly.fixtureId then return false end
+
+    local fixture = ObjectivesManager._findFixtureById(gameState, teamId, monthly.fixtureId)
+    if not fixture or fixture.status ~= "finished" then return false end
+
+    local isHome = fixture.homeTeamId == teamId
+    local goalsFor = isHome and fixture.homeGoals or fixture.awayGoals
+    local goalsAgainst = isHome and fixture.awayGoals or fixture.homeGoals
+    if monthly.id == "monthly_derby_win" then
+        return goalsFor > goalsAgainst
+    end
+    return goalsFor >= goalsAgainst
+end
+
+function ObjectivesManager._checkMonthlyCompletion(monthly, stats)
+    if monthly.id == "monthly_derby_points" or monthly.id == "monthly_derby_win" then
+        return false
+    end
+    if not stats then return false end
+
+    if monthly.minWins then
+        return (stats.wins or 0) >= monthly.minWins
+    end
+    if monthly.streak then
+        return hasConsecutiveUnbeaten(stats.results, monthly.streak)
+    end
+    if monthly.minGoals then
+        return (stats.goalsFor or 0) >= monthly.minGoals
+    end
+    if monthly.minCleanSheets then
+        return (stats.cleanSheets or 0) >= monthly.minCleanSheets
+    end
+    if monthly.minScorerGoals then
+        return maxPlayerGoals(stats.playerGoals) >= monthly.minScorerGoals
     end
 
-    -- 其他目标默认随机概率（简化）
-    return RandomInt(1, 100) <= 40
+    local played = (stats.wins or 0) + (stats.draws or 0) + (stats.losses or 0)
+    if monthly.id == "monthly_no_loss" then
+        return played > 0 and (stats.losses or 0) == 0
+    end
+
+    -- 旧存档兼容
+    if monthly.id == "monthly_unbeaten_3" then
+        return hasConsecutiveUnbeaten(stats.results, 3)
+    elseif monthly.id == "monthly_win_3" then
+        return (stats.wins or 0) >= 3
+    elseif monthly.id == "monthly_clean_sheet" then
+        return (stats.cleanSheets or 0) >= 2
+    elseif monthly.id == "monthly_goals_8" then
+        return (stats.goalsFor or 0) >= 8
+    elseif monthly.id == "monthly_top_scorer" and not monthly.minScorerGoals then
+        return maxPlayerGoals(stats.playerGoals) >= 3
+    end
+
+    return false
 end
 
 ------------------------------------------------------
@@ -436,30 +772,24 @@ function ObjectivesManager.onSeasonEnd(gameState)
     end
 
     -- 董事会满意度调整（联赛成功时给予保护性加分）
-    if gameState.boardConfidence then
-        if rate >= 80 then
-            gameState.boardConfidence = math.min(100, gameState.boardConfidence + 15)
-        elseif rate >= 50 then
-            gameState.boardConfidence = math.min(100, gameState.boardConfidence + 5)
-        elseif rate < 30 then
-            -- 联赛成功时，即使整体完成率低也不大幅扣分
-            if hasLeagueSuccess then
-                gameState.boardConfidence = math.max(0, gameState.boardConfidence - 5)
-            else
-                gameState.boardConfidence = math.max(0, gameState.boardConfidence - 15)
-            end
+    team.boardSatisfaction = team.boardSatisfaction or 50
+    if rate >= 80 then
+        team.boardSatisfaction = math.min(100, team.boardSatisfaction + 15)
+    elseif rate >= 50 then
+        team.boardSatisfaction = math.min(100, team.boardSatisfaction + 5)
+    elseif rate < 30 then
+        if hasLeagueSuccess then
+            team.boardSatisfaction = math.max(0, team.boardSatisfaction - 5)
+        else
+            team.boardSatisfaction = math.max(0, team.boardSatisfaction - 15)
         end
     end
 
     -- 联赛成功额外加满意度（联赛是核心指标，应强于其他目标失败的惩罚）
     if hasLeagueSuccess then
-        local playerTeam = gameState.teams[gameState.playerTeamId]
-        if playerTeam then
-            playerTeam.boardSatisfaction = math.min(100, (playerTeam.boardSatisfaction or 50) + 10)
-            -- 清除因欧冠未达标可能累积的警告
-            if (playerTeam.boardWarnings or 0) > 0 then
-                playerTeam.boardWarnings = math.max(0, playerTeam.boardWarnings - 1)
-            end
+        team.boardSatisfaction = math.min(100, team.boardSatisfaction + 10)
+        if (team.boardWarnings or 0) > 0 then
+            team.boardWarnings = math.max(0, team.boardWarnings - 1)
         end
     end
 
@@ -467,7 +797,7 @@ function ObjectivesManager.onSeasonEnd(gameState)
         category = "board",
         title = "赛季目标总结",
         body = string.format("目标完成率: %d%%\n董事会满意度: %d%%",
-            rate, gameState.boardConfidence or 50),
+            rate, team.boardSatisfaction or 50),
         priority = "high",
     })
 end
@@ -560,10 +890,24 @@ function ObjectivesManager.getSummary(gameState)
     local seasonText = mainSeason and mainSeason.text or "未设定"
     local seasonStatus = mainSeason and mainSeason.status or "active"
 
-    -- 月度目标
-    local monthly = objectives.monthly
-    local monthlyText = monthly and monthly.text or nil
-    local monthlyStatus = monthly and monthly.status or "active"
+    -- 月度目标（可多条德比）
+    local monthlies = ObjectivesManager._getMonthlies(objectives)
+    local monthlyText, monthlyStatus
+    if #monthlies == 1 then
+        monthlyText = monthlies[1].text
+        monthlyStatus = monthlies[1].status
+    elseif #monthlies > 1 then
+        local derbyCount = 0
+        for _, m in ipairs(monthlies) do
+            if m.category == "derby" then derbyCount = derbyCount + 1 end
+        end
+        if derbyCount > 0 then
+            monthlyText = string.format("本月%d场德比目标", derbyCount)
+        else
+            monthlyText = monthlies[1].text
+        end
+        monthlyStatus = monthlies[1].status
+    end
 
     local completed = objectives.completedCount or 0
     local total = objectives.totalCount or 1
@@ -575,6 +919,7 @@ function ObjectivesManager.getSummary(gameState)
         seasonStatus = seasonStatus,
         monthlyText = monthlyText,
         monthlyStatus = monthlyStatus,
+        monthlies = monthlies,
         completedCount = completed,
         totalCount = total,
         progressPct = pct,

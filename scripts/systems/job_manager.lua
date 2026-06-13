@@ -365,6 +365,23 @@ function JobManager.getPendingOffers(gameState)
     return gameState._pendingOffers or {}
 end
 
+--- 是否有待回复的主教练邀约（失业状态）
+---@param gameState table
+---@return boolean
+function JobManager.hasPendingOffers(gameState)
+    if not gameState._isUnemployed then return false end
+    local offers = gameState._pendingOffers
+    return offers ~= nil and #offers > 0
+end
+
+--- 待处理邀约数量
+---@param gameState table
+---@return number
+function JobManager.getPendingOfferCount(gameState)
+    if not gameState._isUnemployed then return 0 end
+    return #(gameState._pendingOffers or {})
+end
+
 ------------------------------------------------------
 -- 主动邀约系统
 ------------------------------------------------------
@@ -530,6 +547,7 @@ function JobManager._aiHireManager(gameState, teamId)
         bestCandidate._unemployedSince = nil
         bestCandidate._hiredSeason = gameState.season
 
+        team.managerId = bestCandidate.id
         team.managerVacant = false
         team.vacantSince = nil
         team._vacantDays = nil
@@ -629,8 +647,7 @@ function JobManager._acceptJob(gameState, teamId)
 
     -- 生成赛季目标
     local BoardManager = require("scripts/systems/board_manager")
-    local rep = team.reputation or 50
-    local tier = BoardManager._getReputationTier(rep)
+    local tier = BoardManager.computeEffectiveTier(gameState, teamId)
     local OBJECTIVES_LOCAL = {
         elite   = { targets = {"夺冠", "前2名", "前3名"} },
         strong  = { targets = {"前3名", "前4名", "上半区"} },
@@ -822,7 +839,7 @@ function JobManager.checkManagerRenewal(gameState)
             "📋 续约条件:\n" ..
             "• 新周薪: %s（当前 %s）\n" ..
             "• 合同年限: %d 年\n\n" ..
-            "请在\"我的资料\"页面查看并决定是否接受。",
+            "请在下方选择是否接受，或前往「我的资料」页面处理。",
             team.name or "俱乐部",
             satisfaction >= 70 and "非常满意" or "认可",
             JobManager._formatMoney(offeredWage),
@@ -830,6 +847,18 @@ function JobManager.checkManagerRenewal(gameState)
             offeredYears
         ),
         priority = "high",
+        actions = {
+            {
+                label = "接受续约",
+                actionId = "accept_manager_renewal",
+                data = {},
+            },
+            {
+                label = "拒绝续约",
+                actionId = "decline_manager_renewal",
+                data = {},
+            },
+        },
     })
 end
 
@@ -1023,6 +1052,86 @@ function JobManager.handleResign(gameState)
 
     EventBus.emit("player_unemployed", {prevTeamId = prevTeamId, reason = "resigned"})
     return true
+end
+
+--- 顶级联赛降级：强制解约并进入失业状态
+---@param gameState table
+---@param prevTeamId number
+---@param divisionName string 降级目标联赛名称（如「英冠」）
+function JobManager.handleRelegation(gameState, prevTeamId, divisionName)
+    if not prevTeamId or prevTeamId ~= gameState.playerTeamId then return end
+    if gameState._cheatAutoPlay then return end
+
+    local manager = gameState:getPlayerManager()
+    local team = gameState.teams[prevTeamId]
+    divisionName = divisionName or "二级联赛"
+
+    if manager and manager.addCareerEntry and team then
+        local tenureStats = JobManager._getTenureStats(manager)
+        manager:addCareerEntry(prevTeamId, team.name or "未知", manager._hiredSeason or gameState.season, gameState.season, {
+            reason = "relegated",
+            wins = tenureStats.wins,
+            draws = tenureStats.draws,
+            losses = tenureStats.losses,
+        })
+    end
+
+    gameState.playerTeamId = nil
+    gameState.league = nil
+    gameState.playerLeagueId = nil
+    gameState._isUnemployed = true
+    gameState._unemployedSince = {
+        year = gameState.date.year,
+        month = gameState.date.month,
+        day = gameState.date.day,
+    }
+    gameState._pendingApplications = {}
+    gameState._pendingOffers = {}
+    gameState._offerCooldown = 3
+    gameState._firedFromTeamId = prevTeamId
+    gameState._firedFromSeason = gameState.season
+    gameState._managerRenewalOffer = nil
+    gameState._managerRenewalOffered = nil
+
+    if manager then
+        manager.teamId = nil
+        manager.isUnemployed = true
+        manager._tenureStartStats = nil
+    end
+
+    if team then
+        team.managerId = nil
+        team.managerVacant = true
+        team.vacantSince = {
+            year = gameState.date.year,
+            month = gameState.date.month,
+            day = gameState.date.day,
+        }
+        team._vacantDays = 0
+    end
+
+    gameState:sendMessage({
+        category = "job",
+        title = "降级解约",
+        body = string.format(
+            "球队降级至%s，董事会与你解约。你现在是自由身，需要寻找新的执教机会。",
+            divisionName),
+        priority = "critical",
+    })
+
+    if team then
+        gameState:addNews({
+            category = "transfers",
+            title = "教练离任",
+            body = string.format("%s 降级后，主教练%s与俱乐部解约。",
+                team.name or "球队", manager and manager.displayName or ""),
+        })
+    end
+
+    -- 降级后立即由 AI 接管（不等待 processDaily 延迟）
+    JobManager._aiHireManager(gameState, prevTeamId)
+
+    EventBus.emit("player_unemployed", { prevTeamId = prevTeamId, reason = "relegated" })
 end
 
 --- 格式化金额

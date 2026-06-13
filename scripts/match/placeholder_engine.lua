@@ -187,7 +187,7 @@ function PlaceholderEngine._getMatchPlayers(gameState, team)
     local players = {}
     -- 优先使用首发阵容
     if team.startingXI and #team.startingXI > 0 then
-        for _, pid in ipairs(team.startingXI or {}) do
+        for _, pid in pairs(team.startingXI) do
             local p = gameState.players[pid]
             if p and not p.injured then
                 table.insert(players, p)
@@ -216,6 +216,29 @@ function PlaceholderEngine._getMatchPlayers(gameState, team)
     return players
 end
 
+function PlaceholderEngine._getAppearancePlayers(gameState, fixture, report, teamId)
+    if report and report.appearanceIds then
+        local side = teamId == fixture.homeTeamId and "home" or "away"
+        local idSet = report.appearanceIds[side]
+        if idSet then
+            local players = {}
+            for pid, _ in pairs(idSet) do
+                local p = gameState.players[pid]
+                if p then
+                    table.insert(players, p)
+                end
+            end
+            if #players > 0 then
+                return players
+            end
+        end
+    end
+
+    local team = gameState.teams[teamId]
+    if not team then return {} end
+    return PlaceholderEngine._getMatchPlayers(gameState, team)
+end
+
 ------------------------------------------------------
 -- 更新球员比赛统计（出场/进球/助攻/红黄牌/评分/体能）
 -- 供 UCL/世界杯等不走 applyResult 的比赛路径调用
@@ -236,15 +259,19 @@ function PlaceholderEngine.applyPlayerMatchStats(gameState, fixture, report)
         elseif evt.type == "red_card" then
             p.seasonStats.redCards = p.seasonStats.redCards + 1
         elseif evt.type == "injury" then
-            p.injured = true
-            p.injuryDays = evt.injuryDays or RandomInt(3, 14)
+            local EventFlavors = require("scripts/match/event_flavors")
+            local injury = {
+                kind = evt.injuryKind,
+                kindName = evt.injuryKindName,
+                days = evt.injuryDays or RandomInt(3, 14),
+                severity = evt.injurySeverity,
+                severityName = evt.injurySeverityName,
+                isSeasonEnding = evt.injurySeasonEnding or evt.injuryKind == "acl_rupture"
+                    or evt.injuryKind == "major_surgery" or evt.injuryKind == "achilles",
+            }
+            EventFlavors.applyToPlayer(p, injury)
             if p.teamId == gameState.playerTeamId then
-                gameState:sendMessage({
-                    category = "injury",
-                    title = "比赛伤病",
-                    body = string.format("%s 在比赛中受伤，预计 %d 天恢复。", p.displayName, p.injuryDays),
-                    priority = "high",
-                })
+                EventFlavors.notifyInjuryMessage(gameState, p, injury)
             end
         end
 
@@ -264,11 +291,11 @@ function PlaceholderEngine.applyPlayerMatchStats(gameState, fixture, report)
     local matchPlayers = {}
 
     if homeTeam then
-        local players = PlaceholderEngine._getMatchPlayers(gameState, homeTeam)
+        local players = PlaceholderEngine._getAppearancePlayers(gameState, fixture, report, fixture.homeTeamId)
         for _, p in ipairs(players) do table.insert(matchPlayers, p) end
     end
     if awayTeam then
-        local players = PlaceholderEngine._getMatchPlayers(gameState, awayTeam)
+        local players = PlaceholderEngine._getAppearancePlayers(gameState, fixture, report, fixture.awayTeamId)
         for _, p in ipairs(players) do table.insert(matchPlayers, p) end
     end
 
@@ -477,13 +504,28 @@ function PlaceholderEngine._generateInjuryEvents(events, players, teamId, gameSt
         if p.fitness < 50 then injuryChance = 0.025 end
 
         if Random() < injuryChance then
-            local injuryDays = RandomInt(3, 21)
+            local EventFlavors = require("scripts/match/event_flavors")
+            local seasonDays = gameState and EventFlavors.estimateSeasonDaysRemaining(gameState) or 180
+            local seChance = EventFlavors.computeSeasonEndingChance(p, {
+                year = gameState and gameState.date and gameState.date.year,
+                injuryRisk = p.fitness and (p.fitness < 70 and 1.15 or 1.0) or 1.0,
+            })
+            local injury = EventFlavors.rollMatchInjury({
+                allowSeasonEnding = gameState ~= nil,
+                seasonDaysRemaining = seasonDays,
+                seasonEndingChance = seChance,
+            })
             table.insert(events, {
                 type = "injury",
                 minute = RandomInt(20, 85),
                 playerId = p.id,
                 teamId = teamId,
-                injuryDays = injuryDays,
+                injuryDays = injury.days,
+                injuryKind = injury.kind,
+                injuryKindName = injury.kindName,
+                injurySeverity = injury.severity,
+                injurySeverityName = injury.severityName,
+                injurySeasonEnding = injury.isSeasonEnding,
             })
         end
         ::continue::
@@ -1056,16 +1098,18 @@ function PlaceholderEngine.applyResult(gameState, fixture, report)
         elseif evt.type == "red_card" then
             p.seasonStats.redCards = p.seasonStats.redCards + 1
         elseif evt.type == "injury" then
-            p.injured = true
-            p.injuryDays = evt.injuryDays or RandomInt(3, 14)
-            -- 通知玩家球队伤病
+            local EventFlavors = require("scripts/match/event_flavors")
+            local injury = {
+                kind = evt.injuryKind,
+                kindName = evt.injuryKindName,
+                days = evt.injuryDays or RandomInt(3, 14),
+                severity = evt.injurySeverity,
+                severityName = evt.injurySeverityName,
+                isSeasonEnding = evt.injurySeasonEnding,
+            }
+            EventFlavors.applyToPlayer(p, injury)
             if p.teamId == gameState.playerTeamId then
-                gameState:sendMessage({
-                    category = "injury",
-                    title = "比赛伤病",
-                    body = string.format("%s 在比赛中受伤，预计 %d 天恢复。", p.displayName, p.injuryDays),
-                    priority = "high",
-                })
+                EventFlavors.notifyInjuryMessage(gameState, p, injury)
             end
         end
 
@@ -1086,11 +1130,11 @@ function PlaceholderEngine.applyResult(gameState, fixture, report)
     local matchPlayers = {}
 
     if homeTeam then
-        local players = PlaceholderEngine._getMatchPlayers(gameState, homeTeam)
+        local players = PlaceholderEngine._getAppearancePlayers(gameState, fixture, report, fixture.homeTeamId)
         for _, p in ipairs(players) do table.insert(matchPlayers, p) end
     end
     if awayTeam then
-        local players = PlaceholderEngine._getMatchPlayers(gameState, awayTeam)
+        local players = PlaceholderEngine._getAppearancePlayers(gameState, fixture, report, fixture.awayTeamId)
         for _, p in ipairs(players) do table.insert(matchPlayers, p) end
     end
 
@@ -1182,6 +1226,10 @@ function PlaceholderEngine.applyResult(gameState, fixture, report)
 
     -- 更新记录系统（经理比赛统计）
     RecordsManager.onMatchEnd(gameState, fixture)
+
+    local ObjectivesManager = require("scripts/systems/objectives_manager")
+    ObjectivesManager.recordMatchResult(gameState, fixture.homeTeamId, homeGoals, awayGoals, report.events)
+    ObjectivesManager.recordMatchResult(gameState, fixture.awayTeamId, awayGoals, homeGoals, report.events)
 
     return report
 end

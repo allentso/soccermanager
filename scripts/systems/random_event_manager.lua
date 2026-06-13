@@ -30,14 +30,14 @@ local EVENT_POOL = {
             end
             if #eligible == 0 then return nil end
             local p = eligible[RandomInt(1, #eligible)]
-            local days = RandomInt(3, 21)
-            p.injured = true
-            p.injuryDays = days
-            p.injuryType = RandomEventManager._randomInjury()
+            -- 统一伤病模型：种类决定天数与严重程度（随机事件上限 21 天）
+            local EventFlavors = require("scripts/match/event_flavors")
+            local injury = EventFlavors.rollInjury(21)
+            EventFlavors.applyToPlayer(p, injury)
             return {
                 title = "训练伤病",
-                body = string.format("%s 在训练中受伤(%s)，预计 %d 天恢复。",
-                    p.displayName, p.injuryType, days),
+                body = string.format("%s 在训练中受伤（%s · %s），预计 %d 天恢复。",
+                    p.displayName, injury.kindName, injury.severityName, injury.days),
                 priority = "high",
             }
         end,
@@ -313,18 +313,6 @@ function RandomEventManager.processDaily(gameState)
 
         EventBus.emit("random_event", {eventId = selectedEvent.id, category = selectedEvent.category})
     end
-end
-
-------------------------------------------------------
--- 辅助
-------------------------------------------------------
-
-function RandomEventManager._randomInjury()
-    local injuries = {
-        "肌肉拉伤", "膝盖扭伤", "脚踝受伤", "腿筋拉伤",
-        "背部不适", "肩部脱臼", "脚趾骨裂", "小腿拉伤",
-    }
-    return injuries[RandomInt(1, #injuries)]
 end
 
 return RandomEventManager

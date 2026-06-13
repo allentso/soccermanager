@@ -5,6 +5,7 @@ local Theme = require("scripts/ui/theme")
 local Constants = require("scripts/app/constants")
 local TeamIcon = require("scripts/ui/components/team_icon")
 local FinanceManager = require("scripts/systems/finance_manager")
+local TransferManager = require("scripts/systems/transfer_manager")
 
 local COLORS = Theme.COLORS
 
@@ -61,6 +62,17 @@ local function buildOverviewTab(team, gameState, teamId)
         { "阵型", team.formation or "4-4-2" },
         { "风格", team:getPlayStyleName() },
     }
+
+    local rivalNames = {}
+    for _, rivalId in ipairs(TransferManager.getRivalTeams(gameState, teamId)) do
+        local rivalTeam = gameState.teams[rivalId]
+        if rivalTeam then
+            table.insert(rivalNames, rivalTeam.name or rivalTeam.shortName)
+        end
+    end
+    if #rivalNames > 0 then
+        table.insert(identityRows, { "死敌", table.concat(rivalNames, "、") })
+    end
     local identityChildren = {}
     for _, row in ipairs(identityRows) do
         table.insert(identityChildren, UI.Panel {

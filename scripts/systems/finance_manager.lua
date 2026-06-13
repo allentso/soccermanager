@@ -299,6 +299,9 @@ function FinanceManager.processMatchDayRevenue(gameState, teamId, isHome, oppone
         opponentName = gameState.teams[opponentTeamId].name or "对手"
     end
 
+    local TransferManager = require("scripts/systems/transfer_manager")
+    local isDerby = opponentTeamId and TransferManager._isRivalry(gameState, teamId, opponentTeamId)
+
     -- 票价策略
     local strategy = FinanceManager.getTicketStrategy(team)
 
@@ -311,6 +314,9 @@ function FinanceManager.processMatchDayRevenue(gameState, teamId, isHome, oppone
     -- 智能上座率 = 基础率 + 对手吸引力 + 连胜奖励 + 策略调整
     local baseAttendance = 0.65 + rep / 500  -- rep50=0.75, rep80=0.81
     local hypeBonus = math.min(0.15, opponentRep / 500)  -- 强队来访+观众
+    if isDerby then
+        hypeBonus = hypeBonus + 0.08  -- 德比战额外上座率
+    end
     local formBonus = math.min(0.10, (team.winStreak or 0) * 0.02)  -- 连胜吸引球迷
     local formPenalty = math.min(0.10, (team.loseStreak or 0) * 0.02)  -- 连败掉人
     local strategyBonus = strategy.attendanceBonus
@@ -1215,6 +1221,18 @@ function FinanceManager.checkSquadSafety(gameState, playerId)
 
     local player = gameState.players[playerId]
     if not player then return true, "" end
+
+    -- 仅存在于青训名单、不在一线队 roster 的球员：不计入一线最低人数
+    local inFirstTeam = false
+    for _, pid in ipairs(team.playerIds or {}) do
+        if pid == playerId then inFirstTeam = true break end
+    end
+    if not inFirstTeam then
+        local YouthManager = require("scripts/systems/youth_manager")
+        if YouthManager.isOnTeamYouthSquad(gameState, playerId, team.id) then
+            return true, ""
+        end
+    end
 
     -- 移除后的阵容统计
     local gkCount, defCount, midCount, fwdCount = 0, 0, 0, 0

@@ -1989,22 +1989,24 @@ function Dashboard._showObjectivesDetail(gameState)
     end
 
     -- 月度目标
-    local monthly = gameState.objectives and gameState.objectives.monthly
-    if monthly then
+    local monthlies = ObjectivesManager._getMonthlies(gameState.objectives)
+    if #monthlies > 0 then
         table.insert(children, UI.Panel { width = "100%", height = 1, backgroundColor = Theme.COLORS.DIVIDER, marginTop = 10, marginBottom = 10 })
         table.insert(children, UI.Label {
             text = "本月目标",
             fontSize = 14, fontWeight = "bold", color = Theme.COLORS.TEXT_PRIMARY,
             marginBottom = 6,
         })
-        local mColor = monthly.status == "completed" and Theme.COLORS.FINANCE_GREEN
-                    or monthly.status == "failed" and Theme.COLORS.DANGER
-                    or Theme.COLORS.INFO_BLUE
-        local mIcon = monthly.status == "completed" and "✓ " or monthly.status == "failed" and "✗ " or "→ "
-        table.insert(children, UI.Label {
-            text = mIcon .. monthly.text,
-            fontSize = 13, color = mColor, paddingLeft = 4,
-        })
+        for _, monthly in ipairs(monthlies) do
+            local mColor = monthly.status == "completed" and Theme.COLORS.FINANCE_GREEN
+                        or monthly.status == "failed" and Theme.COLORS.DANGER
+                        or Theme.COLORS.INFO_BLUE
+            local mIcon = monthly.status == "completed" and "✓ " or monthly.status == "failed" and "✗ " or "→ "
+            table.insert(children, UI.Label {
+                text = mIcon .. monthly.text,
+                fontSize = 13, color = mColor, paddingLeft = 4, marginBottom = 4,
+            })
+        end
     end
 
     -- 进度条

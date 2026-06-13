@@ -9,6 +9,12 @@ local TrainingManager = require("scripts/systems/training_manager")
 
 local Training = {}
 
+local function _participationColor(factor)
+    if not factor or factor >= 0.99 then return Theme.COLORS.SECONDARY end
+    if factor >= 0.5 then return Theme.COLORS.WARNING end
+    return Theme.COLORS.DANGER
+end
+
 -- 训练重点选项
 local TRAINING_FOCUS_OPTIONS = {
     { key = "balanced",   label = "综合训练", desc = "均衡提升全队能力", icon = "⚖" },
@@ -93,7 +99,7 @@ function Training.create(params)
     -- 内容
     local content
     if _activeTab == "team" then
-        content = Training._buildTeamTab(team, currentFocus, currentIntensity, currentPlan, avgFitness, injuredCount, lowFitnessCount, #players)
+        content = Training._buildTeamTab(gameState, team, currentFocus, currentIntensity, currentPlan, avgFitness, injuredCount, lowFitnessCount, #players)
     elseif _activeTab == "groups" then
         content = Training._buildGroupsTab(team, players, gameState)
     else
@@ -146,7 +152,7 @@ function Training.create(params)
 end
 
 -- 全队训练标签
-function Training._buildTeamTab(team, currentFocus, currentIntensity, currentPlan, avgFitness, injuredCount, lowFitnessCount, playerCount)
+function Training._buildTeamTab(gameState, team, currentFocus, currentIntensity, currentPlan, avgFitness, injuredCount, lowFitnessCount, playerCount)
     -- 状态概览
     local fitnessColor = avgFitness >= 75 and Theme.COLORS.SECONDARY
         or (avgFitness >= 60 and Theme.COLORS.WARNING or Theme.COLORS.DANGER)
@@ -229,6 +235,20 @@ function Training._buildTeamTab(team, currentFocus, currentIntensity, currentPla
     return UI.Panel {
         width = "100%",
         children = {
+            Theme.Card {
+                children = {
+                    Theme.Subtitle { text = "成长与出场" },
+                    UI.Label {
+                        text = "22 岁及以上球员需俱乐部比赛出场才能满效训练；出场越多，训练日效率越高（仅计俱乐部正式赛，换队累计）。",
+                        fontSize = 11, color = Theme.COLORS.TEXT_MUTED, marginTop = 6,
+                    },
+                    UI.Label {
+                        text = "21 岁及以下不受出场限制；青训在同训练日略快于一线队。",
+                        fontSize = 11, color = Theme.COLORS.TEXT_MUTED, marginTop = 4,
+                    },
+                }
+            },
+
             -- 球队状态概览
             Theme.Card {
                 children = {
@@ -332,6 +352,10 @@ function Training._buildIndividualTab(players, gameState)
                 end
             end
 
+            local part = TrainingManager.getParticipationSummary(p, gameState)
+            local partLabel = part.applies and part.shortLabel or part.shortLabel
+            local partColor = part.applies and _participationColor(part.factor) or Theme.COLORS.ACCENT
+
             table.insert(rows, UI.Panel {
                 width = "100%", height = 48,
                 flexDirection = "row", alignItems = "center",
@@ -348,12 +372,16 @@ function Training._buildIndividualTab(players, gameState)
                         flexGrow = 1, flexShrink = 1,
                     },
                     UI.Label {
+                        text = partLabel,
+                        fontSize = 10, color = partColor, width = 72, textAlign = "right",
+                    },
+                    UI.Label {
                         text = tostring(p.overall),
                         fontSize = 12, color = Theme.COLORS.TEXT_SECONDARY, width = 26,
                     },
                     UI.Button {
                         text = focusLabel,
-                        width = 60, height = 28,
+                        width = 56, height = 28,
                         backgroundColor = currentFocus and Theme.COLORS.PRIMARY or {38, 46, 71, 255},
                         borderRadius = 6, fontSize = 11,
                         color = Theme.COLORS.TEXT_PRIMARY,

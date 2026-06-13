@@ -43,15 +43,34 @@ local function assistCount(events, playerId)
     return count
 end
 
-function MatchReport.calculatePlayerRatings(homeContext, awayContext, events, fixture, homeGoals, awayGoals)
+function MatchReport.calculatePlayerRatings(homeContext, awayContext, events, fixture, homeGoals, awayGoals, meta)
+    meta = meta or {}
     local ratings = {}
     local allEntries = {}
 
-    for _, player in ipairs(homeContext.players or {}) do
-        table.insert(allEntries, { player = player, teamId = fixture.homeTeamId, context = homeContext })
+    local function appendFromLineup(ids, context, teamId)
+        if not ids or #ids == 0 then return end
+        local idSet = {}
+        for _, pid in ipairs(ids) do
+            idSet[pid] = true
+        end
+        for _, player in ipairs(context.players or {}) do
+            if idSet[player.id] then
+                table.insert(allEntries, { player = player, teamId = teamId, context = context })
+            end
+        end
     end
-    for _, player in ipairs(awayContext.players or {}) do
-        table.insert(allEntries, { player = player, teamId = fixture.awayTeamId, context = awayContext })
+
+    if meta.ratingLineup then
+        appendFromLineup(meta.ratingLineup.home, homeContext, fixture.homeTeamId)
+        appendFromLineup(meta.ratingLineup.away, awayContext, fixture.awayTeamId)
+    else
+        for _, player in ipairs(homeContext.players or {}) do
+            table.insert(allEntries, { player = player, teamId = fixture.homeTeamId, context = homeContext })
+        end
+        for _, player in ipairs(awayContext.players or {}) do
+            table.insert(allEntries, { player = player, teamId = fixture.awayTeamId, context = awayContext })
+        end
     end
 
     for _, entry in ipairs(allEntries) do
@@ -89,9 +108,10 @@ function MatchReport.calculatePlayerRatings(homeContext, awayContext, events, fi
     return ratings
 end
 
-function MatchReport.build(fixture, homeContext, awayContext, events, simState)
+function MatchReport.build(fixture, homeContext, awayContext, events, simState, meta)
     events = events or {}
     simState = simState or {}
+    meta = meta or {}
     table.sort(events, function(a, b)
         if a.minute == b.minute then
             local priority = { goal = 1, red_card = 2, yellow_card = 3, injury = 4 }
@@ -108,14 +128,15 @@ function MatchReport.build(fixture, homeContext, awayContext, events, simState)
     local awayShotsOnTarget = math.max(awayGoals, simState.awayShotsOnTarget or awayGoals)
     local homePossession = clamp(math.floor((simState.homePossession or 0.5) * 100 + 0.5), 28, 72)
 
-    return {
+    local report = {
         fixtureId = fixture.id,
         homeTeamId = fixture.homeTeamId,
         awayTeamId = fixture.awayTeamId,
         homeGoals = homeGoals,
         awayGoals = awayGoals,
         events = events,
-        playerRatings = MatchReport.calculatePlayerRatings(homeContext, awayContext, events, fixture, homeGoals, awayGoals),
+        playerRatings = MatchReport.calculatePlayerRatings(
+            homeContext, awayContext, events, fixture, homeGoals, awayGoals, meta),
         extraTime = simState.extraTime,
         stats = {
             homeShots = homeShots,
@@ -132,6 +153,12 @@ function MatchReport.build(fixture, homeContext, awayContext, events, simState)
             awayChemistry = math.floor((awayContext.chemistry or 1.0) * 100 + 0.5),
         },
     }
+
+    if meta.appearanceIds then report.appearanceIds = meta.appearanceIds end
+    if meta.ratingLineup then report.ratingLineup = meta.ratingLineup end
+    if meta.substitutions then report.substitutions = meta.substitutions end
+
+    return report
 end
 
 function MatchReport.findMOTM(report)

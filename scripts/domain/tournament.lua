@@ -657,6 +657,13 @@ end
 -- 淘汰赛
 ------------------------------------------------------
 
+--- 标记单场淘汰赛 fixture（欧冠/世界杯/未来国内杯共用）
+--- 90分钟平局 → 加时 → 仍平 → 点球
+function Tournament.markSingleLegKnockout(fixture)
+    fixture.isKnockout = true
+    return fixture
+end
+
 -- 生成淘汰赛对阵（两回合制）
 function Tournament:generateKnockoutRound(phase, matchups, startDate)
     local fixtures = {}
@@ -702,7 +709,7 @@ function Tournament:generateFinal(matchup, finalDate)
     local date = League._alignToWeekday(
         {year = finalDate.year, month = finalDate.month, day = finalDate.day}, 6)  -- 6=周六（决赛传统在周六晚）
     self.knockout.final = {
-        {
+        Tournament.markSingleLegKnockout({
             id = "final_1",
             leg = 1,
             matchIndex = 1,
@@ -712,7 +719,7 @@ function Tournament:generateFinal(matchup, finalDate)
             status = "scheduled",
             homeGoals = 0,
             awayGoals = 0,
-        }
+        })
     }
     self.phase = Tournament.PHASE_FINAL
 end

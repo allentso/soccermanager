@@ -284,6 +284,78 @@ function TransferManager.getPlayerBids(gameState)
     return result
 end
 
+--- 待玩家最终确认的出售（还价已被 AI 接受）
+---@return table[] { bidId, playerId, playerName, buyerName, amount }
+function TransferManager.getPendingSaleConfirmations(gameState, teamId)
+    teamId = teamId or gameState.playerTeamId
+    if not teamId then return {} end
+    TransferManager._ensureData(gameState)
+    local result = {}
+    for _, bid in ipairs(gameState.transfers.bids) do
+        if bid.sellerTeamId == teamId
+            and bid.isIncomingBid
+            and bid.status == "awaiting_sale_confirmation" then
+            local player = gameState.players[bid.playerId]
+            local buyer = gameState.teams[bid.buyerTeamId]
+            table.insert(result, {
+                bidId = bid.id,
+                playerId = bid.playerId,
+                playerName = player and player.displayName or "球员",
+                buyerName = buyer and (buyer.name or buyer.shortName) or "买方",
+                amount = bid.amount,
+            })
+        end
+    end
+    return result
+end
+
+--- 待玩家最终确认的买入（球员已同意加盟）
+---@return table[] { bidId, playerId, playerName, sellerName, amount }
+function TransferManager.getPendingTransferSignConfirmations(gameState, teamId)
+    teamId = teamId or gameState.playerTeamId
+    if not teamId then return {} end
+    TransferManager._ensureData(gameState)
+    local result = {}
+    for _, bid in ipairs(gameState.transfers.bids) do
+        if bid.buyerTeamId == teamId
+            and bid.status == "awaiting_confirmation" then
+            local player = gameState.players[bid.playerId]
+            local seller = bid.sellerTeamId and gameState.teams[bid.sellerTeamId]
+            table.insert(result, {
+                bidId = bid.id,
+                playerId = bid.playerId,
+                playerName = player and player.displayName or "球员",
+                sellerName = seller and (seller.name or seller.shortName) or "卖方",
+                amount = bid.amount,
+            })
+        end
+    end
+    return result
+end
+
+--- 待玩家最终确认的自由球员签约
+---@return table[] { negoId, playerId, playerName, wageOffer, yearsOffer }
+function TransferManager.getPendingFreeAgentSignConfirmations(gameState, teamId)
+    teamId = teamId or gameState.playerTeamId
+    if not teamId then return {} end
+    TransferManager._ensureData(gameState)
+    if not gameState.transfers.freeAgentNegos then return {} end
+    local result = {}
+    for _, nego in ipairs(gameState.transfers.freeAgentNegos) do
+        if nego.teamId == teamId and nego.status == "awaiting_confirmation" then
+            local player = gameState.players[nego.playerId]
+            table.insert(result, {
+                negoId = nego.id,
+                playerId = nego.playerId,
+                playerName = player and player.displayName or "球员",
+                wageOffer = nego.wageOffer,
+                yearsOffer = nego.yearsOffer,
+            })
+        end
+    end
+    return result
+end
+
 -- 获取别队对玩家球队球员的待处理报价（卖方视角）
 function TransferManager.getPendingSellBids(gameState)
     TransferManager._ensureData(gameState)
@@ -588,6 +660,8 @@ function TransferManager._completeTransfer(gameState, bid, opts)
 
     -- 从卖方阵容移除
     TransferManager._removePlayerFromTeam(sellerTeam, player.id)
+    -- 清买方残留青训引用（转会后 isYouth=false 的一线队球员不应留在青训名单）
+    TransferManager._removePlayerFromTeam(buyerTeam, player.id)
 
     -- 加入买方阵容
     table.insert(buyerTeam.playerIds, player.id)
@@ -756,8 +830,10 @@ function TransferManager.processAITransfers(gameState)
     local inWindow = (month >= 6 and month <= 8) or month == 1
     if not inWindow then return end
 
-    -- AI主动挂牌出售多余/老化球员（每周处理）
+    -- AI主动挂牌多余球员（增加市场供给）
     TransferManager._aiListPlayersForSale(gameState)
+    -- AI 挂牌符合画像的年轻/缺勤球员外租（仅转会窗）
+    TransferManager._aiListPlayersForLoan(gameState)
 
     -- 每周每支AI球队有40%概率尝试引援（可多队同时活跃）
     for _, team in pairs(gameState.teams) do
@@ -839,6 +915,133 @@ function TransferManager._aiListPlayersForSale(gameState)
         end
         ::skipTeam::
     end
+end
+
+-- 各角色赛季预期出场（用于判断「缺乏出场」）
+local LOAN_ROLE_SEASON_APPS = {
+    key = 32, rotation = 18, squad = 8, youth = 6,
+}
+
+local AI_LOAN_LIST_MIN_SCORE = 32
+local AI_LOAN_LIST_MAX_AGE = 26
+local AI_LOAN_LIST_MAX_PER_TEAM = 1
+local AI_LOAN_LIST_MAX_GLOBAL = 5
+
+function TransferManager._getSeasonProgress(gameState)
+    local Constants = require("scripts/app/constants")
+    local startMonth = Constants.SEASON_START_MONTH or 8
+    local monthsElapsed = gameState.date.month - startMonth
+    if monthsElapsed < 0 then monthsElapsed = monthsElapsed + 12 end
+    return math.max(0, math.min(1, monthsElapsed / 10))
+end
+
+function TransferManager._isPlayerInStartingXI(team, playerId)
+    for _, pid in ipairs(team.startingXI or {}) do
+        if pid == playerId then return true end
+    end
+    return false
+end
+
+--- 评估 AI 外租挂牌候选（返回分数；不符合画像返回 nil）
+function TransferManager._scoreLoanListingCandidate(gameState, player, team)
+    if not player or not team then return nil end
+    if player.retired or player.injured then return nil end
+    if player.listedForLoan or player.listedForSale or player.squadRole == "loaned" then return nil end
+    if player.squadRole == "key" then return nil end
+
+    local age = player:getAge(gameState.date.year)
+    if age > AI_LOAN_LIST_MAX_AGE then return nil end
+
+    local ovr = player.overall or 50
+    if ovr >= 76 then return nil end
+
+    local pot = player.actualPotential or player.potential or ovr
+    local potGap = pot - ovr
+    local role = player.squadRole or "squad"
+    local inXI = TransferManager._isPlayerInStartingXI(team, player.id)
+    local apps = (player.seasonStats and player.seasonStats.appearances) or 0
+    local progress = TransferManager._getSeasonProgress(gameState)
+    local expectedByNow = math.floor((LOAN_ROLE_SEASON_APPS[role] or 8) * progress + 0.5)
+
+    local isYoung = age <= 23
+    local isProspect = potGap >= 5 or (isYoung and potGap >= 3)
+    local isYouthRole = role == "youth" and age <= 21
+    local lacksTime = false
+    if not inXI then
+        if progress >= 0.15 and apps < math.max(1, math.floor(expectedByNow * 0.35)) then
+            lacksTime = true
+        elseif (role == "squad" or role == "youth" or role == "rotation")
+            and apps < math.max(2, math.floor(expectedByNow * 0.5)) then
+            lacksTime = true
+        end
+    end
+
+    -- 必须满足：年轻有潜力 / 青训定位 / 明显缺勤 之一
+    if not isProspect and not isYouthRole and not lacksTime then return nil end
+    -- 24+ 且无出场问题、潜力不足 → 不挂牌
+    if age >= 24 and not lacksTime and potGap < 4 then return nil end
+
+    local score = 0
+    if isYoung then score = score + 12 end
+    if age <= 21 then score = score + 8 end
+    if isYouthRole then score = score + 22 end
+    if potGap >= 10 then score = score + 18
+    elseif potGap >= 6 then score = score + 12
+    elseif potGap >= 3 then score = score + 6 end
+    if lacksTime then score = score + 20 end
+    if not inXI then score = score + 10 end
+    if apps == 0 and progress >= 0.1 then score = score + 8 end
+    if role == "squad" or role == "rotation" then score = score + 5 end
+    -- 能力越低越愿意外租锻炼
+    if ovr < 62 then score = score + 6
+    elseif ovr < 68 then score = score + 3 end
+
+    if score < AI_LOAN_LIST_MIN_SCORE then return nil end
+    return score
+end
+
+--- AI 在转会窗内挂牌外租候选（按画像评分，非随机）
+function TransferManager._aiListPlayersForLoan(gameState)
+    if not TransferManager.isInTransferWindow(gameState) then return end
+
+    local globalListed = 0
+    for _, team in pairs(gameState.teams) do
+        if team.id == gameState.playerTeamId then goto skipTeam end
+        if globalListed >= AI_LOAN_LIST_MAX_GLOBAL then break end
+
+        local candidates = {}
+        for _, pid in ipairs(team.playerIds or {}) do
+            local p = gameState.players[pid]
+            local score = p and TransferManager._scoreLoanListingCandidate(gameState, p, team)
+            if score then
+                table.insert(candidates, { player = p, score = score })
+            end
+        end
+
+        if #candidates == 0 then goto skipTeam end
+
+        table.sort(candidates, function(a, b)
+            if a.score ~= b.score then return a.score > b.score end
+            return (a.player.overall or 0) < (b.player.overall or 0)
+        end)
+
+        for i = 1, math.min(AI_LOAN_LIST_MAX_PER_TEAM, #candidates) do
+            if globalListed >= AI_LOAN_LIST_MAX_GLOBAL then break end
+            local entry = candidates[i]
+            local p = entry.player
+            local pAge = p:getAge(gameState.date.year)
+            p.listedForLoan = true
+            p.loanListDuration = (pAge <= 21) and 52 or 26
+            globalListed = globalListed + 1
+        end
+
+        ::skipTeam::
+    end
+end
+
+--- 兼容旧调用点（内部仍受转会窗约束）
+function TransferManager.processAILoanListings(gameState)
+    TransferManager._aiListPlayersForLoan(gameState)
 end
 
 --- 评估球队需求（返回需要的位置和是否为升级模式）
@@ -1033,6 +1236,7 @@ function TransferManager._executeAITransfer(gameState, buyerTeam, player)
         FinanceManager.processTransferIn(gameState, sellerTeam.id, offerAmount, player.displayName or player.firstName)
     end
 
+    TransferManager._removePlayerFromTeam(buyerTeam, player.id)
     table.insert(buyerTeam.playerIds, player.id)
     player.teamId = buyerTeam.id
     player.listedForSale = false
@@ -1355,6 +1559,7 @@ function TransferManager._completeIncomingSale(gameState, bid)
 
     -- 移出卖方球队
     TransferManager._removePlayerFromTeam(sellerTeam, player.id)
+    TransferManager._removePlayerFromTeam(buyerTeam, player.id)
 
     table.insert(buyerTeam.playerIds, player.id)
     player.teamId = buyerTeam.id
@@ -1481,7 +1686,7 @@ function TransferManager.makeLoanBid(gameState, playerId, duration)
     if player.teamId == gameState.playerTeamId then return nil, "不能租借自己的球员" end
 
     -- 租借费 = 周薪 × 租期周数 × 0.5
-    duration = duration or 26  -- 默认半赛季（26周）
+    duration = duration or player.loanListDuration or 26
     local loanFee = math.floor(player.wage * duration * 0.5)
 
     local bid = {
@@ -1596,12 +1801,17 @@ function TransferManager._completeLoan(gameState, bid)
 end
 
 --- 返还租借球员
-function TransferManager._returnLoanPlayer(gameState, loan)
+---@param opts table|nil { reason = "recall"|nil }
+function TransferManager._returnLoanPlayer(gameState, loan, opts)
+    opts = opts or {}
     local player = gameState.players[loan.playerId]
     if not player then return end
 
     local loanTeam = gameState.teams[loan.loanTeamId]
     local originTeam = gameState.teams[loan.originTeamId]
+
+    player.listedForLoan = false
+    player.loanListDuration = nil
 
     -- 从租借球队移除
     if loanTeam then
@@ -1627,21 +1837,21 @@ function TransferManager._returnLoanPlayer(gameState, loan)
     end
     player:calculateValue(gameState.date.year)
 
-    -- 通知（如果涉及玩家球队）
     if loan.loanTeamId == gameState.playerTeamId then
+        local title = opts.reason == "recall" and "租借结束（召回）" or "租借到期"
         gameState:sendMessage({
             category = "transfer",
-            title = "租借到期",
+            title = title,
             body = string.format("%s 的租借期已满，已返回 %s。",
                 player.displayName, originTeam and originTeam.name or "原球队"),
             priority = "normal",
         })
-    elseif loan.originTeamId == gameState.playerTeamId then
+    elseif opts.reason == "recall" and loan.originTeamId == gameState.playerTeamId then
         gameState:sendMessage({
             category = "transfer",
-            title = "球员归队",
-            body = string.format("%s 的租借期已满，已返回球队。", player.displayName),
-            priority = "normal",
+            title = "球员已召回",
+            body = string.format("%s 已被提前召回。", player.displayName),
+            priority = "high",
         })
     end
 end
@@ -2277,6 +2487,151 @@ function TransferManager.getFreeAgents(gameState, positionFilter)
     return result
 end
 
+--- 格式化租借剩余时间（天 → 周，向上取整）
+function TransferManager.formatLoanRemainingWeeks(loan)
+    if not loan then return "?" end
+    local days = loan.remainingDays
+    if days == nil and loan.remainingWeeks then
+        days = loan.remainingWeeks * 7
+    end
+    if not days then return "?" end
+    return math.max(1, math.ceil(days / 7))
+end
+
+--- 查找球员当前活跃租借记录
+function TransferManager.getLoanForPlayer(gameState, playerId)
+    for _, loan in ipairs(gameState._activeLoans or {}) do
+        if loan.playerId == playerId then return loan end
+    end
+    return nil
+end
+
+--- 挂牌外租（出租方）
+function TransferManager.listForLoan(gameState, player, durationWeeks)
+    if not player or not gameState then return false, "无效球员" end
+    if player.teamId ~= gameState.playerTeamId then return false, "只能挂牌本队球员" end
+    if player.squadRole == "loaned" then return false, "球员已在外租" end
+    if player.listedForSale then return false, "请先取消出售挂牌" end
+    if player.injured then
+        return false, player:getInjuryBlockReason() or "伤员无法挂牌外租"
+    end
+
+    local windowOk, windowErr = TransferManager._checkTransferWindow(gameState)
+    if not windowOk then return false, windowErr end
+
+    player.listedForLoan = true
+    player.loanListDuration = durationWeeks or 26
+    player.listedForSale = false
+
+    gameState:sendMessage({
+        category = "transfer",
+        title = player.displayName .. " 已挂牌外租",
+        body = string.format("%s 已开放租借（默认 %d 周），等待其他球队报价。",
+            player.displayName, player.loanListDuration or 26),
+        priority = "normal",
+    })
+    return true
+end
+
+--- 取消外租挂牌
+function TransferManager.delistLoan(player)
+    if not player then return end
+    player.listedForLoan = false
+    player.loanListDuration = nil
+end
+
+--- 转会窗关闭后自动下架所有外租挂牌（窗内可挂牌，窗外不可展示/成交）
+---@param opts table|nil { silent = boolean } 读档自愈时不发通知
+---@return number delisted 下架人数
+---@return number myDelisted 玩家球队下架人数
+function TransferManager.clearLoanListingsOutsideWindow(gameState, opts)
+    opts = opts or {}
+    if not gameState or TransferManager.isInTransferWindow(gameState) then
+        return 0, 0
+    end
+
+    local delisted = 0
+    local myDelisted = 0
+    for _, player in pairs(gameState.players or {}) do
+        if player.listedForLoan then
+            local isMine = player.teamId == gameState.playerTeamId
+            TransferManager.delistLoan(player)
+            delisted = delisted + 1
+            if isMine then myDelisted = myDelisted + 1 end
+        end
+    end
+
+    if not opts.silent and myDelisted > 0 then
+        gameState:sendMessage({
+            category = "transfer",
+            title = "外租挂牌已下架",
+            body = string.format(
+                "转会窗口已关闭，你球队的 %d 名外租挂牌已自动下架。下次开窗后可重新挂牌。",
+                myDelisted),
+            priority = "normal",
+        })
+    end
+
+    return delisted, myDelisted
+end
+
+--- 出租方强制召回（提前结束租期）
+function TransferManager.recallLoan(gameState, playerId)
+    TransferManager._ensureData(gameState)
+    local loan = TransferManager.getLoanForPlayer(gameState, playerId)
+    if not loan then return false, "未找到活跃租借" end
+    if loan.originTeamId ~= gameState.playerTeamId then
+        return false, "只有出租方可召回球员"
+    end
+
+    TransferManager._returnLoanPlayer(gameState, loan, { reason = "recall" })
+    for i, l in ipairs(gameState._activeLoans) do
+        if l.playerId == playerId then
+            table.remove(gameState._activeLoans, i)
+            break
+        end
+    end
+
+    return true
+end
+
+--- 租借方续租（延长租期）
+function TransferManager.extendLoan(gameState, playerId, extraWeeks)
+    TransferManager._ensureData(gameState)
+    extraWeeks = extraWeeks or 26
+    local loan = TransferManager.getLoanForPlayer(gameState, playerId)
+    if not loan then return false, "未找到活跃租借" end
+    if loan.loanTeamId ~= gameState.playerTeamId then
+        return false, "只有当前租用方可续租"
+    end
+
+    local player = gameState.players[playerId]
+    local fee = player and math.floor((player.wage or 0) * extraWeeks * 0.35) or 0
+    local team = gameState.teams[gameState.playerTeamId]
+    if team and fee > 0 and team.balance < fee then
+        return false, "余额不足以支付续租费用"
+    end
+
+    loan.remainingDays = (loan.remainingDays or 0) + extraWeeks * 7
+    if team and fee > 0 then
+        team.balance = team.balance - fee
+        team.seasonExpense = (team.seasonExpense or 0) + fee
+        local originTeam = gameState.teams[loan.originTeamId]
+        if originTeam then
+            originTeam.balance = originTeam.balance + fee
+            originTeam.seasonIncome = (originTeam.seasonIncome or 0) + fee
+        end
+    end
+
+    gameState:sendMessage({
+        category = "transfer",
+        title = "续租成功",
+        body = string.format("%s 租期延长 %d 周。", player and player.displayName or "球员", extraWeeks),
+        priority = "normal",
+    })
+    return true
+end
+
 --- 获取活跃租借列表
 function TransferManager.getActiveLoans(gameState)
     return gameState._activeLoans or {}
@@ -2541,6 +2896,7 @@ function TransferManager._acceptPushSale(gameState, bid)
 
     -- 从卖方移除
     TransferManager._removePlayerFromTeam(sellerTeam, player.id)
+    TransferManager._removePlayerFromTeam(buyerTeam, player.id)
     TransferManager._settleTransferFee(gameState, buyerTeam, sellerTeam, bid, player)
 
     -- 加入买方
@@ -2698,6 +3054,13 @@ function TransferManager.getPlayerTransferAttitude(gameState, playerId, targetTe
 
     -- 挂牌出售的球员更愿意走
     if player.listedForSale then willingness = willingness + 20 end
+
+    -- 死敌关系：球员强烈拒绝
+    if targetTeam and player.teamId then
+        if TransferManager._isRivalry(gameState, player.teamId, targetTeamId) then
+            return "refusing", "不愿去死敌球队"
+        end
+    end
 
     -- 转为态度分级
     if willingness >= 75 then return "eager", "迫切想离开"
@@ -3138,6 +3501,7 @@ function TransferManager.processPreContracts(gameState)
                 -- 加入新球队
                 local newTeam = gameState.teams[nego.teamId]
                 if newTeam then
+                    TransferManager._removePlayerFromTeam(newTeam, player.id)
                     table.insert(newTeam.playerIds, player.id)
                     player.teamId = nego.teamId
                     player.wage = nego.wageOffer
@@ -3287,12 +3651,36 @@ end
 
 --- 检查两队是否为敌对关系
 function TransferManager._isRivalry(gameState, teamId1, teamId2)
+    if not teamId1 or not teamId2 or teamId1 == teamId2 then return false end
     if not gameState._teamRelations then return false end
     local key = teamId1 < teamId2
         and (teamId1 .. "_" .. teamId2)
         or (teamId2 .. "_" .. teamId1)
     local rel = gameState._teamRelations[key]
     return rel and rel <= -50  -- -100 ~ +100，-50以下视为敌对
+end
+
+--- 公开 API：是否死敌
+function TransferManager.isRivalry(gameState, teamId1, teamId2)
+    return TransferManager._isRivalry(gameState, teamId1, teamId2)
+end
+
+--- 获取球队的所有死敌 teamId 列表
+function TransferManager.getRivalTeams(gameState, teamId)
+    local rivals = {}
+    if not gameState._teamRelations or not teamId then return rivals end
+    for key, rel in pairs(gameState._teamRelations) do
+        if rel <= -50 then
+            local id1, id2 = key:match("^(%d+)_(%d+)$")
+            id1, id2 = tonumber(id1), tonumber(id2)
+            if id1 == teamId then
+                table.insert(rivals, id2)
+            elseif id2 == teamId then
+                table.insert(rivals, id1)
+            end
+        end
+    end
+    return rivals
 end
 
 --- 设置球队关系（初始化/事件触发）
@@ -3397,7 +3785,7 @@ end
 function TransferManager.processDailyBids(gameState)
     TransferManager._ensureData(gameState)
 
-    -- 转会窗口关闭时，自动取消所有未完成的俱乐部间交易
+    -- 转会窗口关闭时，自动取消所有未完成的俱乐部间交易，并下架外租挂牌
     if not TransferManager.isInTransferWindow(gameState) then
         local cancelledCount = 0
         for _, bid in ipairs(gameState.transfers.bids) do
@@ -3423,6 +3811,7 @@ function TransferManager.processDailyBids(gameState)
                 priority = "high",
             })
         end
+        TransferManager.clearLoanListingsOutsideWindow(gameState)
         -- 窗口关闭后仍然处理自由球员相关逻辑，但俱乐部间交易不再推进
         -- 下方的处理循环只作用于仍有效的 bid，已 cancelled 的会跳过
     end
@@ -3632,17 +4021,46 @@ function TransferManager.getActiveBids(gameState)
     return activeBids
 end
 
---- 挂牌出售球员
+--- 挂牌出售球员（一线队或青训队已签入球员）
 ---@param gameState table
 ---@param player table
+---@return boolean success
+---@return string|nil error
 function TransferManager.listForSale(gameState, player)
+    if not gameState or not player then return false, "无效球员" end
+
+    local YouthManager = require("scripts/systems/youth_manager")
+    local isYouthSquad = YouthManager.isYouthSquadPlayer(gameState, player)
+    local myTeamId = gameState.playerTeamId
+
+    if isYouthSquad then
+        if player.teamId ~= myTeamId then
+            return false, "只能挂牌本队青训球员"
+        end
+    elseif player.teamId ~= myTeamId then
+        return false, "只能挂牌本队球员"
+    end
+
+    if player.squadRole == "loaned" then return false, "外租中球员无法挂牌" end
+    if player.listedForLoan then return false, "请先取消外租挂牌" end
+    if player.injured then
+        return false, player:getInjuryBlockReason() or "伤员无法挂牌出售"
+    end
+
+    local windowOk, windowErr = TransferManager._checkTransferWindow(gameState)
+    if not windowOk then return false, windowErr end
+
     player.listedForSale = true
+    player.listedForLoan = false
     gameState:sendMessage({
         category = "transfer",
         title = player.displayName .. " 已挂牌",
-        body = player.displayName .. " 已被挂牌出售，等待买家报价。",
+        body = isYouthSquad
+            and string.format("%s 已被挂牌出售（青训），等待买家报价。", player.displayName)
+            or string.format("%s 已被挂牌出售，等待买家报价。", player.displayName),
         priority = "normal",
     })
+    return true
 end
 
 --- 取消挂牌

@@ -156,8 +156,7 @@ local function forEachKnownArray(gs, fn)
         if type(t) == "table" then
             visit(t.playerIds, "team.playerIds")
             visit(t.staffIds, "team.staffIds")
-            visit(t.startingXI, "team.startingXI")
-            visit(t.benchIds, "team.benchIds")
+            -- startingXI / benchIds 为槽位索引表，空洞是合法语义，不可压实
             visit(t.recentForm, "team.recentForm")
             visit(t.transactions, "team.transactions")
         end

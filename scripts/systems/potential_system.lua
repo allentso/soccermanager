@@ -215,6 +215,10 @@ function PotentialSystem.initializeAllPlayers(gameState)
         count = count + 1
     end
 
+    for _, player in pairs(gameState.players) do
+        player:clampToPotentialCaps()
+    end
+
     log:Write(LOG_INFO, string.format(
         "PotentialSystem: 已为 %d 名球员初始化潜力系统 (seed=%d)", count, baseSeed))
 end

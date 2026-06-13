@@ -425,6 +425,10 @@ function MatchResult._buildGoalsReview(report, gameState, homeName, awayName)
             goalIcon = "⚽"
         elseif evt.isPenalty then
             goalTag = " (点球)"
+        elseif evt.setPieceKind == "corner" then
+            goalTag = " (角球)"
+        elseif evt.setPieceKind == "free_kick" then
+            goalTag = " (任意球)"
         end
 
         local assistText = ""
@@ -636,7 +640,11 @@ function MatchResult._buildEventsTimeline(report, gameState)
             evtColor = Theme.COLORS.DANGER
         elseif evt.type == "injury" then
             icon = "🏥"
-            text = pName .. string.format(" (伤%d天)", evt.injuryDays or 0)
+            if evt.injuryKindName then
+                text = pName .. string.format(" (%s·%d天)", evt.injuryKindName, evt.injuryDays or 0)
+            else
+                text = pName .. string.format(" (伤%d天)", evt.injuryDays or 0)
+            end
             evtColor = Theme.COLORS.DANGER
         end
 
@@ -693,6 +701,31 @@ end
 function MatchResult._buildPlayerRatings(report, gameState, fixture)
     if not report.playerRatings then return nil end
 
+    -- 优先使用终场名单（含替补上场），排除已换下球员
+    local ratingFilter = nil
+    if report.ratingLineup then
+        local sideKey = nil
+        if fixture and fixture._isWC then
+            local WorldCup = require("scripts/systems/world_cup")
+            local playerNation = WorldCup._getPlayerNation(gameState)
+            if playerNation == report.homeTeamId then
+                sideKey = "home"
+            elseif playerNation == report.awayTeamId then
+                sideKey = "away"
+            end
+        elseif gameState.playerTeamId == report.homeTeamId then
+            sideKey = "home"
+        elseif gameState.playerTeamId == report.awayTeamId then
+            sideKey = "away"
+        end
+        if sideKey then
+            ratingFilter = {}
+            for _, pid in ipairs(report.ratingLineup[sideKey] or {}) do
+                ratingFilter[pid] = true
+            end
+        end
+    end
+
     -- 确定玩家方的球员ID集合
     local playerPidSet = nil
     if fixture and fixture._isWC then
@@ -710,6 +743,7 @@ function MatchResult._buildPlayerRatings(report, gameState, fixture)
     local ratedPlayers = {}
     -- 收集玩家球队出场球员的评分
     for pid, rating in pairs(report.playerRatings) do
+        if ratingFilter and not ratingFilter[pid] then goto continue_rating end
         local p = gameState.players[pid]
         local belongs = false
         if playerPidSet then
@@ -720,6 +754,7 @@ function MatchResult._buildPlayerRatings(report, gameState, fixture)
         if p and belongs then
             table.insert(ratedPlayers, { player = p, rating = rating })
         end
+        ::continue_rating::
     end
 
     if #ratedPlayers == 0 then return nil end

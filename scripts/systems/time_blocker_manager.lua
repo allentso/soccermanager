@@ -1,6 +1,6 @@
 -- systems/time_blocker_manager.lua
 -- 时间推进阻断管理器：检查是否有阻止推进时间的条件
--- 7 个阻断条件，分为 warn（必须处理）和 info（可跳过）
+-- warn=必须处理 info=提示可跳过
 
 local Constants = require("scripts/app/constants")
 
@@ -10,7 +10,8 @@ local TimeBlockerManager = {}
 ---@field id string 阻断器标识
 ---@field severity "warn"|"info" warn=阻断 info=提示可跳过
 ---@field message string 显示文本
----@field target string 导航目标（squad/finance/inbox）
+---@field target string 导航目标
+---@field targetParams table|nil 路由参数
 
 ------------------------------------------------------
 -- 核心接口：计算当前所有阻断项
@@ -19,6 +20,13 @@ local TimeBlockerManager = {}
 ---@return Blocker[]
 function TimeBlockerManager.check(gameState)
     local blockers = {}
+
+    -- 不依赖球队的决策类阻断（失业 / 国家队邀请等）
+    TimeBlockerManager._checkJobOfferPending(gameState, blockers)
+    TimeBlockerManager._checkNTCoachInvitePending(gameState, blockers)
+    TimeBlockerManager._checkNTSquadUnconfirmed(gameState, blockers)
+    TimeBlockerManager._checkManagerRenewalPending(gameState, blockers)
+
     local team = gameState:getPlayerTeam()
     if not team then return blockers end
 
@@ -40,14 +48,20 @@ function TimeBlockerManager.check(gameState)
     -- 6. 工资预算风险：总工资超出预算 120%
     TimeBlockerManager._checkWageBudgetRisk(gameState, team, blockers)
 
-    -- 7. 紧急未读消息：高优先级消息未处理
-    TimeBlockerManager._checkUrgentMessages(gameState, team, blockers)
-
-    -- 8. 赛季目标未设定
+    -- 7. 赛季目标未设定
     TimeBlockerManager._checkObjectivesNotSet(gameState, team, blockers)
 
-    -- 9. 赞助合同未选择（赛季初必须处理）
+    -- 8. 赞助合同未选择（赛季初必须处理）
     TimeBlockerManager._checkSponsorContract(gameState, team, blockers)
+
+    -- 9. 出售待最终确认
+    TimeBlockerManager._checkSaleConfirmationPending(gameState, team, blockers)
+
+    -- 10. 买入待最终确认
+    TimeBlockerManager._checkTransferSignPending(gameState, team, blockers)
+
+    -- 11. 自由球员待最终确认
+    TimeBlockerManager._checkFreeAgentSignPending(gameState, team, blockers)
 
     return blockers
 end
@@ -81,7 +95,6 @@ function TimeBlockerManager._checkInjuredXI(gameState, team, blockers)
     end
 
     if #injuredNames > 0 then
-        -- 仅当明天有比赛时才阻断
         if TimeBlockerManager._hasMatchTomorrow(gameState) then
             table.insert(blockers, {
                 id = "injured_xi",
@@ -100,7 +113,6 @@ function TimeBlockerManager._checkIncompleteXI(gameState, team, blockers)
     local startCount = team.startingXI and #team.startingXI or 0
     if startCount >= 11 then return end
 
-    -- 计算可用球员数（未伤 + 未退）
     local available = 0
     for _, pid in ipairs(team.playerIds) do
         local p = gameState.players[pid]
@@ -109,7 +121,6 @@ function TimeBlockerManager._checkIncompleteXI(gameState, team, blockers)
         end
     end
 
-    -- 如果可用球员本身 < 11，升级为 squad_size_crisis
     if available < 11 then return end
 
     if TimeBlockerManager._hasMatchTomorrow(gameState) then
@@ -148,7 +159,6 @@ end
 function TimeBlockerManager._checkPlannedExitCrisis(gameState, team, blockers)
     local TransferManager = require("scripts/systems/transfer_manager")
 
-    -- 检查已接受的出售/租借（尚未执行）
     local pendingExits = 0
     if TransferManager.getAcceptedOutgoingDeals then
         local deals = TransferManager.getAcceptedOutgoingDeals(gameState, team.id)
@@ -174,7 +184,6 @@ end
 function TimeBlockerManager._checkKeyContractRisk(gameState, team, blockers)
     if not team.startingXI or #team.startingXI == 0 then return end
 
-    -- 按 OVR 排序首发
     local starters = {}
     for _, pid in ipairs(team.startingXI or {}) do
         local p = gameState.players[pid]
@@ -182,7 +191,6 @@ function TimeBlockerManager._checkKeyContractRisk(gameState, team, blockers)
     end
     table.sort(starters, function(a, b) return (a.overall or 0) > (b.overall or 0) end)
 
-    -- 检查前 3 名是否有合同 <= 3 月
     local atRisk = {}
     local checkCount = math.min(3, #starters)
     for i = 1, checkCount do
@@ -212,7 +220,6 @@ function TimeBlockerManager._checkWageBudgetRisk(gameState, team, blockers)
     local health = FinanceManager.getFinanceHealth(gameState, team.id)
 
     if type(health) == "table" then
-        -- getFinanceHealth 返回详情表
         if health.wagePct and health.wagePct > 120 then
             table.insert(blockers, {
                 id = "contract_wage_risk",
@@ -222,7 +229,6 @@ function TimeBlockerManager._checkWageBudgetRisk(gameState, team, blockers)
             })
         end
     elseif health == "critical" then
-        -- 兼容旧返回模式
         table.insert(blockers, {
             id = "contract_wage_risk",
             severity = "warn",
@@ -232,23 +238,169 @@ function TimeBlockerManager._checkWageBudgetRisk(gameState, team, blockers)
     end
 end
 
---- 7. 紧急未读消息
-function TimeBlockerManager._checkUrgentMessages(gameState, team, blockers)
-    local urgentCount = 0
-    for _, msg in ipairs(gameState.inbox) do
-        if not msg.read and msg.priority == "high" then
-            urgentCount = urgentCount + 1
-        end
-    end
+--- 7. 赛季目标未设定
+function TimeBlockerManager._checkObjectivesNotSet(gameState, team, blockers)
+    if not gameState.league or not gameState.league.standings then return end
+    if gameState.objectives then return end
 
-    if urgentCount >= 3 then
+    table.insert(blockers, {
+        id = "objectives_not_set",
+        severity = "warn",
+        message = "赛季目标未设定，请先与董事会确认本赛季目标",
+        target = "dashboard",
+        targetParams = { action = "set_objectives" },
+    })
+end
+
+--- 8. 赞助合同未选择
+function TimeBlockerManager._checkSponsorContract(gameState, team, blockers)
+    local FinanceManager = require("scripts/systems/finance_manager")
+    if FinanceManager.hasPendingSponsorChoice(team) then
         table.insert(blockers, {
-            id = "urgent_messages",
-            severity = "info",
-            message = string.format("%d 条紧急消息未处理", urgentCount),
-            target = "inbox",
+            id = "sponsor_contract",
+            severity = "warn",
+            message = "新赛季赞助合同待签署，请选择赞助商方案",
+            target = "sponsor_select",
         })
     end
+end
+
+--- 9. 董事会续约提议待回复
+function TimeBlockerManager._checkManagerRenewalPending(gameState, blockers)
+    if gameState._isUnemployed then return end
+    if not gameState._managerRenewalOffer then return end
+
+    table.insert(blockers, {
+        id = "manager_renewal_pending",
+        severity = "warn",
+        message = "董事会向你发出了续约提议，请前往我的资料回复",
+        target = "manager_view",
+    })
+end
+
+--- 10. 失业状态下主教练邀约待回复
+function TimeBlockerManager._checkJobOfferPending(gameState, blockers)
+    local JobManager = require("scripts/systems/job_manager")
+    local count = JobManager.getPendingOfferCount(gameState)
+    if count <= 0 then return end
+
+    table.insert(blockers, {
+        id = "job_offer_pending",
+        severity = "warn",
+        message = count == 1
+            and "有 1 份主教练邀约待回复，请前往我的资料处理"
+            or string.format("有 %d 份主教练邀约待回复，请前往我的资料处理", count),
+        target = "manager_view",
+        targetParams = { focus = "jobs" },
+    })
+end
+
+--- 11. 出售待最终确认
+function TimeBlockerManager._checkSaleConfirmationPending(gameState, team, blockers)
+    local TransferManager = require("scripts/systems/transfer_manager")
+    local pending = TransferManager.getPendingSaleConfirmations(gameState, team.id)
+    if #pending == 0 then return end
+
+    local first = pending[1]
+    local message
+    if #pending == 1 then
+        message = string.format("出售 %s 的报价（%s）待你最终确认",
+            first.playerName, first.buyerName or "买方")
+    else
+        message = string.format("%s 等 %d 笔出售待最终确认", first.playerName, #pending)
+    end
+
+    table.insert(blockers, {
+        id = "sale_confirmation_pending",
+        severity = "warn",
+        message = message,
+        target = "market",
+        targetParams = { tab = "listed", highlightBidId = first.bidId },
+    })
+end
+
+--- 12. 买入待最终确认
+function TimeBlockerManager._checkTransferSignPending(gameState, team, blockers)
+    local TransferManager = require("scripts/systems/transfer_manager")
+    local pending = TransferManager.getPendingTransferSignConfirmations(gameState, team.id)
+    if #pending == 0 then return end
+
+    local first = pending[1]
+    local message
+    if #pending == 1 then
+        message = string.format("签入 %s 的转会待你最终确认", first.playerName)
+    else
+        message = string.format("%s 等 %d 笔签入待最终确认", first.playerName, #pending)
+    end
+
+    table.insert(blockers, {
+        id = "transfer_sign_pending",
+        severity = "warn",
+        message = message,
+        target = "market",
+        targetParams = { tab = "my_bids", highlightBidId = first.bidId },
+    })
+end
+
+--- 13. 自由球员待最终确认
+function TimeBlockerManager._checkFreeAgentSignPending(gameState, team, blockers)
+    local TransferManager = require("scripts/systems/transfer_manager")
+    local pending = TransferManager.getPendingFreeAgentSignConfirmations(gameState, team.id)
+    if #pending == 0 then return end
+
+    local first = pending[1]
+    local message
+    if #pending == 1 then
+        message = string.format("自由球员 %s 待你最终确认签入", first.playerName)
+    else
+        message = string.format("%s 等 %d 名自由球员待最终确认", first.playerName, #pending)
+    end
+
+    table.insert(blockers, {
+        id = "free_agent_sign_pending",
+        severity = "warn",
+        message = message,
+        target = "market",
+        targetParams = { tab = "free", highlightNegoId = first.negoId },
+    })
+end
+
+--- 14. 国家队主教练邀请待回复
+function TimeBlockerManager._checkNTCoachInvitePending(gameState, blockers)
+    local WorldCup = require("scripts/systems/world_cup")
+    if not WorldCup.hasPendingCoachInvite(gameState) then return end
+
+    local pending = gameState._pendingNTCoachOffers
+    local count = pending and pending.nations and #pending.nations or 0
+    local targetParams = { tab = "all" }
+    if pending and pending.inviteMessageId then
+        targetParams.openMessageId = pending.inviteMessageId
+    end
+
+    table.insert(blockers, {
+        id = "nt_coach_invite_pending",
+        severity = "warn",
+        message = count <= 1
+            and "国家队向你发出主教练邀请，请回复是否接受"
+            or string.format("%d 支国家队向你发出执教邀请，请回复是否接受", count),
+        target = "inbox",
+        targetParams = targetParams,
+    })
+end
+
+--- 15. 世界杯大名单未确认（开幕前 7 天内）
+function TimeBlockerManager._checkNTSquadUnconfirmed(gameState, blockers)
+    local WorldCup = require("scripts/systems/world_cup")
+    local needs, nation, daysLeft = WorldCup.needsSquadConfirmationBlock(gameState)
+    if not needs then return end
+
+    table.insert(blockers, {
+        id = "nt_squad_unconfirmed",
+        severity = "warn",
+        message = string.format("世界杯 %d 天后开幕，国家队大名单尚未确认", daysLeft or 0),
+        target = "national_squad_select",
+        targetParams = { nation = nation },
+    })
 end
 
 ------------------------------------------------------
@@ -268,34 +420,6 @@ function TimeBlockerManager._hasMatchTomorrow(gameState)
         end
     end
     return false
-end
-
---- 8. 赛季目标未设定
-function TimeBlockerManager._checkObjectivesNotSet(gameState, team, blockers)
-    -- 仅在赛季已开始时才阻断（避免世界生成阶段误触）
-    if not gameState.league or not gameState.league.standings then return end
-    if gameState.objectives then return end  -- 已设定则跳过
-
-    table.insert(blockers, {
-        id = "objectives_not_set",
-        severity = "warn",
-        message = "赛季目标未设定，请先与董事会确认本赛季目标",
-        target = "dashboard",
-        targetParams = { action = "set_objectives" },
-    })
-end
-
---- 9. 赞助合同未选择
-function TimeBlockerManager._checkSponsorContract(gameState, team, blockers)
-    local FinanceManager = require("scripts/systems/finance_manager")
-    if FinanceManager.hasPendingSponsorChoice(team) then
-        table.insert(blockers, {
-            id = "sponsor_contract",
-            severity = "warn",
-            message = "新赛季赞助合同待签署，请选择赞助商方案",
-            target = "sponsor_select",
-        })
-    end
 end
 
 return TimeBlockerManager

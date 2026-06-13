@@ -176,6 +176,7 @@ function NationalSquadSelect.create(params)
             alignItems = "center",
             onClick = function()
                 if isLocked then return end  -- 已确认，不允许修改
+                if not isSelected and p.injured then return end
                 if isSelected then
                     -- 取消选中门将时检查：如果当前门将已经<=3，不允许取消
                     if p.position == "GK" and countSelectedGK() <= MIN_GK then
@@ -261,7 +262,9 @@ function NationalSquadSelect.create(params)
                 },
                 -- 伤病标记
                 UI.Label {
-                    text = p.injured and "🤕" or "",
+                    text = p.injured
+                        and (p.injurySeasonEnding and "🚫" or "🤕")
+                        or "",
                     fontSize = 12,
                     width = 20,
                     textAlign = "center",

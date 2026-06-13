@@ -146,6 +146,15 @@ function ManagerView.create(params)
                 local cD = c.stats.draws or 0
                 local cL = c.stats.losses or 0
                 statsText = tostring(cW) .. "胜 " .. tostring(cD) .. "平 " .. tostring(cL) .. "负"
+                local reasonLabels = {
+                    sacked = "解雇",
+                    resigned = "辞职",
+                    relegated = "降级解约",
+                    contract_expired = "合同到期",
+                }
+                if c.stats.reason then
+                    statsText = statsText .. " · " .. (reasonLabels[c.stats.reason] or c.stats.reason)
+                end
             end
             table.insert(careerRows, UI.Panel {
                 width = "100%", paddingVertical = 8,

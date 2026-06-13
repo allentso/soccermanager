@@ -6,6 +6,142 @@ local Constants = require("scripts/app/constants")
 local Team = {}
 Team.__index = Team
 
+-- 槽位表/ID 表：JSON 反序列化后键可能变字符串，统一为数字键
+local function normalizeIntegerKeyTable(raw, valueAsNumber)
+    if type(raw) ~= "table" then return {} end
+    local out = {}
+    for k, v in pairs(raw) do
+        if v ~= nil then
+            local numKey = tonumber(k)
+            if numKey then
+                out[numKey] = valueAsNumber and (tonumber(v) or v) or v
+            end
+        end
+    end
+    return out
+end
+
+local function cloneIdList(raw)
+    local out = {}
+    if type(raw) ~= "table" then return out end
+    for i, v in ipairs(raw) do
+        out[i] = tonumber(v) or v
+    end
+    return out
+end
+
+local function normalizeLineupPreset(preset)
+    if type(preset) ~= "table" then return nil end
+    return {
+        formation = preset.formation or "4-4-2",
+        formationVariant = preset.formationVariant,
+        startingXI = normalizeIntegerKeyTable(preset.startingXI, true),
+        benchIds = cloneIdList(preset.benchIds),
+        slotRoles = normalizeIntegerKeyTable(preset.slotRoles),
+        playerDuties = normalizeIntegerKeyTable(preset.playerDuties),
+        captain = preset.captain and (tonumber(preset.captain) or preset.captain) or nil,
+        penaltyTaker = preset.penaltyTaker and (tonumber(preset.penaltyTaker) or preset.penaltyTaker) or nil,
+        freeKickTaker = preset.freeKickTaker and (tonumber(preset.freeKickTaker) or preset.freeKickTaker) or nil,
+        cornerTaker = preset.cornerTaker and (tonumber(preset.cornerTaker) or preset.cornerTaker) or nil,
+    }
+end
+
+local function tablesEqual(a, b)
+    if a == b then return true end
+    if not a or not b then return false end
+    for k, v in pairs(a) do
+        if b[k] ~= v then return false end
+    end
+    for k, v in pairs(b) do
+        if a[k] ~= v then return false end
+    end
+    return true
+end
+
+local function idListsEqual(a, b)
+    a = a or {}
+    b = b or {}
+    if #a ~= #b then return false end
+    for i = 1, #a do
+        if a[i] ~= b[i] then return false end
+    end
+    return true
+end
+
+--- 捕获当前阵容状态快照（用于 A/B 方案）
+function Team.captureLineupSnapshot(team)
+    return {
+        formation = team.formation or "4-4-2",
+        formationVariant = team.formationVariant,
+        startingXI = normalizeIntegerKeyTable(team.startingXI, true),
+        benchIds = cloneIdList(team.benchIds),
+        slotRoles = normalizeIntegerKeyTable(team.slotRoles),
+        playerDuties = normalizeIntegerKeyTable(team.playerDuties),
+        captain = team.captain,
+        penaltyTaker = team.penaltyTaker,
+        freeKickTaker = team.freeKickTaker,
+        cornerTaker = team.cornerTaker,
+    }
+end
+
+function Team.lineupSnapshotsEqual(a, b)
+    if not a or not b then return false end
+    if a.formation ~= b.formation then return false end
+    if a.formationVariant ~= b.formationVariant then return false end
+    if not tablesEqual(a.startingXI, b.startingXI) then return false end
+    if not idListsEqual(a.benchIds, b.benchIds) then return false end
+    if not tablesEqual(a.slotRoles or {}, b.slotRoles or {}) then return false end
+    if not tablesEqual(a.playerDuties or {}, b.playerDuties or {}) then return false end
+    if a.captain ~= b.captain then return false end
+    if a.penaltyTaker ~= b.penaltyTaker then return false end
+    if a.freeKickTaker ~= b.freeKickTaker then return false end
+    if a.cornerTaker ~= b.cornerTaker then return false end
+    return true
+end
+
+function Team.applyLineupSnapshot(team, snapshot)
+    if not snapshot then return end
+    team.formation = snapshot.formation or team.formation or "4-4-2"
+    team.formationVariant = snapshot.formationVariant
+    team.startingXI = normalizeIntegerKeyTable(snapshot.startingXI, true)
+    team.benchIds = cloneIdList(snapshot.benchIds)
+    team.slotRoles = normalizeIntegerKeyTable(snapshot.slotRoles)
+    team.playerDuties = normalizeIntegerKeyTable(snapshot.playerDuties)
+    team.captain = snapshot.captain
+    team.penaltyTaker = snapshot.penaltyTaker
+    team.freeKickTaker = snapshot.freeKickTaker
+    team.cornerTaker = snapshot.cornerTaker
+end
+
+function Team.ensureLineupPresets(team)
+    if not team.lineupPresets then
+        local snap = Team.captureLineupSnapshot(team)
+        team.lineupPresets = { A = snap, B = Team.captureLineupSnapshot(team) }
+    end
+    if not team.activeLineupPreset or not team.lineupPresets[team.activeLineupPreset] then
+        team.activeLineupPreset = "A"
+    end
+end
+
+function Team.saveActiveLineupPreset(team)
+    Team.ensureLineupPresets(team)
+    team.lineupPresets[team.activeLineupPreset] = Team.captureLineupSnapshot(team)
+end
+
+function Team.switchLineupPreset(team, presetKey)
+    Team.ensureLineupPresets(team)
+    if not team.lineupPresets[presetKey] then return false end
+    team.activeLineupPreset = presetKey
+    Team.applyLineupSnapshot(team, team.lineupPresets[presetKey])
+    return true
+end
+
+function Team.isLineupPresetDirty(team)
+    Team.ensureLineupPresets(team)
+    local saved = team.lineupPresets[team.activeLineupPreset]
+    return not Team.lineupSnapshotsEqual(Team.captureLineupSnapshot(team), saved)
+end
+
 function Team.new(data)
     local self = setmetatable({}, Team)
     -- 基础信息
@@ -24,13 +160,27 @@ function Team.new(data)
     -- 竞技
     self.reputation = data.reputation or 500
     self.formation = data.formation or "4-4-2"
+    self.formationVariant = data.formationVariant or nil
     self.playStyle = data.playStyle or "Balanced"
-    self.startingXI = data.startingXI or {}  -- 球员ID列表
-    self.benchIds = data.benchIds or {}      -- 手动选择的替补席球员ID列表（空则自动计算）
+    -- startingXI 按阵型槽位 1..11 索引，允许空洞（未填槽位）
+    self.startingXI = normalizeIntegerKeyTable(data.startingXI, true)
+    self.benchIds = normalizeIntegerKeyTable(data.benchIds, true)
+    self.slotRoles = normalizeIntegerKeyTable(data.slotRoles)
+    self.playerDuties = normalizeIntegerKeyTable(data.playerDuties)
     self.captain = data.captain or nil
     self.penaltyTaker = data.penaltyTaker or nil
     self.freeKickTaker = data.freeKickTaker or nil
     self.cornerTaker = data.cornerTaker or nil
+
+    -- 阵容方案 A/B（俱乐部模式）
+    self.activeLineupPreset = data.activeLineupPreset or "A"
+    self.lineupPresets = nil
+    if data.lineupPresets then
+        self.lineupPresets = {}
+        for key, preset in pairs(data.lineupPresets) do
+            self.lineupPresets[key] = normalizeLineupPreset(preset)
+        end
+    end
 
     -- 财务
     self.balance = data.balance or 50000000          -- 默认5000万
@@ -75,6 +225,16 @@ function Team.new(data)
     -- 历史
     self.history = data.history or {}
     self.recentForm = data.recentForm or {}  -- "W","D","L"
+    self.monthlyStats = data.monthlyStats or nil
+    self._lastMonthlyStats = data._lastMonthlyStats or nil
+
+    -- 董事会 / 教练空缺
+    self.boardObjective = data.boardObjective or nil
+    self.boardSatisfaction = data.boardSatisfaction or nil
+    self.boardWarnings = data.boardWarnings or 0
+    self.managerVacant = data.managerVacant or false
+    self.vacantSince = data.vacantSince or nil
+    self._vacantDays = data._vacantDays or nil
 
     return self
 end
@@ -155,13 +315,18 @@ function Team:serialize()
         foundedYear = self.foundedYear,
         reputation = self.reputation,
         formation = self.formation,
+        formationVariant = self.formationVariant,
         playStyle = self.playStyle,
         startingXI = self.startingXI,
         benchIds = self.benchIds,
+        slotRoles = self.slotRoles,
+        playerDuties = self.playerDuties,
         captain = self.captain,
         penaltyTaker = self.penaltyTaker,
         freeKickTaker = self.freeKickTaker,
         cornerTaker = self.cornerTaker,
+        activeLineupPreset = self.activeLineupPreset,
+        lineupPresets = self.lineupPresets,
         balance = self.balance,
         wageBudget = self.wageBudget,
         transferBudget = self.transferBudget,
@@ -187,7 +352,15 @@ function Team:serialize()
         seasonStats = self.seasonStats,
         history = self.history,
         recentForm = self.recentForm,
+        monthlyStats = self.monthlyStats,
+        _lastMonthlyStats = self._lastMonthlyStats,
         _youthPlayerIds = self._youthPlayerIds,
+        boardObjective = self.boardObjective,
+        boardSatisfaction = self.boardSatisfaction,
+        boardWarnings = self.boardWarnings,
+        managerVacant = self.managerVacant,
+        vacantSince = self.vacantSince,
+        _vacantDays = self._vacantDays,
     }
 end
 

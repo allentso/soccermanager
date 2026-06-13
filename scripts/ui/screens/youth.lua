@@ -6,6 +6,7 @@ local Theme = require("scripts/ui/theme")
 local Router = require("scripts/app/router")
 local Constants = require("scripts/app/constants")
 local YouthManager = require("scripts/systems/youth_manager")
+local TransferManager = require("scripts/systems/transfer_manager")
 local FinanceManager = require("scripts/systems/finance_manager")
 local ConfirmDialog = require("scripts/ui/components/confirm_dialog")
 local PotentialSystem = require("scripts/systems/potential_system")
@@ -419,10 +420,11 @@ function Youth._buildYouthPlayerRow(player, gameState)
                         fontWeight = "bold",
                     },
                     UI.Label {
-                        text = string.format("%d岁 | 能力%d | 潜力%s",
-                            age, math.min(Constants.ABILITY_MAX, player.overall or 0), potStarText),
+                        text = string.format("%d岁 | 能力%d | 潜力%s%s",
+                            age, math.min(Constants.ABILITY_MAX, player.overall or 0), potStarText,
+                            player.listedForSale and " | 挂牌中" or ""),
                         fontSize = 11,
-                        color = Theme.COLORS.TEXT_MUTED,
+                        color = player.listedForSale and Theme.COLORS.ACCENT or Theme.COLORS.TEXT_MUTED,
                     },
                 },
             },
@@ -478,9 +480,40 @@ function Youth._showYouthActions(player, gameState)
         color = Theme.COLORS.TEXT_PRIMARY,
         action = function()
             UI.CloseOverlay()
-            Router.navigate("player_detail", { playerId = player.id })
+            Router.navigate("player_detail", { playerId = player.id, tab = "contract" })
         end,
     })
+
+    -- 挂牌出售 / 取消挂牌
+    if player.listedForSale then
+        table.insert(actions, {
+            label = "取消挂牌出售",
+            color = Theme.COLORS.TEXT_MUTED,
+            action = function()
+                TransferManager.delistPlayer(player)
+                Router.replaceWith("youth")
+            end,
+        })
+    else
+        table.insert(actions, {
+            label = "挂牌出售",
+            color = Theme.COLORS.ACCENT,
+            action = function()
+                local ok, err = TransferManager.listForSale(gameState, player)
+                if not ok then
+                    ConfirmDialog.show({
+                        title = "无法挂牌",
+                        message = err or "条件不满足",
+                        confirmText = "知道了",
+                        confirmColor = Theme.COLORS.TEXT_MUTED,
+                        onConfirm = function() end,
+                    })
+                else
+                    Router.replaceWith("youth")
+                end
+            end,
+        })
+    end
 
     -- 释放
     table.insert(actions, {

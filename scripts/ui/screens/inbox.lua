@@ -112,6 +112,7 @@ local TITLE_FALLBACK = {
     training_growth = "训练提升",
     training_injury = "训练伤病",
     injury_recovered = "伤愈复出",
+    injury_season_ending = "赛季报销",
     board_objective = "董事会目标",
     board_warning = "董事会警告",
     match_result = "比赛结果",
@@ -272,8 +273,8 @@ local ACTION_HANDLERS = {
         local gameState = _G.gameState
         if not gameState or not data or not data.nation then return end
         local WorldCup = require("scripts/systems/world_cup")
-        -- 设置国家队执教身份
         gameState.nationalTeamCoach = { nation = data.nation, squad = nil }
+        WorldCup.clearPendingCoachInvite(gameState)
         -- 标记需要显示国家队切换指引（首次上任）
         gameState.ntCoachGuidancePending = true
         gameState:sendMessage({
@@ -289,7 +290,9 @@ local ACTION_HANDLERS = {
     decline_nt_coach = function(data)
         local gameState = _G.gameState
         if not gameState or not data then return end
+        local WorldCup = require("scripts/systems/world_cup")
         gameState.nationalTeamCoach = nil
+        WorldCup.clearPendingCoachInvite(gameState)
         gameState:sendMessage({
             category = "world_cup",
             title = "婉拒邀请",
@@ -322,6 +325,28 @@ local ACTION_HANDLERS = {
         if not gameState or not data or not data.teamId then return end
         local JobManager = require("scripts/systems/job_manager")
         JobManager.declineOffer(gameState, data.teamId)
+        Router.replaceWith("inbox")
+    end,
+    accept_manager_renewal = function(_data)
+        local gameState = _G.gameState
+        if not gameState then return end
+        local JobManager = require("scripts/systems/job_manager")
+        local success, err = JobManager.acceptManagerRenewal(gameState)
+        if not success then
+            gameState:sendMessage({
+                category = "contract",
+                title = "续约失败",
+                body = err or "没有待处理的续约提议",
+                priority = "normal",
+            })
+        end
+        Router.replaceWith("inbox")
+    end,
+    decline_manager_renewal = function(_data)
+        local gameState = _G.gameState
+        if not gameState then return end
+        local JobManager = require("scripts/systems/job_manager")
+        JobManager.declineManagerRenewal(gameState)
         Router.replaceWith("inbox")
     end,
     -- 转会确认：签入球员
@@ -895,6 +920,19 @@ function Inbox.create(params)
     end
 
     local totalUnread = unreadCounts.all or 0
+
+    if params and params.openMessageId then
+        local msgId = params.openMessageId
+        SubscribeToEvent("PostUpdate", function()
+            UnsubscribeFromEvent("PostUpdate")
+            for _, msg in ipairs(gameState.inbox) do
+                if msg.id == msgId then
+                    Inbox._showDetail(msg, currentTab)
+                    break
+                end
+            end
+        end)
+    end
 
     return UI.Panel {
         width = "100%",

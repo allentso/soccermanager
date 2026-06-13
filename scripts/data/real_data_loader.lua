@@ -356,6 +356,10 @@ function RealDataLoader.loadAllLeagues(gameState)
     log:Write(LOG_INFO, "RealDataLoader: 加载完成! 联赛:" .. RealDataLoader._countLeagues(gameState) ..
         " 球队:" .. totalTeams .. " 球员:" .. totalPlayers)
 
+    local TeamRivalries = require("scripts/data/team_rivalries")
+    local rivalryCount = TeamRivalries.initializeIfNeeded(gameState)
+    log:Write(LOG_INFO, "RealDataLoader: 死敌关系 " .. tostring(rivalryCount) .. " 对")
+
     return totalTeams > 0
 end
 

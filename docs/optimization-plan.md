@@ -3,7 +3,7 @@
 **版本**: v1.0  
 **对应文档**: [bug-log.md](./bug-log.md)  
 **维护说明**: 每条 Bug/需求在此有对应优化条目；研究结论与改动方案记录于此  
-**最后更新**: 2026-06-11
+**最后更新**: 2026-06-12
 
 ---
 
@@ -12,6 +12,7 @@
 - [总览](#总览)
 - [BUG-20260611-04 · 联赛模拟随机性过强](#bug-20260611-04--联赛模拟随机性过强)
 - [BUG-20260611-05 · 低潜力球员 OVR 可破 90](#bug-20260611-05--低潜力球员-ovr-可破-90)
+- [REQ-20260611-05 · 成长与训练体系 v2（出场挂钩）](#req-20260611-05--成长与训练体系-v2出场挂钩)
 - [其他条目（待研究）](#其他条目待研究)
 - [诊断工具](#诊断工具)
 
@@ -27,6 +28,7 @@
 | **BUG-20260611-04** | **联赛模拟随机性过强** | **数值, 机制** | **已研究** | **P1** |
 | **BUG-20260611-05** | **低潜力球员 OVR 可破 90** | **数值** | **已研究** | **P2** |
 | REQ-20260611-01 | 租借系统 + 中超 | 内容, 机制 | 待排期 | P2 |
+| **REQ-20260611-05** | **成长与训练体系（出场挂钩）** | **机制, 数值** | **方案已定** | **P2** |
 
 ---
 
@@ -348,7 +350,7 @@ player.overall = math.min(player.overall, player:getPotentialOverallCap())
 | 改动点 | 现状 | 建议 |
 |--------|------|------|
 | PA70 actualPotential 波动 | ±5 | ±3 |
-| U21 赛季末 growthChance | 60%/属性 | **25%/属性** |
+| U21 赛季末 growthChance | 60%/属性 | **40%/属性**（≤21 且不乘出场系数） |
 | 训练终止条件 | overall >= 99 | overall >= getPotentialOverallCap() |
 
 #### 阶段 C — 体验与透明度
@@ -370,6 +372,254 @@ player.overall = math.min(player.overall, player:getPotentialOverallCap())
 - 阶段 A：3 个文件，约 **1 天**
 - 阶段 B：难度参数 + 1 个测试，约 **0.5 天**
 - 阶段 C：UI 文案，约 **0.5 天**（可后置）
+
+---
+
+## REQ-20260611-05 · 成长与训练体系 v2（出场挂钩）
+
+**标签**: `机制`, `数值`  
+**关联模块**: `scripts/app/constants.lua`、`scripts/systems/training_manager.lua`、`scripts/systems/youth_manager.lua`、`scripts/systems/season_manager.lua`、`scripts/match/placeholder_engine.lua`、`scripts/systems/transfer_manager.lua`（租借出场统计）  
+**设计输入**: 2026-06-12 玩家方向 — 成年期训练与一线队出场挂钩；青训训练日跟随一线队；青年期青训加成略高于一线队。  
+**设计确认**: 2026-06-12 第二轮审阅（见 [§ 设计确认清单](#设计确认清单2026-06-12)）。
+
+### 设计确认清单（2026-06-12）
+
+| # | 开项 | 决定 |
+|---|------|------|
+| 1 | 赛季中过生日：quota / 挂钩按何时年龄 | **B — 按赛季初年龄**，整季规则不变 |
+| 2 | 赛季末爆发 vs 出场挂钩 | **22 岁起**赛季末才乘 `participationFactor`；**≤21 岁**赛季末概率 **40%/属性**（原 60% 下调） |
+| 3 | 效率下限 | **25%** 维持 |
+| 4 | AI 是否同方案 | **要**，实施前先评估（见 [§ AI 同方案压力评估](#ai-同方案压力评估)）；建议玩家队验证后再合 AI |
+| 5 | 21 岁一线队、无出场要求 | **符合预期** |
+| 6 | 出场计数范围 | **仅俱乐部**正式赛；国家队 / 世界杯 **不计** |
+| 7 | 练满配额 | **22 岁 12 场** 起，每岁 **+2**，**27 岁起封顶 25 场** |
+| 8 | 冬窗转会 | **赛季内累计**（换队不清零） |
+| 9 | 22+ 仍在 `_youthPlayerIds` | **自动解约并删库**（低潜释放逻辑：有潜转自由球员 / 无潜 `gameState.players` 移除）；每月青训例行 + Housekeeping 兜底 |
+
+**配额表（最终）**
+
+| 年龄 | 满效所需出场/季 |
+|------|----------------|
+| ≤21 | 不挂钩 |
+| 22 | 12 |
+| 23 | 14 |
+| 24 | 16 |
+| 25 | 18 |
+| 26 | 20 |
+| 27+ | 25 |
+
+### 与旧方案的变化
+
+| 维度 | 旧方案（2026-06-11） | **v2（当前）** |
+|------|---------------------|----------------|
+| 比赛与成长 | 赛后 micro-growth（分钟×评分）为主 | **训练效率 × 赛季出场系数** 为主；比赛 micro-growth 降为可选增强 |
+| 22+ 球员 | 只训练也能满速成长 | **无足够一线队出场 → 无法「练满」** |
+| 青训训练频率 | 每日 7 天/周 | **与一线队 `weeklyPlan` 同步**（仅训练日成长） |
+| 青年期加成 | 青训每日 + 更高 ageFactor | **同 schedule 下青训 `×1.08` 微调加成**（微微高于一线队） |
+| 实施顺序 | A 比赛成长 → B 上限 → C 租借 | **A 上限（BUG-05）→ B 出场挂钩 + schedule → C 租借/UI** |
+
+### 年龄口径（与现有代码对齐）
+
+代码里 **21 岁** 已是多处隐式青年期边界，建议收拢为常量：
+
+| 常量（建议） | 值 | 代码现状 |
+|--------------|-----|----------|
+| `Constants.YOUTH_PHASE_MAX_AGE` | **21** | `season_manager` U21 赛季末 40%；`training_manager` age≤21 ×1.4 |
+| 成年训练挂钩起点 | **22 岁**（`age > YOUTH_PHASE_MAX_AGE`） | **已确认**（2026-06-12） |
+
+**GDD** 写成成长期 &lt; 24 岁，与本方案不冲突：22–23 仍可有 ageFactor 加成，只是训练 **效率** 受出场约束。
+
+### 核心机制 1：成年期训练 × 出场系数
+
+**原则**：22 岁及以上，日常训练与赛季末成长的 **有效速率** 乘以 `participationFactor ∈ [floor, 1.0]`；系数由 **当季累计正式比赛出场** 与 **按年龄递增的练满配额** 决定。
+
+#### 结算时机：不是「每场涨点」，也不是「按月结算」
+
+| 方案 | 做法 | 结论 |
+|------|------|------|
+| 每场 micro-growth | 赛后直接 +1 属性 | ❌ v2 不采用（难与训练叠加平衡） |
+| **按月档位** | 每月 1 号根据上月/累计出场定档，整月固定效率 | ⚠️ 可选简化版；响应慢，赛季初长期低效 |
+| **按训练日实时系数（推荐）** | 每个 **训练日** 掷骰前，读当前 `seasonStats.appearances`，算 `apps / quota(age)` | ✅ **v2 采用** |
+
+**推荐方案的工作方式**：
+
+1. **比赛完赛**：`placeholder_engine.applyResult` 给登场球员 `seasonStats.appearances += 1`（**已有**，无需新周期任务）
+2. **训练日**（周一/三/五等）：`TrainingManager._trainPlayer` 在计算 `baseChance` 后乘 `getParticipationFactor(player)`
+3. **系数随赛季推进动态变化** — 不是月初定档、也不是赛季末才算一次：
+   - 8 月 0 场 → 效率 25%（floor）
+   - 10 月累计 3 场 → 效率 `max(0.25, 3/quota)`
+   - 1 月累计 6 场 → 效率 6/quota
+   - 达标后 → 100%，**剩余训练日全部满效**
+4. **赛季末成长**（`SeasonManager._processPlayerDevelopment`）：
+   - **≤21 岁**（赛季初年龄）：`growthChance = 0.40`/属性，**不**乘 participationFactor
+   - **≥22 岁**：沿用年龄档 baseChance（22–24: 0.35 等）× participationFactor（**赛季最终**俱乐部出场）
+
+```text
+时间轴（22 岁、赛季初年龄、quota=12，balanced 约 3 训/周）：
+
+  8月        10月         1月          4月
+  0场×25% → 4场×33% →  8场×67% →  12场×100%
+```
+
+**为何不用按月**：出场是连续发生的，实时系数让「刚踢完一场」在 **下一次训练日** 立刻体现，比「等到下月 1 号改档」更直觉；实现上也只需读已有 `seasonStats`，不新增定时器。
+
+**出场计数**（复用现有字段）：
+
+- 来源：`player.seasonStats.appearances`（`placeholder_engine.applyResult` 已在写入）
+- 计入：**俱乐部** 联赛 / 国内杯 / 欧战等正式赛
+- **不计**：国家队 / 世界杯、友谊赛（若有）
+- 外租：租用方 **俱乐部** 出场计入
+- 冬窗转会：**赛季内跨队累计**，不清零
+- 仅坐板凳未登场：不计
+
+**挂钩年龄**：`seasonAge = player:getAge(seasonStartYear)`（赛季初年龄，整季固定 quota 与是否挂钩）
+
+#### 练满配额（见文首确认表）
+
+规律：`quota = min(25, 12 + (seasonAge - 22) × 2)`（仅 `seasonAge ≥ 22`）
+
+```lua
+Constants.ADULT_TRAINING_APPS_START = 12
+Constants.ADULT_TRAINING_APPS_MAX = 25
+Constants.ADULT_TRAINING_APPS_STEP = 2
+Constants.ADULT_TRAINING_APPS_AGE_FLOOR = 22
+Constants.ADULT_TRAINING_APPS_AGE_CAP = 27
+Constants.ADULT_TRAINING_APPS_FLOOR = 0.25
+Constants.U21_SEASON_END_GROWTH_CHANCE = 0.40  -- 原 0.60
+
+function TrainingManager.getSeasonAge(player, seasonStartYear)
+    return player:getAge(seasonStartYear)
+end
+
+function TrainingManager.getAppsQuotaForSeasonAge(seasonAge)
+    if seasonAge <= Constants.YOUTH_PHASE_MAX_AGE then return 0 end
+    if seasonAge >= Constants.ADULT_TRAINING_APPS_AGE_CAP then
+        return Constants.ADULT_TRAINING_APPS_MAX
+    end
+    return Constants.ADULT_TRAINING_APPS_START
+        + (seasonAge - Constants.ADULT_TRAINING_APPS_AGE_FLOOR) * Constants.ADULT_TRAINING_APPS_STEP
+end
+
+function TrainingManager.getParticipationFactor(player, seasonStartYear)
+    local seasonAge = TrainingManager.getSeasonAge(player, seasonStartYear)
+    if seasonAge <= Constants.YOUTH_PHASE_MAX_AGE then return 1.0 end
+    local apps = (player.seasonStats and player.seasonStats.appearances) or 0
+    local quota = TrainingManager.getAppsQuotaForSeasonAge(seasonAge)
+    return math.max(Constants.ADULT_TRAINING_APPS_FLOOR,
+                    math.min(1.0, apps / quota))
+end
+```
+
+**接入点**：
+
+1. `TrainingManager._trainPlayer`：`baseChance *= getParticipationFactor(player, seasonStartYear)`
+2. `SeasonManager._processPlayerDevelopment`：≤21 → `growthChance=0.40` 且不乘系数；≥22 → 原年龄档 × participationFactor
+3. `YouthManager._trainTeamYouth`：仅 `_youthPlayerIds` 且 seasonAge ≤ 21
+4. **`YouthManager` 每月 / `Housekeeping`**：`seasonAge ≥ 22` 仍在 `_youthPlayerIds` → 自动解约删库（复用 `release` 低潜删除 / 高潜自由球员逻辑，**全队含 AI**）
+
+**玩家体感**：
+
+- 22 岁（赛季初）：需 **12 场/季** 俱乐部比赛练满
+- 27 岁（赛季初）及以上：需 **25 场/季**
+- 0 出场：整季 floor 25%
+
+**UI（阶段 C）**：
+
+- 训练页 / 球员详情：22+ 显示「本季出场 X / quota(age) · 训练效率 Y%」
+- 未达门槛时 Tooltip：「成年球员需比赛锻炼；每增加出场，后续训练日效率提升」
+
+### 核心机制 2：青训训练日跟随一线队
+
+**现状问题**：`YouthManager.processDailyTraining` **每日**执行，一线队 `balanced` 仅 **3 天/周** → 青训体感远快于一线队（REQ-03 根因之一）。
+
+**改动**：
+
+```lua
+-- youth_manager.lua _trainTeamYouth 入口
+local weeklyPlan = team.weeklyPlan or "balanced"
+local planConfig = TrainingManager.WEEKLY_PLAN[weeklyPlan]
+if not planConfig.trainDays[gameState.dayOfWeek] then
+    return  -- 非训练日：与一线队一致，不成长
+end
+```
+
+- 非训练日：青训球员 **不获得训练成长**（与一线队 `_restDay` 对齐；体能恢复是否同步可选，建议青训非训练日也 +fitness，与一线队一致）
+- AI 球队青训同样遵守该队 `weeklyPlan`（AI 可默认 `balanced`）
+
+### 核心机制 3：青年期青训微调加成
+
+**原则**：在 **同一训练日、同一 baseChance 公式** 下，`_youthPlayerIds` 中 age ≤ 21 的球员额外乘以 **`Constants.YOUTH_TRAINING_BONUS = 1.08`**（+8%，「微微微」高于一线队；可配置 1.05–1.12）。
+
+**与现有 ageFactor 的关系**：
+
+| 因子 | 一线队 | 青训（v2） |
+|------|--------|------------|
+| 训练日 | weeklyPlan | **同左** |
+| baseChance / gap / 设施 | 同公式 | 同公式 |
+| ageFactor（≤21 ×1.4） | ✓ | ✓ |
+| 青训教练 staffMult | — | ✓（保留） |
+| **YOUTH_TRAINING_BONUS** | 1.0 | **1.08** |
+
+去掉「每日训练」后，青年期仍比一线队 **略快**，但不会快 2–3 倍。
+
+### 与 BUG-20260611-05 的合并顺序
+
+| 阶段 | 内容 | 预估 |
+|------|------|------|
+| **A** | BUG-05：`getPotentialOverallCap`、数据钳制、赛季末与 `getAttrCap` 统一 | 1 天 |
+| **B** | REQ-05 v2：出场系数、seasonStartYear、青训 schedule、+8%、22+ 青训删库 | 1–1.5 天 |
+| **B′** | AI 训练对齐（见下节评估） | 0.5–1 天 |
+| **C** | REQ-03 UI + U21 赛季末 40% 确认 | 0.5 天 |
+| **D** | 租借出场计入 + 训练页效率展示 | 0.5–1 天 |
+| **E**（可选） | 赛后 micro-growth（小幅度，且受每日/每周上限约束） | 1 天 |
+
+**不建议** 先做 micro-growth 再做出场系数 — 两条线叠加难平衡；v2 以 **出场 → 训练效率** 为主杠杆，逻辑更清晰。
+
+### 验证指标
+
+| 场景 | 期望 |
+|------|------|
+| PA85、21 岁、0 出场、一赛季 | 训练效率 100%（青年期） |
+| PA85、22 岁 seasonAge、0 出场、一赛季 | OVR 增量 &lt; ≥12 场组 **40%** |
+| PA85、22 岁、≥12 场 | 训练效率 100% |
+| PA85、27 岁 seasonAge、≥25 场 | 满效；18 场 factor=0.72 |
+| 22+ 滞留青训 | 下月例行清理后球员从 `_youthPlayerIds` 移除并删库/自由球员 |
+| 青训 vs 一线队同 age≤21、同 plan | 青训 OVR 增量约高 **5–10%**（非 2×） |
+| 外租 22 岁主力 | 租用方出场计入，留队替补外租者成长 &gt; 留队 0 出场 |
+| PA70 五赛季 | 仍满足 BUG-05 上限约束 |
+
+### 建议测试
+
+- `tests/training_participation_test.lua`：22 岁 0 场 vs 15 场，固定种子比 OVR 增量
+- `tests/youth_schedule_sync_test.lua`：balanced 计划下 7 日仅 3 日青训成长
+- 扩展 `balance_diag_test.lua`：PA70 五赛季 + 出场分组
+
+### 改动文件清单
+
+| 文件 | 改动 |
+|------|------|
+| `constants.lua` | `YOUTH_PHASE_MAX_AGE`、`ADULT_TRAINING_APPS_*`、`YOUTH_TRAINING_BONUS` |
+| `training_manager.lua` | `getParticipationFactor`；`_trainPlayer` 乘系数 |
+| `youth_manager.lua` | 训练日检查；`× YOUTH_TRAINING_BONUS` |
+| `season_manager.lua` | U22+ 赛季末成长乘系数；BUG-05 attrCap 统一 |
+| `player.lua` | BUG-05 上限函数 |
+| `player_detail.lua` / 训练 UI | 训练效率与出场进度（阶段 D） |
+
+### AI 同方案压力评估
+
+**结论：性能压力低，逻辑一致性收益高；建议 B 期只上玩家队，B′ 单独 PR 对齐 AI。**
+
+| 维度 | 现状 | 对齐后 | 压力 |
+|------|------|--------|------|
+| 调用频率 | 每日 `processAITeams` 遍历全部 AI 队 `playerIds` | 同频率；训练日可改为与 `weeklyPlan` 一致（实际 **更少** 掷骰） | **低** |
+| 单次开销 | 每人 `Random()<0.03`，硬编码 attr&lt;20 | 每人多一次 `getParticipationFactor`（读 seasonStats + 算术） | **可忽略** |
+| 出场数据 | AI 比赛走 `MatchEngine`/`placeholder_engine`，已写 `seasonStats.appearances` | 可直接复用 | **无额外 sim** |
+| 人数规模 | 约百队 × ~25 人 ≈ 数千人/日 | 与现循环相同 | **O(球队×球员)**，无新增嵌套 |
+| 风险 1 | AI 训练 **不**走 `getAttrCap`（&lt;20 写死） | BUG-05 一并修后 AI/玩家共用 cap | 需测试 |
+| 风险 2 | AI 替补出场不足 → 22+ 成长过慢 | 与玩家替补体验一致；AI 赛程 sim 应能覆盖部分出场 | 可观察 5 赛季 sim |
+| 风险 3 | 22+ 青训删库 | 每月批量，人数极少 | **低** |
+
+**B′ 实施建议**：复用 `TrainingManager._trainPlayer` 或抽 `_applyDailyGrowth(player, team, …)` 共用；AI 仍可用 `balanced` + `medium` 默认，不必接 UI 焦点。
 
 ---
 

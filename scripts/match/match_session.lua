@@ -29,6 +29,62 @@ MatchSession.COMMAND = {
     CHANGE_INSTRUCTION = "change_instruction",
 }
 
+local function cloneStartingXI(xi)
+    if not xi then return {} end
+    local copy = {}
+    for k, v in pairs(xi) do
+        if type(k) == "number" and v then
+            copy[k] = v
+        end
+    end
+    return copy
+end
+
+local function snapshotContextIds(players)
+    local ids = {}
+    for _, p in ipairs(players or {}) do
+        ids[#ids + 1] = p.id
+    end
+    return ids
+end
+
+function MatchSession._cloneStartingXI(xi)
+    return cloneStartingXI(xi)
+end
+
+function MatchSession._initLineupTracking(self, homeTeam, awayTeam, homeContext, awayContext)
+    self.kickoffStartingXI = {
+        home = cloneStartingXI(homeTeam and homeTeam.startingXI),
+        away = cloneStartingXI(awayTeam and awayTeam.startingXI),
+    }
+    self.shadowLineup = {
+        home = cloneStartingXI(homeTeam and homeTeam.startingXI),
+        away = cloneStartingXI(awayTeam and awayTeam.startingXI),
+    }
+    self.appearanceIds = { home = {}, away = {} }
+    for _, p in ipairs(homeContext.players or {}) do
+        self.appearanceIds.home[p.id] = true
+    end
+    for _, p in ipairs(awayContext.players or {}) do
+        self.appearanceIds.away[p.id] = true
+    end
+    self.subbedOffIds = { home = {}, away = {} }
+end
+
+--- 赛后还原存档阵容（临场换人仅存在于 session，不写 permanent startingXI）
+function MatchSession:restoreKickoffLineups()
+    if self._isWC or not self.kickoffStartingXI then return end
+
+    local homeTeam = self.gameState.teams[self.fixture.homeTeamId]
+    local awayTeam = self.gameState.teams[self.fixture.awayTeamId]
+    if homeTeam and self.kickoffStartingXI.home then
+        homeTeam.startingXI = cloneStartingXI(self.kickoffStartingXI.home)
+    end
+    if awayTeam and self.kickoffStartingXI.away then
+        awayTeam.startingXI = cloneStartingXI(self.kickoffStartingXI.away)
+    end
+end
+
 --- 创建新比赛会话
 ---@param gameState table
 ---@param fixture table
@@ -76,6 +132,10 @@ function MatchSession.new(gameState, fixture)
 
     -- 跟踪被换下的球员（从 context.players 中移除）
     self.removedPlayerIds = { home = {}, away = {} }
+    MatchSession._initLineupTracking(self, homeTeam, awayTeam, homeContext, awayContext)
+
+    local EventFlavors = require("scripts/match/event_flavors")
+    self._seasonDaysRemaining = EventFlavors.estimateSeasonDaysRemaining(gameState)
 
     return self
 end
@@ -135,6 +195,7 @@ function MatchSession.newWC(gameState, fixture)
 
     -- 跟踪被换下的球员
     self.removedPlayerIds = { home = {}, away = {} }
+    MatchSession._initLineupTracking(self, homeTeam, awayTeam, homeContext, awayContext)
 
     return self
 end
@@ -326,11 +387,19 @@ end
 
 --- 获取当前阶段的模拟选项
 function MatchSession:_getPhaseOptions()
+    local options
     if self.phase == MatchSession.PHASE.EXTRA_FIRST or
        self.phase == MatchSession.PHASE.EXTRA_SECOND then
-        return { phaseChance = 0.35, injuryChance = 0.0018 }
+        options = { phaseChance = 0.35, injuryChance = 0.0018 }
+    else
+        options = {}
     end
-    return nil
+    options.allowSeasonEnding = true
+    options.seasonDaysRemaining = self._seasonDaysRemaining
+    if self.gameState and self.gameState.date then
+        options.currentYear = self.gameState.date.year
+    end
+    return options
 end
 
 --- 检查阶段转换
@@ -421,20 +490,22 @@ function MatchSession:_applySubstitution(command)
     end
     table.insert(context.players, onPlayer)
 
-    -- 同步更新 team.startingXI（确保 recalculate 时角色映射正确）
-    local team = context.team
-    if team and team.startingXI then
-        for i, pid in ipairs(team.startingXI or {}) do
+    -- 更新 shadow 槽位表（支持稀疏 startingXI；不修改存档中的 team.startingXI）
+    if self.shadowLineup and self.shadowLineup[side] then
+        for slot, pid in pairs(self.shadowLineup[side]) do
             if pid == offPlayerId then
-                team.startingXI[i] = onPlayerId
-                -- 换人后重置该槽位角色为默认（替补球员角色需要重新设定）
-                if team.slotRoles then
-                    team.slotRoles[i] = nil
+                self.shadowLineup[side][slot] = onPlayerId
+                if context.team and context.team.slotRoles then
+                    context.team.slotRoles[slot] = nil
                 end
                 break
             end
         end
     end
+
+    self.appearanceIds[side][onPlayerId] = true
+    self.subbedOffIds[side][offPlayerId] = true
+    self.removedPlayerIds[side][offPlayerId] = true
 
     -- 重新计算 context 的聚合值
     self:_recalculateContext(context, side)
@@ -573,9 +644,14 @@ function MatchSession:_recalculateContext(context, side)
     local team = context.team
     if not team then return end
 
-    -- 使用当前 players 重新计算
+    local savedXI = team.startingXI
+    if self.shadowLineup and self.shadowLineup[side] then
+        team.startingXI = self.shadowLineup[side]
+    end
+
+    -- 使用 shadow 阵容重算战术聚合，但保持当前场上球员列表
     local newCtx = TacticsResolver.buildTeamContext(self.gameState, team)
-    -- 但保持当前场上球员（可能已被换人修改）
+    team.startingXI = savedXI
     newCtx.players = context.players
 
     -- 渐变混合比例：30% 新值，70% 旧值（模拟球员需要时间适应新指令）
@@ -615,7 +691,7 @@ end
 ---@return table penaltyResult
 function MatchSession:simulatePenalties()
     local MatchEngine = require("scripts/match/match_engine")
-    local result = MatchEngine._simulatePenaltyShootout(self.homeContext, self.awayContext)
+    local result = MatchEngine._simulatePenaltyShootout(self.homeContext, self.awayContext, self.fixture)
     self.phase = MatchSession.PHASE.FINISHED
     return result
 end
@@ -726,7 +802,14 @@ function MatchSession:buildReport()
         end
     end
 
-    return MatchReport.build(self.fixture, self.homeContext, self.awayContext, self.events, simState)
+    return MatchReport.build(self.fixture, self.homeContext, self.awayContext, self.events, simState, {
+        appearanceIds = self.appearanceIds,
+        substitutions = self.substitutions,
+        ratingLineup = {
+            home = snapshotContextIds(self.homeContext.players),
+            away = snapshotContextIds(self.awayContext.players),
+        },
+    })
 end
 
 return MatchSession

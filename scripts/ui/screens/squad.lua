@@ -12,6 +12,7 @@ local ContractManager = require("scripts/systems/contract_manager")
 local FinanceManager = require("scripts/systems/finance_manager")
 local TransferManager = require("scripts/systems/transfer_manager")
 local AIManager = require("scripts/systems/ai_manager")
+local Team = require("scripts/domain/team")
 
 local WorldCup = require("scripts/systems/world_cup")
 
@@ -146,6 +147,96 @@ function Squad.create(params)
         end
     end
 
+    -- 阵容方案 A/B（俱乐部模式）
+    local presetBar = nil
+    if not isNTMode then
+        Team.ensureLineupPresets(team)
+        local activePreset = team.activeLineupPreset or "A"
+        local isDirty = Team.isLineupPresetDirty(team)
+
+        local function performPresetSwitch(targetKey, saveFirst)
+            if saveFirst then
+                Team.saveActiveLineupPreset(team)
+            end
+            Team.switchLineupPreset(team, targetKey)
+            UI.Toast.Show({ message = "已切换到方案 " .. targetKey, variant = "success" })
+            Router.replaceWith("squad")
+        end
+
+        local function onSelectPreset(targetKey)
+            if targetKey == activePreset then return end
+            if Team.isLineupPresetDirty(team) then
+                BottomSheet.show({
+                    title = "未保存的修改",
+                    subtitle = "当前方案有未保存的阵容变更",
+                    items = {
+                        {
+                            label = "保存并切换",
+                            color = Theme.COLORS.SECONDARY,
+                            action = function() performPresetSwitch(targetKey, true) end,
+                        },
+                        {
+                            label = "放弃并切换",
+                            color = Theme.COLORS.WARNING,
+                            action = function() performPresetSwitch(targetKey, false) end,
+                        },
+                    },
+                })
+            else
+                performPresetSwitch(targetKey, false)
+            end
+        end
+
+        local function makePresetBtn(key, label)
+            local isActive = activePreset == key
+            local btnLabel = label
+            if isActive and isDirty then
+                btnLabel = label .. " *"
+            end
+            return UI.Button {
+                text = btnLabel,
+                height = 28,
+                paddingLeft = 14, paddingRight = 14,
+                backgroundColor = isActive and Theme.COLORS.SECONDARY or Theme.COLORS.BG_CARD,
+                borderRadius = 14,
+                fontSize = 12,
+                color = isActive and Theme.COLORS.TEXT_PRIMARY or Theme.COLORS.TEXT_SECONDARY,
+                fontWeight = isActive and "bold" or "normal",
+                marginRight = 6,
+                onClick = function() onSelectPreset(key) end,
+            }
+        end
+
+        presetBar = UI.Panel {
+            width = "100%", height = 40,
+            flexDirection = "row", alignItems = "center",
+            paddingLeft = 12, paddingRight = 12,
+            backgroundColor = Theme.COLORS.BG_DARK,
+            borderBottomWidth = 1, borderColor = Theme.COLORS.BORDER,
+            children = {
+                UI.Label { text = "阵容方案", fontSize = 11, color = Theme.COLORS.TEXT_MUTED, marginRight = 8 },
+                makePresetBtn("A", "方案 A"),
+                makePresetBtn("B", "方案 B"),
+                UI.Panel { flexGrow = 1 },
+                UI.Button {
+                    text = isDirty and "保存方案 *" or "保存方案",
+                    height = 28,
+                    paddingLeft = 12, paddingRight = 12,
+                    backgroundColor = isDirty and {46, 125, 50, 255} or Theme.COLORS.BG_CARD,
+                    borderRadius = 14,
+                    fontSize = 11,
+                    color = isDirty and "#FFFFFF" or Theme.COLORS.TEXT_SECONDARY,
+                    fontWeight = isDirty and "bold" or "normal",
+                    onClick = function()
+                        Team.saveActiveLineupPreset(team)
+                        UI.Toast.Show({ message = "方案 " .. activePreset .. " 已保存", variant = "success" })
+                        Router.replaceWith("squad")
+                    end,
+                },
+            },
+        }
+    end
+
     -- 构建筛选标签
     local filterTabs = {}
     for _, opt in ipairs(FILTER_OPTIONS) do
@@ -222,6 +313,9 @@ function Squad.create(params)
         elseif p.listedForSale then
             statusText = "挂牌中"
             statusColor = Theme.COLORS.WARNING
+        elseif p.listedForLoan then
+            statusText = "外租挂牌"
+            statusColor = Theme.COLORS.ACCENT
         elseif p.fitness and p.fitness < 60 then
             statusText = "疲劳"
             statusColor = Theme.COLORS.DANGER
@@ -379,6 +473,8 @@ function Squad.create(params)
             -- 二级导航
             Theme.SquadSubNav("squad"),
 
+            presetBar,
+
             -- 状态统计栏
             UI.Panel {
                 width = "100%", height = 36,
@@ -457,7 +553,7 @@ function Squad.create(params)
                 borderTopWidth = 1, borderColor = Theme.COLORS.BORDER,
                 children = {
                     UI.Label {
-                        text = "长按球员 → 挂牌出售/设首发 | 点击 → 查看详情",
+                        text = "长按球员 → 挂牌出售/外租/设首发 | 点击 → 查看详情",
                         fontSize = 10, color = Theme.COLORS.TEXT_MUTED,
                     },
                 },
@@ -592,6 +688,46 @@ function Squad._showActionMenu(player, isStarter, team, gameState)
                 Router.replaceWith("squad")
             end,
         })
+    end
+
+    -- 挂牌外租（与出售互斥）
+    if player.squadRole ~= "loaned" and not player.listedForSale then
+        if player.listedForLoan then
+            table.insert(actions, {
+                label = "取消外租挂牌",
+                color = Theme.COLORS.TEXT_MUTED,
+                action = function()
+                    TransferManager.delistLoan(player)
+                    Router.replaceWith("squad")
+                end,
+            })
+        else
+            local isSafe, safetyReason = FinanceManager.checkSquadSafety(gameState, player.id)
+            if isSafe then
+                table.insert(actions, {
+                    label = "挂牌外租",
+                    color = Theme.COLORS.SECONDARY,
+                    action = function()
+                        TransferManager.listForLoan(gameState, player, 26)
+                        Router.replaceWith("squad")
+                    end,
+                })
+            else
+                table.insert(actions, {
+                    label = "挂牌外租 (阵容不足)",
+                    color = Theme.COLORS.TEXT_MUTED,
+                    action = function()
+                        gameState:sendMessage({
+                            category = "squad",
+                            title = "无法挂牌外租",
+                            body = "无法挂牌 " .. player.displayName .. "：" .. (safetyReason or "阵容深度不足"),
+                            priority = "normal",
+                        })
+                        Router.replaceWith("squad")
+                    end,
+                })
+            end
+        end
     end
 
     -- 处理收到的报价

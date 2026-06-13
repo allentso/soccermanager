@@ -81,6 +81,23 @@ function HistoryManager.recordSeasonEnd(gameState, awards)
         record.leagues[leagueKey] = leagueRecord
     end
 
+    -- 玩家球队赛季财务快照（总结页展示；须在 resetSeasonFinance 之前写入）
+    if gameState.playerTeamId then
+        local team = gameState.teams[gameState.playerTeamId]
+        if team then
+            record.playerFinance = {
+                seasonIncome = team.seasonIncome or 0,
+                seasonExpense = team.seasonExpense or 0,
+                balance = team.balance or 0,
+                wageBudget = team.wageBudget or 0,
+            }
+        end
+    end
+
+    if gameState.lastPromotionRelegation then
+        record.promotionRelegation = gameState.lastPromotionRelegation
+    end
+
     -- 追加到世界历史
     table.insert(gameState.worldHistory, record)
 

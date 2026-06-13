@@ -1,5 +1,5 @@
 -- ui/screens/tactics.lua
--- 战术设置页面 - 含球场视图和定位球角色分配
+-- 战术设置页面 - 含球场视图
 
 local UI = require("urhox-libs/UI")
 local Theme = require("scripts/ui/theme")
@@ -12,7 +12,7 @@ local WorldCup = require("scripts/systems/world_cup")
 local Tactics = {}
 
 ---@type string
-local _activeTab = "formation" -- formation | setpiece
+local _activeTab = "formation" -- formation | bench
 
 -- 局部 ScrollView 引用，用于局部刷新避免整页重建
 ---@type any
@@ -160,15 +160,6 @@ local function getFormationPositions(formation, variantKey)
     return FORMATION_POSITIONS["4-4-2:flat"]
 end
 
--- 定位球角色定义
-local SET_PIECE_ROLES = {
-    { key = "captain",       label = "队长",     icon = "©" },
-    { key = "penaltyTaker",  label = "点球手",   icon = "⚽" },
-    { key = "freeKickTaker", label = "任意球手", icon = "🎯" },
-    { key = "cornerTaker",   label = "角球手",   icon = "📐" },
-    { key = "throwInTaker",  label = "界外球手", icon = "🤾" },
-}
-
 --- 体力条组件（共用）
 local function _fitnessBar(fitness)
     local fc = {80, 200, 120, 255}
@@ -221,13 +212,11 @@ function Tactics.create(params)
 
     -- 读取 params 中的 tab
     if params and params.tab then
-        _activeTab = params.tab
+        _activeTab = params.tab == "setpiece" and "formation" or params.tab
     end
 
     local content
-    if _activeTab == "setpiece" then
-        content = Tactics._buildSetPieceContent(gameState, team)
-    elseif _activeTab == "bench" then
+    if _activeTab == "bench" then
         content = Tactics._buildBenchContent(gameState, team)
     else
         content = Tactics._buildFormationContent(gameState, team, isNTMode)
@@ -293,7 +282,6 @@ function Tactics._buildTabBar()
     local tabs = {
         { key = "formation", label = "阵型与球场" },
         { key = "bench",     label = "替补席" },
-        { key = "setpiece",  label = "定位球人选" },
     }
     local children = {}
     for _, t in ipairs(tabs) do
@@ -502,7 +490,175 @@ local function _buildFormationChildren(gameState, team, isNTMode)
 
         -- 首发列表
         Tactics._buildStartingXICard(gameState, team),
+
+        -- 定位球主罚
+        Tactics._buildSetPieceCard(gameState, team, isNTMode),
     }
+end
+
+---------------------------------------------------------------------------
+-- 定位球主罚卡片
+---------------------------------------------------------------------------
+
+local SET_PIECE_KINDS = {
+    { kind = "penalty",   field = "penaltyTaker",  label = "点球" },
+    { kind = "free_kick", field = "freeKickTaker", label = "任意球" },
+    { kind = "corner",    field = "cornerTaker",   label = "角球" },
+}
+
+function Tactics._buildSetPieceCard(gameState, team, isNTMode)
+    local SetPieceResolver = require("scripts/match/set_piece_resolver")
+
+    local function saveNTSettings()
+        if isNTMode and gameState.nationalTeamCoach then
+            WorldCup.saveNationalTeamSettings(gameState, gameState.nationalTeamCoach.nation, team)
+        end
+    end
+
+    local rows = {}
+    for idx, entry in ipairs(SET_PIECE_KINDS) do
+        local takerId = team[entry.field]
+        local taker = takerId and gameState.players[takerId]
+        local takerText
+        if taker then
+            takerText = string.format("%s (%.0f)", taker.displayName,
+                SetPieceResolver.synthSkill(taker, entry.kind))
+        else
+            takerText = "自动（能力最佳者）"
+        end
+
+        table.insert(rows, UI.Panel {
+            width = "100%",
+            flexDirection = "row",
+            alignItems = "center",
+            paddingTop = 8, paddingBottom = 8,
+            borderBottomWidth = (idx < #SET_PIECE_KINDS) and 1 or 0,
+            borderColor = Theme.COLORS.BORDER,
+            onClick = function()
+                Tactics._showSetPieceTakerSheet(gameState, team, entry, saveNTSettings)
+            end,
+            children = {
+                UI.Label {
+                    text = entry.label, fontSize = 13, fontWeight = "bold",
+                    color = Theme.COLORS.TEXT_SECONDARY, width = 64,
+                },
+                UI.Label {
+                    text = takerText, fontSize = 13,
+                    color = taker and Theme.COLORS.TEXT_PRIMARY or Theme.COLORS.TEXT_MUTED,
+                    flexGrow = 1,
+                },
+                UI.Label {
+                    text = ">", fontSize = 13, color = Theme.COLORS.TEXT_MUTED,
+                },
+            },
+        })
+    end
+
+    return Theme.Card {
+        children = {
+            UI.Panel {
+                width = "100%", flexDirection = "row", alignItems = "center",
+                children = {
+                    Theme.Subtitle { text = "定位球主罚" },
+                    UI.Panel { flexGrow = 1 },
+                    UI.Button {
+                        text = "自动分配",
+                        height = 28, paddingLeft = 12, paddingRight = 12,
+                        backgroundColor = Theme.COLORS.BG_SURFACE,
+                        borderRadius = 14, borderWidth = 1,
+                        borderColor = Theme.COLORS.BORDER,
+                        fontSize = 11, color = Theme.COLORS.ACCENT,
+                        onClick = function()
+                            SetPieceResolver.autoAssign(gameState, team)
+                            saveNTSettings()
+                            Router.replaceWith("tactics", { tab = "formation" })
+                        end,
+                    },
+                },
+            },
+            UI.Label {
+                text = "未指定时比赛中按合成能力自动选择主罚人",
+                fontSize = 11, color = Theme.COLORS.TEXT_MUTED, marginTop = 2, marginBottom = 4,
+            },
+            UI.Panel { width = "100%", children = rows },
+        },
+    }
+end
+
+--- 选择某类定位球主罚人（首发 + 替补，按合成能力排序）
+function Tactics._showSetPieceTakerSheet(gameState, team, entry, saveNTSettings)
+    local SetPieceResolver = require("scripts/match/set_piece_resolver")
+
+    local candidates = {}
+    local seen = {}
+    local function addCandidate(pid)
+        local p = gameState.players[pid]
+        if p and not seen[p.id] and not p.injured and not p.retired
+            and p.position ~= "GK" then
+            seen[p.id] = true
+            table.insert(candidates, {
+                player = p,
+                score = SetPieceResolver.synthSkill(p, entry.kind),
+            })
+        end
+    end
+    for _, pid in pairs(team.startingXI or {}) do addCandidate(pid) end
+    for _, pid in pairs(team.benchIds or {}) do addCandidate(pid) end
+    table.sort(candidates, function(a, b) return a.score > b.score end)
+
+    local children = {}
+
+    -- 「自动」选项
+    table.insert(children, UI.Button {
+        text = "自动（比赛中选能力最佳者）",
+        width = "100%", height = 36, marginBottom = 6,
+        backgroundColor = {38, 46, 71, 255}, borderRadius = 6,
+        fontSize = 12, textAlign = "left", paddingLeft = 10,
+        color = Theme.COLORS.TEXT_SECONDARY,
+        onClick = function()
+            team[entry.field] = nil
+            saveNTSettings()
+            BottomSheet.close()
+            Router.replaceWith("tactics", { tab = "formation" })
+        end,
+    })
+
+    local maxShown = math.min(10, #candidates)
+    for i = 1, maxShown do
+        local c = candidates[i]
+        local p = c.player
+        local isCurrent = team[entry.field] == p.id
+        local traitTag = ""
+        local Player = require("scripts/domain/player")
+        if Player.hasTrait(p, "dead_ball") then traitTag = " [定位球专家]" end
+        table.insert(children, UI.Button {
+            text = string.format("%s %s  能力%.0f%s",
+                Constants.POSITION_NAMES[p.position] or p.position,
+                p.displayName, c.score, traitTag),
+            width = "100%", height = 36, marginBottom = 2,
+            backgroundColor = isCurrent and {212, 175, 55, 40} or {38, 46, 71, 255},
+            borderRadius = 6,
+            borderWidth = isCurrent and 1 or 0,
+            borderColor = Theme.COLORS.ACCENT,
+            fontSize = 12, textAlign = "left", paddingLeft = 10,
+            color = isCurrent and Theme.COLORS.ACCENT or Theme.COLORS.TEXT_PRIMARY,
+            onClick = function()
+                team[entry.field] = p.id
+                saveNTSettings()
+                BottomSheet.close()
+                Router.replaceWith("tactics", { tab = "formation" })
+            end,
+        })
+    end
+
+    local sheetHeight = math.min(169 + 42 + maxShown * 38,
+        math.floor(graphics:GetHeight() / graphics:GetDPR() * 0.85))
+    BottomSheet.showCustom({
+        title = "选择主罚 — " .. entry.label,
+        height = sheetHeight,
+        showCancel = true,
+        children = children,
+    })
 end
 
 function Tactics._buildFormationContent(gameState, team, isNTMode)
@@ -1553,111 +1709,6 @@ function Tactics._buildBenchContent(gameState, team)
     }
 
     return { UI.Panel { width = "100%", children = items } }
-end
-
----------------------------------------------------------------------------
--- 定位球人选
----------------------------------------------------------------------------
-function Tactics._buildSetPieceContent(gameState, team)
-    local startingXI = team.startingXI or {}
-
-    local rows = {}
-    for _, role in ipairs(SET_PIECE_ROLES) do
-        local currentId = team[role.key]
-        local currentPlayer = currentId and gameState.players[currentId]
-        local currentName = currentPlayer and currentPlayer.displayName or "未设置"
-
-        -- 候选球员列表（首发球员）
-        local candidates = {}
-        for _, pid in ipairs(startingXI) do
-            local p = gameState.players[pid]
-            if p then
-                table.insert(candidates, p)
-            end
-        end
-
-        table.insert(rows, Tactics._buildRoleAssignRow(role, currentName, currentId, candidates, team))
-    end
-
-    return {
-        Theme.Card {
-            children = {
-                Theme.Subtitle { text = "定位球角色分配" },
-                UI.Label {
-                    text = "点击球员名切换人选（从首发中选择）",
-                    fontSize = 11,
-                    color = Theme.COLORS.TEXT_MUTED,
-                    marginBottom = 10,
-                },
-                UI.Panel {
-                    width = "100%",
-                    children = rows,
-                },
-            }
-        },
-    }
-end
-
--- 单个角色分配行，点击可切换人选
-function Tactics._buildRoleAssignRow(role, currentName, currentId, candidates, team)
-    return UI.Panel {
-        width = "100%",
-        height = 52,
-        flexDirection = "row",
-        alignItems = "center",
-        paddingLeft = 10,
-        paddingRight = 10,
-        borderBottomWidth = 1,
-        borderColor = Theme.COLORS.BORDER,
-        children = {
-            -- 图标
-            UI.Label {
-                text = role.icon,
-                fontSize = 18,
-                width = 30,
-            },
-            -- 角色名
-            UI.Label {
-                text = role.label,
-                fontSize = 13,
-                color = Theme.COLORS.TEXT_SECONDARY,
-                width = 72,
-            },
-            -- 当前人选（可点击切换）
-            UI.Button {
-                text = currentName,
-                flexGrow = 1,
-                height = 36,
-                backgroundColor = {38, 46, 71, 255},
-                borderRadius = 8,
-                fontSize = 13,
-                color = Theme.COLORS.TEXT_PRIMARY,
-                textAlign = "left",
-                paddingLeft = 10,
-                onClick = function()
-                    -- 循环切换到下一个首发球员
-                    if #candidates == 0 then return end
-                    local nextIdx = 1
-                    for i, c in ipairs(candidates) do
-                        if c.id == currentId then
-                            nextIdx = (i % #candidates) + 1
-                            break
-                        end
-                    end
-                    team[role.key] = candidates[nextIdx].id
-                    Router.replaceWith("tactics", { tab = "setpiece" })
-                end,
-            },
-            -- 切换提示
-            UI.Label {
-                text = "▶",
-                fontSize = 12,
-                color = Theme.COLORS.TEXT_MUTED,
-                width = 20,
-                textAlign = "center",
-            },
-        }
-    }
 end
 
 return Tactics

@@ -72,7 +72,18 @@ function StatsTab.build(player, gameState)
                                 (player.fitness or 0) >= 75 and Theme.COLORS.SECONDARY or Theme.COLORS.WARNING),
                             infoRow("当前士气", tostring(player.morale or 0),
                                 (player.morale or 0) >= 60 and Theme.COLORS.SECONDARY or Theme.COLORS.WARNING),
-                            infoRow("受伤状态", player.injured and ("受伤 - " .. (player.injuryDays or 0) .. "天") or "健康",
+                            infoRow("受伤状态",
+                                player.injured and (
+                                    player.injurySeasonEnding
+                                        and string.format("赛季报销 · %s（%d天）",
+                                            player.injuryKindName or "严重伤病", player.injuryDays or 0)
+                                        or (player.injuryKindName
+                                            and string.format("%s · %s（%d天）",
+                                                player.injuryKindName,
+                                                player.injurySeverityName or "恢复中",
+                                                player.injuryDays or 0)
+                                            or ("受伤 - " .. (player.injuryDays or 0) .. "天"))
+                                ) or "健康",
                                 player.injured and Theme.COLORS.DANGER or Theme.COLORS.SECONDARY),
                             infoRow("训练重点", player.trainingFocus or "跟随全队", Theme.COLORS.TEXT_MUTED),
                         }

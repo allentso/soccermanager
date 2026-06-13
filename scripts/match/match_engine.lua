@@ -6,6 +6,9 @@ local TacticsResolver = require("scripts/match/tactics_resolver")
 local MatchReport = require("scripts/match/match_report")
 local PlaceholderEngine = require("scripts/match/placeholder_engine")
 local MatchSession = require("scripts/match/match_session")
+local TraitEffects = require("scripts/match/trait_effects")
+local SetPieceResolver = require("scripts/match/set_piece_resolver")
+local EventFlavors = require("scripts/match/event_flavors")
 
 local MatchEngine = {}
 
@@ -18,13 +21,6 @@ end
 local function attr(player, key, fallback)
     local attributes = player and player.attributes or {}
     return attributes[key] or fallback or 10
-end
-
-local function hasTrait(player, traitId)
-    for _, id in ipairs(player.traits or {}) do
-        if id == traitId then return true end
-    end
-    return false
 end
 
 local function poisson(lambda)
@@ -46,7 +42,8 @@ local function positionGroup(position)
     return "MID"
 end
 
-local function pickShooter(context)
+local function pickShooter(context, opts)
+    opts = opts or {}
     return TacticsResolver.chooseWeighted(context.players, function(player)
         local group = positionGroup(player.position)
         local weight = attr(player, "shooting") * 1.0 + attr(player, "positioning") * 0.6 + attr(player, "composure") * 0.4
@@ -55,8 +52,7 @@ local function pickShooter(context)
         elseif group == "MID" then weight = weight * 0.9
         elseif group == "DEF" then weight = weight * 0.2 + attr(player, "aerial") * 0.25
         else weight = 0.05 end
-        if hasTrait(player, "clinical") or hasTrait(player, "poacher") then weight = weight * 1.35 end
-        return weight
+        return TraitEffects.modifyShooterWeight(player, group, weight, opts)
     end)
 end
 
@@ -72,15 +68,15 @@ local function pickAssister(context, scorer)
         elseif player.position == "LB" or player.position == "RB" then weight = weight * 0.9
         elseif group == "FWD" then weight = weight * 0.7
         else weight = weight * 0.35 end
-        if hasTrait(player, "playmaker") then weight = weight * 1.25 end
-        return weight
+        return TraitEffects.modifyAssisterWeight(player, group, weight)
     end)
 end
 
 local function pickCardPlayer(context)
     return TacticsResolver.chooseWeighted(context.players, function(player)
         if player.position == "GK" then return 0.1 end
-        return attr(player, "aggression") * 0.8 + (21 - attr(player, "decisions")) * 0.35
+        local weight = attr(player, "aggression") * 0.8 + (21 - attr(player, "decisions")) * 0.35
+        return TraitEffects.modifyCardWeight(player, weight)
     end)
 end
 
@@ -113,8 +109,8 @@ function MatchEngine._simulateMinutes(fixture, homeContext, awayContext, startMi
     -- 单场"今日状态"采样（±18%）：整场固定，存入 state 以兼容分段模拟（session）
     -- 注意不能逐分钟重掷，否则 90 次平均后波动退化为 ±2%，丢失单场状态语义
     if not state._homeFormFactor then
-        state._homeFormFactor = 0.82 + Random() * 0.36
-        state._awayFormFactor = 0.82 + Random() * 0.36
+        state._homeFormFactor = TraitEffects.sampleFormFactor(homeContext.traitSummary)
+        state._awayFormFactor = TraitEffects.sampleFormFactor(awayContext.traitSummary)
     end
 
     -- 弱侧大比分护栏：明显弱旅（OVR差>=12）领先2球后，后续进球概率指数递减
@@ -180,53 +176,177 @@ function MatchEngine._simulateMinutes(fixture, homeContext, awayContext, startMi
         end
         local momentum = attackingHome and homeMomentum or awayMomentum
 
-        -- 定位球/防守失误进球（每分钟每队都有小概率得分，不依赖战术链）
-        -- 模拟角球、任意球、点球、乌龙球、门将失误等；基准每场≈0.36个，
-        -- 按 OVR 差缩放：强队定位球更多（角球/前压），弱队白捡球减少
-        local setPieceChance = 0.004  -- 每分钟0.4%
+        -- 定位球机会通道（FM 风格三阶段：机会 → 发球质量 → 终结检定）
+        -- 类型: 角球52% / 任意球33% / 点球9% / 乌龙6%
+        -- 机会率 0.012/分钟/队，经过滤链后进球期望 ≈ 0.30/队/场（蒙特卡洛校准）
+        local setPieceOpportunity = 0.012
         for _, side in ipairs({{true, homeContext, fixture.homeTeamId}, {false, awayContext, fixture.awayTeamId}}) do
             local spIsHome, spContext, spTeamId = side[1], side[2], side[3]
             local spOppCtx = spIsHome and awayContext or homeContext
             local spGap = (spContext.avgPlayerOverall or 70) - (spOppCtx.avgPlayerOverall or 70)
             local spScale = clamp(1.0 + spGap * 0.025, 0.60, 1.25)
-            if Random() < setPieceChance * spScale * weakSideGoalDampen(spIsHome) then
-                -- 决定进球类型: 普通定位球60%, 点球25%, 乌龙球15%
+            local spTraitMult = (spContext.traitSummary and spContext.traitSummary.setPieceMult) or 1.0
+            if Random() < setPieceOpportunity * spScale * spTraitMult then
+                local addShot = function(onTarget, goal)
+                    if spIsHome then
+                        state.homeShots = state.homeShots + 1
+                        if onTarget then state.homeShotsOnTarget = state.homeShotsOnTarget + 1 end
+                        if goal then state.homeGoals = state.homeGoals + 1 end
+                    else
+                        state.awayShots = state.awayShots + 1
+                        if onTarget then state.awayShotsOnTarget = state.awayShotsOnTarget + 1 end
+                        if goal then state.awayGoals = state.awayGoals + 1 end
+                    end
+                end
+
                 local spTypeRoll = Random()
-                local spIsOwnGoal = spTypeRoll < 0.15
-                local spIsPenalty = spTypeRoll >= 0.15 and spTypeRoll < 0.40
-
-                local scorer, assister
-                if spIsOwnGoal then
-                    -- 乌龙球：进球者来自防守方（对方球队）
-                    local defContext = spIsHome and awayContext or homeContext
-                    scorer = pickShooter(defContext)
-                    assister = nil
+                if spTypeRoll < 0.06 then
+                    -- 乌龙球：防守方失误，免后续检定（但受弱旅护栏约束）
+                    if Random() < weakSideGoalDampen(spIsHome) then
+                        local scorer = pickShooter(spOppCtx)
+                        addShot(true, true)
+                        table.insert(events, {
+                            type = "goal",
+                            minute = minute,
+                            playerId = scorer and scorer.id,
+                            teamId = spTeamId,
+                            isOwnGoal = true,
+                            isSetPiece = true,
+                            setPieceKind = "own_goal",
+                            isExtraTime = minute > 90 or nil,
+                            templateIdx = RandomInt(1, 100),
+                        })
+                        if spIsHome then homeMomentum = 0 else awayMomentum = 0 end
+                    end
+                elseif spTypeRoll < 0.15 then
+                    -- 场内点球：指定主罚人 + 统一点球模型
+                    local taker = SetPieceResolver.resolveTaker(spContext, "penalty")
+                    local keeper = nil
+                    for _, p in ipairs(spOppCtx.players or {}) do
+                        if p.position == "GK" then keeper = p break end
+                    end
+                    local chance = SetPieceResolver.penaltyChance(taker, keeper)
+                        * weakSideGoalDampen(spIsHome)
+                    if Random() < chance then
+                        addShot(true, true)
+                        table.insert(events, {
+                            type = "goal",
+                            minute = minute,
+                            playerId = taker and taker.id,
+                            teamId = spTeamId,
+                            isPenalty = true,
+                            isSetPiece = true,
+                            setPieceKind = "penalty",
+                            isExtraTime = minute > 90 or nil,
+                            templateIdx = RandomInt(1, 100),
+                        })
+                        if spIsHome then homeMomentum = 0 else awayMomentum = 0 end
+                    else
+                        -- 点球未进：60% 门将扑出，40% 射失（射偏/中框不区分）
+                        if Random() < 0.60 then
+                            addShot(true, false)
+                            table.insert(events, {
+                                type = "save",
+                                minute = minute,
+                                playerId = taker and taker.id,
+                                teamId = spTeamId,
+                                isSetPiece = true,
+                                isPenalty = true,
+                                templateIdx = RandomInt(1, 100),
+                            })
+                        else
+                            addShot(false, false)
+                            table.insert(events, {
+                                type = "shot_off_target",
+                                minute = minute,
+                                playerId = taker and taker.id,
+                                teamId = spTeamId,
+                                isPenalty = true,
+                                isSetPiece = true,
+                                templateIdx = RandomInt(1, 100),
+                            })
+                        end
+                    end
                 else
-                    scorer = pickShooter(spContext)
-                    assister = (not spIsPenalty) and pickAssister(spContext, scorer) or nil
-                end
+                    -- 角球(52%) / 任意球(33%)
+                    local spKind = spTypeRoll < 0.67 and "corner" or "free_kick"
+                    local taker = SetPieceResolver.resolveTaker(spContext, spKind)
 
-                if spIsHome then
-                    state.homeShots = state.homeShots + 1
-                    state.homeShotsOnTarget = state.homeShotsOnTarget + 1
-                    state.homeGoals = state.homeGoals + 1
-                else
-                    state.awayShots = state.awayShots + 1
-                    state.awayShotsOnTarget = state.awayShotsOnTarget + 1
-                    state.awayGoals = state.awayGoals + 1
+                    -- 阶段1: 发球质量（主罚合成能力 → 通过率 0.35~0.80）
+                    local takerSkill = SetPieceResolver.synthSkill(taker, spKind)
+                    local delivery = clamp(0.30 + takerSkill / 40, 0.35, 0.80)
+                    if Random() >= delivery then
+                        -- 发球失败：一半静默，一半生成射偏解说
+                        if Random() < 0.50 then
+                            addShot(false, false)
+                            table.insert(events, {
+                                type = "shot_off_target",
+                                minute = minute,
+                                playerId = taker and taker.id,
+                                teamId = spTeamId,
+                                isSetPiece = true,
+                                templateIdx = RandomInt(1, 100),
+                            })
+                        end
+                    else
+                        -- 阶段2: 终结者（任意球 45% 主罚直接射门，其余争顶头球链）
+                        local finisher, finishScore
+                        if spKind == "free_kick" and Random() < 0.45 then
+                            finisher = taker
+                            finishScore = attr(finisher, "shooting") * 0.60
+                                + attr(finisher, "composure") * 0.40
+                        else
+                            finisher = SetPieceResolver.pickAerialFinisher(spContext) or taker
+                            finishScore = attr(finisher, "aerial") * 0.55
+                                + attr(finisher, "strength") * 0.25
+                                + attr(finisher, "positioning") * 0.20
+                        end
+
+                        -- 阶段3: 进球检定（攻防量纲同为 1-20，直接相减）
+                        local aerialDef = SetPieceResolver.aerialDefense(spOppCtx)
+                        local edge = (finishScore - aerialDef) / 20
+                        local goalChance = clamp(
+                            0.24 + edge * 0.35 + (delivery - 0.55) * 0.30,
+                            0.08, 0.45)
+                        local finisherGroup = positionGroup(finisher and finisher.position or "ST")
+                        local saveBonus = (spOppCtx.traitSummary and spOppCtx.traitSummary.saveBonus) or 0
+                        goalChance = TraitEffects.modifyGoalChance(finisher, finisherGroup, goalChance, {
+                            isSetPiece = true,
+                            defenderSaveBonus = saveBonus,
+                        })
+                        goalChance = goalChance * weakSideGoalDampen(spIsHome)
+
+                        if Random() < goalChance then
+                            addShot(true, true)
+                            table.insert(events, {
+                                type = "goal",
+                                minute = minute,
+                                playerId = finisher and finisher.id,
+                                assistPlayerId = (taker and finisher and taker.id ~= finisher.id)
+                                    and taker.id or nil,
+                                teamId = spTeamId,
+                                isSetPiece = true,
+                                setPieceKind = spKind,
+                                takerId = taker and taker.id,
+                                isExtraTime = minute > 90 or nil,
+                                templateIdx = RandomInt(1, 100),
+                            })
+                            if spIsHome then homeMomentum = 0 else awayMomentum = 0 end
+                        else
+                            -- 未进：65% 扑救 / 35% 中框（与运动战一致）
+                            addShot(true, false)
+                            local saveType = Random() < 0.65 and "save" or "hit_post"
+                            table.insert(events, {
+                                type = saveType,
+                                minute = minute,
+                                playerId = finisher and finisher.id,
+                                teamId = spTeamId,
+                                isSetPiece = true,
+                                templateIdx = RandomInt(1, 100),
+                            })
+                        end
+                    end
                 end
-                table.insert(events, {
-                    type = "goal",
-                    minute = minute,
-                    playerId = scorer and scorer.id,
-                    assistPlayerId = assister and assister.id,
-                    teamId = spTeamId,
-                    isPenalty = spIsPenalty or nil,
-                    isOwnGoal = spIsOwnGoal or nil,
-                    isExtraTime = minute > 90 or nil,
-                    templateIdx = RandomInt(1, 100),
-                })
-                if spIsHome then homeMomentum = 0 else awayMomentum = 0 end
             end
         end
 
@@ -242,19 +362,23 @@ function MatchEngine._simulateMinutes(fixture, homeContext, awayContext, startMi
                 if isHome then state.homeShots = state.homeShots + 1 else state.awayShots = state.awayShots + 1 end
 
                 local shooter = pickShooter(attackContext)
+                local shooterGroup = positionGroup(shooter and shooter.position or "CM")
                 local finishing = (attr(shooter, "shooting") * 1.0 + attr(shooter, "composure") * 0.8 + attr(shooter, "positioning") * 0.4) / 20
                 -- 防守压力（量纲归一后同实力≈1.0；归一前同实力恒撞 1.40 上限）
                 local defensePressure = clamp(
                     defendContext.defense / TacticsResolver.DEF_TO_ATK_SCALE / math.max(1, attackContext.attack),
                     0.60, 1.40)
                 local onTargetChance = clamp(0.38 + finishing * 0.12 - defensePressure * 0.05, 0.28, 0.56)
+                onTargetChance = TraitEffects.modifyOnTargetChance(shooter, shooterGroup, onTargetChance)
                 if Random() < onTargetChance then
                     if isHome then state.homeShotsOnTarget = state.homeShotsOnTarget + 1 else state.awayShotsOnTarget = state.awayShotsOnTarget + 1 end
 
                     -- 进球概率：下限降至0.08，弱队面对强防线转化率更低
                     local goalChance = clamp(0.20 + finishing * 0.08 * attackMod.shotQuality - defensePressure * 0.05, 0.08, 0.34)
-                    if hasTrait(shooter, "clinical") then goalChance = goalChance + 0.025 end
-                    if hasTrait(shooter, "poacher") then goalChance = goalChance + 0.02 end
+                    local saveBonus = (defendContext.traitSummary and defendContext.traitSummary.saveBonus) or 0
+                    goalChance = TraitEffects.modifyGoalChance(shooter, shooterGroup, goalChance, {
+                        defenderSaveBonus = saveBonus,
+                    })
                     goalChance = goalChance * weakSideGoalDampen(isHome)
                     if Random() < goalChance then
                         local assister = pickAssister(attackContext, shooter)
@@ -306,11 +430,14 @@ function MatchEngine._simulateMinutes(fixture, homeContext, awayContext, startMi
             if cardRoll < 0.18 then
                 local player = pickCardPlayer(foulContext)
                 local eventType = Random() < 0.08 and "red_card" or "yellow_card"
+                local reason = EventFlavors.rollCardReason(eventType == "red_card")
                 table.insert(events, {
                     type = eventType,
                     minute = minute,
                     playerId = player and player.id,
                     teamId = foulSideHome and fixture.homeTeamId or fixture.awayTeamId,
+                    cardReason = reason.id,
+                    cardReasonName = reason.name,
                     templateIdx = RandomInt(1, 100),
                 })
                 if eventType == "red_card" then
@@ -324,12 +451,29 @@ function MatchEngine._simulateMinutes(fixture, homeContext, awayContext, startMi
             local injuredHome = Random() < 0.5
             local context = injuredHome and homeContext or awayContext
             local player = pickInjuryPlayer(context)
+            local injuryRisk = context.injuryRisk or 1.0
+            local seChance = EventFlavors.computeSeasonEndingChance(player, {
+                injuryRisk = injuryRisk,
+                year = options.currentYear,
+                baseChance = options.seasonEndingBase or EventFlavors.BASE_SEASON_ENDING_MATCH,
+            })
+            local injury = EventFlavors.rollMatchInjury({
+                allowSeasonEnding = options.allowSeasonEnding,
+                seasonDaysRemaining = options.seasonDaysRemaining,
+                seasonEndingChance = seChance,
+                maxDays = options.maxDays,
+            })
             table.insert(events, {
                 type = "injury",
                 minute = minute,
                 playerId = player and player.id,
                 teamId = injuredHome and fixture.homeTeamId or fixture.awayTeamId,
-                injuryDays = RandomInt(3, 21),
+                injuryDays = injury.days,
+                injuryKind = injury.kind,
+                injuryKindName = injury.kindName,
+                injurySeverity = injury.severity,
+                injurySeverityName = injury.severityName,
+                injurySeasonEnding = injury.isSeasonEnding,
                 templateIdx = RandomInt(1, 100),
             })
         end
@@ -348,10 +492,10 @@ local function selectPenaltyKickers(context)
     for _, player in ipairs(context.players or {}) do
         if player.position ~= "GK" then table.insert(kickers, player) end
     end
+    -- 统一排序：PK 合成能力 + 特质；球队指定主罚人置顶
     table.sort(kickers, function(a, b)
-        local aScore = attr(a, "shooting") + attr(a, "composure") * 0.8
-        local bScore = attr(b, "shooting") + attr(b, "composure") * 0.8
-        return aScore > bScore
+        return SetPieceResolver.shootoutScore(a, context.team)
+             > SetPieceResolver.shootoutScore(b, context.team)
     end)
     if #kickers == 0 and context.players and context.players[1] then
         table.insert(kickers, context.players[1])
@@ -367,14 +511,59 @@ local function findGoalkeeper(context)
     return context.players and context.players[1] or nil
 end
 
+-- 点球检定统一走 SetPieceResolver（场内点球与点球大战同一模型）
 local function takePenalty(kicker, goalkeeper)
-    local kickerScore = attr(kicker, "shooting") + attr(kicker, "composure") * 0.8 + ((kicker and kicker.morale or 60) - 50) * 0.04
-    local keeperScore = attr(goalkeeper, "reflexes", 5) + attr(goalkeeper, "handling", 5) * 0.6
-    local chance = clamp(0.74 + (kickerScore - keeperScore) / 220, 0.52, 0.92)
-    return Random() < chance
+    return SetPieceResolver.takePenalty(kicker, goalkeeper)
 end
 
-function MatchEngine._simulatePenaltyShootout(homeContext, awayContext)
+--- 解析 fixture 对应的主客队（俱乐部或世界杯虚拟国家队）
+function MatchEngine._resolveTeams(gameState, fixture)
+    if fixture._isWC then
+        local WorldCup = require("scripts/systems/world_cup")
+        local homeTeam = WorldCup.buildNationalTeam(gameState, fixture.homeTeamId)
+        local awayTeam = WorldCup.buildNationalTeam(gameState, fixture.awayTeamId)
+        return homeTeam, awayTeam
+    end
+    return gameState.teams[fixture.homeTeamId], gameState.teams[fixture.awayTeamId]
+end
+
+--- 淘汰赛加时 + 点球（单场决胜或两回合次回合决胜共用）
+---@return table extraTime
+---@return table state 更新后的模拟状态（含加时进球）
+function MatchEngine.simulateExtraTimeAndPenalties(fixture, homeContext, awayContext, state)
+    state = state or {
+        events = {},
+        homeGoals = 0,
+        awayGoals = 0,
+        homeShots = 0,
+        awayShots = 0,
+        homeShotsOnTarget = 0,
+        awayShotsOnTarget = 0,
+        homeFouls = 0,
+        awayFouls = 0,
+        homePossessionTicks = 0,
+        totalPossessionTicks = 0,
+    }
+
+    local beforeHome = state.homeGoals or 0
+    local beforeAway = state.awayGoals or 0
+    MatchEngine._simulateMinutes(fixture, homeContext, awayContext, 91, 120, state, {
+        phaseChance = 0.35,
+        injuryChance = 0.0018,
+    })
+
+    local extraTime = {
+        played = true,
+        homeExtraGoals = state.homeGoals - beforeHome,
+        awayExtraGoals = state.awayGoals - beforeAway,
+    }
+    if state.homeGoals == state.awayGoals then
+        extraTime.penalties = MatchEngine._simulatePenaltyShootout(homeContext, awayContext, fixture)
+    end
+    return extraTime, state
+end
+
+function MatchEngine._simulatePenaltyShootout(homeContext, awayContext, fixture)
     local homeKickers = selectPenaltyKickers(homeContext)
     local awayKickers = selectPenaltyKickers(awayContext)
     local homeKeeper = findGoalkeeper(homeContext)
@@ -422,17 +611,19 @@ function MatchEngine._simulatePenaltyShootout(homeContext, awayContext)
         if homeScored ~= awayScored then break end
     end
 
+    local winnerId = homeScore > awayScore and fixture.homeTeamId or fixture.awayTeamId
     return {
         homeScore = homeScore,
         awayScore = awayScore,
+        homeScored = homeScore,
+        awayScored = awayScore,
         rounds = rounds,
-        winner = homeScore > awayScore and "home" or "away",
+        winner = winnerId,
     }
 end
 
 function MatchEngine.simulate(gameState, fixture)
-    local homeTeam = gameState.teams[fixture.homeTeamId]
-    local awayTeam = gameState.teams[fixture.awayTeamId]
+    local homeTeam, awayTeam = MatchEngine._resolveTeams(gameState, fixture)
     if not homeTeam or not awayTeam then return nil end
 
     local homeContext = TacticsResolver.buildTeamContext(gameState, homeTeam)
@@ -453,24 +644,15 @@ function MatchEngine.simulate(gameState, fixture)
         totalPossessionTicks = 0,
     }
 
-    MatchEngine._simulateMinutes(fixture, homeContext, awayContext, 1, 90, state)
+    MatchEngine._simulateMinutes(fixture, homeContext, awayContext, 1, 90, state, {
+        allowSeasonEnding = true,
+        seasonDaysRemaining = EventFlavors.estimateSeasonDaysRemaining(gameState),
+        currentYear = gameState.date and gameState.date.year,
+    })
 
     local extraTime = nil
     if fixture.isKnockout and state.homeGoals == state.awayGoals then
-        local beforeHome = state.homeGoals
-        local beforeAway = state.awayGoals
-        MatchEngine._simulateMinutes(fixture, homeContext, awayContext, 91, 120, state, {
-            phaseChance = 0.35,
-            injuryChance = 0.0018,
-        })
-        extraTime = {
-            played = true,
-            homeExtraGoals = state.homeGoals - beforeHome,
-            awayExtraGoals = state.awayGoals - beforeAway,
-        }
-        if state.homeGoals == state.awayGoals then
-            extraTime.penalties = MatchEngine._simulatePenaltyShootout(homeContext, awayContext)
-        end
+        extraTime = MatchEngine.simulateExtraTimeAndPenalties(fixture, homeContext, awayContext, state)
     end
 
     state.extraTime = extraTime
@@ -506,6 +688,11 @@ function MatchEngine.finishMatch(session, gameState, fixture)
     local report = session:buildReport()
     ---@diagnostic disable-next-line: return-type-mismatch
     if not report then return nil end
+
+    -- 还原存档阵容（临场换人仅存在于 session / report）
+    if session.restoreKickoffLineups then
+        session:restoreKickoffLineups()
+    end
 
     -- 应用比赛结果（积分榜、球员数据等）
     if fixture._isWC then

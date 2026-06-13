@@ -1180,13 +1180,82 @@ function WorldCup._checkNationalTeamInvitation(gameState, qualifiedNations, wcYe
     table.insert(bodyLines, "\n选择一支国家队接受邀请，你将负责选拔26人大名单并带队征战世界杯。")
     table.insert(actions, { label = "全部婉拒", actionId = "decline_nt_coach", data = {} })
 
-    gameState:sendMessage({
+    gameState._pendingNTCoachOffers = {
+        season = gameState.season,
+        nations = {},
+        offeredDate = {
+            year = gameState.date.year,
+            month = gameState.date.month,
+            day = gameState.date.day,
+        },
+    }
+    for _, code in ipairs(offers) do
+        table.insert(gameState._pendingNTCoachOffers.nations, code)
+    end
+
+    local msg = gameState:sendMessage({
         category = "world_cup",
         title = "🏆 国家队主教练邀请",
         body = table.concat(bodyLines, "\n"),
         priority = "high",
         actions = actions,
     })
+    if msg and gameState._pendingNTCoachOffers then
+        gameState._pendingNTCoachOffers.inviteMessageId = msg.id
+    end
+end
+
+--- 是否存在待回复的国家队执教邀请
+function WorldCup.hasPendingCoachInvite(gameState)
+    local pending = gameState._pendingNTCoachOffers
+    return pending ~= nil and pending.nations ~= nil and #pending.nations > 0
+end
+
+--- 清除国家队执教邀请待办（接受/婉拒后调用）
+function WorldCup.clearPendingCoachInvite(gameState)
+    gameState._pendingNTCoachOffers = nil
+end
+
+--- 世界杯小组赛开幕日（该届最早一场小组赛）
+function WorldCup.getGroupStageKickoffDate(wcYear)
+    local minMonth, minDay = 12, 99
+    for _, entry in ipairs(GROUP_FIXTURES) do
+        local month, day = entry[5], entry[6]
+        if month < minMonth or (month == minMonth and day < minDay) then
+            minMonth, minDay = month, day
+        end
+    end
+    return { year = wcYear, month = minMonth, day = minDay }
+end
+
+--- 距世界杯小组赛开幕还有多少天（已过开幕日则返回 0）
+function WorldCup.daysUntilGroupStageKickoff(gameState)
+    if not gameState or not WorldCup.isWorldCupYear(gameState.season) then
+        return nil
+    end
+    local kickoff = WorldCup.getGroupStageKickoffDate(gameState.season)
+    local TransferManager = require("scripts/systems/transfer_manager")
+    local days = TransferManager._daysBetween(gameState.date, kickoff)
+    return math.max(0, days)
+end
+
+--- 是否需要阻断以确认国家队大名单（距开幕 ≤7 天且尚未锁定）
+---@return boolean needsBlock
+---@return string|nil nation
+---@return number|nil daysLeft
+function WorldCup.needsSquadConfirmationBlock(gameState)
+    local ntCoach = gameState.nationalTeamCoach
+    if not ntCoach or ntCoach.squadConfirmed == true then
+        return false
+    end
+    if not WorldCup.isWorldCupYear(gameState.season) then
+        return false
+    end
+    local days = WorldCup.daysUntilGroupStageKickoff(gameState)
+    if days == nil or days > 7 then
+        return false
+    end
+    return true, ntCoach.nation, days
 end
 
 --- 获取经理所在联赛对应的国家FIFA代码（作为保底邀约）

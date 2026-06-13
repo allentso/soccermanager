@@ -13,6 +13,7 @@ local NewsGenerator = require("scripts/systems/news_generator")
 local ObjectivesManager = require("scripts/systems/objectives_manager")
 local RecordsManager = require("scripts/systems/records_manager")
 local PotentialSystem = require("scripts/systems/potential_system")
+local TrainingManager = require("scripts/systems/training_manager")
 
 local SeasonManager = {}
 
@@ -99,18 +100,18 @@ function SeasonManager.endSeason(gameState)
         -- 6.6. 记录系统：赛季记录检查（必须在重置统计之前）
         RecordsManager.onSeasonEnd(gameState)
 
-        -- 7. 重置赛季统计（全局）
-        SeasonManager._resetSeasonStats(gameState)
-
-        -- 7.5 重置赛季财务统计（seasonIncome/seasonExpense 归零）
-        FinanceManager.resetSeasonFinance(gameState)
-
-        -- 8. B3: 记录赛季完整历史（含奖项和转会数据）
+        -- 8. 记录赛季完整历史（含奖项、财务快照；必须在 reset 之前）
         -- 注意：曾经这里还会调用 _recordSeasonHistory 再写一条"旧格式"记录，
         -- 导致 worldHistory 每赛季出现两条重复数据（存档膨胀 + 历史页重复）。
         -- recordSeasonEnd 的记录是其超集，旧调用已移除；
         -- 老存档中的重复记录由 Housekeeping.dedupeWorldHistory 在读档时合并。
         HistoryManager.recordSeasonEnd(gameState, awards)
+
+        -- 7. 重置赛季统计（全局）
+        SeasonManager._resetSeasonStats(gameState)
+
+        -- 7.5 重置赛季财务统计（seasonIncome/seasonExpense 归零）
+        FinanceManager.resetSeasonFinance(gameState)
     end)
 
     if not ok then
@@ -254,16 +255,18 @@ end
 ------------------------------------------------------
 
 function SeasonManager._processPlayerDevelopment(gameState)
+    local seasonStartYear = TrainingManager.getSeasonStartYear(gameState)
+
     for _, player in pairs(gameState.players) do
         if player.retired then goto continue end
 
         local age = player:getAge(gameState.date.year)
+        local seasonAge = TrainingManager.getSeasonAge(player, seasonStartYear)
         local growthChance = 0
         local declineChance = 0
 
-        -- 年轻球员成长
-        if age <= 21 then
-            growthChance = 0.6   -- 60%概率每个属性+1
+        if seasonAge <= Constants.YOUTH_PHASE_MAX_AGE then
+            growthChance = Constants.U21_SEASON_END_GROWTH_CHANCE
         elseif age <= 24 then
             growthChance = 0.35
         elseif age <= Constants.AGE_PEAK_END then
@@ -271,29 +274,26 @@ function SeasonManager._processPlayerDevelopment(gameState)
         elseif age <= 33 then
             declineChance = 0.2
         else
-            declineChance = 0.4   -- 老年球员快速退化
+            declineChance = 0.4
         end
 
-        -- 应用成长
+        if growthChance > 0 and seasonAge > Constants.YOUTH_PHASE_MAX_AGE then
+            growthChance = growthChance * TrainingManager.getParticipationFactor(player, seasonStartYear)
+        end
+
         local attrNames = {"speed", "stamina", "strength", "agility", "passing",
             "shooting", "tackling", "dribbling", "defending", "positioning",
             "vision", "decisions", "composure", "aggression", "teamwork",
             "leadership", "aerial", "handling", "reflexes"}
 
-        local grew = false
         for _, attr in ipairs(attrNames) do
             if growthChance > 0 and Random() < growthChance then
-                if player.attributes[attr] and player.attributes[attr] < 20 then
-                    -- 不能超过潜力限制（使用局内实际潜力）
-                    local potCap = math.floor((player.actualPotential or player.potential) / 5)
-                    if player.attributes[attr] < potCap then
-                        player.attributes[attr] = player.attributes[attr] + 1
-                        grew = true
-                    end
+                local attrCap = player:getAttrCap()
+                if player.attributes[attr] and player.attributes[attr] < attrCap then
+                    player.attributes[attr] = player.attributes[attr] + 1
                 end
             elseif declineChance > 0 and Random() < declineChance then
                 if player.attributes[attr] and player.attributes[attr] > 1 then
-                    -- 体能属性退化更快
                     if (attr == "speed" or attr == "stamina" or attr == "agility") and Random() < 0.3 then
                         player.attributes[attr] = math.max(1, player.attributes[attr] - 2)
                     else
@@ -303,7 +303,6 @@ function SeasonManager._processPlayerDevelopment(gameState)
             end
         end
 
-        -- 重新计算overall、名气和value
         player:calculateOverall()
         if player.teamId then
             local team = gameState.teams[player.teamId]
@@ -473,6 +472,8 @@ function SeasonManager._resetSeasonStats(gameState)
     local FinanceManager = require("scripts/systems/finance_manager")
     for _, team in pairs(gameState.teams) do
         team.recentForm = {}
+        team.monthlyStats = nil
+        team._lastMonthlyStats = nil
         team.seasonStats = {
             wins = 0, draws = 0, losses = 0,
             goalsFor = 0, goalsAgainst = 0,
@@ -579,6 +580,8 @@ function SeasonManager._processPromotionRelegation(gameState)
                         teamName, SECOND_DIVISION_NAMES[leagueKey] or "二级联赛"),
                     priority = "critical",
                 })
+                local JobManager = require("scripts/systems/job_manager")
+                JobManager.handleRelegation(gameState, teamId, SECOND_DIVISION_NAMES[leagueKey] or "二级联赛")
             end
 
             table.insert(promotionNews, {
@@ -603,6 +606,9 @@ function SeasonManager._processPromotionRelegation(gameState)
 
             local team = gameState.teams[teamId]
             local teamName = team and team.name or "未知球队"
+            if team then
+                team._promotedThisSeason = true
+            end
 
             -- 如果是玩家球队升级
             if teamId == gameState.playerTeamId then
@@ -1047,6 +1053,10 @@ function SeasonManager._startNewSeason(gameState)
     -- 为所有球队生成新赛季董事会目标
     local BoardManager = require("scripts/systems/board_manager")
     BoardManager.generateSeasonObjectives(gameState)
+
+    for _, team in pairs(gameState.teams) do
+        team._promotedThisSeason = nil
+    end
 
     -- 生成新赛季赞助合同选项（玩家需在赛季初选择）
     local FinanceManager = require("scripts/systems/finance_manager")

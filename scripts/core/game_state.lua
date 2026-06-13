@@ -246,6 +246,11 @@ function GameState:serialize()
         inbox = self.inbox,
         news = self.news,
         worldHistory = self.worldHistory,
+        records = self.records,
+        _transferHistory = self._transferHistory,
+        _managerHistory = self._managerHistory,
+        _worldCupHistory = self._worldCupHistory,
+        lastPromotionRelegation = self.lastPromotionRelegation,
         transfers = self.transfers,
         scoutReports = self.scoutReports,
         scoutDiscoveries = self.scoutDiscoveries,
@@ -274,11 +279,16 @@ function GameState:serialize()
         _offerCooldown = self._offerCooldown,
         _managerRenewalOffer = self._managerRenewalOffer,
         _managerRenewalOffered = self._managerRenewalOffered,
+        objectives = self.objectives,
+        _messageDedupeCache = self._messageDedupeCache,
+        _pendingNTCoachOffers = self._pendingNTCoachOffers,
         -- 存档数据消毒留痕（用于追根因：记录哪些字段曾出现非法值/稀疏数组）
         _sanitizeReports = self._sanitizeReports,
         -- 声望基准线迁移标记
         _repBaselineMigrated = self._repBaselineMigrated,
         _repBaselineV2 = self._repBaselineV2,
+        _teamRelations = self._teamRelations,
+        _activeLoans = self._activeLoans,
     }
 end
 
@@ -297,6 +307,11 @@ function GameState:deserialize(data)
     self.inbox = data.inbox or {}
     self.news = data.news or {}
     self.worldHistory = data.worldHistory or {}
+    self.records = data.records
+    self._transferHistory = data._transferHistory
+    self._managerHistory = data._managerHistory
+    self._worldCupHistory = data._worldCupHistory
+    self.lastPromotionRelegation = data.lastPromotionRelegation
     self.transfers = data.transfers or { bids = {}, history = {}, nextBidId = 1 }
     self.scoutReports = data.scoutReports or {}
     self.scoutDiscoveries = data.scoutDiscoveries or {}
@@ -348,11 +363,16 @@ function GameState:deserialize(data)
     self._offerCooldown = data._offerCooldown or 0
     self._managerRenewalOffer = data._managerRenewalOffer
     self._managerRenewalOffered = data._managerRenewalOffered
+    self.objectives = data.objectives
+    self._messageDedupeCache = data._messageDedupeCache or {}
+    self._pendingNTCoachOffers = data._pendingNTCoachOffers
     -- 存档消毒留痕（追根因用）
     self._sanitizeReports = data._sanitizeReports
     -- 声望基准线迁移标记
     self._repBaselineMigrated = data._repBaselineMigrated
     self._repBaselineV2 = data._repBaselineV2
+    self._teamRelations = data._teamRelations
+    self._activeLoans = data._activeLoans or {}
 
     -- 恢复二级联赛数据（升降级状态）
     if data.secondDivision then
@@ -571,6 +591,31 @@ function GameState:deserialize(data)
     for _, lg in pairs(self.leagues) do
         lg:syncTeamPositions(self)
     end
+
+    -- 记录系统：确保结构完整，旧存档从 worldHistory / UCL / 世界杯历史回溯
+    local RecordsManager = require("scripts/systems/records_manager")
+    RecordsManager._ensureData(self)
+    RecordsManager.migrateFromHistory(self)
+    RecordsManager.syncManagerProfile(self)
+
+    -- 历史子系统缓冲结构
+    local HistoryManager = require("scripts/systems/history_manager")
+    HistoryManager._ensureData(self)
+
+    -- 旧存档兼容：赛季进行中但 objectives 丢失时自动补全（须在联赛/球队恢复之后）
+    if not self.objectives and self.league and (self.league.currentRound or 0) > 0 then
+        local ObjectivesManager = require("scripts/systems/objectives_manager")
+        ObjectivesManager.initSeason(self)
+    end
+
+    -- 已接受国家队邀请则不应再阻断
+    if self.nationalTeamCoach and self._pendingNTCoachOffers then
+        self._pendingNTCoachOffers = nil
+    end
+
+    -- 旧存档：死敌关系未初始化时补全
+    local TeamRivalries = require("scripts/data/team_rivalries")
+    TeamRivalries.initializeIfNeeded(self)
 end
 
 -- 获取玩家所在联赛

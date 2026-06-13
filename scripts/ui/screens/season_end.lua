@@ -27,6 +27,30 @@ end
 
 local function clamp(v, lo, hi) return math.max(lo, math.min(hi, v)) end
 
+local CHAMPION_BONUS = 20000000
+
+local function findPlayerLeaguePosition(record, teamId)
+    if not record or not teamId then return nil end
+    for _, leagueRecord in pairs(record.leagues or {}) do
+        for _, entry in ipairs(leagueRecord.standings or {}) do
+            if entry.teamId == teamId then
+                return entry.position
+            end
+        end
+    end
+    return nil
+end
+
+local function calcSeasonPrize(position)
+    if not position then return 0 end
+    local prizes = Constants.SEASON_END_PRIZE or {}
+    local prize = prizes[position] or 100000
+    if position == 1 then
+        prize = prize + CHAMPION_BONUS
+    end
+    return prize
+end
+
 ------------------------------------------------------------
 -- 主入口
 ------------------------------------------------------------
@@ -70,7 +94,7 @@ function SeasonEnd.create(params)
                 if i > 5 and entry.teamId ~= teamId then goto continue end
 
                 local isPlayer = (entry.teamId == teamId)
-                if isPlayer then playerPosition = i end
+                if isPlayer then playerPosition = entry.position or i end
                 local bgColor = isPlayer and {33, 150, 243, 40} or COLORS.TRANSPARENT
 
                 table.insert(standingRows, UI.Panel {
@@ -115,7 +139,7 @@ function SeasonEnd.create(params)
         end
 
         -- ====== 1.5 升降级信息卡 ======
-        local proRelData = gameState.lastPromotionRelegation
+        local proRelData = record.promotionRelegation or gameState.lastPromotionRelegation
         if proRelData and #proRelData > 0 then
             local proRelRows = {}
             for _, info in ipairs(proRelData) do
@@ -253,21 +277,23 @@ function SeasonEnd.create(params)
     -- ====== 5. 奖金明细卡 ======
     if team then
         local prizes = Constants.SEASON_END_PRIZE or {}
-        local playerLeague = gameState.league
-        local playerPosition = playerLeague and playerLeague:getTeamPosition(teamId)
-        local playerPrize = playerPosition and (prizes[playerPosition] or 100000) or 0
+        local playerPosition = record and findPlayerLeaguePosition(record, teamId)
+            or (gameState.league and gameState.league:getTeamPosition(teamId))
+        local playerPrize = calcSeasonPrize(playerPosition)
 
         local prizeRows = {}
         -- 显示前5名奖金
         for i = 1, math.min(5, #prizes) do
             local isPlayer = (i == playerPosition)
+            local rowPrize = prizes[i] or 0
+            if i == 1 then rowPrize = rowPrize + CHAMPION_BONUS end
             table.insert(prizeRows, UI.Panel {
                 width = "100%", height = 30, flexDirection = "row", alignItems = "center",
                 paddingHorizontal = 8,
                 backgroundColor = isPlayer and {33, 150, 243, 30} or COLORS.TRANSPARENT,
                 children = {
                     UI.Label { text = "第" .. tostring(i) .. "名", width = 50, fontSize = 11, color = COLORS.TEXT_MUTED },
-                    UI.Label { text = formatMoney(prizes[i]), flex = 1, fontSize = 12,
+                    UI.Label { text = formatMoney(rowPrize), flex = 1, fontSize = 12,
                         color = isPlayer and COLORS.PRIMARY or COLORS.TEXT_PRIMARY,
                         fontWeight = isPlayer and "bold" or "normal" },
                 }
@@ -275,10 +301,15 @@ function SeasonEnd.create(params)
         end
 
         if playerPosition then
+            local prizeDetail = playerPosition == 1
+                and string.format("（含排名奖 %s + 冠军奖 %s）",
+                    formatMoney(prizes[playerPosition] or 100000), formatMoney(CHAMPION_BONUS))
+                or ""
             table.insert(prizeRows, UI.Panel {
                 width = "100%", marginTop = 6, paddingHorizontal = 8, children = {
                     UI.Label {
-                        text = string.format("你的球队第%d名，获得奖金 %s", playerPosition, formatMoney(playerPrize)),
+                        text = string.format("你的球队第%d名，获得奖金 %s%s",
+                            playerPosition, formatMoney(playerPrize), prizeDetail),
                         fontSize = 12, color = COLORS.SECONDARY, fontWeight = "bold",
                     }
                 }
@@ -293,8 +324,11 @@ function SeasonEnd.create(params)
 
     -- ====== 6. 财务总结卡 ======
     if team then
-        local income = team.seasonIncome or 0
-        local expense = team.seasonExpense or 0
+        local finance = record and record.playerFinance
+        local income = finance and finance.seasonIncome or team.seasonIncome or 0
+        local expense = finance and finance.seasonExpense or team.seasonExpense or 0
+        local balance = finance and finance.balance or team.balance or 0
+        local wageBudget = finance and finance.wageBudget or team.wageBudget or 0
         local net = income - expense
         local netColor = net >= 0 and COLORS.SECONDARY or COLORS.DANGER
         table.insert(content, Theme.Card { children = {
@@ -305,8 +339,8 @@ function SeasonEnd.create(params)
                 Theme.StatPill { label = "净收支", value = (net >= 0 and "+" or "-") .. formatMoney(math.abs(net)), valueColor = netColor },
             }},
             UI.Panel { width = "100%", flexDirection = "row", justifyContent = "space-around", marginTop = 6, children = {
-                Theme.StatPill { label = "余额", value = formatMoney(team.balance or 0) },
-                Theme.StatPill { label = "工资预算", value = formatMoney(team.wageBudget or 0) },
+                Theme.StatPill { label = "余额", value = formatMoney(balance) },
+                Theme.StatPill { label = "工资预算", value = formatMoney(wageBudget) },
             }},
         }})
     end

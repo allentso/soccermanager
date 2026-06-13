@@ -37,28 +37,70 @@ local COMMENTARY = {
         "漂亮！%s 攻入一球！",
         "不可思议的进球！%s！",
         "%s 抓住机会将球送入球门！",
+        "%s 冷静推射，皮球应声入网！",
+        "禁区内一片混乱，%s 补射得手！",
+        "%s 转身抽射，球进了！！",
     },
     goal_assist = {
         "%s 助攻，%s 完成破门！",
         "%s 妙传，%s 一蹴而就！",
         "精彩配合！%s 助攻 %s 得分！",
+        "%s 送出致命直塞，%s 单刀破门！",
+        "%s 横传门前，%s 轻松推射入网！",
+    },
+    goal_corner = {
+        "角球开出，%s 高高跃起头球破门！",
+        "%s 在前点抢到落点，头槌入网！",
+        "角球造成杀伤！%s 乱战中捅射得手！",
+        "战术角球配合，%s 后点包抄得分！",
+    },
+    goal_free_kick = {
+        "任意球机会！%s 直接攻破球门！世界波！",
+        "%s 的任意球绕过人墙直挂死角！",
+        "任意球开入禁区，%s 抢点破门！",
+        "%s 主罚的任意球造成混乱，皮球滚入网窝！",
+    },
+    goal_penalty = {
+        "点球！%s 一蹴而就，骗过门将！",
+        "%s 站上十二码点……稳稳命中！",
+        "点球破门！%s 把球打进死角，门将方向判断错误！",
+    },
+    goal_own = {
+        "不幸的乌龙球！%s 将球送入自家球门！",
+        "防守失误！%s 解围不慎自摆乌龙！",
+        "门前混乱中 %s 蹭入自家大门，太遗憾了！",
     },
     yellow_card = {
         "%s 因犯规领到黄牌。",
         "裁判向 %s 出示黄牌。",
         "%s 拿到一张黄牌，需要注意了。",
     },
+    yellow_card_reason = {
+        "%s 因%s被出示黄牌。",
+        "裁判毫不犹豫，%s 因%s吃到黄牌。",
+        "%s 因%s被记名，接下来要小心了。",
+    },
     red_card = {
         "%s 被红牌罚下！",
         "裁判出示红牌！%s 必须离场！",
+    },
+    red_card_reason = {
+        "红牌！%s 因%s被直接罚下！",
+        "%s 因%s染红离场，球队只剩十人应战！",
     },
     injury = {
         "%s 受伤倒地，队医入场。",
         "不幸的消息，%s 因伤离场。",
     },
+    injury_detail = {
+        "%s 受伤倒地——初步诊断为%s（%s，预计缺阵约%d天）。",
+        "队医示意需要换人，%s 遭遇%s（%s，约%d天恢复）。",
+        "%s 无法坚持比赛，%s让他提前离场（%s，预计%d天）。",
+    },
     substitution = {
         "%s 换下 %s。",
         "换人！%s 替换 %s 出场。",
+        "教练变阵：%s 登场，换下 %s。",
     },
     tactical_change = {
         "教练做出战术调整：%s。",
@@ -68,17 +110,29 @@ local COMMENTARY = {
         "%s 的射门被门将稳稳没收。",
         "好球！门将飞身扑出 %s 的射门！",
         "%s 大力抽射，门将神勇将球挡出！",
+        "%s 近距离头球，被门将神速反应扑出！",
+        "单刀！%s 挑射被门将用腿挡出！",
+    },
+    save_penalty = {
+        "点球被扑出！门将判断对了方向，%s 的点球没能转化为进球！",
+        "神扑！%s 主罚的点球被门将拒之门外！",
+    },
+    miss_penalty = {
+        "%s 的点球打飞了！不可思议！",
+        "点球射失！%s 把球打在横梁上弹出！",
     },
     hit_post = {
         "%s 的射门击中门柱弹出！差一点！",
         "门框救险！%s 的射门打在立柱上！",
         "%s 一脚怒射击中横梁！太可惜了！",
+        "%s 的弧线球擦着门柱滑出，门将已经没有反应！",
     },
     shot_off_target = {
         "%s 射门偏出球门。",
         "%s 的远射高出横梁。",
         "%s 起脚射门，皮球稍稍偏出立柱。",
         "%s 射门滑门而出，错失良机！",
+        "%s 仓促起脚，皮球飞向看台。",
     },
 }
 
@@ -685,6 +739,54 @@ end
 ---------------------------------------------------------------------------
 -- 换人面板 - 选择换下球员
 ---------------------------------------------------------------------------
+local function _playerFitness(gameState, p)
+    local gsPlayer = gameState and gameState.players[p.id]
+    return (gsPlayer and gsPlayer.fitness) or p.fitness or 80
+end
+
+local function _fitnessColor(fitness)
+    if fitness >= 80 then return Theme.COLORS.SECONDARY
+    elseif fitness >= 60 then return Theme.COLORS.WARNING
+    else return Theme.COLORS.DANGER end
+end
+
+local function _buildFitnessNameColumn(displayName, fitness)
+    local fitnessColor = _fitnessColor(fitness)
+    local barWidthPct = math.max(5, math.min(100, math.floor(fitness)))
+    return UI.Panel {
+        flexGrow = 1, flexShrink = 1,
+        children = {
+            UI.Label { text = displayName, fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY },
+            UI.Panel {
+                width = "100%", height = 4, backgroundColor = {40, 45, 60, 255},
+                borderRadius = 2, marginTop = 3,
+                children = {
+                    UI.Panel {
+                        width = tostring(barWidthPct) .. "%", height = 4,
+                        backgroundColor = fitnessColor, borderRadius = 2,
+                    },
+                }
+            },
+        }
+    }
+end
+
+local function _buildFitnessLabelColumn(fitness)
+    local fitnessColor = _fitnessColor(fitness)
+    return UI.Panel {
+        width = 52, alignItems = "flex-end",
+        children = {
+            UI.Label {
+                text = string.format("%.0f%%", fitness),
+                fontSize = 11, color = fitnessColor, fontWeight = "bold",
+            },
+            UI.Label {
+                text = "体力", fontSize = 9, color = Theme.COLORS.TEXT_MUTED,
+            },
+        }
+    }
+end
+
 function MatchLive._buildSubstitutionPanel(gameState, session, fixture)
     -- 获取玩家球队的场上球员
     local playerTeamId
@@ -700,11 +802,7 @@ function MatchLive._buildSubstitutionPanel(gameState, session, fixture)
     local onPitchRows = {}
     for _, p in ipairs(context.players) do
         if p.position ~= "GK" or #context.players > 1 then -- 不能换下唯一门将
-            local fitness = p.fitness or 80
-            local fitnessColor = fitness >= 80 and Theme.COLORS.SECONDARY
-                or (fitness >= 60 and Theme.COLORS.WARNING or Theme.COLORS.DANGER)
-            -- 体力条宽度百分比
-            local barWidthPct = math.max(5, math.min(100, math.floor(fitness)))
+            local fitness = _playerFitness(gameState, p)
             local posClr = Theme.posColor(p.position)
             table.insert(onPitchRows, UI.Panel {
                 width = "100%", height = 44, flexDirection = "row", alignItems = "center",
@@ -720,36 +818,8 @@ function MatchLive._buildSubstitutionPanel(gameState, session, fixture)
                             UI.Label { text = Constants.POSITION_NAMES[p.position] or p.position, fontSize = 10, color = posClr, fontWeight = "bold" },
                         },
                     },
-                    UI.Panel {
-                        flexGrow = 1, flexShrink = 1,
-                        children = {
-                            UI.Label { text = p.displayName, fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY },
-                            -- 体力条
-                            UI.Panel {
-                                width = "100%", height = 4, backgroundColor = {40, 45, 60, 255},
-                                borderRadius = 2, marginTop = 3,
-                                children = {
-                                    UI.Panel {
-                                        width = tostring(barWidthPct) .. "%", height = 4,
-                                        backgroundColor = fitnessColor, borderRadius = 2,
-                                    },
-                                }
-                            },
-                        }
-                    },
-                    -- 体力数值标签
-                    UI.Panel {
-                        width = 52, alignItems = "flex-end",
-                        children = {
-                            UI.Label {
-                                text = string.format("%.0f%%", fitness),
-                                fontSize = 11, color = fitnessColor, fontWeight = "bold",
-                            },
-                            UI.Label {
-                                text = "体力", fontSize = 9, color = Theme.COLORS.TEXT_MUTED,
-                            },
-                        }
-                    },
+                    _buildFitnessNameColumn(p.displayName, fitness),
+                    _buildFitnessLabelColumn(fitness),
                     UI.Button {
                         text = "换下", width = 48, height = 28, borderRadius = 6,
                         backgroundColor = Theme.COLORS.DANGER, fontSize = 11, color = Theme.COLORS.TEXT_PRIMARY,
@@ -768,8 +838,9 @@ function MatchLive._buildSubstitutionPanel(gameState, session, fixture)
     local benchRows = {}
     for _, p in ipairs(session.bench) do
         local bPosClr = Theme.posColor(p.position)
+        local fitness = _playerFitness(gameState, p)
         table.insert(benchRows, UI.Panel {
-            width = "100%", height = 36, flexDirection = "row", alignItems = "center",
+            width = "100%", height = 44, flexDirection = "row", alignItems = "center",
             paddingLeft = 8, paddingRight = 8,
             borderBottomWidth = 1, borderColor = Theme.COLORS.BORDER,
             children = {
@@ -782,8 +853,8 @@ function MatchLive._buildSubstitutionPanel(gameState, session, fixture)
                         UI.Label { text = Constants.POSITION_NAMES[p.position] or p.position, fontSize = 10, color = bPosClr, fontWeight = "bold" },
                     },
                 },
-                UI.Label { text = p.displayName, fontSize = 12, color = Theme.COLORS.TEXT_SECONDARY, flexGrow = 1 },
-                UI.Label { text = tostring(p.overall), fontSize = 12, color = Theme.COLORS.TEXT_SECONDARY, width = 28 },
+                _buildFitnessNameColumn(p.displayName, fitness),
+                _buildFitnessLabelColumn(fitness),
             }
         })
     end
@@ -835,6 +906,7 @@ function MatchLive._buildSubPickPanel(gameState, session, fixture)
     local rows = {}
     for _, p in ipairs(session.bench) do
         local spPosClr = Theme.posColor(p.position)
+        local fitness = _playerFitness(gameState, p)
         table.insert(rows, UI.Panel {
             width = "100%", height = 44, flexDirection = "row", alignItems = "center",
             paddingLeft = 8, paddingRight = 8,
@@ -849,8 +921,8 @@ function MatchLive._buildSubPickPanel(gameState, session, fixture)
                         UI.Label { text = Constants.POSITION_NAMES[p.position] or p.position, fontSize = 10, color = spPosClr, fontWeight = "bold" },
                     },
                 },
-                UI.Label { text = p.displayName, fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY, flexGrow = 1 },
-                UI.Label { text = tostring(p.overall), fontSize = 13, color = Theme.COLORS.SECONDARY, width = 28 },
+                _buildFitnessNameColumn(p.displayName, fitness),
+                _buildFitnessLabelColumn(fitness),
                 UI.Button {
                     text = "换上", width = 48, height = 30, borderRadius = 6,
                     backgroundColor = Theme.COLORS.SECONDARY, fontSize = 12, color = Theme.COLORS.TEXT_PRIMARY,
@@ -1158,7 +1230,23 @@ function MatchLive._getCommentaryText(evt, gameState)
 
     if evt.type == "goal" then
         if evt.isOwnGoal then
-            return string.format("不幸的乌龙球！%s将球送入自家球门！", pName), Theme.COLORS.DANGER
+            return string.format(pickTemplate(COMMENTARY.goal_own, tIdx), pName), Theme.COLORS.DANGER
+        elseif evt.isPenalty then
+            return string.format(pickTemplate(COMMENTARY.goal_penalty, tIdx), pName), Theme.COLORS.SECONDARY
+        elseif evt.setPieceKind == "corner" then
+            local text = string.format(pickTemplate(COMMENTARY.goal_corner, tIdx), pName)
+            if evt.assistPlayerId and evt.assistPlayerId ~= evt.playerId then
+                local assister = gameState.players[evt.assistPlayerId]
+                if assister then text = text .. string.format("（%s 开出角球）", assister.displayName) end
+            end
+            return text, Theme.COLORS.SECONDARY
+        elseif evt.setPieceKind == "free_kick" then
+            local text = string.format(pickTemplate(COMMENTARY.goal_free_kick, tIdx), pName)
+            if evt.assistPlayerId and evt.assistPlayerId ~= evt.playerId then
+                local assister = gameState.players[evt.assistPlayerId]
+                if assister then text = text .. string.format("（%s 主罚）", assister.displayName) end
+            end
+            return text, Theme.COLORS.SECONDARY
         elseif evt.assistPlayerId then
             local assister = gameState.players[evt.assistPlayerId]
             local aName = assister and assister.displayName or "队友"
@@ -1167,16 +1255,33 @@ function MatchLive._getCommentaryText(evt, gameState)
             return string.format(pickTemplate(COMMENTARY.goal, tIdx), pName), Theme.COLORS.SECONDARY
         end
     elseif evt.type == "yellow_card" then
+        if evt.cardReasonName then
+            return string.format(pickTemplate(COMMENTARY.yellow_card_reason, tIdx), pName, evt.cardReasonName), Theme.COLORS.WARNING
+        end
         return string.format(pickTemplate(COMMENTARY.yellow_card, tIdx), pName), Theme.COLORS.WARNING
     elseif evt.type == "red_card" then
+        if evt.cardReasonName then
+            return string.format(pickTemplate(COMMENTARY.red_card_reason, tIdx), pName, evt.cardReasonName), Theme.COLORS.DANGER
+        end
         return string.format(pickTemplate(COMMENTARY.red_card, tIdx), pName), Theme.COLORS.DANGER
     elseif evt.type == "injury" then
+        if evt.injuryKindName then
+            return string.format(pickTemplate(COMMENTARY.injury_detail, tIdx),
+                pName, evt.injuryKindName, evt.injurySeverityName or "伤情待定",
+                evt.injuryDays or 7), Theme.COLORS.DANGER
+        end
         return string.format(pickTemplate(COMMENTARY.injury, tIdx), pName), Theme.COLORS.DANGER
     elseif evt.type == "save" then
+        if evt.isPenalty then
+            return string.format(pickTemplate(COMMENTARY.save_penalty, tIdx), pName), {100, 200, 180, 255}
+        end
         return string.format(pickTemplate(COMMENTARY.save, tIdx), pName), {100, 200, 180, 255}
     elseif evt.type == "hit_post" then
         return string.format(pickTemplate(COMMENTARY.hit_post, tIdx), pName), {255, 180, 80, 255}
     elseif evt.type == "shot_off_target" then
+        if evt.isPenalty then
+            return string.format(pickTemplate(COMMENTARY.miss_penalty, tIdx), pName), {255, 180, 80, 255}
+        end
         return string.format(pickTemplate(COMMENTARY.shot_off_target, tIdx), pName), Theme.COLORS.TEXT_SECONDARY
     elseif evt.type == "substitution" then
         local offPlayer = evt.offPlayerId and gameState.players[evt.offPlayerId]

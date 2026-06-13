@@ -2,6 +2,7 @@
 -- Pure tactical calculations shared by the match engine and tests.
 
 local Constants = require("scripts/app/constants")
+local TraitEffects = require("scripts/match/trait_effects")
 
 local TacticsResolver = {}
 
@@ -97,13 +98,6 @@ local function roleAttr(player, key, modifiers, fallback)
     return base
 end
 
-local function hasTrait(player, traitId)
-    for _, id in ipairs(player.traits or {}) do
-        if id == traitId then return true end
-    end
-    return false
-end
-
 local function positionGroup(position)
     if position == "GK" then return "GK" end
     if position == "CB" or position == "LB" or position == "RB" then return "DEF" end
@@ -189,6 +183,16 @@ function TacticsResolver.buildTeamContext(gameState, team)
     local shotQuality = 0
     local aerial = 0
     local counts = { GK = 0, DEF = 0, MID = 0, FWD = 0 }
+    local traitAcc = {
+        setPieceMult = 1.0,
+        saveBonus = 0,
+        foulMult = 1.0,
+        tempo = 0,
+        counter = 0,
+        press = 0,
+        formVolatility = 0,
+        bigGameBoost = 0,
+    }
 
     -- 角色修正：根据 slotRoles 获取每个槽位的 modifiers
     local slotRoles = team.slotRoles or {}
@@ -235,11 +239,29 @@ function TacticsResolver.buildTeamContext(gameState, team)
             possession = possession + roleAttr(player, "dribbling", mods) * 0.8 + roleAttr(player, "passing", mods) * 0.65
         end
 
-        if hasTrait(player, "clinical") or hasTrait(player, "poacher") then shotQuality = shotQuality + 1.5 end
-        if hasTrait(player, "playmaker") then possession = possession + 2.0; attack = attack + 1.2 end
-        if hasTrait(player, "brick_wall") or hasTrait(player, "ball_winner") then defense = defense + 1.4 end
-        if hasTrait(player, "aerial_threat") then aerial = aerial + 1.5 end
-        if hasTrait(player, "engine") then stamina = stamina + 2.0 end
+        do
+            local delta = {
+                attack = 0, defense = 0, possession = 0, shotQuality = 0, aerial = 0,
+                stamina = 0, discipline = 0, counter = 0, press = 0, tempo = 0,
+                setPieceMult = traitAcc.setPieceMult,
+                formVolatility = traitAcc.formVolatility,
+                bigGameBoost = traitAcc.bigGameBoost,
+            }
+            TraitEffects.applyTeamContribution(player, group, delta)
+            attack = attack + delta.attack
+            defense = defense + delta.defense
+            possession = possession + delta.possession
+            shotQuality = shotQuality + delta.shotQuality
+            aerial = aerial + delta.aerial
+            stamina = stamina + delta.stamina
+            discipline = discipline + delta.discipline
+            traitAcc.counter = traitAcc.counter + (delta.counter or 0)
+            traitAcc.press = traitAcc.press + (delta.press or 0)
+            traitAcc.tempo = traitAcc.tempo + (delta.tempo or 0)
+            traitAcc.setPieceMult = delta.setPieceMult
+            traitAcc.formVolatility = delta.formVolatility
+            traitAcc.bigGameBoost = delta.bigGameBoost
+        end
 
         -- 风格×位置协同加成
         local synergy = STYLE_POSITION_SYNERGY[style]
@@ -319,6 +341,14 @@ function TacticsResolver.buildTeamContext(gameState, team)
         end
     end
 
+    local traitSummary = TraitEffects.finalizeTeamSummary(players, traitAcc)
+    finalCounter = finalCounter + traitSummary.counter
+    finalPress = finalPress + traitSummary.press
+    local finalTempo = clamp(styleMod.tempo * (modeMod.tempo or 1.0) + traitSummary.tempo, 0.75, 1.40)
+    local finalFoulRate = clamp(
+        (styleMod.foul or 1.0) * (100 / math.max(30, discipline / playerCount * 8)) * traitSummary.foulMult,
+        0.55, 1.55)
+
     return {
         team = team,
         players = players,
@@ -336,14 +366,15 @@ function TacticsResolver.buildTeamContext(gameState, team)
         averageOverall = (finalAttack + finalDefense + finalPossession) / 3,
         -- avgPlayerOverall: 首发球员 OVR 均值（与属性权重解耦的实力锚点）
         avgPlayerOverall = ovrSum / playerCount,
-        tempo = clamp(styleMod.tempo * (modeMod.tempo or 1.0), 0.75, 1.35),
+        tempo = finalTempo,
         press = finalPress,
-        foulRate = clamp((styleMod.foul or 1.0) * (100 / math.max(30, discipline / playerCount * 8)), 0.65, 1.55),
+        foulRate = finalFoulRate,
         injuryRisk = clamp((styleMod.injury or 1.0) * (avgFitness < 65 and 1.25 or 1.0), 0.8, 1.55),
         staminaDrain = styleMod.staminaDrain or 1.0,
         shotQuality = math.max(1, shotQuality / playerCount * (modeMod.shotQuality or 1.0)),
         aerial = math.max(1, aerial / playerCount * (modeMod.aerial or 1.0)),
         counter = finalCounter,
+        traitSummary = traitSummary,
     }
 end
 

@@ -91,6 +91,11 @@ function Player.new(data)
     self.condition = data.condition or 100  -- 长期体能
     self.injured = data.injured or false
     self.injuryDays = data.injuryDays or 0
+    self.injuryKind = data.injuryKind or nil
+    self.injuryKindName = data.injuryKindName or nil
+    self.injurySeverity = data.injurySeverity or nil
+    self.injurySeverityName = data.injurySeverityName or nil
+    self.injurySeasonEnding = data.injurySeasonEnding or false
     self.retired = data.retired or false
     self.retiredSeason = data.retiredSeason or nil  -- 退役赛季（Housekeeping 延迟一季后物理删除）
 
@@ -142,17 +147,18 @@ function Player.new(data)
     -- 转会
     self.listedForSale = data.listedForSale or false
     self.listedForLoan = data.listedForLoan or false
+    self.loanListDuration = data.loanListDuration
 
     -- 名气/声望 (1-100，影响身价)
     self.reputation = data.reputation or 30
 
-    -- 球员特性标签
-    self.traits = data.traits or {}
-
-    -- 传奇球员标记
+    -- 传奇球员标记（须在 traits 归一化之前设置）
     self.isLegend = data.isLegend or false
     self.legendName = data.legendName or nil
     self.legendData = data.legendData or nil
+
+    -- 球员特性：传奇走传奇池，普通走标准池
+    self.traits = Player.normalizeTraits(data.traits or {}, self.isLegend)
 
     return self
 end
@@ -177,16 +183,39 @@ function Player:getAttrCap()
     return math.min(Constants.ATTR_MAX, math.ceil(pot / 5))
 end
 
---- 获取该球员的总评上限
---- 传奇球员: LEGEND_OVERALL_MAX(103); 非传奇: 99
---- 注: 巨星(PA>=95)保留属性上限21的优势(getAttrCap)，但OVR不超过99
---- 只有通过传奇抽卡/传奇数据加载的球员才能突破99总评
+--- 基于局内潜力估算的总评上限（非传奇）
 ---@return number
-function Player:getOverallCap()
+function Player:getPotentialOverallCap()
     if self.isLegend then
         return Constants.LEGEND_OVERALL_MAX
     end
-    return Constants.ABILITY_MAX
+    local pot = self.actualPotential or self.potential or 60
+    if pot >= Constants.SUPERSTAR_POTENTIAL_THRESHOLD then
+        return Constants.SUPERSTAR_OVERALL_MAX
+    end
+    return math.min(Constants.ABILITY_MAX, math.floor(pot * 1.1 + 1))
+end
+
+--- 将属性与总评钳制到潜力上限（数据加载 / 初始化后调用）
+function Player:clampToPotentialCaps()
+    if not self.attributes then return end
+    local attrCap = self:getAttrCap()
+    for key, val in pairs(self.attributes) do
+        if type(val) == "number" then
+            self.attributes[key] = math.min(val, attrCap)
+        end
+    end
+    self:calculateOverall()
+    local ovrCap = self:getPotentialOverallCap()
+    if (self.overall or 0) > ovrCap then
+        self.overall = ovrCap
+    end
+end
+
+--- 获取该球员的总评上限
+---@return number
+function Player:getOverallCap()
+    return self:getPotentialOverallCap()
 end
 
 --- 获取 UI 显示用的总评（上限99，后台可能存到101）
@@ -544,72 +573,267 @@ function Player:getPositionName()
 end
 
 ------------------------------------------------------
--- 球员特性系统（基于属性自动计算）
+-- 球员特性系统（标准池：属性自动判定；传奇池：JSON 导入专属）
 ------------------------------------------------------
 
--- 特性定义表：每个特性对应计算规则
+--- 传奇身份被动（全体传奇自带，非 traits 数组条目）
+Player.LEGEND_IDENTITY = {
+    id = "legend_identity",
+    name = "传奇身份",
+    desc = "提高属性与总评上限；提高训练成长；带动同位置队友训练；稳定赛后评分",
+}
+
+--- FM / 传奇 JSON 特质名 → 局内 snake_case id
+Player.EXTERNAL_TRAIT_ALIASES = {
+    Poacher = "poacher", poacher = "poacher",
+    Dribbler = "dribbler", dribbler = "dribbler",
+    Visionary = "visionary", visionary = "visionary",
+    Playmaker = "playmaker", playmaker = "playmaker",
+    Finisher = "clinical", finisher = "clinical",
+    Trickster = "trickster", trickster = "trickster",
+    Leader = "captain", leader = "captain",
+    AerialThreat = "aerial_threat", aerial_threat = "aerial_threat",
+    BallPlayingDefender = "ball_playing_defender", ball_playing_defender = "ball_playing_defender",
+    BoxToBox = "box_to_box", box_to_box = "box_to_box",
+    Crosser = "crosser", crosser = "crosser",
+    DeadBall = "dead_ball", dead_ball = "dead_ball",
+    Distributor = "distributor", distributor = "distributor",
+    Engine = "engine", engine = "engine",
+    Overlapper = "overlapper", overlapper = "overlapper",
+    Reflexes = "shot_stopper", reflexes = "shot_stopper",
+    Speedster = "pace_merchant", speedster = "pace_merchant",
+    Stopper = "ball_winner", stopper = "ball_winner",
+    Sweeper = "sweeper_keeper", sweeper = "sweeper_keeper",
+    Clinical = "clinical", clinical = "clinical",
+    LongShot = "long_shot", long_shot = "long_shot",
+    BigGame = "big_game", big_game = "big_game",
+}
+
+--- 传奇特质池（仅传奇球员可持有；sharedWithStandard 表示与普通池同名机制）
+Player.LEGEND_TRAIT_DEFINITIONS = {
+    { id = "poacher", name = "禁区猎手", desc = "显著提高门前射门机会", sharedWithStandard = true },
+    { id = "clinical", name = "临门一脚", desc = "显著提高射正与进球转化", sharedWithStandard = true },
+    { id = "dribbler", name = "盘带大师", desc = "显著提高持球突破与射门创造", sharedWithStandard = true },
+    { id = "playmaker", name = "组织核心", desc = "显著提高控球与助攻创造", sharedWithStandard = true },
+    { id = "captain", name = "队长气质", desc = "显著降低犯规与黄牌风险", sharedWithStandard = true },
+    { id = "aerial_threat", name = "空霸", desc = "显著提高空中对抗与头球威胁", sharedWithStandard = true },
+    { id = "dead_ball", name = "定位球专家", desc = "显著提高定位球与点球表现", sharedWithStandard = true },
+    { id = "engine", name = "永动机", desc = "显著提高全队体能输出", sharedWithStandard = true },
+    { id = "pace_merchant", name = "飞毛腿", desc = "显著提高反击速度与比赛节奏", sharedWithStandard = true },
+    { id = "ball_winner", name = "抢断机器", desc = "显著提高防守与压迫", sharedWithStandard = true },
+    { id = "shot_stopper", name = "扑救专家", desc = "显著降低对手射正进球率", sharedWithStandard = true },
+    { id = "sweeper_keeper", name = "出击型门将", desc = "显著提高出击、控球与反击发起", sharedWithStandard = true },
+    -- 传奇池独占（普通球员不可获得）
+    { id = "visionary", name = "视野大师", desc = "提高深位传球与助攻创造", legendExclusive = true },
+    { id = "trickster", name = "魔术师", desc = "提高个人突破与冷门进球", legendExclusive = true },
+    { id = "distributor", name = "分发大师", desc = "提高控球与转移节奏", legendExclusive = true },
+    { id = "ball_playing_defender", name = "出球后卫", desc = "提高后场出球与组织", legendExclusive = true },
+    { id = "box_to_box", name = "全能中场", desc = "提高中场攻防覆盖", legendExclusive = true },
+    { id = "crosser", name = "传中高手", desc = "提高边路传中与助攻", legendExclusive = true },
+    { id = "overlapper", name = "插上助攻", desc = "提高边卫前插与反击配合", legendExclusive = true },
+}
+
+local LEGEND_TRAIT_ID_SET = {}
+local LEGEND_EXCLUSIVE_SET = {}
+for _, def in ipairs(Player.LEGEND_TRAIT_DEFINITIONS) do
+    LEGEND_TRAIT_ID_SET[def.id] = true
+    if def.legendExclusive then
+        LEGEND_EXCLUSIVE_SET[def.id] = true
+    end
+end
+
+---@param traitId string
+---@return boolean
+function Player.isLegendPoolTrait(traitId)
+    return LEGEND_TRAIT_ID_SET[Player.normalizeTraitId(traitId) or ""] == true
+end
+
+---@param traitId string
+---@return boolean
+function Player.isLegendExclusiveTrait(traitId)
+    return LEGEND_EXCLUSIVE_SET[Player.normalizeTraitId(traitId) or ""] == true
+end
+
+---@param traitId string
+---@return boolean 是否与标准池同名、且传奇持有时可强化
+function Player.isLegendSharedTrait(traitId)
+    local id = Player.normalizeTraitId(traitId)
+    if not id then return false end
+    for _, def in ipairs(Player.LEGEND_TRAIT_DEFINITIONS) do
+        if def.id == id and def.sharedWithStandard then
+            return true
+        end
+    end
+    return false
+end
+
+--- 传奇共享特质效果倍率（比赛内特质数值）
+---@return number
+function Player.getLegendSharedTraitMult()
+    return Constants.LEGEND_SHARED_TRAIT_MULT
+end
+
+---@return table|nil 传奇身份被动（UI 专用）
+function Player:getLegendIdentity()
+    if not self.isLegend then return nil end
+    return Player.LEGEND_IDENTITY
+end
+
+---@param raw string|nil
+---@return string|nil
+function Player.normalizeTraitId(raw)
+    if type(raw) ~= "string" or raw == "" then return nil end
+    local mapped = Player.EXTERNAL_TRAIT_ALIASES[raw]
+    if mapped then return mapped end
+    if raw:match("^[a-z][a-z0-9_]*$") then return raw end
+    return raw:lower()
+end
+
+---@param traits string[]|nil
+---@param isLegend boolean|nil
+---@return string[]
+function Player.normalizeTraits(traits, isLegend)
+    local out, seen = {}, {}
+    for _, raw in ipairs(traits or {}) do
+        local id = Player.normalizeTraitId(raw)
+        if not id or seen[id] then goto continue end
+        if isLegend then
+            if Player.isLegendPoolTrait(id) then
+                seen[id] = true
+                table.insert(out, id)
+            end
+        else
+            if not Player.isLegendExclusiveTrait(id) and Player.getStandardTraitDefinition(id) then
+                seen[id] = true
+                table.insert(out, id)
+            end
+        end
+        ::continue::
+    end
+    return out
+end
+
+---@param player table
+---@param traitId string
+---@return boolean
+function Player.hasTrait(player, traitId)
+    if not player then return false end
+    local want = Player.normalizeTraitId(traitId)
+    if not want then return false end
+
+    local function owns(id)
+        for _, raw in ipairs(player.traits or {}) do
+            if Player.normalizeTraitId(raw) == id then return true end
+        end
+        return false
+    end
+
+    if owns(want) then return true end
+    return false
+end
+
+---@param traitId string
+---@return table|nil
+function Player.getLegendTraitDefinition(traitId)
+    local id = Player.normalizeTraitId(traitId)
+    if not id then return nil end
+    for _, def in ipairs(Player.LEGEND_TRAIT_DEFINITIONS) do
+        if def.id == id then
+            return {
+                id = def.id,
+                name = def.name,
+                desc = def.desc,
+                pool = "legend",
+                legendExclusive = def.legendExclusive or false,
+                sharedWithStandard = def.sharedWithStandard or false,
+            }
+        end
+    end
+    return nil
+end
+
+---@param traitId string
+---@return table|nil
+function Player.getStandardTraitDefinition(traitId)
+    local id = Player.normalizeTraitId(traitId)
+    if not id then return nil end
+    for _, def in ipairs(Player.TRAIT_DEFINITIONS) do
+        if def.id == id then
+            return {
+                id = def.id,
+                name = def.name,
+                desc = def.desc,
+                pool = "standard",
+                legendExclusive = false,
+                sharedWithStandard = Player.isLegendPoolTrait(id),
+            }
+        end
+    end
+    return nil
+end
+
+---@param traitId string
+---@return table|nil
+function Player.getTraitDefinition(traitId)
+    return Player.getLegendTraitDefinition(traitId)
+        or Player.getStandardTraitDefinition(traitId)
+end
+
+-- 标准特质池：属性达标自动判定（普通球员）
 Player.TRAIT_DEFINITIONS = {
-    -- 速度类
-    {id = "pace_merchant", name = "飞毛腿", desc = "极快的跑动速度",
+    {id = "pace_merchant", name = "飞毛腿", desc = "提高反击速度与比赛节奏",
         check = function(a) return a.speed >= 17 and a.agility >= 14 end},
-    -- 力量类
-    {id = "powerhouse", name = "力量怪兽", desc = "身体对抗极强",
+    {id = "powerhouse", name = "力量怪兽", desc = "提高对抗、制空与防守",
         check = function(a) return a.strength >= 17 and a.aggression >= 14 end},
-    -- 技术类
-    {id = "playmaker", name = "组织核心", desc = "出色的传球视野",
+    {id = "playmaker", name = "组织核心", desc = "提高控球与助攻创造",
         check = function(a) return a.passing >= 16 and a.vision >= 16 and a.decisions >= 14 end},
-    {id = "dribbler", name = "盘带大师", desc = "突破能力极强",
+    {id = "dribbler", name = "盘带大师", desc = "提高持球突破与射门创造",
         check = function(a) return a.dribbling >= 17 and a.agility >= 15 end},
-    {id = "dead_ball", name = "定位球专家", desc = "精准的任意球/角球",
+    {id = "dead_ball", name = "定位球专家", desc = "提高定位球与点球表现",
         check = function(a) return a.passing >= 16 and a.shooting >= 15 and a.composure >= 14 end},
-    -- 射门类
-    {id = "clinical", name = "临门一脚", desc = "射门极为精准",
+    {id = "clinical", name = "临门一脚", desc = "提高射正与进球转化",
         check = function(a) return a.shooting >= 17 and a.composure >= 15 end},
-    {id = "long_shot", name = "远射威胁", desc = "远射能力出色",
+    {id = "long_shot", name = "远射威胁", desc = "提高远射倾向；降低射正稳定性",
         check = function(a) return a.shooting >= 16 and a.strength >= 13 end},
-    {id = "poacher", name = "禁区猎手", desc = "嗅觉灵敏的终结者",
+    {id = "poacher", name = "禁区猎手", desc = "提高门前射门机会",
         check = function(a) return a.positioning >= 17 and a.composure >= 15 and a.shooting >= 14 end},
-    -- 防守类
-    {id = "brick_wall", name = "铜墙铁壁", desc = "防守极为可靠",
+    {id = "brick_wall", name = "铜墙铁壁", desc = "提高后卫线防守硬度",
         check = function(a) return a.defending >= 17 and a.tackling >= 16 end},
-    {id = "ball_winner", name = "抢断机器", desc = "积极的防守拦截",
+    {id = "ball_winner", name = "抢断机器", desc = "提高防守与压迫；略提高黄牌风险",
         check = function(a) return a.tackling >= 17 and a.aggression >= 14 and a.stamina >= 14 end},
-    -- 头球类
-    {id = "aerial_threat", name = "空霸", desc = "制空能力突出",
+    {id = "aerial_threat", name = "空霸", desc = "提高空中对抗与头球威胁",
         check = function(a) return a.aerial >= 17 and a.strength >= 14 end},
-    -- 团队类
-    {id = "captain", name = "队长气质", desc = "天生的领导者",
+    {id = "captain", name = "队长气质", desc = "降低犯规与黄牌风险",
         check = function(a) return a.leadership >= 17 and a.teamwork >= 14 and a.composure >= 14 end},
-    {id = "team_player", name = "团队楷模", desc = "无私的团队球员",
+    {id = "team_player", name = "团队楷模", desc = "提高团队配合与助攻意愿",
         check = function(a) return a.teamwork >= 17 and a.decisions >= 14 end},
-    -- 耐力类
-    {id = "engine", name = "永动机", desc = "不知疲倦的跑动",
+    {id = "engine", name = "永动机", desc = "提高全队体能输出",
         check = function(a) return a.stamina >= 18 and a.speed >= 13 end},
-    -- 心理类
-    {id = "big_game", name = "大场面先生", desc = "关键比赛发挥出色",
+    {id = "big_game", name = "大场面先生", desc = "提高关键战进球与状态稳定性",
         check = function(a) return a.composure >= 17 and a.decisions >= 15 end},
-    {id = "inconsistent", name = "状态起伏", desc = "表现不够稳定",
+    {id = "inconsistent", name = "状态起伏", desc = "降低发挥稳定性；提高黄牌风险",
         check = function(a) return a.composure <= 8 and a.decisions <= 10 end},
-    -- 门将特性
-    {id = "shot_stopper", name = "扑救专家", desc = "出色的反应扑救",
+    {id = "shot_stopper", name = "扑救专家", desc = "降低对手射正进球率",
         check = function(a) return a.reflexes >= 17 and a.handling >= 15 end},
-    {id = "sweeper_keeper", name = "出击型门将", desc = "善于出击的门将",
+    {id = "sweeper_keeper", name = "出击型门将", desc = "提高出击、控球与反击发起",
         check = function(a) return a.reflexes >= 14 and a.speed >= 12 and a.positioning >= 15 end},
-    -- 年轻天才（实际判断在 calculateTraits 中使用 currentYear，此处 check 仅作结构占位）
-    {id = "wonderkid", name = "未来之星", desc = "潜力极高的年轻球员",
+    {id = "wonderkid", name = "未来之星", desc = "标识高潜力年轻球员",
         check = function(a, player, currentYear) return player and player.potential >= 85 and player:getAge(currentYear or 2024) <= 21 end},
-    -- 老将
-    {id = "veteran", name = "经验老将", desc = "丰富的比赛经验",
+    {id = "veteran", name = "经验老将", desc = "提高比赛阅读与纪律性",
         check = function(a, player, currentYear) return player and player:getAge(currentYear or 2024) >= 32 and a.decisions >= 15 and a.composure >= 14 end},
 }
 
---- 根据当前属性自动计算球员特性
+--- 根据当前属性自动计算球员特性（传奇球员仅保留传奇池导入特质）
 function Player:calculateTraits(currentYear)
+    if self.isLegend then
+        self.traits = Player.normalizeTraits(self.traits, true)
+        return self.traits
+    end
+
     local newTraits = {}
     local a = self.attributes
 
     for _, def in ipairs(Player.TRAIT_DEFINITIONS) do
-        -- wonderkid 和 veteran 需要传入 player 和 year
         local passed = false
         if def.id == "wonderkid" then
             passed = self.potential >= 85 and self:getAge(currentYear or 2024) <= 21
@@ -624,26 +848,54 @@ function Player:calculateTraits(currentYear)
         end
     end
 
-    self.traits = newTraits
-    return newTraits
+    self.traits = Player.normalizeTraits(newTraits, false)
+    return self.traits
 end
 
---- 获取特性详情列表（用于 UI 展示）
+--- 获取特性详情列表（用于 UI 展示；不含传奇身份被动）
 function Player:getTraitDetails()
     local details = {}
     for _, traitId in ipairs(self.traits or {}) do
-        for _, def in ipairs(Player.TRAIT_DEFINITIONS) do
-            if def.id == traitId then
-                table.insert(details, {
-                    id = def.id,
-                    name = def.name,
-                    desc = def.desc,
-                })
-                break
-            end
+        local def
+        if self.isLegend then
+            def = Player.getLegendTraitDefinition(traitId)
+                or Player.getStandardTraitDefinition(traitId)
+        else
+            def = Player.getStandardTraitDefinition(traitId)
+        end
+        if def then
+            table.insert(details, {
+                id = def.id,
+                name = def.name,
+                desc = def.desc,
+                pool = def.pool,
+                legendExclusive = def.legendExclusive,
+            })
         end
     end
     return details
+end
+
+--- 是否可参加俱乐部比赛/训练（伤停、退役、停赛）
+function Player:isMatchAvailable()
+    return not self.injured and not self.retired and not self.suspended
+end
+
+--- 伤停原因文案（UI / 转会拒绝提示）
+---@return string|nil
+function Player:getInjuryBlockReason()
+    if not self.injured then return nil end
+    if self.injurySeasonEnding then
+        return string.format("赛季报销（%s，预计 %d 天后恢复）",
+            self.injuryKindName or "严重伤病", self.injuryDays or 0)
+    end
+    if self.injuryKindName then
+        return string.format("受伤中（%s · %s，剩余 %d 天）",
+            self.injuryKindName,
+            self.injurySeverityName or "恢复中",
+            self.injuryDays or 0)
+    end
+    return string.format("受伤中（剩余 %d 天）", self.injuryDays or 0)
 end
 
 ------------------------------------------------------
@@ -667,6 +919,11 @@ function Player:serialize()
         condition = self.condition,
         injured = self.injured,
         injuryDays = self.injuryDays,
+        injuryKind = self.injuryKind,
+        injuryKindName = self.injuryKindName,
+        injurySeverity = self.injurySeverity,
+        injurySeverityName = self.injurySeverityName,
+        injurySeasonEnding = self.injurySeasonEnding,
         retired = self.retired,
         retiredSeason = self.retiredSeason,
         overall = self.overall,
@@ -685,6 +942,7 @@ function Player:serialize()
         trainingFocus = self.trainingFocus,
         listedForSale = self.listedForSale,
         listedForLoan = self.listedForLoan,
+        loanListDuration = self.loanListDuration,
         traits = self.traits,
         reputation = self.reputation,
         morale_core = self.morale_core,

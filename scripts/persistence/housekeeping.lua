@@ -434,10 +434,20 @@ function Housekeeping.purgeStaleYouthRefs(gameState)
         local list = team._youthPlayerIds
         if list then
             for i = #list, 1, -1 do
-                local p = gameState.players[list[i]]
+                local pid = list[i]
+                local p = gameState.players[pid]
                 local stillOurs = p and
                     (p.teamId == teamId or p._loanOriginTeamId == teamId)
-                if not stillOurs then
+                local alreadyFirstTeam = false
+                if stillOurs and p and not p.isYouth then
+                    for _, fpid in ipairs(team.playerIds or {}) do
+                        if fpid == pid then
+                            alreadyFirstTeam = true
+                            break
+                        end
+                    end
+                end
+                if not stillOurs or alreadyFirstTeam then
                     table.remove(list, i)
                     removed = removed + 1
                 end
@@ -447,8 +457,23 @@ function Housekeeping.purgeStaleYouthRefs(gameState)
     return removed
 end
 
+function Housekeeping.clampPlayerPotentialCaps(gameState)
+    if not gameState or not gameState.players then return 0 end
+    for _, player in pairs(gameState.players) do
+        if player.clampToPotentialCaps then
+            player:clampToPotentialCaps()
+        end
+    end
+    return 0
+end
+
 function Housekeeping.run(gameState)
     if not gameState or not gameState.players then return end
+
+    Housekeeping.clampPlayerPotentialCaps(gameState)
+
+    local TransferManager = require("scripts/systems/transfer_manager")
+    local _, loanDelisted = TransferManager.clearLoanListingsOutsideWindow(gameState, { silent = true })
 
     local stats = {
         repBaseline = Housekeeping.fixReputationBaseline(gameState),
@@ -463,7 +488,11 @@ function Housekeeping.run(gameState)
         aiTx = Housekeeping.trimAITransactions(gameState),
         worldHistory = Housekeeping.dedupeWorldHistory(gameState),
         youthRefs = Housekeeping.purgeStaleYouthRefs(gameState),
+        loanListings = loanDelisted or 0,
     }
+
+    local YouthManager = require("scripts/systems/youth_manager")
+    stats.overageYouth = YouthManager.purgeOverageYouth(gameState) or 0
 
     if log then
         local total = 0

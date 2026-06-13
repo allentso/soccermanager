@@ -9,6 +9,7 @@ local TeamIcon = require("scripts/ui/components/team_icon")
 local AIManager = require("scripts/systems/ai_manager")
 local BottomSheet = require("scripts/ui/components/bottom_sheet")
 local SaveManager = require("scripts/persistence/save_manager")
+local TransferManager = require("scripts/systems/transfer_manager")
 
 local PreMatch = {}
 
@@ -291,6 +292,8 @@ function PreMatch.create(params)
         oppName = opponent and opponent.name or "对手"
     end
 
+    local isDerby = team and opponent and TransferManager.isRivalry(gameState, team.id, opponent.id)
+
     if not team then
         return UI.Panel { width = "100%", height = "100%", backgroundColor = Theme.COLORS.BG_DARK,
             children = { UI.Label { text = "无比赛安排", color = Theme.COLORS.TEXT_SECONDARY } }
@@ -461,8 +464,9 @@ function PreMatch.create(params)
                         }
                     },
                     UI.Label {
-                        text = (isHome and "主场" or "客场") .. " · " .. tacticsInfo,
-                        fontSize = 11, color = Theme.COLORS.TEXT_MUTED,
+                        text = (isDerby and "德比战 · " or "")
+                            .. (isHome and "主场" or "客场") .. " · " .. tacticsInfo,
+                        fontSize = 11, color = isDerby and Theme.COLORS.DANGER or Theme.COLORS.TEXT_MUTED,
                         textAlign = "center", marginTop = 4,
                     },
                 }
@@ -632,11 +636,9 @@ function PreMatch._confirmLeave(gameState, team, fixture)
                             local TurnProcessor = require("scripts/core/turn_processor")
                             local report
                             if fixture._isWC then
-                                -- 世界杯使用专用简化引擎（国家代码非球队ID）
-                                report = TurnProcessor._simulateWCMatch(gameState, fixture)
-                            else
-                                report = MatchEngine.simulate(gameState, fixture)
+                                fixture._isWC = true
                             end
+                            report = MatchEngine.simulate(gameState, fixture)
                             if report then
                                 if fixture._isWC then
                                     TurnProcessor._applyWCResult(gameState, fixture, report)

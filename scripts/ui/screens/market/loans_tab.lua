@@ -6,6 +6,8 @@ local Theme = require("scripts/ui/theme")
 local Router = require("scripts/app/router")
 local Constants = require("scripts/app/constants")
 local TransferManager = require("scripts/systems/transfer_manager")
+local TrainingManager = require("scripts/systems/training_manager")
+local ConfirmDialog = require("scripts/ui/components/confirm_dialog")
 
 local LoansTab = {}
 
@@ -36,7 +38,8 @@ function LoansTab.build(gameState)
         for _, loan in ipairs(myLoansIn) do
             local player = gameState.players[loan.playerId]
             local fromTeam = gameState.teams[loan.originTeamId]
-            table.insert(children, LoansTab._loanRow(player, "来自 " .. (fromTeam and fromTeam.name or "?") .. " | 剩余 " .. tostring(loan.remainingWeeks or "?") .. " 周", Theme.COLORS.SECONDARY))
+            table.insert(children, LoansTab._loanRow(gameState, loan, player,
+                "来自 " .. (fromTeam and fromTeam.name or "?"), "in"))
         end
     end
 
@@ -51,7 +54,8 @@ function LoansTab.build(gameState)
         for _, loan in ipairs(myLoansOut) do
             local player = gameState.players[loan.playerId]
             local toTeam = gameState.teams[loan.loanTeamId]
-            table.insert(children, LoansTab._loanRow(player, "租借到 " .. (toTeam and toTeam.name or "?") .. " | 剩余 " .. tostring(loan.remainingWeeks or "?") .. " 周", Theme.COLORS.ACCENT))
+            table.insert(children, LoansTab._loanRow(gameState, loan, player,
+                "租借到 " .. (toTeam and toTeam.name or "?"), "out"))
         end
     end
 
@@ -88,25 +92,90 @@ function LoansTab._emptyRow(text)
     }
 end
 
-function LoansTab._loanRow(player, subtitle, ratingColor)
+function LoansTab._loanSubtitle(player, loan, prefix, gameState)
+    local weeks = TransferManager.formatLoanRemainingWeeks(loan)
+    local partText = ""
+    if player then
+        local part = TrainingManager.getParticipationSummary(player, gameState)
+        if part.applies then
+            partText = " · " .. part.shortLabel
+        end
+    end
+    return string.format("%s | 剩余 %s 周%s", prefix, tostring(weeks), partText)
+end
+
+function LoansTab._loanRow(gameState, loan, player, prefix, role)
+    local subtitle = LoansTab._loanSubtitle(player, loan, prefix, gameState)
+    local ratingColor = role == "in" and Theme.COLORS.SECONDARY or Theme.COLORS.ACCENT
+    local actionBtn
+
+    if role == "out" then
+        actionBtn = UI.Button {
+            text = "召回", width = 50, height = 26,
+            backgroundColor = Theme.COLORS.WARNING, borderRadius = 4, fontSize = 11,
+            color = {20, 20, 30, 255},
+            onClick = function()
+                ConfirmDialog.show({
+                    title = "确认召回",
+                    message = (player and player.displayName or "球员") .. " 将提前结束租借，确定召回？",
+                    confirmText = "召回",
+                    onConfirm = function()
+                        TransferManager.recallLoan(gameState, loan.playerId)
+                        Router.replaceWith("market", { tab = "loans" })
+                    end,
+                })
+            end,
+        }
+    else
+        actionBtn = UI.Button {
+            text = "续租", width = 50, height = 26,
+            backgroundColor = Theme.COLORS.SECONDARY, borderRadius = 4, fontSize = 11,
+            color = {255, 255, 255, 255},
+            onClick = function()
+                local ok, err = TransferManager.extendLoan(gameState, loan.playerId, 26)
+                if not ok then
+                    gameState:sendMessage({
+                        category = "transfer",
+                        title = "续租失败",
+                        body = err or "条件不满足",
+                        priority = "normal",
+                    })
+                end
+                Router.replaceWith("market", { tab = "loans" })
+            end,
+        }
+    end
+
     return UI.Panel {
-        width = "100%", height = 52, flexDirection = "row", alignItems = "center",
-        paddingLeft = 12, paddingRight = 12,
+        width = "100%", minHeight = 52, flexDirection = "row", alignItems = "center",
+        paddingLeft = 12, paddingRight = 12, paddingTop = 6, paddingBottom = 6,
         borderBottomWidth = 1, borderColor = Theme.COLORS.BORDER,
         children = {
-            UI.Label { text = player and (Constants.POSITION_NAMES[player.position] or player.position) or "?", fontSize = 11, color = Theme.COLORS.TEXT_MUTED, width = 36 },
-            UI.Panel { flexGrow = 1,
+            UI.Label {
+                text = player and (Constants.POSITION_NAMES[player.position] or player.position) or "?",
+                fontSize = 11, color = Theme.COLORS.TEXT_MUTED, width = 36,
+            },
+            UI.Panel {
+                flexGrow = 1, flexShrink = 1, marginRight = 6,
                 children = {
                     UI.Label { text = player and player.displayName or "?", fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY },
                     UI.Label { text = subtitle, fontSize = 10, color = Theme.COLORS.TEXT_MUTED, marginTop = 2 },
                 }
             },
-            UI.Label { text = tostring(player and math.min(Constants.ABILITY_MAX, player.overall or 0) or "?"), fontSize = 13, color = ratingColor, width = 28, fontWeight = "bold" },
-        }
+            UI.Label {
+                text = tostring(player and math.min(Constants.ABILITY_MAX, player.overall or 0) or "?"),
+                fontSize = 13, color = ratingColor, width = 28, fontWeight = "bold",
+            },
+            actionBtn,
+        },
+        onClick = player and function()
+            Router.navigate("player_detail", { playerId = player.id, tab = "contract" })
+        end or nil,
     }
 end
 
 function LoansTab._candidateRow(gameState, player, sourceTeam)
+    local duration = player.loanListDuration or 26
     return UI.Panel {
         width = "100%", height = 54, flexDirection = "row", alignItems = "center",
         paddingLeft = 12, paddingRight = 12,
@@ -116,7 +185,10 @@ function LoansTab._candidateRow(gameState, player, sourceTeam)
             UI.Panel { flexGrow = 1,
                 children = {
                     UI.Label { text = player.displayName, fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY },
-                    UI.Label { text = (sourceTeam and sourceTeam.name or "?") .. " | 半赛季租借", fontSize = 10, color = Theme.COLORS.TEXT_MUTED, marginTop = 2 },
+                    UI.Label {
+                        text = (sourceTeam and sourceTeam.name or "?") .. " | " .. tostring(duration) .. " 周租借",
+                        fontSize = 10, color = Theme.COLORS.TEXT_MUTED, marginTop = 2,
+                    },
                 }
             },
             UI.Label { text = tostring(math.min(Constants.ABILITY_MAX, player.overall or 0)), fontSize = 13, color = Theme.COLORS.SECONDARY, width = 28, fontWeight = "bold" },
@@ -125,7 +197,7 @@ function LoansTab._candidateRow(gameState, player, sourceTeam)
                 backgroundColor = Theme.COLORS.PRIMARY, borderRadius = 4, fontSize = 11,
                 color = Theme.COLORS.TEXT_PRIMARY,
                 onClick = function()
-                    TransferManager.makeLoanBid(gameState, player.id, 26)
+                    TransferManager.makeLoanBid(gameState, player.id, duration)
                     Router.replaceWith("market", { tab = "loans" })
                 end,
             },

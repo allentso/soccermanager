@@ -46,6 +46,17 @@ local AI_PROB_SACK_THRESHOLD = 35    -- 满意度低于此值有概率解雇
 local AI_WARNING_THRESHOLD = 30       -- 满意度低于此值触发警告
 local PLAYER_SACK_WARNINGS = 3       -- 玩家累计警告次数触发解雇
 
+local TIER_RANK = { lowest = 1, weak = 2, mid = 3, strong = 4, elite = 5 }
+local RANK_TIER = { "lowest", "weak", "mid", "strong", "elite" }
+
+-- ObjectivesManager 赛季目标 → 董事会评估文案
+local LEAGUE_OBJ_TO_BOARD = {
+    league_champion = "夺冠",
+    league_top4 = "前4名",
+    league_top_half = "上半区",
+    league_survive = "保级",
+}
+
 ------------------------------------------------------
 -- 核心API
 ------------------------------------------------------
@@ -53,21 +64,30 @@ local PLAYER_SACK_WARNINGS = 3       -- 玩家累计警告次数触发解雇
 --- 生成赛季目标（赛季开始时为所有球队调用）
 ---@param gameState table
 function BoardManager.generateSeasonObjectives(gameState)
-    for _, team in pairs(gameState.teams) do
-        local rep = team.reputation or 50
-        local tier = BoardManager._getReputationTier(rep)
-        local targets = OBJECTIVES[tier].targets
-        local target = targets[RandomInt(1, #targets)]
-
-        team.boardObjective = target
-        team.boardSatisfaction = team.boardSatisfaction or 50  -- 保留上赛季残余满意度，新球队初始50
+    for teamId, team in pairs(gameState.teams) do
+        team.boardSatisfaction = team.boardSatisfaction or 50
         team.boardWarnings = team.boardWarnings or 0
+
+        if teamId == gameState.playerTeamId then
+            goto continue_team
+        end
+
+        local tier = BoardManager.computeEffectiveTier(gameState, teamId)
+        local targets = OBJECTIVES[tier].targets
+        team.boardObjective = targets[RandomInt(1, #targets)]
+
+        ::continue_team::
     end
+
+    BoardManager.syncFromObjectives(gameState)
 
     -- 给玩家发消息
     local playerTeam = gameState:getPlayerTeam()
     if playerTeam and playerTeam.boardObjective then
-        MessageManager.send(gameState, "board_objective", { playerTeam.boardObjective })
+        MessageManager.send(gameState, "board_objective", { playerTeam.boardObjective }, {
+            dedupeKey = "board_objective_" .. tostring(gameState.season or 0),
+            permanent = true,
+        })
     end
 end
 
@@ -288,6 +308,82 @@ function BoardManager._getReputationTier(rep)
         end
     end
     return "lowest"
+end
+
+function BoardManager._findTeamLeague(gameState, teamId)
+    for _, lg in pairs(gameState.leagues or {}) do
+        for _, tid in ipairs(lg.teamIds or {}) do
+            if tid == teamId then
+                return lg
+            end
+        end
+    end
+    return nil
+end
+
+function BoardManager._getLeagueRepRank(gameState, teamId)
+    local league = BoardManager._findTeamLeague(gameState, teamId)
+    if not league then return nil, nil end
+
+    local ranked = {}
+    for _, tid in ipairs(league.teamIds or {}) do
+        local t = gameState.teams[tid]
+        if t then
+            table.insert(ranked, { teamId = tid, rep = t.reputation or 600 })
+        end
+    end
+    table.sort(ranked, function(a, b) return a.rep > b.rep end)
+
+    for i, entry in ipairs(ranked) do
+        if entry.teamId == teamId then
+            return i, #ranked
+        end
+    end
+    return nil, #ranked
+end
+
+function BoardManager._leagueRankToTier(rank, total)
+    if not rank or not total or total <= 0 then return "mid" end
+    local pct = rank / total
+    if pct <= 0.15 then return "elite"
+    elseif pct <= 0.30 then return "strong"
+    elseif pct <= 0.55 then return "mid"
+    elseif pct <= 0.80 then return "weak"
+    else return "lowest"
+    end
+end
+
+--- 综合声望与联赛内相对实力，取更保守的分档（避免中游队被分配争冠目标）
+---@param gameState table
+---@param teamId number
+---@return string tier
+function BoardManager.computeEffectiveTier(gameState, teamId)
+    local team = gameState.teams[teamId]
+    if not team then return "mid" end
+
+    local repTier = BoardManager._getReputationTier(team.reputation or 600)
+    local rank, total = BoardManager._getLeagueRepRank(gameState, teamId)
+    local leagueTier = BoardManager._leagueRankToTier(rank, total)
+
+    local effRank = math.min(TIER_RANK[repTier] or 3, TIER_RANK[leagueTier] or 3)
+    if team._promotedThisSeason then
+        effRank = math.min(effRank, TIER_RANK.weak)
+    end
+    return RANK_TIER[effRank] or "mid"
+end
+
+--- 将玩家 season objectives 同步到 team.boardObjective（评估系统使用）
+---@param gameState table
+function BoardManager.syncFromObjectives(gameState)
+    local team = gameState:getPlayerTeam()
+    if not team or not gameState.objectives then return end
+
+    for _, obj in ipairs(gameState.objectives.season or {}) do
+        if obj.category == "league" and LEAGUE_OBJ_TO_BOARD[obj.id] then
+            team.boardObjective = LEAGUE_OBJ_TO_BOARD[obj.id]
+            return
+        end
+    end
 end
 
 --- 解雇玩家教练
