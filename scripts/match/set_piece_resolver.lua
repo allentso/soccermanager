@@ -12,6 +12,10 @@ local TraitEffects = require("scripts/match/trait_effects")
 
 local SetPieceResolver = {}
 
+---@param value number
+---@param minValue number
+---@param maxValue number
+---@return number
 local function clamp(value, minValue, maxValue)
     if value < minValue then return minValue end
     if value > maxValue then return maxValue end
@@ -34,7 +38,7 @@ end
 --- kind: "penalty" | "free_kick" | "corner"
 function SetPieceResolver.synthSkill(player, kind)
     if not player then return 8 end
-    local skill
+    local skill = 0
     if kind == "penalty" then
         skill = attr(player, "shooting") * 0.45
             + attr(player, "composure") * 0.40
@@ -68,7 +72,7 @@ function SetPieceResolver.synthSkill(player, kind)
     if player.position == "GK" then
         skill = math.min(skill, 8)
     end
-    return clamp(skill, 1, 22)
+    return math.max(1, math.min(22, math.floor(skill)))
 end
 
 ------------------------------------------------------

@@ -666,7 +666,7 @@ end
 --- 创建步进式比赛会话（玩家比赛使用）
 ---@param gameState table
 ---@param fixture table
----@return MatchSession|nil
+---@return table|nil
 function MatchEngine.startMatch(gameState, fixture)
     if fixture._isWC then
         return MatchSession.newWC(gameState, fixture)
@@ -675,7 +675,7 @@ function MatchEngine.startMatch(gameState, fixture)
 end
 
 --- 完成比赛会话，生成最终报告并应用结果
----@param session MatchSession
+---@param session table
 ---@param gameState table
 ---@param fixture table
 ---@return table report

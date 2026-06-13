@@ -682,9 +682,7 @@ function Tactics._buildPitchView(gameState, team, formation)
         UI.Panel { position = "absolute", left = 0, top = coordToTop(36), width = pitchW, height = 1, backgroundColor = {255, 255, 255, 35} },
         UI.Panel { position = "absolute", left = coordToLeft(68), top = 0, width = 1, height = pitchH, backgroundColor = {255, 255, 255, 28} },
         UI.Panel { position = "absolute", left = coordToLeft(32), top = 0, width = 1, height = pitchH, backgroundColor = {255, 255, 255, 28} },
-        UI.Label { position = "absolute", left = 4, top = coordToTop(78), text = "前场", fontSize = 8, color = {255, 255, 255, 70} },
-        UI.Label { position = "absolute", left = 4, top = coordToTop(48), text = "中场", fontSize = 8, color = {255, 255, 255, 70} },
-        UI.Label { position = "absolute", left = 4, top = coordToTop(18), text = "后场", fontSize = 8, color = {255, 255, 255, 70} },
+
     }
 
     -- 球场线条 (中线、中圈用面板模拟)
@@ -814,7 +812,6 @@ function Tactics._buildPitchView(gameState, team, formation)
                 overflow = "hidden",
                 children = pitchChildren,
             },
-            shapeDescLabel,
             styleDescLabel,
         }
     }
