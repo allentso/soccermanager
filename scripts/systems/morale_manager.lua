@@ -57,6 +57,7 @@ function MoraleManager.processWeekly(gameState)
             title = "球员不满",
             body = string.format("%s 士气低落(%d%%)。%s", p.displayName, p.morale, reason),
             priority = "normal",
+            popup = true,
             actions = actions,
         })
     end

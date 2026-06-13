@@ -30,6 +30,22 @@ local function cloneIdList(raw)
     return out
 end
 
+local function normalizeSlotOffsets(raw)
+    local out = {}
+    if type(raw) ~= "table" then return out end
+    for k, v in pairs(raw) do
+        local idx = tonumber(k) or k
+        if type(v) == "table" then
+            local dx = tonumber(v[1] or v.dx) or 0
+            local dy = tonumber(v[2] or v.dy) or 0
+            if dx ~= 0 or dy ~= 0 then
+                out[idx] = { dx, dy }
+            end
+        end
+    end
+    return out
+end
+
 local function normalizeLineupPreset(preset)
     if type(preset) ~= "table" then return nil end
     return {
@@ -38,6 +54,7 @@ local function normalizeLineupPreset(preset)
         startingXI = normalizeIntegerKeyTable(preset.startingXI, true),
         benchIds = cloneIdList(preset.benchIds),
         slotRoles = normalizeIntegerKeyTable(preset.slotRoles),
+        slotOffsets = normalizeSlotOffsets(preset.slotOffsets),
         playerDuties = normalizeIntegerKeyTable(preset.playerDuties),
         captain = preset.captain and (tonumber(preset.captain) or preset.captain) or nil,
         penaltyTaker = preset.penaltyTaker and (tonumber(preset.penaltyTaker) or preset.penaltyTaker) or nil,
@@ -76,6 +93,7 @@ function Team.captureLineupSnapshot(team)
         startingXI = normalizeIntegerKeyTable(team.startingXI, true),
         benchIds = cloneIdList(team.benchIds),
         slotRoles = normalizeIntegerKeyTable(team.slotRoles),
+        slotOffsets = normalizeSlotOffsets(team.slotOffsets),
         playerDuties = normalizeIntegerKeyTable(team.playerDuties),
         captain = team.captain,
         penaltyTaker = team.penaltyTaker,
@@ -91,6 +109,7 @@ function Team.lineupSnapshotsEqual(a, b)
     if not tablesEqual(a.startingXI, b.startingXI) then return false end
     if not idListsEqual(a.benchIds, b.benchIds) then return false end
     if not tablesEqual(a.slotRoles or {}, b.slotRoles or {}) then return false end
+    if not tablesEqual(a.slotOffsets or {}, b.slotOffsets or {}) then return false end
     if not tablesEqual(a.playerDuties or {}, b.playerDuties or {}) then return false end
     if a.captain ~= b.captain then return false end
     if a.penaltyTaker ~= b.penaltyTaker then return false end
@@ -106,6 +125,7 @@ function Team.applyLineupSnapshot(team, snapshot)
     team.startingXI = normalizeIntegerKeyTable(snapshot.startingXI, true)
     team.benchIds = cloneIdList(snapshot.benchIds)
     team.slotRoles = normalizeIntegerKeyTable(snapshot.slotRoles)
+    team.slotOffsets = normalizeSlotOffsets(snapshot.slotOffsets)
     team.playerDuties = normalizeIntegerKeyTable(snapshot.playerDuties)
     team.captain = snapshot.captain
     team.penaltyTaker = snapshot.penaltyTaker
@@ -166,6 +186,7 @@ function Team.new(data)
     self.startingXI = normalizeIntegerKeyTable(data.startingXI, true)
     self.benchIds = normalizeIntegerKeyTable(data.benchIds, true)
     self.slotRoles = normalizeIntegerKeyTable(data.slotRoles)
+    self.slotOffsets = normalizeSlotOffsets(data.slotOffsets)
     self.playerDuties = normalizeIntegerKeyTable(data.playerDuties)
     self.captain = data.captain or nil
     self.penaltyTaker = data.penaltyTaker or nil
@@ -320,6 +341,7 @@ function Team:serialize()
         startingXI = self.startingXI,
         benchIds = self.benchIds,
         slotRoles = self.slotRoles,
+        slotOffsets = self.slotOffsets,
         playerDuties = self.playerDuties,
         captain = self.captain,
         penaltyTaker = self.penaltyTaker,

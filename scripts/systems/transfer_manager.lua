@@ -475,6 +475,7 @@ function TransferManager._processAIResponse(gameState, bid)
                 sellerName, fmtMoney(counter),
                 (round + 1), maxRounds),
             priority = "high",
+            popup = true,
         })
     else
         -- 报价太低，直接拒绝
@@ -517,6 +518,7 @@ function TransferManager._acceptBid(gameState, bid)
             player.displayName, bid.playerConsiderDays,
             isDeadline and "\n⚠️ 转会窗口即将关闭，协商时间紧迫！" or ""),
         priority = "high",
+        popup = true,
     })
 end
 
@@ -534,6 +536,7 @@ function TransferManager._attemptPersonalTerms(gameState, bid)
     if consent then
         -- 球员同意个人条款，等待玩家最终确认
         bid.status = "awaiting_confirmation"
+        bid.confirmDate = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day}
         gameState:sendMessage({
             category = "transfer",
             title = "球员同意加盟!",
@@ -541,6 +544,7 @@ function TransferManager._attemptPersonalTerms(gameState, bid)
                 "%s 已同意个人条款（周薪 %s）。是否确认签入该球员？",
                 player.displayName, fmtMoney(bid.wageOffer or player.wage)),
             priority = "high",
+            popup = true,
             actions = {
                 { label = "确认签入", actionId = "confirm_transfer", data = { bidId = bid.id } },
                 { label = "放弃签约", actionId = "cancel_transfer", data = { bidId = bid.id } },
@@ -555,6 +559,7 @@ function TransferManager._attemptPersonalTerms(gameState, bid)
                     player.displayName, maxAttempts, deadlineNote))
         else
             bid.status = "fee_agreed"  -- 保持在fee_agreed状态
+            bid.personalTermsNegotiateDate = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day}
             local remaining = maxAttempts - bid.personalTermsAttempts
             gameState:sendMessage({
                 category = "transfer",
@@ -565,6 +570,7 @@ function TransferManager._attemptPersonalTerms(gameState, bid)
                     remaining,
                     bid.isDeadlineDeal and "\n⚠️ 窗口即将关闭，请抓紧时间！" or ""),
                 priority = "high",
+                popup = true,
                 data = { bidId = bid.id, type = "personal_terms_rejected" },
             })
         end
@@ -1403,9 +1409,8 @@ function TransferManager._createIncomingBid(gameState, buyerTeam, player, offerA
         body = string.format("%s 对 %s 出价 %s（球员身价 %s）。\n前往阵容页长按该球员处理报价。",
             buyerTeam.name, player.displayName, fmtMoney(offerAmount), fmtMoney(player.value)),
         priority = "high",
-        data = { bidId = bid.id, playerId = player.id },
+        popup = true,
     })
-
     return bid
 end
 
@@ -1533,7 +1538,11 @@ function TransferManager._processCounterResponse(gameState, bid)
             body = string.format("%s 接受了你的要价 %s。\n请确认出售 %s 或取消交易。",
                 buyerTeam.name, fmtMoney(askAmount), player.displayName),
             priority = "high",
-            data = { bidId = bid.id, playerId = player.id, action = "confirm_sale" },
+            popup = true,
+            actions = {
+                { label = "确认出售", actionId = "confirm_sale", data = { bidId = bid.id } },
+                { label = "取消交易", actionId = "cancel_sale", data = { bidId = bid.id } },
+            },
         })
     else
         -- AI 拒绝还价
@@ -2268,6 +2277,7 @@ function TransferManager._processFreeAgentResponse(gameState, nego)
                 fmtMoney(counterWage), counterYears,
                 (round + 1), maxRounds),
             priority = "high",
+            popup = true,
         })
     else
         -- 出价太低，直接拒绝
@@ -2356,6 +2366,7 @@ function TransferManager._completeFreeAgentSigning(gameState, nego)
                 "%s 愿意以自由身加盟（周薪 %s，%d年）。是否确认签入？",
                 player.displayName, fmtMoney(nego.wageOffer), nego.yearsOffer),
             priority = "high",
+            popup = true,
             actions = {
                 { label = "确认签入", actionId = "confirm_free_agent", data = { negoId = nego.id } },
                 { label = "放弃签约", actionId = "cancel_free_agent", data = { negoId = nego.id } },
@@ -2826,6 +2837,7 @@ function TransferManager._processPushSaleResponse(gameState, bid)
                 body = string.format("%s 对 %s 有兴趣，但只愿意出 %s（你要价 %s）。",
                     buyerTeam.name, player.displayName, fmtMoney(counter), fmtMoney(bid.amount)),
                 priority = "high",
+                popup = true,
             })
         end
     else
@@ -3364,6 +3376,7 @@ function TransferManager.processCompetitiveBids(gameState)
                             body = string.format("其他球队也在竞争 %s，请尽快加价以保持竞争力。",
                                 player.displayName),
                             priority = "high",
+                            popup = true,
                         })
                     end
                     goto nextPlayer
@@ -3873,7 +3886,9 @@ function TransferManager.processDailyBids(gameState)
     -- fee_agreed 状态超时处理（7天未操作则取消）
     for _, bid in ipairs(gameState.transfers.bids) do
         if bid.status == "fee_agreed" and bid.feeAgreedDate then
-            local daysSinceFeeAgreed = TransferManager._daysBetween(bid.feeAgreedDate, gameState.date)
+            -- 个人条款被拒后从最后一次协商日起算，避免考虑期占用超时窗口
+            local refDate = bid.personalTermsNegotiateDate or bid.feeAgreedDate
+            local daysSinceFeeAgreed = TransferManager._daysBetween(refDate, gameState.date)
             if daysSinceFeeAgreed >= 7 then
                 local player = gameState.players[bid.playerId]
                 TransferManager._rejectBid(gameState, bid,
@@ -3885,14 +3900,17 @@ function TransferManager.processDailyBids(gameState)
 
     -- awaiting_confirmation 状态超时处理（5天未确认则取消）
     for _, bid in ipairs(gameState.transfers.bids) do
-        if bid.status == "awaiting_confirmation" and bid.feeAgreedDate then
-            local daysSinceFeeAgreed = TransferManager._daysBetween(bid.feeAgreedDate, gameState.date)
-            if daysSinceFeeAgreed >= 12 then
+        if bid.status == "awaiting_confirmation" then
+            local refDate = bid.confirmDate or bid.feeAgreedDate
+            if not refDate then goto continueAwaitingConfirm end
+            local daysSinceConfirm = TransferManager._daysBetween(refDate, gameState.date)
+            if daysSinceConfirm >= 5 then
                 local player = gameState.players[bid.playerId]
                 TransferManager._rejectBid(gameState, bid,
                     string.format("%s 等待你的答复太久，决定不再等待。",
                         player and player.displayName or "该球员"))
             end
+            ::continueAwaitingConfirm::
         end
     end
 

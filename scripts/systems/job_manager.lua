@@ -477,6 +477,7 @@ function JobManager._generateProactiveOffers(gameState)
                 math.floor(offer.teamRep), boardObj, OFFER_EXPIRE_DAYS
             ),
             priority = "high",
+            popup = true,
             actions = {
                 {
                     label = "接受邀约",
@@ -847,6 +848,7 @@ function JobManager.checkManagerRenewal(gameState)
             offeredYears
         ),
         priority = "high",
+        popup = true,
         actions = {
             {
                 label = "接受续约",

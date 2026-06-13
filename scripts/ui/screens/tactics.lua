@@ -6,6 +6,7 @@ local Theme = require("scripts/ui/theme")
 local Router = require("scripts/app/router")
 local Constants = require("scripts/app/constants")
 local AIManager = require("scripts/systems/ai_manager")
+local FormationShape = require("scripts/match/formation_shape")
 local BottomSheet = require("scripts/ui/components/bottom_sheet")
 local WorldCup = require("scripts/systems/world_cup")
 
@@ -17,148 +18,6 @@ local _activeTab = "formation" -- formation | bench
 -- 局部 ScrollView 引用，用于局部刷新避免整页重建
 ---@type any
 local _formationScrollView = nil
-
--- 阵型变体位置坐标映射 (x%, y% 从球场左下角计算, x=横向0-100, y=纵向0-100从底到顶)
--- 键: "阵型:变体key"
-local FORMATION_POSITIONS = {
-    -- 4-4-2
-    ["4-4-2:flat"] = {
-        {50, 5},   -- GK
-        {15, 25}, {38, 28}, {62, 28}, {85, 25}, -- DEF
-        {15, 52}, {38, 55}, {62, 55}, {85, 52}, -- MID (RM CM CM LM)
-        {35, 80}, {65, 80},                      -- FWD
-    },
-    ["4-4-2:diamond"] = {
-        {50, 5},
-        {15, 25}, {38, 28}, {62, 28}, {85, 25},
-        {15, 52}, {50, 45}, {50, 65}, {85, 52}, -- RM CDM CAM LM
-        {35, 80}, {65, 80},
-    },
-    ["4-4-2:hold"] = {
-        {50, 5},
-        {15, 25}, {38, 28}, {62, 28}, {85, 25},
-        {15, 52}, {38, 48}, {62, 48}, {85, 52}, -- RM CDM CDM LM
-        {35, 80}, {65, 80},
-    },
-
-    -- 4-3-3
-    ["4-3-3:hold"] = {
-        {50, 5},
-        {15, 25}, {38, 28}, {62, 28}, {85, 25},
-        {35, 50}, {50, 42}, {65, 50},            -- CM CDM CM (正三角)
-        {20, 80}, {50, 82}, {80, 80},
-    },
-    ["4-3-3:attack"] = {
-        {50, 5},
-        {15, 25}, {38, 28}, {62, 28}, {85, 25},
-        {35, 50}, {65, 50}, {50, 62},            -- CM CM CAM (倒三角)
-        {20, 80}, {50, 82}, {80, 80},
-    },
-    ["4-3-3:flat"] = {
-        {50, 5},
-        {15, 25}, {38, 28}, {62, 28}, {85, 25},
-        {30, 52}, {50, 55}, {70, 52},            -- CM CM CM (平行)
-        {20, 80}, {50, 82}, {80, 80},
-    },
-
-    -- 3-5-2
-    ["3-5-2:default"] = {
-        {50, 5},
-        {25, 25}, {50, 28}, {75, 25},
-        {10, 50}, {33, 55}, {50, 48}, {67, 55}, {90, 50}, -- RM CM CDM CM LM
-        {35, 80}, {65, 80},
-    },
-    ["3-5-2:attack"] = {
-        {50, 5},
-        {25, 25}, {50, 28}, {75, 25},
-        {10, 50}, {50, 62}, {50, 48}, {67, 52}, {90, 50}, -- RM CAM CDM CM LM
-        {35, 80}, {65, 80},
-    },
-    ["3-5-2:dhold"] = {
-        {50, 5},
-        {25, 25}, {50, 28}, {75, 25},
-        {10, 50}, {50, 55}, {38, 46}, {62, 46}, {90, 50}, -- RM CM CDM CDM LM
-        {35, 80}, {65, 80},
-    },
-
-    -- 4-2-3-1
-    ["4-2-3-1:wide"] = {
-        {50, 5},
-        {15, 25}, {38, 28}, {62, 28}, {85, 25},
-        {35, 45}, {65, 45},                       -- CDM CDM
-        {50, 65}, {80, 68}, {20, 68},             -- CAM RW LW
-        {50, 85},
-    },
-    ["4-2-3-1:narrow"] = {
-        {50, 5},
-        {15, 25}, {38, 28}, {62, 28}, {85, 25},
-        {35, 45}, {65, 45},                       -- CDM CDM
-        {50, 65}, {68, 63}, {32, 63},             -- CAM CAM CAM (内收)
-        {50, 85},
-    },
-    ["4-2-3-1:asym"] = {
-        {50, 5},
-        {15, 25}, {38, 28}, {62, 28}, {85, 25},
-        {35, 45}, {65, 45},                       -- CDM CDM
-        {50, 65}, {80, 68}, {32, 63},             -- CAM RW CAM
-        {50, 85},
-    },
-
-    -- 5-3-2
-    ["5-3-2:flat"] = {
-        {50, 5},
-        {10, 25}, {30, 28}, {50, 30}, {70, 28}, {90, 25},
-        {30, 52}, {50, 55}, {70, 52},             -- CM CM CM
-        {35, 80}, {65, 80},
-    },
-    ["5-3-2:hold"] = {
-        {50, 5},
-        {10, 25}, {30, 28}, {50, 30}, {70, 28}, {90, 25},
-        {35, 52}, {50, 45}, {65, 52},             -- CM CDM CM
-        {35, 80}, {65, 80},
-    },
-    ["5-3-2:attack"] = {
-        {50, 5},
-        {10, 25}, {30, 28}, {50, 30}, {70, 28}, {90, 25},
-        {30, 52}, {70, 52}, {50, 62},             -- CM CM CAM
-        {35, 80}, {65, 80},
-    },
-
-    -- 4-5-1
-    ["4-5-1:default"] = {
-        {50, 5},
-        {15, 25}, {38, 28}, {62, 28}, {85, 25},
-        {15, 50}, {33, 55}, {50, 48}, {67, 55}, {85, 50}, -- RM CM CDM CM LM
-        {50, 82},
-    },
-    ["4-5-1:diamond"] = {
-        {50, 5},
-        {15, 25}, {38, 28}, {62, 28}, {85, 25},
-        {15, 50}, {50, 42}, {50, 62}, {67, 55}, {85, 50}, -- RM CDM CAM CM LM
-        {50, 82},
-    },
-    ["4-5-1:flat"] = {
-        {50, 5},
-        {15, 25}, {38, 28}, {62, 28}, {85, 25},
-        {15, 50}, {33, 53}, {50, 55}, {67, 53}, {85, 50}, -- RM CM CM CM LM
-        {50, 82},
-    },
-}
-
---- 获取当前阵型+变体的球场坐标（兼容 fallback）
-local function getFormationPositions(formation, variantKey)
-    local key = formation .. ":" .. (variantKey or "")
-    if FORMATION_POSITIONS[key] then
-        return FORMATION_POSITIONS[key]
-    end
-    -- fallback: 尝试该阵型的第一个变体
-    local defaultVKey = Constants.getDefaultVariant(formation)
-    local defaultKey = formation .. ":" .. defaultVKey
-    if FORMATION_POSITIONS[defaultKey] then
-        return FORMATION_POSITIONS[defaultKey]
-    end
-    return FORMATION_POSITIONS["4-4-2:flat"]
-end
 
 --- 体力条组件（共用）
 local function _fitnessBar(fitness)
@@ -370,6 +229,7 @@ local function _buildFormationChildren(gameState, team, isNTMode)
                 if fmt ~= team.formation then
                     team.formation = fmt
                     team.formationVariant = Constants.getDefaultVariant(fmt)
+                    FormationShape.resetSlotOffsets(team)
                     AIManager.rearrangeForFormation(gameState, team)
                 end
                 refresh()
@@ -399,6 +259,7 @@ local function _buildFormationChildren(gameState, team, isNTMode)
             onClick = function()
                 if v.key ~= team.formationVariant then
                     team.formationVariant = v.key
+                    FormationShape.resetSlotOffsets(team)
                     AIManager.rearrangeForFormation(gameState, team)
                 end
                 refresh()
@@ -406,9 +267,13 @@ local function _buildFormationChildren(gameState, team, isNTMode)
         })
     end
 
-    -- 当前变体描述
+    -- 当前变体描述 + 形态效果
     local activeVariant = Constants.getVariant(currentFormation, currentVariant)
     local variantDesc = activeVariant and activeVariant.desc or ""
+    local shapeProfile = FormationShape.getVariantProfile(currentFormation, currentVariant)
+    if shapeProfile.effectDesc and shapeProfile.effectDesc ~= "" then
+        variantDesc = variantDesc .. " · " .. shapeProfile.effectDesc
+    end
 
     -- 打法按钮
     local styleChildren = {}
@@ -700,38 +565,28 @@ local STYLE_ARROWS = {
 
 function Tactics._buildPitchView(gameState, team, formation)
     local variantKey = team.formationVariant
-    local positions = getFormationPositions(formation, variantKey)
     local startingXI = team.startingXI or {}
-    local slots = AIManager._getFormationSlots(formation, variantKey)
+    local slots = FormationShape.getFormationSlots(formation, variantKey)
     local pitchW = 340
     local pitchH = 460
     local playStyle = team.playStyle or "Balanced"
     local arrowDef = STYLE_ARROWS[playStyle] or STYLE_ARROWS.Balanced
+    local shapeAnalysis = FormationShape.analyze(team)
+
+    local function coordToLeft(px)
+        return math.floor((100 - px) / 100 * pitchW)
+    end
+    local function coordToTop(py)
+        return math.floor((100 - py) / 100 * pitchH)
+    end
 
     -- 球员点位
     local dots = {}
     local slotRoles = team.slotRoles or {}
-    for i, pos in ipairs(positions) do
-        local px = pos[1]
-        local py = pos[2]
-
-        -- 应用角色站位偏移
-        local roleKey = slotRoles[i]
-        if roleKey and roleKey ~= "default" then
-            local slotPos = slots[i]
-            local role = Constants.getPositionRole(slotPos, roleKey)
-            if role and role.posOffset then
-                px = px + role.posOffset[1]
-                py = py + role.posOffset[2]
-                -- 限制在合理范围
-                px = math.max(2, math.min(98, px))
-                py = math.max(2, math.min(98, py))
-            end
-        end
-
-        -- 换算成绝对像素偏移 (基于pitchW/pitchH)
-        local left = math.floor((100 - px) / 100 * pitchW) - 16  -- 镜像x轴：px小=右侧(RM), px大=左侧(LM)
-        local top = math.floor((100 - py) / 100 * pitchH) - 16 - 12 -- 翻转y，顶部=进攻端；-12补偿内嵌箭头高度
+    for i = 1, 11 do
+        local px, py, slotPos = FormationShape.getSlotCoords(team, i)
+        local left = coordToLeft(px) - 16
+        local top = coordToTop(py) - 16 - 12
 
         local player = startingXI[i] and gameState.players[startingXI[i]]
         local label
@@ -744,7 +599,6 @@ function Tactics._buildPitchView(gameState, team, formation)
                     displayLabel = player.match_name:match("%s(.+)$") or player.match_name
                 end
             end
-            -- UTF-8 safe truncation: max 5 characters
             local chars = 0
             local byteIdx = 1
             while byteIdx <= #displayLabel and chars < 5 do
@@ -759,31 +613,28 @@ function Tactics._buildPitchView(gameState, team, formation)
         else
             label = tostring(i)
         end
-        local slotPos = slots[i] or "CM"
+        slotPos = slotPos or slots[i] or "CM"
         local dotColor = Theme.posColor(slotPos)
         local slotIdx = i
-
-        -- 检查是否有角色设定
+        local roleKey = slotRoles[i]
         local hasRole = roleKey and roleKey ~= "default"
+        local hasCustomOffset = team.slotOffsets and team.slotOffsets[slotIdx]
 
-        -- 确定位置组用于箭头
         local group = "MID"
         if slotPos == "GK" then group = "GK"
         elseif slotPos == "CB" or slotPos == "LB" or slotPos == "RB" then group = "DEF"
         elseif slotPos == "ST" or slotPos == "CF" or slotPos == "LW" or slotPos == "RW" then group = "FWD"
         end
 
-        -- 风格箭头指示
         local arrowDir = arrowDef[group]
         local arrowLabel = nil
         if arrowDir then
             local dy = arrowDir[2]
-            if dy == -1 then arrowLabel = "▲"       -- 向上(进攻方向)
-            elseif dy == 1 then arrowLabel = "▼"    -- 向下(防守方向)
-            else arrowLabel = "●" end               -- 原地(控球)
+            if dy == -1 then arrowLabel = "▲"
+            elseif dy == 1 then arrowLabel = "▼"
+            else arrowLabel = "●" end
         end
 
-        -- 箭头放入球员 Panel 内部，避免独立 absolute 遮挡名字和拦截点击
         local arrowElement = nil
         if arrowLabel then
             arrowElement = UI.Label {
@@ -805,18 +656,15 @@ function Tactics._buildPitchView(gameState, team, formation)
                 Tactics._showSlotSwapSheet(gameState, team, slotIdx, slots)
             end,
             children = {
-                -- 风格箭头（在圆点上方）
                 arrowElement or UI.Panel { height = 12 },
-                -- 圆点
                 UI.Panel {
                     width = 20,
                     height = 20,
                     borderRadius = 10,
                     backgroundColor = dotColor,
-                    borderWidth = hasRole and 2 or 0,
-                    borderColor = {255, 255, 255, 200},
+                    borderWidth = (hasRole or hasCustomOffset) and 2 or 0,
+                    borderColor = hasCustomOffset and {255, 220, 80, 220} or {255, 255, 255, 200},
                 },
-                -- 名字在圆点下方
                 UI.Label {
                     text = label,
                     fontSize = 9,
@@ -827,6 +675,17 @@ function Tactics._buildPitchView(gameState, team, formation)
             },
         })
     end
+
+    -- 九区网格线
+    local zoneLines = {
+        UI.Panel { position = "absolute", left = 0, top = coordToTop(62), width = pitchW, height = 1, backgroundColor = {255, 255, 255, 35} },
+        UI.Panel { position = "absolute", left = 0, top = coordToTop(36), width = pitchW, height = 1, backgroundColor = {255, 255, 255, 35} },
+        UI.Panel { position = "absolute", left = coordToLeft(68), top = 0, width = 1, height = pitchH, backgroundColor = {255, 255, 255, 28} },
+        UI.Panel { position = "absolute", left = coordToLeft(32), top = 0, width = 1, height = pitchH, backgroundColor = {255, 255, 255, 28} },
+        UI.Label { position = "absolute", left = 4, top = coordToTop(78), text = "前场", fontSize = 8, color = {255, 255, 255, 70} },
+        UI.Label { position = "absolute", left = 4, top = coordToTop(48), text = "中场", fontSize = 8, color = {255, 255, 255, 70} },
+        UI.Label { position = "absolute", left = 4, top = coordToTop(18), text = "后场", fontSize = 8, color = {255, 255, 255, 70} },
+    }
 
     -- 球场线条 (中线、中圈用面板模拟)
     local fieldLines = {
@@ -877,8 +736,38 @@ function Tactics._buildPitchView(gameState, team, formation)
 
     -- 合并球场线条和球员点位
     local pitchChildren = {}
+    for _, l in ipairs(zoneLines) do table.insert(pitchChildren, l) end
     for _, l in ipairs(fieldLines) do table.insert(pitchChildren, l) end
     for _, d in ipairs(dots) do table.insert(pitchChildren, d) end
+
+    -- 形态效果描述（变体 + 区域密度）
+    local shapeEffectChildren = {}
+    for _, line in ipairs(shapeAnalysis.effectLines or {}) do
+        table.insert(shapeEffectChildren, UI.Label {
+            text = "· " .. line,
+            fontSize = 10,
+            color = Theme.COLORS.TEXT_MUTED,
+            marginBottom = 2,
+        })
+    end
+    local shapeDescLabel = #shapeEffectChildren > 0 and UI.Panel {
+        width = "100%",
+        marginTop = 6,
+        paddingVertical = 6,
+        paddingHorizontal = 10,
+        borderRadius = 6,
+        backgroundColor = {80, 140, 200, 25},
+        children = {
+            UI.Label {
+                text = "阵容形态效果",
+                fontSize = 11,
+                fontWeight = "bold",
+                color = {120, 180, 255, 220},
+                marginBottom = 4,
+            },
+            UI.Panel { width = "100%", children = shapeEffectChildren },
+        },
+    } or nil
 
     -- 风格效果描述
     local styleDescLabel = arrowDef.label and UI.Panel {
@@ -910,7 +799,7 @@ function Tactics._buildPitchView(gameState, team, formation)
         children = {
             Theme.Subtitle { text = "球场视图 · " .. formation },
             UI.Label {
-                text = "点击位置可更换球员",
+                text = "点击球员可换人/设角色/微调站位（金边=已自定义）",
                 fontSize = 11, color = Theme.COLORS.TEXT_MUTED, marginTop = 2,
             },
             UI.Panel {
@@ -925,6 +814,7 @@ function Tactics._buildPitchView(gameState, team, formation)
                 overflow = "hidden",
                 children = pitchChildren,
             },
+            shapeDescLabel,
             styleDescLabel,
         }
     }
@@ -1045,6 +935,7 @@ function Tactics._showSlotSwapSheet(gameState, team, slotIdx, slots)
     local currentPid = startingXI[slotIdx]
     local currentPlayer = currentPid and gameState.players[currentPid]
     local slotPos = slots[slotIdx] or "MID"
+    local shapeAnalysis = FormationShape.analyze(team)
 
     -- 国家队模式判断
     local isNTMode = gameState.currentRole == "national_team"
@@ -1163,6 +1054,58 @@ function Tactics._showSlotSwapSheet(gameState, team, slotIdx, slots)
                 roleDesc ~= "" and UI.Label {
                     text = roleDesc, fontSize = 10, color = Theme.COLORS.TEXT_MUTED, marginTop = 2,
                 } or nil,
+            }
+        })
+    end
+
+    -- 站位微调（改变球场区域归属，影响形态效果）
+    if slotPos ~= "GK" then
+        local zoneKey = shapeAnalysis and shapeAnalysis.slotZones and shapeAnalysis.slotZones[slotIdx]
+        local zoneLabel = zoneKey and (FormationShape.ZONE_LABELS[zoneKey] or zoneKey) or "未知区域"
+        local function nudgeAndRefresh(direction)
+            FormationShape.nudgeSlot(team, slotIdx, direction)
+            saveAfterChange()
+            BottomSheet.close()
+            Router.replaceWith("tactics", { tab = "formation" })
+        end
+        local nudgeBtns = {
+            UI.Button { text = "前移", width = "23%", height = 32, fontSize = 11, marginRight = 4, marginBottom = 4,
+                backgroundColor = {38, 46, 71, 255}, borderRadius = 6, color = Theme.COLORS.TEXT_SECONDARY,
+                onClick = function() nudgeAndRefresh("forward") end },
+            UI.Button { text = "后移", width = "23%", height = 32, fontSize = 11, marginRight = 4, marginBottom = 4,
+                backgroundColor = {38, 46, 71, 255}, borderRadius = 6, color = Theme.COLORS.TEXT_SECONDARY,
+                onClick = function() nudgeAndRefresh("back") end },
+            UI.Button { text = "拉边", width = "23%", height = 32, fontSize = 11, marginRight = 4, marginBottom = 4,
+                backgroundColor = {38, 46, 71, 255}, borderRadius = 6, color = Theme.COLORS.TEXT_SECONDARY,
+                onClick = function() nudgeAndRefresh("wide") end },
+            UI.Button { text = "内收", width = "23%", height = 32, fontSize = 11, marginBottom = 4,
+                backgroundColor = {38, 46, 71, 255}, borderRadius = 6, color = Theme.COLORS.TEXT_SECONDARY,
+                onClick = function() nudgeAndRefresh("narrow") end },
+        }
+        table.insert(children, UI.Panel {
+            width = "100%", marginBottom = 10,
+            children = {
+                UI.Label {
+                    text = "站位微调 · 当前区域：" .. zoneLabel,
+                    fontSize = 12, fontWeight = "bold",
+                    color = Theme.COLORS.TEXT_SECONDARY, marginBottom = 4,
+                },
+                UI.Panel {
+                    width = "100%", flexDirection = "row", flexWrap = "wrap",
+                    children = nudgeBtns,
+                },
+                UI.Button {
+                    text = "重置此位置",
+                    width = "100%", height = 30, marginTop = 4,
+                    backgroundColor = {50, 50, 60, 255}, borderRadius = 6,
+                    fontSize = 11, color = Theme.COLORS.TEXT_MUTED,
+                    onClick = function()
+                        if team.slotOffsets then team.slotOffsets[slotIdx] = nil end
+                        saveAfterChange()
+                        BottomSheet.close()
+                        Router.replaceWith("tactics", { tab = "formation" })
+                    end,
+                },
             }
         })
     end

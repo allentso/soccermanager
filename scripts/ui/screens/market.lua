@@ -1071,7 +1071,7 @@ function Market._buildMyBidsContent(gameState)
                         borderRadius = 6, fontSize = 13,
                         color = Theme.COLORS.DANGER,
                         onClick = function()
-                            TransferManager.cancelBid(gameState, bidId)
+                            TransferManager.cancelTransferConfirmation(gameState, bidId)
                             UI.Toast.Show({ message = "已放弃签约", variant = "info" })
                             Router.replaceWith("market", { tab = "my_bids" })
                         end,

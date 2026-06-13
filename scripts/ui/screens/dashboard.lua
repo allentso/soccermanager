@@ -18,6 +18,7 @@ local TeamIcon = require("scripts/ui/components/team_icon")
 local WorldCup = require("scripts/systems/world_cup")
 local TransferManager = require("scripts/systems/transfer_manager")
 local ConfirmDialog = require("scripts/ui/components/confirm_dialog")
+local MessageActionHandlers = require("scripts/ui/message_action_handlers")
 
 ---@diagnostic disable-next-line: undefined-global
 local sdk = sdk
@@ -113,6 +114,19 @@ function Dashboard.create(params)
     local daysToMatch, todayFixtureRef = Dashboard._findNextMatch(gameState)
 
     -- 弹窗消息处理：依次弹出 popup 消息，全部处理完后执行 onDone 回调
+    local function runPopupAction(actionId, data)
+        if not actionId then return end
+        local ok, route, params = MessageActionHandlers.run(gameState, actionId, data)
+        if MessageActionHandlers.needsSave(actionId) then
+            SaveManager.save(gameState, "auto")
+        end
+        if ok and route == "national_squad_select" then
+            Router.navigate(route, params)
+        elseif ok and route == "dashboard" then
+            -- 已在 dashboard，无需跳转
+        end
+    end
+
     local function showPopupMessages(onDone)
         local queue = gameState:consumePopupQueue()
         if #queue == 0 then
@@ -128,19 +142,27 @@ function Dashboard.create(params)
                 return
             end
             local msg = queue[index]
-            -- 带 actions 的消息（如确认出售/取消）
-            if msg.actions and #msg.actions > 0 then
-                local actionBtns = {}
-                for _, act in ipairs(msg.actions) do
-                    table.insert(actionBtns, {
-                        label = act.label,
-                        actionId = act.actionId,
-                        data = act.data,
-                    })
-                end
-                -- 使用 ConfirmDialog 显示带操作的弹窗
-                local firstAction = actionBtns[1]
-                local secondAction = actionBtns[2]
+
+            if msg.actions and #msg.actions > 2 then
+                -- 多选项消息（如国家队邀请）：弹窗提示后引导至收件箱
+                ConfirmDialog.show({
+                    title = msg.title or "通知",
+                    message = (msg.body or "") .. "\n\n请在收件箱中选择具体操作。",
+                    confirmText = "前往收件箱",
+                    cancelText = "稍后处理",
+                    confirmColor = Theme.COLORS.SECONDARY,
+                    onConfirm = function()
+                        msg.read = false
+                        showNext()
+                        Router.navigate("inbox", { openMessageId = msg.id })
+                    end,
+                    onCancel = function()
+                        showNext()
+                    end,
+                })
+            elseif msg.actions and #msg.actions > 0 then
+                local firstAction = msg.actions[1]
+                local secondAction = msg.actions[2]
                 ConfirmDialog.show({
                     title = msg.title or "通知",
                     message = msg.body,
@@ -148,28 +170,21 @@ function Dashboard.create(params)
                     cancelText = secondAction and secondAction.label or "关闭",
                     confirmColor = Theme.COLORS.SECONDARY,
                     onConfirm = function()
-                        -- 执行第一个 action
-                        if firstAction and firstAction.actionId == "confirm_sale" and firstAction.data then
-                            TransferManager.confirmSale(gameState, firstAction.data.bidId)
-                            SaveManager.save(gameState, "auto")
-                            UI.Toast.Show({ message = "交易完成！球员已出售", variant = "success" })
+                        if firstAction then
+                            runPopupAction(firstAction.actionId, firstAction.data)
                         end
                         msg.read = true
                         showNext()
                     end,
                     onCancel = function()
-                        -- 执行第二个 action 或关闭
-                        if secondAction and secondAction.actionId == "cancel_sale" and secondAction.data then
-                            TransferManager.cancelSale(gameState, secondAction.data.bidId)
-                            SaveManager.save(gameState, "auto")
-                            UI.Toast.Show({ message = "交易已取消", variant = "info" })
+                        if secondAction then
+                            runPopupAction(secondAction.actionId, secondAction.data)
                         end
                         msg.read = true
                         showNext()
                     end,
                 })
             else
-                -- 纯通知型弹窗（无操作按钮）
                 ConfirmDialog.show({
                     title = msg.title or "通知",
                     message = msg.body,

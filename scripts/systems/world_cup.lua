@@ -1198,6 +1198,7 @@ function WorldCup._checkNationalTeamInvitation(gameState, qualifiedNations, wcYe
         title = "🏆 国家队主教练邀请",
         body = table.concat(bodyLines, "\n"),
         priority = "high",
+        popup = true,
         actions = actions,
     })
     if msg and gameState._pendingNTCoachOffers then

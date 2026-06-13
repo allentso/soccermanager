@@ -2,6 +2,7 @@
 -- Pure tactical calculations shared by the match engine and tests.
 
 local Constants = require("scripts/app/constants")
+local FormationShape = require("scripts/match/formation_shape")
 local TraitEffects = require("scripts/match/trait_effects")
 
 local TacticsResolver = {}
@@ -194,9 +195,11 @@ function TacticsResolver.buildTeamContext(gameState, team)
         bigGameBoost = 0,
     }
 
-    -- 角色修正：根据 slotRoles 获取每个槽位的 modifiers
+    -- 角色修正：根据 slotRoles + 槽位类型获取 modifiers
     local slotRoles = team.slotRoles or {}
     local startingXI = team.startingXI or {}
+    local formation = team.formation or "4-4-2"
+    local slots = FormationShape.getFormationSlots(formation, team.formationVariant)
 
     -- 建立 playerId -> slotIndex 映射
     local playerSlotIndex = {}
@@ -205,14 +208,15 @@ function TacticsResolver.buildTeamContext(gameState, team)
     end
 
     for _, player in ipairs(players) do
-        local group = positionGroup(player.position)
+        local slotIdx = playerSlotIndex[player.id]
+        local slotPos = slotIdx and slots[slotIdx]
+        local group = positionGroup(slotPos or player.position)
         counts[group] = counts[group] + 1
 
-        -- 查找该球员的角色修正系数
+        -- 查找该球员的角色修正系数（按槽位类型，非注册位置）
         local mods = nil
-        local slotIdx = playerSlotIndex[player.id]
-        if slotIdx and slotRoles[slotIdx] then
-            local role = Constants.getPositionRole(player.position, slotRoles[slotIdx])
+        if slotIdx and slotPos and slotRoles[slotIdx] then
+            local role = Constants.getPositionRole(slotPos, slotRoles[slotIdx])
             if role then mods = role.modifiers end
         end
 
@@ -295,8 +299,8 @@ function TacticsResolver.buildTeamContext(gameState, team)
 
     local playerCount = math.max(1, #players)
     local chemistry = TacticsResolver.calculateChemistry(players)
-    local formation = team.formation or "4-4-2"
     local defenderCount = tonumber(formation:sub(1, 1)) or counts.DEF
+    local shapeMods = FormationShape.getCombinedModifiers(team)
 
     local formationAttack = 1.0
     local formationDefense = 1.0
@@ -316,10 +320,10 @@ function TacticsResolver.buildTeamContext(gameState, team)
     end
     avgFitness = avgFitness / playerCount
 
-    local finalAttack = math.max(1, attack / 10 * styleMod.attack * (modeMod.attack or 1.0) * formationAttack * chemistry)
-    local finalDefense = math.max(1, defense / 10 * styleMod.defense * formationDefense * chemistry)
-    local finalPossession = math.max(1, possession / 10 * styleMod.possession * (modeMod.possession or 1.0) * chemistry)
-    local finalPress = clamp(styleMod.press or 1.0, 0.75, 1.35)
+    local finalAttack = math.max(1, attack / 10 * styleMod.attack * (modeMod.attack or 1.0) * formationAttack * chemistry * (shapeMods.attack or 1.0))
+    local finalDefense = math.max(1, defense / 10 * styleMod.defense * formationDefense * chemistry * (shapeMods.defense or 1.0))
+    local finalPossession = math.max(1, possession / 10 * styleMod.possession * (modeMod.possession or 1.0) * chemistry * (shapeMods.possession or 1.0))
+    local finalPress = clamp((styleMod.press or 1.0) * (shapeMods.press or 1.0), 0.75, 1.35)
 
     -- 阵型-风格兼容度修正
     for _, rule in ipairs(FORMATION_STYLE_SYNERGY) do
@@ -334,7 +338,7 @@ function TacticsResolver.buildTeamContext(gameState, team)
     end
 
     -- 阵型-风格 counter 修正
-    local finalCounter = styleMod.counter or 1.0
+    local finalCounter = (styleMod.counter or 1.0) * (shapeMods.counter or 1.0)
     for _, rule in ipairs(FORMATION_STYLE_SYNERGY) do
         if rule.style == style and rule.dim == "counter" and rule.cond(defenderCount) then
             finalCounter = finalCounter * rule.mul
@@ -344,7 +348,7 @@ function TacticsResolver.buildTeamContext(gameState, team)
     local traitSummary = TraitEffects.finalizeTeamSummary(players, traitAcc)
     finalCounter = finalCounter + traitSummary.counter
     finalPress = finalPress + traitSummary.press
-    local finalTempo = clamp(styleMod.tempo * (modeMod.tempo or 1.0) + traitSummary.tempo, 0.75, 1.40)
+    local finalTempo = clamp(styleMod.tempo * (modeMod.tempo or 1.0) * (shapeMods.tempo or 1.0) + traitSummary.tempo, 0.75, 1.40)
     local finalFoulRate = clamp(
         (styleMod.foul or 1.0) * (100 / math.max(30, discipline / playerCount * 8)) * traitSummary.foulMult,
         0.55, 1.55)
@@ -375,6 +379,7 @@ function TacticsResolver.buildTeamContext(gameState, team)
         aerial = math.max(1, aerial / playerCount * (modeMod.aerial or 1.0)),
         counter = finalCounter,
         traitSummary = traitSummary,
+        shapeMods = shapeMods,
     }
 end
 
