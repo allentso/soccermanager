@@ -750,4 +750,71 @@ function RealDataLoader.loadWonderkids(gameState)
     return count
 end
 
+--- 动态加载一个可选联赛（如 CSL）并导入到 gameState
+---@param gameState table
+---@param leagueKey string 联赛 shortName（如 "CSL"）
+---@return boolean success
+function RealDataLoader.loadOptionalLeague(gameState, leagueKey)
+    if gameState.leagues[leagueKey] then
+        log:Write(LOG_WARNING, "RealDataLoader: 联赛 " .. leagueKey .. " 已加载，跳过")
+        return true
+    end
+
+    local config = RealDataLoader.OPTIONAL_LEAGUES[leagueKey]
+    if not config then
+        log:Write(LOG_ERROR, "RealDataLoader: 未知可选联赛 " .. leagueKey)
+        return false
+    end
+
+    local data = RealDataLoader.loadLeagueFile(config.file)
+    if not data then
+        log:Write(LOG_ERROR, "RealDataLoader: 无法加载联赛文件 " .. config.file)
+        return false
+    end
+
+    local league = RealDataLoader.importLeague(gameState, data, config)
+    gameState.leagues[leagueKey] = league
+
+    log:Write(LOG_INFO, "RealDataLoader: 动态加载联赛 " .. config.name .. " 完成，" .. #league.teamIds .. " 支球队")
+    return true
+end
+
+--- 动态卸载一个可选联赛，移除其球队和球员
+---@param gameState table
+---@param leagueKey string 联赛 shortName（如 "CSL"）
+---@return boolean success
+function RealDataLoader.unloadOptionalLeague(gameState, leagueKey)
+    local league = gameState.leagues[leagueKey]
+    if not league then
+        log:Write(LOG_WARNING, "RealDataLoader: 联赛 " .. leagueKey .. " 未加载，无需卸载")
+        return true
+    end
+
+    -- 移除联赛下所有球队的球员
+    for _, teamId in ipairs(league.teamIds) do
+        local team = gameState.teams[teamId]
+        if team then
+            -- 移除球队的球员
+            local playerIds = team.playerIds or {}
+            for _, playerId in ipairs(playerIds) do
+                gameState.players[playerId] = nil
+            end
+            -- 移除青训球员
+            if team._youthPlayerIds then
+                for _, playerId in ipairs(team._youthPlayerIds) do
+                    gameState.players[playerId] = nil
+                end
+            end
+        end
+        -- 移除球队
+        gameState.teams[teamId] = nil
+    end
+
+    -- 移除联赛
+    gameState.leagues[leagueKey] = nil
+
+    log:Write(LOG_INFO, "RealDataLoader: 已卸载联赛 " .. leagueKey)
+    return true
+end
+
 return RealDataLoader
