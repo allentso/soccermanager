@@ -15,6 +15,7 @@ local ObjectivesManager = require("scripts/systems/objectives_manager")
 local RecordsManager = require("scripts/systems/records_manager")
 local PotentialSystem = require("scripts/systems/potential_system")
 local TrainingManager = require("scripts/systems/training_manager")
+local ReincarnationManager = require("scripts/systems/reincarnation_manager")
 
 local SeasonManager = {}
 
@@ -94,6 +95,9 @@ function SeasonManager.endSeason(gameState)
 
         -- 6. 球员退役（全局）
         SeasonManager._processRetirements(gameState)
+
+        -- 6.1. 转生机制：退役传奇球员以青训新星身份重生
+        ReincarnationManager.processReincarnations(gameState)
 
         -- 6.5. 记录球员职业历史（必须在重置统计之前）
         SeasonManager._recordPlayerCareerHistory(gameState)
