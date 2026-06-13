@@ -10,6 +10,7 @@ local AIManager = require("scripts/systems/ai_manager")
 local BottomSheet = require("scripts/ui/components/bottom_sheet")
 local SaveManager = require("scripts/persistence/save_manager")
 local TransferManager = require("scripts/systems/transfer_manager")
+local FormationShape = require("scripts/match/formation_shape")
 
 local PreMatch = {}
 
@@ -245,17 +246,7 @@ local FORMATION_POSITIONS = {
 
 --- 获取当前阵型+布局的球场坐标（兼容 layoutKey / 旧 storageKey）
 local function getFormationPositions(formation, variantKey)
-    local storageKey = Constants.layoutToStorageKey(formation, variantKey or Constants.getDefaultVariant(formation))
-    local key = formation .. ":" .. storageKey
-    if FORMATION_POSITIONS[key] then
-        return FORMATION_POSITIONS[key]
-    end
-    local defaultStorage = Constants.layoutToStorageKey(formation, Constants.getDefaultVariant(formation))
-    local defaultKey = formation .. ":" .. defaultStorage
-    if FORMATION_POSITIONS[defaultKey] then
-        return FORMATION_POSITIONS[defaultKey]
-    end
-    return FORMATION_POSITIONS["4-4-2:flat"]
+    return FormationShape.getBasePositions(formation, variantKey or Constants.getDefaultVariant(formation))
 end
 
 function PreMatch.create(params)

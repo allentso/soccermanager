@@ -327,8 +327,9 @@ function TacticsResolver.buildTeamContext(gameState, team)
 
     local playerCount = math.max(1, #players)
     local chemistry = TacticsResolver.calculateChemistry(players)
-    local defenderCount = tonumber(formation:sub(1, 1)) or counts.DEF
-    local shapeMods = FormationShape.getCombinedModifiers(team)
+    local shapeAnalysis = FormationShape.analyze(team)
+    local defenderCount = (shapeAnalysis.lineCounts and shapeAnalysis.lineCounts.DEF) or counts.DEF
+    local shapeMods = shapeAnalysis.combinedMods or {}
 
     local formationAttack = 1.0
     local formationDefense = 1.0

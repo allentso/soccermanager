@@ -196,17 +196,22 @@ Constants.STORAGE_TO_LAYOUT_KEY = {
 
 --- 读档/内部：storageKey 或 layoutKey → 规范 layoutKey
 function Constants.normalizeLayoutKey(formation, key)
+    local defaultKey = Constants.FORMATION_DEFAULT_LAYOUT[formation] or "flat"
     if not key or not formation then
-        return Constants.FORMATION_DEFAULT_LAYOUT[formation] or "flat"
+        return defaultKey
     end
-    if Constants.LAYOUT_PRESET_META[key] then
-        return key
-    end
+
     local rev = Constants.STORAGE_TO_LAYOUT_KEY[formation]
     if rev and rev[key] then
-        return rev[key]
+        key = rev[key]
     end
-    return Constants.FORMATION_DEFAULT_LAYOUT[formation] or "flat"
+
+    local allowed = Constants.LAYOUT_TO_STORAGE_KEY[formation]
+    if allowed and allowed[key] then
+        return key
+    end
+
+    return defaultKey
 end
 
 --- layoutKey → 坐标/槽位存储用 key
