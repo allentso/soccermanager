@@ -148,6 +148,7 @@ function Player.new(data)
     self.listedForSale = data.listedForSale or false
     self.listedForLoan = data.listedForLoan or false
     self.loanListDuration = data.loanListDuration
+    self._transferWindowKey = data._transferWindowKey or nil
 
     -- 名气/声望 (1-100，影响身价)
     self.reputation = data.reputation or 30
@@ -943,6 +944,7 @@ function Player:serialize()
         listedForSale = self.listedForSale,
         listedForLoan = self.listedForLoan,
         loanListDuration = self.loanListDuration,
+        _transferWindowKey = self._transferWindowKey,
         traits = self.traits,
         reputation = self.reputation,
         morale_core = self.morale_core,

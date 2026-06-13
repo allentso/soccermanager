@@ -310,6 +310,9 @@ function Squad.create(params)
         elseif pendingBidSet[p.id] then
             statusText = "报价中"
             statusColor = Theme.COLORS.ACCENT
+        elseif p.squadRole == "loaned" and p.teamId == gameState.playerTeamId then
+            statusText = "租入"
+            statusColor = Theme.COLORS.SECONDARY
         elseif p.listedForSale then
             statusText = "挂牌中"
             statusColor = Theme.COLORS.WARNING

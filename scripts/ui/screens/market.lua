@@ -1324,9 +1324,12 @@ function Market._buildListedContent(gameState)
     local listedPlayers = {}
     local availablePlayers = {}
     for _, p in ipairs(Market._collectTeamRosterPlayers(gameState, team)) do
-        if p.listedForSale then
+        if p.squadRole == "loaned" and p.listedForSale then
+            p.listedForSale = false
+        end
+        if p.listedForSale and p.squadRole ~= "loaned" then
             table.insert(listedPlayers, p)
-        else
+        elseif p.squadRole ~= "loaned" then
             table.insert(availablePlayers, p)
         end
     end

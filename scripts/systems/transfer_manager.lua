@@ -49,6 +49,42 @@ function TransferManager.isInTransferWindow(gameState)
     return (month >= 6 and month <= 8) or month == 1
 end
 
+--- 当前转会窗标识（夏窗/冬窗各算一个窗期）
+---@return string|nil
+function TransferManager.getTransferWindowKey(gameState)
+    if not gameState or not gameState.date then return nil end
+    local month = gameState.date.month
+    local year = gameState.date.year
+    if month >= 6 and month <= 8 then
+        return "summer_" .. tostring(year)
+    elseif month == 1 then
+        return "winter_" .. tostring(year)
+    end
+    return nil
+end
+
+--- 球员在本窗期是否已完成过转会/租借/签约
+---@return boolean blocked
+---@return string|nil errorMsg
+function TransferManager._checkPlayerWindowMoveLimit(gameState, playerId)
+    local player = gameState.players[playerId]
+    if not player then return true, nil end
+    local key = TransferManager.getTransferWindowKey(gameState)
+    if not key then return true, nil end
+    if player._transferWindowKey == key then
+        return false, "该球员在本转会窗已参与过转会/租借/签约，需等到下一窗口"
+    end
+    return true, nil
+end
+
+function TransferManager._markPlayerWindowMove(gameState, playerId)
+    local player = gameState.players[playerId]
+    local key = TransferManager.getTransferWindowKey(gameState)
+    if player and key then
+        player._transferWindowKey = key
+    end
+end
+
 --- 获取转会窗口关闭日期
 --- @return table|nil {year, month, day} 当前窗口关闭日期，不在窗口期返回nil
 function TransferManager.getWindowCloseDate(gameState)
@@ -165,6 +201,9 @@ function TransferManager.makeBid(gameState, playerId, amount, wageOffer)
     -- 预签约锁定检查
     local lockOk, lockErr = TransferManager._checkPreContractLock(gameState, playerId)
     if not lockOk then return nil, lockErr end
+
+    local moveOk, moveErr = TransferManager._checkPlayerWindowMoveLimit(gameState, playerId)
+    if not moveOk then return nil, moveErr end
 
     local player = gameState.players[playerId]
     if not player then return nil, "球员不存在" end
@@ -747,6 +786,8 @@ function TransferManager._completeTransfer(gameState, bid, opts)
     player:calculateReputation(buyerTeam.reputation or 300)
     player:calculateValue(gameState.date.year)
 
+    TransferManager._markPlayerWindowMove(gameState, player.id)
+
     -- 记录历史
     table.insert(gameState.transfers.history, {
         playerId = player.id,
@@ -953,7 +994,7 @@ function TransferManager._aiListPlayersForSale(gameState)
             local sorted = {}
             for _, pid in ipairs(team.playerIds) do
                 local p = gameState.players[pid]
-                if p and not p.retired and not p.listedForSale then
+                if p and not p.retired and not p.listedForSale and p.squadRole ~= "loaned" then
                     table.insert(sorted, p)
                 end
             end
@@ -966,7 +1007,7 @@ function TransferManager._aiListPlayersForSale(gameState)
         -- 30岁以上且OVR下滑的球员，20%概率挂牌
         for _, pid in ipairs(team.playerIds) do
             local p = gameState.players[pid]
-            if p and not p.retired and not p.listedForSale then
+            if p and not p.retired and not p.listedForSale and p.squadRole ~= "loaned" then
                 local age = p:getAge(gameState.date.year)
                 if age >= 31 and p.overall < 72 and Random() < 0.20 then
                     p.listedForSale = true
@@ -1642,6 +1683,8 @@ function TransferManager._completeIncomingSale(gameState, bid)
     player:calculateReputation(buyerTeam.reputation or 300)
     player:calculateValue(gameState.date.year)
 
+    TransferManager._markPlayerWindowMove(gameState, player.id)
+
     -- 记录转会历史
     table.insert(gameState.transfers.history, {
         playerId = player.id,
@@ -1949,6 +1992,9 @@ function TransferManager.makeLoanBid(gameState, playerId, duration, amount, wage
     if player.teamId == gameState.playerTeamId then return nil, "不能租借自己的球员" end
     if TransferManager.hasPendingBid(gameState, playerId) then return nil, "已有该球员的活跃报价" end
 
+    local moveOk, moveErr = TransferManager._checkPlayerWindowMoveLimit(gameState, playerId)
+    if not moveOk then return nil, moveErr end
+
     duration = duration or player.loanListDuration or 26
     wageShare = math.max(0.3, math.min(1.0, wageShare or 0.5))
     local benchmark = TransferManager.getLoanFeeBenchmark(player, duration)
@@ -2030,8 +2076,11 @@ function TransferManager._completeLoan(gameState, bid)
     player.squadRole = "loaned"
     player._loanOriginTeamId = bid.sellerTeamId
     player.teamId = bid.buyerTeamId
+    player.listedForSale = false
     player.listedForLoan = false
     player.loanListDuration = nil
+
+    TransferManager._markPlayerWindowMove(gameState, player.id)
 
     -- 从卖方阵容移除
     if sellerTeam then
@@ -2088,6 +2137,7 @@ function TransferManager._returnLoanPlayer(gameState, loan, opts)
 
     player.listedForLoan = false
     player.loanListDuration = nil
+    player.listedForSale = false
 
     -- 从租借球队移除
     if loanTeam then
@@ -2145,10 +2195,16 @@ function TransferManager.offerFreeAgent(gameState, playerId, wageOffer, yearsOff
     local cooldownOk, cooldownErr = TransferManager._checkRejectionCooldown(gameState, playerId)
     if not cooldownOk then return nil, cooldownErr end
 
+    local lockOk, lockErr = TransferManager._checkPreContractLock(gameState, playerId)
+    if not lockOk then return nil, lockErr end
+
     local player = gameState.players[playerId]
     if not player then return nil, "球员不存在" end
     if player.teamId then return nil, "球员已有球队" end
     if player.retired then return nil, "球员已退役" end
+
+    local moveOk, moveErr = TransferManager._checkPlayerWindowMoveLimit(gameState, playerId)
+    if not moveOk then return nil, moveErr end
 
     local team = gameState:getPlayerTeam()
     if not team then return nil, "无法获取球队" end
@@ -2306,6 +2362,7 @@ function TransferManager.confirmFreeAgent(gameState, negoId)
             player.listedForSale = false
             player:calculateReputation(team.reputation or 300)
             player:calculateValue(gameState.date.year)
+            TransferManager._markPlayerWindowMove(gameState, player.id)
             gameState:sendMessage({
                 category = "transfer",
                 title = "自由签约完成!",
@@ -2794,6 +2851,9 @@ function TransferManager.listForLoan(gameState, player, durationWeeks)
         return false, player:getInjuryBlockReason() or "伤员无法挂牌外租"
     end
 
+    local moveOk, moveErr = TransferManager._checkPlayerWindowMoveLimit(gameState, player.id)
+    if not moveOk then return false, moveErr end
+
     local windowOk, windowErr = TransferManager._checkTransferWindow(gameState)
     if not windowOk then return false, windowErr end
 
@@ -3195,6 +3255,8 @@ function TransferManager._acceptPushSale(gameState, bid)
     -- 更新名气和身价
     player:calculateReputation(buyerTeam.reputation or 300)
     player:calculateValue(gameState.date.year)
+
+    TransferManager._markPlayerWindowMove(gameState, player.id)
 
     -- 记录
     table.insert(gameState.transfers.history, {
@@ -4333,6 +4395,9 @@ function TransferManager.listForSale(gameState, player)
     if player.injured then
         return false, player:getInjuryBlockReason() or "伤员无法挂牌出售"
     end
+
+    local moveOk, moveErr = TransferManager._checkPlayerWindowMoveLimit(gameState, player.id)
+    if not moveOk then return false, moveErr end
 
     local windowOk, windowErr = TransferManager._checkTransferWindow(gameState)
     if not windowOk then return false, windowErr end
