@@ -35,6 +35,46 @@ local function _positionGroup(pos)
     return "MID"
 end
 
+--- 体力颜色与展示组件（与战术页 / 比赛换人面板一致）
+local function _fitnessColor(fitness)
+    if fitness >= 80 then return Theme.COLORS.SECONDARY
+    elseif fitness >= 60 then return Theme.COLORS.WARNING
+    else return Theme.COLORS.DANGER end
+end
+
+local function _buildFitnessNameColumn(displayName, fitness)
+    local fitnessColor = _fitnessColor(fitness)
+    local barWidthPct = math.max(5, math.min(100, math.floor(fitness)))
+    return UI.Panel {
+        flexGrow = 1, flexShrink = 1,
+        children = {
+            UI.Label { text = displayName, fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY },
+            UI.Panel {
+                width = "100%", height = 4, backgroundColor = {40, 45, 60, 255},
+                borderRadius = 2, marginTop = 3,
+                children = {
+                    UI.Panel {
+                        width = tostring(barWidthPct) .. "%", height = 4,
+                        backgroundColor = fitnessColor, borderRadius = 2,
+                    },
+                }
+            },
+        }
+    }
+end
+
+local function _buildFitnessPctLabel(fitness)
+    return UI.Label {
+        text = string.format("%.0f%%", fitness),
+        fontSize = 11,
+        color = _fitnessColor(fitness),
+        fontWeight = "bold",
+        width = 36,
+        textAlign = "right",
+        marginRight = 4,
+    }
+end
+
 --- 一键配置全阵容（首发+替补），综合位置适配和体力
 local function _autoFullSquad(gameState, team)
     local formation = team.formation or "4-4-2"
@@ -915,16 +955,14 @@ end
 ---------------------------------------------------------------------------
 function PreMatch._playerRow(idx, player, isStarter, team, gameState, fixture)
     local fitness = player.fitness or 100
-    local fitnessColor = {80, 200, 120, 255}  -- 绿色：体力充沛
-    if fitness < 70 then fitnessColor = {255, 180, 50, 255} end  -- 橙色：体力一般
-    if fitness < 50 then fitnessColor = {220, 60, 60, 255} end   -- 红色：体力不足
 
     local posLabel = Constants.POSITION_NAMES[player.position] or player.position or "?"
     local posClr = Theme.posColor(player.position)
 
     return UI.Panel {
-        width = "100%", height = 40, flexDirection = "row",
+        width = "100%", height = 44, flexDirection = "row",
         alignItems = "center", paddingLeft = 8, paddingRight = 8,
+        paddingTop = 6, paddingBottom = 6,
         borderBottomWidth = 1, borderColor = Theme.COLORS.BORDER,
         children = {
             -- 序号
@@ -939,21 +977,10 @@ function PreMatch._playerRow(idx, player, isStarter, team, gameState, fixture)
                     UI.Label { text = posLabel, fontSize = 10, color = posClr, fontWeight = "bold" },
                 },
             },
-            -- 名字
-            UI.Label { text = player.displayName, fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY, flexGrow = 1, flexShrink = 1 },
-            -- 体能条（可视化）
-            UI.Panel {
-                width = 50, height = 14, borderRadius = 7,
-                backgroundColor = {40, 40, 50, 255},
-                marginRight = 8, overflow = "hidden",
-                children = {
-                    UI.Panel {
-                        width = tostring(fitness) .. "%", height = "100%",
-                        backgroundColor = fitnessColor,
-                        borderRadius = 7,
-                    },
-                },
-            },
+            -- 名字 + 体力条
+            _buildFitnessNameColumn(player.displayName, fitness),
+            -- 体力百分比
+            _buildFitnessPctLabel(fitness),
             -- OVR 评分
             UI.Panel {
                 width = 30, height = 22, borderRadius = 4,
