@@ -173,12 +173,10 @@ function BindEvents()
         local managerNat = "ENG"  -- 默认
         local _, leagueKey = gs:getTeamLeague(teamId)
         local RealDataLoader = require("scripts/data/real_data_loader")
-        if leagueKey and RealDataLoader.LEAGUE_FILES then
-            for _, cfg in ipairs(RealDataLoader.LEAGUE_FILES) do
-                if cfg.shortName == leagueKey then
-                    managerNat = cfg.country
-                    break
-                end
+        if leagueKey then
+            local cfg = RealDataLoader.getLeagueConfigByKey(leagueKey)
+            if cfg then
+                managerNat = cfg.country
             end
         end
 
@@ -285,12 +283,15 @@ end
 -- 页面导航辅助
 ------------------------------------------------------
 function NavigateTo(screenId, params)
-    -- 新游戏流程：在进入 create_manager 或 select_team 前确保世界已生成
-    if (screenId == "create_manager" or screenId == "select_team") and not _G.gameState then
+    -- 新游戏：进入选队页时按选项生成世界（创建经理页可勾选中超）
+    if screenId == "select_team" and not _G.gameState then
         log:Write(LOG_INFO, "NavigateTo: 开始世界生成...")
         local gs = GameState.new()
+        local genOpts = {
+            includeCSL = params and params.includeCSL or false,
+        }
         local ok, err = pcall(function()
-            local success = WorldGenerator.generate(gs)
+            local success = WorldGenerator.generate(gs, genOpts)
             if not success then
                 error("WorldGenerator.generate 返回 false")
             end
@@ -300,7 +301,6 @@ function NavigateTo(screenId, params)
             log:Write(LOG_INFO, "NavigateTo: 世界生成成功")
         else
             log:Write(LOG_ERROR, "NavigateTo: 世界生成失败 - " .. tostring(err))
-            -- 仍然继续导航，让用户看到错误而非卡住
         end
     end
 

@@ -51,6 +51,7 @@ function RecordsManager._ensureData(gameState)
             leagueTitles = 0,
             uclTitles = 0,
             worldCupTitles = 0,
+            euroTitles = 0,
             bestLeagueFinish = 999,
             totalWins = 0,
             totalDraws = 0,
@@ -551,6 +552,38 @@ function RecordsManager.onWorldCupChampionship(gameState, winnerNationCode)
     EventBus.emit("championship_won", {
         competition = "worldcup",
         competitionName = "世界杯",
+        teamId = playerTeamId,
+        teamName = teamName,
+        season = season,
+    })
+end
+
+function RecordsManager.onEuroChampionship(gameState, winnerNationCode)
+    RecordsManager._ensureData(gameState)
+
+    local playerNation = gameState.nationalTeamCoach and gameState.nationalTeamCoach.nation
+    if not playerNation or winnerNationCode ~= playerNation then return end
+
+    local playerTeamId = gameState.playerTeamId
+    local team = gameState:getPlayerTeam()
+    local teamName = team and team.name or "?"
+    local season = gameState.season
+
+    table.insert(gameState.records.trophies, {
+        season = season,
+        year = gameState.date.year,
+        competition = "euro",
+        competitionName = "欧洲杯",
+        teamId = playerTeamId,
+        teamName = teamName,
+    })
+
+    gameState.records.managerRecords.euroTitles = (gameState.records.managerRecords.euroTitles or 0) + 1
+    _incrementManagerTrophyStat(gameState)
+
+    EventBus.emit("championship_won", {
+        competition = "euro",
+        competitionName = "欧洲杯",
         teamId = playerTeamId,
         teamName = teamName,
         season = season,

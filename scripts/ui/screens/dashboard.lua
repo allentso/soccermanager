@@ -16,6 +16,7 @@ local ObjectivesManager = require("scripts/systems/objectives_manager")
 local BottomSheet = require("scripts/ui/components/bottom_sheet")
 local TeamIcon = require("scripts/ui/components/team_icon")
 local WorldCup = require("scripts/systems/world_cup")
+local EuroCup = require("scripts/systems/euro_cup")
 local TransferManager = require("scripts/systems/transfer_manager")
 local ConfirmDialog = require("scripts/ui/components/confirm_dialog")
 local MessageActionHandlers = require("scripts/ui/message_action_handlers")
@@ -69,8 +70,14 @@ function Dashboard._findNextMatch(gameState)
                 return daysAhead, f, true, false
             end
         end
-        -- 检查世界杯比赛
+        -- 检查国际大赛（欧洲杯/世界杯）
         if playerNation then
+            local euroFixtures = TurnProcessor.getEuroFixturesForDate(gameState, futureDate)
+            for _, f in ipairs(euroFixtures) do
+                if f.homeTeamId == playerNation or f.awayTeamId == playerNation then
+                    return daysAhead, f, false, true
+                end
+            end
             local wcFixtures = TurnProcessor.getWCFixturesForDate(gameState, futureDate)
             for _, f in ipairs(wcFixtures) do
                 if f.homeTeamId == playerNation or f.awayTeamId == playerNation then
@@ -359,7 +366,7 @@ function Dashboard.create(params)
     -- 判断当前身份
     local isNTMode = gameState.currentRole == "national_team" and gameState.nationalTeamCoach ~= nil
     -- 如果国家队已不存在（世界杯结束），自动切回俱乐部
-    if isNTMode and not gameState.worldCup then
+    if isNTMode and not gameState.worldCup and not gameState.euroCup then
         gameState.currentRole = "club"
         isNTMode = false
     end
@@ -1945,6 +1952,16 @@ function Dashboard._getUCLInfo(gameState)
             color = Theme.COLORS.INFO_BLUE,
         }
     end
+    -- 其次欧洲杯
+    if gameState.euroCup then
+        local euro = gameState.euroCup
+        return {
+            name = "欧洲杯",
+            phase = phaseNames[euro.phase] or euro.phase,
+            posText = "",
+            color = {100, 180, 255, 255},
+        }
+    end
     -- 其次世界杯
     if gameState.worldCup then
         local wc = gameState.worldCup
@@ -2333,7 +2350,7 @@ end
 -- [顶栏] 队徽图标 + 身份切换（整合版）
 ------------------------------------------------------
 function Dashboard._buildTeamIconSwitcher(gameState, team)
-    local hasNT = gameState.nationalTeamCoach and gameState.worldCup
+    local hasNT = gameState.nationalTeamCoach and (gameState.worldCup or gameState.euroCup)
     local isNT = gameState.currentRole == "national_team"
 
     -- 根据当前模式决定显示内容
@@ -2578,21 +2595,29 @@ end
 ------------------------------------------------------
 function Dashboard._buildNTMatchHero(gameState)
     local wc = gameState.worldCup
+    local euro = gameState.euroCup
     local ntCoach = gameState.nationalTeamCoach
-    if not wc or not ntCoach then
+    if (not wc and not euro) or not ntCoach then
         return UI.Panel { height = 0 }
     end
 
+    local isEuro = euro ~= nil
+    local NT = isEuro and EuroCup or WorldCup
+    local compLabel = isEuro and "欧洲杯" or "世界杯"
+    local tournament = isEuro and euro or wc
+
     local playerNation = ntCoach.nation
-    local nationName = WorldCup._getNationName(playerNation)
+    local nationName = NT._getNationName(playerNation)
 
     -- 查找下一场国家队比赛
     local nextFixture = nil
     local League = require("scripts/domain/league")
     for daysAhead = 0, 60 do
         local futureDate = League._addDays(gameState.date, daysAhead)
-        local wcFixtures = TurnProcessor.getWCFixturesForDate(gameState, futureDate)
-        for _, f in ipairs(wcFixtures) do
+        local ntFixtures = isEuro
+            and TurnProcessor.getEuroFixturesForDate(gameState, futureDate)
+            or TurnProcessor.getWCFixturesForDate(gameState, futureDate)
+        for _, f in ipairs(ntFixtures) do
             if f.homeTeamId == playerNation or f.awayTeamId == playerNation then
                 if f.status == "scheduled" then
                     nextFixture = f
@@ -2603,22 +2628,21 @@ function Dashboard._buildNTMatchHero(gameState)
         if nextFixture then break end
     end
 
-    -- 世界杯阶段名
     local phaseNames = {
         group = "小组赛",
+        r32 = "三十二强",
         r16 = "十六强",
         qf = "四分之一决赛",
         sf = "半决赛",
         final = "决赛",
         completed = "已结束",
     }
-    local phaseName = phaseNames[wc.phase] or "世界杯"
+    local phaseName = phaseNames[tournament.phase] or compLabel
 
     if not nextFixture then
-        -- 可能已被淘汰或赛事结束
-        local statusText = wc.phase == "completed" and "世界杯已结束" or "暂无比赛安排"
-        if wc.champion then
-            local champName = WorldCup._getNationName(wc.champion)
+        local statusText = tournament.phase == "completed" and (compLabel .. "已结束") or "暂无比赛安排"
+        if tournament.champion then
+            local champName = NT._getNationName(tournament.champion)
             statusText = "🏆 冠军: " .. champName
         end
         return UI.Panel {
@@ -2628,7 +2652,7 @@ function Dashboard._buildNTMatchHero(gameState)
             paddingTop = 16, paddingBottom = 16, paddingLeft = 16, paddingRight = 16,
             marginBottom = 12,
             children = {
-                Theme.SectionHeader { text = "🏆 世界杯 · " .. phaseName, color = {255, 215, 0, 255} },
+                Theme.SectionHeader { text = "🏆 " .. compLabel .. " · " .. phaseName, color = {255, 215, 0, 255} },
                 UI.Label {
                     text = statusText,
                     fontSize = 14, color = Theme.COLORS.TEXT_MUTED, marginTop = 8,
@@ -2637,10 +2661,9 @@ function Dashboard._buildNTMatchHero(gameState)
         }
     end
 
-    -- 对手信息
     local opponentCode = nextFixture.homeTeamId == playerNation
         and nextFixture.awayTeamId or nextFixture.homeTeamId
-    local opponentName = WorldCup._getNationName(opponentCode)
+    local opponentName = NT._getNationName(opponentCode)
     local isHome = nextFixture.homeTeamId == playerNation
 
     -- 日期和倒计时
@@ -2674,7 +2697,7 @@ function Dashboard._buildNTMatchHero(gameState)
                 width = "100%", flexDirection = "row", alignItems = "center", justifyContent = "center",
                 marginBottom = 6,
                 children = {
-                    UI.Label { text = "🏆 世界杯 · " .. phaseName, fontSize = 13, color = {255, 215, 0, 255} },
+                    UI.Label { text = "🏆 " .. compLabel .. " · " .. phaseName, fontSize = 13, color = {255, 215, 0, 255} },
                     UI.Panel {
                         backgroundColor = {255, 215, 0, 40},
                         borderRadius = 10,
@@ -2712,9 +2735,9 @@ function Dashboard._buildNTMatchHero(gameState)
                                 backgroundColor = {40, 70, 120, 255},
                                 justifyContent = "center", alignItems = "center",
                                 overflow = "hidden",
-                                backgroundImage = WorldCup.getNationIconPath(playerNation) or "",
+                                backgroundImage = NT.getNationIconPath(playerNation) or "",
                                 backgroundFit = "contain",
-                                children = (not WorldCup.getNationIconPath(playerNation)) and {
+                                children = (not NT.getNationIconPath(playerNation)) and {
                                     UI.Label { text = playerNation or "?", fontSize = 14, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold" },
                                 } or {},
                             },
@@ -2744,9 +2767,9 @@ function Dashboard._buildNTMatchHero(gameState)
                                 backgroundColor = {60, 50, 50, 255},
                                 justifyContent = "center", alignItems = "center",
                                 overflow = "hidden",
-                                backgroundImage = WorldCup.getNationIconPath(opponentCode) or "",
+                                backgroundImage = NT.getNationIconPath(opponentCode) or "",
                                 backgroundFit = "contain",
-                                children = (not WorldCup.getNationIconPath(opponentCode)) and {
+                                children = (not NT.getNationIconPath(opponentCode)) and {
                                     UI.Label { text = opponentCode or "?", fontSize = 14, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold" },
                                 } or {},
                             },
@@ -2832,18 +2855,22 @@ end
 ------------------------------------------------------
 function Dashboard._buildNTSnapshot(gameState)
     local wc = gameState.worldCup
+    local euro = gameState.euroCup
     local ntCoach = gameState.nationalTeamCoach
-    if not wc or not ntCoach then
+    if (not wc and not euro) or not ntCoach then
         return UI.Panel { height = 0 }
     end
 
-    local playerNation = ntCoach.nation
-    local nationName = WorldCup._getNationName(playerNation)
+    local isEuro = euro ~= nil
+    local NT = isEuro and EuroCup or WorldCup
+    local tournament = isEuro and euro or wc
 
-    -- 找到所在小组
+    local playerNation = ntCoach.nation
+    local nationName = NT._getNationName(playerNation)
+
     local myGroup = nil
     local myGroupName = ""
-    for gName, group in pairs(wc.groups or {}) do
+    for gName, group in pairs(tournament.groups or {}) do
         for _, tid in ipairs(group.teamIds) do
             if tid == playerNation then
                 myGroup = group
@@ -2856,7 +2883,7 @@ function Dashboard._buildNTSnapshot(gameState)
 
     -- 小组积分表
     local standingsRows = {}
-    if myGroup and wc.phase == "group" then
+    if myGroup and tournament.phase == "group" then
         -- 排序积分榜
         local sorted = {}
         for tid, s in pairs(myGroup.standings) do
@@ -2869,7 +2896,7 @@ function Dashboard._buildNTSnapshot(gameState)
         end)
 
         for rank, s in ipairs(sorted) do
-            local name = WorldCup._getNationName(s.teamId)
+            local name = NT._getNationName(s.teamId)
             local isPlayer = s.teamId == playerNation
             local rowBg = isPlayer and {255, 215, 0, 20} or {0, 0, 0, 0}
             local nameColor = isPlayer and {255, 215, 0, 255} or Theme.COLORS.TEXT_PRIMARY
@@ -2893,7 +2920,7 @@ function Dashboard._buildNTSnapshot(gameState)
 
     -- 淘汰赛阶段信息
     local knockoutInfo = nil
-    if wc.phase ~= "group" and wc.phase ~= "not_started" and wc.phase ~= "completed" then
+    if tournament.phase ~= "group" and tournament.phase ~= "not_started" and tournament.phase ~= "completed" then
         knockoutInfo = "进入淘汰赛阶段"
     end
 

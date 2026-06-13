@@ -412,12 +412,15 @@ function WorldGenerator.generateAIManager(gameState, teamId, country)
     return m
 end
 
--- 生成完整世界（使用真实五大联赛数据）
-function WorldGenerator.generate(gameState)
-    log:Write(LOG_INFO, "WorldGenerator: 开始加载五大联赛真实数据...")
+-- 生成完整世界（使用真实联赛数据）
+---@param gameState table
+---@param opts table|nil { includeCSL = boolean }
+function WorldGenerator.generate(gameState, opts)
+    opts = opts or {}
+    gameState.newGameOptions = opts
+    log:Write(LOG_INFO, "WorldGenerator: 开始加载联赛真实数据...")
 
-    -- 加载五大联赛
-    local success = RealDataLoader.loadAllLeagues(gameState)
+    local success = RealDataLoader.loadAllLeagues(gameState, opts)
     if not success then
         log:Write(LOG_ERROR, "WorldGenerator: 无法加载联赛数据")
         return false

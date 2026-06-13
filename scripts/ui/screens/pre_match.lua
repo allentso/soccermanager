@@ -670,7 +670,9 @@ function PreMatch._confirmLeave(gameState, team, fixture)
                             end
                             report = MatchEngine.simulate(gameState, fixture)
                             if report then
-                                if fixture._isWC then
+                                if fixture._isEuro then
+                                    TurnProcessor._applyEuroResult(gameState, fixture, report)
+                                elseif fixture._isWC then
                                     TurnProcessor._applyWCResult(gameState, fixture, report)
                                 elseif fixture._isUCL then
                                     TurnProcessor._applyUCLResult(gameState, fixture, report)
@@ -679,10 +681,10 @@ function PreMatch._confirmLeave(gameState, team, fixture)
                                 end
                                 -- 发送比赛结果消息
                                 local homeName, awayName
-                                if fixture._isWC then
-                                    local WorldCupMod = require("scripts/systems/world_cup")
-                                    homeName = WorldCupMod._getNationName(fixture.homeTeamId)
-                                    awayName = WorldCupMod._getNationName(fixture.awayTeamId)
+                                if fixture._isWC or fixture._isEuro then
+                                    local NT = fixture._isEuro and require("scripts/systems/euro_cup") or require("scripts/systems/world_cup")
+                                    homeName = NT._getNationName(fixture.homeTeamId)
+                                    awayName = NT._getNationName(fixture.awayTeamId)
                                 else
                                     local homeTeam = gameState.teams[fixture.homeTeamId]
                                     local awayTeam = gameState.teams[fixture.awayTeamId]

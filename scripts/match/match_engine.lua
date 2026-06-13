@@ -101,11 +101,78 @@ local function pickAssister(context, scorer)
 end
 
 local function pickCardPlayer(context)
+    context.sentOffIds = context.sentOffIds or {}
     return TacticsResolver.chooseWeighted(context.players, function(player)
+        if context.sentOffIds[player.id] then return 0 end
         if player.position == "GK" then return 0.1 end
         local weight = attr(player, "aggression") * 0.8 + (21 - attr(player, "decisions")) * 0.35
         return TraitEffects.modifyCardWeight(player, weight)
     end)
+end
+
+local function removePlayerFromPitch(context, playerId)
+    for i, p in ipairs(context.players or {}) do
+        if p.id == playerId then
+            table.remove(context.players, i)
+            return true
+        end
+    end
+    return false
+end
+
+local function sendOffPlayer(context, playerId)
+    context.sentOffIds = context.sentOffIds or {}
+    context.sentOffIds[playerId] = true
+    removePlayerFromPitch(context, playerId)
+end
+
+local function hasEligibleCardCandidates(context)
+    context.sentOffIds = context.sentOffIds or {}
+    for _, player in ipairs(context.players or {}) do
+        if not context.sentOffIds[player.id] then
+            return true
+        end
+    end
+    return false
+end
+
+local function appendCardEvent(events, eventType, minute, player, teamId, reason)
+    table.insert(events, {
+        type = eventType,
+        minute = minute,
+        playerId = player and player.id,
+        teamId = teamId,
+        cardReason = reason.id,
+        cardReasonName = reason.name,
+        templateIdx = RandomInt(1, 100),
+    })
+end
+
+local function issueDisciplineCard(events, foulContext, player, minute, teamId)
+    if not player then return end
+
+    foulContext.playerYellows = foulContext.playerYellows or {}
+    local priorYellows = foulContext.playerYellows[player.id] or 0
+    local isDirectRed = Random() < 0.08
+
+    if priorYellows >= 1 and not isDirectRed then
+        -- 第二张黄牌 → 两黄变一红
+        appendCardEvent(events, "yellow_card", minute, player, teamId,
+            EventFlavors.rollCardReason(false))
+        appendCardEvent(events, "red_card", minute, player, teamId,
+            { id = "second_yellow", name = "两黄变一红" })
+    elseif isDirectRed or priorYellows >= 1 then
+        appendCardEvent(events, "red_card", minute, player, teamId,
+            EventFlavors.rollCardReason(true))
+    else
+        appendCardEvent(events, "yellow_card", minute, player, teamId,
+            EventFlavors.rollCardReason(false))
+        foulContext.playerYellows[player.id] = 1
+        return
+    end
+
+    foulContext.redCards = (foulContext.redCards or 0) + 1
+    sendOffPlayer(foulContext, player.id)
 end
 
 -- 风格对各位置组的受伤风险权重
@@ -455,21 +522,11 @@ function MatchEngine._simulateMinutes(fixture, homeContext, awayContext, startMi
         if Random() < foulBase * foulMod.foulRate then
             if foulSideHome then state.homeFouls = state.homeFouls + 1 else state.awayFouls = state.awayFouls + 1 end
             local cardRoll = Random()
-            if cardRoll < 0.18 then
+            if cardRoll < 0.18 and hasEligibleCardCandidates(foulContext) then
                 local player = pickCardPlayer(foulContext)
-                local eventType = Random() < 0.08 and "red_card" or "yellow_card"
-                local reason = EventFlavors.rollCardReason(eventType == "red_card")
-                table.insert(events, {
-                    type = eventType,
-                    minute = minute,
-                    playerId = player and player.id,
-                    teamId = foulSideHome and fixture.homeTeamId or fixture.awayTeamId,
-                    cardReason = reason.id,
-                    cardReasonName = reason.name,
-                    templateIdx = RandomInt(1, 100),
-                })
-                if eventType == "red_card" then
-                    foulContext.redCards = (foulContext.redCards or 0) + 1
+                if player then
+                    local teamId = foulSideHome and fixture.homeTeamId or fixture.awayTeamId
+                    issueDisciplineCard(events, foulContext, player, minute, teamId)
                 end
             end
         end
@@ -723,7 +780,11 @@ function MatchEngine.finishMatch(session, gameState, fixture)
     end
 
     -- 应用比赛结果（积分榜、球员数据等）
-    if fixture._isWC then
+    if fixture._isEuro then
+        local TurnProcessor = require("scripts/core/turn_processor")
+        TurnProcessor._applyEuroResult(gameState, fixture, report)
+        return report
+    elseif fixture._isWC then
         local TurnProcessor = require("scripts/core/turn_processor")
         TurnProcessor._applyWCResult(gameState, fixture, report)
         -- 世界杯比赛不更新俱乐部士气/声望/财务

@@ -1016,6 +1016,9 @@ function FinanceManager.upgradeFacility(gameState, facilityType)
     team.balance = team.balance - cost
     team.seasonExpense = (team.seasonExpense or 0) + cost
     facilities[facilityType] = currentLevel + 1
+    if facilityType == "youth" then
+        team._youthFacilityFromRep = true  -- 手动升级后不再被声望初始化覆盖
+    end
 
     FinanceManager.addTransaction(team, {
         amount = -cost,

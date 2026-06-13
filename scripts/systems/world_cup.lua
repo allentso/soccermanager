@@ -42,6 +42,29 @@ local SEED_NATIONS = {
     {code = "KOR", name = "韩国"},
 }
 
+-- 2030 起：中国队保底入围 + 执教邀请
+local GUARANTEED_CHINA_CODE = "CHN"
+local GUARANTEED_CHINA_NATION = {code = "CHN", name = "中国"}
+local FIRST_WC_GUARANTEED_CHINA = 2030
+
+function WorldCup.isGuaranteedChinaOfferYear(year)
+    return year >= FIRST_WC_GUARANTEED_CHINA and WorldCup.isWorldCupYear(year)
+end
+
+local function _ensureChinaInWorldCup(allNations, selectedCodes, wcYear)
+    if not WorldCup.isGuaranteedChinaOfferYear(wcYear) then return end
+    if selectedCodes[GUARANTEED_CHINA_CODE] then return end
+    table.insert(allNations, GUARANTEED_CHINA_NATION)
+    selectedCodes[GUARANTEED_CHINA_CODE] = true
+end
+
+local function _addGuaranteedChinaOffer(offers, offerSet, qualifiedSet, year, isGuaranteedYearFn)
+    if not isGuaranteedYearFn(year) then return end
+    if not qualifiedSet[GUARANTEED_CHINA_CODE] or offerSet[GUARANTEED_CHINA_CODE] then return end
+    table.insert(offers, GUARANTEED_CHINA_CODE)
+    offerSet[GUARANTEED_CHINA_CODE] = true
+end
+
 local NON_SEED_NATIONS = {
     -- 欧洲
     {code = "SUI", name = "瑞士"},
@@ -76,6 +99,8 @@ local NON_SEED_NATIONS = {
     {code = "IRQ", name = "伊拉克"},
     {code = "UZB", name = "乌兹别克"},
     {code = "JOR", name = "约旦"},
+    -- 2030+ 保底入围（供玩家执教）
+    {code = "CHN", name = "中国"},
     -- 中北美
     {code = "CAN", name = "加拿大"},
     {code = "PAN", name = "巴拿马"},
@@ -91,16 +116,17 @@ local NON_SEED_NATIONS = {
 -- 世界杯用FIFA代码(如CRO)，球员数据用ISO或自定义代码(如HR)
 ------------------------------------------------------
 local FIFA_TO_PLAYER_NAT = {
-    ALG = "DZ", ARG = "AR", AUS = "AU", AUT = "AT", BEL = "BE", BIH = "BA",
-    BRA = "BR", CAN = "CA", CIV = "CI", COD = "CD", COL = "CO",
-    CPV = "CAP", CRO = "HR", CUW = "CUW", CZE = "CZ", ECU = "EC",
-    EGY = "EG", ENG = "ENG", ESP = "ES", FRA = "FR", GER = "DE",
-    GHA = "GH", HAI = "HT", HON = "HN", IRN = "IR", IRQ = "IRQ",
-    JOR = "JOR", JPN = "JP", KOR = "KR", KSA = "KSA", MAR = "MA",
+    ALB = "AL", ALG = "DZ", ARG = "AR", AUS = "AU", AUT = "AT", BEL = "BE", BIH = "BA",
+    BRA = "BR", CAN = "CA", CHN = "CN", CIV = "CI", COD = "CD", COL = "CO",
+    CPV = "CAP", CRO = "HR", CUW = "CUW", CZE = "CZ", DEN = "DK", ECU = "EC",
+    EGY = "EG", ENG = "ENG", ESP = "ES", FRA = "FR", GEO = "GE", GER = "DE",
+    GHA = "GH", HAI = "HT", HON = "HN", HUN = "HU", IRN = "IR", IRQ = "IRQ",
+    ITA = "IT", JOR = "JOR", JPN = "JP", KOR = "KR", KSA = "KSA", MAR = "MA",
     MEX = "MX", NED = "NL", NOR = "NO", NZL = "NZ", PAN = "PA",
     PAR = "PY", PER = "PE", POL = "PL", POR = "PT", QAT = "QAT",
-    RSA = "ZA", SCO = "SCO", SEN = "SN", SUI = "CH", SWE = "SE",
-    TUN = "TN", TUR = "TR", URU = "UY", USA = "US", UZB = "UZB",
+    ROU = "RO", RSA = "ZA", SCO = "SCO", SEN = "SN", SRB = "RS",
+    SUI = "CH", SVK = "SK", SVN = "SI", SWE = "SE",
+    TUN = "TN", TUR = "TR", UKR = "UA", URU = "UY", USA = "US", UZB = "UZB",
 }
 
 --- 将 FIFA 国家代码转为球员数据中的 nationality 代码
@@ -172,8 +198,10 @@ local GROUPS = {
         {code = "ARG", name = "阿根廷"},
         {code = "ALG", name = "阿尔及利亚"},
         {code = "AUT", name = "奥地利"},
-        {code = "JOR", name = "约旦"},
-    },
+    {code = "JOR", name = "约旦"},
+    -- 2030+ 保底入围（供玩家执教）
+    {code = "CHN", name = "中国"},
+},
     K = {
         {code = "POR", name = "葡萄牙"},
         {code = "COD", name = "刚果金"},
@@ -370,6 +398,8 @@ function WorldCup.initialize(gameState)
                 end
             end
         end
+
+        _ensureChinaInWorldCup(allNations, selectedCodes, wcYear)
 
         -- 从候补池随机抽取填满48支
         local candidates = {}
@@ -1054,11 +1084,11 @@ local NT_REP_THRESHOLD = 40
 -- 声望越高的教练越有可能收到更高档位国家的邀约
 local NATION_TIERS = {
     S = {"BRA", "FRA", "ARG", "ENG", "ESP", "GER"},
-    A = {"POR", "NED", "BEL", "URU", "CRO", "COL"},
+    A = {"POR", "NED", "BEL", "URU", "CRO", "COL", "ITA"},
     B = {"MEX", "USA", "JPN", "KOR", "SUI", "SEN", "MAR", "AUS", "CAN", "SWE", "TUR", "SCO", "AUT"},
     C = {"CZE", "NOR", "ECU", "IRN", "TUN", "EGY", "GHA", "ALG", "QAT",
          "RSA", "KSA", "NZL", "UZB", "IRQ", "PAN", "PAR", "CIV", "BIH",
-         "CPV", "CUW", "COD", "JOR", "HAI"},
+         "CPV", "CUW", "COD", "JOR", "HAI", "CHN"},
 }
 
 -- 声望 → 可收到邀约的档位（1-99量纲，累加，高声望可以收到所有低档的）
@@ -1097,6 +1127,9 @@ function WorldCup._checkNationalTeamInvitation(gameState, qualifiedNations, wcYe
     local leagueNation = WorldCup._getManagerLeagueNation(gameState)
     local offers = {}
     local offerSet = {}  -- 防重复
+
+    -- 0) 中国队保底邀约（2030+，玩家可直接选择）
+    _addGuaranteedChinaOffer(offers, offerSet, qualifiedSet, wcYear, WorldCup.isGuaranteedChinaOfferYear)
 
     -- 1) 联赛国籍保底：如果该国入围世界杯，保证发来邀请
     if leagueNation and qualifiedSet[leagueNation] then
@@ -1273,6 +1306,7 @@ function WorldCup._getManagerLeagueNation(gameState)
         bundesliga = "GER",
         serie_a = "ITA",  -- 意大利未参加本届世界杯，不会作为保底
         ligue_1 = "FRA",
+        CSL = "CHN",
     }
     return LEAGUE_TO_NATION[leagueKey]
 end

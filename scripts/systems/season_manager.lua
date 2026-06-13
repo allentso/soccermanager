@@ -6,6 +6,7 @@ local League = require("scripts/domain/league")
 local EventBus = require("scripts/app/event_bus")
 local ChampionsLeague = require("scripts/systems/champions_league")
 local WorldCup = require("scripts/systems/world_cup")
+local EuroCup = require("scripts/systems/euro_cup")
 local AwardsManager = require("scripts/systems/awards_manager")
 local FinanceManager = require("scripts/systems/finance_manager")
 local HistoryManager = require("scripts/systems/history_manager")
@@ -992,10 +993,9 @@ function SeasonManager._startNewSeason(gameState)
     -- 更新赛季年份
     gameState.season = gameState.season + 1
 
-    -- 世界杯年从6月1日开始（世界杯在6-7月举办），否则从8月10日开始
-    local isWCYear = WorldCup.isWorldCupYear(gameState.season)
-    if isWCYear then
-        -- 世界杯年：日历从6月1日起，让6月12日开始的小组赛在未来
+    -- 国际大赛年（世界杯/欧洲杯）从6月1日开始，否则从8月10日开始
+    local isIntlYear = EuroCup.isInternationalTournamentYear(gameState.season)
+    if isIntlYear then
         gameState.date = {
             year = gameState.season,
             month = 6,
@@ -1044,8 +1044,12 @@ function SeasonManager._startNewSeason(gameState)
     -- 初始化本赛季欧冠
     ChampionsLeague.initialize(gameState)
 
-    -- 检查并初始化世界杯（世界杯年6月举办，此时日历在6月1日，比赛日期在未来）
-    WorldCup.initialize(gameState)
+    -- 国际大赛（欧洲杯年与世界杯年互斥）
+    if EuroCup.isEuroYear(gameState.season) then
+        EuroCup.initialize(gameState)
+    else
+        WorldCup.initialize(gameState)
+    end
 
     -- 初始化赛季目标系统
     ObjectivesManager.initSeason(gameState)

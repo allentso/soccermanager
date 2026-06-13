@@ -12,6 +12,7 @@ local LEAGUE_FILES = {
     "fm2024_serie_a.json",
     "fm2024_bundesliga.json",
     "fm2024_ligue_1.json",
+    "fm2024_csl.json",
 }
 
 --- 从 wage_budget 计算 reputation（与 RealDataLoader._calcReputation 相同）

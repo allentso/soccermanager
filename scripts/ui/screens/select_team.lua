@@ -46,7 +46,8 @@ function SelectTeam.create(params)
     end
 
     -- 联赛顺序
-    local leagueOrder = {"EPL", "LaLiga", "SerieA", "Bundesliga", "Ligue1"}
+    local RealDataLoader = require("scripts/data/real_data_loader")
+    local leagueOrder = RealDataLoader.getLeagueDisplayOrder(gameState)
 
     -- 默认选中第一个有数据的联赛
     if not selectedLeagueKey then

@@ -8,6 +8,7 @@ local League = require("scripts/domain/league")
 local TransferManager = require("scripts/systems/transfer_manager")
 local ChampionsLeague = require("scripts/systems/champions_league")
 local WorldCup = require("scripts/systems/world_cup")
+local EuroCup = require("scripts/systems/euro_cup")
 local FinanceManager = require("scripts/systems/finance_manager")
 local ContractManager = require("scripts/systems/contract_manager")
 local TrainingManager = require("scripts/systems/training_manager")
@@ -60,6 +61,18 @@ function TurnProcessor.advanceDay(gameState)
         table.insert(todayFixtures, f)
     end
 
+    -- 补救：模拟已过期但未完成的欧洲杯比赛
+    local overduePlayerEuro = TurnProcessor._catchUpOverdueEuroFixtures(gameState, newDate)
+    for _, f in ipairs(overduePlayerEuro) do
+        table.insert(todayFixtures, f)
+    end
+
+    -- 检查欧洲杯当天是否有比赛
+    local euroFixtures = TurnProcessor.getEuroFixturesForDate(gameState, newDate)
+    for _, f in ipairs(euroFixtures) do
+        table.insert(todayFixtures, f)
+    end
+
     -- 补救：模拟已过期但未完成的世界杯比赛（防止因前次错误导致比赛被跳过）
     local overduePlayerWC = TurnProcessor._catchUpOverdueWCFixtures(gameState, newDate)
     for _, f in ipairs(overduePlayerWC) do
@@ -91,7 +104,8 @@ function TurnProcessor.advanceDay(gameState)
     -- 检查欧冠阶段推进
     ChampionsLeague.checkPhaseAdvance(gameState)
 
-    -- 检查世界杯阶段推进
+    -- 检查世界杯/欧洲杯阶段推进
+    EuroCup.checkPhaseAdvance(gameState)
     WorldCup.checkPhaseAdvance(gameState)
 
     -- 检查玩家所在联赛是否赛季结束（加 guard 防止重复触发）
@@ -131,6 +145,18 @@ function TurnProcessor.getUCLFixturesForDate(gameState, date)
     -- 标记为欧冠比赛
     for _, f in ipairs(fixtures) do
         f._isUCL = true
+    end
+    return fixtures
+end
+
+-- 获取当天欧洲杯比赛
+function TurnProcessor.getEuroFixturesForDate(gameState, date)
+    local euro = gameState.euroCup
+    if not euro or euro.phase == "not_started" or euro.phase == "completed" then return {} end
+    local fixtures = euro:getFixturesForDate(date)
+    for _, f in ipairs(fixtures) do
+        f._isWC = true
+        f._isEuro = true
     end
     return fixtures
 end
@@ -187,7 +213,8 @@ function TurnProcessor.processMatchDay(gameState, fixtures)
         local isPlayerMatch = (fixture.homeTeamId == playerTeamId or fixture.awayTeamId == playerTeamId)
         -- 世界杯：检查是否是玩家国家队的比赛
         local isPlayerWCMatch = fixture._isWC and WorldCup.isPlayerNationMatch(gameState, fixture)
-        if isPlayerWCMatch then isPlayerMatch = true end
+        local isPlayerEuroMatch = fixture._isEuro and EuroCup.isPlayerNationMatch(gameState, fixture)
+        if isPlayerWCMatch or isPlayerEuroMatch then isPlayerMatch = true end
 
         if isPlayerMatch and not gameState._cheatAutoPlay then
             fixture._pendingPlayerMatch = true
@@ -197,7 +224,9 @@ function TurnProcessor.processMatchDay(gameState, fixtures)
         local report = MatchEngine.simulate(gameState, fixture)
 
         if report then
-            if fixture._isWC then
+            if fixture._isEuro then
+                TurnProcessor._applyEuroResult(gameState, fixture, report)
+            elseif fixture._isWC then
                 TurnProcessor._applyWCResult(gameState, fixture, report)
             elseif fixture._isUCL then
                 TurnProcessor._applyUCLResult(gameState, fixture, report)
@@ -206,27 +235,31 @@ function TurnProcessor.processMatchDay(gameState, fixtures)
             end
 
             -- 生成比赛消息
-            if fixture._isWC or isPlayerMatch then
+            if fixture._isWC or fixture._isEuro or isPlayerMatch then
                 local homeName, awayName
-                if fixture._isWC then
-                    homeName = WorldCup._getNationName(fixture.homeTeamId)
-                    awayName = WorldCup._getNationName(fixture.awayTeamId)
+                if fixture._isWC or fixture._isEuro then
+                    local NT = fixture._isEuro and EuroCup or WorldCup
+                    homeName = NT._getNationName(fixture.homeTeamId)
+                    awayName = NT._getNationName(fixture.awayTeamId)
                 else
                     local homeTeam = gameState.teams[fixture.homeTeamId]
                     local awayTeam = gameState.teams[fixture.awayTeamId]
                     homeName = homeTeam and homeTeam.name or "主队"
                     awayName = awayTeam and awayTeam.name or "客队"
                 end
-                local prefix = fixture._isUCL and "[欧冠] " or (fixture._isWC and "[世界杯] " or "")
+                local prefix = fixture._isUCL and "[欧冠] "
+                    or (fixture._isEuro and "[欧洲杯] ")
+                    or (fixture._isWC and "[世界杯] ")
+                    or ""
 
-                if isPlayerMatch or fixture._isWC then
+                if isPlayerMatch or fixture._isWC or fixture._isEuro then
                     if isPlayerMatch then playerMatchReport = report end
                     gameState:sendMessage({
                         category = "match_result",
                         title = prefix .. "比赛结果",
                         body = string.format("%s%s %d - %d %s",
                             prefix, homeName, report.homeGoals, report.awayGoals, awayName),
-                        priority = fixture._isWC and "normal" or "high",
+                        priority = (fixture._isWC or fixture._isEuro) and "normal" or "high",
                     })
                 end
             end
@@ -236,14 +269,14 @@ function TurnProcessor.processMatchDay(gameState, fixtures)
 
     -- 比赛日票房收入（主场球队）- 跳过待处理的玩家比赛（由 pre_match 负责）
     for _, fixture in ipairs(fixtures) do
-        if not fixture._isWC and not fixture._pendingPlayerMatch then
+        if not fixture._isWC and not fixture._isEuro and not fixture._pendingPlayerMatch then
             FinanceManager.processMatchDayRevenue(gameState, fixture.homeTeamId, true, fixture.awayTeamId)
         end
     end
 
     -- B2: 赛后士气和声望更新
     for _, fixture in ipairs(fixtures) do
-        if not fixture._isWC and fixture.status == "finished" then
+        if not fixture._isWC and not fixture._isEuro and fixture.status == "finished" then
             local homeResult, awayResult
             local homeGoals = fixture.homeGoals or 0
             local awayGoals = fixture.awayGoals or 0
@@ -271,7 +304,7 @@ function TurnProcessor.processMatchDay(gameState, fixtures)
         TurnProcessor.generateMatchNews(gameState, fixtures)
         -- B3: 大比分/爆冷新闻
         for _, fixture in ipairs(fixtures) do
-            if not fixture._isWC then
+            if not fixture._isWC and not fixture._isEuro then
                 NewsGenerator.generateUpsetNews(gameState, fixture)
             end
         end
@@ -361,6 +394,55 @@ function TurnProcessor._catchUpOverdueUCLFixtures(gameState, currentDate)
         ChampionsLeague.checkPhaseAdvance(gameState)
     end
 
+    return playerOverdue
+end
+
+function TurnProcessor._catchUpOverdueEuroFixtures(gameState, currentDate)
+    local euro = gameState.euroCup
+    if not euro or euro.phase == "not_started" or euro.phase == "completed" then return {} end
+
+    local overdueFixtures = {}
+
+    if euro.phase == "group" then
+        for _, group in pairs(euro.groups) do
+            for _, f in ipairs(group.fixtures) do
+                if f.status == "scheduled" and f.date and TurnProcessor._isDateBefore(f.date, currentDate) then
+                    table.insert(overdueFixtures, f)
+                end
+            end
+        end
+    end
+
+    local knockoutPhases = {"r16", "qf", "sf", "final"}
+    for _, phase in ipairs(knockoutPhases) do
+        local fixtures = euro.knockout and euro.knockout[phase]
+        if fixtures then
+            for _, f in ipairs(fixtures) do
+                if f.status == "scheduled" and f.date and TurnProcessor._isDateBefore(f.date, currentDate) then
+                    table.insert(overdueFixtures, f)
+                end
+            end
+        end
+    end
+
+    if #overdueFixtures == 0 then return {} end
+
+    local playerOverdue = {}
+    for _, fixture in ipairs(overdueFixtures) do
+        fixture._isWC = true
+        fixture._isEuro = true
+        if EuroCup.isPlayerNationMatch(gameState, fixture) then
+            fixture._pendingPlayerMatch = true
+            table.insert(playerOverdue, fixture)
+            goto continue_euro_overdue
+        end
+
+        local report = MatchEngine.simulate(gameState, fixture)
+        if report then
+            TurnProcessor._applyEuroResult(gameState, fixture, report)
+        end
+        ::continue_euro_overdue::
+    end
     return playerOverdue
 end
 
@@ -473,6 +555,39 @@ function TurnProcessor.peekOverduePlayerFixture(gameState)
         end
     end
 
+    -- 检查欧洲杯逾期比赛
+    local euro = gameState.euroCup
+    if euro and euro.phase ~= "not_started" and euro.phase ~= "completed" then
+        if euro.phase == "group" then
+            for _, group in pairs(euro.groups) do
+                for _, f in ipairs(group.fixtures) do
+                    if f.status == "scheduled" and f.date and TurnProcessor._isDateBefore(f.date, currentDate) then
+                        if EuroCup.isPlayerNationMatch(gameState, f) then
+                            f._isWC = true
+                            f._isEuro = true
+                            return f
+                        end
+                    end
+                end
+            end
+        end
+        local euroKnockoutPhases = {"r16", "qf", "sf", "final"}
+        for _, phase in ipairs(euroKnockoutPhases) do
+            local fixtures = euro.knockout and euro.knockout[phase]
+            if fixtures then
+                for _, f in ipairs(fixtures) do
+                    if f.status == "scheduled" and f.date and TurnProcessor._isDateBefore(f.date, currentDate) then
+                        if EuroCup.isPlayerNationMatch(gameState, f) then
+                            f._isWC = true
+                            f._isEuro = true
+                            return f
+                        end
+                    end
+                end
+            end
+        end
+    end
+
     -- 检查世界杯逾期比赛
     local wc = gameState.worldCup
     if wc and wc.phase ~= "not_started" and wc.phase ~= "completed" then
@@ -541,6 +656,23 @@ local function _storeKnockoutExtras(fixture, extraTime)
         rounds = pen.rounds,
     }
     fixture._penaltyWinner = pen.winner
+end
+
+function TurnProcessor._applyEuroResult(gameState, fixture, report)
+    local euro = gameState.euroCup
+    if not euro then return end
+
+    fixture.homeGoals = report.homeGoals
+    fixture.awayGoals = report.awayGoals
+    fixture.status = "finished"
+    _storeKnockoutExtras(fixture, report.extraTime)
+
+    if euro.phase == "group" and fixture.groupName then
+        euro:updateGroupStanding(fixture.groupName, fixture)
+    end
+
+    local PlaceholderEngine = require("scripts/match/placeholder_engine")
+    PlaceholderEngine.applyPlayerMatchStats(gameState, fixture, report)
 end
 
 -- 应用世界杯比赛结果
@@ -851,6 +983,7 @@ end
 
 local UCL_KNOCKOUT_PHASES = { "playoff", "r16", "qf", "sf", "final" }
 local WC_KNOCKOUT_PHASES = { "r32", "r16", "qf", "sf", "third", "final" }
+local EURO_KNOCKOUT_PHASES = { "r16", "qf", "sf", "final" }
 
 --- 收集指定日期已完成比赛的出场球员
 function TurnProcessor._getPlayersWhoPlayedOnDate(gameState, date)
@@ -886,6 +1019,27 @@ function TurnProcessor._getPlayersWhoPlayedOnDate(gameState, date)
     if ucl and ucl.knockout then
         for _, phase in ipairs(UCL_KNOCKOUT_PHASES) do
             local fixtures = ucl.knockout[phase]
+            if fixtures then
+                for _, f in ipairs(fixtures) do
+                    markFixture(f)
+                end
+            end
+        end
+    end
+
+    local euro = gameState.euroCup
+    if euro and euro.groups then
+        for _, group in pairs(euro.groups) do
+            if group.fixtures then
+                for _, f in ipairs(group.fixtures) do
+                    markFixture(f)
+                end
+            end
+        end
+    end
+    if euro and euro.knockout then
+        for _, phase in ipairs(EURO_KNOCKOUT_PHASES) do
+            local fixtures = euro.knockout[phase]
             if fixtures then
                 for _, f in ipairs(fixtures) do
                     markFixture(f)

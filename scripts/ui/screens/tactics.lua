@@ -73,7 +73,7 @@ function Tactics.create(params)
     -- 判断当前身份：国家队模式 vs 俱乐部模式
     local isNTMode = gameState.currentRole == "national_team"
         and gameState.nationalTeamCoach ~= nil
-        and gameState.worldCup ~= nil
+        and (gameState.worldCup ~= nil or gameState.euroCup ~= nil)
 
     local team
     if isNTMode then
@@ -972,7 +972,7 @@ function Tactics._showSlotSwapSheet(gameState, team, slotIdx, slots)
     -- 国家队模式判断
     local isNTMode = gameState.currentRole == "national_team"
         and gameState.nationalTeamCoach ~= nil
-        and gameState.worldCup ~= nil
+        and (gameState.worldCup ~= nil or gameState.euroCup ~= nil)
 
     local function saveAfterChange()
         if isNTMode and gameState.nationalTeamCoach then

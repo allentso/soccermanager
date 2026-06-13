@@ -37,6 +37,7 @@ function GameState.new()
     -- 锦标赛
     self.championsLeague = nil  -- 欧冠 Tournament 实例
     self.worldCup = nil         -- 世界杯 Tournament 实例
+    self.euroCup = nil          -- 欧洲杯 Tournament 实例
 
     -- 消息和新闻
     self.inbox = {}
@@ -228,6 +229,7 @@ function GameState:serialize()
     -- 锦标赛序列化
     local uclData = self.championsLeague and self.championsLeague:serialize() or nil
     local wcData = self.worldCup and self.worldCup:serialize() or nil
+    local euroData = self.euroCup and self.euroCup:serialize() or nil
 
     return {
         date = self.date,
@@ -243,6 +245,7 @@ function GameState:serialize()
         leagues = leaguesData,
         championsLeague = uclData,
         worldCup = wcData,
+        euroCup = euroData,
         inbox = self.inbox,
         news = self.news,
         worldHistory = self.worldHistory,
@@ -250,6 +253,7 @@ function GameState:serialize()
         _transferHistory = self._transferHistory,
         _managerHistory = self._managerHistory,
         _worldCupHistory = self._worldCupHistory,
+        _euroHistory = self._euroHistory,
         lastPromotionRelegation = self.lastPromotionRelegation,
         transfers = self.transfers,
         scoutReports = self.scoutReports,
@@ -289,6 +293,7 @@ function GameState:serialize()
         _repBaselineV2 = self._repBaselineV2,
         _teamRelations = self._teamRelations,
         _activeLoans = self._activeLoans,
+        newGameOptions = self.newGameOptions,
     }
 end
 
@@ -311,6 +316,7 @@ function GameState:deserialize(data)
     self._transferHistory = data._transferHistory
     self._managerHistory = data._managerHistory
     self._worldCupHistory = data._worldCupHistory
+    self._euroHistory = data._euroHistory
     self.lastPromotionRelegation = data.lastPromotionRelegation
     self.transfers = data.transfers or { bids = {}, history = {}, nextBidId = 1 }
     self.scoutReports = data.scoutReports or {}
@@ -373,6 +379,7 @@ function GameState:deserialize(data)
     self._repBaselineV2 = data._repBaselineV2
     self._teamRelations = data._teamRelations
     self._activeLoans = data._activeLoans or {}
+    self.newGameOptions = data.newGameOptions
 
     -- 恢复二级联赛数据（升降级状态）
     if data.secondDivision then
@@ -481,6 +488,12 @@ function GameState:deserialize(data)
         self.worldCup = Tournament.new(data.worldCup)
     end
 
+    -- 恢复欧洲杯
+    self.euroCup = nil
+    if data.euroCup then
+        self.euroCup = Tournament.new(data.euroCup)
+    end
+
     -- 迁移：验证并修复联赛积分榜一致性
     -- 旧版本存在 bug：读档后 standings 的 key 变为字符串，导致 updateStanding 静默失败
     -- 如果玩家在有 bug 的版本中继续游戏并存档，standings 会与 fixtures 不一致
@@ -533,6 +546,7 @@ function GameState:deserialize(data)
     local tournaments = {}
     if self.championsLeague then table.insert(tournaments, self.championsLeague) end
     if self.worldCup then table.insert(tournaments, self.worldCup) end
+    if self.euroCup then table.insert(tournaments, self.euroCup) end
     for _, tourney in ipairs(tournaments) do
         -- 联赛阶段（瑞士制）
         local lp = tourney.leaguePhase

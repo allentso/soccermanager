@@ -214,7 +214,7 @@ function Theme.MainNav(activeTab)
     local Router = require("scripts/app/router")
     -- 国家队模式下"赛事"默认跳世界杯视图
     local isNTMode = _G.gameState and _G.gameState.currentRole == "national_team"
-        and _G.gameState.nationalTeamCoach ~= nil and _G.gameState.worldCup ~= nil
+        and _G.gameState.nationalTeamCoach ~= nil and (_G.gameState.worldCup ~= nil or _G.gameState.euroCup ~= nil)
     return Theme.BottomNav {
         children = {
             Theme.NavButton {

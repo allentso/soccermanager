@@ -10,15 +10,33 @@ local FinanceManager = require("scripts/systems/finance_manager")
 
 local ChampionsLeague = {}
 
--- 各联赛欧冠名额（新赛制共36队）
-local UCL_SPOTS = {
-    EPL = 4,
-    LaLiga = 4,
-    SerieA = 4,
-    Bundesliga = 4,
-    Ligue1 = 3,
-    -- 其余17个名额从其他联赛/声望补充
+-- 各联赛欧冠名额：五大联赛各 7 席，英超额外 +1（合计 36）
+local UCL_SPOTS_PER_LEAGUE = 7
+local UCL_SPOTS_EPL_BONUS = 1
+
+-- 加载中超时：英超额外名额转给中超冠军（五大联赛仍各 7 席，合计仍为 36）
+local UCL_SPOTS_CSL_CHAMPION = 1
+
+-- 首赛季不参与欧冠席位分配，从第2赛季起按上赛季积分榜取名额
+local UCL_SPOTS_FROM_SEASON_2 = {
+    CSL = true,
 }
+
+--- 当前存档的联赛欧冠名额表（随是否加载中超动态变化）
+function ChampionsLeague.getUclSpots(gameState)
+    local spots = {
+        EPL = UCL_SPOTS_PER_LEAGUE + UCL_SPOTS_EPL_BONUS,
+        LaLiga = UCL_SPOTS_PER_LEAGUE,
+        SerieA = UCL_SPOTS_PER_LEAGUE,
+        Bundesliga = UCL_SPOTS_PER_LEAGUE,
+        Ligue1 = UCL_SPOTS_PER_LEAGUE,
+    }
+    if gameState and gameState.leagues and gameState.leagues.CSL then
+        spots.EPL = UCL_SPOTS_PER_LEAGUE
+        spots.CSL = UCL_SPOTS_CSL_CHAMPION
+    end
+    return spots
+end
 
 local TOTAL_TEAMS = 36
 
@@ -446,7 +464,11 @@ function ChampionsLeague._getQualifiedTeams(gameState)
     end
 
     if lastSeason and lastSeason.leagues then
-        for leagueKey, spots in pairs(UCL_SPOTS) do
+        local uclSpots = ChampionsLeague.getUclSpots(gameState)
+        for leagueKey, spots in pairs(uclSpots) do
+            if not ChampionsLeague._isLeagueUclActive(gameState, leagueKey) then
+                goto continue_hist_league
+            end
             local leagueRecord = lastSeason.leagues[leagueKey]
             if leagueRecord and leagueRecord.standings then
                 for i = 1, math.min(spots, #leagueRecord.standings) do
@@ -456,6 +478,7 @@ function ChampionsLeague._getQualifiedTeams(gameState)
                     end
                 end
             end
+            ::continue_hist_league::
         end
     end
 
@@ -467,10 +490,27 @@ function ChampionsLeague._getQualifiedTeams(gameState)
     return qualified
 end
 
+--- 联赛是否已解锁欧冠席位（含「第2赛季起」规则）
+function ChampionsLeague._isLeagueUclActive(gameState, leagueKey)
+    if not UCL_SPOTS_FROM_SEASON_2[leagueKey] then
+        return gameState.leagues[leagueKey] ~= nil
+    end
+    for _, record in ipairs(gameState.worldHistory or {}) do
+        if record.leagues and record.leagues[leagueKey] then
+            return true
+        end
+    end
+    return false
+end
+
 -- 首赛季：按声望从各联赛选取
 function ChampionsLeague._getInitialQualifiers(gameState)
     local qualified = {}
-    for leagueKey, spots in pairs(UCL_SPOTS) do
+    local uclSpots = ChampionsLeague.getUclSpots(gameState)
+    for leagueKey, spots in pairs(uclSpots) do
+        if UCL_SPOTS_FROM_SEASON_2[leagueKey] then
+            goto continue_league
+        end
         local lg = gameState.leagues[leagueKey]
         if lg then
             local leagueTeams = {}
@@ -487,6 +527,7 @@ function ChampionsLeague._getInitialQualifiers(gameState)
                 table.insert(qualified, leagueTeams[i].id)
             end
         end
+        ::continue_league::
     end
     return qualified
 end
@@ -497,7 +538,10 @@ function ChampionsLeague._fillSlots(gameState, existing, target)
     for _, tid in ipairs(existing) do existingSet[tid] = true end
 
     local candidates = {}
-    for _, lg in pairs(gameState.leagues) do
+    for leagueKey, lg in pairs(gameState.leagues) do
+        if not ChampionsLeague._isLeagueUclActive(gameState, leagueKey) then
+            goto continue_league_fill
+        end
         for _, tid in ipairs(lg.teamIds) do
             if not existingSet[tid] then
                 local team = gameState.teams[tid]
@@ -506,6 +550,7 @@ function ChampionsLeague._fillSlots(gameState, existing, target)
                 end
             end
         end
+        ::continue_league_fill::
     end
     table.sort(candidates, function(a, b)
         return (a.reputation or 0) > (b.reputation or 0)

@@ -234,6 +234,31 @@ function HistoryManager.getWorldCupHistory(gameState)
 end
 
 ------------------------------------------------------
+-- 欧洲杯冠军记录
+------------------------------------------------------
+
+function HistoryManager.recordEuroChampion(gameState, data)
+    HistoryManager._ensureData(gameState)
+
+    if not gameState._euroHistory then
+        gameState._euroHistory = {}
+    end
+
+    table.insert(gameState._euroHistory, {
+        season = data.season,
+        championId = data.championId,
+        championName = data.championName,
+        runnerUpId = data.runnerUpId,
+        runnerUpName = data.runnerUpName,
+    })
+end
+
+function HistoryManager.getEuroHistory(gameState)
+    HistoryManager._ensureData(gameState)
+    return gameState._euroHistory or {}
+end
+
+------------------------------------------------------
 -- UI 查询接口
 ------------------------------------------------------
 

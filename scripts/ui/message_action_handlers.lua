@@ -130,26 +130,34 @@ MessageActionHandlers.HANDLERS = {
     accept_nt_coach = function(gameState, data)
         if not data.nation then return false end
         local WorldCup = require("scripts/systems/world_cup")
-        gameState.nationalTeamCoach = { nation = data.nation, squad = nil }
-        WorldCup.clearPendingCoachInvite(gameState)
+        local EuroCup = require("scripts/systems/euro_cup")
+        local isEuro = data.competition == "euro" or EuroCup.isEuroYear(gameState.season)
+        local NT = isEuro and EuroCup or WorldCup
+        gameState.nationalTeamCoach = { nation = data.nation, squad = nil, competition = isEuro and "euro" or "world_cup" }
+        NT.clearPendingCoachInvite(gameState)
         gameState.ntCoachGuidancePending = true
+        local compLabel = isEuro and "欧洲杯" or "世界杯"
         gameState:sendMessage({
-            category = "world_cup",
+            category = isEuro and "euro_cup" or "world_cup",
             title = "正式上任",
-            body = string.format("你已正式出任%s国家队主教练！请前往选择世界杯大名单。",
-                WorldCup._getNationName(data.nation)),
+            body = string.format("你已正式出任%s国家队主教练！请前往选择%s大名单。",
+                NT._getNationName(data.nation), compLabel),
             priority = "high",
         })
         return true, "national_squad_select", { nation = data.nation }
     end,
-    decline_nt_coach = function(gameState, _data)
+    decline_nt_coach = function(gameState, data)
         local WorldCup = require("scripts/systems/world_cup")
+        local EuroCup = require("scripts/systems/euro_cup")
+        local isEuro = (data and data.competition == "euro") or EuroCup.isEuroYear(gameState.season)
+        local NT = isEuro and EuroCup or WorldCup
         gameState.nationalTeamCoach = nil
-        WorldCup.clearPendingCoachInvite(gameState)
+        NT.clearPendingCoachInvite(gameState)
+        local compLabel = isEuro and "欧洲杯" or "世界杯"
         gameState:sendMessage({
-            category = "world_cup",
+            category = isEuro and "euro_cup" or "world_cup",
             title = "婉拒邀请",
-            body = "你婉拒了所有国家队的邀请。世界杯比赛将自动模拟。",
+            body = string.format("你婉拒了所有国家队的邀请。%s比赛将自动模拟。", compLabel),
             priority = "normal",
         })
         return true

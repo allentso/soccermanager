@@ -55,7 +55,7 @@ function Squad.create(params)
     -- 判断当前身份：国家队模式 vs 俱乐部模式
     local isNTMode = gameState.currentRole == "national_team"
         and gameState.nationalTeamCoach ~= nil
-        and gameState.worldCup ~= nil
+        and (gameState.worldCup ~= nil or gameState.euroCup ~= nil)
 
     local team
     if isNTMode then

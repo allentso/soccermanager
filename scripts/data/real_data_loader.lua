@@ -127,14 +127,55 @@ function RealDataLoader.loadLeagueFile(filename)
     return data
 end
 
--- 联赛文件配置
-RealDataLoader.LEAGUE_FILES = {
+-- 五大联赛（始终加载）
+RealDataLoader.CORE_LEAGUE_FILES = {
     {file = "fm2024_premier_league.json",  name = "英超",    country = "ENG", shortName = "EPL"},
     {file = "fm2024_la_liga.json",         name = "西甲",    country = "ES",  shortName = "LaLiga"},
     {file = "fm2024_serie_a.json",         name = "意甲",    country = "IT",  shortName = "SerieA"},
     {file = "fm2024_bundesliga.json",      name = "德甲",    country = "DE",  shortName = "Bundesliga"},
     {file = "fm2024_ligue_1.json",         name = "法甲",    country = "FR",  shortName = "Ligue1"},
 }
+
+-- 可选联赛（新游戏时由玩家勾选）
+RealDataLoader.OPTIONAL_LEAGUES = {
+    CSL = {file = "fm2024_csl.json", name = "中超", country = "CHN", shortName = "CSL"},
+}
+
+-- 兼容旧引用
+RealDataLoader.LEAGUE_FILES = RealDataLoader.CORE_LEAGUE_FILES
+
+--- 根据新游戏选项返回要加载的联赛配置列表
+function RealDataLoader.getActiveLeagueConfigs(opts)
+    opts = opts or {}
+    local configs = {}
+    for _, cfg in ipairs(RealDataLoader.CORE_LEAGUE_FILES) do
+        table.insert(configs, cfg)
+    end
+    if opts.includeCSL and RealDataLoader.OPTIONAL_LEAGUES.CSL then
+        table.insert(configs, RealDataLoader.OPTIONAL_LEAGUES.CSL)
+    end
+    return configs
+end
+
+--- UI 展示用联赛顺序（仅包含已加载联赛）
+function RealDataLoader.getLeagueDisplayOrder(gameState)
+    local order = {"EPL", "LaLiga", "SerieA", "Bundesliga", "Ligue1"}
+    if gameState and gameState.leagues and gameState.leagues.CSL then
+        table.insert(order, "CSL")
+    end
+    return order
+end
+
+--- 按 shortName 查找联赛配置（含可选联赛）
+function RealDataLoader.getLeagueConfigByKey(leagueKey)
+    for _, cfg in ipairs(RealDataLoader.CORE_LEAGUE_FILES) do
+        if cfg.shortName == leagueKey then return cfg end
+    end
+    for _, cfg in pairs(RealDataLoader.OPTIONAL_LEAGUES) do
+        if cfg.shortName == leagueKey then return cfg end
+    end
+    return nil
+end
 
 --- 将一个联赛的JSON数据导入到 gameState 中
 --- @param gameState table GameState实例
@@ -325,17 +366,21 @@ function RealDataLoader._calcTotalRounds(teamCount)
     return (teamCount - 1) * 2
 end
 
---- 加载所有五大联赛到 gameState
+--- 加载联赛到 gameState
 --- @param gameState table GameState实例
+--- @param opts table|nil { includeCSL = boolean }
 --- @return boolean success
-function RealDataLoader.loadAllLeagues(gameState)
-    log:Write(LOG_INFO, "RealDataLoader: 开始加载五大联赛数据...")
+function RealDataLoader.loadAllLeagues(gameState, opts)
+    opts = opts or gameState.newGameOptions or {}
+    gameState.newGameOptions = opts
+
+    log:Write(LOG_INFO, "RealDataLoader: 开始加载联赛数据...")
 
     gameState.leagues = {}
     local totalPlayers = 0
     local totalTeams = 0
 
-    for _, config in ipairs(RealDataLoader.LEAGUE_FILES) do
+    for _, config in ipairs(RealDataLoader.getActiveLeagueConfigs(opts)) do
         local data = RealDataLoader.loadLeagueFile(config.file)
         if data then
             local league = RealDataLoader.importLeague(gameState, data, config)

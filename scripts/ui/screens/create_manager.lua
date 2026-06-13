@@ -8,6 +8,55 @@ local EventBus = require("scripts/app/event_bus")
 
 local CreateManager = {}
 
+local _includeCSL = false
+
+local function _toggleIncludeCSLRow()
+    return UI.Panel {
+        width = "100%",
+        flexDirection = "row",
+        alignItems = "center",
+        justifyContent = "space-between",
+        marginBottom = 28,
+        paddingLeft = 4,
+        paddingRight = 4,
+        children = {
+            UI.Panel {
+                flexGrow = 1,
+                flexShrink = 1,
+                marginRight = 12,
+                children = {
+                    UI.Label {
+                        text = "加载中超联赛数据",
+                        fontSize = 14,
+                        color = Theme.COLORS.TEXT_PRIMARY,
+                        fontWeight = "bold",
+                    },
+                    UI.Label {
+                        text = "16支球队 · 第2赛季起冠军参加欧冠（占英超额外名额）",
+                        fontSize = 11,
+                        color = Theme.COLORS.TEXT_MUTED,
+                        marginTop = 4,
+                    },
+                }
+            },
+            UI.Button {
+                text = _includeCSL and "已开启" or "点击开启",
+                width = 80,
+                height = 32,
+                borderRadius = 16,
+                backgroundColor = _includeCSL and Theme.COLORS.SECONDARY or Theme.COLORS.BG_CARD_ELEVATED,
+                fontSize = 12,
+                color = _includeCSL and Theme.COLORS.TEXT_PRIMARY or Theme.COLORS.TEXT_SECONDARY,
+                fontWeight = "bold",
+                onClick = function()
+                    _includeCSL = not _includeCSL
+                    Router.replaceWith("create_manager")
+                end,
+            },
+        }
+    }
+end
+
 function CreateManager.create()
     local page = UI.Panel {
         width = "100%",
@@ -66,8 +115,10 @@ function CreateManager.create()
                         text = "输入你作为主教练的姓名",
                         fontSize = 13,
                         color = Theme.COLORS.TEXT_MUTED,
-                        marginBottom = 36,
+                        marginBottom = 20,
                     },
+
+                    _toggleIncludeCSLRow(),
 
                     -- 姓氏输入框
                     UI.Label {
@@ -132,6 +183,7 @@ function CreateManager.create()
                             NavigateTo("select_team", {
                                 firstName = firstName,
                                 lastName = lastName,
+                                includeCSL = _includeCSL,
                             })
                         end,
                     },

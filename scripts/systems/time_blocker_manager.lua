@@ -388,10 +388,27 @@ function TimeBlockerManager._checkNTCoachInvitePending(gameState, blockers)
     })
 end
 
---- 15. 世界杯大名单未确认（开幕前 7 天内）
+--- 15. 国际大赛大名单未确认（开幕前 7 天内）
 function TimeBlockerManager._checkNTSquadUnconfirmed(gameState, blockers)
     local WorldCup = require("scripts/systems/world_cup")
-    local needs, nation, daysLeft = WorldCup.needsSquadConfirmationBlock(gameState)
+    local EuroCup = require("scripts/systems/euro_cup")
+
+    local needs, nation, daysLeft
+    if EuroCup.isEuroYear(gameState.season) then
+        needs, nation, daysLeft = EuroCup.needsSquadConfirmationBlock(gameState)
+        if needs then
+            table.insert(blockers, {
+                id = "nt_squad_unconfirmed",
+                severity = "warn",
+                message = string.format("欧洲杯 %d 天后开幕，国家队大名单尚未确认", daysLeft or 0),
+                target = "national_squad_select",
+                targetParams = { nation = nation },
+            })
+        end
+        return
+    end
+
+    needs, nation, daysLeft = WorldCup.needsSquadConfirmationBlock(gameState)
     if not needs then return end
 
     table.insert(blockers, {

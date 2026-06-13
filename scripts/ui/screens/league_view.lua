@@ -39,7 +39,11 @@ function LeagueView.create(params)
 
     -- 构建联赛切换按钮（含欧冠 + 世界杯）
     local leagueTabs = {}
-    local leagueOrder = {"EPL", "LaLiga", "SerieA", "Bundesliga", "Ligue1", "UCL", "WC"}
+    local RealDataLoader = require("scripts/data/real_data_loader")
+    local leagueOrder = RealDataLoader.getLeagueDisplayOrder(gameState)
+    table.insert(leagueOrder, "UCL")
+    table.insert(leagueOrder, "WC")
+    table.insert(leagueOrder, "EURO")
     for _, key in ipairs(leagueOrder) do
         local hasData = false
         ---@type string
@@ -50,6 +54,9 @@ function LeagueView.create(params)
         elseif key == "WC" then
             hasData = gameState.worldCup ~= nil
             tabName = "世界杯"
+        elseif key == "EURO" then
+            hasData = gameState.euroCup ~= nil
+            tabName = "欧洲杯"
         else
             hasData = gameState.leagues[key] ~= nil
             local lg = gameState.leagues[key]
@@ -83,6 +90,11 @@ function LeagueView.create(params)
     -- 如果当前选中世界杯，显示世界杯专用视图
     if currentLeagueKey == "WC" then
         return LeagueView._createWCView(gameState, leagueTabs)
+    end
+
+    -- 如果当前选中欧洲杯，显示欧洲杯专用视图
+    if currentLeagueKey == "EURO" then
+        return LeagueView._createEuroView(gameState, leagueTabs)
     end
 
     -- 联赛视图
@@ -1038,6 +1050,143 @@ function LeagueView._createWCView(gameState, leagueTabs)
             },
 
             -- 底部导航
+            Theme.MainNav("league"),
+        }
+    }
+end
+
+------------------------------------------------------
+-- 欧洲杯专用视图
+------------------------------------------------------
+
+function LeagueView._createEuroView(gameState, leagueTabs)
+    local EuroCupSystem = require("scripts/systems/euro_cup")
+    local euro = gameState.euroCup
+    if not euro then
+        return UI.Panel { width = "100%", height = "100%", backgroundColor = Theme.COLORS.BG_DARK }
+    end
+
+    local phaseNames = {
+        not_started = "未开始",
+        group = "小组赛",
+        r16 = "1/8 决赛",
+        qf = "1/4 决赛",
+        sf = "半决赛",
+        final = "决赛",
+        completed = "已结束",
+    }
+    local phaseText = phaseNames[euro.phase] or euro.phase
+    local contentChildren = {}
+
+    if euro.groups and next(euro.groups) then
+        local groupNames = {}
+        for name in pairs(euro.groups) do table.insert(groupNames, name) end
+        table.sort(groupNames)
+
+        for _, groupName in ipairs(groupNames) do
+            local sorted = euro:getGroupSortedStandings(groupName)
+            table.insert(contentChildren, UI.Panel {
+                width = "100%", paddingLeft = 10, paddingTop = 10, paddingBottom = 4,
+                children = {
+                    UI.Label { text = groupName .. " 组", fontSize = 14, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold" },
+                }
+            })
+            for i, s in ipairs(sorted) do
+                local nationName = EuroCupSystem._getNationName(s.teamId)
+                local isQualified = i <= 2
+                table.insert(contentChildren, UI.Panel {
+                    width = "100%", height = 34,
+                    flexDirection = "row", alignItems = "center",
+                    paddingLeft = 10, paddingRight = 10,
+                    backgroundColor = isQualified and {20, 60, 20, 255} or {0, 0, 0, 0},
+                    borderBottomWidth = 1, borderColor = Theme.COLORS.BORDER,
+                    children = {
+                        UI.Label { text = nationName, fontSize = 12, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold", flexGrow = 1 },
+                        UI.Label { text = tostring(s.points), fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold", width = 40, textAlign = "right" },
+                    },
+                })
+            end
+        end
+    end
+
+    local knockoutPhases = {
+        {key = "r16", name = "1/8 决赛"},
+        {key = "qf", name = "1/4 决赛"},
+        {key = "sf", name = "半决赛"},
+        {key = "final", name = "决赛"},
+    }
+    for _, kp in ipairs(knockoutPhases) do
+        local fixtures = euro.knockout and euro.knockout[kp.key]
+        if fixtures and #fixtures > 0 then
+            table.insert(contentChildren, UI.Panel {
+                width = "100%", paddingLeft = 10, paddingTop = 14, paddingBottom = 4,
+                children = {
+                    UI.Label { text = kp.name, fontSize = 14, color = {100, 180, 255, 255}, fontWeight = "bold" },
+                }
+            })
+            for _, f in ipairs(fixtures) do
+                local homeName = EuroCupSystem._getNationName(f.homeTeamId)
+                local awayName = EuroCupSystem._getNationName(f.awayTeamId)
+                local scoreText = f.status == "finished" and (f.homeGoals .. " - " .. f.awayGoals) or "vs"
+                table.insert(contentChildren, UI.Panel {
+                    width = "100%", height = 36,
+                    flexDirection = "row", alignItems = "center",
+                    paddingLeft = 10, paddingRight = 10,
+                    borderBottomWidth = 1, borderColor = Theme.COLORS.BORDER,
+                    children = {
+                        UI.Label { text = homeName, fontSize = 12, color = Theme.COLORS.TEXT_PRIMARY, flexGrow = 1 },
+                        UI.Label { text = scoreText, fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold", width = 50, textAlign = "center" },
+                        UI.Label { text = awayName, fontSize = 12, color = Theme.COLORS.TEXT_PRIMARY, flexGrow = 1, textAlign = "right" },
+                    },
+                })
+            end
+        end
+    end
+
+    if euro.champion then
+        table.insert(contentChildren, UI.Panel {
+            width = "100%", padding = 12, marginTop = 12,
+            children = {
+                UI.Label {
+                    text = "🏆 冠军: " .. EuroCupSystem._getNationName(euro.champion),
+                    fontSize = 16, color = {255, 215, 0, 255}, fontWeight = "bold",
+                },
+            },
+        })
+    end
+
+    return UI.Panel {
+        width = "100%", height = "100%",
+        backgroundColor = Theme.COLORS.BG_DARK,
+        children = {
+            Theme.TopBar {
+                children = {
+                    UI.Button {
+                        text = "返回", width = 50, height = 36,
+                        backgroundColor = Theme.COLORS.TRANSPARENT,
+                        fontSize = 14, color = Theme.COLORS.TEXT_SECONDARY,
+                        onClick = function() Router.back() end,
+                    },
+                    UI.Label {
+                        text = "欧洲杯 " .. euro.season .. " (" .. phaseText .. ")",
+                        fontSize = 17, color = Theme.COLORS.TEXT_PRIMARY,
+                        fontWeight = "bold", flexGrow = 1, textAlign = "center",
+                    },
+                    UI.Panel { width = 50 },
+                }
+            },
+            UI.Panel {
+                width = "100%", height = 42,
+                flexDirection = "row", alignItems = "center",
+                paddingLeft = 10, paddingRight = 10,
+                paddingTop = 4, paddingBottom = 4,
+                backgroundColor = Theme.COLORS.BG_CARD,
+                children = leagueTabs,
+            },
+            UI.ScrollView {
+                flexGrow = 1, flexBasis = 0, scrollY = true,
+                children = contentChildren,
+            },
             Theme.MainNav("league"),
         }
     }

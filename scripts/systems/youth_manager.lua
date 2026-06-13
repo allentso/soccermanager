@@ -9,6 +9,7 @@ local EventBus = require("scripts/app/event_bus")
 local PotentialSystem = require("scripts/systems/potential_system")
 local TrainingManager = require("scripts/systems/training_manager")
 local DifficultySettings = require("scripts/systems/difficulty_settings")
+local FinanceManager = require("scripts/systems/finance_manager")
 
 local YouthManager = {}
 
@@ -22,6 +23,20 @@ local INITIAL_YOUTH_COUNT = 10     -- 每队初始青训人数
 local YOUTH_MIN_AGE = 15
 local YOUTH_MAX_AGE = 18
 local YOUTH_WAGE = 500             -- 青训球员固定周薪
+
+-- 青训设施分层生成（Lv1~5；对外仍暴露 youthQuality 乘数，内部按等级查表）
+YouthManager.YOUTH_FACILITY_TIERS = {
+    -- gemChance / highChance / midChance / floorLift（潜力普通层 & OVR 下限微调）
+    { gemChance = 0.015, highChance = 0.06,  midChance = 0.28, floorLift = 0 },
+    { gemChance = 0.025, highChance = 0.09,  midChance = 0.32, floorLift = 1 },
+    { gemChance = 0.040, highChance = 0.13,  midChance = 0.36, floorLift = 2 },
+    { gemChance = 0.055, highChance = 0.17,  midChance = 0.40, floorLift = 3 },
+    { gemChance = 0.075, highChance = 0.22,  midChance = 0.44, floorLift = 4 },
+}
+
+YouthManager.YOUTH_FACILITY_NAMES = {
+    "社区青训点", "区级青训中心", "市级青训学院", "省级精英基地", "国家级青训营",
+}
 
 -- 按国籍分的中文名字池（全部汉化显示）
 local YOUTH_NAMES_BY_NATION = {
@@ -626,16 +641,46 @@ end
 -- 内部函数
 ------------------------------------------------------
 
+--- 声望 → 青训设施等级（开局初始值，所有球队统一）
+function YouthManager._reputationToYouthFacilityLevel(reputation)
+    local rep = reputation or 500
+    if rep >= 860 then return 5
+    elseif rep >= 770 then return 4
+    elseif rep >= 680 then return 3
+    elseif rep >= 580 then return 2
+    else return 1
+    end
+end
+
+--- 按声望初始化青训设施（仅一次；之后财务页手动升级不再被覆盖）
+function YouthManager._ensureYouthFacilityFromReputation(team)
+    if not team then return end
+    FinanceManager.ensureFacilities(team)
+    if not team._youthFacilityFromRep then
+        team.facilities.youth = YouthManager._reputationToYouthFacilityLevel(team.reputation)
+        team._youthFacilityFromRep = true
+    end
+end
+
+--- 获取某队青训生成加成（职员 + 设施分层）
+function YouthManager._getTeamYouthGenBonuses(gameState, teamId)
+    local team = gameState.teams[teamId]
+    if not team then return 0.05, 1.0 end
+
+    local youthDevBonus = 0.05
+    local ok, bonus = pcall(StaffManager.getYouthDevBonus, gameState, teamId)
+    if ok and bonus then youthDevBonus = bonus end
+
+    YouthManager._ensureYouthFacilityFromReputation(team)
+    local facilityBonuses = FinanceManager.getFacilityBonuses(team)
+    return youthDevBonus, facilityBonuses.youthQuality or 1.0
+end
+
 function YouthManager._refreshCandidates(gameState)
     local team = gameState:getPlayerTeam()
     if not team then return end
 
-    local youthDevBonus = StaffManager.getYouthDevBonus(gameState, team.id)
-
-    -- 青训设施加成：提升潜力和质量
-    local FinanceManager = require("scripts/systems/finance_manager")
-    local facilityBonuses = FinanceManager.getFacilityBonuses(team)
-    local facilityYouthBonus = facilityBonuses.youthQuality or 1.0
+    local youthDevBonus, facilityYouthBonus = YouthManager._getTeamYouthGenBonuses(gameState, team.id)
 
     local candidates = {}
 
@@ -655,6 +700,35 @@ function YouthManager._refreshCandidates(gameState)
     })
 end
 
+--- 从 getFacilityBonuses 的 youthQuality 反推设施等级（1~5）
+function YouthManager._facilityLevelFromBonus(facilityYouthBonus)
+    local bonus = facilityYouthBonus or 1.0
+    local level = math.floor((bonus - 1.0) / 0.10 + 1.5)
+    return math.max(1, math.min(#YouthManager.YOUTH_FACILITY_TIERS, level))
+end
+
+--- 分层抽样潜力：多数普通、少数优秀、极少数妖人
+function YouthManager._rollYouthPotential(youthMods, facilityLevel, youthDevBonus)
+    local tier = YouthManager.YOUTH_FACILITY_TIERS[facilityLevel]
+        or YouthManager.YOUTH_FACILITY_TIERS[1]
+    local roll = Random()
+    local basePotential
+
+    if roll < tier.gemChance then
+        basePotential = RandomInt(88, math.min(92, youthMods.potentialMax))
+    elseif roll < tier.gemChance + tier.highChance then
+        basePotential = RandomInt(78, 87)
+    elseif roll < tier.gemChance + tier.highChance + tier.midChance then
+        basePotential = RandomInt(66, 77)
+    else
+        local normalMin = math.max(50, youthMods.potentialMin - 5 + tier.floorLift)
+        basePotential = RandomInt(normalMin, 65)
+    end
+
+    local coachAdd = math.floor((youthDevBonus or 0) * 15)
+    return math.min(99, basePotential + coachAdd)
+end
+
 function YouthManager._generateYouthPlayer(gameState, youthDevBonus, facilityYouthBonus)
     facilityYouthBonus = facilityYouthBonus or 1.0
     local positions = {"GK", "CB", "LB", "RB", "CM", "CDM", "CAM", "LW", "RW", "ST"}
@@ -665,23 +739,16 @@ function YouthManager._generateYouthPlayer(gameState, youthDevBonus, facilityYou
     local age = RandomInt(youthMods.minAge, youthMods.maxAge)
     local birthYear = gameState.date.year - age
 
-    -- 潜力：使用绝对值范围，设施加成提升下限，教练加成提升总值
-    local potentialFloor = math.floor(youthMods.potentialMin * facilityYouthBonus)
-    potentialFloor = math.max(30, potentialFloor)
-    local potentialCeil = youthMods.potentialMax
-    potentialCeil = math.min(99, math.max(potentialFloor + 10, potentialCeil))
-    local basePotential = RandomInt(potentialFloor, potentialCeil)
-    local potential = math.min(99, basePotential + math.floor(youthDevBonus * 30))
+    local facilityLevel = YouthManager._facilityLevelFromBonus(facilityYouthBonus)
+    local tier = YouthManager.YOUTH_FACILITY_TIERS[facilityLevel]
 
-    -- 当前能力：基于潜力线性映射到配置的 OVR 范围
-    -- 高潜力球员起点更高（pot=max → OVR可达overallMax），低潜力球员起点低
-    local overallFloor = youthMods.overallMin
+    local potential = YouthManager._rollYouthPotential(youthMods, facilityLevel, youthDevBonus)
+
+    -- 当前能力：基于潜力线性映射；设施仅微调 OVR 下限，不再整段抬高
+    local overallFloor = youthMods.overallMin + tier.floorLift
+    overallFloor = math.max(20, overallFloor)
     local overallCap = math.min(youthMods.overallMax,
         math.max(overallFloor, math.floor(potential * 0.8)))
-    -- 设施加成：小幅提升下限
-    overallFloor = math.floor(overallFloor * facilityYouthBonus)
-    overallFloor = math.max(20, overallFloor)
-    -- 确保 cap >= floor
     overallCap = math.max(overallFloor, overallCap)
 
     -- 生成属性并确保实际 overall 不低于下限
@@ -806,13 +873,8 @@ function YouthManager.fillAllTeamsYouth(gameState)
         local needed = INITIAL_YOUTH_COUNT - currentCount
 
         if needed > 0 then
-            -- 获取球队相关加成（AI球队使用默认值）
-            local youthDevBonus = 0.05
-            local facilityYouthBonus = 1.0
-
-            -- 尝试获取实际加成（玩家球队有职员系统）
-            local ok, bonus = pcall(StaffManager.getYouthDevBonus, gameState, teamId)
-            if ok and bonus then youthDevBonus = bonus end
+            local youthDevBonus, facilityYouthBonus =
+                YouthManager._getTeamYouthGenBonuses(gameState, teamId)
 
             for _ = 1, needed do
                 local candidate = YouthManager._generateYouthPlayer(gameState, youthDevBonus, facilityYouthBonus)
@@ -958,10 +1020,10 @@ function YouthManager.doSinglePull(gameState)
     end
 
     local team = gameState:getPlayerTeam()
-    local youthDevBonus = 0.05
+    local youthDevBonus, facilityYouthBonus = 0.05, 1.0
     if team then
-        local ok, bonus = pcall(StaffManager.getYouthDevBonus, gameState, team.id)
-        if ok and bonus then youthDevBonus = bonus end
+        youthDevBonus, facilityYouthBonus =
+            YouthManager._getTeamYouthGenBonuses(gameState, team.id)
     end
 
     -- 判断是否出传奇
@@ -1039,7 +1101,7 @@ function YouthManager.doSinglePull(gameState)
             state.firstTenPull = false
         end
     else
-        candidate = YouthManager._generateYouthPlayer(gameState, youthDevBonus, 1.0)
+        candidate = YouthManager._generateYouthPlayer(gameState, youthDevBonus, facilityYouthBonus)
     end
 
     -- 追加到当前候选池
@@ -1093,11 +1155,10 @@ function YouthManager.doTenPull(gameState)
     end
 
     local team = gameState:getPlayerTeam()
-    local youthDevBonus = 0.05
-    local facilityYouthBonus = 1.0
+    local youthDevBonus, facilityYouthBonus = 0.05, 1.0
     if team then
-        local ok, bonus = pcall(StaffManager.getYouthDevBonus, gameState, team.id)
-        if ok and bonus then youthDevBonus = bonus end
+        youthDevBonus, facilityYouthBonus =
+            YouthManager._getTeamYouthGenBonuses(gameState, team.id)
     end
 
     local candidates = {}
@@ -1280,12 +1341,12 @@ function YouthManager._processAITeamsMonthly(gameState)
                 team._aiYouthRefresh = 0
                 local needed = INITIAL_YOUTH_COUNT - #team._youthPlayerIds
                 if needed > 0 then
-                    local youthDevBonus = 0.05
-                    local ok, bonus = pcall(StaffManager.getYouthDevBonus, gameState, teamId)
-                    if ok and bonus then youthDevBonus = bonus end
+                    local youthDevBonus, facilityYouthBonus =
+                        YouthManager._getTeamYouthGenBonuses(gameState, teamId)
 
                     for _ = 1, needed do
-                        local candidate = YouthManager._generateYouthPlayer(gameState, youthDevBonus, 1.0)
+                        local candidate = YouthManager._generateYouthPlayer(
+                            gameState, youthDevBonus, facilityYouthBonus)
                         local playerData = {
                             firstName = candidate.firstName,
                             lastName = candidate.lastName,
