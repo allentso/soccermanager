@@ -820,32 +820,39 @@ function Market._buildMyBidsContent(gameState)
     for _, bid in ipairs(bids) do
         local player = gameState.players[bid.playerId]
         local sellerTeam = player and gameState.teams[bid.sellerTeamId] or nil
+        local isLoan = bid.type == "loan"
 
         -- 状态颜色/文本
         local statusText = "处理中"
         local statusColor = Theme.COLORS.ACCENT
         if bid.status == "accepted" or bid.status == "completed" then
-            statusText = "已接受"
+            statusText = isLoan and "租借完成" or "已接受"
             statusColor = Theme.COLORS.SECONDARY
         elseif bid.status == "rejected" then
             statusText = "被拒绝"
             statusColor = Theme.COLORS.DANGER
         elseif bid.status == "negotiating" then
-            statusText = string.format("谈判中 %d/%d", (bid.currentRound or 0) + 1, bid.maxRounds or 4)
+            statusText = string.format("%s谈判 %d/%d", isLoan and "租借费" or "", (bid.currentRound or 0) + 1, bid.maxRounds or 4)
             statusColor = {156, 39, 176, 255}
         elseif bid.status == "player_considering" then
-            statusText = "球员考虑中"
+            statusText = isLoan and "球员考虑外租" or "球员考虑中"
             statusColor = {255, 183, 77, 255}  -- 橙色
         elseif bid.status == "awaiting_confirmation" then
-            statusText = "待确认签入"
+            statusText = isLoan and "待确认租入" or "待确认签入"
             statusColor = {0, 200, 83, 255}  -- 绿色
         elseif bid.status == "fee_agreed" then
-            statusText = "待协商个人条款"
+            statusText = isLoan and "待协商租借条款" or "待协商个人条款"
             statusColor = Theme.COLORS.WARNING
         elseif bid.status == "cancelled" then
             statusText = "已撤回"
             statusColor = Theme.COLORS.TEXT_MUTED
         end
+
+        local feeLabel = isLoan and "租借费" or "我方报价"
+        local refLabel = isLoan and "参考费" or "身价"
+        local subtitleExtra = isLoan
+            and string.format(" · %d周 · 工资 %.0f%%", bid.loanDuration or 26, (bid.wageShare or 0.5) * 100)
+            or ""
 
         local cardChildren = {
             -- 头部：球员信息 + 状态
@@ -856,12 +863,12 @@ function Market._buildMyBidsContent(gameState)
                         flexGrow = 1,
                         children = {
                             UI.Label {
-                                text = player and player.displayName or "未知球员",
+                                text = (player and player.displayName or "未知球员") .. (isLoan and " [租借]" or ""),
                                 fontSize = 14, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold",
                             },
                             UI.Label {
                                 text = (sellerTeam and sellerTeam.name or "自由") ..
-                                    " | " .. (player and Constants.POSITION_NAMES[player.position] or ""),
+                                    " | " .. (player and Constants.POSITION_NAMES[player.position] or "") .. subtitleExtra,
                                 fontSize = 12, color = Theme.COLORS.TEXT_MUTED, marginTop = 2,
                             },
                         }
@@ -883,11 +890,11 @@ function Market._buildMyBidsContent(gameState)
                 flexDirection = "row", marginTop = 8, alignItems = "center",
                 children = {
                     UI.Label {
-                        text = "我方报价: " .. Market._formatValue(bid.amount),
+                        text = feeLabel .. ": " .. Market._formatValue(bid.amount),
                         fontSize = 13, color = Theme.COLORS.ACCENT,
                     },
                     UI.Label {
-                        text = "  身价: " .. Market._formatValue(bid.playerValue or 0),
+                        text = "  " .. refLabel .. ": " .. Market._formatValue(bid.playerValue or 0),
                         fontSize = 12, color = Theme.COLORS.TEXT_MUTED,
                         flexGrow = 1,
                     },
@@ -921,7 +928,7 @@ function Market._buildMyBidsContent(gameState)
                         fontSize = 14, color = {156, 39, 176, 255}, fontWeight = "bold",
                     },
                     UI.Label {
-                        text = string.format("差距: %s (%.0f%%)",
+                        text = (isLoan and "租借费差距: " or "差距: ") .. string.format("%s (%.0f%%)",
                             Market._formatValue(bid.counterAmount - bid.amount),
                             (bid.counterAmount - bid.amount) / math.max(bid.amount, 1) * 100),
                         fontSize = 11, color = Theme.COLORS.TEXT_MUTED, marginTop = 3,
@@ -1014,11 +1021,12 @@ function Market._buildMyBidsContent(gameState)
                 borderWidth = 1, borderColor = {255, 183, 77, 80},
                 children = {
                     UI.Label {
-                        text = "球员正在考虑是否加盟...",
+                        text = isLoan and "球员正在考虑是否外租..." or "球员正在考虑是否加盟...",
                         fontSize = 12, color = {255, 183, 77, 255}, fontWeight = "bold",
                     },
                     UI.Label {
-                        text = string.format("转会费已达成协议，预计还需 %d 天回复。%s",
+                        text = string.format("%s已达成协议，预计还需 %d 天回复。%s",
+                            isLoan and "租借费" or "转会费",
                             remaining,
                             bid.isDeadlineDeal and "（关窗日加急）" or ""),
                         fontSize = 11, color = Theme.COLORS.TEXT_MUTED, marginTop = 4,
@@ -1036,13 +1044,18 @@ function Market._buildMyBidsContent(gameState)
                 borderWidth = 1, borderColor = {0, 200, 83, 80},
                 children = {
                     UI.Label {
-                        text = "球员已同意加盟！等待你确认签入",
+                        text = isLoan and "球员已同意外租！等待你确认租入" or "球员已同意加盟！等待你确认签入",
                         fontSize = 12, color = {0, 200, 83, 255}, fontWeight = "bold",
                     },
                     UI.Label {
-                        text = string.format("周薪: %s · 合同: %d年",
-                            Market._formatValue(bid.wageOffer or 0),
-                            bid.contractYears or 3),
+                        text = isLoan
+                            and string.format("租借费: %s · %d周 · 你方承担 %.0f%% 工资",
+                                Market._formatValue(bid.amount or 0),
+                                bid.loanDuration or 26,
+                                (bid.wageShare or 0.5) * 100)
+                            or string.format("周薪: %s · 合同: %d年",
+                                Market._formatValue(bid.wageOffer or 0),
+                                bid.contractYears or 3),
                         fontSize = 11, color = Theme.COLORS.TEXT_MUTED, marginTop = 4,
                     },
                 }
@@ -1053,14 +1066,19 @@ function Market._buildMyBidsContent(gameState)
                 width = "100%", flexDirection = "row", marginTop = 8,
                 children = {
                     UI.Button {
-                        text = "确认签入",
+                        text = isLoan and "确认租入" or "确认签入",
                         flexGrow = 1, height = 40, marginRight = 8,
                         backgroundColor = {0, 200, 83, 255},
                         borderRadius = 6, fontSize = 14, fontWeight = "bold",
                         color = {255, 255, 255, 255},
                         onClick = function()
-                            TransferManager.confirmTransfer(gameState, bidId)
-                            UI.Toast.Show({ message = "签约完成！球员已加入球队", variant = "success" })
+                            if isLoan then
+                                TransferManager.confirmLoan(gameState, bidId)
+                                UI.Toast.Show({ message = "租借完成！球员已租入", variant = "success" })
+                            else
+                                TransferManager.confirmTransfer(gameState, bidId)
+                                UI.Toast.Show({ message = "签约完成！球员已加入球队", variant = "success" })
+                            end
                             Router.replaceWith("market", { tab = "my_bids" })
                         end,
                     },
@@ -1071,8 +1089,12 @@ function Market._buildMyBidsContent(gameState)
                         borderRadius = 6, fontSize = 13,
                         color = Theme.COLORS.DANGER,
                         onClick = function()
-                            TransferManager.cancelTransferConfirmation(gameState, bidId)
-                            UI.Toast.Show({ message = "已放弃签约", variant = "info" })
+                            if isLoan then
+                                TransferManager.cancelLoanConfirmation(gameState, bidId)
+                            else
+                                TransferManager.cancelTransferConfirmation(gameState, bidId)
+                            end
+                            UI.Toast.Show({ message = isLoan and "已放弃租借" or "已放弃签约", variant = "info" })
                             Router.replaceWith("market", { tab = "my_bids" })
                         end,
                     },
@@ -1080,8 +1102,91 @@ function Market._buildMyBidsContent(gameState)
             })
         end
 
-        -- fee_agreed：个人条款协商入口
-        if bid.status == "fee_agreed" then
+        -- fee_agreed：个人条款 / 租借条款协商入口
+        if bid.status == "fee_agreed" and isLoan then
+            local attempts = bid.personalTermsAttempts or 0
+            local maxAttempts = bid.maxPersonalTermsAttempts or 3
+            local remaining = maxAttempts - attempts
+            local currentShare = bid.wageShare or 0.5
+            local shareOptions = { 0.5, 0.75, 1.0 }
+            local selectedShareIdx = 2
+            for i, s in ipairs(shareOptions) do
+                if math.abs(s - currentShare) < 0.01 then selectedShareIdx = i; break end
+            end
+
+            table.insert(cardChildren, UI.Panel {
+                width = "100%", marginTop = 8, padding = 10,
+                backgroundColor = {Theme.COLORS.WARNING[1], Theme.COLORS.WARNING[2], Theme.COLORS.WARNING[3], 20},
+                borderRadius = 6,
+                borderWidth = 1, borderColor = {Theme.COLORS.WARNING[1], Theme.COLORS.WARNING[2], Theme.COLORS.WARNING[3], 80},
+                children = {
+                    UI.Label {
+                        text = "租借费已达成，球员拒绝了当前租借条件",
+                        fontSize = 12, color = Theme.COLORS.WARNING, fontWeight = "bold",
+                    },
+                    UI.Label {
+                        text = string.format("当前工资分担: %.0f%% · 剩余协商机会: %d次",
+                            currentShare * 100, remaining),
+                        fontSize = 11, color = Theme.COLORS.TEXT_MUTED, marginTop = 4,
+                    },
+                }
+            })
+
+            local shareBtns = {}
+            for i, share in ipairs(shareOptions) do
+                table.insert(shareBtns, UI.Button {
+                    text = string.format("%.0f%%", share * 100),
+                    height = 28, paddingLeft = 10, paddingRight = 10, marginRight = 4,
+                    backgroundColor = (i == selectedShareIdx) and Theme.COLORS.SECONDARY or {38, 46, 71, 255},
+                    borderRadius = 5, fontSize = 11,
+                    color = Theme.COLORS.TEXT_PRIMARY,
+                    onClick = function()
+                        selectedShareIdx = i
+                    end,
+                })
+            end
+
+            local bidId = bid.id
+            table.insert(cardChildren, UI.Panel {
+                width = "100%", marginTop = 8,
+                children = {
+                    UI.Label { text = "调整你方承担的工资比例", fontSize = 12, color = Theme.COLORS.TEXT_PRIMARY, marginBottom = 4 },
+                    UI.Panel { width = "100%", flexDirection = "row", marginBottom = 8, children = shareBtns },
+                }
+            })
+
+            table.insert(cardChildren, UI.Panel {
+                width = "100%", flexDirection = "row", marginTop = 8,
+                children = {
+                    UI.Button {
+                        text = "重新协商租借条款",
+                        flexGrow = 1, height = 40, marginRight = 8,
+                        backgroundColor = Theme.COLORS.WARNING,
+                        borderRadius = 6, fontSize = 14, fontWeight = "bold",
+                        color = {20, 20, 20, 255},
+                        onClick = function()
+                            TransferManager.negotiateLoanTerms(gameState, bidId, shareOptions[selectedShareIdx])
+                            UI.Toast.Show({ message = "新租借条件已发送", variant = "success" })
+                            Router.replaceWith("market", { tab = "my_bids" })
+                        end,
+                    },
+                    UI.Button {
+                        text = "放弃",
+                        width = 60, height = 40,
+                        backgroundColor = {60, 40, 40, 255},
+                        borderRadius = 6, fontSize = 13,
+                        color = Theme.COLORS.DANGER,
+                        onClick = function()
+                            TransferManager.cancelBid(gameState, bidId)
+                            UI.Toast.Show({ message = "已放弃租借", variant = "info" })
+                            Router.replaceWith("market", { tab = "my_bids" })
+                        end,
+                    },
+                },
+            })
+        end
+
+        if bid.status == "fee_agreed" and not isLoan then
             local attempts = bid.personalTermsAttempts or 0
             local maxAttempts = bid.maxPersonalTermsAttempts or 3
             local remaining = maxAttempts - attempts
@@ -1440,10 +1545,11 @@ function Market._showTransferSignConfirmSheet(gameState, bid)
     local sellerTeam = bid.sellerTeamId and gameState.teams[bid.sellerTeamId]
     local sellerName = sellerTeam and sellerTeam.name or "卖方"
     local bidId = bid.id
+    local isLoan = bid.type == "loan"
 
     BottomSheet.showCustom({
-        title = "确认签入 - " .. player.displayName,
-        height = 300,
+        title = (isLoan and "确认租入 - " or "确认签入 - ") .. player.displayName,
+        height = isLoan and 320 or 300,
         showCancel = true,
         children = {
             UI.Panel {
@@ -1453,18 +1559,28 @@ function Market._showTransferSignConfirmSheet(gameState, bid)
                     UI.Panel {
                         width = "100%", flexDirection = "row", justifyContent = "space-between", marginBottom = 6,
                         children = {
-                            UI.Label { text = "卖方球队", fontSize = 12, color = Theme.COLORS.TEXT_MUTED },
+                            UI.Label { text = "出租方", fontSize = 12, color = Theme.COLORS.TEXT_MUTED },
                             UI.Label { text = sellerName, fontSize = 13, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold" },
                         }
                     },
                     UI.Panel {
                         width = "100%", flexDirection = "row", justifyContent = "space-between", marginBottom = 6,
                         children = {
-                            UI.Label { text = "转会费", fontSize = 12, color = Theme.COLORS.TEXT_MUTED },
+                            UI.Label { text = isLoan and "租借费" or "转会费", fontSize = 12, color = Theme.COLORS.TEXT_MUTED },
                             UI.Label { text = Market._formatValue(bid.amount or 0), fontSize = 14, color = Theme.COLORS.SECONDARY, fontWeight = "bold" },
                         }
                     },
-                    UI.Panel {
+                    isLoan and UI.Panel {
+                        width = "100%", flexDirection = "row", justifyContent = "space-between", marginBottom = 6,
+                        children = {
+                            UI.Label { text = "租期 / 工资分担", fontSize = 12, color = Theme.COLORS.TEXT_MUTED },
+                            UI.Label {
+                                text = string.format("%d周 · 你方 %.0f%%",
+                                    bid.loanDuration or 26, (bid.wageShare or 0.5) * 100),
+                                fontSize = 13, color = Theme.COLORS.TEXT_SECONDARY,
+                            },
+                        }
+                    } or UI.Panel {
                         width = "100%", flexDirection = "row", justifyContent = "space-between",
                         children = {
                             UI.Label { text = "周薪 / 合同", fontSize = 12, color = Theme.COLORS.TEXT_MUTED },
@@ -1479,7 +1595,7 @@ function Market._showTransferSignConfirmSheet(gameState, bid)
                 }
             },
             UI.Button {
-                text = "确认签入",
+                text = isLoan and "确认租入" or "确认签入",
                 width = "100%", height = 44,
                 backgroundColor = {0, 200, 83, 255},
                 borderRadius = 8, fontSize = 15, fontWeight = "bold",
@@ -1487,8 +1603,13 @@ function Market._showTransferSignConfirmSheet(gameState, bid)
                 marginBottom = 8,
                 onClick = function()
                     BottomSheet.close()
-                    TransferManager.confirmTransfer(gameState, bidId)
-                    UI.Toast.Show({ message = "签约完成！球员已加入球队", variant = "success" })
+                    if isLoan then
+                        TransferManager.confirmLoan(gameState, bidId)
+                        UI.Toast.Show({ message = "租借完成！球员已租入", variant = "success" })
+                    else
+                        TransferManager.confirmTransfer(gameState, bidId)
+                        UI.Toast.Show({ message = "签约完成！球员已加入球队", variant = "success" })
+                    end
                     Router.replaceWith("market", { tab = "my_bids" })
                 end,
             },
@@ -1500,8 +1621,12 @@ function Market._showTransferSignConfirmSheet(gameState, bid)
                 color = Theme.COLORS.DANGER,
                 onClick = function()
                     BottomSheet.close()
-                    TransferManager.cancelTransferConfirmation(gameState, bidId)
-                    UI.Toast.Show({ message = "已放弃签约", variant = "info" })
+                    if isLoan then
+                        TransferManager.cancelLoanConfirmation(gameState, bidId)
+                    else
+                        TransferManager.cancelTransferConfirmation(gameState, bidId)
+                    end
+                    UI.Toast.Show({ message = isLoan and "已放弃租借" or "已放弃签约", variant = "info" })
                     Router.replaceWith("market", { tab = "my_bids" })
                 end,
             },
@@ -2926,6 +3051,110 @@ end
 -- 租借市场（当前租借 + 发起租借）
 function Market._buildLoansContent(gameState)
     return LoansTab.build(gameState)
+end
+
+-- 租借报价面板（复用转会报价交互）
+function Market._showLoanOfferSheet(gameState, player, duration)
+    duration = duration or player.loanListDuration or 26
+    local sourceTeam = player.teamId and gameState.teams[player.teamId]
+    local benchmark = TransferManager.getLoanFeeBenchmark(player, duration)
+    local shareOptions = {
+        { label = "50%", value = 0.5 },
+        { label = "75%", value = 0.75 },
+        { label = "100%", value = 1.0 },
+    }
+    local selectedShareIdx = 1
+
+    local feeField = UI.TextField {
+        flexGrow = 1, height = 38,
+        placeholder = "输入租借费（万）",
+        value = tostring(math.max(1, math.floor(benchmark / 10000))),
+        fontSize = 14, borderRadius = 6,
+    }
+
+    local feePresetBtns = {}
+    for _, mul in ipairs({ 0.8, 1.0, 1.15, 1.3 }) do
+        local amount = math.max(1, math.floor(benchmark * mul / 10000))
+        table.insert(feePresetBtns, UI.Button {
+            text = Market._formatValue(amount * 10000),
+            height = 28, paddingLeft = 6, paddingRight = 6, marginRight = 4,
+            backgroundColor = {38, 46, 71, 255},
+            borderRadius = 5, fontSize = 11,
+            color = Theme.COLORS.TEXT_SECONDARY,
+            onClick = function()
+                feeField:SetValue(tostring(amount))
+            end,
+        })
+    end
+
+    local shareBtns = {}
+    for i, opt in ipairs(shareOptions) do
+        table.insert(shareBtns, UI.Button {
+            text = opt.label,
+            height = 32, paddingLeft = 12, paddingRight = 12, marginRight = 6,
+            backgroundColor = (i == selectedShareIdx) and Theme.COLORS.SECONDARY or {38, 46, 71, 255},
+            borderRadius = 6, fontSize = 12,
+            color = Theme.COLORS.TEXT_PRIMARY,
+            onClick = function()
+                selectedShareIdx = i
+            end,
+        })
+    end
+
+    local playerId = player.id
+    local submitBtn = UI.Button {
+        text = "提交租借报价",
+        width = "100%", height = 44, marginTop = 12,
+        backgroundColor = Theme.COLORS.GOLD,
+        borderRadius = 8, fontSize = 15, fontWeight = "bold",
+        color = "#1A1A1A",
+        onClick = function()
+            local feeText = feeField:GetValue() or ""
+            local feeAmount = tonumber(feeText)
+            if not feeAmount or feeAmount <= 0 then
+                AudioManager.deny()
+                UI.Toast.Show({ message = "请输入有效的租借费", variant = "error" })
+                return
+            end
+            local offeredFee = math.floor(feeAmount * 10000)
+            local wageShare = shareOptions[selectedShareIdx].value
+            local bid, err = TransferManager.makeLoanBid(gameState, playerId, duration, offeredFee, wageShare)
+            if bid then
+                UI.Toast.Show({ message = "租借报价已提交", variant = "success" })
+                BottomSheet.close()
+                Router.replaceWith("market", { tab = "my_bids" })
+            else
+                AudioManager.deny()
+                UI.Toast.Show({ message = err or "租借报价失败", variant = "error" })
+            end
+        end,
+    }
+
+    BottomSheet.showCustom({
+        title = "租借报价 — " .. player.displayName,
+        height = 480,
+        showCancel = true,
+        children = {
+            UI.Label {
+                text = (sourceTeam and sourceTeam.name or "?") .. " · " .. tostring(duration) .. " 周",
+                fontSize = 12, color = Theme.COLORS.TEXT_MUTED, marginBottom = 8,
+            },
+            UI.Label { text = "租借费（万）", fontSize = 12, color = Theme.COLORS.TEXT_PRIMARY, marginBottom = 4 },
+            UI.Panel { width = "100%", flexDirection = "row", alignItems = "center", marginBottom = 4, children = { feeField } },
+            UI.Panel { width = "100%", flexDirection = "row", flexWrap = "wrap", marginBottom = 12, children = feePresetBtns },
+            UI.Label {
+                text = "参考租借费: " .. Market._formatValue(benchmark),
+                fontSize = 11, color = Theme.COLORS.TEXT_MUTED, marginBottom = 10,
+            },
+            UI.Label { text = "你方承担球员工资比例", fontSize = 12, color = Theme.COLORS.TEXT_PRIMARY, marginBottom = 6 },
+            UI.Panel { width = "100%", flexDirection = "row", marginBottom = 8, children = shareBtns },
+            UI.Label {
+                text = "流程：俱乐部谈判租借费 → 球员考虑 → 协商条款 → 你确认租入",
+                fontSize = 10, color = Theme.COLORS.TEXT_MUTED,
+            },
+        },
+        footer = submitBtn,
+    })
 end
 
 -- 格式化金额

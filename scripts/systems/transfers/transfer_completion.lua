@@ -47,6 +47,46 @@ return function(TransferManager)
         return true
     end
 
+    --- 租借：球员是否愿意外租（不永久转会，关注出场机会与承担工资比例）
+    function TransferManager._requirePlayerConsentForLoan(gameState, bid)
+        local player = gameState.players[bid.playerId]
+        local targetTeam = gameState.teams[bid.buyerTeamId]
+        local originTeam = gameState.teams[bid.sellerTeamId]
+        if not player or not targetTeam then return false, "租借信息不完整。" end
+
+        local attitude = TransferManager.getPlayerTransferAttitude(gameState, player.id, targetTeam.id)
+        if attitude == "refusing" then
+            return false, string.format("%s 拒绝外租至 %s。", player.displayName, targetTeam.name)
+        end
+
+        local willing, reason = TransferManager._checkPlayerWillingness(gameState, player, targetTeam)
+        if not willing then
+            return false, string.format("%s 不愿外租至 %s（%s）。", player.displayName, targetTeam.name, reason or "个人意愿不足")
+        end
+
+        local wageShare = bid.wageShare or 0.5
+        if wageShare < 0.4 then
+            if Random() < 0.7 then
+                return false, string.format("%s 认为租借方承担的工资比例过低（%.0f%%）。", player.displayName, wageShare * 100)
+            end
+        elseif wageShare < 0.5 then
+            if Random() < 0.25 then
+                return false, string.format("%s 希望租借方承担更多工资。", player.displayName)
+            end
+        end
+
+        -- 年轻球员 / 边缘球员更愿外租寻找出场
+        if player.squadRole == "key" and originTeam then
+            if (targetTeam.reputation or 0) < (originTeam.reputation or 0) * 0.85 then
+                if Random() < 0.55 then
+                    return false, string.format("%s 作为主力不愿降级外租。", player.displayName)
+                end
+            end
+        end
+
+        return true
+    end
+
     function TransferManager._removePlayerFromTeam(team, playerId)
         if not team then return end
         for i, pid in ipairs(team.playerIds or {}) do

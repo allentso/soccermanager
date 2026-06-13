@@ -201,6 +201,16 @@ MessageActionHandlers.HANDLERS = {
         TransferManager.cancelTransferConfirmation(gameState, data.bidId)
         return true
     end,
+    confirm_loan = function(gameState, data)
+        local TransferManager = require("scripts/systems/transfer_manager")
+        TransferManager.confirmLoan(gameState, data.bidId)
+        return true
+    end,
+    cancel_loan = function(gameState, data)
+        local TransferManager = require("scripts/systems/transfer_manager")
+        TransferManager.cancelLoanConfirmation(gameState, data.bidId)
+        return true
+    end,
     confirm_free_agent = function(gameState, data)
         local TransferManager = require("scripts/systems/transfer_manager")
         TransferManager.confirmFreeAgent(gameState, data.negoId)
@@ -225,6 +235,7 @@ MessageActionHandlers.HANDLERS = {
 function MessageActionHandlers.needsSave(actionId)
     return actionId == "confirm_sale" or actionId == "cancel_sale"
         or actionId == "confirm_transfer" or actionId == "cancel_transfer"
+        or actionId == "confirm_loan" or actionId == "cancel_loan"
         or actionId == "confirm_free_agent" or actionId == "cancel_free_agent"
         or actionId == "accept_job_offer"
 end
