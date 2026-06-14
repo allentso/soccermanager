@@ -15,6 +15,7 @@ local ObjectivesManager = require("scripts/systems/objectives_manager")
 local RecordsManager = require("scripts/systems/records_manager")
 local PotentialSystem = require("scripts/systems/potential_system")
 local TrainingManager = require("scripts/systems/training_manager")
+local DifficultySettings = require("scripts/systems/difficulty_settings")
 local ReincarnationManager = require("scripts/systems/reincarnation_manager")
 local DomesticCup = require("scripts/systems/domestic_cup")
 
@@ -262,6 +263,9 @@ end
 
 function SeasonManager._processPlayerDevelopment(gameState)
     local seasonStartYear = TrainingManager.getSeasonStartYear(gameState)
+    local trainingMods = DifficultySettings.getTrainingModifiers()
+    local growthCfg = trainingMods.seasonEndGrowth or {}
+    local declineCfg = trainingMods.decline or { mid = 0.20, late = 0.40 }
 
     for _, player in pairs(gameState.players) do
         if player.retired then goto continue end
@@ -272,15 +276,15 @@ function SeasonManager._processPlayerDevelopment(gameState)
         local declineChance = 0
 
         if seasonAge <= Constants.YOUTH_PHASE_MAX_AGE then
-            growthChance = Constants.U21_SEASON_END_GROWTH_CHANCE
+            growthChance = growthCfg.u21 or Constants.U21_SEASON_END_GROWTH_CHANCE
         elseif age <= 24 then
-            growthChance = 0.35
+            growthChance = growthCfg.youngAdult or 0.35
         elseif age <= Constants.AGE_PEAK_END then
-            growthChance = 0.1
+            growthChance = growthCfg.peak or 0.10
         elseif age <= 33 then
-            declineChance = 0.2
+            declineChance = declineCfg.mid or 0.20
         else
-            declineChance = 0.4
+            declineChance = declineCfg.late or 0.40
         end
 
         if growthChance > 0 and seasonAge > Constants.YOUTH_PHASE_MAX_AGE then

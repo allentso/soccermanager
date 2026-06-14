@@ -189,6 +189,8 @@ function LeagueView.create(params)
     for _, tid in ipairs(league.teamIds or {}) do
         local teamPlayers = gameState:getTeamPlayers(tid)
         for _, p in ipairs(teamPlayers) do
+            -- 跳过 roster 残留引用（球员已转会但旧队名单未清理）
+            if p.teamId ~= tid then goto continue_player end
             local stats = p.seasonStats
             if stats then
                 if (stats.goals or 0) > 0 then
@@ -198,6 +200,7 @@ function LeagueView.create(params)
                     table.insert(topAssisters, { player = p, assists = stats.assists, goals = stats.goals or 0, teamId = tid })
                 end
             end
+            ::continue_player::
         end
     end
     table.sort(topScorers, function(a, b)

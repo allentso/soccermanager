@@ -457,6 +457,40 @@ function Housekeeping.purgeStaleYouthRefs(gameState)
     return removed
 end
 
+------------------------------------------------------
+-- 阵容一致性修复
+--
+-- 历史 bug：转会/租借完成后球员仍残留在原队 playerIds，
+-- 导致同一球员在多个俱乐部出现且共用 seasonStats（射手榜重复统计）。
+-- 规则：球员只应出现在 player.teamId 对应球队的 playerIds 中。
+------------------------------------------------------
+function Housekeeping.reconcileRosters(gameState)
+    local removed = 0
+    for _, team in pairs(gameState.teams or {}) do
+        local seen = {}
+        for i = #(team.playerIds or {}), 1, -1 do
+            local pid = team.playerIds[i]
+            local player = gameState.players[pid]
+            if seen[pid] or not player or player.teamId ~= team.id then
+                table.remove(team.playerIds, i)
+                removed = removed + 1
+            else
+                seen[pid] = true
+            end
+        end
+    end
+
+    for _, player in pairs(gameState.players) do
+        if player.teamId and not player.retired then
+            local team = gameState.teams[player.teamId]
+            if team then
+                team:addPlayer(player.id)
+            end
+        end
+    end
+    return removed
+end
+
 function Housekeeping.clampPlayerPotentialCaps(gameState)
     if not gameState or not gameState.players then return 0 end
     for _, player in pairs(gameState.players) do
@@ -488,6 +522,7 @@ function Housekeeping.run(gameState)
         aiTx = Housekeeping.trimAITransactions(gameState),
         worldHistory = Housekeeping.dedupeWorldHistory(gameState),
         youthRefs = Housekeeping.purgeStaleYouthRefs(gameState),
+        rosters = Housekeeping.reconcileRosters(gameState),
         loanListings = loanDelisted or 0,
     }
 
@@ -499,9 +534,9 @@ function Housekeeping.run(gameState)
         for _, v in pairs(stats) do total = total + v end
         if total > 0 then
             log:Write(LOG_INFO, string.format(
-                "Housekeeping: 清理完成 声望修复=%d 收入链=%d 退役=%d 自由球员=%d 虚拟=%d 生涯折叠=%d 赛果明细=%d 新闻=%d 转会=%d AI流水=%d 历史去重=%d 青训残留=%d",
+                "Housekeeping: 清理完成 声望修复=%d 收入链=%d 退役=%d 自由球员=%d 虚拟=%d 生涯折叠=%d 赛果明细=%d 新闻=%d 转会=%d AI流水=%d 历史去重=%d 青训残留=%d 阵容修复=%d",
                 stats.repBaseline, stats.revenueChains, stats.retired, stats.freeAgents, stats.virtual, stats.career,
-                stats.fixtures, stats.news, stats.transfers, stats.aiTx, stats.worldHistory, stats.youthRefs))
+                stats.fixtures, stats.news, stats.transfers, stats.aiTx, stats.worldHistory, stats.youthRefs, stats.rosters))
         end
     end
 

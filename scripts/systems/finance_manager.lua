@@ -363,6 +363,29 @@ function FinanceManager.processMatchDayRevenue(gameState, teamId, isHome, oppone
 end
 
 ------------------------------------------------------
+-- 通用收入入账（杯赛/赛事奖金等）
+------------------------------------------------------
+function FinanceManager.addIncome(gameState, teamId, amount, description, category)
+    local team = gameState.teams[teamId]
+    if not team or not amount or amount <= 0 then return end
+
+    category = category or "prize"
+    team.balance = team.balance + amount
+    team.transferBudget = (team.transferBudget or 0) + amount
+    team.seasonIncome = (team.seasonIncome or 0) + amount
+    team.incomeBreakdown = team.incomeBreakdown or {}
+    team.incomeBreakdown[category] = (team.incomeBreakdown[category] or 0) + amount
+
+    FinanceManager.addTransaction(team, {
+        amount = amount,
+        description = description or "奖金收入",
+        category = category,
+        season = gameState.season,
+        week = FinanceManager._getWeekNumber(gameState),
+    })
+end
+
+------------------------------------------------------
 -- 赛季奖金发放
 ------------------------------------------------------
 function FinanceManager.awardSeasonPrize(gameState, teamId, position)

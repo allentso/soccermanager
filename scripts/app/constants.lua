@@ -79,6 +79,19 @@ Constants.MORALE_DEFAULT = 60
 Constants.FITNESS_MIN = 0
 Constants.FITNESS_MAX = 100
 Constants.FITNESS_DEFAULT = 80
+-- 赛后体力下限与战力惩罚（2026-06 平衡：降消耗+加恢复，避免长期锁死 45% 战力）
+Constants.FITNESS_MATCH_FLOOR = 50
+Constants.FITNESS_MUL_MIN = 0.55
+Constants.FITNESS_RECOVERY_POST_MATCH = { 3, 6 }
+Constants.FITNESS_RECOVERY_REST = { 4, 7 }
+
+--- 将体力 clamp 到合法比赛范围（委托难度档位）
+---@param value number
+---@return number
+function Constants.clampFitness(value)
+    local DifficultySettings = require("scripts/systems/difficulty_settings")
+    return DifficultySettings.clampFitness(value)
+end
 
 -- 训练强度
 Constants.TRAINING_INTENSITY = {

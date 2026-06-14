@@ -223,7 +223,7 @@ function TransferManager.makeBid(gameState, playerId, amount, wageOffer)
         date = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day},
         responseDate = nil,
         wageOffer = wageOffer or player.wage,
-        contractYears = TransferManager._calcExpectedYears(player), -- 根据球员年龄动态计算
+        contractYears = TransferManager._calcExpectedYears(player, gameState.date.year), -- 根据球员年龄动态计算
         -- 多轮谈判新增字段
         counterAmount = nil,      -- AI的还价金额
         currentRound = 0,         -- 当前回合
@@ -757,14 +757,8 @@ function TransferManager._completeTransfer(gameState, bid, opts)
     local buyerTeam = gameState.teams[bid.buyerTeamId]
     if not buyerTeam then return end
 
-    -- 从卖方阵容移除
-    TransferManager._removePlayerFromTeam(sellerTeam, player.id)
-    -- 清买方残留青训引用（转会后 isYouth=false 的一线队球员不应留在青训名单）
-    TransferManager._removePlayerFromTeam(buyerTeam, player.id)
-
-    -- 加入买方阵容
-    table.insert(buyerTeam.playerIds, player.id)
-    player.teamId = bid.buyerTeamId
+    -- 加入买方阵容（同时清除其他球队残留引用，避免射手榜重复统计）
+    TransferManager._assignPlayerToTeam(gameState, player, bid.buyerTeamId)
     player.listedForSale = false
     player.listedForLoan = false
     -- 青训球员被买走后转为一线队身份（避免遗留青训标记被月度青训逻辑误处理）
@@ -1355,20 +1349,17 @@ function TransferManager._executeAITransfer(gameState, buyerTeam, player)
 
     -- 完成转会
     if sellerTeam then
-        TransferManager._removePlayerFromTeam(sellerTeam, player.id)
         -- 通过 FinanceManager 处理卖方入账（更新 balance、transferBudget、seasonIncome、流水）
         FinanceManager.processTransferIn(gameState, sellerTeam.id, offerAmount, player.displayName or player.firstName)
     end
 
-    TransferManager._removePlayerFromTeam(buyerTeam, player.id)
-    table.insert(buyerTeam.playerIds, player.id)
-    player.teamId = buyerTeam.id
+    TransferManager._assignPlayerToTeam(gameState, player, buyerTeam.id)
     player.listedForSale = false
     player.listedForLoan = false
     player.isYouth = false
     player.squadRole = "first_team"
     player.wage = newWage  -- 更新球员工资
-    player.contractEnd = {year = gameState.date.year + TransferManager._calcExpectedYears(player), month = 6}
+    player.contractEnd = {year = gameState.date.year + TransferManager._calcExpectedYears(player, gameState.date.year), month = 6}
 
     -- 通过 FinanceManager 处理买方出账（更新 balance、seasonExpense、transferBudget、流水）
     FinanceManager.processTransferOut(gameState, buyerTeam.id, offerAmount, player.displayName or player.firstName)
@@ -1861,12 +1852,7 @@ function TransferManager._completeIncomingSale(gameState, bid)
     local buyerTeam = gameState.teams[bid.buyerTeamId]
     if not player or not sellerTeam or not buyerTeam then return end
 
-    -- 移出卖方球队
-    TransferManager._removePlayerFromTeam(sellerTeam, player.id)
-    TransferManager._removePlayerFromTeam(buyerTeam, player.id)
-
-    table.insert(buyerTeam.playerIds, player.id)
-    player.teamId = buyerTeam.id
+    TransferManager._assignPlayerToTeam(gameState, player, buyerTeam.id)
     player.listedForSale = false
     player.isYouth = false
     player.squadRole = "first_team"
@@ -2296,18 +2282,7 @@ function TransferManager._completeLoan(gameState, bid)
 
     TransferManager._markPlayerWindowMove(gameState, player.id)
 
-    -- 从卖方阵容移除
-    if sellerTeam then
-        for i, pid in ipairs(sellerTeam.playerIds) do
-            if pid == player.id then
-                table.remove(sellerTeam.playerIds, i)
-                break
-            end
-        end
-    end
-
-    -- 加入买方阵容
-    table.insert(buyerTeam.playerIds, player.id)
+    TransferManager._assignPlayerToTeam(gameState, player, bid.buyerTeamId)
 
     -- 扣除租借费
     buyerTeam.balance = buyerTeam.balance - bid.amount
@@ -2353,21 +2328,8 @@ function TransferManager._returnLoanPlayer(gameState, loan, opts)
     player.loanListDuration = nil
     player.listedForSale = false
 
-    -- 从租借球队移除
-    if loanTeam then
-        for i, pid in ipairs(loanTeam.playerIds) do
-            if pid == player.id then
-                table.remove(loanTeam.playerIds, i)
-                break
-            end
-        end
-    end
-
     -- 回到原球队
-    if originTeam then
-        table.insert(originTeam.playerIds, player.id)
-    end
-    player.teamId = loan.originTeamId
+    TransferManager._assignPlayerToTeam(gameState, player, loan.originTeamId)
     player.squadRole = "first_team"
     player._loanOriginTeamId = nil
 
@@ -2438,7 +2400,7 @@ function TransferManager.offerFreeAgent(gameState, playerId, wageOffer, yearsOff
 
     -- 球员期望：基于能力和年龄
     local expectedWage = player.wage  -- 球员当前期望周薪
-    local expectedYears = TransferManager._calcExpectedYears(player)
+    local expectedYears = TransferManager._calcExpectedYears(player, gameState.date.year)
 
     local nego = {
         id = gameState.transfers.nextBidId,
@@ -2568,8 +2530,7 @@ function TransferManager.confirmFreeAgent(gameState, negoId)
             end
             -- 执行签约
             nego.status = "accepted"
-            table.insert(team.playerIds, player.id)
-            player.teamId = team.id
+            TransferManager._assignPlayerToTeam(gameState, player, team.id)
             player.wage = nego.wageOffer
             player.contractEnd = {year = gameState.date.year + nego.yearsOffer, month = 6}
             player.squadRole = "first_team"
@@ -2915,8 +2876,7 @@ function TransferManager._completeFreeAgentSigning(gameState, nego)
 
     -- AI球队签约自由球员：立即执行
     nego.status = "accepted"
-    table.insert(team.playerIds, player.id)
-    player.teamId = team.id
+    TransferManager._assignPlayerToTeam(gameState, player, team.id)
     player.wage = nego.wageOffer
     player.contractEnd = {year = gameState.date.year + nego.yearsOffer, month = 6}
     player.squadRole = "first_team"
@@ -2959,8 +2919,13 @@ function TransferManager._completeFreeAgentSigning(gameState, nego)
 end
 
 --- 计算球员期望合同年限
-function TransferManager._calcExpectedYears(player)
-    local age = player.age or 25
+function TransferManager._calcExpectedYears(player, currentYear)
+    local age = 25
+    if currentYear and player.birthYear then
+        age = currentYear - player.birthYear
+    elseif player.getAge and currentYear then
+        age = player:getAge(currentYear)
+    end
     if age >= 33 then return 1 end     -- 老将想要至少1年保障
     if age >= 30 then return 2 end     -- 30+想要2年
     if age >= 27 then return 3 end     -- 巅峰球员想要3年
@@ -2981,8 +2946,7 @@ function TransferManager.signFreeAgent(gameState, playerId, wage, years)
     wage = wage or player.wage
     years = years or 2
 
-    table.insert(team.playerIds, player.id)
-    player.teamId = team.id
+    TransferManager._assignPlayerToTeam(gameState, player, team.id)
     player.wage = wage
     player.contractEnd = {year = gameState.date.year + years, month = 6}
     player.squadRole = "first_team"
@@ -3447,14 +3411,9 @@ function TransferManager._acceptPushSale(gameState, bid)
 
     bid.status = "completed"
 
-    -- 从卖方移除
-    TransferManager._removePlayerFromTeam(sellerTeam, player.id)
-    TransferManager._removePlayerFromTeam(buyerTeam, player.id)
     TransferManager._settleTransferFee(gameState, buyerTeam, sellerTeam, bid, player)
 
-    -- 加入买方
-    table.insert(buyerTeam.playerIds, player.id)
-    player.teamId = buyerTeam.id
+    TransferManager._assignPlayerToTeam(gameState, player, buyerTeam.id)
     player.listedForSale = false
     player.isYouth = false
     player.squadRole = "first_team"
@@ -3998,7 +3957,7 @@ function TransferManager.offerPreContract(gameState, playerId, wageOffer, yearsO
     yearsOffer = yearsOffer or 3
 
     local expectedWage = math.floor(player.wage * 1.1)  -- 预签约球员期望涨薪
-    local expectedYears = TransferManager._calcExpectedYears(player)
+    local expectedYears = TransferManager._calcExpectedYears(player, gameState.date.year)
 
     local nego = {
         id = gameState.transfers.nextBidId,
@@ -4051,15 +4010,9 @@ function TransferManager.processPreContracts(gameState)
                (gameState.date.year > contractEnd.year or
                 (gameState.date.year == contractEnd.year and gameState.date.month >= contractEnd.month)) then
                 -- 从原球队移除（含青训名单）
-                local oldTeam = gameState.teams[player.teamId]
-                TransferManager._removePlayerFromTeam(oldTeam, player.id)
-
-                -- 加入新球队
                 local newTeam = gameState.teams[nego.teamId]
                 if newTeam then
-                    TransferManager._removePlayerFromTeam(newTeam, player.id)
-                    table.insert(newTeam.playerIds, player.id)
-                    player.teamId = nego.teamId
+                    TransferManager._assignPlayerToTeam(gameState, player, nego.teamId)
                     player.wage = nego.wageOffer
                     player.contractEnd = {year = gameState.date.year + nego.yearsOffer, month = 6}
                     player.squadRole = "first_team"

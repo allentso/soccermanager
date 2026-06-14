@@ -25,7 +25,9 @@ function PlaceholderEngine.computeMatchFitnessDrain(player, styleDrain)
     local baseDrain = RandomInt(range[1], range[2])
     local staminaAttr = (player.attributes and player.attributes.stamina) or 10
     local staminaDiscount = 0.7 + (staminaAttr / 20) * 0.3
-    return math.floor(baseDrain * styleDrain / staminaDiscount + 0.5)
+    local base = math.floor(baseDrain * styleDrain / staminaDiscount + 0.5)
+    local fitnessMods = DifficultySettings.getFitnessModifiers()
+    return math.max(1, math.floor(base * fitnessMods.drainMultiplier + 0.5))
 end
 
 --- 对出场球员批量扣除体能（实时比赛已逐步扣除时可跳过）
@@ -35,7 +37,7 @@ function PlaceholderEngine.applyFitnessDrainToPlayers(players, teamStyleDrain, a
     for _, p in ipairs(players) do
         local styleDrain = teamStyleDrain[p.teamId] or 1.0
         local finalDrain = PlaceholderEngine.computeMatchFitnessDrain(p, styleDrain)
-        p.fitness = math.max(40, (p.fitness or 80) - finalDrain)
+        p.fitness = DifficultySettings.clampFitness((p.fitness or 80) - finalDrain)
     end
 end
 
@@ -431,7 +433,7 @@ function PlaceholderEngine.applyPlayerMatchStats(gameState, fixture, report)
     if not report._liveFitnessApplied then
         for _, p in ipairs(matchPlayers) do
             local finalDrain = PlaceholderEngine.computeMatchFitnessDrain(p, resolveStyleDrain(p))
-            p.fitness = math.max(40, (p.fitness or 80) - finalDrain)
+            p.fitness = DifficultySettings.clampFitness((p.fitness or 80) - finalDrain)
         end
     end
 

@@ -1903,8 +1903,14 @@ function Settings._difficultyTierRow(param, currentTier)
                 fontSize = 12,
                 color = Theme.COLORS.TEXT_PRIMARY,
                 fontWeight = "bold",
-                marginBottom = 3,
+                marginBottom = 2,
             },
+            param.desc and UI.Label {
+                text = param.desc,
+                fontSize = 10,
+                color = Theme.COLORS.TEXT_MUTED,
+                marginBottom = 4,
+            } or UI.Panel { height = 0 },
             UI.Panel {
                 flexDirection = "row",
                 alignItems = "center",
@@ -2121,13 +2127,15 @@ function Settings._repairOverdueFixtures()
                                     repaired = repaired + 1
                                     local homeTeam = gameState.teams[f.homeTeamId]
                                     local awayTeam = gameState.teams[f.awayTeamId]
+                                    local MatchReport = require("scripts/match/match_report")
+                                    report = MatchReport.enrichFromFixture(report, f, gameState)
                                     table.insert(results, string.format(
-                                        "[欧冠%s] %s %d-%d %s",
+                                        "[欧冠%s] %s",
                                         phase,
-                                        homeTeam and homeTeam.shortName or "?",
-                                        report.homeGoals, report.awayGoals,
-                                        awayTeam and awayTeam.shortName or "?"
-                                    ))
+                                        MatchReport.formatScoreSummary(
+                                            homeTeam and homeTeam.shortName or "?",
+                                            awayTeam and awayTeam.shortName or "?",
+                                            report, f, gameState)))
                                 end
                                 f._pendingPlayerMatch = nil
                             end

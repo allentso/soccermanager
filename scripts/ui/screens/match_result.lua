@@ -9,6 +9,12 @@ local FinanceManager = require("scripts/systems/finance_manager")
 
 local MatchResult = {}
 
+local function nationModule(fixture)
+    if fixture and fixture._isEuro then return require("scripts/systems/euro_cup") end
+    if fixture and fixture._isWC then return require("scripts/systems/world_cup") end
+    return nil
+end
+
 function MatchResult.create(params)
     local gameState = _G.gameState
     local report = params and params.report
@@ -30,12 +36,15 @@ function MatchResult.create(params)
         }
     end
 
+    local MatchReport = require("scripts/match/match_report")
+    report = MatchReport.enrichFromFixture(report, fixture, gameState)
+
     local homeName, awayName, isPlayerHome
-    if fixture and fixture._isWC then
-        local WorldCup = require("scripts/systems/world_cup")
-        homeName = WorldCup._getNationName(report.homeTeamId)
-        awayName = WorldCup._getNationName(report.awayTeamId)
-        local playerNation = WorldCup._getPlayerNation(gameState)
+    local nt = nationModule(fixture)
+    if nt then
+        homeName = nt._getNationName(report.homeTeamId)
+        awayName = nt._getNationName(report.awayTeamId)
+        local playerNation = nt._getPlayerNation(gameState)
         isPlayerHome = report.homeTeamId == playerNation
     else
         local homeTeam = gameState.teams[report.homeTeamId]
@@ -49,18 +58,15 @@ function MatchResult.create(params)
     local isDraw = report.homeGoals == report.awayGoals
 
     -- 淘汰赛点球胜负判定（点球不计入总比分，但决定晋级）
-    local extraTime = report.extraTime
-    local penaltyWinner = nil
-    if extraTime and extraTime.penalties then
-        penaltyWinner = extraTime.penalties.winner
-    end
+    local extraTime = MatchReport.getKnockoutExtras(report, fixture)
+    local penaltyWinner = MatchReport.getPenaltyWinner(report, fixture)
 
     -- 判断胜负（含点球结果）
     if penaltyWinner then
-        local playerNationOrTeam = nil
-        if fixture and fixture._isWC then
-            local WorldCup = require("scripts/systems/world_cup")
-            playerNationOrTeam = WorldCup._getPlayerNation(gameState)
+        local playerNationOrTeam
+        local ntPen = nationModule(fixture)
+        if ntPen then
+            playerNationOrTeam = ntPen._getPlayerNation(gameState)
         else
             playerNationOrTeam = gameState.playerTeamId
         end
@@ -128,9 +134,9 @@ function MatchResult.create(params)
                         color = Theme.COLORS.TEXT_PRIMARY,
                         onClick = function()
                             local isPlayerMatch = false
-                            if fixture and fixture._isWC then
-                                local WorldCup = require("scripts/systems/world_cup")
-                                local pn = WorldCup._getPlayerNation(gameState)
+                            local ntPc = nationModule(fixture)
+                            if ntPc then
+                                local pn = ntPc._getPlayerNation(gameState)
                                 isPlayerMatch = (report.homeTeamId == pn or report.awayTeamId == pn)
                             else
                                 isPlayerMatch = (report.homeTeamId == gameState.playerTeamId or report.awayTeamId == gameState.playerTeamId)
@@ -191,40 +197,34 @@ function MatchResult.create(params)
                     }
 
                     -- 加时赛/点球标注
-                    if extraTime then
-                        local etGoals = (extraTime.homeExtraGoals or 0) + (extraTime.awayExtraGoals or 0)
-                        local etText = "加时赛"
-                        if etGoals > 0 then
-                            etText = string.format("加时赛 (含加时进球 %d)", etGoals)
+                    if extraTime or (fixture and fixture.penalties) then
+                        local etText = MatchReport.formatExtraTimeDetail(
+                            report.homeGoals, report.awayGoals, extraTime, fixture)
+                        if not etText and fixture and fixture.penalties then
+                            local pen = fixture.penalties
+                            etText = string.format("点球 %d-%d", pen.homeScore or 0, pen.awayScore or 0)
                         end
-
-                        if extraTime.penalties then
-                            local pen = extraTime.penalties
-                            etText = string.format("加时 %d-%d 点球 %d-%d",
-                                report.homeGoals, report.awayGoals,
-                                pen.homeScored or 0, pen.awayScored or 0)
-                            -- 如果加时也是平局，比分就是常规90分钟的比分
-                            local regularHome = report.homeGoals - (extraTime.homeExtraGoals or 0)
-                            local regularAway = report.awayGoals - (extraTime.awayExtraGoals or 0)
-                            if extraTime.homeExtraGoals and extraTime.homeExtraGoals > 0 or
-                               extraTime.awayExtraGoals and extraTime.awayExtraGoals > 0 then
-                                etText = string.format("常规 %d-%d · 加时 %d-%d · 点球 %d-%d",
-                                    regularHome, regularAway,
-                                    report.homeGoals, report.awayGoals,
-                                    pen.homeScored or 0, pen.awayScored or 0)
-                            else
-                                etText = string.format("常规/加时 %d-%d · 点球 %d-%d",
-                                    report.homeGoals, report.awayGoals,
-                                    pen.homeScored or 0, pen.awayScored or 0)
-                            end
+                        if etText then
+                            table.insert(scoreChildren, UI.Label {
+                                text = etText,
+                                fontSize = 11,
+                                color = Theme.COLORS.TEXT_MUTED,
+                                marginTop = 6,
+                            })
                         end
+                    end
 
-                        table.insert(scoreChildren, UI.Label {
-                            text = etText,
-                            fontSize = 11,
-                            color = Theme.COLORS.TEXT_MUTED,
-                            marginTop = 6,
-                        })
+                    -- 欧冠次回合总比分
+                    if fixture and gameState then
+                        local aggText = MatchReport.formatUclAggregate(fixture, gameState)
+                        if aggText then
+                            table.insert(scoreChildren, UI.Label {
+                                text = aggText,
+                                fontSize = 11,
+                                color = Theme.COLORS.SECONDARY,
+                                marginTop = 4,
+                            })
+                        end
                     end
 
                     return scoreChildren
@@ -283,17 +283,13 @@ function MatchResult._buildMOTM(report, gameState, fixture)
     end
 
     local teamName = ""
-    if fixture and fixture._isWC then
-        local WorldCup = require("scripts/systems/world_cup")
-        -- MOTM 球员属于哪一方国家队
-        if player.teamId then
-            teamName = WorldCup._getNationName(report.homeTeamId)
-            -- 检查球员是否属于客队国家
-            local awayTeam = WorldCup.buildNationalTeam(gameState, report.awayTeamId)
-            if awayTeam then
-                for _, pid in ipairs(awayTeam.playerIds or {}) do
-                    if pid == bestId then teamName = WorldCup._getNationName(report.awayTeamId); break end
-                end
+    local ntMotm = nationModule(fixture)
+    if ntMotm then
+        teamName = ntMotm._getNationName(report.homeTeamId)
+        local awayTeam = ntMotm.buildNationalTeam(gameState, report.awayTeamId)
+        if awayTeam then
+            for _, pid in ipairs(awayTeam.playerIds or {}) do
+                if pid == bestId then teamName = ntMotm._getNationName(report.awayTeamId); break end
             end
         end
     else
@@ -705,9 +701,9 @@ function MatchResult._buildPlayerRatings(report, gameState, fixture)
     local ratingFilter = nil
     if report.ratingLineup then
         local sideKey = nil
-        if fixture and fixture._isWC then
-            local WorldCup = require("scripts/systems/world_cup")
-            local playerNation = WorldCup._getPlayerNation(gameState)
+        local ntRatings = nationModule(fixture)
+        if ntRatings then
+            local playerNation = ntRatings._getPlayerNation(gameState)
             if playerNation == report.homeTeamId then
                 sideKey = "home"
             elseif playerNation == report.awayTeamId then
@@ -728,10 +724,10 @@ function MatchResult._buildPlayerRatings(report, gameState, fixture)
 
     -- 确定玩家方的球员ID集合
     local playerPidSet = nil
-    if fixture and fixture._isWC then
-        local WorldCup = require("scripts/systems/world_cup")
-        local playerNation = WorldCup._getPlayerNation(gameState)
-        local natTeam = WorldCup.buildNationalTeam(gameState, playerNation)
+    local ntPlayers = nationModule(fixture)
+    if ntPlayers then
+        local playerNation = ntPlayers._getPlayerNation(gameState)
+        local natTeam = ntPlayers.buildNationalTeam(gameState, playerNation)
         if not natTeam then return nil end
         playerPidSet = {}
         for _, pid in ipairs(natTeam.playerIds or {}) do playerPidSet[pid] = true end

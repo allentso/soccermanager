@@ -683,6 +683,8 @@ function PreMatch._confirmLeave(gameState, team, fixture)
                                 else
                                     MatchEngine.applyResult(gameState, fixture, report)
                                 end
+                                local MatchReport = require("scripts/match/match_report")
+                                report = MatchReport.enrichFromFixture(report, fixture, gameState)
                                 -- 发送比赛结果消息
                                 local homeName, awayName
                                 if fixture._isWC or fixture._isEuro then
@@ -698,8 +700,8 @@ function PreMatch._confirmLeave(gameState, team, fixture)
                                 gameState:sendMessage({
                                     category = "match_result",
                                     title = "比赛结果（模拟）",
-                                    body = string.format("%s %d - %d %s",
-                                        homeName, report.homeGoals, report.awayGoals, awayName),
+                                    body = MatchReport.formatScoreSummary(
+                                        homeName, awayName, report, fixture, gameState),
                                     priority = "high",
                                 })
                                 -- 跳过后显示结果画面

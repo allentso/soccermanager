@@ -5,6 +5,7 @@ local Constants = require("scripts/app/constants")
 local FormationShape = require("scripts/match/formation_shape")
 local TraitEffects = require("scripts/match/trait_effects")
 local RoleSynergy = require("scripts/match/role_synergy")
+local DifficultySettings = require("scripts/systems/difficulty_settings")
 
 local TacticsResolver = {}
 
@@ -30,12 +31,12 @@ function TacticsResolver.getStyleModifiers(styleName)
     return STYLE_MODIFIERS[styleName] or STYLE_MODIFIERS.Balanced
 end
 
--- 赛后体力消耗基准（位置组 → {min, max}）
+-- 赛后体力消耗基准（位置组 → {min, max}；2026-06 下调约 35% 以匹配恢复速率）
 TacticsResolver.POSITION_STAMINA_DRAIN = {
-    GK  = { 8, 12 },
-    DEF = { 14, 20 },
-    MID = { 18, 26 },
-    FWD = { 15, 22 },
+    GK  = { 5, 8 },
+    DEF = { 9, 13 },
+    MID = { 12, 17 },
+    FWD = { 10, 14 },
 }
 
 -- 风格×位置协同加成 (对特定位置组产生额外乘数)
@@ -248,7 +249,8 @@ function TacticsResolver.buildTeamContext(gameState, team)
         player._roleKey = roleKey  -- 角色 key（如 "poacher", "playmaker"）
         player._slotPos = slotPos  -- 精确槽位（如 "ST", "CAM", "RW"）
 
-        local fitnessMul = clamp((player.fitness or 80) / 100, 0.45, 1.05)
+        local fitnessMods = DifficultySettings.getFitnessModifiers()
+        local fitnessMul = clamp((player.fitness or 80) / 100, fitnessMods.fitnessMulMin, 1.05)
         local moraleMul = clamp(0.82 + ((player.morale or 60) / 100) * 0.28, 0.82, 1.1)
         local duty = DUTIES[duties[player.id] or "support"] or DUTIES.support
 

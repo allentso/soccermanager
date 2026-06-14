@@ -3,7 +3,9 @@
 
 local MatchEngine = require("scripts/match/match_engine")
 local PlaceholderEngine = require("scripts/match/placeholder_engine")
+local MatchReport = require("scripts/match/match_report")
 local EventBus = require("scripts/app/event_bus")
+local Constants = require("scripts/app/constants")
 local League = require("scripts/domain/league")
 local TransferManager = require("scripts/systems/transfer_manager")
 local ChampionsLeague = require("scripts/systems/champions_league")
@@ -312,12 +314,14 @@ function TurnProcessor.processMatchDay(gameState, fixtures)
                     or ""
 
                 if isPlayerMatch or fixture._isWC or fixture._isEuro then
-                    if isPlayerMatch then playerMatchReport = report end
+                    if isPlayerMatch then
+                        playerMatchReport = MatchReport.enrichFromFixture(report, fixture, gameState)
+                    end
                     gameState:sendMessage({
                         category = "match_result",
                         title = prefix .. "比赛结果",
-                        body = string.format("%s%s %d - %d %s",
-                            prefix, homeName, report.homeGoals, report.awayGoals, awayName),
+                        body = prefix .. MatchReport.formatScoreSummary(
+                            homeName, awayName, report, fixture, gameState),
                         priority = (fixture._isWC or fixture._isEuro) and "normal" or "high",
                     })
                 end
@@ -1158,11 +1162,12 @@ function TurnProcessor.processDailyFitnessRecovery(gameState)
 
     for _, p in pairs(gameState.players) do
         if not p.injured and p.fitness < 100 then
+            local fitnessMods = DifficultySettings.getFitnessModifiers()
             local minRecover, maxRecover
             if playedYesterday[p.id] then
-                minRecover, maxRecover = 1, 3
+                minRecover, maxRecover = fitnessMods.recoveryPostMatch[1], fitnessMods.recoveryPostMatch[2]
             else
-                minRecover, maxRecover = 2, 5
+                minRecover, maxRecover = fitnessMods.recoveryRest[1], fitnessMods.recoveryRest[2]
             end
             p.fitness = math.min(100, p.fitness + RandomInt(minRecover, maxRecover))
         end

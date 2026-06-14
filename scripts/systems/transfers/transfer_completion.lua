@@ -89,29 +89,46 @@ return function(TransferManager)
 
     function TransferManager._removePlayerFromTeam(team, playerId)
         if not team then return end
-        for i, pid in ipairs(team.playerIds or {}) do
-            if pid == playerId then
+        for i = #(team.playerIds or {}), 1, -1 do
+            if team.playerIds[i] == playerId then
                 table.remove(team.playerIds, i)
-                break
             end
         end
         if team.startingXI then
-            for i, pid in ipairs(team.startingXI or {}) do
-                if pid == playerId then
+            for i = #(team.startingXI or {}), 1, -1 do
+                if team.startingXI[i] == playerId then
                     table.remove(team.startingXI, i)
-                    break
                 end
             end
         end
         -- 青训名单同步移除：妖人转会后若残留在原队 _youthPlayerIds，
         -- 会被 YouthManager 的 AI 月度提拔覆盖 teamId/合同（BUG-20260611-06）
         if team._youthPlayerIds then
-            for i, pid in ipairs(team._youthPlayerIds) do
-                if pid == playerId then
+            for i = #(team._youthPlayerIds or {}), 1, -1 do
+                if team._youthPlayerIds[i] == playerId then
                     table.remove(team._youthPlayerIds, i)
-                    break
                 end
             end
+        end
+    end
+
+    --- 从全部球队阵容移除球员（keepTeamId 可选：保留该队引用，用于即将加入的目标队）
+    function TransferManager._removePlayerFromAllTeams(gameState, playerId, keepTeamId)
+        for teamId, team in pairs(gameState.teams or {}) do
+            if keepTeamId == nil or teamId ~= keepTeamId then
+                TransferManager._removePlayerFromTeam(team, playerId)
+            end
+        end
+    end
+
+    --- 将球员归属到指定球队：先清全局残留引用，再加入目标队并更新 teamId
+    function TransferManager._assignPlayerToTeam(gameState, player, teamId)
+        if not player or not teamId then return end
+        TransferManager._removePlayerFromAllTeams(gameState, player.id, teamId)
+        local team = gameState.teams[teamId]
+        if team then
+            team:addPlayer(player.id)
+            player.teamId = teamId
         end
     end
 

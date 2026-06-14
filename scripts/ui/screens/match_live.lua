@@ -216,11 +216,15 @@ function MatchLive.create(params)
     local isHalfTime = session:isHalfTime()
     local needsPenalties = session:needsPenalties()
 
-    -- 显示模式: normal | subs | sub_pick | tactics | halftime | penalties
+    -- 显示模式: normal | subs | sub_pick | tactics | halftime | extra_halftime | penalties
     local displayMode = (params and params.mode) or "normal"
-    -- 半场时自动进入半场模式
+    -- 半场时自动进入半场模式（区分常规中场与加时中场）
     if isHalfTime and displayMode == "normal" then
-        displayMode = "halftime"
+        if session.phase == MatchSession.PHASE.EXTRA_HALF_TIME then
+            displayMode = "extra_halftime"
+        else
+            displayMode = "halftime"
+        end
     end
     -- 点球时自动进入点球模式
     if needsPenalties and displayMode == "normal" then
@@ -294,6 +298,8 @@ function MatchLive.create(params)
         mainContent = MatchLive._buildTacticsPanel(session, fixture)
     elseif displayMode == "halftime" then
         mainContent = MatchLive._buildHalftimePanel(gameState, session, fixture)
+    elseif displayMode == "extra_halftime" then
+        mainContent = MatchLive._buildExtraHalftimePanel(gameState, session, fixture)
     elseif displayMode == "penalties" then
         mainContent = MatchLive._buildPenaltiesPanel(session, fixture)
     else
@@ -638,6 +644,14 @@ function MatchLive.create(params)
                                 },
                             }
                         },
+                        session._penaltyResult and UI.Label {
+                            text = string.format("点球 %d - %d",
+                                session._penaltyResult.homeScore or 0,
+                                session._penaltyResult.awayScore or 0),
+                            fontSize = 12,
+                            color = Theme.COLORS.TEXT_MUTED,
+                            marginTop = 4,
+                        } or nil,
                     }
                 },
                 -- 客队
@@ -1158,6 +1172,122 @@ function MatchLive._buildHalftimePanel(gameState, session, fixture)
 end
 
 ---------------------------------------------------------------------------
+-- 加时中场休息面板
+---------------------------------------------------------------------------
+function MatchLive._buildExtraHalftimePanel(gameState, session, fixture)
+    local homeReg, awayReg, homeET, awayET = 0, 0, 0, 0
+    for _, evt in ipairs(session.events) do
+        if evt.type == "goal" then
+            if evt.minute <= 90 then
+                if evt.teamId == session.fixture.homeTeamId then homeReg = homeReg + 1
+                else awayReg = awayReg + 1 end
+            else
+                if evt.teamId == session.fixture.homeTeamId then homeET = homeET + 1
+                else awayET = awayET + 1 end
+            end
+        end
+    end
+
+    local subsRemaining = session.subsRemaining
+
+    return UI.ScrollView {
+        flexGrow = 1, flexBasis = 0, scrollY = true, padding = 14,
+        children = {
+            Theme.Card {
+                children = {
+                    UI.Panel {
+                        width = "100%", alignItems = "center",
+                        children = {
+                            UI.Label { text = "加时中场休息", fontSize = 20, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold" },
+                            UI.Label {
+                                text = string.format("90分钟 %d - %d", homeReg, awayReg),
+                                fontSize = 14, color = Theme.COLORS.TEXT_SECONDARY, marginTop = 6,
+                            },
+                            UI.Label {
+                                text = string.format("加时上半场 %d - %d · 总比分 %d - %d",
+                                    homeET, awayET, session.homeGoals, session.awayGoals),
+                                fontSize = 13, color = Theme.COLORS.TEXT_MUTED, marginTop = 4,
+                            },
+                        }
+                    },
+                }
+            },
+
+            Theme.Card {
+                children = {
+                    Theme.Subtitle { text = "加时调整" },
+                    UI.Panel {
+                        width = "100%", marginTop = 8,
+                        children = {
+                            UI.Button {
+                                text = string.format("换人 (剩余%d次)", subsRemaining),
+                                width = "100%", height = 44,
+                                backgroundColor = subsRemaining > 0 and {60, 40, 120, 255} or Theme.COLORS.BG_CARD,
+                                borderRadius = 8, fontSize = 14, marginBottom = 8,
+                                color = subsRemaining > 0 and Theme.COLORS.TEXT_PRIMARY or Theme.COLORS.TEXT_MUTED,
+                                onClick = function()
+                                    if subsRemaining > 0 then
+                                        Router.replaceWith("match_live", { session = session, fixture = fixture, mode = "subs" })
+                                    end
+                                end,
+                            },
+                            UI.Button {
+                                text = "调整战术指示",
+                                width = "100%", height = 44,
+                                backgroundColor = {40, 80, 120, 255},
+                                borderRadius = 8, fontSize = 14, marginBottom = 8,
+                                color = Theme.COLORS.TEXT_PRIMARY,
+                                onClick = function()
+                                    Router.replaceWith("match_live", { session = session, fixture = fixture, mode = "tactics" })
+                                end,
+                            },
+                            UI.Button {
+                                text = "开始加时下半场 ▶",
+                                width = "100%", height = 48,
+                                backgroundColor = Theme.COLORS.SECONDARY,
+                                borderRadius = 8, fontSize = 16, fontWeight = "bold",
+                                color = Theme.COLORS.TEXT_PRIMARY,
+                                onClick = function()
+                                    session:stepMinutes(1)
+                                    Router.replaceWith("match_live", { session = session, fixture = fixture, mode = "normal" })
+                                end,
+                            },
+                        }
+                    },
+                }
+            },
+
+            Theme.Card {
+                children = {
+                    Theme.Subtitle { text = "加时上半场回顾" },
+                    UI.Panel {
+                        width = "100%", marginTop = 4,
+                        children = MatchLive._getExtraFirstHalfSummary(session, gameState),
+                    },
+                }
+            },
+        }
+    }
+end
+
+-- 加时上半场事件摘要
+function MatchLive._getExtraFirstHalfSummary(session, gameState)
+    local rows = {}
+    for _, evt in ipairs(session.events) do
+        if evt.minute > 90 and evt.minute <= 105 then
+            local text, color = MatchLive._getCommentaryText(evt, gameState)
+            if text then
+                table.insert(rows, MatchLive._commentaryRow(evt.minute, text, color))
+            end
+        end
+    end
+    if #rows == 0 then
+        table.insert(rows, UI.Label { text = "加时上半场平静，无关键事件。", fontSize = 12, color = Theme.COLORS.TEXT_MUTED })
+    end
+    return rows
+end
+
+---------------------------------------------------------------------------
 -- 点球大战面板
 ---------------------------------------------------------------------------
 function MatchLive._buildPenaltiesPanel(session, fixture)
@@ -1184,8 +1314,7 @@ function MatchLive._buildPenaltiesPanel(session, fixture)
                         borderRadius = 8, fontSize = 16, fontWeight = "bold",
                         color = Theme.COLORS.TEXT_PRIMARY,
                         onClick = function()
-                            local result = session:simulatePenalties()
-                            session._penaltyResult = result
+                            session:simulatePenalties()
                             Router.replaceWith("match_live", { session = session, fixture = fixture, mode = "normal" })
                         end,
                     },

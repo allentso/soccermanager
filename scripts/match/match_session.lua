@@ -2,6 +2,7 @@
 -- 比赛会话状态对象 - 支持步进式模拟和中场指令
 
 local TacticsResolver = require("scripts/match/tactics_resolver")
+local DifficultySettings = require("scripts/systems/difficulty_settings")
 
 ---@class MatchSession
 local MatchSession = {}
@@ -240,7 +241,7 @@ function MatchSession:_applyLiveFitnessDrain(minutes)
             if drain > 0 then
                 local gsPlayer = self.gameState.players[p.id]
                 if gsPlayer then
-                    gsPlayer.fitness = math.max(40, (gsPlayer.fitness or 80) - drain)
+                    gsPlayer.fitness = DifficultySettings.clampFitness((gsPlayer.fitness or 80) - drain)
                     self._liveFitnessApplied = true
                 end
             end
@@ -742,6 +743,7 @@ end
 function MatchSession:simulatePenalties()
     local MatchEngine = require("scripts/match/match_engine")
     local result = MatchEngine._simulatePenaltyShootout(self.homeContext, self.awayContext, self.fixture)
+    self._penaltyResult = result
     self.phase = MatchSession.PHASE.FINISHED
     return result
 end

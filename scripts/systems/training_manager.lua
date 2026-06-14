@@ -5,6 +5,7 @@ local Constants = require("scripts/app/constants")
 local EventBus = require("scripts/app/event_bus")
 local FinanceManager = require("scripts/systems/finance_manager")
 local DifficultySettings = require("scripts/systems/difficulty_settings")
+local DifficultySettings = require("scripts/systems/difficulty_settings")
 
 local TrainingManager = {}
 
@@ -73,7 +74,9 @@ function TrainingManager.getParticipationFactor(player, seasonStartYear)
     local quota = TrainingManager.getAppsQuotaForSeasonAge(seasonAge)
     if quota <= 0 then return 1.0 end
     local t = apps / quota
-    return math.max(Constants.ADULT_TRAINING_APPS_FLOOR, math.min(1.0, t))
+    local factor = math.max(Constants.ADULT_TRAINING_APPS_FLOOR, math.min(1.0, t))
+    local scale = DifficultySettings.getTrainingModifiers().participationScale or 1.0
+    return math.max(Constants.ADULT_TRAINING_APPS_FLOOR, math.min(1.0, factor * scale))
 end
 
 --- UI 用：训练效率与出场进度摘要
@@ -237,7 +240,7 @@ function TrainingManager._trainPlayer(gameState, team, player, intensityConfig, 
     end
 
     local fitnessLoss = RandomInt(0, intensityConfig.fitnessLoss)
-    player.fitness = math.max(40, player.fitness - fitnessLoss)
+    player.fitness = DifficultySettings.clampFitness(player.fitness - fitnessLoss)
 
     if Random() < intensityConfig.injuryChance then
         local extraChance = player.fitness < 60 and 0.02 or 0

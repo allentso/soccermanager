@@ -174,4 +174,121 @@ function MatchReport.findMOTM(report)
     return bestPlayerId, bestRating
 end
 
+--- 从 report 或 fixture 读取加时/点球数据（跳过模拟后 extras 常只在 fixture 上）
+function MatchReport.getKnockoutExtras(report, fixture)
+    if report and report.extraTime then return report.extraTime end
+    if fixture and fixture.extraTime then return fixture.extraTime end
+    return nil
+end
+
+function MatchReport.getPenaltyWinner(report, fixture)
+    local extraTime = MatchReport.getKnockoutExtras(report, fixture)
+    if extraTime and extraTime.penalties and extraTime.penalties.winner then
+        return extraTime.penalties.winner
+    end
+    if fixture and fixture._penaltyWinner then
+        return fixture._penaltyWinner
+    end
+    return nil
+end
+
+--- 将 fixture 上的加时/点球等信息合并进 report（供结果页与消息使用）
+function MatchReport.enrichFromFixture(report, fixture, gameState)
+    if not report or not fixture then return report end
+    if not report.extraTime and fixture.extraTime then
+        report.extraTime = fixture.extraTime
+    end
+    return report
+end
+
+local function _findUclLeg1(fixture, gameState)
+    if not fixture or not fixture._isUCL or fixture.leg ~= 2 then return nil end
+    local ucl = gameState and gameState.championsLeague
+    if not ucl or not ucl.knockout then return nil end
+    local fixtures = ucl.knockout[ucl.phase]
+    if not fixtures then return nil end
+    for _, f in ipairs(fixtures) do
+        if f.matchIndex == fixture.matchIndex and f.leg == 1 and f.status == "finished" then
+            return f
+        end
+    end
+    return nil
+end
+
+function MatchReport.formatUclAggregate(fixture, gameState)
+    local leg1 = _findUclLeg1(fixture, gameState)
+    if not leg1 then return nil end
+    local agg1 = (leg1.homeGoals or 0) + (fixture.awayGoals or 0)
+    local agg2 = (leg1.awayGoals or 0) + (fixture.homeGoals or 0)
+    return string.format("总比分 %d-%d", agg1, agg2)
+end
+
+--- 格式化加时/点球明细（不含队名与常规比分）
+function MatchReport.formatExtraTimeDetail(homeGoals, awayGoals, extraTime, fixture)
+    if not extraTime then return nil end
+
+    local homeET = extraTime.homeExtraGoals or 0
+    local awayET = extraTime.awayExtraGoals or 0
+    local pen = extraTime.penalties
+    local penHome = pen and (pen.homeScore or pen.homeScored or 0) or nil
+    local penAway = pen and (pen.awayScore or pen.awayScored or 0) or nil
+
+    -- 欧冠次回合总比分决胜：加时独立模拟，进球不计入 90 分钟比分
+    local etSeparate = fixture and fixture._isUCL and fixture.leg == 2
+
+    if penHome ~= nil then
+        if etSeparate then
+            if homeET > 0 or awayET > 0 then
+                return string.format("加时 %d-%d · 点球 %d-%d", homeET, awayET, penHome, penAway)
+            end
+            return string.format("点球 %d-%d", penHome, penAway)
+        end
+        local regularHome = (homeGoals or 0) - homeET
+        local regularAway = (awayGoals or 0) - awayET
+        if homeET > 0 or awayET > 0 then
+            return string.format("常规 %d-%d · 加时 %d-%d · 点球 %d-%d",
+                regularHome, regularAway, homeGoals, awayGoals, penHome, penAway)
+        end
+        return string.format("点球 %d-%d", penHome, penAway)
+    end
+
+    if homeET > 0 or awayET > 0 then
+        if etSeparate then
+            return string.format("加时 %d-%d", homeET, awayET)
+        end
+        local regularHome = (homeGoals or 0) - homeET
+        local regularAway = (awayGoals or 0) - awayET
+        return string.format("常规 %d-%d · 加时 %d-%d", regularHome, regularAway, homeGoals, awayGoals)
+    end
+
+    if extraTime.played then return "加时赛" end
+    return nil
+end
+
+--- 完整比分摘要：常规比分 + 总比分（欧冠次回合）+ 加时/点球
+function MatchReport.formatScoreSummary(homeName, awayName, report, fixture, gameState)
+    homeName = homeName or "主队"
+    awayName = awayName or "客队"
+    local homeGoals = (report and report.homeGoals) or 0
+    local awayGoals = (report and report.awayGoals) or 0
+
+    local parts = { string.format("%s %d - %d %s", homeName, homeGoals, awayGoals, awayName) }
+
+    if fixture and gameState then
+        local aggText = MatchReport.formatUclAggregate(fixture, gameState)
+        if aggText then table.insert(parts, aggText) end
+    end
+
+    local extraTime = MatchReport.getKnockoutExtras(report, fixture)
+    local etText = MatchReport.formatExtraTimeDetail(homeGoals, awayGoals, extraTime, fixture)
+    if etText then
+        table.insert(parts, etText)
+    elseif fixture and fixture.penalties then
+        local pen = fixture.penalties
+        table.insert(parts, string.format("点球 %d-%d", pen.homeScore or 0, pen.awayScore or 0))
+    end
+
+    return table.concat(parts, " · ")
+end
+
 return MatchReport
