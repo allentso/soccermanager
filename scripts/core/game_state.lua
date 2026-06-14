@@ -520,8 +520,8 @@ function GameState:deserialize(data)
             -- 每场比赛贡献 2 次 played（主+客各 +1）
             local expectedPlayed = finishedCount * 2
 
-            -- 如果不一致，说明有比赛结果没被正确计入积分榜，需要重建
-            if expectedPlayed > 0 and standingsPlayed ~= expectedPlayed then
+            -- 如果不一致，说明积分榜与联赛赛程不同步（含杯赛误计分、重复计分等），需要重建
+            if standingsPlayed ~= expectedPlayed then
                 -- 重建：先清零 standings，再从 fixtures 逐场重算
                 for _, tid in ipairs(lg.teamIds) do
                     lg.standings[tid] = {

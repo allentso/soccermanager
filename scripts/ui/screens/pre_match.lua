@@ -677,6 +677,9 @@ function PreMatch._confirmLeave(gameState, team, fixture)
                                     TurnProcessor._applyWCResult(gameState, fixture, report)
                                 elseif fixture._isUCL then
                                     TurnProcessor._applyUCLResult(gameState, fixture, report)
+                                elseif fixture._isDomesticCup then
+                                    local DomesticCup = require("scripts/systems/domestic_cup")
+                                    DomesticCup.applyResult(gameState, fixture, report)
                                 else
                                     MatchEngine.applyResult(gameState, fixture, report)
                                 end

@@ -113,11 +113,11 @@ function Migrations.v2_to_v3(gameStateData)
     print("[SaveMigration] v2→v3: 已为 " .. migrated .. " 名传奇球员补发专属特质")
 end
 
---- v3 → v4: 从已完成比赛重算联赛积分榜（修复重复计分导致的 played 偏高）
---- 原因：旧版 match_live 的两个按钮均调用 finishMatch，缺乏幂等保护导致同一比赛被计入两次
-function Migrations.v3_to_v4(gameStateData)
+--- 从联赛 fixtures 重建积分榜（不含杯赛/欧冠等）
+--- @return number 修正的联赛数量
+local function rebuildLeagueStandingsFromFixtures(gameStateData)
     local leagues = gameStateData.leagues
-    if not leagues then return end
+    if not leagues then return 0 end
 
     local totalFixed = 0
 
@@ -126,7 +126,6 @@ function Migrations.v3_to_v4(gameStateData)
         local teamIds = leagueData.teamIds
         if not fixtures or not teamIds then goto continue end
 
-        -- 从零重建 standings
         local newStandings = {}
         for _, tid in ipairs(teamIds) do
             newStandings[tid] = {
@@ -142,7 +141,6 @@ function Migrations.v3_to_v4(gameStateData)
             }
         end
 
-        -- 遍历所有已完成比赛，累加统计
         for _, f in ipairs(fixtures) do
             if f.status == "finished" then
                 local home = newStandings[f.homeTeamId]
@@ -176,7 +174,6 @@ function Migrations.v3_to_v4(gameStateData)
             end
         end
 
-        -- 比较并替换
         local oldStandings = leagueData.standings or {}
         local leagueFixed = false
         for tid, newS in pairs(newStandings) do
@@ -187,7 +184,6 @@ function Migrations.v3_to_v4(gameStateData)
             end
         end
 
-        -- 使用数字 key 写回（与 League.new 反序列化逻辑一致）
         leagueData.standings = newStandings
         if leagueFixed then
             totalFixed = totalFixed + 1
@@ -196,6 +192,13 @@ function Migrations.v3_to_v4(gameStateData)
         ::continue::
     end
 
+    return totalFixed
+end
+
+--- v3 → v4: 从已完成比赛重算联赛积分榜（修复重复计分导致的 played 偏高）
+--- 原因：旧版 match_live 的两个按钮均调用 finishMatch，缺乏幂等保护导致同一比赛被计入两次
+function Migrations.v3_to_v4(gameStateData)
+    local totalFixed = rebuildLeagueStandingsFromFixtures(gameStateData)
     print("[SaveMigration] v3→v4: 重算了 " .. totalFixed .. " 个联赛的积分榜（从比赛记录重建）")
 end
 
@@ -446,6 +449,13 @@ function Migrations.v6_to_v7(gameStateData)
     print("[SaveMigration] v6→v7: 已移除 " .. #toRemove .. " 名赛季补员假人")
 end
 
+--- v7 → v8: 从联赛赛程重算积分榜（剔除误计入的国内杯赛场次）
+--- 原因：玩家手动踢/跳过杯赛时走 PlaceholderEngine.applyResult，杯赛结果被计入联赛积分榜
+function Migrations.v7_to_v8(gameStateData)
+    local totalFixed = rebuildLeagueStandingsFromFixtures(gameStateData)
+    print("[SaveMigration] v7→v8: 重算了 " .. totalFixed .. " 个联赛的积分榜（剔除杯赛误计分）")
+end
+
 --- 迁移路由：根据存档版本逐级升级
 --- @param saveData table 完整的存档顶层数据 {version, game_state, saved_at}
 --- @return number 迁移后的最终版本号
@@ -480,6 +490,11 @@ function Migrations.run(saveData)
     if version < 7 then
         Migrations.v6_to_v7(saveData.game_state)
         version = 7
+    end
+
+    if version < 8 then
+        Migrations.v7_to_v8(saveData.game_state)
+        version = 8
     end
 
     saveData.version = version

@@ -792,6 +792,9 @@ function MatchEngine.finishMatch(session, gameState, fixture)
     elseif fixture._isUCL then
         local TurnProcessor = require("scripts/core/turn_processor")
         TurnProcessor._applyUCLResult(gameState, fixture, report)
+    elseif fixture._isDomesticCup then
+        local DomesticCup = require("scripts/systems/domestic_cup")
+        DomesticCup.applyResult(gameState, fixture, report)
     else
         PlaceholderEngine.applyResult(gameState, fixture, report)
     end
