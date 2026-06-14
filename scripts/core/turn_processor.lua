@@ -227,6 +227,16 @@ function TurnProcessor._catchUpOverdueLeagueFixtures(gameState, currentDate)
     return playerOverdue
 end
 
+--- 读档/继续前：清理无效待赛指针，并补模拟非玩家逾期联赛比赛
+--- 典型老档：8 月赛程正确，但日历停在 8 月且玩家场次未踢 → 其他队也不动
+function TurnProcessor.repairStuckProgressOnLoad(gameState)
+    local pf = gameState.pendingPlayerFixture
+    if pf and pf.status ~= "scheduled" then
+        gameState.pendingPlayerFixture = nil
+    end
+    TurnProcessor.simulateNonPlayerOverdueLeagueFixtures(gameState)
+end
+
 --- 在不推进日期的情况下，补模拟所有逾期的非玩家联赛比赛
 --- 用于玩家有逾期比赛时仍让其他球队继续踢、积分榜更新
 function TurnProcessor.simulateNonPlayerOverdueLeagueFixtures(gameState)

@@ -1068,9 +1068,6 @@ function SeasonManager._startNewSeason(gameState)
     -- 重新分配各队赛季预算（转会预算 + 工资预算）
     SeasonManager._allocateSeasonBudgets(gameState)
 
-    -- 补充AI球队阵容（如果人数不足）
-    SeasonManager._fillAISquads(gameState)
-
     -- 初始化本赛季欧冠
     ChampionsLeague.initialize(gameState)
 
@@ -1108,69 +1105,6 @@ function SeasonManager._startNewSeason(gameState)
 
     -- B3: 赛季前瞻新闻
     NewsGenerator.generateSeasonPreview(gameState)
-end
-
-------------------------------------------------------
--- 补充AI球队阵容
-------------------------------------------------------
-
-function SeasonManager._fillAISquads(gameState)
-    local Player = require("scripts/domain/player")
-
-    local positions = {"GK", "CB", "CB", "LB", "RB", "CM", "CM", "CDM", "CAM", "LW", "RW", "ST"}
-
-    for _, team in pairs(gameState.teams) do
-        -- 如果阵容不足18人，补充
-        local lastNames = SeasonManager._getLastNamePool(team.country)
-        local firstNames = SeasonManager._getFirstNamePool(team.country)
-        local usedNames = {}
-        for _, pid in ipairs(team.playerIds) do
-            local p = gameState.players[pid]
-            if p and p.displayName then usedNames[p.displayName] = true end
-        end
-
-        while #team.playerIds < 18 do
-            local pos = positions[RandomInt(1, #positions)]
-            local age = RandomInt(18, 30)
-            local firstName, lastName, displayName = _pickUniqueRegenName(usedNames, firstNames, lastNames)
-
-            local playerData = {
-                firstName = firstName,
-                lastName = lastName,
-                displayName = displayName,
-                birthYear = gameState.date.year - age,
-                nationality = team.country or "ENG",
-                position = pos,
-                preferredFoot = Random() < 0.8 and "right" or "left",
-                attributes = {},
-                contractEnd = {year = gameState.date.year + RandomInt(1, 3), month = 6},
-                wage = RandomInt(500, 3000),
-                teamId = team.id,
-            }
-
-            -- 生成属性
-            local baseAbility = RandomInt(6, 14)
-            local attrNames = {"speed", "stamina", "strength", "agility", "passing",
-                "shooting", "tackling", "dribbling", "defending", "positioning",
-                "vision", "decisions", "composure", "aggression", "teamwork",
-                "leadership", "aerial"}
-            for _, attr in ipairs(attrNames) do
-                playerData.attributes[attr] = math.max(1, math.min(20, baseAbility + RandomInt(-3, 3)))
-            end
-            if pos == "GK" then
-                playerData.attributes.handling = RandomInt(8, 16)
-                playerData.attributes.reflexes = RandomInt(8, 16)
-            end
-
-            playerData.potential = math.min(99, playerData.attributes.speed * 5 + RandomInt(0, 20))
-
-            local player = gameState:addPlayer(playerData)
-            player.paRating = PotentialSystem.rawToRating(player.potential)
-            player.actualPotential = PotentialSystem.generateActualPotential(player.paRating, (gameState.potentialSeed or os.time()) + player.id * 7919)
-            player.teamId = team.id
-            table.insert(team.playerIds, player.id)
-        end
-    end
 end
 
 return SeasonManager

@@ -210,8 +210,11 @@ function Dashboard.create(params)
         -- 如果有未完成的玩家比赛，先处理它（不推进日期）
         if gameState.pendingPlayerFixture then
             local pf = gameState.pendingPlayerFixture
-            Router.navigate("pre_match", { fixture = pf })
-            return
+            if pf.status == "scheduled" then
+                Router.navigate("pre_match", { fixture = pf })
+                return
+            end
+            gameState.pendingPlayerFixture = nil
         end
 
         -- 今天就有未打的比赛（daysToMatch==0），直接进入比赛，不推进日期
@@ -224,8 +227,11 @@ function Dashboard.create(params)
         -- [BUG FIX] 在推进日期之前，检测是否已有逾期的玩家比赛
         -- 如果有，直接展示给玩家而不消耗日历天数，避免雪球效应
         if not gameState._cheatAutoPlay then
+            -- 读档后可能尚未 advanceDay：先修复错位赛程（旧档 3 月中超等）
+            local RealDataLoader = require("scripts/data/real_data_loader")
+            RealDataLoader.fixMisalignedLeagueFixtures(gameState)
             -- 先补模拟其他球队的逾期比赛（否则 advanceDay 被拦截时积分榜永远不更新）
-            TurnProcessor.simulateNonPlayerOverdueLeagueFixtures(gameState)
+            TurnProcessor.repairStuckProgressOnLoad(gameState)
             local overdueFixture = TurnProcessor.peekOverduePlayerFixture(gameState)
             if overdueFixture then
                 overdueFixture._pendingPlayerMatch = true

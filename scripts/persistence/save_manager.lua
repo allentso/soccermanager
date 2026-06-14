@@ -494,6 +494,24 @@ local function applySaveData(gameState, saveData, path)
         log:Write(LOG_WARNING, "SaveManager: 读档瘦身失败（不影响加载）: " .. tostring(hkErr))
     end
 
+    -- 读档后立即修复错位赛程（旧版中超 3 月 JSON 等），避免未 advanceDay 就卡在逾期比赛
+    local okFix, fixErr = pcall(function()
+        local RealDataLoader = require("scripts/data/real_data_loader")
+        RealDataLoader.fixMisalignedLeagueFixtures(gameState)
+    end)
+    if not okFix then
+        log:Write(LOG_WARNING, "SaveManager: 赛程修复失败（不影响加载）: " .. tostring(fixErr))
+    end
+
+    -- 8 月赛程老档：补模拟其他球队逾期比赛，避免积分榜/世界进程冻结
+    local okCatchUp, catchUpErr = pcall(function()
+        local TurnProcessor = require("scripts/core/turn_processor")
+        TurnProcessor.repairStuckProgressOnLoad(gameState)
+    end)
+    if not okCatchUp then
+        log:Write(LOG_WARNING, "SaveManager: 逾期补赛失败（不影响加载）: " .. tostring(catchUpErr))
+    end
+
     log:Write(LOG_INFO, "SaveManager: 已从 " .. path .. " 加载存档")
     return true
 end

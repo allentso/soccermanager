@@ -189,7 +189,7 @@ function RealDataLoader.importLeague(gameState, leagueData, leagueConfig)
 
     local teamIds = {}
 
-    -- 中超：固定声望梯度（顶级 550，其余按 wage_budget 排名递减）
+    -- 中超：固定声望梯度（顶级 550，其余按 wage_budget 排名递减）——存盘值保持减益
     local cslRepMap = nil
     if leagueConfig.shortName == "CSL" then
         cslRepMap = RealDataLoader._buildCSLReputationMap(leagueData.teams)
@@ -420,7 +420,6 @@ end
 --- 读档修复：旧版中超曾导入 3 月 JSON 赛程，尚无赛果时改为 8 月开季双循环
 function RealDataLoader.fixMisalignedLeagueFixtures(gameState)
     if gameState._fixMisalignedLeagueFixturesDone then return end
-    gameState._fixMisalignedLeagueFixturesDone = true
 
     local seasonStart = {
         year = gameState.season or gameState.date.year,
@@ -428,25 +427,44 @@ function RealDataLoader.fixMisalignedLeagueFixtures(gameState)
         day = Constants.SEASON_START_DAY,
     }
 
+    local anyFixed = false
     for key, lg in pairs(gameState.leagues or {}) do
         local needsFix = false
-        local anyFinished = false
+        local finishedCount = 0
+        local misalignedScheduled = 0
         for _, f in ipairs(lg.fixtures or {}) do
             if f.status == "finished" then
-                anyFinished = true
+                finishedCount = finishedCount + 1
             elseif f.status == "scheduled" and f.date and _dateSerial(f.date) < _dateSerial(seasonStart) then
                 needsFix = true
+                misalignedScheduled = misalignedScheduled + 1
             end
         end
-        if needsFix and not anyFinished then
-            if key == "CSL" then
-                lg:generateFixtures(seasonStart)
-            else
-                RealDataLoader._shiftFixturesToSeasonStart(lg.fixtures, seasonStart)
-            end
+
+        if not needsFix then goto continue_league end
+
+        -- 中超旧档：无赛果或错位赛程占绝大多数 → 整季重建（典型卡住档）
+        if key == "CSL" and finishedCount == 0 then
+            lg:generateFixtures(seasonStart)
             lg:initStandings()
+            anyFixed = true
+        elseif key == "CSL" and misalignedScheduled > 0 and misalignedScheduled >= finishedCount then
+            -- 少量已赛但大量 3 月残留 → 重建并放弃错位进度（比永久卡死好）
+            lg:generateFixtures(seasonStart)
+            lg:initStandings()
+            anyFixed = true
+        elseif finishedCount == 0 then
+            RealDataLoader._shiftFixturesToSeasonStart(lg.fixtures, seasonStart)
+            anyFixed = true
         end
+
+        ::continue_league::
     end
+
+    if anyFixed then
+        gameState.pendingPlayerFixture = nil
+    end
+    gameState._fixMisalignedLeagueFixturesDone = true
 end
 
 -- 计算总轮次 (n-1)*2
@@ -535,18 +553,10 @@ function RealDataLoader._calcReputation(wageBudget)
     return math.floor(500 + ratio * 450)
 end
 
---- 声望 → 周薪预算（与 _calcReputation 互逆，用于中超等固定初始声望的联赛）
-function RealDataLoader._reputationToWageBudget(reputation)
-    local rep = reputation or 500
-    local ratio = (rep - 500) / 450
-    ratio = math.max(0, math.min(1, ratio))
-    local logMin = math.log(200000)
-    local logMax = math.log(6500000)
-    local logWb = logMin + ratio * (logMax - logMin)
-    return math.floor(math.exp(logWb))
-end
+--- 中超球队初始声望：顶级 550，按 wage_budget 排名每降一名 -3（全局减益，转会等仍用存盘值）
+local CSL_REP_TOP = 550
+local CSL_REP_STEP = 3
 
---- 中超球队声望：初始顶级 550，其余按 JSON wage_budget 排名每降一名 -3（赛季中可继续变动）
 function RealDataLoader._buildCSLReputationMap(teams)
     local sorted = {}
     for _, t in ipairs(teams) do
@@ -558,9 +568,53 @@ function RealDataLoader._buildCSLReputationMap(teams)
 
     local map = {}
     for rank, t in ipairs(sorted) do
-        map[t.id] = 550 - (rank - 1) * 3
+        map[t.id] = CSL_REP_TOP - (rank - 1) * CSL_REP_STEP
     end
     return map
+end
+
+--- 是否中超球队
+function RealDataLoader.isCSLTeam(gameState, teamId)
+    local _, key = RealDataLoader.getTeamLeague(gameState, teamId)
+    return key == "CSL"
+end
+
+--- 将中超减益声望还原为计算用尺度（500~950，与五大联赛一致）
+--- 存盘 team.reputation 不变；赛季目标/董事会分档等调用此函数
+function RealDataLoader.restoreCSLReputationForCalc(storedRep, teamCount)
+    teamCount = math.max(2, teamCount or 16)
+    local bottomRep = CSL_REP_TOP - (teamCount - 1) * CSL_REP_STEP
+    storedRep = storedRep or bottomRep
+    storedRep = math.max(bottomRep, math.min(CSL_REP_TOP, storedRep))
+    if CSL_REP_TOP <= bottomRep then
+        return 700
+    end
+    local ratio = (storedRep - bottomRep) / (CSL_REP_TOP - bottomRep)
+    return math.floor(530 + ratio * 390)
+end
+
+--- 分档/目标等计算用声望：中超还原减益，其他联赛用存盘值
+function RealDataLoader.getReputationForCalculation(gameState, teamId, team)
+    team = team or (gameState.teams and gameState.teams[teamId])
+    if not team then return 600 end
+    local stored = team.reputation or 600
+    if not RealDataLoader.isCSLTeam(gameState, teamId) then
+        return stored
+    end
+    local league = gameState.leagues and gameState.leagues.CSL
+    local teamCount = league and #league.teamIds or 16
+    return RealDataLoader.restoreCSLReputationForCalc(stored, teamCount)
+end
+
+--- 声望 → 周薪预算（与 _calcReputation 互逆，用于中超等固定初始声望的联赛）
+function RealDataLoader._reputationToWageBudget(reputation)
+    local rep = reputation or 500
+    local ratio = (rep - 500) / 450
+    ratio = math.max(0, math.min(1, ratio))
+    local logMin = math.log(200000)
+    local logMax = math.log(6500000)
+    local logWb = logMin + ratio * (logMax - logMin)
+    return math.floor(math.exp(logWb))
 end
 
 --- 中超球员周薪：按各队 wageBudget 缩放至约 80% 利用率

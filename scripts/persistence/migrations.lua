@@ -292,6 +292,160 @@ function Migrations.v5_to_v6(gameStateData)
         .. potentialFixed .. " 名随机球员的潜力(封顶" .. GENERATED_POTENTIAL_CAP .. ")")
 end
 
+--- 检测 displayName 是否含中文（真实 FM/传奇球员通常有中文名）
+local function _hasChineseName(text)
+    if not text or text == "" then return false end
+    if text:find("·", 1, true) then return true end
+    return text:match("[\228-\233][\128-\191][\128-\191]") ~= nil
+end
+
+--- 判断是否为旧版 _fillAISquads 静默补入的程序化球员
+local function _isSeasonRegenFillPlayer(pData, teamData)
+    if not pData or pData.isLegend or pData.isYouth or pData.retired then return false end
+    if not pData.teamId or not teamData then return false end
+
+    local wage = pData.wage or 0
+    if wage < 500 or wage > 3000 then return false end
+
+    local displayName = pData.displayName or ""
+    if _hasChineseName(displayName) then return false end
+
+    local firstName = pData.firstName or ""
+    local lastName = pData.lastName or ""
+    if displayName ~= (lastName .. " " .. firstName)
+        and not displayName:match("^" .. lastName:gsub("[%-%.%+%[%]%(%)%$%^%%%?%*]", "%%%0")
+            .. " " .. firstName:gsub("[%-%.%+%[%]%(%)%$%^%%%?%*]", "%%%0") .. " ") then
+        return false
+    end
+
+    local SeasonManager = require("scripts/systems/season_manager")
+    local country = teamData.country or pData.nationality or "ENG"
+    local lastPool = SeasonManager._getLastNamePool(country)
+    local firstPool = SeasonManager._getFirstNamePool(country)
+
+    local lastMatch, firstMatch = false, false
+    for _, n in ipairs(lastPool) do
+        if n == lastName then lastMatch = true; break end
+    end
+    for _, n in ipairs(firstPool) do
+        if n == firstName then firstMatch = true; break end
+    end
+    return lastMatch and firstMatch
+end
+
+--- 球队是否为「真实阵容」队（有 jsonTeamId / 传奇 / 中文名球员），而非纯程序化升降级队
+local function _teamHasRealRoster(teamData, players)
+    if teamData.jsonTeamId then return true end
+    for _, pid in ipairs(teamData.playerIds or {}) do
+        local p = players[tostring(pid)] or players[pid]
+        if p then
+            if p.isLegend then return true end
+            if _hasChineseName(p.displayName) then return true end
+        end
+    end
+    return false
+end
+
+local function _removePlayerIdFromArray(arr, playerId)
+    if type(arr) ~= "table" then return end
+    for i = #arr, 1, -1 do
+        if arr[i] == playerId then
+            table.remove(arr, i)
+        end
+    end
+end
+
+local function _removePlayerFromTeamData(teamData, playerId)
+    _removePlayerIdFromArray(teamData.playerIds, playerId)
+    _removePlayerIdFromArray(teamData._youthPlayerIds, playerId)
+    _removePlayerIdFromArray(teamData.benchIds, playerId)
+    _removePlayerIdFromArray(teamData.transferList, playerId)
+
+    if teamData.startingXI then
+        for slot, pid in pairs(teamData.startingXI) do
+            if pid == playerId then teamData.startingXI[slot] = nil end
+        end
+    end
+
+    local roleFields = {"captain", "penaltyTaker", "freeKickTaker", "cornerTaker"}
+    for _, field in ipairs(roleFields) do
+        if teamData[field] == playerId then teamData[field] = nil end
+    end
+
+    if teamData.lineupPresets then
+        for _, preset in pairs(teamData.lineupPresets) do
+            if type(preset) == "table" then
+                if preset.startingXI then
+                    for slot, pid in pairs(preset.startingXI) do
+                        if pid == playerId then preset.startingXI[slot] = nil end
+                    end
+                end
+                _removePlayerIdFromArray(preset.benchIds, playerId)
+            end
+        end
+    end
+end
+
+--- v6 → v7: 移除旧版赛季初 _fillAISquads 静默补入的程序化球员
+--- 只清理混入真实球队 roster 的假人；纯程序化升降级球队（无 jsonTeamId、全员假名）保留
+function Migrations.v6_to_v7(gameStateData)
+    local players = gameStateData.players
+    local teams = gameStateData.teams
+    if not players or not teams then return end
+
+    local teamById = {}
+    for _, teamData in pairs(teams) do
+        if teamData.id then teamById[teamData.id] = teamData end
+    end
+
+    local toRemove = {}
+    for idStr, pData in pairs(players) do
+        local teamData = teamById[pData.teamId]
+        if teamData and _teamHasRealRoster(teamData, players)
+            and _isSeasonRegenFillPlayer(pData, teamData) then
+            toRemove[#toRemove + 1] = pData.id or tonumber(idStr)
+        end
+    end
+
+    if #toRemove == 0 then
+        print("[SaveMigration] v6→v7: 未发现需清理的赛季补员假人")
+        return
+    end
+
+    local removeSet = {}
+    for _, pid in ipairs(toRemove) do removeSet[pid] = true end
+
+    for _, pid in ipairs(toRemove) do
+        local pData = players[tostring(pid)] or players[pid]
+        local teamData = pData and teamById[pData.teamId]
+        if teamData then
+            _removePlayerFromTeamData(teamData, pid)
+        end
+        players[tostring(pid)] = nil
+        players[pid] = nil
+    end
+
+    if gameStateData.transfers and gameStateData.transfers.bids then
+        for i = #gameStateData.transfers.bids, 1, -1 do
+            local bid = gameStateData.transfers.bids[i]
+            if bid and bid.playerId and removeSet[bid.playerId] then
+                table.remove(gameStateData.transfers.bids, i)
+            end
+        end
+    end
+
+    if gameStateData.shortlist then
+        for pid in pairs(gameStateData.shortlist) do
+            local key = tonumber(pid) or pid
+            if removeSet[key] or removeSet[pid] then
+                gameStateData.shortlist[pid] = nil
+            end
+        end
+    end
+
+    print("[SaveMigration] v6→v7: 已移除 " .. #toRemove .. " 名赛季补员假人")
+end
+
 --- 迁移路由：根据存档版本逐级升级
 --- @param saveData table 完整的存档顶层数据 {version, game_state, saved_at}
 --- @return number 迁移后的最终版本号
@@ -321,6 +475,11 @@ function Migrations.run(saveData)
     if version < 6 then
         Migrations.v5_to_v6(saveData.game_state)
         version = 6
+    end
+
+    if version < 7 then
+        Migrations.v6_to_v7(saveData.game_state)
+        version = 7
     end
 
     saveData.version = version

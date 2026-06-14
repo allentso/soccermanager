@@ -3,6 +3,7 @@
 
 local EventBus = require("scripts/app/event_bus")
 local MessageManager = require("scripts/systems/message_manager")
+local RealDataLoader = require("scripts/data/real_data_loader")
 
 local BoardManager = {}
 
@@ -182,7 +183,8 @@ function BoardManager.monthlyEvaluation(gameState)
                     -- 额外保护1：如果经理声望高于球队声望（归一化比较），给予额外容忍
                     local manager = gameState:getPlayerManager()
                     local managerRep = manager and manager.reputation or 30
-                    local teamRepNorm = MGR_REP_MIN + (team.reputation - TEAM_REP_MIN) / (TEAM_REP_MAX - TEAM_REP_MIN) * (MGR_REP_MAX - MGR_REP_MIN)
+                    local teamRepForCalc = RealDataLoader.getReputationForCalculation(gameState, teamId, team)
+                    local teamRepNorm = MGR_REP_MIN + (teamRepForCalc - TEAM_REP_MIN) / (TEAM_REP_MAX - TEAM_REP_MIN) * (MGR_REP_MAX - MGR_REP_MIN)
                     local extraTolerance = 0
                     if managerRep > teamRepNorm then
                         extraTolerance = extraTolerance + 1
@@ -361,7 +363,8 @@ function BoardManager.computeEffectiveTier(gameState, teamId)
     local team = gameState.teams[teamId]
     if not team then return "mid" end
 
-    local repTier = BoardManager._getReputationTier(team.reputation or 600)
+    local calcRep = RealDataLoader.getReputationForCalculation(gameState, teamId, team)
+    local repTier = BoardManager._getReputationTier(calcRep)
     local rank, total = BoardManager._getLeagueRepRank(gameState, teamId)
     local leagueTier = BoardManager._leagueRankToTier(rank, total)
 
