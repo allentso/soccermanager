@@ -962,6 +962,8 @@ function TransferManager.processAITransfers(gameState)
     for _, player in pairs(gameState.players) do
         if not player.listedForSale then goto skipPlayer end
         if player.retired then goto skipPlayer end
+        -- 已有待确认出售的bid时，不再接受新的竞争报价（避免多个阻断并存）
+        if TransferManager._hasAwaitingSaleConfirmation(gameState, player.id) then goto skipPlayer end
         -- 检查已有的竞争报价数量（允许多家出价，上限 MAX_COMPETING_BIDS）
         local existingBids = TransferManager.getIncomingBidsForPlayer(gameState, player.id)
         if #existingBids >= MAX_COMPETING_BIDS then goto skipPlayer end
@@ -1454,6 +1456,23 @@ function TransferManager.getIncomingBidsForPlayer(gameState, playerId)
     return bids
 end
 
+--- 检查某球员是否已有 awaiting_sale_confirmation 状态的 bid（避免同一球员多个待确认出售阻断时间推进）
+--- @param gameState table
+--- @param playerId string
+--- @param excludeBidId string|nil 排除的 bid id（用于状态转换时排除自身）
+--- @return boolean
+function TransferManager._hasAwaitingSaleConfirmation(gameState, playerId, excludeBidId)
+    TransferManager._ensureData(gameState)
+    for _, bid in ipairs(gameState.transfers.bids) do
+        if bid.playerId == playerId and bid.isIncomingBid
+            and bid.status == "awaiting_sale_confirmation"
+            and bid.id ~= excludeBidId then
+            return true
+        end
+    end
+    return false
+end
+
 --- 为挂牌球员寻找合适的买家
 function TransferManager._findBuyerForPlayer(gameState, player)
     local Constants = require("scripts/app/constants")
@@ -1789,6 +1808,20 @@ function TransferManager._processCounterResponse(gameState, bid)
     else acceptChance = 0.1 end
 
     if Random() < acceptChance then
+        -- 守卫检查：若该球员已有其他 awaiting_sale_confirmation 的 bid，则拒绝本次还价
+        if TransferManager._hasAwaitingSaleConfirmation(gameState, bid.playerId, bid.id) then
+            bid.status = "rejected"
+            bid.rejectedDate = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day}
+            bid.responseDate = bid.rejectedDate
+            gameState:sendMessage({
+                category = "transfer",
+                title = "交易取消",
+                body = string.format("%s 已有其他待确认的出售报价，%s 的还价协商自动取消。",
+                    player.displayName, buyerTeam.name),
+                priority = "normal",
+            })
+            return
+        end
         -- AI接受还价 → 进入等待玩家确认出售状态
         bid.amount = askAmount
         bid.status = "awaiting_sale_confirmation"
@@ -1893,6 +1926,20 @@ function TransferManager._completeIncomingSale(gameState, bid)
             amount = bid.amount,
             type = "permanent",
         })
+    end
+
+    -- 清理同一球员的其他活跃 incoming bid（球员已转会，其他报价自动失效）
+    for _, otherBid in ipairs(gameState.transfers.bids) do
+        if otherBid.playerId == bid.playerId and otherBid.id ~= bid.id and otherBid.isIncomingBid then
+            local activeStatuses = {
+                pending = true, counter_pending = true,
+                awaiting_sale_confirmation = true, player_considering_sale = true,
+            }
+            if activeStatuses[otherBid.status] then
+                otherBid.status = "rejected"
+                otherBid.rejectedDate = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day}
+            end
+        end
     end
 end
 
@@ -4325,6 +4372,39 @@ function TransferManager.processDailyBids(gameState)
         -- 下方的处理循环只作用于仍有效的 bid，已 cancelled 的会跳过
     end
 
+    -- 存档修复：清理同一球员存在多个 awaiting_sale_confirmation 的异常情况
+    -- 保留最高出价的 bid，其余自动 reject
+    do
+        local awaitingByPlayer = {} -- playerId -> { bid, ... }
+        for _, bid in ipairs(gameState.transfers.bids) do
+            if bid.isIncomingBid and bid.status == "awaiting_sale_confirmation" then
+                if not awaitingByPlayer[bid.playerId] then
+                    awaitingByPlayer[bid.playerId] = {}
+                end
+                table.insert(awaitingByPlayer[bid.playerId], bid)
+            end
+        end
+        for playerId, bids in pairs(awaitingByPlayer) do
+            if #bids > 1 then
+                -- 按金额降序，保留最高的，其余 reject
+                table.sort(bids, function(a, b) return (a.amount or 0) > (b.amount or 0) end)
+                for i = 2, #bids do
+                    bids[i].status = "rejected"
+                    bids[i].rejectedDate = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day}
+                end
+                local player = gameState.players[playerId]
+                local playerName = player and player.displayName or "该球员"
+                gameState:sendMessage({
+                    category = "transfer",
+                    title = "重复报价已清理",
+                    body = string.format("%s 存在多份待确认出售报价，已自动保留最高报价，其余取消。",
+                        playerName),
+                    priority = "normal",
+                })
+            end
+        end
+    end
+
     for _, bid in ipairs(gameState.transfers.bids) do
         if bid.status == "pending" then
             -- 推销报价走不同路径
@@ -4425,6 +4505,20 @@ function TransferManager.processDailyBids(gameState)
                 local buyerName = buyerTeam and buyerTeam.name or "买方球队"
 
                 if consent then
+                    -- 守卫检查：若该球员已有其他 awaiting_sale_confirmation 的 bid，则自动拒绝本次
+                    -- 避免同一球员产生多个待确认出售阻断时间推进
+                    if TransferManager._hasAwaitingSaleConfirmation(gameState, bid.playerId, bid.id) then
+                        bid.status = "rejected"
+                        bid.rejectedDate = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day}
+                        gameState:sendMessage({
+                            category = "transfer",
+                            title = "转会取消",
+                            body = string.format("%s 已有其他待确认的转会报价，%s 的报价自动取消。",
+                                playerName, buyerName),
+                            priority = "normal",
+                        })
+                        goto continuePlayerConsidering
+                    end
                     -- 球员同意，进入等待玩家最终确认出售状态
                     bid.status = "awaiting_sale_confirmation"
                     bid.saleConfirmDate = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day}
@@ -4457,6 +4551,7 @@ function TransferManager.processDailyBids(gameState)
                 end
             end
         end
+        ::continuePlayerConsidering::
     end
 
     -- pending incoming bid 超时：玩家长期未回复，买方撤回报价
@@ -4603,10 +4698,35 @@ function TransferManager.listForSale(gameState, player)
     return true
 end
 
---- 取消挂牌
+--- 取消挂牌（同时取消该球员所有活跃的 incoming bid，避免残留阻断）
+---@param gameState table|nil 传入时会清理活跃bid；不传时仅清除标记（兼容旧调用）
 ---@param player table
-function TransferManager.delistPlayer(player)
+function TransferManager.delistPlayer(gameState, player)
+    -- 兼容旧调用方式: delistPlayer(player)
+    if player == nil and gameState and gameState.displayName then
+        player = gameState
+        gameState = nil
+    end
+
     player.listedForSale = false
+
+    -- 清理该球员所有活跃的 incoming bid
+    if gameState then
+        TransferManager._ensureData(gameState)
+        for _, bid in ipairs(gameState.transfers.bids) do
+            if bid.playerId == player.id and bid.isIncomingBid then
+                local activeStatuses = {
+                    pending = true, counter_pending = true,
+                    awaiting_sale_confirmation = true, player_considering_sale = true,
+                }
+                if activeStatuses[bid.status] then
+                    bid.status = "rejected"
+                    bid.rejectedDate = gameState.date and
+                        {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day} or nil
+                end
+            end
+        end
+    end
 end
 
 return TransferManager

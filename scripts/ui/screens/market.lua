@@ -1339,14 +1339,28 @@ function Market._buildListedContent(gameState)
     -- 分类球员：已挂牌 vs 可挂牌（含青训名单）
     local listedPlayers = {}
     local availablePlayers = {}
+    local listedPlayerIds = {}
     for _, p in ipairs(Market._collectTeamRosterPlayers(gameState, team)) do
         if p.squadRole == "loaned" and p.listedForSale then
             p.listedForSale = false
         end
         if p.listedForSale and p.squadRole ~= "loaned" then
             table.insert(listedPlayers, p)
+            listedPlayerIds[p.id] = true
         elseif p.squadRole ~= "loaned" then
             table.insert(availablePlayers, p)
+        end
+    end
+
+    -- 兜底：将有 awaiting_sale_confirmation bid 但未挂牌的球员也加入列表（避免死锁）
+    local pendingSales = TransferManager.getPendingSaleConfirmations(gameState, team.id)
+    for _, sale in ipairs(pendingSales) do
+        if not listedPlayerIds[sale.playerId] then
+            local p = gameState.players[sale.playerId]
+            if p and p.teamId == team.id then
+                table.insert(listedPlayers, p)
+                listedPlayerIds[p.id] = true
+            end
         end
     end
 
@@ -1445,7 +1459,7 @@ function Market._buildListedContent(gameState)
                                 borderRadius = 6, fontSize = 12,
                                 color = Theme.COLORS.TEXT_SECONDARY,
                                 onClick = function()
-                                    TransferManager.delistPlayer(p)
+                                    TransferManager.delistPlayer(gameState, p)
                                     Router.replaceWith("market", { tab = "listed" })
                                 end,
                             },
