@@ -48,6 +48,10 @@ local YOUTH_NAMES_BY_NATION = {
         { "林思远" }, { "何泽宇" }, { "郭煜城" }, { "马星辰" }, { "罗承恩" },
         { "梁铭轩" }, { "宋睿智" }, { "郑翰林" }, { "谢文昊" }, { "韩致远" },
         { "唐鸿飞" }, { "冯修远" }, { "于凯旋" }, { "董子墨" }, { "萧晋鹏" },
+        { "许嘉树" }, { "沈逸凡" }, { "曹宇轩" }, { "邓子豪" }, { "彭思齐" },
+        { "曾文博" }, { "彭宇航" }, { "吕晨阳" }, { "丁梓睿" }, { "任天佑" },
+        { "姜皓轩" }, { "范子谦" }, { "方嘉懿" }, { "石锦程" }, { "姚启航" },
+        { "谭俊豪" }, { "邱子墨" }, { "秦宇辰" }, { "江浩然" }, { "汪明轩" },
     },
     -- 巴西球员（常见姓氏音译）
     BRA = {
@@ -69,6 +73,8 @@ local YOUTH_NAMES_BY_NATION = {
         { "山本苍空" }, { "中村陆斗" }, { "小林悠真" }, { "加藤骏" }, { "吉田拓实" },
         { "山田健太" }, { "松本大地" }, { "井上晴人" }, { "木村莲" }, { "林隼人" },
         { "斉藤瑛太" }, { "清水壮太" }, { "森田翼" }, { "池田悠人" }, { "高桥拓海" },
+        { "藤原苍" }, { "原田陆" }, { "三浦悠" }, { "冈田飒" }, { "内田航" },
+        { "福田莲斗" }, { "西村悠真" }, { "石川大辉" }, { "上田苍太" }, { "后藤骏" },
     },
     -- 韩国球员（中文汉字）
     KR = {
@@ -76,6 +82,8 @@ local YOUTH_NAMES_BY_NATION = {
         { "姜秀赫" }, { "赵俊浩" }, { "韩尚勋" }, { "尹载元" }, { "吴承民" },
         { "申东赫" }, { "权赫俊" }, { "黄仁成" }, { "孙兴浩" }, { "裴镇宇" },
         { "南泰旭" }, { "柳在石" }, { "洪正浩" }, { "文尚允" }, { "白承训" },
+        { "安志勋" }, { "车宇彬" }, { "卢尚贤" }, { "严俊宇" }, { "方泰成" },
+        { "成志浩" }, { "元尚勋" }, { "河俊锡" }, { "都承佑" }, { "鲜于航" },
     },
     -- 法国球员（常见姓氏音译）
     FRA = {
@@ -177,6 +185,17 @@ local YOUTH_NAMES_BY_NATION = {
     },
 }
 
+-- 使用完整姓名条目（不再拼接名·姓）
+local YOUTH_FULL_NAME_NATIONS = { CN = true, JP = true, KR = true }
+
+-- 名·姓 组合用的名字池（与姓氏池组合，扩大唯一组合数）
+local YOUTH_GIVEN_NAMES = {
+    "加布里埃尔", "卢卡斯", "马特奥", "迭戈", "莱昂", "尼古拉斯", "塞巴斯蒂安",
+    "费德里科", "马可", "安德烈", "斯特凡", "扬", "皮埃尔", "安东尼", "维克托",
+    "丹尼尔", "胡安", "米格尔", "卡洛斯", "佩德罗", "拉斐尔", "布鲁诺", "蒂亚戈",
+    "恩佐", "阿德里安", "伊尼亚基", "马尔科", "达尼", "亚历克斯", "托马斯",
+}
+
 -- 国籍池：按真实足球人才输出分配（共50条目）
 -- 南美：巴西18% 阿根廷10% 哥伦比亚4% 乌拉圭4% = 36%
 -- 欧洲：法国10% 英格兰8% 西班牙8% 德国8% 意大利6% 葡萄牙4% 荷兰4% 比利时4% 克罗地亚2% 塞尔维亚2% = 56%
@@ -239,6 +258,96 @@ local POSITION_MAP = {
 local function mapPosition(pos)
     if not pos then return "ST" end
     return POSITION_MAP[pos] or pos
+end
+
+--- 收集某队青训/候选池已占用的 displayName
+---@param gameState table
+---@param teamId number|nil
+---@param extraUsed table|nil
+---@return table used set
+local function _collectYouthUsedNames(gameState, teamId, extraUsed)
+    local used = {}
+    local function mark(name)
+        if name and name ~= "" then used[name] = true end
+    end
+    if extraUsed then
+        for name in pairs(extraUsed) do mark(name) end
+    end
+    local team = teamId and gameState.teams[teamId]
+    if team then
+        for _, pid in ipairs(team._youthPlayerIds or {}) do
+            local p = gameState.players[pid]
+            if p then mark(p.displayName) end
+        end
+    end
+    for _, c in ipairs(gameState._youthCandidates or {}) do
+        mark(c.displayName)
+    end
+    return used
+end
+
+--- 从国籍对应名字池抽取未占用的 displayName，并写入 usedNames
+---@param nationality string
+---@param usedNames table|nil
+---@return string displayName
+local function _pickYouthDisplayName(nationality, usedNames)
+    usedNames = usedNames or {}
+    local maxAttempts = 120
+
+    if YOUTH_FULL_NAME_NATIONS[nationality] then
+        local pool = YOUTH_NAMES_BY_NATION[nationality] or YOUTH_NAMES_BY_NATION.CN
+        for _ = 1, maxAttempts do
+            local name = pool[RandomInt(1, #pool)][1]
+            if not usedNames[name] then
+                usedNames[name] = true
+                return name
+            end
+        end
+    else
+        local pool = YOUTH_NAMES_BY_NATION[nationality] or YOUTH_NAMES_BY_NATION.BRA
+        for _ = 1, maxAttempts do
+            local given = YOUTH_GIVEN_NAMES[RandomInt(1, #YOUTH_GIVEN_NAMES)]
+            local surname = pool[RandomInt(1, #pool)][1]
+            local name = given .. "·" .. surname
+            if not usedNames[name] then
+                usedNames[name] = true
+                return name
+            end
+        end
+    end
+
+    -- 极端情况：在名后追加一字变体（仍保持中文姓名风格）
+    local variants = { "翔", "彦", "太", "也", "树", "真", "斗", "人", "介", "一" }
+    for _ = 1, 40 do
+        if YOUTH_FULL_NAME_NATIONS[nationality] then
+            local pool = YOUTH_NAMES_BY_NATION[nationality] or YOUTH_NAMES_BY_NATION.CN
+            local base = pool[RandomInt(1, #pool)][1]
+            local name = base:sub(1, 2) .. variants[RandomInt(1, #variants)] .. base:sub(3)
+            if not usedNames[name] then
+                usedNames[name] = true
+                return name
+            end
+        else
+            local pool = YOUTH_NAMES_BY_NATION[nationality] or YOUTH_NAMES_BY_NATION.BRA
+            local given = YOUTH_GIVEN_NAMES[RandomInt(1, #YOUTH_GIVEN_NAMES)]
+            local surname = pool[RandomInt(1, #pool)][1]
+            local name = given .. variants[RandomInt(1, #variants)] .. "·" .. surname
+            if not usedNames[name] then
+                usedNames[name] = true
+                return name
+            end
+        end
+    end
+
+    local fallback = "青训" .. tostring(RandomInt(1000, 9999))
+    usedNames[fallback] = true
+    return fallback
+end
+
+--- displayName → firstName / lastName（lastName 取 · 后段，供阵型短标签）
+local function _formatYouthNameFields(displayName)
+    local last = displayName:match("·(.+)$") or displayName
+    return displayName, last
 end
 
 ------------------------------------------------------
@@ -683,9 +792,10 @@ function YouthManager._refreshCandidates(gameState)
     local youthDevBonus, facilityYouthBonus = YouthManager._getTeamYouthGenBonuses(gameState, team.id)
 
     local candidates = {}
+    local usedNames = _collectYouthUsedNames(gameState, team.id)
 
     for _ = 1, YOUTH_POOL_SIZE do
-        local candidate = YouthManager._generateYouthPlayer(gameState, youthDevBonus, facilityYouthBonus)
+        local candidate = YouthManager._generateYouthPlayer(gameState, youthDevBonus, facilityYouthBonus, usedNames)
         table.insert(candidates, candidate)
     end
 
@@ -729,7 +839,7 @@ function YouthManager._rollYouthPotential(youthMods, facilityLevel, youthDevBonu
     return math.min(99, basePotential + coachAdd)
 end
 
-function YouthManager._generateYouthPlayer(gameState, youthDevBonus, facilityYouthBonus)
+function YouthManager._generateYouthPlayer(gameState, youthDevBonus, facilityYouthBonus, usedNames)
     facilityYouthBonus = facilityYouthBonus or 1.0
     local positions = {"GK", "CB", "LB", "RB", "CM", "CDM", "CAM", "LW", "RW", "ST"}
     local position = positions[RandomInt(1, #positions)]
@@ -771,16 +881,15 @@ function YouthManager._generateYouthPlayer(gameState, youthDevBonus, facilityYou
         actualOverall = overallFloor
     end
 
-    -- 先随机国籍，再从对应国籍名字池中取名
+    -- 先随机国籍，再从对应名字池取名（本批/本队 usedNames 去重）
     local nationality = YOUTH_NATIONALITIES[RandomInt(1, #YOUTH_NATIONALITIES)]
-    local namePool = YOUTH_NAMES_BY_NATION[nationality] or YOUTH_NAMES_BY_NATION["CN"]
-    local nameEntry = namePool[RandomInt(1, #namePool)]
-    local fullName = nameEntry[1]
+    local displayName = _pickYouthDisplayName(nationality, usedNames)
+    local firstName, lastName = _formatYouthNameFields(displayName)
 
     return {
-        firstName = fullName,
-        lastName = fullName,
-        displayName = fullName,
+        firstName = firstName,
+        lastName = lastName,
+        displayName = displayName,
         nationality = nationality,
         birthYear = birthYear,
         position = position,
@@ -875,9 +984,11 @@ function YouthManager.fillAllTeamsYouth(gameState)
         if needed > 0 then
             local youthDevBonus, facilityYouthBonus =
                 YouthManager._getTeamYouthGenBonuses(gameState, teamId)
+            local usedNames = _collectYouthUsedNames(gameState, teamId)
 
             for _ = 1, needed do
-                local candidate = YouthManager._generateYouthPlayer(gameState, youthDevBonus, facilityYouthBonus)
+                local candidate = YouthManager._generateYouthPlayer(
+                    gameState, youthDevBonus, facilityYouthBonus, usedNames)
 
                 -- 转换为正式青训球员
                 local playerData = {
@@ -1100,7 +1211,8 @@ function YouthManager.doSinglePull(gameState)
             state.firstTenPull = false
         end
     else
-        candidate = YouthManager._generateYouthPlayer(gameState, youthDevBonus, facilityYouthBonus)
+        local usedNames = team and _collectYouthUsedNames(gameState, team.id) or {}
+        candidate = YouthManager._generateYouthPlayer(gameState, youthDevBonus, facilityYouthBonus, usedNames)
     end
 
     -- 追加到当前候选池
@@ -1162,6 +1274,7 @@ function YouthManager.doTenPull(gameState)
     local candidates = {}
     local legendCount = 0
     local guaranteedSlot = 0  -- 保底传奇放在第几个位置
+    local usedNames = team and _collectYouthUsedNames(gameState, team.id) or {}
 
     -- 判断是否触发保底（前提：池中还有传奇可抽）
     if #legendPool > 0 then
@@ -1221,10 +1334,12 @@ function YouthManager.doTenPull(gameState)
                 legendData = lData,  -- 保留原始数据供弹窗使用
             }
             table.insert(candidates, candidate)
+            usedNames[candidate.displayName] = true
             legendCount = legendCount + 1
         else
             -- 普通青训球员
-            local candidate = YouthManager._generateYouthPlayer(gameState, youthDevBonus, facilityYouthBonus)
+            local candidate = YouthManager._generateYouthPlayer(
+                gameState, youthDevBonus, facilityYouthBonus, usedNames)
             table.insert(candidates, candidate)
         end
     end
@@ -1341,10 +1456,11 @@ function YouthManager._processAITeamsMonthly(gameState)
                 if needed > 0 then
                     local youthDevBonus, facilityYouthBonus =
                         YouthManager._getTeamYouthGenBonuses(gameState, teamId)
+                    local usedNames = _collectYouthUsedNames(gameState, teamId)
 
                     for _ = 1, needed do
                         local candidate = YouthManager._generateYouthPlayer(
-                            gameState, youthDevBonus, facilityYouthBonus)
+                            gameState, youthDevBonus, facilityYouthBonus, usedNames)
                         local playerData = {
                             firstName = candidate.firstName,
                             lastName = candidate.lastName,

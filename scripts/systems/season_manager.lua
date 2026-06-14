@@ -752,6 +752,25 @@ function SeasonManager._getTeamStrength(gameState, teamId)
     return count > 0 and math.floor(total / count) or 50
 end
 
+--- 程序化球员：同队 displayName 去重
+local function _pickUniqueRegenName(usedNames, firstNames, lastNames)
+    for _ = 1, 80 do
+        local lastName = lastNames[RandomInt(1, #lastNames)]
+        local firstName = firstNames[RandomInt(1, #firstNames)]
+        local displayName = lastName .. " " .. firstName
+        if not usedNames[displayName] then
+            usedNames[displayName] = true
+            return firstName, lastName, displayName
+        end
+    end
+    local lastName = lastNames[RandomInt(1, #lastNames)]
+    local firstName = firstNames[RandomInt(1, #firstNames)]
+    local middle = firstNames[RandomInt(1, #firstNames)]:sub(1, 1)
+    local displayName = lastName .. " " .. firstName .. " " .. middle .. "."
+    usedNames[displayName] = true
+    return firstName, lastName, displayName
+end
+
 --- 生成一支升级球队（程序化创建）
 function SeasonManager._generatePromotionTeam(gameState, leagueKey, country)
     -- 球队名称素材（按国家）
@@ -802,16 +821,16 @@ function SeasonManager._generateSquadForTeam(gameState, team, leagueKey)
 
     local lastNames = SeasonManager._getLastNamePool(team.country)
     local firstNames = SeasonManager._getFirstNamePool(team.country)
+    local usedNames = {}
 
     for _, pos in ipairs(positions) do
         local age = RandomInt(19, 32)
-        local lastName = lastNames[RandomInt(1, #lastNames)]
-        local firstName = firstNames[RandomInt(1, #firstNames)]
+        local firstName, lastName, displayName = _pickUniqueRegenName(usedNames, firstNames, lastNames)
 
         local playerData = {
             firstName = firstName,
             lastName = lastName,
-            displayName = lastName .. " " .. firstName,
+            displayName = displayName,
             birthYear = gameState.date.year - age,
             nationality = team.country,
             position = pos,
@@ -875,15 +894,16 @@ end
 function SeasonManager._getLastNamePool(country)
     local pools = {
         ENG = {"Smith", "Johnson", "Williams", "Brown", "Jones", "Taylor", "Davies",
-               "Wilson", "Evans", "Thomas", "Roberts", "Walker", "Wright", "Hall"},
+               "Wilson", "Evans", "Thomas", "Roberts", "Walker", "Wright", "Hall",
+               "Green", "Baker", "Adams", "Campbell", "Mitchell", "Carter"},
         ES  = {"García", "Martínez", "López", "Rodríguez", "Fernández", "González",
-               "Sánchez", "Pérez", "Ruiz", "Díaz", "Hernández", "Moreno"},
+               "Sánchez", "Pérez", "Ruiz", "Díaz", "Hernández", "Moreno", "Muñoz", "Romero"},
         IT  = {"Rossi", "Russo", "Ferrari", "Esposito", "Bianchi", "Romano",
-               "Colombo", "Ricci", "Marino", "Greco", "Bruno", "Gallo"},
+               "Colombo", "Ricci", "Marino", "Greco", "Bruno", "Gallo", "Conti", "Mancini"},
         DE  = {"Müller", "Schmidt", "Schneider", "Fischer", "Weber", "Meyer",
-               "Wagner", "Becker", "Schulz", "Hoffmann", "Koch", "Richter"},
+               "Wagner", "Becker", "Schulz", "Hoffmann", "Koch", "Richter", "Klein", "Wolf"},
         FR  = {"Martin", "Bernard", "Dubois", "Thomas", "Robert", "Richard",
-               "Petit", "Durand", "Leroy", "Moreau", "Simon", "Laurent"},
+               "Petit", "Durand", "Leroy", "Moreau", "Simon", "Laurent", "Lefevre", "Mercier"},
     }
     return pools[country] or pools.ENG
 end
@@ -891,15 +911,20 @@ end
 function SeasonManager._getFirstNamePool(country)
     local pools = {
         ENG = {"James", "Oliver", "Harry", "George", "Jack", "Charlie", "Leo",
-               "Thomas", "William", "Oscar", "Daniel", "Ben", "Sam", "Luke"},
+               "Thomas", "William", "Oscar", "Daniel", "Ben", "Sam", "Luke",
+               "Henry", "Alfie", "Freddie", "Archie", "Ethan", "Noah"},
         ES  = {"Pablo", "Daniel", "Hugo", "Mateo", "Alejandro", "Álvaro",
-               "Adrián", "David", "Mario", "Diego", "Sergio", "Carlos"},
+               "Adrián", "David", "Mario", "Diego", "Sergio", "Carlos",
+               "Iván", "Javier", "Raúl", "Marcos", "Rubén", "Ángel"},
         IT  = {"Leonardo", "Francesco", "Alessandro", "Lorenzo", "Mattia",
-               "Andrea", "Gabriele", "Riccardo", "Tommaso", "Edoardo"},
+               "Andrea", "Gabriele", "Riccardo", "Tommaso", "Edoardo",
+               "Luca", "Filippo", "Matteo", "Davide", "Simone"},
         DE  = {"Lukas", "Leon", "Luca", "Finn", "Elias", "Jonas",
-               "Ben", "Noah", "Paul", "Felix", "Maximilian", "Tim"},
+               "Ben", "Noah", "Paul", "Felix", "Maximilian", "Tim",
+               "Niklas", "Moritz", "Jan", "Florian", "Tobias", "Simon"},
         FR  = {"Lucas", "Louis", "Gabriel", "Raphaël", "Arthur", "Hugo",
-               "Jules", "Adam", "Léo", "Nathan", "Ethan", "Paul"},
+               "Jules", "Adam", "Léo", "Nathan", "Ethan", "Paul",
+               "Antoine", "Maxime", "Clément", "Théo", "Enzo", "Tom"},
     }
     return pools[country] or pools.ENG
 end
@@ -1087,17 +1112,21 @@ function SeasonManager._fillAISquads(gameState)
         -- 如果阵容不足18人，补充
         local lastNames = SeasonManager._getLastNamePool(team.country)
         local firstNames = SeasonManager._getFirstNamePool(team.country)
+        local usedNames = {}
+        for _, pid in ipairs(team.playerIds) do
+            local p = gameState.players[pid]
+            if p and p.displayName then usedNames[p.displayName] = true end
+        end
 
         while #team.playerIds < 18 do
             local pos = positions[RandomInt(1, #positions)]
             local age = RandomInt(18, 30)
-            local lastName = lastNames[RandomInt(1, #lastNames)]
-            local firstName = firstNames[RandomInt(1, #firstNames)]
+            local firstName, lastName, displayName = _pickUniqueRegenName(usedNames, firstNames, lastNames)
 
             local playerData = {
                 firstName = firstName,
                 lastName = lastName,
-                displayName = lastName .. " " .. firstName,
+                displayName = displayName,
                 birthYear = gameState.date.year - age,
                 nationality = team.country or "ENG",
                 position = pos,
