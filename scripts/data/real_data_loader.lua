@@ -313,7 +313,7 @@ function RealDataLoader.importLeague(gameState, leagueData, leagueConfig)
         WorldGenerator.autoSelectStartingXI(gameState, teamId)
     end
 
-    -- 4. 创建联赛对象
+    -- 创建联赛对象
     local league = League.new({
         id = leagueConfig.shortName,
         name = leagueConfig.name,
@@ -322,19 +322,25 @@ function RealDataLoader.importLeague(gameState, leagueData, leagueConfig)
         teamIds = teamIds,
     })
 
-    -- 使用JSON中的赛程（如果有），否则自动生成
-    if leagueData.league and leagueData.league.fixtures and #leagueData.league.fixtures > 0 then
+    local seasonStartDate = {
+        year = gameState.season or gameState.date.year,
+        month = Constants.SEASON_START_MONTH,
+        day = Constants.SEASON_START_DAY,
+    }
+
+    -- 中超视为「第六大联赛」：与五大联赛共用 8 月开季、周六双循环，不用 JSON 里的 3 月自然年赛程
+    if leagueConfig.shortName == "CSL" then
+        league:generateFixtures(seasonStartDate)
+    elseif leagueData.league and leagueData.league.fixtures and #leagueData.league.fixtures > 0 then
         -- 转换JSON赛程格式到游戏格式（年份偏移：JSON数据基于2024赛季）
         local yearOffset = (gameState.season or 2025) - 2024
         league.fixtures = RealDataLoader._convertFixtures(leagueData.league.fixtures, teamIdMap, yearOffset)
         league.totalRounds = RealDataLoader._calcTotalRounds(#teamIds)
         league.currentRound = 1
+        -- 个别 JSON 赛程早于 8 月赛季起点时平移（如英超 7 月）
+        RealDataLoader._shiftFixturesToSeasonStart(league.fixtures, seasonStartDate)
     else
-        league:generateFixtures({
-            year = gameState.date.year,
-            month = gameState.date.month,
-            day = gameState.date.day,
-        })
+        league:generateFixtures(seasonStartDate)
     end
 
     league:initStandings()
@@ -378,6 +384,69 @@ function RealDataLoader._convertFixtures(jsonFixtures, teamIdMap, yearOffset)
     end
 
     return fixtures
+end
+
+local function _dateSerial(d)
+    return d.year * 372 + d.month * 31 + d.day
+end
+
+--- 将 JSON 导入的赛程整体平移，使最早一轮对齐到赛季起点后的首个周六
+--- 保留轮次间隔与对阵，仅修正日历（如英超 JSON 7 月 vs 游戏 8 月开季）
+function RealDataLoader._shiftFixturesToSeasonStart(fixtures, seasonStartDate)
+    if not fixtures or #fixtures == 0 or not seasonStartDate then return end
+
+    local earliest = fixtures[1].date
+    for _, f in ipairs(fixtures) do
+        if f.date and _dateSerial(f.date) < _dateSerial(earliest) then
+            earliest = f.date
+        end
+    end
+
+    if _dateSerial(earliest) >= _dateSerial(seasonStartDate) then
+        return
+    end
+
+    local target = League._alignToWeekday(seasonStartDate, 6)
+    local offset = _dateSerial(target) - _dateSerial(earliest)
+    if offset <= 0 then return end
+
+    for _, f in ipairs(fixtures) do
+        if f.date then
+            f.date = League._addDays(f.date, offset)
+        end
+    end
+end
+
+--- 读档修复：旧版中超曾导入 3 月 JSON 赛程，尚无赛果时改为 8 月开季双循环
+function RealDataLoader.fixMisalignedLeagueFixtures(gameState)
+    if gameState._fixMisalignedLeagueFixturesDone then return end
+    gameState._fixMisalignedLeagueFixturesDone = true
+
+    local seasonStart = {
+        year = gameState.season or gameState.date.year,
+        month = Constants.SEASON_START_MONTH,
+        day = Constants.SEASON_START_DAY,
+    }
+
+    for key, lg in pairs(gameState.leagues or {}) do
+        local needsFix = false
+        local anyFinished = false
+        for _, f in ipairs(lg.fixtures or {}) do
+            if f.status == "finished" then
+                anyFinished = true
+            elseif f.status == "scheduled" and f.date and _dateSerial(f.date) < _dateSerial(seasonStart) then
+                needsFix = true
+            end
+        end
+        if needsFix and not anyFinished then
+            if key == "CSL" then
+                lg:generateFixtures(seasonStart)
+            else
+                RealDataLoader._shiftFixturesToSeasonStart(lg.fixtures, seasonStart)
+            end
+            lg:initStandings()
+        end
+    end
 end
 
 -- 计算总轮次 (n-1)*2

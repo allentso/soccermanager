@@ -224,6 +224,8 @@ function Dashboard.create(params)
         -- [BUG FIX] 在推进日期之前，检测是否已有逾期的玩家比赛
         -- 如果有，直接展示给玩家而不消耗日历天数，避免雪球效应
         if not gameState._cheatAutoPlay then
+            -- 先补模拟其他球队的逾期比赛（否则 advanceDay 被拦截时积分榜永远不更新）
+            TurnProcessor.simulateNonPlayerOverdueLeagueFixtures(gameState)
             local overdueFixture = TurnProcessor.peekOverduePlayerFixture(gameState)
             if overdueFixture then
                 overdueFixture._pendingPlayerMatch = true

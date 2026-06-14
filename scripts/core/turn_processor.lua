@@ -39,6 +39,10 @@ function TurnProcessor.advanceDay(gameState)
     -- 存档迁移：旧存档无国内杯赛数据时，延迟初始化
     DomesticCup.migrateIfNeeded(gameState)
 
+    -- 存档修复：旧存档赛程早于 8 月赛季起点（旧版中超 3 月 JSON 等）
+    local RealDataLoader = require("scripts/data/real_data_loader")
+    RealDataLoader.fixMisalignedLeagueFixtures(gameState)
+
     -- 推进日期
     local newDate = League._addDays(gameState.date, 1)
     gameState.date = newDate
@@ -221,6 +225,29 @@ function TurnProcessor._catchUpOverdueLeagueFixtures(gameState, currentDate)
     end
 
     return playerOverdue
+end
+
+--- 在不推进日期的情况下，补模拟所有逾期的非玩家联赛比赛
+--- 用于玩家有逾期比赛时仍让其他球队继续踢、积分榜更新
+function TurnProcessor.simulateNonPlayerOverdueLeagueFixtures(gameState)
+    local currentDate = gameState.date
+    local playerTeamId = gameState.playerTeamId
+
+    for _, lg in pairs(gameState.leagues or {}) do
+        for _, fixture in ipairs(lg.fixtures or {}) do
+            if fixture.status == "scheduled" and fixture.date
+                and TurnProcessor._isDateBefore(fixture.date, currentDate) then
+                local isPlayerMatch = playerTeamId and
+                    (fixture.homeTeamId == playerTeamId or fixture.awayTeamId == playerTeamId)
+                if not isPlayerMatch or gameState._cheatAutoPlay then
+                    local report = MatchEngine.simulate(gameState, fixture)
+                    if report then
+                        MatchEngine.applyResult(gameState, fixture, report)
+                    end
+                end
+            end
+        end
+    end
 end
 
 -- 处理比赛日
