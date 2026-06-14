@@ -94,6 +94,21 @@ function HistoryManager.recordSeasonEnd(gameState, awards)
         end
     end
 
+    -- 杯赛冠军
+    if gameState.domesticCups then
+        record.domesticCups = {}
+        for leagueKey, cup in pairs(gameState.domesticCups) do
+            if cup.winner then
+                local winnerTeam = gameState.teams[cup.winner]
+                record.domesticCups[leagueKey] = {
+                    name = cup.name,
+                    winnerId = cup.winner,
+                    winnerName = winnerTeam and winnerTeam.name or "?",
+                }
+            end
+        end
+    end
+
     if gameState.lastPromotionRelegation then
         record.promotionRelegation = gameState.lastPromotionRelegation
     end

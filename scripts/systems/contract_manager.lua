@@ -21,7 +21,7 @@ function ContractManager.processDaily(gameState)
 
     for _, pid in ipairs(team.playerIds) do
         local p = gameState.players[pid]
-        if p and p.contractEnd then
+        if p and p.contractEnd and not p._loanOriginTeamId and p.squadRole ~= "loaned" then
             local monthsLeft = ContractManager._monthsUntilExpiry(gameState, p)
 
             -- 6个月内到期：提醒
@@ -84,6 +84,11 @@ end
 function ContractManager.renewContract(gameState, playerId, newWage, newYears)
     local player = gameState.players[playerId]
     if not player then return false, "球员不存在" end
+
+    -- 租借球员不能续约（合同归属原俱乐部）
+    if player._loanOriginTeamId or player.squadRole == "loaned" then
+        return false, "租借球员无法续约，合同归属原俱乐部"
+    end
 
     local team = gameState.teams[player.teamId]
     if not team then return false, "球员无所属球队" end

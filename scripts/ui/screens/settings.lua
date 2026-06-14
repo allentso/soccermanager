@@ -682,6 +682,9 @@ function Settings._cheatSkipToSeasonEnd()
     -- 完成所有联赛和欧冠
     Settings._completeAllLeagues(gameState)
 
+    -- 完成国际大赛（世界杯/欧洲杯）
+    Settings._completeInternationalTournaments(gameState)
+
     -- 执行赛季结算
     pcall(SeasonManager.endSeason, gameState)
 
@@ -842,8 +845,8 @@ function Settings._cheatTripleCrown()
     -- 触发欧冠夺冠记录
     RecordsManager.onUCLChampionship(gameState, playerTeamId)
 
-    -- 4. 触发世界杯夺冠记录（模拟玩家国家队夺冠）
-    RecordsManager.onWorldCupChampionship(gameState, playerTeamId)
+    -- 4. 完成国际大赛（世界杯/欧洲杯）
+    Settings._completeInternationalTournaments(gameState)
 
     -- 5. 执行赛季结算（会触发联赛夺冠记录 RecordsManager.onSeasonEnd）
     pcall(SeasonManager.endSeason, gameState)
@@ -909,6 +912,8 @@ function Settings._cheatSkipToWorldCup()
     while gameState.season < wcYear do
         -- 完成当前联赛（给所有比赛设置假结果）
         Settings._completeAllLeagues(gameState)
+        -- 完成国际大赛（世界杯/欧洲杯）
+        Settings._completeInternationalTournaments(gameState)
         -- 执行赛季结算（包含新赛季初始化、欧冠、世界杯等）
         pcall(SeasonManager.endSeason, gameState)
     end
@@ -1119,6 +1124,79 @@ function Settings._completeAllLeagues(gameState)
 end
 
 ------------------------------------------------------
+-- 作弊：完成国际大赛（世界杯/欧洲杯）
+------------------------------------------------------
+function Settings._completeInternationalTournaments(gameState)
+    local WorldCup = require("scripts/systems/world_cup")
+    local EuroCup = require("scripts/systems/euro_cup")
+
+    -- 完成世界杯
+    if gameState.worldCup and gameState.worldCup.phase ~= "completed" and gameState.worldCup.phase ~= "not_started" then
+        Settings._completeTournamentFully(gameState, gameState.worldCup, WorldCup)
+    end
+
+    -- 完成欧洲杯
+    if gameState.euroCup and gameState.euroCup.phase ~= "completed" and gameState.euroCup.phase ~= "not_started" then
+        Settings._completeTournamentFully(gameState, gameState.euroCup, EuroCup)
+    end
+end
+
+function Settings._completeTournamentFully(gameState, tournament, module)
+    -- 安全阀：防止无限循环
+    local maxIterations = 20
+    local iteration = 0
+
+    while tournament.phase ~= "completed" and iteration < maxIterations do
+        iteration = iteration + 1
+
+        -- 1) 模拟小组赛所有未完成比赛
+        if tournament.phase == "group" and tournament.groups then
+            for groupName, group in pairs(tournament.groups) do
+                for _, f in ipairs(group.fixtures or {}) do
+                    if f.status ~= "finished" then
+                        f.homeGoals = RandomInt(0, 3)
+                        f.awayGoals = RandomInt(0, 3)
+                        f.status = "finished"
+                        pcall(function()
+                            tournament:updateGroupStanding(groupName, f)
+                        end)
+                    end
+                end
+            end
+        end
+
+        -- 2) 模拟淘汰赛所有未完成比赛
+        if tournament.knockout then
+            local phases = {"r32", "r16", "qf", "sf", "final"}
+            for _, phase in ipairs(phases) do
+                local fixtures = tournament.knockout[phase]
+                if fixtures then
+                    for _, f in ipairs(fixtures) do
+                        if f.status ~= "finished" then
+                            f.homeGoals = RandomInt(0, 3)
+                            f.awayGoals = RandomInt(0, 3)
+                            f.status = "finished"
+                            -- 淘汰赛不能平局，需要产生胜者
+                            if f.homeGoals == f.awayGoals then
+                                -- 模拟点球大战
+                                if Random() < 0.5 then
+                                    f._penaltyWinner = f.homeTeamId
+                                else
+                                    f._penaltyWinner = f.awayTeamId
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+
+        -- 3) 推进阶段
+        pcall(module.checkPhaseAdvance, gameState)
+    end
+end
+
+------------------------------------------------------
 -- 补偿领取：随机传奇球员进入青训队
 ------------------------------------------------------
 function Settings._buildCompensationSection()
@@ -1154,7 +1232,7 @@ function Settings._buildCompensationSection()
                         marginBottom = 4,
                     },
                     UI.Label {
-                        text = "赠送一位随机传奇球员加入青训队",
+                        text = "赠送两位随机传奇球员加入青训队",
                         fontSize = 11,
                         color = Theme.COLORS.TEXT_MUTED,
                         marginBottom = 10,
@@ -1240,11 +1318,6 @@ function Settings._claimCompensationLegend()
         return
     end
 
-    -- 随机选取一位传奇
-    local idx = RandomInt(1, #availablePool)
-    local chosen = availablePool[idx]
-    local legendKey = chosen.full_name_cn or chosen.match_name or "传奇"
-
     -- 映射位置：JSON全称 → 游戏缩写
     local posMap = {
         Goalkeeper = "GK",
@@ -1259,58 +1332,87 @@ function Settings._claimCompensationLegend()
         LeftWing = "LW", RightWing = "RW",
         Striker = "ST",
     }
-    local mappedPos = posMap[chosen.position] or "ST"
 
-    -- 生成球员属性（传奇级别）
-    local legendAge = RandomInt(16, 18)
-    local legendOverall = RandomInt(62, 70)
-    local legendAttrs = YouthManager._generateAttributes(mappedPos, legendOverall)
-    local preCalcOverall = Player.calculateOverallFromAttrs(mappedPos, legendAttrs)
+    -- 赠送2位传奇球员
+    local COMPENSATION_COUNT = 2
+    local signedLegends = {}
 
-    -- 构造候选数据并签入
-    local candidateData = {
-        firstName = legendKey,
-        lastName = legendKey,
-        displayName = legendKey,
-        nationality = chosen.football_nation or chosen.nationality or "BRA",
-        birthYear = math.floor(gameState.date.year - legendAge),
-        position = mappedPos,
-        attributes = legendAttrs,
-        potential = chosen.potential or 95,
-        overall = preCalcOverall,
-        age = legendAge,
-        isLegend = true,
-        legendName = legendKey,
-        legendData = chosen,
-    }
+    for _ = 1, COMPENSATION_COUNT do
+        if #availablePool == 0 then break end
 
-    -- 直接添加到候选池并签入
-    gameState._youthCandidates = gameState._youthCandidates or {}
-    table.insert(gameState._youthCandidates, candidateData)
-    local candidateIdx = #gameState._youthCandidates
+        -- 随机选取一位传奇
+        local idx = RandomInt(1, #availablePool)
+        local chosen = availablePool[idx]
+        local legendKey = chosen.full_name_cn or chosen.match_name or "传奇"
+        local mappedPos = posMap[chosen.position] or "ST"
 
-    local success, err = YouthManager.signCandidate(gameState, candidateIdx)
-    if not success then
-        -- 如果青训满了，直接提示
-        UI.Toast.Show({ message = err or "签入失败", variant = "error" })
-        -- 从候选池移除避免残留
-        table.remove(gameState._youthCandidates, candidateIdx)
-        return
+        -- 生成球员属性（传奇级别）
+        local legendAge = RandomInt(16, 18)
+        local legendOverall = RandomInt(62, 70)
+        local legendAttrs = YouthManager._generateAttributes(mappedPos, legendOverall)
+        local preCalcOverall = Player.calculateOverallFromAttrs(mappedPos, legendAttrs)
+
+        -- 构造候选数据并签入
+        local candidateData = {
+            firstName = legendKey,
+            lastName = legendKey,
+            displayName = legendKey,
+            nationality = chosen.football_nation or chosen.nationality or "BRA",
+            birthYear = math.floor(gameState.date.year - legendAge),
+            position = mappedPos,
+            attributes = legendAttrs,
+            potential = chosen.potential or 95,
+            overall = preCalcOverall,
+            age = legendAge,
+            isLegend = true,
+            legendName = legendKey,
+            legendData = chosen,
+        }
+
+        -- 直接添加到候选池并签入
+        gameState._youthCandidates = gameState._youthCandidates or {}
+        table.insert(gameState._youthCandidates, candidateData)
+        local candidateIdx = #gameState._youthCandidates
+
+        local success, err = YouthManager.signCandidate(gameState, candidateIdx)
+        if not success then
+            table.remove(gameState._youthCandidates, candidateIdx)
+            if #signedLegends == 0 then
+                UI.Toast.Show({ message = err or "签入失败（青训已满）", variant = "error" })
+                return
+            end
+            break
+        end
+
+        -- 记录到 gacha 已抽列表（防止后续 gacha 再抽到）
+        gachaState.pulledLegends = gachaState.pulledLegends or {}
+        table.insert(gachaState.pulledLegends, legendKey)
+
+        table.insert(signedLegends, { name = legendKey, pos = mappedPos, potential = chosen.potential or 95, age = legendAge })
+
+        -- 从可用池中移除，避免重复
+        table.remove(availablePool, idx)
     end
-
-    -- 记录到 gacha 已抽列表（防止后续 gacha 再抽到）
-    gachaState.pulledLegends = gachaState.pulledLegends or {}
-    table.insert(gachaState.pulledLegends, legendKey)
 
     -- 标记已领取（存储在 _legendGacha 中，确保持久化到存档）
     gachaState.compensationClaimed = true
     SaveManager.save(gameState, "auto")
 
     -- 显示获得提示
+    local legendNames = {}
+    for _, l in ipairs(signedLegends) do
+        table.insert(legendNames, l.name)
+    end
+
+    local detailLines = {}
+    for _, l in ipairs(signedLegends) do
+        table.insert(detailLines, string.format("%s（%s | 潜力%d | %d岁）", l.name, l.pos, l.potential, l.age))
+    end
+
     local BottomSheet = require("scripts/ui/components/bottom_sheet")
     BottomSheet.showCustom({
         title = "补偿领取成功",
-        height = 280,
+        height = 320,
         children = {
             UI.Panel {
                 width = "100%",
@@ -1318,24 +1420,25 @@ function Settings._claimCompensationLegend()
                 paddingTop = 10,
                 children = {
                     UI.Label {
-                        text = "恭喜获得传奇球员",
+                        text = "恭喜获得 " .. #signedLegends .. " 位传奇球员",
                         fontSize = 14,
                         color = Theme.COLORS.TEXT_SECONDARY,
                         marginBottom = 12,
                     },
                     UI.Label {
-                        text = legendKey,
-                        fontSize = 22,
+                        text = table.concat(legendNames, "\n"),
+                        fontSize = 20,
                         color = Theme.COLORS.GOLD,
                         fontWeight = "bold",
                         marginBottom = 8,
+                        textAlign = "center",
                     },
                     UI.Label {
-                        text = string.format("%s | 潜力 %d | %d岁",
-                            mappedPos, chosen.potential or 95, legendAge),
-                        fontSize = 13,
+                        text = table.concat(detailLines, "\n"),
+                        fontSize = 12,
                         color = Theme.COLORS.TEXT_MUTED,
                         marginBottom = 16,
+                        textAlign = "center",
                     },
                     UI.Label {
                         text = "已加入青训队",
@@ -1458,8 +1561,8 @@ function Settings._cheatUnlockLegendPool()
 
     state.unlocked = true
     state.adsWatched = YouthManager.getUnlockAdsRequired()
-    -- 赠送10次抽取
-    state.pulls = math.max(state.pulls, 10)
+    -- 赠送30次抽取
+    state.pulls = math.max(state.pulls, 30)
 
     SaveManager.save(gameState, "auto")
     gameState:sendMessage({
@@ -1585,6 +1688,7 @@ function Settings._cheatBudgetAllocationTest()
     -- 1. 快速完成所有联赛/欧冠比赛（会产生票房收入）
     gameState._cheatAutoPlay = true
     Settings._completeAllLeagues(gameState)
+    Settings._completeInternationalTournaments(gameState)
 
     -- 快照更新（完成比赛后票房等收入已入账）
     local postMatchIncome = team.seasonIncome or 0

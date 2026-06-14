@@ -4,7 +4,7 @@
 local Constants = {}
 
 -- 游戏版本
-Constants.VERSION = "1.3.3"
+Constants.VERSION = "2.1"
 Constants.SAVE_VERSION = 6
 
 -- 赛季设置

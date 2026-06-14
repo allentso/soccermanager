@@ -979,6 +979,27 @@ function TransferManager.processAITransfers(gameState)
         end
         ::skipPlayer::
     end
+
+    -- 额外：处理外租挂牌球员（AI主动租借玩家挂牌外租的球员）
+    local MAX_INCOMING_LOAN_BIDS = 2
+    for _, player in pairs(gameState.players) do
+        if not player.listedForLoan then goto skipLoanPlayer end
+        if player.retired then goto skipLoanPlayer end
+        if player.teamId ~= gameState.playerTeamId then goto skipLoanPlayer end  -- 只处理玩家球队的外租挂牌
+        -- 检查已有的租借报价数量
+        local existingLoanBids = TransferManager.getIncomingLoanBidsForPlayer(gameState, player.id)
+        if #existingLoanBids >= MAX_INCOMING_LOAN_BIDS then goto skipLoanPlayer end
+        -- 70%概率每周吸引租借买家
+        if Random() > 0.70 then goto skipLoanPlayer end
+
+        local loanBuyer = TransferManager._findLoanBuyerForPlayer(gameState, player)
+        if loanBuyer then
+            if not TransferManager.hasPendingIncomingLoanBid(gameState, player.id, loanBuyer.id) then
+                TransferManager._createIncomingLoanBid(gameState, loanBuyer, player)
+            end
+        end
+        ::skipLoanPlayer::
+    end
 end
 
 --- AI主动挂牌多余球员（增加市场供给）
@@ -1470,6 +1491,152 @@ function TransferManager._findBuyerForPlayer(gameState, player)
 
     if #candidates == 0 then return nil end
     return candidates[RandomInt(1, #candidates)]
+end
+
+--- 为挂牌外租球员寻找合适的租借买家（AI球队）
+function TransferManager._findLoanBuyerForPlayer(gameState, player)
+    local Constants = require("scripts/app/constants")
+    local candidates = {}
+    local loanFee = TransferManager.getLoanFeeBenchmark(player)
+
+    for _, team in pairs(gameState.teams) do
+        if team.id == gameState.playerTeamId then goto skip end
+        if team.id == player.teamId then goto skip end
+        -- 预算检查：租借费相对低廉，只要余额够付即可
+        if (team.balance or 0) < loanFee * 0.5 then goto skip end
+        -- 位置需求检查
+        local need = TransferManager._assessTeamNeed(gameState, team)
+        if need then
+            -- 检查球员位置是否匹配球队需求
+            local targetPositions = Constants.POSITION_GROUPS[need] or {}
+            local posMatch = false
+            for _, pos in ipairs(targetPositions) do
+                if player.position == pos then posMatch = true; break end
+            end
+            if posMatch then
+                table.insert(candidates, team)
+                goto skip
+            end
+        end
+        -- 即使无紧急需求，阵容较小的球队也可能租借补充深度
+        if #(team.playerIds or {}) < 22 then
+            table.insert(candidates, team)
+        end
+        ::skip::
+    end
+
+    if #candidates == 0 then return nil end
+    return candidates[RandomInt(1, #candidates)]
+end
+
+--- 检查是否已存在对某球员的待处理租借报价（避免重复）
+function TransferManager.hasPendingIncomingLoanBid(gameState, playerId, buyerTeamId)
+    TransferManager._ensureData(gameState)
+    for _, bid in ipairs(gameState.transfers.bids) do
+        if bid.playerId == playerId and bid.isIncomingLoanBid
+            and (bid.status == "pending") then
+            if buyerTeamId then
+                if bid.buyerTeamId == buyerTeamId then return true end
+            else
+                return true
+            end
+        end
+    end
+    return false
+end
+
+--- 获取某球员所有待处理的租借报价
+function TransferManager.getIncomingLoanBidsForPlayer(gameState, playerId)
+    TransferManager._ensureData(gameState)
+    local bids = {}
+    for _, bid in ipairs(gameState.transfers.bids) do
+        if bid.playerId == playerId and bid.isIncomingLoanBid
+            and (bid.status == "pending") then
+            table.insert(bids, bid)
+        end
+    end
+    return bids
+end
+
+--- 创建 AI 对玩家外租挂牌球员的租借报价（让玩家决策）
+function TransferManager._createIncomingLoanBid(gameState, buyerTeam, player)
+    TransferManager._ensureData(gameState)
+
+    local duration = player.loanListDuration or 26
+    local loanFee = TransferManager.getLoanFeeBenchmark(player, duration)
+    -- AI 出价在基准的 0.7~1.1 之间浮动
+    local offerFee = math.floor(loanFee * (0.7 + Random() * 0.4))
+    local wageShare = 0.4 + Random() * 0.3  -- AI 愿意承担 40%~70% 工资
+
+    local bid = {
+        id = gameState.transfers.nextBidId,
+        playerId = player.id,
+        buyerTeamId = buyerTeam.id,
+        sellerTeamId = gameState.playerTeamId,
+        amount = offerFee,
+        loanDuration = duration,
+        wageShare = wageShare,
+        status = "pending",
+        date = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day},
+        isIncomingLoanBid = true,  -- 标记为收到的租借报价
+        type = "loan",
+    }
+
+    gameState.transfers.nextBidId = gameState.transfers.nextBidId + 1
+    table.insert(gameState.transfers.bids, bid)
+
+    -- 通知玩家
+    gameState:sendMessage({
+        category = "transfer",
+        title = "收到租借报价: " .. player.displayName,
+        body = string.format(
+            "%s 希望租借 %s（%d周），租借费 %s，对方承担 %.0f%% 工资。",
+            buyerTeam.name, player.displayName, duration,
+            fmtMoney(offerFee), wageShare * 100),
+        priority = "high",
+        popup = true,
+        actions = {
+            { label = "同意外租", actionId = "accept_incoming_loan_bid", data = { bidId = bid.id } },
+            { label = "拒绝", actionId = "reject_incoming_loan_bid", data = { bidId = bid.id } },
+        },
+    })
+    return bid
+end
+
+--- 玩家接受收到的租借报价 → 直接完成租借
+function TransferManager.acceptIncomingLoanBid(gameState, bidId)
+    TransferManager._ensureData(gameState)
+    for _, bid in ipairs(gameState.transfers.bids) do
+        if bid.id == bidId and bid.status == "pending" and bid.isIncomingLoanBid then
+            -- 直接完成租借（球员已主动挂牌，无需再征求球员意见）
+            TransferManager._completeLoan(gameState, bid)
+            return true
+        end
+    end
+    return false
+end
+
+--- 玩家拒绝收到的租借报价
+function TransferManager.rejectIncomingLoanBid(gameState, bidId)
+    TransferManager._ensureData(gameState)
+    for _, bid in ipairs(gameState.transfers.bids) do
+        if bid.id == bidId and bid.status == "pending" and bid.isIncomingLoanBid then
+            bid.status = "rejected"
+            bid.rejectedDate = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day}
+            local buyerTeam = gameState.teams[bid.buyerTeamId]
+            local player = gameState.players[bid.playerId]
+            gameState:sendMessage({
+                category = "transfer",
+                title = "租借报价已拒绝",
+                body = string.format("你拒绝了 %s 对 %s 的租借报价。",
+                    buyerTeam and buyerTeam.name or "未知球队",
+                    player and player.displayName or "该球员"),
+                priority = "normal",
+            })
+            return true
+        end
+    end
+    return false
 end
 
 --- 创建 AI 对玩家球员的收购报价（让玩家决策）
@@ -4309,6 +4476,27 @@ function TransferManager.processDailyBids(gameState)
                         buyerTeam and buyerTeam.name or "买方球队",
                         player and player.displayName or "该球员",
                         fmtMoney(bid.amount)),
+                    priority = "normal",
+                })
+            end
+        end
+    end
+
+    -- pending incoming loan bid 超时：玩家长期未回复，租借方撤回报价
+    for _, bid in ipairs(gameState.transfers.bids) do
+        if bid.status == "pending" and bid.isIncomingLoanBid then
+            local daysSince = TransferManager._daysBetween(bid.date, gameState.date)
+            if daysSince >= 5 then
+                local player = gameState.players[bid.playerId]
+                local buyerTeam = gameState.teams[bid.buyerTeamId]
+                bid.status = "rejected"
+                bid.rejectedDate = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day}
+                gameState:sendMessage({
+                    category = "transfer",
+                    title = "租借报价已过期",
+                    body = string.format("%s 对 %s 的租借报价因长时间未回复已撤回。",
+                        buyerTeam and buyerTeam.name or "租借方",
+                        player and player.displayName or "该球员"),
                     priority = "normal",
                 })
             end

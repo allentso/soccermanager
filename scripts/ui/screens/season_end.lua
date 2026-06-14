@@ -166,6 +166,32 @@ function SeasonEnd.create(params)
             }})
         end
 
+        -- ====== 1.8 杯赛结果卡 ======
+        if record.domesticCups then
+            local cupRows = {}
+            for _, cupData in pairs(record.domesticCups) do
+                local isPlayer = (cupData.winnerId == teamId)
+                table.insert(cupRows, UI.Panel {
+                    width = "100%", height = 36, flexDirection = "row", alignItems = "center",
+                    paddingHorizontal = 8, borderBottomWidth = 1, borderColor = COLORS.BORDER,
+                    backgroundColor = isPlayer and {180, 80, 200, 30} or COLORS.TRANSPARENT,
+                    children = {
+                        UI.Label { text = "🏅", width = 28, fontSize = 14 },
+                        UI.Label { text = cupData.name or "杯赛", flex = 1, fontSize = 12, color = COLORS.TEXT_SECONDARY },
+                        UI.Label { text = cupData.winnerName or "?", fontSize = 12,
+                            fontWeight = isPlayer and "bold" or "normal",
+                            color = isPlayer and {180, 80, 200, 255} or COLORS.TEXT_PRIMARY },
+                    }
+                })
+            end
+            if #cupRows > 0 then
+                table.insert(content, Theme.Card { children = {
+                    Theme.Subtitle { text = "杯赛冠军 🏅" },
+                    table.unpack(cupRows)
+                }})
+            end
+        end
+
         -- ====== 2. 赛季奖项卡 ======
         local awards = record.awards
         if awards and awards.leagues then

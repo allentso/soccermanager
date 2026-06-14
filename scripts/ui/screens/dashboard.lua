@@ -18,6 +18,7 @@ local TeamIcon = require("scripts/ui/components/team_icon")
 local WorldCup = require("scripts/systems/world_cup")
 local EuroCup = require("scripts/systems/euro_cup")
 local TransferManager = require("scripts/systems/transfer_manager")
+local DomesticCup = require("scripts/systems/domestic_cup")
 local ConfirmDialog = require("scripts/ui/components/confirm_dialog")
 local MessageActionHandlers = require("scripts/ui/message_action_handlers")
 
@@ -68,6 +69,13 @@ function Dashboard._findNextMatch(gameState)
         for _, f in ipairs(uclFixtures) do
             if f.homeTeamId == playerTeamId or f.awayTeamId == playerTeamId then
                 return daysAhead, f, true, false
+            end
+        end
+        -- 检查国内杯赛
+        local cupFixtures = DomesticCup.getFixturesForDate(gameState, futureDate)
+        for _, f in ipairs(cupFixtures) do
+            if f.homeTeamId == playerTeamId or f.awayTeamId == playerTeamId then
+                return daysAhead, f, false, false
             end
         end
         -- 检查国际大赛（欧洲杯/世界杯）
@@ -151,22 +159,8 @@ function Dashboard.create(params)
             local msg = queue[index]
 
             if msg.actions and #msg.actions > 2 then
-                -- 多选项消息（如国家队邀请）：弹窗提示后引导至收件箱
-                ConfirmDialog.show({
-                    title = msg.title or "通知",
-                    message = (msg.body or "") .. "\n\n请在收件箱中选择具体操作。",
-                    confirmText = "前往收件箱",
-                    cancelText = "稍后处理",
-                    confirmColor = Theme.COLORS.SECONDARY,
-                    onConfirm = function()
-                        msg.read = false
-                        showNext()
-                        Router.navigate("inbox", { openMessageId = msg.id })
-                    end,
-                    onCancel = function()
-                        showNext()
-                    end,
-                })
+                -- 多选项消息（如国家队邀请）：已有 time blocker 处理，跳过弹窗
+                showNext()
             elseif msg.actions and #msg.actions > 0 then
                 local firstAction = msg.actions[1]
                 local secondAction = msg.actions[2]
@@ -529,6 +523,8 @@ function Dashboard._showPotentialModifierDialog(gameState)
                                     else
                                         UI.Toast.Show({ message = string.format("观看进度 %d/%d", newProgress, total), variant = "info" })
                                     end
+                                    -- 实时存档，防止闪退丢失广告进度
+                                    SaveManager.save(gameState, "auto")
                                     Router.replaceWith("dashboard")
                                 else
                                     UI.Toast.Show({ message = "需完整观看广告才能获得奖励", variant = "warning" })
@@ -569,8 +565,6 @@ function Dashboard._buildTopBar(gameState, team, isBlocked, hasAnyBlockers, bloc
                 Dashboard._showFixtureCalendar(gameState)
             end,
         },
-        -- 球队/国家队图标（有国家队身份时点击切换模式，否则查看经理档案）
-        Dashboard._buildTeamIconSwitcher(gameState, team),
         UI.Panel { flexGrow = 1 },
         -- 设置按钮
         UI.Button {
@@ -653,7 +647,7 @@ function Dashboard._buildTopBar(gameState, team, isBlocked, hasAnyBlockers, bloc
 
     return UI.Panel {
         width = "100%",
-        height = 50,
+        height = 44,
         flexDirection = "row",
         alignItems = "center",
         paddingLeft = 14,
@@ -713,6 +707,43 @@ function Dashboard._showFixtureCalendar(gameState)
             end
         end
 
+        -- 国内杯赛
+        local cupFixturesForDay = DomesticCup.getFixturesForDate(gameState, futureDate)
+        for _, f in ipairs(cupFixturesForDay) do
+            if f.homeTeamId == playerTeamId or f.awayTeamId == playerTeamId then
+                local cupName = "杯赛"
+                local cupShort = "CUP"
+                local cups = gameState.domesticCups
+                if cups and f._cupLeague and cups[f._cupLeague] then
+                    cupName = cups[f._cupLeague].shortName or cups[f._cupLeague].name
+                    cupShort = "CUP"
+                end
+                table.insert(upcomingFixtures, {
+                    fixture = f,
+                    date = futureDate,
+                    daysAhead = daysAhead,
+                    competition = cupName,
+                    competitionShort = cupShort,
+                })
+            end
+        end
+
+        -- 欧洲杯比赛
+        if gameState.euroCup and gameState.euroCup.phase ~= "not_started" and gameState.euroCup.phase ~= "completed" then
+            local euroFixtures = gameState.euroCup:getFixturesForDate(futureDate)
+            for _, f in ipairs(euroFixtures) do
+                if EuroCup.isPlayerNationMatch(gameState, f) then
+                    table.insert(upcomingFixtures, {
+                        fixture = f,
+                        date = futureDate,
+                        daysAhead = daysAhead,
+                        competition = "欧洲杯",
+                        competitionShort = "EURO",
+                    })
+                end
+            end
+        end
+
         -- 世界杯比赛（国家队层面，可能不适用但保留）
         if gameState.worldCup and gameState.worldCup.phase ~= "not_started" and gameState.worldCup.phase ~= "completed" then
             local wcFixtures = gameState.worldCup:getFixturesForDate(futureDate)
@@ -743,6 +774,10 @@ function Dashboard._showFixtureCalendar(gameState)
         local compColor = Theme.COLORS.ACCENT
         if entry.competitionShort == "UCL" then
             compColor = {30, 120, 220, 255}
+        elseif entry.competitionShort == "CUP" then
+            compColor = {180, 80, 200, 255}
+        elseif entry.competitionShort == "EURO" then
+            compColor = {50, 180, 100, 255}
         elseif entry.competitionShort == "WC" then
             compColor = {200, 160, 30, 255}
         end
@@ -877,6 +912,17 @@ function Dashboard._buildMatchHero(gameState, team)
     elseif isUCLMatch then
         local matchdayStr = nextFixture.matchday and ("第" .. nextFixture.matchday .. "比赛日") or ""
         competitionInfo = "欧冠 " .. matchdayStr
+    elseif nextFixture._isDomesticCup then
+        -- 国内杯赛
+        local cupName = "杯赛"
+        local cups = gameState.domesticCups
+        if cups and nextFixture._cupLeague and cups[nextFixture._cupLeague] then
+            cupName = cups[nextFixture._cupLeague].name or cups[nextFixture._cupLeague].shortName or "杯赛"
+        end
+        local roundNum = nextFixture.round or 1
+        local roundLabel = (roundNum == (cups and nextFixture._cupLeague and cups[nextFixture._cupLeague] and cups[nextFixture._cupLeague].totalRounds or 99))
+            and "决赛" or ("第" .. roundNum .. "轮")
+        competitionInfo = cupName .. " " .. roundLabel
     else
         local leagueName = league and league.name or ""
         local roundNum = nextFixture.round or (league and league.currentRound or 1)
@@ -921,6 +967,15 @@ function Dashboard._buildMatchHero(gameState, team)
         marginBottom = 12,
         overflow = "hidden",
         children = {
+            -- 左上角俱乐部/国家队图标（叠在卡片上）
+            UI.Panel {
+                position = "absolute",
+                top = 10, left = 10,
+                zIndex = 10,
+                children = {
+                    Dashboard._buildTeamIconSwitcher(gameState, team),
+                },
+            },
             -- 顶部标题：下一场比赛 + 倒计时标签
             UI.Panel {
                 width = "100%", flexDirection = "row", alignItems = "center", justifyContent = "center",
@@ -2651,7 +2706,17 @@ function Dashboard._buildNTMatchHero(gameState)
             borderRadius = 14,
             paddingTop = 16, paddingBottom = 16, paddingLeft = 16, paddingRight = 16,
             marginBottom = 12,
+            overflow = "hidden",
             children = {
+                -- 左上角俱乐部/国家队切换图标
+                UI.Panel {
+                    position = "absolute",
+                    top = 10, left = 10,
+                    zIndex = 10,
+                    children = {
+                        Dashboard._buildTeamIconSwitcher(gameState, gameState:getPlayerTeam()),
+                    },
+                },
                 Theme.SectionHeader { text = "🏆 " .. compLabel .. " · " .. phaseName, color = {255, 215, 0, 255} },
                 UI.Label {
                     text = statusText,
@@ -2692,6 +2757,15 @@ function Dashboard._buildNTMatchHero(gameState)
         marginBottom = 12,
         overflow = "hidden",
         children = {
+            -- 左上角俱乐部/国家队切换图标（叠在卡片上）
+            UI.Panel {
+                position = "absolute",
+                top = 10, left = 10,
+                zIndex = 10,
+                children = {
+                    Dashboard._buildTeamIconSwitcher(gameState, gameState:getPlayerTeam()),
+                },
+            },
             -- 顶部：世界杯 + 阶段 + 倒计时
             UI.Panel {
                 width = "100%", flexDirection = "row", alignItems = "center", justifyContent = "center",

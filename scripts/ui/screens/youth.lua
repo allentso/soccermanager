@@ -13,6 +13,7 @@ local PotentialSystem = require("scripts/systems/potential_system")
 local StaffManager = require("scripts/systems/staff_manager")
 local ScoutManager = require("scripts/systems/scout_manager")
 local LegendImageRegistry = require("scripts/data/legend_image_registry")
+local SaveManager = require("scripts/persistence/save_manager")
 
 ---@diagnostic disable-next-line: undefined-global
 local sdk = sdk
@@ -846,10 +847,12 @@ function Youth._watchAdForUnlock(gameState)
     sdk:ShowRewardVideoAd(function(result)
         if result.success then
             local unlocked, _progress = YouthManager.watchAdForUnlock(gameState)
+            -- 实时存档，防止闪退丢失广告进度
+            SaveManager.save(gameState, "auto")
             if unlocked then
                 ConfirmDialog.show({
                     title = "传奇球星池已解锁!",
-                    message = "恭喜！传奇球星池已解锁，赠送首次十连抽机会！\n首次十连保底获得一名传奇球星！",
+                    message = "恭喜！传奇球星池已解锁，赠送30次抽取机会！\n首次十连保底获得一名传奇球星！",
                     confirmText = "太好了！",
                     confirmColor = Theme.COLORS.ACCENT,
                     onConfirm = function()
@@ -924,13 +927,13 @@ function Youth._showAdForPullsModal(gameState)
                     },
                     -- 副标题说明
                     UI.Label {
-                        text = "每看1次广告获得2次抽取机会",
+                        text = "每看1次广告获得3次抽取机会",
                         fontSize = 12,
                         color = Theme.COLORS.TEXT_MUTED,
                         marginBottom = 4,
                     },
                     UI.Label {
-                        text = "看满3次自动补满至10次（十连）",
+                        text = "看满3次额外奖励6次（本轮共+15）",
                         fontSize = 12,
                         color = Theme.COLORS.ACCENT,
                         marginBottom = 16,
@@ -968,7 +971,7 @@ function Youth._showAdForPullsModal(gameState)
                     },
                     -- 观看广告按钮
                     UI.Button {
-                        text = "观看广告 (+2次)",
+                        text = "观看广告 (+3次)",
                         width = "100%",
                         height = 42,
                         backgroundColor = Theme.COLORS.PRIMARY,
@@ -1006,6 +1009,8 @@ function Youth._doWatchAdInModal(gameState)
     sdk:ShowRewardVideoAd(function(result)
         if result.success then
             local newPulls = YouthManager.watchAdForPulls(gameState)
+            -- 实时存档，防止闪退丢失广告进度
+            SaveManager.save(gameState, "auto")
             -- 显示奖励反馈弹窗
             Youth._showAdRewardPopup(gameState, newPulls)
         else

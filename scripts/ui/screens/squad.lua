@@ -939,10 +939,11 @@ function Squad._showBatchRenewConfirm(allPlayers, gameState)
     local team = gameState:getPlayerTeam()
     if not team then return end
 
-    -- 收集所有合同≤12个月的球员及建议条款
+    -- 收集所有合同≤12个月的球员及建议条款（排除租借球员）
     local renewList = {}
     local totalWageIncrease = 0
     for _, p in ipairs(allPlayers) do
+        if p._loanOriginTeamId or p.squadRole == "loaned" then goto continueRenew end
         local ml = ContractManager.getMonthsRemaining(gameState, p)
         if ml <= 12 then
             local terms = ContractManager.getSuggestedTerms(p, team, gameState)
@@ -957,6 +958,7 @@ function Squad._showBatchRenewConfirm(allPlayers, gameState)
                 totalWageIncrease = totalWageIncrease + wageIncrease
             end
         end
+        ::continueRenew::
     end
 
     if #renewList == 0 then

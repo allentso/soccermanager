@@ -20,12 +20,16 @@ local _activeTab = "trophies"
 local TROPHY_ICONS = {
     league = "🏆",
     ucl = "⭐",
+    cup = "🏅",
+    euro = "🇪🇺",
     worldcup = "🌍",
 }
 
 local TROPHY_COLORS = {
     league = {212, 175, 55, 255},   -- 金色
     ucl = {0, 82, 155, 255},        -- UCL 蓝
+    cup = {180, 80, 200, 255},      -- 紫色
+    euro = {50, 180, 100, 255},     -- 绿色
     worldcup = {139, 69, 19, 255},  -- 棕金
 }
 
@@ -71,6 +75,16 @@ local function buildTrophiesTab(gameState)
                 UI.Label { text = "⭐", fontSize = 28 },
                 UI.Label { text = tostring(counts.ucl), fontSize = 18, fontWeight = "bold", color = TROPHY_COLORS.ucl, marginTop = 2 },
                 UI.Label { text = "欧冠冠军", fontSize = 10, color = COLORS.TEXT_SECONDARY, marginTop = 1 },
+            }
+        })
+    end
+    if (counts.cup or 0) > 0 then
+        table.insert(summaryItems, UI.Panel {
+            alignItems = "center", marginRight = 20,
+            children = {
+                UI.Label { text = "🏅", fontSize = 28 },
+                UI.Label { text = tostring(counts.cup), fontSize = 18, fontWeight = "bold", color = TROPHY_COLORS.cup, marginTop = 2 },
+                UI.Label { text = "杯赛冠军", fontSize = 10, color = COLORS.TEXT_SECONDARY, marginTop = 1 },
             }
         })
     end
@@ -173,6 +187,7 @@ local function buildManagerTab(gameState)
         Theme.Subtitle { text = "执教概览" },
         infoRow("执教赛季", mr.totalSeasons),
         infoRow("联赛冠军", mr.leagueTitles, TROPHY_COLORS.league),
+        infoRow("杯赛冠军", mr.cupTitles or 0, TROPHY_COLORS.cup),
         infoRow("欧冠冠军", mr.uclTitles, TROPHY_COLORS.ucl),
         infoRow("世界杯冠军", mr.worldCupTitles, TROPHY_COLORS.worldcup),
         infoRow("最佳联赛排名", mr.bestLeagueFinish < 999 and ("第" .. mr.bestLeagueFinish .. "名") or "-"),

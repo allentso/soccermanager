@@ -25,8 +25,20 @@ function LeagueView.create(params)
         currentLeagueKey = params.tab
     end
 
-    -- 如果没有选过联赛，默认显示玩家所在联赛
-    if not currentLeagueKey or (currentLeagueKey ~= "UCL" and currentLeagueKey ~= "WC" and not gameState.leagues[currentLeagueKey]) then
+    -- 如果没有选过联赛，或者选中的赛事已不可用，默认显示玩家所在联赛
+    local needReset = not currentLeagueKey
+    if not needReset then
+        if currentLeagueKey == "UCL" then
+            needReset = gameState.championsLeague == nil
+        elseif currentLeagueKey == "WC" then
+            needReset = not gameState.worldCup or gameState.worldCup.phase == "completed"
+        elseif currentLeagueKey == "EURO" then
+            needReset = not gameState.euroCup or gameState.euroCup.phase == "completed"
+        else
+            needReset = not gameState.leagues[currentLeagueKey]
+        end
+    end
+    if needReset then
         currentLeagueKey = gameState.playerLeagueId
         -- 兜底：取第一个联赛
         if not currentLeagueKey then
@@ -52,10 +64,10 @@ function LeagueView.create(params)
             hasData = gameState.championsLeague ~= nil
             tabName = "欧冠"
         elseif key == "WC" then
-            hasData = gameState.worldCup ~= nil
+            hasData = gameState.worldCup ~= nil and gameState.worldCup.phase ~= "completed"
             tabName = "世界杯"
         elseif key == "EURO" then
-            hasData = gameState.euroCup ~= nil
+            hasData = gameState.euroCup ~= nil and gameState.euroCup.phase ~= "completed"
             tabName = "欧洲杯"
         else
             hasData = gameState.leagues[key] ~= nil
@@ -289,9 +301,11 @@ function LeagueView.create(params)
             },
 
             -- 联赛切换标签栏
-            UI.Panel {
+            UI.ScrollView {
                 width = "100%",
                 height = 42,
+                scrollX = true,
+                scrollY = false,
                 flexDirection = "row",
                 alignItems = "center",
                 paddingLeft = 10,
@@ -683,8 +697,9 @@ function LeagueView._createUCLView(gameState, leagueTabs)
             },
 
             -- 联赛切换标签栏
-            UI.Panel {
+            UI.ScrollView {
                 width = "100%", height = 42,
+                scrollX = true, scrollY = false,
                 flexDirection = "row", alignItems = "center",
                 paddingLeft = 10, paddingRight = 10,
                 paddingTop = 4, paddingBottom = 4,
@@ -1032,8 +1047,9 @@ function LeagueView._createWCView(gameState, leagueTabs)
             },
 
             -- 联赛切换标签栏
-            UI.Panel {
+            UI.ScrollView {
                 width = "100%", height = 42,
+                scrollX = true, scrollY = false,
                 flexDirection = "row", alignItems = "center",
                 paddingLeft = 10, paddingRight = 10,
                 paddingTop = 4, paddingBottom = 4,
@@ -1175,8 +1191,9 @@ function LeagueView._createEuroView(gameState, leagueTabs)
                     UI.Panel { width = 50 },
                 }
             },
-            UI.Panel {
+            UI.ScrollView {
                 width = "100%", height = 42,
+                scrollX = true, scrollY = false,
                 flexDirection = "row", alignItems = "center",
                 paddingLeft = 10, paddingRight = 10,
                 paddingTop = 4, paddingBottom = 4,

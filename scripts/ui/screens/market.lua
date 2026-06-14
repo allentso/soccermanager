@@ -17,6 +17,9 @@ local AudioManager = require("scripts/systems/audio_manager")
 
 local Market = {}
 
+-- 租借工资比例选择状态（按 bidId 记忆）
+local _loanShareSelection = {}
+
 ------------------------------------------------------
 -- 潜力星级（与 youth/player_detail 一致）
 ------------------------------------------------------
@@ -1109,9 +1112,18 @@ function Market._buildMyBidsContent(gameState)
             local remaining = maxAttempts - attempts
             local currentShare = bid.wageShare or 0.5
             local shareOptions = { 0.5, 0.75, 1.0 }
-            local selectedShareIdx = 2
-            for i, s in ipairs(shareOptions) do
-                if math.abs(s - currentShare) < 0.01 then selectedShareIdx = i; break end
+            -- 从模块级变量读取用户选择，无记忆则默认高一档
+            local selectedShareIdx = _loanShareSelection[bid.id]
+            if not selectedShareIdx then
+                -- 默认选高一档（比当前多一档）
+                selectedShareIdx = 2
+                for i, s in ipairs(shareOptions) do
+                    if math.abs(s - currentShare) < 0.01 then
+                        selectedShareIdx = math.min(i + 1, #shareOptions)
+                        break
+                    end
+                end
+                _loanShareSelection[bid.id] = selectedShareIdx
             end
 
             table.insert(cardChildren, UI.Panel {
@@ -1133,6 +1145,7 @@ function Market._buildMyBidsContent(gameState)
             })
 
             local shareBtns = {}
+            local thisBidId = bid.id
             for i, share in ipairs(shareOptions) do
                 table.insert(shareBtns, UI.Button {
                     text = string.format("%.0f%%", share * 100),
@@ -1141,7 +1154,8 @@ function Market._buildMyBidsContent(gameState)
                     borderRadius = 5, fontSize = 11,
                     color = Theme.COLORS.TEXT_PRIMARY,
                     onClick = function()
-                        selectedShareIdx = i
+                        _loanShareSelection[thisBidId] = i
+                        Router.replaceWith("market", { tab = "my_bids" })
                     end,
                 })
             end
@@ -1165,7 +1179,9 @@ function Market._buildMyBidsContent(gameState)
                         borderRadius = 6, fontSize = 14, fontWeight = "bold",
                         color = {20, 20, 20, 255},
                         onClick = function()
-                            TransferManager.negotiateLoanTerms(gameState, bidId, shareOptions[selectedShareIdx])
+                            local chosenShare = shareOptions[_loanShareSelection[bidId] or selectedShareIdx]
+                            TransferManager.negotiateLoanTerms(gameState, bidId, chosenShare)
+                            _loanShareSelection[bidId] = nil
                             UI.Toast.Show({ message = "新租借条件已发送", variant = "success" })
                             Router.replaceWith("market", { tab = "my_bids" })
                         end,

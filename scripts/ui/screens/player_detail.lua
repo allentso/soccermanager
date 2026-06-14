@@ -16,6 +16,7 @@ local PotentialSystem = require("scripts/systems/potential_system")
 local StaffManager = require("scripts/systems/staff_manager")
 local ScoutManager = require("scripts/systems/scout_manager")
 local LegendImageRegistry = require("scripts/data/legend_image_registry")
+local ReincarnationImageRegistry = require("scripts/data/reincarnation_image_registry")
 local YouthManager = require("scripts/systems/youth_manager")
 
 local PlayerDetail = {}
@@ -308,11 +309,48 @@ function PlayerDetail._buildOverview(player, team, age, gameState)
         }
     end
 
+    -- 转生球员立绘卡片（粉色系，与传奇互斥）
+    local reincarnCard = UI.Panel { height = 0 }
+    if not legendImgPath and player.isReincarnation then
+        local reincarnImgPath = ReincarnationImageRegistry.getPath(player.reincarnationMatchName)
+            or ReincarnationImageRegistry.getPathByName(player.displayName)
+        if reincarnImgPath then
+            reincarnCard = Theme.Card {
+                children = {
+                    UI.Panel {
+                        width = "100%",
+                        alignItems = "center",
+                        children = {
+                            UI.Panel {
+                                width = "75%",
+                                aspectRatio = 3 / 4,
+                                borderRadius = 12,
+                                overflow = "hidden",
+                                backgroundImage = reincarnImgPath,
+                                backgroundSize = "cover",
+                            },
+                            UI.Label {
+                                text = (player.displayName or "转生球星") .. " · 转生",
+                                fontSize = 14,
+                                color = {255, 130, 180, 255},
+                                fontWeight = "bold",
+                                textAlign = "center",
+                                marginTop = 10,
+                            },
+                        },
+                    },
+                },
+            }
+        end
+    end
+
     return UI.Panel {
         width = "100%",
         children = {
             -- 传奇立绘
             legendCard,
+            -- 转生立绘
+            reincarnCard,
 
             -- 身份信息
             Theme.Card {
@@ -865,9 +903,10 @@ function PlayerDetail._buildContractActions(player, team, gameState)
     end
     local compensation = math.floor(player.wage * 4 * math.max(0, monthsLeft) * 0.5)
 
-    -- 续约按钮
+    -- 续约按钮（租借球员不显示）
     local renewBtn
-    local suggestedTerms = ContractManager.getSuggestedTerms(player, team, gameState)
+    local isLoanPlayer = player._loanOriginTeamId or player.squadRole == "loaned"
+    local suggestedTerms = (not isLoanPlayer) and ContractManager.getSuggestedTerms(player, team, gameState) or nil
     if suggestedTerms then
         renewBtn = UI.Button {
             text = string.format("续约 (建议: %s/周 × %d年)",

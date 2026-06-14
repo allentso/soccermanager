@@ -306,14 +306,15 @@ function PreMatch.create(params)
 
     -- 世界杯比赛：用虚拟国家队对象
     local team, opponent, isHome, oppName
-    if fixture._isWC then
+    if fixture._isWC or fixture._isEuro then
+        local NT = fixture._isEuro and require("scripts/systems/euro_cup") or require("scripts/systems/world_cup")
+        local playerNation = NT._getPlayerNation(gameState)
         local WorldCup = require("scripts/systems/world_cup")
-        local playerNation = WorldCup._getPlayerNation(gameState)
         team = WorldCup.buildNationalTeam(gameState, playerNation)
         local oppCode = (fixture.homeTeamId == playerNation) and fixture.awayTeamId or fixture.homeTeamId
         opponent = WorldCup.buildNationalTeam(gameState, oppCode)
         isHome = fixture.homeTeamId == playerNation
-        oppName = opponent and opponent.name or WorldCup._getNationName(oppCode)
+        oppName = opponent and opponent.name or NT._getNationName(oppCode)
     else
         team = gameState:getPlayerTeam()
         local oppId = fixture.homeTeamId == team.id and fixture.awayTeamId or fixture.homeTeamId
@@ -718,59 +719,109 @@ function PreMatch._confirmLeave(gameState, team, fixture)
 end
 
 ---------------------------------------------------------------------------
--- 球场视图（缩略版）
+-- 球场视图（与战术页一致的完整版）
 ---------------------------------------------------------------------------
+local PREMATCH_STYLE_ARROWS = {
+    Attacking = {
+        GK = nil, DEF = { 0, -1 }, MID = { 0, -1 }, FWD = { 0, -1 },
+        color = {255, 120, 80, 180},
+    },
+    Defensive = {
+        GK = nil, DEF = { 0, 1 }, MID = { 0, 1 }, FWD = nil,
+        color = {100, 180, 255, 180},
+    },
+    Possession = {
+        GK = nil, DEF = nil, MID = { 0, 0 }, FWD = { 0, 1 },
+        color = {150, 220, 120, 180},
+    },
+    Counter = {
+        GK = nil, DEF = { 0, 1 }, MID = nil, FWD = { 0, -1 },
+        color = {255, 220, 80, 180},
+    },
+    HighPress = {
+        GK = nil, DEF = { 0, -1 }, MID = { 0, -1 }, FWD = { 0, -1 },
+        color = {255, 80, 200, 180},
+    },
+    Balanced = {
+        color = {200, 200, 200, 120},
+    },
+}
+
 function PreMatch._buildPitchView(startingXI, formation, gameState, team, fixture)
-    local variantKey = team and team.formationVariant or nil
-    local positions = getFormationPositions(formation, variantKey)
-    local slots = AIManager._getFormationSlots(formation, variantKey)
-    local pitchW = 320
-    local pitchH = 400
+    local slots = FormationShape.getFormationSlots(team)
+    local pitchW = 340
+    local pitchH = 460
+    local playStyle = team.playStyle or "Balanced"
+    local arrowDef = PREMATCH_STYLE_ARROWS[playStyle] or PREMATCH_STYLE_ARROWS.Balanced
 
-    -- 位置颜色映射（统一使用 Theme.posColor）
+    local function coordToLeft(px)
+        return math.floor((100 - px) / 100 * pitchW)
+    end
+    local function coordToTop(py)
+        return math.floor((100 - py) / 100 * pitchH)
+    end
 
+    -- 球员点位
     local dots = {}
-    for i, pos in ipairs(positions) do
-        local px = pos[1]
-        local py = pos[2]
-        -- 与 tactics.lua 一致: X 轴镜像，Y 轴翻转
-        local left = math.floor((100 - px) / 100 * pitchW) - 16
-        local top = math.floor((100 - py) / 100 * pitchH) - 16
+    for i = 1, 11 do
+        local px, py, slotPos = FormationShape.getSlotCoords(team, i)
+        local left = coordToLeft(px) - 16
+        local top = coordToTop(py) - 16 - 12
 
         local player = startingXI[i]
         local label = "?"
         if player then
-            -- 优先使用 shortName（中文姓氏，如"热苏斯"），次选 lastName
             local displayLabel = player.shortName or player.lastName or ""
             if displayLabel == "" or displayLabel == player.displayName then
-                -- fallback: 从 displayName 取中文姓氏部分（·分隔）
                 local dn = player.displayName or ""
                 displayLabel = dn:match("·(.+)$") or dn
-                -- 如果还是全名，从match_name取姓
                 if displayLabel == dn and player.match_name and player.match_name ~= "" then
                     displayLabel = player.match_name:match("%s(.+)$") or player.match_name
                 end
             end
-            -- UTF-8 安全截取：最多取5个UTF-8字符
-            local lastName = displayLabel
             local chars = 0
             local byteIdx = 1
-            while byteIdx <= #lastName and chars < 5 do
-                local b = lastName:byte(byteIdx)
+            while byteIdx <= #displayLabel and chars < 5 do
+                local b = displayLabel:byte(byteIdx)
                 if b < 128 then byteIdx = byteIdx + 1
                 elseif b < 224 then byteIdx = byteIdx + 2
                 elseif b < 240 then byteIdx = byteIdx + 3
                 else byteIdx = byteIdx + 4 end
                 chars = chars + 1
             end
-            label = lastName:sub(1, byteIdx - 1)
+            label = displayLabel:sub(1, byteIdx - 1)
         end
-        local slotPos = slots[i] or "CM"
+        slotPos = slotPos or slots[i] or "CM"
         local dotColor = Theme.posColor(slotPos)
         -- 低体能警告
-        if player and player.fitness < 70 then
+        if player and player.fitness and player.fitness < 70 then
             dotColor = Theme.COLORS.WARNING
         end
+
+        -- 风格箭头
+        local group = "MID"
+        if slotPos == "GK" then group = "GK"
+        elseif slotPos == "CB" or slotPos == "LB" or slotPos == "RB" then group = "DEF"
+        elseif slotPos == "ST" or slotPos == "CF" or slotPos == "LW" or slotPos == "RW" then group = "FWD"
+        end
+        local arrowDir = arrowDef[group]
+        local arrowLabel = nil
+        if arrowDir then
+            local dy = arrowDir[2]
+            if dy == -1 then arrowLabel = "▲"
+            elseif dy == 1 then arrowLabel = "▼"
+            else arrowLabel = "●" end
+        end
+        local arrowElement = nil
+        if arrowLabel then
+            arrowElement = UI.Label {
+                text = arrowLabel, fontSize = 9,
+                color = arrowDef.color, textAlign = "center", height = 12,
+            }
+        end
+
+        -- 自定义站位金边
+        local hasCustomOffset = team.slotOffsets and team.slotOffsets[i]
 
         local slotIdx = i
         table.insert(dots, UI.Panel {
@@ -780,31 +831,61 @@ function PreMatch._buildPitchView(startingXI, formation, gameState, team, fixtur
                 PreMatch._showSlotSwapSheet(gameState, team, slotIdx, slots, fixture)
             end,
             children = {
+                arrowElement or UI.Panel { height = 12 },
                 UI.Panel {
                     width = 20, height = 20, borderRadius = 10,
                     backgroundColor = dotColor,
+                    borderWidth = hasCustomOffset and 2 or 0,
+                    borderColor = {255, 220, 80, 220},
                 },
                 UI.Label { text = label, fontSize = 9, color = {255, 255, 255, 230}, textAlign = "center", marginTop = 2 },
             },
         })
     end
 
-    -- 球场线条
+    -- 九区网格线
+    local zoneLines = {
+        UI.Panel { position = "absolute", left = 0, top = coordToTop(62), width = pitchW, height = 1, backgroundColor = {255, 255, 255, 35} },
+        UI.Panel { position = "absolute", left = 0, top = coordToTop(36), width = pitchW, height = 1, backgroundColor = {255, 255, 255, 35} },
+        UI.Panel { position = "absolute", left = coordToLeft(68), top = 0, width = 1, height = pitchH, backgroundColor = {255, 255, 255, 28} },
+        UI.Panel { position = "absolute", left = coordToLeft(32), top = 0, width = 1, height = pitchH, backgroundColor = {255, 255, 255, 28} },
+    }
+
+    -- 球场线条（中线、中圈、禁区）
     local fieldLines = {
+        -- 中线
         UI.Panel {
             position = "absolute", left = 0, top = math.floor(pitchH / 2) - 1,
-            width = pitchW, height = 1, backgroundColor = {255, 255, 255, 40},
+            width = pitchW, height = 1, backgroundColor = {255, 255, 255, 50},
         },
+        -- 中圈
         UI.Panel {
             position = "absolute",
-            left = math.floor(pitchW / 2) - 25, top = math.floor(pitchH / 2) - 25,
-            width = 50, height = 50, borderRadius = 25,
-            borderWidth = 1, borderColor = {255, 255, 255, 40},
+            left = math.floor(pitchW / 2) - 30, top = math.floor(pitchH / 2) - 30,
+            width = 60, height = 60, borderRadius = 30,
+            borderWidth = 1, borderColor = {255, 255, 255, 50},
+            backgroundColor = Theme.COLORS.TRANSPARENT,
+        },
+        -- 上方禁区
+        UI.Panel {
+            position = "absolute",
+            left = math.floor(pitchW / 2) - 55, top = 0,
+            width = 110, height = 60,
+            borderWidth = 1, borderColor = {255, 255, 255, 50},
+            backgroundColor = Theme.COLORS.TRANSPARENT,
+        },
+        -- 下方禁区
+        UI.Panel {
+            position = "absolute",
+            left = math.floor(pitchW / 2) - 55, top = pitchH - 60,
+            width = 110, height = 60,
+            borderWidth = 1, borderColor = {255, 255, 255, 50},
             backgroundColor = Theme.COLORS.TRANSPARENT,
         },
     }
 
     local pitchChildren = {}
+    for _, l in ipairs(zoneLines) do table.insert(pitchChildren, l) end
     for _, l in ipairs(fieldLines) do table.insert(pitchChildren, l) end
     for _, d in ipairs(dots) do table.insert(pitchChildren, d) end
 
@@ -816,6 +897,7 @@ function PreMatch._buildPitchView(startingXI, formation, gameState, team, fixtur
                 backgroundColor = {20, 80, 40, 255},
                 borderRadius = 8, borderWidth = 2, borderColor = {255, 255, 255, 60},
                 alignSelf = "center", marginTop = 6,
+                overflow = "hidden",
                 children = pitchChildren,
             },
         }

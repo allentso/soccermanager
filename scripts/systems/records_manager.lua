@@ -50,6 +50,7 @@ function RecordsManager._ensureData(gameState)
             totalSeasons = 0,
             leagueTitles = 0,
             uclTitles = 0,
+            cupTitles = 0,
             worldCupTitles = 0,
             euroTitles = 0,
             bestLeagueFinish = 999,
@@ -523,6 +524,41 @@ function RecordsManager.onUCLChampionship(gameState, winnerTeamId)
 end
 
 ------------------------------------------------------
+-- 国内杯赛夺冠（由 domestic_cup 调用）
+------------------------------------------------------
+
+function RecordsManager.onDomesticCupChampionship(gameState, cupName, winnerTeamId)
+    RecordsManager._ensureData(gameState)
+
+    local playerTeamId = gameState.playerTeamId
+    if winnerTeamId ~= playerTeamId then return end
+
+    local team = gameState:getPlayerTeam()
+    local teamName = team and team.name or "?"
+    local season = gameState.season
+
+    table.insert(gameState.records.trophies, {
+        season = season,
+        year = gameState.date.year,
+        competition = "cup",
+        competitionName = cupName,
+        teamId = playerTeamId,
+        teamName = teamName,
+    })
+
+    gameState.records.managerRecords.cupTitles = (gameState.records.managerRecords.cupTitles or 0) + 1
+    _incrementManagerTrophyStat(gameState)
+
+    EventBus.emit("championship_won", {
+        competition = "cup",
+        competitionName = cupName,
+        teamId = playerTeamId,
+        teamName = teamName,
+        season = season,
+    })
+end
+
+------------------------------------------------------
 -- 世界杯夺冠（由 world_cup 调用）
 ------------------------------------------------------
 
@@ -631,7 +667,7 @@ end
 
 function RecordsManager.getTrophyCount(gameState)
     RecordsManager._ensureData(gameState)
-    local counts = { league = 0, ucl = 0, worldcup = 0, total = 0 }
+    local counts = { league = 0, ucl = 0, cup = 0, euro = 0, worldcup = 0, total = 0 }
     for _, trophy in ipairs(gameState.records.trophies) do
         local comp = trophy.competition or "league"
         counts[comp] = (counts[comp] or 0) + 1
@@ -671,14 +707,16 @@ end
 function RecordsManager._reconcileTitleCounts(gameState)
     RecordsManager._ensureData(gameState)
     local mr = gameState.records.managerRecords
-    local league, ucl, wc = 0, 0, 0
+    local league, ucl, cup, wc = 0, 0, 0, 0
     for _, trophy in ipairs(gameState.records.trophies) do
         if trophy.competition == "league" then league = league + 1
         elseif trophy.competition == "ucl" then ucl = ucl + 1
+        elseif trophy.competition == "cup" then cup = cup + 1
         elseif trophy.competition == "worldcup" then wc = wc + 1 end
     end
     mr.leagueTitles = math.max(mr.leagueTitles or 0, league)
     mr.uclTitles = math.max(mr.uclTitles or 0, ucl)
+    mr.cupTitles = math.max(mr.cupTitles or 0, cup)
     mr.worldCupTitles = math.max(mr.worldCupTitles or 0, wc)
 end
 

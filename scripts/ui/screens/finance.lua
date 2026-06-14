@@ -1931,6 +1931,9 @@ function Finance._buildHealthCard(team, gameState)
                                 sdk:ShowRewardVideoAd(function(result)
                                     if result.success then
                                         opts.onComplete()
+                                        -- 实时存档，防止闪退丢失广告进度
+                                        local SaveMgr = require("scripts/persistence/save_manager")
+                                        SaveMgr.save(_G.gameState, "auto")
                                     else
                                         UI.Toast.Show({ message = "需完整观看广告才能获得奖励", variant = "warning" })
                                     end

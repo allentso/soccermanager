@@ -27,6 +27,7 @@ local NewsGenerator = require("scripts/systems/news_generator")
 local AIManager = require("scripts/systems/ai_manager")
 local ObjectivesManager = require("scripts/systems/objectives_manager")
 local Housekeeping = require("scripts/persistence/housekeeping")
+local DomesticCup = require("scripts/systems/domestic_cup")
 
 local TurnProcessor = {}
 
@@ -34,6 +35,9 @@ local TurnProcessor = {}
 function TurnProcessor.advanceDay(gameState)
     -- 存档迁移：旧格式欧冠 → 新瑞士制（仅首次触发）
     ChampionsLeague.migrateIfNeeded(gameState)
+
+    -- 存档迁移：旧存档无国内杯赛数据时，延迟初始化
+    DomesticCup.migrateIfNeeded(gameState)
 
     -- 推进日期
     local newDate = League._addDays(gameState.date, 1)
@@ -85,6 +89,18 @@ function TurnProcessor.advanceDay(gameState)
         table.insert(todayFixtures, f)
     end
 
+    -- 补救：模拟已过期但未完成的杯赛比赛
+    local overduePlayerCup = DomesticCup.catchUpOverdueFixtures(gameState, newDate)
+    for _, f in ipairs(overduePlayerCup) do
+        table.insert(todayFixtures, f)
+    end
+
+    -- 检查国内杯赛当天是否有比赛
+    local cupFixtures = DomesticCup.getFixturesForDate(gameState, newDate)
+    for _, f in ipairs(cupFixtures) do
+        table.insert(todayFixtures, f)
+    end
+
     if #todayFixtures > 0 then
         -- 比赛日
         gameState.turnState = "match_day"
@@ -108,11 +124,15 @@ function TurnProcessor.advanceDay(gameState)
     EuroCup.checkPhaseAdvance(gameState)
     WorldCup.checkPhaseAdvance(gameState)
 
+    -- 检查国内杯赛阶段推进
+    DomesticCup.checkPhaseAdvance(gameState)
+
     -- 检查玩家所在联赛是否赛季结束（加 guard 防止重复触发）
-    -- 必须同时满足：联赛完成 + 欧冠完成（或不存在），否则 _startNewSeason 会覆盖进行中的欧冠
+    -- 必须同时满足：联赛完成 + 欧冠完成（或不存在）+ 杯赛完成，否则 _startNewSeason 会覆盖进行中的赛事
     local uclDone = (not gameState.championsLeague)
         or (gameState.championsLeague.phase == "completed")
-    if gameState.league and gameState.league:isSeasonComplete() and uclDone and not gameState._seasonEndProcessing then
+    local cupsDone = DomesticCup.allCompleted(gameState)
+    if gameState.league and gameState.league:isSeasonComplete() and uclDone and cupsDone and not gameState._seasonEndProcessing then
         gameState._seasonEndProcessing = true
         EventBus.emit("season_end")
     end
@@ -230,6 +250,8 @@ function TurnProcessor.processMatchDay(gameState, fixtures)
                 TurnProcessor._applyWCResult(gameState, fixture, report)
             elseif fixture._isUCL then
                 TurnProcessor._applyUCLResult(gameState, fixture, report)
+            elseif fixture._isDomesticCup then
+                DomesticCup.applyResult(gameState, fixture, report)
             else
                 MatchEngine.applyResult(gameState, fixture, report)
             end
@@ -615,6 +637,26 @@ function TurnProcessor.peekOverduePlayerFixture(gameState)
                         if WorldCupMod.isPlayerNationMatch(gameState, f) then
                             f._isWC = true
                             return f
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    -- 检查国内杯赛逾期比赛
+    local cups = gameState.domesticCups
+    if cups then
+        for _, cup in pairs(cups) do
+            if cup.phase ~= "completed" then
+                for _, roundFixtures in ipairs(cup.rounds) do
+                    for _, f in ipairs(roundFixtures) do
+                        if f.status == "scheduled" and f.date and TurnProcessor._isDateBefore(f.date, currentDate) then
+                            if f.homeTeamId == playerTeamId or f.awayTeamId == playerTeamId then
+                                f._isDomesticCup = true
+                                f._cupLeague = cup.leagueKey
+                                return f
+                            end
                         end
                     end
                 end

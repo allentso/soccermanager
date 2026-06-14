@@ -240,6 +240,10 @@ function ReincarnationManager.processReincarnations(gameState)
         local newPlayer = gameState:addPlayer(playerData)
         newPlayer.teamId = targetTeamId
 
+        -- 转生标记（用于立绘展示和 UI 识别）
+        newPlayer.isReincarnation = true
+        newPlayer.reincarnationMatchName = entry.matchName
+
         newPlayer.paRating = PotentialSystem.rawToRating(newPlayer.potential)
         newPlayer.actualPotential = PotentialSystem.generateActualPotential(
             newPlayer.paRating, (gameState.potentialSeed or 0) + newPlayer.id * 7919)

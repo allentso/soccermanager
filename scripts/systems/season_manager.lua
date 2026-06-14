@@ -16,6 +16,7 @@ local RecordsManager = require("scripts/systems/records_manager")
 local PotentialSystem = require("scripts/systems/potential_system")
 local TrainingManager = require("scripts/systems/training_manager")
 local ReincarnationManager = require("scripts/systems/reincarnation_manager")
+local DomesticCup = require("scripts/systems/domestic_cup")
 
 local SeasonManager = {}
 
@@ -1073,7 +1074,17 @@ function SeasonManager._startNewSeason(gameState)
     -- 初始化本赛季欧冠
     ChampionsLeague.initialize(gameState)
 
+    -- 初始化国内杯赛（足总杯、国王杯等）
+    DomesticCup.initialize(gameState)
+
     -- 国际大赛（欧洲杯年与世界杯年互斥）
+    -- 清理上一届已完赛的赛事数据
+    if gameState.worldCup and gameState.worldCup.phase == "completed" then
+        gameState.worldCup = nil
+    end
+    if gameState.euroCup and gameState.euroCup.phase == "completed" then
+        gameState.euroCup = nil
+    end
     if EuroCup.isEuroYear(gameState.season) then
         EuroCup.initialize(gameState)
     else

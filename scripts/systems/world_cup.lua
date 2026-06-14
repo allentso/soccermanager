@@ -3,6 +3,7 @@
 
 local Tournament = require("scripts/domain/tournament")
 local League = require("scripts/domain/league")
+local Player = require("scripts/domain/player")
 local EventBus = require("scripts/app/event_bus")
 local RecordsManager = require("scripts/systems/records_manager")
 local HistoryManager = require("scripts/systems/history_manager")
@@ -117,7 +118,7 @@ local NON_SEED_NATIONS = {
 ------------------------------------------------------
 local FIFA_TO_PLAYER_NAT = {
     ALB = "AL", ALG = "DZ", ARG = "AR", AUS = "AU", AUT = "AT", BEL = "BE", BIH = "BA",
-    BRA = "BR", CAN = "CA", CHN = "CN", CIV = "CI", COD = "CD", COL = "CO",
+    BRA = "BR", CAN = "CA", CHN = "CHN", CIV = "CI", COD = "CD", COL = "CO",
     CPV = "CAP", CRO = "HR", CUW = "CUW", CZE = "CZ", DEN = "DK", ECU = "EC",
     EGY = "EG", ENG = "ENG", ESP = "ES", FRA = "FR", GEO = "GE", GER = "DE",
     GHA = "GH", HAI = "HT", HON = "HN", HUN = "HU", IRN = "IR", IRQ = "IRQ",
@@ -198,10 +199,8 @@ local GROUPS = {
         {code = "ARG", name = "阿根廷"},
         {code = "ALG", name = "阿尔及利亚"},
         {code = "AUT", name = "奥地利"},
-    {code = "JOR", name = "约旦"},
-    -- 2030+ 保底入围（供玩家执教）
-    {code = "CHN", name = "中国"},
-},
+        {code = "JOR", name = "约旦"},
+    },
     K = {
         {code = "POR", name = "葡萄牙"},
         {code = "COD", name = "刚果金"},
@@ -1730,7 +1729,7 @@ local function _createVirtualPlayer(vpId, displayName, nationCode, playerNat, po
     local wage = _estimateWage(value)
     local reputation = math.max(15, math.min(70, ovr - 10 + RandomInt(-5, 5)))
 
-    return {
+    local vp = {
         id = vpId,
         -- 名称相关
         match_name = displayName,
@@ -1804,6 +1803,7 @@ local function _createVirtualPlayer(vpId, displayName, nationCode, playerNat, po
         -- 标记
         _isVirtual = true,
     }
+    return setmetatable(vp, { __index = Player })
 end
 
 --- 为指定国家队生成虚拟球员，注入 gameState.players
@@ -1875,8 +1875,42 @@ function WorldCup._buildFromPlayerSquad(gameState, nationCode, ntCoach)
         end
     end
 
+    -- 回退：当有效球员不足时（如联赛数据未加载），用虚拟球员补充
+    local TARGET_SQUAD = 23
+    if #validIds < TARGET_SQUAD then
+        local playerNat = WorldCup._toPlayerNat(nationCode)
+        -- 收集现有有效球员对象，供 _generateVirtualPlayers 判断位置分布
+        local existingPlayers = {}
+        for _, pid in ipairs(validIds) do
+            local p = gameState.players[pid]
+            if p then table.insert(existingPlayers, p) end
+        end
+        local needed = TARGET_SQUAD - #validIds
+        local generated = WorldCup._generateVirtualPlayers(
+            gameState, nationCode, playerNat, existingPlayers, needed
+        )
+        for _, vp in ipairs(generated) do
+            table.insert(validIds, vp.id)
+        end
+        print(string.format("[WorldCup] _buildFromPlayerSquad: %s had %d valid players, generated %d virtual players",
+            nationCode, #validIds - #generated, #generated))
+    end
+
     local saved = gameState._nationalTeamSettings and gameState._nationalTeamSettings[nationCode]
     local startingIds = (saved and saved.startingXI) or {}
+
+    -- 验证 saved startingXI 中的球员是否仍在 validIds 中
+    if #startingIds > 0 then
+        local validSet = {}
+        for _, pid in ipairs(validIds) do validSet[pid] = true end
+        local filteredXI = {}
+        for _, pid in ipairs(startingIds) do
+            if validSet[pid] then
+                table.insert(filteredXI, pid)
+            end
+        end
+        startingIds = filteredXI
+    end
 
     if #startingIds < 11 then
         -- 用validIds中的球员自动组建首发

@@ -231,8 +231,8 @@ YouthManager.INITIAL_YOUTH_COUNT = INITIAL_YOUTH_COUNT
 -- 传奇球星池抽卡配置
 ------------------------------------------------------
 local LEGEND_UNLOCK_ADS = 10        -- 看10次广告解锁传奇池
-local LEGEND_PULL_PER_AD = 2        -- 解锁后每次广告获得2次抽取
-local LEGEND_TEN_PULL_ADS = 3       -- 3次广告 = 一次十连抽
+local LEGEND_PULL_PER_AD = 3        -- 解锁后每次广告获得3次抽取
+local LEGEND_TEN_PULL_ADS = 3       -- 3次广告 = +15抽
 local LEGEND_BASE_RATE = 0.05       -- 单抽传奇基础概率 5%
 local LEGEND_RATE_INCREMENT = 0.005 -- 每次未出传奇十连 +0.5%
 local LEGEND_RATE_CAP = 0.10        -- 概率上限10%
@@ -1054,9 +1054,9 @@ function YouthManager.watchAdForUnlock(gameState)
     state.adsWatched = state.adsWatched + 1
     if state.adsWatched >= LEGEND_UNLOCK_ADS then
         state.unlocked = true
-        -- 解锁赠送一次十连抽
-        state.pulls = state.pulls + 10
-        log:Write(LOG_INFO, "YouthManager: 传奇池已解锁，赠送10次抽取")
+        -- 解锁赠送30连抽
+        state.pulls = state.pulls + 30
+        log:Write(LOG_INFO, "YouthManager: 传奇池已解锁，赠送30次抽取")
         return true, state.adsWatched
     end
     return false, state.adsWatched
@@ -1074,12 +1074,11 @@ function YouthManager.watchAdForPulls(gameState)
     local added = LEGEND_PULL_PER_AD
     state.pulls = state.pulls + added
 
-    -- 看满3次，补满到10
+    -- 看满3次，额外奖励6次（本轮合计 3+3+3+6=15）
     if state.pullAdProgress >= LEGEND_TEN_PULL_ADS then
-        if state.pulls < 10 then
-            added = added + (10 - state.pulls)
-            state.pulls = 10
-        end
+        local bonus = 6
+        state.pulls = state.pulls + bonus
+        added = added + bonus
         state.pullAdProgress = 0
     end
     return added

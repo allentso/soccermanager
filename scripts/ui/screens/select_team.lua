@@ -92,6 +92,50 @@ function SelectTeam.create(params)
         end
     end
 
+    -- 中超 Tab：未加载时点击加载，已加载时再次点击卸载
+    do
+        local cslLoaded = gameState.leagues.CSL ~= nil
+        local isActive = selectedLeagueKey == "CSL" and cslLoaded
+        table.insert(leagueTabs, UI.Panel {
+            height = 30,
+            paddingLeft = 12, paddingRight = 12,
+            backgroundColor = isActive and "rgba(212,175,55,0.15)" or (cslLoaded and "rgba(255,75,75,0.08)" or "rgba(212,175,55,0.06)"),
+            borderRadius = 15,
+            borderWidth = 1,
+            borderColor = isActive and "rgba(212,175,55,0.4)" or (cslLoaded and "rgba(255,75,75,0.3)" or "rgba(212,175,55,0.3)"),
+            justifyContent = "center",
+            alignItems = "center",
+            marginRight = 6,
+            onClick = function()
+                if cslLoaded then
+                    -- 已加载 → 卸载
+                    RealDataLoader.unloadOptionalLeague(gameState, "CSL")
+                    if selectedLeagueKey == "CSL" then
+                        selectedLeagueKey = "EPL"
+                    end
+                    pendingTeam = nil
+                    Router.replaceWith("select_team", params)
+                else
+                    -- 未加载 → 加载
+                    local success = RealDataLoader.loadOptionalLeague(gameState, "CSL")
+                    if success then
+                        selectedLeagueKey = "CSL"
+                        pendingTeam = nil
+                        Router.replaceWith("select_team", params)
+                    end
+                end
+            end,
+            children = {
+                UI.Label {
+                    text = cslLoaded and "中超 ✕" or "+ 中超",
+                    fontSize = 12,
+                    color = isActive and Theme.COLORS.GOLD or (cslLoaded and "#FF6B6B" or Theme.COLORS.GOLD),
+                    fontWeight = "bold",
+                },
+            },
+        })
+    end
+
     -- 获取当前选中联赛的球队列表
     local teamList = {}
     local selectedLeague = gameState.leagues[selectedLeagueKey]

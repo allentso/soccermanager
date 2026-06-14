@@ -237,6 +237,14 @@ MessageActionHandlers.HANDLERS = {
         local TransferManager = require("scripts/systems/transfer_manager")
         return TransferManager.cancelSale(gameState, data.bidId) == true
     end,
+    accept_incoming_loan_bid = function(gameState, data)
+        local TransferManager = require("scripts/systems/transfer_manager")
+        return TransferManager.acceptIncomingLoanBid(gameState, data.bidId) == true
+    end,
+    reject_incoming_loan_bid = function(gameState, data)
+        local TransferManager = require("scripts/systems/transfer_manager")
+        return TransferManager.rejectIncomingLoanBid(gameState, data.bidId) == true
+    end,
 }
 
 --- 执行动作并返回是否需要自动存档
@@ -246,6 +254,7 @@ function MessageActionHandlers.needsSave(actionId)
         or actionId == "confirm_loan" or actionId == "cancel_loan"
         or actionId == "confirm_free_agent" or actionId == "cancel_free_agent"
         or actionId == "accept_job_offer"
+        or actionId == "accept_incoming_loan_bid" or actionId == "reject_incoming_loan_bid"
 end
 
 return MessageActionHandlers

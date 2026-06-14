@@ -257,16 +257,16 @@ local function _buildFormationChildren(gameState, team, isNTMode)
         local isActive = fmt == currentFormation
         table.insert(formationChildren, UI.Button {
             text = fmt,
-            width = "30%",
-            height = 42,
+            width = "31%",
+            height = 34,
             backgroundColor = isActive and Theme.COLORS.ACCENT or Theme.COLORS.BG_CARD,
-            borderRadius = 8,
+            borderRadius = 6,
             borderWidth = isActive and 0 or 1,
             borderColor = Theme.COLORS.BORDER,
-            fontSize = 14,
+            fontSize = 13,
             color = isActive and Theme.COLORS.TEXT_PRIMARY or Theme.COLORS.TEXT_SECONDARY,
             fontWeight = isActive and "bold" or "normal",
-            marginBottom = 8,
+            marginBottom = 6,
             onClick = function()
                 if fmt == team.formation then return end
                 applyWithCustomizationConfirm(function()
@@ -342,23 +342,25 @@ local function _buildFormationChildren(gameState, team, isNTMode)
     -- 球场视图
     local pitchView = Tactics._buildPitchView(gameState, team, currentFormation)
 
-    return {
-        -- 阵型选择
-        Theme.Card {
-            children = {
-                Theme.Subtitle { text = "阵型" },
-                UI.Panel {
-                    width = "100%",
-                    flexDirection = "row",
-                    flexWrap = "wrap",
-                    justifyContent = "space-between",
-                    children = formationChildren,
-                },
-            }
-        },
+    local result = {}
 
-        -- 中场布局（多选项时显示；单模板阵型如 4-2-4 隐藏）
-        #layoutOptions > 1 and Theme.Card {
+    -- 阵型选择
+    table.insert(result, Theme.Card {
+        children = {
+            Theme.Subtitle { text = "阵型" },
+            UI.Panel {
+                width = "100%",
+                flexDirection = "row",
+                flexWrap = "wrap",
+                justifyContent = "space-between",
+                children = formationChildren,
+            },
+        }
+    })
+
+    -- 中场布局（多选项时显示；单模板阵型如 4-2-4 隐藏）
+    if #layoutOptions > 1 then
+        table.insert(result, Theme.Card {
             children = {
                 Theme.Subtitle { text = "中场布局" },
                 UI.Panel {
@@ -374,31 +376,33 @@ local function _buildFormationChildren(gameState, team, isNTMode)
                     marginTop = 4,
                 } or nil,
             }
-        } or nil,
+        })
+    end
 
-        -- 球场可视化
-        pitchView,
+    -- 球场可视化
+    table.insert(result, pitchView)
 
-        -- 打法选择
-        Theme.Card {
-            children = {
-                Theme.Subtitle { text = "比赛风格" },
-                UI.Panel {
-                    width = "100%",
-                    flexDirection = "row",
-                    flexWrap = "wrap",
-                    justifyContent = "space-between",
-                    children = styleChildren,
-                },
-            }
-        },
+    -- 打法选择
+    table.insert(result, Theme.Card {
+        children = {
+            Theme.Subtitle { text = "比赛风格" },
+            UI.Panel {
+                width = "100%",
+                flexDirection = "row",
+                flexWrap = "wrap",
+                justifyContent = "space-between",
+                children = styleChildren,
+            },
+        }
+    })
 
-        -- 首发列表
-        Tactics._buildStartingXICard(gameState, team),
+    -- 首发列表
+    table.insert(result, Tactics._buildStartingXICard(gameState, team))
 
-        -- 定位球主罚
-        Tactics._buildSetPieceCard(gameState, team, isNTMode),
-    }
+    -- 定位球主罚
+    table.insert(result, Tactics._buildSetPieceCard(gameState, team, isNTMode))
+
+    return result
 end
 
 ---------------------------------------------------------------------------
