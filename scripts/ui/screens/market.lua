@@ -573,7 +573,7 @@ function Market._showBidSheet(gameState, player, posFilter, searchQuery, ovrRang
     local budget = team and team.transferBudget or 0
     local baseValue = player.value
     local sellerTeam = gameState.teams[player.teamId]
-    local currentWage = player.wage or 5000
+    local suggestedWage = TransferManager.getSuggestedTransferWage(player)
 
     local clauseOptions = {
         { key = "simple", label = "一次付清·无附加条款", installments = 1, bonus = 0, sellOn = 0 },
@@ -597,7 +597,7 @@ function Market._showBidSheet(gameState, player, posFilter, searchQuery, ovrRang
     local wageField = UI.TextField {
         flexGrow = 1, height = 38,
         placeholder = "输入周薪（万）",
-        value = tostring(math.floor(currentWage / 10000)),
+        value = Market._amountToWanText(suggestedWage),
         fontSize = 14, borderRadius = 6,
     }
 
@@ -624,19 +624,19 @@ function Market._showBidSheet(gameState, player, posFilter, searchQuery, ovrRang
         })
     end
 
-    -- 快捷周薪按钮
+    -- 快捷周薪按钮（基于市场合理周薪，与 AI 出价逻辑一致）
     local wagePresets = { 0.9, 1.0, 1.2, 1.5 }
     local wagePresetBtns = {}
     for _, mul in ipairs(wagePresets) do
-        local wage = math.floor(currentWage * mul / 10000)
+        local wageAmount = math.max(500, math.floor(suggestedWage * mul))
         table.insert(wagePresetBtns, UI.Button {
-            text = Market._formatValue(wage * 10000),
+            text = Market._formatValue(wageAmount),
             height = 28, paddingLeft = 6, paddingRight = 6, marginRight = 4,
             backgroundColor = {38, 46, 71, 255},
             borderRadius = 5, fontSize = 11,
             color = Theme.COLORS.TEXT_SECONDARY,
             onClick = function()
-                wageField:SetValue(tostring(wage))
+                wageField:SetValue(Market._amountToWanText(wageAmount))
             end,
         })
     end
@@ -3211,6 +3211,18 @@ end
 -- 格式化金额
 function Market._formatValue(amount)
     return FinanceManager.formatMoney(amount)
+end
+
+-- 金额转「万」输入框文本（支持低于 1 万的小数）
+function Market._amountToWanText(amount)
+    amount = math.max(0, math.floor(amount or 0))
+    if amount >= 10000 then
+        return tostring(math.floor(amount / 10000))
+    end
+    local wan = amount / 10000
+    local text = string.format("%.4f", wan)
+    text = text:gsub("0+$", ""):gsub("%.$", "")
+    return text ~= "" and text or "0"
 end
 
 return Market

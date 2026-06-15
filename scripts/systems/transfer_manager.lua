@@ -1365,8 +1365,7 @@ function TransferManager._executeAITransfer(gameState, buyerTeam, player)
     if Random() > acceptChance then return false end  -- 卖方拒绝
 
     -- AI 工资谈判：基于市场合理薪资，避免无限通胀
-    -- 合理周薪 ≈ 身价 / 260（约5年合同等效），买方可在此基础上浮动 ±10%
-    local marketWage = math.max(player.wage, math.floor(player.value / 260))
+    local marketWage = TransferManager.getSuggestedTransferWage(player)
     local newWage = math.floor(marketWage * (0.95 + Random() * 0.15))  -- 市场价 -5% ~ +10%
     -- 保底不低于原工资（球员不接受降薪）
     newWage = math.max(player.wage, newWage)
@@ -2101,6 +2100,13 @@ end
 ------------------------------------------------------
 -- 租借系统
 ------------------------------------------------------
+
+--- 估算转会报价的合理周薪（与 AI 买人逻辑一致）
+function TransferManager.getSuggestedTransferWage(player)
+    local wage = player and player.wage or 0
+    local value = player and player.value or 0
+    return math.max(wage, math.floor(value / 260))
+end
 
 --- 计算参考租借费（周薪 × 租期 × 0.5）
 function TransferManager.getLoanFeeBenchmark(player, duration)
