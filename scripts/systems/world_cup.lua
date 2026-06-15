@@ -1668,6 +1668,20 @@ local function _estimateWage(value)
     return math.max(500, math.floor(value * 0.0012))
 end
 
+--- 中国队虚拟球员中文全名（与青训 CN 池一致）
+local _VP_CHN_NAMES = {
+    "李浩然", "王子轩", "张宇航", "刘梓豪", "陈俊杰",
+    "杨天翼", "赵志远", "黄博文", "周昊天", "吴瑞祥",
+    "徐嘉伟", "孙明哲", "胡晨曦", "朱逸飞", "高鹏程",
+    "林思远", "何泽宇", "郭煜城", "马星辰", "罗承恩",
+    "梁铭轩", "宋睿智", "郑翰林", "谢文昊", "韩致远",
+    "唐鸿飞", "冯修远", "于凯旋", "董子墨", "萧晋鹏",
+    "许嘉树", "沈逸凡", "曹宇轩", "邓子豪", "彭思齐",
+    "曾文博", "彭宇航", "吕晨阳", "丁梓睿", "任天佑",
+    "姜皓轩", "范子谦", "方嘉懿", "石锦程", "姚启航",
+    "谭俊豪", "邱子墨", "秦宇辰", "江浩然", "汪明轩",
+}
+
 --- 为虚拟球员生成随机姓名（按国家风格）
 local _VP_LAST_NAMES = {
     BRA = {"Silva", "Santos", "Oliveira", "Souza", "Lima", "Costa", "Pereira", "Almeida", "Ferreira", "Rodrigues", "Barbosa", "Ribeiro", "Martins"},
@@ -1713,6 +1727,10 @@ local _VP_FIRST_NAMES = {
 }
 
 local function _generateVPName(nationCode)
+    if nationCode == "CHN" then
+        local full = _VP_CHN_NAMES[RandomInt(1, #_VP_CHN_NAMES)] or "李浩然"
+        return full, full, full
+    end
     local lastPool = _VP_LAST_NAMES[nationCode] or _VP_LAST_NAMES.ENG
     local firstPool = _VP_FIRST_NAMES[nationCode] or _VP_FIRST_NAMES.ENG
     local first = firstPool[RandomInt(1, #firstPool)] or "Alex"
