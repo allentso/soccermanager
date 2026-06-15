@@ -21,34 +21,115 @@ local MAX_YOUTH_SQUAD = YouthManager.MAX_YOUTH_SQUAD
 
 ---@type ReincarnationEntry[]
 ReincarnationManager.REINCARNATION_LIST = {
+    -- ============ S 级 (潜力 96-99, 加成 +14, 3特性) ============
     {
         matchName = "Lionel Messi",
-        matchAltNames = {
-            "L. Messi", "Messi", "梅西", "莱昂内尔·梅西",
-        },
+        matchAltNames = { "L. Messi", "Messi", "梅西", "莱昂内尔·梅西" },
         potential = 99,
-        attrBonus = {
-            dribbling = 4,
-            vision = 3,
-            agility = 3,
-            passing = 2,
-            shooting = 2,
-        },
+        attrBonus = { dribbling = 4, vision = 3, agility = 3, passing = 2, shooting = 2 },
+        traits = { "dribbler", "playmaker", "clinical" },
     },
     {
         matchName = "Cristiano Ronaldo",
-        matchAltNames = {
-            "C. Ronaldo", "CR7", "C罗",
-            "克里斯蒂亚诺·罗纳尔多", "罗纳尔多",
-        },
+        matchAltNames = { "C. Ronaldo", "CR7", "C罗", "克里斯蒂亚诺·罗纳尔多", "罗纳尔多" },
         potential = 96,
-        attrBonus = {
-            shooting = 4,
-            speed = 3,
-            strength = 3,
-            aerial = 2,
-            composure = 2,
-        },
+        attrBonus = { shooting = 4, speed = 3, strength = 3, aerial = 2, composure = 2 },
+        traits = { "clinical", "pace_merchant", "aerial_threat" },
+    },
+
+    -- ============ A 级 (潜力 91-93, 加成 +12, 3特性) ============
+    {
+        matchName = "Neymar Jr.",
+        matchAltNames = { "Neymar", "内马尔", "内马尔·达席尔瓦" },
+        potential = 93,
+        attrBonus = { dribbling = 4, agility = 3, passing = 3, shooting = 2 },
+        traits = { "dribbler", "playmaker", "pace_merchant" },
+    },
+    {
+        matchName = "Robert Lewandowski",
+        matchAltNames = { "R. Lewandowski", "Lewandowski", "莱万多夫斯基", "莱万" },
+        potential = 92,
+        attrBonus = { shooting = 4, positioning = 3, composure = 3, aerial = 2 },
+        traits = { "clinical", "poacher", "aerial_threat" },
+    },
+    {
+        matchName = "Karim Benzema",
+        matchAltNames = { "K. Benzema", "Benzema", "本泽马", "卡里姆·本泽马" },
+        potential = 92,
+        attrBonus = { shooting = 3, composure = 3, vision = 3, positioning = 3 },
+        traits = { "clinical", "playmaker", "big_game" },
+    },
+    {
+        matchName = "Kevin De Bruyne",
+        matchAltNames = { "K. De Bruyne", "De Bruyne", "德布劳内", "凯文·德布劳内" },
+        potential = 93,
+        attrBonus = { passing = 4, vision = 4, shooting = 2, decisions = 2 },
+        traits = { "playmaker", "dead_ball", "clinical" },
+    },
+    {
+        matchName = "Luka Modrić",
+        matchAltNames = { "L. Modrić", "Modric", "莫德里奇", "卢卡·莫德里奇" },
+        potential = 91,
+        attrBonus = { passing = 3, vision = 3, decisions = 3, composure = 3 },
+        traits = { "playmaker", "captain", "big_game" },
+    },
+    {
+        matchName = "Manuel Neuer",
+        matchAltNames = { "M. Neuer", "Neuer", "诺伊尔", "曼努埃尔·诺伊尔" },
+        potential = 91,
+        attrBonus = { reflexes = 4, handling = 3, positioning = 3, speed = 2 },
+        traits = { "shot_stopper", "sweeper_keeper", "captain" },
+    },
+
+    -- ============ B 级 (潜力 87-90, 加成 +10, 2特性) ============
+    {
+        matchName = "Toni Kroos",
+        matchAltNames = { "T. Kroos", "Kroos", "克罗斯", "托尼·克罗斯" },
+        potential = 90,
+        attrBonus = { passing = 4, vision = 3, composure = 3 },
+        traits = { "playmaker", "dead_ball" },
+    },
+    {
+        matchName = "Luis Suárez",
+        matchAltNames = { "L. Suárez", "Suarez", "苏亚雷斯", "路易斯·苏亚雷斯" },
+        potential = 89,
+        attrBonus = { shooting = 3, positioning = 3, aggression = 2, composure = 2 },
+        traits = { "clinical", "poacher" },
+    },
+    {
+        matchName = "Sergio Ramos",
+        matchAltNames = { "S. Ramos", "Ramos", "拉莫斯", "塞尔吉奥·拉莫斯" },
+        potential = 89,
+        attrBonus = { defending = 3, tackling = 3, aerial = 2, leadership = 2 },
+        traits = { "brick_wall", "aerial_threat" },
+    },
+    {
+        matchName = "N'Golo Kanté",
+        matchAltNames = { "N. Kanté", "Kante", "坎特", "恩戈洛·坎特" },
+        potential = 90,
+        attrBonus = { tackling = 3, stamina = 3, speed = 2, decisions = 2 },
+        traits = { "ball_winner", "engine" },
+    },
+    {
+        matchName = "Gareth Bale",
+        matchAltNames = { "G. Bale", "Bale", "贝尔", "加雷斯·贝尔" },
+        potential = 88,
+        attrBonus = { speed = 3, shooting = 3, strength = 2, dribbling = 2 },
+        traits = { "pace_merchant", "clinical" },
+    },
+    {
+        matchName = "Eden Hazard",
+        matchAltNames = { "E. Hazard", "Hazard", "阿扎尔", "埃登·阿扎尔" },
+        potential = 88,
+        attrBonus = { dribbling = 4, agility = 3, passing = 2, vision = 1 },
+        traits = { "dribbler", "playmaker" },
+    },
+    {
+        matchName = "Paul Pogba",
+        matchAltNames = { "P. Pogba", "Pogba", "博格巴", "保罗·博格巴" },
+        potential = 87,
+        attrBonus = { passing = 3, strength = 3, vision = 2, shooting = 2 },
+        traits = { "playmaker", "powerhouse" },
     },
 }
 
@@ -235,6 +316,8 @@ function ReincarnationManager.processReincarnations(gameState)
             teamId = targetTeamId,
             squadRole = "youth",
             contractEnd = {year = gameState.date.year + 3, month = 6, day = 30},
+            traits = entry.traits or {},
+            innateTraits = entry.traits or nil,
         }
 
         local newPlayer = gameState:addPlayer(playerData)

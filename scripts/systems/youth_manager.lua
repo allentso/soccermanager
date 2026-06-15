@@ -795,7 +795,7 @@ function YouthManager._refreshCandidates(gameState)
     local usedNames = _collectYouthUsedNames(gameState, team.id)
 
     for _ = 1, YOUTH_POOL_SIZE do
-        local candidate = YouthManager._generateYouthPlayer(gameState, youthDevBonus, facilityYouthBonus, usedNames)
+        local candidate = YouthManager._generateYouthPlayer(gameState, youthDevBonus, facilityYouthBonus, usedNames, team.country)
         table.insert(candidates, candidate)
     end
 
@@ -839,7 +839,7 @@ function YouthManager._rollYouthPotential(youthMods, facilityLevel, youthDevBonu
     return math.min(99, basePotential + coachAdd)
 end
 
-function YouthManager._generateYouthPlayer(gameState, youthDevBonus, facilityYouthBonus, usedNames)
+function YouthManager._generateYouthPlayer(gameState, youthDevBonus, facilityYouthBonus, usedNames, teamCountry)
     facilityYouthBonus = facilityYouthBonus or 1.0
     local positions = {"GK", "CB", "LB", "RB", "CM", "CDM", "CAM", "LW", "RW", "ST"}
     local position = positions[RandomInt(1, #positions)]
@@ -882,7 +882,17 @@ function YouthManager._generateYouthPlayer(gameState, youthDevBonus, facilityYou
     end
 
     -- 先随机国籍，再从对应名字池取名（本批/本队 usedNames 去重）
-    local nationality = YOUTH_NATIONALITIES[RandomInt(1, #YOUTH_NATIONALITIES)]
+    -- 根据球队所属国家偏向本国国籍（中超球队85%中国球员）
+    local nationality
+    if teamCountry == "CHN" then
+        if RandomInt(1, 100) <= 85 then
+            nationality = "CN"
+        else
+            nationality = YOUTH_NATIONALITIES[RandomInt(1, #YOUTH_NATIONALITIES)]
+        end
+    else
+        nationality = YOUTH_NATIONALITIES[RandomInt(1, #YOUTH_NATIONALITIES)]
+    end
     local displayName = _pickYouthDisplayName(nationality, usedNames)
     local firstName, lastName = _formatYouthNameFields(displayName)
 
@@ -988,7 +998,7 @@ function YouthManager.fillAllTeamsYouth(gameState)
 
             for _ = 1, needed do
                 local candidate = YouthManager._generateYouthPlayer(
-                    gameState, youthDevBonus, facilityYouthBonus, usedNames)
+                    gameState, youthDevBonus, facilityYouthBonus, usedNames, team.country)
 
                 -- 转换为正式青训球员
                 local playerData = {
@@ -1211,7 +1221,7 @@ function YouthManager.doSinglePull(gameState)
         end
     else
         local usedNames = team and _collectYouthUsedNames(gameState, team.id) or {}
-        candidate = YouthManager._generateYouthPlayer(gameState, youthDevBonus, facilityYouthBonus, usedNames)
+        candidate = YouthManager._generateYouthPlayer(gameState, youthDevBonus, facilityYouthBonus, usedNames, team and team.country)
     end
 
     -- 追加到当前候选池
@@ -1338,7 +1348,7 @@ function YouthManager.doTenPull(gameState)
         else
             -- 普通青训球员
             local candidate = YouthManager._generateYouthPlayer(
-                gameState, youthDevBonus, facilityYouthBonus, usedNames)
+                gameState, youthDevBonus, facilityYouthBonus, usedNames, team and team.country)
             table.insert(candidates, candidate)
         end
     end
@@ -1459,7 +1469,7 @@ function YouthManager._processAITeamsMonthly(gameState)
 
                     for _ = 1, needed do
                         local candidate = YouthManager._generateYouthPlayer(
-                            gameState, youthDevBonus, facilityYouthBonus, usedNames)
+                            gameState, youthDevBonus, facilityYouthBonus, usedNames, team.country)
                         local playerData = {
                             firstName = candidate.firstName,
                             lastName = candidate.lastName,

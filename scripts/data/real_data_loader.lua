@@ -271,7 +271,7 @@ function RealDataLoader.importLeague(gameState, leagueData, leagueConfig)
             overall = pData.ovr or 60,
             potential = pData.potential or 70,
             contractEnd = contractEnd,
-            wage = pData.wage or 5000,
+            wage = (pData.wage and pData.wage > 0) and pData.wage or 5000,
             value = pData.market_value or 1000000,
             teamId = gameTeamId,
             squadRole = mapSquadRole(pData.squad_role),
@@ -762,7 +762,7 @@ function RealDataLoader.loadLegends(gameState)
             overall = pData.ovr or 70,
             potential = pData.potential or 70,
             contractEnd = nil,  -- 自由球员无合同
-            wage = pData.wage or 50000,  -- 期望周薪（谈判参考）
+            wage = (pData.wage and pData.wage > 0) and pData.wage or 50000,  -- 期望周薪（谈判参考）
             value = pData.market_value or 1000000,
             teamId = nil,       -- 自由球员
             squadRole = "first_team",

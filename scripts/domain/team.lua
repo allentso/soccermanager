@@ -179,6 +179,9 @@ function Team.new(data)
     self.iconPath = data.iconPath or nil
     self.stadiumName = data.stadiumName or "Stadium"
     self.stadiumCapacity = data.stadiumCapacity or 30000
+    self.stadiumExpanding = data.stadiumExpanding or nil
+    self.stadiumExpandWeeksLeft = data.stadiumExpandWeeksLeft or nil
+    self.stadiumExpandTarget = data.stadiumExpandTarget or nil
     self.foundedYear = data.foundedYear or 1900
 
     -- 竞技
@@ -338,6 +341,9 @@ function Team:serialize()
         iconPath = self.iconPath,
         stadiumName = self.stadiumName,
         stadiumCapacity = self.stadiumCapacity,
+        stadiumExpanding = self.stadiumExpanding,
+        stadiumExpandWeeksLeft = self.stadiumExpandWeeksLeft,
+        stadiumExpandTarget = self.stadiumExpandTarget,
         foundedYear = self.foundedYear,
         reputation = self.reputation,
         formation = self.formation,

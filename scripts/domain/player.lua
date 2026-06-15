@@ -116,7 +116,7 @@ function Player.new(data)
 
     -- 合同
     self.contractEnd = data.contractEnd or nil  -- {year, month}
-    self.wage = data.wage or 1000
+    self.wage = (data.wage and data.wage > 0) and data.wage or 1000
     self.value = data.value or 100000
     self.releaseClause = data.releaseClause or nil
 
@@ -161,6 +161,9 @@ function Player.new(data)
     -- 转生球员标记（用于立绘展示和 UI 识别）
     self.isReincarnation = data.isReincarnation or false
     self.reincarnationMatchName = data.reincarnationMatchName or nil
+
+    -- 转生球员固有特性（不受 calculateTraits 属性达标覆盖）
+    self.innateTraits = data.innateTraits or nil
 
     -- 球员特性：传奇走传奇池，普通走标准池
     self.traits = Player.normalizeTraits(data.traits or {}, self.isLegend)
@@ -853,6 +856,18 @@ function Player:calculateTraits(currentYear)
         end
     end
 
+    -- 转生球员：合并固有特性（不受属性达标限制）
+    if self.innateTraits then
+        local seen = {}
+        for _, id in ipairs(newTraits) do seen[id] = true end
+        for _, id in ipairs(self.innateTraits) do
+            if not seen[id] then
+                table.insert(newTraits, id)
+                seen[id] = true
+            end
+        end
+    end
+
     self.traits = Player.normalizeTraits(newTraits, false)
     return self.traits
 end
@@ -958,6 +973,7 @@ function Player:serialize()
         legendData = self.legendData,
         isReincarnation = self.isReincarnation or false,
         reincarnationMatchName = self.reincarnationMatchName,
+        innateTraits = self.innateTraits,
     }
 end
 
