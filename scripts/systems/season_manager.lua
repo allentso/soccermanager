@@ -335,7 +335,12 @@ function SeasonManager._processContractExpiry(gameState)
     for _, player in pairs(gameState.players) do
         if player.retired then goto continue end
         if player.contractEnd then
-            if player.contractEnd.year <= gameState.date.year then
+            -- 必须同时比较年份和月份：合同到6月才到期，赛季5月结束时不应视为到期
+            local cy = player.contractEnd.year
+            local cm = player.contractEnd.month or 6
+            local gy = gameState.date.year
+            local gm = gameState.date.month or 6
+            if cy < gy or (cy == gy and cm <= gm) then
                 -- 合同到期
                 table.insert(expiredPlayers, player)
             end

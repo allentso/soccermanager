@@ -158,6 +158,10 @@ function Player.new(data)
     self.legendName = data.legendName or nil
     self.legendData = data.legendData or nil
 
+    -- 转生球员标记（用于立绘展示和 UI 识别）
+    self.isReincarnation = data.isReincarnation or false
+    self.reincarnationMatchName = data.reincarnationMatchName or nil
+
     -- 球员特性：传奇走传奇池，普通走标准池
     self.traits = Player.normalizeTraits(data.traits or {}, self.isLegend)
 
@@ -952,6 +956,8 @@ function Player:serialize()
         isLegend = self.isLegend or false,
         legendName = self.legendName,
         legendData = self.legendData,
+        isReincarnation = self.isReincarnation or false,
+        reincarnationMatchName = self.reincarnationMatchName,
     }
 end
 

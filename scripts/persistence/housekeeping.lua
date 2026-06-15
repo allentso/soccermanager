@@ -471,7 +471,7 @@ function Housekeeping.reconcileRosters(gameState)
         for i = #(team.playerIds or {}), 1, -1 do
             local pid = team.playerIds[i]
             local player = gameState.players[pid]
-            if seen[pid] or not player or player.teamId ~= team.id then
+            if seen[pid] or not player or player.teamId ~= team.id or player.isYouth then
                 table.remove(team.playerIds, i)
                 removed = removed + 1
             else
@@ -481,7 +481,7 @@ function Housekeeping.reconcileRosters(gameState)
     end
 
     for _, player in pairs(gameState.players) do
-        if player.teamId and not player.retired then
+        if player.teamId and not player.retired and not player.isYouth then
             local team = gameState.teams[player.teamId]
             if team then
                 team:addPlayer(player.id)
@@ -499,6 +499,28 @@ function Housekeeping.clampPlayerPotentialCaps(gameState)
         end
     end
     return 0
+end
+
+------------------------------------------------------
+-- 转生球员标记修复
+--
+-- 历史 bug：Player:serialize() 曾遗漏 isReincarnation / reincarnationMatchName，
+-- 导致旧存档中转生球员丢失标记和立绘。利用 gameState._reincarnationsDone 恢复。
+------------------------------------------------------
+function Housekeeping.restoreReincarnationFlags(gameState)
+    local fixed = 0
+    local done = gameState._reincarnationsDone
+    if not done then return 0 end
+    for matchName, info in pairs(done) do
+        local pid = info.playerId
+        local player = pid and gameState.players[pid]
+        if player and not player.isReincarnation then
+            player.isReincarnation = true
+            player.reincarnationMatchName = matchName
+            fixed = fixed + 1
+        end
+    end
+    return fixed
 end
 
 function Housekeeping.run(gameState)
@@ -523,6 +545,7 @@ function Housekeeping.run(gameState)
         worldHistory = Housekeeping.dedupeWorldHistory(gameState),
         youthRefs = Housekeeping.purgeStaleYouthRefs(gameState),
         rosters = Housekeeping.reconcileRosters(gameState),
+        reincarnFlags = Housekeeping.restoreReincarnationFlags(gameState),
         loanListings = loanDelisted or 0,
     }
 
@@ -534,9 +557,10 @@ function Housekeeping.run(gameState)
         for _, v in pairs(stats) do total = total + v end
         if total > 0 then
             log:Write(LOG_INFO, string.format(
-                "Housekeeping: 清理完成 声望修复=%d 收入链=%d 退役=%d 自由球员=%d 虚拟=%d 生涯折叠=%d 赛果明细=%d 新闻=%d 转会=%d AI流水=%d 历史去重=%d 青训残留=%d 阵容修复=%d",
+                "Housekeeping: 清理完成 声望修复=%d 收入链=%d 退役=%d 自由球员=%d 虚拟=%d 生涯折叠=%d 赛果明细=%d 新闻=%d 转会=%d AI流水=%d 历史去重=%d 青训残留=%d 阵容修复=%d 转生标记=%d",
                 stats.repBaseline, stats.revenueChains, stats.retired, stats.freeAgents, stats.virtual, stats.career,
-                stats.fixtures, stats.news, stats.transfers, stats.aiTx, stats.worldHistory, stats.youthRefs, stats.rosters))
+                stats.fixtures, stats.news, stats.transfers, stats.aiTx, stats.worldHistory, stats.youthRefs, stats.rosters,
+                stats.reincarnFlags or 0))
         end
     end
 
