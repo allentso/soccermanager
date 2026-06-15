@@ -267,7 +267,8 @@ function MatchSession:_buildBench(gameState, homeTeam, awayTeam)
         local result = {}
         for _, pid in ipairs(team.benchIds) do
             local p = gameState.players[pid]
-            if p and not p.injured and not startingSet[p.id] then
+            -- 验证球员有效：未伤病、非首发、且仍属于本队（排除已租借/转会的残留ID）
+            if p and not p.injured and not startingSet[p.id] and p.teamId == team.id then
                 table.insert(result, p)
             end
         end

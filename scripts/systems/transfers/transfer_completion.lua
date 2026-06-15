@@ -101,6 +101,14 @@ return function(TransferManager)
                 end
             end
         end
+        -- 替补席同步移除：租借/转会后残留在 benchIds 会导致比赛中仍可上场
+        if team.benchIds then
+            for i = #(team.benchIds or {}), 1, -1 do
+                if team.benchIds[i] == playerId then
+                    table.remove(team.benchIds, i)
+                end
+            end
+        end
         -- 青训名单同步移除：妖人转会后若残留在原队 _youthPlayerIds，
         -- 会被 YouthManager 的 AI 月度提拔覆盖 teamId/合同（BUG-20260611-06）
         if team._youthPlayerIds then

@@ -274,6 +274,35 @@ function HistoryManager.getEuroHistory(gameState)
 end
 
 ------------------------------------------------------
+-- 玩家国家队执教历史
+------------------------------------------------------
+
+--- 记录玩家执教国家队的赛事成绩
+---@param gameState table
+---@param data {season:number, competition:string, nationId:string, nationName:string, result:string, matchesPlayed:number, wins:number, draws:number, losses:number}
+function HistoryManager.recordNTCoachResult(gameState, data)
+    if not gameState._ntCoachHistory then
+        gameState._ntCoachHistory = {}
+    end
+    table.insert(gameState._ntCoachHistory, {
+        season = data.season,
+        competition = data.competition,       -- "euro" | "worldcup"
+        nationId = data.nationId,
+        nationName = data.nationName,
+        result = data.result,                 -- "冠军" / "亚军" / "四强" / "八强" / "十六强" / "小组赛出局"
+        matchesPlayed = data.matchesPlayed or 0,
+        wins = data.wins or 0,
+        draws = data.draws or 0,
+        losses = data.losses or 0,
+    })
+end
+
+--- 获取玩家国家队执教历史
+function HistoryManager.getNTCoachHistory(gameState)
+    return gameState._ntCoachHistory or {}
+end
+
+------------------------------------------------------
 -- UI 查询接口
 ------------------------------------------------------
 

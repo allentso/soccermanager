@@ -288,6 +288,7 @@ function GameState:serialize()
         objectives = self.objectives,
         _messageDedupeCache = self._messageDedupeCache,
         _pendingNTCoachOffers = self._pendingNTCoachOffers,
+        _ntCoachHistory = self._ntCoachHistory,
         -- 存档数据消毒留痕（用于追根因：记录哪些字段曾出现非法值/稀疏数组）
         _sanitizeReports = self._sanitizeReports,
         -- 声望基准线迁移标记
@@ -376,6 +377,7 @@ function GameState:deserialize(data)
     self.objectives = data.objectives
     self._messageDedupeCache = data._messageDedupeCache or {}
     self._pendingNTCoachOffers = data._pendingNTCoachOffers
+    self._ntCoachHistory = data._ntCoachHistory or {}
     -- 存档消毒留痕（追根因用）
     self._sanitizeReports = data._sanitizeReports
     -- 声望基准线迁移标记

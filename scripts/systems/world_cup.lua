@@ -1001,6 +1001,21 @@ function WorldCup._completeTournament(gameState, wc)
         local coachNationName = WorldCup._getNationName(coachNation)
         local isChampion = (coachNation == winner)
 
+        -- 记录玩家执教成绩
+        local result = WorldCup._calcCoachResult(wc, coachNation, winner, runnerUp)
+        local w, d, l = WorldCup._calcCoachMatchRecord(wc, coachNation)
+        HistoryManager.recordNTCoachResult(gameState, {
+            season = wc.season,
+            competition = "worldcup",
+            nationId = coachNation,
+            nationName = coachNationName,
+            result = result,
+            matchesPlayed = w + d + l,
+            wins = w,
+            draws = d,
+            losses = l,
+        })
+
         gameState:sendMessage({
             category = "national_team",
             title = "国家队任期结束",
@@ -2053,6 +2068,111 @@ function WorldCup.getPlayerGroup(gameState)
     local nation = WorldCup._getPlayerNation(gameState)
     if not nation then return nil end
     return WorldCup._getGroupForNation(nation)
+end
+
+------------------------------------------------------
+-- 执教成绩计算辅助
+------------------------------------------------------
+
+--- 计算玩家执教的最终结果字符串
+function WorldCup._calcCoachResult(wc, coachNation, winner, runnerUp)
+    if coachNation == winner then return "冠军" end
+    if coachNation == runnerUp then return "亚军" end
+
+    -- 检查半决赛参与者（四强）
+    local sfFixtures = wc.knockout and wc.knockout.sf
+    if sfFixtures then
+        for _, f in ipairs(sfFixtures) do
+            if f.homeTeamId == coachNation or f.awayTeamId == coachNation then
+                return "四强"
+            end
+        end
+    end
+
+    -- 检查八强赛参与者
+    local qfFixtures = wc.knockout and wc.knockout.qf
+    if qfFixtures then
+        for _, f in ipairs(qfFixtures) do
+            if f.homeTeamId == coachNation or f.awayTeamId == coachNation then
+                return "八强"
+            end
+        end
+    end
+
+    -- 检查十六强参与者
+    local r16Fixtures = wc.knockout and wc.knockout.r16
+    if r16Fixtures then
+        for _, f in ipairs(r16Fixtures) do
+            if f.homeTeamId == coachNation or f.awayTeamId == coachNation then
+                return "十六强"
+            end
+        end
+    end
+
+    -- 检查三十二强参与者
+    local r32Fixtures = wc.knockout and wc.knockout.r32
+    if r32Fixtures then
+        for _, f in ipairs(r32Fixtures) do
+            if f.homeTeamId == coachNation or f.awayTeamId == coachNation then
+                return "三十二强"
+            end
+        end
+    end
+
+    return "小组赛出局"
+end
+
+--- 计算执教期间的胜/平/负记录
+function WorldCup._calcCoachMatchRecord(wc, coachNation)
+    local wins, draws, losses = 0, 0, 0
+
+    -- 小组赛
+    if wc.groups then
+        for _, group in pairs(wc.groups) do
+            for _, f in ipairs(group.fixtures or {}) do
+                if f.status == "finished" and (f.homeTeamId == coachNation or f.awayTeamId == coachNation) then
+                    local isHome = (f.homeTeamId == coachNation)
+                    local myGoals = isHome and f.homeGoals or f.awayGoals
+                    local opGoals = isHome and f.awayGoals or f.homeGoals
+                    if myGoals > opGoals then wins = wins + 1
+                    elseif myGoals < opGoals then losses = losses + 1
+                    else draws = draws + 1 end
+                end
+            end
+        end
+    end
+
+    -- 淘汰赛各轮
+    local koPhases = {"r32", "r16", "qf", "sf", "final"}
+    for _, phase in ipairs(koPhases) do
+        local fixtures = wc.knockout and wc.knockout[phase]
+        if fixtures then
+            for _, f in ipairs(fixtures) do
+                if f.status == "finished" and (f.homeTeamId == coachNation or f.awayTeamId == coachNation) then
+                    if f._isThirdPlace then
+                        -- 三四名决赛也计入
+                    end
+                    local isHome = (f.homeTeamId == coachNation)
+                    local myGoals = isHome and f.homeGoals or f.awayGoals
+                    local opGoals = isHome and f.awayGoals or f.homeGoals
+                    if myGoals > opGoals then
+                        wins = wins + 1
+                    elseif myGoals < opGoals then
+                        losses = losses + 1
+                    else
+                        -- 淘汰赛平局，根据点球判断
+                        if f._penaltyWinner == coachNation then
+                            wins = wins + 1
+                        else
+                            losses = losses + 1
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    return wins, draws, losses
 end
 
 return WorldCup

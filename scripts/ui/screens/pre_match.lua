@@ -611,6 +611,13 @@ function PreMatch.create(params)
                                 onClick = function()
                                     -- 清除待处理标记
                                     gameState.pendingPlayerFixture = nil
+                                    -- 同步替补席到 benchIds，确保与赛前准备页面显示一致
+                                    -- bench 变量已按 overall 降序排列且排除了首发/伤病
+                                    local syncBenchIds = {}
+                                    for i = 1, math.min(7, #bench) do
+                                        syncBenchIds[i] = bench[i].id
+                                    end
+                                    team.benchIds = syncBenchIds
                                     -- 创建步进式比赛会话
                                     local MatchEngine = require("scripts/match/match_engine")
                                     local session = MatchEngine.startMatch(gameState, fixture)

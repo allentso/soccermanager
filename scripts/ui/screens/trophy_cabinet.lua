@@ -5,6 +5,8 @@ local Theme = require("scripts/ui/theme")
 local RecordsManager = require("scripts/systems/records_manager")
 local FinanceManager = require("scripts/systems/finance_manager")
 local ChampionshipPopup = require("scripts/ui/components/championship_popup")
+local HistoryManager = require("scripts/systems/history_manager")
+local WorldCup = require("scripts/systems/world_cup")
 
 local COLORS = Theme.COLORS
 
@@ -324,6 +326,241 @@ local function buildRecordsTab(gameState)
 end
 
 ------------------------------------------------------
+-- Tab 4: 国际赛事历史
+------------------------------------------------------
+
+local RESULT_COLORS = {
+    ["冠军"] = {212, 175, 55, 255},     -- 金色
+    ["亚军"] = {180, 180, 180, 255},    -- 银色
+    ["四强"] = {205, 127, 50, 255},     -- 铜色
+    ["八强"] = {100, 180, 100, 255},    -- 绿色
+    ["十六强"] = {100, 150, 200, 255},  -- 蓝色
+    ["三十二强"] = {130, 130, 160, 255},
+    ["小组赛出局"] = {160, 80, 80, 255},-- 红灰
+}
+
+local function buildInternationalTab(gameState)
+    local wcHistory = HistoryManager.getWorldCupHistory(gameState)
+    local euroHistory = HistoryManager.getEuroHistory(gameState)
+    local coachHistory = HistoryManager.getNTCoachHistory(gameState)
+    local cards = {}
+
+    -- 执教成绩汇总横幅
+    if #coachHistory > 0 then
+        local totalMatches, totalWins, totalDraws, totalLosses = 0, 0, 0, 0
+        local bestResult = nil
+        local bestResultPriority = 999
+        local RESULT_PRIORITY = { ["冠军"] = 1, ["亚军"] = 2, ["四强"] = 3, ["八强"] = 4, ["十六强"] = 5, ["三十二强"] = 6, ["小组赛出局"] = 7 }
+
+        for _, record in ipairs(coachHistory) do
+            totalMatches = totalMatches + (record.matchesPlayed or 0)
+            totalWins = totalWins + (record.wins or 0)
+            totalDraws = totalDraws + (record.draws or 0)
+            totalLosses = totalLosses + (record.losses or 0)
+            local pri = RESULT_PRIORITY[record.result] or 99
+            if pri < bestResultPriority then
+                bestResultPriority = pri
+                bestResult = record.result
+            end
+        end
+
+        local winRate = totalMatches > 0 and (totalWins / totalMatches * 100) or 0
+
+        table.insert(cards, Theme.HeroCard {
+            accentColor = {50, 120, 200, 255},
+            children = {
+                UI.Panel {
+                    width = "100%", paddingVertical = 8, paddingHorizontal = 12,
+                    children = {
+                        UI.Label { text = "国家队执教生涯", fontSize = 14, fontWeight = "bold", color = COLORS.TEXT_PRIMARY, marginBottom = 8 },
+                        UI.Panel {
+                            width = "100%", flexDirection = "row", justifyContent = "space-around",
+                            children = {
+                                UI.Panel { alignItems = "center", children = {
+                                    UI.Label { text = tostring(#coachHistory), fontSize = 20, fontWeight = "bold", color = {50, 120, 200, 255} },
+                                    UI.Label { text = "届赛事", fontSize = 10, color = COLORS.TEXT_SECONDARY, marginTop = 2 },
+                                }},
+                                UI.Panel { alignItems = "center", children = {
+                                    UI.Label { text = string.format("%d/%d/%d", totalWins, totalDraws, totalLosses), fontSize = 16, fontWeight = "bold", color = COLORS.TEXT_PRIMARY },
+                                    UI.Label { text = "胜/平/负", fontSize = 10, color = COLORS.TEXT_SECONDARY, marginTop = 2 },
+                                }},
+                                UI.Panel { alignItems = "center", children = {
+                                    UI.Label { text = string.format("%.0f%%", winRate), fontSize = 20, fontWeight = "bold", color = winRate >= 50 and {80, 200, 120, 255} or COLORS.TEXT_MUTED },
+                                    UI.Label { text = "胜率", fontSize = 10, color = COLORS.TEXT_SECONDARY, marginTop = 2 },
+                                }},
+                                UI.Panel { alignItems = "center", children = {
+                                    UI.Label { text = bestResult or "-", fontSize = 16, fontWeight = "bold", color = RESULT_COLORS[bestResult] or COLORS.TEXT_PRIMARY },
+                                    UI.Label { text = "最佳成绩", fontSize = 10, color = COLORS.TEXT_SECONDARY, marginTop = 2 },
+                                }},
+                            }
+                        },
+                    }
+                }
+            }
+        })
+    end
+
+    -- 执教历史详细记录
+    if #coachHistory > 0 then
+        local rows = {}
+        for i = #coachHistory, 1, -1 do
+            local r = coachHistory[i]
+            local compIcon = r.competition == "worldcup" and "🌍" or "🇪🇺"
+            local compName = r.competition == "worldcup" and "世界杯" or "欧洲杯"
+            local resultColor = RESULT_COLORS[r.result] or COLORS.TEXT_PRIMARY
+            local matchStr = string.format("%d场 %d胜%d平%d负", r.matchesPlayed or 0, r.wins or 0, r.draws or 0, r.losses or 0)
+
+            table.insert(rows, UI.Panel {
+                width = "100%", minHeight = 44, flexDirection = "row", alignItems = "center",
+                paddingHorizontal = 10, paddingVertical = 6,
+                borderBottomWidth = 1, borderColor = COLORS.BORDER,
+                children = {
+                    UI.Label { text = compIcon, fontSize = 16, width = 26 },
+                    UI.Panel { flex = 1, children = {
+                        UI.Panel { flexDirection = "row", alignItems = "center", children = {
+                            UI.Label { text = (r.nationName or "?"), fontSize = 13, fontWeight = "bold", color = COLORS.TEXT_PRIMARY },
+                            UI.Label { text = " · " .. compName .. " " .. tostring(r.season or ""), fontSize = 11, color = COLORS.TEXT_MUTED },
+                        }},
+                        UI.Label { text = matchStr, fontSize = 10, color = COLORS.TEXT_SECONDARY, marginTop = 2 },
+                    }},
+                    UI.Panel {
+                        paddingHorizontal = 8, paddingVertical = 3,
+                        borderRadius = 4,
+                        backgroundColor = {resultColor[1], resultColor[2], resultColor[3], 30},
+                        children = {
+                            UI.Label { text = r.result or "?", fontSize = 11, fontWeight = "bold", color = resultColor },
+                        }
+                    },
+                }
+            })
+        end
+        table.insert(cards, Theme.Card { children = {
+            Theme.Subtitle { text = "执教记录" },
+            table.unpack(rows),
+        }})
+    end
+
+    -- 当前赛事进度
+    local euro = gameState.euroCup
+    local wc = gameState.worldCup
+    local coachNationName = nil
+    if gameState.nationalTeamCoach then
+        coachNationName = WorldCup._getNationName(gameState.nationalTeamCoach.nation)
+    end
+
+    if euro and euro.phase and euro.phase ~= "completed" and euro.phase ~= "not_started" then
+        local phaseNames = { group = "小组赛", r16 = "十六强", qf = "八强", sf = "半决赛", final = "决赛" }
+        local coachNation = coachNationName
+        table.insert(cards, Theme.Card { children = {
+            Theme.Subtitle { text = "🇪🇺 欧洲杯 " .. tostring(euro.season or "") },
+            UI.Panel {
+                width = "100%", flexDirection = "row", alignItems = "center", paddingHorizontal = 10, paddingVertical = 6,
+                children = {
+                    UI.Panel {
+                        paddingHorizontal = 6, paddingVertical = 2, borderRadius = 3,
+                        backgroundColor = {80, 180, 120, 40},
+                        children = { UI.Label { text = "进行中", fontSize = 10, color = {80, 200, 120, 255} } }
+                    },
+                    UI.Label { text = "  " .. (phaseNames[euro.phase] or euro.phase), fontSize = 12, color = COLORS.TEXT_PRIMARY },
+                    coachNation and UI.Label {
+                        text = "  执教: " .. coachNation, fontSize = 11, color = COLORS.ACCENT,
+                    } or nil,
+                }
+            },
+        }})
+    end
+    if wc and wc.phase and wc.phase ~= "completed" and wc.phase ~= "not_started" then
+        local phaseNames = { group = "小组赛", r32 = "三十二强", r16 = "十六强", qf = "八强", sf = "半决赛", final = "决赛" }
+        local coachNation = coachNationName
+        table.insert(cards, Theme.Card { children = {
+            Theme.Subtitle { text = "🌍 世界杯 " .. tostring(wc.season or "") },
+            UI.Panel {
+                width = "100%", flexDirection = "row", alignItems = "center", paddingHorizontal = 10, paddingVertical = 6,
+                children = {
+                    UI.Panel {
+                        paddingHorizontal = 6, paddingVertical = 2, borderRadius = 3,
+                        backgroundColor = {80, 180, 120, 40},
+                        children = { UI.Label { text = "进行中", fontSize = 10, color = {80, 200, 120, 255} } }
+                    },
+                    UI.Label { text = "  " .. (phaseNames[wc.phase] or wc.phase), fontSize = 12, color = COLORS.TEXT_PRIMARY },
+                    coachNation and UI.Label {
+                        text = "  执教: " .. coachNation, fontSize = 11, color = COLORS.ACCENT,
+                    } or nil,
+                }
+            },
+        }})
+    end
+
+    -- 世界杯冠军榜
+    if #wcHistory > 0 then
+        local rows = {}
+        for i = #wcHistory, 1, -1 do
+            local r = wcHistory[i]
+            local champName = r.championName or WorldCup._getNationName(r.championId) or r.championId or "?"
+            local runnerName = r.runnerUpName or WorldCup._getNationName(r.runnerUpId) or r.runnerUpId or ""
+            table.insert(rows, UI.Panel {
+                width = "100%", height = 38, flexDirection = "row", alignItems = "center",
+                paddingHorizontal = 10, borderBottomWidth = 1, borderColor = COLORS.BORDER,
+                children = {
+                    UI.Label { text = tostring(r.season or ""), width = 44, fontSize = 12, fontWeight = "bold", color = COLORS.TEXT_MUTED },
+                    UI.Label { text = "🏆", width = 24, fontSize = 14 },
+                    UI.Label { text = champName, flex = 1, fontSize = 13, fontWeight = "bold", color = {212, 175, 55, 255} },
+                    runnerName ~= "" and UI.Label {
+                        text = "亚军:" .. runnerName, fontSize = 10, color = COLORS.TEXT_SECONDARY,
+                    } or nil,
+                }
+            })
+        end
+        table.insert(cards, Theme.Card { children = {
+            Theme.Subtitle { text = "🌍 世界杯冠军榜" },
+            table.unpack(rows),
+        }})
+    end
+
+    -- 欧洲杯冠军榜
+    if #euroHistory > 0 then
+        local rows = {}
+        for i = #euroHistory, 1, -1 do
+            local r = euroHistory[i]
+            local champName = r.championName or WorldCup._getNationName(r.championId) or r.championId or "?"
+            local runnerName = r.runnerUpName or WorldCup._getNationName(r.runnerUpId) or r.runnerUpId or ""
+            table.insert(rows, UI.Panel {
+                width = "100%", height = 38, flexDirection = "row", alignItems = "center",
+                paddingHorizontal = 10, borderBottomWidth = 1, borderColor = COLORS.BORDER,
+                children = {
+                    UI.Label { text = tostring(r.season or ""), width = 44, fontSize = 12, fontWeight = "bold", color = COLORS.TEXT_MUTED },
+                    UI.Label { text = "🏆", width = 24, fontSize = 14 },
+                    UI.Label { text = champName, flex = 1, fontSize = 13, fontWeight = "bold", color = {50, 180, 100, 255} },
+                    runnerName ~= "" and UI.Label {
+                        text = "亚军:" .. runnerName, fontSize = 10, color = COLORS.TEXT_SECONDARY,
+                    } or nil,
+                }
+            })
+        end
+        table.insert(cards, Theme.Card { children = {
+            Theme.Subtitle { text = "🇪🇺 欧洲杯冠军榜" },
+            table.unpack(rows),
+        }})
+    end
+
+    -- 空状态
+    if #cards == 0 then
+        table.insert(cards, Theme.Card { children = {
+            UI.Panel {
+                width = "100%", alignItems = "center", paddingVertical = 30,
+                children = {
+                    UI.Label { text = "🌍", fontSize = 48, marginBottom = 10 },
+                    UI.Label { text = "暂无国际赛事记录", fontSize = 14, color = COLORS.TEXT_SECONDARY },
+                    UI.Label { text = "参加世界杯或欧洲杯后将在此展示历史", fontSize = 12, color = COLORS.TEXT_MUTED, marginTop = 4 },
+                }
+            }
+        }})
+    end
+
+    return cards
+end
+
+------------------------------------------------------
 -- 主入口
 ------------------------------------------------------
 
@@ -339,6 +576,7 @@ function TrophyCabinet.create(params)
         { key = "trophies", label = "奖杯" },
         { key = "manager",  label = "生涯统计" },
         { key = "records",  label = "历史记录" },
+        { key = "international", label = "国际赛事" },
     }
 
     -- 标签栏
@@ -371,6 +609,8 @@ function TrophyCabinet.create(params)
         tabContent = buildManagerTab(gameState)
     elseif _activeTab == "records" then
         tabContent = buildRecordsTab(gameState)
+    elseif _activeTab == "international" then
+        tabContent = buildInternationalTab(gameState)
     else
         tabContent = buildTrophiesTab(gameState)
     end

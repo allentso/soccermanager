@@ -3000,10 +3000,10 @@ function Dashboard._buildNTSnapshot(gameState)
         end
     end
 
-    -- 淘汰赛阶段信息
+    -- 淘汰赛阶段信息（包括已完赛，仍显示bracket供回顾）
     local knockoutInfo = nil
-    if tournament.phase ~= "group" and tournament.phase ~= "not_started" and tournament.phase ~= "completed" then
-        knockoutInfo = "进入淘汰赛阶段"
+    if tournament.phase ~= "group" and tournament.phase ~= "not_started" then
+        knockoutInfo = tournament.phase == "completed" and "赛事已结束" or "进入淘汰赛阶段"
     end
 
     local children = {}
@@ -3107,7 +3107,7 @@ function Dashboard._buildNTSnapshot(gameState)
 
         local bracketCols = {}
         for _, bp in ipairs(bracketPhases) do
-            local fixtures = wc.knockout[bp.key] or {}
+            local fixtures = tournament.knockout[bp.key] or {}
             local realFixtures = {}
             for _, f in ipairs(fixtures) do
                 if not f._isThirdPlace then table.insert(realFixtures, f) end
@@ -3141,8 +3141,8 @@ function Dashboard._buildNTSnapshot(gameState)
         end
 
         -- 冠军列（如果有）
-        if wc.champion then
-            local champName = WorldCup._getNationName(wc.champion)
+        if tournament.champion then
+            local champName = NT._getNationName(tournament.champion)
             table.insert(bracketCols, UI.Panel {
                 alignItems = "center", justifyContent = "center", flexGrow = 1,
                 children = {

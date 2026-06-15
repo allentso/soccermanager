@@ -143,6 +143,13 @@ function Housekeeping.purgeVirtualPlayers(gameState)
         and wc.phase ~= Tournament.PHASE_NOT_STARTED
     if wcActive then return 0 end
 
+    -- 欧洲杯进行中也不能清理虚拟球员
+    local euro = gameState.euroCup
+    local euroActive = euro and euro.phase
+        and euro.phase ~= Tournament.PHASE_COMPLETED
+        and euro.phase ~= Tournament.PHASE_NOT_STARTED
+    if euroActive then return 0 end
+
     local removed = 0
     local toRemove = {}
     for id, p in pairs(gameState.players) do
@@ -476,6 +483,17 @@ function Housekeeping.reconcileRosters(gameState)
                 removed = removed + 1
             else
                 seen[pid] = true
+            end
+        end
+        -- benchIds 同步清理：移除不属于本队/已伤病/已删除的残留球员ID
+        if team.benchIds then
+            for i = #team.benchIds, 1, -1 do
+                local pid = team.benchIds[i]
+                local player = gameState.players[pid]
+                if not player or player.teamId ~= team.id then
+                    table.remove(team.benchIds, i)
+                    removed = removed + 1
+                end
             end
         end
     end
