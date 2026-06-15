@@ -176,7 +176,7 @@ function PlayerDetail.create(params)
                 children = {
                     Theme.StatPill { label = "位置", value = Constants.POSITION_NAMES[player.position] or player.position },
                     Theme.StatPill { label = "年龄", value = age },
-                    Theme.StatPill { label = "体能", value = player.fitness,
+                    Theme.StatPill { label = "体能", value = math.floor(player.fitness),
                         valueColor = player.fitness >= 75 and Theme.COLORS.SECONDARY or Theme.COLORS.WARNING },
                     Theme.StatPill { label = "士气", value = player.morale,
                         valueColor = player.morale >= 60 and Theme.COLORS.SECONDARY or Theme.COLORS.WARNING },
@@ -1824,7 +1824,7 @@ function PlayerDetail._buildTraining(player, team, gameState)
                         children = {
                             PlayerDetail._infoRow("当前重点", focusLabel, Theme.COLORS.ACCENT),
                             PlayerDetail._infoRow("球队方案", Constants.TRAINING_FOCUS_NAMES and Constants.TRAINING_FOCUS_NAMES[teamFocus] or teamFocus, Theme.COLORS.TEXT_MUTED),
-                            PlayerDetail._infoRow("体能", tostring(player.fitness) .. "%",
+                            PlayerDetail._infoRow("体能", tostring(math.floor(player.fitness)) .. "%",
                                 player.fitness >= 75 and Theme.COLORS.SECONDARY or Theme.COLORS.WARNING),
                         }
                     },

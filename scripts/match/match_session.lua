@@ -86,6 +86,49 @@ function MatchSession:restoreKickoffLineups()
     end
 end
 
+--- 两回合制第二回合：从 gameState 查找第一回合比分，返回总比分偏移
+--- 返回 nil 表示不是两回合第二回合；否则返回 { leg1Home, leg1Away }
+---@param gameState table
+---@param fixture table
+---@return table|nil
+function MatchSession._resolveTwoLegAggregate(gameState, fixture)
+    if fixture.leg ~= 2 or not fixture.matchIndex then return nil end
+    if not fixture._isUCL then return nil end
+
+    local ucl = gameState.championsLeague
+    if not ucl or not ucl.knockout then return nil end
+
+    -- 查找当前阶段的所有 fixture
+    local knockoutPhases = {"playoff", "r16", "qf", "sf"}
+    for _, phase in ipairs(knockoutPhases) do
+        if ucl.phase == phase or ucl.knockout[phase] then
+            local fixtures = ucl.knockout[phase]
+            if fixtures then
+                for _, f in ipairs(fixtures) do
+                    if f.matchIndex == fixture.matchIndex and f.leg == 1 and f.status == "finished" then
+                        -- 第一回合：home 是 team1，away 是 team2
+                        -- 第二回合：home 是 team2，away 是 team1（主客互换）
+                        return { leg1Home = f.homeGoals, leg1Away = f.awayGoals }
+                    end
+                end
+            end
+        end
+    end
+    return nil
+end
+
+--- 判断两回合制总比分是否平局
+--- 第二回合 home = leg1 的 away（主客互换），所以：
+---   team1 总进球 = leg1Home + 本场 awayGoals
+---   team2 总进球 = leg1Away + 本场 homeGoals
+function MatchSession:_isAggregateTied()
+    local agg = self._twoLegAggregate
+    if not agg then return false end
+    local team1Total = agg.leg1Home + self.awayGoals  -- leg1 主队 = leg2 客队
+    local team2Total = agg.leg1Away + self.homeGoals  -- leg1 客队 = leg2 主队
+    return team1Total == team2Total
+end
+
 --- 创建新比赛会话
 ---@param gameState table
 ---@param fixture table
@@ -138,6 +181,9 @@ function MatchSession.new(gameState, fixture)
 
     local EventFlavors = require("scripts/match/event_flavors")
     self._seasonDaysRemaining = EventFlavors.estimateSeasonDaysRemaining(gameState)
+
+    -- 两回合制第二回合：记录第一回合比分，用于90分钟后判断总比分是否平局→加时
+    self._twoLegAggregate = MatchSession._resolveTwoLegAggregate(gameState, fixture)
 
     return self
 end
@@ -462,13 +508,22 @@ function MatchSession:_checkPhaseTransition()
         -- 淘汰赛平局 → 加时
         if self.fixture.isKnockout and self.homeGoals == self.awayGoals then
             self.phase = MatchSession.PHASE.EXTRA_FIRST
+        elseif self._twoLegAggregate and self:_isAggregateTied() then
+            -- 两回合制第二回合：总比分平局 → 加时
+            self.phase = MatchSession.PHASE.EXTRA_FIRST
         else
             self.phase = MatchSession.PHASE.FULL_TIME
         end
     elseif self.phase == MatchSession.PHASE.EXTRA_FIRST and self.currentMinute >= 105 then
         self.phase = MatchSession.PHASE.EXTRA_HALF_TIME
     elseif self.phase == MatchSession.PHASE.EXTRA_SECOND and self.currentMinute >= 120 then
-        if self.homeGoals == self.awayGoals then
+        local stillTied
+        if self._twoLegAggregate then
+            stillTied = self:_isAggregateTied()
+        else
+            stillTied = (self.homeGoals == self.awayGoals)
+        end
+        if stillTied then
             self.phase = MatchSession.PHASE.PENALTIES
         else
             self.phase = MatchSession.PHASE.FULL_TIME
@@ -830,8 +885,8 @@ function MatchSession:buildReport()
         awayCorners = math.max(0, math.floor(self.awayShots * 0.28 + poisson(1.0))),
     }
 
-    -- 加时赛信息
-    if self.fixture.isKnockout then
+    -- 加时赛信息（单场淘汰 或 两回合制第二回合总比分平局）
+    if self.fixture.isKnockout or self._twoLegAggregate then
         local homeExtraGoals = 0
         local awayExtraGoals = 0
         for _, evt in ipairs(self.events) do

@@ -521,6 +521,10 @@ function Dashboard._showPotentialModifierDialog(gameState)
                         fontSize = 14, color = {255, 255, 255, 255}, fontWeight = "bold",
                         onClick = function()
                             UI.CloseOverlay()
+                            if not sdk then
+                                UI.Toast.Show({ message = "广告暂不可用", variant = "warning" })
+                                return
+                            end
                             sdk:ShowRewardVideoAd(function(result)
                                 if result.success then
                                     local newProgress = (gameState.potentialRevealProgress or 0) + 1

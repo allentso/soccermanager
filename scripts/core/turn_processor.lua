@@ -801,7 +801,8 @@ function TurnProcessor._applyUCLResult(gameState, fixture, report)
     -- 存储加时赛/点球数据（来自 MatchEngine 单场淘汰逻辑，如决赛）
     _storeKnockoutExtras(fixture, report.extraTime)
 
-    -- 两回合制第二回合：总比分平局 → 加时 + 点球（复用 MatchEngine）
+    -- 两回合制第二回合：总比分平局 → 加时 + 点球
+    -- 如果 report 已包含 extraTime（玩家亲自踢了加时），直接使用其结果，不再重复模拟
     if fixture.leg == 2 and not fixture._penaltyWinner then
         local knockoutPhases = {playoff = true, r16 = true, qf = true, sf = true}
         local currentPhase = ucl.phase
@@ -820,16 +821,22 @@ function TurnProcessor._applyUCLResult(gameState, fixture, report)
                 local agg1 = leg1.homeGoals + fixture.awayGoals
                 local agg2 = leg1.awayGoals + fixture.homeGoals
                 if agg1 == agg2 then
-                    local homeTeam = gameState.teams[fixture.homeTeamId]
-                    local awayTeam = gameState.teams[fixture.awayTeamId]
-                    if homeTeam and awayTeam then
-                        local TacticsResolver = require("scripts/match/tactics_resolver")
-                        local homeContext = TacticsResolver.buildTeamContext(gameState, homeTeam)
-                        local awayContext = TacticsResolver.buildTeamContext(gameState, awayTeam)
-                        if #homeContext.players > 0 and #awayContext.players > 0 then
-                            local extraTime = MatchEngine.simulateExtraTimeAndPenalties(
-                                fixture, homeContext, awayContext)
-                            _storeKnockoutExtras(fixture, extraTime)
+                    if report.extraTime then
+                        -- 玩家已经踢了加时+点球，直接使用 report 中的结果
+                        _storeKnockoutExtras(fixture, report.extraTime)
+                    else
+                        -- AI 模拟的比赛，需要外部模拟加时+点球
+                        local homeTeam = gameState.teams[fixture.homeTeamId]
+                        local awayTeam = gameState.teams[fixture.awayTeamId]
+                        if homeTeam and awayTeam then
+                            local TacticsResolver = require("scripts/match/tactics_resolver")
+                            local homeContext = TacticsResolver.buildTeamContext(gameState, homeTeam)
+                            local awayContext = TacticsResolver.buildTeamContext(gameState, awayTeam)
+                            if #homeContext.players > 0 and #awayContext.players > 0 then
+                                local extraTime = MatchEngine.simulateExtraTimeAndPenalties(
+                                    fixture, homeContext, awayContext)
+                                _storeKnockoutExtras(fixture, extraTime)
+                            end
                         end
                     end
                 end

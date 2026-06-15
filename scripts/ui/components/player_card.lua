@@ -161,7 +161,7 @@ function PlayerCard.Row(props)
                 justifyContent = "center", alignItems = "center",
                 children = {
                     UI.Label {
-                        text = tostring(player.fitness or 0),
+                        text = tostring(math.floor(player.fitness or 0)),
                         fontSize = 10,
                         color = getFitnessColor(player.fitness or 80),
                     },
@@ -334,7 +334,7 @@ function PlayerCard.DetailCard(props)
         flexDirection = "row",
         marginBottom = 8,
         children = {
-            Theme.StatPill { label = "体能", value = fitness .. "%", valueColor = getFitnessColor(fitness) },
+            Theme.StatPill { label = "体能", value = math.floor(fitness) .. "%", valueColor = getFitnessColor(fitness) },
             Theme.StatPill { label = "士气", value = (player.morale or 60), valueColor = (player.morale or 60) >= 60 and Theme.COLORS.SECONDARY or Theme.COLORS.WARNING },
             statusText ~= "" and Theme.StatPill { label = "状态", value = statusText, valueColor = statusColor } or UI.Panel { width = 0 },
         }

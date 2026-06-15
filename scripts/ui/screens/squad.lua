@@ -358,7 +358,7 @@ function Squad.create(params)
         table.insert(metaItems, UI.Label { text = wageText, fontSize = 11, color = Theme.COLORS.TEXT_MUTED })
         table.insert(metaItems, UI.Label { text = " · ", fontSize = 11, color = Theme.COLORS.TEXT_MUTED })
         table.insert(metaItems, UI.Label { text = "体能 ", fontSize = 11, color = Theme.COLORS.TEXT_MUTED })
-        table.insert(metaItems, UI.Label { text = tostring(fitnessVal), fontSize = 11, color = fitnessColor, fontWeight = "bold" })
+        table.insert(metaItems, UI.Label { text = tostring(math.floor(fitnessVal)), fontSize = 11, color = fitnessColor, fontWeight = "bold" })
         if contractWarn ~= "" then
             table.insert(metaItems, UI.Label { text = " · ", fontSize = 11, color = Theme.COLORS.TEXT_MUTED })
             table.insert(metaItems, UI.Label { text = "合同到期", fontSize = 11, color = Theme.COLORS.WARNING })

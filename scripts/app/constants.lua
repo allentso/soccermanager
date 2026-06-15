@@ -4,7 +4,8 @@
 local Constants = {}
 
 -- 游戏版本
-Constants.VERSION = "2.1.2"
+Constants.VERSION = "2.2.1"
+Constants.VERSION_MAJOR = "v" .. Constants.VERSION:match("^(%d+)")
 Constants.SAVE_VERSION = 8
 
 -- 赛季设置

@@ -889,6 +889,10 @@ end
 
 --- 观看广告解锁
 function Youth._watchAdForUnlock(gameState)
+    if not sdk then
+        UI.Toast.Show({ message = "广告暂不可用", variant = "warning" })
+        return
+    end
     sdk:ShowRewardVideoAd(function(result)
         if result.success then
             local unlocked, _progress = YouthManager.watchAdForUnlock(gameState)
@@ -1051,6 +1055,10 @@ end
 
 --- 在弹窗流程中观看广告并弹出奖励反馈
 function Youth._doWatchAdInModal(gameState)
+    if not sdk then
+        UI.Toast.Show({ message = "广告暂不可用", variant = "warning" })
+        return
+    end
     sdk:ShowRewardVideoAd(function(result)
         if result.success then
             local newPulls = YouthManager.watchAdForPulls(gameState)

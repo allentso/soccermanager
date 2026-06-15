@@ -98,7 +98,7 @@ function TimeBlockerManager._checkInjuredXI(gameState, team, blockers)
         if TimeBlockerManager._hasMatchTomorrow(gameState) then
             table.insert(blockers, {
                 id = "injured_xi",
-                severity = "warn",
+                severity = "info",
                 message = string.format("首发有 %d 名伤员（%s），明天有比赛",
                     #injuredNames,
                     #injuredNames <= 2 and table.concat(injuredNames, "、") or injuredNames[1] .. " 等"),

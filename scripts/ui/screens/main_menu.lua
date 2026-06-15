@@ -136,9 +136,9 @@ function MainMenu.create()
                 },
             },
 
-            -- 版本号
+            -- 版本号（只显示大版本号）
             UI.Label {
-                text = "v" .. Constants.VERSION,
+                text = Constants.VERSION_MAJOR,
                 fontSize = 13,
                 color = "rgba(255,255,255,0.3)",
             },
