@@ -134,11 +134,18 @@ function TurnProcessor.advanceDay(gameState)
     DomesticCup.checkPhaseAdvance(gameState)
 
     -- 检查玩家所在联赛是否赛季结束（加 guard 防止重复触发）
-    -- 必须同时满足：联赛完成 + 欧冠完成（或不存在）+ 杯赛完成，否则 _startNewSeason 会覆盖进行中的赛事
+    -- 必须同时满足：联赛完成 + 欧冠完成（或不存在）+ 杯赛完成 + 国际大赛已结束（或不存在）
+    -- 否则 _startNewSeason 会覆盖进行中的欧洲杯/世界杯（异常存档或快进时可能联赛已完但大赛未完）
     local uclDone = (not gameState.championsLeague)
         or (gameState.championsLeague.phase == "completed")
     local cupsDone = DomesticCup.allCompleted(gameState)
-    if gameState.league and gameState.league:isSeasonComplete() and uclDone and cupsDone and not gameState._seasonEndProcessing then
+    local euroDone = (not gameState.euroCup)
+        or (gameState.euroCup.phase == "completed")
+    local wcDone = (not gameState.worldCup)
+        or (gameState.worldCup.phase == "completed")
+    if gameState.league and gameState.league:isSeasonComplete()
+        and uclDone and cupsDone and euroDone and wcDone
+        and not gameState._seasonEndProcessing then
         gameState._seasonEndProcessing = true
         EventBus.emit("season_end")
     end
