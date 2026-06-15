@@ -1066,23 +1066,8 @@ function PlayerDetail._buildContractActions(player, team, gameState)
 end
 
 -- 挂牌出售 / 取消挂牌 / 收到报价处理
-local INCOMING_SALE_STATUS_PRIORITY = {
-    awaiting_sale_confirmation = 1,
-    pending = 2,
-    counter_pending = 3,
-    player_considering_sale = 4,
-}
-
 function PlayerDetail._pickPrimaryIncomingSaleBid(gameState, playerId)
-    local bids = TransferManager.getIncomingBidsForPlayer(gameState, playerId)
-    if #bids == 0 then return nil end
-    table.sort(bids, function(a, b)
-        local pa = INCOMING_SALE_STATUS_PRIORITY[a.status] or 99
-        local pb = INCOMING_SALE_STATUS_PRIORITY[b.status] or 99
-        if pa ~= pb then return pa < pb end
-        return (a.amount or 0) > (b.amount or 0)
-    end)
-    return bids[1]
+    return TransferManager.pickPrimaryIncomingSaleBid(gameState, playerId)
 end
 
 function PlayerDetail._buildIncomingSaleBidPanel(player, gameState, bid)

@@ -292,10 +292,15 @@ function TransferManager.raiseBid(gameState, bidId, newAmount, newWage)
 end
 
 -- 获取指定 bid
+local function _bidIdsEqual(a, b)
+    if a == nil or b == nil then return false end
+    return a == b or tonumber(a) == tonumber(b)
+end
+
 function TransferManager.getBidById(gameState, bidId)
     TransferManager._ensureData(gameState)
     for _, bid in ipairs(gameState.transfers.bids) do
-        if bid.id == bidId then return bid end
+        if _bidIdsEqual(bid.id, bidId) then return bid end
     end
     return nil
 end
@@ -1469,6 +1474,104 @@ function TransferManager.getIncomingBidsForPlayer(gameState, playerId)
     return bids
 end
 
+local INCOMING_SALE_STATUS_PRIORITY = {
+    awaiting_sale_confirmation = 1,
+    pending = 2,
+    counter_pending = 3,
+    player_considering_sale = 4,
+}
+
+--- 选取应展示/处理的主报价（状态优先，同状态取最高价）
+function TransferManager.pickPrimaryIncomingSaleBid(gameState, playerId)
+    local bids = TransferManager.getIncomingBidsForPlayer(gameState, playerId)
+    if #bids == 0 then return nil end
+    table.sort(bids, function(a, b)
+        local pa = INCOMING_SALE_STATUS_PRIORITY[a.status] or 99
+        local pb = INCOMING_SALE_STATUS_PRIORITY[b.status] or 99
+        if pa ~= pb then return pa < pb end
+        return (a.amount or 0) > (b.amount or 0)
+    end)
+    return bids[1]
+end
+
+--- 读档/每日修复 incoming 出售 bid 异常（幂等，老存档加载时也会调用）
+---@return table stats { stale, dupAwaiting, superseded }
+function TransferManager.repairIncomingSaleBids(gameState, opts)
+    opts = opts or {}
+    TransferManager._ensureData(gameState)
+    local stats = { stale = 0, dupAwaiting = 0, superseded = 0 }
+    local date = gameState.date and {
+        year = gameState.date.year, month = gameState.date.month, day = gameState.date.day,
+    } or { year = 2025, month = 7, day = 1 }
+
+    local YouthManager = require("scripts/systems/youth_manager")
+    local activeStatuses = {
+        pending = true, counter_pending = true,
+        awaiting_sale_confirmation = true, player_considering_sale = true,
+    }
+
+    for _, bid in ipairs(gameState.transfers.bids) do
+        if not bid.isIncomingBid or not activeStatuses[bid.status] then goto continueStale end
+        local player = gameState.players[bid.playerId]
+        local sellerTeam = bid.sellerTeamId and gameState.teams[bid.sellerTeamId]
+        local stillOnSeller = player and bid.sellerTeamId
+            and (player.teamId == bid.sellerTeamId
+                or YouthManager.isOnTeamYouthSquad(gameState, bid.playerId, bid.sellerTeamId))
+        if not player or not sellerTeam or not stillOnSeller then
+            bid.status = "rejected"
+            bid.rejectedDate = date
+            stats.stale = stats.stale + 1
+        end
+        ::continueStale::
+    end
+
+    local awaitingByPlayer = {}
+    for _, bid in ipairs(gameState.transfers.bids) do
+        if bid.isIncomingBid and bid.status == "awaiting_sale_confirmation" then
+            if not awaitingByPlayer[bid.playerId] then
+                awaitingByPlayer[bid.playerId] = {}
+            end
+            table.insert(awaitingByPlayer[bid.playerId], bid)
+        end
+    end
+
+    local primaryAwaiting = {}
+    for playerId, bids in pairs(awaitingByPlayer) do
+        table.sort(bids, function(a, b) return (a.amount or 0) > (b.amount or 0) end)
+        primaryAwaiting[playerId] = bids[1]
+        if #bids > 1 then
+            for i = 2, #bids do
+                bids[i].status = "rejected"
+                bids[i].rejectedDate = date
+                stats.dupAwaiting = stats.dupAwaiting + 1
+            end
+            if not opts.silent then
+                local player = gameState.players[playerId]
+                gameState:sendMessage({
+                    category = "transfer",
+                    title = "重复报价已清理",
+                    body = string.format("%s 存在多份待确认出售报价，已自动保留最高报价，其余取消。",
+                        player and player.displayName or "该球员"),
+                    priority = "normal",
+                })
+            end
+        end
+    end
+
+    for _, bid in ipairs(gameState.transfers.bids) do
+        if not bid.isIncomingBid or not activeStatuses[bid.status] then goto continueSuper end
+        local keeper = primaryAwaiting[bid.playerId]
+        if keeper and bid.id ~= keeper.id then
+            bid.status = "rejected"
+            bid.rejectedDate = date
+            stats.superseded = stats.superseded + 1
+        end
+        ::continueSuper::
+    end
+
+    return stats
+end
+
 --- 检查某球员是否已有 awaiting_sale_confirmation 状态的 bid（避免同一球员多个待确认出售阻断时间推进）
 --- @param gameState table
 --- @param playerId string
@@ -1479,7 +1582,7 @@ function TransferManager._hasAwaitingSaleConfirmation(gameState, playerId, exclu
     for _, bid in ipairs(gameState.transfers.bids) do
         if bid.playerId == playerId and bid.isIncomingBid
             and bid.status == "awaiting_sale_confirmation"
-            and bid.id ~= excludeBidId then
+            and not _bidIdsEqual(bid.id, excludeBidId) then
             return true
         end
     end
@@ -1719,7 +1822,7 @@ end
 function TransferManager.acceptIncomingBid(gameState, bidId)
     TransferManager._ensureData(gameState)
     for _, bid in ipairs(gameState.transfers.bids) do
-        if bid.id == bidId and bid.status == "pending" and bid.isIncomingBid then
+        if _bidIdsEqual(bid.id, bidId) and bid.status == "pending" and bid.isIncomingBid then
             -- 进入"球员考虑中"状态，球员需要时间决定是否接受转会
             bid.status = "player_considering_sale"
             bid.playerConsiderSaleDate = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day}
@@ -1757,7 +1860,7 @@ end
 function TransferManager.rejectIncomingBid(gameState, bidId)
     TransferManager._ensureData(gameState)
     for _, bid in ipairs(gameState.transfers.bids) do
-        if bid.id == bidId and bid.status == "pending" and bid.isIncomingBid then
+        if _bidIdsEqual(bid.id, bidId) and bid.status == "pending" and bid.isIncomingBid then
             bid.status = "rejected"
             bid.rejectedDate = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day}
             bid.responseDate = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day}
@@ -1783,7 +1886,7 @@ end
 function TransferManager.counterIncomingBid(gameState, bidId, askAmount)
     TransferManager._ensureData(gameState)
     for _, bid in ipairs(gameState.transfers.bids) do
-        if bid.id == bidId and bid.status == "pending" and bid.isIncomingBid then
+        if _bidIdsEqual(bid.id, bidId) and bid.status == "pending" and bid.isIncomingBid then
             local buyerTeam = gameState.teams[bid.buyerTeamId]
             local player = gameState.players[bid.playerId]
             if not buyerTeam or not player then return false end
@@ -1962,7 +2065,7 @@ end
 function TransferManager.confirmSale(gameState, bidId)
     TransferManager._ensureData(gameState)
     for _, bid in ipairs(gameState.transfers.bids) do
-        if bid.id == bidId and bid.status == "awaiting_sale_confirmation" and bid.isIncomingBid then
+        if _bidIdsEqual(bid.id, bidId) and bid.status == "awaiting_sale_confirmation" and bid.isIncomingBid then
             bid.status = "completed"
             bid.responseDate = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day}
             TransferManager._completeIncomingSale(gameState, bid)
@@ -1976,7 +2079,7 @@ end
 function TransferManager.cancelSale(gameState, bidId)
     TransferManager._ensureData(gameState)
     for _, bid in ipairs(gameState.transfers.bids) do
-        if bid.id == bidId and bid.status == "awaiting_sale_confirmation" and bid.isIncomingBid then
+        if _bidIdsEqual(bid.id, bidId) and bid.status == "awaiting_sale_confirmation" and bid.isIncomingBid then
             local player = gameState.players[bid.playerId]
             local buyerTeam = gameState.teams[bid.buyerTeamId]
             bid.status = "rejected"
@@ -4354,61 +4457,8 @@ function TransferManager.processDailyBids(gameState)
         -- 下方的处理循环只作用于仍有效的 bid，已 cancelled 的会跳过
     end
 
-    -- 存档修复：球员已不存在或已离队时，清理残留的 incoming 出售 bid（避免时间推进卡死）
-    do
-        local YouthManager = require("scripts/systems/youth_manager")
-        for _, bid in ipairs(gameState.transfers.bids) do
-            if not bid.isIncomingBid then goto continueStaleIncoming end
-            local activeStatuses = {
-                pending = true, counter_pending = true,
-                awaiting_sale_confirmation = true, player_considering_sale = true,
-            }
-            if not activeStatuses[bid.status] then goto continueStaleIncoming end
-            local player = gameState.players[bid.playerId]
-            local sellerTeam = bid.sellerTeamId and gameState.teams[bid.sellerTeamId]
-            local stillOnSeller = player and bid.sellerTeamId
-                and (player.teamId == bid.sellerTeamId
-                    or YouthManager.isOnTeamYouthSquad(gameState, bid.playerId, bid.sellerTeamId))
-            if not player or not sellerTeam or not stillOnSeller then
-                bid.status = "rejected"
-                bid.rejectedDate = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day}
-            end
-            ::continueStaleIncoming::
-        end
-    end
-
-    -- 存档修复：清理同一球员存在多个 awaiting_sale_confirmation 的异常情况
-    -- 保留最高出价的 bid，其余自动 reject
-    do
-        local awaitingByPlayer = {} -- playerId -> { bid, ... }
-        for _, bid in ipairs(gameState.transfers.bids) do
-            if bid.isIncomingBid and bid.status == "awaiting_sale_confirmation" then
-                if not awaitingByPlayer[bid.playerId] then
-                    awaitingByPlayer[bid.playerId] = {}
-                end
-                table.insert(awaitingByPlayer[bid.playerId], bid)
-            end
-        end
-        for playerId, bids in pairs(awaitingByPlayer) do
-            if #bids > 1 then
-                -- 按金额降序，保留最高的，其余 reject
-                table.sort(bids, function(a, b) return (a.amount or 0) > (b.amount or 0) end)
-                for i = 2, #bids do
-                    bids[i].status = "rejected"
-                    bids[i].rejectedDate = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day}
-                end
-                local player = gameState.players[playerId]
-                local playerName = player and player.displayName or "该球员"
-                gameState:sendMessage({
-                    category = "transfer",
-                    title = "重复报价已清理",
-                    body = string.format("%s 存在多份待确认出售报价，已自动保留最高报价，其余取消。",
-                        playerName),
-                    priority = "normal",
-                })
-            end
-        end
-    end
+    -- 存档修复：incoming 出售 bid 异常（读档后首日也会执行，此处每日兜底）
+    TransferManager.repairIncomingSaleBids(gameState)
 
     for _, bid in ipairs(gameState.transfers.bids) do
         if bid.status == "pending" then

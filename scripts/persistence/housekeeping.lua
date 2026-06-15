@@ -548,6 +548,10 @@ function Housekeeping.run(gameState)
 
     local TransferManager = require("scripts/systems/transfer_manager")
     local _, loanDelisted = TransferManager.clearLoanListingsOutsideWindow(gameState, { silent = true })
+    local incomingSaleRepair = TransferManager.repairIncomingSaleBids(gameState, { silent = true })
+    local incomingSaleFixed = (incomingSaleRepair.stale or 0)
+        + (incomingSaleRepair.dupAwaiting or 0)
+        + (incomingSaleRepair.superseded or 0)
 
     local stats = {
         repBaseline = Housekeeping.fixReputationBaseline(gameState),
@@ -565,6 +569,7 @@ function Housekeeping.run(gameState)
         rosters = Housekeeping.reconcileRosters(gameState),
         reincarnFlags = Housekeeping.restoreReincarnationFlags(gameState),
         loanListings = loanDelisted or 0,
+        incomingSaleBids = incomingSaleFixed,
     }
 
     local YouthManager = require("scripts/systems/youth_manager")

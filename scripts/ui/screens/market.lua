@@ -206,7 +206,7 @@ function Market.create(params)
             end
             local player = gameState.players[bid.playerId]
             if player then
-                Market._showOfferSheet(gameState, player)
+                Market._showOfferSheet(gameState, player, bid)
             elseif bid.status == "awaiting_sale_confirmation" then
                 ConfirmDialog.show({
                     title = "报价已失效",
@@ -1405,31 +1405,29 @@ function Market._buildListedContent(gameState)
             local hasBid = TransferManager.hasPendingIncomingBid(gameState, p.id)
             local posColor = Theme.posColor(p.position)
 
-            -- 获取报价信息
+            -- 获取报价信息（状态优先，避免列表与弹窗展示不同 bid）
             local bidInfo = ""
             local bidColor = Theme.COLORS.FINANCE_GREEN
             local btnText = "处理"
+            local primaryBid = nil
             if hasBid then
-                local bids = TransferManager.getPendingSellBids(gameState)
-                for _, b in ipairs(bids) do
-                    if b.playerId == p.id and b.isIncomingBid then
-                        local buyer = gameState.teams[b.buyerTeamId]
-                        if b.status == "counter_pending" then
-                            bidInfo = "还价中 · 等待" .. (buyer and buyer.name or "对方") .. "回复"
-                            bidColor = Theme.COLORS.WARNING
-                            btnText = "查看"
-                        elseif b.status == "player_considering_sale" then
-                            bidInfo = "球员考虑中 · " .. (buyer and buyer.name or "买方") .. " " .. Market._formatValue(b.amount)
-                            bidColor = {255, 180, 60, 255}
-                            btnText = "查看"
-                        elseif b.status == "awaiting_sale_confirmation" then
-                            bidInfo = "待确认 · " .. Market._formatValue(b.amount) .. " → " .. (buyer and buyer.name or "买方")
-                            bidColor = Theme.COLORS.SECONDARY
-                            btnText = "确认"
-                        else
-                            bidInfo = (buyer and buyer.name or "未知") .. " 出价 " .. Market._formatValue(b.amount)
-                        end
-                        break
+                primaryBid = TransferManager.pickPrimaryIncomingSaleBid(gameState, p.id)
+                if primaryBid then
+                    local buyer = gameState.teams[primaryBid.buyerTeamId]
+                    if primaryBid.status == "counter_pending" then
+                        bidInfo = "还价中 · 等待" .. (buyer and buyer.name or "对方") .. "回复"
+                        bidColor = Theme.COLORS.WARNING
+                        btnText = "查看"
+                    elseif primaryBid.status == "player_considering_sale" then
+                        bidInfo = "球员考虑中 · " .. (buyer and buyer.name or "买方") .. " " .. Market._formatValue(primaryBid.amount)
+                        bidColor = {255, 180, 60, 255}
+                        btnText = "查看"
+                    elseif primaryBid.status == "awaiting_sale_confirmation" then
+                        bidInfo = "待确认 · " .. Market._formatValue(primaryBid.amount) .. " → " .. (buyer and buyer.name or "买方")
+                        bidColor = Theme.COLORS.SECONDARY
+                        btnText = "确认"
+                    else
+                        bidInfo = (buyer and buyer.name or "未知") .. " 出价 " .. Market._formatValue(primaryBid.amount)
                     end
                 end
             end
@@ -1467,7 +1465,7 @@ function Market._buildListedContent(gameState)
                                 borderRadius = 6, fontSize = 12,
                                 color = {255, 255, 255, 255},
                                 onClick = function()
-                                    Market._showOfferSheet(gameState, p)
+                                    Market._showOfferSheet(gameState, p, primaryBid)
                                 end,
                             } or UI.Button {
                                 text = "取消",
@@ -1741,11 +1739,15 @@ function Market._showFreeAgentConfirmSheet(gameState, nego)
     })
 end
 
-function Market._showOfferSheet(gameState, player)
-    -- 收集该球员的所有竞争报价
+function Market._showOfferSheet(gameState, player, preferredBid)
+    if preferredBid and preferredBid.playerId == player.id then
+        -- 深链或列表已选定 bid，直接展示
+    else
+        preferredBid = nil
+    end
+
     local allBids = TransferManager.getIncomingBidsForPlayer(gameState, player.id)
-    if #allBids == 0 then
-        -- 回退：兼容旧逻辑
+    if #allBids == 0 and not preferredBid then
         local incomingBids = TransferManager.getPendingSellBids(gameState)
         for _, b in ipairs(incomingBids) do
             if b.playerId == player.id and b.isIncomingBid then
@@ -1754,10 +1756,9 @@ function Market._showOfferSheet(gameState, player)
             end
         end
     end
-    if #allBids == 0 then return end
+    if #allBids == 0 and not preferredBid then return end
 
-    -- 如果有多份报价且全部是 pending 状态，展示竞争对比面板
-    if #allBids > 1 then
+    if not preferredBid and #allBids > 1 then
         local allPending = true
         for _, b in ipairs(allBids) do
             if b.status ~= "pending" then allPending = false; break end
@@ -1768,8 +1769,8 @@ function Market._showOfferSheet(gameState, player)
         end
     end
 
-    -- 单份报价或有非pending状态的报价：使用原有逻辑处理第一份有效报价
-    local bid = allBids[1]
+    local bid = preferredBid or TransferManager.pickPrimaryIncomingSaleBid(gameState, player.id)
+    if not bid then return end
     local buyerTeam = gameState.teams[bid.buyerTeamId]
     local buyerName = buyerTeam and buyerTeam.name or "未知球队"
     local bidAmount = bid.amount

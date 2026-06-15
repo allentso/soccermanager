@@ -733,30 +733,42 @@ function Squad._showActionMenu(player, isStarter, team, gameState)
         end
     end
 
-    -- 处理收到的报价
-    local incomingBids = TransferManager.getPendingSellBids(gameState)
-    for _, bid in ipairs(incomingBids) do
-        if bid.playerId == player.id and bid.isIncomingBid then
-            local buyerTeam = gameState.teams[bid.buyerTeamId]
-            local buyerName = buyerTeam and buyerTeam.name or "未知球队"
-            table.insert(actions, {
-                label = string.format("接受报价 %s (%.0fK)", buyerName, bid.amount / 1000),
-                color = Theme.COLORS.SECONDARY,
-                action = function()
-                    TransferManager.acceptIncomingBid(gameState, bid.id)
+    -- 处理收到的报价（仅 pending 可接受/拒绝；其余状态走市场）
+    local bid = TransferManager.pickPrimaryIncomingSaleBid(gameState, player.id)
+    if bid and bid.status == "pending" then
+        local buyerTeam = gameState.teams[bid.buyerTeamId]
+        local buyerName = buyerTeam and buyerTeam.name or "未知球队"
+        table.insert(actions, {
+            label = string.format("接受报价 %s (%.0fK)", buyerName, bid.amount / 1000),
+            color = Theme.COLORS.SECONDARY,
+            action = function()
+                local ok = TransferManager.acceptIncomingBid(gameState, bid.id)
+                if ok then
                     UI.Toast.Show({ message = "已同意报价，请前往转会市场确认出售", variant = "success" })
-                    Router.replaceWith("market", { tab = "listed" })
-                end,
-            })
-            table.insert(actions, {
-                label = string.format("拒绝报价 %s", buyerName),
-                color = Theme.COLORS.DANGER,
-                action = function()
-                    TransferManager.rejectIncomingBid(gameState, bid.id)
-                    Router.replaceWith("squad")
-                end,
-            })
-        end
+                else
+                    UI.Toast.Show({ message = "无法接受该报价", variant = "warning" })
+                end
+                Router.replaceWith("market", { tab = "listed" })
+            end,
+        })
+        table.insert(actions, {
+            label = string.format("拒绝报价 %s", buyerName),
+            color = Theme.COLORS.DANGER,
+            action = function()
+                TransferManager.rejectIncomingBid(gameState, bid.id)
+                Router.replaceWith("squad")
+            end,
+        })
+    elseif bid and bid.status == "awaiting_sale_confirmation" then
+        local buyerTeam = gameState.teams[bid.buyerTeamId]
+        local buyerName = buyerTeam and buyerTeam.name or "未知球队"
+        table.insert(actions, {
+            label = string.format("确认出售给 %s", buyerName),
+            color = Theme.COLORS.SECONDARY,
+            action = function()
+                Router.replaceWith("market", { tab = "listed", highlightBidId = bid.id })
+            end,
+        })
     end
 
     -- 续约（合同剩余≤12个月时显示）

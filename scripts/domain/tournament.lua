@@ -734,6 +734,36 @@ function Tournament:isKnockoutRoundComplete(phase)
     return true
 end
 
+--- 两回合淘汰决胜（team1=leg1 主队, team2=leg1 客队）
+--- 次回合 90 分钟打平且总比分平 → 加时进球计入总比分；仍平 → 点球胜者
+---@return string|nil winnerTeamId
+local function _resolveTwoLegKnockoutWinner(leg1, leg2)
+    local team1 = leg1.homeTeamId
+    local team2 = leg1.awayTeamId
+    local home = leg2.homeGoals or 0
+    local away = leg2.awayGoals or 0
+
+    local agg1 = (leg1.homeGoals or 0) + away
+    local agg2 = (leg1.awayGoals or 0) + home
+
+    if agg1 > agg2 then return team1 end
+    if agg2 > agg1 then return team2 end
+
+    -- 90 分钟总比分平：次回合加时进球计入总比分（跳过模拟时 ET 未并入 homeGoals）
+    local extraTime = leg2.extraTime
+    if extraTime and extraTime.played then
+        local homeET = extraTime.homeExtraGoals or 0
+        local awayET = extraTime.awayExtraGoals or 0
+        local agg1WithET = agg1 + awayET
+        local agg2WithET = agg2 + homeET
+        if agg1WithET > agg2WithET then return team1 end
+        if agg2WithET > agg1WithET then return team2 end
+    end
+
+    if leg2._penaltyWinner then return leg2._penaltyWinner end
+    return nil
+end
+
 -- 获取淘汰赛某轮的晋级者
 function Tournament:getKnockoutWinners(phase)
     local fixtures = self.knockout[phase]
@@ -775,26 +805,15 @@ function Tournament:getKnockoutWinners(phase)
                     if f.leg == 1 then leg1 = f else leg2 = f end
                 end
                 if leg1 and leg2 then
-                    local team1 = leg1.homeTeamId
-                    local team2 = leg1.awayTeamId
-                    local agg1 = leg1.homeGoals + leg2.awayGoals
-                    local agg2 = leg1.awayGoals + leg2.homeGoals
-
-                    if agg1 > agg2 then
-                        table.insert(winners, team1)
-                    elseif agg2 > agg1 then
-                        table.insert(winners, team2)
+                    local winner = _resolveTwoLegKnockoutWinner(leg1, leg2)
+                    if winner then
+                        table.insert(winners, winner)
                     else
-                        -- 总比分相同 → 读取第二回合点球结果
-                        if leg2._penaltyWinner then
-                            table.insert(winners, leg2._penaltyWinner)
+                        -- 兜底（不应出现：总比分/加时/点球均未分出胜负）
+                        if RandomInt(1, 2) == 1 then
+                            table.insert(winners, leg1.homeTeamId)
                         else
-                            -- 兜底（不应出现）
-                            if RandomInt(1, 2) == 1 then
-                                table.insert(winners, team1)
-                            else
-                                table.insert(winners, team2)
-                            end
+                            table.insert(winners, leg1.awayTeamId)
                         end
                     end
                 end
