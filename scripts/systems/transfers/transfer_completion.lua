@@ -94,10 +94,12 @@ return function(TransferManager)
                 table.remove(team.playerIds, i)
             end
         end
+        -- startingXI 是槽位表（稀疏 table，键为 1..11），用 pairs 遍历置 nil
+        -- 不可用 # + table.remove：稀疏表 # 不可靠，且 table.remove 会错位移槽位
         if team.startingXI then
-            for i = #(team.startingXI or {}), 1, -1 do
-                if team.startingXI[i] == playerId then
-                    table.remove(team.startingXI, i)
+            for slot, pid in pairs(team.startingXI) do
+                if pid == playerId then
+                    team.startingXI[slot] = nil
                 end
             end
         end
@@ -115,6 +117,57 @@ return function(TransferManager)
             for i = #(team._youthPlayerIds or {}), 1, -1 do
                 if team._youthPlayerIds[i] == playerId then
                     table.remove(team._youthPlayerIds, i)
+                end
+            end
+        end
+        -- 挂牌列表同步移除
+        if team.transferList then
+            for i = #team.transferList, 1, -1 do
+                if team.transferList[i] == playerId then
+                    table.remove(team.transferList, i)
+                end
+            end
+        end
+        -- 角色字段清空：队长、点球手、任意球手、角球手
+        if team.captain == playerId then team.captain = nil end
+        if team.penaltyTaker == playerId then team.penaltyTaker = nil end
+        if team.freeKickTaker == playerId then team.freeKickTaker = nil end
+        if team.cornerTaker == playerId then team.cornerTaker = nil end
+        -- 阵容方案 A/B 同步清理（防止切换方案时已售球员"复活"）
+        if team.lineupPresets then
+            for _, preset in pairs(team.lineupPresets) do
+                if type(preset) == "table" then
+                    if preset.startingXI then
+                        for slot, pid in pairs(preset.startingXI) do
+                            if pid == playerId then
+                                preset.startingXI[slot] = nil
+                            end
+                        end
+                    end
+                    if preset.benchIds then
+                        for i = #preset.benchIds, 1, -1 do
+                            if preset.benchIds[i] == playerId then
+                                table.remove(preset.benchIds, i)
+                            end
+                        end
+                    end
+                    -- 方案内角色字段
+                    if preset.captain == playerId then preset.captain = nil end
+                    if preset.penaltyTaker == playerId then preset.penaltyTaker = nil end
+                    if preset.freeKickTaker == playerId then preset.freeKickTaker = nil end
+                    if preset.cornerTaker == playerId then preset.cornerTaker = nil end
+                end
+            end
+        end
+        -- 训练分组同步移除
+        if team.trainingGroups then
+            for _, group in pairs(team.trainingGroups) do
+                if group.playerIds then
+                    for i = #group.playerIds, 1, -1 do
+                        if group.playerIds[i] == playerId then
+                            table.remove(group.playerIds, i)
+                        end
+                    end
                 end
             end
         end

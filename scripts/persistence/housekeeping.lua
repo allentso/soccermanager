@@ -496,6 +496,102 @@ function Housekeeping.reconcileRosters(gameState)
                 end
             end
         end
+        -- startingXI 槽位表清理（稀疏 table，用 pairs 遍历）
+        if team.startingXI then
+            for slot, pid in pairs(team.startingXI) do
+                local player = gameState.players[pid]
+                if not player or player.teamId ~= team.id then
+                    team.startingXI[slot] = nil
+                    removed = removed + 1
+                end
+            end
+        end
+        -- lineupPresets A/B 方案清理
+        if team.lineupPresets then
+            for _, preset in pairs(team.lineupPresets) do
+                if type(preset) == "table" then
+                    if preset.startingXI then
+                        for slot, pid in pairs(preset.startingXI) do
+                            local player = gameState.players[pid]
+                            if not player or player.teamId ~= team.id then
+                                preset.startingXI[slot] = nil
+                                removed = removed + 1
+                            end
+                        end
+                    end
+                    if preset.benchIds then
+                        for i = #preset.benchIds, 1, -1 do
+                            local pid = preset.benchIds[i]
+                            local player = gameState.players[pid]
+                            if not player or player.teamId ~= team.id then
+                                table.remove(preset.benchIds, i)
+                                removed = removed + 1
+                            end
+                        end
+                    end
+                    -- 方案内角色字段
+                    if preset.captain then
+                        local p = gameState.players[preset.captain]
+                        if not p or p.teamId ~= team.id then preset.captain = nil end
+                    end
+                    if preset.penaltyTaker then
+                        local p = gameState.players[preset.penaltyTaker]
+                        if not p or p.teamId ~= team.id then preset.penaltyTaker = nil end
+                    end
+                    if preset.freeKickTaker then
+                        local p = gameState.players[preset.freeKickTaker]
+                        if not p or p.teamId ~= team.id then preset.freeKickTaker = nil end
+                    end
+                    if preset.cornerTaker then
+                        local p = gameState.players[preset.cornerTaker]
+                        if not p or p.teamId ~= team.id then preset.cornerTaker = nil end
+                    end
+                end
+            end
+        end
+        -- transferList 挂牌列表清理
+        if team.transferList then
+            for i = #team.transferList, 1, -1 do
+                local pid = team.transferList[i]
+                local player = gameState.players[pid]
+                if not player or player.teamId ~= team.id then
+                    table.remove(team.transferList, i)
+                    removed = removed + 1
+                end
+            end
+        end
+        -- trainingGroups 训练分组清理
+        if team.trainingGroups then
+            for _, group in pairs(team.trainingGroups) do
+                if group.playerIds then
+                    for i = #group.playerIds, 1, -1 do
+                        local pid = group.playerIds[i]
+                        local player = gameState.players[pid]
+                        if not player or player.teamId ~= team.id then
+                            table.remove(group.playerIds, i)
+                            removed = removed + 1
+                        end
+                    end
+                end
+            end
+        end
+        -- 角色字段清理
+        if team.captain then
+            local p = gameState.players[team.captain]
+            if not p or p.teamId ~= team.id then team.captain = nil end
+        end
+        if team.penaltyTaker then
+            local p = gameState.players[team.penaltyTaker]
+            if not p or p.teamId ~= team.id then team.penaltyTaker = nil end
+        end
+        if team.freeKickTaker then
+            local p = gameState.players[team.freeKickTaker]
+            if not p or p.teamId ~= team.id then team.freeKickTaker = nil end
+        end
+        if team.cornerTaker then
+            local p = gameState.players[team.cornerTaker]
+            if not p or p.teamId ~= team.id then team.cornerTaker = nil end
+        end
     end
 
     for _, player in pairs(gameState.players) do
