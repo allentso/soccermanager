@@ -117,21 +117,15 @@ function Tournament:initLeaguePhase(teamIds, pots)
 end
 
 --- 瑞士制抽签：每队从每档抽2个对手（1主1客），共8场
----@param startDate table {year, month, day}
-function Tournament:drawLeaguePhaseFixtures(startDate)
-    local lp = self.leaguePhase
-    if not lp then return end
-
-    local pots = lp.pots
-    local teamIds = lp.teamIds
-
-    -- 为每队分配对手（每档2队，1主1客）
-    local teamOpponents = {}  -- teamId → { {opId, isHome}, ... }
+--- 返回 teamOpponents 或 nil（配对失败时重试）
+local function _buildLeaguePhaseOpponents(teamIds, pots)
+    local teamOpponents = {}
+    local potOppCount = {}
     for _, tid in ipairs(teamIds) do
         teamOpponents[tid] = {}
+        potOppCount[tid] = { 0, 0, 0, 0 }
     end
 
-    -- 确定每队属于哪个档次
     local teamPot = {}
     for potIdx, pot in ipairs(pots) do
         for _, tid in ipairs(pot) do
@@ -139,11 +133,7 @@ function Tournament:drawLeaguePhaseFixtures(startDate)
         end
     end
 
-    -- 为每队从每个档次抽2个对手
-    -- 简化实现：随机配对，确保不重复
-    local fixtures = {}
-    local fixtureId = 1
-    local pairedSet = {}  -- "tid1_tid2" → true (防止重复对阵)
+    local pairedSet = {}
 
     local function isPaired(t1, t2)
         return pairedSet[t1 .. "_" .. t2] or pairedSet[t2 .. "_" .. t1]
@@ -153,98 +143,66 @@ function Tournament:drawLeaguePhaseFixtures(startDate)
         pairedSet[t2 .. "_" .. t1] = true
     end
 
-    -- 对每个档次的每支球队分配对手
-    for _, tid in ipairs(teamIds) do
-        local myPot = teamPot[tid]
-        local homeCount = 0
-        local awayCount = 0
+    local function addPairFromPot(tid, cid, potIdx)
+        local tidPot = teamPot[tid]
+        markPaired(tid, cid)
+        local isHomeForTid = (potOppCount[tid][potIdx] == 0)
+        table.insert(teamOpponents[tid], { opId = cid, isHome = isHomeForTid })
+        table.insert(teamOpponents[cid], { opId = tid, isHome = not isHomeForTid })
+        potOppCount[tid][potIdx] = potOppCount[tid][potIdx] + 1
+        potOppCount[cid][tidPot] = potOppCount[cid][tidPot] + 1
+    end
 
+    local processOrder = {}
+    for _, tid in ipairs(teamIds) do
+        table.insert(processOrder, tid)
+    end
+    for i = #processOrder, 2, -1 do
+        local j = RandomInt(1, i)
+        processOrder[i], processOrder[j] = processOrder[j], processOrder[i]
+    end
+
+    for _, tid in ipairs(processOrder) do
         for potIdx, pot in ipairs(pots) do
-            -- 从这个档次找2个对手（如果是自己所在档次，从同档队友中选）
-            local candidates = {}
-            for _, cid in ipairs(pot) do
-                if cid ~= tid and not isPaired(tid, cid) then
-                    table.insert(candidates, cid)
-                end
-            end
-
-            -- 洗牌候选
-            for i = #candidates, 2, -1 do
-                local j = RandomInt(1, i)
-                candidates[i], candidates[j] = candidates[j], candidates[i]
-            end
-
-            local assigned = 0
-            for _, cid in ipairs(candidates) do
-                if assigned >= 2 then break end
-
-                -- 检查对方是否还能接受更多对手（每队最多8个对手）
-                if #teamOpponents[cid] < 8 and #teamOpponents[tid] < 8 then
-                    markPaired(tid, cid)
-
-                    -- 决定主客：尽量平衡（每队4主4客）
-                    local isHome
-                    if homeCount < 4 and awayCount < 4 then
-                        isHome = (assigned == 0)  -- 第一个主场，第二个客场
-                    elseif homeCount >= 4 then
-                        isHome = false
-                    else
-                        isHome = true
+            while potOppCount[tid][potIdx] < 2 do
+                local candidates = {}
+                for _, cid in ipairs(pot) do
+                    if cid ~= tid
+                        and not isPaired(tid, cid)
+                        and potOppCount[tid][potIdx] < 2
+                        and potOppCount[cid][teamPot[tid]] < 2 then
+                        table.insert(candidates, cid)
                     end
-
-                    table.insert(teamOpponents[tid], { opId = cid, isHome = isHome })
-                    table.insert(teamOpponents[cid], { opId = tid, isHome = not isHome })
-
-                    if isHome then
-                        homeCount = homeCount + 1
-                    else
-                        awayCount = awayCount + 1
-                    end
-
-                    assigned = assigned + 1
                 end
+                if #candidates == 0 then
+                    return nil
+                end
+                for i = #candidates, 2, -1 do
+                    local j = RandomInt(1, i)
+                    candidates[i], candidates[j] = candidates[j], candidates[i]
+                end
+                addPairFromPot(tid, candidates[1], potIdx)
             end
         end
     end
 
-    -- 补充轮：确保每队至少 8 个对手
-    -- 如果初始配对因约束冲突导致部分队不足 8 场，进行宽松补配
     for _, tid in ipairs(teamIds) do
-        if #teamOpponents[tid] < 8 then
-            local homeCount = 0
-            local awayCount = 0
-            for _, opp in ipairs(teamOpponents[tid]) do
-                if opp.isHome then homeCount = homeCount + 1 else awayCount = awayCount + 1 end
-            end
-
-            -- 从所有其他队中找未配对的候选
-            local candidates = {}
-            for _, cid in ipairs(teamIds) do
-                if cid ~= tid and not isPaired(tid, cid) then
-                    table.insert(candidates, cid)
-                end
-            end
-            -- 洗牌
-            for i = #candidates, 2, -1 do
-                local j = RandomInt(1, i)
-                candidates[i], candidates[j] = candidates[j], candidates[i]
-            end
-
-            for _, cid in ipairs(candidates) do
-                if #teamOpponents[tid] >= 8 then break end
-                -- 宽松条件：只要对方不超过 10 场（允许轻微超额以保证对方也有足够对手）
-                if #teamOpponents[cid] < 10 then
-                    markPaired(tid, cid)
-                    local isHome = (homeCount < 4)
-                    table.insert(teamOpponents[tid], { opId = cid, isHome = isHome })
-                    table.insert(teamOpponents[cid], { opId = tid, isHome = not isHome })
-                    if isHome then homeCount = homeCount + 1 else awayCount = awayCount + 1 end
-                end
+        if #teamOpponents[tid] ~= 8 then
+            return nil
+        end
+        for potIdx = 1, 4 do
+            if potOppCount[tid][potIdx] ~= 2 then
+                return nil
             end
         end
     end
 
-    -- 生成赛程fixture列表（去重：每对只生成一场）
+    return teamOpponents
+end
+
+local function _fixturesFromOpponents(teamIds, teamOpponents)
+    local fixtures = {}
+    local fixtureId = 1
     local generatedPairs = {}
     for _, tid in ipairs(teamIds) do
         for _, opp in ipairs(teamOpponents[tid]) do
@@ -257,7 +215,7 @@ function Tournament:drawLeaguePhaseFixtures(startDate)
                     id = fixtureId,
                     homeTeamId = homeId,
                     awayTeamId = awayId,
-                    date = nil,  -- 稍后分配
+                    date = nil,
                     status = "scheduled",
                     homeGoals = 0,
                     awayGoals = 0,
@@ -266,6 +224,33 @@ function Tournament:drawLeaguePhaseFixtures(startDate)
                 fixtureId = fixtureId + 1
             end
         end
+    end
+    return fixtures
+end
+
+---@param startDate table {year, month, day}
+function Tournament:drawLeaguePhaseFixtures(startDate)
+    local lp = self.leaguePhase
+    if not lp then return end
+
+    local pots = lp.pots
+    local teamIds = lp.teamIds
+
+    local fixtures = nil
+    for _ = 1, 200 do
+        local teamOpponents = _buildLeaguePhaseOpponents(teamIds, pots)
+        if teamOpponents then
+            local candidateFixtures = _fixturesFromOpponents(teamIds, teamOpponents)
+            if #candidateFixtures == math.floor(#teamIds * 8 / 2) then
+                fixtures = candidateFixtures
+                break
+            end
+        end
+    end
+
+    if not fixtures then
+        log:Write(LOG_WARNING, "[UCL] league phase draw failed after retries")
+        return
     end
 
     -- 分配比赛日（8个比赛日，每隔14天，对齐到周三）

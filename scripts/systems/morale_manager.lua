@@ -3,6 +3,7 @@
 
 local MessageManager = require("scripts/systems/message_manager")
 local Constants = require("scripts/app/constants")
+local League = require("scripts/domain/league")
 
 local MoraleManager = {}
 
@@ -51,7 +52,7 @@ function MoraleManager.processWeekly(gameState)
     for i = 1, math.min(3, #lowMoralePlayers) do
         local p = lowMoralePlayers[i]
         local reason = MoraleManager._getLowMoraleReason(gameState, p, team)
-        local actions = MoraleManager._buildMoraleActions(p, team)
+        local actions = MoraleManager._buildMoraleActions(gameState, p, team)
         gameState:sendMessage({
             category = "morale",
             title = "球员不满",
@@ -64,7 +65,7 @@ function MoraleManager.processWeekly(gameState)
 end
 
 --- 根据球员不满原因生成决策按钮
-function MoraleManager._buildMoraleActions(player, team)
+function MoraleManager._buildMoraleActions(gameState, player, team)
     local actions = {}
     local role = player.squadRole or "rotation"
 
@@ -74,7 +75,8 @@ function MoraleManager._buildMoraleActions(player, team)
         if sid == player.id then isStarter = true; break end
     end
 
-    if not isStarter and (role == "key" or role == "rotation") then
+    local hadClubMatch = MoraleManager._teamHadClubMatchInPastDays(gameState, team.id, 7)
+    if hadClubMatch and not isStarter and (role == "key" or role == "rotation") then
         -- 建议降低角色期望
         local lowerRole = role == "key" and "rotation" or "squad"
         local lowerLabel = role == "key" and "轮换球员" or "阵容球员"
@@ -249,37 +251,117 @@ end
 -- 内部计算
 ------------------------------------------------------
 
-function MoraleManager._calculateWeeklyDelta(gameState, player, team)
-    local delta = 0
+local function fixtureInvolvesTeam(fixture, teamId)
+    return fixture.homeTeamId == teamId or fixture.awayTeamId == teamId
+end
 
-    -- 1. 出场时间因素（首发 vs 替补）+ 角色期望
-    local isStarter = false
-    for _, sid in ipairs(team.startingXI or {}) do
-        if sid == player.id then isStarter = true; break end
+local function dateOnOrAfter(a, b)
+    if a.year ~= b.year then return a.year > b.year end
+    if a.month ~= b.month then return a.month > b.month end
+    return a.day >= b.day
+end
+
+local function dateOnOrBefore(a, b)
+    if a.year ~= b.year then return a.year < b.year end
+    if a.month ~= b.month then return a.month < b.month end
+    return a.day <= b.day
+end
+
+local function dateInRange(date, startDate, endDate)
+    return dateOnOrAfter(date, startDate) and dateOnOrBefore(date, endDate)
+end
+
+--- 遍历球队相关的已完赛俱乐部赛事（联赛 / 国内杯 / 欧冠）
+local function forEachFinishedClubFixture(gameState, teamId, callback)
+    for _, lg in pairs(gameState.leagues or {}) do
+        for _, fixture in ipairs(lg.fixtures or {}) do
+            if fixture.status == "finished" and fixtureInvolvesTeam(fixture, teamId) then
+                callback(fixture)
+            end
+        end
     end
 
-    local role = player.squadRole or "rotation"
-    if isStarter then
-        delta = delta + 2
-        player._benchCount = 0
-        -- Key 球员在首发中满意度高
-        if role == "key" then delta = delta + 1 end
-    else
-        player._benchCount = (player._benchCount or 0) + 1
-        -- 角色期望与实际出场不匹配
-        if role == "key" then
-            -- 核心球员不首发 → 强烈不满
-            if player._benchCount >= 2 then delta = delta - 6
-            else delta = delta - 3 end
-        elseif role == "rotation" then
-            -- 轮换球员偶尔不上场可接受
-            if player._benchCount >= 4 then delta = delta - 4
-            elseif player._benchCount >= 2 then delta = delta - 2 end
-        elseif role == "squad" then
-            -- 阵容球员对不上场容忍度高
-            if player._benchCount >= 6 then delta = delta - 2 end
+    local ucl = gameState.championsLeague
+    if ucl and ucl.leaguePhase and ucl.leaguePhase.fixtures then
+        for _, fixture in ipairs(ucl.leaguePhase.fixtures) do
+            if fixture.status == "finished" and fixtureInvolvesTeam(fixture, teamId) then
+                callback(fixture)
+            end
         end
-        -- youth 角色完全不介意不上场
+    end
+    if ucl and ucl.knockout then
+        for _, phaseFixtures in pairs(ucl.knockout) do
+            for _, fixture in ipairs(phaseFixtures or {}) do
+                if fixture.status == "finished" and fixtureInvolvesTeam(fixture, teamId) then
+                    callback(fixture)
+                end
+            end
+        end
+    end
+
+    for _, cup in pairs(gameState.domesticCups or {}) do
+        for _, roundFixtures in ipairs(cup.rounds or {}) do
+            for _, fixture in ipairs(roundFixtures or {}) do
+                if fixture.status == "finished" and fixtureInvolvesTeam(fixture, teamId) then
+                    callback(fixture)
+                end
+            end
+        end
+    end
+end
+
+--- 过去 N 天内球队是否有已完赛的俱乐部比赛（休赛期 / 无赛周返回 false）
+function MoraleManager._teamHadClubMatchInPastDays(gameState, teamId, days)
+    days = days or 7
+    if not gameState or not gameState.date or not teamId then return false end
+
+    local endDate = gameState.date
+    local startDate = League._addDays(endDate, -(days - 1))
+    local hadMatch = false
+
+    forEachFinishedClubFixture(gameState, teamId, function(fixture)
+        if fixture.date and dateInRange(fixture.date, startDate, endDate) then
+            hadMatch = true
+        end
+    end)
+
+    return hadMatch
+end
+
+function MoraleManager._calculateWeeklyDelta(gameState, player, team)
+    local delta = 0
+    local hadClubMatch = MoraleManager._teamHadClubMatchInPastDays(gameState, team.id, 7)
+
+    -- 1. 出场时间因素（仅在有俱乐部比赛的周生效；休赛期不累计不满）
+    if hadClubMatch then
+        local isStarter = false
+        for _, sid in ipairs(team.startingXI or {}) do
+            if sid == player.id then isStarter = true; break end
+        end
+
+        local role = player.squadRole or "rotation"
+        if isStarter then
+            delta = delta + 2
+            player._benchCount = 0
+            -- Key 球员在首发中满意度高
+            if role == "key" then delta = delta + 1 end
+        else
+            player._benchCount = (player._benchCount or 0) + 1
+            -- 角色期望与实际出场不匹配
+            if role == "key" then
+                -- 核心球员不首发 → 强烈不满
+                if player._benchCount >= 2 then delta = delta - 6
+                else delta = delta - 3 end
+            elseif role == "rotation" then
+                -- 轮换球员偶尔不上场可接受
+                if player._benchCount >= 4 then delta = delta - 4
+                elseif player._benchCount >= 2 then delta = delta - 2 end
+            elseif role == "squad" then
+                -- 阵容球员对不上场容忍度高
+                if player._benchCount >= 6 then delta = delta - 2 end
+            end
+            -- youth 角色完全不介意不上场
+        end
     end
 
     -- 2. 球队成绩因素
@@ -333,13 +415,14 @@ function MoraleManager._getLowMoraleReason(gameState, player, team)
     end
 
     local role = player.squadRole or "rotation"
+    local hadClubMatch = MoraleManager._teamHadClubMatchInPastDays(gameState, team.id, 7)
 
-    -- 核心球员未首发 → 最高优先级
-    if not isStarter and role == "key" and (player._benchCount or 0) >= 2 then
+    -- 核心球员未首发 → 最高优先级（仅在有俱乐部比赛的阶段）
+    if hadClubMatch and not isStarter and role == "key" and (player._benchCount or 0) >= 2 then
         return "原因：作为核心球员却未能首发出场。考虑调整阵容或降低其角色定位。"
     end
 
-    if not isStarter and (player._benchCount or 0) >= 3 then
+    if hadClubMatch and not isStarter and (player._benchCount or 0) >= 3 then
         return "原因：长期未获得上场机会。"
     end
 

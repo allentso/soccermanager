@@ -106,6 +106,88 @@ end
 -- 存档迁移：旧格式（小组赛）→ 新格式（瑞士制）
 ------------------------------------------------------
 
+local function _countLeaguePhaseFixturesPerTeam(lp)
+    local teamIds = lp.teamIds or {}
+    local counts = {}
+    for _, tid in ipairs(teamIds) do
+        counts[tid] = 0
+    end
+    for _, f in ipairs(lp.fixtures or {}) do
+        counts[f.homeTeamId] = (counts[f.homeTeamId] or 0) + 1
+        counts[f.awayTeamId] = (counts[f.awayTeamId] or 0) + 1
+    end
+    return counts
+end
+
+local function _leaguePhaseFixtureCountsValid(lp)
+    local teamIds = lp.teamIds or {}
+    if #teamIds == 0 then return true end
+    local expectedTotal = math.floor(#teamIds * 8 / 2)
+    if #(lp.fixtures or {}) ~= expectedTotal then
+        return false
+    end
+    local counts = _countLeaguePhaseFixturesPerTeam(lp)
+    for _, tid in ipairs(teamIds) do
+        if (counts[tid] or 0) ~= 8 then
+            return false
+        end
+    end
+    return true
+end
+
+local function _rebuildLeaguePhaseStandings(ucl)
+    local lp = ucl.leaguePhase
+    if not lp or not lp.standings then return end
+    for _, s in pairs(lp.standings) do
+        s.played = 0
+        s.wins = 0
+        s.draws = 0
+        s.losses = 0
+        s.goalsFor = 0
+        s.goalsAgainst = 0
+        s.goalDifference = 0
+        s.points = 0
+    end
+    for _, f in ipairs(lp.fixtures or {}) do
+        if f.status == "finished" then
+            ucl:updateLeagueStanding(f)
+        end
+    end
+end
+
+local function _trimExcessLeaguePhaseFixtures(ucl)
+    local lp = ucl.leaguePhase
+    local teamIds = lp.teamIds or {}
+    local counts = _countLeaguePhaseFixturesPerTeam(lp)
+
+    while true do
+        local overTeam = nil
+        for _, tid in ipairs(teamIds) do
+            if (counts[tid] or 0) > 8 then
+                overTeam = tid
+                break
+            end
+        end
+        if not overTeam then break end
+
+        local removed = false
+        for i = #lp.fixtures, 1, -1 do
+            local f = lp.fixtures[i]
+            if f.status == "scheduled"
+                and (f.homeTeamId == overTeam or f.awayTeamId == overTeam) then
+                table.remove(lp.fixtures, i)
+                counts[f.homeTeamId] = counts[f.homeTeamId] - 1
+                counts[f.awayTeamId] = counts[f.awayTeamId] - 1
+                removed = true
+                break
+            end
+        end
+        if not removed then break end
+    end
+
+    _rebuildLeaguePhaseStandings(ucl)
+end
+
 function ChampionsLeague.migrateIfNeeded(gameState)
     local ucl = gameState.championsLeague
     if not ucl then return false end
@@ -161,6 +243,43 @@ function ChampionsLeague.migrateIfNeeded(gameState)
 
         log:Write(LOG_INFO, "[UCL] 迁移完成，36队瑞士制联赛阶段已初始化")
         return true
+    end
+
+    -- 检测旧抽签 bug：部分球队联赛阶段不是恰好 8 场（补充配对允许对手已有 8 场时再加赛）
+    if ucl.leaguePhase and ucl.leaguePhase.fixtures and not ucl.leaguePhase._fixtureCountFixed then
+        local lp = ucl.leaguePhase
+        if not _leaguePhaseFixtureCountsValid(lp) then
+            local anyFinished = false
+            for _, f in ipairs(lp.fixtures) do
+                if f.status ~= "scheduled" then
+                    anyFinished = true
+                    break
+                end
+            end
+
+            if not anyFinished then
+                log:Write(LOG_INFO, "[UCL] 检测到联赛阶段赛程场次异常，重新抽签...")
+                local leagueStart = {
+                    year = ucl.season or gameState.season,
+                    month = UCL_SCHEDULE.league_start.month,
+                    day = UCL_SCHEDULE.league_start.day,
+                }
+                ucl:drawLeaguePhaseFixtures(leagueStart)
+                lp._scheduleFixed = nil
+            else
+                log:Write(LOG_INFO, "[UCL] 检测到联赛阶段赛程场次异常，移除多余未赛比赛...")
+                _trimExcessLeaguePhaseFixtures(ucl)
+            end
+
+            gameState:addNews({
+                category = "ucl_news",
+                title = "欧冠联赛阶段赛程已修正",
+                body = "系统检测到部分球队联赛阶段场次异常（应为每队8场），已自动修正赛程与积分榜。",
+            })
+            lp._fixtureCountFixed = true
+            return true
+        end
+        lp._fixtureCountFixed = true
     end
 
     -- 检测赛程冲突：同一比赛日同一队有多场比赛（旧算法bug）

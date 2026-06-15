@@ -37,6 +37,7 @@ local _nameToMatch = {
     ["内马尔·达席尔瓦"] = "Neymar Jr.",
     ["莱万多夫斯基"] = "Robert Lewandowski",
     ["莱万"] = "Robert Lewandowski",
+    ["罗伯特·莱万多夫斯基"] = "Robert Lewandowski",
     ["本泽马"] = "Karim Benzema",
     ["卡里姆·本泽马"] = "Karim Benzema",
     ["德布劳内"] = "Kevin De Bruyne",

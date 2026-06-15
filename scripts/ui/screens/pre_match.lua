@@ -158,6 +158,51 @@ local function _autoFullSquad(gameState, team)
     team.benchIds = benchIds
 end
 
+--- 构建替补名单：优先使用战术页手动配置的 benchIds，否则按综合评分自动选取
+local function _buildEffectiveBench(gameState, team, startingPidSet)
+    if team.benchIds and #team.benchIds > 0 then
+        local result = {}
+        for _, pid in ipairs(team.benchIds) do
+            local p = gameState.players[pid]
+            if p and not p.injured and not startingPidSet[p.id] and p.teamId == team.id then
+                table.insert(result, p)
+            end
+        end
+        -- 手动名单因伤病/升入首发不足7人时，从剩余球员补位
+        if #result < 7 then
+            local usedSet = {}
+            for _, r in ipairs(result) do usedSet[r.id] = true end
+            local extras = {}
+            for _, pid in ipairs(team.playerIds or {}) do
+                local p = gameState.players[pid]
+                if p and not p.injured and not startingPidSet[p.id] and not usedSet[p.id] then
+                    table.insert(extras, p)
+                end
+            end
+            table.sort(extras, function(a, b) return a.overall > b.overall end)
+            for i = 1, math.min(7 - #result, #extras) do
+                table.insert(result, extras[i])
+            end
+        end
+        return result
+    end
+
+    local bench = {}
+    for _, pid in ipairs(team.playerIds or {}) do
+        local p = gameState.players[pid]
+        if p and not p.injured and not startingPidSet[p.id] then
+            table.insert(bench, p)
+        end
+    end
+    table.sort(bench, function(a, b) return a.overall > b.overall end)
+
+    local result = {}
+    for i = 1, math.min(7, #bench) do
+        table.insert(result, bench[i])
+    end
+    return result
+end
+
 -- 阵型变体位置坐标映射 (x%, y% 从球场左下角计算, y=0底部 y=100顶部)
 -- 键: "阵型:变体key"，与 tactics.lua 保持一致
 local FORMATION_POSITIONS = {
@@ -368,15 +413,8 @@ function PreMatch.create(params)
         end
     end
 
-    -- 替补：球队中非首发的健康球员
-    for _, pid in ipairs(team.playerIds or {}) do
-        local p = gameState.players[pid]
-        if p and not p.injured and not startingPidSet[pid] then
-            table.insert(bench, p)
-        end
-    end
-    -- 按 overall 排序替补
-    table.sort(bench, function(a, b) return a.overall > b.overall end)
+    -- 替补：优先使用战术页手动 benchIds，否则自动按 overall 选取
+    bench = _buildEffectiveBench(gameState, team, startingPidSet)
 
     -- 不可用球员（伤病）
     local unavailable = {}
@@ -611,13 +649,14 @@ function PreMatch.create(params)
                                 onClick = function()
                                     -- 清除待处理标记
                                     gameState.pendingPlayerFixture = nil
-                                    -- 同步替补席到 benchIds，确保与赛前准备页面显示一致
-                                    -- bench 变量已按 overall 降序排列且排除了首发/伤病
-                                    local syncBenchIds = {}
-                                    for i = 1, math.min(7, #bench) do
-                                        syncBenchIds[i] = bench[i].id
+                                    -- 自动模式时写入 benchIds；手动模式保留战术页配置
+                                    if not team.benchIds or #team.benchIds == 0 then
+                                        local autoBenchIds = {}
+                                        for i = 1, math.min(7, #bench) do
+                                            autoBenchIds[i] = bench[i].id
+                                        end
+                                        team.benchIds = autoBenchIds
                                     end
-                                    team.benchIds = syncBenchIds
                                     -- 创建步进式比赛会话
                                     local MatchEngine = require("scripts/match/match_engine")
                                     local session = MatchEngine.startMatch(gameState, fixture)

@@ -47,7 +47,7 @@ ReincarnationManager.REINCARNATION_LIST = {
     },
     {
         matchName = "Robert Lewandowski",
-        matchAltNames = { "R. Lewandowski", "Lewandowski", "莱万多夫斯基", "莱万" },
+        matchAltNames = { "R. Lewandowski", "Lewandowski", "莱万多夫斯基", "莱万", "罗伯特·莱万多夫斯基" },
         potential = 92,
         attrBonus = { shooting = 4, positioning = 3, composure = 3, aerial = 2 },
         traits = { "clinical", "poacher", "aerial_threat" },
@@ -142,18 +142,22 @@ ReincarnationManager.REINCARNATION_LIST = {
 ---@param entry ReincarnationEntry
 ---@return boolean
 local function nameMatches(player, entry)
-    local namesToCheck = {
-        player.displayName,
-        player.legendName,
-        player.lastName,
-        (player.firstName or "") .. " " .. (player.lastName or ""),
-    }
-    for _, name in ipairs(namesToCheck) do
+    -- 不能用含 nil 的 ipairs：legendName 为空时会截断后续 lastName 等字段
+    local namesToCheck = {}
+    local function addName(name)
         if name and name ~= "" then
-            if name == entry.matchName then return true end
-            for _, alt in ipairs(entry.matchAltNames) do
-                if name == alt then return true end
-            end
+            namesToCheck[#namesToCheck + 1] = name
+        end
+    end
+    addName(player.displayName)
+    addName(player.legendName)
+    addName(player.lastName)
+    addName(player.match_name)
+    addName((player.firstName or "") .. " " .. (player.lastName or ""))
+    for _, name in ipairs(namesToCheck) do
+        if name == entry.matchName then return true end
+        for _, alt in ipairs(entry.matchAltNames) do
+            if name == alt then return true end
         end
     end
     return false

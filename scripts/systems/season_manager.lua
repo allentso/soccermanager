@@ -481,6 +481,7 @@ function SeasonManager._resetSeasonStats(gameState)
             avgRating = 0,
             cleanSheets = 0,
         }
+        player._benchCount = nil
     end
 
     -- 重置球队近期状态 + 赛季统计 + 财务恢复计数器
