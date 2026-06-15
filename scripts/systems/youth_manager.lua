@@ -579,6 +579,12 @@ function YouthManager.release(gameState, playerId)
         return false, "该球员已不属于本队"
     end
     if player then
+        if player.listedForSale then return false, "请先取消挂牌出售" end
+        local TransferManager = require("scripts/systems/transfer_manager")
+        if TransferManager.hasPendingIncomingBid(gameState, playerId) then
+            TransferManager.delistPlayer(gameState, player)
+        end
+
         player.listedForSale = false
         player.listedForLoan = false
         player.isYouth = false

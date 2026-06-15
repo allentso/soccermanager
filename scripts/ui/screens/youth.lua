@@ -491,7 +491,7 @@ function Youth._showYouthActions(player, gameState)
             label = "取消挂牌出售",
             color = Theme.COLORS.TEXT_MUTED,
             action = function()
-                TransferManager.delistPlayer(player)
+                TransferManager.delistPlayer(gameState, player)
                 Router.replaceWith("youth")
             end,
         })
@@ -514,6 +514,51 @@ function Youth._showYouthActions(player, gameState)
                 end
             end,
         })
+    end
+
+    -- 处理收到的出售报价
+    local incomingBids = TransferManager.getPendingSellBids(gameState)
+    for _, bid in ipairs(incomingBids) do
+        if bid.playerId == player.id and bid.isIncomingBid then
+            local buyerTeam = gameState.teams[bid.buyerTeamId]
+            local buyerName = buyerTeam and buyerTeam.name or "未知球队"
+            if bid.status == "pending" then
+                table.insert(actions, {
+                    label = string.format("接受报价 %s", buyerName),
+                    color = Theme.COLORS.SECONDARY,
+                    action = function()
+                        TransferManager.acceptIncomingBid(gameState, bid.id)
+                        UI.Toast.Show({ message = "已同意报价，请前往转会市场确认出售", variant = "success" })
+                        Router.replaceWith("market", { tab = "listed" })
+                    end,
+                })
+                table.insert(actions, {
+                    label = string.format("拒绝报价 %s", buyerName),
+                    color = Theme.COLORS.DANGER,
+                    action = function()
+                        TransferManager.rejectIncomingBid(gameState, bid.id)
+                        Router.replaceWith("youth")
+                    end,
+                })
+            elseif bid.status == "awaiting_sale_confirmation" then
+                table.insert(actions, {
+                    label = string.format("确认出售给 %s", buyerName),
+                    color = Theme.COLORS.SECONDARY,
+                    action = function()
+                        Router.replaceWith("market", { tab = "listed", highlightBidId = bid.id })
+                    end,
+                })
+            elseif bid.status == "player_considering_sale" or bid.status == "counter_pending" then
+                table.insert(actions, {
+                    label = string.format("查看报价进度（%s）", buyerName),
+                    color = Theme.COLORS.ACCENT,
+                    action = function()
+                        Router.replaceWith("market", { tab = "listed", highlightBidId = bid.id })
+                    end,
+                })
+            end
+            break
+        end
     end
 
     -- 释放

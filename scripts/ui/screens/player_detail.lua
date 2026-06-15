@@ -678,8 +678,7 @@ function PlayerDetail._buildContract(player, team, age, gameState)
     elseif monthsLeft <= 12 then contractColor = Theme.COLORS.WARNING
     end
 
-    local isOwnYouth = YouthManager.isOnTeamYouthSquad(gameState, player.id, gameState.playerTeamId)
-        and player.isYouth
+    local isOwnYouth = YouthManager.isYouthSquadPlayer(gameState, player)
     local isOwnSquad = player.teamId == gameState.playerTeamId and player.squadRole ~= "loaned"
         and not isOwnYouth
     local isLoanedOut = player.squadRole == "loaned" and player._loanOriginTeamId == gameState.playerTeamId
@@ -1067,57 +1066,213 @@ function PlayerDetail._buildContractActions(player, team, gameState)
 end
 
 -- 挂牌出售 / 取消挂牌 / 收到报价处理
+local INCOMING_SALE_STATUS_PRIORITY = {
+    awaiting_sale_confirmation = 1,
+    pending = 2,
+    counter_pending = 3,
+    player_considering_sale = 4,
+}
+
+function PlayerDetail._pickPrimaryIncomingSaleBid(gameState, playerId)
+    local bids = TransferManager.getIncomingBidsForPlayer(gameState, playerId)
+    if #bids == 0 then return nil end
+    table.sort(bids, function(a, b)
+        local pa = INCOMING_SALE_STATUS_PRIORITY[a.status] or 99
+        local pb = INCOMING_SALE_STATUS_PRIORITY[b.status] or 99
+        if pa ~= pb then return pa < pb end
+        return (a.amount or 0) > (b.amount or 0)
+    end)
+    return bids[1]
+end
+
+function PlayerDetail._buildIncomingSaleBidPanel(player, gameState, bid)
+    local buyerTeam = gameState.teams[bid.buyerTeamId]
+    local buyerName = buyerTeam and buyerTeam.name or "未知球队"
+    local amountText = FinanceManager.formatMoney(bid.amount)
+
+    if bid.status == "pending" then
+        return UI.Panel {
+            width = "100%", marginBottom = 10,
+            children = {
+                UI.Label {
+                    text = "收到报价：" .. buyerName .. " 出价 " .. amountText,
+                    fontSize = 13, color = Theme.COLORS.ACCENT,
+                    fontWeight = "bold", marginBottom = 8,
+                },
+                UI.Panel {
+                    width = "100%", flexDirection = "row",
+                    children = {
+                        UI.Button {
+                            text = "接受报价",
+                            flexGrow = 1, height = 40,
+                            backgroundColor = Theme.COLORS.SECONDARY,
+                            borderRadius = 8, fontSize = 14,
+                            color = {255, 255, 255, 255},
+                            marginRight = 6,
+                            onClick = function()
+                                local ok = TransferManager.acceptIncomingBid(gameState, bid.id)
+                                if ok then
+                                    UI.Toast.Show({ message = "已同意报价，等待球员考虑是否接受转会", variant = "success" })
+                                else
+                                    UI.Toast.Show({ message = "无法接受该报价，请刷新页面后重试", variant = "warning" })
+                                end
+                                Router.replaceWith("player_detail", { playerId = player.id, tab = "contract" })
+                            end,
+                        },
+                        UI.Button {
+                            text = "拒绝",
+                            width = 70, height = 40,
+                            backgroundColor = Theme.COLORS.DANGER,
+                            borderRadius = 8, fontSize = 14,
+                            color = {255, 255, 255, 255},
+                            onClick = function()
+                                local ok = TransferManager.rejectIncomingBid(gameState, bid.id)
+                                if ok then
+                                    UI.Toast.Show({ message = "已拒绝报价", variant = "info" })
+                                else
+                                    UI.Toast.Show({ message = "无法拒绝该报价，请刷新页面后重试", variant = "warning" })
+                                end
+                                Router.replaceWith("player_detail", { playerId = player.id, tab = "contract" })
+                            end,
+                        },
+                    },
+                },
+            },
+        }
+    end
+
+    if bid.status == "counter_pending" then
+        return UI.Panel {
+            width = "100%", marginBottom = 10,
+            children = {
+                UI.Label {
+                    text = "还价中：" .. buyerName .. " · 你的要价 " .. FinanceManager.formatMoney(bid.counterAskAmount or bid.amount),
+                    fontSize = 13, color = Theme.COLORS.WARNING,
+                    fontWeight = "bold", marginBottom = 6,
+                },
+                UI.Label {
+                    text = "对方正在考虑你的还价，请等待几天后查看结果。",
+                    fontSize = 11, color = Theme.COLORS.TEXT_MUTED, marginBottom = 8,
+                },
+                UI.Button {
+                    text = "查看还价进度",
+                    width = "100%", height = 40,
+                    backgroundColor = Theme.COLORS.ACCENT,
+                    borderRadius = 8, fontSize = 14,
+                    color = {255, 255, 255, 255},
+                    onClick = function()
+                        Router.replaceWith("market", { tab = "listed", highlightBidId = bid.id })
+                    end,
+                },
+            },
+        }
+    end
+
+    if bid.status == "player_considering_sale" then
+        local daysLeft = bid.playerConsiderSaleDays or 2
+        if bid.playerConsiderSaleDate then
+            local daysPassed = TransferManager._daysBetween(bid.playerConsiderSaleDate, gameState.date)
+            daysLeft = math.max(0, (bid.playerConsiderSaleDays or 2) - daysPassed)
+        end
+        local progressText = daysLeft > 0
+            and string.format("预计 %d 天后给出答复", daysLeft)
+            or "即将给出答复"
+        return UI.Panel {
+            width = "100%", marginBottom = 10,
+            children = {
+                UI.Label {
+                    text = "球员考虑中：" .. buyerName .. " · " .. amountText,
+                    fontSize = 13, color = {255, 180, 60, 255},
+                    fontWeight = "bold", marginBottom = 6,
+                },
+                UI.Label {
+                    text = "你已同意报价，球员正在考虑是否接受转会。\n" .. progressText,
+                    fontSize = 11, color = Theme.COLORS.TEXT_MUTED, marginBottom = 8,
+                },
+                UI.Button {
+                    text = "查看详情",
+                    width = "100%", height = 40,
+                    backgroundColor = Theme.COLORS.ACCENT,
+                    borderRadius = 8, fontSize = 14,
+                    color = {255, 255, 255, 255},
+                    onClick = function()
+                        Router.replaceWith("market", { tab = "listed", highlightBidId = bid.id })
+                    end,
+                },
+            },
+        }
+    end
+
+    if bid.status == "awaiting_sale_confirmation" then
+        return UI.Panel {
+            width = "100%", marginBottom = 10,
+            children = {
+                UI.Label {
+                    text = "待确认出售：" .. buyerName .. " · " .. amountText,
+                    fontSize = 13, color = Theme.COLORS.SECONDARY,
+                    fontWeight = "bold", marginBottom = 6,
+                },
+                UI.Label {
+                    text = "球员已同意加盟，请最终确认或取消此次交易。",
+                    fontSize = 11, color = Theme.COLORS.TEXT_MUTED, marginBottom = 8,
+                },
+                UI.Button {
+                    text = "确认出售",
+                    width = "100%", height = 40,
+                    backgroundColor = Theme.COLORS.SECONDARY,
+                    borderRadius = 8, fontSize = 14,
+                    color = {255, 255, 255, 255},
+                    marginBottom = 6,
+                    onClick = function()
+                        ConfirmDialog.show({
+                            title = "最终确认",
+                            message = string.format("确认以 %s 将 %s 出售给 %s？\n此操作不可撤销。",
+                                amountText, player.displayName, buyerName),
+                            confirmText = "确认出售",
+                            onConfirm = function()
+                                local ok = TransferManager.confirmSale(gameState, bid.id)
+                                if ok then
+                                    UI.Toast.Show({ message = "交易完成！球员已出售", variant = "success" })
+                                    Router.replaceWith("market", { tab = "listed" })
+                                else
+                                    UI.Toast.Show({ message = "确认失败，请前往转会市场重试", variant = "warning" })
+                                    Router.replaceWith("market", { tab = "listed", highlightBidId = bid.id })
+                                end
+                            end,
+                        })
+                    end,
+                },
+                UI.Button {
+                    text = "取消交易",
+                    width = "100%", height = 40,
+                    backgroundColor = {60, 40, 40, 255},
+                    borderRadius = 8, fontSize = 14,
+                    color = Theme.COLORS.DANGER,
+                    onClick = function()
+                        local ok = TransferManager.cancelSale(gameState, bid.id)
+                        if ok then
+                            UI.Toast.Show({ message = "交易已取消", variant = "info" })
+                        else
+                            UI.Toast.Show({ message = "取消失败，请前往转会市场重试", variant = "warning" })
+                        end
+                        Router.replaceWith("player_detail", { playerId = player.id, tab = "contract" })
+                    end,
+                },
+            },
+        }
+    end
+
+    return UI.Panel { height = 0 }
+end
+
 function PlayerDetail._buildListForSaleBtn(player, isSafe, safetyReason, gameState)
     if player.listedForLoan then
         return UI.Panel { height = 0 }
     end
 
-    -- 如果有收到的报价，优先显示报价操作
-    local incomingBids = TransferManager.getPendingSellBids(gameState)
-    for _, bid in ipairs(incomingBids) do
-        if bid.playerId == player.id and bid.isIncomingBid then
-            local buyerTeam = gameState.teams[bid.buyerTeamId]
-            local buyerName = buyerTeam and buyerTeam.name or "未知球队"
-            return UI.Panel {
-                width = "100%", marginBottom = 10,
-                children = {
-                    UI.Label {
-                        text = "收到报价：" .. buyerName .. " 出价 " .. FinanceManager.formatMoney(bid.amount),
-                        fontSize = 13, color = Theme.COLORS.ACCENT,
-                        fontWeight = "bold", marginBottom = 8,
-                    },
-                    UI.Panel {
-                        width = "100%", flexDirection = "row",
-                        children = {
-                            UI.Button {
-                                text = "接受报价",
-                                flexGrow = 1, height = 40,
-                                backgroundColor = Theme.COLORS.SECONDARY,
-                                borderRadius = 8, fontSize = 14,
-                                color = {255, 255, 255, 255},
-                                marginRight = 6,
-                                onClick = function()
-                                    TransferManager.acceptIncomingBid(gameState, bid.id)
-                                    UI.Toast.Show({ message = "已同意报价，请前往转会市场确认出售", variant = "success" })
-                                    Router.replaceWith("market", { tab = "listed" })
-                                end,
-                            },
-                            UI.Button {
-                                text = "拒绝",
-                                width = 70, height = 40,
-                                backgroundColor = Theme.COLORS.DANGER,
-                                borderRadius = 8, fontSize = 14,
-                                color = {255, 255, 255, 255},
-                                onClick = function()
-                                    TransferManager.rejectIncomingBid(gameState, bid.id)
-                                    Router.replaceWith("player_detail", { playerId = player.id, tab = "contract" })
-                                end,
-                            },
-                        },
-                    },
-                },
-            }
-        end
+    local bid = PlayerDetail._pickPrimaryIncomingSaleBid(gameState, player.id)
+    if bid then
+        return PlayerDetail._buildIncomingSaleBidPanel(player, gameState, bid)
     end
 
     -- 已挂牌 → 取消挂牌
@@ -1130,7 +1285,7 @@ function PlayerDetail._buildListForSaleBtn(player, isSafe, safetyReason, gameSta
             color = Theme.COLORS.WARNING,
             marginBottom = 10,
             onClick = function()
-                TransferManager.delistPlayer(player)
+                TransferManager.delistPlayer(gameState, player)
                 Router.replaceWith("player_detail", { playerId = player.id, tab = "contract" })
             end,
         }

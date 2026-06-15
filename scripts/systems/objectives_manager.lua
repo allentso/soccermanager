@@ -411,31 +411,36 @@ function ObjectivesManager._derbyRequiresWin(gameState)
     return tier == "strong" or tier == "elite"
 end
 
-function ObjectivesManager._collectDerbyFixturesInMonth(gameState, teamId, year, month)
+function ObjectivesManager._collectFixturesInMonth(gameState, teamId, year, month)
     local lg = gameState:getTeamLeague(teamId)
     if not lg then return {} end
 
-    local derbies = {}
+    local fixtures = {}
     for _, f in ipairs(lg.fixtures or {}) do
         local d = f.date
         if d and tonumber(d.year) == tonumber(year) and tonumber(d.month) == tonumber(month) then
-            local opponentId
-            if f.homeTeamId == teamId then
-                opponentId = f.awayTeamId
-            elseif f.awayTeamId == teamId then
-                opponentId = f.homeTeamId
-            end
-            if opponentId and TransferManager.isRivalry(gameState, teamId, opponentId) then
-                table.insert(derbies, f)
+            if f.homeTeamId == teamId or f.awayTeamId == teamId then
+                table.insert(fixtures, f)
             end
         end
     end
 
-    table.sort(derbies, function(a, b)
+    table.sort(fixtures, function(a, b)
         local da, db = a.date or {}, b.date or {}
         if da.day ~= db.day then return (da.day or 0) < (db.day or 0) end
         return (a.id or 0) < (b.id or 0)
     end)
+    return fixtures
+end
+
+function ObjectivesManager._collectDerbyFixturesInMonth(gameState, teamId, year, month)
+    local derbies = {}
+    for _, f in ipairs(ObjectivesManager._collectFixturesInMonth(gameState, teamId, year, month)) do
+        local opponentId = f.homeTeamId == teamId and f.awayTeamId or f.homeTeamId
+        if opponentId and TransferManager.isRivalry(gameState, teamId, opponentId) then
+            table.insert(derbies, f)
+        end
+    end
     return derbies
 end
 
@@ -486,7 +491,9 @@ function ObjectivesManager._generateMonthlies(gameState)
     end
 
     if #monthlies == 0 then
-        table.insert(monthlies, ObjectivesManager._generateGenericMonthly(gameState))
+        if #ObjectivesManager._collectFixturesInMonth(gameState, teamId, year, month) > 0 then
+            table.insert(monthlies, ObjectivesManager._generateGenericMonthly(gameState))
+        end
     end
     return monthlies
 end
@@ -638,6 +645,9 @@ function ObjectivesManager.getMonthlyProgress(gameState, monthly, team)
     if monthly.status == "failed" then
         return { current = 0, target = 1, pct = 0, met = false, label = "未达成" }
     end
+    if monthly.status == "skipped" then
+        return { current = 0, target = 1, pct = 0, met = false, label = "无比赛，已跳过" }
+    end
 
     if monthly.id == "monthly_derby_win" or monthly.id == "monthly_derby_points" then
         local fixture = ObjectivesManager._findFixtureById(gameState, gameState.playerTeamId, monthly.fixtureId)
@@ -757,6 +767,35 @@ function ObjectivesManager._markMonthlyFailed(gameState, objectives, team, month
     })
 end
 
+local function monthBefore(y1, m1, y2, m2)
+    y1, m1, y2, m2 = tonumber(y1) or 0, tonumber(m1) or 0, tonumber(y2) or 0, tonumber(m2) or 0
+    if y1 ~= y2 then return y1 < y2 end
+    return m1 < m2
+end
+
+--- 月度目标所属月份是否已结束（避免当月 1 号刚生成就被评估）
+function ObjectivesManager._monthlyPeriodEnded(monthly, date)
+    if not monthly.startMonth or not monthly.startYear or not date then return true end
+    return monthBefore(monthly.startYear, monthly.startMonth, date.year, date.month)
+end
+
+--- 当月实际参与的比赛场次（德比看 fixture 是否完赛，通用目标看统计）
+function ObjectivesManager._monthlyMatchesPlayed(gameState, team, monthly)
+    if monthly.id == "monthly_derby_points" or monthly.id == "monthly_derby_win" then
+        local fixture = ObjectivesManager._findFixtureById(gameState, gameState.playerTeamId, monthly.fixtureId)
+        if not fixture or fixture.status ~= "finished" then return 0 end
+        return 1
+    end
+    local stats = team and ObjectivesManager._getMonthlyStatsForEval(team, monthly, gameState) or nil
+    if not stats then return 0 end
+    return (stats.wins or 0) + (stats.draws or 0) + (stats.losses or 0)
+end
+
+function ObjectivesManager._markMonthlySkipped(gameState, objectives, team, monthly)
+    if monthly.status == "failed" or monthly.status == "completed" or monthly.status == "skipped" then return end
+    monthly.status = "skipped"
+end
+
 --- 比赛后刷新当月 active 月度目标（德比/胜场等达标即结算）
 function ObjectivesManager.refreshActiveMonthlies(gameState)
     local objectives = gameState.objectives
@@ -802,6 +841,13 @@ function ObjectivesManager.onMonthEnd(gameState)
 
     for _, monthly in ipairs(monthlies) do
         if monthly.status == "active" then
+            if not ObjectivesManager._monthlyPeriodEnded(monthly, gameState.date) then
+                goto continue_monthly
+            end
+            if ObjectivesManager._monthlyMatchesPlayed(gameState, team, monthly) == 0 then
+                ObjectivesManager._markMonthlySkipped(gameState, objectives, team, monthly)
+                goto continue_monthly
+            end
             local completed = ObjectivesManager._evaluateMonthlyObjective(gameState, team, monthly)
             if completed then
                 ObjectivesManager._markMonthlyCompleted(gameState, objectives, team, monthly)
@@ -809,6 +855,7 @@ function ObjectivesManager.onMonthEnd(gameState)
                 ObjectivesManager._markMonthlyFailed(gameState, objectives, team, monthly)
             end
         end
+        ::continue_monthly::
     end
 
     if team then

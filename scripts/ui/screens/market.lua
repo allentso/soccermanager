@@ -14,6 +14,7 @@ local StaffManager = require("scripts/systems/staff_manager")
 local ScoutManager = require("scripts/systems/scout_manager")
 local ConfirmDialog = require("scripts/ui/components/confirm_dialog")
 local AudioManager = require("scripts/systems/audio_manager")
+local YouthManager = require("scripts/systems/youth_manager")
 
 local Market = {}
 
@@ -206,6 +207,17 @@ function Market.create(params)
             local player = gameState.players[bid.playerId]
             if player then
                 Market._showOfferSheet(gameState, player)
+            elseif bid.status == "awaiting_sale_confirmation" then
+                ConfirmDialog.show({
+                    title = "报价已失效",
+                    message = "该球员的出售报价已无法处理（球员可能已离队）。是否取消此交易以继续推进时间？",
+                    confirmText = "取消交易",
+                    danger = true,
+                    onConfirm = function()
+                        TransferManager.cancelSale(gameState, bid.id)
+                        Router.replaceWith("market", { tab = "listed" })
+                    end,
+                })
             end
         end)
     end
@@ -1352,12 +1364,17 @@ function Market._buildListedContent(gameState)
         end
     end
 
-    -- 兜底：将有 awaiting_sale_confirmation bid 但未挂牌的球员也加入列表（避免死锁）
-    local pendingSales = TransferManager.getPendingSaleConfirmations(gameState, team.id)
-    for _, sale in ipairs(pendingSales) do
-        if not listedPlayerIds[sale.playerId] then
-            local p = gameState.players[sale.playerId]
-            if p and p.teamId == team.id then
+    -- 兜底：有活跃 incoming 出售 bid 的球员一律显示（含青训仅 _youthPlayerIds、已取消挂牌等情况，避免卡档）
+    local function _playerStillOnTeam(p, playerId)
+        if not p then return false end
+        if p.teamId == team.id then return true end
+        return YouthManager.isOnTeamYouthSquad(gameState, playerId or p.id, team.id)
+    end
+
+    for _, playerId in ipairs(TransferManager.getPlayersWithActiveIncomingSales(gameState, team.id)) do
+        if not listedPlayerIds[playerId] then
+            local p = gameState.players[playerId]
+            if _playerStillOnTeam(p, playerId) then
                 table.insert(listedPlayers, p)
                 listedPlayerIds[p.id] = true
             end

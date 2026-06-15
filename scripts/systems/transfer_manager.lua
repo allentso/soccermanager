@@ -406,9 +406,31 @@ function TransferManager.getPendingSellBids(gameState)
     local result = {}
     for _, bid in ipairs(gameState.transfers.bids) do
         if bid.sellerTeamId == gameState.playerTeamId
+            and bid.isIncomingBid
             and (bid.status == "pending" or bid.status == "counter_pending"
                  or bid.status == "awaiting_sale_confirmation" or bid.status == "player_considering_sale") then
             table.insert(result, bid)
+        end
+    end
+    return result
+end
+
+--- 本队仍有活跃 incoming 出售流程的球员 ID（用于市场 UI 兜底，避免取消挂牌后找不到报价入口）
+---@return number[]
+function TransferManager.getPlayersWithActiveIncomingSales(gameState, teamId)
+    teamId = teamId or gameState.playerTeamId
+    if not teamId then return {} end
+    TransferManager._ensureData(gameState)
+    local seen = {}
+    local result = {}
+    for _, bid in ipairs(gameState.transfers.bids) do
+        if bid.sellerTeamId == teamId and bid.isIncomingBid
+            and (bid.status == "pending" or bid.status == "counter_pending"
+                or bid.status == "awaiting_sale_confirmation" or bid.status == "player_considering_sale") then
+            if not seen[bid.playerId] then
+                seen[bid.playerId] = true
+                table.insert(result, bid.playerId)
+            end
         end
     end
     return result
@@ -1674,14 +1696,21 @@ function TransferManager._createIncomingBid(gameState, buyerTeam, player, offerA
     gameState.transfers.nextBidId = gameState.transfers.nextBidId + 1
     table.insert(gameState.transfers.bids, bid)
 
+    local YouthManager = require("scripts/systems/youth_manager")
+    local isYouthSale = YouthManager.isYouthSquadPlayer(gameState, player)
+    local handleHint = isYouthSale
+        and "前往转会市场「待售」或青训页 / 球员详情合同页处理报价。"
+        or "前往转会市场「待售」或阵容页长按该球员处理报价。"
+
     -- 通知消息
     gameState:sendMessage({
         category = "transfer",
         title = "收到报价: " .. player.displayName,
-        body = string.format("%s 对 %s 出价 %s（球员身价 %s）。\n前往阵容页长按该球员处理报价。",
-            buyerTeam.name, player.displayName, fmtMoney(offerAmount), fmtMoney(player.value)),
+        body = string.format("%s 对 %s 出价 %s（球员身价 %s）。\n%s",
+            buyerTeam.name, player.displayName, fmtMoney(offerAmount), fmtMoney(player.value), handleHint),
         priority = "high",
         popup = true,
+        data = { bidId = bid.id, playerId = player.id },
     })
     return bid
 end
@@ -4325,6 +4354,29 @@ function TransferManager.processDailyBids(gameState)
         -- 下方的处理循环只作用于仍有效的 bid，已 cancelled 的会跳过
     end
 
+    -- 存档修复：球员已不存在或已离队时，清理残留的 incoming 出售 bid（避免时间推进卡死）
+    do
+        local YouthManager = require("scripts/systems/youth_manager")
+        for _, bid in ipairs(gameState.transfers.bids) do
+            if not bid.isIncomingBid then goto continueStaleIncoming end
+            local activeStatuses = {
+                pending = true, counter_pending = true,
+                awaiting_sale_confirmation = true, player_considering_sale = true,
+            }
+            if not activeStatuses[bid.status] then goto continueStaleIncoming end
+            local player = gameState.players[bid.playerId]
+            local sellerTeam = bid.sellerTeamId and gameState.teams[bid.sellerTeamId]
+            local stillOnSeller = player and bid.sellerTeamId
+                and (player.teamId == bid.sellerTeamId
+                    or YouthManager.isOnTeamYouthSquad(gameState, bid.playerId, bid.sellerTeamId))
+            if not player or not sellerTeam or not stillOnSeller then
+                bid.status = "rejected"
+                bid.rejectedDate = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day}
+            end
+            ::continueStaleIncoming::
+        end
+    end
+
     -- 存档修复：清理同一球员存在多个 awaiting_sale_confirmation 的异常情况
     -- 保留最高出价的 bid，其余自动 reject
     do
@@ -4659,6 +4711,9 @@ function TransferManager.delistPlayer(gameState, player)
     if player == nil and gameState and gameState.displayName then
         player = gameState
         gameState = nil
+    end
+    if not gameState and _G.gameState then
+        gameState = _G.gameState
     end
 
     player.listedForSale = false
