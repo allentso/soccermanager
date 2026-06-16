@@ -603,7 +603,7 @@ end
 
 --- 解析 fixture 对应的主客队（俱乐部或世界杯虚拟国家队）
 function MatchEngine._resolveTeams(gameState, fixture)
-    if fixture._isWC then
+    if fixture._isWC or fixture._isEuro then
         local WorldCup = require("scripts/systems/world_cup")
         local homeTeam = WorldCup.buildNationalTeam(gameState, fixture.homeTeamId)
         local awayTeam = WorldCup.buildNationalTeam(gameState, fixture.awayTeamId)
@@ -753,7 +753,7 @@ end
 ---@param fixture table
 ---@return table|nil
 function MatchEngine.startMatch(gameState, fixture)
-    if fixture._isWC then
+    if fixture._isWC or fixture._isEuro then
         return MatchSession.newWC(gameState, fixture)
     end
     return MatchSession.new(gameState, fixture)
@@ -824,6 +824,34 @@ function MatchEngine.finishMatch(session, gameState, fixture)
     local revenueDetails = FinanceManager.processMatchDayRevenue(gameState, fixture.homeTeamId, true, fixture.awayTeamId)
     if revenueDetails and fixture.homeTeamId == gameState.playerTeamId then
         report.matchDayRevenue = revenueDetails
+    end
+
+    -- 玩家比赛：inbox + 赛后新闻（实时比赛路径）
+    if gameState.playerTeamId
+        and (fixture.homeTeamId == gameState.playerTeamId or fixture.awayTeamId == gameState.playerTeamId) then
+        local MatchReport = require("scripts/match/match_report")
+        report = MatchReport.enrichFromFixture(report, fixture, gameState)
+        local homeTeam = gameState.teams[fixture.homeTeamId]
+        local awayTeam = gameState.teams[fixture.awayTeamId]
+        local homeName = homeTeam and homeTeam.name or "主队"
+        local awayName = awayTeam and awayTeam.name or "客队"
+        local prefix = fixture._isUCL and "[欧冠] " or ""
+        gameState:sendMessage({
+            category = "match_result",
+            title = prefix .. "比赛结果",
+            body = MatchReport.formatRichMatchBody(gameState, fixture, report, {
+                homeName = homeName,
+                awayName = awayName,
+                prefix = prefix,
+                perspectiveTeamId = gameState.playerTeamId,
+            }),
+            priority = "high",
+            extra = { fixtureId = fixture.id },
+        })
+        MatchReport.publishPlayerMatchNews(gameState, fixture, report, {
+            homeName = homeName,
+            awayName = awayName,
+        })
     end
 
     return report

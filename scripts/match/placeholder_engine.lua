@@ -5,6 +5,7 @@
 local TacticsResolver = require("scripts/match/tactics_resolver")
 local RecordsManager = require("scripts/systems/records_manager")
 local DifficultySettings = require("scripts/systems/difficulty_settings")
+local PositionTrainingManager = require("scripts/systems/position_training_manager")
 
 local PlaceholderEngine = {}
 
@@ -356,9 +357,7 @@ function PlaceholderEngine.applyPlayerMatchStats(gameState, fixture, report)
                     or evt.injuryKind == "major_surgery" or evt.injuryKind == "achilles",
             }
             EventFlavors.applyToPlayer(p, injury)
-            if p.teamId == gameState.playerTeamId then
-                EventFlavors.notifyInjuryMessage(gameState, p, injury)
-            end
+            EventFlavors.onInjuryApplied(gameState, p, injury, "match")
         end
 
         if evt.type == "goal" and evt.assistPlayerId then
@@ -396,6 +395,8 @@ function PlaceholderEngine.applyPlayerMatchStats(gameState, fixture, report)
             end
         end
     end
+
+    PositionTrainingManager.applyPostMatch(gameState, fixture, report)
 
     -- 3. 体能消耗
     local teamStyleDrain = {}
@@ -1207,9 +1208,7 @@ function PlaceholderEngine.applyResult(gameState, fixture, report)
                 isSeasonEnding = evt.injurySeasonEnding,
             }
             EventFlavors.applyToPlayer(p, injury)
-            if p.teamId == gameState.playerTeamId then
-                EventFlavors.notifyInjuryMessage(gameState, p, injury)
-            end
+            EventFlavors.onInjuryApplied(gameState, p, injury, "match")
         end
 
         -- 助攻统计
@@ -1260,6 +1259,8 @@ function PlaceholderEngine.applyResult(gameState, fixture, report)
             end
         end
     end
+
+    PositionTrainingManager.applyPostMatch(gameState, fixture, report)
 
     -- 体能消耗（按位置×风格×个人耐力差异化）
     local teamStyleDrain = {}
@@ -1313,6 +1314,9 @@ function PlaceholderEngine.applyResult(gameState, fixture, report)
     local ObjectivesManager = require("scripts/systems/objectives_manager")
     ObjectivesManager.recordMatchResult(gameState, fixture.homeTeamId, homeGoals, awayGoals, report.events)
     ObjectivesManager.recordMatchResult(gameState, fixture.awayTeamId, awayGoals, homeGoals, report.events)
+
+    local NewsGenerator = require("scripts/systems/news_generator")
+    NewsGenerator.checkMilestonesForPlayers(gameState, matchPlayers)
 
     return report
 end

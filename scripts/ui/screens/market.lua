@@ -2885,8 +2885,17 @@ function Market._buildFreeAgentsContent(gameState, posFilter)
     })
 
     -- 获取自由球员
-    local filterPos = posFilter ~= "all" and posFilter or nil
+    local filterPos = (posFilter ~= "all" and posFilter ~= "SHORTLIST") and posFilter or nil
     local freeAgents = TransferManager.getFreeAgents(gameState, filterPos)
+    if posFilter == "SHORTLIST" then
+        local filtered = {}
+        for _, p in ipairs(freeAgents) do
+            if gameState.shortlist and gameState.shortlist[p.id] then
+                table.insert(filtered, p)
+            end
+        end
+        freeAgents = filtered
+    end
 
     -- 按能力排序
     table.sort(freeAgents, function(a, b) return (a.overall or 0) > (b.overall or 0) end)

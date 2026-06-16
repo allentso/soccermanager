@@ -3,6 +3,7 @@
 
 local EventBus = require("scripts/app/event_bus")
 local FinanceManager = require("scripts/systems/finance_manager")
+local NewsGenerator = require("scripts/systems/news_generator")
 
 local DifficultySettings = require("scripts/systems/difficulty_settings")
 
@@ -832,16 +833,12 @@ function TransferManager._completeTransfer(gameState, bid, opts)
         })
     end
 
-    -- 新闻
-    gameState:addNews({
-        category = "transfer_news",
-        title = "官宣: " .. player.displayName .. " 转会",
-        body = string.format("%s 以 %s 的转会费从 %s 转会至 %s。",
-            player.displayName, fmtMoney(bid.amount),
-            sellerTeam and sellerTeam.name or "自由球员市场",
-            buyerTeam.name),
+    NewsGenerator.publishTransferNews(gameState, {
         playerId = player.id,
-        relatedTeams = {bid.sellerTeamId, bid.buyerTeamId},
+        fromTeamId = bid.sellerTeamId,
+        toTeamId = bid.buyerTeamId,
+        amount = bid.amount,
+        type = "permanent",
     })
 
     EventBus.emit("transfer_completed", bid)
@@ -957,10 +954,10 @@ function TransferManager.processAITransfers(gameState)
     -- AI 挂牌符合画像的年轻/缺勤球员外租（仅转会窗）
     TransferManager._aiListPlayersForLoan(gameState)
 
-    -- 每周每支AI球队有40%概率尝试引援（可多队同时活跃）
+    -- 每周每支AI球队按难度档位尝试引援；资金充裕者每周必试
     for _, team in pairs(gameState.teams) do
         if team.id == gameState.playerTeamId then goto continue end
-        if Random() > 0.40 then goto continue end
+        if not TransferManager._shouldAITryTransfer(gameState, team) then goto continue end
 
         -- 评估需求：包括"补缺"和"升级"两种动机
         local need, upgradeMode = TransferManager._assessTeamNeed(gameState, team)
@@ -1189,6 +1186,29 @@ function TransferManager.processAILoanListings(gameState)
     TransferManager._aiListPlayersForLoan(gameState)
 end
 
+--- AI 有效转会购买力（仅 AI 决策使用，不影响玩家 _getTransferBudget）
+function TransferManager._getAIEffectiveBudget(team)
+    local balance = team.balance or 0
+    local tb = team.transferBudget or 0
+    local fromBalance = math.floor(balance * 0.25)
+    local effective = math.max(tb, fromBalance)
+    return math.min(effective, math.floor(balance * 0.6))
+end
+
+--- AI 球队是否资金充裕（有余力持续引援）
+function TransferManager._isAITeamAffluent(team)
+    return (team.transferBudget or 0) > 5000000 or (team.balance or 0) > 20000000
+end
+
+--- 本周是否尝试主动引援（难度档位 + 资金充裕必试）
+function TransferManager._shouldAITryTransfer(gameState, team)
+    if TransferManager._isAITeamAffluent(team) then return true end
+    local tier = DifficultySettings.get().transferTier or 2
+    local chances = { 0.45, 0.65, 0.80 }
+    local chance = chances[tier] or chances[2]
+    return Random() <= chance
+end
+
 --- 评估球队需求（返回需要的位置和是否为升级模式）
 --- @return string|nil position group needed
 --- @return boolean upgradeMode (true = want to upgrade, not just fill)
@@ -1228,9 +1248,10 @@ function TransferManager._assessTeamNeed(gameState, team)
         return groups[RandomInt(1, 3)], false
     end
 
-    -- 优先级3: 升级动机（50%概率触发——想买比现有更好的球员）
-    if Random() < 0.50 then
-        -- 找最弱的位置组进行升级
+    local affluent = TransferManager._isAITeamAffluent(team)
+
+    -- 找最弱 outfield 位置组（升级/补强共用）
+    local function weakestOutfieldGroup()
         local weakest, weakestOvr = nil, 999
         local groups = {"DEF", "MID", "FWD"}
         for _, g in ipairs(groups) do
@@ -1239,8 +1260,23 @@ function TransferManager._assessTeamNeed(gameState, team)
                 weakest = g
             end
         end
+        return weakest
+    end
+
+    -- 优先级3: 升级动机（资金充裕 80%，否则 50%）
+    local upgradeChance = affluent and 0.80 or 0.50
+    if Random() < upgradeChance then
+        local weakest = weakestOutfieldGroup()
         if weakest then
             return weakest, true  -- upgrade mode
+        end
+    end
+
+    -- 资金充裕时仍补强最弱位置（非升级，候选范围更宽）
+    if affluent then
+        local weakest = weakestOutfieldGroup()
+        if weakest then
+            return weakest, false
         end
     end
 
@@ -1252,7 +1288,7 @@ function TransferManager._findTransferTarget(gameState, buyerTeam, needGroup, up
     local Constants = require("scripts/app/constants")
     local targetPositions = Constants.POSITION_GROUPS[needGroup] or {}
     local candidates = {}
-    local budget = buyerTeam.transferBudget or (buyerTeam.balance * 0.5)
+    local budget = TransferManager._getAIEffectiveBudget(buyerTeam)
     local teamAvg = TransferManager._getTeamAverageOverall(gameState, buyerTeam)
 
     for _, player in pairs(gameState.players) do
@@ -1269,8 +1305,8 @@ function TransferManager._findTransferTarget(gameState, buyerTeam, needGroup, up
         end
         if not posMatch then goto continue end
 
-        -- 财力检查（不超过转会预算的85%，且不超过余额的60%）
-        local maxSpend = math.min(budget * 0.85, buyerTeam.balance * 0.6)
+        -- 财力检查（不超过有效预算的85%，且不超过余额的60%）
+        local maxSpend = math.min(math.floor(budget * 0.85), math.floor((buyerTeam.balance or 0) * 0.6))
         if player.value > maxSpend then goto continue end
 
         -- 能力匹配
@@ -1405,16 +1441,12 @@ function TransferManager._executeAITransfer(gameState, buyerTeam, player)
         isAI = true,
     })
 
-    -- 生成新闻
-    gameState:addNews({
-        category = "transfer_news",
-        title = "官宣: " .. player.displayName .. " 转会",
-        body = string.format("%s 以 %s 的转会费从 %s 转会至 %s。",
-            player.displayName, fmtMoney(offerAmount),
-            sellerTeam and sellerTeam.name or "自由球员市场",
-            buyerTeam.name),
+    NewsGenerator.publishTransferNews(gameState, {
         playerId = player.id,
-        relatedTeams = {sellerTeam and sellerTeam.id, buyerTeam.id},
+        fromTeamId = sellerTeam and sellerTeam.id or nil,
+        toTeamId = buyerTeam.id,
+        amount = offerAmount,
+        type = "permanent",
     })
 
     -- 记录到历史系统
@@ -1613,8 +1645,8 @@ function TransferManager._findBuyerForPlayer(gameState, player)
         if team.id == gameState.playerTeamId then goto skip end
         if team.id == player.teamId then goto skip end
         -- 财力检查（挂牌球员折价出售，预算门槛放宽）
-        local budget = team.transferBudget or (team.balance * 0.5)
-        -- 允许砍价到身价的35%，所以只要预算能承担35%身价就可能匹配
+        local budget = TransferManager._getAIEffectiveBudget(team)
+        -- 允许砍价到身价的35%，所以只要有效预算能承担35%身价就可能匹配
         if player.value * 0.35 > budget then goto skip end
         -- 能力匹配（挂牌球员范围宽松，低于队均15分的也可能作为替补/轮换引入）
         local teamAvg = TransferManager._getTeamAverageOverall(gameState, team)
@@ -2022,14 +2054,12 @@ function TransferManager._completeIncomingSale(gameState, bid)
         priority = "high",
     })
 
-    -- 新闻
-    gameState:addNews({
-        category = "transfer_news",
-        title = "官宣: " .. player.displayName .. " 转会",
-        body = string.format("%s 以 %s 的转会费从 %s 转会至 %s。",
-            player.displayName, fmtMoney(bid.amount), sellerTeam.name, buyerTeam.name),
+    NewsGenerator.publishTransferNews(gameState, {
         playerId = player.id,
-        relatedTeams = {sellerTeam.id, buyerTeam.id},
+        fromTeamId = sellerTeam.id,
+        toTeamId = buyerTeam.id,
+        amount = bid.amount,
+        type = "permanent",
     })
 
     -- 记录到历史系统
@@ -2444,11 +2474,21 @@ function TransferManager._completeLoan(gameState, bid)
 
     bid.status = "completed"
 
-    gameState:sendMessage({
-        category = "transfer",
-        title = "租借完成!",
-        body = string.format("%s 已租借加盟球队（%d周）。", player.displayName, bid.loanDuration),
-        priority = "high",
+    if bid.buyerTeamId == gameState.playerTeamId then
+        gameState:sendMessage({
+            category = "transfer",
+            title = "租借完成!",
+            body = string.format("%s 已租借加盟球队（%d周）。", player.displayName, bid.loanDuration),
+            priority = "high",
+        })
+    end
+
+    NewsGenerator.publishTransferNews(gameState, {
+        playerId = player.id,
+        fromTeamId = bid.sellerTeamId,
+        toTeamId = bid.buyerTeamId,
+        amount = bid.amount or 0,
+        type = "loan",
     })
 end
 
@@ -2683,13 +2723,11 @@ function TransferManager.confirmFreeAgent(gameState, negoId)
                     player.displayName, fmtMoney(nego.wageOffer), nego.yearsOffer),
                 priority = "high",
             })
-            gameState:addNews({
-                category = "transfer_news",
-                title = "自由签约: " .. player.displayName,
-                body = string.format("%s 以自由身加盟 %s，签约 %d 年。",
-                    player.displayName, team.name, nego.yearsOffer),
+            NewsGenerator.publishTransferNews(gameState, {
                 playerId = player.id,
-                relatedTeams = {team.id},
+                toTeamId = team.id,
+                amount = 0,
+                type = "free",
             })
             local ok, HistoryManager = pcall(require, "scripts/systems/history_manager")
             if ok and HistoryManager then
@@ -2980,13 +3018,12 @@ function TransferManager._completeFreeAgentSigning(gameState, nego)
                 player.displayName, fmtMoney(nego.wageOffer), nego.yearsOffer),
             priority = "high",
         })
-        gameState:addNews({
-            category = "transfer_news",
-            title = "预签约: " .. player.displayName,
-            body = string.format("%s 与 %s 达成预签约协议，将在合同到期后正式加盟。",
-                player.displayName, team.name),
+        NewsGenerator.publishTransferNews(gameState, {
             playerId = player.id,
-            relatedTeams = {nego.teamId, player.teamId},
+            fromTeamId = player.teamId,
+            toTeamId = nego.teamId,
+            amount = 0,
+            type = "precontract",
         })
         return
     end
@@ -3032,14 +3069,11 @@ function TransferManager._completeFreeAgentSigning(gameState, nego)
         priority = "high",
     })
 
-    -- 新闻
-    gameState:addNews({
-        category = "transfer_news",
-        title = "自由签约: " .. player.displayName,
-        body = string.format("%s 以自由身加盟 %s，签约 %d 年。",
-            player.displayName, team.name, nego.yearsOffer),
+    NewsGenerator.publishTransferNews(gameState, {
         playerId = player.id,
-        relatedTeams = {team.id},
+        toTeamId = team.id,
+        amount = 0,
+        type = "free",
     })
 
     -- 记录到历史
@@ -3098,13 +3132,11 @@ function TransferManager.signFreeAgent(gameState, playerId, wage, years)
         priority = "high",
     })
 
-    gameState:addNews({
-        category = "transfer_news",
-        title = "自由签约: " .. player.displayName,
-        body = string.format("%s 以自由身加盟 %s，签约 %d 年。",
-            player.displayName, team.name, years),
+    NewsGenerator.publishTransferNews(gameState, {
         playerId = player.id,
-        relatedTeams = {team.id},
+        toTeamId = team.id,
+        amount = 0,
+        type = "free",
     })
 
     local ok, HistoryManager = pcall(require, "scripts/systems/history_manager")
@@ -3123,11 +3155,26 @@ function TransferManager.signFreeAgent(gameState, playerId, wage, years)
 end
 
 --- 获取自由球员列表（无球队的非退役球员）
+--- positionFilter 可为位置组（GK/DEF/MID/FWD）或具体位置（CB/ST 等）
 function TransferManager.getFreeAgents(gameState, positionFilter)
+    local Constants = require("scripts/app/constants")
     local result = {}
+    local positionSet = nil
+    if positionFilter then
+        local groupPositions = Constants.POSITION_GROUPS[positionFilter]
+        if groupPositions then
+            positionSet = {}
+            for _, pos in ipairs(groupPositions) do
+                positionSet[pos] = true
+            end
+        else
+            positionSet = { [positionFilter] = true }
+        end
+    end
+
     for _, player in pairs(gameState.players) do
         if not player.teamId and not player.retired then
-            if not positionFilter or player.position == positionFilter then
+            if not positionSet or positionSet[player.position] then
                 table.insert(result, player)
             end
         end
@@ -3588,13 +3635,12 @@ function TransferManager._acceptPushSale(gameState, bid)
         priority = "high",
     })
 
-    gameState:addNews({
-        category = "transfer_news",
-        title = "官宣: " .. player.displayName .. " 转会",
-        body = string.format("%s 以 %s 的转会费从 %s 转会至 %s。",
-            player.displayName, fmtMoney(bid.amount), sellerTeam.name, buyerTeam.name),
+    NewsGenerator.publishTransferNews(gameState, {
         playerId = player.id,
-        relatedTeams = {sellerTeam.id, buyerTeam.id},
+        fromTeamId = sellerTeam.id,
+        toTeamId = buyerTeam.id,
+        amount = bid.amount,
+        type = "permanent",
     })
 
     EventBus.emit("transfer_completed", bid)
@@ -4150,6 +4196,7 @@ function TransferManager.processPreContracts(gameState)
                 -- 从原球队移除（含青训名单）
                 local newTeam = gameState.teams[nego.teamId]
                 if newTeam then
+                    local fromTeamId = player.teamId
                     TransferManager._assignPlayerToTeam(gameState, player, nego.teamId)
                     player.wage = nego.wageOffer
                     player.contractEnd = {year = gameState.date.year + nego.yearsOffer, month = 6}
@@ -4167,13 +4214,12 @@ function TransferManager.processPreContracts(gameState)
                         priority = "high",
                     })
 
-                    gameState:addNews({
-                        category = "transfer_news",
-                        title = "预签约生效: " .. player.displayName,
-                        body = string.format("%s 合同到期，以自由身正式加盟 %s。",
-                            player.displayName, newTeam.name),
+                    NewsGenerator.publishTransferNews(gameState, {
                         playerId = player.id,
-                        relatedTeams = {nego.teamId},
+                        fromTeamId = fromTeamId,
+                        toTeamId = nego.teamId,
+                        amount = 0,
+                        type = "precontract_active",
                     })
                 end
             end

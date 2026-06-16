@@ -14,7 +14,8 @@ DifficultySettings.DEFAULTS = {
     transferTier = 2,  -- 转会：1=AI保守 2=正常 3=AI宽松
     matchTier = 2,     -- 比赛：1=稳定 2=正常 3=戏剧性强
     youthTier = 2,     -- 青训：1=起点低 2=正常 3=起点高
-    trainingTier = 2,  -- 训练/体力：1=严苛 2=正常 3=宽松（基准已重平衡，默认正常）
+    fitnessTier = 2,   -- 体力：1=严苛 2=正常 3=宽松
+    growthTier = 2,    -- 成长：1=慢 2=正常 3=快
 }
 
 -- 参数描述（UI展示用）
@@ -38,13 +39,23 @@ DifficultySettings.PARAMS = {
         tierHints = { "初始年龄小、能力低，培养周期长", "正常初始年龄与能力", "初始年龄大、能力高，更快出场" },
     },
     {
-        key = "trainingTier",
-        name = "训练与体力",
-        desc = "影响日常训练成长、赛季末成长、出场挂钩效率、伤病与体力循环",
+        key = "fitnessTier",
+        name = "体力循环",
+        desc = "影响比赛/训练体力消耗、恢复速度、低体力战力惩罚与训练伤病",
         tierHints = {
-            "日常/赛季成长慢，出场要求严，伤病多",
+            "消耗快、恢复慢、低体力惩罚重、伤病多",
+            "正常体力节奏（推荐）",
+            "消耗慢、恢复快、低体力惩罚轻、伤病少",
+        },
+    },
+    {
+        key = "growthTier",
+        name = "球员成长",
+        desc = "影响日常训练成长、赛季末成长与出场挂钩效率",
+        tierHints = {
+            "日常/赛季成长慢，出场要求严",
             "正常成长节奏（推荐）",
-            "日常/赛季成长快，出场宽容，伤病少",
+            "日常/赛季成长快，出场宽容",
         },
     },
 }
@@ -54,7 +65,7 @@ DifficultySettings.PARAMS = {
 ------------------------------------------------------
 
 --- 获取难度设置
----@return table difficulty {transferTier, matchTier, youthTier} 值为1/2/3
+---@return table difficulty {transferTier, matchTier, youthTier, fitnessTier, growthTier} 值为1/2/3
 function DifficultySettings.get()
     local gs = _G.gameState
     if not gs then return DifficultySettings._copyDefaults() end
@@ -62,9 +73,17 @@ function DifficultySettings.get()
     gs.settings = gs.settings or {}
     gs.settings.difficulty = gs.settings.difficulty or DifficultySettings._copyDefaults()
 
-    -- 校验值域：防止存档损坏或手动修改导致非法值
     local diff = gs.settings.difficulty
-    for _, key in ipairs({"transferTier", "matchTier", "youthTier", "trainingTier"}) do
+
+    -- 旧版 trainingTier 迁移至 fitnessTier + growthTier
+    if type(diff.trainingTier) == "number" then
+        local legacy = math.max(1, math.min(3, math.floor(diff.trainingTier)))
+        if type(diff.fitnessTier) ~= "number" then diff.fitnessTier = legacy end
+        if type(diff.growthTier) ~= "number" then diff.growthTier = legacy end
+    end
+
+    -- 校验值域：防止存档损坏或手动修改导致非法值
+    for _, key in ipairs({"transferTier", "matchTier", "youthTier", "fitnessTier", "growthTier"}) do
         local v = diff[key]
         if type(v) ~= "number" or v < 1 or v > 3 then
             diff[key] = DifficultySettings.DEFAULTS[key] or 2
@@ -77,7 +96,7 @@ function DifficultySettings.get()
 end
 
 --- 设置单项难度档位
----@param key string 参数名 (transferTier/matchTier/youthTier)
+---@param key string 参数名 (transferTier/matchTier/youthTier/fitnessTier/growthTier)
 ---@param tier number 1/2/3
 function DifficultySettings.set(key, tier)
     local gs = _G.gameState
@@ -176,7 +195,7 @@ end
 --- tier=2 基准值见 Constants.FITNESS_*（2026-06 全局重平衡）
 function DifficultySettings.getFitnessModifiers()
     local diff = DifficultySettings.get()
-    local tier = diff.trainingTier or 2
+    local tier = diff.fitnessTier or 2
 
     local configs = {
         {
@@ -204,7 +223,7 @@ function DifficultySettings.getFitnessModifiers()
     return configs[tier] or configs[2]
 end
 
---- 赛后体力 clamp（受训练/体力难度档位影响）
+--- 赛后体力 clamp（受体力难度档位影响）
 ---@param value number
 ---@return number
 function DifficultySettings.clampFitness(value)
@@ -212,84 +231,114 @@ function DifficultySettings.clampFitness(value)
     return math.max(mods.matchFloor, math.min(Constants.FITNESS_MAX, value))
 end
 
---- 训练与体力：档位越高=成长越快、伤病越少
---- tier=1: 严苛（成长慢、伤病多）
---- tier=2: 正常（与全局体力基准一致）
---- tier=3: 宽松（成长快、伤病少）
+-- 成长档位配置（日常训练 + 赛季末 + 出场挂钩）
+local GROWTH_CONFIGS = {
+    {
+        baseChance = 0.06,
+        gapDivisor = 30,
+        gapFloor = 0.2,
+        youthGapDivisor = 25,
+        youthGapFloor = 0.3,
+        participationScale = 0.85,
+        seasonEndGrowth = { u21 = 0.30, youngAdult = 0.26, peak = 0.075 },
+        decline = { mid = 0.23, late = 0.46 },
+        growthMultiplier = { low = 0.5, medium = 1.0, high = 1.8 },
+    },
+    {
+        baseChance = 0.08,
+        gapDivisor = 38,
+        gapFloor = 0.3,
+        youthGapDivisor = 32,
+        youthGapFloor = 0.4,
+        participationScale = 1.0,
+        seasonEndGrowth = {
+            u21 = Constants.U21_SEASON_END_GROWTH_CHANCE,
+            youngAdult = 0.35,
+            peak = 0.10,
+        },
+        decline = { mid = 0.20, late = 0.40 },
+        growthMultiplier = { low = 0.5, medium = 1.0, high = 1.8 },
+    },
+    {
+        baseChance = 0.10,
+        gapDivisor = 45,
+        gapFloor = 0.4,
+        youthGapDivisor = 40,
+        youthGapFloor = 0.5,
+        participationScale = 1.15,
+        seasonEndGrowth = { u21 = 0.50, youngAdult = 0.44, peak = 0.125 },
+        decline = { mid = 0.17, late = 0.34 },
+        growthMultiplier = { low = 0.5, medium = 1.0, high = 1.8 },
+    },
+}
+
+-- 训练中的体力/伤病档位（与成长档位独立）
+local FITNESS_TRAINING_CONFIGS = {
+    {
+        intensity = {
+            low  = { fitnessLoss = 1, injuryChance = 0.002, fitnessRecoveryBonus = 2 },
+            medium = { fitnessLoss = 2, injuryChance = 0.010, fitnessRecoveryBonus = 0 },
+            high = { fitnessLoss = 3, injuryChance = 0.025, fitnessRecoveryBonus = -1 },
+        },
+        weeklyInjury = { low = 0.005, medium = 0.015, high = 0.030 },
+        injuryDaysMin = 3, injuryDaysMax = 17,
+    },
+    {
+        intensity = {
+            low  = { fitnessLoss = 1, injuryChance = 0.001, fitnessRecoveryBonus = 2 },
+            medium = { fitnessLoss = 2, injuryChance = 0.008, fitnessRecoveryBonus = 0 },
+            high = { fitnessLoss = 3, injuryChance = 0.018, fitnessRecoveryBonus = 0 },
+        },
+        weeklyInjury = { low = 0.003, medium = 0.010, high = 0.020 },
+        injuryDaysMin = 3, injuryDaysMax = 14,
+    },
+    {
+        intensity = {
+            low  = { fitnessLoss = 1, injuryChance = 0.001, fitnessRecoveryBonus = 2 },
+            medium = { fitnessLoss = 1, injuryChance = 0.005, fitnessRecoveryBonus = 0 },
+            high = { fitnessLoss = 2, injuryChance = 0.012, fitnessRecoveryBonus = 0 },
+        },
+        weeklyInjury = { low = 0.002, medium = 0.008, high = 0.015 },
+        injuryDaysMin = 3, injuryDaysMax = 12,
+    },
+}
+
+--- 训练综合修正：成长档位 + 体力/伤病档位
+--- growthTier 越高=成长越快；fitnessTier 越高=训练体力消耗越低、伤病越少
 function DifficultySettings.getTrainingModifiers()
     local diff = DifficultySettings.get()
-    local tier = diff.trainingTier or 2
+    local growthTier = diff.growthTier or 2
+    local fitnessTier = diff.fitnessTier or 2
 
-    local configs = {
-        -- tier 1: 严苛
-        {
-            baseChance = 0.06,
-            gapDivisor = 30,
-            gapFloor = 0.2,
-            youthGapDivisor = 25,
-            youthGapFloor = 0.3,
-            participationScale = 0.85,
-            seasonEndGrowth = {
-                u21 = 0.30,
-                youngAdult = 0.26,
-                peak = 0.075,
-            },
-            decline = { mid = 0.23, late = 0.46 },
-            intensity = {
-                low  = { growthMultiplier = 0.5, fitnessLoss = 1, injuryChance = 0.002, fitnessRecoveryBonus = 2 },
-                medium = { growthMultiplier = 1.0, fitnessLoss = 2, injuryChance = 0.010, fitnessRecoveryBonus = 0 },
-                high = { growthMultiplier = 1.8, fitnessLoss = 3, injuryChance = 0.025, fitnessRecoveryBonus = -1 },
-            },
-            -- 周伤病检测
-            weeklyInjury = { low = 0.005, medium = 0.015, high = 0.030 },
-            injuryDaysMin = 3, injuryDaysMax = 17,
-        },
-        -- tier 2: 正常（日常训练 + 赛季末成长基准）
-        {
-            baseChance = 0.08,
-            gapDivisor = 38,
-            gapFloor = 0.3,
-            youthGapDivisor = 32,
-            youthGapFloor = 0.4,
-            participationScale = 1.0,
-            seasonEndGrowth = {
-                u21 = Constants.U21_SEASON_END_GROWTH_CHANCE,
-                youngAdult = 0.35,
-                peak = 0.10,
-            },
-            decline = { mid = 0.20, late = 0.40 },
-            intensity = {
-                low  = { growthMultiplier = 0.5, fitnessLoss = 1, injuryChance = 0.001, fitnessRecoveryBonus = 2 },
-                medium = { growthMultiplier = 1.0, fitnessLoss = 2, injuryChance = 0.008, fitnessRecoveryBonus = 0 },
-                high = { growthMultiplier = 1.8, fitnessLoss = 3, injuryChance = 0.018, fitnessRecoveryBonus = 0 },
-            },
-            weeklyInjury = { low = 0.003, medium = 0.010, high = 0.020 },
-            injuryDaysMin = 3, injuryDaysMax = 14,
-        },
-        -- tier 3: 宽松
-        {
-            baseChance = 0.10,
-            gapDivisor = 45,
-            gapFloor = 0.4,
-            youthGapDivisor = 40,
-            youthGapFloor = 0.5,
-            participationScale = 1.15,
-            seasonEndGrowth = {
-                u21 = 0.50,
-                youngAdult = 0.44,
-                peak = 0.125,
-            },
-            decline = { mid = 0.17, late = 0.34 },
-            intensity = {
-                low  = { growthMultiplier = 0.5, fitnessLoss = 1, injuryChance = 0.001, fitnessRecoveryBonus = 2 },
-                medium = { growthMultiplier = 1.0, fitnessLoss = 1, injuryChance = 0.005, fitnessRecoveryBonus = 0 },
-                high = { growthMultiplier = 1.8, fitnessLoss = 2, injuryChance = 0.012, fitnessRecoveryBonus = 0 },
-            },
-            weeklyInjury = { low = 0.002, medium = 0.008, high = 0.015 },
-            injuryDaysMin = 3, injuryDaysMax = 12,
-        },
+    local growth = GROWTH_CONFIGS[growthTier] or GROWTH_CONFIGS[2]
+    local fitness = FITNESS_TRAINING_CONFIGS[fitnessTier] or FITNESS_TRAINING_CONFIGS[2]
+
+    local intensity = {}
+    for _, level in ipairs({ "low", "medium", "high" }) do
+        local gMul = growth.growthMultiplier[level]
+        local fPart = fitness.intensity[level]
+        intensity[level] = {
+            growthMultiplier = gMul,
+            fitnessLoss = fPart.fitnessLoss,
+            injuryChance = fPart.injuryChance,
+            fitnessRecoveryBonus = fPart.fitnessRecoveryBonus,
+        }
+    end
+
+    return {
+        baseChance = growth.baseChance,
+        gapDivisor = growth.gapDivisor,
+        gapFloor = growth.gapFloor,
+        youthGapDivisor = growth.youthGapDivisor,
+        youthGapFloor = growth.youthGapFloor,
+        participationScale = growth.participationScale,
+        seasonEndGrowth = growth.seasonEndGrowth,
+        decline = growth.decline,
+        intensity = intensity,
+        weeklyInjury = fitness.weeklyInjury,
+        injuryDaysMin = fitness.injuryDaysMin,
+        injuryDaysMax = fitness.injuryDaysMax,
     }
-    return configs[tier] or configs[2]
 end
 
 --- 成长子系统摘要（日常训练 + 赛季末 + 出场挂钩，供 UI/测试）

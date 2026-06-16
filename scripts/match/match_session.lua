@@ -910,9 +910,20 @@ function MatchSession:buildReport()
         end
     end
 
+    local PositionTrainingManager = require("scripts/systems/position_training_manager")
+    local homeTeam = self.gameState.teams[self.fixture.homeTeamId]
+    local awayTeam = self.gameState.teams[self.fixture.awayTeamId]
+    local playerSlotPos = {
+        home = homeTeam and PositionTrainingManager.buildPlayerSlotPosMap(
+            homeTeam, self.shadowLineup and self.shadowLineup.home) or {},
+        away = awayTeam and PositionTrainingManager.buildPlayerSlotPosMap(
+            awayTeam, self.shadowLineup and self.shadowLineup.away) or {},
+    }
+
     return MatchReport.build(self.fixture, self.homeContext, self.awayContext, self.events, simState, {
         appearanceIds = self.appearanceIds,
         substitutions = self.substitutions,
+        playerSlotPos = playerSlotPos,
         ratingLineup = {
             home = snapshotContextIds(self.homeContext.players),
             away = snapshotContextIds(self.awayContext.players),

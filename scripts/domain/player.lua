@@ -143,6 +143,9 @@ function Player.new(data)
 
     -- 训练
     self.trainingFocus = data.trainingFocus or nil
+    self.positionTrainingTarget = data.positionTrainingTarget or nil
+    self.positionTrainingProgress = data.positionTrainingProgress or 0
+    self.positionTrainingDrillProgress = data.positionTrainingDrillProgress or 0
 
     -- 转会
     self.listedForSale = data.listedForSale or false
@@ -166,7 +169,7 @@ function Player.new(data)
     self.innateTraits = data.innateTraits or nil
 
     -- 球员特性：传奇走传奇池，普通走标准池
-    self.traits = Player.normalizeTraits(data.traits or {}, self.isLegend)
+    self.traits = Player.normalizeTraits(data.traits or {}, self.isLegend, self.position)
 
     return self
 end
@@ -591,6 +594,19 @@ Player.LEGEND_IDENTITY = {
     desc = "提高属性与总评上限；提高训练成长；带动同位置队友训练；稳定赛后评分",
 }
 
+--- 仅门将可持有的特质 id
+Player.GK_ONLY_TRAIT_IDS = {
+    shot_stopper = true,
+    sweeper_keeper = true,
+}
+
+---@param traitId string|nil
+---@return boolean
+function Player.isGkOnlyTrait(traitId)
+    local id = Player.normalizeTraitId(traitId)
+    return id ~= nil and Player.GK_ONLY_TRAIT_IDS[id] == true
+end
+
 --- FM / 传奇 JSON 特质名 → 局内 snake_case id
 Player.EXTERNAL_TRAIT_ALIASES = {
     Poacher = "poacher", poacher = "poacher",
@@ -699,12 +715,14 @@ end
 
 ---@param traits string[]|nil
 ---@param isLegend boolean|nil
+---@param position string|nil
 ---@return string[]
-function Player.normalizeTraits(traits, isLegend)
+function Player.normalizeTraits(traits, isLegend, position)
     local out, seen = {}, {}
     for _, raw in ipairs(traits or {}) do
         local id = Player.normalizeTraitId(raw)
         if not id or seen[id] then goto continue end
+        if position and position ~= "GK" and Player.isGkOnlyTrait(id) then goto continue end
         if isLegend then
             if Player.isLegendPoolTrait(id) then
                 seen[id] = true
@@ -822,8 +840,10 @@ Player.TRAIT_DEFINITIONS = {
     {id = "inconsistent", name = "状态起伏", desc = "降低发挥稳定性；提高黄牌风险",
         check = function(a) return a.composure <= 8 and a.decisions <= 10 end},
     {id = "shot_stopper", name = "扑救专家", desc = "降低对手射正进球率",
+        gkOnly = true,
         check = function(a) return a.reflexes >= 17 and a.handling >= 15 end},
     {id = "sweeper_keeper", name = "出击型门将", desc = "提高出击、控球与反击发起",
+        gkOnly = true,
         check = function(a) return a.reflexes >= 14 and a.speed >= 12 and a.positioning >= 15 end},
     {id = "wonderkid", name = "未来之星", desc = "标识高潜力年轻球员",
         check = function(a, player, currentYear) return player and player.potential >= 85 and player:getAge(currentYear or 2024) <= 21 end},
@@ -834,16 +854,19 @@ Player.TRAIT_DEFINITIONS = {
 --- 根据当前属性自动计算球员特性（传奇球员仅保留传奇池导入特质）
 function Player:calculateTraits(currentYear)
     if self.isLegend then
-        self.traits = Player.normalizeTraits(self.traits, true)
+        self.traits = Player.normalizeTraits(self.traits, true, self.position)
         return self.traits
     end
 
     local newTraits = {}
     local a = self.attributes
+    local isGk = self.position == "GK"
 
     for _, def in ipairs(Player.TRAIT_DEFINITIONS) do
         local passed = false
-        if def.id == "wonderkid" then
+        if def.gkOnly and not isGk then
+            passed = false
+        elseif def.id == "wonderkid" then
             passed = self.potential >= 85 and self:getAge(currentYear or 2024) <= 21
         elseif def.id == "veteran" then
             passed = self:getAge(currentYear or 2024) >= 32 and a.decisions >= 15 and a.composure >= 14
@@ -860,15 +883,16 @@ function Player:calculateTraits(currentYear)
     if self.innateTraits then
         local seen = {}
         for _, id in ipairs(newTraits) do seen[id] = true end
-        for _, id in ipairs(self.innateTraits) do
-            if not seen[id] then
+        for _, raw in ipairs(self.innateTraits) do
+            local id = Player.normalizeTraitId(raw) or raw
+            if not seen[id] and (isGk or not Player.isGkOnlyTrait(id)) then
                 table.insert(newTraits, id)
                 seen[id] = true
             end
         end
     end
 
-    self.traits = Player.normalizeTraits(newTraits, false)
+    self.traits = Player.normalizeTraits(newTraits, false, self.position)
     return self.traits
 end
 
@@ -960,6 +984,9 @@ function Player:serialize()
         careerTotals = self.careerTotals,
         seasonStats = packNumeric(self.seasonStats, STATS_ORDER),
         trainingFocus = self.trainingFocus,
+        positionTrainingTarget = self.positionTrainingTarget,
+        positionTrainingProgress = self.positionTrainingProgress,
+        positionTrainingDrillProgress = self.positionTrainingDrillProgress,
         listedForSale = self.listedForSale,
         listedForLoan = self.listedForLoan,
         loanListDuration = self.loanListDuration,

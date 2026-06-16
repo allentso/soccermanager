@@ -5,7 +5,7 @@ local Constants = require("scripts/app/constants")
 local EventBus = require("scripts/app/event_bus")
 local FinanceManager = require("scripts/systems/finance_manager")
 local DifficultySettings = require("scripts/systems/difficulty_settings")
-local DifficultySettings = require("scripts/systems/difficulty_settings")
+local PositionTrainingManager = require("scripts/systems/position_training_manager")
 
 local TrainingManager = {}
 
@@ -163,6 +163,7 @@ function TrainingManager._processTeamDaily(gameState, team, opts)
             TrainingManager._trainPlayer(
                 gameState, team, p, intensityConfig,
                 staffBonus * facilityBonus, legendPositions, opts)
+            PositionTrainingManager.processDrillDay(p)
         end
     end
 end
@@ -253,8 +254,8 @@ function TrainingManager._trainPlayer(gameState, team, player, intensityConfig, 
                 injuryRisk = opts.injuryRisk or 1.0,
             })
             EventFlavors.applyToPlayer(player, injury)
-            if opts.notifyInjury and player.teamId == gameState.playerTeamId then
-                EventFlavors.notifyInjuryMessage(gameState, player, injury, "training")
+            if opts.notifyInjury then
+                EventFlavors.onInjuryApplied(gameState, player, injury, "training")
             end
         end
     end

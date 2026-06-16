@@ -18,6 +18,8 @@ local ScoutManager = require("scripts/systems/scout_manager")
 local LegendImageRegistry = require("scripts/data/legend_image_registry")
 local ReincarnationImageRegistry = require("scripts/data/reincarnation_image_registry")
 local YouthManager = require("scripts/systems/youth_manager")
+local PositionFit = require("scripts/domain/position_fit")
+local PositionTrainingManager = require("scripts/systems/position_training_manager")
 
 local PlayerDetail = {}
 
@@ -174,7 +176,10 @@ function PlayerDetail.create(params)
                 backgroundColor = Theme.COLORS.BG_HEADER,
                 flexDirection = "row", flexWrap = "wrap",
                 children = {
-                    Theme.StatPill { label = "位置", value = Constants.POSITION_NAMES[player.position] or player.position },
+                    Theme.StatPill {
+                        label = "位置",
+                        value = PositionFit.formatNaturalPositions(player, Constants.POSITION_NAMES),
+                    },
                     Theme.StatPill { label = "年龄", value = age },
                     Theme.StatPill { label = "体能", value = math.floor(player.fitness),
                         valueColor = player.fitness >= 75 and Theme.COLORS.SECONDARY or Theme.COLORS.WARNING },
@@ -770,6 +775,9 @@ function PlayerDetail._buildContract(player, team, age, gameState)
             -- 阵容角色设置（仅本队非租借球员）
             isOwnSquad and PlayerDetail._buildSquadRoleCard(player, gameState) or UI.Panel { height = 0 },
 
+            -- 下放青训（仅符合条件的年轻球员）
+            isOwnSquad and PlayerDetail._buildDemoteToYouthBtn(player, gameState) or UI.Panel { height = 0 },
+
             -- 合同操作
             isOwnSquad and PlayerDetail._buildContractActions(player, team, gameState) or UI.Panel { height = 0 },
             isOwnYouth and PlayerDetail._buildYouthTransferCard(player, gameState) or UI.Panel { height = 0 },
@@ -849,6 +857,55 @@ function PlayerDetail._buildSquadRoleCard(player, gameState)
                 flexWrap = "wrap",
                 justifyContent = "space-between",
                 children = roleButtons,
+            },
+        }
+    }
+end
+
+function PlayerDetail._buildDemoteToYouthBtn(player, gameState)
+    local canDemote, err = YouthManager.canDemoteToYouth(gameState, player.id)
+    if not canDemote then
+        return UI.Panel { height = 0 }
+    end
+
+    return Theme.Card {
+        children = {
+            Theme.Subtitle { text = "青训编制" },
+            UI.Label {
+                text = string.format(
+                    "将球员移回青训队，不占一线队名额；周薪调整为青训标准。仅 %d 岁及以下球员可下放。",
+                    Constants.YOUTH_PHASE_MAX_AGE),
+                fontSize = 11, color = Theme.COLORS.TEXT_MUTED, marginTop = 6, marginBottom = 10,
+            },
+            UI.Button {
+                text = "下放至青训队",
+                width = "100%", height = 44,
+                backgroundColor = {120, 220, 150, 255},
+                borderRadius = 8, fontSize = 14,
+                color = {20, 20, 30, 255},
+                fontWeight = "bold",
+                onClick = function()
+                    ConfirmDialog.show({
+                        title = "下放至青训队",
+                        message = string.format(
+                            "确定将 %s 下放至青训队吗？\n移出一线队名单后可在青训页继续培养或挂牌出售。",
+                            player.displayName or ""),
+                        confirmText = "确认下放",
+                        confirmColor = {120, 220, 150, 255},
+                        onConfirm = function()
+                            local ok, demoteErr = YouthManager.demoteToYouth(gameState, player.id)
+                            if ok then
+                                UI.Toast.Show({
+                                    message = (player.displayName or "球员") .. " 已下放至青训队",
+                                    variant = "success",
+                                })
+                                Router.replaceWith("youth")
+                            else
+                                UI.Toast.Show({ message = demoteErr or "下放失败", variant = "warning" })
+                            end
+                        end,
+                    })
+                end,
             },
         }
     }
@@ -1260,6 +1317,8 @@ function PlayerDetail._buildListForSaleBtn(player, isSafe, safetyReason, gameSta
         return PlayerDetail._buildIncomingSaleBidPanel(player, gameState, bid)
     end
 
+    local inTransferWindow = TransferManager.isInTransferWindow(gameState)
+
     -- 已挂牌 → 取消挂牌
     if player.listedForSale then
         return UI.Button {
@@ -1271,6 +1330,7 @@ function PlayerDetail._buildListForSaleBtn(player, isSafe, safetyReason, gameSta
             marginBottom = 10,
             onClick = function()
                 TransferManager.delistPlayer(gameState, player)
+                UI.Toast.Show({ message = "已取消挂牌", variant = "info" })
                 Router.replaceWith("player_detail", { playerId = player.id, tab = "contract" })
             end,
         }
@@ -1279,23 +1339,23 @@ function PlayerDetail._buildListForSaleBtn(player, isSafe, safetyReason, gameSta
     -- 未挂牌 + 安全 → 挂牌出售
     if isSafe then
         return UI.Button {
-            text = "挂牌出售",
+            text = inTransferWindow and "挂牌出售" or "挂牌出售 (非窗期)",
             width = "100%", height = 44,
-            backgroundColor = Theme.COLORS.ACCENT,
+            backgroundColor = inTransferWindow and Theme.COLORS.ACCENT or {70, 75, 95, 255},
             borderRadius = 8, fontSize = 14,
-            color = {255, 255, 255, 255},
+            color = inTransferWindow and {255, 255, 255, 255} or Theme.COLORS.TEXT_MUTED,
             marginBottom = 10,
             onClick = function()
                 local ok, err = TransferManager.listForSale(gameState, player)
-                if not ok then
-                    gameState:sendMessage({
-                        category = "transfer",
-                        title = "无法挂牌",
-                        body = err or "条件不满足",
-                        priority = "normal",
+                if ok then
+                    UI.Toast.Show({
+                        message = player.displayName .. " 已挂牌，等待买家报价",
+                        variant = "success",
                     })
+                    Router.replaceWith("player_detail", { playerId = player.id, tab = "contract" })
+                else
+                    UI.Toast.Show({ message = err or "无法挂牌", variant = "warning" })
                 end
-                Router.replaceWith("player_detail", { playerId = player.id, tab = "contract" })
             end,
         }
     end
@@ -1353,17 +1413,26 @@ function PlayerDetail._buildListForLoanBtn(player, isSafe, safetyReason, gameSta
         }
     end
 
+    local inTransferWindow = TransferManager.isInTransferWindow(gameState)
     if isSafe then
         return UI.Button {
-            text = "挂牌外租",
+            text = inTransferWindow and "挂牌外租" or "挂牌外租 (非窗期)",
             width = "100%", height = 44,
-            backgroundColor = Theme.COLORS.SECONDARY,
+            backgroundColor = inTransferWindow and Theme.COLORS.SECONDARY or {70, 75, 95, 255},
             borderRadius = 8, fontSize = 14,
-            color = {255, 255, 255, 255},
+            color = inTransferWindow and {255, 255, 255, 255} or Theme.COLORS.TEXT_MUTED,
             marginBottom = 10,
             onClick = function()
-                TransferManager.listForLoan(gameState, player, 26)
-                Router.replaceWith("player_detail", { playerId = player.id, tab = "contract" })
+                local ok, err = TransferManager.listForLoan(gameState, player, 26)
+                if ok then
+                    UI.Toast.Show({
+                        message = player.displayName .. " 已挂牌外租",
+                        variant = "success",
+                    })
+                    Router.replaceWith("player_detail", { playerId = player.id, tab = "contract" })
+                else
+                    UI.Toast.Show({ message = err or "无法挂牌外租", variant = "warning" })
+                end
             end,
         }
     end
@@ -1837,8 +1906,138 @@ function PlayerDetail._buildTraining(player, team, gameState)
                     },
                 }
             },
+
+            PlayerDetail._buildPositionTrainingCard(player),
         }
     }
+end
+
+function PlayerDetail._buildPositionTrainingCard(player)
+    local posLabel = PositionFit.formatNaturalPositions(player, Constants.POSITION_NAMES)
+    local target = player.positionTrainingTarget
+    local progress = player.positionTrainingProgress or 0
+    local drill = player.positionTrainingDrillProgress or 0
+
+    local statusText
+    if target then
+        local targetName = Constants.POSITION_NAMES[target] or target
+        statusText = string.format("学习 %s · %d%%（训练 %d/30，实战 +5%%/场）",
+            targetName, progress, drill)
+    else
+        statusText = "未设置学习目标；纯训练最多 30%，需目标槽位出场练满"
+    end
+
+    local actionButtons = {}
+    if target then
+        table.insert(actionButtons, UI.Button {
+            text = "取消学习",
+            width = "100%", height = 40,
+            backgroundColor = Theme.COLORS.BG_CARD,
+            borderRadius = 8, borderWidth = 1, borderColor = Theme.COLORS.BORDER,
+            fontSize = 13, color = Theme.COLORS.DANGER, marginTop = 8,
+            onClick = function()
+                PositionTrainingManager.clearTarget(player)
+                Router.replaceWith("player_detail", { playerId = player.id, tab = "training" })
+            end,
+        })
+    else
+        local learnable = PositionFit.getLearnablePositions(player)
+        if #learnable > 0 then
+            table.insert(actionButtons, UI.Button {
+                text = "选择学习目标",
+                width = "100%", height = 40,
+                backgroundColor = Theme.COLORS.PRIMARY,
+                borderRadius = 8, fontSize = 13,
+                color = Theme.COLORS.TEXT_PRIMARY, marginTop = 8,
+                onClick = function()
+                    PlayerDetail._showPositionTargetMenu(player, learnable)
+                end,
+            })
+        else
+            table.insert(actionButtons, UI.Label {
+                text = "已达位置上限或无可学位置",
+                fontSize = 11, color = Theme.COLORS.TEXT_MUTED, marginTop = 8,
+            })
+        end
+    end
+
+    return Theme.Card {
+        children = {
+            Theme.Subtitle { text = "位置训练" },
+            UI.Label {
+                text = "擅长位置：" .. posLabel,
+                fontSize = 12, color = Theme.COLORS.TEXT_SECONDARY, marginTop = 6,
+            },
+            UI.Label {
+                text = statusText,
+                fontSize = 11, color = Theme.COLORS.TEXT_MUTED, marginTop = 4,
+            },
+            target and UI.Panel {
+                width = "100%", height = 8,
+                backgroundColor = {38, 46, 71, 255}, borderRadius = 4,
+                marginTop = 8, overflow = "hidden",
+                children = {
+                    UI.Panel {
+                        width = progress .. "%",
+                        height = "100%",
+                        backgroundColor = Theme.COLORS.ACCENT,
+                        borderRadius = 4,
+                    },
+                },
+            } or UI.Panel { height = 0 },
+            UI.Panel { width = "100%", children = actionButtons },
+        }
+    }
+end
+
+function PlayerDetail._showPositionTargetMenu(player, learnable)
+    local menuItems = {
+        UI.Label {
+            text = "选择学习目标位置",
+            fontSize = 15, color = Theme.COLORS.TEXT_PRIMARY,
+            fontWeight = "bold", marginBottom = 12, textAlign = "center",
+        },
+    }
+    for _, pos in ipairs(learnable) do
+        local label = Constants.POSITION_NAMES[pos] or pos
+        table.insert(menuItems, UI.Button {
+            text = label .. " (" .. pos .. ")",
+            width = "100%", height = 40,
+            backgroundColor = {38, 46, 71, 255},
+            borderRadius = 8, fontSize = 14,
+            color = Theme.COLORS.TEXT_SECONDARY, marginBottom = 4,
+            onClick = function()
+                PositionTrainingManager.setTarget(player, pos)
+                UI.CloseOverlay()
+                Router.replaceWith("player_detail", { playerId = player.id, tab = "training" })
+            end,
+        })
+    end
+    table.insert(menuItems, UI.Button {
+        text = "取消",
+        width = "100%", height = 40,
+        backgroundColor = Theme.COLORS.TRANSPARENT,
+        borderWidth = 1, borderColor = Theme.COLORS.BORDER,
+        borderRadius = 8, fontSize = 14, color = Theme.COLORS.TEXT_MUTED,
+        marginTop = 6,
+        onClick = function() UI.CloseOverlay() end,
+    })
+
+    UI.ShowOverlay(UI.Panel {
+        width = "100%", height = "100%",
+        justifyContent = "flex-end",
+        backgroundColor = {0, 0, 0, 150},
+        onClick = function() UI.CloseOverlay() end,
+        children = {
+            UI.Panel {
+                width = "100%",
+                backgroundColor = Theme.COLORS.BG_CARD,
+                borderTopLeftRadius = 16, borderTopRightRadius = 16,
+                padding = 20, paddingBottom = 30,
+                children = menuItems,
+            },
+        },
+    })
 end
 
 -- 辅助：构建球员特性标签

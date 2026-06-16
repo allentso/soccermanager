@@ -3,6 +3,7 @@
 
 local Constants = require("scripts/app/constants")
 local FormationShape = require("scripts/match/formation_shape")
+local PositionFit = require("scripts/domain/position_fit")
 local TraitEffects = require("scripts/match/trait_effects")
 local RoleSynergy = require("scripts/match/role_synergy")
 local DifficultySettings = require("scripts/systems/difficulty_settings")
@@ -318,8 +319,9 @@ function TacticsResolver.buildTeamContext(gameState, team)
             synergyAttack = synergyAttack + 0.03
         end
 
-        attack = attack + playerAttack * fitnessMul * moraleMul * duty.attack * synergyAttack
-        defense = defense + playerDefense * fitnessMul * moraleMul * duty.defense * synergyDefense
+        local positionFitMul = PositionFit.getFitMul(player, slotPos)
+        attack = attack + playerAttack * fitnessMul * moraleMul * duty.attack * synergyAttack * positionFitMul
+        defense = defense + playerDefense * fitnessMul * moraleMul * duty.defense * synergyDefense * positionFitMul
         discipline = discipline + (21 - roleAttr(player, "aggression", mods)) + roleAttr(player, "decisions", mods) * 0.45
         stamina = stamina + roleAttr(player, "stamina", mods) * fitnessMul
         morale = morale + (player.morale or 60)

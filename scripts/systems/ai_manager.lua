@@ -3,6 +3,7 @@
 
 local Constants = require("scripts/app/constants")
 local FormationShape = require("scripts/match/formation_shape")
+local PositionFit = require("scripts/domain/position_fit")
 
 local AIManager = {}
 
@@ -109,35 +110,7 @@ end
 
 --- 计算球员在某位置上的适配得分
 function AIManager._playerPositionScore(player, slot)
-    local pos = player.position
-    local attrs = player.attributes or {}
-
-    -- 完全匹配
-    if pos == slot then return player.overall end
-
-    -- 位置组兼容性
-    local compatibility = {
-        GK = {GK = 1.0},
-        CB = {CB = 1.0, RB = 0.6, LB = 0.6, CDM = 0.5},
-        RB = {RB = 1.0, CB = 0.6, RM = 0.7, LB = 0.8},
-        LB = {LB = 1.0, CB = 0.6, LM = 0.7, RB = 0.8},
-        CDM = {CDM = 1.0, CM = 0.8, CB = 0.5},
-        CM = {CM = 1.0, CDM = 0.8, CAM = 0.7, RM = 0.6, LM = 0.6},
-        CAM = {CAM = 1.0, CM = 0.7, RW = 0.6, LW = 0.6, ST = 0.5},
-        RM = {RM = 1.0, RW = 0.9, CM = 0.6, RB = 0.5, LM = 0.7},
-        LM = {LM = 1.0, LW = 0.9, CM = 0.6, LB = 0.5, RM = 0.7},
-        RW = {RW = 1.0, RM = 0.9, ST = 0.6, CAM = 0.6, LW = 0.7},
-        LW = {LW = 1.0, LM = 0.9, ST = 0.6, CAM = 0.6, RW = 0.7},
-        ST = {ST = 1.0, CAM = 0.6, RW = 0.5, LW = 0.5},
-    }
-
-    local posCompat = compatibility[slot]
-    if posCompat and posCompat[pos] then
-        return player.overall * posCompat[pos]
-    end
-
-    -- 无兼容性：大幅降低
-    return player.overall * 0.3
+    return PositionFit.getPositionScore(player, slot)
 end
 
 ------------------------------------------------------

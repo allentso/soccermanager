@@ -144,6 +144,12 @@ local TEMPLATES = {
         priority = "normal",
         format = "%s 已从青训队提拔至一线队。",
     },
+    youth_demoted = {
+        category = "youth",
+        title = "下放青训",
+        priority = "normal",
+        format = "%s 已从一线队下放至青训队。",
+    },
 
     -- 董事会类
     board_objective = {

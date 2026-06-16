@@ -456,6 +456,60 @@ function Migrations.v7_to_v8(gameStateData)
     print("[SaveMigration] v7→v8: 重算了 " .. totalFixed .. " 个联赛的积分榜（剔除杯赛误计分）")
 end
 
+--- 从特质列表中移除门将专属特质（用于非门将球员）
+local function stripGkTraitsFromList(traits, normalizeTraitId, isGkOnlyTrait)
+    if type(traits) ~= "table" or #traits == 0 then return traits, false end
+    local filtered = {}
+    local changed = false
+    for _, raw in ipairs(traits) do
+        local id = normalizeTraitId(raw) or raw
+        if isGkOnlyTrait(id) then
+            changed = true
+        else
+            filtered[#filtered + 1] = raw
+        end
+    end
+    return filtered, changed
+end
+
+--- v8 → v9: 移除非门将球员身上的门将专属特质
+--- 原因：旧版 calculateTraits 仅按 reflexes/handling 等属性判定，FM 数据中 outfield 球员也有门将属性值
+function Migrations.v8_to_v9(gameStateData)
+    local players = gameStateData.players
+    if not players then return end
+
+    local Player = require("scripts/domain/player")
+    local migrated = 0
+
+    for _, pData in pairs(players) do
+        if pData.position ~= "GK" then
+            local changed = false
+
+            if pData.traits then
+                local filtered, traitsChanged = stripGkTraitsFromList(
+                    pData.traits, Player.normalizeTraitId, Player.isGkOnlyTrait)
+                if traitsChanged then
+                    pData.traits = filtered
+                    changed = true
+                end
+            end
+
+            if pData.innateTraits then
+                local filtered, innateChanged = stripGkTraitsFromList(
+                    pData.innateTraits, Player.normalizeTraitId, Player.isGkOnlyTrait)
+                if innateChanged then
+                    pData.innateTraits = filtered
+                    changed = true
+                end
+            end
+
+            if changed then migrated = migrated + 1 end
+        end
+    end
+
+    print("[SaveMigration] v8→v9: 已修正 " .. migrated .. " 名非门将球员的门将专属特质")
+end
+
 --- 迁移路由：根据存档版本逐级升级
 --- @param saveData table 完整的存档顶层数据 {version, game_state, saved_at}
 --- @return number 迁移后的最终版本号
@@ -495,6 +549,11 @@ function Migrations.run(saveData)
     if version < 8 then
         Migrations.v7_to_v8(saveData.game_state)
         version = 8
+    end
+
+    if version < 9 then
+        Migrations.v8_to_v9(saveData.game_state)
+        version = 9
     end
 
     saveData.version = version

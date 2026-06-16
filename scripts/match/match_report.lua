@@ -157,6 +157,7 @@ function MatchReport.build(fixture, homeContext, awayContext, events, simState, 
     if meta.appearanceIds then report.appearanceIds = meta.appearanceIds end
     if meta.ratingLineup then report.ratingLineup = meta.ratingLineup end
     if meta.substitutions then report.substitutions = meta.substitutions end
+    if meta.playerSlotPos then report.playerSlotPos = meta.playerSlotPos end
     if meta.liveFitnessApplied then report._liveFitnessApplied = true end
 
     return report
@@ -289,6 +290,240 @@ function MatchReport.formatScoreSummary(homeName, awayName, report, fixture, gam
     end
 
     return table.concat(parts, " · ")
+end
+
+------------------------------------------------------
+-- 赛后叙事（P1：丰富 inbox / 新闻正文）
+------------------------------------------------------
+
+local function _goalScorerParts(events, gameState, teamId)
+    local counts, order = {}, {}
+    for _, evt in ipairs(events or {}) do
+        if evt.type == "goal" and not evt.isOwnGoal and evt.teamId == teamId and evt.playerId then
+            local pid = evt.playerId
+            if not counts[pid] then
+                counts[pid] = 0
+                table.insert(order, pid)
+            end
+            counts[pid] = counts[pid] + 1
+        end
+    end
+    local parts = {}
+    for _, pid in ipairs(order) do
+        local p = gameState and gameState.players[pid]
+        local name = p and p.displayName or "?"
+        local n = counts[pid]
+        table.insert(parts, n > 1 and string.format("%s×%d", name, n) or name)
+    end
+    return parts
+end
+
+function MatchReport.formatScorersSummary(events, gameState, homeTeamId, awayTeamId, homeName, awayName)
+    local homeScorers = _goalScorerParts(events, gameState, homeTeamId)
+    local awayScorers = _goalScorerParts(events, gameState, awayTeamId)
+    local lines = {}
+    if #homeScorers > 0 then
+        table.insert(lines, string.format("%s: %s", homeName or "主队", table.concat(homeScorers, ", ")))
+    end
+    if #awayScorers > 0 then
+        table.insert(lines, string.format("%s: %s", awayName or "客队", table.concat(awayScorers, ", ")))
+    end
+    if #lines == 0 then
+        return "本场无进球。"
+    end
+    return table.concat(lines, "\n")
+end
+
+function MatchReport.formatMOTMLine(report, fixture, gameState)
+    local ratings = (report and report.playerRatings) or (fixture and fixture.playerRatings)
+    if not ratings then return nil end
+    local motmId, motmRating = MatchReport.findMOTM({ playerRatings = ratings })
+    if not motmId then return nil end
+    local p = gameState and gameState.players[motmId]
+    local name = p and p.displayName or "?"
+    return string.format("最佳球员: %s (%.1f)", name, motmRating or 0)
+end
+
+function MatchReport.getFixtureTags(gameState, fixture, perspectiveTeamId)
+    local tags = {}
+    if not fixture or not gameState then return tags end
+
+    if fixture._isUCL then table.insert(tags, "ucl")
+    elseif fixture._isDomesticCup then table.insert(tags, "cup")
+    elseif fixture._isWC or fixture._isEuro then table.insert(tags, "intl")
+    end
+
+    local TransferManager = require("scripts/systems/transfer_manager")
+    if perspectiveTeamId then
+        local oppId = fixture.homeTeamId == perspectiveTeamId and fixture.awayTeamId or fixture.awayTeamId
+        if oppId and TransferManager.isRivalry(gameState, perspectiveTeamId, oppId) then
+            table.insert(tags, "derby")
+        end
+    elseif TransferManager.isRivalry(gameState, fixture.homeTeamId, fixture.awayTeamId) then
+        table.insert(tags, "derby")
+    end
+
+    local function leaguePos(teamId)
+        local lg = gameState.league
+        if gameState.getTeamLeague then
+            lg = gameState:getTeamLeague(teamId) or lg
+        end
+        if lg and lg.getTeamPosition then
+            return lg:getTeamPosition(teamId)
+        end
+        return nil
+    end
+
+    local homePos = leaguePos(fixture.homeTeamId)
+    local awayPos = leaguePos(fixture.awayTeamId)
+    local totalTeams = 0
+    local lg = gameState.league
+    if gameState.getTeamLeague then
+        lg = gameState:getTeamLeague(fixture.homeTeamId) or lg
+    end
+    if lg and lg.teamIds then totalTeams = #lg.teamIds end
+
+    if totalTeams >= 6 then
+        local relegationLine = totalTeams - 2
+        if (homePos and homePos >= relegationLine) or (awayPos and awayPos >= relegationLine) then
+            table.insert(tags, "relegation")
+        end
+        if (homePos and homePos <= 3) or (awayPos and awayPos <= 3) then
+            table.insert(tags, "title_race")
+        end
+    end
+
+    if homePos and awayPos and math.abs(homePos - awayPos) >= 5 then
+        local homeGoals = fixture.homeGoals or 0
+        local awayGoals = fixture.awayGoals or 0
+        if homeGoals ~= awayGoals then
+            table.insert(tags, "upset")
+        end
+    end
+
+    local diff = math.abs((fixture.homeGoals or 0) - (fixture.awayGoals or 0))
+    if diff >= 4 then table.insert(tags, "blowout") end
+
+    return tags
+end
+
+function MatchReport.buildPostMatchCommentary(gameState, fixture, report, perspectiveTeamId)
+    if not fixture or fixture.status ~= "finished" then return nil end
+
+    local homeGoals = fixture.homeGoals or (report and report.homeGoals) or 0
+    local awayGoals = fixture.awayGoals or (report and report.awayGoals) or 0
+    local tags = MatchReport.getFixtureTags(gameState, fixture, perspectiveTeamId)
+    local tagSet = {}
+    for _, t in ipairs(tags) do tagSet[t] = true end
+
+    local function has(tag) return tagSet[tag] end
+
+    if perspectiveTeamId then
+        local isHome = fixture.homeTeamId == perspectiveTeamId
+        local myGoals = isHome and homeGoals or awayGoals
+        local oppGoals = isHome and awayGoals or homeGoals
+        if myGoals > oppGoals then
+            if has("derby") then return "德比战取胜，更衣室气氛高涨！"
+            elseif has("blowout") then return "一场酣畅淋漓的大胜，球队士气大振。"
+            elseif has("title_race") then return "关键三分到手，争冠希望得以延续。"
+            elseif has("relegation") then return "宝贵的胜利，保级形势有所缓解。"
+            elseif has("cup") or has("ucl") then return "淘汰赛取胜，向冠军又迈进一步。"
+            else return "顺利拿下三分，联赛排名继续稳固。" end
+        elseif myGoals < oppGoals then
+            if has("derby") then return "德比失利，球迷失望而归。"
+            elseif has("relegation") then return "失利令保级形势更加严峻，必须迅速反弹。"
+            elseif has("title_race") then return "争冠关键战失手，球队需要重新集结。"
+            else return "未能拿下比赛，球队需要尽快调整状态。" end
+        else
+            if has("derby") then return "德比战平，双方均未占到便宜。"
+            elseif has("relegation") then return "平局对保级队而言尚可接受，但仍需抢分。"
+            else return "平分秋色，双方各取一分。" end
+        end
+    end
+
+    -- 中立新闻口吻
+    local homeTeam = gameState.teams[fixture.homeTeamId]
+    local awayTeam = gameState.teams[fixture.awayTeamId]
+    local homeName = homeTeam and homeTeam.name or "主队"
+    local awayName = awayTeam and awayTeam.name or "客队"
+
+    if has("upset") then
+        local winner = homeGoals > awayGoals and homeName or awayName
+        return string.format("爆出冷门！%s 在不被看好的情况下带走胜利。", winner)
+    end
+    if has("blowout") then
+        local winner = homeGoals > awayGoals and homeName or awayName
+        return string.format("%s 以压倒性优势横扫对手，展现强大统治力。", winner)
+    end
+    if has("derby") then return "死敌对决牵动球迷神经，比赛火药味十足。" end
+    if homeGoals > awayGoals then return homeName .. " 在主场全取三分。"
+    elseif homeGoals < awayGoals then return awayName .. " 客场凯旋。"
+    else return "双方握手言和，各取一分。" end
+end
+
+--- 丰富版赛后摘要（inbox / 新闻）
+function MatchReport.formatRichMatchBody(gameState, fixture, report, opts)
+    opts = opts or {}
+    local homeTeam = gameState.teams[fixture.homeTeamId]
+    local awayTeam = gameState.teams[fixture.awayTeamId]
+    local homeName = opts.homeName or (homeTeam and homeTeam.name) or "主队"
+    local awayName = opts.awayName or (awayTeam and awayTeam.name) or "客队"
+    local prefix = opts.prefix or ""
+    local events = (report and report.events) or fixture.events
+
+    local lines = {
+        prefix .. MatchReport.formatScoreSummary(homeName, awayName, report or fixture, fixture, gameState),
+    }
+
+    local scorers = MatchReport.formatScorersSummary(events, gameState, fixture.homeTeamId, fixture.awayTeamId, homeName, awayName)
+    if scorers then
+        table.insert(lines, scorers)
+    end
+
+    local motmLine = MatchReport.formatMOTMLine(report, fixture, gameState)
+    if motmLine then
+        table.insert(lines, motmLine)
+    end
+
+    local commentary = MatchReport.buildPostMatchCommentary(gameState, fixture, report, opts.perspectiveTeamId)
+    if commentary then
+        table.insert(lines, commentary)
+    end
+
+    return table.concat(lines, "\n")
+end
+
+--- 玩家比赛 → 新闻稿（同内容，避免重复发）
+function MatchReport.publishPlayerMatchNews(gameState, fixture, report, opts)
+    if not gameState or not fixture or fixture.status ~= "finished" then return nil end
+    if not gameState.playerTeamId then return nil end
+    if fixture.homeTeamId ~= gameState.playerTeamId and fixture.awayTeamId ~= gameState.playerTeamId then
+        return nil
+    end
+
+    local MessageManager = require("scripts/systems/message_manager")
+    local dedupeKey = "player_match_news_" .. tostring(fixture.id or 0)
+    if MessageManager._isDuplicate(gameState, dedupeKey, true) then return nil end
+    MessageManager._markSent(gameState, dedupeKey, true)
+
+    opts = opts or {}
+    local homeTeam = gameState.teams[fixture.homeTeamId]
+    local awayTeam = gameState.teams[fixture.awayTeamId]
+    local homeName = opts.homeName or (homeTeam and homeTeam.name) or "主队"
+    local awayName = opts.awayName or (awayTeam and awayTeam.name) or "客队"
+    local title = string.format("赛后报道: %s %d-%d %s", homeName, fixture.homeGoals or 0, fixture.awayGoals or 0, awayName)
+
+    return gameState:addNews({
+        category = "match_report",
+        title = title,
+        body = MatchReport.formatRichMatchBody(gameState, fixture, report, {
+            homeName = homeName,
+            awayName = awayName,
+            perspectiveTeamId = gameState.playerTeamId,
+        }),
+        relatedTeams = { fixture.homeTeamId, fixture.awayTeamId },
+        fixtureId = fixture.id,
+    })
 end
 
 return MatchReport

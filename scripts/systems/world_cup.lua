@@ -1402,6 +1402,46 @@ end
 -- 构建国家队对象（用于比赛模拟）
 ------------------------------------------------------
 
+local function _filterSavedPlayerIds(ids, validSet)
+    if not ids then return {} end
+    local filtered = {}
+    for _, pid in ipairs(ids) do
+        if validSet[pid] then
+            table.insert(filtered, pid)
+        end
+    end
+    return filtered
+end
+
+local function _resolveNationalTeamLineup(gameState, saved, validIds)
+    local validSet = {}
+    for _, pid in ipairs(validIds) do validSet[pid] = true end
+
+    local startingIds = _filterSavedPlayerIds(saved and saved.startingXI, validSet)
+    if #startingIds < 11 then
+        local players = {}
+        for _, pid in ipairs(validIds) do
+            local p = gameState.players[pid]
+            if p then table.insert(players, p) end
+        end
+        table.sort(players, function(a, b) return (a.overall or 0) > (b.overall or 0) end)
+        startingIds = WorldCup._pickStartingXI(players)
+    end
+
+    local startingSet = {}
+    for _, pid in ipairs(startingIds) do startingSet[pid] = true end
+
+    local benchIds = _filterSavedPlayerIds(saved and saved.benchIds, validSet)
+    local filteredBench = {}
+    for _, pid in ipairs(benchIds) do
+        if not startingSet[pid] then
+            table.insert(filteredBench, pid)
+        end
+    end
+
+    return startingIds, filteredBench
+end
+
 function WorldCup.buildNationalTeam(gameState, nationCode)
     local ntCoach = gameState.nationalTeamCoach
     if ntCoach and ntCoach.nation == nationCode and ntCoach.squad and #ntCoach.squad > 0 then
@@ -1434,10 +1474,8 @@ function WorldCup.buildNationalTeam(gameState, nationCode)
         table.insert(squadIds, nationPlayers[i].id)
     end
 
-    -- 选出最佳11人首发
-    local startingIds = WorldCup._pickStartingXI(nationPlayers)
-
     local saved = gameState._nationalTeamSettings and gameState._nationalTeamSettings[nationCode]
+    local startingIds, benchIds = _resolveNationalTeamLineup(gameState, saved, squadIds)
     local formation = (saved and saved.formation) or "4-3-3"
     local playStyle = (saved and saved.playStyle) or "Balanced"
 
@@ -1450,6 +1488,7 @@ function WorldCup.buildNationalTeam(gameState, nationCode)
         playStyle = playStyle,
         attackMode = "balanced",
         startingXI = startingIds,
+        benchIds = benchIds,
         playerIds = squadIds,
         playerDuties = {},
         slotRoles = {},
@@ -1930,32 +1969,7 @@ function WorldCup._buildFromPlayerSquad(gameState, nationCode, ntCoach)
     end
 
     local saved = gameState._nationalTeamSettings and gameState._nationalTeamSettings[nationCode]
-    local startingIds = (saved and saved.startingXI) or {}
-
-    -- 验证 saved startingXI 中的球员是否仍在 validIds 中
-    if #startingIds > 0 then
-        local validSet = {}
-        for _, pid in ipairs(validIds) do validSet[pid] = true end
-        local filteredXI = {}
-        for _, pid in ipairs(startingIds) do
-            if validSet[pid] then
-                table.insert(filteredXI, pid)
-            end
-        end
-        startingIds = filteredXI
-    end
-
-    if #startingIds < 11 then
-        -- 用validIds中的球员自动组建首发
-        local players = {}
-        for _, pid in ipairs(validIds) do
-            local p = gameState.players[pid]
-            if p then table.insert(players, p) end
-        end
-        table.sort(players, function(a, b) return (a.overall or 0) > (b.overall or 0) end)
-        startingIds = WorldCup._pickStartingXI(players)
-    end
-
+    local startingIds, benchIds = _resolveNationalTeamLineup(gameState, saved, validIds)
     local formation = (saved and saved.formation) or "4-3-3"
     local playStyle = (saved and saved.playStyle) or "Balanced"
 
@@ -1968,6 +1982,7 @@ function WorldCup._buildFromPlayerSquad(gameState, nationCode, ntCoach)
         playStyle = playStyle,
         attackMode = "balanced",
         startingXI = startingIds,
+        benchIds = benchIds,
         playerIds = validIds,
         playerDuties = {},
         slotRoles = {},
@@ -1988,6 +2003,7 @@ function WorldCup.saveNationalTeamSettings(gameState, nationCode, team)
         formation = team.formation,
         playStyle = team.playStyle,
         startingXI = team.startingXI,
+        benchIds = team.benchIds,
     }
 end
 

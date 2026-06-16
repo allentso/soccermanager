@@ -34,6 +34,8 @@ local EVENT_POOL = {
             local EventFlavors = require("scripts/match/event_flavors")
             local injury = EventFlavors.rollInjury(21)
             EventFlavors.applyToPlayer(p, injury)
+            local NewsGenerator = require("scripts/systems/news_generator")
+            NewsGenerator.tryInjuryNews(gs, p, injury.days)
             return {
                 title = "训练伤病",
                 body = string.format("%s 在训练中受伤（%s · %s），预计 %d 天恢复。",

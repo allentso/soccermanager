@@ -191,6 +191,17 @@ function EventFlavors.clearInjury(player)
     player.injurySeasonEnding = nil
 end
 
+--- 伤病应用后的统一通知（玩家 inbox + 联赛伤病新闻）
+---@param source string|nil "match"|"training"
+function EventFlavors.onInjuryApplied(gameState, player, injury, source)
+    if not gameState or not player or not injury then return end
+    if player.teamId == gameState.playerTeamId then
+        EventFlavors.notifyInjuryMessage(gameState, player, injury, source)
+    end
+    local NewsGenerator = require("scripts/systems/news_generator")
+    NewsGenerator.tryInjuryNews(gameState, player, injury.days or player.injuryDays or 0)
+end
+
 --- 向玩家发送伤病通知（比赛/训练/随机事件统一入口）
 ---@param source string|nil "match"|"training"
 function EventFlavors.notifyInjuryMessage(gameState, player, injury, source)

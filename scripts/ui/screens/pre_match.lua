@@ -158,6 +158,16 @@ local function _autoFullSquad(gameState, team)
     team.benchIds = benchIds
 end
 
+--- 国际大赛（世界杯/欧洲杯）保存阵容到 gameState
+local function _saveIntlLineup(gameState, team, fixture)
+    if not (fixture._isWC or fixture._isEuro) then return end
+    local NT = fixture._isEuro and require("scripts/systems/euro_cup") or require("scripts/systems/world_cup")
+    local playerNation = NT._getPlayerNation(gameState)
+    if not playerNation then return end
+    local WorldCup = require("scripts/systems/world_cup")
+    WorldCup.saveNationalTeamSettings(gameState, playerNation, team)
+end
+
 --- 构建替补名单：优先使用战术页手动配置的 benchIds，否则按综合评分自动选取
 local function _buildEffectiveBench(gameState, team, startingPidSet)
     if team.benchIds and #team.benchIds > 0 then
@@ -565,6 +575,7 @@ function PreMatch.create(params)
                                         color = Theme.COLORS.ACCENT,
                                         onClick = function()
                                             _autoFullSquad(gameState, team)
+                                            _saveIntlLineup(gameState, team, fixture)
                                             Router.replaceWith("pre_match", { fixture = fixture })
                                         end,
                                     },
@@ -649,6 +660,7 @@ function PreMatch.create(params)
                                 onClick = function()
                                     -- 清除待处理标记
                                     gameState.pendingPlayerFixture = nil
+                                    _saveIntlLineup(gameState, team, fixture)
                                     -- 自动模式时写入 benchIds；手动模式保留战术页配置
                                     if not team.benchIds or #team.benchIds == 0 then
                                         local autoBenchIds = {}
@@ -743,12 +755,21 @@ function PreMatch._confirmLeave(gameState, team, fixture)
                                     homeName = homeTeam and homeTeam.name or "主队"
                                     awayName = awayTeam and awayTeam.name or "客队"
                                 end
+                                local richBody = MatchReport.formatRichMatchBody(gameState, fixture, report, {
+                                    homeName = homeName,
+                                    awayName = awayName,
+                                    perspectiveTeamId = gameState.playerTeamId,
+                                })
                                 gameState:sendMessage({
                                     category = "match_result",
                                     title = "比赛结果（模拟）",
-                                    body = MatchReport.formatScoreSummary(
-                                        homeName, awayName, report, fixture, gameState),
+                                    body = richBody,
                                     priority = "high",
+                                    extra = { fixtureId = fixture.id },
+                                })
+                                MatchReport.publishPlayerMatchNews(gameState, fixture, report, {
+                                    homeName = homeName,
+                                    awayName = awayName,
                                 })
                                 -- 跳过后显示结果画面
                                 SaveManager.save(gameState, "auto")

@@ -324,13 +324,25 @@ function TurnProcessor.processMatchDay(gameState, fixtures)
                     if isPlayerMatch then
                         playerMatchReport = MatchReport.enrichFromFixture(report, fixture, gameState)
                     end
+                    local richBody = MatchReport.formatRichMatchBody(gameState, fixture, report, {
+                        homeName = homeName,
+                        awayName = awayName,
+                        prefix = prefix,
+                        perspectiveTeamId = isPlayerMatch and gameState.playerTeamId or nil,
+                    })
                     gameState:sendMessage({
                         category = "match_result",
                         title = prefix .. "比赛结果",
-                        body = prefix .. MatchReport.formatScoreSummary(
-                            homeName, awayName, report, fixture, gameState),
+                        body = richBody,
                         priority = (fixture._isWC or fixture._isEuro) and "normal" or "high",
+                        extra = { fixtureId = fixture.id },
                     })
+                    if isPlayerMatch then
+                        MatchReport.publishPlayerMatchNews(gameState, fixture, report, {
+                            homeName = homeName,
+                            awayName = awayName,
+                        })
+                    end
                 end
             end
         end
@@ -1233,13 +1245,7 @@ function TurnProcessor.processWeekly(gameState)
                     })
                     injury.days = math.max(trainingMods.injuryDaysMin, injury.days)
                     EventFlavors.applyToPlayer(p, injury)
-                    if injury.isSeasonEnding or injury.severity == "season_ending" then
-                        EventFlavors.notifyInjuryMessage(gameState, p, injury, "training")
-                    else
-                        MessageManager.send(gameState, "training_injury", {
-                            p.displayName, injury.kindName, injury.severityName, p.injuryDays
-                        })
-                    end
+                    EventFlavors.onInjuryApplied(gameState, p, injury, "training")
                 end
             end
         end
@@ -1255,32 +1261,106 @@ function TurnProcessor.processWeekly(gameState)
     end
 end
 
--- 生成比赛新闻
+-- 生成比赛新闻（按优先级选取，最多 8 条/日）
 function TurnProcessor.generateMatchNews(gameState, fixtures)
-    -- 只取前3场生成新闻
-    for i = 1, math.min(3, #fixtures) do
-        local f = fixtures[i]
-        if f.status == "finished" then
-            local homeTeam = gameState.teams[f.homeTeamId]
-            local awayTeam = gameState.teams[f.awayTeamId]
-            if homeTeam and awayTeam then
-                local title = string.format("%s %d-%d %s", homeTeam.name, f.homeGoals, f.awayGoals, awayTeam.name)
-                local body = ""
-                if f.homeGoals > f.awayGoals then
-                    body = homeTeam.name .. "在主场取得胜利。"
-                elseif f.homeGoals < f.awayGoals then
-                    body = awayTeam.name .. "客场凯旋。"
-                else
-                    body = "双方握手言和。"
+    local MAX_DAILY = 8
+    local playerTeamId = gameState.playerTeamId
+
+    local function fixturePriority(f)
+        if f.status ~= "finished" then return -1 end
+        if f._isWC or f._isEuro then return -1 end
+
+        local score = 0
+        if playerTeamId and (f.homeTeamId == playerTeamId or f.awayTeamId == playerTeamId) then
+            score = score + 1000
+        end
+
+        if playerTeamId and gameState.getTeamLeague then
+            local lg = gameState:getTeamLeague(playerTeamId)
+            if lg and lg.teamIds then
+                for _, tid in ipairs(lg.teamIds) do
+                    if tid == f.homeTeamId or tid == f.awayTeamId then
+                        score = score + 120
+                        break
+                    end
                 end
-                gameState:addNews({
-                    category = "match_report",
-                    title = title,
-                    body = body,
-                    relatedTeams = {f.homeTeamId, f.awayTeamId},
-                })
             end
         end
+
+        if f._isUCL then score = score + 90 end
+        if f._isDomesticCup then score = score + 70 end
+
+        local homeGoals = f.homeGoals or 0
+        local awayGoals = f.awayGoals or 0
+        local diff = math.abs(homeGoals - awayGoals)
+        local total = homeGoals + awayGoals
+        if diff >= 4 then score = score + 80
+        elseif diff >= 3 then score = score + 40 end
+        if total >= 5 then score = score + 25 end
+
+        for _, lg in pairs(gameState.leagues or {}) do
+            local hp = lg.getTeamPosition and lg:getTeamPosition(f.homeTeamId)
+            local ap = lg.getTeamPosition and lg:getTeamPosition(f.awayTeamId)
+            if hp and ap and math.abs(hp - ap) >= 5 and homeGoals ~= awayGoals then
+                score = score + 60
+                break
+            end
+        end
+
+        return score
+    end
+
+    local candidates = {}
+    for _, f in ipairs(fixtures) do
+        local pri = fixturePriority(f)
+        if pri >= 0 then
+            table.insert(candidates, { fixture = f, priority = pri })
+        end
+    end
+
+    table.sort(candidates, function(a, b)
+        if a.priority ~= b.priority then return a.priority > b.priority end
+        local diffA = math.abs((a.fixture.homeGoals or 0) - (a.fixture.awayGoals or 0))
+        local diffB = math.abs((b.fixture.homeGoals or 0) - (b.fixture.awayGoals or 0))
+        return diffA > diffB
+    end)
+
+    local published = 0
+    for _, entry in ipairs(candidates) do
+        if published >= MAX_DAILY then break end
+        local f = entry.fixture
+
+        local dedupeKey = "match_news_" .. tostring(f.id or 0)
+        if MessageManager._isDuplicate(gameState, dedupeKey, true) then
+            goto continue_news
+        end
+
+        -- 玩家比赛已由 publishPlayerMatchNews 发稿
+        if playerTeamId and (f.homeTeamId == playerTeamId or f.awayTeamId == playerTeamId) then
+            goto continue_news
+        end
+
+        local homeTeam = gameState.teams[f.homeTeamId]
+        local awayTeam = gameState.teams[f.awayTeamId]
+        if not homeTeam or not awayTeam then goto continue_news end
+
+        local title = string.format("%s %d-%d %s", homeTeam.name, f.homeGoals, f.awayGoals, awayTeam.name)
+        local body = MatchReport.formatRichMatchBody(gameState, f, f, {
+            homeName = homeTeam.name,
+            awayName = awayTeam.name,
+        })
+
+        gameState:addNews({
+            category = "match_report",
+            title = title,
+            body = body,
+            relatedTeams = { f.homeTeamId, f.awayTeamId },
+            fixtureId = f.id,
+        })
+        MessageManager._markSent(gameState, dedupeKey, true)
+        published = published + 1
+
+        ::continue_news::
     end
 end
 

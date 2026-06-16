@@ -1680,6 +1680,12 @@ function Tactics._buildBenchContent(gameState, team)
                             marginRight = 8,
                             onClick = function()
                                 _autoFullSquad(gameState, team)
+                                local isNTMode = gameState.currentRole == "national_team"
+                                    and gameState.nationalTeamCoach ~= nil
+                                    and (gameState.worldCup ~= nil or gameState.euroCup ~= nil)
+                                if isNTMode and gameState.nationalTeamCoach then
+                                    WorldCup.saveNationalTeamSettings(gameState, gameState.nationalTeamCoach.nation, team)
+                                end
                                 Router.replaceWith("tactics", { tab = "bench" })
                             end,
                         },

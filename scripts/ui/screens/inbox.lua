@@ -102,6 +102,7 @@ local TITLE_FALLBACK = {
     scout_report = "球探报告",
     youth_signed = "青训签约",
     youth_promoted = "青训提拔",
+    youth_demoted = "下放青训",
     finance_warning = "财务警告",
     finance_crisis = "财务危机",
     contract_expiring_6m = "合同到期提醒",

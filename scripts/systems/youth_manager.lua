@@ -551,6 +551,109 @@ function YouthManager.promote(gameState, playerId)
     return true
 end
 
+--- 从首发/替补名单移除球员
+local function _removeFromLineup(team, playerId)
+    if team.startingXI then
+        for i = #team.startingXI, 1, -1 do
+            if team.startingXI[i] == playerId then
+                table.remove(team.startingXI, i)
+            end
+        end
+        for slot, pid in pairs(team.startingXI) do
+            if pid == playerId then team.startingXI[slot] = nil end
+        end
+    end
+    if team.benchIds then
+        for i = #team.benchIds, 1, -1 do
+            if team.benchIds[i] == playerId then
+                table.remove(team.benchIds, i)
+            end
+        end
+    end
+end
+
+--- 检查一线队球员是否可下放至青训队
+---@param gameState table
+---@param playerId number
+---@param teamId number|nil 默认玩家球队
+---@return boolean ok
+---@return string|nil error
+function YouthManager.canDemoteToYouth(gameState, playerId, teamId)
+    local team = teamId and gameState.teams[teamId] or gameState:getPlayerTeam()
+    if not team then return false, "没有球队" end
+
+    local player = gameState.players[playerId]
+    if not player then return false, "球员不存在" end
+    if player.teamId ~= team.id then return false, "该球员不属于本队" end
+    if player.squadRole == "loaned" then return false, "外租中球员无法下放" end
+    if player.isYouth or YouthManager.isOnTeamYouthSquad(gameState, playerId, team.id) then
+        return false, "该球员已在青训队"
+    end
+    if not _isInFirstTeam(team, playerId) then return false, "该球员不在一线队" end
+
+    local age = player:getAge(gameState.date.year)
+    if age > Constants.YOUTH_PHASE_MAX_AGE then
+        return false, string.format("%d岁以上球员无法下放至青训队", Constants.YOUTH_PHASE_MAX_AGE)
+    end
+    if player.isLegend then return false, "传奇球员无法下放至青训队" end
+    if player.listedForSale then return false, "请先取消挂牌出售" end
+    if player.listedForLoan then return false, "请先取消外租挂牌" end
+
+    local TransferManager = require("scripts/systems/transfer_manager")
+    if TransferManager.hasPendingIncomingBid(gameState, playerId) then
+        return false, "该球员有活跃转会报价，请先处理"
+    end
+
+    team._youthPlayerIds = team._youthPlayerIds or {}
+    if #team._youthPlayerIds >= MAX_YOUTH_SQUAD then
+        return false, string.format("青训名额已满(%d人)", MAX_YOUTH_SQUAD)
+    end
+
+    local safe, reason = FinanceManager.checkSquadSafety(gameState, playerId)
+    if not safe then return false, reason end
+
+    return true, nil
+end
+
+--- 将一线队年轻球员下放至青训队（promote 的逆操作）
+---@param gameState table
+---@param playerId number
+---@return boolean success, string|nil error
+function YouthManager.demoteToYouth(gameState, playerId)
+    local team = gameState:getPlayerTeam()
+    if not team then return false, "没有球队" end
+
+    _purgeStaleYouthRefsForTeam(gameState, team)
+
+    local ok, err = YouthManager.canDemoteToYouth(gameState, playerId, team.id)
+    if not ok then return false, err end
+
+    local player = gameState.players[playerId]
+
+    for i, pid in ipairs(team.playerIds) do
+        if pid == playerId then
+            table.remove(team.playerIds, i)
+            break
+        end
+    end
+    _removeFromLineup(team, playerId)
+
+    team._youthPlayerIds = team._youthPlayerIds or {}
+    table.insert(team._youthPlayerIds, playerId)
+
+    player.isYouth = true
+    player.squadRole = "youth"
+    player.teamId = team.id
+    player.wage = YOUTH_WAGE
+    player.listedForSale = false
+    player.listedForLoan = false
+
+    MessageManager.send(gameState, "youth_demoted", {player.displayName})
+    EventBus.emit("youth_demoted", {teamId = team.id, playerId = playerId})
+
+    return true
+end
+
 --- 释放青训球员
 --- 潜力 raw >= 70 的球员保留为自由球员（可出现在转会市场）
 --- 低潜力球员直接从数据库移除以防止数据膨胀

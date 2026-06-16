@@ -6,6 +6,8 @@ local Theme = require("scripts/ui/theme")
 local Router = require("scripts/app/router")
 local Constants = require("scripts/app/constants")
 local TrainingManager = require("scripts/systems/training_manager")
+local PositionFit = require("scripts/domain/position_fit")
+local PositionTrainingManager = require("scripts/systems/position_training_manager")
 
 local Training = {}
 
@@ -356,6 +358,15 @@ function Training._buildIndividualTab(players, gameState)
             local partLabel = part.applies and part.shortLabel or part.shortLabel
             local partColor = part.applies and _participationColor(part.factor) or Theme.COLORS.ACCENT
 
+            local posLabel = p.position
+            if p.positionTrainingTarget then
+                posLabel = p.position .. "→" .. p.positionTrainingTarget
+            end
+            local posTrainLabel = "位置"
+            if p.positionTrainingTarget then
+                posTrainLabel = (p.positionTrainingProgress or 0) .. "%"
+            end
+
             table.insert(rows, UI.Panel {
                 width = "100%", height = 48,
                 flexDirection = "row", alignItems = "center",
@@ -363,8 +374,8 @@ function Training._buildIndividualTab(players, gameState)
                 borderBottomWidth = 1, borderColor = Theme.COLORS.BORDER,
                 children = {
                     UI.Label {
-                        text = p.position,
-                        fontSize = 11, color = Theme.COLORS.TEXT_MUTED, width = 32,
+                        text = posLabel,
+                        fontSize = 11, color = Theme.COLORS.TEXT_MUTED, width = 48,
                     },
                     UI.Label {
                         text = p.displayName,
@@ -389,6 +400,16 @@ function Training._buildIndividualTab(players, gameState)
                             Training._showIndividualMenu(p, INDIVIDUAL_FOCUS_OPTIONS)
                         end,
                     },
+                    UI.Button {
+                        text = posTrainLabel,
+                        width = 44, height = 28,
+                        backgroundColor = p.positionTrainingTarget and Theme.COLORS.ACCENT or {38, 46, 71, 255},
+                        borderRadius = 6, fontSize = 10,
+                        color = Theme.COLORS.TEXT_PRIMARY, marginLeft = 4,
+                        onClick = function()
+                            Training._showPositionMenu(p)
+                        end,
+                    },
                 },
             })
         end
@@ -408,7 +429,7 @@ function Training._buildIndividualTab(players, gameState)
                 children = {
                     Theme.Subtitle { text = "个人训练分配" },
                     UI.Label {
-                        text = "为每位球员设置专项训练，覆盖全队训练重点",
+                        text = "为每位球员设置专项训练；位置按钮可设第二位置学习目标（实战 +5%/场）",
                         fontSize = 11, color = Theme.COLORS.TEXT_MUTED, marginBottom = 8,
                     },
                     UI.Panel { width = "100%", children = rows },
@@ -447,6 +468,88 @@ function Training._showIndividualMenu(player, options)
 
     table.insert(menuItems, UI.Button {
         text = "取消",
+        width = "100%", height = 40,
+        backgroundColor = Theme.COLORS.TRANSPARENT,
+        borderWidth = 1, borderColor = Theme.COLORS.BORDER,
+        borderRadius = 8, fontSize = 14, color = Theme.COLORS.TEXT_MUTED,
+        marginTop = 6,
+        onClick = function() UI.CloseOverlay() end,
+    })
+
+    UI.ShowOverlay(UI.Panel {
+        width = "100%", height = "100%",
+        justifyContent = "flex-end",
+        backgroundColor = {0, 0, 0, 150},
+        onClick = function() UI.CloseOverlay() end,
+        children = {
+            UI.Panel {
+                width = "100%",
+                backgroundColor = Theme.COLORS.BG_CARD,
+                borderTopLeftRadius = 16, borderTopRightRadius = 16,
+                padding = 20, paddingBottom = 30,
+                children = menuItems,
+            },
+        },
+    })
+end
+
+function Training._showPositionMenu(player)
+    local learnable = PositionFit.getLearnablePositions(player)
+    local menuItems = {
+        UI.Label {
+            text = player.displayName .. " - 位置训练",
+            fontSize = 15, color = Theme.COLORS.TEXT_PRIMARY,
+            fontWeight = "bold", marginBottom = 12, textAlign = "center",
+        },
+        UI.Label {
+            text = "擅长：" .. PositionFit.formatNaturalPositions(player, Constants.POSITION_NAMES),
+            fontSize = 11, color = Theme.COLORS.TEXT_MUTED, marginBottom = 8, textAlign = "center",
+        },
+    }
+
+    if player.positionTrainingTarget then
+        local targetName = Constants.POSITION_NAMES[player.positionTrainingTarget]
+            or player.positionTrainingTarget
+        table.insert(menuItems, UI.Label {
+            text = string.format("学习中：%s · %d%%", targetName, player.positionTrainingProgress or 0),
+            fontSize = 12, color = Theme.COLORS.ACCENT, marginBottom = 8, textAlign = "center",
+        })
+        table.insert(menuItems, UI.Button {
+            text = "取消学习",
+            width = "100%", height = 40,
+            backgroundColor = Theme.COLORS.BG_CARD,
+            borderRadius = 8, fontSize = 14, color = Theme.COLORS.DANGER, marginBottom = 4,
+            onClick = function()
+                PositionTrainingManager.clearTarget(player)
+                UI.CloseOverlay()
+                Router.replaceWith("training", { tab = "individual" })
+            end,
+        })
+    elseif #learnable > 0 then
+        for _, pos in ipairs(learnable) do
+            local label = Constants.POSITION_NAMES[pos] or pos
+            table.insert(menuItems, UI.Button {
+                text = "学习 " .. label,
+                width = "100%", height = 40,
+                backgroundColor = {38, 46, 71, 255},
+                borderRadius = 8, fontSize = 14,
+                color = Theme.COLORS.TEXT_SECONDARY, marginBottom = 4,
+                onClick = function()
+                    PositionTrainingManager.setTarget(player, pos)
+                    UI.CloseOverlay()
+                    Router.replaceWith("training", { tab = "individual" })
+                end,
+            })
+        end
+    else
+        table.insert(menuItems, UI.Label {
+            text = "无可学位置或已达上限",
+            fontSize = 12, color = Theme.COLORS.TEXT_MUTED, marginBottom = 8, textAlign = "center",
+        })
+    end
+
+    table.insert(menuItems, UI.Button {
+        text = "关闭",
         width = "100%", height = 40,
         backgroundColor = Theme.COLORS.TRANSPARENT,
         borderWidth = 1, borderColor = Theme.COLORS.BORDER,

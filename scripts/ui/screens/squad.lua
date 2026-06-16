@@ -12,6 +12,7 @@ local ContractManager = require("scripts/systems/contract_manager")
 local FinanceManager = require("scripts/systems/finance_manager")
 local TransferManager = require("scripts/systems/transfer_manager")
 local AIManager = require("scripts/systems/ai_manager")
+local YouthManager = require("scripts/systems/youth_manager")
 local Team = require("scripts/domain/team")
 
 local WorldCup = require("scripts/systems/world_cup")
@@ -663,8 +664,16 @@ function Squad._showActionMenu(player, isStarter, team, gameState)
                 label = "挂牌出售",
                 color = Theme.COLORS.ACCENT,
                 action = function()
-                    TransferManager.listForSale(gameState, player)
-                    Router.replaceWith("squad")
+                    local ok, err = TransferManager.listForSale(gameState, player)
+                    if ok then
+                        UI.Toast.Show({
+                            message = player.displayName .. " 已挂牌，等待买家报价",
+                            variant = "success",
+                        })
+                        Router.replaceWith("squad")
+                    else
+                        UI.Toast.Show({ message = err or "无法挂牌", variant = "warning" })
+                    end
                 end,
             })
         else
@@ -731,6 +740,39 @@ function Squad._showActionMenu(player, isStarter, team, gameState)
                 })
             end
         end
+    end
+
+    -- 下放至青训队（21岁及以下年轻球员）
+    local canDemote = YouthManager.canDemoteToYouth(gameState, player.id)
+    if canDemote then
+        table.insert(actions, {
+            label = "下放至青训队",
+            color = {120, 220, 150, 255},
+            action = function()
+                UI.CloseOverlay()
+                ConfirmDialog.show({
+                    title = "下放至青训队",
+                    message = string.format(
+                        "确定将 %s 下放至青训队吗？\n球员将移出一线队名单，周薪调整为青训标准（%s/周），仍可在青训页挂牌出售。",
+                        player.displayName or "",
+                        FinanceManager.formatMoney(500)),
+                    confirmText = "确认下放",
+                    confirmColor = {120, 220, 150, 255},
+                    onConfirm = function()
+                        local ok, err = YouthManager.demoteToYouth(gameState, player.id)
+                        if ok then
+                            UI.Toast.Show({
+                                message = (player.displayName or "球员") .. " 已下放至青训队",
+                                variant = "success",
+                            })
+                            Router.replaceWith("squad")
+                        else
+                            UI.Toast.Show({ message = err or "下放失败", variant = "warning" })
+                        end
+                    end,
+                })
+            end,
+        })
     end
 
     -- 处理收到的报价（仅 pending 可接受/拒绝；其余状态走市场）
