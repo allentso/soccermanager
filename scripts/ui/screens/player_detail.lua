@@ -434,6 +434,7 @@ function PlayerDetail._buildTransferAction(player, gameState)
     end
 
     local hasBid = TransferManager.hasPendingBid(gameState, player.id)
+    local movedThisWindow = TransferManager.hasMovedInCurrentWindow(gameState, player.id)
     local releaseClause = TransferManager.getReleaseClause(gameState, player.id)
     local attitude, attitudeDesc = TransferManager.getPlayerTransferAttitude(gameState, player.id, gameState.playerTeamId)
 
@@ -494,6 +495,21 @@ function PlayerDetail._buildTransferAction(player, gameState)
             children = {
                 UI.Button {
                     text = "已提交报价",
+                    flexGrow = 1, height = 40,
+                    backgroundColor = Theme.COLORS.TEXT_MUTED,
+                    borderRadius = 8, fontSize = 14,
+                    color = Theme.COLORS.TEXT_PRIMARY,
+                    marginRight = 8,
+                },
+                shortlistBtn,
+            },
+        })
+    elseif movedThisWindow then
+        table.insert(actionChildren, UI.Panel {
+            width = "100%", flexDirection = "row",
+            children = {
+                UI.Button {
+                    text = "本窗已转会",
                     flexGrow = 1, height = 40,
                     backgroundColor = Theme.COLORS.TEXT_MUTED,
                     borderRadius = 8, fontSize = 14,

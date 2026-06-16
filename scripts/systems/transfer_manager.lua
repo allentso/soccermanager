@@ -86,6 +86,15 @@ function TransferManager._markPlayerWindowMove(gameState, playerId)
     end
 end
 
+--- 球员是否已在当前转会窗完成过转会/租借/签约
+function TransferManager.hasMovedInCurrentWindow(gameState, playerId)
+    local player = gameState.players[playerId]
+    if not player then return false end
+    local key = TransferManager.getTransferWindowKey(gameState)
+    if not key then return false end
+    return player._transferWindowKey == key
+end
+
 --- 获取转会窗口关闭日期
 --- @return table|nil {year, month, day} 当前窗口关闭日期，不在窗口期返回nil
 function TransferManager.getWindowCloseDate(gameState)
@@ -209,6 +218,7 @@ function TransferManager.makeBid(gameState, playerId, amount, wageOffer)
     local player = gameState.players[playerId]
     if not player then return nil, "球员不存在" end
     if not player.teamId then return nil, "自由球员请使用自由签约" end
+    if player.teamId == gameState.playerTeamId then return nil, "该球员已在你的球队" end
 
     -- 生成AI耐心上限（3-5轮）
     local maxRounds = RandomInt(3, 5)
@@ -467,6 +477,12 @@ function TransferManager._processAIResponse(gameState, bid)
         return
     end
 
+    local sellerOk, sellerErr = TransferManager._validateBidSeller(gameState, bid)
+    if not sellerOk then
+        TransferManager._rejectBid(gameState, bid, sellerErr)
+        return
+    end
+
     local ratio = TransferManager._getBidEffectiveValue(bid, player) / math.max(player.value, 1)
     local round = bid.currentRound or 0
     local mood = bid.mood or 50
@@ -567,6 +583,12 @@ end
 function TransferManager._acceptBid(gameState, bid)
     local player = gameState.players[bid.playerId]
     if not player then return end
+
+    local sellerOk, sellerErr = TransferManager._validateBidSeller(gameState, bid)
+    if not sellerOk then
+        TransferManager._rejectBid(gameState, bid, sellerErr)
+        return
+    end
 
     -- 转会费已达成，进入球员考虑阶段
     bid.status = "player_considering"
@@ -711,6 +733,11 @@ function TransferManager.confirmTransfer(gameState, bidId)
             if bid.type == "loan" then
                 return TransferManager.confirmLoan(gameState, bidId)
             end
+            local sellerOk, sellerErr = TransferManager._validateBidSeller(gameState, bid)
+            if not sellerOk then
+                TransferManager._rejectBid(gameState, bid, sellerErr)
+                return nil, sellerErr
+            end
             bid.status = "accepted"
             TransferManager._completeTransfer(gameState, bid)
             return bid, nil
@@ -781,6 +808,12 @@ function TransferManager._completeTransfer(gameState, bid, opts)
     local player = gameState.players[bid.playerId]
     if not player then return end
 
+    local sellerOk, sellerErr = TransferManager._validateBidSeller(gameState, bid)
+    if not sellerOk then
+        TransferManager._rejectBid(gameState, bid, sellerErr)
+        return
+    end
+
     local sellerTeam = gameState.teams[bid.sellerTeamId]
     local buyerTeam = gameState.teams[bid.buyerTeamId]
     if not buyerTeam then return end
@@ -842,6 +875,12 @@ function TransferManager._completeTransfer(gameState, bid, opts)
     })
 
     EventBus.emit("transfer_completed", bid)
+
+    -- 清理同一球员的其他活跃报价（球员已转会）
+    TransferManager._invalidateActiveBidsForPlayer(gameState, player.id, {
+        excludeBidId = bid.id,
+        soldToTeamId = bid.buyerTeamId,
+    })
 end
 
 ------------------------------------------------------
@@ -1297,6 +1336,10 @@ function TransferManager._findTransferTarget(gameState, buyerTeam, needGroup, up
         if player.teamId == buyerTeam.id then goto continue end
         -- 玩家球队的球员：只有挂牌出售的才会被AI考虑
         if player.teamId == gameState.playerTeamId and not player.listedForSale then goto continue end
+        -- 玩家正在谈判中的球员，AI 不应直接截胡
+        if TransferManager.hasActiveBidOnPlayer(gameState, player.id, { buyerTeamId = gameState.playerTeamId }) then
+            goto continue
+        end
 
         -- 位置匹配
         local posMatch = false
@@ -1430,6 +1473,8 @@ function TransferManager._executeAITransfer(gameState, buyerTeam, player)
     player:calculateReputation(buyerTeam.reputation or 300)
     player:calculateValue(gameState.date.year)
 
+    TransferManager._markPlayerWindowMove(gameState, player.id)
+
     -- 记录
     table.insert(gameState.transfers.history, {
         playerId = player.id,
@@ -1461,6 +1506,11 @@ function TransferManager._executeAITransfer(gameState, buyerTeam, player)
             type = "permanent",
         })
     end
+
+    -- 清理该球员所有活跃报价（含玩家 pending 报价），避免 AI 截胡后玩家仍可继续买
+    TransferManager._invalidateActiveBidsForPlayer(gameState, player.id, {
+        soldToTeamId = buyerTeam.id,
+    })
 
     return true  -- 交易成功
 end
@@ -1601,6 +1651,69 @@ function TransferManager.repairIncomingSaleBids(gameState, opts)
     end
 
     return stats
+end
+
+--- 活跃报价状态（未完成、未取消、未拒绝）
+local _ACTIVE_BID_STATUSES = {
+    pending = true, negotiating = true, counter_pending = true,
+    fee_agreed = true, player_considering = true, awaiting_confirmation = true,
+    awaiting_sale_confirmation = true, player_considering_sale = true,
+}
+
+--- 检查某球员是否有活跃报价（可选限定买家）
+--- @param opts table|nil { buyerTeamId, excludeBidId }
+function TransferManager.hasActiveBidOnPlayer(gameState, playerId, opts)
+    TransferManager._ensureData(gameState)
+    opts = opts or {}
+    for _, bid in ipairs(gameState.transfers.bids) do
+        if bid.playerId == playerId and _ACTIVE_BID_STATUSES[bid.status]
+            and not _bidIdsEqual(bid.id, opts.excludeBidId) then
+            if opts.buyerTeamId then
+                if bid.buyerTeamId == opts.buyerTeamId then return true end
+            else
+                return true
+            end
+        end
+    end
+    return false
+end
+
+--- 球员已转会时作废该球员所有活跃报价（AI 直接成交 / 完成转会后调用）
+--- @param opts table|nil { excludeBidId, soldToTeamId }
+function TransferManager._invalidateActiveBidsForPlayer(gameState, playerId, opts)
+    TransferManager._ensureData(gameState)
+    opts = opts or {}
+    local player = gameState.players[playerId]
+    local buyerName = opts.soldToTeamId and gameState.teams[opts.soldToTeamId]
+    buyerName = buyerName and (buyerName.name or buyerName.shortName) or "其他俱乐部"
+
+    for _, bid in ipairs(gameState.transfers.bids) do
+        if bid.playerId == playerId and _ACTIVE_BID_STATUSES[bid.status]
+            and not _bidIdsEqual(bid.id, opts.excludeBidId) then
+            bid.status = "rejected"
+            bid.rejectedDate = { year = gameState.date.year, month = gameState.date.month, day = gameState.date.day }
+            if bid.buyerTeamId == gameState.playerTeamId and player then
+                gameState:sendMessage({
+                    category = "transfer",
+                    title = "报价失效",
+                    body = string.format("%s 已被 %s 签下，你的报价已自动取消。",
+                        player.displayName, buyerName),
+                    priority = "normal",
+                })
+            end
+        end
+    end
+end
+
+--- 验证 bid 的卖方仍是球员当前俱乐部
+function TransferManager._validateBidSeller(gameState, bid)
+    local player = gameState.players[bid.playerId]
+    if not player then return false, "球员不存在" end
+    if player.teamId ~= bid.sellerTeamId then
+        return false, string.format("%s 已不在原出售俱乐部，报价无法继续。",
+            player.displayName or "该球员")
+    end
+    return true
 end
 
 --- 检查某球员是否已有 awaiting_sale_confirmation 状态的 bid（避免同一球员多个待确认出售阻断时间推进）

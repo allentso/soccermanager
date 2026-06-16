@@ -431,6 +431,7 @@ function Market._buildBrowseContent(gameState, posFilter, searchQuery, ovrRange)
         local p = availablePlayers[i]
         local team = gameState.teams[p.teamId]
         local hasBid = TransferManager.hasPendingBid(gameState, p.id)
+        local movedThisWindow = TransferManager.hasMovedInCurrentWindow(gameState, p.id)
         local releaseClause = TransferManager.getReleaseClause(gameState, p.id)
         local attitude, attitudeDesc = TransferManager.getPlayerTransferAttitude(gameState, p.id, gameState.playerTeamId)
         local competingBids = TransferManager.getCompetingBids(gameState, p.id)
@@ -498,6 +499,22 @@ function Market._buildBrowseContent(gameState, posFilter, searchQuery, ovrRange)
                             },
                         },
                         (function()
+                            if movedThisWindow then
+                                return UI.Panel {
+                                    width = 36, height = 28,
+                                    backgroundColor = {55, 55, 65, 255},
+                                    borderRadius = 6,
+                                    alignItems = "center",
+                                    justifyContent = "center",
+                                    marginRight = 6,
+                                    children = {
+                                        UI.Label { text = "已转", fontSize = 11, color = Theme.COLORS.TEXT_MUTED, fontWeight = "bold" },
+                                    },
+                                }
+                            end
+                            return nil
+                        end)(),
+                        (function()
                             if p.potential then
                                 local _, starText = _getPotentialStars(p.potential, scoutAcc)
                                 return UI.Label {
@@ -512,12 +529,13 @@ function Market._buildBrowseContent(gameState, posFilter, searchQuery, ovrRange)
                             fontSize = 16, color = Theme.COLORS.SECONDARY, fontWeight = "bold", marginRight = 10,
                         },
                         UI.Button {
-                            text = hasBid and "已报" or (releaseClause and "解约" or "报价"),
+                            text = movedThisWindow and "已转" or (hasBid and "已报" or (releaseClause and "解约" or "报价")),
                             width = 50, height = 28,
-                            backgroundColor = hasBid and Theme.COLORS.TEXT_MUTED or Theme.COLORS.GOLD,
+                            backgroundColor = (movedThisWindow or hasBid) and Theme.COLORS.TEXT_MUTED or Theme.COLORS.GOLD,
                             borderRadius = 6, fontSize = 12,
-                            color = hasBid and Theme.COLORS.TEXT_PRIMARY or "#1A1A1A",
+                            color = (movedThisWindow or hasBid) and Theme.COLORS.TEXT_PRIMARY or "#1A1A1A",
                             onClick = function()
+                                if movedThisWindow then return end
                                 if not hasBid then
                                     if releaseClause then
                                         TransferManager.triggerReleaseClause(gameState, p.id)
@@ -569,6 +587,11 @@ end
 
 -- 报价谈判弹窗
 function Market._showBidSheet(gameState, player, posFilter, searchQuery, ovrRange)
+    if TransferManager.hasMovedInCurrentWindow(gameState, player.id) then
+        UI.Toast.Show({ message = "该球员本转会窗已参与过转会，需等到下一窗口", variant = "warning" })
+        return
+    end
+
     local team = gameState:getPlayerTeam()
     local budget = team and team.transferBudget or 0
     local baseValue = player.value
