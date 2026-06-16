@@ -672,7 +672,10 @@ function Squad._showActionMenu(player, isStarter, team, gameState)
                         })
                         Router.replaceWith("squad")
                     else
-                        UI.Toast.Show({ message = err or "无法挂牌", variant = "warning" })
+                        local TransferLimitDialog = require("scripts/ui/components/transfer_limit_dialog")
+                        if not TransferLimitDialog.handleError(err, player.displayName, gameState) then
+                            UI.Toast.Show({ message = err or "无法挂牌", variant = "warning" })
+                        end
                     end
                 end,
             })
@@ -720,8 +723,15 @@ function Squad._showActionMenu(player, isStarter, team, gameState)
                     label = "挂牌外租",
                     color = Theme.COLORS.SECONDARY,
                     action = function()
-                        TransferManager.listForLoan(gameState, player, 26)
-                        Router.replaceWith("squad")
+                        local ok, err = TransferManager.listForLoan(gameState, player, 26)
+                        if ok then
+                            Router.replaceWith("squad")
+                        else
+                            local TransferLimitDialog = require("scripts/ui/components/transfer_limit_dialog")
+                            if not TransferLimitDialog.handleError(err, player.displayName, gameState) then
+                                UI.Toast.Show({ message = err or "无法挂牌外租", variant = "warning" })
+                            end
+                        end
                     end,
                 })
             else

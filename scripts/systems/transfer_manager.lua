@@ -78,6 +78,11 @@ function TransferManager._checkPlayerWindowMoveLimit(gameState, playerId)
     return true, nil
 end
 
+--- 是否为「本窗已转会」类错误（供 UI 统一弹窗）
+function TransferManager.isWindowMoveLimitError(errMsg)
+    return type(errMsg) == "string" and errMsg:find("本转会窗已参与过", 1, true) ~= nil
+end
+
 function TransferManager._markPlayerWindowMove(gameState, playerId)
     local player = gameState.players[playerId]
     local key = TransferManager.getTransferWindowKey(gameState)
@@ -3917,6 +3922,9 @@ function TransferManager.triggerReleaseClause(gameState, playerId)
     if not player.releaseClause then return nil, "该球员没有解约金条款" end
     if player.teamId == gameState.playerTeamId then return nil, "不能触发自己球员的解约金" end
 
+    local moveOk, moveErr = TransferManager._checkPlayerWindowMoveLimit(gameState, playerId)
+    if not moveOk then return nil, moveErr end
+
     local team = gameState:getPlayerTeam()
     if not team then return nil, "无法获取球队" end
 
@@ -3990,8 +3998,8 @@ function TransferManager.makeBidWithClauses(gameState, playerId, amount, wageOff
     if not player then return nil, "球员不存在" end
 
     -- 先创建基础报价
-    local bid = TransferManager.makeBid(gameState, playerId, amount, wageOffer)
-    if not bid then return nil, "创建报价失败" end
+    local bid, bidErr = TransferManager.makeBid(gameState, playerId, amount, wageOffer)
+    if not bid then return nil, bidErr or "创建报价失败" end
 
     -- 附加条款
     clauses = clauses or {}

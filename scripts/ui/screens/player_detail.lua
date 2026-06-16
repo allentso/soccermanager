@@ -515,6 +515,10 @@ function PlayerDetail._buildTransferAction(player, gameState)
                     borderRadius = 8, fontSize = 14,
                     color = Theme.COLORS.TEXT_PRIMARY,
                     marginRight = 8,
+                    onClick = function()
+                        local TransferLimitDialog = require("scripts/ui/components/transfer_limit_dialog")
+                        TransferLimitDialog.show(player.displayName, gameState)
+                    end,
                 },
                 shortlistBtn,
             },
@@ -531,7 +535,14 @@ function PlayerDetail._buildTransferAction(player, gameState)
                     color = {255, 220, 80, 255},
                     marginRight = 8,
                     onClick = function()
-                        TransferManager.triggerReleaseClause(gameState, player.id)
+                        local _, err = TransferManager.triggerReleaseClause(gameState, player.id)
+                        if err then
+                            local TransferLimitDialog = require("scripts/ui/components/transfer_limit_dialog")
+                            if not TransferLimitDialog.handleError(err, player.displayName, gameState) then
+                                UI.Toast.Show({ message = err, variant = "error" })
+                            end
+                            return
+                        end
                         UI.Toast.Show({ message = "已触发解约金买断", variant = "success" })
                         Router.replaceWith("player_detail", { playerId = player.id, tab = "overview" })
                     end,
@@ -1370,7 +1381,10 @@ function PlayerDetail._buildListForSaleBtn(player, isSafe, safetyReason, gameSta
                     })
                     Router.replaceWith("player_detail", { playerId = player.id, tab = "contract" })
                 else
-                    UI.Toast.Show({ message = err or "无法挂牌", variant = "warning" })
+                    local TransferLimitDialog = require("scripts/ui/components/transfer_limit_dialog")
+                    if not TransferLimitDialog.handleError(err, player.displayName, gameState) then
+                        UI.Toast.Show({ message = err or "无法挂牌", variant = "warning" })
+                    end
                 end
             end,
         }
@@ -1447,7 +1461,10 @@ function PlayerDetail._buildListForLoanBtn(player, isSafe, safetyReason, gameSta
                     })
                     Router.replaceWith("player_detail", { playerId = player.id, tab = "contract" })
                 else
-                    UI.Toast.Show({ message = err or "无法挂牌外租", variant = "warning" })
+                    local TransferLimitDialog = require("scripts/ui/components/transfer_limit_dialog")
+                    if not TransferLimitDialog.handleError(err, player.displayName, gameState) then
+                        UI.Toast.Show({ message = err or "无法挂牌外租", variant = "warning" })
+                    end
                 end
             end,
         }

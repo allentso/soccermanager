@@ -13,6 +13,7 @@ local PotentialSystem = require("scripts/systems/potential_system")
 local StaffManager = require("scripts/systems/staff_manager")
 local ScoutManager = require("scripts/systems/scout_manager")
 local ConfirmDialog = require("scripts/ui/components/confirm_dialog")
+local TransferLimitDialog = require("scripts/ui/components/transfer_limit_dialog")
 local AudioManager = require("scripts/systems/audio_manager")
 local YouthManager = require("scripts/systems/youth_manager")
 
@@ -507,6 +508,9 @@ function Market._buildBrowseContent(gameState, posFilter, searchQuery, ovrRange)
                                     alignItems = "center",
                                     justifyContent = "center",
                                     marginRight = 6,
+                                    onClick = function()
+                                        TransferLimitDialog.show(p.displayName, gameState)
+                                    end,
                                     children = {
                                         UI.Label { text = "已转", fontSize = 11, color = Theme.COLORS.TEXT_MUTED, fontWeight = "bold" },
                                     },
@@ -535,10 +539,20 @@ function Market._buildBrowseContent(gameState, posFilter, searchQuery, ovrRange)
                             borderRadius = 6, fontSize = 12,
                             color = (movedThisWindow or hasBid) and Theme.COLORS.TEXT_PRIMARY or "#1A1A1A",
                             onClick = function()
-                                if movedThisWindow then return end
+                                if movedThisWindow then
+                                    TransferLimitDialog.show(p.displayName, gameState)
+                                    return
+                                end
                                 if not hasBid then
                                     if releaseClause then
-                                        TransferManager.triggerReleaseClause(gameState, p.id)
+                                        local _, err = TransferManager.triggerReleaseClause(gameState, p.id)
+                                        if err then
+                                            if not TransferLimitDialog.handleError(err, p.displayName, gameState) then
+                                                AudioManager.deny()
+                                                UI.Toast.Show({ message = err, variant = "error" })
+                                            end
+                                            return
+                                        end
                                         UI.Toast.Show({ message = "已触发解约金买断", variant = "success" })
                                         Router.replaceWith("market", { tab = "browse", posFilter = posFilter, searchQuery = searchQuery, ovrRange = ovrRange })
                                     else
@@ -587,8 +601,7 @@ end
 
 -- 报价谈判弹窗
 function Market._showBidSheet(gameState, player, posFilter, searchQuery, ovrRange)
-    if TransferManager.hasMovedInCurrentWindow(gameState, player.id) then
-        UI.Toast.Show({ message = "该球员本转会窗已参与过转会，需等到下一窗口", variant = "warning" })
+    if TransferLimitDialog.guardPlayer(gameState, player.id) then
         return
     end
 
@@ -817,13 +830,15 @@ function Market._showBidSheet(gameState, player, posFilter, searchQuery, ovrRang
             if clause.sellOn > 0 then
                 clauses.sellOnPercent = clause.sellOn
             end
-            local bid = TransferManager.makeBidWithClauses(gameState, player.id, offerAmount, offeredWage, clauses)
+            local bid, bidErr = TransferManager.makeBidWithClauses(gameState, player.id, offerAmount, offeredWage, clauses)
             if bid then
                 bid.contractYears = offeredYears
                 UI.Toast.Show({ message = "报价已提交", variant = "success" })
             else
-                AudioManager.deny()
-                UI.Toast.Show({ message = "报价失败", variant = "error" })
+                if not TransferLimitDialog.handleError(bidErr, player.displayName, gameState) then
+                    AudioManager.deny()
+                    UI.Toast.Show({ message = bidErr or "报价失败", variant = "error" })
+                end
             end
             BottomSheet.close()
             Router.replaceWith("market", { tab = "my_bids" })
@@ -1576,12 +1591,14 @@ function Market._buildListedContent(gameState)
                             onClick = function()
                                 local ok, err = TransferManager.listForSale(gameState, p)
                                 if not ok then
-                                    gameState:sendMessage({
-                                        category = "transfer",
-                                        title = "无法挂牌",
-                                        body = err or "条件不满足",
-                                        priority = "normal",
-                                    })
+                                    if not TransferLimitDialog.handleError(err, p.displayName, gameState) then
+                                        gameState:sendMessage({
+                                            category = "transfer",
+                                            title = "无法挂牌",
+                                            body = err or "条件不满足",
+                                            priority = "normal",
+                                        })
+                                    end
                                 end
                                 Router.replaceWith("market", { tab = "listed" })
                             end,
@@ -3113,7 +3130,7 @@ function Market._showFreeAgentOfferSheet(gameState, player, posFilter)
             local nego, err = TransferManager.offerFreeAgent(gameState, player.id, offeredWage, offeredYears)
             if nego then
                 UI.Toast.Show({ message = "合同邀约已发送", variant = "success" })
-            else
+            elseif not TransferLimitDialog.handleError(err, player.displayName, gameState) then
                 AudioManager.deny()
                 UI.Toast.Show({ message = err or "邀约失败", variant = "error" })
             end
@@ -3206,7 +3223,7 @@ function Market._showLoanOfferSheet(gameState, player, duration)
                 UI.Toast.Show({ message = "租借报价已提交", variant = "success" })
                 BottomSheet.close()
                 Router.replaceWith("market", { tab = "my_bids" })
-            else
+            elseif not TransferLimitDialog.handleError(err, player.displayName, gameState) then
                 AudioManager.deny()
                 UI.Toast.Show({ message = err or "租借报价失败", variant = "error" })
             end

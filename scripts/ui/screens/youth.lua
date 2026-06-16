@@ -502,6 +502,10 @@ function Youth._showYouthActions(player, gameState)
             action = function()
                 local ok, err = TransferManager.listForSale(gameState, player)
                 if not ok then
+                    local TransferLimitDialog = require("scripts/ui/components/transfer_limit_dialog")
+                    if TransferLimitDialog.handleError(err, player.displayName, gameState) then
+                        return
+                    end
                     ConfirmDialog.show({
                         title = "无法挂牌",
                         message = err or "条件不满足",
