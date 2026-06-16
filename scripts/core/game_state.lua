@@ -297,6 +297,7 @@ function GameState:serialize()
         _teamRelations = self._teamRelations,
         _activeLoans = self._activeLoans,
         newGameOptions = self.newGameOptions,
+        settings = self.settings,
     }
 end
 
@@ -386,6 +387,7 @@ function GameState:deserialize(data)
     self._teamRelations = data._teamRelations
     self._activeLoans = data._activeLoans or {}
     self.newGameOptions = data.newGameOptions
+    self.settings = data.settings
 
     -- 恢复二级联赛数据（升降级状态）
     if data.secondDivision then

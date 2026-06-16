@@ -1,13 +1,13 @@
 -- systems/difficulty_settings.lua
--- 难度参数系统：3档位制，方向统一（档位越高=对玩家越有利）
+-- 规则定制：五轴独立 3 档位（1/2/3），默认均为中间档
 
 local Constants = require("scripts/app/constants")
 
 local DifficultySettings = {}
 
--- 档位：1=保守, 2=正常, 3=宽松
 DifficultySettings.TIERS = { 1, 2, 3 }
-DifficultySettings.TIER_LABELS = { "保守", "正常", "宽松" }
+-- 兼容旧引用；UI 应使用 PARAMS[].tierLabels
+DifficultySettings.TIER_LABELS = { "低", "正常", "高" }
 
 -- 默认值（中间档）
 DifficultySettings.DEFAULTS = {
@@ -18,44 +18,61 @@ DifficultySettings.DEFAULTS = {
     growthTier = 2,    -- 成长：1=慢 2=正常 3=快
 }
 
--- 参数描述（UI展示用）
+-- 参数描述（UI 展示：每项独立 tierLabels / tierHints）
 DifficultySettings.PARAMS = {
     {
         key = "transferTier",
         name = "转会市场",
-        desc = "影响AI接受报价的范围和合同容忍度",
-        tierHints = { "AI保守，谈判困难", "正常市场环境", "AI宽松，容易成交" },
+        desc = "你与 AI 俱乐部谈判时的接受门槛与还价力度",
+        tierLabels = { "紧缩", "正常", "活跃" },
+        tierHints = {
+            "AI 要价更高，成交更难",
+            "标准转会环境（推荐）",
+            "AI 更易接受报价，市场更活跃",
+        },
     },
     {
         key = "matchTier",
         name = "比赛波动",
-        desc = "影响比赛随机性与弱队爆冷概率",
-        tierHints = { "强弱悬殊，冷门极少", "正常随机性，偶有冷门", "冷门较多，结果难预测" },
+        desc = "全场随机性与冷门频率（影响所有球队）",
+        tierLabels = { "稳定", "正常", "戏剧" },
+        tierHints = {
+            "强弱结果更稳定，冷门较少",
+            "偶有冷门（推荐）",
+            "冷门更多，比分更难预测",
+        },
     },
     {
         key = "youthTier",
         name = "青训质量",
-        desc = "影响青训球员初始年龄与能力",
-        tierHints = { "初始年龄小、能力低，培养周期长", "正常初始年龄与能力", "初始年龄大、能力高，更快出场" },
+        desc = "全联赛青训球员的初始年龄与即战力（影响所有球队）",
+        tierLabels = { "慢热", "正常", "即用" },
+        tierHints = {
+            "更年轻、能力偏低，需长期培养",
+            "标准青训产出（推荐）",
+            "更成熟、即战力更高，更快进一线队",
+        },
     },
     {
         key = "fitnessTier",
         name = "体力循环",
-        desc = "影响体力消耗、恢复与训练伤病",
+        desc = "全员体能消耗、恢复与训练伤病（影响所有球队）",
+        tierLabels = { "严苛", "正常", "舒缓" },
         tierHints = {
-            "消耗快、恢复慢、伤病多",
-            "正常体力节奏（推荐）",
-            "消耗慢、恢复快、伤病少",
+            "消耗快、恢复慢、伤病偏多",
+            "标准体能节奏（推荐）",
+            "消耗慢、恢复快、伤病偏少",
         },
     },
     {
         key = "growthTier",
         name = "球员成长",
-        desc = "影响日常训练成长、赛季末成长与出场挂钩效率",
+        desc = "全员日常训练、赛季发育与出场挂钩（影响所有球队）",
+        tierLabels = { "缓慢", "正常", "加快" },
         tierHints = {
-            "日常/赛季成长慢，出场要求严",
-            "正常成长节奏（推荐）",
-            "日常/赛季成长快，出场宽容",
+            "成长偏慢，成年球员出场要求更严",
+            "标准成长节奏（推荐）",
+            "成长偏快，出场不足时惩罚更轻",
         },
     },
 }
@@ -139,9 +156,10 @@ function DifficultySettings.getTransferModifiers()
 end
 
 --- 比赛：档位越高，戏剧性越强（弱队更有机会）
---- tier=1: 稳定（方差×0.6, 弱队加成0）
---- tier=2: 正常（方差×1.0, 弱队加成0.1）
---- tier=3: 戏剧性（方差×1.4, 弱队加成0.2）
+--- tier=1: 稳定（form ±7.2%, 弱队加成0）
+--- tier=2: 正常（form ±12%, 弱队加成0.1 → goalChance×1.1）
+--- tier=3: 戏剧性（form ±16.8%, 弱队加成0.2 → goalChance×1.2）
+--- 接入 MatchEngine._simulateMinutes（form 采样 + 弱队射门加成）
 function DifficultySettings.getMatchModifiers()
     local diff = DifficultySettings.get()
     local tier = diff.matchTier or 2

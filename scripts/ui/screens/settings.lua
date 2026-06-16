@@ -170,7 +170,7 @@ function Settings.create(params)
                         }
                     },
 
-                    -- 难度调节 + 存档设置 + 新游戏（合并双栏）
+                    -- 规则定制 + 存档设置 + 新游戏（合并双栏）
                     Settings._buildDifficultyAndSaveCard(),
 
                     -- 帮助与指引
@@ -1753,7 +1753,7 @@ function Settings._cheatBudgetAllocationTest()
 end
 
 ------------------------------------------------------
--- 难度调节 + 存档设置（紧凑单栏布局）
+-- 规则定制 + 存档设置（紧凑单栏布局）
 ------------------------------------------------------
 function Settings._buildDifficultyAndSaveCard()
     local diff = DifficultySettings.get()
@@ -1762,7 +1762,7 @@ function Settings._buildDifficultyAndSaveCard()
     -- 补偿面板（放在球员成长右侧）
     local compensationPanel = Settings._buildCompensationSection()
 
-    -- 难度项用 2 列网格排列
+    -- 规则项用 2 列网格排列
     local diffGridRows = {}
     for i = 1, #params, 2 do
         local left = params[i]
@@ -1831,7 +1831,13 @@ function Settings._buildDifficultyAndSaveCard()
 
     return Theme.Card {
         children = {
-            Settings._sectionTitle("难度调节"),
+            Settings._sectionTitle("规则定制"),
+            UI.Label {
+                text = "五项独立调节，默认均为「正常」。除转会外，其余影响整个联赛环境。",
+                fontSize = 10,
+                color = Theme.COLORS.TEXT_MUTED,
+                marginBottom = 8,
+            },
             UI.Panel { width = "100%", children = diffGridRows },
             -- 分隔线
             UI.Panel {
@@ -1882,7 +1888,7 @@ function Settings._buildDifficultyAndSaveCard()
     }
 end
 
---- 难度档位行：标题 + 3个按钮 + 当前档位描述
+--- 规则档位行：标题 + 3 个按钮 + 当前档位描述
 function Settings._difficultyTierRow(param, currentTier)
     local hintLabel = UI.Label {
         text = param.tierHints[currentTier] or "",
@@ -1891,13 +1897,14 @@ function Settings._difficultyTierRow(param, currentTier)
         marginTop = 2,
     }
 
+    local tierLabels = param.tierLabels or DifficultySettings.TIER_LABELS
     local tierButtons = {}
-    for i, tierName in ipairs(DifficultySettings.TIER_LABELS) do
+    for i, tierName in ipairs(tierLabels) do
         local isActive = (i == currentTier)
         tierButtons[#tierButtons + 1] = UI.Button {
             text = tierName,
             fontSize = 11,
-            width = 50,
+            width = 52,
             height = 26,
             marginRight = (i < 3) and 4 or 0,
             variant = isActive and "primary" or "ghost",

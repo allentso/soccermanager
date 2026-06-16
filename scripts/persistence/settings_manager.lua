@@ -194,10 +194,14 @@ function SettingsManager._saveToFile()
     file:Close()
 end
 
---- 同步到 gameState.settings（供 UI 读取）
+--- 同步到 gameState.settings（供 UI 读取；保留存档级 difficulty 不被覆盖）
 function SettingsManager._syncToGameState()
     if _G.gameState then
+        local difficulty = _G.gameState.settings and _G.gameState.settings.difficulty
         _G.gameState.settings = SettingsManager.getAll()
+        if difficulty then
+            _G.gameState.settings.difficulty = difficulty
+        end
     end
 end
 

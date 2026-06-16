@@ -9,8 +9,13 @@ local MatchSession = require("scripts/match/match_session")
 local TraitEffects = require("scripts/match/trait_effects")
 local SetPieceResolver = require("scripts/match/set_piece_resolver")
 local EventFlavors = require("scripts/match/event_flavors")
+local DifficultySettings = require("scripts/systems/difficulty_settings")
 
 local MatchEngine = {}
+
+-- tier 2 基准：form factor 半宽 ±12%（与 TraitEffects.sampleFormFactor 默认一致）
+local FORM_HALF_SPAN_BASE = 0.12
+local UNDERDOG_OVR_GAP = 8
 
 local function clamp(value, minValue, maxValue)
     if value < minValue then return minValue end
@@ -201,11 +206,31 @@ function MatchEngine._simulateMinutes(fixture, homeContext, awayContext, startMi
     options = options or {}
     local events = state.events
 
-    -- 单场"今日状态"采样（±18%）：整场固定，存入 state 以兼容分段模拟（session）
+    -- 比赛波动档位：tier 2 = 基准 ±12%；tier 1/3 收窄/放宽 form 采样
+    local matchMods = DifficultySettings.getMatchModifiers()
+    local formHalfSpan = FORM_HALF_SPAN_BASE * (matchMods.varianceFactor or 1.0)
+
+    local function sampleFormWithTier(traitSummary)
+        local baseForm = (1.0 - formHalfSpan) + Random() * (2 * formHalfSpan)
+        return TraitEffects.sampleFormFactor(traitSummary, baseForm)
+    end
+
+    -- 单场"今日状态"采样：整场固定，存入 state 以兼容分段模拟（session）
     -- 注意不能逐分钟重掷，否则 90 次平均后波动退化为 ±2%，丢失单场状态语义
     if not state._homeFormFactor then
-        state._homeFormFactor = TraitEffects.sampleFormFactor(homeContext.traitSummary)
-        state._awayFormFactor = TraitEffects.sampleFormFactor(awayContext.traitSummary)
+        state._homeFormFactor = sampleFormWithTier(homeContext.traitSummary)
+        state._awayFormFactor = sampleFormWithTier(awayContext.traitSummary)
+    end
+
+    -- 弱队射门加成：OVR 明显落后时提升 goalChance（仍受 weakSideGoalDampen 约束）
+    local function underdogGoalMult(forHome)
+        local boost = matchMods.underdogBoost or 0
+        if boost <= 0 then return 1.0 end
+        local atkCtx = forHome and homeContext or awayContext
+        local defCtx = forHome and awayContext or homeContext
+        local gap = (defCtx.avgPlayerOverall or 70) - (atkCtx.avgPlayerOverall or 70)
+        if gap < UNDERDOG_OVR_GAP then return 1.0 end
+        return 1.0 + boost
     end
 
     -- 弱侧大比分护栏：明显弱旅（OVR差>=12）领先2球后，后续进球概率指数递减
@@ -321,6 +346,7 @@ function MatchEngine._simulateMinutes(fixture, homeContext, awayContext, startMi
                         if p.position == "GK" then keeper = p break end
                     end
                     local chance = SetPieceResolver.penaltyChance(taker, keeper)
+                        * underdogGoalMult(spIsHome)
                         * weakSideGoalDampen(spIsHome)
                     if Random() < chance then
                         addShot(true, true)
@@ -409,7 +435,7 @@ function MatchEngine._simulateMinutes(fixture, homeContext, awayContext, startMi
                             isSetPiece = true,
                             defenderSaveBonus = saveBonus,
                         })
-                        goalChance = goalChance * weakSideGoalDampen(spIsHome)
+                        goalChance = goalChance * underdogGoalMult(spIsHome) * weakSideGoalDampen(spIsHome)
 
                         if Random() < goalChance then
                             addShot(true, true)
@@ -474,7 +500,7 @@ function MatchEngine._simulateMinutes(fixture, homeContext, awayContext, startMi
                     goalChance = TraitEffects.modifyGoalChance(shooter, shooterGroup, goalChance, {
                         defenderSaveBonus = saveBonus,
                     })
-                    goalChance = goalChance * weakSideGoalDampen(isHome)
+                    goalChance = goalChance * underdogGoalMult(isHome) * weakSideGoalDampen(isHome)
                     if Random() < goalChance then
                         local assister = pickAssister(attackContext, shooter)
                         table.insert(events, {
