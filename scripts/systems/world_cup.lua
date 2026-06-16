@@ -135,6 +135,21 @@ function WorldCup._toPlayerNat(fifaCode)
     return FIFA_TO_PLAYER_NAT[fifaCode] or fifaCode
 end
 
+-- 球员 nationality 历史/别名代码 → 标准代码（如青训旧版使用 CN）
+local PLAYER_NAT_ALIASES = {
+    CN = "CHN",
+}
+
+--- 将球员 nationality 规范化为与 _toPlayerNat 一致的标准代码
+function WorldCup._normalizePlayerNat(code)
+    if not code then return code end
+    return PLAYER_NAT_ALIASES[code] or code
+end
+
+function WorldCup._playerMatchesNat(playerNat, targetNat)
+    return WorldCup._normalizePlayerNat(playerNat) == WorldCup._normalizePlayerNat(targetNat)
+end
+
 ------------------------------------------------------
 -- 48支参赛国家队（12组，每组4队）
 -- 基于2026美加墨世界杯真实分组
@@ -1451,7 +1466,7 @@ function WorldCup.buildNationalTeam(gameState, nationCode)
     local playerNat = WorldCup._toPlayerNat(nationCode)
     local nationPlayers = {}
     for _, player in pairs(gameState.players) do
-        if not player.retired and not player.injured and player.nationality == playerNat then
+        if not player.retired and not player.injured and WorldCup._playerMatchesNat(player.nationality, playerNat) then
             table.insert(nationPlayers, player)
         end
     end
@@ -2015,7 +2030,7 @@ function WorldCup.getAvailablePlayers(gameState, nationCode)
     local playerNat = WorldCup._toPlayerNat(nationCode)
     local players = {}
     for _, player in pairs(gameState.players) do
-        if not player.retired and player.nationality == playerNat then
+        if not player.retired and WorldCup._playerMatchesNat(player.nationality, playerNat) then
             table.insert(players, player)
         end
     end

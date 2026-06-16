@@ -186,7 +186,7 @@ local YOUTH_NAMES_BY_NATION = {
 }
 
 -- 使用完整姓名条目（不再拼接名·姓）
-local YOUTH_FULL_NAME_NATIONS = { CN = true, JP = true, KR = true }
+local YOUTH_FULL_NAME_NATIONS = { CHN = true, CN = true, JP = true, KR = true }
 
 -- 名·姓 组合用的名字池（与姓氏池组合，扩大唯一组合数）
 local YOUTH_GIVEN_NAMES = {
@@ -219,7 +219,7 @@ local YOUTH_NATIONALITIES = {
     "MEX",                                                          -- 墨西哥 1/50 = 2%
     "NGA",                                                          -- 尼日利亚 1/50 = 2%
     "JP",                                                           -- 日本 1/50 = 2%
-    "CN",                                                           -- 中国 1/50 = 2%
+    "CHN",                                                          -- 中国 1/50 = 2%
 }
 
 -- 导出常量供 UI 使用
@@ -995,7 +995,7 @@ function YouthManager._generateYouthPlayer(gameState, youthDevBonus, facilityYou
     local nationality
     if teamCountry == "CHN" then
         if RandomInt(1, 100) <= 85 then
-            nationality = "CN"
+            nationality = "CHN"
         else
             nationality = YOUTH_NATIONALITIES[RandomInt(1, #YOUTH_NATIONALITIES)]
         end
