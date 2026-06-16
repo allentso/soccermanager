@@ -764,7 +764,7 @@ function PreMatch._confirmLeave(gameState, team, fixture)
                                     category = "match_result",
                                     title = "比赛结果（模拟）",
                                     body = richBody,
-                                    priority = "high",
+                                    priority = "normal",
                                     extra = { fixtureId = fixture.id },
                                 })
                                 MatchReport.publishPlayerMatchNews(gameState, fixture, report, {

@@ -6,6 +6,20 @@ local EventBus = require("scripts/app/event_bus")
 local MessageManager = {}
 
 ------------------------------------------------------
+-- 优先级工具（inbox / dashboard 共用）
+------------------------------------------------------
+
+local PRIORITY_RANK = { critical = 4, high = 3, normal = 2, low = 1 }
+
+function MessageManager.priorityRank(priority)
+    return PRIORITY_RANK[priority] or 2
+end
+
+function MessageManager.isUrgent(priority)
+    return priority == "high" or priority == "critical"
+end
+
+------------------------------------------------------
 -- 消息模板定义
 ------------------------------------------------------
 local TEMPLATES = {
@@ -45,7 +59,7 @@ local TEMPLATES = {
     contract_expired = {
         category = "contract",
         title = "球员离队",
-        priority = "high",
+        priority = "normal",
         format = "%s 合同到期后未续约，已自由离队。",
     },
     contract_renewed = {
@@ -155,7 +169,7 @@ local TEMPLATES = {
     board_objective = {
         category = "board",
         title = "董事会目标",
-        priority = "high",
+        priority = "normal",
         format = "董事会设定了新赛季目标：%s。",
     },
     board_warning = {

@@ -334,7 +334,7 @@ function TurnProcessor.processMatchDay(gameState, fixtures)
                         category = "match_result",
                         title = prefix .. "比赛结果",
                         body = richBody,
-                        priority = (fixture._isWC or fixture._isEuro) and "normal" or "high",
+                        priority = "normal",
                         extra = { fixtureId = fixture.id },
                     })
                     if isPlayerMatch then

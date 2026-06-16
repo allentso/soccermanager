@@ -1008,7 +1008,7 @@ function ObjectivesManager.onSeasonEnd(gameState)
         title = "赛季目标总结",
         body = string.format("目标完成率: %d%%\n董事会满意度: %d%%",
             rate, team.boardSatisfaction or 50),
-        priority = "high",
+        priority = "normal",
     })
 end
 

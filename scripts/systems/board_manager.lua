@@ -82,9 +82,11 @@ function BoardManager.generateSeasonObjectives(gameState)
 
     BoardManager.syncFromObjectives(gameState)
 
-    -- 给玩家发消息
+    -- 给玩家发消息（若 objectives 系统已发赛季目标确认，则跳过避免重复）
     local playerTeam = gameState:getPlayerTeam()
-    if playerTeam and playerTeam.boardObjective then
+    local objectives = gameState.objectives
+    local hasObjectiveInbox = objectives and objectives.season and #objectives.season > 0
+    if playerTeam and playerTeam.boardObjective and not hasObjectiveInbox then
         MessageManager.send(gameState, "board_objective", { playerTeam.boardObjective }, {
             dedupeKey = "board_objective_" .. tostring(gameState.season or 0),
             permanent = true,

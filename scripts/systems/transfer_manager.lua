@@ -829,7 +829,7 @@ function TransferManager._completeTransfer(gameState, bid, opts)
             title = "转会完成!",
             body = string.format("%s 已正式加盟球队！转会费: %s",
                 player.displayName, fmtMoney(bid.amount)),
-            priority = "high",
+            priority = "normal",
         })
     end
 
@@ -2051,7 +2051,7 @@ function TransferManager._completeIncomingSale(gameState, bid)
         title = "转会完成: " .. player.displayName,
         body = string.format("%s 以 %s 转会至 %s，资金已到账。",
             player.displayName, fmtMoney(bid.amount), buyerTeam.name),
-        priority = "high",
+        priority = "normal",
     })
 
     NewsGenerator.publishTransferNews(gameState, {
@@ -2479,7 +2479,7 @@ function TransferManager._completeLoan(gameState, bid)
             category = "transfer",
             title = "租借完成!",
             body = string.format("%s 已租借加盟球队（%d周）。", player.displayName, bid.loanDuration),
-            priority = "high",
+            priority = "normal",
         })
     end
 
@@ -2531,7 +2531,7 @@ function TransferManager._returnLoanPlayer(gameState, loan, opts)
             category = "transfer",
             title = "球员已召回",
             body = string.format("%s 已被提前召回。", player.displayName),
-            priority = "high",
+            priority = "normal",
         })
     end
 end
@@ -2721,7 +2721,7 @@ function TransferManager.confirmFreeAgent(gameState, negoId)
                 title = "自由签约完成!",
                 body = string.format("%s 已作为自由球员加盟球队（周薪 %s，合同 %d年）。",
                     player.displayName, fmtMoney(nego.wageOffer), nego.yearsOffer),
-                priority = "high",
+                priority = "normal",
             })
             NewsGenerator.publishTransferNews(gameState, {
                 playerId = player.id,
@@ -3016,7 +3016,7 @@ function TransferManager._completeFreeAgentSigning(gameState, nego)
             title = "预签约达成!",
             body = string.format("%s 同意预签约（周薪 %s，%d年）。合同到期后正式加入。",
                 player.displayName, fmtMoney(nego.wageOffer), nego.yearsOffer),
-            priority = "high",
+            priority = "normal",
         })
         NewsGenerator.publishTransferNews(gameState, {
             playerId = player.id,
@@ -3066,7 +3066,7 @@ function TransferManager._completeFreeAgentSigning(gameState, nego)
         title = "自由签约完成!",
         body = string.format("%s 已作为自由球员加盟球队（周薪 %s，合同 %d年）。",
             player.displayName, fmtMoney(nego.wageOffer), nego.yearsOffer),
-        priority = "high",
+        priority = "normal",
     })
 
     NewsGenerator.publishTransferNews(gameState, {
@@ -3129,7 +3129,7 @@ function TransferManager.signFreeAgent(gameState, playerId, wage, years)
         title = "自由签约完成!",
         body = string.format("%s 已作为自由球员加盟球队（周薪 %s，合同 %d年）。",
             player.displayName, fmtMoney(wage), years),
-        priority = "high",
+        priority = "normal",
     })
 
     NewsGenerator.publishTransferNews(gameState, {
@@ -3632,7 +3632,7 @@ function TransferManager._acceptPushSale(gameState, bid)
         title = "推销成功!",
         body = string.format("%s 已以 %s 转会至 %s。",
             player.displayName, fmtMoney(bid.amount), buyerTeam.name),
-        priority = "high",
+        priority = "normal",
     })
 
     NewsGenerator.publishTransferNews(gameState, {
@@ -3848,7 +3848,7 @@ function TransferManager.triggerReleaseClause(gameState, playerId)
         title = "解约金触发!",
         body = string.format("你触发了 %s 的解约金条款（%s），转会自动完成。",
             player.displayName, fmtMoney(amount)),
-        priority = "high",
+        priority = "normal",
     })
 
     return bid
@@ -4211,7 +4211,7 @@ function TransferManager.processPreContracts(gameState)
                         title = "预签约生效!",
                         body = string.format("%s 合同到期，正式加入球队！（周薪 %s，%d年）",
                             player.displayName, fmtMoney(nego.wageOffer), nego.yearsOffer),
-                        priority = "high",
+                        priority = "normal",
                     })
 
                     NewsGenerator.publishTransferNews(gameState, {
@@ -4501,7 +4501,7 @@ function TransferManager.processDailyBids(gameState)
                 title = "转会窗口已关闭",
                 body = string.format("转会窗口已关闭，%d 笔未完成的俱乐部间交易已自动取消。自由球员签约不受影响。",
                     cancelledCount),
-                priority = "high",
+                priority = "normal",
             })
         end
         TransferManager.clearLoanListingsOutsideWindow(gameState)
@@ -4651,9 +4651,7 @@ function TransferManager.processDailyBids(gameState)
                         title = "球员拒绝转会",
                         body = string.format("%s 拒绝加盟 %s。\n原因：%s",
                             playerName, buyerName, reason or "条件不满意"),
-                        priority = "high",
-                        -- 标记为需要弹窗通知
-                        popup = true,
+                        priority = "normal",
                     })
                 end
             end

@@ -18,6 +18,7 @@ local TeamIcon = require("scripts/ui/components/team_icon")
 local WorldCup = require("scripts/systems/world_cup")
 local EuroCup = require("scripts/systems/euro_cup")
 local TransferManager = require("scripts/systems/transfer_manager")
+local MessageManager = require("scripts/systems/message_manager")
 local DomesticCup = require("scripts/systems/domestic_cup")
 local ConfirmDialog = require("scripts/ui/components/confirm_dialog")
 local MessageActionHandlers = require("scripts/ui/message_action_handlers")
@@ -1163,7 +1164,7 @@ function Dashboard._buildUrgentSection(gameState, team)
     -- 高优先级未读消息
     local urgentCount = 0
     for _, msg in ipairs(gameState.inbox) do
-        if not msg.read and msg.priority == "high" then
+        if not msg.read and MessageManager.isUrgent(msg.priority) then
             urgentCount = urgentCount + 1
         end
     end
@@ -1875,7 +1876,7 @@ function Dashboard._buildActivityFeed(gameState)
 
         for _, msg in ipairs(recentMsgs) do
             local dotColor = CAT_COLORS[msg.category] or Theme.COLORS.TEXT_MUTED
-            if msg.priority == "high" then dotColor = Theme.COLORS.DANGER end
+            if MessageManager.isUrgent(msg.priority) then dotColor = Theme.COLORS.DANGER end
 
             table.insert(msgRows, UI.Panel {
                 width = "100%", height = 38,
@@ -3241,7 +3242,7 @@ function Dashboard._buildNTActivityFeed(gameState)
     if #wcMsgs > 0 then
         for _, msg in ipairs(wcMsgs) do
             local dotColor = {255, 215, 0, 255}  -- 金色标识世界杯
-            if msg.priority == "high" then dotColor = Theme.COLORS.DANGER end
+            if MessageManager.isUrgent(msg.priority) then dotColor = Theme.COLORS.DANGER end
 
             table.insert(msgRows, UI.Panel {
                 width = "100%", height = 38,

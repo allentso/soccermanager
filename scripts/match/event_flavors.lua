@@ -219,6 +219,8 @@ function EventFlavors.notifyInjuryMessage(gameState, player, injury, source)
     end
 
     local title = (source == "training") and "训练伤病" or "比赛伤病"
+    local days = injury.days or player.injuryDays or 7
+    local priority = (days >= 14) and "high" or "normal"
     gameState:sendMessage({
         category = "injury",
         title = title,
@@ -226,8 +228,8 @@ function EventFlavors.notifyInjuryMessage(gameState, player, injury, source)
             player.displayName,
             injury.kindName or "未知",
             injury.severityName or "伤情待定",
-            injury.days or player.injuryDays or 7),
-        priority = "high",
+            days),
+        priority = priority,
     })
 end
 

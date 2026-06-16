@@ -139,7 +139,7 @@ function SeasonManager.endSeason(gameState)
         category = "league",
         title = "新赛季开始!",
         body = string.format("%d-%d 赛季已经开始！祝你好运。", gameState.season, gameState.season + 1),
-        priority = "high",
+        priority = "normal",
     })
 
     EventBus.emit("new_season_started", gameState.season)

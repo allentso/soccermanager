@@ -171,7 +171,7 @@ local function notifyLeagueTransferInbox(gameState, opts, tier, playerName, from
         category = "transfer",
         title = title,
         body = body,
-        priority = tier == "S" and "high" or "normal",
+        priority = "normal",
     })
 end
 

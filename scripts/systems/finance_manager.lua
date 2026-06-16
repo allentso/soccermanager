@@ -3,6 +3,7 @@
 
 local EventBus = require("scripts/app/event_bus")
 local Constants = require("scripts/app/constants")
+local MessageManager = require("scripts/systems/message_manager")
 
 local FinanceManager = {}
 
@@ -46,32 +47,39 @@ function FinanceManager.processWeeklyWages(gameState)
                 week = FinanceManager._getWeekNumber(gameState),
             })
 
-            -- 玩家球队：检查财务告警
+            -- 玩家球队：检查财务告警（每周最多各一条）
             if teamId == gameState.playerTeamId then
-                -- 余额不足4周工资警告
+                local weekNum = FinanceManager._getWeekNumber(gameState)
                 if team.balance < totalWage * 4 and team.balance > 0 then
-                    gameState:sendMessage({
-                        category = "finance",
-                        title = "财务警告",
-                        body = string.format(
-                            "球队资金紧张！当前余额 %s，仅够支付约 %d 周薪资。请考虑出售球员或削减开支。",
-                            FinanceManager.formatMoney(team.balance),
-                            math.floor(team.balance / totalWage)
-                        ),
-                        priority = "high",
-                    })
+                    local dedupeKey = "finance_warning_w" .. weekNum
+                    if not MessageManager._isDuplicate(gameState, dedupeKey) then
+                        MessageManager._markSent(gameState, dedupeKey)
+                        gameState:sendMessage({
+                            category = "finance",
+                            title = "财务警告",
+                            body = string.format(
+                                "球队资金紧张！当前余额 %s，仅够支付约 %d 周薪资。请考虑出售球员或削减开支。",
+                                FinanceManager.formatMoney(team.balance),
+                                math.floor(team.balance / totalWage)
+                            ),
+                            priority = "high",
+                        })
+                    end
                 end
-                -- 余额为负
                 if team.balance < 0 then
-                    gameState:sendMessage({
-                        category = "finance",
-                        title = "财务危机",
-                        body = string.format(
-                            "球队已经入不敷出！当前负债 %s。董事会要求立即采取措施削减开支。",
-                            FinanceManager.formatMoney(math.abs(team.balance))
-                        ),
-                        priority = "high",
-                    })
+                    local dedupeKey = "finance_crisis_w" .. weekNum
+                    if not MessageManager._isDuplicate(gameState, dedupeKey) then
+                        MessageManager._markSent(gameState, dedupeKey)
+                        gameState:sendMessage({
+                            category = "finance",
+                            title = "财务危机",
+                            body = string.format(
+                                "球队已经入不敷出！当前负债 %s。董事会要求立即采取措施削减开支。",
+                                FinanceManager.formatMoney(math.abs(team.balance))
+                            ),
+                            priority = "high",
+                        })
+                    end
                 end
             end
         end
@@ -762,7 +770,7 @@ function FinanceManager.processStadiumExpansion(team, gameState)
                 title = "球场扩建完工!",
                 body = string.format("球场扩建已完成！容量从 %d 提升至 %d 座。更多座位意味着更高的比赛日收入！",
                     oldCapacity, team.stadiumCapacity),
-                priority = "high",
+                priority = "normal",
             })
         end
     end

@@ -845,7 +845,7 @@ function MatchEngine.finishMatch(session, gameState, fixture)
                 prefix = prefix,
                 perspectiveTeamId = gameState.playerTeamId,
             }),
-            priority = "high",
+            priority = "normal",
             extra = { fixtureId = fixture.id },
         })
         MatchReport.publishPlayerMatchNews(gameState, fixture, report, {

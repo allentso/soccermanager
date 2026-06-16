@@ -8,6 +8,7 @@ local Router = require("scripts/app/router")
 local Constants = require("scripts/app/constants")
 local BottomSheet = require("scripts/ui/components/bottom_sheet")
 local FinanceManager = require("scripts/systems/finance_manager")
+local MessageManager = require("scripts/systems/message_manager")
 
 local Inbox = {}
 
@@ -120,23 +121,24 @@ local TITLE_FALLBACK = {
     match_preview = "赛前预告",
 }
 
--- 优先级颜色（三级：紧急/重要/普通）
+-- 优先级颜色（critical > high > normal > low）
 local PRIORITY_COLORS = {
-    high = Theme.COLORS.DANGER,         -- 红色紧急
-    normal = Theme.COLORS.GOLD,          -- 金色普通
-    low = Theme.COLORS.TEXT_MUTED,      -- 灰色低优先
+    critical = Theme.COLORS.DANGER,
+    high = Theme.COLORS.DANGER,
+    normal = Theme.COLORS.GOLD,
+    low = Theme.COLORS.TEXT_MUTED,
 }
 
--- 优先级标签
 local PRIORITY_LABELS = {
+    critical = "重大",
     high = "紧急",
     normal = "普通",
     low = "低",
 }
 
--- 优先级图标
 local PRIORITY_ICONS = {
-    high = "🔴",
+    critical = "🔴",
+    high = "🟠",
     normal = "🔵",
     low = "⚪",
 }
@@ -507,8 +509,8 @@ function Inbox.create(params)
         if (not a.read) ~= (not b.read) then return not a.read end
         -- 同为未读时，高优先级在前
         if not a.read and not b.read then
-            local pa = a.priority == "high" and 3 or (a.priority == "normal" and 2 or 1)
-            local pb = b.priority == "high" and 3 or (b.priority == "normal" and 2 or 1)
+            local pa = MessageManager.priorityRank(a.priority)
+            local pb = MessageManager.priorityRank(b.priority)
             if pa ~= pb then return pa > pb end
         end
         -- 日期新→旧
@@ -568,15 +570,16 @@ function Inbox.create(params)
         local catColor = CATEGORY_COLORS[msgCat] or Theme.COLORS.TEXT_MUTED
         local catIcon = CATEGORY_ICONS[msgCat] or "📋"
         local hasActions = (msg.actions and #msg.actions > 0)
-        local isHighPriority = msg.priority == "high"
+        local isUrgent = MessageManager.isUrgent(msg.priority)
         local priorityColor = PRIORITY_COLORS[msg.priority] or Theme.COLORS.GOLD
 
-        -- 行背景：紧急未读最亮，普通未读次之，已读最暗
         local rowBg = Theme.COLORS.TRANSPARENT
-        if isUnread and isHighPriority then
-            rowBg = {40, 20, 20, 255}  -- 暗红底，紧急感
+        if isUnread and msg.priority == "critical" then
+            rowBg = {50, 15, 15, 255}
+        elseif isUnread and isUrgent then
+            rowBg = {40, 20, 20, 255}
         elseif isUnread then
-            rowBg = {20, 28, 48, 255}  -- 微亮底
+            rowBg = {20, 28, 48, 255}
         end
 
         table.insert(msgRows, UI.Panel {
@@ -588,8 +591,8 @@ function Inbox.create(params)
             backgroundColor = rowBg,
             borderBottomWidth = 1,
             -- 紧急消息加左边框
-            borderLeftWidth = isHighPriority and 3 or 0,
-            borderColor = isHighPriority and Theme.COLORS.DANGER or Theme.COLORS.BORDER,
+            borderLeftWidth = isUrgent and 3 or 0,
+            borderColor = isUrgent and Theme.COLORS.DANGER or Theme.COLORS.BORDER,
             children = {
                 -- Row 1: 图标 + 分类 + 标题 + 日期 + 指示器
                 UI.Panel {
