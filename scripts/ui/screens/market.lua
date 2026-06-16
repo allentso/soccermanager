@@ -499,35 +499,24 @@ function Market._buildBrowseContent(gameState, posFilter, searchQuery, ovrRange)
                                 UI.Label { text = p.displayName, fontSize = 14, color = Theme.COLORS.TEXT_PRIMARY, fontWeight = "bold" },
                             },
                         },
-                        (function()
-                            if movedThisWindow then
-                                return UI.Panel {
-                                    width = 36, height = 28,
-                                    backgroundColor = {55, 55, 65, 255},
-                                    borderRadius = 6,
-                                    alignItems = "center",
-                                    justifyContent = "center",
-                                    marginRight = 6,
-                                    onClick = function()
-                                        TransferLimitDialog.show(p.displayName, gameState)
-                                    end,
-                                    children = {
-                                        UI.Label { text = "已转", fontSize = 11, color = Theme.COLORS.TEXT_MUTED, fontWeight = "bold" },
-                                    },
-                                }
-                            end
-                            return nil
-                        end)(),
-                        (function()
-                            if p.potential then
-                                local _, starText = _getPotentialStars(p.potential, scoutAcc)
-                                return UI.Label {
-                                    text = starText,
-                                    fontSize = 10, color = Theme.COLORS.ACCENT, marginRight = 6,
-                                }
-                            end
-                            return nil
-                        end)(),
+                        movedThisWindow and UI.Panel {
+                            width = 36, height = 28,
+                            backgroundColor = {55, 55, 65, 255},
+                            borderRadius = 6,
+                            alignItems = "center",
+                            justifyContent = "center",
+                            marginRight = 6,
+                            onClick = function()
+                                TransferLimitDialog.show(p.displayName, gameState)
+                            end,
+                            children = {
+                                UI.Label { text = "已转", fontSize = 11, color = Theme.COLORS.TEXT_MUTED, fontWeight = "bold" },
+                            },
+                        } or UI.Panel { width = 0, height = 0 },
+                        p.potential and UI.Label {
+                            text = select(2, _getPotentialStars(p.potential, scoutAcc)),
+                            fontSize = 10, color = Theme.COLORS.ACCENT, marginRight = 6,
+                        } or UI.Panel { width = 0, height = 0 },
                         UI.Label {
                             text = tostring(p.overall),
                             fontSize = 16, color = Theme.COLORS.SECONDARY, fontWeight = "bold", marginRight = 10,
@@ -1599,6 +1588,7 @@ function Market._buildListedContent(gameState)
                                             priority = "normal",
                                         })
                                     end
+                                    return
                                 end
                                 Router.replaceWith("market", { tab = "listed" })
                             end,

@@ -14,11 +14,11 @@ local function _windowHint(gameState)
     end
     local month = gameState.date.month
     if month >= 6 and month <= 8 then
-        return "当前为夏窗（6–8 月），冬窗（1 月）开放后可再次操作。"
+        return "当前夏窗(6-8月)，冬窗(1月)开放后可操作。"
     elseif month == 1 then
-        return "当前为冬窗（1 月），夏窗（6–8 月）开放后可再次操作。"
+        return "当前冬窗(1月)，夏窗(6-8月)开放后可操作。"
     end
-    return "下一转会窗（夏窗 6–8 月 / 冬窗 1 月）开放后再试。"
+    return "下一转会窗开放后可操作。"
 end
 
 --- 显示「本窗已转会」说明弹窗
@@ -32,7 +32,7 @@ function TransferLimitDialog.show(playerName, gameState)
     ConfirmDialog.show({
         title = "重复转会限制",
         message = string.format(
-            "%s 在本转会窗已参与过转会、租借或签约。\n\n同一球员每个转会窗只能完成一次流动，本次操作无法继续。\n\n%s",
+            "\n%s 本窗已参与转会、租借或签约。\n\n每个转会窗同一球员只能流动一次。\n\n%s",
             name, _windowHint(gameState)),
         confirmText = "知道了",
         cancelText = "关闭",

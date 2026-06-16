@@ -11,6 +11,7 @@ local BottomSheet = require("scripts/ui/components/bottom_sheet")
 local SaveManager = require("scripts/persistence/save_manager")
 local TransferManager = require("scripts/systems/transfer_manager")
 local FormationShape = require("scripts/match/formation_shape")
+local Team = require("scripts/domain/team")
 
 local PreMatch = {}
 
@@ -563,9 +564,42 @@ function PreMatch.create(params)
                         children = {
                             UI.Panel {
                                 width = "100%", flexDirection = "row", alignItems = "center", justifyContent = "space-between",
-                                children = {
-                                    Theme.Subtitle { text = string.format("首发阵容 (%d/11)", #startingXI) },
-                                    UI.Button {
+                                children = (function()
+                                    local headerChildren = {
+                                        Theme.Subtitle { text = string.format("首发阵容 (%d/11)", #startingXI) },
+                                        UI.Panel { flexGrow = 1 },
+                                    }
+                                    -- 方案 A/B 按钮（仅俱乐部模式，靠右紧贴一键配置）
+                                    local isNTMatch = fixture._isWC or fixture._isEuro
+                                    if not isNTMatch then
+                                        Team.ensureLineupPresets(team)
+                                        local activePreset = team.activeLineupPreset or "A"
+                                        local function makePresetBtn(key)
+                                            local isActive = activePreset == key
+                                            return UI.Button {
+                                                text = "方案" .. key,
+                                                height = 26,
+                                                paddingLeft = 10, paddingRight = 10,
+                                                backgroundColor = isActive
+                                                    and {Theme.COLORS.SECONDARY[1], Theme.COLORS.SECONDARY[2], Theme.COLORS.SECONDARY[3], 200}
+                                                    or {Theme.COLORS.ACCENT[1], Theme.COLORS.ACCENT[2], Theme.COLORS.ACCENT[3], 40},
+                                                borderRadius = 13,
+                                                fontSize = 11,
+                                                color = isActive and Theme.COLORS.TEXT_PRIMARY or Theme.COLORS.ACCENT,
+                                                fontWeight = isActive and "bold" or "normal",
+                                                marginRight = 6,
+                                                onClick = function()
+                                                    if activePreset == key then return end
+                                                    Team.saveActiveLineupPreset(team)
+                                                    Team.switchLineupPreset(team, key)
+                                                    Router.replaceWith("pre_match", { fixture = fixture })
+                                                end,
+                                            }
+                                        end
+                                        table.insert(headerChildren, makePresetBtn("A"))
+                                        table.insert(headerChildren, makePresetBtn("B"))
+                                    end
+                                    table.insert(headerChildren, UI.Button {
                                         text = "一键配置",
                                         height = 26,
                                         paddingLeft = 10, paddingRight = 10,
@@ -578,8 +612,9 @@ function PreMatch.create(params)
                                             _saveIntlLineup(gameState, team, fixture)
                                             Router.replaceWith("pre_match", { fixture = fixture })
                                         end,
-                                    },
-                                },
+                                    })
+                                    return headerChildren
+                                end)(),
                             },
                             UI.Panel { width = "100%", marginTop = 4, children = startingRows },
                         }
