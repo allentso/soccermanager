@@ -117,36 +117,39 @@ function Settings.create(params)
                         }
                     },
 
-                    -- 游戏设置
+                    -- 游戏设置 + 赛程修复（双列）
                     Theme.Card {
                         children = {
-                            Settings._sectionTitle("游戏设置"),
-                            Settings._selectRow("货币显示", {
-                                { key = "wan", label = "万 (w)" },
-                                { key = "km", label = "K/M" },
-                            }, _settings.currencyUnit, function(v)
-                                _settings.currencyUnit = v
-                                Settings._saveSettings()
-                                Router.replaceWith("settings")
-                            end),
-                            -- 赛程修复工具（面向玩家）
                             UI.Panel {
-                                width = "100%",
-                                marginTop = 14,
-                                paddingTop = 14,
-                                borderTopWidth = 1,
-                                borderTopColor = Theme.COLORS.DIVIDER,
+                                width = "100%", flexDirection = "row", alignItems = "flex-start",
                                 children = {
+                                    -- 左栏：游戏设置
                                     UI.Panel {
-                                        width = "100%",
-                                        flexDirection = "row",
-                                        justifyContent = "spaceBetween",
-                                        alignItems = "center",
+                                        flexGrow = 1, flexBasis = 0, flexShrink = 1,
+                                        paddingRight = 8,
                                         children = {
+                                            Settings._sectionTitle("游戏设置"),
+                                            Settings._selectRow("货币显示", {
+                                                { key = "wan", label = "万 (w)" },
+                                                { key = "km", label = "K/M" },
+                                            }, _settings.currencyUnit, function(v)
+                                                _settings.currencyUnit = v
+                                                Settings._saveSettings()
+                                                Router.replaceWith("settings")
+                                            end),
+                                        },
+                                    },
+                                    -- 右栏：赛程修复
+                                    UI.Panel {
+                                        flexGrow = 1, flexBasis = 0, flexShrink = 1,
+                                        paddingLeft = 8,
+                                        children = {
+                                            Settings._sectionTitle("赛程修复"),
                                             UI.Label {
-                                                text = "赛程修复",
-                                                fontSize = 14,
-                                                color = Theme.COLORS.TEXT_PRIMARY,
+                                                text = "如遇比赛积压卡顿，点击可自动补齐逾期比赛",
+                                                fontSize = 11,
+                                                color = Theme.COLORS.TEXT_MUTED,
+                                                marginBottom = 8,
                                             },
                                             UI.Button {
                                                 text = "一键修复",
@@ -160,47 +163,15 @@ function Settings.create(params)
                                                     Settings._repairOverdueFixtures()
                                                 end,
                                             },
-                                        }
+                                        },
                                     },
-                                    UI.Label {
-                                        text = "如遇比赛积压卡顿，点击可自动补齐逾期比赛",
-                                        fontSize = 11,
-                                        color = Theme.COLORS.TEXT_MUTED,
-                                        marginTop = 6,
-                                    },
-                                }
+                                },
                             },
                         }
                     },
 
-                    -- 难度调节 + 存档设置（合并双栏）
+                    -- 难度调节 + 存档设置 + 新游戏（合并双栏）
                     Settings._buildDifficultyAndSaveCard(),
-
-                    -- 开始新游戏
-                    Theme.Card {
-                        children = {
-                            Settings._sectionTitle("新游戏"),
-                            UI.Label {
-                                text = "放弃当前存档，重新选择球队开始新赛季",
-                                fontSize = 12,
-                                color = Theme.COLORS.TEXT_MUTED,
-                                marginBottom = 10,
-                            },
-                            UI.Button {
-                                text = "开始新游戏",
-                                width = "100%",
-                                height = 44,
-                                backgroundColor = Theme.COLORS.DANGER,
-                                borderRadius = 8,
-                                fontSize = 14,
-                                fontWeight = "bold",
-                                color = "#FFFFFF",
-                                onClick = function()
-                                    Settings._confirmNewGame()
-                                end,
-                            },
-                        }
-                    },
 
                     -- 帮助与指引
                     Theme.Card {
@@ -1211,10 +1182,6 @@ function Settings._buildCompensationSection()
 
     return UI.Panel {
         width = "100%",
-        marginTop = 14,
-        paddingTop = 14,
-        borderTopWidth = 1,
-        borderTopColor = Theme.COLORS.DIVIDER,
         children = {
             UI.Panel {
                 width = "100%",
@@ -1786,26 +1753,58 @@ function Settings._cheatBudgetAllocationTest()
 end
 
 ------------------------------------------------------
--- 难度调节 + 存档设置（双栏合并）
+-- 难度调节 + 存档设置（紧凑单栏布局）
 ------------------------------------------------------
 function Settings._buildDifficultyAndSaveCard()
     local diff = DifficultySettings.get()
     local params = DifficultySettings.PARAMS
 
-    -- 左栏：难度调节
-    ---@type table[]
-    local diffChildren = {
-        Settings._sectionTitle("难度调节"),
-    }
-    for _, param in ipairs(params) do
-        local currentTier = diff[param.key] or 2
-        diffChildren[#diffChildren + 1] = Settings._difficultyTierRow(param, currentTier)
+    -- 补偿面板（放在球员成长右侧）
+    local compensationPanel = Settings._buildCompensationSection()
+
+    -- 难度项用 2 列网格排列
+    local diffGridRows = {}
+    for i = 1, #params, 2 do
+        local left = params[i]
+        local right = params[i + 1]
+        local leftTier = diff[left.key] or 2
+        local rowChildren = {
+            UI.Panel {
+                flexGrow = 1, flexBasis = 0, flexShrink = 1,
+                paddingRight = 6,
+                children = { Settings._difficultyTierRow(left, leftTier) },
+            },
+        }
+        if right then
+            local rightTier = diff[right.key] or 2
+            rowChildren[#rowChildren + 1] = UI.Panel {
+                flexGrow = 1, flexBasis = 0, flexShrink = 1,
+                paddingLeft = 6,
+                children = { Settings._difficultyTierRow(right, rightTier) },
+            }
+        else
+            -- 奇数项（球员成长）：右侧放版本补偿
+            rowChildren[#rowChildren + 1] = UI.Panel {
+                flexGrow = 1, flexBasis = 0, flexShrink = 1,
+                paddingLeft = 6,
+                children = { compensationPanel },
+            }
+        end
+        -- 行间分隔线（非首行）
+        if i > 1 then
+            diffGridRows[#diffGridRows + 1] = UI.Panel {
+                width = "100%", height = 1, marginBottom = 6,
+                backgroundColor = Theme.COLORS.BORDER,
+            }
+        end
+        diffGridRows[#diffGridRows + 1] = UI.Panel {
+            width = "100%", flexDirection = "row",
+            children = rowChildren,
+        }
     end
 
-    -- 右栏：存档设置
-    ---@type table[]
+    -- 存档设置（左栏）
     local saveChildren = {
-        Settings._sectionTitle("存档设置"),
         Settings._toggleRow("自动保存", _settings.autoSave, function(v)
             _settings.autoSave = v
             SettingsManager.set("autoSave", v)
@@ -1828,38 +1827,54 @@ function Settings._buildDifficultyAndSaveCard()
             Settings._saveSettings()
             Router.replaceWith("settings")
         end),
-        -- 补偿领取区域（一次性，领取后消失）
-        Settings._buildCompensationSection(),
     }
 
     return Theme.Card {
         children = {
+            Settings._sectionTitle("难度调节"),
+            UI.Panel { width = "100%", children = diffGridRows },
+            -- 分隔线
             UI.Panel {
-                flexDirection = "row",
-                width = "100%",
-                alignItems = "stretch",
+                width = "100%", height = 1, marginTop = 8, marginBottom = 10,
+                backgroundColor = Theme.COLORS.BORDER,
+            },
+            -- 存档 + 新游戏 双列
+            UI.Panel {
+                width = "100%", flexDirection = "row", alignItems = "flex-start",
                 children = {
-                    -- 左栏：难度
                     UI.Panel {
-                        flexGrow = 1,
-                        flexBasis = 0,
-                        flexShrink = 1,
+                        flexGrow = 1, flexBasis = 0, flexShrink = 1,
                         paddingRight = 8,
-                        children = diffChildren,
+                        children = {
+                            Settings._sectionTitle("存档设置"),
+                            UI.Panel { width = "100%", children = saveChildren },
+                        },
                     },
-                    -- 分隔线
                     UI.Panel {
-                        width = 1,
-                        alignSelf = "stretch",
-                        backgroundColor = Theme.COLORS.BORDER,
-                    },
-                    -- 右栏：存档
-                    UI.Panel {
-                        flexGrow = 1,
-                        flexBasis = 0,
-                        flexShrink = 1,
-                        paddingLeft = 12,
-                        children = saveChildren,
+                        flexGrow = 1, flexBasis = 0, flexShrink = 1,
+                        paddingLeft = 8,
+                        children = {
+                            Settings._sectionTitle("新游戏"),
+                            UI.Label {
+                                text = "放弃当前存档，重新选队开始新赛季",
+                                fontSize = 11,
+                                color = Theme.COLORS.TEXT_MUTED,
+                                marginBottom = 10,
+                            },
+                            UI.Button {
+                                text = "开始新游戏",
+                                width = "100%",
+                                height = 36,
+                                backgroundColor = Theme.COLORS.DANGER,
+                                borderRadius = 6,
+                                fontSize = 13,
+                                fontWeight = "bold",
+                                color = "#FFFFFF",
+                                onClick = function()
+                                    Settings._confirmNewGame()
+                                end,
+                            },
+                        },
                     },
                 },
             },

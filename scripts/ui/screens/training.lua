@@ -367,8 +367,18 @@ function Training._buildIndividualTab(players, gameState)
                 posTrainLabel = (p.positionTrainingProgress or 0) .. "%"
             end
 
+            -- 参训简化显示：只显示天数比例
+            local partShort = partLabel
+            -- 尝试只取天数部分（如 "0/25" 从 "0/25 · 25%"）
+            local daysPart = partLabel:match("^(%d+/%d+)")
+            if daysPart then partShort = daysPart end
+
+            local ovrColor = Theme.COLORS.TEXT_SECONDARY
+            if p.overall >= 80 then ovrColor = Theme.COLORS.SECONDARY
+            elseif p.overall >= 70 then ovrColor = Theme.COLORS.TEXT_PRIMARY end
+
             table.insert(rows, UI.Panel {
-                width = "100%", height = 48,
+                width = "100%", height = 52,
                 flexDirection = "row", alignItems = "center",
                 paddingLeft = 10, paddingRight = 10,
                 borderBottomWidth = 1, borderColor = Theme.COLORS.BORDER,
@@ -383,12 +393,13 @@ function Training._buildIndividualTab(players, gameState)
                         flexGrow = 1, flexShrink = 1,
                     },
                     UI.Label {
-                        text = partLabel,
-                        fontSize = 10, color = partColor, width = 72, textAlign = "right",
+                        text = partShort,
+                        fontSize = 11, color = partColor, width = 44, textAlign = "center",
                     },
                     UI.Label {
                         text = tostring(p.overall),
-                        fontSize = 12, color = Theme.COLORS.TEXT_SECONDARY, width = 26,
+                        fontSize = 12, color = ovrColor, width = 32, textAlign = "center",
+                        fontWeight = "bold",
                     },
                     UI.Button {
                         text = focusLabel,
@@ -422,6 +433,23 @@ function Training._buildIndividualTab(players, gameState)
         })
     end
 
+    -- 表头行
+    local headerRow = UI.Panel {
+        width = "100%", height = 32,
+        flexDirection = "row", alignItems = "center",
+        paddingLeft = 10, paddingRight = 10,
+        borderBottomWidth = 1, borderColor = Theme.COLORS.BORDER,
+        backgroundColor = {255, 255, 255, 8},
+        children = {
+            UI.Label { text = "位置", fontSize = 10, color = Theme.COLORS.TEXT_MUTED, width = 48 },
+            UI.Label { text = "球员", fontSize = 10, color = Theme.COLORS.TEXT_MUTED, flexGrow = 1, flexShrink = 1 },
+            UI.Label { text = "参训", fontSize = 10, color = Theme.COLORS.TEXT_MUTED, width = 44, textAlign = "center" },
+            UI.Label { text = "能力", fontSize = 10, color = Theme.COLORS.TEXT_MUTED, width = 32, textAlign = "center" },
+            UI.Label { text = "专项", fontSize = 10, color = Theme.COLORS.TEXT_MUTED, width = 56, textAlign = "center" },
+            UI.Label { text = "位置", fontSize = 10, color = Theme.COLORS.TEXT_MUTED, width = 44, textAlign = "center", marginLeft = 4 },
+        },
+    }
+
     return UI.Panel {
         width = "100%",
         children = {
@@ -430,8 +458,9 @@ function Training._buildIndividualTab(players, gameState)
                     Theme.Subtitle { text = "个人训练分配" },
                     UI.Label {
                         text = "为每位球员设置专项训练；位置按钮可设第二位置学习目标（实战 +5%/场）",
-                        fontSize = 11, color = Theme.COLORS.TEXT_MUTED, marginBottom = 8,
+                        fontSize = 11, color = Theme.COLORS.TEXT_MUTED, marginBottom = 10,
                     },
+                    headerRow,
                     UI.Panel { width = "100%", children = rows },
                 }
             },
