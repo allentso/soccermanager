@@ -1900,18 +1900,21 @@ function Settings._difficultyTierRow(param, currentTier)
     local tierLabels = param.tierLabels or DifficultySettings.TIER_LABELS
     local tierButtons = {}
     for i, tierName in ipairs(tierLabels) do
-        local isActive = (i == currentTier)
-        tierButtons[#tierButtons + 1] = UI.Button {
+        tierButtons[i] = UI.Button {
             text = tierName,
             fontSize = 11,
             width = 52,
             height = 26,
             marginRight = (i < 3) and 4 or 0,
-            variant = isActive and "primary" or "ghost",
+            variant = (i == currentTier) and "primary" or "ghost",
             onClick = function(self)
                 DifficultySettings.set(param.key, i)
                 Settings._saveSettings()
-                Router.replaceWith("settings")
+                -- 就地更新按钮高亮与提示文案，避免整页重建造成的闪烁
+                for j, btn in ipairs(tierButtons) do
+                    btn:SetVariant((j == i) and "primary" or "ghost")
+                end
+                hintLabel:SetText(param.tierHints[i] or "")
             end,
         }
     end
