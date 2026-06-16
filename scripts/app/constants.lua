@@ -6,7 +6,7 @@ local Constants = {}
 -- 游戏版本
 Constants.VERSION = "2.3.1"
 Constants.VERSION_MAJOR = "v" .. Constants.VERSION:match("^(%d+)")
-Constants.SAVE_VERSION = 9
+Constants.SAVE_VERSION = 11
 
 -- 赛季设置
 Constants.SEASON_START_MONTH = 8   -- 8月开始

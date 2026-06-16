@@ -8,6 +8,7 @@ local EventBus = require("scripts/app/event_bus")
 local RecordsManager = require("scripts/systems/records_manager")
 local HistoryManager = require("scripts/systems/history_manager")
 local NationIconRegistry = require("scripts/data/nation_icon_registry")
+local Nationality = require("scripts/domain/nationality")
 
 local WorldCup = {}
 
@@ -113,41 +114,20 @@ local NON_SEED_NATIONS = {
 }
 
 ------------------------------------------------------
--- FIFA国家代码 → 球员数据nationality代码 的映射
--- 世界杯用FIFA代码(如CRO)，球员数据用ISO或自定义代码(如HR)
+-- 国籍代码规范化（见 scripts/domain/nationality.lua）
 ------------------------------------------------------
-local FIFA_TO_PLAYER_NAT = {
-    ALB = "AL", ALG = "DZ", ARG = "AR", AUS = "AU", AUT = "AT", BEL = "BE", BIH = "BA",
-    BRA = "BR", CAN = "CA", CHN = "CHN", CIV = "CI", COD = "CD", COL = "CO",
-    CPV = "CAP", CRO = "HR", CUW = "CUW", CZE = "CZ", DEN = "DK", ECU = "EC",
-    EGY = "EG", ENG = "ENG", ESP = "ES", FRA = "FR", GEO = "GE", GER = "DE",
-    GHA = "GH", HAI = "HT", HON = "HN", HUN = "HU", IRN = "IR", IRQ = "IRQ",
-    ITA = "IT", JOR = "JOR", JPN = "JP", KOR = "KR", KSA = "KSA", MAR = "MA",
-    MEX = "MX", NED = "NL", NOR = "NO", NZL = "NZ", PAN = "PA",
-    PAR = "PY", PER = "PE", POL = "PL", POR = "PT", QAT = "QAT",
-    ROU = "RO", RSA = "ZA", SCO = "SCO", SEN = "SN", SRB = "RS",
-    SUI = "CH", SVK = "SK", SVN = "SI", SWE = "SE",
-    TUN = "TN", TUR = "TR", UKR = "UA", URU = "UY", USA = "US", UZB = "UZB",
-}
 
 --- 将 FIFA 国家代码转为球员数据中的 nationality 代码
 function WorldCup._toPlayerNat(fifaCode)
-    return FIFA_TO_PLAYER_NAT[fifaCode] or fifaCode
+    return Nationality.toPlayerNat(fifaCode)
 end
 
--- 球员 nationality 历史/别名代码 → 标准代码（如青训旧版使用 CN）
-local PLAYER_NAT_ALIASES = {
-    CN = "CHN",
-}
-
---- 将球员 nationality 规范化为与 _toPlayerNat 一致的标准代码
 function WorldCup._normalizePlayerNat(code)
-    if not code then return code end
-    return PLAYER_NAT_ALIASES[code] or code
+    return Nationality.normalize(code)
 end
 
 function WorldCup._playerMatchesNat(playerNat, targetNat)
-    return WorldCup._normalizePlayerNat(playerNat) == WorldCup._normalizePlayerNat(targetNat)
+    return Nationality.matches(playerNat, targetNat)
 end
 
 ------------------------------------------------------
@@ -1360,6 +1340,24 @@ function WorldCup.isPlayerNationMatch(gameState, fixture)
     local playerNation = WorldCup._getPlayerNation(gameState)
     if not playerNation then return false end
     return fixture.homeTeamId == playerNation or fixture.awayTeamId == playerNation
+end
+
+--- 补全国际大赛 fixture 的运行时标记（_isWC/_isEuro 不持久化，读档/子页面返回后可能丢失）
+function WorldCup.ensureIntlFixtureFlags(gameState, fixture)
+    if not fixture or fixture._isWC or fixture._isEuro then return end
+    if gameState.teams[fixture.homeTeamId] and gameState.teams[fixture.awayTeamId] then
+        return
+    end
+    local euro = gameState.euroCup
+    if euro and euro.phase ~= "not_started" and euro.phase ~= "completed" then
+        fixture._isEuro = true
+        fixture._isWC = true
+        return
+    end
+    local wc = gameState.worldCup
+    if wc and wc.phase ~= "not_started" and wc.phase ~= "completed" then
+        fixture._isWC = true
+    end
 end
 
 ------------------------------------------------------

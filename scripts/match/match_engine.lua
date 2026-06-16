@@ -629,8 +629,9 @@ end
 
 --- 解析 fixture 对应的主客队（俱乐部或世界杯虚拟国家队）
 function MatchEngine._resolveTeams(gameState, fixture)
+    local WorldCup = require("scripts/systems/world_cup")
+    WorldCup.ensureIntlFixtureFlags(gameState, fixture)
     if fixture._isWC or fixture._isEuro then
-        local WorldCup = require("scripts/systems/world_cup")
         local homeTeam = WorldCup.buildNationalTeam(gameState, fixture.homeTeamId)
         local awayTeam = WorldCup.buildNationalTeam(gameState, fixture.awayTeamId)
         return homeTeam, awayTeam

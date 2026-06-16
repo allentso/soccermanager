@@ -10,6 +10,7 @@ local PotentialSystem = require("scripts/systems/potential_system")
 local TrainingManager = require("scripts/systems/training_manager")
 local DifficultySettings = require("scripts/systems/difficulty_settings")
 local FinanceManager = require("scripts/systems/finance_manager")
+local Nationality = require("scripts/domain/nationality")
 
 local YouthManager = {}
 
@@ -464,7 +465,7 @@ function YouthManager.signCandidate(gameState, candidateIndex)
         firstName = candidate.firstName,
         lastName = candidate.lastName,
         displayName = candidate.displayName,
-        nationality = candidate.nationality,
+        nationality = Nationality.normalize(candidate.nationality),
         birthYear = math.floor(candidate.birthYear),
         position = candidate.position,
         attributes = candidate.attributes,
@@ -1009,7 +1010,7 @@ function YouthManager._generateYouthPlayer(gameState, youthDevBonus, facilityYou
         firstName = firstName,
         lastName = lastName,
         displayName = displayName,
-        nationality = nationality,
+        nationality = Nationality.normalize(nationality),
         birthYear = birthYear,
         position = position,
         potential = potential,
@@ -1114,7 +1115,7 @@ function YouthManager.fillAllTeamsYouth(gameState)
                     firstName = candidate.firstName,
                     lastName = candidate.lastName,
                     displayName = candidate.displayName,
-                    nationality = candidate.nationality,
+                    nationality = Nationality.normalize(candidate.nationality),
                     birthYear = math.floor(candidate.birthYear),
                     position = candidate.position,
                     attributes = candidate.attributes,
@@ -1310,7 +1311,7 @@ function YouthManager.doSinglePull(gameState)
             firstName = lData.full_name_cn or lData.match_name or "传奇",
             lastName = lData.full_name_cn or lData.match_name or "球星",
             displayName = lData.full_name_cn or lData.match_name or "传奇球星",
-            nationality = lData.football_nation or lData.nationality or "BRA",
+            nationality = Nationality.normalize(lData.football_nation or lData.nationality or "BRA"),
             birthYear = gameState.date.year - legendAge,
             position = mappedPos,
             potential = lData.potential or 95,
@@ -1440,7 +1441,7 @@ function YouthManager.doTenPull(gameState)
                 firstName = lData.full_name_cn or lData.match_name or "传奇",
                 lastName = lData.full_name_cn or lData.match_name or "球星",
                 displayName = lData.full_name_cn or lData.match_name or "传奇球星",
-                nationality = lData.football_nation or lData.nationality or "BRA",
+                nationality = Nationality.normalize(lData.football_nation or lData.nationality or "BRA"),
                 birthYear = gameState.date.year - legendAge,  -- 传奇以年轻体呈现
                 position = mappedPos,
                 potential = lData.potential or 95,
@@ -1583,7 +1584,7 @@ function YouthManager._processAITeamsMonthly(gameState)
                             firstName = candidate.firstName,
                             lastName = candidate.lastName,
                             displayName = candidate.displayName,
-                            nationality = candidate.nationality,
+                            nationality = Nationality.normalize(candidate.nationality),
                             birthYear = math.floor(candidate.birthYear),
                             position = candidate.position,
                             attributes = candidate.attributes,

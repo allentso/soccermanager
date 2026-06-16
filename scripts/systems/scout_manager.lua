@@ -5,6 +5,7 @@ local Constants = require("scripts/app/constants")
 local StaffManager = require("scripts/systems/staff_manager")
 local MessageManager = require("scripts/systems/message_manager")
 local FinanceManager = require("scripts/systems/finance_manager")
+local Nationality = require("scripts/domain/nationality")
 
 local ScoutManager = {}
 
@@ -454,7 +455,7 @@ function ScoutManager._findCandidates(gameState, filters)
 
             -- 国籍筛选
             if pass and filters.nationality and filters.nationality ~= "" then
-                if player.nationality ~= filters.nationality then
+                if not Nationality.matches(player.nationality, filters.nationality) then
                     pass = false
                 end
             end

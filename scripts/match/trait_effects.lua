@@ -110,6 +110,11 @@ function TraitEffects.applyTeamContribution(player, group, acc)
         acc.possession = acc.possession + 1.15
         acc.attack = acc.attack + 0.45
     end
+    if has(player, "libero") and group == "DEF" then
+        acc.defense = acc.defense + 1.25
+        acc.possession = acc.possession + 0.85
+        acc.counter = acc.counter + 0.03
+    end
     if has(player, "box_to_box") and group == "MID" then
         acc.attack = acc.attack + 0.65
         acc.defense = acc.defense + 0.65
@@ -289,6 +294,9 @@ function TraitEffects.modifyAssisterWeight(player, group, weight)
     end
     if has(player, "ball_playing_defender") and group == "DEF" then
         weight = weight * 1.20
+    end
+    if has(player, "libero") and group == "DEF" then
+        weight = weight * 1.18
     end
     if has(player, "team_player") then
         weight = weight * 1.08

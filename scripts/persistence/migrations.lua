@@ -456,19 +456,31 @@ function Migrations.v7_to_v8(gameStateData)
     print("[SaveMigration] v7→v8: 重算了 " .. totalFixed .. " 个联赛的积分榜（剔除杯赛误计分）")
 end
 
---- 从特质列表中移除门将专属特质（用于非门将球员）
-local function stripGkTraitsFromList(traits, normalizeTraitId, isGkOnlyTrait)
+--- 非门将 traits 迁移：shot_stopper 移除，sweeper_keeper → libero（仅传奇保留 libero）
+local function migrateOutfieldTraitList(traits, position, isLegend)
     if type(traits) ~= "table" or #traits == 0 then return traits, false end
-    local filtered = {}
-    local changed = false
+
+    local Player = require("scripts/domain/player")
+    local filtered, seen, changed = {}, {}, false
+
     for _, raw in ipairs(traits) do
-        local id = normalizeTraitId(raw) or raw
-        if isGkOnlyTrait(id) then
+        local resolved = Player.resolveTraitId(raw, position)
+        if resolved == "libero" and not isLegend then
             changed = true
+        elseif not resolved then
+            changed = true
+        elseif not seen[resolved] then
+            seen[resolved] = true
+            filtered[#filtered + 1] = resolved
+            local normalized = Player.normalizeTraitId(raw)
+            if normalized ~= resolved or raw ~= resolved then
+                changed = true
+            end
         else
-            filtered[#filtered + 1] = raw
+            changed = true
         end
     end
+
     return filtered, changed
 end
 
@@ -478,7 +490,6 @@ function Migrations.v8_to_v9(gameStateData)
     local players = gameStateData.players
     if not players then return end
 
-    local Player = require("scripts/domain/player")
     local migrated = 0
 
     for _, pData in pairs(players) do
@@ -486,8 +497,8 @@ function Migrations.v8_to_v9(gameStateData)
             local changed = false
 
             if pData.traits then
-                local filtered, traitsChanged = stripGkTraitsFromList(
-                    pData.traits, Player.normalizeTraitId, Player.isGkOnlyTrait)
+                local filtered, traitsChanged = migrateOutfieldTraitList(
+                    pData.traits, pData.position, pData.isLegend)
                 if traitsChanged then
                     pData.traits = filtered
                     changed = true
@@ -495,8 +506,8 @@ function Migrations.v8_to_v9(gameStateData)
             end
 
             if pData.innateTraits then
-                local filtered, innateChanged = stripGkTraitsFromList(
-                    pData.innateTraits, Player.normalizeTraitId, Player.isGkOnlyTrait)
+                local filtered, innateChanged = migrateOutfieldTraitList(
+                    pData.innateTraits, pData.position, pData.isLegend)
                 if innateChanged then
                     pData.innateTraits = filtered
                     changed = true
@@ -508,6 +519,119 @@ function Migrations.v8_to_v9(gameStateData)
     end
 
     print("[SaveMigration] v8→v9: 已修正 " .. migrated .. " 名非门将球员的门将专属特质")
+end
+
+--- 非门将且 JSON traits 含 Sweeper 的传奇（清道夫）；loader 不可用时的兜底
+local LEGEND_LIBERO_NAME_FALLBACK = {
+    ["贝肯鲍尔"] = true, ["Beckenbauer"] = true,
+    ["巴雷西"] = true, ["Baresi"] = true,
+    ["博比·摩尔"] = true, ["Moore"] = true,
+    ["劳伦特·布兰科"] = true, ["Blanc"] = true,
+    ["马蒂亚斯·萨默尔"] = true, ["Sammer"] = true,
+    ["里奥·费迪南德"] = true, ["Ferdinand"] = true,
+}
+
+--- 构建 JSON 中应持有清道夫特质的传奇球员名字集合（非门将且 traits 含 Sweeper）
+local function buildLegendLiberoNameSet()
+    local names = {}
+    for key in pairs(LEGEND_LIBERO_NAME_FALLBACK) do
+        names[key] = true
+    end
+
+    local ok, err = pcall(function()
+        local LegendsLoader = require("scripts/data/legends_loader")
+        for _, lData in ipairs(LegendsLoader.loadAllPlayers()) do
+            if lData.position ~= "Goalkeeper" and type(lData.traits) == "table" then
+                for _, t in ipairs(lData.traits) do
+                    if t == "Sweeper" or t == "sweeper" then
+                        local cn = lData.full_name_cn
+                        local en = lData.match_name
+                        if cn then names[cn] = true end
+                        if en then names[en] = true end
+                        break
+                    end
+                end
+            end
+        end
+    end)
+    if not ok then
+        print("[SaveMigration] buildLegendLiberoNameSet: loader 失败，使用兜底名单 - " .. tostring(err))
+    end
+    return names
+end
+
+local function legendShouldHaveLibero(pData, liberoNames)
+    if liberoNames[pData.legendName] then return true end
+    if liberoNames[pData.displayName] then return true end
+    return false
+end
+
+local function traitListHasId(traits, wantId)
+    if type(traits) ~= "table" then return false end
+    local Player = require("scripts/domain/player")
+    for _, raw in ipairs(traits) do
+        if Player.normalizeTraitId(raw) == wantId then return true end
+    end
+    return false
+end
+
+--- v9 → v10: 为非门将传奇补回清道夫特质（Sweeper 误映射为出击型门将后被移除的存档）
+function Migrations.v9_to_v10(gameStateData)
+    local players = gameStateData.players
+    if not players then return end
+
+    local liberoNames = buildLegendLiberoNameSet()
+    local migrated = 0
+
+    for _, pData in pairs(players) do
+        if not pData.isLegend or pData.position == "GK" then goto continue end
+
+        local legendName = pData.legendName or pData.displayName
+        if not legendShouldHaveLibero(pData, liberoNames) then goto continue end
+        if traitListHasId(pData.traits, "libero") then goto continue end
+
+        pData.traits = pData.traits or {}
+        table.insert(pData.traits, "libero")
+        migrated = migrated + 1
+
+        ::continue::
+    end
+
+    print("[SaveMigration] v9→v10: 已为 " .. migrated .. " 名传奇后卫补回清道夫特质")
+end
+
+--- v10 → v11: 统一球员 nationality 为标准代码（青训 FIFA 三字码如 ITA→IT）
+function Migrations.v10_to_v11(gameStateData)
+    local Nationality = require("scripts/domain/nationality")
+    local players = gameStateData.players
+    if not players then return end
+
+    local migrated = 0
+    for _, pData in pairs(players) do
+        if pData.nationality then
+            local normalized = Nationality.normalize(pData.nationality)
+            if normalized ~= pData.nationality then
+                pData.nationality = normalized
+                migrated = migrated + 1
+            end
+        end
+    end
+
+    -- 候选池中的青训球员（尚未签入）
+    local candidates = gameStateData._youthCandidates
+    if candidates then
+        for _, cData in ipairs(candidates) do
+            if cData.nationality then
+                local normalized = Nationality.normalize(cData.nationality)
+                if normalized ~= cData.nationality then
+                    cData.nationality = normalized
+                    migrated = migrated + 1
+                end
+            end
+        end
+    end
+
+    print("[SaveMigration] v10→v11: 已规范化 " .. migrated .. " 条球员 nationality 记录")
 end
 
 --- 迁移路由：根据存档版本逐级升级
@@ -554,6 +678,16 @@ function Migrations.run(saveData)
     if version < 9 then
         Migrations.v8_to_v9(saveData.game_state)
         version = 9
+    end
+
+    if version < 10 then
+        Migrations.v9_to_v10(saveData.game_state)
+        version = 10
+    end
+
+    if version < 11 then
+        Migrations.v10_to_v11(saveData.game_state)
+        version = 11
     end
 
     saveData.version = version

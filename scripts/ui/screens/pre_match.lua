@@ -171,11 +171,13 @@ end
 
 --- 构建替补名单：优先使用战术页手动配置的 benchIds，否则按综合评分自动选取
 local function _buildEffectiveBench(gameState, team, startingPidSet)
+    local isNationalTeam = team._isNationalTeam
     if team.benchIds and #team.benchIds > 0 then
         local result = {}
         for _, pid in ipairs(team.benchIds) do
             local p = gameState.players[pid]
-            if p and not p.injured and not startingPidSet[p.id] and p.teamId == team.id then
+            if p and not p.injured and not startingPidSet[p.id]
+                and (isNationalTeam or p.teamId == team.id) then
                 table.insert(result, p)
             end
         end
@@ -359,6 +361,9 @@ function PreMatch.create(params)
             children = { UI.Label { text = "无比赛安排", color = Theme.COLORS.TEXT_SECONDARY } }
         }
     end
+
+    local WorldCupFlags = require("scripts/systems/world_cup")
+    WorldCupFlags.ensureIntlFixtureFlags(gameState, fixture)
 
     -- 世界杯比赛：用虚拟国家队对象
     local team, opponent, isHome, oppName
@@ -755,14 +760,14 @@ function PreMatch._confirmLeave(gameState, team, fixture)
                             BottomSheet.close()
                             -- 清除待处理标记
                             gameState.pendingPlayerFixture = nil
-                            -- 自动模拟比赛
+                            fixture._pendingPlayerMatch = nil
+                            -- 保存当前阵容并自动模拟比赛
+                            local WorldCup = require("scripts/systems/world_cup")
+                            WorldCup.ensureIntlFixtureFlags(gameState, fixture)
+                            _saveIntlLineup(gameState, team, fixture)
                             local MatchEngine = require("scripts/match/match_engine")
                             local TurnProcessor = require("scripts/core/turn_processor")
-                            local report
-                            if fixture._isWC then
-                                fixture._isWC = true
-                            end
-                            report = MatchEngine.simulate(gameState, fixture)
+                            local report = MatchEngine.simulate(gameState, fixture)
                             if report then
                                 if fixture._isEuro then
                                     TurnProcessor._applyEuroResult(gameState, fixture, report)

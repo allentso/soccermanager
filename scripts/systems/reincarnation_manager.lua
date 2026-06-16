@@ -31,7 +31,7 @@ ReincarnationManager.REINCARNATION_LIST = {
     },
     {
         matchName = "Cristiano Ronaldo",
-        matchAltNames = { "C. Ronaldo", "CR7", "C罗", "克里斯蒂亚诺·罗纳尔多", "罗纳尔多" },
+        matchAltNames = { "C. Ronaldo", "CR7", "C罗", "克里斯蒂亚诺·罗纳尔多" },
         potential = 96,
         attrBonus = { shooting = 4, speed = 3, strength = 3, aerial = 2, composure = 2 },
         traits = { "clinical", "pace_merchant", "aerial_threat" },
@@ -142,7 +142,9 @@ ReincarnationManager.REINCARNATION_LIST = {
 ---@param entry ReincarnationEntry
 ---@return boolean
 local function nameMatches(player, entry)
-    -- 不能用含 nil 的 ipairs：legendName 为空时会截断后续 lastName 等字段
+    -- 不能用含 nil 的 ipairs：legendName 为空时会截断后续字段
+    -- 注意：不含 lastName 单独匹配——如德甲「斯特凡·贝尔」lastName=贝尔，
+    -- 会误占加雷斯·贝尔的转生名额（matchAltNames 含「贝尔」）。
     local namesToCheck = {}
     local function addName(name)
         if name and name ~= "" then
@@ -151,7 +153,6 @@ local function nameMatches(player, entry)
     end
     addName(player.displayName)
     addName(player.legendName)
-    addName(player.lastName)
     addName(player.match_name)
     addName((player.firstName or "") .. " " .. (player.lastName or ""))
     for _, name in ipairs(namesToCheck) do

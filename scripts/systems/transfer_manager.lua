@@ -6,6 +6,7 @@ local FinanceManager = require("scripts/systems/finance_manager")
 local NewsGenerator = require("scripts/systems/news_generator")
 
 local DifficultySettings = require("scripts/systems/difficulty_settings")
+local Nationality = require("scripts/domain/nationality")
 
 local TransferManager = {}
 require("scripts/systems/transfers/transfer_completion")(TransferManager)
@@ -4423,7 +4424,7 @@ function TransferManager.checkHomegrownQuota(gameState, teamId)
     local leagueCountry = team.country or "ENG"
     for _, pid in ipairs(team.playerIds) do
         local player = gameState.players[pid]
-        if player and player.nationality == leagueCountry then
+        if player and Nationality.matches(player.nationality, leagueCountry) then
             homegrown = homegrown + 1
         end
     end
@@ -4440,7 +4441,7 @@ function TransferManager.wouldViolateQuota(gameState, playerId)
     if not team then return false end
 
     -- 如果引进的是本土球员，不会违反配额
-    if player.nationality == team.country then return false end
+    if Nationality.matches(player.nationality, team.country) then return false end
 
     -- 检查当前配额
     local compliant, homegrown, required = TransferManager.checkHomegrownQuota(gameState)
@@ -4574,15 +4575,16 @@ end
 function TransferManager._isPlayerInScoutNetwork(gameState, player)
     local network = TransferManager.getScoutNetwork(gameState)
     -- 球员所在球队的国家 或 球员国籍 在覆盖范围内
-    local playerCountry = player.nationality
+    local playerCountry = Nationality.normalize(player.nationality)
     local teamCountry = nil
     if player.teamId then
         local playerTeam = gameState.teams[player.teamId]
-        if playerTeam then teamCountry = playerTeam.country end
+        if playerTeam then teamCountry = Nationality.normalize(playerTeam.country) end
     end
 
     for _, region in ipairs(network.regions) do
-        if region == playerCountry or region == teamCountry then
+        local normRegion = Nationality.normalize(region)
+        if normRegion == playerCountry or normRegion == teamCountry then
             return true
         end
     end

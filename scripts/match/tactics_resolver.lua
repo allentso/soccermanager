@@ -7,6 +7,7 @@ local PositionFit = require("scripts/domain/position_fit")
 local TraitEffects = require("scripts/match/trait_effects")
 local RoleSynergy = require("scripts/match/role_synergy")
 local DifficultySettings = require("scripts/systems/difficulty_settings")
+local Nationality = require("scripts/domain/nationality")
 
 local TacticsResolver = {}
 
@@ -171,7 +172,7 @@ function TacticsResolver.calculateChemistry(players)
             local first = players[i]
             local second = players[j]
             local bond = 0.5
-            if first.nationality and first.nationality == second.nationality then
+            if first.nationality and Nationality.matches(first.nationality, second.nationality) then
                 bond = bond + 0.18
             end
             if positionGroup(first.position) == positionGroup(second.position) then

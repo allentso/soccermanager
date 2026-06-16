@@ -628,6 +628,7 @@ Player.EXTERNAL_TRAIT_ALIASES = {
     Speedster = "pace_merchant", speedster = "pace_merchant",
     Stopper = "ball_winner", stopper = "ball_winner",
     Sweeper = "sweeper_keeper", sweeper = "sweeper_keeper",
+    Libero = "libero", libero = "libero",
     Clinical = "clinical", clinical = "clinical",
     LongShot = "long_shot", long_shot = "long_shot",
     BigGame = "big_game", big_game = "big_game",
@@ -652,6 +653,7 @@ Player.LEGEND_TRAIT_DEFINITIONS = {
     { id = "trickster", name = "魔术师", desc = "提高个人突破与冷门进球", legendExclusive = true },
     { id = "distributor", name = "分发大师", desc = "提高控球与转移节奏", legendExclusive = true },
     { id = "ball_playing_defender", name = "出球后卫", desc = "提高后场出球与组织", legendExclusive = true },
+    { id = "libero", name = "清道夫", desc = "提高防线兜底、补位与后场出球", legendExclusive = true },
     { id = "box_to_box", name = "全能中场", desc = "提高中场攻防覆盖", legendExclusive = true },
     { id = "crosser", name = "传中高手", desc = "提高边路传中与助攻", legendExclusive = true },
     { id = "overlapper", name = "插上助攻", desc = "提高边卫前插与反击配合", legendExclusive = true },
@@ -713,6 +715,22 @@ function Player.normalizeTraitId(raw)
     return raw:lower()
 end
 
+--- JSON 别名 + 位置 → 最终 trait id（Sweeper 在 GK 为出击型门将，在场员为清道夫）
+---@param raw string|nil
+---@param position string|nil
+---@return string|nil
+function Player.resolveTraitId(raw, position)
+    local id = Player.normalizeTraitId(raw)
+    if not id then return nil end
+    if id == "sweeper_keeper" and position and position ~= "GK" then
+        return "libero"
+    end
+    if position and position ~= "GK" and Player.isGkOnlyTrait(id) then
+        return nil
+    end
+    return id
+end
+
 ---@param traits string[]|nil
 ---@param isLegend boolean|nil
 ---@param position string|nil
@@ -720,9 +738,8 @@ end
 function Player.normalizeTraits(traits, isLegend, position)
     local out, seen = {}, {}
     for _, raw in ipairs(traits or {}) do
-        local id = Player.normalizeTraitId(raw)
+        local id = Player.resolveTraitId(raw, position)
         if not id or seen[id] then goto continue end
-        if position and position ~= "GK" and Player.isGkOnlyTrait(id) then goto continue end
         if isLegend then
             if Player.isLegendPoolTrait(id) then
                 seen[id] = true
@@ -884,8 +901,8 @@ function Player:calculateTraits(currentYear)
         local seen = {}
         for _, id in ipairs(newTraits) do seen[id] = true end
         for _, raw in ipairs(self.innateTraits) do
-            local id = Player.normalizeTraitId(raw) or raw
-            if not seen[id] and (isGk or not Player.isGkOnlyTrait(id)) then
+            local id = Player.resolveTraitId(raw, self.position)
+            if id and not seen[id] and (isGk or not Player.isGkOnlyTrait(id)) then
                 table.insert(newTraits, id)
                 seen[id] = true
             end
