@@ -781,6 +781,7 @@ function PreMatch._confirmLeave(gameState, team, fixture)
                                 else
                                     MatchEngine.applyResult(gameState, fixture, report)
                                 end
+                                MatchEngine.applyPostMatchEffects(gameState, fixture, report)
                                 local MatchReport = require("scripts/match/match_report")
                                 report = MatchReport.enrichFromFixture(report, fixture, gameState)
                                 -- 发送比赛结果消息

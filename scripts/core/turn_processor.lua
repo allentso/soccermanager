@@ -349,35 +349,10 @@ function TurnProcessor.processMatchDay(gameState, fixtures)
         ::continue_fixture::
     end
 
-    -- 比赛日票房收入（主场球队）- 跳过待处理的玩家比赛（由 pre_match 负责）
+    -- B2: 赛后士气、声望、票房（AI 自动模拟路径；玩家比赛由 finishMatch / 跳过模拟补调）
     for _, fixture in ipairs(fixtures) do
-        if not fixture._isWC and not fixture._isEuro and not fixture._pendingPlayerMatch then
-            FinanceManager.processMatchDayRevenue(gameState, fixture.homeTeamId, true, fixture.awayTeamId)
-        end
-    end
-
-    -- B2: 赛后士气和声望更新
-    for _, fixture in ipairs(fixtures) do
-        if not fixture._isWC and not fixture._isEuro and fixture.status == "finished" then
-            local homeResult, awayResult
-            local homeGoals = fixture.homeGoals or 0
-            local awayGoals = fixture.awayGoals or 0
-            if homeGoals > awayGoals then
-                homeResult, awayResult = "W", "L"
-            elseif homeGoals < awayGoals then
-                homeResult, awayResult = "L", "W"
-            else
-                homeResult, awayResult = "D", "D"
-            end
-            local goalDiff = homeGoals - awayGoals
-
-            -- 士气更新
-            MoraleManager.postMatchUpdate(gameState, fixture.homeTeamId, homeResult, nil)
-            MoraleManager.postMatchUpdate(gameState, fixture.awayTeamId, awayResult, nil)
-
-            -- 声望更新
-            ReputationManager.postMatchUpdate(gameState, fixture.homeTeamId, fixture.awayTeamId, homeResult, goalDiff)
-            ReputationManager.postMatchUpdate(gameState, fixture.awayTeamId, fixture.homeTeamId, awayResult, -goalDiff)
+        if fixture.status == "finished" then
+            MatchEngine.applyPostMatchEffects(gameState, fixture, fixture)
         end
     end
 

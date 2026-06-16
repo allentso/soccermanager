@@ -786,6 +786,41 @@ function MatchEngine.startMatch(gameState, fixture)
     return MatchSession.new(gameState, fixture)
 end
 
+--- 俱乐部赛后副作用：士气、声望、主场票房（世界杯/欧洲杯跳过）
+---@param gameState table
+---@param fixture table
+---@param report table
+function MatchEngine.applyPostMatchEffects(gameState, fixture, report)
+    if fixture._isWC or fixture._isEuro then return end
+    if fixture.status ~= "finished" then return end
+
+    local MoraleManager = require("scripts/systems/morale_manager")
+    local ReputationManager = require("scripts/systems/reputation_manager")
+    local FinanceManager = require("scripts/systems/finance_manager")
+
+    local homeGoals = report.homeGoals or fixture.homeGoals or 0
+    local awayGoals = report.awayGoals or fixture.awayGoals or 0
+    local homeResult, awayResult
+    if homeGoals > awayGoals then
+        homeResult, awayResult = "W", "L"
+    elseif homeGoals < awayGoals then
+        homeResult, awayResult = "L", "W"
+    else
+        homeResult, awayResult = "D", "D"
+    end
+    local goalDiff = homeGoals - awayGoals
+
+    MoraleManager.postMatchUpdate(gameState, fixture.homeTeamId, homeResult, nil)
+    MoraleManager.postMatchUpdate(gameState, fixture.awayTeamId, awayResult, nil)
+    ReputationManager.postMatchUpdate(gameState, fixture.homeTeamId, fixture.awayTeamId, homeResult, goalDiff)
+    ReputationManager.postMatchUpdate(gameState, fixture.awayTeamId, fixture.homeTeamId, awayResult, -goalDiff)
+
+    local revenueDetails = FinanceManager.processMatchDayRevenue(gameState, fixture.homeTeamId, true, fixture.awayTeamId)
+    if revenueDetails and fixture.homeTeamId == gameState.playerTeamId then
+        report.matchDayRevenue = revenueDetails
+    end
+end
+
 --- 完成比赛会话，生成最终报告并应用结果
 ---@param session table
 ---@param gameState table
@@ -826,32 +861,7 @@ function MatchEngine.finishMatch(session, gameState, fixture)
         PlaceholderEngine.applyResult(gameState, fixture, report)
     end
 
-    -- 赛后士气 & 声望更新（仅俱乐部比赛）
-    local MoraleManager = require("scripts/systems/morale_manager")
-    local ReputationManager = require("scripts/systems/reputation_manager")
-    local FinanceManager = require("scripts/systems/finance_manager")
-
-    local homeGoals = report.homeGoals or 0
-    local awayGoals = report.awayGoals or 0
-    local homeResult, awayResult
-    if homeGoals > awayGoals then
-        homeResult, awayResult = "W", "L"
-    elseif homeGoals < awayGoals then
-        homeResult, awayResult = "L", "W"
-    else
-        homeResult, awayResult = "D", "D"
-    end
-    local goalDiff = homeGoals - awayGoals
-    MoraleManager.postMatchUpdate(gameState, fixture.homeTeamId, homeResult, nil)
-    MoraleManager.postMatchUpdate(gameState, fixture.awayTeamId, awayResult, nil)
-    ReputationManager.postMatchUpdate(gameState, fixture.homeTeamId, fixture.awayTeamId, homeResult, goalDiff)
-    ReputationManager.postMatchUpdate(gameState, fixture.awayTeamId, fixture.homeTeamId, awayResult, -goalDiff)
-
-    -- 主场票房（返回明细供赛后展示）
-    local revenueDetails = FinanceManager.processMatchDayRevenue(gameState, fixture.homeTeamId, true, fixture.awayTeamId)
-    if revenueDetails and fixture.homeTeamId == gameState.playerTeamId then
-        report.matchDayRevenue = revenueDetails
-    end
+    MatchEngine.applyPostMatchEffects(gameState, fixture, report)
 
     -- 玩家比赛：inbox + 赛后新闻（实时比赛路径）
     if gameState.playerTeamId

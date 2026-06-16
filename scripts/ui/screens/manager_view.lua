@@ -112,7 +112,7 @@ function ManagerView.create(params)
         UI.Panel {
             width = "100%", flexDirection = "row", justifyContent = "space-between", alignItems = "center", marginTop = 4,
             children = {
-                UI.Label { text = tostring(manager.reputation) .. " / 99", fontSize = 13, color = COLORS.TEXT_PRIMARY },
+                UI.Label { text = ManagerView._formatRep(manager.reputation) .. " / 99", fontSize = 13, color = COLORS.TEXT_PRIMARY },
                 UI.Label { text = ManagerView._repLevel(manager.reputation), fontSize = 11, color = COLORS.ACCENT, fontWeight = "bold" },
             }
         },
@@ -216,6 +216,14 @@ function ManagerView.create(params)
 end
 
 -- 声望等级文本（1-99量纲）
+function ManagerView._formatRep(rep)
+    rep = rep or 0
+    if math.abs(rep - math.floor(rep + 0.001)) < 0.05 then
+        return tostring(math.floor(rep + 0.001))
+    end
+    return string.format("%.1f", rep)
+end
+
 function ManagerView._repLevel(rep)
     if rep >= 85 then return "传奇"
     elseif rep >= 70 then return "世界级"

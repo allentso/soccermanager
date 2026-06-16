@@ -2084,6 +2084,7 @@ function Settings._repairOverdueFixtures()
                     local report = MatchEngine.simulate(gameState, fixture)
                     if report then
                         MatchEngine.applyResult(gameState, fixture, report)
+                        MatchEngine.applyPostMatchEffects(gameState, fixture, report)
                         repaired = repaired + 1
                         local homeTeam = gameState.teams[fixture.homeTeamId]
                         local awayTeam = gameState.teams[fixture.awayTeamId]
