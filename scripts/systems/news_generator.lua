@@ -142,9 +142,9 @@ local function buildTransferBody(tier, playerName, fromName, toName, amount, ove
     return body
 end
 
---- 同联赛对手重磅引援 → 玩家 inbox
+--- 同联赛对手 S 档重磅引援 → 玩家 inbox（A 档仅新闻栏，不推送收件箱）
 local function notifyLeagueTransferInbox(gameState, opts, tier, playerName, fromName, toName, amount, overall)
-    if tier ~= "S" and tier ~= "A" then return end
+    if tier ~= "S" then return end
     if not gameState.playerTeamId then return end
 
     local toTeamId = opts.toTeamId
@@ -156,21 +156,11 @@ local function notifyLeagueTransferInbox(gameState, opts, tier, playerName, from
     if isDeduped(gameState, dedupeKey) then return end
     markDeduped(gameState, dedupeKey)
 
-    local title, body
-    if tier == "S" then
-        title = string.format("联赛重磅：%s 加盟 %s", playerName, toName)
-        body = string.format("同联赛球队 %s 以 %s 签下 %s（能力 %d）。争冠形势可能生变，请留意。",
-            toName, amount > 0 and formatAmount(amount) or "自由身", playerName, overall or 0)
-    else
-        title = string.format("联赛动态：%s 加盟 %s", playerName, toName)
-        body = string.format("%s 从 %s 转会至 %s（%s）。",
-            playerName, fromName, toName, amount > 0 and formatAmount(amount) or "自由身")
-    end
-
     gameState:sendMessage({
         category = "transfer",
-        title = title,
-        body = body,
+        title = string.format("联赛重磅：%s 加盟 %s", playerName, toName),
+        body = string.format("同联赛球队 %s 以 %s 签下 %s（能力 %d）。争冠形势可能生变，请留意。",
+            toName, amount > 0 and formatAmount(amount) or "自由身", playerName, overall or 0),
         priority = "normal",
     })
 end
