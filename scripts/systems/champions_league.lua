@@ -54,6 +54,53 @@ local UCL_SCHEDULE = {
 -- 初始化本赛季欧冠（36队瑞士制）
 ------------------------------------------------------
 
+local function _countLeaguePhaseFixturesPerTeam(lp)
+    local teamIds = lp.teamIds or {}
+    local counts = {}
+    for _, tid in ipairs(teamIds) do
+        counts[tid] = 0
+    end
+    for _, f in ipairs(lp.fixtures or {}) do
+        counts[f.homeTeamId] = (counts[f.homeTeamId] or 0) + 1
+        counts[f.awayTeamId] = (counts[f.awayTeamId] or 0) + 1
+    end
+    return counts
+end
+
+local function _leaguePhaseFixtureCountsValid(lp)
+    if not lp then return false end
+    local teamIds = lp.teamIds or {}
+    if #teamIds == 0 then return false end
+    local expectedTotal = math.floor(#teamIds * 8 / 2)
+    if #(lp.fixtures or {}) ~= expectedTotal then
+        return false
+    end
+    local counts = _countLeaguePhaseFixturesPerTeam(lp)
+    for _, tid in ipairs(teamIds) do
+        if (counts[tid] or 0) ~= 8 then
+            return false
+        end
+    end
+    return true
+end
+
+local function _leaguePhaseKickoffDate(uclSeason)
+    return League._alignToWeekday({
+        year = uclSeason,
+        month = UCL_SCHEDULE.league_start.month,
+        day = UCL_SCHEDULE.league_start.day,
+    }, 3)
+end
+
+local function _leaguePhaseHasFinishedMatch(lp)
+    for _, f in ipairs(lp.fixtures or {}) do
+        if f.status ~= "scheduled" then
+            return true
+        end
+    end
+    return false
+end
+
 function ChampionsLeague.initialize(gameState)
     local season = gameState.season
     local qualifiedTeams = ChampionsLeague._getQualifiedTeams(gameState)
@@ -87,7 +134,15 @@ function ChampionsLeague.initialize(gameState)
         month = UCL_SCHEDULE.league_start.month,
         day = UCL_SCHEDULE.league_start.day,
     }
-    ucl:drawLeaguePhaseFixtures(leagueStart)
+    for attempt = 1, 5 do
+        ucl:drawLeaguePhaseFixtures(leagueStart)
+        if _leaguePhaseFixtureCountsValid(ucl.leaguePhase) then
+            break
+        end
+        if attempt == 5 then
+            log:Write(LOG_ERROR, "[UCL] 联赛阶段赛程生成失败（5次重试后仍异常）")
+        end
+    end
 
     -- 存储到 gameState
     gameState.championsLeague = ucl
@@ -105,35 +160,6 @@ end
 ------------------------------------------------------
 -- 存档迁移：旧格式（小组赛）→ 新格式（瑞士制）
 ------------------------------------------------------
-
-local function _countLeaguePhaseFixturesPerTeam(lp)
-    local teamIds = lp.teamIds or {}
-    local counts = {}
-    for _, tid in ipairs(teamIds) do
-        counts[tid] = 0
-    end
-    for _, f in ipairs(lp.fixtures or {}) do
-        counts[f.homeTeamId] = (counts[f.homeTeamId] or 0) + 1
-        counts[f.awayTeamId] = (counts[f.awayTeamId] or 0) + 1
-    end
-    return counts
-end
-
-local function _leaguePhaseFixtureCountsValid(lp)
-    local teamIds = lp.teamIds or {}
-    if #teamIds == 0 then return true end
-    local expectedTotal = math.floor(#teamIds * 8 / 2)
-    if #(lp.fixtures or {}) ~= expectedTotal then
-        return false
-    end
-    local counts = _countLeaguePhaseFixturesPerTeam(lp)
-    for _, tid in ipairs(teamIds) do
-        if (counts[tid] or 0) ~= 8 then
-            return false
-        end
-    end
-    return true
-end
 
 local function _rebuildLeaguePhaseStandings(ucl)
     local lp = ucl.leaguePhase
@@ -186,6 +212,57 @@ local function _trimExcessLeaguePhaseFixtures(ucl)
     end
 
     _rebuildLeaguePhaseStandings(ucl)
+end
+
+--- 读档/主页继续前：修复联赛阶段赛程缺失，并补模拟已逾期的非玩家欧冠比赛
+function ChampionsLeague.repairStuckProgress(gameState)
+    local ucl = gameState.championsLeague
+    if not ucl or ucl.phase ~= Tournament.PHASE_LEAGUE then
+        return false
+    end
+
+    local lp = ucl.leaguePhase
+    if not lp then return false end
+
+    local repaired = false
+
+    -- 赛程为空或场次异常：在尚无赛果时重新抽签
+    if not _leaguePhaseHasFinishedMatch(lp) and not _leaguePhaseFixtureCountsValid(lp) then
+        log:Write(LOG_INFO, "[UCL] 检测到联赛阶段赛程缺失/异常，重新抽签...")
+        local leagueStart = {
+            year = ucl.season or gameState.season,
+            month = UCL_SCHEDULE.league_start.month,
+            day = UCL_SCHEDULE.league_start.day,
+        }
+        for attempt = 1, 5 do
+            ucl:drawLeaguePhaseFixtures(leagueStart)
+            if _leaguePhaseFixtureCountsValid(lp) then break end
+        end
+        lp._scheduleFixed = nil
+        lp._fixtureCountFixed = nil
+        repaired = true
+    end
+
+    -- 已过开幕日且有逾期场次但积分榜仍为 0：补模拟非玩家比赛
+    local TurnProcessor = require("scripts/core/turn_processor")
+    local kickoff = _leaguePhaseKickoffDate(ucl.season or gameState.season)
+    if TurnProcessor._isDateBeforeOrEqual(kickoff, gameState.date) then
+        local hasOverdue = false
+        for _, f in ipairs(lp.fixtures or {}) do
+            if f.status == "scheduled" and f.date
+                and TurnProcessor._isDateBefore(f.date, gameState.date) then
+                hasOverdue = true
+                break
+            end
+        end
+        if hasOverdue then
+            TurnProcessor.simulateNonPlayerOverdueUCLFixtures(gameState)
+            ChampionsLeague.checkPhaseAdvance(gameState)
+            repaired = true
+        end
+    end
+
+    return repaired
 end
 
 function ChampionsLeague.migrateIfNeeded(gameState)
@@ -540,6 +617,10 @@ function ChampionsLeague.migrateIfNeeded(gameState)
 
         -- 标记已处理，防止重复执行
         gameState._uclOverwritePatched = true
+    end
+
+    if ChampionsLeague.repairStuckProgress(gameState) then
+        return true
     end
 
     return false

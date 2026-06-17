@@ -244,6 +244,8 @@ function TurnProcessor.repairStuckProgressOnLoad(gameState)
         gameState.pendingPlayerFixture = nil
     end
     TurnProcessor.simulateNonPlayerOverdueLeagueFixtures(gameState)
+    TurnProcessor.simulateNonPlayerOverdueUCLFixtures(gameState)
+    ChampionsLeague.repairStuckProgress(gameState)
 end
 
 --- 在不推进日期的情况下，补模拟所有逾期的非玩家联赛比赛
@@ -373,6 +375,62 @@ function TurnProcessor.processMatchDay(gameState, fixtures)
     end
 
     return playerMatchReport
+end
+
+--- 在不推进日期的情况下，补模拟所有逾期的非玩家欧冠比赛
+function TurnProcessor.simulateNonPlayerOverdueUCLFixtures(gameState)
+    local ucl = gameState.championsLeague
+    if not ucl or ucl.phase == "completed" then return end
+
+    local currentDate = gameState.date
+    local playerTeamId = gameState.playerTeamId
+    local simulated = false
+
+    local function maybeSimulate(fixture, isKnockout)
+        if fixture.status ~= "scheduled" or not fixture.date then return end
+        if not TurnProcessor._isDateBefore(fixture.date, currentDate) then return end
+        if playerTeamId and not gameState._cheatAutoPlay
+            and (fixture.homeTeamId == playerTeamId or fixture.awayTeamId == playerTeamId) then
+            return
+        end
+
+        fixture._isUCL = true
+        local report = MatchEngine.simulate(gameState, fixture)
+        if not report then return end
+
+        if isKnockout then
+            TurnProcessor._applyUCLResult(gameState, fixture, report)
+        else
+            fixture.status = "finished"
+            fixture.homeGoals = report.homeGoals or 0
+            fixture.awayGoals = report.awayGoals or 0
+            fixture.events = report.events
+            ucl:updateLeagueStanding(fixture)
+        end
+        simulated = true
+    end
+
+    if ucl.leaguePhase and ucl.leaguePhase.fixtures then
+        for _, f in ipairs(ucl.leaguePhase.fixtures) do
+            maybeSimulate(f, false)
+        end
+    end
+
+    if ucl.knockout then
+        for _, phase in ipairs({"playoff", "r16", "qf", "sf", "final"}) do
+            local fixtures = ucl.knockout[phase]
+            if fixtures then
+                for _, f in ipairs(fixtures) do
+                    f.tournamentPhase = phase
+                    maybeSimulate(f, true)
+                end
+            end
+        end
+    end
+
+    if simulated then
+        ChampionsLeague.checkPhaseAdvance(gameState)
+    end
 end
 
 --- 补救过期UCL比赛：模拟非玩家的过期比赛，返回需要玩家处理的过期fixture列表

@@ -370,6 +370,7 @@ end
 function Tournament:getLeaguePhaseSortedStandings()
     local lp = self.leaguePhase
     if not lp then return {} end
+    
 
     local sorted = {}
     for _, s in pairs(lp.standings) do
@@ -396,7 +397,7 @@ end
 --- 联赛阶段是否完成
 function Tournament:isLeaguePhaseComplete()
     local lp = self.leaguePhase
-    if not lp then return false end
+    if not lp or #(lp.fixtures or {}) == 0 then return false end
     for _, f in ipairs(lp.fixtures) do
         if f.status ~= "finished" then return false end
     end
