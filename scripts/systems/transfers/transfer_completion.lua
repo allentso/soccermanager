@@ -193,15 +193,21 @@ return function(TransferManager)
         end
     end
 
-    function TransferManager._addTransferTransaction(team, amount, description, date)
+    function TransferManager._addTransferTransaction(team, amount, description, date, gameState)
         if not team then return end
-        if not team.transactions then team.transactions = {} end
-        table.insert(team.transactions, 1, {
-            type = amount < 0 and "transfer_out" or "transfer_in",
+        local FinanceManager = require("scripts/systems/finance_manager")
+        local tx = {
             amount = amount,
             description = description,
+            category = "transfer",
+            type = amount < 0 and "transfer_out" or "transfer_in",
             date = date,
-        })
+        }
+        if gameState then
+            tx.season = gameState.season
+            tx.week = FinanceManager._getWeekNumber(gameState)
+        end
+        FinanceManager.addTransaction(team, tx)
     end
 
     function TransferManager._settleTransferFee(gameState, buyerTeam, sellerTeam, bid, player)
@@ -217,8 +223,8 @@ return function(TransferManager)
                 sellerTeam.transferBudget = (sellerTeam.transferBudget or 0) + firstPay
                 sellerTeam.seasonIncome = (sellerTeam.seasonIncome or 0) + firstPay
             end
-            TransferManager._addTransferTransaction(buyerTeam, -firstPay, "引进 " .. player.displayName .. "（首期）", date)
-            TransferManager._addTransferTransaction(sellerTeam, firstPay, "出售 " .. player.displayName .. "（首期）", date)
+            TransferManager._addTransferTransaction(buyerTeam, -firstPay, "引进 " .. player.displayName .. "（首期）", date, gameState)
+            TransferManager._addTransferTransaction(sellerTeam, firstPay, "出售 " .. player.displayName .. "（首期）", date, gameState)
 
             if not buyerTeam._pendingPayables then buyerTeam._pendingPayables = {} end
             if sellerTeam and not sellerTeam._pendingReceivables then sellerTeam._pendingReceivables = {} end
@@ -247,8 +253,8 @@ return function(TransferManager)
                 sellerTeam.transferBudget = (sellerTeam.transferBudget or 0) + bid.amount
                 sellerTeam.seasonIncome = (sellerTeam.seasonIncome or 0) + bid.amount
             end
-            TransferManager._addTransferTransaction(buyerTeam, -bid.amount, "引进 " .. player.displayName, date)
-            TransferManager._addTransferTransaction(sellerTeam, bid.amount, "出售 " .. player.displayName, date)
+            TransferManager._addTransferTransaction(buyerTeam, -bid.amount, "引进 " .. player.displayName, date, gameState)
+            TransferManager._addTransferTransaction(sellerTeam, bid.amount, "出售 " .. player.displayName, date, gameState)
         end
 
         if buyerTeam.transferBudget then

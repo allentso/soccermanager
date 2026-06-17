@@ -1008,12 +1008,17 @@ function TransferManager.processAITransfers(gameState)
         local need, upgradeMode = TransferManager._assessTeamNeed(gameState, team)
         if not need then goto continue end
 
-        -- 寻找合适目标
-        local target = TransferManager._findTransferTarget(gameState, team, need, upgradeMode)
+        -- 寻找合适目标（豪门有机会进入重磅模式）
+        local blockbuster = TransferManager._shouldAIBlockbusterMode(gameState, team)
+        local target = TransferManager._findTransferTarget(gameState, team, need, upgradeMode, { blockbuster = blockbuster })
         if not target then goto continue end
 
         -- AI 发起转会
-        TransferManager._executeAITransfer(gameState, team, target)
+        local teamAvg = TransferManager._getTeamAverageOverall(gameState, team)
+        TransferManager._executeAITransfer(gameState, team, target, {
+            upgradeMode = upgradeMode,
+            teamAvg = teamAvg,
+        })
 
         ::continue::
     end
@@ -1113,6 +1118,18 @@ local AI_LOAN_LIST_MIN_SCORE = 32
 local AI_LOAN_LIST_MAX_AGE = 26
 local AI_LOAN_LIST_MAX_PER_TEAM = 1
 local AI_LOAN_LIST_MAX_GLOBAL = 5
+
+-- Phase2: 豪门重磅引援（仅 AI 主动寻援）
+local AI_ELITE_REP_THRESHOLD = 700
+local AI_BLOCKBUSTER_CHANCE_BY_TIER = { 0.12, 0.18, 0.22 }
+local AI_MAXSPEND_NORMAL_RATIO = 0.95
+local AI_MAXSPEND_BLOCKBUSTER_RATIO = 0.35
+local AI_LISTED_WEIGHT = 1.5
+local AI_BLOCKBUSTER_OVR_BONUS = 3       -- 重磅模式 OVR 上限 = 队均+15+3
+local AI_STAR_OVR_GAP = 8
+local AI_STAR_BID_MIN = 1.2
+local AI_STAR_BID_MAX = 1.5
+local AI_STAR_ACCEPT_BONUS = 0.10
 
 function TransferManager._getSeasonProgress(gameState)
     local Constants = require("scripts/app/constants")
@@ -1245,6 +1262,46 @@ function TransferManager._isAITeamAffluent(team)
     return (team.transferBudget or 0) > 5000000 or (team.balance or 0) > 20000000
 end
 
+--- 豪门本周是否进入重磅引援模式（仅主动寻援）
+function TransferManager._shouldAIBlockbusterMode(gameState, team)
+    if not TransferManager._isAITeamAffluent(team) then return false end
+    if (team.reputation or 0) < AI_ELITE_REP_THRESHOLD then return false end
+    local tier = DifficultySettings.get().transferTier or 2
+    local chance = AI_BLOCKBUSTER_CHANCE_BY_TIER[tier] or AI_BLOCKBUSTER_CHANCE_BY_TIER[2]
+    return Random() <= chance
+end
+
+--- AI 主动寻援单笔上限（测试/诊断用）
+function TransferManager._getAIMaxSpend(buyerTeam, blockbuster)
+    if blockbuster then
+        return math.floor((buyerTeam.balance or 0) * AI_MAXSPEND_BLOCKBUSTER_RATIO)
+    end
+    local budget = TransferManager._getAIEffectiveBudget(buyerTeam)
+    return math.floor(budget * AI_MAXSPEND_NORMAL_RATIO)
+end
+
+--- 加权随机抽取候选球员（candidates: { player, score }[]）
+function TransferManager._pickWeightedCandidate(candidates)
+    if #candidates == 0 then return nil end
+    if #candidates == 1 then return candidates[1].player end
+
+    local total = 0
+    for _, entry in ipairs(candidates) do
+        total = total + entry.score
+    end
+    if total <= 0 then
+        return candidates[RandomInt(1, #candidates)].player
+    end
+
+    local roll = Random() * total
+    local acc = 0
+    for _, entry in ipairs(candidates) do
+        acc = acc + entry.score
+        if roll <= acc then return entry.player end
+    end
+    return candidates[#candidates].player
+end
+
 --- 本周是否尝试主动引援（难度档位 + 资金充裕必试）
 function TransferManager._shouldAITryTransfer(gameState, team)
     if TransferManager._isAITeamAffluent(team) then return true end
@@ -1329,12 +1386,18 @@ function TransferManager._assessTeamNeed(gameState, team)
 end
 
 --- 寻找转会目标
-function TransferManager._findTransferTarget(gameState, buyerTeam, needGroup, upgradeMode)
+---@param opts table|nil { blockbuster: boolean }
+function TransferManager._findTransferTarget(gameState, buyerTeam, needGroup, upgradeMode, opts)
+    opts = opts or {}
+    local blockbuster = opts.blockbuster or false
     local Constants = require("scripts/app/constants")
     local targetPositions = Constants.POSITION_GROUPS[needGroup] or {}
     local candidates = {}
     local budget = TransferManager._getAIEffectiveBudget(buyerTeam)
+    local maxSpend = TransferManager._getAIMaxSpend(buyerTeam, blockbuster)
     local teamAvg = TransferManager._getTeamAverageOverall(gameState, buyerTeam)
+    local ovrCeiling = 15 + (blockbuster and AI_BLOCKBUSTER_OVR_BONUS or 0)
+    local valueExponent = blockbuster and 0.3 or 0.15
 
     for _, player in pairs(gameState.players) do
         if player.retired then goto continue end
@@ -1354,24 +1417,19 @@ function TransferManager._findTransferTarget(gameState, buyerTeam, needGroup, up
         end
         if not posMatch then goto continue end
 
-        -- 财力检查（不超过有效预算的85%，且不超过余额的60%）
-        local maxSpend = math.min(math.floor(budget * 0.85), math.floor((buyerTeam.balance or 0) * 0.6))
+        -- 财力检查
         if player.value > maxSpend then goto continue end
 
         -- 能力匹配
         if upgradeMode then
             -- 升级模式：只买比队内平均更好的
             if player.overall < teamAvg then goto continue end
-            if player.overall > teamAvg + 15 then goto continue end
+            if player.overall > teamAvg + ovrCeiling then goto continue end
         else
             -- 补缺模式：范围宽松一些
             if player.overall < teamAvg - 12 then goto continue end
-            if player.overall > teamAvg + 15 then goto continue end
+            if player.overall > teamAvg + ovrCeiling then goto continue end
         end
-
-        -- 优先考虑挂牌出售的球员（更容易成交）
-        local weight = 1
-        if player.listedForSale then weight = 3 end
 
         -- 高薪低能惩罚：AI不愿接手工资与能力不匹配的球员
         -- fairWage = 25 * exp(0.117 * ovr)，基于联赛工资分布拟合
@@ -1386,33 +1444,52 @@ function TransferManager._findTransferTarget(gameState, buyerTeam, needGroup, up
                     -- 保守+正常：AI不会主动引进高薪低能球员
                     goto continue
                 else
-                    -- 宽松：轻微降权但不完全排除
-                    weight = math.max(1, weight - 1)
+                    -- 宽松：继续入池，后续加权时会自然靠后
                 end
             end
         end
 
-        for w = 1, weight do
-            table.insert(candidates, player)
+        local ovr = player.overall or 50
+        local value = math.max(player.value or 1, 1)
+        local score = ovr * (value ^ valueExponent)
+        if player.listedForSale then
+            score = score * AI_LISTED_WEIGHT
+        end
+        if score > 0 then
+            table.insert(candidates, { player = player, score = score })
         end
         ::continue::
     end
 
     if #candidates == 0 then return nil end
 
-    -- 从候选中随机选一个（挂牌球员权重更高）
-    return candidates[RandomInt(1, #candidates)]
+    return TransferManager._pickWeightedCandidate(candidates)
 end
 
 --- 执行 AI 转会（返回 true 表示成交）
-function TransferManager._executeAITransfer(gameState, buyerTeam, player)
+---@param opts table|nil { upgradeMode: boolean, teamAvg: number }
+function TransferManager._executeAITransfer(gameState, buyerTeam, player, opts)
+    opts = opts or {}
     -- 预签约锁定检查：已被预签约的球员不可再交易
     if player.preContractLockedBy then return false end
 
     local sellerTeam = gameState.teams[player.teamId]
 
-    -- AI 报价 = 身价 × (0.9~1.3)，挂牌球员报价稍低
-    local multiplier = player.listedForSale and (0.85 + Random() * 0.25) or (1.0 + Random() * 0.3)
+    local teamAvg = opts.teamAvg or TransferManager._getTeamAverageOverall(gameState, buyerTeam)
+    local pOvr = player.overall or 50
+    local isStarTarget = opts.upgradeMode
+        and not player.listedForSale
+        and pOvr >= teamAvg + AI_STAR_OVR_GAP
+
+    -- AI 报价：巨星升级目标愿意溢价 1.2~1.5×，挂牌稍低，普通 1.0~1.3×
+    local multiplier
+    if player.listedForSale then
+        multiplier = 0.85 + Random() * 0.25
+    elseif isStarTarget then
+        multiplier = AI_STAR_BID_MIN + Random() * (AI_STAR_BID_MAX - AI_STAR_BID_MIN)
+    else
+        multiplier = 1.0 + Random() * 0.3
+    end
     local offerAmount = math.floor(player.value * multiplier)
 
     -- 如果目标是玩家球队球员（挂牌出售的），生成收购报价让玩家决定
@@ -1445,6 +1522,11 @@ function TransferManager._executeAITransfer(gameState, buyerTeam, player)
     -- 阵容臃肿的卖方更愿意卖
     if sellerTeam and #sellerTeam.playerIds > 25 then
         acceptChance = math.min(0.95, acceptChance + 0.20)
+    end
+
+    -- 升级模式追巨星：卖方接受率略升
+    if isStarTarget then
+        acceptChance = math.min(0.95, acceptChance + AI_STAR_ACCEPT_BONUS)
     end
 
     if Random() > acceptChance then return false end  -- 卖方拒绝
@@ -4076,7 +4158,7 @@ function TransferManager.processInstallments(gameState)
                         year = gameState.date.year,
                         month = gameState.date.month,
                         day = gameState.date.day,
-                    })
+                    }, gameState)
                     -- 对方收款
                     local receiver = gameState.teams[p.toTeamId]
                     if receiver then
@@ -4087,7 +4169,7 @@ function TransferManager.processInstallments(gameState)
                             year = gameState.date.year,
                             month = gameState.date.month,
                             day = gameState.date.day,
-                        })
+                        }, gameState)
                         if receiver._pendingReceivables then
                             for r = #receiver._pendingReceivables, 1, -1 do
                                 local receivable = receiver._pendingReceivables[r]

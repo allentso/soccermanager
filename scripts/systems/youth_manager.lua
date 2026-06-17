@@ -583,6 +583,8 @@ function YouthManager.canDemoteToYouth(gameState, playerId, teamId)
     local team = teamId and gameState.teams[teamId] or gameState:getPlayerTeam()
     if not team then return false, "没有球队" end
 
+    _purgeStaleYouthRefsForTeam(gameState, team)
+
     local player = gameState.players[playerId]
     if not player then return false, "球员不存在" end
     if player.teamId ~= team.id then return false, "该球员不属于本队" end

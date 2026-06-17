@@ -477,7 +477,7 @@ function Squad.create(params)
             -- 二级导航
             Theme.SquadSubNav("squad"),
 
-            presetBar,
+            presetBar or UI.Panel { height = 0 },
 
             -- 状态统计栏
             UI.Panel {

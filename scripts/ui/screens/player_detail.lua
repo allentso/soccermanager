@@ -892,6 +892,19 @@ end
 function PlayerDetail._buildDemoteToYouthBtn(player, gameState)
     local canDemote, err = YouthManager.canDemoteToYouth(gameState, player.id)
     if not canDemote then
+        local ownTeam = gameState:getPlayerTeam()
+        local age = player:getAge(gameState.date.year)
+        if ownTeam and player.teamId == ownTeam.id and age <= Constants.YOUTH_PHASE_MAX_AGE and err then
+            return Theme.Card {
+                children = {
+                    Theme.Subtitle { text = "青训编制" },
+                    UI.Label {
+                        text = string.format("当前无法下放：%s", err),
+                        fontSize = 11, color = Theme.COLORS.WARNING, marginTop = 6,
+                    },
+                },
+            }
+        end
         return UI.Panel { height = 0 }
     end
 

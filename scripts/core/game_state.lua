@@ -263,6 +263,7 @@ function GameState:serialize()
         turnState = self.turnState,
         currentRole = self.currentRole,
         nationalTeamCoach = self.nationalTeamCoach,
+        _nationalTeamSettings = self._nationalTeamSettings,
         potentialRevealed = self.potentialRevealed or false,
         potentialRevealProgress = self.potentialRevealProgress or 0,
         -- 青训系统状态
@@ -313,6 +314,7 @@ function GameState:deserialize(data)
     self.turnState = data.turnState or "idle"
     self.currentRole = data.currentRole or "club"
     self.nationalTeamCoach = data.nationalTeamCoach
+    self._nationalTeamSettings = data._nationalTeamSettings
     self.inbox = data.inbox or {}
     self.news = data.news or {}
     self.worldHistory = data.worldHistory or {}

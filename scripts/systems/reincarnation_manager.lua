@@ -16,6 +16,7 @@ local MAX_YOUTH_SQUAD = YouthManager.MAX_YOUTH_SQUAD
 ---@class ReincarnationEntry
 ---@field matchName string 用于匹配退役球员的主键名
 ---@field matchAltNames string[] 备选名字（兼容不同数据源的拼写）
+---@field requireLegend boolean|nil 为 true 时仅匹配 isLegend 球员（防同名联赛球员误占名额）
 ---@field potential number 转生后潜力值
 ---@field attrBonus table<string, number> 位置专精额外加成
 
@@ -91,7 +92,8 @@ ReincarnationManager.REINCARNATION_LIST = {
     },
     {
         matchName = "Luis Suárez",
-        matchAltNames = { "L. Suárez", "Suarez", "苏亚雷斯", "路易斯·苏亚雷斯" },
+        matchAltNames = { "L. Suárez", "Luis Suárez", "路易斯·苏亚雷斯" },
+        requireLegend = true,  -- 西甲另有同名「路易斯·苏亚雷斯」(哥伦比亚)，仅传奇苏牙可转生
         potential = 89,
         attrBonus = { shooting = 3, positioning = 3, aggression = 2, composure = 2 },
         traits = { "clinical", "poacher" },
@@ -142,6 +144,9 @@ ReincarnationManager.REINCARNATION_LIST = {
 ---@param entry ReincarnationEntry
 ---@return boolean
 local function nameMatches(player, entry)
+    if entry.requireLegend and not player.isLegend then
+        return false
+    end
     -- 不能用含 nil 的 ipairs：legendName 为空时会截断后续字段
     -- 注意：不含 lastName 单独匹配——如德甲「斯特凡·贝尔」lastName=贝尔，
     -- 会误占加雷斯·贝尔的转生名额（matchAltNames 含「贝尔」）。

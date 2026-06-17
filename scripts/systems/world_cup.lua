@@ -1455,6 +1455,38 @@ local function _resolveNationalTeamLineup(gameState, saved, validIds)
     return startingIds, filteredBench
 end
 
+local function _shallowCopyTable(t)
+    if not t then return nil end
+    local copy = {}
+    for k, v in pairs(t) do
+        copy[k] = v
+    end
+    return copy
+end
+
+local function _applySavedNationalTeamTactics(team, saved)
+    if not saved then return end
+    if saved.formationVariant then
+        team.formationVariant = saved.formationVariant
+    end
+    if saved.slotRoles then
+        team.slotRoles = _shallowCopyTable(saved.slotRoles)
+    end
+    if saved.slotOffsets then
+        team.slotOffsets = _shallowCopyTable(saved.slotOffsets)
+    end
+    if saved.customSlots then
+        team.customSlots = _shallowCopyTable(saved.customSlots)
+    end
+    if saved.playerDuties then
+        team.playerDuties = _shallowCopyTable(saved.playerDuties)
+    end
+    if saved.captain then team.captain = saved.captain end
+    if saved.penaltyTaker then team.penaltyTaker = saved.penaltyTaker end
+    if saved.freeKickTaker then team.freeKickTaker = saved.freeKickTaker end
+    if saved.cornerTaker then team.cornerTaker = saved.cornerTaker end
+end
+
 function WorldCup.buildNationalTeam(gameState, nationCode)
     local ntCoach = gameState.nationalTeamCoach
     if ntCoach and ntCoach.nation == nationCode and ntCoach.squad and #ntCoach.squad > 0 then
@@ -1492,7 +1524,7 @@ function WorldCup.buildNationalTeam(gameState, nationCode)
     local formation = (saved and saved.formation) or "4-3-3"
     local playStyle = (saved and saved.playStyle) or "Balanced"
 
-    return {
+    local team = {
         id = nationCode,
         name = WorldCup._getNationName(nationCode),
         shortName = nationCode,
@@ -1508,6 +1540,8 @@ function WorldCup.buildNationalTeam(gameState, nationCode)
         recentForm = {},
         _isNationalTeam = true,
     }
+    _applySavedNationalTeamTactics(team, saved)
+    return team
 end
 
 function WorldCup._pickStartingXI(players)
@@ -1986,7 +2020,7 @@ function WorldCup._buildFromPlayerSquad(gameState, nationCode, ntCoach)
     local formation = (saved and saved.formation) or "4-3-3"
     local playStyle = (saved and saved.playStyle) or "Balanced"
 
-    return {
+    local team = {
         id = nationCode,
         name = WorldCup._getNationName(nationCode),
         shortName = nationCode,
@@ -2002,6 +2036,8 @@ function WorldCup._buildFromPlayerSquad(gameState, nationCode, ntCoach)
         recentForm = {},
         _isNationalTeam = true,
     }
+    _applySavedNationalTeamTactics(team, saved)
+    return team
 end
 
 ------------------------------------------------------
@@ -2015,8 +2051,17 @@ function WorldCup.saveNationalTeamSettings(gameState, nationCode, team)
     gameState._nationalTeamSettings[nationCode] = {
         formation = team.formation,
         playStyle = team.playStyle,
-        startingXI = team.startingXI,
-        benchIds = team.benchIds,
+        formationVariant = team.formationVariant,
+        startingXI = _shallowCopyTable(team.startingXI),
+        benchIds = _shallowCopyTable(team.benchIds),
+        slotRoles = _shallowCopyTable(team.slotRoles),
+        slotOffsets = _shallowCopyTable(team.slotOffsets),
+        customSlots = _shallowCopyTable(team.customSlots),
+        playerDuties = _shallowCopyTable(team.playerDuties),
+        captain = team.captain,
+        penaltyTaker = team.penaltyTaker,
+        freeKickTaker = team.freeKickTaker,
+        cornerTaker = team.cornerTaker,
     }
 end
 

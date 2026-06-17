@@ -678,6 +678,7 @@ function Finance._buildOperationsDashboard(team, gameState)
         sponsor = { label = "赞助", color = {220, 180, 60, 255} },
         merchandise = { label = "商品", color = {180, 120, 220, 255} },
         prize = { label = "奖金", color = {240, 130, 80, 255} },
+        transfer = { label = "转会", color = {120, 180, 240, 255} },
         wage = { label = "工资", color = {220, 80, 80, 255} },
         maintenance = { label = "维护", color = {150, 150, 170, 255} },
     }
@@ -1610,6 +1611,8 @@ function Finance._buildTransactions(team, gameState)
             pass = (tx.amount or 0) < 0
         elseif _txFilter == "transfer" then
             pass = tx.category == "transfer"
+                or tx.type == "transfer_out"
+                or tx.type == "transfer_in"
         elseif _txFilter == "wage" then
             pass = tx.category == "wage"
         end
