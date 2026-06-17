@@ -398,7 +398,9 @@ function Market._buildBrowseContent(gameState, posFilter, searchQuery, ovrRange)
     local lowerQuery = searchQuery:lower()
     local availablePlayers = {}
     for _, p in pairs(gameState.players) do
-        if p.teamId and p.teamId ~= gameState.playerTeamId and not p.retired then
+        local onOtherTeam = p.teamId and p.teamId ~= gameState.playerTeamId
+        local onOwnTeamWithSearch = lowerQuery ~= "" and p.teamId == gameState.playerTeamId
+        if p.teamId and (onOtherTeam or onOwnTeamWithSearch) and not p.retired then
             -- 位置过滤（候选名单模式只显示在候选名单中的球员）
             local posMatch = false
             if posFilter == "SHORTLIST" then

@@ -387,8 +387,13 @@ end
 ---@return boolean
 function ReincarnationManager.hasReincarnationForEntry(gameState, entry)
     gameState._reincarnationsDone = gameState._reincarnationsDone or {}
-    if gameState._reincarnationsDone[entry.matchName] then
-        return true
+    local done = gameState._reincarnationsDone[entry.matchName]
+    if done then
+        if done.playerId and gameState.players[done.playerId] then
+            return true
+        end
+        -- 记录存在但球员已被清理：视为未完成，允许补转生
+        gameState._reincarnationsDone[entry.matchName] = nil
     end
     for _, player in pairs(gameState.players or {}) do
         if player.reincarnationMatchName == entry.matchName then
@@ -524,10 +529,18 @@ function ReincarnationManager.spawnRebirth(gameState, entry, sourcePlayer)
         targetTeamId = pickRandomTeamWithYouthSlot(gameState)
     end
     if not targetTeamId then
-        print(string.format(
-            "[ReincarnationManager] 转生跳过 %s：无可用青训名额",
-            sourcePlayer.displayName or entry.matchName))
-        return false
+        -- 各队青训已满：仍强制落位到随机球队（必要时略超编）
+        local teamIds = {}
+        for teamId in pairs(gameState.teams or {}) do
+            teamIds[#teamIds + 1] = teamId
+        end
+        if #teamIds == 0 then
+            print(string.format(
+                "[ReincarnationManager] 转生跳过 %s：无可用球队",
+                sourcePlayer.displayName or entry.matchName))
+            return false
+        end
+        targetTeamId = teamIds[RandomInt(1, #teamIds)]
     end
 
     if replacedYouthId then
