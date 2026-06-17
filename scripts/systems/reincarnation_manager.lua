@@ -266,16 +266,21 @@ local function pickRandomYouthToReplace(gameState)
     local candidates = {}
     for teamId, team in pairs(gameState.teams) do
         team._youthPlayerIds = team._youthPlayerIds or {}
-        if #team._youthPlayerIds > 0 then
-            table.insert(candidates, teamId)
+        local replaceable = {}
+        for _, youthId in ipairs(team._youthPlayerIds) do
+            local player = gameState.players[youthId]
+            if player and not player.isReincarnation and not player.reincarnationMatchName then
+                table.insert(replaceable, youthId)
+            end
+        end
+        if #replaceable > 0 then
+            table.insert(candidates, { teamId = teamId, youthIds = replaceable })
         end
     end
     if #candidates == 0 then return nil, nil end
-    local teamId = candidates[RandomInt(1, #candidates)]
-    local team = gameState.teams[teamId]
-    local youthIds = team._youthPlayerIds
-    local youthId = youthIds[RandomInt(1, #youthIds)]
-    return teamId, youthId
+    local picked = candidates[RandomInt(1, #candidates)]
+    local youthId = picked.youthIds[RandomInt(1, #picked.youthIds)]
+    return picked.teamId, youthId
 end
 
 --- 移除被替换的青训球员
@@ -295,16 +300,6 @@ local function removeReplacedYouth(gameState, teamId, youthId)
     gameState.players[youthId] = nil
 end
 
---- 根据 matchName 查找转生名单条目
----@param matchName string
----@return ReincarnationEntry|nil
-local function findEntryByMatchName(matchName)
-    for _, entry in ipairs(ReincarnationManager.REINCARNATION_LIST) do
-        if entry.matchName == matchName then return entry end
-    end
-    return nil
-end
-
 --- 是否已有转生完成记录
 ---@param gameState table
 ---@return boolean
@@ -312,6 +307,28 @@ function ReincarnationManager.hasAnyReincarnation(gameState)
     gameState._reincarnationsDone = gameState._reincarnationsDone or {}
     for _ in pairs(gameState._reincarnationsDone) do
         return true
+    end
+    for _, player in pairs(gameState.players or {}) do
+        if player.isReincarnation or player.reincarnationMatchName then
+            return true
+        end
+    end
+    return false
+end
+
+--- 指定名单条目是否已经转生过
+---@param gameState table
+---@param entry ReincarnationEntry
+---@return boolean
+function ReincarnationManager.hasReincarnationForEntry(gameState, entry)
+    gameState._reincarnationsDone = gameState._reincarnationsDone or {}
+    if gameState._reincarnationsDone[entry.matchName] then
+        return true
+    end
+    for _, player in pairs(gameState.players or {}) do
+        if player.reincarnationMatchName == entry.matchName then
+            return true
+        end
     end
     return false
 end
@@ -337,56 +354,42 @@ function ReincarnationManager.findPlayerForEntry(gameState, entry)
     return nil, false
 end
 
---- 选取本存档的转生目标（世界中存在的传奇之一）
----@param gameState table
----@return ReincarnationEntry|nil
-function ReincarnationManager.pickTargetEntry(gameState)
-    local available = {}
-    for _, entry in ipairs(ReincarnationManager.REINCARNATION_LIST) do
-        local player = select(1, ReincarnationManager.findPlayerForEntry(gameState, entry))
-        if player then
-            table.insert(available, entry)
-        end
-    end
-    if #available == 0 then return nil end
-    return available[RandomInt(1, #available)]
-end
-
---- 确保存档已分配转生目标
----@param gameState table
----@return ReincarnationEntry|nil
-function ReincarnationManager.ensureTarget(gameState)
-    if ReincarnationManager.hasAnyReincarnation(gameState) then return nil end
-    if gameState._reincarnationTarget then
-        return findEntryByMatchName(gameState._reincarnationTarget)
-    end
-    local entry = ReincarnationManager.pickTargetEntry(gameState)
-    if entry then
-        gameState._reincarnationTarget = entry.matchName
-    end
-    return entry
-end
-
---- 新档初始化：记录开局赛季，首季末强制转生
+--- 新档初始化：记录开局赛季，首季末让名单内所有存在的传奇转生
 ---@param gameState table
 function ReincarnationManager.initNewGame(gameState)
-    if ReincarnationManager.hasAnyReincarnation(gameState) then return end
     gameState._gameStartSeason = gameState.season
     gameState._reincarnationFirstSeasonEnd = true
-    ReincarnationManager.ensureTarget(gameState)
 end
 
---- 老档读档迁移：尚无转生时补设目标；目标已退役则立即转生
+--- 新档首季末：强制退役名单内所有未转生的源球员，供本赛季转生循环匹配
+---@param gameState table
+function ReincarnationManager._maybeForceFirstSeasonRetire(gameState)
+    if not gameState._reincarnationFirstSeasonEnd then return end
+    if not gameState._gameStartSeason or gameState.season ~= gameState._gameStartSeason then
+        return
+    end
+
+    gameState._reincarnationFirstSeasonEnd = nil
+    for _, entry in ipairs(ReincarnationManager.REINCARNATION_LIST) do
+        if not ReincarnationManager.hasReincarnationForEntry(gameState, entry) then
+            local player = select(1, ReincarnationManager.findPlayerForEntry(gameState, entry))
+            if player then
+                ReincarnationManager.forceRetireLegend(gameState, player)
+            end
+        end
+    end
+end
+
+--- 老档读档迁移：名单内未转生且已退役的源球员，立即补转生；未退役的留待自然退役
 ---@param gameState table
 function ReincarnationManager.bootstrapLegacySave(gameState)
-    if ReincarnationManager.hasAnyReincarnation(gameState) then return end
-    local entry = ReincarnationManager.ensureTarget(gameState)
-    if not entry then return end
-
-    local player, isRetired = ReincarnationManager.findPlayerForEntry(gameState, entry)
-    if not player then return end
-    if isRetired then
-        ReincarnationManager.spawnRebirth(gameState, entry, player)
+    for _, entry in ipairs(ReincarnationManager.REINCARNATION_LIST) do
+        if not ReincarnationManager.hasReincarnationForEntry(gameState, entry) then
+            local player, isRetired = ReincarnationManager.findPlayerForEntry(gameState, entry)
+            if player and isRetired then
+                ReincarnationManager.spawnRebirth(gameState, entry, player)
+            end
+        end
     end
 end
 
@@ -394,7 +397,6 @@ end
 ---@param gameState table
 ---@param player table
 function ReincarnationManager.forceRetireLegend(gameState, player)
-    if player.retired then return end
     player.retired = true
     player.retiredSeason = gameState.season
     local team = player.teamId and gameState.teams[player.teamId]
@@ -423,7 +425,7 @@ end
 ---@return boolean spawned
 function ReincarnationManager.spawnRebirth(gameState, entry, sourcePlayer)
     gameState._reincarnationsDone = gameState._reincarnationsDone or {}
-    if gameState._reincarnationsDone[entry.matchName] then
+    if ReincarnationManager.hasReincarnationForEntry(gameState, entry) then
         return false
     end
 
@@ -477,6 +479,11 @@ function ReincarnationManager.spawnRebirth(gameState, entry, sourcePlayer)
     newPlayer.teamId = targetTeamId
     newPlayer.isReincarnation = true
     newPlayer.reincarnationMatchName = entry.matchName
+    -- 保留原名/数据源字段，便于 UI 立绘与球员搜索
+    newPlayer.legendName = sourcePlayer.legendName or sourcePlayer.match_name or entry.matchName
+    if sourcePlayer.match_name then
+        newPlayer.match_name = sourcePlayer.match_name
+    end
     newPlayer.paRating = PotentialSystem.rawToRating(newPlayer.potential)
     newPlayer.actualPotential = PotentialSystem.generateActualPotential(
         newPlayer.paRating, (gameState.potentialSeed or 0) + newPlayer.id * 7919)
@@ -492,8 +499,9 @@ function ReincarnationManager.spawnRebirth(gameState, entry, sourcePlayer)
         replacedYouthId = replacedYouthId,
     }
 
+    local displayLabel = sourcePlayer.displayName or entry.matchName
     print(string.format("[ReincarnationManager] 转生触发: %s → 16岁青训，加入 %s",
-        sourcePlayer.displayName or entry.matchName, team.name or targetTeamId))
+        displayLabel, team.name or targetTeamId))
     return true
 end
 
@@ -502,29 +510,28 @@ end
 ------------------------------------------------------
 
 --- 处理转生：在赛季结算退役处理之后调用
+--- 名单内每个源球员独立转生；必须用源球员本人姓名/位置/国籍重生。
 ---@param gameState table
 function ReincarnationManager.processReincarnations(gameState)
-    if ReincarnationManager.hasAnyReincarnation(gameState) then return end
+    gameState._reincarnationsDone = gameState._reincarnationsDone or {}
 
-    local entry = ReincarnationManager.ensureTarget(gameState)
-    if not entry then return end
+    ReincarnationManager._maybeForceFirstSeasonRetire(gameState)
 
-    local player, isRetired = ReincarnationManager.findPlayerForEntry(gameState, entry)
-    if not player then return end
-
-    -- 新档：开局赛季结束时强制退役并转生
-    if gameState._reincarnationFirstSeasonEnd
-        and gameState._gameStartSeason
-        and gameState.season == gameState._gameStartSeason
-        and not isRetired then
-        ReincarnationManager.forceRetireLegend(gameState, player)
-        isRetired = true
-        gameState._reincarnationFirstSeasonEnd = nil
+    local rebirthCount = 0
+    for _, entry in ipairs(ReincarnationManager.REINCARNATION_LIST) do
+        if not ReincarnationManager.hasReincarnationForEntry(gameState, entry) then
+            local player, isRetired = ReincarnationManager.findPlayerForEntry(gameState, entry)
+            if player and isRetired and player.retiredSeason == gameState.season then
+                if ReincarnationManager.spawnRebirth(gameState, entry, player) then
+                    rebirthCount = rebirthCount + 1
+                end
+            end
+        end
     end
 
-    if not isRetired then return end
-
-    ReincarnationManager.spawnRebirth(gameState, entry, player)
+    if rebirthCount > 0 then
+        print(string.format("[ReincarnationManager] 本赛季共 %d 名传奇球员转生", rebirthCount))
+    end
 end
 
 -- 测试用：暴露名字匹配逻辑

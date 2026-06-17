@@ -642,6 +642,10 @@ function Housekeeping.run(gameState)
 
     Housekeeping.clampPlayerPotentialCaps(gameState)
 
+    -- 老档补转生必须先于 purgeRetiredPlayers，否则已退休的本人可能被物理删除。
+    local ReincarnationManager = require("scripts/systems/reincarnation_manager")
+    ReincarnationManager.bootstrapLegacySave(gameState)
+
     local TransferManager = require("scripts/systems/transfer_manager")
     local _, loanDelisted = TransferManager.clearLoanListingsOutsideWindow(gameState, { silent = true })
     local incomingSaleRepair = TransferManager.repairIncomingSaleBids(gameState, { silent = true })
@@ -673,9 +677,6 @@ function Housekeeping.run(gameState)
 
     local AIManager = require("scripts/systems/ai_manager")
     AIManager.ensureAllMinimumSquads(gameState)
-
-    local ReincarnationManager = require("scripts/systems/reincarnation_manager")
-    ReincarnationManager.bootstrapLegacySave(gameState)
 
     if log then
         local total = 0
