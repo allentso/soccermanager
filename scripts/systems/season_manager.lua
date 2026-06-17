@@ -281,7 +281,7 @@ function SeasonManager._processPlayerDevelopment(gameState)
             growthChance = growthCfg.youngAdult or 0.35
         elseif age <= Constants.AGE_PEAK_END then
             growthChance = growthCfg.peak or 0.10
-        elseif age <= 33 then
+        elseif age >= Constants.AGE_DECLINE_MID_START and age <= Constants.AGE_DECLINE_MID_END then
             declineChance = declineCfg.mid or 0.20
         else
             declineChance = declineCfg.late or 0.40
@@ -289,6 +289,16 @@ function SeasonManager._processPlayerDevelopment(gameState)
 
         if growthChance > 0 and seasonAge > Constants.YOUTH_PHASE_MAX_AGE then
             growthChance = growthChance * TrainingManager.getParticipationFactor(player, seasonStartYear)
+        end
+
+        if declineChance > 0 and player.teamId then
+            local team = gameState.teams[player.teamId]
+            if team then
+                local TransferManager = require("scripts/systems/transfer_manager")
+                if TransferManager._isAIProtectedCore(gameState, team, player) then
+                    declineChance = declineChance * 0.35
+                end
+            end
         end
 
         local attrNames = {"speed", "stamina", "strength", "agility", "passing",
@@ -329,6 +339,19 @@ end
 -- 合同到期
 ------------------------------------------------------
 
+local function _teamAvgOverall(gameState, team)
+    if not team then return 50 end
+    local total, count = 0, 0
+    for _, pid in ipairs(team.playerIds or {}) do
+        local p = gameState.players[pid]
+        if p and not p.retired then
+            total = total + (p.overall or 50)
+            count = count + 1
+        end
+    end
+    return count > 0 and (total / count) or 50
+end
+
 function SeasonManager._processContractExpiry(gameState)
     local expiredPlayers = {}
 
@@ -353,8 +376,15 @@ function SeasonManager._processContractExpiry(gameState)
 
         -- AI球队自动续约大部分球员
         if player.teamId ~= gameState.playerTeamId then
-            -- 70%概率续约
-            if Random() < 0.7 then
+            local renewChance = 0.7
+            if team then
+                local teamAvg = _teamAvgOverall(gameState, team)
+                if player.squadRole == "key"
+                    or (player.overall or 0) >= teamAvg + 5 then
+                    renewChance = 0.95
+                end
+            end
+            if Random() < renewChance then
                 player.contractEnd = {year = gameState.date.year + RandomInt(1, 3), month = 6}
             else
                 -- 释放球员

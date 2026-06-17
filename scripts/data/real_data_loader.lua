@@ -74,6 +74,12 @@ local function extractBirthYear(dob)
     return tonumber(year) or 1995
 end
 
+-- 五大联赛 JSON 快照偏旧，开局年龄统一 -2（birthYear +2）
+local CORE_LEAGUE_AGE_OFFSET = 2
+local CORE_LEAGUE_AGE_OFFSET_KEYS = {
+    EPL = true, LaLiga = true, SerieA = true, Bundesliga = true, Ligue1 = true,
+}
+
 -- 从合同结束日期提取 {year, month}
 local function extractContractEnd(dateStr)
     if not dateStr then return {year = 2026, month = 6} end
@@ -238,6 +244,9 @@ function RealDataLoader.importLeague(gameState, leagueData, leagueConfig)
         local position, naturalPositions = mapPositions(pData.position, pData.alternate_positions)
         local attrs = convertAttributes(pData.attributes or {})
         local birthYear = extractBirthYear(pData.date_of_birth)
+        if CORE_LEAGUE_AGE_OFFSET_KEYS[leagueConfig.shortName] then
+            birthYear = birthYear + CORE_LEAGUE_AGE_OFFSET
+        end
         local contractEnd = extractContractEnd(pData.contract_end)
 
         -- 解析teamId

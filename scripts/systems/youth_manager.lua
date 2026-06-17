@@ -3,6 +3,7 @@
 
 local Constants = require("scripts/app/constants")
 local Player = require("scripts/domain/player")
+local Team = require("scripts/domain/team")
 local StaffManager = require("scripts/systems/staff_manager")
 local MessageManager = require("scripts/systems/message_manager")
 local EventBus = require("scripts/app/event_bus")
@@ -24,6 +25,18 @@ local INITIAL_YOUTH_COUNT = 10     -- 每队初始青训人数
 local YOUTH_MIN_AGE = 15
 local YOUTH_MAX_AGE = 18
 local YOUTH_WAGE = 500             -- 青训球员固定周薪
+
+-- AI 自动提拔 OVR 门槛（按球队声望）
+local AI_PROMOTE_MIN_OVR_BY_REP = {
+    { minRep = 900, ovr = 70 },
+    { minRep = 800, ovr = 65 },
+    { minRep = 700, ovr = 60 },
+    { minRep = 620, ovr = 57 },
+    { minRep = 0,   ovr = 55 },
+}
+local AI_PROMOTE_HIGH_POT_90_AGE = 20
+local AI_PROMOTE_HIGH_POT_85_AGE = 19
+local AI_PROMOTE_GEM_MIN_OVR = 68   -- 潜力≥90 妖人最低即战力
 
 -- 青训设施分层生成（Lv1~5；对外仍暴露 youthQuality 乘数，内部按等级查表）
 YouthManager.YOUTH_FACILITY_TIERS = {
@@ -534,6 +547,9 @@ function YouthManager.promote(gameState, playerId)
     end
 
     local alreadyFirstTeam = _isInFirstTeam(team, playerId)
+    if not alreadyFirstTeam and team:isFirstTeamFull() then
+        return false, string.format("一线队已满员（最多 %d 人）", Team.getFirstTeamMax())
+    end
     if not alreadyFirstTeam then
         table.insert(team.playerIds, playerId)
     end
@@ -843,6 +859,41 @@ local function _trainTeamYouth(gameState, team, youthBonus)
             end
         end
     end
+end
+
+--- AI 球队按声望的自动提拔 OVR 门槛
+---@param team table
+---@return number
+function YouthManager._getAIPromoteMinOvr(team)
+    local rep = team and team.reputation or 600
+    for _, tier in ipairs(AI_PROMOTE_MIN_OVR_BY_REP) do
+        if rep >= tier.minRep then return tier.ovr end
+    end
+    return 55
+end
+
+--- 是否满足 AI 自动提拔条件（含高潜延迟）
+---@param gameState table
+---@param team table
+---@param player table
+---@return boolean
+function YouthManager._shouldAIPromoteYouth(gameState, team, player)
+    if not player or not team then return false end
+    local age = gameState.date.year - (player.birthYear or 2000)
+    if age < 18 then return false end
+
+    local minOvr = YouthManager._getAIPromoteMinOvr(team)
+    local ovr = player.overall or 0
+    local pot = player.actualPotential or player.potential or 0
+
+    if pot >= 90 then
+        if age < AI_PROMOTE_HIGH_POT_90_AGE then return false end
+        minOvr = math.max(minOvr, AI_PROMOTE_GEM_MIN_OVR)
+    elseif pot >= 85 then
+        if age < AI_PROMOTE_HIGH_POT_85_AGE then return false end
+    end
+
+    return ovr >= minOvr
 end
 
 --- 每日训练：所有球队青训球员成长
@@ -1513,20 +1564,21 @@ function YouthManager._processAITeamsMonthly(gameState)
                 end
             end
 
-            -- 1. 自动提拔：年满 18 岁且 overall >= 55 的球员提拔至一线队
-            -- （仅处理 teamId 归属本队的球员，租借在外的不动）
+            -- 1. 自动提拔：年满 18 岁且达到声望分档 OVR 门槛（高潜延迟）
             local toPromote = {}
-            for i, pid in ipairs(team._youthPlayerIds) do
-                local player = gameState.players[pid]
-                if player and player.teamId == teamId then
-                    local age = gameState.date.year - (player.birthYear or 2000)
-                    if age >= 18 and (player.overall or 0) >= 55 then
-                        table.insert(toPromote, i)
+            if not team:isFirstTeamFull() then
+                for i, pid in ipairs(team._youthPlayerIds) do
+                    local player = gameState.players[pid]
+                    if player and player.teamId == teamId then
+                        if YouthManager._shouldAIPromoteYouth(gameState, team, player) then
+                            table.insert(toPromote, i)
+                        end
                     end
                 end
             end
             -- 从后向前移除避免索引错位
             for i = #toPromote, 1, -1 do
+                if team:isFirstTeamFull() then break end
                 local idx = toPromote[i]
                 local pid = team._youthPlayerIds[idx]
                 local player = gameState.players[pid]
@@ -1536,7 +1588,9 @@ function YouthManager._processAITeamsMonthly(gameState)
                     player.teamId = teamId
                     player.contractEnd = {year = gameState.date.year + 3, month = 6, day = 30}
                     player.wage = math.max(YOUTH_WAGE * 2, math.floor((player.overall or 50) * 80))
-                    table.insert(team.playerIds, pid)
+                    if team:addPlayer(pid) then
+                        -- promoted
+                    end
                 end
             end
 

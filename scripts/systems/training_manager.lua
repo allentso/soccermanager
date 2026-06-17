@@ -9,6 +9,14 @@ local PositionTrainingManager = require("scripts/systems/position_training_manag
 
 local TrainingManager = {}
 
+local _eventFlavorsModule
+local function _getEventFlavors()
+    if not _eventFlavorsModule then
+        _eventFlavorsModule = require("scripts/match/event_flavors")
+    end
+    return _eventFlavorsModule
+end
+
 ------------------------------------------------------
 -- 训练重点定义
 ------------------------------------------------------
@@ -41,8 +49,8 @@ TrainingManager.WEEKLY_PLAN = {
     },
 }
 
-function TrainingManager._getIntensity()
-    local mods = DifficultySettings.getTrainingModifiers()
+function TrainingManager._getIntensity(trainingMods)
+    local mods = trainingMods or DifficultySettings.getTrainingModifiers()
     return mods.intensity
 end
 
@@ -65,7 +73,8 @@ function TrainingManager.getAppsQuotaForSeasonAge(seasonAge)
 end
 
 --- 22+ 球员：俱乐部出场决定训练效率；≤21 恒为 1.0
-function TrainingManager.getParticipationFactor(player, seasonStartYear)
+--- @param trainingMods table|nil 可选，AI 批量训练日缓存
+function TrainingManager.getParticipationFactor(player, seasonStartYear, trainingMods)
     local seasonAge = TrainingManager.getSeasonAge(player, seasonStartYear)
     if seasonAge <= Constants.YOUTH_PHASE_MAX_AGE then
         return 1.0
@@ -75,7 +84,8 @@ function TrainingManager.getParticipationFactor(player, seasonStartYear)
     if quota <= 0 then return 1.0 end
     local t = apps / quota
     local factor = math.max(Constants.ADULT_TRAINING_APPS_FLOOR, math.min(1.0, t))
-    local scale = DifficultySettings.getTrainingModifiers().participationScale or 1.0
+    local mods = trainingMods or DifficultySettings.getTrainingModifiers()
+    local scale = mods.participationScale or 1.0
     return math.max(Constants.ADULT_TRAINING_APPS_FLOOR, math.min(1.0, factor * scale))
 end
 
@@ -129,9 +139,16 @@ function TrainingManager.processDaily(gameState)
 end
 
 function TrainingManager.processAITeams(gameState)
+    local trainingMods = DifficultySettings.getTrainingModifiers()
+    local seasonStartYear = TrainingManager.getSeasonStartYear(gameState)
     for teamId, team in pairs(gameState.teams) do
         if teamId ~= gameState.playerTeamId then
-            TrainingManager._processTeamDaily(gameState, team, { notifyInjury = false })
+            TrainingManager._processTeamDaily(gameState, team, {
+                notifyInjury = false,
+                aiFastPath = true,
+                trainingMods = trainingMods,
+                seasonStartYear = seasonStartYear,
+            })
         end
     end
 end
@@ -143,9 +160,10 @@ function TrainingManager._processTeamDaily(gameState, team, opts)
         return
     end
 
+    local trainingMods = opts.trainingMods or DifficultySettings.getTrainingModifiers()
     local intensity = team.trainingIntensity or "medium"
-    local intensityConfig = TrainingManager._getIntensity()[intensity]
-        or TrainingManager._getIntensity().medium
+    local intensityTable = TrainingManager._getIntensity(trainingMods)
+    local intensityConfig = intensityTable[intensity] or intensityTable.medium
     local staffBonus = TrainingManager._calcStaffBonus(gameState, team)
     local facilityBonus = FinanceManager.getFacilityBonuses(team).trainingGain
 
@@ -163,7 +181,9 @@ function TrainingManager._processTeamDaily(gameState, team, opts)
             TrainingManager._trainPlayer(
                 gameState, team, p, intensityConfig,
                 staffBonus * facilityBonus, legendPositions, opts)
-            PositionTrainingManager.processDrillDay(p)
+            if not opts.aiFastPath then
+                PositionTrainingManager.processDrillDay(p)
+            end
         end
     end
 end
@@ -175,7 +195,7 @@ function TrainingManager._trainPlayer(gameState, team, player, intensityConfig, 
     opts = opts or {}
 
     local focusKey = player.trainingFocus
-    if not focusKey and team.trainingGroups then
+    if not opts.aiFastPath and not focusKey and team.trainingGroups then
         for _, group in pairs(team.trainingGroups) do
             if group.playerIds then
                 for _, pid in ipairs(group.playerIds) do
@@ -188,12 +208,12 @@ function TrainingManager._trainPlayer(gameState, team, player, intensityConfig, 
     focusKey = focusKey or team.trainingFocus or "balanced"
     local focusAttrs = TrainingManager.FOCUS_ATTRS[focusKey] or TrainingManager.FOCUS_ATTRS.balanced
 
-    local trainingMods = DifficultySettings.getTrainingModifiers()
+    local trainingMods = opts.trainingMods or DifficultySettings.getTrainingModifiers()
     local baseChance = trainingMods.baseChance
     baseChance = baseChance * intensityConfig.growthMultiplier
     baseChance = baseChance * staffBonus
 
-    local seasonStartYear = TrainingManager.getSeasonStartYear(gameState)
+    local seasonStartYear = opts.seasonStartYear or TrainingManager.getSeasonStartYear(gameState)
     local age = player:getAge(gameState.date.year)
     local ageFactor = 1.0
     if age <= 21 then ageFactor = 1.4
@@ -218,7 +238,7 @@ function TrainingManager._trainPlayer(gameState, team, player, intensityConfig, 
     end
 
     baseChance = baseChance * (opts.trainingBonusMult or 1.0)
-    baseChance = baseChance * TrainingManager.getParticipationFactor(player, seasonStartYear)
+    baseChance = baseChance * TrainingManager.getParticipationFactor(player, seasonStartYear, trainingMods)
 
     if Random() < baseChance then
         local attrCap = player:getAttrCap()
@@ -246,7 +266,7 @@ function TrainingManager._trainPlayer(gameState, team, player, intensityConfig, 
     if Random() < intensityConfig.injuryChance then
         local extraChance = player.fitness < 60 and 0.02 or 0
         if Random() < (0.5 + extraChance) then
-            local EventFlavors = require("scripts/match/event_flavors")
+            local EventFlavors = _getEventFlavors()
             local intensity = opts.intensity or team.trainingIntensity or "medium"
             local injury = EventFlavors.rollTrainingInjury(gameState, player, {
                 intensity = intensity,

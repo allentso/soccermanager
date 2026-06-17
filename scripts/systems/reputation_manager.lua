@@ -90,16 +90,17 @@ end
 function ReputationManager.seasonEndUpdate(gameState)
     -- 遍历所有联赛
     for _, lg in pairs(gameState.leagues) do
-        local standings = lg.standings or {}
-        for position, entry in ipairs(standings) do
+        local sorted = lg.getSortedStandings and lg:getSortedStandings() or {}
+        local total = #sorted
+        for position, entry in ipairs(sorted) do
             local teamId = entry.teamId
             local team = gameState.teams[teamId]
             if team then
                 local bonus = SEASON_END_BONUS[position] or 0
                 -- 低排名扣分
-                if position > #standings - 3 then
+                if position > total - 3 then
                     bonus = -10  -- 降级区附近
-                elseif position > #standings / 2 then
+                elseif position > total / 2 then
                     bonus = -2  -- 下半区
                 end
                 team.reputation = math.max(TEAM_REP_MIN, math.min(TEAM_REP_MAX, (team.reputation or 600) + bonus))
@@ -130,6 +131,17 @@ function ReputationManager.cupResultUpdate(gameState, teamId, isWinner)
     if teamId == gameState.playerTeamId then
         ReputationManager._updateManagerRep(gameState, teamId, bonus / 5)
     end
+end
+
+--- 国家队大赛奖励（世界杯/欧洲杯，仅更新经理声望）
+---@param gameState table
+---@param isWinner boolean
+function ReputationManager.nationalCupResultUpdate(gameState, isWinner)
+    local manager = gameState:getPlayerManager()
+    if not manager then return end
+
+    local bonus = isWinner and CUP_WINNER_REP or CUP_FINALIST_REP
+    manager.reputation = math.max(MGR_REP_MIN, math.min(MGR_REP_MAX, (manager.reputation or 30) + bonus / 5))
 end
 
 --- 全联赛声望自然通胀/通缩控制（每月调用一次）
@@ -208,9 +220,9 @@ end
 ---@param gameState table
 function ReputationManager.processWeeklyAI(gameState)
     for _, lg in pairs(gameState.leagues) do
-        local standings = lg.standings or {}
-        local total = #standings
-        for position, entry in ipairs(standings) do
+        local sorted = lg.getSortedStandings and lg:getSortedStandings() or {}
+        local total = #sorted
+        for position, entry in ipairs(sorted) do
             local teamId = entry.teamId
             if teamId ~= gameState.playerTeamId then
                 local team = gameState.teams[teamId]

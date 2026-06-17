@@ -4,6 +4,7 @@
 local Constants = require("scripts/app/constants")
 local FormationShape = require("scripts/match/formation_shape")
 local PositionFit = require("scripts/domain/position_fit")
+local TransferManager = require("scripts/systems/transfer_manager")
 
 local AIManager = {}
 
@@ -238,8 +239,10 @@ function AIManager._evaluateTransferList(gameState, team)
             local excess = #players - 4
             for i = 1, excess do
                 local p = players[i]
-                -- 不放核心球员（能力前5）
-                if p.overall < (team.averageOverall or 50) - 3 then
+                if TransferManager._isAIProtectedCore(gameState, team, p) then goto skipList end
+                -- 不放明显低于队均的替补（原逻辑保留为额外过滤）
+                local teamAvg = TransferManager._getTeamAverageOverall(gameState, team)
+                if p.overall < teamAvg - 3 then
                     -- 检查不重复添加
                     local alreadyListed = false
                     for _, lid in ipairs(team.transferList) do
@@ -249,6 +252,7 @@ function AIManager._evaluateTransferList(gameState, team)
                         table.insert(team.transferList, p.id)
                     end
                 end
+                ::skipList::
             end
         end
     end
@@ -320,11 +324,13 @@ function AIManager._manageWages(gameState, team)
         for _, pid in ipairs(team.playerIds) do
             local p = gameState.players[pid]
             if p and not p.retired then
+                if TransferManager._isAIProtectedCore(gameState, team, p) then goto skipWage end
                 local ratio = (p.wage or 0) / math.max(1, p.overall)
                 if ratio > worstRatio and #team.playerIds > 18 then
                     worstRatio = ratio
                     worstValue = p
                 end
+                ::skipWage::
             end
         end
 

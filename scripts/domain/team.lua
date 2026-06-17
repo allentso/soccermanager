@@ -287,12 +287,30 @@ function Team:getPlayStyleName()
     return Constants.PLAY_STYLE_NAMES[self.playStyle] or self.playStyle
 end
 
--- 添加球员
-function Team:addPlayer(playerId)
+--- 一线队注册上限（与 Constants.FIRST_TEAM_MAX 一致）
+function Team.getFirstTeamMax()
+    local Constants = require("scripts/app/constants")
+    return Constants.FIRST_TEAM_MAX or 30
+end
+
+--- 一线队是否已达注册上限
+function Team:isFirstTeamFull()
+    return #self.playerIds >= Team.getFirstTeamMax()
+end
+
+--- 添加球员到一线队名单
+--- @param opts table|nil { allowOverCap = boolean } 租借归队等少数场景可突破硬顶
+--- @return boolean added 是否成功加入（已满或重复则 false / 已存在则 true）
+function Team:addPlayer(playerId, opts)
+    opts = opts or {}
     for _, pid in ipairs(self.playerIds) do
-        if pid == playerId then return end
+        if pid == playerId then return true end
+    end
+    if not opts.allowOverCap and #self.playerIds >= Team.getFirstTeamMax() then
+        return false
     end
     table.insert(self.playerIds, playerId)
+    return true
 end
 
 -- 移除球员

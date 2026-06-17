@@ -598,7 +598,7 @@ function Housekeeping.reconcileRosters(gameState)
         if player.teamId and not player.retired and not player.isYouth then
             local team = gameState.teams[player.teamId]
             if team then
-                team:addPlayer(player.id)
+                team:addPlayer(player.id, { allowOverCap = true })
             end
         end
     end

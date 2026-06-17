@@ -14,7 +14,8 @@ Constants.SEASON_START_DAY = 10
 Constants.MATCHES_PER_WEEK = 1     -- 每周一场比赛
 
 -- 球队配置
-Constants.SQUAD_SIZE = 22
+Constants.SQUAD_SIZE = 22           -- 理想一线队规模（UI/平衡参考）
+Constants.FIRST_TEAM_MAX = 30       -- 一线队注册硬顶（playerIds 上限）
 Constants.GK_COUNT = 2
 Constants.DEF_COUNT = 7
 Constants.MID_COUNT = 7
@@ -55,7 +56,9 @@ end
 Constants.AGE_MIN = 17
 Constants.AGE_MAX = 38
 Constants.AGE_PEAK_START = 25
-Constants.AGE_PEAK_END = 31
+Constants.AGE_PEAK_END = 29
+Constants.AGE_DECLINE_MID_START = 30
+Constants.AGE_DECLINE_MID_END = 33
 Constants.RETIREMENT_MIN_AGE = 33
 
 -- 成长 / 训练（REQ-20260611-05）

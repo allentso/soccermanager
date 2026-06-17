@@ -577,6 +577,16 @@ function EuroCup._completeTournament(gameState, euro)
     RecordsManager.onEuroChampionship(gameState, winner)
 
     local runnerUp = (winner == finalFixture.homeTeamId) and finalFixture.awayTeamId or finalFixture.homeTeamId
+
+    -- 声望：玩家国家队冠/亚军
+    if playerNation then
+        local ReputationManager = require("scripts/systems/reputation_manager")
+        if playerNation == winner then
+            ReputationManager.nationalCupResultUpdate(gameState, true)
+        elseif playerNation == runnerUp then
+            ReputationManager.nationalCupResultUpdate(gameState, false)
+        end
+    end
     HistoryManager.recordEuroChampion(gameState, {
         season = euro.season,
         championId = winner,

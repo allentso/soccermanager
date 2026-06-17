@@ -450,6 +450,21 @@ function DomesticCup._generateNextRound(gameState, cup, teamIds, isFinal)
 end
 
 ------------------------------------------------------
+-- 从已完成轮次中查找决赛对手
+------------------------------------------------------
+function DomesticCup._getFinalistId(cup, winnerId)
+    for i = #(cup.rounds or {}), 1, -1 do
+        for _, f in ipairs(cup.rounds[i]) do
+            if f.status == "finished" then
+                if f.homeTeamId == winnerId then return f.awayTeamId end
+                if f.awayTeamId == winnerId then return f.homeTeamId end
+            end
+        end
+    end
+    return nil
+end
+
+------------------------------------------------------
 -- 冠军公告
 ------------------------------------------------------
 function DomesticCup._announceWinner(gameState, cup)
@@ -465,6 +480,14 @@ function DomesticCup._announceWinner(gameState, cup)
     -- 记录奖杯（仅玩家球队触发 RecordsManager）
     local RecordsManager = require("scripts/systems/records_manager")
     RecordsManager.onDomesticCupChampionship(gameState, cup.name, cup.winner)
+
+    -- 声望：冠军 / 亚军
+    local ReputationManager = require("scripts/systems/reputation_manager")
+    ReputationManager.cupResultUpdate(gameState, cup.winner, true)
+    local finalistId = DomesticCup._getFinalistId(cup, cup.winner)
+    if finalistId then
+        ReputationManager.cupResultUpdate(gameState, finalistId, false)
+    end
 
     -- 如果是玩家球队
     if cup.winner == gameState.playerTeamId then

@@ -183,14 +183,28 @@ return function(TransferManager)
     end
 
     --- 将球员归属到指定球队：先清全局残留引用，再加入目标队并更新 teamId
-    function TransferManager._assignPlayerToTeam(gameState, player, teamId)
-        if not player or not teamId then return end
-        TransferManager._removePlayerFromAllTeams(gameState, player.id, teamId)
+    --- @param opts table|nil { allowOverCap = boolean }
+    --- @return boolean success
+    function TransferManager._assignPlayerToTeam(gameState, player, teamId, opts)
+        opts = opts or {}
+        if not player or not teamId then return false end
         local team = gameState.teams[teamId]
-        if team then
-            team:addPlayer(player.id)
-            player.teamId = teamId
+        if not team then return false end
+
+        local alreadyListed = false
+        for _, pid in ipairs(team.playerIds or {}) do
+            if pid == player.id then alreadyListed = true; break end
         end
+        if not alreadyListed and not opts.allowOverCap and team:isFirstTeamFull() then
+            return false
+        end
+
+        TransferManager._removePlayerFromAllTeams(gameState, player.id, teamId)
+        if not team:addPlayer(player.id, opts) then
+            return false
+        end
+        player.teamId = teamId
+        return true
     end
 
     function TransferManager._addTransferTransaction(team, amount, description, date, gameState)
