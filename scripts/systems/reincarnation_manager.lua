@@ -135,6 +135,71 @@ ReincarnationManager.REINCARNATION_LIST = {
     },
 }
 
+-- 老档中退役源球员可能已被 Housekeeping 物理删除；此时无法再读取“本人”对象。
+-- 用名单内固定身份兜底，保证老档也能补齐全部转生。
+local FALLBACK_SOURCE_BY_MATCH_NAME = {
+    ["Lionel Messi"] = {
+        displayName = "莱昂内尔·梅西", shortName = "梅西", nationality = "AR", position = "RW",
+        naturalPositions = {"RW", "CAM", "ST"},
+    },
+    ["Cristiano Ronaldo"] = {
+        displayName = "克里斯蒂亚诺·罗纳尔多", shortName = "罗纳尔多", nationality = "PT", position = "ST",
+        naturalPositions = {"ST", "LW"},
+    },
+    ["Neymar Jr."] = {
+        displayName = "内马尔", shortName = "内马尔", nationality = "BR", position = "LW",
+        naturalPositions = {"LW", "CAM"},
+    },
+    ["Robert Lewandowski"] = {
+        displayName = "罗伯特·莱万多夫斯基", shortName = "莱万多夫斯基", nationality = "PL", position = "ST",
+        naturalPositions = {"ST"},
+    },
+    ["Karim Benzema"] = {
+        displayName = "卡里姆·本泽马", shortName = "本泽马", nationality = "FR", position = "ST",
+        naturalPositions = {"ST", "CF"},
+    },
+    ["Kevin De Bruyne"] = {
+        displayName = "凯文·德布劳内", shortName = "德布劳内", nationality = "BE", position = "CM",
+        naturalPositions = {"CM", "CAM"},
+    },
+    ["Luka Modrić"] = {
+        displayName = "卢卡·莫德里奇", shortName = "莫德里奇", nationality = "HR", position = "CM",
+        naturalPositions = {"CM", "CAM"},
+    },
+    ["Manuel Neuer"] = {
+        displayName = "曼努埃尔·诺伊尔", shortName = "诺伊尔", nationality = "DE", position = "GK",
+        naturalPositions = {"GK"},
+    },
+    ["Toni Kroos"] = {
+        displayName = "托尼·克罗斯", shortName = "克罗斯", nationality = "DE", position = "CM",
+        naturalPositions = {"CM", "CDM"},
+    },
+    ["Luis Suárez"] = {
+        displayName = "路易斯·苏亚雷斯", shortName = "苏亚雷斯", nationality = "UY", position = "ST",
+        naturalPositions = {"ST"},
+    },
+    ["Sergio Ramos"] = {
+        displayName = "塞尔吉奥·拉莫斯", shortName = "拉莫斯", nationality = "ES", position = "CB",
+        naturalPositions = {"CB", "RB"},
+    },
+    ["N'Golo Kanté"] = {
+        displayName = "恩戈洛·坎特", shortName = "坎特", nationality = "FR", position = "CDM",
+        naturalPositions = {"CDM", "CM"},
+    },
+    ["Gareth Bale"] = {
+        displayName = "加雷斯·贝尔", shortName = "贝尔", nationality = "WAL", position = "RW",
+        naturalPositions = {"RW", "LW", "ST"},
+    },
+    ["Eden Hazard"] = {
+        displayName = "埃登·阿扎尔", shortName = "阿扎尔", nationality = "BE", position = "LW",
+        naturalPositions = {"LW", "CAM"},
+    },
+    ["Paul Pogba"] = {
+        displayName = "保罗·博格巴", shortName = "博格巴", nationality = "FR", position = "CM",
+        naturalPositions = {"CM", "CDM"},
+    },
+}
+
 ------------------------------------------------------
 -- 内部工具
 ------------------------------------------------------
@@ -388,9 +453,34 @@ function ReincarnationManager.bootstrapLegacySave(gameState)
             local player, isRetired = ReincarnationManager.findPlayerForEntry(gameState, entry)
             if player and isRetired then
                 ReincarnationManager.spawnRebirth(gameState, entry, player)
+            elseif not player then
+                local fallback = ReincarnationManager.createFallbackSource(entry)
+                if fallback then
+                    ReincarnationManager.spawnRebirth(gameState, entry, fallback)
+                end
             end
         end
     end
+end
+
+--- 旧档源球员已被删除时，用固定身份构造“本人”兜底
+---@param entry ReincarnationEntry
+---@return table|nil
+function ReincarnationManager.createFallbackSource(entry)
+    local data = FALLBACK_SOURCE_BY_MATCH_NAME[entry.matchName]
+    if not data then return nil end
+    return {
+        id = nil,
+        firstName = data.displayName,
+        lastName = data.shortName,
+        displayName = data.displayName,
+        legendName = entry.matchName,
+        match_name = entry.matchName,
+        nationality = data.nationality,
+        position = data.position,
+        naturalPositions = data.naturalPositions,
+        retired = true,
+    }
 end
 
 --- 强制传奇球员退役（首季末新档专用）
