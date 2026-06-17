@@ -674,6 +674,9 @@ function Housekeeping.run(gameState)
     local AIManager = require("scripts/systems/ai_manager")
     AIManager.ensureAllMinimumSquads(gameState)
 
+    local ReincarnationManager = require("scripts/systems/reincarnation_manager")
+    ReincarnationManager.bootstrapLegacySave(gameState)
+
     if log then
         local total = 0
         for _, v in pairs(stats) do total = total + v end

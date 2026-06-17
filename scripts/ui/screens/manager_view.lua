@@ -467,6 +467,8 @@ local function _jobRow(entry, gameState, manager, isUnemployed)
             marginTop = 4,
             onClick = function()
                 JobManager.applyForJob(gameState, entry.teamId)
+                local SaveManager = require("scripts/persistence/save_manager")
+                SaveManager.save(gameState, "auto")
                 Router.replaceWith("manager_view")
             end,
         })
@@ -491,7 +493,9 @@ end
 
 --- 构建求职中心卡片
 function ManagerView._buildJobCenter(gameState, manager)
-    local isUnemployed = gameState._isUnemployed == true
+    local JobManager = require("scripts/systems/job_manager")
+    JobManager.syncJobSeekingState(gameState)
+    local isUnemployed = JobManager.isJobSeeking(gameState)
     local vacancies, dangerJobs, safeJobs = _classifyJobs(gameState)
 
     local children = {}
@@ -556,6 +560,8 @@ function ManagerView._buildJobCenter(gameState, manager)
                                         text = "接受", variant = "primary", size = "sm",
                                         onClick = function()
                                             JobManager.acceptOffer(gameState, offer.teamId)
+                                            local SaveManager = require("scripts/persistence/save_manager")
+                                            SaveManager.save(gameState, "auto")
                                             Router.replaceWith("dashboard")
                                         end,
                                     },
@@ -563,6 +569,8 @@ function ManagerView._buildJobCenter(gameState, manager)
                                         text = "拒绝", variant = "ghost", size = "sm", marginLeft = 4,
                                         onClick = function()
                                             JobManager.declineOffer(gameState, offer.teamId)
+                                            local SaveManager = require("scripts/persistence/save_manager")
+                                            SaveManager.save(gameState, "auto")
                                             Router.replaceWith("manager_view")
                                         end,
                                     },

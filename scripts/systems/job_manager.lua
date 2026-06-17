@@ -219,18 +219,31 @@ function JobManager._processApplications(gameState)
                         teamRep = team.reputation or 50,
                         source = "application",  -- 区分来源：申请通过
                         sentDate = { year = gameState.date.year, month = gameState.date.month, day = gameState.date.day },
-                        expireDays = 5,  -- 5天有效期
+                        expireDays = OFFER_EXPIRE_DAYS,
                     })
                     gameState:sendMessage({
                         category = "job",
                         title = "求职结果 - 申请通过！",
                         body = string.format(
                             "%s 通过了你的主教练申请！\n\n" ..
-                            "请在「我的资料」页面的求职中心查看并确认是否接受该职位。\n" ..
-                            "该 Offer 将在 5 天后过期。",
-                            app.teamName
+                            "请确认是否接受该职位。\n" ..
+                            "该 Offer 将在 %d 天后过期。",
+                            app.teamName, OFFER_EXPIRE_DAYS
                         ),
                         priority = "high",
+                        popup = true,
+                        actions = {
+                            {
+                                label = "接受邀约",
+                                actionId = "accept_job_offer",
+                                data = { teamId = app.teamId },
+                            },
+                            {
+                                label = "婉拒",
+                                actionId = "decline_job_offer",
+                                data = { teamId = app.teamId },
+                            },
+                        },
                     })
                 else
                     gameState:sendMessage({
@@ -253,10 +266,18 @@ end
 ---@param teamId number
 ---@return boolean success
 function JobManager.acceptOffer(gameState, teamId)
-    if not gameState._isUnemployed then return false end
+    JobManager.syncJobSeekingState(gameState)
+    if not JobManager.isJobSeeking(gameState) then return false end
 
     local team = gameState.teams[teamId]
-    if not team then return false end
+    if not team then
+        JobManager._removeOffer(gameState, teamId)
+        return false
+    end
+    if not team.managerVacant then
+        JobManager._removeOffer(gameState, teamId)
+        return false
+    end
 
     -- 清空其他邀约
     gameState._pendingOffers = {}
@@ -270,13 +291,7 @@ end
 ---@param gameState table
 ---@param teamId number
 function JobManager.declineOffer(gameState, teamId)
-    local offers = gameState._pendingOffers or {}
-    for i, offer in ipairs(offers) do
-        if offer.teamId == teamId then
-            table.remove(offers, i)
-            break
-        end
-    end
+    JobManager._removeOffer(gameState, teamId)
 
     local team = gameState.teams[teamId]
     if team then
@@ -286,6 +301,20 @@ function JobManager.declineOffer(gameState, teamId)
             body = string.format("你婉拒了 %s 的主教练邀约。", team.name or "球队"),
             priority = "normal",
         })
+    end
+end
+
+--- 从待处理列表移除指定球队的 Offer
+---@param gameState table
+---@param teamId number
+function JobManager._removeOffer(gameState, teamId)
+    local offers = gameState._pendingOffers
+    if not offers then return end
+    for i, offer in ipairs(offers) do
+        if offer.teamId == teamId then
+            table.remove(offers, i)
+            break
+        end
     end
 end
 
@@ -344,6 +373,34 @@ function JobManager.isUnemployed(gameState)
     return gameState._isUnemployed == true
 end
 
+--- 是否处于求职态（无俱乐部、可处理 Offer/申请）
+--- 兼容 _isUnemployed 与 playerTeamId/manager.teamId 不同步的旧档
+---@param gameState table
+---@return boolean
+function JobManager.isJobSeeking(gameState)
+    if gameState._isUnemployed == true then return true end
+    if gameState.playerTeamId ~= nil then return false end
+    local manager = gameState:getPlayerManager()
+    return manager ~= nil and manager.teamId == nil
+end
+
+--- 统一修正求职态标记（读档/处理 Offer 前调用）
+---@param gameState table
+function JobManager.syncJobSeekingState(gameState)
+    if JobManager.isJobSeeking(gameState) then
+        gameState._isUnemployed = true
+        local manager = gameState:getPlayerManager()
+        if manager then
+            manager.isUnemployed = true
+        end
+        gameState._unemployedSince = gameState._unemployedSince or {
+            year = gameState.date.year,
+            month = gameState.date.month,
+            day = gameState.date.day,
+        }
+    end
+end
+
 --- 获取失业天数
 ---@param gameState table
 ---@return number
@@ -369,7 +426,7 @@ end
 ---@param gameState table
 ---@return boolean
 function JobManager.hasPendingOffers(gameState)
-    if not gameState._isUnemployed then return false end
+    if not JobManager.isJobSeeking(gameState) then return false end
     local offers = gameState._pendingOffers
     return offers ~= nil and #offers > 0
 end
@@ -378,7 +435,7 @@ end
 ---@param gameState table
 ---@return number
 function JobManager.getPendingOfferCount(gameState)
-    if not gameState._isUnemployed then return 0 end
+    if not JobManager.isJobSeeking(gameState) then return 0 end
     return #(gameState._pendingOffers or {})
 end
 

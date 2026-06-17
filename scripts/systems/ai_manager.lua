@@ -60,6 +60,25 @@ end
 -- 自动选择最佳首发阵容
 ------------------------------------------------------
 
+-- 首发选择时的"可用度"系数：体能/士气只作温和修正，避免略疲劳的球星被新鲜替补整体顶替。
+-- 旧逻辑用 (fitness/100)*(morale/100) 作乘子，摆动 ±25~40% 远超 10 分 OVR 差，
+-- 导致球星只要体力 75 或士气偏低就被全部换下、登场战力暴跌（强队踢降级区的元凶）。
+function AIManager._lineupAvailabilityFactor(player)
+    local fit = player.fitness or 80
+    local fitnessFactor
+    if fit >= 70 then
+        -- 体力充沛(>=70)：不降权，正常轮换无需为略疲劳让位
+        fitnessFactor = 1.0
+    else
+        -- 体力 <70：线性降到地板 0.55，仅真正力竭时才让位给替补
+        fitnessFactor = 0.55 + (math.max(0, fit) / 70) * 0.45
+    end
+    -- 士气：温和 ±6%
+    local mor = player.morale or 60
+    local moraleFactor = 0.94 + (math.max(0, math.min(100, mor)) / 100) * 0.06
+    return fitnessFactor * moraleFactor
+end
+
 function AIManager._adjustSquad(gameState, team)
     local players = {}
     for _, pid in ipairs(team.playerIds) do
@@ -87,8 +106,8 @@ function AIManager._adjustSquad(gameState, team)
             if usedIds[p.id] then goto skip end
 
             local score = AIManager._playerPositionScore(p, slot)
-            -- 加权体能和状态
-            score = score * (p.fitness / 100) * (p.morale and p.morale / 100 or 1.0)
+            -- 体能/士气温和修正（详见 _lineupAvailabilityFactor）
+            score = score * AIManager._lineupAvailabilityFactor(p)
 
             if score > bestScore then
                 bestScore = score
@@ -448,19 +467,21 @@ end
 function AIManager.ensureTargetFirstTeamSquad(gameState, team)
     if not team or team.id == gameState.playerTeamId then return end
 
+    -- 硬底线：低于最低人数时应急补员（允许生成低分青训救火，仅为防空编）
     AIManager.ensureMinimumFirstTeamSquad(gameState, team)
 
+    -- 软目标：只用“达标质量”（>= fillMinOvr）的现成青训/自由球员补到目标人数。
+    -- 不生成低分新秀、不放宽质量门槛——避免用 60 多分的填充把豪门队均稀释下去。
+    -- 达不到目标人数没关系：剩余缺口交由转会市场用真实引援逐步补强，
+    -- 宁可维持 23 人的高质量阵容，也不要 27 人的注水阵容。
     local target = AiSquadPolicy.getTargetSquadSize(team)
     local fillMinOvr = AiSquadPolicy.getRepMinOvr(team, "fill")
     local safety = 0
-    while #team.playerIds < target and not team:isFirstTeamFull() and safety < target * 4 do
+    while #team.playerIds < target and not team:isFirstTeamFull() and safety < target * 2 do
         safety = safety + 1
         local needGroup = AIManager._getCriticalPositionNeed(gameState, team)
         if AIManager._tryPromoteYouthForTarget(gameState, team, needGroup, fillMinOvr) then
         elseif AIManager._trySignFreeAgentForTarget(gameState, team, needGroup, fillMinOvr) then
-        elseif AIManager._tryPromoteYouthForTarget(gameState, team, needGroup, fillMinOvr - 4) then
-        elseif AIManager._trySignFreeAgentForTarget(gameState, team, needGroup, fillMinOvr - 4) then
-        elseif AIManager._tryGenerateYouthForTarget(gameState, team, needGroup, fillMinOvr - 6) then
         else
             break
         end

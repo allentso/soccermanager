@@ -1493,6 +1493,10 @@ function TransferManager._findTransferTarget(gameState, buyerTeam, needGroup, up
     local teamAvg = TransferManager._getTeamAverageOverall(gameState, buyerTeam)
     local ovrCeiling = 15 + (blockbuster and _blockbusterOvrBonus(buyerTeam) or 0)
     local repMin = AiSquadPolicy.getRepMinOvr(buyerTeam, upgradeMode and "upgrade" or "fill")
+    -- 引援锚点：不随下滑的队均走，至少锚定“声望应有队均”。
+    -- 这样队均跌到 70 的豪门，仍会按 80 的水平去够星，而不是把 72 当合格升级目标。
+    local repTarget = AiSquadPolicy.getRepTargetOvr(buyerTeam)
+    local anchor = math.max(teamAvg, repTarget)
 
     for _, player in pairs(gameState.players) do
         if player.retired then goto continue end
@@ -1515,18 +1519,18 @@ function TransferManager._findTransferTarget(gameState, buyerTeam, needGroup, up
         -- 财力检查
         if player.value > maxSpend then goto continue end
 
-        -- 能力匹配
+        -- 能力匹配（上限锚定在 anchor，使下滑的豪门仍能够到高水平球员）
         if upgradeMode then
             -- 升级模式：至少队均 +gap，且不低于声望底线
             local gap = TransferManager._getAIUpgradeMinOvrGap(buyerTeam)
             local minOvr = math.max(teamAvg + gap, repMin)
             if player.overall < minOvr then goto continue end
-            if player.overall > teamAvg + ovrCeiling then goto continue end
+            if player.overall > anchor + ovrCeiling then goto continue end
         else
             -- 补缺模式：范围宽松，但不低于声望底线 -4
             local fillMin = math.max(teamAvg - 12, repMin)
             if player.overall < fillMin then goto continue end
-            if player.overall > teamAvg + ovrCeiling then goto continue end
+            if player.overall > anchor + ovrCeiling then goto continue end
         end
 
         -- 高薪低能惩罚：AI不愿接手工资与能力不匹配的球员
@@ -1547,7 +1551,7 @@ function TransferManager._findTransferTarget(gameState, buyerTeam, needGroup, up
             end
         end
 
-        local score = TransferManager._scoreAITransferCandidate(player, teamAvg, {
+        local score = TransferManager._scoreAITransferCandidate(player, anchor, {
             upgradeMode = upgradeMode,
             blockbuster = blockbuster,
         })

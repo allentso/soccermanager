@@ -40,12 +40,15 @@ local AI_PROMOTE_GEM_MIN_OVR = 68   -- 潜力≥90 妖人最低即战力
 
 -- 青训设施分层生成（Lv1~5；对外仍暴露 youthQuality 乘数，内部按等级查表）
 YouthManager.YOUTH_FACILITY_TIERS = {
-    -- gemChance / highChance / midChance / floorLift（潜力普通层 & OVR 下限微调）
-    { gemChance = 0.015, highChance = 0.06,  midChance = 0.28, floorLift = 0 },
-    { gemChance = 0.025, highChance = 0.09,  midChance = 0.32, floorLift = 1 },
-    { gemChance = 0.040, highChance = 0.13,  midChance = 0.36, floorLift = 2 },
-    { gemChance = 0.055, highChance = 0.17,  midChance = 0.40, floorLift = 3 },
-    { gemChance = 0.075, highChance = 0.22,  midChance = 0.44, floorLift = 4 },
+    -- 潜力三角分布 potLo / potMode / potHi（按声望档分级）：
+    --   低声望(L1) = 低均值 + 高方差（多数平庸，偶出妖人，"搏一搏"）
+    --   高声望(L5) = 高均值 + 低方差（稳定产出好苗，少出废品）
+    -- floorLift：当前 OVR 下限微调（高声望青训"出道即更高"）
+    { potLo = 42, potMode = 54, potHi = 88, floorLift = 0 },  -- L1 社区青训点
+    { potLo = 45, potMode = 60, potHi = 90, floorLift = 1 },  -- L2 区级
+    { potLo = 50, potMode = 67, potHi = 91, floorLift = 3 },  -- L3 市级
+    { potLo = 56, potMode = 74, potHi = 92, floorLift = 5 },  -- L4 省级精英
+    { potLo = 63, potMode = 81, potHi = 92, floorLift = 7 },  -- L5 国家级营
 }
 
 YouthManager.YOUTH_FACILITY_NAMES = {
@@ -980,26 +983,33 @@ function YouthManager._facilityLevelFromBonus(facilityYouthBonus)
     return math.max(1, math.min(#YouthManager.YOUTH_FACILITY_TIERS, level))
 end
 
---- 分层抽样潜力：多数普通、少数优秀、极少数妖人
+-- 三角分布采样（lo..hi，峰值在 mode）：中间稠密、两端稀疏，
+-- 天然实现"妖人/废品都罕见、且越靠近 mode 越常见"。
+local function _triangular(lo, mode, hi)
+    if hi <= lo then return lo end
+    if mode < lo then mode = lo elseif mode > hi then mode = hi end
+    local u = Random()
+    local c = (mode - lo) / (hi - lo)
+    if u < c then
+        return lo + math.sqrt(u * (hi - lo) * (mode - lo))
+    else
+        return hi - math.sqrt((1 - u) * (hi - lo) * (hi - mode))
+    end
+end
+
+--- 按声望档（设施等级）抽样潜力：
+---   低档 = 低均值 + 高方差（搏一搏，偶出妖人）；高档 = 高均值 + 低方差（稳定出货）
 function YouthManager._rollYouthPotential(youthMods, facilityLevel, youthDevBonus)
     local tier = YouthManager.YOUTH_FACILITY_TIERS[facilityLevel]
         or YouthManager.YOUTH_FACILITY_TIERS[1]
-    local roll = Random()
-    local basePotential
+    local potMax = youthMods.potentialMax or 90
+    local hi = math.min(tier.potHi, potMax)
+    local lo = math.max(40, math.min(tier.potLo, hi - 1))
+    local mode = math.max(lo, math.min(tier.potMode, hi))
 
-    if roll < tier.gemChance then
-        basePotential = RandomInt(88, math.min(92, youthMods.potentialMax))
-    elseif roll < tier.gemChance + tier.highChance then
-        basePotential = RandomInt(78, 87)
-    elseif roll < tier.gemChance + tier.highChance + tier.midChance then
-        basePotential = RandomInt(66, 77)
-    else
-        local normalMin = math.max(50, youthMods.potentialMin - 5 + tier.floorLift)
-        basePotential = RandomInt(normalMin, 65)
-    end
-
-    local coachAdd = math.floor((youthDevBonus or 0) * 15)
-    return math.min(99, basePotential + coachAdd)
+    local basePotential = _triangular(lo, mode, hi)
+    local coachAdd = (youthDevBonus or 0) * 15
+    return math.max(40, math.min(99, math.floor(basePotential + coachAdd + 0.5)))
 end
 
 function YouthManager._generateYouthPlayer(gameState, youthDevBonus, facilityYouthBonus, usedNames, teamCountry)

@@ -109,20 +109,22 @@ end
 function MoraleManager.processAITeams(gameState)
     for teamId, team in pairs(gameState.teams) do
         if teamId ~= gameState.playerTeamId then
+            -- 声望回归基线：豪门心理更稳（基线高、单赛季低迷不易崩盘），
+            -- 小球队更易波动（基线低）。与"青训按声望分方差"同一套分级哲学。
+            local rep = team.reputation or 600
+            local repBase = 58 + math.max(0, math.min(10, (rep - 550) / 35))  -- 58~68
+            -- 近期战绩：胜场抬升目标士气
+            local form = team.recentForm or {}
+            local wins = 0
+            for _, r in ipairs(form) do
+                if r == "W" then wins = wins + 1 end
+            end
+            local targetMorale = repBase + wins * 3
+
             for _, pid in ipairs(team.playerIds) do
                 local player = gameState.players[pid]
                 if player and not player.retired then
-                    -- AI球员士气趋向中值
                     local current = player.morale or MORALE_DEFAULT
-                    local targetMorale = 60
-                    -- 球队近期表现影响
-                    local form = team.recentForm or {}
-                    local wins = 0
-                    for _, r in ipairs(form) do
-                        if r == "W" then wins = wins + 1 end
-                    end
-                    targetMorale = targetMorale + wins * 3
-
                     local delta = (targetMorale - current) * 0.15
                     delta = delta + (Random() - 0.5) * 4
                     player.morale = math.max(MORALE_MIN, math.min(MORALE_MAX, current + delta))

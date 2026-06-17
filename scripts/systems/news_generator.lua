@@ -324,10 +324,13 @@ end
 ------------------------------------------------------
 
 function NewsGenerator.tryInjuryNews(gameState, player, injuryDays)
-    if not gameState or not player or injuryDays < 7 then return end
+    if not gameState or not player then return end
+    injuryDays = math.floor(tonumber(injuryDays) or 0)
+    if injuryDays < 7 then return end
 
-    local dedupeKey = string.format("injury_news_%d_%d_%d_%d",
-        player.id, gameState.date.year, gameState.date.month, gameState.date.day)
+    local dedupeKey = string.format("injury_news_%s_%s_%s_%s",
+        tostring(player.id), tostring(gameState.date.year),
+        tostring(gameState.date.month), tostring(gameState.date.day))
     if isDeduped(gameState, dedupeKey) then return end
 
     local team = gameState.teams[player.teamId]

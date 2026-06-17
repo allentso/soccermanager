@@ -486,6 +486,9 @@ function WorldGenerator.generate(gameState, opts)
     -- 初始化首赛季欧冠
     ChampionsLeague.initialize(gameState)
 
+    local ReincarnationManager = require("scripts/systems/reincarnation_manager")
+    ReincarnationManager.initNewGame(gameState)
+
     log:Write(LOG_INFO, "WorldGenerator: 世界生成完成! 球员:" .. WorldGenerator._countPlayers(gameState))
 
     return true

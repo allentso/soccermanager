@@ -21,6 +21,16 @@ local REP_MIN_OVR_BY_REP = {
     { minRep = 0,   ovr = 56 },
 }
 
+-- “声望应有队均”：该声望档球队理应维持的队均 OVR（引援锚点用）。
+-- 比 REP_MIN_OVR 高一档，作为豪门即使短期下滑也应努力够回的目标水平。
+local REP_TARGET_OVR_BY_REP = {
+    { minRep = 900, ovr = 80 },
+    { minRep = 800, ovr = 77 },
+    { minRep = 700, ovr = 73 },
+    { minRep = 620, ovr = 69 },
+    { minRep = 0,   ovr = 64 },
+}
+
 local FINANCIAL_FLOOR_BY_REP = {
     { minRep = 900, factor = 0.85 },
     { minRep = 800, factor = 0.75 },
@@ -56,6 +66,11 @@ function AiSquadPolicy.getRepMinOvr(team, mode)
         return base - 8
     end
     return base
+end
+
+--- 声望应有队均 OVR（引援锚点：豪门即使队均下滑也按此水平引援）
+function AiSquadPolicy.getRepTargetOvr(team)
+    return tierLookup(REP_TARGET_OVR_BY_REP, team and team.reputation or 600, "ovr", 64)
 end
 
 --- 工资预算底盘系数（按声望）

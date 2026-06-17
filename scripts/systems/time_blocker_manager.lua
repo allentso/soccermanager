@@ -281,6 +281,7 @@ end
 --- 10. 失业状态下主教练邀约待回复
 function TimeBlockerManager._checkJobOfferPending(gameState, blockers)
     local JobManager = require("scripts/systems/job_manager")
+    JobManager.syncJobSeekingState(gameState)
     local count = JobManager.getPendingOfferCount(gameState)
     if count <= 0 then return end
 

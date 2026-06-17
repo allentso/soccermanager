@@ -308,6 +308,9 @@ function GameState:serialize()
         _legendGacha = self._legendGacha,
         -- 转生记录（防重复）
         _reincarnationsDone = self._reincarnationsDone,
+        _reincarnationTarget = self._reincarnationTarget,
+        _gameStartSeason = self._gameStartSeason,
+        _reincarnationFirstSeasonEnd = self._reincarnationFirstSeasonEnd,
         -- 二级联赛升降级数据
         secondDivision = self.secondDivision,
         -- UCL迁移追踪
@@ -399,6 +402,9 @@ function GameState:deserialize(data)
     self._legendGacha = data._legendGacha or nil
     -- 转生记录
     self._reincarnationsDone = data._reincarnationsDone or {}
+    self._reincarnationTarget = data._reincarnationTarget
+    self._gameStartSeason = data._gameStartSeason
+    self._reincarnationFirstSeasonEnd = data._reincarnationFirstSeasonEnd
 
     -- UCL迁移追踪
     self._uclCompletedSeasons = data._uclCompletedSeasons or nil
@@ -491,6 +497,9 @@ function GameState:deserialize(data)
             print("[SaveMigration] Inferred unemployment status for player manager")
         end
     end
+
+    local JobManager = require("scripts/systems/job_manager")
+    JobManager.syncJobSeekingState(self)
 
     -- 恢复联赛（多联赛）
     self.leagues = {}
