@@ -579,8 +579,11 @@ function Dashboard._buildTopBar(gameState, team, isBlocked, hasAnyBlockers, bloc
             end,
         },
         UI.Panel { flexGrow = 1 },
-        -- 设置按钮
-        UI.Button {
+    }
+
+    -- 无球队时（失业等）没有比赛卡片，设置保留在顶栏
+    if not team then
+        table.insert(children, UI.Button {
             text = "⚙",
             width = 30,
             height = 30,
@@ -592,8 +595,8 @@ function Dashboard._buildTopBar(gameState, team, isBlocked, hasAnyBlockers, bloc
             onClick = function()
                 Router.navigate("settings")
             end,
-        },
-    }
+        })
+    end
 
     -- 失业状态：快进到邀约按钮
     if gameState._isUnemployed then
@@ -879,9 +882,32 @@ function Dashboard._buildMatchHero(gameState, team)
     local daysToMatch, nextFixture, isUCLMatch, isWCMatch = Dashboard._findNextMatch(gameState)
 
     if not nextFixture then
-        return Theme.HeroCard {
-            accentColor = Theme.COLORS.MATCH_ORANGE,
+        return UI.Panel {
+            width = "100%",
+            backgroundColor = Theme.COLORS.BG_CARD_ELEVATED,
+            borderRadius = 14,
+            paddingTop = 14, paddingBottom = 14, paddingLeft = 16, paddingRight = 16,
+            marginBottom = 12,
+            overflow = "hidden",
+            borderLeftWidth = 3,
+            borderColor = Theme.COLORS.MATCH_ORANGE,
             children = {
+                UI.Panel {
+                    position = "absolute",
+                    top = 10, left = 10,
+                    zIndex = 10,
+                    children = {
+                        Dashboard._buildTeamIconSwitcher(gameState, team),
+                    },
+                },
+                UI.Panel {
+                    position = "absolute",
+                    top = 10, right = 10,
+                    zIndex = 10,
+                    children = {
+                        Dashboard._buildSettingsChip(),
+                    },
+                },
                 Theme.SectionHeader { text = "下一场比赛", color = Theme.COLORS.MATCH_ORANGE },
                 UI.Label {
                     text = "暂无比赛安排",
@@ -987,6 +1013,15 @@ function Dashboard._buildMatchHero(gameState, team)
                 zIndex = 10,
                 children = {
                     Dashboard._buildTeamIconSwitcher(gameState, team),
+                },
+            },
+            -- 右上角设置（与左上角俱乐部徽章对称）
+            UI.Panel {
+                position = "absolute",
+                top = 10, right = 10,
+                zIndex = 10,
+                children = {
+                    Dashboard._buildSettingsChip(),
                 },
             },
             -- 顶部标题：下一场比赛 + 倒计时标签
@@ -2500,6 +2535,38 @@ function Dashboard._buildTeamIconSwitcher(gameState, team)
 end
 
 ------------------------------------------------------
+-- [顶栏] 设置入口（与俱乐部徽章对称样式）
+------------------------------------------------------
+function Dashboard._buildSettingsChip()
+    return UI.Panel {
+        flexDirection = "row",
+        alignItems = "center",
+        marginRight = 6,
+        height = 34,
+        paddingLeft = 8, paddingRight = 8,
+        backgroundColor = {50, 50, 55, 200},
+        borderRadius = 17,
+        onClick = function()
+            Router.navigate("settings")
+        end,
+        children = {
+            UI.Label {
+                text = "⚙",
+                fontSize = 13,
+                color = Theme.COLORS.TEXT_SECONDARY,
+            },
+            UI.Label {
+                text = "设置",
+                fontSize = 11,
+                color = Theme.COLORS.TEXT_SECONDARY,
+                marginLeft = 5,
+                fontWeight = "bold",
+            },
+        },
+    }
+end
+
+------------------------------------------------------
 -- [国家队模式] 首次上任指引弹窗
 ------------------------------------------------------
 function Dashboard._showNTCoachGuidance(gameState)
@@ -2730,6 +2797,14 @@ function Dashboard._buildNTMatchHero(gameState)
                         Dashboard._buildTeamIconSwitcher(gameState, gameState:getPlayerTeam()),
                     },
                 },
+                UI.Panel {
+                    position = "absolute",
+                    top = 10, right = 10,
+                    zIndex = 10,
+                    children = {
+                        Dashboard._buildSettingsChip(),
+                    },
+                },
                 Theme.SectionHeader { text = "🏆 " .. compLabel .. " · " .. phaseName, color = {255, 215, 0, 255} },
                 UI.Label {
                     text = statusText,
@@ -2777,6 +2852,14 @@ function Dashboard._buildNTMatchHero(gameState)
                 zIndex = 10,
                 children = {
                     Dashboard._buildTeamIconSwitcher(gameState, gameState:getPlayerTeam()),
+                },
+            },
+            UI.Panel {
+                position = "absolute",
+                top = 10, right = 10,
+                zIndex = 10,
+                children = {
+                    Dashboard._buildSettingsChip(),
                 },
             },
             -- 顶部：世界杯 + 阶段 + 倒计时
