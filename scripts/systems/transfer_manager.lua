@@ -1088,8 +1088,10 @@ end
 --- AI主动挂牌多余球员（增加市场供给）
 function TransferManager._aiListPlayersForSale(gameState)
     local Constants = require("scripts/app/constants")
+    local aiMin = Constants.AI_FIRST_TEAM_MIN or 20
     for _, team in pairs(gameState.teams) do
         if team.id == gameState.playerTeamId then goto skipTeam end
+        if #team.playerIds <= aiMin then goto skipTeam end
         -- 阵容过大(>25人)时，主动挂牌多余球员
         if #team.playerIds > 25 then
             local surplus = #team.playerIds - 23
@@ -1105,6 +1107,7 @@ function TransferManager._aiListPlayersForSale(gameState)
             table.sort(sorted, function(a, b) return a.overall < b.overall end)
             for _, p in ipairs(sorted) do
                 if listed >= surplus then break end
+                if #team.playerIds - listed <= aiMin then break end
                 if not TransferManager._isAIProtectedCore(gameState, team, p) then
                     p.listedForSale = true
                     listed = listed + 1

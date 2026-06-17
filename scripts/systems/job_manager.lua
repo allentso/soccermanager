@@ -502,7 +502,9 @@ function JobManager._cleanExpiredOffers(gameState)
     local i = 1
     while i <= #offers do
         local offer = offers[i]
-        offer.expireDays = (offer.expireDays or OFFER_EXPIRE_DAYS) - 1
+        local remaining = tonumber(offer.expireDays) or OFFER_EXPIRE_DAYS
+        if remaining ~= remaining then remaining = OFFER_EXPIRE_DAYS end
+        offer.expireDays = math.floor(remaining) - 1
         if offer.expireDays <= 0 then
             -- 过期：球队不再等待
             table.remove(offers, i)

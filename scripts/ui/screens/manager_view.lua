@@ -40,6 +40,13 @@ local function statRow(label, value, color)
     }
 end
 
+--- 安全取整供 string.format("%d") 使用（避免 NaN/浮点导致崩溃）
+local function safeDisplayInt(value, default)
+    local n = tonumber(value)
+    if not n or n ~= n then return default or 0 end
+    return math.max(0, math.floor(n))
+end
+
 ------------------------------------------------------------
 -- 主入口
 ------------------------------------------------------------
@@ -537,8 +544,10 @@ function ManagerView._buildJobCenter(gameState, manager)
                                         },
                                     }},
                                     UI.Label {
-                                        text = string.format("%s | 声望 %d | %d天后过期",
-                                            offer.leagueName or "联赛", offer.teamRep or 50, offer.expireDays or 0),
+                                        text = string.format("%s | 声望 %s | %d天后过期",
+                                            offer.leagueName or "联赛",
+                                            ManagerView._formatRep(offer.teamRep or 50),
+                                            safeDisplayInt(offer.expireDays, 0)),
                                         fontSize = 10, color = COLORS.TEXT_MUTED, marginTop = 2,
                                     },
                                 }},

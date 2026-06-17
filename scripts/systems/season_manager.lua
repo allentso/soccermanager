@@ -1143,6 +1143,10 @@ function SeasonManager._startNewSeason(gameState)
     local FinanceManager = require("scripts/systems/finance_manager")
     FinanceManager.generateSponsorOffers(gameState)
 
+    -- AI 一线队人数保底（新赛季开始前补齐）
+    local AIManager = require("scripts/systems/ai_manager")
+    AIManager.ensureAllMinimumSquads(gameState)
+
     -- B3: 赛季前瞻新闻
     NewsGenerator.generateSeasonPreview(gameState)
 end

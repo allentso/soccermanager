@@ -671,6 +671,9 @@ function Housekeeping.run(gameState)
     local YouthManager = require("scripts/systems/youth_manager")
     stats.overageYouth = YouthManager.purgeOverageYouth(gameState) or 0
 
+    local AIManager = require("scripts/systems/ai_manager")
+    AIManager.ensureAllMinimumSquads(gameState)
+
     if log then
         local total = 0
         for _, v in pairs(stats) do total = total + v end
