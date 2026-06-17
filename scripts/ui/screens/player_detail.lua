@@ -10,6 +10,7 @@ local FinanceManager = require("scripts/systems/finance_manager")
 local ContractManager = require("scripts/systems/contract_manager")
 local ConfirmDialog = require("scripts/ui/components/confirm_dialog")
 local TransferManager = require("scripts/systems/transfer_manager")
+local SaveManager = require("scripts/persistence/save_manager")
 local BottomSheet = require("scripts/ui/components/bottom_sheet")
 local StatsTab = require("scripts/ui/screens/player_detail/stats_tab")
 local PotentialSystem = require("scripts/systems/potential_system")
@@ -1554,16 +1555,27 @@ function PlayerDetail._buildExtendLoanCard(player, gameState)
                 borderRadius = 8, fontSize = 14,
                 color = {255, 255, 255, 255},
                 onClick = function()
-                    local ok, err = TransferManager.extendLoan(gameState, player.id, extraWeeks)
-                    if not ok then
-                        gameState:sendMessage({
-                            category = "transfer",
-                            title = "续租失败",
-                            body = err or "条件不满足",
-                            priority = "normal",
-                        })
-                    end
-                    Router.replaceWith("player_detail", { playerId = player.id, tab = "contract" })
+                    ConfirmDialog.show({
+                        title = "确认续租",
+                        message = string.format(
+                            "续租 %d 周约需 %s，确定继续？",
+                            extraWeeks, PlayerDetail._formatMoney(fee)),
+                        confirmText = "续租",
+                        onConfirm = function()
+                            local ok, err = TransferManager.extendLoan(gameState, player.id, extraWeeks)
+                            if not ok then
+                                gameState:sendMessage({
+                                    category = "transfer",
+                                    title = "续租失败",
+                                    body = err or "条件不满足",
+                                    priority = "normal",
+                                })
+                            else
+                                SaveManager.save(gameState, "auto")
+                            end
+                            Router.replaceWith("player_detail", { playerId = player.id, tab = "contract" })
+                        end,
+                    })
                 end,
             },
         }

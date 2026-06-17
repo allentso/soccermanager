@@ -385,6 +385,11 @@ function TransferManager.getPendingTransferSignConfirmations(gameState, teamId)
     for _, bid in ipairs(gameState.transfers.bids) do
         if bid.buyerTeamId == teamId
             and bid.status == "awaiting_confirmation" then
+            local activeLoan = TransferManager.getLoanForPlayer(gameState, bid.playerId)
+            if activeLoan and activeLoan.loanTeamId == teamId then
+                TransferManager._cancelStaleLoanBidsForPlayer(gameState, bid.playerId, teamId)
+                goto continue_pending_sign
+            end
             local player = gameState.players[bid.playerId]
             local seller = bid.sellerTeamId and gameState.teams[bid.sellerTeamId]
             table.insert(result, {
@@ -394,6 +399,7 @@ function TransferManager.getPendingTransferSignConfirmations(gameState, teamId)
                 sellerName = seller and (seller.name or seller.shortName) or "卖方",
                 amount = bid.amount,
             })
+            ::continue_pending_sign::
         end
     end
     return result
@@ -3613,9 +3619,29 @@ function TransferManager.recallLoan(gameState, playerId)
     return true
 end
 
+--- 清理同一球员上已失效的租借报价（球员已在队但 bid 仍停在待确认）
+function TransferManager._cancelStaleLoanBidsForPlayer(gameState, playerId, teamId)
+    TransferManager._ensureData(gameState)
+    if not playerId or not teamId then return end
+    for _, bid in ipairs(gameState.transfers.bids) do
+        if bid.playerId == playerId
+            and bid.buyerTeamId == teamId
+            and bid.type == "loan"
+            and (bid.status == "awaiting_confirmation" or bid.status == "fee_agreed") then
+            bid.status = "cancelled"
+            bid.rejectedDate = {
+                year = gameState.date.year,
+                month = gameState.date.month,
+                day = gameState.date.day,
+            }
+        end
+    end
+end
+
 --- 租借方续租（延长租期）
 function TransferManager.extendLoan(gameState, playerId, extraWeeks)
     TransferManager._ensureData(gameState)
+    if not gameState._activeLoans then gameState._activeLoans = {} end
     extraWeeks = extraWeeks or 26
     local loan = TransferManager.getLoanForPlayer(gameState, playerId)
     if not loan then return false, "未找到活跃租借" end
@@ -3630,7 +3656,13 @@ function TransferManager.extendLoan(gameState, playerId, extraWeeks)
         return false, "余额不足以支付续租费用"
     end
 
-    loan.remainingDays = (loan.remainingDays or 0) + extraWeeks * 7
+    if not loan.remainingDays then
+        loan.remainingDays = math.floor((tonumber(loan.remainingWeeks) or 0) * 7 + 0.5)
+    end
+    loan.remainingDays = (tonumber(loan.remainingDays) or 0) + extraWeeks * 7
+    loan.remainingWeeks = nil
+
+    TransferManager._cancelStaleLoanBidsForPlayer(gameState, playerId, gameState.playerTeamId)
     if team and fee > 0 then
         team.balance = team.balance - fee
         team.seasonExpense = (team.seasonExpense or 0) + fee
@@ -4885,7 +4917,7 @@ function TransferManager.processDailyBids(gameState)
                     local player = gameState.players[bid.playerId]
                     if player and TransferManager._checkReleaseClause(player, bid.amount) then
                         TransferManager._acceptBid(gameState, bid)
-                    elseif bid.type == "loan" then
+                    elseif bid.type == "loan" and not bid.isIncomingLoanBid then
                         TransferManager._processAILoanResponse(gameState, bid)
                     elseif bid.isIncomingBid then
                         -- 收到的报价由玩家手动接受/还价/拒绝，不走买方 AI 回应

@@ -596,14 +596,14 @@ end
 -- 顶部操作栏
 ------------------------------------------------------
 function Dashboard._buildTopBar(gameState, team, isBlocked, hasAnyBlockers, blockers, daysToMatch, doAdvanceDay, doSkipToMatchDay)
-    -- 继续按钮颜色和文本
+    -- 继续按钮颜色和文本（仅 warn 级阻断改样式；info 提示已在紧急事项区展示，不拦截推进）
     local hasTodayMatch = (daysToMatch == 0)
     local continueColor = isBlocked and Theme.COLORS.DANGER
         or (hasTodayMatch and Theme.COLORS.MATCH_ORANGE)
-        or (hasAnyBlockers and Theme.COLORS.WARNING or Theme.COLORS.FINANCE_GREEN)
+        or Theme.COLORS.FINANCE_GREEN
     local continueText = isBlocked and "! 阻断"
         or (hasTodayMatch and "! 继续")
-        or (hasAnyBlockers and "! 继续" or "继续 >")
+        or "继续 >"
 
     local children = {
         -- 日期（点击弹出赛事日历）
@@ -669,10 +669,6 @@ function Dashboard._buildTopBar(gameState, team, isBlocked, hasAnyBlockers, bloc
                     BlockerDialog.show(blockers)
                     return
                 end
-                if hasAnyBlockers then
-                    BlockerDialog.show(blockers, { onForceAdvance = doSkipToMatchDay })
-                    return
-                end
                 doSkipToMatchDay()
             end,
         })
@@ -691,10 +687,6 @@ function Dashboard._buildTopBar(gameState, team, isBlocked, hasAnyBlockers, bloc
         onClick = function()
             if isBlocked then
                 BlockerDialog.show(blockers)
-                return
-            end
-            if hasAnyBlockers then
-                BlockerDialog.show(blockers, { onForceAdvance = doAdvanceDay })
                 return
             end
             doAdvanceDay()

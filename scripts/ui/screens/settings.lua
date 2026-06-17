@@ -1038,28 +1038,45 @@ function Settings._completeAllLeagues(gameState)
     if not gameState.leagues then return end
     local playerTeamId = gameState.playerTeamId
 
+    local MatchEngine = require("scripts/match/match_engine")
+    local AIManager = require("scripts/systems/ai_manager")
+
     for _, lg in pairs(gameState.leagues) do
         if lg.fixtures then
             for _, f in ipairs(lg.fixtures) do
                 if f.status ~= "finished" then
-                    f.status = "finished"
-                    -- 玩家球队比赛结果偏向赢球，防止随机降级
                     local isPlayerHome = (f.homeTeamId == playerTeamId)
                     local isPlayerAway = (f.awayTeamId == playerTeamId)
-                    if isPlayerHome then
-                        f.homeGoals = RandomInt(1, 3)
-                        f.awayGoals = RandomInt(0, 1)
-                    elseif isPlayerAway then
-                        f.homeGoals = RandomInt(0, 1)
-                        f.awayGoals = RandomInt(1, 3)
+                    if isPlayerHome or isPlayerAway then
+                        -- 玩家球队比赛：保留偏向赢球，避免作弊跳过时随机降级
+                        f.status = "finished"
+                        if isPlayerHome then
+                            f.homeGoals = RandomInt(1, 3)
+                            f.awayGoals = RandomInt(0, 1)
+                        else
+                            f.homeGoals = RandomInt(0, 1)
+                            f.awayGoals = RandomInt(1, 3)
+                        end
+                        pcall(function() lg:updateStanding(f) end)
+                        Settings._recordPlayerFixture(gameState, f)
                     else
-                        f.homeGoals = RandomInt(0, 3)
-                        f.awayGoals = RandomInt(0, 3)
+                        -- AI vs AI：走真实比赛引擎，尊重球队战力（先刷新最佳首发），
+                        -- 取代旧的纯随机比分（会让强队随机降级）。applyResult 负责积分/统计。
+                        local homeTeam = gameState.teams[f.homeTeamId]
+                        local awayTeam = gameState.teams[f.awayTeamId]
+                        if homeTeam then pcall(AIManager._adjustSquad, gameState, homeTeam) end
+                        if awayTeam then pcall(AIManager._adjustSquad, gameState, awayTeam) end
+                        local ok, report = pcall(MatchEngine.simulate, gameState, f)
+                        if ok and report then
+                            MatchEngine.applyResult(gameState, f, report)
+                        else
+                            -- 兜底：引擎不可用时退回随机比分
+                            f.status = "finished"
+                            f.homeGoals = RandomInt(0, 3)
+                            f.awayGoals = RandomInt(0, 3)
+                            pcall(function() lg:updateStanding(f) end)
+                        end
                     end
-                    -- 更新积分榜
-                    pcall(function() lg:updateStanding(f) end)
-                    -- 写入个人履历和声望
-                    Settings._recordPlayerFixture(gameState, f)
                 end
             end
         end
@@ -1070,7 +1087,6 @@ function Settings._completeAllLeagues(gameState)
         if ucl.leaguePhase and ucl.leaguePhase.fixtures then
             for _, f in ipairs(ucl.leaguePhase.fixtures) do
                 if f.status ~= "finished" then
-                    f.status = "finished"
                     local isPlayerHome = (f.homeTeamId == playerTeamId)
                     local isPlayerAway = (f.awayTeamId == playerTeamId)
                     if isPlayerHome then
@@ -1080,9 +1096,17 @@ function Settings._completeAllLeagues(gameState)
                         f.homeGoals = RandomInt(0, 1)
                         f.awayGoals = RandomInt(1, 3)
                     else
-                        f.homeGoals = RandomInt(0, 3)
-                        f.awayGoals = RandomInt(0, 3)
+                        -- AI vs AI：用真实引擎决定比分，尊重球队战力
+                        local ok, report = pcall(MatchEngine.simulate, gameState, f)
+                        if ok and report then
+                            f.homeGoals = report.homeGoals
+                            f.awayGoals = report.awayGoals
+                        else
+                            f.homeGoals = RandomInt(0, 3)
+                            f.awayGoals = RandomInt(0, 3)
+                        end
                     end
+                    f.status = "finished"
                     pcall(function() ucl:updateLeagueStanding(f) end)
                     -- 写入个人履历和声望
                     Settings._recordPlayerFixture(gameState, f)

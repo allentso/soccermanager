@@ -8,6 +8,7 @@ local Constants = require("scripts/app/constants")
 local TransferManager = require("scripts/systems/transfer_manager")
 local TrainingManager = require("scripts/systems/training_manager")
 local ConfirmDialog = require("scripts/ui/components/confirm_dialog")
+local SaveManager = require("scripts/persistence/save_manager")
 
 local LoansTab = {}
 
@@ -137,16 +138,31 @@ function LoansTab._loanRow(gameState, loan, player, prefix, role)
             backgroundColor = Theme.COLORS.SECONDARY, borderRadius = 4, fontSize = 11,
             color = {255, 255, 255, 255},
             onClick = function()
-                local ok, err = TransferManager.extendLoan(gameState, loan.playerId, 26)
-                if not ok then
-                    gameState:sendMessage({
-                        category = "transfer",
-                        title = "续租失败",
-                        body = err or "条件不满足",
-                        priority = "normal",
-                    })
-                end
-                Router.replaceWith("market", { tab = "loans" })
+                local extraWeeks = 26
+                local fee = player and math.floor((player.wage or 0) * extraWeeks * 0.35) or 0
+                ConfirmDialog.show({
+                    title = "确认续租",
+                    message = string.format(
+                        "为 %s 续租 %d 周，约需 %s？",
+                        player and player.displayName or "球员",
+                        extraWeeks,
+                        tostring(fee)),
+                    confirmText = "续租",
+                    onConfirm = function()
+                        local ok, err = TransferManager.extendLoan(gameState, loan.playerId, extraWeeks)
+                        if not ok then
+                            gameState:sendMessage({
+                                category = "transfer",
+                                title = "续租失败",
+                                body = err or "条件不满足",
+                                priority = "normal",
+                            })
+                        else
+                            SaveManager.save(gameState, "auto")
+                        end
+                        Router.replaceWith("market", { tab = "loans" })
+                    end,
+                })
             end,
         }
     end
