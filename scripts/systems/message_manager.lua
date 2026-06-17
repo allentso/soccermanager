@@ -220,8 +220,22 @@ function MessageManager.send(gameState, templateId, args, opts)
         return nil
     end
 
-    -- 格式化消息体
-    local body = string.format(tmpl.format, table.unpack(args))
+    -- 格式化消息体（读档后数值字段偶发为字符串，先尝试原样再 coerce）
+    local body
+    local okFmt = pcall(function()
+        body = string.format(tmpl.format, table.unpack(args))
+    end)
+    if not okFmt then
+        local coerced = {}
+        for i, v in ipairs(args) do
+            if type(v) == "string" then
+                coerced[i] = tonumber(v) or v
+            else
+                coerced[i] = v
+            end
+        end
+        body = string.format(tmpl.format, table.unpack(coerced))
+    end
 
     local msg = {
         category = tmpl.category,

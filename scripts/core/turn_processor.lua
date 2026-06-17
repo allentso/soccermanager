@@ -35,6 +35,11 @@ local TurnProcessor = {}
 
 -- 推进一天
 function TurnProcessor.advanceDay(gameState)
+    -- 读档后 date/month 等可能为字符串，先规范化避免 string.format 崩溃
+    if gameState.normalizeRuntimeScalars then
+        gameState:normalizeRuntimeScalars()
+    end
+
     -- 存档迁移：旧格式欧冠 → 新瑞士制（仅首次触发）
     ChampionsLeague.migrateIfNeeded(gameState)
 

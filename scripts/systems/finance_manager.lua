@@ -608,7 +608,9 @@ function FinanceManager.generateMonthlyReport(gameState)
 
     -- 记录每月快照用于环比
     if not team.monthlySnapshots then team.monthlySnapshots = {} end
-    local monthKey = string.format("%d-%02d", gameState.date.year, gameState.date.month)
+    local monthKey = string.format("%d-%02d",
+        tonumber(gameState.date.year) or 2025,
+        tonumber(gameState.date.month) or 8)
     local prevMonth = team.monthlySnapshots[#team.monthlySnapshots]
 
     -- 本月各项收入（从上次快照到现在的增量）

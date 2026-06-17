@@ -474,7 +474,7 @@ function DomesticCup._announceWinner(gameState, cup)
     gameState:addNews({
         category = "cup_news",
         title = string.format("%s冠军: %s!", cup.name, teamName),
-        body = string.format("%s 赢得了 %d 赛季 %s 冠军！", teamName, cup.season, cup.name),
+        body = string.format("%s 赢得了 %d 赛季 %s 冠军！", teamName, tonumber(cup.season) or 0, cup.name),
     })
 
     -- 记录奖杯（仅玩家球队触发 RecordsManager）

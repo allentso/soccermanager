@@ -23,7 +23,7 @@ function Tournament.new(data)
     self.name = data.name or "Champions League"
     self.shortName = data.shortName or "UCL"
     self.type = data.type or "ucl"  -- "ucl" / "world_cup"
-    self.season = data.season or 2024
+    self.season = tonumber(data.season) or 2024
 
     -- 阶段
     self.phase = data.phase or Tournament.PHASE_NOT_STARTED

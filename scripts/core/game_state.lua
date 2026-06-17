@@ -191,6 +191,41 @@ function GameState:getUnreadCount()
 end
 
 -- 日期格式化
+--- 规范化日期表（JSON 反序列化后 year/month/day 可能变为字符串）
+function GameState.normalizeDateTable(date)
+    if type(date) ~= "table" then
+        return { year = 2025, month = 8, day = 10 }
+    end
+    date.year = tonumber(date.year) or 2025
+    date.month = tonumber(date.month) or 8
+    date.day = tonumber(date.day) or 10
+    return date
+end
+
+--- 读档/推进日前统一校正标量类型，避免 string.format(%d) 崩溃
+function GameState:normalizeRuntimeScalars()
+    self.date = GameState.normalizeDateTable(self.date)
+    self.season = tonumber(self.season) or self.date.year
+    self.dayOfWeek = tonumber(self.dayOfWeek) or 1
+
+    if self.championsLeague and self.championsLeague.season then
+        self.championsLeague.season = tonumber(self.championsLeague.season) or self.season
+    end
+    if self.worldCup and self.worldCup.season then
+        self.worldCup.season = tonumber(self.worldCup.season) or self.season
+    end
+    if self.euroCup and self.euroCup.season then
+        self.euroCup.season = tonumber(self.euroCup.season) or self.season
+    end
+    if self.domesticCups then
+        for _, cup in pairs(self.domesticCups) do
+            if cup and cup.season then
+                cup.season = tonumber(cup.season) or self.season
+            end
+        end
+    end
+end
+
 function GameState:getDateString()
     return string.format("%d年%d月%d日", self.date.year, self.date.month, self.date.day)
 end
@@ -640,6 +675,8 @@ function GameState:deserialize(data)
     -- 旧存档：死敌关系未初始化时补全
     local TeamRivalries = require("scripts/data/team_rivalries")
     TeamRivalries.initializeIfNeeded(self)
+
+    self:normalizeRuntimeScalars()
 end
 
 -- 获取玩家所在联赛

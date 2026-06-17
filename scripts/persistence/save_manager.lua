@@ -290,7 +290,12 @@ function SaveManager._doSave(gameState, slot)
     -- 确保存档目录存在
     fileSystem:CreateDir(SAVE_DIR)
 
-    local saved_at = string.format("%d-%02d-%02d", gameState.date.year, gameState.date.month, gameState.date.day)
+    if gameState.normalizeRuntimeScalars then
+        gameState:normalizeRuntimeScalars()
+    end
+    local d = gameState.date or {}
+    local saved_at = string.format("%d-%02d-%02d",
+        tonumber(d.year) or 2025, tonumber(d.month) or 8, tonumber(d.day) or 10)
 
     -- 阶段1：序列化（任何一个 domain 对象 serialize 抛错都会在这里被定位）
     local okSer, gsData = pcall(gameState.serialize, gameState)
