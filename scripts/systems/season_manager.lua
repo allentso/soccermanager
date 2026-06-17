@@ -378,11 +378,25 @@ function SeasonManager._processContractExpiry(gameState)
         if player.teamId ~= gameState.playerTeamId then
             local renewChance = 0.7
             if team then
+                local AiSquadPolicy = require("scripts/systems/ai_squad_policy")
                 local teamAvg = _teamAvgOverall(gameState, team)
+                local targetSize = AiSquadPolicy.getTargetSquadSize(team)
+                local teamSize = #team.playerIds
+                if teamSize <= targetSize then
+                    renewChance = renewChance + 0.15
+                end
+                if AiSquadPolicy.hasPositionShortage(gameState, team) then
+                    renewChance = renewChance + 0.15
+                end
+                local repMin = AiSquadPolicy.getRepMinOvr(team, "fill")
+                if (team.reputation or 0) >= 800 and (player.overall or 0) >= repMin - 6 then
+                    renewChance = renewChance + 0.10
+                end
                 if player.squadRole == "key"
                     or (player.overall or 0) >= teamAvg + 5 then
                     renewChance = 0.95
                 end
+                renewChance = math.min(0.98, renewChance)
             end
             if Random() < renewChance then
                 player.contractEnd = {year = gameState.date.year + RandomInt(1, 3), month = 6}
@@ -453,11 +467,10 @@ function SeasonManager._processRetirements(gameState)
         end
         ::continue::
     end
-end
 
-------------------------------------------------------
--- 重置赛季统计
-------------------------------------------------------
+    local AIManager = require("scripts/systems/ai_manager")
+    AIManager.ensureAllTargetSquads(gameState)
+end
 
 ------------------------------------------------------
 -- 记录球员职业历史（每赛季结算时调用，在重置统计之前）
@@ -849,6 +862,9 @@ function SeasonManager._generatePromotionTeam(gameState, leagueKey, country)
     -- 生成基础阵容（实力略低于顶级联赛）
     SeasonManager._generateSquadForTeam(gameState, team, leagueKey)
 
+    local AiSquadPolicy = require("scripts/systems/ai_squad_policy")
+    AiSquadPolicy.ensureFinancialBaseline(team)
+
     return team
 end
 
@@ -1020,7 +1036,9 @@ end
 -- 公式参照 real_data_loader: transferBudget ≈ wageBudget * 25, balance ≈ wageBudget * 80
 ------------------------------------------------------
 function SeasonManager._allocateSeasonBudgets(gameState)
+    local AiSquadPolicy = require("scripts/systems/ai_squad_policy")
     for _, team in pairs(gameState.teams) do
+        AiSquadPolicy.ensureFinancialBaseline(team)
         -- 计算当前实际周薪支出
         local actualWeeklyWage = 0
         for _, pid in ipairs(team.playerIds) do
@@ -1032,9 +1050,11 @@ function SeasonManager._allocateSeasonBudgets(gameState)
             if s then actualWeeklyWage = actualWeeklyWage + (s.wage or 0) end
         end
 
-        -- 工资预算：实际周薪 * 1.3（留30%余量用于新签约）
-        -- 最低保底 200K/周（小球队也能签人）
-        local newWageBudget = math.max(200000, math.floor(actualWeeklyWage * 1.3))
+        -- 工资预算：实际周薪 * 1.3，并保留品牌财务底盘
+        local baseWb = team._baseWageBudget or team.wageBudget or 200000
+        local floorFactor = AiSquadPolicy.getFinancialFloorFactor(team)
+        local wageFloor = math.floor(baseWb * floorFactor)
+        local newWageBudget = math.max(200000, math.floor(actualWeeklyWage * 1.3), wageFloor)
 
         -- 转会预算：基于余额的 25%，并参考声望加成
         -- reputation 实际范围约 500-700（FM数据），标准化到 0.5-1.5 的系数
@@ -1145,7 +1165,7 @@ function SeasonManager._startNewSeason(gameState)
 
     -- AI 一线队人数保底（新赛季开始前补齐）
     local AIManager = require("scripts/systems/ai_manager")
-    AIManager.ensureAllMinimumSquads(gameState)
+    AIManager.ensureAllTargetSquads(gameState)
 
     -- B3: 赛季前瞻新闻
     NewsGenerator.generateSeasonPreview(gameState)

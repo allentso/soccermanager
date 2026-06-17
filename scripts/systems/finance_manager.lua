@@ -806,7 +806,10 @@ end
 --- wageBudget 200K → 0.316, 1M → 0.707, 2M → 1.0, 4M → 1.414, 6M → 1.5(cap)
 --- 使用 sqrt 映射避免线性差距过大，同时限制顶级球队收入不无限膨胀
 function FinanceManager._getWageScale(team)
-    local wb = team.wageBudget or 200000
+    if team._financialScale and team._financialScale > 0 then
+        return math.max(0.25, math.min(1.5, team._financialScale))
+    end
+    local wb = team.wageBudget or team._baseWageBudget or 200000
     local scale = math.sqrt(wb / 2000000)
     return math.max(0.25, math.min(1.5, scale))
 end

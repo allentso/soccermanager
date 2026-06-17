@@ -33,6 +33,44 @@ local DomesticCup = require("scripts/systems/domestic_cup")
 
 local TurnProcessor = {}
 
+local function _dateKey(date)
+    if type(date) ~= "table" then return nil end
+    local y = tonumber(date.year)
+    local m = tonumber(date.month)
+    local d = tonumber(date.day)
+    if not y or not m or not d then return nil end
+    return string.format("%04d-%02d-%02d", y, m, d)
+end
+
+function TurnProcessor.invalidateFixtureCaches(gameState)
+    if not gameState then return end
+    gameState._leagueFixtureDateIndex = nil
+    gameState._cachedNextMatch = nil
+end
+
+local function _ensureLeagueFixtureDateIndex(gameState)
+    if gameState._leagueFixtureDateIndex then
+        return gameState._leagueFixtureDateIndex
+    end
+
+    local index = {}
+    for _, lg in pairs(gameState.leagues or {}) do
+        for _, f in ipairs(lg.fixtures or {}) do
+            local key = f.date and _dateKey(f.date)
+            if key then
+                local bucket = index[key]
+                if not bucket then
+                    bucket = {}
+                    index[key] = bucket
+                end
+                bucket[#bucket + 1] = f
+            end
+        end
+    end
+    gameState._leagueFixtureDateIndex = index
+    return index
+end
+
 -- 推进一天
 function TurnProcessor.advanceDay(gameState)
     -- 读档后 date/month 等可能为字符串，先规范化避免 string.format 崩溃
@@ -153,6 +191,7 @@ function TurnProcessor.advanceDay(gameState)
         and not gameState._seasonEndProcessing then
         gameState._seasonEndProcessing = true
         EventBus.emit("season_end")
+        TurnProcessor.invalidateFixtureCaches(gameState)
     end
 
     EventBus.emit("day_advanced", newDate)
@@ -162,14 +201,15 @@ end
 -- 获取当天所有联赛的比赛（合并所有联赛的fixture）
 function TurnProcessor.getFixturesForDate(gameState, date)
     local result = {}
-    for _, lg in pairs(gameState.leagues or {}) do
-        for _, f in ipairs(lg.fixtures) do
-            if f.status == "scheduled" and
-               f.date.year == date.year and
-               f.date.month == date.month and
-               f.date.day == date.day then
-                table.insert(result, f)
-            end
+    local key = _dateKey(date)
+    if not key then return result end
+
+    local bucket = _ensureLeagueFixtureDateIndex(gameState)[key]
+    if not bucket then return result end
+    for _, f in ipairs(bucket) do
+        -- 索引缓存 fixture 引用；比赛完成后 status 会变化，返回时再过滤即可。
+        if f.status == "scheduled" then
+            table.insert(result, f)
         end
     end
     return result

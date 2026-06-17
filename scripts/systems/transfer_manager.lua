@@ -1088,13 +1088,14 @@ end
 --- AI主动挂牌多余球员（增加市场供给）
 function TransferManager._aiListPlayersForSale(gameState)
     local Constants = require("scripts/app/constants")
-    local aiMin = Constants.AI_FIRST_TEAM_MIN or 20
+    local AiSquadPolicy = require("scripts/systems/ai_squad_policy")
     for _, team in pairs(gameState.teams) do
         if team.id == gameState.playerTeamId then goto skipTeam end
-        if #team.playerIds <= aiMin then goto skipTeam end
-        -- 阵容过大(>25人)时，主动挂牌多余球员
-        if #team.playerIds > 25 then
-            local surplus = #team.playerIds - 23
+        local target = AiSquadPolicy.getTargetSquadSize(team)
+        if #team.playerIds <= target then goto skipTeam end
+        -- 阵容过大(>目标+2)时，主动挂牌多余球员
+        if #team.playerIds > target + 2 then
+            local surplus = #team.playerIds - target
             local listed = 0
             -- 按OVR排序，挂牌最弱的
             local sorted = {}
@@ -1107,7 +1108,7 @@ function TransferManager._aiListPlayersForSale(gameState)
             table.sort(sorted, function(a, b) return a.overall < b.overall end)
             for _, p in ipairs(sorted) do
                 if listed >= surplus then break end
-                if #team.playerIds - listed <= aiMin then break end
+                if #team.playerIds - listed <= target then break end
                 if not TransferManager._isAIProtectedCore(gameState, team, p) then
                     p.listedForSale = true
                     listed = listed + 1
@@ -1119,6 +1120,7 @@ function TransferManager._aiListPlayersForSale(gameState)
         for _, pid in ipairs(team.playerIds) do
             local p = gameState.players[pid]
             if p and not p.retired and not p.listedForSale and p.squadRole ~= "loaned" then
+                if #team.playerIds <= target then goto skipList end
                 if TransferManager._isAIProtectedCore(gameState, team, p) then goto skipList end
                 local age = p:getAge(gameState.date.year)
                 if age >= 31 and p.overall < 72 and p.overall < teamAvg - 2 and Random() < 0.20 then
@@ -1435,7 +1437,9 @@ function TransferManager._assessTeamNeed(gameState, team)
     if posCount.FWD < 2 then return "FWD", false end
 
     -- 优先级2: 阵容太小
-    if #team.playerIds < 20 then
+    local AiSquadPolicy = require("scripts/systems/ai_squad_policy")
+    local targetSize = AiSquadPolicy.getTargetSquadSize(team)
+    if #team.playerIds < targetSize then
         local groups = {"DEF", "MID", "FWD"}
         return groups[RandomInt(1, 3)], false
     end
@@ -1481,12 +1485,14 @@ function TransferManager._findTransferTarget(gameState, buyerTeam, needGroup, up
     opts = opts or {}
     local blockbuster = opts.blockbuster or false
     local Constants = require("scripts/app/constants")
+    local AiSquadPolicy = require("scripts/systems/ai_squad_policy")
     local targetPositions = Constants.POSITION_GROUPS[needGroup] or {}
     local candidates = {}
     local budget = TransferManager._getAIEffectiveBudget(buyerTeam)
     local maxSpend = TransferManager._getAIMaxSpend(buyerTeam, blockbuster)
     local teamAvg = TransferManager._getTeamAverageOverall(gameState, buyerTeam)
     local ovrCeiling = 15 + (blockbuster and _blockbusterOvrBonus(buyerTeam) or 0)
+    local repMin = AiSquadPolicy.getRepMinOvr(buyerTeam, upgradeMode and "upgrade" or "fill")
 
     for _, player in pairs(gameState.players) do
         if player.retired then goto continue end
@@ -1511,13 +1517,15 @@ function TransferManager._findTransferTarget(gameState, buyerTeam, needGroup, up
 
         -- 能力匹配
         if upgradeMode then
-            -- 升级模式：至少队均 +gap（豪门门槛更高）
+            -- 升级模式：至少队均 +gap，且不低于声望底线
             local gap = TransferManager._getAIUpgradeMinOvrGap(buyerTeam)
-            if player.overall < teamAvg + gap then goto continue end
+            local minOvr = math.max(teamAvg + gap, repMin)
+            if player.overall < minOvr then goto continue end
             if player.overall > teamAvg + ovrCeiling then goto continue end
         else
-            -- 补缺模式：范围宽松一些
-            if player.overall < teamAvg - 12 then goto continue end
+            -- 补缺模式：范围宽松，但不低于声望底线 -4
+            local fillMin = math.max(teamAvg - 12, repMin)
+            if player.overall < fillMin then goto continue end
             if player.overall > teamAvg + ovrCeiling then goto continue end
         end
 

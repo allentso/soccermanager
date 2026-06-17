@@ -237,6 +237,8 @@ function RealDataLoader.importLeague(gameState, leagueData, leagueConfig)
 
         teamIdMap[tData.id] = team.id
         table.insert(teamIds, team.id)
+        team._baseWageBudget = wb
+        team._financialScale = math.sqrt(wb / 2000000)
     end
 
     -- 2. 导入球员

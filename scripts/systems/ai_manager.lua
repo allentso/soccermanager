@@ -5,6 +5,7 @@ local Constants = require("scripts/app/constants")
 local FormationShape = require("scripts/match/formation_shape")
 local PositionFit = require("scripts/domain/position_fit")
 local TransferManager = require("scripts/systems/transfer_manager")
+local AiSquadPolicy = require("scripts/systems/ai_squad_policy")
 
 local AIManager = {}
 
@@ -17,7 +18,7 @@ function AIManager.processWeekly(gameState)
         if teamId == gameState.playerTeamId then goto continue end
         if not team then goto continue end
 
-        AIManager.ensureMinimumFirstTeamSquad(gameState, team)
+        AIManager.ensureTargetFirstTeamSquad(gameState, team)
 
         if #team.playerIds < 11 then goto continue end
 
@@ -43,7 +44,7 @@ function AIManager.processMonthly(gameState)
         if teamId == gameState.playerTeamId then goto continue end
         if not team then goto continue end
 
-        AIManager.ensureMinimumFirstTeamSquad(gameState, team)
+        AIManager.ensureTargetFirstTeamSquad(gameState, team)
 
         -- 1. 评估是否需要更换阵型
         AIManager._evaluateFormation(gameState, team)
@@ -430,10 +431,38 @@ end
 local AI_EMERGENCY_MIN_OVR = 45
 local AI_EMERGENCY_PROMOTE_AGE = 18
 
-function AIManager.ensureAllMinimumSquads(gameState)
+function AIManager.ensureAllTargetSquads(gameState)
     for teamId, team in pairs(gameState.teams or {}) do
         if teamId ~= gameState.playerTeamId then
-            AIManager.ensureMinimumFirstTeamSquad(gameState, team)
+            AIManager.ensureTargetFirstTeamSquad(gameState, team)
+        end
+    end
+end
+
+function AIManager.ensureAllMinimumSquads(gameState)
+    AIManager.ensureAllTargetSquads(gameState)
+end
+
+---@param gameState table
+---@param team table
+function AIManager.ensureTargetFirstTeamSquad(gameState, team)
+    if not team or team.id == gameState.playerTeamId then return end
+
+    AIManager.ensureMinimumFirstTeamSquad(gameState, team)
+
+    local target = AiSquadPolicy.getTargetSquadSize(team)
+    local fillMinOvr = AiSquadPolicy.getRepMinOvr(team, "fill")
+    local safety = 0
+    while #team.playerIds < target and not team:isFirstTeamFull() and safety < target * 4 do
+        safety = safety + 1
+        local needGroup = AIManager._getCriticalPositionNeed(gameState, team)
+        if AIManager._tryPromoteYouthForTarget(gameState, team, needGroup, fillMinOvr) then
+        elseif AIManager._trySignFreeAgentForTarget(gameState, team, needGroup, fillMinOvr) then
+        elseif AIManager._tryPromoteYouthForTarget(gameState, team, needGroup, fillMinOvr - 4) then
+        elseif AIManager._trySignFreeAgentForTarget(gameState, team, needGroup, fillMinOvr - 4) then
+        elseif AIManager._tryGenerateYouthForTarget(gameState, team, needGroup, fillMinOvr - 6) then
+        else
+            break
         end
     end
 end
@@ -504,6 +533,151 @@ function AIManager._finalizeEmergencySign(gameState, team, player, years)
     player.wage = math.max(500, math.floor((player.overall or 50) * 80))
     player.contractEnd = { year = gameState.date.year + years, month = 6, day = 30 }
     player.squadRole = player.squadRole or "squad"
+end
+
+function AIManager._tryPromoteYouthForTarget(gameState, team, needGroup, minOvr)
+    minOvr = minOvr or AiSquadPolicy.getRepMinOvr(team, "fill")
+    team._youthPlayerIds = team._youthPlayerIds or {}
+    local bestIdx, bestOvr = nil, -1
+    local fallbackIdx, fallbackOvr = nil, -1
+
+    for i, pid in ipairs(team._youthPlayerIds) do
+        local player = gameState.players[pid]
+        if not player or player.teamId ~= team.id then goto continueYouth end
+        local age = gameState.date.year - (player.birthYear or 2000)
+        if age < AI_EMERGENCY_PROMOTE_AGE or (player.overall or 0) < minOvr then
+            goto continueYouth
+        end
+        if AIManager._playerMatchesGroup(player, needGroup) then
+            if (player.overall or 0) > bestOvr then
+                bestOvr = player.overall
+                bestIdx = i
+            end
+        elseif (player.overall or 0) > fallbackOvr then
+            fallbackOvr = player.overall
+            fallbackIdx = i
+        end
+        ::continueYouth::
+    end
+
+    local idx = bestIdx or fallbackIdx
+    if not idx then return false end
+
+    local pid = team._youthPlayerIds[idx]
+    table.remove(team._youthPlayerIds, idx)
+    local player = gameState.players[pid]
+    if not player then return false end
+
+    if not TransferManager._assignPlayerToTeam(gameState, player, team.id) then
+        table.insert(team._youthPlayerIds, pid)
+        return false
+    end
+    AIManager._finalizeEmergencySign(gameState, team, player, 3)
+    return true
+end
+
+function AIManager._trySignFreeAgentForTarget(gameState, team, needGroup, minOvr)
+    minOvr = minOvr or 45
+    local groupsToTry = { needGroup, nil }
+    local best = nil
+    for _, group in ipairs(groupsToTry) do
+        local freeAgents = TransferManager.getFreeAgents(gameState, group)
+        for _, player in ipairs(freeAgents) do
+            if player.teamId or player.retired then goto nextFa end
+            if (player.overall or 0) < minOvr then goto nextFa end
+            if needGroup and not AIManager._playerMatchesGroup(player, needGroup) then goto nextFa end
+            if not best or (player.overall or 0) > (best.overall or 0) then
+                best = player
+            end
+            ::nextFa::
+        end
+    end
+    if not best then return false end
+    if TransferManager._assignPlayerToTeam(gameState, best, team.id) then
+        AIManager._finalizeEmergencySign(gameState, team, best, 2)
+        return true
+    end
+    return false
+end
+
+function AIManager._tryGenerateYouthForTarget(gameState, team, needGroup, minOvr)
+    minOvr = minOvr or AiSquadPolicy.getRepMinOvr(team, "emergency")
+    local YouthManager = require("scripts/systems/youth_manager")
+    local PotentialSystem = require("scripts/systems/potential_system")
+    local Nationality = require("scripts/domain/nationality")
+    local Player = require("scripts/domain/player")
+
+    local youthDevBonus, facilityYouthBonus =
+        YouthManager._getTeamYouthGenBonuses(gameState, team.id)
+    local usedNames = {}
+
+    local candidate = nil
+    for _ = 1, 16 do
+        local roll = YouthManager._generateYouthPlayer(
+            gameState, youthDevBonus, facilityYouthBonus, usedNames, team.country)
+        if (roll.overall or 0) >= minOvr then
+            if needGroup ~= "GK" or roll.position == "GK" then
+                candidate = roll
+                break
+            end
+        end
+        if not candidate or (roll.overall or 0) > (candidate.overall or 0) then
+            if needGroup ~= "GK" or roll.position == "GK" then
+                candidate = roll
+            end
+        end
+    end
+    if not candidate then return false end
+
+    if needGroup == "GK" and candidate.position ~= "GK" then
+        candidate.position = "GK"
+        candidate.attributes = YouthManager._generateAttributes("GK", candidate.overall)
+        candidate.overall = Player.calculateOverallFromAttrs("GK", candidate.attributes)
+    elseif needGroup and needGroup ~= "GK" then
+        local positions = Constants.POSITION_GROUPS[needGroup]
+        if positions and not AIManager._playerMatchesGroup({ position = candidate.position }, needGroup) then
+            candidate.position = positions[RandomInt(1, #positions)]
+            candidate.attributes = YouthManager._generateAttributes(candidate.position, candidate.overall)
+            candidate.overall = Player.calculateOverallFromAttrs(candidate.position, candidate.attributes)
+        end
+    end
+
+    if (candidate.overall or 0) < minOvr then
+        candidate.overall = minOvr
+        candidate.attributes = YouthManager._generateAttributes(candidate.position, candidate.overall)
+        candidate.overall = Player.calculateOverallFromAttrs(candidate.position, candidate.attributes)
+    end
+
+    if candidate.age < AI_EMERGENCY_PROMOTE_AGE then
+        candidate.birthYear = gameState.date.year - AI_EMERGENCY_PROMOTE_AGE
+        candidate.age = AI_EMERGENCY_PROMOTE_AGE
+    end
+
+    local player = gameState:addPlayer({
+        firstName = candidate.firstName,
+        lastName = candidate.lastName,
+        displayName = candidate.displayName,
+        nationality = Nationality.normalize(candidate.nationality),
+        birthYear = math.floor(candidate.birthYear),
+        position = candidate.position,
+        attributes = candidate.attributes,
+        potential = candidate.potential,
+        overall = candidate.overall,
+        wage = 500,
+        teamId = team.id,
+        contractEnd = { year = gameState.date.year + 3, month = 6, day = 30 },
+    })
+    player.paRating = PotentialSystem.rawToRating(player.potential)
+    player.actualPotential = PotentialSystem.generateActualPotential(
+        player.paRating, (gameState.potentialSeed or 0) + player.id * 7919)
+    player:calculateOverall()
+
+    if not TransferManager._assignPlayerToTeam(gameState, player, team.id) then
+        gameState.players[player.id] = nil
+        return false
+    end
+    AIManager._finalizeEmergencySign(gameState, team, player, 3)
+    return true
 end
 
 function AIManager._tryPromoteYouthForMinimum(gameState, team, needGroup)

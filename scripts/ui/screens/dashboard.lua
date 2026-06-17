@@ -45,6 +45,20 @@ function Dashboard._findNextMatch(gameState)
     local playerTeamId = gameState.playerTeamId
     local ntCoach = gameState.nationalTeamCoach
     local playerNation = ntCoach and ntCoach.nation or nil
+    local todayKey = string.format("%04d-%02d-%02d",
+        tonumber(gameState.date and gameState.date.year) or 0,
+        tonumber(gameState.date and gameState.date.month) or 0,
+        tonumber(gameState.date and gameState.date.day) or 0)
+
+    local cached = gameState._cachedNextMatch
+    if cached
+        and cached.dateKey == todayKey
+        and cached.playerTeamId == playerTeamId
+        and cached.playerNation == playerNation
+        and cached.fixture
+        and cached.fixture.status == "scheduled" then
+        return cached.daysAhead, cached.fixture, cached.isUCL, cached.isWC
+    end
 
     -- 优先检测逾期比赛（日期已过但仍为 scheduled 的玩家比赛）
     -- 这些比赛因日期在过去，不会被后面的正向搜索找到
@@ -52,7 +66,29 @@ function Dashboard._findNextMatch(gameState)
     if overdueFixture then
         local isUCL = overdueFixture._isUCL or false
         local isWC = overdueFixture._isWC or false
+        gameState._cachedNextMatch = {
+            dateKey = todayKey,
+            playerTeamId = playerTeamId,
+            playerNation = playerNation,
+            daysAhead = 0,
+            fixture = overdueFixture,
+            isUCL = isUCL,
+            isWC = isWC,
+        }
         return 0, overdueFixture, isUCL, isWC
+    end
+
+    local function cacheAndReturn(daysAhead, fixture, isUCL, isWC)
+        gameState._cachedNextMatch = {
+            dateKey = todayKey,
+            playerTeamId = playerTeamId,
+            playerNation = playerNation,
+            daysAhead = daysAhead,
+            fixture = fixture,
+            isUCL = isUCL,
+            isWC = isWC,
+        }
+        return daysAhead, fixture, isUCL, isWC
     end
 
     -- 从今天（daysAhead=0）开始搜索，不漏掉当天未打的比赛
@@ -62,21 +98,21 @@ function Dashboard._findNextMatch(gameState)
         local fixtures = TurnProcessor.getFixturesForDate(gameState, futureDate)
         for _, f in ipairs(fixtures) do
             if f.homeTeamId == playerTeamId or f.awayTeamId == playerTeamId then
-                return daysAhead, f, false, false
+                return cacheAndReturn(daysAhead, f, false, false)
             end
         end
         -- 检查欧冠比赛
         local uclFixtures = TurnProcessor.getUCLFixturesForDate(gameState, futureDate)
         for _, f in ipairs(uclFixtures) do
             if f.homeTeamId == playerTeamId or f.awayTeamId == playerTeamId then
-                return daysAhead, f, true, false
+                return cacheAndReturn(daysAhead, f, true, false)
             end
         end
         -- 检查国内杯赛
         local cupFixtures = DomesticCup.getFixturesForDate(gameState, futureDate)
         for _, f in ipairs(cupFixtures) do
             if f.homeTeamId == playerTeamId or f.awayTeamId == playerTeamId then
-                return daysAhead, f, false, false
+                return cacheAndReturn(daysAhead, f, false, false)
             end
         end
         -- 检查国际大赛（欧洲杯/世界杯）
@@ -84,13 +120,13 @@ function Dashboard._findNextMatch(gameState)
             local euroFixtures = TurnProcessor.getEuroFixturesForDate(gameState, futureDate)
             for _, f in ipairs(euroFixtures) do
                 if f.homeTeamId == playerNation or f.awayTeamId == playerNation then
-                    return daysAhead, f, false, true
+                    return cacheAndReturn(daysAhead, f, false, true)
                 end
             end
             local wcFixtures = TurnProcessor.getWCFixturesForDate(gameState, futureDate)
             for _, f in ipairs(wcFixtures) do
                 if f.homeTeamId == playerNation or f.awayTeamId == playerNation then
-                    return daysAhead, f, false, true
+                    return cacheAndReturn(daysAhead, f, false, true)
                 end
             end
         end
@@ -228,11 +264,15 @@ function Dashboard.create(params)
         -- [BUG FIX] 在推进日期之前，检测是否已有逾期的玩家比赛
         -- 如果有，直接展示给玩家而不消耗日历天数，避免雪球效应
         if not gameState._cheatAutoPlay then
-            -- 读档后可能尚未 advanceDay：先修复错位赛程（旧档 3 月中超等）
-            local RealDataLoader = require("scripts/data/real_data_loader")
-            RealDataLoader.fixMisalignedLeagueFixtures(gameState)
-            -- 先补模拟其他球队的逾期比赛（否则 advanceDay 被拦截时积分榜永远不更新）
-            TurnProcessor.repairStuckProgressOnLoad(gameState)
+            -- 旧档补救只需要在读档/首次继续时跑一次；后续每次点击只做轻量 peek。
+            if not gameState._stuckProgressRepairDone then
+                local RealDataLoader = require("scripts/data/real_data_loader")
+                RealDataLoader.fixMisalignedLeagueFixtures(gameState)
+                TurnProcessor.invalidateFixtureCaches(gameState)
+                -- 先补模拟其他球队的逾期比赛（否则 advanceDay 被拦截时积分榜永远不更新）
+                TurnProcessor.repairStuckProgressOnLoad(gameState)
+                gameState._stuckProgressRepairDone = true
+            end
             local overdueFixture = TurnProcessor.peekOverduePlayerFixture(gameState)
             if overdueFixture then
                 overdueFixture._pendingPlayerMatch = true
@@ -2082,6 +2122,19 @@ end
 function Dashboard._getRecentForm(gameState)
     local league = gameState.league
     if not league then return {} end
+    local team = gameState.teams and gameState.teams[gameState.playerTeamId]
+    if team and team.recentForm and #team.recentForm > 0 then
+        local out = {}
+        local start = math.max(1, #team.recentForm - 4)
+        for i = start, #team.recentForm do
+            local r = team.recentForm[i]
+            if r == "W" then table.insert(out, 3)
+            elseif r == "D" then table.insert(out, 1)
+            elseif r == "L" then table.insert(out, 0) end
+        end
+        if #out > 0 then return out end
+    end
+
     local results = {}
     -- 从联赛赛程中获取已完赛的玩家比赛
     if league.fixtures then

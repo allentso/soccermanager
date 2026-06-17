@@ -634,6 +634,24 @@ function Migrations.v10_to_v11(gameStateData)
     print("[SaveMigration] v10→v11: 已规范化 " .. migrated .. " 条球员 nationality 记录")
 end
 
+--- v11 → v12: 为球队补全财务底盘（_baseWageBudget / _financialScale）
+function Migrations.v11_to_v12(gameStateData)
+    local teams = gameStateData.teams or {}
+    local count = 0
+    for _, teamData in pairs(teams) do
+        local wb = teamData.wageBudget or teamData._baseWageBudget or 200000
+        if not teamData._baseWageBudget or teamData._baseWageBudget <= 0 then
+            teamData._baseWageBudget = wb
+            count = count + 1
+        end
+        if not teamData._financialScale or teamData._financialScale <= 0 then
+            teamData._financialScale = math.sqrt(wb / 2000000)
+            count = count + 1
+        end
+    end
+    print("[SaveMigration] v11→v12: 已补全 " .. count .. " 条球队财务底盘记录")
+end
+
 --- 迁移路由：根据存档版本逐级升级
 --- @param saveData table 完整的存档顶层数据 {version, game_state, saved_at}
 --- @return number 迁移后的最终版本号
@@ -688,6 +706,11 @@ function Migrations.run(saveData)
     if version < 11 then
         Migrations.v10_to_v11(saveData.game_state)
         version = 11
+    end
+
+    if version < 12 then
+        Migrations.v11_to_v12(saveData.game_state)
+        version = 12
     end
 
     saveData.version = version

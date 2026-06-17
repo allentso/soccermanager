@@ -215,6 +215,8 @@ function Team.new(data)
     self.balance = data.balance or 50000000          -- 默认5000万
     self.wageBudget = data.wageBudget or 1000000      -- 默认100万/周
     self.transferBudget = data.transferBudget or 25000000  -- 默认2500万
+    self._baseWageBudget = data._baseWageBudget or nil
+    self._financialScale = data._financialScale or nil
     self.seasonIncome = data.seasonIncome or 0
     self.seasonExpense = data.seasonExpense or 0
     self.incomeBreakdown = data.incomeBreakdown or {}
@@ -382,6 +384,8 @@ function Team:serialize()
         balance = self.balance,
         wageBudget = self.wageBudget,
         transferBudget = self.transferBudget,
+        _baseWageBudget = self._baseWageBudget,
+        _financialScale = self._financialScale,
         seasonIncome = self.seasonIncome,
         seasonExpense = self.seasonExpense,
         incomeBreakdown = self.incomeBreakdown,

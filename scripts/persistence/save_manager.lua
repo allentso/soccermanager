@@ -16,6 +16,13 @@ function SaveManager.getSavePath(slot)
     return SAVE_DIR .. "save_" .. string.format("%03d", slot) .. ".json"
 end
 
+function SaveManager.getMetaPath(slot)
+    if slot == "auto" then
+        return SAVE_DIR .. "autosave.meta.json"
+    end
+    return SAVE_DIR .. "save_" .. string.format("%03d", slot) .. ".meta.json"
+end
+
 ------------------------------------------------------
 -- 数据消毒/治疗体系
 --
@@ -283,6 +290,55 @@ local function readAllString(file)
     return table.concat(parts)
 end
 
+local function buildSlotMeta(slot, saveData, jsonSize)
+    local gs = saveData and saveData.game_state
+    local meta = {
+        version = saveData and saveData.version or Constants.SAVE_VERSION,
+        saved_at = saveData and saveData.saved_at or nil,
+        slot = slot,
+        byteSize = jsonSize,
+    }
+
+    if gs then
+        meta.season = gs.season
+        meta.playerTeamId = gs.playerTeamId
+        local teamId = gs.playerTeamId
+        if teamId and gs.teams then
+            local team = gs.teams[tostring(teamId)] or gs.teams[teamId]
+            if team then
+                meta.team_name = team.name
+                meta.balance = team.balance
+            end
+        end
+    end
+    return meta
+end
+
+local function writeSlotMeta(slot, saveData, jsonSize)
+    local meta = buildSlotMeta(slot, saveData, jsonSize)
+    local ok, metaJson = pcall(cjson.encode, meta)
+    if not ok or not metaJson then return false end
+
+    local f = File(SaveManager.getMetaPath(slot), FILE_WRITE)
+    if not f or not f:IsOpen() then return false end
+    local okWrite = pcall(function() f:WriteString(metaJson) end)
+    f:Close()
+    return okWrite
+end
+
+local function readSlotMeta(slot)
+    local path = SaveManager.getMetaPath(slot)
+    if not fileSystem:FileExists(path) then return nil end
+    local file = File(path, FILE_READ)
+    if not file or not file:IsOpen() then return nil end
+    local content = readAllString(file)
+    file:Close()
+    local ok, meta = pcall(cjson.decode, content)
+    if not ok or type(meta) ~= "table" then return nil end
+    meta.slot = slot
+    return meta
+end
+
 function SaveManager._doSave(gameState, slot)
     slot = slot or "auto"
     local path = SaveManager.getSavePath(slot)
@@ -436,6 +492,7 @@ function SaveManager._doSave(gameState, slot)
     if log then
         log:Write(LOG_INFO, string.format("SaveManager: 已保存到 %s (%.1f KB)", path, jsonSize / 1024))
     end
+    pcall(writeSlotMeta, slot, saveData, jsonSize)
     return setResult(true, slot, "done", nil, jsonSize, saved_at)
 end
 
@@ -503,6 +560,8 @@ local function applySaveData(gameState, saveData, path)
     local okFix, fixErr = pcall(function()
         local RealDataLoader = require("scripts/data/real_data_loader")
         RealDataLoader.fixMisalignedLeagueFixtures(gameState)
+        local TurnProcessor = require("scripts/core/turn_processor")
+        TurnProcessor.invalidateFixtureCaches(gameState)
     end)
     if not okFix then
         log:Write(LOG_WARNING, "SaveManager: 赛程修复失败（不影响加载）: " .. tostring(fixErr))
@@ -512,6 +571,7 @@ local function applySaveData(gameState, saveData, path)
     local okCatchUp, catchUpErr = pcall(function()
         local TurnProcessor = require("scripts/core/turn_processor")
         TurnProcessor.repairStuckProgressOnLoad(gameState)
+        gameState._stuckProgressRepairDone = true
     end)
     if not okCatchUp then
         log:Write(LOG_WARNING, "SaveManager: 逾期补赛失败（不影响加载）: " .. tostring(catchUpErr))
@@ -551,31 +611,15 @@ end
 -- 获取存档信息（不加载完整数据；主文件损坏时回退备份）
 function SaveManager.getSlotInfo(slot)
     local path = SaveManager.getSavePath(slot)
+    if fileSystem:FileExists(path) then
+        local meta = readSlotMeta(slot)
+        if meta then return meta end
+    end
+
     local data = readSaveData(path) or readSaveData(path .. ".bak")
     if not data then return nil end
 
-    local info = {
-        version = data.version,
-        saved_at = data.saved_at,
-        slot = slot,
-    }
-
-    -- 从 game_state 提取元数据（球队名、赛季、资金）
-    local gs = data.game_state
-    if gs then
-        info.season = gs.season
-        -- 提取玩家球队名称和资金
-        local teamId = gs.playerTeamId
-        if teamId and gs.teams then
-            local team = gs.teams[tostring(teamId)]
-            if team then
-                info.team_name = team.name
-                info.balance = team.balance
-            end
-        end
-    end
-
-    return info
+    return buildSlotMeta(slot, data, nil)
 end
 
 -- 获取所有存档槽信息
@@ -592,6 +636,10 @@ end
 -- 删除存档（连同备份）
 function SaveManager.delete(slot)
     local path = SaveManager.getSavePath(slot)
+    local metaPath = SaveManager.getMetaPath(slot)
+    if fileSystem:FileExists(metaPath) then
+        fileSystem:Delete(metaPath)
+    end
     if fileSystem:FileExists(path .. ".bak") then
         fileSystem:Delete(path .. ".bak")
     end
