@@ -20,6 +20,9 @@ local sdk = sdk
 
 local Youth = {}
 
+--- 子目录标签（在路由切换间保留）：recruit=招募(候选+传奇) / squad=青训球员
+local _activeTab = "recruit"
+
 --- 叙事标签池 UI 配置
 local LEGEND_POOL_UI = {
     prince = { icon = "👑", short = "王子旗帜" },
@@ -86,6 +89,24 @@ function Youth.create(params)
         and YouthManager.getMaxYouthSquad(gameState, playerTeam)
         or YouthManager.MAX_YOUTH_SQUAD
 
+    -- 支持通过路由参数指定初始子目录
+    if params and params.tab then
+        _activeTab = params.tab
+    end
+
+    -- 子目录内容：招募(候选+传奇) / 青训球员
+    local tabContent
+    if _activeTab == "squad" then
+        tabContent = {
+            Youth._buildSquadSection(youthSquad, gameState),
+        }
+    else
+        tabContent = {
+            Youth._buildLegendGachaSection(gameState),
+            Youth._buildCandidatesSection(candidates, gameState),
+        }
+    end
+
     local children = {
         -- 标题栏
         Theme.TopBar {
@@ -109,20 +130,20 @@ function Youth.create(params)
             }
         },
         Theme.SquadSubNav("youth"),
+        -- 三级子目录：招募 / 青训球员
+        Youth._buildTabBar(#candidates, #youthSquad),
         UI.Panel {
             width = "100%", flexGrow = 1,
             padding = 12,
             overflow = "scroll",
-            children = {
-                -- 青训概览卡片
-                Youth._buildSummaryCard(youthSquad, maxYouthSquad),
-                -- 传奇球星池入口
-                Youth._buildLegendGachaSection(gameState),
-                -- 候选招募区
-                Youth._buildCandidatesSection(candidates, gameState),
-                -- 青训球员列表
-                Youth._buildSquadSection(youthSquad, gameState),
-            },
+            children = (function()
+                -- 青训概览卡片始终置顶，下方按子目录切换内容
+                local items = { Youth._buildSummaryCard(youthSquad, maxYouthSquad) }
+                for _, node in ipairs(tabContent) do
+                    table.insert(items, node)
+                end
+                return items
+            end)(),
         },
         Theme.MainNav("squad"),
     }
@@ -131,6 +152,52 @@ function Youth.create(params)
         width = "100%", height = "100%",
         backgroundColor = Theme.COLORS.BG_MAIN,
         children = children,
+    }
+end
+
+------------------------------------------------------
+-- 三级子目录标签栏（招募 / 青训球员）
+------------------------------------------------------
+function Youth._buildTabBar(candidateCount, youthCount)
+    local tabs = {
+        { key = "recruit", label = "招募", count = candidateCount },
+        { key = "squad",   label = "青训球员", count = youthCount },
+    }
+
+    local buttons = {}
+    for _, tab in ipairs(tabs) do
+        local isActive = (tab.key == _activeTab)
+        local labelText = tab.label
+        if tab.count and tab.count > 0 then
+            labelText = labelText .. " " .. tostring(tab.count)
+        end
+        table.insert(buttons, UI.Button {
+            text = labelText,
+            height = 30,
+            paddingLeft = 14, paddingRight = 14,
+            backgroundColor = isActive and Theme.COLORS.GOLD or Theme.COLORS.TRANSPARENT,
+            borderRadius = 15,
+            fontSize = 13,
+            color = isActive and "#1A1A1A" or Theme.COLORS.TEXT_MUTED,
+            fontWeight = isActive and "bold" or "normal",
+            marginRight = 8,
+            onClick = function()
+                if not isActive then
+                    _activeTab = tab.key
+                    Router.replaceWith("youth")
+                end
+            end,
+        })
+    end
+
+    return UI.Panel {
+        width = "100%", height = 40,
+        flexDirection = "row", alignItems = "center",
+        paddingLeft = 12, paddingRight = 12,
+        backgroundColor = Theme.COLORS.BG_CARD,
+        borderBottomWidth = 1,
+        borderColor = Theme.COLORS.BORDER,
+        children = buttons,
     }
 end
 
