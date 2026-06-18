@@ -195,12 +195,18 @@ return function(TransferManager)
         for _, pid in ipairs(team.playerIds or {}) do
             if pid == player.id then alreadyListed = true; break end
         end
-        if not alreadyListed and not opts.allowOverCap and team:isFirstTeamFull() then
+        -- 有效上限：玩家转会窗内放宽到软顶（33），其余仍为常规上限（30）
+        if not alreadyListed and not opts.allowOverCap and team:isSquadFullFor(gameState) then
             return false
         end
 
         TransferManager._removePlayerFromAllTeams(gameState, player.id, teamId)
-        if not team:addPlayer(player.id, opts) then
+        -- 玩家窗内处于 30<人数<33 缓冲区时，需绕过 addPlayer 的 30 人硬顶
+        local addOpts = opts
+        if not opts.allowOverCap and team:isFirstTeamFull() and not team:isSquadFullFor(gameState) then
+            addOpts = { allowOverCap = true }
+        end
+        if not team:addPlayer(player.id, addOpts) then
             return false
         end
         player.teamId = teamId

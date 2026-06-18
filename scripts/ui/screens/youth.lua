@@ -344,6 +344,7 @@ function Youth._confirmSign(candidate, index, gameState)
         onConfirm = function()
             local ok, err = YouthManager.signCandidate(gameState, index)
             if ok then
+                SaveManager.save(gameState, "auto")
                 Router.replaceWith("youth")
             else
                 ConfirmDialog.show({
@@ -783,6 +784,7 @@ function Youth._buildLegendPoolSelector(gameState)
             onClick = function()
                 if pool.id ~= selectedId then
                     YouthManager.setSelectedLegendPool(gameState, pool.id)
+                    SaveManager.save(gameState, "auto")
                     Router.replaceWith("youth")
                 end
             end,
@@ -1520,6 +1522,7 @@ end
 function Youth._doSinglePull(gameState)
     local candidate = YouthManager.doSinglePull(gameState)
     if not candidate then return end
+    SaveManager.save(gameState, "auto")
 
     if candidate.isLegend then
         -- 单抽出传奇：弹出专属揭示弹窗
@@ -1534,6 +1537,7 @@ end
 function Youth._doTenPull(gameState)
     local results = YouthManager.doTenPull(gameState)
     if not results then return end
+    SaveManager.save(gameState, "auto")
 
     local legendCount = results.legendCount
     if legendCount > 0 then

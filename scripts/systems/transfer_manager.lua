@@ -844,9 +844,9 @@ function TransferManager._completeTransfer(gameState, bid, opts)
     for _, pid in ipairs(buyerTeam.playerIds or {}) do
         if pid == player.id then alreadyAtBuyer = true; break end
     end
-    if not alreadyAtBuyer and buyerTeam:isFirstTeamFull() then
+    if not alreadyAtBuyer and buyerTeam:isSquadFullFor(gameState) then
         TransferManager._rejectBid(gameState, bid,
-            string.format("买方一线队已满员（最多 %d 人）。", require("scripts/domain/team").getFirstTeamMax()))
+            string.format("买方一线队已满员（最多 %d 人）。", buyerTeam:getEffectiveSquadMax(gameState)))
         return
     end
 
@@ -3227,13 +3227,13 @@ function TransferManager.confirmFreeAgent(gameState, negoId)
             end
             -- 执行签约
             nego.status = "accepted"
-            if team:isFirstTeamFull() then
+            if team:isSquadFullFor(gameState) then
                 nego.status = "rejected"
                 gameState:sendMessage({
                     category = "transfer",
                     title = "签约失败",
                     body = string.format("无法签下 %s：一线队已满员（最多 %d 人）。",
-                        player.displayName, require("scripts/domain/team").getFirstTeamMax()),
+                        player.displayName, team:getEffectiveSquadMax(gameState)),
                     priority = "normal",
                 })
                 return nil, "一线队已满员"
@@ -4489,6 +4489,56 @@ function TransferManager.makeBidWithClauses(gameState, playerId, amount, wageOff
     return bid
 end
 
+--- 玩家阵容人数阈值提醒（28/30/33）：上升沿触发，每个转会窗每个档位仅提醒一次
+--- 仅在转会窗内提醒（窗外靠 TimeBlocker 阻断兜底）
+function TransferManager._notifyPlayerSquadThresholds(gameState)
+    local team = gameState.teams[gameState.playerTeamId]
+    if not team then return end
+    local windowKey = TransferManager.getTransferWindowKey(gameState)
+    if not windowKey then return end
+
+    -- 跨窗重置已提醒档位
+    if team._squadNotifyWindow ~= windowKey then
+        team._squadNotifyWindow = windowKey
+        team._squadNotifyLevel = 0
+    end
+
+    local Team = require("scripts/domain/team")
+    local hardCap = Team.getFirstTeamMax()          -- 30 常规上限
+    local softCap = Team.getPlayerWindowSquadMax()  -- 33 窗内软顶
+    local count = #team.playerIds
+
+    local level = 0
+    if count >= softCap then level = softCap
+    elseif count >= hardCap then level = hardCap
+    elseif count >= 28 then level = 28 end
+
+    if level <= (team._squadNotifyLevel or 0) then return end
+    team._squadNotifyLevel = level
+
+    local body
+    if level >= softCap then
+        body = string.format(
+            "一线队已达窗口上限 %d 人，无法再引援。请尽快出售/解约/下放青训腾出名额，且关窗前必须减至 %d 人。",
+            softCap, hardCap)
+    elseif level >= hardCap then
+        body = string.format(
+            "一线队已达常规上限 %d 人。转会窗内最多可临时签到 %d 人，但关窗前必须减回 %d 人（出售 / 解约 / 下放青训）。",
+            hardCap, softCap, hardCap)
+    else
+        body = string.format(
+            "一线队已达 %d 人，接近常规上限 %d 人。可考虑挂牌出售或下放青训，提前腾出名额。",
+            count, hardCap)
+    end
+
+    gameState:sendMessage({
+        category = "transfer",
+        title = "阵容人数提醒",
+        body = body,
+        priority = (level >= hardCap) and "high" or "normal",
+    })
+end
+
 --- 汇总某队未付分期负债总额（已承诺但尚未支付的现金义务）
 --- @return number 未付分期总额
 function TransferManager.getPendingPayablesTotal(team)
@@ -5126,6 +5176,8 @@ function TransferManager.processDailyBids(gameState)
             playerAttractChance = 0.35,
             aiAttractChance = 0.15,
         })
+        -- 玩家阵容人数阈值提醒（28/30/33）
+        TransferManager._notifyPlayerSquadThresholds(gameState)
     end
 
     -- 存档修复：incoming 出售 bid 异常（读档后首日也会执行，此处每日兜底）

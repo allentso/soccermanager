@@ -573,8 +573,8 @@ function YouthManager.promote(gameState, playerId)
     end
 
     local alreadyFirstTeam = _isInFirstTeam(team, playerId)
-    if not alreadyFirstTeam and team:isFirstTeamFull() then
-        return false, string.format("一线队已满员（最多 %d 人）", Team.getFirstTeamMax())
+    if not alreadyFirstTeam and team:isSquadFullFor(gameState) then
+        return false, string.format("一线队已满员（最多 %d 人）", team:getEffectiveSquadMax(gameState))
     end
     if not alreadyFirstTeam then
         table.insert(team.playerIds, playerId)
@@ -1355,24 +1355,23 @@ local LegendTagPools = require("scripts/data/legend_tag_pools")
 ---@param gameState table
 ---@return table state
 function YouthManager.getLegendGachaState(gameState)
-    gameState._legendGacha = gameState._legendGacha or {
-        adsWatched = 0,          -- 累计观看广告次数（解锁前）
-        unlocked = false,        -- 是否已解锁传奇池
-        pulls = 0,              -- 当前可用抽取次数
-        tenPullCount = 0,       -- 已进行的十连次数
-        pityCounter = 0,        -- 距上次出传奇的十连次数（保底计数）
-        firstTenPull = true,    -- 是否为首次十连（保底）
-        selectedPoolId = LegendTagPools.getDefaultPoolId(), -- 当前选中的标签池
-        pulledLegends = {},     -- 已抽传奇中文名（兼容旧档）
-        pulledLegendIds = {},   -- 已抽传奇 id（精确去重）
-    }
-    if not gameState._legendGacha.selectedPoolId
-        or not LegendTagPools.isValidPoolId(gameState._legendGacha.selectedPoolId) then
-        gameState._legendGacha.selectedPoolId = LegendTagPools.getDefaultPoolId()
+    gameState._legendGacha = gameState._legendGacha or {}
+    local s = gameState._legendGacha
+    -- 逐项补全：兼容旧档/残缺档，避免 nil 参与运算
+    if s.adsWatched == nil then s.adsWatched = 0 end
+    if s.unlocked == nil then s.unlocked = false end
+    if s.pulls == nil then s.pulls = 0 end
+    if s.tenPullCount == nil then s.tenPullCount = 0 end
+    if s.pityCounter == nil then s.pityCounter = 0 end
+    if s.firstTenPull == nil then s.firstTenPull = true end
+    if s.singlePullCounter == nil then s.singlePullCounter = 0 end
+    if s.pullAdProgress == nil then s.pullAdProgress = 0 end
+    if not s.selectedPoolId or not LegendTagPools.isValidPoolId(s.selectedPoolId) then
+        s.selectedPoolId = LegendTagPools.getDefaultPoolId()
     end
-    gameState._legendGacha.pulledLegends = gameState._legendGacha.pulledLegends or {}
-    gameState._legendGacha.pulledLegendIds = gameState._legendGacha.pulledLegendIds or {}
-    return gameState._legendGacha
+    s.pulledLegends = s.pulledLegends or {}
+    s.pulledLegendIds = s.pulledLegendIds or {}
+    return s
 end
 
 --- 全部叙事标签池定义

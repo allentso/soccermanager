@@ -63,6 +63,9 @@ function TimeBlockerManager.check(gameState)
     -- 11. 自由球员待最终确认
     TimeBlockerManager._checkFreeAgentSignPending(gameState, team, blockers)
 
+    -- 12. 一线队超出注册上限（关窗前 / 窗外必须减回 30）
+    TimeBlockerManager._checkSquadRegistrationOverflow(gameState, team, blockers)
+
     return blockers
 end
 
@@ -418,6 +421,32 @@ function TimeBlockerManager._checkNTSquadUnconfirmed(gameState, blockers)
         message = string.format("世界杯 %d 天后开幕，国家队大名单尚未确认", daysLeft or 0),
         target = "national_squad_select",
         targetParams = { nation = nation },
+    })
+end
+
+--- 16. 一线队超出注册上限：玩家窗内可临时超员到 33，但关窗前（Deadline Day）
+---     必须减回 30；窗外若仍超员也强制阻断（兜底，如租借归队导致）。
+function TimeBlockerManager._checkSquadRegistrationOverflow(gameState, team, blockers)
+    local Team = require("scripts/domain/team")
+    local cap = Team.getFirstTeamMax()  -- 30
+    local count = #team.playerIds
+    if count <= cap then return end
+
+    local TransferManager = require("scripts/systems/transfer_manager")
+    local inWindow = TransferManager.isInTransferWindow(gameState)
+    local deadline = TransferManager.isDeadlineDay(gameState)  -- 关窗前 <=2 天
+
+    -- 窗内非 Deadline：不阻断（靠 28/30/33 阈值提醒），给玩家充分缓冲；
+    -- 关窗临近或已在窗外仍超员：必须处理，阻断推进。
+    if inWindow and not deadline then return end
+
+    local overflow = count - cap
+    table.insert(blockers, {
+        id = "squad_registration_overflow",
+        severity = "warn",
+        message = string.format("一线队 %d 人超出注册上限 %d，需在关窗前减少 %d 人（出售 / 解约 / 下放青训）",
+            count, cap, overflow),
+        target = "squad",
     })
 end
 

@@ -311,6 +311,36 @@ function Team:isAISquadHardFull()
     return #self.playerIds >= Team.getAISquadHardMax()
 end
 
+--- 玩家转会窗内软顶（先签后清缓冲，关窗前须减回 FIRST_TEAM_MAX）
+function Team.getPlayerWindowSquadMax()
+    local Constants = require("scripts/app/constants")
+    return Constants.PLAYER_WINDOW_SQUAD_MAX or 33
+end
+
+-- 内联窗口判断（避免 require transfer_manager 造成循环依赖）
+local function _isTransferWindowMonth(gameState)
+    if not gameState or not gameState.date then return false end
+    local m = gameState.date.month
+    return (m >= 6 and m <= 8) or m == 1
+end
+
+--- 当前有效一线队上限：玩家在转会窗内享受软顶（33），其余一律常规上限（30）
+--- @param gameState table|nil
+--- @return number
+function Team:getEffectiveSquadMax(gameState)
+    if gameState and self.id == gameState.playerTeamId and _isTransferWindowMonth(gameState) then
+        return Team.getPlayerWindowSquadMax()
+    end
+    return Team.getFirstTeamMax()
+end
+
+--- 按"有效上限"判断是否已满（玩家窗内 33、其余 30；对 AI 等价于 isFirstTeamFull）
+--- @param gameState table|nil
+--- @return boolean
+function Team:isSquadFullFor(gameState)
+    return #self.playerIds >= self:getEffectiveSquadMax(gameState)
+end
+
 --- 添加球员到一线队名单
 --- @param opts table|nil { allowOverCap = boolean } 租借归队等少数场景可突破硬顶
 --- @return boolean added 是否成功加入（已满或重复则 false / 已存在则 true）
