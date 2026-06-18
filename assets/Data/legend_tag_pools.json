@@ -1,0 +1,541 @@
+{
+  "version": 1,
+  "scheme": "narrative_tags",
+  "pools": [
+    {
+      "id": "prince",
+      "name_cn": "王子与旗帜",
+      "desc": "一人一城、队魂、王子——与俱乐部或国家队血脉绑定的符号",
+      "players": [
+        {
+          "id": "legend-007",
+          "full_name_cn": "马尔蒂尼",
+          "match_name": "Maldini"
+        },
+        {
+          "id": "legend-def-006",
+          "full_name_cn": "亚历山德罗·内斯塔",
+          "match_name": "Nesta"
+        },
+        {
+          "id": "legend-014",
+          "full_name_cn": "巴雷西",
+          "match_name": "Baresi"
+        },
+        {
+          "id": "legend-044",
+          "full_name_cn": "博比·摩尔",
+          "match_name": "Moore"
+        },
+        {
+          "id": "legend-def-007",
+          "full_name_cn": "卡莱斯·普约尔",
+          "match_name": "Puyol"
+        },
+        {
+          "id": "legend-030",
+          "full_name_cn": "巴乔",
+          "match_name": "Baggio"
+        },
+        {
+          "id": "legend-023",
+          "full_name_cn": "布冯",
+          "match_name": "Buffon"
+        },
+        {
+          "id": "legend-misc-002",
+          "full_name_cn": "托蒂",
+          "match_name": "Totti"
+        },
+        {
+          "id": "legend-027",
+          "full_name_cn": "皮尔洛",
+          "match_name": "Pirlo"
+        },
+        {
+          "id": "legend-def-026",
+          "full_name_cn": "罗伊·基恩",
+          "match_name": "Keane"
+        },
+        {
+          "id": "legend-misc-008",
+          "full_name_cn": "达格利什",
+          "match_name": "Dalglish"
+        },
+        {
+          "id": "legend-048",
+          "full_name_cn": "劳尔",
+          "match_name": "Raúl"
+        },
+        {
+          "id": "legend-037",
+          "full_name_cn": "杰拉德",
+          "match_name": "Gerrard"
+        },
+        {
+          "id": "legend-misc-017",
+          "full_name_cn": "特里",
+          "match_name": "Terry"
+        },
+        {
+          "id": "legend-026",
+          "full_name_cn": "萨内蒂",
+          "match_name": "Zanetti"
+        },
+        {
+          "id": "legend-def-022",
+          "full_name_cn": "阿什利·科尔",
+          "match_name": "A. Cole"
+        },
+        {
+          "id": "legend-038",
+          "full_name_cn": "兰帕德",
+          "match_name": "Lampard"
+        },
+        {
+          "id": "legend-misc-016",
+          "full_name_cn": "德罗西",
+          "match_name": "De Rossi"
+        },
+        {
+          "id": "legend-036",
+          "full_name_cn": "斯科尔斯",
+          "match_name": "Scholes"
+        },
+        {
+          "id": "legend-def-029",
+          "full_name_cn": "詹纳罗·加图索",
+          "match_name": "Gattuso"
+        }
+      ]
+    },
+    {
+      "id": "nation",
+      "name_cn": "国家队英雄",
+      "desc": "世界杯、欧洲杯、民族英雄——以国家队叙事定义生涯",
+      "players": [
+        {
+          "id": "legend-001",
+          "full_name_cn": "贝利",
+          "match_name": "Pelé"
+        },
+        {
+          "id": "legend-002",
+          "full_name_cn": "马拉多纳",
+          "match_name": "Maradona"
+        },
+        {
+          "id": "legend-003",
+          "full_name_cn": "克鲁伊夫",
+          "match_name": "Cruyff"
+        },
+        {
+          "id": "legend-006",
+          "full_name_cn": "罗纳尔多",
+          "match_name": "R. Nazário"
+        },
+        {
+          "id": "legend-004",
+          "full_name_cn": "贝肯鲍尔",
+          "match_name": "Beckenbauer"
+        },
+        {
+          "id": "legend-012",
+          "full_name_cn": "迪斯蒂法诺",
+          "match_name": "Di Stéfano"
+        },
+        {
+          "id": "legend-005",
+          "full_name_cn": "齐达内",
+          "match_name": "Zidane"
+        },
+        {
+          "id": "legend-011",
+          "full_name_cn": "尤西比奥",
+          "match_name": "Eusébio"
+        },
+        {
+          "id": "legend-009",
+          "full_name_cn": "普拉蒂尼",
+          "match_name": "Platini"
+        },
+        {
+          "id": "legend-misc-014",
+          "full_name_cn": "盖德·穆勒",
+          "match_name": "G. Müller"
+        },
+        {
+          "id": "legend-008",
+          "full_name_cn": "罗纳尔迪尼奥",
+          "match_name": "Ronaldinho"
+        },
+        {
+          "id": "legend-045",
+          "full_name_cn": "博比·查尔顿",
+          "match_name": "Charlton"
+        },
+        {
+          "id": "legend-031",
+          "full_name_cn": "罗马里奥",
+          "match_name": "Romário"
+        },
+        {
+          "id": "legend-013",
+          "full_name_cn": "马特乌斯",
+          "match_name": "Matthäus"
+        },
+        {
+          "id": "legend-022",
+          "full_name_cn": "卡福",
+          "match_name": "Cafu"
+        },
+        {
+          "id": "legend-def-004",
+          "full_name_cn": "迪诺·佐夫",
+          "match_name": "Zoff"
+        },
+        {
+          "id": "legend-043",
+          "full_name_cn": "卡纳瓦罗",
+          "match_name": "Cannavaro"
+        },
+        {
+          "id": "legend-misc-005",
+          "full_name_cn": "克林斯曼",
+          "match_name": "Klinsmann"
+        },
+        {
+          "id": "legend-misc-021",
+          "full_name_cn": "克洛泽",
+          "match_name": "Klose"
+        },
+        {
+          "id": "legend-050",
+          "full_name_cn": "斯托伊奇科夫",
+          "match_name": "Stoichkov"
+        }
+      ]
+    },
+    {
+      "id": "club",
+      "name_cn": "俱乐部偶像",
+      "desc": "定义一支球队黄金时代的面孔，球迷记忆中的队徽化身",
+      "players": [
+        {
+          "id": "legend-010",
+          "full_name_cn": "范巴斯滕",
+          "match_name": "Van Basten"
+        },
+        {
+          "id": "legend-046",
+          "full_name_cn": "乔治·贝斯特",
+          "match_name": "Best"
+        },
+        {
+          "id": "legend-020",
+          "full_name_cn": "亨利",
+          "match_name": "Henry"
+        },
+        {
+          "id": "legend-def-003",
+          "full_name_cn": "彼得·舒梅切尔",
+          "match_name": "Schmeichel"
+        },
+        {
+          "id": "legend-def-008",
+          "full_name_cn": "费尔南多·耶罗",
+          "match_name": "Hierro"
+        },
+        {
+          "id": "legend-def-002",
+          "full_name_cn": "伊克尔·卡西利亚斯",
+          "match_name": "Casillas"
+        },
+        {
+          "id": "legend-019",
+          "full_name_cn": "伊涅斯塔",
+          "match_name": "Iniesta"
+        },
+        {
+          "id": "legend-029",
+          "full_name_cn": "博格坎普",
+          "match_name": "Bergkamp"
+        },
+        {
+          "id": "legend-018",
+          "full_name_cn": "哈维",
+          "match_name": "Xavi"
+        },
+        {
+          "id": "legend-misc-006",
+          "full_name_cn": "巴蒂斯图塔",
+          "match_name": "Batistuta"
+        },
+        {
+          "id": "legend-misc-001",
+          "full_name_cn": "贝克汉姆",
+          "match_name": "Beckham"
+        },
+        {
+          "id": "legend-misc-010",
+          "full_name_cn": "希勒",
+          "match_name": "Shearer"
+        },
+        {
+          "id": "legend-misc-011",
+          "full_name_cn": "比利亚",
+          "match_name": "Villa"
+        },
+        {
+          "id": "legend-misc-004",
+          "full_name_cn": "范尼",
+          "match_name": "Van Nistelrooy"
+        },
+        {
+          "id": "legend-def-031",
+          "full_name_cn": "费尔南多·托雷斯",
+          "match_name": "Torres"
+        },
+        {
+          "id": "legend-misc-018",
+          "full_name_cn": "鲁尼",
+          "match_name": "Rooney"
+        },
+        {
+          "id": "legend-049",
+          "full_name_cn": "里克尔梅",
+          "match_name": "Riquelme"
+        },
+        {
+          "id": "legend-misc-009",
+          "full_name_cn": "佐拉",
+          "match_name": "Zola"
+        },
+        {
+          "id": "legend-035",
+          "full_name_cn": "坎通纳",
+          "match_name": "Cantona"
+        },
+        {
+          "id": "legend-040",
+          "full_name_cn": "德罗巴",
+          "match_name": "Drogba"
+        }
+      ]
+    },
+    {
+      "id": "wanderer",
+      "name_cn": "流浪大师",
+      "desc": "跨联赛、跨国度封神，在多处留下传奇足迹",
+      "players": [
+        {
+          "id": "legend-def-023",
+          "full_name_cn": "弗兰克·里杰卡尔德",
+          "match_name": "Rijkaard"
+        },
+        {
+          "id": "legend-032",
+          "full_name_cn": "古利特",
+          "match_name": "Gullit"
+        },
+        {
+          "id": "legend-def-024",
+          "full_name_cn": "帕特里克·维埃拉",
+          "match_name": "Vieira"
+        },
+        {
+          "id": "legend-def-015",
+          "full_name_cn": "罗纳德·科曼",
+          "match_name": "Koeman"
+        },
+        {
+          "id": "legend-021",
+          "full_name_cn": "里瓦尔多",
+          "match_name": "Rivaldo"
+        },
+        {
+          "id": "legend-def-009",
+          "full_name_cn": "马塞尔·德塞利",
+          "match_name": "Desailly"
+        },
+        {
+          "id": "legend-def-025",
+          "full_name_cn": "克劳德·马克莱莱",
+          "match_name": "Makelele"
+        },
+        {
+          "id": "legend-047",
+          "full_name_cn": "卡卡",
+          "match_name": "Kaka"
+        },
+        {
+          "id": "legend-def-011",
+          "full_name_cn": "卢西奥",
+          "match_name": "Lucio"
+        },
+        {
+          "id": "legend-034",
+          "full_name_cn": "菲戈",
+          "match_name": "Figo"
+        },
+        {
+          "id": "legend-def-028",
+          "full_name_cn": "费尔南多·雷东多",
+          "match_name": "Redondo"
+        },
+        {
+          "id": "legend-def-019",
+          "full_name_cn": "达尼·阿尔维斯",
+          "match_name": "Alves"
+        },
+        {
+          "id": "legend-def-012",
+          "full_name_cn": "里奥·费迪南德",
+          "match_name": "Ferdinand"
+        },
+        {
+          "id": "legend-misc-003",
+          "full_name_cn": "亚亚·图雷",
+          "match_name": "Y. Touré"
+        },
+        {
+          "id": "legend-033",
+          "full_name_cn": "劳德鲁普",
+          "match_name": "Laudrup"
+        },
+        {
+          "id": "legend-041",
+          "full_name_cn": "埃托奥",
+          "match_name": "Eto'o"
+        },
+        {
+          "id": "legend-misc-012",
+          "full_name_cn": "范德萨",
+          "match_name": "Van der Sar"
+        },
+        {
+          "id": "legend-def-013",
+          "full_name_cn": "雅普·斯塔姆",
+          "match_name": "Stam"
+        },
+        {
+          "id": "legend-def-020",
+          "full_name_cn": "马塞洛",
+          "match_name": "Marcelo"
+        },
+        {
+          "id": "legend-028",
+          "full_name_cn": "西多夫",
+          "match_name": "Seedorf"
+        }
+      ]
+    },
+    {
+      "id": "myth",
+      "name_cn": "神话与远方",
+      "desc": "古早传说、异域先锋、东方与非洲、足球史外的神话",
+      "players": [
+        {
+          "id": "legend-015",
+          "full_name_cn": "加林查",
+          "match_name": "Garrincha"
+        },
+        {
+          "id": "legend-016",
+          "full_name_cn": "普斯卡什",
+          "match_name": "Puskás"
+        },
+        {
+          "id": "legend-024",
+          "full_name_cn": "雅辛",
+          "match_name": "Yashin"
+        },
+        {
+          "id": "legend-def-005",
+          "full_name_cn": "奥利弗·卡恩",
+          "match_name": "Kahn"
+        },
+        {
+          "id": "legend-017",
+          "full_name_cn": "罗伯托·卡洛斯",
+          "match_name": "R. Carlos"
+        },
+        {
+          "id": "legend-def-016",
+          "full_name_cn": "马蒂亚斯·萨默尔",
+          "match_name": "Sammer"
+        },
+        {
+          "id": "legend-def-014",
+          "full_name_cn": "劳伦特·布兰科",
+          "match_name": "Blanc"
+        },
+        {
+          "id": "legend-042",
+          "full_name_cn": "舍甫琴科",
+          "match_name": "Shevchenko"
+        },
+        {
+          "id": "legend-misc-013",
+          "full_name_cn": "范佩西",
+          "match_name": "Van Persie"
+        },
+        {
+          "id": "legend-def-018",
+          "full_name_cn": "菲利普·拉姆",
+          "match_name": "Lahm"
+        },
+        {
+          "id": "legend-039",
+          "full_name_cn": "内德维德",
+          "match_name": "Nedvěd"
+        },
+        {
+          "id": "legend-025",
+          "full_name_cn": "内斯肯斯",
+          "match_name": "Neeskens"
+        },
+        {
+          "id": "legend-misc-022",
+          "full_name_cn": "坎比亚索",
+          "match_name": "Cambiasso"
+        },
+        {
+          "id": "legend-misc-007",
+          "full_name_cn": "苏格拉底",
+          "match_name": "Sócrates"
+        },
+        {
+          "id": "legend-misc-015",
+          "full_name_cn": "马斯切拉诺",
+          "match_name": "Mascherano"
+        },
+        {
+          "id": "legend-misc-025",
+          "full_name_cn": "高俅",
+          "match_name": "Gao Qiu"
+        },
+        {
+          "id": "legend-misc-019",
+          "full_name_cn": "中田英寿",
+          "match_name": "Nakata"
+        },
+        {
+          "id": "legend-misc-020",
+          "full_name_cn": "朴智星",
+          "match_name": "Park Ji-sung"
+        },
+        {
+          "id": "legend-misc-023",
+          "full_name_cn": "范志毅",
+          "match_name": "Fan Zhiyi"
+        },
+        {
+          "id": "legend-misc-024",
+          "full_name_cn": "孙继海",
+          "match_name": "Sun Jihai"
+        }
+      ]
+    }
+  ]
+}
