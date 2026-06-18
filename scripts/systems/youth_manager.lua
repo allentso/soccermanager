@@ -284,9 +284,12 @@ local POSITION_MAP = {
     DefensiveMidfielder = "CDM",
     CentralMidfielder = "CM",
     AttackingMidfielder = "CAM",
+    LeftMidfielder = "LM",
+    RightMidfielder = "RM",
     LeftWing = "LW",
     RightWing = "RW",
     Striker = "ST",
+    CentreForward = "CF",
 }
 
 --- 将传奇数据中的英文位置转换为游戏简写
@@ -514,6 +517,7 @@ function YouthManager.signCandidate(gameState, candidateIndex)
         isLegend = candidate.isLegend or false,
         legendName = candidate.legendName,
         legendData = candidate.legendData,
+        legendTag = candidate.legendTag,
     }
     local player = gameState:addPlayer(playerData)
 
@@ -1170,6 +1174,99 @@ function YouthManager._generateAttributes(position, overall)
 end
 
 ------------------------------------------------------
+-- 传奇签入：在青训能力模板上叠加该传奇的"属性轮廓"
+--
+-- 设计：仅在 calculateOverallFromAttrs 实际计入的属性集合内做"按偏离均值
+-- 的重分配"。均值守恒 → base_score 不变 → 总评仍锚定青训档位（不破坏平衡），
+-- 但高光/弱项的相对形态来自 JSON 展示属性，让穆勒(射门/跑位高、速度低)、
+-- 贝克汉姆(传球高、防守低)等保留个人特色。JSON 属性本身不直接签入。
+------------------------------------------------------
+-- 与 Player.calculateOverallFromAttrs 的 allAttrs 一致（场员不含 handling/reflexes）
+local LEGEND_SHAPE_KEYS_OUTFIELD = {
+    "speed", "stamina", "strength", "agility", "passing", "shooting",
+    "tackling", "dribbling", "defending", "positioning", "vision",
+    "decisions", "composure", "aggression", "teamwork", "leadership", "aerial",
+}
+local LEGEND_SHAPE_KEYS_GK = {
+    "handling", "reflexes", "positioning", "aerial",
+    "composure", "decisions", "agility", "strength", "speed",
+}
+local LEGEND_SHAPE_BLEND = 0.55          -- JSON 轮廓融合强度（0=纯青训模板, 1=全量轮廓）
+local LEGEND_SHAPE_SCALE = 20.0 / 99.0   -- FM 1-99 尺度 → 局内 1-20 尺度
+
+--- 在已生成的 1-20 属性上叠加传奇 JSON 的相对轮廓（原地修改并返回）
+---@param attrs table 已由 _generateAttributes 生成的属性
+---@param lData table 传奇 JSON 数据（含 attributes）
+---@param position string 局内简写位置
+---@return table attrs
+function YouthManager._applyLegendShape(attrs, lData, position)
+    local src = lData and lData.attributes
+    if type(src) ~= "table" then return attrs end
+
+    local keys = (position == "GK") and LEGEND_SHAPE_KEYS_GK or LEGEND_SHAPE_KEYS_OUTFIELD
+    local function jsonAttr(k)
+        if k == "speed" then return src.speed or src.pace end
+        return src[k]
+    end
+
+    -- JSON 属性均值（仅统计本位置参与总评的属性）
+    local sum, n = 0, 0
+    for _, k in ipairs(keys) do
+        local v = jsonAttr(k)
+        if v then sum = sum + v; n = n + 1 end
+    end
+    if n == 0 then return attrs end
+    local jsonMean = sum / n
+
+    -- 按偏离均值重分配（Σ偏离≈0 → 均值守恒）
+    for _, k in ipairs(keys) do
+        local v = jsonAttr(k)
+        if v and attrs[k] then
+            attrs[k] = attrs[k] + (v - jsonMean) * LEGEND_SHAPE_SCALE * LEGEND_SHAPE_BLEND
+        end
+    end
+
+    -- 夹取范围并取整（仅处理参与重分配的键，其余保持 _generateAttributes 结果）
+    for _, k in ipairs(keys) do
+        attrs[k] = math.max(1, math.min(20, math.floor((attrs[k] or 1) + 0.5)))
+    end
+    return attrs
+end
+
+--- 生成传奇签入属性：青训能力模板 + JSON 轮廓（重锚定后总评仍等于青训档位）
+---@param position string 局内简写位置
+---@param overall number 青训档位 OVR
+---@param lData table 传奇 JSON 数据
+---@return table attrs
+function YouthManager._generateLegendAttributes(position, overall, lData)
+    local attrs = YouthManager._generateAttributes(position, overall)
+    local targetOvr = Player.calculateOverallFromAttrs(position, attrs)
+
+    YouthManager._applyLegendShape(attrs, lData, position)
+
+    -- 重锚定：shape 让擅长项被位置权重放大可能抬高总评，这里用轮转单键微调拉回
+    -- 青训档位（每次只调一个键、轮流处理 → 近似均匀位移，相对轮廓保留、平衡不破坏）
+    local keys = (position == "GK") and LEGEND_SHAPE_KEYS_GK or LEGEND_SHAPE_KEYS_OUTFIELD
+    local idx, stagnant = 0, 0
+    for _ = 1, 200 do
+        local cur = Player.calculateOverallFromAttrs(position, attrs)
+        if math.abs(cur - targetOvr) <= 1 then break end
+        local step = (cur > targetOvr) and -1 or 1
+        idx = (idx % #keys) + 1
+        local k = keys[idx]
+        local nv = math.max(1, math.min(20, attrs[k] + step))
+        if nv ~= attrs[k] then
+            attrs[k] = nv
+            stagnant = 0
+        else
+            stagnant = stagnant + 1
+            if stagnant >= #keys then break end  -- 全部键都触顶/触底，无法继续
+        end
+    end
+    return attrs
+end
+
+------------------------------------------------------
 -- 初始化：为所有球队填充青训到 INITIAL_YOUTH_COUNT 人
 ------------------------------------------------------
 
@@ -1249,8 +1346,10 @@ function YouthManager.bootstrapLegacyAIYouthOnce(gameState)
 end
 
 ------------------------------------------------------
--- 传奇球星池抽卡系统
+-- 传奇球星池抽卡系统（叙事标签分池）
 ------------------------------------------------------
+
+local LegendTagPools = require("scripts/data/legend_tag_pools")
 
 --- 获取抽卡状态
 ---@param gameState table
@@ -1263,8 +1362,181 @@ function YouthManager.getLegendGachaState(gameState)
         tenPullCount = 0,       -- 已进行的十连次数
         pityCounter = 0,        -- 距上次出传奇的十连次数（保底计数）
         firstTenPull = true,    -- 是否为首次十连（保底）
+        selectedPoolId = LegendTagPools.getDefaultPoolId(), -- 当前选中的标签池
+        pulledLegends = {},     -- 已抽传奇中文名（兼容旧档）
+        pulledLegendIds = {},   -- 已抽传奇 id（精确去重）
     }
+    if not gameState._legendGacha.selectedPoolId
+        or not LegendTagPools.isValidPoolId(gameState._legendGacha.selectedPoolId) then
+        gameState._legendGacha.selectedPoolId = LegendTagPools.getDefaultPoolId()
+    end
+    gameState._legendGacha.pulledLegends = gameState._legendGacha.pulledLegends or {}
+    gameState._legendGacha.pulledLegendIds = gameState._legendGacha.pulledLegendIds or {}
     return gameState._legendGacha
+end
+
+--- 全部叙事标签池定义
+---@return table[]
+function YouthManager.getLegendTagPools()
+    return LegendTagPools.getAllPools()
+end
+
+--- 当前选中的标签池 id
+---@param gameState table
+---@return string poolId
+function YouthManager.getSelectedLegendPoolId(gameState)
+    local state = YouthManager.getLegendGachaState(gameState)
+    return state.selectedPoolId
+end
+
+--- 当前选中的标签池详情
+---@param gameState table
+---@return table|nil
+function YouthManager.getSelectedLegendPool(gameState)
+    return LegendTagPools.getPool(YouthManager.getSelectedLegendPoolId(gameState))
+end
+
+--- 切换标签池（解锁后可随时切换，不消耗次数）
+---@param gameState table
+---@param poolId string
+---@return boolean ok
+function YouthManager.setSelectedLegendPool(gameState, poolId)
+    if not LegendTagPools.isValidPoolId(poolId) then
+        return false
+    end
+    local state = YouthManager.getLegendGachaState(gameState)
+    state.selectedPoolId = poolId
+    return true
+end
+
+---@param state table gacha state
+---@return table set
+local function _getPulledLegendSet(state)
+    local set = {}
+    for _, id in ipairs(state.pulledLegendIds or {}) do
+        set[id] = true
+    end
+    for _, name in ipairs(state.pulledLegends or {}) do
+        set[name] = true
+    end
+    return set
+end
+
+---@param set table
+---@param lData table
+---@return boolean
+local function _isLegendPulled(set, lData)
+    if lData.id and set[lData.id] then return true end
+    local key = lData.full_name_cn or lData.match_name
+    return key and set[key] or false
+end
+
+---@param state table
+---@param lData table
+local function _markLegendPulled(state, lData)
+    if lData.id then
+        local dup = false
+        for _, id in ipairs(state.pulledLegendIds) do
+            if id == lData.id then dup = true break end
+        end
+        if not dup then
+            table.insert(state.pulledLegendIds, lData.id)
+        end
+    end
+    local key = lData.full_name_cn or lData.match_name or "传奇"
+    local nameDup = false
+    for _, name in ipairs(state.pulledLegends) do
+        if name == key then nameDup = true break end
+    end
+    if not nameDup then
+        table.insert(state.pulledLegends, key)
+    end
+end
+
+--- 某标签池收集进度
+---@param gameState table
+---@param poolId string|nil 默认当前池
+---@return table { total, remaining, collected, exhausted }
+function YouthManager.getLegendPoolProgress(gameState, poolId)
+    poolId = poolId or YouthManager.getSelectedLegendPoolId(gameState)
+    local state = YouthManager.getLegendGachaState(gameState)
+    local pulledSet = _getPulledLegendSet(state)
+    local members = LegendTagPools.getPoolPlayers(poolId)
+    local remaining = 0
+    for _, p in ipairs(members) do
+        if not _isLegendPulled(pulledSet, p) then
+            remaining = remaining + 1
+        end
+    end
+    local total = #members
+    return {
+        total = total,
+        remaining = remaining,
+        collected = total - remaining,
+        exhausted = total > 0 and remaining == 0,
+    }
+end
+
+--- 构建当前标签池可抽传奇列表（排除全局已拥有）
+---@param gameState table
+---@return table[] legendPool
+---@return string poolId
+local function _buildLegendPoolForPull(gameState)
+    local state = YouthManager.getLegendGachaState(gameState)
+    local poolId = state.selectedPoolId
+    local pulledSet = _getPulledLegendSet(state)
+    local legendPool = {}
+    for _, p in ipairs(LegendTagPools.getPoolPlayers(poolId)) do
+        if not _isLegendPulled(pulledSet, p) then
+            table.insert(legendPool, p)
+        end
+    end
+    return legendPool, poolId
+end
+
+---@param gameState table
+---@param lData table
+---@return table candidate
+local function _makeLegendCandidate(gameState, lData)
+    local mappedPos = mapPosition(lData.position)
+    local legendYouthMods = DifficultySettings.getYouthModifiers()
+    local legendAge = RandomInt(legendYouthMods.legendMinAge, legendYouthMods.legendMaxAge)
+    local legendOverall = RandomInt(legendYouthMods.legendOverallMin, legendYouthMods.legendOverallMax)
+    local legendAttrs = YouthManager._generateLegendAttributes(mappedPos, legendOverall, lData)
+    local preCalcOverall = Player.calculateOverallFromAttrs(mappedPos, legendAttrs)
+    return {
+        firstName = lData.full_name_cn or lData.match_name or "传奇",
+        lastName = lData.full_name_cn or lData.match_name or "球星",
+        displayName = lData.full_name_cn or lData.match_name or "传奇球星",
+        nationality = Nationality.normalize(lData.football_nation or lData.nationality or "BRA"),
+        birthYear = gameState.date.year - legendAge,
+        position = mappedPos,
+        potential = lData.potential or 95,
+        overall = preCalcOverall,
+        attributes = legendAttrs,
+        age = legendAge,
+        isLegend = true,
+        legendName = lData.full_name_cn or lData.match_name,
+        legendData = lData,
+        legendTag = lData.legendTag or YouthManager.getSelectedLegendPoolId(gameState),
+    }
+end
+
+--- 是否已收集该传奇（全局去重，跨标签池）
+---@param gameState table
+---@param lData table
+---@return boolean
+function YouthManager.isLegendCollected(gameState, lData)
+    local state = YouthManager.getLegendGachaState(gameState)
+    return _isLegendPulled(_getPulledLegendSet(state), lData)
+end
+
+--- 标记传奇已收集（签入/补偿/抽卡后调用）
+---@param gameState table
+---@param lData table
+function YouthManager.markLegendCollected(gameState, lData)
+    local state = YouthManager.getLegendGachaState(gameState)
+    _markLegendPulled(state, lData)
 end
 
 --- 观看广告（解锁阶段）
@@ -1364,23 +1636,7 @@ function YouthManager.doSinglePull(gameState)
     local isLegend = false
     local isPity = (state.pityCounter >= LEGEND_PITY_COUNT)
 
-    -- 加载传奇池
-    local LegendsLoader = require("scripts/data/legends_loader")
-    local allLegends = LegendsLoader.loadAllPlayers()
-
-    state.pulledLegends = state.pulledLegends or {}
-    local pulledSet = {}
-    for _, name in ipairs(state.pulledLegends) do
-        pulledSet[name] = true
-    end
-
-    local legendPool = {}
-    for _, p in ipairs(allLegends) do
-        local key = p.full_name_cn or p.match_name or ""
-        if not pulledSet[key] then
-            table.insert(legendPool, p)
-        end
-    end
+    local legendPool = _buildLegendPoolForPull(gameState)
 
     if #legendPool > 0 then
         if isPity then
@@ -1402,30 +1658,8 @@ function YouthManager.doSinglePull(gameState)
         local idx = RandomInt(1, #legendPool)
         local lData = legendPool[idx]
 
-        local legendKey = lData.full_name_cn or lData.match_name or "传奇"
-        table.insert(state.pulledLegends, legendKey)
-
-        local mappedPos = mapPosition(lData.position)
-        local legendYouthMods = DifficultySettings.getYouthModifiers()
-        local legendAge = RandomInt(legendYouthMods.legendMinAge, legendYouthMods.legendMaxAge)
-        local legendOverall = RandomInt(legendYouthMods.legendOverallMin, legendYouthMods.legendOverallMax)
-        local legendAttrs = YouthManager._generateAttributes(mappedPos, legendOverall)
-        local preCalcOverall = Player.calculateOverallFromAttrs(mappedPos, legendAttrs)
-        candidate = {
-            firstName = lData.full_name_cn or lData.match_name or "传奇",
-            lastName = lData.full_name_cn or lData.match_name or "球星",
-            displayName = lData.full_name_cn or lData.match_name or "传奇球星",
-            nationality = Nationality.normalize(lData.football_nation or lData.nationality or "BRA"),
-            birthYear = gameState.date.year - legendAge,
-            position = mappedPos,
-            potential = lData.potential or 95,
-            overall = preCalcOverall,
-            attributes = legendAttrs,
-            age = legendAge,
-            isLegend = true,
-            legendName = lData.full_name_cn or lData.match_name,
-            legendData = lData,
-        }
+        _markLegendPulled(state, lData)
+        candidate = _makeLegendCandidate(gameState, lData)
 
         -- 出传奇重置保底
         state.pityCounter = 0
@@ -1443,8 +1677,10 @@ function YouthManager.doSinglePull(gameState)
     table.insert(gameState._youthCandidates, candidate)
 
     log:Write(LOG_INFO, string.format(
-        "YouthManager: 单抽完成(%s)，剩余%d次，保底计数%d",
-        isLegend and "传奇" or "普通", state.pulls, state.pityCounter))
+        "YouthManager: 单抽完成(%s)，池=%s，剩余%d次，保底计数%d",
+        isLegend and "传奇" or "普通",
+        state.selectedPoolId or "?",
+        state.pulls, state.pityCounter))
 
     return candidate
 end
@@ -1467,25 +1703,7 @@ function YouthManager.doTenPull(gameState)
     local isFirst = state.firstTenPull
     local isPity = (state.pityCounter >= LEGEND_PITY_COUNT)
 
-    -- 加载传奇球员池（排除已抽到的传奇）
-    local LegendsLoader = require("scripts/data/legends_loader")
-    local allLegends = LegendsLoader.loadAllPlayers()
-
-    -- 已抽到的传奇列表（持久化去重）
-    state.pulledLegends = state.pulledLegends or {}
-    local pulledSet = {}
-    for _, name in ipairs(state.pulledLegends) do
-        pulledSet[name] = true
-    end
-
-    -- 过滤已抽到的传奇
-    local legendPool = {}
-    for _, p in ipairs(allLegends) do
-        local key = p.full_name_cn or p.match_name or ""
-        if not pulledSet[key] then
-            table.insert(legendPool, p)
-        end
-    end
+    local legendPool = _buildLegendPoolForPull(gameState)
 
     local team = gameState:getPlayerTeam()
     local youthDevBonus, facilityYouthBonus = 0.05, 1.0
@@ -1524,38 +1742,14 @@ function YouthManager.doTenPull(gameState)
         end
 
         if isLegend and #legendPool > 0 and legendCount < LEGEND_MAX_PER_PULL then
-            -- 从传奇池随机选一个并移除
+            -- 从当前标签池随机选一个并移除
             local idx = RandomInt(1, #legendPool)
             local lData = legendPool[idx]
             table.remove(legendPool, idx)  -- 本次十连内不重复
 
-            -- 持久化记录已抽传奇
-            local legendKey = lData.full_name_cn or lData.match_name or "传奇"
-            table.insert(state.pulledLegends, legendKey)
+            _markLegendPulled(state, lData)
 
-            local mappedPos = mapPosition(lData.position)
-            -- 难度修正：传奇球星年龄和能力受青训质量影响
-            local legendYouthMods = DifficultySettings.getYouthModifiers()
-            local legendAge = RandomInt(legendYouthMods.legendMinAge, legendYouthMods.legendMaxAge)
-            local legendOverall = RandomInt(legendYouthMods.legendOverallMin, legendYouthMods.legendOverallMax)
-            local legendAttrs = YouthManager._generateAttributes(mappedPos, legendOverall)
-            -- 预计算签入后的实际 overall，确保候选列表显示与签入后一致
-            local preCalcOverall = Player.calculateOverallFromAttrs(mappedPos, legendAttrs)
-            local candidate = {
-                firstName = lData.full_name_cn or lData.match_name or "传奇",
-                lastName = lData.full_name_cn or lData.match_name or "球星",
-                displayName = lData.full_name_cn or lData.match_name or "传奇球星",
-                nationality = Nationality.normalize(lData.football_nation or lData.nationality or "BRA"),
-                birthYear = gameState.date.year - legendAge,  -- 传奇以年轻体呈现
-                position = mappedPos,
-                potential = lData.potential or 95,
-                overall = preCalcOverall,  -- 预计算后的真实能力值
-                attributes = legendAttrs,
-                age = legendAge,
-                isLegend = true,
-                legendName = lData.full_name_cn or lData.match_name,
-                legendData = lData,  -- 保留原始数据供弹窗使用
-            }
+            local candidate = _makeLegendCandidate(gameState, lData)
             table.insert(candidates, candidate)
             usedNames[candidate.displayName] = true
             legendCount = legendCount + 1
@@ -1579,8 +1773,8 @@ function YouthManager.doTenPull(gameState)
     gameState._youthCandidates = candidates
 
     log:Write(LOG_INFO, string.format(
-        "YouthManager: 十连抽完成，出传奇%d名，累计十连%d次，保底计数%d",
-        legendCount, state.tenPullCount, state.pityCounter))
+        "YouthManager: 十连抽完成，池=%s，出传奇%d名，累计十连%d次，保底计数%d",
+        state.selectedPoolId or "?", legendCount, state.tenPullCount, state.pityCounter))
 
     return {
         candidates = candidates,

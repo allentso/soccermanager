@@ -1,5 +1,5 @@
 -- data/legends_loader.lua
--- 统一加载全部传奇球员数据（Top50 + 防守补充等）
+-- 统一加载全部传奇球员数据（Top50 + 防守补充 + 综合补充）
 
 local JsonLoader = require("scripts/data/json_loader")
 
@@ -8,6 +8,7 @@ local LegendsLoader = {}
 local LEGEND_FILES = {
     "Data/legends_alltime_top50.json",
     "Data/legends_alltime_defenders_30.json",
+    "Data/legends_alltime_misc_25.json",
 }
 
 --- 从 assets 目录直接读取（cache 不可用时的开发/测试回退）

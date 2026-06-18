@@ -20,6 +20,15 @@ local sdk = sdk
 
 local Youth = {}
 
+--- 叙事标签池 UI 配置
+local LEGEND_POOL_UI = {
+    prince = { icon = "👑", short = "王子" },
+    nation = { icon = "🏆", short = "国英雄" },
+    club = { icon = "🏟", short = "俱乐部" },
+    wanderer = { icon = "🌍", short = "流浪" },
+    myth = { icon = "✨", short = "神话" },
+}
+
 ------------------------------------------------------
 -- 潜力星级显示（1-5星，球探能力影响准确度）
 ------------------------------------------------------
@@ -727,6 +736,95 @@ end
 ------------------------------------------------------
 -- 传奇球星池抽卡入口
 ------------------------------------------------------
+
+--- 构建标签池选择器（解锁后可随时切换）
+function Youth._buildLegendPoolSelector(gameState)
+    local selectedId = YouthManager.getSelectedLegendPoolId(gameState)
+    local pools = YouthManager.getLegendTagPools()
+    local chips = {}
+
+    for _, pool in ipairs(pools) do
+        local ui = LEGEND_POOL_UI[pool.id] or { icon = "⭐", short = pool.name_cn }
+        local progress = YouthManager.getLegendPoolProgress(gameState, pool.id)
+        local isSelected = (pool.id == selectedId)
+        local chipBg = isSelected and Theme.COLORS.ACCENT or Theme.COLORS.BG_ELEVATED
+        local chipBorder = isSelected and Theme.COLORS.ACCENT or Theme.COLORS.BORDER
+        local labelColor = isSelected and {255, 255, 255, 255} or Theme.COLORS.TEXT_SECONDARY
+
+        table.insert(chips, UI.Button {
+            text = string.format(
+                "%s %s\n%d/%d",
+                ui.icon,
+                ui.short,
+                progress.remaining,
+                progress.total
+            ),
+            flexGrow = 1,
+            minWidth = 72,
+            height = 52,
+            marginRight = 6,
+            marginBottom = 6,
+            backgroundColor = chipBg,
+            borderRadius = 10,
+            borderWidth = isSelected and 2 or 1,
+            borderColor = chipBorder,
+            fontSize = 10,
+            color = labelColor,
+            fontWeight = isSelected and "bold" or "normal",
+            onClick = function()
+                if pool.id ~= selectedId then
+                    YouthManager.setSelectedLegendPool(gameState, pool.id)
+                    Router.replaceWith("youth")
+                end
+            end,
+        })
+    end
+
+    local selectedPool = YouthManager.getSelectedLegendPool(gameState)
+    local selectedProgress = YouthManager.getLegendPoolProgress(gameState, selectedId)
+    local statusText
+    if selectedProgress.exhausted then
+        statusText = "该标签池已全部收集，切换其他池继续抽传奇，或仍可抽普通青训。"
+    else
+        statusText = string.format(
+            "当前：%s · 还可抽 %d 名传奇",
+            selectedPool and selectedPool.name_cn or "",
+            selectedProgress.remaining
+        )
+    end
+
+    return UI.Panel {
+        width = "100%",
+        marginBottom = 10,
+        children = {
+            UI.Label {
+                text = "选择抽卡池（可随时切换）",
+                fontSize = 11,
+                color = Theme.COLORS.TEXT_SECONDARY,
+                marginBottom = 6,
+            },
+            UI.Panel {
+                width = "100%",
+                flexDirection = "row",
+                flexWrap = "wrap",
+                children = chips,
+            },
+            UI.Label {
+                text = selectedPool and (selectedPool.desc or "") or "",
+                fontSize = 10,
+                color = Theme.COLORS.TEXT_MUTED,
+                marginTop = 4,
+                marginBottom = 4,
+            },
+            UI.Label {
+                text = statusText,
+                fontSize = 10,
+                color = selectedProgress.exhausted and Theme.COLORS.GOLD or Theme.COLORS.ACCENT,
+            },
+        },
+    }
+end
+
 function Youth._buildLegendGachaSection(gameState)
     local gachaState = YouthManager.getLegendGachaState(gameState)
 
@@ -778,7 +876,7 @@ function Youth._buildLegendGachaSection(gameState)
                     },
                 },
                 UI.Label {
-                    text = "观看广告解锁传奇球星池，集齐历史巨星！",
+                    text = "观看广告解锁传奇抽卡，解锁后可在5个叙事标签池中自由选择！",
                     fontSize = 11, color = Theme.COLORS.TEXT_MUTED, marginBottom = 8,
                 },
                 UI.Button {
@@ -802,6 +900,9 @@ function Youth._buildLegendGachaSection(gameState)
     local pityCounter = gachaState.pityCounter
     local pityTotal = 10
     local adProgress, adTotal = YouthManager.getPullAdProgress(gameState)
+
+    local selectedPool = YouthManager.getSelectedLegendPool(gameState)
+    local poolProgress = YouthManager.getLegendPoolProgress(gameState)
 
     return Theme.Card {
         children = {
@@ -830,6 +931,7 @@ function Youth._buildLegendGachaSection(gameState)
                     },
                 },
             },
+            Youth._buildLegendPoolSelector(gameState),
             -- 状态信息
             UI.Panel {
                 width = "100%",
@@ -838,13 +940,18 @@ function Youth._buildLegendGachaSection(gameState)
                 marginBottom = 8,
                 children = {
                     Theme.StatPill { label = "可用次数", value = tostring(pulls), valueColor = Theme.COLORS.ACCENT },
-                    Theme.StatPill { label = "已十连", value = tostring(tenPullCount) .. "次" },
-                    Theme.StatPill { label = "保底计数", value = pityCounter .. "/" .. pityTotal },
+                    Theme.StatPill { label = "当前池", value = selectedPool and selectedPool.name_cn or "-", valueColor = Theme.COLORS.SECONDARY },
+                    Theme.StatPill { label = "池内剩余", value = poolProgress.remaining .. "/" .. poolProgress.total },
+                    Theme.StatPill { label = "保底", value = pityCounter .. "/" .. pityTotal },
                 },
             },
             -- 规则说明
             UI.Label {
-                text = "十连抽刷新候选池 | " .. pityTotal .. "次保底",
+                text = string.format(
+                    "仅在「%s」池内出传奇 | 十连刷新候选 | %d次保底（全局）",
+                    selectedPool and selectedPool.name_cn or "标签",
+                    pityTotal
+                ),
                 fontSize = 10, color = Theme.COLORS.TEXT_MUTED, marginBottom = 8,
             },
             -- 按钮区域
@@ -919,7 +1026,7 @@ function Youth._watchAdForUnlock(gameState)
             if unlocked then
                 ConfirmDialog.show({
                     title = "传奇球星池已解锁!",
-                    message = "恭喜！传奇球星池已解锁，赠送30次抽取机会！\n首次十连保底获得一名传奇球星！",
+                    message = "恭喜！传奇球星池已解锁，赠送30次抽取机会！\n可在5个叙事标签池中自由切换目标。\n首次十连保底获得一名传奇球星！",
                     confirmText = "太好了！",
                     confirmColor = Theme.COLORS.ACCENT,
                     onConfirm = function()

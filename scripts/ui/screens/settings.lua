@@ -1267,7 +1267,10 @@ function Settings._claimCompensationLegend()
     -- 收集已拥有的传奇球员名称（包括阵容+青训+gacha记录）
     local ownedLegends = {}
 
-    -- 从 gacha 记录获取
+    -- 从 gacha 记录获取（id + 中文名）
+    for _, id in ipairs(gachaState.pulledLegendIds or {}) do
+        ownedLegends[id] = true
+    end
     for _, name in ipairs(gachaState.pulledLegends or {}) do
         ownedLegends[name] = true
     end
@@ -1295,9 +1298,11 @@ function Settings._claimCompensationLegend()
     -- 筛选未拥有的传奇
     local availablePool = {}
     for _, lData in ipairs(allLegends) do
-        local key = lData.full_name_cn or lData.match_name or ""
-        if key ~= "" and not ownedLegends[key] then
-            table.insert(availablePool, lData)
+        if not YouthManager.isLegendCollected(gameState, lData) then
+            local key = lData.full_name_cn or lData.match_name or ""
+            if key ~= "" and not ownedLegends[key] then
+                table.insert(availablePool, lData)
+            end
         end
     end
 
@@ -1321,7 +1326,7 @@ function Settings._claimCompensationLegend()
         LeftMidfielder = "LM", RightMidfielder = "RM",
         LeftWinger = "LW", RightWinger = "RW",
         LeftWing = "LW", RightWing = "RW",
-        Striker = "ST",
+        Striker = "ST", CentreForward = "CF",
     }
 
     -- 赠送2位传奇球员
@@ -1340,7 +1345,7 @@ function Settings._claimCompensationLegend()
         -- 生成球员属性（传奇级别）
         local legendAge = RandomInt(16, 18)
         local legendOverall = RandomInt(62, 70)
-        local legendAttrs = YouthManager._generateAttributes(mappedPos, legendOverall)
+        local legendAttrs = YouthManager._generateLegendAttributes(mappedPos, legendOverall, chosen)
         local preCalcOverall = Player.calculateOverallFromAttrs(mappedPos, legendAttrs)
 
         -- 构造候选数据并签入
@@ -1376,8 +1381,7 @@ function Settings._claimCompensationLegend()
         end
 
         -- 记录到 gacha 已抽列表（防止后续 gacha 再抽到）
-        gachaState.pulledLegends = gachaState.pulledLegends or {}
-        table.insert(gachaState.pulledLegends, legendKey)
+        YouthManager.markLegendCollected(gameState, chosen)
 
         table.insert(signedLegends, { name = legendKey, pos = mappedPos, potential = chosen.potential or 95, age = legendAge })
 

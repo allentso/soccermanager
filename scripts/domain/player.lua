@@ -627,6 +627,7 @@ Player.EXTERNAL_TRAIT_ALIASES = {
     Reflexes = "shot_stopper", reflexes = "shot_stopper",
     Speedster = "pace_merchant", speedster = "pace_merchant",
     Stopper = "ball_winner", stopper = "ball_winner",
+    BallWinner = "ball_winner", ball_winner = "ball_winner",
     Sweeper = "sweeper_keeper", sweeper = "sweeper_keeper",
     Libero = "libero", libero = "libero",
     Clinical = "clinical", clinical = "clinical",

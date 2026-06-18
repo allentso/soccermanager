@@ -36,7 +36,27 @@ end
 local function assistCount(events, playerId)
     local count = 0
     for _, event in ipairs(events or {}) do
-        if event.type == "goal" and event.assistPlayerId == playerId then
+        if event.type == "goal" and not event.isOwnGoal and event.assistPlayerId == playerId then
+            count = count + 1
+        end
+    end
+    return count
+end
+
+local function goalCount(events, playerId)
+    local count = 0
+    for _, event in ipairs(events or {}) do
+        if event.playerId == playerId and event.type == "goal" and not event.isOwnGoal then
+            count = count + 1
+        end
+    end
+    return count
+end
+
+local function ownGoalCount(events, playerId)
+    local count = 0
+    for _, event in ipairs(events or {}) do
+        if event.playerId == playerId and event.type == "goal" and event.isOwnGoal then
             count = count + 1
         end
     end
@@ -84,7 +104,8 @@ function MatchReport.calculatePlayerRatings(homeContext, awayContext, events, fi
         rating = rating + (((player.fitness or 80) - 75) / 100)
         rating = rating + (((player.morale or 60) - 60) / 130)
 
-        rating = rating + eventCount(events, player.id, "goal") * 1.0
+        rating = rating + goalCount(events, player.id) * 1.0
+        rating = rating - ownGoalCount(events, player.id) * 1.0
         rating = rating + assistCount(events, player.id) * 0.45
         rating = rating - eventCount(events, player.id, "yellow_card") * 0.25
         rating = rating - eventCount(events, player.id, "red_card") * 1.35
