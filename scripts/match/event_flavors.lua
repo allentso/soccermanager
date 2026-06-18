@@ -20,6 +20,10 @@ EventFlavors.INJURY_TYPES = {
     { id = "metatarsal",     name = "跖骨骨折",   minDays = 30, maxDays = 60, weight = 2 },
 }
 
+-- 全局硬上限：任何伤病（含赛季报销）不超过约一年
+EventFlavors.INJURY_MAX_DAYS = 300
+EventFlavors.SEASON_ENDING_MIN_DAYS = 180
+
 -- 赛季报销（ACL/重大手术等）：极低权重，仅比赛/高强度场景单独掷出
 EventFlavors.SEASON_ENDING_TYPES = {
     { id = "acl_rupture",    name = "前十字韧带断裂", weight = 45 },
@@ -47,19 +51,40 @@ function EventFlavors.severityForDays(days)
     return "severe", "重伤"
 end
 
+--- 伤病天数硬上限（约一年）
+---@param days number
+---@return number
+function EventFlavors.clampInjuryDays(days)
+    days = math.floor(days or 0)
+    if days < 1 then return 1 end
+    return math.min(EventFlavors.INJURY_MAX_DAYS, days)
+end
+
 --- 估算距赛季结束的剩余天数（用于赛季报销时长）
+--- 注意：联赛 fixtures 为全联盟场次，不能直接用未打场次×间隔（会膨胀到千天以上）
 function EventFlavors.estimateSeasonDaysRemaining(gameState)
     if not gameState or not gameState.league or not gameState.league.fixtures then
-        return 180
+        return EventFlavors.SEASON_ENDING_MIN_DAYS
     end
-    local remainingFixtures = 0
+
+    local teamId = gameState.playerTeamId
+    local teamFixturesRemaining = 0
     for _, f in ipairs(gameState.league.fixtures) do
         if f.status ~= "finished" then
-            remainingFixtures = remainingFixtures + 1
+            if not teamId or f.homeTeamId == teamId or f.awayTeamId == teamId then
+                teamFixturesRemaining = teamFixturesRemaining + 1
+            end
         end
     end
-    -- 每轮约 3–4 天间隔，保底 180 天
-    return math.max(180, math.floor(remainingFixtures * 3.5))
+
+    -- 每队场次间隔约 7 天；无 playerTeamId 时按单队 38 场估算
+    if teamFixturesRemaining == 0 and not teamId then
+        teamFixturesRemaining = 19
+    end
+
+    local days = math.floor(teamFixturesRemaining * 7)
+    days = math.max(EventFlavors.SEASON_ENDING_MIN_DAYS, days)
+    return EventFlavors.clampInjuryDays(days)
 end
 
 --- 计算赛季报销子概率（在已触发伤病的前提下），受年龄/体能/injuryRisk/强度影响
@@ -108,7 +133,8 @@ local function rollSeasonEndingInjury(seasonDaysRemaining)
         acc = acc + t.weight
         if roll <= acc then picked = t break end
     end
-    local days = math.max(180, seasonDaysRemaining or 180)
+    local days = EventFlavors.clampInjuryDays(
+        math.max(EventFlavors.SEASON_ENDING_MIN_DAYS, seasonDaysRemaining or EventFlavors.SEASON_ENDING_MIN_DAYS))
     return {
         kind = picked.id,
         kindName = picked.name,
@@ -169,7 +195,7 @@ end
 function EventFlavors.applyToPlayer(player, injury)
     if not player or not injury then return end
     player.injured = true
-    player.injuryDays = injury.days or 7
+    player.injuryDays = EventFlavors.clampInjuryDays(injury.days or 7)
     player.injuryKind = injury.kind
     player.injuryKindName = injury.kindName
     player.injurySeverity = injury.severity
@@ -189,6 +215,20 @@ function EventFlavors.clearInjury(player)
     player.injurySeverity = nil
     player.injurySeverityName = nil
     player.injurySeasonEnding = nil
+end
+
+--- 老存档修复：伤病天数超过硬上限时截断（读档/每日幂等）
+---@param gameState table
+---@return number fixed
+function EventFlavors.repairExcessiveInjuryDays(gameState)
+    local fixed = 0
+    for _, p in pairs(gameState.players or {}) do
+        if p.injured and (p.injuryDays or 0) > EventFlavors.INJURY_MAX_DAYS then
+            p.injuryDays = EventFlavors.INJURY_MAX_DAYS
+            fixed = fixed + 1
+        end
+    end
+    return fixed
 end
 
 --- 伤病应用后的统一通知（玩家 inbox + 联赛伤病新闻）
@@ -258,6 +298,7 @@ function EventFlavors.rollInjury(maxDays)
         if roll <= acc then picked = t break end
     end
     local days = RandomInt(picked.minDays, math.min(picked.maxDays, maxDays or picked.maxDays))
+    days = EventFlavors.clampInjuryDays(days)
     local severity, severityName = EventFlavors.severityForDays(days)
     return {
         kind = picked.id,
