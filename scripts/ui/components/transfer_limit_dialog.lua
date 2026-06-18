@@ -13,10 +13,10 @@ local function _windowHint(gameState)
         return "下一转会窗开放后再试。"
     end
     local month = gameState.date.month
-    if month >= 6 and month <= 8 then
-        return "当前夏窗(6-8月)，冬窗(1月)开放后可操作。"
+    if month >= 7 and month <= 8 then
+        return "当前夏窗(7-8月)，冬窗(1月)开放后可操作。"
     elseif month == 1 then
-        return "当前冬窗(1月)，夏窗(6-8月)开放后可操作。"
+        return "当前冬窗(1月)，夏窗(7-8月)开放后可操作。"
     end
     return "下一转会窗开放后可操作。"
 end

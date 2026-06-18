@@ -90,7 +90,7 @@ function Market._buildWindowBanner(gameState)
     local text, bgColor, textColor
     if inWindow then
         local windowName, closingMonth
-        if month >= 6 and month <= 8 then
+        if month >= 7 and month <= 8 then
             windowName = "夏季转会窗"
             closingMonth = 8
         else
@@ -109,12 +109,12 @@ function Market._buildWindowBanner(gameState)
         end
     else
         local nextWindow
-        if month >= 2 and month <= 5 then
-            nextWindow = "夏窗6月开启"
+        if month >= 2 and month <= 6 then
+            nextWindow = "夏窗7月开启"
         elseif month >= 9 and month <= 12 then
             nextWindow = "冬窗1月开启"
         else
-            nextWindow = "夏窗6月开启"
+            nextWindow = "夏窗7月开启"
         end
         text = "🔒 转会窗口关闭中 · 下个窗口：" .. nextWindow
         bgColor = {80, 80, 100, 30}

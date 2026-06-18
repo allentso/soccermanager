@@ -321,7 +321,7 @@ end
 local function _isTransferWindowMonth(gameState)
     if not gameState or not gameState.date then return false end
     local m = gameState.date.month
-    return (m >= 6 and m <= 8) or m == 1
+    return (m >= 7 and m <= 8) or m == 1
 end
 
 --- 当前有效一线队上限：玩家在转会窗内享受软顶（33），其余一律常规上限（30）

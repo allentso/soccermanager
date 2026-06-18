@@ -90,10 +90,10 @@ function TransferManager._getListedPlayers(gameState, field)
     return players
 end
 
--- 转会窗口检查（6-8月夏窗，1月冬窗）
+-- 转会窗口检查（7-8月夏窗，1月冬窗）
 function TransferManager.isInTransferWindow(gameState)
     local month = gameState.date.month
-    return (month >= 6 and month <= 8) or month == 1
+    return (month >= 7 and month <= 8) or month == 1
 end
 
 --- 当前转会窗标识（夏窗/冬窗各算一个窗期）
@@ -102,7 +102,7 @@ function TransferManager.getTransferWindowKey(gameState)
     if not gameState or not gameState.date then return nil end
     local month = gameState.date.month
     local year = gameState.date.year
-    if month >= 6 and month <= 8 then
+    if month >= 7 and month <= 8 then
         return "summer_" .. tostring(year)
     elseif month == 1 then
         return "winter_" .. tostring(year)
@@ -151,7 +151,7 @@ end
 function TransferManager.getWindowCloseDate(gameState)
     local month = gameState.date.month
     local year = gameState.date.year
-    if month >= 6 and month <= 8 then
+    if month >= 7 and month <= 8 then
         return { year = year, month = 8, day = 31 }  -- 夏窗8月31日关闭
     elseif month == 1 then
         return { year = year, month = 1, day = 31 }  -- 冬窗1月31日关闭
@@ -177,7 +177,7 @@ end
 --- @return string|nil errorMsg
 function TransferManager._checkTransferWindow(gameState)
     if not TransferManager.isInTransferWindow(gameState) then
-        return false, "当前不在转会窗口期（夏窗6-8月/冬窗1月），无法进行俱乐部间交易"
+        return false, "当前不在转会窗口期（夏窗7-8月/冬窗1月），无法进行俱乐部间交易"
     end
     return true, nil
 end
@@ -1221,7 +1221,7 @@ end
 
 local function _isTransferWindowMonth(gameState)
     local month = gameState.date and gameState.date.month
-    return (month and month >= 6 and month <= 8) or month == 1
+    return (month and month >= 7 and month <= 8) or month == 1
 end
 
 --- AI 球队主动寻找转会目标（兼容测试/诊断：一次 pass，最多 40 队；小世界全量）

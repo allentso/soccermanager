@@ -1286,7 +1286,7 @@ function Dashboard._buildUrgentSection(gameState, team)
     if inWindow then
         -- 窗口内：提示即将关闭
         local windowName, closingMonth
-        if month >= 6 and month <= 8 then
+        if month >= 7 and month <= 8 then
             windowName = "夏季转会窗"
             closingMonth = 8
         else
@@ -1312,8 +1312,8 @@ function Dashboard._buildUrgentSection(gameState, team)
     else
         -- 窗口外：提示下个窗口时间
         local nextWindow
-        if month >= 2 and month <= 5 then
-            nextWindow = "夏窗将于6月开启"
+        if month >= 2 and month <= 6 then
+            nextWindow = "夏窗将于7月开启"
         elseif month >= 9 and month <= 12 then
             nextWindow = "冬窗将于1月开启"
         end
