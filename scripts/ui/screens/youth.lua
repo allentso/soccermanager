@@ -747,28 +747,37 @@ function Youth._buildLegendPoolSelector(gameState)
         local ui = LEGEND_POOL_UI[pool.id] or { icon = "⭐", short = pool.name_cn }
         local progress = YouthManager.getLegendPoolProgress(gameState, pool.id)
         local isSelected = (pool.id == selectedId)
-        local chipBg = isSelected and Theme.COLORS.ACCENT or Theme.COLORS.BG_ELEVATED
-        local chipBorder = isSelected and Theme.COLORS.ACCENT or Theme.COLORS.BORDER
-        local labelColor = isSelected and {255, 255, 255, 255} or Theme.COLORS.TEXT_SECONDARY
+        local exhausted = progress.remaining == 0
+
+        local chipBg, chipBorder, labelColor
+        if isSelected then
+            chipBg = Theme.COLORS.ACCENT
+            chipBorder = Theme.COLORS.GOLD_LIGHT
+            labelColor = {255, 255, 255, 255}
+        else
+            chipBg = Theme.COLORS.BG_SURFACE
+            chipBorder = Theme.COLORS.BORDER
+            labelColor = exhausted and Theme.COLORS.TEXT_MUTED or Theme.COLORS.TEXT_SECONDARY
+        end
 
         table.insert(chips, UI.Button {
             text = string.format(
-                "%s %s\n%d/%d",
+                "%s %s\n%s",
                 ui.icon,
                 ui.short,
-                progress.remaining,
-                progress.total
+                exhausted and "已集齐" or (progress.remaining .. "/" .. progress.total)
             ),
             flexGrow = 1,
-            minWidth = 72,
-            height = 52,
+            flexBasis = "30%",
+            minWidth = 78,
+            height = 54,
             marginRight = 6,
             marginBottom = 6,
             backgroundColor = chipBg,
             borderRadius = 10,
             borderWidth = isSelected and 2 or 1,
             borderColor = chipBorder,
-            fontSize = 10,
+            fontSize = 11,
             color = labelColor,
             fontWeight = isSelected and "bold" or "normal",
             onClick = function()
@@ -896,112 +905,144 @@ function Youth._buildLegendGachaSection(gameState)
 
     -- 已解锁状态：显示抽取次数和十连抽按钮
     local pulls = gachaState.pulls
-    local tenPullCount = gachaState.tenPullCount
-    local pityCounter = gachaState.pityCounter
-    local pityTotal = 10
     local adProgress, adTotal = YouthManager.getPullAdProgress(gameState)
 
     local selectedPool = YouthManager.getSelectedLegendPool(gameState)
     local poolProgress = YouthManager.getLegendPoolProgress(gameState)
+    local canSingle = pulls >= 1
+    local canTen = pulls >= 10
 
     return Theme.Card {
         children = {
+            -- 标题行
             UI.Panel {
                 width = "100%",
                 flexDirection = "row",
                 justifyContent = "space-between",
                 alignItems = "center",
-                marginBottom = 8,
+                marginBottom = 10,
                 children = {
                     UI.Panel {
                         flexDirection = "row", alignItems = "center",
                         children = {
                             UI.Label {
                                 text = "⭐",
-                                fontSize = 16, marginRight = 4,
+                                fontSize = 18, marginRight = 6,
                             },
-                            Theme.Subtitle { text = "传奇球星池", marginBottom = 0 },
+                            Theme.Subtitle { text = "传奇球星池", marginBottom = 0, color = Theme.COLORS.GOLD },
                         },
                     },
-                    UI.Label {
-                        text = "已解锁",
-                        fontSize = 11,
-                        color = Theme.COLORS.SECONDARY,
-                        fontWeight = "bold",
+                    -- 已解锁徽章
+                    UI.Panel {
+                        backgroundColor = Theme.COLORS.BG_SURFACE,
+                        borderRadius = 10,
+                        borderWidth = 1,
+                        borderColor = Theme.COLORS.SECONDARY,
+                        paddingLeft = 8, paddingRight = 8, paddingTop = 3, paddingBottom = 3,
+                        children = {
+                            UI.Label {
+                                text = "已解锁",
+                                fontSize = 10,
+                                color = Theme.COLORS.SECONDARY,
+                                fontWeight = "bold",
+                            },
+                        },
                     },
                 },
             },
+            -- 池选择器
             Youth._buildLegendPoolSelector(gameState),
-            -- 状态信息
+            -- 资源条：可用次数（突出）+ 池内剩余
             UI.Panel {
                 width = "100%",
                 flexDirection = "row",
-                flexWrap = "wrap",
+                alignItems = "center",
+                backgroundColor = Theme.COLORS.BG_DARK,
+                borderRadius = 10,
+                padding = 10,
                 marginBottom = 8,
                 children = {
-                    Theme.StatPill { label = "可用次数", value = tostring(pulls), valueColor = Theme.COLORS.ACCENT },
-                    Theme.StatPill { label = "当前池", value = selectedPool and selectedPool.name_cn or "-", valueColor = Theme.COLORS.SECONDARY },
-                    Theme.StatPill { label = "池内剩余", value = poolProgress.remaining .. "/" .. poolProgress.total },
-                    Theme.StatPill { label = "保底", value = pityCounter .. "/" .. pityTotal },
+                    UI.Panel {
+                        flexDirection = "row",
+                        alignItems = "baseline",
+                        flexGrow = 1,
+                        children = {
+                            UI.Label {
+                                text = "可用次数",
+                                fontSize = 11, color = Theme.COLORS.TEXT_MUTED, marginRight = 6,
+                            },
+                            UI.Label {
+                                text = tostring(pulls),
+                                fontSize = 20,
+                                color = pulls > 0 and Theme.COLORS.GOLD or Theme.COLORS.TEXT_MUTED,
+                                fontWeight = "bold",
+                            },
+                        },
+                    },
+                    UI.Label {
+                        text = string.format("池内剩余 %d/%d", poolProgress.remaining, poolProgress.total),
+                        fontSize = 11,
+                        color = Theme.COLORS.TEXT_SECONDARY,
+                    },
                 },
             },
             -- 规则说明
             UI.Label {
                 text = string.format(
-                    "仅在「%s」池内出传奇 | 十连刷新候选 | %d次保底（全局）",
-                    selectedPool and selectedPool.name_cn or "标签",
-                    pityTotal
+                    "仅在「%s」池内出传奇，十连抽刷新候选名单",
+                    selectedPool and selectedPool.name_cn or "标签"
                 ),
-                fontSize = 10, color = Theme.COLORS.TEXT_MUTED, marginBottom = 8,
+                fontSize = 10, color = Theme.COLORS.TEXT_MUTED, marginBottom = 10,
             },
-            -- 按钮区域
+            -- 看广告赚次数（整行）
+            UI.Button {
+                text = adProgress > 0
+                    and string.format("看广告赚次数 (%d/%d)", adProgress, adTotal)
+                    or "看广告赚次数",
+                width = "100%", height = 34,
+                backgroundColor = Theme.COLORS.BG_SURFACE,
+                borderRadius = 8,
+                borderWidth = 1, borderColor = Theme.COLORS.BORDER,
+                fontSize = 12, color = Theme.COLORS.TEXT_SECONDARY,
+                marginBottom = 8,
+                onClick = function()
+                    Youth._showAdForPullsModal(gameState)
+                end,
+            },
+            -- 抽卡按钮行
             UI.Panel {
                 width = "100%",
                 flexDirection = "row",
                 children = {
-                    -- 观看广告获取次数（打开弹窗，逐次观看）
-                    UI.Button {
-                        text = adProgress > 0
-                            and string.format("看广告赚次数 (%d/%d)", adProgress, adTotal)
-                            or "看广告赚次数",
-                        height = 36, flexGrow = 1,
-                        backgroundColor = Theme.COLORS.BG_ELEVATED,
-                        borderRadius = 8,
-                        borderWidth = 1, borderColor = Theme.COLORS.BORDER,
-                        fontSize = 12, color = Theme.COLORS.TEXT_SECONDARY,
-                        marginRight = 8,
-                        onClick = function()
-                            Youth._showAdForPullsModal(gameState)
-                        end,
-                    },
                     -- 单抽按钮
                     UI.Button {
                         text = "单抽",
-                        height = 36, flexGrow = 0.6,
-                        backgroundColor = pulls >= 1 and Theme.COLORS.PRIMARY or Theme.COLORS.BG_ELEVATED,
+                        height = 42, flexGrow = 1,
+                        backgroundColor = canSingle and Theme.COLORS.PRIMARY or Theme.COLORS.BG_SURFACE,
                         borderRadius = 8,
-                        fontSize = 12,
-                        color = pulls >= 1 and {255, 255, 255, 255} or Theme.COLORS.TEXT_MUTED,
+                        fontSize = 14,
+                        color = canSingle and {255, 255, 255, 255} or Theme.COLORS.TEXT_MUTED,
+                        fontWeight = "bold",
                         marginRight = 8,
-                        disabled = pulls < 1,
+                        disabled = not canSingle,
                         onClick = function()
-                            if pulls >= 1 then
+                            if canSingle then
                                 Youth._doSinglePull(gameState)
                             end
                         end,
                     },
                     -- 十连抽按钮
                     UI.Button {
-                        text = pulls >= 10 and "十连抽!" or ("十连抽 (" .. pulls .. "/10)"),
-                        height = 36, flexGrow = 1,
-                        backgroundColor = pulls >= 10 and Theme.COLORS.ACCENT or Theme.COLORS.BG_ELEVATED,
+                        text = canTen and "十连抽" or ("十连抽 (" .. pulls .. "/10)"),
+                        height = 42, flexGrow = 1.6,
+                        backgroundColor = canTen and Theme.COLORS.ACCENT or Theme.COLORS.BG_SURFACE,
                         borderRadius = 8,
-                        fontSize = 13,
-                        color = pulls >= 10 and {255, 255, 255, 255} or Theme.COLORS.TEXT_MUTED,
+                        fontSize = 15,
+                        color = canTen and {255, 255, 255, 255} or Theme.COLORS.TEXT_MUTED,
                         fontWeight = "bold",
-                        disabled = pulls < 10,
+                        disabled = not canTen,
                         onClick = function()
-                            if pulls >= 10 then
+                            if canTen then
                                 Youth._doTenPull(gameState)
                             end
                         end,
@@ -1026,7 +1067,7 @@ function Youth._watchAdForUnlock(gameState)
             if unlocked then
                 ConfirmDialog.show({
                     title = "传奇球星池已解锁!",
-                    message = "恭喜！传奇球星池已解锁，赠送30次抽取机会！\n可在5个叙事标签池中自由切换目标。\n首次十连保底获得一名传奇球星！",
+                    message = "恭喜！传奇球星池已解锁，赠送30次抽取机会！\n可在5个叙事标签池中自由切换目标。\n快来召集你心仪的传奇球星吧！",
                     confirmText = "太好了！",
                     confirmColor = Theme.COLORS.ACCENT,
                     onConfirm = function()
@@ -1339,7 +1380,7 @@ function Youth._showLegendReveal(legendPlayer, isFirstPull)
     local potential = legendPlayer.potential or 95
 
     -- 传奇标语
-    local subtitle = isFirstPull and "首次十连保底！" or "欧皇附体！"
+    local subtitle = isFirstPull and "传奇降临！" or "欧皇附体！"
 
     UI.ShowOverlay(UI.Panel {
         width = "100%",
