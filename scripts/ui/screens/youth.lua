@@ -22,11 +22,11 @@ local Youth = {}
 
 --- 叙事标签池 UI 配置
 local LEGEND_POOL_UI = {
-    prince = { icon = "👑", short = "王子" },
-    nation = { icon = "🏆", short = "国英雄" },
+    prince = { icon = "👑", short = "王子旗帜" },
+    nation = { icon = "🏆", short = "国家英雄" },
     club = { icon = "🏟", short = "俱乐部" },
-    wanderer = { icon = "🌍", short = "流浪" },
-    myth = { icon = "✨", short = "神话" },
+    wanderer = { icon = "🌍", short = "流浪大师" },
+    myth = { icon = "✨", short = "神话远方" },
 }
 
 ------------------------------------------------------
@@ -806,11 +806,33 @@ function Youth._buildLegendPoolSelector(gameState)
         width = "100%",
         marginBottom = 10,
         children = {
-            UI.Label {
-                text = "选择抽卡池（可随时切换）",
-                fontSize = 11,
-                color = Theme.COLORS.TEXT_SECONDARY,
+            -- 标题行：左标题 + 右"查看名单"
+            UI.Panel {
+                width = "100%",
+                flexDirection = "row",
+                justifyContent = "space-between",
+                alignItems = "center",
                 marginBottom = 6,
+                children = {
+                    UI.Label {
+                        text = "选择抽卡池（可随时切换）",
+                        fontSize = 11,
+                        color = Theme.COLORS.TEXT_SECONDARY,
+                    },
+                    UI.Button {
+                        text = "查看名单 ›",
+                        height = 24,
+                        paddingLeft = 8, paddingRight = 8,
+                        backgroundColor = Theme.COLORS.BG_SURFACE,
+                        borderRadius = 6,
+                        borderWidth = 1, borderColor = Theme.COLORS.BORDER,
+                        fontSize = 10,
+                        color = Theme.COLORS.GOLD,
+                        onClick = function()
+                            Youth._showLegendPoolListModal(gameState, selectedId)
+                        end,
+                    },
+                },
             },
             UI.Panel {
                 width = "100%",
@@ -832,6 +854,173 @@ function Youth._buildLegendPoolSelector(gameState)
             },
         },
     }
+end
+
+------------------------------------------------------
+-- 传奇池名单弹窗（查看某标签池内全部传奇及收集状态）
+------------------------------------------------------
+function Youth._showLegendPoolListModal(gameState, poolId)
+    local pools = YouthManager.getLegendTagPools()
+    local poolMeta
+    for _, p in ipairs(pools) do
+        if p.id == poolId then poolMeta = p; break end
+    end
+    local poolUi = LEGEND_POOL_UI[poolId] or { icon = "⭐" }
+    local members = YouthManager.getLegendPoolMembers(gameState, poolId)
+    local progress = YouthManager.getLegendPoolProgress(gameState, poolId)
+
+    -- 球员卡片网格
+    local cards = {}
+    for _, m in ipairs(members) do
+        local data = m.data
+        local collected = m.collected
+        local name = data.full_name_cn or data.match_name or "传奇"
+        local pos = Constants.POSITION_NAMES[data.position] or data.position or ""
+        local imgPath = LegendImageRegistry.getPath(data.id) or ""
+
+        table.insert(cards, UI.Panel {
+            flexBasis = "30%",
+            flexGrow = 1,
+            minWidth = 88,
+            marginRight = 6,
+            marginBottom = 8,
+            backgroundColor = Theme.COLORS.BG_CARD,
+            borderRadius = 10,
+            borderWidth = 1,
+            borderColor = collected and Theme.COLORS.GOLD or Theme.COLORS.BORDER,
+            overflow = "hidden",
+            children = {
+                -- 立绘
+                UI.Panel {
+                    width = "100%",
+                    aspectRatio = 3 / 4,
+                    backgroundImage = collected and imgPath or "",
+                    backgroundSize = "cover",
+                    backgroundColor = Theme.COLORS.BG_DARK,
+                    children = {
+                        -- 未收集遮罩标记
+                        (not collected) and UI.Panel {
+                            width = "100%", height = "100%",
+                            justifyContent = "center", alignItems = "center",
+                            children = {
+                                UI.Label {
+                                    text = "未获得",
+                                    fontSize = 11,
+                                    color = Theme.COLORS.TEXT_SECONDARY,
+                                    fontWeight = "bold",
+                                },
+                            },
+                        } or UI.Panel {
+                            -- 已收集角标
+                            position = "absolute",
+                            top = 4, right = 4,
+                            backgroundColor = Theme.COLORS.GOLD,
+                            borderRadius = 8,
+                            paddingLeft = 5, paddingRight = 5, paddingTop = 1, paddingBottom = 1,
+                            children = {
+                                UI.Label { text = "✓", fontSize = 10, color = {20, 16, 36, 255}, fontWeight = "bold" },
+                            },
+                        },
+                    },
+                },
+                -- 名字 + 位置
+                UI.Panel {
+                    width = "100%",
+                    padding = 5,
+                    children = {
+                        UI.Label {
+                            text = name,
+                            fontSize = 11,
+                            color = collected and Theme.COLORS.TEXT_PRIMARY or Theme.COLORS.TEXT_MUTED,
+                            fontWeight = "bold",
+                        },
+                        UI.Label {
+                            text = pos,
+                            fontSize = 9,
+                            color = Theme.COLORS.TEXT_MUTED,
+                            marginTop = 1,
+                        },
+                    },
+                },
+            },
+        })
+    end
+
+    UI.ShowOverlay(UI.Panel {
+        width = "100%",
+        height = "100%",
+        justifyContent = "center",
+        alignItems = "center",
+        backgroundColor = {0, 0, 0, 210},
+        children = {
+            UI.Panel {
+                width = "94%",
+                maxHeight = "86%",
+                backgroundColor = Theme.COLORS.BG_CARD_ELEVATED,
+                borderRadius = 18,
+                borderWidth = 1,
+                borderColor = Theme.COLORS.BORDER_LIGHT,
+                paddingTop = 16, paddingBottom = 16,
+                paddingLeft = 14, paddingRight = 14,
+                children = {
+                    -- 标题行
+                    UI.Panel {
+                        width = "100%",
+                        flexDirection = "row",
+                        justifyContent = "space-between",
+                        alignItems = "center",
+                        marginBottom = 4,
+                        children = {
+                            UI.Panel {
+                                flexDirection = "row", alignItems = "center",
+                                children = {
+                                    UI.Label { text = poolUi.icon, fontSize = 18, marginRight = 6 },
+                                    UI.Label {
+                                        text = poolMeta and poolMeta.name_cn or "传奇名单",
+                                        fontSize = 16, color = Theme.COLORS.GOLD, fontWeight = "bold",
+                                    },
+                                },
+                            },
+                            UI.Label {
+                                text = string.format("已集 %d/%d", progress.collected, progress.total),
+                                fontSize = 12, color = Theme.COLORS.TEXT_SECONDARY, fontWeight = "bold",
+                            },
+                        },
+                    },
+                    -- 池描述
+                    UI.Label {
+                        text = poolMeta and (poolMeta.desc or "") or "",
+                        fontSize = 10, color = Theme.COLORS.TEXT_MUTED, marginBottom = 10,
+                    },
+                    -- 球员网格（可滚动）
+                    UI.ScrollView {
+                        width = "100%",
+                        flexGrow = 1,
+                        marginBottom = 12,
+                        children = {
+                            UI.Panel {
+                                width = "100%",
+                                flexDirection = "row",
+                                flexWrap = "wrap",
+                                children = cards,
+                            },
+                        },
+                    },
+                    -- 关闭按钮
+                    UI.Button {
+                        text = "关闭",
+                        width = "100%", height = 40,
+                        backgroundColor = Theme.COLORS.PRIMARY,
+                        borderRadius = 10,
+                        fontSize = 14, color = {255, 255, 255, 255}, fontWeight = "bold",
+                        onClick = function()
+                            UI.CloseOverlay()
+                        end,
+                    },
+                },
+            },
+        },
+    })
 end
 
 function Youth._buildLegendGachaSection(gameState)

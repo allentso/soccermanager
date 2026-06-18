@@ -1477,6 +1477,24 @@ function YouthManager.getLegendPoolProgress(gameState, poolId)
     }
 end
 
+--- 某标签池全部成员及收集状态（供"查看名单"展示）
+---@param gameState table
+---@param poolId string|nil 默认当前池
+---@return table[] list { data = legendData, collected = boolean }
+function YouthManager.getLegendPoolMembers(gameState, poolId)
+    poolId = poolId or YouthManager.getSelectedLegendPoolId(gameState)
+    local state = YouthManager.getLegendGachaState(gameState)
+    local pulledSet = _getPulledLegendSet(state)
+    local out = {}
+    for _, p in ipairs(LegendTagPools.getPoolPlayers(poolId)) do
+        table.insert(out, {
+            data = p,
+            collected = _isLegendPulled(pulledSet, p),
+        })
+    end
+    return out
+end
+
 --- 构建当前标签池可抽传奇列表（排除全局已拥有）
 ---@param gameState table
 ---@return table[] legendPool
