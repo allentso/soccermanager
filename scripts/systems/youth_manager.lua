@@ -20,7 +20,8 @@ local YouthManager = {}
 ------------------------------------------------------
 local YOUTH_REFRESH_INTERVAL = 3   -- 每3个月刷新一批（processMonthly每月调用一次）
 local YOUTH_POOL_SIZE = 10         -- 每次刷新10名候选
-local MAX_YOUTH_SQUAD = 18         -- 最多18名青训球员
+local MAX_YOUTH_SQUAD = 18         -- AI 球队青训上限
+local MAX_YOUTH_SQUAD_PLAYER = 30  -- 玩家球队青训上限
 local INITIAL_YOUTH_COUNT = 10     -- 每队初始青训人数
 local YOUTH_MIN_AGE = 15
 local YOUTH_MAX_AGE = 18
@@ -241,8 +242,25 @@ local YOUTH_NATIONALITIES = {
 
 -- 导出常量供 UI 使用
 YouthManager.MAX_YOUTH_SQUAD = MAX_YOUTH_SQUAD
+YouthManager.MAX_YOUTH_SQUAD_PLAYER = MAX_YOUTH_SQUAD_PLAYER
 YouthManager.YOUTH_POOL_SIZE = YOUTH_POOL_SIZE
 YouthManager.INITIAL_YOUTH_COUNT = INITIAL_YOUTH_COUNT
+
+--- 获取指定球队的青训名额上限（玩家 30，AI 18）
+---@param gameState table
+---@param teamOrId table|number|string
+---@return number
+function YouthManager.getMaxYouthSquad(gameState, teamOrId)
+    if not gameState then return MAX_YOUTH_SQUAD end
+    local teamId = teamOrId
+    if type(teamOrId) == "table" then
+        teamId = teamOrId.id
+    end
+    if gameState.playerTeamId and teamId == gameState.playerTeamId then
+        return MAX_YOUTH_SQUAD_PLAYER
+    end
+    return MAX_YOUTH_SQUAD
+end
 
 ------------------------------------------------------
 -- 传奇球星池抽卡配置
@@ -466,8 +484,9 @@ function YouthManager.signCandidate(gameState, candidateIndex)
 
     -- 青训名额检查
     team._youthPlayerIds = team._youthPlayerIds or {}
-    if #team._youthPlayerIds >= MAX_YOUTH_SQUAD then
-        return false, string.format("青训名额已满(%d人)", MAX_YOUTH_SQUAD)
+    local maxSquad = YouthManager.getMaxYouthSquad(gameState, team)
+    if #team._youthPlayerIds >= maxSquad then
+        return false, string.format("青训名额已满(%d人)", maxSquad)
     end
 
     -- 创建球员实体（birthYear 必须保持为整数，不可被修改）
@@ -627,8 +646,9 @@ function YouthManager.canDemoteToYouth(gameState, playerId, teamId)
     end
 
     team._youthPlayerIds = team._youthPlayerIds or {}
-    if #team._youthPlayerIds >= MAX_YOUTH_SQUAD then
-        return false, string.format("青训名额已满(%d人)", MAX_YOUTH_SQUAD)
+    local maxSquad = YouthManager.getMaxYouthSquad(gameState, team)
+    if #team._youthPlayerIds >= maxSquad then
+        return false, string.format("青训名额已满(%d人)", maxSquad)
     end
 
     local safe, reason = FinanceManager.checkSquadSafety(gameState, playerId)

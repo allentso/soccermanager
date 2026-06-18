@@ -72,6 +72,10 @@ function Youth.create(params)
 
     local youthSquad = YouthManager.getYouthSquad(gameState)
     local candidates = YouthManager.getCandidates(gameState)
+    local playerTeam = gameState:getPlayerTeam()
+    local maxYouthSquad = playerTeam
+        and YouthManager.getMaxYouthSquad(gameState, playerTeam)
+        or YouthManager.MAX_YOUTH_SQUAD
 
     local children = {
         -- 标题栏
@@ -90,7 +94,7 @@ function Youth.create(params)
                     fontWeight = "bold", flexGrow = 1, textAlign = "center",
                 },
                 UI.Label {
-                    text = string.format("%d/%d人", #youthSquad, YouthManager.MAX_YOUTH_SQUAD),
+                    text = string.format("%d/%d人", #youthSquad, maxYouthSquad),
                     fontSize = 12, color = Theme.COLORS.TEXT_MUTED, minWidth = 60, textAlign = "right",
                 },
             }
@@ -102,7 +106,7 @@ function Youth.create(params)
             overflow = "scroll",
             children = {
                 -- 青训概览卡片
-                Youth._buildSummaryCard(youthSquad),
+                Youth._buildSummaryCard(youthSquad, maxYouthSquad),
                 -- 传奇球星池入口
                 Youth._buildLegendGachaSection(gameState),
                 -- 候选招募区
@@ -124,7 +128,8 @@ end
 ------------------------------------------------------
 -- 概览卡片
 ------------------------------------------------------
-function Youth._buildSummaryCard(youthSquad)
+function Youth._buildSummaryCard(youthSquad, maxYouthSquad)
+    maxYouthSquad = maxYouthSquad or YouthManager.MAX_YOUTH_SQUAD
     local count = #youthSquad
     local avgOvr = 0
     local avgPot = 0
@@ -149,9 +154,9 @@ function Youth._buildSummaryCard(youthSquad)
                 children = {
                     Theme.Title { text = "青训学院", marginBottom = 0 },
                     UI.Label {
-                        text = string.format("%d / %d 名额", count, YouthManager.MAX_YOUTH_SQUAD),
+                        text = string.format("%d / %d 名额", count, maxYouthSquad),
                         fontSize = 12,
-                        color = count >= YouthManager.MAX_YOUTH_SQUAD and Theme.COLORS.WARNING or Theme.COLORS.TEXT_MUTED,
+                        color = count >= maxYouthSquad and Theme.COLORS.WARNING or Theme.COLORS.TEXT_MUTED,
                     },
                 },
             },

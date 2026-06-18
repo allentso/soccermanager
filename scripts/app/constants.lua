@@ -16,7 +16,8 @@ Constants.MATCHES_PER_WEEK = 1     -- 每周一场比赛
 -- 球队配置
 Constants.SQUAD_SIZE = 22           -- 理想一线队规模（UI/平衡参考）
 Constants.AI_FIRST_TEAM_MIN = 20    -- AI 一线队最低人数（低于此值强制补员）
-Constants.FIRST_TEAM_MAX = 30       -- 一线队注册硬顶（playerIds 上限）
+Constants.FIRST_TEAM_MAX = 30       -- 一线队注册硬顶（常规上限：玩家/青训提拔/自由签约/买入挂牌球员均受此约束）
+Constants.AI_SQUAD_HARD_MAX = 33    -- AI 窗口期"卖弱换强"先买后卖的软超员上限（关窗强制收敛回 FIRST_TEAM_MAX）
 Constants.GK_COUNT = 2
 Constants.DEF_COUNT = 7
 Constants.MID_COUNT = 7

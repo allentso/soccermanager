@@ -300,6 +300,17 @@ function Team:isFirstTeamFull()
     return #self.playerIds >= Team.getFirstTeamMax()
 end
 
+--- AI 窗口期"卖弱换强"软超员上限（关窗收敛回 FIRST_TEAM_MAX）
+function Team.getAISquadHardMax()
+    local Constants = require("scripts/app/constants")
+    return Constants.AI_SQUAD_HARD_MAX or 33
+end
+
+--- 是否已达 AI 软超员上限（AI 升级囤兵的天花板）
+function Team:isAISquadHardFull()
+    return #self.playerIds >= Team.getAISquadHardMax()
+end
+
 --- 添加球员到一线队名单
 --- @param opts table|nil { allowOverCap = boolean } 租借归队等少数场景可突破硬顶
 --- @return boolean added 是否成功加入（已满或重复则 false / 已存在则 true）

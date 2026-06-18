@@ -1090,14 +1090,14 @@ function FinanceManager.requestBoardInjection(gameState)
     local rep = (team.reputation or 500) / 10  -- 归一化到 0-100
     -- 用声望推算球队级别，保底 10M，高声望球队更多
     local budgetBase = math.max(team.transferBudget or 0, rep * 300000 + 10000000)
-    local baseAmount = budgetBase * 0.18
-    local amount = math.min(20000000, math.max(3000000, math.floor(baseAmount / 1000000) * 1000000))  -- 3M~20M，取整到百万
+    local baseAmount = budgetBase * 0.15
+    local amount = math.min(15000000, math.max(3000000, math.floor(baseAmount / 1000000) * 1000000))  -- 3M~15M，取整到百万
 
-    -- 冷却检查：每赛季最多2次
+    -- 冷却检查：每赛季最多1次（应急救命，而非常规增收手段）
     if not team.finance then team.finance = {} end
     local injectCount = team.finance.boardInjectionsThisSeason or 0
-    if injectCount >= 2 then
-        return false, "本赛季已经申请过2次注资，董事会拒绝了你的请求"
+    if injectCount >= 1 then
+        return false, "本赛季已申请过注资，董事会拒绝了你的请求"
     end
 
     -- 执行注资（同时补充转会预算）
@@ -1106,8 +1106,8 @@ function FinanceManager.requestBoardInjection(gameState)
     team.seasonIncome = (team.seasonIncome or 0) + amount
     team.finance.boardInjectionsThisSeason = injectCount + 1
 
-    -- 降低董事会满意度
-    local satLoss = 20 + injectCount * 15  -- 第一次-20, 第二次-35
+    -- 降低董事会满意度（一次性救命，代价显著）
+    local satLoss = 35
     team.boardSatisfaction = math.max(0, (team.boardSatisfaction or 50) - satLoss)
 
     FinanceManager.addTransaction(team, {
@@ -1140,10 +1140,10 @@ function FinanceManager.seekSponsorship(gameState)
 
     if not team.finance then team.finance = {} end
 
-    -- 冷却检查：每赛季最多3次
+    -- 冷却检查：每赛季最多2次
     local seekCount = team.finance.sponsorSeeksThisSeason or 0
-    if seekCount >= 3 then
-        return false, "本赛季赞助推介次数已用完（3/3）"
+    if seekCount >= 2 then
+        return false, "本赛季赞助推介次数已用完（2/2）"
     end
 
     -- 赞助金额 = 声望 * 随机系数（有可能失败）
@@ -1188,12 +1188,13 @@ function FinanceManager.hostCommercialEvent(gameState)
 
     if not team.finance then team.finance = {} end
 
-    -- 冷却检查: 28天
+    -- 冷却检查: 45天（避免沦为稳定增收手段）
+    local COMMERCIAL_COOLDOWN_DAYS = 45
     local lastEvent = team.finance.lastCommercialEventDate
     if lastEvent then
         local daysSince = FinanceManager._daysBetween(lastEvent, gameState.date)
-        if daysSince < 28 then
-            local daysLeft = 28 - daysSince
+        if daysSince < COMMERCIAL_COOLDOWN_DAYS then
+            local daysLeft = COMMERCIAL_COOLDOWN_DAYS - daysSince
             return false, string.format("商业活动冷却中，还需等待 %d 天", daysLeft)
         end
     end
@@ -1222,7 +1223,7 @@ function FinanceManager.hostCommercialEvent(gameState)
     gameState:sendMessage({
         category = "finance",
         title = "商业活动成功",
-        body = string.format("举办商业活动获得 %s 收入。下次可用时间: 28天后。", FinanceManager.formatMoney(amount)),
+        body = string.format("举办商业活动获得 %s 收入。下次可用时间: %d天后。", FinanceManager.formatMoney(amount), COMMERCIAL_COOLDOWN_DAYS),
         priority = "normal",
     })
 
@@ -1236,7 +1237,7 @@ function FinanceManager.getCommercialCooldown(gameState)
     local lastEvent = team.finance.lastCommercialEventDate
     if not lastEvent then return 0 end
     local daysSince = FinanceManager._daysBetween(lastEvent, gameState.date)
-    return math.max(0, 28 - daysSince)
+    return math.max(0, 45 - daysSince)
 end
 
 --- 计算两个日期间的天数差

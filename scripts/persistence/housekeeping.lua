@@ -662,6 +662,10 @@ function Housekeeping.run(gameState)
 
     local TransferManager = require("scripts/systems/transfer_manager")
     local _, loanDelisted = TransferManager.clearLoanListingsOutsideWindow(gameState, { silent = true })
+    -- 读档兜底：窗外若有 AI 队超员(>30)，收敛回上限
+    if not TransferManager.isInTransferWindow(gameState) then
+        TransferManager.enforceAISquadCap(gameState, { silent = true })
+    end
     TransferManager.repairStaleFreeAgentNegos(gameState, { silent = true })
     TransferManager.repairStaleTransferSignBids(gameState, { silent = true })
     local incomingSaleRepair = TransferManager.repairIncomingSaleBids(gameState, { silent = true })

@@ -272,7 +272,10 @@ return function(TransferManager)
         end
 
         if buyerTeam.transferBudget then
-            buyerTeam.transferBudget = math.max(0, buyerTeam.transferBudget - (installments and installments[1] and installments[1].amount or bid.amount))
+            -- 委托额度模型：无论是否分期，转会预算一次性扣全额。
+            -- 未付分期 = 已承诺负债，仍占用「可承诺额度」，避免分期凭空放大可买总额；
+            -- 现金（balance）仍按分期逐期支付（见上方），只缓解现金流、不放大购买力。
+            buyerTeam.transferBudget = math.max(0, buyerTeam.transferBudget - (bid.amount or 0))
         end
     end
 

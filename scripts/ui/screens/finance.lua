@@ -1963,10 +1963,10 @@ function Finance._buildHealthCard(team, gameState)
         })
     end
 
-    -- 董事注资：看满3次广告触发一次注资
-    local injectAvail = injectCount < 2
+    -- 董事注资：看满3次广告触发一次注资（每赛季上限 1 次）
+    local injectAvail = injectCount < 1
     local injectLabel = injectAvail
-        and string.format("董事注资 (%d/2)", injectCount)
+        and string.format("董事注资 (%d/1)", injectCount)
         or "注资已用尽"
     if injectAvail and injectAdProgress > 0 then
         injectLabel = string.format("董事注资 (%d/3)", injectAdProgress)
@@ -2012,10 +2012,10 @@ function Finance._buildHealthCard(team, gameState)
         end,
     })
 
-    -- 赞助推介：看满2次广告触发一次赞助
-    local sponsorAvail = sponsorCount < 3
+    -- 赞助推介：看满2次广告触发一次赞助（每赛季上限 2 次）
+    local sponsorAvail = sponsorCount < 2
     local sponsorLabel = sponsorAvail
-        and string.format("赞助推介 (%d/3)", sponsorCount)
+        and string.format("赞助推介 (%d/2)", sponsorCount)
         or "推介已用尽"
     if sponsorAvail and sponsorAdProgress > 0 then
         sponsorLabel = string.format("赞助推介 (%d/2)", sponsorAdProgress)

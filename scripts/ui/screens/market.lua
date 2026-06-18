@@ -626,6 +626,9 @@ function Market._showBidSheet(gameState, player, posFilter, searchQuery, ovrRang
 
     local team = gameState:getPlayerTeam()
     local budget = team and team.transferBudget or 0
+    local pendingPayables = team and TransferManager.getPendingPayablesTotal(team) or 0
+    local wageBudget = team and team.wageBudget or 0
+    local currentWage = team and FinanceManager.getWeeklyWageTotal(gameState, team.id) or 0
     local baseValue = player.value
     local sellerTeam = gameState.teams[player.teamId]
     local suggestedWage = TransferManager.getSuggestedTransferWage(player)
@@ -776,6 +779,43 @@ function Market._showBidSheet(gameState, player, posFilter, searchQuery, ovrRang
         }
     })
 
+    -- 预算与负债概览
+    local budgetRows = {
+        UI.Panel {
+            width = "100%", flexDirection = "row", justifyContent = "space-between", marginBottom = 3,
+            children = {
+                UI.Label { text = "可用转会预算", fontSize = 12, color = Theme.COLORS.TEXT_MUTED },
+                UI.Label { text = FinanceManager.formatMoney(budget), fontSize = 12, fontWeight = "bold",
+                    color = budget > 0 and Theme.COLORS.TEXT_PRIMARY or Theme.COLORS.DANGER },
+            },
+        },
+    }
+    if pendingPayables > 0 then
+        table.insert(budgetRows, UI.Panel {
+            width = "100%", flexDirection = "row", justifyContent = "space-between", marginBottom = 3,
+            children = {
+                UI.Label { text = "未付分期负债", fontSize = 12, color = Theme.COLORS.TEXT_MUTED },
+                UI.Label { text = "-" .. FinanceManager.formatMoney(pendingPayables), fontSize = 12,
+                    color = Theme.COLORS.WARNING or Theme.COLORS.DANGER },
+            },
+        })
+    end
+    table.insert(budgetRows, UI.Panel {
+        width = "100%", flexDirection = "row", justifyContent = "space-between",
+        children = {
+            UI.Label { text = "周薪预算（已用/总）", fontSize = 12, color = Theme.COLORS.TEXT_MUTED },
+            UI.Label {
+                text = string.format("%s / %s", FinanceManager.formatMoney(currentWage), FinanceManager.formatMoney(wageBudget)),
+                fontSize = 12, fontWeight = "bold",
+                color = currentWage >= wageBudget and Theme.COLORS.DANGER or Theme.COLORS.TEXT_PRIMARY,
+            },
+        },
+    })
+    table.insert(children, UI.Panel {
+        width = "100%", backgroundColor = {30, 36, 56, 255}, borderRadius = 6,
+        padding = 10, marginBottom = 12, children = budgetRows,
+    })
+
     -- 报价金额
     table.insert(children, UI.Label { text = "报价金额（万）", fontSize = 13, fontWeight = "bold", color = Theme.COLORS.TEXT_PRIMARY, marginBottom = 4 })
     table.insert(children, UI.Panel {
@@ -831,7 +871,22 @@ function Market._showBidSheet(gameState, player, posFilter, searchQuery, ovrRang
 
             if offerAmount > budget then
                 AudioManager.deny()
-                UI.Toast.Show({ message = "转会预算不足！剩余预算: " .. FinanceManager.formatMoney(budget), variant = "error" })
+                local hint = pendingPayables > 0
+                    and string.format("转会预算不足！可用 %s（已扣未付分期负债 %s）",
+                        FinanceManager.formatMoney(budget), FinanceManager.formatMoney(pendingPayables))
+                    or ("转会预算不足！剩余预算: " .. FinanceManager.formatMoney(budget))
+                UI.Toast.Show({ message = hint, variant = "error" })
+                return
+            end
+
+            -- 工资预算硬约束：引援后总周薪不得超出工资预算
+            if wageBudget > 0 and (currentWage + offeredWage) > wageBudget then
+                AudioManager.deny()
+                UI.Toast.Show({
+                    message = string.format("工资预算不足！引援后周薪 %s 将超出预算 %s，请降低周薪或先清理高薪球员。",
+                        FinanceManager.formatMoney(currentWage + offeredWage), FinanceManager.formatMoney(wageBudget)),
+                    variant = "error",
+                })
                 return
             end
 
@@ -1458,6 +1513,7 @@ function Market._buildListedContent(gameState)
             }
         })
     else
+        local inTransferWindow = TransferManager.isInTransferWindow(gameState)
         for _, p in ipairs(listedPlayers) do
             local hasBid = TransferManager.hasPendingIncomingBid(gameState, p.id)
             local posColor = Theme.posColor(p.position)
@@ -1544,9 +1600,11 @@ function Market._buildListedContent(gameState)
                             UI.Label { text = Market._formatValue(p.value), fontSize = 11, color = Theme.COLORS.ACCENT },
                             UI.Label { text = " · ", fontSize = 11, color = Theme.COLORS.BORDER },
                             UI.Label {
-                                text = hasBid and bidInfo or "等待报价",
+                                text = hasBid and bidInfo
+                                    or (inTransferWindow and "等待报价" or "窗口关闭 · 下窗继续"),
                                 fontSize = 11,
-                                color = hasBid and bidColor or Theme.COLORS.TEXT_MUTED,
+                                color = hasBid and bidColor
+                                    or (inTransferWindow and Theme.COLORS.TEXT_MUTED or Theme.COLORS.WARNING),
                             },
                         },
                     },
