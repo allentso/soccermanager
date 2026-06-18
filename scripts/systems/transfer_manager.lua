@@ -1028,6 +1028,9 @@ function TransferManager.processAITransfers(gameState)
     -- AI 挂牌符合画像的年轻/缺勤球员外租（仅转会窗）
     TransferManager._aiListPlayersForLoan(gameState)
 
+    -- 预分桶可转会球员（本次 pass 共用），避免每队全表扫描造成的卡顿
+    local candidatePool = TransferManager._buildTransferCandidatePool(gameState)
+
     -- 每周每支AI球队按难度档位尝试引援；资金充裕者每周必试
     for _, team in pairs(gameState.teams) do
         if team.id == gameState.playerTeamId then goto continue end
@@ -1037,18 +1040,28 @@ function TransferManager.processAITransfers(gameState)
         local need, upgradeMode = TransferManager._assessTeamNeed(gameState, team)
         if not need then goto continue end
 
-        -- 寻找合适目标（豪门有机会进入重磅模式）
+        -- 寻找合适目标（豪门有机会进入重磅模式；本窗未达自由签约上限时纳入自由球员）
         local blockbuster = TransferManager._shouldAIBlockbusterMode(gameState, team)
-        local target = TransferManager._findTransferTarget(gameState, team, need, upgradeMode, { blockbuster = blockbuster })
+        local allowFreeAgents = TransferManager._canAISignFreeAgent(gameState, team)
+        local target = TransferManager._findTransferTarget(gameState, team, need, upgradeMode, {
+            blockbuster = blockbuster,
+            allowFreeAgents = allowFreeAgents,
+            pool = candidatePool,
+        })
         if not target then goto continue end
 
-        -- AI 发起转会（升级动机允许满员时"卖弱换强"先买后卖）
-        local teamAvg = TransferManager._getTeamAverageOverall(gameState, team)
-        TransferManager._executeAITransfer(gameState, team, target, {
-            upgradeMode = upgradeMode,
-            teamAvg = teamAvg,
-            sellToBuy = upgradeMode,
-        })
+        if target.teamId == nil then
+            -- 自由球员：走签约路径（无转会费，受每窗上限约束）
+            TransferManager._executeAIFreeSign(gameState, team, target)
+        else
+            -- AI 发起付费转会（升级动机允许满员时"卖弱换强"先买后卖）
+            local teamAvg = TransferManager._getTeamAverageOverall(gameState, team)
+            TransferManager._executeAITransfer(gameState, team, target, {
+                upgradeMode = upgradeMode,
+                teamAvg = teamAvg,
+                sellToBuy = upgradeMode,
+            })
+        end
 
         ::continue::
     end
@@ -1091,18 +1104,23 @@ function TransferManager._processListedPlayerOffers(gameState, opts)
     local aiAttract = opts.aiAttractChance or 0.15
     local MAX_COMPETING_BIDS = 3
 
+    -- 预构建买家球队快照：本次 pass 内所有挂牌球员共用，避免重复全联盟队均/预算计算
+    local teamCache = TransferManager._buildBuyerTeamCache(gameState)
+
     for _, player in pairs(gameState.players) do
         if not player.listedForSale then goto skipPlayer end
         if player.retired then goto skipPlayer end
-        if TransferManager._hasAwaitingSaleConfirmation(gameState, player.id) then goto skipPlayer end
-        local existingBids = TransferManager.getIncomingBidsForPlayer(gameState, player.id)
-        if #existingBids >= MAX_COMPETING_BIDS then goto skipPlayer end
 
+        -- 便宜的随机吸引门槛优先，过滤掉绝大多数球员，避免无谓的报价扫描
         local isPlayerTeamPlayer = (player.teamId == gameState.playerTeamId)
         local attractChance = isPlayerTeamPlayer and playerAttract or aiAttract
         if Random() > attractChance then goto skipPlayer end
 
-        local buyer = TransferManager._findBuyerForPlayer(gameState, player)
+        if TransferManager._hasAwaitingSaleConfirmation(gameState, player.id) then goto skipPlayer end
+        local existingBids = TransferManager.getIncomingBidsForPlayer(gameState, player.id)
+        if #existingBids >= MAX_COMPETING_BIDS then goto skipPlayer end
+
+        local buyer = TransferManager._findBuyerForPlayer(gameState, player, teamCache)
         if buyer and not TransferManager.hasPendingIncomingBid(gameState, player.id, buyer.id) then
             TransferManager._executeAITransfer(gameState, buyer, player)
         end
@@ -1231,6 +1249,11 @@ end
 -- 卖弱换强：升级目标须比被换下者强的最小分差
 local AI_SELL_TO_BUY_MIN_GAP = 4
 
+-- 自由球员签约：每队每个转会窗最多签入的自由球员数量上限
+local AI_FREE_SIGN_MAX_PER_WINDOW = 2
+-- 自由球员候选加权（免转会费，吸引力略高于同分付费目标）
+local AI_FREE_AGENT_WEIGHT = 1.2
+
 --- 本周窗标识（用于"每队每周最多 1 笔卖弱换强"限流）
 function TransferManager._currentWeekKey(gameState)
     local d = gameState.date or {}
@@ -1238,6 +1261,30 @@ function TransferManager._currentWeekKey(gameState)
     local m = d.month or 0
     local w = math.floor(((d.day or 1) - 1) / 7)
     return y * 1000 + m * 10 + w
+end
+
+--- 本窗已签入自由球员数量（窗口切换自动归零）
+function TransferManager._getAIFreeSignCount(gameState, team)
+    local key = TransferManager.getTransferWindowKey(gameState)
+    if not key then return 0 end
+    if team._freeSignWindowKey ~= key then return 0 end
+    return team._freeSignCount or 0
+end
+
+--- 本窗是否还能再签自由球员（上限 AI_FREE_SIGN_MAX_PER_WINDOW）
+function TransferManager._canAISignFreeAgent(gameState, team)
+    return TransferManager._getAIFreeSignCount(gameState, team) < AI_FREE_SIGN_MAX_PER_WINDOW
+end
+
+--- 累加本窗自由球员签约计数
+function TransferManager._incAIFreeSignCount(gameState, team)
+    local key = TransferManager.getTransferWindowKey(gameState)
+    if not key then return end
+    if team._freeSignWindowKey ~= key then
+        team._freeSignWindowKey = key
+        team._freeSignCount = 0
+    end
+    team._freeSignCount = (team._freeSignCount or 0) + 1
 end
 
 --- 找队内"可换下"的最弱冗余球员（同位置组优先，排除核心/受保护球员）
@@ -1596,11 +1643,43 @@ function TransferManager._assessTeamNeed(gameState, team)
     return nil, false
 end
 
+-- 反向位置映射缓存（position -> 位置组），首次使用时构建
+local _posToGroupCache = nil
+local function _posToGroup()
+    if _posToGroupCache then return _posToGroupCache end
+    local Constants = require("scripts/app/constants")
+    local m = {}
+    for group, positions in pairs(Constants.POSITION_GROUPS) do
+        for _, pos in ipairs(positions) do m[pos] = group end
+    end
+    _posToGroupCache = m
+    return m
+end
+
+--- 按位置组预分桶可转会球员（每个 processAITransfers pass 构建一次）。
+--- 让 _findTransferTarget 只遍历对应位置组（约 1/4 球员），避免每队全表扫描
+--- 造成的 O(球队×全部球员) 开销——这是转会窗周一/四 AI 引援卡顿的主因。
+function TransferManager._buildTransferCandidatePool(gameState)
+    local p2g = _posToGroup()
+    local pool = { GK = {}, DEF = {}, MID = {}, FWD = {} }
+    for _, player in pairs(gameState.players) do
+        if not player.retired and not player._isVirtual then
+            local g = p2g[player.position]
+            if g then
+                local bucket = pool[g]
+                bucket[#bucket + 1] = player
+            end
+        end
+    end
+    return pool
+end
+
 --- 寻找转会目标
----@param opts table|nil { blockbuster: boolean }
+---@param opts table|nil { blockbuster: boolean, allowFreeAgents: boolean, pool: table }
 function TransferManager._findTransferTarget(gameState, buyerTeam, needGroup, upgradeMode, opts)
     opts = opts or {}
     local blockbuster = opts.blockbuster or false
+    local allowFreeAgents = opts.allowFreeAgents or false
     local Constants = require("scripts/app/constants")
     local AiSquadPolicy = require("scripts/systems/ai_squad_policy")
     local targetPositions = Constants.POSITION_GROUPS[needGroup] or {}
@@ -1615,67 +1694,75 @@ function TransferManager._findTransferTarget(gameState, buyerTeam, needGroup, up
     local repTarget = AiSquadPolicy.getRepTargetOvr(buyerTeam)
     local anchor = math.max(teamAvg, repTarget)
 
-    for _, player in pairs(gameState.players) do
-        if player.retired then goto continue end
-        if not player.teamId then goto continue end  -- 无俱乐部（自由球员/国家队虚拟球员）不参与俱乐部间转会
-        if player.teamId == buyerTeam.id then goto continue end
-        -- 玩家球队的球员：只有挂牌出售的才会被AI考虑
-        if player.teamId == gameState.playerTeamId and not player.listedForSale then goto continue end
-        -- 玩家正在谈判中的球员，AI 不应直接截胡
-        if TransferManager.hasActiveBidOnPlayer(gameState, player.id, { buyerTeamId = gameState.playerTeamId }) then
-            goto continue
-        end
+    -- 能力窗口（队内常量，提前算出，避免逐球员重复计算）
+    local minOvr
+    if upgradeMode then
+        minOvr = math.max(teamAvg + TransferManager._getAIUpgradeMinOvrGap(buyerTeam), repMin)
+    else
+        minOvr = math.max(teamAvg - 12, repMin)
+    end
+    local maxOvr = anchor + ovrCeiling
+    local transferTier = DifficultySettings.get().transferTier or 2
 
-        -- 位置匹配
-        local posMatch = false
-        for _, pos in ipairs(targetPositions) do
-            if player.position == pos then posMatch = true; break end
-        end
-        if not posMatch then goto continue end
+    -- 候选来源：优先用预分桶池（仅该位置组），否则回退到全表扫描（兼容直接调用/测试）
+    local pool = opts.pool and opts.pool[needGroup]
 
-        -- 财力检查
-        if player.value > maxSpend then goto continue end
-
-        -- 能力匹配（上限锚定在 anchor，使下滑的豪门仍能够到高水平球员）
-        if upgradeMode then
-            -- 升级模式：至少队均 +gap，且不低于声望底线
-            local gap = TransferManager._getAIUpgradeMinOvrGap(buyerTeam)
-            local minOvr = math.max(teamAvg + gap, repMin)
-            if player.overall < minOvr then goto continue end
-            if player.overall > anchor + ovrCeiling then goto continue end
+    local function consider(player)
+        if player.retired then return end
+        local isFree = (player.teamId == nil)
+        if isFree then
+            -- 自由球员：仅在允许时纳入（每窗签约数量上限由调用方控制），排除国家队虚拟球员
+            if not allowFreeAgents then return end
+            if player._isVirtual then return end
         else
-            -- 补缺模式：范围宽松，但不低于声望底线 -4
-            local fillMin = math.max(teamAvg - 12, repMin)
-            if player.overall < fillMin then goto continue end
-            if player.overall > anchor + ovrCeiling then goto continue end
+            if player.teamId == buyerTeam.id then return end
+            -- 玩家球队的球员：只有挂牌出售的才会被AI考虑
+            if player.teamId == gameState.playerTeamId and not player.listedForSale then return end
+            -- 玩家正在谈判中的球员，AI 不应直接截胡
+            if TransferManager.hasActiveBidOnPlayer(gameState, player.id, { buyerTeamId = gameState.playerTeamId }) then
+                return
+            end
         end
+
+        -- 位置匹配（使用预分桶池时已按组过滤，无需再匹配）
+        if not pool then
+            local posMatch = false
+            for _, pos in ipairs(targetPositions) do
+                if player.position == pos then posMatch = true; break end
+            end
+            if not posMatch then return end
+        end
+
+        -- 财力检查（自由球员免转会费，跳过）
+        if not isFree and (player.value or 0) > maxSpend then return end
+
+        -- 能力窗口（上限锚定在 anchor，使下滑的豪门仍能够到高水平球员）
+        local pOvr = player.overall or 50
+        if pOvr < minOvr or pOvr > maxOvr then return end
 
         -- 高薪低能惩罚：AI不愿接手工资与能力不匹配的球员
         -- fairWage = 25 * exp(0.117 * ovr)，基于联赛工资分布拟合
         local pWage = player.wage or 0
-        local pOvr = player.overall or 50
         if pWage > 0 and pOvr < 78 then
             local fairWage = 25 * math.exp(0.117 * pOvr)
-            if pWage > fairWage * 1.5 then
-                -- 难度缩放：保守+正常完全跳过，宽松仅降权
-                local transferTier = DifficultySettings.get().transferTier or 2
-                if transferTier <= 2 then
-                    -- 保守+正常：AI不会主动引进高薪低能球员
-                    goto continue
-                else
-                    -- 宽松：继续入池，后续加权时会自然靠后
-                end
-            end
+            -- 难度缩放：保守+正常完全跳过，宽松仅降权（后续加权时自然靠后）
+            if pWage > fairWage * 1.5 and transferTier <= 2 then return end
         end
 
         local score = TransferManager._scoreAITransferCandidate(player, anchor, {
             upgradeMode = upgradeMode,
             blockbuster = blockbuster,
         })
+        if isFree then score = score * AI_FREE_AGENT_WEIGHT end
         if score > 0 then
-            table.insert(candidates, { player = player, score = score })
+            candidates[#candidates + 1] = { player = player, score = score }
         end
-        ::continue::
+    end
+
+    if pool then
+        for i = 1, #pool do consider(pool[i]) end
+    else
+        for _, player in pairs(gameState.players) do consider(player) end
     end
 
     if #candidates == 0 then return nil end
@@ -1846,6 +1933,60 @@ function TransferManager._executeAITransfer(gameState, buyerTeam, player, opts)
     })
 
     return true  -- 交易成功
+end
+
+--- AI 签入自由球员（无转会费，仅工资）。受"每队每窗 AI_FREE_SIGN_MAX_PER_WINDOW 名"上限约束。
+---@return boolean signed
+function TransferManager._executeAIFreeSign(gameState, buyerTeam, player)
+    if not buyerTeam or not player then return false end
+    if player.teamId ~= nil then return false end       -- 仅限真正的自由球员
+    if player._isVirtual or player.retired then return false end
+    if player.preContractLockedBy then return false end
+    -- 满员则不签（自由签约不触发卖弱换强）
+    if buyerTeam:isFirstTeamFull() then return false end
+    -- 本窗签约数量上限
+    if not TransferManager._canAISignFreeAgent(gameState, buyerTeam) then return false end
+    -- 本窗该球员是否已动过
+    local moveOk = TransferManager._checkPlayerWindowMoveLimit(gameState, player.id)
+    if not moveOk then return false end
+
+    -- 工资谈判（与付费转会一致：市场价 -5% ~ +10%，不低于原薪）
+    local marketWage = TransferManager.getSuggestedTransferWage(player)
+    local newWage = math.floor(marketWage * (0.95 + Random() * 0.15))
+    newWage = math.max(player.wage or 0, newWage)
+
+    local canAfford = TransferManager._checkAIWageBudgetForSigning(gameState, buyerTeam, newWage)
+    if not canAfford then return false end
+
+    if not TransferManager._assignPlayerToTeam(gameState, player, buyerTeam.id) then return false end
+    if player.teamId ~= buyerTeam.id then return false end
+
+    player.listedForSale = false
+    player.listedForLoan = false
+    player.isYouth = false
+    player.isFreeAgent = nil
+    player.squadRole = "first_team"
+    player.wage = newWage
+    player.contractEnd = { year = gameState.date.year + TransferManager._calcExpectedYears(player, gameState.date.year), month = 6 }
+
+    player:calculateReputation(buyerTeam.reputation or 300)
+    player:calculateValue(gameState.date.year)
+
+    TransferManager._markPlayerWindowMove(gameState, player.id)
+    TransferManager._incAIFreeSignCount(gameState, buyerTeam)
+
+    table.insert(gameState.transfers.history, {
+        playerId = player.id,
+        playerName = player.displayName,
+        fromTeamId = nil,
+        toTeamId = buyerTeam.id,
+        amount = 0,
+        date = { year = gameState.date.year, month = gameState.date.month, day = gameState.date.day },
+        isAI = true,
+        type = "free",
+    })
+
+    return true
 end
 
 ------------------------------------------------------
@@ -2146,7 +2287,24 @@ function TransferManager._hasAwaitingSaleConfirmation(gameState, playerId, exclu
 end
 
 --- 为挂牌球员寻找合适的买家
-function TransferManager._findBuyerForPlayer(gameState, player)
+--- 预构建 AI 买家球队快照（队均/有效预算），供同一日多名挂牌球员复用，
+--- 避免对每名挂牌球员都重算全联盟球队的队均与预算（O(挂牌×球队×阵容) → O(球队×阵容)）。
+function TransferManager._buildBuyerTeamCache(gameState)
+    local cache = {}
+    for _, team in pairs(gameState.teams) do
+        if team.id ~= gameState.playerTeamId then
+            cache[#cache + 1] = {
+                team = team,
+                avg = TransferManager._getTeamAverageOverall(gameState, team),
+                budget = TransferManager._getAIEffectiveBudget(team),
+            }
+        end
+    end
+    return cache
+end
+
+---@param teamCache table|nil 由 _buildBuyerTeamCache 预构建的买家快照（可选，用于批量场景加速）
+function TransferManager._findBuyerForPlayer(gameState, player, teamCache)
     -- 高薪低能检查：限制 AI 对工资与能力严重不匹配球员的兴趣
     local pWage = player.wage or 0
     local pOvr = player.overall or 50
@@ -2161,17 +2319,32 @@ function TransferManager._findBuyerForPlayer(gameState, player)
     end
 
     local candidates = {}
+    local pValue035 = (player.value or 0) * 0.35
 
-    for _, team in pairs(gameState.teams) do
-        if team.id == gameState.playerTeamId then goto skip end
-        if team.id == player.teamId then goto skip end
-        if team:isFirstTeamFull() then goto skip end
-        local budget = TransferManager._getAIEffectiveBudget(team)
-        if player.value * 0.35 > budget then goto skip end
-        local teamAvg = TransferManager._getTeamAverageOverall(gameState, team)
-        if player.overall < teamAvg - 15 or player.overall > teamAvg + 20 then goto skip end
-        table.insert(candidates, team)
-        ::skip::
+    if teamCache then
+        -- 快路径：复用预构建快照（队均/预算稍有滞后不影响撮合，成交时 _executeAITransfer 仍会再校验）
+        for i = 1, #teamCache do
+            local entry = teamCache[i]
+            local team = entry.team
+            if team.id == player.teamId then goto skip end
+            if team:isFirstTeamFull() then goto skip end
+            if pValue035 > entry.budget then goto skip end
+            if pOvr < entry.avg - 15 or pOvr > entry.avg + 20 then goto skip end
+            candidates[#candidates + 1] = team
+            ::skip::
+        end
+    else
+        for _, team in pairs(gameState.teams) do
+            if team.id == gameState.playerTeamId then goto skip end
+            if team.id == player.teamId then goto skip end
+            if team:isFirstTeamFull() then goto skip end
+            local budget = TransferManager._getAIEffectiveBudget(team)
+            if pValue035 > budget then goto skip end
+            local teamAvg = TransferManager._getTeamAverageOverall(gameState, team)
+            if pOvr < teamAvg - 15 or pOvr > teamAvg + 20 then goto skip end
+            candidates[#candidates + 1] = team
+            ::skip::
+        end
     end
 
     if #candidates == 0 then return nil end
