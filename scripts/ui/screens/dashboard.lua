@@ -21,6 +21,7 @@ local TransferManager = require("scripts/systems/transfer_manager")
 local MessageManager = require("scripts/systems/message_manager")
 local DomesticCup = require("scripts/systems/domestic_cup")
 local ConfirmDialog = require("scripts/ui/components/confirm_dialog")
+local DayAdvanceOverlay = require("scripts/ui/components/day_advance_overlay")
 local MessageActionHandlers = require("scripts/ui/message_action_handlers")
 
 ---@diagnostic disable-next-line: undefined-global
@@ -342,7 +343,62 @@ function Dashboard.create(params)
         end
     end
 
+    local function finishSkipToMatchDay(reason, playerFixture)
+        if reason == "season_end" then
+            SaveManager.save(gameState, "auto")
+            return
+        end
+        if reason == "popup" then
+            SaveManager.save(gameState, "auto")
+            showPopupMessages(function()
+                Router.replaceWith("dashboard")
+            end)
+            return
+        end
+        if reason == "player_match" and playerFixture then
+            SaveManager.save(gameState, "auto")
+            showPopupMessages(function()
+                Router.navigate("pre_match", { fixture = playerFixture })
+            end)
+            return
+        end
+        SaveManager.save(gameState, "auto")
+        showPopupMessages(function()
+            Router.replaceWith("dashboard")
+        end)
+    end
+
+    local function runOneSkipDayStep()
+        local prevSeason = gameState.season
+        local ok, fixtures = pcall(TurnProcessor.advanceDay, gameState)
+        if not ok then
+            if log then log:Write(LOG_ERROR, "doSkipToMatchDay: advanceDay 异常已捕获: " .. tostring(fixtures)) end
+            fixtures = nil
+        end
+
+        if gameState.season ~= prevSeason then
+            return "season_end"
+        end
+
+        local popupQueue = gameState._popupQueue or {}
+        if #popupQueue > 0 then
+            return "popup"
+        end
+
+        if fixtures and #fixtures > 0 then
+            for _, f in ipairs(fixtures) do
+                if f._pendingPlayerMatch then
+                    return "player_match", f
+                end
+            end
+        end
+
+        return "continue"
+    end
+
     local function doSkipToMatchDay()
+        if DayAdvanceOverlay.isRunning() then return end
+
         -- [BUG FIX] 跳天前先检查是否有逾期玩家比赛，避免雪球效应
         if not gameState._cheatAutoPlay then
             local overdueFixture = TurnProcessor.peekOverduePlayerFixture(gameState)
@@ -355,55 +411,17 @@ function Dashboard.create(params)
             end
         end
 
-        -- 最多跳过 daysToMatch 天（安全上限，防止死循环）
         local maxSkip = math.max(daysToMatch, 1)
-        local prevSeason = gameState.season
-        for i = 1, maxSkip do
-            local ok, fixtures = pcall(TurnProcessor.advanceDay, gameState)
-            if not ok then
-                if log then log:Write(LOG_ERROR, "doSkipToMatchDay: advanceDay 异常已捕获: " .. tostring(fixtures)) end
-                fixtures = nil
-            end
-
-            -- 如果赛季发生了变更，停止跳天并让 season_end 页面显示
-            if gameState.season ~= prevSeason then
-                SaveManager.save(gameState, "auto")
-                return
-            end
-
-            -- 检查是否有弹窗消息（如球员转会决定），停止跳天并弹窗
-            local popupQueue = gameState._popupQueue or {}
-            if #popupQueue > 0 then
-                SaveManager.save(gameState, "auto")
-                showPopupMessages(function()
-                    Router.replaceWith("dashboard")
-                end)
-                return
-            end
-
-            if fixtures and #fixtures > 0 then
-                -- 检查是否有玩家比赛（联赛/欧冠/世界杯）
-                local playerFixture = nil
-                for _, f in ipairs(fixtures) do
-                    if f._pendingPlayerMatch then
-                        playerFixture = f
-                        break
-                    end
-                end
-                if playerFixture then
-                    SaveManager.save(gameState, "auto")
-                    showPopupMessages(function()
-                        Router.navigate("pre_match", { fixture = playerFixture })
-                    end)
-                    return
-                end
-            end
-        end
-        -- 到达目标日但没有玩家比赛（理论上不会发生），刷新页面
-        SaveManager.save(gameState, "auto")
-        showPopupMessages(function()
-            Router.replaceWith("dashboard")
-        end)
+        DayAdvanceOverlay.run({
+            gameState = gameState,
+            totalSteps = maxSkip,
+            title = "快进到比赛日",
+            message = "正在模拟各队训练、转会与其他比赛，游戏没有卡死，请稍候…",
+            stepFn = function()
+                return runOneSkipDayStep()
+            end,
+            onComplete = finishSkipToMatchDay,
+        })
     end
 
     -- 判断当前身份
@@ -650,6 +668,7 @@ function Dashboard._buildTopBar(gameState, team, isBlocked, hasAnyBlockers, bloc
             color = "#FFFFFF",
             marginRight = 6,
             onClick = function()
+                if DayAdvanceOverlay.isRunning() then return end
                 Dashboard._skipToJobOffer(gameState)
             end,
         })
@@ -665,6 +684,7 @@ function Dashboard._buildTopBar(gameState, team, isBlocked, hasAnyBlockers, bloc
             color = hasAnyBlockers and Theme.COLORS.TEXT_MUTED or Theme.COLORS.MATCH_ORANGE,
             marginRight = 6,
             onClick = function()
+                if DayAdvanceOverlay.isRunning() then return end
                 if isBlocked then
                     BlockerDialog.show(blockers)
                     return
@@ -685,6 +705,7 @@ function Dashboard._buildTopBar(gameState, team, isBlocked, hasAnyBlockers, bloc
         color = Theme.COLORS.TEXT_PRIMARY,
         fontWeight = "bold",
         onClick = function()
+            if DayAdvanceOverlay.isRunning() then return end
             if isBlocked then
                 BlockerDialog.show(blockers)
                 return
@@ -3439,40 +3460,57 @@ end
 -- [快进到邀约] 失业状态下快进到收到工作邀约
 ------------------------------------------------------
 function Dashboard._skipToJobOffer(gameState)
+    if DayAdvanceOverlay.isRunning() then return end
+
     local MAX_SKIP_DAYS = 30
     local JobManager = require("scripts/systems/job_manager")
 
-    for i = 1, MAX_SKIP_DAYS do
-        local prevSeason = gameState.season
-        TurnProcessor.advanceDay(gameState)
+    DayAdvanceOverlay.run({
+        gameState = gameState,
+        totalSteps = MAX_SKIP_DAYS,
+        title = "快进到邀约",
+        message = "正在模拟各队日常运作，游戏没有卡死，请稍候…",
+        stepFn = function(stepIndex)
+            local prevSeason = gameState.season
+            TurnProcessor.advanceDay(gameState)
 
-        -- 赛季变更则停止
-        if gameState.season ~= prevSeason then
-            SaveManager.save(gameState, "auto")
-            return
-        end
+            if gameState.season ~= prevSeason then
+                return "season_end", stepIndex
+            end
 
-        -- 检查是否已收到邀约
-        local offers = JobManager.getPendingOffers(gameState)
-        if #offers > 0 then
+            local offers = JobManager.getPendingOffers(gameState)
+            if #offers > 0 then
+                return "offers", stepIndex
+            end
+
+            if not gameState._isUnemployed then
+                return "employed", stepIndex
+            end
+
+            return "continue"
+        end,
+        onComplete = function(reason, stepIndex)
             SaveManager.save(gameState, "auto")
-            UI.Toast.Show({ message = string.format("快进了%d天，收到工作邀约！", i), variant = "success" })
+
+            if reason == "season_end" then
+                return
+            end
+
+            if reason == "offers" then
+                UI.Toast.Show({
+                    message = string.format("快进了%d天，收到工作邀约！", stepIndex or 0),
+                    variant = "success",
+                })
+            elseif reason == "done" then
+                UI.Toast.Show({
+                    message = "快进30天仍未收到邀约，请继续等待或主动申请",
+                    variant = "warning",
+                })
+            end
+
             Router.replaceWith("dashboard")
-            return
-        end
-
-        -- 不再失业（比如其他逻辑导致重新上岗）
-        if not gameState._isUnemployed then
-            SaveManager.save(gameState, "auto")
-            Router.replaceWith("dashboard")
-            return
-        end
-    end
-
-    -- 达到上限仍无邀约
-    SaveManager.save(gameState, "auto")
-    UI.Toast.Show({ message = "快进30天仍未收到邀约，请继续等待或主动申请", variant = "warning" })
-    Router.replaceWith("dashboard")
+        end,
+    })
 end
 
 return Dashboard
