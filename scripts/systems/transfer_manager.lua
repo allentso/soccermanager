@@ -1075,6 +1075,7 @@ function TransferManager.processAITransfers(gameState)
     TransferManager._processListedPlayerOffers(gameState, {
         playerAttractChance = 0.80,
         aiAttractChance = 0.30,
+        maxAIAttempts = 120,
     })
 
     -- 额外：处理外租挂牌球员（AI主动租借玩家挂牌外租的球员）
@@ -1100,17 +1101,15 @@ function TransferManager.processAITransfers(gameState)
 end
 
 --- 挂牌球员每日/每周吸引 AI 买家（冬窗仅 1 月，需每日推进）
----@param opts table|nil { playerAttractChance: number, aiAttractChance: number }
+---@param opts table|nil { playerAttractChance: number, aiAttractChance: number, maxAIAttempts: number }
 function TransferManager._processListedPlayerOffers(gameState, opts)
     if not TransferManager.isInTransferWindow(gameState) then return end
 
     opts = opts or {}
     local playerAttract = opts.playerAttractChance or 0.35
     local aiAttract = opts.aiAttractChance or 0.15
+    local maxAIAttempts = opts.maxAIAttempts
     local MAX_COMPETING_BIDS = 3
-
-    -- 预构建买家球队快照：本次 pass 内所有挂牌球员共用，避免重复全联盟队均/预算计算
-    local teamCache = TransferManager._buildBuyerTeamCache(gameState)
 
     -- 预建 incoming 报价索引（playerId -> {n, awaiting, buyers}），一次 O(bids) 遍历。
     -- 替代循环内对每个挂牌球员各 3 次 O(bids) 全扫（_hasAwaitingSaleConfirmation /
@@ -1131,6 +1130,8 @@ function TransferManager._processListedPlayerOffers(gameState, opts)
         end
     end
 
+    local playerAttracted = {}
+    local aiAttracted = {}
     for _, player in pairs(gameState.players) do
         if not player.listedForSale then goto skipPlayer end
         if player.retired then goto skipPlayer end
@@ -1144,11 +1145,37 @@ function TransferManager._processListedPlayerOffers(gameState, opts)
         if idx and idx.awaiting then goto skipPlayer end          -- 等价 _hasAwaitingSaleConfirmation
         if idx and idx.n >= MAX_COMPETING_BIDS then goto skipPlayer end  -- 等价 getIncomingBidsForPlayer 计数
 
+        local entry = { player = player, idx = idx }
+        if isPlayerTeamPlayer then
+            playerAttracted[#playerAttracted + 1] = entry
+        else
+            aiAttracted[#aiAttracted + 1] = entry
+        end
+        ::skipPlayer::
+    end
+
+    if #playerAttracted == 0 and #aiAttracted == 0 then return end
+
+    -- 只有存在实际撮合候选时才构建买家快照，避免转会窗每日空跑也重算全联盟队均/预算。
+    local teamCache = TransferManager._buildBuyerTeamCache(gameState)
+    local function processEntry(entry)
+        local player = entry.player
+        local idx = entry.idx
         local buyer = TransferManager._findBuyerForPlayer(gameState, player, teamCache)
         if buyer and not (idx and idx.buyers[buyer.id]) then       -- 等价 hasPendingIncomingBid(player, buyer)
             TransferManager._executeAITransfer(gameState, buyer, player)
         end
-        ::skipPlayer::
+    end
+
+    -- 玩家挂牌优先处理；AI-AI 挂牌撮合可限流，避免大存档中每天数百次隐藏交易尝试卡顿。
+    for _, entry in ipairs(playerAttracted) do
+        processEntry(entry)
+    end
+    local aiAttempts = 0
+    for _, entry in ipairs(aiAttracted) do
+        if maxAIAttempts and aiAttempts >= maxAIAttempts then break end
+        aiAttempts = aiAttempts + 1
+        processEntry(entry)
     end
 end
 
@@ -2115,8 +2142,10 @@ function TransferManager.repairIncomingSaleBids(gameState, opts)
         awaiting_sale_confirmation = true, player_considering_sale = true,
     }
 
+    local activeIncomingBids = {}
     for _, bid in ipairs(gameState.transfers.bids) do
         if not bid.isIncomingBid or not activeStatuses[bid.status] then goto continueStale end
+        activeIncomingBids[#activeIncomingBids + 1] = bid
         local player = gameState.players[bid.playerId]
         local sellerTeam = bid.sellerTeamId and gameState.teams[bid.sellerTeamId]
         local stillOnSeller = player and bid.sellerTeamId
@@ -2131,7 +2160,7 @@ function TransferManager.repairIncomingSaleBids(gameState, opts)
     end
 
     local awaitingByPlayer = {}
-    for _, bid in ipairs(gameState.transfers.bids) do
+    for _, bid in ipairs(activeIncomingBids) do
         if bid.isIncomingBid and bid.status == "awaiting_sale_confirmation" then
             if not awaitingByPlayer[bid.playerId] then
                 awaitingByPlayer[bid.playerId] = {}
@@ -2163,7 +2192,7 @@ function TransferManager.repairIncomingSaleBids(gameState, opts)
         end
     end
 
-    for _, bid in ipairs(gameState.transfers.bids) do
+    for _, bid in ipairs(activeIncomingBids) do
         if not bid.isIncomingBid or not activeStatuses[bid.status] then goto continueSuper end
         local keeper = primaryAwaiting[bid.playerId]
         if keeper and bid.id ~= keeper.id then
@@ -5433,7 +5462,8 @@ function TransferManager.processDailyBids(gameState)
     if TransferManager.isInTransferWindow(gameState) then
         TransferManager._processListedPlayerOffers(gameState, {
             playerAttractChance = 0.35,
-            aiAttractChance = 0.15,
+            aiAttractChance = 0.03,
+            maxAIAttempts = 35,
         })
         -- 玩家阵容人数阈值提醒（28/30/33）
         TransferManager._notifyPlayerSquadThresholds(gameState)
@@ -5444,7 +5474,26 @@ function TransferManager.processDailyBids(gameState)
     TransferManager.repairStaleFreeAgentNegos(gameState, { silent = true })
     TransferManager.repairStaleTransferSignBids(gameState, { silent = true })
 
+    -- bids 历史会跨窗口/赛季累积；每日生命周期只关心仍可能推进的报价。
+    -- 后续多段处理复用同一 activeBids，避免每天反复扫 completed/rejected/cancelled 历史。
+    local dailyActiveStatuses = {
+        pending = true,
+        negotiating = true,
+        player_considering = true,
+        fee_agreed = true,
+        awaiting_confirmation = true,
+        player_considering_sale = true,
+        counter_pending = true,
+        awaiting_sale_confirmation = true,
+    }
+    local activeBids = {}
     for _, bid in ipairs(gameState.transfers.bids) do
+        if dailyActiveStatuses[bid.status] then
+            activeBids[#activeBids + 1] = bid
+        end
+    end
+
+    for _, bid in ipairs(activeBids) do
         if bid.status == "pending" then
             -- 推销报价走不同路径
             if bid.isPushSale then
@@ -5489,7 +5538,7 @@ function TransferManager.processDailyBids(gameState)
     end
 
     -- player_considering 状态：球员考虑期结束后自动尝试个人条款协商
-    for _, bid in ipairs(gameState.transfers.bids) do
+    for _, bid in ipairs(activeBids) do
         if bid.status == "player_considering" and bid.playerConsiderDate then
             local daysSince = TransferManager._daysBetween(bid.playerConsiderDate, gameState.date)
             if daysSince >= (bid.playerConsiderDays or 2) then
@@ -5501,7 +5550,7 @@ function TransferManager.processDailyBids(gameState)
     end
 
     -- fee_agreed 状态超时处理（7天未操作则取消）
-    for _, bid in ipairs(gameState.transfers.bids) do
+    for _, bid in ipairs(activeBids) do
         if bid.status == "fee_agreed" and bid.feeAgreedDate then
             -- 个人条款被拒后从最后一次协商日起算，避免考虑期占用超时窗口
             local refDate = bid.personalTermsNegotiateDate or bid.feeAgreedDate
@@ -5516,7 +5565,7 @@ function TransferManager.processDailyBids(gameState)
     end
 
     -- awaiting_confirmation 状态超时处理（5天未确认则取消）
-    for _, bid in ipairs(gameState.transfers.bids) do
+    for _, bid in ipairs(activeBids) do
         if bid.status == "awaiting_confirmation" then
             local refDate = bid.confirmDate or bid.feeAgreedDate
             if not refDate then goto continueAwaitingConfirm end
@@ -5532,7 +5581,7 @@ function TransferManager.processDailyBids(gameState)
     end
 
     -- player_considering_sale 状态：被出售球员考虑期结束后判断是否同意
-    for _, bid in ipairs(gameState.transfers.bids) do
+    for _, bid in ipairs(activeBids) do
         if bid.status == "player_considering_sale" and bid.isIncomingBid and bid.playerConsiderSaleDate then
             local daysSince = TransferManager._daysBetween(bid.playerConsiderSaleDate, gameState.date)
             if daysSince >= (bid.playerConsiderSaleDays or 2) then
@@ -5592,7 +5641,7 @@ function TransferManager.processDailyBids(gameState)
     end
 
     -- pending incoming bid 超时：玩家长期未回复，买方撤回报价
-    for _, bid in ipairs(gameState.transfers.bids) do
+    for _, bid in ipairs(activeBids) do
         if bid.status == "pending" and bid.isIncomingBid then
             local daysSince = TransferManager._daysBetween(bid.date, gameState.date)
             if daysSince >= 7 then
@@ -5615,7 +5664,7 @@ function TransferManager.processDailyBids(gameState)
     end
 
     -- pending incoming loan bid 超时：玩家长期未回复，租借方撤回报价
-    for _, bid in ipairs(gameState.transfers.bids) do
+    for _, bid in ipairs(activeBids) do
         if bid.status == "pending" and bid.isIncomingLoanBid then
             local daysSince = TransferManager._daysBetween(bid.date, gameState.date)
             if daysSince >= 5 then
@@ -5636,7 +5685,7 @@ function TransferManager.processDailyBids(gameState)
     end
 
     -- counter_pending 状态：AI考虑还价（出售方向，1-3天延迟）
-    for _, bid in ipairs(gameState.transfers.bids) do
+    for _, bid in ipairs(activeBids) do
         if bid.status == "counter_pending" and bid.isIncomingBid and bid.counterDate then
             local daysSince = TransferManager._daysBetween(bid.counterDate, gameState.date)
             if daysSince >= (bid.counterWaitDays or 2) then
@@ -5646,7 +5695,7 @@ function TransferManager.processDailyBids(gameState)
     end
 
     -- awaiting_sale_confirmation 状态超时处理（出售方向，5天未确认则买方撤回）
-    for _, bid in ipairs(gameState.transfers.bids) do
+    for _, bid in ipairs(activeBids) do
         if bid.status == "awaiting_sale_confirmation" and bid.isIncomingBid and bid.saleConfirmDate then
             local daysSince = TransferManager._daysBetween(bid.saleConfirmDate, gameState.date)
             if daysSince >= 5 then

@@ -21,6 +21,130 @@ local DomesticCup = require("scripts/systems/domestic_cup")
 
 local SeasonManager = {}
 
+local function _dateSerial(date)
+    if not date then return 0 end
+    return (tonumber(date.year) or 0) * 365
+        + (tonumber(date.month) or 0) * 30
+        + (tonumber(date.day) or 0)
+end
+
+--- 安全网：确保仍在任的玩家球队属于一个顶级联赛，且新赛季有国内联赛赛程。
+--- 过去类似逻辑只在设置/诊断页触发；放到核心层避免首页只找到欧冠/国际赛。
+---@param gameState table
+---@return boolean fixed
+function SeasonManager.ensurePlayerLeagueIntegrity(gameState)
+    if not gameState or not gameState.playerTeamId or not gameState.leagues then return false end
+
+    local playerTeamId = gameState.playerTeamId
+    local foundLeague, foundLeagueKey
+    for leagueKey, lg in pairs(gameState.leagues or {}) do
+        for _, tid in ipairs(lg.teamIds or {}) do
+            if tid == playerTeamId then
+                foundLeague = lg
+                foundLeagueKey = leagueKey
+                break
+            end
+        end
+        if foundLeague then break end
+    end
+
+    local fixed = false
+    if not foundLeague then
+        foundLeagueKey = gameState.playerLeagueId
+        foundLeague = foundLeagueKey and gameState.leagues[foundLeagueKey] or nil
+        if not foundLeague then
+            foundLeague = gameState.league
+            for leagueKey, lg in pairs(gameState.leagues or {}) do
+                if lg == foundLeague then
+                    foundLeagueKey = leagueKey
+                    break
+                end
+            end
+        end
+        if not foundLeague then
+            for leagueKey, lg in pairs(gameState.leagues or {}) do
+                foundLeague = lg
+                foundLeagueKey = leagueKey
+                break
+            end
+        end
+
+        if foundLeague then
+            foundLeague.teamIds = foundLeague.teamIds or {}
+            table.insert(foundLeague.teamIds, playerTeamId)
+            fixed = true
+
+            -- 若异常状态里玩家队还残留在二级储备池，移除避免下次升降级重复处理。
+            for _, sd in pairs(gameState.secondDivision or {}) do
+                for i = #(sd.teamIds or {}), 1, -1 do
+                    if sd.teamIds[i] == playerTeamId then
+                        table.remove(sd.teamIds, i)
+                    end
+                end
+            end
+        end
+    end
+
+    if not foundLeague then return fixed end
+
+    gameState.league = foundLeague
+    gameState.playerLeagueId = foundLeagueKey or gameState.playerLeagueId
+
+    local seasonStart = {
+        year = gameState.season or (gameState.date and gameState.date.year) or 2026,
+        month = Constants.SEASON_START_MONTH,
+        day = Constants.SEASON_START_DAY,
+    }
+    local currentSerial = _dateSerial(gameState.date)
+    local seasonStartSerial = _dateSerial(seasonStart)
+
+    local hasAnyPlayerFixture = false
+    local hasScheduledPlayerFixture = false
+    for _, f in ipairs(foundLeague.fixtures or {}) do
+        if f.homeTeamId == playerTeamId or f.awayTeamId == playerTeamId then
+            hasAnyPlayerFixture = true
+            if f.status == "scheduled" then
+                hasScheduledPlayerFixture = true
+                break
+            end
+        end
+    end
+
+    local shouldRebuildFixtures = fixed
+        or not foundLeague.fixtures
+        or #foundLeague.fixtures == 0
+        or not hasAnyPlayerFixture
+        or (not hasScheduledPlayerFixture and currentSerial <= seasonStartSerial)
+
+    if shouldRebuildFixtures then
+        foundLeague:initStandings()
+        foundLeague.season = gameState.season
+        foundLeague.currentRound = 1
+        foundLeague:generateFixtures(seasonStart)
+        fixed = true
+    elseif foundLeague.standings and not foundLeague.standings[playerTeamId] then
+        foundLeague.standings[playerTeamId] = {
+            teamId = playerTeamId,
+            played = 0,
+            wins = 0,
+            draws = 0,
+            losses = 0,
+            goalsFor = 0,
+            goalsAgainst = 0,
+            goalDifference = 0,
+            points = 0,
+        }
+        fixed = true
+    end
+
+    if fixed then
+        gameState.pendingPlayerFixture = nil
+        gameState._leagueFixtureDateIndex = nil
+        gameState._cachedNextMatch = nil
+    end
+    return fixed
+end
+
 ------------------------------------------------------
 -- 赛季结束处理（当玩家所在联赛赛季完成时触发，处理所有联赛）
 ------------------------------------------------------
@@ -1112,6 +1236,13 @@ function SeasonManager._startNewSeason(gameState)
         lg.currentRound = 1
         lg:generateFixtures(leagueStartDate)
     end
+
+    -- 新赛季重建了所有联赛 fixture；无论后续安全网是否实际修复，都必须丢弃旧日期索引。
+    gameState._leagueFixtureDateIndex = nil
+    gameState._cachedNextMatch = nil
+    gameState._fixMisalignedLeagueFixturesDone = nil
+    gameState._stuckProgressRepairDone = nil
+    SeasonManager.ensurePlayerLeagueIntegrity(gameState)
 
     -- 清理旧的转会报价
     if gameState.transfers then

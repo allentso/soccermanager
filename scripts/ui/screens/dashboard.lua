@@ -43,6 +43,11 @@ end
 --- @return boolean isWC 是否世界杯
 function Dashboard._findNextMatch(gameState)
     local League = require("scripts/domain/league")
+    local okSeason, SeasonManager = pcall(require, "scripts/systems/season_manager")
+    if okSeason and SeasonManager.ensurePlayerLeagueIntegrity then
+        SeasonManager.ensurePlayerLeagueIntegrity(gameState)
+    end
+
     local playerTeamId = gameState.playerTeamId
     local ntCoach = gameState.nationalTeamCoach
     local playerNation = ntCoach and ntCoach.nation or nil
