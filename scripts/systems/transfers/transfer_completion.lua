@@ -200,7 +200,26 @@ return function(TransferManager)
             return false
         end
 
-        TransferManager._removePlayerFromAllTeams(gameState, player.id, teamId)
+        -- 移除残留引用（替代原先对全部球队执行完整 _removePlayerFromTeam 的 O(球队×结构) 全扫描，
+        -- 该全扫描是转会日卡顿主因之一）：
+        --   1) 对球员「当前所属球队」做完整清理（含 startingXI/bench/战术方案等结构，球员确实离队）；
+        --   2) 对其余球队仅做廉价的 playerIds 去重——运行时唯一会出现的多队污染就是 playerIds 重复
+        --      （历史 bug / 损坏存档，见 roster_dup 回归）；纯战术结构 stale 引用由读档 Housekeeping 兜底。
+        local fromTeamId = player.teamId
+        if fromTeamId and fromTeamId ~= teamId then
+            local fromTeam = gameState.teams[fromTeamId]
+            if fromTeam then TransferManager._removePlayerFromTeam(fromTeam, player.id) end
+        end
+        for tid, otherTeam in pairs(gameState.teams or {}) do
+            if tid ~= teamId and tid ~= fromTeamId then
+                local pids = otherTeam.playerIds
+                if pids then
+                    for i = #pids, 1, -1 do
+                        if pids[i] == player.id then table.remove(pids, i) end
+                    end
+                end
+            end
+        end
         -- 玩家窗内处于 30<人数<33 缓冲区时，需绕过 addPlayer 的 30 人硬顶
         local addOpts = opts
         if not opts.allowOverCap and team:isFirstTeamFull() and not team:isSquadFullFor(gameState) then
@@ -210,6 +229,8 @@ return function(TransferManager)
             return false
         end
         player.teamId = teamId
+        -- 阵容已变更，使队均 OVR 缓存失效（同 pass 内后续撮合读到最新队均）
+        if TransferManager._bumpTeamOvrGen then TransferManager._bumpTeamOvrGen() end
         return true
     end
 

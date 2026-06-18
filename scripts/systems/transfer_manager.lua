@@ -1017,6 +1017,7 @@ end
 --- AI 球队每周主动寻找转会目标（由 turn_processor 周一调用）
 function TransferManager.processAITransfers(gameState)
     TransferManager._ensureData(gameState)
+    TransferManager._bumpTeamOvrGen()  -- 新 pass：刷新队均缓存（覆盖跨日成长/成交）
 
     -- 转会窗口检查（简化：6-8月 和 1月为转会窗口）
     local month = gameState.date.month
@@ -1358,6 +1359,7 @@ end
 --- 将球员释放为自由球员（解约：清队籍、挂牌、活跃报价）
 function TransferManager._aiReleaseToFreeAgent(gameState, player)
     if not player then return end
+    -- 释放为自由球员属低频路径（窗口关闭收敛），保留全队防御性清理，避免任何残留引用
     TransferManager._removePlayerFromAllTeams(gameState, player.id)
     TransferManager._invalidateActiveBidsForPlayer(gameState, player.id, {})
     player.teamId = nil
@@ -1671,6 +1673,13 @@ function TransferManager._buildTransferCandidatePool(gameState)
             end
         end
     end
+    -- 按 OVR 升序排序：让 _findTransferTarget 能二分定位能力窗口 [minOvr, maxOvr]，
+    -- 只遍历窗口内切片而非整桶（~1300 人），进一步削减引援尖峰。
+    local function byOvr(a, b) return (a.overall or 50) < (b.overall or 50) end
+    table.sort(pool.GK, byOvr)
+    table.sort(pool.DEF, byOvr)
+    table.sort(pool.MID, byOvr)
+    table.sort(pool.FWD, byOvr)
     return pool
 end
 
@@ -1760,7 +1769,23 @@ function TransferManager._findTransferTarget(gameState, buyerTeam, needGroup, up
     end
 
     if pool then
-        for i = 1, #pool do consider(pool[i]) end
+        -- 池已按 OVR 升序排序：二分定位首个 overall >= minOvr 的位置，
+        -- 只遍历 [minOvr, maxOvr] 切片，跳过窗口外的大量球员。
+        local n = #pool
+        local lo, hi = 1, n + 1
+        while lo < hi do
+            local mid = math.floor((lo + hi) / 2)
+            if (pool[mid].overall or 50) < minOvr then
+                lo = mid + 1
+            else
+                hi = mid
+            end
+        end
+        for i = lo, n do
+            local p = pool[i]
+            if (p.overall or 50) > maxOvr then break end
+            consider(p)
+        end
     else
         for _, player in pairs(gameState.players) do consider(player) end
     end
@@ -4081,7 +4106,20 @@ function TransferManager._daysBetween(date1, date2)
     return d2 - d1
 end
 
+--- 队均 OVR 缓存代次：在每个转会处理 pass 开始时递增（覆盖跨日成长/伤退），
+--- 并在 _assignPlayerToTeam 阵容变更后递增（覆盖 pass 内成交）。
+--- 同一代次内同队的重复查询直接命中缓存，避免 _aiListPlayersForSale 等
+--- 逐球员循环重复全队扫描造成的卡顿。
+TransferManager._teamOvrGen = TransferManager._teamOvrGen or 0
+function TransferManager._bumpTeamOvrGen()
+    TransferManager._teamOvrGen = TransferManager._teamOvrGen + 1
+end
+
 function TransferManager._getTeamAverageOverall(gameState, team)
+    local gen = TransferManager._teamOvrGen
+    if team._ovrCacheGen == gen and team._ovrCacheVal then
+        return team._ovrCacheVal
+    end
     local total = 0
     local count = 0
     for _, pid in ipairs(team.playerIds) do
@@ -4091,7 +4129,10 @@ function TransferManager._getTeamAverageOverall(gameState, team)
             count = count + 1
         end
     end
-    return count > 0 and math.floor(total / count) or 50
+    local avg = count > 0 and math.floor(total / count) or 50
+    team._ovrCacheGen = gen
+    team._ovrCacheVal = avg
+    return avg
 end
 
 ------------------------------------------------------
@@ -5058,13 +5099,18 @@ end
 function TransferManager._checkAIWageBudgetForSigning(gameState, team, additionalWage)
     if not team then return false, "球队不存在" end
 
+    -- 单次遍历同时累加在册总工资与挂牌可腾出工资（替代两次全队扫描）
     local currentWages = 0
+    local releasable = 0
     for _, pid in ipairs(team.playerIds) do
         local p = gameState.players[pid]
-        if p then currentWages = currentWages + (p.wage or 0) end
+        if p then
+            local w = p.wage or 0
+            currentWages = currentWages + w
+            if p.listedForSale then releasable = releasable + w end
+        end
     end
 
-    local releasable = TransferManager._getAIListedWageHeadroom(gameState, team)
     local wageBudget = TransferManager._getWageBudget(gameState, team)
     local newTotal = currentWages + additionalWage - releasable
 
@@ -5309,6 +5355,7 @@ end
 ------------------------------------------------------
 function TransferManager.processDailyBids(gameState)
     TransferManager._ensureData(gameState)
+    TransferManager._bumpTeamOvrGen()  -- 新 pass：刷新队均缓存（覆盖跨日成长/成交）
 
     -- 转会窗口关闭时，自动取消所有未完成的俱乐部间交易，并下架外租挂牌
     if not TransferManager.isInTransferWindow(gameState) then
