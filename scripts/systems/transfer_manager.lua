@@ -1031,6 +1031,9 @@ function TransferManager.processAITransfers(gameState)
 
     -- 预分桶可转会球员（本次 pass 共用），避免每队全表扫描造成的卡顿
     local candidatePool = TransferManager._buildTransferCandidatePool(gameState)
+    -- 预建「玩家球队有活跃报价的球员」集合（本次 pass 共用），供 _findTransferTarget O(1) 查表，
+    -- 避免对每个候选都 O(bids) 全扫 hasActiveBidOnPlayer（bids 累积时的二次方退化）
+    local playerBidSet = TransferManager._buildPlayerActiveBidSet(gameState, gameState.playerTeamId)
 
     -- 每周每支AI球队按难度档位尝试引援；资金充裕者每周必试
     for _, team in pairs(gameState.teams) do
@@ -1048,6 +1051,7 @@ function TransferManager.processAITransfers(gameState)
             blockbuster = blockbuster,
             allowFreeAgents = allowFreeAgents,
             pool = candidatePool,
+            playerBidSet = playerBidSet,
         })
         if not target then goto continue end
 
@@ -1108,6 +1112,25 @@ function TransferManager._processListedPlayerOffers(gameState, opts)
     -- 预构建买家球队快照：本次 pass 内所有挂牌球员共用，避免重复全联盟队均/预算计算
     local teamCache = TransferManager._buildBuyerTeamCache(gameState)
 
+    -- 预建 incoming 报价索引（playerId -> {n, awaiting, buyers}），一次 O(bids) 遍历。
+    -- 替代循环内对每个挂牌球员各 3 次 O(bids) 全扫（_hasAwaitingSaleConfirmation /
+    -- getIncomingBidsForPlayer / hasPendingIncomingBid）——这是 bids 累积时挂牌撮合
+    -- 退化为 O(挂牌×bids) 二次方的主因。状态集合与上述三函数保持一致。
+    local INCOMING_ACTIVE = {
+        pending = true, counter_pending = true,
+        awaiting_sale_confirmation = true, player_considering_sale = true,
+    }
+    local incIdx = {}
+    for _, bid in ipairs(gameState.transfers.bids) do
+        if bid.isIncomingBid and INCOMING_ACTIVE[bid.status] then
+            local e = incIdx[bid.playerId]
+            if not e then e = { n = 0, awaiting = false, buyers = {} }; incIdx[bid.playerId] = e end
+            e.n = e.n + 1
+            if bid.status == "awaiting_sale_confirmation" then e.awaiting = true end
+            if bid.buyerTeamId then e.buyers[bid.buyerTeamId] = true end
+        end
+    end
+
     for _, player in pairs(gameState.players) do
         if not player.listedForSale then goto skipPlayer end
         if player.retired then goto skipPlayer end
@@ -1117,12 +1140,12 @@ function TransferManager._processListedPlayerOffers(gameState, opts)
         local attractChance = isPlayerTeamPlayer and playerAttract or aiAttract
         if Random() > attractChance then goto skipPlayer end
 
-        if TransferManager._hasAwaitingSaleConfirmation(gameState, player.id) then goto skipPlayer end
-        local existingBids = TransferManager.getIncomingBidsForPlayer(gameState, player.id)
-        if #existingBids >= MAX_COMPETING_BIDS then goto skipPlayer end
+        local idx = incIdx[player.id]
+        if idx and idx.awaiting then goto skipPlayer end          -- 等价 _hasAwaitingSaleConfirmation
+        if idx and idx.n >= MAX_COMPETING_BIDS then goto skipPlayer end  -- 等价 getIncomingBidsForPlayer 计数
 
         local buyer = TransferManager._findBuyerForPlayer(gameState, player, teamCache)
-        if buyer and not TransferManager.hasPendingIncomingBid(gameState, player.id, buyer.id) then
+        if buyer and not (idx and idx.buyers[buyer.id]) then       -- 等价 hasPendingIncomingBid(player, buyer)
             TransferManager._executeAITransfer(gameState, buyer, player)
         end
         ::skipPlayer::
@@ -1727,8 +1750,10 @@ function TransferManager._findTransferTarget(gameState, buyerTeam, needGroup, up
             if player.teamId == buyerTeam.id then return end
             -- 玩家球队的球员：只有挂牌出售的才会被AI考虑
             if player.teamId == gameState.playerTeamId and not player.listedForSale then return end
-            -- 玩家正在谈判中的球员，AI 不应直接截胡
-            if TransferManager.hasActiveBidOnPlayer(gameState, player.id, { buyerTeamId = gameState.playerTeamId }) then
+            -- 玩家正在谈判中的球员，AI 不应直接截胡（优先用预建集合 O(1) 查；无则回退全扫，兼容直接调用/测试）
+            if opts.playerBidSet then
+                if opts.playerBidSet[player.id] then return end
+            elseif TransferManager.hasActiveBidOnPlayer(gameState, player.id, { buyerTeamId = gameState.playerTeamId }) then
                 return
             end
         end
@@ -2254,6 +2279,20 @@ function TransferManager.hasActiveBidOnPlayer(gameState, playerId, opts)
         end
     end
     return false
+end
+
+--- 预建「指定买家对哪些球员有活跃报价」集合（playerId -> true），一次 O(bids) 遍历。
+--- 供 _findTransferTarget 在批量撮合时 O(1) 查表，替代每候选都 O(bids) 全扫
+--- hasActiveBidOnPlayer——这是转会窗 AI 引援卡顿（bids 累积时退化为 O(候选×bids)）的主因。
+function TransferManager._buildPlayerActiveBidSet(gameState, buyerTeamId)
+    TransferManager._ensureData(gameState)
+    local set = {}
+    for _, bid in ipairs(gameState.transfers.bids) do
+        if _ACTIVE_BID_STATUSES[bid.status] and bid.buyerTeamId == buyerTeamId then
+            set[bid.playerId] = true
+        end
+    end
+    return set
 end
 
 --- 球员已转会时作废该球员所有活跃报价（AI 直接成交 / 完成转会后调用）
