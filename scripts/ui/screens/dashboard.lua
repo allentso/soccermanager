@@ -285,97 +285,62 @@ function Dashboard.create(params)
         end
 
         local prevSeason = gameState.season
-
-        -- 推进后续处理（导航/弹窗/保存），供"同步"与"遮罩分帧"两条路径复用。
-        -- 注意：不再每天全量保存（大存档时每次点"继续"都序列化整个世界，造成卡顿和
-        -- 内存峰值）。日常保存由 TurnProcessor 按 autoSaveInterval 周期执行；这里只在
-        -- 关键节点（赛季变更/进入玩家比赛）补充保存。
-        local function handleAdvanceOutcome(fixtures)
-            -- 如果赛季发生了变更（season_end handler 已经导航到赛季总结页），不要覆盖导航
-            if gameState.season ~= prevSeason then
-                SaveManager.save(gameState, "auto")
-                return
-            end
-
-            local playerFixture = nil
-            if fixtures and #fixtures > 0 then
-                for _, f in ipairs(fixtures) do
-                    if f._pendingPlayerMatch then
-                        playerFixture = f
-                        break
-                    end
-                    if f.homeTeamId == gameState.playerTeamId or
-                       f.awayTeamId == gameState.playerTeamId then
-                        playerFixture = f
-                        break
-                    end
-                end
-            end
-            if playerFixture and playerFixture._pendingPlayerMatch then
-                -- 比赛日：关键节点保存后，先弹窗再进入赛前
-                SaveManager.save(gameState, "auto")
-                showPopupMessages(function()
-                    Router.navigate("pre_match", { fixture = playerFixture })
-                end)
-            elseif playerFixture and playerFixture.status == "finished" then
-                local report = {
-                    homeTeamId = playerFixture.homeTeamId,
-                    awayTeamId = playerFixture.awayTeamId,
-                    homeGoals = playerFixture.homeGoals,
-                    awayGoals = playerFixture.awayGoals,
-                    events = playerFixture.events or {},
-                    playerRatings = playerFixture.playerRatings,
-                    stats = playerFixture.stats,
-                }
-                showPopupMessages(function()
-                    Router.navigate("match_live", {report = report, fixture = playerFixture, minute = 0})
-                end)
-            else
-                -- 非比赛日：先弹窗再刷新主界面
-                showPopupMessages(function()
-                    Router.replaceWith("dashboard")
-                end)
-            end
-        end
-
-        -- 大型存档（多联赛）在转会窗内单日处理较重（AI 引援/挂牌撮合/全联盟模拟比赛）。
-        -- 用遮罩分帧：本帧先绘制"处理中"，下一帧再推进，把"假死"观感转为可见的加载反馈。
-        local m = gameState.date and gameState.date.month
-        local inWindow = m ~= nil and ((m >= 6 and m <= 8) or m == 1)
-        local teamCount = 0
-        for _ in pairs(gameState.teams or {}) do teamCount = teamCount + 1 end
-        if inWindow and teamCount > 40 and not DayAdvanceOverlay.isRunning() then
-            local capturedFixtures = nil
-            DayAdvanceOverlay.run({
-                gameState = gameState,
-                totalSteps = 1,
-                minStepsForOverlay = 1,
-                title = "正在推进时间",
-                message = "转会窗口期，AI 球队正在转会与模拟比赛，请稍候…",
-                stepFn = function()
-                    local okAdv, advFixtures = pcall(TurnProcessor.advanceDay, gameState)
-                    if not okAdv then
-                        if log then log:Write(LOG_ERROR, "doAdvanceDay: advanceDay 异常已捕获: " .. tostring(advFixtures)) end
-                        advFixtures = nil
-                    end
-                    capturedFixtures = advFixtures
-                    return "continue"
-                end,
-                onComplete = function()
-                    handleAdvanceOutcome(capturedFixtures)
-                end,
-            })
-            return
-        end
-
-        -- 普通日：同步推进（快，无需遮罩）。pcall 保护：即使推进抛异常（日期已在
-        -- advanceDay 内自增），也必须继续刷新界面，否则会出现"日期已变但主页不动"的假卡死。
+        -- pcall 保护：即使推进过程中抛异常（日期已在 advanceDay 内自增），
+        -- 也必须继续往下走刷新界面，否则会出现"日期已变但主页不动"的假卡死
         local ok, fixtures = pcall(TurnProcessor.advanceDay, gameState)
         if not ok then
             if log then log:Write(LOG_ERROR, "doAdvanceDay: advanceDay 异常已捕获: " .. tostring(fixtures)) end
             fixtures = nil
         end
-        handleAdvanceOutcome(fixtures)
+        -- 注意：不再每天全量保存（大存档时每次点"继续"都序列化整个世界，
+        -- 造成卡顿和内存峰值）。日常保存由 TurnProcessor 按 autoSaveInterval
+        -- 周期执行；这里只在关键节点（赛季变更/进入玩家比赛）补充保存。
+
+        -- 如果赛季发生了变更（season_end handler 已经导航到赛季总结页），不要覆盖导航
+        if gameState.season ~= prevSeason then
+            SaveManager.save(gameState, "auto")
+            return
+        end
+
+        local playerFixture = nil
+        if fixtures and #fixtures > 0 then
+            for _, f in ipairs(fixtures) do
+                if f._pendingPlayerMatch then
+                    playerFixture = f
+                    break
+                end
+                if f.homeTeamId == gameState.playerTeamId or
+                   f.awayTeamId == gameState.playerTeamId then
+                    playerFixture = f
+                    break
+                end
+            end
+        end
+        if playerFixture and playerFixture._pendingPlayerMatch then
+            -- 比赛日：关键节点保存后，先弹窗再进入赛前
+            SaveManager.save(gameState, "auto")
+            showPopupMessages(function()
+                Router.navigate("pre_match", { fixture = playerFixture })
+            end)
+        elseif playerFixture and playerFixture.status == "finished" then
+            local report = {
+                homeTeamId = playerFixture.homeTeamId,
+                awayTeamId = playerFixture.awayTeamId,
+                homeGoals = playerFixture.homeGoals,
+                awayGoals = playerFixture.awayGoals,
+                events = playerFixture.events or {},
+                playerRatings = playerFixture.playerRatings,
+                stats = playerFixture.stats,
+            }
+            showPopupMessages(function()
+                Router.navigate("match_live", {report = report, fixture = playerFixture, minute = 0})
+            end)
+        else
+            -- 非比赛日：先弹窗再刷新主界面
+            showPopupMessages(function()
+                Router.replaceWith("dashboard")
+            end)
+        end
     end
 
     local function finishSkipToMatchDay(reason, playerFixture)
