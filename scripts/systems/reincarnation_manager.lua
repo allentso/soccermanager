@@ -309,15 +309,47 @@ local function generateRebirthAttributes(position, overall, attrBonus)
     return attrs
 end
 
+--- 该队青训中是否已有转生球员
+---@param gameState table
+---@param teamId string|number
+---@return boolean
+local function teamHasReincarnationYouth(gameState, teamId)
+    local team = gameState.teams[teamId]
+    if not team then return false end
+    for _, youthId in ipairs(team._youthPlayerIds or {}) do
+        local player = gameState.players[youthId]
+        if player and (player.isReincarnation or player.reincarnationMatchName) then
+            return true
+        end
+    end
+    return false
+end
+
+--- 转生落位目标队：永不选玩家球队；同一队最多一名转生
+---@param gameState table
+---@param teamId string|number
+---@return boolean
+local function isEligibleReincarnationHost(gameState, teamId)
+    if gameState.playerTeamId and teamId == gameState.playerTeamId then
+        return false
+    end
+    if teamHasReincarnationYouth(gameState, teamId) then
+        return false
+    end
+    return true
+end
+
 --- 从有空余青训名额的球队中随机选一个作为转生目标
 ---@param gameState table
 ---@return string|nil teamId
 local function pickRandomTeamWithYouthSlot(gameState)
     local teamIds = {}
     for teamId, team in pairs(gameState.teams) do
-        team._youthPlayerIds = team._youthPlayerIds or {}
-        if #team._youthPlayerIds < MAX_YOUTH_SQUAD then
-            table.insert(teamIds, teamId)
+        if isEligibleReincarnationHost(gameState, teamId) then
+            team._youthPlayerIds = team._youthPlayerIds or {}
+            if #team._youthPlayerIds < MAX_YOUTH_SQUAD then
+                table.insert(teamIds, teamId)
+            end
         end
     end
     if #teamIds == 0 then return nil end
@@ -330,6 +362,9 @@ end
 local function pickRandomYouthToReplace(gameState)
     local candidates = {}
     for teamId, team in pairs(gameState.teams) do
+        if not isEligibleReincarnationHost(gameState, teamId) then
+            goto continue_team
+        end
         team._youthPlayerIds = team._youthPlayerIds or {}
         local replaceable = {}
         for _, youthId in ipairs(team._youthPlayerIds) do
@@ -341,6 +376,7 @@ local function pickRandomYouthToReplace(gameState)
         if #replaceable > 0 then
             table.insert(candidates, { teamId = teamId, youthIds = replaceable })
         end
+        ::continue_team::
     end
     if #candidates == 0 then return nil, nil end
     local picked = candidates[RandomInt(1, #candidates)]
@@ -393,6 +429,7 @@ function ReincarnationManager.hasReincarnationForEntry(gameState, entry)
             return true
         end
         -- 记录存在但球员已被清理：视为未完成，允许补转生
+        ReincarnationManager.markKnownSource(gameState, entry.matchName)
         gameState._reincarnationsDone[entry.matchName] = nil
     end
     for _, player in pairs(gameState.players or {}) do
@@ -450,15 +487,80 @@ function ReincarnationManager._maybeForceFirstSeasonRetire(gameState)
     end
 end
 
+--- 标记该传奇曾在本存档中出现过（用于源球员已被 purge 后的兜底）
+---@param gameState table
+---@param matchName string
+function ReincarnationManager.markKnownSource(gameState, matchName)
+    if not matchName or matchName == "" then return end
+    gameState._reincarnationKnownSources = gameState._reincarnationKnownSources or {}
+    gameState._reincarnationKnownSources[matchName] = true
+end
+
+--- 扫描存档，记录出现过的转生源球员（须在 purgeRetiredPlayers 之前调用）
+---@param gameState table
+function ReincarnationManager.scanAndMarkKnownSources(gameState)
+    gameState._reincarnationKnownSources = gameState._reincarnationKnownSources or {}
+    local known = gameState._reincarnationKnownSources
+
+    for _, entry in ipairs(ReincarnationManager.REINCARNATION_LIST) do
+        if known[entry.matchName] then goto continue_entry end
+
+        local player = select(1, ReincarnationManager.findPlayerForEntry(gameState, entry))
+        if player then
+            known[entry.matchName] = true
+            goto continue_entry
+        end
+
+        if gameState._reincarnationsDone and gameState._reincarnationsDone[entry.matchName] then
+            known[entry.matchName] = true
+            goto continue_entry
+        end
+
+        for _, record in ipairs(gameState._transferHistory or {}) do
+            local pname = record.playerName
+            if pname and nameMatches({ displayName = pname, legendName = pname, match_name = pname }, entry) then
+                known[entry.matchName] = true
+                break
+            end
+        end
+        if known[entry.matchName] then goto continue_entry end
+
+        local transfers = gameState.transfers
+        if transfers and type(transfers.history) == "table" then
+            for _, record in ipairs(transfers.history) do
+                local pname = record.playerName
+                if pname and nameMatches({ displayName = pname, legendName = pname, match_name = pname }, entry) then
+                    known[entry.matchName] = true
+                    break
+                end
+            end
+        end
+
+        ::continue_entry::
+    end
+end
+
+--- 源球员已被删除时，是否允许用名单身份兜底
+---@param gameState table
+---@param entry ReincarnationEntry
+---@return boolean
+function ReincarnationManager.shouldUseFallbackSource(gameState, entry)
+    gameState._reincarnationKnownSources = gameState._reincarnationKnownSources or {}
+    return gameState._reincarnationKnownSources[entry.matchName] == true
+end
+
 --- 老档读档迁移：名单内未转生且已退役的源球员，立即补转生；未退役的留待自然退役
 ---@param gameState table
 function ReincarnationManager.bootstrapLegacySave(gameState)
+    ReincarnationManager.scanAndMarkKnownSources(gameState)
+
     for _, entry in ipairs(ReincarnationManager.REINCARNATION_LIST) do
         if not ReincarnationManager.hasReincarnationForEntry(gameState, entry) then
             local player, isRetired = ReincarnationManager.findPlayerForEntry(gameState, entry)
             if player and isRetired then
+                ReincarnationManager.markKnownSource(gameState, entry.matchName)
                 ReincarnationManager.spawnRebirth(gameState, entry, player)
-            elseif not player then
+            elseif not player and ReincarnationManager.shouldUseFallbackSource(gameState, entry) then
                 local fallback = ReincarnationManager.createFallbackSource(entry)
                 if fallback then
                     ReincarnationManager.spawnRebirth(gameState, entry, fallback)
@@ -529,14 +631,16 @@ function ReincarnationManager.spawnRebirth(gameState, entry, sourcePlayer)
         targetTeamId = pickRandomTeamWithYouthSlot(gameState)
     end
     if not targetTeamId then
-        -- 各队青训已满：仍强制落位到随机球队（必要时略超编）
+        -- 各队青训已满：仍强制落位到随机 AI 球队（必要时略超编，永不落玩家队）
         local teamIds = {}
         for teamId in pairs(gameState.teams or {}) do
-            teamIds[#teamIds + 1] = teamId
+            if isEligibleReincarnationHost(gameState, teamId) then
+                teamIds[#teamIds + 1] = teamId
+            end
         end
         if #teamIds == 0 then
             print(string.format(
-                "[ReincarnationManager] 转生跳过 %s：无可用球队",
+                "[ReincarnationManager] 转生跳过 %s：无可用 AI 球队",
                 sourcePlayer.displayName or entry.matchName))
             return false
         end
@@ -594,6 +698,7 @@ function ReincarnationManager.spawnRebirth(gameState, entry, sourcePlayer)
     team._youthPlayerIds = team._youthPlayerIds or {}
     table.insert(team._youthPlayerIds, newPlayer.id)
 
+    ReincarnationManager.markKnownSource(gameState, entry.matchName)
     gameState._reincarnationsDone[entry.matchName] = {
         season = gameState.season,
         playerId = newPlayer.id,

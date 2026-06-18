@@ -473,6 +473,7 @@ function WorldGenerator.generate(gameState, opts)
 
     -- 为所有球队填充青训至10人（已有 wonderkids 的球队只补齐差额）
     YouthManager.fillAllTeamsYouth(gameState)
+    gameState._aiYouthRosterBootstrapped = true
 
     -- 初始化潜力系统（为所有球员生成 PA Rating 和局内实际潜力）
     PotentialSystem.initializeAllPlayers(gameState)

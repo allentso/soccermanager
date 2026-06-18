@@ -85,12 +85,26 @@ function Housekeeping.purgeExcessFreeAgents(gameState)
         end
     end
 
+    -- 进行中的自由球员谈判（含待最终确认）须保护，否则会被清理导致存档卡死
+    local protectedNegoIds = {}
+    local okTm, TransferManager = pcall(require, "scripts/systems/transfer_manager")
+    if okTm and TransferManager.getProtectedFreeAgentPlayerIds then
+        protectedNegoIds = TransferManager.getProtectedFreeAgentPlayerIds(gameState)
+    elseif gameState.transfers and gameState.transfers.freeAgentNegos then
+        for _, nego in ipairs(gameState.transfers.freeAgentNegos) do
+            if nego.playerId and (nego.status == "pending" or nego.status == "negotiating"
+                or nego.status == "awaiting_confirmation") then
+                protectedNegoIds[nego.playerId] = true
+            end
+        end
+    end
+
     local freeAgents = {}
     for id, p in pairs(gameState.players) do
         if not p.teamId and not p.retired and not p._isVirtual
             and not p.isLegend
             and not shortlist[id] and not shortlist[tostring(id)]
-            and not biddedIds[id] then
+            and not biddedIds[id] and not protectedNegoIds[id] then
             freeAgents[#freeAgents + 1] = { id = id, overall = p.overall or 0 }
         end
     end
@@ -648,6 +662,8 @@ function Housekeeping.run(gameState)
 
     local TransferManager = require("scripts/systems/transfer_manager")
     local _, loanDelisted = TransferManager.clearLoanListingsOutsideWindow(gameState, { silent = true })
+    TransferManager.repairStaleFreeAgentNegos(gameState, { silent = true })
+    TransferManager.repairStaleTransferSignBids(gameState, { silent = true })
     local incomingSaleRepair = TransferManager.repairIncomingSaleBids(gameState, { silent = true })
     local incomingSaleFixed = (incomingSaleRepair.stale or 0)
         + (incomingSaleRepair.dupAwaiting or 0)

@@ -202,7 +202,21 @@ function Market.create(params)
             local bid = TransferManager.getBidById(gameState, bidId)
             if not bid then return end
             if deeplinkTab == "my_bids" and bid.status == "awaiting_confirmation" then
-                Market._showTransferSignConfirmSheet(gameState, bid)
+                local player = gameState.players[bid.playerId]
+                if player then
+                    Market._showTransferSignConfirmSheet(gameState, bid)
+                else
+                    ConfirmDialog.show({
+                        title = "签约已失效",
+                        message = "该球员已无法签入（可能已从转会市场消失）。是否取消此交易以继续推进时间？",
+                        confirmText = "取消交易",
+                        danger = true,
+                        onConfirm = function()
+                            TransferManager.cancelTransferConfirmation(gameState, bid.id)
+                            Router.replaceWith("market", { tab = "my_bids" })
+                        end,
+                    })
+                end
                 return
             end
             local player = gameState.players[bid.playerId]
@@ -229,7 +243,21 @@ function Market.create(params)
             UnsubscribeFromEvent("PostUpdate")
             local nego = TransferManager.getFreeAgentNegoById(gameState, negoId)
             if nego and nego.status == "awaiting_confirmation" then
-                Market._showFreeAgentConfirmSheet(gameState, nego)
+                local player = gameState.players[nego.playerId]
+                if player then
+                    Market._showFreeAgentConfirmSheet(gameState, nego)
+                else
+                    ConfirmDialog.show({
+                        title = "签约已失效",
+                        message = "该自由球员已无法签入（可能已从自由球员市场消失）。是否取消此签约以继续推进时间？",
+                        confirmText = "取消签约",
+                        danger = true,
+                        onConfirm = function()
+                            TransferManager.cancelFreeAgentConfirmation(gameState, negoId)
+                            Router.replaceWith("market", { tab = "free" })
+                        end,
+                    })
+                end
             end
         end)
     end

@@ -1153,58 +1153,79 @@ end
 -- 初始化：为所有球队填充青训到 INITIAL_YOUTH_COUNT 人
 ------------------------------------------------------
 
+--- 为单队补齐青训至 INITIAL_YOUTH_COUNT（已有 wonderkids 只补差额）
+---@return number generated
+local function _fillTeamYouthToInitial(gameState, teamId, team)
+    team._youthPlayerIds = team._youthPlayerIds or {}
+    local needed = INITIAL_YOUTH_COUNT - #team._youthPlayerIds
+    if needed <= 0 then return 0 end
+
+    local generated = 0
+    local youthDevBonus, facilityYouthBonus =
+        YouthManager._getTeamYouthGenBonuses(gameState, teamId)
+    local usedNames = _collectYouthUsedNames(gameState, teamId)
+
+    for _ = 1, needed do
+        local candidate = YouthManager._generateYouthPlayer(
+            gameState, youthDevBonus, facilityYouthBonus, usedNames, team.country)
+
+        local playerData = {
+            firstName = candidate.firstName,
+            lastName = candidate.lastName,
+            displayName = candidate.displayName,
+            nationality = Nationality.normalize(candidate.nationality),
+            birthYear = math.floor(candidate.birthYear),
+            position = candidate.position,
+            attributes = candidate.attributes,
+            potential = candidate.potential,
+            overall = candidate.overall,
+            wage = YOUTH_WAGE,
+            isYouth = true,
+            teamId = teamId,
+            squadRole = "youth",
+            contractEnd = {year = gameState.date.year + 3, month = 6, day = 30},
+        }
+        local player = gameState:addPlayer(playerData)
+        player.teamId = teamId
+        player.paRating = PotentialSystem.rawToRating(player.potential)
+        player.actualPotential = PotentialSystem.generateActualPotential(
+            player.paRating, (gameState.potentialSeed or 0) + player.id * 7919)
+        table.insert(team._youthPlayerIds, player.id)
+        generated = generated + 1
+    end
+    return generated
+end
+
 --- 为所有球队填充青训球员至初始人数
 --- 已有的 wonderkids 不会被覆盖，只补齐差额
 ---@param gameState table
 function YouthManager.fillAllTeamsYouth(gameState)
     local totalGenerated = 0
-
     for teamId, team in pairs(gameState.teams) do
-        team._youthPlayerIds = team._youthPlayerIds or {}
-        local currentCount = #team._youthPlayerIds
-        local needed = INITIAL_YOUTH_COUNT - currentCount
+        totalGenerated = totalGenerated + _fillTeamYouthToInitial(gameState, teamId, team)
+    end
+    log:Write(LOG_INFO, "YouthManager: 为所有球队填充青训完毕，生成 " .. totalGenerated .. " 名球员")
+end
 
-        if needed > 0 then
-            local youthDevBonus, facilityYouthBonus =
-                YouthManager._getTeamYouthGenBonuses(gameState, teamId)
-            local usedNames = _collectYouthUsedNames(gameState, teamId)
+--- 老档读档一次性迁移：仅补齐 AI 队青训名单（不动玩家队，不每周重复）
+---@param gameState table
+---@return number generated
+function YouthManager.bootstrapLegacyAIYouthOnce(gameState)
+    if gameState._aiYouthRosterBootstrapped then return 0 end
 
-            for _ = 1, needed do
-                local candidate = YouthManager._generateYouthPlayer(
-                    gameState, youthDevBonus, facilityYouthBonus, usedNames, team.country)
-
-                -- 转换为正式青训球员
-                local playerData = {
-                    firstName = candidate.firstName,
-                    lastName = candidate.lastName,
-                    displayName = candidate.displayName,
-                    nationality = Nationality.normalize(candidate.nationality),
-                    birthYear = math.floor(candidate.birthYear),
-                    position = candidate.position,
-                    attributes = candidate.attributes,
-                    potential = candidate.potential,
-                    overall = candidate.overall,
-                    wage = YOUTH_WAGE,
-                    isYouth = true,
-                    teamId = teamId,
-                    squadRole = "youth",
-                    contractEnd = {year = gameState.date.year + 3, month = 6, day = 30},
-                }
-                local player = gameState:addPlayer(playerData)
-                player.teamId = teamId
-
-                -- 初始化潜力评级
-                player.paRating = PotentialSystem.rawToRating(player.potential)
-                player.actualPotential = PotentialSystem.generateActualPotential(
-                    player.paRating, (gameState.potentialSeed or 0) + player.id * 7919)
-
-                table.insert(team._youthPlayerIds, player.id)
-                totalGenerated = totalGenerated + 1
-            end
+    local totalGenerated = 0
+    local playerTeamId = gameState.playerTeamId
+    for teamId, team in pairs(gameState.teams or {}) do
+        if teamId ~= playerTeamId then
+            totalGenerated = totalGenerated + _fillTeamYouthToInitial(gameState, teamId, team)
         end
     end
 
-    log:Write(LOG_INFO, "YouthManager: 为所有球队填充青训完毕，生成 " .. totalGenerated .. " 名球员")
+    gameState._aiYouthRosterBootstrapped = true
+    if totalGenerated > 0 then
+        log:Write(LOG_INFO, "YouthManager: 老档 AI 青训名单一次性补齐，生成 " .. totalGenerated .. " 名球员")
+    end
+    return totalGenerated
 end
 
 ------------------------------------------------------

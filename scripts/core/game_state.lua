@@ -308,6 +308,8 @@ function GameState:serialize()
         _legendGacha = self._legendGacha,
         -- 转生记录（防重复）
         _reincarnationsDone = self._reincarnationsDone,
+        _reincarnationKnownSources = self._reincarnationKnownSources,
+        _aiYouthRosterBootstrapped = self._aiYouthRosterBootstrapped,
         _gameStartSeason = self._gameStartSeason,
         _reincarnationFirstSeasonEnd = self._reincarnationFirstSeasonEnd,
         -- 二级联赛升降级数据
@@ -401,6 +403,8 @@ function GameState:deserialize(data)
     self._legendGacha = data._legendGacha or nil
     -- 转生记录
     self._reincarnationsDone = data._reincarnationsDone or {}
+    self._reincarnationKnownSources = data._reincarnationKnownSources or {}
+    self._aiYouthRosterBootstrapped = data._aiYouthRosterBootstrapped or false
     self._gameStartSeason = data._gameStartSeason
     self._reincarnationFirstSeasonEnd = data._reincarnationFirstSeasonEnd
 

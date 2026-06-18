@@ -416,13 +416,15 @@ function TransferManager.getPendingFreeAgentSignConfirmations(gameState, teamId)
     for _, nego in ipairs(gameState.transfers.freeAgentNegos) do
         if nego.teamId == teamId and nego.status == "awaiting_confirmation" then
             local player = gameState.players[nego.playerId]
-            table.insert(result, {
-                negoId = nego.id,
-                playerId = nego.playerId,
-                playerName = player and player.displayName or "球员",
-                wageOffer = nego.wageOffer,
-                yearsOffer = nego.yearsOffer,
-            })
+            if player then
+                table.insert(result, {
+                    negoId = nego.id,
+                    playerId = nego.playerId,
+                    playerName = player.displayName or "球员",
+                    wageOffer = nego.wageOffer,
+                    yearsOffer = nego.yearsOffer,
+                })
+            end
         end
     end
     return result
@@ -1844,6 +1846,85 @@ function TransferManager.repairIncomingSaleBids(gameState, opts)
             stats.superseded = stats.superseded + 1
         end
         ::continueSuper::
+    end
+
+    return stats
+end
+
+local _ACTIVE_FREE_AGENT_NEGO_STATUSES = {
+    pending = true,
+    negotiating = true,
+    awaiting_confirmation = true,
+}
+
+--- 进行中的自由球员谈判所涉球员 ID（Housekeeping 清理自由球员池时须保护）
+---@param gameState table
+---@return table<number, boolean>
+function TransferManager.getProtectedFreeAgentPlayerIds(gameState)
+    local ids = {}
+    TransferManager._ensureData(gameState)
+    for _, nego in ipairs(gameState.transfers.freeAgentNegos or {}) do
+        if nego.playerId and _ACTIVE_FREE_AGENT_NEGO_STATUSES[nego.status] then
+            ids[nego.playerId] = true
+        end
+    end
+    return ids
+end
+
+--- 读档/每日修复：球员已消失或已加盟别队的自由球员谈判（幂等）
+---@return table stats { stale }
+function TransferManager.repairStaleFreeAgentNegos(gameState, opts)
+    opts = opts or {}
+    TransferManager._ensureData(gameState)
+    local stats = { stale = 0 }
+    local date = gameState.date and {
+        year = gameState.date.year, month = gameState.date.month, day = gameState.date.day,
+    } or { year = 2025, month = 7, day = 1 }
+
+    for _, nego in ipairs(gameState.transfers.freeAgentNegos or {}) do
+        if not _ACTIVE_FREE_AGENT_NEGO_STATUSES[nego.status] then goto continue_nego end
+        local player = gameState.players[nego.playerId]
+        local stale = not player or player.retired or player.teamId ~= nil
+        if stale then
+            local wasAwaiting = nego.status == "awaiting_confirmation"
+            nego.status = "cancelled"
+            nego.rejectedDate = date
+            stats.stale = stats.stale + 1
+            if not opts.silent and wasAwaiting then
+                gameState:sendMessage({
+                    category = "transfer",
+                    title = "自由球员签约已失效",
+                    body = string.format("%s 已无法签入，相关谈判已自动取消。",
+                        player and player.displayName or "该自由球员"),
+                    priority = "normal",
+                })
+            end
+        end
+        ::continue_nego::
+    end
+
+    return stats
+end
+
+--- 读档/每日修复：待确认签入但球员已消失的转会报价（幂等）
+---@return table stats { stale }
+function TransferManager.repairStaleTransferSignBids(gameState, opts)
+    opts = opts or {}
+    TransferManager._ensureData(gameState)
+    local stats = { stale = 0 }
+    local date = gameState.date and {
+        year = gameState.date.year, month = gameState.date.month, day = gameState.date.day,
+    } or { year = 2025, month = 7, day = 1 }
+
+    for _, bid in ipairs(gameState.transfers.bids) do
+        if bid.status ~= "awaiting_confirmation" then goto continue_bid end
+        local player = gameState.players[bid.playerId]
+        if not player then
+            bid.status = "cancelled"
+            bid.rejectedDate = date
+            stats.stale = stats.stale + 1
+        end
+        ::continue_bid::
     end
 
     return stats
@@ -4897,6 +4978,8 @@ function TransferManager.processDailyBids(gameState)
 
     -- 存档修复：incoming 出售 bid 异常（读档后首日也会执行，此处每日兜底）
     TransferManager.repairIncomingSaleBids(gameState)
+    TransferManager.repairStaleFreeAgentNegos(gameState, { silent = true })
+    TransferManager.repairStaleTransferSignBids(gameState, { silent = true })
 
     for _, bid in ipairs(gameState.transfers.bids) do
         if bid.status == "pending" then

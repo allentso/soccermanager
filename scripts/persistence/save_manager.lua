@@ -548,6 +548,15 @@ local function applySaveData(gameState, saveData, path)
         return false
     end
 
+    -- 老档一次性补齐 AI 青训名单（须在 Housekeeping 转生/bootstrap 之前，且仅读档执行一次）
+    local okYouth, youthErr = pcall(function()
+        local YouthManager = require("scripts/systems/youth_manager")
+        YouthManager.bootstrapLegacyAIYouthOnce(gameState)
+    end)
+    if not okYouth then
+        log:Write(LOG_WARNING, "SaveManager: AI 青训名单迁移失败（不影响加载）: " .. tostring(youthErr))
+    end
+
     -- 读档瘦身：老存档中累积的退役球员/超额自由球员/旧赛果明细/重复历史等
     -- 一次性清理（幂等），防止老存档体积无限膨胀导致保存缓慢甚至失败
     local Housekeeping = require("scripts/persistence/housekeeping")
