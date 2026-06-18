@@ -647,6 +647,8 @@ function ReincarnationManager.spawnRebirth(gameState, entry, sourcePlayer)
         targetTeamId = teamIds[RandomInt(1, #teamIds)]
     end
 
+    if not targetTeamId then return false end
+
     if replacedYouthId then
         removeReplacedYouth(gameState, targetTeamId, replacedYouthId)
     end

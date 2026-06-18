@@ -4952,9 +4952,11 @@ end
 function TransferManager._isRivalry(gameState, teamId1, teamId2)
     if not teamId1 or not teamId2 or teamId1 == teamId2 then return false end
     if not gameState._teamRelations then return false end
-    local key = teamId1 < teamId2
-        and (teamId1 .. "_" .. teamId2)
-        or (teamId2 .. "_" .. teamId1)
+    local id1 = tostring(teamId1)
+    local id2 = tostring(teamId2)
+    local key = id1 < id2
+        and (id1 .. "_" .. id2)
+        or (id2 .. "_" .. id1)
     local rel = gameState._teamRelations[key]
     return rel and rel <= -50  -- -100 ~ +100，-50以下视为敌对
 end
