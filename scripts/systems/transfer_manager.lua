@@ -45,6 +45,51 @@ function TransferManager._ensureData(gameState)
     end
 end
 
+function TransferManager._invalidateListedPlayerCache(gameState)
+    if not gameState or not gameState.transfers then return end
+    gameState.transfers._listedForSaleIds = nil
+    gameState.transfers._listedForLoanIds = nil
+end
+
+--- 获取挂牌球员快照；缓存只存 id，返回前会校验当前挂牌状态，避免成交后 stale id 参与撮合。
+---@param field "listedForSale"|"listedForLoan"
+---@return table[] players
+function TransferManager._getListedPlayers(gameState, field)
+    TransferManager._ensureData(gameState)
+    local cacheKey = (field == "listedForLoan") and "_listedForLoanIds" or "_listedForSaleIds"
+    local ids = gameState.transfers[cacheKey]
+    if not ids then
+        ids = {}
+        for _, player in pairs(gameState.players or {}) do
+            if player[field] and not player.retired then
+                ids[#ids + 1] = player.id
+            end
+        end
+        gameState.transfers[cacheKey] = ids
+    end
+
+    local players = {}
+    local compacted
+    for _, pid in ipairs(ids) do
+        local player = gameState.players and gameState.players[pid]
+        if player and player[field] and not player.retired then
+            players[#players + 1] = player
+        else
+            compacted = true
+        end
+    end
+
+    if compacted then
+        local fresh = {}
+        for _, player in ipairs(players) do
+            fresh[#fresh + 1] = player.id
+        end
+        gameState.transfers[cacheKey] = fresh
+    end
+
+    return players
+end
+
 -- 转会窗口检查（6-8月夏窗，1月冬窗）
 function TransferManager.isInTransferWindow(gameState)
     local month = gameState.date.month
@@ -1014,30 +1059,101 @@ end
 -- AI 主动出价系统
 ------------------------------------------------------
 
---- AI 球队每周主动寻找转会目标（由 turn_processor 周一调用）
-function TransferManager.processAITransfers(gameState)
+local AI_TRANSFER_BATCH_SIZE = 40
+local AI_TRANSFER_PASSES_PER_WEEK = 2
+
+function TransferManager._getAITransferOrderedTeams(gameState)
     TransferManager._ensureData(gameState)
-    TransferManager._bumpTeamOvrGen()  -- 新 pass：刷新队均缓存（覆盖跨日成长/成交）
+    local teamMap = {}
+    local ids = {}
+    for _, team in pairs(gameState.teams or {}) do
+        if team.id ~= gameState.playerTeamId then
+            teamMap[team.id] = team
+            ids[#ids + 1] = team.id
+        end
+    end
+    table.sort(ids, function(a, b) return tostring(a) < tostring(b) end)
 
-    -- 转会窗口检查（简化：6-8月 和 1月为转会窗口）
-    local month = gameState.date.month
-    local inWindow = (month >= 6 and month <= 8) or month == 1
-    if not inWindow then return end
+    local key = TransferManager.getTransferWindowKey(gameState) or "no_window"
+    local order = gameState.transfers._aiTransferTeamOrder
+    local valid = gameState.transfers._aiTransferOrderWindowKey == key
+        and order
+        and #order == #ids
 
-    -- AI主动挂牌多余球员（增加市场供给）
-    TransferManager._aiListPlayersForSale(gameState)
-    -- AI 挂牌符合画像的年轻/缺勤球员外租（仅转会窗）
-    TransferManager._aiListPlayersForLoan(gameState)
+    if valid then
+        for _, id in ipairs(order) do
+            if not teamMap[id] then
+                valid = false
+                break
+            end
+        end
+    end
 
+    if not valid then
+        order = {}
+        for i, id in ipairs(ids) do order[i] = id end
+        -- 每个转会窗首次进入时洗牌一次；窗口内保持顺序稳定，避免每日随机抖动。
+        for i = #order, 2, -1 do
+            local j = RandomInt(1, i)
+            order[i], order[j] = order[j], order[i]
+        end
+        gameState.transfers._aiTransferTeamOrder = order
+        gameState.transfers._aiTransferOrderWindowKey = key
+        gameState.transfers._aiTransferCursor = 1
+    end
+
+    local teams = {}
+    for _, id in ipairs(order or {}) do
+        local team = teamMap[id]
+        if team then teams[#teams + 1] = team end
+    end
+    return teams
+end
+
+function TransferManager._getAITransferBatchTeams(gameState, opts)
+    opts = opts or {}
+    local teams = TransferManager._getAITransferOrderedTeams(gameState)
+
+    local total = #teams
+    if total <= AI_TRANSFER_BATCH_SIZE and not opts.daily then
+        gameState.transfers._aiTransferCursor = nil
+        return teams
+    end
+
+    local cursor = tonumber(gameState.transfers._aiTransferCursor) or 1
+    if cursor < 1 or cursor > total then cursor = 1 end
+
+    local batchSize = AI_TRANSFER_BATCH_SIZE
+    if opts.daily then
+        -- 将原先每周 2 次全量 AI 主动引援，精确摊到 7 天：
+        -- 例如 120 队 => 35,35,34,34,34,34,34，整周仍是 240 队次。
+        local weeklyQuota = total * AI_TRANSFER_PASSES_PER_WEEK
+        local base = math.floor(weeklyQuota / 7)
+        local remainder = weeklyQuota % 7
+        local dow = tonumber(gameState.dayOfWeek) or 1
+        batchSize = base + ((dow >= 1 and dow <= remainder) and 1 or 0)
+        batchSize = math.max(1, math.min(total, batchSize))
+    end
+
+    local batch = {}
+    for i = 0, batchSize - 1 do
+        local idx = ((cursor + i - 1) % total) + 1
+        batch[#batch + 1] = teams[idx]
+    end
+    gameState.transfers._aiTransferCursor = ((cursor + batchSize - 1) % total) + 1
+    return batch
+end
+
+function TransferManager._processAITransferTeamBatch(gameState, batchTeams)
+    if not batchTeams or #batchTeams == 0 then return end
     -- 预分桶可转会球员（本次 pass 共用），避免每队全表扫描造成的卡顿
     local candidatePool = TransferManager._buildTransferCandidatePool(gameState)
     -- 预建「玩家球队有活跃报价的球员」集合（本次 pass 共用），供 _findTransferTarget O(1) 查表，
     -- 避免对每个候选都 O(bids) 全扫 hasActiveBidOnPlayer（bids 累积时的二次方退化）
     local playerBidSet = TransferManager._buildPlayerActiveBidSet(gameState, gameState.playerTeamId)
 
-    -- 每周每支AI球队按难度档位尝试引援；资金充裕者每周必试
-    for _, team in pairs(gameState.teams) do
-        if team.id == gameState.playerTeamId then goto continue end
+    -- 大存档按批轮转处理 AI 主动引援，避免周一/周四所有 AI 队集中制造尖峰。
+    for _, team in ipairs(batchTeams) do
         if not TransferManager._shouldAITryTransfer(gameState, team) then goto continue end
 
         -- 评估需求：包括"补缺"和"升级"两种动机
@@ -1070,19 +1186,12 @@ function TransferManager.processAITransfers(gameState)
 
         ::continue::
     end
+end
 
-    -- 挂牌出售：每日在 processDailyBids 中推进；此处保留每周一次额外机会
-    TransferManager._processListedPlayerOffers(gameState, {
-        playerAttractChance = 0.80,
-        aiAttractChance = 0.30,
-        maxAIAttempts = 120,
-    })
-
+function TransferManager._processPlayerListedLoanOffers(gameState)
     -- 额外：处理外租挂牌球员（AI主动租借玩家挂牌外租的球员）
     local MAX_INCOMING_LOAN_BIDS = 2
-    for _, player in pairs(gameState.players) do
-        if not player.listedForLoan then goto skipLoanPlayer end
-        if player.retired then goto skipLoanPlayer end
+    for _, player in ipairs(TransferManager._getListedPlayers(gameState, "listedForLoan")) do
         if player.teamId ~= gameState.playerTeamId then goto skipLoanPlayer end  -- 只处理玩家球队的外租挂牌
         -- 检查已有的租借报价数量
         local existingLoanBids = TransferManager.getIncomingLoanBidsForPlayer(gameState, player.id)
@@ -1098,6 +1207,54 @@ function TransferManager.processAITransfers(gameState)
         end
         ::skipLoanPlayer::
     end
+end
+
+function TransferManager._processWeeklyTransferMarketPulse(gameState)
+    -- 挂牌出售：每日在 processDailyBids 中推进；此处保留每周两次额外机会
+    TransferManager._processListedPlayerOffers(gameState, {
+        playerAttractChance = 0.80,
+        aiAttractChance = 0.30,
+        maxAIAttempts = 120,
+    })
+    TransferManager._processPlayerListedLoanOffers(gameState)
+end
+
+local function _isTransferWindowMonth(gameState)
+    local month = gameState.date and gameState.date.month
+    return (month and month >= 6 and month <= 8) or month == 1
+end
+
+--- AI 球队主动寻找转会目标（兼容测试/诊断：一次 pass，最多 40 队；小世界全量）
+function TransferManager.processAITransfers(gameState)
+    TransferManager._ensureData(gameState)
+    TransferManager._bumpTeamOvrGen()  -- 新 pass：刷新队均缓存（覆盖跨日成长/成交）
+    if not _isTransferWindowMonth(gameState) then return end
+
+    -- AI主动挂牌多余球员（增加市场供给）
+    TransferManager._aiListPlayersForSale(gameState)
+    -- AI 挂牌符合画像的年轻/缺勤球员外租（仅转会窗）
+    TransferManager._aiListPlayersForLoan(gameState)
+
+    local batchTeams = TransferManager._getAITransferBatchTeams(gameState)
+    TransferManager._processAITransferTeamBatch(gameState, batchTeams)
+    TransferManager._processWeeklyTransferMarketPulse(gameState)
+end
+
+--- 真实日程推进使用：把原先每周两次 AI 主动引援摊到每天，降低周一/周四尖峰。
+function TransferManager.processDailyAITransferSlice(gameState)
+    TransferManager._ensureData(gameState)
+    TransferManager._bumpTeamOvrGen()
+    if not _isTransferWindowMonth(gameState) then return end
+
+    local dow = tonumber(gameState.dayOfWeek) or 1
+    if dow == 1 or dow == 4 then
+        TransferManager._aiListPlayersForSale(gameState)
+        TransferManager._aiListPlayersForLoan(gameState)
+        TransferManager._processWeeklyTransferMarketPulse(gameState)
+    end
+
+    local batchTeams = TransferManager._getAITransferBatchTeams(gameState, { daily = true })
+    TransferManager._processAITransferTeamBatch(gameState, batchTeams)
 end
 
 --- 挂牌球员每日/每周吸引 AI 买家（冬窗仅 1 月，需每日推进）
@@ -1132,10 +1289,7 @@ function TransferManager._processListedPlayerOffers(gameState, opts)
 
     local playerAttracted = {}
     local aiAttracted = {}
-    for _, player in pairs(gameState.players) do
-        if not player.listedForSale then goto skipPlayer end
-        if player.retired then goto skipPlayer end
-
+    for _, player in ipairs(TransferManager._getListedPlayers(gameState, "listedForSale")) do
         -- 便宜的随机吸引门槛优先，过滤掉绝大多数球员，避免无谓的报价扫描
         local isPlayerTeamPlayer = (player.teamId == gameState.playerTeamId)
         local attractChance = isPlayerTeamPlayer and playerAttract or aiAttract
@@ -1183,6 +1337,7 @@ end
 function TransferManager._aiListPlayersForSale(gameState)
     local Constants = require("scripts/app/constants")
     local AiSquadPolicy = require("scripts/systems/ai_squad_policy")
+    local listedChanged = false
     for _, team in pairs(gameState.teams) do
         if team.id == gameState.playerTeamId then goto skipTeam end
         local target = AiSquadPolicy.getTargetSquadSize(team)
@@ -1205,6 +1360,7 @@ function TransferManager._aiListPlayersForSale(gameState)
                 if #team.playerIds - listed <= target then break end
                 if not TransferManager._isAIProtectedCore(gameState, team, p) then
                     p.listedForSale = true
+                    listedChanged = true
                     listed = listed + 1
                 end
             end
@@ -1219,12 +1375,14 @@ function TransferManager._aiListPlayersForSale(gameState)
                 local age = p:getAge(gameState.date.year)
                 if age >= 31 and p.overall < 72 and p.overall < teamAvg - 2 and Random() < 0.20 then
                     p.listedForSale = true
+                    listedChanged = true
                 end
                 ::skipList::
             end
         end
         ::skipTeam::
     end
+    if listedChanged then TransferManager._invalidateListedPlayerCache(gameState) end
 end
 
 -- 各角色赛季预期出场（用于判断「缺乏出场」）
@@ -1417,6 +1575,7 @@ function TransferManager._aiReleaseToFreeAgent(gameState, player)
     player.listedForLoan = false
     player.loanListDuration = nil
     player.squadRole = nil
+    TransferManager._invalidateListedPlayerCache(gameState)
 end
 
 --- 升级/重磅引援评分（偏 OVR、轻身价）
@@ -1517,6 +1676,7 @@ function TransferManager._aiListPlayersForLoan(gameState)
     if not TransferManager.isInTransferWindow(gameState) then return end
 
     local globalListed = 0
+    local listedChanged = false
     for _, team in pairs(gameState.teams) do
         if team.id == gameState.playerTeamId then goto skipTeam end
         if globalListed >= AI_LOAN_LIST_MAX_GLOBAL then break end
@@ -1544,11 +1704,13 @@ function TransferManager._aiListPlayersForLoan(gameState)
             local pAge = p:getAge(gameState.date.year)
             p.listedForLoan = true
             p.loanListDuration = (pAge <= 21) and 52 or 26
+            listedChanged = true
             globalListed = globalListed + 1
         end
 
         ::skipTeam::
     end
+    if listedChanged then TransferManager._invalidateListedPlayerCache(gameState) end
 end
 
 --- 兼容旧调用点（内部仍受转会窗约束）
@@ -1960,6 +2122,7 @@ function TransferManager._executeAITransfer(gameState, buyerTeam, player, opts)
     -- 卖弱换强：成交后挂牌被换下的最弱者腾名额，并记本周限流标记
     if swapOutPlayer then
         swapOutPlayer.listedForSale = true
+        TransferManager._invalidateListedPlayerCache(gameState)
         buyerTeam._sellToBuyWeekKey = TransferManager._currentWeekKey(gameState)
     end
 
@@ -4022,6 +4185,7 @@ function TransferManager.listForLoan(gameState, player, durationWeeks)
     player.listedForLoan = true
     player.loanListDuration = durationWeeks or 26
     player.listedForSale = false
+    TransferManager._invalidateListedPlayerCache(gameState)
 
     gameState:sendMessage({
         category = "transfer",
@@ -4038,6 +4202,7 @@ function TransferManager.delistLoan(player)
     if not player then return end
     player.listedForLoan = false
     player.loanListDuration = nil
+    if _G.gameState then TransferManager._invalidateListedPlayerCache(_G.gameState) end
 end
 
 --- 转会窗关闭后自动下架所有外租挂牌（窗内可挂牌，窗外不可展示/成交）
@@ -4060,6 +4225,7 @@ function TransferManager.clearLoanListingsOutsideWindow(gameState, opts)
             if isMine then myDelisted = myDelisted + 1 end
         end
     end
+    if delisted > 0 then TransferManager._invalidateListedPlayerCache(gameState) end
 
     if not opts.silent and myDelisted > 0 then
         gameState:sendMessage({
@@ -5773,6 +5939,7 @@ function TransferManager.listForSale(gameState, player)
 
     player.listedForSale = true
     player.listedForLoan = false
+    TransferManager._invalidateListedPlayerCache(gameState)
     gameState:sendMessage({
         category = "transfer",
         title = player.displayName .. " 已挂牌",
@@ -5798,6 +5965,7 @@ function TransferManager.delistPlayer(gameState, player)
     end
 
     player.listedForSale = false
+    if gameState then TransferManager._invalidateListedPlayerCache(gameState) end
 
     -- 清理该球员所有活跃的 incoming bid
     if gameState then

@@ -696,6 +696,7 @@ function Housekeeping.run(gameState)
     }
 
     local YouthManager = require("scripts/systems/youth_manager")
+    stats.youthRefsRestored = YouthManager.reconcileYouthRefs(gameState) or 0
     stats.overageYouth = YouthManager.purgeOverageYouth(gameState) or 0
 
     local AIManager = require("scripts/systems/ai_manager")
@@ -706,9 +707,9 @@ function Housekeeping.run(gameState)
         for _, v in pairs(stats) do total = total + v end
         if total > 0 then
             log:Write(LOG_INFO, string.format(
-                "Housekeeping: 清理完成 声望修复=%d 收入链=%d 退役=%d 自由球员=%d 虚拟=%d 生涯折叠=%d 赛果明细=%d 新闻=%d 转会=%d AI流水=%d 历史去重=%d 青训残留=%d 阵容修复=%d 转生标记=%d",
+                "Housekeeping: 清理完成 声望修复=%d 收入链=%d 退役=%d 自由球员=%d 虚拟=%d 生涯折叠=%d 赛果明细=%d 新闻=%d 转会=%d AI流水=%d 历史去重=%d 青训残留=%d 青训恢复=%d 阵容修复=%d 转生标记=%d",
                 stats.repBaseline, stats.revenueChains, stats.retired, stats.freeAgents, stats.virtual, stats.career,
-                stats.fixtures, stats.news, stats.transfers, stats.aiTx, stats.worldHistory, stats.youthRefs, stats.rosters,
+                stats.fixtures, stats.news, stats.transfers, stats.aiTx, stats.worldHistory, stats.youthRefs, stats.youthRefsRestored, stats.rosters,
                 stats.reincarnFlags or 0))
         end
     end

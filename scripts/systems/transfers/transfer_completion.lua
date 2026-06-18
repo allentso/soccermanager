@@ -231,6 +231,7 @@ return function(TransferManager)
         player.teamId = teamId
         -- 阵容已变更，使队均 OVR 缓存失效（同 pass 内后续撮合读到最新队均）
         if TransferManager._bumpTeamOvrGen then TransferManager._bumpTeamOvrGen() end
+        if TransferManager._invalidateListedPlayerCache then TransferManager._invalidateListedPlayerCache(gameState) end
         return true
     end
 

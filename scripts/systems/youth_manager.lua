@@ -405,6 +405,14 @@ local function _isInFirstTeam(team, playerId)
     return false
 end
 
+local function _indexYouthRefs(team)
+    local seen = {}
+    for _, pid in ipairs(team._youthPlayerIds or {}) do
+        seen[pid] = true
+    end
+    return seen
+end
+
 --- 球员是否在该队青训名单（含仅 _youthPlayerIds、未进一线队的情况）
 ---@param gameState table
 ---@param playerId number
@@ -426,6 +434,10 @@ end
 ---@return boolean
 function YouthManager.isYouthSquadPlayer(gameState, player)
     if not player or not player.isYouth or not player.teamId then return false end
+    local team = gameState and gameState.teams and gameState.teams[player.teamId]
+    if team then
+        YouthManager.reconcileYouthRefsForTeam(gameState, team)
+    end
     return YouthManager.isOnTeamYouthSquad(gameState, player.id, player.teamId)
 end
 
@@ -442,6 +454,44 @@ local function _purgeStaleYouthRefsForTeam(gameState, team)
             table.remove(team._youthPlayerIds, i)
         end
     end
+end
+
+--- 修复仍属于本队但缺失 _youthPlayerIds 引用的青训球员（旧版满员提拔失败会造成）
+local function _restoreMissingYouthRefsForTeam(gameState, team)
+    team._youthPlayerIds = team._youthPlayerIds or {}
+    local seen = _indexYouthRefs(team)
+    local maxSquad = YouthManager.getMaxYouthSquad(gameState, team)
+    local restored = 0
+
+    for pid, player in pairs(gameState.players or {}) do
+        local playerId = player.id or pid
+        if not seen[playerId]
+            and player.isYouth
+            and _belongsToYouthSquad(player, team.id)
+            and not _isInFirstTeam(team, playerId)
+            and #team._youthPlayerIds < maxSquad then
+            table.insert(team._youthPlayerIds, playerId)
+            seen[playerId] = true
+            restored = restored + 1
+        end
+    end
+
+    return restored
+end
+
+function YouthManager.reconcileYouthRefsForTeam(gameState, team)
+    if not gameState or not team then return 0 end
+    _purgeStaleYouthRefsForTeam(gameState, team)
+    return _restoreMissingYouthRefsForTeam(gameState, team)
+end
+
+function YouthManager.reconcileYouthRefs(gameState)
+    if not gameState then return 0 end
+    local restored = 0
+    for _, team in pairs(gameState.teams or {}) do
+        restored = restored + YouthManager.reconcileYouthRefsForTeam(gameState, team)
+    end
+    return restored
 end
 
 ------------------------------------------------------
@@ -548,19 +598,18 @@ function YouthManager.promote(gameState, playerId)
     local team = gameState:getPlayerTeam()
     if not team then return false, "没有球队" end
 
-    _purgeStaleYouthRefsForTeam(gameState, team)
+    YouthManager.reconcileYouthRefsForTeam(gameState, team)
 
     -- 检查是否在青训队
     team._youthPlayerIds = team._youthPlayerIds or {}
-    local found = false
+    local youthIndex = nil
     for i, yid in ipairs(team._youthPlayerIds) do
         if yid == playerId then
-            table.remove(team._youthPlayerIds, i)
-            found = true
+            youthIndex = i
             break
         end
     end
-    if not found then return false, "该球员不在青训队中" end
+    if not youthIndex then return false, "该球员不在青训队中" end
 
     local player = gameState.players[playerId]
     if not player then return false, "球员不存在" end
@@ -576,6 +625,7 @@ function YouthManager.promote(gameState, playerId)
     if not alreadyFirstTeam and team:isSquadFullFor(gameState) then
         return false, string.format("一线队已满员（最多 %d 人）", team:getEffectiveSquadMax(gameState))
     end
+    table.remove(team._youthPlayerIds, youthIndex)
     if not alreadyFirstTeam then
         table.insert(team.playerIds, playerId)
     end
@@ -625,7 +675,7 @@ function YouthManager.canDemoteToYouth(gameState, playerId, teamId)
     local team = teamId and gameState.teams[teamId] or gameState:getPlayerTeam()
     if not team then return false, "没有球队" end
 
-    _purgeStaleYouthRefsForTeam(gameState, team)
+    YouthManager.reconcileYouthRefsForTeam(gameState, team)
 
     local player = gameState.players[playerId]
     if not player then return false, "球员不存在" end
@@ -669,7 +719,7 @@ function YouthManager.demoteToYouth(gameState, playerId)
     local team = gameState:getPlayerTeam()
     if not team then return false, "没有球队" end
 
-    _purgeStaleYouthRefsForTeam(gameState, team)
+    YouthManager.reconcileYouthRefsForTeam(gameState, team)
 
     local ok, err = YouthManager.canDemoteToYouth(gameState, playerId, team.id)
     if not ok then return false, err end
@@ -710,7 +760,7 @@ function YouthManager.release(gameState, playerId)
     local team = gameState:getPlayerTeam()
     if not team then return false, "没有球队" end
 
-    _purgeStaleYouthRefsForTeam(gameState, team)
+    YouthManager.reconcileYouthRefsForTeam(gameState, team)
 
     team._youthPlayerIds = team._youthPlayerIds or {}
     local found = false
@@ -765,7 +815,7 @@ function YouthManager.getYouthSquad(gameState)
     local team = gameState:getPlayerTeam()
     if not team then return {} end
 
-    _purgeStaleYouthRefsForTeam(gameState, team)
+    YouthManager.reconcileYouthRefsForTeam(gameState, team)
 
     team._youthPlayerIds = team._youthPlayerIds or {}
     local result = {}

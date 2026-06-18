@@ -998,17 +998,6 @@ function TurnProcessor.processNonMatchDay(gameState)
     TransferManager.processDailyBids(gameState)
     TransferManager.processDailyFreeAgentNegos(gameState)
 
-    -- 转会窗口期间，周四额外执行一次AI转会（增加流动性）
-    -- pcall 保护：防止转会系统异常导致整天处理中断（如跳过当天WC比赛）
-    local month = gameState.date.month
-    local inTransferWindow = (month >= 6 and month <= 8) or month == 1
-    if inTransferWindow and gameState.dayOfWeek == 4 then
-        local ok, err = pcall(TransferManager.processAITransfers, gameState)
-        if not ok then
-            print("[TurnProcessor] WARNING: processAITransfers error: " .. tostring(err))
-        end
-    end
-
     -- B3: 租借到期检查（每天）
     TransferManager.processLoanExpiry(gameState)
     -- B3/P3: 预签约到期后自动生效
@@ -1053,10 +1042,19 @@ function TurnProcessor._processPeriodicEvents(gameState)
         end
         -- B3: AI球队管理（阵容/训练/转会名单）
         AIManager.processWeekly(gameState)
-        -- B3: AI主动转会（转会窗口内）
-        TransferManager.processAITransfers(gameState)
         -- B3: 联赛周报新闻
         NewsGenerator.generateWeeklyReview(gameState)
+    end
+
+    -- B3: AI 主动转会（转会窗口内）：把原先周一/周四两次全量 pass 按日均摊，
+    -- 保持每周总队次约等于 2 × AI 队数，同时避免单日卡顿尖峰。
+    local month = gameState.date.month
+    local inTransferWindow = (month >= 6 and month <= 8) or month == 1
+    if inTransferWindow then
+        local ok, err = pcall(TransferManager.processDailyAITransferSlice, gameState)
+        if not ok then
+            print("[TurnProcessor] WARNING: processDailyAITransferSlice error: " .. tostring(err))
+        end
     end
 
     -- 每月处理（1号）
