@@ -21,6 +21,7 @@ end
 ---   title?: string
 ---   message?: string
 ---   minStepsForOverlay?: number 至少多少天才显示遮罩（默认 2）
+---   warmupFrames?: number 显示遮罩后先空转几帧再开始干活（默认：有遮罩时 2，否则 0）
 --- @return boolean 是否成功启动（已在运行时返回 false）
 function DayAdvanceOverlay.run(opts)
     if _running then return false end
@@ -33,6 +34,12 @@ function DayAdvanceOverlay.run(opts)
     local gameState = opts.gameState
     local title = opts.title or "正在推进时间"
     local message = opts.message or "AI 球队正在训练、转会和模拟比赛，游戏没有卡死，请稍候…"
+    local singleStep = (totalSteps == 1)
+    local warmupFrames = opts.warmupFrames
+    if warmupFrames == nil then
+        warmupFrames = showOverlay and 2 or 0
+    end
+    local warmupRemaining = warmupFrames
 
     if not stepFn then return false end
 
@@ -43,12 +50,21 @@ function DayAdvanceOverlay.run(opts)
 
     local function updateUI()
         if not showOverlay then return end
-        local pct = math.floor(currentStep / totalSteps * 100)
-        if progressBar then
-            progressBar:SetStyle({ width = pct .. "%" })
-        end
-        if progressLabel then
-            progressLabel:SetText(string.format("已推进 %d / %d 天", currentStep, totalSteps))
+        if singleStep then
+            if progressLabel then
+                progressLabel:SetText("处理中，请稍候…")
+            end
+            if progressBar then
+                progressBar:SetStyle({ width = "60%" })
+            end
+        else
+            local pct = math.floor(currentStep / totalSteps * 100)
+            if progressBar then
+                progressBar:SetStyle({ width = pct .. "%" })
+            end
+            if progressLabel then
+                progressLabel:SetText(string.format("已推进 %d / %d 天", currentStep, totalSteps))
+            end
         end
         if dateLabel and gameState and gameState.getDateString then
             dateLabel:SetText("当前日期：" .. gameState:getDateString())
@@ -68,6 +84,8 @@ function DayAdvanceOverlay.run(opts)
         end
     end
 
+    local scheduleNext
+
     local function runStep()
         currentStep = currentStep + 1
         updateUI()
@@ -83,9 +101,20 @@ function DayAdvanceOverlay.run(opts)
             return
         end
 
+        scheduleNext(runStep)
+    end
+
+    -- 等若干帧让遮罩先绘制，再执行重活（避免 ShowOverlay 同帧被 advanceDay 阻塞导致看不见）
+    scheduleNext = function(fn)
         SubscribeToEvent("PostUpdate", function()
             UnsubscribeFromEvent("PostUpdate")
-            runStep()
+            if warmupRemaining > 0 then
+                warmupRemaining = warmupRemaining - 1
+                updateUI()
+                scheduleNext(fn)
+                return
+            end
+            fn()
         end)
     end
 
@@ -97,12 +126,12 @@ function DayAdvanceOverlay.run(opts)
     if showOverlay then
         progressBar = UI.Panel {
             height = 8,
-            width = "0%",
+            width = singleStep and "60%" or "0%",
             backgroundColor = Theme.COLORS.MATCH_ORANGE,
             borderRadius = 4,
         }
         progressLabel = UI.Label {
-            text = string.format("已推进 0 / %d 天", totalSteps),
+            text = singleStep and "处理中，请稍候…" or string.format("已推进 0 / %d 天", totalSteps),
             fontSize = 13,
             color = Theme.COLORS.TEXT_PRIMARY,
             fontWeight = "bold",
@@ -166,10 +195,7 @@ function DayAdvanceOverlay.run(opts)
         })
     end
 
-    SubscribeToEvent("PostUpdate", function()
-        UnsubscribeFromEvent("PostUpdate")
-        runStep()
-    end)
+    scheduleNext(runStep)
 
     return true
 end
