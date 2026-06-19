@@ -895,14 +895,16 @@ function TransferManager._completeTransfer(gameState, bid, opts)
     for _, pid in ipairs(buyerTeam.playerIds or {}) do
         if pid == player.id then alreadyAtBuyer = true; break end
     end
-    if not alreadyAtBuyer and buyerTeam:isSquadFullFor(gameState) then
+    local allowWindowOverCap = TransferManager.isInTransferWindow(gameState)
+    if not alreadyAtBuyer and not allowWindowOverCap and buyerTeam:isSquadFullFor(gameState) then
         TransferManager._rejectBid(gameState, bid,
             string.format("买方一线队已满员（最多 %d 人）。", buyerTeam:getEffectiveSquadMax(gameState)))
         return
     end
 
     -- 加入买方阵容（同时清除其他球队残留引用，避免射手榜重复统计）
-    if not TransferManager._assignPlayerToTeam(gameState, player, bid.buyerTeamId) then
+    local assignOpts = allowWindowOverCap and { allowOverCap = true } or nil
+    if not TransferManager._assignPlayerToTeam(gameState, player, bid.buyerTeamId, assignOpts) then
         TransferManager._rejectBid(gameState, bid, "买方一线队已满员，转会无法完成。")
         return
     end
@@ -2768,11 +2770,10 @@ function TransferManager.acceptIncomingLoanBid(gameState, bidId)
     for _, bid in ipairs(gameState.transfers.bids) do
         if bid.id == bidId and bid.status == "pending" and bid.isIncomingLoanBid then
             -- 直接完成租借（球员已主动挂牌，无需再征求球员意见）
-            TransferManager._completeLoan(gameState, bid)
-            return true
+            return TransferManager._completeLoan(gameState, bid)
         end
     end
-    return false
+    return false, "未找到待处理的租借报价"
 end
 
 --- 玩家拒绝收到的租借报价
@@ -3025,7 +3026,8 @@ function TransferManager._completeIncomingSale(gameState, bid)
         return false, moveErr
     end
 
-    if not TransferManager._assignPlayerToTeam(gameState, player, buyerTeam.id) then
+    local assignOpts = TransferManager.isInTransferWindow(gameState) and { allowOverCap = true } or nil
+    if not TransferManager._assignPlayerToTeam(gameState, player, buyerTeam.id, assignOpts) then
         bid.status = "rejected"
         bid.rejectedDate = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day}
         return false, "买方一线队已满员，出售无法完成"
@@ -3252,7 +3254,8 @@ function TransferManager.confirmLoan(gameState, bidId)
     for _, bid in ipairs(gameState.transfers.bids) do
         if bid.id == bidId and bid.status == "awaiting_confirmation" and bid.type == "loan" then
             bid.status = "accepted"
-            TransferManager._completeLoan(gameState, bid)
+            local ok, err = TransferManager._completeLoan(gameState, bid)
+            if not ok then return nil, err end
             return bid, nil
         end
     end
@@ -3455,23 +3458,47 @@ end
 --- 完成租借（内部调用）
 function TransferManager._completeLoan(gameState, bid)
     local player = gameState.players[bid.playerId]
-    if not player then return end
+    if not player then
+        if bid then bid.status = "rejected" end
+        return false, "球员不存在"
+    end
 
     local buyerTeam = gameState.teams[bid.buyerTeamId]
     local sellerTeam = gameState.teams[bid.sellerTeamId]
-    if not buyerTeam then return end
+    if not buyerTeam or not sellerTeam then
+        bid.status = "rejected"
+        bid.rejectedDate = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day}
+        return false, "租借交易数据异常"
+    end
 
-    -- 球员标记为租借状态
+    local sellerOk, sellerErr = TransferManager._validateBidSeller(gameState, bid)
+    if not sellerOk then
+        bid.status = "rejected"
+        bid.rejectedDate = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day}
+        return false, sellerErr
+    end
+
+    local moveOk, moveErr = TransferManager._checkPlayerWindowMoveLimit(gameState, player.id)
+    if not moveOk then
+        bid.status = "rejected"
+        bid.rejectedDate = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day}
+        return false, moveErr
+    end
+
+    local assignOpts = TransferManager.isInTransferWindow(gameState) and { allowOverCap = true } or nil
+    if not TransferManager._assignPlayerToTeam(gameState, player, bid.buyerTeamId, assignOpts) then
+        bid.status = "rejected"
+        bid.rejectedDate = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day}
+        return false, "租借方一线队已满员，租借无法完成"
+    end
+
     player.squadRole = "loaned"
     player._loanOriginTeamId = bid.sellerTeamId
-    player.teamId = bid.buyerTeamId
     player.listedForSale = false
     player.listedForLoan = false
     player.loanListDuration = nil
 
     TransferManager._markPlayerWindowMove(gameState, player.id)
-
-    TransferManager._assignPlayerToTeam(gameState, player, bid.buyerTeamId)
 
     -- 扣除租借费
     buyerTeam.balance = buyerTeam.balance - bid.amount
@@ -3511,6 +3538,12 @@ function TransferManager._completeLoan(gameState, bid)
         amount = bid.amount or 0,
         type = "loan",
     })
+
+    TransferManager._invalidateActiveBidsForPlayer(gameState, player.id, {
+        excludeBidId = bid.id,
+        soldToTeamId = bid.buyerTeamId,
+    })
+    return true, nil
 end
 
 --- 返还租借球员
@@ -5085,12 +5118,12 @@ function TransferManager._notifyPlayerSquadThresholds(gameState)
     end
 
     local Team = require("scripts/domain/team")
-    local hardCap = Team.getFirstTeamMax()          -- 30 常规上限
-    local softCap = Team.getPlayerWindowSquadMax()  -- 33 窗内软顶
+    local hardCap = Team.getFirstTeamMax()          -- 30 注册上限
+    local warningCap = Team.getPlayerWindowSquadMax()  -- 33 提醒档位
     local count = #team.playerIds
 
     local level = 0
-    if count >= softCap then level = softCap
+    if count >= warningCap then level = warningCap
     elseif count >= hardCap then level = hardCap
     elseif count >= 28 then level = 28 end
 
@@ -5098,14 +5131,14 @@ function TransferManager._notifyPlayerSquadThresholds(gameState)
     team._squadNotifyLevel = level
 
     local body
-    if level >= softCap then
+    if level >= warningCap then
         body = string.format(
-            "一线队已达窗口上限 %d 人，无法再引援。请尽快出售/解约/下放青训腾出名额，且关窗前必须减至 %d 人。",
-            softCap, hardCap)
+            "一线队已达 %d 人，明显超出注册上限 %d 人。转会窗内交易仍可完成，但关窗前必须减回 %d 人（出售 / 解约 / 下放青训）。",
+            count, hardCap, hardCap)
     elseif level >= hardCap then
         body = string.format(
-            "一线队已达常规上限 %d 人。转会窗内最多可临时签到 %d 人，但关窗前必须减回 %d 人（出售 / 解约 / 下放青训）。",
-            hardCap, softCap, hardCap)
+            "一线队已达注册上限 %d 人。转会窗内交易仍可完成，但关窗前必须减回 %d 人（出售 / 解约 / 下放青训）。",
+            hardCap, hardCap)
     else
         body = string.format(
             "一线队已达 %d 人，接近常规上限 %d 人。可考虑挂牌出售或下放青训，提前腾出名额。",

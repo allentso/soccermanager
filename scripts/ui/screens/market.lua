@@ -1200,8 +1200,12 @@ function Market._buildMyBidsContent(gameState)
                         color = {255, 255, 255, 255},
                         onClick = function()
                             if isLoan then
-                                TransferManager.confirmLoan(gameState, bidId)
-                                UI.Toast.Show({ message = "租借完成！球员已租入", variant = "success" })
+                                local confirmed, err = TransferManager.confirmLoan(gameState, bidId)
+                                if confirmed then
+                                    UI.Toast.Show({ message = "租借完成！球员已租入", variant = "success" })
+                                else
+                                    UI.Toast.Show({ message = err or "租借失败", variant = "error" })
+                                end
                             else
                                 TransferManager.confirmTransfer(gameState, bidId)
                                 UI.Toast.Show({ message = "签约完成！球员已加入球队", variant = "success" })
@@ -1770,8 +1774,12 @@ function Market._showTransferSignConfirmSheet(gameState, bid)
                 onClick = function()
                     BottomSheet.close()
                     if isLoan then
-                        TransferManager.confirmLoan(gameState, bidId)
-                        UI.Toast.Show({ message = "租借完成！球员已租入", variant = "success" })
+                        local confirmed, err = TransferManager.confirmLoan(gameState, bidId)
+                        if confirmed then
+                            UI.Toast.Show({ message = "租借完成！球员已租入", variant = "success" })
+                        else
+                            UI.Toast.Show({ message = err or "租借失败", variant = "error" })
+                        end
                     else
                         TransferManager.confirmTransfer(gameState, bidId)
                         UI.Toast.Show({ message = "签约完成！球员已加入球队", variant = "success" })
@@ -2046,8 +2054,13 @@ function Market._showOfferSheet(gameState, player, preferredBid)
                             confirmText = "确认出售",
                             danger = false,
                             onConfirm = function()
-                                TransferManager.confirmSale(gameState, bid.id)
-                                UI.Toast.Show({ message = "交易完成！球员已出售", variant = "success" })
+                                local ok, err = TransferManager.confirmSale(gameState, bid.id)
+                                if ok then
+                                    UI.Toast.Show({ message = "交易完成！球员已出售", variant = "success" })
+                                else
+                                    AudioManager.deny()
+                                    UI.Toast.Show({ message = err or "出售失败", variant = "error" })
+                                end
                                 Router.replaceWith("market", { tab = "listed" })
                             end,
                         })

@@ -424,7 +424,7 @@ function TimeBlockerManager._checkNTSquadUnconfirmed(gameState, blockers)
     })
 end
 
---- 16. 一线队超出注册上限：玩家窗内可临时超员到 33，但关窗前（Deadline Day）
+--- 16. 一线队超出注册上限：玩家窗内可临时超员完成交易，但关窗前（Deadline Day）
 ---     必须减回 30；窗外若仍超员也强制阻断（兜底，如租借归队导致）。
 function TimeBlockerManager._checkSquadRegistrationOverflow(gameState, team, blockers)
     local Team = require("scripts/domain/team")
