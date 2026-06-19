@@ -49,6 +49,8 @@ function TransferManager._invalidateListedPlayerCache(gameState)
     if not gameState or not gameState.transfers then return end
     gameState.transfers._listedForSaleIds = nil
     gameState.transfers._listedForLoanIds = nil
+    gameState.transfers._listedForSaleMarketIds = nil
+    gameState.transfers._listedForSaleMarketWindowKey = nil
 end
 
 --- 获取挂牌球员快照；缓存只存 id，返回前会校验当前挂牌状态，避免成交后 stale id 参与撮合。
@@ -96,18 +98,163 @@ function TransferManager.isInTransferWindow(gameState)
     return (month >= 7 and month <= 8) or month == 1
 end
 
---- 当前转会窗标识（夏窗/冬窗各算一个窗期）
----@return string|nil
-function TransferManager.getTransferWindowKey(gameState)
-    if not gameState or not gameState.date then return nil end
-    local month = gameState.date.month
-    local year = gameState.date.year
+local function _transferWindowKeyForDate(date)
+    if not date then return nil end
+    local month = date.month
+    local year = date.year
     if month >= 7 and month <= 8 then
         return "summer_" .. tostring(year)
     elseif month == 1 then
         return "winter_" .. tostring(year)
     end
     return nil
+end
+
+--- 当前转会窗标识（夏窗/冬窗各算一个窗期）
+---@return string|nil
+function TransferManager.getTransferWindowKey(gameState)
+    if not gameState or not gameState.date then return nil end
+    return _transferWindowKeyForDate(gameState.date)
+end
+
+function TransferManager._hasPlayerHistoryInTransferWindow(gameState, playerId, windowKey)
+    if not gameState or not gameState.transfers or not gameState.transfers.history then return false end
+    if not playerId or not windowKey then return false end
+    for _, record in ipairs(gameState.transfers.history) do
+        local samePlayer = record.playerId == playerId
+            or tostring(record.playerId) == tostring(playerId)
+        if samePlayer and _transferWindowKeyForDate(record.date) == windowKey then
+            return true
+        end
+    end
+    return false
+end
+
+local AI_LISTED_SALE_DORMANT_AFTER_WINDOWS = 2
+
+local function _transferWindowOrdinal(key)
+    if type(key) ~= "string" then return nil end
+    local season, year = key:match("^(%a+)_(%d+)$")
+    year = tonumber(year)
+    if not year then return nil end
+    if season == "winter" then return year * 2 end
+    if season == "summer" then return year * 2 + 1 end
+    return nil
+end
+
+local function _transferWindowKeyFromOrdinal(ordinal)
+    ordinal = tonumber(ordinal)
+    if not ordinal then return nil end
+    local year = math.floor(ordinal / 2)
+    if ordinal % 2 == 0 then
+        return "winter_" .. tostring(year)
+    end
+    return "summer_" .. tostring(year)
+end
+
+local function _isLegacyAIListedLowAttraction(gameState, player)
+    if not gameState or not player then return false end
+    local team = gameState.teams and gameState.teams[player.teamId]
+    if not team then return true end
+
+    if TransferManager._isAIProtectedCore
+        and TransferManager._isAIProtectedCore(gameState, team, player) then
+        return false
+    end
+
+    local ovr = player.overall or 0
+    local age = player.getAge and player:getAge(gameState.date and gameState.date.year or 0) or 0
+    if age >= 31 and ovr < 72 then return true end
+
+    local target = 26
+    local ok, AiSquadPolicy = pcall(require, "scripts/systems/ai_squad_policy")
+    if ok and AiSquadPolicy and AiSquadPolicy.getTargetSquadSize then
+        target = AiSquadPolicy.getTargetSquadSize(team)
+    end
+    return #(team.playerIds or {}) > target + 2 and ovr < 70
+end
+
+function TransferManager._clearAIListedForSaleMeta(player)
+    if not player then return end
+    player._aiListedForSaleWindowKey = nil
+end
+
+function TransferManager._markAIListedForSale(gameState, player)
+    if not player then return end
+    player._aiListedForSaleWindowKey = TransferManager.getTransferWindowKey(gameState)
+end
+
+function TransferManager._isAIListedForSaleDormant(gameState, player)
+    if not gameState or not player or not player.listedForSale then return false end
+    if player.teamId == gameState.playerTeamId then return false end
+
+    local currentKey = TransferManager.getTransferWindowKey(gameState)
+    if not currentKey then return false end
+
+    local listedKey = player._aiListedForSaleWindowKey
+    if not listedKey then
+        -- 旧存档/旧逻辑遗留的 AI 挂牌做一次性保守迁移：
+        -- 默认按已挂满 2 个窗口处理，当前窗仍给一次机会；明显低吸引力冗员当前窗直接休眠。
+        local currentOrdinal = _transferWindowOrdinal(currentKey)
+        if not currentOrdinal then
+            player._aiListedForSaleWindowKey = currentKey
+            return false
+        end
+        local ageWindows = AI_LISTED_SALE_DORMANT_AFTER_WINDOWS
+        if _isLegacyAIListedLowAttraction(gameState, player) then
+            ageWindows = AI_LISTED_SALE_DORMANT_AFTER_WINDOWS + 1
+        end
+        player._aiListedForSaleWindowKey = _transferWindowKeyFromOrdinal(currentOrdinal - ageWindows)
+            or currentKey
+        return ageWindows > AI_LISTED_SALE_DORMANT_AFTER_WINDOWS
+    end
+
+    local currentOrdinal = _transferWindowOrdinal(currentKey)
+    local listedOrdinal = _transferWindowOrdinal(listedKey)
+    if not currentOrdinal or not listedOrdinal then
+        player._aiListedForSaleWindowKey = currentKey
+        return false
+    end
+
+    return (currentOrdinal - listedOrdinal) > AI_LISTED_SALE_DORMANT_AFTER_WINDOWS
+end
+
+function TransferManager._getListedForSaleMarketPlayers(gameState)
+    TransferManager._ensureData(gameState)
+    local windowKey = TransferManager.getTransferWindowKey(gameState) or "no_window"
+    local ids = gameState.transfers._listedForSaleMarketIds
+    if not ids or gameState.transfers._listedForSaleMarketWindowKey ~= windowKey then
+        ids = {}
+        for _, player in ipairs(TransferManager._getListedPlayers(gameState, "listedForSale")) do
+            if player.teamId == gameState.playerTeamId
+                or not TransferManager._isAIListedForSaleDormant(gameState, player) then
+                ids[#ids + 1] = player.id
+            end
+        end
+        gameState.transfers._listedForSaleMarketIds = ids
+        gameState.transfers._listedForSaleMarketWindowKey = windowKey
+    end
+
+    local players = {}
+    local compacted
+    for _, pid in ipairs(ids) do
+        local player = gameState.players and gameState.players[pid]
+        if player and player.listedForSale and not player.retired
+            and (player.teamId == gameState.playerTeamId
+                or not TransferManager._isAIListedForSaleDormant(gameState, player)) then
+            players[#players + 1] = player
+        else
+            compacted = true
+        end
+    end
+
+    if compacted then
+        local fresh = {}
+        for _, player in ipairs(players) do fresh[#fresh + 1] = player.id end
+        gameState.transfers._listedForSaleMarketIds = fresh
+    end
+
+    return players
 end
 
 --- 球员在本窗期是否已完成过转会/租借/签约
@@ -118,7 +265,8 @@ function TransferManager._checkPlayerWindowMoveLimit(gameState, playerId)
     if not player then return true, nil end
     local key = TransferManager.getTransferWindowKey(gameState)
     if not key then return true, nil end
-    if player._transferWindowKey == key then
+    if player._transferWindowKey == key
+        or TransferManager._hasPlayerHistoryInTransferWindow(gameState, playerId, key) then
         return false, "该球员在本转会窗已参与过转会/租借/签约，需等到下一窗口"
     end
     return true, nil
@@ -144,6 +292,7 @@ function TransferManager.hasMovedInCurrentWindow(gameState, playerId)
     local key = TransferManager.getTransferWindowKey(gameState)
     if not key then return false end
     return player._transferWindowKey == key
+        or TransferManager._hasPlayerHistoryInTransferWindow(gameState, playerId, key)
 end
 
 --- 获取转会窗口关闭日期
@@ -1317,9 +1466,12 @@ function TransferManager._processListedPlayerOffers(gameState, opts)
 
     local playerAttracted = {}
     local aiAttracted = {}
-    for _, player in ipairs(TransferManager._getListedPlayers(gameState, "listedForSale")) do
+    for _, player in ipairs(TransferManager._getListedForSaleMarketPlayers(gameState)) do
         -- 便宜的随机吸引门槛优先，过滤掉绝大多数球员，避免无谓的报价扫描
         local isPlayerTeamPlayer = (player.teamId == gameState.playerTeamId)
+        if not isPlayerTeamPlayer and TransferManager._isAIListedForSaleDormant(gameState, player) then
+            goto skipPlayer
+        end
         local attractChance = isPlayerTeamPlayer and playerAttract or aiAttract
         if Random() > attractChance then goto skipPlayer end
 
@@ -1395,6 +1547,7 @@ function TransferManager._aiListPlayersForSale(gameState, opts)
                 if #team.playerIds - listed <= target then break end
                 if not TransferManager._isAIProtectedCore(gameState, team, p) then
                     p.listedForSale = true
+                    TransferManager._markAIListedForSale(gameState, p)
                     listedChanged = true
                     listed = listed + 1
                 end
@@ -1410,6 +1563,7 @@ function TransferManager._aiListPlayersForSale(gameState, opts)
                 local age = p:getAge(gameState.date.year)
                 if age >= 31 and p.overall < 72 and p.overall < teamAvg - 2 and Random() < 0.20 then
                     p.listedForSale = true
+                    TransferManager._markAIListedForSale(gameState, p)
                     listedChanged = true
                 end
                 ::skipList::
@@ -2161,6 +2315,7 @@ function TransferManager._executeAITransfer(gameState, buyerTeam, player, opts)
     if player.teamId ~= buyerTeam.id then return false end
     player.listedForSale = false
     player.listedForLoan = false
+    TransferManager._clearAIListedForSaleMeta(player)
     player.isYouth = false
     player.squadRole = "first_team"
     player.wage = newWage  -- 更新球员工资
@@ -2169,6 +2324,7 @@ function TransferManager._executeAITransfer(gameState, buyerTeam, player, opts)
     -- 卖弱换强：成交后挂牌被换下的最弱者腾名额，并记本周限流标记
     if swapOutPlayer then
         swapOutPlayer.listedForSale = true
+        TransferManager._markAIListedForSale(gameState, swapOutPlayer)
         TransferManager._invalidateListedPlayerCache(gameState)
         buyerTeam._sellToBuyWeekKey = TransferManager._currentWeekKey(gameState)
     end
@@ -4561,6 +4717,9 @@ function TransferManager.offerToClub(gameState, playerId, targetTeamId, askingPr
     if not player then return nil, "球员不存在" end
     if player.teamId ~= gameState.playerTeamId then return nil, "只能推销自己的球员" end
 
+    local moveOk, moveErr = TransferManager._checkPlayerWindowMoveLimit(gameState, playerId)
+    if not moveOk then return nil, moveErr end
+
     local targetTeam = gameState.teams[targetTeamId]
     if not targetTeam then return nil, "目标球队不存在" end
     if targetTeamId == gameState.playerTeamId then return nil, "不能向自己推销" end
@@ -4754,6 +4913,32 @@ function TransferManager._acceptPushSale(gameState, bid)
     local buyerTeam = gameState.teams[bid.buyerTeamId]
     if not player or not sellerTeam or not buyerTeam then return end
 
+    local sellerOk, sellerErr = TransferManager._validateBidSeller(gameState, bid)
+    if not sellerOk then
+        bid.status = "rejected"
+        bid.rejectedDate = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day}
+        gameState:sendMessage({
+            category = "transfer",
+            title = "推销失败",
+            body = sellerErr,
+            priority = "normal",
+        })
+        return
+    end
+
+    local moveOk, moveErr = TransferManager._checkPlayerWindowMoveLimit(gameState, player.id)
+    if not moveOk then
+        bid.status = "rejected"
+        bid.rejectedDate = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day}
+        gameState:sendMessage({
+            category = "transfer",
+            title = "推销失败",
+            body = moveErr,
+            priority = "normal",
+        })
+        return
+    end
+
     local consent, reason = TransferManager._requirePlayerConsentForTransfer(gameState, bid)
     if not consent then
         bid.status = "rejected"
@@ -4767,12 +4952,26 @@ function TransferManager._acceptPushSale(gameState, bid)
         return
     end
 
+    local assignOpts = TransferManager.isInTransferWindow(gameState) and { allowOverCap = true } or nil
+    if not TransferManager._assignPlayerToTeam(gameState, player, buyerTeam.id, assignOpts) then
+        bid.status = "rejected"
+        bid.rejectedDate = {year = gameState.date.year, month = gameState.date.month, day = gameState.date.day}
+        gameState:sendMessage({
+            category = "transfer",
+            title = "推销失败",
+            body = "买方一线队已满员，推销无法完成。",
+            priority = "normal",
+        })
+        return
+    end
+
     bid.status = "completed"
 
     TransferManager._settleTransferFee(gameState, buyerTeam, sellerTeam, bid, player)
 
-    TransferManager._assignPlayerToTeam(gameState, player, buyerTeam.id)
     player.listedForSale = false
+    player.listedForLoan = false
+    TransferManager._clearAIListedForSaleMeta(player)
     player.isYouth = false
     player.squadRole = "first_team"
     TransferManager._attachFutureClauses(player, bid)
@@ -4817,6 +5016,11 @@ function TransferManager._acceptPushSale(gameState, bid)
     })
 
     EventBus.emit("transfer_completed", bid)
+
+    TransferManager._invalidateActiveBidsForPlayer(gameState, player.id, {
+        excludeBidId = bid.id,
+        soldToTeamId = bid.buyerTeamId,
+    })
 end
 
 --- 检查球员位置是否匹配需求
@@ -6121,6 +6325,7 @@ function TransferManager.listForSale(gameState, player)
 
     player.listedForSale = true
     player.listedForLoan = false
+    TransferManager._clearAIListedForSaleMeta(player)
     TransferManager._invalidateListedPlayerCache(gameState)
     gameState:sendMessage({
         category = "transfer",
@@ -6147,6 +6352,7 @@ function TransferManager.delistPlayer(gameState, player)
     end
 
     player.listedForSale = false
+    TransferManager._clearAIListedForSaleMeta(player)
     if gameState then TransferManager._invalidateListedPlayerCache(gameState) end
 
     -- 清理该球员所有活跃的 incoming bid

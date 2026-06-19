@@ -1046,8 +1046,7 @@ function TurnProcessor._processPeriodicEvents(gameState)
         NewsGenerator.generateWeeklyReview(gameState)
     end
 
-    -- B3: AI 主动转会（转会窗口内）：把原先周一/周四两次全量 pass 按日均摊，
-    -- 保持每周总队次约等于 2 × AI 队数，同时避免单日卡顿尖峰。
+    -- B3: AI 主动转会（转会窗口内）：按日均摊 AI pass，避免单日卡顿尖峰。
     if TransferManager.isInTransferWindow(gameState) then
         local ok, err = pcall(TransferManager.processDailyAITransferSlice, gameState)
         if not ok then
