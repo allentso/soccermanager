@@ -1198,9 +1198,9 @@ function Settings._buildCompensationSection()
     local gameState = _G.gameState
     if not gameState then return UI.Panel { height = 0 } end
 
-    -- 检查是否已领取过补偿（存储在 _legendGacha 中以确保持久化）
+    -- 检查是否已领取过补偿（兼容旧存档的 compensationClaimed 布尔值）
     local gachaState = YouthManager.getLegendGachaState(gameState)
-    if gachaState.compensationClaimed then
+    if gachaState.compensationClaimed or gachaState.compensationClaimedRound == "2.5" then
         return UI.Panel { height = 0 }
     end
 
@@ -1223,7 +1223,7 @@ function Settings._buildCompensationSection()
                         marginBottom = 4,
                     },
                     UI.Label {
-                        text = "赠送两位随机传奇球员加入青训队",
+                        text = "赠送三位随机传奇球员加入青训队",
                         fontSize = 11,
                         color = Theme.COLORS.TEXT_MUTED,
                         marginBottom = 10,
@@ -1251,9 +1251,9 @@ function Settings._claimCompensationLegend()
     local gameState = _G.gameState
     if not gameState then return end
 
-    -- 防止重复领取（存储在 _legendGacha 中以确保持久化）
+    -- 防止重复领取
     local gachaState = YouthManager.getLegendGachaState(gameState)
-    if gachaState.compensationClaimed then
+    if gachaState.compensationClaimed or gachaState.compensationClaimedRound == "2.5" then
         UI.Toast.Show({ message = "补偿已领取过", variant = "info" })
         return
     end
@@ -1308,7 +1308,7 @@ function Settings._claimCompensationLegend()
 
     if #availablePool == 0 then
         UI.Toast.Show({ message = "已拥有所有传奇球员", variant = "info" })
-        gachaState.compensationClaimed = true
+        gachaState.compensationClaimedRound = "2.5"
         SaveManager.save(gameState, "auto")
         Router.replaceWith("settings")
         return
@@ -1329,8 +1329,8 @@ function Settings._claimCompensationLegend()
         Striker = "ST", CentreForward = "CF",
     }
 
-    -- 赠送2位传奇球员
-    local COMPENSATION_COUNT = 2
+    -- 赠送3位传奇球员
+    local COMPENSATION_COUNT = 3
     local signedLegends = {}
 
     for _ = 1, COMPENSATION_COUNT do
@@ -1390,7 +1390,7 @@ function Settings._claimCompensationLegend()
     end
 
     -- 标记已领取（存储在 _legendGacha 中，确保持久化到存档）
-    gachaState.compensationClaimed = true
+    gachaState.compensationClaimedRound = "2.5"
     SaveManager.save(gameState, "auto")
 
     -- 显示获得提示
