@@ -120,14 +120,22 @@ end
 function TransferManager._hasPlayerHistoryInTransferWindow(gameState, playerId, windowKey)
     if not gameState or not gameState.transfers or not gameState.transfers.history then return false end
     if not playerId or not windowKey then return false end
-    for _, record in ipairs(gameState.transfers.history) do
-        local samePlayer = record.playerId == playerId
-            or tostring(record.playerId) == tostring(playerId)
-        if samePlayer and _transferWindowKeyForDate(record.date) == windowKey then
-            return true
+
+    local transfers = gameState.transfers
+    local movedSet = transfers._movedPlayerIdsByWindow
+    if not movedSet or transfers._movedPlayerIdsWindowKey ~= windowKey then
+        movedSet = {}
+        for _, record in ipairs(transfers.history or {}) do
+            if _transferWindowKeyForDate(record.date) == windowKey and record.playerId ~= nil then
+                movedSet[record.playerId] = true
+                movedSet[tostring(record.playerId)] = true
+            end
         end
+        transfers._movedPlayerIdsByWindow = movedSet
+        transfers._movedPlayerIdsWindowKey = windowKey
     end
-    return false
+
+    return movedSet[playerId] == true or movedSet[tostring(playerId)] == true
 end
 
 local AI_LISTED_SALE_DORMANT_AFTER_WINDOWS = 2
@@ -282,6 +290,12 @@ function TransferManager._markPlayerWindowMove(gameState, playerId)
     local key = TransferManager.getTransferWindowKey(gameState)
     if player and key then
         player._transferWindowKey = key
+        if gameState.transfers
+            and gameState.transfers._movedPlayerIdsWindowKey == key
+            and gameState.transfers._movedPlayerIdsByWindow then
+            gameState.transfers._movedPlayerIdsByWindow[playerId] = true
+            gameState.transfers._movedPlayerIdsByWindow[tostring(playerId)] = true
+        end
     end
 end
 
